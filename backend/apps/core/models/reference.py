@@ -1,5 +1,5 @@
 from django.db import models
-from apps.core.db_utils import cyrillic_collation
+from apps.core.db_utils import cyrillic_collation, schema_table
 
 
 class Season(models.Model):
@@ -11,7 +11,7 @@ class Season(models.Model):
     is_active = models.BooleanField(default=False)
 
     class Meta:
-        db_table = 'core_seasons'
+        db_table = schema_table('core', 'seasons')
         ordering = ['-start_date']
 
     def __str__(self) -> str:
@@ -27,7 +27,7 @@ class Country(models.Model):
     code = models.CharField(max_length=5, unique=True, blank=True, null=True)
 
     class Meta:
-        db_table = 'core_countries'
+        db_table = schema_table('core', 'countries')
         ordering = ['name_en']
         verbose_name_plural = 'Countries'
 
@@ -43,7 +43,7 @@ class City(models.Model):
     name_local = models.CharField(max_length=100, blank=True, null=True, **cyrillic_collation())
 
     class Meta:
-        db_table = 'core_cities'
+        db_table = schema_table('core', 'cities')
         unique_together = [('country', 'name')]
         verbose_name_plural = 'Cities'
 
@@ -60,7 +60,7 @@ class BorderPoint(models.Model):
     is_active = models.BooleanField(default=True)
 
     class Meta:
-        db_table = 'core_border_points'
+        db_table = schema_table('core', 'border_points')
         ordering = ['name']
 
     def __str__(self) -> str:
@@ -73,7 +73,7 @@ class LoadingLocation(models.Model):
     name = models.CharField(max_length=100, unique=True)
 
     class Meta:
-        db_table = 'core_loading_locations'
+        db_table = schema_table('core', 'loading_locations')
         ordering = ['name']
 
     def __str__(self) -> str:
@@ -88,7 +88,7 @@ class TomatoVariety(models.Model):
     avg_fruit_weight_gr = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)
 
     class Meta:
-        db_table = 'core_tomato_varieties'
+        db_table = schema_table('core', 'tomato_varieties')
         verbose_name_plural = 'Tomato varieties'
 
     def __str__(self) -> str:
@@ -101,7 +101,7 @@ class ProductType(models.Model):
     name = models.CharField(max_length=50, unique=True)
 
     class Meta:
-        db_table = 'core_product_types'
+        db_table = schema_table('core', 'product_types')
 
     def __str__(self) -> str:
         return self.name
@@ -129,7 +129,7 @@ class GreenhouseBlock(models.Model):
     is_active = models.BooleanField(default=True)
 
     class Meta:
-        db_table = 'core_greenhouse_blocks'
+        db_table = schema_table('core', 'greenhouse_blocks')
         ordering = ['code']
 
     def __str__(self) -> str:
@@ -156,7 +156,7 @@ class ExportFirm(models.Model):
     is_active = models.BooleanField(default=True)
 
     class Meta:
-        db_table = 'core_export_firms'
+        db_table = schema_table('core', 'export_firms')
         ordering = ['code']
 
     def __str__(self) -> str:
@@ -174,7 +174,7 @@ class ImportFirm(models.Model):
     is_active = models.BooleanField(default=True)
 
     class Meta:
-        db_table = 'core_import_firms'
+        db_table = schema_table('core', 'import_firms')
         ordering = ['name_en']
 
     def __str__(self) -> str:
@@ -197,8 +197,37 @@ class ShipmentStatusType(models.Model):
     phase = models.CharField(max_length=20, blank=True, null=True)
 
     class Meta:
-        db_table = 'core_shipment_status_types'
+        db_table = schema_table('core', 'shipment_status_types')
         ordering = ['step_order']
 
     def __str__(self) -> str:
         return f'{self.step_order}. {self.name_en or self.name_tk} ({self.code})'
+
+
+class Customer(models.Model):
+    """Individual buyer/customer (person, not company)."""
+
+    name = models.CharField(max_length=100, unique=True, **cyrillic_collation())
+    phone = models.CharField(max_length=50, blank=True, null=True)
+    default_country = models.ForeignKey(
+        'core.Country',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='+',
+    )
+    default_city = models.ForeignKey(
+        'core.City',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='+',
+    )
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = schema_table('core', 'customers')
+        ordering = ['name']
+
+    def __str__(self) -> str:
+        return self.name

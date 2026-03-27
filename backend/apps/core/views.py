@@ -9,13 +9,14 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ReadOnlyModelViewSet
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.core.models import Country, ExportFirm, ShipmentStatusType
+from apps.core.models import Country, ExportFirm, ShipmentStatusType, Customer
 from apps.core.serializers import (
     LoginSerializer,
     UserMeSerializer,
     CountrySerializer,
     ExportFirmSerializer,
     ShipmentStatusTypeSerializer,
+    CustomerSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -113,3 +114,8 @@ class ExportFirmViewSet(ReadOnlyModelViewSet):
 class ShipmentStatusTypeViewSet(ReadOnlyModelViewSet):
     queryset = ShipmentStatusType.objects.all()
     serializer_class = ShipmentStatusTypeSerializer
+
+
+class CustomerViewSet(ReadOnlyModelViewSet):
+    queryset = Customer.objects.filter(is_active=True)
+    serializer_class = CustomerSerializer

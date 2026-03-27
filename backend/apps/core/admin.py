@@ -3,7 +3,7 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from apps.core.models import (
     User, Country, City, ExportFirm, ImportFirm,
     ShipmentStatusType, Season, GreenhouseBlock,
-    TomatoVariety, ProductType, BorderPoint, LoadingLocation,
+    TomatoVariety, ProductType, BorderPoint, LoadingLocation, Customer,
 )
 
 
@@ -49,3 +49,10 @@ admin.site.register(TomatoVariety)
 admin.site.register(ProductType)
 admin.site.register(BorderPoint)
 admin.site.register(LoadingLocation)
+
+
+@admin.register(Customer)
+class CustomerAdmin(admin.ModelAdmin):
+    list_display = ['name', 'phone', 'default_country', 'is_active']
+    list_filter = ['is_active']
+    search_fields = ['name']

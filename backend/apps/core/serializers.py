@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from apps.core.models import User, Country, ExportFirm, ShipmentStatusType
+from apps.core.models import User, Country, ExportFirm, ShipmentStatusType, Customer
 
 
 class UserMeSerializer(serializers.ModelSerializer):
@@ -32,3 +32,9 @@ class ShipmentStatusTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = ShipmentStatusType
         fields = ['id', 'code', 'name_tk', 'name_en', 'name_ru', 'step_order', 'required_role', 'phase']
+
+
+class CustomerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Customer
+        fields = ['id', 'name', 'phone', 'default_country', 'is_active']

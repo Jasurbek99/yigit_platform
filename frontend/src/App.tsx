@@ -6,7 +6,7 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 import AppLayout from '@/components/AppLayout';
 
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
-const DashboardPage = lazy(() => import('@/pages/DashboardPage'));
+const ShipmentList = lazy(() => import('@/pages/export/ShipmentList'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -45,7 +45,8 @@ export default function App() {
                   </ProtectedRoute>
                 }
               >
-                <Route index element={<DashboardPage />} />
+                <Route index element={<Navigate to="/export/shipments" replace />} />
+                <Route path="export/shipments" element={<ShipmentList />} />
                 {/* Export module routes added in Sprint 1 */}
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,4 +1,7 @@
-from django.urls import path
+from rest_framework.routers import DefaultRouter
+from apps.export.views import ShipmentViewSet
 
-# Export endpoints — populated in next sprint
-urlpatterns = []
+router = DefaultRouter()
+router.register('shipments', ShipmentViewSet, basename='shipment')
+
+urlpatterns = router.urls
