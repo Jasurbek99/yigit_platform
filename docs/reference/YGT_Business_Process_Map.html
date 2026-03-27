@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YGT Export — Business Process Map</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'DM Sans', sans-serif; background: #fafaf8; color: #1a1a1a; }
+  
+  /* Header */
+  .hero { background: #1a2e1a; padding: 48px 60px; position: relative; overflow: hidden; }
+  .hero::after { content: ''; position: absolute; top: 0; right: 0; width: 400px; height: 100%; background: linear-gradient(135deg, transparent 50%, rgba(74,222,128,0.08) 100%); }
+  .hero h1 { font-size: 36px; font-weight: 700; color: #fff; letter-spacing: -0.5px; }
+  .hero .sub { color: #7cb37c; font-size: 15px; margin-top: 6px; }
+  .hero .meta { display: flex; gap: 32px; margin-top: 20px; }
+  .hero .meta-item { color: #9cb89c; font-size: 13px; }
+  .hero .meta-item strong { color: #4ade80; font-weight: 600; }
+  
+  /* Navigation */
+  .nav { position: sticky; top: 0; z-index: 100; background: #fff; border-bottom: 1px solid #e5e5e0; padding: 0 60px; display: flex; gap: 0; overflow-x: auto; }
+  .nav a { padding: 16px 24px; font-size: 13px; font-weight: 600; color: #888; text-decoration: none; border-bottom: 2px solid transparent; white-space: nowrap; transition: all 0.15s; cursor: pointer; }
+  .nav a:hover { color: #1a1a1a; }
+  .nav a.active { color: #1a6b1a; border-bottom-color: #1a6b1a; }
+  
+  /* Content */
+  .container { max-width: 1200px; margin: 0 auto; padding: 40px 60px; }
+  section { display: none; }
+  section.active { display: block; }
+  
+  /* Typography */
+  h2 { font-size: 24px; font-weight: 700; color: #1a1a1a; margin-bottom: 8px; letter-spacing: -0.3px; }
+  h3 { font-size: 17px; font-weight: 700; color: #1a1a1a; margin: 28px 0 12px; }
+  h4 { font-size: 14px; font-weight: 700; color: #555; margin: 20px 0 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .desc { color: #666; font-size: 14px; line-height: 1.6; margin-bottom: 24px; }
+  
+  /* Process Cards */
+  .process-card { background: #fff; border: 1px solid #e5e5e0; border-radius: 12px; padding: 24px; margin-bottom: 16px; transition: box-shadow 0.2s; }
+  .process-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+  .process-card .pc-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .process-card .pc-num { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .process-card .pc-title { font-size: 16px; font-weight: 700; }
+  .process-card .pc-body { font-size: 13px; color: #555; line-height: 1.7; }
+  
+  /* Swimlane */
+  .swimlane { margin: 24px 0; overflow-x: auto; }
+  .swim-table { width: 100%; border-collapse: collapse; min-width: 900px; }
+  .swim-table th { background: #f5f5f0; padding: 10px 14px; font-size: 12px; font-weight: 600; text-align: left; color: #666; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e5e5e0; }
+  .swim-table td { padding: 10px 14px; font-size: 13px; border-bottom: 1px solid #f0f0eb; vertical-align: top; }
+  .swim-table tr:hover td { background: #fafaf5; }
+  .swim-role { font-weight: 600; color: #1a6b1a; white-space: nowrap; }
+  .swim-field { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #8b6914; }
+  .swim-when { color: #888; font-size: 12px; }
+  
+  /* Flow diagram */
+  .flow { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin: 16px 0; }
+  .flow-step { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 8px 14px; font-size: 12px; font-weight: 500; text-align: center; min-width: 100px; position: relative; }
+  .flow-step.green { background: #f0faf0; border-color: #b3e6b3; color: #1a6b1a; }
+  .flow-step.blue { background: #f0f5fa; border-color: #b3cce6; color: #1a4b8b; }
+  .flow-step.orange { background: #faf5f0; border-color: #e6ccb3; color: #8b5a1a; }
+  .flow-step.red { background: #faf0f0; border-color: #e6b3b3; color: #8b1a1a; }
+  .flow-step .fs-role { font-size: 10px; color: #999; display: block; margin-top: 2px; }
+  .flow-arrow { color: #ccc; font-size: 16px; font-weight: 700; }
+  
+  /* Data grid */
+  .data-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin: 16px 0; }
+  .data-item { background: #fff; border: 1px solid #e5e5e0; border-radius: 8px; padding: 14px; }
+  .data-item .di-label { font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .data-item .di-value { font-size: 14px; font-weight: 600; color: #1a1a1a; }
+  .data-item .di-detail { font-size: 12px; color: #666; margin-top: 4px; line-height: 1.5; }
+  
+  /* Enum list */
+  .enum-group { margin: 12px 0; }
+  .enum-title { font-size: 13px; font-weight: 600; color: #1a6b1a; margin-bottom: 6px; }
+  .enum-vals { display: flex; flex-wrap: wrap; gap: 4px; }
+  .enum-tag { background: #f0f0eb; padding: 3px 10px; border-radius: 4px; font-size: 12px; color: #555; }
+  
+  /* KPI row */
+  .kpi-row { display: flex; gap: 16px; margin: 20px 0; flex-wrap: wrap; }
+  .kpi { background: #fff; border: 1px solid #e5e5e0; border-radius: 10px; padding: 20px; flex: 1; min-width: 160px; }
+  .kpi .kpi-val { font-size: 28px; font-weight: 700; color: #1a6b1a; }
+  .kpi .kpi-label { font-size: 12px; color: #888; margin-top: 2px; }
+
+  /* Cost table */
+  .cost-table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+  .cost-table th { background: #f5f5f0; padding: 8px 12px; font-size: 12px; text-align: left; font-weight: 600; color: #666; border-bottom: 2px solid #e5e5e0; }
+  .cost-table td { padding: 8px 12px; font-size: 13px; border-bottom: 1px solid #f0f0eb; }
+  .cost-table .num { text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  
+  /* Alert box */
+  .alert { background: #fef9ee; border: 1px solid #f0d88a; border-radius: 8px; padding: 14px 18px; margin: 16px 0; font-size: 13px; color: #8b6914; line-height: 1.6; }
+  .alert strong { color: #6b4e0a; }
+
+  .tag-green { display: inline-block; background: #e8f5e9; color: #2e7d32; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .tag-blue { display: inline-block; background: #e3f2fd; color: #1565c0; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .tag-orange { display: inline-block; background: #fff3e0; color: #e65100; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>YGT Export Logistics — Business Process Map</h1>
+  <div class="sub">Yigit Hojalyk Jemgyýeti • Tomato Export from Turkmenistan</div>
+  <div class="meta">
+    <div class="meta-item">Season: <strong>2025–2026</strong></div>
+    <div class="meta-item">Total Shipments: <strong>970+</strong></div>
+    <div class="meta-item">Destinations: <strong>6 countries, 12+ cities</strong></div>
+    <div class="meta-item">Export Firms: <strong>16+ firms</strong></div>
+    <div class="meta-item">Greenhouses: <strong>15 blocks (A–O)</strong></div>
+  </div>
+</div>
+
+<div class="nav">
+  <a class="active" onclick="show('org')">1. Organization</a>
+  <a onclick="show('bp1')">2. Quota & Planning</a>
+  <a onclick="show('bp2')">3. Harvest & Loading</a>
+  <a onclick="show('bp3')">4. Documents & Customs</a>
+  <a onclick="show('bp4')">5. Transport & Border</a>
+  <a onclick="show('bp5')">6. Destination & Sales</a>
+  <a onclick="show('bp6')">7. Finance & Reports</a>
+  <a onclick="show('money')">8. Money Flow & $10K Rule</a>
+  <a onclick="show('data')">9. Reference Data</a>
+  <a onclick="show('integrations')">10. Integrations</a>
+  <a onclick="show('pain')">11. Pain Points</a>
+</div>
+
+<div class="container">
+
+<!-- ====== 1. ORGANIZATION ====== -->
+<section id="org" class="active">
+  <h2>1. Organizational Structure & Roles</h2>
+  <p class="desc">Extracted from the YGT spreadsheet Column B — each row has a named responsible person. This reveals the actual organizational structure and task ownership.</p>
+  
+  <h3>Departments & People</h3>
+  <div class="swimlane">
+    <table class="swim-table">
+      <thead><tr><th>Role / Person</th><th>Department</th><th>Owns Fields (Rows)</th><th>Key Responsibilities</th></tr></thead>
+      <tbody>
+        <tr><td class="swim-role">Gadam J</td><td>Logist</td><td class="swim-field">R5, R9, R10, R11, R13</td><td>Customer loading block assignment, export firm selection, country/city destination, import firm — <strong>the core logistics decision maker</strong></td></tr>
+        <tr><td class="swim-role">Soltanmyrat</td><td>Warehouse / Operations</td><td class="swim-field">R7, R8, R14, R17, R19, R20, R36, R37, R38, R39</td><td>Shipment code generation, harvest block, harvest status, loading start/end times, net weight (2 types), tomato variety, harvest date — <strong>owns the most fields (10)</strong></td></tr>
+        <tr><td class="swim-role">Sirin / Shirin</td><td>Documents</td><td class="swim-field">R6, R18, R25</td><td>Document preparation status (must be ready by 13:00), customs clearance completion time — <strong>documents deadline gatekeeper</strong></td></tr>
+        <tr><td class="swim-role">Malik</td><td>Transport (Malik company)</td><td class="swim-field">R4, R15</td><td>Additional transport notes, vehicle current status description ("where is the truck right now, what time arriving at greenhouse — only Transport firm person fills this")</td></tr>
+        <tr><td class="swim-role">Haltac (Transport)</td><td>Transport (Haltac company)</td><td class="swim-field">R15, R30</td><td>Vehicle current status, TM border exit time</td></tr>
+        <tr><td class="swim-role">Transport bölüm</td><td>Transport Department</td><td class="swim-field">R22, R23, R27, R28, R29</td><td>Vehicle responsible person, truck/trailer plate numbers, driver name + phone, border exit point selection</td></tr>
+        <tr><td class="swim-role">Mergen</td><td>Warehouse / Dispatch</td><td class="swim-field">R21</td><td>Greenhouse departure time — when truck physically leaves the greenhouse</td></tr>
+        <tr><td class="swim-role">Hil Gözegçi</td><td>Quality Control</td><td class="swim-field">R26</td><td>Estimated transit days and temperature requirement (e.g. "5 gun 11" = 5 days at 11°C)</td></tr>
+        <tr><td class="swim-role">Babageldi</td><td>Quality / Inspection</td><td class="swim-field">R24</td><td>Quality score / inspection (numeric ratings seen in data)</td></tr>
+        <tr><td class="swim-role">Arap / Aganazar</td><td>Sales Representative (abroad)</td><td class="swim-field">R12, R31, R32, R33, R34, R35, R41, R42, R43, R44</td><td>Destination city, country entry time, customs (dest), peregruz status/time, arrival time, sale start/end, report received, additional notes — <strong>owns all destination-side fields (10)</strong></td></tr>
+      </tbody>
+    </table>
+  </div>
+  
+  <div class="alert"><strong>Key insight:</strong> Two people own the most data — <strong>Soltanmyrat</strong> (warehouse/source side, 10 fields) and <strong>Arap</strong> (destination/sales side, 10 fields). Gadam J makes the strategic decisions (who/where/what), while the others execute and timestamp their stages. This maps perfectly to a role-based permission system.</div>
+  
+  <h3>Export Firm Combinations</h3>
+  <p class="desc">The "Export Firm" field is not a single company — it's a <strong>combination code</strong> showing which firms' quotas are used together. 60+ unique combinations exist in the Data sheet.</p>
+  
+  <div class="data-grid">
+    <div class="data-item">
+      <div class="di-label">Single Firm Exports</div>
+      <div class="di-value">16 firms</div>
+      <div class="di-detail">Yigit H.J, Gokbulut H.J, Hemsaya H.J, Datly Miwe H.J, Miweli Atyz H.J, Ygtybarly Enjam, AK BULUT HJ, ISGAR HJ, Tel Dowranow J, Tel Dowranow E, Tel Hemidow P, Tel Hemidow C, Tel Amangeldiyew G, DD, Yumak HJ, Tel GJ</div>
+    </div>
+    <div class="data-item">
+      <div class="di-label">Joint Firm Exports (quota splitting)</div>
+      <div class="di-value">50+ combinations</div>
+      <div class="di-detail">YGT-HMS, YGT-GB, GB-MA, YE-DM, HMS-DM, Tel Dow E+Tel Dow J, etc. — this means quotas from two firms are combined for one shipment</div>
+    </div>
+    <div class="data-item">
+      <div class="di-label">Transport Responsible</div>
+      <div class="di-value">6 entities</div>
+      <div class="di-detail">Malik, Gapy Satyş, Haltac, Serwi, Gadam, AGANAZAR — plus truck-level assignments</div>
+    </div>
+  </div>
+  
+  <h3>Customer Base</h3>
+  <div class="kpi-row">
+    <div class="kpi"><div class="kpi-val">304</div><div class="kpi-label">YGT Gapy Satyş (own sales, Russia)</div></div>
+    <div class="kpi"><div class="kpi-val">291</div><div class="kpi-label">Berik (Kazakhstan)</div></div>
+    <div class="kpi"><div class="kpi-val">289</div><div class="kpi-label">Begjan (Kazakhstan)</div></div>
+    <div class="kpi"><div class="kpi-val">67</div><div class="kpi-label">Eldar (Russia/Moscow)</div></div>
+    <div class="kpi"><div class="kpi-val">19</div><div class="kpi-label">Arap (Kazakhstan)</div></div>
+  </div>
+</section>
+
+<!-- ====== 2. QUOTA & PLANNING ====== -->
+<section id="bp1">
+  <h2>2. BP-01: Quota Allocation & Production Planning</h2>
+  <p class="desc">The Turkmenistan government issues export quotas in KG to licensed export firms. The holding company manages multiple firms and must allocate, track, and balance quotas across firms and customers.</p>
+  
+  <h3>Process Flow</h3>
+  <div class="flow">
+    <div class="flow-step green">Government issues quota (KG)<span class="fs-role">External</span></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step green">Distribute across 16 firms<span class="fs-role">Admin</span></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step blue">Weekly production plan per greenhouse<span class="fs-role">Block Managers</span></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step blue">Daily harvest tracking<span class="fs-role">Block Managers</span></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step orange">Balance: quota used vs remaining<span class="fs-role">Admin</span></div>
+  </div>
+  
+  <h3>Quota Structure (KWOTA HASABY sheet)</h3>
+  <p class="desc">Quotas are issued in multiple batches per season (5+ periods observed). Each batch allocates KG to specific firms.</p>
+  
+  <table class="cost-table">
+    <thead><tr><th>Firm</th><th>Season Total (KG)</th><th>Approx Trucks</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Yigit H.J</td><td class="num">3,014,200</td><td class="num">163</td><td>Main firm, largest allocation</td></tr>
+      <tr><td>Hemsaya H.J</td><td class="num">2,707,700</td><td class="num">146</td><td></td></tr>
+      <tr><td>Datly Miwe H.J</td><td class="num">2,464,400</td><td class="num">133</td><td></td></tr>
+      <tr><td>Miweli Atyz H.J</td><td class="num">2,372,400</td><td class="num">128</td><td></td></tr>
+      <tr><td>Gokbulut H.J</td><td class="num">1,660,200</td><td class="num">90</td><td></td></tr>
+      <tr><td>Ygtybarly Enjam</td><td class="num">1,371,600</td><td class="num">74</td><td></td></tr>
+      <tr><td>Tel Dowranow J</td><td class="num">956,700</td><td class="num">52</td><td></td></tr>
+      <tr><td>Tel Dowranow E</td><td class="num">1,011,800</td><td class="num">55</td><td></td></tr>
+      <tr><td>Ak Bulut</td><td class="num">488,600</td><td class="num">26</td><td></td></tr>
+      <tr><td>Tel Hemidow P</td><td class="num">397,400</td><td class="num">21</td><td></td></tr>
+    </tbody>
+  </table>
+  
+  <h3>Weekly Production Planning (Hepdelik maşyn sany sheet)</h3>
+  <p class="desc">Every Friday, block managers must plan next week. Every Saturday, they compare planned vs actual.</p>
+  
+  <div class="data-grid">
+    <div class="data-item">
+      <div class="di-label">Greenhouse Blocks</div>
+      <div class="di-value">15 blocks: A through O</div>
+      <div class="di-detail">A, B, C, D, E, F, G, H, I, J, K, L, M15, M5, O — each with a responsible person + phone</div>
+    </div>
+    <div class="data-item">
+      <div class="di-label">Planning Grid</div>
+      <div class="di-value">15 blocks × 6 days</div>
+      <div class="di-detail">Monday–Saturday plan in KG per block. "Jemi" (total) row. Plus "Ýerine yetirileni" (actual) and difference columns.</div>
+    </div>
+    <div class="data-item">
+      <div class="di-label">Vehicle Planning</div>
+      <div class="di-value">3 categories</div>
+      <div class="di-detail">Rossiya Masyn Sany, Gazak Masyn Sany, Gapy Satys Masyn Sany — trucks allocated per route per day</div>
+    </div>
+  </div>
+  
+  <h3>Domestic Market Offset (Kwota ucin icerki bazara berlen)</h3>
+  <p class="desc">To maintain quotas, some product is delivered to the domestic market. This is tracked daily per firm with supplier name (Geldi.M) and deducted from quota accounting. <strong>16 firms tracked × daily entries = high-frequency data input.</strong></p>
+  
+  <div class="alert"><strong>Business rule:</strong> Quota is consumed by both export shipments AND domestic deliveries. The system must track both and show remaining quota in real-time. Negative balances exist (KWOTA HASABY shows negative values) — meaning some firms overdraw and need correction entries ("Duzetme").</div>
+</section>
+
+<!-- ====== 3. HARVEST & LOADING ====== -->
+<section id="bp2">
+  <h2>3. BP-02: Harvest, Quality Control & Loading</h2>
+  <p class="desc">From greenhouse to loaded truck — this process involves warehouse staff, quality control, and logistics coordination.</p>
+  
+  <h3>Process Flow</h3>
+  <div class="flow">
+    <div class="flow-step green">Daily harvest status per block<span class="fs-role">Block Manager</span></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step green">Variety & block selected<span class="fs-role">Soltanmyrat</span></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step blue">Truck arrives at greenhouse<span class="fs-role">Transport</span></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step blue">Loading starts (timestamp)<span class="fs-role">Soltanmyrat</span></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step blue">Quality check + temp set<span class="fs-role">Hil Gözegçi</span></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step orange">Loading ends (timestamp)<span class="fs-role">Soltanmyrat</span></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step orange">Weighed (net weight)<span class="fs-role">Soltanmyrat</span></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step green">Truck departs greenhouse<span class="fs-role">Mergen</span></div>
+  </div>
+  
+  <h3>Data Captured at This Stage</h3>
+  <div class="swimlane">
+    <table class="swim-table">
+      <thead><tr><th>Field</th><th>Filled By</th><th>Example Values</th><th>Business Rule</th></tr></thead>
+      <tbody>
+        <tr><td>Ýük Kody (Shipment Code)</td><td class="swim-role">Soltanmyrat</td><td class="swim-field">27SP001/25</td><td>Auto-generated: DDMM###/YY. Sequential within month.</td></tr>
+        <tr><td>Pomidoryň ýygylan bölümi</td><td class="swim-role">Soltanmyrat</td><td class="swim-field">C BLOK, A/B, M15, Ahli Kaka</td><td>Single block or combination. "Ahli Kaka" = all from Kaka location.</td></tr>
+        <tr><td>Ýygym ýagdaýy (Harvest Status)</td><td class="swim-role">Soltanmyrat</td><td><span class="tag-green">Ok</span> <span class="tag-blue">Tayyar</span> <span class="tag-orange">Dowam edyar</span></td><td>8 statuses: Ok, Tayyar (ready), Dowam edyar (continuing), Ertire planlanyar, 1-7-nji gune planlanyar, YYGYM SAKLANDY (harvest stopped)</td></tr>
+        <tr><td>Pomidoryn Gornusi (Variety)</td><td class="swim-role">Soltanmyrat</td><td class="swim-field">MARW, MID, MARW+MID</td><td>Can be single or combination: MARW, MID, Midelice, Fujimaro, Defensosa, Redita, Marvelans, SORT1, SORT2, Dakota, Cherry, Juanita, Stuk</td></tr>
+        <tr><td>Ýüklemäniň başlan wagty</td><td class="swim-role">Soltanmyrat</td><td class="swim-field">04.10.2025 19:20</td><td>Exact datetime. Format: DD.MM.YYYY HH:MM</td></tr>
+        <tr><td>Ýüklemäniň gutaran wagty</td><td class="swim-role">Soltanmyrat</td><td class="swim-field">04.10.2025 19:55</td><td>Loading duration: typically 30min–18hrs</td></tr>
+        <tr><td>Ýyladyşhanadan çykan wagty</td><td class="swim-role">Mergen</td><td class="swim-field">04.10.2025 22:20</td><td>May be same day or next day after loading end</td></tr>
+        <tr><td>Ýükyň arassa agramy (r)</td><td class="swim-role">Soltanmyrat</td><td class="swim-field">—</td><td>Weight per documents (resmi). Often empty.</td></tr>
+        <tr><td>Ýükyň arassa agramy (h)</td><td class="swim-role">Soltanmyrat</td><td class="swim-field">18,545 kg</td><td>Actual weight. Range: 17,500–20,041 kg.</td></tr>
+        <tr><td>Yol güni we temperatura</td><td class="swim-role">Hil Gözegçi</td><td class="swim-field">5 gun 11, 7 gun 10</td><td>Format: "X gun Y" = X transit days at Y°C. Set by quality control before departure.</td></tr>
+        <tr><td>Pomidoryň ýygylan senesi</td><td class="swim-role">Soltanmyrat</td><td class="swim-field">27-29.09.2025</td><td>Can span 1-3 days. Free-text format.</td></tr>
+        <tr><td>Pallet spec notes</td><td class="swim-role">Various</td><td class="swim-field">26-lyk, 33-lyk, 3 TAGTA KAKMALY</td><td>Pallet type (26 or 33 per truck) and board requirements (3 wooden boards nailed)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  
+  <div class="alert"><strong>Special notes from data:</strong> "YZY D blokdan" (remainder from D block), "KONE HARYT" (old product), "YZYNA F BLOKDAN KONE HARYT BAR 8500 KG" (has 8500kg old product from F block at the back), "TYR GELMEDI ASTATYKDA GITDI" (truck didn't arrive, sent to standby). These operational notes are critical for quality and dispute resolution.</div>
+</section>
+
+<!-- ====== 4. DOCUMENTS & CUSTOMS ====== -->
+<section id="bp3">
+  <h2>4. BP-03: Document Preparation & TM Customs</h2>
+  <p class="desc">Documents must be prepared BEFORE loading can proceed. Sirin manages this gate. TM customs clearance happens in parallel.</p>
+  
+  <h3>Process Flow</h3>
+  <div class="flow">
+    <div class="flow-step green">Logist assigns destination<span class="fs-role">Gadam J</span></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step blue">Documents prepared by 13:00<span class="fs-role">Sirin</span></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step blue">Export customs processing<span class="fs-role">Sirin</span></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step green">Customs complete (timestamp)<span class="fs-role">Sirin</span></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step orange">CMR document issued<span class="fs-role">—</span></div>
+  </div>
+  
+  <h3>Key Business Rules</h3>
+  <div class="data-grid">
+    <div class="data-item">
+      <div class="di-label">Document Deadline</div>
+      <div class="di-value">13:00 daily</div>
+      <div class="di-detail">"Ertirki ishlenmeli dokumentler 13:00 cenli gelmeli" — documents for tomorrow's loading must arrive by 1 PM today</div>
+    </div>
+    <div class="data-item">
+      <div class="di-label">Document Statuses</div>
+      <div class="di-value">5 states</div>
+      <div class="di-detail"><span class="tag-green">OK</span> ready, <span class="tag-blue">Tayyar</span> preparing, <span class="tag-orange">Dowam edyar</span> in progress, <span class="tag-orange">Yok</span> missing, W/E weekend</div>
+    </div>
+    <div class="data-item">
+      <div class="di-label">Customs Timing</div>
+      <div class="di-value">Often before loading</div>
+      <div class="di-detail">Customs clearance timestamp (R25) is frequently BEFORE loading start (R19) — meaning export customs is processed based on planned shipment, not physical loading</div>
+    </div>
+    <div class="data-item">
+      <div class="di-label">CMR</div>
+      <div class="di-value">International waybill</div>
+      <div class="di-detail">CMR status tracked in R40. Required for all international transport.</div>
+    </div>
+  </div>
+  
+  <div class="alert"><strong>Document requirements differ by destination:</strong> "26-lyk paletde ishlemeli dakumendi" (document must be for 26-pallet), "dakument 33 lik bolmaly" (document must be 33-pallet). Pallet count affects customs documentation. Also "Markirowkasy uytgan" (marking changed) = requires document re-work.</div>
+</section>
+
+<!-- ====== 5. TRANSPORT & BORDER ====== -->
+<section id="bp4">
+  <h2>5. BP-04: Transport, Border Crossing & Transit</h2>
+  <p class="desc">From greenhouse departure to destination country entry. The Transport department manages vehicle assignment, and tracking shifts to Haltac/Malik at the border.</p>
+  
+  <h3>Process Flow</h3>
+  <div class="flow">
+    <div class="flow-step green">Assign vehicle + driver<span class="fs-role">Transport bölüm</span></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step green">Select border exit point<span class="fs-role">Transport bölüm</span></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step blue">Drive to border<span class="fs-role">Driver</span></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step blue">TM border exit (timestamp)<span class="fs-role">Haltac</span></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step orange">Transit (5-10 days)<span class="fs-role">Driver</span></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step orange">Enter destination country<span class="fs-role">Arap</span></div>
+  </div>
+  
+  <h3>Routes & Border Points</h3>
+  <table class="cost-table">
+    <thead><tr><th>Border Point</th><th>Route</th><th>Typical Destinations</th><th>Transit Days</th><th>Temp</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Farap</strong></td><td>Land → Uzbekistan → Kazakhstan</td><td>Şimkent, Almaty, Astana, Karaganda</td><td class="num">5</td><td class="num">11-12°C</td></tr>
+      <tr><td><strong>Farap (Buhara Peregruz)</strong></td><td>Land → Bukhara transshipment → onward</td><td>Various (requires transfer to different truck)</td><td class="num">5-7</td><td class="num">11°C</td></tr>
+      <tr><td><strong>Garabogaz</strong></td><td>Caspian Sea ferry → Kazakhstan → Russia</td><td>Moskwa, Nowosibirsk, Celyabinsk, Minsk</td><td class="num">7-10</td><td class="num">9-10°C</td></tr>
+      <tr><td><strong>Bekdaş</strong></td><td>Caspian route variant</td><td>Various</td><td class="num">7+</td><td class="num">—</td></tr>
+      <tr><td><strong>Köneürgenç</strong></td><td>Northern route via Uzbekistan</td><td>Nowosibirsk, Siberian cities</td><td class="num">8+</td><td class="num">—</td></tr>
+      <tr><td><strong>Dasoguz</strong></td><td>Northern Turkmenistan</td><td>Uzbekistan transit</td><td class="num">—</td><td class="num">—</td></tr>
+      <tr><td><strong>Gapy Satys</strong></td><td>"Gate sale" — sold locally, no border crossing</td><td>Local/border market</td><td class="num">0</td><td class="num">—</td></tr>
+    </tbody>
+  </table>
+  
+  <h3>Vehicle & Driver Assignment</h3>
+  <div class="data-grid">
+    <div class="data-item">
+      <div class="di-label">Vehicle Plate Format</div>
+      <div class="di-value">Truck/Trailer pair</div>
+      <div class="di-detail">TM domestic: ####AHF/####TAH, ####AGI/####TAG, ####AGG/####TAG. Uzbek trucks: ####LBE/####TLB. Some BY/LB plates for Belarus.</div>
+    </div>
+    <div class="data-item">
+      <div class="di-label">Transport Companies</div>
+      <div class="di-value">Malik, Haltac, Gapy Satyş, Serwi</div>
+      <div class="di-detail">Malik and Haltac are main truck providers. Gapy Satyş handles local/"gate" sales. Serwi handles Uzbek route vehicles.</div>
+    </div>
+    <div class="data-item">
+      <div class="di-label">Vehicle Status Tracking</div>
+      <div class="di-value">12 statuses</div>
+      <div class="di-detail">1-7 gune planlanyar (planned for day 1-7), Teplisada dur (at greenhouse), Yolda gelyar (on the way), plus current location descriptions</div>
+    </div>
+    <div class="data-item">
+      <div class="di-label">Location Tracking</div>
+      <div class="di-value">12 positions</div>
+      <div class="di-detail">1-Dusak, 2-Tejen, 3-Mary, 4-Carjew, 5-Farap Postta, 6-Ozbegistanda, 7-Karaganda, 8-Atamenekent, 9-Kaplanbek, 10-Kazakhstan yolda, 11-Kyrgyzstan yolda, 12-Rossiyada</div>
+    </div>
+  </div>
+  
+  <h3>Peregruz (Transshipment)</h3>
+  <p class="desc">Some routes require transshipment — goods transferred from one truck to another. Most common at Bukhara (Uzbekistan). Status: Hawa (yes), Yok (no), Gapy Satys (local sale). Peregruz adds time and risk.</p>
+</section>
+
+<!-- ====== 6. DESTINATION & SALES ====== -->
+<section id="bp5">
+  <h2>6. BP-05: Destination, Sales & Reporting</h2>
+  <p class="desc">Managed entirely by Arap/Aganazar — the foreign sales representative. Covers arrival, customs at destination, selling, and financial reporting back to head office.</p>
+  
+  <h3>Process Flow</h3>
+  <div class="flow">
+    <div class="flow-step green">Enter destination country (timestamp)<span class="fs-role">Arap</span></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step blue">Destination customs clearance<span class="fs-role">Arap</span></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step orange">Peregruz if required<span class="fs-role">Arap</span></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step green">Arrive at final point<span class="fs-role">Arap</span></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step blue">Sale starts<span class="fs-role">Arap</span></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step blue">Sale ends<span class="fs-role">Arap</span></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step orange">Report (hasabat) sent back<span class="fs-role">Arap</span></div>
+  </div>
+  
+  <h3>Destination Markets</h3>
+  <table class="cost-table">
+    <thead><tr><th>Country</th><th>Cities</th><th>Trucks (season)</th><th>Import Firms</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Kazakhstan</strong></td><td>Şimkent (166), Astana (117), Almaty (96), Karaganda (95), Kostonay</td><td class="num">474</td><td>NUR ALEM, Aranshy, Qazfruit, TOO EKS FOR DEN, IP Tursynbayew, TOO Global Harvets Bek</td></tr>
+      <tr><td><strong>Russia</strong></td><td>Moskwa (84), Gapy Satyş (225), Nowosibirsk, Orenburg, Celyabinsk, Ufa, Samara</td><td class="num">371</td><td>SAH FRUKT (ШахФрукт), Turkmenfrukt, Maksifrut, OOO ATLAS, Tosmur, OOO AVANGARD</td></tr>
+      <tr><td><strong>Uzbekistan</strong></td><td>Transit + some sales</td><td class="num">26</td><td>—</td></tr>
+      <tr><td><strong>Afghanistan</strong></td><td>—</td><td class="num">—</td><td>Masoud Behrooz LTD</td></tr>
+      <tr><td><strong>Belarus</strong></td><td>Minsk</td><td class="num">3</td><td>WINTA PLUS</td></tr>
+      <tr><td><strong>Kyrgyzstan</strong></td><td>Bişkek, Oş</td><td class="num">—</td><td>—</td></tr>
+    </tbody>
+  </table>
+  
+  <h3>Sales Tracking (Transport we Satys sheet)</h3>
+  <div class="kpi-row">
+    <div class="kpi"><div class="kpi-val">0</div><div class="kpi-label">Currently Loading</div></div>
+    <div class="kpi"><div class="kpi-val">296</div><div class="kpi-label">On Road (yolda)</div></div>
+    <div class="kpi"><div class="kpi-val">9</div><div class="kpi-label">Currently Selling</div></div>
+    <div class="kpi"><div class="kpi-val">173</div><div class="kpi-label">Sale Complete</div></div>
+    <div class="kpi"><div class="kpi-val">90</div><div class="kpi-label">Report Pending</div></div>
+    <div class="kpi"><div class="kpi-val">83</div><div class="kpi-label">Report Received</div></div>
+  </div>
+  
+  <div class="alert"><strong>Report gap:</strong> 173 trucks sold but only 83 reports received = <strong>90 reports missing</strong>. This is a major pain point — the sales side doesn't report back timely, making financial reconciliation difficult.</div>
+</section>
+
+<!-- ====== 7. FINANCE ====== -->
+<section id="bp6">
+  <h2>7. BP-06: Finance, Pricing & Payments</h2>
+  <p class="desc">The BH sheet reveals the full cost structure per route. RESMI TOLEG tracks official payments to firms.</p>
+  
+  <h3>Cost Structure — Kazakhstan Route</h3>
+  <table class="cost-table">
+    <thead><tr><th>Cost Component</th><th>Şimkent</th><th>Almaty</th><th>Astana</th><th>Karaganda</th></tr></thead>
+    <tbody>
+      <tr><td>Nakliye 1 (TKM→Kaplanbek)</td><td class="num">$3,300</td><td class="num">$3,300</td><td class="num">$3,300</td><td class="num">$3,300</td></tr>
+      <tr><td>Nakliye 2 (Kaplanbek→City)</td><td class="num">$300</td><td class="num">$700</td><td class="num">$1,400</td><td class="num">$1,600</td></tr>
+      <tr><td>NDS (VAT)</td><td class="num">$2,500</td><td class="num">$2,500</td><td class="num">$2,500</td><td class="num">$2,500</td></tr>
+      <tr><td>Satys Payi (sales share)</td><td class="num">$1,000</td><td class="num">$1,000</td><td class="num">$1,000</td><td class="num">$1,000</td></tr>
+      <tr><td>SBOR (fees)</td><td class="num">$100</td><td class="num">$100</td><td class="num">$100</td><td class="num">$100</td></tr>
+      <tr><td>Bazar rashod (market costs)</td><td class="num">$100</td><td class="num">$100</td><td class="num">$100</td><td class="num">$100</td></tr>
+      <tr><td>Yenleme (weight loss)</td><td class="num">$500</td><td class="num">$500</td><td class="num">$500</td><td class="num">$500</td></tr>
+      <tr style="font-weight:700; background:#f5f5f0"><td>Total per truck</td><td class="num">$7,800</td><td class="num">$8,200</td><td class="num">$8,900</td><td class="num">$9,100</td></tr>
+      <tr><td>Net weight per truck</td><td class="num">18,200 kg</td><td class="num">18,200 kg</td><td class="num">18,200 kg</td><td class="num">18,200 kg</td></tr>
+      <tr><td>Cost per KG (USD)</td><td class="num">$0.43</td><td class="num">$0.45</td><td class="num">$0.49</td><td class="num">$0.50</td></tr>
+      <tr><td>Sale price (Tenge)</td><td class="num">600</td><td class="num">630</td><td class="num">630</td><td class="num">630</td></tr>
+      <tr style="font-weight:700; color:#1a6b1a"><td>Margin per KG (USD)</td><td class="num">$0.90</td><td class="num">$0.95</td><td class="num">$0.91</td><td class="num">$0.90</td></tr>
+    </tbody>
+  </table>
+  
+  <h3>Cost Structure — Russia Route</h3>
+  <table class="cost-table">
+    <thead><tr><th>Cost Component</th><th>Bazarda Ozümiz (own market)</th><th>Markete geçiren (market)</th></tr></thead>
+    <tbody>
+      <tr><td>Nakliye (transport)</td><td class="num">$3,000</td><td class="num">$4,500</td></tr>
+      <tr><td>NDS + customs</td><td class="num">$2,900</td><td class="num">$2,214</td></tr>
+      <tr><td>Market entry cost</td><td class="num">$1,000</td><td class="num">—</td></tr>
+      <tr><td>Other market costs</td><td class="num">$300</td><td class="num">—</td></tr>
+      <tr style="font-weight:700; background:#f5f5f0"><td>Total per truck</td><td class="num">$7,200</td><td class="num">$6,714</td></tr>
+      <tr><td>Sale price (Rubles)</td><td class="num">170</td><td class="num">110</td></tr>
+      <tr><td>Sale price (USD, rate 78)</td><td class="num">$2.18</td><td class="num">$1.41</td></tr>
+      <tr style="font-weight:700; color:#1a6b1a"><td>Margin per KG (USD)</td><td class="num">$1.79</td><td class="num">$1.04</td></tr>
+    </tbody>
+  </table>
+  
+  <div class="alert"><strong>Key insight:</strong> Russia own-market sales ($1.79/kg margin) are <strong>2× more profitable</strong> than Kazakhstan ($0.90/kg). But Russia requires Garabogaz ferry route (7-10 days vs 5 days) and has higher spoilage risk. The exchange rate (Kur = 78 RUB/USD, Tenge = 450 KZT/USD) significantly affects margins.</div>
+  
+  <h3>Payment Tracking (RESMI TOLEG)</h3>
+  <p class="desc">Tracks payments made to each of the 16 export firms. Payments are in Turkmen Manat (MNT). Tracked per date per firm, with running truck count equivalents. Negative balances = firm owes money back.</p>
+</section>
+
+<!-- ====== 8. MONEY FLOW & $10K RULE ====== -->
+<section id="money">
+  <h2>8. The Complete Money Flow — Why Everything Works This Way</h2>
+  <p class="desc">This section explains the REAL business logic behind the entire export operation. Understanding this is critical — every decision in the system (firm selection, quota tracking, shipment splitting) flows from this financial structure.</p>
+
+  <h3>The Full Cycle</h3>
+  <div class="flow">
+    <div class="flow-step red">16 Firms have<br>BANK CREDITS<span class="fs-role">Monthly payments due</span></div>
+    <div class="flow-arrow">→ need money →</div>
+    <div class="flow-step green">EXPORT &<br>SELL abroad<span class="fs-role">Revenue from sales</span></div>
+    <div class="flow-arrow">→ need permission →</div>
+    <div class="flow-step blue">Get QUOTA<br>from Government<span class="fs-role">Export license in KG</span></div>
+    <div class="flow-arrow">→ need to earn quota →</div>
+    <div class="flow-step orange">Sell to DOMESTIC<br>MARKET first<span class="fs-role">1 ton domestic = 10 ton export</span></div>
+  </div>
+
+  <div class="alert" style="margin: 20px 0;">
+    <strong>The Quota Formula:</strong> For every 1 tonne of tomatoes sold on the domestic (Turkmen) market, the firm earns the right to export 10 tonnes. This 1:10 ratio is set by the government and drives all planning decisions.
+  </div>
+
+  <h3>The $10,000 Rule — Why Firms Split Shipments</h3>
+  <div class="data-grid">
+    <div class="data-item" style="border-left: 4px solid #dc2626;">
+      <div class="di-label">Sale > $10,000</div>
+      <div class="di-value">MUST go to firm's bank account</div>
+      <div class="di-detail">
+        Money deposited to bank account → used to repay credit → <strong>hard to withdraw for other operations</strong><br>
+        This is the official financial channel. Bank controls the money.
+      </div>
+    </div>
+    <div class="data-item" style="border-left: 4px solid #16a34a;">
+      <div class="di-label">Sale < $10,000</div>
+      <div class="di-value">Can be taken as CASH</div>
+      <div class="di-detail">
+        Cash = flexibility = <strong>main operational money of the business</strong><br>
+        Used for transport costs, wages, daily operations, other business needs.
+      </div>
+    </div>
+  </div>
+
+  <h3>The Splitting Strategy</h3>
+  <p class="desc">A single truck carries ~18 tonnes. At export prices, the total value often exceeds $10,000. To keep each sale under the threshold:</p>
+
+  <div class="flow">
+    <div class="flow-step blue">1 Truck<br>~18 tonnes<span class="fs-role">Total value ≈ $16,000</span></div>
+    <div class="flow-arrow">→ split into →</div>
+    <div class="flow-step green">Firm A: ~9t<br>≈ $8,000<span class="fs-role">< $10K → CASH ✓</span></div>
+    <div class="flow-arrow">&nbsp;</div>
+    <div class="flow-step green">Firm B: ~9t<br>≈ $8,000<span class="fs-role">< $10K → CASH ✓</span></div>
+  </div>
+
+  <div class="data-grid">
+    <div class="data-item">
+      <div class="di-label">Documents per split truck</div>
+      <div class="di-value">2 separate CMR documents</div>
+      <div class="di-detail">Each firm gets its own CMR waybill. The truck physically carries one load, but legally it's two consignments from two different export firms. Both CMRs processed by Sirin (Documents).</div>
+    </div>
+    <div class="data-item">
+      <div class="di-label">Quota impact</div>
+      <div class="di-value">Split across both firms' quotas</div>
+      <div class="di-detail">If Firm A ships 9t and Firm B ships 9t, each firm's quota is reduced by their portion. This is tracked in ShipmentExportFirm (through-table). Example: "YGT-HMS" = Yigit H.J gets 9t quota deduction, Hemsaya gets 9t.</div>
+    </div>
+    <div class="data-item">
+      <div class="di-label">Who decides the split</div>
+      <div class="di-value">Agamyrat / Gadam J (Logist)</div>
+      <div class="di-detail">They choose which 2 firms to use based on: remaining quota balance, credit payment schedule, cash flow needs. The platform shows a <strong>warning if any single firm's share exceeds $10,000</strong> but does NOT auto-split.</div>
+    </div>
+    <div class="data-item">
+      <div class="di-label">60+ combinations explained</div>
+      <div class="di-value">16 firms × 15 possible partners = many pairs</div>
+      <div class="di-detail">YGT-HMS, YGT-DM, HMS-MA, DM-GB, Tel Dow E+Tel Dow J, etc. Each combination appears in the Excel. Some firms pair more often based on quota availability and credit schedules.</div>
+    </div>
+  </div>
+
+  <h3>Credit & Bank Flow</h3>
+  <table class="cost-table">
+    <thead><tr><th>Step</th><th>What happens</th><th>System</th><th>Who</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>16 export firms have credits from banks (different amounts, different schedules)</td><td>1C Бухгалтерия</td><td>Accountant</td></tr>
+      <tr><td>2</td><td>Each month, firm must pay X amount to bank</td><td>1C Бухгалтерия</td><td>Accountant</td></tr>
+      <tr><td>3</td><td>To pay → need revenue from export sales</td><td>YGT Platform</td><td>Agamyrat/Gadam</td></tr>
+      <tr><td>4</td><td>To export → need quota from government</td><td>YGT Platform (Quota module)</td><td>Government</td></tr>
+      <tr><td>5</td><td>To get quota → sell to domestic market (1:10 ratio)</td><td>YGT Platform (Domestic Deliveries)</td><td>Agamyrat/Gadam</td></tr>
+      <tr><td>6</td><td>Export → sell abroad → revenue comes in</td><td>YGT Platform (Sales)</td><td>Arap/Aganazar</td></tr>
+      <tr><td>7a</td><td>If sale > $10K → money MUST go to bank account → pay credit</td><td>Bank / 1C</td><td>Accountant</td></tr>
+      <tr><td>7b</td><td>If sale < $10K → can take cash → operational use</td><td>Cash (tracked in YGT Platform)</td><td>Agamyrat</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Gapy Satyş — A Special Case</h3>
+  <p class="desc">Gapy Satyş (Gate Sale) is NOT export. Another company comes to the greenhouse with their own truck and buys tomatoes directly at the gate. No border crossing, no customs, no CMR. This counts as <strong>domestic market sale</strong>, which means it contributes to the 1:10 quota ratio. Gapy Satyş is strategically used to build up quota for export.</p>
+  <div class="data-grid">
+    <div class="data-item">
+      <div class="di-label">Gapy Satyş characteristics</div>
+      <div class="di-value">304 shipments this season (largest single "customer")</div>
+      <div class="di-detail">
+        • Buyer's own truck (not YGT transport)<br>
+        • No border, no customs, no CMR needed<br>
+        • Sale at gate price (lower than export price)<br>
+        • Counts toward domestic quota (enables 10× export quota)<br>
+        • Cash payment at gate
+      </div>
+    </div>
+  </div>
+
+  <h3>Platform Automation Implications</h3>
+  <div class="data-grid">
+    <div class="data-item" style="border-left: 4px solid #dc2626;">
+      <div class="di-label">⚠️ $10K Warning</div>
+      <div class="di-detail">When creating a shipment, if estimated sale value for any single firm exceeds $10,000 → show WARNING. Calculate based on: firm's share of weight × route's average sale price/kg. Do NOT block — just warn.</div>
+    </div>
+    <div class="data-item" style="border-left: 4px solid #2563eb;">
+      <div class="di-label">📊 Quota Balance Dashboard</div>
+      <div class="di-detail">For each firm show: domestic sold (kg) → earned quota (×10) → used quota (exported kg) → remaining. Warn when quota is running low. Factor Gapy Satyş into domestic totals.</div>
+    </div>
+    <div class="data-item" style="border-left: 4px solid #16a34a;">
+      <div class="di-label">💳 Credit Payment Tracker</div>
+      <div class="di-detail">Per firm: monthly credit payment due → total export revenue sent to bank → remaining credit balance. Shows whether the firm is on track to cover this month's payment. Data source: 1C (future integration, or manual entry for now).</div>
+    </div>
+    <div class="data-item" style="border-left: 4px solid #d97706;">
+      <div class="di-label">📄 2 CMR Documents</div>
+      <div class="di-detail">When shipment has 2 export firms → system generates (or tracks) 2 separate CMR documents. Each CMR linked to its firm's share. Sirin sees both CMRs for the same truck in her documents queue. Deadline 13:00 applies to BOTH.</div>
+    </div>
+  </div>
+
+  <div class="alert"><strong>1C Бухгалтерия:</strong> Currently a separate system handling bank/accounting. Integration TBD — we're still studying the business processes. For now, credit payment info can be manually entered into the platform. Future: possible API or data sync with 1C for bank account balances and credit schedules.</div>
+</section>
+
+<!-- ====== 9. REFERENCE DATA ====== -->
+<section id="data">
+  <h2>9. Reference Data (Data Sheet Enums)</h2>
+  <p class="desc">Complete enumeration of all dropdown/reference values used across the system, extracted from the Data sheet.</p>
+  
+  <div class="enum-group">
+    <div class="enum-title">Masyn Yagdayy (Vehicle Status) — 11 values</div>
+    <div class="enum-vals">
+      <span class="enum-tag">1-nji gun planlanyar</span>
+      <span class="enum-tag">2-nji gun planlanyar</span>
+      <span class="enum-tag">3-nji gun planlanyar</span>
+      <span class="enum-tag">4-nji gun planlanyar</span>
+      <span class="enum-tag">5-nji gun planlanyar</span>
+      <span class="enum-tag">6-njy gun planlanyar</span>
+      <span class="enum-tag">7-nji gun planlanyar</span>
+      <span class="enum-tag">Teplisada dur</span>
+      <span class="enum-tag">Yolda gelyar</span>
+    </div>
+  </div>
+  
+  <div class="enum-group">
+    <div class="enum-title">Eksport (ýurdy) — Destination Countries — 10 values</div>
+    <div class="enum-vals">
+      <span class="enum-tag">Gazagystan</span><span class="enum-tag">Russiýa</span><span class="enum-tag">Gyrgysyztan</span><span class="enum-tag">Tajigistan</span>
+      <span class="enum-tag">Özbegistan</span><span class="enum-tag">Belarus</span><span class="enum-tag">Owgan-Gyrgyz</span><span class="enum-tag">BAE</span>
+      <span class="enum-tag">Litwiya</span><span class="enum-tag">Wengriýa</span><span class="enum-tag">Gazak/Rossiya</span>
+    </div>
+  </div>
+  
+  <div class="enum-group">
+    <div class="enum-title">Şäheri (Destination Cities) — 15 values</div>
+    <div class="enum-vals">
+      <span class="enum-tag">Astana</span><span class="enum-tag">Almaty</span><span class="enum-tag">Şimkent</span><span class="enum-tag">Karaganda</span>
+      <span class="enum-tag">Moskwa</span><span class="enum-tag">Gapy Satyş</span><span class="enum-tag">Bişkek</span><span class="enum-tag">Orenburg</span>
+      <span class="enum-tag">Nowosibirsk</span><span class="enum-tag">Celyabinsk</span><span class="enum-tag">Ufa</span><span class="enum-tag">Kostonay</span>
+      <span class="enum-tag">Ust-Kamenogorsk</span><span class="enum-tag">Oş</span><span class="enum-tag">Minsk</span><span class="enum-tag">Samara</span>
+      <span class="enum-tag">Nowosibirsk/Astana</span>
+    </div>
+  </div>
+  
+  <div class="enum-group">
+    <div class="enum-title">TM çäginden çykan nokady (Border Points) — 7 values</div>
+    <div class="enum-vals">
+      <span class="enum-tag">Farap</span><span class="enum-tag">Garabogaz</span><span class="enum-tag">Bekdaş</span>
+      <span class="enum-tag">Turkmenbasy</span><span class="enum-tag">Dasoguz</span><span class="enum-tag">Köneürgenç</span><span class="enum-tag">Gapy Satys</span>
+    </div>
+  </div>
+  
+  <div class="enum-group">
+    <div class="enum-title">Pomidoryň bölümi (Greenhouse Blocks) — 20+ values</div>
+    <div class="enum-vals">
+      <span class="enum-tag">A BLOK</span><span class="enum-tag">B BLOK</span><span class="enum-tag">C BLOK</span><span class="enum-tag">D BLOK</span>
+      <span class="enum-tag">E BLOK</span><span class="enum-tag">F BLOK</span><span class="enum-tag">G BLOK</span><span class="enum-tag">H BLOK</span>
+      <span class="enum-tag">I BLOK</span><span class="enum-tag">J BLOK</span><span class="enum-tag">K BLOK</span><span class="enum-tag">L BLOK</span>
+      <span class="enum-tag">M15 BLOK</span><span class="enum-tag">M5 BLOK</span><span class="enum-tag">Owadandepe</span>
+      <span class="enum-tag">A/B</span><span class="enum-tag">B/C</span><span class="enum-tag">A/C</span><span class="enum-tag">F/D</span>
+      <span class="enum-tag">ABÇ</span><span class="enum-tag">Ahli Kaka</span><span class="enum-tag">G/H BLOK</span><span class="enum-tag">Başga haryt</span>
+    </div>
+  </div>
+  
+  <div class="enum-group">
+    <div class="enum-title">Pomidoryn Gornusi (Tomato Varieties) — 17 values</div>
+    <div class="enum-vals">
+      <span class="enum-tag">MARW (Merwelans)</span><span class="enum-tag">MID (Midelice/Midelyce)</span>
+      <span class="enum-tag">Fujimaro</span><span class="enum-tag">Defensosa</span><span class="enum-tag">Redita</span>
+      <span class="enum-tag">Dakota</span><span class="enum-tag">Cherry</span><span class="enum-tag">Juanita</span>
+      <span class="enum-tag">Stuk</span><span class="enum-tag">SORT1</span><span class="enum-tag">SORT2</span>
+      <span class="enum-tag">MIX</span>
+    </div>
+  </div>
+  
+  <div class="enum-group">
+    <div class="enum-title">Yygym Yagdayy (Harvest Status) — 10 values</div>
+    <div class="enum-vals">
+      <span class="enum-tag">Ok</span><span class="enum-tag">Tayyar</span><span class="enum-tag">Dowam edyar</span>
+      <span class="enum-tag">Ertire planlanyar</span><span class="enum-tag">Şugüne planlanýar</span>
+      <span class="enum-tag">1-nji gune planlanyar</span><span class="enum-tag">2-nji gune planlanyar</span>
+      <span class="enum-tag">3-nji gune planlanyar</span><span class="enum-tag">YYGYM SAKLANDY</span>
+    </div>
+  </div>
+  
+  <div class="enum-group">
+    <div class="enum-title">Yerlesyan Yeri (Current Location) — 12 values</div>
+    <div class="enum-vals">
+      <span class="enum-tag">1-Dusak</span><span class="enum-tag">2-Tejen</span><span class="enum-tag">3-Mary</span>
+      <span class="enum-tag">4-Carjew</span><span class="enum-tag">5-Farap Postta</span><span class="enum-tag">6-Ozbegistanda</span>
+      <span class="enum-tag">7-Karaganda</span><span class="enum-tag">8-Atamenekent</span><span class="enum-tag">9-Kaplanbek</span>
+      <span class="enum-tag">10-Gazagystan Yolda</span><span class="enum-tag">11-Gyrgyzstan Yolda</span><span class="enum-tag">12-Rossiyada</span>
+    </div>
+  </div>
+
+  <div class="enum-group">
+    <div class="enum-title">Yuklenjek yeri (Loading Location) — 4 values</div>
+    <div class="enum-vals">
+      <span class="enum-tag">Dusak</span><span class="enum-tag">Kaka</span><span class="enum-tag">Owadandepe</span>
+    </div>
+  </div>
+  
+  <div class="enum-group">
+    <div class="enum-title">Peregruz ýagdaýy (Transshipment Status) — 3 values</div>
+    <div class="enum-vals">
+      <span class="enum-tag">Hawa (Yes)</span><span class="enum-tag">Yok (No)</span><span class="enum-tag">Gapy Satys (Local sale)</span>
+    </div>
+  </div>
+  
+  <div class="enum-group">
+    <div class="enum-title">Müşderi ady (Customers) — 12+ values</div>
+    <div class="enum-vals">
+      <span class="enum-tag">Begjan</span><span class="enum-tag">Berik</span><span class="enum-tag">Eldar</span>
+      <span class="enum-tag">ÝGT Gapy Satyş</span><span class="enum-tag">IŞG Gapy Satyş</span>
+      <span class="enum-tag">Mişa (Orenburg)</span><span class="enum-tag">Duulat</span><span class="enum-tag">Wepa</span>
+      <span class="enum-tag">IŞGÄR HJ</span><span class="enum-tag">Kunduz</span><span class="enum-tag">Muzzafar</span>
+      <span class="enum-tag">Begjan (Jandost)</span><span class="enum-tag">Samuhammet</span><span class="enum-tag">Ruslan</span>
+      <span class="enum-tag">Arap</span><span class="enum-tag">Solmaz</span><span class="enum-tag">Begjan/Rossiya</span><span class="enum-tag">Berik/Rossiya</span>
+    </div>
+  </div>
+  
+  <div class="enum-group">
+    <div class="enum-title">Import Firms — 35+ values</div>
+    <div class="enum-vals">
+      <span class="enum-tag">NUR ALEM</span><span class="enum-tag">Aranshy</span><span class="enum-tag">SAH FRUKT</span>
+      <span class="enum-tag">Turkmenfrukt</span><span class="enum-tag">Maksifrut</span><span class="enum-tag">OOO ATLAS</span>
+      <span class="enum-tag">IP Tursynbayew</span><span class="enum-tag">TOO Global Harvets Bek</span>
+      <span class="enum-tag">Tosmur OOO</span><span class="enum-tag">OOO AVANGARD</span><span class="enum-tag">Qazfruit</span>
+      <span class="enum-tag">Masoud Behrooz LTD</span><span class="enum-tag">agro city</span><span class="enum-tag">TD GREYS FRUTOS</span>
+      <span class="enum-tag">Sukara holding</span><span class="enum-tag">Viktoria</span><span class="enum-tag">AGRO GOLD</span>
+      <span class="enum-tag">Fimekstorg</span><span class="enum-tag">WEGA JÇJ</span><span class="enum-tag">Fruktowyy Aromat</span>
+      <span class="enum-tag">BK Frut Agro</span><span class="enum-tag">LZ SERVICE SRL</span><span class="enum-tag">WINTA PLUS</span>
+      <span class="enum-tag">Trans Asia Trade</span><span class="enum-tag">Krasnyy Apelsin</span>
+    </div>
+  </div>
+</section>
+
+<!-- ====== 9. INTEGRATIONS ====== -->
+<section id="integrations">
+  <h2>10. External System Integrations</h2>
+  <p class="desc">The platform must connect to 3 existing systems. This is NOT a standalone app — it's the operational hub that ties everything together.</p>
+  
+  <h3>System Landscape</h3>
+  <div class="data-grid">
+    <div class="data-item" style="border-left: 4px solid #1a6b1a">
+      <div class="di-label">Logo Tiger (ERP)</div>
+      <div class="di-value">Finance & Accounting</div>
+      <div class="di-detail">
+        <strong>Handles:</strong> Muhasebe (accounting), purchasing & sales orders<br>
+        <strong>Integration:</strong> READ firm/product master data FROM Logo. WRITE completed shipment records TO Logo for invoicing. Logo Tiger remains the financial source of truth.<br>
+        <strong>Data flow:</strong> Shipment completed → push to Logo Tiger → invoice generated → payment tracked
+      </div>
+    </div>
+    <div class="data-item" style="border-left: 4px solid #2b6cb0">
+      <div class="di-label">Trip Management System (Django+React)</div>
+      <div class="di-value">Driver Financial Operations</div>
+      <div class="di-detail">
+        <strong>Handles:</strong> Driver expenses & earnings per trip (export trips + other trips)<br>
+        <strong>Integration:</strong> Shared Driver and Vehicle models. Link Trip ↔ Shipment via shipment_code. When Shipment is created, a Trip record can be auto-created.<br>
+        <strong>Data flow:</strong> Shipment created → Trip created → Driver logs expenses → Trip completed → costs synced back
+      </div>
+    </div>
+    <div class="data-item" style="border-left: 4px solid #dd6b20">
+      <div class="di-label">Navixy GPS (Future)</div>
+      <div class="di-value">Live Vehicle Tracking</div>
+      <div class="di-detail">
+        <strong>Handles:</strong> Real-time GPS coordinates for trucks (currently being installed)<br>
+        <strong>Integration:</strong> Match Vehicle.navixy_device_id → GPS coordinates. Poll Navixy API or receive webhooks. Feed into tracking dashboard replacing manual "Yerlesyan Yeri" location field.<br>
+        <strong>Data flow:</strong> GPS ping → webhook/poll → update truck position → show on map → auto-detect border crossing
+      </div>
+    </div>
+  </div>
+  
+  <h3>Integration Data Flow</h3>
+  <div class="flow">
+    <div class="flow-step green">YGT Platform<span class="fs-role">Source of Truth</span></div>
+    <div class="flow-arrow">↔</div>
+    <div class="flow-step blue">Logo Tiger<span class="fs-role">Finance sync</span></div>
+  </div>
+  <div class="flow">
+    <div class="flow-step green">YGT Platform<span class="fs-role">Shipment created</span></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step blue">Trip Management<span class="fs-role">Trip auto-created</span></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step orange">Driver logs expenses<span class="fs-role">In-trip</span></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step green">Costs synced back<span class="fs-role">Trip complete</span></div>
+  </div>
+  <div class="flow">
+    <div class="flow-step orange">Navixy GPS<span class="fs-role">Real-time</span></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step green">YGT Platform<span class="fs-role">Tracking dashboard</span></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step blue">Auto-detect events<span class="fs-role">Border, arrival</span></div>
+  </div>
+
+  <h3>Shared Data Entities</h3>
+  <table class="cost-table">
+    <thead><tr><th>Entity</th><th>YGT Platform</th><th>Logo Tiger</th><th>Trip Mgmt</th><th>Navixy</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Vehicle</strong></td><td>✅ Master</td><td>—</td><td>✅ Read</td><td>✅ device_id</td></tr>
+      <tr><td><strong>Driver</strong></td><td>✅ Master</td><td>—</td><td>✅ Shared</td><td>—</td></tr>
+      <tr><td><strong>Export Firm</strong></td><td>✅ Master</td><td>✅ Linked by code</td><td>—</td><td>—</td></tr>
+      <tr><td><strong>Import Firm</strong></td><td>✅ Master</td><td>✅ Linked by code</td><td>—</td><td>—</td></tr>
+      <tr><td><strong>Shipment</strong></td><td>✅ Master</td><td>✅ Receives completed</td><td>✅ Trip linked</td><td>—</td></tr>
+      <tr><td><strong>Invoice/Payment</strong></td><td>Read only</td><td>✅ Master</td><td>—</td><td>—</td></tr>
+      <tr><td><strong>Trip Expenses</strong></td><td>Read only</td><td>—</td><td>✅ Master</td><td>—</td></tr>
+      <tr><td><strong>GPS Position</strong></td><td>✅ Receives</td><td>—</td><td>—</td><td>✅ Master</td></tr>
+    </tbody>
+  </table>
+  
+  <h3>Multi-Operation Platform Design</h3>
+  <p class="desc">This app is not just for tomato export. The holding has factories, greenhouses, construction, logistics, and finance subsidiaries. The architecture uses a modular Django multi-app structure so future operations can be added as separate modules sharing the same core (users, vehicles, drivers, firms).</p>
+  
+  <div class="data-grid">
+    <div class="data-item">
+      <div class="di-label">Now (Phase 1)</div>
+      <div class="di-value">Tomato Export Module</div>
+      <div class="di-detail">Full shipment lifecycle, quota management, weekly planning, finance, reports — replacing this Excel entirely</div>
+    </div>
+    <div class="data-item">
+      <div class="di-label">Future Modules</div>
+      <div class="di-value">Per subsidiary</div>
+      <div class="di-detail">Factory operations, greenhouse management, construction tracking, general logistics — each as a Django app sharing the core</div>
+    </div>
+    <div class="data-item">
+      <div class="di-label">Shared Core</div>
+      <div class="di-value">Users, Roles, Vehicles, Drivers, Firms, Countries</div>
+      <div class="di-detail">One login, one vehicle registry, one driver list — used across all operations. Management sees reports across all modules.</div>
+    </div>
+  </div>
+  
+  <div class="alert"><strong>Architecture principle:</strong> Logo Tiger = financial truth, YGT Platform = operational truth, Trip Mgmt = driver cost truth, Navixy = location truth. Each system owns its domain. The platform connects them without duplicating.</div>
+</section>
+
+<!-- ====== 10. PAIN POINTS ====== -->
+<section id="pain">
+  <h2>11. Pain Points & Automation Opportunities</h2>
+  <p class="desc">Issues discovered from the data that the web application should solve.</p>
+  
+  <div class="process-card">
+    <div class="pc-header"><div class="pc-num" style="background:#e53e3e">1</div><div class="pc-title">90+ Missing Sales Reports</div></div>
+    <div class="pc-body">173 trucks sold but only 83 reports received. Arap's report delay blocks financial reconciliation. <strong>Solution:</strong> Automated reminders, mandatory report submission within X days of sale_end, dashboard visibility.</div>
+  </div>
+  
+  <div class="process-card">
+    <div class="pc-header"><div class="pc-num" style="background:#e53e3e">2</div><div class="pc-title">Quota Overdraw (Negative Balances)</div></div>
+    <div class="pc-body">KWOTA HASABY shows negative balances (e.g. Yigit: -2,603,000 KG in period 3). Firms use more quota than allocated, requiring correction entries. <strong>Solution:</strong> Real-time quota balance alerts, block shipment creation when quota < truck weight.</div>
+  </div>
+  
+  <div class="process-card">
+    <div class="pc-header"><div class="pc-num" style="background:#dd6b20">3</div><div class="pc-title">60+ Export Firm Combinations</div></div>
+    <div class="pc-body">Export firms are combined in complex ways (YGT-HMS, Tel Dow E+Tel Dow J, etc.) making quota tracking extremely complex in a spreadsheet. <strong>Solution:</strong> Multi-firm quota split per shipment with automatic deduction from each firm's allocation.</div>
+  </div>
+  
+  <div class="process-card">
+    <div class="pc-header"><div class="pc-num" style="background:#dd6b20">4</div><div class="pc-title">Marking Changes After Loading</div></div>
+    <div class="pc-body">"Markirowkasy uytgan bize habar berilmedi" (marking changed without notifying us). Last-minute marking changes cause document rework and delays. <strong>Solution:</strong> Change log with mandatory notification workflow when key fields change after loading.</div>
+  </div>
+  
+  <div class="process-card">
+    <div class="pc-header"><div class="pc-num" style="background:#dd6b20">5</div><div class="pc-title">Weather/Road Delays Not Tracked</div></div>
+    <div class="pc-body">"DONANCYLYK SEBAPLI MASHYN GELMELI WAGTYNDA GELMEDI" (truck didn't arrive due to freezing). No systematic delay reason tracking. <strong>Solution:</strong> Delay reason categories with timestamps, impact on transit SLA.</div>
+  </div>
+  
+  <div class="process-card">
+    <div class="pc-header"><div class="pc-num" style="background:#2b6cb0">6</div><div class="pc-title">Multiple Sheets for Same Data</div></div>
+    <div class="pc-body">YGT (column-per-shipment), TRANSPOSE (row-per-shipment), Sheet184 (November), Sheet185 (November flat) — same data in 4 different views. <strong>Solution:</strong> Single source of truth with filtered views.</div>
+  </div>
+  
+  <div class="process-card">
+    <div class="pc-header"><div class="pc-num" style="background:#2b6cb0">7</div><div class="pc-title">Document Deadline Enforcement</div></div>
+    <div class="pc-body">Rule says "13:00 cenli gelmeli" (must arrive by 13:00) but no enforcement mechanism. <strong>Solution:</strong> Deadline warnings, block loading without document status = OK.</div>
+  </div>
+  
+  <div class="process-card">
+    <div class="pc-header"><div class="pc-num" style="background:#2b6cb0">8</div><div class="pc-title">Plan vs Actual Tracking Gap</div></div>
+    <div class="pc-body">Weekly plans exist but actual vs planned comparison is manual. <strong>Solution:</strong> Auto-aggregate actual shipped KG per block per week, show variance with alerts.</div>
+  </div>
+  
+  <div class="process-card">
+    <div class="pc-header"><div class="pc-num" style="background:#38a169">9</div><div class="pc-title">Mixed Weight Data</div></div>
+    <div class="pc-body">Weight field contains numbers (18500), text ("20000 kg"), and notes ("Begmyrat 993 64664145 Garažda 16:00da Kakada bolar"). <strong>Solution:</strong> Separate numeric weight field from notes field. Validate weight range (17,000–21,000 kg).</div>
+  </div>
+  
+  <div class="process-card">
+    <div class="pc-header"><div class="pc-num" style="background:#38a169">10</div><div class="pc-title">Exchange Rate Impact Not Visible</div></div>
+    <div class="pc-body">BH sheet has static exchange rate (78 RUB/USD, 450 KZT/USD). No visibility into how rate changes affect margins across routes. <strong>Solution:</strong> Dynamic pricing model with live exchange rates, route profitability comparison.</div>
+  </div>
+</section>
+
+</div>
+
+<script>
+function show(id) {
+  document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav a').forEach(a => a.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>

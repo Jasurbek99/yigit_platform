@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>P3 Shipment Lifecycle v1.3</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
+  
+  .header { background: linear-gradient(135deg, #1a1f2e 0%, #0f1117 100%); border-bottom: 1px solid #2d3748; padding: 16px 20px; }
+  .header-top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+  .header-sub { font-size: 10px; letter-spacing: 3px; color: #718096; text-transform: uppercase; }
+  .header h1 { font-size: 20px; font-weight: 700; color: #f7fafc; }
+  .header-info { font-size: 12px; color: #a0aec0; margin-top: 2px; }
+  .header-info .code { color: #fbd38d; font-weight: 600; }
+  .header-info .corrections { color: #fc8181; }
+  .phase-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+  .phase-tag { font-size: 9px; padding: 2px 8px; border-radius: 4px; }
+
+  .timeline-wrap { overflow-x: auto; padding: 12px 20px 0; }
+  .timeline { display: flex; gap: 3px; min-width: fit-content; }
+  .timeline-btn { border: 1px solid #2d3748; background: #1a1f2e; border-radius: 6px; padding: 6px 8px; cursor: pointer; min-width: 62px; display: flex; flex-direction: column; align-items: center; gap: 1px; position: relative; transition: all 0.15s; }
+  .timeline-btn:hover { background: #252d3d; }
+  .timeline-btn.active { border-width: 2px; }
+  .timeline-btn .icon { font-size: 16px; }
+  .timeline-btn .num { font-size: 9px; font-weight: 700; }
+  .timeline-btn .label { font-size: 8px; line-height: 1.1; text-align: center; max-width: 58px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .correction-dot { position: absolute; top: -4px; right: -4px; width: 8px; height: 8px; border-radius: 50%; background: #fc8181; }
+
+  .progress-bar { margin: 10px 20px 0; height: 3px; background: #2d3748; border-radius: 2px; }
+  .progress-fill { height: 100%; border-radius: 2px; transition: width 0.3s ease; }
+
+  .main { padding: 16px 20px; max-width: 920px; margin: 0 auto; }
+
+  .correction-banner { background: rgba(252,129,129,0.13); border: 1px solid rgba(252,129,129,0.33); border-radius: 8px; padding: 8px 14px; margin-bottom: 12px; font-size: 11px; color: #fc8181; display: flex; align-items: center; gap: 8px; }
+
+  .step-card { background: #1a1f2e; border-radius: 10px; margin-bottom: 16px; overflow: hidden; }
+  .step-header { padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+  .step-title-row { display: flex; align-items: center; gap: 10px; }
+  .step-icon { font-size: 28px; }
+  .step-name { font-size: 18px; font-weight: 700; }
+  .step-phase-tag { font-size: 10px; padding: 1px 8px; border-radius: 4px; font-weight: 600; }
+  .step-en { font-size: 12px; color: #a0aec0; }
+  .step-meta { display: flex; gap: 14px; flex-wrap: wrap; }
+  .step-meta-item { text-align: center; }
+  .step-meta-label { font-size: 9px; color: #718096; text-transform: uppercase; letter-spacing: 1px; }
+  .step-meta-val { font-size: 12px; font-weight: 600; color: #f7fafc; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .step-meta-val.kanban { color: #fbd38d; }
+  .step-body { padding: 12px 18px; }
+  .step-desc { font-size: 12px; color: #cbd5e0; line-height: 1.55; }
+  .step-platform { font-size: 11px; color: #a0aec0; margin-top: 6px; }
+  .step-platform b { font-weight: 600; }
+
+  .fields-card { background: #1a1f2e; border-radius: 10px; border: 1px solid #2d3748; margin-bottom: 16px; overflow: hidden; }
+  .fields-header { padding: 10px 18px; border-bottom: 1px solid #2d3748; display: flex; justify-content: space-between; align-items: center; }
+  .fields-header span:first-child { font-size: 13px; font-weight: 700; color: #f7fafc; }
+  .fields-count { font-size: 11px; color: #718096; background: #2d3748; border-radius: 10px; padding: 1px 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  thead tr { background: #252d3d; }
+  th { padding: 6px 10px; text-align: left; color: #718096; font-weight: 600; font-size: 9px; text-transform: uppercase; letter-spacing: 1px; white-space: nowrap; }
+  td { padding: 6px 10px; }
+  tbody tr { border-top: 1px solid #2d3748; }
+  tbody tr.v12-row { background: rgba(252,129,129,0.07); }
+  .row-ref { font-family: monospace; color: #fbd38d; font-size: 11px; white-space: nowrap; }
+  .field-name { color: #e2e8f0; font-weight: 500; }
+  .field-en { color: #a0aec0; }
+  .field-example { padding: 1px 6px; border-radius: 3px; font-family: monospace; font-size: 11px; }
+  .field-rule { font-size: 11px; }
+  .field-rule.v12 { color: #fc8181; }
+
+  .extra-card { background: #1a1f2e; border-radius: 10px; margin-bottom: 16px; overflow: hidden; }
+  .extra-header { padding: 10px 18px; font-size: 13px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
+  .extra-body { padding: 10px 18px; }
+  .extra-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; }
+  .extra-row + .extra-row { border-top: 1px solid #2d3748; }
+  .extra-total { display: flex; justify-content: space-between; padding: 7px 0 0; border-top: 2px solid; margin-top: 4px; }
+  .extra-total span:first-child { font-weight: 700; color: #f7fafc; }
+  .extra-total span:last-child { font-weight: 700; color: #fbd38d; font-family: monospace; }
+
+  .tenk-box { margin-top: 8px; padding: 6px 10px; border-radius: 5px; font-size: 11px; }
+
+  .doc-grid { padding: 10px 18px; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 6px; }
+  .doc-item { background: #252d3d; border-radius: 5px; padding: 6px 10px; display: flex; justify-content: space-between; align-items: center; }
+  .doc-item span:first-child { font-size: 11px; color: #e2e8f0; }
+  .doc-item span:last-child { font-size: 13px; }
+
+  .qdoc-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; }
+  .qdoc-row + .qdoc-row { border-top: 1px solid #2d3748; }
+  .qdoc-name { font-size: 12px; color: #e2e8f0; font-weight: 500; }
+  .qdoc-en { font-size: 10px; color: #718096; }
+
+  .mgr-unknown { background: rgba(252,129,129,0.07); }
+  .mgr-unknown td:first-child { color: #fc8181; }
+
+  .note-box { background: #252d3d; border-radius: 6px; padding: 10px 14px; border-left: 3px solid; font-size: 11px; color: #a0aec0; line-height: 1.5; margin-bottom: 16px; }
+  .note-box b { font-weight: 700; color: #fbd38d; }
+
+  .nav { display: flex; justify-content: space-between; align-items: center; }
+  .nav-btn { border-radius: 6px; padding: 8px 16px; font-size: 12px; cursor: pointer; border: none; }
+  .nav-btn:disabled { cursor: default; }
+  .nav-btn.prev { background: #1a1f2e; color: #e2e8f0; border: 1px solid #2d3748; }
+  .nav-btn.prev:disabled { background: #2d3748; color: #4a5568; }
+  .nav-btn.next { color: #fff; font-weight: 600; }
+  .nav-btn.next:disabled { background: #2d3748; color: #4a5568; }
+  .nav-counter { font-size: 11px; color: #718096; }
+
+  .stats-card { margin-top: 16px; background: #1a1f2e; border-radius: 10px; border: 1px solid #2d3748; padding: 14px 18px; }
+  .stats-label { font-size: 11px; color: #718096; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; }
+  .stats-bar { display: flex; gap: 2px; margin-bottom: 6px; }
+  .stats-seg { height: 16px; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 600; transition: background 0.2s; }
+  .stats-row { display: flex; justify-content: space-between; font-size: 11px; flex-wrap: wrap; gap: 8px; color: #a0aec0; }
+  .stats-row .val { color: #fbd38d; font-weight: 700; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const PHASE_COLORS = {
+  PLANNING: { bg: "#e9d8fd", text: "#553c9a" },
+  LOADING: { bg: "#c6f6d5", text: "#276749" },
+  DOCS: { bg: "#bee3f8", text: "#2b6cb0" },
+  TRANSIT: { bg: "#fefcbf", text: "#b7791f" },
+  DESTINATION: { bg: "#fed7e2", text: "#97266d" },
+  CLOSE: { bg: "#e9d8fd", text: "#553c9a" },
+};
+
+const ALL_STEPS = [
+  // ═══ PLANNING ═══
+  { num:"0a", name_tk:"Hepdelik planlama", name_en:"Weekly Harvest Planning", who:"7 Block Managers", role:"Greenhouse Managers", icon:"📅", phase:"PLANNING",
+    platform:"Weekly Planning Grid (replaces Google Sheets)",
+    description:"THIS IS WHERE THE PROCESS STARTS (corrected in v1.2). Every Friday, 7 greenhouse managers enter expected harvest kg per block per day (Mon–Sat) for next week. They work with Holland consultants to get close estimates, but actual can be more or less than planned.",
+    fields:[
+      {row:"Hepdelik",name:"Ýyladyşhana",en:"Greenhouse Block",example:"C-Ýyladyşhana",rule:"15 blocks: A–O"},
+      {row:"Hepdelik",name:"Duşenbe–Şenbe kg",en:"Mon–Sat planned kg",example:"18500, 18500, 18500, 0, 18500, 18500",rule:"Per day per block"},
+      {row:"Hepdelik",name:"Jemi (KG)",en:"Weekly Total",example:"84,000 kg",rule:"Sum of 6 days"},
+      {row:"Hepdelik",name:"Ýerine ýetirileni kg",en:"Actual Harvested",example:"90,903 kg",rule:"Filled on Saturday"},
+    ],
+    managers:[
+      {name:"Toyly B",phone:"+99361608737",blocks:"A, B"},
+      {name:"(Unknown)",phone:"—",blocks:"C (TO CONFIRM)"},
+      {name:"Guwanç K",phone:"+99363018382",blocks:"D, M15, M5"},
+      {name:"Geldimyrat A",phone:"+99365234059",blocks:"E, F"},
+      {name:"Asdan H",phone:"+99362093301",blocks:"G, H"},
+      {name:"Mekan A",phone:"+99363690069",blocks:"I, J"},
+      {name:"Batyr Çaýtyýew",phone:"+99362655224",blocks:"K, L"},
+      {name:"Bayram J",phone:"+99364102042",blocks:"O"},
+    ],
+    kanban:"—",
+    note:"Plans cover 6 days (Sun off). Rarely, Sunday work happens during peak harvest. Planned vs actual can differ. The formula /18.5 then feeds Step 0b.",
+  },
+  { num:"0b", name_tk:"Maşyn hasaplamasy", name_en:"Truck Count Calculation", who:"Formula → Gadam", role:"System + Logist", icon:"🔢", phase:"PLANNING",
+    platform:"Auto-calculated dashboard",
+    description:"Excel formula divides total planned kg by 18,500 = truck count. Then Gadam + Aganazar decide how many trucks go to Russia, Kazakhstan, or Gapy Satysh (domestic). The split doesn't always match the calculated total.",
+    fields:[
+      {row:"Row 26",name:"Jemi Maşyn Sany",en:"Total Truck Count",example:"4.54 trucks",rule:"total_kg ÷ 18,500"},
+      {row:"Row 29",name:"Rossiya Maşyn Sany",en:"Russia Trucks",example:"2",rule:"Gadam decides"},
+      {row:"Row 30",name:"Gazak Maşyn Sany",en:"Kazakhstan Trucks",example:"3",rule:"Gadam decides"},
+      {row:"Row 31",name:"Gapy Satyş Maşyn Sany",en:"Domestic Sale Trucks",example:"0",rule:"Gadam decides"},
+    ],
+    kanban:"—",
+    note:"18,500 kg = 1 export truck (fundamental unit). Transport depo also sees this and plans trucks/drivers — but export managers complain transport enters info LATE.",
+  },
+  { num:"0c", name_tk:"Ýurt karary", name_en:"Country Decision", who:"Gadam", role:"Export Manager / Logist", icon:"🌍", phase:"PLANNING",
+    platform:"Price dashboard + 5-year DB",
+    description:"v1.3 UPDATED: Gadam decides country based on real-time market prices from sales reps in destination countries AND a 5-year price database (1,557 entries, Oct 2021–Jul 2026, covering KZ: Shimkent/Almaty/Astana/Karaganda, RU: Orenburg/Moscow, BY: Minsk, KG: Bishkek). He can CHANGE order/country/delete BEFORE documents start. 8 export destinations confirmed: Kazakhstan, Russia, Belarus, Kyrgyzstan, Tajikistan, Uzbekistan, Afghanistan, + domestic Gapy Satysh.",
+    fields:[
+      {row:"R10",name:"Barýan ýurdy",en:"Destination Country",example:"GAZAGYSTAN",rule:"v1.3: KZ/RU/BY/KG/TJ/UZ/AF + Gapy Satysh"},
+      {row:"—",name:"Baha maglumatlary",en:"Price Data",example:"$1.45/kg Almaty today",rule:"v1.3: 1,557-entry 5yr DB + live prices from reps"},
+    ],
+    kanban:"—",
+    note:"v1.2: Export CITY decided LATE — sometimes at the very end. Country decided here, city can change right up until transit.",
+  },
+  { num:"0d", name_tk:"Firma saýlamy", name_en:"Firm Selection", who:"Gadam + Aganazar", role:"Logist Team", icon:"🏢", phase:"PLANNING",
+    platform:"Quota + firm dashboard",
+    description:"v1.3 CORRECTED: Assistant is AGANAZAR (not Agamyrat). Gadam + Aganazar select 1–3 export firms AND the import firm. ALL firms are holding-owned or related. Defaults: Russia = 2 export firms (cash only), Kazakhstan = 1 export firm (exceptions possible). This is for OWN export only, not Gapy Satysh. Export firm data entered by Export Managers + Sulgun. If no contract → Shohrat opens one-time contract. 10K rule exists but is NOT shown in the system.",
+    fields:[
+      {row:"R9",name:"Eksport firmasy",en:"Export Firm(s)",example:"YGT-HMS",rule:"v1.3: RU=2 firms (cash), KZ=1 firm. 24 firms total."},
+      {row:"R13",name:"Import firmasy",en:"Import Firm",example:"Nur-Alem",rule:"v1.3: 111 import firms across 8 countries"},
+      {row:"R5",name:"Sargytçy",en:"Customer",example:"Berik",rule:"Begjan, Berik, Eldar, Solmaz, Arap, YGT Gapy Satysh"},
+    ],
+    firmSplit:[
+      {firm:"Yigit H.J",kg:"10,000",usd:"$14,500"},
+      {firm:"Hemsaya H.J",kg:"8,403",usd:"$12,184"},
+    ],
+    kanban:"—",
+    note:"v1.3: Aganazar (corrected from Agamyrat). RU default = 2 export firms (cash only). KZ default = 1 firm. 10K rule NOT shown in UI. Gapy Satysh customers export through company — company prepares all docs. Export firm entered by Export Managers + Sulgun.",
+  },
+  { num:"0e", name_tk:"Transport meýilnamasy", name_en:"Transport Planning", who:"Transport depo", role:"Transport Department", icon:"🚛", phase:"PLANNING",
+    platform:"Fleet board (from Trip Management DB)",
+    description:"Transport department plans trucks and drivers based on the weekly plan. PAIN POINT: export managers complain transport enters truck/driver info LATE, causing delays. v1.3: 2,014 truck/driver records confirmed in Excel. Driver passport, tekhpasport, and license must be sent electronically to doc depo after truck selection.",
+    fields:[
+      {row:"R22",name:"Maşyn jogapkär",en:"Vehicle Responsible",example:"Malik",rule:"Malik / Haltac / Gapy Satyş"},
+      {row:"R23",name:"Sürüji",en:"Driver Name",example:"Mansur Marupov",rule:"v1.3: From 2,014 driver records in DB"},
+      {row:"—",name:"Sürüji pasport №",en:"Driver Passport No.",example:"FA0408084",rule:"v1.3: From truck & driver sheet"},
+      {row:"R27",name:"Öňdäki belgisi",en:"Front Plate",example:"3194AHF",rule:"v1.3: From truck & driver DB"},
+      {row:"R28",name:"Yzdaky belgisi",en:"Rear/Trailer Plate",example:"2411TAH",rule:"From Trip Mgmt DB"},
+      {row:"—",name:"Marka",en:"Truck Make",example:"VOLVO / MERCEDES",rule:"v1.3: From truck & driver sheet"},
+      {row:"R29",name:"Serhet çykyş nokady",en:"Border Exit Point",example:"Farap",rule:"Farap / Sarahs / Garabogaz"},
+    ],
+    kanban:"—",
+    note:"⚠️ PAIN: Transport enters truck/driver info late — holding up document preparation. Platform should auto-populate from Trip Management DB and alert when info is missing.",
+  },
+  // ═══ LOADING ═══
+  { num:1, name_tk:"Yüklenme", name_en:"Loading", who:"Soltanmyrat", role:"Head Greenhouse Export Ops", icon:"📦", phase:"LOADING",
+    platform:"Mobile form + weight input",
+    description:"Soltanmyrat generates the shipment code himself, selects which blocks to harvest from (1–3, rarely more), records weights and loading timestamps. Also fills BARLAG sheet with per-block kg breakdown. v1.3: NOT limited to tomatoes — system handles bell peppers, eggplant, cucumbers, etc.",
+    fields:[
+      {row:"R7",name:"Ýük Kody",en:"Shipment Code",example:"02FB005/26",rule:"Generated by Soltanmyrat. Format: DDMM+seq/YY"},
+      {row:"R8",name:"Pomidoryň ýygylan bölümi",en:"Harvest Block(s)",example:"B BLOK + C BLOK",rule:"1–3 blocks typical"},
+      {row:"R14",name:"Ýygym ýagdaýy",en:"Harvest Status",example:"Ýygylyp dur",rule:"After OK → calls driver to come"},
+      {row:"R17",name:"Önüm görnüşi",en:"Product Type",example:"Pomidor (Merjen)",rule:"v1.3: Pomidor / Bulgar / Badamjan / Hyyar / Other"},
+      {row:"R19",name:"Ýüklenme başlady",en:"Loading Start",example:"02.02 07:30",rule:"Timestamp"},
+      {row:"R20",name:"Ýüklenme gutardy",en:"Loading End",example:"02.02 09:15",rule:"Timestamp"},
+      {row:"R36",name:"Arassa agramy (r)",en:"Net Weight — PURE product",example:"18,100 kg",rule:"(r) = pure product weight only"},
+      {row:"R37",name:"Arassa agramy (h)",en:"Net Weight — WITH boxes",example:"18,403 kg",rule:"(h) = with boxes/packaging"},
+      {row:"R38",name:"Gaplaň agramy",en:"Packaging Weight",example:"2,400 kg",rule:"Default ~2,400 kg"},
+      {row:"—",name:"Brut agramy",en:"Gross Weight (brut)",example:"20,628 kg",rule:"v1.3: From gross net sheet. Brut = net + packaging + pallet"},
+      {row:"—",name:"Palet sany",en:"Pallet Count",example:"33",rule:"v1.3: From gross net data"},
+      {row:"—",name:"Palet agramy",en:"Pallet Weight",example:"433 kg",rule:"v1.3: Variable per shipment"},
+      {row:"R39",name:"Ýygylan senesi",en:"Harvest Date",example:"02.02.2026",rule:"Date picked"},
+    ],
+    blockSource:[{block:"B BLOK",kg:"12,371"},{block:"C BLOK",kg:"6,032"}],
+    kanban:"Loading",
+    note:"BARLAG sheet: Soltanmyrat records per-block kg for every truck (ShipmentBlockSource model). After harvest status = OK, he or transport calls the driver.",
+  },
+  { num:"1b", name_tk:"Hil barlagy", name_en:"Quality Inspection Gate", who:"Hil Barlagçy (per greenhouse)", role:"Quality Inspector — NEW in v1.2", icon:"🔍", phase:"LOADING",
+    platform:"Quality checklist form → 4 PDF documents",
+    description:"v1.2 CORRECTED: Hil Barlagçy is NOT one person — it's a ROLE with a separate inspector in each greenhouse. They inspect quality, reject non-export grade, set transport temperature, determine transit days and shelf life. They produce 4 quality documents per truck. v1.3: Applies to all products, not just tomatoes.",
+    fields:[
+      {row:"R26",name:"Ýolda bolmaly gün / temperatura",en:"Transit Days + Temp",example:"5 gün 11°C",rule:"Inspector decides based on quality"},
+      {row:"—",name:"Ret edilen kg",en:"Rejected Weight",example:"230 kg",rule:"Non-export grade separated"},
+      {row:"—",name:"Ýaramlylyk möhleti",en:"Shelf Life",example:"20 gün",rule:"Days until tomatoes go bad"},
+    ],
+    qualityDocs:[
+      {name:"Azyk önümleriň Maglumatnama",en:"Loading & Transport Certificate"},
+      {name:"Awtoulag sürüjisine gözükdiriji",en:"Driver Temperature Instruction"},
+      {name:"Hil barlag sertifikaty",en:"Quality Inspection Certificate"},
+      {name:"Kalibrowka Analiz",en:"Calibration / Sizing Analysis"},
+    ],
+    kanban:"Loading",
+    note:"v1.2: Each greenhouse has its OWN Hil Barlagçy. They physically inspect tomatoes, measure sizes (kalibrowka), set temp for truck refrigerator, determine transit days. Non-export tomatoes rejected here.",
+  },
+  // ═══ DOCS ═══
+  { num:2, name_tk:"Gümrük girish", name_en:"Customs Entry (TM)", who:"Shirin / Sulgun / Aynur", role:"Document Team (4 people, 1 room) — CORRECTED v1.2", icon:"📋", phase:"DOCS",
+    platform:"Document auto-generation (8 customs docs)",
+    description:"v1.3 UPDATED: Document team is 4 people (Shohrat, Shirin, Sulgun, Aynur) all in one room doing the same work. They prepare 8 customs document types and submit to TM customs. Must be ready by 13:00 deadline. After truck is selected for export, electronic copies of driver passport, technical passport (tekhpasport), and transport license must be sent to documentation depo — from BOTH own company AND Gapy Satysh transport. Own transport docs stored permanently in DB. Gapy Satysh also submits a GPS list document. CMR is a BLANK PAPER form, not electronic.",
+    fields:[
+      {row:"R6",name:"Resminamalaryň ýagdaýy",en:"Document Status",example:"OK",rule:"OK / Tayyar / Dowam edyar / Yok / W/E"},
+      {row:"R18",name:"Gümrük girish wagty",en:"Customs Entry Time",example:"02.02 10:30",rule:"Often BEFORE loading (planned)"},
+      {row:"—",name:"Sürüji pasporty",en:"Driver Passport (electronic)",example:"Uploaded PDF",rule:"v1.3: Must be sent electronically to doc depo"},
+      {row:"—",name:"Tehpasport",en:"Technical Passport (electronic)",example:"Uploaded PDF",rule:"v1.3: From own transport DB or Gapy Satysh upload"},
+      {row:"—",name:"Transport lisenziyasy",en:"Transport License (electronic)",example:"Uploaded PDF",rule:"v1.3: From BOTH own company AND Gapy Satysh"},
+      {row:"—",name:"GPS sanaw (Gapy Satysh)",en:"GPS List (Gapy Satysh only)",example:"Uploaded PDF",rule:"v1.3: Additional doc required from Gapy Satysh"},
+    ],
+    documents:["CMR (Russian) — BLANK PAPER","CMR (English) — BLANK PAPER","Invoice (RU/EN)","Customs Declaration","Fito Certificate","CT-1 Certificate","TIR Carnet (UZ only)","CMR 3-firm (rare)"],
+    kanban:"Loading",
+    note:"⏰ 13:00 DEADLINE. v1.3: Electronic docs (driver passport, tekhpasport, license) must be sent to doc depo after truck selection. CMR is BLANK PAPER form. Gapy Satysh also submits GPS list. Shohrat opens one-time contracts.",
+  },
+  { num:"2b", name_tk:"Maliýe", name_en:"Finance / Cash Advance", who:"Babageldi", role:"FINANSIST — CORRECTED v1.2 (was incorrectly 'Quality Control')", icon:"💵", phase:"DOCS",
+    platform:"Cash advance tracker with shipment linking",
+    description:"v1.2 MAJOR CORRECTION: Babageldi is the FINANSIST, not quality control. He gives money for customs processing and document preparation for 5–20 exports at a time. His biggest pain: after giving money, exports get changed or deleted, and he can't reconcile.",
+    fields:[
+      {row:"—",name:"Berilen pul",en:"Cash Advance Amount",example:"5,000 TMT",rule:"For 5-20 exports at once"},
+      {row:"—",name:"Degişli ýük kodlary",en:"Linked Shipment Codes",example:"02FB005-02FB020",rule:"Batch of codes"},
+    ],
+    kanban:"Loading",
+    note:"🚨 PAIN: 'After I gave money, they changed the export or deleted some. I noted the codes but can't find them later. Bosses ask ME why I gave money.' → Platform: CashAdvance model with auto-alert when linked shipment is modified/deleted.",
+  },
+  { num:3, name_tk:"Gümrük chykysh", name_en:"Customs Cleared (TM)", who:"Shirin", role:"Document Team", icon:"✅", phase:"DOCS",
+    platform:"Status auto-update",
+    description:"TM customs approves the export. Document team records clearance timestamp. Green light for departure.",
+    fields:[{row:"R25",name:"Gümrük chykysh wagty",en:"Customs Clear Time",example:"02.02 11:45",rule:"Timestamp — gate to departure"}],
+    kanban:"Loading",
+    note:"Customs clearance (R25) is frequently BEFORE loading start (R19) — export customs processed on planned shipment basis.",
+  },
+  // ═══ TRANSIT ═══
+  { num:4, name_tk:"Yola chykdy", name_en:"Departed Greenhouse", who:"Mergen", role:"Dispatch", icon:"🚛", phase:"TRANSIT",
+    platform:"GPS tracking starts + structured status + comments thread",
+    description:"Truck departs greenhouse. Mergen timestamps departure. v1.2: The R15 'vehicle status' field starts as transport info but degrades into a messy notepad where EVERYONE writes. Platform needs: structured status dropdown + separate comments thread.",
+    fields:[
+      {row:"R21",name:"Ýola çykan wagty",en:"Departure Time",example:"02.02 12:30",rule:"Mergen timestamps"},
+      {row:"R15",name:"Maşynyň ýagdaýy",en:"Vehicle Status → MESSY NOTEPAD",example:"Serhetde dur / various notes",rule:"v1.2: Transport fills first, then everyone writes. Needs split into status + comments."},
+    ],
+    kanban:"In Transit",
+    note:"v1.2: R15 is the #1 messy field. Transport writes status first, then it becomes stale and everyone adds notes. Platform: structured vehicle_status dropdown + ShipmentComment thread.",
+  },
+  { num:5, name_tk:"Serhet TM", name_en:"At TM Border", who:"Haltac / Driver", role:"Transport", icon:"🛃", phase:"TRANSIT",
+    platform:"Geofence alert (future: GPS auto-detect)",
+    description:"Truck arrives at Turkmenistan border point. Haltac reports arrival time.",
+    fields:[{row:"R30",name:"Serhetden geçen wagty (TM)",en:"TM Border Exit Time",example:"02.02 18:00",rule:"Haltac fills this"}],
+    kanban:"In Transit",
+    note:"Future: GPS geofence at Farap/Sarahs/Garabogaz auto-triggers status. Currently Haltac calls in the timestamp.",
+  },
+  { num:6, name_tk:"Serhet gechdi", name_en:"Border Crossed", who:"Driver", role:"Transport", icon:"🌍", phase:"TRANSIT",
+    platform:"Auto-status update from GPS",
+    description:"Truck crossed into destination country (KZ, RU, or UZ).",
+    fields:[{row:"—",name:"Serhet gechdi wagty",en:"Border Crossing Time",example:"02.02 20:30",rule:"Auto from GPS or manual"}],
+    kanban:"In Transit",
+    note:"If crossing to UZ → TIR Carnet required. Transit: KZ ~1-2 days, RU ~3-5 days (via KZ), UZ ~1 day.",
+  },
+  { num:7, name_tk:"Baryş gümrügi", name_en:"Destination Customs", who:"Broker / Arap", role:"Sales Rep", icon:"🏛️", phase:"TRANSIT",
+    platform:"Status update",
+    description:"Truck clears customs in destination country. For Russia via KZ, two customs stops.",
+    fields:[{row:"R31",name:"Baryş gümrük wagty",en:"Dest Customs Clear Time",example:"04.02 14:00",rule:"Arap/Aganazar fills"}],
+    kanban:"In Transit",
+    note:"For Russia via Kazakhstan: two customs stops (exit KZ + enter RU). v1.2: Export CITY may still be decided here.",
+  },
+  { num:8, name_tk:"Yolda", name_en:"In Transit to City", who:"GPS / System", role:"Automated", icon:"🛰️", phase:"TRANSIT",
+    platform:"Live map tracking",
+    description:"Truck moving toward destination. GPS tracks position. v1.2: Export CITY may still be decided here — it's decided LATE.",
+    fields:[
+      {row:"R4",name:"Goşmaça maglumat",en:"Additional Notes",example:"DONANCYLYK SEBÄPLI GIÇ",rule:"Weather/delay notes"},
+      {row:"R11",name:"Barýan şäheri",en:"Destination City",example:"Almaty",rule:"v1.2: Decided LATE — may be set here or at arrival"},
+    ],
+    kanban:"In Transit",
+    note:"v1.2 CORRECTED: Export city decided LATE. Weather delay tracking needed. Platform will add delay reason categories.",
+  },
+  // ═══ DESTINATION ═══
+  { num:9, name_tk:"Bardy", name_en:"Arrived at City", who:"Arap / Aganazar", role:"Sales Rep", icon:"📍", phase:"DESTINATION",
+    platform:"Notification + peregruz tracking (KZ only)",
+    description:"v1.3 UPDATED: PEREGRUZ only in Kazakhstan — truck arrives at hub, load broken into smaller vehicles going to different cities. Gapy Satysh trucks CAN exceed 18,100 kg — they use their own trucks with no weight limit.",
+    fields:[
+      {row:"R32",name:"Baran wagty",en:"Arrival Time",example:"05.02 09:00",rule:"Sales rep confirms"},
+      {row:"R12",name:"Baryş şäheri",en:"Final City",example:"Almaty",rule:"May be confirmed/changed here"},
+      {row:"R34",name:"Peregruz ýagdaýy",en:"Transloading Status",example:"Peregruz boldy",rule:"v1.2: ONLY in Kazakhstan"},
+      {row:"R35",name:"Peregruz wagty",en:"Transloading Time",example:"05.02 08:00",rule:"Before sale start, KZ hub only"},
+    ],
+    kanban:"At Destination",
+    note:"v1.2 CORRECTED: Peregruz ONLY in Kazakhstan. Truck → hub → smaller vehicles → different cities. Russia does NOT have peregruz.",
+  },
+  { num:10, name_tk:"Satylyär", name_en:"Being Sold", who:"Arap / Aganazar", role:"Sales Rep", icon:"💰", phase:"DESTINATION",
+    platform:"Status update + price tracking",
+    description:"Produce being sold at destination market.",
+    fields:[{row:"R33",name:"Satyş başlady",en:"Sale Start",example:"05.02 10:00",rule:"Market opens"}],
+    kanban:"At Destination",
+    note:"Sellers sell in different cities. Manager calls each seller, writes paper notebook. Quality deterioration starts — Hil Barlagçy's temp/transit settings are critical.",
+  },
+  { num:11, name_tk:"Satyldy", name_en:"Fully Sold", who:"Arap / Aganazar", role:"Sales Rep", icon:"✅", phase:"DESTINATION",
+    platform:"Price + weight confirmed",
+    description:"All produce sold. Price and actual weight confirmed.",
+    fields:[
+      {row:"R41",name:"Satyş gutardy",en:"Sale End",example:"06.02 16:00",rule:"All sold"},
+      {row:"R42",name:"Satylan agramy",en:"Weight Sold (kg)",example:"17,850 kg",rule:"May differ from loaded"},
+      {row:"R43",name:"Satyş bahasy",en:"Sale Price ($/kg)",example:"$1.45/kg",rule:"Average price"},
+    ],
+    kanban:"At Destination",
+    note:"Weight diff: loaded 18,403 vs sold 17,850 = 553 kg loss (spoilage, transit damage, moisture). v1.3: Not tomato-only — system handles all greenhouse products.",
+  },
+  { num:12, name_tk:"Hasabat", name_en:"Report Submitted", who:"Arap / Aganazar", role:"Sales Rep", icon:"📝", phase:"DESTINATION",
+    platform:"MANDATORY form → Mobile CRM (wanted by bosses)",
+    description:"v1.3 UPDATED: Sales report data confirmed from Hasabat Excel (Begjan ~332, Berik ~335 records per season). Report includes: sold kg, waste (othod), net sold (arassa satylan), unit price, avg KZ sale price, total price, firm, contract. Currently ONLY from Kazakhstan via WhatsApp. Russia is new market with reporting problems. Bosses want MOBILE CRM (planned as separate project AFTER this platform — API-first architecture).",
+    fields:[
+      {row:"R44",name:"Hasabat geldi",en:"Report Received Date",example:"07.02.2026",rule:"MANDATORY — blocks closing"},
+      {row:"—",name:"Satylan Kg",en:"Total Sold Weight",example:"18,507 kg",rule:"v1.3: From Hasabat Excel"},
+      {row:"—",name:"Othod Kg",en:"Waste Weight",example:"133 kg",rule:"v1.3: Spoilage/transit damage"},
+      {row:"—",name:"Arassa satylan Kg",en:"Net Sold Weight",example:"18,374 kg",rule:"v1.3: Sold minus waste"},
+      {row:"—",name:"Birlik Bahasy",en:"Unit Price",example:"750.01",rule:"v1.3: Local currency per kg"},
+      {row:"—",name:"Gazakda Satys ortaca baha",en:"Avg KZ Sale Price ($)",example:"1.55",rule:"v1.3: USD equivalent avg"},
+      {row:"—",name:"Jemi Bahasy",en:"Total Price",example:"13,780,725",rule:"v1.3: Auto-calc: net kg × unit price"},
+      {row:"—",name:"Firma / Kontrakt",en:"Firm & Contract No",example:"Nur-Alem / 177/25-YGT-EXP",rule:"v1.3: Links to P4 contracts"},
+      {row:"—",name:"Çykdajylar",en:"Expenses",example:"$3,200",rule:"Transport + market fees"},
+      {row:"—",name:"Satyjyga berilen",en:"Amount Given to Seller",example:"$800",rule:"Per seller payment"},
+    ],
+    kanban:"At Destination",
+    note:"🚨 v1.3: Hasabat data confirmed from Excel (332+ records per customer per season). City breakdown: Astana, Karaganda, Almaty, Shimkent. Russia = new market, no hasabat system. Mobile CRM is NEXT PROJECT — current platform must be API-first to enable handoff.",
+  },
+  // ═══ CLOSE ═══
+  { num:13, name_tk:"Tamamlandy", name_en:"Completed / Closed", who:"Accounting", role:"Finance", icon:"🔒", phase:"CLOSE",
+    platform:"Auto-close when all conditions met",
+    description:"All payments received, report filed, Babageldi's cash advance reconciled. Feeds P4 Contracts (31 active contracts confirmed) and P5 Finance (monthly payment matrices by firm).",
+    fields:[
+      {row:"—",name:"Ýapylan senesi",en:"Close Date",example:"15.02.2026",rule:"Auto when all conditions met"},
+      {row:"—",name:"Töleg statusy",en:"Payment Status",example:"Doly tölenildi",rule:"Full / Partial / Pending"},
+    ],
+    kanban:"Completed",
+    note:"Conditions: (1) Sales report received, (2) Payment confirmed, (3) All timestamps filled, (4) Babageldi's cash advance reconciled. Feeds quota accounting.",
+  },
+];
+
+let activeStep = 0;
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function render() {
+  const step = ALL_STEPS[activeStep];
+  const ph = PHASE_COLORS[step.phase] || {bg:"#edf2f7",text:"#4a5568"};
+  const isCorr = (step.description||'').includes('CORRECTED') || (step.description||'').includes('CORRECTION') || (step.description||'').includes('v1.3 UPDATED');
+  const isNew = (step.role||'').includes('NEW in v1.2') || (step.role||'').includes('NEW in v1.3');
+  const totalFields = ALL_STEPS.reduce((s,st)=>s+st.fields.length,0);
+  const filledFields = ALL_STEPS.slice(0,activeStep+1).reduce((s,st)=>s+st.fields.length,0);
+  const totalRoles = new Set(ALL_STEPS.map(s=>s.who)).size;
+  const filledRoles = new Set(ALL_STEPS.slice(0,activeStep+1).map(s=>s.who)).size;
+
+  let html = `
+  <div class="header">
+    <div class="header-top">
+      <div>
+        <div class="header-sub">P3 Export Module</div>
+        <h1>Shipment Lifecycle v1.3 — One Record View</h1>
+        <div class="header-info">Tracking <span class="code">02FB005/26</span> · <span class="corrections">v1.3: post-TZ Excel analysis + domain corrections</span> · ${ALL_STEPS.length} steps · 12 docs per truck · 8 countries · 1,959 shipments/season</div>
+      </div>
+      <div class="phase-tags">
+        ${Object.entries(PHASE_COLORS).map(([n,c])=>`<span class="phase-tag" style="background:${c.bg}33;color:${c.text};border:1px solid ${c.text}44">${n}</span>`).join('')}
+      </div>
+    </div>
+  </div>
+
+  <div class="timeline-wrap">
+    <div class="timeline">
+      ${ALL_STEPS.map((s,i)=>{
+        const p=PHASE_COLORS[s.phase]||{bg:"#edf2f7",text:"#4a5568"};
+        const act=activeStep===i;
+        const hasDot=(s.description||'').includes('CORRECTED')||(s.role||'').includes('NEW');
+        return `<button class="timeline-btn${act?' active':''}" onclick="goStep(${i})" style="${act?`border-color:${p.text};background:${p.bg}22;color:${p.text}`:`color:#718096`}">
+          ${hasDot?'<div class="correction-dot"></div>':''}
+          <span class="icon">${s.icon}</span>
+          <span class="num">${s.num}</span>
+          <span class="label">${esc(s.name_tk)}</span>
+        </button>`;
+      }).join('')}
+    </div>
+  </div>
+
+  <div class="progress-bar"><div class="progress-fill" style="width:${(activeStep/(ALL_STEPS.length-1))*100}%;background:linear-gradient(90deg,${ph.text},${ph.bg})"></div></div>
+
+  <div class="main">`;
+
+  // Correction/New banner
+  if(isCorr||isNew) {
+    html+=`<div class="correction-banner"><span style="font-size:16px">⚠️</span><span>${isNew?'NEW in v1.2 — This step was not in v1.1':isCorr&&(step.description||'').includes('v1.3')?'UPDATED in v1.3 — Contains corrections from post-TZ Excel analysis (1,959 shipments, 111 import firms, 24 export firms)':'CORRECTED in v1.2 — Contains factual corrections from field research'}</span></div>`;
+  }
+
+  // Step card
+  html+=`<div class="step-card" style="border:1px solid ${ph.text}55">
+    <div class="step-header" style="background:${ph.text}22">
+      <div class="step-title-row">
+        <div class="step-icon">${step.icon}</div>
+        <div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="step-name" style="color:${ph.bg}">Step ${step.num}: ${esc(step.name_tk)}</span>
+            <span class="step-phase-tag" style="background:${ph.bg}33;color:${ph.text}">${step.phase}</span>
+          </div>
+          <div class="step-en">${esc(step.name_en)}</div>
+        </div>
+      </div>
+      <div class="step-meta">
+        <div class="step-meta-item"><div class="step-meta-label">Who</div><div class="step-meta-val">${esc(step.who)}</div></div>
+        <div class="step-meta-item"><div class="step-meta-label">Role</div><div class="step-meta-val">${esc((step.role||'').split('—')[0].trim())}</div></div>
+        <div class="step-meta-item"><div class="step-meta-label">Kanban</div><div class="step-meta-val kanban">${esc(step.kanban)}</div></div>
+      </div>
+    </div>
+    <div class="step-body" style="border-top:1px solid ${ph.text}33">
+      <div class="step-desc">${esc(step.description)}</div>
+      <div class="step-platform"><b style="color:${ph.bg}">Platform:</b> ${esc(step.platform)}</div>
+    </div>
+  </div>`;
+
+  // Fields table
+  html+=`<div class="fields-card">
+    <div class="fields-header"><span>Fields at This Step</span><span class="fields-count">${step.fields.length}</span></div>
+    <div style="overflow-x:auto"><table>
+      <thead><tr><th>Row</th><th>Field (TK)</th><th>English</th><th>Example</th><th>Rule / Note</th></tr></thead>
+      <tbody>
+        ${step.fields.map(f=>{
+          const isV12=f.rule.includes('v1.2');
+          return `<tr${isV12?' class="v12-row"':''}>
+            <td class="row-ref">${esc(f.row)}</td>
+            <td class="field-name">${esc(f.name)}</td>
+            <td class="field-en">${esc(f.en)}</td>
+            <td><span class="field-example" style="background:${ph.text}33;color:${ph.bg}">${esc(f.example)}</span></td>
+            <td class="field-rule${isV12?' v12':''}" style="color:${isV12?'#fc8181':'#718096'}">${esc(f.rule)}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table></div>
+  </div>`;
+
+  // Block sources
+  if(step.blockSource) {
+    html+=`<div class="extra-card" style="border:1px solid #276749">
+      <div class="extra-header" style="border-bottom:1px solid #27674955;color:#c6f6d5">BARLAG — Block Source Breakdown</div>
+      <div class="extra-body">
+        ${step.blockSource.map(b=>`<div class="extra-row"><span style="color:#e2e8f0;font-weight:500">${esc(b.block)}</span><span style="color:#c6f6d5;font-family:monospace">${esc(b.kg)} kg</span></div>`).join('')}
+        <div class="extra-total" style="border-color:#276749"><span>TOTAL</span><span>18,403 kg</span></div>
+      </div>
+    </div>`;
+  }
+
+  // Firm split
+  if(step.firmSplit) {
+    html+=`<div class="extra-card" style="border:1px solid #553c9a">
+      <div class="extra-header" style="border-bottom:1px solid #553c9a55;color:#e9d8fd">Export Firm Split</div>
+      <div class="extra-body">
+        ${step.firmSplit.map(f=>`<div class="extra-row"><span style="color:#e2e8f0;font-weight:500">${esc(f.firm)}</span><div style="display:flex;gap:16px"><span style="color:#a0aec0;font-family:monospace">${esc(f.kg)} kg</span><span style="color:#c6f6d5;font-family:monospace;font-weight:600">${esc(f.usd)}</span></div></div>`).join('')}
+        <div class="tenk-box" style="background:#553c9a22;color:#e9d8fd">Defaults: Russia = 2 firms (cash only) | Kazakhstan = 1 firm | Own export only</div>
+      </div>
+    </div>`;
+  }
+
+  // Customs docs
+  if(step.documents) {
+    html+=`<div class="extra-card" style="border:1px solid #2b6cb0">
+      <div class="extra-header" style="border-bottom:1px solid #2b6cb055;color:#bee3f8">8 Customs Documents + Electronic Docs to Depo (Shohrat + Shirin + Sulgun + Aynur)</div>
+      <div class="doc-grid">
+        ${step.documents.map(d=>`<div class="doc-item"><span>${esc(d)}</span><span>✅</span></div>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  // Quality docs
+  if(step.qualityDocs) {
+    html+=`<div class="extra-card" style="border:1px solid #276749">
+      <div class="extra-header" style="border-bottom:1px solid #27674955;color:#c6f6d5">
+        <span>4 Quality Documents (Hil Barlagçy) — NEW in v1.2</span>
+        <span style="font-size:10px;padding:2px 8px;border-radius:4px;background:#fc818133;color:#fc8181">Was missing in v1.1</span>
+      </div>
+      <div class="extra-body">
+        ${step.qualityDocs.map(d=>`<div class="qdoc-row"><div><div class="qdoc-name">${esc(d.name)}</div><div class="qdoc-en">${esc(d.en)}</div></div><span style="font-size:14px">✅</span></div>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  // Managers
+  if(step.managers) {
+    html+=`<div class="extra-card" style="border:1px solid #553c9a">
+      <div class="extra-header" style="border-bottom:1px solid #553c9a55;color:#e9d8fd">7 Block Managers — Hepdelik Planlama</div>
+      <div style="overflow-x:auto"><table>
+        <thead><tr><th>Manager</th><th>Phone</th><th>Blocks</th></tr></thead>
+        <tbody>
+          ${step.managers.map(m=>`<tr${m.name==='(Unknown)'?' class="mgr-unknown"':''}>
+            <td style="color:${m.name==='(Unknown)'?'#fc8181':'#e2e8f0'};font-weight:500">${esc(m.name)}</td>
+            <td style="color:#a0aec0;font-family:monospace;font-size:11px">${esc(m.phone)}</td>
+            <td style="color:#fbd38d;font-weight:500">${esc(m.blocks)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div>
+    </div>`;
+  }
+
+  // Note
+  html+=`<div class="note-box" style="border-left-color:${ph.text}"><b>Note:</b> ${esc(step.note)}</div>`;
+
+  // Nav
+  html+=`<div class="nav">
+    <button class="nav-btn prev" onclick="goStep(${activeStep-1})" ${activeStep===0?'disabled':''}>← Prev</button>
+    <span class="nav-counter">${activeStep+1} / ${ALL_STEPS.length}</span>
+    <button class="nav-btn next" onclick="goStep(${activeStep+1})" style="background:${activeStep===ALL_STEPS.length-1?'#2d3748':ph.text}" ${activeStep===ALL_STEPS.length-1?'disabled':''}>Next →</button>
+  </div>`;
+
+  // Stats
+  html+=`<div class="stats-card">
+    <div class="stats-label">Record Progress</div>
+    <div class="stats-bar">
+      ${ALL_STEPS.map((s,i)=>{
+        const p2=PHASE_COLORS[s.phase]||{text:"#718096"};
+        const filled=i<=activeStep;
+        const fl=Math.max(s.fields.length,1);
+        const br=i===0?'3px 0 0 3px':i===ALL_STEPS.length-1?'0 3px 3px 0':'0';
+        return `<div class="stats-seg" style="flex:${fl};background:${filled?p2.text:'#2d3748'};border-radius:${br};color:${filled?'#fff':'#4a5568'}">${s.fields.length>1?s.fields.length:''}</div>`;
+      }).join('')}
+    </div>
+    <div class="stats-row">
+      <span>Fields: <span class="val">${filledFields}</span> / ${totalFields}</span>
+      <span>Roles: <span class="val">${filledRoles}</span> / ${totalRoles}</span>
+      <span>Docs: <span class="val">${activeStep>=7?'4 quality':'0'}${activeStep>=8?' + 8 customs + 4 electronic = 16':''}</span></span>
+    </div>
+  </div>`;
+
+  html+=`</div>`; // main
+  document.getElementById('app').innerHTML = html;
+}
+
+function goStep(i) {
+  if(i<0||i>=ALL_STEPS.length) return;
+  activeStep=i;
+  render();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+document.addEventListener('keydown', e => {
+  if(e.key==='ArrowRight'||e.key==='ArrowDown') goStep(activeStep+1);
+  if(e.key==='ArrowLeft'||e.key==='ArrowUp') goStep(activeStep-1);
+});
+
+render();
+</script>
+</body>
+</html>

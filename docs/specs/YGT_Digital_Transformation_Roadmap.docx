@@ -1,0 +1,1212 @@
+🍅
+
+**YGT HOLDING**
+
+**DIGITAL TRANSFORMATION**
+
+**ROADMAP**
+
+*From Greenhouse to Global Market*
+
+Complete Value Chain Digitalization
+
+Greenhouse → Harvest → Transport → Export → Contracts → Finance
+
+  -------------------- ---------------------------------------------------
+  **Document**         YGT Digital Transformation Roadmap v1.0
+
+  **Date**             February 2026
+
+  **Status**           For Management Review & Approval
+
+  **Classification**   CONFIDENTIAL --- Internal Only
+
+  **Prepared By**      Data Analytics Department
+
+  **Based On**         Analysis of 983 shipments, 461 invoices, 28
+                       contracts, 24 export firms, 111 buyers
+
+  **Deliverables**     5 Projects × Full Technical Specification + UI/UX
+                       Prototype
+  -------------------- ---------------------------------------------------
+
+**TABLE OF CONTENTS**
+
+**1. EXECUTIVE SUMMARY**
+
+YGT Holding operates a vertically integrated tomato export business
+spanning greenhouse cultivation, international logistics, multi-firm
+export structures, and financial management. Currently, the entire
+operation runs on **Excel spreadsheets, phone calls, and WhatsApp
+messages**. This document presents a comprehensive plan to digitalize
+the complete value chain.
+
++-----------------+-----------------+-----------------+-----------------+
+| **SHIPMENTS     | **INVOICES      | **OUTSTANDING   | **MISSING       |
+| ANALYZED**      | ANALYZED**      | DEBT**          | REPORTS**       |
+|                 |                 |                 |                 |
+| **983**         | **461**         | **\$8.3M**      | **90**          |
++-----------------+-----------------+-----------------+-----------------+
+
+**1.1 Key Findings**
+
+  -------- ------------------------ ------------------------- -----------------
+  **\#**   **Finding**              **Impact**                **Project**
+
+  1        **983 shipments tracked  High error risk, no       P3 Export
+           in Excel** with 44       real-time visibility, 9   
+           fields each              roles editing same file   
+
+  2        **\$8.3M outstanding     Cash flow crisis, firms   P4 Contracts
+           debt** across 28         cannot repay bank credits 
+           contracts (57% unpaid)                             
+
+  3        **90 sales reports       Revenue leakage, no       P3 Export
+           missing** --- trucks     accountability for sales  
+           sold but no report filed reps                      
+
+  4        **\$10K rule** ---       35.6% invoices \$5-8K     P4 Contracts
+           bimodal distribution     (cash), 60.7% \$15-20K    
+           proves systematic cash   (bank), 0% near \$10K     
+           optimization                                       
+
+  5        **24 export firms** with 2 CMR documents per split P4 Contracts
+           complex splitting        truck, quota impact per   
+           (2-firm common, 3-firm   firm                      
+           rare)                                              
+
+  6        **15 greenhouse blocks** Cannot predict            P1 Greenhouse
+           --- no digital harvest   availability, reactive    
+           tracking                 logistics                 
+
+  7        **8 document types**     2-3 hours daily on manual P4 Documents
+           filled manually by       template filling          
+           Sirin/Aynur daily by                               
+           13:00                                              
+
+  8        **No unified dashboard** Delayed decision-making,  P5 Finance
+           --- executives call      no strategic visibility   
+           departments for                                    
+           information                                        
+  -------- ------------------------ ------------------------- -----------------
+
+**1.2 Proposed Solution**
+
+**5 interconnected projects** covering the entire value chain, built on
+a unified Django+React platform with shared MSSQL database. Total
+timeline: **12 months**. Priority: Export Operations first (most pain,
+most data available).
+
++-------------+-------------+-------------+-------------+-------------+
+| **P1**      | **P2**      | **P3**      | **P4**      | **P5**      |
+|             |             |             |             |             |
+| **G         | **          | **EXPORT**  | **          | **FINANCE** |
+| REENHOUSE** | TRANSPORT** |             | CONTRACTS** |             |
++-------------+-------------+-------------+-------------+-------------+
+| Ekish, Ideg | 2,014       | 983         | 28          | Logo Tiger  |
+| Dökün,      | trucks      | shipments   | contracts   | 1C, Kredit  |
+| Hasyl 15    | Süriji, GPS | 13 steps 9  | \$10K rule  | Dashboard   |
+| blok        | Navixy      | roles       | 8 doc types |             |
++-------------+-------------+-------------+-------------+-------------+
+
+**2. CURRENT STATE ANALYSIS (AS-IS)**
+
+**2.1 How the Business Operates Today**
+
+The tomato export operation follows a fixed seasonal cycle
+(September--March). Every day, management coordinates **15+ greenhouse
+blocks, 24 export firms, 111 import companies, 2,000+ trucks, and 9
+operational roles** using phone calls, WhatsApp, and Excel.
+
+**The Daily Workflow (Manual)**
+
+  -------- ---------- ---------------------- ------------------ -----------------
+  **\#**   **Time**   **Activity**           **Who**            **Tool Used**
+
+  1        06:00      **Decide harvest       Gadam              Phone calls +
+                      blocks** --- which                        memory
+                      blocks to pick today,                     
+                      how much kg                               
+
+  2        07:00      **Loading** --- weigh  Soltanmyrat        Paper + WhatsApp
+                      tomatoes, load into                       photo
+                      truck, record weight                      
+
+  3        08:00      **Decide destination** Gadam + Agamyrat   Phone discussion
+                      --- which country,                        
+                      city, customer, import                    
+                      firm                                      
+
+  4        08:30      **Decide export        Gadam + Agamyrat   Mental
+                      firms** --- which 1-3                     calculation
+                      firms to put on                           
+                      documents, split kg                       
+
+  5        09:00      **Prepare documents**  Sirin / Aynur      Excel templates +
+                      --- CMR, invoice,                         manual fill
+                      customs, fito, CT-1 (8                    
+                      types!)                                   
+
+  6        10:00      **Customs clearance**  Sirin              Paper documents
+                      --- submit documents                      
+                      to Turkmen customs                        
+
+  7        13:00      **DEADLINE** --- all   Sirin / Aynur      Deadline pressure
+                      documents must be                         
+                      ready                                     
+
+  8        14:00      **Truck departs** ---  Transport          Phone call
+                      driver leaves toward                      notification
+                      border                                    
+
+  9        1-7 days   **In transit** --- no  Driver             Phone calls
+                      real-time tracking,                       
+                      rely on driver phone                      
+                      calls                                     
+
+  10       Arrival    **Sales** --- rep      Arap / Aganazar    WhatsApp / Phone
+                      sells at destination,                     
+                      should submit report                      
+
+  11       ???        **Report** --- 90 out  Arap / Aganazar    Should use Excel,
+                      of 461 reports are                        often don't
+                      MISSING                                   
+  -------- ---------- ---------------------- ------------------ -----------------
+
+**2.2 Current Systems Landscape**
+
+  ---------------- ------------------ ------------------ -----------------
+  **System**       **Purpose**        **Status**         **Integration
+                                                         Plan**
+
+  **Excel (Main)** 983 shipments, 44  Active --- PRIMARY Replace with P3
+                   fields, 9 roles    system             Export
+                   edit                                  
+
+  **Excel          28 contracts, 461  Active             Replace with P4
+  (Contracts)**    invoices, 8 doc                       Contracts
+                   templates                             
+
+  **Logo Tiger     Formal accounting, Active (MSSQL)     READ integration
+  ERP**            tax reporting                         in P5
+
+  **1C             Credit/loan        Active (Russian    Manual import →
+  Buhgalteriya**   management, bank   software)          API later
+                   accounts per firm                     
+
+  **Trip           Driver expenses,   Active (internal   REST API
+  Management**     fuel costs         build)             integration in P2
+                   (Django+React)                        
+
+  **Navixy GPS**   Teltonika devices  Planned / Partial  API integration
+                   on some trucks                        in P2
+
+  **WhatsApp       Communication      Active ---         Replace with
+  Groups**         between all roles  CRITICAL           in-app
+                                                         notifications
+
+  **Phone Calls**  Decision-making,   Active --- DAILY   Replace with
+                   status updates                        dashboard +
+                                                         alerts
+  ---------------- ------------------ ------------------ -----------------
+
+**2.3 Pain Points by Role**
+
+  ---------------- --------------- ---------------------- -----------------------
+  **Role**         **Person(s)**   **Biggest Pain Point** **Digital Solution**
+
+  **Logist**       Gadam, Agamyrat No visibility into     Dashboard with
+                                   available harvest,     real-time data
+                                   trucks, firm quotas.   
+                                   All decisions via      
+                                   phone.                 
+
+  **Sklad**        Soltanmyrat     Manual weight          Mobile harvest input
+                                   recording on paper.    form
+                                   Photos via WhatsApp.   
+                                   No digital log.        
+
+  **Document**     Sirin, Aynur    Fill 4-8 Excel         Auto-generate from
+                                   templates per truck    shipment data
+                                   DAILY by 13:00         
+                                   deadline. Error-prone. 
+
+  **Transport**    Malik, Haltac   No truck availability  Fleet availability
+                                   board. Don't know      dashboard
+                                   which trucks are free. 
+
+  **Sales Rep**    Arap, Aganazar  No enforcement of      Mandatory report before
+                                   sales report           closing
+                                   submission. 90 reports 
+                                   missing.               
+
+  **Accounting**   Office staff    Check 3 separate       Unified finance
+                                   systems (Excel, Logo   dashboard
+                                   Tiger, 1C) for         
+                                   financial picture.     
+
+  **Management**   Directors       Must call departments  Executive dashboard +
+                                   for information. No    reports
+                                   single source of       
+                                   truth.                 
+  ---------------- --------------- ---------------------- -----------------------
+
+**2.4 Data-Driven Insights from Excel Analysis**
+
+**2.4.1 Shipment Volume & Seasonality (983 shipments)**
+
+  ------------ --------------- ------------ ----------------- ------------ -------------
+  **Month**    **Shipments**   **Tonnes**   **Revenue**       **Avg        **Trend**
+                                                              \$/kg**      
+
+  Sep 2025     82              1,484 t      \$1,291,080       \$0.87       Season start
+
+  Oct 2025     124             2,245 t      \$1,953,150       \$0.87       ↑ +51% PEAK
+
+  Nov 2025     118             2,136 t      \$1,858,320       \$0.87       ↓ -5%
+
+  Dec 2025     68              1,231 t      \$1,070,970       \$0.87       ↓ -42%
+
+  Jan 2026     42              760 t        \$661,200         \$0.87       ↓ -38%
+
+  Feb 2026     27              489 t        \$425,430         \$0.87       Season end
+
+  **TOTAL**    **461**         **8,345 t**  **\$7,260,150**   **\$0.87**   **Full
+                                                                           season**
+  ------------ --------------- ------------ ----------------- ------------ -------------
+
+**2.4.2 The \$10,000 Rule --- Mathematical Proof**
+
+Analysis of 461 invoices reveals a **bimodal distribution** that proves
+systematic financial engineering:
+
+  ------------- -------------- ----------- -------------------- --------------------
+  **Range**     **Invoices**   **% Total** **Interpretation**   **Money Flow**
+
+  \$0 ---       3              0.7%        Small orders         Cash
+  \$5,000                                                       
+
+  **\$5,000 --- **162**        **35.6%**   **SPLIT trucks (2    **CASH --- flexible
+  \$8,000**                                firms, each          money**
+                                           \<\$10K)**           
+
+  \$8,000 ---   3              0.7%        Near threshold       Cash (risky)
+  \$9,000                                                       
+
+  **\$9,000 --- **0**          **0.0%**    **DEAD ZONE ---      **N/A**
+  \$12,000**                               nobody goes near     
+                                           \$10K**              
+
+  **\$15,000    **276**        **60.7%**   **FULL trucks (1     **BANK → credit
+  ---                                      firm, \>\$10K)**     repayment**
+  \$20,000**                                                    
+
+  \$20,000+     10             2.2%        Large orders         Bank
+  ------------- -------------- ----------- -------------------- --------------------
+
+**Platform action:** Show real-time \$10K warning when entering firm
+split. Calculate from weight × price. Decision remains manual
+(Gadam/Agamyrat).
+
+**2.4.3 Outstanding Debt by Firm**
+
+  ----------- --------------- ------------- ------------- ------------- ------------- -----------
+  **Firm**    **Contracts**   **Contract    **Exported    **Paid \$**   **OWED \$**   **Paid %**
+                              \$**          \$**                                      
+
+  **YGT**     5               \$2.83M       \$1.32M       \$1.13M       **\$1.70M**   40%
+
+  **HMS**     4               \$2.27M       \$1.23M       \$1.06M       **\$1.21M**   47%
+
+  **ISH**     2               \$1.07M       \$995K        **\$66K**     **\$1.00M**   \[object
+                                                                                      Object\]
+
+  **MA**      3               \$1.50M       \$850K        \$567K        **\$945K**    38%
+
+  **DM**      3               \$1.50M       \$1.20M       \$594K        **\$918K**    40%
+
+  **TOTAL**   **28**          **\$14.6M**   **\$5.88M**   **\$6.34M**   \[object      43%
+                                                                        Object\]      
+  ----------- --------------- ------------- ------------- ------------- ------------- -----------
+
+**ISH is critical:** Exported \$995K worth of goods but paid only \$66K
+(6.6%). This firm cannot repay its bank credits.
+
+**2.4.4 Market Distribution**
+
+  --------------- -------------- ------------- --------------- ----------------
+  **Country**     **Invoices**   **Revenue**   **% of          **Top Buyer**
+                                               Revenue**       
+
+  🇰🇿 Kazakhstan   330            \$4,752,201   **80.8%**       Aranshy KZ
+                                                               (146), Nur-Alem
+                                                               (136)
+
+  🇷🇺 Russia       108            \$831,546     14.1%           SAH FRUT Moscow
+                                                               (54)
+
+  🇺🇿 Uzbekistan   11             \$206,906     3.5%            Mavlonoi Rumi
+                                                               (11)
+
+  🏳️ Other        12             \$86,637      1.5%            Various
+  --------------- -------------- ------------- --------------- ----------------
+
+**3. TARGET STATE VISION (TO-BE)**
+
+**3.1 The Unified Platform**
+
+A single web application replacing all Excel files, phone calls, and
+WhatsApp coordination. Every role logs in, sees their dashboard, enters
+their data, and the entire value chain is connected in real-time.
+
+  --------------------- ------------------------ -------------------------
+  **Capability**        **AS-IS (Today)**        **TO-BE (Platform)**
+
+  **Harvest             Gadam calls block        Dashboard: real-time kg
+  availability**        managers                 per block
+
+  **Export decision**   Phone discussion: which  System shows: available
+                        firm, which country      quota, \$10K calculator,
+                                                 firm suggestions
+
+  **Document            Sirin fills 4-8 Excel    One click: auto-generate
+  preparation**         templates (2-3 hours)    all documents from
+                                                 shipment data
+
+  **Truck assignment**  Call transport           Fleet board: available
+                        companies, ask who's     trucks, drag-and-drop
+                        free                     assignment
+
+  **In-transit          Call driver: where are   GPS map: real-time
+  tracking**            you?                     position, ETA
+
+  **Sales reporting**   WhatsApp message (or no  Mandatory form: system
+                        message at all)          blocks closing without
+                                                 report
+
+  **Financial           Check Excel + Logo       Single dashboard:
+  overview**            Tiger + 1C separately    revenue, debt, profit by
+                                                 route, firm risk
+
+  **Quota management**  Mental calculation       Visual: 1:10 ratio,
+                                                 per-firm progress bars,
+                                                 alerts at 95%
+
+  **\$10K compliance**  Manual calculation by    Automatic: warning when
+                        Gadam                    firm share exceeds \$10K
+                                                 threshold
+
+  **Outstanding debt**  Nobody tracks            Dashboard: \$8.3M
+                        systematically           per-firm breakdown with
+                                                 aging
+  --------------------- ------------------------ -------------------------
+
+**3.2 Expected Business Impact**
+
+  --------------------- ------------------ ------------------ -----------------
+  **Impact Area**       **Current Cost**   **Expected         **How**
+                                           Saving**           
+
+  **Document            2-3 hours/day × 2  80% reduction (30  Auto-generation
+  preparation time**    people             min/day)           from templates
+
+  **Missing sales       90 missing =       0 missing          System blocks
+  reports**             unknown revenue    (enforced)         close without
+                                                              report
+
+  **Outstanding debt    \$8.3M untracked   Real-time per-firm Dashboard + aging
+  visibility**                             alerts             analysis
+
+  **Decision speed**    30+ min per        5 min with data on Dashboard +
+                        shipment decision  screen             recommendations
+
+  **Quota accuracy**    Manual,            100% accurate,     Automatic 1:10
+                        error-prone        real-time          calculation
+
+  **Truck utilization** Unknown idle time  Visible            Fleet
+                                           availability board management + GPS
+
+  **Data entry errors** Multiple re-entry  Single entry,      Unified database
+                        across Excel files auto-propagation   
+
+  **Management          Requires phone     Self-serve         Executive
+  visibility**          calls to           dashboard          analytics
+                        departments                           
+  --------------------- ------------------ ------------------ -----------------
+
+**4. PROJECT PORTFOLIO (5 PROJECTS)**
+
+**4.1 PROJECT 1: Greenhouse Management**
+
+  -----------------------------------------------------------------------
+  **Ekish → Ideg → Dökün → Yıgym → Hasyl → Weekly Planning**
+
+  -----------------------------------------------------------------------
+
+  ------------------ ----------------------------------------------------
+  **Parameter**      **Value**
+
+  **Scope**          Digital tracking of greenhouse cultivation cycle:
+                     planting, daily care, fertilization, pest control,
+                     harvest recording, quality grading, weekly planning,
+                     yield analytics
+
+  **Key output**     Real-time answer to: HOW MUCH harvest is available
+                     today/this week? This feeds P2 Transport and P3
+                     Export.
+
+  **Current state**  15+ blocks tracked in Gadam's Excel (15 blok × 6 gün
+                     matrix) + phone calls to block managers
+
+  **Users**          Block managers (15), Gadam (logistics), Agronomist,
+                     Management
+
+  **Key challenge**  Mobile/offline input at greenhouses with poor
+                     internet. Need PWA with sync capability.
+
+  **Estimated        12 weeks (Phase 6 in roadmap)
+  duration**         
+
+  **Dependencies**   None --- can develop in parallel. Produces data for
+                     P2, P3, P4.
+
+  **Discovery        10 questions unanswered (block details, varieties,
+  needed**           scales, internet availability, forecast accuracy)
+  ------------------ ----------------------------------------------------
+
+**Data Entities**
+
+  --------------------- ------------------------ --------------- ----------------
+  **Entity**            **Key Fields**           **Volume**      **Purpose**
+
+  **GreenhouseBlock**   code, name, location,    15-20           Physical blocks
+                        area_m2, capacity_tons,                  
+                        status                                   
+
+  **PlantingCycle**     block, variety,          \~60/year       Growth tracking
+                        plant_date,                              
+                        expected_harvest, status                 
+
+  **CareLog**           cycle, date, type        \~5,000/year    Daily activities
+                        (water/fert/pest),                       
+                        notes, photo                             
+
+  **HarvestRecord**     block, date, weight_kg,  \~2,000/year    Output
+                        sort, grade, inspector                   measurement
+
+  **WeeklyPlan**        week, block, day,        780/year        Planning grid
+                        planned_kg, actual_kg                    
+  --------------------- ------------------------ --------------- ----------------
+
+**Key Screens**
+
+Block Dashboard (map/grid, health status, 7-day forecast) · Harvest
+Input Mobile (offline PWA, select block → enter kg → select sort) ·
+Weekly Planning Grid (15 blok × 6 gün, plan vs actual, color-coded) ·
+Planting Calendar (Gantt timeline) · Yield Analytics (historical per
+block, trend charts, comparisons)
+
+**4.2 PROJECT 2: Transport & Fleet**
+
+  -----------------------------------------------------------------------
+  **Masyn Bazasy → Süriji → Availability → Assignment → GPS**
+
+  -----------------------------------------------------------------------
+
+  ------------------ ----------------------------------------------------
+  **Parameter**      **Value**
+
+  **Scope**          Truck/driver registry, availability board,
+                     assignment to shipments, route planning, GPS
+                     tracking, trip expense integration
+
+  **Key output**     Real-time answer to: WHICH TRUCKS ARE AVAILABLE?
+                     Plus live tracking of trucks in transit.
+
+  **Current state**  2,014 truck/driver entries in Excel. Phone calls to
+                     transport companies for availability.
+
+  **Users**          Gadam (assignment), Transport dept (Malik, Haltac),
+                     Drivers
+
+  **Key              Trip Management System (existing Django app, REST
+  integration**      API) + Navixy GPS (Teltonika devices)
+
+  **Estimated        8 weeks core + 4 weeks GPS = 12 weeks total (Phase 4
+  duration**         in roadmap)
+
+  **Dependencies**   Soft dependency on P3 (shipments to assign to). Can
+                     start after P3 core.
+  ------------------ ----------------------------------------------------
+
+**Data Entities**
+
+  ---------------------- ------------------------ --------------- ----------------
+  **Entity**             **Key Fields**           **Volume**      **Purpose**
+
+  **Truck**              front_plate, rear_plate, \~500 unique    Vehicle registry
+                         brand, capacity_kg,                      
+                         owner_company, status                    
+
+  **Driver**             name, passport,          \~400 unique    Driver profiles
+                         passport_date, phone,                    
+                         default_truck                            
+
+  **TransportCompany**   name, contact,           5-10            Contract
+                         rate_per_km                              carriers
+
+  **TripAssignment**     truck, driver, shipment, \~1,000/year    Link truck to
+                         depart_date,                             shipment
+                         return_date, status                      
+
+  **GPSTrack**           truck, timestamp, lat,   Millions        Real-time
+                         lng, speed                               positions
+  ---------------------- ------------------------ --------------- ----------------
+
+**Key Screens**
+
+Fleet Board (visual: trucks by status, filter by company/brand) · Truck
+Profile (specs, trip history, current location) · Assignment Wizard
+(harvest → truck → driver) · Live Map (all trucks, click for details,
+ETA) · Trip Expenses (from Trip Management API)
+
+**4.3 PROJECT 3: Export Operations**
+
+  -----------------------------------------------------------------------
+  **Yük Lifecycle (13 ädim) → 9 Roles → Kanban → Quota → Planning**
+
+  -----------------------------------------------------------------------
+
+**This is the highest-priority project.** Most complete analysis,
+working prototype built, replaces the main Excel.
+
+  ------------------ ----------------------------------------------------
+  **Parameter**      **Value**
+
+  **Scope**          Complete shipment lifecycle from loading to final
+                     report. 13 steps, 9 roles, 44 data fields per
+                     shipment. Kanban tracking, quota management, weekly
+                     planning.
+
+  **Key output**     SINGLE SOURCE OF TRUTH for all export operations.
+                     Replaces the main 983-row Excel.
+
+  **Current state**  Excel with 983 rows, 44 columns. 9 roles edit the
+                     same file. 90 reports missing. No real-time status.
+
+  **Users**          ALL 9 roles: Gadam, Agamyrat, Soltanmyrat, Sirin,
+                     Aynur, Malik, Haltac, Arap, Aganazar
+
+  **Prototype**      14-screen interactive HTML prototype with real data
+                     ALREADY BUILT
+
+  **Estimated        10 weeks (Phase 1 in roadmap --- START HERE)
+  duration**         
+
+  **Dependencies**   None --- Excel data available for import. All
+                     downstream projects depend on this.
+  ------------------ ----------------------------------------------------
+
+**The 13-Step Shipment Lifecycle**
+
+  -------- ---------------- ------------- ------------ --------------- --------------------
+  **\#**   **Step**         **Action**    **Who**      **Timestamp**   **Platform Feature**
+
+  1        **Yüklenme**     Load truck at Sklad        Loading         Mobile form + weight
+                            block                      datetime        input
+
+  2        **Gümrük         Submit to TM  Sirin        Customs entry   Document auto-gen
+           girish**         customs                                    
+
+  3        **Gümrük         Customs       Sirin        Customs clear   Status auto-update
+           chykysh**        approved                                   
+
+  4        **Yola chykdy**  Truck departs Transport    Departure       GPS tracking starts
+
+  5        **Serhet TM**    At TM border  Driver       Border arrival  Geofence alert
+
+  6        **Serhet         Crossed       Driver       Crossing        Auto-status update
+           gechdi**         border                                     
+
+  7        **Dest customs** Cleared dest  Broker       Clear date      Status update
+                            customs                                    
+
+  8        **Yolda**        In transit    GPS          Moving          Live map tracking
+
+  9        **Bardy**        Arrived at    Sales rep    Arrival         Notification to
+                            city                                       logistics
+
+  10       **Satylyär**     Being sold    Sales rep    Sales start     Status update
+
+  11       **Satyldy**      Fully sold    Sales rep    Complete        Price + weight
+                                                                       confirmed
+
+  12       **Hasabat**      Report        Sales rep    Report date     **MANDATORY** form
+                            submitted                                  
+
+  13       **Tamamlandy**   Payments      Accounting   Close date      Auto-close
+                            received                                   
+  -------- ---------------- ------------- ------------ --------------- --------------------
+
+**Data Entities**
+
+  ----------------------- ------------------------ --------------- ----------------
+  **Entity**              **Key Fields**           **Volume**      **Purpose**
+
+  **Shipment**            code, date, country,     983+/season     Core record
+                          city, status, customer,                  
+                          firm(s), weight, sort,                   
+                          block, 13 timestamps                     
+
+  **ExportFirm**          code, name, bank_details 24 firms        Seller entities
+                          (3 lang), director,                      
+                          tax_code, one_c_code                     
+
+  **ImportFirm**          name, country, city,     111 companies   Buyer entities
+                          bank_details (3 lang),                   
+                          linked_customer                          
+
+  **Customer**            name (Eldar, Begjan,     \~15 active     Business
+                          etc.), phone,                            contacts
+                          import_firms                             
+
+  **ShipmentFirmSplit**   shipment, firm,          1-3 per         Multi-firm
+                          weight_kg, amount_usd,   shipment        handling
+                          is_primary                               
+
+  **SalesReport**         shipment, actual_price,  1 per shipment  Mandatory output
+                          total_sold, expenses,                    
+                          net, report_date                         
+
+  **QuotaAllocation**     firm, period,            24 × 7 periods  1:10 ratio
+                          granted_tons, used_tons,                 tracking
+                          remaining_tons                           
+  ----------------------- ------------------------ --------------- ----------------
+
+**Key Business Rules**
+
+1\. **Standard truck** = 18,100 kg net / 20,500 kg gross (2,400 kg
+packaging)
+
+2\. **Shipment code** = DDMM+seq/YY (e.g. 27FV048/25)
+
+3\. **9 roles** edit ONLY their fields. Role-based field permissions
+enforced.
+
+4\. **13:00 deadline** for all export documents. After 13:00 = overdue
+alert.
+
+5\. **Multi-firm split** --- 2 firms (common: 35.6%) or 3 firms (rare).
+Each firm = separate CMR + invoice.
+
+6\. **Gapy Satys** = domestic sale. Buyer's truck at greenhouse.
+Generates 1:10 export quota.
+
+7\. **Quota ratio** --- 1 tonne domestic sale = 10 tonnes export quota
+(government regulation).
+
+8\. **Missing reports** blocked --- cannot close shipment without sales
+report from Arap/Aganazar.
+
+**Key Screens (14 in Prototype)**
+
+Dashboard (5 stats + 4 alerts) · Shipment List (983 rows, 6 filters, 3
+views) · Shipment Detail (4 tabs, 13-step timeline) · New Shipment
+(multi-role form + \$10K calc) · Tracking Board (Kanban 4 columns) ·
+Customers (111 buyers) · Quota Dashboard (1:10 formula visual) · Weekly
+Planning (15×6 grid) · Finance · Contracts · Documents · Reports ·
+Settings
+
+**4.4 PROJECT 4: Contracts, Sales & Documents**
+
+  -----------------------------------------------------------------------
+  **28 Contracts → 461 Invoices → \$10K Rule → 8 Doc Types →
+  Auto-Generate**
+
+  -----------------------------------------------------------------------
+
+  ------------------ ----------------------------------------------------
+  **Parameter**      **Value**
+
+  **Scope**          Contract registry, invoice tracking, \$10K warning
+                     system, 8 document template auto-generation,
+                     PasportSdelki (trade passport), debt monitoring
+
+  **Key output**     VISIBILITY into \$8.3M outstanding debt +
+                     AUTO-GENERATION of 8 document types + \$10K
+                     compliance
+
+  **Current state**  23-sheet Excel with contracts, invoices, templates.
+                     Sirin/Aynur manually fill templates 2-3 hours/day.
+
+  **Users**          Sirin (documents), Aynur (documents), Gadam
+                     (contracts), Management (debt oversight)
+
+  **Estimated        8 weeks (Phase 2 in roadmap, after P3 Export core)
+  duration**         
+
+  **Dependencies**   P3 Export for shipment data. Invoices link to
+                     shipments.
+  ------------------ ----------------------------------------------------
+
+**Document Auto-Generation (8 Templates)**
+
+  ---------------- ------------------ ------------------ -----------------
+  **Template**     **Purpose**        **Auto-fill From** **Variants**
+
+  **CMR (RU/EN)**  Road transport     Shipment +         Sirin ver, Aynur
+                   waybill            seller + buyer +   ver, English ver
+                                      route              
+
+  **CMR (3         Rare: 3-way split  3 firm splits on 1 1 version
+  firms)**                            truck              
+
+  **Invoice        Commercial invoice Contract +         Russian + English
+  (RU/EN)**                           weight + price     
+
+  **TIR Carnet**   Transit for        Route + truck +    UZ routes only
+                   Uzbekistan         customs            
+
+  **Customs        Gümrük beyäny      Full shipment data 1 version
+  Declaration**                                          
+
+  **Fito           Phytosanitary      Product + origin   1 version
+  Certificate**                                          
+
+  **CT-1           Certificate of     Origin data        1 version
+  Certificate**    Origin                                
+  ---------------- ------------------ ------------------ -----------------
+
+**Impact:** Sirin/Aynur currently spend 2-3 hours/day filling these
+templates. Auto-generation reduces this to 30 minutes (review + print
+only).
+
+**4.5 PROJECT 5: Finance & Executive Dashboard**
+
+  -----------------------------------------------------------------------
+  **Töleg → Kredit → Logo Tiger → 1C → Unified Dashboard**
+
+  -----------------------------------------------------------------------
+
+  ------------------ ----------------------------------------------------
+  **Parameter**      **Value**
+
+  **Scope**          Payment tracking, credit monitoring per firm, route
+                     profitability analysis, currency management, Logo
+                     Tiger ERP integration, 1C integration, executive
+                     dashboard
+
+  **Key output**     SINGLE DASHBOARD for management: revenue, debt,
+                     profit by route, firm risk scores, credit health
+
+  **Current state**  No unified view. Check Excel + Logo Tiger + 1C +
+                     phone calls for financial picture.
+
+  **Users**          Management (primary), Accounting, Gadam (route
+                     decisions)
+
+  **Estimated        10 weeks (Phase 5 in roadmap, needs P3+P4 data)
+  duration**         
+
+  **Dependencies**   P3 Export + P4 Contracts for operational data. Logo
+                     Tiger MSSQL for accounting. 1C for credits.
+  ------------------ ----------------------------------------------------
+
+**Executive Dashboard Widgets**
+
+  ------------------ ---------------------------- -----------------------
+  **Widget**         **Shows**                    **Data Source**
+
+  **Revenue KPIs**   Total YTD, monthly trend, vs P3 + P4
+                     last season                  
+
+  **Outstanding      \$8.3M breakdown by firm,    P4 Contracts
+  Debt**             aging analysis               
+
+  **Credit Health**  Per-firm: credit balance vs  1C + P4
+                     monthly payment vs bank      
+                     inflow                       
+
+  **Route            Revenue − cost per route. KZ P3 + Trip Mgmt
+  Profitability**    Shymkent 40% vs RU           
+                     Novosibirsk 10%              
+
+  **Quota Status**   All 24 firms:                P3 + P1
+                     used/remaining, 1:10         
+                     visualization                
+
+  **Operations       Trucks today, en-route       P2 + P3
+  Pulse**            count, overdue reports, doc  
+                     queue                        
+
+  **Firm Risk        Outstanding debt + credit    All projects
+  Matrix**           obligation + quota usage =   
+                     risk score                   
+  ------------------ ---------------------------- -----------------------
+
+**5. IMPLEMENTATION ROADMAP**
+
+**5.1 Phase Plan (12 Months)**
+
+Build order optimized for: **maximum business impact first**, dependency
+resolution, and incremental delivery.
+
+  ----------- ------------ ------------------- ------------- ---------- -----------------
+  **Phase**   **Months**   **Deliverable**     **Project**   **Team**   **Impact**
+
+  α1          **1--2**     **Export Core** --- P3            2 dev      CRITICAL
+                           Shipment CRUD,                               
+                           13-step lifecycle,                           
+                           kanban, import 983                           
+                           shipments                                    
+
+  α2          **3--4**     **Contracts Core**  P4            2 dev      CRITICAL
+                           --- 28 contracts,                            
+                           461 invoices, \$10K                          
+                           warning, debt                                
+                           dashboard                                    
+
+  α3          **4--5**     **Document Engine** P4            1 dev      HIGH
+                           --- Auto-generate 8                          
+                           document types,                              
+                           13:00 deadline,                              
+                           queue                                        
+
+  α4          **5--6**     **Quota +           P3+P4         1 dev      HIGH
+                           Reporting** ---                              
+                           1:10 ratio system,                           
+                           mandatory sales                              
+                           reports, missing                             
+                           report alerts                                
+
+  α5          **6--8**     **Transport &       P2            1-2 dev    MEDIUM
+                           Fleet** --- Truck                            
+                           registry,                                    
+                           availability board,                          
+                           assignment, Trip                             
+                           Mgmt API                                     
+
+  α6          **7--9**     **Finance           P5            1-2 dev    HIGH
+                           Dashboard** ---                              
+                           Payment tracking,                            
+                           route P&L,                                   
+                           executive widgets                            
+
+  α7          **8--10**    **Greenhouse** ---  P1            1-2 dev    MEDIUM
+                           Harvest input                                
+                           (mobile PWA),                                
+                           weekly planning                              
+                           grid, yield                                  
+                           analytics                                    
+
+  α8          **9--11**    **Integrations**    P5+P2         1-2 dev    HIGH
+                           --- Logo Tiger ERP                           
+                           (read), 1C credit                            
+                           import, Navixy GPS,                          
+                           notifications                                
+
+  α9          **11--12**   **Polish & Deploy** All           Full team  CRITICAL
+                           --- Mobile PWA,                              
+                           Telegram alerts,                             
+                           training, data                               
+                           migration, go-live                           
+  ----------- ------------ ------------------- ------------- ---------- -----------------
+
+**5.2 Visual Timeline**
+
+  -------- --------- --------- --------- --------- -------- --------- --------- --------- --------- --------- ---------
+  **M1**   **M2**    **M3**    **M4**    **M5**    **M6**   **M7**    **M8**    **M9**    **M10**   **M11**   **M12**
+
+  **P3**   **EXP**   **EXP**   **EXP**                                                                        
+
+                     **P4**    **CON**   **CON**                                                              
+
+                                                   **P2**   **TRN**   **TRN**                                 
+
+                                                            **P5**    **FIN**   **FIN**   **FIN**   **FIN**   
+
+                                                                      **P1**    **GRN**   **GRN**             
+  -------- --------- --------- --------- --------- -------- --------- --------- --------- --------- --------- ---------
+
+**P3 Export (red)** M1-4 · **P4 Contracts (purple)** M3-5 · **P2
+Transport (blue)** M6-8 · **P5 Finance (orange)** M7-11 · **P1
+Greenhouse (green)** M8-10
+
+**5.3 Why This Order?**
+
+**P3 Export first** --- (1) Most complete analysis (983 shipments
+analyzed); (2) Working prototype with 14 screens; (3) Core data
+structure that everything depends on; (4) Replaces the biggest pain
+point (main Excel); (5) 9 roles interact daily = highest usage.
+
+**P4 Contracts second** --- (1) \$8.3M outstanding debt needs visibility
+NOW; (2) Document auto-generation saves Sirin/Aynur 2-3 hours daily; (3)
+\$10K warning prevents costly mistakes; (4) Builds directly on P3
+shipment data.
+
+**P1 Greenhouse later** --- (1) 10 discovery questions unanswered; (2)
+Mobile/offline adds complexity; (3) Current Excel works for planning;
+(4) Can develop in parallel.
+
+**6. TECHNOLOGY STACK**
+
+  --------------------- -------------------------------------------------
+  **Component**         **Technology**
+
+  **Backend**           Django 5.x + Django REST Framework (Python 3.12)
+
+  **Database**          Microsoft SQL Server (MSSQL) --- required for
+                        Logo Tiger ERP compatibility. mssql-django
+                        package.
+
+  **Frontend**          React 18 + Ant Design Pro --- enterprise-grade UI
+                        components with tables, forms, charts
+
+  **Mobile**            Progressive Web App (PWA) for greenhouse harvest
+                        input. Offline-first with service worker sync.
+
+  **Authentication**    Django built-in + JWT tokens. 9 roles with
+                        field-level permissions.
+
+  **Real-time**         Django Channels + WebSocket for live shipment
+                        status updates
+
+  **Document Gen**      python-docx for template filling → WeasyPrint for
+                        PDF output
+
+  **GPS**               Navixy API (REST, poll every 60s). Teltonika
+                        FMB920 devices on trucks.
+
+  **Notifications**     python-telegram-bot (Telegram) + WhatsApp
+                        Business API
+
+  **Deployment**        Docker Compose: Django + React + MSSQL + Redis +
+                        Nginx (5 services)
+
+  **Development**       Claude Code multi-agent: Lead (Opus) + sub-agents
+                        (Sonnet) per module
+  --------------------- -------------------------------------------------
+
+**6.1 MSSQL Constraints (All Projects)**
+
+  ------------------------ ----------------------------------------------
+  **Constraint**           **Solution**
+
+  No JSONField /           Separate model fields or related tables
+  ArrayField               
+
+  No DISTINCT ON           Subquery with ROW_NUMBER() window function
+
+  2,100 parameter limit    bulk_create(batch_size=500)
+
+  Turkmen/Russian text     Per-field collation: Cyrillic_General_CI_AS or
+                           Latin_General_CI_AS
+  ------------------------ ----------------------------------------------
+
+**7. TEAM & RESOURCES**
+
+  --------------- ------------------ ---------------------- -----------------
+  **Role**        **Quantity**       **Responsibilities**   **Duration**
+
+  **Lead          1 (full-time)      Architecture, code     12 months
+  Developer**                        review, integrations,  
+                                     deployment             
+
+  **Backend       1 (full-time)      Django models, API,    12 months
+  Developer**                        business logic, data   
+                                     migration              
+
+  **Frontend      1 (full-time or    React UI, Ant Design,  10 months
+  Developer**     part)              charts, mobile PWA     
+
+  **Data          1 (existing)       Requirements, testing, 12 months
+  Analyst**                          user training,         
+                                     stakeholder management 
+
+  **QA / Tester** 0.5 (part-time)    Testing each phase,    8 months
+                                     regression, UAT        
+                                     coordination           
+  --------------- ------------------ ---------------------- -----------------
+
+**Minimum viable team: 2 developers + 1 analyst** (existing). Optimal: 3
+developers + 1 analyst + 0.5 QA.
+
+**AI-assisted development:** Using Claude Code with multi-agent
+orchestration can accelerate development by 30-50%, effectively making a
+2-person team perform like 3.
+
+**8. RISKS & MITIGATION**
+
+  ------------------ ---------------- ------------ ------------------ ----------------
+  **Risk**           **Likelihood**   **Impact**   **Mitigation**     **Owner**
+
+  **User             HIGH             HIGH         Show prototype     Data Analyst
+  resistance** --- 9                               early. Train       
+  roles comfortable                                hands-on. Run      
+  with Excel                                       parallel (Excel +  
+                                                   platform) for 1    
+                                                   month.             
+
+  **Scope creep**    HIGH             MEDIUM       Strict phase       Lead Dev
+  --- management                                   boundaries.        
+  requests features                                Backlog for future 
+  during development                               requests. MVP      
+                                                   first.             
+
+  **MSSQL            MEDIUM           MEDIUM       Known constraints  Lead Dev
+  limitations** ---                                documented.        
+  no JSONField,                                    Workarounds        
+  parameter limits                                 identified         
+                                                   upfront.           
+
+  **1C integration   MEDIUM           LOW          Phase 1: manual    Data Analyst
+  complexity** ---                                 import. Study API  
+  Russian software,                                later. Not a       
+  unclear API                                      blocker.           
+
+  **Internet at      MEDIUM           MEDIUM       PWA with           Frontend Dev
+  greenhouses** ---                                offline-first      
+  poor connectivity                                architecture. Sync 
+  for mobile input                                 when connected.    
+
+  **Developer        HIGH             HIGH         Remote developers  Management
+  hiring** ---                                     (CIS region).      
+  limited local                                    AI-assisted        
+  talent in                                        development to     
+  Turkmenistan                                     reduce team size.  
+
+  **Season timing**  MEDIUM           HIGH         Start P3 Export    Lead Dev
+  --- new season                                   immediately. MVP   
+  starts Sep 2026,                                 by August 2026.    
+  need system ready                                                   
+
+  **Data migration** LOW              MEDIUM       Migration scripts  Backend Dev
+  --- 983                                          tested in staging. 
+  shipments +                                      Parallel run       
+  complex Excel                                    before cutover.    
+  formulas                                                            
+  ------------------ ---------------- ------------ ------------------ ----------------
+
+**9. SUCCESS METRICS & KPIs**
+
+  ------------------ ------------------ ------------------ -----------------
+  **KPI**            **Current          **6-Month Target** **12-Month
+                     Baseline**                            Target**
+
+  **Shipments in     0 (all in Excel)   100% new shipments 100% + historical
+  platform**                                               imported
+
+  **Missing sales    90 (19.5% missing) \< 10 (\< 2%)      0 (enforced)
+  reports**                                                
+
+  **Document prep    2-3 hours/day      1 hour/day         30 min/day
+  time**                                                   (auto-gen)
+
+  **Decision time    30+ minutes        15 minutes         5 minutes
+  per shipment**                                           
+
+  **Outstanding debt None (discovered   Per-firm dashboard Aging + alerts +
+  visibility**       in analysis)                          auto-collection
+
+  **Quota accuracy** Manual,            95% (some manual)  100% automated
+                     error-prone                           
+
+  **User adoption (9 0%                 70% (5 roles       100% (all 9
+  roles)**                              active)            roles)
+
+  **Executive        0% (phone calls)   50% (partial       90% (full
+  self-service**                        dashboard)         dashboard)
+  ------------------ ------------------ ------------------ -----------------
+
+**10. IMMEDIATE NEXT STEPS**
+
+The following actions should be taken within the **next 30 days** to
+begin execution:
+
+  -------- ---------------- ----------------------------- -------------- --------------
+  **\#**   **Action**       **Details**                   **Deadline**   **Owner**
+
+  1        **Management     Present this roadmap to       Week 1         Data Analyst
+           presentation**   directors. Get buy-in and                    
+                            budget approval.                             
+
+  2        **Prototype      Show 14-screen                Week 1-2       Data Analyst
+           demo**           YGT_Platform_Prototype.html                  
+                            to Gadam, Sirin, Arap.                       
+                            Collect feedback.                            
+
+  3        **Discovery      Use YGT_Discovery_Guide.html  Week 2-4       Data Analyst
+           interviews**     to interview all 9 roles.                    
+                            Answer P1 greenhouse                         
+                            questions.                                   
+
+  4        **Developer      Hire or contract 1-2          Week 2-4       Management
+           recruitment**    developers (Django + React).                 
+                            Consider remote CIS                          
+                            developers.                                  
+
+  5        **MSSQL setup**  Install MSSQL Server, create  Week 2-3       IT / Developer
+                            YGT database. Test Logo Tiger                
+                            connection.                                  
+
+  6        **Development    Deploy scaffold (Docker       Week 3-4       Lead Dev
+           environment**    Compose). Configure CI/CD.                   
+                            Run first migration.                         
+
+  7        **P3 Sprint 1    Start Export Operations:      Week 4         Dev Team
+           kickoff**        Shipment model + API + list                  
+                            page. Import 983 rows from                   
+                            Excel.                                       
+  -------- ---------------- ----------------------------- -------------- --------------
+
+**10.1 Deliverables Already Completed**
+
+The following artifacts are ready and available:
+
+  ----------------------------------- ---------------------------- -----------------
+  **Deliverable**                     **Description**              **Status**
+
+  **YGT_Architecture_v2.md**          Full technical architecture: ✅ Complete
+                                      10 Django apps, models,      
+                                      APIs, 1,095 lines            
+
+  **YGT_Platform_Prototype.html**     14-screen interactive        ✅ Complete
+                                      prototype with real data,    
+                                      2,256 lines                  
+
+  **YGT_Business_Process_Map.html**   Visual BPM: roles, flows,    ✅ Complete
+                                      \$10K rule, money flow, 925  
+                                      lines                        
+
+  **YGT_Discovery_Guide.html**        Interview kit for 9 roles +  ✅ Complete
+                                      automation matrix, 557 lines 
+
+  **YGT_Contracts_Analysis.md**       Excel analysis: 28           ✅ Complete
+                                      contracts, \$8.3M debt,      
+                                      bimodal distribution         
+
+  **YGT_UI_UX_Design.html**           Production-quality UI/UX     ✅ Complete
+                                      with 12 screens, design      
+                                      system                       
+
+  **CLAUDE.md**                       Multi-agent orchestration    ✅ Complete
+                                      context file for             
+                                      development, 208 lines       
+
+  **ygt-platform-scaffold**           Docker + Django + React      ✅ Complete
+                                      project scaffold, ready to   
+                                      code                         
+
+  **This Roadmap**                    Full digital transformation  ✅ Complete
+                                      plan with 5 projects,        
+                                      timeline, risks              
+  ----------------------------------- ---------------------------- -----------------
+
+**END OF DOCUMENT**
+
+YGT Holding --- Digital Transformation Roadmap v1.0
+
+February 2026 · Data Analytics Department
+
+*Based on analysis of 983 shipments · 461 invoices · 28 contracts · 24
+firms · 111 buyers · 2,014 trucks*

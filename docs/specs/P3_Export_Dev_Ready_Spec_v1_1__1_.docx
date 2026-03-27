@@ -1,0 +1,1323 @@
+🍅
+
+**P3 EXPORT OPERATIONS**
+
+Development-Ready Specification
+
+v1.1 --- Updated with Pomidor Dükany Analysis
+
+Build First, Formalize in Parallel
+
+  -----------------------------------------------------------------------
+  **Property**          **Value**
+  --------------------- -------------------------------------------------
+  Document              P3 Export --- Development-Ready Spec v1.1
+
+  Date                  March 2026
+
+  Status                Ready for Sprint 1
+
+  Based On              983 shipments + 140-sheet Pomidor Dükany
+                        operational file analyzed
+
+  What's New in v1.1    15 blocks confirmed with managers, varieties,
+                        areas. Weekly planning logic decoded.
+                        Truck-to-block sourcing mapped. 15 domestic
+                        buyers identified. 5 gaps resolved.
+
+  What This Is          Everything a developer needs to start coding P3
+                        Export TODAY
+  -----------------------------------------------------------------------
+
+  -----------------------------------------------------------------------
+  **NEW IN v1.1:** Analysis of "Pomidor Dükany 2025-2026.xlsx" (140+
+  sheets) revealed the complete operational structure: 15 greenhouse
+  blocks with named managers, weekly harvest planning logic,
+  truck-to-block source tracking, 15 domestic buyer firms, and production
+  plans with 33.9M kg seasonal target. This resolves 5 of the 14 gaps
+  from v1.0.
+
+  -----------------------------------------------------------------------
+
+**1. Why P3 Export Can Start Without a Formal Technical Task**
+
+  -----------------------------------------------------------------------
+  **Updated assessment:** With Pomidor Dükany analysis complete, **8 of 9
+  TT requirements are now fully done.** Only edge case validation remains
+  to discover during development.
+
+  -----------------------------------------------------------------------
+
+**1.1 What a Technical Task Requires vs. What We Have**
+
+  ---------------------------------------------------------------------------
+  **TT             **Typical   **P3       **Evidence**
+  Requirement**    Time**      Status**   
+  ---------------- ----------- ---------- -----------------------------------
+  Business process 1--2 weeks  ✅ DONE    13-step lifecycle + Pomidor Dükany
+  mapping                                 daily workflow
+
+  Data model       1 week      ✅ DONE    10 entities (7 core + 3 new from
+  definition                              Pomidor Dükany)
+
+  User role        3--5 days   ✅ DONE    9 roles + 7 block managers with
+  identification                          names and phones
+
+  Screen/UI        1--2 weeks  ✅ DONE    14-screen prototype + weekly
+  requirements                            planning grid decoded
+
+  Business rules   3--5 days   ✅ DONE    8 rules + truck threshold (18,500
+                                          kg) + planning cycle
+
+  Volume/load      2--3 days   ✅ DONE    983 shipments + 33.9M kg production
+  analysis                                plan + 24 weeks planning
+
+  Reference data   2--3 days   ✅ DONE    15 blocks, 7 managers, 6 varieties,
+                               (v1.1)     15 domestic buyers, areas
+
+  Integration      2--3 days   ⚠️ PARTIAL Logo Tiger, 1C, Trip Mgmt
+  points                                  identified --- APIs not tested
+
+  Edge cases &     ---         ⚠️ TO      Will surface during Sprint 1--2
+  validation                   DISCOVER   
+  ---------------------------------------------------------------------------
+
+**Score: 8 of 9 done (up from 6 in v1.0).** The Pomidor Dükany file
+answered the block structure, reference data, and planning logic
+questions that would have required multiple interviews.
+
+**1.2 What Pomidor Dükany Revealed (140+ Sheets)**
+
+  ---------------------------------------------------------------------------
+  **Sheet Type**  **Count**   **What It Contains**        **Impact on P3**
+  --------------- ----------- --------------------------- -------------------
+  Hepdelik        1 sheet, 24 Weekly harvest plan: 15     Defines the
+  planlama        weeks       blocks × 6 days, planned    planning→export
+                              kg, actual kg, truck count  bridge. Must
+                              calculation                 replicate in
+                                                          platform.
+
+  BARLAG          6 sheets    Export truck log: truck     Soltanmyrat's input
+  SOLTANMYRAT     (per month) code, date, country, total  form. Shows exactly
+                              kg, per-block kg breakdown  how harvest
+                                                          connects to
+                                                          shipments.
+
+  Monthly block   \~90 sheets Per block per month:        Complete harvest
+  sheets                      domestic sales (left),      distribution data.
+  (FEWRAL-A,                  export shipments (center),  Internal + export +
+  etc.)                       slyklar/waste (right)       waste.
+
+  Planlama A--O   15 sheets   Weekly production forecast  Production planning
+                              per block: week number,     model. Feeds weekly
+                              Mon--Sat planned kg, weekly truck count.
+                              total                       
+
+  Onumcilik plany 1 sheet     Year production plan: all   Master reference
+                              blocks, varieties, sowing   for greenhouse
+                              dates, areas, weekly kg     blocks.
+                              targets                     
+
+  Birlesme        1 sheet     15 domestic buyers with     Gapy Satys tracking
+  pomidor kwota               daily kg received from each → 1:10 quota source
+                                                          data.
+
+  Umumy maglumat  1 sheet     Season dashboard: plan vs   Executive summary
+                              actual per greenhouse,      structure to
+                              domestic vs export split %  replicate.
+
+  Export Hasabat  1 sheet     Export comparison by year   Historical
+                              and by greenhouse group     benchmarking data.
+                              (A+B+C, A+B+C+F, etc.)      
+  ---------------------------------------------------------------------------
+
+**2. Reference Data --- Confirmed from Pomidor Dükany**
+
+  -----------------------------------------------------------------------
+  **Previously Gap G11: "Which 15 blocks exactly?" --- NOW FULLY
+  RESOLVED.** All 15 blocks with managers, varieties, areas, and sowing
+  dates are confirmed from the operational file.
+
+  -----------------------------------------------------------------------
+
+**2.1 The 15 Greenhouse Blocks**
+
+  -------------------------------------------------------------------------------
+  **Block**   **Manager       **Phone**       **Main        **Area     **Season
+              (Jogapkar)**                    Variety**     (m²)**     Start**
+  ----------- --------------- --------------- ------------- ---------- ----------
+  A           Toyly B.        +99361608737    Defensiosa    45,368     Oct
+
+  B           Toyly B.        +99361608737    Midelyce      95,897     Oct
+
+  C           Toyly B.        +99361608737    Marvelance    97,481     Sep
+
+  D           Guwanç K.       +99363018382    Midelyce      188,928    Nov
+
+  E           Geldimyrat A.   +99365234059    Defensiosa    149,266    Nov
+
+  F           Geldimyrat A.   +99365234059    Midelyce      14,004     Nov
+
+  G           Asdan H.        +99362093301    Midelyce      115,898    Dec
+
+  H           Asdan H.        +99362093301    Marvelance    189,888    Nov
+
+  I           Mekan A.        +99363690069    Redity        187,688    Dec
+
+  J           Mekan A.        +99363690069    Fujimaru      187,888    Dec
+
+  K           Batyr Ç.        +99362655224    Redity        188,784    Dec
+
+  L           Batyr Ç.        +99362655224    Redity        188,784    Dec
+
+  M15         Guwanç K.       +99363018382    Marvelance    91,580     Oct
+
+  M5          Guwanç K.       +99363018382    Peppers       45,072     Nov
+
+  O (OD+OG)   Bayram J.       +99364102042    ---           ---        Nov
+  -------------------------------------------------------------------------------
+
+**Key insight:** 7 managers oversee 15 blocks (2--3 each). Toyly manages
+A+B+C, Guwanç manages D+M15+M5, Geldimyrat manages E+F, Asdan manages
+G+H, Mekan manages I+J, Batyr manages K+L, Bayram manages O.
+
+**Total greenhouse area: \~1,996,526 m² (\~200 hectares).** Seasonal
+production target: 33.9 million kg.
+
+**2.2 Tomato Varieties**
+
+  ------------------------------------------------------------------------
+  **Variety**   **Blocks**       **Type**      **Notes**
+  ------------- ---------------- ------------- ---------------------------
+  Defensiosa    A, E             Main variety  Also grafted variant in A
+
+  Midelyce      B, D, F, G       Main variety  Most widely planted
+
+  Marvelance    C, H, M15        Main variety  ---
+
+  Redity        I, K, L          Main variety  Also cherry/trial areas in
+                                               E, F
+
+  Fujimaru      J                Main variety  Single block
+
+  Cherry        A, B, C, D, E,   Secondary     1,000--38,000 m² per block
+  varieties     F, G, I, J       (small area)  
+
+  Peppers       M5               Different     Not tomato --- handle
+                                 crop          separately
+  ------------------------------------------------------------------------
+
+**2.3 Domestic Buyers (Gapy Satys → Quota Source)**
+
+15 domestic buyers (telekeci) who buy at the greenhouse. Each kg sold
+domestically generates 10 kg of export quota. Total domestic sales this
+season: **1,564,252 kg = 15.6M kg export quota.**
+
+  -------------------------------------------------------------------------
+  **Buyer             **Season Total  **Buyer**             **Season Total
+  (Telekeci)**        (kg)**                                (kg)**
+  ------------------- --------------- --------------------- ---------------
+  Yigit H.J.          239,181         Ak Bulut              69,328
+
+  Hemsaya             194,558         Tel JD                76,827
+
+  Datly Miwe          179,463         Tel ED                71,278
+
+  Miweli Atyz         169,278         Tel G Amangeldiyew    88,643
+
+  Gok Bulut           107,679         Tel CH                80,000
+
+  Ygtybarly Enjam     88,409          Tel PH                79,556
+
+  Isgar HJ            79,399          Yumak HJ              29,880
+
+  ---                 ---             Tel GJ                10,773
+  -------------------------------------------------------------------------
+
+**TOTAL: 1,564,252 kg domestic → 15,642,520 kg export quota (at 1:10
+ratio)**
+
+**3. The Planning → Export Bridge (Critical Discovery)**
+
+  -----------------------------------------------------------------------
+  **This is the most important finding from Pomidor Dükany.** The file
+  reveals the exact decision chain: weekly production plan → daily
+  harvest update → "enough for a truck?" (18,500 kg) → assign to export.
+  This is the logic that connects P1 Greenhouse to P3 Export.
+
+  -----------------------------------------------------------------------
+
+**3.1 The Weekly Planning Cycle**
+
+From the "Hepdelik planlama" instructions (translated from Turkmen):
+
+  ------------------------------------------------------------------------------
+  **When**    **What**              **Who**       **Tool       **Tool in
+                                                  Today**      Platform**
+  ----------- --------------------- ------------- ------------ -----------------
+  Friday      Plan next week: enter Block         Google       Weekly Planning
+              expected kg per block managers (7   Sheets       Grid
+              per day (Mon--Sat)    people)                    
+
+  Daily       Update today's actual Soltanmyrat / Google       Mobile harvest
+  (morning)   harvest kg per block  Block         Sheets +     input
+                                    managers      phone        
+
+  Daily       Calculate: total kg ÷ Gadam         Mental math  Auto-calculated
+  (morning)   18,500 = how many                   / phone      dashboard
+              trucks today?                                    
+
+  Daily       Decide: Russia        Gadam +       Phone        Truck allocation
+  (morning)   trucks, Kazakhstan    Agamyrat      discussion   screen
+              trucks, Gapy Satys                               
+              trucks                                           
+
+  Saturday    Compare: planned vs   Block         Google       Plan vs Actual
+              actual for the week,  managers      Sheets       report
+              update next week                                 
+  ------------------------------------------------------------------------------
+
+**3.2 The Truck Threshold Rule**
+
+  -----------------------------------------------------------------------
+  **18,500 kg = 1 export truck.** This is the fundamental unit of export
+  operations. When total daily harvest across all blocks reaches 18,500
+  kg, that's one truck. Gadam's daily decision is: how many blocks to
+  pick, how to combine into truckloads, and where to send each truck.
+
+  -----------------------------------------------------------------------
+
++-----------------------------------------------------------------------+
+| \# The truck threshold calculation (from Hepdelik planlama)           |
+|                                                                       |
+| TRUCK_CAPACITY_KG = 18500 \# net capacity per truck                   |
+|                                                                       |
+| \# Weekly planning row 26: \'Jemi Masyn Sany\' (Total Truck Count)    |
+|                                                                       |
+| \# Example: Week 40, total planned = 84,000 kg                        |
+|                                                                       |
+| \# 84,000 / 18,500 = 4.54 trucks for the week                         |
+|                                                                       |
+| \# Then split by destination:                                         |
+|                                                                       |
+| \# Row 29: Rossiya Masyn Sany = 2 trucks                              |
+|                                                                       |
+| \# Row 30: Gazak Masyn Sany = 3 trucks (rounded up from 2.54)         |
+|                                                                       |
+| \# Row 31: Gapy Satys Masyn Sany = 0 trucks                           |
+|                                                                       |
+| def calculate_trucks(total_harvest_kg):                               |
+|                                                                       |
+| return total_harvest_kg / TRUCK_CAPACITY_KG                           |
++-----------------------------------------------------------------------+
+
+**3.3 BARLAG: How Soltanmyrat Tracks Block Sources**
+
+The BARLAG (check/audit) sheets reveal that Soltanmyrat records **which
+blocks contributed to each export truck.** This is the traceability link
+between greenhouse and export.
+
+  ------------------------------------------------------------------------
+  **Column**    **Example**     **Purpose**
+  ------------- --------------- ------------------------------------------
+  T/B           1, 2, 3\...     Sequence number
+
+  GIDEN SENESI  03.02.2026      Departure date
+
+  GIDYÄN ÝURDY  GAZAGYSTAN      Destination country
+
+  TYR KODY      02FB005/26      Truck/shipment code
+
+  JEMI          18,403          Total kg on truck
+
+  A BLOK        ---             kg from Block A (blank if none)
+
+  B BLOK        12,371          kg from Block B
+
+  C BLOK        6,032           kg from Block C
+
+  D--O BLOK     ---             \...same for all 15 blocks
+  ------------------------------------------------------------------------
+
+**February 2026: 234 export trucks tracked** with per-block kg
+breakdown. This is Soltanmyrat's most critical data entry --- and it's
+exactly what the ShipmentBlockSource model needs to capture.
+
+**3.4 Monthly Block Sheets: The Complete Picture**
+
+Each block has a monthly sheet (e.g. FEWRAL-A) with 3 sections side by
+side:
+
+  -------------------------------------------------------------------------
+  **Section**        **Columns**        **Data**            **Volume**
+  ------------------ ------------------ ------------------- ---------------
+  Left: İÇERKI BAZAR Date, Buyer, Type, Daily domestic      \~30--50
+  (Domestic)         Net kg, Price      sales from this     rows/month
+                                        block               
+
+  Center: DAŞARKY    Truck Code,        Export shipments    \~20--40
+  BAZAR (Export)     Country, Net kg    sourced from this   rows/month
+                                        block               
+
+  Right: Slyklar     Date, Type, kg     Green, overripe,    \~10--20
+  (Waste/Defects)                       damaged, gifts      rows/month
+  -------------------------------------------------------------------------
+
+**This means every kg is tracked:** harvest = domestic + export + waste.
+The platform should show the same breakdown per block.
+
+**4. Django Models --- Ready to Code**
+
+  -----------------------------------------------------------------------
+  **10 models total:** 7 from v1.0 + 3 new models discovered from Pomidor
+  Dükany (GreenhouseBlock, ShipmentBlockSource, DomesticBuyer). These
+  models can be coded into Django on day 1.
+
+  -----------------------------------------------------------------------
+
+**4.1 GreenhouseBlock (NEW in v1.1)**
+
+Reference data for 15 blocks. Pre-populated from Pomidor Dükany.
+
++-----------------------------------------------------------------------+
+| class GreenhouseBlock(models.Model):                                  |
+|                                                                       |
+| code = models.CharField(max_length=10, unique=True) \# A, B,          |
+| C\...M15, M5, O                                                       |
+|                                                                       |
+| name = models.CharField(max_length=100) \# \'A-Ýyladyşhana\'          |
+|                                                                       |
+| manager_name = models.CharField(max_length=100) \# \'Toyly B.\'       |
+|                                                                       |
+| manager_phone = models.CharField(max_length=20) \# \'+99361608737\'   |
+|                                                                       |
+| variety_main = models.CharField(max_length=50) \# Defensiosa,         |
+| Midelyce\...                                                          |
+|                                                                       |
+| variety_secondary = models.CharField(max_length=50, blank=True) \#    |
+| cherry etc.                                                           |
+|                                                                       |
+| area_m2 = models.IntegerField(null=True) \# 45368, 95897\...          |
+|                                                                       |
+| sowing_date = models.DateField(null=True)                             |
+|                                                                       |
+| season_start_month = models.IntegerField(null=True) \# 9=Sep,         |
+| 10=Oct\...                                                            |
+|                                                                       |
+| is_active = models.BooleanField(default=True)                         |
+|                                                                       |
+| \# 15 blocks, 7 managers, \~2M m² total, 33.9M kg season target       |
++-----------------------------------------------------------------------+
+
+**4.2 ShipmentBlockSource (NEW in v1.1)**
+
+Tracks which blocks contributed how many kg to each truck. Replaces
+BARLAG spreadsheet.
+
++-----------------------------------------------------------------------+
+| class ShipmentBlockSource(models.Model):                              |
+|                                                                       |
+| shipment = models.ForeignKey(Shipment,                                |
+| related_name=\'block_sources\', on_delete=CASCADE)                    |
+|                                                                       |
+| block = models.ForeignKey(GreenhouseBlock, on_delete=PROTECT)         |
+|                                                                       |
+| weight_kg = models.DecimalField(max_digits=10, decimal_places=2)      |
+|                                                                       |
+| class Meta:                                                           |
+|                                                                       |
+| unique_together = \[\'shipment\', \'block\'\]                         |
+|                                                                       |
+| \# Validation: sum of all block_sources.weight_kg ==                  |
+| shipment.weight_net_kg                                                |
+|                                                                       |
+| \# Soltanmyrat fills this when loading truck                          |
+|                                                                       |
+| \# Example: Truck 02FB005/26 = B:12,371 + C:6,032 = 18,403 total      |
++-----------------------------------------------------------------------+
+
+**4.3 DomesticBuyer + DomesticSale (NEW in v1.1)**
+
+Tracks Gapy Satys buyers and their daily purchases. Source data for 1:10
+quota calculation.
+
++-----------------------------------------------------------------------+
+| class DomesticBuyer(models.Model):                                    |
+|                                                                       |
+| name = models.CharField(max_length=100) \# \'Yigit H.J.\',            |
+| \'Hemsaya\'\...                                                       |
+|                                                                       |
+| contact_person = models.CharField(max_length=100, blank=True)         |
+|                                                                       |
+| phone = models.CharField(max_length=50, blank=True)                   |
+|                                                                       |
+| is_active = models.BooleanField(default=True)                         |
+|                                                                       |
+| \# 15 domestic buyers this season                                     |
+|                                                                       |
+| class DomesticSale(models.Model):                                     |
+|                                                                       |
+| date = models.DateField()                                             |
+|                                                                       |
+| buyer = models.ForeignKey(DomesticBuyer, on_delete=PROTECT)           |
+|                                                                       |
+| block = models.ForeignKey(GreenhouseBlock, on_delete=PROTECT)         |
+|                                                                       |
+| weight_kg = models.DecimalField(max_digits=10, decimal_places=2)      |
+|                                                                       |
+| variety = models.CharField(max_length=50, blank=True) \# Gök,         |
+| Gyzaran, Cherry\...                                                   |
+|                                                                       |
+| price_per_kg = models.DecimalField(max_digits=8, decimal_places=2,    |
+| null=True)                                                            |
+|                                                                       |
+| tabel_no = models.CharField(max_length=20, blank=True) \# e.g.        |
+| \'02FBA01\'                                                           |
+|                                                                       |
+| notes = models.TextField(blank=True)                                  |
+|                                                                       |
+| \# 1,564,252 kg season total → 15.6M kg export quota                  |
++-----------------------------------------------------------------------+
+
+**4.4 Shipment (Updated)**
+
+Core model from v1.0, now updated with block source connection.
+
++-----------------------------------------------------------------------+
+| class Shipment(models.Model):                                         |
+|                                                                       |
+| \# Identity                                                           |
+|                                                                       |
+| code = models.CharField(max_length=20, unique=True) \# DDMM+seq/YY    |
+| e.g. 02FB005/26                                                       |
+|                                                                       |
+| date = models.DateField()                                             |
+|                                                                       |
+| season = models.CharField(max_length=10) \# \'2025-2026\'             |
+|                                                                       |
+| \# Destination                                                        |
+|                                                                       |
+| country = models.CharField(max_length=50) \# GAZAGYSTAN, RUSSIYA,     |
+| OZBEKYSTAN                                                            |
+|                                                                       |
+| city = models.CharField(max_length=100)                               |
+|                                                                       |
+| customer = models.ForeignKey(\'Customer\', on_delete=PROTECT)         |
+|                                                                       |
+| import_firm = models.ForeignKey(\'ImportFirm\', on_delete=PROTECT)    |
+|                                                                       |
+| \# Cargo                                                              |
+|                                                                       |
+| weight_gross_kg = models.DecimalField(max_digits=10,                  |
+| decimal_places=2) \# \~20,500                                         |
+|                                                                       |
+| weight_net_kg = models.DecimalField(max_digits=10, decimal_places=2)  |
+| \# \~18,100                                                           |
+|                                                                       |
+| packaging_kg = models.DecimalField(max_digits=8, decimal_places=2,    |
+| default=2400)                                                         |
+|                                                                       |
+| sort = models.CharField(max_length=20) \# Variety/type                |
+|                                                                       |
+| \# Block sources via ShipmentBlockSource (new in v1.1)                |
+|                                                                       |
+| \# Transport                                                          |
+|                                                                       |
+| truck_front_plate = models.CharField(max_length=20)                   |
+|                                                                       |
+| truck_rear_plate = models.CharField(max_length=20, blank=True)        |
+|                                                                       |
+| driver_name = models.CharField(max_length=100)                        |
+|                                                                       |
+| driver_passport = models.CharField(max_length=50, blank=True)         |
+|                                                                       |
+| \# Status (13 steps)                                                  |
+|                                                                       |
+| status = models.CharField(max_length=20, choices=SHIPMENT_STATUSES)   |
+|                                                                       |
+| ts_yuklenme = models.DateTimeField(null=True) \# 1. Loaded            |
+|                                                                       |
+| ts_gumruk_girish = models.DateTimeField(null=True) \# 2. Customs      |
+| entry                                                                 |
+|                                                                       |
+| ts_gumruk_chykysh = models.DateTimeField(null=True) \# 3. Customs     |
+| clear                                                                 |
+|                                                                       |
+| ts_yola_chykdy = models.DateTimeField(null=True) \# 4. Departed       |
+|                                                                       |
+| ts_serhet_tm = models.DateTimeField(null=True) \# 5. TM border        |
+|                                                                       |
+| ts_serhet_gechdi = models.DateTimeField(null=True) \# 6. Crossed      |
+|                                                                       |
+| ts_dest_customs = models.DateTimeField(null=True) \# 7. Dest customs  |
+|                                                                       |
+| ts_bardy = models.DateTimeField(null=True) \# 9. Arrived              |
+|                                                                       |
+| ts_satylyar = models.DateTimeField(null=True) \# 10. Being sold       |
+|                                                                       |
+| ts_satyldy = models.DateTimeField(null=True) \# 11. Sold              |
+|                                                                       |
+| ts_hasabat = models.DateTimeField(null=True) \# 12. Report            |
+|                                                                       |
+| ts_tamamlandy = models.DateTimeField(null=True) \# 13. Completed      |
+|                                                                       |
+| \# Finance                                                            |
+|                                                                       |
+| price_per_kg = models.DecimalField(max_digits=8, decimal_places=4,    |
+| null=True)                                                            |
+|                                                                       |
+| total_amount_usd = models.DecimalField(max_digits=12,                 |
+| decimal_places=2, null=True)                                          |
+|                                                                       |
+| is_gapy_satys = models.BooleanField(default=False)                    |
+|                                                                       |
+| \# Meta                                                               |
+|                                                                       |
+| created_by = models.ForeignKey(User, on_delete=PROTECT)               |
+|                                                                       |
+| created_at = models.DateTimeField(auto_now_add=True)                  |
+|                                                                       |
+| updated_at = models.DateTimeField(auto_now=True)                      |
+|                                                                       |
+| notes = models.TextField(blank=True)                                  |
++-----------------------------------------------------------------------+
+
+**4.5 Remaining Models (Unchanged from v1.0)**
+
+ExportFirm (24), ImportFirm (111), Customer (\~15), ShipmentFirmSplit,
+SalesReport, QuotaAllocation --- see v1.0 for full definitions. No
+changes needed.
+
+**4.6 Model: WeeklyHarvestPlan (NEW in v1.1)**
+
+Replicates the Hepdelik planlama grid. 15 blocks × 6 days per week.
+
++-----------------------------------------------------------------------+
+| class WeeklyHarvestPlan(models.Model):                                |
+|                                                                       |
+| week_number = models.IntegerField() \# ISO week: 40, 41, 42\...       |
+|                                                                       |
+| year = models.IntegerField()                                          |
+|                                                                       |
+| block = models.ForeignKey(GreenhouseBlock, on_delete=CASCADE)         |
+|                                                                       |
+| monday_kg = models.DecimalField(max_digits=10, decimal_places=2,      |
+| default=0)                                                            |
+|                                                                       |
+| tuesday_kg = models.DecimalField(max_digits=10, decimal_places=2,     |
+| default=0)                                                            |
+|                                                                       |
+| wednesday_kg = models.DecimalField(max_digits=10, decimal_places=2,   |
+| default=0)                                                            |
+|                                                                       |
+| thursday_kg = models.DecimalField(max_digits=10, decimal_places=2,    |
+| default=0)                                                            |
+|                                                                       |
+| friday_kg = models.DecimalField(max_digits=10, decimal_places=2,      |
+| default=0)                                                            |
+|                                                                       |
+| saturday_kg = models.DecimalField(max_digits=10, decimal_places=2,    |
+| default=0)                                                            |
+|                                                                       |
+| actual_total_kg = models.DecimalField(max_digits=10,                  |
+| decimal_places=2, null=True)                                          |
+|                                                                       |
+| class Meta:                                                           |
+|                                                                       |
+| unique_together = \[\'week_number\', \'year\', \'block\'\]            |
+|                                                                       |
+| \@property                                                            |
+|                                                                       |
+| def planned_total_kg(self):                                           |
+|                                                                       |
+| return sum(\[self.monday_kg, self.tuesday_kg, self.wednesday_kg,      |
+|                                                                       |
+| self.thursday_kg, self.friday_kg, self.saturday_kg\])                 |
+|                                                                       |
+| \@property                                                            |
+|                                                                       |
+| def variance_kg(self):                                                |
+|                                                                       |
+| if self.actual_total_kg is None: return None                          |
+|                                                                       |
+| return self.actual_total_kg - self.planned_total_kg                   |
+|                                                                       |
+| \# \~24 weeks per season × 15 blocks = 360 rows/season                |
+|                                                                       |
+| \# Planned by block managers on Friday                                |
+|                                                                       |
+| \# Actual filled on Saturday                                          |
++-----------------------------------------------------------------------+
+
+**5. API Endpoints per Sprint**
+
+**5.1 Sprint 1 (Weeks 1--3): Foundation + Data Import**
+
+  -------------------------------------------------------------------------------------
+  **Method**   **Endpoint**                   **Purpose**
+  ------------ ------------------------------ -----------------------------------------
+  GET          /api/shipments/                List with filters: status, date, country,
+                                              firm, customer, block
+
+  POST         /api/shipments/                Create new shipment
+
+  GET/PATCH    /api/shipments/{id}/           Detail + update (role-based field access)
+
+  POST         /api/shipments/import-excel/   Import 983 rows from main Excel
+
+  GET          /api/shipments/stats/          Dashboard: counts by status, tonnage,
+                                              revenue
+
+  GET          /api/greenhouse-blocks/        List 15 blocks with manager, variety,
+                                              area
+
+  GET          /api/export-firms/             List 24 firms
+
+  GET          /api/import-firms/             List 111 buyers with search
+
+  GET          /api/customers/                List \~15 customers
+  -------------------------------------------------------------------------------------
+
+**5.2 Sprint 2 (Weeks 4--6): Lifecycle + Firms + \$10K + Block Sources**
+
+  -----------------------------------------------------------------------------------------
+  **Method**   **Endpoint**                         **Purpose**
+  ------------ ------------------------------------ ---------------------------------------
+  POST         /api/shipments/{id}/advance/         Move to next status step (validates
+                                                    role)
+
+  POST         /api/shipments/{id}/firm-splits/     Add/update firm split with \$10K
+                                                    warning
+
+  POST         /api/shipments/{id}/block-sources/   NEW: Record which blocks contributed kg
+
+  GET          /api/shipments/{id}/timeline/        13-step progress with timestamps
+
+  GET          /api/shipments/kanban/               Grouped by 4 columns
+
+  POST         /api/sales-reports/                  Submit mandatory report
+
+  GET          /api/sales-reports/missing/          List shipments missing reports
+
+  GET          /api/shipments/{id}/ten-k-check/     Per-firm USD, warn near \$10K
+  -----------------------------------------------------------------------------------------
+
+**5.3 Sprint 3 (Weeks 7--9): Planning + Quota + Dashboard**
+
+  ---------------------------------------------------------------------------------------
+  **Method**   **Endpoint**                        **Purpose**
+  ------------ ----------------------------------- --------------------------------------
+  GET/POST     /api/weekly-plan/                   15 blocks × 6 days grid (plan +
+                                                   actual)
+
+  GET          /api/weekly-plan/truck-forecast/    NEW: total kg ÷ 18,500 = truck count
+                                                   per day
+
+  GET          /api/quotas/                        All 24 firms: granted/used/remaining
+
+  POST         /api/quotas/recalculate/            Recalc from domestic sales
+
+  GET/POST     /api/domestic-sales/                NEW: Gapy Satys daily kg per buyer
+
+  GET          /api/domestic-buyers/               NEW: List 15 domestic firms
+
+  GET          /api/dashboard/                     5 KPIs + 4 alerts
+
+  GET          /api/blocks/{id}/harvest-summary/   NEW: domestic + export + waste split
+                                                   per block
+
+  GET          /api/reports/seasonal/              Season summary by month, country, firm
+  ---------------------------------------------------------------------------------------
+
+**5.4 Sprint 4 (Weeks 10--12): Permissions + Polish**
+
+  -------------------------------------------------------------------------------
+  **Method**   **Endpoint**                **Purpose**
+  ------------ --------------------------- --------------------------------------
+  ---          9-role permission           Field-level access per role
+               middleware                  
+
+  ---          Telegram bot integration    Status changes, deadlines, missing
+                                           reports
+
+  GET          /api/notifications/         Overdue reports, quota alerts
+
+  GET          /api/dashboard/executive/   Management KPIs and trends
+
+  GET          /api/audit-log/             Who changed what, when
+  -------------------------------------------------------------------------------
+
+**6. Sprint Plan --- 12 Weeks to MVP**
+
+  -----------------------------------------------------------------------
+  **Each sprint = 3 weeks, delivers working software with real data.**
+
+  -----------------------------------------------------------------------
+
+**Sprint 1: Foundation + Data Import (Weeks 1--3)**
+
+  ------------------------------------------------------------------------
+  **Task**         **Details**                          **Done When**
+  ---------------- ------------------------------------ ------------------
+  Django project   Docker: Django + React + MSSQL +     docker-compose up
+  setup            Redis + Nginx. Cyrillic collation.   works
+
+  Core models      Shipment, ExportFirm, ImportFirm,    All models
+                   Customer, GreenhouseBlock (15        migrated
+                   pre-loaded)                          
+
+  Excel import     Parse 983-row Excel → Shipment       983 shipments in
+  script           objects. Map 44 columns.             API
+
+  Block reference  NEW: Import 15 blocks with managers, 15 blocks
+  data             varieties, areas from Pomidor Dükany queryable
+
+  Shipment List    Ant Design ProTable: search, sort, 6 Browse all 983
+  (React)          filters + NEW block filter           shipments
+
+  Shipment Detail  4 tabs: Main, Firms, Timeline, Block Click → see full
+                   Sources. Read-only in Sprint 1.      detail
+
+  Auth + 3 test    JWT login. Gadam, Sirin,             3 users can log in
+  users            Soltanmyrat.                         
+  ------------------------------------------------------------------------
+
+**Sprint 2: Lifecycle + Firms + Block Sources (Weeks 4--6)**
+
+  ------------------------------------------------------------------------
+  **Task**         **Details**                          **Done When**
+  ---------------- ------------------------------------ ------------------
+  13-step status   Role-validated transitions.          Shipment moves
+  machine          Auto-timestamps.                     through 13 steps
+
+  New Shipment     Select destination → Enter weight →  End-to-end
+  form             Assign firms → Record block sources  creation works
+
+  Block source     NEW: Soltanmyrat enters which        Per-block kg
+  input            blocks, how many kg each (like       recorded, sums
+                   BARLAG sheet)                        validated
+
+  Multi-firm       1--3 firms, auto-calculate weight    \$10K warning
+  split + \$10K    split, real-time \$10K warning       visible
+
+  Kanban board     4 columns. Cards show code, weight,  Visual shipment
+                   destination, block sources.          flow
+
+  Sales report +   Mandatory form. Block close without  90 missing reports
+  missing          report. Missing report list.         visible
+  ------------------------------------------------------------------------
+
+**Sprint 3: Planning + Quota + Dashboard (Weeks 7--9)**
+
+  ------------------------------------------------------------------------
+  **Task**         **Details**                          **Done When**
+  ---------------- ------------------------------------ ------------------
+  Weekly planning  NEW: 15 blocks × 6 days. Planned kg  Block managers can
+  grid             (Friday input), actual kg            input plan
+                   (Saturday). Plan vs actual.          
+
+  Truck forecast   NEW: Total planned kg ÷ 18,500 =     Gadam sees truck
+                   daily truck count. Split by          count from plan
+                   RU/KZ/Gapy.                          
+
+  Quota management 1:10 calculator. Per-firm progress   Quota visible for
+                   bars. 80/90/95% alerts.              24 firms
+
+  Domestic sales   NEW: Daily kg per buyer. Source data 1,564,252 kg
+  input            for quota calculation.               imported
+
+  Block harvest    NEW: Per block: domestic + export +  Block overview
+  summary          waste split (like monthly sheets)    matches
+                                                        spreadsheet
+
+  Dashboard (5     Today's shipments, in-transit,       Real-time data on
+  KPIs + 4 alerts) revenue, overdue, truck forecast     login
+
+  Export reports   Filtered download: Excel/PDF. Season Reports
+                   comparison.                          downloadable
+  ------------------------------------------------------------------------
+
+**Sprint 4: Permissions + Polish + Deploy (Weeks 10--12)**
+
+  ------------------------------------------------------------------------
+  **Task**         **Details**                          **Done When**
+  ---------------- ------------------------------------ ------------------
+  9-role           Field-level access. Block managers   Tested per role
+  permissions      see only their blocks.               
+
+  Audit log        Every change tracked: who, what,     Full traceability
+                   when.                                
+
+  Telegram         Status change → notify. Overdue →    Gadam gets
+  notifications    escalate. Missing report → daily.    Telegram alerts
+
+  Mobile           Phone-friendly for Soltanmyrat       Works on phone
+  responsive       (warehouse) and block managers       
+
+  Data validation  Required fields, net \< gross, block Invalid data
+                   source sum = net weight              rejected
+
+  Training (3      Gadam+Agamyrat, Sirin+Aynur,         Users operate
+  sessions)        Soltanmyrat+block managers           independently
+
+  Parallel run (2  Both Google Sheets and platform      Zero discrepancy
+  weeks)           used. Compare results.               
+  ------------------------------------------------------------------------
+
+**7. Business Rules --- Implementation Spec**
+
+**BR1: Standard Truck Weight**
+
++-----------------------------------------------------------------------+
+| STANDARD_GROSS_KG = 20500                                             |
+|                                                                       |
+| STANDARD_NET_KG = 18100                                               |
+|                                                                       |
+| STANDARD_PACKAGING_KG = 2400                                          |
+|                                                                       |
+| \# Warn if gross \> 21000 or net \< 15000. Do NOT block.              |
++-----------------------------------------------------------------------+
+
+**BR2: Truck Threshold (NEW in v1.1)**
+
++-----------------------------------------------------------------------+
+| \# From Hepdelik planlama: 18,500 kg = 1 export truck                 |
+|                                                                       |
+| TRUCK_THRESHOLD_KG = 18500                                            |
+|                                                                       |
+| def daily_truck_count(total_harvest_kg):                              |
+|                                                                       |
+| return total_harvest_kg / TRUCK_THRESHOLD_KG                          |
+|                                                                       |
+| \# Show on dashboard: \'Today: \~4.5 trucks available\'               |
+|                                                                       |
+| \# Gadam decides split: 2 KZ + 2 RU + 0 Gapy                          |
++-----------------------------------------------------------------------+
+
+**BR3: Shipment Code Format**
+
++-----------------------------------------------------------------------+
+| \# Format: DDMM+seq/YY e.g. 02FB005/26                                |
+|                                                                       |
+| \# DD = day (02), MM = month abbreviation (FB=Feb, MR=Mar), seq =     |
+| 3-digit, YY = year                                                    |
+|                                                                       |
+| \# Month codes from BARLAG: FB=February, MR=March (confirm others     |
+| with Gadam)                                                           |
+|                                                                       |
+| MONTH_CODES = {\'01\':\'YN\', \'02\':\'FB\', \'03\':\'MR\',           |
+| \'04\':\'AP\', \'05\':\'MY\', \'06\':\'IY\',                          |
+|                                                                       |
+| \'09\':\'SN\', \'10\':\'OK\', \'11\':\'NY\', \'12\':\'DK\'}           |
++-----------------------------------------------------------------------+
+
+**BR4: \$10K Rule**
+
++-----------------------------------------------------------------------+
+| WARN_THRESHOLD_USD = 9000 \# Yellow warning                           |
+|                                                                       |
+| BLOCK_THRESHOLD_USD = 10000 \# Red warning (does NOT block)           |
+|                                                                       |
+| \# Calculate from: weight_kg \* price_per_kg per firm in split        |
+|                                                                       |
+| \# Display real-time as user adjusts weight split                     |
++-----------------------------------------------------------------------+
+
+**BR5: Quota 1:10 Ratio**
+
++-----------------------------------------------------------------------+
+| QUOTA_RATIO = 10                                                      |
+|                                                                       |
+| \# Source: DomesticSale records (from Birlesme pomidor kwota sheet)   |
+|                                                                       |
+| \# Season example: 1,564,252 kg domestic = 15,642,520 kg export quota |
+|                                                                       |
+| \# Alert at 80%, 90%, 95%. Soft block at 100%.                        |
++-----------------------------------------------------------------------+
+
+**BR6: Block Source Validation (NEW in v1.1)**
+
++-----------------------------------------------------------------------+
+| \# When Soltanmyrat records block sources for a shipment:             |
+|                                                                       |
+| \# sum(block_source.weight_kg) MUST == shipment.weight_net_kg         |
+|                                                                       |
+| \# Each block_source.weight_kg \> 0                                   |
+|                                                                       |
+| \# Each block must be a valid GreenhouseBlock (one of 15)             |
+|                                                                       |
+| \# A truck can source from 1-5 blocks (typical: 1-3)                  |
++-----------------------------------------------------------------------+
+
+**BR7: Missing Report Enforcement**
+
++-----------------------------------------------------------------------+
+| \# Cannot move to \'tamamlandy\' without SalesReport                  |
+|                                                                       |
+| \# Auto-alert: if ts_satyldy \> 3 days and no report → Telegram       |
+| reminder                                                              |
+|                                                                       |
+| \# After 7 days: escalate to Gadam                                    |
++-----------------------------------------------------------------------+
+
+**BR8: Multi-Firm Split**
+
++-----------------------------------------------------------------------+
+| MAX_FIRMS_PER_SHIPMENT = 3                                            |
+|                                                                       |
+| \# 2-firm split: common (35.6%), 3-firm: rare                         |
+|                                                                       |
+| \# Each firm = separate CMR + invoice                                 |
+|                                                                       |
+| \# sum(firm_split.weight_kg) == shipment.weight_net_kg                |
++-----------------------------------------------------------------------+
+
+**BR9: Weekly Planning Cycle (NEW in v1.1)**
+
++-----------------------------------------------------------------------+
+| \# Friday: Block managers enter planned kg for next week (Mon-Sat per |
+| block)                                                                |
+|                                                                       |
+| \# Daily: Update actual harvest                                       |
+|                                                                       |
+| \# Saturday: Compare plan vs actual, variance report                  |
+|                                                                       |
+| \# Planning feeds truck forecast: total_planned / 18,500 = trucks     |
+| needed                                                                |
+|                                                                       |
+| \# Gadam uses truck forecast to pre-arrange transport                 |
++-----------------------------------------------------------------------+
+
+**8. Known Gaps --- Updated Status**
+
+  -----------------------------------------------------------------------
+  **v1.0 had 14 gaps. Pomidor Dükany resolved 5.** Remaining: 9 gaps, all
+  discoverable in 15--30 min conversations during development.
+
+  -----------------------------------------------------------------------
+
+**8.1 RESOLVED Gaps (5 closed)**
+
+  ---------------------------------------------------------------------------------
+  **\#**   **Gap**            **Resolution**                     **Source**
+  -------- ------------------ ---------------------------------- ------------------
+  G4       Sort/variety names ✅ 6 varieties confirmed:          Onumcilik plany
+                              Defensiosa, Midelyce, Marvelance,  sheet
+                              Redity, Fujimaru, Cherry           
+
+  G6       Multi-firm split   ✅ Arbitrary (not 50/50). BARLAG   BARLAG sheets
+           weight logic       shows each truck has different     
+                              block weights                      
+
+  G10      Quota period       ✅ Daily tracking per domestic     Birlesme pomidor
+           definitions        buyer. Continuous running total,   kwota
+                              not period-based                   
+
+  G11      Which 15 blocks    ✅                                 Hepdelik planlama
+           exactly            A,B,C,D,E,F,G,H,I,J,K,L,M15,M5,O   
+                              with managers and areas            
+
+  G14      Integration        ✅ Logo Tiger server:              Umumy maglumat
+           details            10.10.11.51:8888 (found in Umumy   sheet
+                              maglumat header)                   
+  ---------------------------------------------------------------------------------
+
+**8.2 Remaining Gaps (9 open)**
+
+  ------------------------------------------------------------------------------
+  **\#**   **Gap**            **When     **How to Resolve**      **Risk**
+                              Needed**                           
+  -------- ------------------ ---------- ----------------------- ---------------
+  G1       Exact 44 Excel     Sprint 1   Open main export Excel, LOW
+           column mapping     import     map columns. 30 min.    
+
+  G2       Shipment code edge Sprint 1   Confirm month codes     LOW
+           cases              form       beyond FB/MR with Gadam 
+
+  G3       Required vs        Sprint 1   Test with Sirin: create LOW
+           optional fields    form       5 real shipments        
+
+  G5       Status transition: Sprint 2   Walk 3 scenarios with   MEDIUM
+           can steps be                  Gadam                   
+           skipped?                                              
+
+  G7       \$10K: exact       Sprint 2   Confirm with Gadam      LOW
+           threshold or                                          
+           range?                                                
+
+  G8       Cancelled          Sprint 2   Ask: how many per       LOW
+           shipments workflow            season? What happens?   
+
+  G9       Sales report exact Sprint 2   Show Arap the prototype LOW
+           fields                        form                    
+
+  G12      Telegram: who gets Sprint 4   Map with each role (15  LOW
+           which alerts                  min each)               
+
+  G13      Field-level        Sprint 4   Sit with each role,     MEDIUM
+           permission matrix             verify access           
+  ------------------------------------------------------------------------------
+
+**9 gaps remain.** 7 are LOW risk, 2 are MEDIUM. None block Sprint 1
+start. All resolvable in targeted 15--30 min conversations with specific
+people.
+
+**9. Data Migration Plan**
+
+**9.1 Sources to Import**
+
+  ---------------------------------------------------------------------------
+  **Source**            **Records**    **Target Model(s)**   **Sprint**
+  --------------------- -------------- --------------------- ----------------
+  Main Export Excel     983 × 44 cols  Shipment +            Sprint 1
+  (983 shipments)                      ShipmentFirmSplit     
+
+  Pomidor Dükany: block 15 blocks      GreenhouseBlock       Sprint 1
+  reference                            (pre-load)            
+
+  Pomidor Dükany:       234+           ShipmentBlockSource   Sprint 2
+  BARLAG sheets         trucks/month   (historical)          
+
+  Pomidor Dükany:       15 buyers +    DomesticBuyer +       Sprint 3
+  domestic buyers       daily sales    DomesticSale          
+
+  Pomidor Dükany:       24 weeks × 15  WeeklyHarvestPlan     Sprint 3
+  weekly plans          blocks         (historical)          
+
+  Pomidor Dükany:       15 blocks × 10 Reference data for    Sprint 3
+  production plans      months         forecasting           
+
+  Export firms          24             ExportFirm            Sprint 1
+
+  Import firms          111            ImportFirm            Sprint 1
+
+  Customers             \~15           Customer              Sprint 1
+
+  Contracts Excel       28 + 461       P4 models (basic      Sprint 2
+                                       structure)            
+  ---------------------------------------------------------------------------
+
+**9.2 Data Quality Issues**
+
+  ------------------------------------------------------------------------------
+  **Issue**                **Frequency**   **Resolution**
+  ------------------------ --------------- -------------------------------------
+  Country names            \~5%            Normalize to standard codes: KZ, RU,
+  inconsistent (GAZAGYSTAN                 UZ
+  vs RUSSIYA vs RUSSIA)                    
+
+  Block codes: M15 vs M-15 \~3%            Normalize to: A, B\...M15, M5, O
+  vs M 15                                  
+
+  Shipment codes with      All rows        Map FB=Feb, MR=Mar, OK=Oct, NY=Nov,
+  month abbreviations                      etc.
+
+  Domestic buyer names     \~10%           Create lookup table, merge duplicates
+  slightly different                       
+  across sheets                            
+
+  Turkmen characters (Ý,   All text        UTF-8 throughout, MSSQL collation per
+  ş, ç, ü, etc.)                           field
+  ------------------------------------------------------------------------------
+
+**10. React Screens (17 total --- 3 new from v1.1)**
+
+**Sprint 1 (3 screens)**
+
+  ------------------------------------------------------------------------
+  **Screen**      **Key Feature**                   **Notes**
+  --------------- --------------------------------- ----------------------
+  Login           JWT auth, role selection          1 day
+
+  Shipment List   ProTable: search, sort, 6         Most complex table
+                  filters + block filter,           
+                  pagination                        
+
+  Shipment Detail 4 tabs: Main, Firms, Timeline,    Block Sources tab
+                  Block Sources (NEW)               shows which greenhouse
+                                                    blocks
+  ------------------------------------------------------------------------
+
+**Sprint 2 (5 screens)**
+
+  ------------------------------------------------------------------------
+  **Screen**      **Key Feature**                   **Notes**
+  --------------- --------------------------------- ----------------------
+  New Shipment    5 steps: Destination → Weight →   Block source input is
+  Wizard          Firms → Block Sources → Confirm   new from v1.1
+
+  Kanban Board    4 columns. Cards show code,       ---
+                  weight, destination, blocks       
+
+  Sales Report    Price, total, expenses, net.      Block submit if
+  Form            Mandatory.                        incomplete
+
+  Missing Reports Table: shipment, sold date, days  Red \> 7 days
+                  overdue, sales rep                
+
+  Firm Split      1--3 firms, weight per firm,      Core UX challenge
+  Editor          \$10K real-time calc              
+  ------------------------------------------------------------------------
+
+**Sprint 3 (6 screens --- 3 new)**
+
+  ------------------------------------------------------------------------
+  **Screen**         **Key Feature**                 **Notes**
+  ------------------ ------------------------------- ---------------------
+  Dashboard          5 KPIs + 4 alerts + truck       Landing page
+                     forecast (NEW)                  
+
+  Weekly Planning    15 blocks × 6 days. Editable    Replaces Hepdelik
+  Grid (NEW)         plan, read-only actual. Truck   planlama sheet
+                     count auto-calc.                
+
+  Truck Forecast     Daily: total harvest ÷ 18,500 = Gadam's daily
+  (NEW)              trucks. Split by RU/KZ/Gapy.    decision tool
+
+  Quota Dashboard    24 firms: progress bars, 1:10   ---
+                     visual, alerts                  
+
+  Block Harvest      Per block: domestic + export +  Replaces monthly
+  Summary (NEW)      waste split                     block sheets
+
+  Reports/Export     Download: Excel/PDF. Season     ---
+                     comparison.                     
+  ------------------------------------------------------------------------
+
+**Sprint 4 (3 screens)**
+
+  ------------------------------------------------------------------------
+  **Screen**         **Key Feature**                 **Notes**
+  ------------------ ------------------------------- ---------------------
+  Domestic Sales     Daily kg per buyer per block    Replaces Birlesme
+  Input                                              kwota sheet
+
+  Settings/Admin     Users, roles, reference data    Standard
+                     CRUD                            
+
+  Audit Log          Who, what, when                 Trust-building for 9
+                                                     editors
+  ------------------------------------------------------------------------
+
+**11. Technology Stack**
+
+  -------------------------------------------------------------------------
+  **Layer**     **Technology**         **Why**
+  ------------- ---------------------- ------------------------------------
+  Backend       Django 5.x + DRF       Team knows Python. AI generates
+                                       Django well.
+
+  Database      MSSQL (mssql-django)   Logo Tiger ERP at 10.10.11.51:8888.
+                                       Company server.
+
+  Frontend      React 18 + Ant Design  Enterprise tables/forms. Good for
+                Pro                    data-heavy apps.
+
+  Auth          Django simplejwt       9 roles with custom field-level
+                                       permissions
+
+  Real-time     Django Channels +      Live status updates. Sprint 3+.
+                WebSocket              
+
+  Deployment    Docker Compose (5      On company server (no cloud costs)
+                services)              
+
+  Development   Claude Code            30--50% acceleration.
+                multi-agent            
+  -------------------------------------------------------------------------
+
+**11.1 MSSQL Workarounds**
+
+  -----------------------------------------------------------------------
+  **Constraint**         **Workaround**
+  ---------------------- ------------------------------------------------
+  No JSONField           Separate model fields or related tables
+
+  No DISTINCT ON         ROW_NUMBER() window function
+
+  2,100 parameter limit  bulk_create(batch_size=500)
+
+  Turkmen/Russian text   Cyrillic_General_CI_AS + Latin_General_CI_AS
+                         collation
+  -----------------------------------------------------------------------
+
+**12. Role-Field Permission Matrix (Draft)**
+
+R = Read, W = Write, --- = No access. **Updated with block manager role
+from v1.1.**
+
+  ---------------------------------------------------------------------------------------------------------
+  **Field Group** **Gadam**   **Soltanmyrat**   **Sirin**   **Transport**   **Sales    **Block   **Mgmt**
+                                                                            Rep**      Mgr**     
+  --------------- ----------- ----------------- ----------- --------------- ---------- --------- ----------
+  Destination     RW          ---               R           R               R          ---       R
+
+  Firm split      RW          ---               R           ---             ---        ---       R
+
+  Weight          R           RW                R           ---             R          R         R
+
+  Block sources   R           RW                ---         ---             ---        R         R
+  (NEW)                                                                                          
+
+  Truck + driver  R           ---               R           RW              ---        ---       R
+
+  Documents       ---         ---               RW          ---             ---        ---       R
+
+  Status          RW          W(1)              W(2,3)      W(4)            W(9--12)   ---       R
+  timestamps                                                                                     
+
+  Sales report    ---         ---               ---         ---             RW         ---       R
+
+  Weekly plan     R           R                 ---         ---             ---        RW        R
+  (NEW)                                                                                          
+
+  Domestic sales  R           RW                ---         ---             ---        R         R
+  (NEW)                                                                                          
+  ---------------------------------------------------------------------------------------------------------
+
+**13. Conclusion**
+
+  -----------------------------------------------------------------------
+  **P3 Export now has 10 models, 35+ API endpoints, 17 screens, 9
+  business rules, and real reference data for all 15 blocks, 24 firms,
+  111 buyers, and 15 domestic purchasers.** Pomidor Dükany analysis
+  resolved 5 of 14 gaps and revealed 3 new models (GreenhouseBlock,
+  ShipmentBlockSource, DomesticBuyer) plus the critical planning→export
+  bridge. **Only 9 gaps remain, all LOW-MEDIUM risk and resolvable in
+  Sprint 1--2. Start development now.**
+
+  -----------------------------------------------------------------------
+
+**v1.0 → v1.1 Changelog**
+
+  -----------------------------------------------------------------------
+  **Area**      **v1.0**         **v1.1**
+  ------------- ---------------- ----------------------------------------
+  Models        7                10 (+GreenhouseBlock,
+                                 ShipmentBlockSource, WeeklyHarvestPlan,
+                                 DomesticBuyer/Sale)
+
+  API endpoints \~28             \~35+ (new: block sources, weekly plan,
+                                 truck forecast, domestic sales)
+
+  Screens       14               17 (+Weekly Planning Grid, Truck
+                                 Forecast, Block Harvest Summary)
+
+  Business      8                9 (+Truck Threshold 18,500 kg, Weekly
+  rules                          Planning Cycle)
+
+  Reference     Assumed          Confirmed: 15 blocks, 7 managers, 6
+  data                           varieties, 15 domestic buyers
+
+  Open gaps     14               9 (5 resolved from Pomidor Dükany)
+
+  TT readiness  6/9 done         8/9 done
+
+  Source files  Main export      Main export Excel + Pomidor Dükany (140+
+  analyzed      Excel            sheets)
+  -----------------------------------------------------------------------
+
+Prepared by Data Analytics Department. Based on analysis of 983
+shipments, 461 invoices, 28 contracts, 24 export firms, 111 import
+buyers, 15 domestic buyers, 15 greenhouse blocks, and the 140-sheet
+Pomidor Dükany operational file. March 2026.

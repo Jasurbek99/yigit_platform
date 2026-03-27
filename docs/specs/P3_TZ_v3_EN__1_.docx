@@ -1,0 +1,365 @@
+**P3 EXPORT OPERATIONS**
+
+Technical Task (TZ) v3.0
+
+Functional and Non-Functional Requirements for the Platform
+
+| **Property** | **Value** |
+| --- | --- |
+| Document | Technical Task for Export Operations Management Platform (P3) |
+| Version | 3.0 (updated based on post-TZ Excel analysis) |
+| Date | March 2026 |
+| Purpose | Describes WHAT the system must do and by what rules |
+| Data sources analyzed | 4 Excel files: Hasabat (10 sheets, 1,145 cargo codes), Baha_Grafigi (1,557 price entries, 5 years), Satys_bahalar (16 sheets, TM domestic prices), Export_contracts (28 sheets, 1,959 sales, 31 contracts, 111 import firms, 24 export firms, 2,014 truck/drivers) |
+| Languages | English (this document), Russian, Turkish |
+
+# **1. Goals and Objectives**
+
+## **1.1 Primary Goal**
+
+Create a unified export operations management platform replacing the current workflow across Google Sheets, Excel, WhatsApp, and phone calls. The platform must become the single source of truth for all export process participants.
+
+Post-analysis scale: the system must handle 1,959+ shipment records per season, 31+ active contracts, 111+ import firms, 24+ export firms, 2,014+ truck/driver records, operations across 8 destination countries (Kazakhstan, Russia, Belarus, Kyrgyzstan, Tajikistan, Uzbekistan, Afghanistan, plus domestic Gapy Satysh), and a 5-year daily price database of 1,557+ entries.
+
+## **1.2 Objectives**
+
+| **#** | **Objective** | **Current Problem** | **Expected Result** |
+| --- | --- | --- | --- |
+| 1 | Full shipment lifecycle tracking | 1,959 shipments in Excel with 28+ columns. 12+ people edit the same file. No status control. | Each shipment passes through 13 statuses. Each participant sees only their fields and tasks. |
+| 2 | Eliminate losses from missing reports | Sales reports come only from Kazakhstan via WhatsApp. Russia is a new market with no systematic reporting. | System blocks closing a shipment without a report. Automatic reminders. |
+| 3 | Export firm quota control | Quotas tracked manually. Government per-firm quota (1:10 domestic:export ratio). Cases of negative balance. | Real-time quota display for all 24 firms. Warnings at 80%, 90%, 95%. Soft block at 100%. |
+| 4 | Document preparation automation | 4 employees spend 2-3 hours daily filling 12 document templates manually from Export_contracts master data. | Auto-fill documents from shipment data. 13:00 deadline control. Electronic document management. |
+| 5 | Management transparency | Directors call departments for information. No unified picture. | Real-time dashboard with KPIs. |
+| 6 | Financial advance control | Babageldi (finansist) issues cash for 5-20 shipments at once. Cannot track when exports change/delete. | Link advances to shipment codes. Notifications on changes. |
+| 7 | Data-driven planning | Weekly harvest plans in Google Sheets. Manual truck count. | Auto-calculate: planned harvest / 18,500 kg = trucks. Plan vs actual comparison. |
+| 8 | Firm & contract document portal | Firm documents (bank requisites, registration cards) scattered. 111 import firms and 24 export firms with details in 3 languages. | Centralized portal storing firm documents, bank requisites. Contract creation and management. Quota tracking. |
+| 9 | Gapy Satysh portal | Local entrepreneurs export through the company but have no way to submit/receive documents electronically. | Simple portal with easy forms for Gapy Satysh to submit documents and receive export paperwork. |
+| 10 | Mobile CRM readiness | Sales reps abroad send reports via WhatsApp photos. No structured data collection. | API-first architecture enabling future mobile CRM for field operations (sales reps, drivers, inspectors). |
+
+# **2. Role Model**
+
+The system serves 12 roles. Each role has access only to its own data and functions.
+
+## **2.1 Roles and Permissions**
+
+| **Role** | **Person(s)** | **What they see** | **What they can change** |
+| --- | --- | --- | --- |
+| Export Manager | Gadam | All shipments, all data, quotas, dashboard, 5-year price DB | Country, city, customer, firms (export/import), country distribution |
+| Export Manager Assistant | Aganazar | Same as Export Manager | Same fields as Export Manager. They work together. Also acts as sales rep abroad. |
+| Warehouse Chief | Soltanmyrat | Shipments, blocks, weight data | Shipment code, harvest block, variety, weight (net/gross), loading time, harvest date |
+| Quality Inspector | Hil Barlagchy (one per greenhouse) | Shipments from their greenhouse only | Transport temperature, transit days, shelf life, rejected weight, 4 quality documents |
+| Dispatcher | Mergen | Shipment list | Dispatch time from greenhouse (1 field) |
+| Contracts | Shohrat, Shirin, Sulgun, Aynur | Shipments, contracts, firm documents | Create one-time contracts for new import firms. Manage contract documents. |
+| Documents (4 people) | Shohrat, Shirin, Sulgun, Aynur | Shipments, documents, customs | Document status, customs time (in/out), prepare 8 document types. Export firm data entry (Sulgun). |
+| Transport (2 people) | Malik, Haltach | Shipments, vehicles | Truck/trailer numbers, driver, phone, vehicle status, border crossing time |
+| Finansist | Babageldi | Shipments, advances | Advance amount, linked shipment codes |
+| Sales Rep (2 people) | Arap, Aganazar | Shipments in their regions | Arrival, destination customs, transloading, sale start/end, sales report |
+| Greenhouse Managers (7) | Toyly (A,B), Guwanch (D,M15,M5), Geldimyrat (E,F), Asdan (G,H), Mekan (I,J), Batyr (K,L), Bayram (O) | Weekly plan for their blocks only | Planned harvest (kg per day) |
+| Management | Directors | Everything (read-only) | Nothing (view and reports only) |
+
+## **2.2 Access Principles**
+
+1. Each role sees and edits ONLY its own fields. Other fields displayed as read-only or hidden.
+
+2. Greenhouse managers see only their blocks (A and B for Toyly, D/M15/M5 for Guwanch, etc.).
+
+3. Quality inspectors see shipments only from their greenhouse.
+
+4. Every change is recorded in the audit log: who, what, when.
+
+# **3. Shipment Lifecycle (State Machine)**
+
+Each shipment passes through 13 mandatory statuses. Transition between statuses is only possible by a specific role and only when conditions are met.
+
+| **#** | **Status** | **Translation** | **Who transitions** | **Transition conditions** |
+| --- | --- | --- | --- | --- |
+| 1 | Yuklenme | Loading | Soltanmyrat | Block specified, weight entered, loading time started |
+| 2 | Gumruk girish | Customs (entry) | Document team | Document status = 'OK'. All required documents marked. Electronic docs sent to doc depo. |
+| 3 | Gumruk chykysh | Customs (exit) | Document team | Customs passage time specified |
+| 4 | Yola chykdy | Departed | Mergen / Transport | Departure time specified. Vehicle and driver data filled. |
+| 5 | Serhet TM | TM Border | Haltach / Driver | TM border arrival time specified |
+| 6 | Serhet gechdi | Border crossed | Driver | Border crossing time specified |
+| 7 | Barysh gumrugi | Destination customs | Arap / Aganazar | Destination country customs time specified |
+| 8 | Yolda | In transit | System / GPS | Vehicle moving toward destination city |
+| 9 | Bardy | Arrived | Arap / Aganazar | Arrival time and city specified |
+| 10 | Satylyar | Being sold | Arap / Aganazar | Sale start time specified |
+| 11 | Satyldy | Sold | Arap / Aganazar | Price, sold weight specified |
+| 12 | Hasabat | Report received | Arap / Aganazar | Mandatory sales report filled (daily sales, expenses, seller payments) |
+| 13 | Tamamlandy | Completed | Accounting | Report received. Payment confirmed. Finansist advance reconciled. |
+
+## **3.1 Transition Rules**
+
+Statuses cannot be skipped. A shipment must pass through each status sequentially. Exception: administrator can manually change status with a mandatory comment.
+
+Cannot close without report. Transition to 'Tamamlandy' is impossible without a filled sales report (Hasabat).
+
+Cannot depart without documents. Transition to 'Yola chykdy' is impossible if document status is not 'OK' and vehicle/driver data is not filled.
+
+Every transition is logged. System records: who transitioned, when, from which status to which. This forms the complete shipment timeline.
+
+# **4. User Scenarios (Use Cases)**
+
+## **UC-01: Weekly Harvest Planning**
+
+|  | **Description** |
+| --- | --- |
+| Role | Greenhouse Manager |
+| When | Every Friday |
+| Action | Manager opens a grid '15 blocks x 6 days' and enters expected harvest (kg) for each of their blocks for each day of the following week (Monday-Saturday). |
+| Result | System auto-calculates: sum across all blocks / 18,500 = number of trucks per day. Gadam sees the forecast. |
+| Saturdays | Manager enters actual harvest. System shows plan vs actual deviation. |
+
+## **UC-02: Export Decision Making (Gadam)**
+
+|  | **Description** |
+| --- | --- |
+| Role | Export Manager (Gadam / Aganazar) |
+| Trigger | Weekly truck forecast is ready |
+| Step 1 | Gadam reviews current tomato prices (from sales reps + 5-year historical database of 1,557 entries covering KZ, RU, BY, KG markets) and decides: how many trucks to Russia, how many to Kazakhstan, how many for domestic market (Gapy Satysh). |
+| Step 2 | For each truck selects export firm(s) and import firm. Defaults: Russia = 2 export firms (cash only), Kazakhstan = 1 export firm (exceptions possible). This applies to OWN export only, not Gapy Satysh. Export firm data entered by Export Managers and Sulgun. |
+| Step 3 | If no contract exists for the chosen import firm, system notifies Shohrat to create a one-time contract. |
+| Important | Destination country is decided at this stage. Destination city may be decided later, up to arrival. |
+| Important | Gadam can change country/delete shipment BEFORE document preparation begins. After — extremely rare (1-2 times per season). |
+
+## **UC-03: Truck Loading (Soltanmyrat)**
+
+|  | **Description** |
+| --- | --- |
+| Role | Warehouse Chief (Soltanmyrat) |
+| Step 1 | Creates shipment: system generates code (format DDMM+seq/YY). Selects which blocks to harvest from (1-3 blocks, rarely more). |
+| Step 2 | Enters harvest status. When status = OK, calls driver to come. |
+| Step 3 | Records loading start and end time. |
+| Step 4 | Enters weight: net tomato weight (r), weight with packaging (h), packaging weight. |
+| Step 5 | Specifies kg taken from each block. System validates: sum across blocks = total net weight. |
+| Product | Not limited to tomatoes. System must support other products (bell peppers, eggplant, cucumbers, etc.). |
+| Result | Shipment transitions to 'Yuklenme' status with complete cargo data. |
+
+## **UC-04: Quality Inspection (Hil Barlagchy)**
+
+|  | **Description** |
+| --- | --- |
+| Role | Quality Inspector (separate person in each greenhouse) |
+| Action | Inspects produce, measures calibration (sizing), separates items unfit for export. |
+| Enters | Transport temperature (C), transit days, shelf life (days), rejected weight (kg), rejection reason. |
+| Documents | Produces 4 quality documents per truck: (1) Food product certificate (Azyk onumlerin Maglumatnama), (2) Driver temperature instruction (Awtoulag surujisine gozukdiriji), (3) Quality certificate (Hil barlag sertifikaty), (4) Sizing analysis (Kalibrowka Analiz). |
+
+## **UC-05: Document Preparation (Document Team)**
+
+|  | **Description** |
+| --- | --- |
+| Role | Document department (Shohrat, Shirin, Sulgun, Aynur) |
+| Trigger | Gadam assigned country, firms, and customer for shipment. Truck selected for export. |
+| Electronic docs required | After truck is selected for export, the following must be sent to documentation depo electronically: driver passport, technical passport (tekhpasport), transport license. Required from BOTH own company transport AND Gapy Satysh transport. Own transport docs stored permanently in DB. Gapy Satysh also submits a GPS list document. |
+| Action | Prepare 8 customs documents: CMR (RU/EN), Invoice (RU/EN), Customs declaration, Phyto, CT-1 letter, TIR Carnet (Uzbekistan route only). CMR is a BLANK PAPER form, not electronic. |
+| Deadline | ALL documents must be submitted to documentation depo by 13:00. System shows countdown and warns as deadline approaches. |
+| Statuses | For each document: OK / Preparing / In progress / No / Day off |
+| Blocking | Until document status = 'OK', system must NOT allow transition to 'Gumruk chykysh'. |
+| Contracts | If Gadam selected a firm without a contract, Shohrat creates a one-time contract directly in the system. |
+
+## **UC-06: Financing (Babageldi)**
+
+|  | **Description** |
+| --- | --- |
+| Role | Finansist |
+| Action | Issues cash for customs and document processing. One issuance covers 5-20 shipments. |
+| Enters | Amount, date, list of shipment codes linked to the advance. |
+| Requirement | System must: (1) link advance to shipment codes, (2) auto-notify Babageldi if a linked shipment is changed or deleted, (3) preserve change history to protect the finansist. |
+
+## **UC-07: Transport and Border Crossing**
+
+|  | **Description** |
+| --- | --- |
+| Role | Malik / Haltach / Transport department |
+| Action | Assign vehicle and driver from fleet. Enter numbers, driver name, phone, border crossing point. |
+| Requirement | Warning if vehicle/driver data is not filled when shipment is already at document preparation stage. |
+| Vehicle status | Structured field with predefined options (waiting, driving to greenhouse, on site, loading, etc.) — filled ONLY by transport. |
+| Comments | Separate comment thread per shipment (like chat). Anyone can write, mention colleagues (@name). Replaces current chaotic use of the vehicle status field as a shared notepad. |
+
+## **UC-08: Arrival and Sales (Arap / Aganazar)**
+
+|  | **Description** |
+| --- | --- |
+| Role | Sales Representative |
+| Arrival | Records arrival time and final city. |
+| Transloading | ONLY in Kazakhstan. Truck arrives at hub, cargo is split into smaller vehicles for different cities. System allows marking: was there transloading, hub city, time. |
+| Sales | Records sale start/end, final price per kg, sold weight. |
+| Report (Hasabat) | MANDATORY. Includes: daily sales by city, expenses, seller payments. Currently comes ONLY from Kazakhstan via WhatsApp. Russia is a new market with no systematic reporting. |
+| Mobile CRM | Planned as separate project AFTER this platform. Architecture must be API-first to support future handoff to mobile CRM for field operations. |
+
+## **UC-09: Gapy Satysh Portal**
+
+|  | **Description** |
+| --- | --- |
+| Role | Gapy Satysh (local entrepreneurs who export through the company) |
+| Weight | Gapy Satysh trucks CAN exceed 18,100 kg — they use their own trucks with no weight limit. |
+| Documents | ALL export documents are still prepared by the company for Gapy Satysh shipments. |
+| Portal | Need a portal with easy, understandable interface and simple forms for Gapy Satysh to: (1) submit required documents (driver passport, tekhpasport, transport license, GPS list), (2) receive completed export paperwork. |
+| Note | Telekeci (entrepreneur) codes in the system apply to own firms too, not only Gapy Satysh. |
+
+## **UC-10: Firm Document Portal**
+
+|  | **Description** |
+| --- | --- |
+| Role | Document team / Administration |
+| Purpose | Centralized storage of firm registration documents for all 111+ import and 24+ export firms. |
+| Stores | Company name (in RU/EN/TM), legal address, bank requisites (bank name, INN/BIN, account numbers, SWIFT codes), director name, signature/stamp scans, registration cards. |
+| Usage | Document team pulls firm data automatically when generating invoices, CMR, customs declarations. Currently done via Excel Buyers/sellers reference sheets. |
+| Example | Firm card: OOO 'PERFECT OPTIMAL EXPORT', Tashkent, Uzbekistan, INN 311138976, Asia Alliance Bank, SWIFT ASACUZ22, Director Azimov G.B. |
+
+# **5. Business Rules**
+
+Hard constraints that the system must enforce at all times.
+
+| **ID** | **Rule** | **Description** | **System Reaction** |
+| --- | --- | --- | --- |
+| BR-01 | Standard truck | Standard capacity: 18,100 kg net / ~20,500 kg gross / ~2,400 kg packaging. Gapy Satysh trucks CAN exceed 18,100 kg (own trucks, no limit). | Warning (not blocking) if gross > 21,000 or net < 15,000. No warning for Gapy Satysh flagged shipments. |
+| BR-02 | Truck threshold | 18,500 kg = 1 export truck. Fundamental planning unit. | Auto-calculate on dashboard: planned harvest / 18,500. |
+| BR-03 | Shipment code | Format: DDMM+seq/YY (e.g., 02FB005/26). Generated by Soltanmyrat. | Support auto-generation with manual override. |
+| BR-04 | Government quota | Government per-firm export quota. 1 tonne domestic sales = 10 tonnes export quota. | Show quota balance for all 24 firms. Warnings at 80%, 90%, 95%. Soft block at 100%. |
+| BR-05 | Block source check | Sum of kg from all source blocks MUST equal total net weight of shipment. | Block saving if sums do not match. |
+| BR-06 | Mandatory report | Shipment cannot be closed without a sales report. | Block transition to 'Tamamlandy'. Auto-reminder after 3 days. Escalation after 7 days. |
+| BR-07 | Firm split | Max 3 export firms per 1 shipment. Usually 2 (35.6%), rarely 3. Each firm = separate CMR + invoice. | Sum of weights per firm = shipment net weight. |
+| BR-08 | 13:00 deadline | All customs documents must be submitted to documentation depo by 13:00 daily. | Countdown timer. Warning after 12:00. Red indicator after 13:00. |
+| BR-09 | Transloading | Transloading (splitting cargo to smaller vehicles) occurs ONLY in Kazakhstan. Russia has no transloading. | Transloading fields available only for shipments destined to Kazakhstan. |
+| BR-10 | Two weight types | Arassa agramy (r) = pure product weight. Arassa agramy (h) = weight with packaging. Both mandatory. | Two separate fields. Weight (h) must be >= weight (r). |
+| BR-11 | Late city | City determined LATE — sometimes only on arrival. Country determined at planning. | City field not required until 'Bardy' (arrived) status. |
+| BR-12 | Export firm defaults | Russia = 2 export firms (cash only). Kazakhstan = 1 export firm (exceptions). Own export only, not Gapy Satysh. | Pre-fill defaults by country. Allow override. |
+| BR-13 | Electronic docs to depo | After truck selected: driver passport, tekhpasport, transport license must be sent electronically. Own transport in DB. Gapy Satysh adds GPS list. | System tracks document submission status per shipment with deadline enforcement. |
+| BR-14 | Products | Not tomato-only. System must support bell peppers, eggplant, cucumbers, and other greenhouse products. | Product type as a selectable field from reference table. |
+
+# **6. Data Input/Output by Stage**
+
+## **6.1 Loading Stage (Soltanmyrat enters)**
+
+| **Data** | **Type** | **Example** | **Required?** |
+| --- | --- | --- | --- |
+| Shipment code | Text | 02FB005/26 | Yes |
+| Harvest block(s) | Select from 15 blocks | B BLOK + C BLOK | Yes |
+| Product type | Select from reference | Pomidor (Merjen) / Bulgar / Badamjan / Hyyar | Yes |
+| Loading start time | DateTime | 02.02.2026 07:30 | Yes |
+| Loading end time | DateTime | 02.02.2026 09:15 | Yes |
+| Net product weight (r) | Number (kg) | 18,100 | Yes |
+| Weight with packaging (h) | Number (kg) | 18,403 | Yes |
+| Packaging weight | Number (kg) | 2,400 | Yes (default 2400) |
+| Harvest date | Date | 02.02.2026 | Yes |
+| Kg from each block | Number x N blocks | B: 12371, C: 6032 | Yes (sum = weight h) |
+| Gross weight (brut) | Number (kg) | 20,628 | Yes |
+| Pallet count | Number | 33 | Yes |
+| Pallet weight | Number (kg) | 433 | Yes |
+
+## **6.2 Quality Inspection (Hil Barlagchy enters)**
+
+| **Data** | **Type** | **Example** | **Required?** |
+| --- | --- | --- | --- |
+| Transport temperature | Number (C) | 11 | Yes |
+| Transit days | Number | 5 | Yes |
+| Shelf life (days) | Number | 20 | Yes |
+| Rejected weight | Number (kg) | 230 | No (default 0) |
+| Rejection reason | Text | Small caliber | No |
+
+## **6.3 Logist Decisions (Gadam enters)**
+
+| **Data** | **Type** | **Example** | **Required?** |
+| --- | --- | --- | --- |
+| Destination country | Select: KZ/RU/BY/KG/TJ/UZ/AF | GAZAGYSTAN | Yes |
+| Destination city | Text | Almaty | No (until arrival) |
+| Customer | Select from list | Berik | Yes |
+| Export firm(s) | Select from 24, 1-3 firms | YGT + HMS | Yes |
+| Import firm | Select from 111+ | Nur-Alem | Yes |
+| Weight per firm (kg) | Number x N firms | YGT: 10000, HMS: 8403 | Yes (sum = net) |
+| Incoterms | Select: FCA/other | FCA | Yes |
+| Passport sdelka | Text | 1304-22058-382617/1 | Yes |
+
+## **6.4 Transport enters**
+
+| **Data** | **Type** | **Example** | **Required?** |
+| --- | --- | --- | --- |
+| Transport coordinator | Select | Malik | Yes |
+| Truck front plate | Text | 3194AHF | Yes |
+| Trailer plate | Text | 2411TAH | No |
+| Truck make | Text | VOLVO | Yes |
+| Driver name | Text | Mansur Marupov | Yes |
+| Driver passport | Text | FA0408084 | Yes |
+| Driver phone | Text | +99361... | Yes |
+| Border crossing point | Select: Farap/Sarahs/Garabogaz | Farap | Yes |
+
+## **6.5 Sales Report (Arap / Aganazar enters)**
+
+| **Data** | **Type** | **Example** | **Required?** |
+| --- | --- | --- | --- |
+| Report receipt date | Date | 07.02.2026 | Yes |
+| Daily sales | City + kg + price | Almaty: 3200kg x $1.45 | Yes |
+| Waste (othod) kg | Number (kg) | 133 | Yes |
+| Net sold kg (arassa) | Number (kg) | 18,374 | Yes |
+| Unit price | Number | 750.01 | Yes |
+| Average KZ sale price | Number | 1.55 | Yes |
+| Total price | Number | 13,780,725 | Auto-calculated |
+| Expenses | Number ($) | $3,200 | Yes |
+| Seller payments | Number ($) | $800 | Yes |
+| Net profit | Number ($) | $22,682 | Auto-calculated |
+
+# **7. Screen Requirements**
+
+| **Screen** | **Purpose** | **Key Elements** | **Access** |
+| --- | --- | --- | --- |
+| Auth | System login | Login, password, role selection. Remember me. | All |
+| Dashboard | Big picture | 5 KPIs (shipments today, in transit, arrived, overdue, truck forecast) + 4 alerts (overdue reports, 13:00 deadline, quota 80%+, unreconciled advances) | All (data by role) |
+| Shipment List | View all shipments | Table with search, sorting. 6 filters: status, date, country, firm, customer, block. Color-coded status labels. | All (filtered by role) |
+| Shipment Detail | Full shipment info | Tabs: General, Firms, Timeline (13 steps), Block Sources, Comments, Documents (12), Quality Inspection, Gross/Net weights. | All (fields by role) |
+| Create Shipment | New shipment | Step-by-step form: Assignment -> Weight -> Firms -> Blocks -> Confirmation | Gadam, Soltanmyrat |
+| Kanban Board | Visual flow | 4 columns: Loading, In Transit, On Site, Completed. Cards with code, weight, destination. | All |
+| Weekly Plan | Harvest planning | Grid 15 blocks x 6 days. Enter plan (Friday), enter actual (Saturday). Auto truck count. | Greenhouse Mgrs (entry), Gadam (view) |
+| Truck Forecast | Truck distribution | Planned harvest / 18,500 = trucks. Breakdown: Russia / Kazakhstan / Gapy Satysh. Chart. | Gadam |
+| Quotas | Quota control | 24 firms: progress bars, issued/used/remaining, 1:10 ratio. Government per-firm quota. Warnings. | Gadam, Management |
+| Sales Report | Enter report | Form: price, weight, expenses, payments. Block shipment without report. | Arap, Aganazar |
+| Overdue Reports | Monitoring | Table: shipment, sale date, days overdue, responsible. Red > 7 days. | Gadam, Management |
+| Quality Inspection | Quality data entry | Form: temperature, days, shelf life, rejected weight | Hil Barlagchy |
+| Advances | Finansist tracking | Table: amount, date, linked codes, status (reconciled/not). Notifications on changes. | Babageldi, Management |
+| Comments | Per-shipment comms | Comment thread per shipment. @mention. Replies. Replaces R15 field chaos. | All roles |
+| Price Panel | Price analysis | Today's prices by city (from 1,557-entry DB) + 7-day trend + year-over-year comparison. | Gadam |
+| Block Summary | Block overview | Per block: internal + export + waste (from block-level data). | All |
+| Domestic Sales | Quota-forming data | Daily: kg per buyer per block. | Soltanmyrat |
+| Firm Portal | Firm document storage | 111+ import firms, 24+ export firms: name (RU/EN/TM), address, bank details, director, docs. | Document team, Admin |
+| Contract Management | Contract lifecycle | 31+ active contracts: seller, buyer, qty, amount, exported/remaining, payment status. | Shohrat, Gadam |
+| Gapy Satysh Portal | External portal | Simple forms for document submission. Easy interface. GPS list upload. Document receipt. | Gapy Satysh users |
+| Audit Log | Change history | Who, what, when changed. Filter by user, date, type. | Management |
+| Settings | Reference management | Users, roles, blocks, firms, customers, products. | Administrator |
+| Reports/Export | Data export | Download data to Excel/PDF. Season comparison. | Management |
+
+# **8. Non-Functional Requirements**
+
+| **Requirement** | **Description** | **Priority** |
+| --- | --- | --- |
+| Mobile responsive | Interface must fully work on smartphones. Soltanmyrat works from the warehouse with a phone. Greenhouse managers enter data from tablets. | High |
+| Weak internet | Greenhouses may have unstable internet. System must handle connection loss and save data on reconnection. | Medium |
+| Multilingual | Interface in 2 languages: Turkmen, Russian. Reference data in all languages (RU/EN/TM confirmed in firm data). | High |
+| Security | JWT auth. Every action tied to a user. Audit log. Data is never deleted, only marked inactive. | High |
+| Performance | Table of 1,959+ shipments must load in < 3 seconds. Filtering/sorting < 1 second. | Medium |
+| Data import | Import historical data from current Excel files (1,959 shipments, 111 import firms, 24 export firms, 2,014 truck/drivers, 31 contracts, 1,557 price entries). | High (for launch) |
+| Notifications | Web + SMS notifications for: status change, overdue report, 13:00 deadline approach, shipment change after advance. | Medium |
+| Integration | Read from Logo Tiger ERP (accounting). Link to existing Trip Management system for vehicle/driver data. Future: GPS via Navixy. | Phases 3-4 |
+| Deployment | On company server (no cloud). Docker containers. | High |
+| Parallel operation | First 2 weeks after launch — simultaneous work in old Excel and new system for verification. | High |
+| API-first design | All functionality exposed via REST API to enable future mobile CRM for field operations (sales reps, drivers, inspectors). | High |
+
+# **9. Implementation Phases**
+
+4 phases of 3 weeks each = 12 weeks to MVP.
+
+| **Phase** | **Weeks** | **What must work by the end of the phase** |
+| --- | --- | --- |
+| 1. Foundation | 1-3 | Auth. Import 1,959 shipments + 111 import firms + 24 export firms + 2,014 truck/drivers + 31 contracts. Shipment list with filters. Shipment detail (view only). References (blocks, firms, customers, products) loaded. Firm document portal (basic). |
+| 2. Lifecycle | 4-6 | Create new shipment. Transition through 13 statuses with validations. Firm assignment. Block source entry. Kanban board. Sales report form. Overdue reports list. Comments. Quality inspection. Finansist advances. Electronic document submission to depo. |
+| 3. Planning | 7-9 | Weekly planning (15x6 grid). Truck forecast. Quotas (24 firms, government per-firm). Dashboard with KPIs. Block summary. Domestic sales. Price panel (1,557 entries). Contract management. Gapy Satysh portal. |
+| 4. Polish | 10-12 | Role-based access (12 roles). Audit log. Notifications. Mobile adaptation. Data validation. Settings. API documentation for future mobile CRM. Training (3 sessions). Parallel operation (2 weeks). |
+
+## **9.1 Acceptance Criteria**
+
+| **Criterion** | **How to verify** | **Who verifies** |
+| --- | --- | --- |
+| All data correct | Gadam confirms: 'I see my shipments and data is correct' | Gadam |
+| Roles work | Log in as each role — only own fields/functions visible | Data Analyst |
+| No critical bugs | Run 10 typical work scenarios without failures | Data Analyst |
+| Works on phone | Test on Gadam's phone and Soltanmyrat's tablet | Gadam, Soltanmyrat |
+| Documented | Brief changelog (5-10 lines) per phase | Developer |
+| API documented | REST endpoints documented for mobile CRM handoff | Developer |

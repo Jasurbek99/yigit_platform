@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YGT — Discovery Guide & Interview Kit</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --primary: #1677ff;
+  --success: #52c41a;
+  --warning: #faad14;
+  --error: #ff4d4f;
+  --purple: #722ed1;
+  --cyan: #13c2c2;
+  --text: #1f1f1f;
+  --text2: #595959;
+  --text3: #8c8c8c;
+  --bg: #f8f8f6;
+  --card: #ffffff;
+  --border: #e8e8e5;
+  --font: 'DM Sans', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:var(--font); background:var(--bg); color:var(--text); font-size:14px; line-height:1.6; }
+
+.header { background:#001529; color:#fff; padding:32px 40px; }
+.header h1 { font-size:28px; font-weight:700; letter-spacing:-0.5px; }
+.header p { color:#7eb8de; font-size:14px; margin-top:4px; }
+
+.tabs { display:flex; background:#fff; border-bottom:1px solid var(--border); padding:0 40px; position:sticky; top:0; z-index:100; overflow-x:auto; }
+.tab { padding:14px 20px; font-size:13px; font-weight:600; color:var(--text3); cursor:pointer; border-bottom:2px solid transparent; white-space:nowrap; transition:all 0.15s; }
+.tab:hover { color:var(--text); }
+.tab.active { color:var(--primary); border-bottom-color:var(--primary); }
+
+.container { max-width:1100px; margin:0 auto; padding:32px 40px; }
+.section { display:none; }
+.section.active { display:block; }
+
+h2 { font-size:22px; font-weight:700; margin-bottom:8px; letter-spacing:-0.3px; }
+h3 { font-size:16px; font-weight:600; margin:24px 0 12px; padding-bottom:8px; border-bottom:1px solid var(--border); }
+h4 { font-size:14px; font-weight:600; margin:16px 0 8px; color:var(--primary); }
+.subtitle { font-size:13px; color:var(--text3); margin-bottom:24px; }
+
+.card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:20px; margin-bottom:16px; }
+.card-accent { border-left:4px solid var(--primary); }
+.card-green { border-left:4px solid var(--success); }
+.card-orange { border-left:4px solid var(--warning); }
+.card-red { border-left:4px solid var(--error); }
+.card-purple { border-left:4px solid var(--purple); }
+
+.role-header { display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+.role-icon { width:48px; height:48px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:24px; }
+.role-icon.blue { background:#e6f4ff; }
+.role-icon.green { background:#f6ffed; }
+.role-icon.orange { background:#fffbe6; }
+.role-icon.red { background:#fff2f0; }
+.role-icon.purple { background:#f9f0ff; }
+.role-icon.cyan { background:#e6fffb; }
+.role-name { font-size:18px; font-weight:700; }
+.role-title { font-size:13px; color:var(--text3); }
+
+.q-list { list-style:none; padding:0; }
+.q-list li { padding:8px 0; border-bottom:1px solid #f5f5f3; display:flex; gap:8px; }
+.q-list li:last-child { border-bottom:none; }
+.q-num { width:24px; height:24px; border-radius:50%; background:var(--primary); color:#fff; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; margin-top:1px; }
+.q-text { flex:1; }
+.q-text .ru { color:var(--text2); font-size:13px; font-style:italic; }
+
+.auto-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.auto-item { display:flex; gap:12px; padding:12px; background:#fafaf8; border-radius:8px; border:1px solid var(--border); }
+.auto-icon { font-size:20px; margin-top:2px; }
+.auto-label { font-size:13px; font-weight:600; }
+.auto-desc { font-size:12px; color:var(--text2); margin-top:2px; }
+.auto-priority { display:inline-block; padding:1px 8px; border-radius:4px; font-size:11px; font-weight:600; margin-top:4px; }
+.p-high { background:#fff2f0; color:var(--error); }
+.p-med { background:#fffbe6; color:#d48806; }
+.p-low { background:#f6ffed; color:#389e0d; }
+.p-future { background:#f0f0f0; color:var(--text3); }
+
+table { width:100%; border-collapse:collapse; font-size:13px; }
+th { padding:10px 12px; text-align:left; font-weight:600; background:#f8f8f6; border-bottom:2px solid var(--border); color:var(--text2); }
+td { padding:10px 12px; border-bottom:1px solid #f5f5f3; }
+tr:hover { background:#fafaf8; }
+
+.badge { display:inline-flex; padding:2px 8px; border-radius:4px; font-size:12px; font-weight:500; }
+.badge-now { background:#e6f4ff; color:var(--primary); }
+.badge-excel { background:#f6ffed; color:#389e0d; }
+.badge-manual { background:#fffbe6; color:#d48806; }
+.badge-none { background:#f5f5f5; color:var(--text3); }
+.badge-auto { background:#f9f0ff; color:var(--purple); }
+
+.flow-visual { display:flex; align-items:center; gap:8px; margin:16px 0; flex-wrap:wrap; }
+.flow-box { padding:10px 16px; border-radius:8px; font-size:13px; font-weight:600; text-align:center; min-width:120px; }
+.flow-box.blue { background:#e6f4ff; color:var(--primary); border:1px solid #91caff; }
+.flow-box.green { background:#f6ffed; color:#389e0d; border:1px solid #b7eb8f; }
+.flow-box.orange { background:#fffbe6; color:#d48806; border:1px solid #ffe58f; }
+.flow-box.red { background:#fff2f0; color:var(--error); border:1px solid #ffccc7; }
+.flow-box.purple { background:#f9f0ff; color:var(--purple); border:1px solid #d3adf7; }
+.flow-box.gray { background:#f5f5f5; color:var(--text3); border:1px solid #d9d9d9; }
+.flow-arrow { font-size:18px; color:var(--text3); }
+
+.checklist { list-style:none; padding:0; }
+.checklist li { padding:6px 0; display:flex; align-items:flex-start; gap:8px; }
+.checklist li::before { content:'☐'; font-size:16px; color:var(--text3); flex-shrink:0; }
+.note { background:#fffbe6; border:1px solid #ffe58f; border-radius:8px; padding:12px 16px; font-size:13px; margin:16px 0; }
+.note strong { color:#d48806; }
+
+.print-break { page-break-before:always; }
+
+@media print {
+  .tabs { display:none; }
+  .section { display:block !important; page-break-inside:avoid; }
+  .header { padding:16px 20px; }
+  body { font-size:11px; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🔍 YGT Discovery Guide</h1>
+  <p>Интервью-гайд и матрица автоматизации — для встреч с каждым сотрудником</p>
+  <div style="display:flex;gap:32px;margin-top:12px;font-size:12px;color:#5b9ec9;">
+    <span>📅 Февраль 2026</span>
+    <span>👤 8 ролей × 5-15 вопросов каждому</span>
+    <span>🎯 Цель: понять что автоматизировать</span>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('overview')">🗺️ Обзор</div>
+  <div class="tab" onclick="showTab('gadam')">👔 Gadam/Agamyrat</div>
+  <div class="tab" onclick="showTab('soltanmyrat')">🌿 Soltanmyrat</div>
+  <div class="tab" onclick="showTab('sirin')">📄 Sirin</div>
+  <div class="tab" onclick="showTab('transport')">🚛 Transport</div>
+  <div class="tab" onclick="showTab('arap')">📍 Arap/Aganazar</div>
+  <div class="tab" onclick="showTab('quality')">🌡️ Hil Gözegçi</div>
+  <div class="tab" onclick="showTab('bukhgalter')">💰 Бухгалтерия</div>
+  <div class="tab" onclick="showTab('management')">📊 Руководство</div>
+  <div class="tab" onclick="showTab('automation')">⚡ Автоматизация</div>
+  <div class="tab" onclick="showTab('systems')">🔌 Системы</div>
+</div>
+
+<div class="container">
+
+<!-- ═══ OVERVIEW ═══ -->
+<div id="section-overview" class="section active">
+  <h2>🗺️ Общая картина: Что есть → Что нужно</h2>
+  <p class="subtitle">Покажи эту страницу перед каждой встречей чтобы понимать контекст роли</p>
+
+  <h3>Текущее состояние (AS-IS)</h3>
+  <div class="flow-visual">
+    <div class="flow-box green">Excel<br><span style="font-size:11px;">22 листа, 983 записи</span></div>
+    <div class="flow-arrow">+</div>
+    <div class="flow-box orange">WhatsApp<br><span style="font-size:11px;">координация</span></div>
+    <div class="flow-arrow">+</div>
+    <div class="flow-box blue">Logo Tiger<br><span style="font-size:11px;">бухгалтерия</span></div>
+    <div class="flow-arrow">+</div>
+    <div class="flow-box gray">1C<br><span style="font-size:11px;">банки/кредиты</span></div>
+    <div class="flow-arrow">+</div>
+    <div class="flow-box purple">Trip Mgmt<br><span style="font-size:11px;">расходы водителей</span></div>
+    <div class="flow-arrow">+</div>
+    <div class="flow-box red">Звонки<br><span style="font-size:11px;">«где машина?»</span></div>
+  </div>
+
+  <h3>Целевое состояние (TO-BE)</h3>
+  <div class="flow-visual">
+    <div class="flow-box blue" style="min-width:200px;font-size:15px;">🖥️ YGT Platform<br><span style="font-size:11px;">единая система для всех</span></div>
+    <div class="flow-arrow">↔</div>
+    <div class="flow-box green">Logo Tiger<br><span style="font-size:11px;">авто-синхрон</span></div>
+    <div class="flow-arrow">↔</div>
+    <div class="flow-box purple">Trip Mgmt<br><span style="font-size:11px;">связь Trip↔Shipment</span></div>
+    <div class="flow-arrow">↔</div>
+    <div class="flow-box orange">Navixy GPS<br><span style="font-size:11px;">где машина в реальном времени</span></div>
+  </div>
+
+  <h3>Кто делает что — карта ролей</h3>
+  <table>
+    <thead><tr><th>Роль</th><th>Человек</th><th>Что делает</th><th>Сейчас как?</th><th>Боль?</th></tr></thead>
+    <tbody>
+      <tr><td style="font-weight:600;">Логист</td><td>Agamyrat / Gadam J</td><td>Решает: клиент, фирма, страна, город, разделение фирм</td><td><span class="badge badge-excel">Excel + голова</span></td><td>Нет единой картины квот/кредитов</td></tr>
+      <tr><td style="font-weight:600;">Склад/Операции</td><td>Soltanmyrat</td><td>Код отправки, блок, сорт, вес, время загрузки</td><td><span class="badge badge-excel">Excel</span></td><td>Ввод данных вручную, дубликаты</td></tr>
+      <tr><td style="font-weight:600;">Документы</td><td>Sirin</td><td>CMR, таможня TM, дедлайн 13:00</td><td><span class="badge badge-manual">Бумага + Excel</span></td><td>2 CMR на 1 машину при разделении</td></tr>
+      <tr><td style="font-weight:600;">Транспорт</td><td>Malik / Haltac / Transport bölüm</td><td>Машина, водитель, граница, выезд</td><td><span class="badge badge-manual">Звонки + Excel</span></td><td>«Где машина?» — постоянные звонки</td></tr>
+      <tr><td style="font-weight:600;">Отправка</td><td>Mergen</td><td>Время выезда из теплицы</td><td><span class="badge badge-manual">Звонок</span></td><td>Минимальная — 1 поле</td></tr>
+      <tr><td style="font-weight:600;">Контроль качества</td><td>Hil Gözegçi</td><td>Дни в пути + температура</td><td><span class="badge badge-manual">Вручную</span></td><td>Данные задним числом</td></tr>
+      <tr><td style="font-weight:600;">Торговый представитель</td><td>Arap / Aganazar</td><td>Прибытие, таможня, перегрузка, продажа, отчёт</td><td><span class="badge badge-manual">WhatsApp + звонки</span></td><td>90 отчётов НЕ пришло!</td></tr>
+      <tr><td style="font-weight:600;">Бухгалтерия</td><td>?</td><td>Кредиты, банк, платежи, 1C, Logo Tiger</td><td><span class="badge badge-now">1C + Logo Tiger</span></td><td>Нет связи с операциями</td></tr>
+      <tr><td style="font-weight:600;">Руководство</td><td>?</td><td>Отчёты, контроль, решения</td><td><span class="badge badge-excel">Excel отчёты</span></td><td>Нет real-time картины</td></tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    <strong>💡 Как использовать этот гайд:</strong> Открой вкладку нужного человека перед встречей. Там есть: конкретные вопросы (TK + RU), что показать из прототипа, что выяснить, чеклист после встречи.
+  </div>
+</div>
+
+<!-- ═══ GADAM / AGAMYRAT ═══ -->
+<div id="section-gadam" class="section">
+  <div class="role-header">
+    <div class="role-icon blue">👔</div>
+    <div><div class="role-name">Agamyrat / Gadam J</div><div class="role-title">Логист — главный принимающий решения по каждому грузовику</div></div>
+  </div>
+
+  <div class="card card-accent">
+    <strong>Контекст:</strong> Это самый важный пользователь системы. Он определяет ВСЁ: какой клиент, какая фирма (или 2 фирмы), какой маршрут, какой блок. Все его решения основаны на: остаток квоты, кредитный график фирм, цена на маршруте, доступность машин.
+  </div>
+
+  <h3>Вопросы для интервью</h3>
+  <ul class="q-list">
+    <li><span class="q-num">1</span><div class="q-text"><strong>Как ты решаешь какую фирму использовать для грузовика?</strong><br><span class="ru">Haýsy firmany ulanmalydygyny nädip kesgitleýärsiň?</span><br>→ Выясни: это по квоте? по кредиту? по привычке? комбинация?</div></li>
+    <li><span class="q-num">2</span><div class="q-text"><strong>Как ты решаешь разделять на 2 фирмы или нет?</strong><br><span class="ru">Iki firma bölmeli ýa-da ýokdugyny nädip kesgitleýärsiň?</span><br>→ Всегда делишь? Или только когда сумма большая? Как считаешь сумму?</div></li>
+    <li><span class="q-num">3</span><div class="q-text"><strong>Откуда ты знаешь остаток квоты каждой фирмы?</strong><br><span class="ru">Her firmanyň kwota galyndysyny nireden bilýärsiň?</span><br>→ Excel? Из головы? Кто-то говорит?</div></li>
+    <li><span class="q-num">4</span><div class="q-text"><strong>Откуда ты знаешь график кредитных платежей фирм?</strong><br><span class="ru">Firmalaryň kredit töleg tertibini nireden bilýärsiň?</span><br>→ Бухгалтер говорит? Есть таблица? Или не думаешь об этом?</div></li>
+    <li><span class="q-num">5</span><div class="q-text"><strong>Как ты выбираешь клиента и город для грузовика?</strong><br><span class="ru">Her maşyn üçin müşderini we şäheri nädip saýlaýarsyň?</span><br>→ Клиент заказывает? Ты сам распределяешь? Есть очередь?</div></li>
+    <li><span class="q-num">6</span><div class="q-text"><strong>Сколько грузовиков в день ты планируешь? Как?</strong><br><span class="ru">Günde näçe maşyn meýilleşdirýärsiň? Nädip?</span><br>→ Это зависит от урожая? От заказов? От наличия машин?</div></li>
+    <li><span class="q-num">7</span><div class="q-text"><strong>Что самое сложное в твоей работе сейчас?</strong><br><span class="ru">Häzir işiňde iň kyn zat näme?</span><br>→ Главная боль — это то что нужно автоматизировать первым</div></li>
+    <li><span class="q-num">8</span><div class="q-text"><strong>Gapy Satyş — как ты решаешь когда продавать с парника?</strong><br><span class="ru">Gapy satys — haçan teplisadan satmalydygyny nädip kesgitleýärsiň?</span><br>→ Для набора квоты? Когда нет машин? Когда покупатель приезжает?</div></li>
+    <li><span class="q-num">9</span><div class="q-text"><strong>Покажи мне как ты сейчас работаешь с Excel. Что ты заполняешь?</strong><br><span class="ru">Excel bilen nädip işleýändigiňi görkez. Nämäni doldurýarsyň?</span><br>→ ПОКАЖИ ПРОТОТИП: Dashboard + форма создания с 2 фирмами</div></li>
+    <li><span class="q-num">10</span><div class="q-text"><strong>Если бы система показывала: остаток квоты, кредитный баланс, $10K предупреждение — это помогло бы?</strong><br><span class="ru">Ulgam kwota galyndysyny, kredit balansyny, $10K duýduryşyny görkezse — peýdaly bolarmy?</span><br>→ ПОКАЖИ: Quota dashboard с 1:10 формулой + Finance с кредит трекером</div></li>
+  </ul>
+
+  <h3>Что показать из прототипа</h3>
+  <ul class="checklist">
+    <li>Dashboard — общая картина (296 в пути, 90 отчётов нет)</li>
+    <li>Форма создания — 2 фирмы + $10K предупреждение + разделение KG</li>
+    <li>Квота — 1:10 формула, баланс по фирмам</li>
+    <li>Финансы — кредит трекер, маржа по маршрутам</li>
+  </ul>
+
+  <h3>Чеклист после встречи</h3>
+  <ul class="checklist">
+    <li>Получил точный алгоритм выбора фирмы</li>
+    <li>Понял когда и почему делят на 2 фирмы</li>
+    <li>Узнал как он сейчас отслеживает квоты</li>
+    <li>Знает ли он про кредитные графики фирм</li>
+    <li>Главная боль зафиксирована</li>
+    <li>Показал прототип — получил фидбэк</li>
+  </ul>
+</div>
+
+<!-- ═══ SOLTANMYRAT ═══ -->
+<div id="section-soltanmyrat" class="section">
+  <div class="role-header">
+    <div class="role-icon green">🌿</div>
+    <div><div class="role-name">Soltanmyrat</div><div class="role-title">Склад / Операции — 10 полей в каждой отправке</div></div>
+  </div>
+
+  <div class="card card-green">
+    <strong>Контекст:</strong> Вводит БОЛЬШЕ ВСЕГО данных: код отправки, блок, сорт, время загрузки начало/конец, вес (документальный и фактический), палет, дата сбора, статус урожая. По сути — оператор данных на месте загрузки.
+  </div>
+
+  <h3>Вопросы для интервью</h3>
+  <ul class="q-list">
+    <li><span class="q-num">1</span><div class="q-text"><strong>Как ты генерируешь код отправки (27SP001/25)?</strong><br><span class="ru">Ýük kodyny nädip döredýärsiň?</span><br>→ Вручную? Есть правило? Бывают дубликаты?</div></li>
+    <li><span class="q-num">2</span><div class="q-text"><strong>Откуда ты знаешь из какого блока загружать?</strong><br><span class="ru">Haýsy blokdan ýüklemeli — nireden bilýärsiň?</span><br>→ Gadam говорит? Сам решаешь по урожаю?</div></li>
+    <li><span class="q-num">3</span><div class="q-text"><strong>Как ты записываешь вес? Есть ли разница между документальным и реальным?</strong><br><span class="ru">Agramy nädip ýazýarsyň? Resmi we hakyky agram tapawutlanýarmy?</span><br>→ Почему разница? Кто пишет документальный вес? Весы есть?</div></li>
+    <li><span class="q-num">4</span><div class="q-text"><strong>Сколько грузовиков ты загружаешь в день? Сколько времени на один?</strong><br><span class="ru">Günde näçe maşyn ýükleýärsiň? Birine näçe wagt?</span><br>→ Пик = сколько? Узкое место?</div></li>
+    <li><span class="q-num">5</span><div class="q-text"><strong>Когда ты вводишь данные в Excel? Сразу или потом?</strong><br><span class="ru">Excel-e maglumatlary haçan girizýärsiň? Şol wagt ýa-da soň?</span><br>→ Если потом — данные могут быть неточными</div></li>
+    <li><span class="q-num">6</span><div class="q-text"><strong>Если бы у тебя был телефон/планшет с формой — удобнее было бы?</strong><br><span class="ru">Telefon/planşetde forma bolsa — amatly bolarmy?</span><br>→ Определяет: нужна ли мобильная версия для склада</div></li>
+    <li><span class="q-num">7</span><div class="q-text"><strong>Что самое неудобное сейчас?</strong><br><span class="ru">Häzir iň amatly bolmaýan zat näme?</span></div></li>
+  </ul>
+
+  <h3>Что показать</h3>
+  <ul class="checklist">
+    <li>Форма создания — секция "Haryt maglumatlary" (его поля)</li>
+    <li>Shipment detail — его данные в контексте полного lifecycle</li>
+  </ul>
+
+  <h3>Чеклист после встречи</h3>
+  <ul class="checklist">
+    <li>Алгоритм генерации кода подтверждён</li>
+    <li>Понял разницу resmi/hakyky вес</li>
+    <li>Знаю когда он вводит данные (real-time или потом)</li>
+    <li>Нужна ли мобильная форма</li>
+    <li>Главная боль зафиксирована</li>
+  </ul>
+</div>
+
+<!-- ═══ SIRIN ═══ -->
+<div id="section-sirin" class="section">
+  <div class="role-header">
+    <div class="role-icon orange">📄</div>
+    <div><div class="role-name">Sirin</div><div class="role-title">Документы — CMR, таможня, дедлайн 13:00</div></div>
+  </div>
+
+  <div class="card card-orange">
+    <strong>Контекст:</strong> Критическая роль — без документов грузовик не уедет. Дедлайн 13:00. При разделении на 2 фирмы делает 2 CMR. Также отвечает за таможенное оформление TM (иногда ДО загрузки!).
+  </div>
+
+  <h3>Вопросы</h3>
+  <ul class="q-list">
+    <li><span class="q-num">1</span><div class="q-text"><strong>Как ты узнаёшь что нужно готовить документы на грузовик?</strong><br><span class="ru">Maşyn üçin dokument taýýarlamalydygyňy nädip bilýärsiň?</span><br>→ Gadam звонит? Excel смотришь? Есть список?</div></li>
+    <li><span class="q-num">2</span><div class="q-text"><strong>Дедлайн 13:00 — как это работает? Что если не успеваешь?</strong><br><span class="ru">13:00 möhlet — nädip işleýär? Ýetişmeseň näme bolýar?</span><br>→ Грузовик задерживается? Ждёт до завтра?</div></li>
+    <li><span class="q-num">3</span><div class="q-text"><strong>Когда 2 фирмы — что именно ты делаешь?</strong><br><span class="ru">2 firma bolanda — näme edýärsiň?</span><br>→ 2 CMR? Разные данные? Занимает вдвое больше времени?</div></li>
+    <li><span class="q-num">4</span><div class="q-text"><strong>Таможня TM — ты оформляешь до загрузки или после?</strong><br><span class="ru">TM gümrük — ýüklemezden öň ýa-da soň resmileşdirýärsiň?</span><br>→ В Excel видно что customs_tm_complete иногда ДО loading_start</div></li>
+    <li><span class="q-num">5</span><div class="q-text"><strong>Какие данные тебе нужны от Gadam/Soltanmyrat чтобы начать?</strong><br><span class="ru">Başlamak üçin Gadam/Soltanmyratdan haýsy maglumatlar gerek?</span><br>→ Определяет зависимости в workflow</div></li>
+    <li><span class="q-num">6</span><div class="q-text"><strong>Какие статусы документов ты используешь?</strong><br><span class="ru">Haýsy dokument statuslaryny ulanýarsyň?</span><br>→ OK, Tayyar, Dowam edyar, Yok, W/E — все ли это?</div></li>
+    <li><span class="q-num">7</span><div class="q-text"><strong>Главная проблема с документами сейчас?</strong><br><span class="ru">Dokumentler bilen häzir iň uly mesele näme?</span></div></li>
+  </ul>
+
+  <h3>Что показать</h3>
+  <ul class="checklist">
+    <li>Форма создания — секция документов + "2 CMR dörediler" при 2 фирмах</li>
+    <li>Shipment detail — таб "Dokument"</li>
+    <li>Dashboard — алерт "13:00 çenli 8 ýük üçin dokument taýýar bolmaly"</li>
+  </ul>
+</div>
+
+<!-- ═══ TRANSPORT ═══ -->
+<div id="section-transport" class="section">
+  <div class="role-header">
+    <div class="role-icon purple">🚛</div>
+    <div><div class="role-name">Malik / Haltac / Transport bölüm</div><div class="role-title">Транспорт — машины, водители, граница, GPS</div></div>
+  </div>
+
+  <div class="card card-purple">
+    <strong>Контекст:</strong> Назначает машину + водителя, отслеживает выезд с границы. Сейчас координация звонками. Будущее: GPS трекинг через Navixy. Есть 4 транспортные компании: Malik, Haltac, Gapy Satyş, Serwi.
+  </div>
+
+  <h3>Вопросы</h3>
+  <ul class="q-list">
+    <li><span class="q-num">1</span><div class="q-text"><strong>Сколько машин у вас всего? Сколько активных?</strong><br><span class="ru">Jemi näçe maşyn bar? Näçesi aktiw?</span></div></li>
+    <li><span class="q-num">2</span><div class="q-text"><strong>Как ты знаешь какая машина свободна?</strong><br><span class="ru">Haýsy maşynyň boşdugyny nädip bilýärsiň?</span><br>→ Звонишь? Список? Из головы?</div></li>
+    <li><span class="q-num">3</span><div class="q-text"><strong>Есть ли машины не ваши (узбекские, белорусские)? Как с ними?</strong><br><span class="ru">Başga ýurtly maşynlar barmy? Olar bilen nädip?</span><br>→ В Excel видим UZ и BY номера</div></li>
+    <li><span class="q-num">4</span><div class="q-text"><strong>«Где машина?» — сколько раз в день тебе звонят с этим вопросом?</strong><br><span class="ru">"Maşyn nirede?" — günde näçe gezek jaň gelýär?</span><br>→ Определяет приоритет GPS интеграции</div></li>
+    <li><span class="q-num">5</span><div class="q-text"><strong>GPS Navixy уже установлен? На скольких машинах?</strong><br><span class="ru">Navixy GPS eýýäm guruldumy? Näçe maşynda?</span></div></li>
+    <li><span class="q-num">6</span><div class="q-text"><strong>Граница Farap vs Garabogaz — кто решает какой маршрут?</strong><br><span class="ru">Farap ýa-da Garabogaz — ugry kim kesgitleýär?</span></div></li>
+    <li><span class="q-num">7</span><div class="q-text"><strong>Главная проблема сейчас?</strong><br><span class="ru">Häzir iň uly mesele näme?</span></div></li>
+  </ul>
+
+  <h3>Что показать</h3>
+  <ul class="checklist">
+    <li>Tracking Kanban — "вот так будет выглядеть отслеживание"</li>
+    <li>Settings/Vehicles — реестр машин</li>
+    <li>Shipment detail — timeline с текущей позицией</li>
+  </ul>
+</div>
+
+<!-- ═══ ARAP ═══ -->
+<div id="section-arap" class="section">
+  <div class="role-header">
+    <div class="role-icon red">📍</div>
+    <div><div class="role-name">Arap / Aganazar</div><div class="role-title">Торговый представитель — всё после границы</div></div>
+  </div>
+
+  <div class="card card-red">
+    <strong>Контекст:</strong> Отвечает за 10 полей (!) — от входа в страну назначения до финального отчёта о продаже. <strong>ГЛАВНАЯ БОЛЬ: 90 отчётов не пришло!</strong> Он далеко (Россия/Казахстан), координация только по WhatsApp.
+  </div>
+
+  <h3>Вопросы</h3>
+  <ul class="q-list">
+    <li><span class="q-num">1</span><div class="q-text"><strong>Как ты узнаёшь что машина прибыла?</strong><br><span class="ru">Maşynyň gelendigini nädip bilýärsiň?</span><br>→ Водитель звонит? Ты следишь?</div></li>
+    <li><span class="q-num">2</span><div class="q-text"><strong>Отчёт о продаже — что в нём? Как ты его отправляешь?</strong><br><span class="ru">Satyş hasabaty — içinde näme? Nädip iberýärsiň?</span><br>→ WhatsApp фото? Excel? Голосом?</div></li>
+    <li><span class="q-num">3</span><div class="q-text"><strong>Почему 90 отчётов не пришло? Что мешает?</strong><br><span class="ru">90 hasabat näme üçin gelmedi? Näme päsgelçilik?</span><br>→ ЭТО КЛЮЧЕВОЙ ВОПРОС — 90/173 = 52% потерянных отчётов</div></li>
+    <li><span class="q-num">4</span><div class="q-text"><strong>Перегрузка (Buhara Peregruz) — когда это нужно? Как работает?</strong><br><span class="ru">Peregruz — haçan gerek? Nädip işleýär?</span></div></li>
+    <li><span class="q-num">5</span><div class="q-text"><strong>Продажа — кому ты продаёшь? Как определяется цена?</strong><br><span class="ru">Kime satýarsyň? Baha nädip kesgitlenýär?</span><br>→ Рынок? Оптовик? Фиксированная цена?</div></li>
+    <li><span class="q-num">6</span><div class="q-text"><strong>Деньги — как получаешь? Как отправляешь обратно?</strong><br><span class="ru">Pullary nädip alýarsyň? Yza nädip iberýärsiň?</span><br>→ Наличные? Перевод? Это связано с правилом $10K?</div></li>
+    <li><span class="q-num">7</span><div class="q-text"><strong>Если бы был приложение на телефоне — заполнял бы?</strong><br><span class="ru">Telefonda goşundy bolsa — doldurarmy?</span><br>→ Определяет: мобильное приложение vs web</div></li>
+  </ul>
+
+  <h3>Что показать</h3>
+  <ul class="checklist">
+    <li>Dashboard — "90 hasabat gelmedi!" красный алерт</li>
+    <li>Tracking — колонка "Satyldy" с красными карточками "Hasabat YOK"</li>
+    <li>Shipment detail — timeline, его шаги (7-10)</li>
+  </ul>
+
+  <div class="note">
+    <strong>⚡ Автоматизация #1:</strong> Если Arap заполняет отчёт с телефона → уведомление в Telegram/WhatsApp автоматически → данные сразу в системе. Это убивает проблему 90 потерянных отчётов.
+  </div>
+</div>
+
+<!-- ═══ QUALITY ═══ -->
+<div id="section-quality" class="section">
+  <div class="role-header">
+    <div class="role-icon cyan">🌡️</div>
+    <div><div class="role-name">Hil Gözegçi</div><div class="role-title">Контроль качества — дни в пути + температура</div></div>
+  </div>
+
+  <h3>Вопросы (короткая встреча)</h3>
+  <ul class="q-list">
+    <li><span class="q-num">1</span><div class="q-text"><strong>Как ты определяешь дни в пути и температуру?</strong><br><span class="ru">Tranzit günlerini we temperaturany nädip kesgitleýärsiň?</span></div></li>
+    <li><span class="q-num">2</span><div class="q-text"><strong>Записываешь сразу или потом задним числом?</strong></div></li>
+    <li><span class="q-num">3</span><div class="q-text"><strong>Есть ли термодатчики в машинах? Или водитель говорит?</strong></div></li>
+    <li><span class="q-num">4</span><div class="q-text"><strong>Если бы GPS автоматически считал дни в пути — полезно?</strong></div></li>
+  </ul>
+</div>
+
+<!-- ═══ БУХГАЛТЕРИЯ ═══ -->
+<div id="section-bukhgalter" class="section">
+  <div class="role-header">
+    <div class="role-icon orange">💰</div>
+    <div><div class="role-name">Бухгалтерия</div><div class="role-title">Кредиты, банк, Logo Tiger, 1C</div></div>
+  </div>
+
+  <div class="card card-orange">
+    <strong>Контекст:</strong> ЭТА ВСТРЕЧА КРИТИЧНА для понимания денежного потока. Нужно выяснить: какие системы используют (1C? Logo Tiger? Обе?), как отслеживают кредиты, как работает правило $10K на практике, какие данные нужны от операций.
+  </div>
+
+  <h3>Вопросы</h3>
+  <ul class="q-list">
+    <li><span class="q-num">1</span><div class="q-text"><strong>Logo Tiger и 1C — что в какой системе?</strong><br>→ Кто пользуется Logo Tiger? Кто — 1C? Есть пересечение?</div></li>
+    <li><span class="q-num">2</span><div class="q-text"><strong>Кредиты 16 фирм — где ты ведёшь учёт? Какие данные?</strong><br>→ Сумма кредита, остаток, ежемесячный платёж, банк, срок</div></li>
+    <li><span class="q-num">3</span><div class="q-text"><strong>Правило $10K — как ты проверяешь? Какие документы?</strong><br>→ Кто контролирует? Есть ли нарушения? Последствия?</div></li>
+    <li><span class="q-num">4</span><div class="q-text"><strong>Когда машина продала товар — как деньги приходят к тебе?</strong><br>→ Через Arap? Перевод? Наличные? Сроки?</div></li>
+    <li><span class="q-num">5</span><div class="q-text"><strong>Внутренний рынок (для квоты 1:10) — как ты документируешь?</strong><br>→ Связан ли с Logo Tiger? Или отдельный учёт?</div></li>
+    <li><span class="q-num">6</span><div class="q-text"><strong>Какую информацию от операций ты НЕ получаешь но хотел бы?</strong><br>→ Определяет: что система должна передавать в бухгалтерию</div></li>
+    <li><span class="q-num">7</span><div class="q-text"><strong>Если бы система автоматически: считала выручку по фирмам, предупреждала о $10K, показывала график кредитов — помогло бы?</strong><br>→ ПОКАЖИ прототип: Finance → Кредит трекер</div></li>
+    <li><span class="q-num">8</span><div class="q-text"><strong>Logo Tiger / 1C — есть ли API? Или доступ к базе данных?</strong><br>→ Технический вопрос для интеграции. Может потребовать IT-специалиста</div></li>
+  </ul>
+
+  <h3>Чеклист после встречи</h3>
+  <ul class="checklist">
+    <li>Знаю роль Logo Tiger vs 1C (что в какой)</li>
+    <li>Получил данные по кредитам (хотя бы структуру)</li>
+    <li>Понял как работает $10K на практике</li>
+    <li>Знаю путь денег: продажа → фирма → банк</li>
+    <li>Определил возможность интеграции (API? DB? Manual?)</li>
+    <li>Понял что бухгалтерия хочет видеть от платформы</li>
+  </ul>
+</div>
+
+<!-- ═══ РУКОВОДСТВО ═══ -->
+<div id="section-management" class="section">
+  <div class="role-header">
+    <div class="role-icon blue">📊</div>
+    <div><div class="role-name">Руководство / Менеджмент</div><div class="role-title">Отчёты, контроль, стратегические решения</div></div>
+  </div>
+
+  <h3>Вопросы</h3>
+  <ul class="q-list">
+    <li><span class="q-num">1</span><div class="q-text"><strong>Какие отчёты вы смотрите сейчас? Как часто?</strong></div></li>
+    <li><span class="q-num">2</span><div class="q-text"><strong>Какой информации вам не хватает для принятия решений?</strong></div></li>
+    <li><span class="q-num">3</span><div class="q-text"><strong>Хотите видеть real-time dashboard или хватит ежедневных отчётов?</strong><br>→ ПОКАЖИ Dashboard + Reports из прототипа</div></li>
+    <li><span class="q-num">4</span><div class="q-text"><strong>Кроме экспорта — какие другие операции холдинга нужно автоматизировать?</strong><br>→ Заводы? Теплицы? Строительство? Логистика?</div></li>
+    <li><span class="q-num">5</span><div class="q-text"><strong>Приоритет: что автоматизировать ПЕРВЫМ?</strong></div></li>
+  </ul>
+</div>
+
+<!-- ═══ AUTOMATION MATRIX ═══ -->
+<div id="section-automation" class="section">
+  <h2>⚡ Матрица автоматизации</h2>
+  <p class="subtitle">Что можно автоматизировать, приоритет, и текущее состояние</p>
+
+  <h3>🔴 Критическое (автоматизировать ПЕРВЫМ)</h3>
+  <div class="auto-grid">
+    <div class="auto-item">
+      <div class="auto-icon">📦</div>
+      <div><div class="auto-label">Код отправки — автогенерация</div><div class="auto-desc">DDMM###/YY — система считает порядковый номер, нет дубликатов</div><div class="auto-priority p-high">КРИТИЧНО</div></div>
+    </div>
+    <div class="auto-item">
+      <div class="auto-icon">⚠️</div>
+      <div><div class="auto-label">$10K предупреждение</div><div class="auto-desc">При создании — автоматически считает сумму по маршруту × вес. Предупреждает если > $10K</div><div class="auto-priority p-high">КРИТИЧНО</div></div>
+    </div>
+    <div class="auto-item">
+      <div class="auto-icon">📊</div>
+      <div><div class="auto-label">Квота баланс в реальном времени</div><div class="auto-desc">Каждая отправка автоматически вычитает из квоты фирмы. Gadam видит остаток</div><div class="auto-priority p-high">КРИТИЧНО</div></div>
+    </div>
+    <div class="auto-item">
+      <div class="auto-icon">🔔</div>
+      <div><div class="auto-label">Алерт: отчёт не пришёл 3+ дней</div><div class="auto-desc">sale_end заполнено, report_received пусто > 3 дня → Telegram уведомление Arap</div><div class="auto-priority p-high">КРИТИЧНО</div></div>
+    </div>
+  </div>
+
+  <h3>🟡 Важное (Phase 2-3)</h3>
+  <div class="auto-grid">
+    <div class="auto-item">
+      <div class="auto-icon">📄</div>
+      <div><div class="auto-label">2 CMR при 2 фирмах</div><div class="auto-desc">Автоматически дублирует документ-чеклист при выборе 2 фирм</div><div class="auto-priority p-med">ВАЖНО</div></div>
+    </div>
+    <div class="auto-item">
+      <div class="auto-icon">⏰</div>
+      <div><div class="auto-label">Дедлайн 13:00 — автоалерт</div><div class="auto-desc">В 11:00 и 12:30 — уведомление Sirin о неготовых документах</div><div class="auto-priority p-med">ВАЖНО</div></div>
+    </div>
+    <div class="auto-item">
+      <div class="auto-icon">📐</div>
+      <div><div class="auto-label">Квота 1:10 калькулятор</div><div class="auto-desc">Внутренний рынок → автоматически считает доступную экспортную квоту</div><div class="auto-priority p-med">ВАЖНО</div></div>
+    </div>
+    <div class="auto-item">
+      <div class="auto-icon">💳</div>
+      <div><div class="auto-label">Кредит трекер</div><div class="auto-desc">Ежемесячный платёж vs выручка фирмы. Предупреждение если не хватает</div><div class="auto-priority p-med">ВАЖНО</div></div>
+    </div>
+    <div class="auto-item">
+      <div class="auto-icon">🔒</div>
+      <div><div class="auto-label">Права по ролям</div><div class="auto-desc">Каждый видит и редактирует только свои поля. Gadam не трогает вес, Soltanmyrat не трогает клиента</div><div class="auto-priority p-med">ВАЖНО</div></div>
+    </div>
+    <div class="auto-item">
+      <div class="auto-icon">📝</div>
+      <div><div class="auto-label">Аудит лог изменений</div><div class="auto-desc">Кто менял, что менял, когда. Решает проблему «маркировку поменяли без предупреждения»</div><div class="auto-priority p-med">ВАЖНО</div></div>
+    </div>
+  </div>
+
+  <h3>🟢 Полезное (Phase 4-5)</h3>
+  <div class="auto-grid">
+    <div class="auto-item">
+      <div class="auto-icon">🗺️</div>
+      <div><div class="auto-label">GPS трекинг (Navixy)</div><div class="auto-desc">Реальная позиция на карте. Автоматическое определение: прибыл на границу, пересёк, прибыл</div><div class="auto-priority p-low">ПОЛЕЗНО</div></div>
+    </div>
+    <div class="auto-item">
+      <div class="auto-icon">📊</div>
+      <div><div class="auto-label">Excel экспорт (точная копия)</div><div class="auto-desc">Руководство получает отчёты в привычном формате Excel</div><div class="auto-priority p-low">ПОЛЕЗНО</div></div>
+    </div>
+    <div class="auto-item">
+      <div class="auto-icon">🔗</div>
+      <div><div class="auto-label">Logo Tiger синхронизация</div><div class="auto-desc">Завершённая отправка → автоматически создаёт запись в Logo Tiger</div><div class="auto-priority p-future">БУДУЩЕЕ</div></div>
+    </div>
+    <div class="auto-item">
+      <div class="auto-icon">🔗</div>
+      <div><div class="auto-label">1C интеграция</div><div class="auto-desc">Кредитные данные из 1C → автоматически в кредит трекер</div><div class="auto-priority p-future">БУДУЩЕЕ</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ SYSTEMS MAP ═══ -->
+<div id="section-systems" class="section">
+  <h2>🔌 Карта систем — что узнать на встречах</h2>
+  <p class="subtitle">Заполни эту таблицу по результатам встреч</p>
+
+  <table>
+    <thead><tr><th>Система</th><th>Кто использует</th><th>Для чего</th><th>Есть API/DB доступ?</th><th>Интеграция нужна?</th><th>Заметки</th></tr></thead>
+    <tbody>
+      <tr><td style="font-weight:600;">Excel (22 листа)</td><td>Все</td><td>Всё</td><td>—</td><td>ЗАМЕНЯЕМ</td><td>Это то что мы строим</td></tr>
+      <tr><td style="font-weight:600;">Logo Tiger</td><td>Бухгалтерия?</td><td>Бухгалтерия, закупки/продажи?</td><td style="color:var(--error);">❓ УЗНАТЬ</td><td style="color:var(--error);">❓ УЗНАТЬ</td><td>Турецкая ERP. MSSQL база</td></tr>
+      <tr><td style="font-weight:600;">1C Бухгалтерия</td><td>Бухгалтерия?</td><td>Банк, кредиты?</td><td style="color:var(--error);">❓ УЗНАТЬ</td><td style="color:var(--error);">❓ УЗНАТЬ</td><td>Русская программа</td></tr>
+      <tr><td style="font-weight:600;">Trip Management</td><td>Транспорт?</td><td>Расходы водителей</td><td>REST API (наша система)</td><td>Да — Link Trip↔Shipment</td><td>Django+React, мы разработали</td></tr>
+      <tr><td style="font-weight:600;">Navixy GPS</td><td>Транспорт?</td><td>Трекинг машин</td><td style="color:var(--error);">❓ УЗНАТЬ</td><td>Да — позже</td><td>Установлен? На скольких?</td></tr>
+      <tr><td style="font-weight:600;">WhatsApp</td><td>Arap, все</td><td>Координация, отчёты</td><td>Нет</td><td>Заменяем</td><td>Telegram bot возможен</td></tr>
+      <tr><td style="font-weight:600;">Телефон/звонки</td><td>Все</td><td>«Где машина?», статусы</td><td>—</td><td>Заменяем</td><td>Платформа = real-time статус</td></tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    <strong>📋 После ВСЕХ встреч заполни:</strong>
+    <br>1. Logo Tiger — что именно в нём, нужна ли интеграция, доступ к DB
+    <br>2. 1C — что именно в ней, пересекается ли с Logo Tiger
+    <br>3. Navixy — установлен ли, на скольких машинах, есть ли API ключ
+    <br>4. Для каждого человека — главная боль (TOP 1)
+    <br>5. Для каждого — готов ли использовать web/мобильное приложение
+  </div>
+</div>
+
+</div>
+
+<script>
+function showTab(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('section-' + id).classList.add('active');
+  event.target.classList.add('active');
+  window.scrollTo(0, 0);
+}
+</script>
+</body>
+</html>

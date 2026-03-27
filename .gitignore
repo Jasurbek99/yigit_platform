@@ -1,0 +1,38 @@
+# Excel data files (large, contains business data)
+data/
+
+# Python
+backend/venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+
+# Django
+backend/static/
+backend/media/
+*.sqlite3
+
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/.cache/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml

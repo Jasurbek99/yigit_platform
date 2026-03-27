@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YGT Platform — Database Map v5.0 (58 Tables)</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #FAFAF8; --bg2: #F2F1ED; --bg3: #E8E7E2;
+  --text: #1A1A18; --text2: #5C5B57; --text3: #8A8983;
+  --border: #D8D7D2; --border2: #C4C3BD;
+  --blue: #2563EB; --blue-bg: #EFF6FF; --blue-border: #BFDBFE;
+  --green: #059669; --green-bg: #ECFDF5; --green-border: #A7F3D0;
+  --amber: #D97706; --amber-bg: #FFFBEB; --amber-border: #FDE68A;
+  --purple: #7C3AED; --purple-bg: #F5F3FF; --purple-border: #DDD6FE;
+  --coral: #DC2626; --coral-bg: #FEF2F2; --coral-border: #FECACA;
+  --teal: #0D9488; --teal-bg: #F0FDFA; --teal-border: #99F6E4;
+  --pink: #DB2777; --pink-bg: #FDF2F8; --pink-border: #FBCFE8;
+  --font: 'DM Sans', -apple-system, sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161615; --bg2: #1E1E1C; --bg3: #282826;
+    --text: #E8E7E2; --text2: #A3A29C; --text3: #6B6A65;
+    --border: #333330; --border2: #444440;
+    --blue: #60A5FA; --blue-bg: #1E293B; --blue-border: #1E3A5F;
+    --green: #34D399; --green-bg: #0F2922; --green-border: #065F46;
+    --amber: #FBBF24; --amber-bg: #2A2008; --amber-border: #78350F;
+    --purple: #A78BFA; --purple-bg: #1E1536; --purple-border: #4C1D95;
+    --coral: #F87171; --coral-bg: #2A1010; --coral-border: #7F1D1D;
+    --teal: #2DD4BF; --teal-bg: #0D2D2A; --teal-border: #115E59;
+    --pink: #F472B6; --pink-bg: #2A1020; --pink-border: #831843;
+  }
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); line-height: 1.5; }
+.container { max-width: 1100px; margin: 0 auto; padding: 32px 24px 60px; }
+
+/* Header */
+.header { margin-bottom: 40px; }
+.header h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 6px; }
+.header .sub { font-size: 14px; color: var(--text2); }
+.header .sub span { font-family: var(--mono); font-size: 12px; background: var(--bg2); padding: 2px 8px; border-radius: 4px; margin-left: 4px; }
+
+/* Stats row */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 32px; }
+.stat { background: var(--bg2); border-radius: var(--radius); padding: 16px; text-align: center; }
+.stat-val { font-size: 26px; font-weight: 700; letter-spacing: -1px; }
+.stat-lbl { font-size: 12px; color: var(--text3); margin-top: 2px; }
+
+/* Data flow */
+.flow-banner { background: var(--bg2); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 32px; border: 0.5px solid var(--border); }
+.flow-banner h3 { font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; }
+.flow-chain { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 13px; font-weight: 500; }
+.flow-chip { padding: 4px 12px; border-radius: 20px; font-size: 12px; }
+.flow-arrow { color: var(--text3); font-size: 16px; }
+
+/* Module tabs */
+.tabs { display: flex; gap: 6px; margin-bottom: 24px; flex-wrap: wrap; }
+.tab { padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer;
+  border: 0.5px solid var(--border); background: var(--bg); color: var(--text2); transition: all .15s; user-select: none; }
+.tab:hover { background: var(--bg2); border-color: var(--border2); }
+.tab.active { color: #fff; border-color: transparent; }
+.tab .cnt { font-size: 11px; opacity: .7; margin-left: 4px; }
+
+/* Module colors */
+.mod-trip_mgmt { --mc: var(--text3); --mc-bg: var(--bg3); --mc-border: var(--border2); }
+.mod-sys { --mc: var(--purple); --mc-bg: var(--purple-bg); --mc-border: var(--purple-border); }
+.mod-core { --mc: var(--blue); --mc-bg: var(--blue-bg); --mc-border: var(--blue-border); }
+.mod-export { --mc: var(--coral); --mc-bg: var(--coral-bg); --mc-border: var(--coral-border); }
+.mod-contracts { --mc: var(--amber); --mc-bg: var(--amber-bg); --mc-border: var(--amber-border); }
+.mod-finance { --mc: var(--green); --mc-bg: var(--green-bg); --mc-border: var(--green-border); }
+.mod-greenhouse { --mc: var(--teal); --mc-bg: var(--teal-bg); --mc-border: var(--teal-border); }
+
+.tab.active.mod-trip_mgmt { background: var(--text3); }
+.tab.active.mod-sys { background: var(--purple); }
+.tab.active.mod-core { background: var(--blue); }
+.tab.active.mod-export { background: var(--coral); }
+.tab.active.mod-contracts { background: var(--amber); }
+.tab.active.mod-finance { background: var(--green); }
+.tab.active.mod-greenhouse { background: var(--teal); }
+
+/* Module header */
+.mod-header { padding: 16px 20px; border-radius: var(--radius); margin-bottom: 16px;
+  background: var(--mc-bg); border: 0.5px solid var(--mc-border); }
+.mod-header h2 { font-size: 16px; font-weight: 600; color: var(--mc); margin-bottom: 4px; }
+.mod-header p { font-size: 13px; color: var(--text2); line-height: 1.6; }
+.mod-header .build-order { font-size: 12px; font-family: var(--mono); color: var(--text3); margin-top: 8px; padding-top: 8px; border-top: 0.5px solid var(--mc-border); }
+
+/* Table cards */
+.tbl { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius);
+  margin-bottom: 8px; overflow: hidden; transition: border-color .15s, box-shadow .15s; }
+.tbl:hover { border-color: var(--border2); }
+.tbl.open { border-color: var(--mc-border); box-shadow: 0 2px 12px rgba(0,0,0,.04); }
+.tbl-head { padding: 12px 16px; cursor: pointer; display: flex; align-items: center; gap: 10px; }
+.tbl-head:hover { background: var(--bg2); }
+.tbl-idx { font-size: 11px; font-family: var(--mono); color: var(--text3); min-width: 24px; }
+.tbl-name { font-size: 14px; font-weight: 600; font-family: var(--mono); }
+.tbl-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--mc); flex-shrink: 0; }
+.tbl-desc { font-size: 12px; color: var(--text2); margin-left: auto; text-align: right;
+  max-width: 55%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tbl-refs-count { font-size: 11px; font-family: var(--mono); color: var(--text3);
+  background: var(--bg2); padding: 2px 8px; border-radius: 4px; flex-shrink: 0; }
+.arrow-i { font-size: 10px; color: var(--text3); transition: transform .15s; flex-shrink: 0; }
+.tbl.open .arrow-i { transform: rotate(90deg); }
+.tbl-body { display: none; padding: 0 16px 14px; }
+.tbl.open .tbl-body { display: block; border-top: 0.5px solid var(--border); }
+
+.ref-section { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase;
+  letter-spacing: 0.5px; padding: 10px 0 4px; }
+.ref { display: flex; align-items: baseline; gap: 8px; padding: 3px 0; font-size: 13px; }
+.ref-arrow { font-weight: 600; font-size: 12px; width: 18px; text-align: center; flex-shrink: 0; }
+.ref-arrow.out { color: var(--blue); }
+.ref-arrow.in { color: var(--green); }
+.ref-target { font-family: var(--mono); font-size: 12px; font-weight: 500; }
+.ref-field { font-family: var(--mono); font-size: 11px; color: var(--text3); }
+.ref-none { font-size: 12px; color: var(--text3); padding: 8px 0; font-style: italic; }
+
+/* Legend */
+.legend { display: flex; gap: 20px; margin-bottom: 24px; font-size: 12px; color: var(--text2); flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: 6px; }
+.legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+/* Search */
+.search-wrap { margin-bottom: 20px; }
+.search-wrap input { width: 100%; padding: 10px 14px; border: 0.5px solid var(--border); border-radius: 8px;
+  font-size: 14px; font-family: var(--font); background: var(--bg); color: var(--text);
+  outline: none; transition: border-color .15s; }
+.search-wrap input:focus { border-color: var(--mc-border); }
+.search-wrap input::placeholder { color: var(--text3); }
+
+/* Footer */
+.footer { margin-top: 40px; padding-top: 20px; border-top: 0.5px solid var(--border);
+  font-size: 12px; color: var(--text3); text-align: center; }
+
+/* Print */
+@media print {
+  .tabs, .search-wrap { display: none; }
+  .tbl-body { display: block !important; }
+  .tbl { break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>YGT Platform — Database Map</h1>
+    <div class="sub">v5.0 · MSSQL · Django 5.x + mssql-django · <span>58 tables</span> <span>6 modules</span> <span>99 FK</span></div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="stat-val" style="color:var(--blue)">13</div><div class="stat-lbl">Core tables</div></div>
+    <div class="stat"><div class="stat-val" style="color:var(--coral)">14</div><div class="stat-lbl">P3 Export</div></div>
+    <div class="stat"><div class="stat-val" style="color:var(--amber)">8</div><div class="stat-lbl">P4 Contracts</div></div>
+    <div class="stat"><div class="stat-val" style="color:var(--green)">4</div><div class="stat-lbl">P5 Finance</div></div>
+    <div class="stat"><div class="stat-val" style="color:var(--teal)">10</div><div class="stat-lbl">P1 Greenhouse</div></div>
+    <div class="stat"><div class="stat-val" style="color:var(--purple)">3</div><div class="stat-lbl">System</div></div>
+    <div class="stat"><div class="stat-val" style="color:var(--text3)">6</div><div class="stat-lbl">Trip Mgmt (existing)</div></div>
+  </div>
+
+  <div class="flow-banner">
+    <h3>Data flow (no circular dependencies)</h3>
+    <div class="flow-chain">
+      <span class="flow-chip" style="background:var(--bg3);color:var(--text2)">trip_mgmt (existing)</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-chip" style="background:var(--purple-bg);color:var(--purple)">sys.users</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-chip" style="background:var(--blue-bg);color:var(--blue)">core (13 ref tables)</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-chip" style="background:var(--coral-bg);color:var(--coral)">export.shipments</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-chip" style="background:var(--amber-bg);color:var(--amber)">contracts</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-chip" style="background:var(--green-bg);color:var(--green)">finance</span>
+    </div>
+    <div style="margin-top:6px;font-size:12px;color:var(--text3)">
+      greenhouse (10 tables) → core only · builds independently in parallel
+    </div>
+  </div>
+
+  <div class="search-wrap"><input type="text" id="search" placeholder="Search tables, fields, references..." oninput="filterTables(this.value)"></div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div> This → references</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div> Referenced by ←</div>
+    <div class="legend-item" style="margin-left:auto;font-style:italic">Click any table to expand connections</div>
+  </div>
+
+  <div class="tabs" id="tabs"></div>
+  <div id="mod-header"></div>
+  <div id="tables"></div>
+
+  <div class="footer">
+    YGT Holding · Digital Transformation · Database v5.0 · March 2026<br>
+    Sources: 14 Excel files · 983 shipments · 461 invoices · 28 contracts · 24 export firms · 111 import firms · 2,014 truck/drivers · 15 blocks · 1,557 price entries
+  </div>
+</div>
+
+<script>
+const M = [
+  {id:'trip_mgmt',label:'Trip Mgmt (existing)',count:6,
+   desc:'EXISTING production database — DO NOT recreate. Contains truck_heads, trailers, drivers, trips, driver_expenses, exchange_rates. New modules FK-reference these.',
+   build:'Already running in production → only reference via FK',
+   tables:[
+    {name:'truck_heads',note:'~300 trucks (plate, brand, owner)',refs_out:[],refs_in:['export.shipments.truck_head_id','contracts.transport_documents.truck_head_id']},
+    {name:'trailers',note:'Trailer plates & types',refs_out:[],refs_in:['trip_mgmt.trips.trailer_id','export.shipments.trailer_id']},
+    {name:'drivers',note:'2,014+ drivers (name, passport, phone)',refs_out:[],refs_in:['trip_mgmt.trips.driver_id','export.shipments.driver_id','contracts.transport_documents.driver_id']},
+    {name:'trips',note:'Links truck+trailer+driver → expenses/earnings',refs_out:['trip_mgmt.truck_heads.truck_head_id','trip_mgmt.trailers.trailer_id','trip_mgmt.drivers.driver_id'],refs_in:['export.shipments.trip_id']},
+    {name:'exchange_rates',note:'Currency rates (KZT, RUB, BYN, KGS)',refs_out:[],refs_in:[]},
+    {name:'driver_expenses',note:'Fuel, tolls, food per trip',refs_out:['trip_mgmt.trips.trip_id'],refs_in:[]},
+  ]},
+  {id:'sys',label:'System',count:3,
+   desc:'Authentication, audit trail, and notifications. sys_users is THE central identity table — nearly every table in the database points here via created_by, changed_by, entered_by, inspector_id, etc.',
+   build:'Build sys_users FIRST (after trip_mgmt) → then audit_log, notifications',
+   tables:[
+    {name:'users',note:'~25 users, 12 roles (export_manager, warehouse_chief, quality_inspector...)',refs_out:[],refs_in:['core.greenhouse_blocks.manager_id','export.shipments.created_by/updated_by','export.shipment_status_log.changed_by','export.sales_reports.reported_by','export.quality_documents.inspector_id','export.domestic_sales.created_by','export.weekly_harvest_plans.entered_by','export.weekly_truck_allocations.decided_by','export.price_entries.entered_by','export.domestic_market_prices.entered_by','export.finansist_advances.issued_by','contracts.contracts.created_by','contracts.invoice_payments.received_by','contracts.generated_documents.generated_by','contracts.firm_documents.uploaded_by','contracts.transport_documents.verified_by','finance.cash_planning.created_by','sys.audit_log.user_id','sys.notifications.user_id']},
+    {name:'audit_log',note:'Every INSERT/UPDATE/DELETE logged with old/new values',refs_out:['sys.users.user_id'],refs_in:[]},
+    {name:'notifications',note:'In-app + Telegram (missing_report, quota_warning, doc_deadline...)',refs_out:['sys.users.user_id'],refs_in:[]},
+  ]},
+  {id:'core',label:'Core',count:13,
+   desc:'Shared reference data — the foundation ALL other modules import from. Pure lookup tables with zero dependencies on export, contracts, finance, or greenhouse. Build these SECOND (after sys_users).',
+   build:'countries → cities → then all standalone (border_points, loading_locations, varieties, product_types, status_types, seasons) → greenhouse_blocks (needs users) → export_firms, domestic_buyers → import_firms (needs countries+cities) → customers (needs countries+cities)',
+   tables:[
+    {name:'seasons',note:'Sep–Jun cycle (2025-2026). Only one active.',refs_out:[],refs_in:['export.shipments.season_id','export.quota_allocations.season_id','export.weekly_harvest_plans.season_id','export.weekly_truck_allocations.season_id','contracts.contracts.season_id','finance.customer_ledgers.season_id','finance.route_profitability.season_id','greenhouse.daily_harvest_records.season_id','greenhouse.production_plans.season_id','greenhouse.gapy_satys_entrepreneurs.season_id']},
+    {name:'countries',note:'8 export + TM domestic (KZ, RU, UZ, KG, TJ, BY, AF, TM). 3-language.',refs_out:[],refs_in:['core.cities.country_id','core.import_firms.country_id','core.customers.default_country_id','export.shipments.country_id','finance.route_profitability.country_id']},
+    {name:'cities',note:'Astana, Almaty, Simkent, Karaganda, Moskwa, Orenburg, Minsk, Biskek...',refs_out:['core.countries.country_id'],refs_in:['core.import_firms.city_id','core.customers.default_city_id','export.shipments.city_id','export.price_entries.city_id','finance.customer_ledgers.city_id','finance.route_profitability.city_id']},
+    {name:'border_points',note:'Farap, Sarahs, Garabogaz, Bekdas, Dasoguz',refs_out:[],refs_in:['export.shipments.border_point_id']},
+    {name:'loading_locations',note:'Dusak, Kaka, Owadandepe — physical loading sites',refs_out:[],refs_in:['export.shipments.loading_location_id']},
+    {name:'tomato_varieties',note:'Defensiosa, Midelyce, Mahitos, Torero, Meralice, Cherry',refs_out:[],refs_in:['export.shipments.variety_id','greenhouse.plant_registrations.variety_id']},
+    {name:'product_types',note:'Pomidor, Bolgar burç, Badamjan, Hyyar (not just tomatoes)',refs_out:[],refs_in:['export.shipments.product_type_id']},
+    {name:'shipment_status_types',note:'13 statuses: yuklenme → ... → tamamlandy. Sequential, no skip.',refs_out:[],refs_in:['export.shipments.status_id','export.shipment_status_log.status_id']},
+    {name:'greenhouse_blocks',note:'15 blocks (A–O), 7 managers, ~2M m², 33.9M kg/season target',refs_out:['sys.users.manager_id'],refs_in:['export.shipment_block_sources.block_id','export.domestic_sales.block_id','export.weekly_harvest_plans.block_id','greenhouse.plant_registrations.block_id','greenhouse.pest_monitoring.block_id','greenhouse.fertilizer_applications.block_id','greenhouse.chemical_applications.block_id','greenhouse.irrigation_records.block_id','greenhouse.temperature_records.block_id','greenhouse.fruit_weight_samples.block_id','greenhouse.daily_harvest_records.block_id','greenhouse.production_plans.block_id']},
+    {name:'export_firms',note:'24 firms, 3-language (TK/RU/EN), bank details, SWIFT, 1C code',refs_out:[],refs_in:['export.shipment_firm_splits.export_firm_id','export.quota_allocations.export_firm_id','export.domestic_sales.export_firm_id','contracts.contracts.export_firm_id','contracts.invoices.export_firm_id','contracts.firm_documents.export_firm_id','finance.payment_tracking.export_firm_id']},
+    {name:'import_firms',note:'111 firms across 8 countries (company name, bank details, contact)',refs_out:['core.countries.country_id','core.cities.city_id'],refs_in:['export.shipments.import_firm_id','contracts.contracts.import_firm_id','contracts.invoices.import_firm_id','contracts.firm_documents.import_firm_id']},
+    {name:'customers',note:'~15 active: Begjan, Berik, Eldar, Solmaz, Arap, YGT Gapy Satys',refs_out:['core.countries.default_country_id','core.cities.default_city_id'],refs_in:['export.shipments.customer_id','contracts.contracts.customer_id','finance.customer_ledgers.customer_id']},
+    {name:'domestic_buyers',note:'15 buyers (Yigit H.J., Hemsaya...). Source for 1:10 quota.',refs_out:[],refs_in:['export.domestic_sales.buyer_id']},
+  ]},
+  {id:'export',label:'P3 Export',count:14,
+   desc:'The heart of the system. Shipment lifecycle (13 steps), firm splits ($10K rule), BARLAG block sourcing, weekly planning, 5-year price DB, quota tracking, quality inspection, and finansist advance management. Built on core + trip_mgmt.',
+   build:'shipments FIRST (needs all core tables + trip_mgmt + users) → then all child tables in any order (status_log, firm_splits, block_sources, sales_reports, quality_documents, quota_allocations, domestic_sales, weekly_plans, truck_allocations, price_entries, market_prices, advances → advance_shipments)',
+   tables:[
+    {name:'shipments',note:'1,959+/season. THE central table. 15 outgoing FK, 9 incoming FK, ~44 fields.',refs_out:['core.seasons.season_id','core.countries.country_id','core.cities.city_id','core.customers.customer_id','core.import_firms.import_firm_id','core.border_points.border_point_id','core.loading_locations.loading_location_id','core.product_types.product_type_id','core.tomato_varieties.variety_id','core.shipment_status_types.status_id','trip_mgmt.truck_heads.truck_head_id','trip_mgmt.trailers.trailer_id','trip_mgmt.drivers.driver_id','trip_mgmt.trips.trip_id','sys.users.created_by/updated_by'],refs_in:['export.shipment_status_log.shipment_id','export.shipment_firm_splits.shipment_id','export.shipment_block_sources.shipment_id','export.sales_reports.shipment_id','export.quality_documents.shipment_id','export.finansist_advance_shipments.shipment_id','contracts.invoices.shipment_id','contracts.generated_documents.shipment_id','contracts.transport_documents.shipment_id']},
+    {name:'shipment_status_log',note:'Replaces 13 ts_ timestamp columns. Full audit of who/when/comment.',refs_out:['export.shipments.shipment_id','core.shipment_status_types.status_id','sys.users.changed_by'],refs_in:[]},
+    {name:'shipment_firm_splits',note:'1–3 export firms per truck. $10K rule: <$10K=cash, >$10K=bank.',refs_out:['export.shipments.shipment_id','core.export_firms.export_firm_id'],refs_in:[]},
+    {name:'shipment_block_sources',note:'BARLAG: kg from each block per truck. Sum must = net weight.',refs_out:['export.shipments.shipment_id','core.greenhouse_blocks.block_id'],refs_in:[]},
+    {name:'sales_reports',note:'MANDATORY before closing. KZ comes via WhatsApp. RU = systematic gap.',refs_out:['export.shipments.shipment_id','sys.users.reported_by'],refs_in:[]},
+    {name:'quality_documents',note:'4 docs per truck: azyk, süriji, hil sertifikaty, kalibrowka analiz.',refs_out:['export.shipments.shipment_id','sys.users.inspector_id'],refs_in:[]},
+    {name:'quota_allocations',note:'1:10 ratio per firm. Warnings at 80/90/95%. Soft block at 100%.',refs_out:['core.seasons.season_id','core.export_firms.export_firm_id'],refs_in:[]},
+    {name:'domestic_sales',note:'~1.56M kg/season domestic × 10 = 15.6M kg export quota.',refs_out:['core.domestic_buyers.buyer_id','core.greenhouse_blocks.block_id','core.export_firms.export_firm_id','sys.users.created_by'],refs_in:[]},
+    {name:'weekly_harvest_plans',note:'15 blocks × 6 days. Friday=plan, Saturday=actuals. ÷18,500=trucks.',refs_out:['core.seasons.season_id','core.greenhouse_blocks.block_id','sys.users.entered_by'],refs_in:[]},
+    {name:'weekly_truck_allocations',note:'Gadam decides: how many trucks to RU / KZ / Gapy Satys per day.',refs_out:['core.seasons.season_id','sys.users.decided_by'],refs_in:[]},
+    {name:'price_entries',note:'5-year DB (1,557+ entries). KZ/RU/BY/KG cities. Daily updates.',refs_out:['core.cities.city_id','sys.users.entered_by'],refs_in:[]},
+    {name:'domestic_market_prices',note:'TM bazaars (Teke, Jygyldyk, Optowoy...) by variety type.',refs_out:['sys.users.entered_by'],refs_in:[]},
+    {name:'finansist_advances',note:'Babageldi issues cash for 5–20 shipments at once.',refs_out:['sys.users.issued_by'],refs_in:['export.finansist_advance_shipments.advance_id']},
+    {name:'finansist_advance_shipments',note:'Links each advance to its shipments. Notifies on change/delete.',refs_out:['export.finansist_advances.advance_id','export.shipments.shipment_id'],refs_in:[]},
+  ]},
+  {id:'contracts',label:'P4 Contracts',count:8,
+   desc:'Contract lifecycle, invoicing, partial payments, pasport sdelki, document generation (8 types, 13:00 deadline), firm document portal, and transport document tracking. Depends on core + export.',
+   build:'document_templates (standalone) → contracts (needs core firms + customers) → invoices (needs contracts + shipments) → invoice_payments → pasport_sdelki → generated_documents → firm_documents → transport_documents',
+   tables:[
+    {name:'contracts',note:'31+ active. $8.3M outstanding (57% unpaid). Long-term + one-time.',refs_out:['core.seasons.season_id','core.export_firms.export_firm_id','core.import_firms.import_firm_id','core.customers.customer_id','sys.users.created_by'],refs_in:['contracts.invoices.contract_id','contracts.pasport_sdelki.contract_id']},
+    {name:'invoices',note:'1,959 sales. Bridge between P3 shipments and P4 contracts.',refs_out:['contracts.contracts.contract_id','export.shipments.shipment_id','core.export_firms.export_firm_id','core.import_firms.import_firm_id'],refs_in:['contracts.invoice_payments.invoice_id']},
+    {name:'invoice_payments',note:'Partial payments supported. Cash vs bank per $10K rule.',refs_out:['contracts.invoices.invoice_id','sys.users.received_by'],refs_in:[]},
+    {name:'pasport_sdelki',note:'Cross-border payment authorization. Total/used/remaining value.',refs_out:['contracts.contracts.contract_id'],refs_in:[]},
+    {name:'document_templates',note:'CMR_RU/EN, Invoice_RU/EN, TIR, Customs, Fito, CT1, Gross_Net.',refs_out:[],refs_in:['contracts.generated_documents.template_id']},
+    {name:'generated_documents',note:'4 employees process daily. 13:00 deadline for sending.',refs_out:['export.shipments.shipment_id','contracts.document_templates.template_id','sys.users.generated_by'],refs_in:[]},
+    {name:'firm_documents',note:'Bank requisites, registration, licenses for 24 export + 111 import firms.',refs_out:['core.export_firms.export_firm_id','core.import_firms.import_firm_id','sys.users.uploaded_by'],refs_in:[]},
+    {name:'transport_documents',note:'Driver passport, техпаспорт, transport license. Own + Gapy Satys.',refs_out:['export.shipments.shipment_id','trip_mgmt.truck_heads.truck_head_id','trip_mgmt.drivers.driver_id','sys.users.verified_by'],refs_in:[]},
+  ]},
+  {id:'finance',label:'P5 Finance',count:4,
+   desc:'Financial tracking and analytics. All leaf tables — nothing depends on finance. Payment tracking per firm (Gel Toleg), weekly cash planning, customer ledger/receivables, route-level P&L.',
+   build:'All 4 tables are independent of each other. Build in any order after core exists.',
+   tables:[
+    {name:'payment_tracking',note:'Monthly per firm (Gel Toleg sheet). Expected vs received.',refs_out:['core.export_firms.export_firm_id'],refs_in:[]},
+    {name:'cash_planning',note:'Weekly cash flow: planned/actual income vs expense.',refs_out:['sys.users.created_by'],refs_in:[]},
+    {name:'customer_ledgers',note:'Per-customer receivables (Begjan, Berik, Eldar). Exchange rate.',refs_out:['core.customers.customer_id','core.seasons.season_id','core.cities.city_id'],refs_in:[]},
+    {name:'route_profitability',note:'P&L per country/city/month. Shipments, weight, revenue, costs.',refs_out:['core.seasons.season_id','core.countries.country_id','core.cities.city_id'],refs_in:[]},
+  ]},
+  {id:'greenhouse',label:'P1 Greenhouse',count:10,
+   desc:'Cultivation tracking for all 15 blocks. Built LATER (Phase 2) but schema ready now. All tables point ONLY to core.greenhouse_blocks (+ seasons, varieties). Zero dependency on export/contracts/finance. Covers all 9 greenhouse Excel files.',
+   build:'All tables only need core.greenhouse_blocks + core.seasons + core.tomato_varieties. Build in any order.',
+   tables:[
+    {name:'plant_registrations',note:'Weekly: 13 plant measurements per scan code (leaves, trusses, stem...)',refs_out:['core.greenhouse_blocks.block_id','core.tomato_varieties.variety_id'],refs_in:[]},
+    {name:'pest_monitoring',note:'Tuta, Whitefly, B.Tabacci, TYLCV, CMV, ToBRFV, Pythium. Per section.',refs_out:['core.greenhouse_blocks.block_id'],refs_in:[]},
+    {name:'fertilizer_applications',note:'Daily: Kalsiyum Nitrat, Amonyum Nitrat, Potasyum Sulfat, MAP...',refs_out:['core.greenhouse_blocks.block_id'],refs_in:[]},
+    {name:'chemical_applications',note:'Pesticides: Plenum, Agrimec, Admiral, Mospilan, Altacor...',refs_out:['core.greenhouse_blocks.block_id'],refs_in:[]},
+    {name:'irrigation_records',note:'EC, pH, volume for drip + drainage per EVO-2 section.',refs_out:['core.greenhouse_blocks.block_id'],refs_in:[]},
+    {name:'temperature_records',note:'Day/night/avg temp per section/part. Humidity.',refs_out:['core.greenhouse_blocks.block_id'],refs_in:[]},
+    {name:'fruit_weight_samples',note:'Weekly sampling: truss#, count, netto, avg weight per QR code.',refs_out:['core.greenhouse_blocks.block_id'],refs_in:[]},
+    {name:'daily_harvest_records',note:'Every kg: export + domestic + waste. Links to shipment codes.',refs_out:['core.greenhouse_blocks.block_id','core.seasons.season_id'],refs_in:[]},
+    {name:'production_plans',note:'Monthly per block. 33.9M kg seasonal target. Plan vs actual.',refs_out:['core.seasons.season_id','core.greenhouse_blocks.block_id'],refs_in:[]},
+    {name:'gapy_satys_entrepreneurs',note:'Local entrepreneurs who export through company (Telekeçi).',refs_out:['core.seasons.season_id'],refs_in:[]},
+  ]},
+];
+
+let active = 'core';
+let searchTerm = '';
+
+function renderTabs() {
+  document.getElementById('tabs').innerHTML = M.map(m =>
+    `<div class="tab mod-${m.id} ${m.id===active?'active':''}" onclick="switchMod('${m.id}')">${m.label}<span class="cnt">${m.count}</span></div>`
+  ).join('');
+}
+
+function switchMod(id) { active = id; searchTerm = ''; document.getElementById('search').value = ''; render(); }
+
+function filterTables(q) { searchTerm = q.toLowerCase(); renderTableList(); }
+
+function render() { renderTabs(); renderHeader(); renderTableList(); }
+
+function renderHeader() {
+  const m = M.find(x => x.id === active);
+  document.getElementById('mod-header').innerHTML = `
+    <div class="mod-header mod-${m.id}">
+      <h2>${m.label} — ${m.count} tables</h2>
+      <p>${m.desc}</p>
+      <div class="build-order">Build order: ${m.build}</div>
+    </div>`;
+}
+
+function renderTableList() {
+  const m = M.find(x => x.id === active);
+  let tbls = m.tables;
+  if (searchTerm) {
+    tbls = tbls.filter(t => {
+      const haystack = [m.id + '.' + t.name, t.note, ...t.refs_out, ...t.refs_in].join(' ').toLowerCase();
+      return haystack.includes(searchTerm);
+    });
+  }
+  document.getElementById('tables').innerHTML = tbls.map((t, i) => {
+    const totalRefs = t.refs_out.length + t.refs_in.length;
+    const outHtml = t.refs_out.map(r => {
+      const parts = r.split('.');
+      const field = parts.pop();
+      const table = parts.join('.');
+      return `<div class="ref"><span class="ref-arrow out">→</span><span class="ref-field">.${field}</span> <span class="ref-target">${table}</span></div>`;
+    }).join('');
+    const inHtml = t.refs_in.map(r => {
+      const parts = r.split('.');
+      const field = parts.pop();
+      const table = parts.join('.');
+      return `<div class="ref"><span class="ref-arrow in">←</span><span class="ref-target">${table}</span> <span class="ref-field">.${field}</span></div>`;
+    }).join('');
+    return `<div class="tbl mod-${m.id}" onclick="this.classList.toggle('open')">
+      <div class="tbl-head">
+        <span class="arrow-i">▶</span>
+        <span class="tbl-dot"></span>
+        <span class="tbl-idx">${i+1}</span>
+        <span class="tbl-name">${m.id}.${t.name}</span>
+        <span class="tbl-desc">${t.note}</span>
+        <span class="tbl-refs-count">${totalRefs} ref</span>
+      </div>
+      <div class="tbl-body">
+        ${t.refs_out.length ? `<div class="ref-section">This table references → (${t.refs_out.length})</div>${outHtml}` : ''}
+        ${t.refs_in.length ? `<div class="ref-section">Referenced by ← (${t.refs_in.length})</div>${inHtml}` : ''}
+        ${!totalRefs ? '<div class="ref-none">Standalone — no foreign key connections</div>' : ''}
+      </div>
+    </div>`;
+  }).join('');
+  if (!tbls.length) {
+    document.getElementById('tables').innerHTML = '<div style="padding:20px;text-align:center;color:var(--text3)">No tables match your search.</div>';
+  }
+}
+
+render();
+</script>
+</body>
+</html>

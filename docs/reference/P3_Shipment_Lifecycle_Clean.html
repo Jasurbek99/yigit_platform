@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>P3 Export — Shipment Lifecycle</title>
+<style>
+  @media print {
+    body { font-size: 11px; }
+    .no-print { display: none !important; }
+    .step-page { page-break-inside: avoid; }
+    .nav-bar { display: none; }
+    .step-page { border: none !important; margin-bottom: 12px; }
+    @page { margin: 1.5cm; }
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #fff; color: #1a1a1a; line-height: 1.5; max-width: 900px; margin: 0 auto; padding: 20px; }
+
+  .doc-header { border-bottom: 3px solid #1a5276; padding-bottom: 16px; margin-bottom: 24px; }
+  .doc-header h1 { font-size: 24px; color: #1a5276; margin-bottom: 4px; }
+  .doc-header .subtitle { font-size: 13px; color: #666; }
+  .doc-header .meta { display: flex; gap: 24px; margin-top: 8px; font-size: 12px; color: #888; }
+
+  .nav-bar { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 20px; padding: 12px; background: #f8f9fa; border-radius: 6px; border: 1px solid #e0e0e0; }
+  .nav-btn { font-size: 11px; padding: 4px 10px; border: 1px solid #d0d0d0; border-radius: 4px; background: #fff; cursor: pointer; color: #444; transition: all 0.15s; }
+  .nav-btn:hover { background: #e8f4fd; border-color: #1a5276; }
+  .nav-btn.active { background: #1a5276; color: #fff; border-color: #1a5276; }
+
+  .phase-label { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; padding: 2px 10px; border-radius: 3px; }
+  .phase-PLANNING { background: #f3e8ff; color: #6b21a8; }
+  .phase-LOADING { background: #dcfce7; color: #166534; }
+  .phase-DOCS { background: #dbeafe; color: #1e40af; }
+  .phase-TRANSIT { background: #fef9c3; color: #854d0e; }
+  .phase-DESTINATION { background: #fce7f3; color: #9d174d; }
+  .phase-CLOSE { background: #f3e8ff; color: #6b21a8; }
+
+  .step-page { border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 20px; overflow: hidden; }
+  .step-header { padding: 14px 18px; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px; }
+  .step-title { font-size: 18px; font-weight: 700; color: #1a1a1a; }
+  .step-en { font-size: 13px; color: #666; margin-top: 2px; }
+  .step-meta { display: flex; gap: 20px; flex-wrap: wrap; }
+  .step-meta-item { text-align: right; }
+  .step-meta-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: #999; }
+  .step-meta-val { font-size: 13px; font-weight: 600; color: #1a1a1a; }
+  
+  .step-body { padding: 0 18px 14px; }
+  .step-desc { font-size: 13px; color: #333; line-height: 1.6; margin-bottom: 10px; }
+  .step-platform { font-size: 12px; color: #666; padding: 6px 0; border-top: 1px solid #eee; }
+  .step-platform b { color: #1a5276; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 12px; }
+  thead { background: #f5f7fa; }
+  th { padding: 6px 10px; text-align: left; font-weight: 600; color: #555; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #ddd; }
+  td { padding: 6px 10px; border-bottom: 1px solid #eee; }
+  .mono { font-family: 'Consolas', 'Courier New', monospace; font-size: 11px; color: #1a5276; }
+  .field-name { font-weight: 500; }
+  .example-tag { background: #f0f4f8; padding: 1px 6px; border-radius: 3px; font-family: monospace; font-size: 11px; color: #1a5276; }
+
+  .extra-section { background: #fafbfc; border: 1px solid #e8e8e8; border-radius: 6px; padding: 12px 16px; margin-bottom: 12px; }
+  .extra-title { font-size: 13px; font-weight: 700; color: #1a5276; margin-bottom: 8px; }
+  .extra-row { display: flex; justify-content: space-between; padding: 4px 0; }
+  .extra-row + .extra-row { border-top: 1px solid #eee; }
+  .extra-total { display: flex; justify-content: space-between; padding: 6px 0 0; border-top: 2px solid #1a5276; margin-top: 4px; font-weight: 700; }
+
+  .doc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px; }
+  .doc-item { background: #f5f7fa; border: 1px solid #e8e8e8; border-radius: 4px; padding: 6px 10px; font-size: 12px; display: flex; justify-content: space-between; }
+
+  .qdoc-item { padding: 6px 0; }
+  .qdoc-item + .qdoc-item { border-top: 1px solid #eee; }
+  .qdoc-name { font-weight: 500; font-size: 12px; }
+  .qdoc-en { font-size: 11px; color: #888; }
+
+  .note-box { background: #fff8e1; border-left: 3px solid #f5a623; padding: 8px 12px; font-size: 12px; color: #555; margin-bottom: 12px; border-radius: 0 4px 4px 0; }
+  .note-box b { color: #d48806; }
+
+  .mgr-table td { font-size: 12px; }
+  .mgr-unknown { color: #c0392b; font-style: italic; }
+
+  .print-btn { position: fixed; bottom: 20px; right: 20px; background: #1a5276; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 100; }
+  .print-btn:hover { background: #154360; }
+
+  .summary-table { margin-top: 24px; }
+  .summary-table td:first-child { font-weight: 600; width: 40px; text-align: center; }
+</style>
+</head>
+<body>
+
+<button class="print-btn no-print" onclick="window.print()">🖨️ Print</button>
+
+<div class="doc-header">
+  <h1>🍅 P3 Export — Shipment Lifecycle</h1>
+  <div class="subtitle">Complete 19-step export process from weekly planning to shipment close</div>
+  <div class="meta">
+    <span>YGT Holding</span>
+    <span>Version 1.2 — March 2026</span>
+    <span>12 roles · 12 documents per truck · 44+ data fields</span>
+  </div>
+</div>
+
+<div class="nav-bar no-print" id="nav"></div>
+
+<div id="content"></div>
+
+<script>
+const STEPS = [
+  { num:"0a", name_tk:"Hepdelik planlama", name_en:"Weekly Harvest Planning", who:"7 Block Managers", role:"Greenhouse Managers", icon:"📅", phase:"PLANNING",
+    platform:"Weekly Planning Grid",
+    desc:"Every Friday, 7 greenhouse managers enter expected harvest (kg) per block per day (Monday–Saturday) for the following week. The total across all blocks feeds the truck count calculation. On Saturday, actual harvest is entered for plan-vs-actual comparison.",
+    fields:[
+      {row:"—",name:"Ýyladyşhana",en:"Greenhouse Block",example:"C-Ýyladyşhana",rule:"15 blocks: A through O"},
+      {row:"—",name:"Duşenbe–Şenbe kg",en:"Planned kg (Mon–Sat)",example:"18 500 per day",rule:"Per day, per block"},
+      {row:"—",name:"Jemi (KG)",en:"Weekly Total",example:"84 000 kg",rule:"Sum of 6 days"},
+      {row:"—",name:"Ýerine ýetirileni",en:"Actual Harvested",example:"90 903 kg",rule:"Entered on Saturday"},
+    ],
+    managers:[
+      {name:"Toyly B",phone:"+99361608737",blocks:"A, B"},
+      {name:"(To be confirmed)",phone:"—",blocks:"C"},
+      {name:"Guwanç K",phone:"+99363018382",blocks:"D, M15, M5"},
+      {name:"Geldimyrat A",phone:"+99365234059",blocks:"E, F"},
+      {name:"Asdan H",phone:"+99362093301",blocks:"G, H"},
+      {name:"Mekan A",phone:"+99363690069",blocks:"I, J"},
+      {name:"Batyr Çaýtyýew",phone:"+99362655224",blocks:"K, L"},
+      {name:"Bayram J",phone:"+99364102042",blocks:"O"},
+    ],
+    note:"Plans cover 6 working days (Sunday off). Rare Sunday work during peak harvest. Planned and actual values may differ due to weather, plant conditions, or other factors.",
+  },
+  { num:"0b", name_tk:"Maşyn hasaplamasy", name_en:"Truck Count Calculation", who:"System → Gadam", role:"Logist", icon:"🔢", phase:"PLANNING",
+    platform:"Auto-calculated dashboard",
+    desc:"Total planned kg ÷ 18 500 = number of trucks for the day. Gadam and Agamyrat then decide how many trucks go to Russia, Kazakhstan, or domestic (Gapy Satysh). The destination split may not exactly match the calculated total.",
+    fields:[
+      {row:"Row 26",name:"Jemi Maşyn Sany",en:"Total Truck Count",example:"4.54",rule:"Calculated: total_kg ÷ 18 500"},
+      {row:"Row 29",name:"Rossiya",en:"Russia Trucks",example:"2",rule:"Gadam decides"},
+      {row:"Row 30",name:"Gazagystan",en:"Kazakhstan Trucks",example:"3",rule:"Gadam decides"},
+      {row:"Row 31",name:"Gapy Satyş",en:"Domestic Trucks",example:"0",rule:"Gadam decides"},
+    ],
+    note:"18 500 kg = 1 export truck. This is the fundamental planning unit. The transport department also uses this forecast to plan truck and driver availability.",
+  },
+  { num:"0c", name_tk:"Ýurt karary", name_en:"Country Decision", who:"Gadam", role:"Export Manager", icon:"🌍", phase:"PLANNING",
+    platform:"Price dashboard with 5-year history",
+    desc:"Gadam selects the destination country based on real-time market prices (from sales reps abroad), recent price trends, and a 5-year historical price database. The country is decided at this stage; the specific city may be decided later, sometimes as late as arrival.",
+    fields:[
+      {row:"R10",name:"Barýan ýurdy",en:"Destination Country",example:"GAZAGYSTAN",rule:"KZ / RU / UZ"},
+    ],
+    note:"Country decided here. City decided later — sometimes only upon arrival. Gadam can change country or cancel before document preparation begins. Changes after document preparation are extremely rare (1–2 per season).",
+  },
+  { num:"0d", name_tk:"Firma saýlamy", name_en:"Firm Selection", who:"Gadam + Agamyrat", role:"Logist Team", icon:"🏢", phase:"PLANNING",
+    platform:"Quota dashboard with $10K calculation",
+    desc:"Gadam and Agamyrat select 1–3 export firms and the import firm. All firms are holding-owned or related entities. Selection is based on: the $10 000 rule (cash vs bank transfer), current cash needs, loan repayment schedules, and remaining quota per firm. If the chosen import firm has no contract, Shohrat creates a one-time contract.",
+    fields:[
+      {row:"R9",name:"Eksport firmasy",en:"Export Firm(s)",example:"YGT + HMS",rule:"1–3 firms per shipment"},
+      {row:"R13",name:"Import firmasy",en:"Import Firm",example:"ТОО «Fresh Fruit KZ»",rule:"From 111 registered firms"},
+      {row:"R5",name:"Sargytçy",en:"Customer",example:"Berik",rule:"~15 active customers"},
+    ],
+    firmSplit:[
+      {firm:"Yigit H.J",kg:"10 000",usd:"$14 500"},
+      {firm:"Hemsaya H.J",kg:"8 403",usd:"$12 184"},
+    ],
+    note:"Two-firm split is common (35.6% of shipments). Three-firm is rare. Each firm gets a separate CMR and invoice. The $10K rule: invoices under $10 000 = cash; over $10 000 = bank transfer. The system shows a real-time warning but does not block.",
+  },
+  { num:"0e", name_tk:"Transport meýilnamasy", name_en:"Transport Planning", who:"Transport department", role:"Transport", icon:"🚛", phase:"PLANNING",
+    platform:"Fleet board with Trip Management integration",
+    desc:"The transport department assigns trucks and drivers from the fleet based on the weekly plan. They enter truck/trailer plate numbers, driver name and phone, and the border exit point.",
+    fields:[
+      {row:"R22",name:"Maşyn jogapkär",en:"Vehicle Responsible",example:"Malik",rule:"Malik / Haltac / Gapy Satyş"},
+      {row:"R23",name:"Sürüji",en:"Driver Name",example:"Aman Amanow",rule:"From fleet records"},
+      {row:"R27",name:"Öňdäki belgisi",en:"Front Plate",example:"AG 1234 AŞ",rule:"Truck plate number"},
+      {row:"R28",name:"Yzdaky belgisi",en:"Rear/Trailer Plate",example:"AG 5678 AŞ",rule:"Trailer plate number"},
+      {row:"R29",name:"Serhet çykyş nokady",en:"Border Exit Point",example:"Farap",rule:"Farap / Sarahs / Garabogaz"},
+    ],
+    note:"Known issue: transport data is sometimes entered late, which delays document preparation. The platform should alert when truck/driver information is missing for shipments already in document preparation.",
+  },
+  { num:"1", name_tk:"Yüklenme", name_en:"Loading", who:"Soltanmyrat", role:"Head Greenhouse Export Ops", icon:"📦", phase:"LOADING",
+    platform:"Mobile form with weight input",
+    desc:"Soltanmyrat generates the shipment code, selects which greenhouse blocks to harvest from (typically 1–3), and records weights and loading timestamps. He also records the per-block kg breakdown (BARLAG tracking), which provides full traceability from greenhouse to truck.",
+    fields:[
+      {row:"R7",name:"Ýük Kody",en:"Shipment Code",example:"02FB005/26",rule:"Format: DDMM+sequence/YY"},
+      {row:"R8",name:"Ýygylan bölümi",en:"Harvest Block(s)",example:"B BLOK + C BLOK",rule:"1–3 blocks typical"},
+      {row:"R14",name:"Ýygym ýagdaýy",en:"Harvest Status",example:"Ýygylyp dur",rule:"When OK → driver is called"},
+      {row:"R17",name:"Sorty",en:"Tomato Variety",example:"Pomidor (Merjen)",rule:"Linked to block"},
+      {row:"R19",name:"Ýüklenme başlady",en:"Loading Start",example:"02.02 07:30",rule:"Timestamp"},
+      {row:"R20",name:"Ýüklenme gutardy",en:"Loading End",example:"02.02 09:15",rule:"Timestamp"},
+      {row:"R36",name:"Arassa agramy (r)",en:"Net Weight — pure tomato",example:"18 100 kg",rule:"Weight of tomatoes only"},
+      {row:"R37",name:"Arassa agramy (h)",en:"Net Weight — with boxes",example:"18 403 kg",rule:"Weight including packaging"},
+      {row:"R38",name:"Gaplaň agramy",en:"Packaging Weight",example:"2 400 kg",rule:"Default ~2 400 kg"},
+      {row:"R39",name:"Ýygylan senesi",en:"Harvest Date",example:"02.02.2026",rule:"Date of harvest"},
+    ],
+    blockSource:[{block:"B BLOK",kg:"12 371"},{block:"C BLOK",kg:"6 032"}],
+    note:"The sum of all block sources must equal the total net weight. Standard truck: 18 100 kg net / 20 500 kg gross / 2 400 kg packaging.",
+  },
+  { num:"1b", name_tk:"Hil barlagy", name_en:"Quality Inspection", who:"Hil Barlagçy", role:"Quality Inspector (one per greenhouse)", icon:"🔍", phase:"LOADING",
+    platform:"Quality checklist form → 4 PDF documents",
+    desc:"Each greenhouse has its own quality inspector (Hil Barlagçy). They inspect tomato quality, measure sizing (calibration), reject non-export grade tomatoes, set transport temperature, determine transit days, and calculate shelf life. They produce 4 quality documents per truck.",
+    fields:[
+      {row:"R26",name:"Temperatura / gün",en:"Transit Temp + Days",example:"5 gün 11°C",rule:"Based on quality assessment"},
+      {row:"—",name:"Ret edilen kg",en:"Rejected Weight",example:"230 kg",rule:"Non-export grade"},
+      {row:"—",name:"Ýaramlylyk möhleti",en:"Shelf Life",example:"20 gün",rule:"Days until spoilage"},
+    ],
+    qualityDocs:[
+      {name:"Azyk önümleriň Maglumatnama",en:"Loading & Transport Certificate"},
+      {name:"Awtoulag sürüjisine gözükdiriji",en:"Driver Temperature Instruction"},
+      {name:"Hil barlag sertifikaty",en:"Quality Inspection Certificate"},
+      {name:"Kalibrowka Analiz",en:"Calibration / Sizing Analysis"},
+    ],
+    note:"All 4 quality documents are required per truck. The inspector physically examines the tomatoes, measures sizes, and separates non-export grade produce before loading.",
+  },
+  { num:"2", name_tk:"Gümrük girish", name_en:"Customs Entry (TM)", who:"Document Team (4 people)", role:"Shohrat, Shirin, Sulgun, Aynur", icon:"📋", phase:"DOCS",
+    platform:"Document auto-generation (8 customs documents)",
+    desc:"The document team (4 people working in one office) prepares 8 customs and export document types and submits them to Turkmen customs. All documents must be ready by the 13:00 daily deadline. Shohrat also creates one-time contracts when needed.",
+    fields:[
+      {row:"R6",name:"Resminamalaryň ýagdaýy",en:"Document Status",example:"OK",rule:"OK / Tayyar / Dowam edyar / Yok / W/E"},
+      {row:"R18",name:"Gümrük girish wagty",en:"Customs Entry Time",example:"02.02 10:30",rule:"Timestamp"},
+    ],
+    documents:["CMR (Russian)","CMR (English)","Invoice (RU/EN)","Customs Declaration","Fito Certificate","CT-1 Certificate","TIR Carnet (UZ only)","CMR 3-firm (rare)"],
+    note:"Deadline: 13:00 daily. Customs entry time is often recorded before loading start time because customs clearance is processed based on the planned shipment, not the physical loading.",
+  },
+  { num:"2b", name_tk:"Maliýe", name_en:"Finance / Cash Advance", who:"Babageldi", role:"Finansist", icon:"💵", phase:"DOCS",
+    platform:"Cash advance tracker linked to shipment codes",
+    desc:"The finansist provides cash advances for customs processing and document preparation, typically covering 5–20 shipments per advance. Each advance is linked to specific shipment codes. The system must alert the finansist when any linked shipment is modified or deleted after the advance has been given.",
+    fields:[
+      {row:"—",name:"Berilen pul",en:"Advance Amount",example:"5 000 TMT",rule:"Covers 5–20 shipments"},
+      {row:"—",name:"Degişli kodlar",en:"Linked Shipment Codes",example:"02FB005–02FB020",rule:"Batch of codes"},
+    ],
+    note:"Key requirement: automatic notification when a shipment linked to an advance is changed or deleted. The finansist needs a clear reconciliation trail showing advances vs actual expenditures.",
+  },
+  { num:"3", name_tk:"Gümrük chykysh", name_en:"Customs Cleared (TM)", who:"Document Team", role:"Documents", icon:"✅", phase:"DOCS",
+    platform:"Status auto-update",
+    desc:"Turkmen customs approves the export. The document team records the clearance timestamp. This clears the shipment for departure.",
+    fields:[
+      {row:"R25",name:"Gümrük chykysh wagty",en:"Customs Clear Time",example:"02.02 11:45",rule:"Gate to departure"},
+    ],
+    note:"Transition to 'Departed' requires customs clearance and complete truck/driver information.",
+  },
+  { num:"4", name_tk:"Yola chykdy", name_en:"Departed Greenhouse", who:"Mergen", role:"Dispatch", icon:"🚛", phase:"TRANSIT",
+    platform:"GPS tracking starts + structured vehicle status + comments",
+    desc:"The truck physically departs the greenhouse. Mergen records the departure timestamp. GPS tracking begins. The vehicle status is tracked via a structured dropdown (transport only). A separate comments thread allows any role to post notes about the shipment.",
+    fields:[
+      {row:"R21",name:"Ýola çykan wagty",en:"Departure Time",example:"02.02 12:30",rule:"Mergen records"},
+      {row:"—",name:"Maşyn statusy",en:"Vehicle Status",example:"Ýola çykdy",rule:"Structured dropdown, transport only"},
+    ],
+    note:"The system provides two separate features: (1) a structured vehicle status field updated only by transport, and (2) a threaded comments section where any role can post notes, reply, and @mention colleagues.",
+  },
+  { num:"5", name_tk:"Serhet TM", name_en:"At TM Border", who:"Haltac / Driver", role:"Transport", icon:"🛃", phase:"TRANSIT",
+    platform:"Geofence alert (future: GPS auto-detect)",
+    desc:"Truck arrives at the Turkmenistan border exit point (Farap, Sarahs, or Garabogaz). Haltac records the border exit time.",
+    fields:[
+      {row:"R30",name:"Serhet wagty",en:"TM Border Exit Time",example:"02.02 18:00",rule:"Haltac records"},
+    ],
+    note:"Future enhancement: GPS geofence at border points to auto-detect arrival and trigger status change.",
+  },
+  { num:"6", name_tk:"Serhet gechdi", name_en:"Border Crossed", who:"Driver", role:"Transport", icon:"🌍", phase:"TRANSIT",
+    platform:"Auto-status update from GPS",
+    desc:"Truck enters the destination country (Kazakhstan, Russia, or Uzbekistan).",
+    fields:[
+      {row:"—",name:"Geçiş wagty",en:"Crossing Time",example:"02.02 20:30",rule:"GPS auto or manual entry"},
+    ],
+    note:"Uzbekistan routes require a TIR Carnet. Typical transit times: Kazakhstan 1–2 days, Russia 3–5 days (via KZ), Uzbekistan ~1 day.",
+  },
+  { num:"7", name_tk:"Baryş gümrügi", name_en:"Destination Customs", who:"Broker / Sales Rep", role:"Sales Rep", icon:"🏛️", phase:"TRANSIT",
+    platform:"Status update",
+    desc:"Truck clears customs in the destination country. For Russia via Kazakhstan, there may be two customs stops (exit KZ + enter RU).",
+    fields:[
+      {row:"R31",name:"Baryş gümrük wagty",en:"Dest Customs Time",example:"04.02 14:00",rule:"Sales rep records"},
+    ],
+    note:"The destination city may still be undecided at this point. It can be confirmed as late as arrival.",
+  },
+  { num:"8", name_tk:"Yolda", name_en:"In Transit", who:"GPS / System", role:"Automated", icon:"🛰️", phase:"TRANSIT",
+    platform:"Live map tracking",
+    desc:"Truck is in transit toward the destination city. GPS provides real-time location. The destination city may be finalized during this stage.",
+    fields:[
+      {row:"R11",name:"Barýan şäheri",en:"Destination City",example:"Almaty",rule:"May be set or changed here"},
+      {row:"R4",name:"Goşmaça maglumat",en:"Notes",example:"Weather delay",rule:"General notes field"},
+    ],
+    note:"The city field is not required until the 'Arrived' status. Weather and road delays should be recorded in the comments thread.",
+  },
+  { num:"9", name_tk:"Bardy", name_en:"Arrived", who:"Arap / Aganazar", role:"Sales Representative", icon:"📍", phase:"DESTINATION",
+    platform:"Arrival notification + transloading tracking (KZ only)",
+    desc:"Truck arrived at the destination city. In Kazakhstan, transloading (peregruz) may occur: the truck arrives at a hub where the entire load is split into smaller vehicles for delivery to multiple cities.",
+    fields:[
+      {row:"R32",name:"Baran wagty",en:"Arrival Time",example:"05.02 09:00",rule:"Sales rep confirms"},
+      {row:"R12",name:"Baryş şäheri",en:"Final City",example:"Almaty",rule:"Confirmed at arrival"},
+      {row:"R34",name:"Peregruz",en:"Transloading Status",example:"Peregruz boldy",rule:"Kazakhstan only"},
+      {row:"R35",name:"Peregruz wagty",en:"Transloading Time",example:"05.02 08:00",rule:"Time of transloading"},
+    ],
+    note:"Transloading (peregruz) occurs only in Kazakhstan. The truck arrives at a hub, the load is broken into smaller vehicles, and each goes to a different city. Russia does not have transloading.",
+  },
+  { num:"10", name_tk:"Satylyär", name_en:"Being Sold", who:"Arap / Aganazar", role:"Sales Representative", icon:"💰", phase:"DESTINATION",
+    platform:"Status update + price tracking",
+    desc:"Tomatoes are being sold at the destination market.",
+    fields:[
+      {row:"R33",name:"Satyş başlady",en:"Sale Start",example:"05.02 10:00",rule:"Market opens"},
+    ],
+    note:"Quality deterioration begins upon arrival. The transit temperature and days set by the quality inspector are critical for shelf life.",
+  },
+  { num:"11", name_tk:"Satyldy", name_en:"Fully Sold", who:"Arap / Aganazar", role:"Sales Representative", icon:"✅", phase:"DESTINATION",
+    platform:"Price + weight confirmation",
+    desc:"All tomatoes have been sold. The final sale price and actual weight sold are confirmed.",
+    fields:[
+      {row:"R41",name:"Satyş gutardy",en:"Sale End",example:"06.02 16:00",rule:"All sold"},
+      {row:"R42",name:"Satylan agramy",en:"Weight Sold (kg)",example:"17 850 kg",rule:"May differ from loaded weight"},
+      {row:"R43",name:"Satyş bahasy",en:"Sale Price ($/kg)",example:"$1.45/kg",rule:"Average price achieved"},
+    ],
+    note:"Weight difference between loaded and sold (e.g. 18 403 → 17 850 = 553 kg loss) is tracked. Causes include spoilage, transit damage, and moisture loss.",
+  },
+  { num:"12", name_tk:"Hasabat", name_en:"Sales Report", who:"Arap / Aganazar", role:"Sales Representative", icon:"📝", phase:"DESTINATION",
+    platform:"Mandatory report form (future: mobile CRM for sellers)",
+    desc:"The sales representative submits a mandatory sales report. The report includes daily sales by city, total revenue, expenses, and payments to sellers. Currently, reports are received only from Kazakhstan via WhatsApp. Russia is a new market where reporting is not yet systematic. The shipment cannot be closed without this report.",
+    fields:[
+      {row:"R44",name:"Hasabat geldi",en:"Report Date",example:"07.02.2026",rule:"Mandatory for closing"},
+      {row:"—",name:"Günlük satyş",en:"Daily Sales",example:"Almaty: 3 200 kg × $1.45",rule:"Per city, per day"},
+      {row:"—",name:"Çykdajylar",en:"Expenses",example:"$3 200",rule:"Transport + market fees"},
+      {row:"—",name:"Satyjy tölegi",en:"Seller Payment",example:"$800",rule:"Amount paid to seller"},
+    ],
+    note:"90+ reports are currently missing. The system blocks closing without a submitted report and sends automatic reminders after 3 days, escalating after 7 days. Management wants a mobile CRM where sellers enter data directly from their phones.",
+  },
+  { num:"13", name_tk:"Tamamlandy", name_en:"Completed", who:"Accounting", role:"Finance", icon:"🔒", phase:"CLOSE",
+    platform:"Auto-close when all conditions met",
+    desc:"All payments received, sales report filed, and cash advances reconciled. The shipment is closed and data feeds into the contracts (P4) and finance (P5) modules.",
+    fields:[
+      {row:"—",name:"Ýapylan senesi",en:"Close Date",example:"15.02.2026",rule:"Automatic when conditions met"},
+      {row:"—",name:"Töleg statusy",en:"Payment Status",example:"Doly tölenildi",rule:"Full / Partial / Pending"},
+    ],
+    note:"Closing conditions: (1) Sales report received, (2) Payment confirmed, (3) All timestamps complete, (4) Cash advance reconciled. Quota accounting is updated for the export firm(s) upon closing.",
+  },
+];
+
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// Render navigation
+const nav = document.getElementById('nav');
+nav.innerHTML = STEPS.map((s,i) => 
+  `<button class="nav-btn${i===0?' active':''}" onclick="scrollToStep(${i})" id="nav-${i}">${s.icon} ${s.num}</button>`
+).join('');
+
+function scrollToStep(i){
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('nav-'+i).classList.add('active');
+  document.getElementById('step-'+i).scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+// Render all steps
+const content = document.getElementById('content');
+let html = '';
+
+STEPS.forEach((s,i) => {
+  html += `<div class="step-page" id="step-${i}">`;
+  
+  // Header
+  html += `<div class="step-header" style="background:${
+    s.phase==='PLANNING'?'#faf5ff':s.phase==='LOADING'?'#f0fdf4':s.phase==='DOCS'?'#eff6ff':s.phase==='TRANSIT'?'#fefce8':s.phase==='DESTINATION'?'#fdf2f8':'#faf5ff'
+  }">
+    <div>
+      <div style="margin-bottom:4px"><span class="phase-label phase-${s.phase}">${s.phase}</span></div>
+      <div class="step-title">${s.icon} Step ${s.num}: ${esc(s.name_tk)}</div>
+      <div class="step-en">${esc(s.name_en)}</div>
+    </div>
+    <div class="step-meta">
+      <div class="step-meta-item"><div class="step-meta-label">Responsible</div><div class="step-meta-val">${esc(s.who)}</div></div>
+      <div class="step-meta-item"><div class="step-meta-label">Role</div><div class="step-meta-val">${esc(s.role)}</div></div>
+    </div>
+  </div>`;
+  
+  // Body
+  html += `<div class="step-body">`;
+  html += `<div class="step-desc">${esc(s.desc)}</div>`;
+  html += `<div class="step-platform"><b>Platform feature:</b> ${esc(s.platform)}</div>`;
+  
+  // Fields table
+  if(s.fields.length > 0) {
+    html += `<table style="margin-top:10px"><thead><tr><th>Ref</th><th>Field</th><th>English</th><th>Example</th><th>Rule</th></tr></thead><tbody>`;
+    s.fields.forEach(f => {
+      html += `<tr><td class="mono">${esc(f.row)}</td><td class="field-name">${esc(f.name)}</td><td style="color:#666">${esc(f.en)}</td><td><span class="example-tag">${esc(f.example)}</span></td><td style="color:#888;font-size:11px">${esc(f.rule)}</td></tr>`;
+    });
+    html += `</tbody></table>`;
+  }
+  
+  // Block sources
+  if(s.blockSource) {
+    html += `<div class="extra-section"><div class="extra-title">BARLAG — Block Source Breakdown</div>`;
+    s.blockSource.forEach(b => {
+      html += `<div class="extra-row"><span>${esc(b.block)}</span><span class="mono">${esc(b.kg)} kg</span></div>`;
+    });
+    html += `<div class="extra-total"><span>TOTAL</span><span>18 403 kg</span></div></div>`;
+  }
+  
+  // Firm split
+  if(s.firmSplit) {
+    html += `<div class="extra-section"><div class="extra-title">Export Firm Split — $10K Rule</div>`;
+    s.firmSplit.forEach(f => {
+      html += `<div class="extra-row"><span>${esc(f.firm)}</span><span>${esc(f.kg)} kg · <b>${esc(f.usd)}</b></span></div>`;
+    });
+    html += `<div style="margin-top:8px;font-size:11px;color:#666;background:#f0f4f8;padding:6px 10px;border-radius:4px">$10K Check: Yigit = $14 500 (bank transfer) ✓ | Hemsaya = $12 184 (bank transfer) ✓</div></div>`;
+  }
+  
+  // Customs docs
+  if(s.documents) {
+    html += `<div class="extra-section"><div class="extra-title">8 Customs & Export Documents</div><div class="doc-grid">`;
+    s.documents.forEach(d => {
+      html += `<div class="doc-item"><span>${esc(d)}</span><span>✅</span></div>`;
+    });
+    html += `</div></div>`;
+  }
+  
+  // Quality docs
+  if(s.qualityDocs) {
+    html += `<div class="extra-section"><div class="extra-title">4 Quality Documents (per greenhouse inspector)</div>`;
+    s.qualityDocs.forEach(d => {
+      html += `<div class="qdoc-item"><div class="qdoc-name">${esc(d.name)}</div><div class="qdoc-en">${esc(d.en)}</div></div>`;
+    });
+    html += `</div>`;
+  }
+  
+  // Managers
+  if(s.managers) {
+    html += `<div class="extra-section"><div class="extra-title">Block Managers</div><table class="mgr-table"><thead><tr><th>Manager</th><th>Phone</th><th>Blocks</th></tr></thead><tbody>`;
+    s.managers.forEach(m => {
+      const cls = m.name.includes('confirm') ? ' class="mgr-unknown"' : '';
+      html += `<tr><td${cls}>${esc(m.name)}</td><td class="mono">${esc(m.phone)}</td><td><b>${esc(m.blocks)}</b></td></tr>`;
+    });
+    html += `</tbody></table></div>`;
+  }
+  
+  // Note
+  html += `<div class="note-box"><b>Note:</b> ${esc(s.note)}</div>`;
+  
+  html += `</div></div>`; // step-body, step-page
+});
+
+content.innerHTML = html;
+</script>
+</body>
+</html>

@@ -1,0 +1,2053 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YGT Holding — Operations Platform</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --primary: #1677ff;
+  --primary-dark: #0958d9;
+  --primary-light: #e6f4ff;
+  --primary-bg: #f0f5ff;
+  --success: #52c41a;
+  --success-bg: #f6ffed;
+  --warning: #faad14;
+  --warning-bg: #fffbe6;
+  --error: #ff4d4f;
+  --error-bg: #fff2f0;
+  --processing: #1677ff;
+  --purple: #722ed1;
+  --purple-bg: #f9f0ff;
+  --cyan: #13c2c2;
+  --cyan-bg: #e6fffb;
+  --magenta: #eb2f96;
+
+  --text-primary: #1f1f1f;
+  --text-secondary: #595959;
+  --text-tertiary: #8c8c8c;
+  --text-placeholder: #bfbfbf;
+
+  --bg-layout: #f5f5f5;
+  --bg-container: #ffffff;
+  --bg-elevated: #ffffff;
+  --bg-spotlight: #f0f0f0;
+
+  --border: #d9d9d9;
+  --border-light: #f0f0f0;
+  --divider: #f0f0f0;
+
+  --shadow-sm: 0 1px 2px 0 rgba(0,0,0,0.03), 0 1px 6px -1px rgba(0,0,0,0.02), 0 2px 4px 0 rgba(0,0,0,0.02);
+  --shadow-md: 0 6px 16px 0 rgba(0,0,0,0.08), 0 3px 6px -4px rgba(0,0,0,0.12), 0 9px 28px 8px rgba(0,0,0,0.05);
+  --shadow-lg: 0 6px 16px 0 rgba(0,0,0,0.08), 0 3px 6px -4px rgba(0,0,0,0.12), 0 9px 28px 8px rgba(0,0,0,0.05);
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  --sidebar-width: 240px;
+  --header-height: 56px;
+  --font: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: var(--font); background: var(--bg-layout); color: var(--text-primary); font-size: 14px; line-height: 1.5714; }
+
+/* ═══ LAYOUT ═══ */
+.app { display: flex; min-height: 100vh; }
+
+/* ═══ SIDEBAR ═══ */
+.sidebar {
+  width: var(--sidebar-width); background: #001529; color: #fff;
+  position: fixed; top: 0; left: 0; bottom: 0; z-index: 100;
+  display: flex; flex-direction: column; overflow-y: auto;
+  transition: width 0.2s;
+}
+.sidebar-header {
+  padding: 16px 20px; display: flex; align-items: center; gap: 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.08); min-height: 56px;
+}
+.sidebar-logo {
+  width: 32px; height: 32px; background: var(--primary);
+  border-radius: 8px; display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 14px; flex-shrink: 0;
+}
+.sidebar-title { font-size: 15px; font-weight: 600; white-space: nowrap; letter-spacing: -0.01em; }
+.sidebar-subtitle { font-size: 11px; color: rgba(255,255,255,0.45); }
+
+.nav-section { padding: 8px 0; }
+.nav-section-label {
+  padding: 8px 20px 4px; font-size: 11px; color: rgba(255,255,255,0.35);
+  text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 20px; margin: 1px 8px; border-radius: 6px;
+  cursor: pointer; transition: all 0.15s; color: rgba(255,255,255,0.65);
+  font-size: 14px; position: relative;
+}
+.nav-item:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.85); }
+.nav-item.active { background: var(--primary); color: #fff; font-weight: 500; }
+.nav-icon { width: 16px; text-align: center; font-size: 15px; flex-shrink: 0; }
+.nav-badge {
+  margin-left: auto; background: var(--error); color: #fff; font-size: 11px;
+  padding: 0 6px; border-radius: 10px; min-width: 18px; text-align: center;
+  font-weight: 600; line-height: 18px;
+}
+.nav-badge.warn { background: var(--warning); color: #000; }
+
+/* ═══ MAIN CONTENT ═══ */
+.main { margin-left: var(--sidebar-width); flex: 1; min-width: 0; }
+
+.header {
+  height: var(--header-height); background: var(--bg-container);
+  border-bottom: 1px solid var(--border-light); display: flex;
+  align-items: center; justify-content: space-between;
+  padding: 0 24px; position: sticky; top: 0; z-index: 50;
+}
+.header-left { display: flex; align-items: center; gap: 16px; }
+.breadcrumb { display: flex; align-items: center; gap: 6px; color: var(--text-tertiary); font-size: 13px; }
+.breadcrumb a { color: var(--text-tertiary); text-decoration: none; }
+.breadcrumb a:hover { color: var(--primary); }
+.breadcrumb .sep { color: var(--text-placeholder); }
+.breadcrumb .current { color: var(--text-primary); font-weight: 500; }
+.header-right { display: flex; align-items: center; gap: 16px; }
+.header-btn {
+  width: 32px; height: 32px; border-radius: 6px; border: none;
+  background: transparent; cursor: pointer; display: flex;
+  align-items: center; justify-content: center; font-size: 16px;
+  color: var(--text-secondary); transition: all 0.15s;
+}
+.header-btn:hover { background: var(--bg-layout); }
+.header-btn .badge-dot {
+  position: absolute; top: 4px; right: 4px; width: 6px; height: 6px;
+  background: var(--error); border-radius: 50%; border: 1.5px solid #fff;
+}
+.avatar {
+  width: 28px; height: 28px; border-radius: 50%; background: var(--primary);
+  color: #fff; display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 600; cursor: pointer;
+}
+
+.page-content { padding: 24px; }
+
+/* ═══ PAGE HEADER ═══ */
+.page-header {
+  margin-bottom: 24px; display: flex; justify-content: space-between;
+  align-items: flex-start;
+}
+.page-title { font-size: 20px; font-weight: 600; color: var(--text-primary); letter-spacing: -0.02em; }
+.page-desc { font-size: 13px; color: var(--text-tertiary); margin-top: 2px; }
+.page-actions { display: flex; gap: 8px; }
+
+/* ═══ BUTTONS ═══ */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 16px; border-radius: var(--radius-sm); font-size: 14px;
+  font-weight: 500; cursor: pointer; border: 1px solid var(--border);
+  background: var(--bg-container); color: var(--text-primary);
+  transition: all 0.15s; font-family: var(--font); line-height: 1.5714;
+}
+.btn:hover { border-color: var(--primary); color: var(--primary); }
+.btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+.btn-primary:hover { background: var(--primary-dark); border-color: var(--primary-dark); color: #fff; }
+.btn-sm { padding: 2px 8px; font-size: 13px; }
+.btn-link { border: none; background: none; color: var(--primary); padding: 0; }
+.btn-link:hover { color: var(--primary-dark); }
+.btn-danger { color: var(--error); border-color: var(--error); }
+.btn-danger:hover { background: var(--error-bg); }
+
+/* ═══ CARDS ═══ */
+.card {
+  background: var(--bg-container); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm); border: 1px solid var(--border-light);
+}
+.card-header {
+  padding: 16px 20px; border-bottom: 1px solid var(--divider);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.card-title { font-size: 15px; font-weight: 600; }
+.card-body { padding: 20px; }
+.card-body.compact { padding: 0; }
+
+/* ═══ STAT CARDS ═══ */
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.stat-card {
+  background: var(--bg-container); border-radius: var(--radius-lg);
+  padding: 20px; box-shadow: var(--shadow-sm); border: 1px solid var(--border-light);
+  display: flex; align-items: flex-start; gap: 16px; cursor: pointer;
+  transition: all 0.2s;
+}
+.stat-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.stat-icon {
+  width: 44px; height: 44px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; flex-shrink: 0;
+}
+.stat-icon.blue { background: var(--primary-light); color: var(--primary); }
+.stat-icon.green { background: var(--success-bg); color: var(--success); }
+.stat-icon.orange { background: var(--warning-bg); color: var(--warning); }
+.stat-icon.red { background: var(--error-bg); color: var(--error); }
+.stat-icon.purple { background: var(--purple-bg); color: var(--purple); }
+.stat-icon.cyan { background: var(--cyan-bg); color: var(--cyan); }
+.stat-value { font-size: 28px; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; }
+.stat-label { font-size: 13px; color: var(--text-tertiary); margin-top: 2px; }
+.stat-trend { font-size: 12px; margin-top: 4px; display: flex; align-items: center; gap: 3px; }
+.stat-trend.up { color: var(--success); }
+.stat-trend.down { color: var(--error); }
+
+/* ═══ TABLES ═══ */
+.table-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; gap: 12px; flex-wrap: wrap;
+}
+.filter-group { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.filter-input {
+  height: 32px; padding: 0 11px; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); font-size: 13px; font-family: var(--font);
+  color: var(--text-primary); background: var(--bg-container);
+  min-width: 160px; transition: all 0.15s;
+}
+.filter-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(22,119,255,0.1); }
+.filter-input::placeholder { color: var(--text-placeholder); }
+select.filter-input { cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238c8c8c' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; padding-right: 24px; }
+
+table { width: 100%; border-collapse: collapse; }
+thead th {
+  padding: 10px 16px; text-align: left; font-size: 13px; font-weight: 600;
+  color: var(--text-secondary); background: var(--bg-layout);
+  border-bottom: 1px solid var(--border-light); white-space: nowrap;
+  position: sticky; top: 0;
+}
+thead th.sortable { cursor: pointer; user-select: none; }
+thead th.sortable:hover { color: var(--primary); }
+tbody td {
+  padding: 12px 16px; border-bottom: 1px solid var(--divider);
+  font-size: 13px; color: var(--text-primary); vertical-align: middle;
+}
+tbody tr { transition: background 0.1s; }
+tbody tr:hover { background: var(--bg-layout); }
+tbody tr.clickable { cursor: pointer; }
+.table-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; font-size: 13px; color: var(--text-tertiary);
+}
+.pagination { display: flex; align-items: center; gap: 4px; }
+.page-btn {
+  min-width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer;
+  background: var(--bg-container); font-size: 13px; transition: all 0.15s;
+}
+.page-btn:hover { border-color: var(--primary); color: var(--primary); }
+.page-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+/* ═══ BADGES & TAGS ═══ */
+.badge {
+  display: inline-flex; align-items: center; padding: 2px 8px;
+  border-radius: 4px; font-size: 12px; font-weight: 500; line-height: 18px;
+  white-space: nowrap;
+}
+.badge-planning { background: #f0f0f0; color: #595959; }
+.badge-loading { background: var(--primary-light); color: var(--primary); }
+.badge-transit { background: #e6fffb; color: #13c2c2; }
+.badge-border { background: var(--purple-bg); color: var(--purple); }
+.badge-selling { background: var(--warning-bg); color: #d48806; }
+.badge-sold { background: var(--success-bg); color: #389e0d; }
+.badge-completed { background: #f6ffed; color: #52c41a; }
+.badge-alert { background: var(--error-bg); color: var(--error); }
+.badge-default { background: #f5f5f5; color: var(--text-secondary); }
+
+.tag {
+  display: inline-flex; align-items: center; padding: 0 7px; height: 22px;
+  border-radius: 4px; font-size: 12px; border: 1px solid var(--border);
+  background: #fafafa; color: var(--text-secondary);
+}
+
+/* ═══ PROGRESS ═══ */
+.progress-bar {
+  height: 8px; background: var(--bg-spotlight); border-radius: 4px;
+  overflow: hidden; width: 100%;
+}
+.progress-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+.progress-fill.green { background: var(--success); }
+.progress-fill.blue { background: var(--primary); }
+.progress-fill.orange { background: var(--warning); }
+.progress-fill.red { background: var(--error); }
+
+/* ═══ TIMELINE ═══ */
+.timeline { padding: 0; }
+.timeline-item { display: flex; gap: 16px; position: relative; padding-bottom: 24px; }
+.timeline-item:last-child { padding-bottom: 0; }
+.timeline-item::before {
+  content: ''; position: absolute; left: 15px; top: 32px; bottom: 0;
+  width: 2px; background: var(--border-light);
+}
+.timeline-item:last-child::before { display: none; }
+.timeline-dot {
+  width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; z-index: 1;
+}
+.timeline-dot.done { background: var(--success); color: #fff; }
+.timeline-dot.active { background: var(--primary); color: #fff; animation: pulse 2s infinite; }
+.timeline-dot.pending { background: var(--bg-spotlight); color: var(--text-placeholder); border: 2px solid var(--border); }
+@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(22,119,255,0.3); } 50% { box-shadow: 0 0 0 8px rgba(22,119,255,0); } }
+.timeline-content { flex: 1; min-width: 0; }
+.timeline-title { font-weight: 500; font-size: 14px; }
+.timeline-time { font-size: 12px; color: var(--text-tertiary); font-family: var(--font-mono); }
+.timeline-desc { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+
+/* ═══ KANBAN ═══ */
+.kanban { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.kanban-col { background: var(--bg-layout); border-radius: var(--radius-lg); padding: 12px; min-height: 400px; }
+.kanban-col-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 4px; margin-bottom: 12px;
+}
+.kanban-col-title { font-weight: 600; font-size: 14px; }
+.kanban-col-count {
+  background: var(--bg-spotlight); padding: 2px 8px; border-radius: 10px;
+  font-size: 12px; font-weight: 600; color: var(--text-secondary);
+}
+.kanban-card {
+  background: var(--bg-container); border-radius: var(--radius-md);
+  padding: 12px; margin-bottom: 8px; box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-light); cursor: grab; transition: all 0.15s;
+}
+.kanban-card:hover { box-shadow: var(--shadow-md); }
+.kanban-card-code { font-family: var(--font-mono); font-size: 13px; font-weight: 600; color: var(--primary); }
+.kanban-card-route { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+.kanban-card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+.kanban-card-customer { font-size: 12px; color: var(--text-tertiary); }
+.kanban-card-time { font-size: 11px; color: var(--text-placeholder); font-family: var(--font-mono); }
+
+/* ═══ QUOTA GAUGES ═══ */
+.quota-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.quota-card {
+  background: var(--bg-container); border-radius: var(--radius-lg);
+  padding: 20px; box-shadow: var(--shadow-sm); border: 1px solid var(--border-light);
+}
+.quota-firm { font-weight: 600; font-size: 14px; margin-bottom: 12px; }
+.quota-numbers { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; }
+.quota-remaining { font-size: 13px; font-weight: 600; margin-top: 8px; }
+.quota-remaining.negative { color: var(--error); }
+.quota-remaining.positive { color: var(--success); }
+
+/* ═══ PLANNING GRID ═══ */
+.plan-grid { overflow-x: auto; }
+.plan-grid table { font-size: 13px; }
+.plan-grid thead th { font-size: 12px; padding: 8px 10px; text-align: center; }
+.plan-grid tbody td { padding: 6px 10px; text-align: center; }
+.plan-grid .block-col { text-align: left; font-weight: 500; width: 60px; position: sticky; left: 0; background: var(--bg-container); z-index: 1; }
+.plan-grid .total-row td { font-weight: 700; background: var(--bg-layout); }
+.plan-grid input {
+  width: 56px; height: 28px; text-align: center; border: 1px solid var(--border-light);
+  border-radius: 4px; font-size: 13px; font-family: var(--font-mono);
+}
+.plan-grid input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(22,119,255,0.1); }
+.variance-positive { color: var(--success); font-weight: 500; }
+.variance-negative { color: var(--error); font-weight: 500; }
+
+/* ═══ FORM ═══ */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 24px; }
+.form-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+.form-group { display: flex; flex-direction: column; gap: 4px; }
+.form-group.full { grid-column: 1 / -1; }
+.form-label { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
+.form-label .required { color: var(--error); margin-left: 2px; }
+.form-control {
+  height: 32px; padding: 0 11px; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); font-size: 14px; font-family: var(--font);
+  color: var(--text-primary); background: var(--bg-container);
+}
+.form-control:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(22,119,255,0.1); }
+textarea.form-control { height: auto; min-height: 64px; padding: 6px 11px; resize: vertical; }
+
+/* ═══ DETAIL PAGE ═══ */
+.detail-grid { display: grid; grid-template-columns: 1fr 340px; gap: 24px; }
+.detail-section { margin-bottom: 24px; }
+.detail-section-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--divider); }
+.detail-row { display: flex; padding: 6px 0; }
+.detail-label { width: 160px; font-size: 13px; color: var(--text-tertiary); flex-shrink: 0; }
+.detail-value { font-size: 13px; color: var(--text-primary); flex: 1; }
+.detail-value a { color: var(--primary); text-decoration: none; }
+
+/* ═══ ALERT CARDS ═══ */
+.alert-card {
+  display: flex; align-items: flex-start; gap: 12px; padding: 12px 16px;
+  border-radius: var(--radius-md); margin-bottom: 8px;
+}
+.alert-card.error { background: var(--error-bg); border: 1px solid #ffccc7; }
+.alert-card.warning { background: var(--warning-bg); border: 1px solid #ffe58f; }
+.alert-card.info { background: var(--primary-light); border: 1px solid #91caff; }
+.alert-icon { font-size: 16px; margin-top: 1px; }
+.alert-card.error .alert-icon { color: var(--error); }
+.alert-card.warning .alert-icon { color: var(--warning); }
+.alert-card.info .alert-icon { color: var(--primary); }
+.alert-text { font-size: 13px; flex: 1; }
+.alert-text strong { font-weight: 600; }
+
+/* ═══ TABS ═══ */
+.tabs { display: flex; border-bottom: 1px solid var(--divider); margin-bottom: 20px; }
+.tab {
+  padding: 10px 16px; cursor: pointer; font-size: 14px; font-weight: 500;
+  color: var(--text-secondary); border-bottom: 2px solid transparent;
+  transition: all 0.15s; margin-bottom: -1px;
+}
+.tab:hover { color: var(--primary); }
+.tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+/* ═══ CHARTS (simulated) ═══ */
+.chart-placeholder {
+  height: 200px; background: linear-gradient(180deg, var(--primary-light) 0%, transparent 100%);
+  border-radius: var(--radius-md); display: flex; align-items: flex-end;
+  padding: 0 8px 8px; gap: 4px; overflow: hidden;
+}
+.chart-bar {
+  flex: 1; background: var(--primary); border-radius: 3px 3px 0 0;
+  opacity: 0.7; min-width: 8px;
+}
+
+/* ═══ LOGIN PAGE ═══ */
+.login-page {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #001529 0%, #002140 50%, #003a8c 100%);
+  position: relative; overflow: hidden;
+}
+.login-page::before {
+  content: ''; position: absolute; top: -50%; right: -20%; width: 800px; height: 800px;
+  background: radial-gradient(circle, rgba(22,119,255,0.15) 0%, transparent 70%);
+  border-radius: 50%;
+}
+.login-card {
+  background: var(--bg-container); border-radius: 16px; padding: 48px 40px;
+  width: 400px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); position: relative; z-index: 1;
+}
+.login-logo { display: flex; align-items: center; gap: 12px; margin-bottom: 32px; justify-content: center; }
+.login-logo-icon {
+  width: 44px; height: 44px; background: var(--primary); border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 18px; color: #fff;
+}
+.login-logo-text { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+.login-form { display: flex; flex-direction: column; gap: 16px; }
+.login-input {
+  height: 44px; padding: 0 16px; border: 1px solid var(--border);
+  border-radius: 8px; font-size: 14px; font-family: var(--font);
+  color: var(--text-primary); width: 100%;
+}
+.login-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(22,119,255,0.1); }
+.login-btn {
+  height: 44px; background: var(--primary); color: #fff; border: none;
+  border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer;
+  font-family: var(--font); transition: all 0.15s;
+}
+.login-btn:hover { background: var(--primary-dark); }
+
+/* ═══ SCREEN MANAGEMENT ═══ */
+.screen { display: none; }
+.screen.active { display: block; }
+
+/* ═══ GRID UTILS ═══ */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+.flex-between { display: flex; justify-content: space-between; align-items: center; }
+.gap-8 { gap: 8px; }
+.mb-16 { margin-bottom: 16px; }
+.mb-24 { margin-bottom: 24px; }
+.text-mono { font-family: var(--font-mono); }
+.text-sm { font-size: 12px; }
+.text-muted { color: var(--text-tertiary); }
+
+/* ═══ RESPONSIVE ═══ */
+@media (max-width: 1200px) {
+  .detail-grid { grid-template-columns: 1fr; }
+  .kanban { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 768px) {
+  .sidebar { display: none; }
+  .main { margin-left: 0; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .form-grid { grid-template-columns: 1fr; }
+}
+
+/* ═══ SCROLLBAR ═══ */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-placeholder); }
+
+/* ═══ FINANCE TABLE ═══ */
+.route-card { display: flex; flex-direction: column; gap: 8px; }
+.route-name { font-weight: 600; font-size: 14px; }
+.route-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.route-stat { text-align: center; }
+.route-stat-value { font-size: 18px; font-weight: 700; font-family: var(--font-mono); }
+.route-stat-label { font-size: 11px; color: var(--text-tertiary); }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- LOGIN SCREEN                           -->
+<!-- ═══════════════════════════════════════ -->
+<div id="login-screen" class="screen active">
+  <div class="login-page">
+    <div class="login-card">
+      <div class="login-logo">
+        <div class="login-logo-icon">Y</div>
+        <div>
+          <div class="login-logo-text">YGT Holding</div>
+          <div style="font-size:12px;color:var(--text-tertiary);text-align:center;">Operasiýalar Platformasy</div>
+        </div>
+      </div>
+      <div class="login-form">
+        <input class="login-input" type="text" placeholder="Ulanyjy ady" value="gadam.j">
+        <input class="login-input" type="password" placeholder="Açar söz" value="••••••••">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-secondary);cursor:pointer;">
+            <input type="checkbox" checked> Ýatda sakla
+          </label>
+          <a href="#" style="font-size:13px;color:var(--primary);text-decoration:none;">Açar söz unutdym</a>
+        </div>
+        <button class="login-btn" onclick="showApp()">Giriş</button>
+      </div>
+      <div style="text-align:center;margin-top:24px;font-size:12px;color:var(--text-placeholder);">
+        YGT Holding © 2025 — v1.0
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- APP SHELL                              -->
+<!-- ═══════════════════════════════════════ -->
+<div id="app-shell" class="app" style="display:none;">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">Y</div>
+      <div>
+        <div class="sidebar-title">YGT Holding</div>
+        <div class="sidebar-subtitle">Operasiýalar</div>
+      </div>
+    </div>
+
+    <nav>
+      <div class="nav-section">
+        <div class="nav-section-label">Esasy</div>
+        <div class="nav-item active" onclick="showScreen('dashboard')">
+          <span class="nav-icon">📊</span> Dashboard
+        </div>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-label">Eksport</div>
+        <div class="nav-item" onclick="showScreen('shipments')">
+          <span class="nav-icon">📦</span> Ýükler
+          <span class="nav-badge">983</span>
+        </div>
+        <div class="nav-item" onclick="showScreen('tracking')">
+          <span class="nav-icon">🚛</span> Ýol Gözegçiligi
+          <span class="nav-badge warn">296</span>
+        </div>
+        <div class="nav-item" onclick="showScreen('shipment-new')">
+          <span class="nav-icon">➕</span> Täze ýük
+        </div>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-label">Dolandyryş</div>
+        <div class="nav-item" onclick="showScreen('customers')">
+          <span class="nav-icon">👥</span> Müşderiler
+        </div>
+        <div class="nav-item" onclick="showScreen('quota')">
+          <span class="nav-icon">📐</span> Kwota
+        </div>
+        <div class="nav-item" onclick="showScreen('planning')">
+          <span class="nav-icon">📅</span> Meýilnama
+        </div>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-label">Maliýe</div>
+        <div class="nav-item" onclick="showScreen('finance')">
+          <span class="nav-icon">💰</span> Maliýe
+        </div>
+        <div class="nav-item" onclick="showScreen('reports')">
+          <span class="nav-icon">📈</span> Hasabatlar
+        </div>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-label">Ulgam</div>
+        <div class="nav-item" onclick="showScreen('settings')">
+          <span class="nav-icon">⚙️</span> Sazlamalar
+        </div>
+      </div>
+    </nav>
+
+    <div style="margin-top:auto;padding:16px 20px;border-top:1px solid rgba(255,255,255,0.08);">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="avatar" style="background:#389e0d;">GJ</div>
+        <div>
+          <div style="font-size:13px;font-weight:500;">Gadam J</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.45);">Logist</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main">
+    <header class="header">
+      <div class="header-left">
+        <div class="breadcrumb" id="breadcrumb">
+          <a href="#">YGT</a><span class="sep">/</span><span class="current">Dashboard</span>
+        </div>
+      </div>
+      <div class="header-right">
+        <button class="header-btn" title="Gözleg" style="position:relative;">🔍</button>
+        <button class="header-btn" title="Bildirişler" style="position:relative;">
+          🔔<span class="badge-dot" style="position:absolute;top:4px;right:4px;width:7px;height:7px;background:var(--error);border-radius:50%;border:1.5px solid #fff;"></span>
+        </button>
+        <button class="header-btn" title="Soraglar">❓</button>
+        <div style="width:1px;height:20px;background:var(--divider);"></div>
+        <div style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <div class="avatar" style="background:#389e0d;">GJ</div>
+          <span style="font-size:13px;font-weight:500;">Gadam J</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="page-content">
+
+      <!-- ═══ DASHBOARD ═══ -->
+      <div id="screen-dashboard" class="screen active">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Dashboard</div>
+            <div class="page-desc">Tomato eksport operasiýalarynyň umumy görnüşi — 2025/2026 möwsüm</div>
+          </div>
+          <div class="page-actions">
+            <button class="btn">📥 Excel eksport</button>
+            <button class="btn btn-primary" onclick="showScreen('shipment-new')">➕ Täze ýük</button>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card" onclick="showScreen('shipments')">
+            <div class="stat-icon blue">📦</div>
+            <div>
+              <div class="stat-value">983</div>
+              <div class="stat-label">Jemi ýükler</div>
+              <div class="stat-trend up">↑ 47 bu hepde</div>
+            </div>
+          </div>
+          <div class="stat-card" onclick="showScreen('tracking')">
+            <div class="stat-icon cyan">🚛</div>
+            <div>
+              <div class="stat-value">296</div>
+              <div class="stat-label">Ýolda</div>
+              <div class="stat-trend">häzir hereket edýär</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon orange">🛒</div>
+            <div>
+              <div class="stat-value">9</div>
+              <div class="stat-label">Satylýar</div>
+              <div class="stat-trend">bazarda</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon green">✅</div>
+            <div>
+              <div class="stat-value">173</div>
+              <div class="stat-label">Satylyp gutardy</div>
+              <div class="stat-trend up">↑ 12 bu hepde</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon red">⚠️</div>
+            <div>
+              <div class="stat-value" style="color:var(--error);">90</div>
+              <div class="stat-label">Hasabat gelmedi</div>
+              <div class="stat-trend down">garaşylýar</div>
+            </div>
+          </div>
+          <div class="stat-card" onclick="showScreen('quota')">
+            <div class="stat-icon purple">📐</div>
+            <div>
+              <div class="stat-value">16</div>
+              <div class="stat-label">Eksport firmalar</div>
+              <div class="stat-trend">kwota yzarlaýar</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2 mb-24">
+          <!-- Alerts -->
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">⚡ Möhüm bildirişler</span>
+              <span class="badge badge-alert">4</span>
+            </div>
+            <div class="card-body" style="display:flex;flex-direction:column;gap:8px;">
+              <div class="alert-card error">
+                <span class="alert-icon">🔴</span>
+                <div class="alert-text"><strong>90 hasabat gelmedi</strong> — satyldy emma hasabat iberilmedi. Arap bilen habarlaşyň.</div>
+              </div>
+              <div class="alert-card warning">
+                <span class="alert-icon">🟡</span>
+                <div class="alert-text"><strong>Kwota aşdy</strong> — Yigit H.J: Döwür 3 = -2,603,000 kg. Düzetme zerur.</div>
+              </div>
+              <div class="alert-card warning">
+                <span class="alert-icon">🟡</span>
+                <div class="alert-text"><strong>Dokument möhlet</strong> — 13:00 çenli 8 ýük üçin dokument taýýar bolmaly.</div>
+              </div>
+              <div class="alert-card info">
+                <span class="alert-icon">🔵</span>
+                <div class="alert-text"><strong>Hepdäniň meýilnamasy</strong> — 22-nji hepde: meýilleşdirilen 340 tonna, 15 blok.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Stats by Route -->
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">📊 Ugurlar boýunça</span>
+              <select class="filter-input" style="width:120px;height:28px;font-size:12px;">
+                <option>Bu möwsüm</option>
+                <option>Bu aý</option>
+                <option>Bu hepde</option>
+              </select>
+            </div>
+            <div class="card-body">
+              <div style="display:flex;flex-direction:column;gap:12px;">
+                <div>
+                  <div class="flex-between mb-16" style="margin-bottom:4px;">
+                    <span style="font-size:13px;font-weight:500;">🇰🇿 Gazagystan</span>
+                    <span style="font-size:13px;font-weight:600;">474 ýük</span>
+                  </div>
+                  <div class="progress-bar"><div class="progress-fill blue" style="width:48%"></div></div>
+                  <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:11px;color:var(--text-tertiary);">
+                    <span>Şimkent: 166</span><span>Astana: 117</span><span>Almaty: 96</span><span>Karaganda: 95</span>
+                  </div>
+                </div>
+                <div>
+                  <div class="flex-between" style="margin-bottom:4px;">
+                    <span style="font-size:13px;font-weight:500;">🇷🇺 Rossiya</span>
+                    <span style="font-size:13px;font-weight:600;">371 ýük</span>
+                  </div>
+                  <div class="progress-bar"><div class="progress-fill green" style="width:38%"></div></div>
+                  <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:11px;color:var(--text-tertiary);">
+                    <span>Gapy Satyş: 225</span><span>Moskwa: 84</span><span>Nowosibirsk: 62</span>
+                  </div>
+                </div>
+                <div>
+                  <div class="flex-between" style="margin-bottom:4px;">
+                    <span style="font-size:13px;font-weight:500;">🇺🇿 Özbegistan</span>
+                    <span style="font-size:13px;font-weight:600;">26 ýük</span>
+                  </div>
+                  <div class="progress-bar"><div class="progress-fill orange" style="width:3%"></div></div>
+                </div>
+                <div>
+                  <div class="flex-between" style="margin-bottom:4px;">
+                    <span style="font-size:13px;font-weight:500;">🇧🇾 Belarusiya</span>
+                    <span style="font-size:13px;font-weight:600;">3 ýük</span>
+                  </div>
+                  <div class="progress-bar"><div class="progress-fill red" style="width:0.3%"></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Active Shipments Table -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">🚛 Häzirki hereket edýän ýükler</span>
+            <button class="btn btn-sm" onclick="showScreen('shipments')">Hemmesini gör →</button>
+          </div>
+          <div class="card-body compact">
+            <table>
+              <thead>
+                <tr>
+                  <th>Kod</th><th>Müşderi</th><th>Ugur</th><th>Status</th>
+                  <th>Agram (kg)</th><th>Ýola çykdy</th><th>Ýerleşýän ýeri</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="clickable" onclick="showScreen('shipment-detail')">
+                  <td><span class="text-mono" style="color:var(--primary);font-weight:600;">26FV047/25</span></td>
+                  <td>Begjan</td><td>🇰🇿 Şimkent</td>
+                  <td><span class="badge badge-transit">Ýolda</span></td>
+                  <td class="text-mono">18,400</td><td class="text-mono text-muted">25.02 14:30</td>
+                  <td>Farap Postta</td>
+                </tr>
+                <tr class="clickable" onclick="showScreen('shipment-detail')">
+                  <td><span class="text-mono" style="color:var(--primary);font-weight:600;">26FV048/25</span></td>
+                  <td>Berik</td><td>🇰🇿 Astana</td>
+                  <td><span class="badge badge-transit">Ýolda</span></td>
+                  <td class="text-mono">19,200</td><td class="text-mono text-muted">25.02 16:10</td>
+                  <td>Özbegistanda</td>
+                </tr>
+                <tr class="clickable" onclick="showScreen('shipment-detail')">
+                  <td><span class="text-mono" style="color:var(--primary);font-weight:600;">25FV040/25</span></td>
+                  <td>YGT Gapy Satyş</td><td>🇷🇺 Moskwa</td>
+                  <td><span class="badge badge-border">Serhetde</span></td>
+                  <td class="text-mono">17,800</td><td class="text-mono text-muted">24.02 09:20</td>
+                  <td>Garabogaz</td>
+                </tr>
+                <tr class="clickable" onclick="showScreen('shipment-detail')">
+                  <td><span class="text-mono" style="color:var(--primary);font-weight:600;">25FV039/25</span></td>
+                  <td>Eldar</td><td>🇷🇺 Moskwa</td>
+                  <td><span class="badge badge-selling">Satylýar</span></td>
+                  <td class="text-mono">18,900</td><td class="text-mono text-muted">20.02 10:00</td>
+                  <td>Moskwada</td>
+                </tr>
+                <tr class="clickable" onclick="showScreen('shipment-detail')">
+                  <td><span class="text-mono" style="color:var(--primary);font-weight:600;">26FV046/25</span></td>
+                  <td>Begjan</td><td>🇰🇿 Karaganda</td>
+                  <td><span class="badge badge-loading">Ýüklenýär</span></td>
+                  <td class="text-mono">—</td><td class="text-mono text-muted">—</td>
+                  <td>Teplisa</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ SHIPMENT LIST ═══ -->
+      <div id="screen-shipments" class="screen">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Ýükler</div>
+            <div class="page-desc">Jemi 983 ýük — 2025/2026 eksport möwsümi</div>
+          </div>
+          <div class="page-actions">
+            <button class="btn">📥 Excel</button>
+            <button class="btn">🔄 Topary täzele</button>
+            <button class="btn btn-primary" onclick="showScreen('shipment-new')">➕ Täze ýük</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="table-toolbar">
+            <div class="filter-group">
+              <input class="filter-input" placeholder="🔍 Kod, müşderi, maşyn..." style="min-width:220px;">
+              <select class="filter-input">
+                <option value="">Status: Hemmesi</option>
+                <option>Planlanýar</option><option>Ýüklenýär</option>
+                <option>Ýolda</option><option>Serhetde</option>
+                <option>Satylýar</option><option>Satylyp gutardy</option>
+                <option>Tamamlandy</option>
+              </select>
+              <select class="filter-input">
+                <option value="">Müşderi: Hemmesi</option>
+                <option>Begjan</option><option>Berik</option>
+                <option>YGT Gapy Satyş</option><option>Eldar</option>
+              </select>
+              <select class="filter-input">
+                <option value="">Ýurt: Hemmesi</option>
+                <option>🇰🇿 Gazagystan</option>
+                <option>🇷🇺 Rossiya</option>
+                <option>🇺🇿 Özbegistan</option>
+              </select>
+              <select class="filter-input">
+                <option value="">Şäher: Hemmesi</option>
+                <option>Şimkent</option><option>Astana</option>
+                <option>Almaty</option><option>Karaganda</option>
+                <option>Moskwa</option><option>Nowosibirsk</option>
+              </select>
+              <input class="filter-input" type="date" style="min-width:140px;">
+            </div>
+          </div>
+          <div class="card-body compact">
+            <table>
+              <thead>
+                <tr>
+                  <th><input type="checkbox"></th>
+                  <th class="sortable">Kod ↕</th><th>Firma</th><th class="sortable">Müşderi ↕</th>
+                  <th>Ugur</th><th class="sortable">Status ↕</th><th>Agram</th>
+                  <th>Maşyn</th><th class="sortable">Ýola çykdy ↕</th>
+                  <th>Ýeri</th><th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="clickable" onclick="showScreen('shipment-detail')">
+                  <td><input type="checkbox"></td>
+                  <td><span class="text-mono" style="color:var(--primary);font-weight:600;">26FV047/25</span></td>
+                  <td><span class="tag">YGT-HMS</span></td>
+                  <td>Begjan</td><td>🇰🇿 Şimkent</td>
+                  <td><span class="badge badge-transit">Ýolda</span></td>
+                  <td class="text-mono">18,400</td>
+                  <td class="text-mono text-sm">1234AHF</td>
+                  <td class="text-mono text-muted">25.02 14:30</td>
+                  <td>Farap Postta</td>
+                  <td><button class="btn btn-sm btn-link">→</button></td>
+                </tr>
+                <tr class="clickable" onclick="showScreen('shipment-detail')">
+                  <td><input type="checkbox"></td>
+                  <td><span class="text-mono" style="color:var(--primary);font-weight:600;">26FV048/25</span></td>
+                  <td><span class="tag">DM</span></td>
+                  <td>Berik</td><td>🇰🇿 Astana</td>
+                  <td><span class="badge badge-transit">Ýolda</span></td>
+                  <td class="text-mono">19,200</td>
+                  <td class="text-mono text-sm">5678TAH</td>
+                  <td class="text-mono text-muted">25.02 16:10</td>
+                  <td>Özbegistanda</td>
+                  <td><button class="btn btn-sm btn-link">→</button></td>
+                </tr>
+                <tr class="clickable" onclick="showScreen('shipment-detail')">
+                  <td><input type="checkbox"></td>
+                  <td><span class="text-mono" style="color:var(--primary);font-weight:600;">25FV040/25</span></td>
+                  <td><span class="tag">YGT</span></td>
+                  <td>YGT Gapy Satyş</td><td>🇷🇺 Moskwa</td>
+                  <td><span class="badge badge-border">Serhetde</span></td>
+                  <td class="text-mono">17,800</td>
+                  <td class="text-mono text-sm">9012LBE</td>
+                  <td class="text-mono text-muted">24.02 09:20</td>
+                  <td>Garabogaz</td>
+                  <td><button class="btn btn-sm btn-link">→</button></td>
+                </tr>
+                <tr class="clickable" onclick="showScreen('shipment-detail')">
+                  <td><input type="checkbox"></td>
+                  <td><span class="text-mono" style="color:var(--primary);font-weight:600;">25FV039/25</span></td>
+                  <td><span class="tag">HMS</span></td>
+                  <td>Eldar</td><td>🇷🇺 Moskwa</td>
+                  <td><span class="badge badge-selling">Satylýar</span></td>
+                  <td class="text-mono">18,900</td>
+                  <td class="text-mono text-sm">3456TLB</td>
+                  <td class="text-mono text-muted">20.02 10:00</td>
+                  <td>Moskwada</td>
+                  <td><button class="btn btn-sm btn-link">→</button></td>
+                </tr>
+                <tr class="clickable" onclick="showScreen('shipment-detail')">
+                  <td><input type="checkbox"></td>
+                  <td><span class="text-mono" style="color:var(--primary);font-weight:600;">26FV046/25</span></td>
+                  <td><span class="tag">YGT-DM</span></td>
+                  <td>Begjan</td><td>🇰🇿 Karaganda</td>
+                  <td><span class="badge badge-loading">Ýüklenýär</span></td>
+                  <td class="text-mono">—</td>
+                  <td class="text-mono text-sm">7890AHF</td>
+                  <td class="text-mono text-muted">—</td>
+                  <td>Teplisa</td>
+                  <td><button class="btn btn-sm btn-link">→</button></td>
+                </tr>
+                <tr class="clickable" onclick="showScreen('shipment-detail')">
+                  <td><input type="checkbox"></td>
+                  <td><span class="text-mono" style="color:var(--primary);font-weight:600;">24FV035/25</span></td>
+                  <td><span class="tag">GB</span></td>
+                  <td>Berik</td><td>🇰🇿 Almaty</td>
+                  <td><span class="badge badge-sold">Satyldy</span></td>
+                  <td class="text-mono">19,100</td>
+                  <td class="text-mono text-sm">2345AHF</td>
+                  <td class="text-mono text-muted">18.02 07:45</td>
+                  <td>Almaty</td>
+                  <td><button class="btn btn-sm btn-link">→</button></td>
+                </tr>
+                <tr class="clickable" onclick="showScreen('shipment-detail')">
+                  <td><input type="checkbox"></td>
+                  <td><span class="text-mono" style="color:var(--primary);font-weight:600;">24FV034/25</span></td>
+                  <td><span class="tag">MA</span></td>
+                  <td>YGT Gapy Satyş</td><td>Gapy Satyş</td>
+                  <td><span class="badge badge-completed">Tamamlandy</span></td>
+                  <td class="text-mono">17,600</td>
+                  <td class="text-mono text-sm">6789TAH</td>
+                  <td class="text-mono text-muted">17.02 11:30</td>
+                  <td>—</td>
+                  <td><button class="btn btn-sm btn-link">→</button></td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="table-footer">
+              <span>Jemi: 983 ýük — Saýlanan: 0</span>
+              <div class="pagination">
+                <div class="page-btn">‹</div>
+                <div class="page-btn active">1</div>
+                <div class="page-btn">2</div>
+                <div class="page-btn">3</div>
+                <div class="page-btn">...</div>
+                <div class="page-btn">20</div>
+                <div class="page-btn">›</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ SHIPMENT DETAIL ═══ -->
+      <div id="screen-shipment-detail" class="screen">
+        <div class="page-header">
+          <div>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <button class="btn btn-sm" onclick="showScreen('shipments')">← Yza</button>
+              <div class="page-title" style="font-family:var(--font-mono);">26FV047/25</div>
+              <span class="badge badge-transit" style="font-size:13px;padding:4px 12px;">Ýolda</span>
+            </div>
+            <div class="page-desc">Begjan → Şimkent, Gazagystan | YGT-HMS | Maşyn: 1234AHF/5678AHT</div>
+          </div>
+          <div class="page-actions">
+            <button class="btn">✏️ Üýtget</button>
+            <button class="btn btn-primary">⏭ Indiki Status</button>
+          </div>
+        </div>
+
+        <div class="detail-grid">
+          <div>
+            <!-- Main Info -->
+            <div class="card mb-24">
+              <div class="card-body">
+                <div class="tabs">
+                  <div class="tab active">Esasy maglumat</div>
+                  <div class="tab">Dokument</div>
+                  <div class="tab">Maliýe</div>
+                  <div class="tab">Üýtgeşmeler</div>
+                </div>
+
+                <div class="detail-section">
+                  <div class="detail-section-title">📋 Logistika (Gadam J)</div>
+                  <div class="detail-row"><div class="detail-label">Müşderi</div><div class="detail-value"><a href="#">Begjan</a></div></div>
+                  <div class="detail-row"><div class="detail-label">Eksport firma</div><div class="detail-value">YGT-HMS (Yigit H.J + Hemsaya)</div></div>
+                  <div class="detail-row"><div class="detail-label">Import firma</div><div class="detail-value">NUR ALEM</div></div>
+                  <div class="detail-row"><div class="detail-label">Barjak ýurt</div><div class="detail-value">🇰🇿 Gazagystan — Şimkent</div></div>
+                  <div class="detail-row"><div class="detail-label">Ýüklenýän ýer</div><div class="detail-value">D blok — Dusak</div></div>
+                </div>
+
+                <div class="detail-section">
+                  <div class="detail-section-title">🚛 Ulag (Transport bölüm)</div>
+                  <div class="detail-row"><div class="detail-label">Maşyn</div><div class="detail-value text-mono">1234AHF / 5678AHT</div></div>
+                  <div class="detail-row"><div class="detail-label">Sürüji</div><div class="detail-value">Merdan Berdiýew</div></div>
+                  <div class="detail-row"><div class="detail-label">Ulag firmasy</div><div class="detail-value">Malik</div></div>
+                  <div class="detail-row"><div class="detail-label">Serhet nokady</div><div class="detail-value">Farap</div></div>
+                  <div class="detail-row"><div class="detail-label">Ýerleşýän ýeri</div><div class="detail-value"><span class="badge badge-transit">Farap Postta</span></div></div>
+                </div>
+
+                <div class="detail-section">
+                  <div class="detail-section-title">🌿 Haryt (Soltanmyrat)</div>
+                  <div class="detail-row"><div class="detail-label">Ýygym bloklary</div><div class="detail-value">D, E</div></div>
+                  <div class="detail-row"><div class="detail-label">Sort</div><div class="detail-value">MARW</div></div>
+                  <div class="detail-row"><div class="detail-label">Ýygym senesi</div><div class="detail-value">25.02.2026</div></div>
+                  <div class="detail-row"><div class="detail-label">Ýygym ýagdaýy</div><div class="detail-value">Ýygylyp gutardy</div></div>
+                  <div class="detail-row"><div class="detail-label">Agram (resmi)</div><div class="detail-value text-mono" style="font-weight:600;">18,400 kg</div></div>
+                  <div class="detail-row"><div class="detail-label">Agram (hakyky)</div><div class="detail-value text-mono">18,200 kg</div></div>
+                  <div class="detail-row"><div class="detail-label">Palet</div><div class="detail-value">33-lyk — 3 TAGTA KAKMALY</div></div>
+                </div>
+
+                <div class="detail-section">
+                  <div class="detail-section-title">🌡️ Hil gözegçilik</div>
+                  <div class="detail-row"><div class="detail-label">Tranzit güni</div><div class="detail-value">— (heniz ýolda)</div></div>
+                  <div class="detail-row"><div class="detail-label">Temperaturasy</div><div class="detail-value">— °C</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Timeline Sidebar -->
+          <div>
+            <div class="card mb-24">
+              <div class="card-header">
+                <span class="card-title">📍 Ýük ýoly</span>
+              </div>
+              <div class="card-body">
+                <div class="timeline">
+                  <div class="timeline-item">
+                    <div class="timeline-dot done">✓</div>
+                    <div class="timeline-content">
+                      <div class="timeline-title">Ýükleniş başlady</div>
+                      <div class="timeline-time">25.02.2026 08:15</div>
+                      <div class="timeline-desc">Soltanmyrat — D blok, Dusak</div>
+                    </div>
+                  </div>
+                  <div class="timeline-item">
+                    <div class="timeline-dot done">✓</div>
+                    <div class="timeline-content">
+                      <div class="timeline-title">Ýükleniş gutardy</div>
+                      <div class="timeline-time">25.02.2026 10:30</div>
+                      <div class="timeline-desc">18,400 kg — MARW — 33 palet</div>
+                    </div>
+                  </div>
+                  <div class="timeline-item">
+                    <div class="timeline-dot done">✓</div>
+                    <div class="timeline-content">
+                      <div class="timeline-title">Teplisadan çykdy</div>
+                      <div class="timeline-time">25.02.2026 11:00</div>
+                      <div class="timeline-desc">Mergen tassyklady</div>
+                    </div>
+                  </div>
+                  <div class="timeline-item">
+                    <div class="timeline-dot done">✓</div>
+                    <div class="timeline-content">
+                      <div class="timeline-title">TM Gümrük tamamlandy</div>
+                      <div class="timeline-time">25.02.2026 12:45</div>
+                      <div class="timeline-desc">Sirin — Dokument OK</div>
+                    </div>
+                  </div>
+                  <div class="timeline-item">
+                    <div class="timeline-dot done">✓</div>
+                    <div class="timeline-content">
+                      <div class="timeline-title">Ýola çykdy</div>
+                      <div class="timeline-time">25.02.2026 14:30</div>
+                      <div class="timeline-desc">Malik — Farap ugry</div>
+                    </div>
+                  </div>
+                  <div class="timeline-item">
+                    <div class="timeline-dot active">⟳</div>
+                    <div class="timeline-content">
+                      <div class="timeline-title" style="color:var(--primary);font-weight:600;">Serhetde — Farap Postta</div>
+                      <div class="timeline-time">häzir</div>
+                      <div class="timeline-desc">Serhetden geçmäge garaşýar</div>
+                    </div>
+                  </div>
+                  <div class="timeline-item">
+                    <div class="timeline-dot pending">7</div>
+                    <div class="timeline-content">
+                      <div class="timeline-title" style="color:var(--text-placeholder);">Serhetden geçdi</div>
+                    </div>
+                  </div>
+                  <div class="timeline-item">
+                    <div class="timeline-dot pending">8</div>
+                    <div class="timeline-content">
+                      <div class="timeline-title" style="color:var(--text-placeholder);">Barjak ýerine geldi</div>
+                    </div>
+                  </div>
+                  <div class="timeline-item">
+                    <div class="timeline-dot pending">9</div>
+                    <div class="timeline-content">
+                      <div class="timeline-title" style="color:var(--text-placeholder);">Satylýar</div>
+                    </div>
+                  </div>
+                  <div class="timeline-item">
+                    <div class="timeline-dot pending">10</div>
+                    <div class="timeline-content">
+                      <div class="timeline-title" style="color:var(--text-placeholder);">Satyldy → Hasabat</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header"><span class="card-title">🔗 Baglanyşyklar</span></div>
+              <div class="card-body" style="font-size:13px;">
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                  <div class="flex-between">
+                    <span class="text-muted">Logo Tiger</span>
+                    <span class="badge badge-default">Heniz iberilmedi</span>
+                  </div>
+                  <div class="flex-between">
+                    <span class="text-muted">Trip Management</span>
+                    <a href="#" style="color:var(--primary);text-decoration:none;">Trip #4521 →</a>
+                  </div>
+                  <div class="flex-between">
+                    <span class="text-muted">GPS Tracking</span>
+                    <span class="badge badge-default">Enjam ýok</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ NEW SHIPMENT FORM ═══ -->
+      <div id="screen-shipment-new" class="screen">
+        <div class="page-header">
+          <div>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <button class="btn btn-sm" onclick="showScreen('shipments')">← Yza</button>
+              <div class="page-title">Täze ýük döret</div>
+            </div>
+            <div class="page-desc">Ýük kody awtomatiki dörediler: 26FV049/25</div>
+          </div>
+          <div class="page-actions">
+            <button class="btn">Arassala</button>
+            <button class="btn btn-primary">💾 Sakla</button>
+          </div>
+        </div>
+
+        <div class="card mb-24">
+          <div class="card-header"><span class="card-title">📋 Logistika maglumatlary</span><span class="badge badge-default">Gadam J doldurmaly</span></div>
+          <div class="card-body">
+            <div class="form-grid cols-3">
+              <div class="form-group">
+                <label class="form-label">Müşderi<span class="required">*</span></label>
+                <select class="form-control"><option value="">Saýla...</option><option>Begjan</option><option>Berik</option><option>YGT Gapy Satyş</option><option>Eldar</option></select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Eksport firma 1<span class="required">*</span></label>
+                <select class="form-control" id="firm1-select" onchange="checkFirmSplit()"><option value="">Saýla...</option><option value="YGT">Yigit H.J (galdy: 124,200 kg)</option><option value="HMS">Hemsaya (galdy: 257,700 kg)</option><option value="DM">Datly Miwe (galdy: 164,400 kg)</option><option value="MA">Miweli Atyz (⚠️ aşma!)</option><option value="GB">Gokbulut (galdy: 460,200 kg)</option></select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Eksport firma 2 (bölmek üçin)</label>
+                <select class="form-control" id="firm2-select" onchange="checkFirmSplit()"><option value="">Ýok — 1 firma</option><option value="HMS">Hemsaya</option><option value="DM">Datly Miwe</option><option value="MA">Miweli Atyz</option><option value="GB">Gokbulut</option><option value="AG">Altyn Gül</option></select>
+              </div>
+              <div class="form-group full" id="firm-split-config" style="display:none;">
+                <div style="background:var(--primary-light);padding:12px 16px;border-radius:8px;border:1px solid #91caff;">
+                  <div style="font-size:13px;font-weight:600;color:var(--primary);margin-bottom:8px;">📄 2 firma — 2 CMR dokument dörediler</div>
+                  <div style="display:flex;gap:16px;align-items:center;">
+                    <div style="flex:1;">
+                      <label class="form-label" style="font-size:12px;">Firma 1 paýy (kg)</label>
+                      <input class="form-control" type="number" value="9100" placeholder="kg" id="firm1-kg" oninput="calcSplit()">
+                    </div>
+                    <div style="flex:1;">
+                      <label class="form-label" style="font-size:12px;">Firma 2 paýy (kg)</label>
+                      <input class="form-control" type="number" value="9100" placeholder="kg" id="firm2-kg" oninput="calcSplit()">
+                    </div>
+                    <div style="flex:1;">
+                      <label class="form-label" style="font-size:12px;">Jemi</label>
+                      <div id="split-total" style="font-family:var(--font-mono);font-size:16px;font-weight:700;padding-top:4px;">18,200 kg</div>
+                    </div>
+                  </div>
+                  <div id="split-warning" style="display:none;margin-top:8px;"></div>
+                </div>
+              </div>
+              <div class="form-group full" id="ten-k-warning" style="display:none;">
+                <div class="alert-card warning" style="margin:0;">
+                  <span class="alert-icon">⚠️</span>
+                  <div class="alert-text"><strong>$10,000 duýduryş:</strong> Bir firmanyň paýy $10,000-dan geçýär! Bu summa firma hasabyna geçmeli bolar (nakit alyp bolmaýar). Firmany bölmegi göz öňünde tutuň.</div>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Import firma</label>
+                <select class="form-control"><option value="">Saýla...</option><option>NUR ALEM</option><option>SAH FRUKT</option><option>Aranshy</option><option>TOO Global Harvets Bek</option></select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Barjak ýurt<span class="required">*</span></label>
+                <select class="form-control" onchange="checkFirmSplit()"><option value="">Saýla...</option><option value="kz">🇰🇿 Gazagystan</option><option value="ru">🇷🇺 Rossiya</option><option value="uz">🇺🇿 Özbegistan</option></select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Barjak şäher<span class="required">*</span></label>
+                <select class="form-control"><option value="">Saýla...</option><option>Şimkent</option><option>Astana</option><option>Almaty</option><option>Karaganda</option><option>Moskwa</option></select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Ýüklenýän ýer</label>
+                <input class="form-control" placeholder="D blok — Dusak">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card mb-24">
+          <div class="card-header"><span class="card-title">🚛 Ulag maglumatlary</span><span class="badge badge-default">Transport bölüm doldurmaly</span></div>
+          <div class="card-body">
+            <div class="form-grid cols-3">
+              <div class="form-group">
+                <label class="form-label">Maşyn belgisi</label>
+                <input class="form-control" placeholder="1234AHF">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Pritsep belgisi</label>
+                <input class="form-control" placeholder="5678AHT">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Sürüji</label>
+                <select class="form-control"><option value="">Saýla...</option><option>Merdan Berdiýew</option><option>Nurmyrat Ataýew</option></select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Ulag firmasy</label>
+                <select class="form-control"><option value="">Saýla...</option><option>Malik</option><option>Haltac</option><option>Gapy Satyş</option><option>Serwi</option></select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Serhet nokady</label>
+                <select class="form-control"><option value="">Saýla...</option><option>Farap</option><option>Garabogaz</option><option>Farap (Buhara Peregruz)</option><option>Gapy Satys</option></select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Jogapkär</label>
+                <select class="form-control"><option value="">Saýla...</option><option>Malik</option><option>Haltac</option></select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card mb-24">
+          <div class="card-header"><span class="card-title">🌿 Haryt maglumatlary</span><span class="badge badge-default">Soltanmyrat doldurmaly</span></div>
+          <div class="card-body">
+            <div class="form-grid cols-3">
+              <div class="form-group">
+                <label class="form-label">Ýygym bloklary</label>
+                <select class="form-control" multiple style="height:64px;"><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option><option>H</option><option>I</option><option>J</option><option>K</option><option>L</option><option>M15</option><option>M5</option><option>O</option></select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Sort</label>
+                <select class="form-control"><option value="">Saýla...</option><option>MARW</option><option>MID</option><option>Fujimaro</option><option>Defensosa</option><option>Redita</option><option>Dakota</option><option>Cherry</option></select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Ýygym senesi</label>
+                <input class="form-control" type="date">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Agram (resmi, kg)</label>
+                <input class="form-control" type="number" placeholder="18200">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Agram (hakyky, kg)</label>
+                <input class="form-control" type="number" placeholder="18000">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Palet görnüşi</label>
+                <select class="form-control"><option value="">Saýla...</option><option>26-lyk</option><option>33-lyk</option></select>
+              </div>
+              <div class="form-group full">
+                <label class="form-label">Bellikler</label>
+                <textarea class="form-control" placeholder="Goşmaça maglumat..."></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;gap:8px;">
+          <button class="btn" onclick="showScreen('shipments')">Goýbol et</button>
+          <button class="btn btn-primary" onclick="showScreen('shipment-detail')">💾 Sakla we aç</button>
+        </div>
+      </div>
+
+      <!-- ═══ TRACKING KANBAN ═══ -->
+      <div id="screen-tracking" class="screen">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Ýol Gözegçiligi</div>
+            <div class="page-desc">Häzirki hereket edýän ýükleriň ýagdaýy — Kanban görnüşi</div>
+          </div>
+          <div class="page-actions">
+            <button class="btn" onclick="showScreen('shipments')">📋 Tablisa görnüşi</button>
+            <button class="btn">🗺️ Karta görnüşi</button>
+          </div>
+        </div>
+
+        <div class="kanban">
+          <div class="kanban-col">
+            <div class="kanban-col-header">
+              <span class="kanban-col-title">📦 Ýüklenýär</span>
+              <span class="kanban-col-count">12</span>
+            </div>
+            <div class="kanban-card" onclick="showScreen('shipment-detail')">
+              <div class="kanban-card-code">26FV046/25</div>
+              <div class="kanban-card-route">🇰🇿 Karaganda — Farap</div>
+              <div class="kanban-card-footer">
+                <span class="kanban-card-customer">Begjan</span>
+                <span class="badge badge-loading" style="font-size:11px;">Ýüklenýär</span>
+              </div>
+            </div>
+            <div class="kanban-card">
+              <div class="kanban-card-code">26FV050/25</div>
+              <div class="kanban-card-route">🇰🇿 Şimkent — Farap</div>
+              <div class="kanban-card-footer">
+                <span class="kanban-card-customer">Berik</span>
+                <span class="badge badge-loading" style="font-size:11px;">Ýüklenýär</span>
+              </div>
+            </div>
+            <div class="kanban-card">
+              <div class="kanban-card-code">26FV051/25</div>
+              <div class="kanban-card-route">🇷🇺 Moskwa — Garabogaz</div>
+              <div class="kanban-card-footer">
+                <span class="kanban-card-customer">Eldar</span>
+                <span class="badge badge-planning" style="font-size:11px;">Taýýar</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="kanban-col">
+            <div class="kanban-col-header">
+              <span class="kanban-col-title">🚛 Ýolda</span>
+              <span class="kanban-col-count" style="background:var(--primary-light);color:var(--primary);">296</span>
+            </div>
+            <div class="kanban-card" onclick="showScreen('shipment-detail')">
+              <div class="kanban-card-code">26FV047/25</div>
+              <div class="kanban-card-route">🇰🇿 Şimkent — Farap Postta</div>
+              <div class="kanban-card-footer">
+                <span class="kanban-card-customer">Begjan</span>
+                <span class="kanban-card-time">+1 gün</span>
+              </div>
+            </div>
+            <div class="kanban-card">
+              <div class="kanban-card-code">26FV048/25</div>
+              <div class="kanban-card-route">🇰🇿 Astana — Özbegistanda</div>
+              <div class="kanban-card-footer">
+                <span class="kanban-card-customer">Berik</span>
+                <span class="kanban-card-time">+1 gün</span>
+              </div>
+            </div>
+            <div class="kanban-card">
+              <div class="kanban-card-code">25FV040/25</div>
+              <div class="kanban-card-route">🇷🇺 Moskwa — Garabogaz</div>
+              <div class="kanban-card-footer">
+                <span class="kanban-card-customer">YGT</span>
+                <span class="kanban-card-time">+2 gün</span>
+              </div>
+            </div>
+            <div style="text-align:center;padding:8px;color:var(--text-placeholder);font-size:12px;">+ 293 ýük...</div>
+          </div>
+
+          <div class="kanban-col">
+            <div class="kanban-col-header">
+              <span class="kanban-col-title">🛒 Satylýar</span>
+              <span class="kanban-col-count" style="background:var(--warning-bg);color:#d48806;">9</span>
+            </div>
+            <div class="kanban-card" onclick="showScreen('shipment-detail')">
+              <div class="kanban-card-code">25FV039/25</div>
+              <div class="kanban-card-route">🇷🇺 Moskwa</div>
+              <div class="kanban-card-footer">
+                <span class="kanban-card-customer">Eldar</span>
+                <span class="kanban-card-time">Satylýar 3-nji gün</span>
+              </div>
+            </div>
+            <div class="kanban-card">
+              <div class="kanban-card-code">24FV036/25</div>
+              <div class="kanban-card-route">🇰🇿 Almaty</div>
+              <div class="kanban-card-footer">
+                <span class="kanban-card-customer">Berik</span>
+                <span class="kanban-card-time">Satylýar 1-nji gün</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="kanban-col">
+            <div class="kanban-col-header">
+              <span class="kanban-col-title">✅ Satyldy</span>
+              <span class="kanban-col-count" style="background:var(--success-bg);color:#389e0d;">173</span>
+            </div>
+            <div class="kanban-card" style="border-left:3px solid var(--error);">
+              <div class="kanban-card-code">24FV035/25</div>
+              <div class="kanban-card-route">🇰🇿 Almaty — <span style="color:var(--error);font-weight:600;">Hasabat YOK</span></div>
+              <div class="kanban-card-footer">
+                <span class="kanban-card-customer">Berik</span>
+                <span class="kanban-card-time" style="color:var(--error);">7 gün garaşylýar</span>
+              </div>
+            </div>
+            <div class="kanban-card">
+              <div class="kanban-card-code">23FV030/25</div>
+              <div class="kanban-card-route">🇰🇿 Şimkent — ✅ Hasabat geldi</div>
+              <div class="kanban-card-footer">
+                <span class="kanban-card-customer">Begjan</span>
+                <span class="badge badge-completed" style="font-size:11px;">Tamam</span>
+              </div>
+            </div>
+            <div style="text-align:center;padding:8px;color:var(--text-placeholder);font-size:12px;">
+              <span style="color:var(--error);font-weight:600;">90 hasabat gelmedi!</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ CUSTOMERS ═══ -->
+      <div id="screen-customers" class="screen">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Müşderiler</div>
+            <div class="page-desc">Müşderiler boýunça ýük sany we ýagdaýy</div>
+          </div>
+        </div>
+
+        <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px;">
+          <div class="stat-card" onclick="showScreen('customer-detail')">
+            <div class="stat-icon blue">👤</div>
+            <div>
+              <div class="stat-value">304</div>
+              <div class="stat-label">YGT Gapy Satyş</div>
+              <div class="stat-trend">Gapy satyş — ýerli bazar</div>
+            </div>
+          </div>
+          <div class="stat-card" onclick="showScreen('customer-detail')">
+            <div class="stat-icon green">👤</div>
+            <div>
+              <div class="stat-value">291</div>
+              <div class="stat-label">Berik</div>
+              <div class="stat-trend">KZ: Şimkent, Astana, Almaty</div>
+            </div>
+          </div>
+          <div class="stat-card" onclick="showScreen('customer-detail')">
+            <div class="stat-icon purple">👤</div>
+            <div>
+              <div class="stat-value">289</div>
+              <div class="stat-label">Begjan</div>
+              <div class="stat-trend">KZ: Şimkent, Karaganda</div>
+            </div>
+          </div>
+          <div class="stat-card" onclick="showScreen('customer-detail')">
+            <div class="stat-icon orange">👤</div>
+            <div>
+              <div class="stat-value">67</div>
+              <div class="stat-label">Eldar</div>
+              <div class="stat-trend">RU: Moskwa</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><span class="card-title">Müşderileriň ýükleriniň ýagdaýy</span></div>
+          <div class="card-body compact">
+            <table>
+              <thead>
+                <tr><th>Müşderi</th><th>Jemi</th><th>Ýolda</th><th>Satylýar</th><th>Satyldy</th><th>Hasabat OK</th><th>Hasabat YOK</th><th>Tamamlandy</th></tr>
+              </thead>
+              <tbody>
+                <tr class="clickable" onclick="showScreen('customer-detail')"><td style="font-weight:600;">YGT Gapy Satyş</td><td class="text-mono">304</td><td class="text-mono">89</td><td class="text-mono">3</td><td class="text-mono">45</td><td class="text-mono" style="color:var(--success);">22</td><td class="text-mono" style="color:var(--error);">23</td><td class="text-mono">167</td></tr>
+                <tr class="clickable" onclick="showScreen('customer-detail')"><td style="font-weight:600;">Berik</td><td class="text-mono">291</td><td class="text-mono">95</td><td class="text-mono">3</td><td class="text-mono">52</td><td class="text-mono" style="color:var(--success);">28</td><td class="text-mono" style="color:var(--error);">24</td><td class="text-mono">141</td></tr>
+                <tr class="clickable" onclick="showScreen('customer-detail')"><td style="font-weight:600;">Begjan</td><td class="text-mono">289</td><td class="text-mono">88</td><td class="text-mono">2</td><td class="text-mono">48</td><td class="text-mono" style="color:var(--success);">20</td><td class="text-mono" style="color:var(--error);">28</td><td class="text-mono">151</td></tr>
+                <tr class="clickable" onclick="showScreen('customer-detail')"><td style="font-weight:600;">Eldar</td><td class="text-mono">67</td><td class="text-mono">18</td><td class="text-mono">1</td><td class="text-mono">22</td><td class="text-mono" style="color:var(--success);">13</td><td class="text-mono" style="color:var(--error);">9</td><td class="text-mono">26</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ CUSTOMER DETAIL ═══ -->
+      <div id="screen-customer-detail" class="screen">
+        <div class="page-header">
+          <div>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <button class="btn btn-sm" onclick="showScreen('customers')">← Yza</button>
+              <div class="page-title">Eldar</div>
+              <span class="badge badge-default">67 ýük — Moskwa</span>
+            </div>
+            <div class="page-desc">Müşderi maglumatlary we ýükleriniň doly sanawy (Eldar sheet görnüşi)</div>
+          </div>
+          <div class="page-actions"><button class="btn">📥 Excel eksport</button></div>
+        </div>
+
+        <div class="stats-grid" style="grid-template-columns:repeat(5,1fr);margin-bottom:24px;">
+          <div class="stat-card"><div class="stat-icon blue">📦</div><div><div class="stat-value">67</div><div class="stat-label">Jemi ýük</div></div></div>
+          <div class="stat-card"><div class="stat-icon cyan">🚛</div><div><div class="stat-value">18</div><div class="stat-label">Ýolda</div></div></div>
+          <div class="stat-card"><div class="stat-icon orange">🛒</div><div><div class="stat-value">1</div><div class="stat-label">Satylýar</div></div></div>
+          <div class="stat-card"><div class="stat-icon green">✅</div><div><div class="stat-value">22</div><div class="stat-label">Satyldy</div></div></div>
+          <div class="stat-card"><div class="stat-icon red">⚠️</div><div><div class="stat-value" style="color:var(--error)">9</div><div class="stat-label">Hasabat YOK</div></div></div>
+        </div>
+
+        <div class="card">
+          <div class="card-body compact">
+            <table>
+              <thead><tr><th>Kod</th><th>Firma</th><th>Ugur</th><th>Status</th><th>Agram</th><th>Sort</th><th>Ýola çykdy</th><th>Satyldy</th><th>Hasabat</th></tr></thead>
+              <tbody>
+                <tr class="clickable" onclick="showScreen('shipment-detail')"><td class="text-mono" style="color:var(--primary);font-weight:600;">25FV039/25</td><td><span class="tag">HMS</span></td><td>🇷🇺 Moskwa</td><td><span class="badge badge-selling">Satylýar</span></td><td class="text-mono">18,900</td><td>MARW</td><td class="text-mono text-muted">20.02</td><td>—</td><td>—</td></tr>
+                <tr class="clickable" onclick="showScreen('shipment-detail')"><td class="text-mono" style="color:var(--primary);font-weight:600;">22FV028/25</td><td><span class="tag">YGT</span></td><td>🇷🇺 Moskwa</td><td><span class="badge badge-sold">Satyldy</span></td><td class="text-mono">19,200</td><td>MID</td><td class="text-mono text-muted">15.02</td><td class="text-mono">22.02</td><td style="color:var(--error)">❌ YOK</td></tr>
+                <tr class="clickable" onclick="showScreen('shipment-detail')"><td class="text-mono" style="color:var(--primary);font-weight:600;">20FV022/25</td><td><span class="tag">YGT-HMS</span></td><td>🇷🇺 Moskwa</td><td><span class="badge badge-completed">Tamam</span></td><td class="text-mono">18,500</td><td>MARW</td><td class="text-mono text-muted">12.02</td><td class="text-mono">19.02</td><td style="color:var(--success)">✅ 21.02</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ QUOTA ═══ -->
+      <div id="screen-quota" class="screen">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Kwota dolandyryşy</div>
+            <div class="page-desc">Eksport kwotasy — 16 firma, 7 döwür — 2025/2026 möwsüm</div>
+          </div>
+          <div class="page-actions">
+            <button class="btn">📥 Excel</button>
+            <button class="btn btn-primary">➕ Kwota goş</button>
+          </div>
+        </div>
+
+        <div class="tabs">
+          <div class="tab active">Kwota balansy</div>
+          <div class="tab">Döwürler boýunça</div>
+          <div class="tab">Içerki bazar (1:10)</div>
+          <div class="tab">Kredit töleg</div>
+        </div>
+
+        <!-- Quota formula explanation -->
+        <div style="background:linear-gradient(135deg,#f0f5ff,#e6fffb);padding:16px 20px;border-radius:12px;margin-bottom:20px;border:1px solid #91caff;">
+          <div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:20px;">🏠</span>
+              <div>
+                <div style="font-size:12px;color:var(--text-tertiary);">Içerki bazar satyş</div>
+                <div style="font-size:18px;font-weight:700;font-family:var(--font-mono);">1,842 t</div>
+              </div>
+            </div>
+            <div style="font-size:20px;color:var(--primary);">× 10 =</div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:20px;">🌍</span>
+              <div>
+                <div style="font-size:12px;color:var(--text-tertiary);">Gazanylan eksport kwota</div>
+                <div style="font-size:18px;font-weight:700;font-family:var(--font-mono);color:var(--primary);">18,420 t</div>
+              </div>
+            </div>
+            <div style="font-size:20px;color:var(--text-placeholder);">→</div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:20px;">📦</span>
+              <div>
+                <div style="font-size:12px;color:var(--text-tertiary);">Ulanylan kwota</div>
+                <div style="font-size:18px;font-weight:700;font-family:var(--font-mono);color:#d48806;">16,200 t</div>
+              </div>
+            </div>
+            <div style="font-size:20px;color:var(--text-placeholder);">→</div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:20px;">✅</span>
+              <div>
+                <div style="font-size:12px;color:var(--text-tertiary);">Galdy</div>
+                <div style="font-size:18px;font-weight:700;font-family:var(--font-mono);color:var(--success);">2,220 t</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="quota-grid">
+          <div class="quota-card">
+            <div class="quota-firm">Yigit H.J</div>
+            <div class="quota-numbers"><span>Berlen: 3,014,200 kg</span><span>Ulanylan: 2,890,000 kg</span></div>
+            <div class="progress-bar"><div class="progress-fill green" style="width:96%"></div></div>
+            <div class="quota-remaining positive">Galdy: 124,200 kg (4%)</div>
+            <div style="margin-top:8px;">
+              <div class="alert-card warning" style="padding:8px 12px;margin:0;">
+                <span class="alert-icon" style="font-size:12px;">⚠️</span>
+                <span class="alert-text" style="font-size:12px;">Döwür 3: <strong>-2,603,000 kg</strong> aşma</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="quota-card">
+            <div class="quota-firm">Hemsaya</div>
+            <div class="quota-numbers"><span>Berlen: 2,707,700 kg</span><span>Ulanylan: 2,450,000 kg</span></div>
+            <div class="progress-bar"><div class="progress-fill blue" style="width:90%"></div></div>
+            <div class="quota-remaining positive">Galdy: 257,700 kg (10%)</div>
+          </div>
+
+          <div class="quota-card">
+            <div class="quota-firm">Datly Miwe</div>
+            <div class="quota-numbers"><span>Berlen: 2,464,400 kg</span><span>Ulanylan: 2,300,000 kg</span></div>
+            <div class="progress-bar"><div class="progress-fill blue" style="width:93%"></div></div>
+            <div class="quota-remaining positive">Galdy: 164,400 kg (7%)</div>
+          </div>
+
+          <div class="quota-card">
+            <div class="quota-firm">Miweli Atyz</div>
+            <div class="quota-numbers"><span>Berlen: 2,372,400 kg</span><span>Ulanylan: 2,400,000 kg</span></div>
+            <div class="progress-bar"><div class="progress-fill red" style="width:100%"></div></div>
+            <div class="quota-remaining negative">Aşma: -27,600 kg ⚠️</div>
+          </div>
+
+          <div class="quota-card">
+            <div class="quota-firm">Gokbulut</div>
+            <div class="quota-numbers"><span>Berlen: 1,660,200 kg</span><span>Ulanylan: 1,200,000 kg</span></div>
+            <div class="progress-bar"><div class="progress-fill green" style="width:72%"></div></div>
+            <div class="quota-remaining positive">Galdy: 460,200 kg (28%)</div>
+          </div>
+
+          <div class="quota-card">
+            <div class="quota-firm">Altyn Gül</div>
+            <div class="quota-numbers"><span>Berlen: 1,450,000 kg</span><span>Ulanylan: 980,000 kg</span></div>
+            <div class="progress-bar"><div class="progress-fill green" style="width:68%"></div></div>
+            <div class="quota-remaining positive">Galdy: 470,000 kg (32%)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ PLANNING ═══ -->
+      <div id="screen-planning" class="screen">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Hepdelik meýilnama</div>
+            <div class="page-desc">Hepde 22 — 24.02.2026 – 01.03.2026 | 15 blok × 6 gün</div>
+          </div>
+          <div class="page-actions">
+            <button class="btn">← Öňki hepde</button>
+            <button class="btn btn-primary">Indiki hepde →</button>
+          </div>
+        </div>
+
+        <div class="card mb-24">
+          <div class="card-header">
+            <span class="card-title">📅 Ýygym meýilnamasy (tonna)</span>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <span class="badge badge-default">Meýilnama</span>
+              <span class="badge badge-sold">Hakyky</span>
+            </div>
+          </div>
+          <div class="card-body compact plan-grid">
+            <table>
+              <thead>
+                <tr>
+                  <th class="block-col">Blok</th>
+                  <th>Duş 24</th><th>Siş 25</th><th>Çar 26</th>
+                  <th>Pen 27</th><th>Ann 28</th><th>Şen 01</th>
+                  <th style="background:var(--primary-light);">Jemi</th>
+                  <th style="background:var(--success-bg);">Hakyky</th>
+                  <th>Tapawut</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td class="block-col">A</td><td><input value="24"></td><td><input value="22"></td><td><input value="26"></td><td><input value="24"></td><td><input value="20"></td><td><input value="18"></td><td style="font-weight:600;">134</td><td style="color:var(--success);font-weight:600;">128</td><td class="variance-negative">-6</td></tr>
+                <tr><td class="block-col">B</td><td><input value="28"></td><td><input value="30"></td><td><input value="26"></td><td><input value="28"></td><td><input value="24"></td><td><input value="22"></td><td style="font-weight:600;">158</td><td style="color:var(--success);font-weight:600;">162</td><td class="variance-positive">+4</td></tr>
+                <tr><td class="block-col">C</td><td><input value="20"></td><td><input value="18"></td><td><input value="22"></td><td><input value="20"></td><td><input value="16"></td><td><input value="14"></td><td style="font-weight:600;">110</td><td style="color:var(--success);font-weight:600;">105</td><td class="variance-negative">-5</td></tr>
+                <tr><td class="block-col">D</td><td><input value="32"></td><td><input value="30"></td><td><input value="34"></td><td><input value="30"></td><td><input value="28"></td><td><input value="26"></td><td style="font-weight:600;">180</td><td style="color:var(--success);font-weight:600;">—</td><td>—</td></tr>
+                <tr><td class="block-col">E</td><td><input value="18"></td><td><input value="16"></td><td><input value="20"></td><td><input value="18"></td><td><input value="14"></td><td><input value="12"></td><td style="font-weight:600;">98</td><td style="color:var(--success);font-weight:600;">—</td><td>—</td></tr>
+                <tr class="total-row"><td class="block-col"><strong>JEMI</strong></td><td><strong>122</strong></td><td><strong>116</strong></td><td><strong>128</strong></td><td><strong>120</strong></td><td><strong>102</strong></td><td><strong>92</strong></td><td style="font-weight:700;color:var(--primary);">680</td><td style="font-weight:700;color:var(--success);">395</td><td>—</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><span class="card-title">🚛 Günlük ulag meýilnamasy</span></div>
+          <div class="card-body compact plan-grid">
+            <table>
+              <thead>
+                <tr><th class="block-col">Ugur</th><th>Duş</th><th>Siş</th><th>Çar</th><th>Pen</th><th>Ann</th><th>Şen</th><th>Jemi</th></tr>
+              </thead>
+              <tbody>
+                <tr><td class="block-col">🇷🇺 Rossiya</td><td>3</td><td>3</td><td>4</td><td>3</td><td>3</td><td>2</td><td style="font-weight:600;">18</td></tr>
+                <tr><td class="block-col">🇰🇿 Gazagystan</td><td>4</td><td>4</td><td>5</td><td>4</td><td>4</td><td>3</td><td style="font-weight:600;">24</td></tr>
+                <tr><td class="block-col">Gapy Satyş</td><td>2</td><td>2</td><td>2</td><td>2</td><td>2</td><td>1</td><td style="font-weight:600;">11</td></tr>
+                <tr class="total-row"><td class="block-col"><strong>JEMI</strong></td><td><strong>9</strong></td><td><strong>9</strong></td><td><strong>11</strong></td><td><strong>9</strong></td><td><strong>9</strong></td><td><strong>6</strong></td><td style="font-weight:700;color:var(--primary);"><strong>53</strong></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ FINANCE ═══ -->
+      <div id="screen-finance" class="screen">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Maliýe</div>
+            <div class="page-desc">Ugurlar boýunça girdeji/çykdajy derňewi — BH sheet</div>
+          </div>
+          <div class="page-actions">
+            <button class="btn">📥 Excel</button>
+          </div>
+        </div>
+
+        <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);">
+          <div class="stat-card">
+            <div class="stat-icon green">💵</div>
+            <div>
+              <div class="stat-value" style="color:var(--success);">$0.90</div>
+              <div class="stat-label">Ortaça margin (KZ) / kg</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon blue">💵</div>
+            <div>
+              <div class="stat-value" style="color:var(--primary);">$1.79</div>
+              <div class="stat-label">Ortaça margin (RU) / kg</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon purple">📊</div>
+            <div>
+              <div class="stat-value">2×</div>
+              <div class="stat-label">Rossiya has girdejili</div>
+              <div class="stat-trend">emma 7-10 gün tranzit</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card mb-24">
+          <div class="card-header">
+            <span class="card-title">📊 Ugur boýunça çykdajy derňewi (1 ýük üçin)</span>
+            <div style="display:flex;gap:8px;">
+              <span class="text-sm text-muted">Kurs: 78 RUB/$  |  450 KZT/$</span>
+            </div>
+          </div>
+          <div class="card-body compact">
+            <table>
+              <thead>
+                <tr><th>Ugur</th><th>Nakliye 1</th><th>Nakliye 2</th><th>NDS</th><th>Satyş paýy</th><th>Sbor</th><th>Jemi çykdajy</th><th>Satys bahasy</th><th>Margin/kg</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style="font-weight:600;">🇰🇿 Şimkent</td>
+                  <td class="text-mono">$3,200</td><td class="text-mono">$800</td><td class="text-mono">$1,400</td>
+                  <td class="text-mono">$1,600</td><td class="text-mono">$800</td>
+                  <td class="text-mono" style="font-weight:600;">$7,800</td>
+                  <td class="text-mono" style="color:var(--success);">$0.90/kg</td>
+                  <td class="text-mono" style="color:var(--success);font-weight:700;">$0.47</td>
+                </tr>
+                <tr>
+                  <td style="font-weight:600;">🇰🇿 Almaty</td>
+                  <td class="text-mono">$3,500</td><td class="text-mono">$900</td><td class="text-mono">$1,400</td>
+                  <td class="text-mono">$1,600</td><td class="text-mono">$800</td>
+                  <td class="text-mono" style="font-weight:600;">$8,200</td>
+                  <td class="text-mono" style="color:var(--success);">$0.95/kg</td>
+                  <td class="text-mono" style="color:var(--success);font-weight:700;">$0.50</td>
+                </tr>
+                <tr>
+                  <td style="font-weight:600;">🇰🇿 Astana</td>
+                  <td class="text-mono">$3,800</td><td class="text-mono">$1,000</td><td class="text-mono">$1,500</td>
+                  <td class="text-mono">$1,800</td><td class="text-mono">$800</td>
+                  <td class="text-mono" style="font-weight:600;">$8,900</td>
+                  <td class="text-mono" style="color:var(--success);">$0.91/kg</td>
+                  <td class="text-mono" style="color:var(--success);font-weight:700;">$0.42</td>
+                </tr>
+                <tr>
+                  <td style="font-weight:600;">🇰🇿 Karaganda</td>
+                  <td class="text-mono">$4,000</td><td class="text-mono">$1,000</td><td class="text-mono">$1,500</td>
+                  <td class="text-mono">$1,800</td><td class="text-mono">$800</td>
+                  <td class="text-mono" style="font-weight:600;">$9,100</td>
+                  <td class="text-mono" style="color:var(--success);">$0.90/kg</td>
+                  <td class="text-mono" style="color:var(--success);font-weight:700;">$0.40</td>
+                </tr>
+                <tr style="background:var(--primary-light);">
+                  <td style="font-weight:600;">🇷🇺 Moskwa (öz satyş)</td>
+                  <td class="text-mono">$2,800</td><td class="text-mono">$1,200</td><td class="text-mono">$1,200</td>
+                  <td class="text-mono">$1,200</td><td class="text-mono">$800</td>
+                  <td class="text-mono" style="font-weight:600;">$7,200</td>
+                  <td class="text-mono" style="color:var(--primary);">$1.79/kg</td>
+                  <td class="text-mono" style="color:var(--primary);font-weight:700;">$1.40 ★</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><span class="card-title">💳 Kredit Töleg Yzarlaýjy (16 firma)</span><span class="badge badge-default">1C → el bilen girizilýär</span></div>
+          <div class="card-body compact">
+            <table>
+              <thead><tr><th>Firma</th><th>Kredit galyndy</th><th>Aýlyk töleg</th><th>Hasaba giren ($>10K)</th><th>Nakit alynan ($<10K)</th><th>Ýagdaý</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td style="font-weight:600;">Yigit H.J</td>
+                  <td class="text-mono">$245,000</td><td class="text-mono">$18,500/aý</td>
+                  <td class="text-mono" style="color:var(--primary);">$12,400</td>
+                  <td class="text-mono" style="color:var(--success);">$38,600</td>
+                  <td><span class="badge badge-sold">✅ Ýeterlik</span></td>
+                </tr>
+                <tr>
+                  <td style="font-weight:600;">Hemsaya</td>
+                  <td class="text-mono">$180,000</td><td class="text-mono">$14,000/aý</td>
+                  <td class="text-mono" style="color:var(--primary);">$8,200</td>
+                  <td class="text-mono" style="color:var(--success);">$29,800</td>
+                  <td><span class="badge badge-sold">✅ Ýeterlik</span></td>
+                </tr>
+                <tr>
+                  <td style="font-weight:600;">Datly Miwe</td>
+                  <td class="text-mono">$210,000</td><td class="text-mono">$16,000/aý</td>
+                  <td class="text-mono" style="color:var(--primary);">$5,100</td>
+                  <td class="text-mono" style="color:var(--success);">$22,400</td>
+                  <td><span class="badge badge-selling">⏳ Ýakyn</span></td>
+                </tr>
+                <tr>
+                  <td style="font-weight:600;">Miweli Atyz</td>
+                  <td class="text-mono">$320,000</td><td class="text-mono">$22,000/aý</td>
+                  <td class="text-mono" style="color:var(--primary);">$3,800</td>
+                  <td class="text-mono" style="color:var(--success);">$14,200</td>
+                  <td><span class="badge badge-alert">⚠️ Ýeterlik däl</span></td>
+                </tr>
+              </tbody>
+            </table>
+            <div style="padding:12px 16px;font-size:12px;color:var(--text-tertiary);">
+              * Kredit maglumatlary 1C-den el bilen girizilýär. Geljekde 1C integrasiýasy mümkin.
+              <br>* "$>10K hasaba giren" = bank hasabyna geçmeli bolan summalar (kreditden aýrylýar)
+              <br>* "$<10K nakit" = nakit alnan summalar (operasiýa üçin)
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ REPORTS ═══ -->
+      <div id="screen-reports" class="screen">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Hasabatlar</div>
+            <div class="page-desc">Aýlyk we hepdelik hasabatlar — Excel eksport elýeter</div>
+          </div>
+        </div>
+
+        <div class="grid-3 mb-24">
+          <div class="card" style="cursor:pointer;transition:all 0.15s;" onmouseover="this.style.boxShadow='var(--shadow-md)'" onmouseout="this.style.boxShadow='var(--shadow-sm)'">
+            <div class="card-body" style="text-align:center;">
+              <div style="font-size:36px;margin-bottom:12px;">📊</div>
+              <div style="font-weight:600;font-size:15px;">Müşderi hasabaty</div>
+              <div style="font-size:12px;color:var(--text-tertiary);margin-top:4px;">Klentlere göra tir sany</div>
+              <button class="btn btn-primary btn-sm" style="margin-top:12px;">📥 Excel ýükle</button>
+            </div>
+          </div>
+          <div class="card" style="cursor:pointer;transition:all 0.15s;" onmouseover="this.style.boxShadow='var(--shadow-md)'" onmouseout="this.style.boxShadow='var(--shadow-sm)'">
+            <div class="card-body" style="text-align:center;">
+              <div style="font-size:36px;margin-bottom:12px;">🏙️</div>
+              <div style="font-weight:600;font-size:15px;">Şäher hasabaty</div>
+              <div style="font-size:12px;color:var(--text-tertiary);margin-top:4px;">Ugur boýunça statistika</div>
+              <button class="btn btn-primary btn-sm" style="margin-top:12px;">📥 Excel ýükle</button>
+            </div>
+          </div>
+          <div class="card" style="cursor:pointer;transition:all 0.15s;" onmouseover="this.style.boxShadow='var(--shadow-md)'" onmouseout="this.style.boxShadow='var(--shadow-sm)'">
+            <div class="card-body" style="text-align:center;">
+              <div style="font-size:36px;margin-bottom:12px;">📅</div>
+              <div style="font-weight:600;font-size:15px;">Aýlyk jemleýji</div>
+              <div style="font-size:12px;color:var(--text-tertiary);margin-top:4px;">Transport we Satys Yagdayy</div>
+              <button class="btn btn-primary btn-sm" style="margin-top:12px;">📥 Excel ýükle</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><span class="card-title">📈 Transport we Satyş ýagdaýy (live)</span></div>
+          <div class="card-body compact">
+            <table>
+              <thead><tr><th>Ýagdaý</th><th>Sany</th><th>Paý</th><th>Görnüş</th></tr></thead>
+              <tbody>
+                <tr><td><span class="badge badge-transit">Ýolda</span></td><td class="text-mono" style="font-weight:600;">296</td><td>30.1%</td><td><div class="progress-bar" style="width:200px"><div class="progress-fill blue" style="width:30%"></div></div></td></tr>
+                <tr><td><span class="badge badge-selling">Satylýar</span></td><td class="text-mono" style="font-weight:600;">9</td><td>0.9%</td><td><div class="progress-bar" style="width:200px"><div class="progress-fill orange" style="width:1%"></div></div></td></tr>
+                <tr><td><span class="badge badge-sold">Satyldy</span></td><td class="text-mono" style="font-weight:600;">173</td><td>17.6%</td><td><div class="progress-bar" style="width:200px"><div class="progress-fill green" style="width:18%"></div></div></td></tr>
+                <tr><td><span class="badge badge-alert">Hasabat YOK</span></td><td class="text-mono" style="font-weight:600;color:var(--error);">90</td><td>9.2%</td><td><div class="progress-bar" style="width:200px"><div class="progress-fill red" style="width:9%"></div></div></td></tr>
+                <tr><td><span class="badge badge-completed">Tamamlandy</span></td><td class="text-mono" style="font-weight:600;">505</td><td>51.4%</td><td><div class="progress-bar" style="width:200px"><div class="progress-fill green" style="width:51%"></div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ SETTINGS ═══ -->
+      <div id="screen-settings" class="screen">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Sazlamalar</div>
+            <div class="page-desc">Maglumat bazasy we ulgam sazlamalary</div>
+          </div>
+        </div>
+
+        <div class="tabs">
+          <div class="tab active">Maşynlar</div>
+          <div class="tab">Sürüjiler</div>
+          <div class="tab">Eksport firmalar</div>
+          <div class="tab">Import firmalar</div>
+          <div class="tab">Bloklar</div>
+          <div class="tab">Sortlar</div>
+          <div class="tab">Integrasiýa</div>
+          <div class="tab">Ulanyjylar</div>
+        </div>
+
+        <div class="card">
+          <div class="table-toolbar">
+            <div class="filter-group">
+              <input class="filter-input" placeholder="🔍 Maşyn belgisi gözle...">
+              <select class="filter-input" style="min-width:140px;">
+                <option>Hemmesi</option><option>Malik</option><option>Haltac</option><option>Gapy Satyş</option><option>Serwi</option>
+              </select>
+            </div>
+            <button class="btn btn-primary btn-sm">➕ Täze maşyn</button>
+          </div>
+          <div class="card-body compact">
+            <table>
+              <thead><tr><th>Maşyn</th><th>Pritsep</th><th>Firma</th><th>Ýurt</th><th>Status</th><th>GPS</th><th></th></tr></thead>
+              <tbody>
+                <tr><td class="text-mono" style="font-weight:600;">1234AHF</td><td class="text-mono">5678AHT</td><td>Malik</td><td>TM</td><td><span class="badge badge-sold">Aktiw</span></td><td><span class="badge badge-default">Enjam ýok</span></td><td><button class="btn btn-sm">✏️</button></td></tr>
+                <tr><td class="text-mono" style="font-weight:600;">5678TAH</td><td class="text-mono">9012TAT</td><td>Haltac</td><td>TM</td><td><span class="badge badge-sold">Aktiw</span></td><td><span class="badge badge-default">Enjam ýok</span></td><td><button class="btn btn-sm">✏️</button></td></tr>
+                <tr><td class="text-mono" style="font-weight:600;">9012LBE</td><td class="text-mono">3456LBP</td><td>Gapy Satyş</td><td>UZ</td><td><span class="badge badge-sold">Aktiw</span></td><td><span class="badge badge-default">Enjam ýok</span></td><td><button class="btn btn-sm">✏️</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script>
+// ─── Navigation ───
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const screen = document.getElementById('screen-' + id);
+  if (screen) screen.classList.add('active');
+
+  // Update sidebar
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const navMap = {
+    'dashboard': 0, 'shipments': 1, 'tracking': 2, 'shipment-new': 3,
+    'customers': 4, 'customer-detail': 4, 'quota': 5, 'planning': 6,
+    'finance': 7, 'reports': 8, 'settings': 9,
+    'shipment-detail': 1
+  };
+  const items = document.querySelectorAll('.nav-item');
+  if (navMap[id] !== undefined && items[navMap[id]]) {
+    items[navMap[id]].classList.add('active');
+  }
+
+  // Update breadcrumb
+  const breadcrumbMap = {
+    'dashboard': 'Dashboard',
+    'shipments': '<a href="#" onclick="showScreen(\'dashboard\')">Dashboard</a><span class="sep">/</span><span class="current">Ýükler</span>',
+    'shipment-detail': '<a href="#" onclick="showScreen(\'dashboard\')">Dashboard</a><span class="sep">/</span><a href="#" onclick="showScreen(\'shipments\')">Ýükler</a><span class="sep">/</span><span class="current">26FV047/25</span>',
+    'shipment-new': '<a href="#" onclick="showScreen(\'dashboard\')">Dashboard</a><span class="sep">/</span><a href="#" onclick="showScreen(\'shipments\')">Ýükler</a><span class="sep">/</span><span class="current">Täze ýük</span>',
+    'tracking': '<a href="#" onclick="showScreen(\'dashboard\')">Dashboard</a><span class="sep">/</span><span class="current">Ýol Gözegçiligi</span>',
+    'customers': '<a href="#" onclick="showScreen(\'dashboard\')">Dashboard</a><span class="sep">/</span><span class="current">Müşderiler</span>',
+    'customer-detail': '<a href="#" onclick="showScreen(\'dashboard\')">Dashboard</a><span class="sep">/</span><a href="#" onclick="showScreen(\'customers\')">Müşderiler</a><span class="sep">/</span><span class="current">Eldar</span>',
+    'quota': '<a href="#" onclick="showScreen(\'dashboard\')">Dashboard</a><span class="sep">/</span><span class="current">Kwota</span>',
+    'planning': '<a href="#" onclick="showScreen(\'dashboard\')">Dashboard</a><span class="sep">/</span><span class="current">Meýilnama</span>',
+    'finance': '<a href="#" onclick="showScreen(\'dashboard\')">Dashboard</a><span class="sep">/</span><span class="current">Maliýe</span>',
+    'reports': '<a href="#" onclick="showScreen(\'dashboard\')">Dashboard</a><span class="sep">/</span><span class="current">Hasabatlar</span>',
+    'settings': '<a href="#" onclick="showScreen(\'dashboard\')">Dashboard</a><span class="sep">/</span><span class="current">Sazlamalar</span>'
+  };
+  document.getElementById('breadcrumb').innerHTML = breadcrumbMap[id] || id;
+  window.scrollTo(0, 0);
+}
+
+function showApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-shell').style.display = 'flex';
+}
+
+// Tabs
+document.querySelectorAll('.tabs').forEach(tabs => {
+  tabs.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+    });
+  });
+});
+
+// Firm split logic
+function checkFirmSplit() {
+  const firm2 = document.getElementById('firm2-select');
+  const splitConfig = document.getElementById('firm-split-config');
+  const warning = document.getElementById('ten-k-warning');
+
+  if (firm2 && firm2.value) {
+    splitConfig.style.display = 'block';
+    warning.style.display = 'none';
+    calcSplit();
+  } else {
+    splitConfig.style.display = 'none';
+    // Single firm — check $10K
+    const firm1 = document.getElementById('firm1-select');
+    if (firm1 && firm1.value) {
+      // Simulate: 18200 kg × ~$0.90/kg = ~$16,380 > $10K
+      warning.style.display = 'block';
+    } else {
+      warning.style.display = 'none';
+    }
+  }
+}
+
+function calcSplit() {
+  const kg1 = parseInt(document.getElementById('firm1-kg').value) || 0;
+  const kg2 = parseInt(document.getElementById('firm2-kg').value) || 0;
+  const total = kg1 + kg2;
+  document.getElementById('split-total').textContent = total.toLocaleString() + ' kg';
+
+  const warn = document.getElementById('split-warning');
+  const pricePerKg = 0.90; // avg KZ price
+  const val1 = kg1 * pricePerKg;
+  const val2 = kg2 * pricePerKg;
+
+  if (val1 > 10000 || val2 > 10000) {
+    const overFirm = val1 > 10000 ? 'Firma 1' : 'Firma 2';
+    const overVal = val1 > 10000 ? val1 : val2;
+    warn.style.display = 'block';
+    warn.innerHTML = '<div class="alert-card warning" style="margin:0;padding:8px 12px;">' +
+      '<span class="alert-icon">⚠️</span>' +
+      '<div class="alert-text"><strong>' + overFirm + '</strong>: ~$' + Math.round(overVal).toLocaleString() +
+      ' > $10,000 — nakit alyp bolmaýar! KG bölünişigini deňleşdiriň.</div></div>';
+  } else {
+    warn.style.display = 'block';
+    warn.innerHTML = '<div style="color:var(--success);font-size:12px;font-weight:500;">✅ Firma 1: ~$' +
+      Math.round(val1).toLocaleString() + ' | Firma 2: ~$' + Math.round(val2).toLocaleString() +
+      ' — ikisi hem < $10,000 ✓</div>';
+  }
+}
+</script>
+</body>
+</html>
