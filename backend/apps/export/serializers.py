@@ -1,11 +1,47 @@
+import re
+
 from rest_framework import serializers
+
+from apps.core.models import Country, Customer, Season
+from apps.core.permissions import can_edit_field, PRIVILEGED_ROLES
+from apps.export.services import TRANSITIONS
 from apps.export.models import (
+    QualityDocument,
+    SalesReport,
     Shipment,
     ShipmentStatusLog,
     ShipmentFirmSplit,
     ShipmentBlockSource,
     ShipmentComment,
 )
+
+
+class QualityDocumentSerializer(serializers.ModelSerializer):
+    """Serializer for quality inspection document flags."""
+
+    class Meta:
+        model = QualityDocument
+        fields = ['azyk_maglumatnama', 'suriji_gozukdiriji', 'hil_sertifikaty', 'kalibrowka_analiz']
+
+
+class SalesReportSerializer(serializers.ModelSerializer):
+    """Serializer for the final sales report submitted at hasabat (step 12)."""
+
+    class Meta:
+        model = SalesReport
+        fields = [
+            'price_per_kg',
+            'total_usd',
+            'weight_sold_kg',
+            'weight_rejected_kg',
+            'transport_cost_usd',
+            'market_fee_usd',
+            'other_expenses_usd',
+            'notes',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
 
 
 class ShipmentListSerializer(serializers.ModelSerializer):
@@ -34,7 +70,22 @@ class ShipmentListSerializer(serializers.ModelSerializer):
             'departed_at',
             'arrived_at',
             'is_gapy_satys',
+            'updated_at',
         ]
+
+
+class OverdueShipmentSerializer(ShipmentListSerializer):
+    """Extends ShipmentListSerializer with overdue-specific annotation fields.
+
+    Used by GET /api/v1/export/shipments/overdue/.
+    Both fields are computed by the queryset annotation — not DB columns.
+    """
+
+    days_overdue = serializers.IntegerField(read_only=True)
+    has_sales_report = serializers.BooleanField(read_only=True)
+
+    class Meta(ShipmentListSerializer.Meta):
+        fields = ShipmentListSerializer.Meta.fields + ['days_overdue', 'has_sales_report']
 
 
 class FirmSplitSerializer(serializers.ModelSerializer):
@@ -82,6 +133,16 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
     block_sources = BlockSourceSerializer(many=True, read_only=True)
     status_log = StatusLogSerializer(many=True, read_only=True)
     comments = CommentSerializer(many=True, read_only=True)
+    quality = QualityDocumentSerializer(read_only=True)
+    sales_report = SalesReportSerializer(read_only=True)
+    status_code = serializers.CharField(source='status.code', read_only=True)
+    allowed_transitions = serializers.SerializerMethodField()
+
+    def get_allowed_transitions(self, obj: Shipment) -> list[str]:
+        if obj.status is None:
+            return []
+        current_code = obj.status.code
+        return [to_code for to_code, _roles in TRANSITIONS.get(current_code, [])]
 
     class Meta(ShipmentListSerializer.Meta):
         fields = ShipmentListSerializer.Meta.fields + [
@@ -100,6 +161,10 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
             'sale_started_at',
             'sale_ended_at',
             'notes',
+            'status_code',
+            'allowed_transitions',
+            'quality',
+            'sales_report',
             'created_at',
             'updated_at',
             'firm_splits',
@@ -107,3 +172,71 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
             'status_log',
             'comments',
         ]
+
+
+# All fields a user could potentially PATCH on Shipment (superset of all roles)
+_ALL_PATCHABLE_FIELDS = {
+    'box_count', 'pallet_count', 'weight_net', 'weight_gross', 'packaging_kg',
+    'vehicle_condition', 'vehicle_condition_note', 'route_note',
+    'price_per_kg', 'total_amount_usd', 'notes',
+}
+
+
+class ShipmentPatchSerializer(serializers.ModelSerializer):
+    """Handles PATCH /api/v1/export/shipments/{id}/
+
+    Validates that the requesting user's role is allowed to edit each field
+    they submitted. Unknown or unpermitted fields raise a 403-worthy error
+    (raised in the view, not here — this serializer just strips them).
+
+    Raises ValueError listing forbidden fields when validation fails.
+    """
+
+    class Meta:
+        model = Shipment
+        fields = list(_ALL_PATCHABLE_FIELDS)
+
+    def validate(self, attrs: dict) -> dict:
+        role = self.context.get('role')
+        if role in PRIVILEGED_ROLES:
+            return attrs
+        forbidden = [f for f in attrs if not can_edit_field(role, f)]
+        if forbidden:
+            raise serializers.ValidationError(
+                {f: f"Role '{role}' cannot edit this field." for f in forbidden}
+            )
+        return attrs
+
+
+class ShipmentCreateSerializer(serializers.Serializer):
+    """Validates the request body for POST /api/v1/export/shipments/.
+
+    Enforces cargo_code format and uniqueness before creating a Shipment.
+    """
+
+    cargo_code = serializers.CharField(max_length=20)
+    date = serializers.DateField()
+    country = serializers.PrimaryKeyRelatedField(
+        queryset=Country.objects.all(), required=False, allow_null=True
+    )
+    customer = serializers.PrimaryKeyRelatedField(
+        queryset=Customer.objects.all(), required=False, allow_null=True
+    )
+    season = serializers.PrimaryKeyRelatedField(
+        queryset=Season.objects.all(), required=False, allow_null=True
+    )
+
+    def validate_cargo_code(self, value: str) -> str:
+        """Validate format DDMM###/YY (exactly 7 digits, slash, 2 digits).
+
+        Examples: 0201045/25, 3112001/24.
+        """
+        if not re.match(r'^\d{7}/\d{2}$', value):
+            raise serializers.ValidationError(
+                "Cargo code must match pattern NNNNNNN/YY (e.g. 0201045/25)"
+            )
+        if Shipment.objects.filter(cargo_code=value).exists():
+            raise serializers.ValidationError(
+                "A shipment with this cargo code already exists"
+            )
+        return value

@@ -80,6 +80,7 @@ export interface IShipmentListItem {
   departed_at: string | null;   // ISO datetime
   arrived_at: string | null;
   is_gapy_satys: boolean;
+  updated_at: string;
 }
 
 export interface IFirmSplit {
@@ -112,7 +113,94 @@ export interface IShipmentComment {
   created_at: string;
 }
 
+// ─── Planning ─────────────────────────────────────────────────────────────
+
+export interface IWeeklyHarvestPlan {
+  id: number;
+  season: number;
+  season_name: string;
+  block: number;
+  block_code: string;
+  block_name: string;
+  week_number: number;
+  year: number;
+  monday_plan_kg: number;
+  tuesday_plan_kg: number;
+  wednesday_plan_kg: number;
+  thursday_plan_kg: number;
+  friday_plan_kg: number;
+  saturday_plan_kg: number;
+  monday_actual_kg: number | null;
+  tuesday_actual_kg: number | null;
+  wednesday_actual_kg: number | null;
+  thursday_actual_kg: number | null;
+  friday_actual_kg: number | null;
+  saturday_actual_kg: number | null;
+  total_plan_kg: number;
+  total_actual_kg: number | null;
+  entered_by_name: string | null;
+  updated_at: string;
+}
+
+export interface IQuotaAllocation {
+  id: number;
+  season: number;
+  season_name: string;
+  export_firm: number;
+  export_firm_name: string | null;
+  granted_kg: number;
+  used_kg: number;
+  warning_80_sent: boolean;
+  warning_90_sent: boolean;
+  warning_95_sent: boolean;
+}
+
+export interface IQuotaDashboardItem extends IQuotaAllocation {
+  remaining_kg: number;
+  used_pct: number;
+}
+
+export interface IPriceEntry {
+  id: number;
+  date: string;
+  city: number;
+  city_name: string;
+  price_local: number | null;
+  price_usd: number | null;
+  currency: string;
+  source: string;
+  entered_by_name: string | null;
+  created_at: string;
+}
+
+export interface IShipmentQuality {
+  azyk_maglumatnama: boolean;
+  suriji_gozukdiriji: boolean;
+  hil_sertifikaty: boolean;
+  kalibrowka_analiz: boolean;
+}
+
+export interface ISalesReport {
+  price_per_kg: string | null;
+  total_usd: string | null;
+  weight_sold_kg: string | null;
+  weight_rejected_kg: string | null;
+  transport_cost_usd: string | null;
+  market_fee_usd: string | null;
+  other_expenses_usd: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface IOverdueShipment extends IShipmentListItem {
+  days_overdue: number;
+  has_sales_report: boolean;
+}
+
 export interface IShipmentDetail extends IShipmentListItem {
+  status_code: string;
+  allowed_transitions: string[];
   box_count: number | null;
   pallet_count: number | null;
   packaging_kg: number | null;
@@ -134,4 +222,6 @@ export interface IShipmentDetail extends IShipmentListItem {
   block_sources: IBlockSource[];
   status_log: IStatusLogEntry[];
   comments: IShipmentComment[];
+  quality: IShipmentQuality | null;
+  sales_report: ISalesReport | null;
 }

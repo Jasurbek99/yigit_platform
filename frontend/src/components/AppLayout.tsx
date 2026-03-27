@@ -1,37 +1,54 @@
 import { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Layout, Menu, Button, Avatar, Dropdown, Typography } from 'antd';
+import { Layout, Menu, Button, Avatar, Dropdown, Typography, Segmented } from 'antd';
 import {
   DashboardOutlined,
   CarOutlined,
+  AppstoreOutlined,
+  PieChartOutlined,
+  CalendarOutlined,
+  DollarOutlined,
   LogoutOutlined,
   UserOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  WarningOutlined,
 } from '@ant-design/icons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import api from '@/services/api';
-import { useAuthStore } from '@/stores/authStore';
+import { useAuth } from '@/hooks/useAuth';
 
 const { Sider, Header, Content } = Layout;
-
-const NAV_ITEMS = [
-  { key: '/', icon: <DashboardOutlined />, label: 'Dashboard' },
-  { key: '/export/shipments', icon: <CarOutlined />, label: 'Shipments' },
-];
 
 export default function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
-  const user = useAuthStore((s) => s.user);
-  const setUser = useAuthStore((s) => s.setUser);
+  const { user } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
+  const { t, i18n } = useTranslation();
+
+  const currentLang = i18n.language.startsWith('tk')
+    ? 'tk'
+    : i18n.language.startsWith('ru')
+      ? 'ru'
+      : 'en';
+
+  const NAV_ITEMS = [
+    { key: '/', icon: <DashboardOutlined />, label: t('nav.dashboard') },
+    { key: '/export/shipments', icon: <CarOutlined />, label: t('nav.shipments') },
+    { key: '/export/kanban', icon: <AppstoreOutlined />, label: t('nav.kanban') },
+    { key: '/export/overdue', icon: <WarningOutlined />, label: t('nav.overdue') },
+    { key: '/export/plan', icon: <CalendarOutlined />, label: t('nav.plan') },
+    { key: '/export/quota', icon: <PieChartOutlined />, label: t('nav.quota') },
+    { key: '/export/prices', icon: <DollarOutlined />, label: t('nav.prices') },
+  ];
 
   const logoutMutation = useMutation({
     mutationFn: () => api.post('/auth/logout/'),
     onSuccess: () => {
-      setUser(null);
+      queryClient.removeQueries({ queryKey: ['auth', 'me'] });
       queryClient.clear();
       navigate('/login');
     },
@@ -41,7 +58,7 @@ export default function AppLayout() {
     {
       key: 'logout',
       icon: <LogoutOutlined />,
-      label: 'Sign Out',
+      label: t('nav.sign_out'),
       onClick: () => logoutMutation.mutate(),
     },
   ];
@@ -100,16 +117,29 @@ export default function AppLayout() {
             onClick={() => setCollapsed(!collapsed)}
           />
 
-          <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-            <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Avatar icon={<UserOutlined />} size="small" />
-              {user && (
-                <Typography.Text>
-                  {user.first_name || user.username}
-                </Typography.Text>
-              )}
-            </div>
-          </Dropdown>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <Segmented
+              size="small"
+              value={currentLang}
+              options={[
+                { label: 'ТМ', value: 'tk' },
+                { label: 'RU', value: 'ru' },
+                { label: 'EN', value: 'en' },
+              ]}
+              onChange={(lang) => i18n.changeLanguage(lang as string)}
+            />
+
+            <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
+              <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Avatar icon={<UserOutlined />} size="small" />
+                {user && (
+                  <Typography.Text>
+                    {user.first_name || user.username}
+                  </Typography.Text>
+                )}
+              </div>
+            </Dropdown>
+          </div>
         </Header>
 
         <Content style={{ margin: '16px', overflow: 'auto' }}>
