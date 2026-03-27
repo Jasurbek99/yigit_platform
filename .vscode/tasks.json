@@ -1,0 +1,80 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "YGT: Backend (Django)",
+      "type": "shell",
+      "command": "venv/bin/python manage.py runserver 8000",
+      "options": {
+        "cwd": "${workspaceFolder}/backend",
+        "env": {
+          "USE_SQLITE": "true",
+          "DJANGO_SETTINGS_MODULE": "config.settings"
+        }
+      },
+      "presentation": {
+        "group": "ygt",
+        "panel": "dedicated",
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "YGT: Frontend (Vite)",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/frontend"
+      },
+      "presentation": {
+        "group": "ygt",
+        "panel": "dedicated",
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "YGT: Run All",
+      "dependsOn": ["YGT: Backend (Django)", "YGT: Frontend (Vite)"],
+      "dependsOrder": "parallel",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "YGT: Backend Tests",
+      "type": "shell",
+      "command": "venv/bin/python manage.py test apps.export apps.core --verbosity=2",
+      "options": {
+        "cwd": "${workspaceFolder}/backend",
+        "env": {
+          "USE_SQLITE": "true"
+        }
+      },
+      "presentation": {
+        "panel": "dedicated",
+        "reveal": "always"
+      },
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "YGT: Seed Data",
+      "type": "shell",
+      "command": "venv/bin/python manage.py seed_data",
+      "options": {
+        "cwd": "${workspaceFolder}/backend",
+        "env": {
+          "USE_SQLITE": "true"
+        }
+      },
+      "presentation": {
+        "panel": "shared",
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

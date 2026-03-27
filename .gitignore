@@ -25,7 +25,8 @@ frontend/.cache/
 .env.production
 
 # IDE
-.vscode/
+.vscode/settings.json
+.vscode/launch.json
 .idea/
 *.swp
 *.swo
