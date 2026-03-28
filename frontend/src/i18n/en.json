@@ -31,6 +31,7 @@
     "quota": "Quota",
     "prices": "Prices",
     "overdue": "Overdue",
+    "advances": "Advances",
     "sign_out": "Sign Out"
   },
   "plan": {
@@ -216,6 +217,35 @@
     "no": "No",
     "empty": "No overdue shipments",
     "error_load": "Failed to load overdue data"
+  },
+  "advances": {
+    "title": "Advances Tracker",
+    "total_advances": "Total Advances",
+    "total_amount": "Total Amount",
+    "unreconciled": "Unreconciled",
+    "unreconciled_amount": "Unreconciled Amount",
+    "all": "All",
+    "pending": "Pending",
+    "reconciled": "Reconciled",
+    "batch_code": "Batch Code",
+    "date": "Date",
+    "amount": "Amount",
+    "currency": "Currency",
+    "purpose": "Purpose",
+    "shipments": "Shipments",
+    "allocated": "Allocated",
+    "status": "Status",
+    "issued_by": "Issued By",
+    "new_advance": "New Advance",
+    "reconcile": "Reconcile",
+    "empty": "No advances found",
+    "error_load": "Failed to load advances",
+    "linked_shipments": "Linked Shipments",
+    "cargo_code": "Cargo Code",
+    "allocated_amount": "Allocated Amount",
+    "no_shipments": "No shipments linked",
+    "notes": "Notes",
+    "create_success": "Advance created"
   },
   "common": {
     "empty": "—",

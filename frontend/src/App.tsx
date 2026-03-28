@@ -14,6 +14,7 @@ const WeeklyPlanGrid = lazy(() => import('@/pages/export/WeeklyPlanGrid'));
 const QuotaDashboard = lazy(() => import('@/pages/export/QuotaDashboard'));
 const PricePanel = lazy(() => import('@/pages/export/PricePanel'));
 const OverdueReports = lazy(() => import('@/pages/export/OverdueReports'));
+const AdvancesTracker = lazy(() => import('@/pages/export/AdvancesTracker'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -61,6 +62,7 @@ export default function App() {
                 <Route path="export/quota" element={<QuotaDashboard />} />
                 <Route path="export/prices" element={<PricePanel />} />
                 <Route path="export/overdue" element={<OverdueReports />} />
+                <Route path="export/advances" element={<AdvancesTracker />} />
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

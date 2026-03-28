@@ -31,6 +31,7 @@
     "quota": "Квоты",
     "prices": "Цены",
     "overdue": "Просрочено",
+    "advances": "Авансы",
     "sign_out": "Выйти"
   },
   "plan": {
@@ -216,6 +217,35 @@
     "no": "Нет",
     "empty": "Нет просроченных грузов",
     "error_load": "Не удалось загрузить данные"
+  },
+  "advances": {
+    "title": "Отслеживание авансов",
+    "total_advances": "Всего авансов",
+    "total_amount": "Общая сумма",
+    "unreconciled": "Несверено",
+    "unreconciled_amount": "Несверенная сумма",
+    "all": "Все",
+    "pending": "Ожидание",
+    "reconciled": "Сверено",
+    "batch_code": "Код партии",
+    "date": "Дата",
+    "amount": "Сумма",
+    "currency": "Валюта",
+    "purpose": "Назначение",
+    "shipments": "Грузы",
+    "allocated": "Распределено",
+    "status": "Статус",
+    "issued_by": "Выдал",
+    "new_advance": "Новый аванс",
+    "reconcile": "Сверить",
+    "empty": "Авансы не найдены",
+    "error_load": "Не удалось загрузить данные авансов",
+    "linked_shipments": "Связанные грузы",
+    "cargo_code": "Код груза",
+    "allocated_amount": "Распределённая сумма",
+    "no_shipments": "Нет связанных грузов",
+    "notes": "Примечания",
+    "create_success": "Аванс создан"
   },
   "common": {
     "empty": "—",

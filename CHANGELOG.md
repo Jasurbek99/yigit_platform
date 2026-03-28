@@ -5,6 +5,15 @@ All notable changes to the YGT Platform.
 ## [Unreleased]
 
 ### Added
+- AdvancesTracker page (`/export/advances`) — ProTable with 4 summary cards, Segmented All/Pending/Reconciled filter, expandable rows showing linked shipments, "New Advance" modal for finansist/export_manager/director, "Reconcile" inline action (feat(frontend))
+- `IFinansistAdvanceListItem`, `IFinansistAdvanceDetail`, `IAdvanceShipmentLink` types in `src/types/index.ts` (feat(frontend))
+- `useAdvances`, `useAdvanceDetail`, `useReconcileAdvance`, `useCreateAdvance` hooks — `GET/POST /api/v1/export/advances/`, `PATCH .../reconcile/`, MOCK toggle, staleTime 30s (feat(frontend))
+- `src/mock/advances.ts` — 5 advances (3 pending, 2 reconciled) with Turkmen context, realistic dates, linked shipment cargo codes (feat(frontend))
+- `advances` i18n section in all three locale files (tk/ru/en); `nav.advances` key added (feat(frontend))
+- `BankOutlined` nav item for Advances after Overdue in sidebar (feat(frontend))
+- `FinansistAdvance` + `FinansistAdvanceShipment` models (`export.finansist_advances`, `export.finansist_advance_shipments`); export migration 0007 (feat(p3))
+- `FinansistAdvanceViewSet` at `GET|POST /api/v1/export/advances/` with list/detail/create, reconcile, link-shipment, unlink-shipment custom actions (feat(p3))
+- `FinansistAdvanceListSerializer`, `FinansistAdvanceDetailSerializer`, `FinansistAdvanceCreateSerializer`, `AdvanceShipmentSerializer` (feat(p3))
 - OverdueReports page (`/export/overdue`) — ProTable with summary cards (total/avg/critical), threshold Segmented (5/7/10/14d), color-coded days column (green/orange/red), `WarningOutlined` nav item (feat(frontend))
 - `IOverdueShipment` type extending `IShipmentListItem` with `days_overdue` and `has_sales_report` fields (feat(frontend))
 - `useOverdueShipments(threshold)` hook — `GET /api/v1/export/shipments/overdue/?threshold=N`, staleTime 60s, MOCK toggle (feat(frontend))

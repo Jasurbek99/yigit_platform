@@ -31,6 +31,7 @@
     "quota": "Kwota",
     "prices": "Bahalar",
     "overdue": "Möhleti geçen",
+    "advances": "Awanslar",
     "sign_out": "Çyk"
   },
   "plan": {
@@ -216,6 +217,35 @@
     "no": "Ýok",
     "empty": "Möhleti geçen ýük ýok",
     "error_load": "Möhleti geçen maglumatlary ýükläp bolmady"
+  },
+  "advances": {
+    "title": "Avanslary yzarlamak",
+    "total_advances": "Jemi avanslar",
+    "total_amount": "Jemi möçber",
+    "unreconciled": "Deňeşdirilmedik",
+    "unreconciled_amount": "Deňeşdirilmedik möçber",
+    "all": "Hemmesi",
+    "pending": "Garaşylýar",
+    "reconciled": "Deňeşdirildi",
+    "batch_code": "Toplumy kody",
+    "date": "Sene",
+    "amount": "Möçber",
+    "currency": "Walýuta",
+    "purpose": "Maksat",
+    "shipments": "Ýükler",
+    "allocated": "Paýlanan",
+    "status": "Ýagdaý",
+    "issued_by": "Berlen",
+    "new_advance": "Täze awans",
+    "reconcile": "Deňeşdir",
+    "empty": "Awans tapylmady",
+    "error_load": "Awans maglumatlaryny ýükläp bolmady",
+    "linked_shipments": "Bagly ýükler",
+    "cargo_code": "Ýük kody",
+    "allocated_amount": "Paýlanan möçber",
+    "no_shipments": "Bagly ýük ýok",
+    "notes": "Bellikler",
+    "create_success": "Awans döredildi"
   },
   "common": {
     "empty": "—",

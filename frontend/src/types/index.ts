@@ -198,6 +198,35 @@ export interface IOverdueShipment extends IShipmentListItem {
   has_sales_report: boolean;
 }
 
+// ─── Advances ─────────────────────────────────────────────────────────────
+
+export interface IAdvanceShipmentLink {
+  shipment: number;
+  shipment_cargo_code: string;
+  allocated_amount: number | null;
+}
+
+export interface IFinansistAdvanceListItem {
+  id: number;
+  batch_code: string | null;
+  advance_date: string;
+  total_amount: number;
+  currency: string;
+  purpose: string | null;
+  issued_by: number;
+  issued_by_name: string;
+  reconciled: boolean;
+  reconciled_at: string | null;
+  created_at: string;
+  shipment_count: number;
+  allocated_total: number;
+}
+
+export interface IFinansistAdvanceDetail extends IFinansistAdvanceListItem {
+  notes: string | null;
+  shipment_links: IAdvanceShipmentLink[];
+}
+
 export interface IShipmentDetail extends IShipmentListItem {
   status_code: string;
   allowed_transitions: string[];

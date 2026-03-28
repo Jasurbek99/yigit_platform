@@ -1,4 +1,5 @@
 import re
+from decimal import Decimal
 
 from rest_framework import serializers
 
@@ -6,6 +7,8 @@ from apps.core.models import Country, Customer, Season
 from apps.core.permissions import can_edit_field, PRIVILEGED_ROLES
 from apps.export.services import TRANSITIONS
 from apps.export.models import (
+    FinansistAdvance,
+    FinansistAdvanceShipment,
     QualityDocument,
     SalesReport,
     Shipment,
@@ -240,3 +243,102 @@ class ShipmentCreateSerializer(serializers.Serializer):
                 "A shipment with this cargo code already exists"
             )
         return value
+
+
+# ---------------------------------------------------------------------------
+# FinansistAdvance serializers
+# ---------------------------------------------------------------------------
+
+class AdvanceShipmentSerializer(serializers.ModelSerializer):
+    """Nested serializer for a single shipment link inside an advance."""
+
+    shipment_cargo_code = serializers.CharField(
+        source='shipment.cargo_code', read_only=True
+    )
+
+    class Meta:
+        model = FinansistAdvanceShipment
+        fields = ['shipment', 'shipment_cargo_code', 'allocated_amount']
+
+
+class FinansistAdvanceListSerializer(serializers.ModelSerializer):
+    """Lightweight list serializer — no shipment rows, just aggregated counts.
+
+    Used by GET /api/v1/export/advances/.
+    """
+
+    issued_by_name = serializers.CharField(source='issued_by.username', read_only=True)
+    # Read from queryset annotations (set in FinansistAdvanceViewSet.get_queryset)
+    # to avoid N+1 queries on the list endpoint.
+    shipment_count = serializers.IntegerField(source='shipment_count_ann', read_only=True)
+    allocated_total = serializers.DecimalField(
+        source='allocated_total_ann', max_digits=12, decimal_places=2, read_only=True
+    )
+
+    class Meta:
+        model = FinansistAdvance
+        fields = [
+            'id',
+            'batch_code',
+            'advance_date',
+            'total_amount',
+            'currency',
+            'purpose',
+            'issued_by',
+            'issued_by_name',
+            'reconciled',
+            'reconciled_at',
+            'created_at',
+            'shipment_count',
+            'allocated_total',
+        ]
+
+
+class FinansistAdvanceDetailSerializer(FinansistAdvanceListSerializer):
+    """Full detail serializer — adds shipment links and notes.
+
+    Used by GET /api/v1/export/advances/{id}/.
+    """
+
+    shipment_links = AdvanceShipmentSerializer(many=True, read_only=True)
+
+    class Meta(FinansistAdvanceListSerializer.Meta):
+        fields = FinansistAdvanceListSerializer.Meta.fields + [
+            'notes',
+            'shipment_links',
+        ]
+
+
+class FinansistAdvanceCreateSerializer(serializers.Serializer):
+    """Validates POST /api/v1/export/advances/ request body.
+
+    Accepts an optional list of shipment IDs to link at creation time.
+    Each ID is validated to exist before the advance record is written.
+    """
+
+    batch_code = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    advance_date = serializers.DateField()
+    total_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+    currency = serializers.CharField(max_length=10, default='USD')
+    purpose = serializers.CharField(max_length=200, required=False, allow_blank=True)
+    notes = serializers.CharField(max_length=500, required=False, allow_blank=True)
+    shipment_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        required=False,
+        allow_empty=True,
+        default=list,
+    )
+
+    def validate_shipment_ids(self, ids: list[int]) -> list[int]:
+        """Ensure all provided shipment IDs exist in the database."""
+        if not ids:
+            return ids
+        found_ids = set(
+            Shipment.objects.filter(id__in=ids).values_list('id', flat=True)
+        )
+        missing = [sid for sid in ids if sid not in found_ids]
+        if missing:
+            raise serializers.ValidationError(
+                f"Shipment IDs not found: {missing}"
+            )
+        return ids
