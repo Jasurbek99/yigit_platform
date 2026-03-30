@@ -79,22 +79,7 @@ class SeasonSerializer(serializers.ModelSerializer):
 class ExportFirmSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExportFirm
-        # Include the standard name fields; quota_allocated_kg is a balance field.
-        fields = [
-            'id', 'name', 'name_en', 'name_ru', 'name_tk',
-            'quota_allocated_kg', 'is_active',
-        ]
-
-    def to_representation(self, instance):
-        # Gracefully handle optional/missing fields on ExportFirm variants.
-        rep = {}
-        for field_name, field in self.fields.items():
-            try:
-                value = field.to_representation(field.get_attribute(instance))
-            except Exception:
-                value = None
-            rep[field_name] = value
-        return rep
+        fields = ['id', 'code', 'name_tk', 'name_en', 'name_ru', 'is_active']
 
 
 class UserListSerializer(serializers.ModelSerializer):
@@ -171,7 +156,7 @@ class AuditLogViewSet(ReadOnlyModelViewSet):
 
     def get_queryset(self):
         _require_role(self.request.user, _DIRECTOR_MANAGER, 'view audit logs')
-        qs = super().get_queryset()
+        qs = AuditLog.objects.select_related('user').order_by('-created_at')
         params = self.request.query_params
         if model_name := params.get('model_name'):
             qs = qs.filter(model_name=model_name)
@@ -233,10 +218,12 @@ class UserManagementViewSet(ModelViewSet):
     PATCH /api/v1/export/admin/users/{id}/  — update role + is_active (director only)
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, write_permission(*_DIRECTOR_ONLY)]
     http_method_names = ['get', 'patch', 'head', 'options']  # no POST/DELETE/PUT
 
-    queryset = User.objects.all().order_by('username')
+    def get_queryset(self):
+        _require_role(self.request.user, _DIRECTOR_MANAGER, 'view user list')
+        return User.objects.all().order_by('username')
 
     def get_serializer_class(self):
         if self.request.method == 'PATCH':

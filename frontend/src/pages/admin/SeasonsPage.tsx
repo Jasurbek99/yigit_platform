@@ -13,8 +13,8 @@ import type { ISeason } from '@/types';
 
 interface SeasonFormValues {
   name: string;
-  start_date: string;
-  end_date: string;
+  start_date: string | dayjs.Dayjs;
+  end_date: string | dayjs.Dayjs;
   is_active: boolean;
 }
 
@@ -83,10 +83,10 @@ export default function SeasonsPage() {
     const payload = {
       ...values,
       start_date: dayjs.isDayjs(values.start_date)
-        ? (values.start_date as unknown as dayjs.Dayjs).format('YYYY-MM-DD')
+        ? values.start_date.format('YYYY-MM-DD')
         : values.start_date,
       end_date: dayjs.isDayjs(values.end_date)
-        ? (values.end_date as unknown as dayjs.Dayjs).format('YYYY-MM-DD')
+        ? values.end_date.format('YYYY-MM-DD')
         : values.end_date,
     };
     if (editTarget) {

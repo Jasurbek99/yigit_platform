@@ -2,7 +2,7 @@ import logging
 
 from django.db import models
 
-from apps.core.db_utils import schema_table
+from apps.core.db_utils import cyrillic_collation, schema_table
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ class Notification(models.Model):
 
     # === Content ===
     kind = models.CharField(max_length=30, choices=KIND_CHOICES)
-    message = models.CharField(max_length=500)
+    message = models.CharField(max_length=500, **cyrillic_collation())
     link = models.CharField(max_length=200, blank=True, null=True)
 
     # === Read state ===

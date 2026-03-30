@@ -72,9 +72,15 @@ export default function App() {
                 <Route path="export/trucks" element={<TruckForecast />} />
                 <Route path="export/blocks" element={<BlockSummary />} />
                 <Route path="export/domestic-sales" element={<DomesticSales />} />
-                <Route path="admin/seasons" element={<SeasonsPage />} />
-                <Route path="admin/firms" element={<ExportFirmsPage />} />
-                <Route path="admin/users" element={<UsersPage />} />
+                <Route path="admin/seasons" element={
+                  <ProtectedRoute roles={['director']}><SeasonsPage /></ProtectedRoute>
+                } />
+                <Route path="admin/firms" element={
+                  <ProtectedRoute roles={['director']}><ExportFirmsPage /></ProtectedRoute>
+                } />
+                <Route path="admin/users" element={
+                  <ProtectedRoute roles={['director']}><UsersPage /></ProtectedRoute>
+                } />
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

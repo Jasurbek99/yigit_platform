@@ -112,6 +112,7 @@ export default function AppLayout() {
     function handleResize() {
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
+      setCollapsed(mobile);
     }
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);

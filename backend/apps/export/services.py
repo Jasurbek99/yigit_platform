@@ -73,6 +73,14 @@ def _send_quota_notifications(quota_obj: 'QuotaAllocation') -> None:
         (95, 'quota_95', 'warning_95_sent'),
     ]
 
+    # Fetch target user IDs once — avoids N+1 if multiple thresholds trigger.
+    target_user_ids = list(
+        User.objects.filter(
+            role__in=['export_manager', 'director'],
+            is_active=True,
+        ).values_list('id', flat=True)
+    )
+
     flags_to_update = []
     notifications_to_create = []
 
@@ -84,12 +92,7 @@ def _send_quota_notifications(quota_obj: 'QuotaAllocation') -> None:
             )
             link = f'/export/quotas/?firm={quota_obj.export_firm_id}'
 
-            target_users = User.objects.filter(
-                role__in=['export_manager', 'director'],
-                is_active=True,
-            ).values_list('id', flat=True)
-
-            for user_id in target_users:
+            for user_id in target_user_ids:
                 notifications_to_create.append(
                     Notification(
                         user_id=user_id,

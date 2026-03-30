@@ -13,14 +13,14 @@ export function useNotifications() {
       return data.results ?? [];
     },
     refetchInterval: 30_000,
-    staleTime: 20_000,
+    staleTime: 30_000,
   });
 }
 
 export function useMarkAllRead() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => api.post('/export/notifications/read-all/'),
+    mutationFn: () => api.post('/export/notifications/read_all/'),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
   });
 }
