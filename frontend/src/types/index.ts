@@ -221,8 +221,8 @@ export interface IBlockSummary {
   block_code: string;
   block_name: string;
   total_plan_kg: number;
-  total_actual_kg: number;
-  deficit_kg: number;
+  total_actual_kg: number | null;  // null when no actuals entered for the week
+  deficit_kg: number | null;        // null when total_actual_kg is null
 }
 
 // ─── Domestic Sales ────────────────────────────────────────────────────────

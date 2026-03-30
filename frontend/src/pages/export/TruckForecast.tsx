@@ -61,7 +61,10 @@ export default function TruckForecast() {
       title: t('truck.day'),
       dataIndex: 'day_of_week',
       width: 80,
-      render: (_, record) => t(`truck.${DAY_KEYS[record.day_of_week - 1]}`),
+      render: (_, record) => {
+        const key = DAY_KEYS[record.day_of_week - 1];
+        return key ? t(`truck.${key}`) : String(record.day_of_week);
+      },
     },
     {
       title: t('truck.planned_kg'),

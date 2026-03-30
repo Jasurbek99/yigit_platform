@@ -1,4 +1,8 @@
 import logging
+from decimal import Decimal
+
+from django.db.models import Sum
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 from apps.export.models import Shipment, ShipmentStatusLog
@@ -42,6 +46,37 @@ TRANSITIONS = {
 
 # Roles that may override role restrictions and trigger any valid transition.
 PRIVILEGED_ROLES = {'export_manager', 'director'}
+
+
+def _refresh_quota_usage(shipment: 'Shipment') -> None:
+    """Recalculate used_kg for all QuotaAllocation rows affected by this shipment.
+
+    Called after a shipment enters yuklenme (loading committed). Sums all firm
+    split weights for the affected firms in the same season.
+    """
+    from apps.export.models import ShipmentFirmSplit, QuotaAllocation
+
+    if not shipment.season_id:
+        return
+
+    firm_ids = list(
+        ShipmentFirmSplit.objects.filter(shipment=shipment)
+        .values_list('export_firm_id', flat=True)
+        .distinct()
+    )
+    if not firm_ids:
+        return
+
+    for firm_id in firm_ids:
+        total = ShipmentFirmSplit.objects.filter(
+            shipment__season_id=shipment.season_id,
+            export_firm_id=firm_id,
+        ).aggregate(total=Coalesce(Sum('weight_kg'), Decimal('0')))['total']
+
+        QuotaAllocation.objects.filter(
+            season_id=shipment.season_id,
+            export_firm_id=firm_id,
+        ).update(used_kg=total)
 
 
 def transition_to(shipment: Shipment, new_status_code: str, user, comment: str = '') -> None:
@@ -117,3 +152,7 @@ def transition_to(shipment: Shipment, new_status_code: str, user, comment: str =
         new_status_code,
         user.username,
     )
+
+    # Refresh quota usage when a shipment commits to loading
+    if new_status_code == 'yuklenme':
+        _refresh_quota_usage(shipment)

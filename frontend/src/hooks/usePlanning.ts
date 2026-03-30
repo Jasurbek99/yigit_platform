@@ -54,7 +54,7 @@ export function usePriceEntries(days = 7) {
     queryKey: ['price-entries', days],
     queryFn: async (): Promise<IPriceEntry[]> => {
       if (USE_MOCK) return MOCK_PRICE_ENTRIES;
-      const { data } = await api.get<IApiListResponse<IPriceEntry>>(`/export/prices/?days=${days}`);
+      const { data } = await api.get<IApiListResponse<IPriceEntry>>(`/export/prices/?days=${days}&page_size=500`);
       return data.results;
     },
     staleTime: 300_000,
@@ -126,6 +126,7 @@ export function useDomesticSales(
       if (filters.block) params.set('block', String(filters.block));
       if (filters.buyer) params.set('buyer', String(filters.buyer));
       if (filters.page) params.set('page', String(filters.page));
+      params.set('page_size', '1000');
       const { data } = await api.get<IApiListResponse<IDomesticSale>>(
         `/export/domestic-sales/?${params}`,
       );

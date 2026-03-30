@@ -5,10 +5,12 @@ from decimal import Decimal
 from django.db.models import F
 from django.utils import timezone
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 
+from apps.core.permissions import write_permission
 from apps.export.models import WeeklyHarvestPlan, WeeklyTruckAllocation, QuotaAllocation, PriceEntry, DomesticSale
 from apps.export.serializers_planning import (
     WeeklyHarvestPlanSerializer,
@@ -21,6 +23,17 @@ from apps.export.serializers_planning import (
 
 logger = logging.getLogger(__name__)
 
+_PLAN_WRITE_ROLES = frozenset({'greenhouse_manager', 'export_manager', 'director'})
+_TRUCK_WRITE_ROLES = frozenset({'export_manager', 'director'})
+_DOMESTIC_WRITE_ROLES = frozenset({'warehouse_chief', 'greenhouse_manager', 'export_manager', 'director'})
+_PRICE_WRITE_ROLES = frozenset({'export_manager', 'finansist', 'director'})
+
+
+def _check_write_role(user, allowed: frozenset, action: str = 'write') -> None:
+    """Raise PermissionDenied if user.role is not in allowed set."""
+    if getattr(user, 'role', None) not in allowed:
+        raise PermissionDenied(f"Role '{user.role}' is not allowed to {action}.")
+
 
 class WeeklyHarvestPlanViewSet(ModelViewSet):
     """
@@ -30,7 +43,7 @@ class WeeklyHarvestPlanViewSet(ModelViewSet):
     PUT    /api/v1/export/harvest-plans/{id}/       — update plan values
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, write_permission(*_PLAN_WRITE_ROLES)]
     serializer_class = WeeklyHarvestPlanSerializer
     http_method_names = ['get', 'post', 'put', 'head', 'options']
 
@@ -61,12 +74,18 @@ class WeeklyHarvestPlanViewSet(ModelViewSet):
     def block_summary(self, request):
         """GET /api/v1/export/harvest-plans/block-summary/?season=&year=&week=
 
-        Returns per-block aggregate totals across all 6 days:
-        total_plan_kg, total_actual_kg, deficit_kg (actual - plan).
-
-        Iterates max 15 rows (one per block per week) in Python — safe for MSSQL.
+        Returns per-block aggregate totals across all 6 days.
+        Does NOT filter by ?block= — always returns all blocks for the given week.
         """
-        qs = self.get_queryset().select_related('block')
+        # Build queryset independently — do NOT inherit the ?block= filter from get_queryset()
+        qs = WeeklyHarvestPlan.objects.select_related('block')
+        params = request.query_params
+        if season := params.get('season'):
+            qs = qs.filter(season_id=season)
+        if year := params.get('year'):
+            qs = qs.filter(year=year)
+        if week := params.get('week'):
+            qs = qs.filter(week_number=week)
 
         DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
 
@@ -141,7 +160,7 @@ class PriceEntryViewSet(ModelViewSet):
     POST  /api/v1/export/prices/          — create new price entry
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, write_permission(*_PRICE_WRITE_ROLES)]
     serializer_class = PriceEntrySerializer
     http_method_names = ['get', 'post', 'head', 'options']
 
@@ -172,7 +191,7 @@ class WeeklyTruckAllocationViewSet(ModelViewSet):
     PATCH  /api/v1/export/truck-allocations/{id}/   — partial update; recomputes if kg changed
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, write_permission(*_TRUCK_WRITE_ROLES)]
     serializer_class = WeeklyTruckAllocationSerializer
     http_method_names = ['get', 'post', 'put', 'patch', 'head', 'options']
     filterset_fields = ['season', 'year', 'week_number']
@@ -208,12 +227,12 @@ class WeeklyTruckAllocationViewSet(ModelViewSet):
 
 class DomesticSaleViewSet(ModelViewSet):
     """
-    GET    /api/v1/export/domestic-sales/        — list (filter ?block=&buyer=&export_firm=)
+    GET    /api/v1/export/domestic-sales/        — list (filter ?block=&buyer=&export_firm=&date_from=&date_to=)
     POST   /api/v1/export/domestic-sales/        — create
     PATCH  /api/v1/export/domestic-sales/{id}/   — partial update
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, write_permission(*_DOMESTIC_WRITE_ROLES)]
     serializer_class = DomesticSaleSerializer
     http_method_names = ['get', 'post', 'patch', 'head', 'options']
     filterset_fields = ['block', 'buyer', 'export_firm']
@@ -222,6 +241,15 @@ class DomesticSaleViewSet(ModelViewSet):
     queryset = DomesticSale.objects.select_related(
         'buyer', 'block', 'export_firm', 'created_by'
     ).order_by('-date', '-id')
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        params = self.request.query_params
+        if date_from := params.get('date_from'):
+            qs = qs.filter(date__gte=date_from)
+        if date_to := params.get('date_to'):
+            qs = qs.filter(date__lte=date_to)
+        return qs
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)

@@ -23,7 +23,7 @@ class WeeklyTruckAllocation(models.Model):
     # === Planned volume ===
     total_planned_kg = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     # Stored computed value: total_planned_kg / 18500
-    total_trucks_calc = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    total_trucks_calc = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
 
     # === Truck split ===
     russia_trucks = models.IntegerField(default=0)
@@ -41,6 +41,11 @@ class WeeklyTruckAllocation(models.Model):
         db_table = schema_table('export', 'weekly_truck_allocations')
         unique_together = [('season', 'week_number', 'year', 'day_of_week')]
         ordering = ['year', 'week_number', 'day_of_week']
+        constraints = [
+            models.CheckConstraint(check=models.Q(russia_trucks__gte=0), name='chk_trk_russia_gte0'),
+            models.CheckConstraint(check=models.Q(kazakhstan_trucks__gte=0), name='chk_trk_kz_gte0'),
+            models.CheckConstraint(check=models.Q(gapy_satys_trucks__gte=0), name='chk_trk_gapy_gte0'),
+        ]
 
     def __str__(self) -> str:
         return f'W{self.week_number}/{self.year} day={self.day_of_week} — {self.total_trucks_calc} trucks'
@@ -89,7 +94,18 @@ class WeeklyHarvestPlan(models.Model):
             models.UniqueConstraint(
                 fields=['season', 'block', 'week_number', 'year'],
                 name='uq_weekly_plan',
-            )
+            ),
+            models.CheckConstraint(
+                check=(
+                    models.Q(monday_plan_kg__gte=0) &
+                    models.Q(tuesday_plan_kg__gte=0) &
+                    models.Q(wednesday_plan_kg__gte=0) &
+                    models.Q(thursday_plan_kg__gte=0) &
+                    models.Q(friday_plan_kg__gte=0) &
+                    models.Q(saturday_plan_kg__gte=0)
+                ),
+                name='chk_harvest_plan_kg_gte0',
+            ),
         ]
         ordering = ['year', 'week_number', 'block']
 
@@ -120,7 +136,9 @@ class QuotaAllocation(models.Model):
             models.UniqueConstraint(
                 fields=['season', 'export_firm'],
                 name='uq_quota_season_firm',
-            )
+            ),
+            models.CheckConstraint(check=models.Q(used_kg__gte=0), name='chk_quota_used_kg_gte0'),
+            models.CheckConstraint(check=models.Q(granted_kg__gt=0), name='chk_quota_granted_kg_gt0'),
         ]
         ordering = ['export_firm__name_en']
 

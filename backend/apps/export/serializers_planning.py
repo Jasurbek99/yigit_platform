@@ -16,7 +16,7 @@ class WeeklyHarvestPlanSerializer(serializers.ModelSerializer):
 
     def get_total_plan_kg(self, obj: WeeklyHarvestPlan) -> Decimal:
         fields = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-        return sum(getattr(obj, f'{d}_plan_kg') or Decimal('0') for d in fields)
+        return sum(getattr(obj, f'{d}_plan_kg') for d in fields)
 
     def get_total_actual_kg(self, obj: WeeklyHarvestPlan) -> Decimal | None:
         fields = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
@@ -41,8 +41,14 @@ class WeeklyHarvestPlanSerializer(serializers.ModelSerializer):
 
 
 class QuotaAllocationSerializer(serializers.ModelSerializer):
-    export_firm_name = serializers.CharField(source='export_firm.name_en', read_only=True)
+    export_firm_name = serializers.SerializerMethodField()
     season_name = serializers.CharField(source='season.name', read_only=True)
+
+    def get_export_firm_name(self, obj: QuotaAllocation) -> str | None:
+        firm = obj.export_firm
+        if not firm:
+            return None
+        return firm.name_en or firm.name_tk
 
     class Meta:
         model = QuotaAllocation
@@ -51,6 +57,7 @@ class QuotaAllocationSerializer(serializers.ModelSerializer):
             'granted_kg', 'used_kg',
             'warning_80_sent', 'warning_90_sent', 'warning_95_sent',
         ]
+        read_only_fields = ['used_kg', 'warning_80_sent', 'warning_90_sent', 'warning_95_sent']
 
 
 class QuotaDashboardSerializer(QuotaAllocationSerializer):
@@ -62,7 +69,8 @@ class QuotaDashboardSerializer(QuotaAllocationSerializer):
     def get_used_pct(self, obj: QuotaAllocation) -> float:
         if not obj.granted_kg:
             return 0.0
-        return round(float(obj.used_kg) / float(obj.granted_kg) * 100, 1)
+        pct = (obj.used_kg / obj.granted_kg * Decimal('100')).quantize(Decimal('0.1'))
+        return float(pct)
 
     class Meta(QuotaAllocationSerializer.Meta):
         fields = QuotaAllocationSerializer.Meta.fields + ['remaining_kg', 'used_pct']
@@ -96,9 +104,13 @@ class DomesticSaleSerializer(serializers.ModelSerializer):
     buyer_name = serializers.CharField(source='buyer.name', read_only=True)
     block_code = serializers.CharField(source='block.code', read_only=True)
     block_name = serializers.CharField(source='block.name', read_only=True)
-    export_firm_name = serializers.CharField(
-        source='export_firm.name_en', allow_null=True, read_only=True,
-    )
+    export_firm_name = serializers.SerializerMethodField()
+
+    def get_export_firm_name(self, obj: DomesticSale) -> str | None:
+        if not obj.export_firm_id:
+            return None
+        firm = obj.export_firm
+        return firm.name_en or firm.name_tk
     created_by_name = serializers.CharField(source='created_by.username', read_only=True)
 
     class Meta:

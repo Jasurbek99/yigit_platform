@@ -24,7 +24,8 @@ import type { ColumnsType } from 'antd/es/table';
 dayjs.extend(isoWeek);
 dayjs.extend(weekOfYear);
 
-function fmtKg(val: number): string {
+function fmtKg(val: number | null | undefined): string {
+  if (val == null) return '—';
   return Number(val).toLocaleString();
 }
 
@@ -39,9 +40,15 @@ export default function BlockSummary() {
   const { data: rows = [], isLoading, isError } = useBlockSummary({ year, week_number: weekNumber });
 
   const totalPlan = rows.reduce((s, r) => s + r.total_plan_kg, 0);
-  const totalActual = rows.reduce((s, r) => s + r.total_actual_kg, 0);
-  const totalDeficit = totalActual - totalPlan;
-  const completionPct = totalPlan > 0 ? Math.round((totalActual / totalPlan) * 100) : 0;
+  const hasAnyActual = rows.some((r) => r.total_actual_kg != null);
+  const totalActual = hasAnyActual
+    ? rows.reduce((s, r) => s + (r.total_actual_kg ?? 0), 0)
+    : null;
+  const totalDeficit = totalActual != null ? totalActual - totalPlan : null;
+  const completionPct =
+    totalActual != null && totalPlan > 0
+      ? Math.round((totalActual / totalPlan) * 100)
+      : null;
 
   const columns: ColumnsType<IBlockSummary> = [
     {
@@ -68,29 +75,40 @@ export default function BlockSummary() {
       dataIndex: 'total_actual_kg',
       align: 'right',
       width: 130,
-      render: (val: number) => (
-        <span style={{ color: '#52c41a' }}>{fmtKg(val)}</span>
-      ),
+      render: (_, record: IBlockSummary) =>
+        record.total_actual_kg != null ? (
+          <span style={{ color: '#52c41a' }}>{fmtKg(record.total_actual_kg)}</span>
+        ) : (
+          <span style={{ color: '#bfbfbf' }}>—</span>
+        ),
     },
     {
       title: t('block_summary.deficit'),
       dataIndex: 'deficit_kg',
       align: 'right',
       width: 130,
-      render: (val: number) => (
-        <span style={{ color: val >= 0 ? '#52c41a' : '#ff4d4f', fontWeight: 500 }}>
-          {val >= 0 ? '+' : ''}{fmtKg(val)}
-        </span>
-      ),
+      render: (_, record: IBlockSummary) => {
+        const val = record.deficit_kg;
+        if (val == null) return <span style={{ color: '#bfbfbf' }}>—</span>;
+        return (
+          <span style={{ color: val >= 0 ? '#52c41a' : '#ff4d4f', fontWeight: 500 }}>
+            {val >= 0 ? '+' : ''}{fmtKg(val)}
+          </span>
+        );
+      },
     },
     {
       title: t('block_summary.completion'),
       key: 'completion',
       width: 160,
       render: (_: unknown, record: IBlockSummary) => {
-        const pct = record.total_plan_kg > 0
-          ? Math.min(100, Math.round((record.total_actual_kg / record.total_plan_kg) * 100))
-          : 0;
+        if (record.total_actual_kg == null) {
+          return <span style={{ color: '#bfbfbf' }}>—</span>;
+        }
+        const pct =
+          record.total_plan_kg > 0
+            ? Math.min(100, Math.round((record.total_actual_kg / record.total_plan_kg) * 100))
+            : 0;
         return (
           <Progress
             percent={pct}
@@ -122,10 +140,10 @@ export default function BlockSummary() {
           picker="week"
           value={selectedWeek}
           onChange={(val) => val && setSelectedWeek(val)}
-          format={(d) => `${t('truck.week')} ${d.isoWeek()}, ${d.isoWeekYear()}`}
+          format={(d) => `${t('block_summary.week')} ${d.isoWeek()}, ${d.isoWeekYear()}`}
         />
         <Typography.Text type="secondary">
-          {t('truck.week')} {weekNumber} · {year}
+          {t('block_summary.week')} {weekNumber} · {year}
         </Typography.Text>
       </div>
 
@@ -143,7 +161,7 @@ export default function BlockSummary() {
           <Card size="small">
             <Statistic
               title={t('block_summary.total_actual')}
-              value={fmtKg(totalActual)}
+              value={totalActual != null ? fmtKg(totalActual) : '—'}
               valueStyle={{ color: '#52c41a' }}
             />
           </Card>
@@ -152,8 +170,19 @@ export default function BlockSummary() {
           <Card size="small">
             <Statistic
               title={t('block_summary.total_deficit')}
-              value={`${totalDeficit >= 0 ? '+' : ''}${fmtKg(totalDeficit)}`}
-              valueStyle={{ color: totalDeficit >= 0 ? '#52c41a' : '#ff4d4f' }}
+              value={
+                totalDeficit != null
+                  ? `${totalDeficit >= 0 ? '+' : ''}${fmtKg(totalDeficit)}`
+                  : '—'
+              }
+              valueStyle={{
+                color:
+                  totalDeficit == null
+                    ? undefined
+                    : totalDeficit >= 0
+                    ? '#52c41a'
+                    : '#ff4d4f',
+              }}
             />
           </Card>
         </Col>
@@ -161,9 +190,18 @@ export default function BlockSummary() {
           <Card size="small">
             <Statistic
               title={t('block_summary.completion')}
-              value={completionPct}
-              suffix="%"
-              valueStyle={{ color: completionPct >= 95 ? '#52c41a' : completionPct < 80 ? '#ff4d4f' : '#faad14' }}
+              value={completionPct != null ? completionPct : '—'}
+              suffix={completionPct != null ? '%' : ''}
+              valueStyle={{
+                color:
+                  completionPct == null
+                    ? undefined
+                    : completionPct >= 95
+                    ? '#52c41a'
+                    : completionPct < 80
+                    ? '#ff4d4f'
+                    : '#faad14',
+              }}
             />
           </Card>
         </Col>

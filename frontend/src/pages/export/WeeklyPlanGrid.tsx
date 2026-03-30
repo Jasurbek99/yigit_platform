@@ -120,8 +120,8 @@ export default function WeeklyPlanGrid() {
           size="small"
           bordered
           summary={(rows) => {
-            const totalPlan = rows.reduce((s, r) => s + (r.total_plan_kg || 0), 0);
-            const totalActual = rows.reduce((s, r) => s + (r.total_actual_kg || 0), 0);
+            const totalPlan = rows.reduce((s, r) => s + (r.total_plan_kg ?? 0), 0);
+            const totalActual = rows.reduce((s, r) => s + (r.total_actual_kg ?? 0), 0);
             return (
               <Table.Summary.Row style={{ fontWeight: 600, background: '#fafafa' }}>
                 <Table.Summary.Cell index={0}>{t('plan.total')}</Table.Summary.Cell>
