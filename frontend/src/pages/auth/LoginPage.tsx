@@ -50,7 +50,7 @@ export default function LoginPage() {
         background: '#f0f2f5',
       }}
     >
-      <Card style={{ width: 380, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+      <Card style={{ width: '100%', maxWidth: 380, margin: '0 16px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <Title level={3} style={{ marginBottom: 4 }}>{t('login.title')}</Title>
           <Typography.Text type="secondary">{t('login.subtitle')}</Typography.Text>

@@ -218,6 +218,7 @@ export default function OverdueReports() {
         search={false}
         options={false}
         pagination={{ pageSize: 20, showSizeChanger: false }}
+        scroll={{ x: 600 }}
         onRow={(record) => ({
           onClick: () => handleRowClick(record),
           style: { cursor: 'pointer' },

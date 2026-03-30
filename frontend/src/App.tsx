@@ -18,6 +18,9 @@ const AdvancesTracker = lazy(() => import('@/pages/export/AdvancesTracker'));
 const TruckForecast = lazy(() => import('@/pages/export/TruckForecast'));
 const BlockSummary = lazy(() => import('@/pages/export/BlockSummary'));
 const DomesticSales = lazy(() => import('@/pages/export/DomesticSales'));
+const SeasonsPage = lazy(() => import('@/pages/admin/SeasonsPage'));
+const ExportFirmsPage = lazy(() => import('@/pages/admin/ExportFirmsPage'));
+const UsersPage = lazy(() => import('@/pages/admin/UsersPage'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -69,6 +72,9 @@ export default function App() {
                 <Route path="export/trucks" element={<TruckForecast />} />
                 <Route path="export/blocks" element={<BlockSummary />} />
                 <Route path="export/domestic-sales" element={<DomesticSales />} />
+                <Route path="admin/seasons" element={<SeasonsPage />} />
+                <Route path="admin/firms" element={<ExportFirmsPage />} />
+                <Route path="admin/users" element={<UsersPage />} />
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

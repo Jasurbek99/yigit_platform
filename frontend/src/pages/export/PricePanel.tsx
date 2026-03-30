@@ -77,7 +77,7 @@ export default function PricePanel() {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         <Typography.Title level={4} style={{ margin: 0 }}>{t('prices.title')}</Typography.Title>
         <Segmented
           options={[

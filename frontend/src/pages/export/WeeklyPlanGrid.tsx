@@ -100,6 +100,7 @@ export default function WeeklyPlanGrid() {
           value={selectedWeek}
           onChange={(val) => val && setSelectedWeek(val)}
           format={(d) => `${t('plan.week')} ${d.isoWeek()}, ${d.isoWeekYear()}`}
+          style={{ width: '100%', maxWidth: 220 }}
         />
         <Typography.Text type="secondary">
           {t('plan.week')} {weekNumber} · {year} · {plans.length} {t('plan.blocks')}
@@ -116,7 +117,7 @@ export default function WeeklyPlanGrid() {
           dataSource={plans}
           columns={columns}
           pagination={false}
-          scroll={{ x: 1200 }}
+          scroll={{ x: 1400 }}
           size="small"
           bordered
           summary={(rows) => {

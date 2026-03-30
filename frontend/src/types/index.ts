@@ -275,6 +275,37 @@ export interface IFinansistAdvanceDetail extends IFinansistAdvanceListItem {
   shipment_links: IAdvanceShipmentLink[];
 }
 
+// ─── Admin ─────────────────────────────────────────────────────────────────
+
+export interface ISeason {
+  id: number;
+  name: string;
+  start_date: string;
+  end_date: string;
+  is_active: boolean;
+}
+
+export interface IAdminUser {
+  id: number;
+  username: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  role: UserRole;
+  is_active: boolean;
+}
+
+export interface INotification {
+  id: number;
+  kind: 'quota_80' | 'quota_90' | 'quota_95' | 'quota_100' | 'overdue';
+  message: string;
+  link: string | null;
+  read_at: string | null;
+  created_at: string;
+}
+
+// ─── Shipment (detail) ────────────────────────────────────────────────────
+
 export interface IShipmentDetail extends IShipmentListItem {
   status_code: string;
   allowed_transitions: string[];

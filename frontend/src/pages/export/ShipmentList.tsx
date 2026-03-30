@@ -177,7 +177,7 @@ export default function ShipmentList() {
         style={{
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'center',
+          alignItems: 'flex-start',
           marginBottom: 16,
           flexWrap: 'wrap',
           gap: 8,
@@ -186,8 +186,9 @@ export default function ShipmentList() {
         <Typography.Title level={4} style={{ margin: 0 }}>
           {t('shipments.title')}
         </Typography.Title>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <Segmented
+            size="small"
             options={[
               { label: t('shipments.all'), value: 'all' },
               { label: t('shipments.my_work'), value: 'my_work' },
@@ -196,11 +197,12 @@ export default function ShipmentList() {
             onChange={handleViewModeChange}
           />
           <Dropdown menu={{ items: exportMenuItems }} placement="bottomRight">
-            <Button icon={<DownloadOutlined />}>{t('shipments.export')}</Button>
+            <Button size="small" icon={<DownloadOutlined />}>{t('shipments.export')}</Button>
           </Dropdown>
           {canCreate && (
             <Button
               type="primary"
+              size="small"
               icon={<PlusOutlined />}
               onClick={() => setCreateModalOpen(true)}
             >

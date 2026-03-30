@@ -133,13 +133,14 @@ export default function TruckForecast() {
           value={selectedWeek}
           onChange={(val) => val && setSelectedWeek(val)}
           format={(d) => `${t('truck.week')} ${d.isoWeek()}, ${d.isoWeekYear()}`}
+          style={{ width: '100%', maxWidth: 220 }}
         />
         <Typography.Text type="secondary">
           {t('truck.week')} {weekNumber} · {year}
         </Typography.Text>
       </div>
 
-      <Row gutter={16} style={{ marginBottom: 16 }}>
+      <Row gutter={[16, 12]} style={{ marginBottom: 16 }}>
         <Col xs={12} sm={6}>
           <Card size="small">
             <Statistic
@@ -180,6 +181,7 @@ export default function TruckForecast() {
         pagination={false}
         size="small"
         cardBordered
+        scroll={{ x: 600 }}
         locale={{ emptyText: t('truck.empty') }}
       />
     </div>

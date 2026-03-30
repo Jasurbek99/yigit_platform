@@ -96,7 +96,7 @@ export default function QuotaDashboard() {
       {isError && <Alert type="error" message={t('quota.error_load')} style={{ marginBottom: 16 }} />}
 
       {/* Summary cards */}
-      <Row gutter={16} style={{ marginBottom: 20 }}>
+      <Row gutter={[16, 12]} style={{ marginBottom: 20 }}>
         <Col xs={12} sm={6}>
           <Card size="small">
             <Statistic title={t('quota.total_granted')} value={totalGranted} suffix="kg" formatter={(v) => Number(v).toLocaleString()} />
@@ -127,7 +127,7 @@ export default function QuotaDashboard() {
           dataSource={quotas ?? []}
           columns={columns}
           pagination={false}
-          scroll={{ x: 800 }}
+          scroll={{ x: 760 }}
           size="small"
           rowClassName={(row) => row.used_pct >= 95 ? 'ant-table-row-danger' : ''}
         />

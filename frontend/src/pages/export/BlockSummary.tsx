@@ -141,13 +141,14 @@ export default function BlockSummary() {
           value={selectedWeek}
           onChange={(val) => val && setSelectedWeek(val)}
           format={(d) => `${t('block_summary.week')} ${d.isoWeek()}, ${d.isoWeekYear()}`}
+          style={{ width: '100%', maxWidth: 220 }}
         />
         <Typography.Text type="secondary">
           {t('block_summary.week')} {weekNumber} · {year}
         </Typography.Text>
       </div>
 
-      <Row gutter={16} style={{ marginBottom: 16 }}>
+      <Row gutter={[16, 12]} style={{ marginBottom: 16 }}>
         <Col xs={12} sm={6}>
           <Card size="small">
             <Statistic
@@ -225,6 +226,7 @@ export default function BlockSummary() {
           pagination={false}
           size="small"
           bordered
+          scroll={{ x: 640 }}
           locale={{ emptyText: t('block_summary.empty') }}
         />
       )}

@@ -133,6 +133,7 @@ export function ShipmentCreateModal({ open, onClose, onSuccess }: IShipmentCreat
       onCancel={handleCancel}
       confirmLoading={createMutation.isPending}
       destroyOnClose
+      width="min(480px, 95vw)"
     >
       <Form
         form={form}

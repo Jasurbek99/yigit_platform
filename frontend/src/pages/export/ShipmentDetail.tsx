@@ -145,6 +145,7 @@ export default function ShipmentDetail() {
                 columns={firmSplitColumns}
                 pagination={false}
                 size="small"
+                scroll={{ x: 480 }}
               />
             </>
           )}
@@ -158,6 +159,7 @@ export default function ShipmentDetail() {
                 columns={blockColumns}
                 pagination={false}
                 size="small"
+                scroll={{ x: 400 }}
               />
             </>
           )}
@@ -296,7 +298,11 @@ export default function ShipmentDetail() {
 
         const report = shipment.sales_report;
 
-        const colStyle = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 24px' } as const;
+        const colStyle = {
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: '0 24px',
+        } as const;
 
         return (
           <Space direction="vertical" style={{ width: '100%' }} size="large">

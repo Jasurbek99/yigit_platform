@@ -111,7 +111,8 @@ function KanbanColumnView({ column, onOverdueCount }: IKanbanColumnViewProps) {
   return (
     <div
       style={{
-        flex: '0 0 240px',
+        flex: '0 0 280px',
+        minWidth: 250,
         background: '#f5f5f5',
         borderRadius: 8,
         padding: '10px 8px',
@@ -183,7 +184,7 @@ export default function KanbanBoard() {
         />
       )}
 
-      <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8 }}>
+      <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 12, WebkitOverflowScrolling: 'touch' }}>
         {COLUMNS.map((col) => (
           <KanbanColumnView key={col.phase} column={col} onOverdueCount={handleOverdueCount} />
         ))}

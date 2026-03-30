@@ -10,6 +10,8 @@ from .shipment import (
 from .planning import WeeklyHarvestPlan, WeeklyTruckAllocation, QuotaAllocation, PriceEntry, DomesticMarketPrice
 from .domestic import DomesticSale
 from .finance import FinansistAdvance, FinansistAdvanceShipment
+from .notification import Notification
+from .audit import AuditLog
 
 __all__ = [
     'Shipment',
@@ -27,4 +29,6 @@ __all__ = [
     'DomesticSale',
     'FinansistAdvance',
     'FinansistAdvanceShipment',
+    'Notification',
+    'AuditLog',
 ]

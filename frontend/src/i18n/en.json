@@ -35,6 +35,9 @@
     "trucks": "Trucks",
     "blocks": "Blocks",
     "domestic_sales": "Domestic Sales",
+    "admin_users": "Users",
+    "admin_seasons": "Seasons",
+    "admin_firms": "Export Firms",
     "sign_out": "Sign Out"
   },
   "plan": {
@@ -297,9 +300,62 @@
     "empty": "No domestic sales",
     "error_load": "Failed to load domestic sales"
   },
+  "seasons": {
+    "title": "Seasons",
+    "add": "Add Season",
+    "edit_title": "Edit Season",
+    "name": "Name",
+    "start_date": "Start Date",
+    "end_date": "End Date",
+    "is_active": "Active",
+    "empty": "No seasons found",
+    "error_load": "Failed to load seasons",
+    "confirm_delete": "Delete this season?",
+    "toast_created": "Season created",
+    "toast_updated": "Season updated",
+    "toast_deleted": "Season deleted",
+    "toast_error": "Operation failed"
+  },
+  "firms_admin": {
+    "title": "Export Firms",
+    "add": "Add Firm",
+    "edit_title": "Edit Firm",
+    "code": "Code",
+    "name_tk": "Name (TK)",
+    "name_en": "Name (EN)",
+    "name_ru": "Name (RU)",
+    "is_active": "Active",
+    "empty": "No firms found",
+    "error_load": "Failed to load firms",
+    "toast_created": "Firm created",
+    "toast_updated": "Firm updated",
+    "toast_error": "Operation failed"
+  },
+  "users_admin": {
+    "title": "Users",
+    "username": "Username",
+    "name": "Name",
+    "email": "Email",
+    "role": "Role",
+    "is_active": "Active",
+    "edit_role": "Edit Role",
+    "empty": "No users found",
+    "error_load": "Failed to load users",
+    "toast_updated": "User updated",
+    "toast_error": "Operation failed"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "mark_all_read": "Mark all read",
+    "empty": "No notifications"
+  },
   "common": {
     "empty": "—",
     "loading": "Loading...",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "delete": "Delete",
+    "yes": "Yes",
+    "no": "No"
   }
 }

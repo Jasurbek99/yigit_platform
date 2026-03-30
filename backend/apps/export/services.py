@@ -48,6 +48,75 @@ TRANSITIONS = {
 PRIVILEGED_ROLES = {'export_manager', 'director'}
 
 
+def _send_quota_notifications(quota_obj: 'QuotaAllocation') -> None:
+    """Create Notification rows for export_manager and director users when
+    quota usage crosses a warning threshold for the first time.
+
+    Uses the warning_*_sent flags on QuotaAllocation to prevent duplicate
+    notifications. Saves the updated flags back to the DB.
+
+    Args:
+        quota_obj: A freshly-fetched QuotaAllocation instance with updated used_kg.
+    """
+    from apps.core.models import User
+    from apps.export.models import Notification, QuotaAllocation
+
+    if quota_obj.granted_kg <= 0:
+        return
+
+    pct = int(quota_obj.used_kg / quota_obj.granted_kg * 100)
+    firm_name = getattr(quota_obj.export_firm, 'name_en', None) or f'firm#{quota_obj.export_firm_id}'
+
+    thresholds = [
+        (80, 'quota_80', 'warning_80_sent'),
+        (90, 'quota_90', 'warning_90_sent'),
+        (95, 'quota_95', 'warning_95_sent'),
+    ]
+
+    flags_to_update = []
+    notifications_to_create = []
+
+    for threshold, kind, flag in thresholds:
+        if pct >= threshold and not getattr(quota_obj, flag):
+            message = (
+                f'{firm_name} quota at {pct}% '
+                f'({quota_obj.used_kg} / {quota_obj.granted_kg} kg)'
+            )
+            link = f'/export/quotas/?firm={quota_obj.export_firm_id}'
+
+            target_users = User.objects.filter(
+                role__in=['export_manager', 'director'],
+                is_active=True,
+            ).values_list('id', flat=True)
+
+            for user_id in target_users:
+                notifications_to_create.append(
+                    Notification(
+                        user_id=user_id,
+                        kind=kind,
+                        message=message,
+                        link=link,
+                    )
+                )
+
+            setattr(quota_obj, flag, True)
+            flags_to_update.append(flag)
+
+    if notifications_to_create:
+        Notification.objects.bulk_create(notifications_to_create, batch_size=500)
+
+    if flags_to_update:
+        QuotaAllocation.objects.filter(pk=quota_obj.pk).update(
+            **{f: True for f in flags_to_update}
+        )
+        logger.info(
+            'Quota warning flags set for firm=%s season=%s: %s',
+            quota_obj.export_firm_id,
+            quota_obj.season_id,
+            flags_to_update,
+        )
+
+
 def _refresh_quota_usage(shipment: 'Shipment') -> None:
     """Recalculate used_kg for all QuotaAllocation rows affected by this shipment.
 
@@ -77,6 +146,16 @@ def _refresh_quota_usage(shipment: 'Shipment') -> None:
             season_id=shipment.season_id,
             export_firm_id=firm_id,
         ).update(used_kg=total)
+
+        # Re-fetch with select_related to get firm name for the notification message.
+        quota_obj = (
+            QuotaAllocation.objects
+            .select_related('export_firm')
+            .filter(season_id=shipment.season_id, export_firm_id=firm_id)
+            .first()
+        )
+        if quota_obj:
+            _send_quota_notifications(quota_obj)
 
 
 def transition_to(shipment: Shipment, new_status_code: str, user, comment: str = '') -> None:
@@ -143,6 +222,17 @@ def transition_to(shipment: Shipment, new_status_code: str, user, comment: str =
         status=new_status,
         changed_by=user,
         comment=comment,
+    )
+
+    # Write immutable audit trail entry for this transition.
+    from apps.export.models import AuditLog
+    AuditLog.objects.create(
+        user=user,
+        action='transition',
+        model_name='Shipment',
+        object_id=shipment.id,
+        object_repr=shipment.cargo_code,
+        detail=f'{current_code} → {new_status_code}',
     )
 
     logger.info(

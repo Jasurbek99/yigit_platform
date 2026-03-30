@@ -5,6 +5,8 @@ from apps.export.models import (
     ShipmentFirmSplit,
     ShipmentBlockSource,
     ShipmentComment,
+    Notification,
+    AuditLog,
 )
 
 
@@ -43,3 +45,29 @@ class ShipmentAdmin(admin.ModelAdmin):
 
 admin.site.register(ShipmentStatusLog)
 admin.site.register(ShipmentComment)
+
+
+@admin.register(Notification)
+class NotificationAdmin(admin.ModelAdmin):
+    list_display = ['user', 'kind', 'message', 'read_at', 'created_at']
+    list_filter = ['kind', 'read_at']
+    search_fields = ['message', 'user__username']
+    readonly_fields = ['created_at']
+
+
+@admin.register(AuditLog)
+class AuditLogAdmin(admin.ModelAdmin):
+    list_display = ['action', 'model_name', 'object_repr', 'user', 'created_at']
+    list_filter = ['action', 'model_name']
+    search_fields = ['object_repr', 'detail', 'user__username']
+    readonly_fields = ['user', 'action', 'model_name', 'object_id', 'object_repr', 'detail', 'created_at']
+
+    def has_add_permission(self, request):
+        # Audit log entries are immutable — created only by services.
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False

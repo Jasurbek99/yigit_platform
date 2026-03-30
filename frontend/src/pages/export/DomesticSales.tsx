@@ -81,8 +81,8 @@ export default function DomesticSales() {
         {t('domestic_sales.title')}
       </Typography.Title>
 
-      <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col xs={8} sm={8}>
+      <Row gutter={[16, 12]} style={{ marginBottom: 16 }}>
+        <Col xs={24} sm={8}>
           <Card size="small">
             <Statistic
               title={t('domestic_sales.total_sales')}
@@ -91,7 +91,7 @@ export default function DomesticSales() {
             />
           </Card>
         </Col>
-        <Col xs={8} sm={8}>
+        <Col xs={12} sm={8}>
           <Card size="small">
             <Statistic
               title={t('domestic_sales.total_weight')}
@@ -99,7 +99,7 @@ export default function DomesticSales() {
             />
           </Card>
         </Col>
-        <Col xs={8} sm={8}>
+        <Col xs={12} sm={8}>
           <Card size="small">
             <Statistic
               title={t('domestic_sales.unique_buyers')}
@@ -126,6 +126,7 @@ export default function DomesticSales() {
         options={false}
         pagination={{ pageSize: 50, showSizeChanger: true }}
         size="small"
+        scroll={{ x: 700 }}
         locale={{ emptyText: t('domestic_sales.empty') }}
         headerTitle={false}
       />

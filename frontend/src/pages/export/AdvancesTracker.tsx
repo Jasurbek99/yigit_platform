@@ -377,6 +377,8 @@ export default function AdvancesTracker() {
           alignItems: 'center',
           justifyContent: 'space-between',
           marginBottom: 16,
+          flexWrap: 'wrap',
+          gap: 8,
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -464,13 +466,14 @@ export default function AdvancesTracker() {
         search={false}
         options={false}
         pagination={{ pageSize: 20, showSizeChanger: false }}
+        scroll={{ x: 700 }}
         locale={{ emptyText: t('advances.empty') }}
         cardBordered
         expandable={{
           expandedRowKeys: expandedRowKeys as React.Key[],
           onExpandedRowsChange: handleExpandedRowsChange,
           expandedRowRender: (record) => (
-            <div style={{ padding: '8px 0 8px 48px' }}>
+            <div style={{ padding: '8px 0 8px 16px' }}>
               <Typography.Text
                 type="secondary"
                 style={{ display: 'block', marginBottom: 8 }}

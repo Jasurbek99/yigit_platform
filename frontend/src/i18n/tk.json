@@ -35,6 +35,9 @@
     "trucks": "Ulaglar",
     "blocks": "Bloklar",
     "domestic_sales": "Içerki satuw",
+    "admin_users": "Ulanyjylar",
+    "admin_seasons": "Möwsümler",
+    "admin_firms": "Eksport firmalary",
     "sign_out": "Çyk"
   },
   "plan": {
@@ -297,9 +300,62 @@
     "empty": "Içerki satuw ýok",
     "error_load": "Içerki satuw maglumatlaryny ýükläp bolmady"
   },
+  "seasons": {
+    "title": "Möwsümler",
+    "add": "Möwsüm goş",
+    "edit_title": "Möwsümi üýtget",
+    "name": "Ady",
+    "start_date": "Başlanýan senesi",
+    "end_date": "Gutarýan senesi",
+    "is_active": "Işjeň",
+    "empty": "Möwsüm tapylmady",
+    "error_load": "Möwsümleri ýükläp bolmady",
+    "confirm_delete": "Bu möwsümi pozmak isleýärsiňizmi?",
+    "toast_created": "Möwsüm döredildi",
+    "toast_updated": "Möwsüm täzelendi",
+    "toast_deleted": "Möwsüm pozuldy",
+    "toast_error": "Amal başa barmady"
+  },
+  "firms_admin": {
+    "title": "Eksport firmalary",
+    "add": "Firma goş",
+    "edit_title": "Firmany üýtget",
+    "code": "Kod",
+    "name_tk": "Ady (TK)",
+    "name_en": "Ady (EN)",
+    "name_ru": "Ady (RU)",
+    "is_active": "Işjeň",
+    "empty": "Firma tapylmady",
+    "error_load": "Firmalary ýükläp bolmady",
+    "toast_created": "Firma döredildi",
+    "toast_updated": "Firma täzelendi",
+    "toast_error": "Amal başa barmady"
+  },
+  "users_admin": {
+    "title": "Ulanyjylar",
+    "username": "Ulanyjy ady",
+    "name": "Ady",
+    "email": "E-poçta",
+    "role": "Wezipesi",
+    "is_active": "Işjeň",
+    "edit_role": "Wezipäni üýtget",
+    "empty": "Ulanyjy tapylmady",
+    "error_load": "Ulanyjylary ýükläp bolmady",
+    "toast_updated": "Ulanyjy täzelendi",
+    "toast_error": "Amal başa barmady"
+  },
+  "notifications": {
+    "title": "Habarlar",
+    "mark_all_read": "Hemmesini okaldy belgile",
+    "empty": "Habar ýok"
+  },
   "common": {
     "empty": "—",
     "loading": "Ýüklenýär...",
-    "cancel": "Ýatyr"
+    "cancel": "Ýatyr",
+    "edit": "Üýtget",
+    "delete": "Poz",
+    "yes": "Hawa",
+    "no": "Ýok"
   }
 }
