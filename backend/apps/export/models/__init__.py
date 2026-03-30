@@ -7,7 +7,8 @@ from .shipment import (
     ShipmentComment,
     SalesReport,
 )
-from .planning import WeeklyHarvestPlan, QuotaAllocation, PriceEntry, DomesticMarketPrice
+from .planning import WeeklyHarvestPlan, WeeklyTruckAllocation, QuotaAllocation, PriceEntry, DomesticMarketPrice
+from .domestic import DomesticSale
 from .finance import FinansistAdvance, FinansistAdvanceShipment
 
 __all__ = [
@@ -19,9 +20,11 @@ __all__ = [
     'ShipmentComment',
     'SalesReport',
     'WeeklyHarvestPlan',
+    'WeeklyTruckAllocation',
     'QuotaAllocation',
     'PriceEntry',
     'DomesticMarketPrice',
+    'DomesticSale',
     'FinansistAdvance',
     'FinansistAdvanceShipment',
 ]

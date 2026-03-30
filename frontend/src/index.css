@@ -1,0 +1,19 @@
+@media print {
+  /* Hide everything except the main table content */
+  .ant-layout-sider,
+  .ant-layout-header,
+  .ant-pro-table-search,
+  .ant-table-pagination,
+  .ant-pro-table-toolbar,
+  .shipment-list-page > div:first-child {
+    display: none !important;
+  }
+
+  .ant-layout-content {
+    margin: 0 !important;
+  }
+
+  .ant-table {
+    font-size: 11px;
+  }
+}

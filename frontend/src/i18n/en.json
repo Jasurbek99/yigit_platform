@@ -32,6 +32,9 @@
     "prices": "Prices",
     "overdue": "Overdue",
     "advances": "Advances",
+    "trucks": "Trucks",
+    "blocks": "Blocks",
+    "domestic_sales": "Domestic Sales",
     "sign_out": "Sign Out"
   },
   "plan": {
@@ -246,6 +249,52 @@
     "no_shipments": "No shipments linked",
     "notes": "Notes",
     "create_success": "Advance created"
+  },
+  "truck": {
+    "title": "Truck Forecast",
+    "week": "Week",
+    "total_trucks": "Total Trucks",
+    "russia_trucks": "Russia",
+    "kazakhstan_trucks": "Kazakhstan",
+    "gapy_trucks": "Gapy Satys",
+    "day": "Day",
+    "planned_kg": "Planned (kg)",
+    "trucks_calc": "Trucks",
+    "decided_by": "Decided By",
+    "monday": "Mon", "tuesday": "Tue", "wednesday": "Wed",
+    "thursday": "Thu", "friday": "Fri", "saturday": "Sat",
+    "empty": "No truck allocations",
+    "error_load": "Failed to load truck data"
+  },
+  "block_summary": {
+    "title": "Block Summary",
+    "block_code": "Block",
+    "block_name": "Name",
+    "total_plan": "Total Plan (kg)",
+    "total_actual": "Total Actual (kg)",
+    "total_deficit": "Total Deficit",
+    "completion": "Completion",
+    "plan": "Plan",
+    "actual": "Actual",
+    "deficit": "Deficit",
+    "empty": "No data",
+    "error_load": "Failed to load block summary"
+  },
+  "domestic_sales": {
+    "title": "Domestic Sales",
+    "total_sales": "Total Sales",
+    "total_weight": "Total Weight (kg)",
+    "unique_buyers": "Buyers",
+    "date": "Date",
+    "buyer": "Buyer",
+    "block": "Block",
+    "variety": "Variety",
+    "weight_kg": "Weight (kg)",
+    "price_per_kg": "Price/kg",
+    "tabel_no": "Tabel No",
+    "firm": "Firm",
+    "empty": "No domestic sales",
+    "error_load": "Failed to load domestic sales"
   },
   "common": {
     "empty": "—",

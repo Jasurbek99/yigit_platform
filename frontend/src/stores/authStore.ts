@@ -1,12 +1,11 @@
 import { create } from 'zustand';
-import type { ICurrentUser } from '@/types';
 
-interface IAuthState {
-  user: ICurrentUser | null;
-  setUser: (user: ICurrentUser | null) => void;
+interface IAuthUiState {
+  isLoggingOut: boolean;
+  setIsLoggingOut: (val: boolean) => void;
 }
 
-export const useAuthStore = create<IAuthState>((set) => ({
-  user: null,
-  setUser: (user) => set({ user }),
+export const useAuthStore = create<IAuthUiState>((set) => ({
+  isLoggingOut: false,
+  setIsLoggingOut: (val) => set({ isLoggingOut: val }),
 }));

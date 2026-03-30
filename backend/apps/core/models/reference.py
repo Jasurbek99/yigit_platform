@@ -55,7 +55,7 @@ class BorderPoint(models.Model):
     """Border crossing points used in shipment routing."""
 
     name = models.CharField(max_length=100, unique=True, **cyrillic_collation())
-    route_description = models.CharField(max_length=500, blank=True, null=True)
+    route_description = models.CharField(max_length=500, blank=True, null=True, **cyrillic_collation())
     typical_transit_days = models.IntegerField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
 
@@ -122,7 +122,7 @@ class GreenhouseBlock(models.Model):
     variety_main = models.CharField(max_length=50, blank=True, null=True)
     variety_secondary = models.CharField(max_length=50, blank=True, null=True)
     area_m2 = models.IntegerField(blank=True, null=True)
-    location = models.CharField(max_length=50, blank=True, null=True)
+    location = models.CharField(max_length=50, blank=True, null=True, **cyrillic_collation())
     section_count = models.IntegerField(blank=True, null=True)
     sowing_date = models.DateField(blank=True, null=True)
     season_start_month = models.IntegerField(blank=True, null=True)
@@ -227,6 +227,28 @@ class Customer(models.Model):
 
     class Meta:
         db_table = schema_table('core', 'customers')
+        ordering = ['name']
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class DomesticBuyer(models.Model):
+    """Domestic TM buyers who purchase tomatoes directly from the greenhouse.
+
+    Used in export.domestic_sales to track quota-forming daily purchases
+    per block. DDL: core.domestic_buyers
+    """
+
+    name = models.CharField(max_length=100, unique=True, **cyrillic_collation())
+    contact_person = models.CharField(
+        max_length=100, blank=True, null=True, **cyrillic_collation()
+    )
+    phone = models.CharField(max_length=50, blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = schema_table('core', 'domestic_buyers')
         ordering = ['name']
 
     def __str__(self) -> str:

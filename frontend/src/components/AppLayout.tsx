@@ -14,6 +14,9 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   WarningOutlined,
+  TruckOutlined,
+  BarChartOutlined,
+  ShopOutlined,
 } from '@ant-design/icons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -45,6 +48,9 @@ export default function AppLayout() {
     { key: '/export/plan', icon: <CalendarOutlined />, label: t('nav.plan') },
     { key: '/export/quota', icon: <PieChartOutlined />, label: t('nav.quota') },
     { key: '/export/prices', icon: <DollarOutlined />, label: t('nav.prices') },
+    { key: '/export/trucks', icon: <TruckOutlined />, label: t('nav.trucks') },
+    { key: '/export/blocks', icon: <BarChartOutlined />, label: t('nav.blocks') },
+    { key: '/export/domestic-sales', icon: <ShopOutlined />, label: t('nav.domestic_sales') },
   ];
 
   const logoutMutation = useMutation({

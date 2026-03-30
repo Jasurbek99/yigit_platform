@@ -1,8 +1,8 @@
 import { Typography, Card } from 'antd';
-import { useAuthStore } from '@/stores/authStore';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function DashboardPage() {
-  const user = useAuthStore((s) => s.user);
+  const { user } = useAuth();
 
   return (
     <div>

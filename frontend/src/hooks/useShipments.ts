@@ -10,6 +10,7 @@ export interface IShipmentFilters {
   page_size?: number;
   status?: number;
   country?: number;
+  phase?: string;
   my_work?: boolean;
   search?: string;
 }
@@ -25,6 +26,7 @@ export function useShipments(filters: IShipmentFilters = {}) {
       if (filters.page_size) params.set('page_size', String(filters.page_size));
       if (filters.status) params.set('status', String(filters.status));
       if (filters.country) params.set('country', String(filters.country));
+      if (filters.phase) params.set('phase', filters.phase);
       if (filters.my_work) params.set('my_work', 'true');
       if (filters.search) params.set('search', filters.search);
 

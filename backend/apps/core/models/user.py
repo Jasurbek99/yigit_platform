@@ -32,7 +32,7 @@ class User(AbstractUser):
     telegram_chat_id = models.CharField(max_length=50, blank=True, null=True)
 
     class Meta:
-        db_table = 'sys_users'
+        db_table = 'sys_users'  # DDL v5.1: sys_users lives in dbo (no schema prefix intentional)
         verbose_name = 'User'
         verbose_name_plural = 'Users'
 

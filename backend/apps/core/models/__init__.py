@@ -1,7 +1,7 @@
 from .user import User
 from .reference import Country, City, ExportFirm, ImportFirm, ShipmentStatusType
 from .reference import Season, GreenhouseBlock, TomatoVariety, ProductType
-from .reference import BorderPoint, LoadingLocation, Customer
+from .reference import BorderPoint, LoadingLocation, Customer, DomesticBuyer
 
 __all__ = [
     'User',
@@ -17,4 +17,5 @@ __all__ = [
     'BorderPoint',
     'LoadingLocation',
     'Customer',
+    'DomesticBuyer',
 ]

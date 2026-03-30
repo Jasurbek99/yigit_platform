@@ -198,6 +198,54 @@ export interface IOverdueShipment extends IShipmentListItem {
   has_sales_report: boolean;
 }
 
+// ─── Truck Allocations ────────────────────────────────────────────────────
+
+export interface IWeeklyTruckAllocation {
+  id: number;
+  season: number;
+  season_name: string;
+  week_number: number;
+  year: number;
+  day_of_week: number;  // 1=Mon, 6=Sat
+  total_planned_kg: number | null;
+  total_trucks_calc: number | null;
+  russia_trucks: number;
+  kazakhstan_trucks: number;
+  gapy_satys_trucks: number;
+  decided_by_name: string | null;
+  created_at: string;
+}
+
+export interface IBlockSummary {
+  block_id: number;
+  block_code: string;
+  block_name: string;
+  total_plan_kg: number;
+  total_actual_kg: number;
+  deficit_kg: number;
+}
+
+// ─── Domestic Sales ────────────────────────────────────────────────────────
+
+export interface IDomesticSale {
+  id: number;
+  date: string;
+  buyer: number;
+  buyer_name: string;
+  block: number;
+  block_code: string;
+  block_name: string;
+  export_firm: number | null;
+  export_firm_name: string | null;
+  weight_kg: number;
+  variety: string | null;
+  price_per_kg: number | null;
+  tabel_no: string | null;
+  notes: string | null;
+  created_by_name: string | null;
+  created_at: string;
+}
+
 // ─── Advances ─────────────────────────────────────────────────────────────
 
 export interface IAdvanceShipmentLink {

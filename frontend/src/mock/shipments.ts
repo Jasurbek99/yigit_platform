@@ -14,6 +14,7 @@ export const MOCK_SHIPMENTS: IShipmentListItem[] = [
     departed_at: '2025-02-01T14:30:00+05:00',
     arrived_at: null,
     is_gapy_satys: false,
+    updated_at: '2025-02-01T14:30:00+05:00',
   },
   {
     id: 2,
@@ -28,6 +29,7 @@ export const MOCK_SHIPMENTS: IShipmentListItem[] = [
     departed_at: '2025-02-02T09:00:00+05:00',
     arrived_at: '2025-02-07T16:00:00+03:00',
     is_gapy_satys: false,
+    updated_at: '2025-02-07T16:00:00+03:00',
   },
   {
     id: 3,
@@ -42,6 +44,7 @@ export const MOCK_SHIPMENTS: IShipmentListItem[] = [
     departed_at: null,
     arrived_at: null,
     is_gapy_satys: true,
+    updated_at: '2025-02-03T07:00:00+05:00',
   },
   {
     id: 4,
@@ -56,6 +59,7 @@ export const MOCK_SHIPMENTS: IShipmentListItem[] = [
     departed_at: '2025-02-04T11:00:00+05:00',
     arrived_at: '2025-02-10T14:00:00+03:00',
     is_gapy_satys: false,
+    updated_at: '2025-02-10T14:00:00+03:00',
   },
   {
     id: 5,
@@ -70,6 +74,7 @@ export const MOCK_SHIPMENTS: IShipmentListItem[] = [
     departed_at: '2025-02-05T08:00:00+05:00',
     arrived_at: null,
     is_gapy_satys: false,
+    updated_at: '2025-02-05T20:00:00+05:00',
   },
 ];
 

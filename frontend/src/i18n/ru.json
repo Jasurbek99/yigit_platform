@@ -32,6 +32,9 @@
     "prices": "Цены",
     "overdue": "Просрочено",
     "advances": "Авансы",
+    "trucks": "Грузовики",
+    "blocks": "Блоки",
+    "domestic_sales": "Внутр. продажи",
     "sign_out": "Выйти"
   },
   "plan": {
@@ -246,6 +249,52 @@
     "no_shipments": "Нет связанных грузов",
     "notes": "Примечания",
     "create_success": "Аванс создан"
+  },
+  "truck": {
+    "title": "Прогноз грузовиков",
+    "week": "Неделя",
+    "total_trucks": "Всего машин",
+    "russia_trucks": "Россия",
+    "kazakhstan_trucks": "Казахстан",
+    "gapy_trucks": "Гапы Сатыш",
+    "day": "День",
+    "planned_kg": "Планово (кг)",
+    "trucks_calc": "Машины",
+    "decided_by": "Решил",
+    "monday": "Пн", "tuesday": "Вт", "wednesday": "Ср",
+    "thursday": "Чт", "friday": "Пт", "saturday": "Сб",
+    "empty": "Нет данных по грузовикам",
+    "error_load": "Не удалось загрузить данные"
+  },
+  "block_summary": {
+    "title": "Сводка по блокам",
+    "block_code": "Блок",
+    "block_name": "Название",
+    "total_plan": "Общий план (кг)",
+    "total_actual": "Фактически (кг)",
+    "total_deficit": "Общий дефицит",
+    "completion": "Выполнение",
+    "plan": "План",
+    "actual": "Факт",
+    "deficit": "Дефицит",
+    "empty": "Нет данных",
+    "error_load": "Не удалось загрузить сводку"
+  },
+  "domestic_sales": {
+    "title": "Внутренние продажи",
+    "total_sales": "Всего продаж",
+    "total_weight": "Общий вес (кг)",
+    "unique_buyers": "Покупателей",
+    "date": "Дата",
+    "buyer": "Покупатель",
+    "block": "Блок",
+    "variety": "Сорт",
+    "weight_kg": "Вес (кг)",
+    "price_per_kg": "Цена/кг",
+    "tabel_no": "Табель №",
+    "firm": "Фирма",
+    "empty": "Нет внутренних продаж",
+    "error_load": "Не удалось загрузить данные"
   },
   "common": {
     "empty": "—",

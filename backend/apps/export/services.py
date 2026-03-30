@@ -5,7 +5,10 @@ from apps.export.models import Shipment, ShipmentStatusLog
 
 logger = logging.getLogger(__name__)
 
-# Status code → AD-1 denormalized timestamp field name on Shipment
+# Status code → AD-1 denormalized timestamp field name on Shipment.
+# Only statuses that have a dedicated lifecycle timestamp are listed here.
+# serhet_tm, barysh_gumrugi, yolda: transit waypoints with no dedicated AD-1 field.
+# hasabat, tamamlandy: report and completed statuses have no dedicated AD-1 timestamp.
 STATUS_TIMESTAMP_MAP = {
     'yuklenme': 'loading_started_at',
     'gumruk_girish': 'customs_entry_at',
@@ -17,28 +20,32 @@ STATUS_TIMESTAMP_MAP = {
     'satyldy': 'sale_ended_at',
 }
 
-# Allowed transitions: from_code → list of valid to_codes
-# None key = shipment has no status yet (initial creation edge case)
+# Allowed transitions: from_code → list of (to_code, allowed_roles)
+# None key = shipment has no status yet (initial creation edge case).
+# Roles export_manager and director are always privileged — they can trigger any transition.
 TRANSITIONS = {
-    None: ['yuklenme'],
-    'yuklenme': ['gumruk_girish'],
-    'gumruk_girish': ['gumruk_chykysh'],
-    'gumruk_chykysh': ['yola_chykdy'],
-    'yola_chykdy': ['serhet_tm'],
-    'serhet_tm': ['serhet_gechdi'],
-    'serhet_gechdi': ['barysh_gumrugi'],
-    'barysh_gumrugi': ['yolda'],
-    'yolda': ['bardy'],
-    'bardy': ['satylyar'],
-    'satylyar': ['satyldy'],
-    'satyldy': ['hasabat'],
-    'hasabat': ['tamamlandy'],
-    'tamamlandy': [],
+    None:             [('yuklenme',       ['warehouse_chief'])],
+    'yuklenme':       [('gumruk_girish',  ['warehouse_chief'])],
+    'gumruk_girish':  [('gumruk_chykysh', ['document_team'])],
+    'gumruk_chykysh': [('yola_chykdy',    ['document_team'])],
+    'yola_chykdy':    [('serhet_tm',      ['transport'])],
+    'serhet_tm':      [('serhet_gechdi',  ['transport'])],
+    'serhet_gechdi':  [('barysh_gumrugi', ['sales_rep'])],
+    'barysh_gumrugi': [('yolda',          ['sales_rep'])],
+    'yolda':          [('bardy',          ['sales_rep'])],
+    'bardy':          [('satylyar',       ['sales_rep'])],
+    'satylyar':       [('satyldy',        ['sales_rep'])],
+    'satyldy':        [('hasabat',        ['sales_rep'])],
+    'hasabat':        [('tamamlandy',     ['finansist'])],
+    'tamamlandy':     [],
 }
+
+# Roles that may override role restrictions and trigger any valid transition.
+PRIVILEGED_ROLES = {'export_manager', 'director'}
 
 
 def transition_to(shipment: Shipment, new_status_code: str, user, comment: str = '') -> None:
-    """Execute a validated status transition.
+    """Execute a validated status transition with role enforcement.
 
     This is the ONLY function that may update shipment.status and the AD-1
     denormalized timestamp fields. Never update those fields directly.
@@ -52,17 +59,29 @@ def transition_to(shipment: Shipment, new_status_code: str, user, comment: str =
     Raises:
         ValueError: If the transition is not allowed from the current status,
                     or if new_status_code does not exist in ShipmentStatusType.
+        PermissionError: If the user's role is not allowed to trigger this transition.
     """
     from apps.core.models import ShipmentStatusType
 
     current_code = shipment.status.code if shipment.status_id else None
-    allowed = TRANSITIONS.get(current_code, [])
+    edges = TRANSITIONS.get(current_code, [])
+    allowed_codes = [to_code for to_code, _roles in edges]
 
-    if new_status_code not in allowed:
+    if new_status_code not in allowed_codes:
         raise ValueError(
             f'Cannot transition from {current_code!r} to {new_status_code!r}. '
-            f'Allowed: {allowed}'
+            f'Allowed: {allowed_codes}'
         )
+
+    # Role check — privileged roles bypass per-transition restrictions.
+    user_role = getattr(user, 'role', None)
+    if user_role not in PRIVILEGED_ROLES:
+        allowed_roles = next(roles for to_code, roles in edges if to_code == new_status_code)
+        if user_role not in allowed_roles:
+            raise PermissionError(
+                f'Role {user_role!r} cannot trigger transition to {new_status_code!r}. '
+                f'Allowed roles: {allowed_roles}'
+            )
 
     try:
         new_status = ShipmentStatusType.objects.get(code=new_status_code)
@@ -70,8 +89,8 @@ def transition_to(shipment: Shipment, new_status_code: str, user, comment: str =
         raise ValueError(f'Unknown status code: {new_status_code!r}')
 
     now = timezone.now()
-    # updated_at uses auto_now=True — Django sets it automatically; do not include in update_fields
-    update_fields = ['status', 'updated_by']
+    # updated_at must be listed explicitly: auto_now=True is ignored when update_fields is passed.
+    update_fields = ['status', 'updated_by', 'updated_at']
 
     # AD-1: set the denormalized timestamp for this status
     ts_field = STATUS_TIMESTAMP_MAP.get(new_status_code)
@@ -81,6 +100,7 @@ def transition_to(shipment: Shipment, new_status_code: str, user, comment: str =
 
     shipment.status = new_status
     shipment.updated_by = user
+    shipment.updated_at = now  # explicit assignment so intent is clear if update_fields changes
     shipment.save(update_fields=update_fields)
 
     ShipmentStatusLog.objects.create(

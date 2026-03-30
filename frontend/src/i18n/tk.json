@@ -32,6 +32,9 @@
     "prices": "Bahalar",
     "overdue": "Möhleti geçen",
     "advances": "Awanslar",
+    "trucks": "Ulaglar",
+    "blocks": "Bloklar",
+    "domestic_sales": "Içerki satuw",
     "sign_out": "Çyk"
   },
   "plan": {
@@ -246,6 +249,52 @@
     "no_shipments": "Bagly ýük ýok",
     "notes": "Bellikler",
     "create_success": "Awans döredildi"
+  },
+  "truck": {
+    "title": "Ulag çaklamasy",
+    "week": "Hepde",
+    "total_trucks": "Jemi ulaglar",
+    "russia_trucks": "Russiýa",
+    "kazakhstan_trucks": "Gazagystan",
+    "gapy_trucks": "Gapy Satyş",
+    "day": "Gün",
+    "planned_kg": "Meýilnama (kg)",
+    "trucks_calc": "Ulaglar",
+    "decided_by": "Karar berdi",
+    "monday": "Duş", "tuesday": "Siş", "wednesday": "Çar",
+    "thursday": "Pen", "friday": "Ann", "saturday": "Şen",
+    "empty": "Ulag tapylmady",
+    "error_load": "Ulag maglumatlaryny ýükläp bolmady"
+  },
+  "block_summary": {
+    "title": "Blok jemi",
+    "block_code": "Blok",
+    "block_name": "At",
+    "total_plan": "Jemi meýilnama (kg)",
+    "total_actual": "Jemi hakykat (kg)",
+    "total_deficit": "Jemi ýetmezçilik",
+    "completion": "Ýerine ýetirilişi",
+    "plan": "Meýilnama",
+    "actual": "Hakykat",
+    "deficit": "Ýetmezçilik",
+    "empty": "Maglumat ýok",
+    "error_load": "Blok maglumatlaryny ýükläp bolmady"
+  },
+  "domestic_sales": {
+    "title": "Içerki satuw",
+    "total_sales": "Jemi satuw",
+    "total_weight": "Jemi agram (kg)",
+    "unique_buyers": "Alyjylar",
+    "date": "Sene",
+    "buyer": "Alyjy",
+    "block": "Blok",
+    "variety": "Görnüş",
+    "weight_kg": "Agram (kg)",
+    "price_per_kg": "Baha/kg",
+    "tabel_no": "Tabel №",
+    "firm": "Firma",
+    "empty": "Içerki satuw ýok",
+    "error_load": "Içerki satuw maglumatlaryny ýükläp bolmady"
   },
   "common": {
     "empty": "—",

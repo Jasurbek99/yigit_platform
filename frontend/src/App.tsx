@@ -15,6 +15,9 @@ const QuotaDashboard = lazy(() => import('@/pages/export/QuotaDashboard'));
 const PricePanel = lazy(() => import('@/pages/export/PricePanel'));
 const OverdueReports = lazy(() => import('@/pages/export/OverdueReports'));
 const AdvancesTracker = lazy(() => import('@/pages/export/AdvancesTracker'));
+const TruckForecast = lazy(() => import('@/pages/export/TruckForecast'));
+const BlockSummary = lazy(() => import('@/pages/export/BlockSummary'));
+const DomesticSales = lazy(() => import('@/pages/export/DomesticSales'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -63,6 +66,9 @@ export default function App() {
                 <Route path="export/prices" element={<PricePanel />} />
                 <Route path="export/overdue" element={<OverdueReports />} />
                 <Route path="export/advances" element={<AdvancesTracker />} />
+                <Route path="export/trucks" element={<TruckForecast />} />
+                <Route path="export/blocks" element={<BlockSummary />} />
+                <Route path="export/domestic-sales" element={<DomesticSales />} />
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

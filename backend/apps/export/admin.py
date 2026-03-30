@@ -24,7 +24,8 @@ class ShipmentAdmin(admin.ModelAdmin):
     list_filter = ['status', 'country', 'season', 'is_gapy_satys']
     search_fields = ['cargo_code']
     inlines = [ShipmentFirmSplitInline, ShipmentBlockSourceInline]
-    # AD-1 timestamps are written only by transition_to() — never editable in admin
+    # AD-1 timestamps are written only by transition_to() — never editable in admin.
+    # AD-2: vehicle_status_note is deprecated — read-only to prevent new data entry.
     readonly_fields = [
         'loading_started_at',
         'customs_entry_at',
@@ -36,6 +37,7 @@ class ShipmentAdmin(admin.ModelAdmin):
         'sale_ended_at',
         'created_at',
         'updated_at',
+        'vehicle_status_note',
     ]
 
 

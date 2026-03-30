@@ -1,14 +1,20 @@
 from rest_framework import serializers
 from apps.core.models import User, Country, ExportFirm, ShipmentStatusType, Customer
+from apps.core.permissions import get_editable_fields
 
 
 class UserMeSerializer(serializers.ModelSerializer):
     """Returned after login and on GET /auth/me/."""
 
+    editable_fields = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'role']
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'role', 'editable_fields']
         read_only_fields = fields
+
+    def get_editable_fields(self, obj: User) -> list[str]:
+        return get_editable_fields(obj.role)
 
 
 class LoginSerializer(serializers.Serializer):
