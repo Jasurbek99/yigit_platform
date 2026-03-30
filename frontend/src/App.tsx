@@ -48,7 +48,7 @@ export default function App() {
         }}
       >
         <Toaster position="top-right" richColors expand closeButton />
-        <BrowserRouter>
+        <BrowserRouter future={{ v7_relativeSplatPath: true }}>
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/login" element={<LoginPage />} />

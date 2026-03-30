@@ -44,8 +44,8 @@ export function ShipmentCreateModal({ open, onClose, onSuccess }: IShipmentCreat
   const { data: countries, isLoading: countriesLoading } = useQuery({
     queryKey: ['core', 'countries'],
     queryFn: async () => {
-      const { data } = await api.get<ISelectOption[]>('/core/countries/');
-      return data;
+      const { data } = await api.get<{ results: ISelectOption[] }>('/core/countries/?page_size=200');
+      return data.results;
     },
     staleTime: 5 * 60_000,
   });
@@ -53,8 +53,8 @@ export function ShipmentCreateModal({ open, onClose, onSuccess }: IShipmentCreat
   const { data: customers, isLoading: customersLoading } = useQuery({
     queryKey: ['core', 'customers'],
     queryFn: async () => {
-      const { data } = await api.get<ISelectOption[]>('/core/customers/');
-      return data;
+      const { data } = await api.get<{ results: ISelectOption[] }>('/core/customers/?page_size=500');
+      return data.results;
     },
     staleTime: 5 * 60_000,
   });
@@ -62,8 +62,8 @@ export function ShipmentCreateModal({ open, onClose, onSuccess }: IShipmentCreat
   const { data: seasons, isLoading: seasonsLoading } = useQuery({
     queryKey: ['core', 'seasons'],
     queryFn: async () => {
-      const { data } = await api.get<ISeason[]>('/core/seasons/');
-      return data;
+      const { data } = await api.get<{ results: ISeason[] }>('/export/admin/seasons/?page_size=50');
+      return data.results;
     },
     staleTime: 5 * 60_000,
   });
@@ -132,7 +132,7 @@ export function ShipmentCreateModal({ open, onClose, onSuccess }: IShipmentCreat
       onOk={handleOk}
       onCancel={handleCancel}
       confirmLoading={createMutation.isPending}
-      destroyOnClose
+      destroyOnHidden
       width="min(480px, 95vw)"
     >
       <Form
