@@ -4,6 +4,23 @@ All notable changes to the YGT Platform.
 
 ## [Unreleased]
 
+### Changed
+- AppLayout: sidebar now collapses to zero-width on mobile (<768px), renders as a fixed overlay drawer with a dark mask; clicking outside or navigating closes it; `breakpoint="lg"` on Sider auto-collapses on smaller viewports; header is now `position: sticky` so it stays visible while scrolling (feat(frontend))
+- AppLayout: username text hidden on mobile to save header space; content padding reduced to `12px 8px` on mobile (feat(frontend))
+- LoginPage: card changed from fixed `width: 380` to `width: 100%; maxWidth: 380; margin: 0 16px` so it fits inside 375px screens without overflow (feat(frontend))
+- ShipmentCreateModal: Modal width set to `min(480px, 95vw)` so the form is fully usable on phone screens (feat(frontend))
+- ShipmentList: toolbar buttons reduced to `size="small"` and wrapped with `flexWrap: wrap` so they stack cleanly on narrow viewports (feat(frontend))
+- ShipmentDetail: sales report form grid changed from fixed `1fr 1fr` to `repeat(auto-fit, minmax(200px, 1fr))` so fields stack vertically on mobile; firm splits and block sources tables given `scroll={{ x }}` (feat(frontend))
+- KanbanBoard: column min-width increased to 250px, flex-basis to 280px, container uses `-webkit-overflow-scrolling: touch` for smooth horizontal scroll on iOS (feat(frontend))
+- WeeklyPlanGrid: DatePicker given `maxWidth: 220` and `width: 100%`; table scroll bumped to `x: 1400` to accommodate 6-day plan/actual columns (feat(frontend))
+- QuotaDashboard: summary `Row` gutter changed to `[16, 12]` so cards have vertical spacing when they wrap on mobile (feat(frontend))
+- TruckForecast: DatePicker given `maxWidth: 220`; stat cards gutter changed to `[16, 12]`; ProTable given `scroll={{ x: 600 }}` (feat(frontend))
+- BlockSummary: DatePicker given `maxWidth: 220`; stat cards gutter changed to `[16, 12]`; table given `scroll={{ x: 640 }}` (feat(frontend))
+- DomesticSales: summary cards changed from `xs={8}` (too narrow on 375px) to `xs={24}` / `xs={12}` with `gutter={[16, 12]}`; ProTable given `scroll={{ x: 700 }}` (feat(frontend))
+- OverdueReports: ProTable given `scroll={{ x: 600 }}` (feat(frontend))
+- AdvancesTracker: ProTable given `scroll={{ x: 700 }}`; page header given `flexWrap: wrap` and `gap: 8`; expanded row indent reduced from 48px to 16px for narrow screens (feat(frontend))
+- PricePanel: header gap reduced from 16 to 12 for tighter wrapping on mobile (feat(frontend))
+
 ### Added
 - AdvancesTracker page (`/export/advances`) — ProTable with 4 summary cards, Segmented All/Pending/Reconciled filter, expandable rows showing linked shipments, "New Advance" modal for finansist/export_manager/director, "Reconcile" inline action (feat(frontend))
 - `IFinansistAdvanceListItem`, `IFinansistAdvanceDetail`, `IAdvanceShipmentLink` types in `src/types/index.ts` (feat(frontend))

@@ -1,4 +1,4 @@
-import { Typography, Row, Col, Statistic, Alert, Card } from 'antd';
+import { Row, Col, Statistic, Alert, Card } from 'antd';
 import { ShopOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import type { ProColumns } from '@ant-design/pro-components';
@@ -76,10 +76,21 @@ export default function DomesticSales() {
 
   return (
     <div>
-      <Typography.Title level={4} style={{ marginBottom: 16 }}>
-        <ShopOutlined style={{ marginRight: 8 }} />
-        {t('domestic_sales.title')}
-      </Typography.Title>
+      {/* Page Header */}
+      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: '#1f1f1f', lineHeight: '1.3', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <ShopOutlined style={{ fontSize: 18, color: '#1677ff' }} />
+            {t('domestic_sales.title')}
+          </div>
+          <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
+            Içerki bazar satyw hasabaty
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {/* action buttons */}
+        </div>
+      </div>
 
       <Row gutter={[16, 12]} style={{ marginBottom: 16 }}>
         <Col xs={24} sm={8}>

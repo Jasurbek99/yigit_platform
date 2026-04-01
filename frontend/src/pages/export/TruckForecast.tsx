@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import {
-  Typography,
   DatePicker,
   Row,
   Col,
@@ -115,29 +114,26 @@ export default function TruckForecast() {
 
   return (
     <div>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 16,
-          marginBottom: 16,
-          flexWrap: 'wrap',
-        }}
-      >
-        <Typography.Title level={4} style={{ margin: 0 }}>
-          <TruckOutlined style={{ marginRight: 8 }} />
-          {t('truck.title')}
-        </Typography.Title>
-        <DatePicker
-          picker="week"
-          value={selectedWeek}
-          onChange={(val) => val && setSelectedWeek(val)}
-          format={(d) => `${t('truck.week')} ${d.isoWeek()}, ${d.isoWeekYear()}`}
-          style={{ width: '100%', maxWidth: 220 }}
-        />
-        <Typography.Text type="secondary">
-          {t('truck.week')} {weekNumber} · {year}
-        </Typography.Text>
+      {/* Page Header */}
+      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: '#1f1f1f', lineHeight: '1.3', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <TruckOutlined style={{ fontSize: 18, color: '#1677ff' }} />
+            {t('truck.title')}
+          </div>
+          <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
+            Geljek günler üçin ulag meýilnamasy
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <DatePicker
+            picker="week"
+            value={selectedWeek}
+            onChange={(val) => val && setSelectedWeek(val)}
+            format={(d) => `${t('truck.week')} ${d.isoWeek()}, ${d.isoWeekYear()}`}
+            style={{ width: 220 }}
+          />
+        </div>
       </div>
 
       <Row gutter={[16, 12]} style={{ marginBottom: 16 }}>

@@ -1,4 +1,4 @@
-import { Typography, Progress, Table, Tag, Skeleton, Alert, Statistic, Row, Col, Card } from 'antd';
+import { Progress, Table, Tag, Skeleton, Alert, Statistic, Row, Col, Card } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { useQuotaDashboard } from '@/hooks/usePlanning';
 import type { IQuotaDashboardItem } from '@/types';
@@ -91,7 +91,20 @@ export default function QuotaDashboard() {
 
   return (
     <div>
-      <Typography.Title level={4} style={{ marginBottom: 16 }}>{t('quota.title')}</Typography.Title>
+      {/* Page Header */}
+      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: '#1f1f1f', lineHeight: '1.3' }}>
+            {t('quota.title')}
+          </div>
+          <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
+            Eksport kwotasy — 2025/2026 möwsüm
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {/* action buttons */}
+        </div>
+      </div>
 
       {isError && <Alert type="error" message={t('quota.error_load')} style={{ marginBottom: 16 }} />}
 

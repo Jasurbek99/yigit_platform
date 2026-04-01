@@ -2,11 +2,13 @@ import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ConfigProvider, Spin } from 'antd';
+import enUS from 'antd/locale/en_US';
 import { Toaster } from 'sonner';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import AppLayout from '@/components/AppLayout';
 
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
+const DashboardPage = lazy(() => import('@/pages/DashboardPage'));
 const ShipmentList = lazy(() => import('@/pages/export/ShipmentList'));
 const ShipmentDetail = lazy(() => import('@/pages/export/ShipmentDetail'));
 const KanbanBoard = lazy(() => import('@/pages/export/KanbanBoard'));
@@ -41,9 +43,15 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ConfigProvider
+        locale={enUS}
         theme={{
           token: {
             colorPrimary: '#1677ff',
+            borderRadius: 6,
+            borderRadiusLG: 12,
+            fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif",
+            colorBgLayout: '#f5f5f5',
+            boxShadow: '0 1px 2px 0 rgba(0,0,0,0.03), 0 1px 6px -1px rgba(0,0,0,0.02), 0 2px 4px 0 rgba(0,0,0,0.02)',
           },
         }}
       >
@@ -60,7 +68,7 @@ export default function App() {
                   </ProtectedRoute>
                 }
               >
-                <Route index element={<Navigate to="/export/shipments" replace />} />
+                <Route index element={<DashboardPage />} />
                 <Route path="export/shipments" element={<ShipmentList />} />
                 <Route path="shipments/:id" element={<ShipmentDetail />} />
                 <Route path="export/kanban" element={<KanbanBoard />} />

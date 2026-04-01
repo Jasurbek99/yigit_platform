@@ -1,3 +1,10 @@
+:root {
+  --font: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+body { font-family: var(--font); }
+code, .text-mono { font-family: var(--font-mono); }
+
 @media print {
   /* Hide everything except the main table content */
   .ant-layout-sider,

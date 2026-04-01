@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Typography, Button, Tag, Modal, Form, Input, Switch, Alert } from 'antd';
+import { Button, Tag, Modal, Form, Input, Switch, Alert } from 'antd';
 import { CalendarOutlined, PlusOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import type { ProColumns } from '@ant-design/pro-components';
@@ -153,10 +153,29 @@ export default function SeasonsPage() {
 
   return (
     <div>
-      <Typography.Title level={4} style={{ marginBottom: 16 }}>
-        <CalendarOutlined style={{ marginRight: 8 }} />
-        {t('seasons.title')}
-      </Typography.Title>
+      {/* Page Header */}
+      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: '#1f1f1f', lineHeight: '1.3', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <CalendarOutlined style={{ fontSize: 18, color: '#1677ff' }} />
+            {t('seasons.title')}
+          </div>
+          <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
+            Eksport möwsümlerini dolandyrmak
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {isDirector && (
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={handleOpenCreate}
+            >
+              {t('seasons.add')}
+            </Button>
+          )}
+        </div>
+      </div>
 
       {isError && (
         <Alert type="error" message={t('seasons.error_load')} style={{ marginBottom: 16 }} />
@@ -173,20 +192,7 @@ export default function SeasonsPage() {
         size="small"
         locale={{ emptyText: t('seasons.empty') }}
         headerTitle={false}
-        toolBarRender={
-          isDirector
-            ? () => [
-                <Button
-                  key="add"
-                  type="primary"
-                  icon={<PlusOutlined />}
-                  onClick={handleOpenCreate}
-                >
-                  {t('seasons.add')}
-                </Button>,
-              ]
-            : false
-        }
+        toolBarRender={false}
       />
 
       <Modal

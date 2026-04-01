@@ -170,9 +170,20 @@ export default function KanbanBoard() {
 
   return (
     <div>
-      <Typography.Title level={4} style={{ marginBottom: 12 }}>
-        {t('kanban.title')}
-      </Typography.Title>
+      {/* Page Header */}
+      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: '#1f1f1f', lineHeight: '1.3' }}>
+            {t('kanban.title')}
+          </div>
+          <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
+            Häzirki hereket edýän ýükleriň ýagdaýy — Kanban görnüşi
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {/* action buttons */}
+        </div>
+      </div>
 
       {totalOverdue > 0 && (
         <Alert

@@ -150,19 +150,20 @@ export default function OverdueReports() {
   // ── JSX ────────────────────────────────────────────────────────────────────
   return (
     <div style={{ padding: '0 4px' }}>
-      {/* Page header */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          marginBottom: 16,
-        }}
-      >
-        <WarningOutlined style={{ color: '#ff4d4f', fontSize: 20 }} />
-        <Typography.Title level={4} style={{ margin: 0 }}>
-          {t('overdue.title')}
-        </Typography.Title>
+      {/* Page Header */}
+      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: '#1f1f1f', lineHeight: '1.3', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <WarningOutlined style={{ color: '#ff4d4f', fontSize: 18 }} />
+            {t('overdue.title')}
+          </div>
+          <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
+            Satyldy emma hasabat iberilmedik ýükler
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {/* action buttons */}
+        </div>
       </div>
 
       {/* Summary cards */}

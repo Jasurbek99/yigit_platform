@@ -370,32 +370,28 @@ export default function AdvancesTracker() {
   // ── JSX ────────────────────────────────────────────────────────────────────
   return (
     <div style={{ padding: '0 4px' }}>
-      {/* Page header */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: 16,
-          flexWrap: 'wrap',
-          gap: 8,
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <DollarOutlined style={{ color: '#1677ff', fontSize: 20 }} />
-          <Typography.Title level={4} style={{ margin: 0 }}>
+      {/* Page Header */}
+      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: '#1f1f1f', lineHeight: '1.3', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <DollarOutlined style={{ color: '#1677ff', fontSize: 18 }} />
             {t('advances.title')}
-          </Typography.Title>
+          </div>
+          <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
+            Müşderileriň öňünden töleg yzarlaýjysy
+          </div>
         </div>
-        {canCreate && (
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => setNewAdvanceOpen(true)}
-          >
-            {t('advances.new_advance')}
-          </Button>
-        )}
+        <div style={{ display: 'flex', gap: 8 }}>
+          {canCreate && (
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => setNewAdvanceOpen(true)}
+            >
+              {t('advances.new_advance')}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Summary cards */}

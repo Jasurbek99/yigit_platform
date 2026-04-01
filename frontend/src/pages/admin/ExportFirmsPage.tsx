@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Typography, Button, Tag, Modal, Form, Input, Switch, Alert } from 'antd';
+import { Button, Tag, Modal, Form, Input, Switch, Alert } from 'antd';
 import { BankOutlined, PlusOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import type { ProColumns } from '@ant-design/pro-components';
@@ -128,10 +128,29 @@ export default function ExportFirmsPage() {
 
   return (
     <div>
-      <Typography.Title level={4} style={{ marginBottom: 16 }}>
-        <BankOutlined style={{ marginRight: 8 }} />
-        {t('firms_admin.title')}
-      </Typography.Title>
+      {/* Page Header */}
+      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: '#1f1f1f', lineHeight: '1.3', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <BankOutlined style={{ fontSize: 18, color: '#1677ff' }} />
+            {t('firms_admin.title')}
+          </div>
+          <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
+            Eksport firmalaryny dolandyrmak
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {isDirector && (
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={handleOpenCreate}
+            >
+              {t('firms_admin.add')}
+            </Button>
+          )}
+        </div>
+      </div>
 
       {isError && (
         <Alert
@@ -153,20 +172,7 @@ export default function ExportFirmsPage() {
         scroll={{ x: 760 }}
         locale={{ emptyText: t('firms_admin.empty') }}
         headerTitle={false}
-        toolBarRender={
-          isDirector
-            ? () => [
-                <Button
-                  key="add"
-                  type="primary"
-                  icon={<PlusOutlined />}
-                  onClick={handleOpenCreate}
-                >
-                  {t('firms_admin.add')}
-                </Button>,
-              ]
-            : false
-        }
+        toolBarRender={false}
       />
 
       <Modal

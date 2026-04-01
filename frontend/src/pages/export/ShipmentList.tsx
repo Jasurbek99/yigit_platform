@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Typography, Segmented, Button, Dropdown } from 'antd';
+import { Segmented, Button, Dropdown } from 'antd';
 import { DownloadOutlined, PrinterOutlined, FileExcelOutlined, PlusOutlined } from '@ant-design/icons';
 import { ProTable } from '@ant-design/pro-components';
 import type { ProColumns } from '@ant-design/pro-components';
@@ -173,20 +173,17 @@ export default function ShipmentList() {
 
   return (
     <div className="shipment-list-page">
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          marginBottom: 16,
-          flexWrap: 'wrap',
-          gap: 8,
-        }}
-      >
-        <Typography.Title level={4} style={{ margin: 0 }}>
-          {t('shipments.title')}
-        </Typography.Title>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+      {/* Page Header */}
+      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: '#1f1f1f', lineHeight: '1.3' }}>
+            {t('shipments.title')}
+          </div>
+          <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
+            2025/2026 eksport möwsümi
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
           <Segmented
             size="small"
             options={[

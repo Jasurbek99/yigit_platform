@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Typography, DatePicker, Skeleton, Alert, Table, Tag, Space } from 'antd';
+import { DatePicker, Skeleton, Alert, Table, Tag, Space } from 'antd';
 import { useTranslation } from 'react-i18next';
 import dayjs, { type Dayjs } from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek';
@@ -93,18 +93,25 @@ export default function WeeklyPlanGrid() {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16, flexWrap: 'wrap' }}>
-        <Typography.Title level={4} style={{ margin: 0 }}>{t('plan.title')}</Typography.Title>
-        <DatePicker
-          picker="week"
-          value={selectedWeek}
-          onChange={(val) => val && setSelectedWeek(val)}
-          format={(d) => `${t('plan.week')} ${d.isoWeek()}, ${d.isoWeekYear()}`}
-          style={{ width: '100%', maxWidth: 220 }}
-        />
-        <Typography.Text type="secondary">
-          {t('plan.week')} {weekNumber} · {year} · {plans.length} {t('plan.blocks')}
-        </Typography.Text>
+      {/* Page Header */}
+      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: '#1f1f1f', lineHeight: '1.3' }}>
+            {t('plan.title')}
+          </div>
+          <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
+            {t('plan.week')} {weekNumber} · {year} · {plans.length} {t('plan.blocks')}
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <DatePicker
+            picker="week"
+            value={selectedWeek}
+            onChange={(val) => val && setSelectedWeek(val)}
+            format={(d) => `${t('plan.week')} ${d.isoWeek()}, ${d.isoWeekYear()}`}
+            style={{ width: 220 }}
+          />
+        </div>
       </div>
 
       {isError && <Alert type="error" message={t('plan.error_load')} style={{ marginBottom: 16 }} />}

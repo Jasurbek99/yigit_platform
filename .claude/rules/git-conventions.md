@@ -60,6 +60,20 @@ chore(docker): update MSSQL image to 2022-latest
 
 Commit often — every 30-60 minutes of working code, or after each logical step.
 
+## Pushing to GitHub
+
+Remote: `https://github.com/Jasurbek99/yigit_platform.git` (branch `main`)
+
+```bash
+# Push after committing
+git push
+
+# First push on a new branch
+git push -u origin <branch-name>
+```
+
+Push after every feature or at end of day — never let local commits pile up.
+
 ## Before committing
 
 ```bash

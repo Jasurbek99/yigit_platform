@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Typography, Table, Segmented, Skeleton, Alert, Tag } from 'antd';
+import { Table, Segmented, Skeleton, Alert, Tag, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import { usePriceEntries } from '@/hooks/usePlanning';
@@ -77,17 +77,27 @@ export default function PricePanel() {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-        <Typography.Title level={4} style={{ margin: 0 }}>{t('prices.title')}</Typography.Title>
-        <Segmented
-          options={[
-            { label: t('prices.days_7'), value: 7 },
-            { label: t('prices.days_14'), value: 14 },
-            { label: t('prices.days_30'), value: 30 },
-          ]}
-          value={days}
-          onChange={(v) => setDays(v as DaysRange)}
-        />
+      {/* Page Header */}
+      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: '#1f1f1f', lineHeight: '1.3' }}>
+            {t('prices.title')}
+          </div>
+          <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
+            Ugurlar boýunça bahalar paneli
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Segmented
+            options={[
+              { label: t('prices.days_7'), value: 7 },
+              { label: t('prices.days_14'), value: 14 },
+              { label: t('prices.days_30'), value: 30 },
+            ]}
+            value={days}
+            onChange={(v) => setDays(v as DaysRange)}
+          />
+        </div>
       </div>
 
       {isError && <Alert type="error" message={t('prices.error_load')} style={{ marginBottom: 16 }} />}
