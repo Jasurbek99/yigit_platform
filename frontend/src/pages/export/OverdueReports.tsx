@@ -1,19 +1,9 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ProTable } from '@ant-design/pro-components';
-import type { ProColumns } from '@ant-design/pro-components';
-import {
-  Row,
-  Col,
-  Statistic,
-  Card,
-  Tag,
-  Alert,
-  Segmented,
-  Typography,
-} from 'antd';
-import { WarningOutlined } from '@ant-design/icons';
+import { Alert, Anchor, Card, Group, SegmentedControl, SimpleGrid, Text } from '@mantine/core';
+import { IconAlertTriangle } from '@tabler/icons-react';
+import { DataTable } from 'mantine-datatable';
 import { useOverdueShipments } from '@/hooks/useOverdueShipments';
 import { StatusTag } from '@/components/StatusTag';
 import type { IOverdueShipment } from '@/types';
@@ -25,6 +15,15 @@ function daysOverdueColor(days: number): string {
   if (days > 14) return '#ff4d4f';
   if (days >= 10) return '#fa8c16';
   return '#52c41a';
+}
+
+function StatCard({ title, value, color }: { title: string; value: string | number; color?: string }) {
+  return (
+    <Card padding="md">
+      <Text size="xs" c="dimmed" mb={4}>{title}</Text>
+      <Text fw={700} size="xl" c={color}>{value}</Text>
+    </Card>
+  );
 }
 
 export default function OverdueReports() {
@@ -54,84 +53,73 @@ export default function OverdueReports() {
   );
 
   // ── Handlers ───────────────────────────────────────────────────────────────
-  function handleRowClick(record: IOverdueShipment) {
-    navigate(`/shipments/${record.id}`);
-  }
-
-  function handleThresholdChange(value: string | number) {
-    setThreshold(value as ThresholdValue);
+  function handleThresholdChange(value: string) {
+    setThreshold(Number(value) as ThresholdValue);
   }
 
   // ── Columns ────────────────────────────────────────────────────────────────
-  const columns: ProColumns<IOverdueShipment>[] = [
+  const columns = [
     {
+      accessor: 'cargo_code' as keyof IOverdueShipment,
       title: t('overdue.cargo_code'),
-      dataIndex: 'cargo_code',
       width: 140,
-      render: (_, record) => (
-        <Typography.Link
+      render: (record: IOverdueShipment) => (
+        <Anchor
           onClick={(e) => {
             e.stopPropagation();
             navigate(`/shipments/${record.id}`);
           }}
         >
           {record.cargo_code}
-        </Typography.Link>
+        </Anchor>
       ),
     },
     {
+      accessor: 'status_display' as keyof IOverdueShipment,
       title: t('overdue.status'),
-      dataIndex: 'status_display',
       width: 130,
-      render: (_, record) => <StatusTag statusDisplay={record.status_display} />,
+      render: (record: IOverdueShipment) => <StatusTag statusDisplay={record.status_display} />,
     },
     {
+      accessor: 'country_name' as keyof IOverdueShipment,
       title: t('overdue.country'),
-      dataIndex: 'country_name',
       width: 120,
-      responsive: ['md'],
-      render: (_, record) => record.country_name ?? '—',
+      render: (record: IOverdueShipment) => record.country_name ?? '—',
     },
     {
+      accessor: 'customer_name' as keyof IOverdueShipment,
       title: t('overdue.customer'),
-      dataIndex: 'customer_name',
       width: 160,
-      responsive: ['md'],
-      render: (_, record) => record.customer_name ?? '—',
+      render: (record: IOverdueShipment) => record.customer_name ?? '—',
     },
     {
+      accessor: 'weight_net' as keyof IOverdueShipment,
       title: t('overdue.weight_net'),
-      dataIndex: 'weight_net',
       width: 110,
-      align: 'right',
-      responsive: ['lg'],
-      render: (_, record) =>
+      render: (record: IOverdueShipment) =>
         record.weight_net != null
           ? record.weight_net.toLocaleString()
           : '—',
     },
     {
+      accessor: 'days_overdue' as keyof IOverdueShipment,
       title: t('overdue.days_overdue'),
-      dataIndex: 'days_overdue',
       width: 130,
-      sorter: (a, b) => a.days_overdue - b.days_overdue,
-      defaultSortOrder: 'descend',
-      render: (_, record) => (
-        <Typography.Text strong style={{ color: daysOverdueColor(record.days_overdue) }}>
+      render: (record: IOverdueShipment) => (
+        <Text fw={600} style={{ color: daysOverdueColor(record.days_overdue) }}>
           {t('overdue.days', { count: record.days_overdue })}
-        </Typography.Text>
+        </Text>
       ),
     },
     {
+      accessor: 'has_sales_report' as keyof IOverdueShipment,
       title: t('overdue.has_report'),
-      dataIndex: 'has_sales_report',
       width: 90,
-      align: 'center',
-      render: (_, record) =>
+      render: (record: IOverdueShipment) =>
         record.has_sales_report ? (
-          <Tag color="success">{t('overdue.yes')}</Tag>
+          <Text c="green" fw={600} size="sm">{t('overdue.yes')}</Text>
         ) : (
-          <Tag color="error">{t('overdue.no')}</Tag>
+          <Text c="red" fw={600} size="sm">{t('overdue.no')}</Text>
         ),
     },
   ];
@@ -139,11 +127,7 @@ export default function OverdueReports() {
   // ── Early returns ──────────────────────────────────────────────────────────
   if (isError) {
     return (
-      <Alert
-        type="error"
-        message={t('overdue.error_load')}
-        style={{ margin: 24 }}
-      />
+      <Alert color="red" m="md">{t('overdue.error_load')}</Alert>
     );
   }
 
@@ -151,81 +135,59 @@ export default function OverdueReports() {
   return (
     <div style={{ padding: '0 4px' }}>
       {/* Page Header */}
-      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <Group justify="space-between" align="flex-start" mb="lg">
         <div>
           <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: '#1f1f1f', lineHeight: '1.3', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <WarningOutlined style={{ color: '#ff4d4f', fontSize: 18 }} />
+            <IconAlertTriangle style={{ color: '#ff4d4f', fontSize: 18 }} />
             {t('overdue.title')}
           </div>
           <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
             Satyldy emma hasabat iberilmedik ýükler
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {/* action buttons */}
-        </div>
-      </div>
+      </Group>
 
       {/* Summary cards */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-        <Col xs={24} sm={8}>
-          <Card size="small" bordered>
-            <Statistic
-              title={t('overdue.total_overdue')}
-              value={totalOverdue}
-              valueStyle={{ color: totalOverdue > 0 ? '#ff4d4f' : undefined }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={8}>
-          <Card size="small" bordered>
-            <Statistic
-              title={t('overdue.avg_days')}
-              value={avgDays}
-              suffix={t('overdue.days_unit')}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={8}>
-          <Card size="small" bordered>
-            <Statistic
-              title={t('overdue.critical')}
-              value={criticalCount}
-              valueStyle={{ color: criticalCount > 0 ? '#ff4d4f' : undefined }}
-            />
-          </Card>
-        </Col>
-      </Row>
+      <SimpleGrid cols={{ base: 1, sm: 3 }} mb="md">
+        <StatCard
+          title={t('overdue.total_overdue')}
+          value={totalOverdue}
+          color={totalOverdue > 0 ? 'red' : undefined}
+        />
+        <StatCard
+          title={t('overdue.avg_days')}
+          value={`${avgDays} ${t('overdue.days_unit')}`}
+        />
+        <StatCard
+          title={t('overdue.critical')}
+          value={criticalCount}
+          color={criticalCount > 0 ? 'red' : undefined}
+        />
+      </SimpleGrid>
 
       {/* Threshold selector */}
-      <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
-        <Typography.Text type="secondary">{t('overdue.threshold')}:</Typography.Text>
-        <Segmented
-          value={threshold}
-          options={THRESHOLD_OPTIONS.map((d) => ({
+      <Group mb="md" align="center" gap="xs">
+        <Text c="dimmed" size="sm">{t('overdue.threshold')}:</Text>
+        <SegmentedControl
+          value={String(threshold)}
+          data={THRESHOLD_OPTIONS.map((d) => ({
             label: t('overdue.days', { count: d }),
-            value: d,
+            value: String(d),
           }))}
           onChange={handleThresholdChange}
         />
-      </div>
+      </Group>
 
       {/* Table */}
-      <ProTable<IOverdueShipment>
-        rowKey="id"
+      <DataTable
+        idAccessor="id"
+        records={shipments}
         columns={columns}
-        dataSource={shipments}
-        loading={isLoading}
-        search={false}
-        options={false}
-        pagination={{ pageSize: 20, showSizeChanger: false }}
-        scroll={{ x: 600 }}
-        onRow={(record) => ({
-          onClick: () => handleRowClick(record),
-          style: { cursor: 'pointer' },
-        })}
-        locale={{ emptyText: t('overdue.empty') }}
-        cardBordered
+        fetching={isLoading}
+        onRowClick={({ record }) => navigate(`/shipments/${record.id}`)}
+        noRecordsText={t('overdue.empty') ?? 'Maglumat ýok'}
+        verticalSpacing="xs"
+        styles={{ header: { backgroundColor: '#f5f5f5', fontSize: 13 } }}
       />
     </div>
   );

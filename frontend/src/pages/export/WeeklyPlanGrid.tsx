@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { DatePicker, Skeleton, Alert, Table, Tag, Space } from 'antd';
+import { Alert, Badge, Group, Skeleton, Table, Text } from '@mantine/core';
+import { DatePickerInput } from '@mantine/dates';
 import { useTranslation } from 'react-i18next';
-import dayjs, { type Dayjs } from 'dayjs';
+import dayjs from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek';
 import weekOfYear from 'dayjs/plugin/weekOfYear';
 import { useHarvestPlans } from '@/hooks/usePlanning';
 import type { IWeeklyHarvestPlan } from '@/types';
-import type { ColumnsType } from 'antd/es/table';
 
 dayjs.extend(isoWeek);
 dayjs.extend(weekOfYear);
@@ -35,66 +35,22 @@ function ActualCell({ plan, actual }: { plan: number; actual: number | null }) {
 export default function WeeklyPlanGrid() {
   const { t } = useTranslation();
   const now = dayjs();
-  const [selectedWeek, setSelectedWeek] = useState<Dayjs>(now);
+  const [selectedWeek, setSelectedWeek] = useState<Date | null>(now.toDate());
 
-  const weekNumber = selectedWeek.isoWeek();
-  const year = selectedWeek.isoWeekYear();
+  const dayjsWeek = selectedWeek ? dayjs(selectedWeek) : now;
+  const weekNumber = dayjsWeek.isoWeek();
+  const year = dayjsWeek.isoWeekYear();
 
   const { data, isLoading, isError } = useHarvestPlans({ year, week: weekNumber });
-  const plans = data?.results ?? [];
+  const plans: IWeeklyHarvestPlan[] = data?.results ?? [];
 
-  const columns: ColumnsType<IWeeklyHarvestPlan> = [
-    {
-      title: t('plan.block'),
-      dataIndex: 'block_code',
-      fixed: 'left',
-      width: 80,
-      render: (code: string, row) => (
-        <Space direction="vertical" size={0}>
-          <Tag color="blue">{code}</Tag>
-          <span style={{ fontSize: 11, color: '#8c8c8c' }}>{row.block_name}</span>
-        </Space>
-      ),
-    },
-    ...DAYS.map((day) => ({
-      title: t(`plan.${day}`),
-      width: 130,
-      children: [
-        {
-          title: <span style={{ color: '#1677ff', fontSize: 11 }}>{t('plan.plan')}</span>,
-          key: `${day}_plan`,
-          width: 65,
-          render: (_: unknown, row: IWeeklyHarvestPlan) => fmtKg(row[`${day}_plan_kg`]),
-        },
-        {
-          title: <span style={{ color: '#52c41a', fontSize: 11 }}>{t('plan.actual')}</span>,
-          key: `${day}_actual`,
-          width: 65,
-          render: (_: unknown, row: IWeeklyHarvestPlan) => (
-            <ActualCell plan={row[`${day}_plan_kg`]} actual={row[`${day}_actual_kg`]} />
-          ),
-        },
-      ],
-    })),
-    {
-      title: t('plan.total'),
-      fixed: 'right',
-      width: 120,
-      render: (_: unknown, row: IWeeklyHarvestPlan) => (
-        <Space direction="vertical" size={0}>
-          <span style={{ color: '#1677ff' }}>{fmtKg(row.total_plan_kg)}</span>
-          {row.total_actual_kg != null && (
-            <span style={{ color: '#52c41a', fontSize: 11 }}>{fmtKg(row.total_actual_kg)}</span>
-          )}
-        </Space>
-      ),
-    },
-  ];
+  const totalPlan = plans.reduce((s, r) => s + (r.total_plan_kg ?? 0), 0);
+  const totalActual = plans.reduce((s, r) => s + (r.total_actual_kg ?? 0), 0);
 
   return (
     <div>
       {/* Page Header */}
-      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <Group justify="space-between" align="flex-start" mb="lg">
         <div>
           <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: '#1f1f1f', lineHeight: '1.3' }}>
             {t('plan.title')}
@@ -103,51 +59,79 @@ export default function WeeklyPlanGrid() {
             {t('plan.week')} {weekNumber} · {year} · {plans.length} {t('plan.blocks')}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <DatePicker
-            picker="week"
-            value={selectedWeek}
-            onChange={(val) => val && setSelectedWeek(val)}
-            format={(d) => `${t('plan.week')} ${d.isoWeek()}, ${d.isoWeekYear()}`}
-            style={{ width: 220 }}
-          />
-        </div>
-      </div>
+        <DatePickerInput
+          value={selectedWeek}
+          onChange={(val) => setSelectedWeek(val as Date | null)}
+          valueFormat="DD.MM.YYYY"
+          placeholder={`${t('plan.week')} ${weekNumber}, ${year}`}
+          style={{ width: 220 }}
+        />
+      </Group>
 
-      {isError && <Alert type="error" message={t('plan.error_load')} style={{ marginBottom: 16 }} />}
+      {isError && <Alert color="red" mb="md">{t('plan.error_load')}</Alert>}
 
       {isLoading ? (
-        <Skeleton active />
+        <Skeleton height={300} />
       ) : (
-        <Table<IWeeklyHarvestPlan>
-          rowKey="id"
-          dataSource={plans}
-          columns={columns}
-          pagination={false}
-          scroll={{ x: 1400 }}
-          size="small"
-          bordered
-          summary={(rows) => {
-            const totalPlan = rows.reduce((s, r) => s + (r.total_plan_kg ?? 0), 0);
-            const totalActual = rows.reduce((s, r) => s + (r.total_actual_kg ?? 0), 0);
-            return (
-              <Table.Summary.Row style={{ fontWeight: 600, background: '#fafafa' }}>
-                <Table.Summary.Cell index={0}>{t('plan.total')}</Table.Summary.Cell>
-                {DAYS.map((_, i) => (
-                  <Table.Summary.Cell key={i} index={i + 1} colSpan={2} />
+        <div style={{ overflowX: 'auto' }}>
+          <Table striped highlightOnHover withColumnBorders withTableBorder>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th rowSpan={2}>{t('plan.block')}</Table.Th>
+                {DAYS.map((d) => (
+                  <Table.Th key={d} colSpan={2} style={{ textAlign: 'center' }}>
+                    {t(`plan.${d}`)}
+                  </Table.Th>
                 ))}
-                <Table.Summary.Cell index={DAYS.length + 1}>
-                  <Space direction="vertical" size={0}>
-                    <span style={{ color: '#1677ff' }}>{fmtKg(totalPlan)}</span>
-                    {totalActual > 0 && (
-                      <span style={{ color: '#52c41a', fontSize: 11 }}>{fmtKg(totalActual)}</span>
+                <Table.Th rowSpan={2}>{t('plan.total')}</Table.Th>
+              </Table.Tr>
+              <Table.Tr>
+                {DAYS.flatMap((d) => [
+                  <Table.Th key={`${d}_plan`} style={{ color: '#1677ff', fontSize: 11 }}>
+                    {t('plan.plan')}
+                  </Table.Th>,
+                  <Table.Th key={`${d}_actual`} style={{ color: '#52c41a', fontSize: 11 }}>
+                    {t('plan.actual')}
+                  </Table.Th>,
+                ])}
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {plans.map((row) => (
+                <Table.Tr key={row.id}>
+                  <Table.Td>
+                    <Badge variant="light" color="blue">{row.block_code}</Badge>
+                    <Text size="xs" c="dimmed">{row.block_name}</Text>
+                  </Table.Td>
+                  {DAYS.flatMap((day) => [
+                    <Table.Td key={`${day}_plan`}>{fmtKg(row[`${day}_plan_kg`])}</Table.Td>,
+                    <Table.Td key={`${day}_actual`}>
+                      <ActualCell plan={row[`${day}_plan_kg`]} actual={row[`${day}_actual_kg`]} />
+                    </Table.Td>,
+                  ])}
+                  <Table.Td>
+                    <Text size="sm" c="blue">{fmtKg(row.total_plan_kg)}</Text>
+                    {row.total_actual_kg != null && (
+                      <Text size="xs" c="green">{fmtKg(row.total_actual_kg)}</Text>
                     )}
-                  </Space>
-                </Table.Summary.Cell>
-              </Table.Summary.Row>
-            );
-          }}
-        />
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+              {/* Summary row */}
+              <Table.Tr style={{ fontWeight: 600 }}>
+                <Table.Td>{t('plan.total')}</Table.Td>
+                {DAYS.flatMap((_, i) => [
+                  <Table.Td key={`sum_plan_${i}`} />,
+                  <Table.Td key={`sum_actual_${i}`} />,
+                ])}
+                <Table.Td>
+                  <Text size="sm" c="blue">{fmtKg(totalPlan)}</Text>
+                  {totalActual > 0 && <Text size="xs" c="green">{fmtKg(totalActual)}</Text>}
+                </Table.Td>
+              </Table.Tr>
+            </Table.Tbody>
+          </Table>
+        </div>
       )}
     </div>
   );

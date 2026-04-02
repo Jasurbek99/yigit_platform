@@ -1,14 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Badge, Card, Spin, Tag, Typography, Alert } from 'antd';
-import { ClockCircleOutlined, WarningOutlined } from '@ant-design/icons';
+import { Alert, Badge, Card, Loader, Text } from '@mantine/core';
+import { IconAlertTriangle, IconClock } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import { useShipments } from '@/hooks/useShipments';
 import { StatusTag } from '@/components/StatusTag';
 import type { IShipmentListItem } from '@/types';
-
-const { Text } = Typography;
 
 // Days threshold before a shipment is considered overdue per phase
 const OVERDUE_DAYS: Record<string, number> = {
@@ -50,39 +48,44 @@ function ShipmentCard({ shipment, phase }: IShipmentCardProps) {
 
   return (
     <Card
-      size="small"
-      hoverable
-      onClick={() => navigate(`/shipments/${shipment.id}`)}
+      padding="xs"
       style={{
         marginBottom: 8,
         borderLeft: isOverdue ? '3px solid #ff4d4f' : '3px solid transparent',
         cursor: 'pointer',
       }}
+      onClick={() => navigate(`/shipments/${shipment.id}`)}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <Text strong style={{ fontSize: 13 }}>{shipment.cargo_code}</Text>
+        <Text fw={600} size="sm">{shipment.cargo_code}</Text>
         {isOverdue && (
-          <Tag icon={<WarningOutlined />} color="error" style={{ margin: 0, fontSize: 11 }}>
+          <Badge
+            variant="light"
+            color="red"
+            size="xs"
+            leftSection={<IconAlertTriangle size={10} />}
+          >
             {t('kanban.overdue')}
-          </Tag>
+          </Badge>
         )}
       </div>
       <div style={{ marginTop: 4 }}>
-        <Text type="secondary" style={{ fontSize: 12 }}>{shipment.customer_name ?? '—'}</Text>
+        <Text c="dimmed" size="xs">{shipment.customer_name ?? '—'}</Text>
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, alignItems: 'center' }}>
         <StatusTag statusDisplay={shipment.status_display} />
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {shipment.weight_net != null && (
-            <Text type="secondary" style={{ fontSize: 11 }}>
+            <Text c="dimmed" size="xs">
               {t('kanban.weight', { weight: Number(shipment.weight_net).toLocaleString() })}
             </Text>
           )}
           <Text
-            type={isOverdue ? 'danger' : 'secondary'}
-            style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 2 }}
+            c={isOverdue ? 'red' : 'dimmed'}
+            size="xs"
+            style={{ display: 'flex', alignItems: 'center', gap: 2 }}
           >
-            <ClockCircleOutlined />
+            <IconClock size={11} style={{ display: 'inline' }} />
             {t('kanban.days_stuck', { count: days })}
           </Text>
         </div>
@@ -124,14 +127,15 @@ function KanbanColumnView({ column, onOverdueCount }: IKanbanColumnViewProps) {
       {/* Column header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, padding: '0 4px' }}>
         <div style={{ width: 10, height: 10, borderRadius: '50%', background: column.color, flexShrink: 0 }} />
-        <Text strong style={{ fontSize: 13 }}>{t(column.labelKey)}</Text>
+        <Text fw={600} size="sm">{t(column.labelKey)}</Text>
         <Badge
-          count={data?.count ?? 0}
           style={{ backgroundColor: column.color, marginLeft: 'auto' }}
-          showZero
-        />
+          size="sm"
+        >
+          {data?.count ?? 0}
+        </Badge>
         {overdueCount > 0 && (
-          <Badge count={overdueCount} style={{ backgroundColor: '#ff4d4f' }} />
+          <Badge color="red" size="sm">{overdueCount}</Badge>
         )}
       </div>
 
@@ -139,11 +143,11 @@ function KanbanColumnView({ column, onOverdueCount }: IKanbanColumnViewProps) {
       <div style={{ overflowY: 'auto', flex: 1 }}>
         {isLoading && (
           <div style={{ display: 'flex', justifyContent: 'center', padding: 16 }}>
-            <Spin size="small" />
+            <Loader size="sm" />
           </div>
         )}
         {!isLoading && shipments.length === 0 && (
-          <Text type="secondary" style={{ fontSize: 12, padding: '8px 4px', display: 'block' }}>
+          <Text c="dimmed" size="xs" style={{ padding: '8px 4px', display: 'block' }}>
             {t('kanban.no_shipments')}
           </Text>
         )}
@@ -186,13 +190,9 @@ export default function KanbanBoard() {
       </div>
 
       {totalOverdue > 0 && (
-        <Alert
-          type="warning"
-          showIcon
-          message={t('kanban.overdue_banner', { count: totalOverdue })}
-          style={{ marginBottom: 16 }}
-          closable
-        />
+        <Alert color="yellow" mb="md" withCloseButton>
+          {t('kanban.overdue_banner', { count: totalOverdue })}
+        </Alert>
       )}
 
       <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 12, WebkitOverflowScrolling: 'touch' }}>

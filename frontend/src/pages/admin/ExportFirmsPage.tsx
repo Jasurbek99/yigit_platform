@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Button, Tag, Modal, Form, Input, Switch, Alert } from 'antd';
-import { BankOutlined, PlusOutlined } from '@ant-design/icons';
+import { Alert, Badge, Button, Group, Modal, Stack, Switch, TextInput } from '@mantine/core';
+import { useForm } from '@mantine/form';
+import { IconBuildingBank, IconPlus } from '@tabler/icons-react';
+import { DataTable } from 'mantine-datatable';
 import { useTranslation } from 'react-i18next';
-import type { ProColumns } from '@ant-design/pro-components';
-import { ProTable } from '@ant-design/pro-components';
 import { toast } from 'sonner';
 import { useAdminFirms, useCreateFirm, useUpdateFirm } from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
@@ -12,8 +12,8 @@ import type { IExportFirm } from '@/types';
 interface FirmFormValues {
   code: string;
   name_tk: string;
-  name_en: string | null;
-  name_ru: string | null;
+  name_en: string;
+  name_ru: string;
   is_active: boolean;
 }
 
@@ -24,7 +24,20 @@ export default function ExportFirmsPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<IExportFirm | null>(null);
-  const [form] = Form.useForm<FirmFormValues>();
+
+  const form = useForm<FirmFormValues>({
+    initialValues: {
+      code: '',
+      name_tk: '',
+      name_en: '',
+      name_ru: '',
+      is_active: true,
+    },
+    validate: {
+      code: (v) => (!v ? t('common.required') : null),
+      name_tk: (v) => (!v ? t('common.required') : null),
+    },
+  });
 
   const { data, isLoading, isError } = useAdminFirms();
   const rows = data ?? [];
@@ -33,7 +46,7 @@ export default function ExportFirmsPage() {
     onSuccess: () => {
       toast.success(t('firms_admin.toast_created'));
       setModalOpen(false);
-      form.resetFields();
+      form.reset();
     },
     onError: () => toast.error(t('firms_admin.toast_error')),
   });
@@ -42,21 +55,21 @@ export default function ExportFirmsPage() {
     onSuccess: () => {
       toast.success(t('firms_admin.toast_updated'));
       setModalOpen(false);
-      form.resetFields();
+      form.reset();
     },
     onError: () => toast.error(t('firms_admin.toast_error')),
   });
 
   function handleOpenCreate() {
     setEditTarget(null);
-    form.resetFields();
-    form.setFieldsValue({ is_active: true });
+    form.reset();
+    form.setValues({ is_active: true });
     setModalOpen(true);
   }
 
   function handleOpenEdit(record: IExportFirm) {
     setEditTarget(record);
-    form.setFieldsValue({
+    form.setValues({
       code: record.code,
       name_tk: record.name_tk,
       name_en: record.name_en ?? '',
@@ -66,7 +79,11 @@ export default function ExportFirmsPage() {
     setModalOpen(true);
   }
 
-  function handleSubmit(values: FirmFormValues) {
+  function handleSubmit() {
+    const result = form.validate();
+    if (result.hasErrors) return;
+
+    const values = form.values;
     if (editTarget) {
       updateMutation.mutate({ id: editTarget.id, ...values });
     } else {
@@ -74,140 +91,134 @@ export default function ExportFirmsPage() {
     }
   }
 
-  const columns: ProColumns<IExportFirm>[] = [
+  const columns = [
     {
+      accessor: 'code' as keyof IExportFirm,
       title: t('firms_admin.code'),
-      dataIndex: 'code',
       width: 100,
     },
     {
+      accessor: 'name_tk' as keyof IExportFirm,
       title: t('firms_admin.name_tk'),
-      dataIndex: 'name_tk',
       width: 180,
     },
     {
+      accessor: 'name_en' as keyof IExportFirm,
       title: t('firms_admin.name_en'),
-      dataIndex: 'name_en',
       width: 180,
-      render: (val: unknown) =>
-        val ? String(val) : <span style={{ color: '#bfbfbf' }}>{t('common.empty')}</span>,
+      render: (record: IExportFirm) =>
+        record.name_en
+          ? record.name_en
+          : <span style={{ color: '#bfbfbf' }}>{t('common.empty')}</span>,
     },
     {
+      accessor: 'name_ru' as keyof IExportFirm,
       title: t('firms_admin.name_ru'),
-      dataIndex: 'name_ru',
       width: 180,
-      render: (val: unknown) =>
-        val ? String(val) : <span style={{ color: '#bfbfbf' }}>{t('common.empty')}</span>,
+      render: (record: IExportFirm) =>
+        record.name_ru
+          ? record.name_ru
+          : <span style={{ color: '#bfbfbf' }}>{t('common.empty')}</span>,
     },
     {
+      accessor: 'is_active' as keyof IExportFirm,
       title: t('firms_admin.is_active'),
-      dataIndex: 'is_active',
       width: 100,
-      render: (_, record) =>
+      render: (record: IExportFirm) =>
         record.is_active ? (
-          <Tag color="green">{t('common.yes')}</Tag>
+          <Badge variant="light" color="green">{t('common.yes')}</Badge>
         ) : (
-          <Tag>{t('common.no')}</Tag>
+          <Badge variant="light" color="gray">{t('common.no')}</Badge>
         ),
     },
     ...(isDirector
-      ? ([
+      ? [
           {
+            accessor: 'id' as keyof IExportFirm,
             title: '',
-            key: 'actions',
-            width: 100,
-            render: (_: unknown, record: IExportFirm) => (
-              <Button type="link" size="small" onClick={() => handleOpenEdit(record)}>
+            width: 80,
+            render: (record: IExportFirm) => (
+              <Button variant="subtle" size="compact-xs" onClick={(e) => { e.stopPropagation(); handleOpenEdit(record); }}>
                 {t('common.edit')}
               </Button>
             ),
           },
-        ] as ProColumns<IExportFirm>[])
+        ]
       : []),
   ];
 
   return (
     <div>
       {/* Page Header */}
-      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <Group justify="space-between" align="flex-start" mb="lg">
         <div>
           <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: '#1f1f1f', lineHeight: '1.3', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <BankOutlined style={{ fontSize: 18, color: '#1677ff' }} />
+            <IconBuildingBank size={18} color="#1677ff" />
             {t('firms_admin.title')}
           </div>
           <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
             Eksport firmalaryny dolandyrmak
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {isDirector && (
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={handleOpenCreate}
-            >
-              {t('firms_admin.add')}
-            </Button>
-          )}
-        </div>
-      </div>
+        {isDirector && (
+          <Button leftSection={<IconPlus size={14} />} onClick={handleOpenCreate}>
+            {t('firms_admin.add')}
+          </Button>
+        )}
+      </Group>
 
       {isError && (
-        <Alert
-          type="error"
-          message={t('firms_admin.error_load')}
-          style={{ marginBottom: 16 }}
-        />
+        <Alert color="red" mb="md">{t('firms_admin.error_load')}</Alert>
       )}
 
-      <ProTable<IExportFirm>
-        rowKey="id"
-        dataSource={rows}
+      <DataTable
+        idAccessor="id"
+        records={rows}
         columns={columns}
-        loading={isLoading}
-        search={false}
-        options={false}
-        pagination={{ pageSize: 50, showSizeChanger: true }}
-        size="small"
-        scroll={{ x: 760 }}
-        locale={{ emptyText: t('firms_admin.empty') }}
-        headerTitle={false}
-        toolBarRender={false}
+        fetching={isLoading}
+        noRecordsText={t('firms_admin.empty') ?? 'Maglumat ýok'}
+        verticalSpacing="xs"
+        styles={{ header: { backgroundColor: '#f5f5f5', fontSize: 13 } }}
       />
 
       <Modal
-        open={modalOpen}
+        opened={modalOpen}
+        onClose={() => { setModalOpen(false); form.reset(); }}
         title={editTarget ? t('firms_admin.edit_title') : t('firms_admin.add')}
-        onCancel={() => setModalOpen(false)}
-        onOk={() => form.submit()}
-        confirmLoading={createMutation.isPending || updateMutation.isPending}
-        destroyOnClose
       >
-        <Form form={form} layout="vertical" onFinish={handleSubmit}>
-          <Form.Item
-            name="code"
+        <Stack>
+          <TextInput
             label={t('firms_admin.code')}
-            rules={[{ required: true }]}
-          >
-            <Input />
-          </Form.Item>
-          <Form.Item
-            name="name_tk"
+            {...form.getInputProps('code')}
+          />
+          <TextInput
             label={t('firms_admin.name_tk')}
-            rules={[{ required: true }]}
-          >
-            <Input />
-          </Form.Item>
-          <Form.Item name="name_en" label={t('firms_admin.name_en')}>
-            <Input />
-          </Form.Item>
-          <Form.Item name="name_ru" label={t('firms_admin.name_ru')}>
-            <Input />
-          </Form.Item>
-          <Form.Item name="is_active" label={t('firms_admin.is_active')} valuePropName="checked">
-            <Switch />
-          </Form.Item>
-        </Form>
+            {...form.getInputProps('name_tk')}
+          />
+          <TextInput
+            label={t('firms_admin.name_en')}
+            {...form.getInputProps('name_en')}
+          />
+          <TextInput
+            label={t('firms_admin.name_ru')}
+            {...form.getInputProps('name_ru')}
+          />
+          <Switch
+            label={t('firms_admin.is_active')}
+            {...form.getInputProps('is_active', { type: 'checkbox' })}
+          />
+          <Group justify="flex-end" mt="md">
+            <Button variant="default" onClick={() => { setModalOpen(false); form.reset(); }}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              loading={createMutation.isPending || updateMutation.isPending}
+              onClick={handleSubmit}
+            >
+              {t('common.save')}
+            </Button>
+          </Group>
+        </Stack>
       </Modal>
     </div>
   );

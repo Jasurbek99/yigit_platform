@@ -1,24 +1,14 @@
 import { useState } from 'react';
-import {
-  DatePicker,
-  Row,
-  Col,
-  Statistic,
-  Table,
-  Alert,
-  Skeleton,
-  Card,
-  Progress,
-  Tag,
-} from 'antd';
-import { BarChartOutlined } from '@ant-design/icons';
+import { Alert, Badge, Card, Group, Progress, SimpleGrid, Skeleton, Text } from '@mantine/core';
+import { DatePickerInput } from '@mantine/dates';
+import { IconChartBar } from '@tabler/icons-react';
+import { DataTable } from 'mantine-datatable';
 import { useTranslation } from 'react-i18next';
-import dayjs, { type Dayjs } from 'dayjs';
+import dayjs from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek';
 import weekOfYear from 'dayjs/plugin/weekOfYear';
 import { useBlockSummary } from '@/hooks/usePlanning';
 import type { IBlockSummary } from '@/types';
-import type { ColumnsType } from 'antd/es/table';
 
 dayjs.extend(isoWeek);
 dayjs.extend(weekOfYear);
@@ -28,13 +18,23 @@ function fmtKg(val: number | null | undefined): string {
   return Number(val).toLocaleString();
 }
 
+function StatCard({ title, value, color }: { title: string; value: string | number; color?: string }) {
+  return (
+    <Card padding="md">
+      <Text size="xs" c="dimmed" mb={4}>{title}</Text>
+      <Text fw={700} size="xl" c={color}>{value}</Text>
+    </Card>
+  );
+}
+
 export default function BlockSummary() {
   const { t } = useTranslation();
   const now = dayjs();
-  const [selectedWeek, setSelectedWeek] = useState<Dayjs>(now);
+  const [selectedWeek, setSelectedWeek] = useState<Date | null>(now.toDate());
 
-  const weekNumber = selectedWeek.isoWeek();
-  const year = selectedWeek.isoWeekYear();
+  const dayjsWeek = selectedWeek ? dayjs(selectedWeek) : now;
+  const weekNumber = dayjsWeek.isoWeek();
+  const year = dayjsWeek.isoWeekYear();
 
   const { data: rows = [], isLoading, isError } = useBlockSummary({ year, week_number: weekNumber });
 
@@ -49,32 +49,32 @@ export default function BlockSummary() {
       ? Math.round((totalActual / totalPlan) * 100)
       : null;
 
-  const columns: ColumnsType<IBlockSummary> = [
+  const columns = [
     {
+      accessor: 'block_code' as keyof IBlockSummary,
       title: t('block_summary.block_code'),
-      dataIndex: 'block_code',
       width: 80,
-      render: (code: string) => <Tag color="blue">{code}</Tag>,
-    },
-    {
-      title: t('block_summary.block_name'),
-      dataIndex: 'block_name',
-    },
-    {
-      title: t('block_summary.plan'),
-      dataIndex: 'total_plan_kg',
-      align: 'right',
-      width: 130,
-      render: (val: number) => (
-        <span style={{ color: '#1677ff' }}>{fmtKg(val)}</span>
+      render: (record: IBlockSummary) => (
+        <Badge variant="light" color="blue">{record.block_code}</Badge>
       ),
     },
     {
-      title: t('block_summary.actual'),
-      dataIndex: 'total_actual_kg',
-      align: 'right',
+      accessor: 'block_name' as keyof IBlockSummary,
+      title: t('block_summary.block_name'),
+    },
+    {
+      accessor: 'total_plan_kg' as keyof IBlockSummary,
+      title: t('block_summary.plan'),
       width: 130,
-      render: (_, record: IBlockSummary) =>
+      render: (record: IBlockSummary) => (
+        <span style={{ color: '#1677ff' }}>{fmtKg(record.total_plan_kg)}</span>
+      ),
+    },
+    {
+      accessor: 'total_actual_kg' as keyof IBlockSummary,
+      title: t('block_summary.actual'),
+      width: 130,
+      render: (record: IBlockSummary) =>
         record.total_actual_kg != null ? (
           <span style={{ color: '#52c41a' }}>{fmtKg(record.total_actual_kg)}</span>
         ) : (
@@ -82,11 +82,10 @@ export default function BlockSummary() {
         ),
     },
     {
+      accessor: 'deficit_kg' as keyof IBlockSummary,
       title: t('block_summary.deficit'),
-      dataIndex: 'deficit_kg',
-      align: 'right',
       width: 130,
-      render: (_, record: IBlockSummary) => {
+      render: (record: IBlockSummary) => {
         const val = record.deficit_kg;
         if (val == null) return <span style={{ color: '#bfbfbf' }}>—</span>;
         return (
@@ -97,10 +96,10 @@ export default function BlockSummary() {
       },
     },
     {
+      accessor: 'block_id' as keyof IBlockSummary,
       title: t('block_summary.completion'),
-      key: 'completion',
       width: 160,
-      render: (_: unknown, record: IBlockSummary) => {
+      render: (record: IBlockSummary) => {
         if (record.total_actual_kg == null) {
           return <span style={{ color: '#bfbfbf' }}>—</span>;
         }
@@ -108,14 +107,8 @@ export default function BlockSummary() {
           record.total_plan_kg > 0
             ? Math.min(100, Math.round((record.total_actual_kg / record.total_plan_kg) * 100))
             : 0;
-        return (
-          <Progress
-            percent={pct}
-            size="small"
-            status={pct >= 100 ? 'success' : pct < 80 ? 'exception' : 'normal'}
-            style={{ marginBottom: 0 }}
-          />
-        );
+        const color = pct >= 100 ? 'green' : pct < 80 ? 'red' : 'blue';
+        return <Progress value={pct} color={color} size="sm" />;
       },
     },
   ];
@@ -123,107 +116,80 @@ export default function BlockSummary() {
   return (
     <div>
       {/* Page Header */}
-      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <Group justify="space-between" align="flex-start" mb="lg">
         <div>
           <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: '#1f1f1f', lineHeight: '1.3', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <BarChartOutlined style={{ fontSize: 18, color: '#1677ff' }} />
+            <IconChartBar size={18} color="#1677ff" />
             {t('block_summary.title')}
           </div>
           <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
             Bloklar boýunça ýygym seredişi
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <DatePicker
-            picker="week"
-            value={selectedWeek}
-            onChange={(val) => val && setSelectedWeek(val)}
-            format={(d) => `${t('block_summary.week')} ${d.isoWeek()}, ${d.isoWeekYear()}`}
-            style={{ width: 220 }}
-          />
-        </div>
-      </div>
+        <DatePickerInput
+          value={selectedWeek}
+          onChange={(val) => setSelectedWeek(val as Date | null)}
+          valueFormat="DD.MM.YYYY"
+          placeholder={`${t('block_summary.week')} ${weekNumber}, ${year}`}
+          style={{ width: 220 }}
+        />
+      </Group>
 
-      <Row gutter={[16, 12]} style={{ marginBottom: 16 }}>
-        <Col xs={12} sm={6}>
-          <Card size="small">
-            <Statistic
-              title={t('block_summary.total_plan')}
-              value={fmtKg(totalPlan)}
-              valueStyle={{ color: '#1677ff' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={12} sm={6}>
-          <Card size="small">
-            <Statistic
-              title={t('block_summary.total_actual')}
-              value={totalActual != null ? fmtKg(totalActual) : '—'}
-              valueStyle={{ color: '#52c41a' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={12} sm={6}>
-          <Card size="small">
-            <Statistic
-              title={t('block_summary.total_deficit')}
-              value={
-                totalDeficit != null
-                  ? `${totalDeficit >= 0 ? '+' : ''}${fmtKg(totalDeficit)}`
-                  : '—'
-              }
-              valueStyle={{
-                color:
-                  totalDeficit == null
-                    ? undefined
-                    : totalDeficit >= 0
-                    ? '#52c41a'
-                    : '#ff4d4f',
-              }}
-            />
-          </Card>
-        </Col>
-        <Col xs={12} sm={6}>
-          <Card size="small">
-            <Statistic
-              title={t('block_summary.completion')}
-              value={completionPct != null ? completionPct : '—'}
-              suffix={completionPct != null ? '%' : ''}
-              valueStyle={{
-                color:
-                  completionPct == null
-                    ? undefined
-                    : completionPct >= 95
-                    ? '#52c41a'
-                    : completionPct < 80
-                    ? '#ff4d4f'
-                    : '#faad14',
-              }}
-            />
-          </Card>
-        </Col>
-      </Row>
+      <SimpleGrid cols={{ base: 2, sm: 4 }} mb="md">
+        <StatCard
+          title={t('block_summary.total_plan')}
+          value={fmtKg(totalPlan)}
+          color="blue"
+        />
+        <StatCard
+          title={t('block_summary.total_actual')}
+          value={totalActual != null ? fmtKg(totalActual) : '—'}
+          color="green"
+        />
+        <StatCard
+          title={t('block_summary.total_deficit')}
+          value={
+            totalDeficit != null
+              ? `${totalDeficit >= 0 ? '+' : ''}${fmtKg(totalDeficit)}`
+              : '—'
+          }
+          color={
+            totalDeficit == null
+              ? undefined
+              : totalDeficit >= 0
+                ? 'green'
+                : 'red'
+          }
+        />
+        <StatCard
+          title={t('block_summary.completion')}
+          value={completionPct != null ? `${completionPct}%` : '—'}
+          color={
+            completionPct == null
+              ? undefined
+              : completionPct >= 95
+                ? 'green'
+                : completionPct < 80
+                  ? 'red'
+                  : 'yellow'
+          }
+        />
+      </SimpleGrid>
 
       {isError && (
-        <Alert
-          type="error"
-          message={t('block_summary.error_load')}
-          style={{ marginBottom: 16 }}
-        />
+        <Alert color="red" mb="md">{t('block_summary.error_load')}</Alert>
       )}
 
       {isLoading ? (
-        <Skeleton active />
+        <Skeleton height={300} />
       ) : (
-        <Table<IBlockSummary>
-          rowKey="block_id"
-          dataSource={rows}
+        <DataTable
+          idAccessor="block_id"
+          records={rows}
           columns={columns}
-          pagination={false}
-          size="small"
-          bordered
-          scroll={{ x: 640 }}
-          locale={{ emptyText: t('block_summary.empty') }}
+          noRecordsText={t('block_summary.empty') ?? 'Maglumat ýok'}
+          verticalSpacing="xs"
+          styles={{ header: { backgroundColor: '#f5f5f5', fontSize: 13 } }}
         />
       )}
     </div>

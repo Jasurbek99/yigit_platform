@@ -1,28 +1,27 @@
 import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ProTable } from '@ant-design/pro-components';
-import type { ProColumns } from '@ant-design/pro-components';
+import { DataTable } from 'mantine-datatable';
 import {
-  Row,
-  Col,
-  Statistic,
-  Card,
-  Tag,
   Alert,
-  Segmented,
-  Typography,
+  Anchor,
+  Badge,
   Button,
-  Table,
-  Empty,
+  Card,
+  Group,
   Modal,
-  Form,
-  Input,
-  InputNumber,
-  DatePicker,
-  message,
-} from 'antd';
-import { DollarOutlined, PlusOutlined } from '@ant-design/icons';
+  NumberInput,
+  SegmentedControl,
+  SimpleGrid,
+  Stack,
+  Text,
+  Textarea,
+  TextInput,
+} from '@mantine/core';
+import { useForm } from '@mantine/form';
+import { DatePickerInput } from '@mantine/dates';
+import { IconCurrencyDollar, IconPlus } from '@tabler/icons-react';
 import dayjs from 'dayjs';
+import { toast } from 'sonner';
 import {
   useAdvances,
   useAdvanceDetail,
@@ -62,39 +61,45 @@ function LinkedShipmentsPanel({
   const links: IAdvanceShipmentLink[] = data?.shipment_links ?? [];
 
   if (!isLoading && links.length === 0) {
-    return <Empty description={noShipmentsLabel} image={Empty.PRESENTED_IMAGE_SIMPLE} />;
+    return <Text c="dimmed" size="sm">{noShipmentsLabel}</Text>;
   }
 
   const cols = [
     {
+      accessor: 'shipment_cargo_code' as keyof IAdvanceShipmentLink,
       title: cargoCodeLabel,
-      dataIndex: 'shipment_cargo_code',
-      key: 'cargo_code',
     },
     {
+      accessor: 'allocated_amount' as keyof IAdvanceShipmentLink,
       title: allocatedAmountLabel,
-      dataIndex: 'allocated_amount',
-      key: 'allocated_amount',
-      align: 'right' as const,
-      render: (val: number | null) =>
-        val != null ? `$${val.toLocaleString()}` : '—',
+      render: (record: IAdvanceShipmentLink) =>
+        record.allocated_amount != null ? `$${record.allocated_amount.toLocaleString()}` : '—',
     },
   ];
 
   return (
-    <Table<IAdvanceShipmentLink>
-      rowKey="shipment"
+    <DataTable
+      idAccessor="shipment"
+      records={links}
       columns={cols}
-      dataSource={links}
-      loading={isLoading}
-      pagination={false}
-      size="small"
-      style={{ maxWidth: 480 }}
+      fetching={isLoading}
+      noRecordsText={noShipmentsLabel}
+      verticalSpacing="xs"
+      styles={{ root: { maxWidth: 480 } }}
     />
   );
 }
 
 // ─── New Advance Modal ────────────────────────────────────────────────────────
+
+interface NewAdvanceFormValues {
+  batch_code: string;
+  advance_date: Date | null;
+  total_amount: number | string;
+  currency: string;
+  purpose: string;
+  notes: string;
+}
 
 interface NewAdvanceModalProps {
   open: boolean;
@@ -103,86 +108,122 @@ interface NewAdvanceModalProps {
 
 function NewAdvanceModal({ open, onClose }: NewAdvanceModalProps) {
   const { t } = useTranslation();
-  const [form] = Form.useForm<ICreateAdvancePayload>();
   const createAdvance = useCreateAdvance();
 
-  async function handleSubmit() {
-    const values = await form.validateFields();
+  const form = useForm<NewAdvanceFormValues>({
+    initialValues: {
+      batch_code: '',
+      advance_date: null,
+      total_amount: '',
+      currency: 'USD',
+      purpose: '',
+      notes: '',
+    },
+    validate: {
+      advance_date: (v) => (!v ? t('common.required') : null),
+      total_amount: (v) => (!v ? t('common.required') : null),
+      currency: (v) => (!v ? t('common.required') : null),
+    },
+  });
+
+  function handleSubmit() {
+    const result = form.validate();
+    if (result.hasErrors) return;
+
+    const values = form.values;
     const payload: ICreateAdvancePayload = {
-      ...values,
-      advance_date: dayjs(values.advance_date as unknown as dayjs.Dayjs).format('YYYY-MM-DD'),
-    };
+      batch_code: values.batch_code || undefined,
+      advance_date: values.advance_date
+        ? dayjs(values.advance_date).format('YYYY-MM-DD')
+        : '',
+      total_amount: Number(values.total_amount),
+      currency: values.currency,
+      purpose: values.purpose || undefined,
+      notes: values.notes || undefined,
+    } as ICreateAdvancePayload;
+
     createAdvance.mutate(payload, {
       onSuccess: () => {
-        message.success(t('advances.create_success'));
-        form.resetFields();
+        toast.success(t('advances.create_success'));
+        form.reset();
         onClose();
       },
       onError: () => {
-        message.error(t('advances.error_load'));
+        toast.error(t('advances.error_load'));
       },
     });
   }
 
   function handleCancel() {
-    form.resetFields();
+    form.reset();
     onClose();
   }
 
   return (
     <Modal
+      opened={open}
+      onClose={handleCancel}
       title={t('advances.new_advance')}
-      open={open}
-      onOk={handleSubmit}
-      onCancel={handleCancel}
-      okText={t('advances.new_advance')}
-      cancelText={t('common.cancel')}
-      confirmLoading={createAdvance.isPending}
-      destroyOnClose
     >
-      <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
-        <Form.Item name="batch_code" label={t('advances.batch_code')}>
-          <Input placeholder="ADV-2026-XXX" />
-        </Form.Item>
-        <Form.Item
-          name="advance_date"
+      <Stack>
+        <TextInput
+          label={t('advances.batch_code')}
+          placeholder="ADV-2026-XXX"
+          {...form.getInputProps('batch_code')}
+        />
+        <DatePickerInput
           label={t('advances.date')}
-          rules={[{ required: true }]}
-        >
-          <DatePicker style={{ width: '100%' }} />
-        </Form.Item>
-        <Form.Item
-          name="total_amount"
+          valueFormat="DD.MM.YYYY"
+          {...form.getInputProps('advance_date')}
+          value={form.values.advance_date}
+          onChange={(val) => form.setFieldValue('advance_date', val)}
+        />
+        <NumberInput
           label={t('advances.amount')}
-          rules={[{ required: true }]}
-        >
-          <InputNumber
-            min={0}
-            precision={2}
-            prefix="$"
-            style={{ width: '100%' }}
-          />
-        </Form.Item>
-        <Form.Item
-          name="currency"
+          min={0}
+          decimalScale={2}
+          prefix="$"
+          {...form.getInputProps('total_amount')}
+        />
+        <TextInput
           label={t('advances.currency')}
-          initialValue="USD"
-          rules={[{ required: true }]}
-        >
-          <Input />
-        </Form.Item>
-        <Form.Item name="purpose" label={t('advances.purpose')}>
-          <Input />
-        </Form.Item>
-        <Form.Item name="notes" label={t('advances.notes')}>
-          <Input.TextArea rows={3} />
-        </Form.Item>
-      </Form>
+          {...form.getInputProps('currency')}
+        />
+        <TextInput
+          label={t('advances.purpose')}
+          {...form.getInputProps('purpose')}
+        />
+        <Textarea
+          label={t('advances.notes')}
+          rows={3}
+          {...form.getInputProps('notes')}
+        />
+        <Group justify="flex-end" mt="md">
+          <Button variant="default" onClick={handleCancel}>
+            {t('common.cancel')}
+          </Button>
+          <Button
+            loading={createAdvance.isPending}
+            onClick={handleSubmit}
+          >
+            {t('advances.new_advance')}
+          </Button>
+        </Group>
+      </Stack>
     </Modal>
   );
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
+
+function StatCard({ title, value, color }: { title: string; value: string | number; color?: string }) {
+  return (
+    <Card padding="md">
+      <Text size="xs" c="dimmed" mb={4}>{title}</Text>
+      <Text fw={700} size="xl" c={color}>{value}</Text>
+    </Card>
+  );
+}
 
 export default function AdvancesTracker() {
   const { t } = useTranslation();
@@ -191,7 +232,7 @@ export default function AdvancesTracker() {
   // ── State ──────────────────────────────────────────────────────────────────
   const [filter, setFilter] = useState<ReconcileFilter>('all');
   const [newAdvanceOpen, setNewAdvanceOpen] = useState(false);
-  const [expandedRowKeys, setExpandedRowKeys] = useState<readonly number[]>([]);
+  const [expandedIds, setExpandedIds] = useState<number[]>([]);
 
   const reconcileFilter =
     filter === 'all' ? undefined : filter === 'reconciled' ? true : false;
@@ -205,7 +246,6 @@ export default function AdvancesTracker() {
 
   const { totalCount, totalAmount, unreconciledCount, unreconciledAmount } =
     useMemo(() => {
-      // Always derive from the unfiltered list for summary cards
       const all = data?.results ?? [];
       const unreconciled = all.filter((a) => !a.reconciled);
       return {
@@ -224,123 +264,100 @@ export default function AdvancesTracker() {
   // ── Handlers ───────────────────────────────────────────────────────────────
   function handleReconcile(id: number) {
     reconcileAdvance.mutate(id, {
-      onSuccess: () => message.success(t('advances.reconciled')),
-      onError: () => message.error(t('advances.error_load')),
+      onSuccess: () => toast.success(t('advances.reconciled')),
+      onError: () => toast.error(t('advances.error_load')),
     });
   }
 
-  function handleFilterChange(value: string | number) {
-    setFilter(value as ReconcileFilter);
-  }
-
-  function handleExpandedRowsChange(keys: readonly React.Key[]) {
-    setExpandedRowKeys(keys as readonly number[]);
-  }
-
   // ── Columns ────────────────────────────────────────────────────────────────
-  const columns: ProColumns<IFinansistAdvanceListItem>[] = [
+  const columns = [
     {
+      accessor: 'batch_code' as keyof IFinansistAdvanceListItem,
       title: t('advances.batch_code'),
-      dataIndex: 'batch_code',
       width: 150,
-      render: (_, record) =>
+      render: (record: IFinansistAdvanceListItem) =>
         record.batch_code ? (
-          <Typography.Text code>{record.batch_code}</Typography.Text>
+          <Anchor component="span" style={{ fontFamily: 'monospace' }}>{record.batch_code}</Anchor>
         ) : (
-          <Typography.Text type="secondary">—</Typography.Text>
+          <Text c="dimmed">—</Text>
         ),
     },
     {
+      accessor: 'advance_date' as keyof IFinansistAdvanceListItem,
       title: t('advances.date'),
-      dataIndex: 'advance_date',
       width: 110,
-      sorter: (a, b) =>
-        new Date(a.advance_date).getTime() - new Date(b.advance_date).getTime(),
-      render: (_, record) => dayjs(record.advance_date).format('DD.MM.YYYY'),
+      render: (record: IFinansistAdvanceListItem) =>
+        dayjs(record.advance_date).format('DD.MM.YYYY'),
     },
     {
+      accessor: 'total_amount' as keyof IFinansistAdvanceListItem,
       title: t('advances.amount'),
-      dataIndex: 'total_amount',
       width: 130,
-      align: 'right',
-      sorter: (a, b) => a.total_amount - b.total_amount,
-      render: (_, record) => (
-        <Typography.Text strong>
-          ${record.total_amount.toLocaleString()}
-        </Typography.Text>
+      render: (record: IFinansistAdvanceListItem) => (
+        <Text fw={600}>${record.total_amount.toLocaleString()}</Text>
       ),
     },
     {
+      accessor: 'currency' as keyof IFinansistAdvanceListItem,
       title: t('advances.currency'),
-      dataIndex: 'currency',
       width: 90,
-      responsive: ['md'],
-      render: (_, record) => record.currency,
+      render: (record: IFinansistAdvanceListItem) => record.currency,
     },
     {
+      accessor: 'purpose' as keyof IFinansistAdvanceListItem,
       title: t('advances.purpose'),
-      dataIndex: 'purpose',
-      ellipsis: true,
-      responsive: ['md'],
-      render: (_, record) =>
-        record.purpose ?? (
-          <Typography.Text type="secondary">—</Typography.Text>
-        ),
+      render: (record: IFinansistAdvanceListItem) =>
+        record.purpose ?? <Text c="dimmed">—</Text>,
     },
     {
+      accessor: 'shipment_count' as keyof IFinansistAdvanceListItem,
       title: t('advances.shipments'),
-      dataIndex: 'shipment_count',
       width: 100,
-      align: 'center',
-      render: (_, record) => (
-        <Tag color={record.shipment_count > 0 ? 'blue' : 'default'}>
+      render: (record: IFinansistAdvanceListItem) => (
+        <Badge variant="light" color={record.shipment_count > 0 ? 'blue' : 'gray'}>
           {record.shipment_count}
-        </Tag>
+        </Badge>
       ),
     },
     {
+      accessor: 'allocated_total' as keyof IFinansistAdvanceListItem,
       title: t('advances.allocated'),
-      dataIndex: 'allocated_total',
       width: 130,
-      align: 'right',
-      responsive: ['lg'],
-      render: (_, record) => {
+      render: (record: IFinansistAdvanceListItem) => {
         const isOver = record.allocated_total > record.total_amount;
         return (
-          <Typography.Text style={isOver ? { color: '#ff4d4f' } : undefined}>
+          <Text c={isOver ? 'red' : undefined}>
             ${record.allocated_total.toLocaleString()}
-          </Typography.Text>
+          </Text>
         );
       },
     },
     {
+      accessor: 'reconciled' as keyof IFinansistAdvanceListItem,
       title: t('advances.status'),
-      dataIndex: 'reconciled',
       width: 120,
-      render: (_, record) =>
+      render: (record: IFinansistAdvanceListItem) =>
         record.reconciled ? (
-          <Tag color="success">{t('advances.reconciled')}</Tag>
+          <Badge variant="light" color="green">{t('advances.reconciled')}</Badge>
         ) : (
-          <Tag color="orange">{t('advances.pending')}</Tag>
+          <Badge variant="light" color="orange">{t('advances.pending')}</Badge>
         ),
     },
     {
+      accessor: 'issued_by_name' as keyof IFinansistAdvanceListItem,
       title: t('advances.issued_by'),
-      dataIndex: 'issued_by_name',
       width: 120,
-      responsive: ['lg'],
-      render: (_, record) => record.issued_by_name,
+      render: (record: IFinansistAdvanceListItem) => record.issued_by_name,
     },
     {
+      accessor: 'id' as keyof IFinansistAdvanceListItem,
       title: t('advances.reconcile'),
-      dataIndex: 'id',
       width: 100,
-      align: 'center',
-      render: (_, record) =>
+      render: (record: IFinansistAdvanceListItem) =>
         !record.reconciled && canCreate ? (
           <Button
-            size="small"
-            type="link"
+            size="compact-xs"
+            variant="subtle"
             loading={
               reconcileAdvance.isPending &&
               reconcileAdvance.variables === record.id
@@ -359,11 +376,7 @@ export default function AdvancesTracker() {
   // ── Early returns ──────────────────────────────────────────────────────────
   if (isError) {
     return (
-      <Alert
-        type="error"
-        message={t('advances.error_load')}
-        style={{ margin: 24 }}
-      />
+      <Alert color="red" m="md">{t('advances.error_load')}</Alert>
     );
   }
 
@@ -371,111 +384,70 @@ export default function AdvancesTracker() {
   return (
     <div style={{ padding: '0 4px' }}>
       {/* Page Header */}
-      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <Group justify="space-between" align="flex-start" mb="lg">
         <div>
           <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: '#1f1f1f', lineHeight: '1.3', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <DollarOutlined style={{ color: '#1677ff', fontSize: 18 }} />
+            <IconCurrencyDollar size={18} color="#1677ff" />
             {t('advances.title')}
           </div>
           <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
             Müşderileriň öňünden töleg yzarlaýjysy
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {canCreate && (
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => setNewAdvanceOpen(true)}
-            >
-              {t('advances.new_advance')}
-            </Button>
-          )}
-        </div>
-      </div>
+        {canCreate && (
+          <Button
+            leftSection={<IconPlus size={14} />}
+            onClick={() => setNewAdvanceOpen(true)}
+          >
+            {t('advances.new_advance')}
+          </Button>
+        )}
+      </Group>
 
       {/* Summary cards */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-        <Col xs={24} sm={12} lg={6}>
-          <Card size="small" bordered>
-            <Statistic
-              title={t('advances.total_advances')}
-              value={totalCount}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card size="small" bordered>
-            <Statistic
-              title={t('advances.total_amount')}
-              value={totalAmount}
-              prefix="$"
-              precision={0}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card size="small" bordered>
-            <Statistic
-              title={t('advances.unreconciled')}
-              value={unreconciledCount}
-              valueStyle={
-                unreconciledCount > 0 ? { color: '#fa8c16' } : undefined
-              }
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card size="small" bordered>
-            <Statistic
-              title={t('advances.unreconciled_amount')}
-              value={unreconciledAmount}
-              prefix="$"
-              precision={0}
-              valueStyle={
-                unreconciledAmount > 0 ? { color: '#fa8c16' } : undefined
-              }
-            />
-          </Card>
-        </Col>
-      </Row>
+      <SimpleGrid cols={{ base: 2, sm: 4 }} mb="md">
+        <StatCard title={t('advances.total_advances')} value={totalCount} />
+        <StatCard title={t('advances.total_amount')} value={`$${totalAmount.toLocaleString()}`} />
+        <StatCard
+          title={t('advances.unreconciled')}
+          value={unreconciledCount}
+          color={unreconciledCount > 0 ? 'orange' : undefined}
+        />
+        <StatCard
+          title={t('advances.unreconciled_amount')}
+          value={`$${unreconciledAmount.toLocaleString()}`}
+          color={unreconciledAmount > 0 ? 'orange' : undefined}
+        />
+      </SimpleGrid>
 
       {/* Filter */}
-      <div style={{ marginBottom: 16 }}>
-        <Segmented
+      <Group mb="md">
+        <SegmentedControl
           value={filter}
-          options={[
+          data={[
             { label: t('advances.all'), value: 'all' },
             { label: t('advances.pending'), value: 'pending' },
             { label: t('advances.reconciled'), value: 'reconciled' },
           ]}
-          onChange={handleFilterChange}
+          onChange={(v) => setFilter(v as ReconcileFilter)}
         />
-      </div>
+      </Group>
 
-      {/* Table */}
-      <ProTable<IFinansistAdvanceListItem>
-        rowKey="id"
+      {/* Table with row expansion */}
+      <DataTable
+        idAccessor="id"
+        records={advances}
         columns={columns}
-        dataSource={advances}
-        loading={isLoading}
-        search={false}
-        options={false}
-        pagination={{ pageSize: 20, showSizeChanger: false }}
-        scroll={{ x: 700 }}
-        locale={{ emptyText: t('advances.empty') }}
-        cardBordered
-        expandable={{
-          expandedRowKeys: expandedRowKeys as React.Key[],
-          onExpandedRowsChange: handleExpandedRowsChange,
-          expandedRowRender: (record) => (
+        fetching={isLoading}
+        noRecordsText={t('advances.empty') ?? 'Maglumat ýok'}
+        verticalSpacing="xs"
+        styles={{ header: { backgroundColor: '#f5f5f5', fontSize: 13 } }}
+        rowExpansion={{
+          content: ({ record }) => (
             <div style={{ padding: '8px 0 8px 16px' }}>
-              <Typography.Text
-                type="secondary"
-                style={{ display: 'block', marginBottom: 8 }}
-              >
+              <Text c="dimmed" size="sm" mb="xs">
                 {t('advances.linked_shipments')}
-              </Typography.Text>
+              </Text>
               <LinkedShipmentsPanel
                 advanceId={record.id}
                 noShipmentsLabel={t('advances.no_shipments')}
@@ -484,6 +456,10 @@ export default function AdvancesTracker() {
               />
             </div>
           ),
+          expanded: {
+            recordIds: expandedIds,
+            onRecordIdsChange: (ids: unknown[]) => setExpandedIds(ids as number[]),
+          },
         }}
       />
 

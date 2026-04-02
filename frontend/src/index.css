@@ -1,26 +1,59 @@
+/* ─── Prototype design tokens ───────────────────────────────────────────── */
 :root {
   --font: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
+
+  --primary: #1677ff;
+  --primary-dark: #0958d9;
+  --primary-light: #e6f4ff;
+  --success: #52c41a;
+  --warning: #faad14;
+  --error: #ff4d4f;
+  --purple: #722ed1;
+  --cyan: #13c2c2;
+
+  --text-primary: #1f1f1f;
+  --text-secondary: #595959;
+  --text-tertiary: #8c8c8c;
+  --text-placeholder: #bfbfbf;
+
+  --bg-layout: #f5f5f5;
+  --bg-container: #ffffff;
+  --bg-spotlight: #f0f0f0;
+  --border: #d9d9d9;
+  --border-light: #f0f0f0;
+  --divider: #f0f0f0;
+
+  --shadow-sm: 0 1px 2px 0 rgba(0,0,0,0.03), 0 1px 6px -1px rgba(0,0,0,0.02), 0 2px 4px 0 rgba(0,0,0,0.02);
+  --shadow-md: 0 6px 16px 0 rgba(0,0,0,0.08), 0 3px 6px -4px rgba(0,0,0,0.12), 0 9px 28px 8px rgba(0,0,0,0.05);
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
 }
-body { font-family: var(--font); }
+
+/* ─── Base reset ─────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+body {
+  font-family: var(--font);
+  background: var(--bg-layout);
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.5714;
+}
 code, .text-mono { font-family: var(--font-mono); }
 
+/* ─── Thin scrollbar (matches prototype) ────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-placeholder); }
+
+/* ─── Print styles ──────────────────────────────────────────────────────── */
 @media print {
-  /* Hide everything except the main table content */
-  .ant-layout-sider,
-  .ant-layout-header,
-  .ant-pro-table-search,
-  .ant-table-pagination,
-  .ant-pro-table-toolbar,
-  .shipment-list-page > div:first-child {
+  .mantine-AppShell-navbar,
+  .mantine-AppShell-header {
     display: none !important;
   }
-
-  .ant-layout-content {
-    margin: 0 !important;
-  }
-
-  .ant-table {
-    font-size: 11px;
-  }
+  .mantine-AppShell-main { margin: 0 !important; }
 }

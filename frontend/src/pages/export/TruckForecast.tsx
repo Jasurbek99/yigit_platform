@@ -1,17 +1,10 @@
 import { useState } from 'react';
-import {
-  DatePicker,
-  Row,
-  Col,
-  Statistic,
-  Alert,
-  Card,
-} from 'antd';
-import { ProTable } from '@ant-design/pro-components';
-import type { ProColumns } from '@ant-design/pro-components';
-import { TruckOutlined } from '@ant-design/icons';
+import { Alert, Card, Group, SimpleGrid, Text } from '@mantine/core';
+import { DatePickerInput } from '@mantine/dates';
+import { IconTruck } from '@tabler/icons-react';
+import { DataTable } from 'mantine-datatable';
 import { useTranslation } from 'react-i18next';
-import dayjs, { type Dayjs } from 'dayjs';
+import dayjs from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek';
 import weekOfYear from 'dayjs/plugin/weekOfYear';
 import { useTruckAllocations } from '@/hooks/usePlanning';
@@ -39,13 +32,23 @@ function fmtTrucks(val: number | null | undefined): string {
   return val.toFixed(1);
 }
 
+function StatCard({ title, value, color }: { title: string; value: string | number; color?: string }) {
+  return (
+    <Card padding="md">
+      <Text size="xs" c="dimmed" mb={4}>{title}</Text>
+      <Text fw={700} size="xl" c={color}>{value}</Text>
+    </Card>
+  );
+}
+
 export default function TruckForecast() {
   const { t } = useTranslation();
   const now = dayjs();
-  const [selectedWeek, setSelectedWeek] = useState<Dayjs>(now);
+  const [selectedWeek, setSelectedWeek] = useState<Date | null>(now.toDate());
 
-  const weekNumber = selectedWeek.isoWeek();
-  const year = selectedWeek.isoWeekYear();
+  const dayjsWeek = selectedWeek ? dayjs(selectedWeek) : now;
+  const weekNumber = dayjsWeek.isoWeek();
+  const year = dayjsWeek.isoWeekYear();
 
   const { data, isLoading, isError } = useTruckAllocations({ year, week_number: weekNumber });
   const rows = data?.results ?? [];
@@ -55,130 +58,108 @@ export default function TruckForecast() {
   const totalKazakhstan = rows.reduce((s, r) => s + r.kazakhstan_trucks, 0);
   const totalGapy = rows.reduce((s, r) => s + r.gapy_satys_trucks, 0);
 
-  const columns: ProColumns<IWeeklyTruckAllocation>[] = [
+  const columns = [
     {
+      accessor: 'day_of_week' as keyof IWeeklyTruckAllocation,
       title: t('truck.day'),
-      dataIndex: 'day_of_week',
       width: 80,
-      render: (_, record) => {
+      render: (record: IWeeklyTruckAllocation) => {
         const key = DAY_KEYS[record.day_of_week - 1];
         return key ? t(`truck.${key}`) : String(record.day_of_week);
       },
     },
     {
+      accessor: 'total_planned_kg' as keyof IWeeklyTruckAllocation,
       title: t('truck.planned_kg'),
-      dataIndex: 'total_planned_kg',
       width: 140,
-      render: (_, record) => fmtKg(record.total_planned_kg),
+      render: (record: IWeeklyTruckAllocation) => fmtKg(record.total_planned_kg),
     },
     {
+      accessor: 'total_trucks_calc' as keyof IWeeklyTruckAllocation,
       title: t('truck.trucks_calc'),
-      dataIndex: 'total_trucks_calc',
       width: 100,
-      render: (_, record) => (
+      render: (record: IWeeklyTruckAllocation) => (
         <span style={{ fontWeight: 600 }}>{fmtTrucks(record.total_trucks_calc)}</span>
       ),
     },
     {
+      accessor: 'russia_trucks' as keyof IWeeklyTruckAllocation,
       title: t('truck.russia_trucks'),
-      dataIndex: 'russia_trucks',
       width: 90,
-      responsive: ['md'],
-      render: (_, record) =>
-        record.russia_trucks > 0 ? record.russia_trucks : <span style={{ color: '#bfbfbf' }}>—</span>,
+      render: (record: IWeeklyTruckAllocation) =>
+        record.russia_trucks > 0
+          ? record.russia_trucks
+          : <span style={{ color: '#bfbfbf' }}>—</span>,
     },
     {
+      accessor: 'kazakhstan_trucks' as keyof IWeeklyTruckAllocation,
       title: t('truck.kazakhstan_trucks'),
-      dataIndex: 'kazakhstan_trucks',
       width: 110,
-      responsive: ['md'],
-      render: (_, record) =>
-        record.kazakhstan_trucks > 0 ? record.kazakhstan_trucks : <span style={{ color: '#bfbfbf' }}>—</span>,
+      render: (record: IWeeklyTruckAllocation) =>
+        record.kazakhstan_trucks > 0
+          ? record.kazakhstan_trucks
+          : <span style={{ color: '#bfbfbf' }}>—</span>,
     },
     {
+      accessor: 'gapy_satys_trucks' as keyof IWeeklyTruckAllocation,
       title: t('truck.gapy_trucks'),
-      dataIndex: 'gapy_satys_trucks',
       width: 110,
-      responsive: ['md'],
-      render: (_, record) =>
-        record.gapy_satys_trucks > 0 ? record.gapy_satys_trucks : <span style={{ color: '#bfbfbf' }}>—</span>,
+      render: (record: IWeeklyTruckAllocation) =>
+        record.gapy_satys_trucks > 0
+          ? record.gapy_satys_trucks
+          : <span style={{ color: '#bfbfbf' }}>—</span>,
     },
     {
+      accessor: 'decided_by_name' as keyof IWeeklyTruckAllocation,
       title: t('truck.decided_by'),
-      dataIndex: 'decided_by_name',
-      responsive: ['lg'],
-      render: (_, record) =>
-        record.decided_by_name ? record.decided_by_name : <span style={{ color: '#bfbfbf' }}>—</span>,
+      render: (record: IWeeklyTruckAllocation) =>
+        record.decided_by_name
+          ? record.decided_by_name
+          : <span style={{ color: '#bfbfbf' }}>—</span>,
     },
   ];
 
   return (
     <div>
       {/* Page Header */}
-      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <Group justify="space-between" align="flex-start" mb="lg">
         <div>
           <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: '#1f1f1f', lineHeight: '1.3', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <TruckOutlined style={{ fontSize: 18, color: '#1677ff' }} />
+            <IconTruck size={18} color="#1677ff" />
             {t('truck.title')}
           </div>
           <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
             Geljek günler üçin ulag meýilnamasy
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <DatePicker
-            picker="week"
-            value={selectedWeek}
-            onChange={(val) => val && setSelectedWeek(val)}
-            format={(d) => `${t('truck.week')} ${d.isoWeek()}, ${d.isoWeekYear()}`}
-            style={{ width: 220 }}
-          />
-        </div>
-      </div>
+        <DatePickerInput
+          value={selectedWeek}
+          onChange={(val) => setSelectedWeek(val as Date | null)}
+          valueFormat="DD.MM.YYYY"
+          placeholder={`${t('truck.week')} ${weekNumber}, ${year}`}
+          style={{ width: 220 }}
+        />
+      </Group>
 
-      <Row gutter={[16, 12]} style={{ marginBottom: 16 }}>
-        <Col xs={12} sm={6}>
-          <Card size="small">
-            <Statistic
-              title={t('truck.total_trucks')}
-              value={totalTrucks.toFixed(1)}
-              valueStyle={{ color: '#1677ff' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={12} sm={6}>
-          <Card size="small">
-            <Statistic title={t('truck.russia_trucks')} value={totalRussia} />
-          </Card>
-        </Col>
-        <Col xs={12} sm={6}>
-          <Card size="small">
-            <Statistic title={t('truck.kazakhstan_trucks')} value={totalKazakhstan} />
-          </Card>
-        </Col>
-        <Col xs={12} sm={6}>
-          <Card size="small">
-            <Statistic title={t('truck.gapy_trucks')} value={totalGapy} />
-          </Card>
-        </Col>
-      </Row>
+      <SimpleGrid cols={{ base: 2, sm: 4 }} mb="md">
+        <StatCard title={t('truck.total_trucks')} value={totalTrucks.toFixed(1)} color="blue" />
+        <StatCard title={t('truck.russia_trucks')} value={totalRussia} />
+        <StatCard title={t('truck.kazakhstan_trucks')} value={totalKazakhstan} />
+        <StatCard title={t('truck.gapy_trucks')} value={totalGapy} />
+      </SimpleGrid>
 
       {isError && (
-        <Alert type="error" message={t('truck.error_load')} style={{ marginBottom: 16 }} />
+        <Alert color="red" mb="md">{t('truck.error_load')}</Alert>
       )}
 
-      <ProTable<IWeeklyTruckAllocation>
-        rowKey="id"
-        dataSource={rows}
+      <DataTable
+        idAccessor="id"
+        records={rows}
         columns={columns}
-        loading={isLoading}
-        search={false}
-        options={false}
-        pagination={false}
-        size="small"
-        cardBordered
-        scroll={{ x: 600 }}
-        locale={{ emptyText: t('truck.empty') }}
+        fetching={isLoading}
+        noRecordsText={t('truck.empty') ?? 'Maglumat ýok'}
+        verticalSpacing="xs"
+        styles={{ header: { backgroundColor: '#f5f5f5', fontSize: 13 } }}
       />
     </div>
   );

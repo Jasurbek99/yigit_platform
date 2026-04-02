@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Button, Tag, Modal, Form, Select, Switch, Alert } from 'antd';
-import { TeamOutlined } from '@ant-design/icons';
+import { Alert, Badge, Button, Group, Modal, Select, Stack, Switch, Text } from '@mantine/core';
+import { useForm } from '@mantine/form';
+import { IconUsers } from '@tabler/icons-react';
+import { DataTable } from 'mantine-datatable';
 import { useTranslation } from 'react-i18next';
-import type { ProColumns } from '@ant-design/pro-components';
-import { ProTable } from '@ant-design/pro-components';
 import { toast } from 'sonner';
 import { useAdminUsers, useUpdateUserRole } from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
@@ -22,19 +22,19 @@ const ALL_ROLES: UserRole[] = [
 ];
 
 interface UserEditFormValues {
-  role: UserRole;
+  role: UserRole | null;
   is_active: boolean;
 }
 
 const ROLE_COLORS: Record<UserRole, string> = {
   export_manager: 'blue',
   warehouse_chief: 'cyan',
-  document_team: 'geekblue',
+  document_team: 'indigo',
   transport: 'orange',
   sales_rep: 'green',
-  finansist: 'gold',
+  finansist: 'yellow',
   director: 'red',
-  accountant: 'purple',
+  accountant: 'violet',
   greenhouse_manager: 'lime',
 };
 
@@ -45,7 +45,16 @@ export default function UsersPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<IAdminUser | null>(null);
-  const [form] = Form.useForm<UserEditFormValues>();
+
+  const form = useForm<UserEditFormValues>({
+    initialValues: {
+      role: null,
+      is_active: true,
+    },
+    validate: {
+      role: (v) => (!v ? t('common.required') : null),
+    },
+  });
 
   const { data, isLoading, isError } = useAdminUsers();
   const rows = data ?? [];
@@ -54,150 +63,148 @@ export default function UsersPage() {
     onSuccess: () => {
       toast.success(t('users_admin.toast_updated'));
       setModalOpen(false);
-      form.resetFields();
+      form.reset();
     },
     onError: () => toast.error(t('users_admin.toast_error')),
   });
 
   function handleOpenEdit(record: IAdminUser) {
     setEditTarget(record);
-    form.setFieldsValue({ role: record.role, is_active: record.is_active });
+    form.setValues({ role: record.role, is_active: record.is_active });
     setModalOpen(true);
   }
 
-  function handleSubmit(values: UserEditFormValues) {
-    if (!editTarget) return;
-    updateMutation.mutate({ id: editTarget.id, ...values });
+  function handleSubmit() {
+    const result = form.validate();
+    if (result.hasErrors || !editTarget || !form.values.role) return;
+    updateMutation.mutate({ id: editTarget.id, role: form.values.role, is_active: form.values.is_active });
   }
 
-  const columns: ProColumns<IAdminUser>[] = [
+  const columns = [
     {
+      accessor: 'username' as keyof IAdminUser,
       title: t('users_admin.username'),
-      dataIndex: 'username',
       width: 130,
     },
     {
+      accessor: 'first_name' as keyof IAdminUser,
       title: t('users_admin.name'),
-      key: 'full_name',
       width: 160,
-      render: (_, record) =>
+      render: (record: IAdminUser) =>
         [record.first_name, record.last_name].filter(Boolean).join(' ') || (
           <span style={{ color: '#bfbfbf' }}>{t('common.empty')}</span>
         ),
     },
     {
+      accessor: 'email' as keyof IAdminUser,
       title: t('users_admin.email'),
-      dataIndex: 'email',
       width: 200,
-      render: (val: unknown) =>
-        val ? String(val) : <span style={{ color: '#bfbfbf' }}>{t('common.empty')}</span>,
+      render: (record: IAdminUser) =>
+        record.email
+          ? record.email
+          : <span style={{ color: '#bfbfbf' }}>{t('common.empty')}</span>,
     },
     {
+      accessor: 'role' as keyof IAdminUser,
       title: t('users_admin.role'),
-      dataIndex: 'role',
       width: 160,
-      render: (_, record) => (
-        <Tag color={ROLE_COLORS[record.role]}>{t(`roles.${record.role}`)}</Tag>
+      render: (record: IAdminUser) => (
+        <Badge variant="light" color={ROLE_COLORS[record.role] ?? 'gray'}>
+          {t(`roles.${record.role}`)}
+        </Badge>
       ),
     },
     {
+      accessor: 'is_active' as keyof IAdminUser,
       title: t('users_admin.is_active'),
-      dataIndex: 'is_active',
       width: 90,
-      render: (_, record) =>
+      render: (record: IAdminUser) =>
         record.is_active ? (
-          <Tag color="green">{t('common.yes')}</Tag>
+          <Badge variant="light" color="green">{t('common.yes')}</Badge>
         ) : (
-          <Tag>{t('common.no')}</Tag>
+          <Badge variant="light" color="gray">{t('common.no')}</Badge>
         ),
     },
     ...(isDirector
-      ? ([
+      ? [
           {
+            accessor: 'id' as keyof IAdminUser,
             title: '',
-            key: 'actions',
-            width: 80,
-            render: (_: unknown, record: IAdminUser) => (
-              <Button type="link" size="small" onClick={() => handleOpenEdit(record)}>
+            width: 100,
+            render: (record: IAdminUser) => (
+              <Button variant="subtle" size="compact-xs" onClick={(e) => { e.stopPropagation(); handleOpenEdit(record); }}>
                 {t('users_admin.edit_role')}
               </Button>
             ),
           },
-        ] as ProColumns<IAdminUser>[])
+        ]
       : []),
   ];
 
   return (
     <div>
       {/* Page Header */}
-      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <Group justify="space-between" align="flex-start" mb="lg">
         <div>
           <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: '#1f1f1f', lineHeight: '1.3', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <TeamOutlined style={{ fontSize: 18, color: '#1677ff' }} />
+            <IconUsers size={18} color="#1677ff" />
             {t('users_admin.title')}
           </div>
           <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
             Ulanyjylary we rugsatlary dolandyrmak
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {/* action buttons */}
-        </div>
-      </div>
+      </Group>
 
       {isError && (
-        <Alert
-          type="error"
-          message={t('users_admin.error_load')}
-          style={{ marginBottom: 16 }}
-        />
+        <Alert color="red" mb="md">{t('users_admin.error_load')}</Alert>
       )}
 
-      <ProTable<IAdminUser>
-        rowKey="id"
-        dataSource={rows}
+      <DataTable
+        idAccessor="id"
+        records={rows}
         columns={columns}
-        loading={isLoading}
-        search={false}
-        options={false}
-        pagination={{ pageSize: 50, showSizeChanger: true }}
-        size="small"
-        scroll={{ x: 700 }}
-        locale={{ emptyText: t('users_admin.empty') }}
-        headerTitle={false}
-        toolBarRender={false}
+        fetching={isLoading}
+        noRecordsText={t('users_admin.empty') ?? 'Maglumat ýok'}
+        verticalSpacing="xs"
+        styles={{ header: { backgroundColor: '#f5f5f5', fontSize: 13 } }}
       />
 
       <Modal
-        open={modalOpen}
+        opened={modalOpen}
+        onClose={() => { setModalOpen(false); form.reset(); }}
         title={t('users_admin.edit_role')}
-        onCancel={() => setModalOpen(false)}
-        onOk={() => form.submit()}
-        confirmLoading={updateMutation.isPending}
-        destroyOnClose
       >
         {editTarget && (
-          <div style={{ marginBottom: 16, color: '#595959' }}>
+          <Text size="sm" mb="md" c="dimmed">
             <strong>{editTarget.username}</strong>
             {editTarget.first_name || editTarget.last_name
               ? ` — ${[editTarget.first_name, editTarget.last_name].filter(Boolean).join(' ')}`
               : ''}
-          </div>
+          </Text>
         )}
-        <Form form={form} layout="vertical" onFinish={handleSubmit}>
-          <Form.Item name="role" label={t('users_admin.role')} rules={[{ required: true }]}>
-            <Select>
-              {ALL_ROLES.map((r) => (
-                <Select.Option key={r} value={r}>
-                  {t(`roles.${r}`)}
-                </Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
-          <Form.Item name="is_active" label={t('users_admin.is_active')} valuePropName="checked">
-            <Switch />
-          </Form.Item>
-        </Form>
+        <Stack>
+          <Select
+            label={t('users_admin.role')}
+            data={ALL_ROLES.map((r) => ({ value: r, label: t(`roles.${r}`) }))}
+            {...form.getInputProps('role')}
+          />
+          <Switch
+            label={t('users_admin.is_active')}
+            {...form.getInputProps('is_active', { type: 'checkbox' })}
+          />
+          <Group justify="flex-end" mt="md">
+            <Button variant="default" onClick={() => { setModalOpen(false); form.reset(); }}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              loading={updateMutation.isPending}
+              onClick={handleSubmit}
+            >
+              {t('common.save')}
+            </Button>
+          </Group>
+        </Stack>
       </Modal>
     </div>
   );

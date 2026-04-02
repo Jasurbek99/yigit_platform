@@ -1,7 +1,6 @@
-import { Card, Row, Col, Table, Tag, Progress, Alert, Button, Typography } from 'antd';
+import { Alert, Badge, Button, Card, Group, Progress, SimpleGrid, Text, Title } from '@mantine/core';
+import { DataTable } from 'mantine-datatable';
 import { useNavigate } from 'react-router-dom';
-
-const { Title, Text } = Typography;
 
 interface StatItem {
   icon: string;
@@ -36,7 +35,7 @@ interface RouteRow {
 
 const STATUS_COLORS: Record<string, string> = {
   transit: 'cyan',
-  border: 'purple',
+  border: 'violet',
   selling: 'orange',
   loading: 'blue',
   completed: 'green',
@@ -181,194 +180,151 @@ export default function DashboardPage() {
   return (
     <div style={{ fontFamily: 'var(--font, "DM Sans", sans-serif)' }}>
       {/* Page Header */}
-      <div
-        style={{
-          marginBottom: 24,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-        }}
-      >
+      <Group justify="space-between" align="flex-start" mb="lg">
         <div>
-          <Title
-            level={4}
-            style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}
-          >
+          <Title order={4} style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>
             Dashboard
           </Title>
-          <Text type="secondary" style={{ fontSize: 13 }}>
+          <Text c="dimmed" size="sm">
             Tomato eksport operasiýalarynyň umumy görnüşi — 2025/2026 möwsüm
           </Text>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Button>📥 Excel eksport</Button>
-          <Button type="primary" onClick={() => navigate('/export/shipments')}>
+        <Group gap="xs">
+          <Button variant="default">📥 Excel eksport</Button>
+          <Button onClick={() => navigate('/export/shipments')}>
             ➕ Täze ýük
           </Button>
-        </div>
-      </div>
+        </Group>
+      </Group>
 
       {/* Stat Cards */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+      <SimpleGrid cols={{ base: 2, sm: 3, xl: 6 }} mb="lg">
         {stats.map((stat, i) => (
-          <Col key={i} xs={12} sm={8} xl={4}>
-            <Card
-              hoverable={!!stat.onClick}
-              onClick={stat.onClick}
-              style={{ borderRadius: 12, cursor: stat.onClick ? 'pointer' : 'default' }}
-              styles={{ body: { padding: 20 } }}
-            >
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+          <Card
+            key={i}
+            style={{
+              borderRadius: 12,
+              cursor: stat.onClick ? 'pointer' : 'default',
+            }}
+            padding="md"
+            onClick={stat.onClick}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+              <div
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 10,
+                  background: stat.color,
+                  color: stat.iconColor,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 20,
+                  flexShrink: 0,
+                }}
+              >
+                {stat.icon}
+              </div>
+              <div>
                 <div
                   style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 10,
-                    background: stat.color,
-                    color: stat.iconColor,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 20,
-                    flexShrink: 0,
+                    fontSize: 28,
+                    fontWeight: 700,
+                    lineHeight: 1.2,
+                    letterSpacing: '-0.02em',
+                    color: stat.trendUp === false ? '#ff4d4f' : undefined,
                   }}
                 >
-                  {stat.icon}
+                  {stat.value}
                 </div>
-                <div>
-                  <div
-                    style={{
-                      fontSize: 28,
-                      fontWeight: 700,
-                      lineHeight: 1.2,
-                      letterSpacing: '-0.02em',
-                      color: stat.trendUp === false ? '#ff4d4f' : undefined,
-                    }}
-                  >
-                    {stat.value}
-                  </div>
-                  <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>{stat.label}</div>
-                  <div
-                    style={{
-                      fontSize: 12,
-                      marginTop: 4,
-                      color:
-                        stat.trendUp === true
-                          ? '#52c41a'
-                          : stat.trendUp === false
-                            ? '#ff4d4f'
-                            : '#8c8c8c',
-                    }}
-                  >
-                    {stat.trend}
-                  </div>
+                <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>{stat.label}</div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    marginTop: 4,
+                    color:
+                      stat.trendUp === true
+                        ? '#52c41a'
+                        : stat.trendUp === false
+                          ? '#ff4d4f'
+                          : '#8c8c8c',
+                  }}
+                >
+                  {stat.trend}
                 </div>
               </div>
-            </Card>
-          </Col>
-        ))}
-      </Row>
-
-      {/* Alerts + Routes */}
-      <Row gutter={[24, 24]} style={{ marginBottom: 24 }}>
-        <Col xs={24} lg={12}>
-          <Card
-            title={<span>⚡ Möhüm bildirişler</span>}
-            extra={<Tag color="red">4</Tag>}
-            style={{ borderRadius: 12 }}
-            styles={{ body: { display: 'flex', flexDirection: 'column', gap: 8 } }}
-          >
-            <Alert
-              type="error"
-              showIcon
-              message={
-                <span>
-                  <strong>90 hasabat gelmedi</strong> — satyldy emma hasabat iberilmedi. Arap bilen
-                  habarlaşyň.
-                </span>
-              }
-            />
-            <Alert
-              type="warning"
-              showIcon
-              message={
-                <span>
-                  <strong>Kwota aşdy</strong> — Yigit H.J: Döwür 3 = -2,603,000 kg. Düzetme zerur.
-                </span>
-              }
-            />
-            <Alert
-              type="warning"
-              showIcon
-              message={
-                <span>
-                  <strong>Dokument möhlet</strong> — 13:00 çenli 8 ýük üçin dokument taýýar bolmaly.
-                </span>
-              }
-            />
-            <Alert
-              type="info"
-              showIcon
-              message={
-                <span>
-                  <strong>Hepdäniň meýilnamasy</strong> — 22-nji hepde: meýilleşdirilen 340 tonna,
-                  15 blok.
-                </span>
-              }
-            />
-          </Card>
-        </Col>
-        <Col xs={24} lg={12}>
-          <Card title="📊 Ugurlar boýunça" style={{ borderRadius: 12 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {routes.map((r, i) => (
-                <div key={i}>
-                  <div
-                    style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}
-                  >
-                    <Text style={{ fontSize: 13, fontWeight: 500 }}>
-                      {r.flag} {r.name}
-                    </Text>
-                    <Text style={{ fontSize: 13, fontWeight: 600 }}>{r.count} ýük</Text>
-                  </div>
-                  <Progress percent={r.percent} strokeColor={r.color} showInfo={false} size="small" />
-                  {r.sub && (
-                    <Text type="secondary" style={{ fontSize: 11 }}>
-                      {r.sub}
-                    </Text>
-                  )}
-                </div>
-              ))}
             </div>
           </Card>
-        </Col>
-      </Row>
+        ))}
+      </SimpleGrid>
+
+      {/* Alerts + Routes */}
+      <SimpleGrid cols={{ base: 1, lg: 2 }} mb="lg">
+        <Card style={{ borderRadius: 12 }} padding="md">
+          <Group justify="space-between" mb="sm">
+            <Text fw={600}>⚡ Möhüm bildirişler</Text>
+            <Badge color="red">4</Badge>
+          </Group>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <Alert color="red">
+              <strong>90 hasabat gelmedi</strong> — satyldy emma hasabat iberilmedi. Arap bilen
+              habarlaşyň.
+            </Alert>
+            <Alert color="yellow">
+              <strong>Kwota aşdy</strong> — Yigit H.J: Döwür 3 = -2,603,000 kg. Düzetme zerur.
+            </Alert>
+            <Alert color="yellow">
+              <strong>Dokument möhlet</strong> — 13:00 çenli 8 ýük üçin dokument taýýar bolmaly.
+            </Alert>
+            <Alert color="blue">
+              <strong>Hepdäniň meýilnamasy</strong> — 22-nji hepde: meýilleşdirilen 340 tonna,
+              15 blok.
+            </Alert>
+          </div>
+        </Card>
+
+        <Card style={{ borderRadius: 12 }} padding="md">
+          <Text fw={600} mb="md">📊 Ugurlar boýunça</Text>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {routes.map((r, i) => (
+              <div key={i}>
+                <div
+                  style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}
+                >
+                  <Text size="sm" fw={500}>
+                    {r.flag} {r.name}
+                  </Text>
+                  <Text size="sm" fw={600}>{r.count} ýük</Text>
+                </div>
+                <Progress value={r.percent} color={r.color} size="sm" />
+                {r.sub && (
+                  <Text c="dimmed" size="xs">
+                    {r.sub}
+                  </Text>
+                )}
+              </div>
+            ))}
+          </div>
+        </Card>
+      </SimpleGrid>
 
       {/* Active Shipments Table */}
-      <Card
-        title="🚛 Häzirki hereket edýän ýükler"
-        extra={
-          <Button size="small" onClick={() => navigate('/export/shipments')}>
+      <Card style={{ borderRadius: 12 }} padding={0}>
+        <Group justify="space-between" px="md" py="sm">
+          <Text fw={600}>🚛 Häzirki hereket edýän ýükler</Text>
+          <Button size="xs" variant="subtle" onClick={() => navigate('/export/shipments')}>
             Hemmesini gör →
           </Button>
-        }
-        style={{ borderRadius: 12 }}
-        styles={{ body: { padding: 0 } }}
-      >
-        <Table<ShipmentRow>
-          dataSource={activeShipments}
-          rowKey="code"
-          size="small"
-          pagination={false}
-          onRow={() => ({
-            onClick: () => navigate('/export/shipments'),
-            style: { cursor: 'pointer' },
-          })}
+        </Group>
+        <DataTable
+          idAccessor="code"
+          records={activeShipments}
           columns={[
             {
+              accessor: 'code',
               title: 'Kod',
-              dataIndex: 'code',
-              render: (v: string) => (
+              render: (r) => (
                 <span
                   style={{
                     fontFamily: 'var(--font-mono, monospace)',
@@ -376,37 +332,43 @@ export default function DashboardPage() {
                     fontWeight: 600,
                   }}
                 >
-                  {v}
+                  {r.code}
                 </span>
               ),
             },
-            { title: 'Müşderi', dataIndex: 'customer' },
-            { title: 'Ugur', dataIndex: 'route' },
+            { accessor: 'customer', title: 'Müşderi' },
+            { accessor: 'route', title: 'Ugur' },
             {
+              accessor: 'statusText',
               title: 'Status',
-              dataIndex: 'statusText',
-              render: (v: string, r: ShipmentRow) => (
-                <Tag color={STATUS_COLORS[r.status]}>{v}</Tag>
+              render: (r) => (
+                <Badge variant="light" color={STATUS_COLORS[r.status] ?? 'gray'}>
+                  {r.statusText}
+                </Badge>
               ),
             },
             {
+              accessor: 'weight',
               title: 'Agram (kg)',
-              dataIndex: 'weight',
-              render: (v: string) => (
-                <span style={{ fontFamily: 'var(--font-mono, monospace)' }}>{v}</span>
+              render: (r) => (
+                <span style={{ fontFamily: 'var(--font-mono, monospace)' }}>{r.weight}</span>
               ),
             },
             {
+              accessor: 'departed',
               title: 'Ýola çykdy',
-              dataIndex: 'departed',
-              render: (v: string) => (
+              render: (r) => (
                 <span style={{ fontFamily: 'var(--font-mono, monospace)', color: '#8c8c8c' }}>
-                  {v}
+                  {r.departed}
                 </span>
               ),
             },
-            { title: 'Ýerleşýän ýeri', dataIndex: 'location' },
+            { accessor: 'location', title: 'Ýerleşýän ýeri' },
           ]}
+          onRowClick={() => navigate('/export/shipments')}
+          noRecordsText="Maglumat ýok"
+          verticalSpacing="xs"
+          styles={{ header: { backgroundColor: '#f5f5f5', fontSize: 13 } }}
         />
       </Card>
     </div>

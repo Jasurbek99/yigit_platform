@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Table, Segmented, Skeleton, Alert, Tag, Typography } from 'antd';
+import { Alert, Badge, Group, SegmentedControl, Skeleton, Table, Text } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import { usePriceEntries } from '@/hooks/usePlanning';
@@ -34,51 +34,10 @@ export default function PricePanel() {
     return 'flat';
   }
 
-  const columns = [
-    {
-      title: t('prices.city'),
-      dataIndex: 'city',
-      fixed: 'left' as const,
-      width: 120,
-      render: (city: string) => {
-        const dir = trend(city);
-        return (
-          <span>
-            {city}{' '}
-            {dir === 'up' && <Tag color="error" style={{ fontSize: 10 }}>↑</Tag>}
-            {dir === 'down' && <Tag color="success" style={{ fontSize: 10 }}>↓</Tag>}
-          </span>
-        );
-      },
-    },
-    ...dates.map((date) => ({
-      title: dayjs(date).format('DD.MM'),
-      key: date,
-      width: 90,
-      align: 'right' as const,
-      render: (_: unknown, row: { city: string }) => {
-        const entry = priceMap[row.city]?.[date];
-        if (!entry) return <span style={{ color: '#bfbfbf' }}>—</span>;
-        return (
-          <span>
-            <span style={{ fontWeight: 500 }}>${entry.price_usd?.toFixed(2)}</span>
-            {entry.price_local != null && (
-              <span style={{ color: '#8c8c8c', fontSize: 11, marginLeft: 4 }}>
-                {Number(entry.price_local).toLocaleString()} {entry.currency}
-              </span>
-            )}
-          </span>
-        );
-      },
-    })),
-  ];
-
-  const tableData = cities.map((city) => ({ city, key: city }));
-
   return (
     <div>
       {/* Page Header */}
-      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <Group justify="space-between" align="flex-start" mb="lg">
         <div>
           <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: '#1f1f1f', lineHeight: '1.3' }}>
             {t('prices.title')}
@@ -87,38 +46,77 @@ export default function PricePanel() {
             Ugurlar boýunça bahalar paneli
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Segmented
-            options={[
-              { label: t('prices.days_7'), value: 7 },
-              { label: t('prices.days_14'), value: 14 },
-              { label: t('prices.days_30'), value: 30 },
-            ]}
-            value={days}
-            onChange={(v) => setDays(v as DaysRange)}
-          />
-        </div>
-      </div>
+        <SegmentedControl
+          data={[
+            { label: t('prices.days_7'), value: '7' },
+            { label: t('prices.days_14'), value: '14' },
+            { label: t('prices.days_30'), value: '30' },
+          ]}
+          value={String(days)}
+          onChange={(v) => setDays(Number(v) as DaysRange)}
+        />
+      </Group>
 
-      {isError && <Alert type="error" message={t('prices.error_load')} style={{ marginBottom: 16 }} />}
+      {isError && <Alert color="red" mb="md">{t('prices.error_load')}</Alert>}
 
       {isLoading ? (
-        <Skeleton active />
+        <Skeleton height={300} />
       ) : (
-        <Table
-          rowKey="city"
-          dataSource={tableData}
-          columns={columns}
-          pagination={false}
-          scroll={{ x: 600 }}
-          size="small"
-          bordered
-        />
+        <div style={{ overflowX: 'auto' }}>
+          <Table striped withColumnBorders withTableBorder>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th style={{ minWidth: 120 }}>{t('prices.city')}</Table.Th>
+                {dates.map((date) => (
+                  <Table.Th key={date} style={{ textAlign: 'right', minWidth: 90 }}>
+                    {dayjs(date).format('DD.MM')}
+                  </Table.Th>
+                ))}
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {cities.map((city) => {
+                const dir = trend(city);
+                return (
+                  <Table.Tr key={city}>
+                    <Table.Td>
+                      <span>
+                        {city}{' '}
+                        {dir === 'up' && <Badge color="red" size="xs">↑</Badge>}
+                        {dir === 'down' && <Badge color="green" size="xs">↓</Badge>}
+                      </span>
+                    </Table.Td>
+                    {dates.map((date) => {
+                      const entry = priceMap[city]?.[date];
+                      if (!entry) {
+                        return (
+                          <Table.Td key={date} style={{ textAlign: 'right', color: '#bfbfbf' }}>
+                            —
+                          </Table.Td>
+                        );
+                      }
+                      return (
+                        <Table.Td key={date} style={{ textAlign: 'right' }}>
+                          <span style={{ fontWeight: 500 }}>${entry.price_usd?.toFixed(2)}</span>
+                          {entry.price_local != null && (
+                            <span style={{ color: '#8c8c8c', fontSize: 11, marginLeft: 4 }}>
+                              {Number(entry.price_local).toLocaleString()} {entry.currency}
+                            </span>
+                          )}
+                        </Table.Td>
+                      );
+                    })}
+                  </Table.Tr>
+                );
+              })}
+            </Table.Tbody>
+          </Table>
+        </div>
       )}
 
-      <Typography.Text type="secondary" style={{ fontSize: 12, marginTop: 12, display: 'block' }}>
+      <Text c="dimmed" size="xs" mt="sm">
         {t('prices.note')}
-      </Typography.Text>
+      </Text>
     </div>
   );
 }

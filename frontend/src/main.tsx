@@ -1,6 +1,9 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import 'antd/dist/reset.css';
+import '@mantine/core/styles.css';
+import '@mantine/dates/styles.css';
+import '@mantine/notifications/styles.css';
+import 'mantine-datatable/styles.css';
 import './index.css';
 import './i18n';
 import App from './App';
