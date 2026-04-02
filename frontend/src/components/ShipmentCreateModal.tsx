@@ -1,8 +1,8 @@
-import { DatePicker, Form, Input, Modal, Select } from 'antd';
+import { DatePicker, Flex, Form, Input, Modal, Select } from 'antd';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import dayjs, { type Dayjs } from 'dayjs';
+import dayjs from 'dayjs';
 import api from '@/services/api';
 
 interface IShipmentCreateModalProps {
@@ -31,10 +31,10 @@ interface ICreateShipmentPayload {
 
 interface IFormValues {
   cargo_code: string;
-  date: Dayjs;
-  country: number;
-  customer: number;
-  season?: number;
+  date: dayjs.Dayjs | null;
+  country: number | undefined;
+  customer: number | undefined;
+  season: number | undefined;
 }
 
 export function ShipmentCreateModal({ open, onClose, onSuccess }: IShipmentCreateModalProps) {
@@ -78,29 +78,29 @@ export function ShipmentCreateModal({ open, onClose, onSuccess }: IShipmentCreat
       onSuccess();
       onClose();
     },
-    onError: () => {
-      toast.error(t('shipment_create.toast_error'));
+    onError: (err: unknown) => {
+      const apiErr = err as { response?: { data?: Record<string, string[]> } };
+      const data = apiErr?.response?.data;
+      if (data?.cargo_code) {
+        form.setFields([{ name: 'cargo_code', errors: data.cargo_code }]);
+      } else {
+        toast.error(t('shipment_create.toast_error'));
+      }
     },
   });
 
-  function handleOk() {
-    form
-      .validateFields()
-      .then((values) => {
-        const payload: ICreateShipmentPayload = {
-          cargo_code: values.cargo_code,
-          date: dayjs(values.date).format('YYYY-MM-DD'),
-          country: values.country,
-          customer: values.customer,
-        };
-        if (values.season != null) {
-          payload.season = values.season;
-        }
-        createMutation.mutate(payload);
-      })
-      .catch(() => {
-        // validation failed — Ant Design shows inline errors, no action needed
-      });
+  async function handleOk() {
+    const values = await form.validateFields();
+    const payload: ICreateShipmentPayload = {
+      cargo_code: values.cargo_code,
+      date: values.date ? values.date.format('YYYY-MM-DD') : '',
+      country: values.country!,
+      customer: values.customer!,
+    };
+    if (values.season != null) {
+      payload.season = values.season;
+    }
+    createMutation.mutate(payload);
   }
 
   function handleCancel() {
@@ -108,42 +108,26 @@ export function ShipmentCreateModal({ open, onClose, onSuccess }: IShipmentCreat
     onClose();
   }
 
-  const countryOptions = (countries ?? []).map((c) => ({
-    value: c.id,
-    label: c.name,
-  }));
-
-  const customerOptions = (customers ?? []).map((c) => ({
-    value: c.id,
-    label: c.name,
-  }));
-
-  const seasonOptions = (seasons ?? []).map((s) => ({
-    value: s.id,
-    label: s.name,
-  }));
+  const countryOptions = (countries ?? []).map((c) => ({ value: c.id, label: c.name }));
+  const customerOptions = (customers ?? []).map((c) => ({ value: c.id, label: c.name }));
+  const seasonOptions = (seasons ?? []).map((s) => ({ value: s.id, label: s.name }));
 
   return (
     <Modal
-      open={open}
       title={t('shipment_create.title')}
+      open={open}
+      onCancel={handleCancel}
+      onOk={() => void handleOk()}
       okText={t('shipment_create.submit')}
       cancelText={t('common.cancel')}
-      onOk={handleOk}
-      onCancel={handleCancel}
       confirmLoading={createMutation.isPending}
-      destroyOnHidden
-      width="min(480px, 95vw)"
+      destroyOnClose
     >
-      <Form
-        form={form}
-        layout="vertical"
-        style={{ marginTop: 16 }}
-      >
+      <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
         <Form.Item
           name="cargo_code"
           label={t('shipment_create.cargo_code')}
-          help={t('shipment_create.cargo_code_help')}
+          extra={t('shipment_create.cargo_code_help')}
           rules={[
             { required: true, message: t('shipment_create.cargo_code') },
             {
@@ -160,7 +144,7 @@ export function ShipmentCreateModal({ open, onClose, onSuccess }: IShipmentCreat
           label={t('shipment_create.date')}
           rules={[{ required: true, message: t('shipment_create.date') }]}
         >
-          <DatePicker style={{ width: '100%' }} format="DD.MM.YYYY" />
+          <DatePicker format="DD.MM.YYYY" style={{ width: '100%' }} />
         </Form.Item>
 
         <Form.Item
@@ -169,11 +153,13 @@ export function ShipmentCreateModal({ open, onClose, onSuccess }: IShipmentCreat
           rules={[{ required: true, message: t('shipment_create.country') }]}
         >
           <Select
-            options={countryOptions}
-            loading={countriesLoading}
             showSearch
-            optionFilterProp="label"
+            loading={countriesLoading}
+            options={countryOptions}
             placeholder={t('shipment_create.country')}
+            filterOption={(input, option) =>
+              (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())
+            }
           />
         </Form.Item>
 
@@ -183,32 +169,32 @@ export function ShipmentCreateModal({ open, onClose, onSuccess }: IShipmentCreat
           rules={[{ required: true, message: t('shipment_create.customer') }]}
         >
           <Select
-            options={customerOptions}
-            loading={customersLoading}
             showSearch
-            optionFilterProp="label"
+            loading={customersLoading}
+            options={customerOptions}
             placeholder={t('shipment_create.customer')}
+            filterOption={(input, option) =>
+              (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())
+            }
           />
         </Form.Item>
 
         <Form.Item
           name="season"
           label={
-            <>
-              {t('shipment_create.season')}{' '}
-              <span style={{ color: '#8c8c8c', fontWeight: 'normal', fontSize: 12 }}>
+            <Flex gap={4} align="center">
+              <span>{t('shipment_create.season')}</span>
+              <span style={{ color: '#8c8c8c', fontSize: 12, fontWeight: 400 }}>
                 ({t('shipment_create.season_optional')})
               </span>
-            </>
+            </Flex>
           }
         >
           <Select
-            options={seasonOptions}
-            loading={seasonsLoading}
-            showSearch
-            optionFilterProp="label"
-            placeholder={t('shipment_create.season')}
             allowClear
+            loading={seasonsLoading}
+            options={seasonOptions}
+            placeholder={t('shipment_create.season')}
           />
         </Form.Item>
       </Form>

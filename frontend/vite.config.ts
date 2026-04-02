@@ -9,6 +9,13 @@ export default defineConfig({
       '@': resolve(__dirname, 'src'),
     },
   },
+  optimizeDeps: {
+    include: [
+      'antd',
+      '@ant-design/icons',
+      '@ant-design/pro-components',
+    ],
+  },
   server: {
     port: 3000,
     proxy: {

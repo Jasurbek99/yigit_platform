@@ -1,8 +1,17 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import {
+  MantineProvider,
+  createTheme,
+  Card,
+  Button,
+  Modal,
+  NavLink,
+} from '@mantine/core';
+import { DatesProvider } from '@mantine/dates';
 import { ConfigProvider, Spin } from 'antd';
-import enUS from 'antd/locale/en_US';
+import ruRU from 'antd/locale/ru_RU';
 import { Toaster } from 'sonner';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import AppLayout from '@/components/AppLayout';
@@ -33,6 +42,44 @@ const queryClient = new QueryClient({
   },
 });
 
+const theme = createTheme({
+  fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif",
+  fontFamilyMonospace: "'JetBrains Mono', monospace",
+  fontSizes: { xs: '11px', sm: '13px', md: '14px', lg: '16px', xl: '20px' },
+  primaryColor: 'blue',
+  primaryShade: { light: 5, dark: 5 } as const,
+  colors: {
+    blue: ['#e6f4ff', '#bae0ff', '#91caff', '#69b1ff', '#4096ff', '#1677ff', '#0958d9', '#003eb3', '#002c8c', '#001d6c'] as unknown as [string, string, string, string, string, string, string, string, string, string],
+  },
+  radius: { xs: '4px', sm: '6px', md: '8px', lg: '12px', xl: '16px' },
+  defaultRadius: 'sm',
+  shadows: {
+    xs: '0 1px 2px rgba(0,0,0,0.03)',
+    sm: '0 1px 2px 0 rgba(0,0,0,0.03), 0 1px 6px -1px rgba(0,0,0,0.02), 0 2px 4px 0 rgba(0,0,0,0.02)',
+    md: '0 6px 16px 0 rgba(0,0,0,0.08), 0 3px 6px -4px rgba(0,0,0,0.12), 0 9px 28px 8px rgba(0,0,0,0.05)',
+  },
+  spacing: { xs: '4px', sm: '8px', md: '12px', lg: '16px', xl: '24px' },
+  breakpoints: { xs: '36em', sm: '48em', md: '62em', lg: '75em', xl: '88em' },
+  components: {
+    Card: Card.extend({ defaultProps: { radius: 'lg', shadow: 'sm', padding: 20 } }),
+    Button: Button.extend({ styles: { root: { fontWeight: 500 } } }),
+    Modal: Modal.extend({ defaultProps: { radius: 'md', centered: true } }),
+    NavLink: NavLink.extend({
+      styles: {
+        root: {
+          borderRadius: 6,
+          margin: '1px 8px',
+          padding: '8px 12px',
+          color: 'rgba(255,255,255,0.65)',
+          fontSize: 14,
+          '&:hover': { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.85)' },
+          '&[data-active]': { background: '#1677ff', color: '#fff', fontWeight: 500 },
+        },
+      },
+    }),
+  },
+});
+
 const PageLoader = () => (
   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
     <Spin size="large" />
@@ -43,57 +90,58 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ConfigProvider
-        locale={enUS}
+        locale={ruRU}
         theme={{
           token: {
             colorPrimary: '#1677ff',
             borderRadius: 6,
-            borderRadiusLG: 12,
             fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif",
-            colorBgLayout: '#f5f5f5',
-            boxShadow: '0 1px 2px 0 rgba(0,0,0,0.03), 0 1px 6px -1px rgba(0,0,0,0.02), 0 2px 4px 0 rgba(0,0,0,0.02)',
           },
         }}
       >
-        <Toaster position="top-right" richColors expand closeButton />
-        <BrowserRouter future={{ v7_relativeSplatPath: true }}>
-          <Suspense fallback={<PageLoader />}>
-            <Routes>
-              <Route path="/login" element={<LoginPage />} />
-              <Route
-                path="/"
-                element={
-                  <ProtectedRoute>
-                    <AppLayout />
-                  </ProtectedRoute>
-                }
-              >
-                <Route index element={<DashboardPage />} />
-                <Route path="export/shipments" element={<ShipmentList />} />
-                <Route path="shipments/:id" element={<ShipmentDetail />} />
-                <Route path="export/kanban" element={<KanbanBoard />} />
-                <Route path="export/plan" element={<WeeklyPlanGrid />} />
-                <Route path="export/quota" element={<QuotaDashboard />} />
-                <Route path="export/prices" element={<PricePanel />} />
-                <Route path="export/overdue" element={<OverdueReports />} />
-                <Route path="export/advances" element={<AdvancesTracker />} />
-                <Route path="export/trucks" element={<TruckForecast />} />
-                <Route path="export/blocks" element={<BlockSummary />} />
-                <Route path="export/domestic-sales" element={<DomesticSales />} />
-                <Route path="admin/seasons" element={
-                  <ProtectedRoute roles={['director']}><SeasonsPage /></ProtectedRoute>
-                } />
-                <Route path="admin/firms" element={
-                  <ProtectedRoute roles={['director']}><ExportFirmsPage /></ProtectedRoute>
-                } />
-                <Route path="admin/users" element={
-                  <ProtectedRoute roles={['director']}><UsersPage /></ProtectedRoute>
-                } />
-              </Route>
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </Suspense>
-        </BrowserRouter>
+      <MantineProvider theme={theme}>
+        <DatesProvider settings={{ locale: 'ru', firstDayOfWeek: 1 }}>
+          <Toaster position="top-right" richColors expand closeButton />
+          <BrowserRouter future={{ v7_relativeSplatPath: true }}>
+            <Suspense fallback={<PageLoader />}>
+              <Routes>
+                <Route path="/login" element={<LoginPage />} />
+                <Route
+                  path="/"
+                  element={
+                    <ProtectedRoute>
+                      <AppLayout />
+                    </ProtectedRoute>
+                  }
+                >
+                  <Route index element={<DashboardPage />} />
+                  <Route path="export/shipments" element={<ShipmentList />} />
+                  <Route path="shipments/:id" element={<ShipmentDetail />} />
+                  <Route path="export/kanban" element={<KanbanBoard />} />
+                  <Route path="export/plan" element={<WeeklyPlanGrid />} />
+                  <Route path="export/quota" element={<QuotaDashboard />} />
+                  <Route path="export/prices" element={<PricePanel />} />
+                  <Route path="export/overdue" element={<OverdueReports />} />
+                  <Route path="export/advances" element={<AdvancesTracker />} />
+                  <Route path="export/trucks" element={<TruckForecast />} />
+                  <Route path="export/blocks" element={<BlockSummary />} />
+                  <Route path="export/domestic-sales" element={<DomesticSales />} />
+                  <Route path="admin/seasons" element={
+                    <ProtectedRoute roles={['director']}><SeasonsPage /></ProtectedRoute>
+                  } />
+                  <Route path="admin/firms" element={
+                    <ProtectedRoute roles={['director']}><ExportFirmsPage /></ProtectedRoute>
+                  } />
+                  <Route path="admin/users" element={
+                    <ProtectedRoute roles={['director']}><UsersPage /></ProtectedRoute>
+                  } />
+                </Route>
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </Suspense>
+          </BrowserRouter>
+        </DatesProvider>
+      </MantineProvider>
       </ConfigProvider>
     </QueryClientProvider>
   );

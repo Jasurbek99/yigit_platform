@@ -1,12 +1,11 @@
 import { useState } from 'react';
-import { Button, Modal, Input, Select, Space, Typography } from 'antd';
-import { SwapOutlined } from '@ant-design/icons';
+import { Button, Modal, Form, Select, Input } from 'antd';
+import { IconArrowsExchange } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import api from '@/services/api';
 
-// Maps status code → display name (mirrors seed_data STATUS_TYPES)
 const STATUS_DISPLAY: Record<string, string> = {
   yuklenme: 'Loading',
   gumruk_girish: 'Customs Entry',
@@ -33,32 +32,33 @@ export function TransitionButton({ shipmentId, allowedTransitions, onSuccess }: 
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [selectedCode, setSelectedCode] = useState<string | undefined>(undefined);
-  const [comment, setComment] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [form] = Form.useForm<{ new_status: string; comment?: string }>();
 
   if (allowedTransitions.length === 0) return null;
 
-  const options = allowedTransitions.map((code) => ({
+  const selectOptions = allowedTransitions.map((code) => ({
     value: code,
     label: STATUS_DISPLAY[code] ?? code,
   }));
 
   function handleOpen() {
-    setSelectedCode(allowedTransitions.length === 1 ? allowedTransitions[0] : undefined);
-    setComment('');
+    form.setFieldsValue({
+      new_status: allowedTransitions.length === 1 ? allowedTransitions[0] : undefined,
+      comment: '',
+    });
     setOpen(true);
   }
 
   async function handleConfirm() {
-    if (!selectedCode) return;
+    const values = await form.validateFields();
     setIsLoading(true);
     try {
       await api.post(`/export/shipments/${shipmentId}/transition/`, {
-        new_status: selectedCode,
-        comment: comment.trim() || undefined,
+        new_status: values.new_status,
+        comment: values.comment?.trim() || undefined,
       });
-      toast.success(t('transition.toast_success', { status: STATUS_DISPLAY[selectedCode] ?? selectedCode }));
+      toast.success(t('transition.toast_success', { status: STATUS_DISPLAY[values.new_status] ?? values.new_status }));
       await queryClient.invalidateQueries({ queryKey: ['shipment', String(shipmentId)] });
       setOpen(false);
       onSuccess?.();
@@ -72,42 +72,36 @@ export function TransitionButton({ shipmentId, allowedTransitions, onSuccess }: 
 
   return (
     <>
-      <Button type="primary" icon={<SwapOutlined />} onClick={handleOpen}>
+      <Button
+        type="primary"
+        icon={<IconArrowsExchange size={14} />}
+        onClick={handleOpen}
+      >
         {t('transition.button')}
       </Button>
 
       <Modal
-        title={t('transition.modal_title')}
         open={open}
+        title={t('transition.modal_title')}
         onCancel={() => setOpen(false)}
-        onOk={handleConfirm}
+        onOk={() => void handleConfirm()}
         okText={t('transition.confirm')}
         cancelText={t('common.cancel')}
-        okButtonProps={{ loading: isLoading, disabled: !selectedCode }}
+        confirmLoading={isLoading}
         destroyOnClose
       >
-        <Space direction="vertical" style={{ width: '100%' }} size="middle">
-          <div>
-            <Typography.Text strong>{t('transition.new_status')}</Typography.Text>
-            <Select
-              style={{ width: '100%', marginTop: 6 }}
-              placeholder={t('transition.select_status')}
-              options={options}
-              value={selectedCode}
-              onChange={setSelectedCode}
-            />
-          </div>
-          <div>
-            <Typography.Text strong>{t('transition.comment_label')}</Typography.Text>
-            <Input.TextArea
-              style={{ marginTop: 6 }}
-              rows={3}
-              placeholder={t('transition.comment_placeholder')}
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-            />
-          </div>
-        </Space>
+        <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
+          <Form.Item
+            name="new_status"
+            label={t('transition.new_status')}
+            rules={[{ required: true, message: t('transition.select_status') }]}
+          >
+            <Select options={selectOptions} placeholder={t('transition.select_status')} />
+          </Form.Item>
+          <Form.Item name="comment" label={t('transition.comment_label')}>
+            <Input.TextArea rows={3} placeholder={t('transition.comment_placeholder')} />
+          </Form.Item>
+        </Form>
       </Modal>
     </>
   );

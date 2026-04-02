@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Segmented, Button, Dropdown } from 'antd';
-import { DownloadOutlined, PrinterOutlined, FileExcelOutlined, PlusOutlined } from '@ant-design/icons';
+import { Button, Flex, Input, Select, Segmented, Typography } from 'antd';
+import { PlusOutlined, DownloadOutlined } from '@ant-design/icons';
 import { ProTable } from '@ant-design/pro-components';
 import type { ProColumns } from '@ant-design/pro-components';
 import { useTranslation } from 'react-i18next';
@@ -14,11 +14,36 @@ import { useShipments } from '@/hooks/useShipments';
 import { useAuth } from '@/hooks/useAuth';
 import type { IShipmentListItem } from '@/types';
 
+const { Title, Text } = Typography;
+
 type ViewMode = 'all' | 'my_work';
 
-interface ISearchValues {
-  cargo_code?: string;
+const COUNTRY_FLAGS: Record<string, string> = {
+  kazakhstan: '🇰🇿',
+  gazagystan: '🇰🇿',
+  russia: '🇷🇺',
+  rossiya: '🇷🇺',
+  uzbekistan: '🇺🇿',
+  özbegistan: '🇺🇿',
+  belarus: '🇧🇾',
+  belarusiya: '🇧🇾',
+};
+
+function withFlag(name: string | null): string {
+  if (!name) return '—';
+  const flag = COUNTRY_FLAGS[name.toLowerCase()] ?? '';
+  return flag ? `${flag} ${name}` : name;
 }
+
+const PHASE_OPTIONS = [
+  { value: 'planlanyan', label: 'Planlanýar' },
+  { value: 'yuklenme', label: 'Ýüklenýär' },
+  { value: 'bardy', label: 'Ýolda' },
+  { value: 'gumruk_girish', label: 'Serhetde' },
+  { value: 'satylyor', label: 'Satylýar' },
+  { value: 'satyldy', label: 'Satyldy' },
+  { value: 'tamamlandy', label: 'Tamamlandy' },
+];
 
 function exportToExcel(rows: IShipmentListItem[], t: (k: string) => string) {
   const sheetData = rows.map((r) => ({
@@ -46,6 +71,7 @@ export default function ShipmentList() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
   const [search, setSearch] = useState('');
+  const [phaseFilter, setPhaseFilter] = useState<string | undefined>(undefined);
   const [createModalOpen, setCreateModalOpen] = useState(false);
 
   const canCreate = user?.role === 'export_manager' || user?.role === 'director';
@@ -55,184 +81,178 @@ export default function ShipmentList() {
     page_size: pageSize,
     my_work: viewMode === 'my_work' || undefined,
     search: search || undefined,
+    phase: phaseFilter,
   });
-
-  const columns: ProColumns<IShipmentListItem>[] = [
-    {
-      title: t('shipments.cargo_code'),
-      dataIndex: 'cargo_code',
-      fixed: 'left',
-      width: 130,
-      render: (_dom, record) => <strong>{record.cargo_code}</strong>,
-    },
-    {
-      title: t('shipments.date'),
-      dataIndex: 'date',
-      width: 100,
-      render: (_dom, record) =>
-        record.date ? dayjs(record.date).format('DD.MM.YYYY') : '—',
-      responsive: ['md'],
-    },
-    {
-      title: t('shipments.status'),
-      dataIndex: 'status_display',
-      width: 140,
-      render: (_dom, record) => (
-        <StatusTag statusDisplay={record.status_display} />
-      ),
-    },
-    {
-      title: t('shipments.country'),
-      dataIndex: 'country_name',
-      width: 120,
-      render: (_dom, record) => record.country_name ?? '—',
-      responsive: ['md'],
-    },
-    {
-      title: t('shipments.customer'),
-      dataIndex: 'customer_name',
-      width: 150,
-      render: (_dom, record) => record.customer_name ?? '—',
-    },
-    {
-      title: t('shipments.weight_net'),
-      dataIndex: 'weight_net',
-      width: 100,
-      align: 'right',
-      render: (_dom, record) =>
-        record.weight_net != null
-          ? Number(record.weight_net).toLocaleString()
-          : '—',
-      responsive: ['md'],
-    },
-    {
-      title: t('shipments.departed'),
-      dataIndex: 'departed_at',
-      width: 130,
-      render: (_dom, record) =>
-        record.departed_at
-          ? dayjs(record.departed_at).format('DD.MM.YY HH:mm')
-          : '—',
-      responsive: ['lg'],
-    },
-    {
-      title: t('shipments.arrived'),
-      dataIndex: 'arrived_at',
-      width: 130,
-      render: (_dom, record) =>
-        record.arrived_at
-          ? dayjs(record.arrived_at).format('DD.MM.YY HH:mm')
-          : '—',
-      responsive: ['lg'],
-    },
-  ];
-
-  function handleViewModeChange(val: string | number) {
-    setViewMode(val as ViewMode);
-    setPage(1);
-  }
-
-  function handleSearch(values: Record<string, unknown>) {
-    const typed = values as ISearchValues;
-    setSearch(typed.cargo_code ?? '');
-    setPage(1);
-  }
-
-  function handleReset() {
-    setSearch('');
-    setPage(1);
-  }
-
-  function handlePageChange(nextPage: number, nextPageSize: number) {
-    setPage(nextPage);
-    setPageSize(nextPageSize);
-  }
-
-  function handlePrint() {
-    window.print();
-  }
 
   function handleCreateSuccess() {
     void queryClient.invalidateQueries({ queryKey: ['shipments'] });
   }
 
-  const exportMenuItems = [
+  const columns: ProColumns<IShipmentListItem>[] = [
     {
-      key: 'excel',
-      icon: <FileExcelOutlined />,
-      label: t('shipments.export_excel'),
-      onClick: () => exportToExcel(data?.results ?? [], t),
+      title: 'Kod',
+      dataIndex: 'cargo_code',
+      width: 140,
+      render: (_, record) => (
+        <span
+          style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            color: '#1677ff',
+            fontWeight: 600,
+            fontSize: 13,
+          }}
+        >
+          {record.cargo_code}
+        </span>
+      ),
     },
     {
-      key: 'print',
-      icon: <PrinterOutlined />,
-      label: t('shipments.print'),
-      onClick: handlePrint,
+      title: t('shipments.customer'),
+      dataIndex: 'customer_name',
+      width: 150,
+      render: (val) => (val as string) ?? '—',
+    },
+    {
+      title: 'Ugur',
+      dataIndex: 'country_name',
+      width: 130,
+      render: (val) => withFlag((val as string) ?? null),
+    },
+    {
+      title: t('shipments.status'),
+      dataIndex: 'status_display',
+      width: 150,
+      render: (_, record) => <StatusTag statusDisplay={record.status_display} />,
+    },
+    {
+      title: 'Agram (kg)',
+      dataIndex: 'weight_net',
+      width: 120,
+      align: 'right',
+      responsive: ['md'],
+      render: (val) =>
+        val != null ? (
+          <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+            {Number(val).toLocaleString()}
+          </span>
+        ) : (
+          <span style={{ color: '#bfbfbf' }}>—</span>
+        ),
+    },
+    {
+      title: 'Ýola çykdy',
+      dataIndex: 'departed_at',
+      width: 130,
+      render: (val) =>
+        val ? (
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", color: '#8c8c8c', fontSize: 12 }}>
+            {dayjs(val as string).format('DD.MM.YY HH:mm')}
+          </span>
+        ) : (
+          <span style={{ color: '#bfbfbf' }}>—</span>
+        ),
+    },
+    {
+      title: 'Geldi',
+      dataIndex: 'arrived_at',
+      width: 130,
+      responsive: ['md'],
+      render: (val) =>
+        val ? (
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", color: '#8c8c8c', fontSize: 12 }}>
+            {dayjs(val as string).format('DD.MM.YY HH:mm')}
+          </span>
+        ) : (
+          <span style={{ color: '#bfbfbf' }}>—</span>
+        ),
     },
   ];
 
   return (
-    <div className="shipment-list-page">
-      {/* Page Header */}
-      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+    <div>
+      {/* Page header */}
+      <Flex justify="space-between" align="center" style={{ marginBottom: 16 }}>
         <div>
-          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: '#1f1f1f', lineHeight: '1.3' }}>
+          <Title level={4} style={{ margin: 0, letterSpacing: '-0.02em' }}>
             {t('shipments.title')}
-          </div>
-          <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
-            2025/2026 eksport möwsümi
-          </div>
+          </Title>
+          <Text type="secondary" style={{ fontSize: 13 }}>
+            {data
+              ? `Jemi ${data.count.toLocaleString()} ýük — 2025/2026 eksport möwsümi`
+              : '2025/2026 eksport möwsümi'}
+          </Text>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Segmented
-            size="small"
-            options={[
-              { label: t('shipments.all'), value: 'all' },
-              { label: t('shipments.my_work'), value: 'my_work' },
-            ]}
-            value={viewMode}
-            onChange={handleViewModeChange}
-          />
-          <Dropdown menu={{ items: exportMenuItems }} placement="bottomRight">
-            <Button size="small" icon={<DownloadOutlined />}>{t('shipments.export')}</Button>
-          </Dropdown>
-          {canCreate && (
-            <Button
-              type="primary"
-              size="small"
-              icon={<PlusOutlined />}
-              onClick={() => setCreateModalOpen(true)}
-            >
-              {t('shipment_create.title')}
-            </Button>
-          )}
-        </div>
-      </div>
+        {canCreate && (
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => setCreateModalOpen(true)}
+          >
+            {t('shipment_create.title')}
+          </Button>
+        )}
+      </Flex>
+
+      {/* Filter bar */}
+      <Flex gap={8} wrap="wrap" align="center" style={{ marginBottom: 12 }}>
+        <Input.Search
+          placeholder="Kod, müşderi..."
+          style={{ width: 220 }}
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+          onSearch={(val) => { setSearch(val); setPage(1); }}
+          allowClear
+        />
+        <Select
+          style={{ width: 160 }}
+          placeholder="Status: Hemmesi"
+          value={phaseFilter}
+          onChange={(val) => { setPhaseFilter(val ?? undefined); setPage(1); }}
+          options={PHASE_OPTIONS}
+          allowClear
+        />
+        <Segmented
+          value={viewMode}
+          options={[
+            { label: t('shipments.all'), value: 'all' },
+            { label: t('shipments.my_work'), value: 'my_work' },
+          ]}
+          onChange={(val) => { setViewMode(val as ViewMode); setPage(1); }}
+        />
+        <Button
+          icon={<DownloadOutlined />}
+          onClick={() => exportToExcel(data?.results ?? [], t)}
+          style={{ marginLeft: 'auto' }}
+        >
+          Excel
+        </Button>
+      </Flex>
 
       <ProTable<IShipmentListItem>
         rowKey="id"
         dataSource={data?.results ?? []}
-        columns={columns}
         loading={isLoading}
-        search={{ filterType: 'light' }}
-        onSubmit={handleSearch}
-        onReset={handleReset}
+        columns={columns}
+        search={false}
+        options={false}
         pagination={{
           current: page,
           pageSize,
           total: data?.count ?? 0,
           showSizeChanger: true,
           pageSizeOptions: ['20', '50', '100'],
-          onChange: handlePageChange,
           showTotal: (total) => t('shipments.total', { count: total }),
+          onChange: (p, ps) => { setPage(p); setPageSize(ps); },
         }}
-        scroll={{ x: 900 }}
-        options={{ density: false, fullScreen: false }}
-        toolbar={{ title: data ? t('shipments.total', { count: data.count }) : '' }}
         onRow={(record) => ({
           onClick: () => navigate(`/shipments/${record.id}`),
           style: { cursor: 'pointer' },
         })}
+        rowHoverable
+        size="middle"
+        scroll={{ x: 900 }}
+        dateFormatter={false}
+        toolBarRender={false}
       />
 
       <ShipmentCreateModal

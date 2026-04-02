@@ -1,9 +1,9 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Form, Input, Button } from 'antd';
+import { Button, Form, Input } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { useMutation } from '@tanstack/react-query';
 import api from '@/services/api';
 import type { ICurrentUser } from '@/types';
 
@@ -15,26 +15,24 @@ interface ILoginForm {
 export default function LoginPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [isLoading, setIsLoading] = useState(false);
+  const [form] = Form.useForm<ILoginForm>();
   const { t } = useTranslation();
 
-  const handleSubmit = async (values: ILoginForm) => {
-    setIsLoading(true);
-    try {
-      const { data } = await api.post<ICurrentUser>('/auth/login/', values);
+  const loginMutation = useMutation({
+    mutationFn: (values: ILoginForm) => api.post<ICurrentUser>('/auth/login/', values),
+    onSuccess: ({ data }) => {
       queryClient.setQueryData(['auth', 'me'], data);
       toast.success(t('login.toast_success', { name: data.first_name || data.username }), {
         description: t('login.toast_success_desc', { role: t(`roles.${data.role}`) }),
       });
       navigate('/');
-    } catch {
+    },
+    onError: () => {
       toast.error(t('login.toast_error'), {
         description: t('login.toast_error_desc'),
       });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    },
+  });
 
   return (
     <div
@@ -113,7 +111,12 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <Form layout="vertical" onFinish={handleSubmit} autoComplete="off">
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={(values) => loginMutation.mutate(values)}
+          autoComplete="off"
+        >
           <Form.Item
             name="username"
             rules={[{ required: true, message: t('login.required_username') }]}
@@ -121,7 +124,7 @@ export default function LoginPage() {
             <Input
               placeholder={t('login.username')}
               size="large"
-              style={{ borderRadius: 8, height: 44 }}
+              style={{ borderRadius: 8 }}
             />
           </Form.Item>
 
@@ -132,7 +135,7 @@ export default function LoginPage() {
             <Input.Password
               placeholder={t('login.password')}
               size="large"
-              style={{ borderRadius: 8, height: 44 }}
+              style={{ borderRadius: 8 }}
             />
           </Form.Item>
 
@@ -142,7 +145,7 @@ export default function LoginPage() {
               htmlType="submit"
               block
               size="large"
-              loading={isLoading}
+              loading={loginMutation.isPending}
               style={{ height: 44, borderRadius: 8, fontSize: 15, fontWeight: 600 }}
             >
               {t('login.submit')}

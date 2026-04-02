@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Button, Input, Space } from 'antd';
-import { SendOutlined } from '@ant-design/icons';
+import { Button, Input, Flex } from 'antd';
+import { IconSend } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -34,27 +34,26 @@ export function CommentComposer({ shipmentId }: ICommentComposerProps) {
   }
 
   return (
-    <Space.Compact style={{ width: '100%', marginTop: 16 }}>
+    <Flex gap={8} align="flex-end" style={{ marginTop: 16 }}>
       <Input.TextArea
+        style={{ flex: 1 }}
         rows={2}
         placeholder={t('comments.placeholder')}
         value={content}
         onChange={(e) => setContent(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleSubmit();
+          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) void handleSubmit();
         }}
-        style={{ borderRadius: '6px 0 0 6px' }}
       />
       <Button
         type="primary"
-        icon={<SendOutlined />}
+        icon={<IconSend size={14} />}
         loading={isLoading}
         disabled={!content.trim()}
-        onClick={handleSubmit}
-        style={{ height: 'auto', borderRadius: '0 6px 6px 0' }}
+        onClick={() => void handleSubmit()}
       >
         {t('comments.send')}
       </Button>
-    </Space.Compact>
+    </Flex>
   );
 }

@@ -1,7 +1,7 @@
 import { Tag } from 'antd';
 
-const STATUS_PHASE_COLOR: Record<string, string> = {
-  Loading: 'processing',
+const STATUS_COLORS: Record<string, string> = {
+  Loading: 'blue',
   'Customs Entry': 'orange',
   'Customs Exit': 'orange',
   Departed: 'blue',
@@ -11,7 +11,7 @@ const STATUS_PHASE_COLOR: Record<string, string> = {
   'In Transit': 'cyan',
   Arrived: 'green',
   'Being Sold': 'lime',
-  Sold: 'success',
+  Sold: 'green',
   Report: 'gold',
   Completed: 'default',
 };
@@ -21,6 +21,9 @@ export interface IStatusTagProps {
 }
 
 export function StatusTag({ statusDisplay }: IStatusTagProps) {
-  const color = STATUS_PHASE_COLOR[statusDisplay] ?? 'default';
-  return <Tag color={color}>{statusDisplay}</Tag>;
+  return (
+    <Tag color={STATUS_COLORS[statusDisplay] ?? 'default'} style={{ margin: 0 }}>
+      {statusDisplay}
+    </Tag>
+  );
 }
