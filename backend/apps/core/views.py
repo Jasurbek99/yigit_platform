@@ -9,7 +9,7 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ReadOnlyModelViewSet
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.core.models import Country, ExportFirm, ShipmentStatusType, Customer
+from apps.core.models import Country, ExportFirm, ShipmentStatusType, Customer, GreenhouseBlock
 from apps.core.serializers import (
     LoginSerializer,
     UserMeSerializer,
@@ -17,6 +17,7 @@ from apps.core.serializers import (
     ExportFirmSerializer,
     ShipmentStatusTypeSerializer,
     CustomerSerializer,
+    GreenhouseBlockSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -119,3 +120,11 @@ class ShipmentStatusTypeViewSet(ReadOnlyModelViewSet):
 class CustomerViewSet(ReadOnlyModelViewSet):
     queryset = Customer.objects.filter(is_active=True)
     serializer_class = CustomerSerializer
+
+
+class GreenhouseBlockViewSet(ReadOnlyModelViewSet):
+    """GET /api/v1/core/blocks/ — list active greenhouse blocks."""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = GreenhouseBlockSerializer
+    queryset = GreenhouseBlock.objects.filter(is_active=True).order_by('code')

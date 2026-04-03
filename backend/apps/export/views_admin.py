@@ -9,21 +9,27 @@ Endpoints:
 
   GET/POST/PATCH/DELETE /api/v1/export/admin/seasons/  — Season CRUD (director writes)
   GET/POST/PATCH/DELETE /api/v1/export/admin/firms/    — ExportFirm CRUD (director writes)
-  GET/PATCH             /api/v1/export/admin/users/    — User list + role/is_active patch (director)
+  GET/POST/PATCH/DELETE /api/v1/export/admin/users/    — User CRUD (director/superuser; POST/DELETE superuser only)
+
+  GET/POST/DELETE /api/v1/export/admin/block-assignments/        — BlockManagerAssignment CRUD (director)
+  PUT             /api/v1/export/admin/users/{pk}/permissions/   — Grant export permissions (director)
 """
 import logging
 
+from django.contrib.auth.models import Permission
+from django.contrib.contenttypes.models import ContentType
 from django.utils import timezone
 from rest_framework import serializers, status
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 
 from apps.core.models import ExportFirm, Season, User
 from apps.core.permissions import write_permission
-from apps.export.models import AuditLog, Notification
+from apps.export.models import AuditLog, BlockManagerAssignment, Notification
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +41,12 @@ def _require_role(user, allowed: frozenset, verb: str = 'perform this action') -
     """Raise PermissionDenied unless user.role is in allowed."""
     if getattr(user, 'role', None) not in allowed:
         raise PermissionDenied(f"Role '{user.role}' is not allowed to {verb}.")
+
+
+def _require_superuser(user, verb: str = 'perform this action') -> None:
+    """Raise PermissionDenied unless the user is a superuser."""
+    if not getattr(user, 'is_superuser', False):
+        raise PermissionDenied(f"Superuser privileges are required to {verb}.")
 
 
 # ---------------------------------------------------------------------------
@@ -85,8 +97,9 @@ class ExportFirmSerializer(serializers.ModelSerializer):
 class UserListSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'username', 'first_name', 'last_name', 'email', 'role', 'is_active', 'phone']
-        read_only_fields = ['id', 'username', 'first_name', 'last_name', 'email', 'phone']
+        fields = ['id', 'username', 'first_name', 'last_name', 'email', 'role', 'is_active', 'is_superuser', 'phone']
+        # is_superuser is always read-only — it is managed at the DB / Django-admin level.
+        read_only_fields = ['id', 'username', 'first_name', 'last_name', 'email', 'is_superuser', 'phone']
 
 
 class UserPatchSerializer(serializers.ModelSerializer):
@@ -207,22 +220,32 @@ class ExportFirmViewSet(ModelViewSet):
 
 
 class UserManagementViewSet(ModelViewSet):
-    """User management for directors.
+    """User management for directors and superusers.
 
-    List and retrieve are open to all authenticated users.
-    Only director may PATCH role and is_active fields.
-    No POST/DELETE — users are created through Django admin or auth flow.
+    List and retrieve: director or export_manager (or superuser).
+    PATCH role/is_active: director only (or superuser).
+    POST create user: superuser only.
+    DELETE user: superuser only (self-deletion blocked).
+    POST set-password: superuser only.
 
-    GET   /api/v1/export/admin/users/       — list all users
-    GET   /api/v1/export/admin/users/{id}/  — detail
-    PATCH /api/v1/export/admin/users/{id}/  — update role + is_active (director only)
+    GET    /api/v1/export/admin/users/                       — list all users
+    GET    /api/v1/export/admin/users/{id}/                  — detail
+    PATCH  /api/v1/export/admin/users/{id}/                  — update role + is_active (director/superuser)
+    POST   /api/v1/export/admin/users/                       — create user (superuser only)
+    DELETE /api/v1/export/admin/users/{id}/                  — delete user (superuser only)
+    POST   /api/v1/export/admin/users/{id}/set-password/     — change password (superuser only)
     """
 
-    permission_classes = [IsAuthenticated, write_permission(*_DIRECTOR_ONLY)]
-    http_method_names = ['get', 'patch', 'head', 'options']  # no POST/DELETE/PUT
+    # Drop write_permission from the class level — each mutating method enforces
+    # its own role/superuser guard inline, allowing superusers with any role to
+    # pass through without being blocked by the write_permission role check.
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
 
     def get_queryset(self):
-        _require_role(self.request.user, _DIRECTOR_MANAGER, 'view user list')
+        user = self.request.user
+        if not user.is_superuser:
+            _require_role(user, _DIRECTOR_MANAGER, 'view user list')
         return User.objects.all().order_by('username')
 
     def get_serializer_class(self):
@@ -231,6 +254,213 @@ class UserManagementViewSet(ModelViewSet):
         return UserListSerializer
 
     def partial_update(self, request, *args, **kwargs):
-        _require_role(request.user, _DIRECTOR_ONLY, 'update user roles')
+        if not request.user.is_superuser:
+            _require_role(request.user, _DIRECTOR_ONLY, 'update user roles')
         kwargs['partial'] = True
         return self.update(request, *args, **kwargs)
+
+    def create(self, request):
+        """POST /api/v1/export/admin/users/ — create a new platform user.
+
+        Superuser only. Password is write-only and is NEVER returned in any
+        response. Django's create_user() is used so the password is hashed.
+
+        Required fields: username, password, role.
+        Optional fields: first_name, last_name, email, phone, is_active.
+        """
+        _require_superuser(request.user, 'create users')
+
+        username = request.data.get('username', '').strip()
+        password = request.data.get('password', '')
+        role = request.data.get('role', '').strip()
+
+        errors: dict[str, list[str]] = {}
+
+        if not username:
+            errors['username'] = ['This field is required.']
+        elif User.objects.filter(username=username).exists():
+            errors['username'] = [f"Username '{username}' is already taken."]
+
+        if not password:
+            errors['password'] = ['This field is required.']
+
+        if not role:
+            errors['role'] = ['This field is required.']
+
+        if errors:
+            return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+
+        new_user = User.objects.create_user(
+            username=username,
+            password=password,
+            role=role,
+            first_name=request.data.get('first_name', ''),
+            last_name=request.data.get('last_name', ''),
+            email=request.data.get('email', ''),
+            phone=request.data.get('phone') or None,
+            is_active=bool(request.data.get('is_active', True)),
+        )
+        serializer = UserListSerializer(new_user)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def destroy(self, request, pk=None):
+        """DELETE /api/v1/export/admin/users/{id}/ — permanently delete a user.
+
+        Superuser only. Self-deletion is blocked to prevent accidental lockout.
+        """
+        _require_superuser(request.user, 'delete users')
+
+        try:
+            target_pk = int(pk)
+        except (ValueError, TypeError):
+            return Response({'error': 'Invalid user id.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if target_pk == request.user.id:
+            return Response(
+                {'error': 'Cannot delete your own account.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        instance = self.get_object()
+        instance.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=['post'], url_path='set-password')
+    def set_password(self, request, pk=None):
+        """POST /api/v1/export/admin/users/{id}/set-password/ — set a user's password.
+
+        Superuser only. The password is NEVER echoed back in the response.
+
+        Request body: { "password": "<new_password>" }
+        Response:     { "detail": "Password updated." }
+        """
+        _require_superuser(request.user, 'set passwords')
+
+        new_password = request.data.get('password', '')
+        if not new_password:
+            return Response(
+                {'password': ['This field is required.']},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if len(new_password) < 8:
+            return Response(
+                {'password': ['Password must be at least 8 characters.']},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        target_user = self.get_object()
+        target_user.set_password(new_password)
+        target_user.save(update_fields=['password'])
+        return Response({'detail': 'Password updated.'}, status=status.HTTP_200_OK)
+
+
+# ---------------------------------------------------------------------------
+# Block-manager assignment admin
+# ---------------------------------------------------------------------------
+
+class BlockManagerAssignmentSerializer(serializers.ModelSerializer):
+    """Serializer for BlockManagerAssignment admin endpoints."""
+
+    user_name = serializers.SerializerMethodField()
+    block_code = serializers.SerializerMethodField()
+    block_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = BlockManagerAssignment
+        fields = ['id', 'user', 'user_name', 'block', 'block_code', 'block_name', 'is_active']
+
+    def get_user_name(self, obj: BlockManagerAssignment) -> str:
+        return obj.user.username
+
+    def get_block_code(self, obj: BlockManagerAssignment) -> str:
+        return obj.block.code
+
+    def get_block_name(self, obj: BlockManagerAssignment) -> str:
+        return obj.block.name
+
+
+class BlockManagerAssignmentViewSet(ModelViewSet):
+    """Director-only CRUD for block-manager assignments.
+
+    GET    /api/v1/export/admin/block-assignments/          — list (filter by ?user=<id>)
+    POST   /api/v1/export/admin/block-assignments/          — create
+    DELETE /api/v1/export/admin/block-assignments/{id}/     — delete
+    GET    /api/v1/export/admin/block-assignments/{id}/     — detail
+    """
+
+    permission_classes = [IsAuthenticated, write_permission('director')]
+    serializer_class = BlockManagerAssignmentSerializer
+    http_method_names = ['get', 'post', 'delete', 'head', 'options']
+
+    queryset = BlockManagerAssignment.objects.select_related('user', 'block').order_by(
+        'user', 'block__code'
+    )
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if user_id := self.request.query_params.get('user'):
+            try:
+                qs = qs.filter(user_id=int(user_id))
+            except (ValueError, TypeError):
+                pass
+        return qs
+
+
+# ---------------------------------------------------------------------------
+# User export-permission management
+# ---------------------------------------------------------------------------
+
+class UserPermissionsView(APIView):
+    """Grant or replace a user's custom export-app Django permissions.
+
+    PUT /api/v1/export/admin/users/{pk}/permissions/
+
+    Request body:
+        { "permissions": ["add_weeklyharvestplan", "change_weeklyharvestplan"] }
+
+    Response:
+        { "permissions": ["add_weeklyharvestplan", "change_weeklyharvestplan"] }
+
+    Clears all existing export-app custom permissions for the user, then grants
+    the provided codenames. Only codenames that exist in the export app are
+    accepted; unknown codenames cause a 400 error.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request, pk: int):
+        """Replace the target user's export permissions with the supplied list."""
+        _require_role(request.user, _DIRECTOR_ONLY, 'manage user permissions')
+
+        try:
+            target_user = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response({'error': f'User {pk} not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        raw_codenames = request.data.get('permissions', [])
+        if not isinstance(raw_codenames, list):
+            raise ValidationError({'permissions': 'Must be a list of permission codenames.'})
+
+        # Fetch all valid export-app permissions in a single query.
+        export_ct = ContentType.objects.filter(app_label='export')
+        valid_perms = {
+            p.codename: p
+            for p in Permission.objects.filter(content_type__in=export_ct)
+        }
+
+        # Validate every supplied codename before making any changes.
+        unknown = [c for c in raw_codenames if c not in valid_perms]
+        if unknown:
+            raise ValidationError(
+                {'permissions': f"Unknown export permission codenames: {unknown}"}
+            )
+
+        granted_perms = [valid_perms[c] for c in raw_codenames]
+
+        # Clear existing export-app user permissions, then add the new set.
+        current_export_perms = target_user.user_permissions.filter(content_type__in=export_ct)
+        target_user.user_permissions.remove(*current_export_perms)
+        if granted_perms:
+            target_user.user_permissions.add(*granted_perms)
+
+        return Response({'permissions': list(raw_codenames)})

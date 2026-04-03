@@ -11,7 +11,14 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 
 from apps.core.permissions import write_permission
-from apps.export.models import WeeklyHarvestPlan, WeeklyTruckAllocation, QuotaAllocation, PriceEntry, DomesticSale
+from apps.export.models import (
+    WeeklyHarvestPlan,
+    WeeklyTruckAllocation,
+    QuotaAllocation,
+    PriceEntry,
+    DomesticSale,
+    BlockManagerAssignment,
+)
 from apps.export.serializers_planning import (
     WeeklyHarvestPlanSerializer,
     WeeklyTruckAllocationSerializer,
@@ -39,11 +46,19 @@ class WeeklyHarvestPlanViewSet(ModelViewSet):
     """
     GET    /api/v1/export/harvest-plans/            — list (filter by ?season=&block=&year=&week=)
     GET    /api/v1/export/harvest-plans/{id}/       — detail
-    POST   /api/v1/export/harvest-plans/            — create (greenhouse_manager / export_manager)
+    POST   /api/v1/export/harvest-plans/            — create (greenhouse_manager / export_manager / director)
     PUT    /api/v1/export/harvest-plans/{id}/       — update plan values
+
+    Per-block authorization:
+      - director / export_manager: always allowed for any block.
+      - greenhouse_manager: must have the Django permission (add_/change_weeklyharvestplan)
+        AND an active BlockManagerAssignment for the target block.
+      - All other roles: denied on write.
     """
 
-    permission_classes = [IsAuthenticated, write_permission(*_PLAN_WRITE_ROLES)]
+    # Role check is done inside perform_create/perform_update instead of a
+    # class-level permission so we can inspect the block being written.
+    permission_classes = [IsAuthenticated]
     serializer_class = WeeklyHarvestPlanSerializer
     http_method_names = ['get', 'post', 'put', 'head', 'options']
 
@@ -64,10 +79,55 @@ class WeeklyHarvestPlanViewSet(ModelViewSet):
             qs = qs.filter(week_number=week)
         return qs
 
+    def _check_plan_permission(self, user, block_id: int, *, is_create: bool) -> None:
+        """Raise PermissionDenied if the user may not write the given block's plan.
+
+        Args:
+            user: The requesting User instance.
+            block_id: PK of the GreenhouseBlock being written.
+            is_create: True for POST (create), False for PUT (update).
+
+        Raises:
+            PermissionDenied: When the user is not authorized.
+        """
+        role = getattr(user, 'role', None)
+
+        # director and export_manager may write any block unconditionally.
+        if role in ('director', 'export_manager'):
+            return
+
+        if role == 'greenhouse_manager':
+            # Check the appropriate Django model permission.
+            perm_codename = 'export.add_weeklyharvestplan' if is_create else 'export.change_weeklyharvestplan'
+            if not user.has_perm(perm_codename):
+                raise PermissionDenied(
+                    f"greenhouse_manager does not have permission '{perm_codename}'."
+                )
+            # Check there is an active block assignment for this user + block.
+            has_assignment = BlockManagerAssignment.objects.filter(
+                user=user,
+                block_id=block_id,
+                is_active=True,
+            ).exists()
+            if not has_assignment:
+                raise PermissionDenied(
+                    f"greenhouse_manager is not assigned to block {block_id}."
+                )
+            return
+
+        # All other roles are denied on write.
+        raise PermissionDenied(
+            f"Role '{role}' is not allowed to write harvest plans."
+        )
+
     def perform_create(self, serializer):
+        block_id = serializer.validated_data['block'].id
+        self._check_plan_permission(self.request.user, block_id, is_create=True)
         serializer.save(entered_by=self.request.user)
 
     def perform_update(self, serializer):
+        block_id = serializer.instance.block_id
+        self._check_plan_permission(self.request.user, block_id, is_create=False)
         serializer.save(entered_by=self.request.user)
 
     @action(detail=False, methods=['get'], url_path='block-summary')

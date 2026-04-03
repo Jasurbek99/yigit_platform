@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Alert, Badge, Button, Group, Modal, Select, Stack, Switch, Text } from '@mantine/core';
+import { Alert, Badge, Button, Group, Modal as MantineModal, Select, Stack, Switch, Text } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { IconUsers } from '@tabler/icons-react';
 import { DataTable } from 'mantine-datatable';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { useAdminUsers, useUpdateUserRole } from '@/hooks/useAdmin';
+import { Form, Input, Modal, Select as AntSelect, Switch as AntSwitch } from 'antd';
+import { useAdminUsers, useUpdateUserRole, useCreateUser, useDeleteUser, useSetUserPassword } from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
 import type { IAdminUser, UserRole } from '@/types';
 
@@ -42,9 +43,19 @@ export default function UsersPage() {
   const { t } = useTranslation();
   const { user: currentUser } = useAuth();
   const isDirector = currentUser?.role === 'director';
+  const isSuperuser = currentUser?.is_superuser === true;
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<IAdminUser | null>(null);
+
+  // ─── Superuser: create user state ────────────────────────────────────────
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [createForm] = Form.useForm();
+
+  // ─── Superuser: reset password state ─────────────────────────────────────
+  const [passwordTarget, setPasswordTarget] = useState<IAdminUser | null>(null);
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [passwordForm] = Form.useForm();
 
   const form = useForm<UserEditFormValues>({
     initialValues: {
@@ -68,6 +79,30 @@ export default function UsersPage() {
     onError: () => toast.error(t('users_admin.toast_error')),
   });
 
+  const createUser = useCreateUser({
+    onSuccess: () => {
+      toast.success('Ulanyja döredildi');
+      setCreateModalOpen(false);
+      createForm.resetFields();
+    },
+    onError: () => toast.error(t('users_admin.toast_error')),
+  });
+
+  const deleteUser = useDeleteUser({
+    onSuccess: () => toast.success('Ulanyja pozuldy'),
+    onError: () => toast.error(t('users_admin.toast_error')),
+  });
+
+  const setPassword = useSetUserPassword({
+    onSuccess: () => {
+      toast.success('Paroly üýtgedildi');
+      setPasswordModalOpen(false);
+      setPasswordTarget(null);
+      passwordForm.resetFields();
+    },
+    onError: () => toast.error(t('users_admin.toast_error')),
+  });
+
   function handleOpenEdit(record: IAdminUser) {
     setEditTarget(record);
     form.setValues({ role: record.role, is_active: record.is_active });
@@ -78,6 +113,36 @@ export default function UsersPage() {
     const result = form.validate();
     if (result.hasErrors || !editTarget || !form.values.role) return;
     updateMutation.mutate({ id: editTarget.id, role: form.values.role, is_active: form.values.is_active });
+  }
+
+  function handleCreateSubmit() {
+    createForm.validateFields().then((values) => {
+      createUser.mutate(values);
+    });
+  }
+
+  function handleOpenPasswordModal(record: IAdminUser) {
+    setPasswordTarget(record);
+    passwordForm.resetFields();
+    setPasswordModalOpen(true);
+  }
+
+  function handlePasswordSubmit() {
+    if (!passwordTarget) return;
+    passwordForm.validateFields().then((values) => {
+      setPassword.mutate({ id: passwordTarget.id, password: values.password });
+    });
+  }
+
+  function handleDeleteConfirm(record: IAdminUser) {
+    Modal.confirm({
+      title: 'Ulanyjyny pozmak isleýärsiňizmi?',
+      content: `"${record.username}" ulanyjysy hemişelik pozular.`,
+      okText: 'Pozmak',
+      okType: 'danger',
+      cancelText: t('common.cancel'),
+      onOk: () => deleteUser.mutate(record.id),
+    });
   }
 
   const columns = [
@@ -139,6 +204,41 @@ export default function UsersPage() {
           },
         ]
       : []),
+    ...(isSuperuser
+      ? [
+          {
+            accessor: '_pw' as keyof IAdminUser,
+            title: '',
+            width: 120,
+            render: (record: IAdminUser) => (
+              <Button
+                variant="subtle"
+                size="compact-xs"
+                color="orange"
+                onClick={(e) => { e.stopPropagation(); handleOpenPasswordModal(record); }}
+              >
+                Paroly Täzele
+              </Button>
+            ),
+          },
+          {
+            accessor: '_del' as keyof IAdminUser,
+            title: '',
+            width: 80,
+            render: (record: IAdminUser) =>
+              record.id === currentUser?.id ? null : (
+                <Button
+                  variant="subtle"
+                  size="compact-xs"
+                  color="red"
+                  onClick={(e) => { e.stopPropagation(); handleDeleteConfirm(record); }}
+                >
+                  Pozmak
+                </Button>
+              ),
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -154,6 +254,15 @@ export default function UsersPage() {
             Ulanyjylary we rugsatlary dolandyrmak
           </div>
         </div>
+        {isSuperuser && (
+          <Button
+            variant="filled"
+            size="compact-sm"
+            onClick={() => { createForm.resetFields(); setCreateModalOpen(true); }}
+          >
+            + Täze Ulanyja
+          </Button>
+        )}
       </Group>
 
       {isError && (
@@ -170,7 +279,7 @@ export default function UsersPage() {
         styles={{ header: { backgroundColor: '#f5f5f5', fontSize: 13 } }}
       />
 
-      <Modal
+      <MantineModal
         opened={modalOpen}
         onClose={() => { setModalOpen(false); form.reset(); }}
         title={t('users_admin.edit_role')}
@@ -205,6 +314,87 @@ export default function UsersPage() {
             </Button>
           </Group>
         </Stack>
+      </MantineModal>
+
+      {/* ── Superuser: Create User Modal (Ant Design) ─────────────────── */}
+      <Modal
+        title="Täze Ulanyja Döret"
+        open={createModalOpen}
+        onCancel={() => { setCreateModalOpen(false); createForm.resetFields(); }}
+        onOk={handleCreateSubmit}
+        okText="Döret"
+        cancelText={t('common.cancel')}
+        confirmLoading={createUser.isPending}
+        destroyOnClose
+      >
+        <Form form={createForm} layout="vertical" style={{ marginTop: 8 }}>
+          <Form.Item
+            name="username"
+            label="Ulanyjy ady"
+            rules={[{ required: true, message: t('common.required') }]}
+          >
+            <Input autoComplete="off" />
+          </Form.Item>
+          <Form.Item
+            name="password"
+            label="Paroly"
+            rules={[
+              { required: true, message: t('common.required') },
+              { min: 8, message: 'Paroly iň az 8 simwol bolmaly' },
+            ]}
+          >
+            <Input.Password autoComplete="new-password" />
+          </Form.Item>
+          <Form.Item name="first_name" label="Ady">
+            <Input />
+          </Form.Item>
+          <Form.Item name="last_name" label="Familiýasy">
+            <Input />
+          </Form.Item>
+          <Form.Item name="email" label="E-poçta">
+            <Input type="email" />
+          </Form.Item>
+          <Form.Item
+            name="role"
+            label={t('users_admin.role')}
+            rules={[{ required: true, message: t('common.required') }]}
+          >
+            <AntSelect
+              options={ALL_ROLES.map((r) => ({ value: r, label: t(`roles.${r}`) }))}
+            />
+          </Form.Item>
+          <Form.Item name="is_active" label={t('users_admin.is_active')} valuePropName="checked" initialValue={true}>
+            <AntSwitch />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* ── Superuser: Set Password Modal (Ant Design) ────────────────── */}
+      <Modal
+        title={`Paroly Täzele — ${passwordTarget?.username ?? ''}`}
+        open={passwordModalOpen}
+        onCancel={() => { setPasswordModalOpen(false); setPasswordTarget(null); passwordForm.resetFields(); }}
+        onOk={handlePasswordSubmit}
+        okText="Bellemek"
+        cancelText={t('common.cancel')}
+        confirmLoading={setPassword.isPending}
+        destroyOnClose
+      >
+        <p style={{ fontSize: 13, color: '#8c8c8c', marginBottom: 12 }}>
+          Häzirki paroly görüp bolmaýar — diňe täze paroly belläň.
+        </p>
+        <Form form={passwordForm} layout="vertical">
+          <Form.Item
+            name="password"
+            label="Täze paroly"
+            rules={[
+              { required: true, message: t('common.required') },
+              { min: 8, message: 'Paroly iň az 8 simwol bolmaly' },
+            ]}
+          >
+            <Input.Password autoComplete="new-password" />
+          </Form.Item>
+        </Form>
       </Modal>
     </div>
   );

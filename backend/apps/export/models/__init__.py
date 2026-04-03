@@ -7,7 +7,14 @@ from .shipment import (
     ShipmentComment,
     SalesReport,
 )
-from .planning import WeeklyHarvestPlan, WeeklyTruckAllocation, QuotaAllocation, PriceEntry, DomesticMarketPrice
+from .planning import (
+    WeeklyHarvestPlan,
+    WeeklyTruckAllocation,
+    QuotaAllocation,
+    PriceEntry,
+    DomesticMarketPrice,
+    BlockManagerAssignment,
+)
 from .domestic import DomesticSale
 from .finance import FinansistAdvance, FinansistAdvanceShipment
 from .notification import Notification
@@ -26,6 +33,7 @@ __all__ = [
     'QuotaAllocation',
     'PriceEntry',
     'DomesticMarketPrice',
+    'BlockManagerAssignment',
     'DomesticSale',
     'FinansistAdvance',
     'FinansistAdvanceShipment',

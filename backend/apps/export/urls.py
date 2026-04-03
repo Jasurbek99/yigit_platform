@@ -1,3 +1,4 @@
+from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from apps.export.views import ShipmentViewSet
@@ -15,6 +16,8 @@ from apps.export.views_admin import (
     SeasonViewSet,
     ExportFirmViewSet,
     UserManagementViewSet,
+    BlockManagerAssignmentViewSet,
+    UserPermissionsView,
 )
 
 router = DefaultRouter()
@@ -38,5 +41,12 @@ router.register('audit-log', AuditLogViewSet, basename='audit-log')
 router.register('admin/seasons', SeasonViewSet, basename='admin-season')
 router.register('admin/firms', ExportFirmViewSet, basename='admin-firm')
 router.register('admin/users', UserManagementViewSet, basename='admin-user')
+router.register('admin/block-assignments', BlockManagerAssignmentViewSet, basename='admin-block-assignment')
 
-urlpatterns = router.urls
+urlpatterns = router.urls + [
+    path(
+        'admin/users/<int:pk>/permissions/',
+        UserPermissionsView.as_view(),
+        name='admin-user-permissions',
+    ),
+]

@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import type {
   IApiListResponse,
@@ -33,6 +33,27 @@ export function useHarvestPlans(filters: { season?: number; year?: number; week?
       return data;
     },
     staleTime: 60_000,
+  });
+}
+
+export function useUpsertHarvestPlan() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: Partial<IWeeklyHarvestPlan> & { id?: number }): Promise<IWeeklyHarvestPlan> => {
+      if (USE_MOCK) {
+        return { ...payload, id: payload.id ?? Date.now() } as IWeeklyHarvestPlan;
+      }
+      if (payload.id) {
+        const { data } = await api.put<IWeeklyHarvestPlan>(`/export/harvest-plans/${payload.id}/`, payload);
+        return data;
+      }
+      const { data } = await api.post<IWeeklyHarvestPlan>('/export/harvest-plans/', payload);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['harvest-plans'] });
+    },
   });
 }
 

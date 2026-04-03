@@ -16,6 +16,7 @@ import {
   IconLogout,
   IconBell,
   IconMenu2,
+  IconShield,
 } from '@tabler/icons-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -160,6 +161,7 @@ export default function AppLayout() {
     '/admin/users': t('nav.admin_users'),
     '/admin/seasons': t('nav.admin_seasons'),
     '/admin/firms': t('nav.admin_firms'),
+    '/admin/permissions': t('nav.admin_permissions'),
   };
 
   const currentPageLabel = location.pathname.startsWith('/shipments/')
@@ -190,11 +192,12 @@ export default function AppLayout() {
       { key: '/export/blocks', icon: <IconChartBar size={15} />, label: t('nav.blocks') },
       { key: '/export/domestic-sales', icon: <IconShoppingCart size={15} />, label: t('nav.domestic_sales') },
     ]},
-    ...(user?.role === 'director' ? [{
+    ...(user?.role === 'director' || user?.is_superuser ? [{
       type: 'group' as const, label: 'Ulgam', children: [
         { key: '/admin/users', icon: <IconUsers size={15} />, label: t('nav.admin_users') },
         { key: '/admin/seasons', icon: <IconCalendar size={15} />, label: t('nav.admin_seasons') },
         { key: '/admin/firms', icon: <IconBuildingBank size={15} />, label: t('nav.admin_firms') },
+        { key: '/admin/permissions', icon: <IconShield size={15} />, label: t('nav.admin_permissions') },
       ],
     }] : []),
   ];

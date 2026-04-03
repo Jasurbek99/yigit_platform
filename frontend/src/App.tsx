@@ -32,6 +32,7 @@ const DomesticSales = lazy(() => import('@/pages/export/DomesticSales'));
 const SeasonsPage = lazy(() => import('@/pages/admin/SeasonsPage'));
 const ExportFirmsPage = lazy(() => import('@/pages/admin/ExportFirmsPage'));
 const UsersPage = lazy(() => import('@/pages/admin/UsersPage'));
+const PermissionsPage = lazy(() => import('@/pages/admin/PermissionsPage'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -134,6 +135,9 @@ export default function App() {
                   } />
                   <Route path="admin/users" element={
                     <ProtectedRoute roles={['director']}><UsersPage /></ProtectedRoute>
+                  } />
+                  <Route path="admin/permissions" element={
+                    <ProtectedRoute roles={['director']}><PermissionsPage /></ProtectedRoute>
                   } />
                 </Route>
                 <Route path="*" element={<Navigate to="/" replace />} />

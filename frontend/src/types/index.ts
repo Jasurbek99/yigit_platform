@@ -18,6 +18,8 @@ export interface ICurrentUser {
   first_name: string;
   last_name: string;
   role: UserRole;
+  is_superuser: boolean;
+  managed_block_ids: number[];
 }
 
 // ─── Reference ────────────────────────────────────────────────────────────
@@ -276,6 +278,23 @@ export interface IFinansistAdvanceDetail extends IFinansistAdvanceListItem {
 }
 
 // ─── Admin ─────────────────────────────────────────────────────────────────
+
+export interface IGreenhouseBlock {
+  id: number;
+  code: string;
+  name: string | null;
+  is_active: boolean;
+}
+
+export interface IBlockAssignment {
+  id: number;
+  user: number;
+  user_name: string;
+  block: number;
+  block_code: string;
+  block_name: string | null;
+  is_active: boolean;
+}
 
 export interface ISeason {
   id: number;
