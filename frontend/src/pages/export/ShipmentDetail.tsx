@@ -1,10 +1,12 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Button,
+  Card,
   Checkbox,
-  Descriptions,
+  Divider,
   Flex,
   Form,
+  Grid,
   InputNumber,
   Input,
   Skeleton,
@@ -15,8 +17,8 @@ import {
   Timeline,
   Typography,
 } from 'antd';
-import type { DescriptionsProps, TableColumnsType } from 'antd';
-import { ArrowLeftOutlined } from '@ant-design/icons';
+import type { TableColumnsType } from 'antd';
+import { ArrowLeftOutlined, EditOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -29,7 +31,6 @@ import { useAuth } from '@/hooks/useAuth';
 import api from '@/services/api';
 import type {
   IFirmSplit,
-  IBlockSource,
   IStatusLogEntry,
   IShipmentComment,
   IShipmentQuality,
@@ -37,6 +38,24 @@ import type {
 } from '@/types';
 
 const { Text, Title } = Typography;
+
+// ─── Status Steps ─────────────────────────────────────────────────────────────
+
+const STATUS_STEPS = [
+  { code: 'yuklenme',       label: 'Ýükleniş başlady' },
+  { code: 'gumruk_girish',  label: 'TM Gümrük girdi' },
+  { code: 'gumruk_chykysh', label: 'TM Gümrük çykdy' },
+  { code: 'yola_chykdy',    label: 'Ýola çykdy' },
+  { code: 'serhet_tm',      label: 'Serhetde — Farap Postta' },
+  { code: 'serhet_gechdi',  label: 'Serhetden geçdi' },
+  { code: 'barysh_gumrugi', label: 'Barjak ýurduň gümrügi' },
+  { code: 'yolda',          label: 'Ýolda' },
+  { code: 'bardy',          label: 'Barjak ýerine geldi' },
+  { code: 'satylyar',       label: 'Satylýar' },
+  { code: 'satyldy',        label: 'Satyldy' },
+  { code: 'hasabat',        label: 'Hasabat' },
+  { code: 'tamamlandy',     label: 'Tamamlandy' },
+] as const;
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
 
@@ -53,6 +72,55 @@ function fmtDate(val: string | null | undefined): string {
 function fmtNum(val: number | null | undefined): string {
   if (val == null) return '—';
   return Number(val).toLocaleString();
+}
+
+// ─── InfoRow (reusable label-value row) ───────────────────────────────────────
+
+interface InfoRowProps {
+  label: string;
+  value: React.ReactNode;
+  bold?: boolean;
+  mono?: boolean;
+}
+
+function InfoRow({ label, value, bold, mono }: InfoRowProps) {
+  return (
+    <div style={{ display: 'flex', padding: '6px 0' }}>
+      <div style={{ width: 160, fontSize: 13, color: '#8c8c8c', flexShrink: 0 }}>{label}</div>
+      <div style={{
+        fontSize: 13,
+        flex: 1,
+        fontWeight: bold ? 600 : undefined,
+        fontFamily: mono ? 'monospace' : undefined,
+      }}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+// ─── SectionBlock (bold italic title + content) ───────────────────────────────
+
+interface SectionBlockProps {
+  title: string;
+  children: React.ReactNode;
+}
+
+function SectionBlock({ title, children }: SectionBlockProps) {
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <div style={{
+        fontWeight: 600,
+        fontSize: 14,
+        marginBottom: 12,
+        paddingBottom: 8,
+        borderBottom: '1px solid #f0f0f0',
+      }}>
+        {title}
+      </div>
+      {children}
+    </div>
+  );
 }
 
 // ─── SalesReportForm ──────────────────────────────────────────────────────────
@@ -131,6 +199,7 @@ function SalesReportForm({ shipmentId, report, canEdit }: SalesReportFormProps) 
 export default function ShipmentDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const screens = Grid.useBreakpoint();
   const { data: shipment, isLoading, isError } = useShipmentDetail(id);
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -184,59 +253,7 @@ export default function ShipmentDetail() {
   const isReportAvailable =
     shipment.status_code === 'hasabat' || shipment.status_code === 'tamamlandy';
 
-  // ── Overview Descriptions ──────────────────────────────────────────────────
-
-  const coreDescItems: DescriptionsProps['items'] = [
-    { key: 'cargo_code', label: t('shipment_detail.cargo_code'), children: <strong style={{ fontFamily: 'monospace' }}>{shipment.cargo_code}</strong> },
-    { key: 'date', label: t('shipment_detail.date'), children: fmtDate(shipment.date) },
-    { key: 'status', label: t('shipment_detail.status'), children: <StatusTag statusDisplay={shipment.status_display} /> },
-    { key: 'customer', label: t('shipment_detail.customer'), children: shipment.customer_name ?? '—' },
-    { key: 'country', label: t('shipment_detail.country'), children: shipment.country_name ?? '—' },
-    {
-      key: 'gapy_satys',
-      label: t('shipment_detail.gapy_satys'),
-      children: shipment.is_gapy_satys
-        ? <Tag color="orange">{t('shipment_detail.yes')}</Tag>
-        : <Tag color="default">{t('shipment_detail.no')}</Tag>,
-    },
-  ];
-
-  const weightDescItems: DescriptionsProps['items'] = [
-    { key: 'weight_net', label: t('shipment_detail.weight_net'), children: `${fmtNum(shipment.weight_net)} kg` },
-    { key: 'weight_gross', label: t('shipment_detail.weight_gross'), children: `${fmtNum(shipment.weight_gross)} kg` },
-    { key: 'packaging', label: t('shipment_detail.packaging'), children: `${fmtNum(shipment.packaging_kg)} kg` },
-    { key: 'boxes', label: t('shipment_detail.boxes'), children: fmtNum(shipment.box_count) },
-    { key: 'pallets', label: t('shipment_detail.pallets'), children: fmtNum(shipment.pallet_count) },
-    {
-      key: 'price_per_kg',
-      label: t('shipment_detail.price_per_kg'),
-      children: shipment.price_per_kg != null ? `$${shipment.price_per_kg}` : '—',
-    },
-    {
-      key: 'total_usd',
-      label: t('shipment_detail.total_usd'),
-      children: shipment.total_amount_usd != null ? `$${fmtNum(shipment.total_amount_usd)}` : '—',
-    },
-    { key: 'notes', label: t('shipment_detail.notes'), children: shipment.notes ?? '—', span: 2 },
-  ];
-
-  // ── Logistics Descriptions ─────────────────────────────────────────────────
-
-  const logisticsDescItems: DescriptionsProps['items'] = [
-    { key: 'vehicle_condition', label: t('shipment_detail.vehicle_condition'), children: shipment.vehicle_condition ?? '—' },
-    { key: 'condition_note', label: t('shipment_detail.condition_note'), children: shipment.vehicle_condition_note ?? '—' },
-    { key: 'route_note', label: t('shipment_detail.route_note'), children: shipment.route_note ?? '—', span: 2 },
-    { key: 'loading_started', label: t('shipment_detail.loading_started'), children: fmt(shipment.loading_started_at) },
-    { key: 'customs_entry', label: t('shipment_detail.customs_entry'), children: fmt(shipment.customs_entry_at) },
-    { key: 'customs_exit', label: t('shipment_detail.customs_exit'), children: fmt(shipment.customs_exit_at) },
-    { key: 'departed', label: t('shipment_detail.departed'), children: fmt(shipment.departed_at) },
-    { key: 'border_crossed', label: t('shipment_detail.border_crossed'), children: fmt(shipment.border_crossed_at) },
-    { key: 'arrived', label: t('shipment_detail.arrived'), children: fmt(shipment.arrived_at) },
-    { key: 'sale_started', label: t('shipment_detail.sale_started'), children: fmt(shipment.sale_started_at) },
-    { key: 'sale_ended', label: t('shipment_detail.sale_ended'), children: fmt(shipment.sale_ended_at) },
-  ];
-
-  // ── Firm Splits table ──────────────────────────────────────────────────────
+  // ── Firm splits table ──────────────────────────────────────────────────────
 
   const firmSplitColumns: TableColumnsType<IFirmSplit> = [
     { title: t('shipment_detail.firm_splits_col_firm'), dataIndex: 'export_firm_name' },
@@ -245,37 +262,210 @@ export default function ShipmentDetail() {
     { title: t('shipment_detail.firm_splits_col_invoice'), dataIndex: 'invoice_number', render: (v) => (v as string) ?? '—' },
   ];
 
-  const blockColumns: TableColumnsType<IBlockSource> = [
-    { title: t('shipment_detail.block_sources_col_code'), dataIndex: 'block_code' },
-    { title: t('shipment_detail.block_sources_col_name'), dataIndex: 'block_name' },
-    { title: t('shipment_detail.weight_net'), dataIndex: 'weight_kg', render: (v) => fmtNum(v as number) },
-  ];
+  // ── Firm display helper ────────────────────────────────────────────────────
 
-  // ── Sales Report display ───────────────────────────────────────────────────
+  const firmDisplay =
+    shipment.firm_splits.length === 0
+      ? '—'
+      : shipment.firm_splits.map((s) => s.export_firm_name ?? '—').join(' + ');
 
-  const salesReportDescItems: DescriptionsProps['items'] = shipment.sales_report
-    ? [
-        { key: 'price_per_kg', label: t('sales_report.price_per_kg'), children: shipment.sales_report.price_per_kg ?? '—' },
-        { key: 'total_usd', label: t('sales_report.total_usd'), children: shipment.sales_report.total_usd ?? '—' },
-        { key: 'weight_sold', label: t('sales_report.weight_sold'), children: shipment.sales_report.weight_sold_kg ?? '—' },
-        { key: 'weight_rejected', label: t('sales_report.weight_rejected'), children: shipment.sales_report.weight_rejected_kg ?? '—' },
-        { key: 'transport_cost', label: t('sales_report.transport_cost'), children: shipment.sales_report.transport_cost_usd ?? '—' },
-        { key: 'market_fee', label: t('sales_report.market_fee'), children: shipment.sales_report.market_fee_usd ?? '—' },
-        { key: 'other_expenses', label: t('sales_report.other_expenses'), children: shipment.sales_report.other_expenses_usd ?? '—' },
-        { key: 'notes', label: t('sales_report.notes'), children: shipment.sales_report.notes ?? '—', span: 2 },
-      ]
-    : [];
+  const blockDisplay =
+    shipment.block_sources.length === 0
+      ? '—'
+      : shipment.block_sources.map((b) => b.block_code).join(', ');
+
+  // ── Status route sidebar ───────────────────────────────────────────────────
+
+  const currentIdx = STATUS_STEPS.findIndex((s) => s.code === shipment.status_code);
+
+  const statusRouteContent = (
+    <div style={{ padding: '4px 0' }}>
+      {STATUS_STEPS.map((step, idx) => {
+        const state: 'done' | 'active' | 'pending' =
+          idx < currentIdx ? 'done' : idx === currentIdx ? 'active' : 'pending';
+        const logEntry: IStatusLogEntry | null = shipment.status_log[idx] ?? null;
+        const isLast = idx === STATUS_STEPS.length - 1;
+
+        return (
+          <div
+            key={step.code}
+            style={{ display: 'flex', gap: 12, position: 'relative', paddingBottom: isLast ? 0 : 20 }}
+          >
+            {/* Connector line */}
+            {!isLast && (
+              <div style={{
+                position: 'absolute',
+                left: 15,
+                top: 32,
+                bottom: 0,
+                width: 2,
+                background: state === 'done' ? '#52c41a' : '#f0f0f0',
+              }} />
+            )}
+            {/* Dot */}
+            <div style={{
+              width: 32,
+              height: 32,
+              borderRadius: '50%',
+              flexShrink: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 13,
+              fontWeight: 600,
+              zIndex: 1,
+              background: state === 'done' ? '#52c41a' : state === 'active' ? '#1677ff' : '#f5f5f5',
+              color: state === 'pending' ? '#bfbfbf' : '#fff',
+              border: state === 'pending' ? '2px solid #d9d9d9' : 'none',
+            }}>
+              {state === 'done' ? '✓' : state === 'active' ? '●' : idx + 1}
+            </div>
+            {/* Content */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{
+                fontWeight: state === 'active' ? 600 : 500,
+                fontSize: 13,
+                color: state === 'pending' ? '#bfbfbf' : state === 'active' ? '#1677ff' : '#262626',
+              }}>
+                {step.label}
+              </div>
+              {state !== 'pending' && logEntry && (
+                <div style={{ fontSize: 11, color: '#8c8c8c', fontFamily: 'monospace' }}>
+                  {fmt(logEntry.changed_at)}
+                </div>
+              )}
+              {state !== 'pending' && logEntry?.comment && (
+                <div style={{ fontSize: 11, color: '#595959', marginTop: 2 }}>
+                  {logEntry.comment}
+                </div>
+              )}
+              {state === 'active' && (
+                <div style={{ fontSize: 11, color: '#8c8c8c' }}>häzir</div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  // ── Tab items ──────────────────────────────────────────────────────────────
 
   const tabItems = [
     {
       key: 'overview',
-      label: t('shipment_detail.tab_overview'),
+      label: 'Esasy maglumat',
       children: (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <Descriptions title="Esasy maglumatlar" bordered size="small" column={2} items={coreDescItems} />
-          <Descriptions title="Agram we baha" bordered size="small" column={2} items={weightDescItems} />
+        <div>
+          {/* Section 1: Logistika */}
+          <SectionBlock title="📋 Logistika">
+            <InfoRow label="Müşderi" value={shipment.customer_name ?? '—'} />
+            <InfoRow label="Eksport firma" value={firmDisplay} />
+            <InfoRow label="Import firma" value="—" />
+            <InfoRow label="Barjak ýurt" value={shipment.country_name ?? '—'} />
+            <InfoRow label="Ýüklenýän ýer" value="—" />
+          </SectionBlock>
+
+          {/* Section 2: Transport */}
+          <SectionBlock title="🚛 Ulag (Transport bölüm)">
+            <InfoRow label="Maşyn" value="—" />
+            <InfoRow label="Sürüji" value="—" />
+            <InfoRow label="Ulag firmasy" value="—" />
+            <InfoRow label="Serhet nokady" value="—" />
+            <InfoRow label="Ýerleşýän ýeri" value={shipment.vehicle_condition ?? '—'} />
+          </SectionBlock>
+
+          {/* Section 3: Haryt */}
+          <SectionBlock title="🌿 Haryt">
+            <InfoRow label="Ýygym bloklary" value={blockDisplay} />
+            <InfoRow label="Sort" value="—" />
+            <InfoRow label="Ýygym senesi" value={fmtDate(shipment.date)} />
+            <InfoRow label="Ýygym ýagdaýy" value="—" />
+            <InfoRow
+              label="Agram (resmi)"
+              value={`${fmtNum(shipment.weight_net)} kg`}
+              bold
+              mono
+            />
+            <InfoRow
+              label="Agram (hakyky)"
+              value={`${fmtNum(shipment.weight_gross)} kg`}
+              mono
+            />
+            <InfoRow
+              label="Palet"
+              value={shipment.pallet_count != null ? String(shipment.pallet_count) : '—'}
+            />
+          </SectionBlock>
+
+          {/* Section 4: Hil */}
+          <SectionBlock title="🌡️ Hil gözegçilik">
+            <InfoRow label="Tranzit güni" value="—" />
+            <InfoRow label="Temperaturasy" value="— °C" />
+          </SectionBlock>
+        </div>
+      ),
+    },
+    {
+      key: 'document',
+      label: 'Dokument',
+      children: (
+        <div>
+          {/* Quality certificates */}
+          <SectionBlock title="Hil şahadatnamalary">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {qualityFields.map((field) => (
+                <Checkbox
+                  key={field}
+                  checked={q[field]}
+                  disabled={!canEditQuality || qualityMutation.isPending}
+                  onChange={(e) => qualityMutation.mutate({ field, checked: e.target.checked })}
+                >
+                  {t(`quality.${field}`)}
+                </Checkbox>
+              ))}
+            </div>
+          </SectionBlock>
+
+          {/* Logistics timestamps */}
+          <SectionBlock title="Wagt möhürleri">
+            <InfoRow label="Ýükleniş başlady" value={fmt(shipment.loading_started_at)} />
+            <InfoRow label="TM Gümrük girdi" value={fmt(shipment.customs_entry_at)} />
+            <InfoRow label="TM Gümrük çykdy" value={fmt(shipment.customs_exit_at)} />
+            <InfoRow label="Serhetden geçdi" value={fmt(shipment.border_crossed_at)} />
+            <InfoRow label="Bardy" value={fmt(shipment.arrived_at)} />
+            <InfoRow label="Satyş başlady" value={fmt(shipment.sale_started_at)} />
+            <InfoRow label="Satyş gutardy" value={fmt(shipment.sale_ended_at)} />
+          </SectionBlock>
+        </div>
+      ),
+    },
+    {
+      key: 'finance',
+      label: 'Maliýe',
+      children: (
+        <div>
+          {/* Weight & price summary */}
+          <SectionBlock title="Agram we baha">
+            <InfoRow label="Arassa agram" value={`${fmtNum(shipment.weight_net)} kg`} />
+            <InfoRow label="Hakyky agram" value={`${fmtNum(shipment.weight_gross)} kg`} />
+            <InfoRow label="Gaplama" value={`${fmtNum(shipment.packaging_kg)} kg`} />
+            <InfoRow label="Guty" value={fmtNum(shipment.box_count)} />
+            <InfoRow label="Palet" value={fmtNum(shipment.pallet_count)} />
+            <InfoRow
+              label="Bahasy (kg)"
+              value={shipment.price_per_kg != null ? `$${shipment.price_per_kg}` : '—'}
+            />
+            <InfoRow
+              label="Jemi (USD)"
+              value={shipment.total_amount_usd != null ? `$${fmtNum(shipment.total_amount_usd)}` : '—'}
+            />
+            <InfoRow label="Bellik" value={shipment.notes ?? '—'} />
+          </SectionBlock>
+
+          {/* Firm splits table */}
           {shipment.firm_splits.length > 0 && (
-            <div>
+            <div style={{ marginBottom: 24 }}>
               <Title level={5} style={{ marginBottom: 8 }}>{t('shipment_detail.firm_splits')}</Title>
               <Table<IFirmSplit>
                 dataSource={shipment.firm_splits}
@@ -286,64 +476,64 @@ export default function ShipmentDetail() {
               />
             </div>
           )}
-          {shipment.block_sources.length > 0 && (
+
+          {/* Sales report */}
+          {!isReportAvailable ? (
+            <Text type="secondary" style={{ display: 'block', padding: '8px 0' }}>
+              {t('sales_report.only_at_hasabat')}
+            </Text>
+          ) : (
             <div>
-              <Title level={5} style={{ marginBottom: 8 }}>{t('shipment_detail.block_sources')}</Title>
-              <Table<IBlockSource>
-                dataSource={shipment.block_sources}
-                columns={blockColumns}
-                rowKey="block_code"
-                size="small"
-                pagination={false}
-              />
+              {!shipment.sales_report && (
+                <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
+                  {t('sales_report.empty')}
+                </Text>
+              )}
+              {canEditSalesReport && (
+                <SalesReportForm
+                  shipmentId={String(shipment.id)}
+                  report={shipment.sales_report}
+                  canEdit={canEditSalesReport}
+                />
+              )}
             </div>
           )}
         </div>
       ),
     },
     {
-      key: 'logistics',
-      label: t('shipment_detail.tab_logistics'),
-      children: (
-        <Descriptions
-          title="Ulag maglumatlary"
-          bordered
-          size="small"
-          column={2}
-          items={logisticsDescItems}
-        />
-      ),
-    },
-    {
-      key: 'quality',
-      label: t('shipment_detail.tab_quality'),
+      key: 'changes',
+      label: t('shipment_detail.tab_history', { count: shipment.status_log.length }),
       children: (
         <div>
-          <Title level={5} style={{ marginBottom: 12 }}>{t('quality.title')}</Title>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {qualityFields.map((field) => (
-              <Checkbox
-                key={field}
-                checked={q[field]}
-                disabled={!canEditQuality || qualityMutation.isPending}
-                onChange={(e) => qualityMutation.mutate({ field, checked: e.target.checked })}
-              >
-                {t(`quality.${field}`)}
-              </Checkbox>
-            ))}
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: 'comments',
-      label: t('shipment_detail.tab_comments', { count: shipment.comments.length }),
-      children: (
-        <div>
+          {/* Status history timeline */}
+          <Timeline
+            items={shipment.status_log.map((entry: IStatusLogEntry) => ({
+              children: (
+                <div>
+                  <Flex gap={8} align="center" wrap="wrap">
+                    <StatusTag statusDisplay={entry.status_display} />
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      {fmt(entry.changed_at)} — {t('shipment_detail.history_by', { name: entry.changed_by_name })}
+                    </Text>
+                  </Flex>
+                  {entry.comment && (
+                    <Text type="secondary" style={{ display: 'block', marginTop: 4, fontSize: 12 }}>
+                      {entry.comment}
+                    </Text>
+                  )}
+                </div>
+              ),
+            }))}
+          />
+
+          <Divider />
+
+          {/* Comments */}
           {shipment.comments.length === 0 ? (
             <Text type="secondary">{t('shipment_detail.no_comments')}</Text>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
               {shipment.comments.map((c: IShipmentComment) => (
                 <div
                   key={c.id}
@@ -368,81 +558,71 @@ export default function ShipmentDetail() {
         </div>
       ),
     },
-    {
-      key: 'history',
-      label: t('shipment_detail.tab_history', { count: shipment.status_log.length }),
-      children: (
-        <Timeline
-          items={shipment.status_log.map((entry: IStatusLogEntry) => ({
-            children: (
-              <div>
-                <Flex gap={8} align="center" wrap="wrap">
-                  <StatusTag statusDisplay={entry.status_display} />
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    {fmt(entry.changed_at)} — {t('shipment_detail.history_by', { name: entry.changed_by_name })}
-                  </Text>
-                </Flex>
-                {entry.comment && (
-                  <Text type="secondary" style={{ display: 'block', marginTop: 4, fontSize: 12 }}>
-                    {entry.comment}
-                  </Text>
-                )}
-              </div>
-            ),
-          }))}
-        />
-      ),
-    },
-    {
-      key: 'sales_report',
-      label: t('sales_report.tab'),
-      children: !isReportAvailable ? (
-        <Text type="secondary" style={{ display: 'block', padding: '24px 0' }}>
-          {t('sales_report.only_at_hasabat')}
-        </Text>
-      ) : (
-        <div>
-          {shipment.sales_report && salesReportDescItems.length > 0 && (
-            <Descriptions bordered size="small" column={2} items={salesReportDescItems} style={{ marginBottom: 16 }} />
-          )}
-          {!shipment.sales_report && (
-            <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>{t('sales_report.empty')}</Text>
-          )}
-          {canEditSalesReport && (
-            <SalesReportForm
-              shipmentId={String(shipment.id)}
-              report={shipment.sales_report}
-              canEdit={canEditSalesReport}
-            />
-          )}
-        </div>
-      ),
-    },
   ];
 
-  return (
-    <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-      {/* Page header */}
-      <Flex align="center" gap={12} wrap="wrap" style={{ marginBottom: 20 }}>
-        <Button
-          icon={<ArrowLeftOutlined />}
-          onClick={() => navigate('/export/shipments')}
-        />
-        <Text strong style={{ fontSize: 17, letterSpacing: '-0.01em' }}>
-          {shipment.cargo_code}
-        </Text>
-        <StatusTag statusDisplay={shipment.status_display} />
-        {shipment.allowed_transitions && shipment.allowed_transitions.length > 0 && (
-          <div style={{ marginLeft: 'auto' }}>
-            <TransitionButton
-              shipmentId={shipment.id}
-              allowedTransitions={shipment.allowed_transitions}
-            />
-          </div>
-        )}
-      </Flex>
+  // ── Render ─────────────────────────────────────────────────────────────────
 
-      <Tabs items={tabItems} defaultActiveKey="overview" />
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ marginBottom: 20 }}>
+        <Flex align="center" gap={12} wrap="wrap" style={{ marginBottom: 6 }}>
+          <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)} />
+          <Text strong style={{ fontSize: 18, fontFamily: 'monospace' }}>
+            {shipment.cargo_code}
+          </Text>
+          <StatusTag statusDisplay={shipment.status_display} />
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+            <Button icon={<EditOutlined />} disabled>Üýtget</Button>
+            {shipment.allowed_transitions?.length > 0 && (
+              <TransitionButton
+                shipmentId={shipment.id}
+                allowedTransitions={shipment.allowed_transitions}
+              />
+            )}
+          </div>
+        </Flex>
+        <div style={{ paddingLeft: 44, fontSize: 13, color: '#8c8c8c' }}>
+          {shipment.customer_name} → {shipment.country_name}
+          {shipment.route_note ? ` | ${shipment.route_note}` : ''}
+        </div>
+      </div>
+
+      {/* 2-column grid */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: screens.md ? '1fr 340px' : '1fr',
+        gap: 20,
+        alignItems: 'start',
+      }}>
+        {/* Left: main card with 4 tabs */}
+        <Card>
+          <Tabs items={tabItems} defaultActiveKey="overview" />
+        </Card>
+
+        {/* Right: sidebar */}
+        <div>
+          <Card title="📍 Ýük ýoly" size="small" style={{ marginBottom: 16 }}>
+            {statusRouteContent}
+          </Card>
+          <Card title="🔗 Baglanyşyklar" size="small">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: '#8c8c8c' }}>Logo Tiger</span>
+                <Tag>Heniz iberilmedi</Tag>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: '#8c8c8c' }}>Trip Management</span>
+                <span style={{ color: '#8c8c8c' }}>—</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: '#8c8c8c' }}>GPS Tracking</span>
+                <Tag>Enjam ýok</Tag>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }
