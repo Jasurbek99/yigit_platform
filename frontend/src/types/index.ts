@@ -251,6 +251,22 @@ export interface IOverdueShipment extends IShipmentListItem {
 
 // ─── Truck Allocations ────────────────────────────────────────────────────
 
+export interface ITruckDestination {
+  id: number;
+  name: string;
+  country: number | null;
+  country_name: string | null;
+  sort_order: number;
+  is_active: boolean;
+}
+
+export interface ITruckDestinationSplit {
+  id: number;
+  destination: number;
+  destination_name: string;
+  truck_count: number;
+}
+
 export interface IWeeklyTruckAllocation {
   id: number;
   season: number;
@@ -260,9 +276,7 @@ export interface IWeeklyTruckAllocation {
   day_of_week: number;  // 1=Mon, 6=Sat
   total_planned_kg: number | null;
   total_trucks_calc: number | null;
-  russia_trucks: number;
-  kazakhstan_trucks: number;
-  gapy_satys_trucks: number;
+  destination_splits: ITruckDestinationSplit[];
   decided_by_name: string | null;
   created_at: string;
 }

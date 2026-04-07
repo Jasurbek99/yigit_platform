@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from rest_framework import serializers
-from apps.export.models import WeeklyHarvestPlan, WeeklyTruckAllocation, QuotaAllocation, PriceEntry, DomesticSale
+from apps.export.models import WeeklyHarvestPlan, WeeklyTruckAllocation, TruckDestinationSplit, QuotaAllocation, PriceEntry, DomesticSale
 
 
 class WeeklyHarvestPlanSerializer(serializers.ModelSerializer):
@@ -33,7 +33,7 @@ class WeeklyHarvestPlanSerializer(serializers.ModelSerializer):
         fields = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
         vals = [getattr(obj, f'{d}_actual_kg') for d in fields]
         if all(v is None for v in vals):
-            return None
+            return obj.actual_weekly_total_kg  # fallback for import-only weekly totals
         return sum(v or Decimal('0') for v in vals)
 
     class Meta:
@@ -45,6 +45,7 @@ class WeeklyHarvestPlanSerializer(serializers.ModelSerializer):
             'thursday_plan_kg', 'friday_plan_kg', 'saturday_plan_kg',
             'monday_actual_kg', 'tuesday_actual_kg', 'wednesday_actual_kg',
             'thursday_actual_kg', 'friday_actual_kg', 'saturday_actual_kg',
+            'actual_weekly_total_kg',
             'total_plan_kg', 'total_actual_kg',
             # Approval workflow
             'status', 'submitted_at', 'submitted_by_name',
@@ -54,6 +55,7 @@ class WeeklyHarvestPlanSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             'entered_by_name', 'updated_at', 'total_plan_kg', 'total_actual_kg',
+            'actual_weekly_total_kg',
             'status', 'submitted_at', 'submitted_by_name',
             'approved_at', 'approved_by_name',
             'rejected_at', 'rejected_by_name', 'rejection_note',
@@ -96,15 +98,25 @@ class QuotaDashboardSerializer(QuotaAllocationSerializer):
         fields = QuotaAllocationSerializer.Meta.fields + ['remaining_kg', 'used_pct']
 
 
+class TruckDestinationSplitSerializer(serializers.ModelSerializer):
+    destination_name = serializers.CharField(source='destination.name', read_only=True)
+
+    class Meta:
+        model = TruckDestinationSplit
+        fields = ['id', 'destination', 'destination_name', 'truck_count']
+
+
 class WeeklyTruckAllocationSerializer(serializers.ModelSerializer):
     """Serializer for daily truck count decisions.
 
     Read-only computed fields: season_name, decided_by_name.
     total_trucks_calc is computed server-side in perform_create/perform_update.
+    destination_splits: nested list of truck counts per destination.
     """
 
     season_name = serializers.CharField(source='season.name', read_only=True)
     decided_by_name = serializers.CharField(source='decided_by.username', read_only=True)
+    destination_splits = TruckDestinationSplitSerializer(many=True, read_only=True)
 
     class Meta:
         model = WeeklyTruckAllocation
@@ -112,7 +124,7 @@ class WeeklyTruckAllocationSerializer(serializers.ModelSerializer):
             'id', 'season', 'season_name',
             'week_number', 'year', 'day_of_week',
             'total_planned_kg', 'total_trucks_calc',
-            'russia_trucks', 'kazakhstan_trucks', 'gapy_satys_trucks',
+            'destination_splits',
             'decided_by_name', 'created_at',
         ]
         read_only_fields = ['season_name', 'decided_by_name', 'created_at']

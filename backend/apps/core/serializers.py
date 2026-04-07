@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from apps.core.models import (
     User, City, Country, ExportFirm, ShipmentStatusType, Customer,
-    GreenhouseBlock, LoadingLocation, TomatoVariety,
+    GreenhouseBlock, LoadingLocation, TomatoVariety, TruckDestination,
 )
 from apps.core.permissions import get_editable_fields
 
@@ -85,3 +85,11 @@ class TomatoVarietySerializer(serializers.ModelSerializer):
     class Meta:
         model = TomatoVariety
         fields = ['id', 'name', 'type', 'avg_fruit_weight_gr']
+
+
+class TruckDestinationSerializer(serializers.ModelSerializer):
+    country_name = serializers.CharField(source='country.name_en', read_only=True, default=None)
+
+    class Meta:
+        model = TruckDestination
+        fields = ['id', 'name', 'country', 'country_name', 'sort_order', 'is_active']

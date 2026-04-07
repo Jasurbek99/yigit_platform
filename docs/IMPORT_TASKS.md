@@ -116,11 +116,33 @@ Unique constraint: `(date, city_id)` — use `ignore_conflicts=True`.
 
 ---
 
+### [x] 6. Weekly harvest plans (updated source) — weekly_plan.xlsx → WeeklyHarvestPlan — **318 rows imported**
+
+**Source**: `data/weekly_plan.xlsx` → sheet `Hepdelik planlama`
+**Target**: `export.weekly_harvest_plans` (model: `WeeklyHarvestPlan`)
+**Command**: `backend/apps/export/management/commands/import_weekly_plan.py`
+**Volume**: 318 WeeklyHarvestPlan + 173 WeeklyTruckAllocation + 446 TruckDestinationSplit
+
+**Structure**: 29 week blocks (weeks 40-52/2025, weeks 1-16/2026). Each block has 15 greenhouse rows + truck summary rows.
+**Plan kg**: per-day (cols C-H) → `monday_plan_kg` .. `saturday_plan_kg`
+**Actual kg**: weekly total only (col J) → `actual_weekly_total_kg` (new field added for this import)
+**Truck data**: Daily total planned kg (Jemi KG row) → `WeeklyTruckAllocation.total_planned_kg`
+**Truck splits**: Rossiya/Gazak/Gapy Satys daily truck counts → `TruckDestinationSplit.truck_count`
+**Season**: Uses active Season (2025-2026)
+**Status**: All harvest plan rows imported as `approved` (historical data)
+**Reset**: Deletes all existing plans + truck allocations for the season before importing
+**Skipped**: 117 rows where all plan values are 0 (inactive blocks)
+**Filtered**: 7 actual values below 500 kg threshold (likely truck counts, not kg)
+**String cleanup**: European-style numbers like `'40,000,00'` → 40000.00; `'bayramcylyk'` (holiday) → 0 trucks
+
+---
+
 ## Completed
 
 - **Task 1** — 2,067 price entries from `Baha_Grafigi.xlsx` (8 cities, KZT/RUB/BYN/KGS)
 - **Task 2** — 1,145 shipments + 1,465 firm splits from `Hasabat_202526.xlsx` (all status=tamamlandy)
 - **Task 3** — 549 shipments enriched from `Export_contracts_20252026_1.xlsx` (weight, truck plate, box/pallet counts)
 - **Task 4** — 2,522 domestic market prices from `Satys_bahalar_202526.xlsx` (7 months, 3 price types, 5 varieties)
-- **Task 5** — 257 weekly harvest plans from `Pomidor_Dükany__20252026.xlsx` (24 weeks, 15 blocks)
+- **Task 5** — 257 weekly harvest plans from `Pomidor_Dükany__20252026.xlsx` (24 weeks, 15 blocks) — *superseded by task #6*
+- **Task 6** — 318 harvest plans + 173 truck allocations + 446 destination splits from `weekly_plan.xlsx`
 - **Pre-req** — reference data seeded: 20 export firms, 172 import firms, 6 customers, 13 cities

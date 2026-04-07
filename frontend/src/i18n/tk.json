@@ -88,7 +88,13 @@
     "deficit": "Tapawut",
     "est_trucks": "Çaklama",
     "trucks_suffix": "maşyn",
-    "pivot": "Öwür"
+    "pivot": "Öwür",
+    "total_kg": "Jemi (KG)",
+    "total_trucks_label": "Jemi Maşyn",
+    "russia_trucks": "Rossiya",
+    "kazak_trucks": "Gazak",
+    "gapy_trucks": "Gapy Satys",
+    "truck_allocation": "Maşyn paýlanyşy"
   },
   "quota": {
     "title": "Kwota paneli",

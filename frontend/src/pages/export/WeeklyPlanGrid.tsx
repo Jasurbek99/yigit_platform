@@ -14,6 +14,7 @@ import {
   Input,
   Tooltip,
   Card,
+  Collapse,
   Statistic,
   message,
 } from 'antd';
@@ -23,6 +24,8 @@ import {
   ClockCircleOutlined,
   CloseCircleOutlined,
   EditOutlined,
+  LeftOutlined,
+  RightOutlined,
   SwapOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
@@ -34,13 +37,17 @@ import {
   useHarvestPlans,
   useUpsertHarvestPlan,
   useInitializeWeek,
-  useSubmitHarvestPlan,
-  useRejectHarvestPlan,
+  useBulkSubmitHarvestPlans,
   useBulkApproveHarvestPlans,
+  useBulkRejectHarvestPlans,
+  useTruckAllocations,
+  useTruckDestinations,
+  useUpsertTruckAllocation,
+  useSetTruckSplits,
 } from '@/hooks/usePlanning';
 import { useSeasons } from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
-import type { IWeeklyHarvestPlan, PlanStatus } from '@/types';
+import type { IWeeklyHarvestPlan, IWeeklyTruckAllocation, PlanStatus } from '@/types';
 
 dayjs.extend(isoWeek);
 dayjs.extend(weekOfYear);
@@ -70,7 +77,14 @@ const ROW_BG: Record<PlanStatus, string> = {
   rejected: '#fff2f0',
 };
 
-function fmtKg(val: number | null | undefined): string {
+/** Safely convert DecimalField strings ("18000.00") to number. */
+function num(val: unknown): number {
+  if (val == null) return 0;
+  const n = Number(val);
+  return Number.isNaN(n) ? 0 : n;
+}
+
+function fmtKg(val: number | string | null | undefined): string {
   if (val == null) return '—';
   return Number(val).toLocaleString();
 }
@@ -146,7 +160,7 @@ interface PlanCellProps {
 
 function PlanCell({ day, row, editable, onSave }: PlanCellProps) {
   const field = `${day}_plan_kg` as keyof IWeeklyHarvestPlan;
-  const value = row[field] as number;
+  const value = num(row[field]);
 
   if (editable) {
     return (
@@ -156,7 +170,9 @@ function PlanCell({ day, row, editable, onSave }: PlanCellProps) {
         keyboard={false}
         defaultValue={value}
         onBlur={(e) => {
-          const v = Number(e.target.value) || 0;
+          const raw = e.target.value;
+          const v = Number(raw.replace(/,/g, '')) || 0;
+          console.log('[PlanCell blur]', { day, block: row.block_code, raw, parsed: v, prev: value, willSave: v !== value });
           if (v !== value) onSave(row, day, v);
         }}
         onKeyDown={handleCellKeyDown}
@@ -179,8 +195,8 @@ interface ActualCellProps {
 function ActualCell({ day, row, canEditActual, onActualSave, savingKey }: ActualCellProps) {
   const planField = `${day}_plan_kg` as keyof IWeeklyHarvestPlan;
   const actualField = `${day}_actual_kg` as keyof IWeeklyHarvestPlan;
-  const plan = row[planField] as number;
-  const actual = row[actualField] as number | null;
+  const plan = num(row[planField]);
+  const actual = row[actualField] != null ? num(row[actualField]) : null;
   const isSaving = savingKey === `${row.id}_${day}`;
 
   if (canEditActual) {
@@ -225,7 +241,6 @@ export default function WeeklyPlanGrid() {
   const { user } = useAuth();
 
   const [selectedWeek, setSelectedWeek] = useState<Dayjs | null>(dayjs());
-  const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   const [transposed, setTransposed] = useState(() => localStorage.getItem('plan_pivot') === '1');
   const [rejectModalPlan, setRejectModalPlan] = useState<IWeeklyHarvestPlan | null>(null);
   const [rejectNote, setRejectNote] = useState('');
@@ -240,9 +255,16 @@ export default function WeeklyPlanGrid() {
   const { data, isLoading, isError } = useHarvestPlans({ year, week: weekNumber });
   const upsert = useUpsertHarvestPlan();
   const initWeek = useInitializeWeek();
-  const submitPlan = useSubmitHarvestPlan();
-  const rejectPlan = useRejectHarvestPlan();
+  const bulkSubmit = useBulkSubmitHarvestPlans();
   const bulkApprove = useBulkApproveHarvestPlans();
+  const bulkReject = useBulkRejectHarvestPlans();
+  const { data: truckData } = useTruckAllocations({
+    season: activeSeason?.id, year, week_number: weekNumber,
+  });
+  const { data: destinations = [] } = useTruckDestinations();
+  const upsertTruck = useUpsertTruckAllocation();
+  const setTruckSplits = useSetTruckSplits();
+  const truckAllocations: IWeeklyTruckAllocation[] = truckData?.results ?? [];
 
   const myBlockIds = new Set(user?.managed_block_ids ?? []);
   const isBlockManager = user?.role === 'greenhouse_manager' && myBlockIds.size > 0;
@@ -257,6 +279,10 @@ export default function WeeklyPlanGrid() {
   })();
 
   const todayWeekday = dayjs().isoWeekday(); // 1=Mon .. 7=Sun
+  const currentIsoWeek = dayjs().isoWeek();
+  const currentIsoYear = dayjs().isoWeekYear();
+  const isCurrentOrFutureWeek = (year ?? 0) > currentIsoYear ||
+    ((year ?? 0) === currentIsoYear && (weekNumber ?? 0) >= currentIsoWeek);
 
   // ─── Derived state ────────────────────────────────────────────────────────
 
@@ -268,11 +294,10 @@ export default function WeeklyPlanGrid() {
     {} as Record<PlanStatus, number>,
   );
 
-  const selectedPlans = plans.filter((p) => selectedRowKeys.includes(p.id));
-  const selectedDraftIds = selectedPlans
-    .filter((p) => p.status === 'draft' || p.status === 'rejected')
+  const allDraftIds = plans
+    .filter((p) => (p.status === 'draft' || p.status === 'rejected') && hasBlockPermission(p))
     .map((p) => p.id);
-  const selectedSubmittedIds = selectedPlans
+  const allSubmittedIds = plans
     .filter((p) => p.status === 'submitted')
     .map((p) => p.id);
 
@@ -280,8 +305,8 @@ export default function WeeklyPlanGrid() {
 
   // ─── Summary stats ────────────────────────────────────────────────────────
 
-  const totalPlanKg = plans.reduce((s, r) => s + (r.total_plan_kg ?? 0), 0);
-  const totalActualKg = plans.reduce((s, r) => s + (r.total_actual_kg ?? 0), 0);
+  const totalPlanKg = plans.reduce((s, r) => s + num(r.total_plan_kg), 0);
+  const totalActualKg = plans.reduce((s, r) => s + num(r.total_actual_kg), 0);
   const deficitKg = totalActualKg - totalPlanKg;
   const truckCount = totalPlanKg > 0 ? (totalPlanKg / 18500).toFixed(1) : '0';
 
@@ -308,9 +333,11 @@ export default function WeeklyPlanGrid() {
 
   function handlePlanSave(row: IWeeklyHarvestPlan, day: Day, value: number) {
     const field = `${day}_plan_kg`;
-    upsert.mutate({
-      id: row.id, season: row.season, block: row.block,
-      week_number: weekNumber, year, [field]: value,
+    const payload = { id: row.id, [field]: value };
+    console.log('[handlePlanSave]', payload);
+    upsert.mutate(payload, {
+      onSuccess: (data) => console.log('[handlePlanSave] success', data),
+      onError: (err) => console.error('[handlePlanSave] error', err),
     });
   }
 
@@ -319,7 +346,7 @@ export default function WeeklyPlanGrid() {
     setSavingActualKey(key);
     const field = `${day}_actual_kg`;
     upsert.mutate(
-      { id: row.id, season: row.season, block: row.block, week_number: weekNumber, year, [field]: value },
+      { id: row.id, [field]: value },
       {
         onSuccess: () => {
           message.success(t('plan.toast_actual_saved'));
@@ -331,72 +358,41 @@ export default function WeeklyPlanGrid() {
   }
 
   function handleBulkSubmit() {
-    if (!selectedDraftIds.length) return;
-    let completed = 0;
-    selectedDraftIds.forEach((id) => {
-      submitPlan.mutate(id, {
-        onSuccess: () => {
-          completed += 1;
-          if (completed === selectedDraftIds.length) {
-            message.success(`${completed} ${t('plan.toast_submitted')}`);
-            setSelectedRowKeys([]);
-          }
-        },
-      });
+    if (!allDraftIds.length) return;
+    bulkSubmit.mutate(allDraftIds, {
+      onSuccess: (result) => {
+        message.success(`${result.submitted.length} ${t('plan.toast_submitted')}`);
+      },
     });
   }
 
   function handleBulkApprove() {
-    const ids = selectedSubmittedIds.length > 0 ? selectedSubmittedIds
-      : plans.filter((p) => p.status === 'submitted').map((p) => p.id);
-    if (!ids.length) return;
-    bulkApprove.mutate(ids, {
+    if (!allSubmittedIds.length) return;
+    bulkApprove.mutate(allSubmittedIds, {
       onSuccess: (result) => {
         message.success(`${result.approved.length} ${t('plan.toast_approved')}`);
-        setSelectedRowKeys([]);
       },
     });
   }
 
   function handleBulkReject() {
-    if (selectedSubmittedIds.length === 1) {
-      // Single selection — open modal for that plan
-      const plan = plans.find((p) => p.id === selectedSubmittedIds[0]);
-      if (plan) {
-        setRejectModalPlan(plan);
-        setRejectNote('');
-      }
-    } else if (selectedSubmittedIds.length > 1) {
-      // Multiple — open modal, rejection note applies to all
-      const plan = plans.find((p) => p.id === selectedSubmittedIds[0]);
-      if (plan) {
-        setRejectModalPlan(plan);
-        setRejectNote('');
-      }
-    }
+    if (!allSubmittedIds.length) return;
+    setRejectModalPlan(plans.find((p) => p.status === 'submitted') ?? null);
+    setRejectNote('');
   }
 
   function handleRejectConfirm() {
-    if (!rejectNote.trim()) return;
-    const ids = selectedSubmittedIds.length > 0 ? selectedSubmittedIds
-      : rejectModalPlan ? [rejectModalPlan.id] : [];
-    let completed = 0;
-    ids.forEach((id) => {
-      rejectPlan.mutate(
-        { id, rejection_note: rejectNote.trim() },
-        {
-          onSuccess: () => {
-            completed += 1;
-            if (completed === ids.length) {
-              message.success(`${completed} ${t('plan.toast_rejected')}`);
-              setRejectModalPlan(null);
-              setRejectNote('');
-              setSelectedRowKeys([]);
-            }
-          },
+    if (!rejectNote.trim() || !allSubmittedIds.length) return;
+    bulkReject.mutate(
+      { ids: allSubmittedIds, rejection_note: rejectNote.trim() },
+      {
+        onSuccess: (result) => {
+          message.success(`${result.rejected.length} ${t('plan.toast_rejected')}`);
+          setRejectModalPlan(null);
+          setRejectNote('');
         },
-      );
-    });
+      },
+    );
   }
 
   function handleInitializeWeek() {
@@ -409,8 +405,18 @@ export default function WeeklyPlanGrid() {
 
   // ─── Column definitions ────────────────────────────────────────────────────
 
-  const dayColumns = DAYS.map((day) => ({
-    title: t(`plan.${day}`),
+  // Monday of the selected week
+  const weekMonday = selectedWeek ? selectedWeek.isoWeekday(1) : dayjs().isoWeekday(1);
+
+  const dayColumns = DAYS.map((day, di) => ({
+    title: (
+      <div style={{ textAlign: 'center', lineHeight: '16px' }}>
+        <div>{t(`plan.${day}`)}</div>
+        <div style={{ fontSize: 10, color: '#8c8c8c', fontWeight: 400 }}>
+          {weekMonday.add(di, 'day').format('DD.MM')}
+        </div>
+      </div>
+    ),
     children: [
       {
         title: <span style={{ color: '#1677ff', fontSize: 11 }}>{t('plan.plan')}</span>,
@@ -464,15 +470,15 @@ export default function WeeklyPlanGrid() {
         <div>
           <div style={{ color: '#1677ff', fontSize: 13 }}>{fmtKg(row.total_plan_kg)}</div>
           {row.total_actual_kg != null && (
-            <div style={{ color: '#52c41a', fontSize: 11 }}>{fmtKg(row.total_actual_kg)}</div>
+            <div style={{ color: '#52c41a', fontSize: 13 }}>{fmtKg(row.total_actual_kg)}</div>
           )}
         </div>
       ),
     },
-    {
+    ...(isCurrentOrFutureWeek ? [{
       title: t('plan.status'),
       key: 'status',
-      fixed: 'right',
+      fixed: 'right' as const,
       width: 100,
       render: (_: unknown, row: IWeeklyHarvestPlan) => {
         const cfg = STATUS_TAG[row.status];
@@ -490,7 +496,7 @@ export default function WeeklyPlanGrid() {
         }
         return tag;
       },
-    },
+    }] : []),
   ];
 
   // ─── Transposed view (days = rows, blocks = columns) ────────────────────
@@ -502,18 +508,20 @@ export default function WeeklyPlanGrid() {
     [blockField: string]: string | number | null | Day;
   }
 
-  const transposedData: ITransposedRow[] = DAYS.map((day) => {
-    const row: ITransposedRow = { key: day, day, dayLabel: t(`plan.${day}`) };
+  const transposedData: ITransposedRow[] = DAYS.map((day, di) => {
+    const dateStr = weekMonday.add(di, 'day').format('DD.MM');
+    const row: ITransposedRow = { key: day, day, dayLabel: `${t(`plan.${day}`)} ${dateStr}` };
     plans.forEach((p) => {
-      row[`${p.block_code}_plan`] = p[`${day}_plan_kg` as keyof IWeeklyHarvestPlan] as number;
-      row[`${p.block_code}_actual`] = p[`${day}_actual_kg` as keyof IWeeklyHarvestPlan] as number | null;
+      row[`${p.block_code}_plan`] = num(p[`${day}_plan_kg` as keyof IWeeklyHarvestPlan]);
+      row[`${p.block_code}_actual`] = p[`${day}_actual_kg` as keyof IWeeklyHarvestPlan] != null
+        ? num(p[`${day}_actual_kg` as keyof IWeeklyHarvestPlan]) : null;
     });
     // Day totals
     row._totalPlan = plans.reduce(
-      (s, p) => s + ((p[`${day}_plan_kg` as keyof IWeeklyHarvestPlan] as number) ?? 0), 0,
+      (s, p) => s + num(p[`${day}_plan_kg` as keyof IWeeklyHarvestPlan]), 0,
     );
     row._totalActual = plans.reduce(
-      (s, p) => s + ((p[`${day}_actual_kg` as keyof IWeeklyHarvestPlan] as number) ?? 0), 0,
+      (s, p) => s + num(p[`${day}_actual_kg` as keyof IWeeklyHarvestPlan]), 0,
     );
     return row;
   });
@@ -647,35 +655,34 @@ export default function WeeklyPlanGrid() {
   function renderSummary() {
     return (
       <Table.Summary.Row style={{ fontWeight: 600 }}>
-        <Table.Summary.Cell index={0} />
-        <Table.Summary.Cell index={1}>{t('plan.total')}</Table.Summary.Cell>
+        <Table.Summary.Cell index={0}>{t('plan.total')}</Table.Summary.Cell>
         {DAYS.flatMap((day, di) => {
           const planTotal = plans.reduce(
-            (s, r) => s + ((r[`${day}_plan_kg` as keyof IWeeklyHarvestPlan] as number) ?? 0),
+            (s, r) => s + num(r[`${day}_plan_kg` as keyof IWeeklyHarvestPlan]),
             0,
           );
           const actualTotal = plans.reduce(
-            (s, r) => s + ((r[`${day}_actual_kg` as keyof IWeeklyHarvestPlan] as number) ?? 0),
+            (s, r) => s + num(r[`${day}_actual_kg` as keyof IWeeklyHarvestPlan]),
             0,
           );
           return [
-            <Table.Summary.Cell key={`sp_${di}`} index={2 + di * 2}>
+            <Table.Summary.Cell key={`sp_${di}`} index={1 + di * 2}>
               <span style={{ color: '#1677ff' }}>{fmtKg(planTotal)}</span>
             </Table.Summary.Cell>,
-            <Table.Summary.Cell key={`sa_${di}`} index={3 + di * 2}>
+            <Table.Summary.Cell key={`sa_${di}`} index={2 + di * 2}>
               <span style={{ color: '#52c41a' }}>{fmtKg(actualTotal || null)}</span>
             </Table.Summary.Cell>,
           ];
         })}
-        <Table.Summary.Cell index={14}>
+        <Table.Summary.Cell index={13}>
           <div style={{ color: '#1677ff' }}>
-            {fmtKg(plans.reduce((s, r) => s + (r.total_plan_kg ?? 0), 0))}
+            {fmtKg(plans.reduce((s, r) => s + num(r.total_plan_kg), 0))}
           </div>
-          <div style={{ color: '#52c41a', fontSize: 11 }}>
-            {fmtKg(plans.reduce((s, r) => s + (r.total_actual_kg ?? 0), 0) || null)}
+          <div style={{ color: '#52c41a' }}>
+            {fmtKg(plans.reduce((s, r) => s + num(r.total_actual_kg), 0) || null)}
           </div>
         </Table.Summary.Cell>
-        <Table.Summary.Cell index={15} />
+        <Table.Summary.Cell index={14} />
       </Table.Summary.Row>
     );
   }
@@ -683,7 +690,6 @@ export default function WeeklyPlanGrid() {
   // ─── Render ───────────────────────────────────────────────────────────────
 
   const showInitialize = plans.length === 0 && !isLoading && isManager && activeSeason;
-  const allSubmittedIds = plans.filter((p) => p.status === 'submitted').map((p) => p.id);
 
   return (
     <div>
@@ -698,12 +704,20 @@ export default function WeeklyPlanGrid() {
           </Text>
         </div>
         <Space>
+          <Button
+            icon={<LeftOutlined />}
+            onClick={() => setSelectedWeek((w) => (w ?? dayjs()).subtract(1, 'week'))}
+          />
           <DatePicker
             picker="week"
             value={selectedWeek}
             onChange={(d) => setSelectedWeek(d)}
             allowClear={false}
             style={{ width: 180 }}
+          />
+          <Button
+            icon={<RightOutlined />}
+            onClick={() => setSelectedWeek((w) => (w ?? dayjs()).add(1, 'week'))}
           />
           {plans.length > 0 && (
             <Button
@@ -764,39 +778,37 @@ export default function WeeklyPlanGrid() {
         </Flex>
       )}
 
-      {/* Status summary + toolbar */}
-      <Flex justify="space-between" align="center" style={{ marginBottom: 12 }}>
-        <Flex gap={8}>
-          {(['approved', 'submitted', 'draft', 'rejected'] as PlanStatus[]).map((s) =>
-            statusCounts[s] ? (
-              <Tag key={s} color={STATUS_TAG[s].color} icon={STATUS_TAG[s].icon}>
-                {statusCounts[s]} {t(`plan.status_${s}`)}
-              </Tag>
-            ) : null,
-          )}
+      {/* Status summary + toolbar — only for current/future weeks */}
+      {isCurrentOrFutureWeek && (
+        <Flex justify="space-between" align="center" style={{ marginBottom: 12 }}>
+          <Flex gap={8}>
+            {(['approved', 'submitted', 'draft', 'rejected'] as PlanStatus[]).map((s) =>
+              statusCounts[s] ? (
+                <Tag key={s} color={STATUS_TAG[s].color} icon={STATUS_TAG[s].icon}>
+                  {statusCounts[s]} {t(`plan.status_${s}`)}
+                </Tag>
+              ) : null,
+            )}
+          </Flex>
+          <Space>
+            {allDraftIds.length > 0 && (
+              <Button type="primary" ghost loading={bulkSubmit.isPending} onClick={handleBulkSubmit}>
+                {t('plan.submit')} ({allDraftIds.length})
+              </Button>
+            )}
+            {isManager && allSubmittedIds.length > 0 && (
+              <Button type="primary" loading={bulkApprove.isPending} onClick={handleBulkApprove}>
+                {t('plan.bulk_approve')} ({allSubmittedIds.length})
+              </Button>
+            )}
+            {isManager && allSubmittedIds.length > 0 && (
+              <Button danger loading={bulkReject.isPending} onClick={handleBulkReject}>
+                {t('plan.reject')} ({allSubmittedIds.length})
+              </Button>
+            )}
+          </Space>
         </Flex>
-        <Space>
-          {selectedDraftIds.length > 0 && (
-            <Button type="primary" ghost loading={submitPlan.isPending} onClick={handleBulkSubmit}>
-              {t('plan.submit')} ({selectedDraftIds.length})
-            </Button>
-          )}
-          {isManager && (selectedSubmittedIds.length > 0 || allSubmittedIds.length > 0) && (
-            <Button
-              type="primary"
-              loading={bulkApprove.isPending}
-              onClick={handleBulkApprove}
-            >
-              {t('plan.bulk_approve')} ({selectedSubmittedIds.length || allSubmittedIds.length})
-            </Button>
-          )}
-          {isManager && selectedSubmittedIds.length > 0 && (
-            <Button danger onClick={handleBulkReject}>
-              {t('plan.reject')} ({selectedSubmittedIds.length})
-            </Button>
-          )}
-        </Space>
-      </Flex>
+      )}
 
       {isError && (
         <Alert type="error" message={t('plan.error_load')} style={{ marginBottom: 16 }} />
@@ -825,10 +837,6 @@ export default function WeeklyPlanGrid() {
           scroll={{ x: 'max-content' }}
           pagination={false}
           summary={renderSummary}
-          rowSelection={{
-            selectedRowKeys,
-            onChange: (keys) => setSelectedRowKeys(keys),
-          }}
           onRow={(row) => ({
             style: {
               backgroundColor: isBlockManager && myBlockIds.has(row.block)
@@ -839,6 +847,163 @@ export default function WeeklyPlanGrid() {
                 : undefined,
             },
           })}
+        />
+      )}
+
+      {/* Truck allocation section */}
+      {plans.length > 0 && destinations.length > 0 && (
+        <Collapse
+          defaultActiveKey={['trucks']}
+          style={{ marginTop: 16 }}
+          items={[{
+            key: 'trucks',
+            label: <strong>{t('plan.truck_allocation')}</strong>,
+            children: (() => {
+              // Build truck data per day
+              const truckByDay = new Map(truckAllocations.map((a) => [a.day_of_week, a]));
+
+              const truckRows = [
+                // Total KG row
+                { key: 'total_kg', label: t('plan.total_kg'), type: 'computed' as const },
+                // Total Trucks row
+                { key: 'total_trucks', label: t('plan.total_trucks_label'), type: 'computed' as const },
+                // Dynamic destination rows
+                ...destinations.map((d) => ({
+                  key: `dest_${d.id}`,
+                  label: d.name,
+                  type: 'editable' as const,
+                  destId: d.id,
+                })),
+              ];
+
+              const handleTruckSave = (dayOfWeek: number, destId: number, value: number) => {
+                const allocation = truckByDay.get(dayOfWeek);
+                if (allocation) {
+                  setTruckSplits.mutate({
+                    allocationId: allocation.id,
+                    splits: [{ destination_id: destId, truck_count: value }],
+                  });
+                } else if (activeSeason) {
+                  // Create allocation first, then set split
+                  upsertTruck.mutate(
+                    { season: activeSeason.id, week_number: weekNumber!, year: year!, day_of_week: dayOfWeek, total_planned_kg: null },
+                    {
+                      onSuccess: (newAlloc) => {
+                        setTruckSplits.mutate({
+                          allocationId: newAlloc.id,
+                          splits: [{ destination_id: destId, truck_count: value }],
+                        });
+                      },
+                    },
+                  );
+                }
+              };
+
+              const truckColumns = [
+                {
+                  title: '',
+                  dataIndex: 'label',
+                  key: 'label',
+                  width: 120,
+                  fixed: 'left' as const,
+                  render: (text: string) => <strong>{text}</strong>,
+                },
+                ...DAYS.map((day, di) => ({
+                  title: (
+                    <div style={{ textAlign: 'center', lineHeight: '16px' }}>
+                      <div>{t(`plan.${day}`)}</div>
+                      <div style={{ fontSize: 10, color: '#8c8c8c', fontWeight: 400 }}>
+                        {weekMonday.add(di, 'day').format('DD.MM')}
+                      </div>
+                    </div>
+                  ),
+                  key: day,
+                  width: 90,
+                  render: (_: unknown, row: (typeof truckRows)[number]) => {
+                    const dayOfWeek = di + 1;
+                    const allocation = truckByDay.get(dayOfWeek);
+
+                    if (row.type === 'computed') {
+                      if (row.key === 'total_kg') {
+                        const dayTotal = plans.reduce(
+                          (s, p) => s + num(p[`${day}_plan_kg` as keyof IWeeklyHarvestPlan]), 0,
+                        );
+                        return <strong style={{ color: '#1677ff' }}>{fmtKg(dayTotal)}</strong>;
+                      }
+                      // total_trucks
+                      const dayTotal = plans.reduce(
+                        (s, p) => s + num(p[`${day}_plan_kg` as keyof IWeeklyHarvestPlan]), 0,
+                      );
+                      const trucks = dayTotal > 0 ? Math.round(dayTotal / 18500) : 0;
+                      return <strong>{trucks}</strong>;
+                    }
+
+                    // Editable destination row
+                    const destId = (row as { destId: number }).destId;
+                    const split = allocation?.destination_splits?.find((s) => s.destination === destId);
+                    const currentVal = split?.truck_count ?? 0;
+
+                    if (isManager) {
+                      return (
+                        <InputNumber
+                          min={0}
+                          keyboard={false}
+                          defaultValue={currentVal}
+                          onBlur={(e) => {
+                            const v = Number(e.target.value.replace(/,/g, '')) || 0;
+                            if (v !== currentVal) handleTruckSave(dayOfWeek, destId, v);
+                          }}
+                          onKeyDown={handleCellKeyDown}
+                          size="small"
+                          style={{ width: 70 }}
+                        />
+                      );
+                    }
+                    return currentVal > 0 ? currentVal : <span style={{ color: '#bfbfbf' }}>—</span>;
+                  },
+                })),
+                {
+                  title: t('plan.total'),
+                  key: 'row_total',
+                  width: 80,
+                  render: (_: unknown, row: (typeof truckRows)[number]) => {
+                    if (row.key === 'total_kg') {
+                      return <strong style={{ color: '#1677ff' }}>{fmtKg(totalPlanKg)}</strong>;
+                    }
+                    if (row.key === 'total_trucks') {
+                      return <strong>{totalPlanKg > 0 ? Math.round(totalPlanKg / 18500) : 0}</strong>;
+                    }
+                    const destId = (row as { destId: number }).destId;
+                    const total = truckAllocations.reduce((s, a) => {
+                      const split = a.destination_splits?.find((sp) => sp.destination === destId);
+                      return s + (split?.truck_count ?? 0);
+                    }, 0);
+                    return <strong>{total}</strong>;
+                  },
+                },
+              ];
+
+              return (
+                <Table
+                  columns={truckColumns}
+                  dataSource={truckRows}
+                  rowKey="key"
+                  bordered
+                  size="small"
+                  pagination={false}
+                  scroll={{ x: 'max-content' }}
+                  rowClassName={(row) =>
+                    row.type === 'computed' ? '' : ''
+                  }
+                  onRow={(row) => ({
+                    style: row.type === 'editable'
+                      ? { backgroundColor: '#fff7e6' }
+                      : { backgroundColor: '#fafafa' },
+                  })}
+                />
+              );
+            })(),
+          }]}
         />
       )}
 
@@ -855,24 +1020,13 @@ export default function WeeklyPlanGrid() {
         okButtonProps={{
           danger: true,
           disabled: !rejectNote.trim(),
-          loading: rejectPlan.isPending,
+          loading: bulkReject.isPending,
         }}
         destroyOnClose
       >
-        {rejectModalPlan && (
-          <div style={{ marginBottom: 12 }}>
-            {selectedSubmittedIds.length > 1 ? (
-              <Text>{selectedSubmittedIds.length} {t('plan.blocks')}</Text>
-            ) : (
-              <>
-                <Tag color="blue">{rejectModalPlan.block_code}</Tag>
-                <Text>
-                  {t('plan.week')} {rejectModalPlan.week_number} / {rejectModalPlan.year}
-                </Text>
-              </>
-            )}
-          </div>
-        )}
+        <div style={{ marginBottom: 12 }}>
+          <Text>{allSubmittedIds.length} {t('plan.blocks')}</Text>
+        </div>
         <div style={{ marginBottom: 4 }}>
           <Text strong>{t('plan.reject_note_label')}</Text>
         </div>

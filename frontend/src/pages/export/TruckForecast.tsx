@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek';
 import weekOfYear from 'dayjs/plugin/weekOfYear';
-import { useTruckAllocations } from '@/hooks/usePlanning';
+import { useTruckAllocations, useTruckDestinations } from '@/hooks/usePlanning';
 import type { IWeeklyTruckAllocation } from '@/types';
 
 dayjs.extend(isoWeek);
@@ -41,6 +41,10 @@ function StatCard({ title, value, color }: { title: string; value: string | numb
   );
 }
 
+function getSplitCount(record: IWeeklyTruckAllocation, destId: number): number {
+  return record.destination_splits?.find((s) => s.destination === destId)?.truck_count ?? 0;
+}
+
 export default function TruckForecast() {
   const { t } = useTranslation();
   const now = dayjs();
@@ -51,12 +55,17 @@ export default function TruckForecast() {
   const year = dayjsWeek.isoWeekYear();
 
   const { data, isLoading, isError } = useTruckAllocations({ year, week_number: weekNumber });
+  const { data: destinations = [] } = useTruckDestinations();
   const rows = data?.results ?? [];
 
   const totalTrucks = rows.reduce((s, r) => s + (r.total_trucks_calc ?? 0), 0);
-  const totalRussia = rows.reduce((s, r) => s + r.russia_trucks, 0);
-  const totalKazakhstan = rows.reduce((s, r) => s + r.kazakhstan_trucks, 0);
-  const totalGapy = rows.reduce((s, r) => s + r.gapy_satys_trucks, 0);
+
+  // Dynamic totals per destination
+  const destTotals = destinations.map((d) => ({
+    id: d.id,
+    name: d.name,
+    total: rows.reduce((s, r) => s + getSplitCount(r, d.id), 0),
+  }));
 
   const columns = [
     {
@@ -82,33 +91,15 @@ export default function TruckForecast() {
         <span style={{ fontWeight: 600 }}>{fmtTrucks(record.total_trucks_calc)}</span>
       ),
     },
-    {
-      accessor: 'russia_trucks' as keyof IWeeklyTruckAllocation,
-      title: t('truck.russia_trucks'),
-      width: 90,
-      render: (record: IWeeklyTruckAllocation) =>
-        record.russia_trucks > 0
-          ? record.russia_trucks
-          : <span style={{ color: '#bfbfbf' }}>—</span>,
-    },
-    {
-      accessor: 'kazakhstan_trucks' as keyof IWeeklyTruckAllocation,
-      title: t('truck.kazakhstan_trucks'),
+    ...destinations.map((dest) => ({
+      accessor: `dest_${dest.id}` as keyof IWeeklyTruckAllocation,
+      title: dest.name,
       width: 110,
-      render: (record: IWeeklyTruckAllocation) =>
-        record.kazakhstan_trucks > 0
-          ? record.kazakhstan_trucks
-          : <span style={{ color: '#bfbfbf' }}>—</span>,
-    },
-    {
-      accessor: 'gapy_satys_trucks' as keyof IWeeklyTruckAllocation,
-      title: t('truck.gapy_trucks'),
-      width: 110,
-      render: (record: IWeeklyTruckAllocation) =>
-        record.gapy_satys_trucks > 0
-          ? record.gapy_satys_trucks
-          : <span style={{ color: '#bfbfbf' }}>—</span>,
-    },
+      render: (record: IWeeklyTruckAllocation) => {
+        const count = getSplitCount(record, dest.id);
+        return count > 0 ? count : <span style={{ color: '#bfbfbf' }}>—</span>;
+      },
+    })),
     {
       accessor: 'decided_by_name' as keyof IWeeklyTruckAllocation,
       title: t('truck.decided_by'),
@@ -141,11 +132,11 @@ export default function TruckForecast() {
         />
       </Group>
 
-      <SimpleGrid cols={{ base: 2, sm: 4 }} mb="md">
+      <SimpleGrid cols={{ base: 2, sm: 2 + destinations.length }} mb="md">
         <StatCard title={t('truck.total_trucks')} value={totalTrucks.toFixed(1)} color="blue" />
-        <StatCard title={t('truck.russia_trucks')} value={totalRussia} />
-        <StatCard title={t('truck.kazakhstan_trucks')} value={totalKazakhstan} />
-        <StatCard title={t('truck.gapy_trucks')} value={totalGapy} />
+        {destTotals.map((d) => (
+          <StatCard key={d.id} title={d.name} value={d.total} />
+        ))}
       </SimpleGrid>
 
       {isError && (

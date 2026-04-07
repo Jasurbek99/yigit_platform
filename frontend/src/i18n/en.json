@@ -88,7 +88,13 @@
     "deficit": "Deficit",
     "est_trucks": "Est. Trucks",
     "trucks_suffix": "trucks",
-    "pivot": "Pivot"
+    "pivot": "Pivot",
+    "total_kg": "Total (KG)",
+    "total_trucks_label": "Total Trucks",
+    "russia_trucks": "Russia",
+    "kazak_trucks": "Kazakhstan",
+    "gapy_trucks": "Gapy Satys",
+    "truck_allocation": "Truck Allocation"
   },
   "quota": {
     "title": "Quota Dashboard",

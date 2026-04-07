@@ -59,12 +59,8 @@ export const MOCK_QUOTA_DASHBOARD: IQuotaDashboardItem[] = [
 ];
 
 export const MOCK_TRUCK_ALLOCATIONS: IWeeklyTruckAllocation[] = [
-  { id: 1, season: 1, season_name: '2025-2026', week_number: 13, year: 2026, day_of_week: 1, total_planned_kg: 111000, total_trucks_calc: 6.0, russia_trucks: 3, kazakhstan_trucks: 2, gapy_satys_trucks: 1, decided_by_name: 'Gadam', created_at: '2026-03-24T08:00:00+05:00' },
-  { id: 2, season: 1, season_name: '2025-2026', week_number: 13, year: 2026, day_of_week: 2, total_planned_kg: 95000, total_trucks_calc: 5.1, russia_trucks: 2, kazakhstan_trucks: 3, gapy_satys_trucks: 0, decided_by_name: 'Gadam', created_at: '2026-03-24T08:00:00+05:00' },
-  { id: 3, season: 1, season_name: '2025-2026', week_number: 13, year: 2026, day_of_week: 3, total_planned_kg: 120500, total_trucks_calc: 6.5, russia_trucks: 4, kazakhstan_trucks: 2, gapy_satys_trucks: 1, decided_by_name: 'Gadam', created_at: '2026-03-24T08:00:00+05:00' },
-  { id: 4, season: 1, season_name: '2025-2026', week_number: 13, year: 2026, day_of_week: 4, total_planned_kg: 102000, total_trucks_calc: 5.5, russia_trucks: 3, kazakhstan_trucks: 2, gapy_satys_trucks: 0, decided_by_name: null, created_at: '2026-03-24T08:00:00+05:00' },
-  { id: 5, season: 1, season_name: '2025-2026', week_number: 13, year: 2026, day_of_week: 5, total_planned_kg: 87000, total_trucks_calc: 4.7, russia_trucks: 2, kazakhstan_trucks: 2, gapy_satys_trucks: 1, decided_by_name: 'Gadam', created_at: '2026-03-24T08:00:00+05:00' },
-  { id: 6, season: 1, season_name: '2025-2026', week_number: 13, year: 2026, day_of_week: 6, total_planned_kg: null, total_trucks_calc: null, russia_trucks: 0, kazakhstan_trucks: 0, gapy_satys_trucks: 0, decided_by_name: null, created_at: '2026-03-24T08:00:00+05:00' },
+  { id: 1, season: 1, season_name: '2025-2026', week_number: 13, year: 2026, day_of_week: 1, total_planned_kg: 111000, total_trucks_calc: 6.0, destination_splits: [{ id: 1, destination: 1, destination_name: 'Rossiya', truck_count: 3 }, { id: 2, destination: 2, destination_name: 'Gazagystan', truck_count: 2 }, { id: 3, destination: 3, destination_name: 'Gapy Satys', truck_count: 1 }], decided_by_name: 'Gadam', created_at: '2026-03-24T08:00:00+05:00' },
+  { id: 2, season: 1, season_name: '2025-2026', week_number: 13, year: 2026, day_of_week: 2, total_planned_kg: 95000, total_trucks_calc: 5.1, destination_splits: [{ id: 4, destination: 1, destination_name: 'Rossiya', truck_count: 2 }, { id: 5, destination: 2, destination_name: 'Gazagystan', truck_count: 3 }], decided_by_name: 'Gadam', created_at: '2026-03-24T08:00:00+05:00' },
 ];
 
 export const MOCK_BLOCK_SUMMARY: IBlockSummary[] = [

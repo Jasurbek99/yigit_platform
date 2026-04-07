@@ -45,7 +45,12 @@ class LoginView(CoreLoginView):
     """POST /api/v1/auth/login/ — uses extended serializer for response."""
 
     def post(self, request):
+        from apps.core.models import User
+
         response = super().post(request)
         if response.status_code == 200:
-            response.data = ExtendedUserMeSerializer(request.user).data
+            # request.user is still AnonymousUser (JWT cookie not yet processed),
+            # so look up the authenticated user from the response data.
+            user = User.objects.get(id=response.data['id'])
+            response.data = ExtendedUserMeSerializer(user).data
         return response

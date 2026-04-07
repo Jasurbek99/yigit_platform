@@ -2,6 +2,8 @@ import logging
 
 from django.contrib.auth import authenticate
 from django.conf import settings
+from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
+from django.utils.decorators import method_decorator
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -9,7 +11,7 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.core.models import City, Country, ExportFirm, ShipmentStatusType, Customer, GreenhouseBlock, LoadingLocation, TomatoVariety
+from apps.core.models import City, Country, ExportFirm, ShipmentStatusType, Customer, GreenhouseBlock, LoadingLocation, TomatoVariety, TruckDestination
 from apps.core.permissions import write_permission
 from apps.core.serializers import (
     LoginSerializer,
@@ -22,6 +24,7 @@ from apps.core.serializers import (
     GreenhouseBlockSerializer,
     LoadingLocationSerializer,
     TomatoVarietySerializer,
+    TruckDestinationSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -54,6 +57,7 @@ def _set_auth_cookies(response: Response, refresh: RefreshToken) -> None:
     )
 
 
+@method_decorator([csrf_exempt, ensure_csrf_cookie], name='dispatch')
 class LoginView(APIView):
     """POST /api/v1/auth/login/ — authenticate and set httpOnly JWT cookies."""
 
@@ -166,3 +170,14 @@ class TomatoVarietyViewSet(ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = TomatoVarietySerializer
     queryset = TomatoVariety.objects.all()
+
+
+class TruckDestinationViewSet(ModelViewSet):
+    """GET /api/v1/core/truck-destinations/ — list active truck destinations.
+
+    Director can create/update/delete. All authenticated users can read.
+    """
+
+    permission_classes = [IsAuthenticated, write_permission('director')]
+    serializer_class = TruckDestinationSerializer
+    queryset = TruckDestination.objects.select_related('country').filter(is_active=True)

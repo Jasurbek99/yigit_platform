@@ -107,6 +107,32 @@ class ProductType(models.Model):
         return self.name
 
 
+class TruckDestination(models.Model):
+    """Admin-managed truck destination for weekly truck allocation.
+
+    Real countries (Russia, Kazakhstan) link to Country via country FK.
+    Non-country categories (Gapy Satys) have country=NULL.
+    """
+
+    name = models.CharField(max_length=100, **cyrillic_collation())
+    country = models.ForeignKey(
+        'core.Country',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='truck_destinations',
+    )
+    sort_order = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = schema_table('core', 'truck_destinations')
+        ordering = ['sort_order', 'name']
+
+    def __str__(self) -> str:
+        return self.name
+
+
 class GreenhouseBlock(models.Model):
     """Greenhouse blocks A–O, plus inner sub-blocks (e.g. OD, OG under O).
 

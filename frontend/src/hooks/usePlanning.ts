@@ -6,6 +6,7 @@ import type {
   IQuotaDashboardItem,
   IPriceEntry,
   IWeeklyTruckAllocation,
+  ITruckDestination,
   IBlockSummary,
   IDomesticSale,
 } from '@/types';
@@ -45,9 +46,11 @@ export function useUpsertHarvestPlan() {
         return { ...payload, id: payload.id ?? Date.now() } as IWeeklyHarvestPlan;
       }
       if (payload.id) {
-        const { data } = await api.put<IWeeklyHarvestPlan>(`/export/harvest-plans/${payload.id}/`, payload);
+        console.log('[useUpsertHarvestPlan] PATCH', `/export/harvest-plans/${payload.id}/`, payload);
+        const { data } = await api.patch<IWeeklyHarvestPlan>(`/export/harvest-plans/${payload.id}/`, payload);
         return data;
       }
+      console.log('[useUpsertHarvestPlan] POST', '/export/harvest-plans/', payload);
       const { data } = await api.post<IWeeklyHarvestPlan>('/export/harvest-plans/', payload);
       return data;
     },
@@ -115,11 +118,37 @@ export function useRejectHarvestPlan() {
   });
 }
 
+export function useBulkSubmitHarvestPlans() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: number[]): Promise<{ submitted: number[]; errors: Array<{ id: number; error: string }> }> => {
+      const { data } = await api.post('/export/harvest-plans/bulk-submit/', { ids });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['harvest-plans'] });
+    },
+  });
+}
+
 export function useBulkApproveHarvestPlans() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (ids: number[]): Promise<{ approved: number[]; errors: Array<{ id: number; error: string }> }> => {
       const { data } = await api.post('/export/harvest-plans/bulk-approve/', { ids });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['harvest-plans'] });
+    },
+  });
+}
+
+export function useBulkRejectHarvestPlans() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { ids: number[]; rejection_note: string }): Promise<{ rejected: number[]; errors: Array<{ id: number; error: string }> }> => {
+      const { data } = await api.post('/export/harvest-plans/bulk-reject/', payload);
       return data;
     },
     onSuccess: () => {
@@ -177,6 +206,55 @@ export function useTruckAllocations(
       return data;
     },
     staleTime: 60_000,
+  });
+}
+
+export function useTruckDestinations() {
+  return useQuery({
+    queryKey: ['truck-destinations'],
+    queryFn: async (): Promise<ITruckDestination[]> => {
+      const { data } = await api.get<ITruckDestination[] | IApiListResponse<ITruckDestination>>(
+        '/core/truck-destinations/',
+      );
+      return Array.isArray(data) ? data : data.results;
+    },
+    staleTime: 300_000,
+  });
+}
+
+export function useUpsertTruckAllocation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: Partial<IWeeklyTruckAllocation> & { id?: number }): Promise<IWeeklyTruckAllocation> => {
+      if (payload.id) {
+        const { data } = await api.patch<IWeeklyTruckAllocation>(`/export/truck-allocations/${payload.id}/`, payload);
+        return data;
+      }
+      const { data } = await api.post<IWeeklyTruckAllocation>('/export/truck-allocations/', payload);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['truck-allocations'] });
+    },
+  });
+}
+
+export function useSetTruckSplits() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      allocationId: number;
+      splits: Array<{ destination_id: number; truck_count: number }>;
+    }): Promise<IWeeklyTruckAllocation> => {
+      const { data } = await api.post<IWeeklyTruckAllocation>(
+        `/export/truck-allocations/${payload.allocationId}/set-splits/`,
+        { splits: payload.splits },
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['truck-allocations'] });
+    },
   });
 }
 

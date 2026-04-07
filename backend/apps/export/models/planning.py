@@ -3,10 +3,9 @@ from apps.core.db_utils import schema_table, cyrillic_collation
 
 
 class WeeklyTruckAllocation(models.Model):
-    """Daily truck count decision per destination category.
+    """Daily truck allocation per (season, week, year, day).
 
-    One row per (season, week_number, year, day_of_week). Captures total
-    planned kg and the split between Russia/Kazakhstan/Gapy Satys trucks.
+    One row per day. Truck counts per destination stored in TruckDestinationSplit.
     total_trucks_calc is stored (planned_kg / 18500) for fast reads.
 
     DDL: export.weekly_truck_allocations
@@ -25,11 +24,6 @@ class WeeklyTruckAllocation(models.Model):
     # Stored computed value: total_planned_kg / 18500
     total_trucks_calc = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
 
-    # === Truck split ===
-    russia_trucks = models.IntegerField(default=0)
-    kazakhstan_trucks = models.IntegerField(default=0)
-    gapy_satys_trucks = models.IntegerField(default=0)
-
     # === Audit ===
     decided_by = models.ForeignKey(
         'core.User', on_delete=models.SET_NULL, null=True, blank=True,
@@ -41,14 +35,46 @@ class WeeklyTruckAllocation(models.Model):
         db_table = schema_table('export', 'weekly_truck_allocations')
         unique_together = [('season', 'week_number', 'year', 'day_of_week')]
         ordering = ['year', 'week_number', 'day_of_week']
-        constraints = [
-            models.CheckConstraint(check=models.Q(russia_trucks__gte=0), name='chk_trk_russia_gte0'),
-            models.CheckConstraint(check=models.Q(kazakhstan_trucks__gte=0), name='chk_trk_kz_gte0'),
-            models.CheckConstraint(check=models.Q(gapy_satys_trucks__gte=0), name='chk_trk_gapy_gte0'),
-        ]
 
     def __str__(self) -> str:
         return f'W{self.week_number}/{self.year} day={self.day_of_week} — {self.total_trucks_calc} trucks'
+
+
+class TruckDestinationSplit(models.Model):
+    """Truck count per destination per day.
+
+    Links to WeeklyTruckAllocation (the day) and TruckDestination (the destination).
+    One row per (allocation, destination).
+    """
+
+    truck_allocation = models.ForeignKey(
+        WeeklyTruckAllocation,
+        on_delete=models.CASCADE,
+        related_name='destination_splits',
+    )
+    destination = models.ForeignKey(
+        'core.TruckDestination',
+        on_delete=models.PROTECT,
+        related_name='truck_splits',
+    )
+    truck_count = models.IntegerField(default=0)
+
+    class Meta:
+        db_table = schema_table('export', 'truck_destination_splits')
+        constraints = [
+            models.UniqueConstraint(
+                fields=['truck_allocation', 'destination'],
+                name='uq_truck_dest_split',
+            ),
+            models.CheckConstraint(
+                check=models.Q(truck_count__gte=0),
+                name='chk_truck_dest_count_gte0',
+            ),
+        ]
+        ordering = ['destination__sort_order']
+
+    def __str__(self) -> str:
+        return f'{self.truck_allocation} — {self.destination.name}: {self.truck_count}'
 
 
 PLAN_STATUS_CHOICES = [
@@ -97,6 +123,10 @@ class WeeklyHarvestPlan(models.Model):
     thursday_actual_kg = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     friday_actual_kg = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     saturday_actual_kg = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    actual_weekly_total_kg = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text='Weekly actual total when per-day breakdown is unavailable',
+    )
 
     # === Approval workflow ===
     status = models.CharField(max_length=20, choices=PLAN_STATUS_CHOICES, default='draft')

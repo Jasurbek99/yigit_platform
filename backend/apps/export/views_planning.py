@@ -15,6 +15,7 @@ from apps.core.permissions import write_permission
 from apps.export.models import (
     WeeklyHarvestPlan,
     WeeklyTruckAllocation,
+    TruckDestinationSplit,
     QuotaAllocation,
     PriceEntry,
     DomesticSale,
@@ -66,7 +67,7 @@ class WeeklyHarvestPlanViewSet(ModelViewSet):
     # class-level permission so we can inspect the block being written.
     permission_classes = [IsAuthenticated]
     serializer_class = WeeklyHarvestPlanSerializer
-    http_method_names = ['get', 'post', 'put', 'head', 'options']
+    http_method_names = ['get', 'post', 'put', 'patch', 'head', 'options']
 
     queryset = WeeklyHarvestPlan.objects.select_related(
         'season', 'block', 'entered_by',
@@ -104,13 +105,7 @@ class WeeklyHarvestPlanViewSet(ModelViewSet):
             return
 
         if role == 'greenhouse_manager':
-            # Check the appropriate Django model permission.
-            perm_codename = 'export.add_weeklyharvestplan' if is_create else 'export.change_weeklyharvestplan'
-            if not user.has_perm(perm_codename):
-                raise PermissionDenied(
-                    f"greenhouse_manager does not have permission '{perm_codename}'."
-                )
-            # Check there is an active block assignment for this user + block.
+            # Block assignment = automatic edit permission. No Django model permission needed.
             has_assignment = BlockManagerAssignment.objects.filter(
                 user=user,
                 block_id=block_id,
@@ -222,6 +217,31 @@ class WeeklyHarvestPlanViewSet(ModelViewSet):
             return Response({'error': str(exc)}, status=http_status.HTTP_400_BAD_REQUEST)
         return Response(self.get_serializer(plan).data)
 
+    @action(detail=False, methods=['post'], url_path='bulk-submit')
+    def bulk_submit(self, request):
+        """POST /api/v1/export/harvest-plans/bulk-submit/
+
+        Body: { "ids": [1, 2, 3] }
+        Submits all draft/rejected plans in the given list.
+        """
+        ids = request.data.get('ids', [])
+        if not ids:
+            return Response({'error': 'ids list is required.'}, status=http_status.HTTP_400_BAD_REQUEST)
+
+        plans = WeeklyHarvestPlan.objects.filter(
+            id__in=ids, status__in=['draft', 'rejected'],
+        ).select_related('block')
+        submitted_ids = []
+        errors = []
+        for plan in plans:
+            try:
+                submit_harvest_plan(plan, request.user)
+                submitted_ids.append(plan.id)
+            except (ValueError, PermissionError) as exc:
+                errors.append({'id': plan.id, 'error': str(exc)})
+
+        return Response({'submitted': submitted_ids, 'errors': errors})
+
     @action(detail=False, methods=['post'], url_path='bulk-approve')
     def bulk_approve(self, request):
         """POST /api/v1/export/harvest-plans/bulk-approve/
@@ -246,6 +266,34 @@ class WeeklyHarvestPlanViewSet(ModelViewSet):
                 errors.append({'id': plan.id, 'error': str(exc)})
 
         return Response({'approved': approved_ids, 'errors': errors})
+
+    @action(detail=False, methods=['post'], url_path='bulk-reject')
+    def bulk_reject(self, request):
+        """POST /api/v1/export/harvest-plans/bulk-reject/
+
+        Body: { "ids": [1, 2, 3], "rejection_note": "..." }
+        Rejects all submitted plans in the given list.
+        """
+        ids = request.data.get('ids', [])
+        rejection_note = request.data.get('rejection_note', '')
+        if not ids:
+            return Response({'error': 'ids list is required.'}, status=http_status.HTTP_400_BAD_REQUEST)
+        if not rejection_note or not rejection_note.strip():
+            return Response({'error': 'rejection_note is required.'}, status=http_status.HTTP_400_BAD_REQUEST)
+
+        plans = WeeklyHarvestPlan.objects.filter(
+            id__in=ids, status='submitted',
+        ).select_related('block')
+        rejected_ids = []
+        errors = []
+        for plan in plans:
+            try:
+                reject_harvest_plan(plan, request.user, rejection_note)
+                rejected_ids.append(plan.id)
+            except (ValueError, PermissionError) as exc:
+                errors.append({'id': plan.id, 'error': str(exc)})
+
+        return Response({'rejected': rejected_ids, 'errors': errors})
 
     @action(detail=False, methods=['post'], url_path='initialize-week')
     def initialize_week(self, request):
@@ -428,9 +476,11 @@ class WeeklyTruckAllocationViewSet(ModelViewSet):
     http_method_names = ['get', 'post', 'put', 'patch', 'head', 'options']
     filterset_fields = ['season', 'year', 'week_number']
 
-    queryset = WeeklyTruckAllocation.objects.select_related('season', 'decided_by').order_by(
-        'year', 'week_number', 'day_of_week'
-    )
+    queryset = WeeklyTruckAllocation.objects.select_related(
+        'season', 'decided_by',
+    ).prefetch_related(
+        'destination_splits__destination',
+    ).order_by('year', 'week_number', 'day_of_week')
 
     _TRUCK_CAPACITY_KG = Decimal('18500')
 
@@ -455,6 +505,36 @@ class WeeklyTruckAllocationViewSet(ModelViewSet):
         serializer.save(
             total_trucks_calc=self._compute_trucks_calc(planned_kg),
         )
+
+    @action(detail=True, methods=['post'], url_path='set-splits')
+    def set_splits(self, request, pk=None):
+        """POST /api/v1/export/truck-allocations/{id}/set-splits/
+
+        Body: { "splits": [{ "destination_id": 1, "truck_count": 3 }, ...] }
+        Creates or updates TruckDestinationSplit rows for this allocation.
+        """
+        allocation = self.get_object()
+        splits_data = request.data.get('splits', [])
+
+        for item in splits_data:
+            dest_id = item.get('destination_id')
+            count = item.get('truck_count', 0)
+            if dest_id is None:
+                continue
+            TruckDestinationSplit.objects.update_or_create(
+                truck_allocation=allocation,
+                destination_id=dest_id,
+                defaults={'truck_count': count},
+            )
+
+        # Re-fetch with prefetches and return
+        allocation.refresh_from_db()
+        serializer = self.get_serializer(
+            WeeklyTruckAllocation.objects.prefetch_related(
+                'destination_splits__destination',
+            ).get(pk=allocation.pk)
+        )
+        return Response(serializer.data)
 
 
 class DomesticSaleViewSet(ModelViewSet):

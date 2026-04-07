@@ -88,7 +88,13 @@
     "deficit": "Дефицит",
     "est_trucks": "Прогноз",
     "trucks_suffix": "машин",
-    "pivot": "Развернуть"
+    "pivot": "Развернуть",
+    "total_kg": "Всего (кг)",
+    "total_trucks_label": "Всего машин",
+    "russia_trucks": "Россия",
+    "kazak_trucks": "Казахстан",
+    "gapy_trucks": "Гапы Сатыс",
+    "truck_allocation": "Распределение машин"
   },
   "quota": {
     "title": "Дашборд квот",

@@ -21,6 +21,10 @@ All notable changes to the YGT Platform.
 - AdvancesTracker: ProTable given `scroll={{ x: 700 }}`; page header given `flexWrap: wrap` and `gap: 8`; expanded row indent reduced from 48px to 16px for narrow screens (feat(frontend))
 - PricePanel: header gap reduced from 16 to 12 for tighter wrapping on mobile (feat(frontend))
 
+### Data
+- Imported 318 weekly harvest plans + 173 truck allocations + 446 destination splits from `weekly_plan.xlsx` (data(p3))
+- Added `actual_weekly_total_kg` field to WeeklyHarvestPlan for weekly-only actual totals (db)
+
 ### Added
 - AdvancesTracker page (`/export/advances`) — ProTable with 4 summary cards, Segmented All/Pending/Reconciled filter, expandable rows showing linked shipments, "New Advance" modal for finansist/export_manager/director, "Reconcile" inline action (feat(frontend))
 - `IFinansistAdvanceListItem`, `IFinansistAdvanceDetail`, `IAdvanceShipmentLink` types in `src/types/index.ts` (feat(frontend))
