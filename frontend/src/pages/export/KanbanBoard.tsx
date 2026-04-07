@@ -181,7 +181,7 @@ export default function KanbanBoard() {
             {t('kanban.title')}
           </div>
           <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
-            Häzirki hereket edýän ýükleriň ýagdaýy — Kanban görnüşi
+            {t('kanban.subtitle')}
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>

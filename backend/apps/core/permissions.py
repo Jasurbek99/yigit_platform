@@ -49,6 +49,43 @@ def write_permission(*roles: str) -> type:
                 return False
             if request.method in SAFE_METHODS:
                 return True
+            if getattr(request.user, 'is_superuser', False):
+                return True
             return getattr(request.user, 'role', None) in _allowed
 
     return _WriteRolePermission
+
+
+def firm_write_permission(app_label: str, model_name: str, *bypass_roles: str) -> type:
+    """Permission class for model CRUD that supports both role-based and Django permission-based access.
+
+    Writes allowed when ANY of these is true:
+    - user.is_superuser
+    - user.role in bypass_roles
+    - user has the action-specific Django permission (add/change/delete)
+
+    Usage:
+        permission_classes = [IsAuthenticated, firm_write_permission('core', 'exportfirm', 'director')]
+    """
+    _bypass = frozenset(bypass_roles)
+    _method_perm = {
+        'POST':   f'{app_label}.add_{model_name}',
+        'PUT':    f'{app_label}.change_{model_name}',
+        'PATCH':  f'{app_label}.change_{model_name}',
+        'DELETE': f'{app_label}.delete_{model_name}',
+    }
+
+    class _FirmWritePermission(BasePermission):
+        def has_permission(self, request, view) -> bool:
+            if not request.user or not request.user.is_authenticated:
+                return False
+            if request.method in SAFE_METHODS:
+                return True
+            if getattr(request.user, 'is_superuser', False):
+                return True
+            if getattr(request.user, 'role', None) in _bypass:
+                return True
+            perm = _method_perm.get(request.method)
+            return bool(perm and request.user.has_perm(perm))
+
+    return _FirmWritePermission

@@ -2,11 +2,16 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import type {
   ISeason,
+  ICity,
+  ICountry,
   IExportFirm,
+  IImportFirm,
   IAdminUser,
   IApiListResponse,
   IGreenhouseBlock,
   IBlockAssignment,
+  ILoadingLocation,
+  ITomatoVariety,
   UserRole,
 } from '@/types';
 
@@ -73,6 +78,18 @@ export function useDeleteSeason(options: MutationOptions = {}) {
 
 // ─── Export Firms ─────────────────────────────────────────────────────────
 
+export function useExportFirm(id: number | undefined) {
+  return useQuery({
+    queryKey: ['admin-firm', id],
+    queryFn: async (): Promise<IExportFirm> => {
+      const { data } = await api.get<IExportFirm>(`/export/admin/firms/${id}/`);
+      return data;
+    },
+    enabled: id !== undefined,
+    staleTime: 30_000,
+  });
+}
+
 export function useAdminFirms() {
   return useQuery({
     queryKey: ['admin-firms'],
@@ -105,6 +122,19 @@ export function useUpdateFirm(options: MutationOptions = {}) {
   return useMutation({
     mutationFn: ({ id, ...payload }: Partial<IExportFirm> & { id: number }) =>
       api.patch<IExportFirm>(`/export/admin/firms/${id}/`, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-firms'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-firm'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+export function useDeleteExportFirm(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => api.delete(`/export/admin/firms/${id}/`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-firms'] });
       options.onSuccess?.();
@@ -153,11 +183,97 @@ export function useUpdateUserRole(options: MutationOptions = {}) {
 
 export function useGreenhouseBlocks() {
   return useQuery({
-    queryKey: ['admin-blocks'],
+    queryKey: ['core-blocks'],
     queryFn: async (): Promise<IGreenhouseBlock[]> => {
       if (USE_MOCK) return [];
       const { data } = await api.get<IApiListResponse<IGreenhouseBlock> | IGreenhouseBlock[]>(
         '/core/blocks/',
+      );
+      return Array.isArray(data) ? data : data.results;
+    },
+    staleTime: 300_000,
+  });
+}
+
+export function useAdminBlocks() {
+  return useQuery({
+    queryKey: ['admin-blocks-full'],
+    queryFn: async (): Promise<IGreenhouseBlock[]> => {
+      if (USE_MOCK) return [];
+      const { data } = await api.get<IApiListResponse<IGreenhouseBlock> | IGreenhouseBlock[]>(
+        '/export/admin/blocks/',
+      );
+      return Array.isArray(data) ? data : data.results;
+    },
+    staleTime: 60_000,
+  });
+}
+
+export function useAdminBlock(id: number | undefined) {
+  return useQuery({
+    queryKey: ['admin-block', id],
+    queryFn: async (): Promise<IGreenhouseBlock> => {
+      const { data } = await api.get<IGreenhouseBlock>(`/export/admin/blocks/${id}/`);
+      return data;
+    },
+    enabled: id !== undefined,
+    staleTime: 60_000,
+  });
+}
+
+export function useCreateBlock(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Omit<IGreenhouseBlock, 'id' | 'manager_name'>) =>
+      api.post<IGreenhouseBlock>('/export/admin/blocks/', payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-blocks-full'] });
+      queryClient.invalidateQueries({ queryKey: ['core-blocks'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+export function useUpdateBlock(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...payload }: Partial<IGreenhouseBlock> & { id: number }) =>
+      api.patch<IGreenhouseBlock>(`/export/admin/blocks/${id}/`, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-blocks-full'] });
+      queryClient.invalidateQueries({ queryKey: ['core-blocks'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+// ─── Loading Locations ────────────────────────────────────────────────────
+
+export function useLoadingLocations() {
+  return useQuery({
+    queryKey: ['loading-locations'],
+    queryFn: async (): Promise<ILoadingLocation[]> => {
+      if (USE_MOCK) return [];
+      const { data } = await api.get<IApiListResponse<ILoadingLocation> | ILoadingLocation[]>(
+        '/core/loading-locations/',
+      );
+      return Array.isArray(data) ? data : data.results;
+    },
+    staleTime: 300_000,
+  });
+}
+
+// ─── Tomato Varieties ─────────────────────────────────────────────────────
+
+export function useTomatoVarieties() {
+  return useQuery({
+    queryKey: ['tomato-varieties'],
+    queryFn: async (): Promise<ITomatoVariety[]> => {
+      if (USE_MOCK) return [];
+      const { data } = await api.get<IApiListResponse<ITomatoVariety> | ITomatoVariety[]>(
+        '/core/tomato-varieties/',
       );
       return Array.isArray(data) ? data : data.results;
     },
@@ -279,6 +395,165 @@ export function useSetUserPassword(options: MutationOptions = {}) {
       });
     },
     onSuccess: options.onSuccess,
+    onError: options.onError,
+  });
+}
+
+// ─── Countries (read-only reference) ─────────────────────────────────────
+
+export function useCountries() {
+  return useQuery({
+    queryKey: ['core-countries'],
+    queryFn: async (): Promise<ICountry[]> => {
+      if (USE_MOCK) return [];
+      const { data } = await api.get<IApiListResponse<ICountry> | ICountry[]>(
+        '/core/countries/?page_size=200',
+      );
+      return Array.isArray(data) ? data : data.results;
+    },
+    staleTime: 300_000,
+  });
+}
+
+// ─── Cities (read-only reference) ────────────────────────────────────────
+
+export function useCities(countryId?: number | null) {
+  return useQuery({
+    queryKey: ['core-cities', countryId],
+    queryFn: async (): Promise<ICity[]> => {
+      if (USE_MOCK) return [];
+      const url = countryId
+        ? `/core/cities/?country=${countryId}&page_size=500`
+        : '/core/cities/?page_size=500';
+      const { data } = await api.get<IApiListResponse<ICity> | ICity[]>(url);
+      return Array.isArray(data) ? data : data.results;
+    },
+    staleTime: 300_000,
+  });
+}
+
+export function useCreateCountry(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { name_tk: string; name_ru?: string; name_en?: string; code?: string }) =>
+      api.post<ICountry>('/core/countries/', payload).then(r => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['core-countries'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+export function useCreateCity(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { name: string; country: number; name_local?: string }) =>
+      api.post<ICity>('/core/cities/', payload).then(r => r.data),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['core-cities', data.country] });
+      queryClient.invalidateQueries({ queryKey: ['core-cities', null] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+// ─── Import Firms ─────────────────────────────────────────────────────────
+
+export function useImportFirm(id: number | undefined) {
+  return useQuery({
+    queryKey: ['admin-import-firm', id],
+    queryFn: async (): Promise<IImportFirm> => {
+      const { data } = await api.get<IImportFirm>(`/export/admin/import-firms/${id}/`);
+      return data;
+    },
+    enabled: id !== undefined,
+    staleTime: 30_000,
+  });
+}
+
+export function useAdminImportFirms() {
+  return useQuery({
+    queryKey: ['admin-import-firms'],
+    queryFn: async (): Promise<IImportFirm[]> => {
+      if (USE_MOCK) return [];
+      const { data } = await api.get<IApiListResponse<IImportFirm> | IImportFirm[]>(
+        '/export/admin/import-firms/',
+      );
+      return Array.isArray(data) ? data : data.results;
+    },
+    staleTime: 60_000,
+  });
+}
+
+type ImportFirmPayload = Omit<IImportFirm, 'id' | 'country_name' | 'city_name' | 'director_signature' | 'director_seal'>;
+
+function buildImportFirmBody(
+  payload: ImportFirmPayload,
+  signatureFile?: File | null,
+  sealFile?: File | null,
+): FormData | ImportFirmPayload {
+  if (!signatureFile && !sealFile) return payload;
+  const fd = new FormData();
+  Object.entries(payload).forEach(([k, v]) => { if (v != null) fd.append(k, String(v)); });
+  if (signatureFile) fd.append('director_signature', signatureFile);
+  if (sealFile) fd.append('director_seal', sealFile);
+  return fd;
+}
+
+export function useCreateImportFirm(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ signatureFile, sealFile, ...payload }: ImportFirmPayload & { signatureFile?: File | null; sealFile?: File | null }) =>
+      api.post<IImportFirm>('/export/admin/import-firms/', buildImportFirmBody(payload, signatureFile, sealFile)).then(r => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-import-firms'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+export function useUpdateImportFirm(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, signatureFile, sealFile, ...payload }: { id: number; signatureFile?: File | null; sealFile?: File | null } & ImportFirmPayload) =>
+      api.patch<IImportFirm>(`/export/admin/import-firms/${id}/`, buildImportFirmBody(payload, signatureFile, sealFile)).then(r => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-import-firms'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-import-firm'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+export function useUploadImportFirmFile(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, field, file }: { id: number; field: 'director_signature' | 'director_seal'; file: File }) => {
+      const fd = new FormData();
+      fd.append(field, file);
+      return api.patch<IImportFirm>(`/export/admin/import-firms/${id}/`, fd).then(r => r.data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-import-firms'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-import-firm'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+export function useDeleteImportFirm(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => api.delete(`/export/admin/import-firms/${id}/`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-import-firms'] });
+      options.onSuccess?.();
+    },
     onError: options.onError,
   });
 }

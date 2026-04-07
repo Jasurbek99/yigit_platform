@@ -15,8 +15,10 @@ from apps.export.views_admin import (
     AuditLogViewSet,
     SeasonViewSet,
     ExportFirmViewSet,
+    ImportFirmViewSet,
     UserManagementViewSet,
     BlockManagerAssignmentViewSet,
+    GreenhouseBlockAdminViewSet,
     UserPermissionsView,
 )
 
@@ -40,8 +42,10 @@ router.register('audit-log', AuditLogViewSet, basename='audit-log')
 # Admin / settings
 router.register('admin/seasons', SeasonViewSet, basename='admin-season')
 router.register('admin/firms', ExportFirmViewSet, basename='admin-firm')
+router.register('admin/import-firms', ImportFirmViewSet, basename='admin-import-firm')
 router.register('admin/users', UserManagementViewSet, basename='admin-user')
 router.register('admin/block-assignments', BlockManagerAssignmentViewSet, basename='admin-block-assignment')
+router.register('admin/blocks', GreenhouseBlockAdminViewSet, basename='admin-block')
 
 urlpatterns = router.urls + [
     path(

@@ -81,7 +81,7 @@ export default function UsersPage() {
 
   const createUser = useCreateUser({
     onSuccess: () => {
-      toast.success('Ulanyja döredildi');
+      toast.success(t('users_admin.toast_created'));
       setCreateModalOpen(false);
       createForm.resetFields();
     },
@@ -89,13 +89,13 @@ export default function UsersPage() {
   });
 
   const deleteUser = useDeleteUser({
-    onSuccess: () => toast.success('Ulanyja pozuldy'),
+    onSuccess: () => toast.success(t('users_admin.toast_deleted')),
     onError: () => toast.error(t('users_admin.toast_error')),
   });
 
   const setPassword = useSetUserPassword({
     onSuccess: () => {
-      toast.success('Paroly üýtgedildi');
+      toast.success(t('users_admin.toast_password'));
       setPasswordModalOpen(false);
       setPasswordTarget(null);
       passwordForm.resetFields();
@@ -136,9 +136,9 @@ export default function UsersPage() {
 
   function handleDeleteConfirm(record: IAdminUser) {
     Modal.confirm({
-      title: 'Ulanyjyny pozmak isleýärsiňizmi?',
-      content: `"${record.username}" ulanyjysy hemişelik pozular.`,
-      okText: 'Pozmak',
+      title: t('users_admin.confirm_delete'),
+      content: t('users_admin.confirm_delete_desc', { username: record.username }),
+      okText: t('users_admin.delete_btn'),
       okType: 'danger',
       cancelText: t('common.cancel'),
       onOk: () => deleteUser.mutate(record.id),
@@ -217,7 +217,7 @@ export default function UsersPage() {
                 color="orange"
                 onClick={(e) => { e.stopPropagation(); handleOpenPasswordModal(record); }}
               >
-                Paroly Täzele
+                {t('users_admin.reset_password')}
               </Button>
             ),
           },
@@ -233,7 +233,7 @@ export default function UsersPage() {
                   color="red"
                   onClick={(e) => { e.stopPropagation(); handleDeleteConfirm(record); }}
                 >
-                  Pozmak
+                  {t('users_admin.delete_btn')}
                 </Button>
               ),
           },
@@ -251,7 +251,7 @@ export default function UsersPage() {
             {t('users_admin.title')}
           </div>
           <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
-            Ulanyjylary we rugsatlary dolandyrmak
+            {t('users_admin.subtitle')}
           </div>
         </div>
         {isSuperuser && (
@@ -260,7 +260,7 @@ export default function UsersPage() {
             size="compact-sm"
             onClick={() => { createForm.resetFields(); setCreateModalOpen(true); }}
           >
-            + Täze Ulanyja
+            {t('users_admin.create')}
           </Button>
         )}
       </Group>
@@ -318,11 +318,11 @@ export default function UsersPage() {
 
       {/* ── Superuser: Create User Modal (Ant Design) ─────────────────── */}
       <Modal
-        title="Täze Ulanyja Döret"
+        title={t('users_admin.create_title')}
         open={createModalOpen}
         onCancel={() => { setCreateModalOpen(false); createForm.resetFields(); }}
         onOk={handleCreateSubmit}
-        okText="Döret"
+        okText={t('users_admin.create_title')}
         cancelText={t('common.cancel')}
         confirmLoading={createUser.isPending}
         destroyOnClose
@@ -330,28 +330,28 @@ export default function UsersPage() {
         <Form form={createForm} layout="vertical" style={{ marginTop: 8 }}>
           <Form.Item
             name="username"
-            label="Ulanyjy ady"
+            label={t('users_admin.username')}
             rules={[{ required: true, message: t('common.required') }]}
           >
             <Input autoComplete="off" />
           </Form.Item>
           <Form.Item
             name="password"
-            label="Paroly"
+            label={t('users_admin.password')}
             rules={[
               { required: true, message: t('common.required') },
-              { min: 8, message: 'Paroly iň az 8 simwol bolmaly' },
+              { min: 8, message: t('users_admin.password_min') },
             ]}
           >
             <Input.Password autoComplete="new-password" />
           </Form.Item>
-          <Form.Item name="first_name" label="Ady">
+          <Form.Item name="first_name" label={t('users_admin.first_name')}>
             <Input />
           </Form.Item>
-          <Form.Item name="last_name" label="Familiýasy">
+          <Form.Item name="last_name" label={t('users_admin.last_name')}>
             <Input />
           </Form.Item>
-          <Form.Item name="email" label="E-poçta">
+          <Form.Item name="email" label={t('users_admin.email')}>
             <Input type="email" />
           </Form.Item>
           <Form.Item
@@ -371,25 +371,25 @@ export default function UsersPage() {
 
       {/* ── Superuser: Set Password Modal (Ant Design) ────────────────── */}
       <Modal
-        title={`Paroly Täzele — ${passwordTarget?.username ?? ''}`}
+        title={t('users_admin.reset_password_title', { username: passwordTarget?.username ?? '' })}
         open={passwordModalOpen}
         onCancel={() => { setPasswordModalOpen(false); setPasswordTarget(null); passwordForm.resetFields(); }}
         onOk={handlePasswordSubmit}
-        okText="Bellemek"
+        okText={t('users_admin.set')}
         cancelText={t('common.cancel')}
         confirmLoading={setPassword.isPending}
         destroyOnClose
       >
         <p style={{ fontSize: 13, color: '#8c8c8c', marginBottom: 12 }}>
-          Häzirki paroly görüp bolmaýar — diňe täze paroly belläň.
+          {t('users_admin.reset_password_hint')}
         </p>
         <Form form={passwordForm} layout="vertical">
           <Form.Item
             name="password"
-            label="Täze paroly"
+            label={t('users_admin.new_password')}
             rules={[
               { required: true, message: t('common.required') },
-              { min: 8, message: 'Paroly iň az 8 simwol bolmaly' },
+              { min: 8, message: t('users_admin.password_min') },
             ]}
           >
             <Input.Password autoComplete="new-password" />

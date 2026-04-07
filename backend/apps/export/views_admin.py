@@ -8,7 +8,8 @@ Endpoints:
   GET       /api/v1/export/audit-log/                  — transition history (director/export_manager)
 
   GET/POST/PATCH/DELETE /api/v1/export/admin/seasons/  — Season CRUD (director writes)
-  GET/POST/PATCH/DELETE /api/v1/export/admin/firms/    — ExportFirm CRUD (director writes)
+  GET/POST/PATCH/DELETE /api/v1/export/admin/firms/         — ExportFirm CRUD (director writes)
+  GET/POST/PATCH/DELETE /api/v1/export/admin/import-firms/  — ImportFirm CRUD (director writes)
   GET/POST/PATCH/DELETE /api/v1/export/admin/users/    — User CRUD (director/superuser; POST/DELETE superuser only)
 
   GET/POST/DELETE /api/v1/export/admin/block-assignments/        — BlockManagerAssignment CRUD (director)
@@ -22,13 +23,14 @@ from django.utils import timezone
 from rest_framework import serializers, status
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.parsers import JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 
-from apps.core.models import ExportFirm, Season, User
-from apps.core.permissions import write_permission
+from apps.core.models import ExportFirm, GreenhouseBlock, ImportFirm, Season, User
+from apps.core.permissions import firm_write_permission, write_permission
 from apps.export.models import AuditLog, BlockManagerAssignment, Notification
 
 logger = logging.getLogger(__name__)
@@ -91,7 +93,27 @@ class SeasonSerializer(serializers.ModelSerializer):
 class ExportFirmSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExportFirm
-        fields = ['id', 'code', 'name_tk', 'name_en', 'name_ru', 'is_active']
+        fields = [
+            'id', 'code', 'name_tk', 'name_en', 'name_ru',
+            'address_tk', 'address_en', 'address_ru',
+            'bank_details_tk', 'bank_details_en', 'bank_details_ru',
+            'director', 'tax_code', 'swift_code', 'one_c_code',
+            'is_active', 'is_gapy_satys',
+        ]
+
+
+class ImportFirmSerializer(serializers.ModelSerializer):
+    country_name = serializers.CharField(source='country.name_en', read_only=True, default=None)
+    city_name = serializers.CharField(source='city.name', read_only=True, default=None)
+
+    class Meta:
+        model = ImportFirm
+        fields = [
+            'id', 'code', 'name_company', 'name_short',
+            'country', 'country_name', 'city', 'city_name',
+            'address', 'bank_details', 'contact_person', 'phone',
+            'director_signature', 'director_seal', 'is_active', 'is_gapy_satys',
+        ]
 
 
 class UserListSerializer(serializers.ModelSerializer):
@@ -205,18 +227,37 @@ class ExportFirmViewSet(ModelViewSet):
     """ExportFirm CRUD.
 
     All authenticated users may list/retrieve.
-    Only director may create, update, or delete.
+    Director (or superuser, or user with Django permission) may create, update, or delete.
 
     GET    /api/v1/export/admin/firms/       — list
     GET    /api/v1/export/admin/firms/{id}/  — detail
-    POST   /api/v1/export/admin/firms/       — create (director only)
-    PATCH  /api/v1/export/admin/firms/{id}/  — update (director only)
-    DELETE /api/v1/export/admin/firms/{id}/  — delete (director only)
+    POST   /api/v1/export/admin/firms/       — create (director / add_exportfirm perm)
+    PATCH  /api/v1/export/admin/firms/{id}/  — update (director / change_exportfirm perm)
+    DELETE /api/v1/export/admin/firms/{id}/  — delete (director / delete_exportfirm perm)
     """
 
-    permission_classes = [IsAuthenticated, write_permission(*_DIRECTOR_ONLY)]
+    permission_classes = [IsAuthenticated, firm_write_permission('core', 'exportfirm', 'director')]
     serializer_class = ExportFirmSerializer
     queryset = ExportFirm.objects.all().order_by('name_en')
+
+
+class ImportFirmViewSet(ModelViewSet):
+    """ImportFirm CRUD.
+
+    All authenticated users may list/retrieve.
+    Director (or superuser, or user with Django permission) may create, update, or delete.
+
+    GET    /api/v1/export/admin/import-firms/       — list
+    GET    /api/v1/export/admin/import-firms/{id}/  — detail
+    POST   /api/v1/export/admin/import-firms/       — create (director / add_importfirm perm)
+    PATCH  /api/v1/export/admin/import-firms/{id}/  — update (director / change_importfirm perm)
+    DELETE /api/v1/export/admin/import-firms/{id}/  — delete (director / delete_importfirm perm)
+    """
+
+    parser_classes = [MultiPartParser, JSONParser]
+    permission_classes = [IsAuthenticated, firm_write_permission('core', 'importfirm', 'director')]
+    serializer_class = ImportFirmSerializer
+    queryset = ImportFirm.objects.select_related('country', 'city').order_by('name_company')
 
 
 class UserManagementViewSet(ModelViewSet):
@@ -355,6 +396,110 @@ class UserManagementViewSet(ModelViewSet):
 
 
 # ---------------------------------------------------------------------------
+# Greenhouse block admin
+# ---------------------------------------------------------------------------
+
+class GreenhouseBlockSubSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for nested sub-blocks (no further nesting)."""
+
+    variety_main_name = serializers.SerializerMethodField()
+    variety_secondary_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = GreenhouseBlock
+        fields = [
+            'id', 'code', 'name',
+            'variety_main', 'variety_main_name',
+            'variety_secondary', 'variety_secondary_name',
+            'area_m2', 'section_count', 'sowing_date', 'is_active',
+        ]
+
+    def get_variety_main_name(self, obj: GreenhouseBlock) -> str | None:
+        return obj.variety_main.name if obj.variety_main_id else None
+
+    def get_variety_secondary_name(self, obj: GreenhouseBlock) -> str | None:
+        return obj.variety_secondary.name if obj.variety_secondary_id else None
+
+
+class GreenhouseBlockAdminSerializer(serializers.ModelSerializer):
+    """Full serializer for director-level greenhouse block management."""
+
+    manager_name = serializers.SerializerMethodField()
+    variety_main_name = serializers.SerializerMethodField()
+    variety_secondary_name = serializers.SerializerMethodField()
+    location_name = serializers.SerializerMethodField()
+    parent_code = serializers.SerializerMethodField()
+    sub_blocks = serializers.SerializerMethodField()
+
+    class Meta:
+        model = GreenhouseBlock
+        fields = [
+            'id', 'code', 'name',
+            'parent', 'parent_code',
+            'manager', 'manager_name',
+            'variety_main', 'variety_main_name',
+            'variety_secondary', 'variety_secondary_name',
+            'area_m2',
+            'location', 'location_name',
+            'section_count', 'sowing_date',
+            'season_start_month', 'is_active',
+            'sub_blocks',
+        ]
+
+    def get_manager_name(self, obj: GreenhouseBlock) -> str | None:
+        if obj.manager_id is None:
+            return None
+        return obj.manager.get_full_name() or obj.manager.username
+
+    def get_variety_main_name(self, obj: GreenhouseBlock) -> str | None:
+        return obj.variety_main.name if obj.variety_main_id else None
+
+    def get_variety_secondary_name(self, obj: GreenhouseBlock) -> str | None:
+        return obj.variety_secondary.name if obj.variety_secondary_id else None
+
+    def get_location_name(self, obj: GreenhouseBlock) -> str | None:
+        return obj.location.name if obj.location_id else None
+
+    def get_parent_code(self, obj: GreenhouseBlock) -> str | None:
+        return obj.parent.code if obj.parent_id else None
+
+    def get_sub_blocks(self, obj: GreenhouseBlock) -> list:
+        """Return nested sub-blocks only on detail (retrieve) view, not list."""
+        request = self.context.get('request')
+        # Only include sub_blocks on detail endpoint (pk in URL kwargs)
+        if request and request.parser_context.get('kwargs', {}).get('pk'):
+            qs = obj.sub_blocks.select_related('variety_main', 'variety_secondary').order_by('code')
+            return GreenhouseBlockSubSerializer(qs, many=True, context=self.context).data
+        return []
+
+
+class GreenhouseBlockAdminViewSet(ModelViewSet):
+    """Director-only CRUD for greenhouse blocks.
+
+    All authenticated users may list/retrieve (used by harvest plan, etc).
+    Only director may create, update, or delete.
+
+    GET    /api/v1/export/admin/blocks/           — list parent blocks only
+    GET    /api/v1/export/admin/blocks/{id}/      — detail with nested sub_blocks
+    POST   /api/v1/export/admin/blocks/           — create (director only)
+    PATCH  /api/v1/export/admin/blocks/{id}/      — update (director only)
+    DELETE /api/v1/export/admin/blocks/{id}/      — delete (director only)
+    """
+
+    permission_classes = [IsAuthenticated, write_permission('director')]
+    serializer_class = GreenhouseBlockAdminSerializer
+
+    def get_queryset(self):
+        qs = GreenhouseBlock.objects.select_related(
+            'parent', 'manager', 'variety_main', 'variety_secondary', 'location'
+        ).order_by('code')
+        # List view: only top-level blocks (parent=None); detail fetches any block by pk
+        if self.action == 'list':
+            qs = qs.filter(parent__isnull=True)
+        return qs
+
+
+# ---------------------------------------------------------------------------
 # Block-manager assignment admin
 # ---------------------------------------------------------------------------
 
@@ -441,8 +586,9 @@ class UserPermissionsView(APIView):
         if not isinstance(raw_codenames, list):
             raise ValidationError({'permissions': 'Must be a list of permission codenames.'})
 
-        # Fetch all valid export-app permissions in a single query.
-        export_ct = ContentType.objects.filter(app_label='export')
+        # Fetch all valid export-app and core-app permissions in a single query.
+        # core-app permissions cover ExportFirm and ImportFirm model permissions.
+        export_ct = ContentType.objects.filter(app_label__in=['export', 'core'])
         valid_perms = {
             p.codename: p
             for p in Permission.objects.filter(content_type__in=export_ct)
@@ -452,7 +598,7 @@ class UserPermissionsView(APIView):
         unknown = [c for c in raw_codenames if c not in valid_perms]
         if unknown:
             raise ValidationError(
-                {'permissions': f"Unknown export permission codenames: {unknown}"}
+                {'permissions': f"Unknown permission codenames: {unknown}"}
             )
 
         granted_perms = [valid_perms[c] for c in raw_codenames]

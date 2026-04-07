@@ -169,7 +169,7 @@ export default function SeasonsPage() {
             {t('seasons.title')}
           </div>
           <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
-            Eksport möwsümlerini dolandyrmak
+            {t('seasons.subtitle')}
           </div>
         </div>
         {isDirector && (

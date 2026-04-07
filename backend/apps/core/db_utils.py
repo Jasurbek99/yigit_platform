@@ -34,5 +34,6 @@ def schema_table(schema: str, table: str) -> str:
     """
     if _is_sqlite():
         return f'{schema}_{table}'
-    # mssql-django resolves '"schema"."table"' to [schema].[table] via INFORMATION_SCHEMA
-    return f'"{schema}"."{table}"'
+    # mssql-django passes through names starting and ending with [...] unchanged
+    # so [schema].[table] produces the correct two-part identifier
+    return f'[{schema}].[{table}]'

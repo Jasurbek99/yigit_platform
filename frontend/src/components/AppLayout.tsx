@@ -17,6 +17,7 @@ import {
   IconBell,
   IconMenu2,
   IconShield,
+  IconBuildingWarehouse,
 } from '@tabler/icons-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -161,11 +162,17 @@ export default function AppLayout() {
     '/admin/users': t('nav.admin_users'),
     '/admin/seasons': t('nav.admin_seasons'),
     '/admin/firms': t('nav.admin_firms'),
+    '/admin/import-firms': t('nav.admin_import_firms'),
     '/admin/permissions': t('nav.admin_permissions'),
+    '/admin/blocks': t('nav.admin_blocks'),
   };
 
   const currentPageLabel = location.pathname.startsWith('/shipments/')
     ? t('nav.shipment_detail')
+    : /^\/admin\/firms\/\w+/.test(location.pathname)
+    ? t('firms_admin.detail_title')
+    : /^\/admin\/import-firms\/\w+/.test(location.pathname)
+    ? t('import_firms_admin.detail_title')
     : ROUTE_LABELS[location.pathname] ?? '';
 
   const userInitial = user
@@ -175,16 +182,16 @@ export default function AppLayout() {
   // ─── Build menu items ─────────────────────────────────────────────────────
 
   const menuItems: MenuProps['items'] = [
-    { type: 'group', label: 'Esasy', children: [
+    { type: 'group', label: t('nav.group_main'), children: [
       { key: '/', icon: <IconLayoutDashboard size={15} />, label: t('nav.dashboard') },
     ]},
-    { type: 'group', label: 'Eksport', children: [
+    { type: 'group', label: t('nav.group_export'), children: [
       { key: '/export/shipments', icon: <IconTruck size={15} />, label: t('nav.shipments') },
       { key: '/export/kanban', icon: <IconLayoutKanban size={15} />, label: t('nav.kanban') },
       { key: '/export/overdue', icon: <IconAlertTriangle size={15} />, label: t('nav.overdue') },
       { key: '/export/advances', icon: <IconBuildingBank size={15} />, label: t('nav.advances') },
     ]},
-    { type: 'group', label: 'Dolandyryş', children: [
+    { type: 'group', label: t('nav.group_management'), children: [
       { key: '/export/plan', icon: <IconCalendar size={15} />, label: t('nav.plan') },
       { key: '/export/quota', icon: <IconChartPie size={15} />, label: t('nav.quota') },
       { key: '/export/prices', icon: <IconCurrencyDollar size={15} />, label: t('nav.prices') },
@@ -193,10 +200,12 @@ export default function AppLayout() {
       { key: '/export/domestic-sales', icon: <IconShoppingCart size={15} />, label: t('nav.domestic_sales') },
     ]},
     ...(user?.role === 'director' || user?.is_superuser ? [{
-      type: 'group' as const, label: 'Ulgam', children: [
+      type: 'group' as const, label: t('nav.group_system'), children: [
         { key: '/admin/users', icon: <IconUsers size={15} />, label: t('nav.admin_users') },
         { key: '/admin/seasons', icon: <IconCalendar size={15} />, label: t('nav.admin_seasons') },
         { key: '/admin/firms', icon: <IconBuildingBank size={15} />, label: t('nav.admin_firms') },
+        { key: '/admin/import-firms', icon: <IconBuildingBank size={15} />, label: t('nav.admin_import_firms') },
+        { key: '/admin/blocks', icon: <IconBuildingWarehouse size={15} />, label: t('nav.admin_blocks') },
         { key: '/admin/permissions', icon: <IconShield size={15} />, label: t('nav.admin_permissions') },
       ],
     }] : []),
@@ -224,11 +233,10 @@ export default function AppLayout() {
           top: 0,
           bottom: 0,
           zIndex: 100,
-          display: 'flex',
-          flexDirection: 'column',
           overflow: 'hidden',
         }}
       >
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
         {/* Logo */}
         <div
           style={{
@@ -264,7 +272,7 @@ export default function AppLayout() {
                 YGT Platform
               </div>
               <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11 }}>
-                Operasiýalar
+                {t('nav.sidebar_tagline')}
               </div>
             </div>
           )}
@@ -324,7 +332,7 @@ export default function AppLayout() {
               >
                 {user?.first_name || user?.username}
               </div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>{user?.role}</div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>{user?.role ? t(`roles.${user.role}`) : ''}</div>
             </div>
           )}
           <Button
@@ -335,6 +343,7 @@ export default function AppLayout() {
             loading={logoutMutation.isPending}
             aria-label={t('nav.sign_out')}
           />
+        </div>
         </div>
       </Sider>
 
@@ -362,7 +371,7 @@ export default function AppLayout() {
               icon={<IconMenu2 size={18} />}
               onClick={() => setCollapsed((c) => !c)}
               style={{ color: '#595959', display: 'flex', alignItems: 'center' }}
-              aria-label="Toggle navigation"
+              aria-label={t('nav.toggle_menu')}
             />
             <Flex align="center" gap={6} style={{ fontSize: 13 }}>
               <Text type="secondary" style={{ fontSize: 13 }}>YGT</Text>

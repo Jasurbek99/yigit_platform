@@ -77,11 +77,11 @@ else:
     DATABASES = {
         'default': {
             'ENGINE': 'mssql',
-            'NAME': os.environ.get('DB_NAME', 'YGT_Platform'),
-            'USER': os.environ.get('DB_USER', 'sa'),
-            'PASSWORD': os.environ.get('DB_PASSWORD', 'YgtPlatform2025!'),
-            'HOST': os.environ.get('DB_HOST', 'localhost'),
-            'PORT': os.environ.get('DB_PORT', '1433'),
+            'NAME': os.environ.get('DB_NAME', 'YIGIT_PLATFROM'),
+            'USER': os.environ.get('DB_USER', 'YigitUser'),
+            'PASSWORD': os.environ.get('DB_PASSWORD', '321drowssap!'),
+            'HOST': os.environ.get('DB_HOST', r'10.10.11.233\YIGIT'),
+            'PORT': os.environ.get('DB_PORT', ''),
             'OPTIONS': {
                 'driver': 'ODBC Driver 18 for SQL Server',
                 'extra_params': 'TrustServerCertificate=yes',
@@ -193,3 +193,19 @@ LOGGING = {
         },
     },
 }
+
+# ════════════════════════════════════════════════
+# Local network dev override
+# Opens up ALLOWED_HOSTS, CORS, and CSRF so any device on the
+# LAN (including when host PC runs a VPN) can reach the server.
+# Safe: only active when DEBUG=True.
+# ════════════════════════════════════════════════
+if DEBUG:
+    ALLOWED_HOSTS = ['*']
+    CORS_ALLOW_ALL_ORIGINS = True
+    CSRF_TRUSTED_ORIGINS += [
+        'http://10.10.0.0',    # 10.10.x.x LAN
+        'http://10.0.0.0',     # 10.0.x.x
+        'http://192.168.0.0',  # 192.168.x.x
+        'http://172.16.0.0',   # 172.16.x.x
+    ]

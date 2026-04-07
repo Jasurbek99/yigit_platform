@@ -1,5 +1,8 @@
 from rest_framework import serializers
-from apps.core.models import User, Country, ExportFirm, ShipmentStatusType, Customer, GreenhouseBlock
+from apps.core.models import (
+    User, City, Country, ExportFirm, ShipmentStatusType, Customer,
+    GreenhouseBlock, LoadingLocation, TomatoVariety,
+)
 from apps.core.permissions import get_editable_fields
 
 
@@ -7,35 +10,28 @@ class UserMeSerializer(serializers.ModelSerializer):
     """Returned after login and on GET /auth/me/."""
 
     editable_fields = serializers.SerializerMethodField()
-    managed_block_ids = serializers.SerializerMethodField()
+    permissions = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name',
-            'role', 'is_superuser', 'editable_fields', 'managed_block_ids',
+            'role', 'is_superuser', 'editable_fields', 'permissions',
         ]
         read_only_fields = fields
 
     def get_editable_fields(self, obj: User) -> list[str]:
         return get_editable_fields(obj.role)
 
-    def get_managed_block_ids(self, obj: User) -> list[int]:
-        """Return the list of block IDs this user is assigned to manage.
+    def get_permissions(self, obj: User) -> list[str]:
+        """Return granted Django permission codenames.
 
-        Importing BlockManagerAssignment inline to avoid a circular import:
-        core cannot import from export at module level.
-        Only meaningful for greenhouse_manager role; returns [] for all others.
+        Superusers have all permissions — return ['*'] so the frontend
+        can treat this as a wildcard without enumerating every codename.
         """
-        if obj.role != 'greenhouse_manager':
-            return []
-        # Late import — export depends on core, not the other way around.
-        from apps.export.models import BlockManagerAssignment  # noqa: PLC0415
-        return list(
-            BlockManagerAssignment.objects.filter(
-                user=obj, is_active=True,
-            ).values_list('block_id', flat=True)
-        )
+        if obj.is_superuser:
+            return ['*']
+        return list(obj.user_permissions.values_list('codename', flat=True))
 
 
 class LoginSerializer(serializers.Serializer):
@@ -49,10 +45,16 @@ class CountrySerializer(serializers.ModelSerializer):
         fields = ['id', 'name_tk', 'name_ru', 'name_en', 'code']
 
 
-class ExportFirmSerializer(serializers.ModelSerializer):
+class CitySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = City
+        fields = ['id', 'name', 'name_local', 'country']
+
+
+class ExportFirmReferenceSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExportFirm
-        fields = ['id', 'code', 'name_tk', 'name_ru', 'name_en', 'is_active']
+        fields = ['id', 'code', 'name_tk', 'name_ru', 'name_en', 'is_active', 'is_gapy_satys']
 
 
 class ShipmentStatusTypeSerializer(serializers.ModelSerializer):
@@ -71,3 +73,15 @@ class GreenhouseBlockSerializer(serializers.ModelSerializer):
     class Meta:
         model = GreenhouseBlock
         fields = ['id', 'code', 'name', 'is_active']
+
+
+class LoadingLocationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LoadingLocation
+        fields = ['id', 'name']
+
+
+class TomatoVarietySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TomatoVariety
+        fields = ['id', 'name', 'type', 'avg_fruit_weight_gr']

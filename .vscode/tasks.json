@@ -4,12 +4,12 @@
     {
       "label": "YGT: Backend (Django)",
       "type": "shell",
-      "command": "venv/bin/python manage.py runserver 8000",
+      "command": "venv/Scripts/python manage.py runserver 0.0.0.0:8000",
       "options": {
         "cwd": "${workspaceFolder}/backend",
         "env": {
-          "USE_SQLITE": "true",
-          "DJANGO_SETTINGS_MODULE": "config.settings"
+          "DJANGO_SETTINGS_MODULE": "config.settings",
+          "DJANGO_DEBUG": "True"
         }
       },
       "presentation": {
@@ -22,7 +22,7 @@
     {
       "label": "YGT: Frontend (Vite)",
       "type": "shell",
-      "command": "npm run dev",
+      "command": "npm run dev -- --host",
       "options": {
         "cwd": "${workspaceFolder}/frontend"
       },
@@ -44,13 +44,90 @@
       "problemMatcher": []
     },
     {
-      "label": "YGT: Backend Tests",
+      "label": "YGT: Kill Backend (port 8000)",
       "type": "shell",
-      "command": "venv/bin/python manage.py test apps.export apps.core --verbosity=2",
+      "command": "for /f \"tokens=5\" %a in ('netstat -aon ^| findstr :8000 ^| findstr LISTENING') do taskkill /F /PID %a",
+      "options": {
+        "shell": {
+          "executable": "cmd.exe",
+          "args": ["/d", "/c"]
+        }
+      },
+      "presentation": {
+        "group": "ygt-kill",
+        "panel": "shared",
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "YGT: Kill Frontend (port 3000)",
+      "type": "shell",
+      "command": "for /f \"tokens=5\" %a in ('netstat -aon ^| findstr :3000 ^| findstr LISTENING') do taskkill /F /PID %a",
+      "options": {
+        "shell": {
+          "executable": "cmd.exe",
+          "args": ["/d", "/c"]
+        }
+      },
+      "presentation": {
+        "group": "ygt-kill",
+        "panel": "shared",
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "YGT: Kill All",
+      "dependsOn": ["YGT: Kill Backend (port 8000)", "YGT: Kill Frontend (port 3000)"],
+      "dependsOrder": "parallel",
+      "presentation": {
+        "group": "ygt-kill",
+        "panel": "shared",
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "YGT: Migrate",
+      "type": "shell",
+      "command": "venv/Scripts/python manage.py migrate",
       "options": {
         "cwd": "${workspaceFolder}/backend",
         "env": {
-          "USE_SQLITE": "true"
+          "DJANGO_SETTINGS_MODULE": "config.settings"
+        }
+      },
+      "presentation": {
+        "panel": "shared",
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "YGT: Make Migrations",
+      "type": "shell",
+      "command": "venv/Scripts/python manage.py makemigrations",
+      "options": {
+        "cwd": "${workspaceFolder}/backend",
+        "env": {
+          "DJANGO_SETTINGS_MODULE": "config.settings"
+        }
+      },
+      "presentation": {
+        "panel": "shared",
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "YGT: Backend Tests",
+      "type": "shell",
+      "command": "venv/Scripts/python manage.py test apps.export apps.core --verbosity=2",
+      "options": {
+        "cwd": "${workspaceFolder}/backend",
+        "env": {
+          "DJANGO_SETTINGS_MODULE": "config.settings"
         }
       },
       "presentation": {
@@ -63,11 +140,11 @@
     {
       "label": "YGT: Seed Data",
       "type": "shell",
-      "command": "venv/bin/python manage.py seed_data",
+      "command": "venv/Scripts/python manage.py seed_data",
       "options": {
         "cwd": "${workspaceFolder}/backend",
         "env": {
-          "USE_SQLITE": "true"
+          "DJANGO_SETTINGS_MODULE": "config.settings"
         }
       },
       "presentation": {

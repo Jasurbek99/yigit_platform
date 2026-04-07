@@ -12,7 +12,9 @@ import {
 import { DatesProvider } from '@mantine/dates';
 import { ConfigProvider, Spin } from 'antd';
 import ruRU from 'antd/locale/ru_RU';
+import enUS from 'antd/locale/en_US';
 import { Toaster } from 'sonner';
+import { useTranslation } from 'react-i18next';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import AppLayout from '@/components/AppLayout';
 
@@ -31,8 +33,13 @@ const BlockSummary = lazy(() => import('@/pages/export/BlockSummary'));
 const DomesticSales = lazy(() => import('@/pages/export/DomesticSales'));
 const SeasonsPage = lazy(() => import('@/pages/admin/SeasonsPage'));
 const ExportFirmsPage = lazy(() => import('@/pages/admin/ExportFirmsPage'));
+const ExportFirmDetailPage = lazy(() => import('@/pages/admin/ExportFirmDetailPage'));
+const ImportFirmsPage = lazy(() => import('@/pages/admin/ImportFirmsPage'));
+const ImportFirmDetailPage = lazy(() => import('@/pages/admin/ImportFirmDetailPage'));
 const UsersPage = lazy(() => import('@/pages/admin/UsersPage'));
 const PermissionsPage = lazy(() => import('@/pages/admin/PermissionsPage'));
+const BlocksPage = lazy(() => import('@/pages/admin/BlocksPage'));
+const BlockDetailPage = lazy(() => import('@/pages/admin/BlockDetailPage'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -88,10 +95,13 @@ const PageLoader = () => (
 );
 
 export default function App() {
+  const { i18n } = useTranslation();
+  const antdLocale = i18n.language.startsWith('ru') ? ruRU : enUS;
+
   return (
     <QueryClientProvider client={queryClient}>
       <ConfigProvider
-        locale={ruRU}
+        locale={antdLocale}
         theme={{
           token: {
             colorPrimary: '#1677ff',
@@ -101,7 +111,7 @@ export default function App() {
         }}
       >
       <MantineProvider theme={theme}>
-        <DatesProvider settings={{ locale: 'ru', firstDayOfWeek: 1 }}>
+        <DatesProvider settings={{ locale: i18n.language.startsWith('ru') ? 'ru' : 'en', firstDayOfWeek: 1 }}>
           <Toaster position="top-right" richColors expand closeButton />
           <BrowserRouter future={{ v7_relativeSplatPath: true }}>
             <Suspense fallback={<PageLoader />}>
@@ -133,11 +143,22 @@ export default function App() {
                   <Route path="admin/firms" element={
                     <ProtectedRoute roles={['director']}><ExportFirmsPage /></ProtectedRoute>
                   } />
+                  <Route path="admin/firms/:id" element={<ExportFirmDetailPage />} />
+                  <Route path="admin/import-firms" element={
+                    <ProtectedRoute roles={['director']}><ImportFirmsPage /></ProtectedRoute>
+                  } />
+                  <Route path="admin/import-firms/:id" element={<ImportFirmDetailPage />} />
                   <Route path="admin/users" element={
                     <ProtectedRoute roles={['director']}><UsersPage /></ProtectedRoute>
                   } />
                   <Route path="admin/permissions" element={
                     <ProtectedRoute roles={['director']}><PermissionsPage /></ProtectedRoute>
+                  } />
+                  <Route path="admin/blocks" element={
+                    <ProtectedRoute roles={['director']}><BlocksPage /></ProtectedRoute>
+                  } />
+                  <Route path="admin/blocks/:id" element={
+                    <ProtectedRoute roles={['director']}><BlockDetailPage /></ProtectedRoute>
                   } />
                 </Route>
                 <Route path="*" element={<Navigate to="/" replace />} />

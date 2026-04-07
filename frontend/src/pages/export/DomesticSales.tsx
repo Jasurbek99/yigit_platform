@@ -97,7 +97,7 @@ export default function DomesticSales() {
             {t('domestic_sales.title')}
           </div>
           <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
-            Içerki bazar satyw hasabaty
+            {t('domestic_sales.subtitle')}
           </div>
         </div>
       </div>

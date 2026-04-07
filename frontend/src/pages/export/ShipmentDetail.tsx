@@ -42,19 +42,19 @@ const { Text, Title } = Typography;
 // ─── Status Steps ─────────────────────────────────────────────────────────────
 
 const STATUS_STEPS = [
-  { code: 'yuklenme',       label: 'Ýükleniş başlady' },
-  { code: 'gumruk_girish',  label: 'TM Gümrük girdi' },
-  { code: 'gumruk_chykysh', label: 'TM Gümrük çykdy' },
-  { code: 'yola_chykdy',    label: 'Ýola çykdy' },
-  { code: 'serhet_tm',      label: 'Serhetde — Farap Postta' },
-  { code: 'serhet_gechdi',  label: 'Serhetden geçdi' },
-  { code: 'barysh_gumrugi', label: 'Barjak ýurduň gümrügi' },
-  { code: 'yolda',          label: 'Ýolda' },
-  { code: 'bardy',          label: 'Barjak ýerine geldi' },
-  { code: 'satylyar',       label: 'Satylýar' },
-  { code: 'satyldy',        label: 'Satyldy' },
-  { code: 'hasabat',        label: 'Hasabat' },
-  { code: 'tamamlandy',     label: 'Tamamlandy' },
+  { code: 'yuklenme' },
+  { code: 'gumruk_girish' },
+  { code: 'gumruk_chykysh' },
+  { code: 'yola_chykdy' },
+  { code: 'serhet_tm' },
+  { code: 'serhet_gechdi' },
+  { code: 'barysh_gumrugi' },
+  { code: 'yolda' },
+  { code: 'bardy' },
+  { code: 'satylyar' },
+  { code: 'satyldy' },
+  { code: 'hasabat' },
+  { code: 'tamamlandy' },
 ] as const;
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
@@ -327,7 +327,7 @@ export default function ShipmentDetail() {
                 fontSize: 13,
                 color: state === 'pending' ? '#bfbfbf' : state === 'active' ? '#1677ff' : '#262626',
               }}>
-                {step.label}
+                {t(`shipment_status.${step.code}`)}
               </div>
               {state !== 'pending' && logEntry && (
                 <div style={{ fontSize: 11, color: '#8c8c8c', fontFamily: 'monospace' }}>
@@ -340,7 +340,7 @@ export default function ShipmentDetail() {
                 </div>
               )}
               {state === 'active' && (
-                <div style={{ fontSize: 11, color: '#8c8c8c' }}>häzir</div>
+                <div style={{ fontSize: 11, color: '#8c8c8c' }}>{t('shipment_detail.status_now')}</div>
               )}
             </div>
           </div>
@@ -354,65 +354,65 @@ export default function ShipmentDetail() {
   const tabItems = [
     {
       key: 'overview',
-      label: 'Esasy maglumat',
+      label: t('shipment_detail.tab_main'),
       children: (
         <div>
           {/* Section 1: Logistika */}
-          <SectionBlock title="📋 Logistika">
-            <InfoRow label="Müşderi" value={shipment.customer_name ?? '—'} />
-            <InfoRow label="Eksport firma" value={firmDisplay} />
-            <InfoRow label="Import firma" value="—" />
-            <InfoRow label="Barjak ýurt" value={shipment.country_name ?? '—'} />
-            <InfoRow label="Ýüklenýän ýer" value="—" />
+          <SectionBlock title={`📋 ${t('shipment_detail.section_logistics')}`}>
+            <InfoRow label={t('shipment_detail.customer')} value={shipment.customer_name ?? '—'} />
+            <InfoRow label={t('shipment_detail.firm_splits')} value={firmDisplay} />
+            <InfoRow label={t('shipment_detail.import_firm')} value="—" />
+            <InfoRow label={t('shipment_detail.country')} value={shipment.country_name ?? '—'} />
+            <InfoRow label={t('shipment_detail.loading_point')} value="—" />
           </SectionBlock>
 
           {/* Section 2: Transport */}
-          <SectionBlock title="🚛 Ulag (Transport bölüm)">
-            <InfoRow label="Maşyn" value="—" />
-            <InfoRow label="Sürüji" value="—" />
-            <InfoRow label="Ulag firmasy" value="—" />
-            <InfoRow label="Serhet nokady" value="—" />
-            <InfoRow label="Ýerleşýän ýeri" value={shipment.vehicle_condition ?? '—'} />
+          <SectionBlock title={`🚛 ${t('shipment_detail.section_transport')}`}>
+            <InfoRow label={t('shipment_detail.vehicle')} value="—" />
+            <InfoRow label={t('shipment_detail.driver')} value="—" />
+            <InfoRow label={t('shipment_detail.transport_firm')} value="—" />
+            <InfoRow label={t('shipment_detail.border_point')} value="—" />
+            <InfoRow label={t('shipment_detail.current_location')} value={shipment.vehicle_condition ?? '—'} />
           </SectionBlock>
 
           {/* Section 3: Haryt */}
-          <SectionBlock title="🌿 Haryt">
-            <InfoRow label="Ýygym bloklary" value={blockDisplay} />
-            <InfoRow label="Sort" value="—" />
-            <InfoRow label="Ýygym senesi" value={fmtDate(shipment.date)} />
-            <InfoRow label="Ýygym ýagdaýy" value="—" />
+          <SectionBlock title={`🌿 ${t('shipment_detail.section_goods')}`}>
+            <InfoRow label={t('shipment_detail.block_sources')} value={blockDisplay} />
+            <InfoRow label={t('shipment_detail.variety')} value="—" />
+            <InfoRow label={t('shipment_detail.harvest_date')} value={fmtDate(shipment.date)} />
+            <InfoRow label={t('shipment_detail.harvest_condition')} value="—" />
             <InfoRow
-              label="Agram (resmi)"
+              label={t('shipment_detail.weight_official')}
               value={`${fmtNum(shipment.weight_net)} kg`}
               bold
               mono
             />
             <InfoRow
-              label="Agram (hakyky)"
+              label={t('shipment_detail.weight_actual')}
               value={`${fmtNum(shipment.weight_gross)} kg`}
               mono
             />
             <InfoRow
-              label="Palet"
+              label={t('shipment_detail.pallets')}
               value={shipment.pallet_count != null ? String(shipment.pallet_count) : '—'}
             />
           </SectionBlock>
 
           {/* Section 4: Hil */}
-          <SectionBlock title="🌡️ Hil gözegçilik">
-            <InfoRow label="Tranzit güni" value="—" />
-            <InfoRow label="Temperaturasy" value="— °C" />
+          <SectionBlock title={`🌡️ ${t('shipment_detail.section_quality_ctrl')}`}>
+            <InfoRow label={t('shipment_detail.transit_days')} value="—" />
+            <InfoRow label={t('shipment_detail.temperature')} value="— °C" />
           </SectionBlock>
         </div>
       ),
     },
     {
       key: 'document',
-      label: 'Dokument',
+      label: t('shipment_detail.tab_document'),
       children: (
         <div>
           {/* Quality certificates */}
-          <SectionBlock title="Hil şahadatnamalary">
+          <SectionBlock title={t('shipment_detail.section_certs')}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {qualityFields.map((field) => (
                 <Checkbox
@@ -428,39 +428,39 @@ export default function ShipmentDetail() {
           </SectionBlock>
 
           {/* Logistics timestamps */}
-          <SectionBlock title="Wagt möhürleri">
-            <InfoRow label="Ýükleniş başlady" value={fmt(shipment.loading_started_at)} />
-            <InfoRow label="TM Gümrük girdi" value={fmt(shipment.customs_entry_at)} />
-            <InfoRow label="TM Gümrük çykdy" value={fmt(shipment.customs_exit_at)} />
-            <InfoRow label="Serhetden geçdi" value={fmt(shipment.border_crossed_at)} />
-            <InfoRow label="Bardy" value={fmt(shipment.arrived_at)} />
-            <InfoRow label="Satyş başlady" value={fmt(shipment.sale_started_at)} />
-            <InfoRow label="Satyş gutardy" value={fmt(shipment.sale_ended_at)} />
+          <SectionBlock title={t('shipment_detail.section_timestamps')}>
+            <InfoRow label={t('shipment_detail.loading_started')} value={fmt(shipment.loading_started_at)} />
+            <InfoRow label={t('shipment_detail.customs_entry')} value={fmt(shipment.customs_entry_at)} />
+            <InfoRow label={t('shipment_detail.customs_exit')} value={fmt(shipment.customs_exit_at)} />
+            <InfoRow label={t('shipment_detail.border_crossed')} value={fmt(shipment.border_crossed_at)} />
+            <InfoRow label={t('shipment_detail.arrived')} value={fmt(shipment.arrived_at)} />
+            <InfoRow label={t('shipment_detail.sale_started')} value={fmt(shipment.sale_started_at)} />
+            <InfoRow label={t('shipment_detail.sale_ended')} value={fmt(shipment.sale_ended_at)} />
           </SectionBlock>
         </div>
       ),
     },
     {
       key: 'finance',
-      label: 'Maliýe',
+      label: t('shipment_detail.tab_finance'),
       children: (
         <div>
           {/* Weight & price summary */}
-          <SectionBlock title="Agram we baha">
-            <InfoRow label="Arassa agram" value={`${fmtNum(shipment.weight_net)} kg`} />
-            <InfoRow label="Hakyky agram" value={`${fmtNum(shipment.weight_gross)} kg`} />
-            <InfoRow label="Gaplama" value={`${fmtNum(shipment.packaging_kg)} kg`} />
-            <InfoRow label="Guty" value={fmtNum(shipment.box_count)} />
-            <InfoRow label="Palet" value={fmtNum(shipment.pallet_count)} />
+          <SectionBlock title={t('shipment_detail.section_weight_price')}>
+            <InfoRow label={t('shipment_detail.weight_net')} value={`${fmtNum(shipment.weight_net)} kg`} />
+            <InfoRow label={t('shipment_detail.weight_gross')} value={`${fmtNum(shipment.weight_gross)} kg`} />
+            <InfoRow label={t('shipment_detail.packaging')} value={`${fmtNum(shipment.packaging_kg)} kg`} />
+            <InfoRow label={t('shipment_detail.boxes')} value={fmtNum(shipment.box_count)} />
+            <InfoRow label={t('shipment_detail.pallets')} value={fmtNum(shipment.pallet_count)} />
             <InfoRow
-              label="Bahasy (kg)"
+              label={t('shipment_detail.price_per_kg')}
               value={shipment.price_per_kg != null ? `$${shipment.price_per_kg}` : '—'}
             />
             <InfoRow
-              label="Jemi (USD)"
+              label={t('shipment_detail.total_usd')}
               value={shipment.total_amount_usd != null ? `$${fmtNum(shipment.total_amount_usd)}` : '—'}
             />
-            <InfoRow label="Bellik" value={shipment.notes ?? '—'} />
+            <InfoRow label={t('shipment_detail.notes')} value={shipment.notes ?? '—'} />
           </SectionBlock>
 
           {/* Firm splits table */}
@@ -573,7 +573,7 @@ export default function ShipmentDetail() {
           </Text>
           <StatusTag statusDisplay={shipment.status_display} />
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-            <Button icon={<EditOutlined />} disabled>Üýtget</Button>
+            <Button icon={<EditOutlined />} disabled>{t('common.edit')}</Button>
             {shipment.allowed_transitions?.length > 0 && (
               <TransitionButton
                 shipmentId={shipment.id}
@@ -602,14 +602,14 @@ export default function ShipmentDetail() {
 
         {/* Right: sidebar */}
         <div>
-          <Card title="📍 Ýük ýoly" size="small" style={{ marginBottom: 16 }}>
+          <Card title={`📍 ${t('shipment_detail.route_card')}`} size="small" style={{ marginBottom: 16 }}>
             {statusRouteContent}
           </Card>
-          <Card title="🔗 Baglanyşyklar" size="small">
+          <Card title={`🔗 ${t('shipment_detail.links_card')}`} size="small">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ color: '#8c8c8c' }}>Logo Tiger</span>
-                <Tag>Heniz iberilmedi</Tag>
+                <Tag>{t('shipment_detail.link_not_sent')}</Tag>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ color: '#8c8c8c' }}>Trip Management</span>
@@ -617,7 +617,7 @@ export default function ShipmentDetail() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ color: '#8c8c8c' }}>GPS Tracking</span>
-                <Tag>Enjam ýok</Tag>
+                <Tag>{t('shipment_detail.link_no_device')}</Tag>
               </div>
             </div>
           </Card>

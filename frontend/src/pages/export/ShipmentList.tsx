@@ -90,7 +90,7 @@ export default function ShipmentList() {
 
   const columns: ProColumns<IShipmentListItem>[] = [
     {
-      title: 'Kod',
+      title: t('shipments.cargo_code'),
       dataIndex: 'cargo_code',
       width: 140,
       render: (_, record) => (
@@ -113,7 +113,7 @@ export default function ShipmentList() {
       render: (val) => (val as string) ?? '—',
     },
     {
-      title: 'Ugur',
+      title: t('shipments.country'),
       dataIndex: 'country_name',
       width: 130,
       render: (val) => withFlag((val as string) ?? null),
@@ -125,7 +125,7 @@ export default function ShipmentList() {
       render: (_, record) => <StatusTag statusDisplay={record.status_display} />,
     },
     {
-      title: 'Agram (kg)',
+      title: t('shipments.weight_net'),
       dataIndex: 'weight_net',
       width: 120,
       align: 'right',
@@ -140,7 +140,7 @@ export default function ShipmentList() {
         ),
     },
     {
-      title: 'Ýola çykdy',
+      title: t('shipments.departed'),
       dataIndex: 'departed_at',
       width: 130,
       render: (val) =>
@@ -153,7 +153,7 @@ export default function ShipmentList() {
         ),
     },
     {
-      title: 'Geldi',
+      title: t('shipments.arrived'),
       dataIndex: 'arrived_at',
       width: 130,
       responsive: ['md'],
@@ -178,8 +178,8 @@ export default function ShipmentList() {
           </Title>
           <Text type="secondary" style={{ fontSize: 13 }}>
             {data
-              ? `Jemi ${data.count.toLocaleString()} ýük — 2025/2026 eksport möwsümi`
-              : '2025/2026 eksport möwsümi'}
+              ? t('shipments.subtitle_with_count', { count: data.count })
+              : t('shipments.season_label')}
           </Text>
         </div>
         {canCreate && (
@@ -196,7 +196,7 @@ export default function ShipmentList() {
       {/* Filter bar */}
       <Flex gap={8} wrap="wrap" align="center" style={{ marginBottom: 12 }}>
         <Input.Search
-          placeholder="Kod, müşderi..."
+          placeholder={t('shipments.search_ph')}
           style={{ width: 220 }}
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
@@ -205,7 +205,7 @@ export default function ShipmentList() {
         />
         <Select
           style={{ width: 160 }}
-          placeholder="Status: Hemmesi"
+          placeholder={t('shipments.status_filter_ph')}
           value={phaseFilter}
           onChange={(val) => { setPhaseFilter(val ?? undefined); setPage(1); }}
           options={PHASE_OPTIONS}

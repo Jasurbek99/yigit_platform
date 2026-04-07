@@ -106,7 +106,7 @@ export default function LoginPage() {
               YGT Platform
             </div>
             <div style={{ fontSize: 12, color: '#8c8c8c', textAlign: 'center' }}>
-              Operasiýalar Platformasy
+              {t('login.ops_subtitle')}
             </div>
           </div>
         </div>

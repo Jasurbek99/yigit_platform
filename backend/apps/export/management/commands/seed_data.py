@@ -129,7 +129,10 @@ GREENHOUSE_BLOCKS = [
     {'code': 'L', 'name': 'L-Ýyladyşhana', 'variety_main': 'Defensiosa', 'location': 'Kaka'},
     {'code': 'M15', 'name': 'M15-Ýyladyşhana', 'variety_main': 'Defensiosa', 'location': 'Dusak'},
     {'code': 'M5', 'name': 'M5-Ýyladyşhana', 'variety_main': 'Mahitos', 'location': 'Dusak'},
-    {'code': 'O', 'name': 'O-Ýyladyşhana', 'variety_main': 'Defensiosa', 'location': 'Owadandepe'},
+    {'code': 'O', 'name': 'O-Ýyladyşhana', 'variety_main': 'Defensiosa', 'area_m2': 173184, 'location': 'Owadandepe'},
+    # OD and OG are inner sub-blocks of O (each half of O's total area)
+    {'code': 'OD', 'name': 'OD-Ýyladyşhana', 'variety_main': 'Defensiosa', 'area_m2': 86592, 'location': 'Owadandepe', 'parent': 'O'},
+    {'code': 'OG', 'name': 'OG-Ýyladyşhana', 'variety_main': 'Defensiosa', 'area_m2': 86592, 'location': 'Owadandepe', 'parent': 'O'},
 ]
 
 
@@ -161,7 +164,7 @@ class Command(BaseCommand):
             self._load(BorderPoint, BORDER_POINTS, 'name')
             for name in LOADING_LOCATIONS:
                 LoadingLocation.objects.get_or_create(name=name)
-            self._load(GreenhouseBlock, GREENHOUSE_BLOCKS, 'code')
+            self._seed_blocks()
             self._load(ExportFirm, EXPORT_FIRMS, 'code')
             self._load_cities()
             self._create_test_users()
@@ -290,6 +293,47 @@ class Command(BaseCommand):
             if was_created:
                 created += 1
         self.stdout.write(f'  City: {len(CITIES)} rows ({created} new)')
+
+    def _seed_blocks(self) -> None:
+        """Seed greenhouse blocks resolving variety/location/parent text names to FK instances.
+
+        Two-pass strategy: parent blocks first (parent=None rows), then sub-blocks,
+        so the parent FK can be resolved by code.
+        """
+        variety_map = {v.name: v for v in TomatoVariety.objects.all()}
+        location_map = {loc.name: loc for loc in LoadingLocation.objects.all()}
+        created = 0
+
+        # Pass 1: parent blocks (rows without a 'parent' key)
+        for row in GREENHOUSE_BLOCKS:
+            if 'parent' in row:
+                continue
+            defaults = {k: v for k, v in row.items() if k not in ('code', 'variety_main', 'location')}
+            defaults['variety_main'] = variety_map.get(row.get('variety_main', ''))
+            defaults['location'] = location_map.get(row.get('location', ''))
+            defaults['parent'] = None
+            _, was_created = GreenhouseBlock.objects.update_or_create(
+                code=row['code'], defaults=defaults,
+            )
+            if was_created:
+                created += 1
+
+        # Pass 2: sub-blocks (rows with a 'parent' key) — parent must exist now
+        block_map = {b.code: b for b in GreenhouseBlock.objects.all()}
+        for row in GREENHOUSE_BLOCKS:
+            if 'parent' not in row:
+                continue
+            defaults = {k: v for k, v in row.items() if k not in ('code', 'variety_main', 'location', 'parent')}
+            defaults['variety_main'] = variety_map.get(row.get('variety_main', ''))
+            defaults['location'] = location_map.get(row.get('location', ''))
+            defaults['parent'] = block_map.get(row['parent'])
+            _, was_created = GreenhouseBlock.objects.update_or_create(
+                code=row['code'], defaults=defaults,
+            )
+            if was_created:
+                created += 1
+
+        self.stdout.write(f'  GreenhouseBlock: {len(GREENHOUSE_BLOCKS)} rows ({created} new)')
 
     def _load(self, model, data: list, lookup_field: str) -> None:
         created = 0

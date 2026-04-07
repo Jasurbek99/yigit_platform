@@ -6,18 +6,22 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.viewsets import ReadOnlyModelViewSet
+from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.core.models import Country, ExportFirm, ShipmentStatusType, Customer, GreenhouseBlock
+from apps.core.models import City, Country, ExportFirm, ShipmentStatusType, Customer, GreenhouseBlock, LoadingLocation, TomatoVariety
+from apps.core.permissions import write_permission
 from apps.core.serializers import (
     LoginSerializer,
     UserMeSerializer,
+    CitySerializer,
     CountrySerializer,
-    ExportFirmSerializer,
+    ExportFirmReferenceSerializer,
     ShipmentStatusTypeSerializer,
     CustomerSerializer,
     GreenhouseBlockSerializer,
+    LoadingLocationSerializer,
+    TomatoVarietySerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -102,22 +106,40 @@ class MeView(APIView):
         return Response(UserMeSerializer(request.user).data)
 
 
-class CountryViewSet(ReadOnlyModelViewSet):
-    queryset = Country.objects.all()
+class CountryViewSet(ModelViewSet):
     serializer_class = CountrySerializer
+    queryset = Country.objects.all().order_by('name_en')
+    permission_classes = [IsAuthenticated, write_permission('director')]
+
+
+class CityViewSet(ModelViewSet):
+    """Cities list with optional ?country=<id> filter. Writes restricted to director."""
+
+    serializer_class = CitySerializer
+    permission_classes = [IsAuthenticated, write_permission('director')]
+
+    def get_queryset(self):
+        qs = City.objects.select_related('country').order_by('name')
+        country_id = self.request.query_params.get('country')
+        if country_id:
+            qs = qs.filter(country_id=country_id)
+        return qs
 
 
 class ExportFirmViewSet(ReadOnlyModelViewSet):
+    permission_classes = [IsAuthenticated]
     queryset = ExportFirm.objects.filter(is_active=True)
-    serializer_class = ExportFirmSerializer
+    serializer_class = ExportFirmReferenceSerializer
 
 
 class ShipmentStatusTypeViewSet(ReadOnlyModelViewSet):
+    permission_classes = [IsAuthenticated]
     queryset = ShipmentStatusType.objects.all()
     serializer_class = ShipmentStatusTypeSerializer
 
 
 class CustomerViewSet(ReadOnlyModelViewSet):
+    permission_classes = [IsAuthenticated]
     queryset = Customer.objects.filter(is_active=True)
     serializer_class = CustomerSerializer
 
@@ -128,3 +150,19 @@ class GreenhouseBlockViewSet(ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = GreenhouseBlockSerializer
     queryset = GreenhouseBlock.objects.filter(is_active=True).order_by('code')
+
+
+class LoadingLocationViewSet(ReadOnlyModelViewSet):
+    """GET /api/v1/core/loading-locations/ — list all loading locations."""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = LoadingLocationSerializer
+    queryset = LoadingLocation.objects.all()
+
+
+class TomatoVarietyViewSet(ReadOnlyModelViewSet):
+    """GET /api/v1/core/tomato-varieties/ — list all tomato varieties."""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = TomatoVarietySerializer
+    queryset = TomatoVariety.objects.all()

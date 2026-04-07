@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Tabs,
   Card,
@@ -6,7 +6,10 @@ import {
   Button,
   Tag,
   Table,
-  Switch,
+  Badge,
+  Checkbox,
+  Drawer,
+  Divider,
   Space,
   Flex,
   Typography,
@@ -47,12 +50,12 @@ function BlockAssignmentsTab({
   const [selectedBlocks, setSelectedBlocks] = useState<Record<number, number[]>>({});
 
   const createAssignment = useCreateBlockAssignment({
-    onSuccess: () => toast.success('Blok goşuldy'),
-    onError: () => toast.error('Ýalňyşlyk'),
+    onSuccess: () => toast.success(t('permissions_admin.toast_block_added')),
+    onError: () => toast.error(t('permissions_admin.toast_error')),
   });
 
   const deleteAssignment = useDeleteBlockAssignment({
-    onError: () => toast.error('Ýalňyşlyk'),
+    onError: () => toast.error(t('permissions_admin.toast_error')),
   });
 
   if (isLoading) return <Spin style={{ display: 'block', marginTop: 40 }} />;
@@ -115,7 +118,7 @@ function BlockAssignmentsTab({
                 <Select
                   mode="multiple"
                   style={{ minWidth: 200 }}
-                  placeholder="Blok goş..."
+                  placeholder={t('permissions_admin.block_select_ph')}
                   options={availableBlocks}
                   value={pendingBlocks}
                   onChange={(vals) =>
@@ -131,7 +134,7 @@ function BlockAssignmentsTab({
                   disabled={pendingBlocks.length === 0}
                   loading={createAssignment.isPending}
                 >
-                  Goş
+                  {t('permissions_admin.block_add_btn')}
                 </Button>
               </Flex>
             </Flex>
@@ -140,7 +143,7 @@ function BlockAssignmentsTab({
       })}
 
       {managers.length === 0 && (
-        <Alert message="Ýyladyşhana menejerler tapylmady" type="info" />
+        <Alert message={t('permissions_admin.no_managers')} type="info" />
       )}
     </Space>
   );
@@ -148,8 +151,27 @@ function BlockAssignmentsTab({
 
 // ─── Permissions Tab ──────────────────────────────────────────────────────────
 
-const PERM_ADD_PLAN = 'add_weeklyharvestplan';
-const PERM_CHANGE_PLAN = 'change_weeklyharvestplan';
+interface IPermissionDef {
+  codename: string;
+  label: string;
+}
+
+interface IPermissionGroup {
+  group: string;
+  permissions: IPermissionDef[];
+}
+
+const ROLE_COLOR: Record<string, string> = {
+  director: 'red',
+  export_manager: 'blue',
+  greenhouse_manager: 'green',
+  warehouse_chief: 'cyan',
+  document_team: 'geekblue',
+  transport: 'orange',
+  sales_rep: 'lime',
+  finansist: 'gold',
+  accountant: 'purple',
+};
 
 interface PermissionsTabProps {
   users: IAdminUser[];
@@ -157,38 +179,68 @@ interface PermissionsTabProps {
 }
 
 function PermissionsTab({ users, isLoading }: PermissionsTabProps) {
+  const { t } = useTranslation();
   const [permState, setPermState] = useState<Record<number, string[]>>({});
+  const [selectedUser, setSelectedUser] = useState<IAdminUser | null>(null);
+  const [draftPerms, setDraftPerms] = useState<string[]>([]);
+
+  const permissionGroups = useMemo<IPermissionGroup[]>(() => [
+    {
+      group: t('permissions_admin.group_harvest_plan'),
+      permissions: [
+        { codename: 'add_weeklyharvestplan', label: t('permissions_admin.perm_add_weeklyharvestplan') },
+        { codename: 'change_weeklyharvestplan', label: t('permissions_admin.perm_change_weeklyharvestplan') },
+      ],
+    },
+    {
+      group: t('permissions_admin.group_firms'),
+      permissions: [
+        { codename: 'add_exportfirm',    label: t('permissions_admin.perm_add_exportfirm') },
+        { codename: 'change_exportfirm', label: t('permissions_admin.perm_change_exportfirm') },
+        { codename: 'delete_exportfirm', label: t('permissions_admin.perm_delete_exportfirm') },
+        { codename: 'add_importfirm',    label: t('permissions_admin.perm_add_importfirm') },
+        { codename: 'change_importfirm', label: t('permissions_admin.perm_change_importfirm') },
+        { codename: 'delete_importfirm', label: t('permissions_admin.perm_delete_importfirm') },
+      ],
+    },
+  ], [t]);
 
   const updatePermissions = useUpdateUserPermissions({
-    onError: () => toast.error('Rugsat üýtgedilmedi'),
+    onError: () => toast.error(t('permissions_admin.toast_perm_error')),
   });
 
-  function hasPerm(userId: number, perm: string): boolean {
-    return (permState[userId] ?? []).includes(perm);
+  function openDrawer(user: IAdminUser): void {
+    setSelectedUser(user);
+    setDraftPerms(permState[user.id] ?? []);
   }
 
-  function handleToggle(userId: number, perm: string, checked: boolean) {
-    const current = permState[userId] ?? [];
-    const next = checked ? [...current, perm] : current.filter((p) => p !== perm);
-    setPermState((prev) => ({ ...prev, [userId]: next }));
-    updatePermissions.mutate({ id: userId, permissions: next });
+  function handleClose(): void {
+    setSelectedUser(null);
   }
 
-  const ROLE_COLOR: Record<string, string> = {
-    director: 'red',
-    export_manager: 'blue',
-    greenhouse_manager: 'green',
-    warehouse_chief: 'cyan',
-    document_team: 'geekblue',
-    transport: 'orange',
-    sales_rep: 'lime',
-    finansist: 'gold',
-    accountant: 'purple',
-  };
+  function handleSave(): void {
+    if (!selectedUser) return;
+    updatePermissions.mutate(
+      { id: selectedUser.id, permissions: draftPerms },
+      {
+        onSuccess: () => {
+          setPermState((prev) => ({ ...prev, [selectedUser.id]: draftPerms }));
+          toast.success(t('permissions_admin.toast_save_success'));
+          handleClose();
+        },
+      },
+    );
+  }
+
+  function togglePerm(codename: string, checked: boolean): void {
+    setDraftPerms((prev) =>
+      checked ? [...prev, codename] : prev.filter((p) => p !== codename),
+    );
+  }
 
   const columns = [
     {
-      title: 'Ulanyja',
+      title: t('permissions_admin.col_user'),
       dataIndex: 'username',
       key: 'username',
       render: (_: unknown, record: IAdminUser) => (
@@ -203,7 +255,7 @@ function PermissionsTab({ users, isLoading }: PermissionsTabProps) {
       ),
     },
     {
-      title: 'Wezipe',
+      title: t('permissions_admin.col_role'),
       dataIndex: 'role',
       key: 'role',
       render: (role: string) => (
@@ -211,39 +263,88 @@ function PermissionsTab({ users, isLoading }: PermissionsTabProps) {
       ),
     },
     {
-      title: 'Plan Goş',
-      key: PERM_ADD_PLAN,
-      render: (_: unknown, record: IAdminUser) => (
-        <Switch
-          size="small"
-          checked={hasPerm(record.id, PERM_ADD_PLAN)}
-          onChange={(checked) => handleToggle(record.id, PERM_ADD_PLAN, checked)}
-        />
-      ),
+      title: t('permissions_admin.col_permissions'),
+      key: 'permissions',
+      render: (_: unknown, record: IAdminUser) => {
+        const count = (permState[record.id] ?? []).length;
+        return count > 0 ? (
+          <Badge count={count} color="blue" />
+        ) : (
+          <Text type="secondary" style={{ fontSize: 12 }}>{t('permissions_admin.perm_count', { count: 0 })}</Text>
+        );
+      },
     },
     {
-      title: 'Plan Üýt',
-      key: PERM_CHANGE_PLAN,
+      title: '',
+      key: 'actions',
       render: (_: unknown, record: IAdminUser) => (
-        <Switch
-          size="small"
-          checked={hasPerm(record.id, PERM_CHANGE_PLAN)}
-          onChange={(checked) => handleToggle(record.id, PERM_CHANGE_PLAN, checked)}
-        />
+        <Button size="small" onClick={() => openDrawer(record)}>
+          {t('common.manage')}
+        </Button>
       ),
     },
   ];
 
   return (
-    <Table<IAdminUser>
-      rowKey="id"
-      dataSource={users}
-      columns={columns}
-      loading={isLoading}
-      size="small"
-      pagination={false}
-      style={{ background: '#fff', borderRadius: 8 }}
-    />
+    <>
+      <Table<IAdminUser>
+        rowKey="id"
+        dataSource={users}
+        columns={columns}
+        loading={isLoading}
+        size="small"
+        pagination={false}
+        style={{ background: '#fff', borderRadius: 8 }}
+      />
+
+      <Drawer
+        open={selectedUser !== null}
+        maskClosable={false}
+        title={
+          selectedUser && (
+            <Space>
+              <Text strong>{selectedUser.username}</Text>
+              <Tag color={ROLE_COLOR[selectedUser.role] ?? 'default'}>
+                {selectedUser.role}
+              </Tag>
+            </Space>
+          )
+        }
+        width={420}
+        onClose={handleClose}
+        footer={
+          <Flex justify="flex-end" gap={8}>
+            <Button onClick={handleClose}>{t('common.cancel')}</Button>
+            <Button
+              type="primary"
+              onClick={handleSave}
+              loading={updatePermissions.isPending}
+            >
+              {t('common.save')}
+            </Button>
+          </Flex>
+        }
+      >
+        {permissionGroups.map((pg) => (
+          <div key={pg.group}>
+            <Divider style={{ fontSize: 12 }}>
+              {pg.group}
+            </Divider>
+            <Space direction="vertical" size={8} style={{ paddingLeft: 8 }}>
+              {pg.permissions.map((perm) => (
+                <Checkbox
+                  key={perm.codename}
+                  checked={draftPerms.includes(perm.codename)}
+                  onChange={(e) => togglePerm(perm.codename, e.target.checked)}
+                >
+                  {perm.label}
+                </Checkbox>
+              ))}
+            </Space>
+          </div>
+        ))}
+      </Drawer>
+    </>
   );
 }
 
@@ -279,7 +380,7 @@ export default function PermissionsPage() {
           {t('nav.admin_permissions')}
         </div>
         <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
-          Blok düzgünlerini we rugsatlaryny dolandyrmak
+          {t('permissions_admin.subtitle')}
         </div>
       </div>
 
@@ -288,7 +389,7 @@ export default function PermissionsPage() {
         items={[
           {
             key: 'blocks',
-            label: 'Blok Düzgünleri',
+            label: t('permissions_admin.tab_blocks'),
             children: (
               <BlockAssignmentsTab
                 managers={managers}
@@ -300,7 +401,7 @@ export default function PermissionsPage() {
           },
           {
             key: 'permissions',
-            label: 'Rugsat Dolandyryşy',
+            label: t('permissions_admin.tab_permissions'),
             children: (
               <PermissionsTab users={allUsers} isLoading={usersLoading} />
             ),

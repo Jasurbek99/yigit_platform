@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import dayjs from 'dayjs';
 import api from '@/services/api';
+import { CountrySelect } from '@/components/CountrySelect';
 
 interface IShipmentCreateModalProps {
   readonly open: boolean;
@@ -40,15 +41,6 @@ interface IFormValues {
 export function ShipmentCreateModal({ open, onClose, onSuccess }: IShipmentCreateModalProps) {
   const { t } = useTranslation();
   const [form] = Form.useForm<IFormValues>();
-
-  const { data: countries, isLoading: countriesLoading } = useQuery({
-    queryKey: ['core', 'countries'],
-    queryFn: async () => {
-      const { data } = await api.get<{ results: ISelectOption[] }>('/core/countries/?page_size=200');
-      return data.results;
-    },
-    staleTime: 5 * 60_000,
-  });
 
   const { data: customers, isLoading: customersLoading } = useQuery({
     queryKey: ['core', 'customers'],
@@ -108,7 +100,6 @@ export function ShipmentCreateModal({ open, onClose, onSuccess }: IShipmentCreat
     onClose();
   }
 
-  const countryOptions = (countries ?? []).map((c) => ({ value: c.id, label: c.name }));
   const customerOptions = (customers ?? []).map((c) => ({ value: c.id, label: c.name }));
   const seasonOptions = (seasons ?? []).map((s) => ({ value: s.id, label: s.name }));
 
@@ -152,15 +143,7 @@ export function ShipmentCreateModal({ open, onClose, onSuccess }: IShipmentCreat
           label={t('shipment_create.country')}
           rules={[{ required: true, message: t('shipment_create.country') }]}
         >
-          <Select
-            showSearch
-            loading={countriesLoading}
-            options={countryOptions}
-            placeholder={t('shipment_create.country')}
-            filterOption={(input, option) =>
-              (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())
-            }
-          />
+          <CountrySelect placeholder={t('shipment_create.country')} allowClear={false} />
         </Form.Item>
 
         <Form.Item

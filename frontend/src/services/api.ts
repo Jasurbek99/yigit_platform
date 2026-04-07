@@ -1,12 +1,12 @@
 import axios, { type AxiosInstance } from 'axios';
 
 const api: AxiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1',
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
   withCredentials: true, // send httpOnly cookies automatically
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Attach CSRF token on mutating requests
+// Attach CSRF token on mutating requests; remove Content-Type for FormData (Axios sets it with boundary)
 api.interceptors.request.use((config) => {
   if (['post', 'put', 'patch', 'delete'].includes(config.method ?? '')) {
     const csrfToken = document.cookie
@@ -15,6 +15,9 @@ api.interceptors.request.use((config) => {
       ?.split('=')[1];
     if (csrfToken) {
       config.headers['X-CSRFToken'] = csrfToken;
+    }
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
     }
   }
   return config;

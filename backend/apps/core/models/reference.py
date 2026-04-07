@@ -108,10 +108,21 @@ class ProductType(models.Model):
 
 
 class GreenhouseBlock(models.Model):
-    """Greenhouse blocks A–O. manager FK replaces deprecated managed_blocks on User."""
+    """Greenhouse blocks A–O, plus inner sub-blocks (e.g. OD, OG under O).
+
+    parent is NULL for top-level blocks; set for inner sub-blocks.
+    """
 
     code = models.CharField(max_length=10, unique=True)
     name = models.CharField(max_length=100, blank=True, null=True, **cyrillic_collation())
+    parent = models.ForeignKey(
+        'self',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='sub_blocks',
+        db_column='parent_id',
+    )
     manager = models.ForeignKey(
         'core.User',
         on_delete=models.SET_NULL,
@@ -119,10 +130,31 @@ class GreenhouseBlock(models.Model):
         blank=True,
         related_name='managed_blocks_set',
     )
-    variety_main = models.CharField(max_length=50, blank=True, null=True)
-    variety_secondary = models.CharField(max_length=50, blank=True, null=True)
+    variety_main = models.ForeignKey(
+        'core.TomatoVariety',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='primary_blocks',
+        db_column='variety_main_id',
+    )
+    variety_secondary = models.ForeignKey(
+        'core.TomatoVariety',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='secondary_blocks',
+        db_column='variety_secondary_id',
+    )
     area_m2 = models.IntegerField(blank=True, null=True)
-    location = models.CharField(max_length=50, blank=True, null=True, **cyrillic_collation())
+    location = models.ForeignKey(
+        'core.LoadingLocation',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='blocks',
+        db_column='location_id',
+    )
     section_count = models.IntegerField(blank=True, null=True)
     sowing_date = models.DateField(blank=True, null=True)
     season_start_month = models.IntegerField(blank=True, null=True)
@@ -154,6 +186,7 @@ class ExportFirm(models.Model):
     swift_code = models.CharField(max_length=20, blank=True, null=True)
     one_c_code = models.CharField(max_length=50, blank=True, null=True)
     is_active = models.BooleanField(default=True)
+    is_gapy_satys = models.BooleanField(default=False)
 
     class Meta:
         db_table = schema_table('core', 'export_firms')
@@ -166,19 +199,26 @@ class ExportFirm(models.Model):
 class ImportFirm(models.Model):
     """Buyer / importer companies."""
 
-    code = models.CharField(max_length=20, unique=True, blank=True, null=True)
-    name_tk = models.CharField(max_length=200, **cyrillic_collation())
-    name_ru = models.CharField(max_length=200, blank=True, null=True, **cyrillic_collation())
-    name_en = models.CharField(max_length=200, blank=True, null=True)
+    code = models.CharField(max_length=50, blank=True, null=True)
+    name_company = models.CharField(max_length=300, **cyrillic_collation())
+    name_short = models.CharField(max_length=100, blank=True, null=True, **cyrillic_collation())
     country = models.ForeignKey(Country, on_delete=models.PROTECT, null=True, blank=True)
+    city = models.ForeignKey(City, on_delete=models.PROTECT, null=True, blank=True)
+    address = models.CharField(max_length=500, blank=True, null=True, **cyrillic_collation())
+    bank_details = models.CharField(max_length=1000, blank=True, null=True, **cyrillic_collation())
+    contact_person = models.CharField(max_length=200, blank=True, null=True, **cyrillic_collation())
+    phone = models.CharField(max_length=50, blank=True, null=True)
+    director_signature = models.FileField(upload_to='import_firms/signatures/', null=True, blank=True)
+    director_seal = models.FileField(upload_to='import_firms/seals/', null=True, blank=True)
     is_active = models.BooleanField(default=True)
+    is_gapy_satys = models.BooleanField(default=False)
 
     class Meta:
         db_table = schema_table('core', 'import_firms')
-        ordering = ['name_en']
+        ordering = ['name_company']
 
     def __str__(self) -> str:
-        return self.name_en or self.name_tk
+        return self.name_short or self.name_company
 
 
 class ShipmentStatusType(models.Model):

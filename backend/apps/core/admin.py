@@ -35,7 +35,7 @@ class ExportFirmAdmin(admin.ModelAdmin):
 
 @admin.register(ImportFirm)
 class ImportFirmAdmin(admin.ModelAdmin):
-    list_display = ['code', 'name_en', 'country', 'is_active']
+    list_display = ['code', 'name_company', 'name_short', 'country', 'is_active']
 
 
 @admin.register(GreenhouseBlock)

@@ -123,7 +123,7 @@ export default function BlockSummary() {
             {t('block_summary.title')}
           </div>
           <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
-            Bloklar boýunça ýygym seredişi
+            {t('block_summary.subtitle')}
           </div>
         </div>
         <DatePickerInput

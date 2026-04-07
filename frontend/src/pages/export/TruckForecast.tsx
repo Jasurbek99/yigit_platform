@@ -129,7 +129,7 @@ export default function TruckForecast() {
             {t('truck.title')}
           </div>
           <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
-            Geljek günler üçin ulag meýilnamasy
+            {t('truck.subtitle')}
           </div>
         </div>
         <DatePickerInput

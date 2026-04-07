@@ -391,7 +391,7 @@ export default function AdvancesTracker() {
             {t('advances.title')}
           </div>
           <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
-            Müşderileriň öňünden töleg yzarlaýjysy
+            {t('advances.subtitle')}
           </div>
         </div>
         {canCreate && (

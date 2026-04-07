@@ -20,6 +20,7 @@ export interface ICurrentUser {
   role: UserRole;
   is_superuser: boolean;
   managed_block_ids: number[];
+  permissions: string[];  // Django permission codenames; ['*'] for superuser
 }
 
 // ─── Reference ────────────────────────────────────────────────────────────
@@ -32,13 +33,50 @@ export interface ICountry {
   code: string | null;
 }
 
+export interface ICity {
+  id: number;
+  name: string;
+  name_local: string | null;
+  country: number;
+}
+
 export interface IExportFirm {
   id: number;
   code: string;
   name_tk: string;
   name_ru: string | null;
   name_en: string | null;
+  address_tk: string | null;
+  address_en: string | null;
+  address_ru: string | null;
+  bank_details_tk: string | null;
+  bank_details_en: string | null;
+  bank_details_ru: string | null;
+  director: string | null;
+  tax_code: string | null;
+  swift_code: string | null;
+  one_c_code: string | null;
   is_active: boolean;
+  is_gapy_satys: boolean;
+}
+
+export interface IImportFirm {
+  id: number;
+  code: string | null;
+  name_company: string;
+  name_short: string | null;
+  country: number | null;
+  country_name: string | null;
+  city: number | null;
+  city_name: string | null;
+  address: string | null;
+  bank_details: string | null;
+  contact_person: string | null;
+  phone: string | null;
+  is_active: boolean;
+  is_gapy_satys: boolean;
+  director_signature: string | null;
+  director_seal: string | null;
 }
 
 export interface IShipmentStatusType {
@@ -279,11 +317,52 @@ export interface IFinansistAdvanceDetail extends IFinansistAdvanceListItem {
 
 // ─── Admin ─────────────────────────────────────────────────────────────────
 
+export interface ILoadingLocation {
+  id: number;
+  name: string;
+}
+
+export interface ITomatoVariety {
+  id: number;
+  name: string;
+  type: string | null;
+  avg_fruit_weight_gr: string | null;
+}
+
+export interface IGreenhouseBlockSub {
+  id: number;
+  code: string;
+  name: string | null;
+  variety_main: number | null;
+  variety_main_name: string | null;
+  variety_secondary: number | null;
+  variety_secondary_name: string | null;
+  area_m2: number | null;
+  section_count: number | null;
+  sowing_date: string | null;
+  is_active: boolean;
+}
+
 export interface IGreenhouseBlock {
   id: number;
   code: string;
   name: string | null;
+  parent: number | null;
+  parent_code: string | null;
+  manager: number | null;
+  manager_name: string | null;
+  variety_main: number | null;
+  variety_main_name: string | null;
+  variety_secondary: number | null;
+  variety_secondary_name: string | null;
+  area_m2: number | null;
+  location: number | null;
+  location_name: string | null;
+  section_count: number | null;
+  sowing_date: string | null;
+  season_start_month: number | null;
   is_active: boolean;
+  sub_blocks: IGreenhouseBlockSub[];
 }
 
 export interface IBlockAssignment {
