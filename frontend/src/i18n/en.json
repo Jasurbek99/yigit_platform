@@ -94,7 +94,8 @@
     "russia_trucks": "Russia",
     "kazak_trucks": "Kazakhstan",
     "gapy_trucks": "Gapy Satys",
-    "truck_allocation": "Truck Allocation"
+    "truck_allocation": "Truck Allocation",
+    "empty_week": "No plans for this week"
   },
   "quota": {
     "title": "Quota Dashboard",

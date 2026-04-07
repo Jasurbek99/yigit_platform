@@ -170,9 +170,7 @@ function PlanCell({ day, row, editable, onSave }: PlanCellProps) {
         keyboard={false}
         defaultValue={value}
         onBlur={(e) => {
-          const raw = e.target.value;
-          const v = Number(raw.replace(/,/g, '')) || 0;
-          console.log('[PlanCell blur]', { day, block: row.block_code, raw, parsed: v, prev: value, willSave: v !== value });
+          const v = Number(e.target.value.replace(/,/g, '')) || 0;
           if (v !== value) onSave(row, day, v);
         }}
         onKeyDown={handleCellKeyDown}
@@ -333,12 +331,7 @@ export default function WeeklyPlanGrid() {
 
   function handlePlanSave(row: IWeeklyHarvestPlan, day: Day, value: number) {
     const field = `${day}_plan_kg`;
-    const payload = { id: row.id, [field]: value };
-    console.log('[handlePlanSave]', payload);
-    upsert.mutate(payload, {
-      onSuccess: (data) => console.log('[handlePlanSave] success', data),
-      onError: (err) => console.error('[handlePlanSave] error', err),
-    });
+    upsert.mutate({ id: row.id, [field]: value });
   }
 
   function handleActualSave(row: IWeeklyHarvestPlan, day: Day, value: number | null) {
@@ -816,6 +809,8 @@ export default function WeeklyPlanGrid() {
 
       {isLoading ? (
         <Skeleton active />
+      ) : plans.length === 0 && !showInitialize ? (
+        <Alert type="info" message={t('plan.empty_week')} style={{ marginBottom: 16 }} />
       ) : transposed ? (
         <Table<ITransposedRow>
           columns={transposedColumns}

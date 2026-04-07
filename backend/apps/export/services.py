@@ -329,6 +329,8 @@ def submit_harvest_plan(plan: 'WeeklyHarvestPlan', user) -> None:
     plan.rejected_at = None
     plan.rejected_by = None
     plan.rejection_note = None
+    # auto_now fields are ignored when update_fields is passed — assign explicitly.
+    plan.updated_at = now
     plan.save(update_fields=[
         'status', 'submitted_at', 'submitted_by',
         'rejected_at', 'rejected_by', 'rejection_note', 'updated_at',
@@ -390,6 +392,7 @@ def approve_harvest_plan(plan: 'WeeklyHarvestPlan', user) -> None:
     plan.status = 'approved'
     plan.approved_at = now
     plan.approved_by = user
+    plan.updated_at = now
     plan.save(update_fields=['status', 'approved_at', 'approved_by', 'updated_at'])
 
     AuditLog.objects.create(
@@ -450,6 +453,7 @@ def reject_harvest_plan(plan: 'WeeklyHarvestPlan', user, rejection_note: str) ->
     plan.rejected_at = now
     plan.rejected_by = user
     plan.rejection_note = rejection_note.strip()
+    plan.updated_at = now
     plan.save(update_fields=[
         'status', 'rejected_at', 'rejected_by', 'rejection_note', 'updated_at',
     ])

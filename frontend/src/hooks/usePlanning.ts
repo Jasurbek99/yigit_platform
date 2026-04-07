@@ -46,11 +46,9 @@ export function useUpsertHarvestPlan() {
         return { ...payload, id: payload.id ?? Date.now() } as IWeeklyHarvestPlan;
       }
       if (payload.id) {
-        console.log('[useUpsertHarvestPlan] PATCH', `/export/harvest-plans/${payload.id}/`, payload);
         const { data } = await api.patch<IWeeklyHarvestPlan>(`/export/harvest-plans/${payload.id}/`, payload);
         return data;
       }
-      console.log('[useUpsertHarvestPlan] POST', '/export/harvest-plans/', payload);
       const { data } = await api.post<IWeeklyHarvestPlan>('/export/harvest-plans/', payload);
       return data;
     },

@@ -94,7 +94,8 @@
     "russia_trucks": "Rossiya",
     "kazak_trucks": "Gazak",
     "gapy_trucks": "Gapy Satys",
-    "truck_allocation": "Maşyn paýlanyşy"
+    "truck_allocation": "Maşyn paýlanyşy",
+    "empty_week": "Bu hepde üçin meýilnama ýok"
   },
   "quota": {
     "title": "Kwota paneli",

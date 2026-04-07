@@ -43,12 +43,6 @@ _DOMESTIC_WRITE_ROLES = frozenset({'warehouse_chief', 'greenhouse_manager', 'exp
 _PRICE_WRITE_ROLES = frozenset({'export_manager', 'finansist', 'director'})
 
 
-def _check_write_role(user, allowed: frozenset, action: str = 'write') -> None:
-    """Raise PermissionDenied if user.role is not in allowed set."""
-    if getattr(user, 'role', None) not in allowed:
-        raise PermissionDenied(f"Role '{user.role}' is not allowed to {action}.")
-
-
 class WeeklyHarvestPlanViewSet(ModelViewSet):
     """
     GET    /api/v1/export/harvest-plans/            — list (filter by ?season=&block=&year=&week=)
@@ -357,15 +351,17 @@ class WeeklyHarvestPlanViewSet(ModelViewSet):
         Returns per-block aggregate totals across all 6 days.
         Does NOT filter by ?block= — always returns all blocks for the given week.
         """
+        params = request.query_params
+        if not params.get('year') or not params.get('week'):
+            return Response(
+                {'error': 'year and week query params are required.'},
+                status=http_status.HTTP_400_BAD_REQUEST,
+            )
         # Build queryset independently — do NOT inherit the ?block= filter from get_queryset()
         qs = WeeklyHarvestPlan.objects.select_related('block')
-        params = request.query_params
         if season := params.get('season'):
             qs = qs.filter(season_id=season)
-        if year := params.get('year'):
-            qs = qs.filter(year=year)
-        if week := params.get('week'):
-            qs = qs.filter(week_number=week)
+        qs = qs.filter(year=params['year'], week_number=params['week'])
 
         DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
 
@@ -521,6 +517,11 @@ class WeeklyTruckAllocationViewSet(ModelViewSet):
             count = item.get('truck_count', 0)
             if dest_id is None:
                 continue
+            if not isinstance(count, int) or count < 0:
+                return Response(
+                    {'error': f'truck_count must be a non-negative integer, got {count!r}'},
+                    status=http_status.HTTP_400_BAD_REQUEST,
+                )
             TruckDestinationSplit.objects.update_or_create(
                 truck_allocation=allocation,
                 destination_id=dest_id,

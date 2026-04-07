@@ -94,7 +94,8 @@
     "russia_trucks": "Россия",
     "kazak_trucks": "Казахстан",
     "gapy_trucks": "Гапы Сатыс",
-    "truck_allocation": "Распределение машин"
+    "truck_allocation": "Распределение машин",
+    "empty_week": "Нет планов на эту неделю"
   },
   "quota": {
     "title": "Дашборд квот",
