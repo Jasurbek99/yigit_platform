@@ -57,6 +57,77 @@ export function useUpsertHarvestPlan() {
   });
 }
 
+export function useInitializeWeek() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { season: number; week_number: number; year: number }): Promise<IApiListResponse<IWeeklyHarvestPlan>> => {
+      const { data } = await api.post<IApiListResponse<IWeeklyHarvestPlan>>(
+        '/export/harvest-plans/initialize-week/',
+        payload,
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['harvest-plans'] });
+    },
+  });
+}
+
+export function useSubmitHarvestPlan() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number): Promise<IWeeklyHarvestPlan> => {
+      const { data } = await api.post<IWeeklyHarvestPlan>(`/export/harvest-plans/${id}/submit/`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['harvest-plans'] });
+    },
+  });
+}
+
+export function useApproveHarvestPlan() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number): Promise<IWeeklyHarvestPlan> => {
+      const { data } = await api.post<IWeeklyHarvestPlan>(`/export/harvest-plans/${id}/approve/`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['harvest-plans'] });
+    },
+  });
+}
+
+export function useRejectHarvestPlan() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { id: number; rejection_note: string }): Promise<IWeeklyHarvestPlan> => {
+      const { data } = await api.post<IWeeklyHarvestPlan>(
+        `/export/harvest-plans/${payload.id}/reject/`,
+        { rejection_note: payload.rejection_note },
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['harvest-plans'] });
+    },
+  });
+}
+
+export function useBulkApproveHarvestPlans() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: number[]): Promise<{ approved: number[]; errors: Array<{ id: number; error: string }> }> => {
+      const { data } = await api.post('/export/harvest-plans/bulk-approve/', { ids });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['harvest-plans'] });
+    },
+  });
+}
+
 export function useQuotaDashboard(seasonId?: number) {
   return useQuery({
     queryKey: ['quota-dashboard', seasonId],

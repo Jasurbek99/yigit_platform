@@ -4,8 +4,9 @@ from decimal import Decimal
 
 from django.db.models import F
 from django.utils import timezone
+from rest_framework import status as http_status
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
@@ -26,6 +27,11 @@ from apps.export.serializers_planning import (
     PriceEntrySerializer,
     QuotaDashboardSerializer,
     DomesticSaleSerializer,
+)
+from apps.export.services import (
+    submit_harvest_plan,
+    approve_harvest_plan,
+    reject_harvest_plan,
 )
 
 logger = logging.getLogger(__name__)
@@ -62,9 +68,10 @@ class WeeklyHarvestPlanViewSet(ModelViewSet):
     serializer_class = WeeklyHarvestPlanSerializer
     http_method_names = ['get', 'post', 'put', 'head', 'options']
 
-    queryset = WeeklyHarvestPlan.objects.select_related('season', 'block', 'entered_by').order_by(
-        'year', 'week_number', 'block__code'
-    )
+    queryset = WeeklyHarvestPlan.objects.select_related(
+        'season', 'block', 'entered_by',
+        'submitted_by', 'approved_by', 'rejected_by',
+    ).order_by('year', 'week_number', 'block__code')
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -125,10 +132,175 @@ class WeeklyHarvestPlanViewSet(ModelViewSet):
         self._check_plan_permission(self.request.user, block_id, is_create=True)
         serializer.save(entered_by=self.request.user)
 
+    # Day field name sets for status-based validation.
+    _PLAN_FIELDS = frozenset(f'{d}_plan_kg' for d in
+                             ('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'))
+    _ACTUAL_FIELDS = frozenset(f'{d}_actual_kg' for d in
+                               ('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'))
+
     def perform_update(self, serializer):
-        block_id = serializer.instance.block_id
+        """Status-based field locking on update.
+
+        - draft / rejected: only plan_kg fields may change.
+        - approved: only actual_kg fields may change (and only for today or past days).
+        - submitted: no edits allowed (locked pending review).
+        """
+        instance = serializer.instance
+        block_id = instance.block_id
         self._check_plan_permission(self.request.user, block_id, is_create=False)
+
+        changed_fields = set(serializer.validated_data.keys())
+
+        if instance.status == 'submitted':
+            raise ValidationError('Plan is pending approval and cannot be edited.')
+
+        if instance.status in ('draft', 'rejected'):
+            # Only plan fields allowed.
+            disallowed = changed_fields & self._ACTUAL_FIELDS
+            if disallowed:
+                raise ValidationError(
+                    f'Cannot edit actual fields while plan is in {instance.status} status.'
+                )
+
+        if instance.status == 'approved':
+            # Only actual fields allowed.
+            disallowed = changed_fields & self._PLAN_FIELDS
+            if disallowed:
+                raise ValidationError(
+                    'Cannot edit plan fields after approval. Only actual kg can be updated.'
+                )
+            # Validate actual entries are for today or past days within the week.
+            today = timezone.now().date()
+            # ISO weekday: Monday=1 .. Saturday=6
+            today_weekday = today.isoweekday()
+            day_index = {
+                'monday': 1, 'tuesday': 2, 'wednesday': 3,
+                'thursday': 4, 'friday': 5, 'saturday': 6,
+            }
+            for field_name in changed_fields & self._ACTUAL_FIELDS:
+                day_name = field_name.replace('_actual_kg', '')
+                if day_index[day_name] > today_weekday:
+                    raise ValidationError(
+                        f'Cannot enter actual for {day_name} — it is a future day.'
+                    )
+
         serializer.save(entered_by=self.request.user)
+
+    # ─── Workflow actions ─────────────────────────────────────────────────────
+
+    @action(detail=True, methods=['post'], url_path='submit')
+    def submit(self, request, pk=None):
+        """POST /api/v1/export/harvest-plans/{id}/submit/"""
+        plan = self.get_object()
+        try:
+            submit_harvest_plan(plan, request.user)
+        except (ValueError, PermissionError) as exc:
+            return Response({'error': str(exc)}, status=http_status.HTTP_400_BAD_REQUEST)
+        return Response(self.get_serializer(plan).data)
+
+    @action(detail=True, methods=['post'], url_path='approve')
+    def approve(self, request, pk=None):
+        """POST /api/v1/export/harvest-plans/{id}/approve/"""
+        plan = self.get_object()
+        try:
+            approve_harvest_plan(plan, request.user)
+        except (ValueError, PermissionError) as exc:
+            return Response({'error': str(exc)}, status=http_status.HTTP_400_BAD_REQUEST)
+        return Response(self.get_serializer(plan).data)
+
+    @action(detail=True, methods=['post'], url_path='reject')
+    def reject(self, request, pk=None):
+        """POST /api/v1/export/harvest-plans/{id}/reject/
+
+        Body: { "rejection_note": "..." }
+        """
+        plan = self.get_object()
+        rejection_note = request.data.get('rejection_note', '')
+        try:
+            reject_harvest_plan(plan, request.user, rejection_note)
+        except (ValueError, PermissionError) as exc:
+            return Response({'error': str(exc)}, status=http_status.HTTP_400_BAD_REQUEST)
+        return Response(self.get_serializer(plan).data)
+
+    @action(detail=False, methods=['post'], url_path='bulk-approve')
+    def bulk_approve(self, request):
+        """POST /api/v1/export/harvest-plans/bulk-approve/
+
+        Body: { "ids": [1, 2, 3] }
+        Approves all submitted plans in the given list. Skips non-submitted plans.
+        """
+        ids = request.data.get('ids', [])
+        if not ids:
+            return Response({'error': 'ids list is required.'}, status=http_status.HTTP_400_BAD_REQUEST)
+
+        plans = WeeklyHarvestPlan.objects.filter(
+            id__in=ids, status='submitted',
+        ).select_related('block')
+        approved_ids = []
+        errors = []
+        for plan in plans:
+            try:
+                approve_harvest_plan(plan, request.user)
+                approved_ids.append(plan.id)
+            except (ValueError, PermissionError) as exc:
+                errors.append({'id': plan.id, 'error': str(exc)})
+
+        return Response({'approved': approved_ids, 'errors': errors})
+
+    @action(detail=False, methods=['post'], url_path='initialize-week')
+    def initialize_week(self, request):
+        """POST /api/v1/export/harvest-plans/initialize-week/
+
+        Body: { "season": 1, "week_number": 15, "year": 2026 }
+        Creates draft WeeklyHarvestPlan rows for all active blocks that don't
+        already have a plan for the given (season, week, year).
+        Returns the created plan rows.
+        """
+        from apps.core.models import GreenhouseBlock
+
+        season_id = request.data.get('season')
+        week_number = request.data.get('week_number')
+        year = request.data.get('year')
+
+        if not all([season_id, week_number, year]):
+            return Response(
+                {'error': 'season, week_number, and year are required.'},
+                status=http_status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Only directors and export_managers can initialize a week.
+        role = getattr(request.user, 'role', None)
+        if role not in ('director', 'export_manager'):
+            raise PermissionDenied('Only director or export_manager can initialize a week plan.')
+
+        active_blocks = GreenhouseBlock.objects.filter(is_active=True)
+        existing_block_ids = set(
+            WeeklyHarvestPlan.objects.filter(
+                season_id=season_id, week_number=week_number, year=year,
+            ).values_list('block_id', flat=True)
+        )
+
+        new_plans = [
+            WeeklyHarvestPlan(
+                season_id=season_id,
+                block=block,
+                week_number=week_number,
+                year=year,
+                entered_by=request.user,
+            )
+            for block in active_blocks
+            if block.id not in existing_block_ids
+        ]
+
+        if new_plans:
+            WeeklyHarvestPlan.objects.bulk_create(new_plans, batch_size=500)
+
+        # Return all plans for this week (including any that already existed).
+        qs = WeeklyHarvestPlan.objects.filter(
+            season_id=season_id, week_number=week_number, year=year,
+        ).select_related('season', 'block', 'entered_by', 'submitted_by', 'approved_by', 'rejected_by')
+        serializer = self.get_serializer(qs, many=True)
+        return Response({'count': len(serializer.data), 'results': serializer.data})
 
     @action(detail=False, methods=['get'], url_path='block-summary')
     def block_summary(self, request):

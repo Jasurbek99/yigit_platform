@@ -8,6 +8,8 @@ from .shipment import (
     SalesReport,
 )
 from .planning import (
+    PLAN_STATUS_CHOICES,
+    PLAN_TRANSITIONS,
     WeeklyHarvestPlan,
     WeeklyTruckAllocation,
     QuotaAllocation,
@@ -28,6 +30,8 @@ __all__ = [
     'QualityDocument',
     'ShipmentComment',
     'SalesReport',
+    'PLAN_STATUS_CHOICES',
+    'PLAN_TRANSITIONS',
     'WeeklyHarvestPlan',
     'WeeklyTruckAllocation',
     'QuotaAllocation',

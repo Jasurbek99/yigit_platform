@@ -10,6 +10,17 @@ class WeeklyHarvestPlanSerializer(serializers.ModelSerializer):
     season_name = serializers.CharField(source='season.name', read_only=True)
     entered_by_name = serializers.CharField(source='entered_by.username', read_only=True)
 
+    # Approval workflow read-only fields
+    submitted_by_name = serializers.CharField(
+        source='submitted_by.username', read_only=True, default=None,
+    )
+    approved_by_name = serializers.CharField(
+        source='approved_by.username', read_only=True, default=None,
+    )
+    rejected_by_name = serializers.CharField(
+        source='rejected_by.username', read_only=True, default=None,
+    )
+
     # Computed totals
     total_plan_kg = serializers.SerializerMethodField()
     total_actual_kg = serializers.SerializerMethodField()
@@ -35,9 +46,18 @@ class WeeklyHarvestPlanSerializer(serializers.ModelSerializer):
             'monday_actual_kg', 'tuesday_actual_kg', 'wednesday_actual_kg',
             'thursday_actual_kg', 'friday_actual_kg', 'saturday_actual_kg',
             'total_plan_kg', 'total_actual_kg',
+            # Approval workflow
+            'status', 'submitted_at', 'submitted_by_name',
+            'approved_at', 'approved_by_name',
+            'rejected_at', 'rejected_by_name', 'rejection_note',
             'entered_by_name', 'updated_at',
         ]
-        read_only_fields = ['entered_by_name', 'updated_at', 'total_plan_kg', 'total_actual_kg']
+        read_only_fields = [
+            'entered_by_name', 'updated_at', 'total_plan_kg', 'total_actual_kg',
+            'status', 'submitted_at', 'submitted_by_name',
+            'approved_at', 'approved_by_name',
+            'rejected_at', 'rejected_by_name', 'rejection_note',
+        ]
 
 
 class QuotaAllocationSerializer(serializers.ModelSerializer):

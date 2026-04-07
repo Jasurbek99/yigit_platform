@@ -249,3 +249,229 @@ def transition_to(shipment: Shipment, new_status_code: str, user, comment: str =
     # Refresh quota usage when a shipment commits to loading
     if new_status_code == 'yuklenme':
         _refresh_quota_usage(shipment)
+
+
+# ---------------------------------------------------------------------------
+# Weekly Harvest Plan — approval workflow
+# ---------------------------------------------------------------------------
+
+_PLAN_APPROVE_ROLES = frozenset({'export_manager', 'director'})
+_PLAN_DAYS = ('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday')
+
+
+def _notify_plan_event(
+    kind: str,
+    plan: 'WeeklyHarvestPlan',
+    target_user_ids: list[int],
+    message: str,
+) -> None:
+    """Create Notification rows for the given users about a harvest plan event."""
+    from apps.export.models import Notification
+
+    link = f'/export/plan?week={plan.week_number}&year={plan.year}'
+    notifications = [
+        Notification(user_id=uid, kind=kind, message=message, link=link)
+        for uid in target_user_ids
+    ]
+    if notifications:
+        Notification.objects.bulk_create(notifications, batch_size=500)
+
+
+def submit_harvest_plan(plan: 'WeeklyHarvestPlan', user) -> None:
+    """Submit a harvest plan for approval.
+
+    Validates the plan is in draft or rejected status, has at least one
+    non-zero plan_kg day, and the user has block permission.
+
+    Args:
+        plan: WeeklyHarvestPlan instance.
+        user: User performing the submission.
+
+    Raises:
+        ValueError: If the plan cannot be submitted from its current status.
+        PermissionError: If the user is not allowed to write this block's plan.
+    """
+    from apps.export.models import PLAN_TRANSITIONS, AuditLog, BlockManagerAssignment
+
+    allowed = PLAN_TRANSITIONS.get(plan.status, [])
+    if 'submitted' not in allowed:
+        raise ValueError(
+            f"Cannot submit plan from status '{plan.status}'. "
+            f"Allowed transitions: {allowed}"
+        )
+
+    # Validate at least one day has a positive plan value.
+    has_plan = any(getattr(plan, f'{d}_plan_kg', 0) > 0 for d in _PLAN_DAYS)
+    if not has_plan:
+        raise ValueError('Plan must have at least one day with a positive plan_kg.')
+
+    # Check block permission.
+    role = getattr(user, 'role', None)
+    if role not in _PLAN_APPROVE_ROLES:
+        if role == 'greenhouse_manager':
+            has_assignment = BlockManagerAssignment.objects.filter(
+                user=user, block_id=plan.block_id, is_active=True,
+            ).exists()
+            if not has_assignment:
+                raise PermissionError(
+                    f"greenhouse_manager is not assigned to block {plan.block_id}."
+                )
+        else:
+            raise PermissionError(
+                f"Role '{role}' is not allowed to submit harvest plans."
+            )
+
+    now = timezone.now()
+    plan.status = 'submitted'
+    plan.submitted_at = now
+    plan.submitted_by = user
+    # Clear rejection fields on resubmit.
+    plan.rejected_at = None
+    plan.rejected_by = None
+    plan.rejection_note = None
+    plan.save(update_fields=[
+        'status', 'submitted_at', 'submitted_by',
+        'rejected_at', 'rejected_by', 'rejection_note', 'updated_at',
+    ])
+
+    AuditLog.objects.create(
+        user=user,
+        action='plan_submitted',
+        model_name='WeeklyHarvestPlan',
+        object_id=plan.id,
+        object_repr=str(plan),
+        detail=f'Block {plan.block.code} W{plan.week_number}/{plan.year} submitted',
+    )
+
+    # Notify export_manager + director users.
+    from apps.core.models import User
+    target_ids = list(
+        User.objects.filter(role__in=_PLAN_APPROVE_ROLES, is_active=True)
+        .values_list('id', flat=True)
+    )
+    block_code = plan.block.code
+    _notify_plan_event(
+        'plan_submitted', plan, target_ids,
+        f'Block {block_code} W{plan.week_number} plan submitted by {user.username}',
+    )
+
+    logger.info(
+        'HarvestPlan %s submitted by %s', plan, user.username,
+    )
+
+
+def approve_harvest_plan(plan: 'WeeklyHarvestPlan', user) -> None:
+    """Approve a submitted harvest plan.
+
+    Args:
+        plan: WeeklyHarvestPlan instance in 'submitted' status.
+        user: User performing the approval (must be export_manager or director).
+
+    Raises:
+        ValueError: If the plan is not in 'submitted' status.
+        PermissionError: If the user's role cannot approve.
+    """
+    from apps.export.models import PLAN_TRANSITIONS, AuditLog, BlockManagerAssignment
+
+    allowed = PLAN_TRANSITIONS.get(plan.status, [])
+    if 'approved' not in allowed:
+        raise ValueError(
+            f"Cannot approve plan from status '{plan.status}'. "
+            f"Allowed transitions: {allowed}"
+        )
+
+    role = getattr(user, 'role', None)
+    if role not in _PLAN_APPROVE_ROLES:
+        raise PermissionError(
+            f"Role '{role}' is not allowed to approve harvest plans."
+        )
+
+    now = timezone.now()
+    plan.status = 'approved'
+    plan.approved_at = now
+    plan.approved_by = user
+    plan.save(update_fields=['status', 'approved_at', 'approved_by', 'updated_at'])
+
+    AuditLog.objects.create(
+        user=user,
+        action='plan_approved',
+        model_name='WeeklyHarvestPlan',
+        object_id=plan.id,
+        object_repr=str(plan),
+        detail=f'Block {plan.block.code} W{plan.week_number}/{plan.year} approved',
+    )
+
+    # Notify the block's greenhouse managers.
+    target_ids = list(
+        BlockManagerAssignment.objects.filter(
+            block_id=plan.block_id, is_active=True,
+        ).values_list('user_id', flat=True)
+    )
+    _notify_plan_event(
+        'plan_approved', plan, target_ids,
+        f'Your Block {plan.block.code} W{plan.week_number} plan approved by {user.username}',
+    )
+
+    logger.info('HarvestPlan %s approved by %s', plan, user.username)
+
+
+def reject_harvest_plan(plan: 'WeeklyHarvestPlan', user, rejection_note: str) -> None:
+    """Reject a submitted harvest plan.
+
+    Args:
+        plan: WeeklyHarvestPlan instance in 'submitted' status.
+        user: User performing the rejection (must be export_manager or director).
+        rejection_note: Mandatory reason for rejection.
+
+    Raises:
+        ValueError: If the plan is not in 'submitted' status or note is empty.
+        PermissionError: If the user's role cannot reject.
+    """
+    from apps.export.models import PLAN_TRANSITIONS, AuditLog, BlockManagerAssignment
+
+    allowed = PLAN_TRANSITIONS.get(plan.status, [])
+    if 'rejected' not in allowed:
+        raise ValueError(
+            f"Cannot reject plan from status '{plan.status}'. "
+            f"Allowed transitions: {allowed}"
+        )
+
+    if not rejection_note or not rejection_note.strip():
+        raise ValueError('Rejection note is required.')
+
+    role = getattr(user, 'role', None)
+    if role not in _PLAN_APPROVE_ROLES:
+        raise PermissionError(
+            f"Role '{role}' is not allowed to reject harvest plans."
+        )
+
+    now = timezone.now()
+    plan.status = 'rejected'
+    plan.rejected_at = now
+    plan.rejected_by = user
+    plan.rejection_note = rejection_note.strip()
+    plan.save(update_fields=[
+        'status', 'rejected_at', 'rejected_by', 'rejection_note', 'updated_at',
+    ])
+
+    AuditLog.objects.create(
+        user=user,
+        action='plan_rejected',
+        model_name='WeeklyHarvestPlan',
+        object_id=plan.id,
+        object_repr=str(plan),
+        detail=f'Block {plan.block.code} W{plan.week_number}/{plan.year} rejected: {rejection_note}',
+    )
+
+    # Notify the block's greenhouse managers.
+    target_ids = list(
+        BlockManagerAssignment.objects.filter(
+            block_id=plan.block_id, is_active=True,
+        ).values_list('user_id', flat=True)
+    )
+    _notify_plan_event(
+        'plan_rejected', plan, target_ids,
+        f'Your Block {plan.block.code} W{plan.week_number} plan rejected: {rejection_note}',
+    )
+
+    logger.info('HarvestPlan %s rejected by %s: %s', plan, user.username, rejection_note)

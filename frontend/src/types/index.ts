@@ -155,6 +155,8 @@ export interface IShipmentComment {
 
 // ─── Planning ─────────────────────────────────────────────────────────────
 
+export type PlanStatus = 'draft' | 'submitted' | 'approved' | 'rejected';
+
 export interface IWeeklyHarvestPlan {
   id: number;
   season: number;
@@ -178,6 +180,15 @@ export interface IWeeklyHarvestPlan {
   saturday_actual_kg: number | null;
   total_plan_kg: number;
   total_actual_kg: number | null;
+  // Approval workflow
+  status: PlanStatus;
+  submitted_at: string | null;
+  submitted_by_name: string | null;
+  approved_at: string | null;
+  approved_by_name: string | null;
+  rejected_at: string | null;
+  rejected_by_name: string | null;
+  rejection_note: string | null;
   entered_by_name: string | null;
   updated_at: string;
 }

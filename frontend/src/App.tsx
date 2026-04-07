@@ -110,7 +110,7 @@ export default function App() {
           },
         }}
       >
-      <MantineProvider theme={theme}>
+      <MantineProvider theme={theme} forceColorScheme="light">
         <DatesProvider settings={{ locale: i18n.language.startsWith('ru') ? 'ru' : 'en', firstDayOfWeek: 1 }}>
           <Toaster position="top-right" richColors expand closeButton />
           <BrowserRouter future={{ v7_relativeSplatPath: true }}>

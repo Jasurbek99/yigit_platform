@@ -16,7 +16,10 @@ export const MOCK_HARVEST_PLANS: IWeeklyHarvestPlan[] = [
     monday_actual_kg: 3150, tuesday_actual_kg: 3280, wednesday_actual_kg: 2950,
     thursday_actual_kg: null, friday_actual_kg: null, saturday_actual_kg: null,
     total_plan_kg: 18500, total_actual_kg: 9380,
-    entered_by_name: 'greenhouse_manager', updated_at: '2025-02-17T08:00:00+05:00',
+    status: 'approved', submitted_at: '2025-02-14T08:00:00+05:00', submitted_by_name: 'toyly_b',
+    approved_at: '2025-02-14T12:00:00+05:00', approved_by_name: 'Gadam',
+    rejected_at: null, rejected_by_name: null, rejection_note: null,
+    entered_by_name: 'toyly_b', updated_at: '2025-02-17T08:00:00+05:00',
   },
   {
     id: 2, season: 1, season_name: '2025-2026', block: 2, block_code: 'B', block_name: 'B-Ýyladyşhana',
@@ -26,7 +29,10 @@ export const MOCK_HARVEST_PLANS: IWeeklyHarvestPlan[] = [
     monday_actual_kg: 3600, tuesday_actual_kg: 3450, wednesday_actual_kg: 3250,
     thursday_actual_kg: null, friday_actual_kg: null, saturday_actual_kg: null,
     total_plan_kg: 20000, total_actual_kg: 10300,
-    entered_by_name: 'greenhouse_manager', updated_at: '2025-02-17T08:00:00+05:00',
+    status: 'submitted', submitted_at: '2025-02-15T09:00:00+05:00', submitted_by_name: 'guwanc_k',
+    approved_at: null, approved_by_name: null,
+    rejected_at: null, rejected_by_name: null, rejection_note: null,
+    entered_by_name: 'guwanc_k', updated_at: '2025-02-17T08:00:00+05:00',
   },
   {
     id: 3, season: 1, season_name: '2025-2026', block: 3, block_code: 'C', block_name: 'C-Ýyladyşhana',
@@ -36,7 +42,11 @@ export const MOCK_HARVEST_PLANS: IWeeklyHarvestPlan[] = [
     monday_actual_kg: null, tuesday_actual_kg: null, wednesday_actual_kg: null,
     thursday_actual_kg: null, friday_actual_kg: null, saturday_actual_kg: null,
     total_plan_kg: 16200, total_actual_kg: null,
-    entered_by_name: 'greenhouse_manager', updated_at: '2025-02-16T10:00:00+05:00',
+    status: 'rejected', submitted_at: '2025-02-14T10:00:00+05:00', submitted_by_name: 'geldimyrat_a',
+    approved_at: null, approved_by_name: null,
+    rejected_at: '2025-02-15T11:00:00+05:00', rejected_by_name: 'Gadam',
+    rejection_note: 'Plan values too low for block C capacity',
+    entered_by_name: 'geldimyrat_a', updated_at: '2025-02-16T10:00:00+05:00',
   },
 ];
 
