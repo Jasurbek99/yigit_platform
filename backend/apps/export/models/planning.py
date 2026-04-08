@@ -224,36 +224,107 @@ class BlockManagerAssignment(models.Model):
 
 
 class QuotaAllocation(models.Model):
-    """Export quota granted to a firm for a season.
+    """Government-issued export quota earned from a domestic sale.
 
-    DDL: export.quota_allocations — UNIQUE (season_id, export_firm_id)
-    used_kg is updated by the finance module when shipments are settled.
+    Each quota is granted to one export firm, has a validity window
+    (valid_from / valid_to), and is consumed FIFO by shipment firm splits.
+    The granted amount is approximately 10x the domestic sale but decided
+    by government clerks — so we track both expected and actual.
     """
 
-    season = models.ForeignKey('core.Season', on_delete=models.PROTECT, db_column='season_id')
     export_firm = models.ForeignKey(
         'core.ExportFirm', on_delete=models.PROTECT,
         db_column='export_firm_id', related_name='quota_allocations',
     )
-    granted_kg = models.DecimalField(max_digits=12, decimal_places=2)
-    used_kg = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
-    # Warning flags — set True once notification is sent to avoid repeats
+    # === Domestic sale basis ===
+    domestic_sale_kg = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        help_text='Weight sold on local market that earned this quota',
+    )
+    domestic_sale_date = models.DateField(
+        null=True, blank=True,
+        help_text='Date of the domestic sale',
+    )
+
+    # === Quota amounts ===
+    expected_kg = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        help_text='domestic_sale_kg × 10 — what government should give',
+    )
+    granted_kg = models.DecimalField(
+        max_digits=12, decimal_places=2,
+        help_text='What government actually gave (clerk decision)',
+    )
+    used_kg = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        help_text='Consumed by shipments (calculated via FIFO)',
+    )
+
+    # === Validity window ===
+    valid_from = models.DateField(default='2026-01-01', help_text='Start of quota validity (user-entered)')
+    valid_to = models.DateField(default='2026-01-31', help_text='End of quota validity (user-entered)')
+
+    # === Warning flags — set True once notification is sent ===
     warning_80_sent = models.BooleanField(default=False)
     warning_90_sent = models.BooleanField(default=False)
     warning_95_sent = models.BooleanField(default=False)
 
+    # === Audit ===
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    created_by = models.ForeignKey(
+        'core.User', on_delete=models.SET_NULL, null=True, blank=True,
+        db_column='created_by', related_name='quotas_created',
+    )
+    notes = models.CharField(max_length=500, blank=True, default='')
+
     class Meta:
         db_table = schema_table('export', 'quota_allocations')
         constraints = [
-            models.UniqueConstraint(
-                fields=['season', 'export_firm'],
-                name='uq_quota_season_firm',
-            ),
             models.CheckConstraint(check=models.Q(used_kg__gte=0), name='chk_quota_used_kg_gte0'),
             models.CheckConstraint(check=models.Q(granted_kg__gt=0), name='chk_quota_granted_kg_gt0'),
+            models.CheckConstraint(check=models.Q(domestic_sale_kg__gt=0), name='chk_quota_domestic_sale_gt0'),
+            models.CheckConstraint(check=models.Q(valid_to__gte=models.F('valid_from')), name='chk_quota_valid_range'),
         ]
-        ordering = ['export_firm__name_en']
+        ordering = ['valid_from', 'export_firm__name_en']
+
+    @property
+    def remaining_kg(self) -> 'Decimal':
+        from decimal import Decimal
+        return self.granted_kg - self.used_kg
+
+    @property
+    def used_pct(self) -> float:
+        if not self.granted_kg:
+            return 0.0
+        from decimal import Decimal
+        return float((self.used_kg / self.granted_kg * Decimal('100')).quantize(Decimal('0.1')))
+
+    @property
+    def difference_kg(self) -> 'Decimal':
+        """granted_kg - expected_kg: positive = overpaid, negative = shortchanged."""
+        return self.granted_kg - self.expected_kg
+
+    @property
+    def is_expired(self) -> bool:
+        from django.utils import timezone
+        return self.valid_to < timezone.now().date()
+
+    @property
+    def is_exhausted(self) -> bool:
+        return self.used_kg >= self.granted_kg
+
+    @property
+    def status_label(self) -> str:
+        if self.is_exhausted:
+            return 'exhausted'
+        if self.is_expired:
+            return 'expired'
+        return 'active'
+
+    def __str__(self) -> str:
+        firm_name = getattr(self.export_firm, 'name_en', None) or f'firm#{self.export_firm_id}'
+        return f'{firm_name} {self.valid_from}–{self.valid_to} ({self.granted_kg} kg)'
 
 
 class PriceEntry(models.Model):

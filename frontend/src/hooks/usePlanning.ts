@@ -3,7 +3,8 @@ import api from '@/services/api';
 import type {
   IApiListResponse,
   IWeeklyHarvestPlan,
-  IQuotaDashboardItem,
+  IQuotaAllocation,
+  IQuotaFirmSummary,
   IPriceEntry,
   IWeeklyTruckAllocation,
   ITruckDestination,
@@ -155,13 +156,83 @@ export function useBulkRejectHarvestPlans() {
   });
 }
 
-export function useQuotaDashboard(seasonId?: number) {
+export function useQuotaDashboard(filters: { export_firm?: number; status?: string } = {}) {
   return useQuery({
-    queryKey: ['quota-dashboard', seasonId],
-    queryFn: async (): Promise<IQuotaDashboardItem[]> => {
+    queryKey: ['quota-dashboard', filters],
+    queryFn: async (): Promise<IQuotaAllocation[]> => {
       if (USE_MOCK) return MOCK_QUOTA_DASHBOARD;
-      const params = seasonId ? `?season=${seasonId}` : '';
-      const { data } = await api.get<IQuotaDashboardItem[]>(`/export/quotas/dashboard/${params}`);
+      const params = new URLSearchParams();
+      if (filters.export_firm) params.set('export_firm', String(filters.export_firm));
+      if (filters.status) params.set('status', filters.status);
+      const qs = params.toString() ? `?${params.toString()}` : '';
+      const { data } = await api.get<IQuotaAllocation[]>(`/export/quotas/dashboard/${qs}`);
+      return data;
+    },
+    staleTime: 60_000,
+  });
+}
+
+export interface IQuotaFormData {
+  export_firm: number;
+  domestic_sale_kg: number;
+  domestic_sale_date?: string | null;
+  expected_kg: number;
+  granted_kg: number;
+  valid_from: string;
+  valid_to: string;
+  notes?: string;
+}
+
+export function useCreateQuota() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: IQuotaFormData): Promise<IQuotaAllocation> => {
+      const { data } = await api.post<IQuotaAllocation>('/export/quotas/', payload);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['quota-dashboard'] });
+    },
+  });
+}
+
+export function useUpdateQuota() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...payload }: IQuotaFormData & { id: number }): Promise<IQuotaAllocation> => {
+      const { data } = await api.put<IQuotaAllocation>(`/export/quotas/${id}/`, payload);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['quota-dashboard'] });
+    },
+  });
+}
+
+export function useDeleteQuota() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number): Promise<void> => {
+      await api.delete(`/export/quotas/${id}/`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['quota-dashboard'] });
+    },
+  });
+}
+
+const MOCK_QUOTA_FIRM_SUMMARY: IQuotaFirmSummary[] = [
+  { export_firm: 1, export_firm_name: 'Durli Miweler HJ', export_firm_code: 'F005', quota_count: 3, active_count: 2, expired_count: 1, exhausted_count: 0, total_domestic_sale_kg: 5500, total_expected_kg: 55000, total_granted_kg: 45000, total_difference_kg: -10000, total_used_kg: 28000, total_remaining_kg: 17000, utilization_pct: 62.2, earliest_expiry: '2026-04-30' },
+  { export_firm: 2, export_firm_name: 'Gulbahar HJ', export_firm_code: 'F003', quota_count: 2, active_count: 1, expired_count: 0, exhausted_count: 1, total_domestic_sale_kg: 4000, total_expected_kg: 40000, total_granted_kg: 35000, total_difference_kg: -5000, total_used_kg: 32000, total_remaining_kg: 3000, utilization_pct: 91.4, earliest_expiry: '2026-04-30' },
+  { export_firm: 3, export_firm_name: 'Altyn Asyr', export_firm_code: 'F010', quota_count: 1, active_count: 1, expired_count: 0, exhausted_count: 0, total_domestic_sale_kg: 2000, total_expected_kg: 20000, total_granted_kg: 20000, total_difference_kg: 0, total_used_kg: 5000, total_remaining_kg: 15000, utilization_pct: 25.0, earliest_expiry: '2026-05-15' },
+];
+
+export function useQuotaFirmSummary() {
+  return useQuery({
+    queryKey: ['quota-firm-summary'],
+    queryFn: async (): Promise<IQuotaFirmSummary[]> => {
+      if (USE_MOCK) return MOCK_QUOTA_FIRM_SUMMARY;
+      const { data } = await api.get<IQuotaFirmSummary[]>('/export/quotas/firm-summary/');
       return data;
     },
     staleTime: 60_000,

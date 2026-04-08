@@ -193,22 +193,51 @@ export interface IWeeklyHarvestPlan {
   updated_at: string;
 }
 
+export type QuotaStatus = 'active' | 'expired' | 'exhausted';
+
 export interface IQuotaAllocation {
   id: number;
-  season: number;
-  season_name: string;
   export_firm: number;
   export_firm_name: string | null;
+  // Domestic sale basis
+  domestic_sale_kg: number;
+  domestic_sale_date: string | null;
+  // Amounts
+  expected_kg: number;
   granted_kg: number;
   used_kg: number;
+  remaining_kg: number;
+  used_pct: number;
+  difference_kg: number;
+  // Validity
+  valid_from: string;
+  valid_to: string;
+  status_label: QuotaStatus;
+  // Warnings
   warning_80_sent: boolean;
   warning_90_sent: boolean;
   warning_95_sent: boolean;
+  // Audit
+  notes: string;
+  created_at: string;
 }
 
-export interface IQuotaDashboardItem extends IQuotaAllocation {
-  remaining_kg: number;
-  used_pct: number;
+export interface IQuotaFirmSummary {
+  export_firm: number;
+  export_firm_name: string;
+  export_firm_code: string;
+  quota_count: number;
+  active_count: number;
+  expired_count: number;
+  exhausted_count: number;
+  total_domestic_sale_kg: number;
+  total_expected_kg: number;
+  total_granted_kg: number;
+  total_difference_kg: number;
+  total_used_kg: number;
+  total_remaining_kg: number;
+  utilization_pct: number;
+  earliest_expiry: string | null;
 }
 
 export interface IPriceEntry {

@@ -88,7 +88,8 @@ def _send_quota_notifications(quota_obj: 'QuotaAllocation') -> None:
         if pct >= threshold and not getattr(quota_obj, flag):
             message = (
                 f'{firm_name} quota at {pct}% '
-                f'({quota_obj.used_kg} / {quota_obj.granted_kg} kg)'
+                f'({quota_obj.used_kg} / {quota_obj.granted_kg} kg) '
+                f'valid {quota_obj.valid_from}–{quota_obj.valid_to}'
             )
             link = f'/export/quotas/?firm={quota_obj.export_firm_id}'
 
@@ -113,23 +114,23 @@ def _send_quota_notifications(quota_obj: 'QuotaAllocation') -> None:
             **{f: True for f in flags_to_update}
         )
         logger.info(
-            'Quota warning flags set for firm=%s season=%s: %s',
+            'Quota warning flags set for quota=%s firm=%s: %s',
+            quota_obj.pk,
             quota_obj.export_firm_id,
-            quota_obj.season_id,
             flags_to_update,
         )
 
 
 def _refresh_quota_usage(shipment: 'Shipment') -> None:
-    """Recalculate used_kg for all QuotaAllocation rows affected by this shipment.
+    """Recalculate used_kg for all active quotas of firms on this shipment using FIFO.
 
-    Called after a shipment enters yuklenme (loading committed). Sums all firm
-    split weights for the affected firms in the same season.
+    Called after a shipment enters yuklenme (loading committed).
+    For each affected firm, sums all committed shipment firm-split weights and
+    distributes them across the firm's active quotas oldest-first (valid_from ASC).
     """
     from apps.export.models import ShipmentFirmSplit, QuotaAllocation
 
-    if not shipment.season_id:
-        return
+    today = timezone.now().date()
 
     firm_ids = list(
         ShipmentFirmSplit.objects.filter(shipment=shipment)
@@ -140,25 +141,34 @@ def _refresh_quota_usage(shipment: 'Shipment') -> None:
         return
 
     for firm_id in firm_ids:
-        total = ShipmentFirmSplit.objects.filter(
-            shipment__season_id=shipment.season_id,
+        # Total weight committed for this firm across all shipments in loading+
+        total_committed = ShipmentFirmSplit.objects.filter(
             export_firm_id=firm_id,
         ).aggregate(total=Coalesce(Sum('weight_kg'), Decimal('0')))['total']
 
-        QuotaAllocation.objects.filter(
-            season_id=shipment.season_id,
-            export_firm_id=firm_id,
-        ).update(used_kg=total)
-
-        # Re-fetch with select_related to get firm name for the notification message.
-        quota_obj = (
+        # All quotas for this firm (active = not expired), ordered FIFO
+        quotas = list(
             QuotaAllocation.objects
             .select_related('export_firm')
-            .filter(season_id=shipment.season_id, export_firm_id=firm_id)
-            .first()
+            .filter(export_firm_id=firm_id, valid_to__gte=today)
+            .order_by('valid_from', 'pk')
         )
-        if quota_obj:
-            _send_quota_notifications(quota_obj)
+
+        # Distribute total_committed across quotas FIFO
+        remaining_to_allocate = total_committed
+        for quota in quotas:
+            if remaining_to_allocate <= 0:
+                new_used = Decimal('0')
+            elif remaining_to_allocate >= quota.granted_kg:
+                new_used = quota.granted_kg
+                remaining_to_allocate -= quota.granted_kg
+            else:
+                new_used = remaining_to_allocate
+                remaining_to_allocate = Decimal('0')
+
+            QuotaAllocation.objects.filter(pk=quota.pk).update(used_kg=new_used)
+            quota.used_kg = new_used
+            _send_quota_notifications(quota)
 
 
 def transition_to(shipment: Shipment, new_status_code: str, user, comment: str = '') -> None:

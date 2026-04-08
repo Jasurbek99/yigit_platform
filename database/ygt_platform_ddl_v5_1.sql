@@ -344,14 +344,29 @@ CREATE TABLE export.quality_documents (
 
 CREATE TABLE export.quota_allocations (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
-    season_id INT NOT NULL REFERENCES core.seasons(id),
     export_firm_id INT NOT NULL REFERENCES core.export_firms(id),
-    granted_kg DECIMAL(12,2) NOT NULL,
-    used_kg DECIMAL(12,2) DEFAULT 0,
+    -- Domestic sale basis
+    domestic_sale_kg DECIMAL(12,2) NOT NULL,
+    domestic_sale_date DATE NULL,
+    -- Quota amounts
+    expected_kg DECIMAL(12,2) NOT NULL,       -- domestic_sale_kg × 10
+    granted_kg DECIMAL(12,2) NOT NULL,        -- actual government grant
+    used_kg DECIMAL(12,2) DEFAULT 0,          -- consumed by shipments (FIFO)
+    -- Validity window
+    valid_from DATE NOT NULL,
+    valid_to DATE NOT NULL,
+    -- Warning flags
     warning_80_sent BIT DEFAULT 0,
     warning_90_sent BIT DEFAULT 0,
     warning_95_sent BIT DEFAULT 0,
-    CONSTRAINT uq_quota_season_firm UNIQUE (season_id, export_firm_id)
+    -- Audit
+    created_at DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET(),
+    created_by BIGINT NULL REFERENCES sys_users(id),
+    notes NVARCHAR(500) DEFAULT '',
+    CONSTRAINT chk_quota_valid_range CHECK (valid_to >= valid_from),
+    CONSTRAINT chk_quota_domestic_sale_gt0 CHECK (domestic_sale_kg > 0),
+    CONSTRAINT chk_quota_granted_kg_gt0 CHECK (granted_kg > 0),
+    CONSTRAINT chk_quota_used_kg_gte0 CHECK (used_kg >= 0)
 );
 
 CREATE TABLE export.domestic_sales (

@@ -2,14 +2,15 @@ import datetime
 import logging
 from decimal import Decimal
 
-from django.db.models import F
+from django.db.models import Case, Count, F, Min, Q, Sum, Value, When
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from rest_framework import status as http_status
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
+from rest_framework.viewsets import ModelViewSet
 
 from apps.core.permissions import write_permission
 from apps.export.models import (
@@ -26,7 +27,6 @@ from apps.export.serializers_planning import (
     WeeklyTruckAllocationSerializer,
     QuotaAllocationSerializer,
     PriceEntrySerializer,
-    QuotaDashboardSerializer,
     DomesticSaleSerializer,
 )
 from apps.export.services import (
@@ -398,36 +398,138 @@ class WeeklyHarvestPlanViewSet(ModelViewSet):
         return Response(results)
 
 
-class QuotaAllocationViewSet(ReadOnlyModelViewSet):
+_QUOTA_WRITE_ROLES = frozenset({'export_manager', 'director'})
+
+
+class QuotaAllocationViewSet(ModelViewSet):
     """
-    GET  /api/v1/export/quotas/          — list all allocations for current season
-    GET  /api/v1/export/quotas/dashboard/ — summary with remaining_kg + percentage
+    GET    /api/v1/export/quotas/                — list (filter by ?export_firm=&status=&valid_on=)
+    GET    /api/v1/export/quotas/{id}/           — detail
+    POST   /api/v1/export/quotas/                — create (export_manager / director)
+    PUT    /api/v1/export/quotas/{id}/           — update
+    GET    /api/v1/export/quotas/dashboard/      — per-firm summary with all active quotas
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, write_permission(*_QUOTA_WRITE_ROLES)]
     serializer_class = QuotaAllocationSerializer
-    queryset = QuotaAllocation.objects.select_related('season', 'export_firm').order_by(
-        'export_firm__name_en'
+    http_method_names = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options']
+
+    queryset = QuotaAllocation.objects.select_related('export_firm').order_by(
+        'valid_from', 'export_firm__name_en',
     )
 
     def get_queryset(self):
         qs = super().get_queryset()
-        if season := self.request.query_params.get('season'):
-            qs = qs.filter(season_id=season)
+        params = self.request.query_params
+        if firm := params.get('export_firm'):
+            qs = qs.filter(export_firm_id=firm)
+        if status := params.get('status'):
+            today = timezone.now().date()
+            if status == 'active':
+                qs = qs.filter(valid_to__gte=today, used_kg__lt=F('granted_kg'))
+            elif status == 'expired':
+                qs = qs.filter(valid_to__lt=today)
+            elif status == 'exhausted':
+                qs = qs.filter(used_kg__gte=F('granted_kg'))
+        if valid_on := params.get('valid_on'):
+            qs = qs.filter(valid_from__lte=valid_on, valid_to__gte=valid_on)
         return qs
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
 
     @action(detail=False, methods=['get'], url_path='dashboard')
     def dashboard(self, request):
         """GET /api/v1/export/quotas/dashboard/
 
-        Returns all quota allocations enriched with remaining_kg and used_pct.
-        Filtered by ?season= (defaults to all).
+        Returns all quota allocations with computed fields.
+        Filtered by ?export_firm= and ?status= (defaults to all).
         """
-        qs = self.get_queryset().annotate(
-            remaining_kg=F('granted_kg') - F('used_kg'),
-        )
-        serializer = QuotaDashboardSerializer(qs, many=True)
+        qs = self.get_queryset()
+        serializer = self.get_serializer(qs, many=True)
         return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], url_path='firm-summary')
+    def firm_summary(self, request):
+        """GET /api/v1/export/quotas/firm-summary/
+
+        Aggregated quota metrics per export firm.
+        """
+        from django.db.models import DecimalField as DFld
+        today = timezone.now().date()
+        zero_dec = Value(Decimal('0'), output_field=DFld(max_digits=12, decimal_places=2))
+
+        qs = (
+            QuotaAllocation.objects
+            .values('export_firm_id')
+            .annotate(
+                export_firm_name=F('export_firm__name_en'),
+                export_firm_code=F('export_firm__code'),
+                quota_count=Count('id'),
+                active_count=Count(
+                    'id',
+                    filter=Q(valid_to__gte=today, used_kg__lt=F('granted_kg')),
+                ),
+                expired_count=Count(
+                    'id',
+                    filter=Q(valid_to__lt=today),
+                ),
+                exhausted_count=Count(
+                    'id',
+                    filter=Q(used_kg__gte=F('granted_kg')),
+                ),
+                total_domestic_sale_kg=Coalesce(Sum('domestic_sale_kg'), Value(Decimal('0'))),
+                total_expected_kg=Coalesce(Sum('expected_kg'), Value(Decimal('0'))),
+                total_granted_kg=Coalesce(Sum('granted_kg'), Value(Decimal('0'))),
+                total_used_kg=Coalesce(Sum('used_kg'), Value(Decimal('0'))),
+                total_remaining_kg=Coalesce(
+                    Sum(
+                        Case(
+                            When(
+                                Q(valid_to__gte=today) & Q(used_kg__lt=F('granted_kg')),
+                                then=F('granted_kg') - F('used_kg'),
+                            ),
+                            default=zero_dec,
+                        ),
+                    ),
+                    Value(Decimal('0')),
+                ),
+                earliest_expiry=Min(
+                    'valid_to',
+                    filter=Q(valid_to__gte=today, used_kg__lt=F('granted_kg')),
+                ),
+            )
+            .order_by('export_firm__name_en')
+        )
+
+        results = []
+        for row in qs:
+            total_granted = row['total_granted_kg'] or Decimal('0')
+            total_used = row['total_used_kg'] or Decimal('0')
+            utilization = (
+                float((total_used / total_granted * Decimal('100')).quantize(Decimal('0.1')))
+                if total_granted > 0
+                else 0.0
+            )
+            results.append({
+                'export_firm': row['export_firm_id'],
+                'export_firm_name': row['export_firm_name'] or '',
+                'export_firm_code': row['export_firm_code'] or '',
+                'quota_count': row['quota_count'],
+                'active_count': row['active_count'],
+                'expired_count': row['expired_count'],
+                'exhausted_count': row['exhausted_count'],
+                'total_domestic_sale_kg': row['total_domestic_sale_kg'],
+                'total_expected_kg': row['total_expected_kg'],
+                'total_granted_kg': row['total_granted_kg'],
+                'total_difference_kg': row['total_granted_kg'] - row['total_expected_kg'],
+                'total_used_kg': row['total_used_kg'],
+                'total_remaining_kg': row['total_remaining_kg'],
+                'utilization_pct': utilization,
+                'earliest_expiry': row['earliest_expiry'],
+            })
+
+        return Response(results)
 
 
 class PriceEntryViewSet(ModelViewSet):

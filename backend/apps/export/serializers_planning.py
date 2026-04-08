@@ -63,8 +63,15 @@ class WeeklyHarvestPlanSerializer(serializers.ModelSerializer):
 
 
 class QuotaAllocationSerializer(serializers.ModelSerializer):
+    """Serializer for individual quota allocations (CRUD)."""
+
     export_firm_name = serializers.SerializerMethodField()
-    season_name = serializers.CharField(source='season.name', read_only=True)
+
+    # Computed read-only fields
+    remaining_kg = serializers.SerializerMethodField()
+    used_pct = serializers.SerializerMethodField()
+    difference_kg = serializers.SerializerMethodField()
+    status_label = serializers.SerializerMethodField()
 
     def get_export_firm_name(self, obj: QuotaAllocation) -> str | None:
         firm = obj.export_firm
@@ -72,21 +79,8 @@ class QuotaAllocationSerializer(serializers.ModelSerializer):
             return None
         return firm.name_en or firm.name_tk
 
-    class Meta:
-        model = QuotaAllocation
-        fields = [
-            'id', 'season', 'season_name', 'export_firm', 'export_firm_name',
-            'granted_kg', 'used_kg',
-            'warning_80_sent', 'warning_90_sent', 'warning_95_sent',
-        ]
-        read_only_fields = ['used_kg', 'warning_80_sent', 'warning_90_sent', 'warning_95_sent']
-
-
-class QuotaDashboardSerializer(QuotaAllocationSerializer):
-    """Extended serializer with remaining_kg and used_pct for the dashboard view."""
-
-    remaining_kg = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
-    used_pct = serializers.SerializerMethodField()
+    def get_remaining_kg(self, obj: QuotaAllocation) -> Decimal:
+        return obj.granted_kg - obj.used_kg
 
     def get_used_pct(self, obj: QuotaAllocation) -> float:
         if not obj.granted_kg:
@@ -94,8 +88,33 @@ class QuotaDashboardSerializer(QuotaAllocationSerializer):
         pct = (obj.used_kg / obj.granted_kg * Decimal('100')).quantize(Decimal('0.1'))
         return float(pct)
 
-    class Meta(QuotaAllocationSerializer.Meta):
-        fields = QuotaAllocationSerializer.Meta.fields + ['remaining_kg', 'used_pct']
+    def get_difference_kg(self, obj: QuotaAllocation) -> Decimal:
+        return obj.granted_kg - obj.expected_kg
+
+    def get_status_label(self, obj: QuotaAllocation) -> str:
+        return obj.status_label
+
+    class Meta:
+        model = QuotaAllocation
+        fields = [
+            'id', 'export_firm', 'export_firm_name',
+            # Domestic sale basis
+            'domestic_sale_kg', 'domestic_sale_date',
+            # Amounts
+            'expected_kg', 'granted_kg', 'used_kg',
+            'remaining_kg', 'used_pct', 'difference_kg',
+            # Validity
+            'valid_from', 'valid_to', 'status_label',
+            # Warnings
+            'warning_80_sent', 'warning_90_sent', 'warning_95_sent',
+            # Audit
+            'notes', 'created_at',
+        ]
+        read_only_fields = [
+            'used_kg', 'remaining_kg', 'used_pct', 'difference_kg', 'status_label',
+            'warning_80_sent', 'warning_90_sent', 'warning_95_sent',
+            'created_at',
+        ]
 
 
 class TruckDestinationSplitSerializer(serializers.ModelSerializer):
