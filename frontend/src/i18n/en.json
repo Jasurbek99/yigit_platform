@@ -43,6 +43,7 @@
     "sign_out": "Sign Out",
     "admin_permissions": "Permissions",
     "admin_blocks": "Block Management",
+    "admin_truck_dest": "Truck Destinations",
     "shipment_detail": "Shipment Detail",
     "group_main": "Main",
     "group_export": "Export",
@@ -347,6 +348,21 @@
     "notes": "Notes",
     "create_success": "Advance created",
     "subtitle": "Customer advance payment tracker"
+  },
+  "truck_dest_admin": {
+    "title": "Truck Destinations",
+    "subtitle": "Manage export truck destination countries",
+    "name": "Name",
+    "country": "Linked Country",
+    "country_placeholder": "Select country (optional)",
+    "sort_order": "Sort Order",
+    "status": "Status",
+    "add": "Add Destination",
+    "edit": "Edit Destination",
+    "confirm_delete": "Delete this destination?",
+    "toast_created": "Destination created",
+    "toast_updated": "Destination updated",
+    "toast_deleted": "Destination deleted"
   },
   "truck": {
     "title": "Truck Forecast",

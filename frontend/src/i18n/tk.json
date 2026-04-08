@@ -43,6 +43,7 @@
     "sign_out": "Çyk",
     "admin_permissions": "Rugsat dolandyryşy",
     "admin_blocks": "Blok dolandyryşy",
+    "admin_truck_dest": "Maşyn ugurlary",
     "shipment_detail": "Ýük maglumatlary",
     "group_main": "Esasy",
     "group_export": "Eksport",
@@ -347,6 +348,21 @@
     "notes": "Bellikler",
     "create_success": "Awans döredildi",
     "subtitle": "Müşderileriň öňünden töleg yzarlaýjysy"
+  },
+  "truck_dest_admin": {
+    "title": "Maşyn ugurlary",
+    "subtitle": "Eksport üçin ugur ýurtlaryny dolandyryň",
+    "name": "Ady",
+    "country": "Baglanyşykly ýurt",
+    "country_placeholder": "Ýurt saýlaň (hökmany däl)",
+    "sort_order": "Tertip",
+    "status": "Ýagdaýy",
+    "add": "Goş",
+    "edit": "Üýtget",
+    "confirm_delete": "Bu ugry pozmak isleýärsiňizmi?",
+    "toast_created": "Ugur döredildi",
+    "toast_updated": "Ugur üýtgedildi",
+    "toast_deleted": "Ugur pozuldy"
   },
   "truck": {
     "title": "Ulag çaklamasy",

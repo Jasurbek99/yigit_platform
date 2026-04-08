@@ -40,6 +40,7 @@ const UsersPage = lazy(() => import('@/pages/admin/UsersPage'));
 const PermissionsPage = lazy(() => import('@/pages/admin/PermissionsPage'));
 const BlocksPage = lazy(() => import('@/pages/admin/BlocksPage'));
 const BlockDetailPage = lazy(() => import('@/pages/admin/BlockDetailPage'));
+const TruckDestinationsPage = lazy(() => import('@/pages/admin/TruckDestinationsPage'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -159,6 +160,9 @@ export default function App() {
                   } />
                   <Route path="admin/blocks/:id" element={
                     <ProtectedRoute roles={['director']}><BlockDetailPage /></ProtectedRoute>
+                  } />
+                  <Route path="admin/truck-destinations" element={
+                    <ProtectedRoute roles={['director']}><TruckDestinationsPage /></ProtectedRoute>
                   } />
                 </Route>
                 <Route path="*" element={<Navigate to="/" replace />} />

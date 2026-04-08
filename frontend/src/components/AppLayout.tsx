@@ -165,6 +165,7 @@ export default function AppLayout() {
     '/admin/import-firms': t('nav.admin_import_firms'),
     '/admin/permissions': t('nav.admin_permissions'),
     '/admin/blocks': t('nav.admin_blocks'),
+    '/admin/truck-destinations': t('nav.admin_truck_dest'),
   };
 
   const currentPageLabel = location.pathname.startsWith('/shipments/')
@@ -206,6 +207,7 @@ export default function AppLayout() {
         { key: '/admin/firms', icon: <IconBuildingBank size={15} />, label: t('nav.admin_firms') },
         { key: '/admin/import-firms', icon: <IconBuildingBank size={15} />, label: t('nav.admin_import_firms') },
         { key: '/admin/blocks', icon: <IconBuildingWarehouse size={15} />, label: t('nav.admin_blocks') },
+        { key: '/admin/truck-destinations', icon: <IconTruck size={15} />, label: t('nav.admin_truck_dest') },
         { key: '/admin/permissions', icon: <IconShield size={15} />, label: t('nav.admin_permissions') },
       ],
     }] : []),

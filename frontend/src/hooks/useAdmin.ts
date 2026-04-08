@@ -12,6 +12,7 @@ import type {
   IBlockAssignment,
   ILoadingLocation,
   ITomatoVariety,
+  ITruckDestination,
   UserRole,
 } from '@/types';
 
@@ -552,6 +553,63 @@ export function useDeleteImportFirm(options: MutationOptions = {}) {
     mutationFn: (id: number) => api.delete(`/export/admin/import-firms/${id}/`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-import-firms'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+// ─── Truck Destinations ──────────────────────────────────────────────────
+
+export function useAdminTruckDestinations() {
+  return useQuery({
+    queryKey: ['admin-truck-destinations'],
+    queryFn: async (): Promise<ITruckDestination[]> => {
+      if (USE_MOCK) return [];
+      const { data } = await api.get<ITruckDestination[] | IApiListResponse<ITruckDestination>>(
+        '/core/truck-destinations/',
+      );
+      return Array.isArray(data) ? data : data.results;
+    },
+    staleTime: 60_000,
+  });
+}
+
+export function useCreateTruckDestination(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { name: string; country?: number | null; sort_order?: number }) =>
+      api.post<ITruckDestination>('/core/truck-destinations/', payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-truck-destinations'] });
+      queryClient.invalidateQueries({ queryKey: ['truck-destinations'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+export function useUpdateTruckDestination(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...payload }: { id: number; name?: string; country?: number | null; sort_order?: number; is_active?: boolean }) =>
+      api.patch<ITruckDestination>(`/core/truck-destinations/${id}/`, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-truck-destinations'] });
+      queryClient.invalidateQueries({ queryKey: ['truck-destinations'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+export function useDeleteTruckDestination(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => api.delete(`/core/truck-destinations/${id}/`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-truck-destinations'] });
+      queryClient.invalidateQueries({ queryKey: ['truck-destinations'] });
       options.onSuccess?.();
     },
     onError: options.onError,
