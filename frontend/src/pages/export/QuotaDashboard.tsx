@@ -1,540 +1,595 @@
+import { useMemo, useState } from 'react';
 import {
-  ActionIcon,
-  Alert,
-  Badge,
   Button,
   Card,
-  Group,
-  Modal,
-  NumberInput,
-  Progress,
+  Col,
+  DatePicker,
+  Row,
   Select,
-  SimpleGrid,
-  Skeleton,
+  Statistic,
+  Table,
   Tabs,
-  Text,
-  TextInput,
-  Tooltip,
-} from '@mantine/core';
-import { DateInput } from '@mantine/dates';
-import { useForm } from '@mantine/form';
-import { notifications } from '@mantine/notifications';
-import { IconEdit, IconPlus, IconTrash } from '@tabler/icons-react';
-import { DataTable } from 'mantine-datatable';
-import { useEffect, useState } from 'react';
+  Tag,
+  Typography,
+} from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { useAdminFirms } from '@/hooks/useAdmin';
+import { useNavigate } from 'react-router-dom';
+import dayjs, { type Dayjs } from 'dayjs';
+import isoWeek from 'dayjs/plugin/isoWeek';
+import { useSeasons } from '@/hooks/useAdmin';
 import {
   useQuotaDashboard,
-  useCreateQuota,
-  useUpdateQuota,
-  useDeleteQuota,
-} from '@/hooks/usePlanning';
-import { QuotaFirmSummaryTab } from './QuotaFirmSummary';
-import type { IQuotaAllocation, QuotaStatus } from '@/types';
+  useQuotaIssuances,
+  useDeleteQuotaIssuance,
+} from '@/hooks/useQuotaDashboard';
+import { useAuth } from '@/hooks/useAuth';
+import { QuotaPerFirmTable } from './QuotaPerFirmTable';
+import { QuotaVisualBars } from './QuotaVisualBars';
+import { QuotaWeeklyFlow } from './QuotaWeeklyFlow';
+import { LocalSellPlanGrid } from './LocalSellPlanGrid';
+import type { ISeason } from '@/types';
 
-function pctColor(pct: number): string {
-  if (pct >= 95) return 'red';
-  if (pct >= 80) return 'orange';
-  return 'green';
+dayjs.extend(isoWeek);
+
+const { Title, Text } = Typography;
+const { RangePicker } = DatePicker;
+
+// ─── All Quotas (Issuances) tab ──────────────────────────────────────────────
+
+// Compute expiry date from issue_date + validity
+function computeExpiry(issueDate: string, validity: string): dayjs.Dayjs {
+  const d = dayjs(issueDate);
+  if (validity === 'this_month') return d.endOf('month');
+  // this_and_next or next_month → end of next month
+  return d.add(1, 'month').endOf('month');
 }
 
-function fmtKg(val: number | null | undefined): string {
-  if (val == null) return '—';
-  return `${Number(val).toLocaleString()} kg`;
+type QuotaRowStatus = 'active' | 'expiring' | 'expired';
+const STATUS_CONFIG: Record<QuotaRowStatus, { color: string }> = {
+  active: { color: 'green' },
+  expiring: { color: 'orange' },
+  expired: { color: 'red' },
+};
+
+interface IFlatQuotaRow {
+  key: string;
+  alloc_id: number;
+  issuance_id: number;
+  export_firm_name: string;
+  kg_quota: number;
+  issue_date: string;
+  product_type: string;
+  validity: string;
+  expiry_date: string;
+  status: QuotaRowStatus;
+  days_left: number;
 }
 
-function statusBadge(status: QuotaStatus, t: (key: string) => string) {
-  const map: Record<QuotaStatus, { color: string; label: string }> = {
-    active: { color: 'green', label: t('quota.status_active') },
-    expired: { color: 'gray', label: t('quota.status_expired') },
-    exhausted: { color: 'red', label: t('quota.status_exhausted') },
-  };
-  const { color, label } = map[status] ?? map.active;
+function QuotaIssuancesList() {
+  const { t } = useTranslation();
+  const { user } = useAuth();
+  const { data: issuances = [], isLoading } = useQuotaIssuances();
+  const deleteMutation = useDeleteQuotaIssuance();
+  const canDelete = user?.role === 'export_manager' || user?.role === 'director' || user?.is_superuser;
+
+  const today = dayjs();
+
+  const flatRows: IFlatQuotaRow[] = issuances.flatMap((iss) =>
+    iss.allocations.map((a) => {
+      const expiry = computeExpiry(iss.issue_date, iss.validity);
+      const daysLeft = expiry.diff(today, 'day');
+      let status: QuotaRowStatus = 'active';
+      if (daysLeft < 0) status = 'expired';
+      else if (daysLeft <= 7) status = 'expiring';
+
+      return {
+        key: `${iss.id}-${a.export_firm}`,
+        alloc_id: a.id,
+        issuance_id: iss.id,
+        export_firm_name: a.export_firm_name ?? '',
+        kg_quota: a.kg_quota,
+        issue_date: iss.issue_date,
+        product_type: iss.product_type,
+        validity: iss.validity,
+        expiry_date: expiry.format('YYYY-MM-DD'),
+        status,
+        days_left: daysLeft,
+      };
+    })
+  );
+
+  // Sort: active first, then expiring, then expired. Within same status: newest first.
+  const STATUS_ORDER: Record<QuotaRowStatus, number> = { active: 0, expiring: 1, expired: 2 };
+  const sorted = [...flatRows].sort((a, b) => {
+    const s = STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
+    if (s !== 0) return s;
+    return b.issue_date.localeCompare(a.issue_date);
+  });
+
+  const columns = [
+    {
+      title: '#', dataIndex: 'alloc_id', width: 60,
+      sorter: (a: IFlatQuotaRow, b: IFlatQuotaRow) => a.alloc_id - b.alloc_id,
+    },
+    {
+      title: t('quota_dashboard.firm'), dataIndex: 'export_firm_name', width: 170,
+      sorter: (a: IFlatQuotaRow, b: IFlatQuotaRow) => a.export_firm_name.localeCompare(b.export_firm_name),
+      render: (v: string) => <Text strong>{v}</Text>,
+    },
+    {
+      title: t('quota_dashboard.issued'), dataIndex: 'kg_quota', width: 130, align: 'right' as const,
+      sorter: (a: IFlatQuotaRow, b: IFlatQuotaRow) => a.kg_quota - b.kg_quota,
+      render: (v: number) => `${Number(v).toLocaleString()} kg`,
+    },
+    {
+      title: t('quota_dashboard.issue_date'), dataIndex: 'issue_date', width: 115,
+      sorter: (a: IFlatQuotaRow, b: IFlatQuotaRow) => a.issue_date.localeCompare(b.issue_date),
+    },
+    {
+      title: t('quota_dashboard.expiry'), dataIndex: 'expiry_date', width: 115,
+      sorter: (a: IFlatQuotaRow, b: IFlatQuotaRow) => a.expiry_date.localeCompare(b.expiry_date),
+    },
+    {
+      title: t('quota_dashboard.status'), dataIndex: 'status', width: 110,
+      sorter: (a: IFlatQuotaRow, b: IFlatQuotaRow) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status],
+      render: (v: QuotaRowStatus) => (
+        <Tag color={STATUS_CONFIG[v].color}>{t(`quota_dashboard.status_${v}`)}</Tag>
+      ),
+    },
+    {
+      title: t('quota_dashboard.days_left'), dataIndex: 'days_left', width: 110,
+      sorter: (a: IFlatQuotaRow, b: IFlatQuotaRow) => a.days_left - b.days_left,
+      render: (v: number) => {
+        if (v < 0) return <Text type="danger">{t('quota_dashboard.expired_ago', { days: Math.abs(v) })}</Text>;
+        if (v === 0) return <Text type="warning">{t('quota_dashboard.expires_today')}</Text>;
+        return <Text>{v} {t('quota_dashboard.days')}</Text>;
+      },
+    },
+    {
+      title: t('quota_dashboard.product_type'), dataIndex: 'product_type', width: 90,
+      render: (v: string) => v === 'pepper' ? t('quota_dashboard.product_pepper') : t('quota_dashboard.product_tomato'),
+    },
+    {
+      title: t('quota_dashboard.batch'), dataIndex: 'issuance_id', width: 70,
+      sorter: (a: IFlatQuotaRow, b: IFlatQuotaRow) => a.issuance_id - b.issuance_id,
+      render: (v: number) => <Text type="secondary">#{v}</Text>,
+    },
+    ...(canDelete ? [{
+      title: '', key: 'actions', width: 60,
+      render: (_: unknown, r: IFlatQuotaRow) => (
+        <Button
+          size="small" danger type="link"
+          onClick={() => {
+            if (confirm(t('quota_dashboard.confirm_delete'))) {
+              deleteMutation.mutate(r.issuance_id);
+            }
+          }}
+        >
+          {t('common.delete')}
+        </Button>
+      ),
+    }] : []),
+  ];
+
   return (
-    <Badge variant="light" color={color}>
-      {label}
-    </Badge>
+    <Table
+      dataSource={sorted}
+      columns={columns}
+      rowKey="key"
+      size="small"
+      loading={isLoading}
+      pagination={false}
+      rowClassName={(r) => r.status === 'expired' ? 'ant-table-row-expired' : ''}
+    />
   );
 }
 
-function StatCard({
-  title,
-  value,
-  color,
-}: {
+// ─── Period state ─────────────────────────────────────────────────────────────
+
+type PeriodMode = 'season' | 'month' | 'week' | 'custom';
+
+interface IPeriodState {
+  mode: PeriodMode;
+  monthKey: string | null;   // "YYYY-M"
+  weekKey: string | null;    // "YYYY-WW"
+  customFrom: string | null;
+  customTo: string | null;
+}
+
+function periodToDates(
+  state: IPeriodState,
+  season: ISeason | undefined,
+): { date_from?: string; date_to?: string } {
+  if (state.mode === 'season' || !season) return {};
+
+  if (state.mode === 'custom') {
+    return {
+      date_from: state.customFrom ?? undefined,
+      date_to: state.customTo ?? undefined,
+    };
+  }
+
+  if (state.mode === 'month' && state.monthKey) {
+    const [year, month] = state.monthKey.split('-').map(Number);
+    const start = dayjs().year(year).month(month - 1).startOf('month');
+    const end = start.endOf('month');
+    return { date_from: start.format('YYYY-MM-DD'), date_to: end.format('YYYY-MM-DD') };
+  }
+
+  if (state.mode === 'week' && state.weekKey) {
+    const [year, week] = state.weekKey.split('-').map(Number);
+    const start = dayjs().year(year).isoWeek(week).isoWeekday(1);
+    const end = start.add(5, 'day'); // Mon–Sat
+    return { date_from: start.format('YYYY-MM-DD'), date_to: end.format('YYYY-MM-DD') };
+  }
+
+  return {};
+}
+
+// ─── Month selector options from season ──────────────────────────────────────
+
+function buildMonthOptions(season: ISeason | undefined) {
+  if (!season) return [];
+  const start = dayjs(season.start_date);
+  const end = dayjs(season.end_date);
+  const options: Array<{ label: string; value: string }> = [];
+  let cur = start.startOf('month');
+  while (cur.isBefore(end) || cur.isSame(end, 'month')) {
+    options.push({ label: cur.format('MMM YYYY'), value: `${cur.year()}-${cur.month() + 1}` });
+    cur = cur.add(1, 'month');
+  }
+  return options;
+}
+
+// ─── KPI Cards ────────────────────────────────────────────────────────────────
+
+interface IKpiCardProps {
   title: string;
-  value: string | number;
+  value: number;
+  suffix?: string;
+  extra?: string;
   color?: string;
-}) {
+  loading?: boolean;
+}
+
+function KpiCard({ title, value, suffix = ' kg', extra, color, loading }: IKpiCardProps) {
   return (
-    <Card padding="md">
-      <Text size="xs" c="dimmed" mb={4}>
-        {title}
-      </Text>
-      <Text fw={700} size="xl" c={color}>
-        {value}
-      </Text>
+    <Card size="small" loading={loading} styles={{ body: { padding: '12px 16px' } }}>
+      <Statistic
+        title={<span style={{ fontSize: 12, color: '#8c8c8c' }}>{title}</span>}
+        value={value}
+        suffix={suffix}
+        valueStyle={{ fontSize: 18, fontWeight: 700, color }}
+        formatter={(v) => Number(v).toLocaleString()}
+      />
+      {extra && (
+        <Text style={{ fontSize: 12, color: '#8c8c8c' }}>{extra}</Text>
+      )}
     </Card>
   );
 }
 
-interface IFormValues {
-  export_firm: string;
-  domestic_sale_kg: number;
-  domestic_sale_date: Date | null;
-  granted_kg: number;
-  valid_from: Date | null;
-  valid_to: Date | null;
-  notes: string;
-}
 
-const MULTIPLIER = 10;
-
-function toISODate(d: Date | null): string {
-  if (!d) return '';
-  return d.toISOString().slice(0, 10);
-}
+// ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function QuotaDashboard() {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<string | null>('quotas');
-  const [firmFilter, setFirmFilter] = useState<number | undefined>(undefined);
-  const [statusFilter, setStatusFilter] = useState<string | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingQuota, setEditingQuota] = useState<IQuotaAllocation | null>(null);
+  const { user } = useAuth();
 
-  const filters: { export_firm?: number; status?: string } = {};
-  if (firmFilter) filters.export_firm = firmFilter;
-  if (statusFilter) filters.status = statusFilter;
+  const canAddIssuance =
+    user?.role === 'export_manager' || user?.role === 'director' || user?.is_superuser;
 
-  const { data: quotas, isLoading, isError } = useQuotaDashboard(filters);
+  // Season selection
+  const { data: seasons = [] } = useSeasons();
+  const activeSeason = seasons.find((s) => s.is_active) ?? seasons[0];
+  const [selectedSeasonId, setSelectedSeasonId] = useState<number | undefined>(undefined);
+  const seasonId = selectedSeasonId ?? activeSeason?.id;
+  const currentSeason = seasons.find((s) => s.id === seasonId);
 
-  function handleFirmClick(firmId: number) {
-    setFirmFilter(firmId);
-    setActiveTab('quotas');
-  }
-
-  function clearFirmFilter() {
-    setFirmFilter(undefined);
-  }
-  const { data: firms = [] } = useAdminFirms();
-  const createMutation = useCreateQuota();
-  const updateMutation = useUpdateQuota();
-  const deleteMutation = useDeleteQuota();
-
-  const firmOptions = firms.map((f) => ({
-    value: String(f.id),
-    label: f.name_en || f.name_tk,
-  }));
-
-  const form = useForm<IFormValues>({
-    initialValues: {
-      export_firm: '',
-      domestic_sale_kg: 0,
-      domestic_sale_date: null,
-      granted_kg: 0,
-      valid_from: null,
-      valid_to: null,
-      notes: '',
-    },
-    validate: {
-      export_firm: (v) => (v ? null : t('common.required')),
-      domestic_sale_kg: (v) => (v > 0 ? null : t('common.required')),
-      granted_kg: (v) => (v > 0 ? null : t('common.required')),
-      valid_from: (v) => (v ? null : t('common.required')),
-      valid_to: (v, values) => {
-        if (!v) return t('common.required');
-        if (values.valid_from && v < values.valid_from) return t('quota.valid_to_error');
-        return null;
-      },
-    },
+  // Period selection
+  const [period, setPeriod] = useState<IPeriodState>({
+    mode: 'season',
+    monthKey: null,
+    weekKey: null,
+    customFrom: null,
+    customTo: null,
   });
 
-  const expectedKg = form.values.domestic_sale_kg * MULTIPLIER;
+  // Product type filter
+  const [productType, setProductType] = useState<string>('tomato');
 
-  function openCreate() {
-    setEditingQuota(null);
-    form.reset();
-    setModalOpen(true);
-  }
+  // Modal
+  const navigate = useNavigate();
 
-  function openEdit(record: IQuotaAllocation) {
-    setEditingQuota(record);
-    form.setValues({
-      export_firm: String(record.export_firm),
-      domestic_sale_kg: record.domestic_sale_kg,
-      domestic_sale_date: record.domestic_sale_date ? new Date(record.domestic_sale_date) : null,
-      granted_kg: record.granted_kg,
-      valid_from: new Date(record.valid_from),
-      valid_to: new Date(record.valid_to),
-      notes: record.notes || '',
-    });
-    setModalOpen(true);
-  }
+  // Active tab
+  const [activeTab, setActiveTab] = useState('per_firm');
 
-  function handleDelete(record: IQuotaAllocation) {
-    if (!confirm(t('quota.confirm_delete'))) return;
-    deleteMutation.mutate(record.id, {
-      onSuccess: () => notifications.show({ message: t('quota.toast_deleted'), color: 'green' }),
-    });
-  }
+  const { date_from, date_to } = useMemo(
+    () => periodToDates(period, currentSeason),
+    [period, currentSeason],
+  );
 
-  function handleSubmit(values: IFormValues) {
-    const payload = {
-      export_firm: Number(values.export_firm),
-      domestic_sale_kg: values.domestic_sale_kg,
-      domestic_sale_date: toISODate(values.domestic_sale_date) || null,
-      expected_kg: values.domestic_sale_kg * MULTIPLIER,
-      granted_kg: values.granted_kg,
-      valid_from: toISODate(values.valid_from),
-      valid_to: toISODate(values.valid_to),
-      notes: values.notes,
-    };
+  const { data, isLoading, isError } = useQuotaDashboard({
+    season: seasonId ?? 0,
+    date_from,
+    date_to,
+    product_type: productType,
+  });
+  const { data: issuances = [] } = useQuotaIssuances({ product_type: productType });
 
-    if (editingQuota) {
-      updateMutation.mutate(
-        { id: editingQuota.id, ...payload },
-        {
-          onSuccess: () => {
-            notifications.show({ message: t('quota.toast_updated'), color: 'green' });
-            setModalOpen(false);
-          },
-        },
-      );
-    } else {
-      createMutation.mutate(payload, {
-        onSuccess: () => {
-          notifications.show({ message: t('quota.toast_created'), color: 'green' });
-          setModalOpen(false);
-        },
-      });
+  const kpis = data?.kpis;
+  const perFirm = data?.per_firm ?? [];
+  const weeklyFlow = data?.weekly_flow ?? [];
+
+  // Compute expired unused quota from issuances
+  const today = dayjs();
+  const expiredStats = useMemo(() => {
+    let totalExpiredKg = 0;
+    const perFirmExpired: Record<number, number> = {};
+    for (const iss of issuances) {
+      const expiry = computeExpiry(iss.issue_date, iss.validity);
+      if (expiry.isBefore(today, 'day')) {
+        for (const a of iss.allocations) {
+          totalExpiredKg += a.kg_quota;
+          perFirmExpired[a.export_firm] = (perFirmExpired[a.export_firm] ?? 0) + a.kg_quota;
+        }
+      }
+    }
+    return { totalExpiredKg, perFirmExpired };
+  }, [issuances, today]);
+
+  // Build period dropdown options: All Season + months + weeks
+  const periodOptions = useMemo(() => {
+    const opts: Array<{ label: string; value: string }> = [
+      { label: t('quota_dashboard.all_season'), value: 'season' },
+    ];
+    // Months from season date range
+    for (const mo of buildMonthOptions(currentSeason)) {
+      opts.push({ label: mo.label, value: `month:${mo.value}` });
+    }
+    // Weeks from data
+    for (const w of weeklyFlow) {
+      opts.push({ label: `W${w.week}`, value: `week:${w.year}-${w.week}` });
+    }
+    return opts;
+  }, [currentSeason, weeklyFlow, t]);
+
+  const periodSelectValue = useMemo(() => {
+    if (period.mode === 'month' && period.monthKey) return `month:${period.monthKey}`;
+    if (period.mode === 'week' && period.weekKey) return `week:${period.weekKey}`;
+    if (period.mode === 'custom') return 'custom';
+    return 'season';
+  }, [period]);
+
+  function handlePeriodChange(val: string) {
+    if (val === 'season') {
+      setPeriod({ mode: 'season', monthKey: null, weekKey: null, customFrom: null, customTo: null });
+    } else if (val.startsWith('month:')) {
+      setPeriod({ mode: 'month', monthKey: val.slice(6), weekKey: null, customFrom: null, customTo: null });
+    } else if (val.startsWith('week:')) {
+      setPeriod({ mode: 'week', monthKey: null, weekKey: val.slice(5), customFrom: null, customTo: null });
     }
   }
 
-  // Auto-fill granted_kg with expected when creating
-  useEffect(() => {
-    if (!editingQuota && form.values.domestic_sale_kg > 0) {
-      form.setFieldValue('granted_kg', form.values.domestic_sale_kg * MULTIPLIER);
+  function handleCustomRange(dates: [Dayjs | null, Dayjs | null] | null) {
+    if (!dates || !dates[0] || !dates[1]) {
+      setPeriod({ mode: 'season', monthKey: null, weekKey: null, customFrom: null, customTo: null });
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.values.domestic_sale_kg, editingQuota]);
+    setPeriod({
+      mode: 'custom',
+      monthKey: null,
+      weekKey: null,
+      customFrom: dates[0].format('YYYY-MM-DD'),
+      customTo: dates[1].format('YYYY-MM-DD'),
+    });
+  }
 
-  const activeQuotas = quotas?.filter((q) => q.status_label === 'active') ?? [];
-  const totalGranted = activeQuotas.reduce((s, q) => s + Number(q.granted_kg), 0);
-  const totalUsed = activeQuotas.reduce((s, q) => s + Number(q.used_kg), 0);
-  const criticalCount = activeQuotas.filter((q) => q.used_pct >= 95).length;
-  const warningCount = activeQuotas.filter((q) => q.used_pct >= 80 && q.used_pct < 95).length;
+  const seasonOptions = seasons.map((s) => ({ value: s.id, label: s.name }));
 
-  const columns = [
+  const issuedPct =
+    kpis && kpis.expected_kg > 0
+      ? ((kpis.issued_kg / kpis.expected_kg) * 100).toFixed(1)
+      : null;
+
+  const tabItems = [
     {
-      accessor: 'export_firm_name' as keyof IQuotaAllocation,
-      title: t('quota.firm'),
-      width: 150,
-      render: (record: IQuotaAllocation) => record.export_firm_name ?? '—',
+      key: 'all_quotas',
+      label: t('quota_dashboard.tab_all_quotas'),
+      children: <QuotaIssuancesList />,
     },
     {
-      accessor: 'domestic_sale_kg' as keyof IQuotaAllocation,
-      title: t('quota.domestic_sale'),
-      width: 110,
-      render: (record: IQuotaAllocation) => fmtKg(record.domestic_sale_kg),
+      key: 'per_firm',
+      label: t('quota_dashboard.tab_per_firm'),
+      children: <QuotaPerFirmTable data={perFirm} expiredPerFirm={expiredStats.perFirmExpired} />,
     },
     {
-      accessor: 'expected_kg' as keyof IQuotaAllocation,
-      title: t('quota.expected'),
-      width: 110,
-      render: (record: IQuotaAllocation) => fmtKg(record.expected_kg),
+      key: 'visual',
+      label: t('quota_dashboard.tab_visual'),
+      children: <QuotaVisualBars data={perFirm} />,
     },
     {
-      accessor: 'granted_kg' as keyof IQuotaAllocation,
-      title: t('quota.granted'),
-      width: 110,
-      render: (record: IQuotaAllocation) => fmtKg(record.granted_kg),
+      key: 'weekly',
+      label: t('quota_dashboard.tab_weekly'),
+      children: <QuotaWeeklyFlow data={weeklyFlow} />,
     },
     {
-      accessor: 'difference_kg' as keyof IQuotaAllocation,
-      title: t('quota.difference'),
-      width: 100,
-      render: (record: IQuotaAllocation) => {
-        const diff = Number(record.difference_kg);
-        const color = diff < 0 ? '#ff4d4f' : diff > 0 ? '#52c41a' : undefined;
-        return (
-          <span style={{ color }}>
-            {diff > 0 ? '+' : ''}
-            {fmtKg(diff)}
-          </span>
-        );
-      },
-    },
-    {
-      accessor: 'used_kg' as keyof IQuotaAllocation,
-      title: t('quota.used'),
-      width: 110,
-      render: (record: IQuotaAllocation) => fmtKg(record.used_kg),
-    },
-    {
-      accessor: 'remaining_kg' as keyof IQuotaAllocation,
-      title: t('quota.remaining'),
-      width: 110,
-      render: (record: IQuotaAllocation) => (
-        <span
-          style={{
-            color:
-              record.remaining_kg <= 0
-                ? '#ff4d4f'
-                : record.remaining_kg < 5000
-                  ? '#fa8c16'
-                  : '#52c41a',
-          }}
-        >
-          {fmtKg(record.remaining_kg)}
-        </span>
-      ),
-    },
-    {
-      accessor: 'used_pct' as keyof IQuotaAllocation,
-      title: t('quota.used_pct'),
-      width: 140,
-      render: (record: IQuotaAllocation) => (
-        <Progress
-          value={Math.min(record.used_pct, 100)}
-          color={pctColor(record.used_pct)}
-          size="sm"
-        />
-      ),
-    },
-    {
-      accessor: 'valid_from' as keyof IQuotaAllocation,
-      title: t('quota.validity'),
-      width: 160,
-      render: (record: IQuotaAllocation) => `${record.valid_from} — ${record.valid_to}`,
-    },
-    {
-      accessor: 'status_label' as keyof IQuotaAllocation,
-      title: t('quota.status'),
-      width: 100,
-      render: (record: IQuotaAllocation) => statusBadge(record.status_label, t),
-    },
-    {
-      accessor: 'actions',
-      title: '',
-      width: 80,
-      render: (record: IQuotaAllocation) => (
-        <Group gap={4} wrap="nowrap">
-          <Tooltip label={t('common.edit')}>
-            <ActionIcon variant="subtle" size="sm" onClick={() => openEdit(record)}>
-              <IconEdit size={16} />
-            </ActionIcon>
-          </Tooltip>
-          <Tooltip label={t('common.delete')}>
-            <ActionIcon
-              variant="subtle"
-              size="sm"
-              color="red"
-              onClick={() => handleDelete(record)}
-              loading={deleteMutation.isPending}
-            >
-              <IconTrash size={16} />
-            </ActionIcon>
-          </Tooltip>
-        </Group>
-      ),
+      key: 'local_sell',
+      label: t('quota_dashboard.tab_local_sell'),
+      children: <LocalSellPlanGrid />,
     },
   ];
 
   return (
     <div>
-      {/* Page Header */}
-      <div
-        style={{
-          marginBottom: 16,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-        }}
-      >
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
         <div>
-          <div
-            style={{
-              fontSize: 20,
-              fontWeight: 600,
-              letterSpacing: '-0.02em',
-              color: '#1f1f1f',
-              lineHeight: '1.3',
-            }}
-          >
-            {t('quota.title')}
-          </div>
-          <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
-            {t('quota.subtitle')}
-          </div>
+          <Title level={4} style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>
+            {t('quota_dashboard.title')}
+          </Title>
+          <Text type="secondary" style={{ fontSize: 13 }}>
+            {t('quota_dashboard.subtitle')}
+          </Text>
         </div>
+        {canAddIssuance && (
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => navigate('/export/quota/add-issuance')}
+          >
+            {t('quota_dashboard.add_issuance')}
+          </Button>
+        )}
       </div>
 
-      <Tabs value={activeTab} onChange={setActiveTab} mb="md">
-        <Tabs.List>
-          <Tabs.Tab value="quotas">{t('quota.tab_quotas')}</Tabs.Tab>
-          <Tabs.Tab value="by-firm">{t('quota.tab_by_firm')}</Tabs.Tab>
-        </Tabs.List>
-
-        <Tabs.Panel value="quotas" pt="md">
-          {/* Toolbar */}
-          <Group justify="space-between" mb="md">
-            <Group gap="sm">
-              <Select
-                value={statusFilter}
-                onChange={setStatusFilter}
-                data={[
-                  { value: 'active', label: t('quota.status_active') },
-                  { value: 'expired', label: t('quota.status_expired') },
-                  { value: 'exhausted', label: t('quota.status_exhausted') },
-                ]}
-                placeholder={t('quota.all_statuses')}
-                clearable
-                style={{ width: 180 }}
-              />
-              {firmFilter && (
-                <Button variant="light" size="xs" onClick={clearFirmFilter}>
-                  {t('quota.clear_firm_filter')}
-                </Button>
-              )}
-            </Group>
-            <Button leftSection={<IconPlus size={16} />} onClick={openCreate}>
-              {t('quota.add_button')}
-            </Button>
-          </Group>
-
-          {isError && (
-            <Alert color="red" mb="md">
-              {t('quota.error_load')}
-            </Alert>
-          )}
-
-          {/* Summary cards — active quotas only */}
-          <SimpleGrid cols={{ base: 2, sm: 4 }} mb="md">
-            <StatCard
-              title={t('quota.total_granted')}
-              value={`${Number(totalGranted).toLocaleString()} kg`}
-            />
-            <StatCard
-              title={t('quota.total_used')}
-              value={`${Number(totalUsed).toLocaleString()} kg`}
-              color="blue"
-            />
-            <StatCard title={t('quota.warning_firms')} value={warningCount} color="orange" />
-            <StatCard title={t('quota.critical_firms')} value={criticalCount} color="red" />
-          </SimpleGrid>
-
-          {isLoading ? (
-            <Skeleton height={300} />
-          ) : (
-            <DataTable
-              idAccessor="id"
-              records={quotas ?? []}
-              columns={columns}
-              noRecordsText={t('quota.empty') ?? 'Maglumat ýok'}
-              verticalSpacing="xs"
-              styles={{ header: { backgroundColor: '#f5f5f5', fontSize: 13 } }}
-            />
-          )}
-        </Tabs.Panel>
-
-        <Tabs.Panel value="by-firm" pt="md">
-          <QuotaFirmSummaryTab onFirmClick={handleFirmClick} />
-        </Tabs.Panel>
-      </Tabs>
-
-      {/* Create / Edit modal */}
-      <Modal
-        opened={modalOpen}
-        onClose={() => setModalOpen(false)}
-        title={editingQuota ? t('quota.edit_title') : t('quota.add_title')}
-        size="lg"
+      {/* Period selector row — clean dropdowns */}
+      <div
+        style={{
+          display: 'flex',
+          gap: 10,
+          alignItems: 'center',
+          marginBottom: 16,
+        }}
       >
-        <form onSubmit={form.onSubmit(handleSubmit)}>
-          <Select
-            label={t('quota.firm')}
-            data={firmOptions}
-            searchable
-            required
-            mb="sm"
-            {...form.getInputProps('export_firm')}
+        <Select
+          value={seasonId}
+          onChange={(v) => {
+            setSelectedSeasonId(v);
+            setPeriod({ mode: 'season', monthKey: null, weekKey: null, customFrom: null, customTo: null });
+          }}
+          options={seasonOptions}
+          placeholder={t('quota_dashboard.season')}
+          style={{ width: 140 }}
+          size="small"
+        />
+
+        <Select
+          value={periodSelectValue}
+          onChange={handlePeriodChange}
+          options={periodOptions}
+          style={{ width: 170 }}
+          size="small"
+          showSearch
+          optionFilterProp="label"
+        />
+
+        <RangePicker
+          size="small"
+          value={
+            period.mode === 'custom' && period.customFrom && period.customTo
+              ? [dayjs(period.customFrom), dayjs(period.customTo)]
+              : null
+          }
+          onChange={(dates) => handleCustomRange(dates as [Dayjs | null, Dayjs | null] | null)}
+          placeholder={[t('quota_dashboard.date_from'), t('quota_dashboard.date_to')]}
+          style={{ width: 240 }}
+        />
+
+        <Select
+          value={productType}
+          onChange={(v) => setProductType(v)}
+          options={[
+            { label: t('quota_dashboard.product_tomato'), value: 'tomato' },
+            { label: t('quota_dashboard.product_pepper'), value: 'pepper' },
+          ]}
+          style={{ width: 130 }}
+          size="small"
+        />
+      </div>
+
+      {/* Error state */}
+      {isError && (
+        <div
+          style={{
+            padding: '12px 16px',
+            background: '#fff1f0',
+            border: '1px solid #ffa39e',
+            borderRadius: 6,
+            marginBottom: 16,
+            color: '#ff4d4f',
+            fontSize: 13,
+          }}
+        >
+          {t('quota_dashboard.error_load')}
+        </div>
+      )}
+
+      {/* KPI Cards */}
+      <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+        <Col xs={12} sm={8} md={4}>
+          <KpiCard
+            title={t('quota_dashboard.kpi_sales')}
+            value={kpis?.local_sales_kg ?? 0}
+            color="#1677ff"
+            loading={isLoading}
           />
-
-          <Group grow mb="sm">
-            <NumberInput
-              label={t('quota.domestic_sale')}
-              suffix=" kg"
-              min={0}
-              required
-              {...form.getInputProps('domestic_sale_kg')}
-            />
-            <DateInput
-              label={t('quota.domestic_sale_date')}
-              valueFormat="YYYY-MM-DD"
-              clearable
-              {...form.getInputProps('domestic_sale_date')}
-            />
-          </Group>
-
-          <Group grow mb="sm">
-            <NumberInput
-              label={t('quota.expected')}
-              suffix=" kg"
-              value={expectedKg}
-              readOnly
-              variant="filled"
-            />
-            <NumberInput
-              label={t('quota.granted')}
-              suffix=" kg"
-              min={0}
-              required
-              {...form.getInputProps('granted_kg')}
-            />
-          </Group>
-
-          {expectedKg > 0 && form.values.granted_kg > 0 && (
-            <Text size="xs" c={form.values.granted_kg < expectedKg ? 'red' : 'green'} mb="sm">
-              {t('quota.difference')}: {form.values.granted_kg >= expectedKg ? '+' : ''}
-              {(form.values.granted_kg - expectedKg).toLocaleString()} kg
-            </Text>
-          )}
-
-          <Group grow mb="sm">
-            <DateInput
-              label={t('quota.valid_from')}
-              valueFormat="YYYY-MM-DD"
-              required
-              {...form.getInputProps('valid_from')}
-            />
-            <DateInput
-              label={t('quota.valid_to')}
-              valueFormat="YYYY-MM-DD"
-              required
-              {...form.getInputProps('valid_to')}
-            />
-          </Group>
-
-          <TextInput
-            label={t('quota.notes')}
-            mb="md"
-            {...form.getInputProps('notes')}
+        </Col>
+        <Col xs={12} sm={8} md={4}>
+          <KpiCard
+            title={t('quota_dashboard.kpi_expected')}
+            value={kpis?.expected_kg ?? 0}
+            color="#52c41a"
+            loading={isLoading}
           />
+        </Col>
+        <Col xs={12} sm={8} md={4}>
+          <KpiCard
+            title={t('quota_dashboard.kpi_issued')}
+            value={kpis?.issued_kg ?? 0}
+            color="#722ed1"
+            extra={issuedPct ? `${issuedPct}%` : undefined}
+            loading={isLoading}
+          />
+        </Col>
+        <Col xs={12} sm={8} md={4}>
+          <KpiCard
+            title={t('quota_dashboard.kpi_not_given')}
+            value={kpis?.not_given_kg ?? 0}
+            color={kpis && kpis.not_given_kg > 0 ? '#ff4d4f' : undefined}
+            extra={kpis ? `${Number(kpis.not_given_pct).toFixed(1)}%` : undefined}
+            loading={isLoading}
+          />
+        </Col>
+        <Col xs={12} sm={8} md={4}>
+          <KpiCard
+            title={t('quota_dashboard.kpi_used')}
+            value={kpis?.used_kg ?? 0}
+            color="#13c2c2"
+            loading={isLoading}
+          />
+        </Col>
+        <Col xs={12} sm={8} md={4}>
+          <KpiCard
+            title={t('quota_dashboard.kpi_unused')}
+            value={kpis?.unused_kg ?? 0}
+            color={kpis && kpis.unused_kg > 0 ? '#fa8c16' : undefined}
+            extra={kpis ? `${Number(kpis.unused_pct).toFixed(1)}%` : undefined}
+            loading={isLoading}
+          />
+        </Col>
+        <Col xs={12} sm={8} md={4}>
+          <KpiCard
+            title={t('quota_dashboard.kpi_expired_unused')}
+            value={expiredStats.totalExpiredKg}
+            color={expiredStats.totalExpiredKg > 0 ? '#ff4d4f' : undefined}
+            loading={isLoading}
+          />
+        </Col>
+      </Row>
 
-          <Group justify="flex-end">
-            <Button variant="default" onClick={() => setModalOpen(false)}>
-              {t('common.cancel')}
-            </Button>
-            <Button
-              type="submit"
-              loading={createMutation.isPending || updateMutation.isPending}
-            >
-              {editingQuota ? t('common.save') : t('common.add')}
-            </Button>
-          </Group>
-        </form>
-      </Modal>
+      {/* Tabs */}
+      <Card styles={{ body: { padding: '0 16px 16px' } }}>
+        <Tabs
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          items={tabItems}
+          size="small"
+        />
+      </Card>
+
+      {/* Add Issuance Modal */}
     </div>
   );
 }

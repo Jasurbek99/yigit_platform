@@ -1,6 +1,5 @@
 import type {
   IWeeklyHarvestPlan,
-  IQuotaAllocation,
   IPriceEntry,
   IWeeklyTruckAllocation,
   IBlockSummary,
@@ -48,14 +47,6 @@ export const MOCK_HARVEST_PLANS: IWeeklyHarvestPlan[] = [
     rejection_note: 'Plan values too low for block C capacity',
     entered_by_name: 'geldimyrat_a', updated_at: '2025-02-16T10:00:00+05:00',
   },
-];
-
-export const MOCK_QUOTA_DASHBOARD: IQuotaAllocation[] = [
-  { id: 1, export_firm: 1, export_firm_name: 'YGT H.J.', domestic_sale_kg: 5000, domestic_sale_date: '2026-03-05', expected_kg: 50000, granted_kg: 50000, used_kg: 31200, remaining_kg: 18800, used_pct: 62.4, difference_kg: 0, valid_from: '2026-03-01', valid_to: '2026-03-31', status_label: 'active', warning_80_sent: false, warning_90_sent: false, warning_95_sent: false, notes: '', created_at: '2026-03-05T10:00:00+05:00' },
-  { id: 2, export_firm: 2, export_firm_name: 'Gök Mäkan', domestic_sale_kg: 3000, domestic_sale_date: '2026-03-02', expected_kg: 30000, granted_kg: 30000, used_kg: 25500, remaining_kg: 4500, used_pct: 85.0, difference_kg: 0, valid_from: '2026-03-01', valid_to: '2026-03-31', status_label: 'active', warning_80_sent: true, warning_90_sent: false, warning_95_sent: false, notes: '', created_at: '2026-03-02T10:00:00+05:00' },
-  { id: 3, export_firm: 3, export_firm_name: 'Altyn Asyr', domestic_sale_kg: 2000, domestic_sale_date: '2026-03-01', expected_kg: 20000, granted_kg: 20000, used_kg: 19400, remaining_kg: 600, used_pct: 97.0, difference_kg: 0, valid_from: '2026-03-01', valid_to: '2026-03-31', status_label: 'active', warning_80_sent: true, warning_90_sent: true, warning_95_sent: true, notes: '', created_at: '2026-03-01T10:00:00+05:00' },
-  { id: 4, export_firm: 1, export_firm_name: 'YGT H.J.', domestic_sale_kg: 1550, domestic_sale_date: '2026-02-10', expected_kg: 15500, granted_kg: 10000, used_kg: 10000, remaining_kg: 0, used_pct: 100.0, difference_kg: -5500, valid_from: '2026-02-01', valid_to: '2026-02-28', status_label: 'exhausted', warning_80_sent: true, warning_90_sent: true, warning_95_sent: true, notes: 'Government gave less than expected', created_at: '2026-02-10T10:00:00+05:00' },
-  { id: 5, export_firm: 4, export_firm_name: 'Türkmen Eksport', domestic_sale_kg: 1500, domestic_sale_date: '2026-02-20', expected_kg: 15000, granted_kg: 15000, used_kg: 4800, remaining_kg: 10200, used_pct: 32.0, difference_kg: 0, valid_from: '2026-02-20', valid_to: '2026-03-20', status_label: 'expired', warning_80_sent: false, warning_90_sent: false, warning_95_sent: false, notes: '', created_at: '2026-02-20T10:00:00+05:00' },
 ];
 
 export const MOCK_TRUCK_ALLOCATIONS: IWeeklyTruckAllocation[] = [

@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from rest_framework import serializers
-from apps.export.models import WeeklyHarvestPlan, WeeklyTruckAllocation, TruckDestinationSplit, QuotaAllocation, PriceEntry, DomesticSale
+from apps.export.models import WeeklyHarvestPlan, WeeklyLocalSellPlan, WeeklyTruckAllocation, TruckDestinationSplit, PriceEntry, DomesticSale
 
 
 class WeeklyHarvestPlanSerializer(serializers.ModelSerializer):
@@ -59,61 +59,6 @@ class WeeklyHarvestPlanSerializer(serializers.ModelSerializer):
             'status', 'submitted_at', 'submitted_by_name',
             'approved_at', 'approved_by_name',
             'rejected_at', 'rejected_by_name', 'rejection_note',
-        ]
-
-
-class QuotaAllocationSerializer(serializers.ModelSerializer):
-    """Serializer for individual quota allocations (CRUD)."""
-
-    export_firm_name = serializers.SerializerMethodField()
-
-    # Computed read-only fields
-    remaining_kg = serializers.SerializerMethodField()
-    used_pct = serializers.SerializerMethodField()
-    difference_kg = serializers.SerializerMethodField()
-    status_label = serializers.SerializerMethodField()
-
-    def get_export_firm_name(self, obj: QuotaAllocation) -> str | None:
-        firm = obj.export_firm
-        if not firm:
-            return None
-        return firm.name_en or firm.name_tk
-
-    def get_remaining_kg(self, obj: QuotaAllocation) -> Decimal:
-        return obj.granted_kg - obj.used_kg
-
-    def get_used_pct(self, obj: QuotaAllocation) -> float:
-        if not obj.granted_kg:
-            return 0.0
-        pct = (obj.used_kg / obj.granted_kg * Decimal('100')).quantize(Decimal('0.1'))
-        return float(pct)
-
-    def get_difference_kg(self, obj: QuotaAllocation) -> Decimal:
-        return obj.granted_kg - obj.expected_kg
-
-    def get_status_label(self, obj: QuotaAllocation) -> str:
-        return obj.status_label
-
-    class Meta:
-        model = QuotaAllocation
-        fields = [
-            'id', 'export_firm', 'export_firm_name',
-            # Domestic sale basis
-            'domestic_sale_kg', 'domestic_sale_date',
-            # Amounts
-            'expected_kg', 'granted_kg', 'used_kg',
-            'remaining_kg', 'used_pct', 'difference_kg',
-            # Validity
-            'valid_from', 'valid_to', 'status_label',
-            # Warnings
-            'warning_80_sent', 'warning_90_sent', 'warning_95_sent',
-            # Audit
-            'notes', 'created_at',
-        ]
-        read_only_fields = [
-            'used_kg', 'remaining_kg', 'used_pct', 'difference_kg', 'status_label',
-            'warning_80_sent', 'warning_90_sent', 'warning_95_sent',
-            'created_at',
         ]
 
 
@@ -176,6 +121,57 @@ class DomesticSaleSerializer(serializers.ModelSerializer):
             'created_by_name', 'created_at',
         ]
         read_only_fields = ['buyer_name', 'block_code', 'block_name', 'export_firm_name', 'created_by_name', 'created_at']
+
+
+class WeeklyLocalSellPlanSerializer(serializers.ModelSerializer):
+    export_firm_name = serializers.SerializerMethodField()
+    season_name = serializers.CharField(source='season.name', read_only=True, default=None)
+    entered_by_name = serializers.CharField(source='entered_by.username', read_only=True, default=None)
+
+    # Approval workflow read-only fields
+    submitted_by_name = serializers.CharField(
+        source='submitted_by.username', read_only=True, default=None,
+    )
+    approved_by_name = serializers.CharField(
+        source='approved_by.username', read_only=True, default=None,
+    )
+    rejected_by_name = serializers.CharField(
+        source='rejected_by.username', read_only=True, default=None,
+    )
+
+    # Computed total
+    total_plan_kg = serializers.SerializerMethodField()
+
+    def get_export_firm_name(self, obj: WeeklyLocalSellPlan) -> str | None:
+        firm = obj.export_firm
+        if not firm:
+            return None
+        return firm.name_en or firm.name_tk
+
+    def get_total_plan_kg(self, obj: WeeklyLocalSellPlan) -> Decimal:
+        fields = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+        return sum(getattr(obj, f'{d}_plan_kg') for d in fields)
+
+    class Meta:
+        model = WeeklyLocalSellPlan
+        fields = [
+            'id', 'season', 'season_name', 'export_firm', 'export_firm_name',
+            'week_number', 'year',
+            'monday_plan_kg', 'tuesday_plan_kg', 'wednesday_plan_kg',
+            'thursday_plan_kg', 'friday_plan_kg', 'saturday_plan_kg',
+            'total_plan_kg',
+            # Approval workflow
+            'status', 'submitted_at', 'submitted_by_name',
+            'approved_at', 'approved_by_name',
+            'rejected_at', 'rejected_by_name', 'rejection_note',
+            'entered_by_name', 'updated_at',
+        ]
+        read_only_fields = [
+            'entered_by_name', 'updated_at', 'total_plan_kg',
+            'status', 'submitted_at', 'submitted_by_name',
+            'approved_at', 'approved_by_name',
+            'rejected_at', 'rejected_by_name', 'rejection_note',
+        ]
 
 
 class PriceEntrySerializer(serializers.ModelSerializer):

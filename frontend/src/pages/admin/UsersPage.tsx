@@ -37,6 +37,7 @@ const ROLE_COLORS: Record<UserRole, string> = {
   director: 'red',
   accountant: 'violet',
   greenhouse_manager: 'lime',
+  seller: 'teal',
 };
 
 export default function UsersPage() {

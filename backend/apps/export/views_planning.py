@@ -15,17 +15,17 @@ from rest_framework.viewsets import ModelViewSet
 from apps.core.permissions import write_permission
 from apps.export.models import (
     WeeklyHarvestPlan,
+    WeeklyLocalSellPlan,
     WeeklyTruckAllocation,
     TruckDestinationSplit,
-    QuotaAllocation,
     PriceEntry,
     DomesticSale,
     BlockManagerAssignment,
 )
 from apps.export.serializers_planning import (
     WeeklyHarvestPlanSerializer,
+    WeeklyLocalSellPlanSerializer,
     WeeklyTruckAllocationSerializer,
-    QuotaAllocationSerializer,
     PriceEntrySerializer,
     DomesticSaleSerializer,
 )
@@ -398,140 +398,6 @@ class WeeklyHarvestPlanViewSet(ModelViewSet):
         return Response(results)
 
 
-_QUOTA_WRITE_ROLES = frozenset({'export_manager', 'director'})
-
-
-class QuotaAllocationViewSet(ModelViewSet):
-    """
-    GET    /api/v1/export/quotas/                — list (filter by ?export_firm=&status=&valid_on=)
-    GET    /api/v1/export/quotas/{id}/           — detail
-    POST   /api/v1/export/quotas/                — create (export_manager / director)
-    PUT    /api/v1/export/quotas/{id}/           — update
-    GET    /api/v1/export/quotas/dashboard/      — per-firm summary with all active quotas
-    """
-
-    permission_classes = [IsAuthenticated, write_permission(*_QUOTA_WRITE_ROLES)]
-    serializer_class = QuotaAllocationSerializer
-    http_method_names = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options']
-
-    queryset = QuotaAllocation.objects.select_related('export_firm').order_by(
-        'valid_from', 'export_firm__name_en',
-    )
-
-    def get_queryset(self):
-        qs = super().get_queryset()
-        params = self.request.query_params
-        if firm := params.get('export_firm'):
-            qs = qs.filter(export_firm_id=firm)
-        if status := params.get('status'):
-            today = timezone.now().date()
-            if status == 'active':
-                qs = qs.filter(valid_to__gte=today, used_kg__lt=F('granted_kg'))
-            elif status == 'expired':
-                qs = qs.filter(valid_to__lt=today)
-            elif status == 'exhausted':
-                qs = qs.filter(used_kg__gte=F('granted_kg'))
-        if valid_on := params.get('valid_on'):
-            qs = qs.filter(valid_from__lte=valid_on, valid_to__gte=valid_on)
-        return qs
-
-    def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
-
-    @action(detail=False, methods=['get'], url_path='dashboard')
-    def dashboard(self, request):
-        """GET /api/v1/export/quotas/dashboard/
-
-        Returns all quota allocations with computed fields.
-        Filtered by ?export_firm= and ?status= (defaults to all).
-        """
-        qs = self.get_queryset()
-        serializer = self.get_serializer(qs, many=True)
-        return Response(serializer.data)
-
-    @action(detail=False, methods=['get'], url_path='firm-summary')
-    def firm_summary(self, request):
-        """GET /api/v1/export/quotas/firm-summary/
-
-        Aggregated quota metrics per export firm.
-        """
-        from django.db.models import DecimalField as DFld
-        today = timezone.now().date()
-        zero_dec = Value(Decimal('0'), output_field=DFld(max_digits=12, decimal_places=2))
-
-        qs = (
-            QuotaAllocation.objects
-            .values('export_firm_id')
-            .annotate(
-                export_firm_name=F('export_firm__name_en'),
-                export_firm_code=F('export_firm__code'),
-                quota_count=Count('id'),
-                active_count=Count(
-                    'id',
-                    filter=Q(valid_to__gte=today, used_kg__lt=F('granted_kg')),
-                ),
-                expired_count=Count(
-                    'id',
-                    filter=Q(valid_to__lt=today),
-                ),
-                exhausted_count=Count(
-                    'id',
-                    filter=Q(used_kg__gte=F('granted_kg')),
-                ),
-                total_domestic_sale_kg=Coalesce(Sum('domestic_sale_kg'), Value(Decimal('0'))),
-                total_expected_kg=Coalesce(Sum('expected_kg'), Value(Decimal('0'))),
-                total_granted_kg=Coalesce(Sum('granted_kg'), Value(Decimal('0'))),
-                total_used_kg=Coalesce(Sum('used_kg'), Value(Decimal('0'))),
-                total_remaining_kg=Coalesce(
-                    Sum(
-                        Case(
-                            When(
-                                Q(valid_to__gte=today) & Q(used_kg__lt=F('granted_kg')),
-                                then=F('granted_kg') - F('used_kg'),
-                            ),
-                            default=zero_dec,
-                        ),
-                    ),
-                    Value(Decimal('0')),
-                ),
-                earliest_expiry=Min(
-                    'valid_to',
-                    filter=Q(valid_to__gte=today, used_kg__lt=F('granted_kg')),
-                ),
-            )
-            .order_by('export_firm__name_en')
-        )
-
-        results = []
-        for row in qs:
-            total_granted = row['total_granted_kg'] or Decimal('0')
-            total_used = row['total_used_kg'] or Decimal('0')
-            utilization = (
-                float((total_used / total_granted * Decimal('100')).quantize(Decimal('0.1')))
-                if total_granted > 0
-                else 0.0
-            )
-            results.append({
-                'export_firm': row['export_firm_id'],
-                'export_firm_name': row['export_firm_name'] or '',
-                'export_firm_code': row['export_firm_code'] or '',
-                'quota_count': row['quota_count'],
-                'active_count': row['active_count'],
-                'expired_count': row['expired_count'],
-                'exhausted_count': row['exhausted_count'],
-                'total_domestic_sale_kg': row['total_domestic_sale_kg'],
-                'total_expected_kg': row['total_expected_kg'],
-                'total_granted_kg': row['total_granted_kg'],
-                'total_difference_kg': row['total_granted_kg'] - row['total_expected_kg'],
-                'total_used_kg': row['total_used_kg'],
-                'total_remaining_kg': row['total_remaining_kg'],
-                'utilization_pct': utilization,
-                'earliest_expiry': row['earliest_expiry'],
-            })
-
-        return Response(results)
-
-
 class PriceEntryViewSet(ModelViewSet):
     """
     GET   /api/v1/export/prices/          — list (filter by ?city=&days=7)
@@ -668,3 +534,258 @@ class DomesticSaleViewSet(ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
+
+
+# ---------------------------------------------------------------------------
+# Weekly Local Sell Plan
+# ---------------------------------------------------------------------------
+
+_LOCAL_SELL_WRITE_ROLES = frozenset({'export_manager', 'director', 'seller'})
+_LOCAL_SELL_APPROVE_ROLES = frozenset({'export_manager', 'director'})
+_SELL_PLAN_DAYS = ('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday')
+
+
+class WeeklyLocalSellPlanViewSet(ModelViewSet):
+    """
+    GET    /api/v1/export/local-sell-plans/             — list (filter ?export_firm=&year=&week=)
+    POST   /api/v1/export/local-sell-plans/             — create
+    PUT    /api/v1/export/local-sell-plans/{id}/        — update
+    POST   .../submit/, approve/, reject/               — workflow actions
+    POST   .../initialize-week/                         — create rows for all active firms
+    """
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = WeeklyLocalSellPlanSerializer
+    http_method_names = ['get', 'post', 'put', 'patch', 'head', 'options']
+
+    queryset = WeeklyLocalSellPlan.objects.select_related(
+        'season', 'export_firm', 'entered_by',
+        'submitted_by', 'approved_by', 'rejected_by',
+    ).order_by('year', 'week_number', 'export_firm__name_en')
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        params = self.request.query_params
+        if firm := params.get('export_firm'):
+            qs = qs.filter(export_firm_id=firm)
+        if year := params.get('year'):
+            qs = qs.filter(year=year)
+        if week := params.get('week'):
+            qs = qs.filter(week_number=week)
+        return qs
+
+    def perform_create(self, serializer):
+        role = getattr(self.request.user, 'role', None)
+        if role not in _LOCAL_SELL_WRITE_ROLES:
+            raise PermissionDenied('Only export_manager/director/seller can create local sell plans.')
+        serializer.save(entered_by=self.request.user)
+
+    def perform_update(self, serializer):
+        instance = serializer.instance
+        role = getattr(self.request.user, 'role', None)
+        is_admin = role in _LOCAL_SELL_APPROVE_ROLES
+
+        if instance.status == 'submitted' and not is_admin:
+            raise ValidationError('Plan is pending approval and cannot be edited.')
+
+        if instance.status == 'approved' and not is_admin:
+            raise ValidationError('Approved plan cannot be edited.')
+
+        if role not in _LOCAL_SELL_WRITE_ROLES:
+            raise PermissionDenied(f"Role '{role}' cannot edit local sell plans.")
+
+        # Audit: log admin edits on approved/submitted plans
+        if is_admin and instance.status in ('approved', 'submitted'):
+            from apps.export.models import AuditLog
+            changed = serializer.validated_data
+            detail_parts = []
+            for field, new_val in changed.items():
+                old_val = getattr(instance, field, None)
+                if old_val != new_val:
+                    detail_parts.append(f'{field}: {old_val} -> {new_val}')
+            if detail_parts:
+                AuditLog.objects.create(
+                    user=self.request.user,
+                    action='local_sell_edit',
+                    model_name='WeeklyLocalSellPlan',
+                    object_id=instance.id,
+                    object_repr=str(instance),
+                    detail='; '.join(detail_parts),
+                )
+
+        serializer.save(entered_by=self.request.user)
+
+    # ─── Workflow actions ─────────────────────────────────────────────────
+
+    @action(detail=True, methods=['post'], url_path='submit')
+    def submit(self, request, pk=None):
+        plan = self.get_object()
+        from apps.export.models import PLAN_TRANSITIONS
+        allowed = PLAN_TRANSITIONS.get(plan.status, [])
+        if 'submitted' not in allowed:
+            return Response(
+                {'error': f"Cannot submit from status '{plan.status}'."},
+                status=http_status.HTTP_400_BAD_REQUEST,
+            )
+        has_plan = any(getattr(plan, f'{d}_plan_kg', 0) > 0 for d in _SELL_PLAN_DAYS)
+        if not has_plan:
+            return Response(
+                {'error': 'Plan must have at least one day with a positive plan_kg.'},
+                status=http_status.HTTP_400_BAD_REQUEST,
+            )
+        now = timezone.now()
+        plan.status = 'submitted'
+        plan.submitted_at = now
+        plan.submitted_by = request.user
+        plan.rejected_at = None
+        plan.rejected_by = None
+        plan.rejection_note = None
+        plan.updated_at = now
+        plan.save(update_fields=[
+            'status', 'submitted_at', 'submitted_by',
+            'rejected_at', 'rejected_by', 'rejection_note', 'updated_at',
+        ])
+        return Response(self.get_serializer(plan).data)
+
+    @action(detail=True, methods=['post'], url_path='approve')
+    def approve(self, request, pk=None):
+        plan = self.get_object()
+        role = getattr(request.user, 'role', None)
+        if role not in _LOCAL_SELL_APPROVE_ROLES:
+            raise PermissionDenied('Only export_manager/director can approve.')
+        from apps.export.models import PLAN_TRANSITIONS
+        allowed = PLAN_TRANSITIONS.get(plan.status, [])
+        if 'approved' not in allowed:
+            return Response(
+                {'error': f"Cannot approve from status '{plan.status}'."},
+                status=http_status.HTTP_400_BAD_REQUEST,
+            )
+        now = timezone.now()
+        plan.status = 'approved'
+        plan.approved_at = now
+        plan.approved_by = request.user
+        plan.updated_at = now
+        plan.save(update_fields=['status', 'approved_at', 'approved_by', 'updated_at'])
+        return Response(self.get_serializer(plan).data)
+
+    @action(detail=True, methods=['post'], url_path='reject')
+    def reject(self, request, pk=None):
+        plan = self.get_object()
+        role = getattr(request.user, 'role', None)
+        if role not in _LOCAL_SELL_APPROVE_ROLES:
+            raise PermissionDenied('Only export_manager/director can reject.')
+        from apps.export.models import PLAN_TRANSITIONS
+        allowed = PLAN_TRANSITIONS.get(plan.status, [])
+        if 'rejected' not in allowed:
+            return Response(
+                {'error': f"Cannot reject from status '{plan.status}'."},
+                status=http_status.HTTP_400_BAD_REQUEST,
+            )
+        rejection_note = request.data.get('rejection_note', '')
+        if not rejection_note or not rejection_note.strip():
+            return Response(
+                {'error': 'rejection_note is required.'},
+                status=http_status.HTTP_400_BAD_REQUEST,
+            )
+        now = timezone.now()
+        plan.status = 'rejected'
+        plan.rejected_at = now
+        plan.rejected_by = request.user
+        plan.rejection_note = rejection_note.strip()
+        plan.updated_at = now
+        plan.save(update_fields=[
+            'status', 'rejected_at', 'rejected_by', 'rejection_note', 'updated_at',
+        ])
+        return Response(self.get_serializer(plan).data)
+
+    @action(detail=False, methods=['post'], url_path='bulk-submit')
+    def bulk_submit(self, request):
+        ids = request.data.get('ids', [])
+        if not ids:
+            return Response({'error': 'ids list is required.'}, status=http_status.HTTP_400_BAD_REQUEST)
+        plans = WeeklyLocalSellPlan.objects.filter(id__in=ids, status__in=['draft', 'rejected'])
+        submitted_ids, errors, now = [], [], timezone.now()
+        for plan in plans:
+            has_plan = any(getattr(plan, f'{d}_plan_kg', 0) > 0 for d in _SELL_PLAN_DAYS)
+            if not has_plan:
+                errors.append({'id': plan.id, 'error': 'No positive plan_kg.'})
+                continue
+            plan.status = 'submitted'
+            plan.submitted_at = now
+            plan.submitted_by = request.user
+            plan.rejected_at = None
+            plan.rejected_by = None
+            plan.rejection_note = None
+            plan.updated_at = now
+            plan.save(update_fields=[
+                'status', 'submitted_at', 'submitted_by',
+                'rejected_at', 'rejected_by', 'rejection_note', 'updated_at',
+            ])
+            submitted_ids.append(plan.id)
+        return Response({'submitted': submitted_ids, 'errors': errors})
+
+    @action(detail=False, methods=['post'], url_path='bulk-approve')
+    def bulk_approve(self, request):
+        role = getattr(request.user, 'role', None)
+        if role not in _LOCAL_SELL_APPROVE_ROLES:
+            raise PermissionDenied('Only export_manager/director can approve.')
+        ids = request.data.get('ids', [])
+        if not ids:
+            return Response({'error': 'ids list is required.'}, status=http_status.HTTP_400_BAD_REQUEST)
+        plans = WeeklyLocalSellPlan.objects.filter(id__in=ids, status='submitted')
+        approved_ids, now = [], timezone.now()
+        for plan in plans:
+            plan.status = 'approved'
+            plan.approved_at = now
+            plan.approved_by = request.user
+            plan.updated_at = now
+            plan.save(update_fields=['status', 'approved_at', 'approved_by', 'updated_at'])
+            approved_ids.append(plan.id)
+        return Response({'approved': approved_ids, 'errors': []})
+
+    @action(detail=False, methods=['post'], url_path='initialize-week')
+    def initialize_week(self, request):
+        """Create draft rows for all active export firms for the given week."""
+        from apps.core.models import ExportFirm
+
+        week_number = request.data.get('week_number')
+        year = request.data.get('year')
+        season_id = request.data.get('season')
+
+        if not all([week_number, year]):
+            return Response(
+                {'error': 'week_number and year are required.'},
+                status=http_status.HTTP_400_BAD_REQUEST,
+            )
+
+        role = getattr(request.user, 'role', None)
+        if role not in _LOCAL_SELL_APPROVE_ROLES:
+            raise PermissionDenied('Only export_manager/director can initialize a week.')
+
+        active_firms = ExportFirm.objects.filter(is_active=True)
+        existing_firm_ids = set(
+            WeeklyLocalSellPlan.objects.filter(
+                week_number=week_number, year=year,
+            ).values_list('export_firm_id', flat=True)
+        )
+
+        new_plans = [
+            WeeklyLocalSellPlan(
+                export_firm=firm,
+                week_number=week_number,
+                year=year,
+                season_id=season_id,
+                entered_by=request.user,
+            )
+            for firm in active_firms
+            if firm.id not in existing_firm_ids
+        ]
+
+        if new_plans:
+            WeeklyLocalSellPlan.objects.bulk_create(new_plans, batch_size=500)
+
+        qs = WeeklyLocalSellPlan.objects.filter(
+            week_number=week_number, year=year,
+        ).select_related('season', 'export_firm', 'entered_by', 'submitted_by', 'approved_by', 'rejected_by')
+        serializer = self.get_serializer(qs, many=True)
+        return Response({'count': len(serializer.data), 'results': serializer.data})

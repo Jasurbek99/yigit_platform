@@ -145,4 +145,5 @@ Unique constraint: `(date, city_id)` — use `ignore_conflicts=True`.
 - **Task 4** — 2,522 domestic market prices from `Satys_bahalar_202526.xlsx` (7 months, 3 price types, 5 varieties)
 - **Task 5** — 257 weekly harvest plans from `Pomidor_Dükany__20252026.xlsx` (24 weeks, 15 blocks) — *superseded by task #6*
 - **Task 6** — 318 harvest plans + 173 truck allocations + 446 destination splits from `weekly_plan.xlsx`
+- **Task 7** — 67 quota allocations (65 tomato + 2 pepper) from `quota.xlsx` (8 grant events, 15 firms, 12 new firms auto-created)
 - **Pre-req** — reference data seeded: 20 export firms, 172 import firms, 6 customers, 13 cities

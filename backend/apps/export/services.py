@@ -1,8 +1,5 @@
 import logging
-from decimal import Decimal
 
-from django.db.models import Sum
-from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 from apps.export.models import Shipment, ShipmentStatusLog
@@ -46,129 +43,6 @@ TRANSITIONS = {
 
 # Roles that may override role restrictions and trigger any valid transition.
 PRIVILEGED_ROLES = {'export_manager', 'director'}
-
-
-def _send_quota_notifications(quota_obj: 'QuotaAllocation') -> None:
-    """Create Notification rows for export_manager and director users when
-    quota usage crosses a warning threshold for the first time.
-
-    Uses the warning_*_sent flags on QuotaAllocation to prevent duplicate
-    notifications. Saves the updated flags back to the DB.
-
-    Args:
-        quota_obj: A freshly-fetched QuotaAllocation instance with updated used_kg.
-    """
-    from apps.core.models import User
-    from apps.export.models import Notification, QuotaAllocation
-
-    if quota_obj.granted_kg <= 0:
-        return
-
-    pct = int(quota_obj.used_kg / quota_obj.granted_kg * 100)
-    firm_name = getattr(quota_obj.export_firm, 'name_en', None) or f'firm#{quota_obj.export_firm_id}'
-
-    thresholds = [
-        (80, 'quota_80', 'warning_80_sent'),
-        (90, 'quota_90', 'warning_90_sent'),
-        (95, 'quota_95', 'warning_95_sent'),
-    ]
-
-    # Fetch target user IDs once — avoids N+1 if multiple thresholds trigger.
-    target_user_ids = list(
-        User.objects.filter(
-            role__in=['export_manager', 'director'],
-            is_active=True,
-        ).values_list('id', flat=True)
-    )
-
-    flags_to_update = []
-    notifications_to_create = []
-
-    for threshold, kind, flag in thresholds:
-        if pct >= threshold and not getattr(quota_obj, flag):
-            message = (
-                f'{firm_name} quota at {pct}% '
-                f'({quota_obj.used_kg} / {quota_obj.granted_kg} kg) '
-                f'valid {quota_obj.valid_from}–{quota_obj.valid_to}'
-            )
-            link = f'/export/quotas/?firm={quota_obj.export_firm_id}'
-
-            for user_id in target_user_ids:
-                notifications_to_create.append(
-                    Notification(
-                        user_id=user_id,
-                        kind=kind,
-                        message=message,
-                        link=link,
-                    )
-                )
-
-            setattr(quota_obj, flag, True)
-            flags_to_update.append(flag)
-
-    if notifications_to_create:
-        Notification.objects.bulk_create(notifications_to_create, batch_size=500)
-
-    if flags_to_update:
-        QuotaAllocation.objects.filter(pk=quota_obj.pk).update(
-            **{f: True for f in flags_to_update}
-        )
-        logger.info(
-            'Quota warning flags set for quota=%s firm=%s: %s',
-            quota_obj.pk,
-            quota_obj.export_firm_id,
-            flags_to_update,
-        )
-
-
-def _refresh_quota_usage(shipment: 'Shipment') -> None:
-    """Recalculate used_kg for all active quotas of firms on this shipment using FIFO.
-
-    Called after a shipment enters yuklenme (loading committed).
-    For each affected firm, sums all committed shipment firm-split weights and
-    distributes them across the firm's active quotas oldest-first (valid_from ASC).
-    """
-    from apps.export.models import ShipmentFirmSplit, QuotaAllocation
-
-    today = timezone.now().date()
-
-    firm_ids = list(
-        ShipmentFirmSplit.objects.filter(shipment=shipment)
-        .values_list('export_firm_id', flat=True)
-        .distinct()
-    )
-    if not firm_ids:
-        return
-
-    for firm_id in firm_ids:
-        # Total weight committed for this firm across all shipments in loading+
-        total_committed = ShipmentFirmSplit.objects.filter(
-            export_firm_id=firm_id,
-        ).aggregate(total=Coalesce(Sum('weight_kg'), Decimal('0')))['total']
-
-        # All quotas for this firm (active = not expired), ordered FIFO
-        quotas = list(
-            QuotaAllocation.objects
-            .select_related('export_firm')
-            .filter(export_firm_id=firm_id, valid_to__gte=today)
-            .order_by('valid_from', 'pk')
-        )
-
-        # Distribute total_committed across quotas FIFO
-        remaining_to_allocate = total_committed
-        for quota in quotas:
-            if remaining_to_allocate <= 0:
-                new_used = Decimal('0')
-            elif remaining_to_allocate >= quota.granted_kg:
-                new_used = quota.granted_kg
-                remaining_to_allocate -= quota.granted_kg
-            else:
-                new_used = remaining_to_allocate
-                remaining_to_allocate = Decimal('0')
-
-            QuotaAllocation.objects.filter(pk=quota.pk).update(used_kg=new_used)
-            quota.used_kg = new_used
-            _send_quota_notifications(quota)
 
 
 def transition_to(shipment: Shipment, new_status_code: str, user, comment: str = '') -> None:
@@ -256,9 +130,8 @@ def transition_to(shipment: Shipment, new_status_code: str, user, comment: str =
         user.username,
     )
 
-    # Refresh quota usage when a shipment commits to loading
-    if new_status_code == 'yuklenme':
-        _refresh_quota_usage(shipment)
+    # Quota usage is now computed on-the-fly in the quota dashboard analytics endpoint.
+    # No per-quota used_kg tracking needed.
 
 
 # ---------------------------------------------------------------------------

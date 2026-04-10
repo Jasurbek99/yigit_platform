@@ -3,8 +3,7 @@ import api from '@/services/api';
 import type {
   IApiListResponse,
   IWeeklyHarvestPlan,
-  IQuotaAllocation,
-  IQuotaFirmSummary,
+  IWeeklyLocalSellPlan,
   IPriceEntry,
   IWeeklyTruckAllocation,
   ITruckDestination,
@@ -13,7 +12,6 @@ import type {
 } from '@/types';
 import {
   MOCK_HARVEST_PLANS,
-  MOCK_QUOTA_DASHBOARD,
   MOCK_PRICE_ENTRIES,
   MOCK_TRUCK_ALLOCATIONS,
   MOCK_BLOCK_SUMMARY,
@@ -156,86 +154,120 @@ export function useBulkRejectHarvestPlans() {
   });
 }
 
-export function useQuotaDashboard(filters: { export_firm?: number; status?: string } = {}) {
+// ---------------------------------------------------------------------------
+// Weekly Local Sell Plans
+// ---------------------------------------------------------------------------
+
+export function useLocalSellPlans(filters: { year?: number; week?: number } = {}) {
   return useQuery({
-    queryKey: ['quota-dashboard', filters],
-    queryFn: async (): Promise<IQuotaAllocation[]> => {
-      if (USE_MOCK) return MOCK_QUOTA_DASHBOARD;
+    queryKey: ['local-sell-plans', filters],
+    queryFn: async (): Promise<IApiListResponse<IWeeklyLocalSellPlan>> => {
       const params = new URLSearchParams();
-      if (filters.export_firm) params.set('export_firm', String(filters.export_firm));
-      if (filters.status) params.set('status', filters.status);
+      if (filters.year) params.set('year', String(filters.year));
+      if (filters.week) params.set('week', String(filters.week));
       const qs = params.toString() ? `?${params.toString()}` : '';
-      const { data } = await api.get<IQuotaAllocation[]>(`/export/quotas/dashboard/${qs}`);
+      const { data } = await api.get<IApiListResponse<IWeeklyLocalSellPlan>>(`/export/local-sell-plans/${qs}`);
       return data;
     },
     staleTime: 60_000,
   });
 }
 
-export interface IQuotaFormData {
-  export_firm: number;
-  domestic_sale_kg: number;
-  domestic_sale_date?: string | null;
-  expected_kg: number;
-  granted_kg: number;
-  valid_from: string;
-  valid_to: string;
-  notes?: string;
-}
-
-export function useCreateQuota() {
+export function useUpsertLocalSellPlan() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (payload: IQuotaFormData): Promise<IQuotaAllocation> => {
-      const { data } = await api.post<IQuotaAllocation>('/export/quotas/', payload);
+    mutationFn: async (payload: Partial<IWeeklyLocalSellPlan> & { id?: number }): Promise<IWeeklyLocalSellPlan> => {
+      if (payload.id) {
+        const { data } = await api.patch<IWeeklyLocalSellPlan>(`/export/local-sell-plans/${payload.id}/`, payload);
+        return data;
+      }
+      const { data } = await api.post<IWeeklyLocalSellPlan>('/export/local-sell-plans/', payload);
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['quota-dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['local-sell-plans'] });
     },
   });
 }
 
-export function useUpdateQuota() {
+export function useInitializeLocalSellWeek() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...payload }: IQuotaFormData & { id: number }): Promise<IQuotaAllocation> => {
-      const { data } = await api.put<IQuotaAllocation>(`/export/quotas/${id}/`, payload);
+    mutationFn: async (payload: { week_number: number; year: number; season?: number }) => {
+      const { data } = await api.post('/export/local-sell-plans/initialize-week/', payload);
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['quota-dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['local-sell-plans'] });
     },
   });
 }
 
-export function useDeleteQuota() {
+export function useSubmitLocalSellPlan() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (id: number): Promise<void> => {
-      await api.delete(`/export/quotas/${id}/`);
+    mutationFn: async (id: number): Promise<IWeeklyLocalSellPlan> => {
+      const { data } = await api.post<IWeeklyLocalSellPlan>(`/export/local-sell-plans/${id}/submit/`);
+      return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['quota-dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['local-sell-plans'] });
     },
   });
 }
 
-const MOCK_QUOTA_FIRM_SUMMARY: IQuotaFirmSummary[] = [
-  { export_firm: 1, export_firm_name: 'Durli Miweler HJ', export_firm_code: 'F005', quota_count: 3, active_count: 2, expired_count: 1, exhausted_count: 0, total_domestic_sale_kg: 5500, total_expected_kg: 55000, total_granted_kg: 45000, total_difference_kg: -10000, total_used_kg: 28000, total_remaining_kg: 17000, utilization_pct: 62.2, earliest_expiry: '2026-04-30' },
-  { export_firm: 2, export_firm_name: 'Gulbahar HJ', export_firm_code: 'F003', quota_count: 2, active_count: 1, expired_count: 0, exhausted_count: 1, total_domestic_sale_kg: 4000, total_expected_kg: 40000, total_granted_kg: 35000, total_difference_kg: -5000, total_used_kg: 32000, total_remaining_kg: 3000, utilization_pct: 91.4, earliest_expiry: '2026-04-30' },
-  { export_firm: 3, export_firm_name: 'Altyn Asyr', export_firm_code: 'F010', quota_count: 1, active_count: 1, expired_count: 0, exhausted_count: 0, total_domestic_sale_kg: 2000, total_expected_kg: 20000, total_granted_kg: 20000, total_difference_kg: 0, total_used_kg: 5000, total_remaining_kg: 15000, utilization_pct: 25.0, earliest_expiry: '2026-05-15' },
-];
-
-export function useQuotaFirmSummary() {
-  return useQuery({
-    queryKey: ['quota-firm-summary'],
-    queryFn: async (): Promise<IQuotaFirmSummary[]> => {
-      if (USE_MOCK) return MOCK_QUOTA_FIRM_SUMMARY;
-      const { data } = await api.get<IQuotaFirmSummary[]>('/export/quotas/firm-summary/');
+export function useApproveLocalSellPlan() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number): Promise<IWeeklyLocalSellPlan> => {
+      const { data } = await api.post<IWeeklyLocalSellPlan>(`/export/local-sell-plans/${id}/approve/`);
       return data;
     },
-    staleTime: 60_000,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['local-sell-plans'] });
+    },
+  });
+}
+
+export function useRejectLocalSellPlan() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { id: number; rejection_note: string }): Promise<IWeeklyLocalSellPlan> => {
+      const { data } = await api.post<IWeeklyLocalSellPlan>(
+        `/export/local-sell-plans/${payload.id}/reject/`,
+        { rejection_note: payload.rejection_note },
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['local-sell-plans'] });
+    },
+  });
+}
+
+export function useBulkSubmitLocalSellPlans() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: number[]) => {
+      const { data } = await api.post('/export/local-sell-plans/bulk-submit/', { ids });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['local-sell-plans'] });
+    },
+  });
+}
+
+export function useBulkApproveLocalSellPlans() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: number[]) => {
+      const { data } = await api.post('/export/local-sell-plans/bulk-approve/', { ids });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['local-sell-plans'] });
+    },
   });
 }
 

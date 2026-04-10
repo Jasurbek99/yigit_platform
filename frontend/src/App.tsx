@@ -25,6 +25,7 @@ const ShipmentDetail = lazy(() => import('@/pages/export/ShipmentDetail'));
 const KanbanBoard = lazy(() => import('@/pages/export/KanbanBoard'));
 const WeeklyPlanGrid = lazy(() => import('@/pages/export/WeeklyPlanGrid'));
 const QuotaDashboard = lazy(() => import('@/pages/export/QuotaDashboard'));
+const AddQuotaIssuance = lazy(() => import('@/pages/export/AddQuotaIssuance'));
 const PricePanel = lazy(() => import('@/pages/export/PricePanel'));
 const OverdueReports = lazy(() => import('@/pages/export/OverdueReports'));
 const AdvancesTracker = lazy(() => import('@/pages/export/AdvancesTracker'));
@@ -132,6 +133,7 @@ export default function App() {
                   <Route path="export/kanban" element={<KanbanBoard />} />
                   <Route path="export/plan" element={<WeeklyPlanGrid />} />
                   <Route path="export/quota" element={<QuotaDashboard />} />
+                  <Route path="export/quota/add-issuance" element={<AddQuotaIssuance />} />
                   <Route path="export/prices" element={<PricePanel />} />
                   <Route path="export/overdue" element={<OverdueReports />} />
                   <Route path="export/advances" element={<AdvancesTracker />} />

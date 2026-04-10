@@ -223,108 +223,89 @@ class BlockManagerAssignment(models.Model):
         return f'{self.user.username} → {self.block.code}'
 
 
-class QuotaAllocation(models.Model):
-    """Government-issued export quota earned from a domestic sale.
+class WeeklyLocalSellPlan(models.Model):
+    """Weekly domestic sell plan per export firm.
 
-    Each quota is granted to one export firm, has a validity window
-    (valid_from / valid_to), and is consumed FIFO by shipment firm splits.
-    The granted amount is approximately 10x the domestic sale but decided
-    by government clerks — so we track both expected and actual.
+    One row per (export_firm, week_number, year). Plan vs actual for Mon–Sat.
+    Includes approval workflow: draft → submitted → approved / rejected.
+
+    DDL: export.weekly_local_sell_plans — UNIQUE (export_firm_id, week_number, year)
     """
 
+    # === Identity ===
     export_firm = models.ForeignKey(
         'core.ExportFirm', on_delete=models.PROTECT,
-        db_column='export_firm_id', related_name='quota_allocations',
+        db_column='export_firm_id', related_name='local_sell_plans',
+    )
+    week_number = models.PositiveSmallIntegerField()  # ISO week 1-53
+    year = models.PositiveSmallIntegerField()
+    season = models.ForeignKey(
+        'core.Season', on_delete=models.PROTECT,
+        db_column='season_id', null=True, blank=True,
     )
 
-    # === Domestic sale basis ===
-    domestic_sale_kg = models.DecimalField(
-        max_digits=12, decimal_places=2, default=0,
-        help_text='Weight sold on local market that earned this quota',
-    )
-    domestic_sale_date = models.DateField(
-        null=True, blank=True,
-        help_text='Date of the domestic sale',
-    )
+    # === Plan (kg) ===
+    monday_plan_kg = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    tuesday_plan_kg = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    wednesday_plan_kg = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    thursday_plan_kg = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    friday_plan_kg = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    saturday_plan_kg = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
-    # === Quota amounts ===
-    expected_kg = models.DecimalField(
-        max_digits=12, decimal_places=2, default=0,
-        help_text='domestic_sale_kg × 10 — what government should give',
+    # === Approval workflow ===
+    status = models.CharField(max_length=20, choices=PLAN_STATUS_CHOICES, default='draft')
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    submitted_by = models.ForeignKey(
+        'core.User', on_delete=models.SET_NULL, null=True, blank=True,
+        db_column='submitted_by', related_name='local_sell_plans_submitted',
     )
-    granted_kg = models.DecimalField(
-        max_digits=12, decimal_places=2,
-        help_text='What government actually gave (clerk decision)',
+    approved_at = models.DateTimeField(null=True, blank=True)
+    approved_by = models.ForeignKey(
+        'core.User', on_delete=models.SET_NULL, null=True, blank=True,
+        db_column='approved_by', related_name='local_sell_plans_approved',
     )
-    used_kg = models.DecimalField(
-        max_digits=12, decimal_places=2, default=0,
-        help_text='Consumed by shipments (calculated via FIFO)',
+    rejected_at = models.DateTimeField(null=True, blank=True)
+    rejected_by = models.ForeignKey(
+        'core.User', on_delete=models.SET_NULL, null=True, blank=True,
+        db_column='rejected_by', related_name='local_sell_plans_rejected',
     )
-
-    # === Validity window ===
-    valid_from = models.DateField(default='2026-01-01', help_text='Start of quota validity (user-entered)')
-    valid_to = models.DateField(default='2026-01-31', help_text='End of quota validity (user-entered)')
-
-    # === Warning flags — set True once notification is sent ===
-    warning_80_sent = models.BooleanField(default=False)
-    warning_90_sent = models.BooleanField(default=False)
-    warning_95_sent = models.BooleanField(default=False)
+    rejection_note = models.CharField(max_length=500, blank=True, null=True)
 
     # === Audit ===
-    created_at = models.DateTimeField(auto_now_add=True, null=True)
-    created_by = models.ForeignKey(
+    entered_by = models.ForeignKey(
         'core.User', on_delete=models.SET_NULL, null=True, blank=True,
-        db_column='created_by', related_name='quotas_created',
+        db_column='entered_by', related_name='local_sell_plans_entered',
     )
-    notes = models.CharField(max_length=500, blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = schema_table('export', 'quota_allocations')
-        constraints = [
-            models.CheckConstraint(check=models.Q(used_kg__gte=0), name='chk_quota_used_kg_gte0'),
-            models.CheckConstraint(check=models.Q(granted_kg__gt=0), name='chk_quota_granted_kg_gt0'),
-            models.CheckConstraint(check=models.Q(domestic_sale_kg__gt=0), name='chk_quota_domestic_sale_gt0'),
-            models.CheckConstraint(check=models.Q(valid_to__gte=models.F('valid_from')), name='chk_quota_valid_range'),
+        db_table = schema_table('export', 'weekly_local_sell_plans')
+        indexes = [
+            models.Index(fields=['status'], name='ix_local_sell_plan_status'),
         ]
-        ordering = ['valid_from', 'export_firm__name_en']
-
-    @property
-    def remaining_kg(self) -> 'Decimal':
-        from decimal import Decimal
-        return self.granted_kg - self.used_kg
-
-    @property
-    def used_pct(self) -> float:
-        if not self.granted_kg:
-            return 0.0
-        from decimal import Decimal
-        return float((self.used_kg / self.granted_kg * Decimal('100')).quantize(Decimal('0.1')))
-
-    @property
-    def difference_kg(self) -> 'Decimal':
-        """granted_kg - expected_kg: positive = overpaid, negative = shortchanged."""
-        return self.granted_kg - self.expected_kg
-
-    @property
-    def is_expired(self) -> bool:
-        from django.utils import timezone
-        return self.valid_to < timezone.now().date()
-
-    @property
-    def is_exhausted(self) -> bool:
-        return self.used_kg >= self.granted_kg
-
-    @property
-    def status_label(self) -> str:
-        if self.is_exhausted:
-            return 'exhausted'
-        if self.is_expired:
-            return 'expired'
-        return 'active'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['export_firm', 'week_number', 'year'],
+                name='uq_local_sell_plan',
+            ),
+            models.CheckConstraint(
+                check=(
+                    models.Q(monday_plan_kg__gte=0) &
+                    models.Q(tuesday_plan_kg__gte=0) &
+                    models.Q(wednesday_plan_kg__gte=0) &
+                    models.Q(thursday_plan_kg__gte=0) &
+                    models.Q(friday_plan_kg__gte=0) &
+                    models.Q(saturday_plan_kg__gte=0)
+                ),
+                name='chk_local_sell_plan_kg_gte0',
+            ),
+        ]
+        ordering = ['year', 'week_number', 'export_firm__name_en']
 
     def __str__(self) -> str:
-        firm_name = getattr(self.export_firm, 'name_en', None) or f'firm#{self.export_firm_id}'
-        return f'{firm_name} {self.valid_from}–{self.valid_to} ({self.granted_kg} kg)'
+        firm = getattr(self.export_firm, 'name_en', None) or f'firm#{self.export_firm_id}'
+        return f'W{self.week_number}/{self.year} — {firm} [{self.status}]'
 
 
 class PriceEntry(models.Model):

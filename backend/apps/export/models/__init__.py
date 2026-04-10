@@ -11,13 +11,14 @@ from .planning import (
     PLAN_STATUS_CHOICES,
     PLAN_TRANSITIONS,
     WeeklyHarvestPlan,
+    WeeklyLocalSellPlan,
     WeeklyTruckAllocation,
     TruckDestinationSplit,
-    QuotaAllocation,
     PriceEntry,
     DomesticMarketPrice,
     BlockManagerAssignment,
 )
+from .quota import QuotaIssuance, QuotaIssuanceFirmAllocation
 from .domestic import DomesticSale
 from .finance import FinansistAdvance, FinansistAdvanceShipment
 from .notification import Notification
@@ -34,9 +35,11 @@ __all__ = [
     'PLAN_STATUS_CHOICES',
     'PLAN_TRANSITIONS',
     'WeeklyHarvestPlan',
+    'WeeklyLocalSellPlan',
     'WeeklyTruckAllocation',
     'TruckDestinationSplit',
-    'QuotaAllocation',
+    'QuotaIssuance',
+    'QuotaIssuanceFirmAllocation',
     'PriceEntry',
     'DomesticMarketPrice',
     'BlockManagerAssignment',

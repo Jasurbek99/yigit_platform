@@ -342,31 +342,25 @@ CREATE TABLE export.quality_documents (
     created_at DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET()
 );
 
-CREATE TABLE export.quota_allocations (
+CREATE TABLE export.quota_issuances (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
-    export_firm_id INT NOT NULL REFERENCES core.export_firms(id),
-    -- Domestic sale basis
-    domestic_sale_kg DECIMAL(12,2) NOT NULL,
-    domestic_sale_date DATE NULL,
-    -- Quota amounts
-    expected_kg DECIMAL(12,2) NOT NULL,       -- domestic_sale_kg × 10
-    granted_kg DECIMAL(12,2) NOT NULL,        -- actual government grant
-    used_kg DECIMAL(12,2) DEFAULT 0,          -- consumed by shipments (FIFO)
-    -- Validity window
-    valid_from DATE NOT NULL,
-    valid_to DATE NOT NULL,
-    -- Warning flags
-    warning_80_sent BIT DEFAULT 0,
-    warning_90_sent BIT DEFAULT 0,
-    warning_95_sent BIT DEFAULT 0,
-    -- Audit
-    created_at DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET(),
-    created_by BIGINT NULL REFERENCES sys_users(id),
+    issue_date DATE NOT NULL,
+    product_type VARCHAR(20) NOT NULL DEFAULT 'tomato',
+    matched_week INT NOT NULL,          -- ISO week auto-computed from issue_date
+    matched_year INT NOT NULL,          -- ISO year
+    is_manually_reassigned BIT DEFAULT 0,
     notes NVARCHAR(500) DEFAULT '',
-    CONSTRAINT chk_quota_valid_range CHECK (valid_to >= valid_from),
-    CONSTRAINT chk_quota_domestic_sale_gt0 CHECK (domestic_sale_kg > 0),
-    CONSTRAINT chk_quota_granted_kg_gt0 CHECK (granted_kg > 0),
-    CONSTRAINT chk_quota_used_kg_gte0 CHECK (used_kg >= 0)
+    created_at DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET(),
+    created_by BIGINT NULL REFERENCES sys_users(id)
+);
+
+CREATE TABLE export.quota_issuance_firm_allocations (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    issuance_id BIGINT NOT NULL REFERENCES export.quota_issuances(id) ON DELETE CASCADE,
+    export_firm_id INT NOT NULL REFERENCES core.export_firms(id),
+    kg_quota DECIMAL(12,2) NOT NULL,
+    CONSTRAINT uq_issuance_firm UNIQUE (issuance_id, export_firm_id),
+    CONSTRAINT chk_issuance_alloc_gt0 CHECK (kg_quota > 0)
 );
 
 CREATE TABLE export.domestic_sales (
@@ -406,6 +400,35 @@ CREATE TABLE export.weekly_harvest_plans (
     created_at DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET(),
     updated_at DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET(),
     CONSTRAINT uq_weekly_plan UNIQUE (season_id, block_id, week_number, year)
+);
+
+CREATE TABLE export.weekly_local_sell_plans (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    export_firm_id INT NOT NULL REFERENCES core.export_firms(id),
+    week_number INT NOT NULL,
+    year INT NOT NULL,
+    season_id INT NULL REFERENCES core.seasons(id),
+    -- Plan (kg)
+    monday_plan_kg DECIMAL(10,2) DEFAULT 0,
+    tuesday_plan_kg DECIMAL(10,2) DEFAULT 0,
+    wednesday_plan_kg DECIMAL(10,2) DEFAULT 0,
+    thursday_plan_kg DECIMAL(10,2) DEFAULT 0,
+    friday_plan_kg DECIMAL(10,2) DEFAULT 0,
+    saturday_plan_kg DECIMAL(10,2) DEFAULT 0,
+    -- Approval workflow
+    status VARCHAR(20) NOT NULL DEFAULT 'draft',
+    submitted_at DATETIMEOFFSET,
+    submitted_by BIGINT REFERENCES sys_users(id),
+    approved_at DATETIMEOFFSET,
+    approved_by BIGINT REFERENCES sys_users(id),
+    rejected_at DATETIMEOFFSET,
+    rejected_by BIGINT REFERENCES sys_users(id),
+    rejection_note NVARCHAR(500),
+    -- Audit
+    entered_by BIGINT REFERENCES sys_users(id),
+    created_at DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET(),
+    updated_at DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET(),
+    CONSTRAINT uq_local_sell_plan UNIQUE (export_firm_id, week_number, year)
 );
 
 CREATE TABLE export.weekly_truck_allocations (

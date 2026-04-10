@@ -9,7 +9,8 @@ export type UserRole =
   | 'finansist'
   | 'director'
   | 'accountant'
-  | 'greenhouse_manager';
+  | 'greenhouse_manager'
+  | 'seller';
 
 export interface ICurrentUser {
   id: number;
@@ -193,51 +194,111 @@ export interface IWeeklyHarvestPlan {
   updated_at: string;
 }
 
-export type QuotaStatus = 'active' | 'expired' | 'exhausted';
+export interface IWeeklyLocalSellPlan {
+  id: number;
+  season: number | null;
+  season_name: string | null;
+  export_firm: number;
+  export_firm_name: string | null;
+  week_number: number;
+  year: number;
+  monday_plan_kg: number;
+  tuesday_plan_kg: number;
+  wednesday_plan_kg: number;
+  thursday_plan_kg: number;
+  friday_plan_kg: number;
+  saturday_plan_kg: number;
+  total_plan_kg: number;
+  status: PlanStatus;
+  submitted_at: string | null;
+  submitted_by_name: string | null;
+  approved_at: string | null;
+  approved_by_name: string | null;
+  rejected_at: string | null;
+  rejected_by_name: string | null;
+  rejection_note: string | null;
+  entered_by_name: string | null;
+  updated_at: string;
+}
 
-export interface IQuotaAllocation {
+// ─── Quota Dashboard ─────────────────────────────────────────────────────
+
+export interface IQuotaIssuanceFirmAllocation {
   id: number;
   export_firm: number;
   export_firm_name: string | null;
-  // Domestic sale basis
-  domestic_sale_kg: number;
-  domestic_sale_date: string | null;
-  // Amounts
-  expected_kg: number;
-  granted_kg: number;
-  used_kg: number;
-  remaining_kg: number;
-  used_pct: number;
-  difference_kg: number;
-  // Validity
-  valid_from: string;
-  valid_to: string;
-  status_label: QuotaStatus;
-  // Warnings
-  warning_80_sent: boolean;
-  warning_90_sent: boolean;
-  warning_95_sent: boolean;
-  // Audit
+  kg_quota: number;
+}
+
+export interface IQuotaIssuance {
+  id: number;
+  issue_date: string;
+  product_type: 'tomato' | 'pepper';
+  validity: 'this_month' | 'this_and_next' | 'next_month';
+  matched_week: number;
+  matched_year: number;
+  is_manually_reassigned: boolean;
   notes: string;
+  total_kg: number;
+  allocations: IQuotaIssuanceFirmAllocation[];
   created_at: string;
 }
 
-export interface IQuotaFirmSummary {
+export interface IQuotaDashboardKPIs {
+  local_sales_kg: number;
+  expected_kg: number;
+  issued_kg: number;
+  not_given_kg: number;
+  not_given_pct: number;
+  used_kg: number;
+  unused_kg: number;
+  unused_pct: number;
+}
+
+export interface IQuotaDashboardFirm {
   export_firm: number;
   export_firm_name: string;
-  export_firm_code: string;
-  quota_count: number;
-  active_count: number;
-  expired_count: number;
-  exhausted_count: number;
-  total_domestic_sale_kg: number;
-  total_expected_kg: number;
-  total_granted_kg: number;
-  total_difference_kg: number;
-  total_used_kg: number;
-  total_remaining_kg: number;
-  utilization_pct: number;
-  earliest_expiry: string | null;
+  sales_kg: number;
+  expected_kg: number;
+  issued_kg: number;
+  used_kg: number;
+  not_given_kg: number;
+  not_given_pct: number;
+  unused_kg: number;
+  is_blocked: boolean;
+}
+
+export interface IWeeklyFlowIssuance {
+  issue_date: string;
+  total_kg: number;
+}
+
+export interface IWeeklyFlowFirm {
+  firm_name: string;
+  sold_kg: number;
+  expected_kg: number;
+  got_kg: number;
+  diff_kg: number;
+}
+
+export interface IWeeklyFlow {
+  week: number;
+  year: number;
+  date_from: string;
+  date_to: string;
+  sales_kg: number;
+  expected_kg: number;
+  issued_kg: number;
+  gap_kg: number;
+  coverage_pct: number;
+  issuances: IWeeklyFlowIssuance[];
+  firms: IWeeklyFlowFirm[];
+}
+
+export interface IQuotaDashboardResponse {
+  kpis: IQuotaDashboardKPIs;
+  per_firm: IQuotaDashboardFirm[];
+  weekly_flow: IWeeklyFlow[];
 }
 
 export interface IPriceEntry {
