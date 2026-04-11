@@ -12,7 +12,9 @@
     "toast_error": "Giriş başa barmady",
     "toast_error_desc": "Ulanyjy ady ýa-da açar söz nädogry. Gaýtadan synanyşyň.",
     "ops_subtitle": "Operasiýalar Platformasy",
-    "footer": "YGT Platforma © 2026 — v1.0"
+    "footer": "YGT Platforma © 2026 — v1.0",
+    "unauthorized_message": "Bu sahypa girmäge rugsadyňyz ýok.",
+    "back_home": "Baş sahypa"
   },
   "roles": {
     "export_manager": "Eksport menejeri",

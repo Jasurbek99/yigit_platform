@@ -162,6 +162,20 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         reset = options['reset']
 
+        # Warn about roles missing from defaults
+        from apps.core.models.user import ROLE_CHOICES
+        all_roles = {r[0] for r in ROLE_CHOICES}
+        missing_page = all_roles - set(PAGE_DEFAULTS.keys())
+        missing_resource = all_roles - set(RESOURCE_DEFAULTS.keys())
+        if missing_page:
+            self.stderr.write(self.style.WARNING(
+                f'WARNING: roles missing from PAGE_DEFAULTS (will get no page access): {sorted(missing_page)}'
+            ))
+        if missing_resource:
+            self.stderr.write(self.style.WARNING(
+                f'WARNING: roles missing from RESOURCE_DEFAULTS (will get no resource access): {sorted(missing_resource)}'
+            ))
+
         with transaction.atomic():
             if reset:
                 deleted_pages = RolePagePermission.objects.all().delete()[0]

@@ -360,7 +360,7 @@ export function useCreateUser(options: MutationOptions = {}) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (payload: ICreateUserPayload): Promise<IAdminUser> => {
-      if (USE_MOCK) return Promise.resolve({ id: 0, username: payload.username, first_name: payload.first_name ?? '', last_name: payload.last_name ?? '', email: payload.email ?? '', phone: payload.phone ?? null, role: payload.role, is_active: payload.is_active ?? true });
+      if (USE_MOCK) return Promise.resolve({ id: 0, username: payload.username, first_name: payload.first_name ?? '', last_name: payload.last_name ?? '', email: payload.email ?? '', phone: payload.phone ?? null, role: payload.role, is_active: payload.is_active ?? true, permissions: [] });
       const { data } = await api.post<IAdminUser>('/export/admin/users/', payload);
       return data;
     },

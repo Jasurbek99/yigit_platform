@@ -48,7 +48,21 @@ export function canSeePage(user: ICurrentUser | null, pageCodeOrRoute: string): 
     return false;
   }
 
-  return user.page_permissions[pageCode] ?? false;
+  // Exact match
+  if (user.page_permissions[pageCode]) {
+    return true;
+  }
+
+  // Check child pages: if user has access to any sub-page (e.g. 'export.quota.local_sell'),
+  // they should be able to access the parent (e.g. 'export.quota').
+  const prefix = pageCode + '.';
+  for (const key in user.page_permissions) {
+    if (key.startsWith(prefix) && user.page_permissions[key]) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 /**

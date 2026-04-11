@@ -6,7 +6,7 @@ to render and save the permission matrices.
 from django.core.cache import cache
 from django.db import transaction
 from rest_framework import serializers, status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -17,6 +17,14 @@ from apps.core.models import (
 )
 from apps.core.models.user import ROLE_CHOICES
 from apps.core.permission_registry import PAGE_REGISTRY, RESOURCE_REGISTRY, RESOURCE_FIELDS
+
+
+_ALL_ROLE_CODES = frozenset(r[0] for r in ROLE_CHOICES)
+
+
+def _validate_matrix_roles(matrix: dict) -> list[str]:
+    """Return list of ROLE_CHOICES roles missing from the matrix, if any."""
+    return sorted(_ALL_ROLE_CODES - set(matrix.keys()))
 
 
 class _DirectorOnlyPermission(BasePermission):
@@ -78,9 +86,16 @@ class PagePermissionMatrixView(APIView):
         if not isinstance(matrix, dict):
             return Response({'error': 'matrix must be an object'}, status=status.HTTP_400_BAD_REQUEST)
 
+        missing = _validate_matrix_roles(matrix)
+        if missing:
+            return Response(
+                {'error': f'Matrix is missing roles: {missing}. All roles must be included to prevent accidental deletion.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         objs = []
         for role, pages in matrix.items():
-            if role not in {r[0] for r in ROLE_CHOICES}:
+            if role not in _ALL_ROLE_CODES:
                 continue
             for page_code, is_visible in pages.items():
                 if page_code not in PAGE_REGISTRY:
@@ -130,10 +145,16 @@ class ResourcePermissionMatrixView(APIView):
         if not isinstance(matrix, dict):
             return Response({'error': 'matrix must be an object'}, status=status.HTTP_400_BAD_REQUEST)
 
+        missing = _validate_matrix_roles(matrix)
+        if missing:
+            return Response(
+                {'error': f'Matrix is missing roles: {missing}. All roles must be included to prevent accidental deletion.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         objs = []
-        valid_roles = {r[0] for r in ROLE_CHOICES}
         for role, resources in matrix.items():
-            if role not in valid_roles:
+            if role not in _ALL_ROLE_CODES:
                 continue
             for resource_code, perms in resources.items():
                 if resource_code not in RESOURCE_REGISTRY:

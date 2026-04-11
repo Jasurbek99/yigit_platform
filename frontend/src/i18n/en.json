@@ -12,7 +12,9 @@
     "toast_error": "Sign in failed",
     "toast_error_desc": "Invalid username or password. Please try again.",
     "ops_subtitle": "Operations Platform",
-    "footer": "YGT Platform © 2026 — v1.0"
+    "footer": "YGT Platform © 2026 — v1.0",
+    "unauthorized_message": "You do not have permission to access this page.",
+    "back_home": "Back to Home"
   },
   "roles": {
     "export_manager": "Export Manager",

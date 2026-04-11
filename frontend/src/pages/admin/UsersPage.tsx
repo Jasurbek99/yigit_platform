@@ -20,6 +20,7 @@ const ALL_ROLES: UserRole[] = [
   'director',
   'accountant',
   'greenhouse_manager',
+  'seller',
 ];
 
 interface UserEditFormValues {

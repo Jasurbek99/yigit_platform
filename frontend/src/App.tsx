@@ -19,6 +19,7 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 import AppLayout from '@/components/AppLayout';
 
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
+const UnauthorizedPage = lazy(() => import('@/pages/auth/UnauthorizedPage'));
 const DashboardPage = lazy(() => import('@/pages/DashboardPage'));
 const ShipmentList = lazy(() => import('@/pages/export/ShipmentList'));
 const ShipmentDetail = lazy(() => import('@/pages/export/ShipmentDetail'));
@@ -195,6 +196,7 @@ export default function App() {
                     <ProtectedRoute pageCode="admin.truck_dest"><TruckDestinationsPage /></ProtectedRoute>
                   } />
                 </Route>
+                <Route path="/unauthorized" element={<UnauthorizedPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Suspense>

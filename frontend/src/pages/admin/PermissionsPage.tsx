@@ -192,6 +192,15 @@ function PermissionsTab({ users, isLoading }: PermissionsTabProps) {
   const [selectedUser, setSelectedUser] = useState<IAdminUser | null>(null);
   const [draftPerms, setDraftPerms] = useState<string[]>([]);
 
+  // Sync permState from API data when users load (each user includes permissions[])
+  const [initialized, setInitialized] = useState(false);
+  if (!initialized && users.length > 0) {
+    const initial: Record<number, string[]> = {};
+    users.forEach((u) => { initial[u.id] = u.permissions ?? []; });
+    setPermState(initial);
+    setInitialized(true);
+  }
+
   const permissionGroups = useMemo<IPermissionGroup[]>(() => [
     {
       group: t('permissions_admin.group_harvest_plan'),

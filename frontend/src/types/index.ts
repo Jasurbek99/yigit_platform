@@ -517,6 +517,7 @@ export interface IAdminUser {
   phone: string | null;
   role: UserRole;
   is_active: boolean;
+  permissions: string[];
 }
 
 export interface INotification {

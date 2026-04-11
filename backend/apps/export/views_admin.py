@@ -116,11 +116,21 @@ class ImportFirmSerializer(serializers.ModelSerializer):
 
 
 class UserListSerializer(serializers.ModelSerializer):
+    permissions = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ['id', 'username', 'first_name', 'last_name', 'email', 'role', 'is_active', 'is_superuser', 'phone']
+        fields = ['id', 'username', 'first_name', 'last_name', 'email', 'role', 'is_active', 'is_superuser', 'phone', 'permissions']
         # is_superuser is always read-only — it is managed at the DB / Django-admin level.
-        read_only_fields = ['id', 'username', 'first_name', 'last_name', 'email', 'is_superuser', 'phone']
+        read_only_fields = ['id', 'username', 'first_name', 'last_name', 'email', 'is_superuser', 'phone', 'permissions']
+
+    def get_permissions(self, obj: User) -> list[str]:
+        """Return custom export/core permission codenames for the user."""
+        return list(
+            obj.user_permissions.filter(
+                content_type__app_label__in=['export', 'core'],
+            ).values_list('codename', flat=True)
+        )
 
 
 class UserPatchSerializer(serializers.ModelSerializer):
@@ -286,7 +296,7 @@ class UserManagementViewSet(ModelViewSet):
         user = self.request.user
         if not user.is_superuser:
             _require_role(user, _DIRECTOR_MANAGER, 'view user list')
-        return User.objects.all().order_by('username')
+        return User.objects.prefetch_related('user_permissions').order_by('username')
 
     def get_serializer_class(self):
         if self.request.method == 'PATCH':

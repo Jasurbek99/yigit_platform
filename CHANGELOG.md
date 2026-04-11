@@ -4,6 +4,22 @@ All notable changes to the YGT Platform.
 
 ## [Unreleased]
 
+### Added
+- Dynamic admin-configurable permission system — directors can manage page visibility, resource CRUD, and field-level edit permissions per role from a single admin page (feat(p3))
+- 3 new Django models: `RolePagePermission`, `RoleResourcePermission`, `RoleFieldPermission` in `core` app with DDL v5.1 tables (feat(p3))
+- `DynamicResourcePermission` DRF class — replaces hardcoded `write_permission()` on ViewSets; reads from DB with 60s cache (feat(p3))
+- `seed_permissions` management command — populates defaults matching current hardcoded behavior; `--reset` flag for full re-seed (feat(p3))
+- Admin permission endpoints: `GET/PUT /api/v1/core/admin/page-permissions/`, `resource-permissions/`, `field-permissions/` — director-only (feat(p3))
+- `/auth/me/` now returns `page_permissions`, `resource_permissions`, `field_permissions` for the logged-in user (feat(p3))
+- Frontend `canSeePage()`, `canDo()`, `canEditField()` helpers in `src/utils/permissions.ts` (feat(frontend))
+- Admin Permissions page: 3 new matrix tabs (Page Visibility, Resource Permissions, Field Permissions) with checkbox grids (feat(frontend))
+- `ProtectedRoute` now supports `pageCode` prop for dynamic route protection; `string | string[]` for OR logic (feat(frontend))
+- Sidebar menu dynamically filtered by `page_permissions` instead of hardcoded role checks (feat(frontend))
+- QuotaDashboard tabs filtered by permission — `seller` sees only Local Sell Plan tab (feat(frontend))
+- `/unauthorized` page with 403 Result component (feat(frontend))
+- `seller` role added to `ROLE_CHOICES` in User model, i18n translations in all 3 languages (feat(p3))
+- 6 ViewSets migrated to `DynamicResourcePermission`: Shipment, QuotaIssuance, LocalSellPlan, PriceEntry, TruckAllocation, Advance (feat(p3))
+
 ### Changed
 - AppLayout: sidebar now collapses to zero-width on mobile (<768px), renders as a fixed overlay drawer with a dark mask; clicking outside or navigating closes it; `breakpoint="lg"` on Sider auto-collapses on smaller viewports; header is now `position: sticky` so it stays visible while scrolling (feat(frontend))
 - AppLayout: username text hidden on mobile to save header space; content padding reduced to `12px 8px` on mobile (feat(frontend))
