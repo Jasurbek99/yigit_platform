@@ -162,7 +162,13 @@ class Command(BaseCommand):
             return
 
         with transaction.atomic():
-            deleted_i, _ = QuotaIssuance.objects.filter(notes='Imported from quota.xlsx').delete()
+            # Delete existing issuances that match imported (date, product_type) combos
+            deleted_i = 0
+            for (issue_date, product_type) in issuance_data.keys():
+                d, _ = QuotaIssuance.objects.filter(
+                    issue_date=issue_date, product_type=product_type,
+                ).delete()
+                deleted_i += d
             if deleted_i:
                 self.stdout.write(f'  Deleted {deleted_i} previously imported issuances')
 

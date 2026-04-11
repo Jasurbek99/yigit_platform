@@ -1,14 +1,16 @@
 import { Alert, Badge, Button, Card, Group, Progress, SimpleGrid, Text, Title } from '@mantine/core';
 import { DataTable } from 'mantine-datatable';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 interface StatItem {
   icon: string;
   color: string;
   iconColor: string;
   value: string;
-  label: string;
-  trend: string;
+  labelKey: string;
+  trendKey: string;
+  trendParams?: Record<string, string | number>;
   trendUp: boolean | null;
   onClick?: () => void;
 }
@@ -18,7 +20,7 @@ interface ShipmentRow {
   customer: string;
   route: string;
   status: string;
-  statusText: string;
+  statusKey: string;
   weight: string;
   departed: string;
   location: string;
@@ -43,6 +45,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const stats: StatItem[] = [
     {
@@ -50,8 +53,9 @@ export default function DashboardPage() {
       color: '#e6f4ff',
       iconColor: '#1677ff',
       value: '983',
-      label: 'Jemi ýükler',
-      trend: '↑ 47 bu hepde',
+      labelKey: 'dashboard.stat_total',
+      trendKey: 'dashboard.trend_this_week',
+      trendParams: { count: 47 },
       trendUp: true,
       onClick: () => navigate('/export/shipments'),
     },
@@ -60,8 +64,8 @@ export default function DashboardPage() {
       color: '#e6fffb',
       iconColor: '#13c2c2',
       value: '296',
-      label: 'Ýolda',
-      trend: 'häzir hereket edýär',
+      labelKey: 'dashboard.stat_transit',
+      trendKey: 'dashboard.trend_moving',
       trendUp: null,
     },
     {
@@ -69,8 +73,8 @@ export default function DashboardPage() {
       color: '#fffbe6',
       iconColor: '#faad14',
       value: '9',
-      label: 'Satylýar',
-      trend: 'bazarda',
+      labelKey: 'dashboard.stat_selling',
+      trendKey: 'dashboard.trend_at_market',
       trendUp: null,
     },
     {
@@ -78,8 +82,9 @@ export default function DashboardPage() {
       color: '#f6ffed',
       iconColor: '#52c41a',
       value: '173',
-      label: 'Satylyp gutardy',
-      trend: '↑ 12 bu hepde',
+      labelKey: 'dashboard.stat_sold',
+      trendKey: 'dashboard.trend_this_week',
+      trendParams: { count: 12 },
       trendUp: true,
     },
     {
@@ -87,8 +92,8 @@ export default function DashboardPage() {
       color: '#fff2f0',
       iconColor: '#ff4d4f',
       value: '90',
-      label: 'Hasabat gelmedi',
-      trend: 'garaşylýar',
+      labelKey: 'dashboard.stat_no_report',
+      trendKey: 'dashboard.trend_awaiting',
       trendUp: false,
     },
     {
@@ -96,8 +101,8 @@ export default function DashboardPage() {
       color: '#f9f0ff',
       iconColor: '#722ed1',
       value: '16',
-      label: 'Eksport firmalar',
-      trend: 'kwota yzarlaýar',
+      labelKey: 'dashboard.stat_firms',
+      trendKey: 'dashboard.trend_tracking_quota',
       trendUp: null,
       onClick: () => navigate('/export/quota'),
     },
@@ -109,7 +114,7 @@ export default function DashboardPage() {
       customer: 'Begjan',
       route: '🇰🇿 Şimkent',
       status: 'transit',
-      statusText: 'Ýolda',
+      statusKey: 'dashboard.status_transit',
       weight: '18,400',
       departed: '25.02 14:30',
       location: 'Farap Postta',
@@ -119,7 +124,7 @@ export default function DashboardPage() {
       customer: 'Berik',
       route: '🇰🇿 Astana',
       status: 'transit',
-      statusText: 'Ýolda',
+      statusKey: 'dashboard.status_transit',
       weight: '19,200',
       departed: '25.02 16:10',
       location: 'Özbegistanda',
@@ -129,7 +134,7 @@ export default function DashboardPage() {
       customer: 'YGT Gapy Satyş',
       route: '🇷🇺 Moskwa',
       status: 'border',
-      statusText: 'Serhetde',
+      statusKey: 'dashboard.status_border',
       weight: '17,800',
       departed: '24.02 09:20',
       location: 'Garabogaz',
@@ -139,7 +144,7 @@ export default function DashboardPage() {
       customer: 'Eldar',
       route: '🇷🇺 Moskwa',
       status: 'selling',
-      statusText: 'Satylýar',
+      statusKey: 'dashboard.status_selling',
       weight: '18,900',
       departed: '20.02 10:00',
       location: 'Moskwada',
@@ -149,7 +154,7 @@ export default function DashboardPage() {
       customer: 'Begjan',
       route: '🇰🇿 Karaganda',
       status: 'loading',
-      statusText: 'Ýüklenýär',
+      statusKey: 'dashboard.status_loading',
       weight: '—',
       departed: '—',
       location: 'Teplisa',
@@ -183,16 +188,16 @@ export default function DashboardPage() {
       <Group justify="space-between" align="flex-start" mb="lg">
         <div>
           <Title order={4} style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>
-            Dashboard
+            {t('dashboard.title')}
           </Title>
           <Text c="dimmed" size="sm">
-            Tomato eksport operasiýalarynyň umumy görnüşi — 2025/2026 möwsüm
+            {t('dashboard.subtitle')}
           </Text>
         </div>
         <Group gap="xs">
-          <Button variant="default">📥 Excel eksport</Button>
+          <Button variant="default">{t('dashboard.btn_export_excel')}</Button>
           <Button onClick={() => navigate('/export/shipments')}>
-            ➕ Täze ýük
+            {t('dashboard.btn_new_shipment')}
           </Button>
         </Group>
       </Group>
@@ -238,7 +243,9 @@ export default function DashboardPage() {
                 >
                   {stat.value}
                 </div>
-                <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>{stat.label}</div>
+                <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
+                  {t(stat.labelKey)}
+                </div>
                 <div
                   style={{
                     fontSize: 12,
@@ -251,7 +258,7 @@ export default function DashboardPage() {
                           : '#8c8c8c',
                   }}
                 >
-                  {stat.trend}
+                  {t(stat.trendKey, stat.trendParams)}
                 </div>
               </div>
             </div>
@@ -263,29 +270,27 @@ export default function DashboardPage() {
       <SimpleGrid cols={{ base: 1, lg: 2 }} mb="lg">
         <Card style={{ borderRadius: 12 }} padding="md">
           <Group justify="space-between" mb="sm">
-            <Text fw={600}>⚡ Möhüm bildirişler</Text>
+            <Text fw={600}>⚡ {t('dashboard.alerts_title')}</Text>
             <Badge color="red">4</Badge>
           </Group>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <Alert color="red">
-              <strong>90 hasabat gelmedi</strong> — satyldy emma hasabat iberilmedi. Arap bilen
-              habarlaşyň.
+              <strong>{t('dashboard.alert_no_report', { count: 90 })}</strong>
             </Alert>
             <Alert color="yellow">
-              <strong>Kwota aşdy</strong> — Yigit H.J: Döwür 3 = -2,603,000 kg. Düzetme zerur.
+              <strong>{t('dashboard.alert_quota_exceeded')}</strong>
             </Alert>
             <Alert color="yellow">
-              <strong>Dokument möhlet</strong> — 13:00 çenli 8 ýük üçin dokument taýýar bolmaly.
+              <strong>{t('dashboard.alert_doc_deadline', { count: 8 })}</strong>
             </Alert>
             <Alert color="blue">
-              <strong>Hepdäniň meýilnamasy</strong> — 22-nji hepde: meýilleşdirilen 340 tonna,
-              15 blok.
+              <strong>{t('dashboard.alert_weekly_plan', { week: 22, tons: 340, blocks: 15 })}</strong>
             </Alert>
           </div>
         </Card>
 
         <Card style={{ borderRadius: 12 }} padding="md">
-          <Text fw={600} mb="md">📊 Ugurlar boýunça</Text>
+          <Text fw={600} mb="md">📊 {t('dashboard.routes_title')}</Text>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {routes.map((r, i) => (
               <div key={i}>
@@ -295,7 +300,7 @@ export default function DashboardPage() {
                   <Text size="sm" fw={500}>
                     {r.flag} {r.name}
                   </Text>
-                  <Text size="sm" fw={600}>{r.count} ýük</Text>
+                  <Text size="sm" fw={600}>{r.count} {t('dashboard.shipment_suffix')}</Text>
                 </div>
                 <Progress value={r.percent} color={r.color} size="sm" />
                 {r.sub && (
@@ -312,9 +317,9 @@ export default function DashboardPage() {
       {/* Active Shipments Table */}
       <Card style={{ borderRadius: 12 }} padding={0}>
         <Group justify="space-between" px="md" py="sm">
-          <Text fw={600}>🚛 Häzirki hereket edýän ýükler</Text>
+          <Text fw={600}>🚛 {t('dashboard.active_shipments')}</Text>
           <Button size="xs" variant="subtle" onClick={() => navigate('/export/shipments')}>
-            Hemmesini gör →
+            {t('dashboard.view_all')}
           </Button>
         </Group>
         <DataTable
@@ -323,7 +328,7 @@ export default function DashboardPage() {
           columns={[
             {
               accessor: 'code',
-              title: 'Kod',
+              title: t('dashboard.col_code'),
               render: (r) => (
                 <span
                   style={{
@@ -336,37 +341,37 @@ export default function DashboardPage() {
                 </span>
               ),
             },
-            { accessor: 'customer', title: 'Müşderi' },
-            { accessor: 'route', title: 'Ugur' },
+            { accessor: 'customer', title: t('dashboard.col_customer') },
+            { accessor: 'route', title: t('dashboard.col_route') },
             {
-              accessor: 'statusText',
-              title: 'Status',
+              accessor: 'statusKey',
+              title: t('dashboard.col_status'),
               render: (r) => (
                 <Badge variant="light" color={STATUS_COLORS[r.status] ?? 'gray'}>
-                  {r.statusText}
+                  {t(r.statusKey)}
                 </Badge>
               ),
             },
             {
               accessor: 'weight',
-              title: 'Agram (kg)',
+              title: t('dashboard.col_weight'),
               render: (r) => (
                 <span style={{ fontFamily: 'var(--font-mono, monospace)' }}>{r.weight}</span>
               ),
             },
             {
               accessor: 'departed',
-              title: 'Ýola çykdy',
+              title: t('dashboard.col_departed'),
               render: (r) => (
                 <span style={{ fontFamily: 'var(--font-mono, monospace)', color: '#8c8c8c' }}>
                   {r.departed}
                 </span>
               ),
             },
-            { accessor: 'location', title: 'Ýerleşýän ýeri' },
+            { accessor: 'location', title: t('dashboard.col_location') },
           ]}
           onRowClick={() => navigate('/export/shipments')}
-          noRecordsText="Maglumat ýok"
+          noRecordsText={t('dashboard.no_data')}
           verticalSpacing="xs"
           styles={{ header: { backgroundColor: '#f5f5f5', fontSize: 13 } }}
         />

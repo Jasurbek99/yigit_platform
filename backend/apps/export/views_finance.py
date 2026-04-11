@@ -10,7 +10,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
-from apps.core.permissions import PRIVILEGED_ROLES
+from apps.core.permissions import DynamicResourcePermission
+from apps.core.roles import ADVANCE_WRITE
 from apps.export.models import FinansistAdvance, FinansistAdvanceShipment, Shipment
 from apps.export.serializers import (
     FinansistAdvanceCreateSerializer,
@@ -21,7 +22,7 @@ from apps.export.serializers import (
 logger = logging.getLogger(__name__)
 
 # Roles that may create or reconcile advances
-_ADVANCE_WRITE_ROLES: frozenset[str] = frozenset({'finansist'}) | PRIVILEGED_ROLES
+_ADVANCE_WRITE_ROLES: frozenset[str] = ADVANCE_WRITE
 
 
 class FinansistAdvanceViewSet(ModelViewSet):
@@ -34,7 +35,8 @@ class FinansistAdvanceViewSet(ModelViewSet):
     DELETE /api/v1/export/advances/{id}/unlink-shipment/{sid}/    — remove a shipment link
     """
 
-    permission_classes = [IsAuthenticated]
+    resource_code = 'advance'
+    permission_classes = [IsAuthenticated, DynamicResourcePermission]
     http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
 
     queryset = (

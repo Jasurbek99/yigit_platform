@@ -128,43 +128,71 @@ export default function App() {
                   }
                 >
                   <Route index element={<DashboardPage />} />
-                  <Route path="export/shipments" element={<ShipmentList />} />
-                  <Route path="shipments/:id" element={<ShipmentDetail />} />
-                  <Route path="export/kanban" element={<KanbanBoard />} />
-                  <Route path="export/plan" element={<WeeklyPlanGrid />} />
-                  <Route path="export/quota" element={<QuotaDashboard />} />
-                  <Route path="export/quota/add-issuance" element={<AddQuotaIssuance />} />
-                  <Route path="export/prices" element={<PricePanel />} />
-                  <Route path="export/overdue" element={<OverdueReports />} />
-                  <Route path="export/advances" element={<AdvancesTracker />} />
-                  <Route path="export/trucks" element={<TruckForecast />} />
-                  <Route path="export/blocks" element={<BlockSummary />} />
-                  <Route path="export/domestic-sales" element={<DomesticSales />} />
+                  <Route path="export/shipments" element={
+                    <ProtectedRoute pageCode="export.shipments"><ShipmentList /></ProtectedRoute>
+                  } />
+                  <Route path="shipments/:id" element={
+                    <ProtectedRoute pageCode="export.shipments"><ShipmentDetail /></ProtectedRoute>
+                  } />
+                  <Route path="export/kanban" element={
+                    <ProtectedRoute pageCode="export.kanban"><KanbanBoard /></ProtectedRoute>
+                  } />
+                  <Route path="export/plan" element={
+                    <ProtectedRoute pageCode="export.plan"><WeeklyPlanGrid /></ProtectedRoute>
+                  } />
+                  <Route path="export/quota" element={
+                    <ProtectedRoute pageCode={['export.quota', 'export.quota.local_sell']}><QuotaDashboard /></ProtectedRoute>
+                  } />
+                  <Route path="export/quota/add-issuance" element={
+                    <ProtectedRoute pageCode="export.quota"><AddQuotaIssuance /></ProtectedRoute>
+                  } />
+                  <Route path="export/prices" element={
+                    <ProtectedRoute pageCode="export.prices"><PricePanel /></ProtectedRoute>
+                  } />
+                  <Route path="export/overdue" element={
+                    <ProtectedRoute pageCode="export.overdue"><OverdueReports /></ProtectedRoute>
+                  } />
+                  <Route path="export/advances" element={
+                    <ProtectedRoute pageCode="export.advances"><AdvancesTracker /></ProtectedRoute>
+                  } />
+                  <Route path="export/trucks" element={
+                    <ProtectedRoute pageCode="export.trucks"><TruckForecast /></ProtectedRoute>
+                  } />
+                  <Route path="export/blocks" element={
+                    <ProtectedRoute pageCode="export.blocks"><BlockSummary /></ProtectedRoute>
+                  } />
+                  <Route path="export/domestic-sales" element={
+                    <ProtectedRoute pageCode="export.domestic_sales"><DomesticSales /></ProtectedRoute>
+                  } />
                   <Route path="admin/seasons" element={
-                    <ProtectedRoute roles={['director']}><SeasonsPage /></ProtectedRoute>
+                    <ProtectedRoute pageCode="admin.seasons"><SeasonsPage /></ProtectedRoute>
                   } />
                   <Route path="admin/firms" element={
-                    <ProtectedRoute roles={['director']}><ExportFirmsPage /></ProtectedRoute>
+                    <ProtectedRoute pageCode="admin.firms"><ExportFirmsPage /></ProtectedRoute>
                   } />
-                  <Route path="admin/firms/:id" element={<ExportFirmDetailPage />} />
+                  <Route path="admin/firms/:id" element={
+                    <ProtectedRoute pageCode="admin.firms"><ExportFirmDetailPage /></ProtectedRoute>
+                  } />
                   <Route path="admin/import-firms" element={
-                    <ProtectedRoute roles={['director']}><ImportFirmsPage /></ProtectedRoute>
+                    <ProtectedRoute pageCode="admin.import_firms"><ImportFirmsPage /></ProtectedRoute>
                   } />
-                  <Route path="admin/import-firms/:id" element={<ImportFirmDetailPage />} />
+                  <Route path="admin/import-firms/:id" element={
+                    <ProtectedRoute pageCode="admin.import_firms"><ImportFirmDetailPage /></ProtectedRoute>
+                  } />
                   <Route path="admin/users" element={
-                    <ProtectedRoute roles={['director']}><UsersPage /></ProtectedRoute>
+                    <ProtectedRoute pageCode="admin.users"><UsersPage /></ProtectedRoute>
                   } />
                   <Route path="admin/permissions" element={
-                    <ProtectedRoute roles={['director']}><PermissionsPage /></ProtectedRoute>
+                    <ProtectedRoute pageCode="admin.permissions"><PermissionsPage /></ProtectedRoute>
                   } />
                   <Route path="admin/blocks" element={
-                    <ProtectedRoute roles={['director']}><BlocksPage /></ProtectedRoute>
+                    <ProtectedRoute pageCode="admin.blocks"><BlocksPage /></ProtectedRoute>
                   } />
                   <Route path="admin/blocks/:id" element={
-                    <ProtectedRoute roles={['director']}><BlockDetailPage /></ProtectedRoute>
+                    <ProtectedRoute pageCode="admin.blocks"><BlockDetailPage /></ProtectedRoute>
                   } />
                   <Route path="admin/truck-destinations" element={
-                    <ProtectedRoute roles={['director']}><TruckDestinationsPage /></ProtectedRoute>
+                    <ProtectedRoute pageCode="admin.truck_dest"><TruckDestinationsPage /></ProtectedRoute>
                   } />
                 </Route>
                 <Route path="*" element={<Navigate to="/" replace />} />

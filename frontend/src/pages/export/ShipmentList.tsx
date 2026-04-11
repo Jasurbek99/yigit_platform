@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button, Flex, Input, Select, Segmented, Typography } from 'antd';
 import { PlusOutlined, DownloadOutlined } from '@ant-design/icons';
 import { ProTable } from '@ant-design/pro-components';
@@ -12,6 +12,7 @@ import { StatusTag } from '@/components/StatusTag';
 import { ShipmentCreateModal } from '@/components/ShipmentCreateModal';
 import { useShipments } from '@/hooks/useShipments';
 import { useAuth } from '@/hooks/useAuth';
+import { COLORS, FONT } from '@/constants/styles';
 import type { IShipmentListItem } from '@/types';
 
 const { Title, Text } = Typography;
@@ -35,15 +36,9 @@ function withFlag(name: string | null): string {
   return flag ? `${flag} ${name}` : name;
 }
 
-const PHASE_OPTIONS = [
-  { value: 'planlanyan', label: 'Planlanýar' },
-  { value: 'yuklenme', label: 'Ýüklenýär' },
-  { value: 'bardy', label: 'Ýolda' },
-  { value: 'gumruk_girish', label: 'Serhetde' },
-  { value: 'satylyor', label: 'Satylýar' },
-  { value: 'satyldy', label: 'Satyldy' },
-  { value: 'tamamlandy', label: 'Tamamlandy' },
-];
+const PHASE_KEYS = [
+  'planlanyan', 'yuklenme', 'bardy', 'gumruk_girish', 'satylyor', 'satyldy', 'tamamlandy',
+] as const;
 
 function exportToExcel(rows: IShipmentListItem[], t: (k: string) => string) {
   const sheetData = rows.map((r) => ({
@@ -67,12 +62,31 @@ export default function ShipmentList() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [viewMode, setViewMode] = useState<ViewMode>('all');
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(50);
-  const [search, setSearch] = useState('');
-  const [phaseFilter, setPhaseFilter] = useState<string | undefined>(undefined);
-  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  const viewMode: ViewMode = searchParams.get('view') === 'my_work' ? 'my_work' : 'all';
+  const page = Number(searchParams.get('page')) || 1;
+  const pageSize = Number(searchParams.get('pageSize')) || 50;
+  const search = searchParams.get('search') ?? '';
+  const phaseFilter = searchParams.get('phase') ?? undefined;
+
+  function updateParams(updates: Record<string, string | undefined>) {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      for (const [key, val] of Object.entries(updates)) {
+        if (val) next.set(key, val);
+        else next.delete(key);
+      }
+      return next;
+    });
+  }
+
+  function setPage(p: number) { updateParams({ page: p > 1 ? String(p) : undefined }); }
+  function setPageSize(ps: number) { updateParams({ pageSize: ps !== 50 ? String(ps) : undefined, page: undefined }); }
+  function setViewMode(v: ViewMode) { updateParams({ view: v !== 'all' ? v : undefined, page: undefined }); }
+  function setSearch(s: string) { updateParams({ search: s || undefined, page: undefined }); }
+  function setPhaseFilter(v: string | undefined) { updateParams({ phase: v, page: undefined }); }
 
   const canCreate = user?.role === 'export_manager' || user?.role === 'director';
 
@@ -96,8 +110,8 @@ export default function ShipmentList() {
       render: (_, record) => (
         <span
           style={{
-            fontFamily: "'JetBrains Mono', monospace",
-            color: '#1677ff',
+            fontFamily: FONT.mono,
+            color: COLORS.primary,
             fontWeight: 600,
             fontSize: 13,
           }}
@@ -110,13 +124,13 @@ export default function ShipmentList() {
       title: t('shipments.customer'),
       dataIndex: 'customer_name',
       width: 150,
-      render: (val) => (val as string) ?? '—',
+      render: (_, record) => record.customer_name ?? '—',
     },
     {
       title: t('shipments.country'),
       dataIndex: 'country_name',
       width: 130,
-      render: (val) => withFlag((val as string) ?? null),
+      render: (_, record) => withFlag(record.country_name ?? null),
     },
     {
       title: t('shipments.status'),
@@ -132,24 +146,24 @@ export default function ShipmentList() {
       responsive: ['md'],
       render: (val) =>
         val != null ? (
-          <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+          <span style={{ fontFamily: FONT.mono }}>
             {Number(val).toLocaleString()}
           </span>
         ) : (
-          <span style={{ color: '#bfbfbf' }}>—</span>
+          <span style={{ color: COLORS.textMuted }}>—</span>
         ),
     },
     {
       title: t('shipments.departed'),
       dataIndex: 'departed_at',
       width: 130,
-      render: (val) =>
-        val ? (
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", color: '#8c8c8c', fontSize: 12 }}>
-            {dayjs(val as string).format('DD.MM.YY HH:mm')}
+      render: (_, record) =>
+        record.departed_at ? (
+          <span style={{ fontFamily: FONT.mono, color: COLORS.textSecondary, fontSize: 12 }}>
+            {dayjs(record.departed_at).format('DD.MM.YY HH:mm')}
           </span>
         ) : (
-          <span style={{ color: '#bfbfbf' }}>—</span>
+          <span style={{ color: COLORS.textMuted }}>—</span>
         ),
     },
     {
@@ -157,13 +171,13 @@ export default function ShipmentList() {
       dataIndex: 'arrived_at',
       width: 130,
       responsive: ['md'],
-      render: (val) =>
-        val ? (
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", color: '#8c8c8c', fontSize: 12 }}>
-            {dayjs(val as string).format('DD.MM.YY HH:mm')}
+      render: (_, record) =>
+        record.arrived_at ? (
+          <span style={{ fontFamily: FONT.mono, color: COLORS.textSecondary, fontSize: 12 }}>
+            {dayjs(record.arrived_at).format('DD.MM.YY HH:mm')}
           </span>
         ) : (
-          <span style={{ color: '#bfbfbf' }}>—</span>
+          <span style={{ color: COLORS.textMuted }}>—</span>
         ),
     },
   ];
@@ -186,7 +200,7 @@ export default function ShipmentList() {
           <Button
             type="primary"
             icon={<PlusOutlined />}
-            onClick={() => setCreateModalOpen(true)}
+            onClick={() => setIsCreateModalOpen(true)}
           >
             {t('shipment_create.title')}
           </Button>
@@ -208,7 +222,7 @@ export default function ShipmentList() {
           placeholder={t('shipments.status_filter_ph')}
           value={phaseFilter}
           onChange={(val) => { setPhaseFilter(val ?? undefined); setPage(1); }}
-          options={PHASE_OPTIONS}
+          options={PHASE_KEYS.map((key) => ({ value: key, label: t(`phases.${key}`) }))}
           allowClear
         />
         <Segmented
@@ -217,7 +231,7 @@ export default function ShipmentList() {
             { label: t('shipments.all'), value: 'all' },
             { label: t('shipments.my_work'), value: 'my_work' },
           ]}
-          onChange={(val) => { setViewMode(val as ViewMode); setPage(1); }}
+          onChange={(val) => { setViewMode(val === 'my_work' ? 'my_work' : 'all'); setPage(1); }}
         />
         <Button
           icon={<DownloadOutlined />}
@@ -256,8 +270,8 @@ export default function ShipmentList() {
       />
 
       <ShipmentCreateModal
-        open={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
+        open={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
         onSuccess={handleCreateSuccess}
       />
     </div>

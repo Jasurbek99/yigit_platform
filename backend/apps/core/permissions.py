@@ -1,13 +1,23 @@
-"""Role-based field-level edit permissions for Shipment.
-
-ROLE_EDITABLE_FIELDS maps each role to the list of Shipment fields they may
-PATCH directly. '*' means unrestricted (export_manager / director).
+"""Role-based permissions: field-level editing, dynamic resource CRUD, and legacy helpers.
 
 Used by:
   - apps.core.serializers.UserMeSerializer (editable_fields in /auth/me/)
   - apps.export.serializers.ShipmentPatchSerializer (field validation)
+  - ViewSets with resource_code attribute (DynamicResourcePermission)
 """
+import logging
+
+from django.core.cache import cache
 from rest_framework.permissions import BasePermission, SAFE_METHODS
+
+from apps.core.roles import PRIVILEGED_ROLES as PRIVILEGED_ROLES  # re-export for back-compat
+
+logger = logging.getLogger(__name__)
+
+PERM_CACHE_PREFIX = 'dynamic_perms'
+PERM_CACHE_TTL = 60  # seconds
+
+# ── Legacy hardcoded field permissions (fallback) ────────────────────────
 
 ROLE_EDITABLE_FIELDS: dict[str, list[str]] = {
     'warehouse_chief':    ['box_count', 'pallet_count', 'weight_net', 'weight_gross'],
@@ -21,18 +31,137 @@ ROLE_EDITABLE_FIELDS: dict[str, list[str]] = {
     'director':           ['*'],
 }
 
-PRIVILEGED_ROLES: frozenset[str] = frozenset({'export_manager', 'director'})
+
+def get_editable_fields(role: str | None, resource_code: str = 'shipment') -> list[str]:
+    """Return the list of fields editable by the given role for a resource.
+
+    Checks the dynamic RoleFieldPermission table first; falls back to
+    the hardcoded ROLE_EDITABLE_FIELDS dict for backward compatibility.
+    """
+    from apps.core.models import RoleFieldPermission
+
+    if not role:
+        return []
+
+    cache_key = f'{PERM_CACHE_PREFIX}:fields:{role}:{resource_code}'
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    dynamic = list(
+        RoleFieldPermission.objects.filter(
+            role=role, resource_code=resource_code,
+        ).values_list('field_name', flat=True)
+    )
+    if dynamic:
+        cache.set(cache_key, dynamic, PERM_CACHE_TTL)
+        return dynamic
+
+    # Fallback to hardcoded (only for 'shipment' resource)
+    if resource_code == 'shipment':
+        fallback = ROLE_EDITABLE_FIELDS.get(role, [])
+        cache.set(cache_key, fallback, PERM_CACHE_TTL)
+        return fallback
+
+    return []
 
 
-def get_editable_fields(role: str | None) -> list[str]:
-    """Return the list of Shipment fields editable by the given role."""
-    return ROLE_EDITABLE_FIELDS.get(role or '', [])
-
-
-def can_edit_field(role: str | None, field: str) -> bool:
-    """Return True if the role may edit the given Shipment field."""
-    allowed = get_editable_fields(role)
+def can_edit_field(role: str | None, field: str, resource_code: str = 'shipment') -> bool:
+    """Return True if the role may edit the given field on a resource."""
+    allowed = get_editable_fields(role, resource_code)
     return '*' in allowed or field in allowed
+
+
+# ── Dynamic resource permission helpers ──────────────────────────────────
+
+def _get_resource_perm(role: str, resource_code: str) -> dict | None:
+    """Fetch RoleResourcePermission as a plain dict from cache or DB.
+
+    Returns dict with keys: can_view, can_create, can_edit, can_delete.
+    Returns None if no permission row exists.
+    Stores plain dicts (not model instances) to avoid pickle issues on schema changes.
+    """
+    from apps.core.models import RoleResourcePermission
+
+    cache_key = f'{PERM_CACHE_PREFIX}:resource:{role}:{resource_code}'
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached if cached != '__none__' else None
+
+    try:
+        perm = RoleResourcePermission.objects.get(role=role, resource_code=resource_code)
+        perm_dict = {
+            'can_view': perm.can_view,
+            'can_create': perm.can_create,
+            'can_edit': perm.can_edit,
+            'can_delete': perm.can_delete,
+        }
+    except RoleResourcePermission.DoesNotExist:
+        perm_dict = None
+
+    cache.set(cache_key, perm_dict if perm_dict else '__none__', PERM_CACHE_TTL)
+    return perm_dict
+
+
+def get_page_permissions(role: str) -> dict[str, bool]:
+    """Return {page_code: is_visible} for a role. Used by /auth/me/."""
+    from apps.core.models import RolePagePermission
+
+    cache_key = f'{PERM_CACHE_PREFIX}:pages:{role}'
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    result = dict(
+        RolePagePermission.objects.filter(role=role)
+        .values_list('page_code', 'is_visible')
+    )
+    cache.set(cache_key, result, PERM_CACHE_TTL)
+    return result
+
+
+def get_resource_permissions(role: str) -> dict[str, dict[str, bool]]:
+    """Return {resource_code: {view, create, edit, delete}} for a role."""
+    from apps.core.models import RoleResourcePermission
+
+    cache_key = f'{PERM_CACHE_PREFIX}:resources:{role}'
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    rows = RoleResourcePermission.objects.filter(role=role).values(
+        'resource_code', 'can_view', 'can_create', 'can_edit', 'can_delete',
+    )
+    result = {
+        r['resource_code']: {
+            'view': r['can_view'],
+            'create': r['can_create'],
+            'edit': r['can_edit'],
+            'delete': r['can_delete'],
+        }
+        for r in rows
+    }
+    cache.set(cache_key, result, PERM_CACHE_TTL)
+    return result
+
+
+def get_all_field_permissions(role: str) -> dict[str, list[str]]:
+    """Return {resource_code: [field_name, ...]} for a role."""
+    from apps.core.models import RoleFieldPermission
+
+    cache_key = f'{PERM_CACHE_PREFIX}:all_fields:{role}'
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    rows = RoleFieldPermission.objects.filter(role=role).values_list(
+        'resource_code', 'field_name',
+    )
+    result: dict[str, list[str]] = {}
+    for resource_code, field_name in rows:
+        result.setdefault(resource_code, []).append(field_name)
+    cache.set(cache_key, result, PERM_CACHE_TTL)
+    return result
 
 
 def write_permission(*roles: str) -> type:
@@ -89,3 +218,48 @@ def firm_write_permission(app_label: str, model_name: str, *bypass_roles: str) -
             return bool(perm and request.user.has_perm(perm))
 
     return _FirmWritePermission
+
+
+class DynamicResourcePermission(BasePermission):
+    """DRF permission class that checks RoleResourcePermission from the database.
+
+    Usage on a ViewSet:
+        resource_code = 'shipment'
+        permission_classes = [IsAuthenticated, DynamicResourcePermission]
+
+    Maps HTTP methods:
+        GET/HEAD/OPTIONS → can_view
+        POST             → can_create
+        PUT/PATCH        → can_edit
+        DELETE           → can_delete
+
+    Superusers bypass all checks. If no resource_code is set on the view,
+    the check is skipped (allows gradual migration).
+    """
+
+    def has_permission(self, request, view) -> bool:
+        if not request.user or not request.user.is_authenticated:
+            return False
+        if getattr(request.user, 'is_superuser', False):
+            return True
+
+        resource_code = getattr(view, 'resource_code', None)
+        if not resource_code:
+            return True  # no resource_code configured — skip dynamic check
+
+        role = getattr(request.user, 'role', None)
+        if not role:
+            return False
+
+        perm = _get_resource_perm(role, resource_code)
+        if not perm:
+            return False
+
+        if request.method in SAFE_METHODS:
+            return perm['can_view']
+        if request.method == 'POST':
+            return perm['can_create']
+        if request.method == 'DELETE':
+            return perm['can_delete']
+        # PUT, PATCH
+        return perm['can_edit']

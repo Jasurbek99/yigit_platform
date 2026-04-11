@@ -103,7 +103,7 @@ export default function LoginPage() {
           </div>
           <div>
             <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em', color: '#1f1f1f' }}>
-              YGT Platform
+              {t('login.title')}
             </div>
             <div style={{ fontSize: 12, color: '#8c8c8c', textAlign: 'center' }}>
               {t('login.ops_subtitle')}
@@ -154,7 +154,7 @@ export default function LoginPage() {
         </Form>
 
         <div style={{ textAlign: 'center', marginTop: 24, fontSize: 12, color: '#bfbfbf' }}>
-          YGT Platform © 2026 — v1.0
+          {t('login.footer')}
         </div>
       </div>
     </div>

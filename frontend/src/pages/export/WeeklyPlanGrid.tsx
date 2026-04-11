@@ -40,14 +40,14 @@ import {
   useBulkSubmitHarvestPlans,
   useBulkApproveHarvestPlans,
   useBulkRejectHarvestPlans,
-  useTruckAllocations,
-  useTruckDestinations,
-  useUpsertTruckAllocation,
-  useSetTruckSplits,
 } from '@/hooks/usePlanning';
 import { useSeasons } from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
-import type { IWeeklyHarvestPlan, IWeeklyTruckAllocation, PlanStatus } from '@/types';
+import { useUiStore } from '@/stores/uiStore';
+import { handleCellKeyDown } from '@/utils/tableNavigation';
+import type { IWeeklyHarvestPlan, PlanStatus } from '@/types';
+import { PlanCell, ActualCell, num, fmtKg } from './PlanCells';
+import { TruckAllocationTable } from './TruckAllocationTable';
 
 dayjs.extend(isoWeek);
 dayjs.extend(weekOfYear);
@@ -77,111 +77,13 @@ const ROW_BG: Record<PlanStatus, string> = {
   rejected: '#fff2f0',
 };
 
-/** Safely convert DecimalField strings ("18000.00") to number. */
-function num(val: unknown): number {
-  if (val == null) return 0;
-  const n = Number(val);
-  return Number.isNaN(n) ? 0 : n;
-}
-
-function fmtKg(val: number | string | null | undefined): string {
-  if (val == null) return '—';
-  return Number(val).toLocaleString();
-}
-
-import { handleCellKeyDown } from '@/utils/tableNavigation';
-
-// ─── Sub-components ──────────────────────────────────────────────────────────
-
-interface PlanCellProps {
-  day: Day;
-  row: IWeeklyHarvestPlan;
-  editable: boolean;
-  onSave: (row: IWeeklyHarvestPlan, day: Day, value: number) => void;
-}
-
-function PlanCell({ day, row, editable, onSave }: PlanCellProps) {
-  const field = `${day}_plan_kg` as keyof IWeeklyHarvestPlan;
-  const value = num(row[field]);
-
-  if (editable) {
-    return (
-      <InputNumber
-        min={0}
-        step={100}
-        keyboard={false}
-        defaultValue={value}
-        onBlur={(e) => {
-          const v = Number(e.target.value.replace(/,/g, '')) || 0;
-          if (v !== value) onSave(row, day, v);
-        }}
-        onKeyDown={handleCellKeyDown}
-        size="small"
-        style={{ width: 84 }}
-      />
-    );
-  }
-  return <span>{fmtKg(value)}</span>;
-}
-
-interface ActualCellProps {
-  day: Day;
-  row: IWeeklyHarvestPlan;
-  canEditActual: boolean;
-  onActualSave: (row: IWeeklyHarvestPlan, day: Day, value: number | null) => void;
-  savingKey: string | null;
-}
-
-function ActualCell({ day, row, canEditActual, onActualSave, savingKey }: ActualCellProps) {
-  const planField = `${day}_plan_kg` as keyof IWeeklyHarvestPlan;
-  const actualField = `${day}_actual_kg` as keyof IWeeklyHarvestPlan;
-  const plan = num(row[planField]);
-  const actual = row[actualField] != null ? num(row[actualField]) : null;
-  const isSaving = savingKey === `${row.id}_${day}`;
-
-  if (canEditActual) {
-    return (
-      <InputNumber
-        min={0}
-        step={100}
-        keyboard={false}
-        defaultValue={actual ?? undefined}
-        placeholder="—"
-        onBlur={(e) => {
-          const raw = e.target.value;
-          const v = raw === '' ? null : Number(raw) || 0;
-          if (v !== actual) onActualSave(row, day, v);
-        }}
-        onKeyDown={handleCellKeyDown}
-        size="small"
-        style={{ width: 84 }}
-        disabled={isSaving}
-      />
-    );
-  }
-
-  if (actual == null) return <span style={{ color: '#bfbfbf' }}>—</span>;
-  const diff = actual - plan;
-  const diffColor = diff >= 0 ? '#52c41a' : '#ff4d4f';
-  return (
-    <span>
-      <span>{fmtKg(actual)}</span>
-      <span style={{ color: diffColor, fontSize: 11, marginLeft: 4 }}>
-        {diff >= 0 ? '+' : ''}
-        {fmtKg(diff)}
-      </span>
-    </span>
-  );
-}
-
-// ─── Main component ───────────────────────────────────────────────────────────
-
 export default function WeeklyPlanGrid() {
   const { t } = useTranslation();
   const { user } = useAuth();
 
   const [selectedWeek, setSelectedWeek] = useState<Dayjs | null>(dayjs());
-  const [transposed, setTransposed] = useState(() => localStorage.getItem('plan_pivot') === '1');
+  const transposed = useUiStore((s) => s.planPivotMode);
+  const setTransposed = useUiStore((s) => s.setPlanPivotMode);
   const [rejectModalPlan, setRejectModalPlan] = useState<IWeeklyHarvestPlan | null>(null);
   const [rejectNote, setRejectNote] = useState('');
   const [savingActualKey, setSavingActualKey] = useState<string | null>(null);
@@ -198,18 +100,10 @@ export default function WeeklyPlanGrid() {
   const bulkSubmit = useBulkSubmitHarvestPlans();
   const bulkApprove = useBulkApproveHarvestPlans();
   const bulkReject = useBulkRejectHarvestPlans();
-  const { data: truckData } = useTruckAllocations({
-    season: activeSeason?.id, year, week_number: weekNumber,
-  });
-  const { data: destinations = [] } = useTruckDestinations();
-  const upsertTruck = useUpsertTruckAllocation();
-  const setTruckSplits = useSetTruckSplits();
-  const truckAllocations: IWeeklyTruckAllocation[] = truckData?.results ?? [];
 
   const myBlockIds = new Set(user?.managed_block_ids ?? []);
   const isBlockManager = user?.role === 'greenhouse_manager' && myBlockIds.size > 0;
 
-  // Sort: greenhouse_manager's blocks first, then the rest
   const plans: IWeeklyHarvestPlan[] = (() => {
     const raw = data?.results ?? [];
     if (!isBlockManager) return raw;
@@ -218,7 +112,7 @@ export default function WeeklyPlanGrid() {
     return [...mine, ...rest];
   })();
 
-  const todayWeekday = dayjs().isoWeekday(); // 1=Mon .. 7=Sun
+  const todayWeekday = dayjs().isoWeekday();
   const currentIsoWeek = dayjs().isoWeek();
   const currentIsoYear = dayjs().isoWeekYear();
   const isCurrentOrFutureWeek = (year ?? 0) > currentIsoYear ||
@@ -242,8 +136,6 @@ export default function WeeklyPlanGrid() {
     .map((p) => p.id);
 
   const isManager = user && (user.role === 'director' || user.role === 'export_manager');
-
-  // ─── Summary stats ────────────────────────────────────────────────────────
 
   const totalPlanKg = plans.reduce((s, r) => s + num(r.total_plan_kg), 0);
   const totalActualKg = plans.reduce((s, r) => s + num(r.total_actual_kg), 0);
@@ -340,7 +232,6 @@ export default function WeeklyPlanGrid() {
 
   // ─── Column definitions ────────────────────────────────────────────────────
 
-  // Monday of the selected week
   const weekMonday = selectedWeek ? selectedWeek.isoWeekday(1) : dayjs().isoWeekday(1);
 
   const dayColumns = DAYS.map((day, di) => ({
@@ -358,12 +249,7 @@ export default function WeeklyPlanGrid() {
         key: `${day}_plan`,
         width: 90,
         render: (_: unknown, row: IWeeklyHarvestPlan) => (
-          <PlanCell
-            day={day}
-            row={row}
-            editable={canEditPlan(row)}
-            onSave={handlePlanSave}
-          />
+          <PlanCell day={day} row={row} editable={canEditPlan(row)} onSave={handlePlanSave} />
         ),
       },
       {
@@ -434,7 +320,7 @@ export default function WeeklyPlanGrid() {
     }] : []),
   ];
 
-  // ─── Transposed view (days = rows, blocks = columns) ────────────────────
+  // ─── Transposed view ──────────────────────────────────────────────────────
 
   interface ITransposedRow {
     key: string;
@@ -451,7 +337,6 @@ export default function WeeklyPlanGrid() {
       row[`${p.block_code}_actual`] = p[`${day}_actual_kg` as keyof IWeeklyHarvestPlan] != null
         ? num(p[`${day}_actual_kg` as keyof IWeeklyHarvestPlan]) : null;
     });
-    // Day totals
     row._totalPlan = plans.reduce(
       (s, p) => s + num(p[`${day}_plan_kg` as keyof IWeeklyHarvestPlan]), 0,
     );
@@ -585,20 +470,16 @@ export default function WeeklyPlanGrid() {
     );
   }
 
-  // ─── Summary row ──────────────────────────────────────────────────────────
-
   function renderSummary() {
     return (
       <Table.Summary.Row style={{ fontWeight: 600 }}>
         <Table.Summary.Cell index={0}>{t('plan.total')}</Table.Summary.Cell>
         {DAYS.flatMap((day, di) => {
           const planTotal = plans.reduce(
-            (s, r) => s + num(r[`${day}_plan_kg` as keyof IWeeklyHarvestPlan]),
-            0,
+            (s, r) => s + num(r[`${day}_plan_kg` as keyof IWeeklyHarvestPlan]), 0,
           );
           const actualTotal = plans.reduce(
-            (s, r) => s + num(r[`${day}_actual_kg` as keyof IWeeklyHarvestPlan]),
-            0,
+            (s, r) => s + num(r[`${day}_actual_kg` as keyof IWeeklyHarvestPlan]), 0,
           );
           return [
             <Table.Summary.Cell key={`sp_${di}`} index={1 + di * 2}>
@@ -630,9 +511,7 @@ export default function WeeklyPlanGrid() {
     <div>
       <Flex justify="space-between" align="flex-start" style={{ marginBottom: 16 }}>
         <div>
-          <Title level={4} style={{ margin: 0 }}>
-            {t('plan.title')}
-          </Title>
+          <Title level={4} style={{ margin: 0 }}>{t('plan.title')}</Title>
           <Text type="secondary" style={{ fontSize: 13 }}>
             {t('plan.week')} {weekNumber} · {year} · {plans.length} {t('plan.blocks')}
             {activeSeason && <span> · {activeSeason.name}</span>}
@@ -657,7 +536,7 @@ export default function WeeklyPlanGrid() {
           {plans.length > 0 && (
             <Button
               icon={<SwapOutlined />}
-              onClick={() => setTransposed((v) => { const next = !v; localStorage.setItem('plan_pivot', next ? '1' : '0'); return next; })}
+              onClick={() => setTransposed(!transposed)}
               type={transposed ? 'primary' : 'default'}
             >
               {t('plan.pivot')}
@@ -713,7 +592,7 @@ export default function WeeklyPlanGrid() {
         </Flex>
       )}
 
-      {/* Status summary + toolbar — only for current/future weeks */}
+      {/* Status summary + toolbar */}
       {isCurrentOrFutureWeek && (
         <Flex justify="space-between" align="center" style={{ marginBottom: 12 }}>
           <Flex gap={8}>
@@ -788,158 +667,24 @@ export default function WeeklyPlanGrid() {
       )}
 
       {/* Truck allocation section */}
-      {plans.length > 0 && destinations.length > 0 && (
+      {plans.length > 0 && (
         <Collapse
           defaultActiveKey={['trucks']}
           style={{ marginTop: 16 }}
           items={[{
             key: 'trucks',
             label: <strong>{t('plan.truck_allocation')}</strong>,
-            children: (() => {
-              // Build truck data per day
-              const truckByDay = new Map(truckAllocations.map((a) => [a.day_of_week, a]));
-
-              const truckRows = [
-                // Total KG row
-                { key: 'total_kg', label: t('plan.total_kg'), type: 'computed' as const },
-                // Total Trucks row
-                { key: 'total_trucks', label: t('plan.total_trucks_label'), type: 'computed' as const },
-                // Dynamic destination rows
-                ...destinations.map((d) => ({
-                  key: `dest_${d.id}`,
-                  label: d.name,
-                  type: 'editable' as const,
-                  destId: d.id,
-                })),
-              ];
-
-              const handleTruckSave = (dayOfWeek: number, destId: number, value: number) => {
-                const allocation = truckByDay.get(dayOfWeek);
-                if (allocation) {
-                  setTruckSplits.mutate({
-                    allocationId: allocation.id,
-                    splits: [{ destination_id: destId, truck_count: value }],
-                  });
-                } else if (activeSeason) {
-                  // Create allocation first, then set split
-                  upsertTruck.mutate(
-                    { season: activeSeason.id, week_number: weekNumber!, year: year!, day_of_week: dayOfWeek, total_planned_kg: null },
-                    {
-                      onSuccess: (newAlloc) => {
-                        setTruckSplits.mutate({
-                          allocationId: newAlloc.id,
-                          splits: [{ destination_id: destId, truck_count: value }],
-                        });
-                      },
-                    },
-                  );
-                }
-              };
-
-              const truckColumns = [
-                {
-                  title: '',
-                  dataIndex: 'label',
-                  key: 'label',
-                  width: 120,
-                  fixed: 'left' as const,
-                  render: (text: string) => <strong>{text}</strong>,
-                },
-                ...DAYS.map((day, di) => ({
-                  title: (
-                    <div style={{ textAlign: 'center', lineHeight: '16px' }}>
-                      <div>{t(`plan.${day}`)}</div>
-                      <div style={{ fontSize: 10, color: '#8c8c8c', fontWeight: 400 }}>
-                        {weekMonday.add(di, 'day').format('DD.MM')}
-                      </div>
-                    </div>
-                  ),
-                  key: day,
-                  width: 90,
-                  render: (_: unknown, row: (typeof truckRows)[number]) => {
-                    const dayOfWeek = di + 1;
-                    const allocation = truckByDay.get(dayOfWeek);
-
-                    if (row.type === 'computed') {
-                      if (row.key === 'total_kg') {
-                        const dayTotal = plans.reduce(
-                          (s, p) => s + num(p[`${day}_plan_kg` as keyof IWeeklyHarvestPlan]), 0,
-                        );
-                        return <strong style={{ color: '#1677ff' }}>{fmtKg(dayTotal)}</strong>;
-                      }
-                      // total_trucks
-                      const dayTotal = plans.reduce(
-                        (s, p) => s + num(p[`${day}_plan_kg` as keyof IWeeklyHarvestPlan]), 0,
-                      );
-                      const trucks = dayTotal > 0 ? Math.round(dayTotal / 18500) : 0;
-                      return <strong>{trucks}</strong>;
-                    }
-
-                    // Editable destination row
-                    const destId = (row as { destId: number }).destId;
-                    const split = allocation?.destination_splits?.find((s) => s.destination === destId);
-                    const currentVal = split?.truck_count ?? 0;
-
-                    if (isManager) {
-                      return (
-                        <InputNumber
-                          min={0}
-                          keyboard={false}
-                          defaultValue={currentVal}
-                          onBlur={(e) => {
-                            const v = Number(e.target.value.replace(/,/g, '')) || 0;
-                            if (v !== currentVal) handleTruckSave(dayOfWeek, destId, v);
-                          }}
-                          onKeyDown={handleCellKeyDown}
-                          size="small"
-                          style={{ width: 70 }}
-                        />
-                      );
-                    }
-                    return currentVal > 0 ? currentVal : <span style={{ color: '#bfbfbf' }}>—</span>;
-                  },
-                })),
-                {
-                  title: t('plan.total'),
-                  key: 'row_total',
-                  width: 80,
-                  render: (_: unknown, row: (typeof truckRows)[number]) => {
-                    if (row.key === 'total_kg') {
-                      return <strong style={{ color: '#1677ff' }}>{fmtKg(totalPlanKg)}</strong>;
-                    }
-                    if (row.key === 'total_trucks') {
-                      return <strong>{totalPlanKg > 0 ? Math.round(totalPlanKg / 18500) : 0}</strong>;
-                    }
-                    const destId = (row as { destId: number }).destId;
-                    const total = truckAllocations.reduce((s, a) => {
-                      const split = a.destination_splits?.find((sp) => sp.destination === destId);
-                      return s + (split?.truck_count ?? 0);
-                    }, 0);
-                    return <strong>{total}</strong>;
-                  },
-                },
-              ];
-
-              return (
-                <Table
-                  columns={truckColumns}
-                  dataSource={truckRows}
-                  rowKey="key"
-                  bordered
-                  size="small"
-                  pagination={false}
-                  scroll={{ x: 'max-content' }}
-                  rowClassName={(row) =>
-                    row.type === 'computed' ? '' : ''
-                  }
-                  onRow={(row) => ({
-                    style: row.type === 'editable'
-                      ? { backgroundColor: '#fff7e6' }
-                      : { backgroundColor: '#fafafa' },
-                  })}
-                />
-              );
-            })(),
+            children: (
+              <TruckAllocationTable
+                plans={plans}
+                weekNumber={weekNumber}
+                year={year}
+                seasonId={activeSeason?.id}
+                isManager={!!isManager}
+                weekMonday={weekMonday}
+                totalPlanKg={totalPlanKg}
+              />
+            ),
           }]}
         />
       )}

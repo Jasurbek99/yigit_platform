@@ -2,12 +2,13 @@
 
 ## Module dependency direction (STRICT)
 ```
-core → export → contracts → finance
-              ↘ transport ↗
+core → greenhouse → export → contracts → finance
+                           ↘ transport ↗
 ```
-- `core/` is imported by ALL other apps. Never import from export/contracts/etc.
-- `export/` can import from `core/`. Never from `contracts/` or `finance/`.
-- `contracts/` can import from `core/` and `export/`. Never from `finance/`.
+- `core/` is imported by ALL other apps. Never import from greenhouse/export/contracts/etc.
+- `greenhouse/` can import from `core/`. Never from `export/` or downstream. (Temporary exception: `Notification`/`AuditLog` imports from `export` until those move to `core`.)
+- `export/` can import from `core/` and `greenhouse/`. Never from `contracts/` or `finance/`.
+- `contracts/` can import from `core/`, `greenhouse/`, and `export/`. Never from `finance/`.
 - `finance/` can import from all upstream apps.
 - `transport/` can import from `core/` and `export/`.
 - **Circular imports = architectural bug. Fix immediately.**

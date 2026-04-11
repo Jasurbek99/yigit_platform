@@ -12,6 +12,13 @@ export type UserRole =
   | 'greenhouse_manager'
   | 'seller';
 
+export interface IResourcePermission {
+  view: boolean;
+  create: boolean;
+  edit: boolean;
+  delete: boolean;
+}
+
 export interface ICurrentUser {
   id: number;
   username: string;
@@ -22,6 +29,9 @@ export interface ICurrentUser {
   is_superuser: boolean;
   managed_block_ids: number[];
   permissions: string[];  // Django permission codenames; ['*'] for superuser
+  page_permissions: Record<string, boolean>;
+  resource_permissions: Record<string, IResourcePermission>;
+  field_permissions: Record<string, string[]>;
 }
 
 // ─── Reference ────────────────────────────────────────────────────────────

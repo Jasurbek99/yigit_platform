@@ -11,7 +11,8 @@
     "toast_success_desc": "Вы вошли как {{role}}",
     "toast_error": "Ошибка входа",
     "toast_error_desc": "Неверное имя пользователя или пароль. Попробуйте снова.",
-    "ops_subtitle": "Операционная платформа"
+    "ops_subtitle": "Операционная платформа",
+    "footer": "YGT Платформа © 2026 — v1.0"
   },
   "roles": {
     "export_manager": "Менеджер экспорта",
@@ -22,7 +23,8 @@
     "finansist": "Финансист",
     "director": "Директор",
     "accountant": "Бухгалтер",
-    "greenhouse_manager": "Менеджер теплицы"
+    "greenhouse_manager": "Менеджер теплицы",
+    "seller": "Продавец"
   },
   "nav": {
     "dashboard": "Главная",
@@ -655,7 +657,26 @@
     "perm_delete_exportfirm": "Удалить эксп. фирму",
     "perm_add_importfirm": "Добавить имп. фирму",
     "perm_change_importfirm": "Изменить имп. фирму",
-    "perm_delete_importfirm": "Удалить имп. фирму"
+    "perm_delete_importfirm": "Удалить имп. фирму",
+    "tab_page_visibility": "Видимость страниц",
+    "tab_resource_perms": "Права на ресурсы",
+    "tab_field_perms": "Права на поля",
+    "page_vis_desc": "Управление видимостью страниц в боковом меню для каждой роли",
+    "resource_perms_desc": "Управление правами просмотра, создания, редактирования, удаления по ролям",
+    "field_perms_desc": "Управление полями, которые каждая роль может редактировать",
+    "col_page": "Страница",
+    "col_resource": "Ресурс",
+    "col_field": "Поле",
+    "select_resource": "Выберите ресурс",
+    "all_fields": "Все поля (*)",
+    "save_matrix": "Сохранить изменения",
+    "toast_matrix_saved": "Матрица прав сохранена",
+    "toast_matrix_error": "Ошибка сохранения прав",
+    "no_field_config": "Этот ресурс не поддерживает управление полями",
+    "label_view": "П",
+    "label_create": "С",
+    "label_edit": "Р",
+    "label_delete": "У"
   },
   "months": {
     "1": "Январь",
@@ -752,5 +773,52 @@
     "meta_season_month_value": "Месяц {{n}}",
     "field_code_example": "Пример: {{code}}D, {{code}}G...",
     "field_name_example": "Пример: {{code}}D-Теплица"
+  },
+  "dashboard": {
+    "title": "Главная",
+    "subtitle": "Обзор экспортных операций с томатами — сезон 2025/2026",
+    "stat_total": "Всего отгрузок",
+    "stat_transit": "В пути",
+    "stat_selling": "Продаётся",
+    "stat_sold": "Продано",
+    "stat_no_report": "Нет отчёта",
+    "stat_firms": "Экспортные фирмы",
+    "trend_this_week": "↑ {{count}} на этой неделе",
+    "trend_moving": "сейчас в движении",
+    "trend_at_market": "на рынке",
+    "trend_awaiting": "ожидается",
+    "trend_tracking_quota": "отслеживание квоты",
+    "btn_export_excel": "Экспорт в Excel",
+    "btn_new_shipment": "Новая отгрузка",
+    "alerts_title": "Важные уведомления",
+    "alert_no_report": "{{count}} отчётов не поступило — продано, но отчёт не отправлен. Свяжитесь с Арапом.",
+    "alert_quota_exceeded": "Квота превышена — Yigit H.J: Период 3 = -2 603 000 кг. Требуется корректировка.",
+    "alert_doc_deadline": "Срок документов — для {{count}} отгрузок документы должны быть готовы к 13:00.",
+    "alert_weekly_plan": "Недельный план — неделя {{week}}: запланировано {{tons}} тонн, {{blocks}} блоков.",
+    "routes_title": "По направлениям",
+    "shipment_suffix": "отгрузок",
+    "active_shipments": "Текущие активные отгрузки",
+    "view_all": "Смотреть все →",
+    "col_code": "Код",
+    "col_customer": "Клиент",
+    "col_route": "Направление",
+    "col_status": "Статус",
+    "col_weight": "Вес (кг)",
+    "col_departed": "Отправлено",
+    "col_location": "Местоположение",
+    "no_data": "Нет данных",
+    "status_transit": "В пути",
+    "status_border": "На границе",
+    "status_selling": "Продаётся",
+    "status_loading": "Загрузка"
+  },
+  "phases": {
+    "planlanyan": "Планирование",
+    "yuklenme": "Загрузка",
+    "bardy": "В пути",
+    "gumruk_girish": "На границе",
+    "satylyor": "Продаётся",
+    "satyldy": "Продано",
+    "tamamlandy": "Завершено"
   }
 }

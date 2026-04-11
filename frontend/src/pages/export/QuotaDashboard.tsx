@@ -7,9 +7,7 @@ import {
   Row,
   Select,
   Statistic,
-  Table,
   Tabs,
-  Tag,
   Typography,
 } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
@@ -18,172 +16,20 @@ import { useNavigate } from 'react-router-dom';
 import dayjs, { type Dayjs } from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek';
 import { useSeasons } from '@/hooks/useAdmin';
-import {
-  useQuotaDashboard,
-  useQuotaIssuances,
-  useDeleteQuotaIssuance,
-} from '@/hooks/useQuotaDashboard';
+import { useQuotaDashboard, useQuotaIssuances } from '@/hooks/useQuotaDashboard';
 import { useAuth } from '@/hooks/useAuth';
+import { canSeePage, canDo } from '@/utils/permissions';
 import { QuotaPerFirmTable } from './QuotaPerFirmTable';
 import { QuotaVisualBars } from './QuotaVisualBars';
 import { QuotaWeeklyFlow } from './QuotaWeeklyFlow';
 import { LocalSellPlanGrid } from './LocalSellPlanGrid';
+import { QuotaIssuancesList, computeExpiry } from './QuotaIssuancesList';
 import type { ISeason } from '@/types';
 
 dayjs.extend(isoWeek);
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
-
-// ─── All Quotas (Issuances) tab ──────────────────────────────────────────────
-
-// Compute expiry date from issue_date + validity
-function computeExpiry(issueDate: string, validity: string): dayjs.Dayjs {
-  const d = dayjs(issueDate);
-  if (validity === 'this_month') return d.endOf('month');
-  // this_and_next or next_month → end of next month
-  return d.add(1, 'month').endOf('month');
-}
-
-type QuotaRowStatus = 'active' | 'expiring' | 'expired';
-const STATUS_CONFIG: Record<QuotaRowStatus, { color: string }> = {
-  active: { color: 'green' },
-  expiring: { color: 'orange' },
-  expired: { color: 'red' },
-};
-
-interface IFlatQuotaRow {
-  key: string;
-  alloc_id: number;
-  issuance_id: number;
-  export_firm_name: string;
-  kg_quota: number;
-  issue_date: string;
-  product_type: string;
-  validity: string;
-  expiry_date: string;
-  status: QuotaRowStatus;
-  days_left: number;
-}
-
-function QuotaIssuancesList() {
-  const { t } = useTranslation();
-  const { user } = useAuth();
-  const { data: issuances = [], isLoading } = useQuotaIssuances();
-  const deleteMutation = useDeleteQuotaIssuance();
-  const canDelete = user?.role === 'export_manager' || user?.role === 'director' || user?.is_superuser;
-
-  const today = dayjs();
-
-  const flatRows: IFlatQuotaRow[] = issuances.flatMap((iss) =>
-    iss.allocations.map((a) => {
-      const expiry = computeExpiry(iss.issue_date, iss.validity);
-      const daysLeft = expiry.diff(today, 'day');
-      let status: QuotaRowStatus = 'active';
-      if (daysLeft < 0) status = 'expired';
-      else if (daysLeft <= 7) status = 'expiring';
-
-      return {
-        key: `${iss.id}-${a.export_firm}`,
-        alloc_id: a.id,
-        issuance_id: iss.id,
-        export_firm_name: a.export_firm_name ?? '',
-        kg_quota: a.kg_quota,
-        issue_date: iss.issue_date,
-        product_type: iss.product_type,
-        validity: iss.validity,
-        expiry_date: expiry.format('YYYY-MM-DD'),
-        status,
-        days_left: daysLeft,
-      };
-    })
-  );
-
-  // Sort: active first, then expiring, then expired. Within same status: newest first.
-  const STATUS_ORDER: Record<QuotaRowStatus, number> = { active: 0, expiring: 1, expired: 2 };
-  const sorted = [...flatRows].sort((a, b) => {
-    const s = STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
-    if (s !== 0) return s;
-    return b.issue_date.localeCompare(a.issue_date);
-  });
-
-  const columns = [
-    {
-      title: '#', dataIndex: 'alloc_id', width: 60,
-      sorter: (a: IFlatQuotaRow, b: IFlatQuotaRow) => a.alloc_id - b.alloc_id,
-    },
-    {
-      title: t('quota_dashboard.firm'), dataIndex: 'export_firm_name', width: 170,
-      sorter: (a: IFlatQuotaRow, b: IFlatQuotaRow) => a.export_firm_name.localeCompare(b.export_firm_name),
-      render: (v: string) => <Text strong>{v}</Text>,
-    },
-    {
-      title: t('quota_dashboard.issued'), dataIndex: 'kg_quota', width: 130, align: 'right' as const,
-      sorter: (a: IFlatQuotaRow, b: IFlatQuotaRow) => a.kg_quota - b.kg_quota,
-      render: (v: number) => `${Number(v).toLocaleString()} kg`,
-    },
-    {
-      title: t('quota_dashboard.issue_date'), dataIndex: 'issue_date', width: 115,
-      sorter: (a: IFlatQuotaRow, b: IFlatQuotaRow) => a.issue_date.localeCompare(b.issue_date),
-    },
-    {
-      title: t('quota_dashboard.expiry'), dataIndex: 'expiry_date', width: 115,
-      sorter: (a: IFlatQuotaRow, b: IFlatQuotaRow) => a.expiry_date.localeCompare(b.expiry_date),
-    },
-    {
-      title: t('quota_dashboard.status'), dataIndex: 'status', width: 110,
-      sorter: (a: IFlatQuotaRow, b: IFlatQuotaRow) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status],
-      render: (v: QuotaRowStatus) => (
-        <Tag color={STATUS_CONFIG[v].color}>{t(`quota_dashboard.status_${v}`)}</Tag>
-      ),
-    },
-    {
-      title: t('quota_dashboard.days_left'), dataIndex: 'days_left', width: 110,
-      sorter: (a: IFlatQuotaRow, b: IFlatQuotaRow) => a.days_left - b.days_left,
-      render: (v: number) => {
-        if (v < 0) return <Text type="danger">{t('quota_dashboard.expired_ago', { days: Math.abs(v) })}</Text>;
-        if (v === 0) return <Text type="warning">{t('quota_dashboard.expires_today')}</Text>;
-        return <Text>{v} {t('quota_dashboard.days')}</Text>;
-      },
-    },
-    {
-      title: t('quota_dashboard.product_type'), dataIndex: 'product_type', width: 90,
-      render: (v: string) => v === 'pepper' ? t('quota_dashboard.product_pepper') : t('quota_dashboard.product_tomato'),
-    },
-    {
-      title: t('quota_dashboard.batch'), dataIndex: 'issuance_id', width: 70,
-      sorter: (a: IFlatQuotaRow, b: IFlatQuotaRow) => a.issuance_id - b.issuance_id,
-      render: (v: number) => <Text type="secondary">#{v}</Text>,
-    },
-    ...(canDelete ? [{
-      title: '', key: 'actions', width: 60,
-      render: (_: unknown, r: IFlatQuotaRow) => (
-        <Button
-          size="small" danger type="link"
-          onClick={() => {
-            if (confirm(t('quota_dashboard.confirm_delete'))) {
-              deleteMutation.mutate(r.issuance_id);
-            }
-          }}
-        >
-          {t('common.delete')}
-        </Button>
-      ),
-    }] : []),
-  ];
-
-  return (
-    <Table
-      dataSource={sorted}
-      columns={columns}
-      rowKey="key"
-      size="small"
-      loading={isLoading}
-      pagination={false}
-      rowClassName={(r) => r.status === 'expired' ? 'ant-table-row-expired' : ''}
-    />
-  );
-}
 
 // ─── Period state ─────────────────────────────────────────────────────────────
 
@@ -277,8 +123,9 @@ export default function QuotaDashboard() {
   const { t } = useTranslation();
   const { user } = useAuth();
 
-  const canAddIssuance =
-    user?.role === 'export_manager' || user?.role === 'director' || user?.is_superuser;
+  const canAddIssuance = canDo(user, 'quota_issuance', 'create');
+  const canSeeFullQuota = canSeePage(user, 'export.quota');
+  const canSeeLocalSell = canSeePage(user, 'export.quota.local_sell');
 
   // Season selection
   const { data: seasons = [] } = useSeasons();
@@ -303,7 +150,8 @@ export default function QuotaDashboard() {
   const navigate = useNavigate();
 
   // Active tab
-  const [activeTab, setActiveTab] = useState('per_firm');
+  const defaultTab = canSeeFullQuota ? 'per_firm' : 'local_sell';
+  const [activeTab, setActiveTab] = useState(defaultTab);
 
   const { date_from, date_to } = useMemo(
     () => periodToDates(period, currentSeason),
@@ -323,13 +171,14 @@ export default function QuotaDashboard() {
   const weeklyFlow = data?.weekly_flow ?? [];
 
   // Compute expired unused quota from issuances
-  const today = dayjs();
+  const todayStr = dayjs().format('YYYY-MM-DD');
   const expiredStats = useMemo(() => {
+    const now = dayjs(todayStr);
     let totalExpiredKg = 0;
     const perFirmExpired: Record<number, number> = {};
     for (const iss of issuances) {
       const expiry = computeExpiry(iss.issue_date, iss.validity);
-      if (expiry.isBefore(today, 'day')) {
+      if (expiry.isBefore(now, 'day')) {
         for (const a of iss.allocations) {
           totalExpiredKg += a.kg_quota;
           perFirmExpired[a.export_firm] = (perFirmExpired[a.export_firm] ?? 0) + a.kg_quota;
@@ -337,7 +186,7 @@ export default function QuotaDashboard() {
       }
     }
     return { totalExpiredKg, perFirmExpired };
-  }, [issuances, today]);
+  }, [issuances, todayStr]);
 
   // Build period dropdown options: All Season + months + weeks
   const periodOptions = useMemo(() => {
@@ -393,33 +242,34 @@ export default function QuotaDashboard() {
       ? ((kpis.issued_kg / kpis.expected_kg) * 100).toFixed(1)
       : null;
 
-  const tabItems = [
-    {
+  const allTabItems = [
+    canSeeFullQuota && {
       key: 'all_quotas',
       label: t('quota_dashboard.tab_all_quotas'),
       children: <QuotaIssuancesList />,
     },
-    {
+    canSeeFullQuota && {
       key: 'per_firm',
       label: t('quota_dashboard.tab_per_firm'),
       children: <QuotaPerFirmTable data={perFirm} expiredPerFirm={expiredStats.perFirmExpired} />,
     },
-    {
+    canSeeFullQuota && {
       key: 'visual',
       label: t('quota_dashboard.tab_visual'),
       children: <QuotaVisualBars data={perFirm} />,
     },
-    {
+    canSeeFullQuota && {
       key: 'weekly',
       label: t('quota_dashboard.tab_weekly'),
       children: <QuotaWeeklyFlow data={weeklyFlow} />,
     },
-    {
+    (canSeeFullQuota || canSeeLocalSell) && {
       key: 'local_sell',
       label: t('quota_dashboard.tab_local_sell'),
       children: <LocalSellPlanGrid />,
     },
-  ];
+  ].filter(Boolean) as { key: string; label: string; children: React.ReactNode }[];
+  const tabItems = allTabItems;
 
   return (
     <div>

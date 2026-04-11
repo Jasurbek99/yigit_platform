@@ -12,6 +12,7 @@ ROLE_CHOICES = [
     ('director', 'Director'),
     ('accountant', 'Accountant'),
     ('greenhouse_manager', 'Greenhouse Manager'),
+    ('seller', 'Seller'),
 ]
 
 

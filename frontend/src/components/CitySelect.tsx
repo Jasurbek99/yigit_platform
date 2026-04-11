@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useCities, useCreateCity } from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
 
-interface CitySelectProps {
+interface ICitySelectProps {
   countryId?: number | null;
   value?: number | null;
   onChange?: (value: number | null) => void;
@@ -25,7 +25,7 @@ export function CitySelect({
   placeholder,
   size,
   style,
-}: CitySelectProps) {
+}: ICitySelectProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const [searchValue, setSearchValue] = useState('');

@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 
 from django.utils import timezone
 
@@ -134,231 +135,147 @@ def transition_to(shipment: Shipment, new_status_code: str, user, comment: str =
     # No per-quota used_kg tracking needed.
 
 
-# ---------------------------------------------------------------------------
-# Weekly Harvest Plan — approval workflow
-# ---------------------------------------------------------------------------
+def create_shipment(
+    cargo_code: str,
+    date,
+    user,
+    country=None,
+    customer=None,
+    season=None,
+) -> Shipment:
+    """Create a new shipment at step 1 (yuklenme) and write the initial audit trail.
 
-_PLAN_APPROVE_ROLES = frozenset({'export_manager', 'director'})
-_PLAN_DAYS = ('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday')
-
-
-def _notify_plan_event(
-    kind: str,
-    plan: 'WeeklyHarvestPlan',
-    target_user_ids: list[int],
-    message: str,
-) -> None:
-    """Create Notification rows for the given users about a harvest plan event."""
-    from apps.export.models import Notification
-
-    link = f'/export/plan?week={plan.week_number}&year={plan.year}'
-    notifications = [
-        Notification(user_id=uid, kind=kind, message=message, link=link)
-        for uid in target_user_ids
-    ]
-    if notifications:
-        Notification.objects.bulk_create(notifications, batch_size=500)
-
-
-def submit_harvest_plan(plan: 'WeeklyHarvestPlan', user) -> None:
-    """Submit a harvest plan for approval.
-
-    Validates the plan is in draft or rejected status, has at least one
-    non-zero plan_kg day, and the user has block permission.
+    Resolves the active season when none is provided. Writes the loading_started_at
+    AD-1 denormalized timestamp directly — transition_to() cannot be used here because
+    the shipment is created with status already set to step 1.
 
     Args:
-        plan: WeeklyHarvestPlan instance.
-        user: User performing the submission.
+        cargo_code: Validated cargo code string in DDMM###/YY format.
+        date: Shipment date (datetime.date instance).
+        user: User performing the creation (core.User instance).
+        country: Optional core.Country FK instance.
+        customer: Optional core.Customer FK instance.
+        season: Optional core.Season FK instance. If None, the active season is resolved.
+
+    Returns:
+        The newly created Shipment instance with loading_started_at set.
 
     Raises:
-        ValueError: If the plan cannot be submitted from its current status.
-        PermissionError: If the user is not allowed to write this block's plan.
+        ValueError: If no active season exists and none was provided, or if no
+                    yuklenme status (step_order=1) is configured in the DB.
     """
-    from apps.export.models import PLAN_TRANSITIONS, AuditLog, BlockManagerAssignment
+    from apps.core.models import Season, ShipmentStatusType
 
-    allowed = PLAN_TRANSITIONS.get(plan.status, [])
-    if 'submitted' not in allowed:
-        raise ValueError(
-            f"Cannot submit plan from status '{plan.status}'. "
-            f"Allowed transitions: {allowed}"
-        )
+    # Resolve season from the active season when the caller did not supply one.
+    resolved_season: Optional[object] = season
+    if resolved_season is None:
+        resolved_season = Season.objects.filter(is_active=True).first()
+        if resolved_season is None:
+            raise ValueError('No active season found. Provide a season in the request.')
 
-    # Validate at least one day has a positive plan value.
-    has_plan = any(getattr(plan, f'{d}_plan_kg', 0) > 0 for d in _PLAN_DAYS)
+    first_status = ShipmentStatusType.objects.filter(step_order=1).first()
+    if first_status is None:
+        raise ValueError('No yuklenme status configured. Run seed_data first.')
+
+    shipment = Shipment.objects.create(
+        cargo_code=cargo_code,
+        date=date,
+        country=country,
+        customer=customer,
+        season=resolved_season,
+        status=first_status,
+        created_by=user,
+    )
+
+    # AD-1: write loading_started_at directly on creation — this is the creation
+    # equivalent of the first transition. Only transition_to() may update this field
+    # after initial creation.
+    shipment.loading_started_at = timezone.now()
+    shipment.save(update_fields=['loading_started_at'])
+
+    ShipmentStatusLog.objects.create(
+        shipment=shipment,
+        status=first_status,
+        changed_by=user,
+        comment='Shipment created',
+    )
+
+    logger.info('Shipment %s created by %s', shipment.cargo_code, user.username)
+    return shipment
+
+
+# ---------------------------------------------------------------------------
+# Weekly Local Sell Plan — workflow
+# ---------------------------------------------------------------------------
+
+_SELL_PLAN_DAYS = ('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday')
+
+
+def submit_local_sell_plan(plan: 'WeeklyLocalSellPlan', user: 'User') -> None:
+    """Submit a local sell plan for approval."""
+    from apps.export.models import LOCAL_SELL_TRANSITIONS
+    from apps.core.services_workflow import validate_transition, apply_status_change, create_audit_entry
+
+    validate_transition(plan.status, 'submitted', LOCAL_SELL_TRANSITIONS)
+
+    has_plan = any(getattr(plan, f'{d}_plan_kg', 0) > 0 for d in _SELL_PLAN_DAYS)
     if not has_plan:
         raise ValueError('Plan must have at least one day with a positive plan_kg.')
 
-    # Check block permission.
-    role = getattr(user, 'role', None)
-    if role not in _PLAN_APPROVE_ROLES:
-        if role == 'greenhouse_manager':
-            has_assignment = BlockManagerAssignment.objects.filter(
-                user=user, block_id=plan.block_id, is_active=True,
-            ).exists()
-            if not has_assignment:
-                raise PermissionError(
-                    f"greenhouse_manager is not assigned to block {plan.block_id}."
-                )
-        else:
-            raise PermissionError(
-                f"Role '{role}' is not allowed to submit harvest plans."
-            )
-
-    now = timezone.now()
-    plan.status = 'submitted'
-    plan.submitted_at = now
-    plan.submitted_by = user
-    # Clear rejection fields on resubmit.
-    plan.rejected_at = None
-    plan.rejected_by = None
-    plan.rejection_note = None
-    # auto_now fields are ignored when update_fields is passed — assign explicitly.
-    plan.updated_at = now
-    plan.save(update_fields=[
-        'status', 'submitted_at', 'submitted_by',
-        'rejected_at', 'rejected_by', 'rejection_note', 'updated_at',
-    ])
-
-    AuditLog.objects.create(
-        user=user,
-        action='plan_submitted',
-        model_name='WeeklyHarvestPlan',
-        object_id=plan.id,
-        object_repr=str(plan),
-        detail=f'Block {plan.block.code} W{plan.week_number}/{plan.year} submitted',
+    update_fields = apply_status_change(
+        plan, 'submitted', user,
+        timestamp_field='submitted_at', user_field='submitted_by',
+        clear_fields=['rejected_at', 'rejected_by', 'rejection_note'],
     )
+    plan.save(update_fields=update_fields)
 
-    # Notify export_manager + director users.
-    from apps.core.models import User
-    target_ids = list(
-        User.objects.filter(role__in=_PLAN_APPROVE_ROLES, is_active=True)
-        .values_list('id', flat=True)
+    create_audit_entry(
+        user, 'local_sell_submitted', 'WeeklyLocalSellPlan',
+        plan.id, str(plan), f'W{plan.week_number}/{plan.year} submitted',
     )
-    block_code = plan.block.code
-    _notify_plan_event(
-        'plan_submitted', plan, target_ids,
-        f'Block {block_code} W{plan.week_number} plan submitted by {user.username}',
+    logger.info('LocalSellPlan %s submitted by %s', plan, user.username)
+
+
+def approve_local_sell_plan(plan: 'WeeklyLocalSellPlan', user: 'User') -> None:
+    """Approve a submitted local sell plan."""
+    from apps.export.models import LOCAL_SELL_TRANSITIONS
+    from apps.core.services_workflow import validate_transition, apply_status_change, create_audit_entry
+
+    validate_transition(plan.status, 'approved', LOCAL_SELL_TRANSITIONS)
+
+    update_fields = apply_status_change(
+        plan, 'approved', user,
+        timestamp_field='approved_at', user_field='approved_by',
     )
+    plan.save(update_fields=update_fields)
 
-    logger.info(
-        'HarvestPlan %s submitted by %s', plan, user.username,
+    create_audit_entry(
+        user, 'local_sell_approved', 'WeeklyLocalSellPlan',
+        plan.id, str(plan), f'W{plan.week_number}/{plan.year} approved',
     )
+    logger.info('LocalSellPlan %s approved by %s', plan, user.username)
 
 
-def approve_harvest_plan(plan: 'WeeklyHarvestPlan', user) -> None:
-    """Approve a submitted harvest plan.
+def reject_local_sell_plan(plan: 'WeeklyLocalSellPlan', user: 'User', rejection_note: str) -> None:
+    """Reject a submitted local sell plan."""
+    from apps.export.models import LOCAL_SELL_TRANSITIONS
+    from apps.core.services_workflow import validate_transition, apply_status_change, create_audit_entry
 
-    Args:
-        plan: WeeklyHarvestPlan instance in 'submitted' status.
-        user: User performing the approval (must be export_manager or director).
-
-    Raises:
-        ValueError: If the plan is not in 'submitted' status.
-        PermissionError: If the user's role cannot approve.
-    """
-    from apps.export.models import PLAN_TRANSITIONS, AuditLog, BlockManagerAssignment
-
-    allowed = PLAN_TRANSITIONS.get(plan.status, [])
-    if 'approved' not in allowed:
-        raise ValueError(
-            f"Cannot approve plan from status '{plan.status}'. "
-            f"Allowed transitions: {allowed}"
-        )
-
-    role = getattr(user, 'role', None)
-    if role not in _PLAN_APPROVE_ROLES:
-        raise PermissionError(
-            f"Role '{role}' is not allowed to approve harvest plans."
-        )
-
-    now = timezone.now()
-    plan.status = 'approved'
-    plan.approved_at = now
-    plan.approved_by = user
-    plan.updated_at = now
-    plan.save(update_fields=['status', 'approved_at', 'approved_by', 'updated_at'])
-
-    AuditLog.objects.create(
-        user=user,
-        action='plan_approved',
-        model_name='WeeklyHarvestPlan',
-        object_id=plan.id,
-        object_repr=str(plan),
-        detail=f'Block {plan.block.code} W{plan.week_number}/{plan.year} approved',
-    )
-
-    # Notify the block's greenhouse managers.
-    target_ids = list(
-        BlockManagerAssignment.objects.filter(
-            block_id=plan.block_id, is_active=True,
-        ).values_list('user_id', flat=True)
-    )
-    _notify_plan_event(
-        'plan_approved', plan, target_ids,
-        f'Your Block {plan.block.code} W{plan.week_number} plan approved by {user.username}',
-    )
-
-    logger.info('HarvestPlan %s approved by %s', plan, user.username)
-
-
-def reject_harvest_plan(plan: 'WeeklyHarvestPlan', user, rejection_note: str) -> None:
-    """Reject a submitted harvest plan.
-
-    Args:
-        plan: WeeklyHarvestPlan instance in 'submitted' status.
-        user: User performing the rejection (must be export_manager or director).
-        rejection_note: Mandatory reason for rejection.
-
-    Raises:
-        ValueError: If the plan is not in 'submitted' status or note is empty.
-        PermissionError: If the user's role cannot reject.
-    """
-    from apps.export.models import PLAN_TRANSITIONS, AuditLog, BlockManagerAssignment
-
-    allowed = PLAN_TRANSITIONS.get(plan.status, [])
-    if 'rejected' not in allowed:
-        raise ValueError(
-            f"Cannot reject plan from status '{plan.status}'. "
-            f"Allowed transitions: {allowed}"
-        )
+    validate_transition(plan.status, 'rejected', LOCAL_SELL_TRANSITIONS)
 
     if not rejection_note or not rejection_note.strip():
         raise ValueError('Rejection note is required.')
 
-    role = getattr(user, 'role', None)
-    if role not in _PLAN_APPROVE_ROLES:
-        raise PermissionError(
-            f"Role '{role}' is not allowed to reject harvest plans."
-        )
-
-    now = timezone.now()
-    plan.status = 'rejected'
-    plan.rejected_at = now
-    plan.rejected_by = user
+    update_fields = apply_status_change(
+        plan, 'rejected', user,
+        timestamp_field='rejected_at', user_field='rejected_by',
+    )
     plan.rejection_note = rejection_note.strip()
-    plan.updated_at = now
-    plan.save(update_fields=[
-        'status', 'rejected_at', 'rejected_by', 'rejection_note', 'updated_at',
-    ])
+    update_fields.append('rejection_note')
+    plan.save(update_fields=update_fields)
 
-    AuditLog.objects.create(
-        user=user,
-        action='plan_rejected',
-        model_name='WeeklyHarvestPlan',
-        object_id=plan.id,
-        object_repr=str(plan),
-        detail=f'Block {plan.block.code} W{plan.week_number}/{plan.year} rejected: {rejection_note}',
+    create_audit_entry(
+        user, 'local_sell_rejected', 'WeeklyLocalSellPlan',
+        plan.id, str(plan), f'W{plan.week_number}/{plan.year} rejected: {rejection_note}',
     )
-
-    # Notify the block's greenhouse managers.
-    target_ids = list(
-        BlockManagerAssignment.objects.filter(
-            block_id=plan.block_id, is_active=True,
-        ).values_list('user_id', flat=True)
-    )
-    _notify_plan_event(
-        'plan_rejected', plan, target_ids,
-        f'Your Block {plan.block.code} W{plan.week_number} plan rejected: {rejection_note}',
-    )
-
-    logger.info('HarvestPlan %s rejected by %s: %s', plan, user.username, rejection_note)
+    logger.info('LocalSellPlan %s rejected by %s: %s', plan, user.username, rejection_note)

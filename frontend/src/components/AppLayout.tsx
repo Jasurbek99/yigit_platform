@@ -25,6 +25,7 @@ import type { MenuProps } from 'antd';
 import api from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
 import { useNotifications, useMarkAllRead } from '@/hooks/useNotifications';
+import { canSeePage } from '@/utils/permissions';
 import type { INotification } from '@/types';
 
 const { Sider, Header, Content } = Layout;
@@ -44,7 +45,7 @@ const KIND_COLOR: Record<INotification['kind'], string> = {
 
 function NotificationBell() {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   const { data: notifications = [] } = useNotifications();
   const markAllRead = useMarkAllRead();
 
@@ -102,8 +103,8 @@ function NotificationBell() {
 
   return (
     <Popover
-      open={open}
-      onOpenChange={setOpen}
+      open={isOpen}
+      onOpenChange={setIsOpen}
       placement="bottomRight"
       content={content}
       trigger="click"
@@ -180,19 +181,19 @@ export default function AppLayout() {
     ? (user.first_name?.[0] || user.username?.[0] || 'U').toUpperCase()
     : 'U';
 
-  // ─── Build menu items ─────────────────────────────────────────────────────
+  // ─── Build menu items (filtered by dynamic page permissions) ────────────
 
-  const menuItems: MenuProps['items'] = [
-    { type: 'group', label: t('nav.group_main'), children: [
+  const allMenuGroups: { label: string; items: { key: string; icon: React.ReactNode; label: string }[] }[] = [
+    { label: t('nav.group_main'), items: [
       { key: '/', icon: <IconLayoutDashboard size={15} />, label: t('nav.dashboard') },
     ]},
-    { type: 'group', label: t('nav.group_export'), children: [
+    { label: t('nav.group_export'), items: [
       { key: '/export/shipments', icon: <IconTruck size={15} />, label: t('nav.shipments') },
       { key: '/export/kanban', icon: <IconLayoutKanban size={15} />, label: t('nav.kanban') },
       { key: '/export/overdue', icon: <IconAlertTriangle size={15} />, label: t('nav.overdue') },
       { key: '/export/advances', icon: <IconBuildingBank size={15} />, label: t('nav.advances') },
     ]},
-    { type: 'group', label: t('nav.group_management'), children: [
+    { label: t('nav.group_management'), items: [
       { key: '/export/plan', icon: <IconCalendar size={15} />, label: t('nav.plan') },
       { key: '/export/quota', icon: <IconChartPie size={15} />, label: t('nav.quota') },
       { key: '/export/prices', icon: <IconCurrencyDollar size={15} />, label: t('nav.prices') },
@@ -200,18 +201,29 @@ export default function AppLayout() {
       { key: '/export/blocks', icon: <IconChartBar size={15} />, label: t('nav.blocks') },
       { key: '/export/domestic-sales', icon: <IconShoppingCart size={15} />, label: t('nav.domestic_sales') },
     ]},
-    ...(user?.role === 'director' || user?.is_superuser ? [{
-      type: 'group' as const, label: t('nav.group_system'), children: [
-        { key: '/admin/users', icon: <IconUsers size={15} />, label: t('nav.admin_users') },
-        { key: '/admin/seasons', icon: <IconCalendar size={15} />, label: t('nav.admin_seasons') },
-        { key: '/admin/firms', icon: <IconBuildingBank size={15} />, label: t('nav.admin_firms') },
-        { key: '/admin/import-firms', icon: <IconBuildingBank size={15} />, label: t('nav.admin_import_firms') },
-        { key: '/admin/blocks', icon: <IconBuildingWarehouse size={15} />, label: t('nav.admin_blocks') },
-        { key: '/admin/truck-destinations', icon: <IconTruck size={15} />, label: t('nav.admin_truck_dest') },
-        { key: '/admin/permissions', icon: <IconShield size={15} />, label: t('nav.admin_permissions') },
-      ],
-    }] : []),
+    { label: t('nav.group_system'), items: [
+      { key: '/admin/users', icon: <IconUsers size={15} />, label: t('nav.admin_users') },
+      { key: '/admin/seasons', icon: <IconCalendar size={15} />, label: t('nav.admin_seasons') },
+      { key: '/admin/firms', icon: <IconBuildingBank size={15} />, label: t('nav.admin_firms') },
+      { key: '/admin/import-firms', icon: <IconBuildingBank size={15} />, label: t('nav.admin_import_firms') },
+      { key: '/admin/blocks', icon: <IconBuildingWarehouse size={15} />, label: t('nav.admin_blocks') },
+      { key: '/admin/truck-destinations', icon: <IconTruck size={15} />, label: t('nav.admin_truck_dest') },
+      { key: '/admin/permissions', icon: <IconShield size={15} />, label: t('nav.admin_permissions') },
+    ]},
   ];
+
+  // Filter: keep only items the user has permission to see
+  const menuItems: MenuProps['items'] = allMenuGroups
+    .map((group) => {
+      const visibleChildren = group.items.filter((item) => canSeePage(user, item.key));
+      if (visibleChildren.length === 0) return null;
+      return {
+        type: 'group' as const,
+        label: group.label,
+        children: visibleChildren,
+      };
+    })
+    .filter(Boolean);
 
   const selectedKey = location.pathname.startsWith('/shipments/')
     ? '/export/shipments'

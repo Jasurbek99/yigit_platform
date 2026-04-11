@@ -1,22 +1,28 @@
 from .user import User
-from .reference import Country, City, ExportFirm, ImportFirm, ShipmentStatusType
-from .reference import Season, GreenhouseBlock, TomatoVariety, ProductType, TruckDestination
-from .reference import BorderPoint, LoadingLocation, Customer, DomesticBuyer
+from .geography import Country, City, BorderPoint
+from .products import Season, TomatoVariety, ProductType
+from .logistics import LoadingLocation, TruckDestination, ShipmentStatusType
+from .greenhouse_block import GreenhouseBlock
+from .firms import ExportFirm, ImportFirm, Customer, DomesticBuyer
+from .role_permissions import RolePagePermission, RoleResourcePermission, RoleFieldPermission
 
 __all__ = [
     'User',
     'Country',
     'City',
-    'ExportFirm',
-    'ImportFirm',
-    'ShipmentStatusType',
+    'BorderPoint',
     'Season',
-    'GreenhouseBlock',
     'TomatoVariety',
     'ProductType',
-    'BorderPoint',
     'LoadingLocation',
+    'TruckDestination',
+    'ShipmentStatusType',
+    'GreenhouseBlock',
+    'ExportFirm',
+    'ImportFirm',
     'Customer',
     'DomesticBuyer',
-    'TruckDestination',
+    'RolePagePermission',
+    'RoleResourcePermission',
+    'RoleFieldPermission',
 ]

@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useCountries, useCreateCountry } from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
 
-interface CountrySelectProps {
+interface ICountrySelectProps {
   value?: number | null;
   onChange?: (value: number | null) => void;
   disabled?: boolean;
@@ -23,7 +23,7 @@ export function CountrySelect({
   placeholder,
   size,
   style,
-}: CountrySelectProps) {
+}: ICountrySelectProps) {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const [searchValue, setSearchValue] = useState('');

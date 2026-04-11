@@ -11,8 +11,6 @@ Endpoints:
   GET/POST/PATCH/DELETE /api/v1/export/admin/firms/         — ExportFirm CRUD (director writes)
   GET/POST/PATCH/DELETE /api/v1/export/admin/import-firms/  — ImportFirm CRUD (director writes)
   GET/POST/PATCH/DELETE /api/v1/export/admin/users/    — User CRUD (director/superuser; POST/DELETE superuser only)
-
-  GET/POST/DELETE /api/v1/export/admin/block-assignments/        — BlockManagerAssignment CRUD (director)
   PUT             /api/v1/export/admin/users/{pk}/permissions/   — Grant export permissions (director)
 """
 import logging
@@ -29,14 +27,15 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 
-from apps.core.models import ExportFirm, GreenhouseBlock, ImportFirm, Season, User
+from apps.core.models import ExportFirm, ImportFirm, Season, User
 from apps.core.permissions import firm_write_permission, write_permission
-from apps.export.models import AuditLog, BlockManagerAssignment, Notification
+from apps.core.roles import DIRECTOR_ONLY, PRIVILEGED_ROLES as _PRIVILEGED_ROLES
+from apps.export.models import AuditLog, Notification
 
 logger = logging.getLogger(__name__)
 
-_DIRECTOR_ONLY = frozenset({'director'})
-_DIRECTOR_MANAGER = frozenset({'director', 'export_manager'})
+_DIRECTOR_ONLY = DIRECTOR_ONLY
+_DIRECTOR_MANAGER = _PRIVILEGED_ROLES
 
 
 def _require_role(user, allowed: frozenset, verb: str = 'perform this action') -> None:
@@ -395,160 +394,6 @@ class UserManagementViewSet(ModelViewSet):
         return Response({'detail': 'Password updated.'}, status=status.HTTP_200_OK)
 
 
-# ---------------------------------------------------------------------------
-# Greenhouse block admin
-# ---------------------------------------------------------------------------
-
-class GreenhouseBlockSubSerializer(serializers.ModelSerializer):
-    """Lightweight serializer for nested sub-blocks (no further nesting)."""
-
-    variety_main_name = serializers.SerializerMethodField()
-    variety_secondary_name = serializers.SerializerMethodField()
-
-    class Meta:
-        model = GreenhouseBlock
-        fields = [
-            'id', 'code', 'name',
-            'variety_main', 'variety_main_name',
-            'variety_secondary', 'variety_secondary_name',
-            'area_m2', 'section_count', 'sowing_date', 'is_active',
-        ]
-
-    def get_variety_main_name(self, obj: GreenhouseBlock) -> str | None:
-        return obj.variety_main.name if obj.variety_main_id else None
-
-    def get_variety_secondary_name(self, obj: GreenhouseBlock) -> str | None:
-        return obj.variety_secondary.name if obj.variety_secondary_id else None
-
-
-class GreenhouseBlockAdminSerializer(serializers.ModelSerializer):
-    """Full serializer for director-level greenhouse block management."""
-
-    manager_name = serializers.SerializerMethodField()
-    variety_main_name = serializers.SerializerMethodField()
-    variety_secondary_name = serializers.SerializerMethodField()
-    location_name = serializers.SerializerMethodField()
-    parent_code = serializers.SerializerMethodField()
-    sub_blocks = serializers.SerializerMethodField()
-
-    class Meta:
-        model = GreenhouseBlock
-        fields = [
-            'id', 'code', 'name',
-            'parent', 'parent_code',
-            'manager', 'manager_name',
-            'variety_main', 'variety_main_name',
-            'variety_secondary', 'variety_secondary_name',
-            'area_m2',
-            'location', 'location_name',
-            'section_count', 'sowing_date',
-            'season_start_month', 'is_active',
-            'sub_blocks',
-        ]
-
-    def get_manager_name(self, obj: GreenhouseBlock) -> str | None:
-        if obj.manager_id is None:
-            return None
-        return obj.manager.get_full_name() or obj.manager.username
-
-    def get_variety_main_name(self, obj: GreenhouseBlock) -> str | None:
-        return obj.variety_main.name if obj.variety_main_id else None
-
-    def get_variety_secondary_name(self, obj: GreenhouseBlock) -> str | None:
-        return obj.variety_secondary.name if obj.variety_secondary_id else None
-
-    def get_location_name(self, obj: GreenhouseBlock) -> str | None:
-        return obj.location.name if obj.location_id else None
-
-    def get_parent_code(self, obj: GreenhouseBlock) -> str | None:
-        return obj.parent.code if obj.parent_id else None
-
-    def get_sub_blocks(self, obj: GreenhouseBlock) -> list:
-        """Return nested sub-blocks only on detail (retrieve) view, not list."""
-        request = self.context.get('request')
-        # Only include sub_blocks on detail endpoint (pk in URL kwargs)
-        if request and request.parser_context.get('kwargs', {}).get('pk'):
-            qs = obj.sub_blocks.select_related('variety_main', 'variety_secondary').order_by('code')
-            return GreenhouseBlockSubSerializer(qs, many=True, context=self.context).data
-        return []
-
-
-class GreenhouseBlockAdminViewSet(ModelViewSet):
-    """Director-only CRUD for greenhouse blocks.
-
-    All authenticated users may list/retrieve (used by harvest plan, etc).
-    Only director may create, update, or delete.
-
-    GET    /api/v1/export/admin/blocks/           — list parent blocks only
-    GET    /api/v1/export/admin/blocks/{id}/      — detail with nested sub_blocks
-    POST   /api/v1/export/admin/blocks/           — create (director only)
-    PATCH  /api/v1/export/admin/blocks/{id}/      — update (director only)
-    DELETE /api/v1/export/admin/blocks/{id}/      — delete (director only)
-    """
-
-    permission_classes = [IsAuthenticated, write_permission('director')]
-    serializer_class = GreenhouseBlockAdminSerializer
-
-    def get_queryset(self):
-        qs = GreenhouseBlock.objects.select_related(
-            'parent', 'manager', 'variety_main', 'variety_secondary', 'location'
-        ).order_by('code')
-        # List view: only top-level blocks (parent=None); detail fetches any block by pk
-        if self.action == 'list':
-            qs = qs.filter(parent__isnull=True)
-        return qs
-
-
-# ---------------------------------------------------------------------------
-# Block-manager assignment admin
-# ---------------------------------------------------------------------------
-
-class BlockManagerAssignmentSerializer(serializers.ModelSerializer):
-    """Serializer for BlockManagerAssignment admin endpoints."""
-
-    user_name = serializers.SerializerMethodField()
-    block_code = serializers.SerializerMethodField()
-    block_name = serializers.SerializerMethodField()
-
-    class Meta:
-        model = BlockManagerAssignment
-        fields = ['id', 'user', 'user_name', 'block', 'block_code', 'block_name', 'is_active']
-
-    def get_user_name(self, obj: BlockManagerAssignment) -> str:
-        return obj.user.username
-
-    def get_block_code(self, obj: BlockManagerAssignment) -> str:
-        return obj.block.code
-
-    def get_block_name(self, obj: BlockManagerAssignment) -> str:
-        return obj.block.name
-
-
-class BlockManagerAssignmentViewSet(ModelViewSet):
-    """Director-only CRUD for block-manager assignments.
-
-    GET    /api/v1/export/admin/block-assignments/          — list (filter by ?user=<id>)
-    POST   /api/v1/export/admin/block-assignments/          — create
-    DELETE /api/v1/export/admin/block-assignments/{id}/     — delete
-    GET    /api/v1/export/admin/block-assignments/{id}/     — detail
-    """
-
-    permission_classes = [IsAuthenticated, write_permission('director')]
-    serializer_class = BlockManagerAssignmentSerializer
-    http_method_names = ['get', 'post', 'delete', 'head', 'options']
-
-    queryset = BlockManagerAssignment.objects.select_related('user', 'block').order_by(
-        'user', 'block__code'
-    )
-
-    def get_queryset(self):
-        qs = super().get_queryset()
-        if user_id := self.request.query_params.get('user'):
-            try:
-                qs = qs.filter(user_id=int(user_id))
-            except (ValueError, TypeError):
-                pass
-        return qs
 
 
 # ---------------------------------------------------------------------------

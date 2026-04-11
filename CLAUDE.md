@@ -9,7 +9,7 @@ Django + React platform replacing Excel-based greenhouse tomato export operation
 - **AD-1**: Denormalized timestamps on shipment written ONLY by `transition_to()`
 - **AD-2**: `vehicle_status_note` is DEPRECATED — use `vehicle_condition` + Comments
 - **Auth**: httpOnly cookie JWT. Never localStorage. Users on public networks in KZ/RU.
-- **Dependencies**: `core ← export ← contracts ← finance`. No reverse imports. No Django signals.
+- **Dependencies**: `core ← greenhouse ← export ← contracts ← finance`. No reverse imports. No Django signals.
 - **API names ≠ DB columns**: serializer maps `code` → `cargo_code`, `weight_net_kg` → `weight_net`
 - **Cross-app FKs**: string references (`'core.ExportFirm'`), not direct imports
 - **models/ packages**: MUST have `__init__.py` with re-exports or migrations silently break
@@ -56,11 +56,13 @@ Django + React platform replacing Excel-based greenhouse tomato export operation
 ## Module boundaries
 
 ```
-core ← export ← contracts ← finance
-             ← transport
+core ← greenhouse ← export ← contracts ← finance
+                           ← transport
 ```
 
-P3 Export is the current focus. Don't build P4/P2/P5/P1 yet — only `core/` reference models and `export/` are active.
+`greenhouse/` owns block-level operations: BlockManagerAssignment, WeeklyHarvestPlan, DomesticSale.
+`export/` owns shipment lifecycle, quotas, truck allocation, local sell plans, pricing.
+P3 Export is the current focus. `core/`, `greenhouse/`, and `export/` are active.
 
 ## Where to find things
 

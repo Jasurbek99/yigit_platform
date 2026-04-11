@@ -177,6 +177,35 @@ CREATE TABLE core.domestic_buyers (
     is_active BIT DEFAULT 1
 );
 
+-- Dynamic role-based permissions (admin-configurable)
+
+CREATE TABLE core.role_page_permissions (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    role NVARCHAR(30) NOT NULL,
+    page_code NVARCHAR(60) NOT NULL,
+    is_visible BIT NOT NULL DEFAULT 0,
+    CONSTRAINT uq_role_page UNIQUE (role, page_code)
+);
+
+CREATE TABLE core.role_resource_permissions (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    role NVARCHAR(30) NOT NULL,
+    resource_code NVARCHAR(60) NOT NULL,
+    can_view BIT NOT NULL DEFAULT 0,
+    can_create BIT NOT NULL DEFAULT 0,
+    can_edit BIT NOT NULL DEFAULT 0,
+    can_delete BIT NOT NULL DEFAULT 0,
+    CONSTRAINT uq_role_resource UNIQUE (role, resource_code)
+);
+
+CREATE TABLE core.role_field_permissions (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    role NVARCHAR(30) NOT NULL,
+    resource_code NVARCHAR(60) NOT NULL,
+    field_name NVARCHAR(60) NOT NULL,
+    CONSTRAINT uq_role_resource_field UNIQUE (role, resource_code, field_name)
+);
+
 
 -- ████████ EXPORT MODULE ████████
 
@@ -349,6 +378,7 @@ CREATE TABLE export.quota_issuances (
     matched_week INT NOT NULL,          -- ISO week auto-computed from issue_date
     matched_year INT NOT NULL,          -- ISO year
     is_manually_reassigned BIT DEFAULT 0,
+    validity VARCHAR(20) NOT NULL DEFAULT 'this_month',
     notes NVARCHAR(500) DEFAULT '',
     created_at DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET(),
     created_by BIGINT NULL REFERENCES sys_users(id)
@@ -396,6 +426,17 @@ CREATE TABLE export.weekly_harvest_plans (
     thursday_actual_kg DECIMAL(10,2),
     friday_actual_kg DECIMAL(10,2),
     saturday_actual_kg DECIMAL(10,2),
+    actual_weekly_total_kg DECIMAL(10,2) NULL,
+    -- Approval workflow
+    status VARCHAR(20) NOT NULL DEFAULT 'draft',
+    submitted_at DATETIMEOFFSET NULL,
+    submitted_by BIGINT NULL REFERENCES sys_users(id),
+    approved_at DATETIMEOFFSET NULL,
+    approved_by BIGINT NULL REFERENCES sys_users(id),
+    rejected_at DATETIMEOFFSET NULL,
+    rejected_by BIGINT NULL REFERENCES sys_users(id),
+    rejection_note NVARCHAR(500) NULL,
+    -- Audit
     entered_by BIGINT REFERENCES sys_users(id),
     created_at DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET(),
     updated_at DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET(),

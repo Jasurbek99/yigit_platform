@@ -11,7 +11,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from apps.core.models import GreenhouseBlock, User
-from apps.export.models import BlockManagerAssignment
+from apps.greenhouse.models import BlockManagerAssignment
 
 
 # Block manager roster extracted from Hepdelik planlama sheet.

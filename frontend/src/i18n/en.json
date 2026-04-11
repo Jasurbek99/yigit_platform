@@ -11,7 +11,8 @@
     "toast_success_desc": "Signed in as {{role}}",
     "toast_error": "Sign in failed",
     "toast_error_desc": "Invalid username or password. Please try again.",
-    "ops_subtitle": "Operations Platform"
+    "ops_subtitle": "Operations Platform",
+    "footer": "YGT Platform © 2026 — v1.0"
   },
   "roles": {
     "export_manager": "Export Manager",
@@ -22,7 +23,8 @@
     "finansist": "Financier",
     "director": "Director",
     "accountant": "Accountant",
-    "greenhouse_manager": "Greenhouse Manager"
+    "greenhouse_manager": "Greenhouse Manager",
+    "seller": "Seller"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -655,7 +657,26 @@
     "perm_delete_exportfirm": "Delete Export Firm",
     "perm_add_importfirm": "Add Import Firm",
     "perm_change_importfirm": "Edit Import Firm",
-    "perm_delete_importfirm": "Delete Import Firm"
+    "perm_delete_importfirm": "Delete Import Firm",
+    "tab_page_visibility": "Page Visibility",
+    "tab_resource_perms": "Resource Permissions",
+    "tab_field_perms": "Field Permissions",
+    "page_vis_desc": "Control which pages each role can see in the sidebar and access via URL",
+    "resource_perms_desc": "Control view, create, edit, delete permissions per resource per role",
+    "field_perms_desc": "Control which fields each role can edit on a given resource",
+    "col_page": "Page",
+    "col_resource": "Resource",
+    "col_field": "Field",
+    "select_resource": "Select resource",
+    "all_fields": "All fields (*)",
+    "save_matrix": "Save Changes",
+    "toast_matrix_saved": "Permission matrix saved",
+    "toast_matrix_error": "Failed to save permissions",
+    "no_field_config": "This resource does not support field-level permissions",
+    "label_view": "V",
+    "label_create": "C",
+    "label_edit": "E",
+    "label_delete": "D"
   },
   "months": {
     "1": "January",
@@ -752,5 +773,52 @@
     "meta_season_month_value": "Month {{n}}",
     "field_code_example": "e.g. {{code}}D, {{code}}G...",
     "field_name_example": "e.g. {{code}}D-Greenhouse"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Overview of tomato export operations — 2025/2026 season",
+    "stat_total": "Total Shipments",
+    "stat_transit": "In Transit",
+    "stat_selling": "Selling",
+    "stat_sold": "Sold Out",
+    "stat_no_report": "No Report",
+    "stat_firms": "Export Firms",
+    "trend_this_week": "↑ {{count}} this week",
+    "trend_moving": "currently moving",
+    "trend_at_market": "at market",
+    "trend_awaiting": "awaiting",
+    "trend_tracking_quota": "tracking quota",
+    "btn_export_excel": "Export Excel",
+    "btn_new_shipment": "New Shipment",
+    "alerts_title": "Important Alerts",
+    "alert_no_report": "{{count}} reports missing — sold but no report submitted. Contact Arap.",
+    "alert_quota_exceeded": "Quota exceeded — Yigit H.J: Period 3 = -2,603,000 kg. Correction needed.",
+    "alert_doc_deadline": "Document deadline — {{count}} shipments need documents ready by 13:00.",
+    "alert_weekly_plan": "Weekly plan — Week {{week}}: planned {{tons}} tons, {{blocks}} blocks.",
+    "routes_title": "Routes Overview",
+    "shipment_suffix": "shipments",
+    "active_shipments": "Currently Active Shipments",
+    "view_all": "View All →",
+    "col_code": "Code",
+    "col_customer": "Customer",
+    "col_route": "Route",
+    "col_status": "Status",
+    "col_weight": "Weight (kg)",
+    "col_departed": "Departed",
+    "col_location": "Location",
+    "no_data": "No data",
+    "status_transit": "In Transit",
+    "status_border": "At Border",
+    "status_selling": "Selling",
+    "status_loading": "Loading"
+  },
+  "phases": {
+    "planlanyan": "Planning",
+    "yuklenme": "Loading",
+    "bardy": "In Transit",
+    "gumruk_girish": "At Border",
+    "satylyor": "Selling",
+    "satyldy": "Sold",
+    "tamamlandy": "Completed"
   }
 }

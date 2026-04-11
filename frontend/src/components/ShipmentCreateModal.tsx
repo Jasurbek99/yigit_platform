@@ -1,20 +1,16 @@
 import { DatePicker, Flex, Form, Input, Modal, Select } from 'antd';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import dayjs from 'dayjs';
 import api from '@/services/api';
 import { CountrySelect } from '@/components/CountrySelect';
+import { CustomerSelect } from '@/components/CustomerSelect';
 
 interface IShipmentCreateModalProps {
   readonly open: boolean;
   readonly onClose: () => void;
   readonly onSuccess: () => void;
-}
-
-interface ISelectOption {
-  id: number;
-  name: string;
 }
 
 interface ISeason {
@@ -41,15 +37,6 @@ interface IFormValues {
 export function ShipmentCreateModal({ open, onClose, onSuccess }: IShipmentCreateModalProps) {
   const { t } = useTranslation();
   const [form] = Form.useForm<IFormValues>();
-
-  const { data: customers, isLoading: customersLoading } = useQuery({
-    queryKey: ['core', 'customers'],
-    queryFn: async () => {
-      const { data } = await api.get<{ results: ISelectOption[] }>('/core/customers/?page_size=500');
-      return data.results;
-    },
-    staleTime: 5 * 60_000,
-  });
 
   const { data: seasons, isLoading: seasonsLoading } = useQuery({
     queryKey: ['core', 'seasons'],
@@ -100,7 +87,6 @@ export function ShipmentCreateModal({ open, onClose, onSuccess }: IShipmentCreat
     onClose();
   }
 
-  const customerOptions = (customers ?? []).map((c) => ({ value: c.id, label: c.name }));
   const seasonOptions = (seasons ?? []).map((s) => ({ value: s.id, label: s.name }));
 
   return (
@@ -151,15 +137,7 @@ export function ShipmentCreateModal({ open, onClose, onSuccess }: IShipmentCreat
           label={t('shipment_create.customer')}
           rules={[{ required: true, message: t('shipment_create.customer') }]}
         >
-          <Select
-            showSearch
-            loading={customersLoading}
-            options={customerOptions}
-            placeholder={t('shipment_create.customer')}
-            filterOption={(input, option) =>
-              (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())
-            }
-          />
+          <CustomerSelect placeholder={t('shipment_create.customer')} allowClear={false} />
         </Form.Item>
 
         <Form.Item

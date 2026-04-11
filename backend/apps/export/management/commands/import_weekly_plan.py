@@ -159,9 +159,8 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         from apps.core.models import GreenhouseBlock, Season, TruckDestination
-        from apps.export.models import (
-            WeeklyHarvestPlan, WeeklyTruckAllocation, TruckDestinationSplit,
-        )
+        from apps.export.models import WeeklyTruckAllocation, TruckDestinationSplit
+        from apps.greenhouse.models import WeeklyHarvestPlan
 
         path = Path(options['file'])
         if not path.exists():

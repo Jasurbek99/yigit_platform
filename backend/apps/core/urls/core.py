@@ -1,4 +1,6 @@
+from django.urls import path
 from rest_framework.routers import DefaultRouter
+
 from apps.core.views import (
     CityViewSet,
     CountryViewSet,
@@ -9,6 +11,12 @@ from apps.core.views import (
     LoadingLocationViewSet,
     TomatoVarietyViewSet,
     TruckDestinationViewSet,
+)
+from apps.core.views_permissions import (
+    PagePermissionMatrixView,
+    ResourcePermissionMatrixView,
+    FieldPermissionMatrixView,
+    PermissionRegistryView,
 )
 
 router = DefaultRouter()
@@ -22,4 +30,9 @@ router.register('loading-locations', LoadingLocationViewSet, basename='loading-l
 router.register('tomato-varieties', TomatoVarietyViewSet, basename='tomato-variety')
 router.register('truck-destinations', TruckDestinationViewSet, basename='truck-destination')
 
-urlpatterns = router.urls
+urlpatterns = router.urls + [
+    path('admin/permission-registry/', PermissionRegistryView.as_view(), name='permission-registry'),
+    path('admin/page-permissions/', PagePermissionMatrixView.as_view(), name='page-permissions'),
+    path('admin/resource-permissions/', ResourcePermissionMatrixView.as_view(), name='resource-permissions'),
+    path('admin/field-permissions/', FieldPermissionMatrixView.as_view(), name='field-permissions'),
+]

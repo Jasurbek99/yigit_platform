@@ -84,7 +84,7 @@ class Command(BaseCommand):
         parser.add_argument('--dry-run', action='store_true')
 
     def handle(self, *args, **options):
-        from apps.export.models import WeeklyHarvestPlan
+        from apps.greenhouse.models import WeeklyHarvestPlan
         from apps.core.models import GreenhouseBlock, Season
 
         path = Path(options['file'])

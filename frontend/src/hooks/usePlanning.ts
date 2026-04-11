@@ -29,7 +29,7 @@ export function useHarvestPlans(filters: { season?: number; year?: number; week?
       if (filters.season) params.set('season', String(filters.season));
       if (filters.year) params.set('year', String(filters.year));
       if (filters.week) params.set('week', String(filters.week));
-      const { data } = await api.get<IApiListResponse<IWeeklyHarvestPlan>>(`/export/harvest-plans/?${params}`);
+      const { data } = await api.get<IApiListResponse<IWeeklyHarvestPlan>>(`/greenhouse/harvest-plans/?${params}`);
       return data;
     },
     staleTime: 60_000,
@@ -45,10 +45,10 @@ export function useUpsertHarvestPlan() {
         return { ...payload, id: payload.id ?? Date.now() } as IWeeklyHarvestPlan;
       }
       if (payload.id) {
-        const { data } = await api.patch<IWeeklyHarvestPlan>(`/export/harvest-plans/${payload.id}/`, payload);
+        const { data } = await api.patch<IWeeklyHarvestPlan>(`/greenhouse/harvest-plans/${payload.id}/`, payload);
         return data;
       }
-      const { data } = await api.post<IWeeklyHarvestPlan>('/export/harvest-plans/', payload);
+      const { data } = await api.post<IWeeklyHarvestPlan>('/greenhouse/harvest-plans/', payload);
       return data;
     },
     onSuccess: () => {
@@ -62,7 +62,7 @@ export function useInitializeWeek() {
   return useMutation({
     mutationFn: async (payload: { season: number; week_number: number; year: number }): Promise<IApiListResponse<IWeeklyHarvestPlan>> => {
       const { data } = await api.post<IApiListResponse<IWeeklyHarvestPlan>>(
-        '/export/harvest-plans/initialize-week/',
+        '/greenhouse/harvest-plans/initialize-week/',
         payload,
       );
       return data;
@@ -77,7 +77,7 @@ export function useSubmitHarvestPlan() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: number): Promise<IWeeklyHarvestPlan> => {
-      const { data } = await api.post<IWeeklyHarvestPlan>(`/export/harvest-plans/${id}/submit/`);
+      const { data } = await api.post<IWeeklyHarvestPlan>(`/greenhouse/harvest-plans/${id}/submit/`);
       return data;
     },
     onSuccess: () => {
@@ -90,7 +90,7 @@ export function useApproveHarvestPlan() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: number): Promise<IWeeklyHarvestPlan> => {
-      const { data } = await api.post<IWeeklyHarvestPlan>(`/export/harvest-plans/${id}/approve/`);
+      const { data } = await api.post<IWeeklyHarvestPlan>(`/greenhouse/harvest-plans/${id}/approve/`);
       return data;
     },
     onSuccess: () => {
@@ -104,7 +104,7 @@ export function useRejectHarvestPlan() {
   return useMutation({
     mutationFn: async (payload: { id: number; rejection_note: string }): Promise<IWeeklyHarvestPlan> => {
       const { data } = await api.post<IWeeklyHarvestPlan>(
-        `/export/harvest-plans/${payload.id}/reject/`,
+        `/greenhouse/harvest-plans/${payload.id}/reject/`,
         { rejection_note: payload.rejection_note },
       );
       return data;
@@ -119,7 +119,7 @@ export function useBulkSubmitHarvestPlans() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (ids: number[]): Promise<{ submitted: number[]; errors: Array<{ id: number; error: string }> }> => {
-      const { data } = await api.post('/export/harvest-plans/bulk-submit/', { ids });
+      const { data } = await api.post('/greenhouse/harvest-plans/bulk-submit/', { ids });
       return data;
     },
     onSuccess: () => {
@@ -132,7 +132,7 @@ export function useBulkApproveHarvestPlans() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (ids: number[]): Promise<{ approved: number[]; errors: Array<{ id: number; error: string }> }> => {
-      const { data } = await api.post('/export/harvest-plans/bulk-approve/', { ids });
+      const { data } = await api.post('/greenhouse/harvest-plans/bulk-approve/', { ids });
       return data;
     },
     onSuccess: () => {
@@ -145,7 +145,7 @@ export function useBulkRejectHarvestPlans() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (payload: { ids: number[]; rejection_note: string }): Promise<{ rejected: number[]; errors: Array<{ id: number; error: string }> }> => {
-      const { data } = await api.post('/export/harvest-plans/bulk-reject/', payload);
+      const { data } = await api.post('/greenhouse/harvest-plans/bulk-reject/', payload);
       return data;
     },
     onSuccess: () => {
@@ -371,7 +371,7 @@ export function useBlockSummary(
       if (filters.year) params.set('year', String(filters.year));
       if (filters.week_number) params.set('week_number', String(filters.week_number));
       const { data } = await api.get<IBlockSummary[]>(
-        `/export/harvest-plans/block-summary/?${params}`,
+        `/greenhouse/harvest-plans/block-summary/?${params}`,
       );
       return data;
     },
@@ -399,7 +399,7 @@ export function useDomesticSales(
       if (filters.page) params.set('page', String(filters.page));
       params.set('page_size', '1000');
       const { data } = await api.get<IApiListResponse<IDomesticSale>>(
-        `/export/domestic-sales/?${params}`,
+        `/greenhouse/domestic-sales/?${params}`,
       );
       return data;
     },

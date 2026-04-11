@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     'corsheaders',
     # Project apps
     'apps.core',
+    'apps.greenhouse',
     'apps.export',
 ]
 

@@ -11,7 +11,8 @@
     "toast_success_desc": "{{role}} hökmünde giriş edildi",
     "toast_error": "Giriş başa barmady",
     "toast_error_desc": "Ulanyjy ady ýa-da açar söz nädogry. Gaýtadan synanyşyň.",
-    "ops_subtitle": "Operasiýalar Platformasy"
+    "ops_subtitle": "Operasiýalar Platformasy",
+    "footer": "YGT Platforma © 2026 — v1.0"
   },
   "roles": {
     "export_manager": "Eksport menejeri",
@@ -22,7 +23,8 @@
     "finansist": "Maliýeçi",
     "director": "Direktor",
     "accountant": "Hasapçy",
-    "greenhouse_manager": "Ýyladyşhana menejeri"
+    "greenhouse_manager": "Ýyladyşhana menejeri",
+    "seller": "Satyjy"
   },
   "nav": {
     "dashboard": "Baş sahypa",
@@ -655,7 +657,26 @@
     "perm_delete_exportfirm": "Eksport firmasy poz",
     "perm_add_importfirm": "Import firmasy goş",
     "perm_change_importfirm": "Import firmasy üýtget",
-    "perm_delete_importfirm": "Import firmasy poz"
+    "perm_delete_importfirm": "Import firmasy poz",
+    "tab_page_visibility": "Sahypa görünüşi",
+    "tab_resource_perms": "Resurs rugsatlary",
+    "tab_field_perms": "Meýdan rugsatlary",
+    "page_vis_desc": "Her rol üçin haýsy sahypalaryň görünýändigini dolandyryň",
+    "resource_perms_desc": "Her resurs üçin görmek, döretmek, üýtgetmek, pozmak rugsatlaryny dolandyryň",
+    "field_perms_desc": "Her rolyň haýsy meýdanlary üýtgedip bilýändigini dolandyryň",
+    "col_page": "Sahypa",
+    "col_resource": "Resurs",
+    "col_field": "Meýdan",
+    "select_resource": "Resurs saýlaň",
+    "all_fields": "Ähli meýdanlar (*)",
+    "save_matrix": "Üýtgeşmeleri ýatda sakla",
+    "toast_matrix_saved": "Rugsat matrisa ýatda saklandy",
+    "toast_matrix_error": "Rugsatlary ýatda saklap bolmady",
+    "no_field_config": "Bu resurs meýdan derejesindäki rugsatlary goldamaýar",
+    "label_view": "G",
+    "label_create": "D",
+    "label_edit": "Ü",
+    "label_delete": "P"
   },
   "months": {
     "1": "Ýanwar",
@@ -752,5 +773,52 @@
     "meta_season_month_value": "{{n}}. aý",
     "field_code_example": "Mysal: {{code}}D, {{code}}G...",
     "field_name_example": "Mysal: {{code}}D-Ýyladyşhana"
+  },
+  "dashboard": {
+    "title": "Baş sahypa",
+    "subtitle": "Tomato eksport operasiýalarynyň umumy görnüşi — 2025/2026 möwsüm",
+    "stat_total": "Jemi ýükler",
+    "stat_transit": "Ýolda",
+    "stat_selling": "Satylýar",
+    "stat_sold": "Satylyp gutardy",
+    "stat_no_report": "Hasabat gelmedi",
+    "stat_firms": "Eksport firmalar",
+    "trend_this_week": "↑ {{count}} bu hepde",
+    "trend_moving": "häzir hereket edýär",
+    "trend_at_market": "bazarda",
+    "trend_awaiting": "garaşylýar",
+    "trend_tracking_quota": "kwota yzarlaýar",
+    "btn_export_excel": "📥 Excel eksport",
+    "btn_new_shipment": "➕ Täze ýük",
+    "alerts_title": "Möhüm bildirişler",
+    "alert_no_report": "{{count}} hasabat gelmedi — satyldy emma hasabat iberilmedi. Arap bilen habarlaşyň.",
+    "alert_quota_exceeded": "Kwota aşdy — Yigit H.J: Döwür 3 = -2,603,000 kg. Düzetme zerur.",
+    "alert_doc_deadline": "Dokument möhlet — {{count}} ýük üçin dokument 13:00 çenli taýýar bolmaly.",
+    "alert_weekly_plan": "Hepdäniň meýilnamasy — {{week}}-nji hepde: meýilleşdirilen {{tons}} tonna, {{blocks}} blok.",
+    "routes_title": "Ugurlar boýunça",
+    "shipment_suffix": "ýük",
+    "active_shipments": "Häzirki hereket edýän ýükler",
+    "view_all": "Hemmesini gör →",
+    "col_code": "Kod",
+    "col_customer": "Müşderi",
+    "col_route": "Ugur",
+    "col_status": "Status",
+    "col_weight": "Agram (kg)",
+    "col_departed": "Ýola çykdy",
+    "col_location": "Ýerleşýän ýeri",
+    "no_data": "Maglumat ýok",
+    "status_transit": "Ýolda",
+    "status_border": "Serhetde",
+    "status_selling": "Satylýar",
+    "status_loading": "Ýüklenýär"
+  },
+  "phases": {
+    "planlanyan": "Planlanýar",
+    "yuklenme": "Ýüklenýär",
+    "bardy": "Ýolda",
+    "gumruk_girish": "Serhetde",
+    "satylyor": "Satylýar",
+    "satyldy": "Satyldy",
+    "tamamlandy": "Tamamlandy"
   }
 }

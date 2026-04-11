@@ -202,7 +202,7 @@ export function useAdminBlocks() {
     queryFn: async (): Promise<IGreenhouseBlock[]> => {
       if (USE_MOCK) return [];
       const { data } = await api.get<IApiListResponse<IGreenhouseBlock> | IGreenhouseBlock[]>(
-        '/export/admin/blocks/',
+        '/greenhouse/admin/blocks/',
       );
       return Array.isArray(data) ? data : data.results;
     },
@@ -214,7 +214,7 @@ export function useAdminBlock(id: number | undefined) {
   return useQuery({
     queryKey: ['admin-block', id],
     queryFn: async (): Promise<IGreenhouseBlock> => {
-      const { data } = await api.get<IGreenhouseBlock>(`/export/admin/blocks/${id}/`);
+      const { data } = await api.get<IGreenhouseBlock>(`/greenhouse/admin/blocks/${id}/`);
       return data;
     },
     enabled: id !== undefined,
@@ -226,7 +226,7 @@ export function useCreateBlock(options: MutationOptions = {}) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: Omit<IGreenhouseBlock, 'id' | 'manager_name'>) =>
-      api.post<IGreenhouseBlock>('/export/admin/blocks/', payload),
+      api.post<IGreenhouseBlock>('/greenhouse/admin/blocks/', payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-blocks-full'] });
       queryClient.invalidateQueries({ queryKey: ['core-blocks'] });
@@ -240,7 +240,7 @@ export function useUpdateBlock(options: MutationOptions = {}) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...payload }: Partial<IGreenhouseBlock> & { id: number }) =>
-      api.patch<IGreenhouseBlock>(`/export/admin/blocks/${id}/`, payload),
+      api.patch<IGreenhouseBlock>(`/greenhouse/admin/blocks/${id}/`, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-blocks-full'] });
       queryClient.invalidateQueries({ queryKey: ['core-blocks'] });
@@ -290,8 +290,8 @@ export function useBlockAssignments(userId?: number) {
     queryFn: async (): Promise<IBlockAssignment[]> => {
       if (USE_MOCK) return [];
       const url = userId
-        ? `/export/admin/block-assignments/?user=${userId}`
-        : '/export/admin/block-assignments/';
+        ? `/greenhouse/admin/block-assignments/?user=${userId}`
+        : '/greenhouse/admin/block-assignments/';
       const { data } = await api.get<IApiListResponse<IBlockAssignment> | IBlockAssignment[]>(url);
       return Array.isArray(data) ? data : data.results;
     },
@@ -303,7 +303,7 @@ export function useCreateBlockAssignment(options: MutationOptions = {}) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: { user: number; block: number }) =>
-      api.post<IBlockAssignment>('/export/admin/block-assignments/', payload),
+      api.post<IBlockAssignment>('/greenhouse/admin/block-assignments/', payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-block-assignments'] });
       options.onSuccess?.();
@@ -315,7 +315,7 @@ export function useCreateBlockAssignment(options: MutationOptions = {}) {
 export function useDeleteBlockAssignment(options: MutationOptions = {}) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: number) => api.delete(`/export/admin/block-assignments/${id}/`),
+    mutationFn: (id: number) => api.delete(`/greenhouse/admin/block-assignments/${id}/`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-block-assignments'] });
       options.onSuccess?.();
@@ -610,6 +610,102 @@ export function useDeleteTruckDestination(options: MutationOptions = {}) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-truck-destinations'] });
       queryClient.invalidateQueries({ queryKey: ['truck-destinations'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+// ─── Dynamic Permission Matrices ────────────────────────────────────────
+
+interface IPagePermMatrixResponse {
+  roles: string[];
+  pages: { code: string; label: string }[];
+  matrix: Record<string, Record<string, boolean>>;
+}
+
+export function usePagePermissions() {
+  return useQuery({
+    queryKey: ['admin-page-permissions'],
+    queryFn: async (): Promise<IPagePermMatrixResponse> => {
+      const { data } = await api.get<IPagePermMatrixResponse>('/core/admin/page-permissions/');
+      return data;
+    },
+    staleTime: 30_000,
+  });
+}
+
+export function useSavePagePermissions(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (matrix: Record<string, Record<string, boolean>>) =>
+      api.put('/core/admin/page-permissions/', { matrix }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-page-permissions'] });
+      queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+interface IResourcePermMatrixResponse {
+  roles: string[];
+  resources: { code: string; label: string }[];
+  matrix: Record<string, Record<string, { view: boolean; create: boolean; edit: boolean; delete: boolean }>>;
+}
+
+export function useResourcePermissions() {
+  return useQuery({
+    queryKey: ['admin-resource-permissions'],
+    queryFn: async (): Promise<IResourcePermMatrixResponse> => {
+      const { data } = await api.get<IResourcePermMatrixResponse>('/core/admin/resource-permissions/');
+      return data;
+    },
+    staleTime: 30_000,
+  });
+}
+
+export function useSaveResourcePermissions(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (matrix: Record<string, Record<string, { view: boolean; create: boolean; edit: boolean; delete: boolean }>>) =>
+      api.put('/core/admin/resource-permissions/', { matrix }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-resource-permissions'] });
+      queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+interface IFieldPermMatrixResponse {
+  roles: string[];
+  resource_fields: Record<string, string[]>;
+  matrix: Record<string, Record<string, string[]>>;
+}
+
+export function useFieldPermissions(resource?: string) {
+  return useQuery({
+    queryKey: ['admin-field-permissions', resource],
+    queryFn: async (): Promise<IFieldPermMatrixResponse> => {
+      const params = resource ? `?resource=${resource}` : '';
+      const { data } = await api.get<IFieldPermMatrixResponse>(`/core/admin/field-permissions/${params}`);
+      return data;
+    },
+    staleTime: 30_000,
+  });
+}
+
+export function useSaveFieldPermissions(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { resource: string; matrix: Record<string, string[]> }) =>
+      api.put('/core/admin/field-permissions/', payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-field-permissions'] });
+      queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
       options.onSuccess?.();
     },
     onError: options.onError,

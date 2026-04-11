@@ -2,8 +2,6 @@ import datetime
 import logging
 from decimal import Decimal
 
-from django.db.models import Case, Count, F, Min, Q, Sum, Value, When
-from django.db.models.functions import Coalesce
 from django.utils import timezone
 from rest_framework import status as http_status
 from rest_framework.decorators import action
@@ -12,390 +10,29 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
-from apps.core.permissions import write_permission
+from apps.core.permissions import write_permission, DynamicResourcePermission
+from apps.core.roles import LOCAL_SELL_APPROVE, LOCAL_SELL_WRITE, PRICE_WRITE, TRUCK_WRITE
 from apps.export.models import (
-    WeeklyHarvestPlan,
     WeeklyLocalSellPlan,
     WeeklyTruckAllocation,
     TruckDestinationSplit,
     PriceEntry,
-    DomesticSale,
-    BlockManagerAssignment,
 )
 from apps.export.serializers_planning import (
-    WeeklyHarvestPlanSerializer,
     WeeklyLocalSellPlanSerializer,
     WeeklyTruckAllocationSerializer,
     PriceEntrySerializer,
-    DomesticSaleSerializer,
 )
 from apps.export.services import (
-    submit_harvest_plan,
-    approve_harvest_plan,
-    reject_harvest_plan,
+    submit_local_sell_plan,
+    approve_local_sell_plan,
+    reject_local_sell_plan,
 )
 
 logger = logging.getLogger(__name__)
 
-_PLAN_WRITE_ROLES = frozenset({'greenhouse_manager', 'export_manager', 'director'})
-_TRUCK_WRITE_ROLES = frozenset({'export_manager', 'director'})
-_DOMESTIC_WRITE_ROLES = frozenset({'warehouse_chief', 'greenhouse_manager', 'export_manager', 'director'})
-_PRICE_WRITE_ROLES = frozenset({'export_manager', 'finansist', 'director'})
-
-
-class WeeklyHarvestPlanViewSet(ModelViewSet):
-    """
-    GET    /api/v1/export/harvest-plans/            — list (filter by ?season=&block=&year=&week=)
-    GET    /api/v1/export/harvest-plans/{id}/       — detail
-    POST   /api/v1/export/harvest-plans/            — create (greenhouse_manager / export_manager / director)
-    PUT    /api/v1/export/harvest-plans/{id}/       — update plan values
-
-    Per-block authorization:
-      - director / export_manager: always allowed for any block.
-      - greenhouse_manager: must have the Django permission (add_/change_weeklyharvestplan)
-        AND an active BlockManagerAssignment for the target block.
-      - All other roles: denied on write.
-    """
-
-    # Role check is done inside perform_create/perform_update instead of a
-    # class-level permission so we can inspect the block being written.
-    permission_classes = [IsAuthenticated]
-    serializer_class = WeeklyHarvestPlanSerializer
-    http_method_names = ['get', 'post', 'put', 'patch', 'head', 'options']
-
-    queryset = WeeklyHarvestPlan.objects.select_related(
-        'season', 'block', 'entered_by',
-        'submitted_by', 'approved_by', 'rejected_by',
-    ).order_by('year', 'week_number', 'block__code')
-
-    def get_queryset(self):
-        qs = super().get_queryset()
-        params = self.request.query_params
-        if season := params.get('season'):
-            qs = qs.filter(season_id=season)
-        if block := params.get('block'):
-            qs = qs.filter(block_id=block)
-        if year := params.get('year'):
-            qs = qs.filter(year=year)
-        if week := params.get('week'):
-            qs = qs.filter(week_number=week)
-        return qs
-
-    def _check_plan_permission(self, user, block_id: int, *, is_create: bool) -> None:
-        """Raise PermissionDenied if the user may not write the given block's plan.
-
-        Args:
-            user: The requesting User instance.
-            block_id: PK of the GreenhouseBlock being written.
-            is_create: True for POST (create), False for PUT (update).
-
-        Raises:
-            PermissionDenied: When the user is not authorized.
-        """
-        role = getattr(user, 'role', None)
-
-        # director and export_manager may write any block unconditionally.
-        if role in ('director', 'export_manager'):
-            return
-
-        if role == 'greenhouse_manager':
-            # Block assignment = automatic edit permission. No Django model permission needed.
-            has_assignment = BlockManagerAssignment.objects.filter(
-                user=user,
-                block_id=block_id,
-                is_active=True,
-            ).exists()
-            if not has_assignment:
-                raise PermissionDenied(
-                    f"greenhouse_manager is not assigned to block {block_id}."
-                )
-            return
-
-        # All other roles are denied on write.
-        raise PermissionDenied(
-            f"Role '{role}' is not allowed to write harvest plans."
-        )
-
-    def perform_create(self, serializer):
-        block_id = serializer.validated_data['block'].id
-        self._check_plan_permission(self.request.user, block_id, is_create=True)
-        serializer.save(entered_by=self.request.user)
-
-    # Day field name sets for status-based validation.
-    _PLAN_FIELDS = frozenset(f'{d}_plan_kg' for d in
-                             ('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'))
-    _ACTUAL_FIELDS = frozenset(f'{d}_actual_kg' for d in
-                               ('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'))
-
-    def perform_update(self, serializer):
-        """Status-based field locking on update.
-
-        - draft / rejected: only plan_kg fields may change.
-        - approved: only actual_kg fields may change (and only for today or past days).
-        - submitted: no edits allowed (locked pending review).
-        """
-        instance = serializer.instance
-        block_id = instance.block_id
-        self._check_plan_permission(self.request.user, block_id, is_create=False)
-
-        changed_fields = set(serializer.validated_data.keys())
-
-        if instance.status == 'submitted':
-            raise ValidationError('Plan is pending approval and cannot be edited.')
-
-        if instance.status in ('draft', 'rejected'):
-            # Only plan fields allowed.
-            disallowed = changed_fields & self._ACTUAL_FIELDS
-            if disallowed:
-                raise ValidationError(
-                    f'Cannot edit actual fields while plan is in {instance.status} status.'
-                )
-
-        if instance.status == 'approved':
-            # Only actual fields allowed.
-            disallowed = changed_fields & self._PLAN_FIELDS
-            if disallowed:
-                raise ValidationError(
-                    'Cannot edit plan fields after approval. Only actual kg can be updated.'
-                )
-            # Validate actual entries are for today or past days within the week.
-            today = timezone.now().date()
-            # ISO weekday: Monday=1 .. Saturday=6
-            today_weekday = today.isoweekday()
-            day_index = {
-                'monday': 1, 'tuesday': 2, 'wednesday': 3,
-                'thursday': 4, 'friday': 5, 'saturday': 6,
-            }
-            for field_name in changed_fields & self._ACTUAL_FIELDS:
-                day_name = field_name.replace('_actual_kg', '')
-                if day_index[day_name] > today_weekday:
-                    raise ValidationError(
-                        f'Cannot enter actual for {day_name} — it is a future day.'
-                    )
-
-        serializer.save(entered_by=self.request.user)
-
-    # ─── Workflow actions ─────────────────────────────────────────────────────
-
-    @action(detail=True, methods=['post'], url_path='submit')
-    def submit(self, request, pk=None):
-        """POST /api/v1/export/harvest-plans/{id}/submit/"""
-        plan = self.get_object()
-        try:
-            submit_harvest_plan(plan, request.user)
-        except (ValueError, PermissionError) as exc:
-            return Response({'error': str(exc)}, status=http_status.HTTP_400_BAD_REQUEST)
-        return Response(self.get_serializer(plan).data)
-
-    @action(detail=True, methods=['post'], url_path='approve')
-    def approve(self, request, pk=None):
-        """POST /api/v1/export/harvest-plans/{id}/approve/"""
-        plan = self.get_object()
-        try:
-            approve_harvest_plan(plan, request.user)
-        except (ValueError, PermissionError) as exc:
-            return Response({'error': str(exc)}, status=http_status.HTTP_400_BAD_REQUEST)
-        return Response(self.get_serializer(plan).data)
-
-    @action(detail=True, methods=['post'], url_path='reject')
-    def reject(self, request, pk=None):
-        """POST /api/v1/export/harvest-plans/{id}/reject/
-
-        Body: { "rejection_note": "..." }
-        """
-        plan = self.get_object()
-        rejection_note = request.data.get('rejection_note', '')
-        try:
-            reject_harvest_plan(plan, request.user, rejection_note)
-        except (ValueError, PermissionError) as exc:
-            return Response({'error': str(exc)}, status=http_status.HTTP_400_BAD_REQUEST)
-        return Response(self.get_serializer(plan).data)
-
-    @action(detail=False, methods=['post'], url_path='bulk-submit')
-    def bulk_submit(self, request):
-        """POST /api/v1/export/harvest-plans/bulk-submit/
-
-        Body: { "ids": [1, 2, 3] }
-        Submits all draft/rejected plans in the given list.
-        """
-        ids = request.data.get('ids', [])
-        if not ids:
-            return Response({'error': 'ids list is required.'}, status=http_status.HTTP_400_BAD_REQUEST)
-
-        plans = WeeklyHarvestPlan.objects.filter(
-            id__in=ids, status__in=['draft', 'rejected'],
-        ).select_related('block')
-        submitted_ids = []
-        errors = []
-        for plan in plans:
-            try:
-                submit_harvest_plan(plan, request.user)
-                submitted_ids.append(plan.id)
-            except (ValueError, PermissionError) as exc:
-                errors.append({'id': plan.id, 'error': str(exc)})
-
-        return Response({'submitted': submitted_ids, 'errors': errors})
-
-    @action(detail=False, methods=['post'], url_path='bulk-approve')
-    def bulk_approve(self, request):
-        """POST /api/v1/export/harvest-plans/bulk-approve/
-
-        Body: { "ids": [1, 2, 3] }
-        Approves all submitted plans in the given list. Skips non-submitted plans.
-        """
-        ids = request.data.get('ids', [])
-        if not ids:
-            return Response({'error': 'ids list is required.'}, status=http_status.HTTP_400_BAD_REQUEST)
-
-        plans = WeeklyHarvestPlan.objects.filter(
-            id__in=ids, status='submitted',
-        ).select_related('block')
-        approved_ids = []
-        errors = []
-        for plan in plans:
-            try:
-                approve_harvest_plan(plan, request.user)
-                approved_ids.append(plan.id)
-            except (ValueError, PermissionError) as exc:
-                errors.append({'id': plan.id, 'error': str(exc)})
-
-        return Response({'approved': approved_ids, 'errors': errors})
-
-    @action(detail=False, methods=['post'], url_path='bulk-reject')
-    def bulk_reject(self, request):
-        """POST /api/v1/export/harvest-plans/bulk-reject/
-
-        Body: { "ids": [1, 2, 3], "rejection_note": "..." }
-        Rejects all submitted plans in the given list.
-        """
-        ids = request.data.get('ids', [])
-        rejection_note = request.data.get('rejection_note', '')
-        if not ids:
-            return Response({'error': 'ids list is required.'}, status=http_status.HTTP_400_BAD_REQUEST)
-        if not rejection_note or not rejection_note.strip():
-            return Response({'error': 'rejection_note is required.'}, status=http_status.HTTP_400_BAD_REQUEST)
-
-        plans = WeeklyHarvestPlan.objects.filter(
-            id__in=ids, status='submitted',
-        ).select_related('block')
-        rejected_ids = []
-        errors = []
-        for plan in plans:
-            try:
-                reject_harvest_plan(plan, request.user, rejection_note)
-                rejected_ids.append(plan.id)
-            except (ValueError, PermissionError) as exc:
-                errors.append({'id': plan.id, 'error': str(exc)})
-
-        return Response({'rejected': rejected_ids, 'errors': errors})
-
-    @action(detail=False, methods=['post'], url_path='initialize-week')
-    def initialize_week(self, request):
-        """POST /api/v1/export/harvest-plans/initialize-week/
-
-        Body: { "season": 1, "week_number": 15, "year": 2026 }
-        Creates draft WeeklyHarvestPlan rows for all active blocks that don't
-        already have a plan for the given (season, week, year).
-        Returns the created plan rows.
-        """
-        from apps.core.models import GreenhouseBlock
-
-        season_id = request.data.get('season')
-        week_number = request.data.get('week_number')
-        year = request.data.get('year')
-
-        if not all([season_id, week_number, year]):
-            return Response(
-                {'error': 'season, week_number, and year are required.'},
-                status=http_status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Only directors and export_managers can initialize a week.
-        role = getattr(request.user, 'role', None)
-        if role not in ('director', 'export_manager'):
-            raise PermissionDenied('Only director or export_manager can initialize a week plan.')
-
-        active_blocks = GreenhouseBlock.objects.filter(is_active=True)
-        existing_block_ids = set(
-            WeeklyHarvestPlan.objects.filter(
-                season_id=season_id, week_number=week_number, year=year,
-            ).values_list('block_id', flat=True)
-        )
-
-        new_plans = [
-            WeeklyHarvestPlan(
-                season_id=season_id,
-                block=block,
-                week_number=week_number,
-                year=year,
-                entered_by=request.user,
-            )
-            for block in active_blocks
-            if block.id not in existing_block_ids
-        ]
-
-        if new_plans:
-            WeeklyHarvestPlan.objects.bulk_create(new_plans, batch_size=500)
-
-        # Return all plans for this week (including any that already existed).
-        qs = WeeklyHarvestPlan.objects.filter(
-            season_id=season_id, week_number=week_number, year=year,
-        ).select_related('season', 'block', 'entered_by', 'submitted_by', 'approved_by', 'rejected_by')
-        serializer = self.get_serializer(qs, many=True)
-        return Response({'count': len(serializer.data), 'results': serializer.data})
-
-    @action(detail=False, methods=['get'], url_path='block-summary')
-    def block_summary(self, request):
-        """GET /api/v1/export/harvest-plans/block-summary/?season=&year=&week=
-
-        Returns per-block aggregate totals across all 6 days.
-        Does NOT filter by ?block= — always returns all blocks for the given week.
-        """
-        params = request.query_params
-        if not params.get('year') or not params.get('week'):
-            return Response(
-                {'error': 'year and week query params are required.'},
-                status=http_status.HTTP_400_BAD_REQUEST,
-            )
-        # Build queryset independently — do NOT inherit the ?block= filter from get_queryset()
-        qs = WeeklyHarvestPlan.objects.select_related('block')
-        if season := params.get('season'):
-            qs = qs.filter(season_id=season)
-        qs = qs.filter(year=params['year'], week_number=params['week'])
-
-        DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-
-        block_data: dict = {}
-        for plan in qs:
-            bid = plan.block_id
-            if bid not in block_data:
-                block_data[bid] = {
-                    'block_id': bid,
-                    'block_code': plan.block.code,
-                    'block_name': plan.block.name,
-                    'total_plan_kg': Decimal('0'),
-                    'total_actual_kg': None,
-                    '_has_actual': False,
-                }
-            for d in DAYS:
-                block_data[bid]['total_plan_kg'] += getattr(plan, f'{d}_plan_kg') or Decimal('0')
-                actual = getattr(plan, f'{d}_actual_kg')
-                if actual is not None:
-                    if not block_data[bid]['_has_actual']:
-                        block_data[bid]['total_actual_kg'] = Decimal('0')
-                        block_data[bid]['_has_actual'] = True
-                    block_data[bid]['total_actual_kg'] += actual
-
-        results = sorted(block_data.values(), key=lambda x: x['block_code'])
-        for r in results:
-            r.pop('_has_actual')
-            r['deficit_kg'] = (
-                r['total_actual_kg'] - r['total_plan_kg']
-                if r['total_actual_kg'] is not None
-                else None
-            )
-
-        return Response(results)
+_TRUCK_WRITE_ROLES = TRUCK_WRITE
+_PRICE_WRITE_ROLES = PRICE_WRITE
 
 
 class PriceEntryViewSet(ModelViewSet):
@@ -404,7 +41,8 @@ class PriceEntryViewSet(ModelViewSet):
     POST  /api/v1/export/prices/          — create new price entry
     """
 
-    permission_classes = [IsAuthenticated, write_permission(*_PRICE_WRITE_ROLES)]
+    resource_code = 'price_entry'
+    permission_classes = [IsAuthenticated, DynamicResourcePermission]
     serializer_class = PriceEntrySerializer
     http_method_names = ['get', 'post', 'head', 'options']
 
@@ -435,7 +73,8 @@ class WeeklyTruckAllocationViewSet(ModelViewSet):
     PATCH  /api/v1/export/truck-allocations/{id}/   — partial update; recomputes if kg changed
     """
 
-    permission_classes = [IsAuthenticated, write_permission(*_TRUCK_WRITE_ROLES)]
+    resource_code = 'truck_allocation'
+    permission_classes = [IsAuthenticated, DynamicResourcePermission]
     serializer_class = WeeklyTruckAllocationSerializer
     http_method_names = ['get', 'post', 'put', 'patch', 'head', 'options']
     filterset_fields = ['season', 'year', 'week_number']
@@ -496,7 +135,6 @@ class WeeklyTruckAllocationViewSet(ModelViewSet):
                 defaults={'truck_count': count},
             )
 
-        # Re-fetch with prefetches and return
         allocation.refresh_from_db()
         serializer = self.get_serializer(
             WeeklyTruckAllocation.objects.prefetch_related(
@@ -506,42 +144,12 @@ class WeeklyTruckAllocationViewSet(ModelViewSet):
         return Response(serializer.data)
 
 
-class DomesticSaleViewSet(ModelViewSet):
-    """
-    GET    /api/v1/export/domestic-sales/        — list (filter ?block=&buyer=&export_firm=&date_from=&date_to=)
-    POST   /api/v1/export/domestic-sales/        — create
-    PATCH  /api/v1/export/domestic-sales/{id}/   — partial update
-    """
-
-    permission_classes = [IsAuthenticated, write_permission(*_DOMESTIC_WRITE_ROLES)]
-    serializer_class = DomesticSaleSerializer
-    http_method_names = ['get', 'post', 'patch', 'head', 'options']
-    filterset_fields = ['block', 'buyer', 'export_firm']
-    search_fields = ['tabel_no', 'variety']
-
-    queryset = DomesticSale.objects.select_related(
-        'buyer', 'block', 'export_firm', 'created_by'
-    ).order_by('-date', '-id')
-
-    def get_queryset(self):
-        qs = super().get_queryset()
-        params = self.request.query_params
-        if date_from := params.get('date_from'):
-            qs = qs.filter(date__gte=date_from)
-        if date_to := params.get('date_to'):
-            qs = qs.filter(date__lte=date_to)
-        return qs
-
-    def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
-
-
 # ---------------------------------------------------------------------------
 # Weekly Local Sell Plan
 # ---------------------------------------------------------------------------
 
-_LOCAL_SELL_WRITE_ROLES = frozenset({'export_manager', 'director', 'seller'})
-_LOCAL_SELL_APPROVE_ROLES = frozenset({'export_manager', 'director'})
+_LOCAL_SELL_WRITE_ROLES = LOCAL_SELL_WRITE
+_LOCAL_SELL_APPROVE_ROLES = LOCAL_SELL_APPROVE
 _SELL_PLAN_DAYS = ('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday')
 
 
@@ -554,7 +162,8 @@ class WeeklyLocalSellPlanViewSet(ModelViewSet):
     POST   .../initialize-week/                         — create rows for all active firms
     """
 
-    permission_classes = [IsAuthenticated]
+    resource_code = 'local_sell_plan'
+    permission_classes = [IsAuthenticated, DynamicResourcePermission]
     serializer_class = WeeklyLocalSellPlanSerializer
     http_method_names = ['get', 'post', 'put', 'patch', 'head', 'options']
 
@@ -615,36 +224,15 @@ class WeeklyLocalSellPlanViewSet(ModelViewSet):
 
         serializer.save(entered_by=self.request.user)
 
-    # ─── Workflow actions ─────────────────────────────────────────────────
+    # --- Workflow actions (delegated to services.py) ---
 
     @action(detail=True, methods=['post'], url_path='submit')
     def submit(self, request, pk=None):
         plan = self.get_object()
-        from apps.export.models import PLAN_TRANSITIONS
-        allowed = PLAN_TRANSITIONS.get(plan.status, [])
-        if 'submitted' not in allowed:
-            return Response(
-                {'error': f"Cannot submit from status '{plan.status}'."},
-                status=http_status.HTTP_400_BAD_REQUEST,
-            )
-        has_plan = any(getattr(plan, f'{d}_plan_kg', 0) > 0 for d in _SELL_PLAN_DAYS)
-        if not has_plan:
-            return Response(
-                {'error': 'Plan must have at least one day with a positive plan_kg.'},
-                status=http_status.HTTP_400_BAD_REQUEST,
-            )
-        now = timezone.now()
-        plan.status = 'submitted'
-        plan.submitted_at = now
-        plan.submitted_by = request.user
-        plan.rejected_at = None
-        plan.rejected_by = None
-        plan.rejection_note = None
-        plan.updated_at = now
-        plan.save(update_fields=[
-            'status', 'submitted_at', 'submitted_by',
-            'rejected_at', 'rejected_by', 'rejection_note', 'updated_at',
-        ])
+        try:
+            submit_local_sell_plan(plan, request.user)
+        except (ValueError, PermissionError) as exc:
+            return Response({'error': str(exc)}, status=http_status.HTTP_400_BAD_REQUEST)
         return Response(self.get_serializer(plan).data)
 
     @action(detail=True, methods=['post'], url_path='approve')
@@ -653,19 +241,10 @@ class WeeklyLocalSellPlanViewSet(ModelViewSet):
         role = getattr(request.user, 'role', None)
         if role not in _LOCAL_SELL_APPROVE_ROLES:
             raise PermissionDenied('Only export_manager/director can approve.')
-        from apps.export.models import PLAN_TRANSITIONS
-        allowed = PLAN_TRANSITIONS.get(plan.status, [])
-        if 'approved' not in allowed:
-            return Response(
-                {'error': f"Cannot approve from status '{plan.status}'."},
-                status=http_status.HTTP_400_BAD_REQUEST,
-            )
-        now = timezone.now()
-        plan.status = 'approved'
-        plan.approved_at = now
-        plan.approved_by = request.user
-        plan.updated_at = now
-        plan.save(update_fields=['status', 'approved_at', 'approved_by', 'updated_at'])
+        try:
+            approve_local_sell_plan(plan, request.user)
+        except (ValueError, PermissionError) as exc:
+            return Response({'error': str(exc)}, status=http_status.HTTP_400_BAD_REQUEST)
         return Response(self.get_serializer(plan).data)
 
     @action(detail=True, methods=['post'], url_path='reject')
@@ -674,54 +253,29 @@ class WeeklyLocalSellPlanViewSet(ModelViewSet):
         role = getattr(request.user, 'role', None)
         if role not in _LOCAL_SELL_APPROVE_ROLES:
             raise PermissionDenied('Only export_manager/director can reject.')
-        from apps.export.models import PLAN_TRANSITIONS
-        allowed = PLAN_TRANSITIONS.get(plan.status, [])
-        if 'rejected' not in allowed:
-            return Response(
-                {'error': f"Cannot reject from status '{plan.status}'."},
-                status=http_status.HTTP_400_BAD_REQUEST,
-            )
         rejection_note = request.data.get('rejection_note', '')
-        if not rejection_note or not rejection_note.strip():
-            return Response(
-                {'error': 'rejection_note is required.'},
-                status=http_status.HTTP_400_BAD_REQUEST,
-            )
-        now = timezone.now()
-        plan.status = 'rejected'
-        plan.rejected_at = now
-        plan.rejected_by = request.user
-        plan.rejection_note = rejection_note.strip()
-        plan.updated_at = now
-        plan.save(update_fields=[
-            'status', 'rejected_at', 'rejected_by', 'rejection_note', 'updated_at',
-        ])
+        try:
+            reject_local_sell_plan(plan, request.user, rejection_note)
+        except (ValueError, PermissionError) as exc:
+            return Response({'error': str(exc)}, status=http_status.HTTP_400_BAD_REQUEST)
         return Response(self.get_serializer(plan).data)
 
     @action(detail=False, methods=['post'], url_path='bulk-submit')
     def bulk_submit(self, request):
+        role = getattr(request.user, 'role', None)
+        if role not in _LOCAL_SELL_WRITE_ROLES:
+            raise PermissionDenied('Only export_manager/director/seller can submit.')
         ids = request.data.get('ids', [])
         if not ids:
             return Response({'error': 'ids list is required.'}, status=http_status.HTTP_400_BAD_REQUEST)
         plans = WeeklyLocalSellPlan.objects.filter(id__in=ids, status__in=['draft', 'rejected'])
-        submitted_ids, errors, now = [], [], timezone.now()
+        submitted_ids, errors = [], []
         for plan in plans:
-            has_plan = any(getattr(plan, f'{d}_plan_kg', 0) > 0 for d in _SELL_PLAN_DAYS)
-            if not has_plan:
-                errors.append({'id': plan.id, 'error': 'No positive plan_kg.'})
-                continue
-            plan.status = 'submitted'
-            plan.submitted_at = now
-            plan.submitted_by = request.user
-            plan.rejected_at = None
-            plan.rejected_by = None
-            plan.rejection_note = None
-            plan.updated_at = now
-            plan.save(update_fields=[
-                'status', 'submitted_at', 'submitted_by',
-                'rejected_at', 'rejected_by', 'rejection_note', 'updated_at',
-            ])
-            submitted_ids.append(plan.id)
+            try:
+                submit_local_sell_plan(plan, request.user)
+                submitted_ids.append(plan.id)
+            except (ValueError, PermissionError) as exc:
+                errors.append({'id': plan.id, 'error': str(exc)})
         return Response({'submitted': submitted_ids, 'errors': errors})
 
     @action(detail=False, methods=['post'], url_path='bulk-approve')
@@ -733,15 +287,14 @@ class WeeklyLocalSellPlanViewSet(ModelViewSet):
         if not ids:
             return Response({'error': 'ids list is required.'}, status=http_status.HTTP_400_BAD_REQUEST)
         plans = WeeklyLocalSellPlan.objects.filter(id__in=ids, status='submitted')
-        approved_ids, now = [], timezone.now()
+        approved_ids, errors = [], []
         for plan in plans:
-            plan.status = 'approved'
-            plan.approved_at = now
-            plan.approved_by = request.user
-            plan.updated_at = now
-            plan.save(update_fields=['status', 'approved_at', 'approved_by', 'updated_at'])
-            approved_ids.append(plan.id)
-        return Response({'approved': approved_ids, 'errors': []})
+            try:
+                approve_local_sell_plan(plan, request.user)
+                approved_ids.append(plan.id)
+            except (ValueError, PermissionError) as exc:
+                errors.append({'id': plan.id, 'error': str(exc)})
+        return Response({'approved': approved_ids, 'errors': errors})
 
     @action(detail=False, methods=['post'], url_path='initialize-week')
     def initialize_week(self, request):

@@ -12,9 +12,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
-from apps.core.models import ShipmentStatusType
-from apps.core.permissions import PRIVILEGED_ROLES
-from apps.export.models import QualityDocument, SalesReport, Shipment, ShipmentComment, ShipmentStatusLog
+from apps.core.permissions import PRIVILEGED_ROLES, DynamicResourcePermission
+from apps.export.models import QualityDocument, SalesReport, Shipment, ShipmentComment
 from apps.export.serializers import (
     QualityDocumentSerializer,
     OverdueShipmentSerializer,
@@ -25,7 +24,7 @@ from apps.export.serializers import (
     CommentSerializer,
     ShipmentPatchSerializer,
 )
-from apps.export.services import transition_to
+from apps.export.services import create_shipment, transition_to
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +51,8 @@ class ShipmentViewSet(ModelViewSet):
     POST   /api/v1/export/shipments/{id}/transition/ — status transition
     """
 
-    permission_classes = [IsAuthenticated]
+    resource_code = 'shipment'
+    permission_classes = [IsAuthenticated, DynamicResourcePermission]
     http_method_names = ['get', 'post', 'patch', 'head', 'options']  # no PUT/DELETE via API
 
     queryset = Shipment.objects.select_related(
@@ -237,53 +237,18 @@ class ShipmentViewSet(ModelViewSet):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
-        first_status = ShipmentStatusType.objects.filter(step_order=1).first()
-        if first_status is None:
-            return Response(
-                {'error': 'No yuklenme status configured. Run seed_data first.'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        try:
+            shipment = create_shipment(
+                cargo_code=data['cargo_code'],
+                date=data['date'],
+                user=request.user,
+                country=data.get('country'),
+                customer=data.get('customer'),
+                season=data.get('season'),
             )
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Resolve season: use provided value or fall back to the active season.
-        season = data.get('season')
-        if season is None:
-            from apps.core.models import Season
-            season = Season.objects.filter(is_active=True).first()
-            if season is None:
-                return Response(
-                    {'error': 'No active season found. Provide a season in the request.'},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-        shipment = Shipment.objects.create(
-            cargo_code=data['cargo_code'],
-            date=data['date'],
-            country=data.get('country'),
-            customer=data.get('customer'),
-            season=season,
-            status=first_status,
-            created_by=request.user,
-        )
-
-        # AD-1: write loading_started_at denormalized timestamp (transition_to() cannot be used
-        # here because the shipment starts with status already set; we write the fields directly
-        # as the creation equivalent of the first transition).
-        shipment.loading_started_at = timezone.now()
-        shipment.save(update_fields=['loading_started_at'])
-
-        # Audit trail: record the initial status assignment in ShipmentStatusLog.
-        ShipmentStatusLog.objects.create(
-            shipment=shipment,
-            status=first_status,
-            changed_by=request.user,
-            comment='Shipment created',
-        )
-
-        logger.info(
-            'Shipment %s created by %s',
-            shipment.cargo_code,
-            request.user.username,
-        )
         detail_serializer = ShipmentDetailSerializer(shipment, context={'request': request})
         return Response(detail_serializer.data, status=status.HTTP_201_CREATED)
 

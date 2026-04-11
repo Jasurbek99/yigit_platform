@@ -108,7 +108,7 @@ class QuotaIssuanceFirmAllocation(models.Model):
                 name='chk_issuance_alloc_gt0',
             ),
         ]
-        ordering = ['export_firm__name_en']
+        ordering = ['export_firm__code']
 
     def __str__(self) -> str:
         firm_name = getattr(self.export_firm, 'name_en', None) or f'firm#{self.export_firm_id}'

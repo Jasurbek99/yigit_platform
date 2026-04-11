@@ -31,7 +31,7 @@ interface ITransitionButtonProps {
 export function TransitionButton({ shipmentId, allowedTransitions, onSuccess }: ITransitionButtonProps) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [form] = Form.useForm<{ new_status: string; comment?: string }>();
 
@@ -47,7 +47,7 @@ export function TransitionButton({ shipmentId, allowedTransitions, onSuccess }: 
       new_status: allowedTransitions.length === 1 ? allowedTransitions[0] : undefined,
       comment: '',
     });
-    setOpen(true);
+    setIsOpen(true);
   }
 
   async function handleConfirm() {
@@ -60,7 +60,7 @@ export function TransitionButton({ shipmentId, allowedTransitions, onSuccess }: 
       });
       toast.success(t('transition.toast_success', { status: STATUS_DISPLAY[values.new_status] ?? values.new_status }));
       await queryClient.invalidateQueries({ queryKey: ['shipment', String(shipmentId)] });
-      setOpen(false);
+      setIsOpen(false);
       onSuccess?.();
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
@@ -81,9 +81,9 @@ export function TransitionButton({ shipmentId, allowedTransitions, onSuccess }: 
       </Button>
 
       <Modal
-        open={open}
+        open={isOpen}
         title={t('transition.modal_title')}
-        onCancel={() => setOpen(false)}
+        onCancel={() => setIsOpen(false)}
         onOk={() => void handleConfirm()}
         okText={t('transition.confirm')}
         cancelText={t('common.cancel')}

@@ -183,31 +183,32 @@ class Command(BaseCommand):
         season = Season.objects.filter(is_active=True).first()
 
         with transaction.atomic():
-            # Delete previously imported rows (notes-based or by excluding W15 current week)
-            deleted, _ = WeeklyLocalSellPlan.objects.exclude(
-                week_number=15, year=2026,  # Keep current week's manual entries
-            ).delete()
+            # Delete only rows that match imported (year, week, firm) combos.
+            # This avoids deleting manually created plans for other weeks.
+            import_keys = set(weekly_data.keys())  # (year, week, firm_id)
+            deleted = 0
+            for (year, week, firm_id) in import_keys:
+                d, _ = WeeklyLocalSellPlan.objects.filter(
+                    export_firm_id=firm_id, week_number=week, year=year,
+                ).delete()
+                deleted += d
             if deleted:
-                self.stdout.write(f'  Deleted {deleted} old plan rows')
+                self.stdout.write(f'  Deleted {deleted} previously imported plan rows')
 
-            created = 0
-            for (year, week, firm_id), days in weekly_data.items():
-                # Skip if already exists (W15 current week manual data)
-                if WeeklyLocalSellPlan.objects.filter(
-                    export_firm_id=firm_id, week_number=week, year=year
-                ).exists():
-                    continue
-
-                WeeklyLocalSellPlan.objects.create(
+            # Bulk create all rows
+            new_plans = [
+                WeeklyLocalSellPlan(
                     export_firm_id=firm_id,
                     week_number=week,
                     year=year,
                     season=season,
-                    status='approved',  # Historical data = already approved
+                    status='approved',
                     **days,
                 )
-                created += 1
+                for (year, week, firm_id), days in weekly_data.items()
+            ]
+            WeeklyLocalSellPlan.objects.bulk_create(new_plans, batch_size=500)
 
             self.stdout.write(self.style.SUCCESS(
-                f'\n  Done: {created} WeeklyLocalSellPlan rows created.'
+                f'\n  Done: {len(new_plans)} WeeklyLocalSellPlan rows created.'
             ))
