@@ -62,17 +62,23 @@ class Customer(models.Model):
     phone = models.CharField(max_length=50, blank=True, null=True)
     default_country = models.ForeignKey(
         'core.Country',
-        on_delete=models.SET_NULL,
+        on_delete=models.PROTECT,
         null=True,
         blank=True,
         related_name='+',
     )
     default_city = models.ForeignKey(
         'core.City',
-        on_delete=models.SET_NULL,
+        on_delete=models.PROTECT,
         null=True,
         blank=True,
         related_name='+',
+    )
+    import_firms = models.ManyToManyField(
+        'core.ImportFirm',
+        blank=True,
+        related_name='customers',
+        db_table=schema_table('core', 'customer_import_firms'),
     )
     is_active = models.BooleanField(default=True)
 

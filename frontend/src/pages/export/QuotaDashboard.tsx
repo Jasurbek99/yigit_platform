@@ -4,13 +4,17 @@ import {
   Card,
   Col,
   DatePicker,
+  Divider,
+  Progress,
   Row,
+  Segmented,
   Select,
   Statistic,
   Tabs,
+  Tooltip,
   Typography,
 } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
+import { PlusOutlined, QuestionCircleOutlined, RightOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -37,8 +41,8 @@ type PeriodMode = 'season' | 'month' | 'week' | 'custom';
 
 interface IPeriodState {
   mode: PeriodMode;
-  monthKey: string | null;   // "YYYY-M"
-  weekKey: string | null;    // "YYYY-WW"
+  monthKey: string | null;
+  weekKey: string | null;
   customFrom: string | null;
   customTo: string | null;
 }
@@ -73,8 +77,6 @@ function periodToDates(
   return {};
 }
 
-// ─── Month selector options from season ──────────────────────────────────────
-
 function buildMonthOptions(season: ISeason | undefined) {
   if (!season) return [];
   const start = dayjs(season.start_date);
@@ -88,34 +90,20 @@ function buildMonthOptions(season: ISeason | undefined) {
   return options;
 }
 
-// ─── KPI Cards ────────────────────────────────────────────────────────────────
+const EMPTY_PERIOD: IPeriodState = { mode: 'season', monthKey: null, weekKey: null, customFrom: null, customTo: null };
 
-interface IKpiCardProps {
-  title: string;
-  value: number;
-  suffix?: string;
-  extra?: string;
-  color?: string;
-  loading?: boolean;
-}
+// ─── KPI label with tooltip ──────────────────────────────────────────────────
 
-function KpiCard({ title, value, suffix = ' kg', extra, color, loading }: IKpiCardProps) {
+function KpiLabel({ label, tip }: { label: string; tip: string }) {
   return (
-    <Card size="small" loading={loading} styles={{ body: { padding: '12px 16px' } }}>
-      <Statistic
-        title={<span style={{ fontSize: 12, color: '#8c8c8c' }}>{title}</span>}
-        value={value}
-        suffix={suffix}
-        valueStyle={{ fontSize: 18, fontWeight: 700, color }}
-        formatter={(v) => Number(v).toLocaleString()}
-      />
-      {extra && (
-        <Text style={{ fontSize: 12, color: '#8c8c8c' }}>{extra}</Text>
-      )}
-    </Card>
+    <span style={{ fontSize: 12, color: '#8c8c8c' }}>
+      {label}{' '}
+      <Tooltip title={tip}>
+        <QuestionCircleOutlined style={{ fontSize: 10, color: '#bfbfbf', cursor: 'help' }} />
+      </Tooltip>
+    </span>
   );
 }
-
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
@@ -124,8 +112,10 @@ export default function QuotaDashboard() {
   const { user } = useAuth();
 
   const canAddIssuance = canDo(user, 'quota_issuance', 'create');
-  const canSeeFullQuota = canSeePage(user, 'export.quota');
+  const canSeeQuota = canSeePage(user, 'export.quota');
   const canSeeLocalSell = canSeePage(user, 'export.quota.local_sell');
+  // Full analytics: comparison tabs (Firm Chart, Weekly Trend) — export_manager/director
+  const canSeeAnalytics = canDo(user, 'local_sell_plan', 'view');
 
   // Season selection
   const { data: seasons = [] } = useSeasons();
@@ -135,22 +125,15 @@ export default function QuotaDashboard() {
   const currentSeason = seasons.find((s) => s.id === seasonId);
 
   // Period selection
-  const [period, setPeriod] = useState<IPeriodState>({
-    mode: 'season',
-    monthKey: null,
-    weekKey: null,
-    customFrom: null,
-    customTo: null,
-  });
+  const [period, setPeriod] = useState<IPeriodState>(EMPTY_PERIOD);
 
   // Product type filter
   const [productType, setProductType] = useState<string>('tomato');
 
-  // Modal
   const navigate = useNavigate();
 
-  // Active tab
-  const defaultTab = canSeeFullQuota ? 'per_firm' : 'local_sell';
+  // Active tab — document_team defaults to issuance log, others to firm breakdown
+  const defaultTab = canSeeAnalytics ? 'per_firm' : canSeeQuota ? 'all_quotas' : 'local_sell';
   const [activeTab, setActiveTab] = useState(defaultTab);
 
   const { date_from, date_to } = useMemo(
@@ -188,48 +171,39 @@ export default function QuotaDashboard() {
     return { totalExpiredKg, perFirmExpired };
   }, [issuances, todayStr]);
 
-  // Build period dropdown options: All Season + months + weeks
-  const periodOptions = useMemo(() => {
-    const opts: Array<{ label: string; value: string }> = [
-      { label: t('quota_dashboard.all_season'), value: 'season' },
-    ];
-    // Months from season date range
-    for (const mo of buildMonthOptions(currentSeason)) {
-      opts.push({ label: mo.label, value: `month:${mo.value}` });
-    }
-    // Weeks from data
-    for (const w of weeklyFlow) {
-      opts.push({ label: `W${w.week}`, value: `week:${w.year}-${w.week}` });
-    }
-    return opts;
-  }, [currentSeason, weeklyFlow, t]);
+  // Build week options from weekly flow data
+  const weekOptions = useMemo(
+    () => weeklyFlow.map((w) => ({ label: `W${w.week}`, value: `${w.year}-${w.week}` })),
+    [weeklyFlow],
+  );
 
-  const periodSelectValue = useMemo(() => {
-    if (period.mode === 'month' && period.monthKey) return `month:${period.monthKey}`;
-    if (period.mode === 'week' && period.weekKey) return `week:${period.weekKey}`;
-    if (period.mode === 'custom') return 'custom';
-    return 'season';
-  }, [period]);
+  const monthOptions = useMemo(() => buildMonthOptions(currentSeason), [currentSeason]);
 
-  function handlePeriodChange(val: string) {
-    if (val === 'season') {
-      setPeriod({ mode: 'season', monthKey: null, weekKey: null, customFrom: null, customTo: null });
-    } else if (val.startsWith('month:')) {
-      setPeriod({ mode: 'month', monthKey: val.slice(6), weekKey: null, customFrom: null, customTo: null });
-    } else if (val.startsWith('week:')) {
-      setPeriod({ mode: 'week', monthKey: null, weekKey: val.slice(5), customFrom: null, customTo: null });
+  // Period mode handlers
+  function handlePeriodModeChange(mode: PeriodMode) {
+    if (mode === 'season') {
+      setPeriod(EMPTY_PERIOD);
+    } else {
+      setPeriod({ ...EMPTY_PERIOD, mode });
     }
+  }
+
+  function handleMonthChange(val: string) {
+    setPeriod({ ...EMPTY_PERIOD, mode: 'month', monthKey: val });
+  }
+
+  function handleWeekChange(val: string) {
+    setPeriod({ ...EMPTY_PERIOD, mode: 'week', weekKey: val });
   }
 
   function handleCustomRange(dates: [Dayjs | null, Dayjs | null] | null) {
     if (!dates || !dates[0] || !dates[1]) {
-      setPeriod({ mode: 'season', monthKey: null, weekKey: null, customFrom: null, customTo: null });
+      setPeriod(EMPTY_PERIOD);
       return;
     }
     setPeriod({
+      ...EMPTY_PERIOD,
       mode: 'custom',
-      monthKey: null,
-      weekKey: null,
       customFrom: dates[0].format('YYYY-MM-DD'),
       customTo: dates[1].format('YYYY-MM-DD'),
     });
@@ -237,39 +211,36 @@ export default function QuotaDashboard() {
 
   const seasonOptions = seasons.map((s) => ({ value: s.id, label: s.name }));
 
-  const issuedPct =
+  const coveragePct =
     kpis && kpis.expected_kg > 0
-      ? ((kpis.issued_kg / kpis.expected_kg) * 100).toFixed(1)
-      : null;
+      ? Math.round((kpis.issued_kg / kpis.expected_kg) * 100)
+      : 0;
 
-  const allTabItems = [
-    canSeeFullQuota && {
-      key: 'all_quotas',
-      label: t('quota_dashboard.tab_all_quotas'),
-      children: <QuotaIssuancesList />,
-    },
-    canSeeFullQuota && {
+  // Tabs — role-based visibility:
+  // document_team: Firm Breakdown (read-only) + Issuance Log
+  // export_manager/director: all 4 tabs
+  const tabItems = [
+    canSeeQuota && {
       key: 'per_firm',
-      label: t('quota_dashboard.tab_per_firm'),
+      label: t('quota_dashboard.tab_firm_breakdown'),
       children: <QuotaPerFirmTable data={perFirm} expiredPerFirm={expiredStats.perFirmExpired} />,
     },
-    canSeeFullQuota && {
+    canSeeAnalytics && {
       key: 'visual',
-      label: t('quota_dashboard.tab_visual'),
+      label: t('quota_dashboard.tab_firm_chart'),
       children: <QuotaVisualBars data={perFirm} />,
     },
-    canSeeFullQuota && {
+    canSeeAnalytics && {
       key: 'weekly',
-      label: t('quota_dashboard.tab_weekly'),
+      label: t('quota_dashboard.tab_weekly_trend'),
       children: <QuotaWeeklyFlow data={weeklyFlow} />,
     },
-    (canSeeFullQuota || canSeeLocalSell) && {
-      key: 'local_sell',
-      label: t('quota_dashboard.tab_local_sell'),
-      children: <LocalSellPlanGrid />,
+    canSeeQuota && {
+      key: 'all_quotas',
+      label: t('quota_dashboard.tab_issuance_log'),
+      children: <QuotaIssuancesList />,
     },
   ].filter(Boolean) as { key: string; label: string; children: React.ReactNode }[];
-  const tabItems = allTabItems;
 
   return (
     <div>
@@ -294,60 +265,88 @@ export default function QuotaDashboard() {
         )}
       </div>
 
-      {/* Period selector row — clean dropdowns */}
-      <div
+      {/* ── Filter Panel (hidden for seller-only users) ── */}
+      {canSeeQuota && <div
         style={{
-          display: 'flex',
-          gap: 10,
-          alignItems: 'center',
+          background: '#fafafa',
+          borderRadius: 8,
+          padding: '12px 16px',
           marginBottom: 16,
         }}
       >
-        <Select
-          value={seasonId}
-          onChange={(v) => {
-            setSelectedSeasonId(v);
-            setPeriod({ mode: 'season', monthKey: null, weekKey: null, customFrom: null, customTo: null });
-          }}
-          options={seasonOptions}
-          placeholder={t('quota_dashboard.season')}
-          style={{ width: 140 }}
-          size="small"
-        />
+        {/* Row 1: Season + Product Type */}
+        <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 10 }}>
+          <Select
+            value={seasonId}
+            onChange={(v) => {
+              setSelectedSeasonId(v);
+              setPeriod(EMPTY_PERIOD);
+            }}
+            options={seasonOptions}
+            placeholder={t('quota_dashboard.season')}
+            style={{ width: 160 }}
+          />
+          <Segmented
+            value={productType}
+            onChange={(v) => setProductType(v as string)}
+            options={[
+              { label: t('quota_dashboard.product_tomato'), value: 'tomato' },
+              { label: t('quota_dashboard.product_pepper'), value: 'pepper' },
+            ]}
+          />
+        </div>
 
-        <Select
-          value={periodSelectValue}
-          onChange={handlePeriodChange}
-          options={periodOptions}
-          style={{ width: 170 }}
-          size="small"
-          showSearch
-          optionFilterProp="label"
-        />
+        {/* Row 2: Period mode segmented + contextual sub-control */}
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <Segmented
+            value={period.mode}
+            onChange={(v) => handlePeriodModeChange(v as PeriodMode)}
+            options={[
+              { label: t('quota_dashboard.filter_full_season'), value: 'season' },
+              { label: t('quota_dashboard.filter_month'), value: 'month' },
+              { label: t('quota_dashboard.filter_week'), value: 'week' },
+              { label: t('quota_dashboard.filter_custom'), value: 'custom' },
+            ]}
+          />
 
-        <RangePicker
-          size="small"
-          value={
-            period.mode === 'custom' && period.customFrom && period.customTo
-              ? [dayjs(period.customFrom), dayjs(period.customTo)]
-              : null
-          }
-          onChange={(dates) => handleCustomRange(dates as [Dayjs | null, Dayjs | null] | null)}
-          placeholder={[t('quota_dashboard.date_from'), t('quota_dashboard.date_to')]}
-          style={{ width: 240 }}
-        />
+          {period.mode === 'month' && (
+            <Select
+              value={period.monthKey}
+              onChange={handleMonthChange}
+              options={monthOptions}
+              placeholder={t('quota_dashboard.filter_month')}
+              style={{ width: 160 }}
+              showSearch
+              optionFilterProp="label"
+            />
+          )}
 
-        <Select
-          value={productType}
-          onChange={(v) => setProductType(v)}
-          options={[
-            { label: t('quota_dashboard.product_tomato'), value: 'tomato' },
-            { label: t('quota_dashboard.product_pepper'), value: 'pepper' },
-          ]}
-          style={{ width: 130 }}
-          size="small"
-        />
-      </div>
+          {period.mode === 'week' && (
+            <Select
+              value={period.weekKey}
+              onChange={handleWeekChange}
+              options={weekOptions}
+              placeholder={t('quota_dashboard.filter_week')}
+              style={{ width: 130 }}
+              showSearch
+              optionFilterProp="label"
+            />
+          )}
+
+          {period.mode === 'custom' && (
+            <RangePicker
+              value={
+                period.customFrom && period.customTo
+                  ? [dayjs(period.customFrom), dayjs(period.customTo)]
+                  : null
+              }
+              onChange={(dates) => handleCustomRange(dates as [Dayjs | null, Dayjs | null] | null)}
+              placeholder={[t('quota_dashboard.date_from'), t('quota_dashboard.date_to')]}
+              style={{ width: 260 }}
+            />
+          )}
+        </div>
+      </div>}
 
       {/* Error state */}
       {isError && (
@@ -366,80 +365,146 @@ export default function QuotaDashboard() {
         </div>
       )}
 
-      {/* KPI Cards */}
-      <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
-        <Col xs={12} sm={8} md={4}>
-          <KpiCard
-            title={t('quota_dashboard.kpi_sales')}
-            value={kpis?.local_sales_kg ?? 0}
-            color="#1677ff"
-            loading={isLoading}
-          />
+      {/* ── KPI Pipeline (visible to quota page users, not seller-only) ── */}
+      {canSeeQuota && <Row gutter={12} align="middle" style={{ marginBottom: 16 }}>
+        {/* INPUT */}
+        <Col xs={24} md={6}>
+          <Card size="small" loading={isLoading} styles={{ body: { padding: '12px 16px' } }}>
+            <Text type="secondary" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              {t('quota_dashboard.kpi_section_input')}
+            </Text>
+            <Statistic
+              title={<KpiLabel label={t('quota_dashboard.kpi_sales')} tip={t('quota_dashboard.kpi_sales_tip')} />}
+              value={kpis?.local_sales_kg ?? 0}
+              suffix="kg"
+              valueStyle={{ fontSize: 22, fontWeight: 700, color: '#1677ff' }}
+              formatter={(v) => Number(v).toLocaleString()}
+            />
+          </Card>
         </Col>
-        <Col xs={12} sm={8} md={4}>
-          <KpiCard
-            title={t('quota_dashboard.kpi_expected')}
-            value={kpis?.expected_kg ?? 0}
-            color="#52c41a"
-            loading={isLoading}
-          />
-        </Col>
-        <Col xs={12} sm={8} md={4}>
-          <KpiCard
-            title={t('quota_dashboard.kpi_issued')}
-            value={kpis?.issued_kg ?? 0}
-            color="#722ed1"
-            extra={issuedPct ? `${issuedPct}%` : undefined}
-            loading={isLoading}
-          />
-        </Col>
-        <Col xs={12} sm={8} md={4}>
-          <KpiCard
-            title={t('quota_dashboard.kpi_not_given')}
-            value={kpis?.not_given_kg ?? 0}
-            color={kpis && kpis.not_given_kg > 0 ? '#ff4d4f' : undefined}
-            extra={kpis ? `${Number(kpis.not_given_pct).toFixed(1)}%` : undefined}
-            loading={isLoading}
-          />
-        </Col>
-        <Col xs={12} sm={8} md={4}>
-          <KpiCard
-            title={t('quota_dashboard.kpi_used')}
-            value={kpis?.used_kg ?? 0}
-            color="#13c2c2"
-            loading={isLoading}
-          />
-        </Col>
-        <Col xs={12} sm={8} md={4}>
-          <KpiCard
-            title={t('quota_dashboard.kpi_unused')}
-            value={kpis?.unused_kg ?? 0}
-            color={kpis && kpis.unused_kg > 0 ? '#fa8c16' : undefined}
-            extra={kpis ? `${Number(kpis.unused_pct).toFixed(1)}%` : undefined}
-            loading={isLoading}
-          />
-        </Col>
-        <Col xs={12} sm={8} md={4}>
-          <KpiCard
-            title={t('quota_dashboard.kpi_expired_unused')}
-            value={expiredStats.totalExpiredKg}
-            color={expiredStats.totalExpiredKg > 0 ? '#ff4d4f' : undefined}
-            loading={isLoading}
-          />
-        </Col>
-      </Row>
 
-      {/* Tabs */}
-      <Card styles={{ body: { padding: '0 16px 16px' } }}>
-        <Tabs
-          activeKey={activeTab}
-          onChange={setActiveTab}
-          items={tabItems}
-          size="small"
-        />
-      </Card>
+        {/* Arrow */}
+        <Col xs={0} md={1} style={{ textAlign: 'center' }}>
+          <RightOutlined style={{ fontSize: 16, color: '#d9d9d9' }} />
+        </Col>
 
-      {/* Add Issuance Modal */}
+        {/* ALLOCATION */}
+        <Col xs={24} md={9}>
+          <Card size="small" loading={isLoading} styles={{ body: { padding: '12px 16px' } }}>
+            <Text type="secondary" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              {t('quota_dashboard.kpi_section_allocation')}
+            </Text>
+            <Row gutter={12}>
+              <Col span={8}>
+                <Statistic
+                  title={<KpiLabel label={t('quota_dashboard.kpi_expected')} tip={t('quota_dashboard.kpi_expected_tip')} />}
+                  value={kpis?.expected_kg ?? 0}
+                  suffix="kg"
+                  valueStyle={{ fontSize: 16, fontWeight: 600, color: '#52c41a' }}
+                  formatter={(v) => Number(v).toLocaleString()}
+                />
+              </Col>
+              <Col span={8}>
+                <Statistic
+                  title={<KpiLabel label={t('quota_dashboard.kpi_issued')} tip={t('quota_dashboard.kpi_issued_tip')} />}
+                  value={kpis?.issued_kg ?? 0}
+                  suffix="kg"
+                  valueStyle={{ fontSize: 16, fontWeight: 600, color: '#722ed1' }}
+                  formatter={(v) => Number(v).toLocaleString()}
+                />
+              </Col>
+              <Col span={8}>
+                <Statistic
+                  title={<KpiLabel label={t('quota_dashboard.kpi_not_given')} tip={t('quota_dashboard.kpi_not_given_tip')} />}
+                  value={kpis?.not_given_kg ?? 0}
+                  suffix="kg"
+                  valueStyle={{ fontSize: 16, fontWeight: 600, color: kpis && kpis.not_given_kg > 0 ? '#ff4d4f' : undefined }}
+                  formatter={(v) => Number(v).toLocaleString()}
+                />
+              </Col>
+            </Row>
+            <Progress
+              percent={coveragePct}
+              size="small"
+              strokeColor={coveragePct >= 80 ? '#52c41a' : coveragePct >= 50 ? '#fa8c16' : '#ff4d4f'}
+              format={(pct) => `${pct}% ${t('quota_dashboard.coverage')}`}
+              style={{ marginTop: 8 }}
+            />
+          </Card>
+        </Col>
+
+        {/* Arrow */}
+        <Col xs={0} md={1} style={{ textAlign: 'center' }}>
+          <RightOutlined style={{ fontSize: 16, color: '#d9d9d9' }} />
+        </Col>
+
+        {/* OUTCOME */}
+        <Col xs={24} md={7}>
+          <Card size="small" loading={isLoading} styles={{ body: { padding: '12px 16px' } }}>
+            <Text type="secondary" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              {t('quota_dashboard.kpi_section_outcome')}
+            </Text>
+            <Row gutter={12}>
+              <Col span={8}>
+                <Statistic
+                  title={<KpiLabel label={t('quota_dashboard.kpi_used')} tip={t('quota_dashboard.kpi_used_tip')} />}
+                  value={kpis?.used_kg ?? 0}
+                  suffix="kg"
+                  valueStyle={{ fontSize: 16, fontWeight: 600, color: '#13c2c2' }}
+                  formatter={(v) => Number(v).toLocaleString()}
+                />
+              </Col>
+              <Col span={8}>
+                <Statistic
+                  title={<KpiLabel label={t('quota_dashboard.kpi_unused')} tip={t('quota_dashboard.kpi_unused_tip')} />}
+                  value={kpis?.unused_kg ?? 0}
+                  suffix="kg"
+                  valueStyle={{ fontSize: 16, fontWeight: 600, color: kpis && kpis.unused_kg > 0 ? '#fa8c16' : undefined }}
+                  formatter={(v) => Number(v).toLocaleString()}
+                />
+              </Col>
+              <Col span={8}>
+                <Statistic
+                  title={<KpiLabel label={t('quota_dashboard.kpi_expired_unused')} tip={t('quota_dashboard.kpi_expired_tip')} />}
+                  value={expiredStats.totalExpiredKg}
+                  suffix="kg"
+                  valueStyle={{ fontSize: 16, fontWeight: 600, color: expiredStats.totalExpiredKg > 0 ? '#ff4d4f' : undefined }}
+                  formatter={(v) => Number(v).toLocaleString()}
+                />
+              </Col>
+            </Row>
+          </Card>
+        </Col>
+      </Row>}
+
+      {/* ── Dashboard Tabs ── */}
+      {canSeeQuota && (
+        <Card styles={{ body: { padding: '0 16px 16px' } }}>
+          <Tabs
+            activeKey={activeTab}
+            onChange={setActiveTab}
+            items={tabItems}
+            size="small"
+          />
+        </Card>
+      )}
+
+      {/* ── Local Sell Plan (separate section) ── */}
+      {canSeeLocalSell && (
+        <>
+          <Divider style={{ margin: '24px 0 16px' }} />
+          <Card
+            title={
+              <Title level={5} style={{ margin: 0 }}>
+                {t('quota_dashboard.local_sell_section_title')}
+              </Title>
+            }
+            styles={{ body: { padding: 16 } }}
+          >
+            <LocalSellPlanGrid />
+          </Card>
+        </>
+      )}
     </div>
   );
 }

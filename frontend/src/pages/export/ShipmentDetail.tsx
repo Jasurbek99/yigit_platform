@@ -23,6 +23,7 @@ import { TransitionButton } from '@/components/TransitionButton';
 import { CommentComposer } from '@/components/CommentComposer';
 import { useShipmentDetail } from '@/hooks/useShipmentDetail';
 import { useAuth } from '@/hooks/useAuth';
+import { canDo } from '@/utils/permissions';
 import api from '@/services/api';
 import type {
   IFirmSplit,
@@ -82,15 +83,9 @@ export default function ShipmentDetail() {
     return <Alert type="error" message={t('shipment_detail.error_load')} style={{ margin: 24 }} />;
   }
 
-  const canEditQuality =
-    user?.role === 'export_manager' ||
-    user?.role === 'document_team' ||
-    user?.role === 'director';
+  const canEditQuality = canDo(user, 'shipment', 'edit');
 
-  const canEditSalesReport =
-    user?.role === 'sales_rep' ||
-    user?.role === 'export_manager' ||
-    user?.role === 'director';
+  const canEditSalesReport = canDo(user, 'shipment', 'edit');
 
   const q: IShipmentQuality = shipment.quality ?? {
     azyk_maglumatnama: false,

@@ -13,7 +13,10 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from apps.core.permissions import PRIVILEGED_ROLES, DynamicResourcePermission
-from apps.export.models import QualityDocument, SalesReport, Shipment, ShipmentComment
+from apps.export.models import (
+    QualityDocument, SalesReport, Shipment, ShipmentComment,
+    ShipmentBlockSource, ShipmentFirmSplit,
+)
 from apps.export.serializers import (
     QualityDocumentSerializer,
     OverdueShipmentSerializer,
@@ -21,6 +24,7 @@ from apps.export.serializers import (
     ShipmentCreateSerializer,
     ShipmentListSerializer,
     ShipmentDetailSerializer,
+    ShipmentSheetSerializer,
     CommentSerializer,
     ShipmentPatchSerializer,
 )
@@ -220,6 +224,38 @@ class ShipmentViewSet(ModelViewSet):
         serializer = OverdueShipmentSerializer(results, many=True)
         return Response(serializer.data)
 
+    @action(detail=False, methods=['get'], url_path='sheet')
+    def sheet(self, request):
+        """GET /api/v1/export/shipments/sheet/
+
+        Returns ALL shipments for the active season with full sheet fields.
+        No pagination — the frontend spreadsheet view needs all records at once.
+
+        Applies the same my_work / phase filters as the list endpoint when those
+        query params are present, so the sheet can be scoped by role if needed.
+        """
+        qs = (
+            Shipment.objects.select_related(
+                'status', 'country', 'city', 'customer',
+                'import_firm', 'border_point', 'variety',
+                'created_by', 'quality',
+            )
+            .prefetch_related(
+                'firm_splits__export_firm',
+                'block_sources__block',
+            )
+            .annotate(
+                has_sales_report=Exists(
+                    SalesReport.objects.filter(shipment=OuterRef('pk'))
+                ),
+            )
+            .filter(season__is_active=True)
+            .order_by('-date', '-id')
+        )
+
+        serializer = ShipmentSheetSerializer(qs, many=True)
+        return Response(serializer.data)
+
     def create(self, request, *args, **kwargs):
         """POST /api/v1/export/shipments/
 
@@ -342,3 +378,70 @@ class ShipmentViewSet(ModelViewSet):
         shipment.refresh_from_db()
         detail_serializer = ShipmentDetailSerializer(shipment, context={'request': request})
         return Response(detail_serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='block-sources')
+    def set_block_sources(self, request, pk=None):
+        """POST /api/v1/export/shipments/{id}/block-sources/
+
+        Replace all block sources for a shipment.
+        Request body: { "blocks": [{ "block_id": 1, "weight_kg": 18000 }, ...] }
+        """
+        shipment = self.get_object()
+        blocks_data = request.data.get('blocks', [])
+
+        if not isinstance(blocks_data, list):
+            return Response(
+                {'error': 'blocks must be a list'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        shipment.block_sources.all().delete()
+        for entry in blocks_data:
+            block_id = entry.get('block_id')
+            weight_kg = entry.get('weight_kg', 0)
+            if block_id:
+                ShipmentBlockSource.objects.create(
+                    shipment=shipment,
+                    block_id=block_id,
+                    weight_kg=weight_kg,
+                )
+
+        logger.info(
+            'Block sources for %s updated by %s (%d blocks)',
+            shipment.cargo_code, request.user.username, len(blocks_data),
+        )
+        return Response({'status': 'ok', 'count': len(blocks_data)})
+
+    @action(detail=True, methods=['post'], url_path='firm-splits')
+    def set_firm_splits(self, request, pk=None):
+        """POST /api/v1/export/shipments/{id}/firm-splits/
+
+        Replace all firm splits for a shipment.
+        Request body: { "firms": [{ "export_firm_id": 1, "weight_kg": 9000 }, ...] }
+        """
+        shipment = self.get_object()
+        firms_data = request.data.get('firms', [])
+
+        if not isinstance(firms_data, list):
+            return Response(
+                {'error': 'firms must be a list'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        shipment.firm_splits.all().delete()
+        for i, entry in enumerate(firms_data):
+            firm_id = entry.get('export_firm_id')
+            weight_kg = entry.get('weight_kg', 0)
+            if firm_id:
+                ShipmentFirmSplit.objects.create(
+                    shipment=shipment,
+                    export_firm_id=firm_id,
+                    weight_kg=weight_kg,
+                    split_order=i + 1,
+                )
+
+        logger.info(
+            'Firm splits for %s updated by %s (%d firms)',
+            shipment.cargo_code, request.user.username, len(firms_data),
+        )
+        return Response({'status': 'ok', 'count': len(firms_data)})

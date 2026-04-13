@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from apps.core.models import (
     User, Country, City, ExportFirm, ImportFirm,
-    ShipmentStatusType, Season, GreenhouseBlock,
+    ShipmentStatusType, ShipmentOptionType, Season, GreenhouseBlock,
     TomatoVariety, ProductType, BorderPoint, LoadingLocation, Customer,
 )
 
@@ -56,3 +56,10 @@ class CustomerAdmin(admin.ModelAdmin):
     list_display = ['name', 'phone', 'default_country', 'is_active']
     list_filter = ['is_active']
     search_fields = ['name']
+
+
+@admin.register(ShipmentOptionType)
+class ShipmentOptionTypeAdmin(admin.ModelAdmin):
+    list_display = ['category', 'code', 'label_tk', 'label_en', 'sort_order', 'is_active']
+    list_filter = ['category', 'is_active']
+    ordering = ['category', 'sort_order']

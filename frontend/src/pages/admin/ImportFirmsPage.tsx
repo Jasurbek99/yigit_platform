@@ -7,6 +7,7 @@ import type { ProColumns } from '@ant-design/pro-components';
 import { useTranslation } from 'react-i18next';
 import { useAdminImportFirms } from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
+import { canDo } from '@/utils/permissions';
 import type { IImportFirm } from '@/types';
 
 const { Title, Text } = Typography;
@@ -17,11 +18,7 @@ export default function ImportFirmsPage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<string>('our');
 
-  const canCreate =
-    user?.is_superuser ||
-    user?.role === 'director' ||
-    user?.permissions?.includes('*') ||
-    user?.permissions?.includes('add_importfirm');
+  const canCreate = canDo(user, 'import_firm', 'create');
 
   const { data, isLoading, isError } = useAdminImportFirms();
   const allRows = data ?? [];
@@ -32,27 +29,25 @@ export default function ImportFirmsPage() {
 
   const columns: ProColumns<IImportFirm>[] = [
     {
-      title: t('import_firms_admin.code'),
-      dataIndex: 'code',
-      width: 80,
+      title: '#',
+      dataIndex: 'index',
+      width: 50,
       search: false,
-      sorter: (a, b) => (a.code || '').localeCompare(b.code || ''),
-      render: (_, record) => record.code ?? <Text type="secondary">—</Text>,
+      render: (_, __, index) => index + 1,
+    },
+    {
+      title: t('import_firms_admin.name_short'),
+      dataIndex: 'name_short',
+      width: 140,
+      ellipsis: true,
+      sorter: (a, b) => (a.name_short || '').localeCompare(b.name_short || ''),
+      render: (_, record) => record.name_short ?? <Text type="secondary">—</Text>,
     },
     {
       title: t('import_firms_admin.name_company'),
       dataIndex: 'name_company',
       ellipsis: true,
       sorter: (a, b) => a.name_company.localeCompare(b.name_company),
-    },
-    {
-      title: t('import_firms_admin.name_short'),
-      dataIndex: 'name_short',
-      width: 130,
-      ellipsis: true,
-      responsive: ['md'],
-      sorter: (a, b) => (a.name_short || '').localeCompare(b.name_short || ''),
-      render: (_, record) => record.name_short ?? <Text type="secondary">—</Text>,
     },
     {
       title: t('import_firms_admin.country'),

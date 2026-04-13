@@ -62,3 +62,28 @@ class ShipmentStatusType(models.Model):
 
     def __str__(self) -> str:
         return f'{self.step_order}. {self.name_en or self.name_tk} ({self.code})'
+
+
+class ShipmentOptionType(models.Model):
+    """Configurable dropdown options for shipment sheet fields.
+
+    Categories: customs_clearance, documents_status, harvest_status,
+    vehicle_condition, transport_responsible.
+    """
+
+    category = models.CharField(max_length=30, db_index=True)
+    code = models.CharField(max_length=30)
+    label_tk = models.CharField(max_length=100, **cyrillic_collation())
+    label_en = models.CharField(max_length=100, blank=True, null=True)
+    label_ru = models.CharField(max_length=100, blank=True, null=True, **cyrillic_collation())
+    icon = models.CharField(max_length=10, blank=True, null=True)
+    sort_order = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = schema_table('core', 'shipment_option_types')
+        unique_together = [('category', 'code')]
+        ordering = ['category', 'sort_order']
+
+    def __str__(self) -> str:
+        return f'{self.category}/{self.code}'

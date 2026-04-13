@@ -17,26 +17,12 @@ logger = logging.getLogger(__name__)
 PERM_CACHE_PREFIX = 'dynamic_perms'
 PERM_CACHE_TTL = 60  # seconds
 
-# ── Legacy hardcoded field permissions (fallback) ────────────────────────
-
-ROLE_EDITABLE_FIELDS: dict[str, list[str]] = {
-    'warehouse_chief':    ['box_count', 'pallet_count', 'weight_net', 'weight_gross'],
-    'document_team':      ['box_count', 'pallet_count', 'weight_net', 'weight_gross', 'notes'],
-    'transport':          ['vehicle_condition', 'vehicle_condition_note', 'route_note'],
-    'sales_rep':          ['price_per_kg', 'total_amount_usd'],
-    'finansist':          ['price_per_kg', 'total_amount_usd'],
-    'accountant':         [],
-    'greenhouse_manager': [],
-    'export_manager':     ['*'],
-    'director':           ['*'],
-}
-
 
 def get_editable_fields(role: str | None, resource_code: str = 'shipment') -> list[str]:
     """Return the list of fields editable by the given role for a resource.
 
-    Checks the dynamic RoleFieldPermission table first; falls back to
-    the hardcoded ROLE_EDITABLE_FIELDS dict for backward compatibility.
+    Reads from the RoleFieldPermission table (populated by seed_permissions).
+    Returns [] if no rows exist — fail-closed.
     """
     from apps.core.models import RoleFieldPermission
 
@@ -48,22 +34,13 @@ def get_editable_fields(role: str | None, resource_code: str = 'shipment') -> li
     if cached is not None:
         return cached
 
-    dynamic = list(
+    fields = list(
         RoleFieldPermission.objects.filter(
             role=role, resource_code=resource_code,
         ).values_list('field_name', flat=True)
     )
-    if dynamic:
-        cache.set(cache_key, dynamic, PERM_CACHE_TTL)
-        return dynamic
-
-    # Fallback to hardcoded (only for 'shipment' resource)
-    if resource_code == 'shipment':
-        fallback = ROLE_EDITABLE_FIELDS.get(role, [])
-        cache.set(cache_key, fallback, PERM_CACHE_TTL)
-        return fallback
-
-    return []
+    cache.set(cache_key, fields, PERM_CACHE_TTL)
+    return fields
 
 
 def can_edit_field(role: str | None, field: str, resource_code: str = 'shipment') -> bool:

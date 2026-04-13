@@ -34,6 +34,7 @@ import {
   useUploadImportFirmFile,
 } from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
+import { canDo } from '@/utils/permissions';
 import { CountrySelect } from '@/components/CountrySelect';
 import { CitySelect } from '@/components/CitySelect';
 import type { IImportFirm } from '@/types';
@@ -52,11 +53,6 @@ interface FirmFormValues {
   phone: string;
   is_active: boolean;
   is_gapy_satys: boolean;
-}
-
-function hasPerm(user: { is_superuser: boolean; role: string; permissions: string[] } | null, codename: string): boolean {
-  if (!user) return false;
-  return user.is_superuser || user.role === 'director' || user.permissions.includes('*') || user.permissions.includes(codename);
 }
 
 function FileUploadCard({
@@ -126,9 +122,9 @@ export default function ImportFirmDetailPage() {
   const watchedCountry = Form.useWatch('country', form);
   const { data: firm, isLoading } = useImportFirm(firmId);
 
-  const canEdit = hasPerm(user, 'change_importfirm');
-  const canDelete = hasPerm(user, 'delete_importfirm');
-  const canCreate = hasPerm(user, 'add_importfirm');
+  const canEdit = canDo(user, 'import_firm', 'edit');
+  const canDelete = canDo(user, 'import_firm', 'delete');
+  const canCreate = canDo(user, 'import_firm', 'create');
 
   const createMutation = useCreateImportFirm({
     onSuccess: () => {

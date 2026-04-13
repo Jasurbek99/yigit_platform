@@ -29,6 +29,7 @@ import {
   useDeleteExportFirm,
 } from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
+import { canDo } from '@/utils/permissions';
 import type { IExportFirm } from '@/types';
 
 const { Title, Text } = Typography;
@@ -52,11 +53,6 @@ interface FirmFormValues {
   is_gapy_satys: boolean;
 }
 
-function hasPerm(user: { is_superuser: boolean; role: string; permissions: string[] } | null, codename: string): boolean {
-  if (!user) return false;
-  return user.is_superuser || user.role === 'director' || user.permissions.includes('*') || user.permissions.includes(codename);
-}
-
 export default function ExportFirmDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -71,9 +67,9 @@ export default function ExportFirmDetailPage() {
 
   const { data: firm, isLoading } = useExportFirm(firmId);
 
-  const canEdit = hasPerm(user, 'change_exportfirm');
-  const canDelete = hasPerm(user, 'delete_exportfirm');
-  const canCreate = hasPerm(user, 'add_exportfirm');
+  const canEdit = canDo(user, 'export_firm', 'edit');
+  const canDelete = canDo(user, 'export_firm', 'delete');
+  const canCreate = canDo(user, 'export_firm', 'create');
 
   const createMutation = useCreateFirm({
     onSuccess: () => {

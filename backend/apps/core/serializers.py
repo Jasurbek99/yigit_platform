@@ -1,7 +1,8 @@
 from rest_framework import serializers
 from apps.core.models import (
-    User, City, Country, ExportFirm, ShipmentStatusType, Customer,
-    GreenhouseBlock, LoadingLocation, TomatoVariety, TruckDestination,
+    User, City, Country, BorderPoint, ExportFirm, ImportFirm, ShipmentStatusType,
+    ShipmentOptionType, Customer, GreenhouseBlock, LoadingLocation, TomatoVariety,
+    TruckDestination,
 )
 from apps.core.permissions import get_editable_fields
 
@@ -69,6 +70,33 @@ class CustomerSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'phone', 'default_country', 'is_active']
 
 
+class CustomerAdminSerializer(serializers.ModelSerializer):
+    """Full Customer serializer for admin CRUD — includes country/city names and import firms."""
+
+    country_name = serializers.CharField(source='default_country.name_en', read_only=True, default=None)
+    city_name = serializers.CharField(source='default_city.name', read_only=True, default=None)
+    import_firms = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=ImportFirm.objects.all(), required=False,
+    )
+    import_firm_names = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Customer
+        fields = [
+            'id', 'name', 'phone',
+            'default_country', 'country_name',
+            'default_city', 'city_name',
+            'import_firms', 'import_firm_names',
+            'is_active',
+        ]
+
+    def get_import_firm_names(self, obj: Customer) -> list[dict]:
+        return [
+            {'id': f.id, 'name': f.name_short or f.name_company}
+            for f in obj.import_firms.all()
+        ]
+
+
 class GreenhouseBlockSerializer(serializers.ModelSerializer):
     class Meta:
         model = GreenhouseBlock
@@ -93,3 +121,15 @@ class TruckDestinationSerializer(serializers.ModelSerializer):
     class Meta:
         model = TruckDestination
         fields = ['id', 'name', 'country', 'country_name', 'sort_order', 'is_active']
+
+
+class BorderPointSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BorderPoint
+        fields = ['id', 'name', 'route_description', 'typical_transit_days', 'is_active']
+
+
+class ShipmentOptionTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ShipmentOptionType
+        fields = ['id', 'category', 'code', 'label_tk', 'label_en', 'label_ru', 'icon', 'sort_order', 'is_active']

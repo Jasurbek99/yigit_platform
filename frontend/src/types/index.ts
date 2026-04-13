@@ -90,6 +90,19 @@ export interface IImportFirm {
   director_seal: string | null;
 }
 
+export interface ICustomer {
+  id: number;
+  name: string;
+  phone: string | null;
+  default_country: number | null;
+  country_name: string | null;
+  default_city: number | null;
+  city_name: string | null;
+  import_firms: number[];
+  import_firm_names: { id: number; name: string }[];
+  is_active: boolean;
+}
+
 export interface IShipmentStatusType {
   id: number;
   code: string;
@@ -99,6 +112,26 @@ export interface IShipmentStatusType {
   step_order: number;
   required_role: string | null;
   phase: string | null;
+}
+
+export interface IBorderPoint {
+  id: number;
+  name: string;
+  route_description: string | null;
+  typical_transit_days: number | null;
+  is_active: boolean;
+}
+
+export interface IShipmentOptionType {
+  id: number;
+  category: string;
+  code: string;
+  label_tk: string;
+  label_en: string | null;
+  label_ru: string | null;
+  icon: string | null;
+  sort_order: number;
+  is_active: boolean;
 }
 
 // ─── API helpers ──────────────────────────────────────────────────────────
@@ -124,6 +157,7 @@ export interface IShipmentListItem {
   date: string;             // ISO date
   status: number;           // FK id
   status_display: string;
+  status_step: number;      // step_order from ShipmentStatusType (1-13)
   country_name: string | null;
   customer_name: string | null;
   weight_net: number | null;
@@ -133,6 +167,119 @@ export interface IShipmentListItem {
   is_gapy_satys: boolean;
   updated_at: string;
 }
+
+// ─── Sheet View ──────────────────────────────────────────────────────────
+
+export interface ISheetFirmSplit {
+  firm_code: string;
+  firm_name: string | null;
+  weight_kg: number;
+  amount_usd: number | null;
+}
+
+export interface ISheetBlockSource {
+  block_code: string;
+  weight_kg: number;
+}
+
+export interface IShipmentSheetItem {
+  id: number;
+  cargo_code: string;
+  date: string;
+  // Status
+  status: number;
+  status_display: string;
+  status_code: string;
+  status_step: number;
+  // Geography
+  country: number | null;
+  country_name: string | null;
+  country_code: string | null;
+  city: number | null;
+  city_name: string | null;
+  border_point: number | null;
+  border_point_name: string | null;
+  // Customer
+  customer: number | null;
+  customer_name: string | null;
+  import_firm: number | null;
+  import_firm_name: string | null;
+  // Product
+  variety: number | null;
+  variety_name: string | null;
+  variety_code: string | null;
+  // Weight
+  weight_gross: number | null;
+  weight_net: number | null;
+  packaging_kg: number | null;
+  pallet_count: number | null;
+  box_count: number | null;
+  rejected_weight_kg: number | null;
+  // Transport
+  vehicle_responsible: string | null;
+  vehicle_responsible_display: string | null;
+  truck_head_id: number | null;
+  trailer_id: number | null;
+  driver_id: number | null;
+  transport_temp_c: number | null;
+  transit_days: number | null;
+  has_peregruz: boolean;
+  peregruz_city: string | null;
+  peregruz_date: string | null;
+  // Finance
+  price_per_kg: number | null;
+  total_amount_usd: number | null;
+  is_gapy_satys: boolean;
+  // Operational status
+  customs_clearance: string | null;
+  documents_status: string | null;
+  harvest_status: string | null;
+  // AD-1 Timestamps
+  loading_started_at: string | null;
+  customs_entry_at: string | null;
+  customs_exit_at: string | null;
+  departed_at: string | null;
+  border_crossed_at: string | null;
+  arrived_at: string | null;
+  sale_started_at: string | null;
+  sale_ended_at: string | null;
+  // AD-2 Vehicle
+  vehicle_condition: VehicleCondition | null;
+  vehicle_condition_note: string | null;
+  route_note: string | null;
+  // Quality docs
+  doc_azyk: boolean;
+  doc_suriji: boolean;
+  doc_hil: boolean;
+  doc_kalibrowka: boolean;
+  // Annotations
+  has_sales_report: boolean;
+  // Notes
+  notes: string | null;
+  // Inline related
+  firm_splits: ISheetFirmSplit[];
+  block_sources: ISheetBlockSource[];
+  // Audit
+  created_by_name: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type SheetRowStyle = 'base' | 'alt' | 'key' | 'transport' | 'status' | 'report' | 'separator';
+export type SheetInputType = 'text' | 'number' | 'dropdown' | 'multiselect' | 'date' | 'datetime' | 'phone' | 'status' | 'readonly';
+
+export interface IRowConfig {
+  rowNumber: number;
+  fieldKey: string;
+  whoKey: string;
+  labelKey: string;
+  inputType: SheetInputType;
+  style: SheetRowStyle;
+  optionsSource?: string;
+  gapyHidden?: boolean;
+}
+
+// ─── Detail / Related ────────────────────────────────────────────────────
 
 export interface IFirmSplit {
   export_firm_id: number;

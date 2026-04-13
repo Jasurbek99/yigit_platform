@@ -86,6 +86,20 @@ class Shipment(models.Model):
     )
     is_gapy_satys = models.BooleanField(default=False)
 
+    # === Operational status fields (sheet rows 5, 6, 14) ===
+    customs_clearance = models.CharField(
+        max_length=20, blank=True, null=True,
+        help_text='Row 5: ✓ approved, → in_progress, — not_started',
+    )
+    documents_status = models.CharField(
+        max_length=20, blank=True, null=True,
+        help_text='Row 6: ok, missing, in_progress',
+    )
+    harvest_status = models.CharField(
+        max_length=20, blank=True, null=True,
+        help_text='Row 14: ok, harvesting, not_ready',
+    )
+
     # === Finance ===
     price_per_kg = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
     total_amount_usd = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)

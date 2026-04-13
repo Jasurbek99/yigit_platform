@@ -26,6 +26,7 @@ const ROUTE_PAGE_MAP: Record<string, string> = {
   '/admin/import-firms':      'admin.import_firms',
   '/admin/permissions':       'admin.permissions',
   '/admin/blocks':            'admin.blocks',
+  '/admin/customers':         'admin.customers',
   '/admin/truck-destinations':'admin.truck_dest',
 };
 

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import { useQuotaIssuances, useDeleteQuotaIssuance } from '@/hooks/useQuotaDashboard';
 import { useAuth } from '@/hooks/useAuth';
+import { canDo } from '@/utils/permissions';
 
 const { Text } = Typography;
 
@@ -39,7 +40,7 @@ export function QuotaIssuancesList() {
   const { user } = useAuth();
   const { data: issuances = [], isLoading } = useQuotaIssuances();
   const deleteMutation = useDeleteQuotaIssuance();
-  const canDelete = user?.role === 'export_manager' || user?.role === 'director' || user?.is_superuser;
+  const canDelete = canDo(user, 'quota_issuance', 'delete');
 
   const today = dayjs();
 

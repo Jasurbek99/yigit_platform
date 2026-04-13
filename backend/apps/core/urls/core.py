@@ -11,6 +11,8 @@ from apps.core.views import (
     LoadingLocationViewSet,
     TomatoVarietyViewSet,
     TruckDestinationViewSet,
+    BorderPointViewSet,
+    ShipmentOptionTypeViewSet,
 )
 from apps.core.views_permissions import (
     PagePermissionMatrixView,
@@ -29,6 +31,8 @@ router.register('blocks', GreenhouseBlockViewSet, basename='block')
 router.register('loading-locations', LoadingLocationViewSet, basename='loading-location')
 router.register('tomato-varieties', TomatoVarietyViewSet, basename='tomato-variety')
 router.register('truck-destinations', TruckDestinationViewSet, basename='truck-destination')
+router.register('border-points', BorderPointViewSet, basename='border-point')
+router.register('shipment-options', ShipmentOptionTypeViewSet, basename='shipment-option')
 
 urlpatterns = router.urls + [
     path('admin/permission-registry/', PermissionRegistryView.as_view(), name='permission-registry'),

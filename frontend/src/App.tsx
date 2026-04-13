@@ -43,6 +43,10 @@ const PermissionsPage = lazy(() => import('@/pages/admin/PermissionsPage'));
 const BlocksPage = lazy(() => import('@/pages/admin/BlocksPage'));
 const BlockDetailPage = lazy(() => import('@/pages/admin/BlockDetailPage'));
 const TruckDestinationsPage = lazy(() => import('@/pages/admin/TruckDestinationsPage'));
+const CustomersPage = lazy(() => import('@/pages/admin/CustomersPage'));
+const ShipmentSettingsPage = lazy(() => import('@/pages/admin/ShipmentSettingsPage'));
+const ShipmentSheet = lazy(() => import('@/pages/export/ShipmentSheet'));
+const ShipmentDashboard = lazy(() => import('@/pages/export/ShipmentDashboard'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -135,6 +139,12 @@ export default function App() {
                   <Route path="shipments/:id" element={
                     <ProtectedRoute pageCode="export.shipments"><ShipmentDetail /></ProtectedRoute>
                   } />
+                  <Route path="export/shipments/sheet" element={
+                    <ProtectedRoute pageCode="export.shipments"><ShipmentSheet /></ProtectedRoute>
+                  } />
+                  <Route path="export/shipments/dashboard" element={
+                    <ProtectedRoute pageCode="export.shipments"><ShipmentDashboard /></ProtectedRoute>
+                  } />
                   <Route path="export/kanban" element={
                     <ProtectedRoute pageCode="export.kanban"><KanbanBoard /></ProtectedRoute>
                   } />
@@ -194,6 +204,12 @@ export default function App() {
                   } />
                   <Route path="admin/truck-destinations" element={
                     <ProtectedRoute pageCode="admin.truck_dest"><TruckDestinationsPage /></ProtectedRoute>
+                  } />
+                  <Route path="admin/customers" element={
+                    <ProtectedRoute pageCode="admin.customers"><CustomersPage /></ProtectedRoute>
+                  } />
+                  <Route path="admin/shipment-settings" element={
+                    <ProtectedRoute pageCode="admin.shipment_settings"><ShipmentSettingsPage /></ProtectedRoute>
                   } />
                 </Route>
                 <Route path="/unauthorized" element={<UnauthorizedPage />} />

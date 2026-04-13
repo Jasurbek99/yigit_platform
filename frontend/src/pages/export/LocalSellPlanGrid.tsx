@@ -37,6 +37,7 @@ import {
 } from '@/hooks/usePlanning';
 import { useSeasons } from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
+import { canDo } from '@/utils/permissions';
 import { handleCellKeyDown } from '@/utils/tableNavigation';
 import type { IWeeklyLocalSellPlan, PlanStatus } from '@/types';
 
@@ -119,7 +120,7 @@ export function LocalSellPlanGrid() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const role = user?.role;
-  const canEdit = role === 'export_manager' || role === 'director' || role === 'seller';
+  const canEdit = canDo(user, 'local_sell_plan', 'edit');
   const isManager = role === 'export_manager' || role === 'director';
 
   const [selectedWeek, setSelectedWeek] = useState<Dayjs | null>(dayjs());

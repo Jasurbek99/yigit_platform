@@ -35,6 +35,7 @@ import {
   useUpdateBlock,
 } from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
+import { canDo } from '@/utils/permissions';
 import type { IGreenhouseBlockSub } from '@/types';
 
 const { Text } = Typography;
@@ -64,7 +65,7 @@ export default function BlockDetailPage() {
   const { data: block, isLoading, isError } = useAdminBlock(blockId);
   const { data: varieties = [] } = useTomatoVarieties();
 
-  const canWrite = user?.is_superuser || user?.role === 'director';
+  const canWrite = canDo(user, 'greenhouse_block', 'edit');
 
   const varietyOptions = varieties.map((v) => ({ value: v.id, label: v.name }));
 

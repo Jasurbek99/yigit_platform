@@ -1,4 +1,4 @@
-import { Table } from 'antd';
+import { Progress, Table } from 'antd';
 import { useTranslation } from 'react-i18next';
 import type { IQuotaDashboardFirm } from '@/types';
 
@@ -9,10 +9,6 @@ interface IProps {
 
 function fmtKg(val: number): string {
   return Number(val).toLocaleString();
-}
-
-function fmtPct(val: number): string {
-  return `${Number(val).toFixed(1)}%`;
 }
 
 function buildTotals(data: IQuotaDashboardFirm[]): IQuotaDashboardFirm {
@@ -28,6 +24,12 @@ function buildTotals(data: IQuotaDashboardFirm[]): IQuotaDashboardFirm {
     unused_kg: data.reduce((s, r) => s + r.unused_kg, 0),
     is_blocked: false,
   };
+}
+
+function shortfallColor(pct: number): string {
+  if (pct > 30) return '#ff4d4f';
+  if (pct > 15) return '#fa8c16';
+  return '#52c41a';
 }
 
 export function QuotaPerFirmTable({ data, expiredPerFirm = {} }: IProps) {
@@ -93,14 +95,16 @@ export function QuotaPerFirmTable({ data, expiredPerFirm = {} }: IProps) {
       sorter: (a: IQuotaDashboardFirm, b: IQuotaDashboardFirm) => a.not_given_kg - b.not_given_kg,
     },
     {
-      title: t('quota_dashboard.not_given_pct'),
-      dataIndex: 'not_given_pct',
-      key: 'not_given_pct',
-      align: 'right' as const,
-      render: (v: number) => (
-        <span style={{ color: v > 30 ? '#ff4d4f' : v > 15 ? '#fa8c16' : undefined }}>
-          {fmtPct(v)}
-        </span>
+      title: t('quota_dashboard.shortfall'),
+      key: 'shortfall_bar',
+      width: 120,
+      render: (_: unknown, row: IQuotaDashboardFirm) => (
+        <Progress
+          percent={Math.min(Math.round(row.not_given_pct), 100)}
+          size="small"
+          strokeColor={shortfallColor(row.not_given_pct)}
+          format={(pct) => `${pct}%`}
+        />
       ),
       sorter: (a: IQuotaDashboardFirm, b: IQuotaDashboardFirm) => a.not_given_pct - b.not_given_pct,
     },
@@ -109,6 +113,7 @@ export function QuotaPerFirmTable({ data, expiredPerFirm = {} }: IProps) {
       dataIndex: 'unused_kg',
       key: 'unused_kg',
       align: 'right' as const,
+      responsive: ['lg' as const],
       render: (v: number) => (
         <span style={{ color: v > 0 ? '#fa8c16' : undefined }}>{fmtKg(v)}</span>
       ),
@@ -118,6 +123,7 @@ export function QuotaPerFirmTable({ data, expiredPerFirm = {} }: IProps) {
       title: t('quota_dashboard.expired_unused'),
       key: 'expired_unused',
       align: 'right' as const,
+      responsive: ['lg' as const],
       render: (_: unknown, row: IQuotaDashboardFirm) => {
         const v = expiredPerFirm[row.export_firm] ?? 0;
         return <span style={{ color: v > 0 ? '#ff4d4f' : undefined }}>{fmtKg(v)}</span>;
@@ -126,6 +132,8 @@ export function QuotaPerFirmTable({ data, expiredPerFirm = {} }: IProps) {
         (expiredPerFirm[a.export_firm] ?? 0) - (expiredPerFirm[b.export_firm] ?? 0),
     },
   ];
+
+  const totalExpired = Object.values(expiredPerFirm).reduce((s, v) => s + v, 0);
 
   const summaryRow = (
     <Table.Summary.Row style={{ background: '#fafafa', fontWeight: 600 }}>
@@ -139,15 +147,15 @@ export function QuotaPerFirmTable({ data, expiredPerFirm = {} }: IProps) {
           {fmtKg(totals.not_given_kg)}
         </span>
       </Table.Summary.Cell>
-      <Table.Summary.Cell index={6} align="right">—</Table.Summary.Cell>
+      <Table.Summary.Cell index={6}>—</Table.Summary.Cell>
       <Table.Summary.Cell index={7} align="right">
         <span style={{ color: totals.unused_kg > 0 ? '#fa8c16' : undefined }}>
           {fmtKg(totals.unused_kg)}
         </span>
       </Table.Summary.Cell>
       <Table.Summary.Cell index={8} align="right">
-        <span style={{ color: Object.values(expiredPerFirm).reduce((s, v) => s + v, 0) > 0 ? '#ff4d4f' : undefined }}>
-          {fmtKg(Object.values(expiredPerFirm).reduce((s, v) => s + v, 0))}
+        <span style={{ color: totalExpired > 0 ? '#ff4d4f' : undefined }}>
+          {fmtKg(totalExpired)}
         </span>
       </Table.Summary.Cell>
     </Table.Summary.Row>
@@ -163,7 +171,10 @@ export function QuotaPerFirmTable({ data, expiredPerFirm = {} }: IProps) {
       summary={() => summaryRow}
       rowClassName={(row) => (row.is_blocked ? 'quota-row-blocked' : '')}
       onRow={(row) => ({
-        style: row.is_blocked ? { background: '#fff1f0' } : undefined,
+        style: {
+          ...(row.is_blocked ? { background: '#fff1f0' } : undefined),
+          ...(row.not_given_pct > 30 ? { borderLeft: '3px solid #ff4d4f' } : undefined),
+        },
       })}
     />
   );

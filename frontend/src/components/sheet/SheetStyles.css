@@ -1,0 +1,399 @@
+/* ══════════════════════════════════════════════════════════════════════
+   YGT Shipment Sheet — styles matching YGT_Shipment_sheet_style.html
+   ══════════════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --bg: #f7f8fa;
+  --surface: #ffffff;
+  --border: #eaecf0;
+  --border-strong: #d0d5dd;
+  --text-primary: #101828;
+  --text-secondary: #475467;
+  --text-tertiary: #98a2b3;
+  --blue-50: #eff8ff;
+  --blue-100: #d1e9ff;
+  --blue-500: #2e90fa;
+  --blue-600: #1570ef;
+  --blue-700: #175cd3;
+  --purple-50: #f4f3ff;
+  --purple-500: #7a5af8;
+  --purple-700: #5925dc;
+  --success-50: #ecfdf3;
+  --success-500: #12b76a;
+  --success-700: #027a48;
+  --warning-50: #fffaeb;
+  --warning-500: #f79009;
+  --error-50: #fef3f2;
+  --error-500: #f04438;
+  --error-700: #b42318;
+  --pink-50: #fdf2fa;
+  --pink-500: #ee46bc;
+  --cyan-50: #ecfeff;
+  --cyan-500: #06aed4;
+  --gray-25: #fcfcfd;
+  --gray-50: #f9fafb;
+  --gray-100: #f2f4f7;
+  --gray-200: #eaecf0;
+  --gray-300: #d0d5dd;
+  --gray-400: #98a2b3;
+  --gray-500: #667085;
+  --gray-600: #475467;
+  --gray-700: #344054;
+  --gray-800: #1d2939;
+  --gray-900: #101828;
+}
+
+/* ═══ PAGE LAYOUT ═══ */
+.sheet-page {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 64px);
+  background: var(--bg);
+  overflow: hidden;
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ═══ TOOLBAR ═══ */
+.sheet-toolbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.sheet-toolbar__left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sheet-toolbar__right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sheet-toolbar__toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ═══ GRID CONTAINER ═══ */
+.sheet-grid {
+  flex: 1;
+  overflow: auto;
+  background: var(--surface);
+  position: relative;
+}
+
+/* ═══ HEADER ROW (column headers) ═══ */
+.sheet-header-row {
+  background: var(--gray-800);
+  color: #fff;
+  z-index: 10;
+}
+
+/* ═══ COLUMN HEADER ═══ */
+.sheet-col-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid rgba(255,255,255,0.08);
+  padding: 2px 4px;
+  user-select: none;
+}
+.sheet-col-header__seq {
+  display: block;
+  font-size: 9px;
+  color: rgba(255,255,255,0.45);
+  font-weight: 500;
+  font-family: 'JetBrains Mono', monospace;
+}
+.sheet-col-header__code {
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: -0.2px;
+}
+
+/* ═══ FROZEN TOP SECTION ═══ */
+.sheet-frozen-top {
+  background: var(--surface);
+  border-bottom: 3px solid var(--blue-500);
+  box-shadow: 0 4px 12px rgba(16,24,40,0.08);
+  z-index: 5;
+  position: relative;
+}
+
+/* ═══ ROWS ═══ */
+.sheet-row {
+  border-bottom: 1px solid var(--border);
+}
+
+/* ═══ FROZEN LEFT LABEL COLUMNS ═══ */
+.sheet-label-col {
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--surface);
+  z-index: 3;
+}
+
+/* Col A: Row number */
+.sheet-label-col--num {
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--gray-400);
+  background: var(--gray-50);
+  border-right-color: var(--gray-200);
+}
+
+/* Col B: Who (dark background) */
+.sheet-label-col--who {
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: var(--gray-800);
+  color: rgba(255,255,255,0.9);
+  border-color: rgba(255,255,255,0.08);
+}
+
+/* Col C: Field name */
+.sheet-label-col--field {
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: var(--gray-50);
+  color: var(--gray-700);
+  border-right: 2px solid var(--gray-300);
+}
+
+/* Header row frozen cols */
+.sheet-header-row .sheet-label-col {
+  background: var(--gray-800);
+  color: #fff;
+  border-color: rgba(255,255,255,0.08);
+}
+.sheet-header-row .sheet-label-col--num {
+  background: var(--gray-800);
+  color: rgba(255,255,255,0.45);
+}
+.sheet-header-row .sheet-label-col--who {
+  background: var(--gray-800);
+  color: rgba(255,255,255,0.7);
+}
+.sheet-header-row .sheet-label-col--field {
+  background: var(--gray-800);
+  color: #fff;
+  border-right-color: var(--gray-700);
+}
+
+/* ═══ DATA CELLS ═══ */
+.sheet-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--gray-700);
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: default;
+  transition: background 0.08s;
+  box-sizing: border-box;
+}
+.sheet-cell__text {
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+.sheet-cell__code {
+  color: var(--blue-600);
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+.sheet-cell__country {
+  font-weight: 600;
+  font-family: 'DM Sans', sans-serif;
+}
+.sheet-cell__tags {
+  display: flex;
+  gap: 2px;
+  overflow: hidden;
+}
+
+/* ═══ ROW ACCENT STYLES ═══ */
+/* Match prototype: subtle tints with colored left border on field col */
+
+.sheet-cell--base {
+  background: var(--surface);
+}
+.sheet-cell--alt {
+  background: var(--gray-25);
+}
+
+/* Key info rows — blue accent */
+.sheet-cell--key {
+  background: #fafcff;
+}
+.sheet-row:has(.sheet-cell--key) .sheet-label-col--field {
+  background: var(--blue-50);
+  color: var(--blue-700);
+  border-left: 3px solid var(--blue-500);
+}
+
+/* Transport rows — cyan accent */
+.sheet-cell--transport {
+  background: #fafeff;
+}
+.sheet-row:has(.sheet-cell--transport) .sheet-label-col--field {
+  background: var(--cyan-50);
+  color: var(--cyan-500);
+  font-weight: 600;
+  border-left: 3px solid var(--cyan-500);
+}
+.sheet-row:has(.sheet-cell--transport) .sheet-label-col--who {
+  background: var(--gray-700);
+}
+
+/* Status rows — amber accent */
+.sheet-cell--status {
+  background: var(--surface);
+}
+.sheet-row:has(.sheet-cell--status) .sheet-label-col--field {
+  background: var(--warning-50);
+  color: var(--warning-500);
+  border-left: 3px solid var(--warning-500);
+}
+
+/* Report rows — green accent */
+.sheet-cell--report {
+  background: var(--surface);
+}
+.sheet-row:has(.sheet-cell--report) .sheet-label-col--field {
+  background: var(--success-50);
+  color: var(--success-700);
+  border-left: 3px solid var(--success-500);
+}
+
+/* Separator */
+.sheet-cell--separator {
+  background: var(--gray-100);
+  color: var(--gray-400);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  height: 6px;
+  padding: 0;
+  border: none;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ═══ CELL CONTENT STYLES ═══ */
+.c-ok { color: var(--success-500); font-weight: 700; }
+.c-weight { color: var(--gray-900); font-weight: 700; }
+.c-time { color: var(--gray-500); font-size: 10px; }
+.c-firm { font-weight: 600; color: var(--gray-800); font-size: 10px; }
+.c-firm-split { color: var(--purple-700); font-weight: 700; font-size: 10px; }
+.c-driver { font-family: 'DM Sans', sans-serif; font-size: 11px; color: var(--gray-700); }
+.c-plate { font-size: 10px; font-weight: 600; color: var(--gray-600); letter-spacing: 0.3px; }
+.c-phone { font-size: 9px; color: var(--gray-400); }
+.c-dash { color: var(--gray-300); }
+.c-miss { background: var(--error-50) !important; color: var(--error-500); font-weight: 700; }
+
+/* Country colors */
+.c-kz { color: var(--blue-600); font-weight: 600; }
+.c-ru { color: var(--purple-700); font-weight: 600; }
+.c-by { color: var(--pink-500); font-weight: 600; }
+
+/* ═══ INTERACTIVE STATES ═══ */
+.sheet-cell--editable {
+  cursor: pointer;
+}
+.sheet-cell--editable:hover {
+  background: var(--blue-50) !important;
+  box-shadow: inset 0 0 0 1.5px var(--blue-500);
+}
+.sheet-cell--active {
+  box-shadow: inset 0 0 0 2px var(--blue-500);
+  z-index: 1;
+}
+.sheet-cell--editing {
+  box-shadow: inset 0 0 0 2px var(--blue-500);
+  z-index: 2;
+  background: #fff;
+  padding: 1px;
+}
+
+/* ═══ GAPY SATYS ═══ */
+.sheet-cell--gapy {
+  background: var(--pink-50) !important;
+}
+.sheet-cell--gapy .sheet-cell__text,
+.sheet-cell--gapy .sheet-cell__code {
+  color: var(--pink-500);
+}
+.sheet-cell--gapy-hidden {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gray-300);
+  font-size: 10px;
+  background: var(--gray-50);
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  box-sizing: border-box;
+}
+
+/* ═══ TAGS (inline pills) ═══ */
+.sheet-cell .ant-tag {
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  font-family: 'DM Sans', sans-serif !important;
+  letter-spacing: -0.1px;
+  border-radius: 4px !important;
+  line-height: 16px !important;
+  padding: 1px 7px !important;
+  margin: 0 !important;
+}
+
+/* ═══ LOADING STATE ═══ */
+.sheet-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 400px;
+}
+
+/* ═══ SCROLL SHADOW (bottom panel) ═══ */
+.sheet-scrollable-bottom {
+  background:
+    linear-gradient(var(--surface) 30%, transparent),
+    linear-gradient(transparent, var(--surface) 70%) 0 100%,
+    radial-gradient(farthest-side at 50% 0, rgba(16,24,40,0.08), transparent),
+    radial-gradient(farthest-side at 50% 100%, rgba(16,24,40,0.08), transparent) 0 100%;
+  background-repeat: no-repeat;
+  background-size: 100% 20px, 100% 20px, 100% 8px, 100% 8px;
+  background-attachment: local, local, scroll, scroll;
+}

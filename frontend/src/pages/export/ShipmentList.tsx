@@ -12,6 +12,7 @@ import { StatusTag } from '@/components/StatusTag';
 import { ShipmentCreateModal } from '@/components/ShipmentCreateModal';
 import { useShipments } from '@/hooks/useShipments';
 import { useAuth } from '@/hooks/useAuth';
+import { canDo } from '@/utils/permissions';
 import { COLORS, FONT } from '@/constants/styles';
 import type { IShipmentListItem } from '@/types';
 
@@ -88,7 +89,7 @@ export default function ShipmentList() {
   function setSearch(s: string) { updateParams({ search: s || undefined, page: undefined }); }
   function setPhaseFilter(v: string | undefined) { updateParams({ phase: v, page: undefined }); }
 
-  const canCreate = user?.role === 'export_manager' || user?.role === 'director';
+  const canCreate = canDo(user, 'shipment', 'create');
 
   const { data, isLoading } = useShipments({
     page,

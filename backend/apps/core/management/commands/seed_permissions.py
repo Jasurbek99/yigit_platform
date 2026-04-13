@@ -36,7 +36,7 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
         'dashboard', 'export.shipments', 'export.kanban',
     },
     'document_team': {
-        'dashboard', 'export.shipments', 'export.kanban',
+        'dashboard', 'export.shipments', 'export.kanban', 'export.quota',
     },
     'transport': {
         'dashboard', 'export.shipments', 'export.kanban',
@@ -79,6 +79,7 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
     },
     'document_team': {
         'shipment': _VE,
+        'quota_issuance': _VCE,
     },
     'transport': {
         'shipment': _VE,
@@ -106,7 +107,7 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
 
 
 # ── Field permission defaults ────────────────────────────────────────────
-# Derived from ROLE_EDITABLE_FIELDS in permissions.py.
+# Source of truth for RoleFieldPermission rows.
 
 FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
     'warehouse_chief': {
@@ -114,6 +115,7 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
     },
     'document_team': {
         'shipment': ['box_count', 'pallet_count', 'weight_net', 'weight_gross', 'notes'],
+        'quota_issuance': ['*'],
     },
     'transport': {
         'shipment': ['vehicle_condition', 'vehicle_condition_note', 'route_note'],

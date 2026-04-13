@@ -6,6 +6,7 @@ import type { ProColumns } from '@ant-design/pro-components';
 import { useTranslation } from 'react-i18next';
 import { useAdminFirms } from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
+import { canDo } from '@/utils/permissions';
 import type { IExportFirm } from '@/types';
 
 const { Title, Text } = Typography;
@@ -15,20 +16,23 @@ export default function ExportFirmsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const canCreate =
-    user?.is_superuser ||
-    user?.role === 'director' ||
-    user?.permissions?.includes('*') ||
-    user?.permissions?.includes('add_exportfirm');
+  const canCreate = canDo(user, 'export_firm', 'create');
 
   const { data, isLoading, isError } = useAdminFirms();
   const rows = data ?? [];
 
   const columns: ProColumns<IExportFirm>[] = [
     {
+      title: '#',
+      dataIndex: 'index',
+      width: 50,
+      search: false,
+      render: (_, __, index) => index + 1,
+    },
+    {
       title: t('firms_admin.code'),
       dataIndex: 'code',
-      width: 90,
+      width: 100,
       search: false,
       sorter: (a, b) => a.code.localeCompare(b.code),
     },

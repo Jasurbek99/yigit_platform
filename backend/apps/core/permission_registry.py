@@ -34,6 +34,7 @@ PAGE_REGISTRY: dict[str, str] = OrderedDict([
     ('admin.import_firms',      'Admin: Import Firms'),
     ('admin.permissions',       'Admin: Permissions'),
     ('admin.blocks',            'Admin: Blocks'),
+    ('admin.customers',         'Admin: Customers'),
     ('admin.truck_dest',        'Admin: Truck Destinations'),
 ])
 

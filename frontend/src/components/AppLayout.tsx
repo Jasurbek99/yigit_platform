@@ -18,6 +18,8 @@ import {
   IconMenu2,
   IconShield,
   IconBuildingWarehouse,
+  IconLayoutGrid,
+  IconUser,
 } from '@tabler/icons-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -151,6 +153,8 @@ export default function AppLayout() {
   const ROUTE_LABELS: Record<string, string> = {
     '/': t('nav.dashboard'),
     '/export/shipments': t('nav.shipments'),
+    '/export/shipments/sheet': t('nav.shipment_sheet'),
+    '/export/shipments/dashboard': t('nav.shipment_dashboard'),
     '/export/kanban': t('nav.kanban'),
     '/export/overdue': t('nav.overdue'),
     '/export/advances': t('nav.advances'),
@@ -166,7 +170,9 @@ export default function AppLayout() {
     '/admin/import-firms': t('nav.admin_import_firms'),
     '/admin/permissions': t('nav.admin_permissions'),
     '/admin/blocks': t('nav.admin_blocks'),
+    '/admin/customers': t('nav.admin_customers'),
     '/admin/truck-destinations': t('nav.admin_truck_dest'),
+    '/admin/shipment-settings': t('nav.admin_shipment_settings'),
   };
 
   const currentPageLabel = location.pathname.startsWith('/shipments/')
@@ -189,6 +195,8 @@ export default function AppLayout() {
     ]},
     { label: t('nav.group_export'), items: [
       { key: '/export/shipments', icon: <IconTruck size={15} />, label: t('nav.shipments') },
+      { key: '/export/shipments/sheet', icon: <IconLayoutGrid size={15} />, label: t('nav.shipment_sheet') },
+      { key: '/export/shipments/dashboard', icon: <IconLayoutDashboard size={15} />, label: t('nav.shipment_dashboard') },
       { key: '/export/kanban', icon: <IconLayoutKanban size={15} />, label: t('nav.kanban') },
       { key: '/export/overdue', icon: <IconAlertTriangle size={15} />, label: t('nav.overdue') },
       { key: '/export/advances', icon: <IconBuildingBank size={15} />, label: t('nav.advances') },
@@ -206,8 +214,10 @@ export default function AppLayout() {
       { key: '/admin/seasons', icon: <IconCalendar size={15} />, label: t('nav.admin_seasons') },
       { key: '/admin/firms', icon: <IconBuildingBank size={15} />, label: t('nav.admin_firms') },
       { key: '/admin/import-firms', icon: <IconBuildingBank size={15} />, label: t('nav.admin_import_firms') },
+      { key: '/admin/customers', icon: <IconUser size={15} />, label: t('nav.admin_customers') },
       { key: '/admin/blocks', icon: <IconBuildingWarehouse size={15} />, label: t('nav.admin_blocks') },
       { key: '/admin/truck-destinations', icon: <IconTruck size={15} />, label: t('nav.admin_truck_dest') },
+      { key: '/admin/shipment-settings', icon: <IconLayoutGrid size={15} />, label: t('nav.admin_shipment_settings') },
       { key: '/admin/permissions', icon: <IconShield size={15} />, label: t('nav.admin_permissions') },
     ]},
   ];

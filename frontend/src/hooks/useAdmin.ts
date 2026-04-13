@@ -12,7 +12,11 @@ import type {
   IBlockAssignment,
   ILoadingLocation,
   ITomatoVariety,
+  ICustomer,
   ITruckDestination,
+  IBorderPoint,
+  IShipmentStatusType,
+  IShipmentOptionType,
   UserRole,
 } from '@/types';
 
@@ -429,6 +433,7 @@ export function useCities(countryId?: number | null) {
       const { data } = await api.get<IApiListResponse<ICity> | ICity[]>(url);
       return Array.isArray(data) ? data : data.results;
     },
+    enabled: !!countryId,
     staleTime: 300_000,
   });
 }
@@ -471,6 +476,23 @@ export function useImportFirm(id: number | undefined) {
     },
     enabled: id !== undefined,
     staleTime: 30_000,
+  });
+}
+
+export function useCustomers() {
+  return useQuery({
+    queryKey: ['core-customers'],
+    queryFn: async (): Promise<{ id: number; name: string }[]> => {
+      if (USE_MOCK) {
+        const { MOCK_CUSTOMERS } = await import('@/mock/customers');
+        return MOCK_CUSTOMERS.map((c) => ({ id: c.id, name: c.name }));
+      }
+      const { data } = await api.get<IApiListResponse<{ id: number; name: string }> | { id: number; name: string }[]>(
+        '/core/customers/?fields=minimal&page_size=500',
+      );
+      return Array.isArray(data) ? data : data.results;
+    },
+    staleTime: 300_000,
   });
 }
 
@@ -616,6 +638,75 @@ export function useDeleteTruckDestination(options: MutationOptions = {}) {
   });
 }
 
+// ─── Customers ──────────────────────────────────────────────────────────
+
+export function useAdminCustomers() {
+  return useQuery({
+    queryKey: ['admin-customers'],
+    queryFn: async (): Promise<ICustomer[]> => {
+      if (USE_MOCK) {
+        const { MOCK_CUSTOMERS } = await import('@/mock/customers');
+        return MOCK_CUSTOMERS;
+      }
+      const { data } = await api.get<ICustomer[] | IApiListResponse<ICustomer>>(
+        '/core/customers/?page_size=500',
+      );
+      return Array.isArray(data) ? data : data.results;
+    },
+    staleTime: 60_000,
+  });
+}
+
+type CustomerPayload = {
+  name: string;
+  phone?: string | null;
+  default_country?: number | null;
+  default_city?: number | null;
+  import_firms?: number[];
+  is_active?: boolean;
+};
+
+export function useCreateCustomer(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CustomerPayload) =>
+      api.post<ICustomer>('/core/customers/', payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-customers'] });
+      queryClient.invalidateQueries({ queryKey: ['core-customers'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+export function useUpdateCustomer(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...payload }: { id: number } & Partial<CustomerPayload>) =>
+      api.patch<ICustomer>(`/core/customers/${id}/`, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-customers'] });
+      queryClient.invalidateQueries({ queryKey: ['core-customers'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+export function useDeleteCustomer(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => api.delete(`/core/customers/${id}/`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-customers'] });
+      queryClient.invalidateQueries({ queryKey: ['core-customers'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
 // ─── Dynamic Permission Matrices ────────────────────────────────────────
 
 interface IPagePermMatrixResponse {
@@ -708,6 +799,117 @@ export function useSaveFieldPermissions(options: MutationOptions = {}) {
       queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
       options.onSuccess?.();
     },
+    onError: options.onError,
+  });
+}
+
+
+// ─── Border Points ──────────────────────────────────────────────────────
+
+export function useBorderPoints() {
+  return useQuery({
+    queryKey: ['core-border-points'],
+    queryFn: async (): Promise<IBorderPoint[]> => {
+      if (USE_MOCK) return [];
+      const { data } = await api.get<IApiListResponse<IBorderPoint> | IBorderPoint[]>(
+        '/core/border-points/',
+      );
+      return Array.isArray(data) ? data : data.results;
+    },
+    staleTime: 300_000,
+  });
+}
+
+export function useCreateBorderPoint(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Partial<IBorderPoint>) => api.post('/core/border-points/', payload),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['core-border-points'] }); options.onSuccess?.(); },
+    onError: options.onError,
+  });
+}
+
+export function useUpdateBorderPoint(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...payload }: { id: number } & Partial<IBorderPoint>) => api.patch(`/core/border-points/${id}/`, payload),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['core-border-points'] }); options.onSuccess?.(); },
+    onError: options.onError,
+  });
+}
+
+export function useDeleteBorderPoint(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => api.delete(`/core/border-points/${id}/`),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['core-border-points'] }); options.onSuccess?.(); },
+    onError: options.onError,
+  });
+}
+
+
+// ─── Shipment Status Types ──────────────────────────────────────────────
+
+export function useShipmentStatuses() {
+  return useQuery({
+    queryKey: ['core-status-types'],
+    queryFn: async (): Promise<IShipmentStatusType[]> => {
+      if (USE_MOCK) return [];
+      const { data } = await api.get<IApiListResponse<IShipmentStatusType> | IShipmentStatusType[]>('/core/status-types/');
+      return Array.isArray(data) ? data : data.results;
+    },
+    staleTime: 300_000,
+  });
+}
+
+export function useUpdateShipmentStatus(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...payload }: { id: number } & Partial<IShipmentStatusType>) => api.patch(`/core/status-types/${id}/`, payload),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['core-status-types'] }); options.onSuccess?.(); },
+    onError: options.onError,
+  });
+}
+
+
+// ─── Shipment Option Types (configurable dropdowns) ─────────────────────
+
+export function useShipmentOptions(category?: string) {
+  return useQuery({
+    queryKey: ['core-shipment-options', category],
+    queryFn: async (): Promise<IShipmentOptionType[]> => {
+      if (USE_MOCK) return [];
+      const url = category ? `/core/shipment-options/?category=${category}` : '/core/shipment-options/';
+      const { data } = await api.get<IApiListResponse<IShipmentOptionType> | IShipmentOptionType[]>(url);
+      return Array.isArray(data) ? data : data.results;
+    },
+    staleTime: 300_000,
+  });
+}
+
+export function useCreateShipmentOption(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Partial<IShipmentOptionType>) => api.post('/core/shipment-options/', payload),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['core-shipment-options'] }); options.onSuccess?.(); },
+    onError: options.onError,
+  });
+}
+
+export function useUpdateShipmentOption(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...payload }: { id: number } & Partial<IShipmentOptionType>) => api.patch(`/core/shipment-options/${id}/`, payload),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['core-shipment-options'] }); options.onSuccess?.(); },
+    onError: options.onError,
+  });
+}
+
+export function useDeleteShipmentOption(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => api.delete(`/core/shipment-options/${id}/`),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['core-shipment-options'] }); options.onSuccess?.(); },
     onError: options.onError,
   });
 }

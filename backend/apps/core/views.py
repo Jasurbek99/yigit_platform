@@ -11,7 +11,11 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.core.models import City, Country, ExportFirm, ShipmentStatusType, Customer, GreenhouseBlock, LoadingLocation, TomatoVariety, TruckDestination
+from apps.core.models import (
+    City, Country, BorderPoint, ExportFirm, ImportFirm, ShipmentStatusType,
+    ShipmentOptionType, Customer, GreenhouseBlock, LoadingLocation, TomatoVariety,
+    TruckDestination,
+)
 from apps.core.permissions import write_permission
 from apps.core.serializers import (
     LoginSerializer,
@@ -21,10 +25,13 @@ from apps.core.serializers import (
     ExportFirmReferenceSerializer,
     ShipmentStatusTypeSerializer,
     CustomerSerializer,
+    CustomerAdminSerializer,
     GreenhouseBlockSerializer,
     LoadingLocationSerializer,
     TomatoVarietySerializer,
     TruckDestinationSerializer,
+    BorderPointSerializer,
+    ShipmentOptionTypeSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -136,16 +143,27 @@ class ExportFirmViewSet(ReadOnlyModelViewSet):
     serializer_class = ExportFirmReferenceSerializer
 
 
-class ShipmentStatusTypeViewSet(ReadOnlyModelViewSet):
-    permission_classes = [IsAuthenticated]
-    queryset = ShipmentStatusType.objects.all()
+class ShipmentStatusTypeViewSet(ModelViewSet):
+    permission_classes = [IsAuthenticated, write_permission('director')]
+    queryset = ShipmentStatusType.objects.all().order_by('step_order')
     serializer_class = ShipmentStatusTypeSerializer
 
 
-class CustomerViewSet(ReadOnlyModelViewSet):
-    permission_classes = [IsAuthenticated]
-    queryset = Customer.objects.filter(is_active=True)
-    serializer_class = CustomerSerializer
+class CustomerViewSet(ModelViewSet):
+    permission_classes = [IsAuthenticated, write_permission('director')]
+    queryset = (
+        Customer.objects
+        .select_related('default_country', 'default_city')
+        .prefetch_related('import_firms')
+        .all()
+    )
+    filterset_fields = ['is_active']
+    search_fields = ['name', 'phone']
+
+    def get_serializer_class(self):
+        if self.request.query_params.get('fields') == 'minimal':
+            return CustomerSerializer
+        return CustomerAdminSerializer
 
 
 class GreenhouseBlockViewSet(ReadOnlyModelViewSet):
@@ -173,11 +191,36 @@ class TomatoVarietyViewSet(ReadOnlyModelViewSet):
 
 
 class TruckDestinationViewSet(ModelViewSet):
-    """GET /api/v1/core/truck-destinations/ — list active truck destinations.
+    """CRUD /api/v1/core/truck-destinations/
 
     Director can create/update/delete. All authenticated users can read.
+    List defaults to active-only; pass ?is_active=false to include inactive.
     """
 
     permission_classes = [IsAuthenticated, write_permission('director')]
     serializer_class = TruckDestinationSerializer
-    queryset = TruckDestination.objects.select_related('country').filter(is_active=True)
+    queryset = TruckDestination.objects.select_related('country').all()
+    filterset_fields = ['is_active']
+
+
+class BorderPointViewSet(ModelViewSet):
+    """CRUD /api/v1/core/border-points/"""
+
+    permission_classes = [IsAuthenticated, write_permission('director')]
+    queryset = BorderPoint.objects.all()
+    serializer_class = BorderPointSerializer
+
+
+class ShipmentOptionTypeViewSet(ModelViewSet):
+    """CRUD /api/v1/core/shipment-options/"""
+
+    permission_classes = [IsAuthenticated, write_permission('director')]
+    serializer_class = ShipmentOptionTypeSerializer
+    filterset_fields = ['category']
+
+    def get_queryset(self):
+        qs = ShipmentOptionType.objects.all()
+        category = self.request.query_params.get('category')
+        if category:
+            qs = qs.filter(category=category)
+        return qs.order_by('category', 'sort_order')

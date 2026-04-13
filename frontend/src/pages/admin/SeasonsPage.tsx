@@ -9,6 +9,7 @@ import dayjs from 'dayjs';
 import { toast } from 'sonner';
 import { useSeasons, useCreateSeason, useUpdateSeason, useDeleteSeason } from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
+import { canDo } from '@/utils/permissions';
 import type { ISeason } from '@/types';
 
 interface SeasonFormValues {
@@ -21,7 +22,9 @@ interface SeasonFormValues {
 export default function SeasonsPage() {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const isDirector = user?.role === 'director';
+  const canCreate = canDo(user, 'season', 'create');
+  const canEditSeason = canDo(user, 'season', 'edit');
+  const canDeleteSeason = canDo(user, 'season', 'delete');
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<ISeason | null>(null);
@@ -138,7 +141,7 @@ export default function SeasonsPage() {
           <Badge variant="light" color="gray">{t('common.no')}</Badge>
         ),
     },
-    ...(isDirector
+    ...((canEditSeason || canDeleteSeason)
       ? [
           {
             accessor: 'id' as keyof ISeason,
@@ -146,12 +149,16 @@ export default function SeasonsPage() {
             width: 160,
             render: (record: ISeason) => (
               <Group gap="xs">
-                <Button variant="subtle" size="compact-xs" onClick={(e) => { e.stopPropagation(); handleOpenEdit(record); }}>
-                  {t('common.edit')}
-                </Button>
-                <Button variant="subtle" size="compact-xs" color="red" onClick={(e) => { e.stopPropagation(); setDeleteTarget(record); }}>
-                  {t('common.delete')}
-                </Button>
+                {canEditSeason && (
+                  <Button variant="subtle" size="compact-xs" onClick={(e) => { e.stopPropagation(); handleOpenEdit(record); }}>
+                    {t('common.edit')}
+                  </Button>
+                )}
+                {canDeleteSeason && (
+                  <Button variant="subtle" size="compact-xs" color="red" onClick={(e) => { e.stopPropagation(); setDeleteTarget(record); }}>
+                    {t('common.delete')}
+                  </Button>
+                )}
               </Group>
             ),
           },
@@ -172,7 +179,7 @@ export default function SeasonsPage() {
             {t('seasons.subtitle')}
           </div>
         </div>
-        {isDirector && (
+        {canCreate && (
           <Button leftSection={<IconPlus size={14} />} onClick={handleOpenCreate}>
             {t('seasons.add')}
           </Button>

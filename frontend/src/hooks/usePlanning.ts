@@ -315,7 +315,7 @@ export function useTruckDestinations() {
     queryKey: ['truck-destinations'],
     queryFn: async (): Promise<ITruckDestination[]> => {
       const { data } = await api.get<ITruckDestination[] | IApiListResponse<ITruckDestination>>(
-        '/core/truck-destinations/',
+        '/core/truck-destinations/?is_active=true',
       );
       return Array.isArray(data) ? data : data.results;
     },

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import {
   Tabs,
   Card,
@@ -6,10 +6,7 @@ import {
   Button,
   Tag,
   Table,
-  Badge,
   Checkbox,
-  Drawer,
-  Divider,
   Space,
   Flex,
   Typography,
@@ -26,7 +23,6 @@ import {
   useBlockAssignments,
   useCreateBlockAssignment,
   useDeleteBlockAssignment,
-  useUpdateUserPermissions,
   usePagePermissions,
   useSavePagePermissions,
   useResourcePermissions,
@@ -156,17 +152,7 @@ function BlockAssignmentsTab({
   );
 }
 
-// ─── Legacy Permissions Tab ──────────────────────────────────────────────────
-
-interface IPermissionDef {
-  codename: string;
-  label: string;
-}
-
-interface IPermissionGroup {
-  group: string;
-  permissions: IPermissionDef[];
-}
+// ─── Role color map (shared by matrix tabs) ─────────────────────────────────
 
 const ROLE_COLOR: Record<string, string> = {
   director: 'red',
@@ -180,190 +166,6 @@ const ROLE_COLOR: Record<string, string> = {
   accountant: 'purple',
   seller: 'volcano',
 };
-
-interface PermissionsTabProps {
-  users: IAdminUser[];
-  isLoading: boolean;
-}
-
-function PermissionsTab({ users, isLoading }: PermissionsTabProps) {
-  const { t } = useTranslation();
-  const [permState, setPermState] = useState<Record<number, string[]>>({});
-  const [selectedUser, setSelectedUser] = useState<IAdminUser | null>(null);
-  const [draftPerms, setDraftPerms] = useState<string[]>([]);
-
-  // Sync permState from API data when users load (each user includes permissions[])
-  const [initialized, setInitialized] = useState(false);
-  if (!initialized && users.length > 0) {
-    const initial: Record<number, string[]> = {};
-    users.forEach((u) => { initial[u.id] = u.permissions ?? []; });
-    setPermState(initial);
-    setInitialized(true);
-  }
-
-  const permissionGroups = useMemo<IPermissionGroup[]>(() => [
-    {
-      group: t('permissions_admin.group_harvest_plan'),
-      permissions: [
-        { codename: 'add_weeklyharvestplan', label: t('permissions_admin.perm_add_weeklyharvestplan') },
-        { codename: 'change_weeklyharvestplan', label: t('permissions_admin.perm_change_weeklyharvestplan') },
-      ],
-    },
-    {
-      group: t('permissions_admin.group_firms'),
-      permissions: [
-        { codename: 'add_exportfirm',    label: t('permissions_admin.perm_add_exportfirm') },
-        { codename: 'change_exportfirm', label: t('permissions_admin.perm_change_exportfirm') },
-        { codename: 'delete_exportfirm', label: t('permissions_admin.perm_delete_exportfirm') },
-        { codename: 'add_importfirm',    label: t('permissions_admin.perm_add_importfirm') },
-        { codename: 'change_importfirm', label: t('permissions_admin.perm_change_importfirm') },
-        { codename: 'delete_importfirm', label: t('permissions_admin.perm_delete_importfirm') },
-      ],
-    },
-  ], [t]);
-
-  const updatePermissions = useUpdateUserPermissions({
-    onError: () => toast.error(t('permissions_admin.toast_perm_error')),
-  });
-
-  function openDrawer(user: IAdminUser): void {
-    setSelectedUser(user);
-    setDraftPerms(permState[user.id] ?? []);
-  }
-
-  function handleClose(): void {
-    setSelectedUser(null);
-  }
-
-  function handleSave(): void {
-    if (!selectedUser) return;
-    updatePermissions.mutate(
-      { id: selectedUser.id, permissions: draftPerms },
-      {
-        onSuccess: () => {
-          setPermState((prev) => ({ ...prev, [selectedUser.id]: draftPerms }));
-          toast.success(t('permissions_admin.toast_save_success'));
-          handleClose();
-        },
-      },
-    );
-  }
-
-  function togglePerm(codename: string, checked: boolean): void {
-    setDraftPerms((prev) =>
-      checked ? [...prev, codename] : prev.filter((p) => p !== codename),
-    );
-  }
-
-  const columns = [
-    {
-      title: t('permissions_admin.col_user'),
-      dataIndex: 'username',
-      key: 'username',
-      render: (_: unknown, record: IAdminUser) => (
-        <div>
-          <Text strong style={{ fontSize: 13 }}>{record.username}</Text>
-          {(record.first_name || record.last_name) && (
-            <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>
-              {[record.first_name, record.last_name].filter(Boolean).join(' ')}
-            </Text>
-          )}
-        </div>
-      ),
-    },
-    {
-      title: t('permissions_admin.col_role'),
-      dataIndex: 'role',
-      key: 'role',
-      render: (role: string) => (
-        <Tag color={ROLE_COLOR[role] ?? 'default'}>{role}</Tag>
-      ),
-    },
-    {
-      title: t('permissions_admin.col_permissions'),
-      key: 'permissions',
-      render: (_: unknown, record: IAdminUser) => {
-        const count = (permState[record.id] ?? []).length;
-        return count > 0 ? (
-          <Badge count={count} color="blue" />
-        ) : (
-          <Text type="secondary" style={{ fontSize: 12 }}>{t('permissions_admin.perm_count', { count: 0 })}</Text>
-        );
-      },
-    },
-    {
-      title: '',
-      key: 'actions',
-      render: (_: unknown, record: IAdminUser) => (
-        <Button size="small" onClick={() => openDrawer(record)}>
-          {t('common.manage')}
-        </Button>
-      ),
-    },
-  ];
-
-  return (
-    <>
-      <Table<IAdminUser>
-        rowKey="id"
-        dataSource={users}
-        columns={columns}
-        loading={isLoading}
-        size="small"
-        pagination={false}
-        style={{ background: '#fff', borderRadius: 8 }}
-      />
-
-      <Drawer
-        open={selectedUser !== null}
-        maskClosable={false}
-        title={
-          selectedUser && (
-            <Space>
-              <Text strong>{selectedUser.username}</Text>
-              <Tag color={ROLE_COLOR[selectedUser.role] ?? 'default'}>
-                {selectedUser.role}
-              </Tag>
-            </Space>
-          )
-        }
-        width={420}
-        onClose={handleClose}
-        footer={
-          <Flex justify="flex-end" gap={8}>
-            <Button onClick={handleClose}>{t('common.cancel')}</Button>
-            <Button
-              type="primary"
-              onClick={handleSave}
-              loading={updatePermissions.isPending}
-            >
-              {t('common.save')}
-            </Button>
-          </Flex>
-        }
-      >
-        {permissionGroups.map((pg) => (
-          <div key={pg.group}>
-            <Divider style={{ fontSize: 12 }}>
-              {pg.group}
-            </Divider>
-            <Space direction="vertical" size={8} style={{ paddingLeft: 8 }}>
-              {pg.permissions.map((perm) => (
-                <Checkbox
-                  key={perm.codename}
-                  checked={draftPerms.includes(perm.codename)}
-                  onChange={(e) => togglePerm(perm.codename, e.target.checked)}
-                >
-                  {perm.label}
-                </Checkbox>
-              ))}
-            </Space>
-          </div>
-        ))}
-      </Drawer>
-    </>
-  );
-}
 
 // ─── Page Visibility Matrix Tab ──────────────────────────────────────────────
 
@@ -775,13 +577,6 @@ export default function PermissionsPage() {
                 assignments={assignments}
                 isLoading={blockTabLoading}
               />
-            ),
-          },
-          {
-            key: 'permissions',
-            label: t('permissions_admin.tab_permissions'),
-            children: (
-              <PermissionsTab users={allUsers} isLoading={usersLoading} />
             ),
           },
         ]}

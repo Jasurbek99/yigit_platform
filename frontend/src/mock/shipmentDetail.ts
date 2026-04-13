@@ -6,6 +6,7 @@ export const MOCK_SHIPMENT_DETAIL: IShipmentDetail = {
   date: '2025-02-01',
   status: 4,
   status_display: 'Departed',
+  status_step: 4,
   status_code: 'yola_chykdy',
   allowed_transitions: ['serhet_tm'],
   country_name: 'Kazakhstan',

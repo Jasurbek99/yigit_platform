@@ -55,6 +55,7 @@ class ShipmentListSerializer(serializers.ModelSerializer):
 
     # DB column is status_id (FK); expose both ID and display name per api-contract
     status_display = serializers.CharField(source='status.name_en', read_only=True)
+    status_step = serializers.IntegerField(source='status.step_order', read_only=True)
     country_name = serializers.CharField(source='country.name_en', read_only=True)
     customer_name = serializers.CharField(source='customer.name', read_only=True)
 
@@ -66,6 +67,7 @@ class ShipmentListSerializer(serializers.ModelSerializer):
             'date',
             'status',
             'status_display',
+            'status_step',
             'country_name',
             'customer_name',
             'weight_net',
@@ -89,6 +91,127 @@ class OverdueShipmentSerializer(ShipmentListSerializer):
 
     class Meta(ShipmentListSerializer.Meta):
         fields = ShipmentListSerializer.Meta.fields + ['days_overdue', 'has_sales_report']
+
+
+class SheetFirmSplitInlineSerializer(serializers.ModelSerializer):
+    """Inline firm split for sheet view — minimal fields."""
+
+    firm_code = serializers.CharField(source='export_firm.code', read_only=True)
+    firm_name = serializers.CharField(source='export_firm.name_en', read_only=True)
+
+    class Meta:
+        model = ShipmentFirmSplit
+        fields = ['firm_code', 'firm_name', 'weight_kg', 'amount_usd']
+
+
+class SheetBlockSourceInlineSerializer(serializers.ModelSerializer):
+    """Inline block source for sheet view — minimal fields."""
+
+    block_code = serializers.CharField(source='block.code', read_only=True)
+
+    class Meta:
+        model = ShipmentBlockSource
+        fields = ['block_code', 'weight_kg']
+
+
+class ShipmentSheetSerializer(serializers.ModelSerializer):
+    """Flat serializer returning all 44+ fields for the spreadsheet view.
+
+    Used by GET /api/v1/export/shipments/sheet/ — returns ALL shipments
+    for the active season without pagination.
+
+    Notes:
+      - quality_* fields use source='quality.*' — the OneToOne related_name
+        on QualityDocument is 'quality', not 'quality_document'.
+      - variety_code maps to TomatoVariety.type (the variety has no code field).
+      - has_sales_report must be annotated by the viewset queryset before
+        passing to this serializer.
+    """
+
+    # Status
+    status_display = serializers.CharField(source='status.name_en', read_only=True)
+    status_code = serializers.CharField(source='status.code', read_only=True)
+    status_step = serializers.IntegerField(source='status.step_order', read_only=True)
+
+    # Geography
+    country_name = serializers.CharField(source='country.name_en', read_only=True, default=None)
+    country_code = serializers.CharField(source='country.code', read_only=True, default=None)
+    city_name = serializers.CharField(source='city.name', read_only=True, default=None)
+    border_point_name = serializers.CharField(source='border_point.name', read_only=True, default=None)
+
+    # Customer
+    customer_name = serializers.CharField(source='customer.name', read_only=True, default=None)
+    import_firm_name = serializers.CharField(source='import_firm.name_en', read_only=True, default=None)
+
+    # Product — TomatoVariety has no 'code' field; type is the closest equivalent
+    variety_name = serializers.CharField(source='variety.name', read_only=True, default=None)
+    variety_code = serializers.CharField(source='variety.type', read_only=True, default=None)
+
+    # Transport
+    vehicle_responsible_display = serializers.CharField(source='vehicle_responsible', read_only=True)
+
+    # Audit
+    created_by_name = serializers.CharField(source='created_by.username', read_only=True, default=None)
+
+    # Quality document flags (flattened) — related_name on QualityDocument is 'quality'
+    doc_azyk = serializers.BooleanField(source='quality.azyk_maglumatnama', read_only=True, default=False)
+    doc_suriji = serializers.BooleanField(source='quality.suriji_gozukdiriji', read_only=True, default=False)
+    doc_hil = serializers.BooleanField(source='quality.hil_sertifikaty', read_only=True, default=False)
+    doc_kalibrowka = serializers.BooleanField(source='quality.kalibrowka_analiz', read_only=True, default=False)
+
+    # Annotated by viewset — Exists(SalesReport.objects.filter(shipment=OuterRef('pk')))
+    has_sales_report = serializers.BooleanField(read_only=True)
+
+    # Inline related data
+    firm_splits = SheetFirmSplitInlineSerializer(many=True, read_only=True)
+    block_sources = SheetBlockSourceInlineSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Shipment
+        fields = [
+            # Identifiers
+            'id', 'cargo_code', 'date',
+            # Status
+            'status', 'status_display', 'status_code', 'status_step',
+            # Geography
+            'country', 'country_name', 'country_code',
+            'city', 'city_name',
+            'border_point', 'border_point_name',
+            # Customer
+            'customer', 'customer_name',
+            'import_firm', 'import_firm_name',
+            # Product
+            'variety', 'variety_name', 'variety_code',
+            # Weight
+            'weight_gross', 'weight_net', 'packaging_kg',
+            'pallet_count', 'box_count', 'rejected_weight_kg',
+            # Transport
+            'vehicle_responsible', 'vehicle_responsible_display',
+            'truck_head_id', 'trailer_id', 'driver_id',
+            'transport_temp_c', 'transit_days',
+            'has_peregruz', 'peregruz_city', 'peregruz_date',
+            # Finance
+            'price_per_kg', 'total_amount_usd',
+            'is_gapy_satys',
+            # Operational status (sheet rows 5, 6, 14)
+            'customs_clearance', 'documents_status', 'harvest_status',
+            # AD-1 Timestamps
+            'loading_started_at', 'customs_entry_at', 'customs_exit_at',
+            'departed_at', 'border_crossed_at', 'arrived_at',
+            'sale_started_at', 'sale_ended_at',
+            # AD-2 Vehicle condition
+            'vehicle_condition', 'vehicle_condition_note', 'route_note',
+            # Quality docs (flattened from OneToOne 'quality')
+            'doc_azyk', 'doc_suriji', 'doc_hil', 'doc_kalibrowka',
+            # Annotation — must be set in viewset queryset
+            'has_sales_report',
+            # Notes
+            'notes',
+            # Inline related
+            'firm_splits', 'block_sources',
+            # Audit
+            'created_by_name', 'created_at', 'updated_at',
+        ]
 
 
 class FirmSplitSerializer(serializers.ModelSerializer):
@@ -179,9 +302,27 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
 
 # All fields a user could potentially PATCH on Shipment (superset of all roles)
 _ALL_PATCHABLE_FIELDS = {
+    # Weight / packaging
     'box_count', 'pallet_count', 'weight_net', 'weight_gross', 'packaging_kg',
+    'rejected_weight_kg',
+    # Vehicle / transport
     'vehicle_condition', 'vehicle_condition_note', 'route_note',
-    'price_per_kg', 'total_amount_usd', 'notes',
+    'vehicle_responsible', 'has_peregruz', 'peregruz_city', 'peregruz_date',
+    'transport_temp_c', 'transit_days',
+    # Finance
+    'price_per_kg', 'total_amount_usd',
+    # Geography / customer
+    'country', 'city', 'customer', 'import_firm', 'border_point',
+    # Product
+    'variety',
+    # Timestamps (AD-1 fields written by transition_to, but sheet may need direct edit)
+    'loading_started_at', 'customs_entry_at', 'customs_exit_at',
+    'departed_at', 'border_crossed_at', 'arrived_at',
+    'sale_started_at', 'sale_ended_at',
+    # Operational status
+    'customs_clearance', 'documents_status', 'harvest_status',
+    # Notes
+    'notes',
 }
 
 

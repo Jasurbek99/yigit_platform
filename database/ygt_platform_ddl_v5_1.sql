@@ -169,6 +169,15 @@ CREATE TABLE core.customers (
     is_active BIT DEFAULT 1
 );
 
+CREATE TABLE core.customer_import_firms (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    customer_id BIGINT NOT NULL REFERENCES core.customers(id),
+    importfirm_id BIGINT NOT NULL REFERENCES core.import_firms(id),
+    CONSTRAINT uq_customer_importfirm UNIQUE (customer_id, importfirm_id)
+);
+CREATE INDEX ix_cif_customer ON core.customer_import_firms(customer_id);
+CREATE INDEX ix_cif_importfirm ON core.customer_import_firms(importfirm_id);
+
 CREATE TABLE core.domestic_buyers (
     id INT IDENTITY(1,1) PRIMARY KEY,
     name NVARCHAR(100) NOT NULL UNIQUE,

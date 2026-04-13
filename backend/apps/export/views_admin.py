@@ -28,7 +28,7 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 
 from apps.core.models import ExportFirm, ImportFirm, Season, User
-from apps.core.permissions import firm_write_permission, write_permission
+from apps.core.permissions import firm_write_permission, write_permission, DynamicResourcePermission
 from apps.core.roles import DIRECTOR_ONLY, PRIVILEGED_ROLES as _PRIVILEGED_ROLES
 from apps.export.models import AuditLog, Notification
 
@@ -198,8 +198,11 @@ class AuditLogViewSet(ReadOnlyModelViewSet):
 
     queryset = AuditLog.objects.select_related('user').order_by('-created_at')
 
+    def check_permissions(self, request):
+        super().check_permissions(request)
+        _require_role(request.user, _DIRECTOR_MANAGER, 'view audit logs')
+
     def get_queryset(self):
-        _require_role(self.request.user, _DIRECTOR_MANAGER, 'view audit logs')
         qs = AuditLog.objects.select_related('user').order_by('-created_at')
         params = self.request.query_params
         if model_name := params.get('model_name'):
@@ -227,7 +230,8 @@ class SeasonViewSet(ModelViewSet):
     DELETE /api/v1/export/admin/seasons/{id}/  — delete (director only)
     """
 
-    permission_classes = [IsAuthenticated, write_permission(*_DIRECTOR_ONLY)]
+    resource_code = 'season'
+    permission_classes = [IsAuthenticated, DynamicResourcePermission]
     serializer_class = SeasonSerializer
     queryset = Season.objects.all().order_by('-start_date')
 
@@ -245,7 +249,8 @@ class ExportFirmViewSet(ModelViewSet):
     DELETE /api/v1/export/admin/firms/{id}/  — delete (director / delete_exportfirm perm)
     """
 
-    permission_classes = [IsAuthenticated, firm_write_permission('core', 'exportfirm', 'director')]
+    resource_code = 'export_firm'
+    permission_classes = [IsAuthenticated, DynamicResourcePermission]
     serializer_class = ExportFirmSerializer
     queryset = ExportFirm.objects.all().order_by('name_en')
 
@@ -263,8 +268,9 @@ class ImportFirmViewSet(ModelViewSet):
     DELETE /api/v1/export/admin/import-firms/{id}/  — delete (director / delete_importfirm perm)
     """
 
+    resource_code = 'import_firm'
     parser_classes = [MultiPartParser, JSONParser]
-    permission_classes = [IsAuthenticated, firm_write_permission('core', 'importfirm', 'director')]
+    permission_classes = [IsAuthenticated, DynamicResourcePermission]
     serializer_class = ImportFirmSerializer
     queryset = ImportFirm.objects.select_related('country', 'city').order_by('name_company')
 
