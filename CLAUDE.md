@@ -13,6 +13,7 @@ Django + React platform replacing Excel-based greenhouse tomato export operation
 - **API names ≠ DB columns**: serializer maps `code` → `cargo_code`, `weight_net_kg` → `weight_net`
 - **Cross-app FKs**: string references (`'core.ExportFirm'`), not direct imports
 - **models/ packages**: MUST have `__init__.py` with re-exports or migrations silently break
+- **Obsidian docs**: When adding/changing any feature, component, endpoint, or model — update the corresponding doc in `docs/obsidian/`. See `docs/obsidian/00-index.md` for the full vault structure.
 
 ## Agents — use for domain-specific work
 
