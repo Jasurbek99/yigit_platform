@@ -4,7 +4,6 @@ import {
   Card,
   Col,
   DatePicker,
-  Divider,
   Progress,
   Row,
   Segmented,
@@ -23,11 +22,13 @@ import { useSeasons } from '@/hooks/useAdmin';
 import { useQuotaDashboard, useQuotaIssuances } from '@/hooks/useQuotaDashboard';
 import { useAuth } from '@/hooks/useAuth';
 import { canSeePage, canDo } from '@/utils/permissions';
+import { displayWeight, weightSuffix, type WeightUnit } from '@/utils/weight';
 import { QuotaPerFirmTable } from './QuotaPerFirmTable';
 import { QuotaVisualBars } from './QuotaVisualBars';
 import { QuotaWeeklyFlow } from './QuotaWeeklyFlow';
 import { LocalSellPlanGrid } from './LocalSellPlanGrid';
 import { QuotaIssuancesList, computeExpiry } from './QuotaIssuancesList';
+import { QuotaUsageTab } from './QuotaUsageTab';
 import type { ISeason } from '@/types';
 
 dayjs.extend(isoWeek);
@@ -130,10 +131,13 @@ export default function QuotaDashboard() {
   // Product type filter
   const [productType, setProductType] = useState<string>('tomato');
 
+  // Weight unit toggle (display)
+  const [weightUnit, setWeightUnit] = useState<WeightUnit>('kg');
+
   const navigate = useNavigate();
 
   // Active tab — document_team defaults to issuance log, others to firm breakdown
-  const defaultTab = canSeeAnalytics ? 'per_firm' : canSeeQuota ? 'all_quotas' : 'local_sell';
+  const defaultTab = canSeeQuota ? 'all_quotas' : 'local_sell';
   const [activeTab, setActiveTab] = useState(defaultTab);
 
   const { date_from, date_to } = useMemo(
@@ -211,6 +215,9 @@ export default function QuotaDashboard() {
 
   const seasonOptions = seasons.map((s) => ({ value: s.id, label: s.name }));
 
+  const statFmt = (v: number | string) =>
+    Number(v).toLocaleString('ru-RU', { maximumFractionDigits: weightUnit === 'ton' ? 2 : 0 });
+
   const coveragePct =
     kpis && kpis.expected_kg > 0
       ? Math.round((kpis.issued_kg / kpis.expected_kg) * 100)
@@ -221,24 +228,34 @@ export default function QuotaDashboard() {
   // export_manager/director: all 4 tabs
   const tabItems = [
     canSeeQuota && {
+      key: 'all_quotas',
+      label: t('quota_dashboard.tab_issuance_log'),
+      children: <QuotaIssuancesList weightUnit={weightUnit} />,
+    },
+    canSeeQuota && {
+      key: 'quota_usage',
+      label: t('quota_dashboard.tab_quota_usage'),
+      children: <QuotaUsageTab weightUnit={weightUnit} />,
+    },
+    canSeeLocalSell && {
+      key: 'local_sell',
+      label: t('quota_dashboard.tab_local_sell'),
+      children: <LocalSellPlanGrid />,
+    },
+    canSeeQuota && {
       key: 'per_firm',
       label: t('quota_dashboard.tab_firm_breakdown'),
-      children: <QuotaPerFirmTable data={perFirm} expiredPerFirm={expiredStats.perFirmExpired} />,
+      children: <QuotaPerFirmTable data={perFirm} expiredPerFirm={expiredStats.perFirmExpired} weightUnit={weightUnit} />,
     },
     canSeeAnalytics && {
       key: 'visual',
       label: t('quota_dashboard.tab_firm_chart'),
-      children: <QuotaVisualBars data={perFirm} />,
+      children: <QuotaVisualBars data={perFirm} weightUnit={weightUnit} />,
     },
     canSeeAnalytics && {
       key: 'weekly',
       label: t('quota_dashboard.tab_weekly_trend'),
-      children: <QuotaWeeklyFlow data={weeklyFlow} />,
-    },
-    canSeeQuota && {
-      key: 'all_quotas',
-      label: t('quota_dashboard.tab_issuance_log'),
-      children: <QuotaIssuancesList />,
+      children: <QuotaWeeklyFlow data={weeklyFlow} weightUnit={weightUnit} />,
     },
   ].filter(Boolean) as { key: string; label: string; children: React.ReactNode }[];
 
@@ -254,19 +271,31 @@ export default function QuotaDashboard() {
             {t('quota_dashboard.subtitle')}
           </Text>
         </div>
-        {canAddIssuance && (
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => navigate('/export/quota/add-issuance')}
-          >
-            {t('quota_dashboard.add_issuance')}
-          </Button>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <Text type="secondary" style={{ fontSize: 12 }}>{t('quota_dashboard.unit_label')}:</Text>
+          <Segmented
+            value={weightUnit}
+            onChange={(v) => setWeightUnit(v as WeightUnit)}
+            options={[
+              { label: t('quota_dashboard.kg'), value: 'kg' },
+              { label: t('quota_dashboard.ton'), value: 'ton' },
+            ]}
+            size="small"
+          />
+          {canAddIssuance && (
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => navigate('/export/quota/add-issuance')}
+            >
+              {t('quota_dashboard.add_issuance')}
+            </Button>
+          )}
+        </div>
       </div>
 
-      {/* ── Filter Panel (hidden for seller-only users) ── */}
-      {canSeeQuota && <div
+      {/* ── Filter Panel (only for analytics tabs: per_firm, visual, weekly) ── */}
+      {canSeeQuota && (activeTab === 'per_firm' || activeTab === 'visual' || activeTab === 'weekly') && <div
         style={{
           background: '#fafafa',
           borderRadius: 8,
@@ -375,10 +404,10 @@ export default function QuotaDashboard() {
             </Text>
             <Statistic
               title={<KpiLabel label={t('quota_dashboard.kpi_sales')} tip={t('quota_dashboard.kpi_sales_tip')} />}
-              value={kpis?.local_sales_kg ?? 0}
-              suffix="kg"
+              value={displayWeight(kpis?.local_sales_kg ?? 0, weightUnit)}
+              suffix={weightSuffix(weightUnit)}
               valueStyle={{ fontSize: 22, fontWeight: 700, color: '#1677ff' }}
-              formatter={(v) => Number(v).toLocaleString()}
+              formatter={statFmt}
             />
           </Card>
         </Col>
@@ -398,28 +427,28 @@ export default function QuotaDashboard() {
               <Col span={8}>
                 <Statistic
                   title={<KpiLabel label={t('quota_dashboard.kpi_expected')} tip={t('quota_dashboard.kpi_expected_tip')} />}
-                  value={kpis?.expected_kg ?? 0}
-                  suffix="kg"
+                  value={displayWeight(kpis?.expected_kg ?? 0, weightUnit)}
+                  suffix={weightSuffix(weightUnit)}
                   valueStyle={{ fontSize: 16, fontWeight: 600, color: '#52c41a' }}
-                  formatter={(v) => Number(v).toLocaleString()}
+                  formatter={statFmt}
                 />
               </Col>
               <Col span={8}>
                 <Statistic
                   title={<KpiLabel label={t('quota_dashboard.kpi_issued')} tip={t('quota_dashboard.kpi_issued_tip')} />}
-                  value={kpis?.issued_kg ?? 0}
-                  suffix="kg"
+                  value={displayWeight(kpis?.issued_kg ?? 0, weightUnit)}
+                  suffix={weightSuffix(weightUnit)}
                   valueStyle={{ fontSize: 16, fontWeight: 600, color: '#722ed1' }}
-                  formatter={(v) => Number(v).toLocaleString()}
+                  formatter={statFmt}
                 />
               </Col>
               <Col span={8}>
                 <Statistic
                   title={<KpiLabel label={t('quota_dashboard.kpi_not_given')} tip={t('quota_dashboard.kpi_not_given_tip')} />}
-                  value={kpis?.not_given_kg ?? 0}
-                  suffix="kg"
+                  value={displayWeight(kpis?.not_given_kg ?? 0, weightUnit)}
+                  suffix={weightSuffix(weightUnit)}
                   valueStyle={{ fontSize: 16, fontWeight: 600, color: kpis && kpis.not_given_kg > 0 ? '#ff4d4f' : undefined }}
-                  formatter={(v) => Number(v).toLocaleString()}
+                  formatter={statFmt}
                 />
               </Col>
             </Row>
@@ -448,28 +477,28 @@ export default function QuotaDashboard() {
               <Col span={8}>
                 <Statistic
                   title={<KpiLabel label={t('quota_dashboard.kpi_used')} tip={t('quota_dashboard.kpi_used_tip')} />}
-                  value={kpis?.used_kg ?? 0}
-                  suffix="kg"
+                  value={displayWeight(kpis?.used_kg ?? 0, weightUnit)}
+                  suffix={weightSuffix(weightUnit)}
                   valueStyle={{ fontSize: 16, fontWeight: 600, color: '#13c2c2' }}
-                  formatter={(v) => Number(v).toLocaleString()}
+                  formatter={statFmt}
                 />
               </Col>
               <Col span={8}>
                 <Statistic
                   title={<KpiLabel label={t('quota_dashboard.kpi_unused')} tip={t('quota_dashboard.kpi_unused_tip')} />}
-                  value={kpis?.unused_kg ?? 0}
-                  suffix="kg"
+                  value={displayWeight(kpis?.unused_kg ?? 0, weightUnit)}
+                  suffix={weightSuffix(weightUnit)}
                   valueStyle={{ fontSize: 16, fontWeight: 600, color: kpis && kpis.unused_kg > 0 ? '#fa8c16' : undefined }}
-                  formatter={(v) => Number(v).toLocaleString()}
+                  formatter={statFmt}
                 />
               </Col>
               <Col span={8}>
                 <Statistic
                   title={<KpiLabel label={t('quota_dashboard.kpi_expired_unused')} tip={t('quota_dashboard.kpi_expired_tip')} />}
-                  value={expiredStats.totalExpiredKg}
-                  suffix="kg"
+                  value={displayWeight(expiredStats.totalExpiredKg, weightUnit)}
+                  suffix={weightSuffix(weightUnit)}
                   valueStyle={{ fontSize: 16, fontWeight: 600, color: expiredStats.totalExpiredKg > 0 ? '#ff4d4f' : undefined }}
-                  formatter={(v) => Number(v).toLocaleString()}
+                  formatter={statFmt}
                 />
               </Col>
             </Row>
@@ -478,7 +507,7 @@ export default function QuotaDashboard() {
       </Row>}
 
       {/* ── Dashboard Tabs ── */}
-      {canSeeQuota && (
+      {(canSeeQuota || canSeeLocalSell) && (
         <Card styles={{ body: { padding: '0 16px 16px' } }}>
           <Tabs
             activeKey={activeTab}
@@ -489,22 +518,6 @@ export default function QuotaDashboard() {
         </Card>
       )}
 
-      {/* ── Local Sell Plan (separate section) ── */}
-      {canSeeLocalSell && (
-        <>
-          <Divider style={{ margin: '24px 0 16px' }} />
-          <Card
-            title={
-              <Title level={5} style={{ margin: 0 }}>
-                {t('quota_dashboard.local_sell_section_title')}
-              </Title>
-            }
-            styles={{ body: { padding: 16 } }}
-          >
-            <LocalSellPlanGrid />
-          </Card>
-        </>
-      )}
     </div>
   );
 }

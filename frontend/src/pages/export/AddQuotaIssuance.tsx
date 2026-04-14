@@ -8,6 +8,7 @@ import {
   Input,
   InputNumber,
   Row,
+  Segmented,
   Select,
   Typography,
   message,
@@ -21,6 +22,7 @@ import {
   useCreateQuotaIssuance,
   type ICreateIssuancePayload,
 } from '@/hooks/useQuotaDashboard';
+import { weightSuffix, type WeightUnit } from '@/utils/weight';
 
 const { Title, Text } = Typography;
 
@@ -43,23 +45,42 @@ export default function AddQuotaIssuance() {
   // Per-firm allocations stored in local state (not in antd form — cleaner for table layout)
   const [allocations, setAllocations] = useState<Record<number, number>>({});
 
+  // Input unit toggle — default ton, operators think in tons
+  const [inputUnit, setInputUnit] = useState<WeightUnit>('ton');
+
   // Watch issue_date for dynamic month names
   const watchedDate: Dayjs | undefined = Form.useWatch('issue_date', form);
   const hasDate = !!watchedDate;
   const thisMonth = watchedDate ? watchedDate.format('MMMM') : '';
   const nextMonth = watchedDate ? watchedDate.add(1, 'month').format('MMMM') : '';
 
-  const totalKg = Object.values(allocations).reduce((s, v) => s + (v || 0), 0);
+  const totalInUnit = Object.values(allocations).reduce((s, v) => s + (v || 0), 0);
   const firmCount = Object.values(allocations).filter((v) => v > 0).length;
 
   function handleAllocChange(firmId: number, value: number | null) {
     setAllocations((prev) => ({ ...prev, [firmId]: value ?? 0 }));
   }
 
+  function handleUnitSwitch(newUnit: WeightUnit) {
+    if (newUnit === inputUnit) return;
+    const factor = newUnit === 'kg' ? 1000 : 0.001;
+    setAllocations((prev) => {
+      const converted: Record<number, number> = {};
+      for (const [k, v] of Object.entries(prev)) {
+        converted[Number(k)] = v ? Math.round(v * factor * 100) / 100 : 0;
+      }
+      return converted;
+    });
+    setInputUnit(newUnit);
+  }
+
   function handleSubmit(values: IFormValues) {
     const allocs: ICreateIssuancePayload['allocations'] = [];
-    for (const [firmId, kg] of Object.entries(allocations)) {
-      if (kg > 0) allocs.push({ export_firm: Number(firmId), kg_quota: kg });
+    for (const [firmId, val] of Object.entries(allocations)) {
+      if (val > 0) {
+        const kgValue = inputUnit === 'ton' ? val * 1000 : val;
+        allocs.push({ export_firm: Number(firmId), kg_quota: kgValue });
+      }
     }
 
     if (allocs.length === 0) {
@@ -148,9 +169,20 @@ export default function AddQuotaIssuance() {
           size="small"
           title={
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>{t('quota_dashboard.firm_allocations')}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span>{t('quota_dashboard.firm_allocations')}</span>
+                <Segmented
+                  value={inputUnit}
+                  onChange={(v) => handleUnitSwitch(v as WeightUnit)}
+                  options={[
+                    { label: t('quota_dashboard.ton'), value: 'ton' },
+                    { label: t('quota_dashboard.kg'), value: 'kg' },
+                  ]}
+                  size="small"
+                />
+              </div>
               <Text type="secondary" style={{ fontSize: 13 }}>
-                {firmCount} {t('quota_dashboard.firms_selected')} · {totalKg.toLocaleString()} kg
+                {firmCount} {t('quota_dashboard.firms_selected')} · {totalInUnit.toLocaleString()} {weightSuffix(inputUnit)}
               </Text>
             </div>
           }
@@ -170,8 +202,8 @@ export default function AddQuotaIssuance() {
                 </Text>
                 <InputNumber
                   min={0}
-                  step={1000}
-                  suffix="kg"
+                  step={inputUnit === 'ton' ? 0.5 : 500}
+                  suffix={weightSuffix(inputUnit)}
                   value={allocations[firm.id] || undefined}
                   onChange={(v) => handleAllocChange(firm.id, v)}
                   placeholder="0"

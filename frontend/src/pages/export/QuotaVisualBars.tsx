@@ -1,17 +1,22 @@
 import { useTranslation } from 'react-i18next';
 import type { IQuotaDashboardFirm } from '@/types';
+import { fmtWeight, weightSuffix, type WeightUnit } from '@/utils/weight';
 
 interface IProps {
   data: IQuotaDashboardFirm[];
+  weightUnit: WeightUnit;
 }
 
 interface IFirmBarProps {
   firm: IQuotaDashboardFirm;
   maxKg: number;
+  weightUnit: WeightUnit;
 }
 
-function FirmBar({ firm, maxKg }: IFirmBarProps) {
+function FirmBar({ firm, maxKg, weightUnit }: IFirmBarProps) {
   const { t } = useTranslation();
+  const ws = weightSuffix(weightUnit);
+  const fw = (v: number) => fmtWeight(v, weightUnit);
 
   const expectedPct = maxKg > 0 ? (firm.expected_kg / maxKg) * 100 : 0;
   const issuedPct = firm.expected_kg > 0 ? Math.min((firm.issued_kg / firm.expected_kg) * 100, 100) : 0;
@@ -24,10 +29,10 @@ function FirmBar({ firm, maxKg }: IFirmBarProps) {
           {firm.export_firm_name}
         </span>
         <span style={{ fontSize: 12, color: '#595959' }}>
-          {t('quota_dashboard.issued')}: {Number(firm.issued_kg).toLocaleString()} kg
+          {t('quota_dashboard.issued')}: {fw(firm.issued_kg)} {ws}
           {firm.not_given_kg > 0 && (
             <span style={{ color: '#ff4d4f', marginLeft: 8 }}>
-              {t('quota_dashboard.not_given')}: {Number(firm.not_given_kg).toLocaleString()} kg
+              {t('quota_dashboard.not_given')}: {fw(firm.not_given_kg)} {ws}
             </span>
           )}
         </span>
@@ -86,7 +91,7 @@ function FirmBar({ firm, maxKg }: IFirmBarProps) {
               marginRight: 4,
             }}
           />
-          {t('quota_dashboard.expected')}: {Number(firm.expected_kg).toLocaleString()}
+          {t('quota_dashboard.expected')}: {fw(firm.expected_kg)}
         </span>
         <span>
           <span
@@ -99,7 +104,7 @@ function FirmBar({ firm, maxKg }: IFirmBarProps) {
               marginRight: 4,
             }}
           />
-          {t('quota_dashboard.issued')}: {Number(firm.issued_kg).toLocaleString()}
+          {t('quota_dashboard.issued')}: {fw(firm.issued_kg)}
         </span>
         <span>
           <span
@@ -112,21 +117,21 @@ function FirmBar({ firm, maxKg }: IFirmBarProps) {
               marginRight: 4,
             }}
           />
-          {t('quota_dashboard.used')}: {Number(firm.used_kg).toLocaleString()}
+          {t('quota_dashboard.used')}: {fw(firm.used_kg)}
         </span>
       </div>
     </div>
   );
 }
 
-export function QuotaVisualBars({ data }: IProps) {
+export function QuotaVisualBars({ data, weightUnit }: IProps) {
   const sorted = [...data].sort((a, b) => b.expected_kg - a.expected_kg);
   const maxKg = sorted.reduce((m, f) => Math.max(m, f.expected_kg), 0);
 
   return (
     <div style={{ padding: '8px 0' }}>
       {sorted.map((firm) => (
-        <FirmBar key={firm.export_firm} firm={firm} maxKg={maxKg} />
+        <FirmBar key={firm.export_firm} firm={firm} maxKg={maxKg} weightUnit={weightUnit} />
       ))}
     </div>
   );
