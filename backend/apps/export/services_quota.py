@@ -2,16 +2,30 @@
 
 All functions are pure computation or DB queries; no HTTP/request handling.
 """
+
+__all__ = [
+    'build_quota_dashboard',
+    'compute_fifo_usage',
+    'fetch_plan_rows',
+    'fetch_issuances',
+    'aggregate_local_sales',
+    'aggregate_quota_issued',
+    'aggregate_quota_used',
+]
 import datetime
 from decimal import Decimal
 
-from django.db.models import Q, Sum
+from django.core.cache import cache
+from django.db.models import Sum
 from django.db.models.functions import Coalesce
 
+from collections import defaultdict
+
+from apps.core.models import ExportFirm
 from apps.export.models import (
     QuotaIssuance,
     QuotaIssuanceFirmAllocation,
-    ShipmentFirmSplit,
+    QuotaUsageRecord,
     WeeklyLocalSellPlan,
 )
 
@@ -113,17 +127,18 @@ def aggregate_quota_issued(
 def aggregate_quota_used(
     date_from: datetime.date, date_to: datetime.date,
 ) -> dict[int, Decimal]:
-    """Sum weight_kg per firm from ShipmentFirmSplit where shipment departed in range."""
-    rows = (
-        ShipmentFirmSplit.objects
-        .filter(
-            Q(shipment__departed_at__date__gte=date_from, shipment__departed_at__date__lte=date_to)
-            | Q(shipment__departed_at__isnull=True, shipment__date__gte=date_from, shipment__date__lte=date_to)
-        )
+    """Sum approved quota usage per firm in the date range.
+
+    Source: QuotaUsageRecord with status='approved'.
+    Only approved records count — draft records are pending review.
+    """
+    usage_rows = (
+        QuotaUsageRecord.objects
+        .filter(usage_date__gte=date_from, usage_date__lte=date_to, status='approved')
         .values('export_firm_id')
-        .annotate(total=Coalesce(Sum('weight_kg'), Decimal('0')))
+        .annotate(total=Coalesce(Sum('kg_used'), Decimal('0')))
     )
-    return {row['export_firm_id']: row['total'] for row in rows}
+    return {row['export_firm_id']: row['total'] for row in usage_rows}
 
 
 # ---------------------------------------------------------------------------
@@ -333,7 +348,6 @@ def build_quota_dashboard(
     Returns:
         Dict with keys: kpis, per_firm, weekly_flow.
     """
-    from apps.core.models import ExportFirm
 
     plan_rows = fetch_plan_rows(date_from, date_to)
     local_sales = aggregate_local_sales(plan_rows)
@@ -353,3 +367,65 @@ def build_quota_dashboard(
         'per_firm': _build_per_firm(all_firm_ids, local_sales, quota_issued, quota_used, firm_names),
         'weekly_flow': build_weekly_flow(plan_rows, issuances, firm_names),
     }
+
+
+# ---------------------------------------------------------------------------
+# FIFO per-allocation consumption
+# ---------------------------------------------------------------------------
+
+FIFO_CACHE_TTL = 60  # seconds — short TTL to avoid stale reads after approvals
+
+def compute_fifo_usage(product_type: str) -> dict[int, Decimal]:
+    """Compute FIFO per-firm quota consumption per allocation.
+
+    For each firm: sort allocations by issue_date ASC (oldest first),
+    then consume that firm's total usage starting from the oldest allocation.
+    Each firm's usage only consumes that firm's own allocations.
+
+    Results are cached for FIFO_CACHE_TTL seconds to avoid recomputing on
+    every GET request in the QuotaIssuanceViewSet list view.
+
+    Args:
+        product_type: 'tomato' or 'pepper'.
+
+    Returns:
+        Dict mapping allocation_id → used_kg.
+    """
+    cache_key = f'fifo_usage:{product_type}'
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    # 1. Get all allocations with issue_date, grouped by firm
+    allocs = list(
+        QuotaIssuanceFirmAllocation.objects
+        .filter(issuance__product_type=product_type)
+        .select_related('issuance')
+        .order_by('issuance__issue_date', 'id')
+        .values_list('id', 'export_firm_id', 'kg_quota', 'issuance__issue_date')
+    )
+
+    firm_allocs: dict[int, list[tuple[int, Decimal]]] = defaultdict(list)
+    for alloc_id, firm_id, kg_quota, _issue_date in allocs:
+        firm_allocs[firm_id].append((alloc_id, kg_quota))
+
+    # 2. Get total usage per firm (approved records only)
+    usage_rows = (
+        QuotaUsageRecord.objects
+        .filter(product_type=product_type, status='approved')
+        .values('export_firm_id')
+        .annotate(total=Coalesce(Sum('kg_used'), Decimal('0')))
+    )
+    firm_usage: dict[int, Decimal] = {r['export_firm_id']: r['total'] for r in usage_rows}
+
+    # 3. FIFO walk: oldest allocation consumed first
+    result: dict[int, Decimal] = {}
+    for firm_id, ordered_allocs in firm_allocs.items():
+        remaining = firm_usage.get(firm_id, Decimal('0'))
+        for alloc_id, kg_quota in ordered_allocs:
+            consumed = min(kg_quota, remaining)
+            result[alloc_id] = consumed
+            remaining -= consumed
+
+    cache.set(cache_key, result, FIFO_CACHE_TTL)
+    return result

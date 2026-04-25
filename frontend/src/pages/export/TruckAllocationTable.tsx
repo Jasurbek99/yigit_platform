@@ -9,7 +9,7 @@ import {
   useUpsertTruckAllocation,
   useSetTruckSplits,
 } from '@/hooks/usePlanning';
-import type { IWeeklyHarvestPlan, IWeeklyTruckAllocation } from '@/types';
+import type { DayOfWeek, IWeeklyHarvestPlan, IWeeklyTruckAllocation } from '@/types';
 import { num, fmtKg } from './PlanCells';
 
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
@@ -64,7 +64,7 @@ export function TruckAllocationTable({
     })),
   ];
 
-  function handleTruckSave(dayOfWeek: number, destId: number, value: number) {
+  function handleTruckSave(dayOfWeek: DayOfWeek, destId: number, value: number) {
     const allocation = truckByDay.get(dayOfWeek);
     if (allocation) {
       setTruckSplits.mutate({
@@ -107,7 +107,7 @@ export function TruckAllocationTable({
       key: day,
       width: 90,
       render: (_: unknown, row: ITruckRow) => {
-        const dayOfWeek = di + 1;
+        const dayOfWeek = (di + 1) as DayOfWeek;
         const allocation = truckByDay.get(dayOfWeek);
 
         if (row.type === 'computed') {

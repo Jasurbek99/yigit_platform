@@ -5,6 +5,17 @@ All notable changes to the YGT Platform.
 ## [Unreleased]
 
 ### Added
+- Kaka Findings #1 + #2 — two-phase shipment creation with DRAFT status (step 0) and multi-block composer (feat(p3))
+- `ShipmentStatusType` `draft` row seeded via data migration `0017_shipment_draft_status_seed.py`; `draft → yuklenme` edge added to `TRANSITIONS` in `services.py` (feat(p3))
+- `ShipmentCreateSerializer` accepts `is_draft` + `block_sources[]`; new `_create_draft_shipment()` path creates draft + `ShipmentBlockSource` rows in one transaction (feat(p3))
+- `POST /api/v1/export/shipments/{id}/assign/` endpoint — export_manager transitions a draft to `yuklenme`, writing AD-1 `loading_started_at` via `transition_to()` (feat(p3))
+- New page codes: `export.drafts` (warehouse_chief + export_manager), `export.assign` (export_manager only); new resource permission `shipment_assign` (feat(p3))
+- Frontend `DraftPool` page — grid of unassigned draft cards with freshness colours (today/yesterday/2+ days) (feat(frontend))
+- Frontend `AssignmentBoard` page — 3-column supply/match/demand layout; selecting a draft + demand confirms and transitions to `yuklenme` (feat(frontend))
+- `DraftComposerModal` — 1–11 block composer with live sum validation against 18,500 kg target (feat(frontend))
+- `BlockSelect` self-fetching control supporting `excludeIds` for multi-row dedup (feat(frontend))
+- `useDrafts`, `useCreateDraft`, `useAssignDraft` hooks with `VITE_USE_MOCK` fallback; `mock/drafts.ts` with 5 fixtures (feat(frontend))
+- i18n: `draft.*` (37 keys) and `assign.*` (29 keys) namespaces in tk/ru/en (feat(frontend))
 - Dynamic admin-configurable permission system — directors can manage page visibility, resource CRUD, and field-level edit permissions per role from a single admin page (feat(p3))
 - 3 new Django models: `RolePagePermission`, `RoleResourcePermission`, `RoleFieldPermission` in `core` app with DDL v5.1 tables (feat(p3))
 - `DynamicResourcePermission` DRF class — replaces hardcoded `write_permission()` on ViewSets; reads from DB with 60s cache (feat(p3))

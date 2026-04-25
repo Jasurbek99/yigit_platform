@@ -51,3 +51,8 @@
 **Decision**: Cross-app business logic uses explicit service calls, not Django signals.
 **Context**: Signals are implicit, hard to debug, fail silently.
 **Consequences**: Slightly more boilerplate but fully traceable execution.
+
+## ADR-014: DRAFT Shipment Status (Pre-Lifecycle Step 0)
+**Decision**: Add a `draft` row to `ShipmentStatusType` with `step_order=0`. A shipment with `status=draft` has block_sources and total weight fixed, but country/customer/city left null. Soltanmyrat (warehouse_chief) creates drafts; Gadam (export_manager) transitions `draft → yuklenme` via `POST /shipments/{id}/assign/`, which writes AD-1 `loading_started_at` through `transition_to()`.
+**Context**: Kaka site visit (Apr 2026) revealed shipment creation is inherently two-person, two-moment: Phase 1 (Soltanmyrat ~9–10am) fixes supply composition without destination context; Phase 2 (Gadam ~10–11am) matches drafts to contracts/quotas/waiting customers. A single-form design forces one role to fabricate the other's data. `ShipmentBlockSource` already supported multi-block composition — only a new status and a dedicated assign endpoint were missing.
+**Consequences**: Two-phase creation matches operational reality. `draft` has no AD-1 timestamp (lifecycle timestamps still start at `yuklenme`, preserving AD-1). Existing `ShipmentList`/`KanbanBoard`/filters are unaffected — draft shipments appear in any `?status=draft` query but are hidden from the default lifecycle Kanban by excluding that status. Does not address Findings #3 (variety-at-packaging), #4 (pallet manifest + weight_master), #5 (Soltanmyrat 5-function role + truck dispatch), #6 (received-weight productivity) — tracked separately.

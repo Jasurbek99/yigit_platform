@@ -27,6 +27,9 @@ PAGE_REGISTRY: dict[str, str] = OrderedDict([
     ('export.trucks',           'Truck Forecast'),
     ('export.blocks',           'Block Summary'),
     ('export.domestic_sales',   'Domestic Sales'),
+    # Draft / assignment workflow (Findings #1 + #2)
+    ('export.drafts',           'Draft Shipments Pool'),
+    ('export.assign',           'Assignment Board'),
     # Admin
     ('admin.users',             'Admin: Users'),
     ('admin.seasons',           'Admin: Seasons'),
@@ -43,18 +46,25 @@ PAGE_REGISTRY: dict[str, str] = OrderedDict([
 # Values = human-readable label
 
 RESOURCE_REGISTRY: dict[str, str] = OrderedDict([
-    ('shipment',         'Shipment'),
-    ('quota_issuance',   'Quota Issuance'),
-    ('local_sell_plan',  'Local Sell Plan'),
-    ('weekly_plan',      'Weekly Harvest Plan'),
-    ('price_entry',      'Price Entry'),
-    ('advance',          'Advance'),
-    ('truck_allocation', 'Truck Allocation'),
-    ('domestic_sale',    'Domestic Sale'),
-    ('export_firm',      'Export Firm'),
-    ('import_firm',      'Import Firm'),
-    ('season',           'Season'),
-    ('greenhouse_block', 'Greenhouse Block'),
+    ('shipment',              'Shipment'),
+    ('shipment_firm_split',   'Shipment Firm Split'),
+    ('shipment_block_source', 'Shipment Block Source'),
+    ('shipment_assign',       'Shipment Assignment (draft → yuklenme)'),
+    ('quality_document',      'Quality Document'),
+    ('sales_report',          'Sales Report'),
+    ('shipment_comment',      'Shipment Comment'),
+    ('quota_issuance',        'Quota Issuance'),
+    ('quota_usage',           'Quota Usage'),
+    ('local_sell_plan',       'Local Sell Plan'),
+    ('weekly_plan',           'Weekly Harvest Plan'),
+    ('price_entry',           'Price Entry'),
+    ('advance',               'Advance'),
+    ('truck_allocation',      'Truck Allocation'),
+    ('domestic_sale',         'Domestic Sale'),
+    ('export_firm',           'Export Firm'),
+    ('import_firm',           'Import Firm'),
+    ('season',                'Season'),
+    ('greenhouse_block',      'Greenhouse Block'),
 ])
 
 # ── Editable fields per resource ─────────────────────────────────────────
@@ -63,11 +73,53 @@ RESOURCE_REGISTRY: dict[str, str] = OrderedDict([
 
 RESOURCE_FIELDS: dict[str, list[str]] = {
     'shipment': [
-        'box_count', 'pallet_count', 'weight_net', 'weight_gross',
-        'price_per_kg', 'total_amount_usd', 'notes',
+        # Weight / packaging
+        'box_count', 'pallet_count', 'pallet_weight_kg', 'packaging_kg',
+        'weight_net', 'weight_gross', 'rejected_weight_kg',
+        # Geography / customer
+        'country', 'city', 'customer', 'import_firm',
+        'border_point', 'loading_location',
+        # Product
+        'product_type', 'variety',
+        # Transport
         'vehicle_condition', 'vehicle_condition_note', 'route_note',
+        'vehicle_responsible', 'truck_head_id', 'trailer_id', 'driver_id',
+        'transit_days', 'transport_temp_c', 'shelf_life_days',
+        'has_peregruz', 'peregruz_city', 'peregruz_date',
+        # Operational status
+        'customs_clearance', 'documents_status', 'harvest_status',
+        # Finance
+        'price_per_kg', 'total_amount_usd',
+        # Flags
+        'is_gapy_satys',
+        # Notes
+        'notes',
+    ],
+    'shipment_firm_split': [
+        'export_firm', 'weight_kg', 'amount_usd', 'invoice_number', 'split_order',
+    ],
+    'shipment_block_source': ['block', 'weight_kg'],
+    'quality_document': [
+        'azyk_maglumatnama', 'suriji_gozukdiriji', 'hil_sertifikaty', 'kalibrowka_analiz',
+    ],
+    'sales_report': [
+        'price_per_kg', 'total_usd', 'weight_sold_kg', 'weight_rejected_kg',
+        'transport_cost_usd', 'market_fee_usd', 'other_expenses_usd', 'notes',
     ],
     'weekly_plan': ['plan_kg', 'actual_kg'],
-    'quota_issuance': ['quantity_kg', 'expires_at'],
+    'quota_issuance': ['issue_date', 'validity', 'notes'],
+    'quota_usage': ['kg_used', 'usage_date', 'product_type', 'notes'],
     'local_sell_plan': ['planned_kg', 'actual_kg', 'buyer_name'],
+}
+
+# ── Required fields per role (for "My Tasks" Kanban) ───────────────────
+# Subset of editable fields that MUST be non-null for a role's work to be
+# considered "done" on a shipment. Used by the pending_my_fields filter.
+
+ROLE_REQUIRED_FIELDS: dict[str, list[str]] = {
+    'warehouse_chief': ['weight_net', 'weight_gross', 'variety', 'harvest_status'],
+    'document_team':   ['documents_status'],
+    'transport':       ['truck_head_id', 'driver_id', 'border_point'],
+    'sales_rep':       ['city', 'price_per_kg', 'total_amount_usd'],
+    'finansist':       ['price_per_kg', 'total_amount_usd'],
 }

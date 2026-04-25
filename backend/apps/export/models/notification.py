@@ -23,6 +23,7 @@ class Notification(models.Model):
         ('quota_95', 'Quota 95%'),
         ('quota_100', 'Quota 100%'),
         ('overdue', 'Overdue shipment'),
+        ('action_required', 'Action required'),
         ('plan_submitted', 'Plan submitted'),
         ('plan_approved', 'Plan approved'),
         ('plan_rejected', 'Plan rejected'),

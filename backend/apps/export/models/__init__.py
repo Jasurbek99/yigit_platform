@@ -13,7 +13,10 @@ from .local_sell_plan import (
     WeeklyLocalSellPlan,
 )
 from .pricing import PriceEntry, DomesticMarketPrice
-from .quota import QuotaIssuance, QuotaIssuanceFirmAllocation
+from .quota import (
+    QuotaIssuance, QuotaIssuanceFirmAllocation, QuotaUsageRecord,
+    USAGE_STATUS_CHOICES, get_default_truck_weight,
+)
 from .finance import FinansistAdvance, FinansistAdvanceShipment
 from .notification import Notification
 from .audit import AuditLog
@@ -36,6 +39,9 @@ __all__ = [
     'DomesticMarketPrice',
     'QuotaIssuance',
     'QuotaIssuanceFirmAllocation',
+    'QuotaUsageRecord',
+    'USAGE_STATUS_CHOICES',
+    'get_default_truck_weight',
     'FinansistAdvance',
     'FinansistAdvanceShipment',
     'Notification',

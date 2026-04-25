@@ -81,10 +81,12 @@ def create_audit_entry(
 ) -> None:
     """Create an AuditLog entry for a workflow action.
 
-    Uses lazy import to avoid circular dependency (AuditLog is in export).
+    Uses django.apps.get_model() to resolve AuditLog at runtime without
+    importing from export — preserving the core ← export dependency direction.
     """
-    from apps.export.models import AuditLog
+    from django.apps import apps
 
+    AuditLog = apps.get_model('export', 'AuditLog')
     AuditLog.objects.create(
         user=user,
         action=action,

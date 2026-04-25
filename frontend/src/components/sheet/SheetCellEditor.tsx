@@ -171,7 +171,7 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
       case 'has_peregruz':
         return [
           { value: 0, label: '—' },
-          { value: 1, label: 'Boldy' },
+          { value: 1, label: t('sheet.has_peregruz_yes') },
         ];
 
       default:

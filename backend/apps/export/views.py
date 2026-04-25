@@ -1,8 +1,10 @@
 import logging
 
+from django.db import transaction
 from django.db.models import (
     Exists,
     OuterRef,
+    Q,
     QuerySet,
 )
 from django.utils import timezone
@@ -12,15 +14,17 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
+from apps.core.permission_registry import ROLE_REQUIRED_FIELDS
 from apps.core.permissions import PRIVILEGED_ROLES, DynamicResourcePermission
 from apps.export.models import (
-    QualityDocument, SalesReport, Shipment, ShipmentComment,
-    ShipmentBlockSource, ShipmentFirmSplit,
+    QualityDocument, QuotaUsageRecord, SalesReport, Shipment, ShipmentComment,
+    ShipmentBlockSource, ShipmentFirmSplit, get_default_truck_weight,
 )
 from apps.export.serializers import (
     QualityDocumentSerializer,
     OverdueShipmentSerializer,
     SalesReportSerializer,
+    ShipmentAssignSerializer,
     ShipmentCreateSerializer,
     ShipmentListSerializer,
     ShipmentDetailSerializer,
@@ -43,7 +47,7 @@ ROLE_PHASE_MAP = {
     'document_team': ['LOADING', 'CUSTOMS'],
     'transport': ['LOADING', 'CUSTOMS', 'TRANSIT', 'BORDER'],
     'sales_rep': ['BORDER', 'TRANSIT', 'SALES'],
-    'finansist': ['SALES', 'COMPLETE'],
+    'finansist': ['SALES'],
 }
 
 
@@ -60,7 +64,8 @@ class ShipmentViewSet(ModelViewSet):
     http_method_names = ['get', 'post', 'patch', 'head', 'options']  # no PUT/DELETE via API
 
     queryset = Shipment.objects.select_related(
-        'status', 'country', 'customer', 'season',
+        'status', 'country', 'city', 'customer', 'season',
+        'variety', 'border_point',
     ).order_by('-date', '-id')
 
     filterset_fields = ['status', 'country', 'season', 'is_gapy_satys']
@@ -73,10 +78,15 @@ class ShipmentViewSet(ModelViewSet):
 
     def get_queryset(self) -> QuerySet:
         qs = super().get_queryset()
-        if self.request.query_params.get('my_work') == 'true':
+        # pending_my_fields takes priority over my_work when both are present.
+        if self.request.query_params.get('pending_my_fields') == 'true':
+            qs = self._filter_pending_fields(qs)
+        elif self.request.query_params.get('my_work') == 'true':
             qs = self._filter_my_work(qs)
         if phase := self.request.query_params.get('phase'):
             qs = qs.filter(status__phase=phase)
+        if status_code := self.request.query_params.get('status_code'):
+            qs = qs.filter(status__code=status_code)
         return qs
 
     def _filter_my_work(self, qs: QuerySet) -> QuerySet:
@@ -92,6 +102,37 @@ class ShipmentViewSet(ModelViewSet):
             return qs.filter(status__phase__in=phases)
         # export_manager and management see everything — no filter
         return qs
+
+    def _filter_pending_fields(self, qs: QuerySet) -> QuerySet:
+        """Return shipments in the user's active phases where required fields are still null.
+
+        Uses ROLE_REQUIRED_FIELDS to determine which fields the role must fill.
+        A shipment appears if ANY required field is null — i.e. the role's work is incomplete.
+        """
+        role = getattr(self.request.user, 'role', None)
+        required = ROLE_REQUIRED_FIELDS.get(role, [])
+        if not required:
+            return qs.none()
+        # Scope to the role's active phases
+        phases = ROLE_PHASE_MAP.get(role, [])
+        if phases:
+            qs = qs.filter(status__phase__in=phases)
+        # Build OR of null checks — shipment needs work if any field is missing
+        null_q = Q()
+        for field in required:
+            null_q |= Q(**{f'{field}__isnull': True})
+        return qs.filter(null_q)
+
+    @action(detail=False, methods=['get'], url_path='my-pending-count')
+    def my_pending_count(self, request):
+        """GET /api/v1/export/shipments/my-pending-count/
+
+        Returns { "count": N } — number of shipments where the user's role
+        has required fields still unfilled. Used by the frontend for badge counts.
+        """
+        base_qs = super().get_queryset()
+        qs = self._filter_pending_fields(base_qs)
+        return Response({'count': qs.count()})
 
     def partial_update(self, request, pk=None):
         """PATCH /api/v1/export/shipments/{id}/
@@ -195,8 +236,10 @@ class ShipmentViewSet(ModelViewSet):
         # has_sales_report: True when a SalesReport row exists for this shipment.
         has_report_expr = Exists(SalesReport.objects.filter(shipment=OuterRef('pk')))
 
+        # Use the base queryset (not self.get_queryset()) to avoid
+        # my_work / pending_my_fields filters leaking into the overdue endpoint.
         qs = (
-            self.get_queryset()
+            super().get_queryset()
             .filter(status__code__in=SALES_PHASE_CODES)
             .annotate(has_sales_report=has_report_expr)
         )
@@ -228,12 +271,20 @@ class ShipmentViewSet(ModelViewSet):
     def sheet(self, request):
         """GET /api/v1/export/shipments/sheet/
 
-        Returns ALL shipments for the active season with full sheet fields.
+        Returns ALL shipments for a season with full sheet fields.
+        Accepts an optional ``?season=<id>`` param; defaults to the active season.
         No pagination — the frontend spreadsheet view needs all records at once.
 
         Applies the same my_work / phase filters as the list endpoint when those
         query params are present, so the sheet can be scoped by role if needed.
         """
+        season_filter = {}
+        season_id = request.query_params.get('season')
+        if season_id:
+            season_filter['season_id'] = season_id
+        else:
+            season_filter['season__is_active'] = True
+
         qs = (
             Shipment.objects.select_related(
                 'status', 'country', 'city', 'customer',
@@ -249,7 +300,7 @@ class ShipmentViewSet(ModelViewSet):
                     SalesReport.objects.filter(shipment=OuterRef('pk'))
                 ),
             )
-            .filter(season__is_active=True)
+            .filter(**season_filter)
             .order_by('-date', '-id')
         )
 
@@ -259,34 +310,186 @@ class ShipmentViewSet(ModelViewSet):
     def create(self, request, *args, **kwargs):
         """POST /api/v1/export/shipments/
 
-        Creates a new shipment record at step 1 (yuklenme).
-        Only export_manager and director roles may create shipments.
-        Returns full shipment detail on success with HTTP 201.
+        Two-phase shipment creation:
+
+        - is_draft=False (default): creates at yuklenme (full path).
+          Restricted to export_manager / director.
+        - is_draft=True: creates a DRAFT (step 0) with one or more block sources.
+          Allowed for warehouse_chief, export_manager, and director.
+          country/customer may be omitted — they are filled at assignment time.
+
+        Returns full shipment detail with HTTP 201 on success.
         """
-        if getattr(request.user, 'role', None) not in PRIVILEGED_ROLES:
-            return Response(
-                {'error': 'Only export_manager or director can create shipments'},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+        user_role = getattr(request.user, 'role', None)
 
         serializer = ShipmentCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
+        is_draft = data.get('is_draft', False)
 
-        try:
-            shipment = create_shipment(
-                cargo_code=data['cargo_code'],
-                date=data['date'],
-                user=request.user,
-                country=data.get('country'),
-                customer=data.get('customer'),
-                season=data.get('season'),
-            )
-        except ValueError as exc:
-            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        # Role gate: drafts are accessible to warehouse_chief; full creation needs privilege.
+        if is_draft:
+            allowed_draft_roles = PRIVILEGED_ROLES | {'warehouse_chief'}
+            if user_role not in allowed_draft_roles:
+                return Response(
+                    {'error': 'Only warehouse_chief, export_manager, or director can create draft shipments'},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+        else:
+            if user_role not in PRIVILEGED_ROLES:
+                return Response(
+                    {'error': 'Only export_manager or director can create shipments'},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+        if is_draft:
+            try:
+                shipment = self._create_draft_shipment(data, request.user)
+            except ValueError as exc:
+                return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            try:
+                shipment = create_shipment(
+                    cargo_code=data['cargo_code'],
+                    date=data['date'],
+                    user=request.user,
+                    country=data.get('country'),
+                    customer=data.get('customer'),
+                    season=data.get('season'),
+                )
+            except ValueError as exc:
+                return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         detail_serializer = ShipmentDetailSerializer(shipment, context={'request': request})
         return Response(detail_serializer.data, status=status.HTTP_201_CREATED)
+
+    def _create_draft_shipment(self, data: dict, user) -> Shipment:
+        """Create a Shipment in DRAFT status together with its ShipmentBlockSource rows.
+
+        Runs inside a single atomic transaction so that a failure during
+        bulk_create rolls back the shipment header as well.
+
+        Args:
+            data: Validated data from ShipmentCreateSerializer (is_draft=True path).
+            user: The user performing the creation.
+
+        Returns:
+            The newly created Shipment instance.
+
+        Raises:
+            ValueError: If no active season is found or draft status is not configured.
+        """
+        from apps.core.models import Season, ShipmentStatusType
+        from apps.export.models import ShipmentStatusLog
+
+        season = data.get('season')
+        if season is None:
+            season = Season.objects.filter(is_active=True).first()
+            if season is None:
+                raise ValueError('No active season found. Provide a season in the request.')
+
+        try:
+            draft_status = ShipmentStatusType.objects.get(code='draft')
+        except ShipmentStatusType.DoesNotExist:
+            raise ValueError('Draft status not configured. Run migrate and seed_data first.')
+
+        with transaction.atomic():
+            shipment = Shipment.objects.create(
+                cargo_code=data['cargo_code'],
+                date=data['date'],
+                country=data.get('country'),
+                customer=data.get('customer'),
+                season=season,
+                status=draft_status,
+                created_by=user,
+                notes=data.get('notes') or None,
+            )
+
+            ShipmentStatusLog.objects.create(
+                shipment=shipment,
+                status=draft_status,
+                changed_by=user,
+                comment='Draft created',
+            )
+
+            block_source_rows = [
+                ShipmentBlockSource(
+                    shipment=shipment,
+                    block=row['block_id'],
+                    weight_kg=row['weight_kg'],
+                )
+                for row in data.get('block_sources', [])
+            ]
+            if block_source_rows:
+                ShipmentBlockSource.objects.bulk_create(block_source_rows, batch_size=500)
+
+        logger.info(
+            'Draft shipment %s created by %s with %d block source(s)',
+            shipment.cargo_code,
+            user.username,
+            len(block_source_rows),
+        )
+        return shipment
+
+    @action(detail=True, methods=['post'], url_path='assign')
+    def assign(self, request, pk=None):
+        """POST /api/v1/export/shipments/{id}/assign/
+
+        Assigns destination/customer fields to a DRAFT shipment and promotes it
+        to yuklenme (step 1), writing loading_started_at per AD-1.
+
+        Only export_manager and director may call this endpoint.
+
+        Request body (all optional — update only the fields provided):
+            {
+                "country": <int>,
+                "customer": <int>
+            }
+
+        Returns:
+            200 with full ShipmentDetailSerializer payload on success.
+            400 if the shipment is not in draft status, or transition fails.
+            403 if the caller's role is not export_manager / director.
+        """
+        user_role = getattr(request.user, 'role', None)
+        if user_role not in PRIVILEGED_ROLES:
+            return Response(
+                {'error': 'Only export_manager or director can assign draft shipments'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        shipment = self.get_object()
+
+        if shipment.status.code != 'draft':
+            return Response(
+                {'error': 'Shipment is not a draft'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        assign_serializer = ShipmentAssignSerializer(data=request.data)
+        assign_serializer.is_valid(raise_exception=True)
+        assign_data = assign_serializer.validated_data
+
+        try:
+            with transaction.atomic():
+                update_fields = []
+                for field in ('country', 'city', 'customer', 'import_firm'):
+                    if field in assign_data:
+                        setattr(shipment, field, assign_data[field])
+                        update_fields.append(field)
+                if update_fields:
+                    shipment.save(update_fields=update_fields)
+
+                # Promote draft → yuklenme so AD-1 loading_started_at is set.
+                transition_to(shipment, 'yuklenme', request.user, comment='assigned from draft')
+        except PermissionError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_403_FORBIDDEN)
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        shipment.refresh_from_db()
+        detail_serializer = ShipmentDetailSerializer(shipment, context={'request': request})
+        return Response(detail_serializer.data)
 
     @action(detail=True, methods=['patch'], url_path='quality')
     def set_quality(self, request, pk=None):
@@ -396,15 +599,17 @@ class ShipmentViewSet(ModelViewSet):
             )
 
         shipment.block_sources.all().delete()
-        for entry in blocks_data:
-            block_id = entry.get('block_id')
-            weight_kg = entry.get('weight_kg', 0)
-            if block_id:
-                ShipmentBlockSource.objects.create(
-                    shipment=shipment,
-                    block_id=block_id,
-                    weight_kg=weight_kg,
-                )
+        rows = [
+            ShipmentBlockSource(
+                shipment=shipment,
+                block_id=entry.get('block_id'),
+                weight_kg=entry.get('weight_kg', 0),
+            )
+            for entry in blocks_data
+            if entry.get('block_id')
+        ]
+        if rows:
+            ShipmentBlockSource.objects.bulk_create(rows, batch_size=500)
 
         logger.info(
             'Block sources for %s updated by %s (%d blocks)',
@@ -428,20 +633,49 @@ class ShipmentViewSet(ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        shipment.firm_splits.all().delete()
-        for i, entry in enumerate(firms_data):
-            firm_id = entry.get('export_firm_id')
-            weight_kg = entry.get('weight_kg', 0)
-            if firm_id:
-                ShipmentFirmSplit.objects.create(
-                    shipment=shipment,
-                    export_firm_id=firm_id,
-                    weight_kg=weight_kg,
-                    split_order=i + 1,
+        with transaction.atomic():
+            # Check approved records before deleting — inside transaction to prevent race
+            approved_count = shipment.quota_usage_records.filter(status='approved').count()
+            if approved_count > 0:
+                return Response(
+                    {'error': 'Cannot reassign firm splits: approved quota usage records exist. Delete them first.'},
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
+            shipment.firm_splits.all().delete()
+            split_rows = [
+                ShipmentFirmSplit(
+                    shipment=shipment,
+                    export_firm_id=entry.get('export_firm_id'),
+                    weight_kg=entry.get('weight_kg', 0),
+                    split_order=i + 1,
+                )
+                for i, entry in enumerate(firms_data)
+                if entry.get('export_firm_id')
+            ]
+            if split_rows:
+                ShipmentFirmSplit.objects.bulk_create(split_rows, batch_size=500)
+
+            # Auto-create quota usage records (draft) for each firm split
+            shipment.quota_usage_records.filter(status='draft').delete()
+            num_firms = len(split_rows)
+            if num_firms > 0:
+                default_kg = get_default_truck_weight(num_firms)
+                QuotaUsageRecord.objects.bulk_create([
+                    QuotaUsageRecord(
+                        usage_date=shipment.date,
+                        export_firm_id=row.export_firm_id,
+                        kg_used=default_kg,
+                        product_type='tomato',  # TODO: derive from shipment context when pepper support is added
+                        shipment=shipment,
+                        status='draft',
+                        created_by=request.user,
+                    )
+                    for row in split_rows
+                ], batch_size=500)
+
         logger.info(
-            'Firm splits for %s updated by %s (%d firms)',
-            shipment.cargo_code, request.user.username, len(firms_data),
+            'Firm splits for %s updated by %s (%d firms, %d usage records)',
+            shipment.cargo_code, request.user.username, len(firms_data), num_firms,
         )
         return Response({'status': 'ok', 'count': len(firms_data)})

@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Alert, Badge, Card, Loader, Text } from '@mantine/core';
+import { Alert, Badge, Card, Loader, SegmentedControl, Text } from '@mantine/core';
 import { IconAlertTriangle, IconClock } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
-import { useShipments } from '@/hooks/useShipments';
+import { useShipments, useMyPendingCount } from '@/hooks/useShipments';
+import { useAuth } from '@/hooks/useAuth';
 import { StatusTag } from '@/components/StatusTag';
 import type { IShipmentListItem } from '@/types';
 
@@ -35,23 +36,67 @@ function daysAgo(iso: string): number {
   return dayjs().diff(dayjs(iso), 'day');
 }
 
+// Required fields per role — mirrors backend ROLE_REQUIRED_FIELDS.
+// Used to show "missing field" chips on My Tasks cards.
+const ROLE_REQUIRED_FIELDS: Record<string, { field: string; labelKey: string }[]> = {
+  warehouse_chief: [
+    { field: 'weight_net', labelKey: 'kanban.field_weight' },
+    { field: 'weight_gross', labelKey: 'kanban.field_weight_gross' },
+    { field: 'variety_name', labelKey: 'kanban.field_variety' },
+    { field: 'harvest_status', labelKey: 'kanban.field_harvest' },
+  ],
+  document_team: [
+    { field: 'documents_status', labelKey: 'kanban.field_documents' },
+  ],
+  transport: [
+    { field: 'truck_head_id', labelKey: 'kanban.field_truck' },
+    { field: 'driver_id', labelKey: 'kanban.field_driver' },
+    { field: 'border_point_name', labelKey: 'kanban.field_border' },
+  ],
+  sales_rep: [
+    { field: 'city_name', labelKey: 'kanban.field_city' },
+    { field: 'price_per_kg', labelKey: 'kanban.field_price' },
+    { field: 'total_amount_usd', labelKey: 'kanban.field_total' },
+  ],
+  finansist: [
+    { field: 'price_per_kg', labelKey: 'kanban.field_price' },
+    { field: 'total_amount_usd', labelKey: 'kanban.field_total' },
+  ],
+};
+
+function getMissingFields(
+  shipment: IShipmentListItem,
+  role: string | undefined,
+): { field: string; labelKey: string }[] {
+  if (!role) return [];
+  const required = ROLE_REQUIRED_FIELDS[role];
+  if (!required) return [];
+  return required.filter((r) => {
+    const val = shipment[r.field as keyof IShipmentListItem];
+    return val === null || val === undefined || val === '';
+  });
+}
+
 interface IShipmentCardProps {
   shipment: IShipmentListItem;
   phase: string;
+  showMissing?: boolean;
+  userRole?: string;
 }
 
-function ShipmentCard({ shipment, phase }: IShipmentCardProps) {
+function ShipmentCard({ shipment, phase, showMissing, userRole }: IShipmentCardProps) {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const days = daysAgo(shipment.updated_at);
   const isOverdue = days >= OVERDUE_DAYS[phase];
+  const missing = showMissing ? getMissingFields(shipment, userRole) : [];
 
   return (
     <Card
       padding="xs"
       style={{
         marginBottom: 8,
-        borderLeft: isOverdue ? '3px solid #ff4d4f' : '3px solid transparent',
+        borderLeft: isOverdue ? '3px solid #ff4d4f' : showMissing ? '3px solid #1677ff' : '3px solid transparent',
         cursor: 'pointer',
       }}
       onClick={() => navigate(`/shipments/${shipment.id}`)}
@@ -90,18 +135,32 @@ function ShipmentCard({ shipment, phase }: IShipmentCardProps) {
           </Text>
         </div>
       </div>
+      {missing.length > 0 && (
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>
+          {missing.map((m) => (
+            <Badge key={m.field} variant="light" color="blue" size="xs">
+              {t(m.labelKey)}
+            </Badge>
+          ))}
+        </div>
+      )}
     </Card>
   );
 }
 
 interface IKanbanColumnViewProps {
   column: IKanbanColumn;
+  myTasks?: boolean;
+  userRole?: string;
   onOverdueCount?: (phase: string, count: number) => void;
 }
 
-function KanbanColumnView({ column, onOverdueCount }: IKanbanColumnViewProps) {
+function KanbanColumnView({ column, myTasks, userRole, onOverdueCount }: IKanbanColumnViewProps) {
   const { t } = useTranslation();
-  const { data, isLoading } = useShipments({ phase: column.phase, page_size: 100 });
+  const filters = myTasks
+    ? { phase: column.phase, pending_my_fields: true, page_size: 100 }
+    : { phase: column.phase, page_size: 100 };
+  const { data, isLoading } = useShipments(filters);
   const shipments = data?.results ?? [];
   const overdueCount = shipments.filter((s) => daysAgo(s.updated_at) >= OVERDUE_DAYS[column.phase]).length;
 
@@ -148,11 +207,17 @@ function KanbanColumnView({ column, onOverdueCount }: IKanbanColumnViewProps) {
         )}
         {!isLoading && shipments.length === 0 && (
           <Text c="dimmed" size="xs" style={{ padding: '8px 4px', display: 'block' }}>
-            {t('kanban.no_shipments')}
+            {myTasks ? t('kanban.no_pending') : t('kanban.no_shipments')}
           </Text>
         )}
         {shipments.map((s) => (
-          <ShipmentCard key={s.id} shipment={s} phase={column.phase} />
+          <ShipmentCard
+            key={s.id}
+            shipment={s}
+            phase={column.phase}
+            showMissing={myTasks}
+            userRole={userRole}
+          />
         ))}
       </div>
     </div>
@@ -161,7 +226,11 @@ function KanbanColumnView({ column, onOverdueCount }: IKanbanColumnViewProps) {
 
 export default function KanbanBoard() {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const { data: pendingCount } = useMyPendingCount();
+  const [mode, setMode] = useState<string>('all');
   const [overdueByPhase, setOverdueByPhase] = useState<Record<string, number>>({});
+  const isMyTasks = mode === 'my_tasks';
 
   const handleOverdueCount = (phase: string, count: number) => {
     setOverdueByPhase((prev) => {
@@ -184,12 +253,30 @@ export default function KanbanBoard() {
             {t('kanban.subtitle')}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {/* action buttons */}
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <SegmentedControl
+            value={mode}
+            onChange={setMode}
+            data={[
+              { label: t('kanban.all_shipments'), value: 'all' },
+              {
+                label: (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {t('kanban.my_tasks')}
+                    {(pendingCount ?? 0) > 0 && (
+                      <Badge size="xs" color="blue" variant="filled">{pendingCount}</Badge>
+                    )}
+                  </div>
+                ),
+                value: 'my_tasks',
+              },
+            ]}
+            size="sm"
+          />
         </div>
       </div>
 
-      {totalOverdue > 0 && (
+      {totalOverdue > 0 && !isMyTasks && (
         <Alert color="yellow" mb="md" withCloseButton>
           {t('kanban.overdue_banner', { count: totalOverdue })}
         </Alert>
@@ -197,7 +284,13 @@ export default function KanbanBoard() {
 
       <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 12, WebkitOverflowScrolling: 'touch' }}>
         {COLUMNS.map((col) => (
-          <KanbanColumnView key={col.phase} column={col} onOverdueCount={handleOverdueCount} />
+          <KanbanColumnView
+            key={`${col.phase}-${mode}`}
+            column={col}
+            myTasks={isMyTasks}
+            userRole={user?.role}
+            onOverdueCount={handleOverdueCount}
+          />
         ))}
       </div>
     </div>

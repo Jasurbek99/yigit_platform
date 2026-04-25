@@ -1,6 +1,7 @@
 import { memo, useCallback } from 'react';
 import { Tag, Tooltip } from 'antd';
 import dayjs from 'dayjs';
+import i18n from '@/i18n';
 import type { IShipmentSheetItem, IRowConfig } from '@/types';
 import { useSheetStore } from '@/stores/sheetStore';
 import { COL_WIDTH_SHIPMENT, ROW_HEIGHT } from '@/constants/sheetRowConfig';
@@ -44,7 +45,7 @@ function getCellValue(shipment: IShipmentSheetItem, rowConfig: IRowConfig): stri
     case 'transit_days':
       return shipment.transit_days != null ? `${shipment.transit_days}d` : '—';
     case 'has_peregruz':
-      return shipment.has_peregruz ? 'Boldy' : '—';
+      return shipment.has_peregruz ? i18n.t('sheet.has_peregruz_yes') : '—';
     case 'has_sales_report':
       return shipment.has_sales_report ? '✓' : '❌';
     case 'notes':
@@ -79,9 +80,10 @@ function getCellValue(shipment: IShipmentSheetItem, rowConfig: IRowConfig): stri
     return shipment.block_sources.map((b) => b.block_code).join('/');
   }
 
-  // Computed/virtual fields
+  // Status fields — show stored value or dash
   if (fieldKey === 'customs_clearance' || fieldKey === 'documents_status' || fieldKey === 'harvest_status') {
-    return '—';
+    const val = shipment[fieldKey as keyof IShipmentSheetItem] as string | null;
+    return val ?? '—';
   }
   if (fieldKey === 'transit_days_temp') {
     const days = shipment.transit_days;

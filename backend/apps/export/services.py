@@ -23,10 +23,12 @@ STATUS_TIMESTAMP_MAP = {
 }
 
 # Allowed transitions: from_code → list of (to_code, allowed_roles)
-# None key = shipment has no status yet (initial creation edge case).
+# None key = shipment has no status yet (legacy fallback, unused by two-phase flow).
+# 'draft' is step 0 — created by warehouse_chief; promoted to yuklenme by export_manager.
 # Roles export_manager and director are always privileged — they can trigger any transition.
 TRANSITIONS = {
-    None:             [('yuklenme',       ['warehouse_chief'])],
+    None:             [('draft',          ['warehouse_chief'])],
+    'draft':          [('yuklenme',       ['export_manager'])],
     'yuklenme':       [('gumruk_girish',  ['warehouse_chief'])],
     'gumruk_girish':  [('gumruk_chykysh', ['document_team'])],
     'gumruk_chykysh': [('yola_chykdy',    ['document_team'])],
@@ -44,6 +46,31 @@ TRANSITIONS = {
 
 # Roles that may override role restrictions and trigger any valid transition.
 PRIVILEGED_ROLES = {'export_manager', 'director'}
+
+# When a shipment transitions TO this status, notify these roles to fill their fields.
+STATUS_NOTIFY_ROLES: dict[str, list[str]] = {
+    'yuklenme':       ['warehouse_chief'],
+    'gumruk_girish':  ['document_team'],
+    'yola_chykdy':    ['transport'],
+    'serhet_gechdi':  ['sales_rep'],
+    'hasabat':        ['finansist'],
+}
+
+
+def _write_ad1_timestamp(
+    shipment: Shipment, status_code: str, now, update_fields: list[str] | None = None,
+) -> str | None:
+    """Write the AD-1 denormalized timestamp field for a status code.
+
+    Centralised helper used by both transition_to() and create_shipment().
+    Returns the field name that was written, or None if the status has no mapping.
+    """
+    ts_field = STATUS_TIMESTAMP_MAP.get(status_code)
+    if ts_field:
+        setattr(shipment, ts_field, now)
+        if update_fields is not None:
+            update_fields.append(ts_field)
+    return ts_field
 
 
 def transition_to(shipment: Shipment, new_status_code: str, user, comment: str = '') -> None:
@@ -95,10 +122,7 @@ def transition_to(shipment: Shipment, new_status_code: str, user, comment: str =
     update_fields = ['status', 'updated_by', 'updated_at']
 
     # AD-1: set the denormalized timestamp for this status
-    ts_field = STATUS_TIMESTAMP_MAP.get(new_status_code)
-    if ts_field:
-        setattr(shipment, ts_field, now)
-        update_fields.append(ts_field)
+    _write_ad1_timestamp(shipment, new_status_code, now, update_fields)
 
     shipment.status = new_status
     shipment.updated_by = user
@@ -131,8 +155,47 @@ def transition_to(shipment: Shipment, new_status_code: str, user, comment: str =
         user.username,
     )
 
+    # Notify roles that need to act in the new phase.
+    _notify_action_required(shipment, new_status_code)
+
     # Quota usage is now computed on-the-fly in the quota dashboard analytics endpoint.
     # No per-quota used_kg tracking needed.
+
+
+def _notify_action_required(shipment: Shipment, new_status_code: str) -> None:
+    """Create action_required notifications for roles that need to fill fields.
+
+    Called by transition_to() after each status change. Only creates notifications
+    for statuses listed in STATUS_NOTIFY_ROLES.
+    """
+    from apps.core.models import User
+    from apps.export.models import Notification
+
+    roles = STATUS_NOTIFY_ROLES.get(new_status_code, [])
+    if not roles:
+        return
+
+    user_ids = list(
+        User.objects.filter(role__in=roles, is_active=True)
+        .values_list('id', flat=True)
+    )
+    if not user_ids:
+        return
+
+    notifications = [
+        Notification(
+            user_id=uid,
+            kind='action_required',
+            message=shipment.cargo_code,
+            link=f'/shipments/{shipment.id}',
+        )
+        for uid in user_ids
+    ]
+    Notification.objects.bulk_create(notifications, batch_size=500)
+    logger.info(
+        'Created %d action_required notifications for %s (roles: %s)',
+        len(notifications), shipment.cargo_code, roles,
+    )
 
 
 def create_shipment(
@@ -187,10 +250,9 @@ def create_shipment(
         created_by=user,
     )
 
-    # AD-1: write loading_started_at directly on creation — this is the creation
-    # equivalent of the first transition. Only transition_to() may update this field
-    # after initial creation.
-    shipment.loading_started_at = timezone.now()
+    # AD-1: write loading_started_at via the centralised helper — the same
+    # function transition_to() uses, keeping all AD-1 writes in one place.
+    _write_ad1_timestamp(shipment, first_status.code, timezone.now())
     shipment.save(update_fields=['loading_started_at'])
 
     ShipmentStatusLog.objects.create(
@@ -201,6 +263,10 @@ def create_shipment(
     )
 
     logger.info('Shipment %s created by %s', shipment.cargo_code, user.username)
+
+    # Notify warehouse_chief users that a new shipment needs their fields filled.
+    _notify_action_required(shipment, 'yuklenme')
+
     return shipment
 
 

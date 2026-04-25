@@ -58,7 +58,9 @@ flowchart LR
 | Process | What It Does | Key Pages |
 |---------|-------------|-----------|
 | [[shipment-lifecycle]] | 13-step state machine from Loading to Completed | ShipmentList, ShipmentDetail, KanbanBoard, ShipmentSheet, ShipmentDashboard |
-| [[shipment-creation]] | How a shipment is created (pre-shipment planning flow) | ShipmentCreateModal |
+| [[shipment-creation]] | Legacy single-form path — direct creation at step 1 | ShipmentCreateModal |
+| [[draft-shipments]] | Two-phase creation (DRAFT step 0) with multi-block composer | DraftPool, DraftComposerModal |
+| [[assignment-board]] | Match drafts to demand (contracts / quota gaps / waiting) | AssignmentBoard |
 | [[weekly-harvest-planning]] | Block managers plan Mon-Sat harvest per block | WeeklyPlanGrid |
 | [[truck-allocation]] | Trucks allocated per day per destination | TruckForecast, TruckAllocationTable |
 | [[quota-management]] | Government quota issuance, allocation, FIFO usage | QuotaDashboard (5 tabs) |

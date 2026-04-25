@@ -20,6 +20,8 @@ const ROUTE_PAGE_MAP: Record<string, string> = {
   '/export/trucks':           'export.trucks',
   '/export/blocks':           'export.blocks',
   '/export/domestic-sales':   'export.domestic_sales',
+  '/export/drafts':           'export.drafts',
+  '/export/assign':           'export.assign',
   '/admin/users':             'admin.users',
   '/admin/seasons':           'admin.seasons',
   '/admin/firms':             'admin.firms',

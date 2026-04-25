@@ -136,8 +136,12 @@ export default function QuotaDashboard() {
 
   const navigate = useNavigate();
 
-  // Active tab — document_team defaults to issuance log, others to firm breakdown
-  const defaultTab = canSeeQuota ? 'all_quotas' : 'local_sell';
+  // Active tab — derive from the first visible tab to avoid pointing at a hidden one
+  const tabOrder = [
+    canSeeQuota && 'all_quotas',
+    canSeeLocalSell && 'local_sell',
+  ].filter(Boolean) as string[];
+  const defaultTab = tabOrder[0] ?? 'all_quotas';
   const [activeTab, setActiveTab] = useState(defaultTab);
 
   const { date_from, date_to } = useMemo(
@@ -235,7 +239,7 @@ export default function QuotaDashboard() {
     canSeeQuota && {
       key: 'quota_usage',
       label: t('quota_dashboard.tab_quota_usage'),
-      children: <QuotaUsageTab weightUnit={weightUnit} />,
+      children: <QuotaUsageTab weightUnit={weightUnit} productType={productType} />,
     },
     canSeeLocalSell && {
       key: 'local_sell',

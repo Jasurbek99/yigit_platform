@@ -1,5 +1,17 @@
 import type { IShipmentListItem, IApiListResponse } from '@/types';
 
+const MOCK_DEFAULTS = {
+  city_name: null,
+  variety_name: null,
+  border_point_name: null,
+  harvest_status: null,
+  documents_status: null,
+  truck_head_id: null,
+  driver_id: null,
+  price_per_kg: null,
+  total_amount_usd: null,
+} as const;
+
 export const MOCK_SHIPMENTS: IShipmentListItem[] = [
   {
     id: 1,
@@ -16,6 +28,11 @@ export const MOCK_SHIPMENTS: IShipmentListItem[] = [
     arrived_at: null,
     is_gapy_satys: false,
     updated_at: '2025-02-01T14:30:00+05:00',
+    ...MOCK_DEFAULTS,
+    city_name: 'Almaty',
+    truck_head_id: 101,
+    driver_id: 201,
+    border_point_name: 'Farap',
   },
   {
     id: 2,
@@ -32,6 +49,10 @@ export const MOCK_SHIPMENTS: IShipmentListItem[] = [
     arrived_at: '2025-02-07T16:00:00+03:00',
     is_gapy_satys: false,
     updated_at: '2025-02-07T16:00:00+03:00',
+    ...MOCK_DEFAULTS,
+    city_name: 'Москва',
+    variety_name: 'MARW',
+    harvest_status: 'ok',
   },
   {
     id: 3,
@@ -48,6 +69,7 @@ export const MOCK_SHIPMENTS: IShipmentListItem[] = [
     arrived_at: null,
     is_gapy_satys: true,
     updated_at: '2025-02-03T07:00:00+05:00',
+    ...MOCK_DEFAULTS,
   },
   {
     id: 4,
@@ -64,6 +86,13 @@ export const MOCK_SHIPMENTS: IShipmentListItem[] = [
     arrived_at: '2025-02-10T14:00:00+03:00',
     is_gapy_satys: false,
     updated_at: '2025-02-10T14:00:00+03:00',
+    ...MOCK_DEFAULTS,
+    city_name: 'Nowosibirsk',
+    variety_name: 'Merjen',
+    harvest_status: 'ok',
+    documents_status: 'ok',
+    price_per_kg: 1.25,
+    total_amount_usd: 24750,
   },
   {
     id: 5,
@@ -80,6 +109,13 @@ export const MOCK_SHIPMENTS: IShipmentListItem[] = [
     arrived_at: null,
     is_gapy_satys: false,
     updated_at: '2025-02-05T20:00:00+05:00',
+    ...MOCK_DEFAULTS,
+    variety_name: 'MARW',
+    harvest_status: 'ok',
+    documents_status: 'ok',
+    truck_head_id: 103,
+    driver_id: 203,
+    border_point_name: 'Farap',
   },
 ];
 

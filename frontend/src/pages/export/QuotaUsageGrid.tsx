@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react';
+// NOTE: Plain Table (not ProTable) is intentional here — this is a custom
+// dates×firms cross-tab matrix with dynamic columns, not a standard data list.
 import {
   Alert,
   Button,
@@ -58,9 +60,10 @@ function recordKey(date: string, firmId: number): string {
 
 interface IQuotaUsageGridProps {
   weightUnit: WeightUnit;
+  productType: string;
 }
 
-export function QuotaUsageGrid({ weightUnit }: IQuotaUsageGridProps) {
+export function QuotaUsageGrid({ weightUnit, productType }: IQuotaUsageGridProps) {
   const fmtW = (val: number | null | undefined): string => {
     if (val == null || val === 0) return '';
     return fmtWeight(val, weightUnit);
@@ -81,6 +84,7 @@ export function QuotaUsageGrid({ weightUnit }: IQuotaUsageGridProps) {
   const { data: records = [], isLoading, isError } = useQuotaUsageRecords({
     date_from: dateFrom,
     date_to: dateTo,
+    product_type: productType,
   });
   const { data: firms = [] } = useAdminFirms();
   const updateMutation = useUpdateQuotaUsage();
@@ -207,7 +211,7 @@ export function QuotaUsageGrid({ weightUnit }: IQuotaUsageGridProps) {
     } else if (newValue > 0 && canCreate) {
       // Create new record
       createMutation.mutate(
-        { usage_date: date, export_firm: firmId, kg_used: newValue, product_type: 'tomato' },
+        { usage_date: date, export_firm: firmId, kg_used: newValue, product_type: productType },
         { onError: () => message.error(t('quota_usage.save_error')) },
       );
     }
@@ -242,6 +246,7 @@ export function QuotaUsageGrid({ weightUnit }: IQuotaUsageGridProps) {
       if (isEditable) {
         return (
           <InputNumber
+            key={`${row.date}_${firm.id}_${value}`}
             min={0}
             step={100}
             keyboard={false}
@@ -386,7 +391,7 @@ export function QuotaUsageGrid({ weightUnit }: IQuotaUsageGridProps) {
       </Flex>
 
       {isError && (
-        <Alert type="error" message={t('quota_usage.save_error')} style={{ marginBottom: 12 }} />
+        <Alert type="error" message={t('quota_usage.load_error')} style={{ marginBottom: 12 }} />
       )}
 
       {gridData.length === 0 && !isLoading ? (

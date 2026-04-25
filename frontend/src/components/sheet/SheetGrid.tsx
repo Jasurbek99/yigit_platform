@@ -19,15 +19,7 @@ import {
 
 // Role-based edit check — matches P3_Shipment_Sheet_Spec.md permission matrix
 const ROLE_EDITABLE_FIELDS: Record<string, Set<string>> = {
-  export_manager: new Set([
-    'route_note', 'vehicle_condition', 'notes', 'country', 'customer', 'city',
-    'import_firm', 'firm_splits', 'block_sources', 'variety',
-    'weight_net', 'weight_gross', 'packaging_kg', 'price_per_kg',
-    'total_amount_usd', 'box_count', 'pallet_count',
-    'customs_clearance', 'has_peregruz',
-    'loading_started_at', 'departed_at', 'arrived_at',
-    'sale_started_at', 'sale_ended_at', 'has_sales_report',
-  ]),
+  export_manager: new Set(['*']),
   warehouse_chief: new Set([
     'block_sources', 'variety', 'harvest_status',
     'loading_started_at', 'loading_ended_at',

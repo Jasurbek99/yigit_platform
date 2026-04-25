@@ -34,6 +34,8 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
     'export_manager': _ALL_PAGES - _ALL_ADMIN | {'admin.permissions'},
     'warehouse_chief': {
         'dashboard', 'export.shipments', 'export.kanban',
+        # Draft workflow: warehouse_chief creates drafts (Finding #2)
+        'export.drafts',
     },
     'document_team': {
         'dashboard', 'export.shipments', 'export.kanban', 'export.quota',
@@ -72,29 +74,45 @@ _ALL_RESOURCES = set(RESOURCE_REGISTRY.keys())
 
 RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
     'director': {r: _VCRUD for r in _ALL_RESOURCES},
-    'export_manager': {r: _VCRUD for r in _ALL_RESOURCES},
+    'export_manager': {
+        **{r: _VCRUD for r in _ALL_RESOURCES},
+        # Assignment: export_manager promotes drafts to yuklenme (Finding #1)
+        'shipment_assign': _VCE,
+    },
     'warehouse_chief': {
-        'shipment': _VE,
+        # _VCE: warehouse_chief can now create draft shipments (Finding #2)
+        'shipment': _VCE,
+        'shipment_block_source': _VCE,   # Soltanmyrat creates block sources
+        'shipment_comment': _VCE,
         'domestic_sale': _VCE,
     },
     'document_team': {
         'shipment': _VE,
+        'shipment_firm_split': _VCE,     # Sulgun manages firm splits
+        'quality_document': _VCE,
+        'shipment_comment': _VCE,
         'quota_issuance': _VCE,
+        'quota_usage': _VCE,
     },
     'transport': {
         'shipment': _VE,
+        'shipment_comment': _VCE,
     },
     'sales_rep': {
         'shipment': _VE,
+        'sales_report': _VCE,           # Arap creates sales reports
+        'shipment_comment': _VCE,
         'advance': _VIEW,
     },
     'finansist': {
         'shipment': _VE,
+        'shipment_comment': _VCE,
         'price_entry': _VCE,
         'advance': _VCRUD,
     },
     'accountant': {
         'shipment': _VIEW,
+        'sales_report': _VIEW,
     },
     'greenhouse_manager': {
         'weekly_plan': _VCE,
@@ -110,41 +128,93 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
 # Source of truth for RoleFieldPermission rows.
 
 FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
+    # ── warehouse_chief (Soltanmyrat, Mergen) ────────────────────────
+    # Excel: R7 cargo_code (create-only), R8 blocks (separate resource),
+    # R14 harvest_status, R37 weight_net, R38 weight_gross, R39 variety,
+    # R20/R21 loading times (AD-1, via transition), R40 harvest date (comments)
     'warehouse_chief': {
-        'shipment': ['box_count', 'pallet_count', 'weight_net', 'weight_gross'],
+        'shipment': [
+            'weight_net', 'weight_gross', 'box_count', 'pallet_count',
+            'pallet_weight_kg', 'packaging_kg',
+            'harvest_status', 'variety', 'product_type', 'loading_location',
+        ],
     },
+    # ── document_team (Sirin, Sulgun) ────────────────────────────────
+    # Excel: R6 documents_status, R9 firm splits (separate resource),
+    # R18 Shirin's notes (comments), R26 customs_exit (AD-1, via transition)
     'document_team': {
-        'shipment': ['box_count', 'pallet_count', 'weight_net', 'weight_gross', 'notes'],
+        'shipment': [
+            'documents_status', 'customs_clearance',
+            'box_count', 'pallet_count', 'weight_net', 'weight_gross',
+            'notes',
+        ],
+        'shipment_firm_split': ['*'],
+        'quality_document': ['*'],
         'quota_issuance': ['*'],
+        'quota_usage': ['*'],
     },
+    # ── transport (Haltac, Malik, Transport bölüm, Hil Gözegçi) ─────
+    # Excel: R15 vehicle status, R23 responsible, R24 truck/trailer,
+    # R28 driver, R29 driver phone (via driver FK), R30 border point,
+    # R27 transit days + temp (quality inspector), R4 route notes,
+    # R31 border exit time (AD-1, via transition)
     'transport': {
-        'shipment': ['vehicle_condition', 'vehicle_condition_note', 'route_note'],
+        'shipment': [
+            'vehicle_condition', 'vehicle_condition_note', 'route_note',
+            'vehicle_responsible', 'truck_head_id', 'trailer_id', 'driver_id',
+            'border_point', 'transit_days', 'transport_temp_c', 'shelf_life_days',
+        ],
     },
+    # ── sales_rep (Arap, Aganazar) ───────────────────────────────────
+    # Excel: R12 city, R33 peregruz, R34 peregruz time, R35 arrival (AD-1),
+    # R42 sale start (AD-1), R43 sale end (AD-1), R44 report (separate resource)
     'sales_rep': {
-        'shipment': ['price_per_kg', 'total_amount_usd'],
+        'shipment': [
+            'city', 'has_peregruz', 'peregruz_city', 'peregruz_date',
+            'rejected_weight_kg', 'price_per_kg', 'total_amount_usd',
+        ],
+        'sales_report': ['*'],
     },
+    # ── finansist (Babageldi) ────────────────────────────────────────
+    # Excel: R25 cash advance (separate resource)
     'finansist': {
         'shipment': ['price_per_kg', 'total_amount_usd'],
+        'advance': ['*'],
     },
+    # ── accountant ───────────────────────────────────────────────────
     'accountant': {
         'shipment': [],
     },
+    # ── greenhouse_manager ───────────────────────────────────────────
     'greenhouse_manager': {
         'shipment': [],
         'weekly_plan': ['*'],
     },
+    # ── export_manager (Gadam J) ─────────────────────────────────────
+    # Excel: R5 customs_clearance, R10 country, R11 customer, R13 import_firm
+    # Wildcard: can edit all shipment fields + manage all related resources
     'export_manager': {
         'shipment': ['*'],
+        'shipment_firm_split': ['*'],
+        'shipment_block_source': ['*'],
+        'quality_document': ['*'],
+        'sales_report': ['*'],
         'weekly_plan': ['*'],
         'quota_issuance': ['*'],
         'local_sell_plan': ['*'],
     },
+    # ── director ─────────────────────────────────────────────────────
     'director': {
         'shipment': ['*'],
+        'shipment_firm_split': ['*'],
+        'shipment_block_source': ['*'],
+        'quality_document': ['*'],
+        'sales_report': ['*'],
         'weekly_plan': ['*'],
         'quota_issuance': ['*'],
         'local_sell_plan': ['*'],
     },
+    # ── seller ───────────────────────────────────────────────────────
     'seller': {
         'local_sell_plan': ['planned_kg', 'actual_kg', 'buyer_name'],
     },

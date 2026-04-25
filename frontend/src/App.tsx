@@ -47,6 +47,8 @@ const CustomersPage = lazy(() => import('@/pages/admin/CustomersPage'));
 const ShipmentSettingsPage = lazy(() => import('@/pages/admin/ShipmentSettingsPage'));
 const ShipmentSheet = lazy(() => import('@/pages/export/ShipmentSheet'));
 const ShipmentDashboard = lazy(() => import('@/pages/export/ShipmentDashboard'));
+const DraftPool = lazy(() => import('@/pages/export/DraftPool'));
+const AssignmentBoard = lazy(() => import('@/pages/export/AssignmentBoard'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -174,6 +176,12 @@ export default function App() {
                   } />
                   <Route path="export/domestic-sales" element={
                     <ProtectedRoute pageCode="export.domestic_sales"><DomesticSales /></ProtectedRoute>
+                  } />
+                  <Route path="export/drafts" element={
+                    <ProtectedRoute pageCode="export.drafts"><DraftPool /></ProtectedRoute>
+                  } />
+                  <Route path="export/assign" element={
+                    <ProtectedRoute pageCode="export.assign"><AssignmentBoard /></ProtectedRoute>
                   } />
                   <Route path="admin/seasons" element={
                     <ProtectedRoute pageCode="admin.seasons"><SeasonsPage /></ProtectedRoute>

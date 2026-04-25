@@ -20,6 +20,8 @@ import {
   IconBuildingWarehouse,
   IconLayoutGrid,
   IconUser,
+  IconFileText,
+  IconArrowsSort,
 } from '@tabler/icons-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -41,6 +43,10 @@ const KIND_COLOR: Record<INotification['kind'], string> = {
   quota_95: '#ff4d4f',
   quota_100: '#cf1322',
   overdue: '#ff4d4f',
+  action_required: '#1677ff',
+  plan_submitted: '#1677ff',
+  plan_approved: '#52c41a',
+  plan_rejected: '#ff4d4f',
 };
 
 // ─── NotificationBell ─────────────────────────────────────────────────────────
@@ -93,7 +99,11 @@ function NotificationBell() {
               borderBottom: '1px solid #f5f5f5',
             }}
           >
-            <Text style={{ fontSize: 12, lineHeight: 1.4, display: 'block' }}>{n.message}</Text>
+            <Text style={{ fontSize: 12, lineHeight: 1.4, display: 'block' }}>
+              {n.kind === 'action_required'
+                ? t('notifications.action_required', { cargo_code: n.message })
+                : n.message}
+            </Text>
             <Text type="secondary" style={{ fontSize: 11 }}>
               {new Date(n.created_at).toLocaleString()}
             </Text>
@@ -156,6 +166,8 @@ export default function AppLayout() {
     '/export/shipments/sheet': t('nav.shipment_sheet'),
     '/export/shipments/dashboard': t('nav.shipment_dashboard'),
     '/export/kanban': t('nav.kanban'),
+    '/export/drafts': t('nav.drafts'),
+    '/export/assign': t('nav.assign'),
     '/export/overdue': t('nav.overdue'),
     '/export/advances': t('nav.advances'),
     '/export/plan': t('nav.plan'),
@@ -198,6 +210,8 @@ export default function AppLayout() {
       { key: '/export/shipments/sheet', icon: <IconLayoutGrid size={15} />, label: t('nav.shipment_sheet') },
       { key: '/export/shipments/dashboard', icon: <IconLayoutDashboard size={15} />, label: t('nav.shipment_dashboard') },
       { key: '/export/kanban', icon: <IconLayoutKanban size={15} />, label: t('nav.kanban') },
+      { key: '/export/drafts', icon: <IconFileText size={15} />, label: t('nav.drafts') },
+      { key: '/export/assign', icon: <IconArrowsSort size={15} />, label: t('nav.assign') },
       { key: '/export/overdue', icon: <IconAlertTriangle size={15} />, label: t('nav.overdue') },
       { key: '/export/advances', icon: <IconBuildingBank size={15} />, label: t('nav.advances') },
     ]},

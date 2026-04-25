@@ -1,10 +1,14 @@
 ---
 title: Shipment Creation
 tags: [process, backend, frontend, shipment]
-related: [[shipment-lifecycle]], [[weekly-harvest-planning]], [[truck-allocation]]
+related: [[shipment-lifecycle]], [[weekly-harvest-planning]], [[truck-allocation]], [[draft-shipments]]
 ---
 
 # Shipment Creation
+
+> Two paths exist:
+> - **Two-phase (preferred)** — see [[draft-shipments]]. Soltanmyrat creates a draft (step 0), Gadam assigns it via the [[assignment-board]] which transitions to step 1.
+> - **Single-form (legacy)** — direct creation at step 1 via `ShipmentCreateModal`. Described below. Still supported for scenarios where destination is known upfront.
 
 ## What Is This Process?
 

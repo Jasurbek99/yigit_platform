@@ -6,10 +6,10 @@ import {
   Modal,
   Select,
   Space,
-  Table,
   Tag,
   Typography,
 } from 'antd';
+import { ProTable, type ProColumns } from '@ant-design/pro-components';
 import {
   AppstoreOutlined,
   CheckCircleOutlined,
@@ -28,7 +28,7 @@ import {
 } from '@/hooks/useQuotaUsage';
 import { fmtWeight, weightSuffix, type WeightUnit } from '@/utils/weight';
 import { QuotaUsageGrid } from './QuotaUsageGrid';
-import type { IQuotaUsageRecord, QuotaUsageStatus } from '@/types';
+import type { IQuotaUsageRecord } from '@/types';
 
 const { Text } = Typography;
 
@@ -36,9 +36,10 @@ type ViewMode = 'list' | 'grid';
 
 interface IQuotaUsageTabProps {
   weightUnit: WeightUnit;
+  productType: string;
 }
 
-export function QuotaUsageTab({ weightUnit }: IQuotaUsageTabProps) {
+export function QuotaUsageTab({ weightUnit, productType }: IQuotaUsageTabProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const canEdit = canDo(user, 'quota_usage', 'edit');
@@ -48,7 +49,10 @@ export function QuotaUsageTab({ weightUnit }: IQuotaUsageTabProps) {
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
-  const { data: records = [], isLoading } = useQuotaUsageRecords({ status: statusFilter });
+  const { data: records = [], isLoading } = useQuotaUsageRecords(
+    { status: statusFilter },
+    { enabled: viewMode === 'list' },
+  );
   const updateMutation = useUpdateQuotaUsage();
   const deleteMutation = useDeleteQuotaUsage();
   const approveMutation = useBulkApproveQuotaUsage();
@@ -98,7 +102,7 @@ export function QuotaUsageTab({ weightUnit }: IQuotaUsageTabProps) {
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
           {viewToggle}
         </div>
-        <QuotaUsageGrid weightUnit={weightUnit} />
+        <QuotaUsageGrid weightUnit={weightUnit} productType={productType} />
       </div>
     );
   }
@@ -110,7 +114,7 @@ export function QuotaUsageTab({ weightUnit }: IQuotaUsageTabProps) {
     (id) => records.find((r) => r.id === id)?.status === 'draft'
   ).length;
 
-  const columns = [
+  const columns: ProColumns<IQuotaUsageRecord>[] = [
     {
       title: t('quota_usage.date'),
       dataIndex: 'usage_date',
@@ -123,13 +127,13 @@ export function QuotaUsageTab({ weightUnit }: IQuotaUsageTabProps) {
       width: 160,
       sorter: (a: IQuotaUsageRecord, b: IQuotaUsageRecord) =>
         a.export_firm_name.localeCompare(b.export_firm_name),
-      render: (v: string) => <Text strong>{v}</Text>,
+      render: (_: unknown, r: IQuotaUsageRecord) => <Text strong>{r.export_firm_name}</Text>,
     },
     {
       title: t('quota_usage.cargo_code'),
       dataIndex: 'cargo_code',
       width: 130,
-      render: (v: string | null) => v ?? <Text type="secondary">—</Text>,
+      render: (_: unknown, r: IQuotaUsageRecord) => r.cargo_code ?? <Text type="secondary">—</Text>,
     },
     {
       title: `${t('quota_usage.kg_used')} (${weightSuffix(weightUnit)})`,
@@ -137,11 +141,11 @@ export function QuotaUsageTab({ weightUnit }: IQuotaUsageTabProps) {
       width: 130,
       align: 'right' as const,
       sorter: (a: IQuotaUsageRecord, b: IQuotaUsageRecord) => a.kg_used - b.kg_used,
-      render: (v: number, r: IQuotaUsageRecord) => {
+      render: (_: unknown, r: IQuotaUsageRecord) => {
         if (canEdit && r.status === 'draft') {
           return (
             <InputNumber
-              defaultValue={v}
+              defaultValue={r.kg_used}
               min={1}
               step={100}
               suffix="kg"
@@ -149,32 +153,32 @@ export function QuotaUsageTab({ weightUnit }: IQuotaUsageTabProps) {
               style={{ width: 100 }}
               onBlur={(e) => {
                 const newVal = Number(e.target.value.replace(/,/g, '')) || 0;
-                if (newVal !== v && newVal > 0) handleInlineEdit(r, 'kg_used', newVal);
+                if (newVal !== r.kg_used && newVal > 0) handleInlineEdit(r, 'kg_used', newVal);
               }}
               formatter={(val) => `${val}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
             />
           );
         }
-        return `${fmtWeight(v, weightUnit)} ${weightSuffix(weightUnit)}`;
+        return `${fmtWeight(r.kg_used, weightUnit)} ${weightSuffix(weightUnit)}`;
       },
     },
     {
       title: t('quota_usage.product_type'),
       dataIndex: 'product_type',
       width: 100,
-      render: (v: string) =>
-        v === 'pepper' ? t('quota_dashboard.product_pepper') : t('quota_dashboard.product_tomato'),
+      render: (_: unknown, r: IQuotaUsageRecord) =>
+        r.product_type === 'pepper' ? t('quota_dashboard.product_pepper') : t('quota_dashboard.product_tomato'),
     },
     {
       title: t('quota_usage.status'),
       dataIndex: 'status',
       width: 110,
-      render: (v: QuotaUsageStatus) => (
+      render: (_: unknown, r: IQuotaUsageRecord) => (
         <Tag
-          color={v === 'approved' ? 'success' : 'default'}
-          icon={v === 'approved' ? <CheckCircleOutlined /> : <EditOutlined />}
+          color={r.status === 'approved' ? 'success' : 'default'}
+          icon={r.status === 'approved' ? <CheckCircleOutlined /> : <EditOutlined />}
         >
-          {t(`quota_usage.status_${v}`)}
+          {t(`quota_usage.status_${r.status}`)}
         </Tag>
       ),
     },
@@ -182,13 +186,13 @@ export function QuotaUsageTab({ weightUnit }: IQuotaUsageTabProps) {
       title: t('quota_usage.created_by'),
       dataIndex: 'created_by_name',
       width: 120,
-      render: (v: string | null) => v ?? '—',
+      render: (_: unknown, r: IQuotaUsageRecord) => r.created_by_name ?? '—',
     },
     {
       title: t('quota_usage.approved_by'),
       dataIndex: 'approved_by_name',
       width: 120,
-      render: (v: string | null) => v ?? '—',
+      render: (_: unknown, r: IQuotaUsageRecord) => r.approved_by_name ?? '—',
     },
     ...(canDelete
       ? [
@@ -254,12 +258,14 @@ export function QuotaUsageTab({ weightUnit }: IQuotaUsageTabProps) {
         </Space>
       </div>
 
-      <Table<IQuotaUsageRecord>
+      <ProTable<IQuotaUsageRecord>
         dataSource={records}
         columns={columns}
         rowKey="id"
         size="small"
         loading={isLoading}
+        search={false}
+        options={false}
         pagination={false}
         scroll={{ x: 1100 }}
         rowSelection={

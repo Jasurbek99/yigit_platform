@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
-from apps.core.models import Country, Customer, Season
+from apps.core.models import City, Country, Customer, ImportFirm, Season, GreenhouseBlock
 from apps.core.permissions import can_edit_field, PRIVILEGED_ROLES
 from apps.export.services import TRANSITIONS
 from apps.export.models import (
@@ -58,6 +58,9 @@ class ShipmentListSerializer(serializers.ModelSerializer):
     status_step = serializers.IntegerField(source='status.step_order', read_only=True)
     country_name = serializers.CharField(source='country.name_en', read_only=True)
     customer_name = serializers.CharField(source='customer.name', read_only=True)
+    city_name = serializers.CharField(source='city.name', read_only=True, default=None)
+    variety_name = serializers.CharField(source='variety.name', read_only=True, default=None)
+    border_point_name = serializers.CharField(source='border_point.name', read_only=True, default=None)
 
     class Meta:
         model = Shipment
@@ -76,6 +79,16 @@ class ShipmentListSerializer(serializers.ModelSerializer):
             'arrived_at',
             'is_gapy_satys',
             'updated_at',
+            # Fields needed by Kanban "My Tasks" missing-field detection
+            'city_name',
+            'variety_name',
+            'border_point_name',
+            'harvest_status',
+            'documents_status',
+            'truck_head_id',
+            'driver_id',
+            'price_per_kg',
+            'total_amount_usd',
         ]
 
 
@@ -300,27 +313,28 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
         ]
 
 
-# All fields a user could potentially PATCH on Shipment (superset of all roles)
+# All fields a user could potentially PATCH on Shipment (superset of all roles).
+# AD-1 timestamps are intentionally excluded — they are set ONLY by transition_to().
 _ALL_PATCHABLE_FIELDS = {
     # Weight / packaging
-    'box_count', 'pallet_count', 'weight_net', 'weight_gross', 'packaging_kg',
-    'rejected_weight_kg',
-    # Vehicle / transport
-    'vehicle_condition', 'vehicle_condition_note', 'route_note',
-    'vehicle_responsible', 'has_peregruz', 'peregruz_city', 'peregruz_date',
-    'transport_temp_c', 'transit_days',
-    # Finance
-    'price_per_kg', 'total_amount_usd',
+    'box_count', 'pallet_count', 'pallet_weight_kg', 'packaging_kg',
+    'weight_net', 'weight_gross', 'rejected_weight_kg',
     # Geography / customer
-    'country', 'city', 'customer', 'import_firm', 'border_point',
+    'country', 'city', 'customer', 'import_firm',
+    'border_point', 'loading_location',
     # Product
-    'variety',
-    # Timestamps (AD-1 fields written by transition_to, but sheet may need direct edit)
-    'loading_started_at', 'customs_entry_at', 'customs_exit_at',
-    'departed_at', 'border_crossed_at', 'arrived_at',
-    'sale_started_at', 'sale_ended_at',
+    'product_type', 'variety',
+    # Transport
+    'vehicle_condition', 'vehicle_condition_note', 'route_note',
+    'vehicle_responsible', 'truck_head_id', 'trailer_id', 'driver_id',
+    'transit_days', 'transport_temp_c', 'shelf_life_days',
+    'has_peregruz', 'peregruz_city', 'peregruz_date',
     # Operational status
     'customs_clearance', 'documents_status', 'harvest_status',
+    # Finance
+    'price_per_kg', 'total_amount_usd',
+    # Flags
+    'is_gapy_satys',
     # Notes
     'notes',
 }
@@ -352,10 +366,27 @@ class ShipmentPatchSerializer(serializers.ModelSerializer):
         return attrs
 
 
+class BlockSourceInputSerializer(serializers.Serializer):
+    """One row of the multi-block composer: block + allocated weight.
+
+    Used as a child serializer inside ShipmentCreateSerializer.block_sources.
+    """
+
+    block_id = serializers.PrimaryKeyRelatedField(queryset=GreenhouseBlock.objects.all())
+    weight_kg = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal('0.01'))
+
+
 class ShipmentCreateSerializer(serializers.Serializer):
     """Validates the request body for POST /api/v1/export/shipments/.
 
     Enforces cargo_code format and uniqueness before creating a Shipment.
+
+    Two modes:
+    - is_draft=False (default): full creation at yuklenme (legacy path). country/customer
+      are optional at the serializer level but the view still restricts this to privileged
+      roles.
+    - is_draft=True: supply-side draft. block_sources (≥1 item) is required.
+      country/customer/city may be null — destination is decided during assignment.
     """
 
     cargo_code = serializers.CharField(max_length=20)
@@ -369,6 +400,9 @@ class ShipmentCreateSerializer(serializers.Serializer):
     season = serializers.PrimaryKeyRelatedField(
         queryset=Season.objects.all(), required=False, allow_null=True
     )
+    is_draft = serializers.BooleanField(default=False)
+    block_sources = BlockSourceInputSerializer(many=True, required=False, default=list)
+    notes = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     def validate_cargo_code(self, value: str) -> str:
         """Validate format DDMM###/YY (exactly 7 digits, slash, 2 digits).
@@ -384,6 +418,48 @@ class ShipmentCreateSerializer(serializers.Serializer):
                 "A shipment with this cargo code already exists"
             )
         return value
+
+    def validate(self, attrs: dict) -> dict:
+        """Cross-field validation for draft vs. full-creation paths."""
+        is_draft = attrs.get('is_draft', False)
+        block_sources = attrs.get('block_sources', [])
+
+        if is_draft and not block_sources:
+            raise serializers.ValidationError(
+                {'block_sources': 'At least one block source is required when creating a draft.'}
+            )
+
+        # Validate block uniqueness within the submitted list.
+        if block_sources:
+            block_ids = [row['block_id'].id for row in block_sources]
+            if len(block_ids) != len(set(block_ids)):
+                raise serializers.ValidationError(
+                    {'block_sources': 'Duplicate blocks are not allowed in a single shipment.'}
+                )
+
+        return attrs
+
+
+class ShipmentAssignSerializer(serializers.Serializer):
+    """Request body for POST /api/v1/export/shipments/{id}/assign/.
+
+    Accepts destination and customer fields that were deferred at draft creation.
+    All fields are optional so partial assignment is possible; the transition_to()
+    call (yuklenme) enforces that the shipment is in a valid state for loading.
+    """
+
+    country = serializers.PrimaryKeyRelatedField(
+        queryset=Country.objects.all(), required=False, allow_null=True
+    )
+    city = serializers.PrimaryKeyRelatedField(
+        queryset=City.objects.all(), required=False, allow_null=True
+    )
+    customer = serializers.PrimaryKeyRelatedField(
+        queryset=Customer.objects.all(), required=False, allow_null=True
+    )
+    import_firm = serializers.PrimaryKeyRelatedField(
+        queryset=ImportFirm.objects.all(), required=False, allow_null=True
+    )
 
 
 # ---------------------------------------------------------------------------

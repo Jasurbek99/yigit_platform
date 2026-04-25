@@ -1,0 +1,299 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Button, Spin, Alert, Tag, Typography, Badge } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
+import dayjs from 'dayjs';
+import { useDrafts } from '@/hooks/useDrafts';
+import { DraftComposerModal } from '@/components/draft/DraftComposerModal';
+import { getFreshness, type Freshness } from '@/utils/freshness';
+import type { IShipmentDraft } from '@/types';
+
+const { Text } = Typography;
+
+const FRESHNESS_COLOR: Record<Freshness, string> = {
+  today: '#52c41a',
+  yesterday: '#faad14',
+  old: '#ff4d4f',
+};
+
+const FRESHNESS_BORDER: Record<Freshness, string> = {
+  today: '#52c41a',
+  yesterday: '#faad14',
+  old: '#ff4d4f',
+};
+
+// ─── DraftCard ────────────────────────────────────────────────────────────
+
+interface IDraftCardProps {
+  draft: IShipmentDraft;
+}
+
+function DraftCard({ draft }: IDraftCardProps) {
+  const navigate = useNavigate();
+  const { t } = useTranslation();
+  const freshness = getFreshness(draft.created_at);
+
+  const sourcesStr = draft.block_sources
+    .map((s) => `${s.block_code} (${((s.weight_kg ?? 0) / 1000).toFixed(1)}t)`)
+    .join(' + ');
+
+  function handleAssign(e: React.MouseEvent) {
+    e.stopPropagation();
+    navigate(`/export/assign?draftId=${draft.id}`);
+  }
+
+  function handleCardClick() {
+    navigate(`/export/assign?draftId=${draft.id}`);
+  }
+
+  const freshnessLabel =
+    freshness === 'today'
+      ? t('draft.freshness_today')
+      : freshness === 'yesterday'
+      ? t('draft.freshness_yesterday')
+      : t('draft.freshness_old');
+
+  return (
+    <div
+      onClick={handleCardClick}
+      style={{
+        background: '#fff',
+        border: `1px solid #d9d9d9`,
+        borderLeft: `3px solid ${FRESHNESS_BORDER[freshness]}`,
+        borderRadius: 8,
+        padding: 14,
+        cursor: 'pointer',
+        transition: 'all 0.15s',
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLDivElement).style.borderColor = '#1677ff';
+        (e.currentTarget as HTMLDivElement).style.boxShadow = '0 1px 6px rgba(22,119,255,0.15)';
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLDivElement).style.borderColor = '#d9d9d9';
+        (e.currentTarget as HTMLDivElement).style.borderLeft = `3px solid ${FRESHNESS_BORDER[freshness]}`;
+        (e.currentTarget as HTMLDivElement).style.boxShadow = 'none';
+      }}
+    >
+      {/* Header row */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+        <div
+          style={{
+            fontFamily: 'monospace',
+            fontWeight: 600,
+            fontSize: 14,
+            color: '#1677ff',
+            letterSpacing: '0.02em',
+          }}
+        >
+          {draft.cargo_code}
+        </div>
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <Tag
+            color={
+              freshness === 'today' ? 'success' : freshness === 'yesterday' ? 'warning' : 'error'
+            }
+            style={{ margin: 0 }}
+          >
+            <span
+              style={{
+                display: 'inline-block',
+                width: 7,
+                height: 7,
+                borderRadius: '50%',
+                background: FRESHNESS_COLOR[freshness],
+                marginRight: 5,
+              }}
+            />
+            {freshnessLabel}
+          </Tag>
+          <Tag style={{ margin: 0 }}>
+            {draft.block_sources.length} {t('draft.blocks_suffix')}
+          </Tag>
+        </div>
+      </div>
+
+      {/* Meta rows */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 8 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, gap: 8 }}>
+          <Text type="secondary" style={{ flexShrink: 0 }}>{t('draft.card_sources')}</Text>
+          <Text style={{ fontWeight: 500, textAlign: 'right', fontSize: 11 }}>{sourcesStr}</Text>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, gap: 8 }}>
+          <Text type="secondary" style={{ flexShrink: 0 }}>{t('draft.card_weight')}</Text>
+          <Text style={{ fontFamily: 'monospace', fontWeight: 500 }}>
+            {(draft.weight_net ?? 0).toLocaleString('ru-RU')} kg
+          </Text>
+        </div>
+      </div>
+
+      {/* Sort notice */}
+      <div
+        style={{
+          padding: '5px 8px',
+          background: '#fffbe6',
+          borderRadius: 4,
+          marginTop: 8,
+          fontSize: 10,
+          color: '#854F0B',
+        }}
+      >
+        {t('draft.card_sort_note')}
+      </div>
+
+      {/* Footer */}
+      <div
+        style={{
+          marginTop: 10,
+          paddingTop: 10,
+          borderTop: '1px solid #f0f0f0',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 8,
+        }}
+      >
+        <Text type="secondary" style={{ fontSize: 11, fontFamily: 'monospace' }}>
+          {draft.created_by_name} · {dayjs(draft.created_at).format('DD.MM HH:mm')}
+        </Text>
+        <Button size="small" type="primary" onClick={handleAssign}>
+          {t('draft.card_assign_btn')} →
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ─── DraftPool page ───────────────────────────────────────────────────────
+
+export default function DraftPool() {
+  const { t } = useTranslation();
+  const [composerOpen, setComposerOpen] = useState(false);
+  const { data: drafts = [], isLoading, isError } = useDrafts();
+
+  const totalWeight = drafts.reduce((s, d) => s + (d.weight_net ?? 0), 0);
+
+  return (
+    <div>
+      {/* Page header */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          marginBottom: 16,
+          flexWrap: 'wrap',
+          gap: 12,
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>
+            {t('draft.page_title')}
+            {drafts.length > 0 && (
+              <Badge
+                count={drafts.length}
+                style={{ marginLeft: 10, background: '#faad14' }}
+              />
+            )}
+          </div>
+          <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
+            {t('draft.page_subtitle')}
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => setComposerOpen(true)}
+          >
+            {t('draft.create_btn')}
+          </Button>
+        </div>
+      </div>
+
+      {/* Info banner */}
+      <Alert
+        type="info"
+        showIcon
+        message={
+          <span>
+            <strong>{t('draft.banner_title')}</strong> {t('draft.banner_body')}
+          </span>
+        }
+        style={{ marginBottom: 16 }}
+      />
+
+      {/* Content */}
+      {isLoading && (
+        <div style={{ textAlign: 'center', padding: 48 }}>
+          <Spin size="large" />
+        </div>
+      )}
+
+      {isError && (
+        <Alert type="error" message={t('draft.error_load')} showIcon />
+      )}
+
+      {!isLoading && !isError && (
+        <>
+          {/* Card list header */}
+          <div
+            style={{
+              background: '#fff',
+              border: '1px solid #f0f0f0',
+              borderRadius: 8,
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                padding: '13px 18px',
+                borderBottom: '1px solid #f0f0f0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div style={{ fontSize: 14, fontWeight: 600 }}>
+                {drafts.length} {t('draft.card_list_title')}
+                {totalWeight > 0 && (
+                  <Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>
+                    — {(totalWeight / 1000).toFixed(1)}t {t('draft.total_suffix')}
+                  </Text>
+                )}
+              </div>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {t('draft.sorted_oldest_first')}
+              </Text>
+            </div>
+
+            {drafts.length === 0 ? (
+              <div style={{ padding: 48, textAlign: 'center' }}>
+                <Text type="secondary">{t('draft.empty')}</Text>
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+                  gap: 12,
+                  padding: 14,
+                }}
+              >
+                {drafts.map((d) => (
+                  <DraftCard key={d.id} draft={d} />
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      <DraftComposerModal
+        open={composerOpen}
+        onClose={() => setComposerOpen(false)}
+      />
+    </div>
+  );
+}

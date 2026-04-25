@@ -6,7 +6,9 @@ QuotaDashboardView    — aggregated KPIs / per-firm / weekly-flow analytics
 import datetime
 import logging
 
-from rest_framework.exceptions import ValidationError
+from django.db import transaction
+from django.utils import timezone
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -17,12 +19,15 @@ from rest_framework.decorators import action
 from apps.core.models import Season
 from apps.core.permissions import write_permission, DynamicResourcePermission
 from apps.core.roles import QUOTA_WRITE
-from apps.export.models import QuotaIssuance
+
+from apps.export.models import QuotaIssuance, QuotaUsageRecord
+from apps.export.models.audit import AuditLog
 from apps.export.serializers_quota import (
     QuotaIssuanceSerializer,
     QuotaIssuanceCreateSerializer,
+    QuotaUsageRecordSerializer,
 )
-from apps.export.services_quota import build_quota_dashboard
+from apps.export.services_quota import build_quota_dashboard, compute_fifo_usage
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +48,7 @@ class QuotaIssuanceViewSet(ModelViewSet):
 
     resource_code = 'quota_issuance'
     permission_classes = [IsAuthenticated, DynamicResourcePermission]
-    http_method_names = ['get', 'post', 'put', 'delete', 'head', 'options']
+    http_method_names = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options']
 
     queryset = QuotaIssuance.objects.prefetch_related(
         'allocations__export_firm'
@@ -64,6 +69,13 @@ class QuotaIssuanceViewSet(ModelViewSet):
         if self.request.method == 'POST':
             return QuotaIssuanceCreateSerializer
         return QuotaIssuanceSerializer
+
+    def get_serializer_context(self):
+        ctx = super().get_serializer_context()
+        if self.request.method == 'GET':
+            product_type = self.request.query_params.get('product_type', 'tomato')
+            ctx['usage_map'] = compute_fifo_usage(product_type)
+        return ctx
 
     def perform_create(self, serializer) -> None:
         serializer.save(created_by=self.request.user)
@@ -108,6 +120,119 @@ class QuotaIssuanceViewSet(ModelViewSet):
 
 
 # ---------------------------------------------------------------------------
+# QuotaUsageViewSet
+# ---------------------------------------------------------------------------
+
+class QuotaUsageViewSet(ModelViewSet):
+    """
+    GET    /api/v1/export/quota-usage/              — list (filterable)
+    GET    /api/v1/export/quota-usage/{id}/         — detail
+    PATCH  /api/v1/export/quota-usage/{id}/         — partial edit (draft only)
+    DELETE /api/v1/export/quota-usage/{id}/         — delete (draft only)
+    POST   /api/v1/export/quota-usage/approve/      — bulk approve
+    """
+
+    resource_code = 'quota_usage'
+    permission_classes = [IsAuthenticated, DynamicResourcePermission]
+    serializer_class = QuotaUsageRecordSerializer
+    pagination_class = None  # Grid view needs all records; volume is bounded by season
+    http_method_names = ['get', 'patch', 'delete', 'post', 'head', 'options']
+
+    queryset = QuotaUsageRecord.objects.select_related(
+        'export_firm', 'shipment', 'approved_by', 'created_by',
+    ).order_by('-usage_date', 'export_firm')
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        params = self.request.query_params
+        if status := params.get('status'):
+            qs = qs.filter(status=status)
+        if product_type := params.get('product_type'):
+            qs = qs.filter(product_type=product_type)
+        if date_from := params.get('date_from'):
+            qs = qs.filter(usage_date__gte=date_from)
+        if date_to := params.get('date_to'):
+            qs = qs.filter(usage_date__lte=date_to)
+        return qs
+
+    def perform_create(self, serializer) -> None:
+        instance = serializer.save(created_by=self.request.user)
+        AuditLog.objects.create(
+            user=self.request.user,
+            action='create',
+            model_name='QuotaUsageRecord',
+            object_id=instance.pk,
+            object_repr=str(instance),
+            detail=f'{instance.usage_date} firm={instance.export_firm_id} {instance.kg_used} kg',
+        )
+
+    def perform_update(self, serializer):
+        if serializer.instance.status != 'draft':
+            raise ValidationError({'detail': 'Only draft records can be edited.'})
+        instance = serializer.save()
+        AuditLog.objects.create(
+            user=self.request.user,
+            action='update',
+            model_name='QuotaUsageRecord',
+            object_id=instance.pk,
+            object_repr=str(instance),
+            detail=f'{instance.usage_date} firm={instance.export_firm_id} {instance.kg_used} kg',
+        )
+
+    def perform_destroy(self, instance):
+        if instance.status != 'draft':
+            raise ValidationError({'detail': 'Only draft records can be deleted.'})
+        instance.delete()
+
+    @action(detail=False, methods=['post'], url_path='approve')
+    def approve(self, request: Request) -> Response:
+        """Bulk approve draft usage records.
+
+        Requires ``can_edit`` on the ``quota_usage`` resource (checked via
+        DynamicResourcePermission registry, not a hardcoded role list).
+
+        Body: { "ids": [1, 2, 3] }
+        """
+        from apps.core.permissions import get_resource_perm
+
+        if not request.user.is_superuser:
+            role = getattr(request.user, 'role', None)
+            perm = get_resource_perm(role, 'quota_usage') if role else None
+            if not perm or not perm.get('can_edit'):
+                raise PermissionDenied('You do not have permission to approve quota usage records.')
+
+        ids = request.data.get('ids', [])
+        if not ids:
+            raise ValidationError({'detail': 'ids list is required.'})
+
+        with transaction.atomic():
+            approved_qs = QuotaUsageRecord.objects.filter(id__in=ids, status='draft')
+            approved_ids = list(approved_qs.values_list('id', flat=True))
+            updated = approved_qs.update(
+                status='approved',
+                approved_by_id=request.user.pk,
+                approved_at=timezone.now(),
+            )
+            if approved_ids:
+                AuditLog.objects.bulk_create([
+                    AuditLog(
+                        user=request.user,
+                        action='update',
+                        model_name='QuotaUsageRecord',
+                        object_id=pk,
+                        object_repr=f'QuotaUsageRecord#{pk}',
+                        detail=f'Bulk approved (draft → approved)',
+                    )
+                    for pk in approved_ids
+                ], batch_size=500)
+            # Invalidate FIFO cache since approved usage totals changed
+            from django.core.cache import cache
+            cache.delete('fifo_usage:tomato')
+            cache.delete('fifo_usage:pepper')
+        return Response({'approved': updated})
+
+
+# ---------------------------------------------------------------------------
 # QuotaDashboardView
 # ---------------------------------------------------------------------------
 
@@ -121,7 +246,8 @@ class QuotaDashboardView(APIView):
         product_type (str, default 'tomato')
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, DynamicResourcePermission]
+    resource_code = 'quota'
 
     def get(self, request: Request) -> Response:
         """Parse query params and delegate to service layer."""

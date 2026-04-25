@@ -24,6 +24,9 @@ frontend/.cache/
 .env.local
 .env.production
 
+# Credentials (local dev only — never commit)
+CREDENTIALS.md
+
 # IDE
 .vscode/settings.json
 .vscode/launch.json

@@ -51,7 +51,7 @@ def can_edit_field(role: str | None, field: str, resource_code: str = 'shipment'
 
 # ── Dynamic resource permission helpers ──────────────────────────────────
 
-def _get_resource_perm(role: str, resource_code: str) -> dict | None:
+def get_resource_perm(role: str, resource_code: str) -> dict | None:
     """Fetch RoleResourcePermission as a plain dict from cache or DB.
 
     Returns dict with keys: can_view, can_create, can_edit, can_delete.
@@ -228,7 +228,7 @@ class DynamicResourcePermission(BasePermission):
         if not role:
             return False
 
-        perm = _get_resource_perm(role, resource_code)
+        perm = get_resource_perm(role, resource_code)
         if not perm:
             return False
 

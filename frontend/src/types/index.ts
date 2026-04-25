@@ -166,6 +166,16 @@ export interface IShipmentListItem {
   arrived_at: string | null;
   is_gapy_satys: boolean;
   updated_at: string;
+  // Fields for Kanban "My Tasks" missing-field detection
+  city_name: string | null;
+  variety_name: string | null;
+  border_point_name: string | null;
+  harvest_status: string | null;
+  documents_status: string | null;
+  truck_head_id: number | null;
+  driver_id: number | null;
+  price_per_kg: number | null;
+  total_amount_usd: number | null;
 }
 
 // ─── Sheet View ──────────────────────────────────────────────────────────
@@ -385,6 +395,28 @@ export interface IQuotaIssuanceFirmAllocation {
   export_firm: number;
   export_firm_name: string | null;
   kg_quota: number;
+  used_kg: number;
+}
+
+export type QuotaUsageStatus = 'draft' | 'approved';
+
+export interface IQuotaUsageRecord {
+  id: number;
+  usage_date: string;
+  export_firm: number;
+  export_firm_name: string;
+  kg_used: number;
+  product_type: string;
+  status: QuotaUsageStatus;
+  notes: string;
+  shipment: number | null;
+  cargo_code: string | null;
+  approved_by: number | null;
+  approved_by_name: string | null;
+  approved_at: string | null;
+  created_by: number | null;
+  created_by_name: string | null;
+  created_at: string | null;
 }
 
 export interface IQuotaIssuance {
@@ -514,13 +546,15 @@ export interface ITruckDestinationSplit {
   truck_count: number;
 }
 
+export type DayOfWeek = 1 | 2 | 3 | 4 | 5 | 6;
+
 export interface IWeeklyTruckAllocation {
   id: number;
   season: number;
   season_name: string;
   week_number: number;
   year: number;
-  day_of_week: number;  // 1=Mon, 6=Sat
+  day_of_week: DayOfWeek;  // 1=Mon, 6=Sat
   total_planned_kg: number | null;
   total_trucks_calc: number | null;
   destination_splits: ITruckDestinationSplit[];
@@ -669,7 +703,7 @@ export interface IAdminUser {
 
 export interface INotification {
   id: number;
-  kind: 'quota_80' | 'quota_90' | 'quota_95' | 'quota_100' | 'overdue';
+  kind: 'quota_80' | 'quota_90' | 'quota_95' | 'quota_100' | 'overdue' | 'action_required' | 'plan_submitted' | 'plan_approved' | 'plan_rejected';
   message: string;
   link: string | null;
   read_at: string | null;
@@ -704,4 +738,56 @@ export interface IShipmentDetail extends IShipmentListItem {
   comments: IShipmentComment[];
   quality: IShipmentQuality | null;
   sales_report: ISalesReport | null;
+}
+
+// ─── Draft Shipments ──────────────────────────────────────────────────────
+
+export interface IDraftBlockSource {
+  block_id: number;
+  block_code: string;
+  weight_kg: number;
+}
+
+export interface IShipmentDraft {
+  id: number;
+  cargo_code: string;
+  date: string;
+  created_at: string;
+  created_by_name: string | null;
+  weight_net: number | null;
+  block_sources: IDraftBlockSource[];
+}
+
+export interface IDraftCreatePayload {
+  cargo_code: string;
+  date: string;
+  is_draft: true;
+  block_sources: { block_id: number; weight_kg: number }[];
+  notes?: string;
+}
+
+export interface IDraftAssignPayload {
+  country: number | null;
+  city: number | null;
+  customer: number | null;
+  import_firm: number | null;
+  firm_splits?: { export_firm_id: number; weight_kg: number }[];
+  border_point?: number | null;
+}
+
+// ─── Assignment Board (mock demand) ──────────────────────────────────────
+
+export type DemandType = 'contract' | 'quota' | 'queue';
+
+export interface IDemandItem {
+  id: number;
+  type: DemandType;
+  label: string;
+  customer: string;
+  country: string;
+  firm: string;
+  remaining: string;
+  due_days: number;
+  pref: string;
+  strict: boolean;
 }

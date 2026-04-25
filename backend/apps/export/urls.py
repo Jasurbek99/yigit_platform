@@ -17,7 +17,7 @@ from apps.export.views_admin import (
     UserManagementViewSet,
     UserPermissionsView,
 )
-from apps.export.views_quota import QuotaIssuanceViewSet, QuotaDashboardView
+from apps.export.views_quota import QuotaIssuanceViewSet, QuotaUsageViewSet, QuotaDashboardView
 
 router = DefaultRouter()
 
@@ -32,6 +32,7 @@ router.register('local-sell-plans', WeeklyLocalSellPlanViewSet, basename='local-
 
 # Quota (new issuance-based system)
 router.register('quota-issuances', QuotaIssuanceViewSet, basename='quota-issuance')
+router.register('quota-usage', QuotaUsageViewSet, basename='quota-usage')
 
 # Notifications & audit
 router.register('notifications', NotificationViewSet, basename='notification')

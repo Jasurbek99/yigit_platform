@@ -10,7 +10,7 @@ from decimal import Decimal
 from django.db import transaction
 from rest_framework import serializers
 
-from apps.export.models import QuotaIssuance, QuotaIssuanceFirmAllocation
+from apps.export.models import QuotaIssuance, QuotaIssuanceFirmAllocation, QuotaUsageRecord
 
 logger = logging.getLogger(__name__)
 
@@ -19,14 +19,19 @@ class QuotaIssuanceFirmAllocationSerializer(serializers.ModelSerializer):
     """Read/write serializer for one per-firm allocation row."""
 
     export_firm_name = serializers.SerializerMethodField()
+    used_kg = serializers.SerializerMethodField()
 
     class Meta:
         model = QuotaIssuanceFirmAllocation
-        fields = ['id', 'export_firm', 'export_firm_name', 'kg_quota']
+        fields = ['id', 'export_firm', 'export_firm_name', 'kg_quota', 'used_kg']
 
     def get_export_firm_name(self, obj: QuotaIssuanceFirmAllocation) -> str:
         firm = obj.export_firm
         return getattr(firm, 'name_en', None) or getattr(firm, 'name_tk', None) or str(firm.id)
+
+    def get_used_kg(self, obj: QuotaIssuanceFirmAllocation) -> Decimal:
+        usage_map = self.context.get('usage_map', {})
+        return usage_map.get(obj.id, Decimal('0'))
 
 
 # ---------------------------------------------------------------------------
@@ -73,7 +78,7 @@ class QuotaIssuanceSerializer(serializers.ModelSerializer):
         rows = [
             QuotaIssuanceFirmAllocation(
                 issuance=issuance,
-                export_firm_id=item['export_firm'].id if hasattr(item['export_firm'], 'id') else item['export_firm'],
+                export_firm_id=item['export_firm'].id,
                 kg_quota=item['kg_quota'],
             )
             for item in allocations_data
@@ -152,3 +157,51 @@ class QuotaIssuanceCreateSerializer(serializers.ModelSerializer):
     def to_representation(self, instance: QuotaIssuance) -> dict:
         """Return full read shape after create."""
         return QuotaIssuanceSerializer(instance, context=self.context).data
+
+
+# ---------------------------------------------------------------------------
+# Quota usage record serializer
+# ---------------------------------------------------------------------------
+
+class QuotaUsageRecordSerializer(serializers.ModelSerializer):
+    """Read/write serializer for QuotaUsageRecord."""
+
+    export_firm_name = serializers.SerializerMethodField()
+    cargo_code = serializers.SerializerMethodField()
+    approved_by_name = serializers.SerializerMethodField()
+    created_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = QuotaUsageRecord
+        fields = [
+            'id', 'usage_date', 'export_firm', 'export_firm_name',
+            'kg_used', 'product_type', 'status', 'notes',
+            'shipment', 'cargo_code',
+            'approved_by', 'approved_by_name', 'approved_at',
+            'created_by', 'created_by_name', 'created_at',
+        ]
+        read_only_fields = [
+            'id', 'status', 'approved_by', 'approved_by_name', 'approved_at',
+            'created_by', 'created_by_name', 'created_at', 'cargo_code',
+        ]
+
+    def get_export_firm_name(self, obj: QuotaUsageRecord) -> str:
+        firm = obj.export_firm
+        return getattr(firm, 'name_en', None) or getattr(firm, 'name_tk', None) or str(firm.id)
+
+    def get_cargo_code(self, obj: QuotaUsageRecord) -> str | None:
+        if obj.shipment_id:
+            return getattr(obj.shipment, 'cargo_code', None)
+        return None
+
+    def get_approved_by_name(self, obj: QuotaUsageRecord) -> str | None:
+        if obj.approved_by_id:
+            u = obj.approved_by
+            return f'{u.first_name} {u.last_name}'.strip() or u.username
+        return None
+
+    def get_created_by_name(self, obj: QuotaUsageRecord) -> str | None:
+        if obj.created_by_id:
+            u = obj.created_by
+            return f'{u.first_name} {u.last_name}'.strip() or u.username
+        return None
