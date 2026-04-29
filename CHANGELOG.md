@@ -7,6 +7,8 @@ All notable changes to the YGT Platform.
 ### Added
 - **Truck split defaults — admin-configurable official kg-per-firm table** (Gap 7, ADR-016) (feat(p3))
   - New `TruckSplitDefault` model (`backend/apps/export/models/quota.py`) keyed by `num_firms`; migration `0023_truck_split_defaults` seeds (1 → 18,100), (2 → 9,000), (3 → 6,000)
+  - Follow-up migration `0024_truck_split_notes_cyrillic` applies `COLLATE Cyrillic_General_CI_AS` to `notes` via raw SQL (mssql-django doesn't emit collation-only `ALTER COLUMN`); SQLite-guarded so dev shim still works
+  - DDL reference (`database/ygt_platform_ddl_v5_1.sql`) extended with `export.truck_split_defaults` table definition
   - `get_default_truck_weight(N)` now reads from the DB with a 5-min cache; `invalidate_truck_split_cache()` helper
   - Director-only CRUD endpoints `/api/v1/export/admin/truck-splits/` (`TruckSplitDefaultViewSet` + `TruckSplitDefaultSerializer`); new `truck_split_default` resource registered in `permission_registry.py` and seeded so director gets full CRUD, export_manager read-only
   - New "Truck Split Defaults" tab on `/admin/shipment-settings` (`TruckSplitsTab.tsx`); hooks `useTruckSplits`, `useCreateTruckSplit`, `useUpdateTruckSplit`, `useDeleteTruckSplit` in `useAdmin.ts`
