@@ -32,10 +32,15 @@ _ALL_ADMIN = {k for k in PAGE_REGISTRY if k.startswith('admin.')}
 PAGE_DEFAULTS: dict[str, set[str]] = {
     'director': _ALL_PAGES,
     'export_manager': _ALL_PAGES - _ALL_ADMIN | {'admin.permissions'},
+    'weight_master': {
+        'dashboard', 'export.shipments', 'export.pallet_manifest',
+    },
     'warehouse_chief': {
         'dashboard', 'export.shipments', 'export.kanban',
         # Draft workflow: warehouse_chief creates drafts (Finding #2)
         'export.drafts',
+        # Pallet manifest oversight (Finding #4)
+        'export.pallet_manifest',
     },
     'document_team': {
         'dashboard', 'export.shipments', 'export.kanban', 'export.quota',
@@ -58,6 +63,11 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
     'seller': {
         'dashboard', 'export.quota.local_sell',
     },
+    # Boss is strictly executive: only the analytics dashboard is visible.
+    # All other navigation hidden so the role lands exclusively on /boss/dashboard.
+    'boss': {
+        'analytics.boss',
+    },
 }
 
 
@@ -78,6 +88,15 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
         **{r: _VCRUD for r in _ALL_RESOURCES},
         # Assignment: export_manager promotes drafts to yuklenme (Finding #1)
         'shipment_assign': _VCE,
+        # truck_split_default: read-only for export_manager — only the director
+        # may change the official kg-per-firm constants (Gap 7 / ADR-016).
+        'truck_split_default': _VIEW,
+    },
+    'weight_master': {
+        'shipment': _VIEW,                              # can view but not edit shipment proper
+        'pallet': _VCRUD,                               # full CRUD on own pallets
+        'manifest_close': (True, True, False, False),   # can trigger close
+        'shipment_comment': _VCE,
     },
     'warehouse_chief': {
         # _VCE: warehouse_chief can now create draft shipments (Finding #2)
@@ -85,6 +104,8 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
         'shipment_block_source': _VCE,   # Soltanmyrat creates block sources
         'shipment_comment': _VCE,
         'domestic_sale': _VCE,
+        'pallet': _VE,                   # view + edit; can override but not create
+        'manifest_close': _VE,           # view + trigger close
     },
     'document_team': {
         'shipment': _VE,
@@ -121,6 +142,8 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
     'seller': {
         'local_sell_plan': _VCE,
     },
+    # Boss is strictly read-only across every resource — never edits.
+    'boss': {r: _VIEW for r in _ALL_RESOURCES},
 }
 
 
@@ -217,6 +240,11 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
     # ── seller ───────────────────────────────────────────────────────
     'seller': {
         'local_sell_plan': ['planned_kg', 'actual_kg', 'buyer_name'],
+    },
+    # ── weight_master (Artykow Maksat, Kaka) ─────────────────────────
+    # Full pallet manifest CRUD; read-only on the shipment header itself.
+    'weight_master': {
+        'shipment': [],  # no field edits on shipment proper
     },
 }
 

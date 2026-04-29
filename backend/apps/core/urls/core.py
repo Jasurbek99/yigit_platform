@@ -10,9 +10,11 @@ from apps.core.views import (
     GreenhouseBlockViewSet,
     LoadingLocationViewSet,
     TomatoVarietyViewSet,
+    CrateTypeViewSet,
     TruckDestinationViewSet,
     BorderPointViewSet,
     ShipmentOptionTypeViewSet,
+    MentionableView,
 )
 from apps.core.views_permissions import (
     PagePermissionMatrixView,
@@ -30,6 +32,7 @@ router.register('customers', CustomerViewSet, basename='customer')
 router.register('blocks', GreenhouseBlockViewSet, basename='block')
 router.register('loading-locations', LoadingLocationViewSet, basename='loading-location')
 router.register('tomato-varieties', TomatoVarietyViewSet, basename='tomato-variety')
+router.register('crate-types', CrateTypeViewSet, basename='crate-type')
 router.register('truck-destinations', TruckDestinationViewSet, basename='truck-destination')
 router.register('border-points', BorderPointViewSet, basename='border-point')
 router.register('shipment-options', ShipmentOptionTypeViewSet, basename='shipment-option')
@@ -39,4 +42,5 @@ urlpatterns = router.urls + [
     path('admin/page-permissions/', PagePermissionMatrixView.as_view(), name='page-permissions'),
     path('admin/resource-permissions/', ResourcePermissionMatrixView.as_view(), name='resource-permissions'),
     path('admin/field-permissions/', FieldPermissionMatrixView.as_view(), name='field-permissions'),
+    path('users/mentionable/', MentionableView.as_view(), name='users-mentionable'),
 ]

@@ -69,6 +69,7 @@ flowchart LR
 | [[advances-reconciliation]] | Finansist advance payments linked to shipments | AdvancesTracker |
 | [[domestic-sales]] | Greenhouse domestic sales records | DomesticSales |
 | [[quality-documents]] | Quality certificates and document tracking | ShipmentDetail (Document tab) |
+| [[comments-tasks]] | Cell-anchored threaded comments with @user/@role mentions and single-assignee tasks | ShipmentSheet (Comments Drawer), ShipmentDetail (Changes tab) |
 | [[permissions-system]] | Dynamic RBAC: page/resource/field-level | PermissionsPage |
 | [[authentication]] | JWT httpOnly cookie auth with CSRF | LoginPage |
 
@@ -83,8 +84,17 @@ flowchart LR
 | [[finansist]] | Advances, reconciliation | 1-13 |
 | [[greenhouse-manager]] | Harvest planning, domestic sales | Plan grid only |
 | [[support-roles]] | Read-only or limited scope | Varies |
+| [[boss]] | Executive analytics dashboard (read-only) | All steps (read-only) |
 
 See [[roles-matrix]] for the full capability matrix.
+
+## Analytics
+
+- [[screens/boss-dashboard]] — Boss / Director executive dashboard at `/boss/dashboard` — KPIs, charts, drill-down, Excel/PDF export
+
+## Operational Screens
+
+- [[screens/shipment-sheet]] — Excel-style spreadsheet at `/export/shipments/sheet/` — virtualised columns, inline cell edit, dynamic field permissions
 
 ## Reference
 

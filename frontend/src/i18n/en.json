@@ -26,7 +26,9 @@
     "director": "Director",
     "accountant": "Accountant",
     "greenhouse_manager": "Greenhouse Manager",
-    "seller": "Seller"
+    "seller": "Seller",
+    "weight_master": "Weight Master",
+    "boss": "Boss"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -61,7 +63,8 @@
     "shipment_sheet": "Sheet",
     "shipment_dashboard": "Dashboard",
     "drafts": "Draft Shipments",
-    "assign": "Assignment Board"
+    "assign": "Assignment Board",
+    "boss_dashboard": "Boss Dashboard"
   },
   "plan": {
     "title": "Weekly Harvest Plan",
@@ -430,12 +433,6 @@
     "toast_error": "Transition failed",
     "toast_error_desc": "This transition is not allowed."
   },
-  "comments": {
-    "placeholder": "Write a comment... (Ctrl+Enter to send)",
-    "send": "Send",
-    "toast_success": "Comment added",
-    "toast_error": "Failed to post comment"
-  },
   "sales_report": {
     "tab": "Sales Report",
     "price_per_kg": "Price/kg (USD)",
@@ -544,6 +541,7 @@
     "tab_statuses": "Shipment Statuses",
     "tab_border_points": "Border Points",
     "tab_options": "Option Lists",
+    "tab_truck_splits": "Truck Split Defaults",
     "col_step": "Step",
     "col_code": "Code",
     "col_name_tk": "Name (TK)",
@@ -574,6 +572,14 @@
     "category_documents_status": "Documents Status",
     "category_harvest_status": "Harvest Status",
     "category_transport_responsible": "Transport Responsible"
+  },
+  "truck_split": {
+    "col_num_firms": "# Firms",
+    "col_kg": "Kg per firm",
+    "col_notes": "Notes",
+    "col_updated_by": "Updated By",
+    "help_title": "Official kg per firm",
+    "help_body": "These are the OFFICIAL weights written on export documents — capped at 18,100 kg per truck. Real trucks carry 20,000–21,000 kg, but documents always use these figures. When a user picks N firms on Sheet R9, each firm-split row is auto-filled with the value below for that N."
   },
   "truck": {
     "title": "Truck Forecast",
@@ -743,7 +749,10 @@
     "title": "Notifications",
     "mark_all_read": "Mark all read",
     "empty": "No notifications",
-    "action_required": "{{cargo_code}} — your fields need filling"
+    "action_required": "{{cargo_code}} — your fields need filling",
+    "kind_mention": "You were mentioned",
+    "kind_task_assigned": "Task assigned to you",
+    "kind_task_done": "Your task was marked done"
   },
   "common": {
     "empty": "—",
@@ -1027,6 +1036,7 @@
       "transport": "Transport",
       "quality": "Quality Insp.",
       "aganazar": "Aganazar",
+      "babageldi": "Babageldi",
       "none": "—"
     },
     "row": {
@@ -1050,6 +1060,10 @@
       "greenhouse_departure": "Greenhouse Departure",
       "vehicle_responsible": "Vehicle Responsible",
       "truck_plate": "Truck / Trailer Plate",
+      "warehouse_notes": "Notes (Soltanmyrat)",
+      "document_notes": "Notes (Şirin)",
+      "doc_advance": "Doc Advance Issued",
+      "customs_exit_tm": "TM Export Customs Done",
       "customs_exit": "Export Customs Done",
       "transit_temp": "Transit Days & Temp",
       "driver_name": "Driver Name",
@@ -1076,6 +1090,22 @@
       "in_progress": "In Progress",
       "not_started": "Not Started",
       "missing": "Missing"
+    },
+    "freeze": {
+      "label": "Freeze",
+      "rows": "Rows",
+      "cols": "Columns",
+      "no_rows": "No rows",
+      "one_row": "1 row",
+      "n_rows": "{{count}} rows",
+      "up_to_row": "Up to current row",
+      "up_to_row_n": "Up to current row ({{row}})",
+      "default_rows": "Default (rows 2–14)",
+      "no_cols": "No columns",
+      "one_col": "1 column",
+      "n_cols": "{{count}} columns",
+      "up_to_col": "Up to current column",
+      "up_to_col_n": "Up to current column ({{col}})"
     }
   },
   "draft": {
@@ -1170,6 +1200,243 @@
     "demand_label_contract": "Open contract",
     "demand_label_quota": "Quota gap",
     "demand_label_queue": "Waiting",
-    "demand_label_local": "Local Gapy Sale"
+    "demand_label_local": "Local Gapy Sale",
+    "variety_pending_warning_title": "Variety not yet confirmed",
+    "variety_pending_warning_body": "Variety is confirmed at packaging — wait or pick another truck. Strict-variety customers need confirmation."
+  },
+  "official_code": {
+    "title": "Official export code",
+    "info_banner": "Dual code system: 6-field official code (on pallets + documents) and auto platform ID. The official code identifies the physical batch — stays the same across re-routings.",
+    "platform_id_label": "Platform ID",
+    "field_day": "Day",
+    "field_month": "Month",
+    "field_seq": "Seq this month",
+    "field_block": "Block/sub",
+    "field_year": "Year",
+    "field_variety": "Variety",
+    "preview_label": "Combined",
+    "variety_pending": "Variety unknown — updated after packaging"
+  },
+  "pallet": {
+    "title": "Pallet manifest",
+    "col_number": "Pallet №",
+    "col_crate_type": "Crate type",
+    "col_gross": "Gross (kg)",
+    "col_count": "Crate count",
+    "col_crate_weight": "Crate wt.",
+    "col_pallet_kg": "Pallet",
+    "col_additions": "Additions",
+    "col_net": "Net",
+    "col_variety": "Variety",
+    "col_sub_block": "Sub-block",
+    "stat_pallets": "Pallets",
+    "stat_gross": "Gross",
+    "stat_crate": "Crate weight",
+    "stat_pallet_extra": "Pallet+additions",
+    "stat_net": "Net weight",
+    "btn_close_manifest": "Close manifest",
+    "btn_cmr": "Generate CMR",
+    "btn_logo_export": "Send to Logo Tiger",
+    "btn_add_pallet": "+ Add pallet",
+    "btn_save": "Save",
+    "toast_saved": "Pallets saved",
+    "toast_closed": "Manifest closed — variety auto-computed",
+    "toast_logo_todo": "Logo Tiger export not yet available",
+    "rollup_title": "Variety roll-up (R17)",
+    "rollup_computed": "Computed from pallets",
+    "rollup_override": "Manual override",
+    "rollup_apply_override": "Apply override",
+    "banner_source_of_truth": "Sent-weight source of truth: this manifest. Received weight at customer is in another system.",
+    "empty_state": "No pallets yet",
+    "confidence_high": "From pallet data",
+    "confidence_low": "Manually estimated",
+    "confidence_none": "Pending packaging"
+  },
+  "freshness": {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "aged": "2+ days",
+    "tooltip": "Harvested {{days}} days ago",
+    "aged_redirect_hint": "2+ days — redirect to domestic / Gapy Satyş"
+  },
+  "variety": {
+    "section_title": "Variety (R17)",
+    "override_btn": "Manual override",
+    "override_modal_title": "Select dominant varieties",
+    "override_apply": "Apply",
+    "override_cancel": "Cancel",
+    "empty_state": "Variety not yet determined"
+  },
+  "boss_dashboard": {
+    "title": "Boss Dashboard",
+    "subtitle": "Director view — analytics & reports",
+    "last_updated": "Last updated",
+    "season": "Season",
+    "role_readonly": "Read-only",
+    "no_data": "No data",
+    "prev_season": "Previous season",
+    "placeholder_p4": "Demo — needs P4 Contracts",
+    "period": {
+      "today": "Today",
+      "week": "Week",
+      "month": "Month",
+      "season": "Season",
+      "years5": "5 Years"
+    },
+    "kpi": {
+      "revenue": "Revenue",
+      "margin": "Margin",
+      "debt": "Debt",
+      "today_loaded": "Loaded Today",
+      "in_transit": "In Transit",
+      "quota_used": "Quota Used"
+    },
+    "section": {
+      "revenue": "Revenue",
+      "debt": "Debt",
+      "route_pnl": "Route P&L",
+      "compliance": "Compliance",
+      "ops_pulse": "Operations Pulse",
+      "quota_grid": "Quota Grid",
+      "blocks": "Block Heatmap",
+      "top_customers": "Top Customers",
+      "risk_matrix": "Risk Matrix",
+      "alerts": "Alerts",
+      "reports": "Reports",
+      "production_daily": "Daily Production Results",
+      "production_seasonal": "Seasonal Production Results",
+      "export_market": "Export Market Distribution"
+    },
+    "compliance": {
+      "reports_overdue": "Reports Overdue",
+      "one_to_ten": "1:10 Quota Compliance",
+      "docs_by_13": "Docs by 13:00"
+    },
+    "risk": {
+      "low": "Low",
+      "med": "Medium",
+      "high": "High"
+    },
+    "aging": {
+      "fresh": "0-30 days",
+      "d30": "30-60 days",
+      "d60": "60-90 days",
+      "d90plus": "90+ days"
+    },
+    "export": {
+      "excel": "Excel",
+      "pdf": "PDF",
+      "print": "Print"
+    },
+    "reports": {
+      "monthly": "Monthly Report",
+      "by_firm": "By Firm",
+      "routes": "Routes",
+      "blocks": "Blocks",
+      "seasons_compare": "Season Comparison",
+      "audit": "Audit"
+    },
+    "production": {
+      "header_block": "Greenhouse",
+      "header_planned": "Planned (KG)",
+      "header_actual": "Actual (KG)",
+      "header_graph": "Graph %",
+      "total_row": "Total",
+      "scope_daily": "Daily",
+      "scope_seasonal": "Seasonal",
+      "scope_monthly": "Monthly"
+    },
+    "export_market": {
+      "header_block": "Greenhouse",
+      "header_kg": "Export Market (KG)",
+      "header_pct": "Export Market (%)",
+      "total_row": "Total",
+      "note_excluded": "Domestic market and gift volumes will be added later"
+    },
+    "ops_pulse": {
+      "en_route": "En Route",
+      "at_border": "At Border",
+      "in_market": "In Market",
+      "loaded_today": "Loaded Today"
+    },
+    "route_pnl": {
+      "col_route": "Route",
+      "col_trucks": "Trucks",
+      "col_revenue": "Revenue",
+      "col_margin_pct": "Margin %",
+      "click_hint": "Click to see shipments on this route"
+    },
+    "top_customers": {
+      "col_customer": "Customer",
+      "col_trucks": "Trucks",
+      "col_revenue": "Revenue",
+      "col_yoy": "YoY"
+    },
+    "risk_matrix": {
+      "col_firm": "Firm",
+      "col_debt": "Debt",
+      "col_quota_pct": "Quota %",
+      "col_risk": "Risk"
+    },
+    "alerts": {
+      "empty": "No alerts at this time",
+      "time_ago": {
+        "just_now": "just now",
+        "minutes": "{{n}}m ago",
+        "hours": "{{n}}h ago",
+        "days": "{{n}}d ago"
+      },
+      "kinds": {
+        "quota_80": "Quota at 80%",
+        "quota_90": "Quota at 90%",
+        "quota_95": "Quota at 95% — limit approaching",
+        "quota_100": "Quota fully consumed",
+        "overdue": "Shipment overdue",
+        "action_required": "Action required",
+        "plan_submitted": "Weekly plan submitted",
+        "plan_approved": "Weekly plan approved",
+        "plan_rejected": "Weekly plan rejected"
+      }
+    }
+  },
+  "comments": {
+    "title": "Comments",
+    "compose_placeholder": "Write a comment... Type @ to mention, # to pin a cell",
+    "pin_to_cell": "Pin to cell",
+    "unpin": "Unpin",
+    "assign_to": "Assign to",
+    "assignee_label": "Assigned to",
+    "task_open": "Open",
+    "task_done": "Done",
+    "mark_done": "Mark done",
+    "reopen": "Reopen",
+    "delete_confirm": "Delete this comment?",
+    "mention_user": "User",
+    "mention_role": "Role",
+    "mention_cell": "Cell",
+    "role_member_count": "{{count}} members",
+    "filter_this_cell": "This cell",
+    "filter_all_cells": "All cells",
+    "filter_my_tasks": "My tasks",
+    "empty_thread": "No comments yet",
+    "toast_assigned": "Task assigned",
+    "toast_done_marked": "Marked as done",
+    "toast_create_error": "Failed to post comment",
+    "mentioned_role_chip": "@{{label}}",
+    "cell_chip": "Cell: {{label}}",
+    "tab_users": "Users",
+    "tab_roles": "Roles",
+    "tab_cells": "Cells",
+    "reply": "Reply",
+    "reply_count": "{{count}} replies",
+    "toolbar_btn": "Comments",
+    "edit": "Edit",
+    "delete": "Delete",
+    "send": "Send",
+    "no_shipment_selected": "Select a shipment column to comment",
+    "add_to_cell": "Comment on this cell",
+    "placeholder": "Write a comment... (Ctrl+Enter to send)",
+    "toast_success": "Comment added",
+    "toast_error": "Failed to post comment"
   }
 }

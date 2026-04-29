@@ -26,7 +26,9 @@
     "director": "Директор",
     "accountant": "Бухгалтер",
     "greenhouse_manager": "Менеджер теплицы",
-    "seller": "Продавец"
+    "seller": "Продавец",
+    "weight_master": "Мастер взвешивания",
+    "boss": "Босс"
   },
   "nav": {
     "dashboard": "Главная",
@@ -61,7 +63,8 @@
     "shipment_sheet": "Лист",
     "shipment_dashboard": "Панель",
     "drafts": "Черновики",
-    "assign": "Назначить"
+    "assign": "Назначить",
+    "boss_dashboard": "Босс панель"
   },
   "plan": {
     "title": "Недельный план сбора",
@@ -430,12 +433,6 @@
     "toast_error": "Ошибка перехода",
     "toast_error_desc": "Этот переход недопустим."
   },
-  "comments": {
-    "placeholder": "Напишите комментарий... (Ctrl+Enter для отправки)",
-    "send": "Отправить",
-    "toast_success": "Комментарий добавлен",
-    "toast_error": "Не удалось отправить комментарий"
-  },
   "sales_report": {
     "tab": "Отчёт о продаже",
     "price_per_kg": "Цена/кг (USD)",
@@ -544,6 +541,7 @@
     "tab_statuses": "Статусы",
     "tab_border_points": "Погранпункты",
     "tab_options": "Списки Опций",
+    "tab_truck_splits": "Распределение по фирмам",
     "col_step": "Шаг",
     "col_code": "Код",
     "col_name_tk": "Название (TK)",
@@ -574,6 +572,14 @@
     "category_documents_status": "Статус документов",
     "category_harvest_status": "Статус сбора",
     "category_transport_responsible": "Ответственный за транспорт"
+  },
+  "truck_split": {
+    "col_num_firms": "Кол-во фирм",
+    "col_kg": "Кг на фирму",
+    "col_notes": "Примечания",
+    "col_updated_by": "Изменил",
+    "help_title": "Официальные кг на фирму",
+    "help_body": "Это ОФИЦИАЛЬНЫЕ веса, указываемые в экспортных документах — лимит 18 100 кг на машину. Реальные машины везут 20 000–21 000 кг, но в документах всегда фиксируются эти значения. Когда пользователь выбирает N фирм в строке R9 листа, каждая запись firm-split автоматически заполняется значением для соответствующего N."
   },
   "truck": {
     "title": "Прогноз грузовиков",
@@ -743,7 +749,10 @@
     "title": "Уведомления",
     "mark_all_read": "Отметить все прочитанными",
     "empty": "Нет уведомлений",
-    "action_required": "{{cargo_code}} — необходимо заполнить поля"
+    "action_required": "{{cargo_code}} — необходимо заполнить поля",
+    "kind_mention": "Вас упомянули",
+    "kind_task_assigned": "Вам назначена задача",
+    "kind_task_done": "Ваша задача выполнена"
   },
   "common": {
     "empty": "—",
@@ -1027,6 +1036,7 @@
       "transport": "Транспорт",
       "quality": "Контроль кач.",
       "aganazar": "Аганазар",
+      "babageldi": "Бабагельди",
       "none": "—"
     },
     "row": {
@@ -1050,6 +1060,10 @@
       "greenhouse_departure": "Выезд из теплицы",
       "vehicle_responsible": "Ответственный за авто",
       "truck_plate": "Номер машины / прицепа",
+      "warehouse_notes": "Заметки (Солтанмурат)",
+      "document_notes": "Заметки (Ширин)",
+      "doc_advance": "Аванс на документы выдан",
+      "customs_exit_tm": "ТМ экспорт. таможня закрыта",
       "customs_exit": "Экспорт. таможня",
       "transit_temp": "Дни в пути и темп.",
       "driver_name": "Имя водителя",
@@ -1076,6 +1090,22 @@
       "in_progress": "В процессе",
       "not_started": "Не начато",
       "missing": "Отсутствует"
+    },
+    "freeze": {
+      "label": "Закрепить",
+      "rows": "Строки",
+      "cols": "Столбцы",
+      "no_rows": "Нет строк",
+      "one_row": "1 строка",
+      "n_rows": "{{count}} строк",
+      "up_to_row": "До текущей строки",
+      "up_to_row_n": "До текущей строки ({{row}})",
+      "default_rows": "По умолчанию (строки 2–14)",
+      "no_cols": "Нет столбцов",
+      "one_col": "1 столбец",
+      "n_cols": "{{count}} столбцов",
+      "up_to_col": "До текущего столбца",
+      "up_to_col_n": "До текущего столбца ({{col}})"
     }
   },
   "draft": {
@@ -1170,6 +1200,243 @@
     "demand_label_contract": "Открытый контракт",
     "demand_label_quota": "Квота свободна",
     "demand_label_queue": "В очереди",
-    "demand_label_local": "Местная продажа"
+    "demand_label_local": "Местная продажа",
+    "variety_pending_warning_title": "Сорт ещё не подтверждён",
+    "variety_pending_warning_body": "Сорт определится при упаковке — подождите или выберите другой груз. Для строгих требований клиента нужно подтверждение."
+  },
+  "official_code": {
+    "title": "Официальный код экспорта",
+    "info_banner": "Двойная система кодов: 6-полевой официальный код (на паллетах + в документах) и автоматический платформенный ID. Официальный код идентифицирует физическую партию — остаётся тем же при перенаправлениях.",
+    "platform_id_label": "ID платформы",
+    "field_day": "День",
+    "field_month": "Месяц",
+    "field_seq": "№ в месяце",
+    "field_block": "Блок/суб",
+    "field_year": "Год",
+    "field_variety": "Сорт",
+    "preview_label": "Собранный",
+    "variety_pending": "Сорт пока неизвестен — обновится после упаковки"
+  },
+  "pallet": {
+    "title": "Манифест паллет",
+    "col_number": "№ паллета",
+    "col_crate_type": "Тип ящика",
+    "col_gross": "Брутто (кг)",
+    "col_count": "Кол-во ящиков",
+    "col_crate_weight": "Вес ящика",
+    "col_pallet_kg": "Поддон",
+    "col_additions": "Доп.",
+    "col_net": "Нетто",
+    "col_variety": "Сорт",
+    "col_sub_block": "Подсекция",
+    "stat_pallets": "Паллеты",
+    "stat_gross": "Брутто",
+    "stat_crate": "Вес ящиков",
+    "stat_pallet_extra": "Поддон+доп.",
+    "stat_net": "Чистый вес",
+    "btn_close_manifest": "Закрыть манифест",
+    "btn_cmr": "Сгенерировать CMR",
+    "btn_logo_export": "Отправить в Logo Tiger",
+    "btn_add_pallet": "+ Добавить паллет",
+    "btn_save": "Сохранить",
+    "toast_saved": "Паллеты сохранены",
+    "toast_closed": "Манифест закрыт — сорт пересчитан",
+    "toast_logo_todo": "Экспорт в Logo Tiger пока недоступен",
+    "rollup_title": "Сорт roll-up (R17)",
+    "rollup_computed": "Рассчитано из паллет",
+    "rollup_override": "Ручная корректировка",
+    "rollup_apply_override": "Применить",
+    "banner_source_of_truth": "Источник веса при отправке: этот манифест. Полученный у клиента вес — в другой системе.",
+    "empty_state": "Паллеты не добавлены",
+    "confidence_high": "На основе паллет",
+    "confidence_low": "Ручная оценка",
+    "confidence_none": "Ожидает упаковки"
+  },
+  "freshness": {
+    "today": "Сегодня",
+    "yesterday": "Вчера",
+    "aged": "2+ дней",
+    "tooltip": "Собрано {{days}} дн. назад",
+    "aged_redirect_hint": "2+ дней — направить на местный рынок / Gapy Satyş"
+  },
+  "variety": {
+    "section_title": "Сорт (R17)",
+    "override_btn": "Ручная корректировка",
+    "override_modal_title": "Выбрать преобладающие сорта",
+    "override_apply": "Применить",
+    "override_cancel": "Отмена",
+    "empty_state": "Сорт ещё не определён"
+  },
+  "boss_dashboard": {
+    "title": "Босс панель",
+    "subtitle": "Вид директора — аналитика и отчёты",
+    "last_updated": "Обновлено",
+    "season": "Сезон",
+    "role_readonly": "Только просмотр",
+    "no_data": "Нет данных",
+    "prev_season": "Прошлый сезон",
+    "placeholder_p4": "Демо — нужен P4 Contracts",
+    "period": {
+      "today": "Сегодня",
+      "week": "Неделя",
+      "month": "Месяц",
+      "season": "Сезон",
+      "years5": "5 лет"
+    },
+    "kpi": {
+      "revenue": "Выручка",
+      "margin": "Маржа",
+      "debt": "Долг",
+      "today_loaded": "Загружено сегодня",
+      "in_transit": "В пути",
+      "quota_used": "Использование квоты"
+    },
+    "section": {
+      "revenue": "Выручка",
+      "debt": "Долг",
+      "route_pnl": "P&L по маршрутам",
+      "compliance": "Соответствие",
+      "ops_pulse": "Операционный пульс",
+      "quota_grid": "Сетка квот",
+      "blocks": "Тепловая карта блоков",
+      "top_customers": "Топ клиентов",
+      "risk_matrix": "Матрица рисков",
+      "alerts": "Внимание",
+      "reports": "Отчёты",
+      "production_daily": "Суточные результаты производства",
+      "production_seasonal": "Сезонные результаты производства",
+      "export_market": "Распределение по экспортному рынку"
+    },
+    "compliance": {
+      "reports_overdue": "Просроченные отчёты",
+      "one_to_ten": "Соответствие квоты 1:10",
+      "docs_by_13": "Документы до 13:00"
+    },
+    "risk": {
+      "low": "Низкий",
+      "med": "Средний",
+      "high": "Высокий"
+    },
+    "aging": {
+      "fresh": "0-30 дней",
+      "d30": "30-60 дней",
+      "d60": "60-90 дней",
+      "d90plus": "90+ дней"
+    },
+    "export": {
+      "excel": "Excel",
+      "pdf": "PDF",
+      "print": "Печать"
+    },
+    "reports": {
+      "monthly": "Ежемесячный отчёт",
+      "by_firm": "По фирмам",
+      "routes": "Маршруты",
+      "blocks": "Блоки",
+      "seasons_compare": "Сравнение сезонов",
+      "audit": "Аудит"
+    },
+    "production": {
+      "header_block": "Теплица",
+      "header_planned": "Плановый (КГ)",
+      "header_actual": "Фактический (КГ)",
+      "header_graph": "% от графика",
+      "total_row": "Итого",
+      "scope_daily": "Суточный",
+      "scope_seasonal": "Сезонный",
+      "scope_monthly": "Месячный"
+    },
+    "export_market": {
+      "header_block": "Теплица",
+      "header_kg": "Внешний рынок (КГ)",
+      "header_pct": "Внешний рынок (%)",
+      "total_row": "Итого",
+      "note_excluded": "Внутренний рынок и подарочные объёмы будут добавлены позже"
+    },
+    "ops_pulse": {
+      "en_route": "В пути",
+      "at_border": "На границе",
+      "in_market": "На рынке",
+      "loaded_today": "Загружено сегодня"
+    },
+    "route_pnl": {
+      "col_route": "Маршрут",
+      "col_trucks": "Машины",
+      "col_revenue": "Выручка",
+      "col_margin_pct": "Маржа %",
+      "click_hint": "Нажмите, чтобы увидеть отгрузки по маршруту"
+    },
+    "top_customers": {
+      "col_customer": "Клиент",
+      "col_trucks": "Машины",
+      "col_revenue": "Выручка",
+      "col_yoy": "Г/Г"
+    },
+    "risk_matrix": {
+      "col_firm": "Фирма",
+      "col_debt": "Долг",
+      "col_quota_pct": "Квота %",
+      "col_risk": "Риск"
+    },
+    "alerts": {
+      "empty": "Уведомлений нет",
+      "time_ago": {
+        "just_now": "только что",
+        "minutes": "{{n}} мин назад",
+        "hours": "{{n}} ч назад",
+        "days": "{{n}} дн назад"
+      },
+      "kinds": {
+        "quota_80": "Квота 80%",
+        "quota_90": "Квота 90%",
+        "quota_95": "Квота 95% — почти лимит",
+        "quota_100": "Квота исчерпана",
+        "overdue": "Просроченная отгрузка",
+        "action_required": "Требуется действие",
+        "plan_submitted": "Недельный план отправлен",
+        "plan_approved": "Недельный план утверждён",
+        "plan_rejected": "Недельный план отклонён"
+      }
+    }
+  },
+  "comments": {
+    "title": "Комментарии",
+    "compose_placeholder": "Написать комментарий... @ — упомянуть, # — ячейка",
+    "pin_to_cell": "Привязать к ячейке",
+    "unpin": "Отвязать",
+    "assign_to": "Назначить",
+    "assignee_label": "Исполнитель",
+    "task_open": "Открыта",
+    "task_done": "Выполнена",
+    "mark_done": "Отметить выполненной",
+    "reopen": "Переоткрыть",
+    "delete_confirm": "Удалить этот комментарий?",
+    "mention_user": "Пользователь",
+    "mention_role": "Роль",
+    "mention_cell": "Ячейка",
+    "role_member_count": "{{count}} участников",
+    "filter_this_cell": "Эта ячейка",
+    "filter_all_cells": "Все ячейки",
+    "filter_my_tasks": "Мои задачи",
+    "empty_thread": "Комментариев пока нет",
+    "toast_assigned": "Задача назначена",
+    "toast_done_marked": "Отмечено как выполнено",
+    "toast_create_error": "Не удалось отправить комментарий",
+    "mentioned_role_chip": "@{{label}}",
+    "cell_chip": "Ячейка: {{label}}",
+    "tab_users": "Пользователи",
+    "tab_roles": "Роли",
+    "tab_cells": "Ячейки",
+    "reply": "Ответить",
+    "reply_count": "{{count}} ответов",
+    "toolbar_btn": "Комментарии",
+    "edit": "Изменить",
+    "delete": "Удалить",
+    "send": "Отправить",
+    "no_shipment_selected": "Выберите колонку отгрузки для комментирования",
+    "add_to_cell": "Комментировать эту ячейку",
+    "placeholder": "Напишите комментарий... (Ctrl+Enter для отправки)",
+    "toast_success": "Комментарий добавлен",
+    "toast_error": "Не удалось отправить комментарий"
   }
 }

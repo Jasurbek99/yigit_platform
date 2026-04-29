@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import {
   Button,
   Card,
@@ -6,6 +6,7 @@ import {
   Divider,
   Flex,
   Grid,
+  Modal,
   Skeleton,
   Alert,
   Table,
@@ -14,6 +15,7 @@ import {
   Timeline,
   Typography,
 } from 'antd';
+import { useState } from 'react';
 import type { TableColumnsType } from 'antd';
 import { ArrowLeftOutlined, EditOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
@@ -21,8 +23,11 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { StatusTag } from '@/components/StatusTag';
 import { TransitionButton } from '@/components/TransitionButton';
 import { CommentComposer } from '@/components/CommentComposer';
+import { FreshnessPill } from '@/components/FreshnessPill';
+import { VarietySelect } from '@/components/VarietySelect';
 import { useShipmentDetail } from '@/hooks/useShipmentDetail';
 import { useAuth } from '@/hooks/useAuth';
+import { useOverrideVarieties } from '@/hooks/usePallets';
 import { canDo } from '@/utils/permissions';
 import api from '@/services/api';
 import type {
@@ -56,6 +61,8 @@ const STATUS_STEPS = [
 export default function ShipmentDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') ?? 'overview';
   const screens = Grid.useBreakpoint();
   const { data: shipment, isLoading, isError } = useShipmentDetail(id);
   const { user } = useAuth();
@@ -71,6 +78,10 @@ export default function ShipmentDetail() {
     },
   });
 
+  const [overrideOpen, setOverrideOpen] = useState(false);
+  const [overrideIds, setOverrideIds] = useState<number[]>([]);
+  const overrideMutation = useOverrideVarieties(Number(id));
+
   if (isLoading) {
     return (
       <div style={{ padding: 24 }}>
@@ -84,8 +95,13 @@ export default function ShipmentDetail() {
   }
 
   const canEditQuality = canDo(user, 'shipment', 'edit');
-
   const canEditSalesReport = canDo(user, 'shipment', 'edit');
+
+  const canOverrideVariety =
+    user?.role === 'warehouse_chief' ||
+    user?.role === 'export_manager' ||
+    user?.role === 'director' ||
+    user?.is_superuser === true;
 
   const q: IShipmentQuality = shipment.quality ?? {
     azyk_maglumatnama: false,
@@ -229,7 +245,56 @@ export default function ShipmentDetail() {
           {/* Section 3: Haryt */}
           <SectionBlock title={`🌿 ${t('shipment_detail.section_goods')}`}>
             <InfoRow label={t('shipment_detail.block_sources')} value={blockDisplay} />
-            <InfoRow label={t('shipment_detail.variety')} value="—" />
+
+            {/* Variety (R17) sub-section */}
+            <div style={{ padding: '8px 0', borderBottom: '1px solid #f0f0f0', marginBottom: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+                <div style={{ fontWeight: 600, fontSize: 13 }}>
+                  {t('variety.section_title')}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {/* Confidence badge */}
+                  {shipment.variety_confidence === 'high' && (
+                    <Tag color="success">✓ {t('pallet.confidence_high')}</Tag>
+                  )}
+                  {shipment.variety_confidence === 'low' && (
+                    <Tag color="warning">⚠ {t('pallet.confidence_low')}</Tag>
+                  )}
+                  {shipment.variety_confidence === 'none' && (
+                    <Tag color="default">{t('pallet.confidence_none')}</Tag>
+                  )}
+                  {canOverrideVariety && (
+                    <Button
+                      size="small"
+                      onClick={() => {
+                        setOverrideIds(shipment.varieties_dominant.map((v) => v.id));
+                        setOverrideOpen(true);
+                      }}
+                    >
+                      {t('variety.override_btn')}
+                    </Button>
+                  )}
+                </div>
+              </div>
+              {/* Dominant variety chips */}
+              {shipment.varieties_dominant.length === 0 ? (
+                <span style={{ fontSize: 12, color: '#8c8c8c' }}>{t('variety.empty_state')}</span>
+              ) : (
+                <Flex gap={4} wrap="wrap">
+                  {shipment.varieties_dominant.map((v) => (
+                    <Tag
+                      key={v.id}
+                      color={v.is_experimental ? 'orange' : undefined}
+                      style={{ margin: 0 }}
+                    >
+                      {v.code ? `${v.code} · ` : ''}{v.name}
+                      {v.is_experimental && <span style={{ marginLeft: 4, fontSize: 10 }}>(exp)</span>}
+                    </Tag>
+                  ))}
+                </Flex>
+              )}
+            </div>
+
             <InfoRow label={t('shipment_detail.harvest_date')} value={fmtDate(shipment.date)} />
             <InfoRow label={t('shipment_detail.harvest_condition')} value="—" />
             <InfoRow
@@ -415,6 +480,28 @@ export default function ShipmentDetail() {
 
   return (
     <div>
+      {/* Override varieties modal */}
+      <Modal
+        open={overrideOpen}
+        title={t('variety.override_modal_title')}
+        okText={t('variety.override_apply')}
+        cancelText={t('variety.override_cancel')}
+        confirmLoading={overrideMutation.isPending}
+        onCancel={() => setOverrideOpen(false)}
+        onOk={() => {
+          overrideMutation.mutate(overrideIds, {
+            onSuccess: () => setOverrideOpen(false),
+          });
+        }}
+      >
+        <VarietySelect
+          mode="multiple"
+          value={overrideIds}
+          onChange={(ids) => setOverrideIds(ids)}
+          style={{ width: '100%' }}
+        />
+      </Modal>
+
       {/* Header */}
       <div style={{ marginBottom: 20 }}>
         <Flex align="center" gap={12} wrap="wrap" style={{ marginBottom: 6 }}>
@@ -423,8 +510,14 @@ export default function ShipmentDetail() {
             {shipment.cargo_code}
           </Text>
           <StatusTag statusDisplay={shipment.status_display} />
+          <FreshnessPill freshness={shipment.freshness} ageDays={shipment.harvest_age_days} />
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
             <Button icon={<EditOutlined />} disabled>{t('common.edit')}</Button>
+            {(user?.role === 'weight_master' || user?.role === 'warehouse_chief' || user?.role === 'export_manager' || user?.is_superuser) && (
+              <Link to={`/shipments/${shipment.id}/manifest`}>
+                <Button>{t('pallet.title')}</Button>
+              </Link>
+            )}
             {shipment.allowed_transitions?.length > 0 && (
               <TransitionButton
                 shipmentId={shipment.id}
@@ -448,7 +541,15 @@ export default function ShipmentDetail() {
       }}>
         {/* Left: main card with 4 tabs */}
         <Card>
-          <Tabs items={tabItems} defaultActiveKey="overview" />
+          <Tabs
+            items={tabItems}
+            activeKey={activeTab}
+            onChange={(k) => setSearchParams((prev) => {
+              const next = new URLSearchParams(prev);
+              next.set('tab', k);
+              return next;
+            }, { replace: true })}
+          />
         </Card>
 
         {/* Right: sidebar */}

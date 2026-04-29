@@ -5,6 +5,7 @@ from .logistics import LoadingLocation, TruckDestination, ShipmentStatusType, Sh
 from .greenhouse_block import GreenhouseBlock
 from .firms import ExportFirm, ImportFirm, Customer, DomesticBuyer
 from .role_permissions import RolePagePermission, RoleResourcePermission, RoleFieldPermission
+from .crate_type import CrateType
 
 __all__ = [
     'User',
@@ -26,4 +27,5 @@ __all__ = [
     'RolePagePermission',
     'RoleResourcePermission',
     'RoleFieldPermission',
+    'CrateType',
 ]

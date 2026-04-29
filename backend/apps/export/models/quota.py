@@ -8,6 +8,7 @@ The issuance is auto-matched to an ISO sales week for analytics.
 """
 from decimal import Decimal
 
+from django.core.cache import cache
 from django.db import models
 from django.db.models import Sum
 from django.db.models.functions import Coalesce
@@ -121,20 +122,65 @@ USAGE_STATUS_CHOICES = [
     ('approved', 'Approved'),
 ]
 
-# Default truck weights (kg) by number of firms sharing a truck.
-# Used when auto-creating usage records from firm splits.
-DEFAULT_TRUCK_WEIGHTS = {
-    1: Decimal('18100'),
-    2: Decimal('9000'),
-}
+class TruckSplitDefault(models.Model):
+    """Official kg-per-firm written on export documents, keyed by # of firms on a truck.
+
+    Director-configurable from /admin/shipment-settings. Seeded with the legacy
+    DEFAULT_TRUCK_WEIGHTS values (1→18100, 2→9000, 3→6000). The value is the
+    OFFICIAL export number (capped at 18,100 kg total per truck), not the real
+    weight — trucks really carry 20,000–21,000 kg but documents use the cap.
+    """
+
+    num_firms = models.PositiveSmallIntegerField(unique=True)
+    kg_per_firm = models.DecimalField(max_digits=10, decimal_places=2)
+    notes = models.CharField(max_length=200, blank=True, null=True, **cyrillic_collation())
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(
+        'core.User', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='truck_split_updates',
+    )
+
+    class Meta:
+        db_table = schema_table('export', 'truck_split_defaults')
+        ordering = ['num_firms']
+
+    def __str__(self) -> str:
+        return f'{self.num_firms} firms → {self.kg_per_firm} kg each'
+
+
+_TRUCK_SPLIT_CACHE_PREFIX = 'truck_split'
+_TRUCK_SPLIT_CACHE_TTL = 300  # 5 min; admin saves invalidate explicitly
 
 
 def get_default_truck_weight(num_firms: int) -> Decimal:
-    """Return the default kg per firm based on how many firms share the truck.
+    """Per-firm kg for an N-firm truck, read from TruckSplitDefault.
 
-    Falls back to evenly splitting 18,100 kg for 3+ firms.
+    Falls back to ``Decimal('18100') / num_firms`` when no row exists for N.
+    Caches per-N for 5 min; admin mutations must call ``invalidate_truck_split_cache()``.
     """
-    return DEFAULT_TRUCK_WEIGHTS.get(num_firms, Decimal('18100') / num_firms)
+    if num_firms < 1:
+        raise ValueError('num_firms must be >= 1')
+
+    cache_key = f'{_TRUCK_SPLIT_CACHE_PREFIX}:{num_firms}'
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    row = TruckSplitDefault.objects.filter(num_firms=num_firms).first()
+    val = row.kg_per_firm if row else (Decimal('18100') / num_firms)
+    cache.set(cache_key, val, _TRUCK_SPLIT_CACHE_TTL)
+    return val
+
+
+def invalidate_truck_split_cache(num_firms: int | None = None) -> None:
+    """Drop cached values after an admin save.
+
+    Pass an N to drop only that key, or None to drop a reasonable range (1–10).
+    """
+    if num_firms is not None:
+        cache.delete(f'{_TRUCK_SPLIT_CACHE_PREFIX}:{num_firms}')
+        return
+    cache.delete_many([f'{_TRUCK_SPLIT_CACHE_PREFIX}:{n}' for n in range(1, 11)])
 
 
 class QuotaUsageRecord(models.Model):

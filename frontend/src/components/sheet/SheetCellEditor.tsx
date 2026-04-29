@@ -255,10 +255,13 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
             defaultValue={currentIds}
             options={options}
             onChange={(selectedIds: number[]) => {
+              // Send IDs only — backend auto-fills weight_kg.
+              // R8 blocks → splits real shipment.weight_net evenly across N blocks.
+              // R9 firms  → uses TruckSplitDefault[N] (official kg per firm).
               if (isBlocks) {
-                saveJunction('block-sources', selectedIds.map((id) => ({ block_id: id, weight_kg: 0 })), 'blocks');
+                saveJunction('block-sources', selectedIds.map((id) => ({ block_id: id })), 'blocks');
               } else if (isFirms) {
-                saveJunction('firm-splits', selectedIds.map((id) => ({ export_firm_id: id, weight_kg: 0 })), 'firms');
+                saveJunction('firm-splits', selectedIds.map((id) => ({ export_firm_id: id })), 'firms');
               }
             }}
             onOpenChange={(open) => { if (!open) close(); }}

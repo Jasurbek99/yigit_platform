@@ -31,6 +31,7 @@ interface UserEditFormValues {
 const ROLE_COLORS: Record<UserRole, string> = {
   export_manager: 'blue',
   warehouse_chief: 'cyan',
+  weight_master: 'geekblue',
   document_team: 'indigo',
   transport: 'orange',
   sales_rep: 'green',
@@ -39,6 +40,7 @@ const ROLE_COLORS: Record<UserRole, string> = {
   accountant: 'violet',
   greenhouse_manager: 'lime',
   seller: 'teal',
+  boss: 'purple',
 };
 
 export default function UsersPage() {

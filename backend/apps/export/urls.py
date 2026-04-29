@@ -1,7 +1,8 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
-from apps.export.views import ShipmentViewSet
+from apps.export.views import ShipmentViewSet, CommentViewSet
+from apps.export.views_analytics import BossAnalyticsViewSet
 from apps.export.views_finance import FinansistAdvanceViewSet
 from apps.export.views_planning import (
     WeeklyLocalSellPlanViewSet,
@@ -14,6 +15,7 @@ from apps.export.views_admin import (
     SeasonViewSet,
     ExportFirmViewSet,
     ImportFirmViewSet,
+    TruckSplitDefaultViewSet,
     UserManagementViewSet,
     UserPermissionsView,
 )
@@ -21,8 +23,12 @@ from apps.export.views_quota import QuotaIssuanceViewSet, QuotaUsageViewSet, Quo
 
 router = DefaultRouter()
 
+# Boss Dashboard analytics
+router.register('boss', BossAnalyticsViewSet, basename='boss-analytics')
+
 # Core export resources
 router.register('shipments', ShipmentViewSet, basename='shipment')
+router.register('comments', CommentViewSet, basename='comment')
 router.register('advances', FinansistAdvanceViewSet, basename='advance')
 
 # Planning & pricing
@@ -43,6 +49,7 @@ router.register('admin/seasons', SeasonViewSet, basename='admin-season')
 router.register('admin/firms', ExportFirmViewSet, basename='admin-firm')
 router.register('admin/import-firms', ImportFirmViewSet, basename='admin-import-firm')
 router.register('admin/users', UserManagementViewSet, basename='admin-user')
+router.register('admin/truck-splits', TruckSplitDefaultViewSet, basename='admin-truck-split')
 
 urlpatterns = router.urls + [
     path(

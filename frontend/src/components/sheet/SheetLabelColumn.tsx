@@ -1,15 +1,16 @@
-import { memo } from 'react';
+import { Fragment, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { IRowConfig } from '@/types';
 import {
   COL_WIDTH_ROW_NUM,
   COL_WIDTH_WHO,
   COL_WIDTH_FIELD,
-  ROW_HEIGHT,
 } from '@/constants/sheetRowConfig';
 
 interface ISheetLabelRowProps {
   rowConfig: IRowConfig;
+  /** z-index for the sticky-left label cells (raised in frozen-row sections). */
+  stickyZIndex?: number;
 }
 
 const STYLE_COLORS: Record<string, string> = {
@@ -22,13 +23,19 @@ const STYLE_COLORS: Record<string, string> = {
   alt: '#e4e7ec',
 };
 
-function SheetLabelRowInner({ rowConfig }: ISheetLabelRowProps) {
+function SheetLabelRowInner({ rowConfig, stickyZIndex = 3 }: ISheetLabelRowProps) {
   const { t } = useTranslation();
 
   const borderColor = STYLE_COLORS[rowConfig.style] ?? STYLE_COLORS.base;
 
+  // Rendered as a Fragment (not a wrapping div) so the 3 sticky-left cells
+  // become direct flex children of the parent row. If we wrap them in their
+  // own flex container, the cells' sticky containing block is the 358px-wide
+  // wrapper — they unstick the moment the user scrolls past ~330px because
+  // the wrapper's right edge passes the viewport's left edge. As direct
+  // children of the (very wide) row they stay sticky for the full scroll.
   return (
-    <div className="sheet-label-row" style={{ height: ROW_HEIGHT, display: 'flex' }}>
+    <Fragment>
       {/* Col A: Row number */}
       <div
         className="sheet-label-col sheet-label-col--num"
@@ -36,7 +43,8 @@ function SheetLabelRowInner({ rowConfig }: ISheetLabelRowProps) {
           width: COL_WIDTH_ROW_NUM,
           position: 'sticky',
           left: 0,
-          zIndex: 3,
+          zIndex: stickyZIndex,
+          flexShrink: 0,
         }}
       >
         {rowConfig.rowNumber}
@@ -49,7 +57,8 @@ function SheetLabelRowInner({ rowConfig }: ISheetLabelRowProps) {
           width: COL_WIDTH_WHO,
           position: 'sticky',
           left: COL_WIDTH_ROW_NUM,
-          zIndex: 3,
+          zIndex: stickyZIndex,
+          flexShrink: 0,
         }}
       >
         {t(rowConfig.whoKey)}
@@ -62,13 +71,14 @@ function SheetLabelRowInner({ rowConfig }: ISheetLabelRowProps) {
           width: COL_WIDTH_FIELD,
           position: 'sticky',
           left: COL_WIDTH_ROW_NUM + COL_WIDTH_WHO,
-          zIndex: 3,
+          zIndex: stickyZIndex,
           borderLeft: `3px solid ${borderColor}`,
+          flexShrink: 0,
         }}
       >
         {t(rowConfig.labelKey)}
       </div>
-    </div>
+    </Fragment>
   );
 }
 

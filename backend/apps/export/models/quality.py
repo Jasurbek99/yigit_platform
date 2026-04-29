@@ -25,28 +25,77 @@ class QualityDocument(models.Model):
 
 
 class ShipmentComment(models.Model):
-    """Per-shipment threaded comments with @mentions (AD-2: replaces free-text notes)."""
+    """Per-shipment threaded comments with @mentions and task assignment.
+
+    AD-2: replaces free-text notes (vehicle_status_note).
+    field_key: cell anchor from SHEET_ROW_CONFIG.fieldKey; NULL = shipment-level.
+    mentions: CSV of user IDs (@user mentions). Nullable for backward compat.
+    role_mentions: CSV of role codes (@role mentions). Non-null, default=''.
+    """
 
     shipment = models.ForeignKey(
         'export.Shipment', on_delete=models.CASCADE, related_name='comments'
     )
     user = models.ForeignKey('core.User', on_delete=models.PROTECT)
     content = models.CharField(max_length=2000, **cyrillic_collation())
-    # Comma-separated user IDs for @mentions — avoids JSONField / ArrayField (MSSQL constraint)
+
+    # Cell anchor — NULL means shipment-level comment (existing behavior preserved).
+    field_key = models.CharField(max_length=64, null=True, blank=True)
+
+    # Comma-separated user IDs for @user mentions (existing pattern, nullable for compat).
     mentions = models.CharField(max_length=500, blank=True, null=True)
+    # Comma-separated role codes for @role mentions — non-null unlike mentions.
+    role_mentions = models.CharField(max_length=500, blank=True, default='')
+
     parent_comment = models.ForeignKey(
         'self', on_delete=models.SET_NULL, null=True, blank=True, related_name='replies'
     )
     is_system = models.BooleanField(default=False)
+
+    # === Task fields (assignee is set = this is a task) ===
+    assignee = models.ForeignKey(
+        'core.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_comments',
+    )
+    is_done = models.BooleanField(default=False)
+    done_at = models.DateTimeField(null=True, blank=True)
+    done_by = models.ForeignKey(
+        'core.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='completed_comments',
+    )
+
+    # Soft-delete: threads stay coherent; replies still visible.
+    is_deleted = models.BooleanField(default=False)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = schema_table('export', 'shipment_comments')
         ordering = ['created_at']
+        indexes = [
+            models.Index(fields=['shipment', 'field_key'], name='ix_comments_shipment_field'),
+            models.Index(fields=['assignee', 'is_done'], name='ix_comments_assignee_open'),
+        ]
 
     def __str__(self) -> str:
         return f'Comment on {self.shipment.cargo_code} by {self.user.username}'
+
+    @property
+    def mentions_ids(self) -> list[int]:
+        """Parse mentions CSV into list of user IDs. Handles NULL gracefully."""
+        return [int(x) for x in (self.mentions or '').split(',') if x.strip()]
+
+    @property
+    def role_mentions_list(self) -> list[str]:
+        """Parse role_mentions CSV into list of role code strings."""
+        return [x for x in (self.role_mentions or '').split(',') if x.strip()]
 
 
 class SalesReport(models.Model):

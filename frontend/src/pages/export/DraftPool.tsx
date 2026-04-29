@@ -6,21 +6,15 @@ import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import { useDrafts } from '@/hooks/useDrafts';
 import { DraftComposerModal } from '@/components/draft/DraftComposerModal';
-import { getFreshness, type Freshness } from '@/utils/freshness';
+import { FreshnessPill } from '@/components/FreshnessPill';
 import type { IShipmentDraft } from '@/types';
 
 const { Text } = Typography;
 
-const FRESHNESS_COLOR: Record<Freshness, string> = {
+const FRESHNESS_BORDER: Record<'today' | 'yesterday' | 'aged', string> = {
   today: '#52c41a',
   yesterday: '#faad14',
-  old: '#ff4d4f',
-};
-
-const FRESHNESS_BORDER: Record<Freshness, string> = {
-  today: '#52c41a',
-  yesterday: '#faad14',
-  old: '#ff4d4f',
+  aged: '#ff4d4f',
 };
 
 // ─── DraftCard ────────────────────────────────────────────────────────────
@@ -32,7 +26,7 @@ interface IDraftCardProps {
 function DraftCard({ draft }: IDraftCardProps) {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const freshness = getFreshness(draft.created_at);
+  const freshness = draft.freshness;
 
   const sourcesStr = draft.block_sources
     .map((s) => `${s.block_code} (${((s.weight_kg ?? 0) / 1000).toFixed(1)}t)`)
@@ -46,13 +40,6 @@ function DraftCard({ draft }: IDraftCardProps) {
   function handleCardClick() {
     navigate(`/export/assign?draftId=${draft.id}`);
   }
-
-  const freshnessLabel =
-    freshness === 'today'
-      ? t('draft.freshness_today')
-      : freshness === 'yesterday'
-      ? t('draft.freshness_yesterday')
-      : t('draft.freshness_old');
 
   return (
     <div
@@ -76,6 +63,23 @@ function DraftCard({ draft }: IDraftCardProps) {
         (e.currentTarget as HTMLDivElement).style.boxShadow = 'none';
       }}
     >
+      {/* Aged redirect hint banner */}
+      {freshness === 'aged' && (
+        <div
+          style={{
+            padding: '4px 8px',
+            background: '#fff2f0',
+            border: '1px solid #ffccc7',
+            borderRadius: 4,
+            fontSize: 11,
+            color: '#cf1322',
+            marginBottom: 8,
+          }}
+        >
+          {t('freshness.aged_redirect_hint')}
+        </div>
+      )}
+
       {/* Header row */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
         <div
@@ -89,25 +93,8 @@ function DraftCard({ draft }: IDraftCardProps) {
         >
           {draft.cargo_code}
         </div>
-        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          <Tag
-            color={
-              freshness === 'today' ? 'success' : freshness === 'yesterday' ? 'warning' : 'error'
-            }
-            style={{ margin: 0 }}
-          >
-            <span
-              style={{
-                display: 'inline-block',
-                width: 7,
-                height: 7,
-                borderRadius: '50%',
-                background: FRESHNESS_COLOR[freshness],
-                marginRight: 5,
-              }}
-            />
-            {freshnessLabel}
-          </Tag>
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end', alignItems: 'center' }}>
+          <FreshnessPill freshness={freshness} ageDays={draft.harvest_age_days} size="small" />
           <Tag style={{ margin: 0 }}>
             {draft.block_sources.length} {t('draft.blocks_suffix')}
           </Tag>

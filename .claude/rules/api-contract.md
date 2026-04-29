@@ -99,6 +99,60 @@ Full data with nested related objects.
 ### My work filter: `GET /api/v1/export/shipments/?my_work=true`
 Same response shape as list, filtered by role's active window server-side.
 
+### Sheet endpoint: `GET /api/v1/export/shipments/sheet/`
+**Wrapped response shape** (not a flat array):
+```json
+{
+  "results": [ /* IShipmentSheetItem[] — flat per-season payload, no pagination */ ],
+  "comment_counts": {
+    "<shipment_id>": { "<field_key>": 3, "__shipment__": 1 }
+  },
+  "task_counts": {
+    "<shipment_id>": { "open": 2, "done": 5, "assigned_to_me_open": 1 }
+  }
+}
+```
+Frontend reads `comment_counts` for per-cell marker badges and `task_counts` for the toolbar's "open tasks assigned to me" indicator. Both are computed by single grouped queries on the backend (no N+1).
+
+### Comments CRUD: `/api/v1/export/comments/`
+- `GET /comments/?shipment={id}&field_key={key}&assignee=me&is_done=false&parent_comment=null` — list with filters; standard `PageNumberPagination`
+- `POST /comments/` — body: `{shipment, content, field_key?, mentions?: number[], role_mentions?: string[], parent_comment?, assignee?}`; replies inherit parent's `field_key`; tasks live on root comments only
+- `PATCH /comments/{id}/` — body `{content}` only (own comments or `delete_any` perm)
+- `DELETE /comments/{id}/` — soft delete (sets `is_deleted=True`)
+- `POST /comments/{id}/done/` — mark task done (assignee or `delete_any`)
+- `POST /comments/{id}/reopen/` — reopen task (author or assignee)
+
+Comment read shape (used in list + create response):
+```json
+{
+  "id": 12, "user": 3, "user_name": "Ahmet", "role": "export_manager",
+  "content": "Check @user:5 and @role:warehouse_chief on #cell:weight_net",
+  "field_key": "weight_net",
+  "mentions_users": [{"id":5,"name":"Bahar","role":"warehouse_chief"}],
+  "role_mentions_list": [{"code":"warehouse_chief","label":"Warehouse Chief"}],
+  "assignee": 5, "assignee_name": "Bahar",
+  "is_done": false, "done_at": null, "done_by_name": null,
+  "is_system": false, "is_deleted": false,
+  "parent_comment": null, "replies_count": 2,
+  "created_at": "2026-04-27T10:00:00+05:00", "updated_at": null
+}
+```
+
+Mention/cell tokens are stored verbatim in `content`: `@user:42`, `@role:warehouse_chief`, `#cell:vehicle_condition`. Frontend parses with the regex `/(@user:\d+|@role:[a-z_]+|#cell:[a-z_]+)/g`.
+
+### Mentionable autocomplete: `GET /api/v1/core/users/mentionable/?q=&limit=10`
+Returns mixed list of users + roles for the `@` popover:
+```json
+[
+  {"type":"user","id":42,"name":"Ahmet","role":"export_manager"},
+  {"type":"role","code":"warehouse_chief","label":"Warehouse Chief","member_count":4}
+]
+```
+Empty `q` returns top users + all 12 roles.
+
+### Notifications kinds (existing endpoint)
+`Notification.kind` choices include `mention`, `task_assigned`, `task_done` for the comment system. `link` format: `/export/shipments/sheet?shipment={id}&row={fieldKey}&comment={commentId}` — the Sheet page parses these query params on mount and auto-opens the Comments Drawer.
+
 ## Pagination
 
 All list endpoints use `PageNumberPagination`:

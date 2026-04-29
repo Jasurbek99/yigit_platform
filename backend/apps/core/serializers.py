@@ -2,7 +2,7 @@ from rest_framework import serializers
 from apps.core.models import (
     User, City, Country, BorderPoint, ExportFirm, ImportFirm, ShipmentStatusType,
     ShipmentOptionType, Customer, GreenhouseBlock, LoadingLocation, TomatoVariety,
-    TruckDestination,
+    TruckDestination, CrateType,
 )
 from apps.core.permissions import get_editable_fields
 
@@ -112,7 +112,16 @@ class LoadingLocationSerializer(serializers.ModelSerializer):
 class TomatoVarietySerializer(serializers.ModelSerializer):
     class Meta:
         model = TomatoVariety
-        fields = ['id', 'name', 'type', 'avg_fruit_weight_gr']
+        fields = [
+            'id', 'name', 'type', 'avg_fruit_weight_gr',
+            'code', 'is_experimental', 'scientific_name',
+        ]
+
+
+class CrateTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CrateType
+        fields = ['id', 'name', 'weight_kg', 'is_active']
 
 
 class TruckDestinationSerializer(serializers.ModelSerializer):

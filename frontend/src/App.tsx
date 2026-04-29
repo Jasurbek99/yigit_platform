@@ -49,6 +49,8 @@ const ShipmentSheet = lazy(() => import('@/pages/export/ShipmentSheet'));
 const ShipmentDashboard = lazy(() => import('@/pages/export/ShipmentDashboard'));
 const DraftPool = lazy(() => import('@/pages/export/DraftPool'));
 const AssignmentBoard = lazy(() => import('@/pages/export/AssignmentBoard'));
+const PalletManifest = lazy(() => import('@/pages/export/PalletManifest'));
+const BossDashboard = lazy(() => import('@/pages/boss/BossDashboard'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -135,6 +137,9 @@ export default function App() {
                   }
                 >
                   <Route index element={<DashboardPage />} />
+                  <Route path="boss/dashboard" element={
+                    <ProtectedRoute pageCode="analytics.boss"><BossDashboard /></ProtectedRoute>
+                  } />
                   <Route path="export/shipments" element={
                     <ProtectedRoute pageCode="export.shipments"><ShipmentList /></ProtectedRoute>
                   } />
@@ -182,6 +187,9 @@ export default function App() {
                   } />
                   <Route path="export/assign" element={
                     <ProtectedRoute pageCode="export.assign"><AssignmentBoard /></ProtectedRoute>
+                  } />
+                  <Route path="shipments/:id/manifest" element={
+                    <ProtectedRoute pageCode="export.pallet_manifest"><PalletManifest /></ProtectedRoute>
                   } />
                   <Route path="admin/seasons" element={
                     <ProtectedRoute pageCode="admin.seasons"><SeasonsPage /></ProtectedRoute>

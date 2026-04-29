@@ -7,6 +7,7 @@ from django.utils.decorators import method_decorator
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from django.db.models import Q
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -14,7 +15,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from apps.core.models import (
     City, Country, BorderPoint, ExportFirm, ImportFirm, ShipmentStatusType,
     ShipmentOptionType, Customer, GreenhouseBlock, LoadingLocation, TomatoVariety,
-    TruckDestination,
+    TruckDestination, CrateType,
 )
 from apps.core.permissions import write_permission
 from apps.core.serializers import (
@@ -29,6 +30,7 @@ from apps.core.serializers import (
     GreenhouseBlockSerializer,
     LoadingLocationSerializer,
     TomatoVarietySerializer,
+    CrateTypeSerializer,
     TruckDestinationSerializer,
     BorderPointSerializer,
     ShipmentOptionTypeSerializer,
@@ -190,6 +192,19 @@ class TomatoVarietyViewSet(ReadOnlyModelViewSet):
     queryset = TomatoVariety.objects.all()
 
 
+class CrateTypeViewSet(ReadOnlyModelViewSet):
+    """GET /api/v1/core/crate-types/ — list all crate types for pallet manifests.
+
+    Defaults to active-only; pass ?is_active=false to include inactive (placeholder
+    crate types pending Soltanmyrat confirmation).
+    """
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = CrateTypeSerializer
+    queryset = CrateType.objects.all()
+    filterset_fields = ['is_active']
+
+
 class TruckDestinationViewSet(ModelViewSet):
     """CRUD /api/v1/core/truck-destinations/
 
@@ -224,3 +239,70 @@ class ShipmentOptionTypeViewSet(ModelViewSet):
         if category:
             qs = qs.filter(category=category)
         return qs.order_by('category', 'sort_order')
+
+
+class MentionableView(APIView):
+    """GET /api/v1/core/users/mentionable/?q=&limit=10
+
+    Autocomplete for @mentions in the comment system.
+    Returns a mixed list of users and roles matching the query string.
+
+    Empty q → first 10 active users + all 12 roles.
+    Non-empty q → users matching first/last/username + roles matching code/label.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from apps.core.models.user import ROLE_CHOICES, User
+
+        q = request.query_params.get('q', '').strip()
+        try:
+            limit = min(int(request.query_params.get('limit', 10)), 50)
+        except (ValueError, TypeError):
+            limit = 10
+
+        # --- Users ---
+        user_qs = User.objects.filter(is_active=True)
+        if q:
+            user_qs = user_qs.filter(
+                Q(first_name__icontains=q) |
+                Q(last_name__icontains=q) |
+                Q(username__icontains=q)
+            )
+        users = list(user_qs.order_by('first_name', 'last_name')[:limit])
+
+        user_results = []
+        for u in users:
+            full_name = ' '.join(p for p in [u.first_name, u.last_name] if p).strip()
+            user_results.append({
+                'type': 'user',
+                'id': u.id,
+                'name': full_name or u.username,
+                'role': u.role,
+            })
+
+        # --- Roles (capped at 12, filtered in Python) ---
+        # Single grouped query for member counts — avoids N+1 (one query per role).
+        from django.db.models import Count
+
+        counts_by_role = dict(
+            User.objects.filter(is_active=True)
+            .values_list('role')
+            .annotate(n=Count('id'))
+            .values_list('role', 'n')
+        )
+
+        q_lower = q.lower()
+        role_results = []
+        for code, label in ROLE_CHOICES:
+            if q and q_lower not in code.lower() and q_lower not in label.lower():
+                continue
+            role_results.append({
+                'type': 'role',
+                'code': code,
+                'label': label,
+                'member_count': counts_by_role.get(code, 0),
+            })
+
+        return Response(user_results + role_results)

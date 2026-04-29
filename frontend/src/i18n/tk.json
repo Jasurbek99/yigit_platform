@@ -26,7 +26,9 @@
     "director": "Direktor",
     "accountant": "Hasapçy",
     "greenhouse_manager": "Ýyladyşhana menejeri",
-    "seller": "Satyjy"
+    "seller": "Satyjy",
+    "weight_master": "Agramy ölçeýji usta",
+    "boss": "Başlyk"
   },
   "nav": {
     "dashboard": "Baş sahypa",
@@ -61,7 +63,8 @@
     "shipment_sheet": "Sahypa",
     "shipment_dashboard": "Dolandyryş",
     "drafts": "Garalama ýükler",
-    "assign": "Belgilemek"
+    "assign": "Belgilemek",
+    "boss_dashboard": "Boss paneli"
   },
   "plan": {
     "title": "Hepdäniň hasyly meýilnamasy",
@@ -430,12 +433,6 @@
     "toast_error": "Geçiş başa barmady",
     "toast_error_desc": "Bu geçiş rugsat berilmeýär."
   },
-  "comments": {
-    "placeholder": "Teswir ýaz... (Ctrl+Enter ibermek üçin)",
-    "send": "Iber",
-    "toast_success": "Teswir goşuldy",
-    "toast_error": "Teswiri ibermek başa barmady"
-  },
   "sales_report": {
     "tab": "Satyş hasabaty",
     "price_per_kg": "Baha/kg (USD)",
@@ -544,6 +541,7 @@
     "tab_statuses": "Statuslar",
     "tab_border_points": "Serhet Nokatlary",
     "tab_options": "Saýlaw Sanawy",
+    "tab_truck_splits": "Firma paýlanyşygy",
     "col_step": "Ädim",
     "col_code": "Kod",
     "col_name_tk": "Ady (TK)",
@@ -574,6 +572,14 @@
     "category_documents_status": "Resminamalar",
     "category_harvest_status": "Ýygym ýagdaýy",
     "category_transport_responsible": "Transport jogapkäri"
+  },
+  "truck_split": {
+    "col_num_firms": "Firma sany",
+    "col_kg": "Firma başyna kg",
+    "col_notes": "Bellik",
+    "col_updated_by": "Üýtgeden",
+    "help_title": "Resmi firma başyna kg",
+    "help_body": "Bular eksport resminamalarynda ýazylýan RESMI agramlardyr — bir maşyn üçin 18 100 kg çägi. Hakyky maşynlar 20 000–21 000 kg göterýär, ýöne resminamalarda hemişe şu sanlar görkezilýär. Listdäki R9 hatarynda N firma saýlananda, her firm-split ýazgysy şu N üçin görkezilen baha bilen awtomatiki dolduralýar."
   },
   "truck": {
     "title": "Ulag çaklamasy",
@@ -743,7 +749,10 @@
     "title": "Habarlar",
     "mark_all_read": "Hemmesini okaldy belgile",
     "empty": "Habar ýok",
-    "action_required": "{{cargo_code}} — meýdanlaryňyzy doldurmaly"
+    "action_required": "{{cargo_code}} — meýdanlaryňyzy doldurmaly",
+    "kind_mention": "Sizi agzadylar",
+    "kind_task_assigned": "Size wezipe bellenildi",
+    "kind_task_done": "Wezipäňiz ýerine ýetirildi"
   },
   "common": {
     "empty": "—",
@@ -1027,6 +1036,7 @@
       "transport": "Transport böl.",
       "quality": "Hil gözegçi",
       "aganazar": "Aganazar",
+      "babageldi": "Babageldi",
       "none": "—"
     },
     "row": {
@@ -1050,6 +1060,10 @@
       "greenhouse_departure": "Ýyladyşhanadan çykdy",
       "vehicle_responsible": "Jogapkär adam",
       "truck_plate": "Maşyn / Tyr belgisi",
+      "warehouse_notes": "Bellikler (Soltanmyrat)",
+      "document_notes": "Bellikler (Şirin)",
+      "doc_advance": "Resminama puly berildi",
+      "customs_exit_tm": "TM eksport gümrük gutardy",
       "customs_exit": "Eksport gümrük gutardy",
       "transit_temp": "Ýol güni we temp.",
       "driver_name": "Sürüjiniň ady",
@@ -1076,6 +1090,22 @@
       "in_progress": "Dowam edýär",
       "not_started": "Başlanmady",
       "missing": "Ýok"
+    },
+    "freeze": {
+      "label": "Berkit",
+      "rows": "Setirler",
+      "cols": "Sütünler",
+      "no_rows": "Setir ýok",
+      "one_row": "1 setir",
+      "n_rows": "{{count}} setir",
+      "up_to_row": "Häzirki setire çenli",
+      "up_to_row_n": "Häzirki setire çenli ({{row}})",
+      "default_rows": "Adaty (2–14 setirler)",
+      "no_cols": "Sütün ýok",
+      "one_col": "1 sütün",
+      "n_cols": "{{count}} sütün",
+      "up_to_col": "Häzirki sütüne çenli",
+      "up_to_col_n": "Häzirki sütüne çenli ({{col}})"
     }
   },
   "draft": {
@@ -1170,10 +1200,247 @@
     "demand_label_contract": "Açyk şertnama",
     "demand_label_quota": "Kwota boşlyk",
     "demand_label_queue": "Garaşýan",
-    "demand_label_local": "Ýerli Gapy Satyş"
+    "demand_label_local": "Ýerli Gapy Satyş",
+    "variety_pending_warning_title": "Sort entek tassyklanmadyk",
+    "variety_pending_warning_body": "Paketlemede sort kesgitlener — ýa garaşmaly ýa-da başga TR saýla. Gaty sort talap edilýän müşderi üçin tassyklamak zerur."
   },
   "nav_extended": {
     "drafts": "Garalama ýükler",
     "assign": "Belgilemek"
+  },
+  "official_code": {
+    "title": "Resmi eksport kody",
+    "info_banner": "Iki kod ulgamy: 6 meýdandan resmi kod (paketlerde + dokumentde) we awto platforma ID. Resmi kod gabat gelmese fiziki ýüküň özüni görkezýär — re-route bolsa-da şol bir bolýar.",
+    "platform_id_label": "Platforma ID",
+    "field_day": "Gün",
+    "field_month": "Aý",
+    "field_seq": "№ aýda",
+    "field_block": "Blok/sub",
+    "field_year": "Ýyl",
+    "field_variety": "Sort",
+    "preview_label": "Birikdirilen",
+    "variety_pending": "Sort entek näbelli — paketlemeden soň täzelener"
+  },
+  "pallet": {
+    "title": "Palet manifest",
+    "col_number": "Palet №",
+    "col_crate_type": "Gap görnüşi",
+    "col_gross": "Brut (kg)",
+    "col_count": "Gap sany",
+    "col_crate_weight": "Gap agr.",
+    "col_pallet_kg": "Palet",
+    "col_additions": "Goşundy",
+    "col_net": "Arassa",
+    "col_variety": "Sort",
+    "col_sub_block": "Bölüm",
+    "stat_pallets": "Paletler",
+    "stat_gross": "Brut",
+    "stat_crate": "Gap agramy",
+    "stat_pallet_extra": "Palet+goşundy",
+    "stat_net": "Arassa agram",
+    "btn_close_manifest": "Manifest tamamlamak",
+    "btn_cmr": "CMR çykar",
+    "btn_logo_export": "Logo Tiger-e ibermek",
+    "btn_add_pallet": "+ Palet goş",
+    "btn_save": "Sakla",
+    "toast_saved": "Paletler ýatda saklandy",
+    "toast_closed": "Manifest tamamlandy — sort awto-hasap edildi",
+    "toast_logo_todo": "Logo Tiger eksport entek hazyr däl",
+    "rollup_title": "Sort roll-up (R17)",
+    "rollup_computed": "Paletlerden hasaplanan",
+    "rollup_override": "El bilen üýtgetmek",
+    "rollup_apply_override": "Üýtgetmegi tassykla",
+    "banner_source_of_truth": "Iberilen agramyň çeşmesi: bu manifest. Müşderide kabul edilen agram başga ulgamda saklanýar.",
+    "empty_state": "Entek palet ýok",
+    "confidence_high": "Paketden ynamly",
+    "confidence_low": "El bilen baha",
+    "confidence_none": "Paketleme garaşýar"
+  },
+  "freshness": {
+    "today": "Bu gün",
+    "yesterday": "Düýn",
+    "aged": "2+ gün",
+    "tooltip": "{{days}} gün öň ýygylan",
+    "aged_redirect_hint": "2+ gün — ýerli / Gapy Satyşa ugratmaly"
+  },
+  "variety": {
+    "section_title": "Sort (R17)",
+    "override_btn": "El bilen üýtgetmek",
+    "override_modal_title": "Agdyklykly sortlary saýla",
+    "override_apply": "Tassykla",
+    "override_cancel": "Ret et",
+    "empty_state": "Sort entek belli däl"
+  },
+  "boss_dashboard": {
+    "title": "Boss Dashboard",
+    "subtitle": "Direktor görnüşi — analitika we hasabatlar",
+    "last_updated": "Täzelenen",
+    "season": "Möwsüm",
+    "role_readonly": "Diňe okamak",
+    "no_data": "Maglumat ýok",
+    "prev_season": "Öňki möwsüm",
+    "placeholder_p4": "Demo — P4 Contracts gerek",
+    "period": {
+      "today": "Şu gün",
+      "week": "Hepde",
+      "month": "Aý",
+      "season": "Möwsüm",
+      "years5": "5 ýyl"
+    },
+    "kpi": {
+      "revenue": "Girdeji",
+      "margin": "Marja",
+      "debt": "Bergi",
+      "today_loaded": "Bu gün ýüklendi",
+      "in_transit": "Ýolda",
+      "quota_used": "Kwota ulanylyşy"
+    },
+    "section": {
+      "revenue": "Girdeji",
+      "debt": "Bergi",
+      "route_pnl": "Marşrut P&L",
+      "compliance": "Laýyklyk",
+      "ops_pulse": "Operasiýalar",
+      "quota_grid": "Kwota torlugy",
+      "blocks": "Blok kartasy",
+      "top_customers": "Esasy müşderiler",
+      "risk_matrix": "Töwekgelçilik matrisi",
+      "alerts": "Üns beriň",
+      "reports": "Hasabatlar",
+      "production_daily": "Günlük önümçilik netijeleri",
+      "production_seasonal": "Möwsümleýin önümçilik netijeleri",
+      "export_market": "Daşarky bazar paýlanyşy"
+    },
+    "compliance": {
+      "reports_overdue": "Möhleti geçen hasabatlar",
+      "one_to_ten": "1:10 kwota laýyklygy",
+      "docs_by_13": "Resminama 13:00-a çenli"
+    },
+    "risk": {
+      "low": "Pes",
+      "med": "Orta",
+      "high": "Ýokary"
+    },
+    "aging": {
+      "fresh": "0-30 gün",
+      "d30": "30-60 gün",
+      "d60": "60-90 gün",
+      "d90plus": "90+ gün"
+    },
+    "export": {
+      "excel": "Excel",
+      "pdf": "PDF",
+      "print": "Çap et"
+    },
+    "reports": {
+      "monthly": "Aýlyk hasabat",
+      "by_firm": "Firma boýunça",
+      "routes": "Marşrutlar",
+      "blocks": "Bloklar",
+      "seasons_compare": "Möwsüm deňeşdirmesi",
+      "audit": "Audit"
+    },
+    "production": {
+      "header_block": "Ýyladyşhana",
+      "header_planned": "Meýilleşdirilen (KG)",
+      "header_actual": "Yerine Yetirilen (KG)",
+      "header_graph": "Grafik babatynda %",
+      "total_row": "Jemi",
+      "scope_daily": "Günlük",
+      "scope_seasonal": "Möwsümleýin",
+      "scope_monthly": "Aýlyk"
+    },
+    "export_market": {
+      "header_block": "Ýyladyşhana",
+      "header_kg": "Daşarky Bazar (KG)",
+      "header_pct": "Daşarky Bazar (%)",
+      "total_row": "Jemi",
+      "note_excluded": "Içerki Bazar we Sowgatlyk soň goşulýar"
+    },
+    "ops_pulse": {
+      "en_route": "Ýolda",
+      "at_border": "Serhetde",
+      "in_market": "Satyşda",
+      "loaded_today": "Bu gün ýüklendi"
+    },
+    "route_pnl": {
+      "col_route": "Marşrut",
+      "col_trucks": "Maşyn",
+      "col_revenue": "Girdeji",
+      "col_margin_pct": "Marja %",
+      "click_hint": "Şol ugurdaky ýükleri görmek üçin basyň"
+    },
+    "top_customers": {
+      "col_customer": "Müşderi",
+      "col_trucks": "Maşyn",
+      "col_revenue": "Girdeji",
+      "col_yoy": "Geçen ýyl"
+    },
+    "risk_matrix": {
+      "col_firm": "Firma",
+      "col_debt": "Bergi",
+      "col_quota_pct": "Kwota %",
+      "col_risk": "Töwekgelçilik"
+    },
+    "alerts": {
+      "empty": "Häzirlikçe habar ýok",
+      "time_ago": {
+        "just_now": "häzir",
+        "minutes": "{{n}} min öň",
+        "hours": "{{n}} sag öň",
+        "days": "{{n}} gün öň"
+      },
+      "kinds": {
+        "quota_80": "Kwota 80%",
+        "quota_90": "Kwota 90%",
+        "quota_95": "Kwota 95% — çägi golay",
+        "quota_100": "Kwota doly ulanyldy",
+        "overdue": "Möhleti geçen ýük",
+        "action_required": "Hereket gerek",
+        "plan_submitted": "Hepdelik meýilnama tabşyryldy",
+        "plan_approved": "Hepdelik meýilnama tassyklandy",
+        "plan_rejected": "Hepdelik meýilnama ret edildi"
+      }
+    }
+  },
+  "comments": {
+    "title": "Teswirler",
+    "compose_placeholder": "Teswir ýazyň... @ — agzamak, # — öýjügi saýlamak",
+    "pin_to_cell": "Öýjüge birik",
+    "unpin": "Aýyr",
+    "assign_to": "Tabşyr",
+    "assignee_label": "Jogapkär",
+    "task_open": "Açyk",
+    "task_done": "Tamamlandy",
+    "mark_done": "Tamamlandy diýip belle",
+    "reopen": "Täzeden aç",
+    "delete_confirm": "Bu teswiri pozmaly?",
+    "mention_user": "Ulanyjy",
+    "mention_role": "Rol",
+    "mention_cell": "Öýjük",
+    "role_member_count": "{{count}} agza",
+    "filter_this_cell": "Bu öýjük",
+    "filter_all_cells": "Ähli öýjükler",
+    "filter_my_tasks": "Meniň wezipelerim",
+    "empty_thread": "Teswir ýok",
+    "toast_assigned": "Wezipe bellenildi",
+    "toast_done_marked": "Tamamlandy hökmünde bellenildi",
+    "toast_create_error": "Teswiri ibermek başa barmady",
+    "mentioned_role_chip": "@{{label}}",
+    "cell_chip": "Öýjük: {{label}}",
+    "tab_users": "Ulanyjylar",
+    "tab_roles": "Roller",
+    "tab_cells": "Öýjükler",
+    "reply": "Jogap",
+    "reply_count": "{{count}} jogap",
+    "toolbar_btn": "Teswirler",
+    "edit": "Üýtget",
+    "delete": "Poz",
+    "send": "Iber",
+    "no_shipment_selected": "Teswir ýazmak üçin ýük sütünini saýlaň",
+    "add_to_cell": "Bu öýjüge teswir ýaz",
+    "placeholder": "Teswir ýaz... (Ctrl+Enter ibermek üçin)",
+    "toast_success": "Teswir goşuldy",
+    "toast_error": "Teswiri ibermek başa barmady"
   }
 }

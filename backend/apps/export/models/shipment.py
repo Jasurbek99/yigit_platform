@@ -20,6 +20,17 @@ class Shipment(models.Model):
 
     # === Identifiers ===
     cargo_code = models.CharField(max_length=20, unique=True, db_column='code')
+    # Official 6-field export code physically tagged on pallets (format: DD|MM|NNN|BLK|YY|VV).
+    # Separate from the auto-generated platform cargo_code; survives re-routings.
+    official_export_code = models.CharField(max_length=30, blank=True, null=True, db_index=True)
+    # When a shipment is re-routed, link back to the original platform shipment.
+    previous_platform_id = models.ForeignKey(
+        'self',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='reroutes',
+    )
     date = models.DateField()
     season = models.ForeignKey('core.Season', on_delete=models.PROTECT, related_name='shipments')
 
@@ -49,8 +60,27 @@ class Shipment(models.Model):
     product_type = models.ForeignKey(
         'core.ProductType', on_delete=models.SET_NULL, null=True, blank=True
     )
+    # Primary (dominant) variety — kept for back-compat with existing queries.
     variety = models.ForeignKey(
         'core.TomatoVariety', on_delete=models.SET_NULL, null=True, blank=True
+    )
+    # Confidence level for variety assignment; unknown until post-packaging confirmation.
+    VARIETY_CONFIDENCE_CHOICES = [
+        ('high', 'From pallet data'),
+        ('low', 'Manually estimated'),
+        ('none', 'Pending packaging'),
+    ]
+    variety_confidence = models.CharField(
+        max_length=10,
+        choices=VARIETY_CONFIDENCE_CHOICES,
+        default='none',
+    )
+    # All dominant varieties in a multi-variety truck (M2M, MSSQL-safe).
+    varieties_dominant = models.ManyToManyField(
+        'core.TomatoVariety',
+        related_name='shipments_dominant_in',
+        blank=True,
+        db_table=schema_table('export', 'shipments_varieties_dominant'),
     )
 
     # === Weight / Packaging ===

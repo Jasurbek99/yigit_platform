@@ -3,6 +3,7 @@
 export type UserRole =
   | 'export_manager'
   | 'warehouse_chief'
+  | 'weight_master'
   | 'document_team'
   | 'transport'
   | 'sales_rep'
@@ -10,7 +11,8 @@ export type UserRole =
   | 'director'
   | 'accountant'
   | 'greenhouse_manager'
-  | 'seller';
+  | 'seller'
+  | 'boss';
 
 export interface IResourcePermission {
   view: boolean;
@@ -176,6 +178,10 @@ export interface IShipmentListItem {
   driver_id: number | null;
   price_per_kg: number | null;
   total_amount_usd: number | null;
+  official_export_code: string | null;
+  previous_platform_id: number | null;
+  harvest_age_days: number;
+  freshness: 'today' | 'yesterday' | 'aged';
 }
 
 // ─── Sheet View ──────────────────────────────────────────────────────────
@@ -264,8 +270,13 @@ export interface IShipmentSheetItem {
   doc_kalibrowka: boolean;
   // Annotations
   has_sales_report: boolean;
+  has_doc_advance: boolean;
+  warehouse_comment_count: number;
+  document_comment_count: number;
   // Notes
   notes: string | null;
+  official_export_code: string | null;
+  previous_platform_id: number | null;
   // Inline related
   firm_splits: ISheetFirmSplit[];
   block_sources: ISheetBlockSource[];
@@ -275,8 +286,29 @@ export interface IShipmentSheetItem {
   updated_at: string;
 }
 
+// ─── Sheet API response ──────────────────────────────────────────────────────
+// comment_counts: { [shipment_id]: { [field_key]: count } }
+// task_counts:    { [shipment_id]: { open: n, done: n, assigned_to_me_open: n } }
+export interface ISheetCommentCounts {
+  [shipmentId: number]: Record<string, number>;
+}
+
+export interface ISheetTaskCounts {
+  [shipmentId: number]: {
+    open: number;
+    done: number;
+    assigned_to_me_open: number;
+  };
+}
+
+export interface IShipmentSheetResponse {
+  results: IShipmentSheetItem[];
+  comment_counts: ISheetCommentCounts;
+  task_counts: ISheetTaskCounts;
+}
+
 export type SheetRowStyle = 'base' | 'alt' | 'key' | 'transport' | 'status' | 'report' | 'separator';
-export type SheetInputType = 'text' | 'number' | 'dropdown' | 'multiselect' | 'date' | 'datetime' | 'phone' | 'status' | 'readonly';
+export type SheetInputType = 'text' | 'number' | 'dropdown' | 'multiselect' | 'date' | 'datetime' | 'phone' | 'status' | 'readonly' | 'comment_count';
 
 export interface IRowConfig {
   rowNumber: number;
@@ -287,6 +319,17 @@ export interface IRowConfig {
   style: SheetRowStyle;
   optionsSource?: string;
   gapyHidden?: boolean;
+}
+
+// ─── Truck split defaults (admin-configurable per # of firms) ───────────
+
+export interface ITruckSplitDefault {
+  id: number;
+  num_firms: number;
+  kg_per_firm: string;
+  notes: string | null;
+  updated_at: string;
+  updated_by_name: string | null;
 }
 
 // ─── Detail / Related ────────────────────────────────────────────────────
@@ -317,8 +360,49 @@ export interface IShipmentComment {
   user_name: string;
   role: string;
   content: string;
+  field_key: string | null;
+  parent_comment: number | null;
   is_system: boolean;
+  is_deleted: boolean;
+  // Task fields
+  assignee: number | null;
+  assignee_name: string | null;
+  is_done: boolean;
+  done_at: string | null;
+  done_by_name: string | null;
+  // Mentions (denormalized objects from serializer — chips render names without N+1)
+  mentions_users: { id: number; name: string; role: string }[];
+  role_mentions_list: { code: string; label: string }[];
+  // Thread
+  replies_count: number;
   created_at: string;
+  updated_at: string | null;
+}
+
+// ─── Comments / Mentions ──────────────────────────────────────────────────
+
+export interface IMentionUser {
+  type: 'user';
+  id: number;
+  name: string;
+  role: string;
+}
+
+export interface IMentionRole {
+  type: 'role';
+  code: string;
+  label: string;
+  member_count: number;
+}
+
+export type IMentionable = IMentionUser | IMentionRole;
+
+export type ICommentTaskStatus = 'open' | 'done';
+
+export interface ICommentFilter {
+  fieldKey?: string;
+  assigneeMe?: boolean;
+  taskStatus?: ICommentTaskStatus;
 }
 
 // ─── Planning ─────────────────────────────────────────────────────────────
@@ -633,6 +717,9 @@ export interface ITomatoVariety {
   name: string;
   type: string | null;
   avg_fruit_weight_gr: string | null;
+  code: string | null;
+  is_experimental: boolean;
+  scientific_name: string;
 }
 
 export interface IGreenhouseBlockSub {
@@ -703,7 +790,7 @@ export interface IAdminUser {
 
 export interface INotification {
   id: number;
-  kind: 'quota_80' | 'quota_90' | 'quota_95' | 'quota_100' | 'overdue' | 'action_required' | 'plan_submitted' | 'plan_approved' | 'plan_rejected';
+  kind: 'quota_80' | 'quota_90' | 'quota_95' | 'quota_100' | 'overdue' | 'action_required' | 'plan_submitted' | 'plan_approved' | 'plan_rejected' | 'mention' | 'task_assigned' | 'task_done';
   message: string;
   link: string | null;
   read_at: string | null;
@@ -738,6 +825,10 @@ export interface IShipmentDetail extends IShipmentListItem {
   comments: IShipmentComment[];
   quality: IShipmentQuality | null;
   sales_report: ISalesReport | null;
+  platform_id: number;
+  variety_confidence: 'high' | 'low' | 'none';
+  variety_confidence_display: string;
+  varieties_dominant: Array<{ id: number; code: string | null; name: string; is_experimental: boolean }>;
 }
 
 // ─── Draft Shipments ──────────────────────────────────────────────────────
@@ -756,6 +847,11 @@ export interface IShipmentDraft {
   created_by_name: string | null;
   weight_net: number | null;
   block_sources: IDraftBlockSource[];
+  official_export_code: string | null;
+  previous_platform_id: number | null;
+  harvest_age_days: number;
+  freshness: 'today' | 'yesterday' | 'aged';
+  variety_confidence: 'high' | 'low' | 'none';
 }
 
 export interface IDraftCreatePayload {
@@ -764,6 +860,7 @@ export interface IDraftCreatePayload {
   is_draft: true;
   block_sources: { block_id: number; weight_kg: number }[];
   notes?: string;
+  official_export_code?: string;
 }
 
 export interface IDraftAssignPayload {
@@ -790,4 +887,46 @@ export interface IDemandItem {
   due_days: number;
   pref: string;
   strict: boolean;
+}
+
+// ─── Pallet Manifest (Phase 2) ────────────────────────────────────────────
+
+export interface ICrateType {
+  id: number;
+  name: string;
+  weight_kg: string;   // Decimal serialised as string
+  is_active: boolean;
+}
+
+export interface IPallet {
+  id: number;
+  shipment: number;
+  pallet_number: number;
+  crate_type: number;
+  crate_type_name: string;
+  crate_type_weight_kg: string;
+  crate_count: number;
+  gross_weight_kg: string;
+  pallet_weight_kg: string;
+  additions_kg: string;
+  net_weight_kg: string;   // computed read-only
+  variety: number;
+  variety_code: string | null;
+  variety_name: string;
+  sub_block: number;
+  sub_block_code: string;
+  loaded_at: string;       // ISO
+  created_by_name: string | null;
+}
+
+export interface IPalletUpsertRow {
+  pallet_number: number;
+  crate_type: number;
+  crate_count: number;
+  gross_weight_kg: number | string;
+  pallet_weight_kg: number | string;
+  additions_kg: number | string;
+  variety: number;
+  sub_block: number;
+  loaded_at?: string;
 }

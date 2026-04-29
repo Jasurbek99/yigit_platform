@@ -1208,12 +1208,6 @@ textarea.form-control { height: auto; min-height: 64px; padding: 6px 11px; resiz
                   <div id="split-warning" style="display:none;margin-top:8px;"></div>
                 </div>
               </div>
-              <div class="form-group full" id="ten-k-warning" style="display:none;">
-                <div class="alert-card warning" style="margin:0;">
-                  <span class="alert-icon">⚠️</span>
-                  <div class="alert-text"><strong>$10,000 duýduryş:</strong> Bir firmanyň paýy $10,000-dan geçýär! Bu summa firma hasabyna geçmeli bolar (nakit alyp bolmaýar). Firmany bölmegi göz öňünde tutuň.</div>
-                </div>
-              </div>
               <div class="form-group">
                 <label class="form-label">Import firma</label>
                 <select class="form-control"><option value="">Saýla...</option><option>NUR ALEM</option><option>SAH FRUKT</option><option>Aranshy</option><option>TOO Global Harvets Bek</option></select>
@@ -1804,42 +1798,36 @@ textarea.form-control { height: auto; min-height: 64px; padding: 6px 11px; resiz
           <div class="card-header"><span class="card-title">💳 Kredit Töleg Yzarlaýjy (16 firma)</span><span class="badge badge-default">1C → el bilen girizilýär</span></div>
           <div class="card-body compact">
             <table>
-              <thead><tr><th>Firma</th><th>Kredit galyndy</th><th>Aýlyk töleg</th><th>Hasaba giren ($>10K)</th><th>Nakit alynan ($<10K)</th><th>Ýagdaý</th></tr></thead>
+              <thead><tr><th>Firma</th><th>Kredit galyndy</th><th>Aýlyk töleg</th><th>Aýlyk girdeji</th><th>Ýagdaý</th></tr></thead>
               <tbody>
                 <tr>
                   <td style="font-weight:600;">Yigit H.J</td>
                   <td class="text-mono">$245,000</td><td class="text-mono">$18,500/aý</td>
-                  <td class="text-mono" style="color:var(--primary);">$12,400</td>
-                  <td class="text-mono" style="color:var(--success);">$38,600</td>
+                  <td class="text-mono" style="color:var(--success);">$51,000</td>
                   <td><span class="badge badge-sold">✅ Ýeterlik</span></td>
                 </tr>
                 <tr>
                   <td style="font-weight:600;">Hemsaya</td>
                   <td class="text-mono">$180,000</td><td class="text-mono">$14,000/aý</td>
-                  <td class="text-mono" style="color:var(--primary);">$8,200</td>
-                  <td class="text-mono" style="color:var(--success);">$29,800</td>
+                  <td class="text-mono" style="color:var(--success);">$38,000</td>
                   <td><span class="badge badge-sold">✅ Ýeterlik</span></td>
                 </tr>
                 <tr>
                   <td style="font-weight:600;">Datly Miwe</td>
                   <td class="text-mono">$210,000</td><td class="text-mono">$16,000/aý</td>
-                  <td class="text-mono" style="color:var(--primary);">$5,100</td>
-                  <td class="text-mono" style="color:var(--success);">$22,400</td>
+                  <td class="text-mono" style="color:var(--success);">$27,500</td>
                   <td><span class="badge badge-selling">⏳ Ýakyn</span></td>
                 </tr>
                 <tr>
                   <td style="font-weight:600;">Miweli Atyz</td>
                   <td class="text-mono">$320,000</td><td class="text-mono">$22,000/aý</td>
-                  <td class="text-mono" style="color:var(--primary);">$3,800</td>
-                  <td class="text-mono" style="color:var(--success);">$14,200</td>
+                  <td class="text-mono" style="color:var(--success);">$18,000</td>
                   <td><span class="badge badge-alert">⚠️ Ýeterlik däl</span></td>
                 </tr>
               </tbody>
             </table>
             <div style="padding:12px 16px;font-size:12px;color:var(--text-tertiary);">
               * Kredit maglumatlary 1C-den el bilen girizilýär. Geljekde 1C integrasiýasy mümkin.
-              <br>* "$>10K hasaba giren" = bank hasabyna geçmeli bolan summalar (kreditden aýrylýar)
-              <br>* "$<10K nakit" = nakit alnan summalar (operasiýa üçin)
             </div>
           </div>
         </div>
@@ -2011,14 +1999,7 @@ function checkFirmSplit() {
     calcSplit();
   } else {
     splitConfig.style.display = 'none';
-    // Single firm — check $10K
-    const firm1 = document.getElementById('firm1-select');
-    if (firm1 && firm1.value) {
-      // Simulate: 18200 kg × ~$0.90/kg = ~$16,380 > $10K
-      warning.style.display = 'block';
-    } else {
-      warning.style.display = 'none';
-    }
+    warning.style.display = 'none';
   }
 }
 
@@ -2029,24 +2010,7 @@ function calcSplit() {
   document.getElementById('split-total').textContent = total.toLocaleString() + ' kg';
 
   const warn = document.getElementById('split-warning');
-  const pricePerKg = 0.90; // avg KZ price
-  const val1 = kg1 * pricePerKg;
-  const val2 = kg2 * pricePerKg;
-
-  if (val1 > 10000 || val2 > 10000) {
-    const overFirm = val1 > 10000 ? 'Firma 1' : 'Firma 2';
-    const overVal = val1 > 10000 ? val1 : val2;
-    warn.style.display = 'block';
-    warn.innerHTML = '<div class="alert-card warning" style="margin:0;padding:8px 12px;">' +
-      '<span class="alert-icon">⚠️</span>' +
-      '<div class="alert-text"><strong>' + overFirm + '</strong>: ~$' + Math.round(overVal).toLocaleString() +
-      ' > $10,000 — nakit alyp bolmaýar! KG bölünişigini deňleşdiriň.</div></div>';
-  } else {
-    warn.style.display = 'block';
-    warn.innerHTML = '<div style="color:var(--success);font-size:12px;font-weight:500;">✅ Firma 1: ~$' +
-      Math.round(val1).toLocaleString() + ' | Firma 2: ~$' + Math.round(val2).toLocaleString() +
-      ' — ikisi hem < $10,000 ✓</div>';
-  }
+  if (warn) warn.style.display = 'none';
 }
 </script>
 </body>

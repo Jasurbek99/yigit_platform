@@ -30,7 +30,7 @@ from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from apps.core.models import ExportFirm, ImportFirm, Season, User
 from apps.core.permissions import firm_write_permission, write_permission, DynamicResourcePermission
 from apps.core.roles import DIRECTOR_ONLY, PRIVILEGED_ROLES as _PRIVILEGED_ROLES
-from apps.export.models import AuditLog, Notification
+from apps.export.models import AuditLog, Notification, TruckSplitDefault, invalidate_truck_split_cache
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +99,26 @@ class ExportFirmSerializer(serializers.ModelSerializer):
             'director', 'tax_code', 'swift_code', 'one_c_code',
             'is_active', 'is_gapy_satys',
         ]
+
+
+class TruckSplitDefaultSerializer(serializers.ModelSerializer):
+    """CRUD shape for the official kg-per-firm export-doc lookup table."""
+    updated_by_name = serializers.CharField(source='updated_by.username', read_only=True, default=None)
+
+    class Meta:
+        model = TruckSplitDefault
+        fields = ['id', 'num_firms', 'kg_per_firm', 'notes', 'updated_at', 'updated_by_name']
+        read_only_fields = ['id', 'updated_at', 'updated_by_name']
+
+    def validate_num_firms(self, value: int) -> int:
+        if value < 1:
+            raise serializers.ValidationError('num_firms must be >= 1')
+        return value
+
+    def validate_kg_per_firm(self, value):
+        if value <= 0:
+            raise serializers.ValidationError('kg_per_firm must be > 0')
+        return value
 
 
 class ImportFirmSerializer(serializers.ModelSerializer):
@@ -234,6 +254,41 @@ class SeasonViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated, DynamicResourcePermission]
     serializer_class = SeasonSerializer
     queryset = Season.objects.all().order_by('-start_date')
+
+
+class TruckSplitDefaultViewSet(ModelViewSet):
+    """TruckSplitDefault CRUD — official kg-per-firm by # of firms on a truck.
+
+    Director-configurable. The values feed `get_default_truck_weight()` which is
+    used by `set_firm_splits` to fill `ShipmentFirmSplit.weight_kg` and
+    auto-create draft `QuotaUsageRecord` rows.
+
+    Permission: gated dynamically on resource_code='truck_split_default'.
+
+    GET    /api/v1/export/admin/truck-splits/       — list
+    GET    /api/v1/export/admin/truck-splits/{id}/  — detail
+    POST   /api/v1/export/admin/truck-splits/       — create
+    PATCH  /api/v1/export/admin/truck-splits/{id}/  — update
+    DELETE /api/v1/export/admin/truck-splits/{id}/  — delete
+    """
+
+    resource_code = 'truck_split_default'
+    permission_classes = [IsAuthenticated, DynamicResourcePermission]
+    serializer_class = TruckSplitDefaultSerializer
+    queryset = TruckSplitDefault.objects.all().order_by('num_firms')
+
+    def perform_create(self, serializer):
+        instance = serializer.save(updated_by=self.request.user)
+        invalidate_truck_split_cache(instance.num_firms)
+
+    def perform_update(self, serializer):
+        instance = serializer.save(updated_by=self.request.user)
+        invalidate_truck_split_cache(instance.num_firms)
+
+    def perform_destroy(self, instance):
+        n = instance.num_firms
+        instance.delete()
+        invalidate_truck_split_cache(n)
 
 
 class ExportFirmViewSet(ModelViewSet):

@@ -239,12 +239,12 @@ const M = [
     {name:'domestic_buyers',note:'15 buyers (Yigit H.J., Hemsaya...). Source for 1:10 quota.',refs_out:[],refs_in:['export.domestic_sales.buyer_id']},
   ]},
   {id:'export',label:'P3 Export',count:14,
-   desc:'The heart of the system. Shipment lifecycle (13 steps), firm splits ($10K rule), BARLAG block sourcing, weekly planning, 5-year price DB, quota tracking, quality inspection, and finansist advance management. Built on core + trip_mgmt.',
+   desc:'The heart of the system. Shipment lifecycle (13 steps), firm splits, BARLAG block sourcing, weekly planning, 5-year price DB, quota tracking, quality inspection, and finansist advance management. Built on core + trip_mgmt.',
    build:'shipments FIRST (needs all core tables + trip_mgmt + users) → then all child tables in any order (status_log, firm_splits, block_sources, sales_reports, quality_documents, quota_allocations, domestic_sales, weekly_plans, truck_allocations, price_entries, market_prices, advances → advance_shipments)',
    tables:[
     {name:'shipments',note:'1,959+/season. THE central table. 15 outgoing FK, 9 incoming FK, ~44 fields.',refs_out:['core.seasons.season_id','core.countries.country_id','core.cities.city_id','core.customers.customer_id','core.import_firms.import_firm_id','core.border_points.border_point_id','core.loading_locations.loading_location_id','core.product_types.product_type_id','core.tomato_varieties.variety_id','core.shipment_status_types.status_id','trip_mgmt.truck_heads.truck_head_id','trip_mgmt.trailers.trailer_id','trip_mgmt.drivers.driver_id','trip_mgmt.trips.trip_id','sys.users.created_by/updated_by'],refs_in:['export.shipment_status_log.shipment_id','export.shipment_firm_splits.shipment_id','export.shipment_block_sources.shipment_id','export.sales_reports.shipment_id','export.quality_documents.shipment_id','export.finansist_advance_shipments.shipment_id','contracts.invoices.shipment_id','contracts.generated_documents.shipment_id','contracts.transport_documents.shipment_id']},
     {name:'shipment_status_log',note:'Replaces 13 ts_ timestamp columns. Full audit of who/when/comment.',refs_out:['export.shipments.shipment_id','core.shipment_status_types.status_id','sys.users.changed_by'],refs_in:[]},
-    {name:'shipment_firm_splits',note:'1–3 export firms per truck. $10K rule: <$10K=cash, >$10K=bank.',refs_out:['export.shipments.shipment_id','core.export_firms.export_firm_id'],refs_in:[]},
+    {name:'shipment_firm_splits',note:'1–3 export firms per truck.',refs_out:['export.shipments.shipment_id','core.export_firms.export_firm_id'],refs_in:[]},
     {name:'shipment_block_sources',note:'BARLAG: kg from each block per truck. Sum must = net weight.',refs_out:['export.shipments.shipment_id','core.greenhouse_blocks.block_id'],refs_in:[]},
     {name:'sales_reports',note:'MANDATORY before closing. KZ comes via WhatsApp. RU = systematic gap.',refs_out:['export.shipments.shipment_id','sys.users.reported_by'],refs_in:[]},
     {name:'quality_documents',note:'4 docs per truck: azyk, süriji, hil sertifikaty, kalibrowka analiz.',refs_out:['export.shipments.shipment_id','sys.users.inspector_id'],refs_in:[]},
@@ -263,7 +263,7 @@ const M = [
    tables:[
     {name:'contracts',note:'31+ active. $8.3M outstanding (57% unpaid). Long-term + one-time.',refs_out:['core.seasons.season_id','core.export_firms.export_firm_id','core.import_firms.import_firm_id','core.customers.customer_id','sys.users.created_by'],refs_in:['contracts.invoices.contract_id','contracts.pasport_sdelki.contract_id']},
     {name:'invoices',note:'1,959 sales. Bridge between P3 shipments and P4 contracts.',refs_out:['contracts.contracts.contract_id','export.shipments.shipment_id','core.export_firms.export_firm_id','core.import_firms.import_firm_id'],refs_in:['contracts.invoice_payments.invoice_id']},
-    {name:'invoice_payments',note:'Partial payments supported. Cash vs bank per $10K rule.',refs_out:['contracts.invoices.invoice_id','sys.users.received_by'],refs_in:[]},
+    {name:'invoice_payments',note:'Partial payments supported. Cash and bank both tracked.',refs_out:['contracts.invoices.invoice_id','sys.users.received_by'],refs_in:[]},
     {name:'pasport_sdelki',note:'Cross-border payment authorization. Total/used/remaining value.',refs_out:['contracts.contracts.contract_id'],refs_in:[]},
     {name:'document_templates',note:'CMR_RU/EN, Invoice_RU/EN, TIR, Customs, Fito, CT1, Gross_Net.',refs_out:[],refs_in:['contracts.generated_documents.template_id']},
     {name:'generated_documents',note:'4 employees process daily. 13:00 deadline for sending.',refs_out:['export.shipments.shipment_id','contracts.document_templates.template_id','sys.users.generated_by'],refs_in:[]},

@@ -5,6 +5,7 @@ from django.db import models
 ROLE_CHOICES = [
     ('export_manager', 'Export Manager'),
     ('warehouse_chief', 'Warehouse Chief'),
+    ('weight_master', 'Weight Master'),
     ('document_team', 'Document Team'),
     ('transport', 'Transport'),
     ('sales_rep', 'Sales Rep'),
@@ -13,6 +14,7 @@ ROLE_CHOICES = [
     ('accountant', 'Accountant'),
     ('greenhouse_manager', 'Greenhouse Manager'),
     ('seller', 'Seller'),
+    ('boss', 'Boss'),
 ]
 
 

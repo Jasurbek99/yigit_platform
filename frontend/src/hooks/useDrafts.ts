@@ -27,9 +27,9 @@ export function useDrafts() {
       if (USE_MOCK) return sortOldestFirst(MOCK_DRAFTS);
 
       const { data } = await api.get<{ results: IShipmentDraft[] }>(
-        '/export/shipments/?status_code=draft&page_size=200',
+        '/export/shipments/?status_code=draft&page_size=200&ordering=harvest_age_desc',
       );
-      return sortOldestFirst(data.results ?? []);
+      return data.results ?? [];
     },
     staleTime: 30_000,
   });
@@ -55,6 +55,11 @@ export function useCreateDraft() {
           created_at: new Date().toISOString(),
           created_by_name: 'Mock User',
           weight_net: payload.block_sources.reduce((s, r) => s + r.weight_kg, 0),
+          official_export_code: payload.official_export_code ?? null,
+          previous_platform_id: null,
+          harvest_age_days: 0,
+          freshness: 'today',
+          variety_confidence: 'none',
           block_sources: payload.block_sources.map((s) => ({
             block_id: s.block_id,
             block_code: `Block-${s.block_id}`,

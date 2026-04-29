@@ -47,6 +47,9 @@ const KIND_COLOR: Record<INotification['kind'], string> = {
   plan_submitted: '#1677ff',
   plan_approved: '#52c41a',
   plan_rejected: '#ff4d4f',
+  mention: '#1677ff',
+  task_assigned: '#fa8c16',
+  task_done: '#52c41a',
 };
 
 // ─── NotificationBell ─────────────────────────────────────────────────────────
@@ -162,6 +165,7 @@ export default function AppLayout() {
 
   const ROUTE_LABELS: Record<string, string> = {
     '/': t('nav.dashboard'),
+    '/boss/dashboard': t('nav.boss_dashboard'),
     '/export/shipments': t('nav.shipments'),
     '/export/shipments/sheet': t('nav.shipment_sheet'),
     '/export/shipments/dashboard': t('nav.shipment_dashboard'),
@@ -204,6 +208,7 @@ export default function AppLayout() {
   const allMenuGroups: { label: string; items: { key: string; icon: React.ReactNode; label: string }[] }[] = [
     { label: t('nav.group_main'), items: [
       { key: '/', icon: <IconLayoutDashboard size={15} />, label: t('nav.dashboard') },
+      { key: '/boss/dashboard', icon: <IconChartPie size={15} />, label: t('nav.boss_dashboard') },
     ]},
     { label: t('nav.group_export'), items: [
       { key: '/export/shipments', icon: <IconTruck size={15} />, label: t('nav.shipments') },

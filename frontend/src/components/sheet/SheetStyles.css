@@ -46,10 +46,20 @@
 }
 
 /* ═══ PAGE LAYOUT ═══ */
+/* Force the parent <Content> to give the sheet the full available area —
+   no padding, no extra min-height — so only the inner grid scrolls and the
+   browser window stays put. Header in AppLayout is 56px. */
+.ant-layout-content:has(> .sheet-page) {
+  padding: 0 !important;
+  height: calc(100vh - 56px) !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
 .sheet-page {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 64px);
+  height: 100%;
+  min-height: 0;
   background: var(--bg);
   overflow: hidden;
   font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -87,16 +97,46 @@
 /* ═══ GRID CONTAINER ═══ */
 .sheet-grid {
   flex: 1;
-  overflow: auto;
+  min-height: 0;
+  overflow-x: scroll;
+  overflow-y: auto;
   background: var(--surface);
   position: relative;
+  scrollbar-color: #001529 var(--gray-50);
+  scrollbar-width: thin;
+}
+.sheet-grid::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+.sheet-grid::-webkit-scrollbar-track {
+  background: var(--gray-50);
+  border-left: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+}
+.sheet-grid::-webkit-scrollbar-thumb {
+  background: #001529;
+  border: 3px solid var(--gray-50);
+  border-radius: 8px;
+}
+.sheet-grid::-webkit-scrollbar-thumb:hover {
+  background: #002a4a;
+}
+.sheet-grid::-webkit-scrollbar-corner {
+  background: var(--gray-50);
 }
 
 /* ═══ HEADER ROW (column headers) ═══ */
+/* min-width: max-content forces the row's border box to match the total content
+   width (label band + frozen cols + virtualizer). Without this, the row's box
+   defaults to the parent's width (~viewport width), and sticky-left children
+   are bounded by that narrow box — they unstick once the user scrolls past
+   the viewport width. The same constraint is applied to body rows below. */
 .sheet-header-row {
   background: var(--gray-800);
   color: #fff;
   z-index: 10;
+  min-width: max-content;
 }
 
 /* ═══ COLUMN HEADER ═══ */
@@ -108,6 +148,13 @@
   border-right: 1px solid rgba(255,255,255,0.08);
   padding: 2px 4px;
   user-select: none;
+}
+
+/* Frozen column headers need an opaque background so virtualized columns
+   scroll cleanly under them. The blue right border on the last frozen cell
+   marks the freeze line, matching Excel/Sheets. */
+.sheet-col-header--frozen {
+  background: var(--gray-800);
 }
 .sheet-col-header__seq {
   display: block;
@@ -130,11 +177,42 @@
   box-shadow: 0 4px 12px rgba(16,24,40,0.08);
   z-index: 5;
   position: relative;
+  min-width: max-content;
+}
+
+/* ═══ FROZEN DATA COLUMNS (sticky-left band between labels and virtualizer)
+   The wrapper itself is transparent — the contained .sheet-cell paints its
+   own background. The blue right border on the last frozen wrapper marks
+   the column freeze line, mirroring the blue bottom border on the frozen
+   row band above. A subtle right shadow gives depth as columns scroll
+   under the band, matching Google Sheets/Excel. */
+.sheet-frozen-col-wrap {
+  background: transparent;
+}
+/* Box-shadow (not border) so the depth shadow doesn't add to the box width
+   and break column alignment with the virtualized pane. The blue freeze
+   line is drawn via ::after so it doesn't override the inner cell's own
+   active/editing inset highlight. */
+.sheet-frozen-col-wrap--last {
+  box-shadow: 4px 0 8px -4px rgba(16,24,40,0.12);
+}
+.sheet-frozen-col-wrap--last::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 2px;
+  background: var(--blue-500);
+  z-index: 1;
+  pointer-events: none;
+}
+.sheet-col-header--frozen.sheet-col-header--last {
+  box-shadow: inset -2px 0 0 var(--blue-500);
 }
 
 /* ═══ ROWS ═══ */
 .sheet-row {
   border-bottom: 1px solid var(--border);
+  min-width: max-content;
 }
 
 /* ═══ FROZEN LEFT LABEL COLUMNS ═══ */
@@ -396,4 +474,20 @@
   background-repeat: no-repeat;
   background-size: 100% 20px, 100% 20px, 100% 8px, 100% 8px;
   background-attachment: local, local, scroll, scroll;
+  min-width: max-content;
+}
+
+/* ═══ COMMENT HOVER HINT ═══ */
+/* The chat icon shown in the corner of cells with no existing comment.
+   Hidden by default; appears only when the user hovers the cell so empty
+   cells aren't visually noisy. */
+.sheet-cell__comment-hint {
+  opacity: 0;
+  transition: opacity 0.12s ease-in-out;
+}
+.sheet-cell:hover .sheet-cell__comment-hint {
+  opacity: 1;
+}
+.sheet-cell__comment-hint:hover {
+  color: #1677ff !important;
 }

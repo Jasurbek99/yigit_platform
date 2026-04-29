@@ -27,6 +27,10 @@ class Notification(models.Model):
         ('plan_submitted', 'Plan submitted'),
         ('plan_approved', 'Plan approved'),
         ('plan_rejected', 'Plan rejected'),
+        # Comment & task system (comment-cells-tasks feature)
+        ('mention', 'Mention'),
+        ('task_assigned', 'Task assigned'),
+        ('task_done', 'Task done'),
     ]
 
     # === Target ===

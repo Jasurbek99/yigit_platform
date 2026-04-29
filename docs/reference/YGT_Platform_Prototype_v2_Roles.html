@@ -1273,12 +1273,6 @@ body.has-rolebar .main{padding-top:0}
                   <div id="split-warning" style="display:none;margin-top:8px;"></div>
                 </div>
               </div>
-              <div class="form-group full" id="ten-k-warning" style="display:none;">
-                <div class="alert-card warning" style="margin:0;">
-                  <span class="alert-icon">⚠️</span>
-                  <div class="alert-text"><strong>$10,000 duýduryş:</strong> Bir firmanyň paýy $10,000-dan geçýär! Bu summa firma hasabyna geçmeli bolar (nakit alyp bolmaýar). Firmany bölmegi göz öňünde tutuň.</div>
-                </div>
-              </div>
               <div class="form-group">
                 <label class="form-label">Import firma</label>
                 <select class="form-control"><option value="">Saýla...</option><option>NUR ALEM</option><option>SAH FRUKT</option><option>Aranshy KZ</option><option>Qazfruit</option><option>ABSOLYUT</option><option>MAXIFRUT LLC</option><option>TRUST INDUSTRY</option><option>Krasnyy Apelsin</option><option>J.D.MM. Dargo-88</option><option>Frutreal</option><option>PERFECT OPTIMAL EXPORT</option></select>
@@ -2282,24 +2276,7 @@ function calcSplit() {
   document.getElementById('split-total').textContent = total.toLocaleString() + ' kg';
 
   const warn = document.getElementById('split-warning');
-  const pricePerKg = 0.90; // avg KZ price
-  const val1 = kg1 * pricePerKg;
-  const val2 = kg2 * pricePerKg;
-
-  if (val1 > 10000 || val2 > 10000) {
-    const overFirm = val1 > 10000 ? 'Firma 1' : 'Firma 2';
-    const overVal = val1 > 10000 ? val1 : val2;
-    warn.style.display = 'block';
-    warn.innerHTML = '<div class="alert-card warning" style="margin:0;padding:8px 12px;">' +
-      '<span class="alert-icon">⚠️</span>' +
-      '<div class="alert-text"><strong>' + overFirm + '</strong>: ~$' + Math.round(overVal).toLocaleString() +
-      ' > $10,000 — nakit alyp bolmaýar! KG bölünişigini deňleşdiriň.</div></div>';
-  } else {
-    warn.style.display = 'block';
-    warn.innerHTML = '<div style="color:var(--success);font-size:12px;font-weight:500;">✅ Firma 1: ~$' +
-      Math.round(val1).toLocaleString() + ' | Firma 2: ~$' + Math.round(val2).toLocaleString() +
-      ' — ikisi hem < $10,000 ✓</div>';
-  }
+  if (warn) warn.style.display = 'none';
 }
 
 // ════════════════════════════════════════════════

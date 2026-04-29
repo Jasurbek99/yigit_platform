@@ -1,6 +1,13 @@
+"""Shipment lifecycle services: transitions, creation, and pallet manifest.
+
+This module contains the canonical transition_to() function which is the ONLY
+way to update shipment status and AD-1 denormalized timestamp fields.
+"""
 import logging
+from decimal import Decimal
 from typing import Optional
 
+from django.db import transaction
 from django.utils import timezone
 
 from apps.export.models import Shipment, ShipmentStatusLog
@@ -320,6 +327,197 @@ def approve_local_sell_plan(plan: 'WeeklyLocalSellPlan', user: 'User') -> None:
         plan.id, str(plan), f'W{plan.week_number}/{plan.year} approved',
     )
     logger.info('LocalSellPlan %s approved by %s', plan, user.username)
+
+
+# ---------------------------------------------------------------------------
+# Pallet manifest — variety roll-up and weight aggregation
+# ---------------------------------------------------------------------------
+
+
+def compute_dominant_varieties(shipment: Shipment) -> list[tuple]:
+    """Compute top 3-4 varieties by total net kg from a shipment's pallets.
+
+    Net weight is calculated per pallet in Python (not stored in the DB column)
+    using the same formula as Pallet.net_weight_kg so results are consistent.
+    We use select_related('crate_type') to avoid N+1 queries.
+
+    Returns list of (variety_id, total_net_kg) tuples sorted by total_net_kg desc.
+
+    Dominant-variety rule (Finding #3):
+        1 variety  → return that one
+        2-3        → return all
+        4+         → return top 4 by weight
+    """
+    pallets = list(
+        shipment.pallets.select_related('crate_type').values(
+            'variety_id',
+            'gross_weight_kg',
+            'pallet_weight_kg',
+            'additions_kg',
+            'crate_count',
+            'crate_type__weight_kg',
+        )
+    )
+
+    # Aggregate net kg per variety in Python — avoids raw SQL and is MSSQL-safe.
+    variety_totals: dict[int, Decimal] = {}
+    for p in pallets:
+        net = (
+            p['gross_weight_kg']
+            - (p['crate_type__weight_kg'] * p['crate_count'])
+            - p['pallet_weight_kg']
+            - p['additions_kg']
+        )
+        variety_totals[p['variety_id']] = variety_totals.get(p['variety_id'], Decimal('0')) + net
+
+    sorted_totals = sorted(variety_totals.items(), key=lambda pair: pair[1], reverse=True)
+
+    variety_count = len(sorted_totals)
+    if variety_count <= 3:
+        return sorted_totals
+    # 4+: return top 4
+    return sorted_totals[:4]
+
+
+def close_pallet_manifest(shipment: Shipment, user) -> None:
+    """Aggregate pallets into shipment-level weight totals and set variety roll-up.
+
+    Validates that pallets exist, then writes:
+        - shipment.weight_gross  (sum of pallet.gross_weight_kg)
+        - shipment.weight_net    (sum of pallet net weights via formula)
+        - shipment.pallet_count  (count of pallets)
+        - shipment.pallet_weight_kg (sum of pallet_weight_kg across all pallets)
+        - shipment.varieties_dominant (top 3-4 variety ids)
+        - shipment.variety  (#1 dominant, back-compat FK)
+        - shipment.variety_confidence = 'high'
+
+    Writes an AuditLog entry detailing the dominant varieties and totals.
+    Does NOT change shipment.status — caller may follow up with transition_to().
+    Wrapped in transaction.atomic to prevent partial writes.
+
+    Args:
+        shipment: The Shipment instance whose pallets are being closed.
+        user: The User performing the close (for audit trail).
+
+    Raises:
+        ValueError: If the shipment has no pallet entries.
+    """
+    if not shipment.pallets.exists():
+        raise ValueError(
+            f'Shipment {shipment.cargo_code} has no pallets. '
+            'Enter pallet data before closing the manifest.'
+        )
+
+    from apps.export.models import AuditLog
+
+    with transaction.atomic():
+        pallets = list(
+            shipment.pallets.select_related('crate_type').values(
+                'gross_weight_kg',
+                'pallet_weight_kg',
+                'additions_kg',
+                'crate_count',
+                'crate_type__weight_kg',
+            )
+        )
+
+        total_gross = sum(p['gross_weight_kg'] for p in pallets)
+        total_pallet_weight = sum(p['pallet_weight_kg'] for p in pallets)
+        total_net = sum(
+            p['gross_weight_kg']
+            - (p['crate_type__weight_kg'] * p['crate_count'])
+            - p['pallet_weight_kg']
+            - p['additions_kg']
+            for p in pallets
+        )
+
+        dominant = compute_dominant_varieties(shipment)
+        if not dominant:
+            raise ValueError(
+                f'Shipment {shipment.cargo_code}: could not determine dominant varieties. '
+                'Check pallet variety assignments.'
+            )
+
+        dominant_ids = [variety_id for variety_id, _kg in dominant]
+        top_variety_id = dominant_ids[0]
+
+        # Write aggregates to shipment
+        shipment.weight_gross = total_gross
+        shipment.weight_net = total_net
+        shipment.pallet_count = len(pallets)
+        shipment.pallet_weight_kg = total_pallet_weight
+        shipment.variety_id = top_variety_id
+        shipment.variety_confidence = 'high'
+        shipment.save(update_fields=[
+            'weight_gross', 'weight_net', 'pallet_count',
+            'pallet_weight_kg', 'variety', 'variety_confidence',
+        ])
+
+        # M2M set — replaces any previously set dominant varieties
+        shipment.varieties_dominant.set(dominant_ids)
+
+        dominant_summary = ', '.join(
+            f'variety_id={vid} ({kg:.2f} kg)' for vid, kg in dominant
+        )
+        AuditLog.objects.create(
+            user=user,
+            action='manifest_close',
+            model_name='Shipment',
+            object_id=shipment.id,
+            object_repr=shipment.cargo_code,
+            detail=(
+                f'Manifest closed: gross={total_gross:.2f} kg, net={total_net:.2f} kg, '
+                f'{len(pallets)} pallets. Dominant varieties: {dominant_summary}'
+            ),
+        )
+
+    logger.info(
+        'Pallet manifest closed for %s by %s: gross=%.2f net=%.2f pallets=%d',
+        shipment.cargo_code, user.username, total_gross, total_net, len(pallets),
+    )
+
+
+def override_dominant_varieties(shipment: Shipment, variety_ids: list[int], user) -> None:
+    """Manual override of dominant varieties by warehouse_chief or export_manager.
+
+    Sets shipment.varieties_dominant to the provided list, updates shipment.variety
+    to the first entry. Keeps variety_confidence='high' — manual override by
+    Soltanmyrat is still considered authoritative (Finding #3 rule).
+
+    Writes an AuditLog entry. Permission check happens in the calling view.
+
+    Args:
+        shipment: The Shipment to update.
+        variety_ids: Ordered list of variety PKs (1-4 entries). First = #1 dominant.
+        user: The User performing the override.
+
+    Raises:
+        ValueError: If variety_ids is empty.
+    """
+    if not variety_ids:
+        raise ValueError('variety_ids must contain at least one variety.')
+
+    from apps.export.models import AuditLog
+
+    with transaction.atomic():
+        shipment.variety_id = variety_ids[0]
+        shipment.variety_confidence = 'high'
+        shipment.save(update_fields=['variety', 'variety_confidence'])
+        shipment.varieties_dominant.set(variety_ids)
+
+        AuditLog.objects.create(
+            user=user,
+            action='variety_override',
+            model_name='Shipment',
+            object_id=shipment.id,
+            object_repr=shipment.cargo_code,
+            detail=f'Dominant varieties overridden to: {variety_ids}',
+        )
+
+    logger.info(
+        'Dominant varieties for %s overridden to %s by %s',
+        shipment.cargo_code, variety_ids, user.username,
+    )
 
 
 def reject_local_sell_plan(plan: 'WeeklyLocalSellPlan', user: 'User', rejection_note: str) -> None:

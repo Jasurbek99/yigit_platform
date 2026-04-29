@@ -30,6 +30,10 @@ PAGE_REGISTRY: dict[str, str] = OrderedDict([
     # Draft / assignment workflow (Findings #1 + #2)
     ('export.drafts',           'Draft Shipments Pool'),
     ('export.assign',           'Assignment Board'),
+    # Pallet manifest (Finding #4 / Phase 2)
+    ('export.pallet_manifest',  'Pallet Manifest'),
+    # Analytics (boss / director)
+    ('analytics.boss',          'Boss Dashboard'),
     # Admin
     ('admin.users',             'Admin: Users'),
     ('admin.seasons',           'Admin: Seasons'),
@@ -65,6 +69,10 @@ RESOURCE_REGISTRY: dict[str, str] = OrderedDict([
     ('import_firm',           'Import Firm'),
     ('season',                'Season'),
     ('greenhouse_block',      'Greenhouse Block'),
+    ('truck_split_default',   'Truck Split Defaults (official kg per firm)'),
+    # Pallet manifest resources (Finding #4 / Phase 2)
+    ('pallet',                'Pallet manifest entries'),
+    ('manifest_close',        'Close pallet manifest action'),
 ])
 
 # ── Editable fields per resource ─────────────────────────────────────────

@@ -19,9 +19,17 @@ class Season(models.Model):
 
 
 class TomatoVariety(models.Model):
-    """Tomato cultivar reference."""
+    """Tomato cultivar reference.
+
+    Official variety codes (01-10) and experimental codes (E1-E3) are assigned
+    by the signed 15.04.2026 departmental document. code=None means legacy
+    row not yet mapped to the official registry.
+    """
 
     name = models.CharField(max_length=50, unique=True)
+    code = models.CharField(max_length=5, unique=True, null=True, blank=True)
+    is_experimental = models.BooleanField(default=False)
+    scientific_name = models.CharField(max_length=50, blank=True)
     type = models.CharField(max_length=30, blank=True, null=True)
     avg_fruit_weight_gr = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)
 

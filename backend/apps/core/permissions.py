@@ -197,6 +197,22 @@ def firm_write_permission(app_label: str, model_name: str, *bypass_roles: str) -
     return _FirmWritePermission
 
 
+class IsBossOrDirector(BasePermission):
+    """Allow access only to users with role 'boss' or 'director'.
+
+    Used by BossAnalyticsViewSet. The analytics.boss page permission is
+    enforced by the frontend; this class is the canonical server-side gate.
+    Superusers bypass the check.
+    """
+
+    def has_permission(self, request, view) -> bool:
+        if not request.user or not request.user.is_authenticated:
+            return False
+        if getattr(request.user, 'is_superuser', False):
+            return True
+        return getattr(request.user, 'role', None) in ('boss', 'director')
+
+
 class DynamicResourcePermission(BasePermission):
     """DRF permission class that checks RoleResourcePermission from the database.
 

@@ -12,9 +12,10 @@ import { StatusTag } from '@/components/StatusTag';
 import { ShipmentCreateModal } from '@/components/ShipmentCreateModal';
 import { useShipments } from '@/hooks/useShipments';
 import { useAuth } from '@/hooks/useAuth';
-import { canDo } from '@/utils/permissions';
+import { canDo, canEditField } from '@/utils/permissions';
 import { COLORS, FONT } from '@/constants/styles';
 import type { IShipmentListItem } from '@/types';
+import { ListEditableCell } from './ListEditableCell';
 
 const { Title, Text } = Typography;
 
@@ -90,6 +91,9 @@ export default function ShipmentList() {
   function setPhaseFilter(v: string | undefined) { updateParams({ phase: v, page: undefined }); }
 
   const canCreate = canDo(user, 'shipment', 'create');
+  const canEditWeightNet = canEditField(user, 'shipment', 'weight_net');
+  const canEditDeparted = canEditField(user, 'shipment', 'departed_at');
+  const canEditArrived = canEditField(user, 'shipment', 'arrived_at');
 
   const { data, isLoading } = useShipments({
     page,
@@ -145,41 +149,74 @@ export default function ShipmentList() {
       width: 120,
       align: 'right',
       responsive: ['md'],
-      render: (val) =>
-        val != null ? (
+      render: (_, record) => {
+        const display = record.weight_net != null ? (
           <span style={{ fontFamily: FONT.mono }}>
-            {Number(val).toLocaleString()}
+            {Number(record.weight_net).toLocaleString()}
           </span>
         ) : (
           <span style={{ color: COLORS.textMuted }}>—</span>
-        ),
+        );
+        return (
+          <ListEditableCell
+            shipmentId={record.id}
+            fieldKey="weight_net"
+            value={record.weight_net}
+            type="number"
+            isEditable={canEditWeightNet}
+            display={display}
+          />
+        );
+      },
     },
     {
       title: t('shipments.departed'),
       dataIndex: 'departed_at',
       width: 130,
-      render: (_, record) =>
-        record.departed_at ? (
+      render: (_, record) => {
+        const display = record.departed_at ? (
           <span style={{ fontFamily: FONT.mono, color: COLORS.textSecondary, fontSize: 12 }}>
             {dayjs(record.departed_at).format('DD.MM.YY HH:mm')}
           </span>
         ) : (
           <span style={{ color: COLORS.textMuted }}>—</span>
-        ),
+        );
+        return (
+          <ListEditableCell
+            shipmentId={record.id}
+            fieldKey="departed_at"
+            value={record.departed_at}
+            type="datetime"
+            isEditable={canEditDeparted}
+            display={display}
+          />
+        );
+      },
     },
     {
       title: t('shipments.arrived'),
       dataIndex: 'arrived_at',
       width: 130,
       responsive: ['md'],
-      render: (_, record) =>
-        record.arrived_at ? (
+      render: (_, record) => {
+        const display = record.arrived_at ? (
           <span style={{ fontFamily: FONT.mono, color: COLORS.textSecondary, fontSize: 12 }}>
             {dayjs(record.arrived_at).format('DD.MM.YY HH:mm')}
           </span>
         ) : (
           <span style={{ color: COLORS.textMuted }}>—</span>
-        ),
+        );
+        return (
+          <ListEditableCell
+            shipmentId={record.id}
+            fieldKey="arrived_at"
+            value={record.arrived_at}
+            type="datetime"
+            isEditable={canEditArrived}
+            display={display}
+          />
+        );
+      },
     },
   ];
 

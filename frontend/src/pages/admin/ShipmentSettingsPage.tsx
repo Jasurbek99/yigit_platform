@@ -5,6 +5,7 @@ import { canDo } from '@/utils/permissions';
 import StatusesTab from './shipment-settings/StatusesTab';
 import BorderPointsTab from './shipment-settings/BorderPointsTab';
 import OptionListsTab from './shipment-settings/OptionListsTab';
+import TruckSplitsTab from './shipment-settings/TruckSplitsTab';
 
 const { Title, Text } = Typography;
 
@@ -12,6 +13,7 @@ export default function ShipmentSettingsPage() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const canWrite = canDo(user, 'shipment', 'edit');
+  const canEditTruckSplits = canDo(user, 'truck_split_default', 'edit');
 
   const tabs = [
     {
@@ -28,6 +30,11 @@ export default function ShipmentSettingsPage() {
       key: 'options',
       label: t('shipment_settings.tab_options'),
       children: <OptionListsTab canWrite={canWrite} />,
+    },
+    {
+      key: 'truck_splits',
+      label: t('shipment_settings.tab_truck_splits'),
+      children: <TruckSplitsTab canWrite={canEditTruckSplits} />,
     },
   ];
 

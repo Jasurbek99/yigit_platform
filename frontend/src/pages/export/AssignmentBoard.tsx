@@ -6,23 +6,17 @@ import { toast } from 'sonner';
 import dayjs from 'dayjs';
 import { useDrafts, useAssignDraft } from '@/hooks/useDrafts';
 import { MOCK_DEMAND } from '@/mock/demand';
-import { getFreshness, type Freshness } from '@/utils/freshness';
+import { FreshnessPill } from '@/components/FreshnessPill';
 import type { IShipmentDraft, IDemandItem } from '@/types';
 
 const { Text, Title } = Typography;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
-const FRESHNESS_ICON: Record<Freshness, string> = {
-  today: '🟢',
-  yesterday: '🟡',
-  old: '🔴',
-};
-
-const FRESHNESS_BORDER: Record<Freshness, string> = {
+const FRESHNESS_BORDER: Record<'today' | 'yesterday' | 'aged', string> = {
   today: '#52c41a',
   yesterday: '#faad14',
-  old: '#ff4d4f',
+  aged: '#ff4d4f',
 };
 
 function getDemandGroups(
@@ -46,7 +40,7 @@ interface ISupplyCardProps {
 
 function SupplyCard({ draft, selected, onSelect }: ISupplyCardProps) {
   const { t } = useTranslation();
-  const freshness = getFreshness(draft.created_at);
+  const freshness = draft.freshness;
   const sourceCodes = draft.block_sources.map((s) => s.block_code).join(' + ');
   const ageLabel =
     freshness === 'today'
@@ -74,7 +68,7 @@ function SupplyCard({ draft, selected, onSelect }: ISupplyCardProps) {
         boxShadow: selected ? '0 0 0 2px rgba(22,119,255,0.2)' : undefined,
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, alignItems: 'center' }}>
         <div style={{ fontFamily: 'monospace', fontWeight: 600, fontSize: 12, color: '#1677ff' }}>
           {draft.cargo_code}
         </div>
@@ -82,8 +76,9 @@ function SupplyCard({ draft, selected, onSelect }: ISupplyCardProps) {
           {(draft.weight_net ?? 0).toLocaleString('ru-RU')} kg
         </div>
       </div>
-      <div style={{ fontSize: 11, fontWeight: 500, marginTop: 3 }}>
-        {FRESHNESS_ICON[freshness]} {sourceCodes}
+      <div style={{ fontSize: 11, fontWeight: 500, marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <FreshnessPill freshness={freshness} ageDays={draft.harvest_age_days} size="small" />
+        <span style={{ color: '#595959' }}>{sourceCodes}</span>
       </div>
       <div style={{ fontSize: 10, color: '#8c8c8c', marginTop: 2, fontStyle: 'italic' }}>
         {ageLabel}
@@ -186,7 +181,7 @@ function MatchPanel({ draft, demand, onConfirm, onClear, isLoading }: IMatchPane
   }
 
   // Compatibility logic
-  const freshness = draft ? getFreshness(draft.created_at) : null;
+  const freshness = draft ? draft.freshness : null;
   const sourceCodes = draft ? draft.block_sources.map((s) => s.block_code).join(' + ') : '';
   const ageLabel = draft
     ? freshness === 'today'
@@ -251,7 +246,7 @@ function MatchPanel({ draft, demand, onConfirm, onClear, isLoading }: IMatchPane
       );
     }
 
-    if (freshness === 'old') {
+    if (freshness === 'aged') {
       compatNode = (
         <>
           {compatNode}
@@ -287,6 +282,29 @@ function MatchPanel({ draft, demand, onConfirm, onClear, isLoading }: IMatchPane
           >
             🟡 <strong>{t('assign.compat_yesterday_title')}</strong>{' '}
             {t('assign.compat_yesterday_body')}
+          </div>
+        </>
+      );
+    }
+
+    // Variety-pending warning: draft has no confirmed variety + demand is strict
+    if (draft.variety_confidence === 'none' && demand.strict) {
+      compatNode = (
+        <>
+          {compatNode}
+          <div
+            style={{
+              padding: '8px 11px',
+              background: '#fffbe6',
+              borderRadius: 6,
+              fontSize: 11,
+              color: '#d48806',
+              border: '1px solid #ffe58f',
+              marginTop: 6,
+            }}
+          >
+            🔒 <strong>{t('assign.variety_pending_warning_title')}</strong>{' '}
+            {t('assign.variety_pending_warning_body')}
           </div>
         </>
       );

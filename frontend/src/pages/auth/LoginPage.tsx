@@ -25,7 +25,7 @@ export default function LoginPage() {
       toast.success(t('login.toast_success', { name: data.first_name || data.username }), {
         description: t('login.toast_success_desc', { role: t(`roles.${data.role}`) }),
       });
-      navigate('/');
+      navigate(data.role === 'boss' ? '/boss/dashboard' : '/');
     },
     onError: () => {
       toast.error(t('login.toast_error'), {

@@ -145,8 +145,8 @@ const STEPS = [
     note:"Country decided here. City decided later — sometimes only upon arrival. Gadam can change country or cancel before document preparation begins. Changes after document preparation are extremely rare (1–2 per season).",
   },
   { num:"0d", name_tk:"Firma saýlamy", name_en:"Firm Selection", who:"Gadam + Agamyrat", role:"Logist Team", icon:"🏢", phase:"PLANNING",
-    platform:"Quota dashboard with $10K calculation",
-    desc:"Gadam and Agamyrat select 1–3 export firms and the import firm. All firms are holding-owned or related entities. Selection is based on: the $10 000 rule (cash vs bank transfer), current cash needs, loan repayment schedules, and remaining quota per firm. If the chosen import firm has no contract, Shohrat creates a one-time contract.",
+    platform:"Quota dashboard",
+    desc:"Gadam and Agamyrat select 1–3 export firms and the import firm. All firms are holding-owned or related entities. Selection is based on current cash needs, loan repayment schedules, and remaining quota per firm. If the chosen import firm has no contract, Shohrat creates a one-time contract.",
     fields:[
       {row:"R9",name:"Eksport firmasy",en:"Export Firm(s)",example:"YGT + HMS",rule:"1–3 firms per shipment"},
       {row:"R13",name:"Import firmasy",en:"Import Firm",example:"ТОО «Fresh Fruit KZ»",rule:"From 111 registered firms"},
@@ -156,7 +156,7 @@ const STEPS = [
       {firm:"Yigit H.J",kg:"10 000",usd:"$14 500"},
       {firm:"Hemsaya H.J",kg:"8 403",usd:"$12 184"},
     ],
-    note:"Two-firm split is common (35.6% of shipments). Three-firm is rare. Each firm gets a separate CMR and invoice. The $10K rule: invoices under $10 000 = cash; over $10 000 = bank transfer. The system shows a real-time warning but does not block.",
+    note:"Two-firm split is common (35.6% of shipments). Three-firm is rare. Each firm gets a separate CMR and invoice.",
   },
   { num:"0e", name_tk:"Transport meýilnamasy", name_en:"Transport Planning", who:"Transport department", role:"Transport", icon:"🚛", phase:"PLANNING",
     platform:"Fleet board with Trip Management integration",
@@ -385,11 +385,11 @@ STEPS.forEach((s,i) => {
   
   // Firm split
   if(s.firmSplit) {
-    html += `<div class="extra-section"><div class="extra-title">Export Firm Split — $10K Rule</div>`;
+    html += `<div class="extra-section"><div class="extra-title">Export Firm Split</div>`;
     s.firmSplit.forEach(f => {
       html += `<div class="extra-row"><span>${esc(f.firm)}</span><span>${esc(f.kg)} kg · <b>${esc(f.usd)}</b></span></div>`;
     });
-    html += `<div style="margin-top:8px;font-size:11px;color:#666;background:#f0f4f8;padding:6px 10px;border-radius:4px">$10K Check: Yigit = $14 500 (bank transfer) ✓ | Hemsaya = $12 184 (bank transfer) ✓</div></div>`;
+    html += `</div>`;
   }
   
   // Customs docs

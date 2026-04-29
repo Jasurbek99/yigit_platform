@@ -1,7 +1,9 @@
 import logging
+from decimal import Decimal
 
 from django.db import transaction
 from django.db.models import (
+    Count,
     Exists,
     OuterRef,
     Q,
@@ -17,10 +19,13 @@ from rest_framework.viewsets import ModelViewSet
 from apps.core.permission_registry import ROLE_REQUIRED_FIELDS
 from apps.core.permissions import PRIVILEGED_ROLES, DynamicResourcePermission
 from apps.export.models import (
-    QualityDocument, QuotaUsageRecord, SalesReport, Shipment, ShipmentComment,
+    FinansistAdvanceShipment,
+    Pallet, QualityDocument, QuotaUsageRecord, SalesReport, Shipment, ShipmentComment,
     ShipmentBlockSource, ShipmentFirmSplit, get_default_truck_weight,
 )
 from apps.export.serializers import (
+    PalletBulkUpsertSerializer,
+    PalletSerializer,
     QualityDocumentSerializer,
     OverdueShipmentSerializer,
     SalesReportSerializer,
@@ -30,9 +35,16 @@ from apps.export.serializers import (
     ShipmentDetailSerializer,
     ShipmentSheetSerializer,
     CommentSerializer,
+    CommentCreateSerializer,
     ShipmentPatchSerializer,
+    VarietyOverrideSerializer,
 )
-from apps.export.services import create_shipment, transition_to
+from apps.export.services import (
+    close_pallet_manifest,
+    create_shipment,
+    override_dominant_varieties,
+    transition_to,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +99,16 @@ class ShipmentViewSet(ModelViewSet):
             qs = qs.filter(status__phase=phase)
         if status_code := self.request.query_params.get('status_code'):
             qs = qs.filter(status__code=status_code)
+        # harvest_age_days is computed (not a DB column) but it is monotonic in date:
+        # oldest harvest = lowest date = highest age.  Translate to a date sort so
+        # MSSQL can use the existing index on shipments.date.
+        ordering = self.request.query_params.get('ordering')
+        if ordering == 'harvest_age_desc':
+            # oldest-first (most aged at top) — intended for Assignment Board
+            qs = qs.order_by('date', 'id')
+        elif ordering == 'harvest_age_asc':
+            # newest-first
+            qs = qs.order_by('-date', '-id')
         return qs
 
     def _filter_my_work(self, qs: QuerySet) -> QuerySet:
@@ -299,13 +321,80 @@ class ShipmentViewSet(ModelViewSet):
                 has_sales_report=Exists(
                     SalesReport.objects.filter(shipment=OuterRef('pk'))
                 ),
+                # R24 — flag for finansist documentation/customs advance
+                has_doc_advance=Exists(
+                    FinansistAdvanceShipment.objects.filter(shipment=OuterRef('pk'))
+                ),
+                warehouse_comment_count=Count(
+                    'comments',
+                    filter=Q(comments__user__role='warehouse_chief'),
+                ),
+                document_comment_count=Count(
+                    'comments',
+                    filter=Q(comments__user__role='document_team'),
+                ),
             )
             .filter(**season_filter)
             .order_by('-date', '-id')
         )
 
         serializer = ShipmentSheetSerializer(qs, many=True)
-        return Response(serializer.data)
+        shipment_data = serializer.data
+
+        # === Per-cell comment counts (single query, grouped in Python — no N+1) ===
+        ids = [s.id for s in qs]
+        comment_counts: dict[int, dict[str, int]] = {}
+        task_counts: dict[int, dict[str, int]] = {}
+
+        if ids:
+            raw_comments = (
+                ShipmentComment.objects.filter(shipment_id__in=ids, is_deleted=False)
+                .values('shipment_id', 'field_key')
+                .annotate(c=Count('id'))
+            )
+            for row in raw_comments:
+                sid = row['shipment_id']
+                key = row['field_key'] or '__shipment__'
+                comment_counts.setdefault(sid, {})[key] = row['c']
+
+            raw_tasks = (
+                ShipmentComment.objects.filter(
+                    shipment_id__in=ids,
+                    is_deleted=False,
+                    assignee__isnull=False,
+                )
+                .values('shipment_id', 'is_done')
+                .annotate(c=Count('id'))
+            )
+            for row in raw_tasks:
+                sid = row['shipment_id']
+                bucket = task_counts.setdefault(sid, {'open': 0, 'done': 0, 'assigned_to_me_open': 0})
+                if row['is_done']:
+                    bucket['done'] += row['c']
+                else:
+                    bucket['open'] += row['c']
+
+            # assigned_to_me_open — scoped to requesting user
+            raw_mine = (
+                ShipmentComment.objects.filter(
+                    shipment_id__in=ids,
+                    is_deleted=False,
+                    assignee=request.user,
+                    is_done=False,
+                )
+                .values('shipment_id')
+                .annotate(c=Count('id'))
+            )
+            for row in raw_mine:
+                sid = row['shipment_id']
+                task_counts.setdefault(sid, {'open': 0, 'done': 0, 'assigned_to_me_open': 0})
+                task_counts[sid]['assigned_to_me_open'] = row['c']
+
+        return Response({
+            'results': shipment_data,
+            'comment_counts': comment_counts,
+            'task_counts': task_counts,
+        })
 
     def create(self, request, *args, **kwargs):
         """POST /api/v1/export/shipments/
@@ -519,23 +608,26 @@ class ShipmentViewSet(ModelViewSet):
     def comment(self, request, pk=None):
         """POST /api/v1/export/shipments/{id}/comment/
 
+        Backward-compatible comment creation endpoint. Delegates to the
+        comment service so fan-out behavior matches CommentViewSet.
+
         Request body:
             { "content": "Some comment text" }
 
-        Returns updated comments list on success.
+        Returns updated shipment detail on success.
         """
+        from apps.export.services.comments import create_comment
+
         shipment = self.get_object()
         content = request.data.get('content', '').strip()
 
         if not content:
             return Response({'error': 'content is required'}, status=status.HTTP_400_BAD_REQUEST)
 
-        ShipmentComment.objects.create(
-            shipment=shipment,
-            user=request.user,
-            content=content,
-            is_system=False,
-        )
+        try:
+            create_comment(shipment=shipment, user=request.user, content=content)
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         shipment.refresh_from_db()
         detail_serializer = ShipmentDetailSerializer(shipment, context={'request': request})
@@ -588,6 +680,12 @@ class ShipmentViewSet(ModelViewSet):
 
         Replace all block sources for a shipment.
         Request body: { "blocks": [{ "block_id": 1, "weight_kg": 18000 }, ...] }
+
+        ``weight_kg`` is optional. When omitted (or 0), the server splits the
+        shipment's real ``weight_net`` evenly across the selected blocks. If
+        ``weight_net`` is null, falls back to ``get_default_truck_weight(1)``
+        (single-firm cap) divided by N. Last entry receives the rounding
+        remainder so the sum exactly matches the source total.
         """
         shipment = self.get_object()
         blocks_data = request.data.get('blocks', [])
@@ -598,24 +696,39 @@ class ShipmentViewSet(ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        valid_entries = [e for e in blocks_data if e.get('block_id')]
+        n = len(valid_entries)
+
+        # Build per-row weights — explicit overrides win; otherwise auto-split.
+        auto_weights: list[Decimal] = []
+        if n > 0:
+            total = shipment.weight_net or get_default_truck_weight(1)
+            base = (Decimal(total) / n).quantize(Decimal('0.01'))
+            auto_weights = [base] * (n - 1)
+            auto_weights.append((Decimal(total) - base * (n - 1)).quantize(Decimal('0.01')))
+
         shipment.block_sources.all().delete()
-        rows = [
-            ShipmentBlockSource(
-                shipment=shipment,
-                block_id=entry.get('block_id'),
-                weight_kg=entry.get('weight_kg', 0),
+        rows = []
+        for i, entry in enumerate(valid_entries):
+            override = entry.get('weight_kg')
+            weight = (
+                Decimal(str(override))
+                if override not in (None, 0, '0', '0.00')
+                else auto_weights[i]
             )
-            for entry in blocks_data
-            if entry.get('block_id')
-        ]
+            rows.append(ShipmentBlockSource(
+                shipment=shipment,
+                block_id=entry['block_id'],
+                weight_kg=weight,
+            ))
         if rows:
             ShipmentBlockSource.objects.bulk_create(rows, batch_size=500)
 
         logger.info(
             'Block sources for %s updated by %s (%d blocks)',
-            shipment.cargo_code, request.user.username, len(blocks_data),
+            shipment.cargo_code, request.user.username, n,
         )
-        return Response({'status': 'ok', 'count': len(blocks_data)})
+        return Response({'status': 'ok', 'count': n})
 
     @action(detail=True, methods=['post'], url_path='firm-splits')
     def set_firm_splits(self, request, pk=None):
@@ -642,25 +755,37 @@ class ShipmentViewSet(ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+            valid_entries = [e for e in firms_data if e.get('export_firm_id')]
+            num_firms = len(valid_entries)
+            # Official per-firm kg from TruckSplitDefault (admin-configurable).
+            # ShipmentFirmSplit.weight_kg is the OFFICIAL export number, not the
+            # real truck weight — see ADR-016.
+            official_kg = (
+                get_default_truck_weight(num_firms) if num_firms > 0 else Decimal('0')
+            )
+
             shipment.firm_splits.all().delete()
-            split_rows = [
-                ShipmentFirmSplit(
-                    shipment=shipment,
-                    export_firm_id=entry.get('export_firm_id'),
-                    weight_kg=entry.get('weight_kg', 0),
-                    split_order=i + 1,
+            split_rows = []
+            for i, entry in enumerate(valid_entries):
+                override = entry.get('weight_kg')
+                weight = (
+                    Decimal(str(override))
+                    if override not in (None, 0, '0', '0.00')
+                    else official_kg
                 )
-                for i, entry in enumerate(firms_data)
-                if entry.get('export_firm_id')
-            ]
+                split_rows.append(ShipmentFirmSplit(
+                    shipment=shipment,
+                    export_firm_id=entry['export_firm_id'],
+                    weight_kg=weight,
+                    split_order=i + 1,
+                ))
             if split_rows:
                 ShipmentFirmSplit.objects.bulk_create(split_rows, batch_size=500)
 
             # Auto-create quota usage records (draft) for each firm split
             shipment.quota_usage_records.filter(status='draft').delete()
-            num_firms = len(split_rows)
             if num_firms > 0:
-                default_kg = get_default_truck_weight(num_firms)
+                default_kg = official_kg
                 QuotaUsageRecord.objects.bulk_create([
                     QuotaUsageRecord(
                         usage_date=shipment.date,
@@ -679,3 +804,280 @@ class ShipmentViewSet(ModelViewSet):
             shipment.cargo_code, request.user.username, len(firms_data), num_firms,
         )
         return Response({'status': 'ok', 'count': len(firms_data)})
+
+    @action(detail=True, methods=['get', 'post'], url_path='pallets')
+    def pallets(self, request, pk=None):
+        """GET/POST /api/v1/export/shipments/{id}/pallets/
+
+        GET: return the list of pallets for this shipment.
+        POST: bulk upsert — replaces ALL existing pallets with the submitted list.
+              Accepts { "pallets": [...] }. Only weight_master and warehouse_chief
+              (plus privileged roles) may write.
+
+        Returns 200 with pallet list on success.
+        """
+        shipment = self.get_object()
+
+        if request.method == 'GET':
+            qs = shipment.pallets.select_related('crate_type', 'variety', 'sub_block', 'created_by')
+            serializer = PalletSerializer(qs, many=True)
+            return Response(serializer.data)
+
+        # POST — bulk upsert
+        allowed_write_roles = PRIVILEGED_ROLES | {'warehouse_chief', 'weight_master'}
+        if getattr(request.user, 'role', None) not in allowed_write_roles:
+            return Response(
+                {'error': 'Only weight_master, warehouse_chief, export_manager, or director can submit pallets'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        bulk_serializer = PalletBulkUpsertSerializer(data=request.data)
+        bulk_serializer.is_valid(raise_exception=True)
+        pallets_data = bulk_serializer.validated_data['pallets']
+
+        with transaction.atomic():
+            shipment.pallets.all().delete()
+            pallet_rows = [
+                Pallet(
+                    shipment=shipment,
+                    pallet_number=p['pallet_number'],
+                    crate_type=p['crate_type'],
+                    crate_count=p['crate_count'],
+                    gross_weight_kg=p['gross_weight_kg'],
+                    pallet_weight_kg=p['pallet_weight_kg'],
+                    additions_kg=p.get('additions_kg', 0),
+                    variety=p['variety'],
+                    sub_block=p['sub_block'],
+                    loaded_at=p.get('loaded_at') or timezone.now(),
+                    created_by=request.user,
+                )
+                for p in pallets_data
+            ]
+            Pallet.objects.bulk_create(pallet_rows, batch_size=500)
+
+        logger.info(
+            'Pallets for %s upserted by %s (%d pallets)',
+            shipment.cargo_code, request.user.username, len(pallet_rows),
+        )
+        qs = shipment.pallets.select_related('crate_type', 'variety', 'sub_block', 'created_by')
+        serializer = PalletSerializer(qs, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], url_path='manifest/close')
+    def manifest_close(self, request, pk=None):
+        """POST /api/v1/export/shipments/{id}/manifest/close/
+
+        Close the pallet manifest: aggregate pallet weights into shipment totals
+        and compute dominant variety roll-up.
+
+        Only weight_master and warehouse_chief (plus privileged roles) may trigger.
+
+        Returns refreshed shipment detail on success.
+        """
+        allowed_roles = PRIVILEGED_ROLES | {'warehouse_chief', 'weight_master'}
+        if getattr(request.user, 'role', None) not in allowed_roles:
+            return Response(
+                {'error': 'Only weight_master, warehouse_chief, export_manager, or director can close the manifest'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        shipment = self.get_object()
+
+        try:
+            close_pallet_manifest(shipment, request.user)
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        shipment.refresh_from_db()
+        serializer = ShipmentDetailSerializer(shipment, context={'request': request})
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='varieties/override')
+    def varieties_override(self, request, pk=None):
+        """POST /api/v1/export/shipments/{id}/varieties/override/
+
+        Manual variety override by warehouse_chief or export_manager.
+        Request body: { "variety_ids": [int, ...] } (1-4 entries, ordered by dominance)
+
+        Returns refreshed shipment detail on success.
+        """
+        allowed_roles = PRIVILEGED_ROLES | {'warehouse_chief'}
+        if getattr(request.user, 'role', None) not in allowed_roles:
+            return Response(
+                {'error': 'Only warehouse_chief, export_manager, or director can override varieties'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        shipment = self.get_object()
+        override_serializer = VarietyOverrideSerializer(data=request.data)
+        override_serializer.is_valid(raise_exception=True)
+        variety_ids = override_serializer.validated_data['variety_ids']
+
+        try:
+            override_dominant_varieties(shipment, variety_ids, request.user)
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        shipment.refresh_from_db()
+        serializer = ShipmentDetailSerializer(shipment, context={'request': request})
+        return Response(serializer.data)
+
+
+class CommentViewSet(ModelViewSet):
+    """CRUD for shipment comments.
+
+    GET    /api/v1/export/comments/?shipment=&field_key=&assignee=me&is_done=&parent_comment=null
+    POST   /api/v1/export/comments/            — create via CommentCreateSerializer
+    PATCH  /api/v1/export/comments/{id}/       — edit own comment content
+    DELETE /api/v1/export/comments/{id}/       — soft-delete
+    POST   /api/v1/export/comments/{id}/done/  — mark task done
+    POST   /api/v1/export/comments/{id}/reopen/ — reopen task
+    """
+
+    resource_code = 'shipment_comment'
+    permission_classes = [IsAuthenticated, DynamicResourcePermission]
+    http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
+
+    def get_queryset(self) -> QuerySet:
+        from django.db.models import Prefetch
+
+        # Filter prefetched replies to match the parent's is_deleted=False guard
+        # so replies_count returned by the serializer is consistent with the
+        # actual number of visible replies.
+        non_deleted_replies = Prefetch(
+            'replies',
+            queryset=ShipmentComment.objects.filter(is_deleted=False),
+        )
+        qs = (
+            ShipmentComment.objects.filter(is_deleted=False)
+            .select_related('user', 'assignee', 'done_by')
+            .prefetch_related(non_deleted_replies)
+        )
+
+        params = self.request.query_params
+
+        shipment_id = params.get('shipment')
+        if shipment_id:
+            qs = qs.filter(shipment_id=shipment_id)
+
+        field_key = params.get('field_key')
+        if field_key is not None:
+            qs = qs.filter(field_key=field_key)
+
+        assignee_param = params.get('assignee')
+        if assignee_param == 'me':
+            qs = qs.filter(assignee=self.request.user)
+        elif assignee_param:
+            qs = qs.filter(assignee_id=assignee_param)
+
+        is_done_param = params.get('is_done')
+        if is_done_param is not None:
+            qs = qs.filter(is_done=(is_done_param.lower() in ('true', '1')))
+
+        parent_param = params.get('parent_comment')
+        if parent_param == 'null':
+            qs = qs.filter(parent_comment__isnull=True)
+        elif parent_param:
+            qs = qs.filter(parent_comment_id=parent_param)
+
+        return qs
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return CommentCreateSerializer
+        return CommentSerializer
+
+    def perform_create(self, serializer):
+        """Delegate to service via CommentCreateSerializer.create()."""
+        serializer.save()
+
+    def partial_update(self, request, *args, **kwargs):
+        """PATCH — edit content only. Own comments (or privileged role)."""
+        comment = self.get_object()
+        role = getattr(request.user, 'role', None)
+        is_privileged = role in PRIVILEGED_ROLES
+
+        if comment.user_id != request.user.id and not is_privileged:
+            return Response({'error': 'You can only edit your own comments.'}, status=status.HTTP_403_FORBIDDEN)
+
+        content = request.data.get('content', '').strip()
+        if not content:
+            return Response({'error': 'content is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        comment.content = content
+        comment.updated_at = timezone.now()
+        comment.save(update_fields=['content', 'updated_at'])
+
+        serializer = CommentSerializer(comment)
+        return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        """DELETE — soft-delete. Own comments (or privileged role)."""
+        comment = self.get_object()
+        role = getattr(request.user, 'role', None)
+        is_privileged = role in PRIVILEGED_ROLES
+
+        if comment.user_id != request.user.id and not is_privileged:
+            return Response({'error': 'You can only delete your own comments.'}, status=status.HTTP_403_FORBIDDEN)
+
+        comment.is_deleted = True
+        comment.save(update_fields=['is_deleted'])
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=['post'], url_path='done')
+    def done(self, request, pk=None):
+        """POST /api/v1/export/comments/{id}/done/
+
+        Mark a task comment as done. Caller must be the assignee or a privileged role.
+        """
+        from apps.export.services.comments import mark_task_done
+
+        comment = self.get_object()
+        role = getattr(request.user, 'role', None)
+        is_privileged = role in PRIVILEGED_ROLES
+
+        if comment.assignee_id != request.user.id and not is_privileged:
+            return Response(
+                {'error': 'Only the assignee or an admin can mark a task done.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        try:
+            mark_task_done(comment, request.user)
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        comment.refresh_from_db()
+        return Response(CommentSerializer(comment).data)
+
+    @action(detail=True, methods=['post'], url_path='reopen')
+    def reopen(self, request, pk=None):
+        """POST /api/v1/export/comments/{id}/reopen/
+
+        Reopen a completed task. Author, assignee, or a privileged role may reopen.
+        """
+        from apps.export.services.comments import reopen_task
+
+        comment = self.get_object()
+        role = getattr(request.user, 'role', None)
+        is_privileged = role in PRIVILEGED_ROLES
+
+        # Mirror the bypass pattern used by done/destroy/partial_update so admins
+        # can reopen tasks they didn't author and aren't assigned to.
+        if (
+            comment.user_id != request.user.id
+            and comment.assignee_id != request.user.id
+            and not is_privileged
+        ):
+            return Response(
+                {'error': 'Only the author, assignee, or an admin can reopen a task.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        try:
+            reopen_task(comment, request.user)
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        comment.refresh_from_db()
+        return Response(CommentSerializer(comment).data)

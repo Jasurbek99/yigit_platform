@@ -5,6 +5,125 @@ All notable changes to the YGT Platform.
 ## [Unreleased]
 
 ### Added
+- **Truck split defaults — admin-configurable official kg-per-firm table** (Gap 7, ADR-016) (feat(p3))
+  - New `TruckSplitDefault` model (`backend/apps/export/models/quota.py`) keyed by `num_firms`; migration `0023_truck_split_defaults` seeds (1 → 18,100), (2 → 9,000), (3 → 6,000)
+  - `get_default_truck_weight(N)` now reads from the DB with a 5-min cache; `invalidate_truck_split_cache()` helper
+  - Director-only CRUD endpoints `/api/v1/export/admin/truck-splits/` (`TruckSplitDefaultViewSet` + `TruckSplitDefaultSerializer`); new `truck_split_default` resource registered in `permission_registry.py` and seeded so director gets full CRUD, export_manager read-only
+  - New "Truck Split Defaults" tab on `/admin/shipment-settings` (`TruckSplitsTab.tsx`); hooks `useTruckSplits`, `useCreateTruckSplit`, `useUpdateTruckSplit`, `useDeleteTruckSplit` in `useAdmin.ts`
+  - i18n: new `truck_split.*` namespace + `shipment_settings.tab_truck_splits` in tk/ru/en
+  - 6 new sheet tests + 10 admin CRUD tests (`tests_truck_split_admin.py`); covers auto-fill, fallback, explicit override, cache invalidation, role gates, validation
+  - ADR-016 documents the official-vs-real distinction so future contributors don't try to "fix" the gap between `Sum(firm_splits.weight_kg) ≈ 18,100` and the real `Shipment.weight_net ≈ 18,500–21,000` — that gap is intentional
+
+### Fixed
+- **Sheet R8/R9 multiselect saved `weight_kg = 0`** (Gap 7) — selecting blocks/firms in the multiselect cells now persists correct weights (feat(p3))
+  - Frontend (`SheetCellEditor.tsx`) drops the hardcoded `weight_kg: 0` literal; sends only IDs
+  - Backend `set_block_sources` auto-fills with `(weight_net or 18,100) / N`, last entry takes the rounding remainder
+  - Backend `set_firm_splits` auto-fills with the OFFICIAL `TruckSplitDefault[N]` value (capped at 18,100 — see ADR-016)
+  - Explicit non-zero `weight_kg` from the client is honoured (admin override path)
+  - Updated Obsidian doc `screens/shipment-sheet.md` with the new auto-split behaviour and link to the admin tab
+
+### Added
+- **Configurable freeze panes on the Shipment Sheet** — Google Sheets-style freeze for both rows and columns (feat(frontend))
+  - `Freeze` dropdown in `SheetToolbar` with row/column options (No, 1, 2, Up to current, Default 13 rows)
+  - State in `sheetStore` (`frozenRowCount`, `frozenColCount`) persisted to `localStorage` under `ygt-sheet-freeze`
+  - Frozen data columns rendered as `position: sticky; left: <offset>` cells between the label band and the virtualizer; remaining shipments are passed to `@tanstack/react-virtual`
+  - Header row's left labels (`#`/Who/Field name) are now sticky-left so they stay visible during horizontal scrolling — fixes a long-standing bug where they would scroll out of view
+  - Blue 2px line on the trailing edge of the last frozen row/column marks the freeze boundary; freeze counts clamp against visible rows/columns each render so stale localStorage values still produce a coherent layout
+  - i18n: 14 new `sheet.freeze.*` keys added to all three locales
+
+- **Comment + task system (backend)** — cell-anchored threaded comments with @user / @role mentions and single-assignee task assignment on `export.shipment_comments`. New fields: `field_key`, `role_mentions`, `assignee`, `is_done`, `done_at`, `done_by`, `is_deleted`. Indexes: `ix_comments_shipment_field`, `ix_comments_assignee_open`. Migration `0021_comment_cells_tasks` (feat(p3))
+- `Notification.KIND_CHOICES` extended with `mention`, `task_assigned`, `task_done` (feat(p3))
+- `apps/export/services/comments.py` — `create_comment()`, `mark_task_done()`, `reopen_task()`, `_fan_out_notifications()` service layer; all mutations wrapped in `transaction.atomic()`, bulk_create with `batch_size=500` (feat(p3))
+- `CommentViewSet` at `GET/POST /api/v1/export/comments/` + `PATCH/DELETE /{id}/` + `POST /{id}/done/` + `POST /{id}/reopen/`. Filters: `shipment`, `field_key`, `assignee` (accepts `me`), `is_done`, `parent_comment=null`. Soft-delete via `is_deleted=True` (feat(p3))
+- `CommentSerializer` (read) extended with `field_key`, `assignee`, `assignee_name`, `is_done`, `done_at`, `done_by_name`, `mentions_ids`, `role_mentions_list`, `replies_count`, `is_deleted`. `CommentCreateSerializer` (write) with int ID fields to avoid DRF PrimaryKeyRelatedField queryset=None issue on MSSQL (feat(p3))
+- `GET /api/v1/export/shipments/sheet/` response now wraps `results` array with `comment_counts` and `task_counts` top-level dicts (keyed by shipment_id) — three extra queries, no N+1 (feat(p3))
+- `GET /api/v1/core/users/mentionable/?q=&limit=10` — mixed users+roles autocomplete endpoint for the @mention popover (feat(p3))
+- `MentionUserSerializer`, `MentionRoleSerializer` serializer classes (feat(p3))
+- `SHEET_FIELD_KEYS` frozenset in `services/comments.py` (42 keys, derived from `sheetRowConfig.ts`) — field_key allowlist validation (feat(p3))
+- 11 backend tests in `apps/export/tests_comments.py` covering: user mention creates notification, role mention deduplication, assignee gets task_assigned only, reply inherits field_key, task done idempotent, bulk_create batch_size check, legacy endpoint backward compat (test(p3))
+- `IShipmentSheetResponse`, `ISheetCommentCounts`, `ISheetTaskCounts` TypeScript interfaces in `frontend/src/types/index.ts` (feat(frontend))
+- **Comment + task system (frontend)** — right-side `CommentsDrawer` on `/export/shipments/sheet` (`mask=false`, 360px) with filter chips (This cell / All cells / My tasks), composer with `@`/`#` mention popovers, cell-anchor toggle, and single-assignee task picker (feat(frontend))
+- New components under `frontend/src/components/sheet/`: `CommentsDrawer`, `CommentList`, `CommentItem`, `CommentComposer`, `MentionPopover`, `CommentMarker` — no mention library, custom popover in ~80 lines per `mssql-compat.md` "no heavy deps" stance (feat(frontend))
+- `useComments(filters)`, `useCreateComment`, `useUpdateComment`, `useDeleteComment`, `useMarkTaskDone`, `useReopenTask` hooks with `staleTime: 30_000` (matches notification polling). Mutations invalidate `['comments']` and `['sheet']` so per-cell markers refresh (feat(frontend))
+- `useMentionable(query)` debounced (150ms) autocomplete hook hitting `/api/v1/core/users/mentionable/` (feat(frontend))
+- `CommentMarker` overlay in `SheetCell` corners — blue (comment), orange (open task), green (done task); click opens drawer filtered to that cell (feat(frontend))
+- Comments button in `SheetToolbar` with badge showing total open tasks assigned to me (feat(frontend))
+- `ShipmentSheet.tsx` deep-link parser — `?shipment=&row=&comment=` selects the cell, opens the drawer, scrolls comment into view with a 2s highlight ring (feat(frontend))
+- Mention chip renderer in `CommentItem` parses `@user:42` / `@role:X` / `#cell:Y` tokens via regex and renders clickable Tags (feat(frontend))
+- `KIND_COLOR` map in `AppLayout.tsx` extended with `mention` (#1677ff blue), `task_assigned` (#fa8c16 orange), `task_done` (#52c41a green) (feat(frontend))
+- Zustand `sheetStore` extended with `commentsDrawerOpen`, `commentsFilter`, `pendingHighlightCommentId` + `openCommentsForCell(shipmentId, fieldKey)` action (feat(frontend))
+- Mock data at `frontend/src/mock/comments.ts` for `VITE_USE_MOCK=true` mode (feat(frontend))
+- `comments.*` namespace keys (24 keys: title, compose_placeholder, pin_to_cell, mark_done, reopen, mention_user, mention_role, mention_cell, role_member_count, filter_*, tab_*, etc.) added to all three locale files simultaneously per the strict i18n rule (feat(frontend))
+- `notifications.kind_mention`, `notifications.kind_task_assigned`, `notifications.kind_task_done` keys (feat(frontend))
+
+### Changed
+- `useShipmentSheet` hook updated to unpack wrapped `{results, comment_counts, task_counts}` response; returns `{shipments, comment_counts, task_counts}` — breaks old `data[i]` access pattern (feat(frontend))
+- `ShipmentSheet.tsx` updated to read `data?.shipments` from the new hook return shape (feat(frontend))
+- `SheetCell.tsx` R17/R18 click handler now opens the Comments Drawer (filtered by role) instead of navigating away to `ShipmentDetail?tab=changes` — keeps users in the Sheet workflow (feat(frontend))
+- `TestLegacyCommentEndpoint` test: `is_superuser=True` on test user to bypass `DynamicResourcePermission` in integration test (fix(p3))
+
+### Fixed
+- **i18n key collision (blocker)** — `comments.*` namespace was duplicated in `en.json`/`ru.json`/`tk.json` (legacy 4-key block at line 436 + new 24-key block); JSON parsers keep the last occurrence so the legacy `placeholder`/`toast_success`/`toast_error` keys silently dropped, breaking the existing `ShipmentDetail` Comments tab in production. Merged both blocks into the new namespace and kept the legacy keys (fix(frontend))
+- **Race condition in `mark_task_done`** — two concurrent requests could both pass the `is_done=False` guard before either saved, creating duplicate `task_done` notifications. Added `select_for_update()` re-read at the top of the transaction (fix(p3))
+- **N+1 in `MentionableView`** — per-role `User.objects.filter(role=code).count()` ran 12 times per autocomplete keystroke. Replaced with a single grouped `.values('role').annotate(Count('id'))` query (fix(p3))
+- **`reopen` action lacked admin bypass** — directors couldn't reopen tasks they didn't author and weren't assigned to, unlike `done`/`edit`/`delete` which all had `PRIVILEGED_ROLES` bypass. Added matching bypass to `reopen` (fix(p3))
+- **`replies_count` inconsistency** — viewset's `prefetch_related('replies')` didn't filter `is_deleted=False` while the fallback branch did, so list-view counts diverged from detail-view counts. Switched to `Prefetch('replies', queryset=ShipmentComment.objects.filter(is_deleted=False))` (fix(p3))
+- **Mention chips rendered raw token text** — `@user:42` displayed as the literal token because `CommentSerializer` returned `mentions_ids` (IDs only). Renamed serializer field to `mentions_users: [{id, name, role}]` and `role_mentions_list: [{code, label}]`; `CommentItem` now renders chips with the user's display name and role's translated label (fix(p3) + fix(frontend))
+- **Toolbar Comments button opened an empty drawer** — button only toggled `commentsDrawerOpen`, never seeded `commentsShipmentId`, so the composer was disabled and no comment ever got a `field_key` (which is why no cell markers showed). New `toggleCommentsDrawer` store action prefills shipment + filter from `activeCell` when opening (fix(frontend))
+- **Cell click did not seed the drawer's shipment** — `setActiveCell` now also updates `commentsShipmentId` so the composer is wired the moment the user opens the drawer from the toolbar (fix(frontend))
+- **Hover comment-icon posted shipment-level comments** — `openCommentsForCell` set the drawer filter but not `activeCell`, and the composer reads `activeCell.rowKey` to compute the pin target. Comments authored from the hover icon now correctly persist with `field_key`, so the cell badge appears (fix(frontend))
+- **`CommentCreateSerializer` rejected the documented payload** — fields were named `shipment_id`/`assignee_id`/`parent_comment_id` but the API contract uses bare names `shipment`/`assignee`/`parent_comment`; every POST returned 400. Renamed fields and added `to_representation` delegation to `CommentSerializer` so the create response matches the read shape (fix(p3))
+
+### Added
+- **Hover comment affordance on every cell** — faint chat icon appears in the top-right corner of any cell on hover (when no existing comments). Click opens the drawer pinned to that cell. New `comments.add_to_cell` i18n key in tk/ru/en (feat(frontend))
+- New `comments.no_shipment_selected` placeholder state in the drawer body when no shipment column is active (feat(frontend))
+
+### Docs
+- New `docs/obsidian/processes/comments-tasks.md` — full process doc for the comment + task system (mention semantics, fan-out rules, task lifecycle, deep-link format, v1 limits) (docs)
+- `docs/obsidian/screens/shipment-sheet.md` extended with a "Comments Drawer" section and link to the new process (docs)
+- `docs/obsidian/00-index.md` indexes `comments-tasks` under Core Processes (docs)
+- `docs/ADR.md` ADR-015 added: Cell-Anchored Comments + Tasks — codifies the four user-locked decisions (anchor + reference, dedup, single assignee, drawer not splitter) (docs)
+- `.claude/rules/api-contract.md` documents the wrapped sheet endpoint shape, full `/comments/` CRUD + custom actions surface, mentionable autocomplete, and new notification kinds (docs)
+
+### Changed
+- `POST /api/v1/export/shipments/{id}/comment/` (legacy) refactored to delegate to `services.comments.create_comment` — behaviour identical, fan-out now active for backward-compat callers (feat(p3))
+- `GET /api/v1/export/shipments/sheet/` response shape changed from flat array to `{results, comment_counts, task_counts}` dict — **breaking for frontend consumers reading `response.data` directly** (changed(p3))
+- **Shipment List inline edit (permission-gated)** — `weight_net`, `departed_at`, `arrived_at` cells now edit in place when the user has the corresponding `field_permissions['shipment']` grant. New `ListEditableCell` component (click-to-edit with hover affordance, stops row click navigation, Esc cancels). `useShipmentPatch` extended to optimistically update both sheet and paginated list caches and invalidate all `['shipments']` queries on settle, so the same hook drives both views (feat(frontend))
+- **Shipment Sheet** — Excel-style spreadsheet view at `/export/shipments/sheet/` with virtualised columns (`@tanstack/react-virtual`), frozen top section (rows 2–14, identity & planning) and scrollable bottom (rows 15–45, ops & logistics); 7 input types (text, number, date, datetime, dropdown, multiselect, status); inline create button, search, and "gapy only" filter (feat(p3))
+- `GET /api/v1/export/shipments/sheet/` action — flat per-season payload, no pagination, `select_related` + `prefetch_related` + `Exists()` annotation for `has_sales_report` (feat(p3))
+- `useShipmentPatch` hook with optimistic update + rollback on error (feat(frontend))
+- `useShipmentSheet`, `SheetGrid`, `SheetCell`, `SheetCellEditor`, `SheetToolbar`, `SheetLabelColumn` components plus `sheetRowConfig.ts` driving 44 rows (feat(frontend))
+- 13 backend tests in `apps/export/tests_shipment_sheet.py` — auth gate, active-season default + `?season=` override, `has_sales_report` annotation, inline firm/block splits, PATCH field-level grants/denies, AD-1 timestamp rejection, junction-table replace + auto-draft `QuotaUsageRecord`, approved-quota safeguard (test(p3))
+- Obsidian doc `docs/obsidian/screens/shipment-sheet.md`; `00-index.md` linked under "Operational Screens" (docs)
+
+### Changed
+- **Sheet permissions migrated to dynamic registry** — `SheetGrid` and `SheetToolbar` no longer rely on hardcoded `ROLE_EDITABLE_FIELDS` / `CREATE_ROLES` sets; they now read from `canEditField('shipment', fieldKey)` and `canDo('shipment', 'create')` so directors can re-grant per role from `/admin/permissions`. Junction-table edits (`firm_splits`, `block_sources`) gate on `shipment_firm_split` / `shipment_block_source` resource edit. AD-1 timestamps become non-editable in the sheet (consistent with backend's `_ALL_PATCHABLE_FIELDS`) (feat(frontend))
+- **Sheet rows R17, R18, R25 wired up.** R17 = warehouse_chief comment count (Soltanmyrat's notes), R18 = document_team comment count (Şirin's notes) — read-only `comment_count` cells with a chat-bubble icon; click navigates to `/export/shipments/{id}?tab=changes`. R25 = `customs_exit_at` (TM customs exit, Şirin) — moved from R26, which is now a gap. Backend annotates `warehouse_comment_count` and `document_comment_count` via `Count(... filter=Q(comments__user__role=...))` on the sheet queryset; `ShipmentSheetSerializer` exposes both. `ShipmentDetail` now reads `?tab=` from the URL to switch the active tab so deep-links land on the right pane (feat(p3))
+- **Sheet row numbers re-aligned with the original Excel.** Earlier versions had a uniform `+1` offset on rows 20+ (loading_started_at rendered on R20 instead of R19, transit_days_temp on R27 instead of R26, etc.). All rows from R19 down have been shifted by `-1` so the platform's row numbers now match the user's spreadsheet for cross-reference. Total rows now 2–44 (was 2–45) (feat(frontend))
+- **Sheet R24 = finansist documentation-advance tracker (Babageldi).** Read-only ✓/❌ cell — true once a `FinansistAdvanceShipment` row links the shipment to a `FinansistAdvance`. Backend annotates `has_doc_advance` via `Exists(FinansistAdvanceShipment...)` on the sheet queryset; `ShipmentSheetSerializer` exposes the flag. Frontend renders coloured ✓/❌ and click navigates to `/export/advances?shipment={id}`. Adds `who.babageldi` and `row.doc_advance` to all three i18n locales. Test added (15 tests total in `tests_shipment_sheet.py`); existing tests refactored to use a `_sheet_results` helper that handles the new wrapped response shape (feat(p3))
+
+### Added
+- **Boss Dashboard** — new `/boss/dashboard` executive analytics page for `boss` and `director` roles (feat(p3))
+- New `boss` role added to `ROLE_CHOICES` (migration `0013_add_boss_role.py`); `analytics.boss` page registered in `permission_registry.py`; seeded as visible-only-page for boss + auto-granted to director (feat(p3))
+- `IsBossOrDirector` DRF permission class in `apps/core/permissions.py` (feat(p3))
+- `BossAnalyticsViewSet` at `/api/v1/export/boss/` with 13 read-only data endpoints (`summary`, `revenue`, `debt`, `route_pnl`, `compliance`, `ops_pulse`, `quota_grid`, `blocks_heatmap`, `top_customers`, `risk_matrix`, `alerts`, `production`, `export_market`) — all 60s cached, all MSSQL-safe aggregations (feat(p3))
+- `apps/export/services/boss_analytics.py` — period helpers + 12 private aggregator functions, one per widget cluster (feat(p3))
+- `apps/export/exports/` package with `boss_excel.py` (openpyxl) and `boss_pdf.py` (reportlab) — 6 report sections each: monthly, firms, routes, blocks, seasons_compare, audit (feat(p3))
+- Two new export endpoints: `GET /api/v1/export/boss/export_excel/?section=...` and `export_pdf/?section=...` (feat(p3))
+- 43 backend smoke + integration tests in `apps/export/tests_boss_analytics.py` covering role gating, period math, MSSQL safety, threshold thresholds, 1:10 quota rule, alerts ordering, cache, and absence of Içerki/Sowgatlyk fields (test(p3))
+- `reportlab>=4.4` added to backend `requirements.txt` (chore(docker))
+- Frontend `BossDashboard` page at `frontend/src/pages/boss/` with 13 widget components: HeroKpiStrip, RevenueChart, DebtBreakdown, RoutePnlTable, ComplianceStrip, QuotaGrid, BlocksHeatmap, TopCustomers, FirmRiskMatrix, AlertsPanel, ProductionResults, ExportMarketByBlock, ReportsGrid (feat(frontend))
+- `frontend/src/components/EChart.tsx` — shared ECharts wrapper with loading skeleton, ResizeObserver, and theme tokens (feat(frontend))
+- `frontend/src/hooks/useBossDashboard.ts` — 13 TanStack Query hooks (`useBossSummary`, `useBossRevenue`, `useBossDebt`, …, `useBossProduction`, `useBossExportMarket`) with `staleTime: 60_000` (feat(frontend))
+- Period switcher (Şu gün / Hepde / Aý / Möwsüm / 5 ýyl) URL-backed via `useSearchParams` (feat(frontend))
+- Drill-down navigation on every chart click → existing list pages with filter params (feat(frontend))
+- Excel + PDF download tiles wired to backend export endpoints (feat(frontend))
+- Login redirect: `boss` role lands on `/boss/dashboard` instead of `/` (feat(frontend))
+- Sidebar entry "Boss Dashboard" gated by `analytics.boss`; route-to-page mapping added in `utils/permissions.ts` (feat(frontend))
+- `IconChartPie` icon used for the new sidebar entry (feat(frontend))
+- i18n: `roles.boss`, `nav.boss_dashboard`, plus 84-key `boss_dashboard.*` namespace in tk/ru/en (feat(frontend))
+- Obsidian docs: `docs/obsidian/roles/boss.md`, `docs/obsidian/screens/boss-dashboard.md`; `roles-matrix.md` extended with the `boss` column; `00-index.md` linked (docs)
+- ECharts dependencies: `echarts`, `echarts-for-react` (chore(frontend))
 - Kaka Findings #1 + #2 — two-phase shipment creation with DRAFT status (step 0) and multi-block composer (feat(p3))
 - `ShipmentStatusType` `draft` row seeded via data migration `0017_shipment_draft_status_seed.py`; `draft → yuklenme` edge added to `TRANSITIONS` in `services.py` (feat(p3))
 - `ShipmentCreateSerializer` accepts `is_draft` + `block_sources[]`; new `_create_draft_shipment()` path creates draft + `ShipmentBlockSource` rows in one transaction (feat(p3))

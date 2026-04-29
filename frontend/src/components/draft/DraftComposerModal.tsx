@@ -8,6 +8,7 @@ import {
   Alert,
   Divider,
   Space,
+  Tag,
   Typography,
 } from 'antd';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
@@ -15,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import dayjs from 'dayjs';
 import { BlockSelect } from '@/components/BlockSelect';
+import { OfficialCodeEditor } from '@/components/draft/OfficialCodeEditor';
 import { useCreateDraft } from '@/hooks/useDrafts';
 import { useGreenhouseBlocks } from '@/hooks/useAdmin';
 import type { IShipmentDraft } from '@/types';
@@ -91,6 +93,7 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
 
   const [rows, setRows] = useState<IComposerRow[]>([makeDefaultRow()]);
   const [cargoCode, setCargoCode] = useState<string>(autoCargo);
+  const [officialCode, setOfficialCode] = useState<string>('');
   const [notes, setNotes] = useState('');
 
   const totalKg = useMemo(() => rows.reduce((s, r) => s + r.weight_kg, 0), [rows]);
@@ -144,6 +147,7 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
           weight_kg: r.weight_kg,
         })),
         notes: notes.trim() || undefined,
+        official_export_code: officialCode.trim() || undefined,
       },
       {
         onSuccess: (draft) => {
@@ -160,6 +164,7 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
   function handleReset() {
     setRows([makeDefaultRow()]);
     setCargoCode(autoCargo());
+    setOfficialCode('');
     setNotes('');
   }
 
@@ -192,38 +197,51 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
         </Button>,
       ]}
     >
-      {/* Cargo code + target weight */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
-        <Form.Item label={t('draft.composer_cargo_code')} style={{ margin: 0 }}>
-          <Input
-            value={cargoCode}
-            onChange={(e) => setCargoCode(e.target.value)}
-            placeholder="17AP202/26"
-            style={{ fontFamily: 'monospace' }}
-          />
-        </Form.Item>
-        <Form.Item label={t('draft.composer_target')} style={{ margin: 0 }}>
-          <div
-            style={{
-              padding: '4px 11px',
-              border: '1px solid #d9d9d9',
-              borderRadius: 6,
-              background: '#fafafa',
-              fontFamily: 'monospace',
-              fontSize: 13,
-            }}
-          >
-            {TARGET_KG.toLocaleString('ru-RU')} kg
-          </div>
-        </Form.Item>
-      </div>
-
+      {/* Official export code + platform ID */}
       <Alert
         type="info"
         showIcon
-        message={t('draft.composer_info')}
-        style={{ marginBottom: 10 }}
+        message={t('official_code.info_banner')}
+        style={{ marginBottom: 12 }}
       />
+
+      <div style={{ marginBottom: 14 }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            marginBottom: 8,
+          }}
+        >
+          <Typography.Text strong>{t('official_code.title')}</Typography.Text>
+          <Tag color="blue" style={{ fontFamily: 'monospace' }}>
+            {t('official_code.platform_id_label')}: {cargoCode}
+          </Tag>
+        </div>
+        <OfficialCodeEditor
+          value={officialCode}
+          onChange={setOfficialCode}
+          platformId={cargoCode}
+        />
+      </div>
+
+      {/* Target weight info */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          marginBottom: 10,
+        }}
+      >
+        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+          {t('draft.composer_target')}:
+        </Typography.Text>
+        <span style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 600 }}>
+          {TARGET_KG.toLocaleString('ru-RU')} kg
+        </span>
+      </div>
 
       {/* Block rows table */}
       <div style={{ border: '1px solid #f0f0f0', borderRadius: 8, overflow: 'hidden' }}>

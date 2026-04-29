@@ -10,6 +10,10 @@ const MOCK_DEFAULTS = {
   driver_id: null,
   price_per_kg: null,
   total_amount_usd: null,
+  official_export_code: null,
+  previous_platform_id: null,
+  harvest_age_days: 0,
+  freshness: 'today' as const,
 } as const;
 
 export const MOCK_SHIPMENTS: IShipmentListItem[] = [

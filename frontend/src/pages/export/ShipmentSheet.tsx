@@ -1,14 +1,60 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Spin } from 'antd';
+import { useSearchParams } from 'react-router-dom';
 import { useShipmentSheet } from '@/hooks/useShipmentSheet';
 import { useSheetStore } from '@/stores/sheetStore';
 import { SheetToolbar } from '@/components/sheet/SheetToolbar';
 import { SheetGrid } from '@/components/sheet/SheetGrid';
+import { CommentsDrawer } from '@/components/sheet/CommentsDrawer';
 import '@/components/sheet/SheetStyles.css';
 
 export default function ShipmentSheet() {
-  const { data: shipments, isLoading } = useShipmentSheet();
-  const { searchText, showGapyOnly } = useSheetStore();
+  const { data, isLoading } = useShipmentSheet();
+  const shipments = data?.shipments;
+  const commentCounts = data?.comment_counts ?? {};
+  const taskCounts = data?.task_counts ?? {};
+
+  const {
+    searchText,
+    showGapyOnly,
+    commentsDrawerOpen,
+    setCommentsDrawerOpen,
+    setCommentsShipmentId,
+    setCommentsFilter,
+    setActiveCell,
+    setPendingHighlightCommentId,
+    openCommentsForCell,
+  } = useSheetStore();
+
+  const [searchParams] = useSearchParams();
+
+  // Deep-link: ?shipment=N&row=fieldKey&comment=N
+  useEffect(() => {
+    const shipmentParam = searchParams.get('shipment');
+    const rowParam = searchParams.get('row');
+    const commentParam = searchParams.get('comment');
+
+    if (shipmentParam) {
+      const shipmentId = parseInt(shipmentParam, 10);
+      if (!isNaN(shipmentId)) {
+        if (rowParam) {
+          setActiveCell({ shipmentId, rowKey: rowParam });
+          openCommentsForCell(shipmentId, rowParam);
+        } else {
+          setCommentsShipmentId(shipmentId);
+          setCommentsDrawerOpen(true);
+          setCommentsFilter({});
+        }
+        if (commentParam) {
+          const commentId = parseInt(commentParam, 10);
+          if (!isNaN(commentId)) {
+            setPendingHighlightCommentId(commentId);
+          }
+        }
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run once on mount
 
   const filtered = useMemo(() => {
     if (!shipments) return [];
@@ -41,9 +87,13 @@ export default function ShipmentSheet() {
   }
 
   return (
-    <div className="sheet-page">
-      <SheetToolbar shipmentCount={filtered.length} />
-      <SheetGrid shipments={filtered} />
+    <div className="sheet-page" style={{ position: 'relative' }}>
+      <SheetToolbar shipments={filtered} taskCounts={taskCounts} />
+      <SheetGrid shipments={filtered} commentCounts={commentCounts} taskCounts={taskCounts} />
+      <CommentsDrawer
+        open={commentsDrawerOpen}
+        onClose={() => setCommentsDrawerOpen(false)}
+      />
     </div>
   );
 }

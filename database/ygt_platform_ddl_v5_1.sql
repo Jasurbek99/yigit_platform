@@ -322,21 +322,35 @@ CREATE TABLE export.shipment_block_sources (
     CONSTRAINT uq_blocksource_shipment_block UNIQUE (shipment_id, block_id)
 );
 
--- v5.1: Comments system (replaces R15 for freeform notes)
+-- v5.1 + comment-cells-tasks: Comments system with cell anchors and task assignment
 CREATE TABLE export.shipment_comments (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     shipment_id BIGINT NOT NULL REFERENCES export.shipments(id),
     user_id BIGINT NOT NULL REFERENCES sys_users(id),
-    content NVARCHAR(2000) NOT NULL,
-    mentions NVARCHAR(500),             -- comma-separated user IDs mentioned with @
-    parent_comment_id BIGINT REFERENCES export.shipment_comments(id),  -- for threaded replies
-    is_system BIT DEFAULT 0,            -- TRUE for auto-generated comments (status changes, etc.)
+    content NVARCHAR(2000) COLLATE Cyrillic_General_CI_AS NOT NULL,
+    -- Cell anchor: NULL = shipment-level comment; value = fieldKey from sheetRowConfig.ts
+    field_key NVARCHAR(64),
+    mentions NVARCHAR(500),             -- comma-separated user IDs for @user mentions
+    role_mentions NVARCHAR(500) NOT NULL DEFAULT '',  -- comma-separated role codes for @role mentions
+    parent_comment_id BIGINT REFERENCES export.shipment_comments(id),
+    is_system BIT NOT NULL DEFAULT 0,
+    -- Task fields (assignee set = this is a task)
+    assignee_id BIGINT REFERENCES sys_users(id),
+    is_done BIT NOT NULL DEFAULT 0,
+    done_at DATETIMEOFFSET,
+    done_by_id BIGINT REFERENCES sys_users(id),
+    -- Soft-delete (threads stay coherent)
+    is_deleted BIT NOT NULL DEFAULT 0,
     created_at DATETIMEOFFSET NOT NULL DEFAULT SYSDATETIMEOFFSET(),
     updated_at DATETIMEOFFSET
 );
 
 CREATE INDEX ix_comments_shipment ON export.shipment_comments(shipment_id, created_at);
 CREATE INDEX ix_comments_user ON export.shipment_comments(user_id);
+-- Per-cell sidebar filter
+CREATE INDEX ix_comments_shipment_field ON export.shipment_comments(shipment_id, field_key);
+-- "My tasks" query
+CREATE INDEX ix_comments_assignee_open ON export.shipment_comments(assignee_id, is_done);
 
 CREATE TABLE export.sales_reports (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
@@ -543,6 +557,20 @@ CREATE TABLE export.finansist_advance_shipments (
     shipment_id BIGINT NOT NULL REFERENCES export.shipments(id),
     allocated_amount DECIMAL(12,2),
     CONSTRAINT uq_advance_shipment UNIQUE (advance_id, shipment_id)
+);
+
+-- Admin-configurable lookup table feeding ShipmentFirmSplit.weight_kg via
+-- get_default_truck_weight(N). Values are the OFFICIAL kg per firm written
+-- on export documents (capped at 18,100 per truck) — not the real truck
+-- weight. See ADR-016. Director CRUD; export_manager view-only. Seed:
+-- (1, 18100), (2, 9000), (3, 6000) via migration 0023; collation fix in 0024.
+CREATE TABLE export.truck_split_defaults (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    num_firms SMALLINT NOT NULL UNIQUE,
+    kg_per_firm DECIMAL(10,2) NOT NULL,
+    notes NVARCHAR(200) COLLATE Cyrillic_General_CI_AS,
+    updated_at DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET(),
+    updated_by_id BIGINT REFERENCES core.users(id)
 );
 
 

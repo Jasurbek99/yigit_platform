@@ -65,9 +65,9 @@ the complete value chain.
            missing** --- trucks     accountability for sales  
            sold but no report filed reps                      
 
-  4        **\$10K rule** ---       35.6% invoices \$5-8K     P4 Contracts
+  4        35.6% invoices \$5-8K     P4 Contracts
            bimodal distribution     (cash), 60.7% \$15-20K    
-           proves systematic cash   (bank), 0% near \$10K     
+           proves systematic cash   (bank), 0% near      
            optimization                                       
 
   5        **24 export firms** with 2 CMR documents per split P4 Contracts
@@ -105,7 +105,7 @@ most data available).
 +-------------+-------------+-------------+-------------+-------------+
 | Ekish, Ideg | 2,014       | 983         | 28          | Logo Tiger  |
 | Dökün,      | trucks      | shipments   | contracts   | 1C, Kredit  |
-| Hasyl 15    | Süriji, GPS | 13 steps 9  | \$10K rule  | Dashboard   |
+| Hasyl 15    | Süriji, GPS | 13 steps 9  |   | Dashboard   |
 | blok        | Navixy      | roles       | 8 doc types |             |
 +-------------+-------------+-------------+-------------+-------------+
 
@@ -275,7 +275,6 @@ operational roles** using phone calls, WhatsApp, and Excel.
                                                                            season**
   ------------ --------------- ------------ ----------------- ------------ -------------
 
-**2.4.2 The \$10,000 Rule --- Mathematical Proof**
 
 Analysis of 461 invoices reveals a **bimodal distribution** that proves
 systematic financial engineering:
@@ -288,23 +287,23 @@ systematic financial engineering:
 
   **\$5,000 --- **162**        **35.6%**   **SPLIT trucks (2    **CASH --- flexible
   \$8,000**                                firms, each          money**
-                                           \<\$10K)**           
+                                           )**           
 
   \$8,000 ---   3              0.7%        Near threshold       Cash (risky)
   \$9,000                                                       
 
   **\$9,000 --- **0**          **0.0%**    **DEAD ZONE ---      **N/A**
   \$12,000**                               nobody goes near     
-                                           \$10K**              
+                                           **              
 
   **\$15,000    **276**        **60.7%**   **FULL trucks (1     **BANK → credit
-  ---                                      firm, \>\$10K)**     repayment**
+  ---                                      firm, )**     repayment**
   \$20,000**                                                    
 
   \$20,000+     10             2.2%        Large orders         Bank
   ------------- -------------- ----------- -------------------- --------------------
 
-**Platform action:** Show real-time \$10K warning when entering firm
+**Platform action:** Show real-time  warning when entering firm
 split. Calculate from weight × price. Decision remains manual
 (Gadam/Agamyrat).
 
@@ -366,7 +365,7 @@ their data, and the entire value chain is connected in real-time.
   availability**        managers                 per block
 
   **Export decision**   Phone discussion: which  System shows: available
-                        firm, which country      quota, \$10K calculator,
+                        firm, which country      quota,  calculator,
                                                  firm suggestions
 
   **Document            Sirin fills 4-8 Excel    One click: auto-generate
@@ -392,8 +391,8 @@ their data, and the entire value chain is connected in real-time.
                                                  per-firm progress bars,
                                                  alerts at 95%
 
-  **\$10K compliance**  Manual calculation by    Automatic: warning when
-                        Gadam                    firm share exceeds \$10K
+  ** compliance**  Manual calculation by    Automatic: warning when
+                        Gadam                    firm share exceeds 
                                                  threshold
 
   **Outstanding debt**  Nobody tracks            Dashboard: \$8.3M
@@ -712,7 +711,7 @@ report from Arap/Aganazar.
 
 Dashboard (5 stats + 4 alerts) · Shipment List (983 rows, 6 filters, 3
 views) · Shipment Detail (4 tabs, 13-step timeline) · New Shipment
-(multi-role form + \$10K calc) · Tracking Board (Kanban 4 columns) ·
+(multi-role form +  calc) · Tracking Board (Kanban 4 columns) ·
 Customers (111 buyers) · Quota Dashboard (1:10 formula visual) · Weekly
 Planning (15×6 grid) · Finance · Contracts · Documents · Reports ·
 Settings
@@ -720,7 +719,7 @@ Settings
 **4.4 PROJECT 4: Contracts, Sales & Documents**
 
   -----------------------------------------------------------------------
-  **28 Contracts → 461 Invoices → \$10K Rule → 8 Doc Types →
+  **28 Contracts → 461 Invoices →  → 8 Doc Types →
   Auto-Generate**
 
   -----------------------------------------------------------------------
@@ -728,12 +727,12 @@ Settings
   ------------------ ----------------------------------------------------
   **Parameter**      **Value**
 
-  **Scope**          Contract registry, invoice tracking, \$10K warning
+  **Scope**          Contract registry, invoice tracking,  warning
                      system, 8 document template auto-generation,
                      PasportSdelki (trade passport), debt monitoring
 
   **Key output**     VISIBILITY into \$8.3M outstanding debt +
-                     AUTO-GENERATION of 8 document types + \$10K
+                     AUTO-GENERATION of 8 document types + 
                      compliance
 
   **Current state**  23-sheet Excel with contracts, invoices, templates.
@@ -862,7 +861,7 @@ resolution, and incremental delivery.
 
   α2          **3--4**     **Contracts Core**  P4            2 dev      CRITICAL
                            --- 28 contracts,                            
-                           461 invoices, \$10K                          
+                           461 invoices,                           
                            warning, debt                                
                            dashboard                                    
 
@@ -941,7 +940,7 @@ point (main Excel); (5) 9 roles interact daily = highest usage.
 
 **P4 Contracts second** --- (1) \$8.3M outstanding debt needs visibility
 NOW; (2) Document auto-generation saves Sirin/Aynur 2-3 hours daily; (3)
-\$10K warning prevents costly mistakes; (4) Builds directly on P3
+ warning prevents costly mistakes; (4) Builds directly on P3
 shipment data.
 
 **P1 Greenhouse later** --- (1) 10 discovery questions unanswered; (2)
@@ -1175,7 +1174,7 @@ The following artifacts are ready and available:
                                       2,256 lines                  
 
   **YGT_Business_Process_Map.html**   Visual BPM: roles, flows,    ✅ Complete
-                                      \$10K rule, money flow, 925  
+                                      , money flow, 925  
                                       lines                        
 
   **YGT_Discovery_Guide.html**        Interview kit for 9 roles +  ✅ Complete

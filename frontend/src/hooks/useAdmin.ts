@@ -17,6 +17,8 @@ import type {
   IBorderPoint,
   IShipmentStatusType,
   IShipmentOptionType,
+  ICrateType,
+  ITruckSplitDefault,
   UserRole,
 } from '@/types';
 
@@ -910,6 +912,85 @@ export function useDeleteShipmentOption(options: MutationOptions = {}) {
   return useMutation({
     mutationFn: (id: number) => api.delete(`/core/shipment-options/${id}/`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['core-shipment-options'] }); options.onSuccess?.(); },
+    onError: options.onError,
+  });
+}
+
+// ─── Crate Types (Phase 2 — Pallet Manifest) ────────────────────────────
+
+export function useCrateTypes() {
+  return useQuery({
+    queryKey: ['core-crate-types'],
+    queryFn: async (): Promise<ICrateType[]> => {
+      if (USE_MOCK) {
+        const { MOCK_CRATE_TYPES } = await import('@/mock/pallets');
+        return MOCK_CRATE_TYPES;
+      }
+      const { data } = await api.get<IApiListResponse<ICrateType> | ICrateType[]>(
+        '/core/crate-types/',
+      );
+      return Array.isArray(data) ? data : data.results;
+    },
+    staleTime: 300_000,
+  });
+}
+
+// ─── Truck Split Defaults (Gap 7 — official kg per firm count) ──────────
+
+export function useTruckSplits() {
+  return useQuery({
+    queryKey: ['admin-truck-splits'],
+    queryFn: async (): Promise<ITruckSplitDefault[]> => {
+      if (USE_MOCK) return [];
+      const { data } = await api.get<IApiListResponse<ITruckSplitDefault> | ITruckSplitDefault[]>(
+        '/export/admin/truck-splits/',
+      );
+      return Array.isArray(data) ? data : data.results;
+    },
+    staleTime: 60_000,
+  });
+}
+
+type TruckSplitPayload = {
+  num_firms: number;
+  kg_per_firm: string;
+  notes?: string | null;
+};
+
+export function useCreateTruckSplit(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: TruckSplitPayload) =>
+      api.post<ITruckSplitDefault>('/export/admin/truck-splits/', payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-truck-splits'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+export function useUpdateTruckSplit(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...payload }: { id: number } & Partial<TruckSplitPayload>) =>
+      api.patch<ITruckSplitDefault>(`/export/admin/truck-splits/${id}/`, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-truck-splits'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+export function useDeleteTruckSplit(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => api.delete(`/export/admin/truck-splits/${id}/`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-truck-splits'] });
+      options.onSuccess?.();
+    },
     onError: options.onError,
   });
 }
