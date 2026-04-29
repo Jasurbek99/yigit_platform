@@ -25,10 +25,13 @@ import { TransitionButton } from '@/components/TransitionButton';
 import { CommentComposer } from '@/components/CommentComposer';
 import { FreshnessPill } from '@/components/FreshnessPill';
 import { VarietySelect } from '@/components/VarietySelect';
+import { ShipmentEditDrawer } from '@/components/ShipmentEditDrawer';
 import { useShipmentDetail } from '@/hooks/useShipmentDetail';
 import { useAuth } from '@/hooks/useAuth';
 import { useOverrideVarieties } from '@/hooks/usePallets';
-import { canDo } from '@/utils/permissions';
+import { canDo, canEditField } from '@/utils/permissions';
+import { EDIT_FIELD_GROUPS } from '@/constants/shipmentEditConfig';
+import type { IEditFieldGroup } from '@/constants/shipmentEditConfig';
 import api from '@/services/api';
 import type {
   IFirmSplit,
@@ -82,6 +85,8 @@ export default function ShipmentDetail() {
   const [overrideIds, setOverrideIds] = useState<number[]>([]);
   const overrideMutation = useOverrideVarieties(Number(id));
 
+  const [editGroupKey, setEditGroupKey] = useState<IEditFieldGroup['key'] | 'all' | null>(null);
+
   if (isLoading) {
     return (
       <div style={{ padding: 24 }}>
@@ -96,6 +101,27 @@ export default function ShipmentDetail() {
 
   const canEditQuality = canDo(user, 'shipment', 'edit');
   const canEditSalesReport = canDo(user, 'shipment', 'edit');
+
+  function canEditGroup(groupKey: IEditFieldGroup['key']): boolean {
+    const group = EDIT_FIELD_GROUPS.find((g) => g.key === groupKey);
+    if (!group) return false;
+    return group.fields.some((f) => canEditField(user, 'shipment', f.key));
+  }
+  const canEditAny = EDIT_FIELD_GROUPS.some((g) => canEditGroup(g.key));
+
+  function editButton(groupKey: IEditFieldGroup['key']) {
+    if (!canEditGroup(groupKey)) return null;
+    return (
+      <Button
+        size="small"
+        type="text"
+        icon={<EditOutlined />}
+        onClick={() => setEditGroupKey(groupKey)}
+      >
+        {t('common.edit')}
+      </Button>
+    );
+  }
 
   const canOverrideVariety =
     user?.role === 'warehouse_chief' ||
@@ -225,7 +251,10 @@ export default function ShipmentDetail() {
       children: (
         <div>
           {/* Section 1: Logistika */}
-          <SectionBlock title={`📋 ${t('shipment_detail.section_logistics')}`}>
+          <SectionBlock
+            title={`📋 ${t('shipment_detail.section_logistics')}`}
+            actions={editButton('logistics')}
+          >
             <InfoRow label={t('shipment_detail.customer')} value={shipment.customer_name ?? '—'} />
             <InfoRow label={t('shipment_detail.firm_splits')} value={firmDisplay} />
             <InfoRow label={t('shipment_detail.import_firm')} value="—" />
@@ -234,7 +263,10 @@ export default function ShipmentDetail() {
           </SectionBlock>
 
           {/* Section 2: Transport */}
-          <SectionBlock title={`🚛 ${t('shipment_detail.section_transport')}`}>
+          <SectionBlock
+            title={`🚛 ${t('shipment_detail.section_transport')}`}
+            actions={editButton('transport')}
+          >
             <InfoRow label={t('shipment_detail.vehicle')} value="—" />
             <InfoRow label={t('shipment_detail.driver')} value="—" />
             <InfoRow label={t('shipment_detail.transport_firm')} value="—" />
@@ -243,7 +275,10 @@ export default function ShipmentDetail() {
           </SectionBlock>
 
           {/* Section 3: Haryt */}
-          <SectionBlock title={`🌿 ${t('shipment_detail.section_goods')}`}>
+          <SectionBlock
+            title={`🌿 ${t('shipment_detail.section_goods')}`}
+            actions={editButton('goods')}
+          >
             <InfoRow label={t('shipment_detail.block_sources')} value={blockDisplay} />
 
             {/* Variety (R17) sub-section */}
@@ -389,6 +424,7 @@ export default function ShipmentDetail() {
                 rowKey="export_firm_id"
                 size="small"
                 pagination={false}
+                scroll={{ x: 'max-content' }}
               />
             </div>
           )}
@@ -480,6 +516,14 @@ export default function ShipmentDetail() {
 
   return (
     <div>
+      {/* Per-section / all-fields edit drawer */}
+      <ShipmentEditDrawer
+        open={editGroupKey !== null}
+        onClose={() => setEditGroupKey(null)}
+        shipment={shipment}
+        groupKey={editGroupKey === 'all' ? undefined : editGroupKey ?? undefined}
+      />
+
       {/* Override varieties modal */}
       <Modal
         open={overrideOpen}
@@ -512,7 +556,13 @@ export default function ShipmentDetail() {
           <StatusTag statusDisplay={shipment.status_display} />
           <FreshnessPill freshness={shipment.freshness} ageDays={shipment.harvest_age_days} />
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-            <Button icon={<EditOutlined />} disabled>{t('common.edit')}</Button>
+            <Button
+              icon={<EditOutlined />}
+              disabled={!canEditAny}
+              onClick={() => setEditGroupKey('all')}
+            >
+              {t('common.edit')}
+            </Button>
             {(user?.role === 'weight_master' || user?.role === 'warehouse_chief' || user?.role === 'export_manager' || user?.is_superuser) && (
               <Link to={`/shipments/${shipment.id}/manifest`}>
                 <Button>{t('pallet.title')}</Button>

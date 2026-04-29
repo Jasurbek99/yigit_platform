@@ -10,6 +10,11 @@ interface IPatchVariables {
   value: unknown;
 }
 
+interface IPatchMultiVariables {
+  id: number;
+  fields: Record<string, unknown>;
+}
+
 interface IPatchContext {
   previousSheet: IShipmentSheetItem[] | undefined;
   previousLists: [readonly unknown[], IApiListResponse<IShipmentListItem> | undefined][];
@@ -17,6 +22,46 @@ interface IPatchContext {
 
 const isListQueryKey = (key: readonly unknown[]): boolean =>
   key[0] === 'shipments' && typeof key[1] === 'object' && key[1] !== null;
+
+function applyOptimistic(
+  queryClient: ReturnType<typeof useQueryClient>,
+  id: number,
+  fields: Record<string, unknown>,
+): IPatchContext {
+  const previousSheet = queryClient.getQueryData<IShipmentSheetItem[]>(['shipments', 'sheet']);
+  queryClient.setQueryData<IShipmentSheetItem[]>(['shipments', 'sheet'], (old) =>
+    old?.map((s) => (s.id === id ? { ...s, ...fields } : s)),
+  );
+
+  const previousLists = queryClient.getQueriesData<IApiListResponse<IShipmentListItem>>({
+    predicate: (q) => isListQueryKey(q.queryKey),
+  });
+  queryClient.setQueriesData<IApiListResponse<IShipmentListItem>>(
+    { predicate: (q) => isListQueryKey(q.queryKey) },
+    (old) => {
+      if (!old) return old;
+      return {
+        ...old,
+        results: old.results.map((s) => (s.id === id ? { ...s, ...fields } : s)),
+      };
+    },
+  );
+
+  return { previousSheet, previousLists };
+}
+
+function rollback(
+  queryClient: ReturnType<typeof useQueryClient>,
+  context: IPatchContext | undefined,
+): void {
+  if (!context) return;
+  if (context.previousSheet !== undefined) {
+    queryClient.setQueryData(['shipments', 'sheet'], context.previousSheet);
+  }
+  context.previousLists.forEach(([key, data]) => {
+    queryClient.setQueryData(key, data);
+  });
+}
 
 export function useShipmentPatch() {
   const queryClient = useQueryClient();
@@ -29,39 +74,42 @@ export function useShipmentPatch() {
     },
     onMutate: async ({ id, field, value }) => {
       await queryClient.cancelQueries({ queryKey: ['shipments'] });
-
-      const previousSheet = queryClient.getQueryData<IShipmentSheetItem[]>(['shipments', 'sheet']);
-      queryClient.setQueryData<IShipmentSheetItem[]>(['shipments', 'sheet'], (old) =>
-        old?.map((s) => (s.id === id ? { ...s, [field]: value } : s)),
-      );
-
-      const previousLists = queryClient.getQueriesData<IApiListResponse<IShipmentListItem>>({
-        predicate: (q) => isListQueryKey(q.queryKey),
-      });
-      queryClient.setQueriesData<IApiListResponse<IShipmentListItem>>(
-        { predicate: (q) => isListQueryKey(q.queryKey) },
-        (old) => {
-          if (!old) return old;
-          return {
-            ...old,
-            results: old.results.map((s) => (s.id === id ? { ...s, [field]: value } : s)),
-          };
-        },
-      );
-
-      return { previousSheet, previousLists };
+      return applyOptimistic(queryClient, id, { [field]: value });
     },
     onError: (_err, _vars, context) => {
-      if (context?.previousSheet !== undefined) {
-        queryClient.setQueryData(['shipments', 'sheet'], context.previousSheet);
-      }
-      context?.previousLists.forEach(([key, data]) => {
-        queryClient.setQueryData(key, data);
-      });
+      rollback(queryClient, context);
       message.error(t('sheet.save_error'));
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['shipments'] });
+    },
+  });
+}
+
+/**
+ * Multi-field PATCH on a single shipment. One request, one optimistic update
+ * keyed by id. Used by the web-management Edit Drawer (Detail and List rows).
+ */
+export function useShipmentPatchMulti() {
+  const queryClient = useQueryClient();
+  const { t } = useTranslation();
+
+  return useMutation<unknown, unknown, IPatchMultiVariables, IPatchContext>({
+    mutationFn: async ({ id, fields }) => {
+      const { data } = await api.patch(`/export/shipments/${id}/`, fields);
+      return data;
+    },
+    onMutate: async ({ id, fields }) => {
+      await queryClient.cancelQueries({ queryKey: ['shipments'] });
+      return applyOptimistic(queryClient, id, fields);
+    },
+    onError: (_err, _vars, context) => {
+      rollback(queryClient, context);
+      message.error(t('shipment_edit_drawer.save_error'));
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['shipments'] });
+      queryClient.invalidateQueries({ queryKey: ['shipment'] });
     },
   });
 }

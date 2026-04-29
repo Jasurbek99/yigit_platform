@@ -558,8 +558,10 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
             'box_count',
             'pallet_count',
             'packaging_kg',
+            'rejected_weight_kg',
             'vehicle_condition',
             'vehicle_condition_note',
+            'vehicle_responsible',
             'route_note',
             'price_per_kg',
             'total_amount_usd',
@@ -583,6 +585,15 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
             'block_sources',
             'status_log',
             'comments',
+            # FK ids exposed for the web-management Edit drawer (frontend dropdowns).
+            # Names are already on ShipmentListSerializer; ids let the drawer pre-select.
+            'country',
+            'customer',
+            'city',
+            'variety',
+            'border_point',
+            'import_firm',
+            'loading_location',
         ]
 
 

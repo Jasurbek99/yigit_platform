@@ -53,9 +53,10 @@ export function InfoRow({ label, value, bold, mono }: IInfoRowProps) {
 interface ISectionBlockProps {
   title: string;
   children: React.ReactNode;
+  actions?: React.ReactNode;
 }
 
-export function SectionBlock({ title, children }: ISectionBlockProps) {
+export function SectionBlock({ title, children, actions }: ISectionBlockProps) {
   return (
     <div style={{ marginBottom: 24 }}>
       <div style={{
@@ -64,8 +65,13 @@ export function SectionBlock({ title, children }: ISectionBlockProps) {
         marginBottom: 12,
         paddingBottom: 8,
         borderBottom: '1px solid #f0f0f0',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 8,
       }}>
-        {title}
+        <span>{title}</span>
+        {actions && <span>{actions}</span>}
       </div>
       {children}
     </div>

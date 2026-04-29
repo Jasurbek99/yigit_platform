@@ -829,6 +829,16 @@ export interface IShipmentDetail extends IShipmentListItem {
   variety_confidence: 'high' | 'low' | 'none';
   variety_confidence_display: string;
   varieties_dominant: Array<{ id: number; code: string | null; name: string; is_experimental: boolean }>;
+  rejected_weight_kg: number | null;
+  vehicle_responsible: string | null;
+  // FK ids — exposed for the Edit drawer's dropdowns. Names are inherited from IShipmentListItem.
+  country: number | null;
+  customer: number | null;
+  city: number | null;
+  variety: number | null;
+  border_point: number | null;
+  import_firm: number | null;
+  loading_location: number | null;
 }
 
 // ─── Draft Shipments ──────────────────────────────────────────────────────

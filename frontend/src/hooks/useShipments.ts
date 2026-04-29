@@ -10,10 +10,16 @@ export interface IShipmentFilters {
   page_size?: number;
   status?: number;
   country?: number;
+  customer?: number;
+  export_firm?: number;
   phase?: string;
   my_work?: boolean;
   pending_my_fields?: boolean;
   search?: string;
+  /** Inclusive lower bound, ISO date YYYY-MM-DD. */
+  date_after?: string;
+  /** Inclusive upper bound, ISO date YYYY-MM-DD. */
+  date_before?: string;
 }
 
 export function useShipments(filters: IShipmentFilters = {}) {
@@ -27,10 +33,14 @@ export function useShipments(filters: IShipmentFilters = {}) {
       if (filters.page_size) params.set('page_size', String(filters.page_size));
       if (filters.status) params.set('status', String(filters.status));
       if (filters.country) params.set('country', String(filters.country));
+      if (filters.customer) params.set('customer', String(filters.customer));
+      if (filters.export_firm) params.set('export_firm', String(filters.export_firm));
       if (filters.phase) params.set('phase', filters.phase);
       if (filters.my_work) params.set('my_work', 'true');
       if (filters.pending_my_fields) params.set('pending_my_fields', 'true');
       if (filters.search) params.set('search', filters.search);
+      if (filters.date_after) params.set('date_after', filters.date_after);
+      if (filters.date_before) params.set('date_before', filters.date_before);
 
       const { data } = await api.get<IApiListResponse<IShipmentListItem>>(
         `/export/shipments/?${params.toString()}`,

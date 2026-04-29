@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Button, Flex, Input, Select, Segmented, Typography } from 'antd';
-import { PlusOutlined, DownloadOutlined } from '@ant-design/icons';
+import { Button, Flex, Input, Select, Segmented, Tooltip, Typography } from 'antd';
+import { PlusOutlined, DownloadOutlined, EditOutlined } from '@ant-design/icons';
 import { ProTable } from '@ant-design/pro-components';
 import type { ProColumns } from '@ant-design/pro-components';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +10,8 @@ import dayjs from 'dayjs';
 import * as XLSX from 'xlsx';
 import { StatusTag } from '@/components/StatusTag';
 import { ShipmentCreateModal } from '@/components/ShipmentCreateModal';
+import { ShipmentEditDrawerForId } from '@/components/ShipmentEditDrawerForId';
+import { ShipmentBulkTransitionModal } from '@/components/ShipmentBulkTransitionModal';
 import { useShipments } from '@/hooks/useShipments';
 import { useAuth } from '@/hooks/useAuth';
 import { canDo, canEditField } from '@/utils/permissions';
@@ -66,6 +68,9 @@ export default function ShipmentList() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [editShipmentId, setEditShipmentId] = useState<number | null>(null);
+  const [selectedRowKeys, setSelectedRowKeys] = useState<number[]>([]);
+  const [bulkTransitionOpen, setBulkTransitionOpen] = useState(false);
 
   const viewMode: ViewMode = searchParams.get('view') === 'my_work' ? 'my_work' : 'all';
   const page = Number(searchParams.get('page')) || 1;
@@ -92,8 +97,7 @@ export default function ShipmentList() {
 
   const canCreate = canDo(user, 'shipment', 'create');
   const canEditWeightNet = canEditField(user, 'shipment', 'weight_net');
-  const canEditDeparted = canEditField(user, 'shipment', 'departed_at');
-  const canEditArrived = canEditField(user, 'shipment', 'arrived_at');
+  const canEditAnyField = canDo(user, 'shipment', 'edit');
 
   const { data, isLoading } = useShipments({
     page,
@@ -173,48 +177,49 @@ export default function ShipmentList() {
       title: t('shipments.departed'),
       dataIndex: 'departed_at',
       width: 130,
-      render: (_, record) => {
-        const display = record.departed_at ? (
+      render: (_, record) =>
+        record.departed_at ? (
           <span style={{ fontFamily: FONT.mono, color: COLORS.textSecondary, fontSize: 12 }}>
             {dayjs(record.departed_at).format('DD.MM.YY HH:mm')}
           </span>
         ) : (
           <span style={{ color: COLORS.textMuted }}>—</span>
-        );
-        return (
-          <ListEditableCell
-            shipmentId={record.id}
-            fieldKey="departed_at"
-            value={record.departed_at}
-            type="datetime"
-            isEditable={canEditDeparted}
-            display={display}
-          />
-        );
-      },
+        ),
     },
     {
       title: t('shipments.arrived'),
       dataIndex: 'arrived_at',
       width: 130,
       responsive: ['md'],
-      render: (_, record) => {
-        const display = record.arrived_at ? (
+      render: (_, record) =>
+        record.arrived_at ? (
           <span style={{ fontFamily: FONT.mono, color: COLORS.textSecondary, fontSize: 12 }}>
             {dayjs(record.arrived_at).format('DD.MM.YY HH:mm')}
           </span>
         ) : (
           <span style={{ color: COLORS.textMuted }}>—</span>
-        );
+        ),
+    },
+    {
+      title: '',
+      key: '_actions',
+      width: 56,
+      align: 'center',
+      fixed: 'right',
+      render: (_, record) => {
+        if (!canEditAnyField) return null;
         return (
-          <ListEditableCell
-            shipmentId={record.id}
-            fieldKey="arrived_at"
-            value={record.arrived_at}
-            type="datetime"
-            isEditable={canEditArrived}
-            display={display}
-          />
+          <Tooltip title={t('common.edit')}>
+            <Button
+              size="small"
+              type="text"
+              icon={<EditOutlined />}
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditShipmentId(record.id);
+              }}
+            />
+          </Tooltip>
         );
       },
     },
@@ -280,6 +285,41 @@ export default function ShipmentList() {
         </Button>
       </Flex>
 
+      {/* Bulk action bar — only when rows selected */}
+      {selectedRowKeys.length > 0 && (
+        <Flex
+          gap={8}
+          align="center"
+          style={{
+            marginBottom: 12,
+            padding: '8px 12px',
+            background: '#f0f5ff',
+            border: '1px solid #adc6ff',
+            borderRadius: 6,
+          }}
+        >
+          <Text strong style={{ fontSize: 13 }}>
+            {t('shipment_bulk.selected_count', { count: selectedRowKeys.length })}
+          </Text>
+          {canEditAnyField && (
+            <Button
+              size="small"
+              type="primary"
+              onClick={() => setBulkTransitionOpen(true)}
+            >
+              {t('shipment_bulk.transition_btn')}
+            </Button>
+          )}
+          <Button
+            size="small"
+            onClick={() => setSelectedRowKeys([])}
+            style={{ marginLeft: 'auto' }}
+          >
+            {t('shipment_bulk.clear')}
+          </Button>
+        </Flex>
+      )}
+
       <ProTable<IShipmentListItem>
         rowKey="id"
         dataSource={data?.results ?? []}
@@ -287,6 +327,11 @@ export default function ShipmentList() {
         columns={columns}
         search={false}
         options={false}
+        rowSelection={canEditAnyField ? {
+          selectedRowKeys,
+          onChange: (keys) => setSelectedRowKeys(keys as number[]),
+          preserveSelectedRowKeys: true,
+        } : undefined}
         pagination={{
           current: page,
           pageSize,
@@ -311,6 +356,18 @@ export default function ShipmentList() {
         open={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSuccess={handleCreateSuccess}
+      />
+
+      <ShipmentEditDrawerForId
+        shipmentId={editShipmentId}
+        onClose={() => setEditShipmentId(null)}
+      />
+
+      <ShipmentBulkTransitionModal
+        open={bulkTransitionOpen}
+        onClose={() => setBulkTransitionOpen(false)}
+        shipmentIds={selectedRowKeys}
+        onFinished={() => setSelectedRowKeys([])}
       />
     </div>
   );

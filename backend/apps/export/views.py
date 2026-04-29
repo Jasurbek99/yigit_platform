@@ -80,7 +80,7 @@ class ShipmentViewSet(ModelViewSet):
         'variety', 'border_point',
     ).order_by('-date', '-id')
 
-    filterset_fields = ['status', 'country', 'season', 'is_gapy_satys']
+    filterset_fields = ['status', 'country', 'season', 'is_gapy_satys', 'customer']
     search_fields = ['cargo_code']
 
     def get_serializer_class(self):
@@ -99,6 +99,21 @@ class ShipmentViewSet(ModelViewSet):
             qs = qs.filter(status__phase=phase)
         if status_code := self.request.query_params.get('status_code'):
             qs = qs.filter(status__code=status_code)
+        # Inclusive date range on Shipment.date.
+        if date_after := self.request.query_params.get('date_after'):
+            qs = qs.filter(date__gte=date_after)
+        if date_before := self.request.query_params.get('date_before'):
+            qs = qs.filter(date__lte=date_before)
+        # Filter by export firm via firm_splits junction. Use Exists() to avoid
+        # duplicate Shipment rows from the join.
+        if export_firm := self.request.query_params.get('export_firm'):
+            qs = qs.filter(
+                Exists(
+                    ShipmentFirmSplit.objects.filter(
+                        shipment=OuterRef('pk'), export_firm_id=export_firm,
+                    )
+                )
+            )
         # harvest_age_days is computed (not a DB column) but it is monotonic in date:
         # oldest harvest = lowest date = highest age.  Translate to a date sort so
         # MSSQL can use the existing index on shipments.date.

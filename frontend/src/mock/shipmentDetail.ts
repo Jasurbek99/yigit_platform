@@ -93,4 +93,13 @@ export const MOCK_SHIPMENT_DETAIL: IShipmentDetail = {
     kalibrowka_analiz: false,
   },
   sales_report: null,
+  rejected_weight_kg: null,
+  vehicle_responsible: null,
+  country: 1,
+  customer: 1,
+  city: 1,
+  variety: 8,
+  border_point: 1,
+  import_firm: null,
+  loading_location: null,
 };
