@@ -225,6 +225,7 @@ export default function CustomersPage() {
         onRequestError={() => {}}
         pagination={{ pageSize: 50, showSizeChanger: false }}
         size="small"
+        scroll={{ x: 'max-content' }}
         toolbar={{ search: { onSearch: (v) => setSearchText(v), placeholder: t('common.search') } }}
         toolBarRender={() => [
           <Button key="add" type="primary" icon={<PlusOutlined />} onClick={handleCreate}>

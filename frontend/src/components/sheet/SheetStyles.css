@@ -46,20 +46,23 @@
 }
 
 /* ═══ PAGE LAYOUT ═══ */
-/* Force the parent <Content> to give the sheet the full available area —
-   no padding, no extra min-height — so only the inner grid scrolls and the
-   browser window stays put. Header in AppLayout is 56px. */
-.ant-layout-content:has(> .sheet-page) {
+/* Pages that fill the full Content area and own their own scrolling
+   (e.g. ShipmentSheet) opt in via the .page-fullheight-grid class. The rule
+   strips the AppLayout <Content> 24px padding and pins it to the viewport so
+   only the page's inner grid scrolls. Header in AppLayout is 56px. */
+.ant-layout-content:has(> .page-fullheight-grid) {
   padding: 0 !important;
   height: calc(100vh - 56px) !important;
   min-height: 0 !important;
   overflow: hidden !important;
 }
-.sheet-page {
+.page-fullheight-grid {
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0;
+}
+.sheet-page {
   background: var(--bg);
   overflow: hidden;
   font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;

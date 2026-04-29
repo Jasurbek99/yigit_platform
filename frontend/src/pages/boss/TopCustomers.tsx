@@ -92,7 +92,7 @@ export function TopCustomers({ period }: ITopCustomersProps) {
           rowKey={(r) => String(r.customer_id)}
           size="small"
           pagination={false}
-          scroll={{ y: 240 }}
+          scroll={{ x: 'max-content', y: 240 }}
           onRow={(row) => ({
             onClick: row.is_rest
               ? undefined

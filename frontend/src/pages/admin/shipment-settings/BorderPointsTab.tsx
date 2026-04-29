@@ -155,6 +155,7 @@ export default function BorderPointsTab({ canWrite }: IProps) {
         pagination={false}
         size="small"
         bordered
+        scroll={{ x: 'max-content' }}
       />
 
       <Modal

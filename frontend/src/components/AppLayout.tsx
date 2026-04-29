@@ -444,7 +444,19 @@ export default function AppLayout() {
         </Header>
 
         {/* ── Content ─────────────────────────────────────────────────── */}
-        <Content style={{ background: '#f5f5f5', padding: 24, minHeight: 'calc(100vh - 56px)' }}>
+        {/* Content is the scroll boundary: body never scrolls. Wide tables
+            opt into their own horizontal scrollbar via scroll={{x:'max-content'}};
+            full-height grid pages opt out via the .page-fullheight-grid class
+            (see SheetStyles.css). */}
+        <Content
+          style={{
+            background: '#f5f5f5',
+            padding: 24,
+            height: 'calc(100vh - 56px)',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+          }}
+        >
           <Outlet />
         </Content>
       </Layout>

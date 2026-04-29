@@ -208,6 +208,7 @@ export default function OptionListsTab({ canWrite }: IProps) {
         pagination={false}
         size="small"
         bordered
+        scroll={{ x: 'max-content' }}
       />
 
       <Modal

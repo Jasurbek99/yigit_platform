@@ -167,6 +167,7 @@ export function QuotaPerFirmTable({ data, expiredPerFirm = {}, weightUnit }: IPr
       rowKey="export_firm"
       size="small"
       pagination={false}
+      scroll={{ x: 'max-content' }}
       summary={() => summaryRow}
       rowClassName={(row) => (row.is_blocked ? 'quota-row-blocked' : '')}
       onRow={(row) => ({

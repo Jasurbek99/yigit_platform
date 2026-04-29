@@ -129,6 +129,7 @@ export default function ImportFirmsPage() {
         options={false}
         pagination={{ pageSize: 50, showSizeChanger: false }}
         size="small"
+        scroll={{ x: 'max-content' }}
         onRow={(record) => ({ onClick: () => navigate(`/admin/import-firms/${record.id}`) })}
         rowHoverable
         toolBarRender={() =>

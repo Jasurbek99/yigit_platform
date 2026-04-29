@@ -4,6 +4,13 @@ All notable changes to the YGT Platform.
 
 ## [Unreleased]
 
+### Fixed
+- **Page-level double-scroll & hidden horizontal scrollbar across all pages** (fix(frontend))
+  - `AppLayout.tsx` `<Content>` is now the scroll boundary (`height: calc(100vh - 56px)`, `overflowY: auto`, `overflowX: hidden`); browser window/body never scrolls again
+  - Generalized the ShipmentSheet `:has(> .sheet-page)` rule in `SheetStyles.css` to a reusable `.page-fullheight-grid` class for any page that wants to fill the Content area and own its own scrolling
+  - Added `scroll={{ x: 'max-content' }}` to every wide Ant Design `<Table>` / `<ProTable>` so each table has its own horizontal scrollbar at its bottom edge instead of the document bottom — visible immediately when columns overflow. Affected pages: ShipmentList, ShipmentDetail (firm splits), ExportFirms, ImportFirms, Customers, Blocks, BlockDetail, TruckDestinations, BorderPointsTab, TruckSplitsTab, OptionListsTab, StatusesTab, QuotaPerFirmTable, QuotaWeeklyFlow (outer + inner), boss/TopCustomers, boss/RoutePnlTable, boss/FirmRiskMatrix
+  - Boss dashboard tables that already had `scroll={{ y: ... }}` now merge `x: 'max-content'` so both axes work
+
 ### Added
 - **Truck split defaults — admin-configurable official kg-per-firm table** (Gap 7, ADR-016) (feat(p3))
   - New `TruckSplitDefault` model (`backend/apps/export/models/quota.py`) keyed by `num_firms`; migration `0023_truck_split_defaults` seeds (1 → 18,100), (2 → 9,000), (3 → 6,000)

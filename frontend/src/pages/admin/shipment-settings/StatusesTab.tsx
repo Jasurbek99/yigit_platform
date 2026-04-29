@@ -122,6 +122,7 @@ export default function StatusesTab({ canWrite }: IProps) {
         pagination={false}
         size="small"
         bordered
+        scroll={{ x: 'max-content' }}
       />
 
       <Modal

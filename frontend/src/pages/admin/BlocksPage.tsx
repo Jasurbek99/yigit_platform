@@ -237,6 +237,7 @@ export default function BlocksPage() {
         search={false}
         options={false}
         pagination={false}
+        scroll={{ x: 'max-content' }}
         size="small"
         toolBarRender={() => [
           <Button

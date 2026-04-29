@@ -79,7 +79,7 @@ export function RoutePnlTable({ period }: IRoutePnlTableProps) {
             rowKey={(r) => `${r.country_id ?? 'x'}_${r.city_id ?? r.city}`}
             size="small"
             pagination={false}
-            scroll={{ y: 220 }}
+            scroll={{ x: 'max-content', y: 220 }}
             onRow={(row) => ({
               onClick: () => {
                 if (row.country_id == null) return;

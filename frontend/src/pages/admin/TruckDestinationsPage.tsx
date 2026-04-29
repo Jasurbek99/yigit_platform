@@ -154,6 +154,7 @@ export default function TruckDestinationsPage() {
         pagination={false}
         size="small"
         bordered
+        scroll={{ x: 'max-content' }}
       />
 
       <Modal

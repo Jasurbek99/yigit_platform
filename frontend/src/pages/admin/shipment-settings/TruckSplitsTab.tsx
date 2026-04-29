@@ -161,6 +161,7 @@ export default function TruckSplitsTab({ canWrite }: IProps) {
         pagination={false}
         size="small"
         bordered
+        scroll={{ x: 'max-content' }}
       />
 
       <Modal

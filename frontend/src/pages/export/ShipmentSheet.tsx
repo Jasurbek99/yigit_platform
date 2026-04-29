@@ -78,7 +78,7 @@ export default function ShipmentSheet() {
 
   if (isLoading) {
     return (
-      <div className="sheet-page">
+      <div className="sheet-page page-fullheight-grid">
         <div className="sheet-loading">
           <Spin size="large" />
         </div>
@@ -87,7 +87,7 @@ export default function ShipmentSheet() {
   }
 
   return (
-    <div className="sheet-page" style={{ position: 'relative' }}>
+    <div className="sheet-page page-fullheight-grid" style={{ position: 'relative' }}>
       <SheetToolbar shipments={filtered} taskCounts={taskCounts} />
       <SheetGrid shipments={filtered} commentCounts={commentCounts} taskCounts={taskCounts} />
       <CommentsDrawer

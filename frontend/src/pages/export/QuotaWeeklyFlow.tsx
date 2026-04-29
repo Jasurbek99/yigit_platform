@@ -160,6 +160,7 @@ export function QuotaWeeklyFlow({ data, weightUnit }: IProps) {
       rowKey={(row) => `${row.year}-${row.week}`}
       size="small"
       pagination={false}
+      scroll={{ x: 'max-content' }}
       expandable={{
         expandedRowRender: (flow) => (
           <div style={{ padding: '8px 0' }}>
@@ -182,6 +183,7 @@ export function QuotaWeeklyFlow({ data, weightUnit }: IProps) {
                 rowKey="firm_name"
                 size="small"
                 pagination={false}
+                scroll={{ x: 'max-content' }}
                 rowClassName={(row) =>
                   row.sold_kg > 0 && row.got_kg === 0 ? 'quota-row-missing' : ''
                 }

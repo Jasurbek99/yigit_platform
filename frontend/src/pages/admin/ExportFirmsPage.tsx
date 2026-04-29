@@ -97,6 +97,7 @@ export default function ExportFirmsPage() {
         options={false}
         pagination={{ pageSize: 50, showSizeChanger: false }}
         size="small"
+        scroll={{ x: 'max-content' }}
         onRow={(record) => ({ onClick: () => navigate(`/admin/firms/${record.id}`) })}
         rowHoverable
         toolBarRender={() =>

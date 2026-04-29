@@ -84,7 +84,7 @@ export function FirmRiskMatrix({ period }: IFirmRiskMatrixProps) {
           rowKey={(r) => String(r.firm_id)}
           size="small"
           pagination={false}
-          scroll={{ y: 240 }}
+          scroll={{ x: 'max-content', y: 240 }}
         />
       )}
     </Card>

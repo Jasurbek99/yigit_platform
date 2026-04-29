@@ -271,6 +271,7 @@ export default function BlockDetailPage() {
         options={false}
         pagination={false}
         size="small"
+        scroll={{ x: 'max-content' }}
         locale={{ emptyText: t('block_detail.sub_blocks_empty') }}
         toolBarRender={() =>
           canWrite
