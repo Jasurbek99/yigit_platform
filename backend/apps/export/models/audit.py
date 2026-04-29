@@ -40,12 +40,41 @@ class AuditLog(models.Model):
     # CharField not TextField — MSSQL compatible, 1000 chars sufficient for audit lines.
     detail = models.CharField(max_length=1000, blank=True, **cyrillic_collation())
 
+    # === Structured field-level audit (D8) ===
+    # Set on 'update' actions caused by a PATCH to a specific model field.
+    # blank=True / default='' means existing transition/create rows work unchanged.
+    field_name = models.CharField(
+        max_length=60,
+        blank=True,
+        default='',
+        db_index=True,
+        help_text='Serializer field name for cell-level edit audit. Empty for transition/create rows.',
+    )
+    old_value = models.TextField(
+        blank=True,
+        default='',
+        **cyrillic_collation(),
+        help_text='Rendered string of the value before the edit (via _render()). May be Cyrillic.',
+    )
+    new_value = models.TextField(
+        blank=True,
+        default='',
+        **cyrillic_collation(),
+        help_text='Rendered string of the value after the edit (via _render()). May be Cyrillic.',
+    )
+
     # === Audit ===
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = schema_table('export', 'audit_log')
         ordering = ['-created_at']
+        indexes = [
+            models.Index(
+                fields=['model_name', 'object_id', 'field_name', '-created_at'],
+                name='audit_field_history_idx',
+            ),
+        ]
 
     def __str__(self) -> str:
         return f'[{self.action}] {self.model_name}#{self.object_id} by user={self.user_id}'

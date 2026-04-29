@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Tabs, Spin } from 'antd';
 import { useTranslation } from 'react-i18next';
 import type { IMentionable } from '@/types';
-import { SHEET_ROW_CONFIG } from '@/constants/sheetRowConfig';
+import { useSheetStore } from '@/stores/sheetStore';
 import i18n from '@/i18n';
 
 interface ICellOption {
@@ -24,12 +24,14 @@ interface IMentionPopoverProps {
 }
 
 function getCellOptions(query: string): ICellOption[] {
+  // Read rows from the Zustand store (populated by ShipmentSheet on API load).
+  const rows = useSheetStore.getState().rows;
   const q = query.toLowerCase();
-  return SHEET_ROW_CONFIG.filter((row) => {
-    if (row.inputType === 'comment_count') return false;
-    const label = i18n.t(row.labelKey);
-    return !q || label.toLowerCase().includes(q) || row.fieldKey.toLowerCase().includes(q);
-  }).map((row) => ({ fieldKey: row.fieldKey, label: i18n.t(row.labelKey) }));
+  return rows.filter((row) => {
+    if (row.input_type === 'comment_count') return false;
+    const label = i18n.t(row.label_key);
+    return !q || label.toLowerCase().includes(q) || row.field_key.toLowerCase().includes(q);
+  }).map((row) => ({ fieldKey: row.field_key, label: i18n.t(row.label_key) }));
 }
 
 export function MentionPopover({

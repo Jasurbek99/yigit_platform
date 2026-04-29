@@ -22,6 +22,7 @@ from .quota import (
 from .finance import FinansistAdvance, FinansistAdvanceShipment
 from .notification import Notification
 from .audit import AuditLog
+from .sheet_settings import SheetRowSetting
 
 __all__ = [
     'Shipment',
@@ -51,4 +52,5 @@ __all__ = [
     'Notification',
     'AuditLog',
     'Pallet',
+    'SheetRowSetting',
 ]

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { ICommentFilter } from '@/types';
+import type { ICommentFilter, IRowConfig } from '@/types';
 
 interface IActiveCell {
   shipmentId: number;
@@ -81,6 +81,10 @@ interface ISheetState {
   openCommentsForShipment: (shipmentId: number) => void;
   /** Toggle the drawer; uses the active cell's shipment+field as context when opening */
   toggleCommentsDrawer: () => void;
+
+  // ─── Row map (populated from /sheet/ API, used by comment components) ────
+  rows: IRowConfig[];
+  setRows: (rows: IRowConfig[]) => void;
 }
 
 const initialFreeze = loadFreezeState();
@@ -144,6 +148,10 @@ export const useSheetStore = create<ISheetState>((set) => ({
       commentsShipmentId: shipmentId,
       commentsFilter: {},
     }),
+
+  // ─── Row map ─────────────────────────────────────────────────────────────
+  rows: [],
+  setRows: (rows) => set({ rows }),
 
   toggleCommentsDrawer: () =>
     set((state) => {

@@ -1,7 +1,16 @@
 import { useRef, useCallback, useMemo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useTranslation } from 'react-i18next';
-import type { IShipmentSheetItem, IRowConfig, ICurrentUser, ISheetCommentCounts, ISheetTaskCounts, ICommentTaskStatus } from '@/types';
+import type {
+  IShipmentSheetItem,
+  IRowConfig,
+  ICurrentUser,
+  ISheetCommentCounts,
+  ISheetTaskCounts,
+  ICommentTaskStatus,
+  ISheetRowSetting,
+  ICellLastEdit,
+} from '@/types';
 import { useSheetStore } from '@/stores/sheetStore';
 import { useAuth } from '@/hooks/useAuth';
 import { canDo, canEditField } from '@/utils/permissions';
@@ -9,7 +18,6 @@ import { SheetCell } from './SheetCell';
 import { SheetCellEditor } from './SheetCellEditor';
 import { SheetLabelRow } from './SheetLabelColumn';
 import {
-  SHEET_ROW_CONFIG,
   COL_WIDTH_SHIPMENT,
   COL_WIDTH_ROW_NUM,
   COL_WIDTH_WHO,
@@ -37,8 +45,11 @@ function canEditCell(user: ICurrentUser | null, fieldKey: string): boolean {
 
 interface ISheetGridProps {
   shipments: IShipmentSheetItem[];
+  rows: IRowConfig[];
   commentCounts?: ISheetCommentCounts;
   taskCounts?: ISheetTaskCounts;
+  rowSettings?: Record<string, ISheetRowSetting>;
+  lastEdits?: Record<string, Record<string, ICellLastEdit>>;
 }
 
 // z-index hierarchy
@@ -52,7 +63,14 @@ const Z_HEADER_CORNER = 12;
 const Z_FROZEN_ROWS_LEFT = 7;
 const Z_FROZEN_DATA_COL = 2;
 
-export function SheetGrid({ shipments, commentCounts = {}, taskCounts = {} }: ISheetGridProps) {
+export function SheetGrid({
+  shipments,
+  rows,
+  commentCounts = {},
+  taskCounts = {},
+  rowSettings = {},
+  lastEdits = {},
+}: ISheetGridProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { editingCell, frozenRowCount, frozenColCount } = useSheetStore();
@@ -61,16 +79,16 @@ export function SheetGrid({ shipments, commentCounts = {}, taskCounts = {} }: IS
   // Clamp freeze counts to the data we actually have so an old localStorage
   // value (e.g. 5 frozen cols, but the user now sees only 2 shipments) still
   // produces a coherent layout.
-  const safeFrozenRowCount = Math.min(frozenRowCount, SHEET_ROW_CONFIG.length);
+  const safeFrozenRowCount = Math.min(frozenRowCount, rows.length);
   const safeFrozenColCount = Math.min(frozenColCount, shipments.length);
 
   const frozenRows = useMemo(
-    () => SHEET_ROW_CONFIG.slice(0, safeFrozenRowCount),
-    [safeFrozenRowCount],
+    () => rows.slice(0, safeFrozenRowCount),
+    [rows, safeFrozenRowCount],
   );
   const scrollableRows = useMemo(
-    () => SHEET_ROW_CONFIG.slice(safeFrozenRowCount),
-    [safeFrozenRowCount],
+    () => rows.slice(safeFrozenRowCount),
+    [rows, safeFrozenRowCount],
   );
 
   const frozenShipments = useMemo(
@@ -94,15 +112,15 @@ export function SheetGrid({ shipments, commentCounts = {}, taskCounts = {} }: IS
     (rowConfig: IRowConfig, shipment: IShipmentSheetItem) => {
       const isEditing =
         editingCell?.shipmentId === shipment.id &&
-        editingCell?.rowKey === rowConfig.fieldKey;
+        editingCell?.rowKey === rowConfig.field_key;
 
       const isEditable =
-        rowConfig.inputType !== 'readonly' &&
-        canEditCell(user, rowConfig.fieldKey);
+        rowConfig.input_type !== 'readonly' &&
+        canEditCell(user, rowConfig.field_key);
 
       // Comment / task badge for this specific cell
       const cellCounts = commentCounts[shipment.id] ?? {};
-      const cellCommentCount = cellCounts[rowConfig.fieldKey] ?? 0;
+      const cellCommentCount = cellCounts[rowConfig.field_key] ?? 0;
       const shipmentTaskCounts = taskCounts[shipment.id];
       const cellTaskState: ICommentTaskStatus | null =
         cellCommentCount > 0 && shipmentTaskCounts
@@ -114,7 +132,7 @@ export function SheetGrid({ shipments, commentCounts = {}, taskCounts = {} }: IS
       if (isEditing) {
         return (
           <SheetCellEditor
-            key={`${shipment.id}-${rowConfig.rowNumber}`}
+            key={`${shipment.id}-${rowConfig.row_number}`}
             shipment={shipment}
             rowConfig={rowConfig}
           />
@@ -123,16 +141,18 @@ export function SheetGrid({ shipments, commentCounts = {}, taskCounts = {} }: IS
 
       return (
         <SheetCell
-          key={`${shipment.id}-${rowConfig.rowNumber}`}
+          key={`${shipment.id}-${rowConfig.row_number}`}
           shipment={shipment}
           rowConfig={rowConfig}
           isEditable={isEditable}
           commentCount={cellCommentCount}
           commentTaskState={cellTaskState}
+          rowSettings={rowSettings}
+          lastEdits={lastEdits}
         />
       );
     },
-    [editingCell, user, commentCounts, taskCounts],
+    [editingCell, user, commentCounts, taskCounts, rowSettings, lastEdits],
   );
 
   const virtualColumns = columnVirtualizer.getVirtualItems();
@@ -189,17 +209,21 @@ export function SheetGrid({ shipments, commentCounts = {}, taskCounts = {} }: IS
     [virtualColumns, scrollableShipments, safeFrozenColCount],
   );
 
-  const renderSection = (rows: IRowConfig[], inFrozenSection: boolean) =>
-    rows.map((rowConfig) => {
+  const renderSection = (sectionRows: IRowConfig[], inFrozenSection: boolean) =>
+    sectionRows.map((rowConfig) => {
       const stickyLeftZ = inFrozenSection ? Z_FROZEN_ROWS_LEFT : 3;
       return (
         <div
-          key={rowConfig.rowNumber}
+          key={rowConfig.row_number}
           className="sheet-row"
           style={{ display: 'flex', height: ROW_HEIGHT }}
         >
           {/* Frozen left labels (#, who, field name) — already sticky-left */}
-          <SheetLabelRow rowConfig={rowConfig} stickyZIndex={stickyLeftZ} />
+          <SheetLabelRow
+            rowConfig={rowConfig}
+            stickyZIndex={stickyLeftZ}
+            rowSettings={rowSettings}
+          />
 
           {/* Frozen data columns (sticky-left, between label band and virtualizer) */}
           {frozenShipments.map((shipment, idx) => {

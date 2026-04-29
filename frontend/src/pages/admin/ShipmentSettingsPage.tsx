@@ -6,6 +6,7 @@ import StatusesTab from './shipment-settings/StatusesTab';
 import BorderPointsTab from './shipment-settings/BorderPointsTab';
 import OptionListsTab from './shipment-settings/OptionListsTab';
 import TruckSplitsTab from './shipment-settings/TruckSplitsTab';
+import SheetRowsTab from './shipment-settings/SheetRowsTab';
 
 const { Title, Text } = Typography;
 
@@ -35,6 +36,11 @@ export default function ShipmentSettingsPage() {
       key: 'truck_splits',
       label: t('shipment_settings.tab_truck_splits'),
       children: <TruckSplitsTab canWrite={canEditTruckSplits} />,
+    },
+    {
+      key: 'sheet_rows',
+      label: t('shipment_settings.tab_sheet_rows'),
+      children: <SheetRowsTab canWrite={canWrite} />,
     },
   ];
 

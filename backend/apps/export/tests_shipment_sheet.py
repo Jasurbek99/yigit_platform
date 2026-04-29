@@ -10,6 +10,7 @@ Covers:
 - PATCH /shipments/{id}/ — AD-1 timestamp returns 403 (registry excludes them)
 - POST /shipments/{id}/block-sources/ — replaces existing rows
 - POST /shipments/{id}/firm-splits/ — replaces existing rows + auto-creates draft QuotaUsageRecord
+- Sheet response includes `rows`, `row_settings`, `last_edits` keys (steps 5/8–12)
 """
 from datetime import date
 
@@ -21,10 +22,11 @@ from apps.core.models import (
     Country, ExportFirm, GreenhouseBlock, Season, ShipmentStatusType, User,
 )
 from apps.export.models import (
-    FinansistAdvance, FinansistAdvanceShipment,
+    AuditLog, FinansistAdvance, FinansistAdvanceShipment,
     QuotaUsageRecord, SalesReport, Shipment, ShipmentBlockSource, ShipmentComment,
-    ShipmentFirmSplit,
+    ShipmentFirmSplit, SheetRowSetting,
 )
+from apps.export.sheet_rows import DEFAULT_SHEET_ROWS
 
 
 def _sheet_results(resp):
@@ -425,3 +427,209 @@ class SheetJunctionEndpointTests(TestCase):
         # Splits unchanged
         self.assertEqual(self.shipment.firm_splits.count(), 1)
         self.assertEqual(self.shipment.firm_splits.first().export_firm_id, self.firm_a.id)
+
+
+# ============================================================================
+# Tests 8-12 — /sheet/ extended response (rows, row_settings, last_edits)
+# ============================================================================
+
+class SheetExtendedResponseTests(TestCase):
+    """Tests 8-12: verify `rows`, `row_settings`, and `last_edits` keys.
+
+    Self-contained (does NOT inherit SheetEndpointTests) to avoid the pre-existing
+    ``SalesReport.created_by_id NOT NULL`` issue in that class's setUpTestData.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        _seed_permissions()
+        cls.season = Season.objects.create(
+            name='2025-2026-ext', start_date='2025-09-01', end_date='2026-06-30',
+            is_active=True,
+        )
+        cls.status_loading = ShipmentStatusType.objects.create(
+            code='yuklenme_ext', name_tk='yuklenme_ext', name_en='Loading Ext',
+            step_order=1, phase='LOADING',
+        )
+        cls.s1 = Shipment.objects.create(
+            cargo_code='EXT-001', date='2026-02-01', season=cls.season,
+            status=cls.status_loading, weight_net='18500.00',
+        )
+        cls.s2 = Shipment.objects.create(
+            cargo_code='EXT-002', date='2026-02-02', season=cls.season,
+            status=cls.status_loading, weight_net='18000.00',
+        )
+
+    def setUp(self):
+        self.client = APIClient()
+        # Each test needs a unique username to avoid conflicts across test methods
+        self.user = _create_user(f'mgr_ext_{id(self)}', 'export_manager')
+        self.client.force_authenticate(user=self.user)
+        SheetRowSetting.objects.all().delete()
+        AuditLog.objects.filter(model_name='Shipment').delete()
+
+    # ── Test 8 ──────────────────────────────────────────────────────────────
+
+    def test_sheet_response_includes_rows(self):
+        """GET /sheet/ contains a `rows` key; length == len(DEFAULT_SHEET_ROWS).
+
+        Each row in `rows` must have the documented keys:
+            row_number, field_key, default_who_key, label_key, input_type, style
+        """
+        resp = self.client.get('/api/v1/export/shipments/sheet/')
+        self.assertEqual(resp.status_code, 200, resp.data)
+
+        self.assertIn('rows', resp.data)
+        rows = resp.data['rows']
+        self.assertEqual(len(rows), len(DEFAULT_SHEET_ROWS))
+
+        required_keys = {'row_number', 'field_key', 'default_who_key', 'label_key', 'input_type', 'style'}
+        for row in rows:
+            missing = required_keys - set(row.keys())
+            self.assertFalse(missing, f"Row {row.get('field_key')} missing keys: {missing}")
+
+    # ── Test 9 ──────────────────────────────────────────────────────────────
+
+    def test_sheet_response_includes_row_settings(self):
+        """Every field_key from `rows` appears in `row_settings` with the correct shape."""
+        resp = self.client.get('/api/v1/export/shipments/sheet/')
+        self.assertEqual(resp.status_code, 200, resp.data)
+
+        self.assertIn('row_settings', resp.data)
+        row_settings = resp.data['row_settings']
+
+        expected_keys_in_settings = {
+            'triggered_role', 'triggered_user', 'triggered_user_name',
+            'triggered_user_active', 'triggered_label', 'can_current_user_edit',
+        }
+        for row in DEFAULT_SHEET_ROWS:
+            fk = row['field_key']
+            self.assertIn(fk, row_settings, f"field_key '{fk}' missing from row_settings")
+            setting = row_settings[fk]
+            missing = expected_keys_in_settings - set(setting.keys())
+            self.assertFalse(missing, f"row_settings['{fk}'] missing keys: {missing}")
+
+    def test_sheet_row_settings_can_edit_is_boolean(self):
+        """can_current_user_edit must be a bool for every row_settings entry."""
+        resp = self.client.get('/api/v1/export/shipments/sheet/')
+        for fk, setting in resp.data['row_settings'].items():
+            self.assertIsInstance(
+                setting['can_current_user_edit'], bool,
+                f"can_current_user_edit for '{fk}' is not bool",
+            )
+
+    # ── Test 10 ─────────────────────────────────────────────────────────────
+
+    def test_sheet_response_includes_last_edits(self):
+        """After patching a shipment field, last_edits[shipment_id][field_key] matches."""
+        AuditLog.objects.create(
+            user=self.user,
+            action='update',
+            model_name='Shipment',
+            object_id=self.s1.id,
+            object_repr=self.s1.cargo_code,
+            field_name='weight_net',
+            old_value='18000',
+            new_value='18500',
+            detail='weight_net: 18000 → 18500',
+        )
+
+        resp = self.client.get('/api/v1/export/shipments/sheet/')
+        self.assertEqual(resp.status_code, 200, resp.data)
+
+        self.assertIn('last_edits', resp.data)
+        last_edits = resp.data['last_edits']
+
+        sid_str = str(self.s1.id)
+        self.assertIn(sid_str, last_edits)
+        self.assertIn('weight_net', last_edits[sid_str])
+
+        entry = last_edits[sid_str]['weight_net']
+        self.assertEqual(entry['old_value'], '18000')
+        self.assertEqual(entry['new_value'], '18500')
+        self.assertEqual(entry['user_id'], self.user.id)
+        self.assertIsNotNone(entry['edited_at'])
+
+    # ── Test 11 ─────────────────────────────────────────────────────────────
+
+    def test_last_edits_sparse(self):
+        """Shipments without edits don't appear in last_edits at all.
+
+        s2 has no audit rows → must NOT appear in last_edits.
+        s1.weight_net has a row but s1.notes does not → 'notes' absent under s1.id.
+        """
+        AuditLog.objects.create(
+            user=self.user,
+            action='update',
+            model_name='Shipment',
+            object_id=self.s1.id,
+            object_repr=self.s1.cargo_code,
+            field_name='weight_net',
+            old_value='18000',
+            new_value='18500',
+            detail='weight_net: 18000 → 18500',
+        )
+
+        resp = self.client.get('/api/v1/export/shipments/sheet/')
+        last_edits = resp.data['last_edits']
+
+        # s2 has no audit rows → must not appear
+        self.assertNotIn(str(self.s2.id), last_edits)
+
+        # s1 has weight_net but NOT notes
+        sid_str = str(self.s1.id)
+        self.assertIn(sid_str, last_edits)
+        self.assertIn('weight_net', last_edits[sid_str])
+        self.assertNotIn('notes', last_edits[sid_str])
+
+    # ── Test 12 ─────────────────────────────────────────────────────────────
+
+    def test_last_edits_query_count(self):
+        """The /sheet/ call must not regress to N+1 for last_edits.
+
+        Baseline determined empirically. The /sheet/ call runs:
+          1. Session / auth middleware query
+          2. Shipment queryset (with select_related + prefetch_related)
+          3. ShipmentSheetSerializer (prefetch FKs already loaded, 0 extra)
+          4. comment_counts query
+          5. raw_tasks query
+          6. raw_mine query
+          7. SheetRowSetting.objects.all() (for row_settings + edit_map)
+          8. RoleFieldPermission query (for edit_map)
+          9. AuditLog ranked subquery (for last_edits)
+         10. AuditLog final filter on pk__in (for last_edits)
+
+        Total: ~10 queries. We allow 12 to absorb minor variance.
+        Adjust the bound only when a justified new query is intentionally added.
+        """
+        AuditLog.objects.create(
+            user=self.user, action='update', model_name='Shipment',
+            object_id=self.s1.id, object_repr='EXT-001',
+            field_name='weight_net', old_value='18000', new_value='18500',
+        )
+
+        # Baseline: 9-10 queries total (see docstring). The SheetRowSetting fetch
+        # is shared between row_settings and get_sheet_edit_map (optimization
+        # reduces double-fetch to single fetch). The exact count varies by 1
+        # depending on whether DRF's DynamicResourcePermission cache is warm
+        # (cold = +1 query for core_role_resource_permissions).
+        #
+        # The key assertion: number of queries is bounded (no N+1), NOT that it
+        # is a specific number. Upper bound of 12 catches regressions while
+        # tolerating the cache-warmth variance.
+        from django.test.utils import CaptureQueriesContext
+        from django.db import connection
+        with CaptureQueriesContext(connection) as ctx:
+            resp = self.client.get('/api/v1/export/shipments/sheet/')
+        actual_queries = len(ctx.captured_queries)
+        self.assertEqual(resp.status_code, 200)
+        self.assertLessEqual(
+            actual_queries, 12,
+            f"Sheet endpoint used {actual_queries} queries — expected ≤ 12. "
+            "Regression? Check for N+1 in last_edits / row_settings."
+        )
+        # Also assert it's not suspiciously low (indicates test is broken)
+        self.assertGreaterEqual(
+            actual_queries, 7,
+            f"Sheet endpoint used only {actual_queries} queries — test data may be missing."
+        )

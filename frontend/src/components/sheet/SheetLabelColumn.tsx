@@ -1,6 +1,6 @@
 import { Fragment, memo } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { IRowConfig } from '@/types';
+import type { IRowConfig, ISheetRowSetting } from '@/types';
 import {
   COL_WIDTH_ROW_NUM,
   COL_WIDTH_WHO,
@@ -11,6 +11,8 @@ interface ISheetLabelRowProps {
   rowConfig: IRowConfig;
   /** z-index for the sticky-left label cells (raised in frozen-row sections). */
   stickyZIndex?: number;
+  /** Row settings keyed by field_key — used to resolve triggered_label. */
+  rowSettings?: Record<string, ISheetRowSetting>;
 }
 
 const STYLE_COLORS: Record<string, string> = {
@@ -23,10 +25,18 @@ const STYLE_COLORS: Record<string, string> = {
   alt: '#e4e7ec',
 };
 
-function SheetLabelRowInner({ rowConfig, stickyZIndex = 3 }: ISheetLabelRowProps) {
+function SheetLabelRowInner({ rowConfig, stickyZIndex = 3, rowSettings = {} }: ISheetLabelRowProps) {
   const { t } = useTranslation();
 
   const borderColor = STYLE_COLORS[rowConfig.style] ?? STYLE_COLORS.base;
+
+  // Resolve the "Who" label:
+  // 1. If a trigger is configured for this row, use triggered_label (already resolved by backend).
+  // 2. Otherwise fall back to translating default_who_key.
+  const setting = rowSettings[rowConfig.field_key];
+  const whoLabel = setting?.triggered_label
+    ? setting.triggered_label         // resolved display (user name or role label) — no translate
+    : t(rowConfig.default_who_key);
 
   // Rendered as a Fragment (not a wrapping div) so the 3 sticky-left cells
   // become direct flex children of the parent row. If we wrap them in their
@@ -47,7 +57,7 @@ function SheetLabelRowInner({ rowConfig, stickyZIndex = 3 }: ISheetLabelRowProps
           flexShrink: 0,
         }}
       >
-        {rowConfig.rowNumber}
+        {rowConfig.row_number}
       </div>
 
       {/* Col B: Who */}
@@ -61,7 +71,7 @@ function SheetLabelRowInner({ rowConfig, stickyZIndex = 3 }: ISheetLabelRowProps
           flexShrink: 0,
         }}
       >
-        {t(rowConfig.whoKey)}
+        {whoLabel}
       </div>
 
       {/* Col C: Field name */}
@@ -76,7 +86,7 @@ function SheetLabelRowInner({ rowConfig, stickyZIndex = 3 }: ISheetLabelRowProps
           flexShrink: 0,
         }}
       >
-        {t(rowConfig.labelKey)}
+        {t(rowConfig.label_key)}
       </div>
     </Fragment>
   );

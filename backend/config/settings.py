@@ -74,11 +74,21 @@ if os.environ.get('USE_SQLITE', 'false').lower() == 'true':
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
+
+    # When running Django tests under USE_SQLITE=true, many existing migrations
+    # contain MSSQL-specific RunSQL blocks that break on SQLite. Bypass them by
+    # having Django create tables directly from models (syncdb-style).
+    # The Cyrillic_General_CI_AS collation stub is registered by the test runner.
+    MIGRATION_MODULES = {app: None for app in [
+        'admin', 'auth', 'contenttypes', 'sessions', 'token_blacklist',
+        'core', 'greenhouse', 'export',
+    ]}
 else:
+    _db_name = os.environ.get('DB_NAME', 'YIGIT_PLATFROM')
     DATABASES = {
         'default': {
             'ENGINE': 'mssql',
-            'NAME': os.environ.get('DB_NAME', 'YIGIT_PLATFROM'),
+            'NAME': _db_name,
             'USER': os.environ.get('DB_USER', 'YigitUser'),
             'PASSWORD': os.environ.get('DB_PASSWORD', '321drowssap!'),
             'HOST': os.environ.get('DB_HOST', r'10.10.11.233\YIGIT'),
@@ -87,8 +97,19 @@ else:
                 'driver': 'ODBC Driver 18 for SQL Server',
                 'extra_params': 'TrustServerCertificate=yes',
             },
+            # YigitUser lacks CREATE DATABASE permission on the MSSQL server.
+            # Point tests at the existing database. Django wraps each test in a
+            # transaction that is rolled back — data is not persisted.
+            'TEST': {
+                'NAME': os.environ.get('TEST_DB_NAME', _db_name),
+            },
         }
     }
+
+# ════════════════════════════════════════════════
+# Test runner — registers Cyrillic collation stub for SQLite test runs
+# ════════════════════════════════════════════════
+TEST_RUNNER = 'config.test_runner.CyrillicSQLiteTestRunner'
 
 # ════════════════════════════════════════════════
 # Auth

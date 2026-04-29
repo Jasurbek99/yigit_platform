@@ -45,7 +45,21 @@ A blue 2px line on the trailing edge of the last frozen row/column marks the fre
 
 ## Row config
 
-Source of truth: [`frontend/src/constants/sheetRowConfig.ts`](../../../frontend/src/constants/sheetRowConfig.ts).
+**Backend is the single source of truth.** `backend/apps/export/sheet_rows.py` exports `DEFAULT_SHEET_ROWS` (42 entries — row 16 is intentionally absent, matching the original Excel layout). The `/api/v1/export/shipments/sheet/` response ships these as the `rows` top-level key alongside `results` / `comment_counts` / `task_counts`. Frontend renders whatever the API returns; there is no longer a hard-coded `SHEET_ROW_CONFIG` array on the frontend. Adding, removing, or reordering rows is a one-place change in `sheet_rows.py`.
+
+Translation strings (`sheet.who.*`, `sheet.row.*`) stay in `frontend/src/i18n/{tk,ru,en}.json`; the API ships only the i18n keys (`default_who_key`, `label_key`).
+
+Dropdown rows whose `options_source` is fixed (e.g. `vehicle_condition`) resolve via `frontend/src/constants/sheetOptions.ts` `SHEET_OPTIONS_REGISTRY`. Dynamic dropdowns (`country`, `customer`, `border_point`, etc.) keep using their dedicated TanStack Query hooks.
+
+### Per-row trigger configuration
+
+Each row can be assigned **either a formal role** (from `ROLE_CHOICES`) **or a specific user**, configurable in **Shipment Settings → Sheet Rows**. The selection is stored in `SheetRowSetting` (`export_sheet_row_setting` table) — `field_key` is unique, `triggered_role` XOR `triggered_user` is enforced by a DB `CheckConstraint`. Setting one auto-clears the other on PATCH; sending both non-empty returns 400.
+
+The trigger acts as **label + edit gate**:
+- "Who" column displays `triggered_user.username` if a user is set (with a warning chip if `is_active=False`), else the formal role label, else falls back to translating the row's `default_who_key`.
+- Cell editing requires `can_edit_sheet_field(user, field_key)` to return true. That helper composes `RoleFieldPermission` AND the trigger gate: if `triggered_user` is set, only that user can edit; if `triggered_role` is set, only users with that role can edit; if neither is set, only `RoleFieldPermission` applies. Director and superuser bypass everything.
+
+Computed once per `/sheet/` request as `row_settings[field_key].can_current_user_edit` (boolean) so the frontend renders the correct lock state without per-cell calls. `get_sheet_edit_map(user)` does this in 2 DB queries (1 if the caller passes its `settings_by_key` dict).
 
 | Section | Rows | Purpose |
 |---------|------|---------|
@@ -64,7 +78,7 @@ The Sheet has a right-side **Comments Drawer** (Ant `Drawer`, `mask=false`, 360p
 - **Filters** (chip group in drawer header): _This cell_ (when a cell is active), _All cells_, _My tasks_
 - **Compose**:
   - Type `@` → user/role autocomplete popover (`useMentionable`)
-  - Type `#` → cell autocomplete popover (from `sheetRowConfig.ts`)
+  - Type `#` → cell autocomplete popover (from the `rows` payload of `/sheet/`)
   - Toggle "Pin to active cell" — sets `field_key` so the comment becomes a cell anchor
   - Pick an Assignee → comment becomes a task; assignee gets `task_assigned` notification
   - Ctrl+Enter to send
@@ -72,6 +86,19 @@ The Sheet has a right-side **Comments Drawer** (Ant `Drawer`, `mask=false`, 360p
 - **Deep-link**: `/export/shipments/sheet?shipment={id}&row={fieldKey}&comment={id}` selects the cell, auto-opens the drawer, and scrolls the comment into view with a 2-second highlight ring. Used by all three new notification kinds (`mention`, `task_assigned`, `task_done`).
 
 The sheet endpoint response now includes top-level `comment_counts` and `task_counts` dicts keyed by shipment ID — used by the cell markers and the toolbar's "my open tasks" badge respectively.
+
+## Cell-level edit audit (clock-icon marker)
+
+Every shipment field PATCH writes one `AuditLog` row per changed field with structured `(field_name, old_value, new_value, user, timestamp)` (`backend/apps/export/services/sheet_audit.py` `render_field_value()` is the single rendering source — `__str__` for FK objects, `format(d, 'f')` for Decimals, `.isoformat()` for date/datetime, `.label` for TextChoices). Same-value PATCHes write zero rows. The save and the audit `bulk_create` run inside one `transaction.atomic()` so a save failure rolls back audit rows too. Existing 403/400 forbidden-field path on `partial_update` is preserved.
+
+The `/sheet/` response includes a sparse `last_edits[shipment_id_str][field_key] = {user_id, user_name, old_value, new_value, edited_at}` map — populated by a single window-function query (`Window(RowNumber(), partition_by=[object_id, field_name], order_by=created_at DESC)`, filtered to `rn=1` via `Subquery(values('pk'))` so it stays MSSQL-safe and bounded to the visible shipments). Cells with a matching entry render a small clock-icon marker (`CellLastEditMarker`, harmonised with `CommentMarker`):
+
+- **Hover** → tooltip `"Last edited by {user} on {date} — {old} → {new}"`
+- **Click** → Ant `Popover` lazily fetches `GET /api/v1/export/shipments/{id}/field-history/?field=<field_key>&limit=50` (paginated, newest-first) and renders the prior edits. Endpoint requires `can_edit_sheet_field(user, field_key)` — readers without edit access see the latest summary on hover but get 403 + `t('sheet.history_forbidden')` on click (privacy: historical values may include old prices, phones).
+
+Defaults: `?limit` defaults to 50, capped at 200. The popover does no pagination of its own — limit-based truncation only.
+
+**Known limitation:** fields modified by `save()` side effects (computed totals, auto status transitions) are NOT captured by this hook — only fields the user actually submitted in the PATCH body. Status transitions already emit their own `AuditLog` rows from `services_workflow.py`. Other side-effect fields would need their own service-level hooks.
 
 R24 = `has_doc_advance` (✓/❌, Babageldi). True once a `FinansistAdvanceShipment` row links the shipment to a `FinansistAdvance` — i.e. the finansist has issued documentation/customs money for the shipment. Click navigates to `/export/advances?shipment={id}`. R25 = `customs_exit_at` (Türkmenistan customs exit, Şirin). R26 = `transit_days_temp` (transit days + temperature, Quality inspector).
 

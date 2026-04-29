@@ -5,10 +5,14 @@ from django.db import transaction
 from django.db.models import (
     Count,
     Exists,
+    F,
     OuterRef,
     Q,
     QuerySet,
+    Subquery,
 )
+from django.db.models.functions import RowNumber
+from django.db.models.expressions import Window
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import action
@@ -17,12 +21,20 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from apps.core.permission_registry import ROLE_REQUIRED_FIELDS
-from apps.core.permissions import PRIVILEGED_ROLES, DynamicResourcePermission
+from apps.core.permissions import (
+    PRIVILEGED_ROLES,
+    DynamicResourcePermission,
+    can_edit_sheet_field,
+    get_sheet_edit_map,
+)
+from apps.core.models.user import ROLE_CHOICES
 from apps.export.models import (
+    AuditLog,
     FinansistAdvanceShipment,
     Pallet, QualityDocument, QuotaUsageRecord, SalesReport, Shipment, ShipmentComment,
-    ShipmentBlockSource, ShipmentFirmSplit, get_default_truck_weight,
+    ShipmentBlockSource, ShipmentFirmSplit, SheetRowSetting, get_default_truck_weight,
 )
+from apps.export.sheet_rows import DEFAULT_SHEET_ROWS
 from apps.export.serializers import (
     PalletBulkUpsertSerializer,
     PalletSerializer,
@@ -55,6 +67,7 @@ SALES_PHASE_CODES = ['bardy', 'satylyar', 'satyldy']
 # Maps user role to shipment status phases visible under "my work" filter.
 # Phase values match ShipmentStatusType.phase in the DB.
 ROLE_PHASE_MAP = {
+    'loading_dept_head': ['LOADING'],  # same window as warehouse_chief
     'warehouse_chief': ['LOADING'],
     'document_team': ['LOADING', 'CUSTOMS'],
     'transport': ['LOADING', 'CUSTOMS', 'TRANSIT', 'BORDER'],
@@ -176,7 +189,13 @@ class ShipmentViewSet(ModelViewSet):
 
         Only fields permitted by the user's role may be included in the body.
         Forbidden fields return 403. Returns updated shipment detail on success.
+
+        Every submitted field whose stored value actually changes is recorded as
+        an AuditLog row (field_name, old_value, new_value) inside the same
+        transaction as the save, so a save failure rolls back audit rows too.
         """
+        from apps.export.services.sheet_audit import diff_audit_rows, snapshot_fields
+
         shipment = self.get_object()
         user_role = getattr(request.user, 'role', None)
 
@@ -200,16 +219,21 @@ class ShipmentViewSet(ModelViewSet):
                 )
             return Response(errors, status=status.HTTP_400_BAD_REQUEST)
 
-        serializer.save()
-        # Reload from DB so computed fields (auto_now timestamps, DB defaults) are fresh.
-        instance = serializer.instance
-        instance.refresh_from_db()
-        logger.info(
-            'Shipment %s patched fields %s by %s',
-            instance.cargo_code,
-            list(request.data.keys()),
-            request.user.username,
-        )
+        # Capture only the fields the user actually submitted.
+        submitted_keys = list(serializer.validated_data.keys())
+        before = snapshot_fields(shipment, submitted_keys)
+
+        with transaction.atomic():
+            serializer.save()
+            # Reload from DB so computed fields (auto_now timestamps, DB defaults) are fresh.
+            instance = serializer.instance
+            instance.refresh_from_db()
+            after = snapshot_fields(instance, submitted_keys)
+
+            audit_rows = diff_audit_rows(instance, before, after, request.user)
+            if audit_rows:
+                AuditLog.objects.bulk_create(audit_rows, batch_size=500)
+
         detail_serializer = ShipmentDetailSerializer(instance, context={'request': request})
         return Response(detail_serializer.data)
 
@@ -405,11 +429,167 @@ class ShipmentViewSet(ModelViewSet):
                 task_counts.setdefault(sid, {'open': 0, 'done': 0, 'assigned_to_me_open': 0})
                 task_counts[sid]['assigned_to_me_open'] = row['c']
 
+        # === rows: canonical row map from backend (plan D1) ===
+        rows = DEFAULT_SHEET_ROWS
+
+        # === row_settings: per-field trigger config + edit rights (plans D4, D7) ===
+        # Load SheetRowSetting once and share with get_sheet_edit_map to avoid
+        # a second identical query (optimization: saves 1 DB round-trip per /sheet/ call).
+        _role_label_map = dict(ROLE_CHOICES)
+        settings_qs = SheetRowSetting.objects.select_related('triggered_user').all()
+        settings_by_key = {s.field_key: s for s in settings_qs}
+        edit_map = get_sheet_edit_map(request.user, settings_by_key=settings_by_key)
+
+        row_settings: dict[str, dict] = {}
+        for row in DEFAULT_SHEET_ROWS:
+            fk = row['field_key']
+            setting = settings_by_key.get(fk)
+
+            if setting is not None:
+                triggered_role = setting.triggered_role or ''
+                triggered_user_id = setting.triggered_user_id
+                triggered_user_active = setting.triggered_user.is_active if triggered_user_id else None
+                triggered_user_name = (
+                    (setting.triggered_user.get_full_name() or setting.triggered_user.username)
+                    if triggered_user_id
+                    else None
+                )
+                # triggered_label: prefer active user name, else role label, else ''
+                if triggered_user_id and triggered_user_active:
+                    triggered_label = triggered_user_name or ''
+                elif triggered_role:
+                    triggered_label = _role_label_map.get(triggered_role, triggered_role)
+                else:
+                    triggered_label = ''
+            else:
+                triggered_role = ''
+                triggered_user_id = None
+                triggered_user_active = None
+                triggered_user_name = None
+                triggered_label = ''
+
+            row_settings[fk] = {
+                'triggered_role': triggered_role,
+                'triggered_user': triggered_user_id,
+                'triggered_user_name': triggered_user_name,
+                'triggered_user_active': triggered_user_active,
+                'triggered_label': triggered_label,
+                'can_current_user_edit': edit_map.get(fk, False),
+            }
+
+        # === last_edits: latest-edit summary per (shipment, field) — sparse (plan D8A) ===
+        last_edits: dict[str, dict[str, dict]] = {}
+
+        if ids:
+            # Scoped-then-windowed: first bound to visible shipments, then rank within
+            # each (shipment, field) partition. The subquery pattern avoids the MSSQL
+            # restriction on filtering Window annotations in the same queryset.
+            ranked = AuditLog.objects.filter(
+                model_name='Shipment',
+                object_id__in=ids,
+                field_name__gt='',
+            ).annotate(
+                rn=Window(
+                    expression=RowNumber(),
+                    partition_by=[F('object_id'), F('field_name')],
+                    order_by=F('created_at').desc(),
+                ),
+            )
+            latest_qs = AuditLog.objects.filter(
+                pk__in=Subquery(ranked.filter(rn=1).values('pk'))
+            ).select_related('user')
+
+            for log_row in latest_qs:
+                sid_str = str(log_row.object_id)
+                user_name = (
+                    (log_row.user.get_full_name() or log_row.user.username)
+                    if log_row.user_id
+                    else None
+                )
+                last_edits.setdefault(sid_str, {})[log_row.field_name] = {
+                    'user_id': log_row.user_id,
+                    'user_name': user_name,
+                    'old_value': log_row.old_value,
+                    'new_value': log_row.new_value,
+                    'edited_at': log_row.created_at.isoformat() if log_row.created_at else None,
+                }
+
         return Response({
             'results': shipment_data,
             'comment_counts': comment_counts,
             'task_counts': task_counts,
+            'rows': rows,
+            'row_settings': row_settings,
+            'last_edits': last_edits,
         })
+
+    @action(detail=True, methods=['get'], url_path='field-history')
+    def field_history(self, request, pk=None):
+        """GET /api/v1/export/shipments/{id}/field-history/?field=<field_key>&limit=50
+
+        Returns the AuditLog rows for a single (shipment, field) pair, newest
+        first. Useful for a "history" popover in the cell-level audit UI.
+
+        Query params:
+            field (str, required): The field_key to retrieve history for.
+            limit (int, default 50, max 200): How many rows to return.
+
+        Permission: ``can_edit_sheet_field(user, field_key)`` — per plan D8.
+        Reading historical cell values is gated by edit permission because old
+        values (prices, buyer data) are sensitive.
+
+        Returns:
+            { "results": [{user_id, user_name, old_value, new_value, edited_at}] }
+
+        Errors:
+            400 if ``field`` param is missing or empty.
+            403 if the user lacks edit permission on the field.
+            404 if the shipment does not exist or isn't in the current queryset.
+        """
+        # 404 check first — avoids leaking existence via 403
+        shipment = self.get_object()
+
+        field_key = request.query_params.get('field', '').strip()
+        if not field_key:
+            return Response(
+                {'error': "'field' query parameter is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Permission gate: edit access required to read full history (plan D8)
+        if not can_edit_sheet_field(request.user, field_key):
+            return Response({'error': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            limit = min(int(request.query_params.get('limit', 50)), 200)
+        except (TypeError, ValueError):
+            limit = 50
+
+        logs = (
+            AuditLog.objects.filter(
+                model_name='Shipment',
+                object_id=shipment.pk,
+                field_name=field_key,
+            )
+            .select_related('user')
+            .order_by('-created_at')[:limit]
+        )
+
+        results = [
+            {
+                'user_id': log.user_id,
+                'user_name': (
+                    (log.user.get_full_name() or log.user.username)
+                    if log.user_id else None
+                ),
+                'old_value': log.old_value,
+                'new_value': log.new_value,
+                'edited_at': log.created_at.isoformat() if log.created_at else None,
+            }
+            for log in logs
+        ]
+
+        return Response({'results': results})
 
     def create(self, request, *args, **kwargs):
         """POST /api/v1/export/shipments/

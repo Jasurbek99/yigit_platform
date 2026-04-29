@@ -5,7 +5,6 @@ import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { useTranslation } from 'react-i18next';
 import type { IShipmentComment } from '@/types';
-import { SHEET_ROW_CONFIG } from '@/constants/sheetRowConfig';
 import i18n from '@/i18n';
 import { useUpdateComment, useDeleteComment, useMarkTaskDone, useReopenTask } from '@/hooks/useComments';
 import { useAuth } from '@/hooks/useAuth';
@@ -28,8 +27,10 @@ interface ICommentItemProps {
 }
 
 function getCellLabel(fieldKey: string): string {
-  const row = SHEET_ROW_CONFIG.find((r) => r.fieldKey === fieldKey);
-  return row ? i18n.t(row.labelKey) : fieldKey;
+  // Read rows from the Zustand store (populated by ShipmentSheet on API load).
+  const rows = useSheetStore.getState().rows;
+  const row = rows.find((r) => r.field_key === fieldKey);
+  return row ? i18n.t(row.label_key) : fieldKey;
 }
 
 function ParsedContent({

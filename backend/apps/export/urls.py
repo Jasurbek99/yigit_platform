@@ -20,6 +20,7 @@ from apps.export.views_admin import (
     UserPermissionsView,
 )
 from apps.export.views_quota import QuotaIssuanceViewSet, QuotaUsageViewSet, QuotaDashboardView
+from apps.export.views_sheet_settings import SheetRowSettingViewSet
 
 router = DefaultRouter()
 
@@ -50,6 +51,7 @@ router.register('admin/firms', ExportFirmViewSet, basename='admin-firm')
 router.register('admin/import-firms', ImportFirmViewSet, basename='admin-import-firm')
 router.register('admin/users', UserManagementViewSet, basename='admin-user')
 router.register('admin/truck-splits', TruckSplitDefaultViewSet, basename='admin-truck-split')
+router.register('admin/sheet-rows', SheetRowSettingViewSet, basename='admin-sheet-row')
 
 urlpatterns = router.urls + [
     path(

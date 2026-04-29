@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Spin } from 'antd';
 import { useSearchParams } from 'react-router-dom';
 import { useShipmentSheet } from '@/hooks/useShipmentSheet';
@@ -13,6 +13,9 @@ export default function ShipmentSheet() {
   const shipments = data?.shipments;
   const commentCounts = data?.comment_counts ?? {};
   const taskCounts = data?.task_counts ?? {};
+  const rows = data?.rows ?? [];
+  const rowSettings = data?.row_settings ?? {};
+  const lastEdits = data?.last_edits ?? {};
 
   const {
     searchText,
@@ -24,7 +27,18 @@ export default function ShipmentSheet() {
     setActiveCell,
     setPendingHighlightCommentId,
     openCommentsForCell,
+    setRows,
   } = useSheetStore();
+
+  // Sync rows into the store so deep components (CommentItem, MentionPopover)
+  // can read the row map without prop-drilling.
+  const prevRowsRef = useRef<typeof rows | null>(null);
+  useEffect(() => {
+    if (rows.length > 0 && rows !== prevRowsRef.current) {
+      prevRowsRef.current = rows;
+      setRows(rows);
+    }
+  }, [rows, setRows]);
 
   const [searchParams] = useSearchParams();
 
@@ -88,8 +102,15 @@ export default function ShipmentSheet() {
 
   return (
     <div className="sheet-page page-fullheight-grid" style={{ position: 'relative' }}>
-      <SheetToolbar shipments={filtered} taskCounts={taskCounts} />
-      <SheetGrid shipments={filtered} commentCounts={commentCounts} taskCounts={taskCounts} />
+      <SheetToolbar shipments={filtered} rows={rows} taskCounts={taskCounts} />
+      <SheetGrid
+        shipments={filtered}
+        rows={rows}
+        commentCounts={commentCounts}
+        taskCounts={taskCounts}
+        rowSettings={rowSettings}
+        lastEdits={lastEdits}
+      />
       <CommentsDrawer
         open={commentsDrawerOpen}
         onClose={() => setCommentsDrawerOpen(false)}
