@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Button, Flex, Input, Select, Segmented, Tooltip, Typography } from 'antd';
-import { PlusOutlined, DownloadOutlined, EditOutlined } from '@ant-design/icons';
+import { Button, Flex, Input, Select, Segmented, Tag, Tooltip, Typography } from 'antd';
+import { PlusOutlined, DownloadOutlined, EditOutlined, FilterOutlined } from '@ant-design/icons';
 import { ProTable } from '@ant-design/pro-components';
 import type { ProColumns } from '@ant-design/pro-components';
 import { useTranslation } from 'react-i18next';
@@ -12,6 +12,7 @@ import { StatusTag } from '@/components/StatusTag';
 import { ShipmentCreateModal } from '@/components/ShipmentCreateModal';
 import { ShipmentEditDrawerForId } from '@/components/ShipmentEditDrawerForId';
 import { ShipmentBulkTransitionModal } from '@/components/ShipmentBulkTransitionModal';
+import { ShipmentFilterDrawer } from '@/components/ShipmentFilterDrawer';
 import { useShipments } from '@/hooks/useShipments';
 import { useAuth } from '@/hooks/useAuth';
 import { canDo, canEditField } from '@/utils/permissions';
@@ -71,12 +72,19 @@ export default function ShipmentList() {
   const [editShipmentId, setEditShipmentId] = useState<number | null>(null);
   const [selectedRowKeys, setSelectedRowKeys] = useState<number[]>([]);
   const [bulkTransitionOpen, setBulkTransitionOpen] = useState(false);
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
 
   const viewMode: ViewMode = searchParams.get('view') === 'my_work' ? 'my_work' : 'all';
   const page = Number(searchParams.get('page')) || 1;
   const pageSize = Number(searchParams.get('pageSize')) || 50;
   const search = searchParams.get('search') ?? '';
   const phaseFilter = searchParams.get('phase') ?? undefined;
+  const countryFilter = Number(searchParams.get('country')) || undefined;
+  const customerFilter = Number(searchParams.get('customer')) || undefined;
+  const exportFirmFilter = Number(searchParams.get('export_firm')) || undefined;
+  const dateAfter = searchParams.get('date_after') ?? undefined;
+  const dateBefore = searchParams.get('date_before') ?? undefined;
+  const pendingMyFields = searchParams.get('pending_my_fields') === 'true';
 
   function updateParams(updates: Record<string, string | undefined>) {
     setSearchParams((prev) => {
@@ -105,7 +113,54 @@ export default function ShipmentList() {
     my_work: viewMode === 'my_work' || undefined,
     search: search || undefined,
     phase: phaseFilter,
+    country: countryFilter,
+    customer: customerFilter,
+    export_firm: exportFirmFilter,
+    date_after: dateAfter,
+    date_before: dateBefore,
+    pending_my_fields: pendingMyFields || undefined,
   });
+
+  const advancedFilterCount = [
+    countryFilter,
+    customerFilter,
+    exportFirmFilter,
+    dateAfter,
+    dateBefore,
+    pendingMyFields ? 'on' : undefined,
+  ].filter(Boolean).length;
+
+  function applyAdvancedFilters(values: {
+    country?: number | null;
+    customer?: number | null;
+    export_firm?: number | null;
+    date_after?: string | null;
+    date_before?: string | null;
+    pending_my_fields?: boolean;
+  }) {
+    updateParams({
+      country: values.country ? String(values.country) : undefined,
+      customer: values.customer ? String(values.customer) : undefined,
+      export_firm: values.export_firm ? String(values.export_firm) : undefined,
+      date_after: values.date_after ?? undefined,
+      date_before: values.date_before ?? undefined,
+      pending_my_fields: values.pending_my_fields ? 'true' : undefined,
+      page: undefined,
+    });
+    setFilterDrawerOpen(false);
+  }
+
+  function clearAdvancedFilters() {
+    updateParams({
+      country: undefined,
+      customer: undefined,
+      export_firm: undefined,
+      date_after: undefined,
+      date_before: undefined,
+      pending_my_fields: undefined,
+      page: undefined,
+    });
+  }
 
   function handleCreateSuccess() {
     void queryClient.invalidateQueries({ queryKey: ['shipments'] });
@@ -277,13 +332,62 @@ export default function ShipmentList() {
           onChange={(val) => { setViewMode(val === 'my_work' ? 'my_work' : 'all'); setPage(1); }}
         />
         <Button
+          icon={<FilterOutlined />}
+          onClick={() => setFilterDrawerOpen(true)}
+          style={{ marginLeft: 'auto' }}
+          type={advancedFilterCount > 0 ? 'primary' : 'default'}
+          ghost={advancedFilterCount > 0}
+        >
+          {advancedFilterCount > 0
+            ? t('shipment_filter_drawer.button_with_count', { count: advancedFilterCount })
+            : t('shipment_filter_drawer.button')}
+        </Button>
+        <Button
           icon={<DownloadOutlined />}
           onClick={() => exportToExcel(data?.results ?? [], t)}
-          style={{ marginLeft: 'auto' }}
         >
           Excel
         </Button>
       </Flex>
+
+      {/* Active advanced filter chips */}
+      {advancedFilterCount > 0 && (
+        <Flex gap={6} wrap="wrap" style={{ marginBottom: 12 }}>
+          {dateAfter && (
+            <Tag closable onClose={() => updateParams({ date_after: undefined, page: undefined })}>
+              {t('shipment_filter_drawer.chip_date_after', { date: dateAfter })}
+            </Tag>
+          )}
+          {dateBefore && (
+            <Tag closable onClose={() => updateParams({ date_before: undefined, page: undefined })}>
+              {t('shipment_filter_drawer.chip_date_before', { date: dateBefore })}
+            </Tag>
+          )}
+          {countryFilter && (
+            <Tag closable onClose={() => updateParams({ country: undefined, page: undefined })}>
+              {t('shipment_filter_drawer.chip_country')}
+            </Tag>
+          )}
+          {customerFilter && (
+            <Tag closable onClose={() => updateParams({ customer: undefined, page: undefined })}>
+              {t('shipment_filter_drawer.chip_customer')}
+            </Tag>
+          )}
+          {exportFirmFilter && (
+            <Tag closable onClose={() => updateParams({ export_firm: undefined, page: undefined })}>
+              {t('shipment_filter_drawer.chip_firm')}
+            </Tag>
+          )}
+          {pendingMyFields && (
+            <Tag closable onClose={() => updateParams({ pending_my_fields: undefined, page: undefined })}>
+              {t('shipment_filter_drawer.chip_pending')}
+            </Tag>
+          )}
+          <Button size="small" type="link" onClick={clearAdvancedFilters}>
+            {t('shipment_filter_drawer.clear_all')}
+          </Button>
+        </Flex>
+      )}
 
       {/* Bulk action bar — only when rows selected */}
       {selectedRowKeys.length > 0 && (
