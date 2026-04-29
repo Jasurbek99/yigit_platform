@@ -238,7 +238,8 @@ function PageVisibilityTab() {
         columns={columns}
         size="small"
         pagination={false}
-        scroll={{ x: 'max-content' }}
+        sticky
+        scroll={{ x: 'max-content', y: 'calc(100vh - 260px)' }}
         style={{ background: '#fff', borderRadius: 8 }}
       />
       <Flex justify="flex-end" style={{ marginTop: 16 }}>
@@ -350,7 +351,8 @@ function ResourcePermissionsTab() {
         columns={columns}
         size="small"
         pagination={false}
-        scroll={{ x: 'max-content' }}
+        sticky
+        scroll={{ x: 'max-content', y: 'calc(100vh - 260px)' }}
         style={{ background: '#fff', borderRadius: 8 }}
       />
       <Flex justify="flex-end" style={{ marginTop: 16 }}>
@@ -492,7 +494,8 @@ function FieldPermissionsTab() {
             columns={columns}
             size="small"
             pagination={false}
-            scroll={{ x: 'max-content' }}
+            sticky
+            scroll={{ x: 'max-content', y: 'calc(100vh - 320px)' }}
             style={{ background: '#fff', borderRadius: 8 }}
           />
           <Flex justify="flex-end" style={{ marginTop: 16 }}>
