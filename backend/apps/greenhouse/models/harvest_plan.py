@@ -2,27 +2,12 @@ from django.db import models
 from apps.core.db_utils import schema_table
 
 
-PLAN_STATUS_CHOICES = [
-    ('draft', 'Draft'),
-    ('submitted', 'Submitted'),
-    ('approved', 'Approved'),
-    ('rejected', 'Rejected'),
-]
-
-# Allowed transitions: from_status -> list of to_status values.
-PLAN_TRANSITIONS = {
-    'draft': ['submitted'],
-    'submitted': ['approved', 'rejected'],
-    'rejected': ['submitted'],
-    'approved': [],
-}
-
-
 class WeeklyHarvestPlan(models.Model):
-    """AD-3: Weekly harvest plan per greenhouse block.
+    """Per-week submission container for one greenhouse block.
 
-    One row per (season, block, week_number, year). Plan vs actual for Mon-Sat.
-    Includes approval workflow: draft -> submitted -> approved / rejected.
+    Wide columns (monday_plan_kg…saturday_actual_kg) and approval workflow
+    were dropped in migration `greenhouse.0004_harvestdayentry_harvestdispatchlog_and_more`.
+    Daily plan/forecast/actual data lives in `HarvestDayEntry` (related_name='day_entries').
 
     DDL: export.weekly_harvest_plans -- UNIQUE (season_id, block_id, week_number, year)
     """
@@ -30,47 +15,24 @@ class WeeklyHarvestPlan(models.Model):
     # === Identity ===
     season = models.ForeignKey('core.Season', on_delete=models.PROTECT, db_column='season_id')
     block = models.ForeignKey('core.GreenhouseBlock', on_delete=models.PROTECT, db_column='block_id')
-    week_number = models.PositiveSmallIntegerField()  # ISO week 1-53
-    year = models.PositiveSmallIntegerField()
+    week_number = models.PositiveSmallIntegerField(help_text='ISO week number 1–53.')
+    year = models.PositiveSmallIntegerField(help_text='ISO year.')
 
-    # === Plan (kg) ===
-    monday_plan_kg = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    tuesday_plan_kg = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    wednesday_plan_kg = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    thursday_plan_kg = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    friday_plan_kg = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    saturday_plan_kg = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-
-    # === Actual (kg) ===
-    monday_actual_kg = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    tuesday_actual_kg = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    wednesday_actual_kg = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    thursday_actual_kg = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    friday_actual_kg = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    saturday_actual_kg = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    actual_weekly_total_kg = models.DecimalField(
-        max_digits=10, decimal_places=2, null=True, blank=True,
-        help_text='Weekly actual total when per-day breakdown is unavailable',
+    # === Submission ===
+    submitted_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text='UTC timestamp of first formal submission for this week.',
     )
-
-    # === Approval workflow ===
-    status = models.CharField(max_length=20, choices=PLAN_STATUS_CHOICES, default='draft')
-    submitted_at = models.DateTimeField(null=True, blank=True)
     submitted_by = models.ForeignKey(
         'core.User', on_delete=models.SET_NULL, null=True, blank=True,
         db_column='submitted_by', related_name='harvest_plans_submitted',
     )
-    approved_at = models.DateTimeField(null=True, blank=True)
-    approved_by = models.ForeignKey(
-        'core.User', on_delete=models.SET_NULL, null=True, blank=True,
-        db_column='approved_by', related_name='harvest_plans_approved',
+
+    # === Lock ===
+    locked_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text='When set, all edits are frozen. Admin can re-open by clearing to NULL.',
     )
-    rejected_at = models.DateTimeField(null=True, blank=True)
-    rejected_by = models.ForeignKey(
-        'core.User', on_delete=models.SET_NULL, null=True, blank=True,
-        db_column='rejected_by', related_name='harvest_plans_rejected',
-    )
-    rejection_note = models.CharField(max_length=500, blank=True, null=True)
 
     # === Audit ===
     entered_by = models.ForeignKey(
@@ -82,27 +44,13 @@ class WeeklyHarvestPlan(models.Model):
 
     class Meta:
         db_table = schema_table('export', 'weekly_harvest_plans')
-        indexes = [
-            models.Index(fields=['status'], name='ix_harvest_plan_status'),
-        ]
         constraints = [
             models.UniqueConstraint(
                 fields=['season', 'block', 'week_number', 'year'],
                 name='uq_weekly_plan',
             ),
-            models.CheckConstraint(
-                check=(
-                    models.Q(monday_plan_kg__gte=0) &
-                    models.Q(tuesday_plan_kg__gte=0) &
-                    models.Q(wednesday_plan_kg__gte=0) &
-                    models.Q(thursday_plan_kg__gte=0) &
-                    models.Q(friday_plan_kg__gte=0) &
-                    models.Q(saturday_plan_kg__gte=0)
-                ),
-                name='chk_harvest_plan_kg_gte0',
-            ),
         ]
         ordering = ['year', 'week_number', 'block']
 
     def __str__(self) -> str:
-        return f'W{self.week_number}/{self.year} — block {self.block_id} [{self.status}]'
+        return f'W{self.week_number}/{self.year} — block {self.block_id}'

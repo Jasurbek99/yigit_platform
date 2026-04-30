@@ -1,8 +1,6 @@
-from decimal import Decimal
-
 from rest_framework import serializers
 
-from apps.greenhouse.models import BlockManagerAssignment, DomesticSale, WeeklyHarvestPlan
+from apps.greenhouse.models import BlockManagerAssignment, DomesticSale, HarvestDayEntry, WeeklyHarvestPlan
 
 
 class WeeklyHarvestPlanSerializer(serializers.ModelSerializer):
@@ -10,56 +8,58 @@ class WeeklyHarvestPlanSerializer(serializers.ModelSerializer):
     block_name = serializers.CharField(source='block.name', read_only=True)
     season_name = serializers.CharField(source='season.name', read_only=True)
     entered_by_name = serializers.CharField(source='entered_by.username', read_only=True)
-
-    # Approval workflow read-only fields
-    submitted_by_name = serializers.CharField(
-        source='submitted_by.username', read_only=True, default=None,
-    )
-    approved_by_name = serializers.CharField(
-        source='approved_by.username', read_only=True, default=None,
-    )
-    rejected_by_name = serializers.CharField(
-        source='rejected_by.username', read_only=True, default=None,
-    )
-
-    # Computed totals
-    total_plan_kg = serializers.SerializerMethodField()
-    total_actual_kg = serializers.SerializerMethodField()
-
-    def get_total_plan_kg(self, obj: WeeklyHarvestPlan) -> Decimal:
-        fields = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-        return sum(getattr(obj, f'{d}_plan_kg') for d in fields)
-
-    def get_total_actual_kg(self, obj: WeeklyHarvestPlan) -> Decimal | None:
-        fields = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-        vals = [getattr(obj, f'{d}_actual_kg') for d in fields]
-        if all(v is None for v in vals):
-            return obj.actual_weekly_total_kg  # fallback for import-only weekly totals
-        return sum(v or Decimal('0') for v in vals)
+    submitted_by_name = serializers.CharField(source='submitted_by.username', read_only=True, default=None)
 
     class Meta:
         model = WeeklyHarvestPlan
         fields = [
             'id', 'season', 'season_name', 'block', 'block_code', 'block_name',
             'week_number', 'year',
-            'monday_plan_kg', 'tuesday_plan_kg', 'wednesday_plan_kg',
-            'thursday_plan_kg', 'friday_plan_kg', 'saturday_plan_kg',
-            'monday_actual_kg', 'tuesday_actual_kg', 'wednesday_actual_kg',
-            'thursday_actual_kg', 'friday_actual_kg', 'saturday_actual_kg',
-            'actual_weekly_total_kg',
-            'total_plan_kg', 'total_actual_kg',
-            # Approval workflow
-            'status', 'submitted_at', 'submitted_by_name',
-            'approved_at', 'approved_by_name',
-            'rejected_at', 'rejected_by_name', 'rejection_note',
-            'entered_by_name', 'updated_at',
+            'submitted_at', 'submitted_by', 'submitted_by_name',
+            'locked_at',
+            'entered_by_name', 'created_at', 'updated_at',
         ]
         read_only_fields = [
-            'entered_by_name', 'updated_at', 'total_plan_kg', 'total_actual_kg',
-            'actual_weekly_total_kg',
-            'status', 'submitted_at', 'submitted_by_name',
-            'approved_at', 'approved_by_name',
-            'rejected_at', 'rejected_by_name', 'rejection_note',
+            'block_code', 'block_name', 'season_name',
+            'entered_by_name', 'submitted_by_name',
+            'submitted_at', 'submitted_by',
+            'locked_at', 'created_at', 'updated_at',
+        ]
+
+
+class HarvestDayEntrySerializer(serializers.ModelSerializer):
+    block_code = serializers.CharField(source='block.code', read_only=True)
+    block_name = serializers.CharField(source='block.name', read_only=True)
+    plan_submitted_by_name = serializers.CharField(
+        source='plan_submitted_by.username', read_only=True, default=None,
+    )
+    forecast_submitted_by_name = serializers.CharField(
+        source='forecast_submitted_by.username', read_only=True, default=None,
+    )
+    last_override_by_name = serializers.CharField(
+        source='last_override_by.username', read_only=True, default=None,
+    )
+
+    class Meta:
+        model = HarvestDayEntry
+        fields = [
+            'id', 'weekly_plan', 'season', 'block', 'block_code', 'block_name',
+            'entry_date', 'weekday',
+            'plan_value', 'plan_submitted_at', 'plan_submitted_by', 'plan_submitted_by_name', 'plan_state',
+            'forecast_value', 'forecast_submitted_at', 'forecast_submitted_by',
+            'forecast_submitted_by_name', 'forecast_window', 'forecast_revision_count',
+            'actual_value', 'actual_finalized_at', 'actual_source',
+            'last_override_at', 'last_override_by', 'last_override_by_name', 'last_override_reason',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = [
+            'block_code', 'block_name',
+            'plan_submitted_at', 'plan_submitted_by', 'plan_submitted_by_name', 'plan_state',
+            'forecast_submitted_at', 'forecast_submitted_by', 'forecast_submitted_by_name',
+            'forecast_window', 'forecast_revision_count',
+            'actual_finalized_at', 'actual_source',
+            'last_override_at', 'last_override_by', 'last_override_by_name', 'last_override_reason',
+            'created_at', 'updated_at',
         ]
 
 

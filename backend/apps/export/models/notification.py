@@ -24,13 +24,21 @@ class Notification(models.Model):
         ('quota_100', 'Quota 100%'),
         ('overdue', 'Overdue shipment'),
         ('action_required', 'Action required'),
-        ('plan_submitted', 'Plan submitted'),
-        ('plan_approved', 'Plan approved'),
-        ('plan_rejected', 'Plan rejected'),
-        # Comment & task system (comment-cells-tasks feature)
+        # Forecast Layer (ADR-017)
+        ('forecast_nudge', 'Forecast nudge'),
+        ('forecast_handoff', 'Forecast handoff'),
+        ('forecast_escalation', 'Forecast escalation'),
+        ('plan_deadline_reminder', 'Plan deadline reminder'),
+        ('plan_late', 'Plan late'),
+        ('plan_critical_late', 'Plan critical-late'),
+        # Comment & task system
         ('mention', 'Mention'),
         ('task_assigned', 'Task assigned'),
         ('task_done', 'Task done'),
+        # Deprecated — removed in approval-flow drop, kept for old rows
+        ('plan_submitted', 'Plan submitted (deprecated)'),
+        ('plan_approved', 'Plan approved (deprecated)'),
+        ('plan_rejected', 'Plan rejected (deprecated)'),
     ]
 
     # === Target ===

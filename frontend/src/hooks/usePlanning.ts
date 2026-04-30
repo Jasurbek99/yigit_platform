@@ -9,9 +9,12 @@ import type {
   ITruckDestination,
   IBlockSummary,
   IDomesticSale,
+  IHarvestDayEntry,
+  IDayEntryHistoryItem,
 } from '@/types';
 import {
   MOCK_HARVEST_PLANS,
+  MOCK_DAY_ENTRIES,
   MOCK_PRICE_ENTRIES,
   MOCK_TRUCK_ALLOCATIONS,
   MOCK_BLOCK_SUMMARY,
@@ -86,73 +89,6 @@ export function useSubmitHarvestPlan() {
   });
 }
 
-export function useApproveHarvestPlan() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (id: number): Promise<IWeeklyHarvestPlan> => {
-      const { data } = await api.post<IWeeklyHarvestPlan>(`/greenhouse/harvest-plans/${id}/approve/`);
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['harvest-plans'] });
-    },
-  });
-}
-
-export function useRejectHarvestPlan() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (payload: { id: number; rejection_note: string }): Promise<IWeeklyHarvestPlan> => {
-      const { data } = await api.post<IWeeklyHarvestPlan>(
-        `/greenhouse/harvest-plans/${payload.id}/reject/`,
-        { rejection_note: payload.rejection_note },
-      );
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['harvest-plans'] });
-    },
-  });
-}
-
-export function useBulkSubmitHarvestPlans() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (ids: number[]): Promise<{ submitted: number[]; errors: Array<{ id: number; error: string }> }> => {
-      const { data } = await api.post('/greenhouse/harvest-plans/bulk-submit/', { ids });
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['harvest-plans'] });
-    },
-  });
-}
-
-export function useBulkApproveHarvestPlans() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (ids: number[]): Promise<{ approved: number[]; errors: Array<{ id: number; error: string }> }> => {
-      const { data } = await api.post('/greenhouse/harvest-plans/bulk-approve/', { ids });
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['harvest-plans'] });
-    },
-  });
-}
-
-export function useBulkRejectHarvestPlans() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (payload: { ids: number[]; rejection_note: string }): Promise<{ rejected: number[]; errors: Array<{ id: number; error: string }> }> => {
-      const { data } = await api.post('/greenhouse/harvest-plans/bulk-reject/', payload);
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['harvest-plans'] });
-    },
-  });
-}
 
 // ---------------------------------------------------------------------------
 // Weekly Local Sell Plans
@@ -376,6 +312,83 @@ export function useBlockSummary(
       return data;
     },
     staleTime: 60_000,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Harvest Day Entries (Forecast Layer)
+// ---------------------------------------------------------------------------
+
+export function useDayEntries(
+  filters: { weekly_plan?: number; block?: number; season?: number; date_from?: string; date_to?: string } = {},
+) {
+  return useQuery({
+    queryKey: ['day-entries', filters],
+    queryFn: async (): Promise<IHarvestDayEntry[]> => {
+      if (USE_MOCK) {
+        // Filter mock data to match the requested filters
+        return MOCK_DAY_ENTRIES.filter((e) => {
+          if (filters.season !== undefined && e.season !== filters.season) return false;
+          if (filters.block !== undefined && e.block !== filters.block) return false;
+          if (filters.weekly_plan !== undefined && e.weekly_plan !== filters.weekly_plan) return false;
+          if (filters.date_from !== undefined && e.entry_date < filters.date_from) return false;
+          if (filters.date_to !== undefined && e.entry_date > filters.date_to) return false;
+          return true;
+        });
+      }
+      const params = new URLSearchParams();
+      if (filters.weekly_plan) params.set('weekly_plan', String(filters.weekly_plan));
+      if (filters.block) params.set('block', String(filters.block));
+      if (filters.season) params.set('season', String(filters.season));
+      if (filters.date_from) params.set('date_from', filters.date_from);
+      if (filters.date_to) params.set('date_to', filters.date_to);
+      const { data } = await api.get<IApiListResponse<IHarvestDayEntry> | IHarvestDayEntry[]>(
+        `/greenhouse/day-entries/?${params}`,
+      );
+      return Array.isArray(data) ? data : data.results;
+    },
+    staleTime: 30_000,
+  });
+}
+
+export function useUpsertDayEntry() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      id?: number;
+      plan_value?: number | null;
+      forecast_value?: number | null;
+      actual_value?: number | null;
+      reason?: string;
+    }): Promise<IHarvestDayEntry> => {
+      if (payload.id) {
+        const { data } = await api.patch<IHarvestDayEntry>(
+          `/greenhouse/day-entries/${payload.id}/`,
+          payload,
+        );
+        return data;
+      }
+      const { data } = await api.post<IHarvestDayEntry>('/greenhouse/day-entries/', payload);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['day-entries'] });
+    },
+  });
+}
+
+export function useDayEntryHistory(entryId: number | null) {
+  return useQuery({
+    queryKey: ['day-entry-history', entryId],
+    queryFn: async (): Promise<IDayEntryHistoryItem[]> => {
+      if (!entryId) return [];
+      const { data } = await api.get<IDayEntryHistoryItem[]>(
+        `/greenhouse/day-entries/${entryId}/history/`,
+      );
+      return data;
+    },
+    enabled: entryId !== null,
+    staleTime: 30_000,
   });
 }
 

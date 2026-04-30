@@ -23,8 +23,11 @@ PRIVILEGED_ROLES = frozenset({'admin', 'export_manager', 'director'})
 DIRECTOR_ONLY = frozenset({'director'})
 
 # Greenhouse / planning
-PLAN_WRITE = frozenset({'admin', 'greenhouse_manager', 'export_manager', 'director'})
-PLAN_APPROVE = frozenset({'admin', 'export_manager', 'director'})
+# PLAN_WRITE and PLAN_APPROVE are removed — the approval workflow was dropped in
+# the Forecast Layer feature (Apr 2026, see ADR-017). Use HARVEST_DAY_WRITE for
+# write gates on plan/forecast/actual values.
+HARVEST_DAY_WRITE = frozenset({'admin', 'greenhouse_manager', 'warehouse_chief'})
+HARVEST_DAY_OVERRIDE = frozenset({'admin'})  # admin-only, with required `reason`
 
 # Domestic operations
 DOMESTIC_WRITE = frozenset({'admin', 'loading_dept_head', 'warehouse_chief', 'greenhouse_manager', 'export_manager', 'director'})

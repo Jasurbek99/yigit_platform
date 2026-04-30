@@ -1,6 +1,6 @@
 ---
 title: Weekly Harvest Planning
-tags: [process, backend, frontend, greenhouse, planning, approval-workflow]
+tags: [process, backend, frontend, greenhouse, planning, forecast-layer]
 related: [[truck-allocation]], [[shipment-creation]], [[domestic-sales]]
 ---
 
@@ -8,38 +8,52 @@ related: [[truck-allocation]], [[shipment-creation]], [[domestic-sales]]
 
 ## What Is This Process?
 
-Block managers (7 people, each managing 1-3 greenhouse blocks out of 15 total) enter their planned tomato harvest in kg for each day of the week (Monday-Saturday). Plans go through an approval workflow (draft → submitted → approved/rejected). Once approved, actual harvest weights are recorded. The total planned kg determines how many trucks are needed ([[truck-allocation]]).
+Block managers (7 people, each managing 1–3 of the 15 greenhouse blocks) plan, then refine, then record their tomato harvest at three layers per block per day:
+
+1. **Plan** — submitted Friday for the next week (Mon–Sat); soft late-flag through Saturday/Sunday; critical-late flag on Monday morning.
+2. **Forecast** — a daily revision submitted between 17:00 the day before and 09:00 the day-of, with explicit window state (`primary` / `fallback` / `same_day_red_flag`).
+3. **Actual** — entered manually as today, until the pallet rollup phase replaces this with auto-aggregation.
+
+Submission is final once recorded. There is no approve/reject step (per AD-15 / Apr 2026 design — the approval workflow was removed when the Forecast Layer landed). Admin can override any cell anytime with a required `reason` that writes to the audit log.
+
+The total kg, computed per cell as **most-current value** (Actual if past, Forecast if present, Plan otherwise), divided by `truck_capacity_kg` from `GreenhouseConfig` (default 18,500), produces the truck estimate that feeds [[truck-allocation]].
 
 ## How It Works (Business Flow)
 
 ```mermaid
 flowchart TD
-    A["Block Manager opens\nWeeklyPlanGrid"] --> B["Enters Mon-Sat plan_kg\nfor their blocks"]
-    B --> C["Submits plan\n(draft → submitted)"]
-    C --> D{"Export Manager\nreviews"}
-    D -->|Approve| E["Plan approved\n(submitted → approved)"]
-    D -->|Reject| F["Plan rejected\nwith note"]
-    F --> B
-    E --> G["Block Manager enters\nactual_kg per day"]
-    G --> H["Total plan_kg / 18,500\n= trucks needed"]
-    H --> I["[[truck-allocation]]"]
+  PlanW[Block Manager submits<br/>weekly plan Fri EOD] -->|plan_state recorded<br/>per HarvestDayEntry| Wait1[Days 1-6 of plan week]
+  Wait1 --> Forecast[Block Manager submits<br/>tomorrow's forecast<br/>17:00-18:00 day-before]
+  Forecast --> Today[Day arrives]
+  Today --> Actual[warehouse_chief enters<br/>actual_kg manually]
+  Actual --> Estim[Most-current value<br/>per cell aggregated]
+  Estim --> Trucks[Total / truck_capacity_kg<br/>= trucks needed]
+  Trucks --> TA[[truck-allocation]]
+
+  Forecast -.->|17:00 minus lead time:<br/>T1 nudge| BMNotif{Block Manager<br/>didn't submit?}
+  BMNotif -->|At 18:00<br/>T2 handoff| WC[warehouse_chief<br/>fallback window]
+  WC -->|At 09:00<br/>T3 escalation| Esc[admin + director<br/>urgent]
+
+  PlanW -.->|Sat morning P2<br/>Mon 00:00 P3| Late{Plan still<br/>not submitted}
 ```
 
-### Approval Workflow States
+### Submission-window state machine (per HarvestDayEntry)
 
 ```mermaid
 stateDiagram-v2
-    [*] --> draft: Initialize week
-    draft --> submitted: Block manager submits
-    submitted --> approved: Manager approves
-    submitted --> rejected: Manager rejects (with note)
-    rejected --> submitted: Block manager resubmits
+  [*] --> never_entered: cell exists, value IS NULL
+  never_entered --> plan_submitted: greenhouse_manager enters plan_value
+  plan_submitted --> forecast_primary: 17:00-18:00 day-before
+  plan_submitted --> forecast_fallback: 18:00-09:00 (warehouse_chief)
+  plan_submitted --> forecast_same_day_red_flag: 09:00-23:59 (low quality)
+  forecast_primary --> actual_finalized: warehouse_chief enters actual_value
+  forecast_fallback --> actual_finalized
+  forecast_same_day_red_flag --> actual_finalized
+  plan_submitted --> actual_finalized: no forecast was entered
+  never_entered --> actual_finalized: skipped both layers
 ```
 
-**PLAN_TRANSITIONS**:
-- `draft` → `submitted`
-- `submitted` → `approved`, `rejected`
-- `rejected` → `submitted` (resubmit after fixes)
+The state is implicit, derived from which of `plan_submitted_at` / `forecast_submitted_at` / `actual_finalized_at` are non-NULL. There is no enum status field on the row.
 
 ## Database
 
@@ -47,98 +61,128 @@ stateDiagram-v2
 
 | Table | Schema | Purpose | Key Columns |
 |-------|--------|---------|-------------|
-| `greenhouse.weekly_harvest_plans` | greenhouse | 15 blocks × 1 week = up to 15 rows | season, block, week_number, year, 6 plan_kg, 6 actual_kg, status |
+| `greenhouse.weekly_harvest_plans` | greenhouse | Per-week submission container, one row per `(season, block, week_number, year)` | submitted_at, submitted_by, locked_at, entered_by |
+| `greenhouse.harvest_day_entries` | export | Daily-grain Plan/Forecast/Actual data, one row per `(weekly_plan, entry_date)` | see below |
 | `greenhouse.block_manager_assignments` | greenhouse | Which user manages which block | user_id, block_id, is_active |
+| `core.greenhouse_config` | core | Singleton (`pk=1`) for tunable deadlines, truck capacity, operating-days bitmask, timezone | see below |
+| `core.operating_day_exceptions` | core | Ad-hoc holiday calendar | date UNIQUE, is_holiday, note |
+| `export.harvest_dispatch_log` | export | Idempotency record for time-based notification triggers | UNIQUE(trigger_kind, target_user, scope_date) |
 
-### WeeklyHarvestPlan Fields (AD-3: 12 columns)
+### `HarvestDayEntry` fields (the daily grain)
+
+| Group | Fields | Notes |
+|-------|--------|-------|
+| Identity | `weekly_plan` (FK CASCADE), `season`, `block`, `entry_date`, `weekday` (0=Mon … 6=Sun) | UNIQUE(weekly_plan, entry_date). `weekday` allows 6 so end-of-season Sunday harvesting is supported. |
+| Plan | `plan_value` (Decimal, nullable), `plan_submitted_at`, `plan_submitted_by`, `plan_state` (`on_time` / `late` / `critical_late` / `''`) | `plan_state` is computed from submit time vs `GreenhouseConfig` deadlines. |
+| Forecast | `forecast_value`, `forecast_submitted_at`, `forecast_submitted_by`, `forecast_window` (`primary` / `fallback` / `same_day_red_flag` / `''`), `forecast_revision_count` (PositiveSmallInt) | Revision count increments on each edit. |
+| Actual | `actual_value`, `actual_finalized_at`, `actual_source` (`manual` / `pallet_rollup_pending` / `''`) | Pallet rollup auto-source lands in a later phase. |
+| Override | `last_override_at`, `last_override_by`, `last_override_reason` (CharField 500, Cyrillic_General_CI_AS) | Snapshot of most-recent admin override; full history in `AuditLog`. |
+| Audit | `created_at`, `updated_at` | Standard. |
+
+**Empty-vs-zero rule**: `value IS NULL` ⇒ "not entered" (em-dash); `value = 0 AND *_submitted_at IS NOT NULL` ⇒ explicit confirmed zero (italic with checkmark). No extra boolean column needed.
+
+### `WeeklyHarvestPlan` (post-rewrite — container only)
 
 | Field | Type | Notes |
 |-------|------|-------|
-| `season` | FK → Season | Which growing season |
-| `block` | FK → GreenhouseBlock | Which greenhouse block (A through O) |
-| `week_number` | PositiveSmallInt | ISO week number (1-52) |
-| `year` | PositiveSmallInt | Year |
-| `monday_plan_kg` through `saturday_plan_kg` | Decimal(10,2) | Planned harvest per day, default=0 |
-| `monday_actual_kg` through `saturday_actual_kg` | Decimal(10,2) | Actual harvest per day, nullable |
-| `actual_weekly_total_kg` | Decimal(10,2) | Fallback total if daily actuals missing |
-| `status` | CharField | draft / submitted / approved / rejected |
-| `submitted_at`, `submitted_by` | DateTime, FK User | When/who submitted |
-| `approved_at`, `approved_by` | DateTime, FK User | When/who approved |
-| `rejected_at`, `rejected_by`, `rejection_note` | DateTime, FK User, Text | When/who/why rejected |
-| `entered_by` | FK User | Who created the record |
+| `season`, `block`, `week_number`, `year` | FK + ints | UNIQUE(season, block, week_number, year) |
+| `submitted_at`, `submitted_by` | DateTime, FK User | When/who hit "Submit weekly plan" |
+| `locked_at` | DateTime nullable | When set, all edits frozen; admin re-opens by clearing to NULL |
+| `entered_by` | FK User | Who created the row |
+| `created_at`, `updated_at` | DateTime | Standard |
 
-### Key Constraints
+The wide columns (`monday_plan_kg`…`saturday_actual_kg`, `actual_weekly_total_kg`) and approval workflow (`status`, `approved_at`, `approved_by`, `rejected_at`, `rejected_by`, `rejection_note`) were dropped in `greenhouse.0004_harvestdayentry_harvestdispatchlog_and_more`. See [[../../ADR|ADR-017]].
 
-- **Unique**: `(season, block, week_number, year)` — one plan per block per week
-- **Check**: all `plan_kg >= 0`
+### `GreenhouseConfig` (singleton)
 
-### Relationships
-
-```mermaid
-erDiagram
-    WeeklyHarvestPlan }o--|| Season : "season"
-    WeeklyHarvestPlan }o--|| GreenhouseBlock : "block"
-    WeeklyHarvestPlan }o--o| User : "entered_by"
-    BlockManagerAssignment }o--|| User : "user"
-    BlockManagerAssignment }o--|| GreenhouseBlock : "block"
-```
+| Field | Default | Purpose |
+|-------|---------|---------|
+| `plan_deadline_weekday` | 4 (Friday) | Plan must be submitted by EOD this weekday for `on_time` |
+| `plan_late_until_weekday` | 6 (Sunday) | Submission allowed but flagged `late` through this weekday |
+| `plan_critical_late_at_weekday` + `_at_time` | 0 + 00:00 (Monday) | After this, flag becomes `critical_late` |
+| `forecast_primary_open` / `_close` | 17:00 / 18:00 | Block-manager primary window (day-before) |
+| `forecast_fallback_close` | 09:00 | warehouse_chief fallback window closes (day-of) |
+| `forecast_same_day_close` | 23:59 | After this, forecast is locked |
+| `notification_lead_minutes` | 60 | T1 nudge fires at `forecast_primary_open − 60 min` |
+| `truck_capacity_kg` | 18,500 | Used in Est. Trucks tile (was hardcoded in frontend) |
+| `operating_days_bitmask` | 0b0111111 | Bits 0–6 = Mon–Sun; default Mon–Sat |
+| `timezone_name` | `Asia/Ashgabat` | All deadline math in this local time |
 
 ## Backend Implementation
 
 ### Models
 
-**File**: `backend/apps/greenhouse/models/harvest_plan.py`
-
-- `WeeklyHarvestPlan` — 12 data columns (6 plan + 6 actual) per row, approval workflow fields
-- `BlockManagerAssignment` — links users to blocks, `is_active` flag, unique `(user, block)`
+**Files**:
+- `backend/apps/greenhouse/models/harvest_day_entry.py` — `HarvestDayEntry`
+- `backend/apps/greenhouse/models/harvest_plan.py` — `WeeklyHarvestPlan` (container only)
+- `backend/apps/greenhouse/models/dispatch_log.py` — `HarvestDispatchLog`
+- `backend/apps/core/models/config.py` — `GreenhouseConfig`
+- `backend/apps/core/models/operating_day.py` — `OperatingDayException`
 
 ### Services
 
-**File**: `backend/apps/core/services_workflow.py` (shared approval workflow)
+**Package**: `backend/apps/greenhouse/services/`
 
-| Function | Input | Output | Logic |
-|----------|-------|--------|-------|
-| `validate_transition(current, target, transitions)` | Status strings + transitions dict | None or raises ValueError | Checks if transition is allowed |
-| `apply_status_change(plan, target, user, ...)` | Plan instance + new status + user | List of updated field names | Sets status, timestamp, user fields; clears rejection fields on resubmit |
-| `create_audit_entry(user, action, ...)` | User + action details | AuditLog row | Immutable audit trail |
+| Function | Purpose |
+|----------|---------|
+| `set_plan_value(entry, value, user, reason='')` | Writes plan_value, plan_submitted_at/by, computes plan_state. Admin override path also writes `last_override_*` snapshot + `AuditLog.detail = "OVERRIDE: {reason}"`. |
+| `set_forecast_value(entry, value, user, reason='')` | Writes forecast_value, computes forecast_window per current time, increments forecast_revision_count, audit. |
+| `set_actual_value(entry, value, user, reason='')` | Writes actual_value, actual_finalized_at, actual_source. |
+| `admin_override(entry, field, value, reason, user)` | Wraps the appropriate setter; required `reason` non-empty. |
+| `compute_plan_state(submitted_at_local, plan_week_start, config)` | Returns `'on_time'` / `'late'` / `'critical_late'`. Pure function. |
+| `compute_forecast_window(submitted_at_local, entry_date, config)` | Returns `'primary'` / `'fallback'` / `'same_day_red_flag'` / `None` (locked). Pure function. |
+| `submit_weekly_plan(weekly_plan, user)` | Sets `WeeklyHarvestPlan.submitted_at/by`. For each linked HarvestDayEntry with non-null `plan_value` and null `plan_submitted_at`, fills submission fields + computes `plan_state`. |
 
-Greenhouse-specific workflow uses these generic helpers with `PLAN_TRANSITIONS` dict.
+### ViewSets & Endpoints
 
-### ViewSet & Endpoints
-
-**File**: `backend/apps/greenhouse/views.py` — `WeeklyHarvestPlanViewSet`
+**File**: `backend/apps/greenhouse/views.py`
 
 | Method | Endpoint | Action | Auth |
 |--------|----------|--------|------|
-| GET | `/api/v1/greenhouse/harvest-plans/` | List (filterable) | IsAuthenticated |
-| GET | `/api/v1/greenhouse/harvest-plans/{id}/` | Detail | IsAuthenticated |
-| POST | `/api/v1/greenhouse/harvest-plans/` | Create | IsAuthenticated |
-| PATCH | `/api/v1/greenhouse/harvest-plans/{id}/` | Update (status-locked) | IsAuthenticated + block auth |
-| POST | `/api/v1/greenhouse/harvest-plans/{id}/submit/` | Submit for approval | Block owner / manager |
-| POST | `/api/v1/greenhouse/harvest-plans/{id}/approve/` | Approve | director, export_manager |
-| POST | `/api/v1/greenhouse/harvest-plans/{id}/reject/` | Reject (with note) | director, export_manager |
-| POST | `/api/v1/greenhouse/harvest-plans/bulk-submit/` | Bulk submit | `{ids: []}` |
-| POST | `/api/v1/greenhouse/harvest-plans/bulk-approve/` | Bulk approve | `{ids: []}` |
-| POST | `/api/v1/greenhouse/harvest-plans/bulk-reject/` | Bulk reject | `{ids: [], rejection_note: "..."}` |
-| POST | `/api/v1/greenhouse/harvest-plans/initialize-week/` | Create drafts for all blocks | director, export_manager |
+| GET | `/api/v1/greenhouse/harvest-plans/` | List weekly containers | IsAuthenticated |
+| GET | `/api/v1/greenhouse/harvest-plans/{id}/` | Container detail | IsAuthenticated |
+| PATCH | `/api/v1/greenhouse/harvest-plans/{id}/` | Update container fields (locked_at) | IsAuthenticated + block auth |
+| POST | `/api/v1/greenhouse/harvest-plans/{id}/submit_week/` | Mark week as submitted | greenhouse_manager (own block) / admin |
+| POST | `/api/v1/greenhouse/harvest-plans/initialize-week/` | Create container rows for all active top-level blocks | greenhouse_manager / admin |
 | GET | `/api/v1/greenhouse/harvest-plans/block-summary/` | Block summary stats | `?year=&week=` |
+| GET | `/api/v1/greenhouse/day-entries/` | List daily entries | filter `?season=&block=&from_date=&to_date=` |
+| GET | `/api/v1/greenhouse/day-entries/{id}/` | Day entry detail | IsAuthenticated |
+| PATCH | `/api/v1/greenhouse/day-entries/{id}/` | Update plan_value / forecast_value / actual_value (with optional `reason` for admin) | Service-layer permission gate |
+| GET | `/api/v1/greenhouse/day-entries/{id}/history/` | Audit log + override snapshot | IsAuthenticated |
 
-**Filters**: `?season=`, `?block=`, `?year=`, `?week=`
+**Approval-workflow endpoints REMOVED**: no more `submit/`, `approve/`, `reject/`, `bulk-submit/`, `bulk-approve/`, `bulk-reject/`. The only "submission" remaining is `submit_week/` which records timestamps without seeking approval.
 
-### Per-Block Authorization
+**Config endpoints**:
+| Method | Endpoint | Auth |
+|--------|----------|------|
+| GET / PATCH | `/api/v1/core/greenhouse-config/` | admin only on PATCH |
+| GET / POST / PATCH / DELETE | `/api/v1/core/operating-day-exceptions/` | admin writes; all read |
 
-- `director` and `export_manager`: always allowed to view/edit all blocks
-- `greenhouse_manager`: must have active `BlockManagerAssignment` for the block
-- Other roles: read-only
+### Time-based dispatcher
 
-### Status-Based Field Locking
+**Files**:
+- `backend/apps/greenhouse/dispatcher.py` — pure logic
+- `backend/apps/greenhouse/management/commands/run_harvest_dispatcher.py` — entry point
 
-| Status | Plan fields (plan_kg) | Actual fields (actual_kg) |
-|--------|----------------------|--------------------------|
-| `draft` | Editable | Locked |
-| `submitted` | Locked (no edits at all) | Locked |
-| `approved` | Locked | Editable (only for today or past days) |
-| `rejected` | Editable (fix and resubmit) | Locked |
+Six triggers, all idempotent via `HarvestDispatchLog(trigger_kind, target_user, scope_date)` UNIQUE:
+
+| Trigger | When | To |
+|---------|------|-----|
+| **T1** `forecast_nudge` | `forecast_primary_open − notification_lead_minutes` | Block managers with missing forecasts for tomorrow |
+| **T2** `forecast_handoff` | `forecast_primary_close` (18:00 day-before) | warehouse_chief, with gap list |
+| **T3** `forecast_escalation` | `forecast_fallback_close` (09:00 day-of) | warehouse_chief + admin + director, urgent |
+| **P1** `plan_deadline_reminder` | Friday morning | Block manager (plan not yet submitted for next week) |
+| **P2** `plan_late` | Saturday morning | Block manager |
+| **P3** `plan_critical_late` | Monday 00:00 of plan week | Block manager + admin |
+
+Run from system cron every 5 min:
+```
+*/5 * * * * cd /opt/ygt/backend && /opt/ygt/backend/venv/bin/python manage.py run_harvest_dispatcher
+```
+
+In-app notifications only this iteration. SMS / Telegram / WhatsApp deferred. The personal-kanban auto-task hook is a TODO no-op call site in `dispatcher.fire(event)` — auto-tasks land when the parallel kanban work ships.
+
+See `docs/operations/cron.md` for Linux + Windows Task Scheduler setup.
 
 ## Frontend Implementation
 
@@ -146,87 +190,82 @@ Greenhouse-specific workflow uses these generic helpers with `PLAN_TRANSITIONS` 
 
 **File**: `frontend/src/pages/export/WeeklyPlanGrid.tsx`
 
-**Layout**:
-- Week picker (← prev, DatePicker week, next →)
-- Pivot toggle button (normal ↔ transposed view)
-- Initialize week button (if empty week, manager only)
+**Layout**: week picker, pivot toggle, "Initialize" + "Submit week" + "Fallback Mode" buttons (role-gated), header tile row, grid table.
 
-**Stat Cards** (4 across top):
-| Card | Value | Color |
+**Header tiles** (4 across top, replaces the old Plan/Actual/Deficit/Trucks):
+
+| Tile | Value | Logic |
 |------|-------|-------|
-| Total Plan | Sum of all plan_kg | Blue |
-| Total Actual | Sum of all actual_kg | Green |
-| Deficit | actual - plan | Green if ≥0, Red if <0 |
-| Est. Trucks | plan / 18,500 | Purple |
+| Total Plan | Sum of `plan_value` across all entries in the week | Decimal sum |
+| Total Forecast | Sum of `forecast_value` if non-null else `plan_value` | Falls back to plan |
+| Total Actual | Sum of `actual_value` (NULL-skipped) | May be 0 for current/future weeks |
+| Est. Trucks | Sum of "most-current value per cell" / `truck_capacity_kg` | actual → forecast → plan chain |
 
-**Status Summary Toolbar**:
-- Status tags showing counts: X approved / Y submitted / Z draft / W rejected
-- Bulk action buttons (visible based on role + data state):
-  - Submit All Drafts (count badge)
-  - Approve All Submitted (manager only)
-  - Reject All Submitted (manager only, requires note)
+**Cell rendering** uses `<HarvestCell>` (`frontend/src/components/HarvestCell.tsx`) — context-determined display via cell date relative to today:
 
-**Normal View — Grid Table**:
+| Cell context | Display |
+|--------------|---------|
+| Future days (> tomorrow) | Plan value (blue), em-dash if NULL |
+| Tomorrow during forecast primary window + role allows | Editable forecast input, pre-filled with `plan_value`, with grey "Plan: 12,000" hint underneath |
+| Tomorrow forecast submitted | Forecast value, yellow background, locked |
+| Today | Forecast value (yellow, locked) + editable Actual input next to it |
+| Past days | Actual value (green); em-dash if NULL |
 
-| Column | Sub-columns | Notes |
-|--------|-------------|-------|
-| Block (fixed left) | block_code tag + block_name | Greenhouse manager's own blocks highlighted yellow |
-| Monday | Plan (blue) + Actual (green) | Editable based on status + role |
-| Tuesday | Plan + Actual | Same |
-| Wednesday | Plan + Actual | Same |
-| Thursday | Plan + Actual | Same |
-| Friday | Plan + Actual | Same |
-| Saturday | Plan + Actual | Same |
-| Total | Plan total + Actual total | Calculated |
-| Status (fixed right) | Badge with rejection note tooltip | Color-coded |
+**Empty-vs-zero**: `value === null` → em-dash; `value === 0 && *_submitted_at` → italic `0 ✓`.
 
-Summary row at bottom with day totals and grand totals.
+**Click any cell** → opens `<CellHistoryModal>` showing current values + AuditLog history + admin overrides with reason text.
 
-**Transposed View**: Rows = Days (Mon-Sat), Columns = Blocks (A-O). Each cell shows plan/actual stacked.
+### Admin override flow
 
-**Embedded Component**: TruckAllocationTable (collapsible, expanded by default) — shows truck allocation per day/destination. See [[truck-allocation]].
+When `currentUser.role === 'admin'` edits any cell, `<AdminOverrideReasonModal>` opens before the save fires. Required `reason` text, blocks save until non-empty. On confirm, the PATCH carries `{plan_value: …, reason: "..."}` and the backend writes to `last_override_*` snapshot + `AuditLog.detail = "OVERRIDE: {reason}"`.
+
+### Fallback Mode view
+
+**File**: `frontend/src/pages/export/FallbackForecastView.tsx` — route `/greenhouse/fallback-forecast`. Visible to warehouse_chief + admin during the fallback window (18:00 day-before – 09:00 day-of). Single-day vertical list of all 15 active blocks, each row: block name, reference plan_value, forecast input (read-only if manager already submitted), manager name + submission status badge, batch save button at the bottom.
 
 ### Hooks
 
-| Hook | Endpoint | Params | Returns | Stale Time |
-|------|----------|--------|---------|------------|
-| `useHarvestPlans` | `GET /greenhouse/harvest-plans/` | season, year, week | `IApiListResponse<IWeeklyHarvestPlan>` | 60s |
-| `useUpsertHarvestPlan` | `PATCH/POST /greenhouse/harvest-plans/` | id + partial fields | `IWeeklyHarvestPlan` | mutation |
-| `useBulkSubmitHarvestPlans` | `POST /greenhouse/harvest-plans/bulk-submit/` | `{ids: []}` | `{submitted: [], errors: []}` | mutation |
-| `useBulkApproveHarvestPlans` | `POST /greenhouse/harvest-plans/bulk-approve/` | `{ids: []}` | `{approved: [], errors: []}` | mutation |
-| `useBulkRejectHarvestPlans` | `POST /greenhouse/harvest-plans/bulk-reject/` | `{ids: [], rejection_note}` | `{rejected: [], errors: []}` | mutation |
+| Hook | Endpoint | Returns |
+|------|----------|---------|
+| `useHarvestPlans({year, week})` | `GET /greenhouse/harvest-plans/?year=&week=` | `IApiListResponse<IWeeklyHarvestPlan>` |
+| `useDayEntries({season, block, from_date, to_date})` | `GET /greenhouse/day-entries/...` | `IApiListResponse<IHarvestDayEntry>` |
+| `useUpsertDayEntry()` | `PATCH /greenhouse/day-entries/{id}/` | mutation; body: `{plan_value? \| forecast_value? \| actual_value?, reason?}` |
+| `useDayEntryHistory(id)` | `GET /greenhouse/day-entries/{id}/history/` | `IDayEntryHistoryItem[]` |
+| `useGreenhouseConfig()` | `GET /core/greenhouse-config/` | `IGreenhouseConfig` (singleton) |
+| `useUpdateGreenhouseConfig()` | `PATCH /core/greenhouse-config/` | mutation, admin only |
+| `useOperatingDayExceptions({date_from, date_to})` | `GET /core/operating-day-exceptions/` | `IOperatingDayException[]` |
+| `useSubmitHarvestPlan()` | `POST /greenhouse/harvest-plans/{id}/submit_week/` | mutation |
+| `useInitializeWeek()` | `POST /greenhouse/harvest-plans/initialize-week/` | mutation, admin / greenhouse_manager |
 
-### TypeScript Types
+**Removed**: `useApproveHarvestPlan`, `useRejectHarvestPlan`, `useBulkSubmitHarvestPlans`, `useBulkApproveHarvestPlans`, `useBulkRejectHarvestPlans` — those endpoints no longer exist.
 
-**`IWeeklyHarvestPlan`**:
-- `id`, `season`, `block`, `block_code`, `block_name`, `week_number`, `year`
-- `monday_plan_kg` through `saturday_plan_kg` (6 plan fields)
-- `monday_actual_kg` through `saturday_actual_kg` (6 actual fields)
-- `total_plan_kg`, `total_actual_kg` (computed)
-- `status` ('draft' | 'submitted' | 'approved' | 'rejected')
-- `submitted_at`, `approved_at`, `rejected_at`, `rejection_note`
+### TypeScript types
 
-### User Interactions
-
-1. **Navigate weeks**: Click ← / → or pick a week from DatePicker
-2. **Initialize empty week**: Click "Initialize" → creates draft rows for all 15 active blocks
-3. **Enter plan_kg**: Click cell → type number → blur saves (only if draft/rejected + own block)
-4. **Enter actual_kg**: Click cell → type number → blur saves (only if approved + day ≤ today)
-5. **Submit**: Click row submit or bulk submit → transitions draft → submitted
-6. **Approve/Reject**: Manager clicks bulk approve/reject (reject requires note in modal)
-7. **Toggle view**: Switch between normal and transposed pivot
+| Type | File | Purpose |
+|------|------|---------|
+| `IHarvestDayEntry` | `frontend/src/types/index.ts` | Daily-grain entry mirroring the backend serializer |
+| `IGreenhouseConfig` | same | Singleton config |
+| `IOperatingDayException` | same | Holiday calendar entry |
+| `IDayEntryHistoryItem` | same | AuditLog row for cell-history modal |
+| `ForecastWindow`, `PlanState`, `ActualSource` | same | Discriminated string-union types |
+| `IWeeklyHarvestPlan` | same | Stripped down to id, season, block, week_number, year, submitted_at, submitted_by_name, locked_at, entered_by_name, updated_at |
 
 ## Roles & Permissions
 
-| Role | View | Edit Plan | Edit Actual | Submit | Approve/Reject |
-|------|------|-----------|-------------|--------|----------------|
-| `greenhouse_manager` | Own blocks (highlighted) | Own blocks only (draft/rejected) | Own blocks (approved, past/today) | Own blocks | No |
-| `export_manager` | All blocks | All blocks | All blocks | All blocks | Yes |
-| `director` | All blocks | All blocks | All blocks | All blocks | Yes |
-| Others | Read-only | No | No | No | No |
+| Role | View | Plan | Forecast | Actual | Admin override |
+|------|------|------|----------|--------|----------------|
+| `greenhouse_manager` | Own blocks (highlighted) | Own blocks (until Monday hard cutoff) | Own blocks during primary window only | No | No |
+| `warehouse_chief` (Soltanmyrat) | All blocks | No | Any block during fallback / same-day windows | All blocks | No |
+| `admin` | All blocks | Anytime, any block, with required reason | Anytime, any block, with required reason | Anytime, any block, with required reason | Yes (all paths) |
+| `export_manager` (Gadam) | All blocks | View only | View only | View only | No |
+| `director` | All blocks | View only | View only | View only | No |
+| Others | Read-only or denied | No | No | No | No |
+
+Service-layer enforcement is not just role-based — it also gates by submission window (forecast) and block ownership (greenhouse_manager via `BlockManagerAssignment.is_active`).
 
 ## Connections to Other Processes
 
-- **[[truck-allocation]]** — Total plan_kg / 18,500 = estimated truck count. TruckAllocationTable is embedded directly in WeeklyPlanGrid
-- **[[shipment-creation]]** — Harvest readiness feeds into decisions about when to create shipments
-- **[[domestic-sales]]** — Domestic sale records track tomatoes sold locally (not exported)
+- **[[truck-allocation]]** — Est. Trucks tile uses the most-current value per cell / `truck_capacity_kg` from `GreenhouseConfig`. The TruckAllocationTable embeds in WeeklyPlanGrid as before.
+- **[[shipment-creation]]** — Harvest readiness (Actual vs Plan) feeds shipment-creation decisions.
+- **[[domestic-sales]]** — Domestic sale records track tomatoes sold locally (separate from this process).
+- See [[../../ADR|ADR-017]] for the rationale on the daily-grain rewrite (supersedes ADR-012).

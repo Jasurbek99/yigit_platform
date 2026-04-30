@@ -51,6 +51,7 @@ const DraftPool = lazy(() => import('@/pages/export/DraftPool'));
 const AssignmentBoard = lazy(() => import('@/pages/export/AssignmentBoard'));
 const PalletManifest = lazy(() => import('@/pages/export/PalletManifest'));
 const BossDashboard = lazy(() => import('@/pages/boss/BossDashboard'));
+const FallbackForecastView = lazy(() => import('@/pages/export/FallbackForecastView'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -157,6 +158,9 @@ export default function App() {
                   } />
                   <Route path="export/plan" element={
                     <ProtectedRoute pageCode="export.plan"><WeeklyPlanGrid /></ProtectedRoute>
+                  } />
+                  <Route path="greenhouse/fallback-forecast" element={
+                    <ProtectedRoute pageCode="export.plan"><FallbackForecastView /></ProtectedRoute>
                   } />
                   <Route path="export/quota" element={
                     <ProtectedRoute pageCode={['export.quota', 'export.quota.local_sell']}><QuotaDashboard /></ProtectedRoute>

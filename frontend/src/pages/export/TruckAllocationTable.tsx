@@ -10,7 +10,7 @@ import {
   useSetTruckSplits,
 } from '@/hooks/usePlanning';
 import type { DayOfWeek, IWeeklyHarvestPlan, IWeeklyTruckAllocation } from '@/types';
-import { num, fmtKg } from './PlanCells';
+import { fmtKg } from '@/components/HarvestCell';
 
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
 
@@ -22,16 +22,19 @@ interface ITruckAllocationTableProps {
   isManager: boolean;
   weekMonday: Dayjs;
   totalPlanKg: number;
+  /** Per-day plan kg totals keyed by ISO date string (YYYY-MM-DD). */
+  dayTotals?: Record<string, number>;
 }
 
 export function TruckAllocationTable({
-  plans,
+  plans: _plans,
   weekNumber,
   year,
   seasonId,
   isManager,
   weekMonday,
   totalPlanKg,
+  dayTotals = {},
 }: ITruckAllocationTableProps) {
   const { t } = useTranslation();
   const { data: truckData } = useTruckAllocations({
@@ -111,15 +114,11 @@ export function TruckAllocationTable({
         const allocation = truckByDay.get(dayOfWeek);
 
         if (row.type === 'computed') {
+          const colDate = weekMonday.add(di, 'day').format('YYYY-MM-DD');
+          const dayTotal = dayTotals[colDate] ?? 0;
           if (row.key === 'total_kg') {
-            const dayTotal = plans.reduce(
-              (s, p) => s + num(p[`${day}_plan_kg` as keyof IWeeklyHarvestPlan]), 0,
-            );
-            return <strong style={{ color: '#1677ff' }}>{fmtKg(dayTotal)}</strong>;
+            return <strong style={{ color: '#1677ff' }}>{fmtKg(dayTotal || null)}</strong>;
           }
-          const dayTotal = plans.reduce(
-            (s, p) => s + num(p[`${day}_plan_kg` as keyof IWeeklyHarvestPlan]), 0,
-          );
           const trucks = dayTotal > 0 ? Math.round(dayTotal / 18500) : 0;
           return <strong>{trucks}</strong>;
         }

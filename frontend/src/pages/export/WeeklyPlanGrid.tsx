@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Table,
   DatePicker,
@@ -7,12 +7,8 @@ import {
   Alert,
   Flex,
   Typography,
-  InputNumber,
   Button,
   Space,
-  Modal,
-  Input,
-  Tooltip,
   Card,
   Collapse,
   Statistic,
@@ -20,206 +16,208 @@ import {
 } from 'antd';
 import type { TableColumnsType } from 'antd';
 import {
-  CheckCircleOutlined,
-  ClockCircleOutlined,
-  CloseCircleOutlined,
-  EditOutlined,
   LeftOutlined,
   RightOutlined,
   SwapOutlined,
+  ThunderboltOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek';
 import weekOfYear from 'dayjs/plugin/weekOfYear';
 import {
   useHarvestPlans,
-  useUpsertHarvestPlan,
+  useSubmitHarvestPlan,
   useInitializeWeek,
-  useBulkSubmitHarvestPlans,
-  useBulkApproveHarvestPlans,
-  useBulkRejectHarvestPlans,
+  useDayEntries,
+  useUpsertDayEntry,
 } from '@/hooks/usePlanning';
+import { useGreenhouseConfig } from '@/hooks/useGreenhouseConfig';
 import { useSeasons } from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
 import { useUiStore } from '@/stores/uiStore';
-import { handleCellKeyDown } from '@/utils/tableNavigation';
-import type { IWeeklyHarvestPlan, PlanStatus } from '@/types';
-import { PlanCell, ActualCell, num, fmtKg } from './PlanCells';
+import { getCurrentForecastWindow, HarvestCell, num, fmtKg } from '@/components/HarvestCell';
+import { CellHistoryModal } from '@/components/CellHistoryModal';
+import type { IWeeklyHarvestPlan, IHarvestDayEntry } from '@/types';
 import { TruckAllocationTable } from './TruckAllocationTable';
 
 dayjs.extend(isoWeek);
 dayjs.extend(weekOfYear);
 
 const { Title, Text } = Typography;
-const { TextArea } = Input;
 
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
 type Day = (typeof DAYS)[number];
 
-const DAY_INDEX: Record<Day, number> = {
-  monday: 1, tuesday: 2, wednesday: 3,
-  thursday: 4, friday: 5, saturday: 6,
-};
-
-const STATUS_TAG: Record<PlanStatus, { color: string; icon: React.ReactNode }> = {
-  draft: { color: 'default', icon: <EditOutlined /> },
-  submitted: { color: 'processing', icon: <ClockCircleOutlined /> },
-  approved: { color: 'success', icon: <CheckCircleOutlined /> },
-  rejected: { color: 'error', icon: <CloseCircleOutlined /> },
-};
-
-const ROW_BG: Record<PlanStatus, string> = {
-  draft: '',
-  submitted: '#e6f4ff',
-  approved: '#f6ffed',
-  rejected: '#fff2f0',
-};
 
 export default function WeeklyPlanGrid() {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const [selectedWeek, setSelectedWeek] = useState<Dayjs | null>(dayjs());
   const transposed = useUiStore((s) => s.planPivotMode);
   const setTransposed = useUiStore((s) => s.setPlanPivotMode);
-  const [rejectModalPlan, setRejectModalPlan] = useState<IWeeklyHarvestPlan | null>(null);
-  const [rejectNote, setRejectNote] = useState('');
-  const [savingActualKey, setSavingActualKey] = useState<string | null>(null);
+  const [historyEntry, setHistoryEntry] = useState<IHarvestDayEntry | null>(null);
+  const [savingKey, setSavingKey] = useState<string | null>(null);
 
   const weekNumber = selectedWeek?.isoWeek();
   const year = selectedWeek?.isoWeekYear();
 
   const { data: seasonsData } = useSeasons();
   const activeSeason = seasonsData?.find((s) => s.is_active);
+  const { data: config } = useGreenhouseConfig();
 
-  const { data, isLoading, isError } = useHarvestPlans({ year, week: weekNumber });
-  const upsert = useUpsertHarvestPlan();
+  // ─── Week date range for day-entry queries ─────────────────────────────────
+
+  const weekMonday = selectedWeek ? selectedWeek.isoWeekday(1) : dayjs().isoWeekday(1);
+  const weekSaturday = weekMonday.add(5, 'day');
+  const dateFrom = weekMonday.format('YYYY-MM-DD');
+  const dateTo = weekSaturday.format('YYYY-MM-DD');
+
+  // ─── Data fetching ─────────────────────────────────────────────────────────
+
+  const { data: plansData, isLoading: plansLoading, isError } = useHarvestPlans({ year, week: weekNumber });
+  const { data: dayEntries = [], isLoading: entriesLoading } = useDayEntries({
+    season: activeSeason?.id,
+    date_from: dateFrom,
+    date_to: dateTo,
+  });
+
+  const submitPlan = useSubmitHarvestPlan();
   const initWeek = useInitializeWeek();
-  const bulkSubmit = useBulkSubmitHarvestPlans();
-  const bulkApprove = useBulkApproveHarvestPlans();
-  const bulkReject = useBulkRejectHarvestPlans();
+  const upsertEntry = useUpsertDayEntry();
+
+  const isLoading = plansLoading || entriesLoading;
+
+  // ─── Derived data ──────────────────────────────────────────────────────────
 
   const myBlockIds = new Set(user?.managed_block_ids ?? []);
   const isBlockManager = user?.role === 'greenhouse_manager' && myBlockIds.size > 0;
+  const isAdmin = user?.role === 'admin' || user?.role === 'director';
+  const isManager = isAdmin || user?.role === 'export_manager';
 
-  const plans: IWeeklyHarvestPlan[] = (() => {
-    const raw = data?.results ?? [];
+  const plans: IWeeklyHarvestPlan[] = useMemo(() => {
+    const raw = plansData?.results ?? [];
     if (!isBlockManager) return raw;
     const mine = raw.filter((p) => myBlockIds.has(p.block));
     const rest = raw.filter((p) => !myBlockIds.has(p.block));
     return [...mine, ...rest];
-  })();
+  }, [plansData, isBlockManager, myBlockIds]);
 
-  const todayWeekday = dayjs().isoWeekday();
+  /** Map keyed by `${blockId}-${YYYY-MM-DD}` → IHarvestDayEntry */
+  const entriesByBlockDay = useMemo((): Map<string, IHarvestDayEntry> => {
+    const map = new Map<string, IHarvestDayEntry>();
+    for (const e of dayEntries) {
+      map.set(`${e.block}-${e.entry_date}`, e);
+    }
+    return map;
+  }, [dayEntries]);
+
   const currentIsoWeek = dayjs().isoWeek();
   const currentIsoYear = dayjs().isoWeekYear();
-  const isCurrentOrFutureWeek = (year ?? 0) > currentIsoYear ||
+  const isCurrentOrFutureWeek =
+    (year ?? 0) > currentIsoYear ||
     ((year ?? 0) === currentIsoYear && (weekNumber ?? 0) >= currentIsoWeek);
 
-  // ─── Derived state ────────────────────────────────────────────────────────
+  // Fallback mode button visibility
+  const isInFallbackWindow: boolean = useMemo(() => {
+    if (!config) return false;
+    const now = dayjs();
+    const tomorrow = now.startOf('day').add(1, 'day');
+    const win = getCurrentForecastWindow(now, tomorrow, config);
+    return win === 'fallback';
+  }, [config]);
 
-  const statusCounts = plans.reduce(
-    (acc, p) => {
-      acc[p.status] = (acc[p.status] || 0) + 1;
-      return acc;
-    },
-    {} as Record<PlanStatus, number>,
-  );
+  const canSeeFallbackMode = user?.role === 'warehouse_chief' || user?.role === 'admin';
 
-  const allDraftIds = plans
-    .filter((p) => (p.status === 'draft' || p.status === 'rejected') && hasBlockPermission(p))
-    .map((p) => p.id);
-  const allSubmittedIds = plans
-    .filter((p) => p.status === 'submitted')
-    .map((p) => p.id);
+  // ─── KPI totals from day entries ───────────────────────────────────────────
 
-  const isManager = user && (user.role === 'director' || user.role === 'export_manager');
+  const { totalPlan, totalForecast, totalActual, dayPlanTotals } = useMemo(() => {
+    let plan = 0, forecast = 0, actual = 0;
+    const dayTotalsMap: Record<string, number> = {};
+    for (const e of dayEntries) {
+      const v = num(e.plan_value);
+      plan += v;
+      forecast += e.forecast_value != null ? num(e.forecast_value) : 0;
+      actual += e.actual_value != null ? num(e.actual_value) : 0;
+      dayTotalsMap[e.entry_date] = (dayTotalsMap[e.entry_date] ?? 0) + v;
+    }
+    return { totalPlan: plan, totalForecast: forecast, totalActual: actual, dayPlanTotals: dayTotalsMap };
+  }, [dayEntries]);
 
-  const totalPlanKg = plans.reduce((s, r) => s + num(r.total_plan_kg), 0);
-  const totalActualKg = plans.reduce((s, r) => s + num(r.total_actual_kg), 0);
-  const deficitKg = totalActualKg - totalPlanKg;
-  const truckCount = totalPlanKg > 0 ? (totalPlanKg / 18500).toFixed(1) : '0';
+  const truckCapacity = config ? Number(config.truck_capacity_kg) : 18500;
+  const estTrucks = totalPlan > 0 ? (totalPlan / truckCapacity).toFixed(1) : '0';
 
-  // ─── Permission checks ────────────────────────────────────────────────────
+  // ─── Permission helpers ────────────────────────────────────────────────────
 
-  function hasBlockPermission(row: IWeeklyHarvestPlan): boolean {
+  function hasBlockPermission(blockId: number): boolean {
     if (!user) return false;
-    if (user.role === 'director' || user.role === 'export_manager') return true;
-    if (user.role === 'greenhouse_manager') return user.managed_block_ids.includes(row.block);
+    if (isAdmin || user.role === 'export_manager') return true;
+    if (user.role === 'greenhouse_manager') return user.managed_block_ids.includes(blockId);
     return false;
   }
 
-  function canEditPlan(row: IWeeklyHarvestPlan): boolean {
-    return (row.status === 'draft' || row.status === 'rejected') && hasBlockPermission(row);
+  function canEditPlanForEntry(entry: IHarvestDayEntry): boolean {
+    // Plan editable for future days only; locked once forecast is submitted
+    if (!hasBlockPermission(entry.block)) return false;
+    const entryDate = dayjs(entry.entry_date);
+    const today = dayjs().startOf('day');
+    return entryDate.isAfter(today, 'day') && !entry.forecast_submitted_at;
   }
 
-  function canEditActualForDay(row: IWeeklyHarvestPlan, day: Day): boolean {
-    if (row.status !== 'approved') return false;
-    if (!hasBlockPermission(row)) return false;
-    return DAY_INDEX[day] <= todayWeekday;
+  function canEditForecastForEntry(entry: IHarvestDayEntry): boolean {
+    if (!hasBlockPermission(entry.block)) return false;
+    // warehouse_chief or admin can enter forecast in the forecast window
+    if (user?.role !== 'warehouse_chief' && !isAdmin) return false;
+    if (!config) return false;
+    const now = dayjs();
+    const entryDate = dayjs(entry.entry_date);
+    const win = getCurrentForecastWindow(now, entryDate, config);
+    return win !== null;
+  }
+
+  function canEditActualForEntry(entry: IHarvestDayEntry): boolean {
+    if (!hasBlockPermission(entry.block)) return false;
+    // Actuals editable on same day and past days (only if not finalized)
+    const entryDate = dayjs(entry.entry_date);
+    const today = dayjs().startOf('day');
+    if (entryDate.isAfter(today, 'day')) return false;
+    return !entry.actual_finalized_at;
   }
 
   // ─── Handlers ─────────────────────────────────────────────────────────────
 
-  function handlePlanSave(row: IWeeklyHarvestPlan, day: Day, value: number) {
-    const field = `${day}_plan_kg`;
-    upsert.mutate({ id: row.id, [field]: value });
-  }
-
-  function handleActualSave(row: IWeeklyHarvestPlan, day: Day, value: number | null) {
-    const key = `${row.id}_${day}`;
-    setSavingActualKey(key);
-    const field = `${day}_actual_kg`;
-    upsert.mutate(
-      { id: row.id, [field]: value },
+  function handleCellSave(
+    entryId: number,
+    field: 'plan_value' | 'forecast_value' | 'actual_value',
+    value: number | null,
+    reason?: string,
+  ) {
+    const key = String(entryId);
+    setSavingKey(key);
+    upsertEntry.mutate(
+      { id: entryId, [field]: value, ...(reason ? { reason } : {}) },
       {
         onSuccess: () => {
           message.success(t('plan.toast_actual_saved'));
-          setSavingActualKey(null);
+          setSavingKey(null);
         },
-        onError: () => setSavingActualKey(null),
-      },
-    );
-  }
-
-  function handleBulkSubmit() {
-    if (!allDraftIds.length) return;
-    bulkSubmit.mutate(allDraftIds, {
-      onSuccess: (result) => {
-        message.success(`${result.submitted.length} ${t('plan.toast_submitted')}`);
-      },
-    });
-  }
-
-  function handleBulkApprove() {
-    if (!allSubmittedIds.length) return;
-    bulkApprove.mutate(allSubmittedIds, {
-      onSuccess: (result) => {
-        message.success(`${result.approved.length} ${t('plan.toast_approved')}`);
-      },
-    });
-  }
-
-  function handleBulkReject() {
-    if (!allSubmittedIds.length) return;
-    setRejectModalPlan(plans.find((p) => p.status === 'submitted') ?? null);
-    setRejectNote('');
-  }
-
-  function handleRejectConfirm() {
-    if (!rejectNote.trim() || !allSubmittedIds.length) return;
-    bulkReject.mutate(
-      { ids: allSubmittedIds, rejection_note: rejectNote.trim() },
-      {
-        onSuccess: (result) => {
-          message.success(`${result.rejected.length} ${t('plan.toast_rejected')}`);
-          setRejectModalPlan(null);
-          setRejectNote('');
+        onError: () => {
+          message.error(t('plan.toast_save_error'));
+          setSavingKey(null);
         },
       },
     );
+  }
+
+  function handleSubmitPlan(planId: number) {
+    submitPlan.mutate(planId, {
+      onSuccess: () => message.success(t('plan.toast_submitted')),
+      onError: () => message.error(t('plan.toast_save_error')),
+    });
   }
 
   function handleInitializeWeek() {
@@ -230,120 +228,111 @@ export default function WeeklyPlanGrid() {
     );
   }
 
-  // ─── Column definitions ────────────────────────────────────────────────────
+  // ─── Column definitions (normal view: blocks as rows) ─────────────────────
 
-  const weekMonday = selectedWeek ? selectedWeek.isoWeekday(1) : dayjs().isoWeekday(1);
-
-  const dayColumns = DAYS.map((day, di) => ({
-    title: (
-      <div style={{ textAlign: 'center', lineHeight: '16px' }}>
-        <div>{t(`plan.${day}`)}</div>
-        <div style={{ fontSize: 10, color: '#8c8c8c', fontWeight: 400 }}>
-          {weekMonday.add(di, 'day').format('DD.MM')}
+  const dayColumns = DAYS.map((day, di) => {
+    const colDate = weekMonday.add(di, 'day');
+    const colDateStr = colDate.format('YYYY-MM-DD');
+    return {
+      title: (
+        <div style={{ textAlign: 'center', lineHeight: '16px' }}>
+          <div>{t(`plan.${day}`)}</div>
+          <div style={{ fontSize: 10, color: '#8c8c8c', fontWeight: 400 }}>
+            {colDate.format('DD.MM')}
+          </div>
         </div>
-      </div>
-    ),
-    children: [
-      {
-        title: <span style={{ color: '#1677ff', fontSize: 11 }}>{t('plan.plan')}</span>,
-        key: `${day}_plan`,
-        width: 90,
-        render: (_: unknown, row: IWeeklyHarvestPlan) => (
-          <PlanCell day={day} row={row} editable={canEditPlan(row)} onSave={handlePlanSave} />
-        ),
-      },
-      {
-        title: <span style={{ color: '#52c41a', fontSize: 11 }}>{t('plan.actual')}</span>,
-        key: `${day}_actual`,
-        width: 90,
-        render: (_: unknown, row: IWeeklyHarvestPlan) => (
-          <ActualCell
-            day={day}
-            row={row}
-            canEditActual={canEditActualForDay(row, day)}
-            onActualSave={handleActualSave}
-            savingKey={savingActualKey}
+      ),
+      key: `${day}_cell`,
+      width: 120,
+      render: (_: unknown, row: IWeeklyHarvestPlan) => {
+        const entry = entriesByBlockDay.get(`${row.block}-${colDateStr}`);
+        if (!entry) return <span style={{ color: '#bfbfbf' }}>—</span>;
+        return (
+          <HarvestCell
+            entry={entry}
+            config={config}
+            canEditPlan={canEditPlanForEntry(entry)}
+            canEditForecast={canEditForecastForEntry(entry)}
+            canEditActual={canEditActualForEntry(entry)}
+            onSave={handleCellSave}
+            onCellClick={(id) => {
+              const found = dayEntries.find((e) => e.id === id);
+              if (found) setHistoryEntry(found);
+            }}
+            isAdmin={isAdmin}
+            savingKey={savingKey}
           />
-        ),
+        );
       },
-    ],
-  }));
+    };
+  });
 
   const columns: TableColumnsType<IWeeklyHarvestPlan> = [
     {
       title: t('plan.block'),
       key: 'block',
       fixed: 'left',
-      width: 120,
+      width: 130,
       render: (_: unknown, row: IWeeklyHarvestPlan) => (
         <div>
-          <Tag color="blue">{row.block_code}</Tag>
+          <Tag color={isBlockManager && myBlockIds.has(row.block) ? 'gold' : 'blue'}>
+            {row.block_code}
+          </Tag>
           <div style={{ color: '#8c8c8c', fontSize: 11, marginTop: 2 }}>{row.block_name}</div>
         </div>
       ),
     },
     ...dayColumns,
-    {
-      title: t('plan.total'),
-      key: 'total',
-      width: 110,
-      render: (_: unknown, row: IWeeklyHarvestPlan) => (
-        <div>
-          <div style={{ color: '#1677ff', fontSize: 13 }}>{fmtKg(row.total_plan_kg)}</div>
-          {row.total_actual_kg != null && (
-            <div style={{ color: '#52c41a', fontSize: 13 }}>{fmtKg(row.total_actual_kg)}</div>
-          )}
-        </div>
-      ),
-    },
-    ...(isCurrentOrFutureWeek ? [{
-      title: t('plan.status'),
-      key: 'status',
-      fixed: 'right' as const,
-      width: 100,
-      render: (_: unknown, row: IWeeklyHarvestPlan) => {
-        const cfg = STATUS_TAG[row.status];
-        const tag = (
-          <Tag color={cfg.color} icon={cfg.icon}>
-            {t(`plan.status_${row.status}`)}
-          </Tag>
-        );
-        if (row.status === 'rejected' && row.rejection_note) {
-          return (
-            <Tooltip title={row.rejection_note} color="#ff4d4f">
-              {tag}
-            </Tooltip>
-          );
-        }
-        return tag;
-      },
-    }] : []),
+    ...(isCurrentOrFutureWeek
+      ? [
+          {
+            title: t('plan.actions'),
+            key: 'actions',
+            fixed: 'right' as const,
+            width: 100,
+            render: (_: unknown, row: IWeeklyHarvestPlan) => {
+              const canSubmit = !row.submitted_at && hasBlockPermission(row.block);
+              if (!canSubmit) {
+                return row.submitted_at ? (
+                  <Tag color="success" style={{ fontSize: 11 }}>
+                    {t('plan.status_submitted')}
+                  </Tag>
+                ) : null;
+              }
+              return (
+                <Button
+                  size="small"
+                  type="primary"
+                  ghost
+                  loading={submitPlan.isPending}
+                  onClick={() => handleSubmitPlan(row.id)}
+                >
+                  {t('plan.submit')}
+                </Button>
+              );
+            },
+          },
+        ]
+      : []),
   ];
 
-  // ─── Transposed view ──────────────────────────────────────────────────────
+  // ─── Transposed view (days as rows, blocks as columns) ────────────────────
 
   interface ITransposedRow {
     key: string;
     day: Day;
     dayLabel: string;
-    [blockField: string]: string | number | null | Day;
+    dateStr: string;
   }
 
   const transposedData: ITransposedRow[] = DAYS.map((day, di) => {
-    const dateStr = weekMonday.add(di, 'day').format('DD.MM');
-    const row: ITransposedRow = { key: day, day, dayLabel: `${t(`plan.${day}`)} ${dateStr}` };
-    plans.forEach((p) => {
-      row[`${p.block_code}_plan`] = num(p[`${day}_plan_kg` as keyof IWeeklyHarvestPlan]);
-      row[`${p.block_code}_actual`] = p[`${day}_actual_kg` as keyof IWeeklyHarvestPlan] != null
-        ? num(p[`${day}_actual_kg` as keyof IWeeklyHarvestPlan]) : null;
-    });
-    row._totalPlan = plans.reduce(
-      (s, p) => s + num(p[`${day}_plan_kg` as keyof IWeeklyHarvestPlan]), 0,
-    );
-    row._totalActual = plans.reduce(
-      (s, p) => s + num(p[`${day}_actual_kg` as keyof IWeeklyHarvestPlan]), 0,
-    );
-    return row;
+    const colDate = weekMonday.add(di, 'day');
+    return {
+      key: day,
+      day,
+      dayLabel: `${t(`plan.${day}`)} ${colDate.format('DD.MM')}`,
+      dateStr: colDate.format('YYYY-MM-DD'),
+    };
   });
 
   const transposedColumns: TableColumnsType<ITransposedRow> = [
@@ -352,154 +341,116 @@ export default function WeeklyPlanGrid() {
       dataIndex: 'dayLabel',
       key: 'day',
       fixed: 'left',
-      width: 70,
+      width: 100,
       render: (text: string) => <strong>{text}</strong>,
-    },
-    {
-      title: '',
-      key: 'label',
-      fixed: 'left',
-      width: 55,
-      render: () => (
-        <div style={{ lineHeight: '22px', fontSize: 11, fontWeight: 500 }}>
-          <div style={{ color: '#1677ff' }}>{t('plan.plan')}</div>
-          <div style={{ borderTop: '1px dashed #f0f0f0', marginTop: 2, paddingTop: 2, color: '#52c41a' }}>
-            {t('plan.actual')}
-          </div>
-        </div>
-      ),
     },
     ...plans.map((p) => {
       const isMine = isBlockManager && myBlockIds.has(p.block);
       return {
-      title: (
-        <div style={{ textAlign: 'center' as const }}>
-          <Tag color={isMine ? 'gold' : 'blue'}>{p.block_code}</Tag>
-        </div>
-      ),
-      key: p.block_code,
-      width: 100,
-      onCell: () => ({
-        style: isMine ? { backgroundColor: '#fffbe6' } : undefined,
-      }),
-      onHeaderCell: () => ({
-        style: isMine ? { backgroundColor: '#fffbe6' } : undefined,
-      }),
-      render: (_: unknown, row: ITransposedRow) => {
-        const planVal = row[`${p.block_code}_plan`] as number;
-        const actual = row[`${p.block_code}_actual`] as number | null;
-        const isPlanEditable = canEditPlan(p);
-        const isActualEditable = canEditActualForDay(p, row.day);
-
-        const planEl = isPlanEditable ? (
-          <InputNumber
-            min={0}
-            step={100}
-            keyboard={false}
-            defaultValue={planVal}
-            onBlur={(e) => {
-              const v = Number(e.target.value) || 0;
-              if (v !== planVal) handlePlanSave(p, row.day, v);
-            }}
-            onKeyDown={handleCellKeyDown}
-            size="small"
-            style={{ width: 84 }}
-          />
-        ) : (
-          <span style={{ color: '#1677ff' }}>{fmtKg(planVal)}</span>
-        );
-
-        const actualEl = isActualEditable ? (
-          <InputNumber
-            min={0}
-            step={100}
-            keyboard={false}
-            defaultValue={actual ?? undefined}
-            placeholder="—"
-            onBlur={(e) => {
-              const raw = e.target.value;
-              const v = raw === '' ? null : Number(raw) || 0;
-              if (v !== actual) handleActualSave(p, row.day, v);
-            }}
-            onKeyDown={handleCellKeyDown}
-            size="small"
-            style={{ width: 84 }}
-          />
-        ) : actual != null ? (
-          <span style={{ color: '#52c41a' }}>{fmtKg(actual)}</span>
-        ) : (
-          <span style={{ color: '#bfbfbf' }}>—</span>
-        );
-
-        return (
-          <div style={{ lineHeight: '22px' }}>
-            <div>{planEl}</div>
-            <div style={{ borderTop: '1px dashed #f0f0f0', marginTop: 2, paddingTop: 2 }}>
-              {actualEl}
-            </div>
+        title: (
+          <div style={{ textAlign: 'center' as const }}>
+            <Tag color={isMine ? 'gold' : 'blue'}>{p.block_code}</Tag>
           </div>
-        );
-      },
-    };}),
+        ),
+        key: p.block_code,
+        width: 130,
+        onCell: () => ({ style: isMine ? { backgroundColor: '#fffbe6' } : undefined }),
+        onHeaderCell: () => ({ style: isMine ? { backgroundColor: '#fffbe6' } : undefined }),
+        render: (_: unknown, row: ITransposedRow) => {
+          const entry = entriesByBlockDay.get(`${p.block}-${row.dateStr}`);
+          if (!entry) return <span style={{ color: '#bfbfbf' }}>—</span>;
+          return (
+            <HarvestCell
+              entry={entry}
+              config={config}
+              canEditPlan={canEditPlanForEntry(entry)}
+              canEditForecast={canEditForecastForEntry(entry)}
+              canEditActual={canEditActualForEntry(entry)}
+              onSave={handleCellSave}
+              onCellClick={(id) => {
+                const found = dayEntries.find((e) => e.id === id);
+                if (found) setHistoryEntry(found);
+              }}
+              isAdmin={isAdmin}
+              savingKey={savingKey}
+            />
+          );
+        },
+      };
+    }),
   ];
 
-  function renderTransposedSummary() {
-    return (
-      <>
-        <Table.Summary.Row style={{ fontWeight: 600 }}>
-          <Table.Summary.Cell index={0} colSpan={2}>
-            <span style={{ color: '#1677ff' }}>{t('plan.total')} {t('plan.plan')}</span>
-          </Table.Summary.Cell>
-          {plans.map((p, i) => (
-            <Table.Summary.Cell key={`tp_${p.id}`} index={2 + i}>
-              <span style={{ color: '#1677ff' }}>{fmtKg(p.total_plan_kg)}</span>
-            </Table.Summary.Cell>
-          ))}
-        </Table.Summary.Row>
-        <Table.Summary.Row style={{ fontWeight: 600 }}>
-          <Table.Summary.Cell index={0} colSpan={2}>
-            <span style={{ color: '#52c41a' }}>{t('plan.total')} {t('plan.actual')}</span>
-          </Table.Summary.Cell>
-          {plans.map((p, i) => (
-            <Table.Summary.Cell key={`ta_${p.id}`} index={2 + i}>
-              <span style={{ color: '#52c41a' }}>{fmtKg(p.total_actual_kg)}</span>
-            </Table.Summary.Cell>
-          ))}
-        </Table.Summary.Row>
-      </>
-    );
-  }
+  // ─── Summary row helpers ───────────────────────────────────────────────────
 
   function renderSummary() {
     return (
       <Table.Summary.Row style={{ fontWeight: 600 }}>
         <Table.Summary.Cell index={0}>{t('plan.total')}</Table.Summary.Cell>
-        {DAYS.flatMap((day, di) => {
-          const planTotal = plans.reduce(
-            (s, r) => s + num(r[`${day}_plan_kg` as keyof IWeeklyHarvestPlan]), 0,
+        {DAYS.map((day, di) => {
+          const colDate = weekMonday.add(di, 'day');
+          const colDateStr = colDate.format('YYYY-MM-DD');
+          const planTotal = plans.reduce((s, p) => {
+            const e = entriesByBlockDay.get(`${p.block}-${colDateStr}`);
+            return s + num(e?.plan_value);
+          }, 0);
+          const actualTotal = plans.reduce((s, p) => {
+            const e = entriesByBlockDay.get(`${p.block}-${colDateStr}`);
+            return s + num(e?.actual_value);
+          }, 0);
+          return (
+            <Table.Summary.Cell key={`sum_${day}`} index={1 + di}>
+              <div>
+                <div style={{ color: '#1677ff', fontSize: 12 }}>{fmtKg(planTotal || null)}</div>
+                {actualTotal > 0 && (
+                  <div style={{ color: '#52c41a', fontSize: 12 }}>{fmtKg(actualTotal)}</div>
+                )}
+              </div>
+            </Table.Summary.Cell>
           );
-          const actualTotal = plans.reduce(
-            (s, r) => s + num(r[`${day}_actual_kg` as keyof IWeeklyHarvestPlan]), 0,
-          );
-          return [
-            <Table.Summary.Cell key={`sp_${di}`} index={1 + di * 2}>
-              <span style={{ color: '#1677ff' }}>{fmtKg(planTotal)}</span>
-            </Table.Summary.Cell>,
-            <Table.Summary.Cell key={`sa_${di}`} index={2 + di * 2}>
-              <span style={{ color: '#52c41a' }}>{fmtKg(actualTotal || null)}</span>
-            </Table.Summary.Cell>,
-          ];
         })}
-        <Table.Summary.Cell index={13}>
-          <div style={{ color: '#1677ff' }}>
-            {fmtKg(plans.reduce((s, r) => s + num(r.total_plan_kg), 0))}
-          </div>
-          <div style={{ color: '#52c41a' }}>
-            {fmtKg(plans.reduce((s, r) => s + num(r.total_actual_kg), 0) || null)}
-          </div>
-        </Table.Summary.Cell>
-        <Table.Summary.Cell index={14} />
+        {isCurrentOrFutureWeek && <Table.Summary.Cell index={7} />}
       </Table.Summary.Row>
+    );
+  }
+
+  function renderTransposedSummary() {
+    return (
+      <>
+        <Table.Summary.Row style={{ fontWeight: 600 }}>
+          <Table.Summary.Cell index={0}>
+            <span style={{ color: '#1677ff' }}>{t('plan.total')} {t('plan.plan')}</span>
+          </Table.Summary.Cell>
+          {plans.map((p, i) => {
+            const blockTotal = DAYS.reduce((s, _, di) => {
+              const colDate = weekMonday.add(di, 'day');
+              const e = entriesByBlockDay.get(`${p.block}-${colDate.format('YYYY-MM-DD')}`);
+              return s + num(e?.plan_value);
+            }, 0);
+            return (
+              <Table.Summary.Cell key={`tp_${p.id}`} index={1 + i}>
+                <span style={{ color: '#1677ff' }}>{fmtKg(blockTotal || null)}</span>
+              </Table.Summary.Cell>
+            );
+          })}
+        </Table.Summary.Row>
+        <Table.Summary.Row style={{ fontWeight: 600 }}>
+          <Table.Summary.Cell index={0}>
+            <span style={{ color: '#52c41a' }}>{t('plan.total')} {t('plan.actual')}</span>
+          </Table.Summary.Cell>
+          {plans.map((p, i) => {
+            const blockTotal = DAYS.reduce((s, _, di) => {
+              const colDate = weekMonday.add(di, 'day');
+              const e = entriesByBlockDay.get(`${p.block}-${colDate.format('YYYY-MM-DD')}`);
+              return s + num(e?.actual_value);
+            }, 0);
+            return (
+              <Table.Summary.Cell key={`ta_${p.id}`} index={1 + i}>
+                <span style={{ color: '#52c41a' }}>{fmtKg(blockTotal || null)}</span>
+              </Table.Summary.Cell>
+            );
+          })}
+        </Table.Summary.Row>
+      </>
     );
   }
 
@@ -547,16 +498,26 @@ export default function WeeklyPlanGrid() {
               {t('plan.initialize_week')}
             </Button>
           )}
+          {canSeeFallbackMode && isInFallbackWindow && (
+            <Button
+              type="primary"
+              danger
+              icon={<ThunderboltOutlined />}
+              onClick={() => navigate('/greenhouse/fallback-forecast')}
+            >
+              {t('plan.fallback_mode')}
+            </Button>
+          )}
         </Space>
       </Flex>
 
-      {/* Stat cards */}
+      {/* KPI stat cards */}
       {plans.length > 0 && (
         <Flex gap={12} style={{ marginBottom: 16 }}>
           <Card size="small" style={{ flex: 1 }}>
             <Statistic
               title={t('plan.total_plan')}
-              value={totalPlanKg}
+              value={totalPlan}
               suffix="kg"
               valueStyle={{ color: '#1677ff', fontSize: 20 }}
               formatter={(v) => Number(v).toLocaleString()}
@@ -564,8 +525,17 @@ export default function WeeklyPlanGrid() {
           </Card>
           <Card size="small" style={{ flex: 1 }}>
             <Statistic
+              title={t('plan.total_forecast')}
+              value={totalForecast}
+              suffix="kg"
+              valueStyle={{ color: '#fa8c16', fontSize: 20 }}
+              formatter={(v) => Number(v).toLocaleString()}
+            />
+          </Card>
+          <Card size="small" style={{ flex: 1 }}>
+            <Statistic
               title={t('plan.total_actual')}
-              value={totalActualKg}
+              value={totalActual}
               suffix="kg"
               valueStyle={{ color: '#52c41a', fontSize: 20 }}
               formatter={(v) => Number(v).toLocaleString()}
@@ -573,54 +543,12 @@ export default function WeeklyPlanGrid() {
           </Card>
           <Card size="small" style={{ flex: 1 }}>
             <Statistic
-              title={t('plan.deficit')}
-              value={deficitKg}
-              suffix="kg"
-              valueStyle={{ color: deficitKg >= 0 ? '#52c41a' : '#ff4d4f', fontSize: 20 }}
-              prefix={deficitKg >= 0 ? '+' : ''}
-              formatter={(v) => Number(v).toLocaleString()}
-            />
-          </Card>
-          <Card size="small" style={{ flex: 1 }}>
-            <Statistic
               title={t('plan.est_trucks')}
-              value={truckCount}
+              value={estTrucks}
               valueStyle={{ color: '#722ed1', fontSize: 20 }}
               suffix={t('plan.trucks_suffix')}
             />
           </Card>
-        </Flex>
-      )}
-
-      {/* Status summary + toolbar */}
-      {isCurrentOrFutureWeek && (
-        <Flex justify="space-between" align="center" style={{ marginBottom: 12 }}>
-          <Flex gap={8}>
-            {(['approved', 'submitted', 'draft', 'rejected'] as PlanStatus[]).map((s) =>
-              statusCounts[s] ? (
-                <Tag key={s} color={STATUS_TAG[s].color} icon={STATUS_TAG[s].icon}>
-                  {statusCounts[s]} {t(`plan.status_${s}`)}
-                </Tag>
-              ) : null,
-            )}
-          </Flex>
-          <Space>
-            {allDraftIds.length > 0 && (
-              <Button type="primary" ghost loading={bulkSubmit.isPending} onClick={handleBulkSubmit}>
-                {t('plan.submit')} ({allDraftIds.length})
-              </Button>
-            )}
-            {isManager && allSubmittedIds.length > 0 && (
-              <Button type="primary" loading={bulkApprove.isPending} onClick={handleBulkApprove}>
-                {t('plan.bulk_approve')} ({allSubmittedIds.length})
-              </Button>
-            )}
-            {isManager && allSubmittedIds.length > 0 && (
-              <Button danger loading={bulkReject.isPending} onClick={handleBulkReject}>
-                {t('plan.reject')} ({allSubmittedIds.length})
-              </Button>
-            )}
-          </Space>
         </Flex>
       )}
 
@@ -655,12 +583,12 @@ export default function WeeklyPlanGrid() {
           summary={renderSummary}
           onRow={(row) => ({
             style: {
-              backgroundColor: isBlockManager && myBlockIds.has(row.block)
-                ? '#fffbe6'
-                : ROW_BG[row.status] || undefined,
-              boxShadow: isBlockManager && myBlockIds.has(row.block)
-                ? 'inset 3px 0 0 #faad14'
-                : undefined,
+              backgroundColor:
+                isBlockManager && myBlockIds.has(row.block) ? '#fffbe6' : undefined,
+              boxShadow:
+                isBlockManager && myBlockIds.has(row.block)
+                  ? 'inset 3px 0 0 #faad14'
+                  : undefined,
             },
           })}
         />
@@ -671,54 +599,32 @@ export default function WeeklyPlanGrid() {
         <Collapse
           defaultActiveKey={['trucks']}
           style={{ marginTop: 16 }}
-          items={[{
-            key: 'trucks',
-            label: <strong>{t('plan.truck_allocation')}</strong>,
-            children: (
-              <TruckAllocationTable
-                plans={plans}
-                weekNumber={weekNumber}
-                year={year}
-                seasonId={activeSeason?.id}
-                isManager={!!isManager}
-                weekMonday={weekMonday}
-                totalPlanKg={totalPlanKg}
-              />
-            ),
-          }]}
+          items={[
+            {
+              key: 'trucks',
+              label: <strong>{t('plan.truck_allocation')}</strong>,
+              children: (
+                <TruckAllocationTable
+                  plans={plans}
+                  weekNumber={weekNumber}
+                  year={year}
+                  seasonId={activeSeason?.id}
+                  isManager={!!isManager}
+                  weekMonday={weekMonday}
+                  totalPlanKg={totalPlan}
+                  dayTotals={dayPlanTotals}
+                />
+              ),
+            },
+          ]}
         />
       )}
 
-      {/* Reject modal */}
-      <Modal
-        title={t('plan.reject_modal_title')}
-        open={!!rejectModalPlan}
-        onCancel={() => {
-          setRejectModalPlan(null);
-          setRejectNote('');
-        }}
-        onOk={handleRejectConfirm}
-        okText={t('plan.reject')}
-        okButtonProps={{
-          danger: true,
-          disabled: !rejectNote.trim(),
-          loading: bulkReject.isPending,
-        }}
-        destroyOnClose
-      >
-        <div style={{ marginBottom: 12 }}>
-          <Text>{allSubmittedIds.length} {t('plan.blocks')}</Text>
-        </div>
-        <div style={{ marginBottom: 4 }}>
-          <Text strong>{t('plan.reject_note_label')}</Text>
-        </div>
-        <TextArea
-          rows={3}
-          value={rejectNote}
-          onChange={(e) => setRejectNote(e.target.value)}
-          placeholder={t('plan.reject_note_required')}
-        />
-      </Modal>
+      {/* Cell history modal */}
+      <CellHistoryModal
+        entry={historyEntry}
+        onClose={() => setHistoryEntry(null)}
+      />
     </div>
   );
 }
