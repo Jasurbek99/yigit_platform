@@ -51,15 +51,82 @@ Translation strings (`sheet.who.*`, `sheet.row.*`) stay in `frontend/src/i18n/{t
 
 Dropdown rows whose `options_source` is fixed (e.g. `vehicle_condition`) resolve via `frontend/src/constants/sheetOptions.ts` `SHEET_OPTIONS_REGISTRY`. Dynamic dropdowns (`country`, `customer`, `border_point`, etc.) keep using their dedicated TanStack Query hooks.
 
-### Per-row trigger configuration
+### Per-user row order and visibility (Phase 2a — ADR-0003/ADR-0008)
 
-Each row can be assigned **either a formal role** (from `ROLE_CHOICES`) **or a specific user**, configurable in **Shipment Settings → Sheet Rows**. The selection is stored in `SheetRowSetting` (`export_sheet_row_setting` table) — `field_key` is unique, `triggered_role` XOR `triggered_user` is enforced by a DB `CheckConstraint`. Setting one auto-clears the other on PATCH; sending both non-empty returns 400.
+Users can reorder and hide sheet rows through the toolbar. Preferences are stored server-side in the `UserSheetRowPref` table (one row per `(user, SheetRowSetting)`) and synced debounced from the frontend.
 
-The trigger acts as **label + edit gate**:
-- "Who" column displays `triggered_user.username` if a user is set (with a warning chip if `is_active=False`), else the formal role label, else falls back to translating the row's `default_who_key`.
-- Cell editing requires `can_edit_sheet_field(user, field_key)` to return true. That helper composes `RoleFieldPermission` AND the trigger gate: if `triggered_user` is set, only that user can edit; if `triggered_role` is set, only users with that role can edit; if neither is set, only `RoleFieldPermission` applies. Director and superuser bypass everything.
+**Model**: `export_user_sheet_row_pref` — flat child table (no JSONField, MSSQL-safe per ADR-0008).
+- `position`: sparse integer (step 1024). NULL = inherit admin `display_order`.
+- `is_hidden`: true = hidden from this user's view. AND-composed with admin `is_visible`.
 
-Computed once per `/sheet/` request as `row_settings[field_key].can_current_user_edit` (boolean) so the frontend renders the correct lock state without per-cell calls. `get_sheet_edit_map(user)` does this in 2 DB queries (1 if the caller passes its `settings_by_key` dict).
+**Row order resolution** (in `/sheet/` action):
+1. Load all `UserSheetRowPref` for the request user (1 query).
+2. For each row in `DEFAULT_SHEET_ROWS`:
+   - Skip if admin `is_visible=False` (admin-hidden; hard override).
+   - Skip if user `is_hidden=True` (user-hidden).
+   - `effective_order = user.position ?? setting.display_order` (fallback 999999 if no DB config).
+3. Sort by `effective_order` (stable).
+
+**`user_preferences` key** in `/sheet/` response:
+```json
+{
+  "user_preferences": {
+    "row_order": [12, 5, 8, ...],   // ids where user.position IS NOT NULL, ordered ASC
+    "hidden_rows": [3, 14, ...]     // ids where user.is_hidden=True
+  }
+}
+```
+Frontend uses `user_preferences` to initialise the drag-and-drop row order state without a separate API call.
+
+**Sync endpoint**: `GET/PATCH /api/v1/export/user/sheet-preferences/` — `UserSheetPreferencesView`. Auth: `IsAuthenticated`. PATCH accepts `{ row_order?: [...], hidden_rows?: [...] }` — absent key = no-op. Both keys are idempotent: the payload fully replaces the dimension it targets. The `row_order` key lists only ids with user-set positions; unlisted rows fall back to admin `display_order`.
+
+### Per-row trigger configuration (Sheet Control v2)
+
+Each row can be assigned **one or more formal roles** AND/OR **a specific user** and **extra users**, configurable in **Shipment Settings → Sheet Rows** (admin-only). The config is stored across three tables:
+
+| Table | Purpose |
+|-------|---------|
+| `export_sheet_row_setting` | One row per `field_key`. Holds labels, description, style, `is_locked`, soft-delete fields, optimistic `version`. |
+| `export_sheet_row_role_trigger` | Child rows: one per `(setting, role)`. Replaces the old single `triggered_role` column. |
+| `export_sheet_row_user_permission` | Child rows: one per `(setting, user)`. Extra users who can edit regardless of `is_locked`. Soft-deleted with `deleted_at`. |
+
+**Trigger + Lock semantics (ADR-0008 / ADR-0009 / ADR-0010):**
+- If `is_locked=False` (default): `triggered_roles[]` acts as the "Who" label. Editing falls back to `RoleFieldPermission` for all roles — the trigger is display-only.
+- If `is_locked=True`: only users whose role is in `triggered_roles[]` **OR** who appear in `extra_user_ids[]` (non-deleted `SheetRowUserPermission`) can edit the cell. All other roles get the fallback "no setting → field-perm" path denied.
+- If both `triggered_roles[]` and `triggered_user` are empty (`is_locked=False`), only `RoleFieldPermission` governs access.
+- `admin`, `director`, and `is_superuser` always bypass the lock.
+
+**"Who" column label:**
+1. `triggered_user.username` if a specific user is set (warning chip if `is_active=False`).
+2. First matched `triggered_roles[]` label (role display name) if any roles are configured.
+3. Fallback: translate `default_who_key` from i18n.
+
+**Edit-map**: `get_sheet_edit_map(user)` computes edit access in **4 DB queries** (1 settings + 2 prefetch for `role_triggers` and `user_permissions` + 1 field perms). Result is embedded in the `/sheet/` response as `row_settings[field_key]` — the frontend never makes per-cell permission calls.
+
+**Admin endpoint**: `GET/POST/PATCH/DELETE /api/v1/export/admin/sheet-rows/{id}/` — see the Sheet Rows Admin section below.
+
+**Visibility toggle**: `is_visible=False` rows are excluded entirely from the `row_settings` map in the `/sheet/` response. Hidden rows are always denied edit access.
+
+### Sheet Rows Admin endpoint
+
+`/api/v1/export/admin/sheet-rows/` — managed by `SheetRowSettingViewSet`. Auth: `admin` role only.
+
+| Method | Path | Action |
+|--------|------|--------|
+| GET | `/sheet-rows/` | List all rows (`?include_deleted=1` shows soft-deleted) |
+| GET | `/sheet-rows/{id}/` | Row detail with `role_triggers[]` and `user_permissions[]` |
+| POST | `/sheet-rows/` | Create a new setting |
+| PATCH | `/sheet-rows/{id}/` | Update labels, `is_locked`, `triggered_user`, `triggered_roles[]`, style. Requires matching `version` (optimistic lock) — wrong version → 409 Conflict. |
+| DELETE | `/sheet-rows/{id}/` | Soft-delete (sets `deleted_at`). Rejected with 400 if row is still `is_visible=True`. |
+| POST | `/sheet-rows/{id}/restore/` | Restore a soft-deleted row. Returns 400 if already active. |
+| POST | `/sheet-rows/reorder/` | Accepts `[{"id": N, "display_order": N}]`. Uses sparse ADR-0007 spacing (`(idx+1)*1024`). Writes one `AuditLog` row for every order change. |
+| POST | `/sheet-rows/{id}/permissions/bulk/` | Bulk grant/revoke `SheetRowUserPermission`. Body: `{"grant": [uid, ...], "revoke": [uid, ...]}`. Idempotent. |
+
+**Optimistic locking (ADR-0006):** Every PATCH must include `version` matching the current DB value. The server increments `version` on save. Concurrent edits are detected and return 409 with `{"error": "Version conflict. Reload and retry.", "current_version": N}`.
+
+**Soft-delete (ADR-0002):** `DELETE` sets `deleted_at` + `deleted_by`. Soft-deleted rows are excluded from the default `get_queryset()` (manager `.active()`). Use `?include_deleted=1` to see them. Restore via `/restore/`.
+
+**Sparse display_order (ADR-0007):** Rows use step=1024 spacing (1024, 2048, …). Reorder recalculates from scratch. Inserting between two rows uses midpoint; no rebalancing needed until values collapse.
 
 | Section | Rows | Purpose |
 |---------|------|---------|
@@ -173,6 +240,49 @@ If the client sends an explicit non-zero `weight_kg`, the backend honours it (ad
 - AD-2 fields — `vehicle_condition`, `vehicle_condition_note`, `route_note`
 
 Querystring `?season=<id>` overrides the active season; default scopes to `season__is_active=True`.
+
+### `/sheet/` response top-level keys (v2)
+
+```json
+{
+  "results":          [ /* IShipmentSheetItem[] */ ],
+  "comment_counts":   { "<shipment_id>": { "<field_key>": 3, "__shipment__": 1 } },
+  "task_counts":      { "<shipment_id>": { "open": 2, "done": 5, "assigned_to_me_open": 1 } },
+  "rows":             [ /* SheetRow config from DEFAULT_SHEET_ROWS — i18n keys + inputType + options_source */ ],
+  "row_settings":     {
+    "<field_key>": {
+      "id": 12,
+      "labels":            { "tk": "...", "ru": "...", "en": "..." },   /* only non-empty keys present */
+      "description":       { "tk": "...", "ru": "...", "en": "..." },
+      "style":             { "color": "#fff", "background": "#333" },
+      "triggered_roles":   ["warehouse_chief", "document_team"],        /* from SheetRowRoleTrigger child table */
+      "triggered_user":    42,                                           /* FK or null */
+      "triggered_user_name": "Soltanmyrat",
+      "triggered_user_active": true,
+      "extra_user_ids":    [5, 8],                                       /* from SheetRowUserPermission (non-deleted) */
+      "is_locked":         true,
+      "is_visible":        true,
+      "can_current_user_edit": false,
+      "version":           3,
+      "settings_updated_at": "2026-04-30T10:00:00+05:00",
+      "settings_updated_by_id": 1
+    }
+    /* hidden rows (is_visible=False) are excluded entirely */
+  },
+  "last_edits":       { "<shipment_id>": { "<field_key>": { "user_id": 3, "user_name": "...", "old_value": "...", "new_value": "...", "edited_at": "..." } } },
+  "users_index":      { "<user_id>": { "name": "Ahmet", "role": "warehouse_chief" } },
+  "current_user_id":  3,
+  "current_user_lang": "tk",
+  "user_preferences": {
+    "row_order":   [12, 5, 8],   // ids where user.position IS NOT NULL, ordered by position ASC
+    "hidden_rows": [3, 14]       // ids where user.is_hidden = True
+  }
+}
+```
+
+**`users_index`** is a compact lookup map (`str(user_id) → {name, role}`) emitted once at root to avoid per-row user object repetition. Frontend uses it to resolve `triggered_user` and `extra_user_ids` without additional API calls.
+
+**`current_user_lang`** is the request user's preferred language (defaults to `'tk'`). Frontend uses it to pick the right `labels[lang]` for the "Who" column and cell tooltips.
 
 ## Known issues
 

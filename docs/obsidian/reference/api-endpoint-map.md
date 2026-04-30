@@ -71,6 +71,21 @@ tags: [reference, api, backend, frontend]
 | GET/POST/PATCH | `/api/v1/export/admin/import-firms/` | ImportFirmViewSet | `useAdmin` | ImportFirmsPage |
 | GET/POST/PATCH | `/api/v1/export/admin/users/` | UserManagementViewSet | `useAdmin` | UsersPage |
 | GET/PUT | `/api/v1/export/admin/users/{id}/permissions/` | UserPermissionsView | `useAdmin` | PermissionsPage |
+| GET/POST | `/api/v1/export/admin/sheet-rows/` | SheetRowSettingViewSet (list/create) | `useSheetRowSettings` | ShipmentSettings (Sheet Rows tab) |
+| GET/PATCH/DELETE | `/api/v1/export/admin/sheet-rows/{id}/` | SheetRowSettingViewSet (detail/update/soft-delete) | `useSheetRowSettings` | ShipmentSettings (Sheet Rows tab) |
+| POST | `/api/v1/export/admin/sheet-rows/{id}/restore/` | SheetRowSettingViewSet.restore | `useSheetRowSettings` | ShipmentSettings (Sheet Rows tab) |
+| POST | `/api/v1/export/admin/sheet-rows/reorder/` | SheetRowSettingViewSet.reorder | `useSheetRowSettings` | ShipmentSettings (Sheet Rows tab) |
+| POST | `/api/v1/export/admin/sheet-rows/{id}/permissions/bulk/` | SheetRowSettingViewSet.permissions_bulk | `useSheetRowSettings` | ShipmentSettings (Sheet Rows tab) |
+
+### Per-user Sheet Preferences (Phase 2a)
+
+| Method | Endpoint | ViewSet | Hook | Page |
+|--------|----------|---------|------|------|
+| GET | `/api/v1/export/user/sheet-preferences/` | UserSheetPreferencesView | `useSheetPreferences` | ShipmentSheet |
+| PATCH | `/api/v1/export/user/sheet-preferences/` | UserSheetPreferencesView | `useSheetPreferences` (mutation) | ShipmentSheet |
+
+Response shape (GET): `{ row_order: [id, ...], hidden_rows: [id, ...], updated_at: "ISO8601|null" }`
+PATCH body (partial): `{ row_order?: [id, ...], hidden_rows?: [id, ...] }` — absent key = no-op.
 
 ## Greenhouse Endpoints
 

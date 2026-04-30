@@ -47,6 +47,12 @@ erDiagram
     DomesticSale }o--|| DomesticBuyer : "buyer"
     DomesticSale }o--|| GreenhouseBlock : "block"
     
+    %% Sheet Control v2
+    SheetRowSetting ||--o{ SheetRowRoleTrigger : "role_triggers"
+    SheetRowSetting ||--o{ SheetRowUserPermission : "user_permissions"
+    SheetRowSetting ||--o{ UserSheetRowPref : "user_prefs"
+    User ||--o{ UserSheetRowPref : "sheet_row_prefs"
+    
     %% Permissions
     RolePagePermission }o--|| User : "role-based"
     RoleResourcePermission }o--|| User : "role-based"
@@ -102,6 +108,13 @@ erDiagram
 | **FinansistAdvanceShipment** | advance (FK), shipment (FK), allocated_amount | Advance-shipment link |
 | **Notification** | user (FK), message, is_read, created_at | In-app notifications |
 | **AuditLog** | user (FK), action, model_name, object_id, object_repr, detail, created_at | Immutable audit trail |
+| **SheetRowSetting** | field_key (unique), label_tk/ru/en, description_tk/ru/en, style_color/background, triggered_user (FK nullable), is_locked, is_visible, display_order, version, deleted_at/by | Per-row display + access config for the Sheet (ADR-0008). Soft-deleted with `.active()` manager. |
+| **SheetRowRoleTrigger** | row (FK→SheetRowSetting), role | One row per allowed role per setting. Replaces old single `triggered_role` column (ADR-0009). |
+| **SheetRowUserPermission** | row (FK→SheetRowSetting), user (FK), deleted_at/by | Extra users who can edit the cell regardless of `is_locked` (ADR-0010). Soft-deleted. |
+| **Comment** | shipment (FK), user (FK), content, field_key (nullable), parent_comment (FK nullable), assignee (FK nullable), is_done, is_system, is_deleted, mentions_users (M2M), role_mentions (M2M) | Cell-anchored comment or task with @mention support. |
+| **SalesReport** | shipment (1:1), price_per_kg, total_usd, expense fields, currency, exchange_rate, created_by | Final sales reconciliation record per shipment. |
+| **TruckSplitDefault** | firm_count (unique 1-3), weight_kg | Admin-configurable default official weight per firm count (used in R9 auto-split). |
+| **UserSheetRowPref** | user (FK), row (FK→SheetRowSetting), position (int nullable, sparse), is_hidden (bool), updated_at | Per-user override for sheet row order + visibility. NULL position = inherit admin `display_order`. Part of ADR-0008 Phase 2a. |
 
 ## Greenhouse App Models
 
