@@ -313,10 +313,15 @@ export interface IShipmentSheetResponse {
   task_counts: ISheetTaskCounts;
   /** Backend-driven row map — replaces the frontend SHEET_ROW_CONFIG constant. */
   rows: IRowConfig[];
-  /** Per-row trigger settings keyed by field_key. */
-  row_settings: Record<string, ISheetRowSetting>;
+  /** Per-row settings keyed by field_key (Sheet Control v2). */
+  row_settings: Record<string, ISheetRowSettingForUser>;
   /** Sparse last-edit summaries: shipment_id (string) → field_key → edit info. */
   last_edits: Record<string, Record<string, ICellLastEdit>>;
+  // Sheet Control v2 additions
+  /** Compact user index: user_id (string) → {name, role}. */
+  users_index: Record<string, { name: string; role: string | null }>;
+  current_user_id: number;
+  current_user_lang: 'tk' | 'ru' | 'en';
 }
 
 export type SheetRowStyle = 'base' | 'alt' | 'key' | 'transport' | 'status' | 'report' | 'separator';
@@ -335,21 +340,65 @@ export interface IRowConfig {
   gapy_hidden?: boolean;
 }
 
-// ─── Sheet Row Settings (admin-configurable trigger per row) ─────────────────
+// ─── Sheet Row Settings v2 ────────────────────────────────────────────────────
 
+/**
+ * Admin shape — returned by /admin/sheet-rows/.
+ * Fields are FLAT (not nested): label_tk/ru/en, description_tk/ru/en,
+ * style_width/align/color — mirrors the serializer in views_sheet_settings.py.
+ */
 export interface ISheetRowSetting {
+  // Identifiers (read-only)
+  id: number;
   field_key: string;
   row_number: number;
-  /** i18n key for the default "Who" label (e.g. "sheet.who.logist"). Null only if row unknown. */
-  default_who_key: string | null;
-  triggered_role: string;        // '' when unset
+  // Display (writable)
+  display_order: number;
+  is_visible: boolean;
+  is_locked: boolean;
+  // Labels (writable, flat)
+  label_tk: string;
+  label_ru: string;
+  label_en: string;
+  // Descriptions (writable, flat)
+  description_tk: string;
+  description_ru: string;
+  description_en: string;
+  // Style (writable, flat)
+  style_width: number | null;
+  style_align: 'left' | 'center' | 'right' | null;
+  style_color: string | null;
+  // Permissions
   triggered_user: number | null;
   triggered_user_name: string | null;
   triggered_user_active: boolean | null;
-  triggered_label: string;       // resolved display — user name OR role label OR ''
-  can_current_user_edit: boolean;
+  triggered_roles: string[];       // list of role codes (read-only, from role_triggers)
+  extra_users: Array<{ id: number; name: string | null; is_active: boolean | null }>;
+  // Concurrency / audit
+  version: number;
   updated_at: string;
   updated_by_name: string | null;
+  deleted_at: string | null;
+}
+
+/**
+ * Per-row entry inside /shipments/{id}/sheet/ payload's row_settings dict.
+ * Keyed by field_key. Labels/description/style are nested objects (compact form).
+ * No `id` field — backend omits it in the sheet payload.
+ * No `is_visible` — hidden rows are excluded from the dict entirely.
+ */
+export interface ISheetRowSettingForUser {
+  is_locked: boolean;
+  labels: { tk?: string; ru?: string; en?: string } | null;
+  description: { tk?: string; ru?: string; en?: string } | null;
+  style: { width?: number; align?: 'left' | 'center' | 'right'; color?: string } | null;
+  triggered_user_id: number | null;
+  triggered_roles: string[];
+  extra_user_ids: number[];
+  can_current_user_edit: boolean;
+  version: number | null;
+  settings_updated_at: string | null;
+  settings_updated_by_id: number | null;
 }
 
 // ─── Cell-level last-edit summary (sparse — only present if the cell was ever edited) ──
@@ -456,6 +505,86 @@ export interface ICommentFilter {
   taskStatus?: ICommentTaskStatus;
 }
 
+// ─── Greenhouse Config ────────────────────────────────────────────────────
+
+export interface IGreenhouseConfig {
+  id: number;
+  plan_deadline_weekday: number;        // 0=Mon … 6=Sun, default 4 (Friday)
+  plan_late_until_weekday: number;      // default 6 (Sunday)
+  plan_critical_late_at_weekday: number; // default 0 (Monday)
+  plan_critical_late_at_time: string;   // "HH:MM:SS"
+  forecast_primary_open: string;        // "HH:MM:SS"
+  forecast_primary_close: string;
+  forecast_fallback_close: string;
+  forecast_same_day_close: string;
+  notification_lead_minutes: number;
+  truck_capacity_kg: string;            // Decimal as string
+  operating_days_bitmask: number;       // bits 0–6 = Mon–Sun
+  timezone_name: string;
+  updated_by: number | null;
+  updated_by_name: string | null;
+  updated_at: string | null;
+}
+
+export interface IOperatingDayException {
+  id: number;
+  date: string;        // ISO date YYYY-MM-DD
+  is_holiday: boolean; // true = skip this otherwise-operating day
+  note: string;
+  created_by: number | null;
+  created_by_name: string | null;
+  created_at: string;
+}
+
+// ─── Harvest Day Entry ────────────────────────────────────────────────────
+
+export type PlanState = 'on_time' | 'late' | 'critical_late';
+export type ForecastWindow = 'primary' | 'fallback' | 'same_day_red_flag';
+export type ActualSource = 'manual' | 'pallet_rollup_pending';
+
+export interface IHarvestDayEntry {
+  id: number;
+  weekly_plan: number;
+  season: number;
+  block: number;
+  block_code: string;
+  block_name: string;
+  entry_date: string;          // ISO date YYYY-MM-DD
+  weekday: number;             // 0=Mon … 6=Sun
+  plan_value: string | null;
+  plan_submitted_at: string | null;
+  plan_submitted_by: number | null;
+  plan_submitted_by_name: string | null;
+  plan_state: PlanState | '';
+  forecast_value: string | null;
+  forecast_submitted_at: string | null;
+  forecast_submitted_by: number | null;
+  forecast_submitted_by_name: string | null;
+  forecast_window: ForecastWindow | '';
+  forecast_revision_count: number;
+  actual_value: string | null;
+  actual_finalized_at: string | null;
+  actual_source: ActualSource | '';
+  last_override_at: string | null;
+  last_override_by: number | null;
+  last_override_by_name: string | null;
+  last_override_reason: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface IDayEntryHistoryItem {
+  id: number;
+  user: number | null;
+  user_name: string | null;
+  action: string;
+  field_name: string | null;
+  old_value: string | null;
+  new_value: string | null;
+  detail: string;
+  created_at: string;
+}
+
 // ─── Planning ─────────────────────────────────────────────────────────────
 
 export type PlanStatus = 'draft' | 'submitted' | 'approved' | 'rejected';
@@ -469,29 +598,9 @@ export interface IWeeklyHarvestPlan {
   block_name: string;
   week_number: number;
   year: number;
-  monday_plan_kg: number;
-  tuesday_plan_kg: number;
-  wednesday_plan_kg: number;
-  thursday_plan_kg: number;
-  friday_plan_kg: number;
-  saturday_plan_kg: number;
-  monday_actual_kg: number | null;
-  tuesday_actual_kg: number | null;
-  wednesday_actual_kg: number | null;
-  thursday_actual_kg: number | null;
-  friday_actual_kg: number | null;
-  saturday_actual_kg: number | null;
-  total_plan_kg: number;
-  total_actual_kg: number | null;
-  // Approval workflow
-  status: PlanStatus;
   submitted_at: string | null;
   submitted_by_name: string | null;
-  approved_at: string | null;
-  approved_by_name: string | null;
-  rejected_at: string | null;
-  rejected_by_name: string | null;
-  rejection_note: string | null;
+  locked_at: string | null;
   entered_by_name: string | null;
   updated_at: string;
 }

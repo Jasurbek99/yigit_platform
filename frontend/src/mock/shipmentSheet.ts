@@ -1,4 +1,4 @@
-import type { IShipmentSheetItem } from '@/types';
+import type { IShipmentSheetItem, ISheetRowSettingForUser } from '@/types';
 
 export const MOCK_SHEET_DATA: IShipmentSheetItem[] = [
   {
@@ -20,6 +20,7 @@ export const MOCK_SHEET_DATA: IShipmentSheetItem[] = [
     sale_started_at: '2025-10-07T18:00:00+05:00', sale_ended_at: '2025-10-08T20:00:00+05:00',
     vehicle_condition: 'OK', vehicle_condition_note: null, route_note: '3.4',
     doc_azyk: true, doc_suriji: true, doc_hil: true, doc_kalibrowka: true,
+    loading_ended_at: null, vehicle_live_status: null,
     has_sales_report: true, has_doc_advance: true, warehouse_comment_count: 0, document_comment_count: 0, notes: null, official_export_code: null, previous_platform_id: null,
     firm_splits: [
       { firm_code: 'YGT', firm_name: 'Yigit H.J.', weight_kg: 10000, amount_usd: 8200 },
@@ -47,6 +48,7 @@ export const MOCK_SHEET_DATA: IShipmentSheetItem[] = [
     sale_started_at: '2025-10-10T17:00:00+05:00', sale_ended_at: '2025-10-11T20:00:00+05:00',
     vehicle_condition: 'OK', vehicle_condition_note: null, route_note: 'T1',
     doc_azyk: true, doc_suriji: true, doc_hil: true, doc_kalibrowka: true,
+    loading_ended_at: null, vehicle_live_status: null,
     has_sales_report: true, has_doc_advance: true, warehouse_comment_count: 0, document_comment_count: 0, notes: null, official_export_code: null, previous_platform_id: null,
     firm_splits: [{ firm_code: 'GB', firm_name: 'Gokbulut H.J.', weight_kg: 18545, amount_usd: 15763 }],
     block_sources: [{ block_code: 'C', weight_kg: 18545 }],
@@ -71,6 +73,7 @@ export const MOCK_SHEET_DATA: IShipmentSheetItem[] = [
     sale_started_at: null, sale_ended_at: null,
     vehicle_condition: 'OK', vehicle_condition_note: null, route_note: 'M1',
     doc_azyk: true, doc_suriji: true, doc_hil: true, doc_kalibrowka: false,
+    loading_ended_at: null, vehicle_live_status: null,
     has_sales_report: false, has_doc_advance: false, warehouse_comment_count: 0, document_comment_count: 0, notes: null, official_export_code: null, previous_platform_id: null,
     firm_splits: [
       { firm_code: 'YE', firm_name: 'Ygtybarly Enjam', weight_kg: 9255, amount_usd: null },
@@ -100,6 +103,7 @@ export const MOCK_SHEET_DATA: IShipmentSheetItem[] = [
     sale_started_at: null, sale_ended_at: null,
     vehicle_condition: null, vehicle_condition_note: null, route_note: null,
     doc_azyk: false, doc_suriji: false, doc_hil: false, doc_kalibrowka: false,
+    loading_ended_at: null, vehicle_live_status: null,
     has_sales_report: false, has_doc_advance: false, warehouse_comment_count: 0, document_comment_count: 0, notes: null, official_export_code: null, previous_platform_id: null,
     firm_splits: [
       { firm_code: 'GB', firm_name: 'Gokbulut H.J.', weight_kg: 10013, amount_usd: null },
@@ -126,6 +130,7 @@ export const MOCK_SHEET_DATA: IShipmentSheetItem[] = [
     sale_started_at: null, sale_ended_at: null,
     vehicle_condition: null, vehicle_condition_note: null, route_note: null,
     doc_azyk: false, doc_suriji: false, doc_hil: false, doc_kalibrowka: false,
+    loading_ended_at: null, vehicle_live_status: null,
     has_sales_report: false, has_doc_advance: false, warehouse_comment_count: 0, document_comment_count: 0, notes: null, official_export_code: null, previous_platform_id: null,
     firm_splits: [
       { firm_code: 'YGT', firm_name: 'Yigit H.J.', weight_kg: 9757, amount_usd: null },
@@ -135,3 +140,61 @@ export const MOCK_SHEET_DATA: IShipmentSheetItem[] = [
     created_by_name: 'soltanmyrat', created_at: '2025-10-21T09:00:00+05:00', updated_at: '2025-10-22T16:00:00+05:00',
   },
 ];
+
+// ─── Sheet Control v2 mock data ───────────────────────────────────────────────
+
+/**
+ * Mock row_settings for /sheet/ payload (ISheetRowSettingForUser shape).
+ * Covers 3 scenarios: locked (user cannot edit), with extra_users, and triggered_roles only.
+ */
+export const MOCK_ROW_SETTINGS: Record<string, ISheetRowSettingForUser> = {
+  // Row locked — current user is NOT in extra_users → lock icon should appear
+  weight_net: {
+    is_locked: true,
+    labels: { tk: 'Agyrlygy (net)', ru: 'Вес нетто', en: 'Weight (net)' },
+    description: { ru: 'Нетто-вес в кг' },
+    style: { width: 100, align: 'right' },
+    triggered_user_id: null,
+    triggered_roles: ['warehouse_chief', 'weight_master'],
+    extra_user_ids: [99], // user 99 — not the current user (id=1)
+    can_current_user_edit: false,
+    version: 3,
+    settings_updated_at: '2026-04-20T09:00:00+05:00',
+    settings_updated_by_id: 2,
+  },
+  // Row with extra_users — current user IS in extra_users → no lock icon
+  price_per_kg: {
+    is_locked: true,
+    labels: { tk: 'Baha (kg)', ru: 'Цена (кг)', en: 'Price/kg' },
+    description: null,
+    style: { width: 100, align: 'right', color: '#f0f7ff' },
+    triggered_user_id: null,
+    triggered_roles: ['sales_rep'],
+    extra_user_ids: [1], // current user id=1 → can edit
+    can_current_user_edit: true,
+    version: 1,
+    settings_updated_at: '2026-04-15T14:30:00+05:00',
+    settings_updated_by_id: 2,
+  },
+  // Row with triggered_roles only — not locked
+  customs_entry_at: {
+    is_locked: false,
+    labels: { tk: 'Gümrüge giriş', ru: 'Въезд на таможню', en: 'Customs entry' },
+    description: null,
+    style: null,
+    triggered_user_id: null,
+    triggered_roles: ['document_team'],
+    extra_user_ids: [],
+    can_current_user_edit: true,
+    version: 2,
+    settings_updated_at: '2026-04-10T10:00:00+05:00',
+    settings_updated_by_id: null,
+  },
+};
+
+/** Mock users_index for /sheet/ payload. */
+export const MOCK_USERS_INDEX: Record<string, { name: string; role: string | null }> = {
+  '1': { name: 'Gadam Nuryýew', role: 'export_manager' },
+  '2': { name: 'Soltanmyrat Ö.', role: 'warehouse_chief' },
+  '99': { name: 'Arap Meredow', role: 'sales_rep' },
+};

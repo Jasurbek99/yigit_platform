@@ -4,7 +4,7 @@ import { MessageOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useNavigate } from 'react-router-dom';
 import i18n from '@/i18n';
-import type { IShipmentSheetItem, IRowConfig, ICommentTaskStatus } from '@/types';
+import type { IShipmentSheetItem, IRowConfig, ICommentTaskStatus, ISheetRowSettingForUser } from '@/types';
 import { useSheetStore } from '@/stores/sheetStore';
 import { COL_WIDTH_SHIPMENT, ROW_HEIGHT } from '@/constants/sheetRowConfig';
 import { CommentMarker } from './CommentMarker';
@@ -19,6 +19,7 @@ interface ISheetCellProps {
   isEditable: boolean;
   commentCount?: number;
   commentTaskState?: ICommentTaskStatus | null;
+  rowSetting?: ISheetRowSettingForUser;
 }
 
 function getCellValue(shipment: IShipmentSheetItem, rowConfig: IRowConfig): string {
@@ -110,13 +111,18 @@ function isEmpty(value: string): boolean {
   return !value || value === '—';
 }
 
-function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, commentTaskState = null }: ISheetCellProps) {
+function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, commentTaskState = null, rowSetting }: ISheetCellProps) {
   const navigate = useNavigate();
   const { setActiveCell, setEditingCell, activeCell, openCommentsForCell, openCommentsForShipment } = useSheetStore();
   const isActive = activeCell?.shipmentId === shipment.id && activeCell?.rowKey === rowConfig.fieldKey;
   const isGapy = shipment.is_gapy_satys;
   const isHidden = rowConfig.gapyHidden && isGapy;
   const isCommentCount = rowConfig.inputType === 'comment_count';
+
+  // Per-row style overrides from admin sheet-row settings
+  const cellWidth = rowSetting?.style?.width ?? COL_WIDTH_SHIPMENT;
+  const cellAlign = rowSetting?.style?.align;
+  const cellBg = rowSetting?.style?.color ?? undefined;
 
   const value = getCellValue(shipment, rowConfig);
   const cellIsEmpty = isEmpty(value);
@@ -144,7 +150,7 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
 
   if (isHidden) {
     return (
-      <div className="sheet-cell sheet-cell--gapy-hidden" style={{ width: COL_WIDTH_SHIPMENT, height: ROW_HEIGHT }}>
+      <div className="sheet-cell sheet-cell--gapy-hidden" style={{ width: cellWidth, height: ROW_HEIGHT }}>
         —
       </div>
     );
@@ -159,7 +165,7 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
     return (
       <div
         className={`sheet-cell sheet-cell--${rowConfig.style}${isActive ? ' sheet-cell--active' : ''}${isGapy ? ' sheet-cell--gapy' : ''}`}
-        style={{ width: COL_WIDTH_SHIPMENT, height: ROW_HEIGHT }}
+        style={{ width: cellWidth, height: ROW_HEIGHT, ...(cellBg ? { backgroundColor: cellBg } : {}), ...(cellAlign ? { textAlign: cellAlign } : {}) }}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
       >
@@ -175,7 +181,7 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
     return (
       <div
         className={`sheet-cell sheet-cell--${rowConfig.style}${isActive ? ' sheet-cell--active' : ''}${isGapy ? ' sheet-cell--gapy' : ''}`}
-        style={{ width: COL_WIDTH_SHIPMENT, height: ROW_HEIGHT }}
+        style={{ width: cellWidth, height: ROW_HEIGHT, ...(cellBg ? { backgroundColor: cellBg } : {}) }}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
       >
@@ -199,7 +205,7 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
     return (
       <div
         className={`sheet-cell sheet-cell--${rowConfig.style}${isActive ? ' sheet-cell--active' : ''}${isGapy ? ' sheet-cell--gapy' : ''}`}
-        style={{ width: COL_WIDTH_SHIPMENT, height: ROW_HEIGHT }}
+        style={{ width: cellWidth, height: ROW_HEIGHT, ...(cellBg ? { backgroundColor: cellBg } : {}) }}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
       >
@@ -222,7 +228,7 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
     return (
       <div
         className={`sheet-cell sheet-cell--${rowConfig.style} sheet-cell--linkable${isActive ? ' sheet-cell--active' : ''}${isGapy ? ' sheet-cell--gapy' : ''}`}
-        style={{ width: COL_WIDTH_SHIPMENT, height: ROW_HEIGHT, cursor: 'pointer' }}
+        style={{ width: cellWidth, height: ROW_HEIGHT, cursor: 'pointer', ...(cellBg ? { backgroundColor: cellBg } : {}) }}
         onClick={handleAdvanceClick}
       >
         <span style={{ color: shipment.has_doc_advance ? '#067647' : '#b42318', fontWeight: 600 }}>
@@ -237,7 +243,7 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
     return (
       <div
         className={`sheet-cell sheet-cell--${rowConfig.style}${isActive ? ' sheet-cell--active' : ''}${isGapy ? ' sheet-cell--gapy' : ''}`}
-        style={{ width: COL_WIDTH_SHIPMENT, height: ROW_HEIGHT }}
+        style={{ width: cellWidth, height: ROW_HEIGHT, ...(cellBg ? { backgroundColor: cellBg } : {}) }}
         onClick={handleClick}
       >
         <span style={{ color: shipment.has_sales_report ? '#067647' : '#b42318', fontWeight: 600 }}>
@@ -255,7 +261,7 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
     return (
       <div
         className={`sheet-cell sheet-cell--${rowConfig.style} sheet-cell--linkable${isActive ? ' sheet-cell--active' : ''}${isGapy ? ' sheet-cell--gapy' : ''}`}
-        style={{ width: COL_WIDTH_SHIPMENT, height: ROW_HEIGHT, cursor: 'pointer' }}
+        style={{ width: cellWidth, height: ROW_HEIGHT, cursor: 'pointer', ...(cellBg ? { backgroundColor: cellBg } : {}) }}
         onClick={handleClick}
       >
         {count > 0 ? (
@@ -275,7 +281,7 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
     return (
       <div
         className={`sheet-cell sheet-cell--key${isActive ? ' sheet-cell--active' : ''}${isGapy ? ' sheet-cell--gapy' : ''}`}
-        style={{ width: COL_WIDTH_SHIPMENT, height: ROW_HEIGHT }}
+        style={{ width: cellWidth, height: ROW_HEIGHT, ...(cellBg ? { backgroundColor: cellBg } : {}) }}
         onClick={handleClick}
       >
         <span className="sheet-cell__code">{shipment.cargo_code}</span>
@@ -288,11 +294,11 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
     <Tooltip title={value.length > 15 ? value : undefined} mouseEnterDelay={0.5}>
       <div
         className={`sheet-cell sheet-cell--${rowConfig.style}${isActive ? ' sheet-cell--active' : ''}${isEditable ? ' sheet-cell--editable' : ''}${isGapy ? ' sheet-cell--gapy' : ''}`}
-        style={{ width: COL_WIDTH_SHIPMENT, height: ROW_HEIGHT, position: 'relative' }}
+        style={{ width: cellWidth, height: ROW_HEIGHT, position: 'relative', ...(cellBg ? { backgroundColor: cellBg } : {}) }}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
       >
-        <span className="sheet-cell__text">{value}</span>
+        <span className="sheet-cell__text" style={cellAlign ? { textAlign: cellAlign, display: 'block' } : undefined}>{value}</span>
         <CommentMarker
           count={commentCount}
           taskState={commentTaskState}

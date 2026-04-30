@@ -8,7 +8,7 @@ import type {
   ISheetCommentCounts,
   ISheetTaskCounts,
   ICommentTaskStatus,
-  ISheetRowSetting,
+  ISheetRowSettingForUser,
   ICellLastEdit,
 } from '@/types';
 import { useSheetStore } from '@/stores/sheetStore';
@@ -48,8 +48,9 @@ interface ISheetGridProps {
   rows: IRowConfig[];
   commentCounts?: ISheetCommentCounts;
   taskCounts?: ISheetTaskCounts;
-  rowSettings?: Record<string, ISheetRowSetting>;
+  rowSettings?: Record<string, ISheetRowSettingForUser>;
   lastEdits?: Record<string, Record<string, ICellLastEdit>>;
+  currentUserLang?: 'tk' | 'ru' | 'en';
 }
 
 // z-index hierarchy
@@ -69,7 +70,8 @@ export function SheetGrid({
   commentCounts = {},
   taskCounts = {},
   rowSettings = {},
-  lastEdits = {},
+  lastEdits: _lastEdits = {},
+  currentUserLang = 'tk',
 }: ISheetGridProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -147,12 +149,11 @@ export function SheetGrid({
           isEditable={isEditable}
           commentCount={cellCommentCount}
           commentTaskState={cellTaskState}
-          rowSettings={rowSettings}
-          lastEdits={lastEdits}
+          rowSetting={rowSettings[rowConfig.field_key]}
         />
       );
     },
-    [editingCell, user, commentCounts, taskCounts, rowSettings, lastEdits],
+    [editingCell, user, commentCounts, taskCounts, rowSettings],
   );
 
   const virtualColumns = columnVirtualizer.getVirtualItems();
@@ -223,6 +224,7 @@ export function SheetGrid({
             rowConfig={rowConfig}
             stickyZIndex={stickyLeftZ}
             rowSettings={rowSettings}
+            currentUserLang={currentUserLang}
           />
 
           {/* Frozen data columns (sticky-left, between label band and virtualizer) */}

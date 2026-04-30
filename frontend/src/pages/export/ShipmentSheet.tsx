@@ -16,6 +16,7 @@ export default function ShipmentSheet() {
   const rows = data?.rows ?? [];
   const rowSettings = data?.row_settings ?? {};
   const lastEdits = data?.last_edits ?? {};
+  const currentUserLang = data?.current_user_lang ?? 'tk';
 
   const {
     searchText,
@@ -110,6 +111,7 @@ export default function ShipmentSheet() {
         taskCounts={taskCounts}
         rowSettings={rowSettings}
         lastEdits={lastEdits}
+        currentUserLang={currentUserLang}
       />
       <CommentsDrawer
         open={commentsDrawerOpen}
