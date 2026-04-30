@@ -22,7 +22,7 @@ from .quota import (
 from .finance import FinansistAdvance, FinansistAdvanceShipment
 from .notification import Notification
 from .audit import AuditLog
-from .sheet_settings import SheetRowSetting
+from .sheet_settings import SheetRowSetting, SheetRowRoleTrigger, SheetRowUserPermission, UserSheetRowPref
 
 __all__ = [
     'Shipment',
@@ -53,4 +53,7 @@ __all__ = [
     'AuditLog',
     'Pallet',
     'SheetRowSetting',
+    'SheetRowRoleTrigger',
+    'SheetRowUserPermission',
+    'UserSheetRowPref',
 ]

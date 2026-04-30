@@ -1,251 +1,576 @@
-"""Admin viewset for configuring the per-row trigger rules in the Shipment Sheet.
+"""Admin viewset for SheetRowSetting — Sheet Control v2.
 
-Endpoint:
-  GET   /api/v1/export/admin/sheet-rows/                — list all rows (auto-creates
-        missing SheetRowSetting entries from DEFAULT_SHEET_ROWS on first access)
-  PATCH /api/v1/export/admin/sheet-rows/{field_key}/    — update triggered_role or
-        triggered_user for a single row
+Endpoints (ADR-0007, ADR-0008, ADR-0009, ADR-0010):
+  GET    /api/v1/export/admin/sheet-rows/              — list active rows
+  GET    /api/v1/export/admin/sheet-rows/?include_deleted=1 — include soft-deleted
+  GET    /api/v1/export/admin/sheet-rows/{id}/         — single row
+  PATCH  /api/v1/export/admin/sheet-rows/{id}/         — update with optimistic lock
+  DELETE /api/v1/export/admin/sheet-rows/{id}/         — soft-delete (pre-condition: hidden ≥30d)
+  POST   /api/v1/export/admin/sheet-rows/{id}/restore/ — restore soft-deleted row
+  POST   /api/v1/export/admin/sheet-rows/reorder/      — sparse display_order update
+  POST   /api/v1/export/admin/sheet-rows/permissions/bulk/ — grant/revoke user exceptions
 
-POST and DELETE are intentionally disabled. Settings are auto-provisioned from
-``DEFAULT_SHEET_ROWS``; they are never manually created or deleted via the API.
-
-Permission gate: same ``canDo(user, 'shipment', 'edit')`` logic used by the
-sibling admin tabs (Seasons, Firms, Truck Splits). Implemented via
-``DynamicResourcePermission`` with ``resource_code = 'shipment'``.
-
-Per the D5 parity check in the plan: export_manager currently has shipment.edit
-permission, so this gate allows export_managers to configure trigger rules. A
-follow-up ticket ("Tighten admin tab gates to director-only") should address this
-if needed. Do not widen scope here.
+Security note: export_manager currently has shipment.edit permission (D5 parity) and
+can therefore access PATCH. A future ticket should tighten writes to director-only.
+For Phase 1 this matches the existing admin-tab permission model.
 """
 import logging
+from datetime import timedelta
 
+from django.db import transaction
+from django.utils import timezone
 from rest_framework import serializers, status, viewsets
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.core.models.user import ROLE_CHOICES
 from apps.core.permissions import DynamicResourcePermission
-from apps.export.models import AuditLog, SheetRowSetting
+from apps.export.models import AuditLog, SheetRowSetting, SheetRowRoleTrigger, SheetRowUserPermission
 from apps.export.sheet_rows import DEFAULT_SHEET_ROWS
 
 logger = logging.getLogger(__name__)
 
+_ROLE_SET = {code for code, _ in ROLE_CHOICES}
+
+
+# ── Serializers ───────────────────────────────────────────────────────────────
 
 class SheetRowSettingSerializer(serializers.ModelSerializer):
-    """Serializer for SheetRowSetting admin endpoint.
+    """Read/write serializer for SheetRowSetting admin endpoint (v2).
 
-    XOR strategy — auto-clear (preferred per plan D3):
-    When a PATCH sets ``triggered_role``, ``triggered_user`` is auto-cleared to
-    null. When a PATCH sets ``triggered_user``, ``triggered_role`` is auto-cleared
-    to ``''``. This avoids strict validation errors and gives the admin a smoother
-    experience: "you picked role, I cleared the user you had set."
-
-    The DB-level CheckConstraint (``sheet_row_setting_role_xor_user``) is the
-    safety net in case a race condition or bypass attempt slips through.
-
-    Read-only fields:
-        field_key, row_number, triggered_user_name, triggered_user_active,
-        updated_at, updated_by_name.
+    Read-only computed fields:
+        id, field_key, updated_at, deleted_at, updated_by_name,
+        triggered_user_id, triggered_user_name, triggered_user_active,
+        triggered_roles (list of role codes from role_triggers),
+        extra_users (list of active {id, name, is_active} from user_permissions),
+        version (returned as-is; bumped by model.save()).
 
     Writable fields:
-        triggered_role, triggered_user (FK id).
+        display_order, is_visible, is_locked,
+        label_tk/ru/en, description_tk/ru/en,
+        style_width/align/color,
+        triggered_user (FK id),
+        triggered_roles (list of role codes — replaces all existing role_triggers),
+        version (supplied for optimistic lock check; actual bump done in save()).
     """
 
-    triggered_user_name = serializers.SerializerMethodField(
-        help_text='Display name of triggered_user (full name or username). Null if no user set.',
-    )
-    triggered_user_active = serializers.SerializerMethodField(
-        help_text='True/False reflecting triggered_user.is_active. Null if no user set (D7).',
-    )
-    updated_by_name = serializers.SerializerMethodField(
-        help_text='Username of the user who last updated this row.',
-    )
-    default_who_key = serializers.SerializerMethodField(
-        help_text='i18n key for the default "Who" label (e.g. "sheet.who.logist"). Read-only.',
+    # Read-only derived
+    updated_by_name = serializers.SerializerMethodField()
+    triggered_user_name = serializers.SerializerMethodField()
+    triggered_user_active = serializers.SerializerMethodField()
+    triggered_roles = serializers.SerializerMethodField()
+    extra_users = serializers.SerializerMethodField()
+
+    # Write-only accepted for triggered_roles replacement
+    triggered_roles_write = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        write_only=True,
+        source='_triggered_roles',
+        help_text='List of role codes. Replaces all existing role_triggers.',
     )
 
     class Meta:
         model = SheetRowSetting
         fields = [
-            'field_key',         # read-only (unique identifier)
-            'row_number',        # read-only (display ordinal)
-            'default_who_key',   # read-only derived from DEFAULT_SHEET_ROWS
-            'triggered_role',    # writable
-            'triggered_user',    # writable FK id
-            'triggered_user_name',    # read-only derived
-            'triggered_user_active',  # read-only derived (D7)
-            'updated_at',        # read-only auto_now
-            'updated_by_name',   # read-only derived
+            # Identifiers (read-only)
+            'id',
+            'field_key',
+            'row_number',
+            # Display (writable)
+            'display_order',
+            'is_visible',
+            'is_locked',
+            # Labels (writable, Cyrillic-safe)
+            'label_tk',
+            'label_ru',
+            'label_en',
+            # Descriptions (writable, Cyrillic-safe)
+            'description_tk',
+            'description_ru',
+            'description_en',
+            # Style (writable)
+            'style_width',
+            'style_align',
+            'style_color',
+            # Permissions (partially writable)
+            'triggered_user',
+            'triggered_user_name',
+            'triggered_user_active',
+            'triggered_roles',
+            'triggered_roles_write',
+            'extra_users',
+            # Concurrency / audit
+            'version',
+            'updated_at',
+            'updated_by_name',
+            'deleted_at',
         ]
         read_only_fields = [
-            'field_key', 'row_number', 'default_who_key',
+            'id', 'field_key', 'row_number',
             'triggered_user_name', 'triggered_user_active',
-            'updated_at', 'updated_by_name',
+            'triggered_roles', 'extra_users',
+            'version',  # supplied by client for optimistic-lock check; never written via serializer
+            'updated_at', 'updated_by_name', 'deleted_at',
         ]
 
-    def get_default_who_key(self, obj: SheetRowSetting) -> str | None:
-        """Return the i18n key for the default 'Who' label for this row.
-
-        Looks up ``field_key`` in ``DEFAULT_SHEET_ROWS`` (the canonical list).
-        Returns None only if the row is somehow absent from the default list,
-        which should not happen in production.
-        """
-        for row in DEFAULT_SHEET_ROWS:
-            if row['field_key'] == obj.field_key:
-                return row.get('default_who_key')
-        return None
+    def get_updated_by_name(self, obj: SheetRowSetting) -> str | None:
+        if not obj.updated_by_id:
+            return None
+        try:
+            return obj.updated_by.username
+        except Exception:
+            return None
 
     def get_triggered_user_name(self, obj: SheetRowSetting) -> str | None:
-        """Return full name or username of triggered_user, or None if unset."""
         if obj.triggered_user_id is None:
             return None
         user = obj.triggered_user
         return user.get_full_name() or user.username
 
     def get_triggered_user_active(self, obj: SheetRowSetting) -> bool | None:
-        """Return triggered_user.is_active, or None if no user is set (D7)."""
         if obj.triggered_user_id is None:
             return None
         return obj.triggered_user.is_active
 
-    def get_updated_by_name(self, obj: SheetRowSetting) -> str | None:
-        """Return username of the user who last updated this row, or None."""
-        if not obj.updated_by_id:
-            return None
-        # updated_by might not be select_related — avoid AttributeError
-        try:
-            return obj.updated_by.username
-        except Exception:
-            return None
+    def get_triggered_roles(self, obj: SheetRowSetting) -> list[str]:
+        """Return list of role codes from prefetched role_triggers."""
+        return [rt.role for rt in obj.role_triggers.all()]
 
-    def validate(self, data: dict) -> dict:
-        """Apply auto-clear XOR strategy for triggered_role / triggered_user.
+    def get_extra_users(self, obj: SheetRowSetting) -> list[dict]:
+        """Return list of active user grants from prefetched user_permissions."""
+        result = []
+        for up in obj.user_permissions.all():
+            if up.deleted_at is not None:
+                continue
+            result.append({
+                'id': up.user_id,
+                'name': (up.user.get_full_name() or up.user.username) if up.user_id else None,
+                'is_active': up.user.is_active if up.user_id else None,
+            })
+        return result
 
-        When both arrive in the same PATCH body (e.g. Postman), raise a
-        ValidationError — the API consumer must send only one. When only one
-        arrives, the other is auto-cleared so the DB constraint is satisfied.
-        """
-        has_role = 'triggered_role' in data
-        has_user = 'triggered_user' in data
+    def validate_triggered_roles_write(self, value: list[str]) -> list[str]:
+        """Validate each role code against ROLE_CHOICES."""
+        invalid = [r for r in value if r not in _ROLE_SET]
+        if invalid:
+            raise serializers.ValidationError(
+                f"Invalid role codes: {invalid}. Must be one of: {sorted(_ROLE_SET)}"
+            )
+        return value
 
-        # Strict error only when the client explicitly sends BOTH non-empty values
-        if has_role and has_user:
-            new_role = data.get('triggered_role') or ''
-            new_user = data.get('triggered_user')
-            if new_role and new_user is not None:
-                raise serializers.ValidationError({
-                    'non_field_errors': [
-                        "Set either 'triggered_role' or 'triggered_user', not both. "
-                        "For shared duties, assign by role instead of listing specific users."
-                    ]
-                })
+    def validate_style_color(self, value: str) -> str:
+        import re
+        if value and not re.match(r'^#[0-9A-Fa-f]{6}$', value):
+            raise serializers.ValidationError(
+                'style_color must be a valid #RRGGBB hex string or empty.'
+            )
+        return value
 
-        # Auto-clear: if only triggered_role arrives, clear triggered_user and vice versa
-        if has_role and not has_user:
-            data['triggered_user'] = None
-        if has_user and not has_role:
-            data['triggered_role'] = ''
+    def validate_style_width(self, value: int | None) -> int | None:
+        if value is not None and not (50 <= value <= 500):
+            raise serializers.ValidationError('style_width must be between 50 and 500.')
+        return value
 
-        return data
+    def update(self, instance: SheetRowSetting, validated_data: dict) -> SheetRowSetting:
+        """Update instance. Handle triggered_roles replacement atomically."""
+        new_roles = validated_data.pop('_triggered_roles', None)
 
+        with transaction.atomic():
+            for attr, value in validated_data.items():
+                setattr(instance, attr, value)
+            instance.save()
+
+            if new_roles is not None:
+                # Replace all existing role triggers for this row atomically
+                SheetRowRoleTrigger.objects.filter(row=instance).delete()
+                if new_roles:
+                    SheetRowRoleTrigger.objects.bulk_create(
+                        [SheetRowRoleTrigger(row=instance, role=r) for r in new_roles],
+                        batch_size=500,
+                    )
+
+        return instance
+
+
+# ── ViewSet ───────────────────────────────────────────────────────────────────
 
 class SheetRowSettingViewSet(viewsets.ModelViewSet):
-    """Admin viewset for the per-row trigger configuration in the Shipment Sheet.
+    """Admin viewset for Sheet Row Settings (Sheet Control v2).
 
-    Uses ``field_key`` as the URL lookup (not the numeric ``id`` PK) so the admin
-    tab can address rows by stable semantic key rather than auto-increment.
+    Uses numeric ``id`` as the URL lookup (stable, never changes).
+    ``field_key`` remains as the unique technical identifier.
 
     HTTP methods:
-        GET    /admin/sheet-rows/                — list all rows, auto-provisions missing ones
-        PATCH  /admin/sheet-rows/{field_key}/    — update trigger config
+        GET    /admin/sheet-rows/                 — list
+        GET    /admin/sheet-rows/{id}/            — retrieve
+        PATCH  /admin/sheet-rows/{id}/            — update with version check
+        DELETE /admin/sheet-rows/{id}/            — soft-delete
+        POST   /admin/sheet-rows/{id}/restore/    — restore
+        POST   /admin/sheet-rows/reorder/         — reorder display_order
+        POST   /admin/sheet-rows/permissions/bulk/ — grant/revoke user exceptions
 
-    Disabled:
-        POST, DELETE — settings are auto-provisioned from DEFAULT_SHEET_ROWS and
-        must not be created or deleted via the API.
+    Disabled: POST (create) — rows are seeded from DEFAULT_SHEET_ROWS only.
 
-    Permission:
-        Reads: any authenticated user with shipment.view (DynamicResourcePermission).
-        Writes: authenticated user with shipment.edit (DynamicResourcePermission).
-        This matches the parity of sibling admin tabs (D5). A follow-up ticket
-        should tighten the write gate to director-only if export_manager access
-        to trigger-rule editing is deemed a security hole.
+    Permission: IsAuthenticated + DynamicResourcePermission (resource_code='shipment').
     """
 
     resource_code = 'shipment'
     permission_classes = [IsAuthenticated, DynamicResourcePermission]
     serializer_class = SheetRowSettingSerializer
-    lookup_field = 'field_key'
-    lookup_value_regex = r'[\w-]+'
-    # Disable POST and DELETE — settings are auto-provisioned, never manually created/deleted
-    http_method_names = ['get', 'patch', 'head', 'options']
+    lookup_field = 'id'
+    lookup_value_regex = r'\d+'
+    http_method_names = ['get', 'patch', 'delete', 'head', 'options', 'post']
 
     def get_queryset(self):
-        return SheetRowSetting.objects.select_related('triggered_user', 'updated_by').order_by('row_number')
+        include_deleted = self.request.query_params.get('include_deleted', '0')
+        if include_deleted == '1':
+            base_qs = SheetRowSetting.objects.all()
+        else:
+            base_qs = SheetRowSetting.objects.active()
+        return base_qs.select_related(
+            'triggered_user', 'updated_by',
+        ).prefetch_related(
+            'role_triggers',
+            'user_permissions__user',
+        )
 
     def list(self, request, *args, **kwargs):
-        """GET /admin/sheet-rows/ — list all rows.
-
-        Auto-provisions any ``SheetRowSetting`` entries missing from the DB for
-        rows defined in ``DEFAULT_SHEET_ROWS``. This is the lazy-creation strategy:
-        on first ever GET, all 43 rows are created. Subsequent GETs are just reads.
-
-        ``get_or_create`` is idempotent and safe for concurrent requests — the
-        unique constraint on ``field_key`` prevents duplicates.
-        """
-        for row in DEFAULT_SHEET_ROWS:
-            SheetRowSetting.objects.get_or_create(
-                field_key=row['field_key'],
-                defaults={'row_number': row['row_number']},
-            )
-
-        qs = self.get_queryset()
+        """GET /admin/sheet-rows/ — list rows, auto-provision missing entries."""
+        self._provision_missing_rows()
+        qs = self.get_queryset().order_by('display_order')
         serializer = self.get_serializer(qs, many=True)
         return Response(serializer.data)
 
-    def perform_update(self, serializer: SheetRowSettingSerializer) -> None:
-        """Override to write AuditLog rows for each changed field (plan D6).
+    def retrieve(self, request, *args, **kwargs):
+        """GET /admin/sheet-rows/{id}/ — single row."""
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
 
-        Captures the OLD values before ``save()``, then compares after. One
-        AuditLog row per changed field (``triggered_role`` and ``triggered_user``).
-        Uses individual ``create()`` calls instead of ``bulk_create()`` because
-        at most two rows can be produced — the overhead of an extra query is
-        negligible and avoids the batch_size ceremony for a 2-row write.
+    def create(self, request, *args, **kwargs):
+        """POST is disabled — rows are seeded from DEFAULT_SHEET_ROWS."""
+        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    def update(self, request, *args, **kwargs):
+        """Full PUT is disabled — use PATCH."""
+        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    def partial_update(self, request, *args, **kwargs):
+        """PATCH /admin/sheet-rows/{id}/ — update with optimistic version check.
+
+        Body may include ``version`` matching the current instance version.
+        Mismatch → 409 Conflict with current_version in body.
         """
-        instance = serializer.instance
-        old_role = instance.triggered_role or ''
-        old_user_id = instance.triggered_user_id
-        old_user_repr = str(instance.triggered_user) if instance.triggered_user_id else 'None'
+        instance = self.get_object()
+
+        # Optimistic lock check (ADR-0006) — version is REQUIRED on every PATCH.
+        # Making it optional would let clients silently bypass the lock and overwrite
+        # concurrent edits, defeating the protocol. The frontend hook always sends it.
+        supplied_version = request.data.get('version')
+        if supplied_version is None:
+            return Response(
+                {'error': 'version is required for updates.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            supplied_version = int(supplied_version)
+        except (ValueError, TypeError):
+            return Response(
+                {'error': 'version must be an integer.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if supplied_version != instance.version:
+            return Response(
+                {
+                    'error': 'version_conflict',
+                    'current_version': instance.version,
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        self._perform_update_with_audit(instance, serializer)
+
+        # Re-fetch with prefetch for accurate response
+        instance.refresh_from_db()
+        return Response(self.get_serializer(instance).data)
+
+    def destroy(self, request, *args, **kwargs):
+        """DELETE /admin/sheet-rows/{id}/ — soft-delete.
+
+        Pre-condition: row must have is_visible=False and updated_at > 30 days ago.
+        """
+        instance = self.get_object()
+
+        if instance.deleted_at is not None:
+            return Response(
+                {'error': 'Row is already soft-deleted.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if instance.is_visible:
+            return Response(
+                {'error': 'row_must_be_hidden_30_days'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Check the row has been hidden for ≥30 days
+        threshold = timezone.now() - timedelta(days=30)
+        if instance.updated_at > threshold:
+            return Response(
+                {'error': 'row_must_be_hidden_30_days'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        now = timezone.now()
+        instance.deleted_at = now
+        instance.deleted_by = request.user
+        instance.save()
+
+        AuditLog.objects.create(
+            user=request.user,
+            action='delete',
+            model_name='SheetRowSetting',
+            object_id=instance.id,
+            object_repr=str(instance),
+            field_name='deleted_at',
+            old_value='None',
+            new_value=now.isoformat(),
+            detail=f'Soft-deleted: {instance.field_key}',
+        )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=['post'])
+    def restore(self, request, id=None):
+        """POST /admin/sheet-rows/{id}/restore/ — restore soft-deleted row.
+
+        Uses the unfiltered queryset so soft-deleted rows are reachable by id.
+        """
+        # Bypass get_queryset() (which calls active()) to include soft-deleted rows
+        try:
+            instance = SheetRowSetting.objects.get(pk=self.kwargs['id'])
+        except SheetRowSetting.DoesNotExist:
+            return Response(
+                {'error': 'No SheetRowSetting matches the given query.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if instance.deleted_at is None:
+            return Response(
+                {'error': 'Row is not soft-deleted.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        old_deleted_at = instance.deleted_at
+        instance.deleted_at = None
+        instance.deleted_by = None
+        instance.save()
+
+        AuditLog.objects.create(
+            user=request.user,
+            action='update',
+            model_name='SheetRowSetting',
+            object_id=instance.id,
+            object_repr=str(instance),
+            field_name='deleted_at',
+            old_value=old_deleted_at.isoformat() if old_deleted_at else 'None',
+            new_value='None',
+            detail=f'Restored: {instance.field_key}',
+        )
+        return Response(self.get_serializer(instance).data)
+
+    @action(detail=False, methods=['post'])
+    def reorder(self, request):
+        """POST /admin/sheet-rows/reorder/ — sparse display_order reorder.
+
+        Body: {"order": [id, id, ...]}
+
+        Assigns new display_order values as (position+1) * 1024.
+        Writes a single AuditLog row summarising the reorder.
+        """
+        order_ids = request.data.get('order', [])
+        if not order_ids:
+            return Response(
+                {'error': 'order must be a non-empty list of ids.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            order_ids = [int(i) for i in order_ids]
+        except (ValueError, TypeError):
+            return Response(
+                {'error': 'order must be a list of integer ids.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            rows_by_id = {
+                r.id: r
+                for r in SheetRowSetting.objects.active().filter(id__in=order_ids)
+            }
+            ordered_rows = [rows_by_id[i] for i in order_ids if i in rows_by_id]
+            if not ordered_rows:
+                return Response(
+                    {'error': 'No valid row ids found.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            for idx, row in enumerate(ordered_rows):
+                row.display_order = (idx + 1) * 1024
+
+            SheetRowSetting.objects.bulk_update(ordered_rows, ['display_order'], batch_size=500)
+
+        AuditLog.objects.create(
+            user=request.user,
+            action='update',
+            model_name='SheetRowSetting',
+            object_id=0,
+            object_repr='reorder',
+            field_name='display_order',
+            old_value='',
+            new_value=','.join(str(i) for i in order_ids),
+            detail=f'Reordered {len(ordered_rows)} rows by admin.',
+        )
+        return Response({'reordered': len(ordered_rows)})
+
+    @action(detail=False, methods=['post'], url_path='permissions/bulk')
+    def permissions_bulk(self, request):
+        """POST /admin/sheet-rows/permissions/bulk/ — grant/revoke user exceptions.
+
+        Body: {"row_id": int, "grants": [user_id, ...], "revokes": [user_id, ...]}
+
+        Grants: update_or_create — restores soft-deleted row if it exists.
+        Revokes: soft-delete (set deleted_at + deleted_by).
+        Idempotent for both operations.
+        """
+        row_id = request.data.get('row_id')
+        grants = request.data.get('grants', [])
+        revokes = request.data.get('revokes', [])
+
+        if not row_id:
+            return Response(
+                {'error': 'row_id is required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            row = SheetRowSetting.objects.get(pk=row_id)
+        except SheetRowSetting.DoesNotExist:
+            return Response(
+                {'error': f'SheetRowSetting {row_id} not found.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        now = timezone.now()
+
+        with transaction.atomic():
+            for user_id in grants:
+                obj, created = SheetRowUserPermission.objects.get_or_create(
+                    row=row,
+                    user_id=user_id,
+                    defaults={'can_edit': True, 'created_by': request.user},
+                )
+                if not created and obj.deleted_at is not None:
+                    # Restore previously soft-deleted grant
+                    obj.deleted_at = None
+                    obj.deleted_by = None
+                    obj.save()
+                AuditLog.objects.create(
+                    user=request.user,
+                    action='create',
+                    model_name='SheetRowUserPermission',
+                    object_id=obj.id,
+                    object_repr=str(obj),
+                    field_name='user_id',
+                    old_value='None',
+                    new_value=str(user_id),
+                    detail=f'Granted user {user_id} on row {row.field_key}',
+                )
+
+            for user_id in revokes:
+                updated = SheetRowUserPermission.objects.filter(
+                    row=row, user_id=user_id, deleted_at__isnull=True,
+                ).update(deleted_at=now, deleted_by=request.user)
+                if updated:
+                    AuditLog.objects.create(
+                        user=request.user,
+                        action='delete',
+                        model_name='SheetRowUserPermission',
+                        object_id=0,
+                        object_repr=f'row={row.field_key} user={user_id}',
+                        field_name='user_id',
+                        old_value=str(user_id),
+                        new_value='None',
+                        detail=f'Revoked user {user_id} on row {row.field_key}',
+                    )
+
+        return Response({'granted': len(grants), 'revoked': len(revokes)})
+
+    # ── Private helpers ────────────────────────────────────────────────────
+
+    def _provision_missing_rows(self) -> None:
+        """Create SheetRowSetting entries for DEFAULT_SHEET_ROWS rows not in DB."""
+        for row in DEFAULT_SHEET_ROWS:
+            SheetRowSetting.objects.get_or_create(
+                field_key=row['field_key'],
+                defaults={
+                    'row_number': row['row_number'],
+                    'display_order': row['row_number'] * 1024,
+                },
+            )
+
+    def _perform_update_with_audit(
+        self,
+        instance: SheetRowSetting,
+        serializer: SheetRowSettingSerializer,
+    ) -> None:
+        """Save the serializer and write per-field AuditLog rows for changed fields."""
+        tracked_fields = [
+            'is_visible', 'is_locked', 'display_order',
+            'label_tk', 'label_ru', 'label_en',
+            'description_tk', 'description_ru', 'description_en',
+            'style_width', 'style_align', 'style_color',
+            'triggered_user_id',
+        ]
+        old_values = {f: getattr(instance, f) for f in tracked_fields}
+        old_roles = list(instance.role_triggers.values_list('role', flat=True))
 
         instance = serializer.save(updated_by=self.request.user)
 
-        new_role = instance.triggered_role or ''
-        new_user_id = instance.triggered_user_id
-        new_user_repr = str(instance.triggered_user) if instance.triggered_user_id else 'None'
-        object_repr = f'R{instance.row_number} {instance.field_key}'
+        new_values = {f: getattr(instance, f) for f in tracked_fields}
+        new_roles = list(instance.role_triggers.values_list('role', flat=True))
+        object_repr = str(instance)
 
-        if old_role != new_role:
+        for field in tracked_fields:
+            old_val = str(old_values[field]) if old_values[field] is not None else 'None'
+            new_val = str(new_values[field]) if new_values[field] is not None else 'None'
+            if old_val != new_val:
+                AuditLog.objects.create(
+                    user=self.request.user,
+                    action='update',
+                    model_name='SheetRowSetting',
+                    object_id=instance.id,
+                    object_repr=object_repr,
+                    field_name=field,
+                    old_value=old_val,
+                    new_value=new_val,
+                    detail=f"{field}: '{old_val}' → '{new_val}'",
+                )
+
+        old_roles_str = ','.join(sorted(old_roles))
+        new_roles_str = ','.join(sorted(new_roles))
+        if old_roles_str != new_roles_str:
             AuditLog.objects.create(
                 user=self.request.user,
                 action='update',
                 model_name='SheetRowSetting',
                 object_id=instance.id,
                 object_repr=object_repr,
-                field_name='triggered_role',
-                old_value=old_role,
-                new_value=new_role,
-                detail=f"triggered_role: '{old_role}' → '{new_role}'",
-            )
-
-        if old_user_repr != new_user_repr:
-            AuditLog.objects.create(
-                user=self.request.user,
-                action='update',
-                model_name='SheetRowSetting',
-                object_id=instance.id,
-                object_repr=object_repr,
-                field_name='triggered_user',
-                old_value=old_user_repr,
-                new_value=new_user_repr,
-                detail=f"triggered_user: '{old_user_repr}' → '{new_user_repr}'",
+                field_name='triggered_roles',
+                old_value=old_roles_str,
+                new_value=new_roles_str,
+                detail=f"triggered_roles: '{old_roles_str}' → '{new_roles_str}'",
             )

@@ -27,12 +27,12 @@ from apps.core.permissions import (
     can_edit_sheet_field,
     get_sheet_edit_map,
 )
-from apps.core.models.user import ROLE_CHOICES
 from apps.export.models import (
     AuditLog,
     FinansistAdvanceShipment,
     Pallet, QualityDocument, QuotaUsageRecord, SalesReport, Shipment, ShipmentComment,
-    ShipmentBlockSource, ShipmentFirmSplit, SheetRowSetting, get_default_truck_weight,
+    ShipmentBlockSource, ShipmentFirmSplit, SheetRowSetting, UserSheetRowPref,
+    get_default_truck_weight,
 )
 from apps.export.sheet_rows import DEFAULT_SHEET_ROWS
 from apps.export.serializers import (
@@ -429,53 +429,193 @@ class ShipmentViewSet(ModelViewSet):
                 task_counts.setdefault(sid, {'open': 0, 'done': 0, 'assigned_to_me_open': 0})
                 task_counts[sid]['assigned_to_me_open'] = row['c']
 
-        # === rows: canonical row map from backend (plan D1) ===
-        rows = DEFAULT_SHEET_ROWS
+        # === row_settings: per-field trigger config + edit rights (Sheet Control v2) ===
+        # Load SheetRowSetting once with prefetched relations and share with
+        # get_sheet_edit_map to avoid a second identical query.
+        #
+        # Query budget (Phase 2a): +1 query for UserSheetRowPref.
+        # Total: settings + 2 prefetch SELECTs + user_prefs + AuditLog window
+        #        + comment_counts (2-3) + task_counts = ~9-10 queries.
+        # Never add queries inside a per-row loop.
+        settings_qs = (
+            SheetRowSetting.objects.active()
+            .select_related('triggered_user', 'updated_by')
+            .prefetch_related('role_triggers', 'user_permissions__user')
+            .order_by('display_order')
+        )
+        # settings_by_key: dict keyed by field_key, ordered by display_order (Python
+        # dict preserves insertion order since 3.7 and settings_qs is sorted).
+        settings_by_key: dict[str, SheetRowSetting] = {s.field_key: s for s in settings_qs}
 
-        # === row_settings: per-field trigger config + edit rights (plans D4, D7) ===
-        # Load SheetRowSetting once and share with get_sheet_edit_map to avoid
-        # a second identical query (optimization: saves 1 DB round-trip per /sheet/ call).
-        _role_label_map = dict(ROLE_CHOICES)
-        settings_qs = SheetRowSetting.objects.select_related('triggered_user').all()
-        settings_by_key = {s.field_key: s for s in settings_qs}
+        # === Phase 2a: Load per-user row preferences (1 extra query) ===
+        # Keyed by row_id for fast lookup. Absent = no user pref (use admin defaults).
+        user_prefs_by_row_id: dict[int, UserSheetRowPref] = {
+            p.row_id: p
+            for p in UserSheetRowPref.objects.filter(user=request.user)
+        }
+
         edit_map = get_sheet_edit_map(request.user, settings_by_key=settings_by_key)
 
-        row_settings: dict[str, dict] = {}
+        # Build users_index: compact map of user_id → {name, role} for all users
+        # referenced in settings (triggered_user + active user_permissions).
+        # Avoids repeating user data per row.
+        users_index: dict[str, dict] = {}
+
+        def _register_user(u) -> None:
+            """Add user to users_index if not already present."""
+            if u is None:
+                return
+            uid = str(u.id)
+            if uid not in users_index:
+                users_index[uid] = {
+                    'name': u.get_full_name() or u.username,
+                    'role': getattr(u, 'role', None),
+                }
+
+        for s in settings_by_key.values():
+            if s.triggered_user_id and s.triggered_user:
+                _register_user(s.triggered_user)
+            for up in s.user_permissions.all():
+                if up.deleted_at is None and up.user_id and up.user:
+                    _register_user(up.user)
+
+        # current_user_id + lang for frontend personalisation
+        current_user_id = request.user.id
+        # User.language field does not exist yet — default to 'tk'
+        current_user_lang = getattr(request.user, 'language', 'tk') or 'tk'
+
+        # === Build row_settings with effective visibility (admin AND user hidden) ===
+        # Order resolution (master plan §3.6 / ADR-0003):
+        #   effective_order  = user_pref.position  if set  else  setting.display_order
+        #   effective_visible = setting.is_visible AND NOT user_pref.is_hidden
+        #
+        # settings_by_key is insertion-ordered by display_order (the queryset
+        # ordering). We build a list of (effective_order, field_key) tuples to
+        # sort, then populate row_settings in that final order.
+
+        # Step 1: determine effective order and visibility for every DEFAULT_SHEET_ROWS entry
+        _row_candidates: list[tuple[int, str]] = []
         for row in DEFAULT_SHEET_ROWS:
             fk = row['field_key']
             setting = settings_by_key.get(fk)
 
-            if setting is not None:
-                triggered_role = setting.triggered_role or ''
-                triggered_user_id = setting.triggered_user_id
-                triggered_user_active = setting.triggered_user.is_active if triggered_user_id else None
-                triggered_user_name = (
-                    (setting.triggered_user.get_full_name() or setting.triggered_user.username)
-                    if triggered_user_id
-                    else None
-                )
-                # triggered_label: prefer active user name, else role label, else ''
-                if triggered_user_id and triggered_user_active:
-                    triggered_label = triggered_user_name or ''
-                elif triggered_role:
-                    triggered_label = _role_label_map.get(triggered_role, triggered_role)
-                else:
-                    triggered_label = ''
-            else:
-                triggered_role = ''
-                triggered_user_id = None
-                triggered_user_active = None
-                triggered_user_name = None
-                triggered_label = ''
+            # Admin-level visibility gate (no DB config → treat as visible)
+            if setting is not None and not setting.is_visible:
+                continue
 
-            row_settings[fk] = {
-                'triggered_role': triggered_role,
-                'triggered_user': triggered_user_id,
-                'triggered_user_name': triggered_user_name,
-                'triggered_user_active': triggered_user_active,
-                'triggered_label': triggered_label,
-                'can_current_user_edit': edit_map.get(fk, False),
-            }
+            # User-level visibility gate
+            if setting is not None:
+                pref = user_prefs_by_row_id.get(setting.pk)
+                if pref and pref.is_hidden:
+                    continue
+                effective_order = (
+                    pref.position if (pref and pref.position is not None)
+                    else setting.display_order
+                )
+            else:
+                # No DB config: put at end using a large fallback order
+                effective_order = 999_999
+
+            _row_candidates.append((effective_order, fk))
+
+        # Step 2: sort by effective_order (stable — same position preserves DEFAULT_SHEET_ROWS order)
+        _row_candidates.sort(key=lambda t: t[0])
+
+        row_settings: dict[str, dict] = {}
+        for _effective_order, fk in _row_candidates:
+            setting = settings_by_key.get(fk)
+
+            if setting is not None:
+                # Compact labels / descriptions / style as nested objects
+                labels = {
+                    k: v for k, v in {
+                        'tk': setting.label_tk,
+                        'ru': setting.label_ru,
+                        'en': setting.label_en,
+                    }.items() if v
+                }
+                descriptions = {
+                    k: v for k, v in {
+                        'tk': setting.description_tk,
+                        'ru': setting.description_ru,
+                        'en': setting.description_en,
+                    }.items() if v
+                }
+                style = {}
+                if setting.style_width:
+                    style['width'] = setting.style_width
+                if setting.style_align:
+                    style['align'] = setting.style_align
+                if setting.style_color:
+                    style['color'] = setting.style_color
+
+                # triggered_roles: list of role codes from child table
+                triggered_roles = [rt.role for rt in setting.role_triggers.all()]
+
+                # extra_user_ids: user IDs from active user_permissions
+                extra_user_ids = [
+                    up.user_id
+                    for up in setting.user_permissions.all()
+                    if up.deleted_at is None and up.user_id is not None
+                ]
+
+                row_settings[fk] = {
+                    # Labels/descriptions/style (compact, omit empty)
+                    'labels': labels or None,
+                    'description': descriptions or None,
+                    'style': style or None,
+                    # Permission triggers
+                    'triggered_user_id': setting.triggered_user_id,
+                    'triggered_roles': triggered_roles,
+                    'extra_user_ids': extra_user_ids,
+                    'is_locked': setting.is_locked,
+                    # Current user's edit right (pre-computed, no extra query)
+                    'can_current_user_edit': edit_map.get(fk, False),
+                    # Concurrency / audit
+                    'version': setting.version,
+                    'settings_updated_at': (
+                        setting.updated_at.isoformat() if setting.updated_at else None
+                    ),
+                    'settings_updated_by_id': setting.updated_by_id,
+                }
+            else:
+                # No DB config for this field — use field-perm fallback
+                row_settings[fk] = {
+                    'labels': None,
+                    'description': None,
+                    'style': None,
+                    'triggered_user_id': None,
+                    'triggered_roles': [],
+                    'extra_user_ids': [],
+                    'is_locked': False,
+                    'can_current_user_edit': edit_map.get(fk, False),
+                    'version': None,
+                    'settings_updated_at': None,
+                    'settings_updated_by_id': None,
+                }
+
+        # rows: in effective order (matches row_settings insertion order).
+        # row_settings keys are already in effective_order sequence from the loop above.
+        _visible_keys = set(row_settings.keys())
+        # Build a lookup of field_key → DEFAULT_SHEET_ROWS entry for fast access
+        _default_rows_by_key = {r['field_key']: r for r in DEFAULT_SHEET_ROWS}
+        rows = [
+            _default_rows_by_key[fk]
+            for fk in row_settings.keys()
+            if fk in _default_rows_by_key
+        ]
+
+        # === user_preferences: informational payload (ids only, not full state) ===
+        # Lets the frontend know the user's current personal order without a second
+        # API call. row_order is only the rows where user.position is set.
+        _user_positioned = sorted(
+            (p for p in user_prefs_by_row_id.values() if p.position is not None),
+            key=lambda p: p.position,
+        )
+        user_preferences_payload = {
+            'row_order': [p.row_id for p in _user_positioned],
+            'hidden_rows': [p.row_id for p in user_prefs_by_row_id.values() if p.is_hidden],
+        }
 
         # === last_edits: latest-edit summary per (shipment, field) — sparse (plan D8A) ===
         last_edits: dict[str, dict[str, dict]] = {}
@@ -527,6 +667,14 @@ class ShipmentViewSet(ModelViewSet):
             'rows': rows,
             'row_settings': row_settings,
             'last_edits': last_edits,
+            # Sheet Control v2 additions
+            'users_index': users_index,
+            'current_user_id': current_user_id,
+            'current_user_lang': current_user_lang,
+            # Phase 2a: per-user row preferences (order + hidden)
+            # row_order contains only ids where user.position IS NOT NULL
+            # hidden_rows contains ids where user.is_hidden=True
+            'user_preferences': user_preferences_payload,
         })
 
     @action(detail=True, methods=['get'], url_path='field-history')

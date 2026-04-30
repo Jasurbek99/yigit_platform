@@ -21,6 +21,7 @@ from apps.export.views_admin import (
 )
 from apps.export.views_quota import QuotaIssuanceViewSet, QuotaUsageViewSet, QuotaDashboardView
 from apps.export.views_sheet_settings import SheetRowSettingViewSet
+from apps.export.views_user_preferences import UserSheetPreferencesView
 
 router = DefaultRouter()
 
@@ -60,4 +61,9 @@ urlpatterns = router.urls + [
         name='admin-user-permissions',
     ),
     path('quota-dashboard/', QuotaDashboardView.as_view(), name='quota-dashboard'),
+    path(
+        'user/sheet-preferences/',
+        UserSheetPreferencesView.as_view(),
+        name='user-sheet-preferences',
+    ),
 ]

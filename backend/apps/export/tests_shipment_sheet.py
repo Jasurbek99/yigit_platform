@@ -24,7 +24,7 @@ from apps.core.models import (
 from apps.export.models import (
     AuditLog, FinansistAdvance, FinansistAdvanceShipment,
     QuotaUsageRecord, SalesReport, Shipment, ShipmentBlockSource, ShipmentComment,
-    ShipmentFirmSplit, SheetRowSetting,
+    ShipmentFirmSplit, SheetRowSetting, TruckSplitDefault, invalidate_truck_split_cache,
 )
 from apps.export.sheet_rows import DEFAULT_SHEET_ROWS
 
@@ -64,53 +64,81 @@ class SheetEndpointTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         _seed_permissions()
-        cls.season = Season.objects.create(
-            name='2025-2026', start_date='2025-09-01', end_date='2026-06-30',
-            is_active=True,
+        cls.season, _ = Season.objects.get_or_create(
+            name='2025-2026',
+            defaults={'start_date': '2025-09-01', 'end_date': '2026-06-30', 'is_active': True},
         )
-        cls.old_season = Season.objects.create(
-            name='2024-2025', start_date='2024-09-01', end_date='2025-06-30',
-            is_active=False,
+        cls.old_season, _ = Season.objects.get_or_create(
+            name='2024-2025',
+            defaults={'start_date': '2024-09-01', 'end_date': '2025-06-30', 'is_active': False},
         )
-        cls.status_loading = ShipmentStatusType.objects.create(
-            code='yuklenme', name_tk='yuklenme', name_en='Loading',
-            step_order=1, phase='LOADING',
+        cls.status_loading, _ = ShipmentStatusType.objects.get_or_create(
+            code='yuklenme',
+            defaults={'name_tk': 'yuklenme', 'name_en': 'Loading', 'step_order': 1, 'phase': 'LOADING'},
         )
-        cls.status_hasabat = ShipmentStatusType.objects.create(
-            code='hasabat', name_tk='hasabat', name_en='Reporting',
-            step_order=12, phase='COMPLETE',
+        cls.status_hasabat, _ = ShipmentStatusType.objects.get_or_create(
+            code='hasabat',
+            defaults={'name_tk': 'hasabat', 'name_en': 'Reporting', 'step_order': 12, 'phase': 'COMPLETE'},
         )
-        cls.country_kz = Country.objects.create(name_tk='Gazagystan', name_en='Kazakhstan')
-        cls.firm = ExportFirm.objects.create(code='YGT', name_tk='YGT H.J.', name_en='YGT H.J.')
-        cls.block = GreenhouseBlock.objects.create(code='A', name='A-Ýyladyşhana')
+        cls.country_kz, _ = Country.objects.get_or_create(
+            name_en='Kazakhstan',
+            defaults={'name_tk': 'Gazagystan'},
+        )
+        cls.firm, _ = ExportFirm.objects.get_or_create(
+            code='YGT',
+            defaults={'name_tk': 'YGT H.J.', 'name_en': 'YGT H.J.'},
+        )
+        cls.block, _ = GreenhouseBlock.objects.get_or_create(
+            code='A',
+            defaults={'name': 'A-Ýyladyşhana'},
+        )
+        # seeder_user: needed for SalesReport.created_by (NOT NULL)
+        cls.seeder_user, _ = User.objects.get_or_create(
+            username='seeder_sheet',
+            defaults={'role': 'export_manager'},
+        )
         # Active-season shipment with a sales report
-        cls.s1 = Shipment.objects.create(
-            cargo_code='ACT-001', date='2026-02-01', season=cls.season,
-            status=cls.status_hasabat, country=cls.country_kz,
-            weight_net='18500.00',
+        cls.s1, _ = Shipment.objects.get_or_create(
+            cargo_code='ACT-001',
+            defaults={
+                'date': '2026-02-01', 'season': cls.season,
+                'status': cls.status_hasabat, 'country': cls.country_kz,
+                'weight_net': '18500.00',
+            },
         )
-        SalesReport.objects.create(shipment=cls.s1, price_per_kg='0.85')
+        SalesReport.objects.get_or_create(
+            shipment=cls.s1,
+            defaults={'price_per_kg': '0.85', 'created_by': cls.seeder_user},
+        )
         # Active-season shipment without a sales report
-        cls.s2 = Shipment.objects.create(
-            cargo_code='ACT-002', date='2026-02-02', season=cls.season,
-            status=cls.status_loading, country=cls.country_kz,
-            weight_net='18000.00',
+        cls.s2, _ = Shipment.objects.get_or_create(
+            cargo_code='ACT-002',
+            defaults={
+                'date': '2026-02-02', 'season': cls.season,
+                'status': cls.status_loading, 'country': cls.country_kz,
+                'weight_net': '18000.00',
+            },
         )
-        ShipmentFirmSplit.objects.create(
-            shipment=cls.s2, export_firm=cls.firm, weight_kg='18000.00', split_order=1,
+        ShipmentFirmSplit.objects.get_or_create(
+            shipment=cls.s2, export_firm=cls.firm,
+            defaults={'weight_kg': '18000.00', 'split_order': 1},
         )
-        ShipmentBlockSource.objects.create(
-            shipment=cls.s2, block=cls.block, weight_kg='18000.00',
+        ShipmentBlockSource.objects.get_or_create(
+            shipment=cls.s2, block=cls.block,
+            defaults={'weight_kg': '18000.00'},
         )
         # Old-season shipment — should NOT appear in default response
-        cls.s_old = Shipment.objects.create(
-            cargo_code='OLD-999', date='2025-01-15', season=cls.old_season,
-            status=cls.status_hasabat,
+        cls.s_old, _ = Shipment.objects.get_or_create(
+            cargo_code='OLD-999',
+            defaults={
+                'date': '2025-01-15', 'season': cls.old_season,
+                'status': cls.status_hasabat,
+            },
         )
 
     def setUp(self):
         self.client = APIClient()
-        self.user = _create_user('mgr', 'export_manager')
+        self.user = _create_user(f'mgr_sheet_{id(self)}', 'export_manager')
         self.client.force_authenticate(user=self.user)
 
     def test_anonymous_user_blocked(self):
@@ -181,17 +209,17 @@ class SheetPatchPermissionTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         _seed_permissions()
-        cls.season = Season.objects.create(
-            name='2025-2026', start_date='2025-09-01', end_date='2026-06-30',
-            is_active=True,
+        cls.season, _ = Season.objects.get_or_create(
+            name='2025-2026',
+            defaults={'start_date': '2025-09-01', 'end_date': '2026-06-30', 'is_active': True},
         )
-        cls.status_loading = ShipmentStatusType.objects.create(
-            code='yuklenme', name_tk='yuklenme', name_en='Loading',
-            step_order=1, phase='LOADING',
+        cls.status_loading, _ = ShipmentStatusType.objects.get_or_create(
+            code='yuklenme',
+            defaults={'name_tk': 'yuklenme', 'name_en': 'Loading', 'step_order': 1, 'phase': 'LOADING'},
         )
-        cls.shipment = Shipment.objects.create(
-            cargo_code='PCH-001', date='2026-02-01', season=cls.season,
-            status=cls.status_loading,
+        cls.shipment, _ = Shipment.objects.get_or_create(
+            cargo_code='PCH-001',
+            defaults={'date': '2026-02-01', 'season': cls.season, 'status': cls.status_loading},
         )
 
     def setUp(self):
@@ -248,25 +276,30 @@ class SheetJunctionEndpointTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         _seed_permissions()
-        cls.season = Season.objects.create(
-            name='2025-2026', start_date='2025-09-01', end_date='2026-06-30',
-            is_active=True,
+        cls.season, _ = Season.objects.get_or_create(
+            name='2025-2026',
+            defaults={'start_date': '2025-09-01', 'end_date': '2026-06-30', 'is_active': True},
         )
-        cls.status_loading = ShipmentStatusType.objects.create(
-            code='yuklenme', name_tk='yuklenme', name_en='Loading',
-            step_order=1, phase='LOADING',
+        cls.status_loading, _ = ShipmentStatusType.objects.get_or_create(
+            code='yuklenme',
+            defaults={'name_tk': 'yuklenme', 'name_en': 'Loading', 'step_order': 1, 'phase': 'LOADING'},
         )
-        cls.firm_a = ExportFirm.objects.create(code='YGT', name_tk='YGT', name_en='YGT')
-        cls.firm_b = ExportFirm.objects.create(code='SGT', name_tk='SGT', name_en='SGT')
-        cls.block_a = GreenhouseBlock.objects.create(code='A', name='Block A')
-        cls.block_b = GreenhouseBlock.objects.create(code='B', name='Block B')
+        cls.firm_a, _ = ExportFirm.objects.get_or_create(code='YGT', defaults={'name_tk': 'YGT', 'name_en': 'YGT'})
+        cls.firm_b, _ = ExportFirm.objects.get_or_create(code='SGT', defaults={'name_tk': 'SGT', 'name_en': 'SGT'})
+        cls.block_a, _ = GreenhouseBlock.objects.get_or_create(code='A', defaults={'name': 'Block A'})
+        cls.block_b, _ = GreenhouseBlock.objects.get_or_create(code='B', defaults={'name': 'Block B'})
+        # Seed official kg-per-firm values so tests R9 get deterministic results.
+        TruckSplitDefault.objects.get_or_create(num_firms=2, defaults={'kg_per_firm': '9000.00'})
+        TruckSplitDefault.objects.get_or_create(num_firms=3, defaults={'kg_per_firm': '6000.00'})
+        # Drop any stale cache entries so the seed values are read on first call.
+        invalidate_truck_split_cache()
 
     def setUp(self):
         self.client = APIClient()
-        self.user = _create_user('mgr', 'export_manager')
+        self.user = _create_user(f'mgr_jct_{id(self)}', 'export_manager')
         self.client.force_authenticate(user=self.user)
         self.shipment = Shipment.objects.create(
-            cargo_code=f'JCT-{self.id()[-3:]}', date='2026-02-01',
+            cargo_code=f'JCT-{id(self) % 10000}', date='2026-02-01',
             season=self.season, status=self.status_loading,
         )
 
@@ -350,9 +383,9 @@ class SheetJunctionEndpointTests(TestCase):
         )
         self.assertEqual(resp.status_code, 200, resp.data)
         weights = sorted(
-            str(w) for w in self.shipment.block_sources.values_list('weight_kg', flat=True)
+            float(w) for w in self.shipment.block_sources.values_list('weight_kg', flat=True)
         )
-        self.assertEqual(weights, ['12000.00', '6500.00'][::-1])  # sorted
+        self.assertEqual(weights, [6500.0, 12000.0])
 
     def test_firm_splits_auto_fill_official_kg(self):
         """R9: 2 firms with no weight → both rows = 9000 (from TruckSplitDefault seed)."""
@@ -443,21 +476,21 @@ class SheetExtendedResponseTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         _seed_permissions()
-        cls.season = Season.objects.create(
-            name='2025-2026-ext', start_date='2025-09-01', end_date='2026-06-30',
-            is_active=True,
+        cls.season, _ = Season.objects.get_or_create(
+            name='2025-EXT',
+            defaults={'start_date': '2025-09-01', 'end_date': '2026-06-30', 'is_active': True},
         )
-        cls.status_loading = ShipmentStatusType.objects.create(
-            code='yuklenme_ext', name_tk='yuklenme_ext', name_en='Loading Ext',
-            step_order=1, phase='LOADING',
+        cls.status_loading, _ = ShipmentStatusType.objects.get_or_create(
+            code='yuklenme_x',
+            defaults={'name_tk': 'yuklenme_x', 'name_en': 'Loading X', 'step_order': 1, 'phase': 'LOADING'},
         )
-        cls.s1 = Shipment.objects.create(
-            cargo_code='EXT-001', date='2026-02-01', season=cls.season,
-            status=cls.status_loading, weight_net='18500.00',
+        cls.s1, _ = Shipment.objects.get_or_create(
+            cargo_code='EXT-001',
+            defaults={'date': '2026-02-01', 'season': cls.season, 'status': cls.status_loading, 'weight_net': '18500.00'},
         )
-        cls.s2 = Shipment.objects.create(
-            cargo_code='EXT-002', date='2026-02-02', season=cls.season,
-            status=cls.status_loading, weight_net='18000.00',
+        cls.s2, _ = Shipment.objects.get_or_create(
+            cargo_code='EXT-002',
+            defaults={'date': '2026-02-02', 'season': cls.season, 'status': cls.status_loading, 'weight_net': '18000.00'},
         )
 
     def setUp(self):
@@ -491,23 +524,39 @@ class SheetExtendedResponseTests(TestCase):
     # ── Test 9 ──────────────────────────────────────────────────────────────
 
     def test_sheet_response_includes_row_settings(self):
-        """Every field_key from `rows` appears in `row_settings` with the correct shape."""
+        """row_settings contains visible field_keys with the v2 shape.
+
+        Sheet Control v2 keys per field_key:
+          labels, description, style, triggered_user_id, triggered_roles,
+          extra_user_ids, is_locked, can_current_user_edit,
+          version, settings_updated_at, settings_updated_by_id.
+
+        Hidden rows (is_visible=False) are omitted from row_settings entirely.
+        When no SheetRowSetting DB row exists, the key still appears with fallback values.
+        """
         resp = self.client.get('/api/v1/export/shipments/sheet/')
         self.assertEqual(resp.status_code, 200, resp.data)
 
         self.assertIn('row_settings', resp.data)
         row_settings = resp.data['row_settings']
 
+        # v2 required keys
         expected_keys_in_settings = {
-            'triggered_role', 'triggered_user', 'triggered_user_name',
-            'triggered_user_active', 'triggered_label', 'can_current_user_edit',
+            'triggered_user_id',
+            'triggered_roles',
+            'extra_user_ids',
+            'is_locked',
+            'can_current_user_edit',
+            'version',
+            'settings_updated_at',
+            'settings_updated_by_id',
         }
         for row in DEFAULT_SHEET_ROWS:
             fk = row['field_key']
             self.assertIn(fk, row_settings, f"field_key '{fk}' missing from row_settings")
             setting = row_settings[fk]
             missing = expected_keys_in_settings - set(setting.keys())
-            self.assertFalse(missing, f"row_settings['{fk}'] missing keys: {missing}")
+            self.assertFalse(missing, f"row_settings['{fk}'] missing v2 keys: {missing}")
 
     def test_sheet_row_settings_can_edit_is_boolean(self):
         """can_current_user_edit must be a bool for every row_settings entry."""
@@ -517,6 +566,29 @@ class SheetExtendedResponseTests(TestCase):
                 setting['can_current_user_edit'], bool,
                 f"can_current_user_edit for '{fk}' is not bool",
             )
+
+    def test_sheet_response_includes_v2_root_fields(self):
+        """GET /sheet/ returns users_index, current_user_id, current_user_lang at root."""
+        resp = self.client.get('/api/v1/export/shipments/sheet/')
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertIn('users_index', resp.data)
+        self.assertIn('current_user_id', resp.data)
+        self.assertIn('current_user_lang', resp.data)
+        self.assertEqual(resp.data['current_user_id'], self.user.id)
+        # Language defaults to 'tk' when User.language doesn't exist
+        self.assertEqual(resp.data['current_user_lang'], 'tk')
+
+    def test_hidden_row_excluded_from_row_settings(self):
+        """A SheetRowSetting with is_visible=False must not appear in row_settings."""
+        from apps.export.models import SheetRowSetting
+        # Create a hidden setting for weight_net
+        SheetRowSetting.objects.update_or_create(
+            field_key='weight_net',
+            defaults={'row_number': 1, 'is_visible': False, 'display_order': 1024},
+        )
+        resp = self.client.get('/api/v1/export/shipments/sheet/')
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertNotIn('weight_net', resp.data['row_settings'])
 
     # ── Test 10 ─────────────────────────────────────────────────────────────
 
@@ -587,20 +659,23 @@ class SheetExtendedResponseTests(TestCase):
     def test_last_edits_query_count(self):
         """The /sheet/ call must not regress to N+1 for last_edits.
 
-        Baseline determined empirically. The /sheet/ call runs:
+        Baseline determined empirically. The /sheet/ call runs (Sheet Control v2):
           1. Session / auth middleware query
           2. Shipment queryset (with select_related + prefetch_related)
           3. ShipmentSheetSerializer (prefetch FKs already loaded, 0 extra)
           4. comment_counts query
           5. raw_tasks query
           6. raw_mine query
-          7. SheetRowSetting.objects.all() (for row_settings + edit_map)
-          8. RoleFieldPermission query (for edit_map)
-          9. AuditLog ranked subquery (for last_edits)
-         10. AuditLog final filter on pk__in (for last_edits)
+          7. SheetRowSetting.objects.active() with select_related (row_settings + edit_map)
+          8. prefetch role_triggers (Sheet Control v2)
+          9. prefetch user_permissions (Sheet Control v2)
+         10. RoleFieldPermission query (for edit_map field perms)
+         11. AuditLog ranked subquery (for last_edits)
+         12. AuditLog final filter on pk__in (for last_edits)
 
-        Total: ~10 queries. We allow 12 to absorb minor variance.
-        Adjust the bound only when a justified new query is intentionally added.
+        Total: ~12 queries. We allow 14 to absorb minor variance (cold cache +1 for
+        DynamicResourcePermission, possible +1 for auth session).
+        Adjust the upper bound only when a justified new query is intentionally added.
         """
         AuditLog.objects.create(
             user=self.user, action='update', model_name='Shipment',
@@ -608,15 +683,8 @@ class SheetExtendedResponseTests(TestCase):
             field_name='weight_net', old_value='18000', new_value='18500',
         )
 
-        # Baseline: 9-10 queries total (see docstring). The SheetRowSetting fetch
-        # is shared between row_settings and get_sheet_edit_map (optimization
-        # reduces double-fetch to single fetch). The exact count varies by 1
-        # depending on whether DRF's DynamicResourcePermission cache is warm
-        # (cold = +1 query for core_role_resource_permissions).
-        #
-        # The key assertion: number of queries is bounded (no N+1), NOT that it
-        # is a specific number. Upper bound of 12 catches regressions while
-        # tolerating the cache-warmth variance.
+        # The key assertion: query count is bounded (no N+1), NOT a specific number.
+        # Upper bound of 14 catches regressions while tolerating cache-warmth variance.
         from django.test.utils import CaptureQueriesContext
         from django.db import connection
         with CaptureQueriesContext(connection) as ctx:
@@ -624,9 +692,9 @@ class SheetExtendedResponseTests(TestCase):
         actual_queries = len(ctx.captured_queries)
         self.assertEqual(resp.status_code, 200)
         self.assertLessEqual(
-            actual_queries, 12,
-            f"Sheet endpoint used {actual_queries} queries — expected ≤ 12. "
-            "Regression? Check for N+1 in last_edits / row_settings."
+            actual_queries, 14,
+            f"Sheet endpoint used {actual_queries} queries — expected ≤ 14. "
+            "Regression? Check for N+1 in last_edits / row_settings / prefetch."
         )
         # Also assert it's not suspiciously low (indicates test is broken)
         self.assertGreaterEqual(

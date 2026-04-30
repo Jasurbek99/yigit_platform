@@ -200,19 +200,25 @@ def firm_write_permission(app_label: str, model_name: str, *bypass_roles: str) -
 def can_edit_sheet_field(user, field_key: str) -> bool:
     """Gate a shipment sheet cell edit against role/user trigger config + field perm.
 
-    Compose logic (applied in order):
-      1. superuser / admin / director → always True (bypass all gates)
-      2. No SheetRowSetting for field_key → fall back to can_edit_field
-      3. triggered_user is set:
-         a. user is inactive → False for everyone (row locked)
-         b. requesting user.id != triggered_user_id → False
-         c. must also pass can_edit_field check
-      4. triggered_role is set:
-         a. user.role != triggered_role → False
-         b. must also pass can_edit_field check
+    Logic (Sheet Control v2 — ADR-0001, ADR-0010):
+      1. superuser / admin / director → always True (bypass all gates; AD-15).
+         Checked BEFORE visibility so admin can always fix misconfiguration.
+      2. Load SheetRowSetting via objects.active(). If None → fall back to
+         can_edit_field (preserves TestNoSettingFallsBackToFieldPerm).
+      3. If not row.is_visible → False.
+      4. Compute match flags:
+         - matched_user  = (user.id == row.triggered_user_id AND user is active)
+         - matched_role  = user.role in {rt.role for rt in row.role_triggers.all()}
+         - matched_extra = active user_permissions grant for this user
+      5. If row.is_locked:
+           return (matched_user OR matched_role OR matched_extra)
+                  AND can_edit_field(role, field_key)
+         (lock + extra_users exception per ADR-0001; role triggers are also exceptions)
+      6. Else (not locked):
+           if no trigger config exists → fall back to can_edit_field alone
+           else: return (matched_user OR matched_role OR matched_extra) AND field perm
 
     The trigger gate is AND-composed with the RoleFieldPermission check, never OR.
-    A matching role/user is a necessary but not sufficient condition for editing.
 
     Args:
         user: The authenticated User instance.
@@ -221,67 +227,76 @@ def can_edit_sheet_field(user, field_key: str) -> bool:
     Returns:
         True if the user is permitted to edit this cell, False otherwise.
     """
-    # Rule 1: superuser / admin / director bypass all gates (per plan D4 +
-    # AD-15). Director has the wildcard '*' field permission AND must remain
-    # immune to SheetRowSetting trigger locks — otherwise a row configured
-    # with triggered_role='transport' would lock the director out of that
-    # cell, which contradicts the "director can fix anything" operating
-    # principle. Admin is the new system administrator and gets the same
-    # immunity so admin can recover from any misconfiguration.
+    # Rule 1: superuser / admin / director bypass all gates (per plan D4 + AD-15).
     role = getattr(user, 'role', None)
     if getattr(user, 'is_superuser', False) or role in ('admin', 'director'):
         return True
 
-    # Import lazily to avoid circular import: core.permissions ← export.sheet_rows
+    # Import lazily to avoid circular import
     from apps.export.models import SheetRowSetting
 
-    try:
-        setting = SheetRowSetting.objects.get(field_key=field_key)
-    except SheetRowSetting.DoesNotExist:
-        setting = None
+    setting = SheetRowSetting.objects.active().filter(field_key=field_key).prefetch_related(
+        'role_triggers', 'user_permissions',
+    ).first()
 
-    # Rule 2: no setting → standard field-perm fallback
+    # Rule 2: no active setting → standard field-perm fallback
     if setting is None:
-        return can_edit_field(getattr(user, 'role', None), field_key)
+        return can_edit_field(role, field_key)
 
-    # Rule 3: triggered_user is set
-    if setting.triggered_user_id is not None:
-        triggered_user = setting.triggered_user
-        # Rule 3a: inactive triggered_user → row is locked for everyone
-        if not triggered_user.is_active:
-            return False
-        # Rule 3b: wrong user
-        if user.id != setting.triggered_user_id:
-            return False
-        # Rule 3c: AND with field-perm
-        return can_edit_field(getattr(user, 'role', None), field_key)
+    # Rule 3: hidden rows → no edit for anyone
+    if not setting.is_visible:
+        return False
 
-    # Rule 4: triggered_role is set (non-empty string)
-    if setting.triggered_role:
-        # Rule 4a: wrong role
-        if getattr(user, 'role', None) != setting.triggered_role:
-            return False
-        # Rule 4b: AND with field-perm
-        return can_edit_field(getattr(user, 'role', None), field_key)
+    # Rule 4: compute match flags using prefetched relations (no extra queries)
+    triggered_user = setting.triggered_user if setting.triggered_user_id else None
+    matched_user = (
+        triggered_user is not None
+        and triggered_user.is_active
+        and user.id == setting.triggered_user_id
+    )
+    role_set = {rt.role for rt in setting.role_triggers.all()}
+    matched_role = bool(role and role in role_set)
+    matched_extra = any(
+        up.user_id == user.id and up.can_edit and up.deleted_at is None
+        for up in setting.user_permissions.all()
+    )
 
-    # Setting exists but both triggered_role and triggered_user are unset → fallback
-    return can_edit_field(getattr(user, 'role', None), field_key)
+    has_any_trigger = matched_user or matched_role or matched_extra
+    # Determine if any trigger config exists on this setting
+    has_any_config = bool(
+        setting.triggered_user_id
+        or role_set
+        or any(up.deleted_at is None for up in setting.user_permissions.all())
+    )
+
+    # Rule 5/6: apply lock or fallback
+    if setting.is_locked:
+        return has_any_trigger and can_edit_field(role, field_key)
+    else:
+        if not has_any_config:
+            # No triggers configured → fall back to field perm alone
+            return can_edit_field(role, field_key)
+        return has_any_trigger and can_edit_field(role, field_key)
 
 
 def get_sheet_edit_map(user, settings_by_key: dict | None = None) -> dict[str, bool]:
     """Return {field_key: can_edit} for every row in DEFAULT_SHEET_ROWS.
 
-    Resolves permissions in O(1) DB queries (two queries maximum):
-      1. SheetRowSetting.objects.all()  — skipped if settings_by_key is passed
-      2. get_all_field_permissions(user.role)
+    Sheet Control v2 implementation. Query budget:
+      1. SheetRowSetting.objects.active() with prefetch_related('role_triggers',
+         'user_permissions') — skipped if settings_by_key is passed in.
+      2. get_all_field_permissions(user.role) — one query or cache hit.
+      Prefetch relations add 2 extra SELECTs making the real total ~4 when cold.
+      This is an acceptable trade-off for correct multi-role/user logic.
+      TestGetSheetEditMapQueryCount is updated accordingly (≤4 queries).
 
-    Director and superuser get all-True maps without touching the DB.
+    Director, admin, and superuser get all-True maps without any DB queries.
 
     Args:
         user: The authenticated User instance.
-        settings_by_key: Optional pre-loaded dict of {field_key: SheetRowSetting}.
-            Pass this from the /sheet/ view to avoid a duplicate DB query when
-            the caller has already fetched SheetRowSetting rows.
+        settings_by_key: Optional pre-loaded {field_key: SheetRowSetting}.
+            Must already have role_triggers and user_permissions prefetched.
+            Pass from the /sheet/ view to avoid a duplicate settings query.
 
     Returns:
         Dict mapping each DEFAULT_SHEET_ROWS field_key to a boolean.
@@ -290,23 +305,25 @@ def get_sheet_edit_map(user, settings_by_key: dict | None = None) -> dict[str, b
     from apps.export.sheet_rows import DEFAULT_SHEET_ROWS
     from apps.export.models import SheetRowSetting
 
-    # Privileged bypass: no DB queries needed. Superuser, admin, and director
-    # all bypass per plan D4 + AD-15 — director must stay immune to
-    # SheetRowSetting trigger locks (see can_edit_sheet_field for rationale),
-    # and admin is the new system administrator.
+    # Privileged bypass: no DB queries needed.
     role = getattr(user, 'role', None)
     if getattr(user, 'is_superuser', False) or role in ('admin', 'director'):
         return {row['field_key']: True for row in DEFAULT_SHEET_ROWS}
 
-    # One query: load all SheetRowSetting rows (or use pre-loaded dict)
+    # Query 1 (+2 prefetch SELECTs): load active settings with triggers and perms
     if settings_by_key is None:
         settings_by_key = {
             s.field_key: s
-            for s in SheetRowSetting.objects.select_related('triggered_user').all()
+            for s in SheetRowSetting.objects.active().select_related(
+                'triggered_user',
+            ).prefetch_related(
+                'role_triggers',
+                'user_permissions',
+            )
         }
 
-    # One query (or cache hit): load all field permissions for this role
-    all_perms = get_all_field_permissions(getattr(user, 'role', None) or '')
+    # Query 2 (or cache hit): load all field permissions for this role
+    all_perms = get_all_field_permissions(role or '')
     shipment_fields: list[str] = all_perms.get('shipment', [])
     has_wildcard = '*' in shipment_fields
 
@@ -320,22 +337,36 @@ def get_sheet_edit_map(user, settings_by_key: dict | None = None) -> dict[str, b
         if setting is None:
             return _has_field_perm(fk)
 
-        # triggered_user gate
-        if setting.triggered_user_id is not None:
-            if not setting.triggered_user.is_active:
-                return False
-            if user.id != setting.triggered_user_id:
-                return False
-            return _has_field_perm(fk)
+        if not setting.is_visible:
+            return False
 
-        # triggered_role gate
-        if setting.triggered_role:
-            if getattr(user, 'role', None) != setting.triggered_role:
-                return False
-            return _has_field_perm(fk)
+        # Compute match flags using prefetched relations (no extra queries)
+        triggered_user = setting.triggered_user if setting.triggered_user_id else None
+        matched_user = (
+            triggered_user is not None
+            and triggered_user.is_active
+            and user.id == setting.triggered_user_id
+        )
+        role_set = {rt.role for rt in setting.role_triggers.all()}
+        matched_role = bool(role and role in role_set)
+        matched_extra = any(
+            up.user_id == user.id and up.can_edit and up.deleted_at is None
+            for up in setting.user_permissions.all()
+        )
 
-        # Setting exists but unset — fallback
-        return _has_field_perm(fk)
+        has_any_trigger = matched_user or matched_role or matched_extra
+        has_any_config = bool(
+            setting.triggered_user_id
+            or role_set
+            or any(up.deleted_at is None for up in setting.user_permissions.all())
+        )
+
+        if setting.is_locked:
+            return has_any_trigger and _has_field_perm(fk)
+        else:
+            if not has_any_config:
+                return _has_field_perm(fk)
+            return has_any_trigger and _has_field_perm(fk)
 
     return {row['field_key']: _resolve(row['field_key']) for row in DEFAULT_SHEET_ROWS}
 
