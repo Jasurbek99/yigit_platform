@@ -4,7 +4,6 @@ import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useShipmentSheet } from '@/hooks/useShipmentSheet';
 import { useSheetStore } from '@/stores/sheetStore';
-import { useSheetRowIdMap } from '@/hooks/useSheetRowIdMap';
 import {
   useUserSheetPreferences,
   useSaveUserSheetPreferences,
@@ -46,10 +45,18 @@ export default function ShipmentSheet() {
     setRows,
   } = useSheetStore();
 
-  // ─── Phase 2a: row ID map (field_key → SheetRowSetting.id) ───────────────
-  // Fetched lazily from /admin/sheet-rows/. Enables reorder + hide controls.
-  const { data: rowIdMapData } = useSheetRowIdMap({ enabled: rows.length > 0 });
-  const fieldKeyToRowId = rowIdMapData?.byFieldKey;
+  // ─── Phase 2a: derive field_key → SheetRowSetting.id from the payload ─────
+  // The /sheet/ payload emits `id` inside row_settings[fk] (since the N1 backend
+  // follow-up). Build the bidirectional map locally — no extra round-trip.
+  const fieldKeyToRowId = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const [fk, setting] of Object.entries(rowSettings)) {
+      if (setting?.id != null) {
+        map[fk] = setting.id;
+      }
+    }
+    return map;
+  }, [rowSettings]);
 
   // ─── Phase 2a: reorder + hide mutations ──────────────────────────────────
   const savePrefs = useSaveUserSheetPreferences();

@@ -405,13 +405,16 @@ export interface ISheetRowSetting {
 /**
  * Per-row entry inside /shipments/{id}/sheet/ payload's row_settings dict.
  * Keyed by field_key. Labels/description/style are nested objects (compact form).
- * `id` is optional — backend does not yet emit it; the reorder feature uses the
- * admin sheet-rows endpoint to resolve field_key→id when needed (Phase 2a).
  * No `is_visible` — hidden rows are excluded from the dict entirely.
  */
 export interface ISheetRowSettingForUser {
-  /** SheetRowSetting.id — emitted by backend if available (Phase 2a: optional). */
-  id?: number;
+  /**
+   * SheetRowSetting.id. Required for the user-prefs PATCH endpoint, which
+   * keys by numeric id. Null when no SheetRowSetting DB row exists for this
+   * field_key (fallback config) — frontend skips reorder/hide controls in
+   * that case.
+   */
+  id: number | null;
   is_locked: boolean;
   labels: { tk?: string; ru?: string; en?: string } | null;
   description: { tk?: string; ru?: string; en?: string } | null;

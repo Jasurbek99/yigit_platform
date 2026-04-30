@@ -542,6 +542,7 @@ class SheetExtendedResponseTests(TestCase):
 
         # v2 required keys
         expected_keys_in_settings = {
+            'id',
             'triggered_user_id',
             'triggered_roles',
             'extra_user_ids',

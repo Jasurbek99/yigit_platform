@@ -150,6 +150,7 @@ export const MOCK_SHEET_DATA: IShipmentSheetItem[] = [
 export const MOCK_ROW_SETTINGS: Record<string, ISheetRowSettingForUser> = {
   // Row locked — current user is NOT in extra_users → lock icon should appear
   weight_net: {
+    id: 5,
     is_locked: true,
     labels: { tk: 'Agyrlygy (net)', ru: 'Вес нетто', en: 'Weight (net)' },
     description: { ru: 'Нетто-вес в кг' },
@@ -164,6 +165,7 @@ export const MOCK_ROW_SETTINGS: Record<string, ISheetRowSettingForUser> = {
   },
   // Row with extra_users — current user IS in extra_users → no lock icon
   price_per_kg: {
+    id: 6,
     is_locked: true,
     labels: { tk: 'Baha (kg)', ru: 'Цена (кг)', en: 'Price/kg' },
     description: null,
@@ -178,6 +180,7 @@ export const MOCK_ROW_SETTINGS: Record<string, ISheetRowSettingForUser> = {
   },
   // Row with triggered_roles only — not locked
   customs_entry_at: {
+    id: 12,
     is_locked: false,
     labels: { tk: 'Gümrüge giriş', ru: 'Въезд на таможню', en: 'Customs entry' },
     description: null,

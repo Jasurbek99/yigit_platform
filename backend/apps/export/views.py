@@ -560,6 +560,10 @@ class ShipmentViewSet(ModelViewSet):
                 ]
 
                 row_settings[fk] = {
+                    # SheetRowSetting.id — required by the user-prefs PATCH
+                    # endpoint, which keys by numeric id. Emitting it here lets
+                    # the frontend skip a second round-trip to /admin/sheet-rows/.
+                    'id': setting.id,
                     # Labels/descriptions/style (compact, omit empty)
                     'labels': labels or None,
                     'description': descriptions or None,
@@ -579,8 +583,11 @@ class ShipmentViewSet(ModelViewSet):
                     'settings_updated_by_id': setting.updated_by_id,
                 }
             else:
-                # No DB config for this field — use field-perm fallback
+                # No DB config for this field — use field-perm fallback.
+                # id stays null because there is no SheetRowSetting row to
+                # reference; user-prefs PATCH will skip it on the frontend side.
                 row_settings[fk] = {
+                    'id': None,
                     'labels': None,
                     'description': None,
                     'style': None,
