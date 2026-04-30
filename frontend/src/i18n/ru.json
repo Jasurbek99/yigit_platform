@@ -1186,7 +1186,17 @@
       "n_cols": "{{count}} столбцов",
       "up_to_col": "До текущего столбца",
       "up_to_col_n": "До текущего столбца ({{col}})"
-    }
+    },
+    "hide_row": "Скрыть строку",
+    "unhide_row": "Показать",
+    "row_hidden_toast": "Строка скрыта",
+    "hidden_rows_count": "Скрытые строки: {{count}}",
+    "hidden_rows_modal_title": "Скрытые строки",
+    "reorder_save_error": "Не удалось сохранить порядок строк",
+    "unknown_row_id_error": "Ошибка порядка строк — обновите страницу",
+    "move_up": "Переместить вверх",
+    "move_down": "Переместить вниз",
+    "row_menu": "Меню строки"
   },
   "draft": {
     "page_title": "Черновики отгрузок",

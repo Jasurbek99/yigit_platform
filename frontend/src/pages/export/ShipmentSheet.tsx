@@ -1,14 +1,22 @@
-import { useEffect, useMemo, useRef } from 'react';
-import { Spin } from 'antd';
+import { useEffect, useMemo, useRef, useCallback } from 'react';
+import { Spin, message } from 'antd';
 import { useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useShipmentSheet } from '@/hooks/useShipmentSheet';
 import { useSheetStore } from '@/stores/sheetStore';
+import { useSheetRowIdMap } from '@/hooks/useSheetRowIdMap';
+import {
+  useUserSheetPreferences,
+  useSaveUserSheetPreferences,
+  useDebouncedSaveSheetOrder,
+} from '@/hooks/useUserSheetPreferences';
 import { SheetToolbar } from '@/components/sheet/SheetToolbar';
 import { SheetGrid } from '@/components/sheet/SheetGrid';
 import { CommentsDrawer } from '@/components/sheet/CommentsDrawer';
 import '@/components/sheet/SheetStyles.css';
 
 export default function ShipmentSheet() {
+  const { t } = useTranslation();
   const { data, isLoading } = useShipmentSheet();
   const shipments = data?.shipments;
   const commentCounts = data?.comment_counts ?? {};
@@ -17,6 +25,13 @@ export default function ShipmentSheet() {
   const rowSettings = data?.row_settings ?? {};
   const lastEdits = data?.last_edits ?? {};
   const currentUserLang = data?.current_user_lang ?? 'tk';
+  // Phase 2a: per-user row preferences fetched from their own endpoint.
+  // Separate from the sheet payload so they can be invalidated independently.
+  const { data: userPrefs } = useUserSheetPreferences();
+  const userPreferences = {
+    row_order: userPrefs?.row_order ?? [],
+    hidden_rows: userPrefs?.hidden_rows ?? [],
+  };
 
   const {
     searchText,
@@ -30,6 +45,43 @@ export default function ShipmentSheet() {
     openCommentsForCell,
     setRows,
   } = useSheetStore();
+
+  // ─── Phase 2a: row ID map (field_key → SheetRowSetting.id) ───────────────
+  // Fetched lazily from /admin/sheet-rows/. Enables reorder + hide controls.
+  const { data: rowIdMapData } = useSheetRowIdMap({ enabled: rows.length > 0 });
+  const fieldKeyToRowId = rowIdMapData?.byFieldKey;
+
+  // ─── Phase 2a: reorder + hide mutations ──────────────────────────────────
+  const savePrefs = useSaveUserSheetPreferences();
+  const debouncedSaveOrder = useDebouncedSaveSheetOrder(500);
+
+  const handleReorder = useCallback(
+    (newRowOrder: number[]) => {
+      debouncedSaveOrder({ row_order: newRowOrder });
+    },
+    [debouncedSaveOrder],
+  );
+
+  const handleHideRow = useCallback(
+    (rowId: number) => {
+      // Compute new hidden_rows = current + this row (deduped)
+      const current = userPreferences.hidden_rows;
+      const newHidden = Array.from(new Set([...current, rowId]));
+      // Immediate PATCH — hide is a rare action, debounce not needed
+      savePrefs.mutate({ hidden_rows: newHidden });
+      message.success(t('sheet.row_hidden_toast'));
+    },
+    [savePrefs, userPreferences.hidden_rows, t],
+  );
+
+  const handleUnhideRow = useCallback(
+    (rowId: number) => {
+      // Compute new hidden_rows = current − this row
+      const newHidden = userPreferences.hidden_rows.filter((id) => id !== rowId);
+      savePrefs.mutate({ hidden_rows: newHidden });
+    },
+    [savePrefs, userPreferences.hidden_rows],
+  );
 
   // Sync rows into the store so deep components (CommentItem, MentionPopover)
   // can read the row map without prop-drilling.
@@ -103,7 +155,15 @@ export default function ShipmentSheet() {
 
   return (
     <div className="sheet-page page-fullheight-grid" style={{ position: 'relative' }}>
-      <SheetToolbar shipments={filtered} rows={rows} taskCounts={taskCounts} />
+      <SheetToolbar
+        shipments={filtered}
+        rows={rows}
+        taskCounts={taskCounts}
+        currentUserLang={currentUserLang}
+        hiddenRowIds={userPreferences.hidden_rows}
+        fieldKeyToRowId={fieldKeyToRowId}
+        onUnhideRow={handleUnhideRow}
+      />
       <SheetGrid
         shipments={filtered}
         rows={rows}
@@ -112,6 +172,9 @@ export default function ShipmentSheet() {
         rowSettings={rowSettings}
         lastEdits={lastEdits}
         currentUserLang={currentUserLang}
+        fieldKeyToRowId={fieldKeyToRowId}
+        onReorder={handleReorder}
+        onHideRow={handleHideRow}
       />
       <CommentsDrawer
         open={commentsDrawerOpen}

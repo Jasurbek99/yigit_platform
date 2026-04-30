@@ -307,6 +307,20 @@ export interface ISheetTaskCounts {
   };
 }
 
+// ─── User Sheet Preferences ───────────────────────────────────────────────────
+
+/**
+ * Mirrors the GET/PATCH /api/v1/export/user/sheet-preferences/ response shape.
+ * Both arrays carry SheetRowSetting.id values (numeric PK), NOT field_keys.
+ * ADR-0003: row_order only contains ids where user.position IS NOT NULL;
+ * rows absent from row_order fall back to admin display_order.
+ */
+export interface IUserSheetPreferences {
+  row_order: number[];       // SheetRowSetting.id values, in user's preferred order
+  hidden_rows: number[];     // SheetRowSetting.id values the user has hidden
+  updated_at: string | null; // ISO 8601 or null when no prefs set yet
+}
+
 export interface IShipmentSheetResponse {
   results: IShipmentSheetItem[];
   comment_counts: ISheetCommentCounts;
@@ -322,6 +336,13 @@ export interface IShipmentSheetResponse {
   users_index: Record<string, { name: string; role: string | null }>;
   current_user_id: number;
   current_user_lang: 'tk' | 'ru' | 'en';
+  /**
+   * Phase 2a: per-user row preferences emitted inline to avoid a second API call.
+   * row_order contains only ids where user.position IS NOT NULL.
+   * hidden_rows contains ids where user.is_hidden=True.
+   * May be absent in older API versions — optional.
+   */
+  user_preferences?: { row_order: number[]; hidden_rows: number[] };
 }
 
 export type SheetRowStyle = 'base' | 'alt' | 'key' | 'transport' | 'status' | 'report' | 'separator';
@@ -384,10 +405,13 @@ export interface ISheetRowSetting {
 /**
  * Per-row entry inside /shipments/{id}/sheet/ payload's row_settings dict.
  * Keyed by field_key. Labels/description/style are nested objects (compact form).
- * No `id` field — backend omits it in the sheet payload.
+ * `id` is optional — backend does not yet emit it; the reorder feature uses the
+ * admin sheet-rows endpoint to resolve field_key→id when needed (Phase 2a).
  * No `is_visible` — hidden rows are excluded from the dict entirely.
  */
 export interface ISheetRowSettingForUser {
+  /** SheetRowSetting.id — emitted by backend if available (Phase 2a: optional). */
+  id?: number;
   is_locked: boolean;
   labels: { tk?: string; ru?: string; en?: string } | null;
   description: { tk?: string; ru?: string; en?: string } | null;

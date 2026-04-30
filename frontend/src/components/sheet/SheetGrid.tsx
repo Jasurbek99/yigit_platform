@@ -51,6 +51,16 @@ interface ISheetGridProps {
   rowSettings?: Record<string, ISheetRowSettingForUser>;
   lastEdits?: Record<string, Record<string, ICellLastEdit>>;
   currentUserLang?: 'tk' | 'ru' | 'en';
+  /**
+   * Phase 2a: mapping from field_key → SheetRowSetting.id.
+   * When provided, enables Up/Down reorder and hide controls on each row.
+   * Obtained from useSheetRowIdMap() — omit (undefined) to disable controls.
+   */
+  fieldKeyToRowId?: Record<string, number>;
+  /** Called with the new full ordered list of row IDs after a reorder. */
+  onReorder?: (newRowOrder: number[]) => void;
+  /** Called with the row ID to hide. */
+  onHideRow?: (rowId: number) => void;
 }
 
 // z-index hierarchy
@@ -72,6 +82,9 @@ export function SheetGrid({
   rowSettings = {},
   lastEdits: _lastEdits = {},
   currentUserLang = 'tk',
+  fieldKeyToRowId,
+  onReorder,
+  onHideRow,
 }: ISheetGridProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -109,6 +122,52 @@ export function SheetGrid({
     horizontal: true,
     overscan: 5,
   });
+
+  // ─── Reorder helpers ───────────────────────────────────────────────────────
+  // Compute the new ordered list of row IDs after moving row at `fromIndex`
+  // to `fromIndex + direction` (direction: -1 = up, +1 = down).
+  // Only rows with known IDs (in fieldKeyToRowId) participate in user ordering.
+  const handleMove = useCallback(
+    (fromIndex: number, direction: -1 | 1) => {
+      if (!fieldKeyToRowId || !onReorder) return;
+
+      const toIndex = fromIndex + direction;
+      if (toIndex < 0 || toIndex >= rows.length) return;
+
+      // Build an ordered ID list. Rows without an ID are filtered out —
+      // they cannot be referenced in the PATCH payload.
+      const idsInCurrentOrder = rows
+        .map((r) => fieldKeyToRowId[r.field_key])
+        .filter((id): id is number => id !== undefined);
+
+      // Resolve the source/target by field_key → id, then locate them inside
+      // idsInCurrentOrder. Using global indices into `rows` would mis-target
+      // when any preceding row lacks an id (idsInCurrentOrder is shorter).
+      const fromId = fieldKeyToRowId[rows[fromIndex]?.field_key];
+      const toId = fieldKeyToRowId[rows[toIndex]?.field_key];
+      if (fromId === undefined || toId === undefined) return;
+
+      const swapped = [...idsInCurrentOrder];
+      const fromSlot = swapped.indexOf(fromId);
+      const toSlot = swapped.indexOf(toId);
+      if (fromSlot === -1 || toSlot === -1) return;
+      swapped[fromSlot] = toId;
+      swapped[toSlot] = fromId;
+
+      onReorder(swapped);
+    },
+    [fieldKeyToRowId, onReorder, rows],
+  );
+
+  const handleHideRow = useCallback(
+    (rowConfig: IRowConfig) => {
+      if (!fieldKeyToRowId || !onHideRow) return;
+      const rowId = fieldKeyToRowId[rowConfig.field_key];
+      if (rowId === undefined) return;
+      onHideRow(rowId);
+    },
+    [fieldKeyToRowId, onHideRow],
+  );
 
   const renderRow = useCallback(
     (rowConfig: IRowConfig, shipment: IShipmentSheetItem) => {
@@ -211,8 +270,21 @@ export function SheetGrid({
   );
 
   const renderSection = (sectionRows: IRowConfig[], inFrozenSection: boolean) =>
-    sectionRows.map((rowConfig) => {
+    sectionRows.map((rowConfig, sectionIndex) => {
       const stickyLeftZ = inFrozenSection ? Z_FROZEN_ROWS_LEFT : 3;
+
+      // Global index within the full rows array (needed for canMoveUp/canMoveDown)
+      const globalIndex = inFrozenSection
+        ? sectionIndex
+        : safeFrozenRowCount + sectionIndex;
+
+      // Reorder controls — only available when callbacks are provided
+      const hasReorderCapability = fieldKeyToRowId !== undefined && onReorder !== undefined;
+      const rowHasId = hasReorderCapability && fieldKeyToRowId[rowConfig.field_key] !== undefined;
+
+      const canMoveUp = rowHasId && globalIndex > 0;
+      const canMoveDown = rowHasId && globalIndex < rows.length - 1;
+
       return (
         <div
           key={rowConfig.row_number}
@@ -225,6 +297,23 @@ export function SheetGrid({
             stickyZIndex={stickyLeftZ}
             rowSettings={rowSettings}
             currentUserLang={currentUserLang}
+            canMoveUp={canMoveUp}
+            canMoveDown={canMoveDown}
+            onMoveUp={
+              hasReorderCapability && rowHasId
+                ? () => handleMove(globalIndex, -1)
+                : undefined
+            }
+            onMoveDown={
+              hasReorderCapability && rowHasId
+                ? () => handleMove(globalIndex, 1)
+                : undefined
+            }
+            onHideRow={
+              fieldKeyToRowId !== undefined && onHideRow !== undefined && rowHasId
+                ? () => handleHideRow(rowConfig)
+                : undefined
+            }
           />
 
           {/* Frozen data columns (sticky-left, between label band and virtualizer) */}

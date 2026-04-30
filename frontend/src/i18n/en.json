@@ -1186,7 +1186,17 @@
       "n_cols": "{{count}} columns",
       "up_to_col": "Up to current column",
       "up_to_col_n": "Up to current column ({{col}})"
-    }
+    },
+    "hide_row": "Hide row",
+    "unhide_row": "Show",
+    "row_hidden_toast": "Row hidden",
+    "hidden_rows_count": "Hidden rows: {{count}}",
+    "hidden_rows_modal_title": "Hidden rows",
+    "reorder_save_error": "Failed to save row order",
+    "unknown_row_id_error": "Row order error — please refresh the page",
+    "move_up": "Move up",
+    "move_down": "Move down",
+    "row_menu": "Row menu"
   },
   "draft": {
     "page_title": "Draft Shipments",

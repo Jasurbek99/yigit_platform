@@ -1186,7 +1186,17 @@
       "n_cols": "{{count}} sütün",
       "up_to_col": "Häzirki sütüne çenli",
       "up_to_col_n": "Häzirki sütüne çenli ({{col}})"
-    }
+    },
+    "hide_row": "Setiri gizlemek",
+    "unhide_row": "Görkez",
+    "row_hidden_toast": "Setir gizlendi",
+    "hidden_rows_count": "Gizlenen setirler: {{count}}",
+    "hidden_rows_modal_title": "Gizlenen setirler",
+    "reorder_save_error": "Setir tertibini ýatda saklap bolmady",
+    "unknown_row_id_error": "Setir tertibi ýalňyşy — sahypany täzeläň",
+    "move_up": "Ýokary geçir",
+    "move_down": "Aşak geçir",
+    "row_menu": "Setir menýusy"
   },
   "draft": {
     "page_title": "Garalama ýükler",
