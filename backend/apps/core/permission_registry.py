@@ -43,6 +43,7 @@ PAGE_REGISTRY: dict[str, str] = OrderedDict([
     ('admin.blocks',            'Admin: Blocks'),
     ('admin.customers',         'Admin: Customers'),
     ('admin.truck_dest',        'Admin: Truck Destinations'),
+    ('admin.shipment_settings', 'Admin: Shipment Settings'),
 ])
 
 # ── Resources ────────────────────────────────────────────────────────────
@@ -91,9 +92,12 @@ RESOURCE_FIELDS: dict[str, list[str]] = {
         'product_type', 'variety',
         # Transport
         'vehicle_condition', 'vehicle_condition_note', 'route_note',
+        'vehicle_live_status',
         'vehicle_responsible', 'truck_head_id', 'trailer_id', 'driver_id',
         'transit_days', 'transport_temp_c', 'shelf_life_days',
         'has_peregruz', 'peregruz_city', 'peregruz_date',
+        # Operator-entered timestamp (NOT AD-1)
+        'loading_ended_at',
         # Operational status
         'customs_clearance', 'documents_status', 'harvest_status',
         # Finance
@@ -125,9 +129,10 @@ RESOURCE_FIELDS: dict[str, list[str]] = {
 # considered "done" on a shipment. Used by the pending_my_fields filter.
 
 ROLE_REQUIRED_FIELDS: dict[str, list[str]] = {
-    'warehouse_chief': ['weight_net', 'weight_gross', 'variety', 'harvest_status'],
-    'document_team':   ['documents_status'],
-    'transport':       ['truck_head_id', 'driver_id', 'border_point'],
-    'sales_rep':       ['city', 'price_per_kg', 'total_amount_usd'],
-    'finansist':       ['price_per_kg', 'total_amount_usd'],
+    'loading_dept_head': ['weight_net', 'weight_gross', 'variety', 'harvest_status'],
+    'warehouse_chief':   ['weight_net', 'weight_gross', 'variety', 'harvest_status'],
+    'document_team':     ['documents_status'],
+    'transport':         ['truck_head_id', 'driver_id', 'border_point'],
+    'sales_rep':         ['city', 'price_per_kg', 'total_amount_usd'],
+    'finansist':         ['price_per_kg', 'total_amount_usd'],
 }

@@ -10,41 +10,44 @@ related: [[permissions-system]]
 
 ## Page Visibility Matrix
 
-| Page | export_manager | director | boss | warehouse_chief | document_team | transport | sales_rep | finansist | greenhouse_manager | seller |
-|------|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| Dashboard | Y | Y | - | Y | Y | Y | Y | Y | Y | Y |
-| Boss Dashboard (`analytics.boss`) | - | Y | Y | - | - | - | - | - | - | - |
-| Shipment List | Y | Y | - | Y | Y | Y | Y | Y | - | - |
-| Kanban Board | Y | Y | - | Y | Y | Y | Y | Y | - | - |
-| Shipment Sheet | Y | Y | - | - | Y | - | - | - | - | - |
-| Shipment Dashboard | Y | Y | - | - | - | - | - | - | - | - |
-| Overdue Reports | Y | Y | - | - | - | - | Y | - | - | - |
-| Quota Dashboard | Y | Y | - | - | Y | - | - | - | - | Y |
-| Weekly Plan | Y | Y | - | - | - | - | - | - | Y | - |
-| Price Panel | Y | Y | - | - | - | - | Y | - | - | - |
-| Advances | Y | Y | - | - | - | - | - | Y | - | - |
-| Truck Forecast | Y | Y | - | - | - | Y | - | - | - | - |
-| Block Summary | Y | Y | - | - | - | - | - | - | Y | - |
-| Domestic Sales | Y | Y | - | - | - | - | - | - | Y | - |
-| Admin Pages | Y | Y | - | - | - | - | - | - | - | - |
+| Page | admin | export_manager | director | boss | warehouse_chief | document_team | transport | sales_rep | finansist | greenhouse_manager | seller |
+|------|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| Dashboard | Y | Y | Y | - | Y | Y | Y | Y | Y | Y | Y |
+| Boss Dashboard (`analytics.boss`) | Y | - | Y | Y | - | - | - | - | - | - | - |
+| Shipment List | Y | Y | Y | - | Y | Y | Y | Y | Y | - | - |
+| Kanban Board | Y | Y | Y | - | Y | Y | Y | Y | Y | - | - |
+| Shipment Sheet | Y | Y | Y | - | - | Y | - | - | - | - | - |
+| Shipment Dashboard | Y | Y | Y | - | - | - | - | - | - | - | - |
+| Overdue Reports | Y | Y | Y | - | - | - | - | Y | - | - | - |
+| Quota Dashboard | Y | Y | Y | - | - | Y | - | - | - | - | Y |
+| Weekly Plan | Y | Y | Y | - | - | - | - | - | - | Y | - |
+| Price Panel | Y | Y | Y | - | - | - | - | Y | - | - | - |
+| Advances | Y | Y | Y | - | - | - | - | - | Y | - | - |
+| Truck Forecast | Y | Y | Y | - | - | - | Y | - | - | - | - |
+| Block Summary | Y | Y | Y | - | - | - | - | - | - | Y | - |
+| Domestic Sales | Y | Y | Y | - | - | - | - | - | - | Y | - |
+| Admin Pages (Users, Permissions, Firms, Seasons, Blocks, Customers, Truck Dest, Shipment Settings) | Y | - | - | - | - | - | - | - | - | - | - |
 
-> `boss` is read-only and lands exclusively on the Boss Dashboard. All resources are `view`-only. See [[boss]] for full spec.
+> AD-15: `admin` is the **sole top-tier system administrator** — only role with permission-matrix and user-management access. `director` and `export_manager` lose admin pages but keep all operational power including reference-data writes (countries, cities, customers, blocks). `boss` is read-only and lands exclusively on the Boss Dashboard. See [[boss]], `docs/ADR.md` (AD-15).
 
 ## Resource CRUD Matrix
 
-| Resource | export_manager | director | warehouse_chief | document_team | transport | sales_rep | finansist | greenhouse_manager |
-|----------|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| Shipment (view) | Y | Y | Y | Y | Y | Y | Y | - |
-| Shipment (create) | Y | Y | - | - | - | - | - | - |
-| Shipment (edit) | Y | Y | limited | limited | limited | limited | limited | - |
-| Shipment (delete) | Y | Y | - | - | - | - | - | - |
-| Quota Issuance | CRUD | CRUD | - | view | - | - | - | - |
-| Quota Usage | CRUD+approve | CRUD+approve | - | view | - | - | - | - |
-| Weekly Plan | CRUD+approve | CRUD+approve | - | - | - | - | - | CRUD (own blocks) |
-| Local Sell Plan | CRUD+approve | CRUD+approve | - | - | - | - | - | - |
-| Price Entry | CRUD | CRUD | - | - | - | CRUD | - | - |
-| Advance | CRUD | CRUD | - | - | - | - | CRUD | - |
-| Truck Allocation | CRUD | CRUD | - | - | view | - | - | - |
+| Resource | admin | export_manager | director | warehouse_chief | document_team | transport | sales_rep | finansist | greenhouse_manager |
+|----------|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| Shipment (view) | Y | Y | Y | Y | Y | Y | Y | Y | - |
+| Shipment (create) | Y | Y | Y | - | - | - | - | - | - |
+| Shipment (edit) | Y | Y | Y | limited | limited | limited | limited | limited | - |
+| Shipment (delete) | Y | Y | Y | - | - | - | - | - | - |
+| Quota Issuance | CRUD | CRUD | CRUD | - | view | - | - | - | - |
+| Quota Usage | CRUD+approve | CRUD+approve | CRUD+approve | - | view | - | - | - | - |
+| Weekly Plan | CRUD+approve | CRUD+approve | CRUD+approve | - | - | - | - | - | CRUD (own blocks) |
+| Local Sell Plan | CRUD+approve | CRUD+approve | CRUD+approve | - | - | - | - | - | - |
+| Price Entry | CRUD | CRUD | CRUD | - | - | - | CRUD | - | - |
+| Advance | CRUD | CRUD | CRUD | - | - | - | - | CRUD | - |
+| Truck Allocation | CRUD | CRUD | CRUD | - | - | view | - | - | - |
+| Reference Data (Country, City, Customer, BorderPoint, Block, ShipmentStatusType, OptionType, TruckDestination) | CRUD | CRUD | CRUD | - | - | - | - | - | - |
+| Permission Matrix (page / resource / field) | CRUD | - | - | - | - | - | - | - | - |
+| User CRUD (role / activate / password) | CRUD | - | - | - | - | - | - | - | - |
 
 ## Shipment Lifecycle Steps by Role
 
@@ -77,3 +80,4 @@ When `?my_work=true` is applied:
 | `finansist` | All phases |
 | `export_manager` | All phases |
 | `director` | All phases |
+| `admin` | All phases (and only role with permission-matrix + user-management access — see AD-15) |

@@ -33,7 +33,8 @@ CLOSE:    13 tamamlandy
 
 | Role | Person(s) | Active window (step_order) |
 |------|-----------|---------------------------|
-| Export Manager | Gadam (head), Aganazar | 1-13 (everything) |
+| Admin (system) | Platform owner / developer | All — sole role with permission-matrix and user-management access (see AD-15) |
+| Export Manager | Gadam (head), Aganazar | 1-13 (everything operational; no admin pages) |
 | Head Greenhouse Export | Soltanmyrat | 1 (loading only) |
 | Document Team | Shohrat, Shirin, Sulgun, Aynur | 1-6 (loading → border crossed) |
 | Transport | Malik, Haltac | 1-9 (loading → arrived) |
@@ -41,7 +42,7 @@ CLOSE:    13 tamamlandy
 | Sales Rep | Arap, Aganazar | 7-12 (dest customs → report) |
 | Finansist | Babageldi | 1-13 (full lifecycle) |
 | Block Managers (7) | Toyly, Guwanç, Geldimyrat, Asdan, Mekan, Batyr, Bayram | Weekly plan grid only |
-| Management | Directors | 1-13 (read-only) |
+| Director (CEO / boss) | Company owner | 1-13 (full operational CRUD; reference-data writes; no admin pages — see AD-15) |
 
 ALL roles see ALL shipments in the main list (like current Excel). Active window is a "my work" filter.
 

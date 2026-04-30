@@ -484,6 +484,12 @@ class ShipmentViewSet(ModelViewSet):
             # Scoped-then-windowed: first bound to visible shipments, then rank within
             # each (shipment, field) partition. The subquery pattern avoids the MSSQL
             # restriction on filtering Window annotations in the same queryset.
+            # MSSQL rejects ORDER BY inside subqueries without TOP/OFFSET. AuditLog
+            # has Meta.ordering=['-created_at'] which propagates as an outer
+            # ORDER BY on the ranked subquery. Strip it explicitly with order_by()
+            # — the Window's own ORDER BY (inside OVER(...)) is the only ordering
+            # this query needs. Without this, the /sheet/ endpoint 500s on MSSQL
+            # the moment the AuditLog table has any rows.
             ranked = AuditLog.objects.filter(
                 model_name='Shipment',
                 object_id__in=ids,
@@ -494,7 +500,7 @@ class ShipmentViewSet(ModelViewSet):
                     partition_by=[F('object_id'), F('field_name')],
                     order_by=F('created_at').desc(),
                 ),
-            )
+            ).order_by()
             latest_qs = AuditLog.objects.filter(
                 pk__in=Subquery(ranked.filter(rn=1).values('pk'))
             ).select_related('user')

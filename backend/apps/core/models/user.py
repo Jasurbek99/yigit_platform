@@ -3,7 +3,15 @@ from django.db import models
 
 # Role choices — maps to required_role in ShipmentStatusType
 ROLE_CHOICES = [
+    # admin: sole top-tier system administrator. Manages users + permission matrix.
+    # Director and export_manager are operational; admin is the only role that
+    # can edit the permission matrix or change user roles. See AD-15.
+    ('admin', 'Admin'),
     ('export_manager', 'Export Manager'),
+    # loading_dept_head: head of the packaging + loading department (Soltanmyrat).
+    # Same daily-work permissions as warehouse_chief; deputies hold warehouse_chief.
+    # weight_master reports to this role organisationally (Kaka Findings #5).
+    ('loading_dept_head', 'Loading Dept Head'),
     ('warehouse_chief', 'Warehouse Chief'),
     ('weight_master', 'Weight Master'),
     ('document_team', 'Document Team'),

@@ -8,13 +8,15 @@ related: [[authentication]], [[shipment-lifecycle]]
 
 ## What Is This Process?
 
-YGT uses a dynamic, database-driven RBAC (Role-Based Access Control) system. Instead of hardcoded permission checks, permissions are stored in 3 database tables and can be configured by directors through the admin UI. The system controls access at 3 levels: page visibility, resource CRUD, and field-level editing.
+YGT uses a dynamic, database-driven RBAC (Role-Based Access Control) system. Instead of hardcoded permission checks, permissions are stored in 3 database tables and can be configured by **the `admin` role** through the admin UI. The system controls access at 3 levels: page visibility, resource CRUD, and field-level editing.
+
+> **AD-15 (Apr 2026):** Permission-matrix and user-management endpoints are now restricted to `role='admin'` (or `is_superuser`). `director` and `export_manager` keep all operational power but cannot edit who-can-do-what. Reference-data writes (countries, cities, customers, blocks, etc.) remain available to admin / director / export_manager.
 
 ## How It Works (Business Flow)
 
 ```mermaid
 flowchart TD
-    A["Director configures permissions\nin Admin > Permissions page"] --> B["3 DB tables updated"]
+    A["Admin configures permissions\nin Admin > Permissions page"] --> B["3 DB tables updated"]
     B --> C["Backend checks via\nDynamicResourcePermission class"]
     B --> D["Frontend checks via\ncanSeePage / canDo / canEditField"]
     C --> E["API returns 403\nif not allowed"]
@@ -89,10 +91,18 @@ Creates default permission rows for all roles × pages × resources. The `--rese
 
 | Method | Endpoint | Action | Auth |
 |--------|----------|--------|------|
-| GET | `/api/v1/export/admin/users/{id}/permissions/` | Get user's permissions | director |
-| PUT | `/api/v1/export/admin/users/{id}/permissions/` | Update user's permissions | director |
+| GET / PUT | `/api/v1/core/admin/page-permissions/` | Page-permission matrix CRUD | **admin** |
+| GET / PUT | `/api/v1/core/admin/resource-permissions/` | Resource-permission matrix CRUD | **admin** |
+| GET / PUT | `/api/v1/core/admin/field-permissions/` | Field-permission matrix CRUD | **admin** |
+| GET | `/api/v1/core/admin/permission-registry/` | Read available pages / resources / fields | **admin** |
+| PUT | `/api/v1/export/admin/users/{id}/permissions/` | Grant export-app Django permissions to a user | **admin** |
+| PATCH | `/api/v1/export/admin/users/{id}/` | Change role / activate / deactivate | **admin** (last-admin guard applies) |
+| GET | `/api/v1/export/admin/users/` | List users | admin or export_manager |
+| GET | `/api/v1/export/audit-log/` | Audit log | admin / director / export_manager |
 
-The permissions endpoint returns/accepts all 3 levels for a given user's role.
+The permissions endpoint returns/accepts all 3 levels for a given user's role. Backend gate is `_AdminOnlyPermission` (predicate: `is_superuser OR role=='admin'`).
+
+**Bootstrap admin:** `python manage.py bootstrap_admin` — idempotent, promotes every `is_superuser` user to `role='admin'`. Run on every deploy / staging refresh / restore-from-backup. Replaces the previous `manage.py shell -c "..."` one-liner.
 
 ## Frontend Implementation
 
@@ -123,7 +133,7 @@ These read from the `ICurrentUser` object returned by `/api/v1/auth/me/`:
 
 **Tab 3 — Field Permissions**: Expandable rows per resource, sub-rows per field, columns = roles, cells = checkbox (can_edit)
 
-**Access**: Director only.
+**Access**: Admin only (backend gate is `_AdminOnlyPermission`).
 
 ### Route Protection
 
@@ -144,10 +154,14 @@ Throughout the app, buttons/columns/fields are conditionally rendered:
 
 ## Roles & Permissions
 
-| Role | Configure Permissions | View Permissions |
-|------|----------------------|------------------|
-| `director` | Yes (full admin) | Yes |
-| Others | No | Own permissions only (via /auth/me/) |
+| Role | Configure Permissions | Manage Users (role / pw / activate) | View Permissions |
+|------|----------------------|-------------------------------------|------------------|
+| `admin` | Yes | Yes | Yes |
+| `director` | No | No | Yes (own + via /auth/me/) |
+| `export_manager` | No | No | Yes (own + via /auth/me/) |
+| Others | No | No | Own permissions only (via /auth/me/) |
+
+A **last-admin guard** in `UserManagementViewSet.partial_update` prevents demoting or deactivating the only active admin in the system (403 + explanatory message). Promote another user to admin first.
 
 ## Connections to Other Processes
 

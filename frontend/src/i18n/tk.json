@@ -17,6 +17,7 @@
     "back_home": "Baş sahypa"
   },
   "roles": {
+    "admin": "Admin",
     "export_manager": "Eksport menejeri",
     "warehouse_chief": "Ammar başlygy",
     "document_team": "Resminama topary",
@@ -28,6 +29,7 @@
     "greenhouse_manager": "Ýyladyşhana menejeri",
     "seller": "Satyjy",
     "weight_master": "Agramy ölçeýji usta",
+    "loading_dept_head": "Ýüklemek bölüm baştutany",
     "boss": "Başlyk"
   },
   "nav": {
@@ -65,6 +67,10 @@
     "drafts": "Garalama ýükler",
     "assign": "Belgilemek",
     "boss_dashboard": "Boss paneli"
+  },
+  "connection": {
+    "online": "Onlaýn",
+    "offline": "Baglanyşyk ýok — üýtgeşmeler saklanmaz"
   },
   "plan": {
     "title": "Hepdäniň hasyly meýilnamasy",
@@ -282,7 +288,12 @@
     "search_ph": "Kod, müşderi...",
     "status_filter_ph": "Status: Hemmesi",
     "season_label": "2025/2026 eksport möwsümi",
-    "subtitle_with_count": "Jemi {{count}} ýük — 2025/2026 eksport möwsümi"
+    "subtitle_with_count": "Jemi {{count}} ýük — 2025/2026 eksport möwsümi",
+    "empty_state": "Saýlanan filtrlere laýyk iberliş ýok"
+  },
+  "shipment_list": {
+    "view_table": "Tablisa",
+    "view_cards": "Kartoçkalar"
   },
   "shipment_detail": {
     "back": "Yzyna",
@@ -542,6 +553,7 @@
     "tab_border_points": "Serhet Nokatlary",
     "tab_options": "Saýlaw Sanawy",
     "tab_truck_splits": "Firma paýlanyşygy",
+    "tab_sheet_rows": "Setir Triggerleri",
     "col_step": "Ädim",
     "col_code": "Kod",
     "col_name_tk": "Ady (TK)",
@@ -572,6 +584,19 @@
     "category_documents_status": "Resminamalar",
     "category_harvest_status": "Ýygym ýagdaýy",
     "category_transport_responsible": "Transport jogapkäri"
+  },
+  "sheet_rows": {
+    "col_num": "#",
+    "col_field": "Meýdan",
+    "col_default_who": "Kim (deslapky)",
+    "col_trigger_role": "Roly-Trigger",
+    "col_trigger_user": "Ulanyjy-Trigger",
+    "trigger_none": "— ýok —",
+    "toast_saved": "Setir sazlamasy saklandy",
+    "user_inactive_warning": "Ulanyjy işjeň däl",
+    "tooltip_user_picker": "Birnäçe adamyň jogapkärçiligindäki wezipeler üçin roly ulanyň.",
+    "locked_by_role": "Gulplandy — redaktirleme: {{role}}",
+    "locked_by_user": "Gulplandy — redaktirleme: {{user}}"
   },
   "truck_split": {
     "col_num_firms": "Firma sany",
@@ -1055,6 +1080,7 @@
       "harvest_status": "Ýygym ýagdaýy",
       "truck_capacity": "Maşyn tonnasy",
       "product_date": "Haryt senesi",
+      "vehicle_live_status": "Maşynyň şuwagtky ýagdaýy",
       "loading_start": "Ýükleme başlady",
       "loading_end": "Ýükleme gutardy",
       "greenhouse_departure": "Ýyladyşhanadan çykdy",
@@ -1091,6 +1117,10 @@
       "not_started": "Başlanmady",
       "missing": "Ýok"
     },
+    "last_edit_tooltip": "Üýtgedildi: {{user}} {{date}}: {{old}} → {{new}}",
+    "history_title": "Üýtgeşme taryhy",
+    "history_empty": "Üýtgeşme ýok.",
+    "history_forbidden": "Taryh elýeterli däl.",
     "freeze": {
       "label": "Berkit",
       "rows": "Setirler",
@@ -1442,6 +1472,27 @@
     "placeholder": "Teswir ýaz... (Ctrl+Enter ibermek üçin)",
     "toast_success": "Teswir goşuldy",
     "toast_error": "Teswiri ibermek başa barmady"
+  },
+  "shipment_filter_drawer": {
+    "title": "Goşmaça filtrler",
+    "button": "Filtrler",
+    "button_with_count": "Filtrler ({{count}})",
+    "country": "Ýurt",
+    "country_ph": "Islendik ýurt",
+    "customer": "Müşderi",
+    "customer_ph": "Islendik müşderi",
+    "export_firm": "Eksport firmasy",
+    "export_firm_ph": "Islendik firma",
+    "date_range": "Sene aralygy",
+    "pending_my_fields": "Diňe meniň rolymyň meýdanlary boş bolanlar",
+    "apply": "Ulanmak",
+    "clear_all": "Hemmesini arassalamak",
+    "chip_country": "Ýurt: 1",
+    "chip_customer": "Müşderi: 1",
+    "chip_firm": "Firma: 1",
+    "chip_date_after": "{{date}}-dan",
+    "chip_date_before": "{{date}}-a çenli",
+    "chip_pending": "Meniň boş meýdanlarym"
   },
   "shipment_bulk": {
     "selected_count": "Saýlanan: {{count}}",

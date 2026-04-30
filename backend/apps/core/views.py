@@ -18,6 +18,7 @@ from apps.core.models import (
     TruckDestination, CrateType,
 )
 from apps.core.permissions import write_permission
+from apps.core.roles import REFERENCE_DATA_WRITE
 from apps.core.serializers import (
     LoginSerializer,
     UserMeSerializer,
@@ -122,14 +123,14 @@ class MeView(APIView):
 class CountryViewSet(ModelViewSet):
     serializer_class = CountrySerializer
     queryset = Country.objects.all().order_by('name_en')
-    permission_classes = [IsAuthenticated, write_permission('director')]
+    permission_classes = [IsAuthenticated, write_permission(*REFERENCE_DATA_WRITE)]
 
 
 class CityViewSet(ModelViewSet):
-    """Cities list with optional ?country=<id> filter. Writes restricted to director."""
+    """Cities list with optional ?country=<id> filter. Writes restricted to admin/director/EM."""
 
     serializer_class = CitySerializer
-    permission_classes = [IsAuthenticated, write_permission('director')]
+    permission_classes = [IsAuthenticated, write_permission(*REFERENCE_DATA_WRITE)]
 
     def get_queryset(self):
         qs = City.objects.select_related('country').order_by('name')
@@ -146,13 +147,13 @@ class ExportFirmViewSet(ReadOnlyModelViewSet):
 
 
 class ShipmentStatusTypeViewSet(ModelViewSet):
-    permission_classes = [IsAuthenticated, write_permission('director')]
+    permission_classes = [IsAuthenticated, write_permission(*REFERENCE_DATA_WRITE)]
     queryset = ShipmentStatusType.objects.all().order_by('step_order')
     serializer_class = ShipmentStatusTypeSerializer
 
 
 class CustomerViewSet(ModelViewSet):
-    permission_classes = [IsAuthenticated, write_permission('director')]
+    permission_classes = [IsAuthenticated, write_permission(*REFERENCE_DATA_WRITE)]
     queryset = (
         Customer.objects
         .select_related('default_country', 'default_city')
@@ -208,11 +209,11 @@ class CrateTypeViewSet(ReadOnlyModelViewSet):
 class TruckDestinationViewSet(ModelViewSet):
     """CRUD /api/v1/core/truck-destinations/
 
-    Director can create/update/delete. All authenticated users can read.
+    Admin, director, and export_manager can create/update/delete. All authenticated users can read.
     List defaults to active-only; pass ?is_active=false to include inactive.
     """
 
-    permission_classes = [IsAuthenticated, write_permission('director')]
+    permission_classes = [IsAuthenticated, write_permission(*REFERENCE_DATA_WRITE)]
     serializer_class = TruckDestinationSerializer
     queryset = TruckDestination.objects.select_related('country').all()
     filterset_fields = ['is_active']
@@ -221,7 +222,7 @@ class TruckDestinationViewSet(ModelViewSet):
 class BorderPointViewSet(ModelViewSet):
     """CRUD /api/v1/core/border-points/"""
 
-    permission_classes = [IsAuthenticated, write_permission('director')]
+    permission_classes = [IsAuthenticated, write_permission(*REFERENCE_DATA_WRITE)]
     queryset = BorderPoint.objects.all()
     serializer_class = BorderPointSerializer
 
@@ -229,7 +230,7 @@ class BorderPointViewSet(ModelViewSet):
 class ShipmentOptionTypeViewSet(ModelViewSet):
     """CRUD /api/v1/core/shipment-options/"""
 
-    permission_classes = [IsAuthenticated, write_permission('director')]
+    permission_classes = [IsAuthenticated, write_permission(*REFERENCE_DATA_WRITE)]
     serializer_class = ShipmentOptionTypeSerializer
     filterset_fields = ['category']
 
@@ -247,7 +248,7 @@ class MentionableView(APIView):
     Autocomplete for @mentions in the comment system.
     Returns a mixed list of users and roles matching the query string.
 
-    Empty q → first 10 active users + all 12 roles.
+    Empty q → first 10 active users + all roles in ROLE_CHOICES.
     Non-empty q → users matching first/last/username + roles matching code/label.
     """
 

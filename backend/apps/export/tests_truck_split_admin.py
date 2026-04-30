@@ -43,6 +43,7 @@ class TruckSplitAdminTests(TestCase):
     def setUp(self):
         cache.clear()
         self.client = APIClient()
+        self.admin = _create_user('admin1', 'admin')
         self.director = _create_user('dir', 'director')
         self.export_mgr = _create_user('mgr', 'export_manager')
         self.sales = _create_user('sales', 'sales_rep')
@@ -76,6 +77,18 @@ class TruckSplitAdminTests(TestCase):
         self._auth(self.sales)
         resp = self.client.get('/api/v1/export/admin/truck-splits/')
         self.assertEqual(resp.status_code, 403, resp.data)
+
+    def test_admin_can_create_and_delete(self):
+        self._auth(self.admin)
+        resp = self.client.post(
+            '/api/v1/export/admin/truck-splits/',
+            {'num_firms': 6, 'kg_per_firm': '3000.00'},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 201, resp.data)
+        row_id = resp.data['id']
+        del_resp = self.client.delete(f'/api/v1/export/admin/truck-splits/{row_id}/')
+        self.assertEqual(del_resp.status_code, 204)
 
     # ── Mutations ────────────────────────────────────────────────────────
 

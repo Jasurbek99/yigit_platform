@@ -1,7 +1,9 @@
 // ─── Auth ─────────────────────────────────────────────────────────────────
 
 export type UserRole =
+  | 'admin'
   | 'export_manager'
+  | 'loading_dept_head'
   | 'warehouse_chief'
   | 'weight_master'
   | 'document_team'
@@ -259,10 +261,14 @@ export interface IShipmentSheetItem {
   arrived_at: string | null;
   sale_started_at: string | null;
   sale_ended_at: string | null;
+  // Operator-entered timestamp (NOT AD-1 — editable inline on R20)
+  loading_ended_at: string | null;
   // AD-2 Vehicle
   vehicle_condition: VehicleCondition | null;
   vehicle_condition_note: string | null;
   route_note: string | null;
+  // R15 — dispatcher's live status / ETA note
+  vehicle_live_status: string | null;
   // Quality docs
   doc_azyk: boolean;
   doc_suriji: boolean;
@@ -305,20 +311,65 @@ export interface IShipmentSheetResponse {
   results: IShipmentSheetItem[];
   comment_counts: ISheetCommentCounts;
   task_counts: ISheetTaskCounts;
+  /** Backend-driven row map — replaces the frontend SHEET_ROW_CONFIG constant. */
+  rows: IRowConfig[];
+  /** Per-row trigger settings keyed by field_key. */
+  row_settings: Record<string, ISheetRowSetting>;
+  /** Sparse last-edit summaries: shipment_id (string) → field_key → edit info. */
+  last_edits: Record<string, Record<string, ICellLastEdit>>;
 }
 
 export type SheetRowStyle = 'base' | 'alt' | 'key' | 'transport' | 'status' | 'report' | 'separator';
 export type SheetInputType = 'text' | 'number' | 'dropdown' | 'multiselect' | 'date' | 'datetime' | 'phone' | 'status' | 'readonly' | 'comment_count';
 
+/** Row configuration — mirrors the backend `DEFAULT_SHEET_ROWS` shape (snake_case). */
 export interface IRowConfig {
-  rowNumber: number;
-  fieldKey: string;
-  whoKey: string;
-  labelKey: string;
-  inputType: SheetInputType;
+  row_number: number;
+  field_key: string;
+  /** i18n key for the "Who" column — used as fallback when no trigger is configured. */
+  default_who_key: string;
+  label_key: string;
+  input_type: SheetInputType;
   style: SheetRowStyle;
-  optionsSource?: string;
-  gapyHidden?: boolean;
+  options_source?: string;
+  gapy_hidden?: boolean;
+}
+
+// ─── Sheet Row Settings (admin-configurable trigger per row) ─────────────────
+
+export interface ISheetRowSetting {
+  field_key: string;
+  row_number: number;
+  /** i18n key for the default "Who" label (e.g. "sheet.who.logist"). Null only if row unknown. */
+  default_who_key: string | null;
+  triggered_role: string;        // '' when unset
+  triggered_user: number | null;
+  triggered_user_name: string | null;
+  triggered_user_active: boolean | null;
+  triggered_label: string;       // resolved display — user name OR role label OR ''
+  can_current_user_edit: boolean;
+  updated_at: string;
+  updated_by_name: string | null;
+}
+
+// ─── Cell-level last-edit summary (sparse — only present if the cell was ever edited) ──
+
+export interface ICellLastEdit {
+  user_id: number;
+  user_name: string;
+  old_value: string;
+  new_value: string;
+  edited_at: string;  // ISO 8601
+}
+
+// ─── Field history entry (full audit log row) ────────────────────────────────
+
+export interface IFieldHistoryEntry {
+  user_id: number;
+  user_name: string;
+  old_value: string;
+  new_value: string;
+  edited_at: string;  // ISO 8601
 }
 
 // ─── Truck split defaults (admin-configurable per # of firms) ───────────

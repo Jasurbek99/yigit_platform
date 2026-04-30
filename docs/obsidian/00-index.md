@@ -6,7 +6,7 @@ tags: [moc, index]
 # YGT Platform Knowledge Base
 
 > Django + React platform for greenhouse tomato export operations (YGT Holding).
-> 40+ models | 43 pages | 13-step shipment lifecycle | 9 roles | 3 languages (TM/RU/EN)
+> 40+ models | 43 pages | 13-step shipment lifecycle | 14 roles (incl. `admin` per AD-15) | 3 languages (TM/RU/EN)
 
 ## Process Map
 
@@ -108,6 +108,7 @@ See [[roles-matrix]] for the full capability matrix.
 
 - [[known-issues]] — Bug reports, user feedback, workarounds (living log)
 - [[decisions-log]] — Post-deployment decisions and rationale
+- [[operations/pwa]] — Progressive Web App setup, install flow, caching strategy, connection indicator
 
 ## External Docs (canonical sources, not duplicated)
 

@@ -66,6 +66,7 @@ class RoleGatingTests(TestCase):
 
     def setUp(self):
         self.client = APIClient()
+        self.admin = _create_user('admin_boss', 'admin')
         self.boss = _create_user('boss1', 'boss')
         self.director = _create_user('director1', 'director')
         self.export_mgr = _create_user('mgr1', 'export_manager')
@@ -81,6 +82,10 @@ class RoleGatingTests(TestCase):
 
     def test_director_gets_200_on_summary(self):
         resp = self._get(self.director, '/api/v1/export/boss/summary/')
+        self.assertEqual(resp.status_code, 200)
+
+    def test_admin_gets_200_on_summary(self):
+        resp = self._get(self.admin, '/api/v1/export/boss/summary/')
         self.assertEqual(resp.status_code, 200)
 
     def test_export_manager_gets_403_on_summary(self):

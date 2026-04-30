@@ -11,6 +11,7 @@ from rest_framework.viewsets import ModelViewSet
 
 from apps.core.models import GreenhouseBlock
 from apps.core.permissions import write_permission
+from apps.core.roles import REFERENCE_DATA_WRITE
 from apps.greenhouse.models import BlockManagerAssignment
 from apps.greenhouse.serializers import BlockManagerAssignmentSerializer
 
@@ -105,7 +106,7 @@ class GreenhouseBlockAdminViewSet(ModelViewSet):
     DELETE /api/v1/greenhouse/admin/blocks/{id}/      — delete (director only)
     """
 
-    permission_classes = [IsAuthenticated, write_permission('director')]
+    permission_classes = [IsAuthenticated, write_permission(*REFERENCE_DATA_WRITE)]
     serializer_class = GreenhouseBlockAdminSerializer
 
     def get_queryset(self):
@@ -130,7 +131,7 @@ class BlockManagerAssignmentViewSet(ModelViewSet):
     GET    /api/v1/greenhouse/admin/block-assignments/{id}/     — detail
     """
 
-    permission_classes = [IsAuthenticated, write_permission('director')]
+    permission_classes = [IsAuthenticated, write_permission(*REFERENCE_DATA_WRITE)]
     serializer_class = BlockManagerAssignmentSerializer
     http_method_names = ['get', 'post', 'delete', 'head', 'options']
 

@@ -11,8 +11,11 @@ import { useAuth } from '@/hooks/useAuth';
 import type { IAdminUser, UserRole } from '@/types';
 
 const ALL_ROLES: UserRole[] = [
+  'admin',
   'export_manager',
+  'loading_dept_head',
   'warehouse_chief',
+  'weight_master',
   'document_team',
   'transport',
   'sales_rep',
@@ -21,6 +24,7 @@ const ALL_ROLES: UserRole[] = [
   'accountant',
   'greenhouse_manager',
   'seller',
+  'boss',
 ];
 
 interface UserEditFormValues {
@@ -29,14 +33,16 @@ interface UserEditFormValues {
 }
 
 const ROLE_COLORS: Record<UserRole, string> = {
+  admin: 'red',
   export_manager: 'blue',
+  loading_dept_head: 'gold',
   warehouse_chief: 'cyan',
   weight_master: 'geekblue',
   document_team: 'indigo',
   transport: 'orange',
   sales_rep: 'green',
   finansist: 'yellow',
-  director: 'red',
+  director: 'volcano',
   accountant: 'violet',
   greenhouse_manager: 'lime',
   seller: 'teal',
@@ -46,7 +52,7 @@ const ROLE_COLORS: Record<UserRole, string> = {
 export default function UsersPage() {
   const { t } = useTranslation();
   const { user: currentUser } = useAuth();
-  const isDirector = currentUser?.role === 'director';
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.is_superuser === true;
   const isSuperuser = currentUser?.is_superuser === true;
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -194,7 +200,7 @@ export default function UsersPage() {
           <Badge variant="light" color="gray">{t('common.no')}</Badge>
         ),
     },
-    ...(isDirector
+    ...(isAdmin
       ? [
           {
             accessor: 'id' as keyof IAdminUser,

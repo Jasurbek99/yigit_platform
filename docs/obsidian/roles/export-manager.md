@@ -13,7 +13,7 @@ related: [[roles-matrix]], [[shipment-lifecycle]], [[quota-management]]
 
 ## What They Do
 
-The export manager is the **primary operational role** with full access to all processes. They oversee the entire shipment lifecycle (steps 1-13), manage quotas, approve harvest plans and local sell plans, create shipments, and configure permissions for other roles.
+The export manager is the **primary operational role** with full access to all processes. They oversee the entire shipment lifecycle (steps 1-13), manage quotas, approve harvest plans and local sell plans, and create shipments. Per **AD-15** (Apr 2026), they no longer configure permissions or manage users — those are admin-only.
 
 ## Privileged Access
 
@@ -32,11 +32,11 @@ Export managers are in the `PRIVILEGED_ROLES` set — they can trigger **any** s
 | [[price-monitoring]] | View and manage price entries |
 | [[advances-reconciliation]] | Create advances, reconcile |
 | [[domestic-sales]] | View and manage |
-| [[permissions-system]] | Configure permissions (some access, full access is director) |
+| [[permissions-system]] | No write access (admin-only since AD-15); reads own permissions via `/auth/me/` |
 
 ## Pages They See
 
-All pages: Dashboard, Shipment List, Kanban, Sheet, Shipment Dashboard, Overdue Reports, Quota Dashboard, Weekly Plan, Price Panel, Advances, Truck Forecast, Block Summary, Domestic Sales, Admin pages.
+All operational pages: Dashboard, Shipment List, Kanban, Sheet, Shipment Dashboard, Overdue Reports, Quota Dashboard, Weekly Plan, Price Panel, Advances, Truck Forecast, Block Summary, Domestic Sales. **Admin pages are no longer visible to export managers** since AD-15 — Users, Permissions, Firms, Seasons, Blocks, Customers, Truck Destinations, and Shipment Settings now require the `admin` role.
 
 ## Key Workflows
 

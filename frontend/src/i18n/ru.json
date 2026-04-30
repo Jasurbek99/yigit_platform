@@ -17,6 +17,7 @@
     "back_home": "На главную"
   },
   "roles": {
+    "admin": "Администратор",
     "export_manager": "Менеджер экспорта",
     "warehouse_chief": "Начальник склада",
     "document_team": "Документальная группа",
@@ -28,6 +29,7 @@
     "greenhouse_manager": "Менеджер теплицы",
     "seller": "Продавец",
     "weight_master": "Мастер взвешивания",
+    "loading_dept_head": "Начальник отдела загрузки",
     "boss": "Босс"
   },
   "nav": {
@@ -65,6 +67,10 @@
     "drafts": "Черновики",
     "assign": "Назначить",
     "boss_dashboard": "Босс панель"
+  },
+  "connection": {
+    "online": "В сети",
+    "offline": "Нет связи — изменения могут не сохраниться"
   },
   "plan": {
     "title": "Недельный план сбора",
@@ -282,7 +288,12 @@
     "search_ph": "Код, клиент...",
     "status_filter_ph": "Статус: Все",
     "season_label": "Экспортный сезон 2025/2026",
-    "subtitle_with_count": "{{count}} отгрузок — сезон 2025/2026"
+    "subtitle_with_count": "{{count}} отгрузок — сезон 2025/2026",
+    "empty_state": "Нет отгрузок по выбранным фильтрам"
+  },
+  "shipment_list": {
+    "view_table": "Таблица",
+    "view_cards": "Карточки"
   },
   "shipment_detail": {
     "back": "Назад",
@@ -542,6 +553,7 @@
     "tab_border_points": "Погранпункты",
     "tab_options": "Списки Опций",
     "tab_truck_splits": "Распределение по фирмам",
+    "tab_sheet_rows": "Триггеры строк таблицы",
     "col_step": "Шаг",
     "col_code": "Код",
     "col_name_tk": "Название (TK)",
@@ -572,6 +584,19 @@
     "category_documents_status": "Статус документов",
     "category_harvest_status": "Статус сбора",
     "category_transport_responsible": "Ответственный за транспорт"
+  },
+  "sheet_rows": {
+    "col_num": "#",
+    "col_field": "Поле",
+    "col_default_who": "Кто (по умолч.)",
+    "col_trigger_role": "Роль-триггер",
+    "col_trigger_user": "Пользователь-триггер",
+    "trigger_none": "— нет —",
+    "toast_saved": "Настройка строки сохранена",
+    "user_inactive_warning": "Пользователь неактивен",
+    "tooltip_user_picker": "Для задач, где ответственны несколько человек, используйте роль.",
+    "locked_by_role": "Заблокировано — редактирует роль: {{role}}",
+    "locked_by_user": "Заблокировано — редактирует: {{user}}"
   },
   "truck_split": {
     "col_num_firms": "Кол-во фирм",
@@ -1055,6 +1080,7 @@
       "harvest_status": "Статус сбора",
       "truck_capacity": "Грузоподъёмность",
       "product_date": "Дата продукта",
+      "vehicle_live_status": "Текущее положение машины",
       "loading_start": "Начало погрузки",
       "loading_end": "Конец погрузки",
       "greenhouse_departure": "Выезд из теплицы",
@@ -1091,6 +1117,10 @@
       "not_started": "Не начато",
       "missing": "Отсутствует"
     },
+    "last_edit_tooltip": "Изменено: {{user}} {{date}}: {{old}} → {{new}}",
+    "history_title": "История изменений",
+    "history_empty": "Изменений пока нет.",
+    "history_forbidden": "История недоступна.",
     "freeze": {
       "label": "Закрепить",
       "rows": "Строки",
@@ -1438,6 +1468,27 @@
     "placeholder": "Напишите комментарий... (Ctrl+Enter для отправки)",
     "toast_success": "Комментарий добавлен",
     "toast_error": "Не удалось отправить комментарий"
+  },
+  "shipment_filter_drawer": {
+    "title": "Расширенные фильтры",
+    "button": "Фильтры",
+    "button_with_count": "Фильтры ({{count}})",
+    "country": "Страна",
+    "country_ph": "Любая страна",
+    "customer": "Клиент",
+    "customer_ph": "Любой клиент",
+    "export_firm": "Экспортная фирма",
+    "export_firm_ph": "Любая фирма",
+    "date_range": "Диапазон дат",
+    "pending_my_fields": "Только отправки с незаполненными полями моей роли",
+    "apply": "Применить",
+    "clear_all": "Очистить всё",
+    "chip_country": "Страна: 1",
+    "chip_customer": "Клиент: 1",
+    "chip_firm": "Фирма: 1",
+    "chip_date_after": "С {{date}}",
+    "chip_date_before": "По {{date}}",
+    "chip_pending": "Незаполненные мои поля"
   },
   "shipment_bulk": {
     "selected_count": "Выбрано: {{count}}",

@@ -5,13 +5,15 @@ Endpoints:
   POST      /api/v1/export/notifications/read_all/     — mark all read
   POST      /api/v1/export/notifications/{id}/read/    — mark one read
 
-  GET       /api/v1/export/audit-log/                  — transition history (director/export_manager)
+  GET       /api/v1/export/audit-log/                  — transition history (admin/director/export_manager)
 
-  GET/POST/PATCH/DELETE /api/v1/export/admin/seasons/  — Season CRUD (director writes)
-  GET/POST/PATCH/DELETE /api/v1/export/admin/firms/         — ExportFirm CRUD (director writes)
-  GET/POST/PATCH/DELETE /api/v1/export/admin/import-firms/  — ImportFirm CRUD (director writes)
-  GET/POST/PATCH/DELETE /api/v1/export/admin/users/    — User CRUD (director/superuser; POST/DELETE superuser only)
-  PUT             /api/v1/export/admin/users/{pk}/permissions/   — Grant export permissions (director)
+  GET/POST/PATCH/DELETE /api/v1/export/admin/seasons/  — Season CRUD (resource-permission gated)
+  GET/POST/PATCH/DELETE /api/v1/export/admin/firms/         — ExportFirm CRUD (resource-permission gated)
+  GET/POST/PATCH/DELETE /api/v1/export/admin/import-firms/  — ImportFirm CRUD (resource-permission gated)
+  GET/POST/PATCH/DELETE /api/v1/export/admin/users/    — User CRUD (admin/superuser; POST/DELETE superuser only)
+  PUT             /api/v1/export/admin/users/{pk}/permissions/   — Grant export permissions (admin only)
+
+See AD-15 for the admin / director separation rationale.
 """
 import logging
 
@@ -29,13 +31,16 @@ from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 
 from apps.core.models import ExportFirm, ImportFirm, Season, User
 from apps.core.permissions import firm_write_permission, write_permission, DynamicResourcePermission
-from apps.core.roles import DIRECTOR_ONLY, PRIVILEGED_ROLES as _PRIVILEGED_ROLES
+from apps.core.roles import ADMIN_ONLY, AUDIT_VIEWERS, PRIVILEGED_ROLES as _PRIVILEGED_ROLES
 from apps.export.models import AuditLog, Notification, TruckSplitDefault, invalidate_truck_split_cache
 
 logger = logging.getLogger(__name__)
 
-_DIRECTOR_ONLY = DIRECTOR_ONLY
-_DIRECTOR_MANAGER = _PRIVILEGED_ROLES
+# System-administration gates: only admin (or is_superuser) can change user
+# roles or manage user permissions. Director/EM lost these powers in AD-15.
+_ADMIN_ONLY = ADMIN_ONLY
+# User-list visibility — admin always; EM keeps it for the comments/mentions UX.
+_ADMIN_MANAGER = frozenset({'admin', 'export_manager'})
 
 
 def _require_role(user, allowed: frozenset, verb: str = 'perform this action') -> None:
@@ -154,7 +159,7 @@ class UserListSerializer(serializers.ModelSerializer):
 
 
 class UserPatchSerializer(serializers.ModelSerializer):
-    """Only role and is_active may be patched by director."""
+    """Only role and is_active may be patched. Admin-only via partial_update gate (AD-15)."""
 
     class Meta:
         model = User
@@ -207,7 +212,7 @@ class NotificationViewSet(ReadOnlyModelViewSet):
 class AuditLogViewSet(ReadOnlyModelViewSet):
     """Read-only audit trail.
 
-    Accessible only to director and export_manager roles.
+    Accessible to admin, director, and export_manager (AUDIT_VIEWERS — AD-15).
 
     GET /api/v1/export/audit-log/          — list (filter ?model_name=&action=&object_id=)
     GET /api/v1/export/audit-log/{id}/     — detail
@@ -220,7 +225,7 @@ class AuditLogViewSet(ReadOnlyModelViewSet):
 
     def check_permissions(self, request):
         super().check_permissions(request)
-        _require_role(request.user, _DIRECTOR_MANAGER, 'view audit logs')
+        _require_role(request.user, AUDIT_VIEWERS, 'view audit logs')
 
     def get_queryset(self):
         qs = AuditLog.objects.select_related('user').order_by('-created_at')
@@ -241,13 +246,14 @@ class SeasonViewSet(ModelViewSet):
     """Season CRUD.
 
     All authenticated users may list/retrieve.
-    Only director may create, update, or delete.
+    Writes gated dynamically on resource_code='season' (RoleResourcePermission).
+    Per default seed: admin / director / export_manager have full CRUD.
 
     GET    /api/v1/export/admin/seasons/       — list
     GET    /api/v1/export/admin/seasons/{id}/  — detail
-    POST   /api/v1/export/admin/seasons/       — create (director only)
-    PATCH  /api/v1/export/admin/seasons/{id}/  — update (director only)
-    DELETE /api/v1/export/admin/seasons/{id}/  — delete (director only)
+    POST   /api/v1/export/admin/seasons/       — create
+    PATCH  /api/v1/export/admin/seasons/{id}/  — update
+    DELETE /api/v1/export/admin/seasons/{id}/  — delete
     """
 
     resource_code = 'season'
@@ -259,9 +265,11 @@ class SeasonViewSet(ModelViewSet):
 class TruckSplitDefaultViewSet(ModelViewSet):
     """TruckSplitDefault CRUD — official kg-per-firm by # of firms on a truck.
 
-    Director-configurable. The values feed `get_default_truck_weight()` which is
-    used by `set_firm_splits` to fill `ShipmentFirmSplit.weight_kg` and
-    auto-create draft `QuotaUsageRecord` rows.
+    Write access gated dynamically on resource_code='truck_split_default'.
+    Per default seed: admin and director have full CRUD; export_manager is
+    read-only (Gap 7 / ADR-016). The values feed `get_default_truck_weight()`
+    which is used by `set_firm_splits` to fill `ShipmentFirmSplit.weight_kg`
+    and auto-create draft `QuotaUsageRecord` rows.
 
     Permission: gated dynamically on resource_code='truck_split_default'.
 
@@ -295,13 +303,14 @@ class ExportFirmViewSet(ModelViewSet):
     """ExportFirm CRUD.
 
     All authenticated users may list/retrieve.
-    Director (or superuser, or user with Django permission) may create, update, or delete.
+    Writes gated dynamically on resource_code='export_firm' (RoleResourcePermission).
+    Per default seed: admin / director / export_manager have full CRUD.
 
     GET    /api/v1/export/admin/firms/       — list
     GET    /api/v1/export/admin/firms/{id}/  — detail
-    POST   /api/v1/export/admin/firms/       — create (director / add_exportfirm perm)
-    PATCH  /api/v1/export/admin/firms/{id}/  — update (director / change_exportfirm perm)
-    DELETE /api/v1/export/admin/firms/{id}/  — delete (director / delete_exportfirm perm)
+    POST   /api/v1/export/admin/firms/       — create
+    PATCH  /api/v1/export/admin/firms/{id}/  — update
+    DELETE /api/v1/export/admin/firms/{id}/  — delete
     """
 
     resource_code = 'export_firm'
@@ -314,13 +323,14 @@ class ImportFirmViewSet(ModelViewSet):
     """ImportFirm CRUD.
 
     All authenticated users may list/retrieve.
-    Director (or superuser, or user with Django permission) may create, update, or delete.
+    Writes gated dynamically on resource_code='import_firm' (RoleResourcePermission).
+    Per default seed: admin / director / export_manager have full CRUD.
 
     GET    /api/v1/export/admin/import-firms/       — list
     GET    /api/v1/export/admin/import-firms/{id}/  — detail
-    POST   /api/v1/export/admin/import-firms/       — create (director / add_importfirm perm)
-    PATCH  /api/v1/export/admin/import-firms/{id}/  — update (director / change_importfirm perm)
-    DELETE /api/v1/export/admin/import-firms/{id}/  — delete (director / delete_importfirm perm)
+    POST   /api/v1/export/admin/import-firms/       — create
+    PATCH  /api/v1/export/admin/import-firms/{id}/  — update
+    DELETE /api/v1/export/admin/import-firms/{id}/  — delete
     """
 
     resource_code = 'import_firm'
@@ -331,17 +341,17 @@ class ImportFirmViewSet(ModelViewSet):
 
 
 class UserManagementViewSet(ModelViewSet):
-    """User management for directors and superusers.
+    """User management — admin-only for mutations (AD-15).
 
-    List and retrieve: director or export_manager (or superuser).
-    PATCH role/is_active: director only (or superuser).
+    List and retrieve: admin or export_manager (or superuser) — EM keeps visibility for the comments/mentions UX.
+    PATCH role/is_active: admin only (or superuser). Last-admin guard in perform_update.
     POST create user: superuser only.
     DELETE user: superuser only (self-deletion blocked).
     POST set-password: superuser only.
 
     GET    /api/v1/export/admin/users/                       — list all users
     GET    /api/v1/export/admin/users/{id}/                  — detail
-    PATCH  /api/v1/export/admin/users/{id}/                  — update role + is_active (director/superuser)
+    PATCH  /api/v1/export/admin/users/{id}/                  — update role + is_active (admin/superuser)
     POST   /api/v1/export/admin/users/                       — create user (superuser only)
     DELETE /api/v1/export/admin/users/{id}/                  — delete user (superuser only)
     POST   /api/v1/export/admin/users/{id}/set-password/     — change password (superuser only)
@@ -356,7 +366,7 @@ class UserManagementViewSet(ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if not user.is_superuser:
-            _require_role(user, _DIRECTOR_MANAGER, 'view user list')
+            _require_role(user, _ADMIN_MANAGER, 'view user list')
         return User.objects.prefetch_related('user_permissions').order_by('username')
 
     def get_serializer_class(self):
@@ -366,9 +376,48 @@ class UserManagementViewSet(ModelViewSet):
 
     def partial_update(self, request, *args, **kwargs):
         if not request.user.is_superuser:
-            _require_role(request.user, _DIRECTOR_ONLY, 'update user roles')
+            _require_role(request.user, _ADMIN_ONLY, 'update user roles')
         kwargs['partial'] = True
         return self.update(request, *args, **kwargs)
+
+    def perform_update(self, serializer):
+        # Last-admin guard: prevent removing the only active admin from the system.
+        # Blocks (1) admin demoting themselves and (2) admin demoting/deactivating
+        # another admin while no other active admin exists. Promoting freely is OK.
+        # Runs AFTER serializer.is_valid() so DRF has coerced is_active from any
+        # truthy/falsy payload shape ("false", 0, "no") to a real bool — checking
+        # request.data.is_active before validation is unsafe.
+        #
+        # Wrapped in transaction.atomic() with select_for_update() to close the
+        # TOCTOU window: two concurrent PATCH requests demoting two different
+        # admins could otherwise each observe other_admins=1 and both succeed,
+        # leaving zero active admins. Locking the candidate rows for the count
+        # prevents that.
+        from django.db import transaction
+
+        target_user = serializer.instance
+        validated = serializer.validated_data
+        new_role = validated.get('role', target_user.role)
+        new_active = validated.get('is_active', target_user.is_active)
+        demoting_admin = (
+            target_user.role == 'admin'
+            and (new_role != 'admin' or new_active is False)
+        )
+        with transaction.atomic():
+            if demoting_admin:
+                other_admins = (
+                    User.objects
+                    .select_for_update()
+                    .filter(role='admin', is_active=True)
+                    .exclude(id=target_user.id)
+                    .count()
+                )
+                if other_admins == 0:
+                    raise PermissionDenied(
+                        'Cannot demote or deactivate the last active admin. '
+                        'Promote another user to admin first.'
+                    )
+            serializer.save()
 
     def create(self, request):
         """POST /api/v1/export/admin/users/ — create a new platform user.
@@ -491,7 +540,7 @@ class UserPermissionsView(APIView):
 
     def put(self, request, pk: int):
         """Replace the target user's export permissions with the supplied list."""
-        _require_role(request.user, _DIRECTOR_ONLY, 'manage user permissions')
+        _require_role(request.user, _ADMIN_ONLY, 'manage user permissions')
 
         try:
             target_user = User.objects.get(pk=pk)

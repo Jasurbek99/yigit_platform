@@ -1,7 +1,8 @@
 """Admin CRUD endpoints for the dynamic permission system.
 
-All endpoints are director-only. The frontend PermissionsPage uses these
-to render and save the permission matrices.
+All endpoints are admin-only (role='admin' or is_superuser). The frontend
+PermissionsPage uses these to render and save the permission matrices.
+See AD-15 for the admin / director separation rationale.
 """
 from django.core.cache import cache
 from django.db import transaction
@@ -27,15 +28,20 @@ def _validate_matrix_roles(matrix: dict) -> list[str]:
     return sorted(_ALL_ROLE_CODES - set(matrix.keys()))
 
 
-class _DirectorOnlyPermission(BasePermission):
-    """Restrict ALL methods (including GET) to director role and superusers."""
+class _AdminOnlyPermission(BasePermission):
+    """Restrict ALL methods (including GET) to admin role and superusers.
+
+    Permission matrix CRUD is the only system-administrator capability that
+    must remain admin-only. Director and export_manager keep their operational
+    pages but cannot edit who-can-do-what — see AD-15.
+    """
 
     def has_permission(self, request, view) -> bool:
         if not request.user or not request.user.is_authenticated:
             return False
         if getattr(request.user, 'is_superuser', False):
             return True
-        return getattr(request.user, 'role', None) == 'director'
+        return getattr(request.user, 'role', None) == 'admin'
 
 PERM_CACHE_PREFIX = 'dynamic_perms'
 ROLES = [r[0] for r in ROLE_CHOICES]
@@ -67,7 +73,7 @@ def _invalidate_perm_cache() -> None:
 class PagePermissionMatrixView(APIView):
     """GET: full page permission matrix. PUT: bulk save."""
 
-    permission_classes = [IsAuthenticated, _DirectorOnlyPermission]
+    permission_classes = [IsAuthenticated, _AdminOnlyPermission]
 
     def get(self, request):
         rows = RolePagePermission.objects.all().values('role', 'page_code', 'is_visible')
@@ -119,7 +125,7 @@ class PagePermissionMatrixView(APIView):
 class ResourcePermissionMatrixView(APIView):
     """GET: full resource permission matrix. PUT: bulk save."""
 
-    permission_classes = [IsAuthenticated, _DirectorOnlyPermission]
+    permission_classes = [IsAuthenticated, _AdminOnlyPermission]
 
     def get(self, request):
         rows = RoleResourcePermission.objects.all().values(
@@ -181,7 +187,7 @@ class ResourcePermissionMatrixView(APIView):
 class FieldPermissionMatrixView(APIView):
     """GET: field permission matrix (optionally filtered by resource). PUT: bulk save."""
 
-    permission_classes = [IsAuthenticated, _DirectorOnlyPermission]
+    permission_classes = [IsAuthenticated, _AdminOnlyPermission]
 
     def get(self, request):
         resource = request.query_params.get('resource')
@@ -248,7 +254,7 @@ class FieldPermissionMatrixView(APIView):
 class PermissionRegistryView(APIView):
     """Returns the full registry of pages, resources, fields, and roles."""
 
-    permission_classes = [IsAuthenticated, _DirectorOnlyPermission]
+    permission_classes = [IsAuthenticated, _AdminOnlyPermission]
 
     def get(self, request):
         return Response({

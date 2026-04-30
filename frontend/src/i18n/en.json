@@ -17,6 +17,7 @@
     "back_home": "Back to Home"
   },
   "roles": {
+    "admin": "Admin",
     "export_manager": "Export Manager",
     "warehouse_chief": "Warehouse Chief",
     "document_team": "Document Team",
@@ -28,6 +29,7 @@
     "greenhouse_manager": "Greenhouse Manager",
     "seller": "Seller",
     "weight_master": "Weight Master",
+    "loading_dept_head": "Loading Dept Head",
     "boss": "Boss"
   },
   "nav": {
@@ -65,6 +67,10 @@
     "drafts": "Draft Shipments",
     "assign": "Assignment Board",
     "boss_dashboard": "Boss Dashboard"
+  },
+  "connection": {
+    "online": "Online",
+    "offline": "Offline — changes may not save"
   },
   "plan": {
     "title": "Weekly Harvest Plan",
@@ -282,7 +288,12 @@
     "search_ph": "Code, customer...",
     "status_filter_ph": "Status: All",
     "season_label": "2025/2026 export season",
-    "subtitle_with_count": "{{count}} shipments — 2025/2026 season"
+    "subtitle_with_count": "{{count}} shipments — 2025/2026 season",
+    "empty_state": "No shipments match these filters"
+  },
+  "shipment_list": {
+    "view_table": "Table",
+    "view_cards": "Cards"
   },
   "shipment_detail": {
     "back": "Back",
@@ -542,6 +553,7 @@
     "tab_border_points": "Border Points",
     "tab_options": "Option Lists",
     "tab_truck_splits": "Truck Split Defaults",
+    "tab_sheet_rows": "Sheet Row Triggers",
     "col_step": "Step",
     "col_code": "Code",
     "col_name_tk": "Name (TK)",
@@ -572,6 +584,19 @@
     "category_documents_status": "Documents Status",
     "category_harvest_status": "Harvest Status",
     "category_transport_responsible": "Transport Responsible"
+  },
+  "sheet_rows": {
+    "col_num": "#",
+    "col_field": "Field",
+    "col_default_who": "Default Who",
+    "col_trigger_role": "Trigger Role",
+    "col_trigger_user": "Trigger User",
+    "trigger_none": "— none —",
+    "toast_saved": "Row trigger saved",
+    "user_inactive_warning": "User inactive",
+    "tooltip_user_picker": "For duties shared by multiple people, assign by role instead.",
+    "locked_by_role": "Locked — editable by role: {{role}}",
+    "locked_by_user": "Locked — editable by: {{user}}"
   },
   "truck_split": {
     "col_num_firms": "# Firms",
@@ -1055,6 +1080,7 @@
       "harvest_status": "Harvest Status",
       "truck_capacity": "Truck Capacity",
       "product_date": "Product Date",
+      "vehicle_live_status": "Vehicle Current Position / ETA",
       "loading_start": "Loading Start",
       "loading_end": "Loading End",
       "greenhouse_departure": "Greenhouse Departure",
@@ -1091,6 +1117,10 @@
       "not_started": "Not Started",
       "missing": "Missing"
     },
+    "last_edit_tooltip": "Last edit by {{user}} on {{date}}: {{old}} → {{new}}",
+    "history_title": "Edit History",
+    "history_empty": "No edits recorded yet.",
+    "history_forbidden": "No history available.",
     "freeze": {
       "label": "Freeze",
       "rows": "Rows",
@@ -1438,6 +1468,27 @@
     "placeholder": "Write a comment... (Ctrl+Enter to send)",
     "toast_success": "Comment added",
     "toast_error": "Failed to post comment"
+  },
+  "shipment_filter_drawer": {
+    "title": "Advanced filters",
+    "button": "Filters",
+    "button_with_count": "Filters ({{count}})",
+    "country": "Country",
+    "country_ph": "Any country",
+    "customer": "Customer",
+    "customer_ph": "Any customer",
+    "export_firm": "Export firm",
+    "export_firm_ph": "Any firm",
+    "date_range": "Date range",
+    "pending_my_fields": "Only shipments missing my role's fields",
+    "apply": "Apply",
+    "clear_all": "Clear all",
+    "chip_country": "Country: 1",
+    "chip_customer": "Customer: 1",
+    "chip_firm": "Firm: 1",
+    "chip_date_after": "From {{date}}",
+    "chip_date_before": "To {{date}}",
+    "chip_pending": "Pending my fields"
   },
   "shipment_bulk": {
     "selected_count": "{{count}} selected",

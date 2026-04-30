@@ -30,10 +30,24 @@ _ALL_EXPORT = {k for k in PAGE_REGISTRY if k.startswith('export.')}
 _ALL_ADMIN = {k for k in PAGE_REGISTRY if k.startswith('admin.')}
 
 PAGE_DEFAULTS: dict[str, set[str]] = {
-    'director': _ALL_PAGES,
-    'export_manager': _ALL_PAGES - _ALL_ADMIN | {'admin.permissions'},
+    # admin: sole top-tier system administrator. Sees every page including
+    # the permission matrix and admin pages. See AD-15.
+    'admin': _ALL_PAGES,
+    # director loses admin.* pages with AD-15 — operational role only.
+    # analytics.boss survives because its prefix is 'analytics.', not 'admin.'.
+    'director': _ALL_PAGES - _ALL_ADMIN,
+    # export_manager: drop the previous admin.permissions exception — AD-15
+    # restricts permission-matrix CRUD to admin only.
+    'export_manager': _ALL_PAGES - _ALL_ADMIN,
     'weight_master': {
         'dashboard', 'export.shipments', 'export.pallet_manifest',
+    },
+    # loading_dept_head: identical page set to warehouse_chief — same daily work
+    # plus the org-chart authority over weight_master (already has manifest page).
+    'loading_dept_head': {
+        'dashboard', 'export.shipments', 'export.kanban',
+        'export.drafts',
+        'export.pallet_manifest',
     },
     'warehouse_chief': {
         'dashboard', 'export.shipments', 'export.kanban',
@@ -83,6 +97,8 @@ _VE = (True, False, True, False)     # view + edit only
 _ALL_RESOURCES = set(RESOURCE_REGISTRY.keys())
 
 RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
+    # admin: full CRUD on every resource (including truck_split_default).
+    'admin': {r: _VCRUD for r in _ALL_RESOURCES},
     'director': {r: _VCRUD for r in _ALL_RESOURCES},
     'export_manager': {
         **{r: _VCRUD for r in _ALL_RESOURCES},
@@ -97,6 +113,17 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
         'pallet': _VCRUD,                               # full CRUD on own pallets
         'manifest_close': (True, True, False, False),   # can trigger close
         'shipment_comment': _VCE,
+    },
+    # loading_dept_head: same resource permissions as warehouse_chief. Org-chart
+    # difference (he heads the dept, deputies report to him) is structural; both
+    # do identical day-to-day work per stakeholder feedback (Kaka Findings #5).
+    'loading_dept_head': {
+        'shipment': _VCE,
+        'shipment_block_source': _VCE,
+        'shipment_comment': _VCE,
+        'domestic_sale': _VCE,
+        'pallet': _VE,
+        'manifest_close': _VE,
     },
     'warehouse_chief': {
         # _VCE: warehouse_chief can now create draft shipments (Finding #2)
@@ -151,7 +178,29 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
 # Source of truth for RoleFieldPermission rows.
 
 FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
-    # ── warehouse_chief (Soltanmyrat, Mergen) ────────────────────────
+    # ── admin (sole system administrator) ─────────────────────────────
+    # Wildcard on every resource — admin must be able to fix anything.
+    'admin': {
+        'shipment': ['*'],
+        'shipment_firm_split': ['*'],
+        'shipment_block_source': ['*'],
+        'quality_document': ['*'],
+        'sales_report': ['*'],
+        'weekly_plan': ['*'],
+        'quota_issuance': ['*'],
+        'local_sell_plan': ['*'],
+    },
+    # ── loading_dept_head (Soltanmyrat, Kaka) ────────────────────────
+    # Same editable fields as warehouse_chief — deputies and head do identical
+    # day-to-day work per stakeholder feedback (Kaka Findings #5).
+    'loading_dept_head': {
+        'shipment': [
+            'weight_net', 'weight_gross', 'box_count', 'pallet_count',
+            'pallet_weight_kg', 'packaging_kg',
+            'harvest_status', 'variety', 'product_type', 'loading_location',
+        ],
+    },
+    # ── warehouse_chief (Soltanmyrat's deputies) ─────────────────────
     # Excel: R7 cargo_code (create-only), R8 blocks (separate resource),
     # R14 harvest_status, R37 weight_net, R38 weight_gross, R39 variety,
     # R20/R21 loading times (AD-1, via transition), R40 harvest date (comments)
@@ -160,6 +209,9 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
             'weight_net', 'weight_gross', 'box_count', 'pallet_count',
             'pallet_weight_kg', 'packaging_kg',
             'harvest_status', 'variety', 'product_type', 'loading_location',
+            # R20: warehouse logs the moment the truck finished loading
+            # (NOT AD-1 — departed_at on R21 is set by transition_to).
+            'loading_ended_at',
         ],
     },
     # ── document_team (Sirin, Sulgun) ────────────────────────────────
@@ -184,6 +236,7 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
     'transport': {
         'shipment': [
             'vehicle_condition', 'vehicle_condition_note', 'route_note',
+            'vehicle_live_status',
             'vehicle_responsible', 'truck_head_id', 'trailer_id', 'driver_id',
             'border_point', 'transit_days', 'transport_temp_c', 'shelf_life_days',
         ],
