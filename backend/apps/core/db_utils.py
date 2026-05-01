@@ -24,16 +24,16 @@ def cyrillic_collation() -> dict:
 
 
 def schema_table(schema: str, table: str) -> str:
-    """Return the correct db_table value for a schema-qualified MSSQL table.
+    """Return a flat ``<schema>_<table>`` name for use as ``db_table``.
 
-    MSSQL requires '"schema"."table"' syntax so Django sends the correct
-    two-part identifier. SQLite has no schemas — falls back to 'schema_table'.
+    The project formerly placed tables in MSSQL schemas (``core``, ``greenhouse``,
+    ``export``) and emitted ``[schema].[table]`` here. That hit several open
+    mssql-django bugs (default-constraint lookup, M2M through-table double
+    brackets, ALTER COLUMN with dependent constraints, sql_flush). All tables
+    now live in ``dbo`` with the schema as a name prefix instead. Same value
+    on MSSQL and SQLite so backends stay aligned.
 
     Usage in model Meta:
-        db_table = schema_table('export', 'shipments')
+        db_table = schema_table('export', 'shipments')  # -> 'export_shipments'
     """
-    if _is_sqlite():
-        return f'{schema}_{table}'
-    # mssql-django passes through names starting and ending with [...] unchanged
-    # so [schema].[table] produces the correct two-part identifier
-    return f'[{schema}].[{table}]'
+    return f'{schema}_{table}'
