@@ -45,12 +45,20 @@ def _topo_sort(tables: list[str], edges: list[tuple[str, str]]) -> list[str]:
     """Return tables ordered so that referenced tables come before their parents.
 
     edges: list of (parent, referenced) — parent depends on referenced.
-    Self-references and cycles are reported alongside the partial order.
+    Self-references and external references (referenced not in ``tables``)
+    are dropped before sorting, so a table that FKs only to external
+    targets (e.g. ``dbo.sys_users``) is treated as having no dependencies
+    rather than stuck in cycle_remainder forever.
     """
+    table_set = set(tables)
     incoming = defaultdict(set)
     outgoing = defaultdict(set)
     for parent, referenced in edges:
         if parent == referenced:
+            continue
+        if referenced not in table_set:
+            # External reference (e.g. dbo.sys_users, auth.User) — caller is
+            # responsible for ensuring the external target is populated first.
             continue
         incoming[parent].add(referenced)
         outgoing[referenced].add(parent)
