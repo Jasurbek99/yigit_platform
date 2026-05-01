@@ -1,4 +1,18 @@
-"""Add code, is_experimental, scientific_name to TomatoVariety and seed 13 varieties."""
+"""Add code, is_experimental, scientific_name to TomatoVariety and seed 13 varieties.
+
+Manually rewritten from AddField → RunSQL because mssql-django's schema editor
+builds an incorrect query against sys.default_constraints when adding a NOT NULL
+column with default to a table in a non-dbo schema (e.g. [core].[tomato_varieties]).
+The query searches t.name = '[core].[tomato_varieties]' (with brackets) but
+sys.tables stores just 'tomato_varieties'. The fallback then tries to drop a
+constraint named after the column itself, which fails.
+
+The 3-step pattern (ADD as NULL → UPDATE → ALTER to NOT NULL) sidesteps the
+buggy default-constraint cleanup path. Same pattern as 0002_add_is_gapy_satys_to_firms.
+
+For nullable string columns (code, scientific_name) the bug doesn't apply —
+those are kept as native AddField operations.
+"""
 
 from django.db import migrations, models
 
@@ -51,6 +65,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        # Nullable columns — safe via native AddField
         migrations.AddField(
             model_name='tomatovariety',
             name='code',
@@ -58,13 +73,27 @@ class Migration(migrations.Migration):
         ),
         migrations.AddField(
             model_name='tomatovariety',
-            name='is_experimental',
-            field=models.BooleanField(default=False),
-        ),
-        migrations.AddField(
-            model_name='tomatovariety',
             name='scientific_name',
             field=models.CharField(blank=True, max_length=50),
         ),
+        # NOT NULL boolean with default — must use RunSQL workaround
+        migrations.RunSQL(
+            sql=[
+                "ALTER TABLE [core].[tomato_varieties] ADD [is_experimental] bit NULL;",
+                "UPDATE [core].[tomato_varieties] SET [is_experimental] = 0 WHERE [is_experimental] IS NULL;",
+                "ALTER TABLE [core].[tomato_varieties] ALTER COLUMN [is_experimental] bit NOT NULL;",
+            ],
+            reverse_sql=[
+                "ALTER TABLE [core].[tomato_varieties] DROP COLUMN [is_experimental];",
+            ],
+            state_operations=[
+                migrations.AddField(
+                    model_name='tomatovariety',
+                    name='is_experimental',
+                    field=models.BooleanField(default=False),
+                ),
+            ],
+        ),
+        # Seed data after schema is ready
         migrations.RunPython(seed_varieties, noop),
     ]

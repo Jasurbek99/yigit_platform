@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 from datetime import timedelta
 
@@ -64,26 +65,54 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 # ════════════════════════════════════════════════
-# Database — MSSQL in Docker / SQLite for local dev
-# Set USE_SQLITE=true to use SQLite (no ODBC driver needed)
+# Database
+#
+# Two modes:
+#   1. Production / dev (default):
+#        MSSQL on 10.10.11.233\YIGIT, database YIGIT_PLATFROM
+#        User: YigitUser (limited rights, no CREATE DATABASE)
+#        Used by: runserver, migrate, all normal app operations
+#        Tests NEVER run here — TEST block intentionally omitted.
+#
+#   2. Tests (auto-detected when running `manage.py test` or pytest):
+#        MSSQL on local server, database test_YIGIT_PLATFROM
+#        User: YigitTestUser (full rights including CREATE DATABASE)
+#        Django creates / drops / re-uses this database automatically.
 # ════════════════════════════════════════════════
-if os.environ.get('USE_SQLITE', 'false').lower() == 'true':
+
+# Detect test mode — covers both `manage.py test` and pytest
+RUNNING_TESTS = (
+    'test' in sys.argv
+    or any('pytest' in arg for arg in sys.argv)
+    or os.environ.get('DJANGO_TESTING') == 'true'
+)
+
+if RUNNING_TESTS:
+    # Tests run on a separate local MSSQL server.
+    # YigitTestUser has full permissions — Django manages test_YIGIT_PLATFROM lifecycle.
+    _test_db_name = os.environ.get('TEST_DB_NAME', 'test_YIGIT_PLATFROM')
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
+            'ENGINE': 'mssql',
+            'NAME': _test_db_name,
+            'USER': os.environ.get('TEST_DB_USER', 'YigitTestUser'),
+            'PASSWORD': os.environ.get('TEST_DB_PASSWORD', 'TestPassword123!'),
+            'HOST': os.environ.get('TEST_DB_HOST', r'localhost'),
+            'PORT': os.environ.get('TEST_DB_PORT', ''),
+            'OPTIONS': {
+                'driver': 'ODBC Driver 18 for SQL Server',
+                'extra_params': 'TrustServerCertificate=yes',
+            },
+            'TEST': {
+                'NAME': _test_db_name,
+                'COLLATION': 'Cyrillic_General_CI_AS',
+            },
         }
     }
 
-    # When running Django tests under USE_SQLITE=true, many existing migrations
-    # contain MSSQL-specific RunSQL blocks that break on SQLite. Bypass them by
-    # having Django create tables directly from models (syncdb-style).
-    # The Cyrillic_General_CI_AS collation stub is registered by the test runner.
-    MIGRATION_MODULES = {app: None for app in [
-        'admin', 'auth', 'contenttypes', 'sessions', 'token_blacklist',
-        'core', 'greenhouse', 'export',
-    ]}
 else:
+    # Production / dev — real MSSQL server.
+    # No TEST block: tests must NEVER run against this database.
     _db_name = os.environ.get('DB_NAME', 'YIGIT_PLATFROM')
     DATABASES = {
         'default': {
@@ -97,19 +126,8 @@ else:
                 'driver': 'ODBC Driver 18 for SQL Server',
                 'extra_params': 'TrustServerCertificate=yes',
             },
-            # YigitUser lacks CREATE DATABASE permission on the MSSQL server.
-            # Point tests at the existing database. Django wraps each test in a
-            # transaction that is rolled back — data is not persisted.
-            'TEST': {
-                'NAME': os.environ.get('TEST_DB_NAME', _db_name),
-            },
         }
     }
-
-# ════════════════════════════════════════════════
-# Test runner — registers Cyrillic collation stub for SQLite test runs
-# ════════════════════════════════════════════════
-TEST_RUNNER = 'config.test_runner.CyrillicSQLiteTestRunner'
 
 # ════════════════════════════════════════════════
 # Auth
