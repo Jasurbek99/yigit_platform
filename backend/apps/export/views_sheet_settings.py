@@ -512,15 +512,31 @@ class SheetRowSettingViewSet(viewsets.ModelViewSet):
     # ── Private helpers ────────────────────────────────────────────────────
 
     def _provision_missing_rows(self) -> None:
-        """Create SheetRowSetting entries for DEFAULT_SHEET_ROWS rows not in DB."""
-        for row in DEFAULT_SHEET_ROWS:
-            SheetRowSetting.objects.get_or_create(
-                field_key=row['field_key'],
-                defaults={
-                    'row_number': row['row_number'],
-                    'display_order': row['row_number'] * 1024,
-                },
-            )
+        """Create SheetRowSetting entries for DEFAULT_SHEET_ROWS rows not in DB.
+
+        First-call cost: 1 SELECT + 1 bulk_create. Steady-state cost: 1 SELECT
+        (the bulk_create is skipped when nothing is missing). Replaces the
+        prior per-row get_or_create loop, which fired ~37 SELECTs on every
+        admin page load even after all rows were already provisioned.
+        """
+        existing_keys = set(
+            SheetRowSetting.objects.values_list('field_key', flat=True)
+        )
+        missing = [r for r in DEFAULT_SHEET_ROWS if r['field_key'] not in existing_keys]
+        if not missing:
+            return
+        SheetRowSetting.objects.bulk_create(
+            [
+                SheetRowSetting(
+                    field_key=r['field_key'],
+                    row_number=r['row_number'],
+                    display_order=r['row_number'] * 1024,
+                )
+                for r in missing
+            ],
+            batch_size=500,
+            ignore_conflicts=True,
+        )
 
     def _perform_update_with_audit(
         self,
