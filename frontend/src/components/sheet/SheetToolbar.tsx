@@ -9,10 +9,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { canDo } from '@/utils/permissions';
 import type { IRowConfig, ISheetTaskCounts, IShipmentSheetItem } from '@/types';
 
-// Cap on how many columns the user can freeze. The sheet is virtualized — at
-// some point freezing more columns just hides the scrollable pane entirely,
-// which defeats the purpose. 20 is a generous practical ceiling.
-const MAX_FROZEN_COLS = 20;
+// Cap on how many SHIPMENT columns the user can freeze (on top of the 3
+// row-label columns: Row #, Who, Field name). Beyond this, freezing more
+// just hides the scrollable pane. 20 is a generous practical ceiling.
+const MAX_FROZEN_SHIPMENT_COLS = 20;
+// The row-label band always sits at the left of the sheet: # / Who / Field.
+const TOTAL_LABEL_COLS = 3;
 
 const { Text } = Typography;
 
@@ -127,19 +129,36 @@ export function SheetToolbar({
     [rows, t],
   );
 
-  const colMax = Math.min(MAX_FROZEN_COLS, Math.max(0, shipments.length - 1));
+  // frozenColCount counts ALL frozen columns: 1=Row#, 2=Who, 3=Field name (the
+  // full row-label band — the v1 default), 4+ = +shipments. The picker shows
+  // every option from "No freeze" to "After column 3 + N shipments" capped at
+  // MAX_FROZEN_SHIPMENT_COLS shipments to keep the dropdown reasonable.
+  const colMax =
+    TOTAL_LABEL_COLS + Math.min(MAX_FROZEN_SHIPMENT_COLS, shipments.length);
   const colOptions = useMemo(
-    () => [
-      { value: 0, label: t('sheet.settings.no_freeze') },
-      ...Array.from({ length: colMax }, (_, i) => ({
-        value: i + 1,
-        label: t('sheet.settings.col_option', { col: i + 1 }),
-      })),
-    ],
+    () => {
+      const opts: { value: number; label: string }[] = [
+        { value: 0, label: t('sheet.settings.no_freeze') },
+      ];
+      for (let col = 1; col <= colMax; col++) {
+        let label: string;
+        if (col === 1) label = t('sheet.settings.col_option_num');
+        else if (col === 2) label = t('sheet.settings.col_option_who');
+        else if (col === 3) label = t('sheet.settings.col_option_field');
+        else
+          label = t('sheet.settings.col_option_shipment', {
+            col,
+            n: col - TOTAL_LABEL_COLS,
+          });
+        opts.push({ value: col, label });
+      }
+      return opts;
+    },
     [colMax, t],
   );
 
-  const isDefaultFreeze = frozenRowCount === 13 && frozenColCount === 0;
+  // Default = freeze the full row-label band (Row #, Who, Field name).
+  const isDefaultFreeze = frozenRowCount === 13 && frozenColCount === TOTAL_LABEL_COLS;
 
   return (
     <>
@@ -260,7 +279,7 @@ export function SheetToolbar({
             key="reset"
             onClick={() => {
               setFrozenRowCount(13);
-              setFrozenColCount(0);
+              setFrozenColCount(TOTAL_LABEL_COLS);
             }}
           >
             {t('sheet.settings.reset_default')}
@@ -302,12 +321,9 @@ export function SheetToolbar({
               onChange={(v) => setFrozenColCount(v)}
               options={colOptions}
               placeholder={t('sheet.settings.no_freeze')}
-              disabled={colMax === 0}
             />
             <Text type="secondary" style={{ fontSize: 11 }}>
-              {colMax === 0
-                ? t('sheet.settings.freeze_cols_disabled')
-                : t('sheet.settings.freeze_cols_hint')}
+              {t('sheet.settings.freeze_cols_hint')}
             </Text>
           </div>
         </Space>

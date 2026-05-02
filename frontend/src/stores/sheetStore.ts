@@ -6,9 +6,16 @@ interface IActiveCell {
   rowKey: string;
 }
 
-const FREEZE_STORAGE_KEY = 'ygt-sheet-freeze';
+// v2: frozenColCount semantics changed — it now counts ALL frozen columns
+// (Row #, Who, Field name, then shipments) instead of just shipment columns.
+// Bumping the key resets old values so users don't jump from "label band
+// frozen" to "nothing frozen" silently. Old `ygt-sheet-freeze` is left in
+// localStorage and ignored.
+const FREEZE_STORAGE_KEY = 'ygt-sheet-freeze-v2';
 const DEFAULT_FROZEN_ROW_COUNT = 13; // rows 2–14 — Identity & Planning band
-const DEFAULT_FROZEN_COL_COUNT = 0;
+// 3 = Row # + Who + Field name. Matches the v1 default visual: label band is
+// sticky-left, no shipments frozen.
+const DEFAULT_FROZEN_COL_COUNT = 3;
 
 interface IFreezeState {
   frozenRowCount: number;
