@@ -14,7 +14,11 @@ Phase 2a backend test suite. Covers:
 10. TestQueryBudget — /sheet/ does not add more than 1 query versus pre-Phase-2a baseline.
 
 Run with:
-    USE_SQLITE=true python manage.py test apps.export.tests_user_preferences --verbosity=2
+    python manage.py test apps.export.tests_user_preferences --verbosity=2
+
+(Tests run against MSSQL test_YIGIT_PLATFROM via YigitTestUser since the
+schema-collapse refactor in commit 932d950 — the legacy USE_SQLITE=true
+SQLite test runner was dropped because the project is MSSQL-only.)
 """
 import os
 

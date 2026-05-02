@@ -473,6 +473,21 @@ export default function ShipmentList() {
         shipmentIds={selectedRowKeys}
         onFinished={() => setSelectedRowKeys([])}
       />
+
+      <ShipmentFilterDrawer
+        open={filterDrawerOpen}
+        onClose={() => setFilterDrawerOpen(false)}
+        initial={{
+          country: countryFilter,
+          customer: customerFilter,
+          export_firm: exportFirmFilter,
+          date_after: dateAfter,
+          date_before: dateBefore,
+          pending_my_fields: pendingMyFields,
+        }}
+        onApply={applyAdvancedFilters}
+        onClear={clearAdvancedFilters}
+      />
     </div>
   );
 }

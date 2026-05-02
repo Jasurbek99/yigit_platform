@@ -4,10 +4,11 @@ Every PATCH to /api/v1/export/shipments/{id}/ that changes a field must produce
 an AuditLog row with the correct field_name, old_value, new_value, and user_id.
 
 Run with:
-    USE_SQLITE=true python manage.py test apps.export.tests_shipment_field_audit --verbosity=2
+    python manage.py test apps.export.tests_shipment_field_audit --verbosity=2
 
-The CyrillicSQLiteTestRunner (configured as TEST_RUNNER in settings.py) is used
-to handle Cyrillic collation fields on SQLite.
+(Tests run against MSSQL test_YIGIT_PLATFROM via YigitTestUser since the
+schema-collapse refactor in commit 932d950 — the legacy USE_SQLITE=true
+SQLite test runner was dropped because the project is MSSQL-only.)
 
 Fixture setup mirrors tests_shipment_sheet.py: explicit ShipmentStatusType +
 Shipment creation, seed_permissions() for role-based field gates, APIClient
