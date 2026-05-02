@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { IShipmentSheetItem, IRowConfig } from '@/types';
 import { useSheetStore } from '@/stores/sheetStore';
-import { useShipmentPatch } from '@/hooks/useShipmentPatch';
+import { useShipmentPatch, extractPatchError } from '@/hooks/useShipmentPatch';
 import api from '@/services/api';
 import {
   useCountries,
@@ -64,8 +64,9 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
       queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
       close();
     },
-    onError: () => {
-      message.error(t('sheet.save_error'));
+    onError: (err) => {
+      message.error(extractPatchError(err, t('sheet.save_error')));
+      console.error('[SheetCellEditor] junction PATCH failed', err);
       close();
     },
   });

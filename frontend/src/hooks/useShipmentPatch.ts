@@ -1,8 +1,40 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { message } from 'antd';
 import { useTranslation } from 'react-i18next';
+import type { AxiosError } from 'axios';
 import api from '@/services/api';
 import type { IApiListResponse, IShipmentListItem, IShipmentSheetItem } from '@/types';
+
+/**
+ * Extract a human-readable error message from an axios error coming back
+ * from the Shipment PATCH endpoint. Order of precedence:
+ *   1. response.data.error          (our convention for plain string errors)
+ *   2. response.data.<field>[0]     (DRF field-level validation errors)
+ *   3. response.status + statusText (e.g. "403 Forbidden")
+ *   4. error.message                (network / unknown)
+ *
+ * Returns the supplied i18n fallback string when nothing usable is available.
+ */
+export function extractPatchError(err: unknown, fallback: string): string {
+  const axiosErr = err as AxiosError<unknown>;
+  const data = axiosErr.response?.data;
+  if (data && typeof data === 'object') {
+    const obj = data as Record<string, unknown>;
+    if (typeof obj.error === 'string') return obj.error;
+    // DRF field errors: {"weight_net": ["This field is required."]}
+    for (const key of Object.keys(obj)) {
+      const v = obj[key];
+      if (Array.isArray(v) && v.length > 0 && typeof v[0] === 'string') {
+        return `${key}: ${v[0]}`;
+      }
+    }
+  }
+  if (axiosErr.response?.statusText) {
+    return `${fallback} (${axiosErr.response.status} ${axiosErr.response.statusText})`;
+  }
+  if (axiosErr.message) return `${fallback} — ${axiosErr.message}`;
+  return fallback;
+}
 
 interface IPatchVariables {
   id: number;
@@ -76,9 +108,11 @@ export function useShipmentPatch() {
       await queryClient.cancelQueries({ queryKey: ['shipments'] });
       return applyOptimistic(queryClient, id, { [field]: value });
     },
-    onError: (_err, _vars, context) => {
+    onError: (err, _vars, context) => {
       rollback(queryClient, context);
-      message.error(t('sheet.save_error'));
+      message.error(extractPatchError(err, t('sheet.save_error')));
+      // Always log full error for support: real value, status, response body.
+      console.error('[useShipmentPatch] PATCH failed', err);
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['shipments'] });
@@ -103,9 +137,10 @@ export function useShipmentPatchMulti() {
       await queryClient.cancelQueries({ queryKey: ['shipments'] });
       return applyOptimistic(queryClient, id, fields);
     },
-    onError: (_err, _vars, context) => {
+    onError: (err, _vars, context) => {
       rollback(queryClient, context);
-      message.error(t('shipment_edit_drawer.save_error'));
+      message.error(extractPatchError(err, t('shipment_edit_drawer.save_error')));
+      console.error('[useShipmentPatchMulti] PATCH failed', err);
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['shipments'] });
