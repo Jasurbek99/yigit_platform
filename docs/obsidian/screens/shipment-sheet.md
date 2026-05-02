@@ -39,9 +39,16 @@ Both axes of the freeze are user-configurable, modelled on Google Sheets:
 
 State lives in `sheetStore` (`frozenRowCount`, `frozenColCount`) and persists to `localStorage` under `ygt-sheet-freeze`. Defaults restore on first visit. The grid clamps stored values against the visible row/column counts each render so a stale localStorage value (e.g. 5C frozen, only 2 shipments visible after filter) still produces a coherent layout.
 
-The toolbar exposes a **Freeze** dropdown with: _No rows / 1 row / 2 rows / Up to current row (N) / Default (rows 2–14)_ and the equivalent column options. "Up to current row/column" reads `activeCell` and is disabled when no cell is selected. The current setting is shown as `<R>R · <C>C` next to the button (this is the *user-set* value, not the clamped one — stable across filter changes).
+### Settings modal
 
-A blue 2px line on the trailing edge of the last frozen row/column marks the freeze line, mirroring Excel/Sheets. Header label cells (`#`, Who, Field name) are also `position: sticky; left: 0` so they remain visible during horizontal scrolling.
+The toolbar's **⚙ Settings** button (top-left, after the Gapy switch) opens a `Sheet Display Settings` modal that houses the freeze pickers:
+
+- **Freeze rows up to:** Ant `Select` with one option per visible row in the current order — labelled `<field label> (R<row_number>)` (e.g. `Harvest Status (R14)`). Picking row at position N sets `frozenRowCount = N`. The list reflects the user's reordered + visible row sequence (not the original Excel numbering), so freezing matches what the user actually sees on screen.
+- **Freeze columns up to:** Ant `Select` with options `After column 1`, `After column 2`, …, capped at `min(20, shipmentCount − 1)`. Picking N sets `frozenColCount = N`. Disabled when there are fewer than 2 shipments.
+
+Both pickers apply changes live (no Save button); the modal has `Reset to default` (rows=13, cols=0) and `Done` (close). A small badge dot on the gear button indicates the freeze is non-default. There is no longer an "Up to current row/column" shortcut — picking the row/column directly from the modal is more discoverable and doesn't require the user to first click a cell.
+
+A blue 2px line on the trailing edge of the last frozen row/column marks the freeze line, mirroring Excel/Sheets. Header label cells (`#`, Who, Field name) are also `position: sticky; left: 0` so they remain visible during horizontal scrolling. Rows and section containers carry `min-width: max-content` so the sticky-left cells are bounded by the row's full content width — without this they unstick once the user scrolls past one viewport-width.
 
 ## Row config
 
@@ -226,7 +233,7 @@ If the client sends an explicit non-zero `weight_kg`, the backend honours it (ad
 - `+ Add column` — creates a new draft shipment (`useSheetCreate`); visible when `canDo('shipment', 'create')`
 - Search — filters by `cargo_code` or `customer_name` (client-side)
 - Gapy only — filters to `is_gapy_satys = true`
-- **Freeze** — dropdown to set frozen-row and frozen-column counts (see Freeze panes above)
+- **⚙ Settings** — opens the `Sheet Display Settings` modal with the freeze pickers (see Freeze panes above)
 - Deadline timer — global hour deadline indicator
 
 ## Backend payload

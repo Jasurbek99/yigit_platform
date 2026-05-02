@@ -4,6 +4,9 @@ All notable changes to the YGT Platform.
 
 ## [Unreleased]
 
+### Changed
+- **Sheet freeze panes — moved from Toolbar dropdown to Sheet Display Settings modal** (feat(frontend)) — replaces the Google-Sheets-style "0 / 1 / 2 / Up to current row" dropdown with a `⚙ Settings` button (top-left toolbar) that opens a `Sheet Display Settings` modal. Modal contains two `Select` pickers: *Freeze rows up to* (one option per visible row, labelled `<field> (R<row_number>)`) and *Freeze columns up to* (`After column N`, capped at `min(20, shipmentCount − 1)`). Apply-on-change, no save button; `Reset to default` and `Done` in the footer. Badge dot on the gear button when freeze is non-default. Preserves the existing `sheetStore` state and `localStorage` persistence under `ygt-sheet-freeze` — only the configuration UI changed. The "Up to current row/column" shortcut is retired (picking from the modal is more discoverable and doesn't require pre-clicking a cell). 14 `sheet.freeze.*` i18n keys replaced with 12 `sheet.settings.*` keys in tk/ru/en.
+
 ### Added
 - **`.env` configuration for backend and frontend** (chore) — `python-dotenv` added to `backend/requirements.txt`; `config/settings.py` now loads `backend/.env` on startup. Created `.env` and `.env.example` in `backend/` (Django + DB + CORS) and in `frontend/` (Vite `VITE_API_BASE_URL`, `VITE_USE_MOCK`). Both `.env` files are gitignored. **Removed hard-coded prod `DB_PASSWORD` default from `settings.py`** — non-DEBUG startup now raises `RuntimeError` if `DB_PASSWORD` is unset, surfacing missing config instead of silently using the production password. Also added `.vscode/settings.json` (gitignored) with `python.terminal.useEnvFile=true` and `python.envFile=${workspaceFolder}/backend/.env`.
 

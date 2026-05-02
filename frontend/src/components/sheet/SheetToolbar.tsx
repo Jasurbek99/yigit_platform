@@ -1,15 +1,18 @@
 import { useMemo, useState } from 'react';
-import { Button, Input, Switch, Typography, Badge, Dropdown, Modal, List } from 'antd';
-import type { MenuProps } from 'antd';
-import { PlusOutlined, SearchOutlined, CommentOutlined, LockOutlined, EyeOutlined } from '@ant-design/icons';
+import { Button, Input, Switch, Typography, Badge, Modal, List, Select, Space } from 'antd';
+import { PlusOutlined, SearchOutlined, CommentOutlined, EyeOutlined, SettingOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { DeadlineTimer } from '@/components/DeadlineTimer';
 import { useSheetStore } from '@/stores/sheetStore';
 import { useSheetCreate } from '@/hooks/useSheetCreate';
 import { useAuth } from '@/hooks/useAuth';
 import { canDo } from '@/utils/permissions';
-import { SHEET_ROW_CONFIG } from '@/constants/sheetRowConfig';
 import type { IRowConfig, ISheetTaskCounts, IShipmentSheetItem } from '@/types';
+
+// Cap on how many columns the user can freeze. The sheet is virtualized — at
+// some point freezing more columns just hides the scrollable pane entirely,
+// which defeats the purpose. 20 is a generous practical ceiling.
+const MAX_FROZEN_COLS = 20;
 
 const { Text } = Typography;
 
@@ -60,11 +63,11 @@ export function SheetToolbar({
     frozenColCount,
     setFrozenRowCount,
     setFrozenColCount,
-    activeCell,
   } = useSheetStore();
   const createMutation = useSheetCreate();
 
   const [unhideModalOpen, setUnhideModalOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const canCreate = canDo(user, 'shipment', 'create');
   const shipmentCount = shipments.length;
@@ -107,81 +110,36 @@ export function SheetToolbar({
     [hiddenRowIds, rowIdToFieldKey, fieldKeyToLabel],
   );
 
-  // ─── Freeze dropdown ────────────────────────────────────────────────────
-  const activeRowIndex = useMemo(() => {
-    if (!activeCell) return -1;
-    return SHEET_ROW_CONFIG.findIndex((r) => r.fieldKey === activeCell.rowKey);
-  }, [activeCell]);
-
-  const activeColIndex = useMemo(() => {
-    if (!activeCell) return -1;
-    return shipments.findIndex((s) => s.id === activeCell.shipmentId);
-  }, [activeCell, shipments]);
-
-  const activeRowNumber =
-    activeRowIndex >= 0 ? SHEET_ROW_CONFIG[activeRowIndex].rowNumber : null;
-
-  const freezeMenu: MenuProps = {
-    selectable: false,
-    onClick: ({ key }) => {
-      const [axis, value] = key.split(':');
-      if (axis === 'r') {
-        if (value === 'active' && activeRowIndex >= 0) {
-          setFrozenRowCount(activeRowIndex + 1);
-        } else {
-          setFrozenRowCount(parseInt(value, 10));
-        }
-      } else if (axis === 'c') {
-        if (value === 'active' && activeColIndex >= 0) {
-          setFrozenColCount(activeColIndex + 1);
-        } else {
-          setFrozenColCount(parseInt(value, 10));
-        }
-      }
-    },
-    items: [
-      {
-        key: 'rows-grp',
-        type: 'group',
-        label: t('sheet.freeze.rows'),
-        children: [
-          { key: 'r:0', label: t('sheet.freeze.no_rows') },
-          { key: 'r:1', label: t('sheet.freeze.one_row') },
-          { key: 'r:2', label: t('sheet.freeze.n_rows', { count: 2 }) },
-          {
-            key: 'r:active',
-            disabled: activeRowIndex < 0,
-            label:
-              activeRowNumber != null
-                ? t('sheet.freeze.up_to_row_n', { row: activeRowNumber })
-                : t('sheet.freeze.up_to_row'),
-          },
-          { key: 'r:13', label: t('sheet.freeze.default_rows') },
-        ],
-      },
-      { type: 'divider' },
-      {
-        key: 'cols-grp',
-        type: 'group',
-        label: t('sheet.freeze.cols'),
-        children: [
-          { key: 'c:0', label: t('sheet.freeze.no_cols') },
-          { key: 'c:1', label: t('sheet.freeze.one_col') },
-          { key: 'c:2', label: t('sheet.freeze.n_cols', { count: 2 }) },
-          {
-            key: 'c:active',
-            disabled: activeColIndex < 0,
-            label:
-              activeColIndex >= 0
-                ? t('sheet.freeze.up_to_col_n', { col: activeColIndex + 1 })
-                : t('sheet.freeze.up_to_col'),
-          },
-        ],
-      },
+  // ─── Settings modal: freeze pickers ─────────────────────────────────────
+  // The row picker uses the runtime `rows` array (which already reflects
+  // user-reordered + visible rows from the API), so position N matches what
+  // the user sees on screen — not the original Excel row number. We still
+  // surface the original row_number as "(R14)" for cross-reference with the
+  // legacy spreadsheet.
+  const rowOptions = useMemo(
+    () => [
+      { value: 0, label: t('sheet.settings.no_freeze') },
+      ...rows.map((r, idx) => ({
+        value: idx + 1,
+        label: `${t(r.label_key)} (R${r.row_number})`,
+      })),
     ],
-  };
+    [rows, t],
+  );
 
-  const freezeSummary = `${frozenRowCount}R · ${frozenColCount}C`;
+  const colMax = Math.min(MAX_FROZEN_COLS, Math.max(0, shipments.length - 1));
+  const colOptions = useMemo(
+    () => [
+      { value: 0, label: t('sheet.settings.no_freeze') },
+      ...Array.from({ length: colMax }, (_, i) => ({
+        value: i + 1,
+        label: t('sheet.settings.col_option', { col: i + 1 }),
+      })),
+    ],
+    [colMax, t],
+  );
+
+  const isDefaultFreeze = frozenRowCount === 13 && frozenColCount === 0;
 
   return (
     <>
@@ -215,14 +173,15 @@ export function SheetToolbar({
             />
             <Text style={{ fontSize: 12 }}>{t('sheet.gapy_only')}</Text>
           </div>
-          <Dropdown menu={freezeMenu} trigger={['click']} placement="bottomLeft">
-            <Button size="small" icon={<LockOutlined />}>
-              {t('sheet.freeze.label')}
-              <Text type="secondary" style={{ marginLeft: 6, fontSize: 11 }}>
-                {freezeSummary}
-              </Text>
+          <Badge dot={!isDefaultFreeze} offset={[-2, 4]}>
+            <Button
+              size="small"
+              icon={<SettingOutlined />}
+              onClick={() => setSettingsOpen(true)}
+            >
+              {t('sheet.settings.label')}
             </Button>
-          </Dropdown>
+          </Badge>
           <Text type="secondary" style={{ fontSize: 12 }}>
             {t('sheet.total_count', { count: shipmentCount })}
           </Text>
@@ -288,6 +247,70 @@ export function SheetToolbar({
             </List.Item>
           )}
         />
+      </Modal>
+
+      {/* Sheet display settings modal — currently only houses freeze pickers,
+          but is the natural home for any future per-user sheet preferences. */}
+      <Modal
+        open={settingsOpen}
+        onCancel={() => setSettingsOpen(false)}
+        title={t('sheet.settings.modal_title')}
+        footer={[
+          <Button
+            key="reset"
+            onClick={() => {
+              setFrozenRowCount(13);
+              setFrozenColCount(0);
+            }}
+          >
+            {t('sheet.settings.reset_default')}
+          </Button>,
+          <Button key="done" type="primary" onClick={() => setSettingsOpen(false)}>
+            {t('sheet.settings.done')}
+          </Button>,
+        ]}
+        width={520}
+      >
+        <div style={{ marginBottom: 12 }}>
+          <Text strong>{t('sheet.settings.freeze_section')}</Text>
+        </div>
+        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+          <div>
+            <div style={{ marginBottom: 6 }}>
+              <Text>{t('sheet.settings.freeze_rows_after')}</Text>
+            </div>
+            <Select
+              style={{ width: '100%' }}
+              value={Math.min(frozenRowCount, rows.length)}
+              onChange={(v) => setFrozenRowCount(v)}
+              options={rowOptions}
+              showSearch
+              optionFilterProp="label"
+              placeholder={t('sheet.settings.no_freeze')}
+            />
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              {t('sheet.settings.freeze_rows_hint')}
+            </Text>
+          </div>
+          <div>
+            <div style={{ marginBottom: 6 }}>
+              <Text>{t('sheet.settings.freeze_cols_after')}</Text>
+            </div>
+            <Select
+              style={{ width: '100%' }}
+              value={Math.min(frozenColCount, colMax)}
+              onChange={(v) => setFrozenColCount(v)}
+              options={colOptions}
+              placeholder={t('sheet.settings.no_freeze')}
+              disabled={colMax === 0}
+            />
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              {colMax === 0
+                ? t('sheet.settings.freeze_cols_disabled')
+                : t('sheet.settings.freeze_cols_hint')}
+            </Text>
+          </div>
+        </Space>
       </Modal>
     </>
   );
