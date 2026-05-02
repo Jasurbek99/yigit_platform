@@ -3,7 +3,13 @@ import sys
 from pathlib import Path
 from datetime import timedelta
 
+from dotenv import load_dotenv
+
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load environment from backend/.env. Real env vars (set by shell or
+# docker-compose) take precedence over the file.
+load_dotenv(BASE_DIR / '.env')
 
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-dev-key-change-in-production-ygt-platform-2025')
 
@@ -113,13 +119,20 @@ if RUNNING_TESTS:
 else:
     # Production / dev — real MSSQL server.
     # No TEST block: tests must NEVER run against this database.
-    _db_name = os.environ.get('DB_NAME', 'YIGIT_PLATFROM')
+    # DB_PASSWORD must come from .env or the environment — no default.
+    _db_password = os.environ.get('DB_PASSWORD')
+    if not _db_password:
+        raise RuntimeError(
+            "DB_PASSWORD is not set. Copy .env.example to .env and fill in DB_PASSWORD, "
+            "or export it in your shell."
+        )
+    _db_name = os.environ.get('DB_NAME', 'YIGIT_PLATFROM_NEW')
     DATABASES = {
         'default': {
             'ENGINE': 'mssql',
             'NAME': _db_name,
             'USER': os.environ.get('DB_USER', 'YigitUser'),
-            'PASSWORD': os.environ.get('DB_PASSWORD', '321drowssap!'),
+            'PASSWORD': _db_password,
             'HOST': os.environ.get('DB_HOST', r'10.10.11.233\YIGIT'),
             'PORT': os.environ.get('DB_PORT', ''),
             'OPTIONS': {

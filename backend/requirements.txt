@@ -9,6 +9,9 @@ djangorestframework-simplejwt>=5.3,<5.4
 mssql-django>=1.7,<1.7
 pyodbc>=5.1,<5.2
 
+# Config
+python-dotenv>=1.0,<2.0
+
 # API
 django-filter>=24.1,<25.0
 django-cors-headers>=4.4,<4.5

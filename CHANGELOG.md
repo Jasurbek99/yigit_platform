@@ -4,6 +4,9 @@ All notable changes to the YGT Platform.
 
 ## [Unreleased]
 
+### Added
+- **`.env` configuration for backend and frontend** (chore) — `python-dotenv` added to `backend/requirements.txt`; `config/settings.py` now loads `backend/.env` on startup. Created `.env` and `.env.example` in `backend/` (Django + DB + CORS) and in `frontend/` (Vite `VITE_API_BASE_URL`, `VITE_USE_MOCK`). Both `.env` files are gitignored. **Removed hard-coded prod `DB_PASSWORD` default from `settings.py`** — non-DEBUG startup now raises `RuntimeError` if `DB_PASSWORD` is unset, surfacing missing config instead of silently using the production password. Also added `.vscode/settings.json` (gitignored) with `python.terminal.useEnvFile=true` and `python.envFile=${workspaceFolder}/backend/.env`.
+
 ### Changed
 - **Collapsed MSSQL schemas to `dbo` with flat table-name prefixes** (refactor(db)) — eliminated three open mssql-django bugs that recurred whenever a model lived in a non-`dbo` schema: `_sql_select_default_constraint_name` (issue #402, open), M2M through-table double-bracket auto-naming (covered partially by an in-tree workaround migration), and `sql_flush` against schema-qualified tables (issue #496, open). All tables now live in `dbo`; `core_*`, `export_*`, `greenhouse_*` are name prefixes only.
   - **`schema_table()` returns `f'{schema}_{table}'`** in `apps/core/db_utils.py` (one-line change). The 52 callsites on model `Meta.db_table` now produce flat names like `core_export_firms`, `export_shipments`, `export_harvest_day_entries`. SQLite-vs-MSSQL split removed (both backends now return the same value). Critical invariant preserved: `HarvestDayEntry` (in the `greenhouse` Django app) keeps the `export_` prefix because the model owns the `export.harvest_day_entries` cross-app bridge — verified in the regenerated `apps/greenhouse/migrations/0001_initial.py`.
