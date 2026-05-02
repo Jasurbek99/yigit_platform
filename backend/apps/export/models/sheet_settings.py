@@ -202,6 +202,19 @@ class SheetRowSetting(models.Model):
         help_text='User who soft-deleted this row.',
     )
 
+    # === Hide cooldown (Phase 1 reviewer note #5) ===
+    # `hidden_at` is set when is_visible flips from True → False, cleared
+    # when it flips back. The 30-day soft-delete cooldown reads this column
+    # rather than `updated_at`, so cosmetic edits (label changes etc.) do
+    # NOT reset the clock.
+    hidden_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text='Timestamp of the most recent is_visible=False transition. '
+                  'Null when is_visible=True (or never hidden).',
+    )
+
     # === Audit ===
     updated_at = models.DateTimeField(auto_now=True)
     updated_by = models.ForeignKey(
@@ -234,9 +247,30 @@ class SheetRowSetting(models.Model):
             raise ValidationError(errors)
 
     def save(self, *args, **kwargs) -> None:
-        """Increment version on every update (not on insert)."""
+        """Increment version on every update (not on insert).
+
+        Also tracks is_visible transitions in `hidden_at`:
+          - True  → False : set hidden_at = now()
+          - False → True  : clear hidden_at to None
+        Cosmetic edits (labels, style, etc.) leave hidden_at alone, so the
+        30-day soft-delete cooldown reads the real "hidden since" timestamp.
+        """
         if self.pk is not None:
             self.version += 1
+            # Read the previous is_visible state from the DB exactly once.
+            try:
+                prev_visible = (
+                    type(self).objects.filter(pk=self.pk)
+                    .values_list('is_visible', flat=True)
+                    .first()
+                )
+            except Exception:
+                prev_visible = None
+            if prev_visible is True and self.is_visible is False:
+                from django.utils import timezone
+                self.hidden_at = timezone.now()
+            elif prev_visible is False and self.is_visible is True:
+                self.hidden_at = None
         super().save(*args, **kwargs)
 
     def __str__(self) -> str:

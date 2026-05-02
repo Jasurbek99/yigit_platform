@@ -106,6 +106,7 @@ class SheetRowSettingSerializer(serializers.ModelSerializer):
             'updated_at',
             'updated_by_name',
             'deleted_at',
+            'hidden_at',
         ]
         read_only_fields = [
             'id', 'field_key', 'row_number',
@@ -113,6 +114,9 @@ class SheetRowSettingSerializer(serializers.ModelSerializer):
             'triggered_roles', 'extra_users',
             'version',  # supplied by client for optimistic-lock check; never written via serializer
             'updated_at', 'updated_by_name', 'deleted_at',
+            # hidden_at is managed by SheetRowSetting.save() based on the
+            # is_visible transition; clients must not write it directly.
+            'hidden_at',
         ]
 
     def get_updated_by_name(self, obj: SheetRowSetting) -> str | None:
@@ -301,7 +305,10 @@ class SheetRowSettingViewSet(viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         """DELETE /admin/sheet-rows/{id}/ — soft-delete.
 
-        Pre-condition: row must have is_visible=False and updated_at > 30 days ago.
+        Pre-condition: row must have is_visible=False AND it must have been
+        hidden for ≥30 days. The cooldown is measured from `hidden_at` (set
+        only on the True → False transition by SheetRowSetting.save()), so
+        cosmetic edits during the cooldown window do NOT reset the clock.
         """
         instance = self.get_object()
 
@@ -317,9 +324,13 @@ class SheetRowSettingViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Check the row has been hidden for ≥30 days
+        # Cooldown reads `hidden_at`, falling back to `updated_at` only for
+        # rows that pre-date the hidden_at column (the data migration in
+        # 0003_sheet_row_setting_hidden_at backfills them — fallback is
+        # belt-and-suspenders for unmigrated environments).
         threshold = timezone.now() - timedelta(days=30)
-        if instance.updated_at > threshold:
+        hidden_since = instance.hidden_at or instance.updated_at
+        if hidden_since > threshold:
             return Response(
                 {'error': 'row_must_be_hidden_30_days'},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -525,18 +536,29 @@ class SheetRowSettingViewSet(viewsets.ModelViewSet):
         missing = [r for r in DEFAULT_SHEET_ROWS if r['field_key'] not in existing_keys]
         if not missing:
             return
-        SheetRowSetting.objects.bulk_create(
-            [
-                SheetRowSetting(
-                    field_key=r['field_key'],
-                    row_number=r['row_number'],
-                    display_order=r['row_number'] * 1024,
-                )
-                for r in missing
-            ],
-            batch_size=500,
-            ignore_conflicts=True,
-        )
+        # MSSQL via mssql-django does not support ignore_conflicts. The
+        # `missing` list is computed AFTER reading existing keys in the same
+        # request — concurrent admin loads provisioning the same row would
+        # raise IntegrityError on the unique field_key constraint. We swallow
+        # that here because the provisioning is best-effort idempotent setup,
+        # not user-visible work.
+        try:
+            SheetRowSetting.objects.bulk_create(
+                [
+                    SheetRowSetting(
+                        field_key=r['field_key'],
+                        row_number=r['row_number'],
+                        display_order=r['row_number'] * 1024,
+                    )
+                    for r in missing
+                ],
+                batch_size=500,
+            )
+        except Exception as exc:  # noqa: BLE001
+            from django.db import IntegrityError
+            if not isinstance(exc, IntegrityError):
+                raise
+            # Another concurrent admin GET inserted these rows first — fine.
 
     def _perform_update_with_audit(
         self,

@@ -298,13 +298,15 @@ class SheetRowSettingAdminTests(TestCase):
         row = _by_key(data, 'weight_net')
         row_id = row['id']
 
-        # Force the condition: hide the row and backdate updated_at to >30 days ago
+        # Force the condition: hide the row (sets hidden_at = now() via save()),
+        # then backdate hidden_at to >30 days ago. The cooldown reads hidden_at,
+        # not updated_at, so we backdate the hide-clock specifically.
         setting = SheetRowSetting.objects.get(pk=row_id)
         setting.is_visible = False
         setting.save()
-        # Force updated_at back 31 days via QuerySet to skip auto_now
+        # Force hidden_at back 31 days via QuerySet to skip the save() guard
         SheetRowSetting.objects.filter(pk=row_id).update(
-            updated_at=timezone.now() - timedelta(days=31)
+            hidden_at=timezone.now() - timedelta(days=31)
         )
 
         resp = self.client.delete(f'{_BASE}{row_id}/')
@@ -322,6 +324,68 @@ class SheetRowSettingAdminTests(TestCase):
         del_resp = self.client.get(f'{_BASE}?include_deleted=1')
         ids_with_deleted = [r['id'] for r in del_resp.data]
         self.assertIn(row_id, ids_with_deleted)
+
+    # ── Test 9b: cosmetic edits do NOT reset the hide cooldown ───────────────
+
+    def test_cosmetic_edit_does_not_reset_hide_cooldown(self):
+        """Editing a label after the row was hidden ≥30 days must not block delete.
+
+        Phase 1 reviewer note #5: pre-fix the cooldown read updated_at, so
+        renaming a label during the cooldown window reset the clock and the
+        admin couldn't actually delete the row. Cooldown now reads hidden_at,
+        which is set only on the is_visible True → False transition.
+        """
+        data = _provision(self.client, self.director)
+        row = _by_key(data, 'weight_net')
+        row_id = row['id']
+
+        # Hide the row, then backdate hidden_at by 31 days.
+        setting = SheetRowSetting.objects.get(pk=row_id)
+        setting.is_visible = False
+        setting.save()
+        SheetRowSetting.objects.filter(pk=row_id).update(
+            hidden_at=timezone.now() - timedelta(days=31)
+        )
+
+        # Cosmetic edit during the cooldown — bumps updated_at, must NOT
+        # touch hidden_at, must NOT block the delete.
+        setting.refresh_from_db()
+        resp_patch = self.client.patch(
+            f'{_BASE}{row_id}/',
+            {'label_en': 'Net weight (renamed)', 'version': setting.version},
+            format='json',
+        )
+        self.assertEqual(resp_patch.status_code, 200, resp_patch.data)
+
+        setting.refresh_from_db()
+        # hidden_at must still be the backdated value, not bumped by the edit.
+        self.assertIsNotNone(setting.hidden_at)
+        self.assertLess(
+            setting.hidden_at,
+            timezone.now() - timedelta(days=30),
+            'Cosmetic edit reset the hide cooldown — hidden_at should be untouched.',
+        )
+
+        # Delete now succeeds.
+        resp_del = self.client.delete(f'{_BASE}{row_id}/')
+        self.assertEqual(resp_del.status_code, 204, resp_del.data)
+
+    # ── Test 9c: unhide clears hidden_at ─────────────────────────────────────
+
+    def test_unhide_clears_hidden_at(self):
+        """Flipping is_visible False → True must clear hidden_at to None."""
+        data = _provision(self.client, self.director)
+        row = _by_key(data, 'weight_net')
+        row_id = row['id']
+
+        setting = SheetRowSetting.objects.get(pk=row_id)
+        setting.is_visible = False
+        setting.save()
+        self.assertIsNotNone(setting.hidden_at, 'save() should set hidden_at on hide')
+
+        setting.is_visible = True
+        setting.save()
+        self.assertIsNone(setting.hidden_at, 'save() should clear hidden_at on unhide')
 
     # ── Test 10: restore ─────────────────────────────────────────────────────
 
