@@ -1,14 +1,10 @@
-import { useState, useRef, useCallback } from 'react';
+import { useRef, useCallback } from 'react';
 import {
   Table,
   Switch,
   Select,
   Input,
   Tooltip,
-  Popover,
-  Slider,
-  Radio,
-  ColorPicker,
   Modal,
   Spin,
   Alert,
@@ -37,6 +33,8 @@ import { useAdminUsers } from '@/hooks/useAdmin';
 import { ROLE_CHOICES } from '@/constants/roles';
 import type { AxiosError } from 'axios';
 import { useQueryClient } from '@tanstack/react-query';
+import { SheetRowStylePopover } from './SheetRowStylePopover';
+import { SheetRowTooltipPopover } from './SheetRowTooltipPopover';
 
 dayjs.extend(relativeTime);
 
@@ -61,149 +59,10 @@ function useDebouncedCallback<T extends unknown[]>(
   );
 }
 
-// ─── Style Popover ────────────────────────────────────────────────────────────
-
-interface IStylePopoverProps {
-  record: ISheetRowSetting;
-  canWrite: boolean;
-  onSave: (patch: Partial<ISaveSheetRowPayload>) => void;
-}
-
-function StylePopover({ record, canWrite, onSave }: IStylePopoverProps) {
-  const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-
-  const content = (
-    <div style={{ width: 240 }}>
-      <div style={{ marginBottom: 8 }}>
-        <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>
-          {t('sheet_rows.style_width')}
-        </div>
-        <Slider
-          min={50}
-          max={500}
-          value={record.style_width ?? 120}
-          disabled={!canWrite}
-          onChange={(v) => onSave({ style_width: v })}
-        />
-      </div>
-      <div style={{ marginBottom: 8 }}>
-        <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>
-          {t('sheet_rows.style_align')}
-        </div>
-        <Radio.Group
-          value={record.style_align ?? 'left'}
-          disabled={!canWrite}
-          onChange={(e) => onSave({ style_align: e.target.value as 'left' | 'center' | 'right' })}
-          size="small"
-        >
-          <Radio.Button value="left">{t('sheet_rows.align_left')}</Radio.Button>
-          <Radio.Button value="center">{t('sheet_rows.align_center')}</Radio.Button>
-          <Radio.Button value="right">{t('sheet_rows.align_right')}</Radio.Button>
-        </Radio.Group>
-      </div>
-      <div>
-        <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>
-          {t('sheet_rows.style_color')}
-        </div>
-        <ColorPicker
-          value={record.style_color ?? ''}
-          disabled={!canWrite}
-          onChange={(color) => {
-            const hex = color.toHexString();
-            onSave({ style_color: hex === '#000000' ? null : hex });
-          }}
-          format="hex"
-          allowClear
-        />
-      </div>
-    </div>
-  );
-
-  return (
-    <Popover
-      content={content}
-      title={t('sheet_rows.col_style')}
-      trigger="click"
-      open={open}
-      onOpenChange={setOpen}
-    >
-      <Button size="small" type="text">
-        {record.style_width ? `${record.style_width}px` : '—'}{' '}
-        {record.style_align ? `| ${record.style_align}` : ''}{' '}
-        {record.style_color ? (
-          <span
-            style={{
-              display: 'inline-block',
-              width: 10,
-              height: 10,
-              background: record.style_color,
-              borderRadius: 2,
-              marginLeft: 4,
-            }}
-          />
-        ) : null}
-      </Button>
-    </Popover>
-  );
-}
-
-// ─── Tooltip Popover (description 3 langs) ────────────────────────────────────
-
-interface ITooltipPopoverProps {
-  record: ISheetRowSetting;
-  canWrite: boolean;
-  onSave: (patch: Partial<ISaveSheetRowPayload>) => void;
-}
-
-function TooltipPopover({ record, canWrite, onSave }: ITooltipPopoverProps) {
-  const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-
-  const content = (
-    <div style={{ width: 260 }}>
-      {(['tk', 'ru', 'en'] as const).map((lang) => {
-        const field = `description_${lang}` as keyof ISheetRowSetting;
-        return (
-          <div key={lang} style={{ marginBottom: 8 }}>
-            <div style={{ fontSize: 11, color: '#888', marginBottom: 2 }}>
-              {lang.toUpperCase()}
-            </div>
-            <Input.TextArea
-              size="small"
-              value={(record[field] as string) ?? ''}
-              disabled={!canWrite}
-              rows={2}
-              onChange={(e) => onSave({ [field]: e.target.value } as Partial<ISaveSheetRowPayload>)}
-            />
-          </div>
-        );
-      })}
-    </div>
-  );
-
-  const hasTooltip = record.description_tk || record.description_ru || record.description_en;
-
-  return (
-    <Popover
-      content={content}
-      title={t('sheet_rows.col_tooltip')}
-      trigger="click"
-      open={open}
-      onOpenChange={setOpen}
-    >
-      <Button size="small" type="text">
-        {hasTooltip ? (
-          <span style={{ color: '#1677ff' }}>{t('sheet_rows.tooltip_set')}</span>
-        ) : (
-          <span style={{ color: '#aaa' }}>{t('sheet_rows.tooltip_empty')}</span>
-        )}
-      </Button>
-    </Popover>
-  );
-}
-
 // ─── Main component ───────────────────────────────────────────────────────────
+// StylePopover and TooltipPopover were extracted to sibling files
+// (SheetRowStylePopover.tsx, SheetRowTooltipPopover.tsx) per Phase 1
+// reviewer note #8 — keeps this file under the 200-line guidance.
 
 export default function SheetRowsTab({ canWrite }: IProps) {
   const { t } = useTranslation();
@@ -385,7 +244,7 @@ export default function SheetRowsTab({ canWrite }: IProps) {
       key: 'tooltip',
       width: 100,
       render: (_: unknown, record: ISheetRowSetting) => (
-        <TooltipPopover
+        <SheetRowTooltipPopover
           record={record}
           canWrite={canWrite}
           onSave={(patch) => handleSave(record, patch)}
@@ -425,7 +284,7 @@ export default function SheetRowsTab({ canWrite }: IProps) {
       key: 'style',
       width: 140,
       render: (_: unknown, record: ISheetRowSetting) => (
-        <StylePopover
+        <SheetRowStylePopover
           record={record}
           canWrite={canWrite}
           onSave={(patch) => handleSave(record, patch)}
