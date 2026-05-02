@@ -47,8 +47,25 @@ interface IPatchMultiVariables {
   fields: Record<string, unknown>;
 }
 
+/**
+ * Shape of the cached `['shipments', 'sheet']` value. Mirrors the return type
+ * of useShipmentSheet — wrapped object whose `.shipments` field carries the
+ * row data. The cache is NOT a flat IShipmentSheetItem[]; the optimistic
+ * update has to navigate into `.shipments`. (Pre-Sheet-Control-v2 the cache
+ * was a flat array; the wrapper landed in commit 258326f and the optimistic
+ * update wasn't migrated, which threw `old?.map is not a function` from
+ * onMutate before the PATCH could fire.)
+ */
+interface ICachedSheet {
+  shipments: IShipmentSheetItem[];
+  // The cache also holds comment_counts / task_counts / rows / row_settings /
+  // last_edits / users_index / current_user_id / current_user_lang / etc.
+  // Spread them through unchanged via { ...old } below — no need to type each.
+  [extra: string]: unknown;
+}
+
 interface IPatchContext {
-  previousSheet: IShipmentSheetItem[] | undefined;
+  previousSheet: ICachedSheet | undefined;
   previousLists: [readonly unknown[], IApiListResponse<IShipmentListItem> | undefined][];
 }
 
@@ -60,10 +77,14 @@ function applyOptimistic(
   id: number,
   fields: Record<string, unknown>,
 ): IPatchContext {
-  const previousSheet = queryClient.getQueryData<IShipmentSheetItem[]>(['shipments', 'sheet']);
-  queryClient.setQueryData<IShipmentSheetItem[]>(['shipments', 'sheet'], (old) =>
-    old?.map((s) => (s.id === id ? { ...s, ...fields } : s)),
-  );
+  const previousSheet = queryClient.getQueryData<ICachedSheet>(['shipments', 'sheet']);
+  queryClient.setQueryData<ICachedSheet>(['shipments', 'sheet'], (old) => {
+    if (!old || !Array.isArray(old.shipments)) return old;
+    return {
+      ...old,
+      shipments: old.shipments.map((s) => (s.id === id ? { ...s, ...fields } : s)),
+    };
+  });
 
   const previousLists = queryClient.getQueriesData<IApiListResponse<IShipmentListItem>>({
     predicate: (q) => isListQueryKey(q.queryKey),
