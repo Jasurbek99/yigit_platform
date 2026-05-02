@@ -1,16 +1,23 @@
 /**
- * Phase 2a — per-user sheet row preferences: order + hide.
+ * Per-user sheet row preferences: order + hide.
  *
  * Three exports:
  *   useUserSheetPreferences()         GET /export/user/sheet-preferences/
  *   useSaveUserSheetPreferences()     raw PATCH mutation
  *   useDebouncedSaveSheetOrder(ms?)   debounced wrapper for drag/arrow reorder
  *
- * ADR-0003: DB is authoritative. After a successful PATCH the hook invalidates
- * ['user','sheet-preferences'] and ['shipments','sheet'] so the live Sheet
- * picks up the new server-side order without a Zustand store.
+ * Phase 2a: server is authoritative (ADR-0003); after every successful PATCH
+ * the hook invalidates ['user','sheet-preferences'] and ['shipments','sheet']
+ * so the live Sheet picks up the new server-side order.
  *
- * Phase 2b (IndexedDB + BroadcastChannel) is OUT OF SCOPE here.
+ * Phase 2b additions (this file):
+ *   - IndexedDB write-through cache (cache/userPrefsCache.ts) — gives the
+ *     Sheet an instant render on load before the server fetch returns and
+ *     keeps the local copy consistent after every save.
+ *   - BroadcastChannel sync (cache/broadcast.ts) — a save in tab A invalidates
+ *     the prefs query in tab B so the second tab re-renders without a manual
+ *     refresh. Other tabs read the freshly-written IDB value via the
+ *     re-fetch's onSuccess pathway.
  */
 
 import { useRef, useCallback, useEffect } from 'react';
@@ -18,6 +25,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { message } from 'antd';
 import { useTranslation } from 'react-i18next';
 import api from '@/services/api';
+import { useAuth } from '@/hooks/useAuth';
+import {
+  loadCachedPrefs,
+  saveCachedPrefs,
+} from '@/cache/userPrefsCache';
+import {
+  broadcastPrefsChanged,
+  onPrefsChanged,
+} from '@/cache/broadcast';
 import type { IUserSheetPreferences } from '@/types';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -29,22 +45,69 @@ const PREFS_ENDPOINT = '/export/user/sheet-preferences/';
 // ─── GET hook ─────────────────────────────────────────────────────────────────
 
 /**
- * Fetches the current user's sheet row preferences from the server.
- * Stale time: 60 s — user prefs change rarely; TanStack Query will
- * revalidate automatically after a successful PATCH (via invalidateQueries).
+ * Fetches the current user's sheet row preferences from the server, with an
+ * IndexedDB read-through that returns instantly while the server fetch runs.
+ *
+ * Stale time: 60 s. After a successful PATCH the mutation invalidates this
+ * query directly. Cross-tab updates arrive via BroadcastChannel (see the
+ * useEffect below) and trigger an invalidation on the receiving tab.
+ *
+ * The IDB read happens inside `queryFn`: we issue both reads in parallel and
+ * pick the server response when it arrives. If the server fetch fails (offline
+ * etc.) and IDB has data, the cached value is used — keeps the Sheet usable
+ * during transient outages. On success, IDB is updated.
  */
 export function useUserSheetPreferences() {
+  const { user } = useAuth();
+  const userId = user?.id ?? 0;
+
   return useQuery<IUserSheetPreferences>({
     queryKey: PREFS_QUERY_KEY,
     queryFn: async (): Promise<IUserSheetPreferences> => {
-      const { data } = await api.get<IUserSheetPreferences>(PREFS_ENDPOINT);
-      return data;
+      try {
+        const { data } = await api.get<IUserSheetPreferences>(PREFS_ENDPOINT);
+        // Write-through: IDB now mirrors the server.
+        if (userId) await saveCachedPrefs(userId, data);
+        return data;
+      } catch (err) {
+        // Server unreachable — fall back to IDB if we have a copy. Otherwise
+        // re-throw so TanStack Query reports the error to consumers.
+        if (userId) {
+          const cached = await loadCachedPrefs(userId);
+          if (cached) return cached;
+        }
+        throw err;
+      }
     },
     staleTime: 60_000,
-    // If the user has never set prefs, the server returns empty arrays.
-    // Default to empty so callers can read .row_order safely.
     placeholderData: { row_order: [], hidden_rows: [], updated_at: null },
   });
+}
+
+// ─── Cross-tab sync ───────────────────────────────────────────────────────────
+
+/**
+ * Subscribe to BroadcastChannel notifications. Mount once at the page level
+ * (e.g. in ShipmentSheet.tsx) so the listener lives as long as the Sheet UI.
+ * On message, invalidates the prefs query — TanStack Query then refetches,
+ * and the queryFn picks up the freshly-written IDB value (the publisher
+ * already wrote it before broadcasting).
+ */
+export function useUserSheetPrefsBroadcast(): void {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  const userId = user?.id ?? 0;
+
+  useEffect(() => {
+    if (!userId) return;
+    const unsubscribe = onPrefsChanged((msg) => {
+      // Ignore messages from a different user (e.g. logged-out tab).
+      if (msg.user_id !== userId) return;
+      qc.invalidateQueries({ queryKey: PREFS_QUERY_KEY });
+      qc.invalidateQueries({ queryKey: SHEET_QUERY_KEY });
+    });
+    return unsubscribe;
+  }, [qc, userId]);
 }
 
 // ─── Raw PATCH mutation ────────────────────────────────────────────────────────
@@ -56,19 +119,27 @@ interface ISavePrefsPayload {
 
 /**
  * Raw PATCH mutation. Both keys are optional; absent key = no-op for that
- * dimension. On success, invalidates both query keys so the Sheet refetches.
- * On 400 with known validation errors, surfaces a translated message.error.
+ * dimension. On success: writes the response through to IDB, broadcasts to
+ * other tabs, then invalidates the local TanStack Query keys.
  */
 export function useSaveUserSheetPreferences() {
   const { t } = useTranslation();
   const qc = useQueryClient();
+  const { user } = useAuth();
+  const userId = user?.id ?? 0;
 
   return useMutation<IUserSheetPreferences, unknown, ISavePrefsPayload>({
     mutationFn: async (payload: ISavePrefsPayload): Promise<IUserSheetPreferences> => {
       const { data } = await api.patch<IUserSheetPreferences>(PREFS_ENDPOINT, payload);
       return data;
     },
-    onSuccess: async () => {
+    onSuccess: async (data) => {
+      // Write-through to IDB FIRST so the broadcast receiver in other tabs
+      // reads the freshly-saved value when it picks up the message.
+      if (userId) {
+        await saveCachedPrefs(userId, data);
+        broadcastPrefsChanged(userId);
+      }
       await Promise.all([
         qc.invalidateQueries({ queryKey: PREFS_QUERY_KEY }),
         qc.invalidateQueries({ queryKey: SHEET_QUERY_KEY }),

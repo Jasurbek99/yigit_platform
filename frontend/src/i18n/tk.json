@@ -1194,7 +1194,8 @@
     "unknown_row_id_error": "Setir tertibi ýalňyşy — sahypany täzeläň",
     "move_up": "Ýokary geçir",
     "move_down": "Aşak geçir",
-    "row_menu": "Setir menýusy"
+    "row_menu": "Setir menýusy",
+    "drag_to_reorder": "Tertibi üýtgetmek üçin süýräň"
   },
   "draft": {
     "page_title": "Garalama ýükler",

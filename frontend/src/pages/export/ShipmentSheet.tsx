@@ -8,6 +8,7 @@ import {
   useUserSheetPreferences,
   useSaveUserSheetPreferences,
   useDebouncedSaveSheetOrder,
+  useUserSheetPrefsBroadcast,
 } from '@/hooks/useUserSheetPreferences';
 import { SheetToolbar } from '@/components/sheet/SheetToolbar';
 import { SheetGrid } from '@/components/sheet/SheetGrid';
@@ -24,13 +25,18 @@ export default function ShipmentSheet() {
   const rowSettings = data?.row_settings ?? {};
   const lastEdits = data?.last_edits ?? {};
   const currentUserLang = data?.current_user_lang ?? 'tk';
-  // Phase 2a: per-user row preferences fetched from their own endpoint.
-  // Separate from the sheet payload so they can be invalidated independently.
+  // Phase 2a: per-user row preferences fetched from their own endpoint
+  // (with Phase 2b IndexedDB read-through). Separate from the sheet payload
+  // so they can be invalidated independently.
   const { data: userPrefs } = useUserSheetPreferences();
   const userPreferences = {
     row_order: userPrefs?.row_order ?? [],
     hidden_rows: userPrefs?.hidden_rows ?? [],
   };
+
+  // Phase 2b: subscribe to cross-tab BroadcastChannel pulses. A save in
+  // another tab arrives here as a query invalidation → instant rerender.
+  useUserSheetPrefsBroadcast();
 
   const {
     searchText,

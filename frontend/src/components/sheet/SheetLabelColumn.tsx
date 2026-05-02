@@ -14,6 +14,16 @@ interface ISheetLabelRowProps {
   rowConfig: IRowConfig;
   /** z-index for the sticky-left label cells (raised in frozen-row sections). */
   stickyZIndex?: number;
+  /**
+   * How many of the 3 label-band cells should be sticky-left (0–3).
+   *  - 0: nothing sticky (all labels scroll horizontally with content)
+   *  - 1: only Row # sticky
+   *  - 2: Row # + Who sticky
+   *  - 3: full label band sticky (default — matches the original UX)
+   * Derived from the user's freeze setting in `sheetStore.frozenColCount`,
+   * clamped to 3. Passed in by SheetGrid; defaults to 3 for back-compat.
+   */
+  labelStickyCount?: 0 | 1 | 2 | 3;
   /** Row settings keyed by field_key — used for lock icon and label override. */
   rowSettings?: Record<string, ISheetRowSettingForUser>;
   /** Current user language for label override. */
@@ -28,6 +38,11 @@ interface ISheetLabelRowProps {
   onMoveDown?: () => void;
   /** Called when the user wants to hide this row. Undefined = hide not available. */
   onHideRow?: () => void;
+  /** Phase 2b: this row's index in the visible-rows list. Required for drag drop. */
+  rowIndex?: number;
+  /** Phase 2b: called when this row receives a drop from another row's drag.
+   * Undefined = drag-reorder not available. */
+  onReorderTo?: (fromIndex: number, toIndex: number) => void;
 }
 
 const STYLE_COLORS: Record<string, string> = {
@@ -43,6 +58,7 @@ const STYLE_COLORS: Record<string, string> = {
 function SheetLabelRowInner({
   rowConfig,
   stickyZIndex = 3,
+  labelStickyCount = 3,
   rowSettings = {},
   currentUserLang = 'tk',
   canMoveUp = false,
@@ -50,9 +66,12 @@ function SheetLabelRowInner({
   onMoveUp,
   onMoveDown,
   onHideRow,
+  rowIndex,
+  onReorderTo,
 }: ISheetLabelRowProps) {
   const { t } = useTranslation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
 
   const borderColor = STYLE_COLORS[rowConfig.style] ?? STYLE_COLORS.base;
 
@@ -71,6 +90,39 @@ function SheetLabelRowInner({
   // Reorder controls are shown only when callbacks are provided
   const hasReorder = onMoveUp !== undefined && onMoveDown !== undefined;
   const hasHide = onHideRow !== undefined;
+
+  // Phase 2b: drag-reorder. Available when both rowIndex and onReorderTo are
+  // supplied AND this row participates in user-side ordering. Falls back to
+  // the Up/Down arrows for keyboard / a11y users — both code paths converge
+  // on the same parent helpers in SheetGrid.
+  const hasDrag = onReorderTo !== undefined && typeof rowIndex === 'number';
+
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>): void => {
+    if (!hasDrag) return;
+    e.dataTransfer.setData('text/plain', String(rowIndex));
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>): void => {
+    if (!hasDrag) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (!dragOver) setDragOver(true);
+  };
+
+  const handleDragLeave = (): void => {
+    if (dragOver) setDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>): void => {
+    if (!hasDrag || rowIndex === undefined) return;
+    e.preventDefault();
+    setDragOver(false);
+    const raw = e.dataTransfer.getData('text/plain');
+    const fromIndex = Number.parseInt(raw, 10);
+    if (Number.isNaN(fromIndex) || fromIndex === rowIndex) return;
+    onReorderTo?.(fromIndex, rowIndex);
+  };
 
   // Kebab menu items
   const kebabItems: MenuProps['items'] = [];
@@ -91,19 +143,29 @@ function SheetLabelRowInner({
   // sticky positioning (the containing block becomes the wrapper's right edge).
   return (
     <Fragment>
-      {/* Col A: Row number with Up/Down reorder arrows */}
+      {/* Col A: Row number — drag handle (Phase 2b) + Up/Down a11y arrows */}
       <div
         className="sheet-label-col sheet-label-col--num"
+        draggable={hasDrag}
+        onDragStart={hasDrag ? handleDragStart : undefined}
+        onDragOver={hasDrag ? handleDragOver : undefined}
+        onDragLeave={hasDrag ? handleDragLeave : undefined}
+        onDrop={hasDrag ? handleDrop : undefined}
+        title={hasDrag ? t('sheet.drag_to_reorder') : undefined}
         style={{
           width: COL_WIDTH_ROW_NUM,
-          position: 'sticky',
-          left: 0,
-          zIndex: stickyZIndex,
+          ...(labelStickyCount >= 1
+            ? { position: 'sticky' as const, left: 0, zIndex: stickyZIndex }
+            : null),
           flexShrink: 0,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           gap: 1,
+          cursor: hasDrag ? 'grab' : undefined,
+          // Drop indicator: a 2px blue line on the top edge when another row
+          // is being dragged over this one. Cheap, clear, no animation.
+          boxShadow: dragOver ? 'inset 0 2px 0 0 #1677ff' : undefined,
         }}
       >
         {hasReorder ? (
@@ -163,9 +225,9 @@ function SheetLabelRowInner({
         className="sheet-label-col sheet-label-col--who"
         style={{
           width: COL_WIDTH_WHO,
-          position: 'sticky',
-          left: COL_WIDTH_ROW_NUM,
-          zIndex: stickyZIndex,
+          ...(labelStickyCount >= 2
+            ? { position: 'sticky' as const, left: COL_WIDTH_ROW_NUM, zIndex: stickyZIndex }
+            : null),
           flexShrink: 0,
         }}
       >
@@ -177,9 +239,13 @@ function SheetLabelRowInner({
         className="sheet-label-col sheet-label-col--field"
         style={{
           width: COL_WIDTH_FIELD,
-          position: 'sticky',
-          left: COL_WIDTH_ROW_NUM + COL_WIDTH_WHO,
-          zIndex: stickyZIndex,
+          ...(labelStickyCount >= 3
+            ? {
+                position: 'sticky' as const,
+                left: COL_WIDTH_ROW_NUM + COL_WIDTH_WHO,
+                zIndex: stickyZIndex,
+              }
+            : null),
           borderLeft: `3px solid ${borderColor}`,
           flexShrink: 0,
           display: 'flex',

@@ -95,7 +95,17 @@ export function SheetGrid({
   // value (e.g. 5 frozen cols, but the user now sees only 2 shipments) still
   // produces a coherent layout.
   const safeFrozenRowCount = Math.min(frozenRowCount, rows.length);
-  const safeFrozenColCount = Math.min(frozenColCount, shipments.length);
+  // frozenColCount counts ALL frozen columns: Row #, Who, Field name, then
+  // shipments. So 3 = full label band frozen (default); 4+ = label band +
+  // (N-3) shipments. Cap at 3 + shipments.length so we never ask for more
+  // shipment columns than exist.
+  const TOTAL_LABEL_COLS = 3;
+  const safeFrozenColCount = Math.min(
+    frozenColCount,
+    TOTAL_LABEL_COLS + shipments.length,
+  );
+  const labelStickyCount = Math.min(safeFrozenColCount, TOTAL_LABEL_COLS) as 0 | 1 | 2 | 3;
+  const shipmentFreezeCount = Math.max(0, safeFrozenColCount - TOTAL_LABEL_COLS);
 
   const frozenRows = useMemo(
     () => rows.slice(0, safeFrozenRowCount),
@@ -107,12 +117,12 @@ export function SheetGrid({
   );
 
   const frozenShipments = useMemo(
-    () => shipments.slice(0, safeFrozenColCount),
-    [shipments, safeFrozenColCount],
+    () => shipments.slice(0, shipmentFreezeCount),
+    [shipments, shipmentFreezeCount],
   );
   const scrollableShipments = useMemo(
-    () => shipments.slice(safeFrozenColCount),
-    [shipments, safeFrozenColCount],
+    () => shipments.slice(shipmentFreezeCount),
+    [shipments, shipmentFreezeCount],
   );
 
   const columnVirtualizer = useVirtualizer({
@@ -167,6 +177,36 @@ export function SheetGrid({
       onHideRow(rowId);
     },
     [fieldKeyToRowId, onHideRow],
+  );
+
+  // Drag-reorder: move row at fromIndex to position toIndex (splice-and-insert,
+  // unlike handleMove which swaps adjacent rows for the Up/Down arrows).
+  // Drag drops can land far from the source.
+  const handleReorderTo = useCallback(
+    (fromIndex: number, toIndex: number) => {
+      if (!fieldKeyToRowId || !onReorder) return;
+      if (fromIndex === toIndex) return;
+      if (fromIndex < 0 || toIndex < 0) return;
+      if (fromIndex >= rows.length || toIndex >= rows.length) return;
+
+      const idsInCurrentOrder = rows
+        .map((r) => fieldKeyToRowId[r.field_key])
+        .filter((id): id is number => id !== undefined);
+
+      const fromId = fieldKeyToRowId[rows[fromIndex]?.field_key];
+      const toId = fieldKeyToRowId[rows[toIndex]?.field_key];
+      if (fromId === undefined || toId === undefined) return;
+
+      const fromSlot = idsInCurrentOrder.indexOf(fromId);
+      const toSlot = idsInCurrentOrder.indexOf(toId);
+      if (fromSlot === -1 || toSlot === -1) return;
+
+      const updated = [...idsInCurrentOrder];
+      updated.splice(fromSlot, 1);
+      updated.splice(toSlot, 0, fromId);
+      onReorder(updated);
+    },
+    [fieldKeyToRowId, onReorder, rows],
   );
 
   const renderRow = useCallback(
@@ -269,12 +309,12 @@ export function SheetGrid({
               height: ROW_HEIGHT,
             }}
           >
-            <span className="sheet-col-header__seq">{vc.index + 1 + safeFrozenColCount}</span>
+            <span className="sheet-col-header__seq">{vc.index + 1 + shipmentFreezeCount}</span>
             <span className="sheet-col-header__code">{codeShort}</span>
           </div>
         );
       }),
-    [virtualColumns, scrollableShipments, safeFrozenColCount],
+    [virtualColumns, scrollableShipments, shipmentFreezeCount],
   );
 
   const renderSection = (sectionRows: IRowConfig[], inFrozenSection: boolean) =>
@@ -299,14 +339,22 @@ export function SheetGrid({
           className="sheet-row"
           style={{ display: 'flex', height: ROW_HEIGHT }}
         >
-          {/* Frozen left labels (#, who, field name) — already sticky-left */}
+          {/* Frozen left labels (#, who, field name) — sticky cells per user's
+              labelStickyCount (0–3). */}
           <SheetLabelRow
             rowConfig={rowConfig}
             stickyZIndex={stickyLeftZ}
+            labelStickyCount={labelStickyCount}
             rowSettings={rowSettings}
             currentUserLang={currentUserLang}
             canMoveUp={canMoveUp}
             canMoveDown={canMoveDown}
+            rowIndex={globalIndex}
+            onReorderTo={
+              hasReorderCapability && rowHasId
+                ? handleReorderTo
+                : undefined
+            }
             onMoveUp={
               hasReorderCapability && rowHasId
                 ? () => handleMove(globalIndex, -1)
@@ -381,13 +429,14 @@ export function SheetGrid({
         className="sheet-header-row"
         style={{ display: 'flex', height: ROW_HEIGHT, position: 'sticky', top: 0, zIndex: 10 }}
       >
-        {/* Frozen-left header label cells */}
+        {/* Frozen-left header label cells — each cell sticky-left only if the
+            user's freeze setting includes that column (labelStickyCount). */}
         <div
           style={{
             width: COL_WIDTH_ROW_NUM,
-            position: 'sticky',
-            left: 0,
-            zIndex: Z_HEADER_CORNER,
+            ...(labelStickyCount >= 1
+              ? { position: 'sticky' as const, left: 0, zIndex: Z_HEADER_CORNER }
+              : null),
             flexShrink: 0,
           }}
           className="sheet-label-col sheet-label-col--num"
@@ -397,9 +446,13 @@ export function SheetGrid({
         <div
           style={{
             width: COL_WIDTH_WHO,
-            position: 'sticky',
-            left: COL_WIDTH_ROW_NUM,
-            zIndex: Z_HEADER_CORNER,
+            ...(labelStickyCount >= 2
+              ? {
+                  position: 'sticky' as const,
+                  left: COL_WIDTH_ROW_NUM,
+                  zIndex: Z_HEADER_CORNER,
+                }
+              : null),
             flexShrink: 0,
           }}
           className="sheet-label-col sheet-label-col--who"
@@ -409,9 +462,13 @@ export function SheetGrid({
         <div
           style={{
             width: COL_WIDTH_FIELD,
-            position: 'sticky',
-            left: COL_WIDTH_ROW_NUM + COL_WIDTH_WHO,
-            zIndex: Z_HEADER_CORNER,
+            ...(labelStickyCount >= 3
+              ? {
+                  position: 'sticky' as const,
+                  left: COL_WIDTH_ROW_NUM + COL_WIDTH_WHO,
+                  zIndex: Z_HEADER_CORNER,
+                }
+              : null),
             flexShrink: 0,
           }}
           className="sheet-label-col sheet-label-col--field"

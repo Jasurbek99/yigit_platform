@@ -1194,7 +1194,8 @@
     "unknown_row_id_error": "Row order error — please refresh the page",
     "move_up": "Move up",
     "move_down": "Move down",
-    "row_menu": "Row menu"
+    "row_menu": "Row menu",
+    "drag_to_reorder": "Drag to reorder"
   },
   "draft": {
     "page_title": "Draft Shipments",
