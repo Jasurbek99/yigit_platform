@@ -1,59 +1,12 @@
-import type { IRowConfig } from '@/types';
-
 /**
- * Row configuration for the shipment spreadsheet view.
- * Maps each row (2-44) to its field, input type, style, and permissions.
- * Row numbers mirror the original "Eksport Hasabat" Excel sheet so users can
- * cross-reference the platform view with their spreadsheet by row index.
+ * Sheet layout constants.
+ *
+ * The legacy `SHEET_ROW_CONFIG` constant was removed when the v2 backend
+ * started supplying the row map (`/sheet/`'s `rows` field, snake_case keys
+ * matching IRowConfig). Importing the constant from here would have introduced
+ * camelCase rows that don't match the backend payload — see
+ * commits 7263b07 / 8c02e4a / 529338f for the v2 rollout.
  */
-export const SHEET_ROW_CONFIG: IRowConfig[] = [
-  // === Frozen Section (Rows 2-14) — Shipment Identity & Planning ===
-  { rowNumber: 2, fieldKey: 'route_note', whoKey: 'sheet.who.logist', labelKey: 'sheet.row.transport_note', inputType: 'text', style: 'base' },
-  { rowNumber: 3, fieldKey: 'vehicle_condition', whoKey: 'sheet.who.logist', labelKey: 'sheet.row.truck_status', inputType: 'dropdown', style: 'transport', optionsSource: 'vehicleCondition' },
-  { rowNumber: 4, fieldKey: 'notes', whoKey: 'sheet.who.malik', labelKey: 'sheet.row.additional_notes', inputType: 'text', style: 'base' },
-  { rowNumber: 5, fieldKey: 'customs_clearance', whoKey: 'sheet.who.gadam', labelKey: 'sheet.row.customs_clearance', inputType: 'status', style: 'status' },
-  { rowNumber: 6, fieldKey: 'documents_status', whoKey: 'sheet.who.sirin', labelKey: 'sheet.row.documents', inputType: 'status', style: 'status' },
-  { rowNumber: 7, fieldKey: 'cargo_code', whoKey: 'sheet.who.soltanmyrat', labelKey: 'sheet.row.shipment_code', inputType: 'readonly', style: 'key' },
-  { rowNumber: 8, fieldKey: 'block_sources', whoKey: 'sheet.who.soltanmyrat', labelKey: 'sheet.row.harvest_block', inputType: 'multiselect', style: 'base', optionsSource: 'blocks' },
-  { rowNumber: 9, fieldKey: 'firm_splits', whoKey: 'sheet.who.sulgun', labelKey: 'sheet.row.export_firm', inputType: 'multiselect', style: 'base', optionsSource: 'exportFirms' },
-  { rowNumber: 10, fieldKey: 'country', whoKey: 'sheet.who.gadam', labelKey: 'sheet.row.country', inputType: 'dropdown', style: 'key', optionsSource: 'countries' },
-  { rowNumber: 11, fieldKey: 'customer', whoKey: 'sheet.who.gadam', labelKey: 'sheet.row.customer', inputType: 'dropdown', style: 'base', optionsSource: 'customers' },
-  { rowNumber: 12, fieldKey: 'city', whoKey: 'sheet.who.arap', labelKey: 'sheet.row.city', inputType: 'dropdown', style: 'base', optionsSource: 'cities' },
-  { rowNumber: 13, fieldKey: 'import_firm', whoKey: 'sheet.who.gadam', labelKey: 'sheet.row.import_firm', inputType: 'dropdown', style: 'base', optionsSource: 'importFirms' },
-  { rowNumber: 14, fieldKey: 'harvest_status', whoKey: 'sheet.who.soltanmyrat', labelKey: 'sheet.row.harvest_status', inputType: 'status', style: 'status' },
-
-  // === Scrollable Section (Rows 15-44) — Operations & Logistics ===
-  { rowNumber: 15, fieldKey: 'truck_capacity', whoKey: 'sheet.who.haltac', labelKey: 'sheet.row.truck_capacity', inputType: 'text', style: 'transport' },
-  { rowNumber: 16, fieldKey: 'product_date', whoKey: 'sheet.who.none', labelKey: 'sheet.row.product_date', inputType: 'text', style: 'base' },
-  { rowNumber: 17, fieldKey: 'warehouse_comment_count', whoKey: 'sheet.who.soltanmyrat', labelKey: 'sheet.row.warehouse_notes', inputType: 'comment_count', style: 'base' },
-  { rowNumber: 18, fieldKey: 'document_comment_count', whoKey: 'sheet.who.sirin', labelKey: 'sheet.row.document_notes', inputType: 'comment_count', style: 'base' },
-  { rowNumber: 19, fieldKey: 'loading_started_at', whoKey: 'sheet.who.soltanmyrat', labelKey: 'sheet.row.loading_start', inputType: 'datetime', style: 'base' },
-  { rowNumber: 20, fieldKey: 'loading_ended_at', whoKey: 'sheet.who.soltanmyrat', labelKey: 'sheet.row.loading_end', inputType: 'datetime', style: 'base' },
-  { rowNumber: 21, fieldKey: 'departed_at', whoKey: 'sheet.who.mergen', labelKey: 'sheet.row.greenhouse_departure', inputType: 'datetime', style: 'base' },
-  { rowNumber: 22, fieldKey: 'vehicle_responsible', whoKey: 'sheet.who.transport', labelKey: 'sheet.row.vehicle_responsible', inputType: 'dropdown', style: 'transport', optionsSource: 'transportUsers' },
-  { rowNumber: 23, fieldKey: 'truck_plate', whoKey: 'sheet.who.transport', labelKey: 'sheet.row.truck_plate', inputType: 'text', style: 'transport' },
-  { rowNumber: 24, fieldKey: 'has_doc_advance', whoKey: 'sheet.who.babageldi', labelKey: 'sheet.row.doc_advance', inputType: 'readonly', style: 'report' },
-  { rowNumber: 25, fieldKey: 'customs_exit_at', whoKey: 'sheet.who.sirin', labelKey: 'sheet.row.customs_exit_tm', inputType: 'datetime', style: 'key' },
-  { rowNumber: 26, fieldKey: 'transit_days_temp', whoKey: 'sheet.who.quality', labelKey: 'sheet.row.transit_temp', inputType: 'text', style: 'base' },
-  { rowNumber: 27, fieldKey: 'driver_name', whoKey: 'sheet.who.transport', labelKey: 'sheet.row.driver_name', inputType: 'text', style: 'transport' },
-  { rowNumber: 28, fieldKey: 'driver_phone', whoKey: 'sheet.who.transport', labelKey: 'sheet.row.driver_phone', inputType: 'phone', style: 'transport' },
-  { rowNumber: 29, fieldKey: 'border_point', whoKey: 'sheet.who.transport', labelKey: 'sheet.row.border_point', inputType: 'dropdown', style: 'base', optionsSource: 'borderPoints', gapyHidden: true },
-  { rowNumber: 30, fieldKey: 'border_crossed_at', whoKey: 'sheet.who.haltac', labelKey: 'sheet.row.border_exit', inputType: 'datetime', style: 'base', gapyHidden: true },
-  { rowNumber: 31, fieldKey: 'dest_entry_at', whoKey: 'sheet.who.arap', labelKey: 'sheet.row.dest_entry', inputType: 'datetime', style: 'base', gapyHidden: true },
-  { rowNumber: 32, fieldKey: 'customs_entry_at', whoKey: 'sheet.who.arap', labelKey: 'sheet.row.dest_customs', inputType: 'datetime', style: 'base', gapyHidden: true },
-  { rowNumber: 33, fieldKey: 'has_peregruz', whoKey: 'sheet.who.arap', labelKey: 'sheet.row.peregruz_status', inputType: 'dropdown', style: 'base', optionsSource: 'peregruz' },
-  { rowNumber: 34, fieldKey: 'peregruz_date', whoKey: 'sheet.who.arap', labelKey: 'sheet.row.peregruz_time', inputType: 'datetime', style: 'base' },
-  { rowNumber: 35, fieldKey: 'arrived_at', whoKey: 'sheet.who.arap', labelKey: 'sheet.row.arrival', inputType: 'datetime', style: 'base' },
-  { rowNumber: 36, fieldKey: 'rejected_weight_kg', whoKey: 'sheet.who.soltanmyrat', labelKey: 'sheet.row.weight_received', inputType: 'number', style: 'base' },
-  { rowNumber: 37, fieldKey: 'weight_net', whoKey: 'sheet.who.soltanmyrat', labelKey: 'sheet.row.weight_shipped', inputType: 'number', style: 'key' },
-  { rowNumber: 38, fieldKey: 'variety', whoKey: 'sheet.who.soltanmyrat', labelKey: 'sheet.row.variety', inputType: 'dropdown', style: 'base', optionsSource: 'varieties' },
-  { rowNumber: 39, fieldKey: 'harvest_date', whoKey: 'sheet.who.soltanmyrat', labelKey: 'sheet.row.harvest_date', inputType: 'date', style: 'base' },
-  { rowNumber: 40, fieldKey: 'cmr_status', whoKey: 'sheet.who.none', labelKey: 'sheet.row.cmr_status', inputType: 'readonly', style: 'separator' },
-  { rowNumber: 41, fieldKey: 'sale_started_at', whoKey: 'sheet.who.arap', labelKey: 'sheet.row.sale_start', inputType: 'date', style: 'report' },
-  { rowNumber: 42, fieldKey: 'sale_ended_at', whoKey: 'sheet.who.arap', labelKey: 'sheet.row.sale_end', inputType: 'date', style: 'report' },
-  { rowNumber: 43, fieldKey: 'has_sales_report', whoKey: 'sheet.who.aganazar', labelKey: 'sheet.row.report_date', inputType: 'date', style: 'report' },
-  { rowNumber: 44, fieldKey: 'additional_notes_arap', whoKey: 'sheet.who.arap', labelKey: 'sheet.row.additional_notes_arap', inputType: 'text', style: 'base' },
-];
 
 /** Column widths (px) */
 export const COL_WIDTH_ROW_NUM = 28;

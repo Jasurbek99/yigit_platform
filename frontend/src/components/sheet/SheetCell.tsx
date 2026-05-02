@@ -23,7 +23,7 @@ interface ISheetCellProps {
 }
 
 function getCellValue(shipment: IShipmentSheetItem, rowConfig: IRowConfig): string {
-  const { fieldKey } = rowConfig;
+  const { field_key: fieldKey } = rowConfig;
 
   switch (fieldKey) {
     case 'cargo_code':
@@ -114,10 +114,10 @@ function isEmpty(value: string): boolean {
 function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, commentTaskState = null, rowSetting }: ISheetCellProps) {
   const navigate = useNavigate();
   const { setActiveCell, setEditingCell, activeCell, openCommentsForCell, openCommentsForShipment } = useSheetStore();
-  const isActive = activeCell?.shipmentId === shipment.id && activeCell?.rowKey === rowConfig.fieldKey;
+  const isActive = activeCell?.shipmentId === shipment.id && activeCell?.rowKey === rowConfig.field_key;
   const isGapy = shipment.is_gapy_satys;
-  const isHidden = rowConfig.gapyHidden && isGapy;
-  const isCommentCount = rowConfig.inputType === 'comment_count';
+  const isHidden = rowConfig.gapy_hidden && isGapy;
+  const isCommentCount = rowConfig.input_type === 'comment_count';
 
   // Per-row style overrides from admin sheet-row settings
   const cellWidth = rowSetting?.style?.width ?? COL_WIDTH_SHIPMENT;
@@ -135,18 +135,18 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
     }
     // Empty editable cells → edit immediately on single click
     if (isEditable && !isHidden && cellIsEmpty) {
-      setEditingCell({ shipmentId: shipment.id, rowKey: rowConfig.fieldKey });
+      setEditingCell({ shipmentId: shipment.id, rowKey: rowConfig.field_key });
       return;
     }
-    setActiveCell({ shipmentId: shipment.id, rowKey: rowConfig.fieldKey });
-  }, [isCommentCount, isEditable, isHidden, cellIsEmpty, navigate, setActiveCell, setEditingCell, openCommentsForShipment, shipment.id, rowConfig.fieldKey]);
+    setActiveCell({ shipmentId: shipment.id, rowKey: rowConfig.field_key });
+  }, [isCommentCount, isEditable, isHidden, cellIsEmpty, navigate, setActiveCell, setEditingCell, openCommentsForShipment, shipment.id, rowConfig.field_key]);
 
   const handleDoubleClick = useCallback(() => {
     // Filled editable cells → edit on double click
     if (isEditable && !isHidden && !cellIsEmpty) {
-      setEditingCell({ shipmentId: shipment.id, rowKey: rowConfig.fieldKey });
+      setEditingCell({ shipmentId: shipment.id, rowKey: rowConfig.field_key });
     }
-  }, [isEditable, isHidden, cellIsEmpty, setEditingCell, shipment.id, rowConfig.fieldKey]);
+  }, [isEditable, isHidden, cellIsEmpty, setEditingCell, shipment.id, rowConfig.field_key]);
 
   if (isHidden) {
     return (
@@ -157,7 +157,7 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
   }
 
   // Special rendering
-  const { fieldKey } = rowConfig;
+  const { field_key: fieldKey } = rowConfig;
 
   // Country with flag
   if (fieldKey === 'country' && shipment.country_code) {
@@ -303,7 +303,7 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
           count={commentCount}
           taskState={commentTaskState}
           showHoverHint={!isCommentCount}
-          onClick={() => openCommentsForCell(shipment.id, rowConfig.fieldKey)}
+          onClick={() => openCommentsForCell(shipment.id, rowConfig.field_key)}
         />
       </div>
     </Tooltip>

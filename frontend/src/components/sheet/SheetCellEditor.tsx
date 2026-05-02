@@ -49,10 +49,10 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
 
   const save = useCallback(
     (value: unknown) => {
-      patchMutation.mutate({ id: shipment.id, field: rowConfig.fieldKey, value });
+      patchMutation.mutate({ id: shipment.id, field: rowConfig.field_key, value });
       close();
     },
-    [patchMutation, shipment.id, rowConfig.fieldKey, close],
+    [patchMutation, shipment.id, rowConfig.field_key, close],
   );
 
   const queryClient = useQueryClient();
@@ -95,7 +95,7 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
     }
   }, []);
 
-  const currentValue = shipment[rowConfig.fieldKey as keyof IShipmentSheetItem];
+  const currentValue = shipment[rowConfig.field_key as keyof IShipmentSheetItem];
   const lang = i18n.language;
 
   /** Get the right name for the current language */
@@ -124,7 +124,7 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
 
   /** Build options for a Select based on the field */
   function getOptions(): { value: number | string; label: string }[] {
-    const { fieldKey, optionsSource } = rowConfig;
+    const { field_key: fieldKey, options_source: optionsSource } = rowConfig;
 
     switch (optionsSource ?? fieldKey) {
       case 'countries':
@@ -180,7 +180,7 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
   }
 
   const renderEditor = () => {
-    switch (rowConfig.inputType) {
+    switch (rowConfig.input_type) {
       case 'text':
       case 'phone':
         return (
@@ -208,7 +208,7 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
 
       case 'dropdown': {
         const options = getOptions();
-        const isPeregruz = rowConfig.optionsSource === 'peregruz';
+        const isPeregruz = rowConfig.options_source === 'peregruz';
         return (
           <Select
             size="small"
@@ -232,8 +232,8 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
 
       case 'multiselect': {
         const options = getOptions();
-        const isBlocks = rowConfig.fieldKey === 'block_sources';
-        const isFirms = rowConfig.fieldKey === 'firm_splits';
+        const isBlocks = rowConfig.field_key === 'block_sources';
+        const isFirms = rowConfig.field_key === 'firm_splits';
 
         // Current selected IDs from junction table data
         const currentIds = isBlocks
@@ -307,7 +307,7 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
 
       case 'status': {
         // Status fields pull options from ShipmentOptionType API by category
-        const statusOptions = optionsByCategory(rowConfig.fieldKey);
+        const statusOptions = optionsByCategory(rowConfig.field_key);
         return (
           <Select
             size="small"
