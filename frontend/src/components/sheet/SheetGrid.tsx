@@ -203,7 +203,12 @@ export function SheetGrid({
 
       const updated = [...idsInCurrentOrder];
       updated.splice(fromSlot, 1);
-      updated.splice(toSlot, 0, fromId);
+      // Forward drag (fromSlot < toSlot): removing the source shifts every
+      // index past it down by 1, so insert at toSlot - 1 to land *above* the
+      // visual drop indicator. Backward drag (fromSlot > toSlot): the target
+      // index is unaffected by the removal. Equal slots short-circuited above.
+      const adjustedTo = fromSlot < toSlot ? toSlot - 1 : toSlot;
+      updated.splice(adjustedTo, 0, fromId);
       onReorder(updated);
     },
     [fieldKeyToRowId, onReorder, rows],

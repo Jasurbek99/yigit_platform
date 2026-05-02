@@ -30,6 +30,7 @@ import api from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
 import { useNotifications, useMarkAllRead } from '@/hooks/useNotifications';
 import { canSeePage } from '@/utils/permissions';
+import { clearCachedPrefs } from '@/cache/userPrefsCache';
 import type { INotification } from '@/types';
 
 const { Sider, Header, Content } = Layout;
@@ -123,7 +124,7 @@ function NotificationBell() {
       placement="bottomRight"
       content={content}
       trigger="click"
-      overlayInnerStyle={{ padding: 12 }}
+      styles={{ container: { padding: 12 } }}
     >
       <Badge count={unreadCount > 99 ? '99+' : unreadCount} size="small" offset={[-4, 4]}>
         <Button
@@ -156,7 +157,13 @@ export default function AppLayout() {
 
   const logoutMutation = useMutation({
     mutationFn: () => api.post('/auth/logout/'),
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Drop the IDB-cached sheet prefs for this user before tearing down auth.
+      // Shared-machine hygiene — the next user gets their own keyed entry, but
+      // we don't want stale data sitting around indefinitely (Phase 2b).
+      if (user?.id) {
+        await clearCachedPrefs(user.id);
+      }
       queryClient.removeQueries({ queryKey: ['auth', 'me'] });
       queryClient.clear();
       navigate('/login');
