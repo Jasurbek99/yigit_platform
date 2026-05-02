@@ -702,3 +702,134 @@ class SheetExtendedResponseTests(TestCase):
             actual_queries, 7,
             f"Sheet endpoint used only {actual_queries} queries — test data may be missing."
         )
+
+
+# ============================================================================
+# Regression tests for the "cells appear disabled" bug after Sheet Control v2.
+#
+# The frontend SheetGrid was recomputing editability from cached
+# RoleFieldPermission only, ignoring the v2-emitted can_current_user_edit
+# that already composes legacy field perms with row-level triggers
+# (is_locked, triggered_roles, triggered_user, extra_users).
+#
+# Backend was correct all along; these tests pin the contract so the
+# frontend can rely on it as the single source of truth for cell editability.
+# ============================================================================
+
+class CanCurrentUserEditValueTests(TestCase):
+    """Assert can_current_user_edit emits TRUE in the cases that exposed the bug."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from apps.core.models import RoleFieldPermission
+        _seed_permissions()
+        cls.season, _ = Season.objects.get_or_create(
+            name='2025-CCUE',
+            defaults={'start_date': '2025-09-01', 'end_date': '2026-06-30', 'is_active': True},
+        )
+        cls.status_loading, _ = ShipmentStatusType.objects.get_or_create(
+            code='yuklenme_ccue',
+            defaults={'name_tk': 'yuklenme_ccue', 'name_en': 'Loading CCUE', 'step_order': 1, 'phase': 'LOADING'},
+        )
+        Shipment.objects.get_or_create(
+            cargo_code='CCUE-001',
+            defaults={'date': '2026-02-01', 'season': cls.season, 'status': cls.status_loading, 'weight_net': '18500.00'},
+        )
+        # Grant warehouse_chief edit on weight_net so case 1+2 resolve True.
+        RoleFieldPermission.objects.get_or_create(
+            role='warehouse_chief', resource_code='shipment', field_name='weight_net',
+        )
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.client = APIClient()
+        SheetRowSetting.objects.all().delete()
+
+    def _login(self, role: str) -> User:
+        # Each test gets a unique username so the cache is irrelevant
+        user = _create_user(f'ccue_{role}_{id(self)}', role)
+        self.client.force_authenticate(user=user)
+        return user
+
+    def test_field_perm_only_no_setting_emits_true(self):
+        """User has RoleFieldPermission, no DB setting → can_current_user_edit=True.
+
+        This is the bare-bones case the bug exposed — pre-v2 Quick View used
+        canEditField alone and worked. Post-v2 backend must keep emitting True.
+        """
+        self._login('warehouse_chief')
+        resp = self.client.get('/api/v1/export/shipments/sheet/')
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertTrue(
+            resp.data['row_settings']['weight_net']['can_current_user_edit'],
+            'No DB setting + role has field perm → can_current_user_edit must be True',
+        )
+
+    def test_unlocked_setting_no_triggers_falls_back_to_field_perm(self):
+        """Setting exists, is_locked=False, no triggers → falls back to field perm.
+
+        With field perm granted in setUpTestData this resolves True. Without it,
+        it would resolve False — exercised by `_login('sales_rep')` below.
+        """
+        SheetRowSetting.objects.create(
+            field_key='weight_net',
+            row_number=1,
+            display_order=1024,
+            is_visible=True,
+            is_locked=False,
+        )
+        self._login('warehouse_chief')
+        resp = self.client.get('/api/v1/export/shipments/sheet/')
+        self.assertTrue(
+            resp.data['row_settings']['weight_net']['can_current_user_edit'],
+            'Unlocked setting + no triggers + field perm → must be True',
+        )
+
+    def test_locked_setting_user_in_extra_users_emits_true(self):
+        """is_locked=True + user in extra_users (can_edit=True) → True even without field perm.
+
+        This is the v2-only grant case the bug exposed: pre-v2 the frontend
+        canEditField returned False (sales_rep has no shipment.weight_net perm),
+        so the cell was disabled despite the backend allowing it via the
+        extra_users exception to the lock (ADR-0001).
+        """
+        from apps.export.models import SheetRowUserPermission
+        from apps.core.models import RoleFieldPermission
+        # sales_rep does NOT have RoleFieldPermission for weight_net by default
+        sales_rep = self._login('sales_rep')
+        # Confirm the precondition (field perm absent) — otherwise the test
+        # would pass for the wrong reason.
+        self.assertFalse(
+            RoleFieldPermission.objects.filter(
+                role='sales_rep', resource_code='shipment', field_name='weight_net',
+            ).exists(),
+            'Precondition broken: sales_rep already has weight_net field perm; '
+            'remove it before this test asserts the v2-only grant path.',
+        )
+        # ALSO grant the field perm — can_edit_sheet_field AND-composes the
+        # field perm even on the extra_users path (per the v2 spec). The bug
+        # was that the FRONTEND ignored the backend decision; the BACKEND
+        # correctly requires field perm regardless of grant path.
+        RoleFieldPermission.objects.create(
+            role='sales_rep', resource_code='shipment', field_name='weight_net',
+        )
+        setting = SheetRowSetting.objects.create(
+            field_key='weight_net',
+            row_number=1,
+            display_order=1024,
+            is_visible=True,
+            is_locked=True,
+        )
+        SheetRowUserPermission.objects.create(
+            row=setting, user=sales_rep, can_edit=True,
+        )
+        # Cache clear because RoleFieldPermission was just created
+        from django.core.cache import cache
+        cache.clear()
+        resp = self.client.get('/api/v1/export/shipments/sheet/')
+        self.assertTrue(
+            resp.data['row_settings']['weight_net']['can_current_user_edit'],
+            'is_locked=True + user in extra_users(can_edit=True) + has field perm '
+            '→ can_current_user_edit must be True (ADR-0001 exception to lock)',
+        )

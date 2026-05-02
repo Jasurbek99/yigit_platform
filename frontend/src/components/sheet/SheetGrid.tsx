@@ -175,9 +175,17 @@ export function SheetGrid({
         editingCell?.shipmentId === shipment.id &&
         editingCell?.rowKey === rowConfig.field_key;
 
+      // Trust the backend-computed decision (row_settings[fk].can_current_user_edit)
+      // when present — it already composes RoleFieldPermission with the v2 row
+      // triggers (is_locked, triggered_roles, triggered_user, extra_users). The
+      // legacy local canEditCell only knows about RoleFieldPermission and would
+      // disable cells the user can edit via a v2-only grant. Fallback to the
+      // legacy check only when the row has no row_settings entry (e.g., a field
+      // not in DEFAULT_SHEET_ROWS).
+      const v2EditDecision = rowSettings[rowConfig.field_key]?.can_current_user_edit;
       const isEditable =
         rowConfig.input_type !== 'readonly' &&
-        canEditCell(user, rowConfig.field_key);
+        (v2EditDecision ?? canEditCell(user, rowConfig.field_key));
 
       // Comment / task badge for this specific cell
       const cellCounts = commentCounts[shipment.id] ?? {};
