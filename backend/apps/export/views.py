@@ -107,7 +107,21 @@ class ShipmentViewSet(ModelViewSet):
     # prices and other data only management should browse.
     _ARCHIVE_VIEW_ROLES = ('admin', 'director', 'export_manager', 'finansist', 'boss')
 
+    # Roles allowed to view the Stuck dashboard (?stuck=true). Tighter than
+    # archive — stuck reveals which roles are dragging on what, which is a
+    # management-only signal. Mirrored by ARCHIVE_VIEW_ROLES on the frontend.
+    _STUCK_VIEW_ROLES = ('admin', 'director', 'boss')
+
+    # Stuck threshold in days. A shipment is "stuck" if it's still operational
+    # (is_archived=False), not yet closed (phase != COMPLETE), and hasn't been
+    # touched in N days. 4 matches the lower bound of the dashboard's color
+    # scale (4–7 yellow / 8–14 orange / 15+ red).
+    _STUCK_THRESHOLD_DAYS = 4
+
     def get_queryset(self) -> QuerySet:
+        from datetime import timedelta
+        from django.utils import timezone as _tz
+
         qs = super().get_queryset()
 
         # ── Operational vs Archive split (Phase 3, ADR-0005) ─────────────────
@@ -125,6 +139,22 @@ class ShipmentViewSet(ModelViewSet):
             qs = qs.filter(is_archived=True)
         else:
             qs = qs.filter(is_archived=False)
+
+        # ── Stuck dashboard (Phase 4a, ADR-0005) ─────────────────────────────
+        # ?stuck=true returns operational, not-yet-closed shipments untouched
+        # for ≥ _STUCK_THRESHOLD_DAYS days, oldest first. Role-gated to admin/
+        # director/boss; other roles silently get an empty page.
+        if self.request.query_params.get('stuck') == 'true':
+            role = getattr(self.request.user, 'role', None)
+            is_super = getattr(self.request.user, 'is_superuser', False)
+            if not (is_super or role in self._STUCK_VIEW_ROLES):
+                return qs.none()
+            cutoff = _tz.now() - timedelta(days=self._STUCK_THRESHOLD_DAYS)
+            qs = (
+                qs.exclude(status__phase='COMPLETE')
+                .filter(updated_at__lte=cutoff)
+                .order_by('updated_at', 'id')
+            )
 
         # pending_my_fields takes priority over my_work when both are present.
         if self.request.query_params.get('pending_my_fields') == 'true':

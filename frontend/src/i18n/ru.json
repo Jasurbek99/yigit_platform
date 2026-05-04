@@ -67,7 +67,28 @@
     "drafts": "Черновики",
     "assign": "Назначить",
     "boss_dashboard": "Босс панель",
-    "fallback_forecast": "Резервный прогноз"
+    "fallback_forecast": "Резервный прогноз",
+    "stuck_shipments": "Зависшие отгрузки"
+  },
+  "stuck": {
+    "page_title": "Зависшие отгрузки",
+    "page_subtitle": "Операционные отгрузки без активности 4+ дней. Кликните по коду, чтобы открыть детали.",
+    "col_cargo_code": "Код",
+    "col_status": "Статус",
+    "col_days_stuck": "Дней застоя",
+    "col_country": "Страна",
+    "col_customer": "Покупатель",
+    "col_last_touched": "Последнее касание",
+    "days_one": "{{count}} день",
+    "days_few": "{{count}} дня",
+    "days_many": "{{count}} дней",
+    "days_other": "{{count}} дней",
+    "bucket_red": "{{count}} критично (15+ д)",
+    "bucket_orange": "{{count}} тревожно (8-14 д)",
+    "bucket_yellow": "{{count}} внимание (4-7 д)",
+    "total": "Всего зависших: {{count}}",
+    "empty": "Зависших отгрузок нет — всё движется.",
+    "load_error": "Не удалось загрузить зависшие отгрузки"
   },
   "connection": {
     "online": "В сети",

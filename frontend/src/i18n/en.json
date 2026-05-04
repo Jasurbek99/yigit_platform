@@ -67,7 +67,26 @@
     "drafts": "Draft Shipments",
     "assign": "Assignment Board",
     "boss_dashboard": "Boss Dashboard",
-    "fallback_forecast": "Fallback Forecast"
+    "fallback_forecast": "Fallback Forecast",
+    "stuck_shipments": "Stuck Shipments"
+  },
+  "stuck": {
+    "page_title": "Stuck Shipments",
+    "page_subtitle": "Operational shipments untouched for 4+ days. Click any code to open the shipment detail.",
+    "col_cargo_code": "Code",
+    "col_status": "Status",
+    "col_days_stuck": "Days stuck",
+    "col_country": "Country",
+    "col_customer": "Customer",
+    "col_last_touched": "Last touched",
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days",
+    "bucket_red": "{{count}} critical (15+ d)",
+    "bucket_orange": "{{count}} warning (8-14 d)",
+    "bucket_yellow": "{{count}} attention (4-7 d)",
+    "total": "{{count}} stuck total",
+    "empty": "No stuck shipments — everything is moving.",
+    "load_error": "Failed to load stuck shipments"
   },
   "connection": {
     "online": "Online",

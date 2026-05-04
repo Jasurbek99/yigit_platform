@@ -52,6 +52,7 @@ const AssignmentBoard = lazy(() => import('@/pages/export/AssignmentBoard'));
 const PalletManifest = lazy(() => import('@/pages/export/PalletManifest'));
 const BossDashboard = lazy(() => import('@/pages/boss/BossDashboard'));
 const FallbackForecastView = lazy(() => import('@/pages/export/FallbackForecastView'));
+const StuckShipments = lazy(() => import('@/pages/director/StuckShipments'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -140,6 +141,9 @@ export default function App() {
                   <Route index element={<DashboardPage />} />
                   <Route path="boss/dashboard" element={
                     <ProtectedRoute pageCode="analytics.boss"><BossDashboard /></ProtectedRoute>
+                  } />
+                  <Route path="director/stuck-shipments" element={
+                    <ProtectedRoute roles={['admin', 'director', 'boss']}><StuckShipments /></ProtectedRoute>
                   } />
                   <Route path="export/shipments" element={
                     <ProtectedRoute pageCode="export.shipments"><ShipmentList /></ProtectedRoute>

@@ -173,6 +173,7 @@ export default function AppLayout() {
   const ROUTE_LABELS: Record<string, string> = {
     '/': t('nav.dashboard'),
     '/boss/dashboard': t('nav.boss_dashboard'),
+    '/director/stuck-shipments': t('nav.stuck_shipments'),
     '/export/shipments': t('nav.shipments'),
     '/export/shipments/sheet': t('nav.shipment_sheet'),
     '/export/shipments/dashboard': t('nav.shipment_dashboard'),
@@ -211,11 +212,27 @@ export default function AppLayout() {
     : 'U';
 
   // ─── Build menu items (filtered by dynamic page permissions) ────────────
+  // Items are filtered via canSeePage() which reads page_permissions from
+  // /auth/me/. A small minority of routes are role-gated instead (no
+  // page_permissions entry — see /director/stuck-shipments for an example);
+  // those carry an explicit `roles` array and bypass canSeePage.
+  type MenuItem = {
+    key: string;
+    icon: React.ReactNode;
+    label: string;
+    roles?: import('@/types').UserRole[];
+  };
 
-  const allMenuGroups: { label: string; items: { key: string; icon: React.ReactNode; label: string }[] }[] = [
+  const allMenuGroups: { label: string; items: MenuItem[] }[] = [
     { label: t('nav.group_main'), items: [
       { key: '/', icon: <IconLayoutDashboard size={15} />, label: t('nav.dashboard') },
       { key: '/boss/dashboard', icon: <IconChartPie size={15} />, label: t('nav.boss_dashboard') },
+      {
+        key: '/director/stuck-shipments',
+        icon: <IconAlertTriangle size={15} />,
+        label: t('nav.stuck_shipments'),
+        roles: ['admin', 'director', 'boss'],
+      },
     ]},
     { label: t('nav.group_export'), items: [
       { key: '/export/shipments', icon: <IconTruck size={15} />, label: t('nav.shipments') },
@@ -251,7 +268,16 @@ export default function AppLayout() {
   // Filter: keep only items the user has permission to see
   const menuItems: MenuProps['items'] = allMenuGroups
     .map((group) => {
-      const visibleChildren = group.items.filter((item) => canSeePage(user, item.key));
+      const visibleChildren = group.items.filter((item) => {
+        // Role-gated items (no page_permissions entry) — use the inline list.
+        if (item.roles) {
+          if (!user) return false;
+          if (user.is_superuser) return true;
+          return item.roles.includes(user.role);
+        }
+        // Default: dynamic page permissions from /auth/me/
+        return canSeePage(user, item.key);
+      });
       if (visibleChildren.length === 0) return null;
       return {
         type: 'group' as const,

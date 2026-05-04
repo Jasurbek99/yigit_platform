@@ -67,7 +67,26 @@
     "drafts": "Garalama ýükler",
     "assign": "Belgilemek",
     "boss_dashboard": "Boss paneli",
-    "fallback_forecast": "Ätiýaç çaklama"
+    "fallback_forecast": "Ätiýaç çaklama",
+    "stuck_shipments": "Saklanan ýükler"
+  },
+  "stuck": {
+    "page_title": "Saklanan ýükler",
+    "page_subtitle": "4+ gün dowamynda hereketsiz operasion ýükler. Jikme-jikligi açmak üçin koduň üstüne basyň.",
+    "col_cargo_code": "Kod",
+    "col_status": "Status",
+    "col_days_stuck": "Saklanan günler",
+    "col_country": "Ýurt",
+    "col_customer": "Alyjy",
+    "col_last_touched": "Soňky üýtgetme",
+    "days_one": "{{count}} gün",
+    "days_other": "{{count}} gün",
+    "bucket_red": "{{count}} kritik (15+ g)",
+    "bucket_orange": "{{count}} duýduryş (8-14 g)",
+    "bucket_yellow": "{{count}} ünsli (4-7 g)",
+    "total": "Jemi saklanan: {{count}}",
+    "empty": "Saklanan ýük ýok — ählisi hereketde.",
+    "load_error": "Saklanan ýükleri ýüklemek başartmady"
   },
   "connection": {
     "online": "Onlaýn",

@@ -28,6 +28,12 @@ export interface IShipmentFilters {
    * silently get an empty page.
    */
   archived?: boolean;
+  /**
+   * Phase 4a stuck dashboard. `true` returns operational, not-yet-closed
+   * shipments untouched for ≥4 days, oldest first. Backend gates to
+   * admin / director / boss; other roles silently get an empty page.
+   */
+  stuck?: boolean;
 }
 
 export function useShipments(filters: IShipmentFilters = {}) {
@@ -50,6 +56,7 @@ export function useShipments(filters: IShipmentFilters = {}) {
       if (filters.date_after) params.set('date_after', filters.date_after);
       if (filters.date_before) params.set('date_before', filters.date_before);
       if (filters.archived) params.set('archived', 'true');
+      if (filters.stuck) params.set('stuck', 'true');
 
       const { data } = await api.get<IApiListResponse<IShipmentListItem>>(
         `/export/shipments/?${params.toString()}`,

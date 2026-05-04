@@ -116,6 +116,70 @@ class ArchiveFilterEndpointTests(TestCase):
         self.assertEqual(resp.status_code, 200, resp.data)
         self.assertGreaterEqual(len(resp.data['results']), 1)
 
+    # ── ?stuck=true Phase 4a dashboard filter ─────────────────────────────
+
+    def test_stuck_returns_open_shipments_past_threshold(self):
+        """?stuck=true: open + is_archived=False + updated_at ≤ now-4d."""
+        # Create a stuck shipment (5d old, LOADING phase)
+        stuck = _make_shipment('STUCK-1', self.season, self.status_loading, updated_days_ago=5)
+        # Recent shipment — under threshold
+        _make_shipment('STUCK-RECENT', self.season, self.status_loading, updated_days_ago=1)
+        # Closed-and-stale — terminal phase, excluded
+        _make_shipment('STUCK-DONE', self.season, self.status_done, updated_days_ago=30)
+
+        self._login('director')
+        resp = self.client.get('/api/v1/export/shipments/?stuck=true')
+        self.assertEqual(resp.status_code, 200, resp.data)
+        codes = [r['cargo_code'] for r in resp.data['results']]
+        self.assertIn('STUCK-1', codes)
+        self.assertNotIn('STUCK-RECENT', codes)
+        self.assertNotIn('STUCK-DONE', codes)
+        # Refresh from DB so we don't compare against the unsaved local copy
+        stuck.refresh_from_db()
+
+    def test_stuck_orders_oldest_first(self):
+        """Oldest stuck rows surface at the top so the worst case is visible."""
+        _make_shipment('STUCK-OLD', self.season, self.status_loading, updated_days_ago=15)
+        _make_shipment('STUCK-MID', self.season, self.status_loading, updated_days_ago=8)
+        _make_shipment('STUCK-NEW', self.season, self.status_loading, updated_days_ago=5)
+
+        self._login('director')
+        resp = self.client.get('/api/v1/export/shipments/?stuck=true')
+        codes = [r['cargo_code'] for r in resp.data['results']]
+        self.assertEqual(codes[:3], ['STUCK-OLD', 'STUCK-MID', 'STUCK-NEW'])
+
+    def test_stuck_excludes_archived(self):
+        """Archived rows must not show in stuck (they're CLOSED operational)."""
+        s = _make_shipment('STUCK-ARC', self.season, self.status_loading, updated_days_ago=30)
+        Shipment.objects.filter(pk=s.pk).update(is_archived=True)
+
+        self._login('director')
+        resp = self.client.get('/api/v1/export/shipments/?stuck=true')
+        codes = [r['cargo_code'] for r in resp.data['results']]
+        self.assertNotIn('STUCK-ARC', codes)
+
+    def test_stuck_admin_allowed(self):
+        _make_shipment('STUCK-ADM', self.season, self.status_loading, updated_days_ago=10)
+        self._login('admin')
+        resp = self.client.get('/api/v1/export/shipments/?stuck=true')
+        self.assertEqual(resp.status_code, 200, resp.data)
+
+    def test_stuck_warehouse_chief_returns_empty(self):
+        """Non-management roles silently see 0 results."""
+        _make_shipment('STUCK-FORBIDDEN', self.season, self.status_loading, updated_days_ago=10)
+        self._login('warehouse_chief')
+        resp = self.client.get('/api/v1/export/shipments/?stuck=true')
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(len(resp.data['results']), 0)
+
+    def test_stuck_export_manager_returns_empty(self):
+        """export_manager has shipment.view but stuck is tighter — director-level."""
+        _make_shipment('STUCK-EM', self.season, self.status_loading, updated_days_ago=10)
+        self._login('export_manager')
+        resp = self.client.get('/api/v1/export/shipments/?stuck=true')
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(len(resp.data['results']), 0)
+
     def test_patch_archived_shipment_returns_403(self):
         """Defense in depth: even with ?archived=true, PATCHing returns 403.
 
