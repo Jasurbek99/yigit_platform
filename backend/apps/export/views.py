@@ -220,6 +220,17 @@ class ShipmentViewSet(ModelViewSet):
         from apps.export.services.sheet_audit import diff_audit_rows, snapshot_fields
 
         shipment = self.get_object()
+
+        # Phase 3 (ADR-0005): archived shipments are read-only by contract.
+        # The frontend hides edit controls under isArchiveView, but defend
+        # against a crafted PATCH /shipments/{id}/?archived=true that would
+        # otherwise pass through get_queryset's archived-view branch.
+        if shipment.is_archived:
+            return Response(
+                {'error': 'Archived shipments are read-only.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         user_role = getattr(request.user, 'role', None)
 
         serializer = ShipmentPatchSerializer(
@@ -397,6 +408,9 @@ class ShipmentViewSet(ModelViewSet):
                 ),
             )
             .filter(**season_filter)
+            # Phase 3: the operational Sheet view never shows archived rows.
+            # Archive view lives on ShipmentList — no Sheet equivalent.
+            .filter(is_archived=False)
             .order_by('-date', '-id')
         )
 

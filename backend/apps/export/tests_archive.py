@@ -116,6 +116,24 @@ class ArchiveFilterEndpointTests(TestCase):
         self.assertEqual(resp.status_code, 200, resp.data)
         self.assertGreaterEqual(len(resp.data['results']), 1)
 
+    def test_patch_archived_shipment_returns_403(self):
+        """Defense in depth: even with ?archived=true, PATCHing returns 403.
+
+        Without this guard a crafted ?archived=true on the detail URL would
+        let get_object() find the row and the serializer would happily save.
+        """
+        self._login('admin')
+        resp = self.client.patch(
+            f'/api/v1/export/shipments/{self.archived.id}/?archived=true',
+            {'notes': 'should not save'},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 403, resp.data)
+        self.assertIn('read-only', resp.data.get('error', '').lower())
+        # Confirm the value did not persist
+        self.archived.refresh_from_db()
+        self.assertNotEqual(self.archived.notes, 'should not save')
+
     def test_archived_view_director_allowed(self):
         self._login('director')
         resp = self.client.get('/api/v1/export/shipments/?archived=true')
@@ -176,6 +194,19 @@ class ArchiveCommandTests(TestCase):
     def test_skips_open_stale_shipment(self):
         """Stuck-open is the stuck dashboard's problem, NOT auto-archived."""
         s = _make_shipment('CRON-STUCK', self.season, self.status_open, updated_days_ago=90)
+        self._run()
+        s.refresh_from_db()
+        self.assertFalse(s.is_archived)
+        self.assertIsNone(s.archived_at)
+
+    def test_skips_open_shipment_within_archive_window(self):
+        """Phase guard at the same staleness as the positive case.
+
+        Pins the cron's filter to phase=COMPLETE: a LOADING-phase row that
+        meets the age threshold (30d ≥ default 21d) must NOT archive,
+        proving the guard isn't accidentally tied to age alone.
+        """
+        s = _make_shipment('CRON-OPEN-30', self.season, self.status_open, updated_days_ago=30)
         self._run()
         s.refresh_from_db()
         self.assertFalse(s.is_archived)

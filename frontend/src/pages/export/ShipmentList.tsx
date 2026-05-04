@@ -241,7 +241,7 @@ export default function ShipmentList() {
             fieldKey="weight_net"
             value={record.weight_net}
             type="number"
-            isEditable={canEditWeightNet}
+            isEditable={canEditWeightNet && !isArchiveView}
             display={display}
           />
         );
