@@ -669,7 +669,22 @@
     "conflict_refresh": "Täzelemek",
     "toast_reorder_error": "Setir tertibini üýtgetmekde ýalňyşlyk",
     "info_plate_title": "Sheet Control — Sazlama derejesi",
-    "info_plate_desc": "Täze meýdan goşmak üçin — taýýarlaýja tabşyryk. Ady, tertip, hukuklar, görünüş, stili üýtgetmek — şu ýerde."
+    "info_plate_desc": "Tipizirlenen meýdan üçin — taýýarlaýja tabşyryk (gollanma serediň). Ady, tertip, hukuklar, görünüş, stili ýa-da erkin tekst hatary — şu ýerde.",
+    "add_custom_row": "Custom hatar goş",
+    "add_custom_hint": "Erkin tekst, migrasiýa ýok. Tipizirlenen meýdan üçin gollanmany ulanyň.",
+    "custom_badge": "custom",
+    "custom_modal_title": "Täze custom hatar",
+    "custom_modal_ok": "Döretmek",
+    "custom_slug_label": "Açar gutarndysy",
+    "custom_slug_required": "Açar gerek",
+    "custom_slug_invalid": "Diňe kiçi harplar, sanlar we _ (53 belge çenli).",
+    "custom_slug_hint": "Doly field_key 'custom_<gutarndy>' bolar. Bütin sahypada üýtgeşik bolmaly.",
+    "custom_label_en": "Ady (English) — hökmany",
+    "custom_label_ru": "Ady (Русский)",
+    "custom_label_tk": "Ady (Türkmen)",
+    "custom_label_required": "Iň bolmanda iňlis ady hökmany",
+    "custom_created": "Custom hatar '{{field_key}}' döredildi",
+    "custom_create_error": "Custom hatar döretmek başartmady"
   },
   "truck_split": {
     "col_num_firms": "Firma sany",
@@ -1135,7 +1150,8 @@
       "quality": "Hil gözegçi",
       "aganazar": "Aganazar",
       "babageldi": "Babageldi",
-      "none": "—"
+      "none": "—",
+      "custom": "Custom"
     },
     "row": {
       "transport_note": "Transport barada bellik",

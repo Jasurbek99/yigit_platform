@@ -20,6 +20,7 @@ from django.db import models
 from django.db.models import Q
 from django.core.exceptions import ValidationError
 
+from apps.core.db_utils import schema_table
 from apps.core.models.user import ROLE_CHOICES
 
 _HEX_RE = re.compile(r'^#[0-9A-Fa-f]{6}$')
@@ -223,6 +224,20 @@ class SheetRowSetting(models.Model):
         on_delete=models.SET_NULL,
         related_name='+',
         help_text='User who soft-deleted this row.',
+    )
+
+    # === Custom row flag (Phase 5c) ===
+    # True for admin-created runtime rows. Per-shipment values for these rows
+    # live in ShipmentCustomFieldValue, NOT on the Shipment model. field_key
+    # is conventionally namespaced 'custom_<slug>' so consumers can branch
+    # without hitting the DB. Soft-delete cascades through the row FK; the
+    # 30-day visibility cooldown that gates DEFAULT_SHEET_ROWS deletes does
+    # NOT apply to custom rows (they're admin-owned, not Excel-pinned).
+    is_custom = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text='True for admin-created runtime rows (Phase 5c). Values stored '
+                  'in ShipmentCustomFieldValue, not on Shipment.',
     )
 
     # === Hide cooldown (Phase 1 reviewer note #5) ===
@@ -466,3 +481,63 @@ class UserSheetRowPref(models.Model):
             f'user={self.user_id} row={self.row_id} '
             f'position={self.position} is_hidden={self.is_hidden}'
         )
+
+
+class ShipmentCustomFieldValue(models.Model):
+    """Per-shipment value for an admin-created custom Sheet row (Phase 5c).
+
+    Custom rows live in SheetRowSetting (is_custom=True). Their per-shipment
+    cell values live HERE — one row per (shipment, sheet_row). Free text only;
+    typed custom fields are intentionally L2 (require a migration via the
+    runbook in docs/runbooks/add_sheet_row.md).
+
+    Cascade strategy:
+      - Soft-delete on the parent SheetRowSetting (deleted_at IS NOT NULL)
+        leaves these rows in place — restoring the parent makes the values
+        reappear. This matches the "soft-delete with restore" pattern from
+        master plan §3.5.
+      - Hard-delete of a Shipment cascades these via on_delete=CASCADE.
+      - Clearing a single value: write the empty string. Don't delete the
+        row, so updated_at + updated_by track the clearing event.
+
+    DDL: export_shipment_custom_field_value (no SQL schema prefix — flat name
+    via schema_table per the post-collapse refactor).
+    """
+
+    shipment = models.ForeignKey(
+        'Shipment',
+        on_delete=models.CASCADE,
+        related_name='custom_field_values',
+    )
+    row = models.ForeignKey(
+        SheetRowSetting,
+        on_delete=models.CASCADE,
+        related_name='shipment_values',
+        limit_choices_to={'is_custom': True},
+    )
+    value_text = models.TextField(
+        blank=True,
+        db_collation='Cyrillic_General_CI_AS',
+        help_text='Free-text cell value. Empty string = explicitly cleared by user.',
+    )
+
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(
+        'core.User',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='+',
+    )
+
+    class Meta:
+        db_table = schema_table('export', 'shipment_custom_field_value')
+        constraints = [
+            models.UniqueConstraint(
+                fields=['shipment', 'row'],
+                name='uq_shipment_custom_field',
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f'shipment={self.shipment_id} row={self.row_id} ({len(self.value_text or "")} chars)'

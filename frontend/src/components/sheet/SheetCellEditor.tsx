@@ -47,15 +47,42 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
     setEditingCell(null);
   }, [setEditingCell]);
 
+  const queryClient = useQueryClient();
+
+  // Phase 5c — custom rows live outside the Shipment model. Saves go to a
+  // dedicated endpoint that writes ShipmentCustomFieldValue. Reuses the same
+  // ['shipments','sheet'] invalidation so the new value appears next render.
+  const customFieldMutation = useMutation({
+    mutationFn: async ({ field_key, value }: { field_key: string; value: string }) => {
+      await api.patch(`/export/shipments/${shipment.id}/custom-fields/`, { field_key, value });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+      close();
+    },
+    onError: (err) => {
+      message.error(extractPatchError(err, t('sheet.save_error')));
+      console.error('[SheetCellEditor] custom-field PATCH failed', err);
+      close();
+    },
+  });
+
   const save = useCallback(
     (value: unknown) => {
+      // Custom rows: dispatch to the dedicated endpoint with a string value.
+      if (rowConfig.field_key.startsWith('custom_')) {
+        customFieldMutation.mutate({
+          field_key: rowConfig.field_key,
+          value: typeof value === 'string' ? value : String(value ?? ''),
+        });
+        return;
+      }
       patchMutation.mutate({ id: shipment.id, field: rowConfig.field_key, value });
       close();
     },
-    [patchMutation, shipment.id, rowConfig.field_key, close],
+    [patchMutation, customFieldMutation, shipment.id, rowConfig.field_key, close],
   );
 
-  const queryClient = useQueryClient();
   const junctionMutation = useMutation({
     mutationFn: async ({ endpoint, body }: { endpoint: string; body: Record<string, unknown> }) => {
       await api.post(`/export/shipments/${shipment.id}/${endpoint}/`, body);
@@ -96,7 +123,11 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
     }
   }, []);
 
-  const currentValue = shipment[rowConfig.field_key as keyof IShipmentSheetItem];
+  // Phase 5c: custom rows store values in shipment.custom_fields, NOT on the
+  // Shipment model. Resolve the editor's seed value from there for custom_*.
+  const currentValue = rowConfig.field_key.startsWith('custom_')
+    ? shipment.custom_fields?.[rowConfig.field_key] ?? ''
+    : shipment[rowConfig.field_key as keyof IShipmentSheetItem];
   const lang = i18n.language;
 
   /** Get the right name for the current language */

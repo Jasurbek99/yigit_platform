@@ -25,6 +25,15 @@ interface ISheetCellProps {
 function getCellValue(shipment: IShipmentSheetItem, rowConfig: IRowConfig): string {
   const { field_key: fieldKey } = rowConfig;
 
+  // Phase 5c: admin-created custom rows store free-text values in
+  // shipment.custom_fields keyed by field_key (always 'custom_*'). Branch
+  // here before the switch so the legacy switch never has to know about
+  // dynamic field_keys.
+  if (fieldKey.startsWith('custom_')) {
+    const value = shipment.custom_fields?.[fieldKey];
+    return value && value.length > 0 ? value : '—';
+  }
+
   switch (fieldKey) {
     case 'cargo_code':
       return shipment.cargo_code;

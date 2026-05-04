@@ -669,7 +669,22 @@
     "conflict_refresh": "Refresh",
     "toast_reorder_error": "Failed to reorder rows",
     "info_plate_title": "Sheet Control — Configuration Levels",
-    "info_plate_desc": "To add a new field — create a task for a developer. Rename, reorder, set permissions, visibility, or style — do it here."
+    "info_plate_desc": "To add a new typed field — create a task for a developer (see runbook). Rename, reorder, set permissions, visibility, style, or add a free-text custom row — do it here.",
+    "add_custom_row": "Add custom row",
+    "add_custom_hint": "Free-text row, no migration. For typed fields use the developer runbook.",
+    "custom_badge": "custom",
+    "custom_modal_title": "New custom row",
+    "custom_modal_ok": "Create",
+    "custom_slug_label": "Field key suffix",
+    "custom_slug_required": "Slug is required",
+    "custom_slug_invalid": "Use lowercase letters, digits, underscores only (max 53 chars).",
+    "custom_slug_hint": "Final field_key will be 'custom_<slug>'. Slug must be unique across all rows.",
+    "custom_label_en": "Label (English) — required",
+    "custom_label_ru": "Label (Russian)",
+    "custom_label_tk": "Label (Turkmen)",
+    "custom_label_required": "At least the English label is required",
+    "custom_created": "Created custom row '{{field_key}}'",
+    "custom_create_error": "Couldn't create custom row"
   },
   "truck_split": {
     "col_num_firms": "# Firms",
@@ -1135,7 +1150,8 @@
       "quality": "Quality Insp.",
       "aganazar": "Aganazar",
       "babageldi": "Babageldi",
-      "none": "—"
+      "none": "—",
+      "custom": "Custom"
     },
     "row": {
       "transport_note": "Transport Note",

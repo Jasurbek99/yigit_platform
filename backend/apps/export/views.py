@@ -447,8 +447,25 @@ class ShipmentViewSet(ModelViewSet):
         serializer = ShipmentSheetSerializer(qs, many=True)
         shipment_data = serializer.data
 
-        # === Per-cell comment counts (single query, grouped in Python — no N+1) ===
+        # === Phase 5c — custom field values per shipment (one query, no N+1) ===
+        # Inject shipment.custom_fields = { field_key: value_text } onto each
+        # serialized shipment dict so the frontend can render custom rows
+        # without a second round-trip.
+        from apps.export.models import ShipmentCustomFieldValue
         ids = [s.id for s in qs]
+        custom_fields_by_shipment: dict[int, dict[str, str]] = {}
+        if ids:
+            for cv in (
+                ShipmentCustomFieldValue.objects
+                .filter(shipment_id__in=ids, row__deleted_at__isnull=True, row__is_visible=True)
+                .select_related('row')
+                .only('shipment_id', 'value_text', 'row__field_key')
+            ):
+                custom_fields_by_shipment.setdefault(cv.shipment_id, {})[cv.row.field_key] = cv.value_text
+        for s in shipment_data:
+            s['custom_fields'] = custom_fields_by_shipment.get(s['id'], {})
+
+        # === Per-cell comment counts (single query, grouped in Python — no N+1) ===
         comment_counts: dict[int, dict[str, int]] = {}
         task_counts: dict[int, dict[str, int]] = {}
 
@@ -560,8 +577,12 @@ class ShipmentViewSet(ModelViewSet):
         # ordering). We build a list of (effective_order, field_key) tuples to
         # sort, then populate row_settings in that final order.
 
-        # Step 1: determine effective order and visibility for every DEFAULT_SHEET_ROWS entry
+        # Step 1: determine effective order and visibility for every DEFAULT_SHEET_ROWS
+        # entry AND every is_custom=True row (Phase 5c). Custom rows live in
+        # SheetRowSetting only — they have no DEFAULT_SHEET_ROWS entry — but they
+        # still need to surface in the Sheet view so admins can read/write them.
         _row_candidates: list[tuple[int, str]] = []
+        _default_field_keys = {r['field_key'] for r in DEFAULT_SHEET_ROWS}
         for row in DEFAULT_SHEET_ROWS:
             fk = row['field_key']
             setting = settings_by_key.get(fk)
@@ -583,6 +604,23 @@ class ShipmentViewSet(ModelViewSet):
                 # No DB config: put at end using a large fallback order
                 effective_order = 999_999
 
+            _row_candidates.append((effective_order, fk))
+
+        # Phase 5c: append custom rows. They land at the end by default
+        # (display_order is set to max+1024 at create time); user prefs apply
+        # the same way as DEFAULT_SHEET_ROWS-backed rows.
+        for fk, setting in settings_by_key.items():
+            if not setting.is_custom or fk in _default_field_keys:
+                continue
+            if not setting.is_visible:
+                continue
+            pref = user_prefs_by_row_id.get(setting.pk)
+            if pref and pref.is_hidden:
+                continue
+            effective_order = (
+                pref.position if (pref and pref.position is not None)
+                else setting.display_order
+            )
             _row_candidates.append((effective_order, fk))
 
         # Step 2: sort by effective_order (stable — same position preserves DEFAULT_SHEET_ROWS order)
@@ -685,11 +723,27 @@ class ShipmentViewSet(ModelViewSet):
         _visible_keys = set(row_settings.keys())
         # Build a lookup of field_key → DEFAULT_SHEET_ROWS entry for fast access
         _default_rows_by_key = {r['field_key']: r for r in DEFAULT_SHEET_ROWS}
-        rows = [
-            _default_rows_by_key[fk]
-            for fk in row_settings.keys()
-            if fk in _default_rows_by_key
-        ]
+        rows = []
+        for fk in row_settings.keys():
+            default_entry = _default_rows_by_key.get(fk)
+            if default_entry is not None:
+                rows.append(default_entry)
+                continue
+            # Phase 5c: synthesize an IRowConfig-shaped entry for custom rows.
+            # input_type=text is fixed (typed custom fields go through the L2
+            # runbook). default_who_key falls back to a generic key; the admin
+            # can override per-row via who_tk/_ru/_en (Phase 5a).
+            setting = settings_by_key.get(fk)
+            if setting is None or not setting.is_custom:
+                continue
+            rows.append({
+                'row_number': setting.row_number,
+                'field_key': fk,
+                'default_who_key': 'sheet.who.custom',
+                'label_key': f'sheet.row.{fk}',  # i18n fallback; admin override wins
+                'input_type': 'text',
+                'style': 'base',
+            })
 
         # === user_preferences: informational payload (ids only, not full state) ===
         # Lets the frontend know the user's current personal order without a second
@@ -1067,6 +1121,81 @@ class ShipmentViewSet(ModelViewSet):
         shipment.refresh_from_db()
         detail_serializer = ShipmentDetailSerializer(shipment, context={'request': request})
         return Response(detail_serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['patch'], url_path='custom-fields')
+    def patch_custom_fields(self, request, pk=None):
+        """PATCH /api/v1/export/shipments/{id}/custom-fields/
+
+        Phase 5c — write a per-shipment value for an admin-created custom row.
+
+        Body:
+            { "field_key": "custom_<slug>", "value": "..." }
+
+        Reuses can_edit_sheet_field(user, field_key) so locks / role triggers /
+        extra-user grants from the Phase 1 permission machinery still gate
+        custom rows. Empty string is allowed and means "explicitly cleared
+        by user" — the value row stays so updated_at + updated_by track the
+        clearing.
+        """
+        from apps.core.permissions import can_edit_sheet_field
+        from apps.export.models import ShipmentCustomFieldValue
+
+        shipment = self.get_object()
+        if shipment.is_archived:
+            return Response(
+                {'error': 'Archived shipments are read-only.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        field_key = (request.data.get('field_key') or '').strip()
+        if not field_key.startswith('custom_'):
+            return Response(
+                {'error': "field_key must start with 'custom_'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            row = SheetRowSetting.objects.active().get(field_key=field_key, is_custom=True)
+        except SheetRowSetting.DoesNotExist:
+            return Response(
+                {'error': f"No active custom row with field_key='{field_key}'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not can_edit_sheet_field(request.user, field_key):
+            return Response(
+                {'error': f"Role '{getattr(request.user, 'role', None)}' "
+                          f"cannot edit custom field '{field_key}'."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        value = request.data.get('value', '')
+        if value is None:
+            value = ''
+        if not isinstance(value, str):
+            return Response(
+                {'error': 'value must be a string.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        ShipmentCustomFieldValue.objects.update_or_create(
+            shipment=shipment,
+            row=row,
+            defaults={'value_text': value, 'updated_by': request.user},
+        )
+
+        AuditLog.objects.create(
+            user=request.user,
+            action='update',
+            model_name='Shipment',
+            object_id=shipment.id,
+            object_repr=shipment.cargo_code,
+            field_name=field_key,
+            old_value='',  # we don't snapshot the prior value for custom fields here
+            new_value=value[:500],
+            detail=f'custom field {field_key} → {value[:200]}',
+        )
+
+        return Response({'field_key': field_key, 'value': value}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post', 'patch'], url_path='sales-report')
     def set_sales_report(self, request, pk=None):

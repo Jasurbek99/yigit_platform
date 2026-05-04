@@ -1,9 +1,10 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useState } from 'react';
 import {
   Table,
   Switch,
   Select,
   Input,
+  Tag,
   Tooltip,
   Modal,
   Spin,
@@ -11,10 +12,12 @@ import {
   message,
   Space,
   Button,
+  Form,
 } from 'antd';
 import {
   ArrowUpOutlined,
   ArrowDownOutlined,
+  PlusOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import type { ColumnsType } from 'antd/es/table';
@@ -26,6 +29,7 @@ import {
   useSaveSheetRowSetting,
   useReorderSheetRows,
   useBulkPermissions,
+  useCreateCustomSheetRow,
   type ISaveSheetRowPayload,
   type IVersionConflictError,
 } from '@/hooks/useSheetRowSettings';
@@ -64,9 +68,109 @@ function useDebouncedCallback<T extends unknown[]>(
 // (SheetRowStylePopover.tsx, SheetRowTooltipPopover.tsx) per Phase 1
 // reviewer note #8 — keeps this file under the 200-line guidance.
 
+// ─── Phase 5c: "Add custom row" modal ───────────────────────────────────────
+
+interface ICustomRowModalProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+/**
+ * Modal that asks the admin for a slug + 3-language label, then POSTs to
+ * the create-custom-row endpoint. The `custom_` prefix is shown explicitly
+ * so two admins don't accidentally collide on names — the uniqueness check
+ * happens server-side and the error surfaces in the toast.
+ */
+function CustomRowModal({ open, onClose }: ICustomRowModalProps) {
+  const { t } = useTranslation();
+  const [form] = Form.useForm<{
+    slug: string;
+    label_en: string;
+    label_ru?: string;
+    label_tk?: string;
+  }>();
+  const createMutation = useCreateCustomSheetRow();
+
+  const handleSubmit = async () => {
+    try {
+      const values = await form.validateFields();
+      const fieldKey = `custom_${values.slug.trim()}`;
+      createMutation.mutate(
+        {
+          field_key: fieldKey,
+          label_en: values.label_en.trim(),
+          label_ru: values.label_ru?.trim() || undefined,
+          label_tk: values.label_tk?.trim() || undefined,
+        },
+        {
+          onSuccess: () => {
+            message.success(t('sheet_rows.custom_created', { field_key: fieldKey }));
+            form.resetFields();
+            onClose();
+          },
+          onError: (err) => {
+            const apiMsg = err?.response?.data?.error;
+            message.error(apiMsg ?? t('sheet_rows.custom_create_error'));
+          },
+        },
+      );
+    } catch {
+      // form validation error — antd already highlights the fields
+    }
+  };
+
+  return (
+    <Modal
+      open={open}
+      onCancel={() => {
+        form.resetFields();
+        onClose();
+      }}
+      onOk={handleSubmit}
+      okText={t('sheet_rows.custom_modal_ok')}
+      title={t('sheet_rows.custom_modal_title')}
+      confirmLoading={createMutation.isPending}
+      destroyOnClose
+    >
+      <Form form={form} layout="vertical" preserve={false}>
+        <Form.Item
+          label={t('sheet_rows.custom_slug_label')}
+          name="slug"
+          rules={[
+            { required: true, message: t('sheet_rows.custom_slug_required') },
+            {
+              pattern: /^[a-z0-9_]{1,53}$/,
+              message: t('sheet_rows.custom_slug_invalid'),
+            },
+          ]}
+          extra={t('sheet_rows.custom_slug_hint')}
+        >
+          <Input addonBefore="custom_" placeholder="kz_remarks" />
+        </Form.Item>
+        <Form.Item
+          label={t('sheet_rows.custom_label_en')}
+          name="label_en"
+          rules={[{ required: true, message: t('sheet_rows.custom_label_required') }]}
+        >
+          <Input placeholder="Remarks" />
+        </Form.Item>
+        <Form.Item label={t('sheet_rows.custom_label_ru')} name="label_ru">
+          <Input placeholder="Замечания" />
+        </Form.Item>
+        <Form.Item label={t('sheet_rows.custom_label_tk')} name="label_tk">
+          <Input placeholder="Bellikler" />
+        </Form.Item>
+      </Form>
+    </Modal>
+  );
+}
+
+// ─── Main component ─────────────────────────────────────────────────────────
+
 export default function SheetRowsTab({ canWrite }: IProps) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const [customModalOpen, setCustomModalOpen] = useState(false);
   const { data: rows = [], isLoading } = useSheetRowSettings();
   const { data: allUsers = [] } = useAdminUsers();
   const saveRow = useSaveSheetRowSetting();
@@ -208,7 +312,16 @@ export default function SheetRowsTab({ canWrite }: IProps) {
       dataIndex: 'field_key',
       key: 'field_key',
       width: 180,
-      render: (v: string) => <code style={{ fontSize: 11 }}>{v}</code>,
+      render: (v: string, record: ISheetRowSetting) => (
+        <Space size={4}>
+          <code style={{ fontSize: 11 }}>{v}</code>
+          {record.is_custom && (
+            <Tag color="purple" style={{ marginInlineEnd: 0, fontSize: 10 }}>
+              {t('sheet_rows.custom_badge')}
+            </Tag>
+          )}
+        </Space>
+      ),
     },
     {
       title: t('sheet_rows.col_labels'),
@@ -405,6 +518,20 @@ export default function SheetRowsTab({ canWrite }: IProps) {
         message={t('sheet_rows.info_plate_title')}
         description={t('sheet_rows.info_plate_desc')}
       />
+      {canWrite && (
+        <div style={{ marginBottom: 12 }}>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => setCustomModalOpen(true)}
+          >
+            {t('sheet_rows.add_custom_row')}
+          </Button>
+          <span style={{ marginLeft: 8, color: '#8c8c8c', fontSize: 12 }}>
+            {t('sheet_rows.add_custom_hint')}
+          </span>
+        </div>
+      )}
       <Table<ISheetRowSetting>
         columns={columns}
         dataSource={rows}
@@ -415,6 +542,10 @@ export default function SheetRowsTab({ canWrite }: IProps) {
         bordered
         scroll={{ x: 'max-content' }}
         rowClassName={(record) => (!record.is_visible ? 'sheet-row-hidden' : '')}
+      />
+      <CustomRowModal
+        open={customModalOpen}
+        onClose={() => setCustomModalOpen(false)}
       />
     </div>
   );

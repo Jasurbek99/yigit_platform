@@ -290,6 +290,12 @@ export interface IShipmentSheetItem {
   created_by_name: string | null;
   created_at: string;
   updated_at: string;
+  /**
+   * Phase 5c — admin-created custom row values.
+   * Map of `field_key` (always starts with `custom_`) → free-text value.
+   * Empty object when this shipment has no custom values yet.
+   */
+  custom_fields?: Record<string, string>;
 }
 
 // ─── Sheet API response ──────────────────────────────────────────────────────
@@ -377,6 +383,8 @@ export interface ISheetRowSetting {
   display_order: number;
   is_visible: boolean;
   is_locked: boolean;
+  /** Phase 5c: True for admin-created runtime rows. Read-only — set by POST. */
+  is_custom: boolean;
   // Labels (writable, flat)
   label_tk: string;
   label_ru: string;

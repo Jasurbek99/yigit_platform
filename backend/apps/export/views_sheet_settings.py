@@ -111,6 +111,8 @@ class SheetRowSettingSerializer(serializers.ModelSerializer):
             'updated_by_name',
             'deleted_at',
             'hidden_at',
+            # Phase 5c — custom-row flag (read-only; flipped by POST create only)
+            'is_custom',
         ]
         read_only_fields = [
             'id', 'field_key', 'row_number',
@@ -121,6 +123,8 @@ class SheetRowSettingSerializer(serializers.ModelSerializer):
             # hidden_at is managed by SheetRowSetting.save() based on the
             # is_visible transition; clients must not write it directly.
             'hidden_at',
+            # is_custom is set on POST create; never edited via PATCH.
+            'is_custom',
         ]
 
     def get_updated_by_name(self, obj: SheetRowSetting) -> str | None:
@@ -258,8 +262,111 @@ class SheetRowSettingViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     def create(self, request, *args, **kwargs):
-        """POST is disabled — rows are seeded from DEFAULT_SHEET_ROWS."""
-        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
+        """POST /admin/sheet-rows/ — create a CUSTOM row (Phase 5c).
+
+        The DEFAULT_SHEET_ROWS-backed rows are seeded by the auto-provisioner
+        (see _provision_missing_rows) and never created via POST. This endpoint
+        is reserved for admin-created custom rows: free-text rows that don't
+        require a model column / migration.
+
+        Body:
+            field_key:  required, must start with 'custom_', slug-safe, ≤ 60 chars
+            label_tk / label_ru / label_en:  at least one must be non-empty
+            who_tk / who_ru / who_en:  optional 3-lang Col B override
+
+        Server enforces:
+            - field_key uniqueness (DB constraint)
+            - field_key prefix 'custom_' so we never collide with model-backed
+              field_keys from DEFAULT_SHEET_ROWS
+            - input_type is forced to 'text' (typed custom fields go through
+              the L2 runbook in docs/runbooks/add_sheet_row.md)
+            - is_custom=True so /sheet/ payload + frontend renderers branch
+              correctly
+            - display_order = current max + 1024 so the new row lands at the
+              bottom of the operational sheet
+        """
+        import re
+
+        field_key = (request.data.get('field_key') or '').strip()
+        if not field_key.startswith('custom_'):
+            return Response(
+                {'error': "field_key must start with 'custom_' for runtime rows."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not re.match(r'^custom_[a-z0-9_]{1,53}$', field_key):
+            return Response(
+                {'error': 'field_key must match ^custom_[a-z0-9_]{1,53}$ '
+                          '(lowercase letters, digits, underscores; max 60 chars total).'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if SheetRowSetting.objects.filter(field_key=field_key).exists():
+            return Response(
+                {'error': f"field_key '{field_key}' already exists."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        labels = {
+            'label_tk': (request.data.get('label_tk') or '').strip(),
+            'label_ru': (request.data.get('label_ru') or '').strip(),
+            'label_en': (request.data.get('label_en') or '').strip(),
+        }
+        if not any(labels.values()):
+            return Response(
+                {'error': 'At least one of label_tk / label_ru / label_en must be non-empty.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # display_order goes after every existing row.
+        from django.db.models import Max
+        max_order = SheetRowSetting.objects.aggregate(m=Max('display_order'))['m'] or 0
+        new_order = max_order + 1024
+
+        # Pick a row_number that doesn't collide with DEFAULT_SHEET_ROWS (1..44).
+        # Custom rows live at 100+ to keep audit logs scannable.
+        max_row_number = SheetRowSetting.objects.aggregate(m=Max('row_number'))['m'] or 0
+        new_row_number = max(100, max_row_number + 1)
+
+        instance = SheetRowSetting.objects.create(
+            field_key=field_key,
+            row_number=new_row_number,
+            display_order=new_order,
+            is_visible=True,
+            is_locked=False,
+            is_custom=True,
+            updated_by=request.user,
+            label_tk=labels['label_tk'],
+            label_ru=labels['label_ru'],
+            label_en=labels['label_en'],
+            who_tk=(request.data.get('who_tk') or '').strip(),
+            who_ru=(request.data.get('who_ru') or '').strip(),
+            who_en=(request.data.get('who_en') or '').strip(),
+        )
+
+        AuditLog.objects.create(
+            user=request.user,
+            action='create',
+            model_name='SheetRowSetting',
+            object_id=instance.id,
+            object_repr=str(instance),
+            field_name='is_custom',
+            old_value='',
+            new_value='True',
+            detail=f'Custom row created: {field_key}',
+        )
+
+        # Auto-grant the creating admin edit access via SheetRowUserPermission.
+        # Avoids the chicken-and-egg of a brand-new row that only the system
+        # superuser can edit.
+        SheetRowUserPermission.objects.create(
+            row=instance,
+            user=request.user,
+            can_edit=True,
+            created_by=request.user,
+        )
+
+        return Response(
+            self.get_serializer(instance).data,
+            status=status.HTTP_201_CREATED,
+        )
 
     def update(self, request, *args, **kwargs):
         """Full PUT is disabled — use PATCH."""
@@ -322,23 +429,27 @@ class SheetRowSettingViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if instance.is_visible:
-            return Response(
-                {'error': 'row_must_be_hidden_30_days'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Cooldown reads `hidden_at`, falling back to `updated_at` only for
-        # rows that pre-date the hidden_at column (the data migration in
-        # 0003_sheet_row_setting_hidden_at backfills them — fallback is
-        # belt-and-suspenders for unmigrated environments).
-        threshold = timezone.now() - timedelta(days=30)
-        hidden_since = instance.hidden_at or instance.updated_at
-        if hidden_since > threshold:
-            return Response(
-                {'error': 'row_must_be_hidden_30_days'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        # Phase 5c: custom rows skip the 30-day cooldown entirely. Those rows
+        # are admin-created at runtime and aren't pinned to the legacy Excel
+        # layout — admins can recall them immediately. The cooldown exists to
+        # protect DEFAULT_SHEET_ROWS from accidental nukes.
+        if not instance.is_custom:
+            if instance.is_visible:
+                return Response(
+                    {'error': 'row_must_be_hidden_30_days'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            # Cooldown reads `hidden_at`, falling back to `updated_at` only for
+            # rows that pre-date the hidden_at column (the data migration in
+            # 0003_sheet_row_setting_hidden_at backfills them — fallback is
+            # belt-and-suspenders for unmigrated environments).
+            threshold = timezone.now() - timedelta(days=30)
+            hidden_since = instance.hidden_at or instance.updated_at
+            if hidden_since > threshold:
+                return Response(
+                    {'error': 'row_must_be_hidden_30_days'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         now = timezone.now()
         instance.deleted_at = now

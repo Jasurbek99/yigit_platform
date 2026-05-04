@@ -555,17 +555,20 @@ class SheetRowSettingAdminTests(TestCase):
         )
         self.assertEqual(resp.status_code, 403, resp.data)
 
-    # ── Test 16: POST create disabled ────────────────────────────────────────
+    # ── Test 16: POST gates non-custom field_keys ─────────────────────────────
 
-    def test_post_disabled(self):
-        """POST to the list URL must return 405 Method Not Allowed."""
+    def test_post_rejects_non_custom_field_key(self):
+        """POST is reserved for custom rows (Phase 5c). Non-prefixed
+        field_keys must be rejected — DEFAULT_SHEET_ROWS-backed rows are
+        seeded by the auto-provisioner, never created via POST."""
         self.client.force_authenticate(user=self.director)
         resp = self.client.post(
             _BASE,
-            {'field_key': 'new_field', 'row_number': 99},
+            {'field_key': 'new_field', 'label_en': 'X'},
             format='json',
         )
-        self.assertEqual(resp.status_code, 405, resp.data)
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertIn('custom_', str(resp.data))
 
     # ── Extra: serializer fields ──────────────────────────────────────────────
 

@@ -183,3 +183,36 @@ export function useRestoreSheetRow() {
     },
   });
 }
+
+// ─── Phase 5c: create custom row ──────────────────────────────────────────
+
+export interface ICreateCustomRowPayload {
+  field_key: string;          // Must start with 'custom_'
+  label_en: string;
+  label_ru?: string;
+  label_tk?: string;
+  who_en?: string;
+  who_ru?: string;
+  who_tk?: string;
+}
+
+/**
+ * POST /export/admin/sheet-rows/ — admin-creates a free-text custom row.
+ * Backend rejects field_keys not starting with `custom_`, duplicates, and
+ * requests with all empty labels. On success, invalidates the admin row
+ * list AND the sheet payload so the new row appears in the Sheet without
+ * a manual refresh.
+ */
+export function useCreateCustomSheetRow() {
+  const queryClient = useQueryClient();
+  return useMutation<ISheetRowSetting, AxiosError<{ error: string }>, ICreateCustomRowPayload>({
+    mutationFn: async (payload) => {
+      const { data } = await api.post<ISheetRowSetting>('/export/admin/sheet-rows/', payload);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+    },
+  });
+}
