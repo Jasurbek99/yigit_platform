@@ -101,8 +101,31 @@ class ShipmentViewSet(ModelViewSet):
             return ShipmentDetailSerializer
         return ShipmentListSerializer
 
+    # Roles allowed to view the Archive view (?archived=true). Operational view
+    # (the default) is open to everyone with shipment.view permission. Archive
+    # is a more sensitive read — closed shipments may include historical buyer
+    # prices and other data only management should browse.
+    _ARCHIVE_VIEW_ROLES = ('admin', 'director', 'export_manager', 'finansist', 'boss')
+
     def get_queryset(self) -> QuerySet:
         qs = super().get_queryset()
+
+        # ── Operational vs Archive split (Phase 3, ADR-0005) ─────────────────
+        # Default: is_archived=False (operational). ?archived=true opens the
+        # archive view, gated to a subset of management roles.
+        archived_param = self.request.query_params.get('archived')
+        if archived_param == 'true':
+            role = getattr(self.request.user, 'role', None)
+            is_super = getattr(self.request.user, 'is_superuser', False)
+            if not (is_super or role in self._ARCHIVE_VIEW_ROLES):
+                # Return an empty queryset; the viewset will paginate as 0 results.
+                # Rejecting at queryset level (rather than 403) keeps the error
+                # path uniform with other implicit role-based filters here.
+                return qs.none()
+            qs = qs.filter(is_archived=True)
+        else:
+            qs = qs.filter(is_archived=False)
+
         # pending_my_fields takes priority over my_work when both are present.
         if self.request.query_params.get('pending_my_fields') == 'true':
             qs = self._filter_pending_fields(qs)

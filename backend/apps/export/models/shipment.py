@@ -173,6 +173,16 @@ class Shipment(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     notes = models.TextField(blank=True, null=True, **cyrillic_collation())
 
+    # === Archive split (Phase 3, ADR-0005) ===
+    # `is_archived` is flipped to True by the daily archive_shipments cron when
+    # the row is in a terminal status AND has not been touched in 21 days.
+    # Operational views default to is_archived=False; the Archive view explicitly
+    # opts in via ?archived=true. Open (non-terminal) shipments stay in
+    # operational forever — those are flagged separately by the stuck dashboard
+    # (Phase 4), not auto-archived.
+    is_archived = models.BooleanField(default=False, db_index=True)
+    archived_at = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         db_table = schema_table('export', 'shipments')
         ordering = ['-date', '-id']
