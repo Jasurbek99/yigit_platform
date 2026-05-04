@@ -684,7 +684,13 @@
     "custom_label_tk": "Label (Turkmen)",
     "custom_label_required": "At least the English label is required",
     "custom_created": "Created custom row '{{field_key}}'",
-    "custom_create_error": "Couldn't create custom row"
+    "custom_create_error": "Couldn't create custom row",
+    "custom_delete_tooltip": "Delete this custom row",
+    "custom_delete_confirm_title": "Delete custom row '{{field_key}}'?",
+    "custom_delete_confirm_body": "The row will be hidden from the Sheet for everyone. Per-shipment values stay in the database and reappear if the row is restored. This is a soft-delete.",
+    "custom_delete_confirm_ok": "Delete",
+    "custom_deleted": "Deleted custom row '{{field_key}}'",
+    "custom_delete_error": "Couldn't delete custom row"
   },
   "truck_split": {
     "col_num_firms": "# Firms",

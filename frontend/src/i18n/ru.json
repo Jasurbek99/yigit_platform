@@ -686,7 +686,13 @@
     "custom_label_tk": "Название (Türkmen)",
     "custom_label_required": "Хотя бы английское название обязательно",
     "custom_created": "Создан свой ряд '{{field_key}}'",
-    "custom_create_error": "Не удалось создать свой ряд"
+    "custom_create_error": "Не удалось создать свой ряд",
+    "custom_delete_tooltip": "Удалить этот свой ряд",
+    "custom_delete_confirm_title": "Удалить свой ряд '{{field_key}}'?",
+    "custom_delete_confirm_body": "Ряд исчезнет из Sheet для всех. Значения по отгрузкам сохранятся в БД и появятся снова, если ряд восстановить. Это мягкое удаление.",
+    "custom_delete_confirm_ok": "Удалить",
+    "custom_deleted": "Удалён свой ряд '{{field_key}}'",
+    "custom_delete_error": "Не удалось удалить свой ряд"
   },
   "truck_split": {
     "col_num_firms": "Кол-во фирм",

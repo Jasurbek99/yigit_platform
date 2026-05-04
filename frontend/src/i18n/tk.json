@@ -684,7 +684,13 @@
     "custom_label_tk": "Ady (Türkmen)",
     "custom_label_required": "Iň bolmanda iňlis ady hökmany",
     "custom_created": "Custom hatar '{{field_key}}' döredildi",
-    "custom_create_error": "Custom hatar döretmek başartmady"
+    "custom_create_error": "Custom hatar döretmek başartmady",
+    "custom_delete_tooltip": "Bu custom hatary poz",
+    "custom_delete_confirm_title": "Custom hatar '{{field_key}}' pozulsynmy?",
+    "custom_delete_confirm_body": "Hatar ähli ulanyjylardan ýitirilýär. Ýüklerdäki bahalar bazada galýar we hatar dikeldilse gaýtadan görüner. Bu ýumşak pozulma.",
+    "custom_delete_confirm_ok": "Pozmak",
+    "custom_deleted": "Custom hatar '{{field_key}}' pozuldy",
+    "custom_delete_error": "Custom hatary pozmak başartmady"
   },
   "truck_split": {
     "col_num_firms": "Firma sany",

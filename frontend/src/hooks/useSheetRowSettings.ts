@@ -161,7 +161,10 @@ export function useSoftDeleteSheetRow() {
       await api.delete(`/export/admin/sheet-rows/${id}/`);
     },
     onSuccess: () => {
+      // Invalidate both the admin row list AND the live Sheet payload, so a
+      // deleted row vanishes from open Sheet tabs without a manual refresh.
       queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
     },
   });
 }

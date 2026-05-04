@@ -18,6 +18,7 @@ import {
   ArrowUpOutlined,
   ArrowDownOutlined,
   PlusOutlined,
+  DeleteOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import type { ColumnsType } from 'antd/es/table';
@@ -30,6 +31,7 @@ import {
   useReorderSheetRows,
   useBulkPermissions,
   useCreateCustomSheetRow,
+  useSoftDeleteSheetRow,
   type ISaveSheetRowPayload,
   type IVersionConflictError,
 } from '@/hooks/useSheetRowSettings';
@@ -160,6 +162,7 @@ export default function SheetRowsTab({ canWrite }: IProps) {
   const saveRow = useSaveSheetRowSetting();
   const reorderRows = useReorderSheetRows();
   const bulkPermissions = useBulkPermissions();
+  const softDelete = useSoftDeleteSheetRow();
 
   const roleOptions = ROLE_CHOICES.map((r) => ({ value: r.value, label: t(r.labelKey) }));
 
@@ -203,6 +206,34 @@ export default function SheetRowsTab({ canWrite }: IProps) {
   // (Inline label / who / tooltip inputs use InlineSavedInput, which calls
   // handleSave on blur or Enter — no debounce needed and no per-keystroke
   // PATCH spam.)
+
+  // ── Soft-delete custom row (Phase 5c) ───────────────────────────────────
+  const handleDeleteCustomRow = useCallback(
+    (record: ISheetRowSetting) => {
+      if (!canWrite || !record.is_custom) return;
+      Modal.confirm({
+        title: t('sheet_rows.custom_delete_confirm_title', { field_key: record.field_key }),
+        content: t('sheet_rows.custom_delete_confirm_body'),
+        okText: t('sheet_rows.custom_delete_confirm_ok'),
+        okButtonProps: { danger: true },
+        cancelText: t('common.cancel'),
+        onOk: () =>
+          new Promise<void>((resolve, reject) => {
+            softDelete.mutate({ id: record.id }, {
+              onSuccess: () => {
+                message.success(t('sheet_rows.custom_deleted', { field_key: record.field_key }));
+                resolve();
+              },
+              onError: () => {
+                message.error(t('sheet_rows.custom_delete_error'));
+                reject();
+              },
+            });
+          }),
+      });
+    },
+    [canWrite, softDelete, t],
+  );
 
   // ── Reorder helpers ───────────────────────────────────────────────────────
 
@@ -252,7 +283,7 @@ export default function SheetRowsTab({ canWrite }: IProps) {
     {
       title: '',
       key: 'reorder',
-      width: 56,
+      width: 88,
       render: (_: unknown, record: ISheetRowSetting, index: number) => (
         <Space size={2}>
           <Tooltip title={t('sheet_rows.move_up')}>
@@ -273,6 +304,23 @@ export default function SheetRowsTab({ canWrite }: IProps) {
               onClick={() => moveRow(record, 'down')}
             />
           </Tooltip>
+          {/*
+            Delete is shown ONLY for is_custom rows. DEFAULT_SHEET_ROWS-backed
+            rows are tied to model fields and protected by the 30-day
+            cooldown — they're not safely deletable from this UI.
+          */}
+          {record.is_custom && (
+            <Tooltip title={t('sheet_rows.custom_delete_tooltip')}>
+              <Button
+                size="small"
+                type="text"
+                danger
+                icon={<DeleteOutlined />}
+                disabled={!canWrite}
+                onClick={() => handleDeleteCustomRow(record)}
+              />
+            </Tooltip>
+          )}
         </Space>
       ),
     },
