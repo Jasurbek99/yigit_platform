@@ -644,6 +644,7 @@
     "locked_row": "Bu setir gulplandy",
     "col_id": "ID",
     "col_labels": "Ady (TK / RU / EN)",
+    "col_who": "Kim (TK / RU / EN)",
     "col_tooltip": "Maslahat",
     "col_visible": "Görünüş",
     "col_locked": "Gulp",

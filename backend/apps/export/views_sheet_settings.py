@@ -86,6 +86,10 @@ class SheetRowSettingSerializer(serializers.ModelSerializer):
             'label_tk',
             'label_ru',
             'label_en',
+            # "Who" column override (Phase 5a, writable, Cyrillic-safe)
+            'who_tk',
+            'who_ru',
+            'who_en',
             # Descriptions (writable, Cyrillic-safe)
             'description_tk',
             'description_ru',

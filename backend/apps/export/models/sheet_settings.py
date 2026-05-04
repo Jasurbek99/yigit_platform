@@ -129,6 +129,29 @@ class SheetRowSetting(models.Model):
         help_text='Row label in English.',
     )
 
+    # === Localized "Who" override (Phase 5a) ===
+    # Per-row override of Col B (the "Who" / responsible-actor label). Falls
+    # back to t(rowConfig.default_who_key) on the frontend when blank. Same
+    # split-column shape as label_*; max_length is shorter because Col B is
+    # narrow (a name or a role, not a sentence).
+    who_tk = models.CharField(
+        max_length=80,
+        blank=True,
+        db_collation='Cyrillic_General_CI_AS',
+        help_text='"Who" column override in Turkmen. Falls back to default_who_key i18n.',
+    )
+    who_ru = models.CharField(
+        max_length=80,
+        blank=True,
+        db_collation='Cyrillic_General_CI_AS',
+        help_text='"Who" column override in Russian.',
+    )
+    who_en = models.CharField(
+        max_length=80,
+        blank=True,
+        help_text='"Who" column override in English.',
+    )
+
     # === Localized descriptions / tooltips ===
     description_tk = models.CharField(
         max_length=255,

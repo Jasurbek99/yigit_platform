@@ -77,8 +77,9 @@ function SheetLabelRowInner({
 
   const setting = rowSettings[rowConfig.field_key];
 
-  // Resolve the "Who" label (default_who_key fallback only)
-  const whoLabel = t(rowConfig.default_who_key);
+  // Resolve the "Who" label: admin-set DB override first, then default_who_key i18n.
+  const dbWho = setting?.who?.[currentUserLang];
+  const whoLabel = dbWho ?? t(rowConfig.default_who_key);
 
   // Resolve field label: DB label → i18n fallback → raw field_key
   const dbLabel = setting?.labels?.[currentUserLang];

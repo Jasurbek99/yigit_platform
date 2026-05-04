@@ -646,6 +646,7 @@
     "locked_row": "Эта строка заблокирована",
     "col_id": "ID",
     "col_labels": "Название (TK / RU / EN)",
+    "col_who": "Кто (TK / RU / EN)",
     "col_tooltip": "Подсказка",
     "col_visible": "Видимость",
     "col_locked": "Замок",

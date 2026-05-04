@@ -33,6 +33,10 @@ export interface ISaveSheetRowPayload {
   label_tk?: string;
   label_ru?: string;
   label_en?: string;
+  // Phase 5a: per-row "Who" override (Col B), 3 langs.
+  who_tk?: string;
+  who_ru?: string;
+  who_en?: string;
   description_tk?: string;
   description_ru?: string;
   description_en?: string;

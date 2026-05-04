@@ -644,6 +644,7 @@
     "locked_row": "This row is locked",
     "col_id": "ID",
     "col_labels": "Label (TK / RU / EN)",
+    "col_who": "Who (TK / RU / EN)",
     "col_tooltip": "Tooltip",
     "col_visible": "Visible",
     "col_locked": "Lock",

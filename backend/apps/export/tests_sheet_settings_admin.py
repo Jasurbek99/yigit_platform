@@ -592,3 +592,69 @@ class SheetRowSettingAdminTests(TestCase):
             format='json',
         )
         self.assertEqual(resp.status_code, 404, resp.data)
+
+
+# ─── Phase 5a: per-row Col B "Who" override ─────────────────────────────────
+
+class SheetRowSettingWhoOverrideTests(TestCase):
+    """Phase 5a: who_tk/_ru/_en let admins override the responsible-actor label."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command('seed_permissions')
+
+    def setUp(self):
+        self.client = APIClient()
+        self.director = User(username=f'who_director_{id(self)}', role='director')
+        self.director.set_password('pass')
+        self.director.save()
+        self.client.force_authenticate(user=self.director)
+
+    def test_patch_who_en_persists_and_appears_in_get(self):
+        data = _provision(self.client, self.director)
+        row = _by_key(data, 'weight_net')
+        resp = self.client.patch(
+            f'{_BASE}{row["id"]}/',
+            {'who_en': 'Warehouse Lead', 'version': row['version']},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(resp.data['who_en'], 'Warehouse Lead')
+
+        # Re-fetch confirms persistence
+        list_resp = self.client.get(_BASE)
+        refetched = next(r for r in list_resp.data if r['id'] == row['id'])
+        self.assertEqual(refetched['who_en'], 'Warehouse Lead')
+
+    def test_who_overrides_appear_in_sheet_payload(self):
+        """When who_* is set on the SheetRowSetting, /sheet/ payload exposes it
+        under row_settings[fk].who.{lang}."""
+        # Provision the row, then PATCH the override
+        data = _provision(self.client, self.director)
+        row = _by_key(data, 'weight_net')
+        self.client.patch(
+            f'{_BASE}{row["id"]}/',
+            {
+                'who_tk': 'Anbarchy başlygy',
+                'who_ru': 'Старший склада',
+                'who_en': 'Warehouse Lead',
+                'version': row['version'],
+            },
+            format='json',
+        )
+
+        sheet_resp = self.client.get('/api/v1/export/shipments/sheet/')
+        self.assertEqual(sheet_resp.status_code, 200, sheet_resp.data)
+        weight_net_settings = sheet_resp.data['row_settings'].get('weight_net')
+        self.assertIsNotNone(weight_net_settings)
+        self.assertIsNotNone(weight_net_settings['who'])
+        self.assertEqual(weight_net_settings['who']['en'], 'Warehouse Lead')
+        self.assertEqual(weight_net_settings['who']['ru'], 'Старший склада')
+
+    def test_who_block_omitted_when_all_blank(self):
+        """If admin hasn't set any who_* override, payload's who is null."""
+        data = _provision(self.client, self.director)
+        sheet_resp = self.client.get('/api/v1/export/shipments/sheet/')
+        weight_net_settings = sheet_resp.data['row_settings'].get('weight_net')
+        # On a freshly-provisioned row, who_tk/_ru/_en are all empty → block is null
+        self.assertIsNone(weight_net_settings['who'])

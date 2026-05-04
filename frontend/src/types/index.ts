@@ -381,6 +381,10 @@ export interface ISheetRowSetting {
   label_tk: string;
   label_ru: string;
   label_en: string;
+  // "Who" column override (Phase 5a, writable, flat)
+  who_tk: string;
+  who_ru: string;
+  who_en: string;
   // Descriptions (writable, flat)
   description_tk: string;
   description_ru: string;
@@ -417,6 +421,8 @@ export interface ISheetRowSettingForUser {
   id: number | null;
   is_locked: boolean;
   labels: { tk?: string; ru?: string; en?: string } | null;
+  /** Phase 5a: per-row override of Col B "Who" label. Null = fall back to default_who_key i18n. */
+  who: { tk?: string; ru?: string; en?: string } | null;
   description: { tk?: string; ru?: string; en?: string } | null;
   style: { width?: number; align?: 'left' | 'center' | 'right'; color?: string } | null;
   triggered_user_id: number | null;
@@ -840,6 +846,9 @@ export interface IBlockSummary {
   total_plan_kg: number;
   total_actual_kg: number | null;  // null when no actuals entered for the week
   deficit_kg: number | null;        // null when total_actual_kg is null
+  on_time_count: number;
+  late_count: number;
+  critical_late_count: number;
 }
 
 // ─── Domestic Sales ────────────────────────────────────────────────────────

@@ -240,6 +240,35 @@ export default function SheetRowsTab({ canWrite }: IProps) {
       ),
     },
     {
+      title: t('sheet_rows.col_who'),
+      key: 'who',
+      width: 280,
+      render: (_: unknown, record: ISheetRowSetting) => (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {(['tk', 'ru', 'en'] as const).map((lang) => {
+            const field = `who_${lang}` as 'who_tk' | 'who_ru' | 'who_en';
+            return (
+              <Input
+                key={lang}
+                size="small"
+                value={record[field]}
+                disabled={!canWrite}
+                placeholder={lang.toUpperCase()}
+                addonBefore={
+                  <span style={{ fontSize: 10, width: 20, display: 'inline-block', textAlign: 'center' }}>
+                    {lang.toUpperCase()}
+                  </span>
+                }
+                onChange={(e) =>
+                  debouncedSave(record, { [field]: e.target.value } as Partial<ISaveSheetRowPayload>)
+                }
+              />
+            );
+          })}
+        </div>
+      ),
+    },
+    {
       title: t('sheet_rows.col_tooltip'),
       key: 'tooltip',
       width: 100,

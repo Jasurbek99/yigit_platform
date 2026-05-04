@@ -593,12 +593,22 @@ class ShipmentViewSet(ModelViewSet):
             setting = settings_by_key.get(fk)
 
             if setting is not None:
-                # Compact labels / descriptions / style as nested objects
+                # Compact labels / descriptions / style / who as nested objects
                 labels = {
                     k: v for k, v in {
                         'tk': setting.label_tk,
                         'ru': setting.label_ru,
                         'en': setting.label_en,
+                    }.items() if v
+                }
+                # Phase 5a: per-row override of Col B "Who" label (3 langs).
+                # Frontend falls back to t(rowConfig.default_who_key) when this
+                # block is null/empty for the user's lang.
+                who = {
+                    k: v for k, v in {
+                        'tk': setting.who_tk,
+                        'ru': setting.who_ru,
+                        'en': setting.who_en,
                     }.items() if v
                 }
                 descriptions = {
@@ -631,8 +641,9 @@ class ShipmentViewSet(ModelViewSet):
                     # endpoint, which keys by numeric id. Emitting it here lets
                     # the frontend skip a second round-trip to /admin/sheet-rows/.
                     'id': setting.id,
-                    # Labels/descriptions/style (compact, omit empty)
+                    # Labels/who/descriptions/style (compact, omit empty)
                     'labels': labels or None,
+                    'who': who or None,
                     'description': descriptions or None,
                     'style': style or None,
                     # Permission triggers
@@ -656,6 +667,7 @@ class ShipmentViewSet(ModelViewSet):
                 row_settings[fk] = {
                     'id': None,
                     'labels': None,
+                    'who': None,
                     'description': None,
                     'style': None,
                     'triggered_user_id': None,
