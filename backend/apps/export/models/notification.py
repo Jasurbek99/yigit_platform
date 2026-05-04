@@ -35,6 +35,10 @@ class Notification(models.Model):
         ('mention', 'Mention'),
         ('task_assigned', 'Task assigned'),
         ('task_done', 'Task done'),
+        # Stuck shipment SLA escalation (Phase 4b, ADR-0005)
+        ('stuck_8d', 'Stuck shipment — 8 days'),
+        ('stuck_15d', 'Stuck shipment — 15 days'),
+        ('stuck_30d', 'Stuck shipment — 30+ days'),
         # Deprecated — removed in approval-flow drop, kept for old rows
         ('plan_submitted', 'Plan submitted (deprecated)'),
         ('plan_approved', 'Plan approved (deprecated)'),

@@ -23,7 +23,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.core.models import Season, ShipmentStatusType, User
-from apps.export.models import Shipment
+from apps.export.models import Notification, Shipment
 
 
 def _create_user(username: str, role: str, is_superuser: bool = False) -> User:
@@ -309,3 +309,108 @@ class ArchiveCommandTests(TestCase):
         self._run(older_than=7)
         s.refresh_from_db()
         self.assertTrue(s.is_archived)
+
+
+# ─── notify_stuck_shipments mgmt command (Phase 4b) ────────────────────────
+
+class NotifyStuckShipmentsTests(TestCase):
+    """Per-shipment escalation notifications at 8/15/30-day thresholds."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.season, _ = Season.objects.get_or_create(
+            name='2025-NTF',
+            defaults={'start_date': '2025-09-01', 'end_date': '2026-06-30', 'is_active': True},
+        )
+        cls.status_open = _make_status('yuklenme_n', 'LOADING', 1)
+        cls.status_done = _make_status('tamamlandy_n', 'COMPLETE', 13)
+        cls.director = _create_user('notify_director', 'director')
+        cls.admin = _create_user('notify_admin', 'admin')
+        cls.warehouse = _create_user('notify_warehouse', 'warehouse_chief')
+
+    def setUp(self):
+        # Each test starts with a clean Notification slate to avoid cross-test
+        # interference from setUpTestData persistence.
+        Notification.objects.filter(kind__startswith='stuck_').delete()
+
+    def _run(self, **kwargs) -> str:
+        out = StringIO()
+        call_command('notify_stuck_shipments', stdout=out, **kwargs)
+        return out.getvalue()
+
+    def test_creates_8d_notification_for_each_recipient(self):
+        s = _make_shipment('NOTIFY-8D', self.season, self.status_open, updated_days_ago=10)
+        self._run()
+        # One notification per recipient (admin + director, NOT warehouse_chief)
+        notifs = Notification.objects.filter(kind='stuck_8d', link=f'/shipments/{s.id}')
+        self.assertEqual(notifs.count(), 2)
+        self.assertSetEqual(
+            set(notifs.values_list('user__role', flat=True)),
+            {'admin', 'director'},
+        )
+
+    def test_skips_warehouse_chief_recipient(self):
+        _make_shipment('NOTIFY-NO-WH', self.season, self.status_open, updated_days_ago=10)
+        self._run()
+        wh_notifs = Notification.objects.filter(user=self.warehouse, kind__startswith='stuck_')
+        self.assertEqual(wh_notifs.count(), 0)
+
+    def test_skips_under_threshold(self):
+        """Shipments fresher than 8d don't trigger any notification."""
+        _make_shipment('NOTIFY-FRESH', self.season, self.status_open, updated_days_ago=5)
+        self._run()
+        self.assertEqual(Notification.objects.filter(kind__startswith='stuck_').count(), 0)
+
+    def test_creates_8d_and_15d_at_18_days(self):
+        """A shipment 18d stuck has crossed both 8d AND 15d thresholds."""
+        s = _make_shipment('NOTIFY-18D', self.season, self.status_open, updated_days_ago=18)
+        self._run()
+        kinds_for_admin = set(
+            Notification.objects.filter(
+                user=self.admin, link=f'/shipments/{s.id}',
+            ).values_list('kind', flat=True)
+        )
+        self.assertSetEqual(kinds_for_admin, {'stuck_8d', 'stuck_15d'})
+
+    def test_creates_all_three_at_35_days(self):
+        s = _make_shipment('NOTIFY-35D', self.season, self.status_open, updated_days_ago=35)
+        self._run()
+        kinds_for_admin = set(
+            Notification.objects.filter(
+                user=self.admin, link=f'/shipments/{s.id}',
+            ).values_list('kind', flat=True)
+        )
+        self.assertSetEqual(kinds_for_admin, {'stuck_8d', 'stuck_15d', 'stuck_30d'})
+
+    def test_idempotent_second_run_creates_nothing(self):
+        s = _make_shipment('NOTIFY-IDEM', self.season, self.status_open, updated_days_ago=10)
+        self._run()
+        before = Notification.objects.filter(kind='stuck_8d', link=f'/shipments/{s.id}').count()
+        self.assertEqual(before, 2)  # admin + director
+        self._run()
+        after = Notification.objects.filter(kind='stuck_8d', link=f'/shipments/{s.id}').count()
+        self.assertEqual(after, 2, 'Second run must not duplicate notifications')
+
+    def test_skips_archived_shipment(self):
+        s = _make_shipment('NOTIFY-ARC', self.season, self.status_open, updated_days_ago=20)
+        Shipment.objects.filter(pk=s.pk).update(is_archived=True)
+        self._run()
+        self.assertEqual(
+            Notification.objects.filter(link=f'/shipments/{s.id}').count(),
+            0,
+        )
+
+    def test_skips_terminal_phase_shipment(self):
+        """Closed shipments don't get stuck notifications regardless of age."""
+        s = _make_shipment('NOTIFY-DONE', self.season, self.status_done, updated_days_ago=40)
+        self._run()
+        self.assertEqual(
+            Notification.objects.filter(link=f'/shipments/{s.id}').count(),
+            0,
+        )
+
+    def test_dry_run_does_not_write(self):
+        _make_shipment('NOTIFY-DRY', self.season, self.status_open, updated_days_ago=10)
+        out = self._run(dry_run=True)
+        self.assertIn('DRY RUN', out)
+        self.assertEqual(Notification.objects.filter(kind__startswith='stuck_').count(), 0)
