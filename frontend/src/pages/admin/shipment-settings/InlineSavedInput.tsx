@@ -55,6 +55,14 @@ export function InlineSavedInput({
   const [draft, setDraft] = useState<string>(value ?? '');
   const inputRef = useRef<InputRef | null>(null);
   const textAreaRef = useRef<TextAreaRef | null>(null);
+  // Tracks the last value we actually pushed via onSave, updated synchronously
+  // so we can short-circuit a duplicate commit. Without this, hitting Enter
+  // calls commit() and then synchronously blurs the input, which fires
+  // onBlur={commit} a second time. The mutation is still in-flight at that
+  // point so the parent's `value` prop is stale, and `draft !== value` is
+  // still true — the naive guard would fire a second identical PATCH and
+  // duplicate the AuditLog row.
+  const lastSavedRef = useRef<string>(value ?? '');
 
   // Pull external changes into the local draft only while the input is NOT
   // focused. If the user is typing, their work isn't clobbered.
@@ -65,6 +73,10 @@ export function InlineSavedInput({
       textAreaRef.current?.resizableTextArea?.textArea === activeEl;
     if (!focused && value !== draft) {
       setDraft(value ?? '');
+      // Keep the ref aligned with what the server believes the value is —
+      // otherwise a subsequent commit could compare against a stale ref and
+      // re-PATCH the same string we just pulled in.
+      lastSavedRef.current = value ?? '';
     }
     // We intentionally exclude `draft` from deps — it changes on every
     // keypress, and re-running this effect every keystroke would compete
@@ -73,7 +85,8 @@ export function InlineSavedInput({
   }, [value]);
 
   const commit = () => {
-    if (draft !== value) {
+    if (draft !== lastSavedRef.current) {
+      lastSavedRef.current = draft;
       onSave(draft);
     }
   };

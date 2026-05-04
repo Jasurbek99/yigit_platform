@@ -211,6 +211,11 @@ export default function SheetRowsTab({ canWrite }: IProps) {
   const handleDeleteCustomRow = useCallback(
     (record: ISheetRowSetting) => {
       if (!canWrite || !record.is_custom) return;
+      // Guard against a rapid second click opening a duplicate Modal that
+      // races with the in-flight DELETE — the second mutate() would 404
+      // (soft-delete is idempotent server-side) and surface as a spurious
+      // error toast.
+      if (softDelete.isPending) return;
       Modal.confirm({
         title: t('sheet_rows.custom_delete_confirm_title', { field_key: record.field_key }),
         content: t('sheet_rows.custom_delete_confirm_body'),

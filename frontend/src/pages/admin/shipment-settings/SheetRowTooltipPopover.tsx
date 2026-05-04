@@ -14,7 +14,7 @@ interface ISheetRowTooltipPopoverProps {
 /**
  * Inline editor for the three-language tooltip (description_tk/_ru/_en) on
  * a single SheetRowSetting row in the admin tab. Each language is a small
- * TextArea that writes through the parent's debounced save.
+ * TextArea that saves on blur via InlineSavedInput — no per-keystroke PATCH.
  *
  * Extracted from SheetRowsTab.tsx (Phase 1 reviewer note #8 — file split).
  */
