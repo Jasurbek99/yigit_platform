@@ -20,6 +20,14 @@ export interface IShipmentFilters {
   date_after?: string;
   /** Inclusive upper bound, ISO date YYYY-MM-DD. */
   date_before?: string;
+  /**
+   * Phase 3 archive view (ADR-0005). Default (undefined / false) returns
+   * operational shipments only — is_archived=False rows.
+   * `true` returns is_archived=True rows; the backend gates this to
+   * admin / director / export_manager / finansist / boss. Other roles
+   * silently get an empty page.
+   */
+  archived?: boolean;
 }
 
 export function useShipments(filters: IShipmentFilters = {}) {
@@ -41,6 +49,7 @@ export function useShipments(filters: IShipmentFilters = {}) {
       if (filters.search) params.set('search', filters.search);
       if (filters.date_after) params.set('date_after', filters.date_after);
       if (filters.date_before) params.set('date_before', filters.date_before);
+      if (filters.archived) params.set('archived', 'true');
 
       const { data } = await api.get<IApiListResponse<IShipmentListItem>>(
         `/export/shipments/?${params.toString()}`,

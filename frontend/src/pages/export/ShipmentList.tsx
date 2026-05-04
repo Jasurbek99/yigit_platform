@@ -22,7 +22,17 @@ import { ListEditableCell } from './ListEditableCell';
 
 const { Title, Text } = Typography;
 
-type ViewMode = 'all' | 'my_work';
+type ViewMode = 'all' | 'my_work' | 'archive';
+
+// Roles allowed to switch into the Archive view. Mirrors the backend gate in
+// ShipmentViewSet._ARCHIVE_VIEW_ROLES — keep these two lists in sync.
+const ARCHIVE_VIEW_ROLES: ReadonlyArray<string> = [
+  'admin',
+  'director',
+  'export_manager',
+  'finansist',
+  'boss',
+];
 
 const COUNTRY_FLAGS: Record<string, string> = {
   kazakhstan: '🇰🇿',
@@ -74,7 +84,15 @@ export default function ShipmentList() {
   const [bulkTransitionOpen, setBulkTransitionOpen] = useState(false);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
 
-  const viewMode: ViewMode = searchParams.get('view') === 'my_work' ? 'my_work' : 'all';
+  const _viewParam = searchParams.get('view');
+  const viewMode: ViewMode =
+    _viewParam === 'my_work' ? 'my_work' :
+    _viewParam === 'archive' ? 'archive' :
+    'all';
+  const isArchiveView = viewMode === 'archive';
+  const canSeeArchive = !!user && (
+    user.is_superuser || ARCHIVE_VIEW_ROLES.includes(user.role)
+  );
   const page = Number(searchParams.get('page')) || 1;
   const pageSize = Number(searchParams.get('pageSize')) || 50;
   const search = searchParams.get('search') ?? '';
@@ -111,6 +129,7 @@ export default function ShipmentList() {
     page,
     page_size: pageSize,
     my_work: viewMode === 'my_work' || undefined,
+    archived: isArchiveView || undefined,
     search: search || undefined,
     phase: phaseFilter,
     country: countryFilter,
@@ -263,6 +282,10 @@ export default function ShipmentList() {
       fixed: 'right',
       render: (_, record) => {
         if (!canEditAnyField) return null;
+        // Archive view is read-only — no inline edits, no transitions, no
+        // bulk actions. The row data still renders so management can audit
+        // historical shipments without a separate page.
+        if (isArchiveView) return null;
         return (
           <Tooltip title={t('common.edit')}>
             <Button
@@ -328,8 +351,19 @@ export default function ShipmentList() {
           options={[
             { label: t('shipments.all'), value: 'all' },
             { label: t('shipments.my_work'), value: 'my_work' },
+            // Archive only renders for management roles (mirrors backend gate).
+            ...(canSeeArchive
+              ? [{ label: t('shipments.archive'), value: 'archive' }]
+              : []),
           ]}
-          onChange={(val) => { setViewMode(val === 'my_work' ? 'my_work' : 'all'); setPage(1); }}
+          onChange={(val) => {
+            const next: ViewMode =
+              val === 'my_work' ? 'my_work' :
+              val === 'archive' ? 'archive' :
+              'all';
+            setViewMode(next);
+            setPage(1);
+          }}
         />
         <Button
           icon={<FilterOutlined />}
@@ -431,7 +465,7 @@ export default function ShipmentList() {
         columns={columns}
         search={false}
         options={false}
-        rowSelection={canEditAnyField ? {
+        rowSelection={canEditAnyField && !isArchiveView ? {
           selectedRowKeys,
           onChange: (keys) => setSelectedRowKeys(keys as number[]),
           preserveSelectedRowKeys: true,
