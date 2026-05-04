@@ -1,4 +1,4 @@
-import { useRef, useCallback, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   Table,
   Switch,
@@ -39,28 +39,12 @@ import type { AxiosError } from 'axios';
 import { useQueryClient } from '@tanstack/react-query';
 import { SheetRowStylePopover } from './SheetRowStylePopover';
 import { SheetRowTooltipPopover } from './SheetRowTooltipPopover';
+import { InlineSavedInput } from './InlineSavedInput';
 
 dayjs.extend(relativeTime);
 
 interface IProps {
   canWrite: boolean;
-}
-
-// ─── Debounce helper ──────────────────────────────────────────────────────────
-
-function useDebouncedCallback<T extends unknown[]>(
-  fn: (...args: T) => void,
-  delay: number,
-): (...args: T) => void {
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  return useCallback(
-    (...args: T) => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => fn(...args), delay);
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [fn, delay],
-  );
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -216,15 +200,9 @@ export default function SheetRowsTab({ canWrite }: IProps) {
     [canWrite, saveRow, t, queryClient],
   );
 
-  // ── Debounced label save (800ms) ─────────────────────────────────────────
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const debouncedSave = useDebouncedCallback(
-    (record: ISheetRowSetting, patch: Partial<ISaveSheetRowPayload>) => {
-      handleSave(record, patch);
-    },
-    800,
-  );
+  // (Inline label / who / tooltip inputs use InlineSavedInput, which calls
+  // handleSave on blur or Enter — no debounce needed and no per-keystroke
+  // PATCH spam.)
 
   // ── Reorder helpers ───────────────────────────────────────────────────────
 
@@ -332,9 +310,8 @@ export default function SheetRowsTab({ canWrite }: IProps) {
           {(['tk', 'ru', 'en'] as const).map((lang) => {
             const field = `label_${lang}` as 'label_tk' | 'label_ru' | 'label_en';
             return (
-              <Input
+              <InlineSavedInput
                 key={lang}
-                size="small"
                 value={record[field]}
                 disabled={!canWrite}
                 placeholder={lang.toUpperCase()}
@@ -343,8 +320,8 @@ export default function SheetRowsTab({ canWrite }: IProps) {
                     {lang.toUpperCase()}
                   </span>
                 }
-                onChange={(e) =>
-                  debouncedSave(record, { [field]: e.target.value } as Partial<ISaveSheetRowPayload>)
+                onSave={(next) =>
+                  handleSave(record, { [field]: next } as Partial<ISaveSheetRowPayload>)
                 }
               />
             );
@@ -361,9 +338,8 @@ export default function SheetRowsTab({ canWrite }: IProps) {
           {(['tk', 'ru', 'en'] as const).map((lang) => {
             const field = `who_${lang}` as 'who_tk' | 'who_ru' | 'who_en';
             return (
-              <Input
+              <InlineSavedInput
                 key={lang}
-                size="small"
                 value={record[field]}
                 disabled={!canWrite}
                 placeholder={lang.toUpperCase()}
@@ -372,8 +348,8 @@ export default function SheetRowsTab({ canWrite }: IProps) {
                     {lang.toUpperCase()}
                   </span>
                 }
-                onChange={(e) =>
-                  debouncedSave(record, { [field]: e.target.value } as Partial<ISaveSheetRowPayload>)
+                onSave={(next) =>
+                  handleSave(record, { [field]: next } as Partial<ISaveSheetRowPayload>)
                 }
               />
             );

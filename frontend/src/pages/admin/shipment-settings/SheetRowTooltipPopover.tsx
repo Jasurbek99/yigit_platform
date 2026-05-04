@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Popover, Input, Button } from 'antd';
+import { Popover, Button } from 'antd';
 import { useTranslation } from 'react-i18next';
 import type { ISheetRowSetting } from '@/types';
 import type { ISaveSheetRowPayload } from '@/hooks/useSheetRowSettings';
+import { InlineSavedInput } from './InlineSavedInput';
 
 interface ISheetRowTooltipPopoverProps {
   record: ISheetRowSetting;
@@ -34,12 +35,12 @@ export function SheetRowTooltipPopover({
             <div style={{ fontSize: 11, color: '#888', marginBottom: 2 }}>
               {lang.toUpperCase()}
             </div>
-            <Input.TextArea
-              size="small"
+            <InlineSavedInput
+              multiline
+              rows={2}
               value={(record[field] as string) ?? ''}
               disabled={!canWrite}
-              rows={2}
-              onChange={(e) => onSave({ [field]: e.target.value } as Partial<ISaveSheetRowPayload>)}
+              onSave={(next) => onSave({ [field]: next } as Partial<ISaveSheetRowPayload>)}
             />
           </div>
         );
