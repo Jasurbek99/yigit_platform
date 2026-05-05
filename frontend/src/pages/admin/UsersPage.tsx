@@ -335,7 +335,7 @@ export default function UsersPage() {
         okText={t('users_admin.create_title')}
         cancelText={t('common.cancel')}
         confirmLoading={createUser.isPending}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={createForm} layout="vertical" style={{ marginTop: 8 }}>
           <Form.Item
@@ -388,7 +388,7 @@ export default function UsersPage() {
         okText={t('users_admin.set')}
         cancelText={t('common.cancel')}
         confirmLoading={setPassword.isPending}
-        destroyOnClose
+        destroyOnHidden
       >
         <p style={{ fontSize: 13, color: '#8c8c8c', marginBottom: 12 }}>
           {t('users_admin.reset_password_hint')}

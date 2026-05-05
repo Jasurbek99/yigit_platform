@@ -50,7 +50,7 @@ export function AdminOverrideReasonModal({
       okButtonProps={{ disabled: !reason.trim() }}
       onOk={handleOk}
       onCancel={onCancel}
-      destroyOnClose
+      destroyOnHidden
       width={440}
     >
       <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>

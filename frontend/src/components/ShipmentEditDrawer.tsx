@@ -121,7 +121,7 @@ export function ShipmentEditDrawer({
       onClose={onClose}
       title={drawerTitle}
       width={480}
-      destroyOnClose
+      destroyOnHidden
       maskClosable={!patch.isPending}
       footer={
         <Space style={{ width: '100%', justifyContent: 'flex-end' }}>

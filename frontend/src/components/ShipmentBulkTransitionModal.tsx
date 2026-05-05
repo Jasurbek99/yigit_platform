@@ -138,7 +138,7 @@ export function ShipmentBulkTransitionModal({
       cancelText={t('common.cancel')}
       okButtonProps={{ disabled: running }}
       cancelButtonProps={{ disabled: running }}
-      destroyOnClose
+      destroyOnHidden
     >
       <Form form={form} layout="vertical" style={{ marginTop: 12 }}>
         <Form.Item

@@ -163,7 +163,7 @@ export default function TruckDestinationsPage() {
         onCancel={() => { setModalOpen(false); setEditTarget(null); form.resetFields(); }}
         onOk={() => form.submit()}
         confirmLoading={createDest.isPending || updateDest.isPending}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
           <Form.Item

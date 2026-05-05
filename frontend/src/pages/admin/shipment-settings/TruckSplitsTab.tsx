@@ -170,7 +170,7 @@ export default function TruckSplitsTab({ canWrite }: IProps) {
         onCancel={closeModal}
         onOk={() => form.submit()}
         confirmLoading={createSplit.isPending || updateSplit.isPending}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
           <Form.Item

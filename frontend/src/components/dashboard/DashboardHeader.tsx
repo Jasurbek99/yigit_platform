@@ -44,23 +44,23 @@ export function DashboardHeader({ shipments }: IDashboardHeaderProps) {
         <Statistic
           title={t('dashboard.stat_total')}
           value={stats.total}
-          valueStyle={{ fontSize: 20, fontWeight: 700, color: '#344054' }}
+          styles={{ content: { fontSize: 20, fontWeight: 700, color: '#344054' } }}
         />
         <Statistic
           title={t('dashboard.stat_active')}
           value={stats.active}
-          valueStyle={{ fontSize: 20, fontWeight: 700, color: '#175cd3' }}
+          styles={{ content: { fontSize: 20, fontWeight: 700, color: '#175cd3' } }}
         />
         <Statistic
           title={t('dashboard.stat_completed')}
           value={stats.completed}
-          valueStyle={{ fontSize: 20, fontWeight: 700, color: '#067647' }}
+          styles={{ content: { fontSize: 20, fontWeight: 700, color: '#067647' } }}
         />
         {stats.missing > 0 && (
           <Statistic
             title={t('dashboard.stat_missing')}
             value={stats.missing}
-            valueStyle={{ fontSize: 20, fontWeight: 700, color: '#b42318' }}
+            styles={{ content: { fontSize: 20, fontWeight: 700, color: '#b42318' } }}
           />
         )}
       </Flex>

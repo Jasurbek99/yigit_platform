@@ -86,7 +86,7 @@ export function CellHistoryModal({ entry, onClose }: ICellHistoryModalProps): Re
       footer={null}
       onCancel={onClose}
       width={520}
-      destroyOnClose
+      destroyOnHidden
     >
       {!entry ? null : (
         <>

@@ -88,7 +88,7 @@ export function TransitionButton({ shipmentId, allowedTransitions, onSuccess }: 
         okText={t('transition.confirm')}
         cancelText={t('common.cancel')}
         confirmLoading={isLoading}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
           <Form.Item

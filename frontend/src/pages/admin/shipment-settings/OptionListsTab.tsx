@@ -217,7 +217,7 @@ export default function OptionListsTab({ canWrite }: IProps) {
         onCancel={closeModal}
         onOk={() => form.submit()}
         confirmLoading={createOption.isPending || updateOption.isPending}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
           <Form.Item

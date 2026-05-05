@@ -98,7 +98,7 @@ export function ShipmentCreateModal({ open, onClose, onSuccess }: IShipmentCreat
       okText={t('shipment_create.submit')}
       cancelText={t('common.cancel')}
       confirmLoading={createMutation.isPending}
-      destroyOnClose
+      destroyOnHidden
     >
       <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
         <Form.Item

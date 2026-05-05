@@ -131,7 +131,7 @@ export default function StatusesTab({ canWrite }: IProps) {
         onCancel={() => { setEditTarget(null); form.resetFields(); }}
         onOk={() => form.submit()}
         confirmLoading={updateStatus.isPending}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
           <Form.Item

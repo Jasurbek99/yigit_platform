@@ -240,7 +240,7 @@ export default function CustomersPage() {
         onCancel={() => { setModalOpen(false); setEditTarget(null); form.resetFields(); }}
         onOk={() => form.submit()}
         confirmLoading={createCustomer.isPending || updateCustomer.isPending}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
           <Form.Item

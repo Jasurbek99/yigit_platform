@@ -164,7 +164,7 @@ export default function BorderPointsTab({ canWrite }: IProps) {
         onCancel={closeModal}
         onOk={() => form.submit()}
         confirmLoading={createPoint.isPending || updatePoint.isPending}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
           <Form.Item
