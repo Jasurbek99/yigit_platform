@@ -12,6 +12,7 @@ import {
   Card,
   Collapse,
   Statistic,
+  Tooltip,
   message,
 } from 'antd';
 import type { TableColumnsType } from 'antd';
@@ -97,7 +98,8 @@ export default function WeeklyPlanGrid() {
   const myBlockIds = new Set(user?.managed_block_ids ?? []);
   const isBlockManager = user?.role === 'greenhouse_manager' && myBlockIds.size > 0;
   const isAdmin = user?.role === 'admin' || user?.role === 'director';
-  const isManager = isAdmin || user?.role === 'export_manager';
+  const isAdminRole = user?.role === 'admin';
+  const isManager = isAdmin;
 
   const plans: IWeeklyHarvestPlan[] = useMemo(() => {
     const raw = plansData?.results ?? [];
@@ -135,8 +137,8 @@ export default function WeeklyPlanGrid() {
 
   // ─── KPI totals from day entries ───────────────────────────────────────────
 
-  const { totalPlan, totalForecast, totalActual, dayPlanTotals } = useMemo(() => {
-    let plan = 0, forecast = 0, actual = 0;
+  const { totalPlan, totalForecast, totalActual, dayPlanTotals, lateCount, criticalLateCount } = useMemo(() => {
+    let plan = 0, forecast = 0, actual = 0, late = 0, critical = 0;
     const dayTotalsMap: Record<string, number> = {};
     for (const e of dayEntries) {
       const v = num(e.plan_value);
@@ -144,8 +146,17 @@ export default function WeeklyPlanGrid() {
       forecast += e.forecast_value != null ? num(e.forecast_value) : 0;
       actual += e.actual_value != null ? num(e.actual_value) : 0;
       dayTotalsMap[e.entry_date] = (dayTotalsMap[e.entry_date] ?? 0) + v;
+      if (e.plan_state === 'late') late += 1;
+      else if (e.plan_state === 'critical_late') critical += 1;
     }
-    return { totalPlan: plan, totalForecast: forecast, totalActual: actual, dayPlanTotals: dayTotalsMap };
+    return {
+      totalPlan: plan,
+      totalForecast: forecast,
+      totalActual: actual,
+      dayPlanTotals: dayTotalsMap,
+      lateCount: late,
+      criticalLateCount: critical,
+    };
   }, [dayEntries]);
 
   const truckCapacity = config ? Number(config.truck_capacity_kg) : 18500;
@@ -155,23 +166,23 @@ export default function WeeklyPlanGrid() {
 
   function hasBlockPermission(blockId: number): boolean {
     if (!user) return false;
-    if (isAdmin || user.role === 'export_manager') return true;
+    if (isAdmin) return true;
     if (user.role === 'greenhouse_manager') return user.managed_block_ids.includes(blockId);
     return false;
   }
 
   function canEditPlanForEntry(entry: IHarvestDayEntry): boolean {
-    // Plan editable for future days only; locked once forecast is submitted
     if (!hasBlockPermission(entry.block)) return false;
-    const entryDate = dayjs(entry.entry_date);
-    const today = dayjs().startOf('day');
-    return entryDate.isAfter(today, 'day') && !entry.forecast_submitted_at;
+    // Both admin and greenhouse_manager can edit any plan cell at any time.
+    // Lateness is tracked via entry.plan_state and surfaces as a cell badge;
+    // late/critical_late submissions notify admin + director.
+    return true;
   }
 
   function canEditForecastForEntry(entry: IHarvestDayEntry): boolean {
     if (!hasBlockPermission(entry.block)) return false;
-    // warehouse_chief or admin can enter forecast in the forecast window
-    if (user?.role !== 'warehouse_chief' && !isAdmin) return false;
+    if (isAdminRole) return true;  // admin: window-independent, override modal collects reason
+    if (user?.role !== 'warehouse_chief') return false;
     if (!config) return false;
     const now = dayjs();
     const entryDate = dayjs(entry.entry_date);
@@ -181,6 +192,7 @@ export default function WeeklyPlanGrid() {
 
   function canEditActualForEntry(entry: IHarvestDayEntry): boolean {
     if (!hasBlockPermission(entry.block)) return false;
+    if (isAdminRole) return true;  // admin: anytime, finalized or not, override modal collects reason
     // Actuals editable on same day and past days (only if not finalized)
     const entryDate = dayjs(entry.entry_date);
     const today = dayjs().startOf('day');
@@ -456,7 +468,15 @@ export default function WeeklyPlanGrid() {
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
-  const showInitialize = plans.length === 0 && !isLoading && isManager && activeSeason;
+  // Show Initialize Week when plans are missing OR plans exist but day-entry cells
+  // were never created (legacy data created before initialize_harvest_week backfilled
+  // HarvestDayEntry rows). The endpoint is idempotent.
+  const expectedDayEntries = plans.length * DAYS.length;
+  const showInitialize =
+    !isLoading &&
+    !!isManager &&
+    !!activeSeason &&
+    (plans.length === 0 || dayEntries.length < expectedDayEntries);
 
   return (
     <div>
@@ -519,7 +539,7 @@ export default function WeeklyPlanGrid() {
               title={t('plan.total_plan')}
               value={totalPlan}
               suffix="kg"
-              valueStyle={{ color: '#1677ff', fontSize: 20 }}
+              styles={{ content: { color: '#1677ff', fontSize: 20 } }}
               formatter={(v) => Number(v).toLocaleString()}
             />
           </Card>
@@ -528,7 +548,7 @@ export default function WeeklyPlanGrid() {
               title={t('plan.total_forecast')}
               value={totalForecast}
               suffix="kg"
-              valueStyle={{ color: '#fa8c16', fontSize: 20 }}
+              styles={{ content: { color: '#fa8c16', fontSize: 20 } }}
               formatter={(v) => Number(v).toLocaleString()}
             />
           </Card>
@@ -537,7 +557,7 @@ export default function WeeklyPlanGrid() {
               title={t('plan.total_actual')}
               value={totalActual}
               suffix="kg"
-              valueStyle={{ color: '#52c41a', fontSize: 20 }}
+              styles={{ content: { color: '#52c41a', fontSize: 20 } }}
               formatter={(v) => Number(v).toLocaleString()}
             />
           </Card>
@@ -545,10 +565,23 @@ export default function WeeklyPlanGrid() {
             <Statistic
               title={t('plan.est_trucks')}
               value={estTrucks}
-              valueStyle={{ color: '#722ed1', fontSize: 20 }}
+              styles={{ content: { color: '#722ed1', fontSize: 20 } }}
               suffix={t('plan.trucks_suffix')}
             />
           </Card>
+          {(lateCount > 0 || criticalLateCount > 0) && (
+            <Card size="small" style={{ flex: 1 }}>
+              <Tooltip
+                title={t('plan.late_submissions_tooltip', { late: lateCount, critical: criticalLateCount })}
+              >
+                <Statistic
+                  title={t('plan.late_submissions')}
+                  value={lateCount + criticalLateCount}
+                  styles={{ content: { color: criticalLateCount > 0 ? '#ff4d4f' : '#faad14', fontSize: 20 } }}
+                />
+              </Tooltip>
+            </Card>
+          )}
         </Flex>
       )}
 

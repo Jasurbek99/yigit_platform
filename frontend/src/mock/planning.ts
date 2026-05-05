@@ -184,14 +184,14 @@ export const MOCK_TRUCK_ALLOCATIONS: IWeeklyTruckAllocation[] = [
 ];
 
 export const MOCK_BLOCK_SUMMARY: IBlockSummary[] = [
-  { block_id: 1, block_code: 'A', block_name: 'A-Ýyladyşhana', total_plan_kg: 18500, total_actual_kg: 17900, deficit_kg: -600 },
-  { block_id: 2, block_code: 'B', block_name: 'B-Ýyladyşhana', total_plan_kg: 20000, total_actual_kg: 20450, deficit_kg: 450 },
-  { block_id: 3, block_code: 'C', block_name: 'C-Ýyladyşhana', total_plan_kg: 16200, total_actual_kg: 15800, deficit_kg: -400 },
-  { block_id: 4, block_code: 'D', block_name: 'D-Ýyladyşhana', total_plan_kg: 22000, total_actual_kg: 22000, deficit_kg: 0 },
-  { block_id: 5, block_code: 'E', block_name: 'E-Ýyladyşhana', total_plan_kg: 19500, total_actual_kg: 18100, deficit_kg: -1400 },
-  { block_id: 6, block_code: 'F', block_name: 'F-Ýyladyşhana', total_plan_kg: 17000, total_actual_kg: 17600, deficit_kg: 600 },
-  { block_id: 7, block_code: 'G', block_name: 'G-Ýyladyşhana', total_plan_kg: 21000, total_actual_kg: 19500, deficit_kg: -1500 },
-  { block_id: 8, block_code: 'H', block_name: 'H-Ýyladyşhana', total_plan_kg: 15000, total_actual_kg: 15200, deficit_kg: 200 },
+  { block_id: 1, block_code: 'A', block_name: 'A-Ýyladyşhana', total_plan_kg: 18500, total_actual_kg: 17900, deficit_kg: -600, on_time_count: 6, late_count: 0, critical_late_count: 0 },
+  { block_id: 2, block_code: 'B', block_name: 'B-Ýyladyşhana', total_plan_kg: 20000, total_actual_kg: 20450, deficit_kg: 450, on_time_count: 6, late_count: 0, critical_late_count: 0 },
+  { block_id: 3, block_code: 'C', block_name: 'C-Ýyladyşhana', total_plan_kg: 16200, total_actual_kg: 15800, deficit_kg: -400, on_time_count: 5, late_count: 1, critical_late_count: 0 },
+  { block_id: 4, block_code: 'D', block_name: 'D-Ýyladyşhana', total_plan_kg: 22000, total_actual_kg: 22000, deficit_kg: 0, on_time_count: 6, late_count: 0, critical_late_count: 0 },
+  { block_id: 5, block_code: 'E', block_name: 'E-Ýyladyşhana', total_plan_kg: 19500, total_actual_kg: 18100, deficit_kg: -1400, on_time_count: 4, late_count: 1, critical_late_count: 1 },
+  { block_id: 6, block_code: 'F', block_name: 'F-Ýyladyşhana', total_plan_kg: 17000, total_actual_kg: 17600, deficit_kg: 600, on_time_count: 6, late_count: 0, critical_late_count: 0 },
+  { block_id: 7, block_code: 'G', block_name: 'G-Ýyladyşhana', total_plan_kg: 21000, total_actual_kg: 19500, deficit_kg: -1500, on_time_count: 6, late_count: 0, critical_late_count: 0 },
+  { block_id: 8, block_code: 'H', block_name: 'H-Ýyladyşhana', total_plan_kg: 15000, total_actual_kg: 15200, deficit_kg: 200, on_time_count: 6, late_count: 0, critical_late_count: 0 },
 ];
 
 export const MOCK_DOMESTIC_SALES: IDomesticSale[] = [

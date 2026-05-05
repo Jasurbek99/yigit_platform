@@ -41,27 +41,31 @@ export function handleCellKeyDown(e: React.KeyboardEvent<HTMLInputElement>): voi
   const cell = el.closest('td');
   if (!cell) return;
 
-  let input: HTMLInputElement | null = null;
+  // Enter always saves (blur fires onBlur → save), regardless of whether a next cell exists.
+  if (key === 'Enter') {
+    e.preventDefault();
+    e.stopPropagation();
+    el.blur();
+    const next = findNextInput(cell, 'down');
+    if (next) setTimeout(() => { next.focus(); next.select(); }, 50);
+    return;
+  }
 
-  if (key === 'Enter' || key === 'ArrowDown') {
-    input = findNextInput(cell, 'down');
-  } else if (key === 'ArrowUp') {
-    input = findNextInput(cell, 'up');
-  } else if (key === 'ArrowRight') {
-    input = findNextInput(cell, 'right');
-  } else if (key === 'ArrowLeft') {
-    input = findNextInput(cell, 'left');
-  } else if (key === 'Escape') {
+  if (key === 'Escape') {
     el.blur();
     return;
-  } else {
-    return; // let all other keys (Tab, digits, etc.) behave normally
   }
+
+  let input: HTMLInputElement | null = null;
+  if (key === 'ArrowDown') input = findNextInput(cell, 'down');
+  else if (key === 'ArrowUp') input = findNextInput(cell, 'up');
+  else if (key === 'ArrowRight') input = findNextInput(cell, 'right');
+  else if (key === 'ArrowLeft') input = findNextInput(cell, 'left');
+  else return;  // let all other keys (Tab, digits, etc.) behave normally
 
   if (!input) return;
   e.preventDefault();
   e.stopPropagation();
-  if (key === 'Enter') el.blur();
-  const delay = key === 'Enter' ? 50 : 0;
-  setTimeout(() => { input!.focus(); input!.select(); }, delay);
+  input.focus();
+  input.select();
 }
