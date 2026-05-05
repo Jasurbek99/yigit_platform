@@ -68,7 +68,12 @@
     "assign": "Назначить",
     "boss_dashboard": "Босс панель",
     "fallback_forecast": "Резервный прогноз",
-    "stuck_shipments": "Зависшие отгрузки"
+    "stuck_shipments": "Зависшие отгрузки",
+    "group_feedback": "Обратная связь",
+    "feedback_submit": "Предложение / Жалоба",
+    "feedback_my_tickets": "Мои обращения",
+    "feedback_public": "Публичные предложения",
+    "feedback_admin_inbox": "Панель обращений"
   },
   "stuck": {
     "page_title": "Зависшие отгрузки",
@@ -1652,6 +1657,118 @@
       "documents_status": "Статус документов",
       "harvest_status": "Статус сбора",
       "notes": "Заметки"
+    }
+  },
+  "feedback": {
+    "category": {
+      "bug": "Ошибка",
+      "suggestion": "Предложение",
+      "question": "Вопрос"
+    },
+    "status": {
+      "new": "Новое",
+      "in_review": "На рассмотрении",
+      "resolved": "Решено",
+      "rejected": "Отклонено"
+    },
+    "form": {
+      "category": "Тип",
+      "category_placeholder": "Выберите тип",
+      "category_required": "Выберите тип",
+      "title": "Заголовок",
+      "title_placeholder": "Краткое описание...",
+      "title_required": "Введите заголовок",
+      "title_max": "Заголовок не должен превышать 200 символов",
+      "description": "Описание",
+      "description_placeholder": "Подробное описание...",
+      "description_required": "Введите описание",
+      "description_max": "Описание не должно превышать 4000 символов",
+      "attachments": "Скриншоты",
+      "hint_1": "Что вы пытались сделать?",
+      "hint_2": "Что вы ожидали увидеть?",
+      "hint_3": "Что произошло на самом деле?",
+      "submit": "Отправить",
+      "submit_error": "Не удалось отправить. Попробуйте снова."
+    },
+    "attachment": {
+      "dragger_text": "Перетащите изображение или нажмите",
+      "dragger_hint": "До {{max}} изображений, каждое не более {{size}} МБ (PNG, JPG, WebP, GIF)",
+      "capture_btn": "Снимок экрана",
+      "capture_tooltip": "Автоматически сделать снимок текущего экрана",
+      "capture_failed": "Не удалось сделать снимок экрана",
+      "remove": "Удалить",
+      "invalid_type": "{{name}} — недопустимый тип файла",
+      "too_large": "{{name}} — файл должен быть не более {{max}} МБ",
+      "too_many": "Максимум {{max}} изображений",
+      "some_files": "Некоторые файлы"
+    },
+    "reply": {
+      "placeholder": "Введите ответ...",
+      "content_required": "Ответ не может быть пустым",
+      "send": "Отправить",
+      "sent": "Ответ отправлен",
+      "mode_standard": "Стандартный",
+      "mode_internal": "Внутренняя заметка",
+      "mode_public": "Публичный",
+      "mode_internal_tooltip": "Видно только администраторам",
+      "mode_public_tooltip": "Обращение и этот ответ станут видны всем пользователям",
+      "internal_warning": "Внутренняя заметка — видят только администраторы",
+      "public_warning": "Этот ответ будет опубликован и виден всем"
+    },
+    "ticket": {
+      "attachments": "Вложения",
+      "replies": "Ответы",
+      "reopen": "Переоткрыть"
+    },
+    "submit": {
+      "title": "Отправить обращение",
+      "subtitle": "Отправьте ошибку, предложение или вопрос",
+      "page_label": "Форма обращения"
+    },
+    "my_tickets": {
+      "title": "Мои обращения",
+      "submit_new": "Новое обращение",
+      "drawer_title": "Детали обращения"
+    },
+    "public_feed": {
+      "title": "Публичные предложения",
+      "subtitle": "Публичные обращения других пользователей",
+      "empty": "Публичных обращений пока нет",
+      "drawer_title": "Детали обращения"
+    },
+    "inbox": {
+      "title": "Панель обращений",
+      "empty": "Нет обращений по данным фильтрам",
+      "select_ticket": "Выберите обращение для просмотра",
+      "ticket_detail": "Детали обращения"
+    },
+    "table": {
+      "title": "Заголовок",
+      "category": "Тип",
+      "status": "Статус",
+      "created_at": "Дата создания"
+    },
+    "filter": {
+      "all_statuses": "Все статусы",
+      "all_categories": "Все типы",
+      "all_authors": "Все пользователи",
+      "search": "Поиск..."
+    },
+    "instructions": {
+      "title": "Как правильно подать обращение?",
+      "intro": "Чтобы мы могли вам помочь, подробно опишите проблему или предложение.",
+      "screenshot_title": "Как сделать скриншот:",
+      "windows_label": "Windows",
+      "screenshot_windows": "Нажмите Win+Shift+S и выделите нужную область. Вставьте через Ctrl+V.",
+      "mac_label": "Mac",
+      "screenshot_mac": "Нажмите Cmd+Shift+4 и выделите область. Файл сохранится на рабочем столе.",
+      "phone_label": "Телефон",
+      "screenshot_phone": "Нажмите кнопку питания и уменьшения громкости одновременно.",
+      "paste_hint": "Можно вставить скриншот прямо в поле ниже через Ctrl+V."
+    },
+    "fab": {
+      "tooltip": "Отправить предложение или сообщить об ошибке",
+      "modal_title": "Отправить обращение"
     }
   }
 }

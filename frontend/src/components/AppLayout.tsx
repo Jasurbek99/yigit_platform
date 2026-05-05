@@ -22,6 +22,8 @@ import {
   IconUser,
   IconFileText,
   IconArrowsSort,
+  IconMessageCircle,
+  IconInbox,
 } from '@tabler/icons-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -29,8 +31,10 @@ import type { MenuProps } from 'antd';
 import api from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
 import { useNotifications, useMarkAllRead } from '@/hooks/useNotifications';
+import { useFeedbackAdminUnreadCount } from '@/hooks/useFeedback';
 import { canSeePage } from '@/utils/permissions';
 import { clearCachedPrefs } from '@/cache/userPrefsCache';
+import { FeedbackFAB } from '@/components/feedback/FeedbackFAB';
 import type { INotification } from '@/types';
 
 const { Sider, Header, Content } = Layout;
@@ -146,6 +150,7 @@ export default function AppLayout() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
+  const { data: feedbackUnreadCount = 0 } = useFeedbackAdminUnreadCount();
 
   const { t, i18n } = useTranslation();
 
@@ -263,12 +268,55 @@ export default function AppLayout() {
       { key: '/admin/shipment-settings', icon: <IconLayoutGrid size={15} />, label: t('nav.admin_shipment_settings') },
       { key: '/admin/permissions', icon: <IconShield size={15} />, label: t('nav.admin_permissions') },
     ]},
+    { label: t('nav.group_feedback'), items: [
+      {
+        key: '/feedback/submit',
+        icon: <IconMessageCircle size={15} />,
+        label: t('nav.feedback_submit'),
+        roles: ['admin', 'export_manager', 'loading_dept_head', 'warehouse_chief', 'weight_master',
+          'document_team', 'transport', 'sales_rep', 'finansist', 'director',
+          'accountant', 'greenhouse_manager', 'seller', 'boss'],
+      },
+      {
+        key: '/feedback/my-tickets',
+        icon: <IconFileText size={15} />,
+        label: t('nav.feedback_my_tickets'),
+        roles: ['admin', 'export_manager', 'loading_dept_head', 'warehouse_chief', 'weight_master',
+          'document_team', 'transport', 'sales_rep', 'finansist', 'director',
+          'accountant', 'greenhouse_manager', 'seller', 'boss'],
+      },
+      {
+        key: '/feedback/public',
+        icon: <IconChartPie size={15} />,
+        label: t('nav.feedback_public'),
+        roles: ['admin', 'export_manager', 'loading_dept_head', 'warehouse_chief', 'weight_master',
+          'document_team', 'transport', 'sales_rep', 'finansist', 'director',
+          'accountant', 'greenhouse_manager', 'seller', 'boss'],
+      },
+      {
+        key: '/admin/feedback',
+        icon: (
+          <Badge count={feedbackUnreadCount} size="small" offset={[6, 0]}>
+            <IconInbox size={15} />
+          </Badge>
+        ),
+        label: t('nav.feedback_admin_inbox'),
+        roles: ['admin'],
+      },
+    ]},
   ];
 
   // Filter: keep only items the user has permission to see
   const menuItems: MenuProps['items'] = allMenuGroups
     .map((group) => {
       const visibleChildren = group.items.filter((item) => {
+        // Feedback admin inbox requires role === 'admin' exactly.
+        // is_superuser alone is NOT sufficient — this check must run before
+        // the shared is_superuser shortcut below so that a superuser whose
+        // actual role is not 'admin' cannot see the inbox entry.
+        if (item.key === '/admin/feedback') {
+          return user?.role === 'admin';
+        }
         // Role-gated items (no page_permissions entry) — use the inline list.
         if (item.roles) {
           if (!user) return false;
@@ -493,6 +541,7 @@ export default function AppLayout() {
           <Outlet />
         </Content>
       </Layout>
+      <FeedbackFAB />
     </Layout>
   );
 }

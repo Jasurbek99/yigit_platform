@@ -17,6 +17,7 @@ import { Toaster } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import AppLayout from '@/components/AppLayout';
+import { useAuth } from '@/hooks/useAuth';
 
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
 const UnauthorizedPage = lazy(() => import('@/pages/auth/UnauthorizedPage'));
@@ -53,6 +54,10 @@ const PalletManifest = lazy(() => import('@/pages/export/PalletManifest'));
 const BossDashboard = lazy(() => import('@/pages/boss/BossDashboard'));
 const FallbackForecastView = lazy(() => import('@/pages/export/FallbackForecastView'));
 const StuckShipments = lazy(() => import('@/pages/director/StuckShipments'));
+const SubmitFeedbackPage = lazy(() => import('@/pages/feedback/SubmitFeedbackPage'));
+const MyTicketsPage = lazy(() => import('@/pages/feedback/MyTicketsPage'));
+const PublicFeedPage = lazy(() => import('@/pages/feedback/PublicFeedPage'));
+const AdminInboxPage = lazy(() => import('@/pages/feedback/AdminInboxPage'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -106,6 +111,20 @@ const PageLoader = () => (
     <Spin size="large" />
   </div>
 );
+
+/**
+ * Strict role guard for the Feedback Admin Inbox.
+ * Checks user.role === 'admin' exclusively — does NOT honour is_superuser.
+ * This is intentional: the feedback admin identity is the 'admin' role enum
+ * value, not Django superuser status.
+ * RequireAuth / ProtectedRoute higher up already handles unauthenticated users.
+ */
+function FeedbackAdminGate({ children }: { children: React.ReactNode }): React.ReactElement | null {
+  const { user } = useAuth();
+  if (!user) return null;
+  if (user.role !== 'admin') return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
 
 export default function App() {
   const { i18n } = useTranslation();
@@ -234,6 +253,13 @@ export default function App() {
                   } />
                   <Route path="admin/shipment-settings" element={
                     <ProtectedRoute pageCode="admin.shipment_settings"><ShipmentSettingsPage /></ProtectedRoute>
+                  } />
+                  {/* Feedback module */}
+                  <Route path="feedback/submit" element={<SubmitFeedbackPage />} />
+                  <Route path="feedback/my-tickets" element={<MyTicketsPage />} />
+                  <Route path="feedback/public" element={<PublicFeedPage />} />
+                  <Route path="admin/feedback" element={
+                    <FeedbackAdminGate><AdminInboxPage /></FeedbackAdminGate>
                   } />
                 </Route>
                 <Route path="/unauthorized" element={<UnauthorizedPage />} />

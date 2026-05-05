@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'apps.core',
     'apps.greenhouse',
     'apps.export',
+    'apps.feedback',
 ]
 
 MIDDLEWARE = [
@@ -246,6 +247,33 @@ LOGGING = {
         },
     },
 }
+
+# ════════════════════════════════════════════════
+# Email (Feedback Module)
+#
+# In development, EMAIL_BACKEND defaults to the console backend so all
+# outbound email is printed to stdout — no SMTP server required.
+# In production, set EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+# plus the SMTP credentials via env vars.
+# ════════════════════════════════════════════════
+EMAIL_BACKEND = os.environ.get(
+    'EMAIL_BACKEND',
+    'django.core.mail.backends.console.EmailBackend',
+)
+EMAIL_HOST = os.environ.get('EMAIL_HOST', '')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587') or '587')
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@ygt.local')
+
+# Feedback Module settings
+# FEEDBACK_ADMIN_EMAIL: optional shared mailbox appended to the admin recipient list.
+# PLATFORM_URL: base URL used in email deep-links (e.g. http://10.10.11.x:8080).
+#   Leave blank in dev — the email body will omit the URL line rather than
+#   render a broken link.
+FEEDBACK_ADMIN_EMAIL = os.environ.get('FEEDBACK_ADMIN_EMAIL', '')
+PLATFORM_URL = os.environ.get('PLATFORM_URL', '')
 
 # ════════════════════════════════════════════════
 # Local network dev override

@@ -1144,3 +1144,86 @@ export interface IPalletUpsertRow {
   sub_block: number;
   loaded_at?: string;
 }
+
+// ─── Feedback Module ──────────────────────────────────────────────────────────
+
+export type FeedbackCategory = 'bug' | 'suggestion' | 'question';
+export type FeedbackStatus = 'new' | 'in_review' | 'resolved' | 'rejected';
+export type FeedbackReplyMode = 'standard' | 'internal' | 'public';
+
+export interface IFeedbackAttachment {
+  id: number;
+  file: string;            // URL string
+  original_filename: string;
+  mime_type: string;
+  size_bytes: number;
+  uploaded_at: string;
+}
+
+export interface IFeedbackReply {
+  id: number;
+  author: number;
+  author_name: string;
+  author_role: string;
+  content: string;
+  mode: FeedbackReplyMode;
+  is_internal: boolean;
+  is_public: boolean;
+  attachments: IFeedbackAttachment[];
+  created_at: string;
+}
+
+/** List-level shape — lightweight, no replies or description. */
+export interface IFeedbackTicket {
+  id: number;
+  category: FeedbackCategory;
+  category_display: string;
+  title: string;
+  status: FeedbackStatus;
+  status_display: string;
+  is_public: boolean;
+  author: number;
+  author_name: string;
+  author_role: string;
+  created_at: string;
+  last_activity_at: string;
+}
+
+/** Full detail shape — includes description, attachments, replies. */
+export interface IFeedbackTicketDetail extends IFeedbackTicket {
+  description: string;
+  submitted_from_path: string;
+  submitted_from_label: string;
+  attachments: IFeedbackAttachment[];
+  replies: IFeedbackReply[];
+  resolved_at: string | null;
+}
+
+/** Create payload (converted to FormData in the hook). */
+export interface IFeedbackTicketCreate {
+  category: FeedbackCategory;
+  title: string;
+  description: string;
+  submitted_from_path: string;
+  submitted_from_label?: string;
+  user_agent: string;
+  attachments: File[];
+}
+
+/** Reply create payload (converted to FormData in the hook). */
+export interface IFeedbackReplyCreate {
+  content: string;
+  mode: FeedbackReplyMode;
+  attachments: File[];
+}
+
+export interface IFeedbackFilters {
+  scope?: 'mine' | 'public' | 'all';
+  status?: FeedbackStatus | '';
+  category?: FeedbackCategory | '';
+  author?: number | '';
+  search?: string;
+  date_from?: string;
+  date_to?: string;
+  page?: number;
+}

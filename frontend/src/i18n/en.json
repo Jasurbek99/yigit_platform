@@ -68,7 +68,12 @@
     "assign": "Assignment Board",
     "boss_dashboard": "Boss Dashboard",
     "fallback_forecast": "Fallback Forecast",
-    "stuck_shipments": "Stuck Shipments"
+    "stuck_shipments": "Stuck Shipments",
+    "group_feedback": "Feedback",
+    "feedback_submit": "Feedback",
+    "feedback_my_tickets": "My Tickets",
+    "feedback_public": "Public Suggestions",
+    "feedback_admin_inbox": "Feedback Inbox"
   },
   "stuck": {
     "page_title": "Stuck Shipments",
@@ -1650,6 +1655,118 @@
       "documents_status": "Documents status",
       "harvest_status": "Harvest status",
       "notes": "Notes"
+    }
+  },
+  "feedback": {
+    "category": {
+      "bug": "Bug",
+      "suggestion": "Suggestion",
+      "question": "Question"
+    },
+    "status": {
+      "new": "New",
+      "in_review": "In Review",
+      "resolved": "Resolved",
+      "rejected": "Rejected"
+    },
+    "form": {
+      "category": "Type",
+      "category_placeholder": "Select type",
+      "category_required": "Please select a type",
+      "title": "Title",
+      "title_placeholder": "Brief summary...",
+      "title_required": "Please enter a title",
+      "title_max": "Title must be 200 characters or fewer",
+      "description": "Description",
+      "description_placeholder": "Detailed description...",
+      "description_required": "Please enter a description",
+      "description_max": "Description must be 4000 characters or fewer",
+      "attachments": "Screenshots",
+      "hint_1": "What were you trying to do?",
+      "hint_2": "What did you expect to happen?",
+      "hint_3": "What actually happened?",
+      "submit": "Submit",
+      "submit_error": "Failed to submit. Please try again."
+    },
+    "attachment": {
+      "dragger_text": "Drag image here or click to upload",
+      "dragger_hint": "Up to {{max}} images, each under {{size}} MB (PNG, JPG, WebP, GIF)",
+      "capture_btn": "Capture screen",
+      "capture_tooltip": "Automatically capture the current screen",
+      "capture_failed": "Failed to capture screen",
+      "remove": "Remove",
+      "invalid_type": "{{name}} — unsupported file type",
+      "too_large": "{{name}} — file must be under {{max}} MB",
+      "too_many": "Maximum {{max}} images allowed",
+      "some_files": "Some files"
+    },
+    "reply": {
+      "placeholder": "Write a reply...",
+      "content_required": "Reply cannot be empty",
+      "send": "Send Reply",
+      "sent": "Reply sent",
+      "mode_standard": "Standard",
+      "mode_internal": "Internal note",
+      "mode_public": "Public reply",
+      "mode_internal_tooltip": "Visible to admins only",
+      "mode_public_tooltip": "This ticket and reply will be visible to all users",
+      "internal_warning": "Internal note — admins only",
+      "public_warning": "This reply will be published and visible to all users"
+    },
+    "ticket": {
+      "attachments": "Attachments",
+      "replies": "Replies",
+      "reopen": "Reopen"
+    },
+    "submit": {
+      "title": "Submit Feedback",
+      "subtitle": "Report a bug, suggest a feature, or ask a question",
+      "page_label": "Feedback Form"
+    },
+    "my_tickets": {
+      "title": "My Tickets",
+      "submit_new": "New Ticket",
+      "drawer_title": "Ticket Details"
+    },
+    "public_feed": {
+      "title": "Public Suggestions",
+      "subtitle": "Public tickets shared by the team",
+      "empty": "No public tickets yet",
+      "drawer_title": "Ticket Details"
+    },
+    "inbox": {
+      "title": "Feedback Inbox",
+      "empty": "No tickets match your filters",
+      "select_ticket": "Select a ticket to view",
+      "ticket_detail": "Ticket Details"
+    },
+    "table": {
+      "title": "Title",
+      "category": "Type",
+      "status": "Status",
+      "created_at": "Created"
+    },
+    "filter": {
+      "all_statuses": "All statuses",
+      "all_categories": "All types",
+      "all_authors": "All users",
+      "search": "Search..."
+    },
+    "instructions": {
+      "title": "How to write a good report",
+      "intro": "The more detail you provide, the faster we can help.",
+      "screenshot_title": "Taking a screenshot:",
+      "windows_label": "Windows",
+      "screenshot_windows": "Press Win+Shift+S to select an area. Paste with Ctrl+V below.",
+      "mac_label": "Mac",
+      "screenshot_mac": "Press Cmd+Shift+4 and select an area. The file is saved to your desktop.",
+      "phone_label": "Phone",
+      "screenshot_phone": "Press Power + Volume Down simultaneously.",
+      "paste_hint": "You can paste a screenshot directly into the field below using Ctrl+V."
+    },
+    "fab": {
+      "tooltip": "Send feedback or report a bug",
+      "modal_title": "Submit Feedback"
     }
   }
 }

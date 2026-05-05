@@ -95,6 +95,7 @@ See [[roles-matrix]] for the full capability matrix.
 ## Operational Screens
 
 - [[screens/shipment-sheet]] — Excel-style spreadsheet at `/export/shipments/sheet/` — virtualised columns, inline cell edit, dynamic field permissions
+- [[screens/feedback-module]] — Centralised in-app feedback at `/feedback/*` and `/admin/feedback` — bug/suggestion/question tickets with screenshot attachments, three reply modes, public knowledge feed
 
 ## Reference
 

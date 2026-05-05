@@ -68,7 +68,12 @@
     "assign": "Belgilemek",
     "boss_dashboard": "Boss paneli",
     "fallback_forecast": "Ätiýaç çaklama",
-    "stuck_shipments": "Saklanan ýükler"
+    "stuck_shipments": "Saklanan ýükler",
+    "group_feedback": "Şikaýatlar we Teklipler",
+    "feedback_submit": "Teklip / Şikaýat",
+    "feedback_my_tickets": "Meniň ýüz tutmalarym",
+    "feedback_public": "Köpçülige açyk teklipler",
+    "feedback_admin_inbox": "Şikaýat paneli"
   },
   "stuck": {
     "page_title": "Saklanan ýükler",
@@ -1654,6 +1659,118 @@
       "documents_status": "Resminamalaryň ýagdaýy",
       "harvest_status": "Hasylyň ýagdaýy",
       "notes": "Bellikler"
+    }
+  },
+  "feedback": {
+    "category": {
+      "bug": "Näsazlyk",
+      "suggestion": "Teklip",
+      "question": "Sorag"
+    },
+    "status": {
+      "new": "Täze",
+      "in_review": "Seredilýär",
+      "resolved": "Çözüldi",
+      "rejected": "Ret edildi"
+    },
+    "form": {
+      "category": "Görnüş",
+      "category_placeholder": "Görnüşi saýlaň",
+      "category_required": "Görnüşi saýlaň",
+      "title": "Ady",
+      "title_placeholder": "Gysgaça düşündiriş...",
+      "title_required": "Adyny giriziň",
+      "title_max": "Ady 200 nyşandan uzyn bolmaly däldir",
+      "description": "Düşündiriş",
+      "description_placeholder": "Jikme-jik düşündiriş...",
+      "description_required": "Düşündiriş giriziň",
+      "description_max": "Düşündiriş 4000 nyşandan uzyn bolmaly däldir",
+      "attachments": "Suratlar",
+      "hint_1": "Näme etmäge synanyşdyňyz?",
+      "hint_2": "Näme bolmagyna garaşdyňyz?",
+      "hint_3": "Hakykatda näme boldy?",
+      "submit": "Ibermek",
+      "submit_error": "Ýüz tutma iberilmedi. Täzeden synanyşyň."
+    },
+    "attachment": {
+      "dragger_text": "Surat süýräň ýa-da basyň",
+      "dragger_hint": "Iň köp {{max}} surat, her biri {{size}} MB-dan köp bolmaly däldir (PNG, JPG, WebP, GIF)",
+      "capture_btn": "Ekrany surata düş",
+      "capture_tooltip": "Häzirki ekrany awtomatik surata düşür",
+      "capture_failed": "Ekrany surata düşürmek başartmady",
+      "remove": "Aýyr",
+      "invalid_type": "{{name}} — rugsat berilmedik faýl görnüşi",
+      "too_large": "{{name}} — faýl {{max}} MB-dan uly bolmaly däldir",
+      "too_many": "Iň köp {{max}} surat goşup bolýar",
+      "some_files": "Käbir faýllar"
+    },
+    "reply": {
+      "placeholder": "Jogap ýazyň...",
+      "content_required": "Jogap boş bolup bilmez",
+      "send": "Ibermek",
+      "sent": "Jogap iberildi",
+      "mode_standard": "Adaty",
+      "mode_internal": "Içerki bellik",
+      "mode_public": "Köpçülige açyk",
+      "mode_internal_tooltip": "Diňe adminler görüp biler",
+      "mode_public_tooltip": "Bu ýüz tutma we jogap ähli ulanyjylara görünýär",
+      "internal_warning": "Içerki bellik — diňe adminler görer",
+      "public_warning": "Bu jogap köpçülige açyk bolar"
+    },
+    "ticket": {
+      "attachments": "Goşundy faýllar",
+      "replies": "Jogaplar",
+      "reopen": "Täzeden açmak"
+    },
+    "submit": {
+      "title": "Ýüz tutma iberme",
+      "subtitle": "Näsazlyk, teklip ýa-da sorag iberiň",
+      "page_label": "Ýüz tutma forma"
+    },
+    "my_tickets": {
+      "title": "Meniň ýüz tutmalarym",
+      "submit_new": "Täze ýüz tutma",
+      "drawer_title": "Ýüz tutma maglumatlary"
+    },
+    "public_feed": {
+      "title": "Köpçülige açyk teklipler",
+      "subtitle": "Beýleki ulanyjylaryň köpçülige açyk ýüz tutmalary",
+      "empty": "Häzirlikçe açyk ýüz tutma ýok",
+      "drawer_title": "Ýüz tutma jikme-jigi"
+    },
+    "inbox": {
+      "title": "Şikaýat paneli",
+      "empty": "Şu süzgüçlere laýyk ýüz tutma ýok",
+      "select_ticket": "Görkezmek üçin ýüz tutma saýlaň",
+      "ticket_detail": "Ýüz tutma maglumatlary"
+    },
+    "table": {
+      "title": "Ady",
+      "category": "Görnüş",
+      "status": "Ýagdaý",
+      "created_at": "Döredilen senesi"
+    },
+    "filter": {
+      "all_statuses": "Ähli ýagdaýlar",
+      "all_categories": "Ähli görnüşler",
+      "all_authors": "Ähli ulanyjylar",
+      "search": "Gözle..."
+    },
+    "instructions": {
+      "title": "Nädip dogry ýüz tutma ibermeli?",
+      "intro": "Sizi kömek etmegimiz üçin näsazlygy ýa-da teklibi aýdyň beýan ediň.",
+      "screenshot_title": "Ekrany surata düşürmek:",
+      "windows_label": "Windows",
+      "screenshot_windows": "Win+Shift+S basyp, ähli ekrany ýa-da bölegi saýlaň. Ctrl+V bilen goşuň.",
+      "mac_label": "Mac",
+      "screenshot_mac": "Cmd+Shift+4 basyp, bölegi saýlaň. Faýl stoluna goşular.",
+      "phone_label": "Telefon",
+      "screenshot_phone": "Kuwwat + Ses peseltmek düwmelerini basyň.",
+      "paste_hint": "Aşakdaky meýdana Ctrl+V bilen suray göni ýapmak bolýar."
+    },
+    "fab": {
+      "tooltip": "Teklip ýa-da näsazlyk iberiň",
+      "modal_title": "Ýüz tutma iberme"
     }
   }
 }
