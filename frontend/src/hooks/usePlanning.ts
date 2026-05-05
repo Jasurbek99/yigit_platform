@@ -80,7 +80,7 @@ export function useSubmitHarvestPlan() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: number): Promise<IWeeklyHarvestPlan> => {
-      const { data } = await api.post<IWeeklyHarvestPlan>(`/greenhouse/harvest-plans/${id}/submit/`);
+      const { data } = await api.post<IWeeklyHarvestPlan>(`/greenhouse/harvest-plans/${id}/submit-week/`);
       return data;
     },
     onSuccess: () => {

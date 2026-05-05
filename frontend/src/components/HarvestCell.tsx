@@ -148,6 +148,29 @@ function ValueOrEmpty({ valueStr, submittedAt, color }: IEmptyProps) {
   return <span style={{ color: color ?? 'inherit' }}>{Number(valueStr).toLocaleString()}</span>;
 }
 
+function PlanStateDot({ state }: { state: IHarvestDayEntry['plan_state'] }) {
+  const { t } = useTranslation();
+  if (state !== 'late' && state !== 'critical_late') return null;
+  const cfg = state === 'critical_late'
+    ? { color: '#ff4d4f', label: t('plan.state_critical_late') }
+    : { color: '#faad14', label: t('plan.state_late') };
+  return (
+    <Tooltip title={cfg.label}>
+      <span
+        style={{
+          display: 'inline-block',
+          width: 8,
+          height: 8,
+          borderRadius: 4,
+          background: cfg.color,
+          marginLeft: 6,
+          verticalAlign: 'middle',
+        }}
+      />
+    </Tooltip>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 interface IPendingOverride {
@@ -191,13 +214,28 @@ export function HarvestCell({
     newVal: number | null,
     setEditing: (v: boolean) => void,
   ) {
-    setEditing(false);
     const oldNum = currentFieldValue != null ? Number(currentFieldValue) : null;
-    if (isAdmin && newVal !== oldNum) {
-      setPendingOverride({ field, value: newVal, oldValue: oldNum });
-      return; // do not call onSave yet — wait for reason modal
+    if (newVal === oldNum) {
+      setEditing(false);
+      return;
     }
+    if (isAdmin && oldNum !== null) {
+      // Real override of a prior value — collect a reason before saving.
+      // Defer setEditing(false): the AdminOverrideReasonModal lives inside the
+      // editing branch, so unmounting it now would race-eat the modal before paint.
+      // closeOverride() handles the toggle once the user confirms or cancels.
+      setPendingOverride({ field, value: newVal, oldValue: oldNum });
+      return;
+    }
+    setEditing(false);
     onSave(entry.id, field, newVal);
+  }
+
+  function closeOverride() {
+    setPendingOverride(null);
+    setEditingPlan(false);
+    setEditingForecast(false);
+    setEditingActual(false);
   }
 
   // ── past_actual ────────────────────────────────────────────────────────────
@@ -260,9 +298,9 @@ export function HarvestCell({
               if (pendingOverride) {
                 onSave(entry.id, pendingOverride.field, pendingOverride.value, reason);
               }
-              setPendingOverride(null);
+              closeOverride();
             }}
-            onCancel={() => setPendingOverride(null)}
+            onCancel={closeOverride}
           />
         </>
       );
@@ -323,9 +361,9 @@ export function HarvestCell({
               if (pendingOverride) {
                 onSave(entry.id, pendingOverride.field, pendingOverride.value, reason);
               }
-              setPendingOverride(null);
+              closeOverride();
             }}
-            onCancel={() => setPendingOverride(null)}
+            onCancel={closeOverride}
           />
         </>
       );
@@ -401,9 +439,9 @@ export function HarvestCell({
             if (pendingOverride) {
               onSave(entry.id, pendingOverride.field, pendingOverride.value, reason);
             }
-            setPendingOverride(null);
+            closeOverride();
           }}
-          onCancel={() => setPendingOverride(null)}
+          onCancel={closeOverride}
         />
       </>
     );
@@ -418,6 +456,7 @@ export function HarvestCell({
         submittedAt={entry.plan_submitted_at}
         color="#1677ff"
       />
+      <PlanStateDot state={entry.plan_state} />
     </div>
   );
 }

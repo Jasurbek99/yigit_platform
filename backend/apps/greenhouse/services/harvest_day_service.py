@@ -137,7 +137,8 @@ def set_plan_value(entry, value, user, reason: str = '') -> None:
     """Set the plan_value on a HarvestDayEntry.
 
     Permissions:
-    - admin: always allowed; reason is required and writes last_override_* snapshot.
+    - admin: always allowed; reason required only when overriding an existing
+      plan_value (writes last_override_* snapshot in that case).
     - greenhouse_manager: own blocks only (checked via active BlockManagerAssignment).
     - warehouse_chief: NOT allowed to set plan (only forecast/actual).
 
@@ -160,9 +161,11 @@ def set_plan_value(entry, value, user, reason: str = '') -> None:
     now_utc = timezone.now()
 
     if role == 'admin':
-        if not reason or not reason.strip():
-            raise ValueError("Admin override requires a non-empty reason.")
-        _write_override_snapshot(entry, user, reason.strip(), now_utc)
+        is_override = entry.plan_value is not None
+        if is_override:
+            if not reason or not reason.strip():
+                raise ValueError("Admin override requires a non-empty reason.")
+            _write_override_snapshot(entry, user, reason.strip(), now_utc)
     elif role == 'greenhouse_manager':
         if not BlockManagerAssignment.objects.filter(
             user=user, block=entry.block, is_active=True,
@@ -196,12 +199,50 @@ def set_plan_value(entry, value, user, reason: str = '') -> None:
     )
     logger.info('HarvestDayEntry %d plan_value set to %s by %s', entry.id, value, user.username)
 
+    if role == 'greenhouse_manager' and entry.plan_state in ('late', 'critical_late'):
+        _notify_late_plan_submission(entry, user)
+
+
+def _notify_late_plan_submission(entry, submitter) -> None:
+    """Fan out plan_late / plan_critical_late notifications to admin + director users."""
+    from apps.core.models import User
+    from apps.export.models import Notification
+
+    iso_year, iso_week, _ = entry.entry_date.isocalendar()
+    submitter_name = (
+        f'{submitter.first_name} {submitter.last_name}'.strip() or submitter.username
+    )
+    block_code = getattr(entry.block, 'code', f'#{entry.block_id}')
+    state_label = 'critical-late' if entry.plan_state == 'critical_late' else 'late'
+
+    message = (
+        f'{submitter_name} submitted a {state_label} plan for block {block_code} '
+        f'on {entry.entry_date.isoformat()} — {entry.plan_value} kg.'
+    )
+    link = f'/export/plan?week={iso_week}&year={iso_year}'
+    kind = 'plan_critical_late' if entry.plan_state == 'critical_late' else 'plan_late'
+
+    target_user_ids = list(
+        User.objects.filter(role__in=('admin', 'director'), is_active=True)
+        .values_list('id', flat=True)
+    )
+    if not target_user_ids:
+        return
+
+    Notification.objects.bulk_create(
+        [
+            Notification(user_id=uid, kind=kind, message=message, link=link)
+            for uid in target_user_ids
+        ],
+        batch_size=500,
+    )
+
 
 def set_forecast_value(entry, value, user, reason: str = '') -> None:
     """Set the forecast_value on a HarvestDayEntry.
 
     Permissions × window matrix:
-    - admin: always; reason required.
+    - admin: always; reason required only when overriding an existing forecast_value.
     - greenhouse_manager: own block + primary window only.
     - warehouse_chief: any block; fallback or same_day_red_flag windows only.
 
@@ -226,9 +267,11 @@ def set_forecast_value(entry, value, user, reason: str = '') -> None:
     window = compute_forecast_window(now_l, entry.entry_date, config)
 
     if role == 'admin':
-        if not reason or not reason.strip():
-            raise ValueError("Admin override requires a non-empty reason.")
-        _write_override_snapshot(entry, user, reason.strip(), now_utc)
+        is_override = entry.forecast_value is not None
+        if is_override:
+            if not reason or not reason.strip():
+                raise ValueError("Admin override requires a non-empty reason.")
+            _write_override_snapshot(entry, user, reason.strip(), now_utc)
     elif role == 'greenhouse_manager':
         if not BlockManagerAssignment.objects.filter(
             user=user, block=entry.block, is_active=True,
@@ -279,7 +322,7 @@ def set_actual_value(entry, value, user, reason: str = '') -> None:
     """Set the actual_value on a HarvestDayEntry.
 
     Permissions:
-    - admin: always; reason required.
+    - admin: always; reason required only when overriding an existing actual_value.
     - warehouse_chief: always.
 
     Args:
@@ -292,16 +335,15 @@ def set_actual_value(entry, value, user, reason: str = '') -> None:
         PermissionError: If role is not permitted.
         ValueError: If admin override has no reason.
     """
-    from apps.core.models import GreenhouseConfig
-
     role = getattr(user, 'role', None)
     now_utc = timezone.now()
 
     if role == 'admin':
-        if not reason or not reason.strip():
-            raise ValueError("Admin override requires a non-empty reason.")
-        config = GreenhouseConfig.get_solo()
-        _write_override_snapshot(entry, user, reason.strip(), now_utc)
+        is_override = entry.actual_value is not None
+        if is_override:
+            if not reason or not reason.strip():
+                raise ValueError("Admin override requires a non-empty reason.")
+            _write_override_snapshot(entry, user, reason.strip(), now_utc)
     elif role == 'warehouse_chief':
         pass  # always allowed
     else:

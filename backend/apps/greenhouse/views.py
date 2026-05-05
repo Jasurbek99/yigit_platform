@@ -134,8 +134,8 @@ class WeeklyHarvestPlanViewSet(ModelViewSet):
             )
 
         role = getattr(request.user, 'role', None)
-        if role not in ('admin', 'director', 'export_manager'):
-            raise PermissionDenied('Only admin, director, or export_manager can initialize a week plan.')
+        if role not in ('admin', 'director'):
+            raise PermissionDenied('Only admin or director can initialize a week plan.')
 
         plans = initialize_harvest_week(season_id, week_number, year, request.user)
         serializer = self.get_serializer(plans, many=True)
@@ -160,7 +160,7 @@ class WeeklyHarvestPlanViewSet(ModelViewSet):
 
 class HarvestDayEntryViewSet(ModelViewSet):
     """
-    GET    /api/v1/greenhouse/day-entries/              — list (filter ?season=&block=&from_date=&to_date=&weekly_plan=)
+    GET    /api/v1/greenhouse/day-entries/              — list (filter ?season=&block=&date_from=&date_to=&weekly_plan=)
     GET    /api/v1/greenhouse/day-entries/{id}/         — detail
     PATCH  /api/v1/greenhouse/day-entries/{id}/         — update plan/forecast/actual values
 
@@ -189,10 +189,10 @@ class HarvestDayEntryViewSet(ModelViewSet):
             qs = qs.filter(season_id=season)
         if block := params.get('block'):
             qs = qs.filter(block_id=block)
-        if from_date := params.get('from_date'):
-            qs = qs.filter(entry_date__gte=from_date)
-        if to_date := params.get('to_date'):
-            qs = qs.filter(entry_date__lte=to_date)
+        if date_from := params.get('date_from'):
+            qs = qs.filter(entry_date__gte=date_from)
+        if date_to := params.get('date_to'):
+            qs = qs.filter(entry_date__lte=date_to)
         if weekly_plan := params.get('weekly_plan'):
             qs = qs.filter(weekly_plan_id=weekly_plan)
         return qs
