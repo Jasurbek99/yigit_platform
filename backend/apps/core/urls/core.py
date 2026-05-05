@@ -15,6 +15,8 @@ from apps.core.views import (
     BorderPointViewSet,
     ShipmentOptionTypeViewSet,
     MentionableView,
+    GreenhouseConfigView,
+    OperatingDayExceptionViewSet,
 )
 from apps.core.views_permissions import (
     PagePermissionMatrixView,
@@ -36,6 +38,7 @@ router.register('crate-types', CrateTypeViewSet, basename='crate-type')
 router.register('truck-destinations', TruckDestinationViewSet, basename='truck-destination')
 router.register('border-points', BorderPointViewSet, basename='border-point')
 router.register('shipment-options', ShipmentOptionTypeViewSet, basename='shipment-option')
+router.register('operating-day-exceptions', OperatingDayExceptionViewSet, basename='operating-day-exception')
 
 urlpatterns = router.urls + [
     path('admin/permission-registry/', PermissionRegistryView.as_view(), name='permission-registry'),
@@ -43,4 +46,5 @@ urlpatterns = router.urls + [
     path('admin/resource-permissions/', ResourcePermissionMatrixView.as_view(), name='resource-permissions'),
     path('admin/field-permissions/', FieldPermissionMatrixView.as_view(), name='field-permissions'),
     path('users/mentionable/', MentionableView.as_view(), name='users-mentionable'),
+    path('greenhouse-config/', GreenhouseConfigView.as_view(), name='greenhouse-config'),
 ]

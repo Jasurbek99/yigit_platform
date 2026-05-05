@@ -15,7 +15,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from apps.core.models import (
     City, Country, BorderPoint, ExportFirm, ImportFirm, ShipmentStatusType,
     ShipmentOptionType, Customer, GreenhouseBlock, LoadingLocation, TomatoVariety,
-    TruckDestination, CrateType,
+    TruckDestination, CrateType, GreenhouseConfig, OperatingDayException,
 )
 from apps.core.permissions import write_permission
 from apps.core.roles import REFERENCE_DATA_WRITE
@@ -35,6 +35,8 @@ from apps.core.serializers import (
     TruckDestinationSerializer,
     BorderPointSerializer,
     ShipmentOptionTypeSerializer,
+    GreenhouseConfigSerializer,
+    OperatingDayExceptionSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -307,3 +309,53 @@ class MentionableView(APIView):
             })
 
         return Response(user_results + role_results)
+
+
+class GreenhouseConfigView(APIView):
+    """GET / PATCH /api/v1/core/greenhouse-config/
+
+    Singleton configuration. GET is open to all authenticated users; PATCH is admin-only.
+    """
+
+    permission_classes = [IsAuthenticated, write_permission('admin')]
+    http_method_names = ['get', 'patch', 'head', 'options']
+
+    def get(self, request):
+        config = GreenhouseConfig.get_solo()
+        return Response(GreenhouseConfigSerializer(config).data)
+
+    def patch(self, request):
+        config = GreenhouseConfig.get_solo()
+        serializer = GreenhouseConfigSerializer(config, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(updated_by=request.user)
+        return Response(serializer.data)
+
+
+class OperatingDayExceptionViewSet(ModelViewSet):
+    """CRUD /api/v1/core/operating-day-exceptions/
+
+    Reads open to all authenticated users; writes admin-only.
+    Filters: ?date_from=&date_to=&is_holiday=
+    """
+
+    serializer_class = OperatingDayExceptionSerializer
+    permission_classes = [IsAuthenticated, write_permission('admin')]
+    queryset = OperatingDayException.objects.select_related('created_by').order_by('-date')
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        params = self.request.query_params
+        if date_from := params.get('date_from'):
+            qs = qs.filter(date__gte=date_from)
+        if date_to := params.get('date_to'):
+            qs = qs.filter(date__lte=date_to)
+        if (is_holiday := params.get('is_holiday')) is not None:
+            if is_holiday.lower() in ('true', '1'):
+                qs = qs.filter(is_holiday=True)
+            elif is_holiday.lower() in ('false', '0'):
+                qs = qs.filter(is_holiday=False)
+        return qs
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)

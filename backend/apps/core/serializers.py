@@ -1,8 +1,11 @@
+import zoneinfo
+from decimal import Decimal
+
 from rest_framework import serializers
 from apps.core.models import (
     User, City, Country, BorderPoint, ExportFirm, ImportFirm, ShipmentStatusType,
     ShipmentOptionType, Customer, GreenhouseBlock, LoadingLocation, TomatoVariety,
-    TruckDestination, CrateType,
+    TruckDestination, CrateType, GreenhouseConfig, OperatingDayException,
 )
 from apps.core.permissions import get_editable_fields
 
@@ -142,3 +145,72 @@ class ShipmentOptionTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = ShipmentOptionType
         fields = ['id', 'category', 'code', 'label_tk', 'label_en', 'label_ru', 'icon', 'sort_order', 'is_active']
+
+
+class GreenhouseConfigSerializer(serializers.ModelSerializer):
+    """Singleton greenhouse-config serializer.
+
+    `updated_by` is set by the view from request.user — never trust the client.
+    `updated_by_name` is a derived display field.
+    """
+
+    updated_by_name = serializers.SerializerMethodField()
+    plan_deadline_weekday = serializers.IntegerField(min_value=0, max_value=6)
+    plan_late_until_weekday = serializers.IntegerField(min_value=0, max_value=6)
+    plan_critical_late_at_weekday = serializers.IntegerField(min_value=0, max_value=6)
+    notification_lead_minutes = serializers.IntegerField(min_value=0, max_value=1440)
+    operating_days_bitmask = serializers.IntegerField(min_value=0, max_value=127)
+    truck_capacity_kg = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal('0.01'))
+    timezone_name = serializers.CharField(max_length=64, allow_blank=False)
+
+    class Meta:
+        model = GreenhouseConfig
+        fields = [
+            'id',
+            'plan_deadline_weekday', 'plan_late_until_weekday',
+            'plan_critical_late_at_weekday', 'plan_critical_late_at_time',
+            'forecast_primary_open', 'forecast_primary_close',
+            'forecast_fallback_close', 'forecast_same_day_close',
+            'notification_lead_minutes', 'truck_capacity_kg',
+            'operating_days_bitmask', 'timezone_name',
+            'updated_by', 'updated_by_name', 'updated_at',
+        ]
+        read_only_fields = ['id', 'updated_by', 'updated_by_name', 'updated_at']
+
+    def get_updated_by_name(self, obj: GreenhouseConfig) -> str | None:
+        if obj.updated_by_id is None:
+            return None
+        u = obj.updated_by
+        full = f'{u.first_name} {u.last_name}'.strip()
+        return full or u.username
+
+    def validate_timezone_name(self, value: str) -> str:
+        try:
+            zoneinfo.ZoneInfo(value)
+        except (zoneinfo.ZoneInfoNotFoundError, ValueError):
+            raise serializers.ValidationError(f"Unknown IANA timezone: '{value}'.")
+        return value
+
+
+class OperatingDayExceptionSerializer(serializers.ModelSerializer):
+    """Calendar-date holiday/exception override.
+
+    `created_by` is set by the view from request.user.
+    """
+
+    created_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = OperatingDayException
+        fields = [
+            'id', 'date', 'is_holiday', 'note',
+            'created_by', 'created_by_name', 'created_at',
+        ]
+        read_only_fields = ['id', 'created_by', 'created_by_name', 'created_at']
+
+    def get_created_by_name(self, obj: OperatingDayException) -> str | None:
+        if obj.created_by_id is None:
+            return None
+        u = obj.created_by
+        full = f'{u.first_name} {u.last_name}'.strip()
+        return full or u.username
