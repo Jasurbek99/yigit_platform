@@ -64,6 +64,7 @@
     "toggle_menu": "Toggle navigation",
     "shipment_sheet": "Sheet",
     "shipment_dashboard": "Dashboard",
+    "shipment_board": "Board",
     "drafts": "Draft Shipments",
     "assign": "Assignment Board",
     "boss_dashboard": "Boss Dashboard",
@@ -1892,5 +1893,20 @@
       "label": "My Work",
       "board": "Board"
     }
+  },
+  "shipment_board": {
+    "title": "Shipment Board",
+    "tasks_progress": "{{done}} of {{total}} tasks",
+    "avg_in_phase": "Avg in phase: {{duration}}",
+    "empty_phase": "No shipments",
+    "filter_country": "Country",
+    "filter_customer": "Customer",
+    "filter_gapy_satys": "Direct sale",
+    "filter_gapy_any": "Any",
+    "filter_gapy_yes": "Yes",
+    "filter_gapy_no": "No",
+    "filter_owner_role": "Owner role",
+    "filter_owner_role_all": "All roles",
+    "filter_search": "Search cargo code"
   }
 }

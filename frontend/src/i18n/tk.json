@@ -64,6 +64,7 @@
     "toggle_menu": "Menýuny açmak/ýapmak",
     "shipment_sheet": "Sahypa",
     "shipment_dashboard": "Dolandyryş",
+    "shipment_board": "Tagta",
     "drafts": "Garalama ýükler",
     "assign": "Belgilemek",
     "boss_dashboard": "Boss paneli",
@@ -1896,5 +1897,20 @@
       "label": "Meniň işim",
       "board": "Tagta"
     }
+  },
+  "shipment_board": {
+    "title": "Ýük tagtasy",
+    "tasks_progress": "{{done}}/{{total}} tabşyryk",
+    "avg_in_phase": "Fazada ortaça: {{duration}}",
+    "empty_phase": "Ýük ýok",
+    "filter_country": "Ýurt",
+    "filter_customer": "Müşderi",
+    "filter_gapy_satys": "Gapy satyş",
+    "filter_gapy_any": "Islendik",
+    "filter_gapy_yes": "Hawa",
+    "filter_gapy_no": "Ýok",
+    "filter_owner_role": "Eýe roly",
+    "filter_owner_role_all": "Ähli roller",
+    "filter_search": "Kod gözle"
   }
 }

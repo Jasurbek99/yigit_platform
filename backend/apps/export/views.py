@@ -6,12 +6,14 @@ from django.db.models import (
     Count,
     Exists,
     F,
+    Max,
     OuterRef,
+    Prefetch,
     Q,
     QuerySet,
     Subquery,
 )
-from django.db.models.functions import RowNumber
+from django.db.models.functions import Now, RowNumber
 from django.db.models.expressions import Window
 from django.utils import timezone
 from rest_framework import status
@@ -1546,6 +1548,238 @@ class ShipmentViewSet(ModelViewSet):
             grouped[step].append(TaskListSerializer(task).data)
 
         return Response(grouped)
+
+    @action(detail=False, methods=['get'], url_path='board')
+    def board(self, request):
+        """GET /api/v1/export/shipments/board/
+
+        Aggregated phase-grouped shipment list for the Shipment Kanban board.
+        Designed to be polled every 60 seconds; returns the current active-season
+        operational shipments grouped by phase with per-shipment task aggregates
+        pre-computed server-side so the client never N+1s.
+
+        Response shape:
+            {
+                "phases": ["PLAN", "PREP", "DOCS", "LOAD", "TRANSIT", "DEST", "CLOSE"],
+                "columns": {
+                    "PREP": [BoardItemSerializer, ...],
+                    "DOCS": [...],
+                    ...
+                },
+                "phase_avg_seconds": {"PREP": null, "LOAD": 2400, ...}
+            }
+
+        Query params (all optional):
+            ?country=<id>         — filter by country FK
+            ?customer=<id>        — filter by customer FK
+            ?gapy_satys=true|false — filter by is_gapy_satys
+            ?owner_role=<role>    — keep only shipments whose most-recent task
+                                    assignee_role matches
+            ?search=<text>        — cargo_code icontains
+
+        assertNumQueries constraint: ≤ 8 queries regardless of result size.
+        This is enforced by the bounded-query test in tests_shipment_board.py.
+        """
+        from django.core.cache import cache
+        from apps.export.models import Task as _Task
+        from apps.export.serializers import BoardItemSerializer
+        from apps.export.services.phases import PHASE_ORDER, get_phase
+
+        # ── Build the base queryset ────────────────────────────────────────────
+        # Always scope to active season, non-archived. These conditions mirror
+        # the intent of the Kanban: show live operational work only.
+        qs = (
+            Shipment.objects.filter(
+                season__is_active=True,
+                is_archived=False,
+            )
+            .select_related('status', 'country', 'customer')
+        )
+
+        # ── Apply request filters ─────────────────────────────────────────────
+        country_id = request.query_params.get('country')
+        if country_id:
+            qs = qs.filter(country_id=country_id)
+
+        customer_id = request.query_params.get('customer')
+        if customer_id:
+            qs = qs.filter(customer_id=customer_id)
+
+        gapy_param = request.query_params.get('gapy_satys')
+        if gapy_param is not None:
+            qs = qs.filter(is_gapy_satys=(gapy_param.lower() in ('true', '1')))
+
+        search_text = request.query_params.get('search', '').strip()
+        if search_text:
+            qs = qs.filter(cargo_code__icontains=search_text)
+
+        # owner_role filter: keep only shipments whose most-recent task (by
+        # created_at desc) has the given assignee_role. Uses a Subquery to
+        # avoid cross-product duplication. Strip .order_by() is not needed
+        # here because Task has no Meta.ordering, but we specify it explicitly
+        # for clarity. No Window function involved, so mssql-compat subquery
+        # ordering restriction does not apply.
+        owner_role = request.query_params.get('owner_role', '').strip()
+        if owner_role:
+            # Keep only shipments whose most-recent task (by created_at desc)
+            # has the given assignee_role. Subquery approach is safe for MSSQL
+            # — no Window involved so no Meta.ordering-in-subquery issue.
+            latest_task_role_sq = (
+                _Task.objects.filter(shipment=OuterRef('pk'))
+                .order_by('-created_at')
+                .values('assignee_role')[:1]
+            )
+            qs = qs.annotate(_latest_role=Subquery(latest_task_role_sq))
+            qs = qs.filter(_latest_role=owner_role)
+
+        # ── Task-count annotations ────────────────────────────────────────────
+        # All counts are done as filtered COUNT(*) on the tasks relation.
+        # Django translates these to a single SQL query with conditional
+        # COUNT expressions (no per-row subqueries) on MSSQL.
+        qs = qs.annotate(
+            tasks_total=Count('tasks'),
+            tasks_done=Count('tasks', filter=Q(tasks__state='done')),
+            late_count=Count(
+                'tasks',
+                filter=Q(tasks__deadline__lt=Now())
+                & ~Q(tasks__state__in=['done', 'cancelled']),
+            ),
+            in_progress_count=Count(
+                'tasks', filter=Q(tasks__state='in_progress'),
+            ),
+            blocked_count=Count(
+                'tasks', filter=Q(tasks__state='blocked'),
+            ),
+            # last_status_change: used by BoardItemSerializer.get_time_in_phase_seconds.
+            # Max() across status_log__changed_at gives the most recent transition
+            # timestamp for this shipment. Falls back to updated_at in the serializer.
+            last_status_change=Max('status_log__changed_at'),
+        )
+
+        # ── Prefetch tasks (for owner_role resolution in the serializer) ──────
+        tasks_prefetch = Prefetch(
+            'tasks',
+            queryset=_Task.objects.order_by('-created_at'),
+        )
+        qs = qs.prefetch_related(tasks_prefetch)
+
+        # ── Evaluate and group by phase ───────────────────────────────────────
+        columns: dict[str, list] = {phase: [] for phase in PHASE_ORDER}
+        for shipment in qs:
+            phase = get_phase(shipment.status.code if shipment.status_id else None)
+            columns[phase].append(shipment)
+
+        # Sort within each column: late first → in_progress → idle, by
+        # time_in_phase_seconds descending (oldest-in-phase at top).
+        now = timezone.now()
+        for phase_items in columns.values():
+            phase_items.sort(
+                key=lambda s: (
+                    -(s.late_count or 0),
+                    -(s.in_progress_count or 0),
+                    -int(
+                        (now - (
+                            getattr(s, 'last_status_change', None) or s.updated_at or now
+                        )).total_seconds()
+                    ),
+                )
+            )
+
+        # ── Serialize columns ────────────────────────────────────────────────
+        serialized_columns = {
+            phase: BoardItemSerializer(items, many=True).data
+            for phase, items in columns.items()
+        }
+
+        # ── phase_avg_seconds (cached 5 min per active season) ───────────────
+        # Derive from AD-1 denormalized timestamps on recently-closed shipments.
+        # Phase → AD-1 timestamp pair used to compute average duration:
+        #   LOAD    = avg(customs_entry_at - loading_started_at)
+        #   DOCS    = avg(departed_at      - customs_entry_at)
+        #   TRANSIT = avg(arrived_at       - departed_at)
+        #   DEST    = avg(sale_ended_at    - arrived_at)
+        # PLAN, PREP, CLOSE: no AD-1 pair available → null.
+        # Values are cached per active season for 5 minutes.
+        active_season_id = (
+            Shipment.objects.filter(season__is_active=True)
+            .values_list('season_id', flat=True)
+            .first()
+        )
+        cache_key = f'board:phase_avgs:{active_season_id}'
+        phase_avg_seconds = cache.get(cache_key)
+        if phase_avg_seconds is None:
+            phase_avg_seconds = self._compute_phase_avg_seconds(active_season_id)
+            cache.set(cache_key, phase_avg_seconds, 300)
+
+        return Response({
+            'phases': PHASE_ORDER,
+            'columns': serialized_columns,
+            'phase_avg_seconds': phase_avg_seconds,
+        })
+
+    @staticmethod
+    def _compute_phase_avg_seconds(season_id: int | None) -> dict:
+        """Compute average seconds per phase for closed shipments in the last 30 days.
+
+        Uses AD-1 denormalized timestamp pairs. Only computes phases that have
+        a start + end AD-1 timestamp. Returns None for phases with no data.
+
+        Phase → (start_field, end_field) pairs:
+            LOAD    loading_started_at → customs_entry_at
+            DOCS    customs_entry_at   → departed_at
+            TRANSIT departed_at        → arrived_at
+            DEST    arrived_at         → sale_ended_at
+
+        Phases without AD-1 coverage (PLAN, PREP, CLOSE) always return None.
+        """
+        import datetime as dt
+        from django.utils import timezone as _tz
+
+        thirty_days_ago = _tz.now() - dt.timedelta(days=30)
+
+        filter_kwargs: dict = {'is_archived': False}
+        if season_id:
+            filter_kwargs['season_id'] = season_id
+
+        # Fetch the timestamp columns for closed or late-stage shipments.
+        # We pull only the 4 pairs we need to avoid over-fetching.
+        rows = list(
+            Shipment.objects.filter(**filter_kwargs)
+            .filter(loading_started_at__gte=thirty_days_ago)
+            .values(
+                'loading_started_at',
+                'customs_entry_at',
+                'departed_at',
+                'arrived_at',
+                'sale_ended_at',
+            )
+        )
+
+        # Phase → list of durations in seconds
+        phase_durations: dict[str, list[float]] = {
+            'LOAD': [],
+            'DOCS': [],
+            'TRANSIT': [],
+            'DEST': [],
+        }
+
+        for row in rows:
+            pairs = [
+                ('LOAD',    row['loading_started_at'], row['customs_entry_at']),
+                ('DOCS',    row['customs_entry_at'],   row['departed_at']),
+                ('TRANSIT', row['departed_at'],        row['arrived_at']),
+                ('DEST',    row['arrived_at'],         row['sale_ended_at']),
+            ]
+            for phase_key, t_start, t_end in pairs:
+                if t_start and t_end and t_end > t_start:
+                    phase_durations[phase_key].append((t_end - t_start).total_seconds())
+
+        result: dict[str, int | None] = {phase: None for phase in ['PLAN', 'PREP', 'DOCS', 'LOAD', 'TRANSIT', 'DEST', 'CLOSE']}
+        for phase_key, durations in phase_durations.items():
+            if durations:
+                result[phase_key] = int(sum(durations) / len(durations))
+
+        return result
 
 
 class CommentViewSet(ModelViewSet):

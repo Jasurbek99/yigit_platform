@@ -64,6 +64,7 @@
     "toggle_menu": "Открыть/закрыть меню",
     "shipment_sheet": "Лист",
     "shipment_dashboard": "Панель",
+    "shipment_board": "Доска",
     "drafts": "Черновики",
     "assign": "Назначить",
     "boss_dashboard": "Босс панель",
@@ -1894,5 +1895,20 @@
       "label": "Моя работа",
       "board": "Доска"
     }
+  },
+  "shipment_board": {
+    "title": "Доска грузов",
+    "tasks_progress": "{{done}} из {{total}} задач",
+    "avg_in_phase": "Среднее в фазе: {{duration}}",
+    "empty_phase": "Нет грузов",
+    "filter_country": "Страна",
+    "filter_customer": "Заказчик",
+    "filter_gapy_satys": "Прямая продажа",
+    "filter_gapy_any": "Любой",
+    "filter_gapy_yes": "Да",
+    "filter_gapy_no": "Нет",
+    "filter_owner_role": "Роль владельца",
+    "filter_owner_role_all": "Все роли",
+    "filter_search": "Поиск кода"
   }
 }

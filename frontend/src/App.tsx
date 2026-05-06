@@ -60,6 +60,7 @@ const MyTicketsPage = lazy(() => import('@/pages/feedback/MyTicketsPage'));
 const PublicFeedPage = lazy(() => import('@/pages/feedback/PublicFeedPage'));
 const AdminInboxPage = lazy(() => import('@/pages/feedback/AdminInboxPage'));
 const SelfBoard = lazy(() => import('@/pages/me/SelfBoard'));
+const ShipmentBoard = lazy(() => import('@/pages/export/ShipmentBoard'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -177,6 +178,9 @@ export default function App() {
                   } />
                   <Route path="export/shipments/dashboard" element={
                     <ProtectedRoute pageCode="export.shipments"><ShipmentDashboard /></ProtectedRoute>
+                  } />
+                  <Route path="export/shipments/board" element={
+                    <ProtectedRoute pageCode="export.shipments"><ShipmentBoard /></ProtectedRoute>
                   } />
                   <Route path="export/kanban" element={
                     <ProtectedRoute pageCode="export.kanban"><KanbanBoard /></ProtectedRoute>

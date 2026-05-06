@@ -1328,3 +1328,85 @@ class TaskBlockSerializer(serializers.Serializer):
     """Input serializer for the /tasks/{id}/block/ action."""
 
     reason = serializers.CharField(max_length=500)
+
+
+class BoardItemSerializer(serializers.ModelSerializer):
+    """Lightweight per-shipment row for the Shipment Kanban board.
+
+    Designed for GET /api/v1/export/shipments/board/ — one instance per
+    shipment in a phase column. All expensive aggregation (task counts, late
+    counts) is pre-computed by the viewset queryset via DB-side COUNT/filter
+    annotations; this serializer only reads already-annotated values.
+
+    time_in_phase_seconds is derived from the most-recent ShipmentStatusLog
+    entry (annotated as ``last_status_change``), falling back to
+    ``updated_at``. This approximates "time in current status." A more
+    precise "time in current phase" would require a ShipmentStatusLog walk
+    correlated against PHASE_MAP per shipment — that's out of scope for D3
+    (Stream E introduces status_changed_at to do this cheaply).
+
+    owner_role: returns the assignee_role of the most-recently-created task
+    on this shipment (from the prefetched tasks queryset). Falls back to None
+    if there are no tasks.
+    """
+
+    # cargo_code IS the model attribute name (db_column='code' is the raw
+    # SQL column, but Django maps it to .cargo_code). No source= needed.
+    cargo_code = serializers.CharField(read_only=True)
+    phase = serializers.SerializerMethodField()
+    owner_role = serializers.SerializerMethodField()
+    time_in_phase_seconds = serializers.SerializerMethodField()
+
+    # Annotated by the viewset queryset — read as plain integers.
+    tasks_done = serializers.IntegerField(read_only=True)
+    tasks_total = serializers.IntegerField(read_only=True)
+    late_count = serializers.IntegerField(read_only=True)
+    in_progress_count = serializers.IntegerField(read_only=True)
+    blocked_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = Shipment
+        fields = [
+            'id',
+            'cargo_code',
+            'phase',
+            'owner_role',
+            'time_in_phase_seconds',
+            'tasks_done',
+            'tasks_total',
+            'late_count',
+            'in_progress_count',
+            'blocked_count',
+        ]
+        read_only_fields = fields
+
+    def get_phase(self, obj) -> str:
+        """Resolve phase from current status code."""
+        code = obj.status.code if obj.status_id else None
+        return resolve_phase(code)
+
+    def get_owner_role(self, obj) -> str | None:
+        """Assignee role of the most-recently-created task on this shipment.
+
+        Reads from the prefetched tasks queryset (ordered by -created_at).
+        Returns None when the shipment has no tasks.
+        """
+        tasks = obj.tasks.all()
+        if not tasks:
+            return None
+        # tasks is prefetched ordered by -created_at (set in the viewset).
+        return tasks[0].assignee_role
+
+    def get_time_in_phase_seconds(self, obj) -> int | None:
+        """Seconds since the last status change.
+
+        Uses the ``last_status_change`` annotation set by the viewset queryset.
+        Falls back to ``updated_at`` when no status log rows exist.
+        Returns None when no reference timestamp is available.
+        """
+        from django.utils import timezone
+
+        ref = getattr(obj, 'last_status_change', None) or obj.updated_at
+        if ref is None:
+            return None
+        return int((timezone.now() - ref).total_seconds())
