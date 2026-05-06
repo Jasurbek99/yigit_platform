@@ -260,6 +260,41 @@ Run once per environment: `python manage.py seed_task_rules`. Idempotent.
 | satyldy | tasks.finalize_sale | sales_rep | MANUAL_DONE |
 | hasabat | tasks.submit_sales_report | sales_rep | MANUAL_DONE |
 
+### Task REST API (B-api)
+
+The `TaskViewSet` at `/api/v1/export/tasks/` exposes the structured task engine to frontend consumers. It is a read-only ViewSet with five state-change actions.
+
+**Authentication**: all endpoints require `IsAuthenticated`. State-change actions additionally gate by `IsTaskActor` (see Permissions below).
+
+#### Endpoints
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/tasks/?assignee_role=&state=&shipment=&step=&overdue=true` | Paginated list (lightweight serializer) |
+| `GET` | `/tasks/{id}/` | Full detail with `blocked_by`, `duration_seconds` |
+| `POST` | `/tasks/{id}/start/` | Transition `OPEN → IN_PROGRESS` |
+| `POST` | `/tasks/{id}/block/` + `{reason}` | Transition `IN_PROGRESS → BLOCKED` |
+| `POST` | `/tasks/{id}/unblock/` | Transition `BLOCKED → IN_PROGRESS` |
+| `POST` | `/tasks/{id}/complete/` | Transition to `DONE` (only for `MANUAL_DONE` completion rules) |
+| `POST` | `/tasks/{id}/cancel/` | Transition to `CANCELLED` (admin/director only) |
+
+`GET /api/v1/export/shipments/{id}/tasks/` — nested action on `ShipmentViewSet`; returns tasks for a single shipment grouped by `step` code as a dict `{step_code: [TaskListSerializer items]}`.
+
+`GET /api/v1/me/tasks/` — current-user scoped list (see [[../reference/api-endpoint-map]] Me Endpoints section).
+
+`GET /api/v1/me/kpi-today/` — today's KPI for the current user (see [[../reference/api-endpoint-map]] Me Endpoints section).
+
+#### Permissions
+
+`IsTaskActor` (`apps/export/permissions.py`):
+- Superusers bypass all checks.
+- `cancel` action: only `admin` or `director` roles.
+- All other state actions: requester's role matches `task.assignee_role`, OR requester has a supervisor role (`export_manager`, `boss`, `admin`, `director`).
+
+#### Query performance
+
+`get_queryset()` calls `select_related('shipment', 'rule', 'assignee_user')` — collapses all joins into a single SQL query. The list endpoint executes at most 2 queries (auth session + tasks with joins). Verified by `test_list_query_count_bounded` (`assertLessEqual(num_queries, 6)`).
+
 ### Backfill
 
 For existing shipments: `python manage.py backfill_tasks [--dry-run] [--limit N]`. Idempotent.

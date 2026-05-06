@@ -18,6 +18,8 @@ from apps.export.models import (
     ShipmentFirmSplit,
     ShipmentBlockSource,
     ShipmentComment,
+    Task,
+    TaskCompletionRule,
 )
 
 
@@ -982,3 +984,115 @@ class VarietyOverrideSerializer(serializers.Serializer):
         if missing:
             raise serializers.ValidationError(f'TomatoVariety IDs not found: {missing}')
         return ids
+
+
+# ---------------------------------------------------------------------------
+# Task serializers (B-api sub-PR)
+# ---------------------------------------------------------------------------
+
+def _get_task_phase(task) -> str | None:
+    """Return the phase code for a task, based on its shipment's current status.
+
+    Lazily imports from apps.export.services.phases (Stream C). If that module
+    does not exist yet, returns None (forward-compatible with Stream C landing).
+    If the status code is not in PHASE_MAP, returns 'CLOSE' as a safe fallback.
+    """
+    try:
+        from apps.export.services.phases import PHASE_MAP  # type: ignore[import]
+    except ImportError:
+        return None
+
+    if task.shipment_id is None or task.shipment is None:
+        return None
+    status_code = getattr(task.shipment, 'status', None)
+    if status_code is None:
+        return None
+    code = getattr(status_code, 'code', None)
+    return PHASE_MAP.get(code, 'CLOSE')
+
+
+class TaskListSerializer(serializers.ModelSerializer):
+    """Lightweight task serializer for list endpoints.
+
+    N+1-safe when the queryset has select_related('shipment', 'rule', 'assignee_user').
+    """
+
+    # Denormalized cargo code from the parent shipment.
+    shipment_cargo_code = serializers.CharField(
+        source='shipment.cargo_code', read_only=True,
+    )
+
+    # Phase computed via Stream C's PHASE_MAP; returns None if C not yet shipped.
+    phase = serializers.SerializerMethodField()
+
+    # Parsed CSV list exposed as a JSON array.
+    target_fields_list = serializers.SerializerMethodField()
+
+    # Denormalized assignee user name.
+    assignee_user_name = serializers.CharField(
+        source='assignee_user.username', read_only=True, default=None,
+    )
+
+    # is_overdue is a model property — expose it as a read field.
+    is_overdue = serializers.BooleanField(read_only=True)
+
+    def get_phase(self, obj) -> str | None:
+        return _get_task_phase(obj)
+
+    def get_target_fields_list(self, obj) -> list[str]:
+        return obj.target_field_list
+
+    class Meta:
+        model = Task
+        fields = [
+            'id',
+            'shipment',
+            'shipment_cargo_code',
+            'step',
+            'phase',
+            'title_key',
+            'assignee_role',
+            'assignee_user',
+            'assignee_user_name',
+            'target_fields_list',
+            'completion_rule',
+            'deadline',
+            'deadline_rule',
+            'state',
+            'is_overdue',
+            'created_at',
+            'started_at',
+            'completed_at',
+        ]
+        read_only_fields = fields
+
+
+class TaskDetailSerializer(TaskListSerializer):
+    """Full task detail serializer — extends list with blocking info and duration.
+
+    Used by the /tasks/{id}/ retrieve action.
+    """
+
+    # IDs of tasks that block this one.
+    blocked_by = serializers.SerializerMethodField()
+
+    # Duration in seconds from started_at to completed_at (or now).
+    duration_seconds = serializers.IntegerField(read_only=True)
+
+    def get_blocked_by(self, obj) -> list[int]:
+        return list(obj.blocked_by.values_list('id', flat=True))
+
+    class Meta(TaskListSerializer.Meta):
+        fields = TaskListSerializer.Meta.fields + [
+            'blocked_reason',
+            'blocked_by',
+            'rule',
+            'duration_seconds',
+        ]
+        read_only_fields = fields
+
+
+class TaskBlockSerializer(serializers.Serializer):
+    """Input serializer for the /tasks/{id}/block/ action."""
+
+    reason = serializers.CharField(max_length=500)

@@ -33,6 +33,43 @@ tags: [reference, api, backend, frontend]
 | POST | `/api/v1/export/shipments/{id}/sales-report/` | ShipmentViewSet.set_sales_report | `useShipmentDetail` (mutation) | ShipmentDetail (Finance tab) |
 | POST | `/api/v1/export/shipments/{id}/block-sources/` | ShipmentViewSet.set_block_sources | `useShipmentDetail` (mutation) | ShipmentDetail |
 | POST | `/api/v1/export/shipments/{id}/firm-splits/` | ShipmentViewSet.set_firm_splits | `useShipmentDetail` (mutation) | ShipmentDetail |
+| GET | `/api/v1/export/shipments/{id}/tasks/` | ShipmentViewSet.tasks_list | `useShipmentTasks` | ShipmentDetail (Tasks tab) |
+
+### Tasks (Structured Task Engine)
+
+| Method | Endpoint | ViewSet | Hook | Page |
+|--------|----------|---------|------|------|
+| GET | `/api/v1/export/tasks/` | TaskViewSet (list) | `useTasks` | TaskInbox |
+| GET | `/api/v1/export/tasks/{id}/` | TaskViewSet (retrieve) | `useTaskDetail` | ShipmentDetail (Tasks tab) |
+| POST | `/api/v1/export/tasks/{id}/start/` | TaskViewSet.start | `useStartTask` | TaskCard |
+| POST | `/api/v1/export/tasks/{id}/block/` | TaskViewSet.block | `useBlockTask` | TaskCard |
+| POST | `/api/v1/export/tasks/{id}/unblock/` | TaskViewSet.unblock | `useUnblockTask` | TaskCard |
+| POST | `/api/v1/export/tasks/{id}/complete/` | TaskViewSet.complete | `useCompleteTask` | TaskCard |
+| POST | `/api/v1/export/tasks/{id}/cancel/` | TaskViewSet.cancel | `useCancelTask` | TaskCard |
+
+**Task list filters:** `?assignee_role=&assignee_user=&state=&shipment=&step=&overdue=true`
+
+**Task list response shape (lightweight):**
+```json
+{
+  "id": 1, "shipment": 42, "shipment_cargo_code": "0201045/25",
+  "step": "yuklenme", "phase": "LOADING",
+  "title_key": "tasks.fill_loading_data",
+  "assignee_role": "warehouse_chief", "assignee_user": null, "assignee_user_name": null,
+  "target_fields_list": ["cargo_code", "block_sources", "weight_net"],
+  "completion_rule": "ALL_FIELDS_FILLED",
+  "deadline": "2025-02-01T23:59:00+05:00", "deadline_rule": "23:59_same_day",
+  "state": "OPEN", "is_overdue": false,
+  "created_at": "2025-02-01T08:00:00+05:00", "started_at": null, "completed_at": null
+}
+```
+
+**Task detail response** adds: `blocked_reason`, `blocked_by` (list of blocking task IDs), `rule` (TaskRule ID), `duration_seconds`.
+
+**Permissions on state actions:**
+- `start`, `block`, `unblock`, `complete` — assignee's role OR supervisor roles (`export_manager`, `boss`, `admin`, `director`)
+- `cancel` — admin / director only
+- Only `MANUAL_DONE` completion-rule tasks can be completed via `complete/`; all others auto-resolve via `Shipment.save()`
 
 ### Quotas
 
@@ -103,6 +140,21 @@ PATCH body (partial): `{ row_order?: [id, ...], hidden_rows?: [id, ...] }` — a
 | GET/POST/PATCH | `/api/v1/greenhouse/domestic-sales/` | DomesticSaleViewSet | `useDomesticSales` | DomesticSales |
 | GET/POST/PATCH | `/api/v1/greenhouse/admin/blocks/` | GreenhouseBlockAdminViewSet | `useAdmin` | BlocksPage |
 | GET/POST/PATCH | `/api/v1/greenhouse/admin/block-assignments/` | BlockManagerAssignmentViewSet | `useAdmin` | BlockDetailPage |
+
+## Me Endpoints (current-user scoped)
+
+| Method | Endpoint | View | Hook | Page |
+|--------|----------|------|------|------|
+| GET | `/api/v1/me/tasks/` | `MeTaskListView` | `useMyTasks` | TaskInbox, AppLayout badge |
+| GET | `/api/v1/me/kpi-today/` | `MeKpiTodayView` | `useMyKpiToday` | KPI widget / Dashboard |
+
+**`/me/tasks/` filters:** `?state=open&step=yuklenme&overdue=true`. Supervisors (`export_manager`, `boss`, `admin`, `director`) see all tasks; other roles see only tasks for their own `assignee_role`. Paginated (`page_size=50`).
+
+**`/me/kpi-today/` response:**
+```json
+{ "done_count": 3, "avg_duration_seconds": 1800, "on_time_rate": 0.6667 }
+```
+`on_time_rate` is `null` when no completed tasks had a deadline today. Cached 60 s per user (`me:kpi-today:{user_id}`).
 
 ## Core Reference Endpoints
 

@@ -18,6 +18,7 @@ from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework import viewsets
 from rest_framework.viewsets import ModelViewSet
 
 from apps.core.permission_registry import ROLE_REQUIRED_FIELDS
@@ -1493,6 +1494,39 @@ class ShipmentViewSet(ModelViewSet):
         return Response(serializer.data)
 
 
+    @action(detail=True, methods=['get'], url_path='tasks')
+    def tasks_list(self, request, pk=None):
+        """GET /api/v1/export/shipments/{id}/tasks/
+
+        Returns all tasks for this shipment grouped by step code.
+
+        Response shape:
+            { "<step_code>": [TaskListSerializer, ...], ... }
+
+        Empty steps are omitted. Tasks within each step are ordered by
+        deadline asc, then created_at asc.
+        """
+        from apps.export.models import Task
+        from apps.export.serializers import TaskListSerializer
+
+        shipment = self.get_object()
+        tasks_qs = (
+            Task.objects
+            .filter(shipment=shipment)
+            .select_related('shipment', 'rule', 'assignee_user')
+            .order_by('deadline', 'created_at')
+        )
+
+        grouped: dict[str, list] = {}
+        for task in tasks_qs:
+            step = task.step
+            if step not in grouped:
+                grouped[step] = []
+            grouped[step].append(TaskListSerializer(task).data)
+
+        return Response(grouped)
+
+
 class CommentViewSet(ModelViewSet):
     """CRUD for shipment comments.
 
@@ -1651,3 +1685,253 @@ class CommentViewSet(ModelViewSet):
 
         comment.refresh_from_db()
         return Response(CommentSerializer(comment).data)
+
+
+class TaskViewSet(viewsets.ReadOnlyModelViewSet):
+    """Read-only listing/retrieval of Tasks plus action endpoints for state changes.
+
+    Tasks are NOT created via POST — generation is owned by the rule engine
+    (services/task_rules.generate_tasks_for_status). Manual ad-hoc tasks are a
+    future feature and not part of this PR.
+
+    GET    /api/v1/export/tasks/            — paginated task list
+    GET    /api/v1/export/tasks/{id}/       — task detail
+    POST   /api/v1/export/tasks/{id}/start/     — OPEN → IN_PROGRESS
+    POST   /api/v1/export/tasks/{id}/block/     — → BLOCKED (with reason)
+    POST   /api/v1/export/tasks/{id}/unblock/   — BLOCKED → IN_PROGRESS
+    POST   /api/v1/export/tasks/{id}/complete/  — → DONE (manual_done only)
+    POST   /api/v1/export/tasks/{id}/cancel/    — → CANCELLED (admin/director only)
+    """
+
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ['assignee_role', 'assignee_user', 'state', 'shipment', 'step']
+
+    def get_queryset(self):
+        from apps.export.models import Task, TaskState
+
+        qs = Task.objects.select_related('shipment', 'rule', 'assignee_user').all()
+
+        # `?overdue=true` filter: deadline < now AND state NOT IN (DONE, CANCELLED)
+        if self.request.query_params.get('overdue') == 'true':
+            qs = qs.filter(
+                deadline__lt=timezone.now(),
+            ).exclude(state__in=[TaskState.DONE, TaskState.CANCELLED])
+
+        return qs.order_by('deadline', 'created_at')
+
+    def get_serializer_class(self):
+        from apps.export.serializers import TaskDetailSerializer, TaskListSerializer
+        return TaskDetailSerializer if self.action == 'retrieve' else TaskListSerializer
+
+    def _check_task_actor_permission(self, request, task, action_name: str):
+        """Return a 403 Response if the caller may not perform action_name on task.
+
+        Returns None if permission is granted.
+        """
+        from apps.export.permissions import IsTaskActor
+
+        perm = IsTaskActor()
+        # Temporarily set the view's action so has_object_permission can branch on it
+        original_action = self.action
+        self.action = action_name
+        try:
+            allowed = perm.has_object_permission(request, self, task)
+        finally:
+            self.action = original_action
+
+        if not allowed:
+            return Response(
+                {'error': f"Role '{getattr(request.user, 'role', None)}' "
+                          f"cannot perform '{action_name}' on this task."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return None
+
+    @action(detail=True, methods=['post'])
+    def start(self, request, pk=None):
+        """POST /api/v1/export/tasks/{id}/start/
+
+        Transitions a task from OPEN to IN_PROGRESS. Sets started_at if not
+        already set. Idempotent: if already IN_PROGRESS, returns 200 with no change.
+
+        Permission: assignee_role or supervisor roles.
+        """
+        from apps.export.models import Task, TaskState
+        from apps.export.serializers import TaskDetailSerializer
+
+        task = self.get_object()
+
+        denied = self._check_task_actor_permission(request, task, 'start')
+        if denied:
+            return denied
+
+        if task.state == TaskState.IN_PROGRESS:
+            # Idempotent — already started
+            return Response(TaskDetailSerializer(task).data)
+
+        if task.state != TaskState.OPEN:
+            # BLOCKED tasks must be unblocked first; DONE/CANCELLED can't be (re)started.
+            # The dedicated /unblock/ endpoint clears blocked_reason and is the documented
+            # recovery path — start should not silently bypass it.
+            return Response(
+                {'error': f"Cannot start a task in state '{task.state}'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        now = timezone.now()
+        task.state = TaskState.IN_PROGRESS
+        if not task.started_at:
+            task.started_at = now
+        task.save(update_fields=['state', 'started_at'])
+
+        task.refresh_from_db()
+        return Response(TaskDetailSerializer(task).data)
+
+    @action(detail=True, methods=['post'])
+    def block(self, request, pk=None):
+        """POST /api/v1/export/tasks/{id}/block/
+
+        Transitions a task to BLOCKED and records the reason.
+
+        Request body: { "reason": "string (required, max 500)" }
+        Permission: assignee_role or supervisor roles.
+        """
+        from apps.export.models import TaskState
+        from apps.export.serializers import TaskBlockSerializer, TaskDetailSerializer
+
+        task = self.get_object()
+
+        denied = self._check_task_actor_permission(request, task, 'block')
+        if denied:
+            return denied
+
+        block_serializer = TaskBlockSerializer(data=request.data)
+        if not block_serializer.is_valid():
+            return Response(block_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        reason = block_serializer.validated_data['reason']
+
+        if task.state == TaskState.DONE:
+            return Response(
+                {'error': 'Cannot block a completed task.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if task.state == TaskState.CANCELLED:
+            return Response(
+                {'error': 'Cannot block a cancelled task.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        task.state = TaskState.BLOCKED
+        task.blocked_reason = reason
+        task.save(update_fields=['state', 'blocked_reason'])
+
+        task.refresh_from_db()
+        return Response(TaskDetailSerializer(task).data)
+
+    @action(detail=True, methods=['post'])
+    def unblock(self, request, pk=None):
+        """POST /api/v1/export/tasks/{id}/unblock/
+
+        Transitions a BLOCKED task back to IN_PROGRESS.
+
+        Permission: assignee_role or supervisor roles.
+        """
+        from apps.export.models import TaskState
+        from apps.export.serializers import TaskDetailSerializer
+
+        task = self.get_object()
+
+        denied = self._check_task_actor_permission(request, task, 'unblock')
+        if denied:
+            return denied
+
+        if task.state != TaskState.BLOCKED:
+            return Response(
+                {'error': f"Task is in state '{task.state}', not 'blocked'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        task.state = TaskState.IN_PROGRESS
+        task.blocked_reason = ''
+        task.save(update_fields=['state', 'blocked_reason'])
+
+        task.refresh_from_db()
+        return Response(TaskDetailSerializer(task).data)
+
+    @action(detail=True, methods=['post'])
+    def complete(self, request, pk=None):
+        """POST /api/v1/export/tasks/{id}/complete/
+
+        Manually marks a MANUAL_DONE task as DONE. Returns 400 for tasks
+        with auto-resolution completion rules (ALL_FIELDS_FILLED, ANY_FIELD_FILLED)
+        because those resolve automatically via Shipment.save() — explicit
+        "mark done" does not apply to them.
+
+        Permission: assignee_role or supervisor roles.
+        """
+        from apps.export.models import TaskState, TaskCompletionRule
+        from apps.export.serializers import TaskDetailSerializer
+
+        task = self.get_object()
+
+        denied = self._check_task_actor_permission(request, task, 'complete')
+        if denied:
+            return denied
+
+        if task.completion_rule != TaskCompletionRule.MANUAL_DONE:
+            return Response(
+                {
+                    'error': (
+                        f"Task completion_rule is '{task.completion_rule}', not 'manual_done'. "
+                        f"This task auto-resolves when its target fields are filled — "
+                        f"use the shipment PATCH endpoint to fill the required fields."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if task.state == TaskState.DONE:
+            # Idempotent — already done
+            return Response(TaskDetailSerializer(task).data)
+
+        if task.state == TaskState.CANCELLED:
+            return Response(
+                {'error': 'Cannot complete a cancelled task.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        now = timezone.now()
+        task.state = TaskState.DONE
+        task.completed_at = now
+        if not task.started_at:
+            task.started_at = now
+        task.save(update_fields=['state', 'completed_at', 'started_at'])
+
+        task.refresh_from_db()
+        return Response(TaskDetailSerializer(task).data)
+
+    @action(detail=True, methods=['post'])
+    def cancel(self, request, pk=None):
+        """POST /api/v1/export/tasks/{id}/cancel/
+
+        Cancels a task. Restricted to admin/director only.
+        """
+        from apps.export.models import TaskState
+        from apps.export.serializers import TaskDetailSerializer
+
+        task = self.get_object()
+
+        denied = self._check_task_actor_permission(request, task, 'cancel')
+        if denied:
+            return denied
+
+        if task.state == TaskState.CANCELLED:
+            # Idempotent
+            return Response(TaskDetailSerializer(task).data)
+
+        task.state = TaskState.CANCELLED
+        task.save(update_fields=['state'])
+
+        task.refresh_from_db()
+        return Response(TaskDetailSerializer(task).data)

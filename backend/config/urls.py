@@ -10,6 +10,7 @@ urlpatterns = [
     path('api/v1/auth/', include('apps.export.urls_auth')),
     path('api/v1/auth/', include('apps.core.urls.auth')),
     path('api/v1/core/', include('apps.core.urls.core')),
+    path('api/v1/me/', include('apps.core.urls.me')),
     path('api/v1/greenhouse/', include('apps.greenhouse.urls')),
     path('api/v1/export/', include('apps.export.urls')),
     path('api/v1/feedback/', include('apps.feedback.urls')),

@@ -1,7 +1,7 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
-from apps.export.views import ShipmentViewSet, CommentViewSet
+from apps.export.views import ShipmentViewSet, CommentViewSet, TaskViewSet
 from apps.export.views_analytics import BossAnalyticsViewSet
 from apps.export.views_finance import FinansistAdvanceViewSet
 from apps.export.views_planning import (
@@ -31,6 +31,7 @@ router.register('boss', BossAnalyticsViewSet, basename='boss-analytics')
 # Core export resources
 router.register('shipments', ShipmentViewSet, basename='shipment')
 router.register('comments', CommentViewSet, basename='comment')
+router.register('tasks', TaskViewSet, basename='task')
 router.register('advances', FinansistAdvanceViewSet, basename='advance')
 
 # Planning & pricing
