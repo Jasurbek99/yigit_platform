@@ -6,6 +6,7 @@ from rest_framework import serializers
 from apps.core.models import City, Country, Customer, ImportFirm, Season, GreenhouseBlock, TomatoVariety
 from apps.core.permissions import can_edit_field, PRIVILEGED_ROLES
 from apps.export.services import TRANSITIONS
+from apps.export.services.phases import get_phase as resolve_phase
 from apps.export.validators import validate_official_export_code
 from apps.export.models import (
     FinansistAdvance,
@@ -74,6 +75,14 @@ class ShipmentListSerializer(serializers.ModelSerializer):
     variety_name = serializers.CharField(source='variety.name', read_only=True, default=None)
     border_point_name = serializers.CharField(source='border_point.name', read_only=True, default=None)
 
+    # Phase grouping (Stream C) — maps status code to PLAN/PREP/DOCS/LOAD/TRANSIT/DEST/CLOSE.
+    phase = serializers.SerializerMethodField()
+
+    def get_phase(self, obj) -> str:
+        """Return the canonical phase code for this shipment's current status."""
+        code = obj.status.code if obj.status_id else None
+        return resolve_phase(code)
+
     # Freshness fields (Finding #5b — expiration clock).
     # NOTE: The spec called for deriving age from the earliest ShipmentBlockSource.harvest_date,
     # but ShipmentBlockSource has no harvest_date column today (only weight_kg).
@@ -139,6 +148,8 @@ class ShipmentListSerializer(serializers.ModelSerializer):
             # Freshness clock (Finding #5b)
             'harvest_age_days',
             'freshness',
+            # Phase grouping (Stream C)
+            'phase',
         ]
 
 
@@ -235,6 +246,14 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
     warehouse_comment_count = serializers.IntegerField(read_only=True)
     document_comment_count = serializers.IntegerField(read_only=True)
 
+    # Phase grouping (Stream C) — maps status code to PLAN/PREP/DOCS/LOAD/TRANSIT/DEST/CLOSE.
+    phase = serializers.SerializerMethodField()
+
+    def get_phase(self, obj) -> str:
+        """Return the canonical phase code for this shipment's current status."""
+        code = obj.status.code if obj.status_id else None
+        return resolve_phase(code)
+
     # Inline related data
     firm_splits = SheetFirmSplitInlineSerializer(many=True, read_only=True)
     block_sources = SheetBlockSourceInlineSerializer(many=True, read_only=True)
@@ -246,6 +265,8 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
             'id', 'cargo_code', 'official_export_code', 'date',
             # Status
             'status', 'status_display', 'status_code', 'status_step',
+            # Phase grouping (Stream C)
+            'phase',
             # Geography
             'country', 'country_name', 'country_code',
             'city', 'city_name',
@@ -990,27 +1011,6 @@ class VarietyOverrideSerializer(serializers.Serializer):
 # Task serializers (B-api sub-PR)
 # ---------------------------------------------------------------------------
 
-def _get_task_phase(task) -> str | None:
-    """Return the phase code for a task, based on its shipment's current status.
-
-    Lazily imports from apps.export.services.phases (Stream C). If that module
-    does not exist yet, returns None (forward-compatible with Stream C landing).
-    If the status code is not in PHASE_MAP, returns 'CLOSE' as a safe fallback.
-    """
-    try:
-        from apps.export.services.phases import PHASE_MAP  # type: ignore[import]
-    except ImportError:
-        return None
-
-    if task.shipment_id is None or task.shipment is None:
-        return None
-    status_code = getattr(task.shipment, 'status', None)
-    if status_code is None:
-        return None
-    code = getattr(status_code, 'code', None)
-    return PHASE_MAP.get(code, 'CLOSE')
-
-
 class TaskListSerializer(serializers.ModelSerializer):
     """Lightweight task serializer for list endpoints.
 
@@ -1022,7 +1022,7 @@ class TaskListSerializer(serializers.ModelSerializer):
         source='shipment.cargo_code', read_only=True,
     )
 
-    # Phase computed via Stream C's PHASE_MAP; returns None if C not yet shipped.
+    # Phase derived from the parent shipment's current status code via PHASE_MAP.
     phase = serializers.SerializerMethodField()
 
     # Parsed CSV list exposed as a JSON array.
@@ -1037,7 +1037,16 @@ class TaskListSerializer(serializers.ModelSerializer):
     is_overdue = serializers.BooleanField(read_only=True)
 
     def get_phase(self, obj) -> str | None:
-        return _get_task_phase(obj)
+        """Resolve phase from the task's parent shipment status.
+
+        Returns None when the task has no linked shipment. Returns 'CLOSE'
+        for unknown or terminal status codes (via resolve_phase fallback).
+        """
+        if obj.shipment_id is None or obj.shipment is None:
+            return None
+        status = getattr(obj.shipment, 'status', None)
+        code = getattr(status, 'code', None)
+        return resolve_phase(code)
 
     def get_target_fields_list(self, obj) -> list[str]:
         return obj.target_field_list

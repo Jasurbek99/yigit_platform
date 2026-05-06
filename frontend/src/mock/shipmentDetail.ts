@@ -43,6 +43,7 @@ export const MOCK_SHIPMENT_DETAIL: IShipmentDetail = {
   previous_platform_id: null,
   harvest_age_days: 0,
   freshness: 'today',
+  phase: 'TRANSIT',
   platform_id: 1,
   variety_confidence: 'high',
   variety_confidence_display: 'From pallet data',

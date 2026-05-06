@@ -58,7 +58,7 @@ class MeTaskListView(APIView):
         role = getattr(request.user, 'role', None)
         is_supervisor = getattr(request.user, 'is_superuser', False) or role in _SUPERVISOR_ROLES
 
-        qs = Task.objects.select_related('shipment', 'rule', 'assignee_user').all()
+        qs = Task.objects.select_related('shipment__status', 'rule', 'assignee_user').all()
 
         if not is_supervisor:
             # Regular users: filter to their own role only

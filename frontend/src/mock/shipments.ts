@@ -14,6 +14,7 @@ const MOCK_DEFAULTS = {
   previous_platform_id: null,
   harvest_age_days: 0,
   freshness: 'today' as const,
+  phase: 'LOAD' as const,
 } as const;
 
 export const MOCK_SHIPMENTS: IShipmentListItem[] = [

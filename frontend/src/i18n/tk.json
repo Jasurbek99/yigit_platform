@@ -1788,5 +1788,14 @@
     "fri": "An",
     "sat": "Şe",
     "sun": "Ýe"
+  },
+  "phase": {
+    "plan": "Meýilnama",
+    "prep": "Taýynlyk",
+    "docs": "Resminamalar",
+    "load": "Ýüklemek",
+    "transit": "Ýolda",
+    "dest": "Bardy",
+    "close": "Ýapyk"
   }
 }

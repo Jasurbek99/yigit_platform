@@ -1513,7 +1513,7 @@ class ShipmentViewSet(ModelViewSet):
         tasks_qs = (
             Task.objects
             .filter(shipment=shipment)
-            .select_related('shipment', 'rule', 'assignee_user')
+            .select_related('shipment__status', 'rule', 'assignee_user')
             .order_by('deadline', 'created_at')
         )
 
@@ -1709,7 +1709,7 @@ class TaskViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         from apps.export.models import Task, TaskState
 
-        qs = Task.objects.select_related('shipment', 'rule', 'assignee_user').all()
+        qs = Task.objects.select_related('shipment__status', 'rule', 'assignee_user').all()
 
         # `?overdue=true` filter: deadline < now AND state NOT IN (DONE, CANCELLED)
         if self.request.query_params.get('overdue') == 'true':

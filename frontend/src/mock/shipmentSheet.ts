@@ -3,7 +3,7 @@ import type { IShipmentSheetItem, ISheetRowSettingForUser } from '@/types';
 export const MOCK_SHEET_DATA: IShipmentSheetItem[] = [
   {
     id: 1, cargo_code: '27SP001/25', date: '2025-09-27',
-    status: 13, status_display: 'Completed', status_code: 'tamamlandy', status_step: 13,
+    status: 13, status_display: 'Completed', status_code: 'tamamlandy', status_step: 13, phase: 'CLOSE' as const,
     country: 1, country_name: 'Gazagystan', country_code: 'KZ',
     city: 1, city_name: 'Almaty', border_point: 1, border_point_name: 'Farap',
     customer: 1, customer_name: 'Berik', import_firm: 1, import_firm_name: 'NUR ALEM',
@@ -31,7 +31,7 @@ export const MOCK_SHEET_DATA: IShipmentSheetItem[] = [
   },
   {
     id: 2, cargo_code: '30SP002/25', date: '2025-09-30',
-    status: 13, status_display: 'Completed', status_code: 'tamamlandy', status_step: 13,
+    status: 13, status_display: 'Completed', status_code: 'tamamlandy', status_step: 13, phase: 'CLOSE' as const,
     country: 1, country_name: 'Gazagystan', country_code: 'KZ',
     city: 1, city_name: 'Almaty', border_point: 1, border_point_name: 'Farap',
     customer: 2, customer_name: 'Begjan', import_firm: 2, import_firm_name: 'Aranshy',
@@ -56,7 +56,7 @@ export const MOCK_SHEET_DATA: IShipmentSheetItem[] = [
   },
   {
     id: 8, cargo_code: '18OC020/25', date: '2025-10-18',
-    status: 8, status_display: 'En Route', status_code: 'yolda', status_step: 8,
+    status: 8, status_display: 'En Route', status_code: 'yolda', status_step: 8, phase: 'TRANSIT' as const,
     country: 2, country_name: 'Rossiya', country_code: 'RU',
     city: 3, city_name: 'Moskwa', border_point: 2, border_point_name: 'Garabogaz',
     customer: 3, customer_name: 'Eldar', import_firm: 3, import_firm_name: 'SAH FRUKT',
@@ -87,7 +87,7 @@ export const MOCK_SHEET_DATA: IShipmentSheetItem[] = [
   },
   {
     id: 11, cargo_code: '21OC024/25', date: '2025-10-21',
-    status: 1, status_display: 'Loading Started', status_code: 'yuklenme', status_step: 1,
+    status: 1, status_display: 'Loading Started', status_code: 'yuklenme', status_step: 1, phase: 'LOAD' as const,
     country: 2, country_name: 'Rossiya', country_code: 'RU',
     city: 5, city_name: 'Krasnodar', border_point: null, border_point_name: null,
     customer: 5, customer_name: 'Gapy Satyş', import_firm: 5, import_firm_name: 'Maksifrut',
@@ -114,7 +114,7 @@ export const MOCK_SHEET_DATA: IShipmentSheetItem[] = [
   },
   {
     id: 12, cargo_code: '21OC025/25', date: '2025-10-21',
-    status: 1, status_display: 'Loading Started', status_code: 'yuklenme', status_step: 1,
+    status: 1, status_display: 'Loading Started', status_code: 'yuklenme', status_step: 1, phase: 'LOAD' as const,
     country: 2, country_name: 'Rossiya', country_code: 'RU',
     city: 6, city_name: 'Samara', border_point: null, border_point_name: null,
     customer: 5, customer_name: 'Gapy Satyş', import_firm: 6, import_firm_name: 'Uralskiy Luc',

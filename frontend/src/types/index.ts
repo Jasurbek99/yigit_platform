@@ -1,5 +1,11 @@
 ﻿// â”€â”€â”€ Auth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+// --- Phase (Stream C) -------------------------------------------------------
+
+export type ShipmentPhase = 'PLAN' | 'PREP' | 'DOCS' | 'LOAD' | 'TRANSIT' | 'DEST' | 'CLOSE';
+
+// --- Auth -------------------------------------------------------------------
+
 export type UserRole =
   | 'admin'
   | 'export_manager'
@@ -184,6 +190,8 @@ export interface IShipmentListItem {
   previous_platform_id: number | null;
   harvest_age_days: number;
   freshness: 'today' | 'yesterday' | 'aged';
+  // Phase grouping (Stream C)
+  phase: ShipmentPhase;
 }
 
 // â”€â”€â”€ Sheet View â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -209,6 +217,8 @@ export interface IShipmentSheetItem {
   status_display: string;
   status_code: string;
   status_step: number;
+  // Phase grouping (Stream C)
+  phase: ShipmentPhase;
   // Geography
   country: number | null;
   country_name: string | null;

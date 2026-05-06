@@ -14,6 +14,7 @@ const DEFAULTS = {
   previous_platform_id: null as number | null,
   harvest_age_days: 0 as number,
   freshness: 'today' as 'today' | 'yesterday' | 'aged',
+  phase: 'DEST' as const,
 };
 
 // Reference date: 2026-03-27. arrived_at dates computed backwards from days_overdue.

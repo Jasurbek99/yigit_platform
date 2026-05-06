@@ -1784,5 +1784,14 @@
     "fri": "Fri",
     "sat": "Sat",
     "sun": "Sun"
+  },
+  "phase": {
+    "plan": "Planning",
+    "prep": "Prep",
+    "docs": "Docs",
+    "load": "Loading",
+    "transit": "Transit",
+    "dest": "Destination",
+    "close": "Closed"
   }
 }
