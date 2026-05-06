@@ -102,8 +102,13 @@
     "week": "Hepde",
     "blocks": "blok",
     "block": "Blok",
-    "monday": "Duş", "tuesday": "Siş", "wednesday": "Çar",
-    "thursday": "Penj", "friday": "Anna", "saturday": "Şenb", "sunday": "Ýek",
+    "monday": "Duş",
+    "tuesday": "Siş",
+    "wednesday": "Çar",
+    "thursday": "Penj",
+    "friday": "Anna",
+    "saturday": "Şenb",
+    "sunday": "Ýek",
     "plan": "Meýilnama",
     "actual": "Hakyky",
     "total": "Jemi",
@@ -714,8 +719,13 @@
     "planned_kg": "Meýilnama (kg)",
     "trucks_calc": "Ulaglar",
     "decided_by": "Karar berdi",
-    "monday": "Duş", "tuesday": "Siş", "wednesday": "Çar",
-    "thursday": "Pen", "friday": "Ann", "saturday": "Şen", "sunday": "Ýek",
+    "monday": "Duş",
+    "tuesday": "Siş",
+    "wednesday": "Çar",
+    "thursday": "Pen",
+    "friday": "Ann",
+    "saturday": "Şen",
+    "sunday": "Ýek",
     "empty": "Ulag tapylmady",
     "error_load": "Ulag maglumatlaryny ýükläp bolmady",
     "subtitle": "Geljek günler üçin ulag meýilnamasy"
@@ -1206,7 +1216,8 @@
       "sale_start": "Satylyp başlady",
       "sale_end": "Satylyp gutardy",
       "report_date": "Hasabat senesi",
-      "additional_notes_arap": "Bellik (Arap)"
+      "additional_notes_arap": "Bellik (Arap)",
+      "customs_clearance_planned_day": "Plan boýunça gümrükleme güni"
     },
     "status": {
       "ok": "OK",
@@ -1653,7 +1664,8 @@
       "is_gapy_satys": "Gapy satys",
       "documents_status": "Resminamalaryň ýagdaýy",
       "harvest_status": "Hasylyň ýagdaýy",
-      "notes": "Bellikler"
+      "notes": "Bellikler",
+      "customs_clearance_planned_day": "Plan boýunça gümrükleme güni"
     }
   },
   "feedback": {
@@ -1767,5 +1779,14 @@
       "tooltip": "Teklip ýa-da näsazlyk iberiň",
       "modal_title": "Ýüz tutma iberme"
     }
+  },
+  "weekday": {
+    "mon": "Du",
+    "tue": "Si",
+    "wed": "Ça",
+    "thu": "Pe",
+    "fri": "An",
+    "sat": "Şe",
+    "sun": "Ýe"
   }
 }

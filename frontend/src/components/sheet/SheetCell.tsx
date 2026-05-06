@@ -73,6 +73,11 @@ function getCellValue(shipment: IShipmentSheetItem, rowConfig: IRowConfig): stri
     case 'export_manager_note':
     case 'vehicle_condition_note':
       return (shipment[fieldKey as keyof IShipmentSheetItem] as string) ?? '—';
+    case 'customs_clearance_planned_day': {
+      const day = shipment.customs_clearance_planned_day;
+      if (!day) return '—';
+      return i18n.t(`weekday.${day}`);
+    }
     default:
       break;
   }

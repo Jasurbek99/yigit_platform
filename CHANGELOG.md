@@ -5,6 +5,8 @@ All notable changes to the YGT Platform.
 ## [Unreleased]
 
 ### Added
+- **Stream A2 — `Shipment.customs_clearance_planned_day`** (feat(p3)). New CharField with weekday choices (`mon`/`tue`/`wed`/`thu`/`fri`/`sat`/`sun`), owned by `document_team` (Sirin). Records the planned weekday for customs clearance preparation. Pure additive migration `0009_add_customs_planned_day` — no data backfill. Added to permission registry, seed_permissions, sheet_rows (row 45), and the patchable serializer whitelist. Frontend renders the cell as a localized weekday dropdown via a new `weekdays` `OptionsSource`. 7 backend tests pass on MSSQL. Will be referenced by the Stream B7 `tasks.start_documents_prep` TaskRule.
+
 - **Stream A1 — `Shipment.export_manager_note` Sheet row owned by Gadam** (feat(p3)). New `TextField` with Cyrillic collation, replacing the dropped `route_note` slot at row 5. Editable by `export_manager` and `admin` per `permission_registry`. Also seeded into `seed_permissions` for the export_manager role group. Foundational change for the Tasks/Kanbans refactor — see `.claude/plans/ygt-p3-twinkling-llama.md`.
 
 ### Removed

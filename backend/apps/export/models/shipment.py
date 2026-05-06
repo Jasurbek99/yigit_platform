@@ -125,6 +125,21 @@ class Shipment(models.Model):
         max_length=20, blank=True, null=True,
         help_text='Row 14: ok, harvesting, not_ready',
     )
+    customs_clearance_planned_day = models.CharField(
+        max_length=12,
+        blank=True,
+        default='',
+        choices=[
+            ('mon', 'Mon'),
+            ('tue', 'Tue'),
+            ('wed', 'Wed'),
+            ('thu', 'Thu'),
+            ('fri', 'Fri'),
+            ('sat', 'Sat'),
+            ('sun', 'Sun'),
+        ],
+        help_text="Sirin's planned weekday for customs clearance prep",
+    )
 
     # === Finance ===
     price_per_kg = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)

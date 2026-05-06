@@ -102,8 +102,13 @@
     "week": "Week",
     "blocks": "blocks",
     "block": "Block",
-    "monday": "Mon", "tuesday": "Tue", "wednesday": "Wed",
-    "thursday": "Thu", "friday": "Fri", "saturday": "Sat", "sunday": "Sun",
+    "monday": "Mon",
+    "tuesday": "Tue",
+    "wednesday": "Wed",
+    "thursday": "Thu",
+    "friday": "Fri",
+    "saturday": "Sat",
+    "sunday": "Sun",
     "plan": "Plan",
     "actual": "Actual",
     "total": "Total",
@@ -714,8 +719,13 @@
     "planned_kg": "Planned (kg)",
     "trucks_calc": "Trucks",
     "decided_by": "Decided By",
-    "monday": "Mon", "tuesday": "Tue", "wednesday": "Wed",
-    "thursday": "Thu", "friday": "Fri", "saturday": "Sat", "sunday": "Sun",
+    "monday": "Mon",
+    "tuesday": "Tue",
+    "wednesday": "Wed",
+    "thursday": "Thu",
+    "friday": "Fri",
+    "saturday": "Sat",
+    "sunday": "Sun",
     "empty": "No truck allocations",
     "error_load": "Failed to load truck data",
     "subtitle": "Vehicle plan for upcoming days"
@@ -1206,7 +1216,8 @@
       "sale_start": "Sale Start",
       "sale_end": "Sale End",
       "report_date": "Report Date",
-      "additional_notes_arap": "Notes (Arap)"
+      "additional_notes_arap": "Notes (Arap)",
+      "customs_clearance_planned_day": "Planned customs day"
     },
     "status": {
       "ok": "OK",
@@ -1649,7 +1660,8 @@
       "is_gapy_satys": "Is Gapy Satys",
       "documents_status": "Documents status",
       "harvest_status": "Harvest status",
-      "notes": "Notes"
+      "notes": "Notes",
+      "customs_clearance_planned_day": "Planned customs day"
     }
   },
   "feedback": {
@@ -1763,5 +1775,14 @@
       "tooltip": "Send feedback or report a bug",
       "modal_title": "Submit Feedback"
     }
+  },
+  "weekday": {
+    "mon": "Mon",
+    "tue": "Tue",
+    "wed": "Wed",
+    "thu": "Thu",
+    "fri": "Fri",
+    "sat": "Sat",
+    "sun": "Sun"
   }
 }

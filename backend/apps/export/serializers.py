@@ -264,8 +264,8 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
             # Finance
             'price_per_kg', 'total_amount_usd',
             'is_gapy_satys',
-            # Operational status (sheet rows 6, 14)
-            'documents_status', 'harvest_status',
+            # Operational status (sheet rows 6, 14) + A2 customs planning
+            'documents_status', 'harvest_status', 'customs_clearance_planned_day',
             # AD-1 Timestamps
             'loading_started_at', 'customs_entry_at', 'customs_exit_at',
             'departed_at', 'border_crossed_at', 'arrived_at',
@@ -573,6 +573,7 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
             'sale_ended_at',
             'notes',
             'export_manager_note',
+            'customs_clearance_planned_day',
             'status_code',
             'allowed_transitions',
             'variety_confidence',
@@ -617,7 +618,7 @@ _ALL_PATCHABLE_FIELDS = {
     'transit_days', 'transport_temp_c', 'shelf_life_days',
     'has_peregruz', 'peregruz_city', 'peregruz_date',
     # Operational status
-    'documents_status', 'harvest_status',
+    'documents_status', 'harvest_status', 'customs_clearance_planned_day',
     # Finance
     'price_per_kg', 'total_amount_usd',
     # Flags

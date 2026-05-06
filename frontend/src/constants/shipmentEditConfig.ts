@@ -30,7 +30,8 @@ export type OptionsSource =
   | 'transportUsers'
   | 'vehicleCondition'
   | 'documentsStatus'
-  | 'harvestStatus';
+  | 'harvestStatus'
+  | 'weekdays';
 
 export interface IEditFieldConfig {
   key: string;
@@ -104,6 +105,7 @@ export const EDIT_FIELD_GROUPS: IEditFieldGroup[] = [
     fields: [
       { key: 'documents_status', labelKey: 'shipment_edit_drawer.field.documents_status', inputType: 'option_select', optionsSource: 'documentsStatus' },
       { key: 'harvest_status', labelKey: 'shipment_edit_drawer.field.harvest_status', inputType: 'option_select', optionsSource: 'harvestStatus' },
+      { key: 'customs_clearance_planned_day', labelKey: 'shipment_edit_drawer.field.customs_clearance_planned_day', inputType: 'select', optionsSource: 'weekdays' },
     ],
   },
   {

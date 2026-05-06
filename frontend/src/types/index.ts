@@ -280,6 +280,8 @@ export interface IShipmentSheetItem {
   // Notes
   notes: string | null;
   export_manager_note: string | null;
+  // Document team: planned weekday for customs clearance (e.g. 'mon', 'wed')
+  customs_clearance_planned_day: 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun' | '' | null;
   official_export_code: string | null;
   previous_platform_id: number | null;
   // Inline related
@@ -1020,6 +1022,7 @@ export interface IShipmentDetail extends IShipmentListItem {
   sale_ended_at: string | null;
   notes: string | null;
   export_manager_note: string | null;
+  customs_clearance_planned_day: 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun' | '' | null;
   created_at: string;
   updated_at: string;
   firm_splits: IFirmSplit[];

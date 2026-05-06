@@ -99,7 +99,7 @@ RESOURCE_FIELDS: dict[str, list[str]] = {
         # Operator-entered timestamp (NOT AD-1)
         'loading_ended_at',
         # Operational status
-        'documents_status', 'harvest_status',
+        'documents_status', 'harvest_status', 'customs_clearance_planned_day',
         # Finance
         'price_per_kg', 'total_amount_usd',
         # Flags

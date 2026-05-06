@@ -104,8 +104,13 @@
     "week": "Неделя",
     "blocks": "блоков",
     "block": "Блок",
-    "monday": "Пн", "tuesday": "Вт", "wednesday": "Ср",
-    "thursday": "Чт", "friday": "Пт", "saturday": "Сб", "sunday": "Вс",
+    "monday": "Пн",
+    "tuesday": "Вт",
+    "wednesday": "Ср",
+    "thursday": "Чт",
+    "friday": "Пт",
+    "saturday": "Сб",
+    "sunday": "Вс",
     "plan": "План",
     "actual": "Факт",
     "total": "Итого",
@@ -716,8 +721,13 @@
     "planned_kg": "Планово (кг)",
     "trucks_calc": "Машины",
     "decided_by": "Решил",
-    "monday": "Пн", "tuesday": "Вт", "wednesday": "Ср",
-    "thursday": "Чт", "friday": "Пт", "saturday": "Сб", "sunday": "Вс",
+    "monday": "Пн",
+    "tuesday": "Вт",
+    "wednesday": "Ср",
+    "thursday": "Чт",
+    "friday": "Пт",
+    "saturday": "Сб",
+    "sunday": "Вс",
     "empty": "Нет данных по грузовикам",
     "error_load": "Не удалось загрузить данные",
     "subtitle": "План автотранспорта на ближайшие дни"
@@ -1208,7 +1218,8 @@
       "sale_start": "Начало продажи",
       "sale_end": "Конец продажи",
       "report_date": "Дата отчёта",
-      "additional_notes_arap": "Примечания (Арап)"
+      "additional_notes_arap": "Примечания (Арап)",
+      "customs_clearance_planned_day": "Плановый день таможенного оформления"
     },
     "status": {
       "ok": "OK",
@@ -1651,7 +1662,8 @@
       "is_gapy_satys": "Гапы сатыс",
       "documents_status": "Статус документов",
       "harvest_status": "Статус сбора",
-      "notes": "Заметки"
+      "notes": "Заметки",
+      "customs_clearance_planned_day": "Плановый день таможенного оформления"
     }
   },
   "feedback": {
@@ -1765,5 +1777,14 @@
       "tooltip": "Отправить предложение или сообщить об ошибке",
       "modal_title": "Отправить обращение"
     }
+  },
+  "weekday": {
+    "mon": "Пн",
+    "tue": "Вт",
+    "wed": "Ср",
+    "thu": "Чт",
+    "fri": "Пт",
+    "sat": "Сб",
+    "sun": "Вс"
   }
 }

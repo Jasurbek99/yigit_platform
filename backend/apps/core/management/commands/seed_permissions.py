@@ -220,6 +220,7 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
     'document_team': {
         'shipment': [
             'documents_status',
+            'customs_clearance_planned_day',
             'box_count', 'pallet_count', 'weight_net', 'weight_gross',
             'notes',
         ],

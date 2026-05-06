@@ -38,6 +38,7 @@ export const MOCK_SHIPMENT_DETAIL: IShipmentDetail = {
   sale_started_at: null,
   sale_ended_at: null,
   notes: null,
+  customs_clearance_planned_day: 'wed',
   official_export_code: '01|FB|045|A4|25|08',
   previous_platform_id: null,
   harvest_age_days: 0,

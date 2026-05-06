@@ -206,6 +206,13 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
           { value: 1, label: t('sheet.has_peregruz_yes') },
         ];
 
+      case 'weekdays':
+      case 'customs_clearance_planned_day':
+        return (['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const).map((day) => ({
+          value: day,
+          label: t(`weekday.${day}`),
+        }));
+
       default:
         return [];
     }

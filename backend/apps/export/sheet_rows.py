@@ -367,4 +367,17 @@ DEFAULT_SHEET_ROWS: list[dict] = [
         'input_type': 'readonly',
         'style': 'base',
     },
+
+    # === A2: Sirin's customs clearance planning field ===
+    # Placed at row 45 (new; no available gap in existing 3-44 layout adjacent
+    # to documents_status / R6). Owner: document_team (Sirin).
+    {
+        'row_number': 45,
+        'field_key': 'customs_clearance_planned_day',
+        'default_who_key': 'sheet.who.sirin',
+        'label_key': 'sheet.row.customs_clearance_planned_day',
+        'input_type': 'dropdown',
+        'style': 'status',
+        'options_source': 'weekdays',
+    },
 ]
