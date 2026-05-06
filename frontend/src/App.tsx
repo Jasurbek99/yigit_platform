@@ -59,6 +59,7 @@ const SubmitFeedbackPage = lazy(() => import('@/pages/feedback/SubmitFeedbackPag
 const MyTicketsPage = lazy(() => import('@/pages/feedback/MyTicketsPage'));
 const PublicFeedPage = lazy(() => import('@/pages/feedback/PublicFeedPage'));
 const AdminInboxPage = lazy(() => import('@/pages/feedback/AdminInboxPage'));
+const SelfBoard = lazy(() => import('@/pages/me/SelfBoard'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -257,6 +258,10 @@ export default function App() {
                   } />
                   <Route path="admin/shipment-settings" element={
                     <ProtectedRoute pageCode="admin.shipment_settings"><ShipmentSettingsPage /></ProtectedRoute>
+                  } />
+                  {/* Me / Self board */}
+                  <Route path="me/board" element={
+                    <ProtectedRoute><SelfBoard /></ProtectedRoute>
                   } />
                   {/* Feedback module */}
                   <Route path="feedback/submit" element={<SubmitFeedbackPage />} />

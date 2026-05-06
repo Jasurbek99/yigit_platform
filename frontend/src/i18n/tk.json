@@ -903,7 +903,9 @@
     "select_country": "Ýurt saýla",
     "select_city": "Şäher saýla",
     "create_option": "\"{{name}}\" döret",
-    "search": "Gözle..."
+    "search": "Gözle...",
+    "error": "Ýalňyşlyk ýüze çykdy. Täzeden synanşyň.",
+    "no_deadline": "Möhlet ýok"
   },
   "permissions_admin": {
     "subtitle": "Blok düzgünlerini we rugsatlaryny dolandyrmak",
@@ -1860,5 +1862,39 @@
     "confirm_destination": "Barylýan şäheri tassykla",
     "finalize_sale": "Satyşy tamamla",
     "submit_sales_report": "Satyş hasabatyny tabşyr"
+  },
+  "me": {
+    "board": {
+      "title": "Meniň işim",
+      "col_todo": "Etmeli",
+      "col_in_progress": "Işde",
+      "col_blocked": "Bökdelen",
+      "col_done_today": "Şu gün edildi",
+      "col_history": "Taryh",
+      "empty_todo": "Häzirlik etmeli zat ýok",
+      "empty_done_today": "Şu gün entek tabşyryk tamamlanmady",
+      "empty_col": "Boş",
+      "show_all": "Hemmesini görkez",
+      "show_today_only": "Diňe şu gün",
+      "filter_phase": "Faza",
+      "search_shipment": "Ýüki gözle",
+      "block_modal_title": "Tabşyrygy bökdele",
+      "block_modal_reason": "Sebäp",
+      "block_modal_required": "Sebäp talap edilýär",
+      "overdue_by": "{{duration}} giç galdy",
+      "due_in": "{{duration}} galdy",
+      "toast_blocked": "Tabşyryk bökdeldi",
+      "toast_unblocked": "Tabşyryk açyldy",
+      "drop_not_allowed": "Tabşyrygy şeýle geçirmek bolmaýar"
+    },
+    "kpi": {
+      "done_today": "Şu gün edildi",
+      "avg_duration": "Ortaça wagt",
+      "on_time_rate": "Wagtynda"
+    },
+    "nav": {
+      "label": "Meniň işim",
+      "board": "Tagta"
+    }
   }
 }

@@ -903,7 +903,9 @@
     "select_country": "Select country",
     "select_city": "Select city",
     "create_option": "Create \"{{name}}\"",
-    "search": "Search..."
+    "search": "Search...",
+    "error": "An error occurred. Please try again.",
+    "no_deadline": "No deadline"
   },
   "permissions_admin": {
     "subtitle": "Manage block rules and permissions",
@@ -1856,5 +1858,39 @@
     "confirm_destination": "Confirm destination city",
     "finalize_sale": "Finalize sale",
     "submit_sales_report": "Submit sales report"
+  },
+  "me": {
+    "board": {
+      "title": "My Work",
+      "col_todo": "To do",
+      "col_in_progress": "In progress",
+      "col_blocked": "Blocked",
+      "col_done_today": "Done today",
+      "col_history": "History",
+      "empty_todo": "Nothing to do right now",
+      "empty_done_today": "No tasks completed today yet",
+      "empty_col": "Empty",
+      "show_all": "Show all",
+      "show_today_only": "Show today only",
+      "filter_phase": "Phase",
+      "search_shipment": "Search shipment",
+      "block_modal_title": "Block task",
+      "block_modal_reason": "Reason",
+      "block_modal_required": "Reason is required",
+      "overdue_by": "Overdue {{duration}}",
+      "due_in": "Due in {{duration}}",
+      "toast_blocked": "Task blocked",
+      "toast_unblocked": "Task unblocked",
+      "drop_not_allowed": "Cannot move task this way"
+    },
+    "kpi": {
+      "done_today": "Done today",
+      "avg_duration": "Avg duration",
+      "on_time_rate": "On-time"
+    },
+    "nav": {
+      "label": "My Work",
+      "board": "Board"
+    }
   }
 }

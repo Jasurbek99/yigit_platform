@@ -24,6 +24,7 @@ import {
   IconArrowsSort,
   IconMessageCircle,
   IconInbox,
+  IconClipboardList,
 } from '@tabler/icons-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -32,6 +33,7 @@ import api from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
 import { useNotifications, useMarkAllRead } from '@/hooks/useNotifications';
 import { useFeedbackAdminUnreadCount } from '@/hooks/useFeedback';
+import { useMyTasks } from '@/hooks/useMyTasks';
 import { canSeePage } from '@/utils/permissions';
 import { clearCachedPrefs } from '@/cache/userPrefsCache';
 import { FeedbackFAB } from '@/components/feedback/FeedbackFAB';
@@ -151,6 +153,10 @@ export default function AppLayout() {
   const { user } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const { data: feedbackUnreadCount = 0 } = useFeedbackAdminUnreadCount();
+  const { data: myTasksData } = useMyTasks({ enabled: !!user });
+  const myOpenCount = (myTasksData?.results ?? []).filter(
+    (task) => task.state === 'open',
+  ).length;
 
   const { t, i18n } = useTranslation();
 
@@ -202,6 +208,7 @@ export default function AppLayout() {
     '/admin/customers': t('nav.admin_customers'),
     '/admin/truck-destinations': t('nav.admin_truck_dest'),
     '/admin/shipment-settings': t('nav.admin_shipment_settings'),
+    '/me/board': t('me.nav.board'),
   };
 
   const currentPageLabel = location.pathname.startsWith('/shipments/')
@@ -267,6 +274,26 @@ export default function AppLayout() {
       { key: '/admin/truck-destinations', icon: <IconTruck size={15} />, label: t('nav.admin_truck_dest') },
       { key: '/admin/shipment-settings', icon: <IconLayoutGrid size={15} />, label: t('nav.admin_shipment_settings') },
       { key: '/admin/permissions', icon: <IconShield size={15} />, label: t('nav.admin_permissions') },
+    ]},
+    { label: t('me.nav.label'), items: [
+      {
+        key: '/me/board',
+        icon: (
+          <Badge count={myOpenCount} size="small" offset={[8, -2]}>
+            <IconClipboardList size={15} />
+          </Badge>
+        ),
+        label: t('me.nav.board'),
+        // Visible to all authenticated users — no role restriction needed.
+        // The roles array lists every role so the canSeePage shortcut is bypassed
+        // and the item is always visible regardless of page_permissions entries.
+        roles: [
+          'admin', 'export_manager', 'loading_dept_head', 'warehouse_chief',
+          'weight_master', 'document_team', 'transport', 'sales_rep',
+          'finansist', 'director', 'accountant', 'greenhouse_manager',
+          'seller', 'boss',
+        ] as import('@/types').UserRole[],
+      },
     ]},
     { label: t('nav.group_feedback'), items: [
       {

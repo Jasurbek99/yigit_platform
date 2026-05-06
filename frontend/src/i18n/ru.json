@@ -905,7 +905,9 @@
     "select_country": "Выберите страну",
     "select_city": "Выберите город",
     "create_option": "Создать «{{name}}»",
-    "search": "Поиск..."
+    "search": "Поиск...",
+    "error": "Произошла ошибка. Попробуйте ещё раз.",
+    "no_deadline": "Без срока"
   },
   "permissions_admin": {
     "subtitle": "Управление правилами блоков и правами",
@@ -1858,5 +1860,39 @@
     "confirm_destination": "Подтвердить город назначения",
     "finalize_sale": "Завершить продажу",
     "submit_sales_report": "Отправить отчёт о продажах"
+  },
+  "me": {
+    "board": {
+      "title": "Моя работа",
+      "col_todo": "К выполнению",
+      "col_in_progress": "В работе",
+      "col_blocked": "Заблокировано",
+      "col_done_today": "Сделано сегодня",
+      "col_history": "История",
+      "empty_todo": "Пока ничего нет",
+      "empty_done_today": "Задачи ещё не выполнены сегодня",
+      "empty_col": "Пусто",
+      "show_all": "Показать все",
+      "show_today_only": "Только сегодня",
+      "filter_phase": "Фаза",
+      "search_shipment": "Поиск груза",
+      "block_modal_title": "Заблокировать задачу",
+      "block_modal_reason": "Причина",
+      "block_modal_required": "Причина обязательна",
+      "overdue_by": "Просрочено на {{duration}}",
+      "due_in": "Осталось {{duration}}",
+      "toast_blocked": "Задача заблокирована",
+      "toast_unblocked": "Задача разблокирована",
+      "drop_not_allowed": "Нельзя переместить задачу таким образом"
+    },
+    "kpi": {
+      "done_today": "Сделано сегодня",
+      "avg_duration": "Среднее время",
+      "on_time_rate": "В срок"
+    },
+    "nav": {
+      "label": "Моя работа",
+      "board": "Доска"
+    }
   }
 }
