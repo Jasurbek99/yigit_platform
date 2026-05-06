@@ -501,6 +501,7 @@ export interface IBlockSource {
 }
 
 export interface IStatusLogEntry {
+  status_code: string;
   status_display: string;
   changed_by_name: string;
   changed_at: string;
@@ -1055,7 +1056,47 @@ export interface IShipmentDetail extends IShipmentListItem {
   border_point: number | null;
   import_firm: number | null;
   loading_location: number | null;
+  // Task system (Stream D1)
+  my_task: ITaskDetail | null;
+  other_tasks: ITaskListItem[];
+  in_phase_seconds: number;
+  phase_avg_seconds: number | null;
 }
+// ─── Task system (Stream B / D1) ───────────────────────────────────────────────────────────────────
+
+export type TaskState = 'open' | 'in_progress' | 'blocked' | 'done' | 'cancelled';
+
+export type TaskCompletionRule = 'all_fields_filled' | 'any_field_filled' | 'manual_done';
+
+export interface ITaskListItem {
+  id: number;
+  shipment: number;
+  shipment_cargo_code: string;
+  step: string;
+  phase: ShipmentPhase;
+  title_key: string;
+  assignee_role: string;
+  assignee_user: number | null;
+  assignee_user_name: string | null;
+  target_fields_list: string[];
+  completion_rule: TaskCompletionRule;
+  deadline: string | null;
+  deadline_rule: string;
+  state: TaskState;
+  is_overdue: boolean;
+  created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+export interface ITaskDetail extends ITaskListItem {
+  blocked_reason: string;
+  blocked_by: number[];
+  rule: number | null;
+  duration_seconds: number | null;
+}
+
+
 
 // â”€â”€â”€ Draft Shipments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 

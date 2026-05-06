@@ -21,6 +21,7 @@ from apps.export.models import (
     ShipmentComment,
     Task,
     TaskCompletionRule,
+    TaskState,
 )
 
 
@@ -330,12 +331,13 @@ class BlockSourceSerializer(serializers.ModelSerializer):
 
 
 class StatusLogSerializer(serializers.ModelSerializer):
+    status_code = serializers.CharField(source='status.code', read_only=True)
     status_display = serializers.CharField(source='status.name_en', read_only=True)
     changed_by_name = serializers.CharField(source='changed_by.username', read_only=True)
 
     class Meta:
         model = ShipmentStatusLog
-        fields = ['status_display', 'changed_by_name', 'changed_at', 'comment']
+        fields = ['status_code', 'status_display', 'changed_by_name', 'changed_at', 'comment']
 
 
 class CommentSerializer(serializers.ModelSerializer):
@@ -568,6 +570,222 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
     # All dominant varieties for multi-variety trucks.
     varieties_dominant = TomatoVarietyInlineSerializer(many=True, read_only=True)
 
+    # D1 — task and phase context fields
+    my_task = serializers.SerializerMethodField()
+    other_tasks = serializers.SerializerMethodField()
+    in_phase_seconds = serializers.SerializerMethodField()
+    phase_avg_seconds = serializers.SerializerMethodField()
+
+    # Supervisor roles that skip my_task auto-selection. They can browse all
+    # tasks via other_tasks. Defined locally to avoid conflating with
+    # PRIVILEGED_ROLES (which also gates write permissions, a separate concern).
+    _SUPERVISOR_ROLES = frozenset({'export_manager', 'boss', 'admin', 'director'})
+
+    def _get_tasks_prefetched(self, obj: 'Shipment') -> list:
+        """Return prefetched tasks list, ordered by deadline asc nulls last, created_at asc.
+
+        Works from the prefetch cache when ShipmentViewSet.retrieve prefetches
+        'tasks'; falls back to a fresh queryset if called outside that context
+        (e.g., unit tests that don't use the ViewSet).
+        """
+        if hasattr(obj, '_prefetched_objects_cache') and 'tasks' in obj._prefetched_objects_cache:
+            # Already prefetched and ordered by the Prefetch object in the viewset.
+            return list(obj._prefetched_objects_cache['tasks'])
+        # Fallback: query with the same ordering
+        from django.db.models import F
+        return list(
+            obj.tasks.select_related('rule', 'assignee_user')
+            .order_by(F('deadline').asc(nulls_last=True), 'created_at')
+        )
+
+    def get_my_task(self, obj: 'Shipment') -> dict | None:
+        """Return the requesting user's active task on this shipment, or null.
+
+        Supervisors (export_manager, boss, admin, director) always get null —
+        they see everything via other_tasks.
+
+        Active states: OPEN, IN_PROGRESS, BLOCKED.
+        When multiple active tasks match the user's role, pick the earliest
+        deadline (nulls last), then oldest created_at.
+        """
+        request = self.context.get('request')
+        if request is None:
+            return None
+        user = request.user
+        role = getattr(user, 'role', None)
+
+        if role in self._SUPERVISOR_ROLES:
+            return None
+
+        active_states = {TaskState.OPEN, TaskState.IN_PROGRESS, TaskState.BLOCKED}
+        tasks = self._get_tasks_prefetched(obj)
+
+        for task in tasks:
+            if task.assignee_role == role and task.state in active_states:
+                return TaskDetailSerializer(task, context=self.context).data
+        return None
+
+    def get_other_tasks(self, obj: 'Shipment') -> list[dict]:
+        """Return all tasks on this shipment except my_task.
+
+        Includes done and cancelled tasks (rendered read-only on frontend).
+        Ordered: deadline asc nulls last, then created_at asc.
+        my_task is identified by the same role+state logic as get_my_task,
+        so the first matching active task is excluded.
+        """
+        request = self.context.get('request')
+        role = getattr(request.user, 'role', None) if request else None
+        active_states = {TaskState.OPEN, TaskState.IN_PROGRESS, TaskState.BLOCKED}
+
+        tasks = self._get_tasks_prefetched(obj)
+        is_supervisor = role in self._SUPERVISOR_ROLES
+
+        my_task_excluded = False
+        result = []
+        for task in tasks:
+            if (
+                not is_supervisor
+                and not my_task_excluded
+                and task.assignee_role == role
+                and task.state in active_states
+            ):
+                # Skip the first role-matching active task (that's my_task).
+                my_task_excluded = True
+                continue
+            result.append(TaskListSerializer(task, context=self.context).data)
+        return result
+
+    @staticmethod
+    def _resolve_phase_entry(shipment: 'Shipment') -> 'datetime | None':
+        """Find the datetime when the shipment entered its current phase.
+
+        Walks the status_log (newest-first via Meta.ordering = ['-changed_at'])
+        and finds the contiguous run of log entries whose status codes map to
+        the same phase as the current status. Returns the changed_at of the
+        oldest entry in that run — that's when the phase started.
+
+        Returns None if there are no status log entries.
+        """
+        from apps.export.services.phases import get_phase
+
+        current_code = shipment.status.code if shipment.status_id else None
+        if not current_code:
+            return None
+
+        current_phase = get_phase(current_code)
+
+        # status_log is prefetched (ordered newest-first by Meta.ordering).
+        # We need select_related('status') on each log entry for the code lookup.
+        logs = list(shipment.status_log.all())
+        if not logs:
+            return None
+
+        # Walk from newest to oldest. Collect logs whose phase matches.
+        # Stop at the first log that belongs to a different phase.
+        phase_entry_time = None
+        for log in logs:
+            log_code = log.status.code if log.status_id else None
+            log_phase = get_phase(log_code)
+            if log_phase == current_phase:
+                phase_entry_time = log.changed_at
+            else:
+                # First gap — stop (we want the earliest contiguous run)
+                break
+
+        return phase_entry_time
+
+    def get_in_phase_seconds(self, obj: 'Shipment') -> int:
+        """Integer seconds since the shipment entered its current phase.
+
+        Uses the contiguous phase-run logic from _resolve_phase_entry().
+        Returns 0 if no status log exists (safe fallback for draft shipments).
+        """
+        from django.utils import timezone as _tz
+        phase_entry = self._resolve_phase_entry(obj)
+        if phase_entry is None:
+            return 0
+        return int((_tz.now() - phase_entry).total_seconds())
+
+    def get_phase_avg_seconds(self, obj: 'Shipment') -> int | None:
+        """Average seconds other shipments in the same season spent in this status.
+
+        Simplification (documented): this uses per-STATUS average, not per-phase
+        average. For each closed shipment in the active season, we find consecutive
+        log rows with the same status code and compute the elapsed time. This is
+        simpler than the full phase-aware version and still provides useful signal.
+
+        Result is cached for 5 minutes via Django's cache framework. The cache key
+        is: phase_avg_seconds:{status_code}:{season_id}
+
+        Returns None when there is no historical data.
+        """
+        from django.core.cache import cache
+
+        status_code = obj.status.code if obj.status_id else None
+        season_id = obj.season_id
+        if not status_code or not season_id:
+            return None
+
+        cache_key = f'phase_avg_seconds:{status_code}:{season_id}'
+
+        # Use explicit get/set with a sentinel to safely cache None results.
+        _MISS = object.__new__(object)
+        cached = cache.get(cache_key, _MISS)
+        if cached is not _MISS:
+            return cached
+
+        result = self._compute_status_avg_seconds(status_code, season_id)
+        cache.set(cache_key, result, 300)
+        return result
+
+    @staticmethod
+    def _compute_status_avg_seconds(status_code: str, season_id: int) -> int | None:
+        """Compute mean seconds-in-status across closed shipments for status_code.
+
+        For each closed (tamamlandy) shipment in the season that passed through
+        this status, find the log entry for this status and the subsequent log
+        entry (the transition OUT of this status). Elapsed time = next.changed_at
+        - this.changed_at.
+
+        Simplified from full phase-aware version: per-status granularity, which
+        is sufficient for the Detail page context strip.
+
+        Returns integer mean seconds, or None if no data.
+        """
+        from apps.export.models import ShipmentStatusLog
+
+        # Fetch all logs for closed shipments in this season that passed through
+        # status_code. Ordered by (shipment_id, changed_at asc) so we can walk
+        # consecutive entries per shipment.
+        logs = list(
+            ShipmentStatusLog.objects.filter(
+                shipment__season_id=season_id,
+                shipment__status__code='tamamlandy',
+            )
+            .select_related('status')
+            .order_by('shipment_id', 'changed_at')
+        )
+
+        # Group by shipment_id
+        from itertools import groupby
+
+        durations: list[float] = []
+        for _sid, group in groupby(logs, key=lambda lg: lg.shipment_id):
+            entries = list(group)
+            for i, log in enumerate(entries):
+                if log.status.code != status_code:
+                    continue
+                # Found the entry into this status; the next log is the exit.
+                if i + 1 < len(entries):
+                    elapsed = (entries[i + 1].changed_at - log.changed_at).total_seconds()
+                    if elapsed >= 0:
+                        durations.append(elapsed)
+                # If no next log, the shipment ended at this status — skip.
+
+        if not durations:
+            return None
+        return int(sum(durations) / len(durations))
+
     def get_allowed_transitions(self, obj: Shipment) -> list[str]:
         if obj.status is None:
             return []
@@ -619,6 +837,11 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
             'border_point',
             'import_firm',
             'loading_location',
+            # D1 — task and phase context
+            'my_task',
+            'other_tasks',
+            'in_phase_seconds',
+            'phase_avg_seconds',
         ]
 
 

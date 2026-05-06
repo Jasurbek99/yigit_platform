@@ -1795,5 +1795,68 @@
     "transit": "В пути",
     "dest": "На месте",
     "close": "Закрыто"
+  },
+  "shipment": {
+    "detail": {
+      "idle_warning": "Простой в фазе",
+      "in_phase": "В фазе",
+      "avg_for_step": "Среднее по этапу",
+      "tasks_open": "Открытые задачи",
+      "no_active_task": "Нет задачи для вас по этой отгрузке",
+      "mark_done": "Отметить как выполнено",
+      "activity_link": "Журнал активности",
+      "other_tasks_title": "Другие задачи",
+      "back_to_detail": "Назад к отгрузке"
+    }
+  },
+  "tasks": {
+    "target_fields_progress": "{{filled}} из {{total}} полей заполнено",
+    "no_target_fields": "Нет полей для заполнения — нажмите «Готово»",
+    "started_ago": "начато {{ago}}",
+    "done_at": "завершено {{time}}",
+    "state": {
+      "open": "Не начато",
+      "in_progress": "В работе",
+      "blocked": "Заблокировано",
+      "done": "Готово",
+      "cancelled": "Отменено"
+    },
+    "role": {
+      "admin": "Администратор",
+      "export_manager": "Менеджер экспорта",
+      "warehouse_chief": "Нач. склада",
+      "document_team": "Документальщик",
+      "transport": "Транспорт",
+      "sales_rep": "Представитель",
+      "finansist": "Финансист",
+      "director": "Директор",
+      "accountant": "Бухгалтер",
+      "greenhouse_manager": "Менеджер теплицы",
+      "loading_dept_head": "Нач. загрузки",
+      "weight_master": "Весовщик",
+      "boss": "Руководитель",
+      "seller": "Продавец"
+    },
+    "field_label": {
+      "firm_splits": "Экспортные фирмы",
+      "block_sources": "Источники блоков",
+      "quality.azyk_maglumatnama": "Пищевой сертификат",
+      "quality.suriji_gozukdiriji": "Фитосанитарный",
+      "quality.hil_sertifikaty": "Сертификат качества",
+      "quality.kalibrowka_analiz": "Калибровочный анализ"
+    },
+    "fill_loading_data": "Заполнить данные загрузки",
+    "set_destination": "Задать назначение",
+    "pick_export_firms": "Выбрать экспортные фирмы",
+    "assign_driver": "Назначить водителя",
+    "give_documents": "Передать документы",
+    "give_documents_gapy": "Подать документы Gapy Satys",
+    "start_documents_prep": "Начать подготовку таможенных документов",
+    "quality_inspection": "Проверка качества",
+    "send_documents_to_customs": "Отправить документы в таможню",
+    "docs_back_to_office": "Документы обратно в офис",
+    "confirm_destination": "Подтвердить город назначения",
+    "finalize_sale": "Завершить продажу",
+    "submit_sales_report": "Отправить отчёт о продажах"
   }
 }

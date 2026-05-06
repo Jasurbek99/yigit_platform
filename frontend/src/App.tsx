@@ -54,6 +54,7 @@ const PalletManifest = lazy(() => import('@/pages/export/PalletManifest'));
 const BossDashboard = lazy(() => import('@/pages/boss/BossDashboard'));
 const FallbackForecastView = lazy(() => import('@/pages/export/FallbackForecastView'));
 const StuckShipments = lazy(() => import('@/pages/director/StuckShipments'));
+const ShipmentActivityLog = lazy(() => import('@/pages/export/ShipmentActivityLog'));
 const SubmitFeedbackPage = lazy(() => import('@/pages/feedback/SubmitFeedbackPage'));
 const MyTicketsPage = lazy(() => import('@/pages/feedback/MyTicketsPage'));
 const PublicFeedPage = lazy(() => import('@/pages/feedback/PublicFeedPage'));
@@ -217,6 +218,9 @@ export default function App() {
                   } />
                   <Route path="shipments/:id/manifest" element={
                     <ProtectedRoute pageCode="export.pallet_manifest"><PalletManifest /></ProtectedRoute>
+                  } />
+                  <Route path="shipments/:id/activity" element={
+                    <ProtectedRoute pageCode="export.shipments"><ShipmentActivityLog /></ProtectedRoute>
                   } />
                   <Route path="admin/seasons" element={
                     <ProtectedRoute pageCode="admin.seasons"><SeasonsPage /></ProtectedRoute>

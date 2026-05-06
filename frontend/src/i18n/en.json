@@ -1793,5 +1793,68 @@
     "transit": "Transit",
     "dest": "Destination",
     "close": "Closed"
+  },
+  "shipment": {
+    "detail": {
+      "idle_warning": "Idle in phase",
+      "in_phase": "In phase",
+      "avg_for_step": "Avg for step",
+      "tasks_open": "Tasks open",
+      "no_active_task": "No task assigned to you on this shipment",
+      "mark_done": "Mark task done",
+      "activity_link": "View activity log",
+      "other_tasks_title": "Other tasks",
+      "back_to_detail": "Back to shipment"
+    }
+  },
+  "tasks": {
+    "target_fields_progress": "{{filled}} of {{total}} fields filled",
+    "no_target_fields": "No fields to fill — mark done when ready",
+    "started_ago": "started {{ago}}",
+    "done_at": "done {{time}}",
+    "state": {
+      "open": "Not started",
+      "in_progress": "In progress",
+      "blocked": "Blocked",
+      "done": "Done",
+      "cancelled": "Cancelled"
+    },
+    "role": {
+      "admin": "Admin",
+      "export_manager": "Export Manager",
+      "warehouse_chief": "Warehouse Chief",
+      "document_team": "Document Team",
+      "transport": "Transport",
+      "sales_rep": "Sales Rep",
+      "finansist": "Financier",
+      "director": "Director",
+      "accountant": "Accountant",
+      "greenhouse_manager": "Greenhouse Manager",
+      "loading_dept_head": "Loading Dept Head",
+      "weight_master": "Weight Master",
+      "boss": "Boss",
+      "seller": "Seller"
+    },
+    "field_label": {
+      "firm_splits": "Export Firms",
+      "block_sources": "Block Sources",
+      "quality.azyk_maglumatnama": "Food Certificate",
+      "quality.suriji_gozukdiriji": "Phytosanitary",
+      "quality.hil_sertifikaty": "Quality Certificate",
+      "quality.kalibrowka_analiz": "Calibration Analysis"
+    },
+    "fill_loading_data": "Fill loading data",
+    "set_destination": "Set destination",
+    "pick_export_firms": "Pick export firms",
+    "assign_driver": "Assign driver",
+    "give_documents": "Hand over documents",
+    "give_documents_gapy": "Submit Gapy Satys documents",
+    "start_documents_prep": "Start customs document prep",
+    "quality_inspection": "Quality inspection",
+    "send_documents_to_customs": "Send documents to customs",
+    "docs_back_to_office": "Documents back to office",
+    "confirm_destination": "Confirm destination city",
+    "finalize_sale": "Finalize sale",
+    "submit_sales_report": "Submit sales report"
   }
 }

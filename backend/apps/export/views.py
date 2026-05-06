@@ -102,6 +102,7 @@ class ShipmentViewSet(ModelViewSet):
             return ShipmentDetailSerializer
         return ShipmentListSerializer
 
+
     # Roles allowed to view the Archive view (?archived=true). Operational view
     # (the default) is open to everyone with shipment.view permission. Archive
     # is a more sensitive read — closed shipments may include historical buyer
@@ -121,9 +122,29 @@ class ShipmentViewSet(ModelViewSet):
 
     def get_queryset(self) -> QuerySet:
         from datetime import timedelta
+        from django.db.models import F, Prefetch
         from django.utils import timezone as _tz
 
         qs = super().get_queryset()
+
+        # ── Detail-only prefetches (D1) ───────────────────────────────────────
+        # Tasks and status_log are only needed by ShipmentDetailSerializer.
+        # Adding them to list/sheet queries would waste significant DB time.
+        if getattr(self, 'action', None) == 'retrieve':
+            from apps.export.models import Task as _Task, ShipmentStatusLog as _Log
+            task_prefetch = Prefetch(
+                'tasks',
+                queryset=_Task.objects.select_related('rule', 'assignee_user').order_by(
+                    F('deadline').asc(nulls_last=True), 'created_at'
+                ),
+            )
+            log_prefetch = Prefetch(
+                'status_log',
+                queryset=_Log.objects.select_related('status', 'changed_by').order_by(
+                    '-changed_at'
+                ),
+            )
+            qs = qs.prefetch_related(task_prefetch, log_prefetch)
 
         # ── Operational vs Archive split (Phase 3, ADR-0005) ─────────────────
         # Default: is_archived=False (operational). ?archived=true opens the

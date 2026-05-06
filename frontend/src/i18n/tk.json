@@ -1797,5 +1797,68 @@
     "transit": "Ýolda",
     "dest": "Bardy",
     "close": "Ýapyk"
+  },
+  "shipment": {
+    "detail": {
+      "idle_warning": "Fazada duralgaç",
+      "in_phase": "Fazada",
+      "avg_for_step": "Ortaça ädim wagty",
+      "tasks_open": "Açyk tabşyryklar",
+      "no_active_task": "Bu ýüklemede siziň tabşyrygyňyz ýok",
+      "mark_done": "Tamamlandı diý",
+      "activity_link": "Işjeňlik žurnaly",
+      "other_tasks_title": "Beýleki tabşyryklar",
+      "back_to_detail": "Ýüklemä yzyna"
+    }
+  },
+  "tasks": {
+    "target_fields_progress": "{{total}} meýdandan {{filled}} dolduryldy",
+    "no_target_fields": "Dolduriljek meýdan ýok — taýyn bolsa \"Tamamlandı\" basyň",
+    "started_ago": "{{ago}} başlandy",
+    "done_at": "{{time}} tamamlandy",
+    "state": {
+      "open": "Başlanmady",
+      "in_progress": "Işlenýär",
+      "blocked": "Bloklandy",
+      "done": "Taýyn",
+      "cancelled": "Ýatyryldy"
+    },
+    "role": {
+      "admin": "Admin",
+      "export_manager": "Eksport menejeri",
+      "warehouse_chief": "Ambar başlygy",
+      "document_team": "Resminama topary",
+      "transport": "Transport",
+      "sales_rep": "Satış wekili",
+      "finansist": "Finansist",
+      "director": "Direktor",
+      "accountant": "Hasapdar",
+      "greenhouse_manager": "Ýyladyşhana menejeri",
+      "loading_dept_head": "Ýüklemek bölüminiň başlygy",
+      "weight_master": "Agram ussady",
+      "boss": "Ýolbaşçy",
+      "seller": "Satyjy"
+    },
+    "field_label": {
+      "firm_splits": "Eksport firmalary",
+      "block_sources": "Blok çeşmeleri",
+      "quality.azyk_maglumatnama": "Azyk maglumaty",
+      "quality.suriji_gozukdiriji": "Fitosanitariya",
+      "quality.hil_sertifikaty": "Hil sertifikaty",
+      "quality.kalibrowka_analiz": "Kalibrowka analizi"
+    },
+    "fill_loading_data": "Ýüklemek maglumatyny doldur",
+    "set_destination": "Baryljak ýeri belle",
+    "pick_export_firms": "Eksport firmalaryny saý",
+    "assign_driver": "Sürüji bel",
+    "give_documents": "Resminamalary gowşur",
+    "give_documents_gapy": "Gapy Satys resminamalaryny tabşyr",
+    "start_documents_prep": "Gümrük resminamalaryny taýynlamagy başla",
+    "quality_inspection": "Hil barlagy",
+    "send_documents_to_customs": "Resminamalary gümrüge ibер",
+    "docs_back_to_office": "Resminamalar ofise gaýdyp geldi",
+    "confirm_destination": "Barylýan şäheri tassykla",
+    "finalize_sale": "Satyşy tamamla",
+    "submit_sales_report": "Satyş hasabatyny tabşyr"
   }
 }
