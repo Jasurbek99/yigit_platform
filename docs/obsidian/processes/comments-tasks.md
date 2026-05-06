@@ -190,6 +190,86 @@ All `comments.*` keys exist in [tk](../../../frontend/src/i18n/tk.json), [ru](..
 - No rate limiting on `@role` mentions. A 12-role tenant with 100 active users could in theory get a 100-row notification fan-out per comment — fine in practice.
 - Cross-shipment "task inbox" is not a separate page. Use the drawer's "My tasks" filter from any shipment, or click a `task_assigned` notification to deep-link.
 
+## Structured Task Engine (B-engine — plan §B2–B4, §B7)
+
+The above describes *ad-hoc* tasks created manually via a comment's assignee field. The structured task engine provides **rule-driven task generation** tied to the shipment status lifecycle.
+
+### How it differs from comment tasks
+
+| | Comment task | Structured task (`Task` model) |
+|---|---|---|
+| Creation | Manual — user picks assignee | Automatic — engine fires on status change |
+| Recipe | None | `TaskRule` row (step + condition + target_fields) |
+| Completion | User clicks "Mark done" button | Auto via field fill, or manual for `MANUAL_DONE` rules |
+| Deadline | None | Grammar-based: `4h_after_status`, `friday_eow`, etc. |
+| i18n title | Free-text comment content | i18n key e.g. `tasks.fill_loading_data` |
+
+### TaskRule + Task models
+
+`TaskRule` — seed table (seeded by `seed_task_rules` management command):
+- `step` — shipment status code that triggers the rule (e.g. `yuklenme`)
+- `title_key` — i18n key for the task title
+- `assignee_role` — role that owns the task
+- `target_fields` — CSV of Shipment field paths (supports dotted e.g. `quality.azyk_maglumatnama`)
+- `completion_rule` — `ALL_FIELDS_FILLED` / `ANY_FIELD_FILLED` / `MANUAL_DONE`
+- `deadline_rule` — grammar string parsed by `parse_deadline_rule()`
+- `condition_field` / `condition_value` — conditional activation (e.g. `is_gapy_satys=True`)
+
+`Task` — one per (shipment, rule), created when the shipment enters the rule's step:
+- `state` — `OPEN` → `IN_PROGRESS` → `DONE` (or `BLOCKED` / `CANCELLED`)
+- `started_at` — set by `mark_started_for_changed_fields()` when a related field is patched
+- `completed_at` — set by `resolve_for_shipment()` when completion rule is satisfied
+- `deadline` — absolute datetime computed from `deadline_rule` at task creation time
+
+### Engine entry points (in `apps/export/services/task_rules.py`)
+
+| Function | Called from | Purpose |
+|---|---|---|
+| `generate_tasks_for_status(shipment, status_code)` | `transition_to()` after status log write | Creates tasks for the new status (idempotent) |
+| `resolve_for_shipment(shipment)` | `Shipment.save()` override | Auto-marks tasks DONE when completion rule met |
+| `mark_started_for_changed_fields(shipment, keys)` | `ShipmentViewSet.partial_update` after save | Sets `started_at` + `IN_PROGRESS` on tasks whose `target_fields` overlap the patched field set |
+| `parse_deadline_rule(rule, reference)` | `generate_tasks_for_status` | Converts grammar string to absolute `datetime` |
+
+### Deadline grammar
+
+| Rule | Meaning |
+|---|---|
+| `''` or `'none'` | No deadline |
+| `'HH:MM_same_day'` | Same day as status change at HH:MM Asia/Ashgabat |
+| `'HH:MM_next_business_day'` | Next Mon–Fri at HH:MM; skips Sat/Sun |
+| `'Nh_after_status'` | N hours after status change (e.g. `4h_after_status`) |
+| `'friday_eow'` | Coming Friday 18:00 Asia/Ashgabat (same day if already Friday) |
+
+### Initial seed (13 rules)
+
+Run once per environment: `python manage.py seed_task_rules`. Idempotent.
+
+| Step | title_key | Assignee role | Completion |
+|---|---|---|---|
+| draft | tasks.set_destination | export_manager | ALL_FIELDS_FILLED (country,customer,import_firm) |
+| draft | tasks.pick_export_firms | document_team | ANY_FIELD_FILLED (firm_splits) |
+| draft | tasks.assign_driver | transport | ALL_FIELDS_FILLED (driver_id), only if not is_gapy_satys |
+| draft | tasks.give_documents | transport | MANUAL_DONE, only if not is_gapy_satys |
+| draft | tasks.give_documents_gapy | export_manager | MANUAL_DONE, only if is_gapy_satys |
+| draft | tasks.start_documents_prep | document_team | ALL_FIELDS_FILLED (documents_status,customs_clearance_planned_day) |
+| yuklenme | tasks.fill_loading_data | warehouse_chief | ALL_FIELDS_FILLED (cargo_code,block_sources,variety,weight_net,weight_gross) |
+| yuklenme | tasks.quality_inspection | greenhouse_manager | ALL_FIELDS_FILLED (quality.azyk_maglumatnama,...) |
+| gumruk_girish | tasks.send_documents_to_customs | document_team | MANUAL_DONE |
+| gumruk_chykysh | tasks.docs_back_to_office | document_team | MANUAL_DONE |
+| bardy | tasks.confirm_destination | sales_rep | ALL_FIELDS_FILLED (city) |
+| satyldy | tasks.finalize_sale | sales_rep | MANUAL_DONE |
+| hasabat | tasks.submit_sales_report | sales_rep | MANUAL_DONE |
+
+### Backfill
+
+For existing shipments: `python manage.py backfill_tasks [--dry-run] [--limit N]`. Idempotent.
+
+### Known limits
+
+- Reverse-FK targets (`firm_splits`, `block_sources`) won't auto-resolve until the next event that calls `Shipment.save()` on the parent. Adding a `ShipmentFirmSplit` row does NOT trigger parent save.
+- `transition_to()` calls `generate_tasks_for_status` outside an explicit atomic block. If task generation fails after the status log row is committed, the status change is NOT rolled back. This is a documented gap; ATOMIC_REQUESTS is not set.
+- Bulk QuerySet operations (`update()`, `bulk_update()`) bypass `Shipment.save()` and therefore bypass `resolve_for_shipment()`.
+
 ## Related
 
 - [[shipment-lifecycle]] — Comments do NOT trigger AD-1 timestamps

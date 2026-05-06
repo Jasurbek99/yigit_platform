@@ -298,6 +298,12 @@ class ShipmentViewSet(ModelViewSet):
             if audit_rows:
                 AuditLog.objects.bulk_create(audit_rows, batch_size=500)
 
+        # Mark OPEN tasks targeting any of the submitted fields as IN_PROGRESS.
+        # Must happen AFTER save so Shipment.save() auto-resolution runs first
+        # (tasks that are already DONE won't be touched here).
+        from apps.export.services.task_rules import mark_started_for_changed_fields
+        mark_started_for_changed_fields(instance, submitted_keys)
+
         detail_serializer = ShipmentDetailSerializer(instance, context={'request': request})
         return Response(detail_serializer.data)
 

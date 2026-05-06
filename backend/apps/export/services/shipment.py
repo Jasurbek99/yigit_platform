@@ -143,6 +143,16 @@ def transition_to(shipment: Shipment, new_status_code: str, user, comment: str =
         comment=comment,
     )
 
+    # Generate structural tasks for the new status (B-engine, plan §B3).
+    # Placed AFTER the status log so the task engine can read the log if needed
+    # and BEFORE AuditLog so notifications can reference tasks in a future
+    # iteration. Runs outside an explicit atomic block — transition_to() has no
+    # transaction.atomic() wrapper and ATOMIC_REQUESTS is not enabled in this
+    # project. If task generation fails, the transition has already committed;
+    # the failure is logged and does not roll back the status change.
+    from apps.export.services.task_rules import generate_tasks_for_status
+    generate_tasks_for_status(shipment, new_status_code)
+
     # Write immutable audit trail entry for this transition.
     from apps.export.models import AuditLog
     AuditLog.objects.create(

@@ -202,6 +202,28 @@ class Shipment(models.Model):
     def __str__(self) -> str:
         return self.cargo_code
 
+    def save(self, *args, **kwargs):
+        """Save and trigger task auto-resolution.
+
+        After every Model.save() call the task engine re-checks all open and
+        in-progress tasks on this shipment and marks DONE those whose target
+        fields are now filled.
+
+        Lazy import of resolve_for_shipment avoids a circular reference at
+        module-load time (models/ → services/ → models/).
+
+        Known limit: bulk operations (QuerySet.update(), bulk_update()) bypass
+        this method. That is acceptable because all current shipment-write
+        paths — Sheet PATCH, Detail PATCH, transition_to(), admin — go through
+        serializer.save() → model.save(). If a future bulk-write path needs
+        auto-resolution, call resolve_for_shipment() explicitly at the call
+        site.
+        """
+        super().save(*args, **kwargs)
+        # Lazy import prevents circular import at module-load time.
+        from apps.export.services.task_rules import resolve_for_shipment
+        resolve_for_shipment(self)
+
 
 class ShipmentStatusLog(models.Model):
     """Audit trail for every status transition.
