@@ -20,6 +20,7 @@ const DAY_KEYS = [
   'thursday',
   'friday',
   'saturday',
+  'sunday',
 ] as const;
 
 function fmtKg(val: number | null | undefined): string {

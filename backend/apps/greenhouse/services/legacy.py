@@ -20,7 +20,7 @@ def initialize_harvest_week(
     season_id: int, week_number: int, year: int, user,
 ) -> list['WeeklyHarvestPlan']:
     """Create WeeklyHarvestPlan rows for all active top-level blocks missing a plan,
-    plus the six Mon–Sat HarvestDayEntry rows under each plan.
+    plus the seven Mon–Sun HarvestDayEntry rows under each plan.
 
     Day-entry rows are created upfront (with NULL plan/forecast/actual) so the grid
     has editable cells; the frontend PATCHes existing entries and has no flow to
@@ -54,14 +54,14 @@ def initialize_harvest_week(
         ).select_related('season', 'block', 'entered_by', 'submitted_by')
     )
 
-    # Backfill Mon–Sat day-entries for any plan missing them.
+    # Backfill Mon–Sun day-entries for any plan missing them.
     plan_ids = [p.id for p in plans]
     existing_entry_keys = set(
         HarvestDayEntry.objects.filter(weekly_plan_id__in=plan_ids)
         .values_list('weekly_plan_id', 'entry_date')
     )
     monday = datetime.date.fromisocalendar(year, week_number, 1)
-    week_dates = [(monday + datetime.timedelta(days=i), i) for i in range(6)]  # Mon..Sat
+    week_dates = [(monday + datetime.timedelta(days=i), i) for i in range(7)]  # Mon..Sun
 
     new_entries = [
         HarvestDayEntry(
@@ -90,7 +90,7 @@ def get_block_summary(year: int, week: int, season_id: int | None = None) -> lis
     # Derive the Monday of the target ISO week
     try:
         week_start = datetime.date.fromisocalendar(year, week, 1)
-        week_end = datetime.date.fromisocalendar(year, week, 6)  # Saturday
+        week_end = datetime.date.fromisocalendar(year, week, 7)  # Sunday
     except ValueError:
         return []
 

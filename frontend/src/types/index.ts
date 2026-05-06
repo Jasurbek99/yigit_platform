@@ -831,7 +831,7 @@ export interface ITruckDestinationSplit {
   truck_count: number;
 }
 
-export type DayOfWeek = 1 | 2 | 3 | 4 | 5 | 6;
+export type DayOfWeek = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
 export interface IWeeklyTruckAllocation {
   id: number;
@@ -839,7 +839,7 @@ export interface IWeeklyTruckAllocation {
   season_name: string;
   week_number: number;
   year: number;
-  day_of_week: DayOfWeek;  // 1=Mon, 6=Sat
+  day_of_week: DayOfWeek;  // 1=Mon, 7=Sun
   total_planned_kg: number | null;
   total_trucks_calc: number | null;
   destination_splits: ITruckDestinationSplit[];

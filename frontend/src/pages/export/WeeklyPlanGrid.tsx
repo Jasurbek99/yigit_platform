@@ -49,7 +49,7 @@ dayjs.extend(weekOfYear);
 
 const { Title, Text } = Typography;
 
-const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
+const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
 type Day = (typeof DAYS)[number];
 
 
@@ -74,9 +74,9 @@ export default function WeeklyPlanGrid() {
   // ─── Week date range for day-entry queries ─────────────────────────────────
 
   const weekMonday = selectedWeek ? selectedWeek.isoWeekday(1) : dayjs().isoWeekday(1);
-  const weekSaturday = weekMonday.add(5, 'day');
+  const weekSunday = weekMonday.add(6, 'day');
   const dateFrom = weekMonday.format('YYYY-MM-DD');
-  const dateTo = weekSaturday.format('YYYY-MM-DD');
+  const dateTo = weekSunday.format('YYYY-MM-DD');
 
   // ─── Data fetching ─────────────────────────────────────────────────────────
 
@@ -420,7 +420,7 @@ export default function WeeklyPlanGrid() {
             </Table.Summary.Cell>
           );
         })}
-        {isCurrentOrFutureWeek && <Table.Summary.Cell index={7} />}
+        {isCurrentOrFutureWeek && <Table.Summary.Cell index={8} />}
       </Table.Summary.Row>
     );
   }

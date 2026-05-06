@@ -16,7 +16,7 @@ class WeeklyTruckAllocation(models.Model):
     season = models.ForeignKey('core.Season', on_delete=models.PROTECT, db_column='season_id')
     week_number = models.PositiveSmallIntegerField()
     year = models.PositiveSmallIntegerField()
-    # 1=Monday through 6=Saturday
+    # 1=Monday through 7=Sunday
     day_of_week = models.PositiveSmallIntegerField()
 
     # === Planned volume ===
