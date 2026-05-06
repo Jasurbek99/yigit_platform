@@ -70,7 +70,7 @@ function getCellValue(shipment: IShipmentSheetItem, rowConfig: IRowConfig): stri
     case 'document_comment_count':
       return shipment.document_comment_count > 0 ? String(shipment.document_comment_count) : '—';
     case 'notes':
-    case 'route_note':
+    case 'export_manager_note':
     case 'vehicle_condition_note':
       return (shipment[fieldKey as keyof IShipmentSheetItem] as string) ?? '—';
     default:
@@ -102,7 +102,7 @@ function getCellValue(shipment: IShipmentSheetItem, rowConfig: IRowConfig): stri
   }
 
   // Status fields — show stored value or dash
-  if (fieldKey === 'customs_clearance' || fieldKey === 'documents_status' || fieldKey === 'harvest_status') {
+  if (fieldKey === 'documents_status' || fieldKey === 'harvest_status') {
     const val = shipment[fieldKey as keyof IShipmentSheetItem] as string | null;
     return val ?? '—';
   }

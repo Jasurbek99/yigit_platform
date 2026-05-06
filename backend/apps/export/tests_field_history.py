@@ -168,16 +168,16 @@ class FieldHistoryTests(TestCase):
     def test_field_history_limit_caps(self):
         """?limit=200 caps to 200; no ?limit defaults to 50."""
         AuditLog.objects.filter(
-            model_name='Shipment', object_id=self.shipment.pk, field_name='route_note',
+            model_name='Shipment', object_id=self.shipment.pk, field_name='export_manager_note',
         ).delete()
-        _seed_audit_rows(self.shipment, 'route_note', self.director, count=75)
+        _seed_audit_rows(self.shipment, 'export_manager_note', self.director, count=75)
 
         self.client.force_authenticate(user=self.director)
 
         # Default limit = 50
         resp_default = self.client.get(
             f'/api/v1/export/shipments/{self.shipment.id}/field-history/',
-            {'field': 'route_note'},
+            {'field': 'export_manager_note'},
         )
         self.assertEqual(resp_default.status_code, 200, resp_default.data)
         self.assertEqual(len(resp_default.data['results']), 50)
@@ -185,7 +185,7 @@ class FieldHistoryTests(TestCase):
         # Explicit ?limit=200 still returns only what exists (75 rows < 200)
         resp_limit = self.client.get(
             f'/api/v1/export/shipments/{self.shipment.id}/field-history/',
-            {'field': 'route_note', 'limit': '200'},
+            {'field': 'export_manager_note', 'limit': '200'},
         )
         self.assertEqual(resp_limit.status_code, 200, resp_limit.data)
         self.assertEqual(len(resp_limit.data['results']), 75)

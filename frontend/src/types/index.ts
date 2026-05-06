@@ -1,4 +1,4 @@
-// ─── Auth ─────────────────────────────────────────────────────────────────
+﻿// â”€â”€â”€ Auth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export type UserRole =
   | 'admin'
@@ -38,7 +38,7 @@ export interface ICurrentUser {
   field_permissions: Record<string, string[]>;
 }
 
-// ─── Reference ────────────────────────────────────────────────────────────
+// â”€â”€â”€ Reference â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface ICountry {
   id: number;
@@ -138,7 +138,7 @@ export interface IShipmentOptionType {
   is_active: boolean;
 }
 
-// ─── API helpers ──────────────────────────────────────────────────────────
+// â”€â”€â”€ API helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface IApiListResponse<T> {
   count: number;
@@ -151,7 +151,7 @@ export interface IApiError {
   error: string;
 }
 
-// ─── Shipment ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ Shipment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export type VehicleCondition = 'OK' | 'ISSUE' | 'BREAKDOWN' | 'RETURNED';
 
@@ -186,7 +186,7 @@ export interface IShipmentListItem {
   freshness: 'today' | 'yesterday' | 'aged';
 }
 
-// ─── Sheet View ──────────────────────────────────────────────────────────
+// â”€â”€â”€ Sheet View â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface ISheetFirmSplit {
   firm_code: string;
@@ -249,7 +249,6 @@ export interface IShipmentSheetItem {
   total_amount_usd: number | null;
   is_gapy_satys: boolean;
   // Operational status
-  customs_clearance: string | null;
   documents_status: string | null;
   harvest_status: string | null;
   // AD-1 Timestamps
@@ -261,13 +260,12 @@ export interface IShipmentSheetItem {
   arrived_at: string | null;
   sale_started_at: string | null;
   sale_ended_at: string | null;
-  // Operator-entered timestamp (NOT AD-1 — editable inline on R20)
+  // Operator-entered timestamp (NOT AD-1 â€” editable inline on R20)
   loading_ended_at: string | null;
   // AD-2 Vehicle
   vehicle_condition: VehicleCondition | null;
   vehicle_condition_note: string | null;
-  route_note: string | null;
-  // R15 — dispatcher's live status / ETA note
+  // R15 â€” dispatcher's live status / ETA note
   vehicle_live_status: string | null;
   // Quality docs
   doc_azyk: boolean;
@@ -281,6 +279,7 @@ export interface IShipmentSheetItem {
   document_comment_count: number;
   // Notes
   notes: string | null;
+  export_manager_note: string | null;
   official_export_code: string | null;
   previous_platform_id: number | null;
   // Inline related
@@ -291,14 +290,14 @@ export interface IShipmentSheetItem {
   created_at: string;
   updated_at: string;
   /**
-   * Phase 5c — admin-created custom row values.
-   * Map of `field_key` (always starts with `custom_`) → free-text value.
+   * Phase 5c â€” admin-created custom row values.
+   * Map of `field_key` (always starts with `custom_`) â†’ free-text value.
    * Empty object when this shipment has no custom values yet.
    */
   custom_fields?: Record<string, string>;
 }
 
-// ─── Sheet API response ──────────────────────────────────────────────────────
+// â”€â”€â”€ Sheet API response â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // comment_counts: { [shipment_id]: { [field_key]: count } }
 // task_counts:    { [shipment_id]: { open: n, done: n, assigned_to_me_open: n } }
 export interface ISheetCommentCounts {
@@ -313,7 +312,7 @@ export interface ISheetTaskCounts {
   };
 }
 
-// ─── User Sheet Preferences ───────────────────────────────────────────────────
+// â”€â”€â”€ User Sheet Preferences â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * Mirrors the GET/PATCH /api/v1/export/user/sheet-preferences/ response shape.
@@ -331,14 +330,14 @@ export interface IShipmentSheetResponse {
   results: IShipmentSheetItem[];
   comment_counts: ISheetCommentCounts;
   task_counts: ISheetTaskCounts;
-  /** Backend-driven row map — replaces the frontend SHEET_ROW_CONFIG constant. */
+  /** Backend-driven row map â€” replaces the frontend SHEET_ROW_CONFIG constant. */
   rows: IRowConfig[];
   /** Per-row settings keyed by field_key (Sheet Control v2). */
   row_settings: Record<string, ISheetRowSettingForUser>;
-  /** Sparse last-edit summaries: shipment_id (string) → field_key → edit info. */
+  /** Sparse last-edit summaries: shipment_id (string) â†’ field_key â†’ edit info. */
   last_edits: Record<string, Record<string, ICellLastEdit>>;
   // Sheet Control v2 additions
-  /** Compact user index: user_id (string) → {name, role}. */
+  /** Compact user index: user_id (string) â†’ {name, role}. */
   users_index: Record<string, { name: string; role: string | null }>;
   current_user_id: number;
   current_user_lang: 'tk' | 'ru' | 'en';
@@ -346,7 +345,7 @@ export interface IShipmentSheetResponse {
    * Phase 2a: per-user row preferences emitted inline to avoid a second API call.
    * row_order contains only ids where user.position IS NOT NULL.
    * hidden_rows contains ids where user.is_hidden=True.
-   * May be absent in older API versions — optional.
+   * May be absent in older API versions â€” optional.
    */
   user_preferences?: { row_order: number[]; hidden_rows: number[] };
 }
@@ -354,11 +353,11 @@ export interface IShipmentSheetResponse {
 export type SheetRowStyle = 'base' | 'alt' | 'key' | 'transport' | 'status' | 'report' | 'separator';
 export type SheetInputType = 'text' | 'number' | 'dropdown' | 'multiselect' | 'date' | 'datetime' | 'phone' | 'status' | 'readonly' | 'comment_count';
 
-/** Row configuration — mirrors the backend `DEFAULT_SHEET_ROWS` shape (snake_case). */
+/** Row configuration â€” mirrors the backend `DEFAULT_SHEET_ROWS` shape (snake_case). */
 export interface IRowConfig {
   row_number: number;
   field_key: string;
-  /** i18n key for the "Who" column — used as fallback when no trigger is configured. */
+  /** i18n key for the "Who" column â€” used as fallback when no trigger is configured. */
   default_who_key: string;
   label_key: string;
   input_type: SheetInputType;
@@ -367,12 +366,12 @@ export interface IRowConfig {
   gapy_hidden?: boolean;
 }
 
-// ─── Sheet Row Settings v2 ────────────────────────────────────────────────────
+// â”€â”€â”€ Sheet Row Settings v2 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
- * Admin shape — returned by /admin/sheet-rows/.
+ * Admin shape â€” returned by /admin/sheet-rows/.
  * Fields are FLAT (not nested): label_tk/ru/en, description_tk/ru/en,
- * style_width/align/color — mirrors the serializer in views_sheet_settings.py.
+ * style_width/align/color â€” mirrors the serializer in views_sheet_settings.py.
  */
 export interface ISheetRowSetting {
   // Identifiers (read-only)
@@ -383,7 +382,7 @@ export interface ISheetRowSetting {
   display_order: number;
   is_visible: boolean;
   is_locked: boolean;
-  /** Phase 5c: True for admin-created runtime rows. Read-only — set by POST. */
+  /** Phase 5c: True for admin-created runtime rows. Read-only â€” set by POST. */
   is_custom: boolean;
   // Labels (writable, flat)
   label_tk: string;
@@ -417,13 +416,13 @@ export interface ISheetRowSetting {
 /**
  * Per-row entry inside /shipments/{id}/sheet/ payload's row_settings dict.
  * Keyed by field_key. Labels/description/style are nested objects (compact form).
- * No `is_visible` — hidden rows are excluded from the dict entirely.
+ * No `is_visible` â€” hidden rows are excluded from the dict entirely.
  */
 export interface ISheetRowSettingForUser {
   /**
    * SheetRowSetting.id. Required for the user-prefs PATCH endpoint, which
    * keys by numeric id. Null when no SheetRowSetting DB row exists for this
-   * field_key (fallback config) — frontend skips reorder/hide controls in
+   * field_key (fallback config) â€” frontend skips reorder/hide controls in
    * that case.
    */
   id: number | null;
@@ -442,7 +441,7 @@ export interface ISheetRowSettingForUser {
   settings_updated_by_id: number | null;
 }
 
-// ─── Cell-level last-edit summary (sparse — only present if the cell was ever edited) ──
+// â”€â”€â”€ Cell-level last-edit summary (sparse â€” only present if the cell was ever edited) â”€â”€
 
 export interface ICellLastEdit {
   user_id: number;
@@ -452,7 +451,7 @@ export interface ICellLastEdit {
   edited_at: string;  // ISO 8601
 }
 
-// ─── Field history entry (full audit log row) ────────────────────────────────
+// â”€â”€â”€ Field history entry (full audit log row) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface IFieldHistoryEntry {
   user_id: number;
@@ -462,7 +461,7 @@ export interface IFieldHistoryEntry {
   edited_at: string;  // ISO 8601
 }
 
-// ─── Truck split defaults (admin-configurable per # of firms) ───────────
+// â”€â”€â”€ Truck split defaults (admin-configurable per # of firms) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface ITruckSplitDefault {
   id: number;
@@ -473,7 +472,7 @@ export interface ITruckSplitDefault {
   updated_by_name: string | null;
 }
 
-// ─── Detail / Related ────────────────────────────────────────────────────
+// â”€â”€â”€ Detail / Related â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface IFirmSplit {
   export_firm_id: number;
@@ -511,7 +510,7 @@ export interface IShipmentComment {
   is_done: boolean;
   done_at: string | null;
   done_by_name: string | null;
-  // Mentions (denormalized objects from serializer — chips render names without N+1)
+  // Mentions (denormalized objects from serializer â€” chips render names without N+1)
   mentions_users: { id: number; name: string; role: string }[];
   role_mentions_list: { code: string; label: string }[];
   // Thread
@@ -520,7 +519,7 @@ export interface IShipmentComment {
   updated_at: string | null;
 }
 
-// ─── Comments / Mentions ──────────────────────────────────────────────────
+// â”€â”€â”€ Comments / Mentions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface IMentionUser {
   type: 'user';
@@ -546,11 +545,11 @@ export interface ICommentFilter {
   taskStatus?: ICommentTaskStatus;
 }
 
-// ─── Greenhouse Config ────────────────────────────────────────────────────
+// â”€â”€â”€ Greenhouse Config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface IGreenhouseConfig {
   id: number;
-  plan_deadline_weekday: number;        // 0=Mon … 6=Sun, default 4 (Friday)
+  plan_deadline_weekday: number;        // 0=Mon â€¦ 6=Sun, default 4 (Friday)
   plan_late_until_weekday: number;      // default 6 (Sunday)
   plan_critical_late_at_weekday: number; // default 0 (Monday)
   plan_critical_late_at_time: string;   // "HH:MM:SS"
@@ -560,7 +559,7 @@ export interface IGreenhouseConfig {
   forecast_same_day_close: string;
   notification_lead_minutes: number;
   truck_capacity_kg: string;            // Decimal as string
-  operating_days_bitmask: number;       // bits 0–6 = Mon–Sun
+  operating_days_bitmask: number;       // bits 0â€“6 = Monâ€“Sun
   timezone_name: string;
   updated_by: number | null;
   updated_by_name: string | null;
@@ -577,7 +576,7 @@ export interface IOperatingDayException {
   created_at: string;
 }
 
-// ─── Harvest Day Entry ────────────────────────────────────────────────────
+// â”€â”€â”€ Harvest Day Entry â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export type PlanState = 'on_time' | 'late' | 'critical_late';
 export type ForecastWindow = 'primary' | 'fallback' | 'same_day_red_flag';
@@ -591,7 +590,7 @@ export interface IHarvestDayEntry {
   block_code: string;
   block_name: string;
   entry_date: string;          // ISO date YYYY-MM-DD
-  weekday: number;             // 0=Mon … 6=Sun
+  weekday: number;             // 0=Mon â€¦ 6=Sun
   plan_value: string | null;
   plan_submitted_at: string | null;
   plan_submitted_by: number | null;
@@ -626,7 +625,7 @@ export interface IDayEntryHistoryItem {
   created_at: string;
 }
 
-// ─── Planning ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ Planning â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export type PlanStatus = 'draft' | 'submitted' | 'approved' | 'rejected';
 
@@ -673,7 +672,7 @@ export interface IWeeklyLocalSellPlan {
   updated_at: string;
 }
 
-// ─── Quota Dashboard ─────────────────────────────────────────────────────
+// â”€â”€â”€ Quota Dashboard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface IQuotaIssuanceFirmAllocation {
   id: number;
@@ -813,7 +812,7 @@ export interface IOverdueShipment extends IShipmentListItem {
   has_sales_report: boolean;
 }
 
-// ─── Truck Allocations ────────────────────────────────────────────────────
+// â”€â”€â”€ Truck Allocations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface ITruckDestination {
   id: number;
@@ -859,7 +858,7 @@ export interface IBlockSummary {
   critical_late_count: number;
 }
 
-// ─── Domestic Sales ────────────────────────────────────────────────────────
+// â”€â”€â”€ Domestic Sales â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface IDomesticSale {
   id: number;
@@ -880,7 +879,7 @@ export interface IDomesticSale {
   created_at: string;
 }
 
-// ─── Advances ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ Advances â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface IAdvanceShipmentLink {
   shipment: number;
@@ -909,7 +908,7 @@ export interface IFinansistAdvanceDetail extends IFinansistAdvanceListItem {
   shipment_links: IAdvanceShipmentLink[];
 }
 
-// ─── Admin ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Admin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface ILoadingLocation {
   id: number;
@@ -1001,7 +1000,7 @@ export interface INotification {
   created_at: string;
 }
 
-// ─── Shipment (detail) ────────────────────────────────────────────────────
+// â”€â”€â”€ Shipment (detail) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface IShipmentDetail extends IShipmentListItem {
   status_code: string;
@@ -1011,7 +1010,6 @@ export interface IShipmentDetail extends IShipmentListItem {
   packaging_kg: number | null;
   vehicle_condition: VehicleCondition | null;
   vehicle_condition_note: string | null;
-  route_note: string | null;
   price_per_kg: number | null;
   total_amount_usd: number | null;
   loading_started_at: string | null;
@@ -1021,6 +1019,7 @@ export interface IShipmentDetail extends IShipmentListItem {
   sale_started_at: string | null;
   sale_ended_at: string | null;
   notes: string | null;
+  export_manager_note: string | null;
   created_at: string;
   updated_at: string;
   firm_splits: IFirmSplit[];
@@ -1035,7 +1034,7 @@ export interface IShipmentDetail extends IShipmentListItem {
   varieties_dominant: Array<{ id: number; code: string | null; name: string; is_experimental: boolean }>;
   rejected_weight_kg: number | null;
   vehicle_responsible: string | null;
-  // FK ids — exposed for the Edit drawer's dropdowns. Names are inherited from IShipmentListItem.
+  // FK ids â€” exposed for the Edit drawer's dropdowns. Names are inherited from IShipmentListItem.
   country: number | null;
   customer: number | null;
   city: number | null;
@@ -1045,7 +1044,7 @@ export interface IShipmentDetail extends IShipmentListItem {
   loading_location: number | null;
 }
 
-// ─── Draft Shipments ──────────────────────────────────────────────────────
+// â”€â”€â”€ Draft Shipments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface IDraftBlockSource {
   block_id: number;
@@ -1086,7 +1085,7 @@ export interface IDraftAssignPayload {
   border_point?: number | null;
 }
 
-// ─── Assignment Board (mock demand) ──────────────────────────────────────
+// â”€â”€â”€ Assignment Board (mock demand) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export type DemandType = 'contract' | 'quota' | 'queue';
 
@@ -1103,7 +1102,7 @@ export interface IDemandItem {
   strict: boolean;
 }
 
-// ─── Pallet Manifest (Phase 2) ────────────────────────────────────────────
+// â”€â”€â”€ Pallet Manifest (Phase 2) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface ICrateType {
   id: number;
@@ -1145,7 +1144,7 @@ export interface IPalletUpsertRow {
   loaded_at?: string;
 }
 
-// ─── Feedback Module ──────────────────────────────────────────────────────────
+// â”€â”€â”€ Feedback Module â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export type FeedbackCategory = 'bug' | 'suggestion' | 'question';
 export type FeedbackStatus = 'new' | 'in_review' | 'resolved' | 'rejected';
@@ -1173,7 +1172,7 @@ export interface IFeedbackReply {
   created_at: string;
 }
 
-/** List-level shape — lightweight, no replies or description. */
+/** List-level shape â€” lightweight, no replies or description. */
 export interface IFeedbackTicket {
   id: number;
   category: FeedbackCategory;
@@ -1189,7 +1188,7 @@ export interface IFeedbackTicket {
   last_activity_at: string;
 }
 
-/** Full detail shape — includes description, attachments, replies. */
+/** Full detail shape â€” includes description, attachments, replies. */
 export interface IFeedbackTicketDetail extends IFeedbackTicket {
   description: string;
   submitted_from_path: string;

@@ -21,15 +21,9 @@ Each entry keys:
 """
 
 DEFAULT_SHEET_ROWS: list[dict] = [
-    # === Frozen Section (Rows 2-14) — Shipment Identity & Planning ===
-    {
-        'row_number': 2,
-        'field_key': 'route_note',
-        'default_who_key': 'sheet.who.logist',
-        'label_key': 'sheet.row.transport_note',
-        'input_type': 'text',
-        'style': 'base',
-    },
+    # === Frozen Section (Rows 3-14) — Shipment Identity & Planning ===
+    # Row 2 (route_note) dropped in A1. Row 5 (customs_clearance) replaced by
+    # export_manager_note. Row 40 (cmr_status readonly orphan) dropped in A1.
     {
         'row_number': 3,
         'field_key': 'vehicle_condition',
@@ -49,11 +43,11 @@ DEFAULT_SHEET_ROWS: list[dict] = [
     },
     {
         'row_number': 5,
-        'field_key': 'customs_clearance',
+        'field_key': 'export_manager_note',
         'default_who_key': 'sheet.who.gadam',
-        'label_key': 'sheet.row.customs_clearance',
-        'input_type': 'status',
-        'style': 'status',
+        'label_key': 'sheet.row.export_manager_note',
+        'input_type': 'text',
+        'style': 'base',
     },
     {
         'row_number': 6,
@@ -340,14 +334,6 @@ DEFAULT_SHEET_ROWS: list[dict] = [
         'label_key': 'sheet.row.harvest_date',
         'input_type': 'readonly',
         'style': 'base',
-    },
-    {
-        'row_number': 40,
-        'field_key': 'cmr_status',
-        'default_who_key': 'sheet.who.none',
-        'label_key': 'sheet.row.cmr_status',
-        'input_type': 'readonly',
-        'style': 'separator',
     },
     {
         'row_number': 41,

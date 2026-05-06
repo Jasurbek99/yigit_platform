@@ -91,7 +91,7 @@ RESOURCE_FIELDS: dict[str, list[str]] = {
         # Product
         'product_type', 'variety',
         # Transport
-        'vehicle_condition', 'vehicle_condition_note', 'route_note',
+        'vehicle_condition', 'vehicle_condition_note',
         'vehicle_live_status',
         'vehicle_responsible', 'truck_head_id', 'trailer_id', 'driver_id',
         'transit_days', 'transport_temp_c', 'shelf_life_days',
@@ -99,13 +99,14 @@ RESOURCE_FIELDS: dict[str, list[str]] = {
         # Operator-entered timestamp (NOT AD-1)
         'loading_ended_at',
         # Operational status
-        'customs_clearance', 'documents_status', 'harvest_status',
+        'documents_status', 'harvest_status',
         # Finance
         'price_per_kg', 'total_amount_usd',
         # Flags
         'is_gapy_satys',
         # Notes
         'notes',
+        'export_manager_note',
     ],
     'shipment_firm_split': [
         'export_firm', 'weight_kg', 'amount_usd', 'invoice_number', 'split_order',

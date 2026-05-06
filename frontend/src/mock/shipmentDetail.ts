@@ -28,7 +28,7 @@ export const MOCK_SHIPMENT_DETAIL: IShipmentDetail = {
   packaging_kg: 700,
   vehicle_condition: 'OK',
   vehicle_condition_note: null,
-  route_note: 'Farap → Taraz → Almaty',
+  export_manager_note: 'Test note from Gadam',
   price_per_kg: 0.85,
   total_amount_usd: 15725,
   loading_started_at: '2025-02-01T07:00:00+05:00',

@@ -29,7 +29,6 @@ export type OptionsSource =
   | 'varieties'
   | 'transportUsers'
   | 'vehicleCondition'
-  | 'customsClearance'
   | 'documentsStatus'
   | 'harvestStatus';
 
@@ -64,7 +63,6 @@ export const EDIT_FIELD_GROUPS: IEditFieldGroup[] = [
       { key: 'city', labelKey: 'shipment_edit_drawer.field.city', inputType: 'select', optionsSource: 'cities', countryFiltered: true },
       { key: 'import_firm', labelKey: 'shipment_edit_drawer.field.import_firm', inputType: 'select', optionsSource: 'importFirms' },
       { key: 'border_point', labelKey: 'shipment_edit_drawer.field.border_point', inputType: 'select', optionsSource: 'borderPoints' },
-      { key: 'route_note', labelKey: 'shipment_edit_drawer.field.route_note', inputType: 'textarea' },
     ],
   },
   {
@@ -104,7 +102,6 @@ export const EDIT_FIELD_GROUPS: IEditFieldGroup[] = [
     key: 'status',
     titleKey: 'shipment_edit_drawer.section_status',
     fields: [
-      { key: 'customs_clearance', labelKey: 'shipment_edit_drawer.field.customs_clearance', inputType: 'option_select', optionsSource: 'customsClearance' },
       { key: 'documents_status', labelKey: 'shipment_edit_drawer.field.documents_status', inputType: 'option_select', optionsSource: 'documentsStatus' },
       { key: 'harvest_status', labelKey: 'shipment_edit_drawer.field.harvest_status', inputType: 'option_select', optionsSource: 'harvestStatus' },
     ],
@@ -122,7 +119,6 @@ export const EDIT_FIELD_GROUPS: IEditFieldGroup[] = [
 export const OPTION_CATEGORY_BY_FIELD: Record<string, string> = {
   vehicle_responsible: 'transport_responsible',
   vehicle_condition: 'vehicle_condition',
-  customs_clearance: 'customs_clearance',
   documents_status: 'documents_status',
   harvest_status: 'harvest_status',
 };

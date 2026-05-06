@@ -116,11 +116,7 @@ class Shipment(models.Model):
     )
     is_gapy_satys = models.BooleanField(default=False)
 
-    # === Operational status fields (sheet rows 5, 6, 14) ===
-    customs_clearance = models.CharField(
-        max_length=20, blank=True, null=True,
-        help_text='Row 5: ✓ approved, → in_progress, — not_started',
-    )
+    # === Operational status fields (sheet rows 6, 14) ===
     documents_status = models.CharField(
         max_length=20, blank=True, null=True,
         help_text='Row 6: ok, missing, in_progress',
@@ -150,7 +146,6 @@ class Shipment(models.Model):
         max_length=20, choices=VEHICLE_CONDITION_CHOICES, null=True, blank=True
     )
     vehicle_condition_note = models.CharField(max_length=300, blank=True, null=True, **cyrillic_collation())
-    route_note = models.CharField(max_length=300, blank=True, null=True, **cyrillic_collation())
     # DEPRECATED: kept for historical data migration only — use vehicle_condition + Comments
     vehicle_status_note = models.CharField(max_length=500, blank=True, null=True, **cyrillic_collation())
 
@@ -172,6 +167,8 @@ class Shipment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     notes = models.TextField(blank=True, null=True, **cyrillic_collation())
+    # Export manager's freeform note on this shipment (owned by Gadam).
+    export_manager_note = models.TextField(blank=True, default='', **cyrillic_collation())
 
     # === Archive split (Phase 3, ADR-0005) ===
     # `is_archived` is flipped to True by the daily archive_shipments cron when

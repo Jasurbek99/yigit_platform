@@ -219,7 +219,7 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
     # R18 Shirin's notes (comments), R26 customs_exit (AD-1, via transition)
     'document_team': {
         'shipment': [
-            'documents_status', 'customs_clearance',
+            'documents_status',
             'box_count', 'pallet_count', 'weight_net', 'weight_gross',
             'notes',
         ],
@@ -231,11 +231,11 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
     # ── transport (Haltac, Malik, Transport bölüm, Hil Gözegçi) ─────
     # Excel: R15 vehicle status, R23 responsible, R24 truck/trailer,
     # R28 driver, R29 driver phone (via driver FK), R30 border point,
-    # R27 transit days + temp (quality inspector), R4 route notes,
+    # R27 transit days + temp (quality inspector)
     # R31 border exit time (AD-1, via transition)
     'transport': {
         'shipment': [
-            'vehicle_condition', 'vehicle_condition_note', 'route_note',
+            'vehicle_condition', 'vehicle_condition_note',
             'vehicle_live_status',
             'vehicle_responsible', 'truck_head_id', 'trailer_id', 'driver_id',
             'border_point', 'transit_days', 'transport_temp_c', 'shelf_life_days',
@@ -267,7 +267,7 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
         'weekly_plan': ['*'],
     },
     # ── export_manager (Gadam J) ─────────────────────────────────────
-    # Excel: R5 customs_clearance, R10 country, R11 customer, R13 import_firm
+    # R5 export_manager_note (owned), R10 country, R11 customer, R13 import_firm
     # Wildcard: can edit all shipment fields + manage all related resources
     'export_manager': {
         'shipment': ['*'],

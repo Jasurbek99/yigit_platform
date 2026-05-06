@@ -370,7 +370,6 @@
     "block_sources": "Greenhouse Block Sources",
     "vehicle_condition": "Vehicle Condition",
     "condition_note": "Condition Note",
-    "route_note": "Route Note",
     "loading_started": "Loading Started",
     "customs_entry": "Customs Entry",
     "customs_exit": "Customs Exit",
@@ -629,7 +628,6 @@
     "toast_error": "An error occurred",
     "category_label": "Category",
     "category_vehicle_condition": "Vehicle Condition",
-    "category_customs_clearance": "Customs Clearance",
     "category_documents_status": "Documents Status",
     "category_harvest_status": "Harvest Status",
     "category_transport_responsible": "Transport Responsible"

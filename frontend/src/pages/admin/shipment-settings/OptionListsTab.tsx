@@ -16,7 +16,6 @@ interface IProps {
 
 type Category =
   | 'vehicle_condition'
-  | 'customs_clearance'
   | 'documents_status'
   | 'harvest_status'
   | 'transport_responsible';
@@ -33,7 +32,6 @@ interface IFormValues {
 
 const CATEGORIES: Category[] = [
   'vehicle_condition',
-  'customs_clearance',
   'documents_status',
   'harvest_status',
   'transport_responsible',

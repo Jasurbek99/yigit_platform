@@ -67,7 +67,7 @@ class ShipmentStatusType(models.Model):
 class ShipmentOptionType(models.Model):
     """Configurable dropdown options for shipment sheet fields.
 
-    Categories: customs_clearance, documents_status, harvest_status,
+    Categories: documents_status, harvest_status,
     vehicle_condition, transport_responsible.
     """
 

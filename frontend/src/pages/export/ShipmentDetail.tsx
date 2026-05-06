@@ -578,7 +578,6 @@ export default function ShipmentDetail() {
         </Flex>
         <div style={{ paddingLeft: 44, fontSize: 13, color: '#8c8c8c' }}>
           {shipment.customer_name} → {shipment.country_name}
-          {shipment.route_note ? ` | ${shipment.route_note}` : ''}
         </div>
       </div>
 

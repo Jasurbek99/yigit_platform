@@ -19,10 +19,9 @@ logger = logging.getLogger(__name__)
 # Derived from frontend/src/constants/sheetRowConfig.ts fieldKey values.
 # Update here whenever sheetRowConfig.ts changes.
 SHEET_FIELD_KEYS: frozenset[str] = frozenset([
-    'route_note',
     'vehicle_condition',
     'notes',
-    'customs_clearance',
+    'export_manager_note',
     'documents_status',
     'cargo_code',
     'block_sources',
@@ -56,7 +55,6 @@ SHEET_FIELD_KEYS: frozenset[str] = frozenset([
     'weight_net',
     'variety',
     'harvest_date',
-    'cmr_status',
     'sale_started_at',
     'sale_ended_at',
     'has_sales_report',

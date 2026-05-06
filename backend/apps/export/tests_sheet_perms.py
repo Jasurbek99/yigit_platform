@@ -25,7 +25,7 @@ from apps.export.sheet_rows import DEFAULT_SHEET_ROWS
 
 # A field_key that exists in DEFAULT_SHEET_ROWS — use a stable one.
 _FIELD = 'weight_net'
-_ALT_FIELD = 'route_note'
+_ALT_FIELD = 'export_manager_note'
 
 
 def _make_user(username: str, role: str = 'export_manager', is_active: bool = True) -> User:

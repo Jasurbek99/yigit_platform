@@ -370,7 +370,6 @@
     "block_sources": "Ýyladyşhana bloklary",
     "vehicle_condition": "Ulag ýagdaýy",
     "condition_note": "Bellik",
-    "route_note": "Ugur belligi",
     "loading_started": "Ýüklenip başlandy",
     "customs_entry": "Gümrük giriş",
     "customs_exit": "Gümrük çykyş",
@@ -629,7 +628,6 @@
     "toast_error": "Ýalňyşlyk ýüze çykdy",
     "category_label": "Kategoriýa",
     "category_vehicle_condition": "Maşynyň ýagdaýy",
-    "category_customs_clearance": "Gümrükleme",
     "category_documents_status": "Resminamalar",
     "category_harvest_status": "Ýygym ýagdaýy",
     "category_transport_responsible": "Transport jogapkäri"

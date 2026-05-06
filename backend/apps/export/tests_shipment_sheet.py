@@ -244,10 +244,6 @@ class SheetPatchPermissionTests(TestCase):
         self.assertEqual(resp.status_code, 403, resp.data)
         self.assertIn('price_per_kg', resp.data['error'])
 
-    def test_transport_can_edit_route_note(self):
-        resp = self._patch('transport', {'route_note': 'Detour via Atyrau'})
-        self.assertEqual(resp.status_code, 200, resp.data)
-
     def test_transport_cannot_edit_weight_net(self):
         resp = self._patch('transport', {'weight_net': '18000.00'})
         self.assertEqual(resp.status_code, 403, resp.data)

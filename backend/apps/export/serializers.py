@@ -264,14 +264,14 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
             # Finance
             'price_per_kg', 'total_amount_usd',
             'is_gapy_satys',
-            # Operational status (sheet rows 5, 6, 14)
-            'customs_clearance', 'documents_status', 'harvest_status',
+            # Operational status (sheet rows 6, 14)
+            'documents_status', 'harvest_status',
             # AD-1 Timestamps
             'loading_started_at', 'customs_entry_at', 'customs_exit_at',
             'departed_at', 'border_crossed_at', 'arrived_at',
             'sale_started_at', 'sale_ended_at',
             # AD-2 Vehicle condition
-            'vehicle_condition', 'vehicle_condition_note', 'route_note',
+            'vehicle_condition', 'vehicle_condition_note',
             # Quality docs (flattened from OneToOne 'quality')
             'doc_azyk', 'doc_suriji', 'doc_hil', 'doc_kalibrowka',
             # Annotation — must be set in viewset queryset
@@ -281,6 +281,7 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
             'document_comment_count',
             # Notes
             'notes',
+            'export_manager_note',
             # Inline related
             'firm_splits', 'block_sources',
             # Audit
@@ -562,7 +563,6 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
             'vehicle_condition',
             'vehicle_condition_note',
             'vehicle_responsible',
-            'route_note',
             'price_per_kg',
             'total_amount_usd',
             'loading_started_at',
@@ -572,6 +572,7 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
             'sale_started_at',
             'sale_ended_at',
             'notes',
+            'export_manager_note',
             'status_code',
             'allowed_transitions',
             'variety_confidence',
@@ -611,18 +612,19 @@ _ALL_PATCHABLE_FIELDS = {
     # Product
     'product_type', 'variety', 'variety_confidence',
     # Transport
-    'vehicle_condition', 'vehicle_condition_note', 'route_note',
+    'vehicle_condition', 'vehicle_condition_note',
     'vehicle_responsible', 'truck_head_id', 'trailer_id', 'driver_id',
     'transit_days', 'transport_temp_c', 'shelf_life_days',
     'has_peregruz', 'peregruz_city', 'peregruz_date',
     # Operational status
-    'customs_clearance', 'documents_status', 'harvest_status',
+    'documents_status', 'harvest_status',
     # Finance
     'price_per_kg', 'total_amount_usd',
     # Flags
     'is_gapy_satys',
     # Notes
     'notes',
+    'export_manager_note',
 }
 
 
