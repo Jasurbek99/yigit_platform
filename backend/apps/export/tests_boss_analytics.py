@@ -575,3 +575,95 @@ class EndpointSmokeTests(TestCase):
             '/api/v1/export/boss/export_market/?period=month',
             ['rows'],
         )
+
+    def test_task_throughput(self):
+        self._check(
+            '/api/v1/export/boss/task_throughput/',
+            ['closed_count', 'created_count', 'on_time_rate', 'window_days'],
+        )
+
+
+# ---------------------------------------------------------------------------
+# task_throughput — response shape, window_days param, auth, cache
+# ---------------------------------------------------------------------------
+
+class TaskThroughputTests(TestCase):
+    """Smoke tests for GET /api/v1/export/boss/task_throughput/."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.boss = _create_user('boss_tt1', 'boss')
+        self.anon_client = APIClient()
+
+    def test_returns_200_for_boss(self):
+        self.client.force_authenticate(user=self.boss)
+        resp = self.client.get('/api/v1/export/boss/task_throughput/')
+        self.assertEqual(resp.status_code, 200)
+
+    def test_anon_gets_401_or_403(self):
+        resp = self.anon_client.get('/api/v1/export/boss/task_throughput/')
+        self.assertIn(resp.status_code, (401, 403))
+
+    def test_non_boss_gets_403(self):
+        mgr = _create_user('mgr_tt1', 'export_manager')
+        self.client.force_authenticate(user=mgr)
+        resp = self.client.get('/api/v1/export/boss/task_throughput/')
+        self.assertEqual(resp.status_code, 403)
+
+    def test_response_has_all_four_keys(self):
+        self.client.force_authenticate(user=self.boss)
+        resp = self.client.get('/api/v1/export/boss/task_throughput/')
+        data = resp.json()
+        for key in ('closed_count', 'created_count', 'on_time_rate', 'window_days'):
+            self.assertIn(key, data, msg=f'Missing key: {key}')
+
+    def test_default_window_days_is_7(self):
+        self.client.force_authenticate(user=self.boss)
+        resp = self.client.get('/api/v1/export/boss/task_throughput/')
+        self.assertEqual(resp.json()['window_days'], 7)
+
+    def test_custom_window_days_param(self):
+        self.client.force_authenticate(user=self.boss)
+        resp = self.client.get('/api/v1/export/boss/task_throughput/?window_days=30')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()['window_days'], 30)
+
+    def test_invalid_window_days_falls_back_to_7(self):
+        self.client.force_authenticate(user=self.boss)
+        resp = self.client.get('/api/v1/export/boss/task_throughput/?window_days=abc')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()['window_days'], 7)
+
+    def test_second_call_returns_same_data(self):
+        """Cache: two consecutive calls should return identical JSON."""
+        self.client.force_authenticate(user=self.boss)
+        resp1 = self.client.get('/api/v1/export/boss/task_throughput/?window_days=7')
+        resp2 = self.client.get('/api/v1/export/boss/task_throughput/?window_days=7')
+        self.assertEqual(resp1.status_code, 200)
+        self.assertEqual(resp2.status_code, 200)
+        self.assertEqual(resp1.json(), resp2.json())
+
+    def test_different_window_days_cache_keys_do_not_collide(self):
+        """window_days=7 and window_days=30 must return different window_days values."""
+        self.client.force_authenticate(user=self.boss)
+        resp7 = self.client.get('/api/v1/export/boss/task_throughput/?window_days=7')
+        resp30 = self.client.get('/api/v1/export/boss/task_throughput/?window_days=30')
+        self.assertEqual(resp7.json()['window_days'], 7)
+        self.assertEqual(resp30.json()['window_days'], 30)
+
+    def test_closed_count_and_created_count_are_non_negative_integers(self):
+        self.client.force_authenticate(user=self.boss)
+        data = self.client.get('/api/v1/export/boss/task_throughput/').json()
+        self.assertIsInstance(data['closed_count'], int)
+        self.assertIsInstance(data['created_count'], int)
+        self.assertGreaterEqual(data['closed_count'], 0)
+        self.assertGreaterEqual(data['created_count'], 0)
+
+    def test_on_time_rate_is_between_0_and_1_or_none(self):
+        """on_time_rate is a float in [0.0, 1.0] or null when no tasks closed."""
+        self.client.force_authenticate(user=self.boss)
+        data = self.client.get('/api/v1/export/boss/task_throughput/').json()
+        rate = data['on_time_rate']
+        if rate is not None:
+            self.assertGreaterEqual(rate, 0.0)
+            self.assertLessEqual(rate, 1.0)

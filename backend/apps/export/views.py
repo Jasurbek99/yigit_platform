@@ -6,7 +6,6 @@ from django.db.models import (
     Count,
     Exists,
     F,
-    Max,
     OuterRef,
     Prefetch,
     Q,
@@ -1650,10 +1649,6 @@ class ShipmentViewSet(ModelViewSet):
             blocked_count=Count(
                 'tasks', filter=Q(tasks__state='blocked'),
             ),
-            # last_status_change: used by BoardItemSerializer.get_time_in_phase_seconds.
-            # Max() across status_log__changed_at gives the most recent transition
-            # timestamp for this shipment. Falls back to updated_at in the serializer.
-            last_status_change=Max('status_log__changed_at'),
         )
 
         # ── Prefetch tasks (for owner_role resolution in the serializer) ──────
@@ -1661,7 +1656,17 @@ class ShipmentViewSet(ModelViewSet):
             'tasks',
             queryset=_Task.objects.order_by('-created_at'),
         )
-        qs = qs.prefetch_related(tasks_prefetch)
+        # ── Prefetch status_log (for time_in_phase_seconds phase-entry walk) ──
+        # resolve_phase_entry() reads status_log.all() with .status.code on
+        # each entry. Without this prefetch, that becomes N+1 queries.
+        # select_related('status') is required on the inner queryset so the
+        # status.code access on each log entry doesn't trigger additional DB hits.
+        from apps.export.models import ShipmentStatusLog as _StatusLog
+        status_log_prefetch = Prefetch(
+            'status_log',
+            queryset=_StatusLog.objects.select_related('status').order_by('-changed_at'),
+        )
+        qs = qs.prefetch_related(tasks_prefetch, status_log_prefetch)
 
         # ── Evaluate and group by phase ───────────────────────────────────────
         columns: dict[str, list] = {phase: [] for phase in PHASE_ORDER}
@@ -1671,6 +1676,8 @@ class ShipmentViewSet(ModelViewSet):
 
         # Sort within each column: late first → in_progress → idle, by
         # time_in_phase_seconds descending (oldest-in-phase at top).
+        # Use status_changed_at (set by transition_to) as the sort key;
+        # fall back to updated_at for shipments that pre-date the new field.
         now = timezone.now()
         for phase_items in columns.values():
             phase_items.sort(
@@ -1679,7 +1686,7 @@ class ShipmentViewSet(ModelViewSet):
                     -(s.in_progress_count or 0),
                     -int(
                         (now - (
-                            getattr(s, 'last_status_change', None) or s.updated_at or now
+                            s.status_changed_at or s.updated_at or now
                         )).total_seconds()
                     ),
                 )

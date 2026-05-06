@@ -156,6 +156,34 @@ PATCH body (partial): `{ row_order?: [id, ...], hidden_rows?: [id, ...] }` — a
 ```
 `on_time_rate` is `null` when no completed tasks had a deadline today. Cached 60 s per user (`me:kpi-today:{user_id}`).
 
+## KPI Endpoints (Stream E)
+
+All under `/api/v1/export/kpi/`. Require `IsAuthenticated`, no role restriction.
+
+| Method | Endpoint | View | Description |
+|--------|----------|------|-------------|
+| GET | `/api/v1/export/kpi/dashboard/` | KpiViewSet.dashboard | Full 7-KPI grid. 60s cache. |
+| GET | `/api/v1/export/kpi/by-role/?role=X` | KpiViewSet.by_role | Role-scoped on_time_rate + avg_task_duration. Required `role` param. 60s cache per role. |
+| GET | `/api/v1/export/kpi/by-phase/` | KpiViewSet.by_phase | Average phase durations (seconds per phase). 5min cache. |
+| GET | `/api/v1/export/kpi/by-shipment/{id}/` | KpiViewSet.by_shipment | Per-shipment phase context: in_phase_seconds, phase_avg_seconds, status_changed_at. 60s cache per shipment. |
+
+**Dashboard response shape:**
+```json
+{
+  "throughput": { "closed_count": 3, "created_count": 8, "window_days": 7 },
+  "cycle_time": { "avg_seconds": 345600, "count": 3, "window_days": 30 },
+  "avg_phase_time": { "PREP": 7200, "LOAD": 14400, "TRANSIT": 259200 },
+  "on_time_rate": 0.75,
+  "avg_task_duration": 5400,
+  "stuck_shipments": 2,
+  "blocked_age": { "count": 1, "avg_seconds": 43200, "max_seconds": 43200, "p95_seconds": 43200 }
+}
+```
+
+**Boss Dashboard integration:** `GET /api/v1/export/boss/task_throughput/?window_days=7` returns `{closed_count, created_count, on_time_rate, window_days}`.
+
+**`Shipment.status_changed_at`:** New indexed DateTimeField set by `transition_to()` on every status change and by `create_shipment()` on creation. Backfilled from `ShipmentStatusLog` by migration 0011. Used by KPI helpers and replaces `Max(status_log__changed_at)` annotation in the board view's sort key.
+
 ## Core Reference Endpoints
 
 | Method | Endpoint | Hook | Used By |

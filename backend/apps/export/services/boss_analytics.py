@@ -1173,3 +1173,32 @@ def _aggregate_export_market(from_date: date, to_date: date) -> list[dict]:
             'export_pct': export_pct,
         })
     return result
+
+
+# ---------------------------------------------------------------------------
+# Task throughput — derived from KPI helpers (Stream E)
+# ---------------------------------------------------------------------------
+
+def _aggregate_task_throughput(window_days: int = 7) -> dict:
+    """Merge task-derived KPI metrics into a compact dict for the Boss Dashboard.
+
+    Calls kpi_throughput() and kpi_on_time_rate() from services/kpi.py and
+    returns a merged dict ready to be embedded in the boss dashboard response.
+
+    Args:
+        window_days: Look-back window in days (default 7).
+
+    Returns:
+        Dict with keys: closed_count, created_count, on_time_rate, window_days.
+    """
+    from apps.export.services.kpi import kpi_throughput, kpi_on_time_rate
+
+    throughput = kpi_throughput(window_days=window_days)
+    on_time = kpi_on_time_rate(window_days=window_days)
+
+    return {
+        'closed_count': throughput['closed_count'],
+        'created_count': throughput['created_count'],
+        'on_time_rate': on_time,
+        'window_days': window_days,
+    }

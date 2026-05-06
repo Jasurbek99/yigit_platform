@@ -155,6 +155,10 @@ class Shipment(models.Model):
     arrived_at = models.DateTimeField(null=True, blank=True)
     sale_started_at = models.DateTimeField(null=True, blank=True)
     sale_ended_at = models.DateTimeField(null=True, blank=True)
+    # Set by transition_to() on every status change. Used by KPIs and the
+    # Shipment Board's time-in-phase calculation. Backfilled from
+    # ShipmentStatusLog by migration 0011.
+    status_changed_at = models.DateTimeField(null=True, blank=True, db_index=True)
 
     # === AD-2: Structured vehicle fields (replaces deprecated vehicle_status_note) ===
     vehicle_condition = models.CharField(

@@ -32,6 +32,7 @@ from apps.export.services.boss_analytics import (
     _aggregate_production,
     _aggregate_export_market,
     _aggregate_alerts,
+    _aggregate_task_throughput,
     _placeholder_debt,
 )
 
@@ -505,6 +506,31 @@ class BossAnalyticsViewSet(viewsets.ViewSet):
     # ------------------------------------------------------------------
     # export_pdf — download PDF for any of the 6 report sections
     # ------------------------------------------------------------------
+
+    @action(detail=False, methods=['get'], url_path='task_throughput')
+    def task_throughput(self, request: Request) -> Response:
+        """Return task-derived throughput KPIs: closed, created, on_time_rate.
+
+        GET /api/v1/export/boss/task_throughput/?window_days=7
+
+        Cached for 60 seconds. Wraps kpi_throughput() + kpi_on_time_rate().
+        Optional ?window_days=<N> param (default 7).
+        """
+        try:
+            window_days = int(request.query_params.get('window_days', 7))
+        except (TypeError, ValueError):
+            window_days = 7
+
+        cache_key = _cache_key('task_throughput', f'w{window_days}', '', '', '')
+
+        def _build():
+            return _aggregate_task_throughput(window_days=window_days)
+
+        data = cache.get(cache_key)
+        if data is None:
+            data = _build()
+            cache.set(cache_key, data, _CACHE_TTL)
+        return Response(data)
 
     @action(detail=False, methods=['get'], url_path='export_pdf')
     def export_pdf(self, request: Request) -> HttpResponse:

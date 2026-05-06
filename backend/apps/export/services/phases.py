@@ -52,3 +52,45 @@ def get_phase(status_code: str | None) -> str:
     if not status_code:
         return 'CLOSE'
     return PHASE_MAP.get(status_code, 'CLOSE')
+
+
+def resolve_phase_entry(shipment) -> 'datetime | None':
+    """Find the datetime when the shipment entered its current phase.
+
+    Walks the status_log (newest-first via Meta.ordering = ['-changed_at'])
+    and finds the contiguous run of log entries whose status codes map to
+    the same phase as the current status. Returns the changed_at of the
+    oldest entry in that run — that is when the phase started.
+
+    Requires status_log to be prefetched with select_related('status').
+    Returns None if there are no status log entries.
+
+    This is the canonical phase-entry resolver used by both
+    ShipmentDetailSerializer.get_in_phase_seconds and
+    BoardItemSerializer.get_time_in_phase_seconds.
+    """
+    current_code = shipment.status.code if shipment.status_id else None
+    if not current_code:
+        return None
+
+    current_phase = get_phase(current_code)
+
+    # status_log is prefetched (ordered newest-first by Meta.ordering).
+    # We need select_related('status') on each log entry for the code lookup.
+    logs = list(shipment.status_log.all())
+    if not logs:
+        return None
+
+    # Walk from newest to oldest. Collect logs whose phase matches.
+    # Stop at the first log that belongs to a different phase.
+    phase_entry_time = None
+    for log in logs:
+        log_code = log.status.code if log.status_id else None
+        log_phase = get_phase(log_code)
+        if log_phase == current_phase:
+            phase_entry_time = log.changed_at
+        else:
+            # First gap — stop (we want the earliest contiguous run)
+            break
+
+    return phase_entry_time

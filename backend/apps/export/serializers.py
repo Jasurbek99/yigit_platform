@@ -6,7 +6,7 @@ from rest_framework import serializers
 from apps.core.models import City, Country, Customer, ImportFirm, Season, GreenhouseBlock, TomatoVariety
 from apps.core.permissions import can_edit_field, PRIVILEGED_ROLES
 from apps.export.services import TRANSITIONS
-from apps.export.services.phases import get_phase as resolve_phase
+from apps.export.services.phases import get_phase as resolve_phase, resolve_phase_entry
 from apps.export.validators import validate_official_export_code
 from apps.export.models import (
     FinansistAdvance,
@@ -659,40 +659,11 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
     def _resolve_phase_entry(shipment: 'Shipment') -> 'datetime | None':
         """Find the datetime when the shipment entered its current phase.
 
-        Walks the status_log (newest-first via Meta.ordering = ['-changed_at'])
-        and finds the contiguous run of log entries whose status codes map to
-        the same phase as the current status. Returns the changed_at of the
-        oldest entry in that run — that's when the phase started.
-
-        Returns None if there are no status log entries.
+        Delegates to the canonical implementation in services/phases.py so
+        BoardItemSerializer can share the same logic without importing from
+        another serializer class.
         """
-        from apps.export.services.phases import get_phase
-
-        current_code = shipment.status.code if shipment.status_id else None
-        if not current_code:
-            return None
-
-        current_phase = get_phase(current_code)
-
-        # status_log is prefetched (ordered newest-first by Meta.ordering).
-        # We need select_related('status') on each log entry for the code lookup.
-        logs = list(shipment.status_log.all())
-        if not logs:
-            return None
-
-        # Walk from newest to oldest. Collect logs whose phase matches.
-        # Stop at the first log that belongs to a different phase.
-        phase_entry_time = None
-        for log in logs:
-            log_code = log.status.code if log.status_id else None
-            log_phase = get_phase(log_code)
-            if log_phase == current_phase:
-                phase_entry_time = log.changed_at
-            else:
-                # First gap — stop (we want the earliest contiguous run)
-                break
-
-        return phase_entry_time
+        return resolve_phase_entry(shipment)
 
     def get_in_phase_seconds(self, obj: 'Shipment') -> int:
         """Integer seconds since the shipment entered its current phase.
@@ -1398,15 +1369,25 @@ class BoardItemSerializer(serializers.ModelSerializer):
         return tasks[0].assignee_role
 
     def get_time_in_phase_seconds(self, obj) -> int | None:
-        """Seconds since the last status change.
+        """Seconds since the shipment entered its current phase.
 
-        Uses the ``last_status_change`` annotation set by the viewset queryset.
-        Falls back to ``updated_at`` when no status log rows exist.
-        Returns None when no reference timestamp is available.
+        Uses resolve_phase_entry() from services/phases.py which walks the
+        prefetched status_log to find the earliest contiguous log entry for
+        the current phase. This requires the board viewset queryset to prefetch
+        status_log with select_related('status').
+
+        Falls back to status_changed_at (new AD-1 field) if the status_log
+        walk returns None, and finally to updated_at. Returns None only when
+        no reference timestamp is available at all.
         """
         from django.utils import timezone
 
-        ref = getattr(obj, 'last_status_change', None) or obj.updated_at
+        phase_entry = resolve_phase_entry(obj)
+        if phase_entry is not None:
+            return int((timezone.now() - phase_entry).total_seconds())
+
+        # Fallback: use status_changed_at (set by transition_to)
+        ref = obj.status_changed_at or obj.updated_at
         if ref is None:
             return None
         return int((timezone.now() - ref).total_seconds())

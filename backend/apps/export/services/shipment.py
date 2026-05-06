@@ -126,7 +126,7 @@ def transition_to(shipment: Shipment, new_status_code: str, user, comment: str =
 
     now = timezone.now()
     # updated_at must be listed explicitly: auto_now=True is ignored when update_fields is passed.
-    update_fields = ['status', 'updated_by', 'updated_at']
+    update_fields = ['status', 'updated_by', 'updated_at', 'status_changed_at']
 
     # AD-1: set the denormalized timestamp for this status
     _write_ad1_timestamp(shipment, new_status_code, now, update_fields)
@@ -134,6 +134,7 @@ def transition_to(shipment: Shipment, new_status_code: str, user, comment: str =
     shipment.status = new_status
     shipment.updated_by = user
     shipment.updated_at = now  # explicit assignment so intent is clear if update_fields changes
+    shipment.status_changed_at = now
     shipment.save(update_fields=update_fields)
 
     ShipmentStatusLog.objects.create(
@@ -269,8 +270,10 @@ def create_shipment(
 
     # AD-1: write loading_started_at via the centralised helper — the same
     # function transition_to() uses, keeping all AD-1 writes in one place.
-    _write_ad1_timestamp(shipment, first_status.code, timezone.now())
-    shipment.save(update_fields=['loading_started_at'])
+    now = timezone.now()
+    _write_ad1_timestamp(shipment, first_status.code, now)
+    shipment.status_changed_at = now
+    shipment.save(update_fields=['loading_started_at', 'status_changed_at'])
 
     ShipmentStatusLog.objects.create(
         shipment=shipment,

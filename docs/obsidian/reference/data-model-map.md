@@ -91,7 +91,7 @@ erDiagram
 
 | Model | Key Fields | Purpose |
 |-------|-----------|---------|
-| **Shipment** | cargo_code (unique), date, season, country, customer, status, 8 AD-1 timestamps, weight fields, transport fields, finance fields, vehicle condition | Main record — 1 per truck |
+| **Shipment** | cargo_code (unique), date, season, country, customer, status, 8 AD-1 timestamps + status_changed_at (Stream E), weight fields, transport fields, finance fields, vehicle condition | Main record — 1 per truck |
 | **ShipmentStatusLog** | shipment (FK), status (FK), changed_by (FK), changed_at, comment | Audit trail per transition |
 | **ShipmentFirmSplit** | shipment (FK), export_firm (FK), weight_kg, amount_usd, invoice_number | 1-3 firms per shipment |
 | **ShipmentBlockSource** | shipment (FK), block (FK), weight_kg | Source blocks |
