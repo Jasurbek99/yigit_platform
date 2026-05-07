@@ -7,7 +7,7 @@ from apps.core.models import City, Country, Customer, ImportFirm, Season, Greenh
 from apps.core.permissions import can_edit_field, PRIVILEGED_ROLES
 from apps.export.services import TRANSITIONS
 from apps.export.services.phases import get_phase as resolve_phase, resolve_phase_entry
-from apps.export.validators import validate_official_export_code
+from apps.export.validators import validate_official_export_code  # noqa: F401  (kept for downstream importers)
 from apps.export.models import (
     FinansistAdvance,
     FinansistAdvanceShipment,
@@ -894,12 +894,16 @@ class ShipmentPatchSerializer(serializers.ModelSerializer):
     Raises ValueError listing forbidden fields when validation fails.
     """
 
+    # Stream G follow-up: official_export_code (Shipment Code) is free text.
+    # Soltanmyrat generates the code himself with whatever format the operation
+    # uses today (variety + block conventions evolve). The strict 6-field
+    # `DD|MM|NNN|BLK|YY|VV` validator was rejecting operationally-valid codes,
+    # so we allow any non-blank string up to max_length.
     official_export_code = serializers.CharField(
         max_length=30,
         required=False,
         allow_blank=True,
         allow_null=True,
-        validators=[validate_official_export_code],
     )
 
     class Meta:
@@ -945,12 +949,12 @@ class ShipmentCreateSerializer(serializers.Serializer):
     # generated server-side if omitted (Stream F-followup). Soltanmyrat enters
     # the physical pallet tag separately via official_export_code.
     cargo_code = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    # Stream G follow-up: free-text Shipment Code (no 6-field format check).
     official_export_code = serializers.CharField(
         max_length=30,
         required=False,
         allow_blank=True,
         allow_null=True,
-        validators=[validate_official_export_code],
     )
     # date is optional — defaults to today on create. Loading start time
     # (loading_started_at) is a separate AD-1 timestamp written by

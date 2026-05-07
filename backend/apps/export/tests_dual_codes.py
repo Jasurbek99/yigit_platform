@@ -115,9 +115,9 @@ class OfficialExportCodeIsEditableTests(TestCase):
         self.client.force_authenticate(user=self.user)
         self.shipment = _make_shipment(cargo_code='0101011/25')
 
-    def test_valid_official_export_code_patch_succeeds(self):
-        """A correctly-formatted DD|MM|NNN|BLK|YY|VV value is accepted.
-        Block field is 1-3 alphanumeric chars (no hyphens)."""
+    def test_pipe_format_official_export_code_accepted(self):
+        """The traditional 6-field DD|MM|NNN|BLK|YY|VV format is accepted —
+        the pipe-separated convention still works, it's just no longer enforced."""
         resp = self.client.patch(
             f'/api/v1/export/shipments/{self.shipment.pk}/',
             {'official_export_code': '02|FB|005|FA|26|--'},
@@ -127,17 +127,28 @@ class OfficialExportCodeIsEditableTests(TestCase):
         self.shipment.refresh_from_db()
         self.assertEqual(self.shipment.official_export_code, '02|FB|005|FA|26|--')
 
-    def test_invalid_official_export_code_patch_rejected(self):
-        """Bad-format values are rejected by the validator with 400."""
+    def test_free_text_official_export_code_accepted(self):
+        """Stream G follow-up: any non-blank string up to max_length is allowed.
+        Soltanmyrat generates the code himself; the strict format check was
+        rejecting operationally-valid codes."""
         resp = self.client.patch(
             f'/api/v1/export/shipments/{self.shipment.pk}/',
-            {'official_export_code': 'NOT-A-VALID-CODE'},
+            {'official_export_code': 'PALLET-ABC-2025'},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.shipment.refresh_from_db()
+        self.assertEqual(self.shipment.official_export_code, 'PALLET-ABC-2025')
+
+    def test_official_export_code_max_length_enforced(self):
+        """The only constraint is max_length=30 (the model column width)."""
+        too_long = 'X' * 31
+        resp = self.client.patch(
+            f'/api/v1/export/shipments/{self.shipment.pk}/',
+            {'official_export_code': too_long},
             format='json',
         )
         self.assertEqual(resp.status_code, 400, resp.data)
-        # Value should NOT have been written.
-        self.shipment.refresh_from_db()
-        self.assertNotEqual(self.shipment.official_export_code, 'NOT-A-VALID-CODE')
 
 
 class SheetRowsConfigTests(TestCase):
