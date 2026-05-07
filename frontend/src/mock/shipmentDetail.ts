@@ -126,6 +126,7 @@ export const MOCK_SHIPMENT_DETAIL: IShipmentDetail = {
       created_at: '2025-02-01T07:00:00+05:00',
       started_at: '2025-02-01T10:30:00+05:00',
       completed_at: '2025-02-01T12:45:00+05:00',
+      blocked_reason: '',
     },
     {
       id: 3,
@@ -146,6 +147,7 @@ export const MOCK_SHIPMENT_DETAIL: IShipmentDetail = {
       created_at: '2025-02-01T14:30:00+05:00',
       started_at: null,
       completed_at: null,
+      blocked_reason: '',
     },
   ],
   in_phase_seconds: 14400,

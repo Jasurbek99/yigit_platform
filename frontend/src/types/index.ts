@@ -1091,6 +1091,9 @@ export interface ITaskListItem {
   created_at: string;
   started_at: string | null;
   completed_at: string | null;
+  // Stream G: blocked_reason surfaced on the list serializer too so the
+  // Detail page's OtherTasksRow modal doesn't need an extra fetch.
+  blocked_reason: string;
 }
 
 export interface ITaskDetail extends ITaskListItem {

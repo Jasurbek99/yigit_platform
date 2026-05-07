@@ -353,6 +353,7 @@
     "view_cards": "Карточки"
   },
   "shipment_detail": {
+    "section_status_fields": "Статус",
     "back": "Назад",
     "tab_overview": "Обзор",
     "tab_logistics": "Логистика",
@@ -1824,7 +1825,15 @@
       "promote_confirm_title": "Перевести черновик в Загрузку?",
       "promote_confirm_body": "Отгрузка перейдёт из Черновика в Загрузку. Будут созданы задачи стадии Загрузки; склад получит уведомление.",
       "promote_toast_success": "Переведено в Загрузку",
-      "promote_toast_error": "Не удалось перевести — проверьте, что страна и клиент назначены"
+      "promote_toast_error": "Не удалось перевести — проверьте, что страна и клиент назначены",
+      "others_working": "{{count}} задача у других ролей. Вам сообщат, когда придёт ваша очередь.",
+      "others_working_plural": "{{count}} задач у других ролей. Вам сообщат, когда придёт ваша очередь.",
+      "task_started_toast": "Задача начата",
+      "task_unblocked_toast": "Задача разблокирована",
+      "task_blocked_modal_title": "Задача заблокирована",
+      "task_blocked_reason": "Причина",
+      "unblock_button": "Разблокировать",
+      "unblock_role_required": "Только {{role}} или супервизор может разблокировать эту задачу."
     }
   },
   "tasks": {

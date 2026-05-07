@@ -351,6 +351,7 @@
     "view_cards": "Kartoçkalar"
   },
   "shipment_detail": {
+    "section_status_fields": "Ýagdaý",
     "back": "Yzyna",
     "tab_overview": "Genel",
     "tab_logistics": "Logistika",
@@ -1826,7 +1827,15 @@
       "promote_confirm_title": "Garalamany Ýüklemä geçirmelimi?",
       "promote_confirm_body": "Ýük Garalamadan Ýüklemä geçer. Ýükleme tabşyryklary döredler; ammar topary habarly bolar.",
       "promote_toast_success": "Ýüklemä geçirildi",
-      "promote_toast_error": "Geçirip bolmady — ugur we müşderi bellenenmi barlaň"
+      "promote_toast_error": "Geçirip bolmady — ugur we müşderi bellenenmi barlaň",
+      "others_working": "Başgalarynyň elinde {{count}} tabşyryk bar. Olar gutaranda size habar berler.",
+      "others_working_plural": "Başgalarynyň elinde {{count}} tabşyryk bar. Olar gutaranda size habar berler.",
+      "task_started_toast": "Tabşyryk başlandy",
+      "task_unblocked_toast": "Tabşyryk bökdelmekden çykaryldy",
+      "task_blocked_modal_title": "Tabşyryk bökdelendi",
+      "task_blocked_reason": "Sebäp",
+      "unblock_button": "Bökdemekden çykar",
+      "unblock_role_required": "Diňe {{role}} ýa-da ýolbaşçy bu tabşyrygy bökdemekden çykaryp biler."
     }
   },
   "tasks": {

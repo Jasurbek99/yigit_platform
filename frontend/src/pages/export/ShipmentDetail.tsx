@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   Alert,
@@ -21,20 +21,63 @@ import { MyTaskCard } from '@/components/shipment/MyTaskCard';
 import { PhaseContextStrip } from '@/components/shipment/PhaseContextStrip';
 import { OtherTasksRow } from '@/components/shipment/OtherTasksRow';
 import { RouteTimelineRail } from '@/components/shipment/RouteTimelineRail';
+import { DetailFieldRow } from '@/components/shipment/DetailFieldRow';
 import { VarietySelect } from '@/components/VarietySelect';
 import { useShipmentDetail } from '@/hooks/useShipmentDetail';
 import { useOverrideVarieties } from '@/hooks/usePallets';
 import { useAuth } from '@/hooks/useAuth';
 import { canDo } from '@/utils/permissions';
+import { EDIT_FIELD_GROUPS, type IEditFieldGroup } from '@/constants/shipmentEditConfig';
 import api from '@/services/api';
 import type { TableColumnsType } from 'antd';
 import type {
   IFirmSplit,
   IShipmentQuality,
+  ITaskListItem,
 } from '@/types';
 import { fmt, fmtDate, fmtNum, InfoRow, SectionBlock, SalesReportForm } from './ShipmentDetailHelpers';
 
 const { Text, Title } = Typography;
+
+// ─── Section keys (collapsed-panel ids) ────────────────────────────────────
+// One entry per visible Collapse panel. The order here drives display order.
+type SectionKey = 'logistics' | 'transport' | 'goods' | 'documents' | 'finance';
+
+const ALL_SECTIONS: SectionKey[] = ['logistics', 'transport', 'goods', 'documents', 'finance'];
+
+// Map each EDIT_FIELD_GROUPS group to its collapse panel.
+// `status` and `notes` groups are folded into `documents` and `finance` panels.
+function fieldGroupsForSection(section: SectionKey): IEditFieldGroup[] {
+  const byKey = (key: IEditFieldGroup['key']) =>
+    EDIT_FIELD_GROUPS.find((g) => g.key === key);
+  switch (section) {
+    case 'logistics':  return [byKey('logistics')!];
+    case 'transport':  return [byKey('transport')!];
+    case 'goods':      return [byKey('goods')!];
+    case 'documents':  return [byKey('status')!];
+    case 'finance':    return [byKey('finance')!, byKey('notes')!];
+  }
+}
+
+/**
+ * Walk EDIT_FIELD_GROUPS and find which collapse section a given field_key
+ * belongs to. Used by OtherTasksRow's click handler to expand the right
+ * section before scrolling.
+ */
+function sectionForFieldKey(fieldKey: string): SectionKey | null {
+  // Strip dotted-path prefix (quality.azyk_maglumatnama → quality)
+  const top = fieldKey.split('.', 1)[0];
+  // Junction-table fields don't live in EDIT_FIELD_GROUPS; route them by name.
+  if (top === 'firm_splits') return 'logistics';
+  if (top === 'block_sources') return 'goods';
+  if (top === 'quality') return 'documents';
+  for (const section of ALL_SECTIONS) {
+    for (const group of fieldGroupsForSection(section)) {
+      if (group.fields.some((f) => f.key === top)) return section;
+    }
+  }
+  return null;
+}
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 
@@ -50,6 +93,13 @@ export default function ShipmentDetail() {
   const [overrideIds, setOverrideIds] = useState<number[]>([]);
   const overrideMutation = useOverrideVarieties(Number(id));
 
+  // Stream G fix #1: all 5 sections expanded by default. Users can still
+  // collapse manually; this just sets the initial state.
+  const [activeKeys, setActiveKeys] = useState<string[]>([...ALL_SECTIONS]);
+
+  // Imperative scroll-to handle for OtherTasksRow → field navigation.
+  const detailRootRef = useRef<HTMLDivElement>(null);
+
   const qualityMutation = useMutation({
     mutationFn: async ({ field, checked }: { field: keyof IShipmentQuality; checked: boolean }) => {
       await api.patch(`/export/shipments/${id}/quality/`, { [field]: checked });
@@ -58,6 +108,32 @@ export default function ShipmentDetail() {
       void queryClient.invalidateQueries({ queryKey: ['shipment', id] });
     },
   });
+
+  // Stream G fix #4 — task-row click handler. Expands the relevant section,
+  // scrolls to the first target field, focuses its input. Wrapped in
+  // useCallback so OtherTasksRow's memoized rows don't churn.
+  const handleTaskClick = useCallback((task: ITaskListItem) => {
+    const targets = task.target_fields_list ?? [];
+    if (targets.length === 0) return;
+    const firstField = targets[0];
+    const section = sectionForFieldKey(firstField);
+    if (!section) return;
+
+    setActiveKeys((prev) => (prev.includes(section) ? prev : [...prev, section]));
+
+    // Wait one tick for the Collapse panel to expand, then scroll + focus.
+    setTimeout(() => {
+      const el = detailRootRef.current?.querySelector<HTMLElement>(
+        `#detail-field-${CSS.escape(firstField)}`,
+      );
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const input = el.querySelector<HTMLElement>('input, textarea, .ant-select-selector');
+        // Add a beat for the smooth-scroll animation before focusing.
+        setTimeout(() => input?.focus(), 350);
+      }
+    }, 200);
+  }, []);
 
   if (isLoading) {
     return (
@@ -73,6 +149,7 @@ export default function ShipmentDetail() {
 
   const canEditQuality = canDo(user, 'shipment', 'edit');
   const canEditSalesReport = canDo(user, 'shipment', 'edit');
+  const canEditAnyField = canDo(user, 'shipment', 'edit');
   const canOverrideVariety =
     user?.role === 'warehouse_chief' ||
     user?.role === 'export_manager' ||
@@ -115,7 +192,23 @@ export default function ShipmentDetail() {
     { title: t('shipment_detail.firm_splits_col_invoice'), dataIndex: 'invoice_number', render: (_, record) => record.invoice_number ?? '—' },
   ];
 
-  // ── Read-only collapsible sections ────────────────────────────────────────
+  // ── Editable sections ──────────────────────────────────────────────────────
+  // Each section renders the corresponding EDIT_FIELD_GROUPS group(s) as
+  // DetailFieldRow components, plus any special inline content (variety
+  // override widget, firm-splits table, quality checkboxes, sales report).
+
+  const renderEditableGroup = (group: IEditFieldGroup) => (
+    <div key={group.key}>
+      {group.fields.map((config) => (
+        <DetailFieldRow
+          key={config.key}
+          shipment={shipment}
+          config={config}
+          readOnly={!canEditAnyField}
+        />
+      ))}
+    </div>
+  );
 
   const collapseItems = [
     {
@@ -123,11 +216,11 @@ export default function ShipmentDetail() {
       label: `📋 ${t('shipment_detail.section_logistics')}`,
       children: (
         <div>
-          <InfoRow label={t('shipment_detail.customer')} value={shipment.customer_name ?? '—'} />
+          {fieldGroupsForSection('logistics').map(renderEditableGroup)}
+          {/* Junction-table read-only summary — firm splits live in the Maliýe
+              section as a full table; here we just show a one-line overview. */}
           <InfoRow label={t('shipment_detail.firm_splits')} value={firmDisplay} />
-          <InfoRow label={t('shipment_detail.import_firm')} value="—" />
-          <InfoRow label={t('shipment_detail.country')} value={shipment.country_name ?? '—'} />
-          <InfoRow label={t('shipment_detail.loading_point')} value="—" />
+          <InfoRow label={t('shipment_detail.customer')} value={shipment.customer_name ?? '—'} />
         </div>
       ),
     },
@@ -136,11 +229,7 @@ export default function ShipmentDetail() {
       label: `🚛 ${t('shipment_detail.section_transport')}`,
       children: (
         <div>
-          <InfoRow label={t('shipment_detail.vehicle')} value="—" />
-          <InfoRow label={t('shipment_detail.driver')} value="—" />
-          <InfoRow label={t('shipment_detail.transport_firm')} value="—" />
-          <InfoRow label={t('shipment_detail.border_point')} value="—" />
-          <InfoRow label={t('shipment_detail.current_location')} value={shipment.vehicle_condition ?? '—'} />
+          {fieldGroupsForSection('transport').map(renderEditableGroup)}
         </div>
       ),
     },
@@ -198,10 +287,10 @@ export default function ShipmentDetail() {
             )}
           </div>
 
+          {/* Editable goods fields (variety, weight_net, weight_gross, packaging, pallets, boxes…) */}
+          {fieldGroupsForSection('goods').map(renderEditableGroup)}
+
           <InfoRow label={t('shipment_detail.harvest_date')} value={fmtDate(shipment.date)} />
-          <InfoRow label={t('shipment_detail.weight_official')} value={`${fmtNum(shipment.weight_net)} kg`} bold mono />
-          <InfoRow label={t('shipment_detail.weight_actual')} value={`${fmtNum(shipment.weight_gross)} kg`} mono />
-          <InfoRow label={t('shipment_detail.pallets')} value={shipment.pallet_count != null ? String(shipment.pallet_count) : '—'} />
         </div>
       ),
     },
@@ -215,6 +304,7 @@ export default function ShipmentDetail() {
               {qualityFields.map((field) => (
                 <Checkbox
                   key={field}
+                  id={`detail-field-quality.${field}`}
                   checked={q[field]}
                   disabled={!canEditQuality || qualityMutation.isPending}
                   onChange={(e) => qualityMutation.mutate({ field, checked: e.target.checked })}
@@ -224,6 +314,12 @@ export default function ShipmentDetail() {
               ))}
             </div>
           </SectionBlock>
+
+          {/* documents_status, harvest_status, customs_clearance_planned_day */}
+          <SectionBlock title={t('shipment_detail.section_status_fields')}>
+            {fieldGroupsForSection('documents').map(renderEditableGroup)}
+          </SectionBlock>
+
           <SectionBlock title={t('shipment_detail.section_timestamps')}>
             <InfoRow label={t('shipment_detail.loading_started')} value={fmt(shipment.loading_started_at)} />
             <InfoRow label={t('shipment_detail.customs_entry')} value={fmt(shipment.customs_entry_at)} />
@@ -242,20 +338,8 @@ export default function ShipmentDetail() {
       children: (
         <div>
           <SectionBlock title={t('shipment_detail.section_weight_price')}>
-            <InfoRow label={t('shipment_detail.weight_net')} value={`${fmtNum(shipment.weight_net)} kg`} />
-            <InfoRow label={t('shipment_detail.weight_gross')} value={`${fmtNum(shipment.weight_gross)} kg`} />
-            <InfoRow label={t('shipment_detail.packaging')} value={`${fmtNum(shipment.packaging_kg)} kg`} />
-            <InfoRow label={t('shipment_detail.boxes')} value={fmtNum(shipment.box_count)} />
-            <InfoRow label={t('shipment_detail.pallets')} value={fmtNum(shipment.pallet_count)} />
-            <InfoRow
-              label={t('shipment_detail.price_per_kg')}
-              value={shipment.price_per_kg != null ? `$${shipment.price_per_kg}` : '—'}
-            />
-            <InfoRow
-              label={t('shipment_detail.total_usd')}
-              value={shipment.total_amount_usd != null ? `$${fmtNum(shipment.total_amount_usd)}` : '—'}
-            />
-            <InfoRow label={t('shipment_detail.notes')} value={shipment.notes ?? '—'} />
+            {/* price_per_kg, total_amount_usd, is_gapy_satys, notes — editable */}
+            {fieldGroupsForSection('finance').map(renderEditableGroup)}
           </SectionBlock>
 
           {shipment.firm_splits.length > 0 && (
@@ -300,7 +384,7 @@ export default function ShipmentDetail() {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div>
+    <div ref={detailRootRef}>
       {/* Hero bar */}
       <ShipmentDetailHero shipment={shipment} />
 
@@ -321,15 +405,18 @@ export default function ShipmentDetail() {
           {/* Phase context strip */}
           <PhaseContextStrip shipment={shipment} />
 
-          {/* Other roles' tasks */}
-          <OtherTasksRow tasks={shipment.other_tasks} />
+          {/* Other roles' tasks — clickable rows that expand the relevant
+              section and focus the first target field. */}
+          <OtherTasksRow tasks={shipment.other_tasks} onTaskClick={handleTaskClick} />
 
-          {/* Read-only collapsibles for legacy detail info */}
+          {/* Editable + readonly collapsibles for shipment fields. Stream G:
+              all five sections start expanded so users see fields immediately. */}
           <Card style={{ marginBottom: 16 }}>
             <Collapse
               ghost
               items={collapseItems}
-              defaultActiveKey={[]}
+              activeKey={activeKeys}
+              onChange={(keys) => setActiveKeys(Array.isArray(keys) ? keys : [keys])}
               style={{ padding: 0 }}
             />
           </Card>

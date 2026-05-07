@@ -351,6 +351,7 @@
     "view_cards": "Cards"
   },
   "shipment_detail": {
+    "section_status_fields": "Status",
     "back": "Back",
     "tab_overview": "Overview",
     "tab_logistics": "Logistics",
@@ -1822,7 +1823,15 @@
       "promote_confirm_title": "Promote draft to Loading?",
       "promote_confirm_body": "This moves the shipment from Draft into Loading. Loading-stage tasks will be generated; the warehouse team is notified.",
       "promote_toast_success": "Promoted to Loading",
-      "promote_toast_error": "Promote failed — check that destination and customer are set"
+      "promote_toast_error": "Promote failed — check that destination and customer are set",
+      "others_working": "{{count}} task with other roles. You'll be notified when it's your turn.",
+      "others_working_plural": "{{count}} tasks with other roles. You'll be notified when it's your turn.",
+      "task_started_toast": "Task started",
+      "task_unblocked_toast": "Task unblocked",
+      "task_blocked_modal_title": "Task is blocked",
+      "task_blocked_reason": "Reason",
+      "unblock_button": "Unblock",
+      "unblock_role_required": "Only the {{role}} or a supervisor can unblock this task."
     }
   },
   "tasks": {

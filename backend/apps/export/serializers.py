@@ -1318,6 +1318,10 @@ class TaskListSerializer(serializers.ModelSerializer):
             'created_at',
             'started_at',
             'completed_at',
+            # Stream G: surfaced on the list serializer so the Detail page's
+            # OtherTasksRow can show the reason in its Unblock modal without
+            # needing a separate /tasks/:id/ fetch per blocked card.
+            'blocked_reason',
         ]
         read_only_fields = fields
 

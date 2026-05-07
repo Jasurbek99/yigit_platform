@@ -5,9 +5,14 @@ import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import { TaskCardEditor, isFieldFilled } from '@/components/shipment/TaskCardEditor';
 import { useStartTask, useCompleteTask } from '@/hooks/useTaskActions';
+import { useAuth } from '@/hooks/useAuth';
 import type { IShipmentDetail } from '@/types';
 
 const { Text, Title } = Typography;
+
+// Roles that oversee but don't have personal tasks. They see no banner when
+// my_task is null — the OtherTasksRow list is the right surface for them.
+const SUPERVISOR_ROLES = new Set(['export_manager', 'boss', 'admin', 'director']);
 
 interface IMyTaskCardProps {
   shipment: IShipmentDetail;
@@ -19,9 +24,18 @@ interface IMyTaskCardProps {
  *
  * When the user first edits a field, fires POST /tasks/:id/start/ (debounced
  * to at-most-once via a ref flag).
+ *
+ * Stream G fix #3 — banner logic when there's no my_task:
+ *   - Supervisor roles: render nothing (they oversee via OtherTasksRow).
+ *   - Operational role with other tasks active: show a soft "N tasks are
+ *     with other roles, you'll be notified" message instead of the
+ *     misleading "you have no task" empty-state.
+ *   - Operational role with no tasks at all: keep the empty-state banner
+ *     (truly nothing happening — likely a fresh draft awaiting rule engine).
  */
 export function MyTaskCard({ shipment }: IMyTaskCardProps) {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const task = shipment.my_task;
 
   const startMutation = useStartTask();
@@ -31,6 +45,23 @@ export function MyTaskCard({ shipment }: IMyTaskCardProps) {
   const hasStartedRef = useRef(false);
 
   if (task == null) {
+    const isSupervisor = SUPERVISOR_ROLES.has(user?.role ?? '');
+    if (isSupervisor) return null;
+
+    const otherActive = shipment.other_tasks.filter(
+      (t) => t.state === 'open' || t.state === 'in_progress' || t.state === 'blocked',
+    ).length;
+
+    if (otherActive > 0) {
+      return (
+        <Card style={{ marginBottom: 16 }} styles={{ body: { padding: '12px 16px' } }}>
+          <Text type="secondary" style={{ fontSize: 13 }}>
+            {t('shipment.detail.others_working', { count: otherActive })}
+          </Text>
+        </Card>
+      );
+    }
+
     return (
       <Card style={{ marginBottom: 16 }}>
         <Text type="secondary">{t('shipment.detail.no_active_task')}</Text>
