@@ -58,11 +58,28 @@ DEFAULT_SHEET_ROWS: list[dict] = [
         'style': 'status',
     },
     {
+        # Stream G: cargo_code is the platform-internal Export Code, auto-generated
+        # at create time. Read-only here. Soltanmyrat's pallet-tag code lives on
+        # the separate official_export_code row below.
         'row_number': 7,
         'field_key': 'cargo_code',
         'default_who_key': 'sheet.who.soltanmyrat',
-        'label_key': 'sheet.row.shipment_code',
+        'label_key': 'sheet.row.export_code',
         'input_type': 'readonly',
+        'style': 'key',
+    },
+    {
+        # Stream G: official_export_code is the operator-entered Shipment Code —
+        # the 6-field DD|MM|NNN|BLK|YY|VV pallet tag. Validated server-side by
+        # validate_official_export_code on every PATCH. Logical position is
+        # right next to the Export Code (row 7); display_order on
+        # SheetRowSetting can pin it there. row_number 46 keeps it clear of
+        # the original Excel 1-44 numbering convention.
+        'row_number': 46,
+        'field_key': 'official_export_code',
+        'default_who_key': 'sheet.who.soltanmyrat',
+        'label_key': 'sheet.row.shipment_code',
+        'input_type': 'text',
         'style': 'key',
     },
     {

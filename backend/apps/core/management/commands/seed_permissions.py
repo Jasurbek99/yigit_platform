@@ -195,17 +195,23 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
     # day-to-day work per stakeholder feedback (Kaka Findings #5).
     'loading_dept_head': {
         'shipment': [
+            # Stream G: official_export_code is the operator-entered Shipment Code
+            'official_export_code',
             'weight_net', 'weight_gross', 'box_count', 'pallet_count',
             'pallet_weight_kg', 'packaging_kg',
             'harvest_status', 'variety', 'product_type', 'loading_location',
         ],
     },
     # ── warehouse_chief (Soltanmyrat's deputies) ─────────────────────
-    # Excel: R7 cargo_code (create-only), R8 blocks (separate resource),
-    # R14 harvest_status, R37 weight_net, R38 weight_gross, R39 variety,
-    # R20/R21 loading times (AD-1, via transition), R40 harvest date (comments)
+    # Excel: R7 cargo_code (Export Code, create-only/auto), R8 blocks
+    # (separate resource), R14 harvest_status, R37 weight_net, R38 weight_gross,
+    # R39 variety, R20/R21 loading times (AD-1, via transition), R40 harvest
+    # date (comments). Stream G: official_export_code (Shipment Code) editable.
     'warehouse_chief': {
         'shipment': [
+            # Stream G: Shipment Code (the official 6-field pallet tag).
+            # cargo_code (Export Code) is intentionally absent — auto-generated.
+            'official_export_code',
             'weight_net', 'weight_gross', 'box_count', 'pallet_count',
             'pallet_weight_kg', 'packaging_kg',
             'harvest_status', 'variety', 'product_type', 'loading_location',

@@ -67,9 +67,19 @@ export function ShipmentDetailHero({ shipment }: IShipmentDetailHeroProps) {
     <div style={{ marginBottom: 20 }}>
       <Flex align="center" gap={12} wrap="wrap" style={{ marginBottom: 6 }}>
         <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)} />
-        <span style={{ fontSize: 18, fontWeight: 600, fontFamily: 'monospace' }}>
-          {shipment.cargo_code}
-        </span>
+        {/* Stream G: stacked dual-code display.
+            Top line (large): Shipment Code (official_export_code) — the
+            human-meaningful pallet tag with block + variety. Falls back to "—".
+            Bottom line (small): Export Code (cargo_code) — the platform
+            tracker, always present. */}
+        <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
+          <span style={{ fontSize: 18, fontWeight: 600, fontFamily: 'monospace' }}>
+            {shipment.official_export_code || '—'}
+          </span>
+          <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#8c8c8c' }}>
+            {t('shipment.detail.export_code_label')}: {shipment.cargo_code}
+          </span>
+        </div>
         <StatusTag statusDisplay={shipment.status_display} />
 
         {/* Phase tag */}

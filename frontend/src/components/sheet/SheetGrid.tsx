@@ -274,7 +274,10 @@ export function SheetGrid({
   const frozenColumnHeaders = useMemo(
     () =>
       frozenShipments.map((shipment, idx) => {
-        const codeShort = shipment.cargo_code.slice(0, 7);
+        // Stream G: drop the .slice(0, 7) truncation. Show the full Export
+        // Code (cargo_code, ~10 chars DDMMNNN/YY) so operators see the
+        // complete platform identifier in the Sheet column header.
+        const exportCode = shipment.cargo_code;
         const isLast = idx === frozenShipments.length - 1;
         return (
           <div
@@ -290,7 +293,7 @@ export function SheetGrid({
             }}
           >
             <span className="sheet-col-header__seq">{idx + 1}</span>
-            <span className="sheet-col-header__code">{codeShort}</span>
+            <span className="sheet-col-header__code">{exportCode}</span>
           </div>
         );
       }),
@@ -302,7 +305,10 @@ export function SheetGrid({
     () =>
       virtualColumns.map((vc) => {
         const shipment = scrollableShipments[vc.index];
-        const codeShort = shipment.cargo_code.slice(0, 7);
+        // Stream G: drop the .slice(0, 7) truncation. Show the full Export
+        // Code (cargo_code, ~10 chars DDMMNNN/YY) so operators see the
+        // complete platform identifier in the Sheet column header.
+        const exportCode = shipment.cargo_code;
         return (
           <div
             key={shipment.id}
@@ -315,7 +321,7 @@ export function SheetGrid({
             }}
           >
             <span className="sheet-col-header__seq">{vc.index + 1 + shipmentFreezeCount}</span>
-            <span className="sheet-col-header__code">{codeShort}</span>
+            <span className="sheet-col-header__code">{exportCode}</span>
           </div>
         );
       }),

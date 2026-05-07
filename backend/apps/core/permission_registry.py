@@ -82,6 +82,10 @@ RESOURCE_REGISTRY: dict[str, str] = OrderedDict([
 
 RESOURCE_FIELDS: dict[str, list[str]] = {
     'shipment': [
+        # Identifiers
+        # cargo_code (Export Code) is intentionally absent — server-auto-generated.
+        # official_export_code (Shipment Code) is the operator-entered pallet tag.
+        'official_export_code',
         # Weight / packaging
         'box_count', 'pallet_count', 'pallet_weight_kg', 'packaging_kg',
         'weight_net', 'weight_gross', 'rejected_weight_kg',
