@@ -70,6 +70,7 @@ flowchart LR
 | [[domestic-sales]] | Greenhouse domestic sales records | DomesticSales |
 | [[quality-documents]] | Quality certificates and document tracking | ShipmentDetail (Document tab) |
 | [[comments-tasks]] | Cell-anchored threaded comments with @user/@role mentions and single-assignee tasks | ShipmentSheet (Comments Drawer), ShipmentDetail (Changes tab) |
+| [[detail-vs-sheet]] | Process flow on Detail page vs the Sheet — what each surface optimises for, decision matrix | ShipmentDetail, ShipmentSheet |
 | [[permissions-system]] | Dynamic RBAC: page/resource/field-level | PermissionsPage |
 | [[authentication]] | JWT httpOnly cookie auth with CSRF | LoginPage |
 

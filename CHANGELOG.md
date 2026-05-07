@@ -5,6 +5,8 @@ All notable changes to the YGT Platform.
 ## [Unreleased]
 
 ### Added
+- **Detail page typing UX — debounce text saves, never lock the input** (fix(p3)). Follow-up to the Detail-usable fix below: text/textarea/number inputs were saving on every keystroke and the field disabled for the in-flight PATCH, so typing whole words was impossible. Saves are now debounced 700 ms (timer reset on each keystroke; flushed when focus leaves the row) and the input is never disabled while a save is pending — the next save supersedes the in-flight one via the optimistic cache. Discrete inputs (Select, DatePicker, Switch) still save immediately. A small spinner indicates pending state without blocking input.
+
 - **Detail page made actually usable** (fix(p3)). Four concrete bugs fixed:
   - **Sections expanded by default** — the 5 collapse panels (Logistika / Ulag / Haryt / Dokument / Maliýe) now render expanded on first load instead of all collapsed. Users see fields immediately. Manual collapse still works.
   - **Fields are inline-editable** — every editable field in every section now uses a new `<DetailFieldRow>` wrapper that pairs the existing `<FieldEditor>` (already used by Edit Drawer + MyTaskCard) with `useShipmentPatchMulti`. One source of truth for "edit a shipment field" — Sheet, Detail, and Drawer all dispatch through the same patch hook. Each row carries a stable `#detail-field-<key>` id for scroll-to.
