@@ -456,7 +456,14 @@
     "submit": "Döret",
     "cargo_code_format": "Format: NNNNNNN/ÝÝ (meselem 0201045/25)",
     "toast_success": "Ýük döredildi",
-    "toast_error": "Ýük döretmek başa barmady"
+    "toast_success_draft": "Garalama döredildi — ugruny saýlaň we Ýüklemä geçiriň",
+    "toast_success_loading": "Ýük gönüden Ýüklemede döredildi (taýynlyk geçilmedi)",
+    "toast_error": "Ýük döretmek başa barmady",
+    "skip_prep": "Taýynlygy geç — gönüden Ýüklemede dörediň",
+    "skip_prep_help": "Howsalaly täzeden ýüklemeler we köne maglumatlar üçin. Adatça: garalama hökmünde dörediň we taýynlyk tabşyryklary boýunça işläň.",
+    "skip_prep_on": "Geç",
+    "skip_prep_off": "Garalama",
+    "draft_mode_alert": "Garalama hökmünde dörediler. Topar ugruny, firmalary, sürüjini saýlaýar we resminamalary taýýarlap başlaýar — soň siz Ýüklemä geçirýärsiňiz Detal sahypasyndan."
   },
   "kanban": {
     "title": "Kanban tagtasy",
@@ -1811,7 +1818,12 @@
       "mark_done": "Tamamlandı diý",
       "activity_link": "Işjeňlik žurnaly",
       "other_tasks_title": "Beýleki tabşyryklar",
-      "back_to_detail": "Ýüklemä yzyna"
+      "back_to_detail": "Ýüklemä yzyna",
+      "promote_button": "Ýüklemä geçir",
+      "promote_confirm_title": "Garalamany Ýüklemä geçirmelimi?",
+      "promote_confirm_body": "Ýük Garalamadan Ýüklemä geçer. Ýükleme tabşyryklary döredler; ammar topary habarly bolar.",
+      "promote_toast_success": "Ýüklemä geçirildi",
+      "promote_toast_error": "Geçirip bolmady — ugur we müşderi bellenenmi barlaň"
     }
   },
   "tasks": {

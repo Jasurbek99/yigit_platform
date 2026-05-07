@@ -1,8 +1,9 @@
-import { DatePicker, Flex, Form, Input, Modal, Select } from 'antd';
+import { Alert, DatePicker, Flex, Form, Input, Modal, Select, Switch } from 'antd';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import dayjs from 'dayjs';
+import { useState } from 'react';
 import api from '@/services/api';
 import { CountrySelect } from '@/components/CountrySelect';
 import { CustomerSelect } from '@/components/CustomerSelect';
@@ -21,9 +22,11 @@ interface ISeason {
 interface ICreateShipmentPayload {
   cargo_code: string;
   date: string;
-  country: number;
-  customer: number;
+  country?: number;
+  customer?: number;
   season?: number;
+  is_draft?: boolean;
+  block_sources?: { block_id: number; weight_kg: number }[];
 }
 
 interface IFormValues {
@@ -37,6 +40,12 @@ interface IFormValues {
 export function ShipmentCreateModal({ open, onClose, onSuccess }: IShipmentCreateModalProps) {
   const { t } = useTranslation();
   const [form] = Form.useForm<IFormValues>();
+
+  // Stream F: default is to start in DRAFT (full lifecycle including draft-stage
+  // tasks: pick destination, firms, driver, etc.). The "Skip prep" switch flips
+  // back to the legacy yuklenme-direct path for emergencies (urgent reshipments,
+  // legacy data imports).
+  const [skipPrep, setSkipPrep] = useState(false);
 
   const { data: seasons, isLoading: seasonsLoading } = useQuery({
     queryKey: ['core', 'seasons'],
@@ -52,8 +61,12 @@ export function ShipmentCreateModal({ open, onClose, onSuccess }: IShipmentCreat
       await api.post('/export/shipments/', payload);
     },
     onSuccess: () => {
-      toast.success(t('shipment_create.toast_success'));
+      const messageKey = skipPrep
+        ? 'shipment_create.toast_success_loading'
+        : 'shipment_create.toast_success_draft';
+      toast.success(t(messageKey));
       form.resetFields();
+      setSkipPrep(false);
       onSuccess();
       onClose();
     },
@@ -73,21 +86,30 @@ export function ShipmentCreateModal({ open, onClose, onSuccess }: IShipmentCreat
     const payload: ICreateShipmentPayload = {
       cargo_code: values.cargo_code,
       date: values.date ? values.date.format('YYYY-MM-DD') : '',
-      country: values.country!,
-      customer: values.customer!,
+      is_draft: !skipPrep,
     };
-    if (values.season != null) {
-      payload.season = values.season;
-    }
+    if (values.country != null) payload.country = values.country;
+    if (values.customer != null) payload.customer = values.customer;
+    if (values.season != null) payload.season = values.season;
+    // Stream F: drafts created from this modal are lightweight — no block
+    // sources up-front. Soltanmyrat or Gadam adds them later via the Sheet
+    // or via the supply-side DraftPool flow. The backend serializer was
+    // relaxed to allow empty block_sources for drafts.
+    payload.block_sources = [];
     createMutation.mutate(payload);
   }
 
   function handleCancel() {
     form.resetFields();
+    setSkipPrep(false);
     onClose();
   }
 
   const seasonOptions = (seasons ?? []).map((s) => ({ value: s.id, label: s.name }));
+
+  // When skip_prep is OFF (default — draft path), country/customer become
+  // optional — they'll be assigned later before promoting to Loading.
+  const destinationRequired = skipPrep;
 
   return (
     <Modal
@@ -101,6 +123,42 @@ export function ShipmentCreateModal({ open, onClose, onSuccess }: IShipmentCreat
       destroyOnHidden
     >
       <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
+        <Flex
+          align="center"
+          justify="space-between"
+          gap={12}
+          style={{
+            padding: '8px 12px',
+            background: '#fafafa',
+            borderRadius: 6,
+            marginBottom: 16,
+          }}
+        >
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 500, fontSize: 13 }}>
+              {t('shipment_create.skip_prep')}
+            </div>
+            <div style={{ fontSize: 12, color: '#8c8c8c' }}>
+              {t('shipment_create.skip_prep_help')}
+            </div>
+          </div>
+          <Switch
+            checked={skipPrep}
+            onChange={setSkipPrep}
+            checkedChildren={t('shipment_create.skip_prep_on')}
+            unCheckedChildren={t('shipment_create.skip_prep_off')}
+          />
+        </Flex>
+
+        {!skipPrep && (
+          <Alert
+            type="info"
+            message={t('shipment_create.draft_mode_alert')}
+            style={{ marginBottom: 16 }}
+            showIcon
+          />
+        )}
+
         <Form.Item
           name="cargo_code"
           label={t('shipment_create.cargo_code')}
@@ -127,17 +185,31 @@ export function ShipmentCreateModal({ open, onClose, onSuccess }: IShipmentCreat
         <Form.Item
           name="country"
           label={t('shipment_create.country')}
-          rules={[{ required: true, message: t('shipment_create.country') }]}
+          rules={
+            destinationRequired
+              ? [{ required: true, message: t('shipment_create.country') }]
+              : []
+          }
         >
-          <CountrySelect placeholder={t('shipment_create.country')} allowClear={false} />
+          <CountrySelect
+            placeholder={t('shipment_create.country')}
+            allowClear={!destinationRequired}
+          />
         </Form.Item>
 
         <Form.Item
           name="customer"
           label={t('shipment_create.customer')}
-          rules={[{ required: true, message: t('shipment_create.customer') }]}
+          rules={
+            destinationRequired
+              ? [{ required: true, message: t('shipment_create.customer') }]
+              : []
+          }
         >
-          <CustomerSelect placeholder={t('shipment_create.customer')} allowClear={false} />
+          <CustomerSelect
+            placeholder={t('shipment_create.customer')}
+            allowClear={!destinationRequired}
+          />
         </Form.Item>
 
         <Form.Item

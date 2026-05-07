@@ -1,11 +1,13 @@
-import { Button, Flex, Tag } from 'antd';
-import { ArrowLeftOutlined } from '@ant-design/icons';
+import { Button, Flex, Modal, Tag } from 'antd';
+import { ArrowLeftOutlined, RocketOutlined } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { StatusTag } from '@/components/StatusTag';
 import { FreshnessPill } from '@/components/FreshnessPill';
 import { TransitionButton } from '@/components/TransitionButton';
 import { useAuth } from '@/hooks/useAuth';
+import { usePromoteFromDraft } from '@/hooks/useDrafts';
 import type { IShipmentDetail } from '@/types';
 
 interface IShipmentDetailHeroProps {
@@ -32,6 +34,35 @@ export function ShipmentDetailHero({ shipment }: IShipmentDetailHeroProps) {
     user?.role === 'export_manager' ||
     user?.is_superuser === true;
 
+  // Stream F — only privileged roles can promote a draft. The backend's
+  // /assign/ endpoint enforces this server-side; gating client-side just
+  // hides the button entirely for unauthorised users.
+  const canPromote =
+    shipment.can_promote_from_draft &&
+    (user?.role === 'export_manager' ||
+      user?.role === 'director' ||
+      user?.role === 'admin' ||
+      user?.is_superuser === true);
+
+  const promote = usePromoteFromDraft();
+
+  function handlePromote() {
+    Modal.confirm({
+      title: t('shipment.detail.promote_confirm_title'),
+      content: t('shipment.detail.promote_confirm_body'),
+      okText: t('shipment.detail.promote_button'),
+      cancelText: t('common.cancel'),
+      onOk: async () => {
+        try {
+          await promote.mutateAsync({ shipmentId: shipment.id });
+          toast.success(t('shipment.detail.promote_toast_success'));
+        } catch {
+          toast.error(t('shipment.detail.promote_toast_error'));
+        }
+      },
+    });
+  }
+
   return (
     <div style={{ marginBottom: 20 }}>
       <Flex align="center" gap={12} wrap="wrap" style={{ marginBottom: 6 }}>
@@ -56,6 +87,16 @@ export function ShipmentDetailHero({ shipment }: IShipmentDetailHeroProps) {
             <Link to={`/shipments/${shipment.id}/manifest`}>
               <Button>{t('pallet.title')}</Button>
             </Link>
+          )}
+          {canPromote && (
+            <Button
+              type="primary"
+              icon={<RocketOutlined />}
+              loading={promote.isPending}
+              onClick={handlePromote}
+            >
+              {t('shipment.detail.promote_button')}
+            </Button>
           )}
           {shipment.allowed_transitions?.length > 0 && (
             <TransitionButton

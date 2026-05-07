@@ -106,9 +106,42 @@ export function useAssignDraft() {
       );
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ['drafts'] });
       queryClient.invalidateQueries({ queryKey: ['shipments'] });
+      queryClient.invalidateQueries({ queryKey: ['shipment', String(vars.draftId)] });
+    },
+  });
+}
+
+// ─── usePromoteFromDraft ──────────────────────────────────────────────────
+//
+// Wrapper around the same /assign/ endpoint, used from the Detail page's
+// "Promote to Loading" button. Sends an empty body — the draft must already
+// have its destination set, which is enforced upstream by
+// can_promote_from_draft on the serializer.
+//
+// Invalidates the singular shipment detail query, the kanbans, and the
+// task list so every consuming surface refreshes.
+
+export function usePromoteFromDraft() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ shipmentId }: { shipmentId: number | string }): Promise<{ id: number }> => {
+      const { data } = await api.post<{ id: number }>(
+        `/export/shipments/${shipmentId}/assign/`,
+        {},
+      );
+      return data;
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['shipment', String(vars.shipmentId)] });
+      queryClient.invalidateQueries({ queryKey: ['shipments'] });
+      queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+      queryClient.invalidateQueries({ queryKey: ['shipments', 'board'] });
+      queryClient.invalidateQueries({ queryKey: ['drafts'] });
+      queryClient.invalidateQueries({ queryKey: ['my-tasks'] });
     },
   });
 }

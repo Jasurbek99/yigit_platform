@@ -1061,6 +1061,10 @@ export interface IShipmentDetail extends IShipmentListItem {
   other_tasks: ITaskListItem[];
   in_phase_seconds: number;
   phase_avg_seconds: number | null;
+  // Stream F — true when the draft is ready to be promoted to yuklenme
+  // (every auto-resolving draft task is DONE/CANCELLED). Manual draft tasks
+  // do NOT block the flag — promotion is the user's call.
+  can_promote_from_draft: boolean;
 }
 // ─── Task system (Stream B / D1) ───────────────────────────────────────────────────────────────────
 

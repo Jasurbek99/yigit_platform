@@ -1036,6 +1036,13 @@ class ShipmentViewSet(ModelViewSet):
             user.username,
             len(block_source_rows),
         )
+
+        # Generate the draft-stage tasks (Stream F). Outside the atomic block so
+        # a generation failure doesn't roll back the legitimate shipment+log
+        # write — same trade-off as transition_to(). Idempotent.
+        from apps.export.services.task_rules import generate_tasks_for_status
+        generate_tasks_for_status(shipment, 'draft')
+
         return shipment
 
     @action(detail=True, methods=['post'], url_path='assign')

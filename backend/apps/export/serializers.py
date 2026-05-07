@@ -575,6 +575,11 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
     other_tasks = serializers.SerializerMethodField()
     in_phase_seconds = serializers.SerializerMethodField()
     phase_avg_seconds = serializers.SerializerMethodField()
+    # F — draft-promote readiness flag (true when shipment is in draft AND every
+    # auto-resolving draft task is DONE/CANCELLED — manual_done tasks are
+    # ignored from the readiness check; promotion is the user's call once
+    # automation has done what it can).
+    can_promote_from_draft = serializers.SerializerMethodField()
 
     # Supervisor roles that skip my_task auto-selection. They can browse all
     # tasks via other_tasks. Defined locally to avoid conflating with
@@ -709,6 +714,37 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
         cache.set(cache_key, result, 300)
         return result
 
+    def get_can_promote_from_draft(self, obj: 'Shipment') -> bool:
+        """True when the shipment is in draft AND every auto-resolving draft
+        task is DONE/CANCELLED.
+
+        Manual-done draft tasks (give_documents, give_documents_gapy) are
+        excluded from the readiness check — they're the user's explicit
+        action and don't gate promotion. The "Promote to Loading" button
+        in the UI is the user's signal that they're done with prep
+        regardless of those manual tasks.
+
+        Used by the Detail page to surface a "Promote to Loading" button.
+        Permission to actually call /assign/ is enforced server-side
+        (export_manager / director only).
+        """
+        status_code = obj.status.code if obj.status_id else None
+        if status_code != 'draft':
+            return False
+
+        tasks = self._get_tasks_prefetched(obj)
+        # Only consider auto-resolving (target-field-driven) draft tasks.
+        # MANUAL_DONE tasks are decoupled from promotion readiness.
+        active = [
+            t for t in tasks
+            if t.step == 'draft'
+            and t.completion_rule != TaskCompletionRule.MANUAL_DONE
+            and t.state not in (TaskState.DONE, TaskState.CANCELLED)
+        ]
+        # No auto-resolving draft tasks active → ready (covers the case of
+        # a draft created before the engine, or one with no applicable rules).
+        return len(active) == 0
+
     @staticmethod
     def _compute_status_avg_seconds(status_code: str, season_id: int) -> int | None:
         """Compute mean seconds-in-status across closed shipments for status_code.
@@ -813,6 +849,8 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
             'other_tasks',
             'in_phase_seconds',
             'phase_avg_seconds',
+            # F — draft-promote readiness flag
+            'can_promote_from_draft',
         ]
 
 
@@ -942,15 +980,16 @@ class ShipmentCreateSerializer(serializers.Serializer):
 
     def validate(self, attrs: dict) -> dict:
         """Cross-field validation for draft vs. full-creation paths."""
-        is_draft = attrs.get('is_draft', False)
         block_sources = attrs.get('block_sources', [])
 
-        if is_draft and not block_sources:
-            raise serializers.ValidationError(
-                {'block_sources': 'At least one block source is required when creating a draft.'}
-            )
+        # Stream F: drafts no longer REQUIRE block sources at creation time. The
+        # supply-side DraftPool flow still includes them voluntarily; the
+        # standard ShipmentCreateModal creates lightweight drafts without
+        # them, and block sources can be added later through the Sheet/Detail
+        # edit paths. The original strictness was an artifact of DraftPool's
+        # use case, not an intrinsic property of the draft state.
 
-        # Validate block uniqueness within the submitted list.
+        # Validate block uniqueness within the submitted list (when provided).
         if block_sources:
             block_ids = [row['block_id'].id for row in block_sources]
             if len(block_ids) != len(set(block_ids)):
