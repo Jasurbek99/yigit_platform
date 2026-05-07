@@ -117,6 +117,49 @@ class DraftCreationGeneratesTasksTests(TestCase):
             5,
         )
 
+    def test_draft_creation_without_cargo_code_auto_generates(self):
+        """Stream F-followup: cargo_code is optional. Server generates one
+        in DDMMNNN/YY format when omitted."""
+        import re
+        resp = self.client.post('/api/v1/export/shipments/', {
+            # No cargo_code, no date — let the server fill them in.
+            'is_draft': True,
+            'block_sources': [],
+        }, format='json')
+        self.assertEqual(resp.status_code, 201, resp.data)
+        cargo_code = resp.data['cargo_code']
+        self.assertRegex(
+            cargo_code, r'^\d{7}/\d{2}$',
+            f'Auto-generated cargo_code {cargo_code!r} does not match DDMMNNN/YY',
+        )
+        # And the shipment landed in DRAFT, not Loading.
+        self.assertEqual(resp.data['status_display'], 'Draft')
+
+    def test_two_drafts_same_day_get_distinct_codes(self):
+        """The auto-generator increments the sequence so codes don't collide
+        on the same day."""
+        codes = []
+        for _ in range(2):
+            resp = self.client.post('/api/v1/export/shipments/', {
+                'is_draft': True,
+                'block_sources': [],
+            }, format='json')
+            self.assertEqual(resp.status_code, 201, resp.data)
+            codes.append(resp.data['cargo_code'])
+        self.assertEqual(len(set(codes)), 2, f'Duplicate codes generated: {codes}')
+
+    def test_loading_started_at_NOT_set_when_creating_draft(self):
+        """When a shipment is created as draft, loading_started_at must remain
+        null. It's only set when the user explicitly promotes to Loading."""
+        resp = self.client.post('/api/v1/export/shipments/', {
+            'is_draft': True,
+            'block_sources': [],
+        }, format='json')
+        self.assertEqual(resp.status_code, 201, resp.data)
+        ship = Shipment.objects.get(pk=resp.data['id'])
+        self.assertIsNone(ship.loading_started_at)
+        self.assertEqual(ship.status.code, 'draft')
+
 
 class CanPromoteFromDraftTests(TestCase):
     """can_promote_from_draft reflects auto-resolving draft-task completion."""

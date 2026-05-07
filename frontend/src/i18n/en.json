@@ -463,7 +463,8 @@
     "skip_prep_help": "For urgent reshipments or legacy imports. Default: create as draft and run through prep tasks first.",
     "skip_prep_on": "Skip",
     "skip_prep_off": "Draft",
-    "draft_mode_alert": "Will be created in Draft. The team picks destination, firms, driver, and starts documents prep — then you promote it to Loading from the Detail page."
+    "draft_mode_alert": "Will be created in Draft. The team picks destination, firms, driver, and starts documents prep — then you promote it to Loading from the Detail page.",
+    "skip_prep_alert": "Will be created directly at Loading. The cargo code is auto-generated; the loading start time is set immediately. Use only for urgent reshipments and legacy imports."
   },
   "kanban": {
     "title": "Kanban Board",

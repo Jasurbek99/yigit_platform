@@ -463,7 +463,8 @@
     "skip_prep_help": "Howsalaly täzeden ýüklemeler we köne maglumatlar üçin. Adatça: garalama hökmünde dörediň we taýynlyk tabşyryklary boýunça işläň.",
     "skip_prep_on": "Geç",
     "skip_prep_off": "Garalama",
-    "draft_mode_alert": "Garalama hökmünde dörediler. Topar ugruny, firmalary, sürüjini saýlaýar we resminamalary taýýarlap başlaýar — soň siz Ýüklemä geçirýärsiňiz Detal sahypasyndan."
+    "draft_mode_alert": "Garalama hökmünde dörediler. Topar ugruny, firmalary, sürüjini saýlaýar we resminamalary taýýarlap başlaýar — soň siz Ýüklemä geçirýärsiňiz Detal sahypasyndan.",
+    "skip_prep_alert": "Gönüden Ýüklemede dörediler. Ýük kody awtomatiki döredilýär; ýükleme başlangyç wagty derrew bellenýär. Diňe howsalaly täzeden ýüklemeler we köne maglumatlar üçin."
   },
   "kanban": {
     "title": "Kanban tagtasy",

@@ -1,8 +1,7 @@
-import { Alert, DatePicker, Flex, Form, Input, Modal, Select, Switch } from 'antd';
+import { Alert, Flex, Form, Modal, Select, Switch } from 'antd';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import dayjs from 'dayjs';
 import { useState } from 'react';
 import api from '@/services/api';
 import { CountrySelect } from '@/components/CountrySelect';
@@ -20,8 +19,6 @@ interface ISeason {
 }
 
 interface ICreateShipmentPayload {
-  cargo_code: string;
-  date: string;
   country?: number;
   customer?: number;
   season?: number;
@@ -30,21 +27,34 @@ interface ICreateShipmentPayload {
 }
 
 interface IFormValues {
-  cargo_code: string;
-  date: dayjs.Dayjs | null;
   country: number | undefined;
   customer: number | undefined;
   season: number | undefined;
 }
 
+/**
+ * Lightweight shipment create modal.
+ *
+ * Does NOT ask for cargo_code or shipment date — those are handled
+ * automatically:
+ *   - cargo_code: server-generated DDMMNNN/YY format. The platform-internal
+ *     identifier; not the same as Soltanmyrat's pallet tag
+ *     (official_export_code), which he fills in later via the Sheet.
+ *   - date: defaults to today server-side; editable later via Sheet/Detail.
+ *
+ * Default: shipment is created as a DRAFT. Prep tasks (set destination,
+ * pick firms, assign driver, start documents prep) appear on the Self
+ * Kanban for the appropriate roles. The shipment is promoted to Loading
+ * via the "Promote to Loading" button on the Detail page once prep is
+ * done — that's when loading_started_at is written.
+ *
+ * "Skip prep" toggle creates directly at Loading. Reserved for urgent
+ * reshipments and legacy data imports.
+ */
 export function ShipmentCreateModal({ open, onClose, onSuccess }: IShipmentCreateModalProps) {
   const { t } = useTranslation();
   const [form] = Form.useForm<IFormValues>();
 
-  // Stream F: default is to start in DRAFT (full lifecycle including draft-stage
-  // tasks: pick destination, firms, driver, etc.). The "Skip prep" switch flips
-  // back to the legacy yuklenme-direct path for emergencies (urgent reshipments,
-  // legacy data imports).
   const [skipPrep, setSkipPrep] = useState(false);
 
   const { data: seasons, isLoading: seasonsLoading } = useQuery({
@@ -70,32 +80,20 @@ export function ShipmentCreateModal({ open, onClose, onSuccess }: IShipmentCreat
       onSuccess();
       onClose();
     },
-    onError: (err: unknown) => {
-      const apiErr = err as { response?: { data?: Record<string, string[]> } };
-      const data = apiErr?.response?.data;
-      if (data?.cargo_code) {
-        form.setFields([{ name: 'cargo_code', errors: data.cargo_code }]);
-      } else {
-        toast.error(t('shipment_create.toast_error'));
-      }
+    onError: () => {
+      toast.error(t('shipment_create.toast_error'));
     },
   });
 
   async function handleOk() {
     const values = await form.validateFields();
     const payload: ICreateShipmentPayload = {
-      cargo_code: values.cargo_code,
-      date: values.date ? values.date.format('YYYY-MM-DD') : '',
       is_draft: !skipPrep,
+      block_sources: [],
     };
     if (values.country != null) payload.country = values.country;
     if (values.customer != null) payload.customer = values.customer;
     if (values.season != null) payload.season = values.season;
-    // Stream F: drafts created from this modal are lightweight — no block
-    // sources up-front. Soltanmyrat or Gadam adds them later via the Sheet
-    // or via the supply-side DraftPool flow. The backend serializer was
-    // relaxed to allow empty block_sources for drafts.
-    payload.block_sources = [];
     createMutation.mutate(payload);
   }
 
@@ -107,8 +105,10 @@ export function ShipmentCreateModal({ open, onClose, onSuccess }: IShipmentCreat
 
   const seasonOptions = (seasons ?? []).map((s) => ({ value: s.id, label: s.name }));
 
-  // When skip_prep is OFF (default — draft path), country/customer become
-  // optional — they'll be assigned later before promoting to Loading.
+  // When skip_prep is OFF (default — draft path), country/customer are
+  // optional — they're assigned later before promoting to Loading.
+  // When skip_prep is ON, the shipment lands directly in Loading and
+  // requires destination at creation time.
   const destinationRequired = skipPrep;
 
   return (
@@ -150,37 +150,21 @@ export function ShipmentCreateModal({ open, onClose, onSuccess }: IShipmentCreat
           />
         </Flex>
 
-        {!skipPrep && (
+        {!skipPrep ? (
           <Alert
             type="info"
             message={t('shipment_create.draft_mode_alert')}
             style={{ marginBottom: 16 }}
             showIcon
           />
+        ) : (
+          <Alert
+            type="warning"
+            message={t('shipment_create.skip_prep_alert')}
+            style={{ marginBottom: 16 }}
+            showIcon
+          />
         )}
-
-        <Form.Item
-          name="cargo_code"
-          label={t('shipment_create.cargo_code')}
-          extra={t('shipment_create.cargo_code_help')}
-          rules={[
-            { required: true, message: t('shipment_create.cargo_code') },
-            {
-              pattern: /^\d{7}\/\d{2}$/,
-              message: t('shipment_create.cargo_code_format'),
-            },
-          ]}
-        >
-          <Input placeholder="0201045/25" maxLength={20} />
-        </Form.Item>
-
-        <Form.Item
-          name="date"
-          label={t('shipment_create.date')}
-          rules={[{ required: true, message: t('shipment_create.date') }]}
-        >
-          <DatePicker format="DD.MM.YYYY" style={{ width: '100%' }} />
-        </Form.Item>
 
         <Form.Item
           name="country"

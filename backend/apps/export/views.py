@@ -949,6 +949,19 @@ class ShipmentViewSet(ModelViewSet):
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
+        # Stream F-followup: cargo_code and date are now optional on create.
+        # cargo_code is auto-generated server-side when missing; date defaults
+        # to today. Soltanmyrat's physical pallet code (official_export_code)
+        # is filled in later via the Sheet/Detail edit paths.
+        from apps.export.services.shipment import generate_cargo_code
+        from django.utils import timezone as _tz
+
+        cargo_code = data.get('cargo_code') or generate_cargo_code()
+        ship_date = data.get('date') or _tz.now().date()
+        # Mutate the validated data so downstream paths see the resolved values.
+        data['cargo_code'] = cargo_code
+        data['date'] = ship_date
+
         if is_draft:
             try:
                 shipment = self._create_draft_shipment(data, request.user)
@@ -957,8 +970,8 @@ class ShipmentViewSet(ModelViewSet):
         else:
             try:
                 shipment = create_shipment(
-                    cargo_code=data['cargo_code'],
-                    date=data['date'],
+                    cargo_code=cargo_code,
+                    date=ship_date,
                     user=request.user,
                     country=data.get('country'),
                     customer=data.get('customer'),

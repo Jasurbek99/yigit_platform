@@ -216,6 +216,44 @@ def _notify_action_required(shipment: Shipment, new_status_code: str) -> None:
     )
 
 
+def generate_cargo_code(today=None) -> str:
+    """Generate a unique cargo_code in DDMMNNN/YY format.
+
+    DD = day of month, MM = month, NNN = next sequence within (year, day, month),
+    YY = 2-digit year. Sequence rolls forward until a free code is found —
+    100 attempts is more than enough for any realistic daily volume.
+
+    `cargo_code` is the platform-internal identifier; it's auto-generated so
+    operators don't have to compute it. Soltanmyrat's pallet-tag code lives
+    on the separate `official_export_code` field, which he fills in later
+    via the Sheet/Detail edit paths.
+
+    Args:
+        today: Optional date — used by tests to make output deterministic.
+            Defaults to timezone.now().date() in the active TM timezone.
+    """
+    if today is None:
+        today = timezone.now().date()
+    dd = f'{today.day:02d}'
+    mm = f'{today.month:02d}'
+    yy = f'{today.year % 100:02d}'
+    prefix = f'{dd}{mm}'
+    # Look at existing codes for this date to pick the next sequence.
+    existing = set(
+        Shipment.objects
+        .filter(cargo_code__startswith=prefix, cargo_code__endswith=f'/{yy}')
+        .values_list('cargo_code', flat=True)
+    )
+    for n in range(1, 1000):
+        candidate = f'{prefix}{n:03d}/{yy}'
+        if candidate not in existing:
+            return candidate
+    # 999 codes for one day is implausible — but fail loudly if we hit it.
+    raise ValueError(
+        f'Cargo code sequence exhausted for {today}. Need to extend format.'
+    )
+
+
 def create_shipment(
     cargo_code: str,
     date,

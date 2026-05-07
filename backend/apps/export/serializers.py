@@ -941,7 +941,10 @@ class ShipmentCreateSerializer(serializers.Serializer):
       country/customer/city may be null — destination is decided during assignment.
     """
 
-    cargo_code = serializers.CharField(max_length=20)
+    # cargo_code is the auto-generated platform code. Optional on input —
+    # generated server-side if omitted (Stream F-followup). Soltanmyrat enters
+    # the physical pallet tag separately via official_export_code.
+    cargo_code = serializers.CharField(max_length=20, required=False, allow_blank=True)
     official_export_code = serializers.CharField(
         max_length=30,
         required=False,
@@ -949,7 +952,10 @@ class ShipmentCreateSerializer(serializers.Serializer):
         allow_null=True,
         validators=[validate_official_export_code],
     )
-    date = serializers.DateField()
+    # date is optional — defaults to today on create. Loading start time
+    # (loading_started_at) is a separate AD-1 timestamp written by
+    # transition_to('yuklenme'), NOT by create.
+    date = serializers.DateField(required=False)
     country = serializers.PrimaryKeyRelatedField(
         queryset=Country.objects.all(), required=False, allow_null=True
     )
@@ -964,10 +970,13 @@ class ShipmentCreateSerializer(serializers.Serializer):
     notes = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     def validate_cargo_code(self, value: str) -> str:
-        """Validate format DDMM###/YY (exactly 7 digits, slash, 2 digits).
+        """Validate format DDMM###/YY when a cargo_code is supplied.
 
-        Examples: 0201045/25, 3112001/24.
+        Empty/blank values are permitted — the create view will auto-generate
+        a code in that case (Stream F-followup).
         """
+        if not value:
+            return value
         if not re.match(r'^\d{7}/\d{2}$', value):
             raise serializers.ValidationError(
                 "Cargo code must match pattern NNNNNNN/YY (e.g. 0201045/25)"
