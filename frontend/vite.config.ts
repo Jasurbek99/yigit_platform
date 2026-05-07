@@ -20,7 +20,11 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        // Force IPv4 — Node on Windows resolves `localhost` to ::1 first,
+        // where a separate WordPress dev server (php.exe) is bound and
+        // returns 404 HTML for our /api/v1/* paths. Django listens on
+        // 0.0.0.0 (IPv4), so 127.0.0.1 hits the correct process.
+        target: 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
     },
