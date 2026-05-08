@@ -129,9 +129,11 @@ class HarvestDayEntry(models.Model):
             ('manual', 'manual'),
             ('pallet_rollup_pending', 'pallet_rollup_pending'),
             ('admin_override', 'admin_override'),
+            ('shipment_rollup', 'shipment_rollup'),
         ],
-        help_text='How actual_value was set. admin_override marks a value the '
-                  'daily shipment-rollup job must leave alone.',
+        help_text='How actual_value was set. shipment_rollup is the daily '
+                  'computed source; admin_override marks a value the rollup '
+                  'must leave alone.',
     )
 
     # === Last admin-override snapshot (full history in AuditLog) ===

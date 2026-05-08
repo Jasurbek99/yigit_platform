@@ -23,16 +23,18 @@ The total kg, computed per cell as **most-current value** (Actual if past, Forec
 ```mermaid
 flowchart TD
   PlanW[Block Manager submits<br/>weekly plan Fri EOD] -->|plan_state recorded<br/>per HarvestDayEntry| Wait1[Days 1-6 of plan week]
-  Wait1 --> Forecast[Block Manager submits<br/>tomorrow's forecast<br/>17:00-18:00 day-before]
+  Wait1 --> Forecast[loading_dept_head submits<br/>forecast: 00:00 day-before<br/>through 12:00 day-of]
   Forecast --> Today[Day arrives]
-  Today --> Actual[warehouse_chief enters<br/>actual_kg manually]
+  Today --> Loading[Shipments load<br/>loading_started_at recorded]
+  Loading --> Rollup[Daily rollup_actuals<br/>cron next morning]
+  Rollup -->|SUM ShipmentBlockSource.weight_kg<br/>per block per local day| Actual[actual_value written<br/>actual_source='shipment_rollup']
   Actual --> Estim[Most-current value<br/>per cell aggregated]
   Estim --> Trucks[Total / truck_capacity_kg<br/>= trucks needed]
   Trucks --> TA[[truck-allocation]]
 
   Forecast -.->|17:00 minus lead time:<br/>T1 nudge| BMNotif{Block Manager<br/>didn't submit?}
-  BMNotif -->|At 18:00<br/>T2 handoff| WC[warehouse_chief<br/>fallback window]
-  WC -->|At 09:00<br/>T3 escalation| Esc[admin + director<br/>urgent]
+  BMNotif -->|At 18:00<br/>T2 handoff| LDH[loading_dept_head<br/>day-of window]
+  LDH -->|At 12:00<br/>T3 escalation| Esc[admin + director<br/>urgent]
 
   PlanW -.->|Sat morning P2<br/>Mon 00:00 P3| Late{Plan still<br/>not submitted}
 ```
@@ -43,14 +45,13 @@ flowchart TD
 stateDiagram-v2
   [*] --> never_entered: cell exists, value IS NULL
   never_entered --> plan_submitted: greenhouse_manager enters plan_value
-  plan_submitted --> forecast_primary: 17:00-18:00 day-before
-  plan_submitted --> forecast_fallback: 18:00-09:00 (warehouse_chief)
-  plan_submitted --> forecast_same_day_red_flag: 09:00-23:59 (low quality)
-  forecast_primary --> actual_finalized: warehouse_chief enters actual_value
-  forecast_fallback --> actual_finalized
-  forecast_same_day_red_flag --> actual_finalized
+  plan_submitted --> forecast_primary: 17:00-18:00 day-before (greenhouse_manager)
+  plan_submitted --> forecast_loading_head: 00:00 day-before - 12:00 day-of (loading_dept_head)
+  forecast_primary --> actual_finalized: daily rollup writes shipment_rollup
+  forecast_loading_head --> actual_finalized
   plan_submitted --> actual_finalized: no forecast was entered
   never_entered --> actual_finalized: skipped both layers
+  actual_finalized --> actual_finalized: admin_override (rollup respects)
 ```
 
 The state is implicit, derived from which of `plan_submitted_at` / `forecast_submitted_at` / `actual_finalized_at` are non-NULL. There is no enum status field on the row.
@@ -127,7 +128,8 @@ The wide columns (`monday_plan_kg`…`saturday_actual_kg`, `actual_weekly_total_
 |----------|---------|
 | `set_plan_value(entry, value, user, reason='')` | Writes plan_value, plan_submitted_at/by, computes plan_state. Admin override path also writes `last_override_*` snapshot + `AuditLog.detail = "OVERRIDE: {reason}"`. |
 | `set_forecast_value(entry, value, user, reason='')` | Writes forecast_value, computes forecast_window per current time, increments forecast_revision_count, audit. |
-| `set_actual_value(entry, value, user, reason='')` | Writes actual_value, actual_finalized_at, actual_source. |
+| `set_actual_value(entry, value, user, reason='')` | Admin-only manual override path. Stamps `actual_source='admin_override'` so the daily rollup respects it. |
+| `rollup_actuals_for_date(target_date, force=False, dry_run=False)` | Daily rollup. Sums `ShipmentBlockSource.weight_kg` joined to `Shipment.loading_started_at` per block per local day, writes `actual_value` + `actual_source='shipment_rollup'`. Skips `admin_override` rows unless `force`. Returns `RollupResult` with counters and silent-gap shipment list. |
 | `admin_override(entry, field, value, reason, user)` | Wraps the appropriate setter; required `reason` non-empty. |
 | `compute_plan_state(submitted_at_local, plan_week_start, config)` | Returns `'on_time'` / `'late'` / `'critical_late'`. Pure function. |
 | `compute_forecast_window(submitted_at_local, entry_date, config)` | Returns `'primary'` / `'fallback'` / `'same_day_red_flag'` / `None` (locked). Pure function. |
@@ -181,6 +183,25 @@ Run from system cron every 5 min:
 ```
 
 In-app notifications only this iteration. SMS / Telegram / WhatsApp deferred. The personal-kanban auto-task hook is a TODO no-op call site in `dispatcher.fire(event)` — auto-tasks land when the parallel kanban work ships.
+
+### Daily actual rollup
+
+**Files**:
+- `backend/apps/greenhouse/services/actual_rollup.py` — `rollup_actuals_for_date(target_date, force=False, dry_run=False) -> RollupResult`. Pure service.
+- `backend/apps/greenhouse/management/commands/rollup_actuals.py` — entry point.
+
+Runs once per day on a separate schedule from the 5-minute dispatcher. Defaults to yesterday in `GreenhouseConfig.timezone_name` (Asia/Ashgabat). Selection is by **timezone-aware UTC range** derived from the target local date — never `__date=` filter, which would evaluate in the connection's timezone (UTC) and shift the answer for shipments loaded near midnight.
+
+```
+30 2 * * * cd /opt/ygt/backend && /opt/ygt/backend/venv/bin/python manage.py rollup_actuals
+```
+
+Flags:
+- `--date YYYY-MM-DD` — explicit date instead of yesterday
+- `--force` — overwrite even rows with `actual_source='admin_override'`
+- `--dry-run` — compute and log without writing
+
+**Silent-gap reporting**: every shipment with `loading_started_at` on the target date but no `ShipmentBlockSource` rows is listed in stdout (and `RollupResult.shipments_without_blocks`). Those shipments contribute 0 kg to the rollup — operations should fill the block split or the day's actual will under-report.
 
 See `docs/operations/cron.md` for Linux + Windows Task Scheduler setup.
 

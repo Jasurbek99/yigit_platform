@@ -15,6 +15,11 @@ from apps.greenhouse.services.harvest_day_service import (
     set_forecast_value,
     set_plan_value,
 )
+from apps.greenhouse.services.actual_rollup import (
+    RollupResult,
+    rollup_actuals_for_date,
+    yesterday_local,
+)
 
 __all__ = [
     'initialize_harvest_week',
@@ -26,4 +31,7 @@ __all__ = [
     'admin_override',
     'compute_plan_state',
     'compute_forecast_window',
+    'rollup_actuals_for_date',
+    'yesterday_local',
+    'RollupResult',
 ]
