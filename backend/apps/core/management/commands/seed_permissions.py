@@ -42,12 +42,15 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
     'weight_master': {
         'dashboard', 'export.shipments', 'export.pallet_manifest',
     },
-    # loading_dept_head: identical page set to warehouse_chief — same daily work
-    # plus the org-chart authority over weight_master (already has manifest page).
+    # loading_dept_head: superset of warehouse_chief (same daily work) plus
+    # 'export.plan' — Soltanmyrat needs the Weekly Harvest Plan grid to coordinate
+    # forecast entry (day-before + day-of until 12:00) and to read computed actuals
+    # so he can plan truck loads. See harvest_day_service.set_forecast_value.
     'loading_dept_head': {
         'dashboard', 'export.shipments', 'export.kanban',
         'export.drafts',
         'export.pallet_manifest',
+        'export.plan',
     },
     'warehouse_chief': {
         'dashboard', 'export.shipments', 'export.kanban',

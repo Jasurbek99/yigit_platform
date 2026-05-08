@@ -18,6 +18,13 @@ from apps.core.services_workflow import create_audit_entry
 logger = logging.getLogger(__name__)
 
 
+# Loading-department head can submit forecast from 00:00 day-before through this
+# local time on day-of. Past this cutoff only admin can override. Hardcoded for
+# now; promote to GreenhouseConfig.forecast_loading_head_close if it ever needs
+# to vary per environment.
+LOADING_HEAD_FORECAST_DAY_OF_CLOSE = dtime(12, 0)
+
+
 # ---------------------------------------------------------------------------
 # Utility helpers (public — used by submit_plan and other services)
 # ---------------------------------------------------------------------------
@@ -244,7 +251,8 @@ def set_forecast_value(entry, value, user, reason: str = '') -> None:
     Permissions × window matrix:
     - admin: always; reason required only when overriding an existing forecast_value.
     - greenhouse_manager: own block + primary window only.
-    - warehouse_chief: any block; fallback or same_day_red_flag windows only.
+    - loading_dept_head: any block, from 00:00 day-before through
+      LOADING_HEAD_FORECAST_DAY_OF_CLOSE on day-of.
 
     Args:
         entry: HarvestDayEntry instance.
@@ -284,11 +292,17 @@ def set_forecast_value(entry, value, user, reason: str = '') -> None:
                 f"greenhouse_manager can only submit forecasts during the primary window "
                 f"(current window: {window!r})."
             )
-    elif role == 'warehouse_chief':
-        if window not in ('fallback', 'same_day_red_flag'):
+    elif role == 'loading_dept_head':
+        day_before_start = datetime.combine(
+            entry.entry_date - timedelta(days=1), dtime(0, 0)
+        )
+        day_of_close = datetime.combine(
+            entry.entry_date, LOADING_HEAD_FORECAST_DAY_OF_CLOSE
+        )
+        if not (day_before_start <= now_l < day_of_close):
             raise PermissionError(
-                f"warehouse_chief can only submit forecasts in fallback or same_day_red_flag windows "
-                f"(current window: {window!r})."
+                f"loading_dept_head can submit forecasts only between "
+                f"{day_before_start} and {day_of_close} local."
             )
     else:
         raise PermissionError(f"Role '{role}' is not allowed to set forecast values.")
@@ -319,11 +333,15 @@ def set_forecast_value(entry, value, user, reason: str = '') -> None:
 
 
 def set_actual_value(entry, value, user, reason: str = '') -> None:
-    """Set the actual_value on a HarvestDayEntry.
+    """Set the actual_value on a HarvestDayEntry. Admin-only override.
+
+    Actual values are normally written by the daily shipment-rollup job
+    (rollup_actuals management command). This service path exists only for
+    admin manual override; the resulting `actual_source='admin_override'`
+    flag tells subsequent rollup runs to leave the value alone.
 
     Permissions:
     - admin: always; reason required only when overriding an existing actual_value.
-    - warehouse_chief: always.
 
     Args:
         entry: HarvestDayEntry instance.
@@ -332,27 +350,28 @@ def set_actual_value(entry, value, user, reason: str = '') -> None:
         reason: Required for admin overrides.
 
     Raises:
-        PermissionError: If role is not permitted.
+        PermissionError: If user is not admin.
         ValueError: If admin override has no reason.
     """
     role = getattr(user, 'role', None)
     now_utc = timezone.now()
 
-    if role == 'admin':
-        is_override = entry.actual_value is not None
-        if is_override:
-            if not reason or not reason.strip():
-                raise ValueError("Admin override requires a non-empty reason.")
-            _write_override_snapshot(entry, user, reason.strip(), now_utc)
-    elif role == 'warehouse_chief':
-        pass  # always allowed
-    else:
-        raise PermissionError(f"Role '{role}' is not allowed to set actual values.")
+    if role != 'admin':
+        raise PermissionError(
+            f"Role '{role}' is not allowed to set actual values. "
+            f"Actuals are computed by the daily rollup; only admin may override."
+        )
+
+    is_override = entry.actual_value is not None
+    if is_override:
+        if not reason or not reason.strip():
+            raise ValueError("Admin override requires a non-empty reason.")
+        _write_override_snapshot(entry, user, reason.strip(), now_utc)
 
     old_value = entry.actual_value
     entry.actual_value = value
     entry.actual_finalized_at = now_utc
-    entry.actual_source = 'manual'
+    entry.actual_source = 'admin_override'
     entry.save(update_fields=[
         'actual_value', 'actual_finalized_at', 'actual_source',
         'last_override_at', 'last_override_by', 'last_override_reason', 'updated_at',

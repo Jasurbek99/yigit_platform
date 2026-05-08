@@ -75,7 +75,7 @@ The state is implicit, derived from which of `plan_submitted_at` / `forecast_sub
 | Identity | `weekly_plan` (FK CASCADE), `season`, `block`, `entry_date`, `weekday` (0=Mon … 6=Sun) | UNIQUE(weekly_plan, entry_date). `weekday` allows 6 so end-of-season Sunday harvesting is supported. |
 | Plan | `plan_value` (Decimal, nullable), `plan_submitted_at`, `plan_submitted_by`, `plan_state` (`on_time` / `late` / `critical_late` / `''`) | `plan_state` is computed from submit time vs `GreenhouseConfig` deadlines. |
 | Forecast | `forecast_value`, `forecast_submitted_at`, `forecast_submitted_by`, `forecast_window` (`primary` / `fallback` / `same_day_red_flag` / `''`), `forecast_revision_count` (PositiveSmallInt) | Revision count increments on each edit. |
-| Actual | `actual_value`, `actual_finalized_at`, `actual_source` (`manual` / `pallet_rollup_pending` / `''`) | Pallet rollup auto-source lands in a later phase. |
+| Actual | `actual_value`, `actual_finalized_at`, `actual_source` (`manual` / `pallet_rollup_pending` / `shipment_rollup` / `admin_override` / `''`) | `shipment_rollup` is the daily computed source; `admin_override` blocks subsequent rollups from clobbering the manual value. |
 | Override | `last_override_at`, `last_override_by`, `last_override_reason` (CharField 500, Cyrillic_General_CI_AS) | Snapshot of most-recent admin override; full history in `AuditLog`. |
 | Audit | `created_at`, `updated_at` | Standard. |
 
@@ -255,13 +255,18 @@ When `currentUser.role === 'admin'` edits any cell, `<AdminOverrideReasonModal>`
 | Role | View | Plan | Forecast | Actual | Admin override |
 |------|------|------|----------|--------|----------------|
 | `greenhouse_manager` | Own blocks (highlighted) | Own blocks (until Monday hard cutoff) | Own blocks during primary window only | No | No |
-| `warehouse_chief` (Soltanmyrat) | All blocks | No | Any block during fallback / same-day windows | All blocks | No |
+| `loading_dept_head` (Soltanmyrat) | All blocks | No | Any block, 00:00 day-before through 12:00 day-of (`LOADING_HEAD_FORECAST_DAY_OF_CLOSE`) | No (computed daily from shipments) | No |
 | `admin` | All blocks | Anytime, any block, with required reason | Anytime, any block, with required reason | Anytime, any block, with required reason | Yes (all paths) |
 | `export_manager` (Gadam) | All blocks | View only | View only | View only | No |
 | `director` | All blocks | View only | View only | View only | No |
+| `warehouse_chief` | View only | No | No | No | No |
 | Others | Read-only or denied | No | No | No | No |
 
 Service-layer enforcement is not just role-based — it also gates by submission window (forecast) and block ownership (greenhouse_manager via `BlockManagerAssignment.is_active`).
+
+**Forecast window for `loading_dept_head`** (May 2026): from 00:00 local on day-before through `LOADING_HEAD_FORECAST_DAY_OF_CLOSE` (default 12:00 noon) on day-of. Past noon, only admin can override. Replaces the previous warehouse_chief fallback / same-day windows entirely.
+
+**Actuals are computed, not entered.** As of May 2026, `actual_value` is filled by the daily `rollup_actuals` management command — it sums `ShipmentBlockSource.weight_kg` joined to `Shipment.loading_started_at` (in the configured local timezone) per block per day, and writes the result with `actual_source='shipment_rollup'`. Admin manual edits stamp `actual_source='admin_override'`, which the rollup respects on subsequent runs.
 
 ## Connections to Other Processes
 

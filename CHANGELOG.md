@@ -4,6 +4,9 @@ All notable changes to the YGT Platform.
 
 ## [Unreleased]
 
+### Changed
+- **Harvest forecast now owned by `loading_dept_head` (Soltanmyrat); actuals admin-only** (feat(p3)). Soltanmyrat moved from `warehouse_chief` to `loading_dept_head` in the admin panel and now needs the Weekly Harvest Plan grid to coordinate truck loading. Backend changes: `'export.plan'` added to `loading_dept_head`'s page set in `seed_permissions.py` (data migration `core.0008` flips the existing `RolePagePermission` row from `is_visible=False` to `True` so existing DBs don't need `seed_permissions --reset`); `set_forecast_value` accepts `loading_dept_head` from 00:00 local day-before through `LOADING_HEAD_FORECAST_DAY_OF_CLOSE` (12:00 noon) on day-of, replacing the old `warehouse_chief` fallback / same-day windows entirely; `set_actual_value` is now admin-only and stamps `actual_source='admin_override'` so the upcoming daily shipment-rollup job (Commit 2) respects manual edits. `'admin_override'` added to `actual_source` choices (`greenhouse.0002`). `HARVEST_DAY_WRITE` constant updated. Obsidian doc Roles & Permissions table refreshed. Soltanmyrat can now open `/export/plan` and the grid renders; cell-level edit affordances for the new role land in the frontend follow-up commit.
+
 ### Added
 - **Detail page typing UX — debounce text saves, never lock the input** (fix(p3)). Follow-up to the Detail-usable fix below: text/textarea/number inputs were saving on every keystroke and the field disabled for the in-flight PATCH, so typing whole words was impossible. Saves are now debounced 700 ms (timer reset on each keystroke; flushed when focus leaves the row) and the input is never disabled while a save is pending — the next save supersedes the in-flight one via the optimistic cache. Discrete inputs (Select, DatePicker, Switch) still save immediately. A small spinner indicates pending state without blocking input.
 

@@ -128,8 +128,10 @@ class HarvestDayEntry(models.Model):
         choices=[
             ('manual', 'manual'),
             ('pallet_rollup_pending', 'pallet_rollup_pending'),
+            ('admin_override', 'admin_override'),
         ],
-        help_text='How actual_value was set.',
+        help_text='How actual_value was set. admin_override marks a value the '
+                  'daily shipment-rollup job must leave alone.',
     )
 
     # === Last admin-override snapshot (full history in AuditLog) ===

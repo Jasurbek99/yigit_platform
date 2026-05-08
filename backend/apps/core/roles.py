@@ -26,7 +26,9 @@ DIRECTOR_ONLY = frozenset({'director'})
 # PLAN_WRITE and PLAN_APPROVE are removed — the approval workflow was dropped in
 # the Forecast Layer feature (Apr 2026, see ADR-017). Use HARVEST_DAY_WRITE for
 # write gates on plan/forecast/actual values.
-HARVEST_DAY_WRITE = frozenset({'admin', 'greenhouse_manager', 'warehouse_chief'})
+# May 2026: warehouse_chief replaced by loading_dept_head (Soltanmyrat) for forecast
+# writes; actual values are now computed by the daily shipment-rollup job.
+HARVEST_DAY_WRITE = frozenset({'admin', 'greenhouse_manager', 'loading_dept_head'})
 HARVEST_DAY_OVERRIDE = frozenset({'admin'})  # admin-only, with required `reason`
 
 # Domestic operations
