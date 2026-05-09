@@ -17,7 +17,6 @@ PAGE_REGISTRY: dict[str, str] = OrderedDict([
     ('dashboard',               'Dashboard'),
     # Export
     ('export.shipments',        'Shipments'),
-    ('export.kanban',           'Kanban Board'),
     ('export.overdue',          'Overdue Reports'),
     ('export.advances',         'Advances'),
     ('export.plan',             'Weekly Plan'),

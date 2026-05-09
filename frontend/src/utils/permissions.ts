@@ -13,7 +13,6 @@ const ROUTE_PAGE_MAP: Record<string, string> = {
   '/export/shipments':          'export.shipments',
   '/export/shipments/sheet':    'export.shipments',
   '/export/shipments/dashboard':'export.shipments',
-  '/export/kanban':             'export.kanban',
   '/export/overdue':            'export.overdue',
   '/export/advances':           'export.advances',
   '/export/plan':               'export.plan',

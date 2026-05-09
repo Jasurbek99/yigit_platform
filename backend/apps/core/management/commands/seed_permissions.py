@@ -47,26 +47,26 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
     # forecast entry (day-before + day-of until 12:00) and to read computed actuals
     # so he can plan truck loads. See harvest_day_service.set_forecast_value.
     'loading_dept_head': {
-        'dashboard', 'export.shipments', 'export.kanban',
+        'dashboard', 'export.shipments',
         'export.drafts',
         'export.pallet_manifest',
         'export.plan',
     },
     'warehouse_chief': {
-        'dashboard', 'export.shipments', 'export.kanban',
+        'dashboard', 'export.shipments',
         # Draft workflow: warehouse_chief creates drafts (Finding #2)
         'export.drafts',
         # Pallet manifest oversight (Finding #4)
         'export.pallet_manifest',
     },
     'document_team': {
-        'dashboard', 'export.shipments', 'export.kanban', 'export.quota',
+        'dashboard', 'export.shipments', 'export.quota',
     },
     'transport': {
-        'dashboard', 'export.shipments', 'export.kanban',
+        'dashboard', 'export.shipments',
     },
     'sales_rep': {
-        'dashboard', 'export.shipments', 'export.kanban', 'export.advances',
+        'dashboard', 'export.shipments', 'export.advances',
     },
     'finansist': {
         'dashboard', 'export.shipments', 'export.prices', 'export.advances',

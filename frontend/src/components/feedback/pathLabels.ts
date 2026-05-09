@@ -8,7 +8,6 @@ import type { TFunction } from 'i18next';
 const PATH_TO_I18N_KEY: Record<string, string> = {
   '/export/shipments': 'nav.shipments',
   '/export/shipments/sheet': 'nav.shipment_sheet',
-  '/export/kanban': 'nav.kanban',
   '/export/plan': 'nav.plan',
   '/export/quota': 'nav.quota',
   '/export/prices': 'nav.prices',

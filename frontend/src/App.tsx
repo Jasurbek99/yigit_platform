@@ -24,7 +24,6 @@ const UnauthorizedPage = lazy(() => import('@/pages/auth/UnauthorizedPage'));
 const DashboardPage = lazy(() => import('@/pages/DashboardPage'));
 const ShipmentList = lazy(() => import('@/pages/export/ShipmentList'));
 const ShipmentDetail = lazy(() => import('@/pages/export/ShipmentDetail'));
-const KanbanBoard = lazy(() => import('@/pages/export/KanbanBoard'));
 const WeeklyPlanGrid = lazy(() => import('@/pages/export/WeeklyPlanGrid'));
 const QuotaDashboard = lazy(() => import('@/pages/export/QuotaDashboard'));
 const AddQuotaIssuance = lazy(() => import('@/pages/export/AddQuotaIssuance'));
@@ -181,9 +180,6 @@ export default function App() {
                   } />
                   <Route path="export/shipments/board" element={
                     <ProtectedRoute pageCode="export.shipments"><ShipmentBoard /></ProtectedRoute>
-                  } />
-                  <Route path="export/kanban" element={
-                    <ProtectedRoute pageCode="export.kanban"><KanbanBoard /></ProtectedRoute>
                   } />
                   <Route path="export/plan" element={
                     <ProtectedRoute pageCode="export.plan"><WeeklyPlanGrid /></ProtectedRoute>

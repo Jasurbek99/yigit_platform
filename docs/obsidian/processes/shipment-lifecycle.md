@@ -300,22 +300,17 @@ The shipment lifecycle is displayed across **5 different views**, each optimized
 - Zustand `SheetStore` manages: searchText, showGapyOnly
 - Filters in memory by cargo_code and customer_name
 
-#### 4. KanbanBoard (`frontend/src/pages/export/KanbanBoard.tsx`)
+#### 4. ShipmentBoard (`frontend/src/pages/export/ShipmentBoard.tsx`)
 
-**Purpose**: Visual pipeline of active shipments grouped by phase.
+**Purpose**: Visual pipeline of active shipments grouped by lifecycle phase. Route: `/export/shipments/board`.
 
-**5 Columns** (horizontally scrollable):
-| Column | Phase | Overdue Threshold |
-|--------|-------|-------------------|
-| 1 | LOADING | 2 days |
-| 2 | CUSTOMS | 2 days |
-| 3 | TRANSIT | 5 days |
-| 4 | BORDER | 3 days |
-| 5 | SALES | 10 days |
+**7 Columns** (horizontally scrollable, follow `ShipmentPhase`): PLAN, PREP, DOCS, LOAD, TRANSIT, DEST, CLOSE.
 
-**Card Content**: cargo_code (bold), customer (dimmed), StatusTag, weight, days stuck (red if overdue). Cards have red left border when overdue.
+**Filters**: country, customer, Gapy Satys (any/yes/no), owner role, free-text search.
 
-Each column fetches up to 100 items via `useShipments()` with phase filter.
+**Card Content**: cargo_code, customer, StatusTag, weight, days in phase. Each column footer shows the average time spent in that phase (`phase_avg_seconds` from the API).
+
+Single grouped fetch via `useShipmentBoard(filters)` → `GET /export/shipments/board/`. Reuses `KanbanColumn` + `ShipmentKanbanCard` from `components/kanban/`.
 
 #### 5. ShipmentDashboard (`frontend/src/pages/export/ShipmentDashboard.tsx`)
 

@@ -57,7 +57,7 @@ flowchart LR
 
 | Process | What It Does | Key Pages |
 |---------|-------------|-----------|
-| [[shipment-lifecycle]] | 13-step state machine from Loading to Completed | ShipmentList, ShipmentDetail, KanbanBoard, ShipmentSheet, ShipmentDashboard |
+| [[shipment-lifecycle]] | 13-step state machine from Loading to Completed | ShipmentList, ShipmentDetail, ShipmentBoard, ShipmentSheet, ShipmentDashboard |
 | [[shipment-creation]] | Legacy single-form path — direct creation at step 1 | ShipmentCreateModal |
 | [[draft-shipments]] | Two-phase creation (DRAFT step 0) with multi-block composer | DraftPool, DraftComposerModal |
 | [[assignment-board]] | Match drafts to demand (contracts / quota gaps / waiting) | AssignmentBoard |

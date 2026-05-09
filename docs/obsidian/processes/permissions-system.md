@@ -54,7 +54,7 @@ flowchart LR
 **File**: `backend/apps/core/permission_registry.py`
 
 **PAGE_REGISTRY** (~20 pages):
-- `dashboard`, `export.shipments`, `export.kanban`, `export.overdue`, `export.quota`, `export.plan`, `export.prices`, `export.advances`, `export.trucks`, `export.blocks`, `export.domestic_sales`
+- `dashboard`, `export.shipments`, `export.overdue`, `export.quota`, `export.plan`, `export.prices`, `export.advances`, `export.trucks`, `export.blocks`, `export.domestic_sales`
 - `admin.users`, `admin.seasons`, `admin.firms`, `admin.import_firms`, `admin.permissions`, `admin.blocks`, `admin.truck_destinations`, `admin.customers`, `admin.shipment_settings`
 
 **RESOURCE_REGISTRY** (13 resources):

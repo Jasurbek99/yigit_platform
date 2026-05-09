@@ -260,7 +260,7 @@ class LastAdminGuardTests(TestCase):
         from apps.core.models import RolePagePermission
 
         operational_pages = [
-            'dashboard', 'export.shipments', 'export.kanban', 'export.quota',
+            'dashboard', 'export.shipments', 'export.quota',
             'export.plan', 'export.prices',
         ]
         for role in ('director', 'export_manager'):
