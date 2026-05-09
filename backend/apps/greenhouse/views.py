@@ -27,7 +27,6 @@ from apps.greenhouse.services import (
     set_actual_value,
     set_forecast_value,
     set_plan_value,
-    submit_weekly_plan,
 )
 
 logger = logging.getLogger(__name__)
@@ -104,21 +103,6 @@ class WeeklyHarvestPlanViewSet(ModelViewSet):
         serializer.save(entered_by=self.request.user)
 
     # --- Workflow actions ---
-
-    @action(detail=True, methods=['post'], url_path='submit-week')
-    def submit_week(self, request, pk=None):
-        """POST /api/v1/greenhouse/harvest-plans/{id}/submit-week/
-
-        Formally submit a weekly plan. No approval step — submission is final.
-        Sets submitted_at/submitted_by on the plan and back-fills plan_submitted_at
-        on all linked HarvestDayEntry rows that have a plan_value but no timestamp.
-        """
-        plan = self.get_object()
-        try:
-            submit_weekly_plan(plan, request.user)
-        except (ValueError, PermissionError) as exc:
-            return Response({'error': str(exc)}, status=http_status.HTTP_400_BAD_REQUEST)
-        return Response(self.get_serializer(plan).data)
 
     @action(detail=False, methods=['post'], url_path='initialize-week')
     def initialize_week(self, request):

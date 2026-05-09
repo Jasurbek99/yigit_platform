@@ -18,16 +18,6 @@ class WeeklyHarvestPlan(models.Model):
     week_number = models.PositiveSmallIntegerField(help_text='ISO week number 1–53.')
     year = models.PositiveSmallIntegerField(help_text='ISO year.')
 
-    # === Submission ===
-    submitted_at = models.DateTimeField(
-        null=True, blank=True,
-        help_text='UTC timestamp of first formal submission for this week.',
-    )
-    submitted_by = models.ForeignKey(
-        'core.User', on_delete=models.SET_NULL, null=True, blank=True,
-        db_column='submitted_by', related_name='harvest_plans_submitted',
-    )
-
     # === Lock ===
     locked_at = models.DateTimeField(
         null=True, blank=True,

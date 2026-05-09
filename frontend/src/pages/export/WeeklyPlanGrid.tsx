@@ -30,7 +30,6 @@ import isoWeek from 'dayjs/plugin/isoWeek';
 import weekOfYear from 'dayjs/plugin/weekOfYear';
 import {
   useHarvestPlans,
-  useSubmitHarvestPlan,
   useInitializeWeek,
   useDayEntries,
   useUpsertDayEntry,
@@ -87,7 +86,6 @@ export default function WeeklyPlanGrid() {
     date_to: dateTo,
   });
 
-  const submitPlan = useSubmitHarvestPlan();
   const initWeek = useInitializeWeek();
   const upsertEntry = useUpsertDayEntry();
 
@@ -117,12 +115,6 @@ export default function WeeklyPlanGrid() {
     }
     return map;
   }, [dayEntries]);
-
-  const currentIsoWeek = dayjs().isoWeek();
-  const currentIsoYear = dayjs().isoWeekYear();
-  const isCurrentOrFutureWeek =
-    (year ?? 0) > currentIsoYear ||
-    ((year ?? 0) === currentIsoYear && (weekNumber ?? 0) >= currentIsoWeek);
 
   // Fallback mode button visibility
   const isInFallbackWindow: boolean = useMemo(() => {
@@ -231,13 +223,6 @@ export default function WeeklyPlanGrid() {
     );
   }
 
-  function handleSubmitPlan(planId: number) {
-    submitPlan.mutate(planId, {
-      onSuccess: () => message.success(t('plan.toast_submitted')),
-      onError: () => message.error(t('plan.toast_save_error')),
-    });
-  }
-
   function handleInitializeWeek() {
     if (!activeSeason || !weekNumber || !year) return;
     initWeek.mutate(
@@ -301,37 +286,6 @@ export default function WeeklyPlanGrid() {
       ),
     },
     ...dayColumns,
-    ...(isCurrentOrFutureWeek
-      ? [
-          {
-            title: t('plan.actions'),
-            key: 'actions',
-            fixed: 'right' as const,
-            width: 100,
-            render: (_: unknown, row: IWeeklyHarvestPlan) => {
-              const canSubmit = !row.submitted_at && hasBlockPermission(row.block);
-              if (!canSubmit) {
-                return row.submitted_at ? (
-                  <Tag color="success" style={{ fontSize: 11 }}>
-                    {t('plan.status_submitted')}
-                  </Tag>
-                ) : null;
-              }
-              return (
-                <Button
-                  size="small"
-                  type="primary"
-                  ghost
-                  loading={submitPlan.isPending}
-                  onClick={() => handleSubmitPlan(row.id)}
-                >
-                  {t('plan.submit')}
-                </Button>
-              );
-            },
-          },
-        ]
-      : []),
   ];
 
   // ─── Transposed view (days as rows, blocks as columns) ────────────────────
@@ -426,7 +380,6 @@ export default function WeeklyPlanGrid() {
             </Table.Summary.Cell>
           );
         })}
-        {isCurrentOrFutureWeek && <Table.Summary.Cell index={8} />}
       </Table.Summary.Row>
     );
   }

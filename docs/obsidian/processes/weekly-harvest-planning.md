@@ -62,7 +62,7 @@ The state is implicit, derived from which of `plan_submitted_at` / `forecast_sub
 
 | Table | Schema | Purpose | Key Columns |
 |-------|--------|---------|-------------|
-| `greenhouse.weekly_harvest_plans` | greenhouse | Per-week submission container, one row per `(season, block, week_number, year)` | submitted_at, submitted_by, locked_at, entered_by |
+| `greenhouse.weekly_harvest_plans` | greenhouse | Per-week container, one row per `(season, block, week_number, year)` | locked_at, entered_by |
 | `greenhouse.harvest_day_entries` | export | Daily-grain Plan/Forecast/Actual data, one row per `(weekly_plan, entry_date)` | see below |
 | `greenhouse.block_manager_assignments` | greenhouse | Which user manages which block | user_id, block_id, is_active |
 | `core.greenhouse_config` | core | Singleton (`pk=1`) for tunable deadlines, truck capacity, operating-days bitmask, timezone | see below |
@@ -87,12 +87,11 @@ The state is implicit, derived from which of `plan_submitted_at` / `forecast_sub
 | Field | Type | Notes |
 |-------|------|-------|
 | `season`, `block`, `week_number`, `year` | FK + ints | UNIQUE(season, block, week_number, year) |
-| `submitted_at`, `submitted_by` | DateTime, FK User | When/who hit "Submit weekly plan" |
 | `locked_at` | DateTime nullable | When set, all edits frozen; admin re-opens by clearing to NULL |
 | `entered_by` | FK User | Who created the row |
 | `created_at`, `updated_at` | DateTime | Standard |
 
-The wide columns (`monday_plan_kg`…`saturday_actual_kg`, `actual_weekly_total_kg`) and approval workflow (`status`, `approved_at`, `approved_by`, `rejected_at`, `rejected_by`, `rejection_note`) were dropped in `greenhouse.0004_harvestdayentry_harvestdispatchlog_and_more`. See [[../../ADR|ADR-017]].
+The wide columns (`monday_plan_kg`…`saturday_actual_kg`, `actual_weekly_total_kg`) and approval workflow (`status`, `approved_at`, `approved_by`, `rejected_at`, `rejected_by`, `rejection_note`) were dropped in `greenhouse.0004_harvestdayentry_harvestdispatchlog_and_more`. See [[../../ADR|ADR-017]]. The container-level `submitted_at` / `submitted_by` columns were dropped in `greenhouse.0004_drop_weeklyharvestplan_submitted_fields` (May 2026) — every cell save already stamps its own per-day `plan_submitted_at`, so the week-level "submit" button became redundant. P1/P2/P3 dispatcher triggers now check "any HarvestDayEntry for this week+block has a plan_value" instead of `WeeklyHarvestPlan.submitted_at IS NOT NULL`.
 
 ### `GreenhouseConfig` (singleton)
 
@@ -133,7 +132,6 @@ The wide columns (`monday_plan_kg`…`saturday_actual_kg`, `actual_weekly_total_
 | `admin_override(entry, field, value, reason, user)` | Wraps the appropriate setter; required `reason` non-empty. |
 | `compute_plan_state(submitted_at_local, plan_week_start, config)` | Returns `'on_time'` / `'late'` / `'critical_late'`. Pure function. |
 | `compute_forecast_window(submitted_at_local, entry_date, config)` | Returns `'primary'` / `'fallback'` / `'same_day_red_flag'` / `None` (locked). Pure function. |
-| `submit_weekly_plan(weekly_plan, user)` | Sets `WeeklyHarvestPlan.submitted_at/by`. For each linked HarvestDayEntry with non-null `plan_value` and null `plan_submitted_at`, fills submission fields + computes `plan_state`. |
 
 ### ViewSets & Endpoints
 
@@ -144,7 +142,6 @@ The wide columns (`monday_plan_kg`…`saturday_actual_kg`, `actual_weekly_total_
 | GET | `/api/v1/greenhouse/harvest-plans/` | List weekly containers | IsAuthenticated |
 | GET | `/api/v1/greenhouse/harvest-plans/{id}/` | Container detail | IsAuthenticated |
 | PATCH | `/api/v1/greenhouse/harvest-plans/{id}/` | Update container fields (locked_at) | IsAuthenticated + block auth |
-| POST | `/api/v1/greenhouse/harvest-plans/{id}/submit_week/` | Mark week as submitted | greenhouse_manager (own block) / admin |
 | POST | `/api/v1/greenhouse/harvest-plans/initialize-week/` | Create container rows for all active top-level blocks | greenhouse_manager / admin |
 | GET | `/api/v1/greenhouse/harvest-plans/block-summary/` | Block summary stats | `?year=&week=` |
 | GET | `/api/v1/greenhouse/day-entries/` | List daily entries | filter `?season=&block=&from_date=&to_date=` |
@@ -152,7 +149,7 @@ The wide columns (`monday_plan_kg`…`saturday_actual_kg`, `actual_weekly_total_
 | PATCH | `/api/v1/greenhouse/day-entries/{id}/` | Update plan_value / forecast_value / actual_value (with optional `reason` for admin) | Service-layer permission gate |
 | GET | `/api/v1/greenhouse/day-entries/{id}/history/` | Audit log + override snapshot | IsAuthenticated |
 
-**Approval-workflow endpoints REMOVED**: no more `submit/`, `approve/`, `reject/`, `bulk-submit/`, `bulk-approve/`, `bulk-reject/`. The only "submission" remaining is `submit_week/` which records timestamps without seeking approval.
+**Submission endpoints REMOVED**: no more `submit/`, `approve/`, `reject/`, `bulk-submit/`, `bulk-approve/`, `bulk-reject/`, or `submit_week/`. Per-cell PATCHes through `/day-entries/{id}/` are the only write path; each save stamps its own `plan_submitted_at` / `forecast_submitted_at`. There is no week-level "submit" step.
 
 **Config endpoints**:
 | Method | Endpoint | Auth |

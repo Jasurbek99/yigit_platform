@@ -359,10 +359,10 @@ def _compute_t3(today: date, config) -> List[TriggerEvent]:
 
 
 def _compute_p1(plan_week_start: date, config) -> List[TriggerEvent]:
-    """P1: plan_deadline_reminder — Friday morning, plan not yet submitted for next week.
+    """P1: plan_deadline_reminder — Friday morning, plan not yet entered for next week.
 
     Targets greenhouse_manager users who have active block assignments but have
-    not submitted (WeeklyHarvestPlan.submitted_at IS NULL) for plan_week_start.
+    NOT entered any plan_value into HarvestDayEntry for any day of plan_week_start.
     """
     return _compute_plan_trigger(
         trigger_kind='p1_plan_reminder',
@@ -407,6 +407,10 @@ def _compute_plan_trigger(
 ) -> List[TriggerEvent]:
     """Shared logic for P1/P2/P3 — find managers with missing plans and build events.
 
+    "Missing" = no HarvestDayEntry row for this block within the plan week has a
+    non-null plan_value. Per-cell save is the only submission path; if at least
+    one cell has been entered, we consider the plan started and stop nudging.
+
     Args:
         trigger_kind: HarvestDispatchLog trigger kind string.
         notification_kind: Notification.kind string.
@@ -414,28 +418,31 @@ def _compute_plan_trigger(
         message_prefix: Human-readable prefix for the notification message.
         include_admin: Whether to also notify admin users (P3 escalation).
     """
+    from datetime import timedelta
+
     from django.db.models import Exists, OuterRef
 
     from apps.core.models import User
-    from apps.greenhouse.models import BlockManagerAssignment, WeeklyHarvestPlan
+    from apps.greenhouse.models import BlockManagerAssignment, HarvestDayEntry
 
     iso_year, iso_week, _ = plan_week_start.isocalendar()
+    plan_week_end = plan_week_start + timedelta(days=6)
 
-    # Managers with active block assignments where the plan is not yet submitted
+    # Managers with active block assignments where the plan has no entered cells
     missing_qs = (
         BlockManagerAssignment.objects
         .filter(is_active=True)
         .annotate(
-            has_submitted=Exists(
-                WeeklyHarvestPlan.objects.filter(
+            has_entered=Exists(
+                HarvestDayEntry.objects.filter(
                     block=OuterRef('block'),
-                    week_number=iso_week,
-                    year=iso_year,
-                    submitted_at__isnull=False,
+                    entry_date__gte=plan_week_start,
+                    entry_date__lte=plan_week_end,
+                    plan_value__isnull=False,
                 )
             ),
         )
-        .filter(has_submitted=False)
+        .filter(has_entered=False)
         .select_related('user', 'block')
     )
 

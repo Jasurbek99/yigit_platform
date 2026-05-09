@@ -8,21 +8,18 @@ class WeeklyHarvestPlanSerializer(serializers.ModelSerializer):
     block_name = serializers.CharField(source='block.name', read_only=True)
     season_name = serializers.CharField(source='season.name', read_only=True)
     entered_by_name = serializers.CharField(source='entered_by.username', read_only=True)
-    submitted_by_name = serializers.CharField(source='submitted_by.username', read_only=True, default=None)
 
     class Meta:
         model = WeeklyHarvestPlan
         fields = [
             'id', 'season', 'season_name', 'block', 'block_code', 'block_name',
             'week_number', 'year',
-            'submitted_at', 'submitted_by', 'submitted_by_name',
             'locked_at',
             'entered_by_name', 'created_at', 'updated_at',
         ]
         read_only_fields = [
             'block_code', 'block_name', 'season_name',
-            'entered_by_name', 'submitted_by_name',
-            'submitted_at', 'submitted_by',
+            'entered_by_name',
             'locked_at', 'created_at', 'updated_at',
         ]
 

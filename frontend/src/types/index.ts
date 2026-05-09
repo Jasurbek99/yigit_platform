@@ -655,8 +655,6 @@ export interface IWeeklyHarvestPlan {
   block_name: string;
   week_number: number;
   year: number;
-  submitted_at: string | null;
-  submitted_by_name: string | null;
   locked_at: string | null;
   entered_by_name: string | null;
   updated_at: string;

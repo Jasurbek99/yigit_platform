@@ -1,12 +1,10 @@
 """Greenhouse services package.
 
-Re-exports the public API used by views and management commands. The legacy
-plan_workflow approval helpers (approve_harvest_plan / reject_harvest_plan /
-submit_harvest_plan) were removed in the Forecast Layer feature — use
-submit_weekly_plan + the day-entry setters instead.
+Re-exports the public API used by views and management commands. Plan/forecast/
+actual writes go through the day-entry setters; there is no separate week-level
+submission step — every cell save stamps its own timestamp.
 """
 from apps.greenhouse.services.legacy import get_block_summary, initialize_harvest_week
-from apps.greenhouse.services.submit_plan import submit_weekly_plan
 from apps.greenhouse.services.harvest_day_service import (
     admin_override,
     compute_forecast_window,
@@ -24,7 +22,6 @@ from apps.greenhouse.services.actual_rollup import (
 __all__ = [
     'initialize_harvest_week',
     'get_block_summary',
-    'submit_weekly_plan',
     'set_plan_value',
     'set_forecast_value',
     'set_actual_value',
