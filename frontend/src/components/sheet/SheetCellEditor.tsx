@@ -30,6 +30,9 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
   const { setEditingCell } = useSheetStore();
   const patchMutation = useShipmentPatch();
   const containerRef = useRef<HTMLDivElement>(null);
+  // Multi-select cells (firm_splits, block_sources) defer saving until the
+  // dropdown closes — saving on each pick would unmount the editor mid-edit.
+  const pendingMultiRef = useRef<number[] | null>(null);
 
   // Reference data hooks
   const { data: countries } = useCountries();
@@ -287,6 +290,10 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
               }).filter((id): id is number => id != null)
             : [];
 
+        if (pendingMultiRef.current === null) {
+          pendingMultiRef.current = currentIds;
+        }
+
         return (
           <Select
             size="small"
@@ -294,16 +301,30 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
             defaultValue={currentIds}
             options={options}
             onChange={(selectedIds: number[]) => {
+              pendingMultiRef.current = selectedIds;
+            }}
+            onOpenChange={(open) => {
+              if (open) return;
+              const next = pendingMultiRef.current ?? currentIds;
+              const nextSet = new Set(next);
+              const unchanged =
+                next.length === currentIds.length &&
+                currentIds.every((id) => nextSet.has(id));
+              if (unchanged) {
+                close();
+                return;
+              }
               // Send IDs only — backend auto-fills weight_kg.
               // R8 blocks → splits real shipment.weight_net evenly across N blocks.
               // R9 firms  → uses TruckSplitDefault[N] (official kg per firm).
               if (isBlocks) {
-                saveJunction('block-sources', selectedIds.map((id) => ({ block_id: id })), 'blocks');
+                saveJunction('block-sources', next.map((id) => ({ block_id: id })), 'blocks');
               } else if (isFirms) {
-                saveJunction('firm-splits', selectedIds.map((id) => ({ export_firm_id: id })), 'firms');
+                saveJunction('firm-splits', next.map((id) => ({ export_firm_id: id })), 'firms');
+              } else {
+                close();
               }
             }}
-            onOpenChange={(open) => { if (!open) close(); }}
             style={{ width: '100%' }}
             showSearch
             filterOption={(input, option) =>
