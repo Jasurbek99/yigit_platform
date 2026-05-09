@@ -216,7 +216,13 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
 
     # Customer
     customer_name = serializers.CharField(source='customer.name', read_only=True, default=None)
-    import_firm_name = serializers.CharField(source='import_firm.name_en', read_only=True, default=None)
+    import_firm_name = serializers.SerializerMethodField()
+
+    def get_import_firm_name(self, obj) -> str | None:
+        firm = obj.import_firm
+        if not firm:
+            return None
+        return firm.name_short or firm.name_company
 
     # Product — variety.code is the official registry code (01-10, E1-E3)
     variety_name = serializers.CharField(source='variety.name', read_only=True, default=None)
