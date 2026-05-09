@@ -5,7 +5,6 @@ import {
   Button,
   Card,
   Checkbox,
-  Collapse,
   Flex,
   Grid,
   Modal,
@@ -27,6 +26,7 @@ import { useShipmentDetail } from '@/hooks/useShipmentDetail';
 import { useOverrideVarieties } from '@/hooks/usePallets';
 import { useAuth } from '@/hooks/useAuth';
 import { canDo } from '@/utils/permissions';
+import { isSupervisor } from '@/utils/detailSections';
 import { EDIT_FIELD_GROUPS, type IEditFieldGroup } from '@/constants/shipmentEditConfig';
 import api from '@/services/api';
 import type { TableColumnsType } from 'antd';
@@ -39,45 +39,8 @@ import { fmt, fmtDate, fmtNum, InfoRow, SectionBlock, SalesReportForm } from './
 
 const { Text, Title } = Typography;
 
-// ─── Section keys (collapsed-panel ids) ────────────────────────────────────
-// One entry per visible Collapse panel. The order here drives display order.
-type SectionKey = 'logistics' | 'transport' | 'goods' | 'documents' | 'finance';
-
-const ALL_SECTIONS: SectionKey[] = ['logistics', 'transport', 'goods', 'documents', 'finance'];
-
-// Map each EDIT_FIELD_GROUPS group to its collapse panel.
-// `status` and `notes` groups are folded into `documents` and `finance` panels.
-function fieldGroupsForSection(section: SectionKey): IEditFieldGroup[] {
-  const byKey = (key: IEditFieldGroup['key']) =>
-    EDIT_FIELD_GROUPS.find((g) => g.key === key);
-  switch (section) {
-    case 'logistics':  return [byKey('logistics')!];
-    case 'transport':  return [byKey('transport')!];
-    case 'goods':      return [byKey('goods')!];
-    case 'documents':  return [byKey('status')!];
-    case 'finance':    return [byKey('finance')!, byKey('notes')!];
-  }
-}
-
-/**
- * Walk EDIT_FIELD_GROUPS and find which collapse section a given field_key
- * belongs to. Used by OtherTasksRow's click handler to expand the right
- * section before scrolling.
- */
-function sectionForFieldKey(fieldKey: string): SectionKey | null {
-  // Strip dotted-path prefix (quality.azyk_maglumatnama → quality)
-  const top = fieldKey.split('.', 1)[0];
-  // Junction-table fields don't live in EDIT_FIELD_GROUPS; route them by name.
-  if (top === 'firm_splits') return 'logistics';
-  if (top === 'block_sources') return 'goods';
-  if (top === 'quality') return 'documents';
-  for (const section of ALL_SECTIONS) {
-    for (const group of fieldGroupsForSection(section)) {
-      if (group.fields.some((f) => f.key === top)) return section;
-    }
-  }
-  return null;
-}
+const groupByKey = (key: IEditFieldGroup['key']): IEditFieldGroup =>
+  EDIT_FIELD_GROUPS.find((g) => g.key === key)!;
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 
@@ -93,10 +56,6 @@ export default function ShipmentDetail() {
   const [overrideIds, setOverrideIds] = useState<number[]>([]);
   const overrideMutation = useOverrideVarieties(Number(id));
 
-  // Stream G fix #1: all 5 sections expanded by default. Users can still
-  // collapse manually; this just sets the initial state.
-  const [activeKeys, setActiveKeys] = useState<string[]>([...ALL_SECTIONS]);
-
   // Imperative scroll-to handle for OtherTasksRow → field navigation.
   const detailRootRef = useRef<HTMLDivElement>(null);
 
@@ -109,30 +68,20 @@ export default function ShipmentDetail() {
     },
   });
 
-  // Stream G fix #4 — task-row click handler. Expands the relevant section,
-  // scrolls to the first target field, focuses its input. Wrapped in
-  // useCallback so OtherTasksRow's memoized rows don't churn.
+  // Task-row click handler. All fields are always visible now, so this is just
+  // a scroll + focus. Wrapped in useCallback so OtherTasksRow's memoized rows
+  // don't churn.
   const handleTaskClick = useCallback((task: ITaskListItem) => {
     const targets = task.target_fields_list ?? [];
     if (targets.length === 0) return;
     const firstField = targets[0];
-    const section = sectionForFieldKey(firstField);
-    if (!section) return;
-
-    setActiveKeys((prev) => (prev.includes(section) ? prev : [...prev, section]));
-
-    // Wait one tick for the Collapse panel to expand, then scroll + focus.
-    setTimeout(() => {
-      const el = detailRootRef.current?.querySelector<HTMLElement>(
-        `#detail-field-${CSS.escape(firstField)}`,
-      );
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        const input = el.querySelector<HTMLElement>('input, textarea, .ant-select-selector');
-        // Add a beat for the smooth-scroll animation before focusing.
-        setTimeout(() => input?.focus(), 350);
-      }
-    }, 200);
+    const el = detailRootRef.current?.querySelector<HTMLElement>(
+      `#detail-field-${CSS.escape(firstField)}`,
+    );
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const input = el.querySelector<HTMLElement>('input, textarea, .ant-select-selector');
+    setTimeout(() => input?.focus(), 350);
   }, []);
 
   if (isLoading) {
@@ -210,154 +159,148 @@ export default function ShipmentDetail() {
     </div>
   );
 
-  const collapseItems = [
-    {
-      key: 'logistics',
-      label: `📋 ${t('shipment_detail.section_logistics')}`,
-      children: (
-        <div>
-          {fieldGroupsForSection('logistics').map(renderEditableGroup)}
-          {/* Junction-table read-only summary — firm splits live in the Maliýe
-              section as a full table; here we just show a one-line overview. */}
-          <InfoRow label={t('shipment_detail.firm_splits')} value={firmDisplay} />
-          <InfoRow label={t('shipment_detail.customer')} value={shipment.customer_name ?? '—'} />
-        </div>
-      ),
-    },
-    {
-      key: 'transport',
-      label: `🚛 ${t('shipment_detail.section_transport')}`,
-      children: (
-        <div>
-          {fieldGroupsForSection('transport').map(renderEditableGroup)}
-        </div>
-      ),
-    },
-    {
-      key: 'goods',
-      label: `🌿 ${t('shipment_detail.section_goods')}`,
-      children: (
-        <div>
-          <InfoRow label={t('shipment_detail.block_sources')} value={blockDisplay} />
+  // ── Section panel renderers ────────────────────────────────────────────────
+  // Each section is a Card with a SectionBlock header + the relevant fields,
+  // always visible. No accordion — operators see everything in one scroll.
+  // Logistics + Transport pair on the top row, Goods + Documents on the next,
+  // Finance spans full width because of the firm-splits table and sales report.
 
-          {/* Variety sub-section (R17) */}
-          <div style={{ padding: '8px 0', borderBottom: '1px solid #f0f0f0', marginBottom: 6 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
-              <div style={{ fontWeight: 600, fontSize: 13 }}>
-                {t('variety.section_title')}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                {shipment.variety_confidence === 'high' && (
-                  <Tag color="success">✓ {t('pallet.confidence_high')}</Tag>
-                )}
-                {shipment.variety_confidence === 'low' && (
-                  <Tag color="warning">⚠ {t('pallet.confidence_low')}</Tag>
-                )}
-                {shipment.variety_confidence === 'none' && (
-                  <Tag color="default">{t('pallet.confidence_none')}</Tag>
-                )}
-                {canOverrideVariety && (
-                  <Button
-                    size="small"
-                    onClick={() => {
-                      setOverrideIds(shipment.varieties_dominant.map((v) => v.id));
-                      setOverrideOpen(true);
-                    }}
-                  >
-                    {t('variety.override_btn')}
-                  </Button>
-                )}
-              </div>
-            </div>
-            {shipment.varieties_dominant.length === 0 ? (
-              <span style={{ fontSize: 12, color: '#8c8c8c' }}>{t('variety.empty_state')}</span>
-            ) : (
-              <Flex gap={4} wrap="wrap">
-                {shipment.varieties_dominant.map((v) => (
-                  <Tag
-                    key={v.id}
-                    color={v.is_experimental ? 'orange' : undefined}
-                    style={{ margin: 0 }}
-                  >
-                    {v.code ? `${v.code} · ` : ''}{v.name}
-                    {v.is_experimental && <span style={{ marginLeft: 4, fontSize: 10 }}>(exp)</span>}
-                  </Tag>
-                ))}
-              </Flex>
-            )}
-          </div>
+  const logisticsPanel = (
+    <Card size="small" styles={{ body: { padding: 16 } }}>
+      <SectionBlock title={`📋 ${t('shipment_detail.section_logistics')}`}>
+        {renderEditableGroup(groupByKey('logistics'))}
+        <InfoRow label={t('shipment_detail.firm_splits')} value={firmDisplay} />
+        <InfoRow label={t('shipment_detail.customer')} value={shipment.customer_name ?? '—'} />
+      </SectionBlock>
+    </Card>
+  );
 
-          {/* Editable goods fields (variety, weight_net, weight_gross, packaging, pallets, boxes…) */}
-          {fieldGroupsForSection('goods').map(renderEditableGroup)}
+  const transportPanel = (
+    <Card size="small" styles={{ body: { padding: 16 } }}>
+      <SectionBlock title={`🚛 ${t('shipment_detail.section_transport')}`}>
+        {renderEditableGroup(groupByKey('transport'))}
+      </SectionBlock>
+    </Card>
+  );
 
-          <InfoRow label={t('shipment_detail.harvest_date')} value={fmtDate(shipment.date)} />
-        </div>
-      ),
-    },
-    {
-      key: 'documents',
-      label: `📄 ${t('shipment_detail.tab_document')}`,
-      children: (
-        <div>
-          <SectionBlock title={t('shipment_detail.section_certs')}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {qualityFields.map((field) => (
-                <Checkbox
-                  key={field}
-                  id={`detail-field-quality.${field}`}
-                  checked={q[field]}
-                  disabled={!canEditQuality || qualityMutation.isPending}
-                  onChange={(e) => qualityMutation.mutate({ field, checked: e.target.checked })}
+  const goodsPanel = (
+    <Card size="small" styles={{ body: { padding: 16 } }}>
+      <SectionBlock title={`🌿 ${t('shipment_detail.section_goods')}`}>
+        <InfoRow label={t('shipment_detail.block_sources')} value={blockDisplay} />
+
+        {/* Variety sub-section */}
+        <div style={{ padding: '8px 0', borderBottom: '1px solid #f0f0f0', marginBottom: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+            <div style={{ fontWeight: 600, fontSize: 13 }}>{t('variety.section_title')}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {shipment.variety_confidence === 'high' && (
+                <Tag color="success">✓ {t('pallet.confidence_high')}</Tag>
+              )}
+              {shipment.variety_confidence === 'low' && (
+                <Tag color="warning">⚠ {t('pallet.confidence_low')}</Tag>
+              )}
+              {shipment.variety_confidence === 'none' && (
+                <Tag color="default">{t('pallet.confidence_none')}</Tag>
+              )}
+              {canOverrideVariety && (
+                <Button
+                  size="small"
+                  onClick={() => {
+                    setOverrideIds(shipment.varieties_dominant.map((v) => v.id));
+                    setOverrideOpen(true);
+                  }}
                 >
-                  {t(`quality.${field}`)}
-                </Checkbox>
+                  {t('variety.override_btn')}
+                </Button>
+              )}
+            </div>
+          </div>
+          {shipment.varieties_dominant.length === 0 ? (
+            <span style={{ fontSize: 12, color: '#8c8c8c' }}>{t('variety.empty_state')}</span>
+          ) : (
+            <Flex gap={4} wrap="wrap">
+              {shipment.varieties_dominant.map((v) => (
+                <Tag key={v.id} color={v.is_experimental ? 'orange' : undefined} style={{ margin: 0 }}>
+                  {v.code ? `${v.code} · ` : ''}{v.name}
+                  {v.is_experimental && <span style={{ marginLeft: 4, fontSize: 10 }}>(exp)</span>}
+                </Tag>
               ))}
-            </div>
-          </SectionBlock>
-
-          {/* documents_status, harvest_status, customs_clearance_planned_day */}
-          <SectionBlock title={t('shipment_detail.section_status_fields')}>
-            {fieldGroupsForSection('documents').map(renderEditableGroup)}
-          </SectionBlock>
-
-          <SectionBlock title={t('shipment_detail.section_timestamps')}>
-            <InfoRow label={t('shipment_detail.loading_started')} value={fmt(shipment.loading_started_at)} />
-            <InfoRow label={t('shipment_detail.customs_entry')} value={fmt(shipment.customs_entry_at)} />
-            <InfoRow label={t('shipment_detail.customs_exit')} value={fmt(shipment.customs_exit_at)} />
-            <InfoRow label={t('shipment_detail.border_crossed')} value={fmt(shipment.border_crossed_at)} />
-            <InfoRow label={t('shipment_detail.arrived')} value={fmt(shipment.arrived_at)} />
-            <InfoRow label={t('shipment_detail.sale_started')} value={fmt(shipment.sale_started_at)} />
-            <InfoRow label={t('shipment_detail.sale_ended')} value={fmt(shipment.sale_ended_at)} />
-          </SectionBlock>
-        </div>
-      ),
-    },
-    {
-      key: 'finance',
-      label: `💰 ${t('shipment_detail.tab_finance')}`,
-      children: (
-        <div>
-          <SectionBlock title={t('shipment_detail.section_weight_price')}>
-            {/* price_per_kg, total_amount_usd, is_gapy_satys, notes — editable */}
-            {fieldGroupsForSection('finance').map(renderEditableGroup)}
-          </SectionBlock>
-
-          {shipment.firm_splits.length > 0 && (
-            <div style={{ marginBottom: 24 }}>
-              <Title level={5} style={{ marginBottom: 8 }}>{t('shipment_detail.firm_splits')}</Title>
-              <Table<IFirmSplit>
-                dataSource={shipment.firm_splits}
-                columns={firmSplitColumns}
-                rowKey="export_firm_id"
-                size="small"
-                pagination={false}
-                scroll={{ x: 'max-content' }}
-              />
-            </div>
+            </Flex>
           )}
+        </div>
 
+        {renderEditableGroup(groupByKey('goods'))}
+        <InfoRow label={t('shipment_detail.harvest_date')} value={fmtDate(shipment.date)} />
+      </SectionBlock>
+    </Card>
+  );
+
+  const documentsPanel = (
+    <Card size="small" styles={{ body: { padding: 16 } }}>
+      <SectionBlock title={`📄 ${t('shipment_detail.tab_document')}`}>
+        {/* Quality certificates */}
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>
+            {t('shipment_detail.section_certs')}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {qualityFields.map((field) => (
+              <Checkbox
+                key={field}
+                id={`detail-field-quality.${field}`}
+                checked={q[field]}
+                disabled={!canEditQuality || qualityMutation.isPending}
+                onChange={(e) => qualityMutation.mutate({ field, checked: e.target.checked })}
+              >
+                {t(`quality.${field}`)}
+              </Checkbox>
+            ))}
+          </div>
+        </div>
+
+        {/* Status fields: documents_status, harvest_status, customs_clearance_planned_day */}
+        {renderEditableGroup(groupByKey('status'))}
+
+        {/* Timestamps (read-only — written by transition_to per AD-1) */}
+        <div style={{ marginTop: 12 }}>
+          <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>
+            {t('shipment_detail.section_timestamps')}
+          </div>
+          <InfoRow label={t('shipment_detail.loading_started')} value={fmt(shipment.loading_started_at)} />
+          <InfoRow label={t('shipment_detail.customs_entry')} value={fmt(shipment.customs_entry_at)} />
+          <InfoRow label={t('shipment_detail.customs_exit')} value={fmt(shipment.customs_exit_at)} />
+          <InfoRow label={t('shipment_detail.border_crossed')} value={fmt(shipment.border_crossed_at)} />
+          <InfoRow label={t('shipment_detail.arrived')} value={fmt(shipment.arrived_at)} />
+          <InfoRow label={t('shipment_detail.sale_started')} value={fmt(shipment.sale_started_at)} />
+          <InfoRow label={t('shipment_detail.sale_ended')} value={fmt(shipment.sale_ended_at)} />
+        </div>
+      </SectionBlock>
+    </Card>
+  );
+
+  const financePanel = (
+    <Card size="small" styles={{ body: { padding: 16 } }}>
+      <SectionBlock title={`💰 ${t('shipment_detail.tab_finance')}`}>
+        {renderEditableGroup(groupByKey('finance'))}
+        {renderEditableGroup(groupByKey('notes'))}
+
+        {shipment.firm_splits.length > 0 && (
+          <div style={{ marginTop: 16 }}>
+            <Title level={5} style={{ marginBottom: 8 }}>{t('shipment_detail.firm_splits')}</Title>
+            <Table<IFirmSplit>
+              dataSource={shipment.firm_splits}
+              columns={firmSplitColumns}
+              rowKey="export_firm_id"
+              size="small"
+              pagination={false}
+              scroll={{ x: 'max-content' }}
+            />
+          </div>
+        )}
+
+        <div style={{ marginTop: 16 }}>
           {isReportAvailable ? (
-            <div>
+            <>
               {!shipment.sales_report && (
                 <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
                   {t('sales_report.empty')}
@@ -370,23 +313,34 @@ export default function ShipmentDetail() {
                   canEdit={canEditSalesReport}
                 />
               )}
-            </div>
+            </>
           ) : (
             <Text type="secondary" style={{ display: 'block', padding: '8px 0' }}>
               {t('sales_report.only_at_hasabat')}
             </Text>
           )}
         </div>
-      ),
-    },
-  ];
+      </SectionBlock>
+    </Card>
+  );
 
   // ── Render ─────────────────────────────────────────────────────────────────
+
+  const showSupervisorHint = isSupervisor(user) && shipment.my_task == null;
 
   return (
     <div ref={detailRootRef}>
       {/* Hero bar */}
       <ShipmentDetailHero shipment={shipment} />
+
+      {/* Supervisor view hint — Stream I Case 4. Quiet single-line text, not a
+          banner. Only shown to supervisors when they have no personal task on
+          this shipment (otherwise the personal task takes priority). */}
+      {showSupervisorHint && (
+        <div style={{ marginBottom: 12, paddingLeft: 44, fontSize: 12, color: '#8c8c8c', fontStyle: 'italic' }}>
+          {t('shipment.detail.supervisor_view')}
+        </div>
+      )}
 
       {/* 2-column grid: main column left, timeline rail right on ≥md */}
       <div
@@ -405,21 +359,30 @@ export default function ShipmentDetail() {
           {/* Phase context strip */}
           <PhaseContextStrip shipment={shipment} />
 
-          {/* Other roles' tasks — clickable rows that expand the relevant
-              section and focus the first target field. */}
+          {/* Other roles' tasks — clickable rows scroll the main column to
+              the task's first target field and focus it. */}
           <OtherTasksRow tasks={shipment.other_tasks} onTaskClick={handleTaskClick} />
 
-          {/* Editable + readonly collapsibles for shipment fields. Stream G:
-              all five sections start expanded so users see fields immediately. */}
-          <Card style={{ marginBottom: 16 }}>
-            <Collapse
-              ghost
-              items={collapseItems}
-              activeKey={activeKeys}
-              onChange={(keys) => setActiveKeys(Array.isArray(keys) ? keys : [keys])}
-              style={{ padding: 0 }}
-            />
-          </Card>
+          {/* Flat field grid: 2 columns on ≥md (Logistics + Transport,
+              Goods + Documents), single column on mobile. Finance spans
+              full width below — it carries the firm-splits table and
+              sales-report form. No accordion, no toggling: every field is
+              visible in one scroll. */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: screens.md ? '1fr 1fr' : '1fr',
+              gap: 16,
+              marginBottom: 16,
+            }}
+          >
+            {logisticsPanel}
+            {transportPanel}
+            {goodsPanel}
+            {documentsPanel}
+          </div>
+
+          <div style={{ marginBottom: 16 }}>{financePanel}</div>
 
           {/* Link to activity log */}
           <Flex justify="flex-end" style={{ marginBottom: 8 }}>

@@ -173,7 +173,9 @@
     "fallback_already_submitted": "Already submitted by {{name}}",
     "audit_action": "Action",
     "audit_field": "Field",
-    "audit_old_to_new": "{{old}} → {{new}}"
+    "audit_old_to_new": "{{old}} → {{new}}",
+    "source_shipment_rollup": "Auto-computed from shipment loading data",
+    "source_admin_override": "Admin override of the daily rollup value"
   },
   "quota_dashboard": {
     "title": "Quota Dashboard",

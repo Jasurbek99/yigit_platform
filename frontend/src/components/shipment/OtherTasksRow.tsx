@@ -11,13 +11,12 @@ import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { useAuth } from '@/hooks/useAuth';
 import { useStartTask, useUnblockTask } from '@/hooks/useTaskActions';
+import { SUPERVISOR_ROLES } from '@/utils/detailSections';
 import type { ITaskListItem, TaskState } from '@/types';
 
 dayjs.extend(relativeTime);
 
 const { Text } = Typography;
-
-const SUPERVISOR_ROLES = new Set(['export_manager', 'boss', 'admin', 'director']);
 
 const STATE_ICON: Record<TaskState, React.ReactNode> = {
   open: <ClockCircleOutlined style={{ color: '#8c8c8c' }} />,

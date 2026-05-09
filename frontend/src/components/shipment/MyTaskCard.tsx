@@ -6,13 +6,10 @@ import dayjs from 'dayjs';
 import { TaskCardEditor, isFieldFilled } from '@/components/shipment/TaskCardEditor';
 import { useStartTask, useCompleteTask } from '@/hooks/useTaskActions';
 import { useAuth } from '@/hooks/useAuth';
+import { SUPERVISOR_ROLES } from '@/utils/detailSections';
 import type { IShipmentDetail } from '@/types';
 
 const { Text, Title } = Typography;
-
-// Roles that oversee but don't have personal tasks. They see no banner when
-// my_task is null — the OtherTasksRow list is the right surface for them.
-const SUPERVISOR_ROLES = new Set(['export_manager', 'boss', 'admin', 'director']);
 
 interface IMyTaskCardProps {
   shipment: IShipmentDetail;
@@ -56,7 +53,7 @@ export function MyTaskCard({ shipment }: IMyTaskCardProps) {
       return (
         <Card style={{ marginBottom: 16 }} styles={{ body: { padding: '12px 16px' } }}>
           <Text type="secondary" style={{ fontSize: 13 }}>
-            {t('shipment.detail.others_working', { count: otherActive })}
+            {t('shipment.detail.not_your_turn', { count: otherActive })}
           </Text>
         </Card>
       );

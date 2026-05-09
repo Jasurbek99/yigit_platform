@@ -14,6 +14,7 @@ type InputNumberRef = ComponentRef<typeof InputNumber>;
 type DisplayMode =
   | 'past_actual'
   | 'today_actual'
+  | 'today_forecast_input'
   | 'tomorrow_forecast_input'
   | 'tomorrow_forecast_locked'
   | 'future_plan';
@@ -108,12 +109,22 @@ function computeDisplayMode(
   today: dayjs.Dayjs,
   now: dayjs.Dayjs,
   config: IGreenhouseConfig | undefined,
+  canEditForecast: boolean,
+  canEditActual: boolean,
 ): DisplayMode {
   const entryDate = dayjs(entry.entry_date);
 
   if (entryDate.isBefore(today, 'day')) return 'past_actual';
 
-  if (entryDate.isSame(today, 'day')) return 'today_actual';
+  if (entryDate.isSame(today, 'day')) {
+    // loading_dept_head edits forecast on today's cell (until 12:00 local).
+    // Admin keeps the actual-edit surface — they primarily override the
+    // computed actual_value, not the forecast. Distinguish by canEditActual.
+    if (canEditForecast && !canEditActual && entry.actual_value == null) {
+      return 'today_forecast_input';
+    }
+    return 'today_actual';
+  }
 
   if (entryDate.isSame(today.add(1, 'day'), 'day')) {
     if (entry.forecast_submitted_at) return 'tomorrow_forecast_locked';
@@ -149,6 +160,34 @@ function ValueOrEmpty({ valueStr, submittedAt, color }: IEmptyProps) {
     );
   }
   return <span style={{ color: color ?? 'inherit' }}>{Number(valueStr).toLocaleString()}</span>;
+}
+
+function ActualSourceBadge({ source }: { source: IHarvestDayEntry['actual_source'] }) {
+  const { t } = useTranslation();
+  if (source !== 'admin_override' && source !== 'shipment_rollup') return null;
+  const cfg =
+    source === 'admin_override'
+      ? { color: '#fa541c', bg: '#fff2e8', label: t('plan.source_admin_override') }
+      : { color: '#8c8c8c', bg: '#f5f5f5', label: t('plan.source_shipment_rollup') };
+  return (
+    <Tooltip title={cfg.label}>
+      <span
+        style={{
+          marginLeft: 4,
+          fontSize: 9,
+          color: cfg.color,
+          background: cfg.bg,
+          borderRadius: 3,
+          padding: '0 4px',
+          verticalAlign: 'middle',
+          textTransform: 'uppercase',
+          letterSpacing: 0.3,
+        }}
+      >
+        {source === 'admin_override' ? 'OR' : 'AUTO'}
+      </span>
+    </Tooltip>
+  );
 }
 
 function PlanStateDot({ state }: { state: IHarvestDayEntry['plan_state'] }) {
@@ -219,7 +258,7 @@ export function HarvestCell({
     if (editingActual) actualInputRef.current?.focus({ cursor: 'all' });
   }, [editingActual]);
 
-  const mode = computeDisplayMode(entry, today, now, config);
+  const mode = computeDisplayMode(entry, today, now, config, canEditForecast, canEditActual);
   const isSaving = savingKey === String(entry.id);
 
   // ── Admin override gate ────────────────────────────────────────────────────
@@ -392,6 +431,7 @@ export function HarvestCell({
           submittedAt={entry.actual_finalized_at}
           color="#52c41a"
         />
+        <ActualSourceBadge source={entry.actual_source} />
         {(entry.plan_value || isAdmin) && (
           <div
             onClick={isAdmin ? (e) => { e.stopPropagation(); setEditingPlan(true); } : undefined}
@@ -486,6 +526,7 @@ export function HarvestCell({
           submittedAt={entry.actual_finalized_at}
           color="#52c41a"
         />
+        <ActualSourceBadge source={entry.actual_source} />
         {entry.forecast_value && (
           <div style={{ fontSize: 10, color: '#faad14', marginTop: 2 }}>
             {t('plan.forecast')}: {Number(entry.forecast_value).toLocaleString()}
@@ -495,8 +536,10 @@ export function HarvestCell({
     );
   }
 
-  // ── tomorrow_forecast_input ────────────────────────────────────────────────
-  if (mode === 'tomorrow_forecast_input') {
+  // ── tomorrow_forecast_input / today_forecast_input ─────────────────────────
+  // Both render an editable forecast cell (yellow background) with a plan hint.
+  // today_forecast_input is loading_dept_head's day-of slot before 12:00 local.
+  if (mode === 'tomorrow_forecast_input' || mode === 'today_forecast_input') {
     const planNum = entry.plan_value != null ? Number(entry.plan_value) : undefined;
     if (canEditForecast && editingForecast) {
       return (

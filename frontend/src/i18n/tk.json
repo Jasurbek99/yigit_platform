@@ -173,7 +173,9 @@
     "fallback_already_submitted": "{{name}} tarapyndan iberildi",
     "audit_action": "Hereket",
     "audit_field": "Meýdan",
-    "audit_old_to_new": "{{old}} → {{new}}"
+    "audit_old_to_new": "{{old}} → {{new}}",
+    "source_shipment_rollup": "Ýüklenme maglumatlaryndan awtomatiki hasaplanan",
+    "source_admin_override": "Gündelik hasaplamanyň üstünden adminiň düzedişi"
   },
   "quota_dashboard": {
     "title": "Kwota paneli",

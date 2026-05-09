@@ -175,7 +175,9 @@
     "fallback_already_submitted": "Уже подано {{name}}",
     "audit_action": "Действие",
     "audit_field": "Поле",
-    "audit_old_to_new": "{{old}} → {{new}}"
+    "audit_old_to_new": "{{old}} → {{new}}",
+    "source_shipment_rollup": "Автоматически рассчитано по данным погрузки",
+    "source_admin_override": "Корректировка администратором поверх ежедневного расчёта"
   },
   "quota_dashboard": {
     "title": "Дашборд квот",

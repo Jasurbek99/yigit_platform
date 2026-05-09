@@ -133,7 +133,11 @@ export default function WeeklyPlanGrid() {
     return win === 'fallback';
   }, [config]);
 
-  const canSeeFallbackMode = user?.role === 'warehouse_chief' || user?.role === 'admin';
+  // loading_dept_head replaced warehouse_chief on this surface in May 2026.
+  // Admin keeps access for ops support. The fallback-mode UI itself is now
+  // a subset of loading_dept_head's broader window and may be retired later.
+  const canSeeFallbackMode =
+    user?.role === 'loading_dept_head' || user?.role === 'admin';
 
   // ─── KPI totals from day entries ───────────────────────────────────────────
 
@@ -180,24 +184,26 @@ export default function WeeklyPlanGrid() {
   }
 
   function canEditForecastForEntry(entry: IHarvestDayEntry): boolean {
-    if (!hasBlockPermission(entry.block)) return false;
-    if (isAdminRole) return true;  // admin: window-independent, override modal collects reason
-    if (user?.role !== 'warehouse_chief') return false;
-    if (!config) return false;
-    const now = dayjs();
-    const entryDate = dayjs(entry.entry_date);
-    const win = getCurrentForecastWindow(now, entryDate, config);
-    return win !== null;
+    if (!user) return false;
+    if (isAdminRole) return true;  // admin: any block, anytime, override modal collects reason
+    if (user.role === 'loading_dept_head') {
+      // Any block, from 00:00 local day-before through 12:00 local day-of.
+      // Mirrors backend LOADING_HEAD_FORECAST_DAY_OF_CLOSE in harvest_day_service.
+      const now = dayjs();
+      const entryDate = dayjs(entry.entry_date);
+      const dayBeforeStart = entryDate.subtract(1, 'day').startOf('day');
+      const dayOfClose = entryDate.startOf('day').add(12, 'hour');
+      return now.isAfter(dayBeforeStart) && now.isBefore(dayOfClose);
+    }
+    return false;
   }
 
   function canEditActualForEntry(entry: IHarvestDayEntry): boolean {
-    if (!hasBlockPermission(entry.block)) return false;
-    if (isAdminRole) return true;  // admin: anytime, finalized or not, override modal collects reason
-    // Actuals editable on same day and past days (only if not finalized)
-    const entryDate = dayjs(entry.entry_date);
-    const today = dayjs().startOf('day');
-    if (entryDate.isAfter(today, 'day')) return false;
-    return !entry.actual_finalized_at;
+    // Actuals are computed daily by the rollup_actuals job from shipment loading
+    // data. Only admin can override a computed value. _entry parameter retained
+    // for symmetry with the other can-edit helpers and future block-level rules.
+    void entry;
+    return isAdminRole;
   }
 
   // ─── Handlers ─────────────────────────────────────────────────────────────

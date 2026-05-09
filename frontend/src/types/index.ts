@@ -593,7 +593,11 @@ export interface IOperatingDayException {
 
 export type PlanState = 'on_time' | 'late' | 'critical_late';
 export type ForecastWindow = 'primary' | 'fallback' | 'same_day_red_flag';
-export type ActualSource = 'manual' | 'pallet_rollup_pending';
+export type ActualSource =
+  | 'manual'
+  | 'pallet_rollup_pending'
+  | 'shipment_rollup'
+  | 'admin_override';
 
 export interface IHarvestDayEntry {
   id: number;
