@@ -168,6 +168,38 @@ class OverdueShipmentSerializer(ShipmentListSerializer):
         fields = ShipmentListSerializer.Meta.fields + ['days_overdue', 'has_sales_report']
 
 
+class DraftBlockSourceInlineSerializer(serializers.ModelSerializer):
+    """Block source row shape consumed by the DraftPool DraftCard."""
+
+    block_id = serializers.IntegerField(source='block.id', read_only=True)
+    block_code = serializers.CharField(source='block.code', read_only=True)
+
+    class Meta:
+        model = ShipmentBlockSource
+        fields = ['block_id', 'block_code', 'weight_kg']
+
+
+class ShipmentDraftListSerializer(ShipmentListSerializer):
+    """List shape for status_code=draft, matching the frontend IShipmentDraft.
+
+    The standard ShipmentListSerializer omits block_sources and creator info to
+    keep the operational list lightweight; the DraftPool page needs both, so we
+    layer the draft-specific fields on top.
+    """
+
+    created_by_name = serializers.CharField(source='created_by.username', read_only=True, default=None)
+    block_sources = DraftBlockSourceInlineSerializer(many=True, read_only=True)
+
+    class Meta(ShipmentListSerializer.Meta):
+        fields = ShipmentListSerializer.Meta.fields + [
+            'created_at',
+            'created_by_name',
+            'block_sources',
+            'previous_platform_id',
+            'variety_confidence',
+        ]
+
+
 class SheetFirmSplitInlineSerializer(serializers.ModelSerializer):
     """Inline firm split for sheet view — minimal fields."""
 

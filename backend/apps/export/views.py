@@ -46,6 +46,7 @@ from apps.export.serializers import (
     ShipmentAssignSerializer,
     ShipmentCreateSerializer,
     ShipmentListSerializer,
+    ShipmentDraftListSerializer,
     ShipmentDetailSerializer,
     ShipmentSheetSerializer,
     CommentSerializer,
@@ -101,6 +102,11 @@ class ShipmentViewSet(ModelViewSet):
     def get_serializer_class(self):
         if self.action == 'retrieve':
             return ShipmentDetailSerializer
+        if (
+            self.action == 'list'
+            and self.request.query_params.get('status_code') == 'draft'
+        ):
+            return ShipmentDraftListSerializer
         return ShipmentListSerializer
 
 
@@ -188,6 +194,10 @@ class ShipmentViewSet(ModelViewSet):
             qs = qs.filter(status__phase=phase)
         if status_code := self.request.query_params.get('status_code'):
             qs = qs.filter(status__code=status_code)
+            # Draft list serializer needs created_by + block_sources; pre-load
+            # them here so the DraftPool render avoids per-row queries.
+            if status_code == 'draft' and getattr(self, 'action', None) == 'list':
+                qs = qs.select_related('created_by').prefetch_related('block_sources__block')
         # Inclusive date range on Shipment.date.
         if date_after := self.request.query_params.get('date_after'):
             qs = qs.filter(date__gte=date_after)
