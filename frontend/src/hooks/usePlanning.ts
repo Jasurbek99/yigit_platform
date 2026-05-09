@@ -342,6 +342,9 @@ export function useDayEntries(
       if (filters.season) params.set('season', String(filters.season));
       if (filters.date_from) params.set('date_from', filters.date_from);
       if (filters.date_to) params.set('date_to', filters.date_to);
+      // 15 blocks × 7 days = 105 cells per week; default DRF page is 50, which
+      // would silently drop Fri/Sat. Request the upper bound — backend caps at 200.
+      params.set('page_size', '200');
       const { data } = await api.get<IApiListResponse<IHarvestDayEntry> | IHarvestDayEntry[]>(
         `/greenhouse/day-entries/?${params}`,
       );

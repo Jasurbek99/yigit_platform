@@ -1,10 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import { InputNumber, Tooltip } from 'antd';
+import { EditOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import { handleCellKeyDown } from '@/utils/tableNavigation';
 import { AdminOverrideReasonModal } from '@/components/AdminOverrideReasonModal';
 import type { IHarvestDayEntry, IGreenhouseConfig, ForecastWindow } from '@/types';
+
+type InputNumberRef = ComponentRef<typeof InputNumber>;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -199,6 +202,23 @@ export function HarvestCell({
   const [editingActual, setEditingActual] = useState(false);
   const [pendingOverride, setPendingOverride] = useState<IPendingOverride | null>(null);
 
+  const planInputRef = useRef<InputNumberRef>(null);
+  const forecastInputRef = useRef<InputNumberRef>(null);
+  const actualInputRef = useRef<InputNumberRef>(null);
+
+  // Single-click focus: AntD's `autoFocus` is unreliable inside virtualised
+  // Table cells (the input mounts inside a parent that has just received the
+  // synthetic click). Drive focus imperatively from a layout effect instead.
+  useEffect(() => {
+    if (editingPlan) planInputRef.current?.focus({ cursor: 'all' });
+  }, [editingPlan]);
+  useEffect(() => {
+    if (editingForecast) forecastInputRef.current?.focus({ cursor: 'all' });
+  }, [editingForecast]);
+  useEffect(() => {
+    if (editingActual) actualInputRef.current?.focus({ cursor: 'all' });
+  }, [editingActual]);
+
   const mode = computeDisplayMode(entry, today, now, config);
   const isSaving = savingKey === String(entry.id);
 
@@ -240,20 +260,170 @@ export function HarvestCell({
 
   // ── past_actual ────────────────────────────────────────────────────────────
   if (mode === 'past_actual') {
+    // Admin override: edit actual_value (most common past-day fix)
+    if (isAdmin && editingActual) {
+      const actualNum = entry.actual_value != null ? Number(entry.actual_value) : null;
+      return (
+        <>
+          <div style={{ minHeight: 24 }}>
+            <InputNumber
+              ref={actualInputRef}
+              min={0}
+              step={100}
+              keyboard={false}
+              defaultValue={actualNum ?? undefined}
+              placeholder="—"
+              disabled={isSaving}
+              onBlur={(e) => {
+                const raw = e.target.value.replace(/,/g, '');
+                const v = raw === '' ? null : Number(raw) || 0;
+                handleValueBlur('actual_value', entry.actual_value, v, setEditingActual);
+              }}
+              onKeyDown={handleCellKeyDown}
+              size="small"
+              style={{ width: 84 }}
+            />
+          </div>
+          <AdminOverrideReasonModal
+            open={pendingOverride !== null}
+            oldValue={pendingOverride?.oldValue ?? null}
+            newValue={pendingOverride?.value ?? null}
+            onConfirm={(reason) => {
+              if (pendingOverride) {
+                onSave(entry.id, pendingOverride.field, pendingOverride.value, reason);
+              }
+              closeOverride();
+            }}
+            onCancel={closeOverride}
+          />
+        </>
+      );
+    }
+    // Admin override: edit plan_value retroactively
+    if (isAdmin && editingPlan) {
+      const planNum = entry.plan_value != null ? Number(entry.plan_value) : undefined;
+      return (
+        <>
+          <div style={{ minHeight: 24 }}>
+            <InputNumber
+              ref={planInputRef}
+              min={0}
+              step={100}
+              keyboard={false}
+              defaultValue={planNum}
+              placeholder="—"
+              disabled={isSaving}
+              onBlur={(e) => {
+                const raw = e.target.value.replace(/,/g, '');
+                const v = raw === '' ? null : Number(raw) || 0;
+                handleValueBlur('plan_value', entry.plan_value, v, setEditingPlan);
+              }}
+              onKeyDown={handleCellKeyDown}
+              size="small"
+              style={{ width: 84 }}
+            />
+          </div>
+          <AdminOverrideReasonModal
+            open={pendingOverride !== null}
+            oldValue={pendingOverride?.oldValue ?? null}
+            newValue={pendingOverride?.value ?? null}
+            onConfirm={(reason) => {
+              if (pendingOverride) {
+                onSave(entry.id, pendingOverride.field, pendingOverride.value, reason);
+              }
+              closeOverride();
+            }}
+            onCancel={closeOverride}
+          />
+        </>
+      );
+    }
+    // Admin override: edit forecast_value retroactively
+    if (isAdmin && editingForecast) {
+      const fcNum = entry.forecast_value != null ? Number(entry.forecast_value) : undefined;
+      return (
+        <>
+          <div style={{ minHeight: 24 }}>
+            <InputNumber
+              ref={forecastInputRef}
+              min={0}
+              step={100}
+              keyboard={false}
+              defaultValue={fcNum}
+              placeholder="—"
+              disabled={isSaving}
+              onBlur={(e) => {
+                const raw = e.target.value.replace(/,/g, '');
+                const v = raw === '' ? null : Number(raw) || 0;
+                handleValueBlur('forecast_value', entry.forecast_value, v, setEditingForecast);
+              }}
+              onKeyDown={handleCellKeyDown}
+              size="small"
+              style={{ width: 84 }}
+            />
+          </div>
+          <AdminOverrideReasonModal
+            open={pendingOverride !== null}
+            oldValue={pendingOverride?.oldValue ?? null}
+            newValue={pendingOverride?.value ?? null}
+            onConfirm={(reason) => {
+              if (pendingOverride) {
+                onSave(entry.id, pendingOverride.field, pendingOverride.value, reason);
+              }
+              closeOverride();
+            }}
+            onCancel={closeOverride}
+          />
+        </>
+      );
+    }
+    // Display: admins click the actual area to override; small edit icons let
+    // them retroactively override plan / forecast values too. Non-admins get
+    // the read-only history modal.
     return (
       <div
-        onClick={() => onCellClick(entry.id)}
+        data-edit-cell={isAdmin ? 'true' : undefined}
+        onClick={() => { if (isAdmin) setEditingActual(true); else onCellClick(entry.id); }}
         style={{ cursor: 'pointer', minHeight: 24, padding: '2px 0' }}
-        title={t('plan.click_for_history')}
+        title={isAdmin ? t('plan.admin_click_edit_actual') : t('plan.click_for_history')}
       >
         <ValueOrEmpty
           valueStr={entry.actual_value}
           submittedAt={entry.actual_finalized_at}
           color="#52c41a"
         />
-        {entry.plan_value && (
-          <div style={{ fontSize: 10, color: '#bfbfbf' }}>
-            {t('plan.cell_plan_hint', { value: Number(entry.plan_value).toLocaleString() })}
+        {(entry.plan_value || isAdmin) && (
+          <div
+            onClick={isAdmin ? (e) => { e.stopPropagation(); setEditingPlan(true); } : undefined}
+            style={{
+              fontSize: 10,
+              color: '#bfbfbf',
+              cursor: isAdmin ? 'pointer' : 'inherit',
+              marginTop: 2,
+            }}
+            title={isAdmin ? t('plan.admin_click_edit_plan') : undefined}
+          >
+            {entry.plan_value
+              ? t('plan.cell_plan_hint', { value: Number(entry.plan_value).toLocaleString() })
+              : `${t('plan.plan')}: —`}
+            {isAdmin && <EditOutlined style={{ marginLeft: 4, fontSize: 10 }} />}
+          </div>
+        )}
+        {(entry.forecast_value || isAdmin) && (
+          <div
+            onClick={isAdmin ? (e) => { e.stopPropagation(); setEditingForecast(true); } : undefined}
+            style={{
+              fontSize: 10,
+              color: '#faad14',
+              cursor: isAdmin ? 'pointer' : 'inherit',
+              marginTop: 2,
+            }}
+            title={isAdmin ? t('plan.admin_click_edit_forecast') : undefined}
+          >
+            {entry.forecast_value
+              ? `${t('plan.forecast')}: ${Number(entry.forecast_value).toLocaleString()}`
+              : `${t('plan.forecast')}: —`}
+            {isAdmin && <EditOutlined style={{ marginLeft: 4, fontSize: 10 }} />}
           </div>
         )}
       </div>
@@ -268,7 +438,7 @@ export function HarvestCell({
         <>
           <div style={{ minHeight: 24 }}>
             <InputNumber
-              autoFocus
+              ref={actualInputRef}
               min={0}
               step={100}
               keyboard={false}
@@ -307,6 +477,7 @@ export function HarvestCell({
     }
     return (
       <div
+        data-edit-cell={canEditActual ? 'true' : undefined}
         onClick={() => { if (canEditActual) setEditingActual(true); else onCellClick(entry.id); }}
         style={{ cursor: canEditActual ? 'text' : 'pointer', minHeight: 24, padding: '2px 0' }}
       >
@@ -332,7 +503,7 @@ export function HarvestCell({
         <>
           <div style={{ minHeight: 24 }}>
             <InputNumber
-              autoFocus
+              ref={forecastInputRef}
               min={0}
               step={100}
               keyboard={false}
@@ -370,6 +541,7 @@ export function HarvestCell({
     }
     return (
       <div
+        data-edit-cell={canEditForecast ? 'true' : undefined}
         onClick={() => { if (canEditForecast) setEditingForecast(true); else onCellClick(entry.id); }}
         style={{ cursor: canEditForecast ? 'text' : 'pointer', minHeight: 24, padding: '2px 0', backgroundColor: '#fff7e6' }}
       >
@@ -415,7 +587,7 @@ export function HarvestCell({
       <>
         <div style={{ minHeight: 24 }}>
           <InputNumber
-            autoFocus
+            ref={planInputRef}
             min={0}
             step={100}
             keyboard={false}
@@ -448,6 +620,7 @@ export function HarvestCell({
   }
   return (
     <div
+      data-edit-cell={canEditPlan ? 'true' : undefined}
       onClick={() => { if (canEditPlan) setEditingPlan(true); else onCellClick(entry.id); }}
       style={{ cursor: canEditPlan ? 'text' : 'pointer', minHeight: 24, padding: '2px 0' }}
     >
