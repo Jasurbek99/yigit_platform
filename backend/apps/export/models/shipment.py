@@ -167,6 +167,12 @@ class Shipment(models.Model):
     # picks the date themselves on the Sheet.
     loading_ended_at = models.DateTimeField(null=True, blank=True)
 
+    # Operator-entered date the sales report was filed (Sheet R43, owned by
+    # Aganazar/sales_rep). Distinct from has_sales_report — that derived
+    # boolean ("does a SalesReport row exist?") stays for downstream filters,
+    # the Sheet now shows this picker instead.
+    sales_report_date = models.DateField(null=True, blank=True)
+
     # === AD-2: Structured vehicle fields (replaces deprecated vehicle_status_note) ===
     vehicle_condition = models.CharField(
         max_length=20, choices=VEHICLE_CONDITION_CHOICES, null=True, blank=True
@@ -199,6 +205,13 @@ class Shipment(models.Model):
     warehouse_note = models.TextField(blank=True, default='', **cyrillic_collation())
     # Document team freeform note (owned by Şirin — document_team).
     document_note = models.TextField(blank=True, default='', **cyrillic_collation())
+
+    # === Per-shipment column color (Sheet flag) ===
+    # Operator-picked hex (`#RRGGBB`) used to tint this shipment's column in the
+    # Sheet view so important / unusual trucks are visually flagged. NULL = no
+    # custom color (default theme). Only admin + export_manager can edit (granted
+    # via the wildcard 'shipment' field permission they already have).
+    column_color = models.CharField(max_length=7, null=True, blank=True)
 
     # === Archive split (Phase 3, ADR-0005) ===
     # `is_archived` is flipped to True by the daily archive_shipments cron when

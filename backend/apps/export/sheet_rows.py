@@ -369,8 +369,11 @@ DEFAULT_SHEET_ROWS: list[dict] = [
         'style': 'report',
     },
     {
+        # R43 used to point at has_sales_report (a derived boolean) with
+        # input_type='date', so picking a date silently dropped the save.
+        # Now backed by a real Shipment.sales_report_date column.
         'row_number': 43,
-        'field_key': 'has_sales_report',
+        'field_key': 'sales_report_date',
         'default_who_key': 'sheet.who.aganazar',
         'label_key': 'sheet.row.report_date',
         'input_type': 'date',
@@ -396,5 +399,21 @@ DEFAULT_SHEET_ROWS: list[dict] = [
         'input_type': 'dropdown',
         'style': 'status',
         'options_source': 'weekdays',
+    },
+    # Görnüşi — shipment type flag (Adaty export vs Gapy Satyş domestic sale).
+    # Backed by Shipment.is_gapy_satys (boolean). Two-option dropdown styled
+    # like has_peregruz: value=0 → False (Adaty), value=1 → True (Gapy Satyş).
+    # Default is Adaty (False). Toggling to Gapy Satyş hides all rows marked
+    # gapy_hidden=True (border_point, customs_*, dest_*) on the affected
+    # shipment column. Logical position is the identity section near country
+    # (R10); admin can pin via SheetRowSetting.display_order.
+    {
+        'row_number': 47,
+        'field_key': 'is_gapy_satys',
+        'default_who_key': 'sheet.who.gadam',
+        'label_key': 'sheet.row.gornushi',
+        'input_type': 'dropdown',
+        'style': 'status',
+        'options_source': 'gornushi',
     },
 ]

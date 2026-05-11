@@ -329,6 +329,8 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
             'sale_started_at', 'sale_ended_at',
             # Operator-entered timestamp (NOT AD-1) — sheet R20
             'loading_ended_at',
+            # Operator-entered date — sheet R43 (Aganazar files the report)
+            'sales_report_date',
             # AD-2 Vehicle condition
             'vehicle_condition', 'vehicle_condition_note',
             # Quality docs (flattened from OneToOne 'quality')
@@ -341,6 +343,8 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
             'export_manager_note',
             'warehouse_note',
             'document_note',
+            # Sheet column tint (hex, e.g. '#ffe4b5') — null = default theme
+            'column_color',
             # Inline related
             'firm_splits', 'block_sources',
             # Audit
@@ -915,6 +919,8 @@ _ALL_PATCHABLE_FIELDS = {
     'loading_started_at',
     'loading_ended_at',
     'departed_at',
+    # Operator-entered date — sheet R43
+    'sales_report_date',
     # Operational status
     'documents_status', 'harvest_status', 'customs_clearance_planned_day',
     # Finance
@@ -926,6 +932,8 @@ _ALL_PATCHABLE_FIELDS = {
     'export_manager_note',
     'warehouse_note',
     'document_note',
+    # Sheet column tint (admin + export_manager only via wildcard grants)
+    'column_color',
 }
 
 

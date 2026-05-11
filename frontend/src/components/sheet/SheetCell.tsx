@@ -64,6 +64,10 @@ function getCellValue(shipment: IShipmentSheetItem, rowConfig: IRowConfig): stri
       return shipment.has_sales_report ? '✓' : '❌';
     case 'has_doc_advance':
       return shipment.has_doc_advance ? '✓' : '❌';
+    case 'is_gapy_satys':
+      return shipment.is_gapy_satys
+        ? i18n.t('sheet.gornushi.gapy_satys')
+        : i18n.t('sheet.gornushi.adaty');
     case 'notes':
     case 'export_manager_note':
     case 'warehouse_note':
@@ -79,7 +83,15 @@ function getCellValue(shipment: IShipmentSheetItem, rowConfig: IRowConfig): stri
       break;
   }
 
-  // Timestamps
+  // Date-only fields (no time component) — format DD.MM.YYYY.
+  const dateOnlyFields = ['sales_report_date'];
+  if (dateOnlyFields.includes(fieldKey)) {
+    const val = shipment[fieldKey as keyof IShipmentSheetItem] as string | null;
+    if (!val) return '—';
+    return dayjs(val).format('DD.MM.YYYY');
+  }
+
+  // Timestamps (datetime, format DD.MM HH:mm).
   const tsFields = [
     'loading_started_at', 'loading_ended_at',
     'customs_entry_at', 'customs_exit_at', 'departed_at',

@@ -266,6 +266,8 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
         'shipment': [
             'city', 'has_peregruz', 'peregruz_city', 'peregruz_date',
             'rejected_weight_kg', 'price_per_kg', 'total_amount_usd',
+            # R43: Aganazar logs the date the sales report was filed.
+            'sales_report_date',
         ],
         'sales_report': ['*'],
     },

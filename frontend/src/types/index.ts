@@ -272,6 +272,8 @@ export interface IShipmentSheetItem {
   sale_ended_at: string | null;
   // Operator-entered timestamp (NOT AD-1 â€” editable inline on R20)
   loading_ended_at: string | null;
+  // Operator-entered date â€” editable inline on R43 (sales rep files report)
+  sales_report_date: string | null;
   // AD-2 Vehicle
   vehicle_condition: VehicleCondition | null;
   vehicle_condition_note: string | null;
@@ -294,6 +296,9 @@ export interface IShipmentSheetItem {
   customs_clearance_planned_day: 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun' | '' | null;
   official_export_code: string | null;
   previous_platform_id: number | null;
+  // Per-shipment tint applied to this column in the Sheet view.
+  // Hex (#RRGGBB) when set, null = default theme. Edited by admin / export_manager.
+  column_color: string | null;
   // Inline related
   firm_splits: ISheetFirmSplit[];
   block_sources: ISheetBlockSource[];
@@ -1037,6 +1042,7 @@ export interface IShipmentDetail extends IShipmentListItem {
   export_manager_note: string | null;
   warehouse_note: string | null;
   document_note: string | null;
+  sales_report_date: string | null;
   customs_clearance_planned_day: 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun' | '' | null;
   created_at: string;
   updated_at: string;
