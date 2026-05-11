@@ -280,11 +280,6 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
     # R24 — true once finansist (Babageldi) has issued documentation/customs advance for the shipment.
     has_doc_advance = serializers.BooleanField(read_only=True)
 
-    # Annotated by viewset — Count('comments', filter=Q(comments__user__role=...))
-    # Used by sheet rows R17 (Soltanmyrat) and R18 (Şirin) — click-through summary cells.
-    warehouse_comment_count = serializers.IntegerField(read_only=True)
-    document_comment_count = serializers.IntegerField(read_only=True)
-
     # Phase grouping (Stream C) — maps status code to PLAN/PREP/DOCS/LOAD/TRANSIT/DEST/CLOSE.
     phase = serializers.SerializerMethodField()
 
@@ -332,6 +327,8 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
             'loading_started_at', 'customs_entry_at', 'customs_exit_at',
             'departed_at', 'border_crossed_at', 'arrived_at',
             'sale_started_at', 'sale_ended_at',
+            # Operator-entered timestamp (NOT AD-1) — sheet R20
+            'loading_ended_at',
             # AD-2 Vehicle condition
             'vehicle_condition', 'vehicle_condition_note',
             # Quality docs (flattened from OneToOne 'quality')
@@ -339,11 +336,11 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
             # Annotation — must be set in viewset queryset
             'has_sales_report',
             'has_doc_advance',
-            'warehouse_comment_count',
-            'document_comment_count',
             # Notes
             'notes',
             'export_manager_note',
+            'warehouse_note',
+            'document_note',
             # Inline related
             'firm_splits', 'block_sources',
             # Audit
@@ -859,6 +856,8 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
             'sale_ended_at',
             'notes',
             'export_manager_note',
+            'warehouse_note',
+            'document_note',
             'customs_clearance_planned_day',
             'status_code',
             'allowed_transitions',
@@ -894,6 +893,8 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
 
 # All fields a user could potentially PATCH on Shipment (superset of all roles).
 # AD-1 timestamps are intentionally excluded — they are set ONLY by transition_to().
+# Exception: loading_started_at is now operator-entered (no longer AD-1) — see
+# sheet_rows.py R19 input_type='datetime' and create_shipment() (no auto-set).
 _ALL_PATCHABLE_FIELDS = {
     # Identifiers
     'official_export_code',
@@ -910,6 +911,10 @@ _ALL_PATCHABLE_FIELDS = {
     'vehicle_responsible', 'truck_head_id', 'trailer_id', 'driver_id',
     'transit_days', 'transport_temp_c', 'shelf_life_days',
     'has_peregruz', 'peregruz_city', 'peregruz_date',
+    # Operator-entered timestamps (NOT AD-1) — sheet R19, R20, R21
+    'loading_started_at',
+    'loading_ended_at',
+    'departed_at',
     # Operational status
     'documents_status', 'harvest_status', 'customs_clearance_planned_day',
     # Finance
@@ -919,6 +924,8 @@ _ALL_PATCHABLE_FIELDS = {
     # Notes
     'notes',
     'export_manager_note',
+    'warehouse_note',
+    'document_note',
 }
 
 
@@ -994,9 +1001,8 @@ class ShipmentCreateSerializer(serializers.Serializer):
         allow_blank=True,
         allow_null=True,
     )
-    # date is optional — defaults to today on create. Loading start time
-    # (loading_started_at) is a separate AD-1 timestamp written by
-    # transition_to('yuklenme'), NOT by create.
+    # date is optional — defaults to today on create. loading_started_at is
+    # operator-entered on the Sheet (R19) and is not set by create.
     date = serializers.DateField(required=False)
     country = serializers.PrimaryKeyRelatedField(
         queryset=Country.objects.all(), required=False, allow_null=True

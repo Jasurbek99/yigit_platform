@@ -1,6 +1,5 @@
 import { memo, useCallback } from 'react';
 import { Tag, Tooltip } from 'antd';
-import { MessageOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useNavigate } from 'react-router-dom';
 import i18n from '@/i18n';
@@ -65,12 +64,10 @@ function getCellValue(shipment: IShipmentSheetItem, rowConfig: IRowConfig): stri
       return shipment.has_sales_report ? '✓' : '❌';
     case 'has_doc_advance':
       return shipment.has_doc_advance ? '✓' : '❌';
-    case 'warehouse_comment_count':
-      return shipment.warehouse_comment_count > 0 ? String(shipment.warehouse_comment_count) : '—';
-    case 'document_comment_count':
-      return shipment.document_comment_count > 0 ? String(shipment.document_comment_count) : '—';
     case 'notes':
     case 'export_manager_note':
+    case 'warehouse_note':
+    case 'document_note':
     case 'vehicle_condition_note':
       return (shipment[fieldKey as keyof IShipmentSheetItem] as string) ?? '—';
     case 'customs_clearance_planned_day': {
@@ -84,7 +81,8 @@ function getCellValue(shipment: IShipmentSheetItem, rowConfig: IRowConfig): stri
 
   // Timestamps
   const tsFields = [
-    'loading_started_at', 'customs_entry_at', 'customs_exit_at', 'departed_at',
+    'loading_started_at', 'loading_ended_at',
+    'customs_entry_at', 'customs_exit_at', 'departed_at',
     'border_crossed_at', 'arrived_at', 'sale_started_at', 'sale_ended_at',
     'peregruz_date',
   ];
@@ -127,11 +125,10 @@ function isEmpty(value: string): boolean {
 
 function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, commentTaskState = null, rowSetting }: ISheetCellProps) {
   const navigate = useNavigate();
-  const { setActiveCell, setEditingCell, activeCell, openCommentsForCell, openCommentsForShipment } = useSheetStore();
+  const { setActiveCell, setEditingCell, activeCell, openCommentsForCell } = useSheetStore();
   const isActive = activeCell?.shipmentId === shipment.id && activeCell?.rowKey === rowConfig.field_key;
   const isGapy = shipment.is_gapy_satys;
   const isHidden = rowConfig.gapy_hidden && isGapy;
-  const isCommentCount = rowConfig.input_type === 'comment_count';
 
   // Per-row style overrides from admin sheet-row settings
   const cellWidth = rowSetting?.style?.width ?? COL_WIDTH_SHIPMENT;
@@ -142,18 +139,13 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
   const cellIsEmpty = isEmpty(value);
 
   const handleClick = useCallback(() => {
-    // Comment count cells → open comments drawer
-    if (isCommentCount) {
-      openCommentsForShipment(shipment.id);
-      return;
-    }
     // Empty editable cells → edit immediately on single click
     if (isEditable && !isHidden && cellIsEmpty) {
       setEditingCell({ shipmentId: shipment.id, rowKey: rowConfig.field_key });
       return;
     }
     setActiveCell({ shipmentId: shipment.id, rowKey: rowConfig.field_key });
-  }, [isCommentCount, isEditable, isHidden, cellIsEmpty, navigate, setActiveCell, setEditingCell, openCommentsForShipment, shipment.id, rowConfig.field_key]);
+  }, [isEditable, isHidden, cellIsEmpty, navigate, setActiveCell, setEditingCell, shipment.id, rowConfig.field_key]);
 
   const handleDoubleClick = useCallback(() => {
     // Filled editable cells → edit on double click
@@ -267,29 +259,6 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
     );
   }
 
-  // Comment-count cells (R17, R18) — read-only, click jumps to ShipmentDetail comments tab
-  if (isCommentCount) {
-    const count = fieldKey === 'warehouse_comment_count'
-      ? shipment.warehouse_comment_count
-      : shipment.document_comment_count;
-    return (
-      <div
-        className={`sheet-cell sheet-cell--${rowConfig.style} sheet-cell--linkable${isActive ? ' sheet-cell--active' : ''}${isGapy ? ' sheet-cell--gapy' : ''}`}
-        style={{ width: cellWidth, height: ROW_HEIGHT, cursor: 'pointer', ...(cellBg ? { backgroundColor: cellBg } : {}) }}
-        onClick={handleClick}
-      >
-        {count > 0 ? (
-          <span className="sheet-cell__comment">
-            <MessageOutlined style={{ marginRight: 4, color: '#1677ff' }} />
-            {count}
-          </span>
-        ) : (
-          <span style={{ color: '#bfbfbf' }}>—</span>
-        )}
-      </div>
-    );
-  }
-
   // Cargo code (key field)
   if (fieldKey === 'cargo_code') {
     return (
@@ -316,7 +285,7 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
         <CommentMarker
           count={commentCount}
           taskState={commentTaskState}
-          showHoverHint={!isCommentCount}
+          showHoverHint
           onClick={() => openCommentsForCell(shipment.id, rowConfig.field_key)}
         />
       </div>

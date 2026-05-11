@@ -23,7 +23,7 @@ from apps.core.models import (
 )
 from apps.export.models import (
     AuditLog, FinansistAdvance, FinansistAdvanceShipment,
-    QuotaUsageRecord, SalesReport, Shipment, ShipmentBlockSource, ShipmentComment,
+    QuotaUsageRecord, SalesReport, Shipment, ShipmentBlockSource,
     ShipmentFirmSplit, SheetRowSetting, TruckSplitDefault, invalidate_truck_split_cache,
 )
 from apps.export.sheet_rows import DEFAULT_SHEET_ROWS
@@ -173,20 +173,18 @@ class SheetEndpointTests(TestCase):
         self.assertEqual(s2['firm_splits'][0]['firm_code'], 'YGT')
         self.assertEqual(s2['block_sources'][0]['block_code'], 'A')
 
-    def test_comment_count_annotations_per_role(self):
-        """R17/R18 cells: warehouse_chief and document_team comment counts."""
-        wh = _create_user('wh_count', 'warehouse_chief')
-        doc = _create_user('doc_count', 'document_team')
-        ShipmentComment.objects.create(shipment=self.s1, user=wh, content='harvest ok')
-        ShipmentComment.objects.create(shipment=self.s1, user=wh, content='loaded')
-        ShipmentComment.objects.create(shipment=self.s1, user=doc, content='docs sent')
-        # s2 has no comments → both counts must be 0
+    def test_warehouse_and_document_notes_round_trip(self):
+        """R17/R18 cells: warehouse_note and document_note are exposed as text fields."""
+        self.s1.warehouse_note = 'tomato batch loaded'
+        self.s1.document_note = 'cmr ready'
+        self.s1.save(update_fields=['warehouse_note', 'document_note'])
         resp = self.client.get('/api/v1/export/shipments/sheet/')
         by_code = {row['cargo_code']: row for row in _sheet_results(resp)}
-        self.assertEqual(by_code['ACT-001']['warehouse_comment_count'], 2)
-        self.assertEqual(by_code['ACT-001']['document_comment_count'], 1)
-        self.assertEqual(by_code['ACT-002']['warehouse_comment_count'], 0)
-        self.assertEqual(by_code['ACT-002']['document_comment_count'], 0)
+        self.assertEqual(by_code['ACT-001']['warehouse_note'], 'tomato batch loaded')
+        self.assertEqual(by_code['ACT-001']['document_note'], 'cmr ready')
+        # Defaults: empty string when never set
+        self.assertEqual(by_code['ACT-002']['warehouse_note'], '')
+        self.assertEqual(by_code['ACT-002']['document_note'], '')
 
     def test_has_doc_advance_annotation(self):
         """R24 cell: true once a FinansistAdvanceShipment row links the shipment."""
@@ -252,18 +250,20 @@ class SheetPatchPermissionTests(TestCase):
         """AD-1 fields are excluded from _ALL_PATCHABLE_FIELDS — must always 403."""
         # export_manager has 'shipment' = ['*'] but the serializer's Meta.fields
         # excludes AD-1 timestamps, so they're treated as unknown fields.
+        # NOTE: loading_started_at (R19) and departed_at (R21) are no longer
+        # AD-1; pick customs_entry_at, which is still transition-only.
         user = _create_user('mgr_ad1', 'export_manager')
         self.client.force_authenticate(user=user)
         resp = self.client.patch(
             f'/api/v1/export/shipments/{self.shipment.id}/',
-            {'departed_at': '2026-02-02T10:00:00Z'},
+            {'customs_entry_at': '2026-02-02T10:00:00Z'},
             format='json',
         )
         # PATCH doesn't error on unknown fields by default — it silently drops.
-        # The contract is that departed_at is NOT updated.
+        # The contract is that customs_entry_at is NOT updated.
         self.assertEqual(resp.status_code, 200, resp.data)
         self.shipment.refresh_from_db()
-        self.assertIsNone(self.shipment.departed_at)
+        self.assertIsNone(self.shipment.customs_entry_at)
 
 
 class SheetJunctionEndpointTests(TestCase):

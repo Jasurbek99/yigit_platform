@@ -146,7 +146,9 @@ class Shipment(models.Model):
     total_amount_usd = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
 
     # === AD-1: Denormalized lifecycle timestamps ===
-    # Written ONLY by transition_to() in services.py. Never update directly.
+    # Written ONLY by transition_to() in services.py — except loading_started_at
+    # (R19) and departed_at (R21), which are operator-entered on the Sheet and
+    # no longer tied to a status transition.
     loading_started_at = models.DateTimeField(null=True, blank=True)
     customs_entry_at = models.DateTimeField(null=True, blank=True)
     customs_exit_at = models.DateTimeField(null=True, blank=True)
@@ -159,6 +161,11 @@ class Shipment(models.Model):
     # Shipment Board's time-in-phase calculation. Backfilled from
     # ShipmentStatusLog by migration 0011.
     status_changed_at = models.DateTimeField(null=True, blank=True, db_index=True)
+
+    # Operator-entered timestamp for when the warehouse finished loading the
+    # truck (Sheet R20). NOT AD-1 — no transition writes this; warehouse staff
+    # picks the date themselves on the Sheet.
+    loading_ended_at = models.DateTimeField(null=True, blank=True)
 
     # === AD-2: Structured vehicle fields (replaces deprecated vehicle_status_note) ===
     vehicle_condition = models.CharField(
@@ -188,6 +195,10 @@ class Shipment(models.Model):
     notes = models.TextField(blank=True, null=True, **cyrillic_collation())
     # Export manager's freeform note on this shipment (owned by Gadam).
     export_manager_note = models.TextField(blank=True, default='', **cyrillic_collation())
+    # Warehouse / loading dept freeform note (owned by Soltanmyrat — loading_dept_head + warehouse_chief).
+    warehouse_note = models.TextField(blank=True, default='', **cyrillic_collation())
+    # Document team freeform note (owned by Şirin — document_team).
+    document_note = models.TextField(blank=True, default='', **cyrillic_collation())
 
     # === Archive split (Phase 3, ADR-0005) ===
     # `is_archived` is flipped to True by the daily archive_shipments cron when

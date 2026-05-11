@@ -467,14 +467,6 @@ class ShipmentViewSet(ModelViewSet):
                 has_doc_advance=Exists(
                     FinansistAdvanceShipment.objects.filter(shipment=OuterRef('pk'))
                 ),
-                warehouse_comment_count=Count(
-                    'comments',
-                    filter=Q(comments__user__role='warehouse_chief'),
-                ),
-                document_comment_count=Count(
-                    'comments',
-                    filter=Q(comments__user__role='document_team'),
-                ),
             )
             .filter(**season_filter)
             # Phase 3: the operational Sheet view never shows archived rows.
@@ -1073,7 +1065,8 @@ class ShipmentViewSet(ModelViewSet):
         """POST /api/v1/export/shipments/{id}/assign/
 
         Assigns destination/customer fields to a DRAFT shipment and promotes it
-        to yuklenme (step 1), writing loading_started_at per AD-1.
+        to yuklenme (step 1). loading_started_at stays null until an operator
+        fills it on the Sheet (R19) — it is no longer auto-set on transition.
 
         Only export_manager and director may call this endpoint.
 
@@ -1117,7 +1110,8 @@ class ShipmentViewSet(ModelViewSet):
                 if update_fields:
                     shipment.save(update_fields=update_fields)
 
-                # Promote draft → yuklenme so AD-1 loading_started_at is set.
+                # Promote draft → yuklenme. loading_started_at is no longer
+                # auto-set here — operators enter it on the Sheet (R19).
                 transition_to(shipment, 'yuklenme', request.user, comment='assigned from draft')
         except PermissionError as exc:
             return Response({'error': str(exc)}, status=status.HTTP_403_FORBIDDEN)

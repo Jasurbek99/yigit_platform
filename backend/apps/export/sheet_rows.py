@@ -14,7 +14,7 @@ Each entry keys:
     default_who_key  str   — i18n key for the "Who" label column
     label_key        str   — i18n key for the row label
     input_type       str   — 'text' | 'number' | 'date' | 'datetime' | 'dropdown'
-                             | 'multiselect' | 'status' | 'comment_count' | 'readonly'
+                             | 'multiselect' | 'status' | 'readonly'
     style            str   — 'base' | 'key' | 'transport' | 'status' | 'report' | 'separator'
     options_source   str?  — (optional) registry key for dropdown options
     gapy_hidden      bool? — (optional) True when row is hidden for Gapy Satys shipments
@@ -162,18 +162,18 @@ DEFAULT_SHEET_ROWS: list[dict] = [
     },
     {
         'row_number': 17,
-        'field_key': 'warehouse_comment_count',
+        'field_key': 'warehouse_note',
         'default_who_key': 'sheet.who.soltanmyrat',
         'label_key': 'sheet.row.warehouse_notes',
-        'input_type': 'comment_count',
+        'input_type': 'text',
         'style': 'base',
     },
     {
         'row_number': 18,
-        'field_key': 'document_comment_count',
+        'field_key': 'document_note',
         'default_who_key': 'sheet.who.sirin',
         'label_key': 'sheet.row.document_notes',
-        'input_type': 'comment_count',
+        'input_type': 'text',
         'style': 'base',
     },
     {
@@ -181,7 +181,7 @@ DEFAULT_SHEET_ROWS: list[dict] = [
         'field_key': 'loading_started_at',
         'default_who_key': 'sheet.who.soltanmyrat',
         'label_key': 'sheet.row.loading_start',
-        'input_type': 'readonly',
+        'input_type': 'datetime',
         'style': 'base',
     },
     {
@@ -197,7 +197,7 @@ DEFAULT_SHEET_ROWS: list[dict] = [
         'field_key': 'departed_at',
         'default_who_key': 'sheet.who.mergen',
         'label_key': 'sheet.row.greenhouse_departure',
-        'input_type': 'readonly',
+        'input_type': 'datetime',
         'style': 'base',
     },
     {

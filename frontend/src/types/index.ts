@@ -285,11 +285,11 @@ export interface IShipmentSheetItem {
   // Annotations
   has_sales_report: boolean;
   has_doc_advance: boolean;
-  warehouse_comment_count: number;
-  document_comment_count: number;
   // Notes
   notes: string | null;
   export_manager_note: string | null;
+  warehouse_note: string | null;
+  document_note: string | null;
   // Document team: planned weekday for customs clearance (e.g. 'mon', 'wed')
   customs_clearance_planned_day: 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun' | '' | null;
   official_export_code: string | null;
@@ -1035,6 +1035,8 @@ export interface IShipmentDetail extends IShipmentListItem {
   sale_ended_at: string | null;
   notes: string | null;
   export_manager_note: string | null;
+  warehouse_note: string | null;
+  document_note: string | null;
   customs_clearance_planned_day: 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun' | '' | null;
   created_at: string;
   updated_at: string;

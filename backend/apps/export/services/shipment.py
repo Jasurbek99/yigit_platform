@@ -18,11 +18,12 @@ logger = logging.getLogger(__name__)
 # Only statuses that have a dedicated lifecycle timestamp are listed here.
 # serhet_tm, barysh_gumrugi, yolda: transit waypoints with no dedicated AD-1 field.
 # hasabat, tamamlandy: report and completed statuses have no dedicated AD-1 timestamp.
+# yuklenme / yola_chykdy: no entries here on purpose — loading_started_at (R19)
+# and departed_at (R21) are operator-entered on the Sheet (input_type='datetime'),
+# NOT auto-written by transition_to().
 STATUS_TIMESTAMP_MAP = {
-    'yuklenme': 'loading_started_at',
     'gumruk_girish': 'customs_entry_at',
     'gumruk_chykysh': 'customs_exit_at',
-    'yola_chykdy': 'departed_at',
     'serhet_gechdi': 'border_crossed_at',
     'bardy': 'arrived_at',
     'satylyar': 'sale_started_at',
@@ -69,8 +70,9 @@ def _write_ad1_timestamp(
 ) -> str | None:
     """Write the AD-1 denormalized timestamp field for a status code.
 
-    Centralised helper used by both transition_to() and create_shipment().
-    Returns the field name that was written, or None if the status has no mapping.
+    Centralised helper used by transition_to(). loading_started_at is no longer
+    written here (operator-entered on the Sheet). Returns the field name that
+    was written, or None if the status has no mapping.
     """
     ts_field = STATUS_TIMESTAMP_MAP.get(status_code)
     if ts_field:
@@ -264,9 +266,8 @@ def create_shipment(
 ) -> Shipment:
     """Create a new shipment at step 1 (yuklenme) and write the initial audit trail.
 
-    Resolves the active season when none is provided. Writes the loading_started_at
-    AD-1 denormalized timestamp directly — transition_to() cannot be used here because
-    the shipment is created with status already set to step 1.
+    Resolves the active season when none is provided. loading_started_at is left
+    null — it is now operator-entered on the Sheet (R19), not auto-set on create.
 
     Args:
         cargo_code: Validated cargo code string in DDMM###/YY format.
@@ -277,7 +278,7 @@ def create_shipment(
         season: Optional core.Season FK instance. If None, the active season is resolved.
 
     Returns:
-        The newly created Shipment instance with loading_started_at set.
+        The newly created Shipment instance (loading_started_at is null).
 
     Raises:
         ValueError: If no active season exists and none was provided, or if no
@@ -306,12 +307,10 @@ def create_shipment(
         created_by=user,
     )
 
-    # AD-1: write loading_started_at via the centralised helper — the same
-    # function transition_to() uses, keeping all AD-1 writes in one place.
-    now = timezone.now()
-    _write_ad1_timestamp(shipment, first_status.code, now)
-    shipment.status_changed_at = now
-    shipment.save(update_fields=['loading_started_at', 'status_changed_at'])
+    # status_changed_at still tracks the lifecycle transition. loading_started_at
+    # is no longer auto-set — operators enter it on the Sheet (R19).
+    shipment.status_changed_at = timezone.now()
+    shipment.save(update_fields=['status_changed_at'])
 
     ShipmentStatusLog.objects.create(
         shipment=shipment,

@@ -36,6 +36,7 @@
 **Decision**: 8 timestamp columns on `export.shipments` (`loading_started_at` through `sale_ended_at`). Written ONLY by `transition_to()`, never directly.
 **Context**: List views need departure/arrival dates without joining to status_log.
 **Consequences**: Fast list queries. Small staleness risk (mitigated by single write path via `transition_to()`).
+**2026-05 amendment**: `loading_started_at` (R19) and `departed_at` (R21) are now operator-entered on the Sheet (`input_type='datetime'`) — `STATUS_TIMESTAMP_MAP` no longer maps `'yuklenme'` or `'yola_chykdy'`, `create_shipment` does not stamp `loading_started_at`, and `ShipmentPatchSerializer` accepts both. The other six timestamps (`customs_entry_at`, `customs_exit_at`, `border_crossed_at`, `arrived_at`, `sale_started_at`, `sale_ended_at`) still follow the original AD-1 rule (transition_to only). The single-write-path invariant therefore applies to six of eight columns; for the other two, the source of truth is whatever the warehouse operator enters.
 
 ## ADR-011: R15 Replacement (AD-2)
 **Decision**: Kill `vehicle_status_note` free-text field. Replace with `vehicle_condition` (enum: OK/ISSUE/BREAKDOWN/RETURNED), `vehicle_condition_note`, `route_note`. Freeform notes go to `shipment_comments` table.

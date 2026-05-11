@@ -355,9 +355,10 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
         return (
           <DatePicker
             size="small"
-            showTime
+            showTime={{ format: 'HH:mm' }}
+            format="DD.MM.YYYY HH:mm"
             defaultValue={currentValue ? dayjs(currentValue as string) : undefined}
-            onChange={(date) => save(date ? date.toISOString() : null)}
+            onChange={(date) => save(date ? date.startOf('minute').toISOString() : null)}
             onOpenChange={(open) => { if (!open) close(); }}
             style={{ width: '100%' }}
             autoFocus

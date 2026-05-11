@@ -21,7 +21,7 @@ export const MOCK_SHEET_DATA: IShipmentSheetItem[] = [
     vehicle_condition: 'OK', vehicle_condition_note: null,
     doc_azyk: true, doc_suriji: true, doc_hil: true, doc_kalibrowka: true,
     loading_ended_at: null, vehicle_live_status: null,
-    has_sales_report: true, has_doc_advance: true, warehouse_comment_count: 0, document_comment_count: 0, notes: null, export_manager_note: null, customs_clearance_planned_day: null, official_export_code: null, previous_platform_id: null,
+    has_sales_report: true, has_doc_advance: true, notes: null, export_manager_note: null, warehouse_note: null, document_note: null, customs_clearance_planned_day: null, official_export_code: null, previous_platform_id: null,
     firm_splits: [
       { firm_code: 'YGT', firm_name: 'Yigit H.J.', weight_kg: 10000, amount_usd: 8200 },
       { firm_code: 'OY', firm_name: 'Oguz Yoly', weight_kg: 7545, amount_usd: 6187 },
@@ -49,7 +49,7 @@ export const MOCK_SHEET_DATA: IShipmentSheetItem[] = [
     vehicle_condition: 'OK', vehicle_condition_note: null,
     doc_azyk: true, doc_suriji: true, doc_hil: true, doc_kalibrowka: true,
     loading_ended_at: null, vehicle_live_status: null,
-    has_sales_report: true, has_doc_advance: true, warehouse_comment_count: 0, document_comment_count: 0, notes: null, export_manager_note: null, customs_clearance_planned_day: null, official_export_code: null, previous_platform_id: null,
+    has_sales_report: true, has_doc_advance: true, notes: null, export_manager_note: null, warehouse_note: null, document_note: null, customs_clearance_planned_day: null, official_export_code: null, previous_platform_id: null,
     firm_splits: [{ firm_code: 'GB', firm_name: 'Gokbulut H.J.', weight_kg: 18545, amount_usd: 15763 }],
     block_sources: [{ block_code: 'C', weight_kg: 18545 }],
     created_by_name: 'soltanmyrat', created_at: '2025-09-30T08:00:00+05:00', updated_at: '2025-10-12T10:00:00+05:00',
@@ -74,7 +74,7 @@ export const MOCK_SHEET_DATA: IShipmentSheetItem[] = [
     vehicle_condition: 'OK', vehicle_condition_note: null,
     doc_azyk: true, doc_suriji: true, doc_hil: true, doc_kalibrowka: false,
     loading_ended_at: null, vehicle_live_status: null,
-    has_sales_report: false, has_doc_advance: false, warehouse_comment_count: 0, document_comment_count: 0, notes: null, export_manager_note: null, customs_clearance_planned_day: null, official_export_code: null, previous_platform_id: null,
+    has_sales_report: false, has_doc_advance: false, notes: null, export_manager_note: null, warehouse_note: null, document_note: null, customs_clearance_planned_day: null, official_export_code: null, previous_platform_id: null,
     firm_splits: [
       { firm_code: 'YE', firm_name: 'Ygtybarly Enjam', weight_kg: 9255, amount_usd: null },
       { firm_code: 'ISG', firm_name: 'Isgar HJ', weight_kg: 9255, amount_usd: null },
@@ -104,7 +104,7 @@ export const MOCK_SHEET_DATA: IShipmentSheetItem[] = [
     vehicle_condition: null, vehicle_condition_note: null,
     doc_azyk: false, doc_suriji: false, doc_hil: false, doc_kalibrowka: false,
     loading_ended_at: null, vehicle_live_status: null,
-    has_sales_report: false, has_doc_advance: false, warehouse_comment_count: 0, document_comment_count: 0, notes: null, export_manager_note: null, customs_clearance_planned_day: null, official_export_code: null, previous_platform_id: null,
+    has_sales_report: false, has_doc_advance: false, notes: null, export_manager_note: null, warehouse_note: null, document_note: null, customs_clearance_planned_day: null, official_export_code: null, previous_platform_id: null,
     firm_splits: [
       { firm_code: 'GB', firm_name: 'Gokbulut H.J.', weight_kg: 10013, amount_usd: null },
       { firm_code: 'DM', firm_name: 'Datly Miwe H.J.', weight_kg: 10013, amount_usd: null },
@@ -131,7 +131,7 @@ export const MOCK_SHEET_DATA: IShipmentSheetItem[] = [
     vehicle_condition: null, vehicle_condition_note: null,
     doc_azyk: false, doc_suriji: false, doc_hil: false, doc_kalibrowka: false,
     loading_ended_at: null, vehicle_live_status: null,
-    has_sales_report: false, has_doc_advance: false, warehouse_comment_count: 0, document_comment_count: 0, notes: null, export_manager_note: null, customs_clearance_planned_day: null, official_export_code: null, previous_platform_id: null,
+    has_sales_report: false, has_doc_advance: false, notes: null, export_manager_note: null, warehouse_note: null, document_note: null, customs_clearance_planned_day: null, official_export_code: null, previous_platform_id: null,
     firm_splits: [
       { firm_code: 'YGT', firm_name: 'Yigit H.J.', weight_kg: 9757, amount_usd: null },
       { firm_code: 'HMS', firm_name: 'Hemsaya H.J.', weight_kg: 9757, amount_usd: null },

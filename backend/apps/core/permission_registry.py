@@ -99,8 +99,10 @@ RESOURCE_FIELDS: dict[str, list[str]] = {
         'vehicle_responsible', 'truck_head_id', 'trailer_id', 'driver_id',
         'transit_days', 'transport_temp_c', 'shelf_life_days',
         'has_peregruz', 'peregruz_city', 'peregruz_date',
-        # Operator-entered timestamp (NOT AD-1)
+        # Operator-entered timestamps (NOT AD-1) — sheet R19, R20, R21
+        'loading_started_at',
         'loading_ended_at',
+        'departed_at',
         # Operational status
         'documents_status', 'harvest_status', 'customs_clearance_planned_day',
         # Finance
@@ -110,6 +112,8 @@ RESOURCE_FIELDS: dict[str, list[str]] = {
         # Notes
         'notes',
         'export_manager_note',
+        'warehouse_note',
+        'document_note',
     ],
     'shipment_firm_split': [
         'export_firm', 'weight_kg', 'amount_usd', 'invoice_number', 'split_order',

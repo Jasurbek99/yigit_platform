@@ -84,7 +84,7 @@ permissions matrix — otherwise no role can edit it.
     'field_key': 'my_new_field',                      # MUST match the model field name (or its serializer alias)
     'default_who_key': 'sheet.who.transport',         # i18n key for Col B; reuse an existing one or add a new one in step 8
     'label_key': 'sheet.row.my_new_field',            # i18n key for Col C, even though admins can override per-row
-    'input_type': 'text',                             # text|number|date|datetime|dropdown|multiselect|status|comment_count|readonly
+    'input_type': 'text',                             # text|number|date|datetime|dropdown|multiselect|status|readonly
     'style': 'base',                                  # base|key|transport|status|report|separator
     'options_source': 'optional_registry_key',        # only for dropdown/multiselect — see step 6
 },

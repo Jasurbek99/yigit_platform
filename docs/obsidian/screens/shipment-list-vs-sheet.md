@@ -130,7 +130,8 @@ A representative sample, not exhaustive. Source-of-truth: [serializers.py](../..
 | Finance | `has_sales_report`, `has_doc_advance` (flags) | — | — | ✓ |
 | Vehicle (AD-2) | `vehicle_condition`, `vehicle_condition_note`, `route_note` | — | ✓ | ✓ |
 | Comments | inline thread on Changes tab | — | ✓ | — |
-| Comments / tasks | per-cell `comment_counts`, `task_counts`, `warehouse_comment_count`, `document_comment_count` | — | — | ✓ |
+| Comments / tasks | per-cell `comment_counts`, `task_counts` | — | — | ✓ |
+| Notes (per-role freeform) | `export_manager_note`, `warehouse_note`, `document_note` | — | ✓ | ✓ |
 | Sheet-only | `variety_code`, `custom_fields` (Phase 5c admin rows) | — | — | ✓ |
 | Permissions | `editable_fields[]` (per role) | — | ✓ | implicit (Sheet uses same source) |
 | Freshness | `harvest_age_days`, `freshness` | ✓ | — | — |
@@ -144,7 +145,7 @@ Sheet-only flat fields exist because the grid renders one cell per (shipment, fi
   - `ShipmentListSerializer` (~line 60) — lightweight list shape.
   - `ShipmentDetailSerializer` — extends list with FK ids, nested `firm_splits[]`, `block_sources[]`, `status_log[]`, `quality`, `comments[]`, `editable_fields`, `allowed_transitions`.
   - `ShipmentSheetSerializer` (~line 178) — flat 44+ fields, plus inline `SheetFirmSplitInlineSerializer` / `SheetBlockSourceInlineSerializer` and viewset-annotated booleans / counts.
-- **Sheet action** annotates `has_sales_report`, `has_doc_advance`, `warehouse_comment_count`, `document_comment_count` via `Exists()` / `Count()` subqueries before serialising — single-pass, N+1 safe.
+- **Sheet action** annotates `has_sales_report`, `has_doc_advance` via `Exists()` subqueries before serialising — single-pass, N+1 safe.
 - **Pagination:** `PageNumberPagination` (default 50, max 200) on the list endpoint. Sheet returns the whole season — no pagination.
 - **Filters:**
   - List honours `?my_work=true` (filters by the role's active phase window), `?view=archive` (gated to `_ARCHIVE_VIEW_ROLES`), plus phase / country / customer / date range.
@@ -189,4 +190,4 @@ When changing the shipment domain, ask all four questions:
 3. **Changing role permissions.** Verify the `editable_fields` response after the change — it drives all three views' edit eligibility.
 4. **Adding a notification kind that points at a shipment.** Use the Sheet `?shipment=&row=&comment=` deep-link if the user should land on a cell; use Detail `/:id?tab=…` if they should land on a tab.
 
-When a Sheet-only flat field (like `doc_*` or `warehouse_comment_count`) starts being read elsewhere — promote it to the Detail serializer rather than copying the flattening logic.
+When a Sheet-only flat field (like `doc_*`) starts being read elsewhere — promote it to the Detail serializer rather than copying the flattening logic.

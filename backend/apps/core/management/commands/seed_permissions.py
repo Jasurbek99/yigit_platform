@@ -203,6 +203,8 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
             'weight_net', 'weight_gross', 'box_count', 'pallet_count',
             'pallet_weight_kg', 'packaging_kg',
             'harvest_status', 'variety', 'product_type', 'loading_location',
+            # R17: Soltanmyrat's freeform warehouse note
+            'warehouse_note',
         ],
     },
     # ── warehouse_chief (Soltanmyrat's deputies) ─────────────────────
@@ -218,9 +220,13 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
             'weight_net', 'weight_gross', 'box_count', 'pallet_count',
             'pallet_weight_kg', 'packaging_kg',
             'harvest_status', 'variety', 'product_type', 'loading_location',
-            # R20: warehouse logs the moment the truck finished loading
-            # (NOT AD-1 — departed_at on R21 is set by transition_to).
+            # R19/R20/R21: warehouse logs the truck's loading-start, loading-end
+            # and greenhouse-departure timestamps (NOT AD-1 — operator-entered).
+            'loading_started_at',
             'loading_ended_at',
+            'departed_at',
+            # R17: Soltanmyrat's freeform warehouse note (deputies share the field)
+            'warehouse_note',
         ],
     },
     # ── document_team (Sirin, Sulgun) ────────────────────────────────
@@ -232,6 +238,8 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
             'customs_clearance_planned_day',
             'box_count', 'pallet_count', 'weight_net', 'weight_gross',
             'notes',
+            # R18: Şirin's freeform document-team note
+            'document_note',
         ],
         'shipment_firm_split': ['*'],
         'quality_document': ['*'],
