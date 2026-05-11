@@ -274,6 +274,8 @@ export interface IShipmentSheetItem {
   loading_ended_at: string | null;
   // Operator-entered date â€” editable inline on R43 (sales rep files report)
   sales_report_date: string | null;
+  // Operator-entered date â€” editable inline on R39 (warehouse logs harvest day)
+  harvest_date: string | null;
   // AD-2 Vehicle
   vehicle_condition: VehicleCondition | null;
   vehicle_condition_note: string | null;
@@ -1043,6 +1045,7 @@ export interface IShipmentDetail extends IShipmentListItem {
   warehouse_note: string | null;
   document_note: string | null;
   sales_report_date: string | null;
+  harvest_date: string | null;
   customs_clearance_planned_day: 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun' | '' | null;
   created_at: string;
   updated_at: string;

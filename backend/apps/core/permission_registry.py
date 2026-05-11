@@ -105,6 +105,8 @@ RESOURCE_FIELDS: dict[str, list[str]] = {
         'departed_at',
         # Operator-entered date — sheet R43 (sales rep files the report)
         'sales_report_date',
+        # Operator-entered date — sheet R39 (warehouse logs harvest day)
+        'harvest_date',
         # Operational status
         'documents_status', 'harvest_status', 'customs_clearance_planned_day',
         # Finance

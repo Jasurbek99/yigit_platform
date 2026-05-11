@@ -84,7 +84,7 @@ function getCellValue(shipment: IShipmentSheetItem, rowConfig: IRowConfig): stri
   }
 
   // Date-only fields (no time component) — format DD.MM.YYYY.
-  const dateOnlyFields = ['sales_report_date'];
+  const dateOnlyFields = ['sales_report_date', 'harvest_date'];
   if (dateOnlyFields.includes(fieldKey)) {
     const val = shipment[fieldKey as keyof IShipmentSheetItem] as string | null;
     if (!val) return '—';

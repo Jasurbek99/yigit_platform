@@ -331,6 +331,8 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
             'loading_ended_at',
             # Operator-entered date — sheet R43 (Aganazar files the report)
             'sales_report_date',
+            # Operator-entered date — sheet R39 (Soltanmyrat logs harvest day)
+            'harvest_date',
             # AD-2 Vehicle condition
             'vehicle_condition', 'vehicle_condition_note',
             # Quality docs (flattened from OneToOne 'quality')
@@ -921,6 +923,8 @@ _ALL_PATCHABLE_FIELDS = {
     'departed_at',
     # Operator-entered date — sheet R43
     'sales_report_date',
+    # Operator-entered date — sheet R39 (harvest day)
+    'harvest_date',
     # Operational status
     'documents_status', 'harvest_status', 'customs_clearance_planned_day',
     # Finance

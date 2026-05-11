@@ -173,6 +173,12 @@ class Shipment(models.Model):
     # the Sheet now shows this picker instead.
     sales_report_date = models.DateField(null=True, blank=True)
 
+    # Operator-entered date the cargo was harvested (Sheet R39, owned by
+    # Soltanmyrat/warehouse_chief). Shipment-level (one date per truck) — the
+    # per-block alternative on ShipmentBlockSource was deferred since the Sheet
+    # only has room for one cell per shipment column.
+    harvest_date = models.DateField(null=True, blank=True)
+
     # === AD-2: Structured vehicle fields (replaces deprecated vehicle_status_note) ===
     vehicle_condition = models.CharField(
         max_length=20, choices=VEHICLE_CONDITION_CHOICES, null=True, blank=True

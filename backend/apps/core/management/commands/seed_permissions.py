@@ -225,6 +225,8 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
             'loading_started_at',
             'loading_ended_at',
             'departed_at',
+            # R39: harvest day, operator-entered.
+            'harvest_date',
             # R17: Soltanmyrat's freeform warehouse note (deputies share the field)
             'warehouse_note',
         ],
