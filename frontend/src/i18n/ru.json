@@ -1225,7 +1225,12 @@
       "sale_end": "Конец продажи",
       "report_date": "Дата отчёта",
       "additional_notes_arap": "Примечания (Арап)",
-      "customs_clearance_planned_day": "Плановый день таможенного оформления"
+      "customs_clearance_planned_day": "Плановый день таможенного оформления",
+      "gornushi": "Тип"
+    },
+    "gornushi": {
+      "adaty": "Обычный",
+      "gapy_satys": "Гапы Сатыш"
     },
     "status": {
       "ok": "OK",

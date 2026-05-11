@@ -1223,7 +1223,12 @@
       "sale_end": "Sale End",
       "report_date": "Report Date",
       "additional_notes_arap": "Notes (Arap)",
-      "customs_clearance_planned_day": "Planned customs day"
+      "customs_clearance_planned_day": "Planned customs day",
+      "gornushi": "Type"
+    },
+    "gornushi": {
+      "adaty": "Regular",
+      "gapy_satys": "Gapy Satyş"
     },
     "status": {
       "ok": "OK",

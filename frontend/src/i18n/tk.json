@@ -1223,7 +1223,12 @@
       "sale_end": "Satylyp gutardy",
       "report_date": "Hasabat senesi",
       "additional_notes_arap": "Bellik (Arap)",
-      "customs_clearance_planned_day": "Plan boýunça gümrükleme güni"
+      "customs_clearance_planned_day": "Plan boýunça gümrükleme güni",
+      "gornushi": "Görnüşi"
+    },
+    "gornushi": {
+      "adaty": "Adaty",
+      "gapy_satys": "Gapy Satyş"
     },
     "status": {
       "ok": "OK",

@@ -209,6 +209,13 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
           { value: 1, label: t('sheet.has_peregruz_yes') },
         ];
 
+      case 'gornushi':
+      case 'is_gapy_satys':
+        return [
+          { value: 0, label: t('sheet.gornushi.adaty') },
+          { value: 1, label: t('sheet.gornushi.gapy_satys') },
+        ];
+
       case 'weekdays':
       case 'customs_clearance_planned_day':
         return (['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const).map((day) => ({
@@ -250,13 +257,16 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
 
       case 'dropdown': {
         const options = getOptions();
-        const isPeregruz = rowConfig.options_source === 'peregruz';
+        // Bool-backed dropdowns map 0/1 ⇄ false/true on the wire.
+        const isBoolDropdown =
+          rowConfig.options_source === 'peregruz' ||
+          rowConfig.options_source === 'gornushi';
         return (
           <Select
             size="small"
-            defaultValue={isPeregruz ? (currentValue ? 1 : 0) : ((currentValue as number | string | null) ?? undefined)}
+            defaultValue={isBoolDropdown ? (currentValue ? 1 : 0) : ((currentValue as number | string | null) ?? undefined)}
             options={options}
-            onChange={(val) => save(isPeregruz ? Boolean(val) : val)}
+            onChange={(val) => save(isBoolDropdown ? Boolean(val) : val)}
             onOpenChange={(open) => { if (!open) close(); }}
             style={{ width: '100%' }}
             showSearch
