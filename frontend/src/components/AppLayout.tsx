@@ -208,6 +208,7 @@ export default function AppLayout() {
     '/admin/customers': t('nav.admin_customers'),
     '/admin/truck-destinations': t('nav.admin_truck_dest'),
     '/admin/shipment-settings': t('nav.admin_shipment_settings'),
+    '/admin/audit-log': t('nav.admin_audit_log'),
     '/me/board': t('me.nav.board'),
   };
 
@@ -274,6 +275,12 @@ export default function AppLayout() {
       { key: '/admin/truck-destinations', icon: <IconTruck size={15} />, label: t('nav.admin_truck_dest') },
       { key: '/admin/shipment-settings', icon: <IconLayoutGrid size={15} />, label: t('nav.admin_shipment_settings') },
       { key: '/admin/permissions', icon: <IconShield size={15} />, label: t('nav.admin_permissions') },
+      {
+        key: '/admin/audit-log',
+        icon: <IconClipboardList size={15} />,
+        label: t('nav.admin_audit_log'),
+        roles: ['admin', 'director', 'export_manager'],
+      },
     ]},
     { label: t('me.nav.label'), items: [
       {

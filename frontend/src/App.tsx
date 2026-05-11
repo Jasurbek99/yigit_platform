@@ -45,6 +45,7 @@ const BlockDetailPage = lazy(() => import('@/pages/admin/BlockDetailPage'));
 const TruckDestinationsPage = lazy(() => import('@/pages/admin/TruckDestinationsPage'));
 const CustomersPage = lazy(() => import('@/pages/admin/CustomersPage'));
 const ShipmentSettingsPage = lazy(() => import('@/pages/admin/ShipmentSettingsPage'));
+const AuditLogPage = lazy(() => import('@/pages/admin/AuditLogPage'));
 const ShipmentSheet = lazy(() => import('@/pages/export/ShipmentSheet'));
 const ShipmentDashboard = lazy(() => import('@/pages/export/ShipmentDashboard'));
 const DraftPool = lazy(() => import('@/pages/export/DraftPool'));
@@ -258,6 +259,9 @@ export default function App() {
                   } />
                   <Route path="admin/shipment-settings" element={
                     <ProtectedRoute pageCode="admin.shipment_settings"><ShipmentSettingsPage /></ProtectedRoute>
+                  } />
+                  <Route path="admin/audit-log" element={
+                    <ProtectedRoute roles={['admin', 'director', 'export_manager']}><AuditLogPage /></ProtectedRoute>
                   } />
                   {/* Me / Self board */}
                   <Route path="me/board" element={

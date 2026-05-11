@@ -19,6 +19,8 @@ import type {
   IShipmentOptionType,
   ICrateType,
   ITruckSplitDefault,
+  IAuditLog,
+  AuditAction,
   UserRole,
 } from '@/types';
 
@@ -932,6 +934,40 @@ export function useCrateTypes() {
       return Array.isArray(data) ? data : data.results;
     },
     staleTime: 300_000,
+  });
+}
+
+// ─── Audit Log (read-only — admin / director / export_manager) ─────────
+
+export interface IAuditLogFilters {
+  page?: number;
+  page_size?: number;
+  model_name?: string;
+  action?: AuditAction | '';
+  object_id?: number | '';
+}
+
+export function useAuditLog(filters: IAuditLogFilters = {}) {
+  const params = new URLSearchParams();
+  if (filters.page) params.set('page', String(filters.page));
+  if (filters.page_size) params.set('page_size', String(filters.page_size));
+  if (filters.model_name) params.set('model_name', filters.model_name);
+  if (filters.action) params.set('action', filters.action);
+  if (filters.object_id !== undefined && filters.object_id !== '') {
+    params.set('object_id', String(filters.object_id));
+  }
+  const qs = params.toString();
+
+  return useQuery({
+    queryKey: ['admin-audit-log', filters],
+    queryFn: async (): Promise<IApiListResponse<IAuditLog>> => {
+      if (USE_MOCK) return { count: 0, next: null, previous: null, results: [] };
+      const { data } = await api.get<IApiListResponse<IAuditLog>>(
+        `/export/audit-log/${qs ? `?${qs}` : ''}`,
+      );
+      return data;
+    },
+    staleTime: 30_000,
   });
 }
 

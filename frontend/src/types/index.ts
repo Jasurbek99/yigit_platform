@@ -1038,6 +1038,20 @@ export interface INotification {
   created_at: string;
 }
 
+export type AuditAction = 'transition' | 'create' | 'update';
+
+export interface IAuditLog {
+  id: number;
+  user: number | null;
+  user_name: string | null;
+  action: AuditAction;
+  model_name: string;
+  object_id: number;
+  object_repr: string;
+  detail: string;
+  created_at: string;
+}
+
 // â”€â”€â”€ Shipment (detail) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface IShipmentDetail extends IShipmentListItem {
