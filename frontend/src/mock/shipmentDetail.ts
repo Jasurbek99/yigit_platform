@@ -29,6 +29,8 @@ export const MOCK_SHIPMENT_DETAIL: IShipmentDetail = {
   vehicle_condition: 'OK',
   vehicle_condition_note: null,
   export_manager_note: 'Test note from Gadam',
+  warehouse_note: '',
+  document_note: '',
   price_per_kg: 0.85,
   total_amount_usd: 15725,
   loading_started_at: '2025-02-01T07:00:00+05:00',

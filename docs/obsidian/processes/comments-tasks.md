@@ -308,6 +308,6 @@ For existing shipments: `python manage.py backfill_tasks [--dry-run] [--limit N]
 ## Related
 
 - [[shipment-lifecycle]] — Comments do NOT trigger AD-1 timestamps
-- [[../screens/shipment-sheet]] — Cell markers, drawer, deep-link, R17/R18 legacy comment-count rows
+- [[../screens/shipment-sheet]] — Cell markers, drawer, deep-link, R17/R18 freeform note rows (warehouse_note, document_note)
 - [[permissions-system]] — `shipment_comment` resource granular actions
 - [[../reference/api-endpoint-map]] — `/comments/` and `/users/mentionable/` shapes

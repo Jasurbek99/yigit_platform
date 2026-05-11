@@ -142,7 +142,7 @@ Each row can be assigned **one or more formal roles** AND/OR **a specific user**
 
 Row numbers mirror the original "Eksport Hasabat" Excel sheet so users can cross-reference the platform view with their spreadsheet by row index. Earlier versions of the platform had a one-row offset on R20+ (loading_started_at was rendered on R20 instead of R19, transit_days_temp on R27 instead of R26, etc.); that has been corrected.
 
-**Comment summary cells (R17, R18):** Read-only count cells with a chat-bubble icon. R17 counts comments by `warehouse_chief` (Soltanmyrat); R18 counts comments by `document_team` (Şirin). Click → opens the [[../processes/comments-tasks|Comments Drawer]] filtered to that role's threads on the active shipment column. Counts come from `Count('comments', filter=Q(comments__user__role=...))` annotated by the sheet viewset.
+**Per-role freeform notes (R17, R18):** Plain text cells, parallel to Gadam's `export_manager_note` (R5). R17 holds `warehouse_note` — owned by Soltanmyrat (`loading_dept_head`); deputies (`warehouse_chief`) share the same field. R18 holds `document_note` — owned by Şirin (`document_team`). Editable inline like any other text cell; per-cell discussion threads still live on each cell's CommentMarker.
 
 ## Comments Drawer
 
