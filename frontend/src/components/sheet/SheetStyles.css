@@ -151,6 +151,46 @@
   border-right: 1px solid rgba(255,255,255,0.08);
   padding: 2px 4px;
   user-select: none;
+  position: relative;
+}
+
+/* ═══ PER-SHIPMENT COLUMN COLOR ═══ */
+/* The picker affordance — a tiny dot anchored top-right of every header
+   for admin / export_manager. Empty = not yet coloured (outline only). */
+.sheet-col-header__color-dot {
+  position: absolute;
+  top: 2px;
+  right: 3px;
+  width: 9px;
+  height: 9px;
+  padding: 0;
+  border: 1px solid rgba(255,255,255,0.55);
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0.4;
+  transition: opacity 0.12s, transform 0.12s;
+}
+.sheet-col-header__color-dot:hover {
+  opacity: 1;
+  transform: scale(1.25);
+}
+
+/* Tinted column: paint cells with the picked colour. 60% mix keeps a touch
+   of surface in the channel so the operator's pick is clearly visible even
+   when the colour is near-white, while dark picks soften enough to remain
+   readable. Inline admin row-bg overrides still win (inline > class rule). */
+.sheet-col-tinted .sheet-cell {
+  background: color-mix(in srgb, var(--col-tint) 60%, var(--surface));
+}
+
+/* Gapy + column-tint: gapy's pink uses `!important` and would otherwise mask
+   the operator-picked colour. A combined-class rule (specificity 0,2,0) plus
+   `!important` wins by both specificity AND importance. 75% lets the picked
+   colour dominate the pink — a white pick now reads as white, dark picks
+   still keep a hint of pink so the gapy signal isn't completely lost. */
+.sheet-col-tinted .sheet-cell.sheet-cell--gapy {
+  background: color-mix(in srgb, var(--col-tint) 75%, var(--pink-50)) !important;
 }
 
 /* Frozen column headers need an opaque background so virtualized columns

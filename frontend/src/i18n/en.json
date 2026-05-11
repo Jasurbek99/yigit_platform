@@ -1155,6 +1155,10 @@
     "total_count": "{{count}} shipments",
     "save_error": "Failed to save",
     "save_success": "Saved",
+    "column_color": {
+      "tooltip": "Color this shipment column",
+      "presets": "Flag colors"
+    },
     "add_column": "New Shipment",
     "create_success": "Shipment created — fill in the details",
     "create_error": "Failed to create shipment",

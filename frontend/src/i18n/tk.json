@@ -1155,6 +1155,10 @@
     "total_count": "{{count}} ýük",
     "save_error": "Ýazdyryp bolmady",
     "save_success": "Ýatda saklandy",
+    "column_color": {
+      "tooltip": "Bu ýüküň sütünini reňkle",
+      "presets": "Bellik reňkleri"
+    },
     "add_column": "Täze Ýük",
     "create_success": "Ýük döredildi — maglumatlary dolduryň",
     "create_error": "Ýük döredip bolmady",

@@ -228,6 +228,14 @@ Director changes the per-firm-count amounts at `/admin/shipment-settings` → "T
 
 If the client sends an explicit non-zero `weight_kg`, the backend honours it (admin override path).
 
+## Per-shipment column color
+
+Each shipment column header carries a small swatch button (top-right of the cell) that opens an Ant `ColorPicker`. The picked hex (`#RRGGBB`) is stored on `Shipment.column_color` (nullable `CharField(max_length=7)`); clearing the picker writes `null`. Sheet cells in that column then render with a tinted background (`color-mix(in srgb, var(--col-tint) 60%, var(--surface))`), and the header gets a 3px top border in the raw color so the flag is visible from the column-header row alone. For gapy-satys shipments the tint is mixed 75/25 over the gapy pink with `!important` so the operator's pick wins (white reads as white instead of disappearing into pink).
+
+Permission: gated by `canEditField(user, 'shipment', 'column_color')`. Only roles with the `'*'` shipment field grant (currently `admin`, `export_manager`, `director`) and `is_superuser` see the swatch — other roles still see the tint but cannot change it. The field is in `RESOURCE_FIELDS['shipment']` so it surfaces in the admin permission-matrix UI; the existing wildcard `RoleFieldPermission` rows mean no seed migration is required.
+
+The picker has `disabledAlpha` to suppress the opacity slider, and the frontend defensively truncates the hex to 7 chars before saving so an older Ant build emitting `#RRGGBBAA` still fits the `max_length=7` column. Save flow reuses `useShipmentPatch` (optimistic update + rollback). Every change writes one `AuditLog` row (`field_name='column_color'`) via the existing sheet-PATCH audit hook; the field is intentionally **not** in `DEFAULT_SHEET_ROWS`, so no clock-icon marker appears on any cell. The colour ships through `ShipmentSheetSerializer` as the `column_color` field.
+
 ## Toolbar
 
 - `+ Add column` — creates a new draft shipment (`useSheetCreate`); visible when `canDo('shipment', 'create')`

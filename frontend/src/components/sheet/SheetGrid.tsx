@@ -17,6 +17,7 @@ import { canDo, canEditField } from '@/utils/permissions';
 import { SheetCell } from './SheetCell';
 import { SheetCellEditor } from './SheetCellEditor';
 import { SheetLabelRow } from './SheetLabelColumn';
+import { SheetColumnHeader } from './SheetColumnHeader';
 import {
   COL_WIDTH_SHIPMENT,
   COL_WIDTH_ROW_NUM,
@@ -274,10 +275,6 @@ export function SheetGrid({
   const frozenColumnHeaders = useMemo(
     () =>
       frozenShipments.map((shipment, idx) => {
-        // Stream G: drop the .slice(0, 7) truncation. Show the full Export
-        // Code (cargo_code, ~10 chars DDMMNNN/YY) so operators see the
-        // complete platform identifier in the Sheet column header.
-        const exportCode = shipment.cargo_code;
         const isLast = idx === frozenShipments.length - 1;
         return (
           <div
@@ -290,10 +287,17 @@ export function SheetGrid({
               height: ROW_HEIGHT,
               zIndex: Z_HEADER_CORNER,
               flexShrink: 0,
+              ...(shipment.column_color
+                ? { borderTop: `3px solid ${shipment.column_color}` }
+                : null),
             }}
           >
-            <span className="sheet-col-header__seq">{idx + 1}</span>
-            <span className="sheet-col-header__code">{exportCode}</span>
+            <SheetColumnHeader
+              shipmentId={shipment.id}
+              seqNumber={idx + 1}
+              exportCode={shipment.cargo_code}
+              columnColor={shipment.column_color}
+            />
           </div>
         );
       }),
@@ -305,10 +309,6 @@ export function SheetGrid({
     () =>
       virtualColumns.map((vc) => {
         const shipment = scrollableShipments[vc.index];
-        // Stream G: drop the .slice(0, 7) truncation. Show the full Export
-        // Code (cargo_code, ~10 chars DDMMNNN/YY) so operators see the
-        // complete platform identifier in the Sheet column header.
-        const exportCode = shipment.cargo_code;
         return (
           <div
             key={shipment.id}
@@ -318,10 +318,17 @@ export function SheetGrid({
               left: vc.start,
               width: COL_WIDTH_SHIPMENT,
               height: ROW_HEIGHT,
+              ...(shipment.column_color
+                ? { borderTop: `3px solid ${shipment.column_color}` }
+                : null),
             }}
           >
-            <span className="sheet-col-header__seq">{vc.index + 1 + shipmentFreezeCount}</span>
-            <span className="sheet-col-header__code">{exportCode}</span>
+            <SheetColumnHeader
+              shipmentId={shipment.id}
+              seqNumber={vc.index + 1 + shipmentFreezeCount}
+              exportCode={shipment.cargo_code}
+              columnColor={shipment.column_color}
+            />
           </div>
         );
       }),
@@ -386,10 +393,11 @@ export function SheetGrid({
           {/* Frozen data columns (sticky-left, between label band and virtualizer) */}
           {frozenShipments.map((shipment, idx) => {
             const isLast = idx === frozenShipments.length - 1;
+            const tinted = shipment.column_color ? ' sheet-col-tinted' : '';
             return (
               <div
                 key={shipment.id}
-                className={`sheet-frozen-col-wrap${isLast ? ' sheet-frozen-col-wrap--last' : ''}`}
+                className={`sheet-frozen-col-wrap${isLast ? ' sheet-frozen-col-wrap--last' : ''}${tinted}`}
                 style={{
                   position: 'sticky',
                   left: FROZEN_LEFT_TOTAL + idx * COL_WIDTH_SHIPMENT,
@@ -397,6 +405,9 @@ export function SheetGrid({
                   height: ROW_HEIGHT,
                   zIndex: Z_FROZEN_DATA_COL,
                   flexShrink: 0,
+                  ...(shipment.column_color
+                    ? ({ ['--col-tint' as string]: shipment.column_color } as React.CSSProperties)
+                    : null),
                 }}
               >
                 {renderRow(rowConfig, shipment)}
@@ -414,14 +425,19 @@ export function SheetGrid({
           >
             {virtualColumns.map((vc) => {
               const shipment = scrollableShipments[vc.index];
+              const tinted = shipment.column_color ? ' sheet-col-tinted' : '';
               return (
                 <div
                   key={shipment.id}
+                  className={`sheet-virt-col-wrap${tinted}`}
                   style={{
                     position: 'absolute',
                     left: vc.start,
                     width: COL_WIDTH_SHIPMENT,
                     height: ROW_HEIGHT,
+                    ...(shipment.column_color
+                      ? ({ ['--col-tint' as string]: shipment.column_color } as React.CSSProperties)
+                      : null),
                   }}
                 >
                   {renderRow(rowConfig, shipment)}
