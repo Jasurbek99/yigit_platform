@@ -1159,10 +1159,6 @@
     "create_success": "Ýük döredildi — maglumatlary dolduryň",
     "create_error": "Ýük döredip bolmady",
     "create_retry": "Kod gabat geldi — täzeden synanyşyň",
-    "deadline_label": "Resminamalar möhleti",
-    "deadline_passed": "Möhlet geçdi",
-    "deadline_overdue": "gijä galdy",
-    "deadline_until": "13:00-a çenli",
     "has_peregruz_yes": "Boldy",
     "who": {
       "logist": "Logist",

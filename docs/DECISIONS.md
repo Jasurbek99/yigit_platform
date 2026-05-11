@@ -352,3 +352,47 @@ docstring `SheetRowSetting`). В Sheet Control v2 семантика
 - Frontend SheetRowsTab показывает `is_locked` как Switch, не
   привязанный к жизни пользователя
 
+---
+
+## ADR-0011: Documents Deadline Timer — REMOVED, не возвращать
+
+**Дата:** 2026-05-11
+**Статус:** accepted
+
+### Контекст
+В DashboardHeader и SheetToolbar был компонент `DeadlineTimer`
+(`frontend/src/components/DeadlineTimer.tsx`) — countdown до 13:00
+(«срок резначайства») с hard-coded целевым временем, цветными
+плашками и i18n-ключами `sheet.deadline_{label,passed,overdue,until}`.
+
+Пользователь уже однажды удалил этот таймер, но он был возвращён
+в кодовую базу при последующих изменениях. Чтобы это больше не
+повторялось — фиксируем решение явно.
+
+### Решение
+1. Компонент `DeadlineTimer` удалён из репозитория.
+2. Все использования в `DashboardHeader.tsx` и `SheetToolbar.tsx`
+   удалены вместе с импортом.
+3. i18n-ключи `sheet.deadline_label`, `sheet.deadline_passed`,
+   `sheet.deadline_overdue`, `sheet.deadline_until` удалены из
+   `tk.json`, `ru.json`, `en.json`.
+4. **Не возвращать** этот таймер в Sheet, Shipments или Dashboard
+   ни в каком виде без явной просьбы пользователя.
+5. Алерт `dashboard.alert_doc_deadline` (отдельный текстовый
+   алерт на DashboardPage) — НЕ затронут этим решением, он не
+   является таймером и остаётся как часть Dashboard alerts.
+
+### Альтернативы
+- Скрыть через feature flag — отвергли, мёртвый код всё равно
+  будет тащиться и кто-то снова включит.
+- Оставить компонент, убрать только использования — отвергли,
+  компонент всё равно вернётся в импорты при следующем рефакторе
+  «общих виджетов».
+
+### Последствия
+- Любая будущая фича «дедлайн / countdown» — отдельный ADR с
+  обоснованием UX-нужды.
+- Если потребуется визуализация SLA — использовать существующий
+  механизм stuck-shipments dashboard и SLA-эскалации (ADR-0005),
+  а не возвращать UI-таймер на каждый экран.
+

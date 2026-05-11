@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { Flex, Statistic } from 'antd';
 import { useTranslation } from 'react-i18next';
-import { DeadlineTimer } from '@/components/DeadlineTimer';
 import type { IShipmentListItem } from '@/types';
 
 interface IDashboardHeaderProps {
@@ -64,8 +63,6 @@ export function DashboardHeader({ shipments }: IDashboardHeaderProps) {
           />
         )}
       </Flex>
-
-      <DeadlineTimer />
     </div>
   );
 }

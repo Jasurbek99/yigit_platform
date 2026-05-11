@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { Button, Input, Switch, Typography, Badge, Modal, List, Select, Space } from 'antd';
 import { PlusOutlined, SearchOutlined, CommentOutlined, EyeOutlined, SettingOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { DeadlineTimer } from '@/components/DeadlineTimer';
 import { useSheetStore } from '@/stores/sheetStore';
 import { useSheetCreate } from '@/hooks/useSheetCreate';
 import { useAuth } from '@/hooks/useAuth';
@@ -228,7 +227,6 @@ export function SheetToolbar({
               {t('comments.toolbar_btn')}
             </Button>
           </Badge>
-          <DeadlineTimer compact />
         </div>
       </div>
 

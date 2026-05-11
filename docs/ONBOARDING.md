@@ -234,7 +234,7 @@ Each hook wraps a TanStack Query call. List queries return `{ count, next, previ
 
 - **Self-fetching selects** (one query each, never duplicated in pages): `BlockSelect`, `CitySelect`, `CountrySelect`, `CrateTypeSelect`, `CustomerSelect`, `VarietySelect`
 - **Layout**: `AppLayout`, `ProtectedRoute`
-- **Domain widgets**: `StatusTag`, `DeadlineTimer`, `FreshnessPill`, `EChart`, `TransitionButton`, `CommentComposer`, `ShipmentCreateModal`
+- **Domain widgets**: `StatusTag`, `FreshnessPill`, `EChart`, `TransitionButton`, `CommentComposer`, `ShipmentCreateModal`
 - **Subdirs**: `dashboard/` (7 files), `draft/` (2 files), `sheet/` (5 files)
 
 ### 4.5 i18n — strict three-language rule

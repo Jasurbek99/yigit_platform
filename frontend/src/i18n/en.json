@@ -1159,10 +1159,6 @@
     "create_success": "Shipment created — fill in the details",
     "create_error": "Failed to create shipment",
     "create_retry": "Code collision — try again",
-    "deadline_label": "Documents Deadline",
-    "deadline_passed": "Deadline Passed",
-    "deadline_overdue": "overdue",
-    "deadline_until": "until 13:00",
     "has_peregruz_yes": "Yes",
     "who": {
       "logist": "Logist",

@@ -1161,10 +1161,6 @@
     "create_success": "Отгрузка создана — заполните данные",
     "create_error": "Не удалось создать отгрузку",
     "create_retry": "Код совпал — попробуйте ещё раз",
-    "deadline_label": "Срок документов",
-    "deadline_passed": "Срок истёк",
-    "deadline_overdue": "просрочено",
-    "deadline_until": "до 13:00",
     "has_peregruz_yes": "Да",
     "who": {
       "logist": "Логист",
