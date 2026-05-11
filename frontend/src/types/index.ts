@@ -204,8 +204,12 @@ export interface ISheetFirmSplit {
 }
 
 export interface ISheetBlockSource {
+  block_id?: number;
   block_code: string;
   weight_kg: number;
+  // Per-block harvest date (R39 source) — null when never set; falls back
+  // to shipment.harvest_date for display.
+  harvest_date?: string | null;
 }
 
 export interface IShipmentSheetItem {
@@ -502,9 +506,13 @@ export interface IFirmSplit {
 }
 
 export interface IBlockSource {
+  block_id?: number;
   block_code: string;
-  block_name: string | null;
+  block_name?: string | null;
   weight_kg: number;
+  // Per-block harvest day. Multi-block trucks can have different dates;
+  // the Sheet R39 cell renders the min-max range across all block sources.
+  harvest_date?: string | null;
 }
 
 export interface IStatusLogEntry {

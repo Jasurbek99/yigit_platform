@@ -44,6 +44,7 @@ export const MOCK_SHIPMENT_DETAIL: IShipmentDetail = {
   official_export_code: '01|FB|045|A4|25|08',
   previous_platform_id: null,
   sales_report_date: null,
+  harvest_date: null,
   harvest_age_days: 0,
   freshness: 'today',
   phase: 'TRANSIT',

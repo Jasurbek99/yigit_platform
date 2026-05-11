@@ -1296,13 +1296,18 @@ class ShipmentViewSet(ModelViewSet):
         """POST /api/v1/export/shipments/{id}/block-sources/
 
         Replace all block sources for a shipment.
-        Request body: { "blocks": [{ "block_id": 1, "weight_kg": 18000 }, ...] }
+        Request body: { "blocks": [{ "block_id": 1, "weight_kg": 18000, "harvest_date": "2026-05-11" }, ...] }
 
         ``weight_kg`` is optional. When omitted (or 0), the server splits the
         shipment's real ``weight_net`` evenly across the selected blocks. If
         ``weight_net`` is null, falls back to ``get_default_truck_weight(1)``
         (single-firm cap) divided by N. Last entry receives the rounding
         remainder so the sum exactly matches the source total.
+
+        ``harvest_date`` is optional per-block. When the R8 multi-select editor
+        re-picks blocks without sending harvest_date, the server preserves the
+        existing date by reading the prior block_id → date map before deleting
+        the rows. Pass harvest_date=null explicitly to clear.
         """
         shipment = self.get_object()
         blocks_data = request.data.get('blocks', [])
@@ -1324,6 +1329,13 @@ class ShipmentViewSet(ModelViewSet):
             auto_weights = [base] * (n - 1)
             auto_weights.append((Decimal(total) - base * (n - 1)).quantize(Decimal('0.01')))
 
+        # Preserve existing harvest_date for blocks the caller didn't send —
+        # R8's multiselect editor only ships block_id, so without this the
+        # date would silently reset every time blocks were reordered.
+        existing_dates = dict(
+            shipment.block_sources.values_list('block_id', 'harvest_date')
+        )
+
         shipment.block_sources.all().delete()
         rows = []
         for i, entry in enumerate(valid_entries):
@@ -1333,10 +1345,18 @@ class ShipmentViewSet(ModelViewSet):
                 if override not in (None, 0, '0', '0.00')
                 else auto_weights[i]
             )
+            # harvest_date semantics: explicit key (even null) overrides the
+            # preserved value; absent key falls back to the prior date.
+            block_id = entry['block_id']
+            if 'harvest_date' in entry:
+                harvest_date = entry['harvest_date'] or None
+            else:
+                harvest_date = existing_dates.get(block_id)
             rows.append(ShipmentBlockSource(
                 shipment=shipment,
-                block_id=entry['block_id'],
+                block_id=block_id,
                 weight_kg=weight,
+                harvest_date=harvest_date,
             ))
         if rows:
             ShipmentBlockSource.objects.bulk_create(rows, batch_size=500)

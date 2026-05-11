@@ -124,7 +124,7 @@ RESOURCE_FIELDS: dict[str, list[str]] = {
     'shipment_firm_split': [
         'export_firm', 'weight_kg', 'amount_usd', 'invoice_number', 'split_order',
     ],
-    'shipment_block_source': ['block', 'weight_kg'],
+    'shipment_block_source': ['block', 'weight_kg', 'harvest_date'],
     'quality_document': [
         'azyk_maglumatnama', 'suriji_gozukdiriji', 'hil_sertifikaty', 'kalibrowka_analiz',
     ],

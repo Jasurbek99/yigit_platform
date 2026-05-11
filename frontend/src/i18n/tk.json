@@ -1159,6 +1159,12 @@
       "tooltip": "Bu ýüküň sütünini reňkle",
       "presets": "Bellik reňkleri"
     },
+    "harvest_date": {
+      "no_blocks": "Bloklar ýok — aşakda umumy ýygym senesini saýlaň.",
+      "shipment_fallback": "Umumy ýygym senesi (bloklarda sene ýok bolanda ulanylýar)",
+      "save": "Ýatda sakla",
+      "cancel": "Goýbolsun"
+    },
     "add_column": "Täze Ýük",
     "create_success": "Ýük döredildi — maglumatlary dolduryň",
     "create_error": "Ýük döredip bolmady",

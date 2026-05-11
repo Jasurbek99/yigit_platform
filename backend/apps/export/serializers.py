@@ -176,7 +176,7 @@ class DraftBlockSourceInlineSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ShipmentBlockSource
-        fields = ['block_id', 'block_code', 'weight_kg']
+        fields = ['block_id', 'block_code', 'weight_kg', 'harvest_date']
 
 
 class ShipmentDraftListSerializer(ShipmentListSerializer):
@@ -214,11 +214,12 @@ class SheetFirmSplitInlineSerializer(serializers.ModelSerializer):
 class SheetBlockSourceInlineSerializer(serializers.ModelSerializer):
     """Inline block source for sheet view — minimal fields."""
 
+    block_id = serializers.IntegerField(source='block.id', read_only=True)
     block_code = serializers.CharField(source='block.code', read_only=True)
 
     class Meta:
         model = ShipmentBlockSource
-        fields = ['block_code', 'weight_kg']
+        fields = ['block_id', 'block_code', 'weight_kg', 'harvest_date']
 
 
 class ShipmentSheetSerializer(serializers.ModelSerializer):

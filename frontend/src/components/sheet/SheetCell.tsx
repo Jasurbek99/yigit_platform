@@ -36,6 +36,8 @@ function getCellValue(shipment: IShipmentSheetItem, rowConfig: IRowConfig): stri
   switch (fieldKey) {
     case 'cargo_code':
       return shipment.cargo_code;
+    case 'official_export_code':
+      return shipment.official_export_code ?? '—';
     case 'country':
       return shipment.country_name ?? '—';
     case 'customer':
@@ -83,8 +85,25 @@ function getCellValue(shipment: IShipmentSheetItem, rowConfig: IRowConfig): stri
       break;
   }
 
+  // harvest_date: read from block_sources (per-block primary) and render as a
+  // min-max range. Falls back to shipment.harvest_date when no per-block dates
+  // are set. See ShipmentBlockSource.harvest_date.
+  if (fieldKey === 'harvest_date') {
+    const blockDates = (shipment.block_sources ?? [])
+      .map((b) => b.harvest_date)
+      .filter((d): d is string => !!d)
+      .sort();
+    if (blockDates.length > 0) {
+      const first = dayjs(blockDates[0]).format('DD.MM.YYYY');
+      const last = dayjs(blockDates[blockDates.length - 1]).format('DD.MM.YYYY');
+      return first === last ? first : `${first}–${last}`;
+    }
+    if (shipment.harvest_date) return dayjs(shipment.harvest_date).format('DD.MM.YYYY');
+    return '—';
+  }
+
   // Date-only fields (no time component) — format DD.MM.YYYY.
-  const dateOnlyFields = ['sales_report_date', 'harvest_date'];
+  const dateOnlyFields = ['sales_report_date'];
   if (dateOnlyFields.includes(fieldKey)) {
     const val = shipment[fieldKey as keyof IShipmentSheetItem] as string | null;
     if (!val) return '—';

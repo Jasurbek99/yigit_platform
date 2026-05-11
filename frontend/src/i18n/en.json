@@ -1159,6 +1159,12 @@
       "tooltip": "Color this shipment column",
       "presets": "Flag colors"
     },
+    "harvest_date": {
+      "no_blocks": "No blocks attached — pick a shipment-level date below.",
+      "shipment_fallback": "Shipment-level date (used when blocks have no date)",
+      "save": "Save",
+      "cancel": "Cancel"
+    },
     "add_column": "New Shipment",
     "create_success": "Shipment created — fill in the details",
     "create_error": "Failed to create shipment",
