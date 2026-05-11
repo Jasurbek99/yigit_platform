@@ -103,6 +103,20 @@ class Shipment(models.Model):
     driver_id = models.BigIntegerField(null=True, blank=True)
     trip_id = models.BigIntegerField(null=True, blank=True)
     vehicle_responsible = models.CharField(max_length=50, blank=True, null=True)
+    # R15 — dispatcher's live status / ETA note (Haltaç). Free-form text.
+    # Operator-entered on the Sheet; not tied to any status transition.
+    vehicle_live_status = models.CharField(
+        max_length=200, blank=True, null=True, **cyrillic_collation()
+    )
+    # R23 — human-readable truck/trailer plate (transport). Plain string;
+    # trip_mgmt FKs (truck_head_id/trailer_id) stay separate for the future
+    # managed-app rollout.
+    truck_plate = models.CharField(max_length=50, blank=True, null=True)
+    # R27 — driver name (transport). Operator-entered.
+    driver_name = models.CharField(max_length=100, blank=True, null=True, **cyrillic_collation())
+    # R28 — driver phone (transport). Operator-entered; free-form to allow
+    # international formats and intl operator notation.
+    driver_phone = models.CharField(max_length=30, blank=True, null=True)
     transport_temp_c = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
     transit_days = models.IntegerField(null=True, blank=True)
     shelf_life_days = models.IntegerField(null=True, blank=True)
@@ -154,6 +168,10 @@ class Shipment(models.Model):
     customs_exit_at = models.DateTimeField(null=True, blank=True)
     departed_at = models.DateTimeField(null=True, blank=True)
     border_crossed_at = models.DateTimeField(null=True, blank=True)
+    # R31 — operator-entered datetime when truck entered destination country
+    # (between border_crossed_at and customs_entry_at). NOT AD-1: no transition
+    # writes this; sales_rep (Arap) logs it from the Sheet.
+    dest_entry_at = models.DateTimeField(null=True, blank=True)
     arrived_at = models.DateTimeField(null=True, blank=True)
     sale_started_at = models.DateTimeField(null=True, blank=True)
     sale_ended_at = models.DateTimeField(null=True, blank=True)
@@ -211,6 +229,8 @@ class Shipment(models.Model):
     warehouse_note = models.TextField(blank=True, default='', **cyrillic_collation())
     # Document team freeform note (owned by Şirin — document_team).
     document_note = models.TextField(blank=True, default='', **cyrillic_collation())
+    # R44 — Arap's freeform note on the destination side (sales_rep).
+    additional_notes_arap = models.TextField(blank=True, default='', **cyrillic_collation())
 
     # === Per-shipment column color (Sheet flag) ===
     # Operator-picked hex (`#RRGGBB`) used to tint this shipment's column in the

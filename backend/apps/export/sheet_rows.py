@@ -147,11 +147,10 @@ DEFAULT_SHEET_ROWS: list[dict] = [
 
     # === Scrollable Section (Rows 15-44) — Operations & Logistics ===
     # Row 16 is intentionally absent (skipped in the original Excel layout).
-    # Rows marked readonly fall into two buckets:
-    #   1. AD-1 timestamps (19, 21, 25, 30, 32, 35, 41, 42) — written ONLY by
-    #      transition_to() per ADR-010. Inline edit is forbidden by architecture.
-    #   2. Orphan fields not present on the Shipment model / IShipmentSheetItem
-    #      (23, 27, 28, 31, 39, 44) — PATCH would silently strip them.
+    # AD-1 timestamps (25, 30, 32, 35, 41, 42) stay readonly — written ONLY by
+    # transition_to() per ADR-010. Inline edit is forbidden by architecture.
+    # All previously-orphan rows (15, 23, 27, 28, 31, 44) are now backed by real
+    # Shipment columns (migrations 0019/0020) and are inline-editable.
     {
         'row_number': 15,
         'field_key': 'vehicle_live_status',
@@ -214,7 +213,7 @@ DEFAULT_SHEET_ROWS: list[dict] = [
         'field_key': 'truck_plate',
         'default_who_key': 'sheet.who.transport',
         'label_key': 'sheet.row.truck_plate',
-        'input_type': 'readonly',
+        'input_type': 'text',
         'style': 'transport',
     },
     {
@@ -246,7 +245,7 @@ DEFAULT_SHEET_ROWS: list[dict] = [
         'field_key': 'driver_name',
         'default_who_key': 'sheet.who.transport',
         'label_key': 'sheet.row.driver_name',
-        'input_type': 'readonly',
+        'input_type': 'text',
         'style': 'transport',
     },
     {
@@ -254,7 +253,7 @@ DEFAULT_SHEET_ROWS: list[dict] = [
         'field_key': 'driver_phone',
         'default_who_key': 'sheet.who.transport',
         'label_key': 'sheet.row.driver_phone',
-        'input_type': 'readonly',
+        'input_type': 'phone',
         'style': 'transport',
     },
     {
@@ -281,7 +280,7 @@ DEFAULT_SHEET_ROWS: list[dict] = [
         'field_key': 'dest_entry_at',
         'default_who_key': 'sheet.who.arap',
         'label_key': 'sheet.row.dest_entry',
-        'input_type': 'readonly',
+        'input_type': 'datetime',
         'style': 'base',
         'gapy_hidden': True,
     },
@@ -386,7 +385,7 @@ DEFAULT_SHEET_ROWS: list[dict] = [
         'field_key': 'additional_notes_arap',
         'default_who_key': 'sheet.who.arap',
         'label_key': 'sheet.row.additional_notes_arap',
-        'input_type': 'readonly',
+        'input_type': 'text',
         'style': 'base',
     },
 

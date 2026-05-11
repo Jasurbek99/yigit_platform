@@ -258,6 +258,8 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
             'vehicle_condition', 'vehicle_condition_note',
             'vehicle_live_status',
             'vehicle_responsible', 'truck_head_id', 'trailer_id', 'driver_id',
+            # R23/R27/R28 — operator-entered plate, driver name, driver phone
+            'truck_plate', 'driver_name', 'driver_phone',
             'border_point', 'transit_days', 'transport_temp_c', 'shelf_life_days',
         ],
     },
@@ -270,6 +272,10 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
             'rejected_weight_kg', 'price_per_kg', 'total_amount_usd',
             # R43: Aganazar logs the date the sales report was filed.
             'sales_report_date',
+            # R31: Arap logs destination-country entry time.
+            'dest_entry_at',
+            # R44: Arap's destination-side freeform note.
+            'additional_notes_arap',
         ],
         'sales_report': ['*'],
     },

@@ -317,6 +317,8 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
             # Transport
             'vehicle_responsible', 'vehicle_responsible_display',
             'truck_head_id', 'trailer_id', 'driver_id',
+            # Operator-entered transport details — sheet R23, R27, R28
+            'truck_plate', 'driver_name', 'driver_phone',
             'transport_temp_c', 'transit_days',
             'has_peregruz', 'peregruz_city', 'peregruz_date',
             # Finance
@@ -328,6 +330,8 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
             'loading_started_at', 'customs_entry_at', 'customs_exit_at',
             'departed_at', 'border_crossed_at', 'arrived_at',
             'sale_started_at', 'sale_ended_at',
+            # Operator-entered datetime — sheet R31 (Arap logs destination entry)
+            'dest_entry_at',
             # Operator-entered timestamp (NOT AD-1) — sheet R20
             'loading_ended_at',
             # Operator-entered date — sheet R43 (Aganazar files the report)
@@ -336,6 +340,8 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
             'harvest_date',
             # AD-2 Vehicle condition
             'vehicle_condition', 'vehicle_condition_note',
+            # R15 — dispatcher's live status / ETA note (operator-entered, Haltaç)
+            'vehicle_live_status',
             # Quality docs (flattened from OneToOne 'quality')
             'doc_azyk', 'doc_suriji', 'doc_hil', 'doc_kalibrowka',
             # Annotation — must be set in viewset queryset
@@ -346,6 +352,8 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
             'export_manager_note',
             'warehouse_note',
             'document_note',
+            # R44 — Arap's destination-side freeform note
+            'additional_notes_arap',
             # Sheet column tint (hex, e.g. '#ffe4b5') — null = default theme
             'column_color',
             # Inline related
@@ -915,13 +923,17 @@ _ALL_PATCHABLE_FIELDS = {
     'product_type', 'variety', 'variety_confidence',
     # Transport
     'vehicle_condition', 'vehicle_condition_note',
-    'vehicle_responsible', 'truck_head_id', 'trailer_id', 'driver_id',
+    'vehicle_responsible', 'vehicle_live_status',
+    'truck_head_id', 'trailer_id', 'driver_id',
+    # Operator-entered transport details — sheet R23, R27, R28
+    'truck_plate', 'driver_name', 'driver_phone',
     'transit_days', 'transport_temp_c', 'shelf_life_days',
     'has_peregruz', 'peregruz_city', 'peregruz_date',
-    # Operator-entered timestamps (NOT AD-1) — sheet R19, R20, R21
+    # Operator-entered timestamps (NOT AD-1) — sheet R19, R20, R21, R31
     'loading_started_at',
     'loading_ended_at',
     'departed_at',
+    'dest_entry_at',
     # Operator-entered date — sheet R43
     'sales_report_date',
     # Operator-entered date — sheet R39 (harvest day)
@@ -937,6 +949,8 @@ _ALL_PATCHABLE_FIELDS = {
     'export_manager_note',
     'warehouse_note',
     'document_note',
+    # R44 — Arap's destination-side freeform note
+    'additional_notes_arap',
     # Sheet column tint (admin + export_manager only via wildcard grants)
     'column_color',
 }

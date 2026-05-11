@@ -253,6 +253,10 @@ export interface IShipmentSheetItem {
   truck_head_id: number | null;
   trailer_id: number | null;
   driver_id: number | null;
+  // R23, R27, R28 — operator-entered transport details
+  truck_plate: string | null;
+  driver_name: string | null;
+  driver_phone: string | null;
   transport_temp_c: number | null;
   transit_days: number | null;
   has_peregruz: boolean;
@@ -274,6 +278,8 @@ export interface IShipmentSheetItem {
   arrived_at: string | null;
   sale_started_at: string | null;
   sale_ended_at: string | null;
+  // R31 — operator-entered datetime, Arap logs destination-country entry
+  dest_entry_at: string | null;
   // Operator-entered timestamp (NOT AD-1 â€” editable inline on R20)
   loading_ended_at: string | null;
   // Operator-entered date â€” editable inline on R43 (sales rep files report)
@@ -298,6 +304,8 @@ export interface IShipmentSheetItem {
   export_manager_note: string | null;
   warehouse_note: string | null;
   document_note: string | null;
+  // R44 — Arap's destination-side freeform note
+  additional_notes_arap: string | null;
   // Document team: planned weekday for customs clearance (e.g. 'mon', 'wed')
   customs_clearance_planned_day: 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun' | '' | null;
   official_export_code: string | null;

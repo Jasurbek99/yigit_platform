@@ -97,12 +97,15 @@ RESOURCE_FIELDS: dict[str, list[str]] = {
         'vehicle_condition', 'vehicle_condition_note',
         'vehicle_live_status',
         'vehicle_responsible', 'truck_head_id', 'trailer_id', 'driver_id',
+        # Operator-entered transport details — sheet R23, R27, R28
+        'truck_plate', 'driver_name', 'driver_phone',
         'transit_days', 'transport_temp_c', 'shelf_life_days',
         'has_peregruz', 'peregruz_city', 'peregruz_date',
-        # Operator-entered timestamps (NOT AD-1) — sheet R19, R20, R21
+        # Operator-entered timestamps (NOT AD-1) — sheet R19, R20, R21, R31
         'loading_started_at',
         'loading_ended_at',
         'departed_at',
+        'dest_entry_at',
         # Operator-entered date — sheet R43 (sales rep files the report)
         'sales_report_date',
         # Operator-entered date — sheet R39 (warehouse logs harvest day)
@@ -118,6 +121,8 @@ RESOURCE_FIELDS: dict[str, list[str]] = {
         'export_manager_note',
         'warehouse_note',
         'document_note',
+        # R44 — Arap's destination-side freeform note (sales_rep)
+        'additional_notes_arap',
         # Sheet column tint — admin + export_manager via wildcard grants
         'column_color',
     ],
