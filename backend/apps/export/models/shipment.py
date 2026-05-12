@@ -160,9 +160,10 @@ class Shipment(models.Model):
     total_amount_usd = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
 
     # === AD-1: Denormalized lifecycle timestamps ===
-    # Written ONLY by transition_to() in services.py — except loading_started_at
-    # (R19) and departed_at (R21), which are operator-entered on the Sheet and
-    # no longer tied to a status transition.
+    # Only customs_exit_at is still written by transition_to() (on
+    # 'gumruk_chykysh'). Every other lifecycle timestamp here is operator-
+    # entered on the Sheet (R19/R21/R30/R32/R35/R41/R42, input_type='datetime').
+    # AD-1's "single write path" invariant therefore applies to ONE column.
     loading_started_at = models.DateTimeField(null=True, blank=True)
     customs_entry_at = models.DateTimeField(null=True, blank=True)
     customs_exit_at = models.DateTimeField(null=True, blank=True)
@@ -192,9 +193,8 @@ class Shipment(models.Model):
     sales_report_date = models.DateField(null=True, blank=True)
 
     # Operator-entered date the cargo was harvested (Sheet R39, owned by
-    # Soltanmyrat/warehouse_chief). Shipment-level (one date per truck) — the
-    # per-block alternative on ShipmentBlockSource was deferred since the Sheet
-    # only has room for one cell per shipment column.
+    # Soltanmyrat/warehouse_chief). Shipment-level fallback — the primary
+    # per-block source lives on ShipmentBlockSource.harvest_date.
     harvest_date = models.DateField(null=True, blank=True)
 
     # === AD-2: Structured vehicle fields (replaces deprecated vehicle_status_note) ===

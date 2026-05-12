@@ -929,11 +929,16 @@ _ALL_PATCHABLE_FIELDS = {
     'truck_plate', 'driver_name', 'driver_phone',
     'transit_days', 'transport_temp_c', 'shelf_life_days',
     'has_peregruz', 'peregruz_city', 'peregruz_date',
-    # Operator-entered timestamps (NOT AD-1) — sheet R19, R20, R21, R31
+    # Operator-entered timestamps (NOT AD-1) — sheet R19/R20/R21/R30/R31/R32/R35/R41/R42
     'loading_started_at',
     'loading_ended_at',
     'departed_at',
+    'border_crossed_at',
     'dest_entry_at',
+    'customs_entry_at',
+    'arrived_at',
+    'sale_started_at',
+    'sale_ended_at',
     # Operator-entered date — sheet R43
     'sales_report_date',
     # Operator-entered date — sheet R39 (harvest day)

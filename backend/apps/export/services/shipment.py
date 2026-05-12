@@ -15,19 +15,13 @@ from apps.export.models import Shipment, ShipmentStatusLog
 logger = logging.getLogger(__name__)
 
 # Status code → AD-1 denormalized timestamp field name on Shipment.
-# Only statuses that have a dedicated lifecycle timestamp are listed here.
-# serhet_tm, barysh_gumrugi, yolda: transit waypoints with no dedicated AD-1 field.
-# hasabat, tamamlandy: report and completed statuses have no dedicated AD-1 timestamp.
-# yuklenme / yola_chykdy: no entries here on purpose — loading_started_at (R19)
-# and departed_at (R21) are operator-entered on the Sheet (input_type='datetime'),
-# NOT auto-written by transition_to().
+# Only one entry left: customs_exit_at (gumruk_chykysh). Every other lifecycle
+# timestamp has been converted to operator-entered datetime cells on the Sheet
+# (R19 loading_started_at, R21 departed_at, R30 border_crossed_at,
+# R32 customs_entry_at, R35 arrived_at, R41 sale_started_at, R42 sale_ended_at).
+# AD-1's "single write path via transition_to()" now applies to one field only.
 STATUS_TIMESTAMP_MAP = {
-    'gumruk_girish': 'customs_entry_at',
     'gumruk_chykysh': 'customs_exit_at',
-    'serhet_gechdi': 'border_crossed_at',
-    'bardy': 'arrived_at',
-    'satylyar': 'sale_started_at',
-    'satyldy': 'sale_ended_at',
 }
 
 # Allowed transitions: from_code → list of (to_code, allowed_roles)

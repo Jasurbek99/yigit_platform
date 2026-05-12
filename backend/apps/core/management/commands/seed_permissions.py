@@ -261,6 +261,8 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
             # R23/R27/R28 — operator-entered plate, driver name, driver phone
             'truck_plate', 'driver_name', 'driver_phone',
             'border_point', 'transit_days', 'transport_temp_c', 'shelf_life_days',
+            # R30 — Haltac logs the TM border-exit time (was AD-1, now operator-entered).
+            'border_crossed_at',
         ],
     },
     # ── sales_rep (Arap, Aganazar) ───────────────────────────────────
@@ -274,6 +276,11 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
             'sales_report_date',
             # R31: Arap logs destination-country entry time.
             'dest_entry_at',
+            # R32/R35/R41/R42 — operator-entered (were AD-1, now Sheet-driven).
+            'customs_entry_at',
+            'arrived_at',
+            'sale_started_at',
+            'sale_ended_at',
             # R44: Arap's destination-side freeform note.
             'additional_notes_arap',
         ],

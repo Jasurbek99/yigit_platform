@@ -28,15 +28,10 @@ class ShipmentAdmin(admin.ModelAdmin):
     inlines = [ShipmentFirmSplitInline, ShipmentBlockSourceInline]
     # AD-2: vehicle_status_note is DEPRECATED — excluded to prevent new data entry
     exclude = ['vehicle_status_note']
-    # AD-1 timestamps are written only by transition_to() — never editable in admin.
-    # (loading_started_at and departed_at are operator-entered now, so they stay editable here.)
+    # Only customs_exit_at remains AD-1 (set by transition_to). All other lifecycle
+    # timestamps are operator-entered on the Sheet now — they stay editable here.
     readonly_fields = [
-        'customs_entry_at',
         'customs_exit_at',
-        'border_crossed_at',
-        'arrived_at',
-        'sale_started_at',
-        'sale_ended_at',
         'created_at',
         'updated_at',
     ]
