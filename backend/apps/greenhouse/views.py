@@ -52,7 +52,7 @@ class WeeklyHarvestPlanViewSet(ModelViewSet):
     http_method_names = ['get', 'post', 'put', 'patch', 'head', 'options']
 
     queryset = WeeklyHarvestPlan.objects.select_related(
-        'season', 'block', 'entered_by', 'submitted_by',
+        'season', 'block', 'entered_by',
     ).order_by('year', 'week_number', 'block__code')
 
     def get_queryset(self):

@@ -51,7 +51,7 @@ def initialize_harvest_week(
     plans = list(
         WeeklyHarvestPlan.objects.filter(
             season_id=season_id, week_number=week_number, year=year,
-        ).select_related('season', 'block', 'entered_by', 'submitted_by')
+        ).select_related('season', 'block', 'entered_by')
     )
 
     # Backfill Mon–Sun day-entries for any plan missing them.
