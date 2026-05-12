@@ -358,7 +358,7 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
         return (
           <DatePicker
             size="small"
-            defaultValue={currentValue ? dayjs(currentValue as string) : undefined}
+            defaultValue={currentValue ? dayjs(currentValue as string) : dayjs()}
             onChange={(date) => save(date ? date.format('YYYY-MM-DD') : null)}
             onOpenChange={(open) => { if (!open) close(); }}
             style={{ width: '100%' }}
@@ -371,9 +371,9 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
         return (
           <DatePicker
             size="small"
-            showTime={{ format: 'HH:mm' }}
+            showTime={{ format: 'HH:mm', defaultValue: dayjs() }}
             format="DD.MM.YYYY HH:mm"
-            defaultValue={currentValue ? dayjs(currentValue as string) : undefined}
+            defaultValue={currentValue ? dayjs(currentValue as string) : dayjs()}
             onChange={(date) => save(date ? date.startOf('minute').toISOString() : null)}
             onOpenChange={(open) => { if (!open) close(); }}
             style={{ width: '100%' }}
@@ -437,16 +437,19 @@ function HarvestDateMultiEditor({
   const queryClient = useQueryClient();
   const patchMutation = useShipmentPatch();
 
-  // Per-block date state — keyed by block_id.
+  // Per-block date state — keyed by block_id. Defaults to today when the
+  // block has no prior harvest_date so opening the popover preselects "now"
+  // (matches the simple DatePicker behavior on R39/R43/datetime cells).
+  const todayIso = dayjs().format('YYYY-MM-DD');
   const [blockDates, setBlockDates] = useState<Record<number, string | null>>(() => {
     const init: Record<number, string | null> = {};
     for (const b of shipment.block_sources ?? []) {
-      if (b.block_id != null) init[b.block_id] = b.harvest_date ?? null;
+      if (b.block_id != null) init[b.block_id] = b.harvest_date ?? todayIso;
     }
     return init;
   });
   const [shipmentDate, setShipmentDate] = useState<string | null>(
-    shipment.harvest_date ?? null,
+    shipment.harvest_date ?? todayIso,
   );
   const [saving, setSaving] = useState(false);
 
