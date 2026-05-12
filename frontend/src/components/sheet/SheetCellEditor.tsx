@@ -359,7 +359,11 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
           <DatePicker
             size="small"
             defaultValue={currentValue ? dayjs(currentValue as string) : dayjs()}
-            onChange={(date) => save(date ? date.format('YYYY-MM-DD') : null)}
+            // allowClear={false}: the picker's X button silently sent the field
+            // to null on click — operators kept accidentally erasing saved
+            // values. The only way to clear now is via the model admin.
+            allowClear={false}
+            onChange={(date) => { if (date) save(date.format('YYYY-MM-DD')); }}
             onOpenChange={(open) => { if (!open) close(); }}
             style={{ width: '100%' }}
             autoFocus
@@ -374,7 +378,9 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
             showTime={{ format: 'HH:mm' }}
             format="DD.MM.YYYY HH:mm"
             defaultValue={currentValue ? dayjs(currentValue as string) : dayjs()}
-            onChange={(date) => save(date ? date.startOf('minute').toISOString() : null)}
+            // allowClear={false}: see 'date' case — same accidental-clear bug.
+            allowClear={false}
+            onChange={(date) => { if (date) save(date.startOf('minute').toISOString()); }}
             onOpenChange={(open) => { if (!open) close(); }}
             style={{ width: '100%' }}
             autoFocus
