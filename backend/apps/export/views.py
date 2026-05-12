@@ -1064,9 +1064,11 @@ class ShipmentViewSet(ModelViewSet):
     def assign(self, request, pk=None):
         """POST /api/v1/export/shipments/{id}/assign/
 
-        Assigns destination/customer fields to a DRAFT shipment and promotes it
-        to yuklenme (step 1). loading_started_at stays null until an operator
-        fills it on the Sheet (R19) — it is no longer auto-set on transition.
+        Assigns destination/customer fields to a DRAFT shipment and promotes
+        it to the next status (gumruk_girish in state machine v2). Acts as a
+        manual override of the auto-advance flow — useful when an
+        export_manager wants to commit a draft without waiting for the
+        documents_status field to be set.
 
         Only export_manager and director may call this endpoint.
 
@@ -1110,9 +1112,10 @@ class ShipmentViewSet(ModelViewSet):
                 if update_fields:
                     shipment.save(update_fields=update_fields)
 
-                # Promote draft → yuklenme. loading_started_at is no longer
-                # auto-set here — operators enter it on the Sheet (R19).
-                transition_to(shipment, 'yuklenme', request.user, comment='assigned from draft')
+                # Promote draft → gumruk_girish (state machine v2). Was draft →
+                # yuklenme in v1. Operators can also reach this state by setting
+                # documents_status='in_progress' on the Sheet (auto-advance).
+                transition_to(shipment, 'gumruk_girish', request.user, comment='assigned from draft')
         except PermissionError as exc:
             return Response({'error': str(exc)}, status=status.HTTP_403_FORBIDDEN)
         except ValueError as exc:

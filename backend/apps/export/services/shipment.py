@@ -2,10 +2,27 @@
 
 This module contains the canonical transition_to() function which is the ONLY
 way to update shipment status and AD-1 denormalized timestamp fields.
+
+State machine v2 (12 active statuses + 3 retired):
+    draft → gumruk_girish → gumruk_chykysh → yuklenme → yola_chykdy →
+    serhet_gechdi → dest_entry → barysh_gumrugi →
+        (has_peregruz=True)  → transshipment → bardy
+        (has_peregruz=False) → bardy
+    → satylyar → satyldy → tamamlandy
+
+Retired codes (kept in DB for audit reference, is_active=False):
+    serhet_tm (merged into serhet_gechdi)
+    yolda     (mapped to barysh_gumrugi)
+    hasabat   (merged into tamamlandy)
+
+Each status corresponds to one operator-entered field on the Sheet. When that
+field is filled, auto_advance_if_ready() fires the transition automatically.
+See task_rules.py for the field→step mapping (seed_task_rules.py is the
+declarative source of truth).
 """
 import logging
 from decimal import Decimal
-from typing import Optional
+from typing import Callable, Optional
 
 from django.db import transaction
 from django.utils import timezone
@@ -14,34 +31,39 @@ from apps.export.models import Shipment, ShipmentStatusLog
 
 logger = logging.getLogger(__name__)
 
-# Status code → AD-1 denormalized timestamp field name on Shipment.
-# Empty: AD-1 is functionally retired. Every lifecycle timestamp on Shipment
-# is now operator-entered on the Sheet (R19/R21/R25/R30/R32/R35/R41/R42).
-# transition_to() still updates `status` + `status_changed_at`, but no longer
-# stamps any AD-1 column. The map is kept as a hook in case a future status
-# wants a dedicated auto-set timestamp again.
+# Status code → denormalized timestamp field name on Shipment.
+# Empty in v2: every lifecycle timestamp is operator-entered on the Sheet.
+# transition_to() still updates `status` + `status_changed_at`. The map is
+# kept as a hook in case a future status wants a dedicated auto-set timestamp.
 STATUS_TIMESTAMP_MAP: dict[str, str] = {}
 
-# Allowed transitions: from_code → list of (to_code, allowed_roles)
-# None key = shipment has no status yet (legacy fallback, unused by two-phase flow).
-# 'draft' is step 0 — created by warehouse_chief; promoted to yuklenme by export_manager.
-# Roles export_manager and director are always privileged — they can trigger any transition.
-TRANSITIONS = {
-    None:             [('draft',          ['warehouse_chief'])],
-    'draft':          [('yuklenme',       ['export_manager'])],
-    'yuklenme':       [('gumruk_girish',  ['warehouse_chief'])],
-    'gumruk_girish':  [('gumruk_chykysh', ['document_team'])],
-    'gumruk_chykysh': [('yola_chykdy',    ['document_team'])],
-    'yola_chykdy':    [('serhet_tm',      ['transport'])],
-    'serhet_tm':      [('serhet_gechdi',  ['transport'])],
-    'serhet_gechdi':  [('barysh_gumrugi', ['sales_rep'])],
-    'barysh_gumrugi': [('yolda',          ['sales_rep'])],
-    'yolda':          [('bardy',          ['sales_rep'])],
-    'bardy':          [('satylyar',       ['sales_rep'])],
-    'satylyar':       [('satyldy',        ['sales_rep'])],
-    'satyldy':        [('hasabat',        ['sales_rep'])],
-    'hasabat':        [('tamamlandy',     ['finansist'])],
-    'tamamlandy':     [],
+# Allowed transitions: from_code → list of edge tuples.
+# Edge tuple shape: (to_code, allowed_roles) OR (to_code, allowed_roles, predicate)
+# where predicate is Callable[[Shipment], bool] used by auto-advance to pick
+# the right target when multiple edges exist. Manual transitions IGNORE
+# predicates — the user explicitly picks the target.
+#
+# None key = shipment has no status yet (legacy fallback, unused by current flow).
+# Roles export_manager and director are always privileged.
+TRANSITIONS: dict[Optional[str], list[tuple]] = {
+    None:              [('draft',          ['warehouse_chief'])],
+    'draft':           [('gumruk_girish',  ['document_team'])],
+    'gumruk_girish':   [('gumruk_chykysh', ['document_team'])],
+    'gumruk_chykysh':  [('yuklenme',       ['warehouse_chief'])],
+    'yuklenme':        [('yola_chykdy',    ['document_team'])],
+    'yola_chykdy':     [('serhet_gechdi',  ['transport'])],
+    'serhet_gechdi':   [('dest_entry',     ['sales_rep'])],
+    'dest_entry':      [('barysh_gumrugi', ['sales_rep'])],
+    # Conditional fork: transshipment only on shipments with has_peregruz=True.
+    'barysh_gumrugi':  [
+        ('transshipment', ['sales_rep'], lambda s: bool(getattr(s, 'has_peregruz', False))),
+        ('bardy',         ['sales_rep'], lambda s: not bool(getattr(s, 'has_peregruz', False))),
+    ],
+    'transshipment':   [('bardy',          ['sales_rep'])],
+    'bardy':           [('satylyar',       ['sales_rep'])],
+    'satylyar':        [('satyldy',        ['sales_rep'])],
+    'satyldy':         [('tamamlandy',     ['finansist'])],
+    'tamamlandy':      [],
 }
 
 # Roles that may override role restrictions and trigger any valid transition.
@@ -49,12 +71,50 @@ PRIVILEGED_ROLES = {'export_manager', 'director'}
 
 # When a shipment transitions TO this status, notify these roles to fill their fields.
 STATUS_NOTIFY_ROLES: dict[str, list[str]] = {
-    'yuklenme':       ['warehouse_chief'],
-    'gumruk_girish':  ['document_team'],
-    'yola_chykdy':    ['transport'],
-    'serhet_gechdi':  ['sales_rep'],
-    'hasabat':        ['finansist'],
+    'draft':           ['warehouse_chief'],
+    'gumruk_girish':   ['document_team'],
+    'gumruk_chykysh':  ['document_team'],
+    'yuklenme':        ['warehouse_chief'],
+    'yola_chykdy':     ['transport'],
+    'serhet_gechdi':   ['transport'],
+    'dest_entry':      ['sales_rep'],
+    'barysh_gumrugi':  ['sales_rep'],
+    'transshipment':   ['sales_rep'],
+    'bardy':           ['sales_rep'],
+    'satylyar':        ['sales_rep'],
+    'satyldy':         ['sales_rep'],
+    'tamamlandy':      ['finansist'],
 }
+
+
+def _edge_to(edge: tuple) -> str:
+    """Return the target status code from an edge tuple of any supported shape."""
+    return edge[0]
+
+
+def _edge_roles(edge: tuple) -> list[str]:
+    """Return the allowed-roles list from an edge tuple of any supported shape."""
+    return edge[1]
+
+
+def _edge_predicate(edge: tuple) -> Optional[Callable]:
+    """Return the predicate from an edge tuple, or None if absent."""
+    return edge[2] if len(edge) >= 3 else None
+
+
+def _resolve_next_status(shipment: Shipment, current_code: Optional[str]) -> Optional[str]:
+    """Pick the next status code for auto-advance, honoring predicates.
+
+    For edges with no predicate, returns the first edge's target.
+    For edges with predicates, returns the first edge whose predicate is True
+    for this shipment. If no predicate matches, returns None.
+    """
+    edges = TRANSITIONS.get(current_code, [])
+    for edge in edges:
+        predicate = _edge_predicate(edge)
+        if predicate is None or predicate(shipment):
+            return _edge_to(edge)
+    return None
 
 
 def _write_ad1_timestamp(
@@ -74,28 +134,40 @@ def _write_ad1_timestamp(
     return ts_field
 
 
-def transition_to(shipment: Shipment, new_status_code: str, user, comment: str = '') -> None:
+def transition_to(
+    shipment: Shipment,
+    new_status_code: str,
+    user,
+    comment: str = '',
+    is_auto: bool = False,
+) -> None:
     """Execute a validated status transition with role enforcement.
 
-    This is the ONLY function that may update shipment.status and the AD-1
-    denormalized timestamp fields. Never update those fields directly.
+    This is the ONLY function that may update shipment.status. Never update
+    that field directly. AD-1 timestamps are no longer set here in v2 — they
+    are operator-entered on the Sheet.
 
     Args:
         shipment: The Shipment instance to transition.
         new_status_code: Target status code string (e.g. 'gumruk_girish').
         user: User performing the transition (core.User instance).
         comment: Optional audit comment stored in ShipmentStatusLog.
+        is_auto: True when the transition was fired by auto-advance rather
+                 than an explicit user action. When True: the role check is
+                 skipped (the editing user may not own the next role) and
+                 the resulting ShipmentStatusLog row is flagged is_auto=True.
 
     Raises:
         ValueError: If the transition is not allowed from the current status,
                     or if new_status_code does not exist in ShipmentStatusType.
-        PermissionError: If the user's role is not allowed to trigger this transition.
+        PermissionError: If the user's role is not allowed to trigger this
+                         transition AND is_auto=False.
     """
     from apps.core.models import ShipmentStatusType
 
     current_code = shipment.status.code if shipment.status_id else None
     edges = TRANSITIONS.get(current_code, [])
-    allowed_codes = [to_code for to_code, _roles in edges]
+    allowed_codes = [_edge_to(edge) for edge in edges]
 
     if new_status_code not in allowed_codes:
         raise ValueError(
@@ -103,15 +175,22 @@ def transition_to(shipment: Shipment, new_status_code: str, user, comment: str =
             f'Allowed: {allowed_codes}'
         )
 
-    # Role check — privileged roles bypass per-transition restrictions.
-    user_role = getattr(user, 'role', None)
-    if user_role not in PRIVILEGED_ROLES:
-        allowed_roles = next(roles for to_code, roles in edges if to_code == new_status_code)
-        if user_role not in allowed_roles:
-            raise PermissionError(
-                f'Role {user_role!r} cannot trigger transition to {new_status_code!r}. '
-                f'Allowed roles: {allowed_roles}'
+    # Role check — privileged roles bypass per-transition restrictions. Auto-
+    # advance bypasses too: the editing user may be sales_rep filling a field
+    # that fires a transition whose canonical role is warehouse_chief; that's
+    # fine, the audit row is flagged is_auto=True.
+    if not is_auto:
+        user_role = getattr(user, 'role', None)
+        if user_role not in PRIVILEGED_ROLES:
+            allowed_roles = next(
+                _edge_roles(edge) for edge in edges
+                if _edge_to(edge) == new_status_code
             )
+            if user_role not in allowed_roles:
+                raise PermissionError(
+                    f'Role {user_role!r} cannot trigger transition to {new_status_code!r}. '
+                    f'Allowed roles: {allowed_roles}'
+                )
 
     try:
         new_status = ShipmentStatusType.objects.get(code=new_status_code)
@@ -122,7 +201,7 @@ def transition_to(shipment: Shipment, new_status_code: str, user, comment: str =
     # updated_at must be listed explicitly: auto_now=True is ignored when update_fields is passed.
     update_fields = ['status', 'updated_by', 'updated_at', 'status_changed_at']
 
-    # AD-1: set the denormalized timestamp for this status
+    # Reserved hook — STATUS_TIMESTAMP_MAP is currently empty in v2.
     _write_ad1_timestamp(shipment, new_status_code, now, update_fields)
 
     shipment.status = new_status
@@ -136,42 +215,121 @@ def transition_to(shipment: Shipment, new_status_code: str, user, comment: str =
         status=new_status,
         changed_by=user,
         comment=comment,
+        is_auto=is_auto,
     )
 
-    # Generate structural tasks for the new status (B-engine, plan §B3).
-    # Placed AFTER the status log so the task engine can read the log if needed
-    # and BEFORE AuditLog so notifications can reference tasks in a future
-    # iteration. Runs outside an explicit atomic block — transition_to() has no
-    # transaction.atomic() wrapper and ATOMIC_REQUESTS is not enabled in this
-    # project. If task generation fails, the transition has already committed;
+    # Generate structural tasks for the new status. Placed AFTER the status
+    # log so the task engine can read the log if needed and BEFORE AuditLog
+    # so notifications can reference tasks. Runs outside an explicit atomic
+    # block — if task generation fails, the transition has already committed;
     # the failure is logged and does not roll back the status change.
     from apps.export.services.task_rules import generate_tasks_for_status
     generate_tasks_for_status(shipment, new_status_code)
 
     # Write immutable audit trail entry for this transition.
     from apps.export.models import AuditLog
+    detail = f'{current_code} → {new_status_code}'
+    if is_auto:
+        detail += ' (auto)'
     AuditLog.objects.create(
         user=user,
         action='transition',
         model_name='Shipment',
         object_id=shipment.id,
         object_repr=shipment.cargo_code,
-        detail=f'{current_code} → {new_status_code}',
+        detail=detail,
     )
 
     logger.info(
-        'Shipment %s transitioned %s → %s by %s',
+        'Shipment %s transitioned %s → %s by %s%s',
         shipment.cargo_code,
         current_code,
         new_status_code,
         user.username,
+        ' (auto)' if is_auto else '',
     )
 
     # Notify roles that need to act in the new phase.
     _notify_action_required(shipment, new_status_code)
 
-    # Quota usage is now computed on-the-fly in the quota dashboard analytics endpoint.
-    # No per-quota used_kg tracking needed.
+
+def is_step_trigger_satisfied(shipment: Shipment, status_code: Optional[str]) -> bool:
+    """True iff the trigger field(s) for `status_code` are satisfied on `shipment`.
+
+    Backed by the Task Engine: returns True when at least one active
+    non-MANUAL_DONE TaskRule exists for this step AND every matching Task
+    on the shipment is DONE/CANCELLED. A step with no auto-resolving rules
+    is never eligible for auto-advance — it stays manual.
+
+    Mirrors the predicate used by ShipmentDetailSerializer's
+    get_can_promote_from_draft (now refactored to delegate here).
+    """
+    if not status_code:
+        return False
+
+    from apps.export.models import TaskRule, TaskCompletionRule, TaskState
+
+    auto_rules_exist = TaskRule.objects.filter(
+        step=status_code,
+        is_active=True,
+    ).exclude(completion_rule=TaskCompletionRule.MANUAL_DONE).exists()
+    if not auto_rules_exist:
+        return False
+
+    open_auto_tasks_exist = (
+        shipment.tasks
+        .filter(step=status_code, state__in=[TaskState.OPEN, TaskState.IN_PROGRESS])
+        .exclude(completion_rule=TaskCompletionRule.MANUAL_DONE)
+        .exists()
+    )
+    return not open_auto_tasks_exist
+
+
+def auto_advance_if_ready(shipment: Shipment, resolved_tasks) -> bool:
+    """Auto-fire transition_to() to the next step if the current step's
+    trigger field is satisfied.
+
+    Guards:
+      - resolved_tasks must be non-empty (something changed this save).
+        Without this, a step with zero TaskRules would falsely test as
+        "complete" and cause an infinite auto-advance loop.
+      - current status must have a single resolvable next step (via
+        _resolve_next_status, which honors predicates).
+      - shipment.updated_by must be set (skip silently for admin-shell /
+        import-script saves with no user context).
+
+    Returns True if a transition fired.
+    """
+    if not resolved_tasks:
+        return False
+
+    current_code = shipment.status.code if shipment.status_id else None
+    if not is_step_trigger_satisfied(shipment, current_code):
+        return False
+
+    next_code = _resolve_next_status(shipment, current_code)
+    if not next_code:
+        return False
+
+    user = getattr(shipment, 'updated_by', None)
+    if not user:
+        return False
+
+    try:
+        transition_to(
+            shipment, next_code, user=user,
+            comment='Auto-advanced: trigger field filled',
+            is_auto=True,
+        )
+    except ValueError:
+        # Lost a race — another concurrent save already advanced past
+        # `current_code`. Acceptable; log and move on.
+        logger.info(
+            'auto_advance race lost on %s (current=%s, target=%s)',
+            shipment.cargo_code, current_code, next_code,
+        )
+        return False
+    return True
 
 
 def _notify_action_required(shipment: Shipment, new_status_code: str) -> None:
@@ -256,10 +414,11 @@ def create_shipment(
     customer=None,
     season=None,
 ) -> Shipment:
-    """Create a new shipment at step 1 (yuklenme) and write the initial audit trail.
+    """Create a new shipment at step 0 (draft) and write the initial audit trail.
 
-    Resolves the active season when none is provided. loading_started_at is left
-    null — it is now operator-entered on the Sheet (R19), not auto-set on create.
+    In state machine v2 every shipment starts in `draft`. From there, filling
+    `documents_status='in_progress'` on the Sheet auto-advances to
+    `gumruk_girish` via the task engine.
 
     Args:
         cargo_code: Validated cargo code string in DDMM###/YY format.
@@ -270,11 +429,11 @@ def create_shipment(
         season: Optional core.Season FK instance. If None, the active season is resolved.
 
     Returns:
-        The newly created Shipment instance (loading_started_at is null).
+        The newly created Shipment instance in `draft` status.
 
     Raises:
-        ValueError: If no active season exists and none was provided, or if no
-                    yuklenme status (step_order=1) is configured in the DB.
+        ValueError: If no active season exists and none was provided, or if
+                    the draft status is not configured in the DB.
     """
     from apps.core.models import Season, ShipmentStatusType
 
@@ -285,9 +444,10 @@ def create_shipment(
         if resolved_season is None:
             raise ValueError('No active season found. Provide a season in the request.')
 
-    first_status = ShipmentStatusType.objects.filter(step_order=1).first()
-    if first_status is None:
-        raise ValueError('No yuklenme status configured. Run seed_data first.')
+    try:
+        draft_status = ShipmentStatusType.objects.get(code='draft')
+    except ShipmentStatusType.DoesNotExist:
+        raise ValueError('Draft status not configured. Run migrate first.')
 
     shipment = Shipment.objects.create(
         cargo_code=cargo_code,
@@ -295,26 +455,23 @@ def create_shipment(
         country=country,
         customer=customer,
         season=resolved_season,
-        status=first_status,
+        status=draft_status,
         created_by=user,
     )
 
-    # status_changed_at still tracks the lifecycle transition. loading_started_at
-    # is no longer auto-set — operators enter it on the Sheet (R19).
     shipment.status_changed_at = timezone.now()
     shipment.save(update_fields=['status_changed_at'])
 
     ShipmentStatusLog.objects.create(
         shipment=shipment,
-        status=first_status,
+        status=draft_status,
         changed_by=user,
         comment='Shipment created',
     )
 
     logger.info('Shipment %s created by %s', shipment.cargo_code, user.username)
 
-    # Notify warehouse_chief users that a new shipment needs their fields filled.
-    _notify_action_required(shipment, 'yuklenme')
+    _notify_action_required(shipment, 'draft')
 
     return shipment
 

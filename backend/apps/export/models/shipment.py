@@ -293,6 +293,11 @@ class ShipmentStatusLog(models.Model):
     changed_at = models.DateTimeField(auto_now_add=True)
     comment = models.CharField(max_length=500, blank=True, null=True, **cyrillic_collation())
     is_manual_override = models.BooleanField(default=False)
+    # True when the transition was fired by auto-advance (Shipment.save() →
+    # auto_advance_if_ready) rather than an explicit user click. Different
+    # from is_manual_override: that flag means a privileged user bypassed
+    # the role gate; is_auto means no user explicitly clicked anything.
+    is_auto = models.BooleanField(default=False)
 
     class Meta:
         db_table = schema_table('export', 'shipment_status_log')
