@@ -371,7 +371,7 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
         return (
           <DatePicker
             size="small"
-            showTime={{ format: 'HH:mm', defaultValue: dayjs() }}
+            showTime={{ format: 'HH:mm' }}
             format="DD.MM.YYYY HH:mm"
             defaultValue={currentValue ? dayjs(currentValue as string) : dayjs()}
             onChange={(date) => save(date ? date.startOf('minute').toISOString() : null)}
