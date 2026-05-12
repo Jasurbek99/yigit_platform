@@ -242,6 +242,8 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
             'notes',
             # R18: Şirin's freeform document-team note
             'document_note',
+            # R25: Şirin logs TM customs-exit done time (was AD-1, now operator-entered).
+            'customs_exit_at',
         ],
         'shipment_firm_split': ['*'],
         'quality_document': ['*'],

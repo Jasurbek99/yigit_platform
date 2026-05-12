@@ -15,14 +15,12 @@ from apps.export.models import Shipment, ShipmentStatusLog
 logger = logging.getLogger(__name__)
 
 # Status code → AD-1 denormalized timestamp field name on Shipment.
-# Only one entry left: customs_exit_at (gumruk_chykysh). Every other lifecycle
-# timestamp has been converted to operator-entered datetime cells on the Sheet
-# (R19 loading_started_at, R21 departed_at, R30 border_crossed_at,
-# R32 customs_entry_at, R35 arrived_at, R41 sale_started_at, R42 sale_ended_at).
-# AD-1's "single write path via transition_to()" now applies to one field only.
-STATUS_TIMESTAMP_MAP = {
-    'gumruk_chykysh': 'customs_exit_at',
-}
+# Empty: AD-1 is functionally retired. Every lifecycle timestamp on Shipment
+# is now operator-entered on the Sheet (R19/R21/R25/R30/R32/R35/R41/R42).
+# transition_to() still updates `status` + `status_changed_at`, but no longer
+# stamps any AD-1 column. The map is kept as a hook in case a future status
+# wants a dedicated auto-set timestamp again.
+STATUS_TIMESTAMP_MAP: dict[str, str] = {}
 
 # Allowed transitions: from_code → list of (to_code, allowed_roles)
 # None key = shipment has no status yet (legacy fallback, unused by two-phase flow).

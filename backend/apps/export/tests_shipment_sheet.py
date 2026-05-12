@@ -246,24 +246,11 @@ class SheetPatchPermissionTests(TestCase):
         resp = self._patch('transport', {'weight_net': '18000.00'})
         self.assertEqual(resp.status_code, 403, resp.data)
 
-    def test_ad1_timestamp_rejected_via_patch(self):
-        """AD-1 fields are excluded from _ALL_PATCHABLE_FIELDS — must always 403."""
-        # export_manager has 'shipment' = ['*'] but the serializer's Meta.fields
-        # excludes AD-1 timestamps, so they're treated as unknown fields.
-        # NOTE: customs_exit_at is the only remaining AD-1 timestamp after R19/
-        # R21/R30/R32/R35/R41/R42 were converted to operator-entered cells.
-        user = _create_user('mgr_ad1', 'export_manager')
-        self.client.force_authenticate(user=user)
-        resp = self.client.patch(
-            f'/api/v1/export/shipments/{self.shipment.id}/',
-            {'customs_exit_at': '2026-02-02T10:00:00Z'},
-            format='json',
-        )
-        # PATCH doesn't error on unknown fields by default — it silently drops.
-        # The contract is that customs_exit_at is NOT updated.
-        self.assertEqual(resp.status_code, 200, resp.data)
-        self.shipment.refresh_from_db()
-        self.assertIsNone(self.shipment.customs_exit_at)
+    # NOTE: test_ad1_timestamp_rejected_via_patch was removed. AD-1 is retired —
+    # every lifecycle timestamp on Shipment (loading_started_at through
+    # sale_ended_at) is now operator-entered via the Sheet, so there's no
+    # "AD-1-blocked field" to assert against. Status transitions still go
+    # through transition_to(), but no longer auto-stamp any column.
 
 
 class SheetJunctionEndpointTests(TestCase):

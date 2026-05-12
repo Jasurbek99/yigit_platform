@@ -101,10 +101,12 @@ RESOURCE_FIELDS: dict[str, list[str]] = {
         'truck_plate', 'driver_name', 'driver_phone',
         'transit_days', 'transport_temp_c', 'shelf_life_days',
         'has_peregruz', 'peregruz_city', 'peregruz_date',
-        # Operator-entered timestamps (NOT AD-1) — sheet R19/R20/R21/R30/R31/R32/R35/R41/R42
+        # Operator-entered timestamps — sheet R19/R20/R21/R25/R30/R31/R32/R35/R41/R42.
+        # AD-1 retired; every lifecycle timestamp here is now operator-entered.
         'loading_started_at',
         'loading_ended_at',
         'departed_at',
+        'customs_exit_at',
         'border_crossed_at',
         'dest_entry_at',
         'customs_entry_at',

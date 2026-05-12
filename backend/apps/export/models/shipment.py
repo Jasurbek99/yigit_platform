@@ -159,11 +159,13 @@ class Shipment(models.Model):
     price_per_kg = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
     total_amount_usd = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
 
-    # === AD-1: Denormalized lifecycle timestamps ===
-    # Only customs_exit_at is still written by transition_to() (on
-    # 'gumruk_chykysh'). Every other lifecycle timestamp here is operator-
-    # entered on the Sheet (R19/R21/R30/R32/R35/R41/R42, input_type='datetime').
-    # AD-1's "single write path" invariant therefore applies to ONE column.
+    # === Lifecycle timestamps (formerly AD-1) ===
+    # AD-1 is retired. Every lifecycle timestamp below is operator-entered on
+    # the Sheet (R19/R21/R25/R30/R32/R35/R41/R42, input_type='datetime').
+    # transition_to() still updates `status` + `status_changed_at`, but no
+    # longer stamps any of these columns. Operators fill the actual physical
+    # event time (gate stamp, door closed, sale concluded) which doesn't
+    # necessarily line up with the status-transition click.
     loading_started_at = models.DateTimeField(null=True, blank=True)
     customs_entry_at = models.DateTimeField(null=True, blank=True)
     customs_exit_at = models.DateTimeField(null=True, blank=True)

@@ -114,7 +114,8 @@ function getCellValue(shipment: IShipmentSheetItem, rowConfig: IRowConfig): stri
   const tsFields = [
     'loading_started_at', 'loading_ended_at',
     'customs_entry_at', 'customs_exit_at', 'departed_at',
-    'border_crossed_at', 'arrived_at', 'sale_started_at', 'sale_ended_at',
+    'border_crossed_at', 'dest_entry_at',
+    'arrived_at', 'sale_started_at', 'sale_ended_at',
     'peregruz_date',
   ];
   if (tsFields.includes(fieldKey)) {

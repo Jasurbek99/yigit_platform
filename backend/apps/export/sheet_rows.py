@@ -229,7 +229,7 @@ DEFAULT_SHEET_ROWS: list[dict] = [
         'field_key': 'customs_exit_at',
         'default_who_key': 'sheet.who.sirin',
         'label_key': 'sheet.row.customs_exit_tm',
-        'input_type': 'readonly',
+        'input_type': 'datetime',
         'style': 'key',
     },
     {
