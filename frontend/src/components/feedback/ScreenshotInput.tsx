@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Upload, Button, message, Spin, Tooltip } from 'antd';
+import { Upload, Button, Spin, Tooltip } from 'antd';
+import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { IconCamera, IconTrash, IconClipboard } from '@tabler/icons-react';
 
@@ -146,11 +147,11 @@ export function ScreenshotInput({
    */
   function validateFileSingle(file: File): boolean {
     if (!ALLOWED_MIME_TYPES.has(file.type)) {
-      message.error(t('feedback.attachment.invalid_type', { name: file.name }));
+      toast.error(t('feedback.attachment.invalid_type', { name: file.name }));
       return false;
     }
     if (file.size > maxSizeBytes) {
-      message.error(
+      toast.error(
         t('feedback.attachment.too_large', {
           name: file.name,
           max: Math.round(maxSizeBytes / 1024 / 1024),
@@ -159,7 +160,7 @@ export function ScreenshotInput({
       return false;
     }
     if (files.length >= maxFiles) {
-      message.error(t('feedback.attachment.too_many', { max: maxFiles }));
+      toast.error(t('feedback.attachment.too_many', { max: maxFiles }));
       return false;
     }
     return true;
@@ -194,7 +195,7 @@ export function ScreenshotInput({
       const valid = candidates.filter(isValidFile);
       const rejected = candidates.length - valid.length;
       if (rejected > 0) {
-        message.error(
+        toast.error(
           t('feedback.attachment.invalid_type', { name: t('feedback.attachment.some_files') }),
         );
       }
@@ -203,7 +204,7 @@ export function ScreenshotInput({
       // Respect maxFiles cap — take as many as fit
       const available = maxFiles - files.length;
       if (available <= 0) {
-        message.error(t('feedback.attachment.too_many', { max: maxFiles }));
+        toast.error(t('feedback.attachment.too_many', { max: maxFiles }));
         return;
       }
       const toAdd = valid.slice(0, available);
@@ -217,27 +218,66 @@ export function ScreenshotInput({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [files, maxFiles, maxSizeBytes]);
 
-  // (D) Capture this screen
+  // (D) Capture this screen.
+  // Hides any open modal/drawer/popover/FAB so the resulting image shows the
+  // page BEHIND the dialog (which is what the user is trying to report on),
+  // not the dialog itself.
   async function handleCapture(): Promise<void> {
     setCapturing(true);
+
+    // Selectors that wrap floating UI we want hidden during the snapshot.
+    // Ant v5: .ant-modal-root contains both mask + modal; .ant-drawer is the
+    // root drawer node; .ant-popover/.ant-tooltip/.ant-message cover misc overlays;
+    // .ant-float-btn-group is the FAB stack.
+    const overlaySelector =
+      '.ant-modal-root, .ant-drawer, .ant-popover, .ant-tooltip, .ant-message, .ant-float-btn-group, .ant-float-btn';
+    const overlays = Array.from(
+      document.querySelectorAll<HTMLElement>(overlaySelector),
+    );
+    const prevVisibility = overlays.map((el) => el.style.visibility);
+    overlays.forEach((el) => {
+      el.style.visibility = 'hidden';
+    });
+
+    function restoreOverlays(): void {
+      overlays.forEach((el, i) => {
+        el.style.visibility = prevVisibility[i];
+      });
+    }
+
     try {
-      const html2canvas = (await import('html2canvas')).default;
-      const canvas = await html2canvas(document.body);
-      canvas.toBlob((blob) => {
-        if (!blob) {
-          setCapturing(false);
-          return;
-        }
-        const file = new File(
-          [blob],
-          `capture-${Date.now()}.png`,
-          { type: 'image/png' },
-        );
-        addFileSingle(file);
-        setCapturing(false);
-      }, 'image/png');
-    } catch {
-      message.error(t('feedback.attachment.capture_failed'));
+      // Let the browser paint the now-hidden state before snapshotting.
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+      // html-to-image supports modern CSS color functions (color(), oklch(), lab())
+      // that html2canvas cannot parse — Mantine v7 emits these in computed styles,
+      // which was breaking capture on every page.
+      const { toBlob } = await import('html-to-image');
+      const blob = await toBlob(document.body, {
+        backgroundColor: '#ffffff',
+        pixelRatio: window.devicePixelRatio || 1,
+        cacheBust: true,
+      });
+
+      restoreOverlays();
+
+      if (!blob) {
+        // eslint-disable-next-line no-console
+        console.error('feedback: capture produced empty blob');
+        toast.error(t('feedback.attachment.capture_failed'));
+        return;
+      }
+
+      const file = new File([blob], `capture-${Date.now()}.png`, {
+        type: 'image/png',
+      });
+      addFileSingle(file);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('feedback: html-to-image capture failed', err);
+      restoreOverlays();
+      toast.error(t('feedback.attachment.capture_failed'));
+    } finally {
       setCapturing(false);
     }
   }
