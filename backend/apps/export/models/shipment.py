@@ -1,5 +1,16 @@
+import threading
+
 from django.db import models
 from apps.core.db_utils import cyrillic_collation, schema_table
+
+
+# Thread-local re-entry guard for Shipment.save() → auto_advance_if_ready.
+# transition_to() inside auto_advance_if_ready() calls shipment.save() again,
+# which would re-enter the save handler and could loop. The flag short-circuits
+# the second invocation so auto-advance only ever fires once per outer save.
+# Thread-local (not module-level) keeps concurrent requests from blocking each
+# other.
+_AUTO_ADVANCE_REENTRY = threading.local()
 
 
 VEHICLE_CONDITION_CHOICES = [
@@ -259,14 +270,19 @@ class Shipment(models.Model):
         return self.cargo_code
 
     def save(self, *args, **kwargs):
-        """Save and trigger task auto-resolution.
+        """Save, trigger task auto-resolution, then attempt status auto-advance.
 
-        After every Model.save() call the task engine re-checks all open and
-        in-progress tasks on this shipment and marks DONE those whose target
-        fields are now filled.
+        After every Model.save() call:
+          1. The task engine re-checks all open/in-progress tasks on this
+             shipment and marks DONE those whose target fields are now filled.
+          2. If any tasks resolved AND every auto-resolving task for the
+             current step is now DONE, fire transition_to() for the next step.
+             A thread-local re-entry guard prevents the resulting inner save()
+             from cascading into more auto-advances — strictly one step per
+             outer save (per plan).
 
-        Lazy import of resolve_for_shipment avoids a circular reference at
-        module-load time (models/ → services/ → models/).
+        Lazy imports of services avoid circular references at module-load time
+        (models/ → services/ → models/).
 
         Known limit: bulk operations (QuerySet.update(), bulk_update()) bypass
         this method. That is acceptable because all current shipment-write
@@ -276,9 +292,21 @@ class Shipment(models.Model):
         site.
         """
         super().save(*args, **kwargs)
-        # Lazy import prevents circular import at module-load time.
+
         from apps.export.services.task_rules import resolve_for_shipment
-        resolve_for_shipment(self)
+        resolved = resolve_for_shipment(self)
+
+        # Re-entry guard: transition_to() calls shipment.save(update_fields=...)
+        # which re-enters this method. Skip the second auto-advance attempt.
+        if getattr(_AUTO_ADVANCE_REENTRY, 'active', False):
+            return
+
+        try:
+            _AUTO_ADVANCE_REENTRY.active = True
+            from apps.export.services.shipment import auto_advance_if_ready
+            auto_advance_if_ready(self, resolved_tasks=resolved)
+        finally:
+            _AUTO_ADVANCE_REENTRY.active = False
 
 
 class ShipmentStatusLog(models.Model):

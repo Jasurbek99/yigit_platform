@@ -147,8 +147,9 @@ DEFAULT_SHEET_ROWS: list[dict] = [
 
     # === Scrollable Section (Rows 15-44) — Operations & Logistics ===
     # Row 16 is intentionally absent (skipped in the original Excel layout).
-    # AD-1 timestamps (25, 30, 32, 35, 41, 42) stay readonly — written ONLY by
-    # transition_to() per ADR-010. Inline edit is forbidden by architecture.
+    # State machine v2: every lifecycle timestamp is operator-entered on the
+    # Sheet — they are the trigger fields for auto-advance. Only cargo_code
+    # (R7) remains structurally readonly (auto-generated).
     # All previously-orphan rows (15, 23, 27, 28, 31, 44) are now backed by real
     # Shipment columns (migrations 0019/0020) and are inline-editable.
     {

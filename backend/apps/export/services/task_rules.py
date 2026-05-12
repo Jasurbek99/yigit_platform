@@ -207,6 +207,7 @@ def generate_tasks_for_status(
             assignee_role=rule.assignee_role,
             target_fields=rule.target_fields,
             completion_rule=rule.completion_rule,
+            target_value=rule.target_value,
             deadline=deadline,
             deadline_rule=rule.deadline_rule,
             state=TaskState.OPEN,
@@ -298,6 +299,16 @@ def _completion_satisfied(task: Task, shipment) -> bool:
         # No target fields — cannot auto-resolve (treat as MANUAL_DONE semantics
         # even if the rule is not MANUAL_DONE; guard against misconfigured rules).
         return False
+
+    if task.completion_rule == TaskCompletionRule.FIELD_EQUALS:
+        # Single-field value-equality check. Compares as strings to make
+        # the rule agnostic to choice-field internal representations.
+        if len(targets) != 1:
+            return False
+        actual = _resolve_value(shipment, targets[0])
+        if actual is None:
+            return False
+        return str(actual) == task.target_value
 
     values = [_resolve_value(shipment, t) for t in targets]
 

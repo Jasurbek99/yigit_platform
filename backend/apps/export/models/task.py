@@ -26,6 +26,7 @@ from django.utils.translation import gettext_lazy as _
 class TaskCompletionRule(models.TextChoices):
     ALL_FIELDS_FILLED = 'all_fields_filled', _('All target fields filled')
     ANY_FIELD_FILLED  = 'any_field_filled',  _('Any target field filled')
+    FIELD_EQUALS      = 'field_equals',      _('Target field equals a specific value')
     MANUAL_DONE       = 'manual_done',       _('Marked done manually')
 
 
@@ -60,6 +61,10 @@ class TaskRule(models.Model):
         max_length=24,
         choices=TaskCompletionRule.choices,
         default=TaskCompletionRule.ALL_FIELDS_FILLED,
+    )
+    target_value = models.CharField(
+        max_length=64, blank=True, default='',
+        help_text='For FIELD_EQUALS rules: the value to compare against (string-cast)',
     )
     deadline_rule = models.CharField(
         max_length=64, blank=True, default='',
@@ -112,6 +117,10 @@ class Task(models.Model):
     completion_rule = models.CharField(
         max_length=24, choices=TaskCompletionRule.choices,
         default=TaskCompletionRule.ALL_FIELDS_FILLED,
+    )
+    target_value = models.CharField(
+        max_length=64, blank=True, default='',
+        help_text='Mirrors TaskRule.target_value at task-create time',
     )
 
     deadline = models.DateTimeField(
