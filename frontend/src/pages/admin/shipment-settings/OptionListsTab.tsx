@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Table, Button, Modal, Form, Input, InputNumber, Switch, Select, Space, Tag, message } from 'antd';
+import { Table, Button, Modal, Form, Input, InputNumber, Switch, Select, Space, Tag } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import {
   useShipmentOptions,
@@ -53,16 +54,16 @@ export default function OptionListsTab({ canWrite }: IProps) {
   }
 
   const createOption = useCreateShipmentOption({
-    onSuccess: () => { message.success(t('shipment_settings.toast_created')); closeModal(); },
-    onError: () => message.error(t('shipment_settings.toast_error')),
+    onSuccess: () => { toast.success(t('shipment_settings.toast_created')); closeModal(); },
+    onError: () => toast.error(t('shipment_settings.toast_error')),
   });
   const updateOption = useUpdateShipmentOption({
-    onSuccess: () => { message.success(t('shipment_settings.toast_updated')); closeModal(); },
-    onError: () => message.error(t('shipment_settings.toast_error')),
+    onSuccess: () => { toast.success(t('shipment_settings.toast_updated')); closeModal(); },
+    onError: () => toast.error(t('shipment_settings.toast_error')),
   });
   const deleteOption = useDeleteShipmentOption({
-    onSuccess: () => message.success(t('shipment_settings.toast_deleted')),
-    onError: () => message.error(t('shipment_settings.toast_error')),
+    onSuccess: () => toast.success(t('shipment_settings.toast_deleted')),
+    onError: () => toast.error(t('shipment_settings.toast_error')),
   });
 
   function handleCreate() {

@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Table, Button, Modal, Form, Input, InputNumber, Space, Alert, message } from 'antd';
+import { Table, Button, Modal, Form, Input, InputNumber, Space, Alert } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import {
   useTruckSplits,
@@ -34,16 +35,16 @@ export default function TruckSplitsTab({ canWrite }: IProps) {
   }
 
   const createSplit = useCreateTruckSplit({
-    onSuccess: () => { message.success(t('shipment_settings.toast_created')); closeModal(); },
-    onError: () => message.error(t('shipment_settings.toast_error')),
+    onSuccess: () => { toast.success(t('shipment_settings.toast_created')); closeModal(); },
+    onError: () => toast.error(t('shipment_settings.toast_error')),
   });
   const updateSplit = useUpdateTruckSplit({
-    onSuccess: () => { message.success(t('shipment_settings.toast_updated')); closeModal(); },
-    onError: () => message.error(t('shipment_settings.toast_error')),
+    onSuccess: () => { toast.success(t('shipment_settings.toast_updated')); closeModal(); },
+    onError: () => toast.error(t('shipment_settings.toast_error')),
   });
   const deleteSplit = useDeleteTruckSplit({
-    onSuccess: () => message.success(t('shipment_settings.toast_deleted')),
-    onError: () => message.error(t('shipment_settings.toast_error')),
+    onSuccess: () => toast.success(t('shipment_settings.toast_deleted')),
+    onError: () => toast.error(t('shipment_settings.toast_error')),
   });
 
   function handleCreate() {

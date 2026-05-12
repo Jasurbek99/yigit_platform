@@ -22,7 +22,7 @@
 
 import { useRef, useCallback, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { message } from 'antd';
+import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import api from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
@@ -150,14 +150,14 @@ export function useSaveUserSheetPreferences() {
       const responseData = (error as { response?: { data?: { error?: string } } })
         ?.response?.data;
       if (responseData?.error === 'unknown_row_ids') {
-        message.error(t('sheet.unknown_row_id_error'));
+        toast.error(t('sheet.unknown_row_id_error'));
       } else if (
         typeof responseData?.error === 'string' &&
         responseData.error.includes('duplicate')
       ) {
-        message.error(t('sheet.reorder_save_error'));
+        toast.error(t('sheet.reorder_save_error'));
       } else {
-        message.error(t('sheet.reorder_save_error'));
+        toast.error(t('sheet.reorder_save_error'));
       }
     },
   });

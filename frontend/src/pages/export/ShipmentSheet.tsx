@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useCallback } from 'react';
-import { Spin, message } from 'antd';
+import { Spin } from 'antd';
 import { useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { useShipmentSheet } from '@/hooks/useShipmentSheet';
 import { useSheetStore } from '@/stores/sheetStore';
@@ -82,7 +83,7 @@ export default function ShipmentSheet() {
       const newHidden = Array.from(new Set([...current, rowId]));
       // Immediate PATCH — hide is a rare action, debounce not needed
       savePrefs.mutate({ hidden_rows: newHidden });
-      message.success(t('sheet.row_hidden_toast'));
+      toast.success(t('sheet.row_hidden_toast'));
     },
     [savePrefs, userPreferences.hidden_rows, t],
   );

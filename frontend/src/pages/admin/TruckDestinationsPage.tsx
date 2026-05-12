@@ -11,9 +11,9 @@ import {
   Space,
   Tag,
   Typography,
-  message,
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import {
   useAdminTruckDestinations,
@@ -32,21 +32,21 @@ export default function TruckDestinationsPage() {
   const { data: countries = [] } = useCountries();
   const createDest = useCreateTruckDestination({
     onSuccess: () => {
-      message.success(t('truck_dest_admin.toast_created'));
+      toast.success(t('truck_dest_admin.toast_created'));
       setModalOpen(false);
       form.resetFields();
     },
   });
   const updateDest = useUpdateTruckDestination({
     onSuccess: () => {
-      message.success(t('truck_dest_admin.toast_updated'));
+      toast.success(t('truck_dest_admin.toast_updated'));
       setModalOpen(false);
       form.resetFields();
       setEditTarget(null);
     },
   });
   const deleteDest = useDeleteTruckDestination({
-    onSuccess: () => message.success(t('truck_dest_admin.toast_deleted')),
+    onSuccess: () => toast.success(t('truck_dest_admin.toast_deleted')),
   });
 
   const [modalOpen, setModalOpen] = useState(false);

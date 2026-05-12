@@ -7,13 +7,13 @@ import {
   DatePicker,
   Flex,
   InputNumber,
-  message,
   Space,
   Table,
   Tag,
   Typography,
 } from 'antd';
 import type { TableColumnsType } from 'antd';
+import { toast } from 'sonner';
 import {
   CheckCircleOutlined,
   LeftOutlined,
@@ -206,13 +206,13 @@ export function QuotaUsageGrid({ weightUnit, productType }: IQuotaUsageGridProps
       if (num(rec.kg_used) === newValue) return;
       updateMutation.mutate(
         { id: rec.id, kg_used: newValue },
-        { onError: () => message.error(t('quota_usage.save_error')) },
+        { onError: () => toast.error(t('quota_usage.save_error')) },
       );
     } else if (newValue > 0 && canCreate) {
       // Create new record
       createMutation.mutate(
         { usage_date: date, export_firm: firmId, kg_used: newValue, product_type: productType },
-        { onError: () => message.error(t('quota_usage.save_error')) },
+        { onError: () => toast.error(t('quota_usage.save_error')) },
       );
     }
   }
@@ -221,7 +221,7 @@ export function QuotaUsageGrid({ weightUnit, productType }: IQuotaUsageGridProps
     if (!draftIds.length) return;
     approveMutation.mutate(draftIds, {
       onSuccess: (data) => {
-        message.success(t('quota_usage.approved_count', { count: data.approved }));
+        toast.success(t('quota_usage.approved_count', { count: data.approved }));
       },
     });
   }

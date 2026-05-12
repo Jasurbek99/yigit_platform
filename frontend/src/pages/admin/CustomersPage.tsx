@@ -10,11 +10,11 @@ import {
   Space,
   Tag,
   Typography,
-  message,
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { ProTable } from '@ant-design/pro-components';
 import type { ProColumns } from '@ant-design/pro-components';
+import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import {
   useAdminCustomers,
@@ -53,19 +53,19 @@ export default function CustomersPage() {
 
   const createCustomer = useCreateCustomer({
     onSuccess: () => {
-      message.success(t('customers_admin.toast_created'));
+      toast.success(t('customers_admin.toast_created'));
       setModalOpen(false);
       form.resetFields();
     },
     onError: (err) => {
       const detail = (err as { response?: { data?: Record<string, string[]> } }).response?.data;
       const msg = detail?.name?.[0] ?? t('customers_admin.toast_error');
-      message.error(msg);
+      toast.error(msg);
     },
   });
   const updateCustomer = useUpdateCustomer({
     onSuccess: () => {
-      message.success(t('customers_admin.toast_updated'));
+      toast.success(t('customers_admin.toast_updated'));
       setModalOpen(false);
       form.resetFields();
       setEditTarget(null);
@@ -73,12 +73,12 @@ export default function CustomersPage() {
     onError: (err) => {
       const detail = (err as { response?: { data?: Record<string, string[]> } }).response?.data;
       const msg = detail?.name?.[0] ?? t('customers_admin.toast_error');
-      message.error(msg);
+      toast.error(msg);
     },
   });
   const deleteCustomer = useDeleteCustomer({
-    onSuccess: () => message.success(t('customers_admin.toast_deleted')),
-    onError: () => message.error(t('customers_admin.toast_error')),
+    onSuccess: () => toast.success(t('customers_admin.toast_deleted')),
+    onError: () => toast.error(t('customers_admin.toast_error')),
   });
 
   function handleCreate() {

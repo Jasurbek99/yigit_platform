@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Drawer, Form, Button, Space, Divider, Typography, message } from 'antd';
+import { Drawer, Form, Button, Space, Divider, Typography } from 'antd';
+import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { FieldEditor } from '@/components/FieldEditor';
 import { useShipmentPatchMulti } from '@/hooks/useShipmentPatch';
@@ -100,7 +101,7 @@ export function ShipmentEditDrawer({
       { id: shipment.id, fields: payload },
       {
         onSuccess: () => {
-          message.success(t('shipment_edit_drawer.save_success'));
+          toast.success(t('shipment_edit_drawer.save_success'));
           onClose();
         },
       },

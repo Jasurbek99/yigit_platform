@@ -11,9 +11,9 @@ import {
   Segmented,
   Select,
   Typography,
-  message,
 } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
+import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import type { Dayjs } from 'dayjs';
@@ -84,7 +84,7 @@ export default function AddQuotaIssuance() {
     }
 
     if (allocs.length === 0) {
-      message.warning(t('quota_dashboard.no_firms_selected'));
+      toast.warning(t('quota_dashboard.no_firms_selected'));
       return;
     }
 
@@ -98,7 +98,7 @@ export default function AddQuotaIssuance() {
 
     createMutation.mutate(payload, {
       onSuccess: () => {
-        message.success(t('quota_dashboard.issuance_created'));
+        toast.success(t('quota_dashboard.issuance_created'));
         navigate('/export/quota');
       },
     });

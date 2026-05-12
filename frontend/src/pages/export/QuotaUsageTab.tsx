@@ -2,13 +2,13 @@ import { useState } from 'react';
 import {
   Button,
   InputNumber,
-  message,
   Modal,
   Select,
   Space,
   Tag,
   Typography,
 } from 'antd';
+import { toast } from 'sonner';
 import { ProTable, type ProColumns } from '@ant-design/pro-components';
 import {
   AppstoreOutlined,
@@ -64,7 +64,7 @@ export function QuotaUsageTab({ weightUnit, productType }: IQuotaUsageTabProps) 
     if (!draftIds.length) return;
     approveMutation.mutate(draftIds, {
       onSuccess: (data) => {
-        message.success(t('quota_usage.approved_count', { count: data.approved }));
+        toast.success(t('quota_usage.approved_count', { count: data.approved }));
         setSelectedIds([]);
       },
     });
@@ -73,7 +73,7 @@ export function QuotaUsageTab({ weightUnit, productType }: IQuotaUsageTabProps) 
   function handleInlineEdit(record: IQuotaUsageRecord, field: string, value: unknown) {
     updateMutation.mutate(
       { id: record.id, [field]: value },
-      { onError: () => message.error(t('quota_usage.save_error')) },
+      { onError: () => toast.error(t('quota_usage.save_error')) },
     );
   }
 

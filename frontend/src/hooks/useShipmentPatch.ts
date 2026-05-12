@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { message } from 'antd';
+import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import type { AxiosError } from 'axios';
 import api from '@/services/api';
@@ -131,7 +131,7 @@ export function useShipmentPatch() {
     },
     onError: (err, _vars, context) => {
       rollback(queryClient, context);
-      message.error(extractPatchError(err, t('sheet.save_error')));
+      toast.error(extractPatchError(err, t('sheet.save_error')));
       // Always log full error for support: real value, status, response body.
       console.error('[useShipmentPatch] PATCH failed', err);
     },
@@ -160,7 +160,7 @@ export function useShipmentPatchMulti() {
     },
     onError: (err, _vars, context) => {
       rollback(queryClient, context);
-      message.error(extractPatchError(err, t('shipment_edit_drawer.save_error')));
+      toast.error(extractPatchError(err, t('shipment_edit_drawer.save_error')));
       console.error('[useShipmentPatchMulti] PATCH failed', err);
     },
     onSettled: () => {

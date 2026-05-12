@@ -13,9 +13,9 @@ import {
   Collapse,
   Statistic,
   Tooltip,
-  message,
 } from 'antd';
 import type { TableColumnsType } from 'antd';
+import { toast } from 'sonner';
 import {
   LeftOutlined,
   RightOutlined,
@@ -212,11 +212,11 @@ export default function WeeklyPlanGrid() {
       { id: entryId, [field]: value, ...(reason ? { reason } : {}) },
       {
         onSuccess: () => {
-          message.success(t('plan.toast_actual_saved'));
+          toast.success(t('plan.toast_actual_saved'));
           setSavingKey(null);
         },
         onError: () => {
-          message.error(t('plan.toast_save_error'));
+          toast.error(t('plan.toast_save_error'));
           setSavingKey(null);
         },
       },
@@ -227,7 +227,7 @@ export default function WeeklyPlanGrid() {
     if (!activeSeason || !weekNumber || !year) return;
     initWeek.mutate(
       { season: activeSeason.id, week_number: weekNumber, year },
-      { onSuccess: () => message.success(t('plan.toast_initialized')) },
+      { onSuccess: () => toast.success(t('plan.toast_initialized')) },
     );
   }
 

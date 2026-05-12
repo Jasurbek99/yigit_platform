@@ -8,10 +8,10 @@ import {
   Space,
   Alert,
   Spin,
-  message,
   Tag,
 } from 'antd';
 import { CheckCircleOutlined, SaveOutlined } from '@ant-design/icons';
+import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import { useDayEntries, useUpsertDayEntry } from '@/hooks/usePlanning';
@@ -54,7 +54,7 @@ export default function FallbackForecastView(): React.ReactElement {
     const toSave = unsubmittedEntries.filter((e) => localValues[e.id] !== undefined);
 
     if (toSave.length === 0) {
-      message.info(t('plan.fallback_nothing_to_save'));
+      toast.info(t('plan.fallback_nothing_to_save'));
       return;
     }
 
@@ -70,10 +70,10 @@ export default function FallbackForecastView(): React.ReactElement {
           }),
         ),
       );
-      message.success(t('plan.toast_forecast_saved'));
+      toast.success(t('plan.toast_forecast_saved'));
       setLocalValues({});
     } catch {
-      message.error(t('plan.toast_save_error'));
+      toast.error(t('plan.toast_save_error'));
     } finally {
       setSavingIds(new Set());
     }

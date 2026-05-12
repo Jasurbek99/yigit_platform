@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { List, Modal, Tag, Typography, message } from 'antd';
+import { List, Modal, Tag, Typography } from 'antd';
+import { toast } from 'sonner';
 import {
   CheckCircleOutlined,
   ClockCircleOutlined,
@@ -93,7 +94,7 @@ export function OtherTasksRow({ tasks, onTaskClick }: IOtherTasksRowProps) {
       startMutation.mutate(
         { taskId: task.id, shipmentId: task.shipment },
         {
-          onSuccess: () => message.success(t('shipment.detail.task_started_toast')),
+          onSuccess: () => toast.success(t('shipment.detail.task_started_toast')),
         },
       );
     }
@@ -106,7 +107,7 @@ export function OtherTasksRow({ tasks, onTaskClick }: IOtherTasksRowProps) {
       { taskId: blockedTask.id, shipmentId: blockedTask.shipment },
       {
         onSuccess: () => {
-          message.success(t('shipment.detail.task_unblocked_toast'));
+          toast.success(t('shipment.detail.task_unblocked_toast'));
           setBlockedTask(null);
         },
       },

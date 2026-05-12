@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Button, DatePicker, Input, InputNumber, Popover, Select, Space, Typography, message } from 'antd';
+import { Button, DatePicker, Input, InputNumber, Popover, Select, Space, Typography } from 'antd';
 import dayjs from 'dayjs';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import type { IShipmentSheetItem, IRowConfig } from '@/types';
 import { useSheetStore } from '@/stores/sheetStore';
@@ -64,7 +65,7 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
       close();
     },
     onError: (err) => {
-      message.error(extractPatchError(err, t('sheet.save_error')));
+      toast.error(extractPatchError(err, t('sheet.save_error')));
       console.error('[SheetCellEditor] custom-field PATCH failed', err);
       close();
     },
@@ -95,7 +96,7 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
       close();
     },
     onError: (err) => {
-      message.error(extractPatchError(err, t('sheet.save_error')));
+      toast.error(extractPatchError(err, t('sheet.save_error')));
       console.error('[SheetCellEditor] junction PATCH failed', err);
       close();
     },
@@ -471,7 +472,7 @@ function HarvestDateMultiEditor({
       await queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
       onClose();
     } catch (err) {
-      message.error(extractPatchError(err, t('sheet.save_error')));
+      toast.error(extractPatchError(err, t('sheet.save_error')));
       console.error('[HarvestDateMultiEditor] save failed', err);
       setSaving(false);
     }

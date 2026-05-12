@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Button, Input, Radio, Tooltip, Typography, message } from 'antd';
+import { Button, Input, Radio, Tooltip, Typography } from 'antd';
+import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { ScreenshotInput } from '@/components/feedback/ScreenshotInput';
 import { useReplyToTicket } from '@/hooks/useFeedback';
@@ -21,14 +22,14 @@ export function ReplyComposer({ ticketId }: IReplyComposerProps): React.ReactEle
 
   async function handleSend(): Promise<void> {
     if (!content.trim()) {
-      message.warning(t('feedback.reply.content_required'));
+      toast.warning(t('feedback.reply.content_required'));
       return;
     }
     await replyMutation.mutateAsync({ content, mode, attachments: files });
     setContent('');
     setMode('standard');
     setFiles([]);
-    message.success(t('feedback.reply.sent'));
+    toast.success(t('feedback.reply.sent'));
   }
 
   const modeOptions = [

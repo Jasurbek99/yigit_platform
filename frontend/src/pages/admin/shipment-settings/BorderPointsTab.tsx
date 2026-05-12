@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Table, Button, Modal, Form, Input, InputNumber, Switch, Space, Tag, message } from 'antd';
+import { Table, Button, Modal, Form, Input, InputNumber, Switch, Space, Tag } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import {
   useBorderPoints,
@@ -35,16 +36,16 @@ export default function BorderPointsTab({ canWrite }: IProps) {
   }
 
   const createPoint = useCreateBorderPoint({
-    onSuccess: () => { message.success(t('shipment_settings.toast_created')); closeModal(); },
-    onError: () => message.error(t('shipment_settings.toast_error')),
+    onSuccess: () => { toast.success(t('shipment_settings.toast_created')); closeModal(); },
+    onError: () => toast.error(t('shipment_settings.toast_error')),
   });
   const updatePoint = useUpdateBorderPoint({
-    onSuccess: () => { message.success(t('shipment_settings.toast_updated')); closeModal(); },
-    onError: () => message.error(t('shipment_settings.toast_error')),
+    onSuccess: () => { toast.success(t('shipment_settings.toast_updated')); closeModal(); },
+    onError: () => toast.error(t('shipment_settings.toast_error')),
   });
   const deletePoint = useDeleteBorderPoint({
-    onSuccess: () => message.success(t('shipment_settings.toast_deleted')),
-    onError: () => message.error(t('shipment_settings.toast_error')),
+    onSuccess: () => toast.success(t('shipment_settings.toast_deleted')),
+    onError: () => toast.error(t('shipment_settings.toast_error')),
   });
 
   function handleCreate() {

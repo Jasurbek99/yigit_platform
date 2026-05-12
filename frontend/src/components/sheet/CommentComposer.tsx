@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
-import { Button, Switch, Select, message } from 'antd';
+import { Button, Switch, Select } from 'antd';
 import { SendOutlined } from '@ant-design/icons';
+import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import type { IShipmentComment } from '@/types';
 import { useCreateComment } from '@/hooks/useComments';
@@ -140,12 +141,12 @@ export function CommentComposer({ shipmentId, parentComment = null, onSubmit }: 
           setRoleMentions([]);
           setAssignee(null);
           if (assignee != null) {
-            message.success(t('comments.toast_assigned'));
+            toast.success(t('comments.toast_assigned'));
           }
           onSubmit?.();
         },
         onError: () => {
-          message.error(t('comments.toast_create_error'));
+          toast.error(t('comments.toast_create_error'));
         },
       },
     );

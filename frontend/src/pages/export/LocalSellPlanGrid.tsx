@@ -12,9 +12,9 @@ import {
   Space,
   Tooltip,
   Statistic,
-  message,
 } from 'antd';
 import type { TableColumnsType } from 'antd';
+import { toast } from 'sonner';
 import {
   CheckCircleOutlined,
   ClockCircleOutlined,
@@ -153,7 +153,7 @@ export function LocalSellPlanGrid() {
 
   function handleSave(row: IWeeklyLocalSellPlan, day: Day, value: number) {
     upsert.mutate({ id: row.id, [`${day}_plan_kg`]: value }, {
-      onError: () => message.error(t('local_sell.save_error')),
+      onError: () => toast.error(t('local_sell.save_error')),
     });
   }
 
@@ -161,20 +161,20 @@ export function LocalSellPlanGrid() {
     if (!weekNumber || !year) return;
     initWeek.mutate(
       { week_number: weekNumber, year, season: activeSeason?.id },
-      { onSuccess: (d) => message.success(t('local_sell.init_success', { count: d.count })) },
+      { onSuccess: (d) => toast.success(t('local_sell.init_success', { count: d.count })) },
     );
   }
 
   function handleBulkSubmit() {
     const ids = plans.filter((p) => p.status === 'draft' || p.status === 'rejected').map((p) => p.id);
     if (!ids.length) return;
-    bulkSubmit.mutate(ids, { onSuccess: () => message.success(t('local_sell.submitted')) });
+    bulkSubmit.mutate(ids, { onSuccess: () => toast.success(t('local_sell.submitted')) });
   }
 
   function handleBulkApprove() {
     const ids = plans.filter((p) => p.status === 'submitted').map((p) => p.id);
     if (!ids.length) return;
-    bulkApprove.mutate(ids, { onSuccess: () => message.success(t('local_sell.approved')) });
+    bulkApprove.mutate(ids, { onSuccess: () => toast.success(t('local_sell.approved')) });
   }
 
   function dayDate(day: Day): Dayjs | null {

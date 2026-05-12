@@ -9,7 +9,6 @@ import {
   Modal,
   Spin,
   Alert,
-  message,
   Space,
   Button,
   Form,
@@ -20,6 +19,7 @@ import {
   PlusOutlined,
   DeleteOutlined,
 } from '@ant-design/icons';
+import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
@@ -90,13 +90,13 @@ function CustomRowModal({ open, onClose }: ICustomRowModalProps) {
         },
         {
           onSuccess: () => {
-            message.success(t('sheet_rows.custom_created', { field_key: fieldKey }));
+            toast.success(t('sheet_rows.custom_created', { field_key: fieldKey }));
             form.resetFields();
             onClose();
           },
           onError: (err) => {
             const apiMsg = err?.response?.data?.error;
-            message.error(apiMsg ?? t('sheet_rows.custom_create_error'));
+            toast.error(apiMsg ?? t('sheet_rows.custom_create_error'));
           },
         },
       );
@@ -191,11 +191,11 @@ export default function SheetRowsTab({ canWrite }: IProps) {
                 },
               });
             } else {
-              void message.error(t('shipment_settings.toast_error'));
+              toast.error(t('shipment_settings.toast_error'));
             }
           },
           onSuccess: () => {
-            void message.success(t('sheet_rows.toast_saved'));
+            toast.success(t('sheet_rows.toast_saved'));
           },
         },
       );
@@ -226,11 +226,11 @@ export default function SheetRowsTab({ canWrite }: IProps) {
           new Promise<void>((resolve, reject) => {
             softDelete.mutate({ id: record.id }, {
               onSuccess: () => {
-                message.success(t('sheet_rows.custom_deleted', { field_key: record.field_key }));
+                toast.success(t('sheet_rows.custom_deleted', { field_key: record.field_key }));
                 resolve();
               },
               onError: () => {
-                message.error(t('sheet_rows.custom_delete_error'));
+                toast.error(t('sheet_rows.custom_delete_error'));
                 reject();
               },
             });
@@ -255,7 +255,7 @@ export default function SheetRowsTab({ canWrite }: IProps) {
       reorderRows.mutate(
         { order: newOrder },
         {
-          onError: () => void message.error(t('sheet_rows.toast_reorder_error')),
+          onError: () => toast.error(t('sheet_rows.toast_reorder_error')),
         },
       );
     },
@@ -274,8 +274,8 @@ export default function SheetRowsTab({ canWrite }: IProps) {
       bulkPermissions.mutate(
         { row_id: record.id, grants, revokes },
         {
-          onSuccess: () => void message.success(t('sheet_rows.toast_saved')),
-          onError: () => void message.error(t('shipment_settings.toast_error')),
+          onSuccess: () => toast.success(t('sheet_rows.toast_saved')),
+          onError: () => toast.error(t('shipment_settings.toast_error')),
         },
       );
     },

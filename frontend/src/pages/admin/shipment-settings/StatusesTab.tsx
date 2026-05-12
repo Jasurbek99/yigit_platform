@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Table, Button, Modal, Form, Input, Tag, message } from 'antd';
+import { Table, Button, Modal, Form, Input, Tag } from 'antd';
 import { EditOutlined } from '@ant-design/icons';
+import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { useShipmentStatuses, useUpdateShipmentStatus } from '@/hooks/useAdmin';
 import type { IShipmentStatusType } from '@/types';
@@ -25,11 +26,11 @@ export default function StatusesTab({ canWrite }: IProps) {
 
   const updateStatus = useUpdateShipmentStatus({
     onSuccess: () => {
-      message.success(t('shipment_settings.toast_updated'));
+      toast.success(t('shipment_settings.toast_updated'));
       setEditTarget(null);
       form.resetFields();
     },
-    onError: () => message.error(t('shipment_settings.toast_error')),
+    onError: () => toast.error(t('shipment_settings.toast_error')),
   });
 
   function handleEdit(record: IShipmentStatusType) {
