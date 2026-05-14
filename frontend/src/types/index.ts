@@ -529,6 +529,9 @@ export interface IStatusLogEntry {
   changed_by_name: string;
   changed_at: string;
   comment: string | null;
+  // State machine v2: true when the transition was fired by auto-advance
+  // rather than an explicit user click. UI renders an "Auto" badge.
+  is_auto?: boolean;
 }
 
 export interface IShipmentComment {
@@ -1077,6 +1080,10 @@ export interface IShipmentDetail extends IShipmentListItem {
   sales_report_date: string | null;
   harvest_date: string | null;
   customs_clearance_planned_day: 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun' | '' | null;
+  // State machine v2: when True, the lifecycle includes a `transshipment`
+  // step between barysh_gumrugi and bardy. RouteTimelineRail uses this to
+  // decide whether to render the transshipment slot.
+  has_peregruz?: boolean | null;
   created_at: string;
   updated_at: string;
   firm_splits: IFirmSplit[];

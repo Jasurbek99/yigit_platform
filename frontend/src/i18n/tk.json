@@ -422,19 +422,23 @@
     "link_no_device": "Enjam ýok"
   },
   "shipment_status": {
+    "draft": "Garalama",
     "yuklenme": "Ýükleniş başlady",
     "gumruk_girish": "TM Gümrük girdi",
     "gumruk_chykysh": "TM Gümrük çykdy",
     "yola_chykdy": "Ýola çykdy",
-    "serhet_tm": "Serhetde — Farap Postta",
-    "serhet_gechdi": "Serhetden geçdi",
+    "serhet_tm": "Serhetde — Farap (köne)",
+    "serhet_gechdi": "TM serhetden geçdi",
+    "dest_entry": "Barjak ýurduna girdi",
     "barysh_gumrugi": "Barjak ýurduň gümrügi",
-    "yolda": "Ýolda",
+    "transshipment": "Peregruz",
+    "yolda": "Ýolda (köne)",
     "bardy": "Barjak ýerine geldi",
     "satylyar": "Satylýar",
-    "satyldy": "Satyldy",
-    "hasabat": "Hasabat",
-    "tamamlandy": "Tamamlandy"
+    "satyldy": "Satyldy (hasabat garaşylýar)",
+    "hasabat": "Hasabat (köne)",
+    "tamamlandy": "Hasabat alyndy, tamamlandy",
+    "auto_badge": "Awto"
   },
   "quality": {
     "title": "Hil resminamalary",

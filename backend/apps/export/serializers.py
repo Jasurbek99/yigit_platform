@@ -387,7 +387,10 @@ class StatusLogSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ShipmentStatusLog
-        fields = ['status_code', 'status_display', 'changed_by_name', 'changed_at', 'comment']
+        fields = [
+            'status_code', 'status_display', 'changed_by_name',
+            'changed_at', 'comment', 'is_auto',
+        ]
 
 
 class CommentSerializer(serializers.ModelSerializer):

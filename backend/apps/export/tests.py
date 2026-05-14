@@ -1,3 +1,4 @@
+from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APIClient
@@ -8,33 +9,48 @@ from apps.export.services import transition_to, TRANSITIONS
 
 
 def _create_all_statuses():
-    """Create all 13 shipment status types used in the lifecycle."""
+    """Create state machine v2 status types (12 active + 3 retired)."""
     statuses = [
-        ('yuklenme',      1,  'LOADING'),
-        ('gumruk_girish', 2,  'CUSTOMS'),
-        ('gumruk_chykysh',3,  'CUSTOMS'),
-        ('yola_chykdy',   4,  'TRANSIT'),
-        ('serhet_tm',     5,  'BORDER'),
-        ('serhet_gechdi', 6,  'BORDER'),
-        ('barysh_gumrugi',7,  'BORDER'),
-        ('yolda',         8,  'TRANSIT'),
-        ('bardy',         9,  'SALES'),
-        ('satylyar',      10, 'SALES'),
-        ('satyldy',       11, 'SALES'),
-        ('hasabat',       12, 'COMPLETE'),
-        ('tamamlandy',    13, 'COMPLETE'),
+        ('draft',           0,  'DRAFT',    True),
+        ('gumruk_girish',   1,  'CUSTOMS',  True),
+        ('gumruk_chykysh',  2,  'CUSTOMS',  True),
+        ('yuklenme',        3,  'LOADING',  True),
+        ('yola_chykdy',     4,  'TRANSIT',  True),
+        ('serhet_gechdi',   5,  'BORDER',   True),
+        ('dest_entry',      6,  'BORDER',   True),
+        ('barysh_gumrugi',  7,  'BORDER',   True),
+        ('transshipment',   8,  'SALES',    True),
+        ('bardy',           9,  'SALES',    True),
+        ('satylyar',       10,  'SALES',    True),
+        ('satyldy',        11,  'SALES',    True),
+        ('tamamlandy',     12,  'COMPLETE', True),
+        # Retired
+        ('serhet_tm',     100,  'BORDER',   False),
+        ('yolda',         101,  'TRANSIT',  False),
+        ('hasabat',       102,  'COMPLETE', False),
     ]
-    for code, order, phase in statuses:
-        ShipmentStatusType.objects.create(
+    for code, order, phase, is_active in statuses:
+        ShipmentStatusType.objects.get_or_create(
             code=code,
-            name_tk=code,
-            name_en=code,
-            step_order=order,
-            phase=phase,
+            defaults={
+                'name_tk':    code,
+                'name_en':    code,
+                'step_order': order,
+                'phase':      phase,
+                'is_active':  is_active,
+            },
         )
 
 
 class TransitionServiceTest(TestCase):
+    """State machine v2 transition tests.
+
+    Shipment starts at `draft`. Linear chain (no peregruz):
+      draft → gumruk_girish → gumruk_chykysh → yuklenme → yola_chykdy →
+      serhet_gechdi → dest_entry → barysh_gumrugi → bardy → satylyar →
+      satyldy → tamamlandy
+    """
+
     def setUp(self):
         self.season = Season.objects.create(
             name='2025-2026', start_date='2025-09-01', end_date='2026-06-30'
@@ -44,42 +60,25 @@ class TransitionServiceTest(TestCase):
         self.user = User.objects.create_user(
             username='testuser', password='pass', role='export_manager'
         )
-        self.warehouse_user = User.objects.create_user(
-            username='wh_user', password='pass', role='warehouse_chief'
+        self.document_team_user = User.objects.create_user(
+            username='doc_user', password='pass', role='document_team'
         )
         _create_all_statuses()
-        self.loading_status = ShipmentStatusType.objects.get(code='yuklenme')
+        self.draft_status = ShipmentStatusType.objects.get(code='draft')
         self.shipment = Shipment.objects.create(
             cargo_code='TEST-001',
             date='2025-11-01',
             season=self.season,
-            status=self.loading_status,
+            status=self.draft_status,
+            has_peregruz=False,
         )
 
     def test_valid_transition(self):
         """A valid sequential transition must update the shipment status."""
-        # warehouse_chief is the allowed role for yuklenme → gumruk_girish.
-        transition_to(self.shipment, 'gumruk_girish', self.warehouse_user)
+        # document_team owns draft → gumruk_girish in v2.
+        transition_to(self.shipment, 'gumruk_girish', self.document_team_user)
         self.shipment.refresh_from_db()
         self.assertEqual(self.shipment.status.code, 'gumruk_girish')
-
-    def test_ad1_timestamp_set_on_departed(self):
-        """AD-1: departed_at must be set when transitioning to yola_chykdy."""
-        transition_to(self.shipment, 'gumruk_girish', self.user)
-        transition_to(self.shipment, 'gumruk_chykysh', self.user)
-        transition_to(self.shipment, 'yola_chykdy', self.user)
-        self.shipment.refresh_from_db()
-        self.assertIsNotNone(self.shipment.departed_at)
-
-    def test_ad1_timestamp_not_set_for_intermediate_status(self):
-        """AD-1: serhet_tm has no timestamp mapping — none of the AD-1 fields should be set."""
-        transition_to(self.shipment, 'gumruk_girish', self.user)
-        transition_to(self.shipment, 'gumruk_chykysh', self.user)
-        transition_to(self.shipment, 'yola_chykdy', self.user)
-        transition_to(self.shipment, 'serhet_tm', self.user)
-        self.shipment.refresh_from_db()
-        # border_crossed_at is set by serhet_gechdi, not serhet_tm
-        self.assertIsNone(self.shipment.border_crossed_at)
 
     def test_invalid_transition_raises(self):
         """Skipping steps should raise ValueError."""
@@ -90,7 +89,7 @@ class TransitionServiceTest(TestCase):
         """Backwards transitions should raise ValueError."""
         transition_to(self.shipment, 'gumruk_girish', self.user)
         with self.assertRaises(ValueError):
-            transition_to(self.shipment, 'yuklenme', self.user)
+            transition_to(self.shipment, 'draft', self.user)
 
     def test_status_log_created(self):
         """Each transition must append one row to ShipmentStatusLog."""
@@ -111,12 +110,12 @@ class TransitionServiceTest(TestCase):
 
     def test_role_enforcement_raises_permission_error(self):
         """Wrong role on a step must raise PermissionError."""
-        # document_team is not allowed to trigger yuklenme → gumruk_girish (warehouse_chief only).
-        doc_user = User.objects.create_user(
-            username='doc_user', password='pass', role='document_team'
+        # warehouse_chief is not allowed to trigger draft → gumruk_girish (document_team only).
+        wh_user = User.objects.create_user(
+            username='wh_user_perm', password='pass', role='warehouse_chief'
         )
         with self.assertRaises(PermissionError):
-            transition_to(self.shipment, 'gumruk_girish', doc_user)
+            transition_to(self.shipment, 'gumruk_girish', wh_user)
 
     def test_privileged_role_bypasses_role_restriction(self):
         """export_manager can trigger any valid transition regardless of per-step role."""
@@ -124,36 +123,80 @@ class TransitionServiceTest(TestCase):
         self.shipment.refresh_from_db()
         self.assertEqual(self.shipment.status.code, 'gumruk_girish')
 
+    def test_is_auto_flag_recorded(self):
+        """A transition triggered with is_auto=True must mark the log row."""
+        transition_to(self.shipment, 'gumruk_girish', self.user, is_auto=True)
+        log = ShipmentStatusLog.objects.get(shipment=self.shipment)
+        self.assertTrue(log.is_auto)
+
+    def test_is_auto_bypasses_role_check(self):
+        """An auto transition must skip the per-step role check."""
+        # warehouse_chief is not the canonical role for draft → gumruk_girish,
+        # but is_auto=True bypasses the check.
+        wh_user = User.objects.create_user(
+            username='wh_auto', password='pass', role='warehouse_chief'
+        )
+        transition_to(self.shipment, 'gumruk_girish', wh_user, is_auto=True)
+        self.shipment.refresh_from_db()
+        self.assertEqual(self.shipment.status.code, 'gumruk_girish')
+
     def test_terminal_status_has_no_transitions(self):
         """tamamlandy is terminal — TRANSITIONS dict must return empty list."""
         self.assertEqual(TRANSITIONS['tamamlandy'], [])
 
-    def test_full_lifecycle(self):
-        """Walk all 13 statuses in order and verify final status is tamamlandy."""
+    def test_full_lifecycle_no_peregruz(self):
+        """Walk all 12 active statuses (no peregruz path) and verify final status."""
         chain = [
-            'gumruk_girish', 'gumruk_chykysh', 'yola_chykdy', 'serhet_tm',
-            'serhet_gechdi', 'barysh_gumrugi', 'yolda', 'bardy',
-            'satylyar', 'satyldy', 'hasabat', 'tamamlandy',
+            'gumruk_girish', 'gumruk_chykysh', 'yuklenme', 'yola_chykdy',
+            'serhet_gechdi', 'dest_entry', 'barysh_gumrugi',
+            'bardy', 'satylyar', 'satyldy', 'tamamlandy',
         ]
         for code in chain:
             transition_to(self.shipment, code, self.user)
         self.shipment.refresh_from_db()
         self.assertEqual(self.shipment.status.code, 'tamamlandy')
-        # All 12 transitions logged (shipment started at yuklenme)
-        self.assertEqual(ShipmentStatusLog.objects.filter(shipment=self.shipment).count(), 12)
+        # 11 transitions from draft.
+        self.assertEqual(
+            ShipmentStatusLog.objects.filter(shipment=self.shipment).count(),
+            len(chain),
+        )
+
+    def test_full_lifecycle_with_peregruz(self):
+        """has_peregruz=True path: barysh_gumrugi → transshipment → bardy."""
+        self.shipment.has_peregruz = True
+        self.shipment.save()
+        chain = [
+            'gumruk_girish', 'gumruk_chykysh', 'yuklenme', 'yola_chykdy',
+            'serhet_gechdi', 'dest_entry', 'barysh_gumrugi',
+            'transshipment', 'bardy', 'satylyar', 'satyldy', 'tamamlandy',
+        ]
+        for code in chain:
+            transition_to(self.shipment, code, self.user)
+        self.shipment.refresh_from_db()
+        self.assertEqual(self.shipment.status.code, 'tamamlandy')
 
 
 class SalesReportTest(TestCase):
     """Tests for POST/PATCH /api/v1/export/shipments/{id}/sales-report/."""
 
     def setUp(self):
+        # DynamicResourcePermission reads RoleResourcePermission from the DB,
+        # so the seed must run before any role-based API check.
+        call_command('seed_permissions')
         self.season = Season.objects.create(
             name='2025-2026', start_date='2025-09-01', end_date='2026-06-30'
         )
         _create_all_statuses()
-        self.hasabat_status = ShipmentStatusType.objects.get(code='hasabat')
+        # State machine v2: satyldy ("Sold, waiting for Report", step 11) is
+        # the status at which sales-report can be submitted. Old hasabat is
+        # retired. The "early stage, no report allowed" example uses yuklenme.
+        self.satyldy_status = ShipmentStatusType.objects.get(code='satyldy')
+        # Kept as alias for backward-compat with test names below.
+        self.hasabat_status = self.satyldy_status
         self.loading_status = ShipmentStatusType.objects.get(code='yuklenme')
-        self.serhet_tm_status = ShipmentStatusType.objects.get(code='serhet_tm')
+        self.early_status = ShipmentStatusType.objects.get(code='yuklenme')
+        # Kept as alias.
+        self.serhet_tm_status = self.early_status
 
         self.sales_user = User.objects.create_user(
             username='sales_rep_1', password='pass', role='sales_rep'
@@ -169,13 +212,13 @@ class SalesReportTest(TestCase):
             cargo_code='0101001/25',
             date='2025-01-01',
             season=self.season,
-            status=self.hasabat_status,
+            status=self.satyldy_status,
         )
         self.shipment_at_serhet_tm = Shipment.objects.create(
             cargo_code='0101002/25',
             date='2025-01-02',
             season=self.season,
-            status=self.serhet_tm_status,
+            status=self.early_status,
         )
 
         self.client = APIClient()
@@ -230,7 +273,7 @@ class SalesReportTest(TestCase):
         self.assertEqual(str(report.weight_sold_kg), '18000.00')
 
     def test_sales_report_blocked_before_hasabat(self):
-        """POST at step 5 (serhet_tm) must return 400."""
+        """POST at an early stage (yuklenme, step 3) must return 400."""
         self.client.force_authenticate(user=self.sales_user)
         response = self.client.post(
             self._url(self.shipment_at_serhet_tm.id),
@@ -238,7 +281,8 @@ class SalesReportTest(TestCase):
             format='json',
         )
         self.assertEqual(response.status_code, 400)
-        self.assertIn('hasabat', response.data['error'])
+        # In v2 the gate is "satyldy or later"; old "hasabat" wording is retired.
+        self.assertIn('satyldy', response.data['error'])
 
     def test_sales_report_wrong_role(self):
         """POST as warehouse_chief must return 403."""

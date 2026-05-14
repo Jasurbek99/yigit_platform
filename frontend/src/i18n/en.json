@@ -422,19 +422,23 @@
     "link_no_device": "No device"
   },
   "shipment_status": {
+    "draft": "Draft",
     "yuklenme": "Loading Started",
     "gumruk_girish": "TM Customs Entry",
     "gumruk_chykysh": "TM Customs Exit",
     "yola_chykdy": "Departed",
-    "serhet_tm": "At Border — Farap Post",
-    "serhet_gechdi": "Border Crossed",
+    "serhet_tm": "At Border — Farap Post (retired)",
+    "serhet_gechdi": "Crossed TM Border",
+    "dest_entry": "Destination Entry",
     "barysh_gumrugi": "Destination Customs",
-    "yolda": "En Route",
+    "transshipment": "Transshipment",
+    "yolda": "En Route (retired)",
     "bardy": "Arrived at Destination",
     "satylyar": "Selling",
-    "satyldy": "Sold",
-    "hasabat": "Report",
-    "tamamlandy": "Completed"
+    "satyldy": "Sold (waiting for Report)",
+    "hasabat": "Report (retired)",
+    "tamamlandy": "Report received & Completed",
+    "auto_badge": "Auto"
   },
   "quality": {
     "title": "Quality Documents",

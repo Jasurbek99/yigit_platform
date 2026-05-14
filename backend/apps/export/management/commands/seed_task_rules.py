@@ -7,23 +7,35 @@ Usage:
 The seed set is the source of truth defined in TASK_RULES below. Rules are
 keyed on (step, title_key). A re-run with update_or_create picks up any
 edits to the seed set (e.g. a deadline_rule change).
+
+State machine v2: each step has at least one auto-resolving TaskRule whose
+`target_fields` (or FIELD_EQUALS value) is the trigger for advancing to the
+next status. When every non-MANUAL_DONE task on the current step is DONE,
+Shipment.save() → auto_advance_if_ready() fires transition_to() for the
+next step.
+
+MANUAL_DONE rules are operational reminders only; they do NOT gate
+auto-advance (per plan: "Steps with MANUAL_DONE tasks still need a human
+click" was scoped to mean MANUAL_DONE tasks are exempt from the
+completion check).
 """
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from apps.export.models import TaskCompletionRule, TaskRule
 
-# Source of truth for the initial TaskRule set (plan §B7).
-# Each dict maps directly to TaskRule fields. Empty string for condition
-# means unconditional (always match).
 TASK_RULES: list[dict] = [
-    # ── draft (step 0: shipment created, no status yet / pre-loading) ────────
+    # ── draft → gumruk_girish ──────────────────────────────────────────────────
+    # Operational draft tasks (destination, firm split, driver, document
+    # prep) all gate advance to gumruk_girish. The Customs Entry trigger
+    # is documents_status == 'in_progress' (value-match, per user spec).
     {
         'step': 'draft',
         'title_key': 'tasks.set_destination',
         'assignee_role': 'export_manager',
         'target_fields': 'country,customer,import_firm',
         'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
+        'target_value': '',
         'deadline_rule': '24h_after_status',
         'condition_field': '',
         'condition_value': '',
@@ -34,16 +46,21 @@ TASK_RULES: list[dict] = [
         'assignee_role': 'document_team',
         'target_fields': 'firm_splits',
         'completion_rule': TaskCompletionRule.ANY_FIELD_FILLED,
+        'target_value': '',
         'deadline_rule': '24h_after_status',
         'condition_field': '',
         'condition_value': '',
     },
     {
+        # The Sheet writes driver_name (R27) / driver_phone (R28) as free-text
+        # — not the legacy driver_id FK. Target driver_name so the task
+        # auto-resolves when the operator fills the driver row.
         'step': 'draft',
         'title_key': 'tasks.assign_driver',
         'assignee_role': 'transport',
-        'target_fields': 'driver_id',
+        'target_fields': 'driver_name',
         'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
+        'target_value': '',
         'deadline_rule': '24h_after_status',
         'condition_field': 'is_gapy_satys',
         'condition_value': 'False',
@@ -54,6 +71,7 @@ TASK_RULES: list[dict] = [
         'assignee_role': 'transport',
         'target_fields': '',
         'completion_rule': TaskCompletionRule.MANUAL_DONE,
+        'target_value': '',
         'deadline_rule': 'friday_eow',
         'condition_field': 'is_gapy_satys',
         'condition_value': 'False',
@@ -64,27 +82,64 @@ TASK_RULES: list[dict] = [
         'assignee_role': 'export_manager',
         'target_fields': '',
         'completion_rule': TaskCompletionRule.MANUAL_DONE,
+        'target_value': '',
         'deadline_rule': 'friday_eow',
         'condition_field': 'is_gapy_satys',
         'condition_value': 'True',
     },
     {
+        # V2 trigger: Customs Entry fires when Sirin sets documents_status
+        # to "in_progress". Replaces the v1 ALL_FIELDS_FILLED rule that
+        # also required customs_clearance_planned_day.
         'step': 'draft',
         'title_key': 'tasks.start_documents_prep',
         'assignee_role': 'document_team',
-        'target_fields': 'documents_status,customs_clearance_planned_day',
-        'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
+        'target_fields': 'documents_status',
+        'completion_rule': TaskCompletionRule.FIELD_EQUALS,
+        'target_value': 'in_progress',
         'deadline_rule': '24h_after_status',
         'condition_field': '',
         'condition_value': '',
     },
-    # ── yuklenme (loading) ────────────────────────────────────────────────────
+
+    # ── gumruk_girish → gumruk_chykysh ─────────────────────────────────────────
+    # Trigger: customs_exit_at filled by Sirin (R25).
+    {
+        'step': 'gumruk_girish',
+        'title_key': 'tasks.trigger_customs_exit',
+        'assignee_role': 'document_team',
+        'target_fields': 'customs_exit_at',
+        'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
+        'target_value': '',
+        'deadline_rule': '13:00_same_day',
+        'condition_field': '',
+        'condition_value': '',
+    },
+
+    # ── gumruk_chykysh → yuklenme ──────────────────────────────────────────────
+    # Trigger: loading_started_at filled by Soltanmyrat (R19).
+    {
+        'step': 'gumruk_chykysh',
+        'title_key': 'tasks.trigger_loading_start',
+        'assignee_role': 'warehouse_chief',
+        'target_fields': 'loading_started_at',
+        'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
+        'target_value': '',
+        'deadline_rule': '24h_after_status',
+        'condition_field': '',
+        'condition_value': '',
+    },
+
+    # ── yuklenme → yola_chykdy ─────────────────────────────────────────────────
+    # Operational task: fill loading data + quality certs. Trigger task:
+    # departed_at fills (Mergen, R21).
     {
         'step': 'yuklenme',
         'title_key': 'tasks.fill_loading_data',
         'assignee_role': 'warehouse_chief',
         'target_fields': 'cargo_code,block_sources,variety,weight_net,weight_gross',
         'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
+        'target_value': '',
         'deadline_rule': '4h_after_status',
         'condition_field': '',
         'condition_value': '',
@@ -100,61 +155,154 @@ TASK_RULES: list[dict] = [
             'quality.kalibrowka_analiz'
         ),
         'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
+        'target_value': '',
         'deadline_rule': '4h_after_status',
         'condition_field': '',
         'condition_value': '',
     },
-    # ── gumruk_girish (customs entry) ─────────────────────────────────────────
     {
-        'step': 'gumruk_girish',
-        'title_key': 'tasks.send_documents_to_customs',
+        'step': 'yuklenme',
+        'title_key': 'tasks.trigger_departure',
         'assignee_role': 'document_team',
-        'target_fields': '',
-        'completion_rule': TaskCompletionRule.MANUAL_DONE,
-        'deadline_rule': '13:00_same_day',
-        'condition_field': '',
-        'condition_value': '',
-    },
-    # ── gumruk_chykysh (customs exit) ─────────────────────────────────────────
-    {
-        'step': 'gumruk_chykysh',
-        'title_key': 'tasks.docs_back_to_office',
-        'assignee_role': 'document_team',
-        'target_fields': '',
-        'completion_rule': TaskCompletionRule.MANUAL_DONE,
+        'target_fields': 'departed_at',
+        'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
+        'target_value': '',
         'deadline_rule': '24h_after_status',
         'condition_field': '',
         'condition_value': '',
     },
-    # ── bardy (arrived at destination) ────────────────────────────────────────
+
+    # ── yola_chykdy → serhet_gechdi ────────────────────────────────────────────
+    # Trigger: border_crossed_at filled by Haltac (R30).
+    {
+        'step': 'yola_chykdy',
+        'title_key': 'tasks.trigger_border_crossing',
+        'assignee_role': 'transport',
+        'target_fields': 'border_crossed_at',
+        'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
+        'target_value': '',
+        'deadline_rule': '24h_after_status',
+        'condition_field': '',
+        'condition_value': '',
+    },
+
+    # ── serhet_gechdi → dest_entry ─────────────────────────────────────────────
+    # Trigger: dest_entry_at filled by Arap (R31).
+    {
+        'step': 'serhet_gechdi',
+        'title_key': 'tasks.trigger_dest_entry',
+        'assignee_role': 'sales_rep',
+        'target_fields': 'dest_entry_at',
+        'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
+        'target_value': '',
+        'deadline_rule': '24h_after_status',
+        'condition_field': '',
+        'condition_value': '',
+    },
+
+    # ── dest_entry → barysh_gumrugi ────────────────────────────────────────────
+    # Trigger: customs_entry_at filled by Arap (R32).
+    {
+        'step': 'dest_entry',
+        'title_key': 'tasks.trigger_dest_customs',
+        'assignee_role': 'sales_rep',
+        'target_fields': 'customs_entry_at',
+        'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
+        'target_value': '',
+        'deadline_rule': '24h_after_status',
+        'condition_field': '',
+        'condition_value': '',
+    },
+
+    # ── barysh_gumrugi → transshipment | bardy (CONDITIONAL FORK) ──────────────
+    # has_peregruz=True: only the peregruz_date task is generated.
+    # has_peregruz=False: only the arrived_at task is generated.
+    # The TRANSITIONS predicate at runtime picks the right target step.
+    {
+        'step': 'barysh_gumrugi',
+        'title_key': 'tasks.trigger_transshipment',
+        'assignee_role': 'sales_rep',
+        'target_fields': 'peregruz_date',
+        'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
+        'target_value': '',
+        'deadline_rule': '24h_after_status',
+        'condition_field': 'has_peregruz',
+        'condition_value': 'True',
+    },
+    {
+        'step': 'barysh_gumrugi',
+        'title_key': 'tasks.trigger_arrival_direct',
+        'assignee_role': 'sales_rep',
+        'target_fields': 'arrived_at',
+        'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
+        'target_value': '',
+        'deadline_rule': '24h_after_status',
+        'condition_field': 'has_peregruz',
+        'condition_value': 'False',
+    },
+
+    # ── transshipment → bardy ──────────────────────────────────────────────────
+    # Trigger: arrived_at fills after the peregruz handoff.
+    {
+        'step': 'transshipment',
+        'title_key': 'tasks.trigger_arrival',
+        'assignee_role': 'sales_rep',
+        'target_fields': 'arrived_at',
+        'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
+        'target_value': '',
+        'deadline_rule': '24h_after_status',
+        'condition_field': '',
+        'condition_value': '',
+    },
+
+    # ── bardy → satylyar ───────────────────────────────────────────────────────
+    # Operational: confirm city (legacy). Trigger: sale_started_at fills.
     {
         'step': 'bardy',
         'title_key': 'tasks.confirm_destination',
         'assignee_role': 'sales_rep',
         'target_fields': 'city',
         'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
+        'target_value': '',
         'deadline_rule': '24h_after_status',
         'condition_field': '',
         'condition_value': '',
     },
-    # ── satyldy (sold) ────────────────────────────────────────────────────────
+    {
+        'step': 'bardy',
+        'title_key': 'tasks.trigger_sale_start',
+        'assignee_role': 'sales_rep',
+        'target_fields': 'sale_started_at',
+        'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
+        'target_value': '',
+        'deadline_rule': '48h_after_status',
+        'condition_field': '',
+        'condition_value': '',
+    },
+
+    # ── satylyar → satyldy ─────────────────────────────────────────────────────
+    # Trigger: sale_ended_at fills (R42).
+    {
+        'step': 'satylyar',
+        'title_key': 'tasks.trigger_sale_end',
+        'assignee_role': 'sales_rep',
+        'target_fields': 'sale_ended_at',
+        'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
+        'target_value': '',
+        'deadline_rule': 'friday_eow',
+        'condition_field': '',
+        'condition_value': '',
+    },
+
+    # ── satyldy → tamamlandy ───────────────────────────────────────────────────
+    # Trigger: sales_report_date fills (R43).
     {
         'step': 'satyldy',
-        'title_key': 'tasks.finalize_sale',
+        'title_key': 'tasks.trigger_report_received',
         'assignee_role': 'sales_rep',
-        'target_fields': '',
-        'completion_rule': TaskCompletionRule.MANUAL_DONE,
-        'deadline_rule': '24h_after_status',
-        'condition_field': '',
-        'condition_value': '',
-    },
-    # ── hasabat (report) ──────────────────────────────────────────────────────
-    {
-        'step': 'hasabat',
-        'title_key': 'tasks.submit_sales_report',
-        'assignee_role': 'sales_rep',
-        'target_fields': '',
-        'completion_rule': TaskCompletionRule.MANUAL_DONE,
+        'target_fields': 'sales_report_date',
+        'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
+        'target_value': '',
         'deadline_rule': 'friday_eow',
         'condition_field': '',
         'condition_value': '',

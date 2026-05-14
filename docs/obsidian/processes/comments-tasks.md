@@ -188,7 +188,7 @@ All `comments.*` keys exist in [tk](../../../frontend/src/i18n/tk.json), [ru](..
 - No reactions / file attachments.
 - Multi-assignee tasks not supported. If multiple people need to act, create multiple comments.
 - No rate limiting on `@role` mentions. A 12-role tenant with 100 active users could in theory get a 100-row notification fan-out per comment — fine in practice.
-- Cross-shipment "task inbox" is not a separate page. Use the drawer's "My tasks" filter from any shipment, or click a `task_assigned` notification to deep-link.
+- Cross-shipment "task inbox" is not a separate page for *comment* tasks. Use the drawer's "My tasks" filter from any shipment, or click a `task_assigned` notification to deep-link. Structured tasks have their own per-user kanban at `/me/board`; clicking a card opens an inline drawer (`SelfBoardTaskDrawer`) that reuses `MyTaskCard` so the task can be started, fields filled, and marked done without navigating to the shipment detail page.
 
 ## Structured Task Engine (B-engine — plan §B2–B4, §B7)
 

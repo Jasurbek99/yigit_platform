@@ -321,7 +321,9 @@ class ShipmentViewSet(ModelViewSet):
         before = snapshot_fields(shipment, submitted_keys)
 
         with transaction.atomic():
-            serializer.save()
+            # Set updated_by so Shipment.save() → auto_advance_if_ready() has
+            # a user to credit for any auto-transition this PATCH triggers.
+            serializer.save(updated_by=request.user)
             # Reload from DB so computed fields (auto_now timestamps, DB defaults) are fresh.
             instance = serializer.instance
             instance.refresh_from_db()
@@ -1258,7 +1260,9 @@ class ShipmentViewSet(ModelViewSet):
         """POST or PATCH /api/v1/export/shipments/{id}/sales-report/
 
         Create or update the final sales report for a shipment.
-        Only allowed when the shipment is at hasabat (step 12) or later.
+        Only allowed when the shipment is at satyldy (step 11) or later —
+        that's "Sold, waiting for Report". Entering the Report Date here
+        auto-advances the shipment to tamamlandy.
         Restricted to sales_rep, export_manager, and director roles.
 
         Returns full shipment detail on success.
@@ -1269,10 +1273,10 @@ class ShipmentViewSet(ModelViewSet):
 
         shipment = self.get_object()
 
-        # Only allowed at hasabat (step 12) or tamamlandy (step 13).
-        if shipment.status is None or shipment.status.step_order < 12:
+        # State machine v2: satyldy is step 11, tamamlandy is step 12.
+        if shipment.status is None or shipment.status.step_order < 11:
             return Response(
-                {'error': 'Sales report can only be submitted when shipment is at hasabat status or later.'},
+                {'error': 'Sales report can only be submitted when shipment is at satyldy status or later.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

@@ -424,19 +424,23 @@
     "link_no_device": "Нет устройства"
   },
   "shipment_status": {
+    "draft": "Черновик",
     "yuklenme": "Загрузка началась",
     "gumruk_girish": "Таможня ТМ вход",
     "gumruk_chykysh": "Таможня ТМ выход",
     "yola_chykdy": "Выехал",
-    "serhet_tm": "На границе — Фарап Пост",
-    "serhet_gechdi": "Пересёк границу",
+    "serhet_tm": "На границе — Фарап (устар.)",
+    "serhet_gechdi": "Пересёк ТМ границу",
+    "dest_entry": "Въезд в страну назначения",
     "barysh_gumrugi": "Таможня страны назначения",
-    "yolda": "В пути",
+    "transshipment": "Перегрузка",
+    "yolda": "В пути (устар.)",
     "bardy": "Прибыл в пункт назначения",
     "satylyar": "Продаётся",
-    "satyldy": "Продано",
-    "hasabat": "Отчёт",
-    "tamamlandy": "Завершено"
+    "satyldy": "Продано (ждёт отчёт)",
+    "hasabat": "Отчёт (устар.)",
+    "tamamlandy": "Отчёт получен и завершено",
+    "auto_badge": "Авто"
   },
   "quality": {
     "title": "Документы качества",

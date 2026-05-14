@@ -1,23 +1,38 @@
-import { Card } from 'antd';
+import { Card, Tag } from 'antd';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import type { IShipmentDetail, IStatusLogEntry } from '@/types';
 
-const STATUS_STEPS = [
-  { code: 'yuklenme' },
+// State machine v2: 12 steps + draft (step 0).
+// transshipment is inserted only for has_peregruz=True shipments — see getStatusStepsForShipment.
+interface IStatusStep { code: string }
+
+const STATUS_STEPS_BASE: IStatusStep[] = [
+  { code: 'draft' },
   { code: 'gumruk_girish' },
   { code: 'gumruk_chykysh' },
+  { code: 'yuklenme' },
   { code: 'yola_chykdy' },
-  { code: 'serhet_tm' },
   { code: 'serhet_gechdi' },
+  { code: 'dest_entry' },
   { code: 'barysh_gumrugi' },
-  { code: 'yolda' },
+  // transshipment slot — included only when shipment.has_peregruz === true
   { code: 'bardy' },
   { code: 'satylyar' },
   { code: 'satyldy' },
-  { code: 'hasabat' },
   { code: 'tamamlandy' },
-] as const;
+];
+
+function getStatusStepsForShipment(hasPeregruz: boolean | null | undefined): IStatusStep[] {
+  if (!hasPeregruz) return STATUS_STEPS_BASE;
+  const out = [...STATUS_STEPS_BASE];
+  // Insert transshipment between barysh_gumrugi and bardy.
+  const baryshIdx = out.findIndex((s) => s.code === 'barysh_gumrugi');
+  if (baryshIdx >= 0) {
+    out.splice(baryshIdx + 1, 0, { code: 'transshipment' });
+  }
+  return out;
+}
 
 /** Format an ISO datetime string with the active dayjs locale. */
 function fmt(ts: string | null | undefined): string {
@@ -36,6 +51,7 @@ interface IRouteTimelineRailProps {
 export function RouteTimelineRail({ shipment }: IRouteTimelineRailProps) {
   const { t } = useTranslation();
 
+  const STATUS_STEPS = getStatusStepsForShipment(shipment.has_peregruz);
   const currentIdx = STATUS_STEPS.findIndex((s) => s.code === shipment.status_code);
 
   // Map log entries by status_code so we don't rely on positional ordering;
@@ -109,6 +125,16 @@ export function RouteTimelineRail({ shipment }: IRouteTimelineRailProps) {
                   }}
                 >
                   {t(`shipment_status.${step.code}`)}
+                  {step.code === 'dest_entry' && shipment.country_name && (
+                    <span style={{ color: '#8c8c8c', fontWeight: 400 }}>
+                      {` — ${shipment.country_name}`}
+                    </span>
+                  )}
+                  {state !== 'pending' && logEntry?.is_auto && (
+                    <Tag color="default" style={{ marginLeft: 6, fontSize: 10, lineHeight: '16px' }}>
+                      {t('shipment_status.auto_badge', 'Auto')}
+                    </Tag>
+                  )}
                 </div>
                 {state !== 'pending' && logEntry && (
                   <div style={{ fontSize: 11, color: '#8c8c8c', fontFamily: 'monospace' }}>
