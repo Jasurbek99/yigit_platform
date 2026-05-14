@@ -64,18 +64,19 @@ function DeadlineText({ task }: IDeadlineTextProps) {
 
 interface ISelfKanbanCardProps {
   task: ITaskListItem;
+  onCardClick?: (task: ITaskListItem) => void;
 }
 
 /**
  * A draggable card for the Self Kanban board (/me/board).
- * Click navigates to the shipment detail page.
- * Drag-and-drop uses the native HTML5 API.
+ * Click opens the inline task drawer via `onCardClick`; if no handler is
+ * provided it falls back to navigating to the shipment detail page.
  *
- * The `draggedRef` flag prevents click-navigation from firing when the user
+ * The `draggedRef` flag prevents the click handler from firing when the user
  * finishes a drag on the same card (browsers normally fire click after dragend,
  * though most do suppress it — the ref makes the guard explicit).
  */
-export function SelfKanbanCard({ task }: ISelfKanbanCardProps) {
+export function SelfKanbanCard({ task, onCardClick }: ISelfKanbanCardProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const draggedRef = useRef(false);
@@ -96,6 +97,10 @@ export function SelfKanbanCard({ task }: ISelfKanbanCardProps) {
 
   function handleClick() {
     if (draggedRef.current) return;
+    if (onCardClick) {
+      onCardClick(task);
+      return;
+    }
     navigate(`/shipments/${task.shipment}`);
   }
 

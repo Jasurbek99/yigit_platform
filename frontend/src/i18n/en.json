@@ -1919,7 +1919,9 @@
       "due_in": "Due in {{duration}}",
       "toast_blocked": "Task blocked",
       "toast_unblocked": "Task unblocked",
-      "drop_not_allowed": "Cannot move task this way"
+      "drop_not_allowed": "Cannot move task this way",
+      "drawer_open_shipment": "Open shipment detail",
+      "drawer_readonly_completed": "Completed {{when}}"
     },
     "kpi": {
       "done_today": "Done today",

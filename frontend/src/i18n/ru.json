@@ -1921,7 +1921,9 @@
       "due_in": "Осталось {{duration}}",
       "toast_blocked": "Задача заблокирована",
       "toast_unblocked": "Задача разблокирована",
-      "drop_not_allowed": "Нельзя переместить задачу таким образом"
+      "drop_not_allowed": "Нельзя переместить задачу таким образом",
+      "drawer_open_shipment": "Открыть детали отгрузки",
+      "drawer_readonly_completed": "Завершено {{when}}"
     },
     "kpi": {
       "done_today": "Сделано сегодня",

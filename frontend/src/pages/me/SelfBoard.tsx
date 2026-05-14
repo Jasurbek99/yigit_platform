@@ -32,6 +32,7 @@ import { useMyKpiToday } from '@/hooks/useMyKpiToday';
 import { useBlockTask, useUnblockTask } from '@/hooks/useTaskActions';
 import { KanbanColumn } from '@/components/kanban/KanbanColumn';
 import { SelfKanbanCard } from '@/components/kanban/SelfKanbanCard';
+import { SelfBoardTaskDrawer } from '@/components/kanban/SelfBoardTaskDrawer';
 import { formatDuration } from '@/components/shipment/PhaseContextStrip';
 import type { ITaskListItem, ShipmentPhase, TaskState } from '@/types';
 
@@ -236,6 +237,9 @@ export default function SelfBoard() {
     taskId: number;
     shipmentId: number;
   } | null>(null);
+
+  // Inline task drawer — opened by clicking a card
+  const [drawerTask, setDrawerTask] = useState<ITaskListItem | null>(null);
 
   // Filters
   const [phaseFilter, setPhaseFilter] = useState<ShipmentPhase | null>(null);
@@ -444,7 +448,11 @@ export default function SelfBoard() {
                 onDrop={(e) => handleDropOnColumn(e, col.dropTargetState)}
               >
                 {colTasks.map((task) => (
-                  <SelfKanbanCard key={task.id} task={task} />
+                  <SelfKanbanCard
+                    key={task.id}
+                    task={task}
+                    onCardClick={setDrawerTask}
+                  />
                 ))}
               </KanbanColumn>
             );
@@ -460,7 +468,11 @@ export default function SelfBoard() {
               emptyText={t('me.board.empty_col')}
             >
               {historyTasks.map((task) => (
-                <SelfKanbanCard key={task.id} task={task} />
+                <SelfKanbanCard
+                  key={task.id}
+                  task={task}
+                  onCardClick={setDrawerTask}
+                />
               ))}
             </KanbanColumn>
           )}
@@ -472,6 +484,12 @@ export default function SelfBoard() {
         taskId={blockTarget?.taskId ?? null}
         shipmentId={blockTarget?.shipmentId ?? null}
         onClose={() => setBlockTarget(null)}
+      />
+
+      {/* Inline task drawer — solve tasks without leaving the board */}
+      <SelfBoardTaskDrawer
+        task={drawerTask}
+        onClose={() => setDrawerTask(null)}
       />
     </div>
   );

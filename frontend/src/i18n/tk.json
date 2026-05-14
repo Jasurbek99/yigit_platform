@@ -1923,7 +1923,9 @@
       "due_in": "{{duration}} galdy",
       "toast_blocked": "Tabşyryk bökdeldi",
       "toast_unblocked": "Tabşyryk açyldy",
-      "drop_not_allowed": "Tabşyrygy şeýle geçirmek bolmaýar"
+      "drop_not_allowed": "Tabşyrygy şeýle geçirmek bolmaýar",
+      "drawer_open_shipment": "Iberim jikme-jigligini aç",
+      "drawer_readonly_completed": "{{when}} tamamlandy"
     },
     "kpi": {
       "done_today": "Şu gün edildi",
