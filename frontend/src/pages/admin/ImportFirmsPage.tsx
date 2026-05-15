@@ -21,7 +21,7 @@ export default function ImportFirmsPage() {
   const canCreate = canDo(user, 'import_firm', 'create');
 
   const { data, isLoading, isError } = useAdminImportFirms();
-  const allRows = data ?? [];
+  const allRows = useMemo(() => data ?? [], [data]);
 
   const ourRows = useMemo(() => allRows.filter((r) => !r.is_gapy_satys), [allRows]);
   const gapyRows = useMemo(() => allRows.filter((r) => r.is_gapy_satys), [allRows]);

@@ -2,7 +2,7 @@ import { Progress, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import type { IBoardItem } from '@/hooks/useShipmentBoard';
-import { formatDuration } from '@/components/shipment/PhaseContextStrip';
+import { formatDuration } from '@/components/shipment/PhaseContextStrip.helpers';
 
 const { Text } = Typography;
 

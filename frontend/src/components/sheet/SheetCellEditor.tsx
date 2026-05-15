@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, DatePicker, Input, InputNumber, Popover, Select, Space, Typography } from 'antd';
 import dayjs from 'dayjs';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -20,21 +20,11 @@ import {
   useShipmentOptions,
 } from '@/hooks/useAdmin';
 import { COL_WIDTH_SHIPMENT, ROW_HEIGHT } from '@/constants/sheetRowConfig';
+import { parseNumberInput } from './SheetCellEditor.helpers';
 
 interface ISheetCellEditorProps {
   shipment: IShipmentSheetItem;
   rowConfig: IRowConfig;
-}
-
-// Empty input → null (clears the cell). Non-finite parse → null (rejects garbage).
-// Crucially, a literal `0` must round-trip as `0` and not become null —
-// rejected_weight_kg=0 means "no rejection" which is distinct from "not measured yet".
-export function parseNumberInput(raw: string): number | null {
-  if (raw == null) return null;
-  const trimmed = String(raw).trim();
-  if (trimmed === '') return null;
-  const n = Number(trimmed);
-  return Number.isFinite(n) ? n : null;
 }
 
 export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) {
@@ -470,7 +460,7 @@ function HarvestDateMultiEditor({
   );
   const [saving, setSaving] = useState(false);
 
-  const blocks = shipment.block_sources ?? [];
+  const blocks = useMemo(() => shipment.block_sources ?? [], [shipment.block_sources]);
 
   const handleSave = useCallback(async () => {
     setSaving(true);

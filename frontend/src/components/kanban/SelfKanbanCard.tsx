@@ -3,7 +3,7 @@ import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import type { ITaskListItem, ShipmentPhase } from '@/types';
-import { formatDuration } from '@/components/shipment/PhaseContextStrip';
+import { formatDuration } from '@/components/shipment/PhaseContextStrip.helpers';
 import dayjs from 'dayjs';
 
 const { Text } = Typography;

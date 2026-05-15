@@ -182,7 +182,7 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
       return;
     }
     setActiveCell({ shipmentId: shipment.id, rowKey: rowConfig.field_key });
-  }, [isEditable, isHidden, cellIsEmpty, navigate, setActiveCell, setEditingCell, shipment.id, rowConfig.field_key]);
+  }, [isEditable, isHidden, cellIsEmpty, setActiveCell, setEditingCell, shipment.id, rowConfig.field_key]);
 
   const handleDoubleClick = useCallback(() => {
     // Filled editable cells → edit on double click

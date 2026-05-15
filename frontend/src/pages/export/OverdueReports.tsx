@@ -37,7 +37,7 @@ export default function OverdueReports() {
   const { data, isLoading, isError } = useOverdueShipments(threshold);
 
   // ── Derived ────────────────────────────────────────────────────────────────
-  const shipments = data?.results ?? [];
+  const shipments = useMemo(() => data?.results ?? [], [data?.results]);
 
   const totalOverdue = data?.count ?? 0;
 

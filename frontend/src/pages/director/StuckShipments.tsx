@@ -40,7 +40,7 @@ export default function StuckShipments() {
     stuck: true,
   });
 
-  const rows: IShipmentListItem[] = data?.results ?? [];
+  const rows: IShipmentListItem[] = useMemo(() => data?.results ?? [], [data?.results]);
 
   // Bucket counts for the summary header — useful at a glance.
   const buckets = useMemo(() => {

@@ -10,7 +10,7 @@ import {
   useSetTruckSplits,
 } from '@/hooks/usePlanning';
 import type { DayOfWeek, IWeeklyHarvestPlan, IWeeklyTruckAllocation } from '@/types';
-import { fmtKg } from '@/components/HarvestCell';
+import { fmtKg } from '@/components/HarvestCell.helpers';
 
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
 
