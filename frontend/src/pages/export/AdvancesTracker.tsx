@@ -1,26 +1,24 @@
 import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { DataTable } from 'mantine-datatable';
 import {
   Alert,
-  Anchor,
-  Badge,
   Button,
   Card,
-  Group,
+  Col,
+  DatePicker,
+  Form,
+  Input,
+  InputNumber,
   Modal,
-  NumberInput,
-  SegmentedControl,
-  SimpleGrid,
-  Stack,
-  Text,
-  Textarea,
-  TextInput,
-} from '@mantine/core';
-import { useForm } from '@mantine/form';
-import { DatePickerInput } from '@mantine/dates';
+  Radio,
+  Row,
+  Space,
+  Tag,
+  Typography,
+} from 'antd';
+import { ProTable, type ProColumns } from '@ant-design/pro-components';
 import { IconCurrencyDollar, IconPlus } from '@tabler/icons-react';
-import dayjs from 'dayjs';
+import dayjs, { type Dayjs } from 'dayjs';
 import { toast } from 'sonner';
 import {
   useAdvances,
@@ -35,15 +33,13 @@ import type {
 } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+const { Text, Link } = Typography;
 
 type ReconcileFilter = 'all' | 'pending' | 'reconciled';
 
 const CAN_CREATE_ROLES = new Set(['finansist', 'export_manager', 'director']);
 
-// ─── Linked Shipments Sub-table ───────────────────────────────────────────────
-
-interface LinkedShipmentsProps {
+interface ILinkedShipmentsProps {
   advanceId: number;
   noShipmentsLabel: string;
   cargoCodeLabel: string;
@@ -55,88 +51,71 @@ function LinkedShipmentsPanel({
   noShipmentsLabel,
   cargoCodeLabel,
   allocatedAmountLabel,
-}: LinkedShipmentsProps) {
+}: ILinkedShipmentsProps) {
   const { data, isLoading } = useAdvanceDetail(advanceId);
 
   const links: IAdvanceShipmentLink[] = data?.shipment_links ?? [];
 
   if (!isLoading && links.length === 0) {
-    return <Text c="dimmed" size="sm">{noShipmentsLabel}</Text>;
+    return <Text type="secondary">{noShipmentsLabel}</Text>;
   }
 
-  const cols = [
+  const cols: ProColumns<IAdvanceShipmentLink>[] = [
     {
-      accessor: 'shipment_cargo_code' as keyof IAdvanceShipmentLink,
       title: cargoCodeLabel,
+      dataIndex: 'shipment_cargo_code',
+      search: false,
     },
     {
-      accessor: 'allocated_amount' as keyof IAdvanceShipmentLink,
       title: allocatedAmountLabel,
-      render: (record: IAdvanceShipmentLink) =>
+      dataIndex: 'allocated_amount',
+      search: false,
+      render: (_, record) =>
         record.allocated_amount != null ? `$${record.allocated_amount.toLocaleString()}` : '—',
     },
   ];
 
   return (
-    <DataTable
-      idAccessor="shipment"
-      records={links}
-      columns={cols}
-      fetching={isLoading}
-      noRecordsText={noShipmentsLabel}
-      verticalSpacing="xs"
-      styles={{ root: { maxWidth: 480 } }}
-    />
+    <div style={{ maxWidth: 480 }}>
+      <ProTable<IAdvanceShipmentLink>
+        rowKey="shipment"
+        dataSource={links}
+        columns={cols}
+        loading={isLoading}
+        search={false}
+        options={false}
+        pagination={false}
+        size="small"
+        locale={{ emptyText: noShipmentsLabel }}
+      />
+    </div>
   );
 }
 
-// ─── New Advance Modal ────────────────────────────────────────────────────────
-
-interface NewAdvanceFormValues {
-  batch_code: string;
-  advance_date: Date | null;
-  total_amount: number | string;
+interface INewAdvanceFormValues {
+  batch_code?: string;
+  advance_date: Dayjs | null;
+  total_amount: number | null;
   currency: string;
-  purpose: string;
-  notes: string;
+  purpose?: string;
+  notes?: string;
 }
 
-interface NewAdvanceModalProps {
+interface INewAdvanceModalProps {
   open: boolean;
   onClose: () => void;
 }
 
-function NewAdvanceModal({ open, onClose }: NewAdvanceModalProps) {
+function NewAdvanceModal({ open, onClose }: INewAdvanceModalProps) {
   const { t } = useTranslation();
   const createAdvance = useCreateAdvance();
+  const [form] = Form.useForm<INewAdvanceFormValues>();
 
-  const form = useForm<NewAdvanceFormValues>({
-    initialValues: {
-      batch_code: '',
-      advance_date: null,
-      total_amount: '',
-      currency: 'USD',
-      purpose: '',
-      notes: '',
-    },
-    validate: {
-      advance_date: (v) => (!v ? t('common.required') : null),
-      total_amount: (v) => (!v ? t('common.required') : null),
-      currency: (v) => (!v ? t('common.required') : null),
-    },
-  });
-
-  function handleSubmit() {
-    const result = form.validate();
-    if (result.hasErrors) return;
-
-    const values = form.values;
+  function handleSubmit(values: INewAdvanceFormValues) {
     const payload: ICreateAdvancePayload = {
       batch_code: values.batch_code || undefined,
-      advance_date: values.advance_date
-        ? dayjs(values.advance_date).format('YYYY-MM-DD')
-        : '',
-      total_amount: Number(values.total_amount),
+      advance_date: values.advance_date ? values.advance_date.format('YYYY-MM-DD') : '',
+      total_amount: Number(values.total_amount ?? 0),
       currency: values.currency,
       purpose: values.purpose || undefined,
       notes: values.notes || undefined,
@@ -145,7 +124,7 @@ function NewAdvanceModal({ open, onClose }: NewAdvanceModalProps) {
     createAdvance.mutate(payload, {
       onSuccess: () => {
         toast.success(t('advances.create_success'));
-        form.reset();
+        form.resetFields();
         onClose();
       },
       onError: () => {
@@ -155,72 +134,81 @@ function NewAdvanceModal({ open, onClose }: NewAdvanceModalProps) {
   }
 
   function handleCancel() {
-    form.reset();
+    form.resetFields();
     onClose();
   }
 
   return (
     <Modal
-      opened={open}
-      onClose={handleCancel}
+      open={open}
+      onCancel={handleCancel}
       title={t('advances.new_advance')}
+      footer={null}
+      destroyOnClose
     >
-      <Stack>
-        <TextInput
-          label={t('advances.batch_code')}
-          placeholder={t('advances.batch_code_placeholder')}
-          {...form.getInputProps('batch_code')}
-        />
-        <DatePickerInput
+      <Form<INewAdvanceFormValues>
+        form={form}
+        layout="vertical"
+        onFinish={handleSubmit}
+        initialValues={{ currency: 'USD' }}
+      >
+        <Form.Item name="batch_code" label={t('advances.batch_code')}>
+          <Input placeholder={t('advances.batch_code_placeholder')} />
+        </Form.Item>
+        <Form.Item
+          name="advance_date"
           label={t('advances.date')}
-          valueFormat="DD.MM.YYYY"
-          {...form.getInputProps('advance_date')}
-          value={form.values.advance_date}
-          onChange={(val) => form.setFieldValue('advance_date', val)}
-        />
-        <NumberInput
+          rules={[{ required: true, message: t('common.required') }]}
+        >
+          <DatePicker format="DD.MM.YYYY" style={{ width: '100%' }} />
+        </Form.Item>
+        <Form.Item
+          name="total_amount"
           label={t('advances.amount')}
-          min={0}
-          decimalScale={2}
-          prefix="$"
-          {...form.getInputProps('total_amount')}
-        />
-        <TextInput
+          rules={[{ required: true, message: t('common.required') }]}
+        >
+          <InputNumber<number>
+            min={0}
+            precision={2}
+            prefix="$"
+            style={{ width: '100%' }}
+            formatter={(value) => (value != null ? `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',') : '')}
+            parser={(value): number => {
+              const cleaned = (value ?? '').replace(/,/g, '');
+              const n = Number(cleaned);
+              return Number.isFinite(n) ? n : 0;
+            }}
+          />
+        </Form.Item>
+        <Form.Item
+          name="currency"
           label={t('advances.currency')}
-          {...form.getInputProps('currency')}
-        />
-        <TextInput
-          label={t('advances.purpose')}
-          {...form.getInputProps('purpose')}
-        />
-        <Textarea
-          label={t('advances.notes')}
-          rows={3}
-          {...form.getInputProps('notes')}
-        />
-        <Group justify="flex-end" mt="md">
-          <Button variant="default" onClick={handleCancel}>
-            {t('common.cancel')}
-          </Button>
-          <Button
-            loading={createAdvance.isPending}
-            onClick={handleSubmit}
-          >
+          rules={[{ required: true, message: t('common.required') }]}
+        >
+          <Input />
+        </Form.Item>
+        <Form.Item name="purpose" label={t('advances.purpose')}>
+          <Input />
+        </Form.Item>
+        <Form.Item name="notes" label={t('advances.notes')}>
+          <Input.TextArea rows={3} />
+        </Form.Item>
+        <Space style={{ width: '100%', justifyContent: 'flex-end', marginTop: 8 }}>
+          <Button onClick={handleCancel}>{t('common.cancel')}</Button>
+          <Button type="primary" htmlType="submit" loading={createAdvance.isPending}>
             {t('advances.new_advance')}
           </Button>
-        </Group>
-      </Stack>
+        </Space>
+      </Form>
     </Modal>
   );
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
-
 function StatCard({ title, value, color }: { title: string; value: string | number; color?: string }) {
   return (
-    <Card padding="md">
-      <Text size="xs" c="dimmed" mb={4}>{title}</Text>
-      <Text fw={700} size="xl" c={color}>{value}</Text>
+    <Card size="small">
+      <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>{title}</Text>
+      <div style={{ fontSize: 20, fontWeight: 700, color }}>{value}</div>
     </Card>
   );
 }
@@ -229,39 +217,31 @@ export default function AdvancesTracker() {
   const { t } = useTranslation();
   const { user } = useAuth();
 
-  // ── State ──────────────────────────────────────────────────────────────────
   const [filter, setFilter] = useState<ReconcileFilter>('all');
   const [newAdvanceOpen, setNewAdvanceOpen] = useState(false);
-  const [expandedIds, setExpandedIds] = useState<number[]>([]);
+  const [expandedIds, setExpandedIds] = useState<readonly React.Key[]>([]);
 
   const reconcileFilter =
     filter === 'all' ? undefined : filter === 'reconciled' ? true : false;
 
-  // ── Server data ────────────────────────────────────────────────────────────
   const { data, isLoading, isError } = useAdvances({ reconciled: reconcileFilter });
   const reconcileAdvance = useReconcileAdvance();
 
-  // ── Derived ────────────────────────────────────────────────────────────────
-  const advances = data?.results ?? [];
+  const advances = useMemo(() => data?.results ?? [], [data?.results]);
 
   const { totalCount, totalAmount, unreconciledCount, unreconciledAmount } =
     useMemo(() => {
-      const all = data?.results ?? [];
-      const unreconciled = all.filter((a) => !a.reconciled);
+      const unreconciled = advances.filter((a) => !a.reconciled);
       return {
         totalCount: data?.count ?? 0,
-        totalAmount: all.reduce((sum, a) => sum + a.total_amount, 0),
+        totalAmount: advances.reduce((sum, a) => sum + a.total_amount, 0),
         unreconciledCount: unreconciled.length,
-        unreconciledAmount: unreconciled.reduce(
-          (sum, a) => sum + a.total_amount,
-          0,
-        ),
+        unreconciledAmount: unreconciled.reduce((sum, a) => sum + a.total_amount, 0),
       };
-    }, [data]);
+    }, [advances, data?.count]);
 
   const canCreate = user ? CAN_CREATE_ROLES.has(user.role) : false;
 
-  // ── Handlers ───────────────────────────────────────────────────────────────
   function handleReconcile(id: number) {
     reconcileAdvance.mutate(id, {
       onSuccess: () => toast.success(t('advances.reconciled')),
@@ -269,95 +249,108 @@ export default function AdvancesTracker() {
     });
   }
 
-  // ── Columns ────────────────────────────────────────────────────────────────
-  const columns = [
+  const columns: ProColumns<IFinansistAdvanceListItem>[] = [
     {
-      accessor: 'batch_code' as keyof IFinansistAdvanceListItem,
       title: t('advances.batch_code'),
+      dataIndex: 'batch_code',
       width: 150,
-      render: (record: IFinansistAdvanceListItem) =>
+      search: false,
+      sorter: (a, b) => (a.batch_code ?? '').localeCompare(b.batch_code ?? ''),
+      render: (_, record) =>
         record.batch_code ? (
-          <Anchor component="span" style={{ fontFamily: 'monospace' }}>{record.batch_code}</Anchor>
+          <Link style={{ fontFamily: 'monospace' }}>{record.batch_code}</Link>
         ) : (
-          <Text c="dimmed">—</Text>
+          <Text type="secondary">—</Text>
         ),
     },
     {
-      accessor: 'advance_date' as keyof IFinansistAdvanceListItem,
       title: t('advances.date'),
+      dataIndex: 'advance_date',
       width: 110,
-      render: (record: IFinansistAdvanceListItem) =>
-        dayjs(record.advance_date).format('DD.MM.YYYY'),
+      search: false,
+      sorter: (a, b) => a.advance_date.localeCompare(b.advance_date),
+      defaultSortOrder: 'descend',
+      render: (_, record) => dayjs(record.advance_date).format('DD.MM.YYYY'),
     },
     {
-      accessor: 'total_amount' as keyof IFinansistAdvanceListItem,
       title: t('advances.amount'),
+      dataIndex: 'total_amount',
       width: 130,
-      render: (record: IFinansistAdvanceListItem) => (
-        <Text fw={600}>${record.total_amount.toLocaleString()}</Text>
+      search: false,
+      sorter: (a, b) => a.total_amount - b.total_amount,
+      render: (_, record) => (
+        <Text strong>${record.total_amount.toLocaleString()}</Text>
       ),
     },
     {
-      accessor: 'currency' as keyof IFinansistAdvanceListItem,
       title: t('advances.currency'),
+      dataIndex: 'currency',
       width: 90,
-      render: (record: IFinansistAdvanceListItem) => record.currency,
+      search: false,
     },
     {
-      accessor: 'purpose' as keyof IFinansistAdvanceListItem,
       title: t('advances.purpose'),
-      render: (record: IFinansistAdvanceListItem) =>
-        record.purpose ?? <Text c="dimmed">—</Text>,
+      dataIndex: 'purpose',
+      search: false,
+      render: (_, record) => record.purpose ?? <Text type="secondary">—</Text>,
     },
     {
-      accessor: 'shipment_count' as keyof IFinansistAdvanceListItem,
       title: t('advances.shipments'),
+      dataIndex: 'shipment_count',
       width: 100,
-      render: (record: IFinansistAdvanceListItem) => (
-        <Badge variant="light" color={record.shipment_count > 0 ? 'blue' : 'gray'}>
+      search: false,
+      sorter: (a, b) => a.shipment_count - b.shipment_count,
+      render: (_, record) => (
+        <Tag color={record.shipment_count > 0 ? 'blue' : 'default'}>
           {record.shipment_count}
-        </Badge>
+        </Tag>
       ),
     },
     {
-      accessor: 'allocated_total' as keyof IFinansistAdvanceListItem,
       title: t('advances.allocated'),
+      dataIndex: 'allocated_total',
       width: 130,
-      render: (record: IFinansistAdvanceListItem) => {
+      search: false,
+      sorter: (a, b) => a.allocated_total - b.allocated_total,
+      render: (_, record) => {
         const isOver = record.allocated_total > record.total_amount;
         return (
-          <Text c={isOver ? 'red' : undefined}>
+          <span style={{ color: isOver ? '#ff4d4f' : undefined }}>
             ${record.allocated_total.toLocaleString()}
-          </Text>
+          </span>
         );
       },
     },
     {
-      accessor: 'reconciled' as keyof IFinansistAdvanceListItem,
       title: t('advances.status'),
+      dataIndex: 'reconciled',
       width: 120,
-      render: (record: IFinansistAdvanceListItem) =>
+      search: false,
+      sorter: (a, b) => Number(a.reconciled) - Number(b.reconciled),
+      render: (_, record) =>
         record.reconciled ? (
-          <Badge variant="light" color="green">{t('advances.reconciled')}</Badge>
+          <Tag color="green">{t('advances.reconciled')}</Tag>
         ) : (
-          <Badge variant="light" color="orange">{t('advances.pending')}</Badge>
+          <Tag color="orange">{t('advances.pending')}</Tag>
         ),
     },
     {
-      accessor: 'issued_by_name' as keyof IFinansistAdvanceListItem,
       title: t('advances.issued_by'),
+      dataIndex: 'issued_by_name',
       width: 120,
-      render: (record: IFinansistAdvanceListItem) => record.issued_by_name,
+      search: false,
+      sorter: (a, b) => (a.issued_by_name ?? '').localeCompare(b.issued_by_name ?? ''),
     },
     {
-      accessor: 'id' as keyof IFinansistAdvanceListItem,
       title: t('advances.reconcile'),
+      key: 'reconcile_action',
       width: 100,
-      render: (record: IFinansistAdvanceListItem) =>
+      search: false,
+      render: (_, record) =>
         !record.reconciled && canCreate ? (
           <Button
-            size="compact-xs"
-            variant="subtle"
+            size="small"
+            type="link"
             loading={
               reconcileAdvance.isPending &&
               reconcileAdvance.variables === record.id
@@ -373,18 +366,15 @@ export default function AdvancesTracker() {
     },
   ];
 
-  // ── Early returns ──────────────────────────────────────────────────────────
   if (isError) {
     return (
-      <Alert color="red" m="md">{t('advances.error_load')}</Alert>
+      <Alert type="error" message={t('advances.error_load')} showIcon style={{ margin: 16 }} />
     );
   }
 
-  // ── JSX ────────────────────────────────────────────────────────────────────
   return (
     <div style={{ padding: '0 4px' }}>
-      {/* Page Header */}
-      <Group justify="space-between" align="flex-start" mb="lg">
+      <Space style={{ width: '100%', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
           <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: '#1f1f1f', lineHeight: '1.3', display: 'flex', alignItems: 'center', gap: 8 }}>
             <IconCurrencyDollar size={18} color="#1677ff" />
@@ -396,56 +386,68 @@ export default function AdvancesTracker() {
         </div>
         {canCreate && (
           <Button
-            leftSection={<IconPlus size={14} />}
+            type="primary"
+            icon={<IconPlus size={14} />}
             onClick={() => setNewAdvanceOpen(true)}
           >
             {t('advances.new_advance')}
           </Button>
         )}
-      </Group>
+      </Space>
 
-      {/* Summary cards */}
-      <SimpleGrid cols={{ base: 2, sm: 4 }} mb="md">
-        <StatCard title={t('advances.total_advances')} value={totalCount} />
-        <StatCard title={t('advances.total_amount')} value={`$${totalAmount.toLocaleString()}`} />
-        <StatCard
-          title={t('advances.unreconciled')}
-          value={unreconciledCount}
-          color={unreconciledCount > 0 ? 'orange' : undefined}
-        />
-        <StatCard
-          title={t('advances.unreconciled_amount')}
-          value={`$${unreconciledAmount.toLocaleString()}`}
-          color={unreconciledAmount > 0 ? 'orange' : undefined}
-        />
-      </SimpleGrid>
+      <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+        <Col xs={12} sm={6}>
+          <StatCard title={t('advances.total_advances')} value={totalCount} />
+        </Col>
+        <Col xs={12} sm={6}>
+          <StatCard title={t('advances.total_amount')} value={`$${totalAmount.toLocaleString()}`} />
+        </Col>
+        <Col xs={12} sm={6}>
+          <StatCard
+            title={t('advances.unreconciled')}
+            value={unreconciledCount}
+            color={unreconciledCount > 0 ? '#fa8c16' : undefined}
+          />
+        </Col>
+        <Col xs={12} sm={6}>
+          <StatCard
+            title={t('advances.unreconciled_amount')}
+            value={`$${unreconciledAmount.toLocaleString()}`}
+            color={unreconciledAmount > 0 ? '#fa8c16' : undefined}
+          />
+        </Col>
+      </Row>
 
-      {/* Filter */}
-      <Group mb="md">
-        <SegmentedControl
+      <Space style={{ marginBottom: 16 }}>
+        <Radio.Group
           value={filter}
-          data={[
+          onChange={(e) => setFilter(e.target.value as ReconcileFilter)}
+          optionType="button"
+          buttonStyle="solid"
+          options={[
             { label: t('advances.all'), value: 'all' },
             { label: t('advances.pending'), value: 'pending' },
             { label: t('advances.reconciled'), value: 'reconciled' },
           ]}
-          onChange={(v) => setFilter(v as ReconcileFilter)}
         />
-      </Group>
+      </Space>
 
-      {/* Table with row expansion */}
-      <DataTable
-        idAccessor="id"
-        records={advances}
+      <ProTable<IFinansistAdvanceListItem>
+        rowKey="id"
+        dataSource={advances}
         columns={columns}
-        fetching={isLoading}
-        noRecordsText={t('advances.empty') ?? 'Maglumat ýok'}
-        verticalSpacing="xs"
-        styles={{ header: { backgroundColor: '#f5f5f5', fontSize: 13 } }}
-        rowExpansion={{
-          content: ({ record }) => (
+        loading={isLoading}
+        search={false}
+        options={false}
+        pagination={{ pageSize: 50, showSizeChanger: false }}
+        size="small"
+        locale={{ emptyText: t('advances.empty') }}
+        expandable={{
+          expandedRowKeys: expandedIds,
+          onExpandedRowsChange: (keys) => setExpandedIds(keys),
+          expandedRowRender: (record) => (
             <div style={{ padding: '8px 0 8px 16px' }}>
-              <Text c="dimmed" size="sm" mb="xs">
+              <Text type="secondary" style={{ display: 'block', marginBottom: 8, fontSize: 13 }}>
                 {t('advances.linked_shipments')}
               </Text>
               <LinkedShipmentsPanel
@@ -456,14 +458,9 @@ export default function AdvancesTracker() {
               />
             </div>
           ),
-          expanded: {
-            recordIds: expandedIds,
-            onRecordIdsChange: (ids: unknown[]) => setExpandedIds(ids as number[]),
-          },
         }}
       />
 
-      {/* New advance modal */}
       <NewAdvanceModal
         open={newAdvanceOpen}
         onClose={() => setNewAdvanceOpen(false)}
