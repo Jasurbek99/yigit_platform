@@ -1,9 +1,11 @@
-import { Alert, Card, SimpleGrid, Text } from '@mantine/core';
+import { Alert, Card, Col, Row, Space, Typography } from 'antd';
+import { ProTable, type ProColumns } from '@ant-design/pro-components';
 import { IconShoppingCart } from '@tabler/icons-react';
-import { DataTable } from 'mantine-datatable';
 import { useTranslation } from 'react-i18next';
 import { useDomesticSales } from '@/hooks/usePlanning';
 import type { IDomesticSale } from '@/types';
+
+const { Text } = Typography;
 
 function fmtKg(val: number): string {
   return Number(val).toLocaleString();
@@ -11,9 +13,9 @@ function fmtKg(val: number): string {
 
 function StatCard({ title, value, color }: { title: string; value: string | number; color?: string }) {
   return (
-    <Card padding="md">
-      <Text size="xs" c="dimmed" mb={4}>{title}</Text>
-      <Text fw={700} size="xl" c={color}>{value}</Text>
+    <Card size="small">
+      <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>{title}</Text>
+      <div style={{ fontSize: 20, fontWeight: 700, color }}>{value}</div>
     </Card>
   );
 }
@@ -27,60 +29,74 @@ export default function DomesticSales() {
   const totalWeight = rows.reduce((s, r) => s + r.weight_kg, 0);
   const uniqueBuyers = new Set(rows.map((r) => r.buyer)).size;
 
-  const columns = [
+  const columns: ProColumns<IDomesticSale>[] = [
     {
-      accessor: 'date' as keyof IDomesticSale,
       title: t('domestic_sales.date'),
+      dataIndex: 'date',
       width: 110,
+      search: false,
+      sorter: (a, b) => a.date.localeCompare(b.date),
+      defaultSortOrder: 'descend',
     },
     {
-      accessor: 'buyer_name' as keyof IDomesticSale,
       title: t('domestic_sales.buyer'),
+      dataIndex: 'buyer_name',
       width: 120,
+      search: false,
+      sorter: (a, b) => (a.buyer_name ?? '').localeCompare(b.buyer_name ?? ''),
     },
     {
-      accessor: 'block_code' as keyof IDomesticSale,
       title: t('domestic_sales.block'),
+      dataIndex: 'block_code',
       width: 80,
-      render: (record: IDomesticSale) => record.block_code,
+      search: false,
+      sorter: (a, b) => (a.block_code ?? '').localeCompare(b.block_code ?? ''),
     },
     {
-      accessor: 'variety' as keyof IDomesticSale,
       title: t('domestic_sales.variety'),
+      dataIndex: 'variety',
       width: 110,
-      render: (record: IDomesticSale) =>
+      search: false,
+      render: (_, record) =>
         record.variety
           ? String(record.variety)
           : <span style={{ color: '#bfbfbf' }}>—</span>,
     },
     {
-      accessor: 'weight_kg' as keyof IDomesticSale,
       title: t('domestic_sales.weight_kg'),
+      dataIndex: 'weight_kg',
       width: 120,
-      render: (record: IDomesticSale) => fmtKg(record.weight_kg),
+      search: false,
+      sorter: (a, b) => a.weight_kg - b.weight_kg,
+      render: (_, record) => fmtKg(record.weight_kg),
     },
     {
-      accessor: 'price_per_kg' as keyof IDomesticSale,
       title: t('domestic_sales.price_per_kg'),
+      dataIndex: 'price_per_kg',
       width: 100,
-      render: (record: IDomesticSale) =>
+      search: false,
+      sorter: (a, b) => Number(a.price_per_kg ?? 0) - Number(b.price_per_kg ?? 0),
+      render: (_, record) =>
         record.price_per_kg != null
           ? `$${Number(record.price_per_kg).toFixed(2)}`
           : <span style={{ color: '#bfbfbf' }}>—</span>,
     },
     {
-      accessor: 'tabel_no' as keyof IDomesticSale,
       title: t('domestic_sales.tabel_no'),
+      dataIndex: 'tabel_no',
       width: 100,
-      render: (record: IDomesticSale) =>
+      search: false,
+      render: (_, record) =>
         record.tabel_no
           ? String(record.tabel_no)
           : <span style={{ color: '#bfbfbf' }}>—</span>,
     },
     {
-      accessor: 'export_firm_name' as keyof IDomesticSale,
       title: t('domestic_sales.firm'),
-      render: (record: IDomesticSale) =>
+      dataIndex: 'export_firm_name',
+      search: false,
+      sorter: (a, b) => (a.export_firm_name ?? '').localeCompare(b.export_firm_name ?? ''),
+      render: (_, record) =>
         record.export_firm_name
           ? String(record.export_firm_name)
           : <span style={{ color: '#bfbfbf' }}>—</span>,
@@ -89,8 +105,7 @@ export default function DomesticSales() {
 
   return (
     <div>
-      {/* Page Header */}
-      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <Space style={{ width: '100%', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
           <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: '#1f1f1f', lineHeight: '1.3', display: 'flex', alignItems: 'center', gap: 8 }}>
             <IconShoppingCart size={18} color="#1677ff" />
@@ -100,36 +115,44 @@ export default function DomesticSales() {
             {t('domestic_sales.subtitle')}
           </div>
         </div>
-      </div>
+      </Space>
 
-      <SimpleGrid cols={{ base: 1, sm: 3 }} mb="md">
-        <StatCard
-          title={t('domestic_sales.total_sales')}
-          value={rows.length}
-          color="blue"
-        />
-        <StatCard
-          title={t('domestic_sales.total_weight')}
-          value={fmtKg(totalWeight)}
-        />
-        <StatCard
-          title={t('domestic_sales.unique_buyers')}
-          value={uniqueBuyers}
-        />
-      </SimpleGrid>
+      <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+        <Col xs={24} sm={8}>
+          <StatCard
+            title={t('domestic_sales.total_sales')}
+            value={rows.length}
+            color="#1677ff"
+          />
+        </Col>
+        <Col xs={24} sm={8}>
+          <StatCard
+            title={t('domestic_sales.total_weight')}
+            value={fmtKg(totalWeight)}
+          />
+        </Col>
+        <Col xs={24} sm={8}>
+          <StatCard
+            title={t('domestic_sales.unique_buyers')}
+            value={uniqueBuyers}
+          />
+        </Col>
+      </Row>
 
       {isError && (
-        <Alert color="red" mb="md">{t('domestic_sales.error_load')}</Alert>
+        <Alert type="error" message={t('domestic_sales.error_load')} showIcon style={{ marginBottom: 16 }} />
       )}
 
-      <DataTable
-        idAccessor="id"
-        records={rows}
+      <ProTable<IDomesticSale>
+        rowKey="id"
+        dataSource={rows}
         columns={columns}
-        fetching={isLoading}
-        noRecordsText={t('domestic_sales.empty') ?? 'Maglumat ýok'}
-        verticalSpacing="xs"
-        styles={{ header: { backgroundColor: '#f5f5f5', fontSize: 13 } }}
+        loading={isLoading}
+        search={false}
+        options={false}
+        size="small"
+        pagination={{ pageSize: 50, showSizeChanger: false }}
+        locale={{ emptyText: t('domestic_sales.empty') }}
       />
     </div>
   );
