@@ -97,6 +97,7 @@ export function RevenueChart({ period }: IRevenueChartProps) {
           option={option}
           height={240}
           onEvents={{ click: handleClick }}
+          ariaLabel={t('boss_dashboard.revenue_chart_aria')}
         />
       )}
     </Card>

@@ -8,13 +8,23 @@ interface IEChartProps {
   height?: number;
   loading?: boolean;
   onEvents?: Record<string, (...args: unknown[]) => void>;
+  /**
+   * Accessible name for screen readers. Required for content charts;
+   * pass `decorative` instead for sparklines / chrome.
+   */
+  ariaLabel?: string;
+  /**
+   * Mark the chart as decorative — the surrounding context already conveys
+   * the data (e.g. a sparkline next to a numeric KPI). Adds aria-hidden.
+   */
+  decorative?: boolean;
 }
 
 /**
  * Thin wrapper around echarts-for-react.
  * Adds: loading skeleton, auto-resize on sidebar collapse via ResizeObserver.
  */
-export function EChart({ option, height = 320, loading = false, onEvents }: IEChartProps) {
+export function EChart({ option, height = 320, loading = false, onEvents, ariaLabel, decorative }: IEChartProps) {
   const chartRef = useRef<ReactECharts>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -38,8 +48,14 @@ export function EChart({ option, height = 320, loading = false, onEvents }: IECh
     );
   }
 
+  const a11yProps = decorative
+    ? { 'aria-hidden': true as const }
+    : ariaLabel
+      ? { role: 'img', 'aria-label': ariaLabel }
+      : {};
+
   return (
-    <div ref={wrapperRef} style={{ width: '100%' }}>
+    <div ref={wrapperRef} style={{ width: '100%' }} {...a11yProps}>
       <ReactECharts
         ref={chartRef}
         option={option}
