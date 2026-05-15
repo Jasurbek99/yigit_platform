@@ -26,6 +26,17 @@ interface ISheetCellEditorProps {
   rowConfig: IRowConfig;
 }
 
+// Empty input → null (clears the cell). Non-finite parse → null (rejects garbage).
+// Crucially, a literal `0` must round-trip as `0` and not become null —
+// rejected_weight_kg=0 means "no rejection" which is distinct from "not measured yet".
+export function parseNumberInput(raw: string): number | null {
+  if (raw == null) return null;
+  const trimmed = String(raw).trim();
+  if (trimmed === '') return null;
+  const n = Number(trimmed);
+  return Number.isFinite(n) ? n : null;
+}
+
 export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) {
   const { t, i18n } = useTranslation();
   const { setEditingCell } = useSheetStore();
@@ -249,8 +260,8 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
           <InputNumber
             size="small"
             defaultValue={(currentValue as number | null) ?? undefined}
-            onPressEnter={(e) => save(Number((e.target as HTMLInputElement).value))}
-            onBlur={(e) => save(Number(e.target.value) || null)}
+            onPressEnter={(e) => save(parseNumberInput((e.target as HTMLInputElement).value))}
+            onBlur={(e) => save(parseNumberInput(e.target.value))}
             onKeyDown={handleKeyDown}
             style={{ width: '100%', height: ROW_HEIGHT - 4 }}
           />
