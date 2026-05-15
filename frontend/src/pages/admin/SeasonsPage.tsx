@@ -1,21 +1,32 @@
 import { useState } from 'react';
-import { Alert, Badge, Button, Group, Modal, Stack, Switch, Text, TextInput } from '@mantine/core';
-import { useForm } from '@mantine/form';
-import { DatePickerInput } from '@mantine/dates';
+import {
+  Alert,
+  Button,
+  DatePicker,
+  Form,
+  Input,
+  Modal,
+  Space,
+  Switch,
+  Tag,
+  Typography,
+} from 'antd';
+import { ProTable, type ProColumns } from '@ant-design/pro-components';
 import { IconCalendar, IconPlus } from '@tabler/icons-react';
-import { DataTable } from 'mantine-datatable';
 import { useTranslation } from 'react-i18next';
-import dayjs from 'dayjs';
+import dayjs, { type Dayjs } from 'dayjs';
 import { toast } from 'sonner';
 import { useSeasons, useCreateSeason, useUpdateSeason, useDeleteSeason } from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
 import { canDo } from '@/utils/permissions';
 import type { ISeason } from '@/types';
 
-interface SeasonFormValues {
+const { Text } = Typography;
+
+interface ISeasonFormValues {
   name: string;
-  start_date: Date | null;
-  end_date: Date | null;
+  start_date: Dayjs | null;
+  end_date: Dayjs | null;
   is_active: boolean;
 }
 
@@ -29,20 +40,7 @@ export default function SeasonsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<ISeason | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ISeason | null>(null);
-
-  const form = useForm<SeasonFormValues>({
-    initialValues: {
-      name: '',
-      start_date: null,
-      end_date: null,
-      is_active: true,
-    },
-    validate: {
-      name: (v) => (!v ? t('common.required') : null),
-      start_date: (v) => (!v ? t('common.required') : null),
-      end_date: (v) => (!v ? t('common.required') : null),
-    },
-  });
+  const [form] = Form.useForm<ISeasonFormValues>();
 
   const { data, isLoading, isError } = useSeasons();
   const rows = data ?? [];
@@ -51,7 +49,7 @@ export default function SeasonsPage() {
     onSuccess: () => {
       toast.success(t('seasons.toast_created'));
       setModalOpen(false);
-      form.reset();
+      form.resetFields();
     },
     onError: () => toast.error(t('seasons.toast_error')),
   });
@@ -60,7 +58,7 @@ export default function SeasonsPage() {
     onSuccess: () => {
       toast.success(t('seasons.toast_updated'));
       setModalOpen(false);
-      form.reset();
+      form.resetFields();
     },
     onError: () => toast.error(t('seasons.toast_error')),
   });
@@ -75,31 +73,27 @@ export default function SeasonsPage() {
 
   function handleOpenCreate() {
     setEditTarget(null);
-    form.reset();
-    form.setValues({ is_active: true });
+    form.resetFields();
+    form.setFieldsValue({ is_active: true });
     setModalOpen(true);
   }
 
   function handleOpenEdit(record: ISeason) {
     setEditTarget(record);
-    form.setValues({
+    form.setFieldsValue({
       name: record.name,
-      start_date: record.start_date ? new Date(record.start_date) : null,
-      end_date: record.end_date ? new Date(record.end_date) : null,
+      start_date: record.start_date ? dayjs(record.start_date) : null,
+      end_date: record.end_date ? dayjs(record.end_date) : null,
       is_active: record.is_active,
     });
     setModalOpen(true);
   }
 
-  function handleSubmit() {
-    const result = form.validate();
-    if (result.hasErrors) return;
-
-    const values = form.values;
+  function handleSubmit(values: ISeasonFormValues) {
     const payload = {
       name: values.name,
-      start_date: values.start_date ? dayjs(values.start_date).format('YYYY-MM-DD') : '',
-      end_date: values.end_date ? dayjs(values.end_date).format('YYYY-MM-DD') : '',
+      start_date: values.start_date ? values.start_date.format('YYYY-MM-DD') : '',
+      end_date: values.end_date ? values.end_date.format('YYYY-MM-DD') : '',
       is_active: values.is_active,
     };
 
@@ -110,66 +104,88 @@ export default function SeasonsPage() {
     }
   }
 
-  const columns = [
+  const columns: ProColumns<ISeason>[] = [
     {
-      accessor: 'name' as keyof ISeason,
       title: t('seasons.name'),
+      dataIndex: 'name',
       width: 180,
+      search: false,
+      sorter: (a, b) => a.name.localeCompare(b.name),
     },
     {
-      accessor: 'start_date' as keyof ISeason,
       title: t('seasons.start_date'),
+      dataIndex: 'start_date',
       width: 120,
-      render: (record: ISeason) =>
+      search: false,
+      sorter: (a, b) => (a.start_date ?? '').localeCompare(b.start_date ?? ''),
+      render: (_, record) =>
         record.start_date ? dayjs(record.start_date).format('DD.MM.YYYY') : '—',
     },
     {
-      accessor: 'end_date' as keyof ISeason,
       title: t('seasons.end_date'),
+      dataIndex: 'end_date',
       width: 120,
-      render: (record: ISeason) =>
+      search: false,
+      sorter: (a, b) => (a.end_date ?? '').localeCompare(b.end_date ?? ''),
+      render: (_, record) =>
         record.end_date ? dayjs(record.end_date).format('DD.MM.YYYY') : '—',
     },
     {
-      accessor: 'is_active' as keyof ISeason,
       title: t('seasons.is_active'),
+      dataIndex: 'is_active',
       width: 100,
-      render: (record: ISeason) =>
+      search: false,
+      sorter: (a, b) => {
+        const diff = (b.is_active ? 1 : 0) - (a.is_active ? 1 : 0);
+        if (diff !== 0) return diff;
+        return a.name.localeCompare(b.name);
+      },
+      defaultSortOrder: 'descend',
+      render: (_, record) =>
         record.is_active ? (
-          <Badge variant="light" color="green">{t('common.yes')}</Badge>
+          <Tag color="green">{t('common.yes')}</Tag>
         ) : (
-          <Badge variant="light" color="gray">{t('common.no')}</Badge>
+          <Tag color="default">{t('common.no')}</Tag>
         ),
     },
     ...((canEditSeason || canDeleteSeason)
       ? [
           {
-            accessor: 'id' as keyof ISeason,
             title: '',
+            key: 'actions',
             width: 160,
-            render: (record: ISeason) => (
-              <Group gap="xs">
+            search: false,
+            render: (_: unknown, record: ISeason) => (
+              <Space size={4}>
                 {canEditSeason && (
-                  <Button variant="subtle" size="compact-xs" onClick={(e) => { e.stopPropagation(); handleOpenEdit(record); }}>
+                  <Button
+                    type="link"
+                    size="small"
+                    onClick={(e) => { e.stopPropagation(); handleOpenEdit(record); }}
+                  >
                     {t('common.edit')}
                   </Button>
                 )}
                 {canDeleteSeason && (
-                  <Button variant="subtle" size="compact-xs" color="red" onClick={(e) => { e.stopPropagation(); setDeleteTarget(record); }}>
+                  <Button
+                    type="link"
+                    size="small"
+                    danger
+                    onClick={(e) => { e.stopPropagation(); setDeleteTarget(record); }}
+                  >
                     {t('common.delete')}
                   </Button>
                 )}
-              </Group>
+              </Space>
             ),
-          },
+          } as ProColumns<ISeason>,
         ]
       : []),
   ];
 
   return (
     <div>
-      {/* Page Header */}
-      <Group justify="space-between" align="flex-start" mb="lg">
+      <Space style={{ width: '100%', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
           <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: '#1f1f1f', lineHeight: '1.3', display: 'flex', alignItems: 'center', gap: 8 }}>
             <IconCalendar size={18} color="#1677ff" />
@@ -180,91 +196,101 @@ export default function SeasonsPage() {
           </div>
         </div>
         {canCreate && (
-          <Button leftSection={<IconPlus size={14} />} onClick={handleOpenCreate}>
+          <Button type="primary" icon={<IconPlus size={14} />} onClick={handleOpenCreate}>
             {t('seasons.add')}
           </Button>
         )}
-      </Group>
+      </Space>
 
       {isError && (
-        <Alert color="red" mb="md">{t('seasons.error_load')}</Alert>
+        <Alert type="error" message={t('seasons.error_load')} showIcon style={{ marginBottom: 16 }} />
       )}
 
-      <DataTable
-        idAccessor="id"
-        records={rows}
+      <ProTable<ISeason>
+        rowKey="id"
+        dataSource={rows}
         columns={columns}
-        fetching={isLoading}
-        noRecordsText={t('seasons.empty') ?? 'Maglumat ýok'}
-        verticalSpacing="xs"
-        styles={{ header: { backgroundColor: '#f5f5f5', fontSize: 13 } }}
+        loading={isLoading}
+        search={false}
+        options={false}
+        pagination={false}
+        size="small"
+        locale={{ emptyText: t('seasons.empty') }}
       />
 
-      {/* Create/Edit Modal */}
       <Modal
-        opened={modalOpen}
-        onClose={() => { setModalOpen(false); form.reset(); }}
+        open={modalOpen}
+        onCancel={() => { setModalOpen(false); form.resetFields(); }}
         title={editTarget ? t('seasons.edit_title') : t('seasons.add')}
+        footer={null}
+        destroyOnClose
       >
-        <Stack>
-          <TextInput
+        <Form<ISeasonFormValues>
+          form={form}
+          layout="vertical"
+          onFinish={handleSubmit}
+          initialValues={{ is_active: true }}
+        >
+          <Form.Item
+            name="name"
             label={t('seasons.name')}
-            {...form.getInputProps('name')}
-          />
-          <DatePickerInput
+            rules={[{ required: true, message: t('common.required') }]}
+          >
+            <Input />
+          </Form.Item>
+          <Form.Item
+            name="start_date"
             label={t('seasons.start_date')}
-            valueFormat="DD.MM.YYYY"
-            {...form.getInputProps('start_date')}
-            value={form.values.start_date}
-            onChange={(val) => form.setFieldValue('start_date', val)}
-          />
-          <DatePickerInput
+            rules={[{ required: true, message: t('common.required') }]}
+          >
+            <DatePicker format="DD.MM.YYYY" style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item
+            name="end_date"
             label={t('seasons.end_date')}
-            valueFormat="DD.MM.YYYY"
-            {...form.getInputProps('end_date')}
-            value={form.values.end_date}
-            onChange={(val) => form.setFieldValue('end_date', val)}
-          />
-          <Switch
-            label={t('seasons.is_active')}
-            {...form.getInputProps('is_active', { type: 'checkbox' })}
-          />
-          <Group justify="flex-end" mt="md">
-            <Button variant="default" onClick={() => { setModalOpen(false); form.reset(); }}>
+            rules={[{ required: true, message: t('common.required') }]}
+          >
+            <DatePicker format="DD.MM.YYYY" style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="is_active" label={t('seasons.is_active')} valuePropName="checked">
+            <Switch />
+          </Form.Item>
+          <Space style={{ width: '100%', justifyContent: 'flex-end', marginTop: 8 }}>
+            <Button onClick={() => { setModalOpen(false); form.resetFields(); }}>
               {t('common.cancel')}
             </Button>
             <Button
+              type="primary"
+              htmlType="submit"
               loading={createMutation.isPending || updateMutation.isPending}
-              onClick={handleSubmit}
             >
               {t('common.save')}
             </Button>
-          </Group>
-        </Stack>
+          </Space>
+        </Form>
       </Modal>
 
-      {/* Delete Confirmation Modal */}
       <Modal
-        opened={deleteTarget !== null}
-        onClose={() => setDeleteTarget(null)}
+        open={deleteTarget !== null}
+        onCancel={() => setDeleteTarget(null)}
         title={t('seasons.confirm_delete')}
-        size="sm"
+        width={400}
+        footer={null}
       >
-        <Stack>
-          <Text size="sm">{deleteTarget?.name}</Text>
-          <Group justify="flex-end" mt="md">
-            <Button variant="default" onClick={() => setDeleteTarget(null)}>
-              {t('common.cancel')}
-            </Button>
-            <Button
-              color="red"
-              loading={deleteMutation.isPending}
-              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
-            >
-              {t('common.delete')}
-            </Button>
-          </Group>
-        </Stack>
+        <Text>{deleteTarget?.name}</Text>
+        <Space style={{ width: '100%', justifyContent: 'flex-end', marginTop: 16 }}>
+          <Button onClick={() => setDeleteTarget(null)}>
+            {t('common.cancel')}
+          </Button>
+          <Button
+            danger
+            type="primary"
+            loading={deleteMutation.isPending}
+            onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+          >
+            {t('common.delete')}
+          </Button>
+        </Space>
       </Modal>
     </div>
   );
