@@ -111,6 +111,7 @@ See [[roles-matrix]] for the full capability matrix.
 - [[known-issues]] — Bug reports, user feedback, workarounds (living log)
 - [[decisions-log]] — Post-deployment decisions and rationale
 - [[operations/pwa]] — Progressive Web App setup, install flow, caching strategy, connection indicator
+- [[operations/beta-runbook]] — Production beta launch runbook (2026-05-15): deploy, smoke tests, rollback, daily routine
 
 ## External Docs (canonical sources, not duplicated)
 

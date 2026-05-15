@@ -40,3 +40,10 @@ Thumbs.db
 
 # Docker
 docker-compose.override.yml
+
+# Local Claude Code settings (user-specific)
+.claude/settings.local.json
+
+# Tooling artifacts that shouldn't ship
+.tmp-i18n-backup/
+backend/walk_shipment.py

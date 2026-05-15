@@ -1,0 +1,66 @@
+# Production override for the 2026-05-15 internal beta on the office server.
+#
+# Differences from docker-compose.yml (dev):
+#   - The local `db` service is removed (Compose v2 marks services as removed
+#     via `!reset`-style overrides; the simplest pattern is "don't run it"
+#     by selecting only the services you need: `up -d backend frontend redis`).
+#   - The outer `nginx` service is dropped for beta (its config dir is
+#     missing; frontend's internal nginx already serves the SPA + proxies
+#     `/api/`). Frontend now binds host port 80 directly.
+#   - The backend service hits the production MSSQL at 10.10.11.233\YIGIT —
+#     env values flow through from backend/.env via `${...}` substitution.
+#   - `DJANGO_DEBUG=True` is intentional for week 1 (no outer nginx → Django
+#     admin would render unstyled without static-file serving). Switch to
+#     False once `/static/` is wired through frontend nginx.
+#   - The dev source bind mount `./backend:/app` is removed so the container
+#     runs the baked image from `backend/Dockerfile`.
+#
+# Deploy command (run on the office server, NOT the dev machine):
+#   docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d backend frontend redis
+#
+# Verify before staff arrive:
+#   docker-compose -f docker-compose.yml -f docker-compose.prod.yml exec backend \
+#     python -c "from django.conf import settings; print(settings.DATABASES['default']['HOST'], settings.DATABASES['default']['NAME'])"
+#   # Must print: 10.10.11.233\YIGIT YIGIT_PLATFROM_NEW
+
+version: '3.8'
+
+services:
+  backend:
+    # Pull every DB value from backend/.env. `${VAR:?msg}` aborts startup with
+    # a clear error if any are missing — better than connecting to the wrong DB.
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set in backend/.env}
+      - DJANGO_DEBUG=True
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:?ALLOWED_HOSTS must include office server hostname/IP}
+      - DB_HOST=${DB_HOST:?DB_HOST must be set in backend/.env}
+      - DB_PORT=${DB_PORT:-1433}
+      - DB_NAME=${DB_NAME:?DB_NAME must be set in backend/.env}
+      - DB_USER=${DB_USER:?DB_USER must be set in backend/.env}
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set in backend/.env}
+      - REDIS_URL=redis://redis:6379/0
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-}
+      - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:-}
+    # Drop the dev bind mount — container serves the baked image.
+    volumes:
+      - static_files:/app/static
+    # No `depends_on: db` — production MSSQL is external.
+    depends_on:
+      redis:
+        condition: service_healthy
+    # Network-topology hook: if the office server runs MSSQL on the same host
+    # as Docker, uncomment one of these to reach `10.10.11.233\YIGIT`:
+    #   extra_hosts:
+    #     - "host.docker.internal:host-gateway"
+    # …then change DB_HOST in backend/.env to `host.docker.internal\YIGIT`.
+    # If 10.10.11.233 is a separate machine, the default bridge network reaches it.
+
+  frontend:
+    # Bind host port 80 directly — the outer nginx service is intentionally
+    # not started in production (see deploy command above).
+    ports:
+      - "80:80"
+
+volumes:
+  static_files:

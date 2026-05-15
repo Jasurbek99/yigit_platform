@@ -1,0 +1,18 @@
+node_modules
+dist
+.vite
+
+# Critical for production builds: dev .env contains VITE_API_BASE_URL pointing
+# at the developer's localhost. Vite inlines that into the bundle at build
+# time, breaking the bundle for any browser that's not on the dev machine.
+# Excluding .env makes the bundle fall back to the relative `/api/v1` default
+# in src/services/api.ts — which the frontend nginx proxies to backend:8000.
+# Keep .env.example so a fresh checkout can still read the documented schema.
+.env
+.env.*
+!.env.example
+
+# Test artifacts and editor cruft don't belong in the prod image.
+coverage
+*.log
+.DS_Store
