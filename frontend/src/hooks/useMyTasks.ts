@@ -14,7 +14,7 @@ export function useMyTasks(options: { enabled?: boolean } = {}) {
     enabled: options.enabled ?? true,
     queryKey: ['my-tasks'],
     queryFn: async () => {
-      const { data } = await api.get('/me/tasks/');
+      const { data } = await api.get('/me/tasks/?page_size=200');
       return data;
     },
     staleTime: 30_000,

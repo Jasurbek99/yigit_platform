@@ -60,6 +60,7 @@ export function useOperatingDayExceptions(
       const params = new URLSearchParams();
       if (filters.date_from) params.set('date_from', filters.date_from);
       if (filters.date_to) params.set('date_to', filters.date_to);
+      params.set('page_size', '500');
       const { data } = await api.get<IApiListResponse<IOperatingDayException> | IOperatingDayException[]>(
         `/core/operating-day-exceptions/?${params}`,
       );

@@ -15,6 +15,7 @@ export function useOverdueShipments(threshold: number = DEFAULT_THRESHOLD) {
 
       const params = new URLSearchParams();
       params.set('threshold', String(threshold));
+      params.set('page_size', '200');
 
       const { data } = await api.get<IApiListResponse<IOverdueShipment>>(
         `/export/shipments/overdue/?${params.toString()}`,

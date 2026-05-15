@@ -32,6 +32,7 @@ export function useHarvestPlans(filters: { season?: number; year?: number; week?
       if (filters.season) params.set('season', String(filters.season));
       if (filters.year) params.set('year', String(filters.year));
       if (filters.week) params.set('week', String(filters.week));
+      params.set('page_size', '200');
       const { data } = await api.get<IApiListResponse<IWeeklyHarvestPlan>>(`/greenhouse/harvest-plans/?${params}`);
       return data;
     },
@@ -87,8 +88,8 @@ export function useLocalSellPlans(filters: { year?: number; week?: number } = {}
       const params = new URLSearchParams();
       if (filters.year) params.set('year', String(filters.year));
       if (filters.week) params.set('week', String(filters.week));
-      const qs = params.toString() ? `?${params.toString()}` : '';
-      const { data } = await api.get<IApiListResponse<IWeeklyLocalSellPlan>>(`/export/local-sell-plans/${qs}`);
+      params.set('page_size', '200');
+      const { data } = await api.get<IApiListResponse<IWeeklyLocalSellPlan>>(`/export/local-sell-plans/?${params.toString()}`);
       return data;
     },
     staleTime: 60_000,
@@ -223,6 +224,7 @@ export function useTruckAllocations(
       if (filters.season) params.set('season', String(filters.season));
       if (filters.year) params.set('year', String(filters.year));
       if (filters.week_number) params.set('week_number', String(filters.week_number));
+      params.set('page_size', '200');
       const { data } = await api.get<IApiListResponse<IWeeklyTruckAllocation>>(
         `/export/truck-allocations/?${params}`,
       );
@@ -237,7 +239,7 @@ export function useTruckDestinations() {
     queryKey: ['truck-destinations'],
     queryFn: async (): Promise<ITruckDestination[]> => {
       const { data } = await api.get<ITruckDestination[] | IApiListResponse<ITruckDestination>>(
-        '/core/truck-destinations/?is_active=true',
+        '/core/truck-destinations/?is_active=true&page_size=200',
       );
       return Array.isArray(data) ? data : data.results;
     },

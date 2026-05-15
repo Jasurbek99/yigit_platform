@@ -34,7 +34,7 @@ export function useSeasons() {
     queryFn: async (): Promise<ISeason[]> => {
       if (USE_MOCK) return [];
       const { data } = await api.get<IApiListResponse<ISeason> | ISeason[]>(
-        '/export/admin/seasons/',
+        '/export/admin/seasons/?page_size=200',
       );
       return Array.isArray(data) ? data : data.results;
     },
@@ -105,7 +105,7 @@ export function useAdminFirms() {
     queryFn: async (): Promise<IExportFirm[]> => {
       if (USE_MOCK) return [];
       const { data } = await api.get<IApiListResponse<IExportFirm> | IExportFirm[]>(
-        '/export/admin/firms/',
+        '/export/admin/firms/?page_size=200',
       );
       return Array.isArray(data) ? data : data.results;
     },
@@ -160,7 +160,7 @@ export function useAdminUsers() {
     queryFn: async (): Promise<IAdminUser[]> => {
       if (USE_MOCK) return [];
       const { data } = await api.get<IApiListResponse<IAdminUser> | IAdminUser[]>(
-        '/export/admin/users/',
+        '/export/admin/users/?page_size=200',
       );
       return Array.isArray(data) ? data : data.results;
     },
@@ -196,7 +196,7 @@ export function useGreenhouseBlocks() {
     queryFn: async (): Promise<IGreenhouseBlock[]> => {
       if (USE_MOCK) return [];
       const { data } = await api.get<IApiListResponse<IGreenhouseBlock> | IGreenhouseBlock[]>(
-        '/core/blocks/',
+        '/core/blocks/?page_size=200',
       );
       return Array.isArray(data) ? data : data.results;
     },
@@ -210,7 +210,7 @@ export function useAdminBlocks() {
     queryFn: async (): Promise<IGreenhouseBlock[]> => {
       if (USE_MOCK) return [];
       const { data } = await api.get<IApiListResponse<IGreenhouseBlock> | IGreenhouseBlock[]>(
-        '/greenhouse/admin/blocks/',
+        '/greenhouse/admin/blocks/?page_size=200',
       );
       return Array.isArray(data) ? data : data.results;
     },
@@ -266,7 +266,7 @@ export function useLoadingLocations() {
     queryFn: async (): Promise<ILoadingLocation[]> => {
       if (USE_MOCK) return [];
       const { data } = await api.get<IApiListResponse<ILoadingLocation> | ILoadingLocation[]>(
-        '/core/loading-locations/',
+        '/core/loading-locations/?page_size=200',
       );
       return Array.isArray(data) ? data : data.results;
     },
@@ -282,7 +282,7 @@ export function useTomatoVarieties() {
     queryFn: async (): Promise<ITomatoVariety[]> => {
       if (USE_MOCK) return [];
       const { data } = await api.get<IApiListResponse<ITomatoVariety> | ITomatoVariety[]>(
-        '/core/tomato-varieties/',
+        '/core/tomato-varieties/?page_size=200',
       );
       return Array.isArray(data) ? data : data.results;
     },
@@ -298,8 +298,8 @@ export function useBlockAssignments(userId?: number) {
     queryFn: async (): Promise<IBlockAssignment[]> => {
       if (USE_MOCK) return [];
       const url = userId
-        ? `/greenhouse/admin/block-assignments/?user=${userId}`
-        : '/greenhouse/admin/block-assignments/';
+        ? `/greenhouse/admin/block-assignments/?user=${userId}&page_size=200`
+        : '/greenhouse/admin/block-assignments/?page_size=200';
       const { data } = await api.get<IApiListResponse<IBlockAssignment> | IBlockAssignment[]>(url);
       return Array.isArray(data) ? data : data.results;
     },
@@ -506,7 +506,7 @@ export function useAdminImportFirms() {
     queryFn: async (): Promise<IImportFirm[]> => {
       if (USE_MOCK) return [];
       const { data } = await api.get<IApiListResponse<IImportFirm> | IImportFirm[]>(
-        '/export/admin/import-firms/',
+        '/export/admin/import-firms/?page_size=200',
       );
       return Array.isArray(data) ? data : data.results;
     },
@@ -593,7 +593,7 @@ export function useAdminTruckDestinations() {
     queryFn: async (): Promise<ITruckDestination[]> => {
       if (USE_MOCK) return [];
       const { data } = await api.get<ITruckDestination[] | IApiListResponse<ITruckDestination>>(
-        '/core/truck-destinations/',
+        '/core/truck-destinations/?page_size=200',
       );
       return Array.isArray(data) ? data : data.results;
     },
@@ -816,7 +816,7 @@ export function useBorderPoints() {
     queryFn: async (): Promise<IBorderPoint[]> => {
       if (USE_MOCK) return [];
       const { data } = await api.get<IApiListResponse<IBorderPoint> | IBorderPoint[]>(
-        '/core/border-points/',
+        '/core/border-points/?page_size=200',
       );
       return Array.isArray(data) ? data : data.results;
     },
@@ -859,7 +859,7 @@ export function useShipmentStatuses() {
     queryKey: ['core-status-types'],
     queryFn: async (): Promise<IShipmentStatusType[]> => {
       if (USE_MOCK) return [];
-      const { data } = await api.get<IApiListResponse<IShipmentStatusType> | IShipmentStatusType[]>('/core/status-types/');
+      const { data } = await api.get<IApiListResponse<IShipmentStatusType> | IShipmentStatusType[]>('/core/status-types/?page_size=200');
       return Array.isArray(data) ? data : data.results;
     },
     staleTime: 300_000,
@@ -883,7 +883,9 @@ export function useShipmentOptions(category?: string) {
     queryKey: ['core-shipment-options', category],
     queryFn: async (): Promise<IShipmentOptionType[]> => {
       if (USE_MOCK) return [];
-      const url = category ? `/core/shipment-options/?category=${category}` : '/core/shipment-options/';
+      const url = category
+        ? `/core/shipment-options/?category=${category}&page_size=500`
+        : '/core/shipment-options/?page_size=500';
       const { data } = await api.get<IApiListResponse<IShipmentOptionType> | IShipmentOptionType[]>(url);
       return Array.isArray(data) ? data : data.results;
     },
@@ -929,7 +931,7 @@ export function useCrateTypes() {
         return MOCK_CRATE_TYPES;
       }
       const { data } = await api.get<IApiListResponse<ICrateType> | ICrateType[]>(
-        '/core/crate-types/',
+        '/core/crate-types/?page_size=200',
       );
       return Array.isArray(data) ? data : data.results;
     },
@@ -979,7 +981,7 @@ export function useTruckSplits() {
     queryFn: async (): Promise<ITruckSplitDefault[]> => {
       if (USE_MOCK) return [];
       const { data } = await api.get<IApiListResponse<ITruckSplitDefault> | ITruckSplitDefault[]>(
-        '/export/admin/truck-splits/',
+        '/export/admin/truck-splits/?page_size=200',
       );
       return Array.isArray(data) ? data : data.results;
     },
