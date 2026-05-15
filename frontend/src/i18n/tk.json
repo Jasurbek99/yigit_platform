@@ -535,6 +535,7 @@
   },
   "overdue": {
     "title": "Möhleti geçen hasabatlar",
+    "subtitle": "Satyldy emma hasabat iberilmedik ýükler",
     "total_overdue": "Jemi möhleti geçen",
     "avg_days": "Ort. gün",
     "critical": "Kritik (>14g)",

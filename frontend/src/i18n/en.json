@@ -535,6 +535,7 @@
   },
   "overdue": {
     "title": "Overdue Reports",
+    "subtitle": "Shipments sold but with no sales report yet",
     "total_overdue": "Total Overdue",
     "avg_days": "Avg. Days",
     "critical": "Critical (>14d)",
