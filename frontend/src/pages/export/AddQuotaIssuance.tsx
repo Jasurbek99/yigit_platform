@@ -108,7 +108,12 @@ export default function AddQuotaIssuance() {
     <div>
       {/* Header */}
       <div style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
-        <Button icon={<ArrowLeftOutlined />} type="text" onClick={() => navigate('/export/quota')} />
+        <Button
+          icon={<ArrowLeftOutlined />}
+          type="text"
+          onClick={() => navigate('/export/quota')}
+          aria-label={t('common.back')}
+        />
         <div>
           <Title level={4} style={{ margin: 0 }}>{t('quota_dashboard.add_issuance_title')}</Title>
           <Text type="secondary" style={{ fontSize: 13 }}>{t('quota_dashboard.add_issuance_desc')}</Text>

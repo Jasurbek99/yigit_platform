@@ -102,6 +102,8 @@
   "plan": {
     "title": "Weekly Harvest Plan",
     "week": "Week",
+    "prev_week": "Previous week",
+    "next_week": "Next week",
     "blocks": "blocks",
     "block": "Block",
     "monday": "Mon",
@@ -266,6 +268,10 @@
     "input_unit": "Input unit"
   },
   "quota_usage": {
+    "prev_month": "Previous month",
+    "next_month": "Next month",
+    "view_grid": "Grid view",
+    "view_list": "List view",
     "date": "Date",
     "firm": "Firm",
     "cargo_code": "Export Code",

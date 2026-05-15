@@ -452,6 +452,7 @@ export default function WeeklyPlanGrid() {
           <Button
             icon={<LeftOutlined />}
             onClick={() => setSelectedWeek((w) => (w ?? dayjs()).subtract(1, 'week'))}
+            aria-label={t('plan.prev_week')}
           />
           <DatePicker
             picker="week"
@@ -463,6 +464,7 @@ export default function WeeklyPlanGrid() {
           <Button
             icon={<RightOutlined />}
             onClick={() => setSelectedWeek((w) => (w ?? dayjs()).add(1, 'week'))}
+            aria-label={t('plan.next_week')}
           />
           {plans.length > 0 && (
             <Button

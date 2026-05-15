@@ -355,6 +355,7 @@ export function QuotaUsageGrid({ weightUnit, productType }: IQuotaUsageGridProps
           <Button
             icon={<LeftOutlined />}
             onClick={() => { setSelectedMonth((m) => m.subtract(1, 'month')); setAddedDates(new Set()); }}
+            aria-label={t('quota_usage.prev_month')}
           />
           <DatePicker
             picker="month"
@@ -366,6 +367,7 @@ export function QuotaUsageGrid({ weightUnit, productType }: IQuotaUsageGridProps
           <Button
             icon={<RightOutlined />}
             onClick={() => { setSelectedMonth((m) => m.add(1, 'month')); setAddedDates(new Set()); }}
+            aria-label={t('quota_usage.next_month')}
           />
           {canCreate && canAddMore && (
             <Button icon={<PlusOutlined />} size="small" onClick={handleAddRow}>

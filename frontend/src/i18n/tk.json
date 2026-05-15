@@ -102,6 +102,8 @@
   "plan": {
     "title": "Hepdäniň hasyly meýilnamasy",
     "week": "Hepde",
+    "prev_week": "Öňki hepde",
+    "next_week": "Indiki hepde",
     "blocks": "blok",
     "block": "Blok",
     "monday": "Duş",
@@ -266,6 +268,10 @@
     "input_unit": "Giriz birligi"
   },
   "quota_usage": {
+    "prev_month": "Öňki aý",
+    "next_month": "Indiki aý",
+    "view_grid": "Tor görnüşi",
+    "view_list": "Sanaw görnüşi",
     "date": "Sene",
     "firm": "Firma",
     "cargo_code": "Eksport kody",
