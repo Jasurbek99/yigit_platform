@@ -92,7 +92,7 @@ function KpiCard({ labelKey, card, isLoading, format = 'int', onClick, showPlace
               zIndex: 1,
             }}
           >
-            Demo
+            {t('common.demo_badge')}
           </Tag>
         )}
         <Text

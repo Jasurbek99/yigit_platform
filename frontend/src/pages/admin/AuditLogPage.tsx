@@ -188,14 +188,14 @@ export default function AuditLogPage() {
         />
         <TextInput
           label={t('audit_log.filter_model')}
-          placeholder="Shipment"
+          placeholder={t('audit_log.placeholder_model')}
           value={modelName}
           onChange={(e) => onFilterChange(setModelName, e.currentTarget.value)}
           w={200}
         />
         <TextInput
           label={t('audit_log.filter_object_id')}
-          placeholder="123"
+          placeholder={t('audit_log.placeholder_object_id')}
           value={objectIdInput}
           onChange={(e) => onFilterChange(setObjectIdInput, e.currentTarget.value)}
           w={140}

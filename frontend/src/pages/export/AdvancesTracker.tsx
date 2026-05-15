@@ -168,7 +168,7 @@ function NewAdvanceModal({ open, onClose }: NewAdvanceModalProps) {
       <Stack>
         <TextInput
           label={t('advances.batch_code')}
-          placeholder="ADV-2026-XXX"
+          placeholder={t('advances.batch_code_placeholder')}
           {...form.getInputProps('batch_code')}
         />
         <DatePickerInput

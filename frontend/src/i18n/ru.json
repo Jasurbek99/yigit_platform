@@ -33,6 +33,7 @@
     "boss": "Босс"
   },
   "nav": {
+    "brand_name": "YGT Platform",
     "dashboard": "Главная",
     "shipments": "Отгрузки",
     "kanban": "Канбан",
@@ -299,6 +300,7 @@
     "grid_add_row": "Добавить строку"
   },
   "local_sell": {
+    "double_click_hint": "Двойной клик для редактирования",
     "firm": "Фирма",
     "total": "Итого",
     "firms_count": "Фирмы",
@@ -554,6 +556,7 @@
     "error_load": "Не удалось загрузить данные"
   },
   "advances": {
+    "batch_code_placeholder": "ADV-2026-XXX",
     "title": "Отслеживание авансов",
     "total_advances": "Всего авансов",
     "total_amount": "Общая сумма",
@@ -620,6 +623,10 @@
     "toast_deleted": "Направление удалено"
   },
   "shipment_settings": {
+    "placeholder_status_role": "напр. document_team",
+    "placeholder_status_phase": "напр. loading",
+    "placeholder_option_code": "напр. OK",
+    "placeholder_option_icon": "напр. check-circle",
     "title": "Настройки Отгрузок",
     "subtitle": "Управление статусами, пограничными пунктами и списками опций",
     "tab_statuses": "Статусы",
@@ -658,6 +665,10 @@
     "category_transport_responsible": "Ответственный за транспорт"
   },
   "sheet_rows": {
+    "placeholder_field_key": "kz_remarks",
+    "placeholder_label_en": "Remarks",
+    "placeholder_label_ru": "Замечания",
+    "placeholder_label_tk": "Bellikler",
     "col_num": "#",
     "col_field": "Поле",
     "col_default_who": "Кто (по умолч.)",
@@ -907,6 +918,7 @@
     "kind_task_done": "Ваша задача выполнена"
   },
   "common": {
+    "demo_badge": "Демо",
     "empty": "—",
     "loading": "Загрузка...",
     "cancel": "Отмена",
@@ -1517,7 +1529,9 @@
       "routes": "Маршруты",
       "blocks": "Блоки",
       "seasons_compare": "Сравнение сезонов",
-      "audit": "Аудит"
+      "audit": "Аудит",
+      "excel": "Excel",
+      "pdf": "PDF"
     },
     "production": {
       "header_block": "Теплица",
@@ -1959,6 +1973,8 @@
   "audit_log": {
     "title": "Журнал аудита",
     "subtitle": "Неизменяемая запись всех переходов статуса, создания и обновления.",
+    "placeholder_model": "Shipment",
+    "placeholder_object_id": "123",
     "col_created_at": "Когда",
     "col_action": "Действие",
     "col_user": "Пользователь",

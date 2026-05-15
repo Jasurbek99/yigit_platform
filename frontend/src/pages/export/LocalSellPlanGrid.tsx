@@ -78,6 +78,7 @@ function PlanCell({ day, row, editable, lockedEditable, onSave }: {
   day: Day; row: IWeeklyLocalSellPlan; editable: boolean; lockedEditable: boolean;
   onSave: (row: IWeeklyLocalSellPlan, day: Day, value: number) => void;
 }) {
+  const { t } = useTranslation();
   const [unlocked, setUnlocked] = useState(false);
   const field = `${day}_plan_kg` as keyof IWeeklyLocalSellPlan;
   const value = num(row[field]);
@@ -104,7 +105,7 @@ function PlanCell({ day, row, editable, lockedEditable, onSave }: {
       <span
         onDoubleClick={() => setUnlocked(true)}
         style={{ cursor: 'pointer' }}
-        title="Double-click to edit"
+        title={t('local_sell.double_click_hint')}
       >
         {fmtKg(value)}
       </span>

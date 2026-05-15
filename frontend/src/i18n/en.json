@@ -33,6 +33,7 @@
     "boss": "Boss"
   },
   "nav": {
+    "brand_name": "YGT Platform",
     "dashboard": "Dashboard",
     "shipments": "Shipments",
     "kanban": "Kanban",
@@ -297,6 +298,7 @@
     "grid_add_row": "Add row"
   },
   "local_sell": {
+    "double_click_hint": "Double-click to edit",
     "firm": "Firm",
     "total": "Total",
     "firms_count": "Firms",
@@ -552,6 +554,7 @@
     "error_load": "Failed to load overdue data"
   },
   "advances": {
+    "batch_code_placeholder": "ADV-2026-XXX",
     "title": "Advances Tracker",
     "total_advances": "Total Advances",
     "total_amount": "Total Amount",
@@ -618,6 +621,10 @@
     "toast_deleted": "Destination deleted"
   },
   "shipment_settings": {
+    "placeholder_status_role": "e.g. document_team",
+    "placeholder_status_phase": "e.g. loading",
+    "placeholder_option_code": "e.g. OK",
+    "placeholder_option_icon": "e.g. check-circle",
     "title": "Shipment Settings",
     "subtitle": "Manage shipment lifecycle statuses, border points and option lists",
     "tab_statuses": "Shipment Statuses",
@@ -656,6 +663,10 @@
     "category_transport_responsible": "Transport Responsible"
   },
   "sheet_rows": {
+    "placeholder_field_key": "kz_remarks",
+    "placeholder_label_en": "Remarks",
+    "placeholder_label_ru": "Замечания",
+    "placeholder_label_tk": "Bellikler",
     "col_num": "#",
     "col_field": "Field",
     "col_default_who": "Default Who",
@@ -905,6 +916,7 @@
     "kind_task_done": "Your task was marked done"
   },
   "common": {
+    "demo_badge": "Demo",
     "empty": "—",
     "loading": "Loading...",
     "cancel": "Cancel",
@@ -1515,7 +1527,9 @@
       "routes": "Routes",
       "blocks": "Blocks",
       "seasons_compare": "Season Comparison",
-      "audit": "Audit"
+      "audit": "Audit",
+      "excel": "Excel",
+      "pdf": "PDF"
     },
     "production": {
       "header_block": "Greenhouse",
@@ -1957,6 +1971,8 @@
   "audit_log": {
     "title": "Audit Log",
     "subtitle": "Immutable record of every status transition, create, and update.",
+    "placeholder_model": "Shipment",
+    "placeholder_object_id": "123",
     "col_created_at": "When",
     "col_action": "Action",
     "col_user": "User",
