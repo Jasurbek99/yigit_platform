@@ -1,21 +1,22 @@
 import { useMemo, useState } from 'react';
 import {
   Alert,
-  Badge,
-  Group,
-  Pagination,
-  Select,
-  Stack,
-  TextInput,
-  Tooltip,
   Button,
-} from '@mantine/core';
+  Input,
+  Select,
+  Space,
+  Tag,
+  Tooltip,
+  Typography,
+} from 'antd';
+import { ProTable, type ProColumns } from '@ant-design/pro-components';
 import { IconClipboardList, IconRefresh } from '@tabler/icons-react';
-import { DataTable } from 'mantine-datatable';
 import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import { useAuditLog } from '@/hooks/useAdmin';
 import type { AuditAction, IAuditLog } from '@/types';
+
+const { Text } = Typography;
 
 const PAGE_SIZE = 50;
 
@@ -48,9 +49,8 @@ export default function AuditLogPage() {
     object_id: objectIdParam,
   });
 
-  const rows = data?.results ?? [];
+  const rows = useMemo(() => data?.results ?? [], [data?.results]);
   const total = data?.count ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   function resetFilters() {
     setAction('');
@@ -71,13 +71,14 @@ export default function AuditLogPage() {
     { value: 'update', label: t('audit_log.action_update') },
   ];
 
-  const columns = [
+  const columns: ProColumns<IAuditLog>[] = [
     {
-      accessor: 'created_at' as keyof IAuditLog,
       title: t('audit_log.col_created_at'),
+      dataIndex: 'created_at',
       width: 160,
-      render: (r: IAuditLog) => (
-        <Tooltip label={dayjs(r.created_at).format('DD.MM.YYYY HH:mm:ss')} withArrow>
+      search: false,
+      render: (_, r) => (
+        <Tooltip title={dayjs(r.created_at).format('DD.MM.YYYY HH:mm:ss')}>
           <span style={{ fontVariantNumeric: 'tabular-nums' }}>
             {dayjs(r.created_at).format('DD.MM.YYYY HH:mm')}
           </span>
@@ -85,20 +86,22 @@ export default function AuditLogPage() {
       ),
     },
     {
-      accessor: 'action' as keyof IAuditLog,
       title: t('audit_log.col_action'),
+      dataIndex: 'action',
       width: 110,
-      render: (r: IAuditLog) => (
-        <Badge variant="light" color={ACTION_COLOR[r.action] ?? 'gray'}>
+      search: false,
+      render: (_, r) => (
+        <Tag color={ACTION_COLOR[r.action] ?? 'default'}>
           {t(`audit_log.action_${r.action}`)}
-        </Badge>
+        </Tag>
       ),
     },
     {
-      accessor: 'user_name' as keyof IAuditLog,
       title: t('audit_log.col_user'),
+      dataIndex: 'user_name',
       width: 140,
-      render: (r: IAuditLog) =>
+      search: false,
+      render: (_, r) =>
         r.user_name ?? (
           <span style={{ color: '#8c8c8c', fontStyle: 'italic' }}>
             {t('audit_log.system_user')}
@@ -106,34 +109,38 @@ export default function AuditLogPage() {
         ),
     },
     {
-      accessor: 'model_name' as keyof IAuditLog,
       title: t('audit_log.col_model'),
+      dataIndex: 'model_name',
       width: 140,
-      render: (r: IAuditLog) => <code style={{ fontSize: 12 }}>{r.model_name}</code>,
+      search: false,
+      render: (_, r) => <code style={{ fontSize: 12 }}>{r.model_name}</code>,
     },
     {
-      accessor: 'object_id' as keyof IAuditLog,
       title: t('audit_log.col_object_id'),
+      dataIndex: 'object_id',
       width: 90,
-      render: (r: IAuditLog) => (
+      search: false,
+      render: (_, r) => (
         <span style={{ fontVariantNumeric: 'tabular-nums' }}>{r.object_id}</span>
       ),
     },
     {
-      accessor: 'object_repr' as keyof IAuditLog,
       title: t('audit_log.col_object_repr'),
+      dataIndex: 'object_repr',
       width: 200,
       ellipsis: true,
-      render: (r: IAuditLog) => (
-        <Tooltip label={r.object_repr} withArrow disabled={!r.object_repr}>
+      search: false,
+      render: (_, r) => (
+        <Tooltip title={r.object_repr || ''}>
           <span>{r.object_repr || '—'}</span>
         </Tooltip>
       ),
     },
     {
-      accessor: 'detail' as keyof IAuditLog,
       title: t('audit_log.col_detail'),
-      render: (r: IAuditLog) =>
+      dataIndex: 'detail',
+      search: false,
+      render: (_, r) =>
         r.detail ? (
           <span style={{ fontSize: 13 }}>{r.detail}</span>
         ) : (
@@ -144,8 +151,7 @@ export default function AuditLogPage() {
 
   return (
     <div>
-      {/* Page Header */}
-      <Group justify="space-between" align="flex-start" mb="lg">
+      <Space style={{ width: '100%', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
           <div
             style={{
@@ -167,75 +173,75 @@ export default function AuditLogPage() {
           </div>
         </div>
         <Button
-          variant="default"
-          leftSection={<IconRefresh size={14} />}
+          icon={<IconRefresh size={14} />}
           loading={isFetching && !isLoading}
           onClick={() => refetch()}
         >
           {t('audit_log.refresh')}
         </Button>
-      </Group>
+      </Space>
 
-      {/* Filters */}
-      <Group mb="md" gap="sm" wrap="wrap">
-        <Select
-          label={t('audit_log.filter_action')}
-          data={actionOptions}
-          value={action}
-          onChange={(v) => onFilterChange(setAction, (v ?? '') as AuditAction | '')}
-          allowDeselect={false}
-          w={180}
-        />
-        <TextInput
-          label={t('audit_log.filter_model')}
-          placeholder={t('audit_log.placeholder_model')}
-          value={modelName}
-          onChange={(e) => onFilterChange(setModelName, e.currentTarget.value)}
-          w={200}
-        />
-        <TextInput
-          label={t('audit_log.filter_object_id')}
-          placeholder={t('audit_log.placeholder_object_id')}
-          value={objectIdInput}
-          onChange={(e) => onFilterChange(setObjectIdInput, e.currentTarget.value)}
-          w={140}
-        />
-        <Button variant="subtle" mt="lg" onClick={resetFilters}>
+      <Space wrap style={{ marginBottom: 16 }} align="end">
+        <div>
+          <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+            {t('audit_log.filter_action')}
+          </Text>
+          <Select
+            value={action}
+            onChange={(v) => onFilterChange(setAction, (v ?? '') as AuditAction | '')}
+            options={actionOptions}
+            style={{ width: 180 }}
+          />
+        </div>
+        <div>
+          <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+            {t('audit_log.filter_model')}
+          </Text>
+          <Input
+            placeholder={t('audit_log.placeholder_model')}
+            value={modelName}
+            onChange={(e) => onFilterChange(setModelName, e.currentTarget.value)}
+            style={{ width: 200 }}
+          />
+        </div>
+        <div>
+          <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+            {t('audit_log.filter_object_id')}
+          </Text>
+          <Input
+            placeholder={t('audit_log.placeholder_object_id')}
+            value={objectIdInput}
+            onChange={(e) => onFilterChange(setObjectIdInput, e.currentTarget.value)}
+            style={{ width: 140 }}
+          />
+        </div>
+        <Button type="link" onClick={resetFilters}>
           {t('audit_log.filter_clear')}
         </Button>
-      </Group>
+      </Space>
 
       {isError && (
-        <Alert color="red" mb="md">
-          {t('audit_log.error_load')}
-        </Alert>
+        <Alert type="error" message={t('audit_log.error_load')} showIcon style={{ marginBottom: 16 }} />
       )}
 
-      <Stack gap="sm">
-        <DataTable
-          idAccessor="id"
-          records={rows}
-          columns={columns}
-          fetching={isLoading}
-          noRecordsText={t('audit_log.empty')}
-          verticalSpacing="xs"
-          highlightOnHover
-          styles={{ header: { backgroundColor: '#f5f5f5', fontSize: 13 } }}
-        />
-
-        {total > PAGE_SIZE && (
-          <Group justify="space-between" align="center">
-            <span style={{ fontSize: 13, color: '#8c8c8c' }}>
-              {(page - 1) * PAGE_SIZE + 1}
-              {'–'}
-              {Math.min(page * PAGE_SIZE, total)}
-              {' / '}
-              {total}
-            </span>
-            <Pagination value={page} onChange={setPage} total={totalPages} size="sm" />
-          </Group>
-        )}
-      </Stack>
+      <ProTable<IAuditLog>
+        rowKey="id"
+        dataSource={rows}
+        columns={columns}
+        loading={isLoading}
+        search={false}
+        options={false}
+        size="small"
+        pagination={{
+          current: page,
+          pageSize: PAGE_SIZE,
+          total,
+          onChange: (p) => setPage(p),
+          showSizeChanger: false,
+          showTotal: (totalCount, range) => `${range[0]}–${range[1]} / ${totalCount}`,
+        }}
+        locale={{ emptyText: t('audit_log.empty') }}
+      />
     </div>
   );
 }
