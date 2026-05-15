@@ -322,6 +322,7 @@
   },
   "prices": {
     "title": "Market Prices",
+    "subtitle": "Daily price panel by route",
     "city": "City",
     "days_7": "7 days",
     "days_14": "14 days",
