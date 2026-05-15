@@ -1,10 +1,9 @@
-import { useState } from 'react';
-import { Alert, Card, Group, SimpleGrid, Text } from '@mantine/core';
-import { DatePickerInput } from '@mantine/dates';
+import { useMemo, useState } from 'react';
+import { Alert, Card, DatePicker, Row, Col, Space, Typography } from 'antd';
+import { ProTable, type ProColumns } from '@ant-design/pro-components';
 import { IconTruck } from '@tabler/icons-react';
-import { DataTable } from 'mantine-datatable';
 import { useTranslation } from 'react-i18next';
-import dayjs from 'dayjs';
+import dayjs, { type Dayjs } from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek';
 import weekOfYear from 'dayjs/plugin/weekOfYear';
 import { useTruckAllocations, useTruckDestinations } from '@/hooks/usePlanning';
@@ -12,6 +11,8 @@ import type { IWeeklyTruckAllocation } from '@/types';
 
 dayjs.extend(isoWeek);
 dayjs.extend(weekOfYear);
+
+const { Text } = Typography;
 
 const DAY_KEYS = [
   'monday',
@@ -35,9 +36,9 @@ function fmtTrucks(val: number | null | undefined): string {
 
 function StatCard({ title, value, color }: { title: string; value: string | number; color?: string }) {
   return (
-    <Card padding="md">
-      <Text size="xs" c="dimmed" mb={4}>{title}</Text>
-      <Text fw={700} size="xl" c={color}>{value}</Text>
+    <Card size="small">
+      <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>{title}</Text>
+      <div style={{ fontSize: 20, fontWeight: 700, color }}>{value}</div>
     </Card>
   );
 }
@@ -49,72 +50,77 @@ function getSplitCount(record: IWeeklyTruckAllocation, destId: number): number {
 export default function TruckForecast() {
   const { t } = useTranslation();
   const now = dayjs();
-  const [selectedWeek, setSelectedWeek] = useState<Date | null>(now.toDate());
+  const [selectedWeek, setSelectedWeek] = useState<Dayjs>(now);
 
-  const dayjsWeek = selectedWeek ? dayjs(selectedWeek) : now;
-  const weekNumber = dayjsWeek.isoWeek();
-  const year = dayjsWeek.isoWeekYear();
+  const weekNumber = selectedWeek.isoWeek();
+  const year = selectedWeek.isoWeekYear();
 
   const { data, isLoading, isError } = useTruckAllocations({ year, week_number: weekNumber });
   const { data: destinations = [] } = useTruckDestinations();
-  const rows = data?.results ?? [];
+  const rows = useMemo(() => data?.results ?? [], [data?.results]);
 
   const totalTrucks = rows.reduce((s, r) => s + (r.total_trucks_calc ?? 0), 0);
 
-  // Dynamic totals per destination
   const destTotals = destinations.map((d) => ({
     id: d.id,
     name: d.name,
     total: rows.reduce((s, r) => s + getSplitCount(r, d.id), 0),
   }));
 
-  const columns = [
+  const columns: ProColumns<IWeeklyTruckAllocation>[] = [
     {
-      accessor: 'day_of_week' as keyof IWeeklyTruckAllocation,
       title: t('truck.day'),
+      dataIndex: 'day_of_week',
       width: 80,
-      render: (record: IWeeklyTruckAllocation) => {
+      search: false,
+      render: (_, record) => {
         const key = DAY_KEYS[record.day_of_week - 1];
         return key ? t(`truck.${key}`) : String(record.day_of_week);
       },
     },
     {
-      accessor: 'total_planned_kg' as keyof IWeeklyTruckAllocation,
       title: t('truck.planned_kg'),
+      dataIndex: 'total_planned_kg',
       width: 140,
-      render: (record: IWeeklyTruckAllocation) => fmtKg(record.total_planned_kg),
+      search: false,
+      render: (_, record) => fmtKg(record.total_planned_kg),
     },
     {
-      accessor: 'total_trucks_calc' as keyof IWeeklyTruckAllocation,
       title: t('truck.trucks_calc'),
+      dataIndex: 'total_trucks_calc',
       width: 100,
-      render: (record: IWeeklyTruckAllocation) => (
+      search: false,
+      render: (_, record) => (
         <span style={{ fontWeight: 600 }}>{fmtTrucks(record.total_trucks_calc)}</span>
       ),
     },
-    ...destinations.map((dest) => ({
-      accessor: `dest_${dest.id}` as keyof IWeeklyTruckAllocation,
+    ...destinations.map<ProColumns<IWeeklyTruckAllocation>>((dest) => ({
       title: dest.name,
+      key: `dest_${dest.id}`,
       width: 110,
-      render: (record: IWeeklyTruckAllocation) => {
+      search: false,
+      render: (_, record) => {
         const count = getSplitCount(record, dest.id);
         return count > 0 ? count : <span style={{ color: '#bfbfbf' }}>—</span>;
       },
     })),
     {
-      accessor: 'decided_by_name' as keyof IWeeklyTruckAllocation,
       title: t('truck.decided_by'),
-      render: (record: IWeeklyTruckAllocation) =>
+      dataIndex: 'decided_by_name',
+      search: false,
+      render: (_, record) =>
         record.decided_by_name
           ? record.decided_by_name
           : <span style={{ color: '#bfbfbf' }}>—</span>,
     },
   ];
 
+  const colCount = 2 + destinations.length;
+  const colSpan = Math.max(4, Math.floor(24 / colCount));
+
   return (
     <div>
-      {/* Page Header */}
-      <Group justify="space-between" align="flex-start" mb="lg">
+      <Space style={{ width: '100%', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
           <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: '#1f1f1f', lineHeight: '1.3', display: 'flex', alignItems: 'center', gap: 8 }}>
             <IconTruck size={18} color="#1677ff" />
@@ -124,34 +130,41 @@ export default function TruckForecast() {
             {t('truck.subtitle')}
           </div>
         </div>
-        <DatePickerInput
+        <DatePicker
+          picker="week"
           value={selectedWeek}
-          onChange={(val) => setSelectedWeek(val as Date | null)}
-          valueFormat="DD.MM.YYYY"
-          placeholder={`${t('truck.week')} ${weekNumber}, ${year}`}
+          onChange={(d) => { if (d) setSelectedWeek(d); }}
+          allowClear={false}
           style={{ width: 220 }}
+          placeholder={`${t('truck.week')} ${weekNumber}, ${year}`}
         />
-      </Group>
+      </Space>
 
-      <SimpleGrid cols={{ base: 2, sm: 2 + destinations.length }} mb="md">
-        <StatCard title={t('truck.total_trucks')} value={totalTrucks.toFixed(1)} color="blue" />
+      <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+        <Col xs={12} sm={colSpan}>
+          <StatCard title={t('truck.total_trucks')} value={totalTrucks.toFixed(1)} color="#1677ff" />
+        </Col>
         {destTotals.map((d) => (
-          <StatCard key={d.id} title={d.name} value={d.total} />
+          <Col key={d.id} xs={12} sm={colSpan}>
+            <StatCard title={d.name} value={d.total} />
+          </Col>
         ))}
-      </SimpleGrid>
+      </Row>
 
       {isError && (
-        <Alert color="red" mb="md">{t('truck.error_load')}</Alert>
+        <Alert type="error" message={t('truck.error_load')} style={{ marginBottom: 16 }} showIcon />
       )}
 
-      <DataTable
-        idAccessor="id"
-        records={rows}
+      <ProTable<IWeeklyTruckAllocation>
+        rowKey="id"
+        dataSource={rows}
         columns={columns}
-        fetching={isLoading}
-        noRecordsText={t('truck.empty') ?? 'Maglumat ýok'}
-        verticalSpacing="xs"
-        styles={{ header: { backgroundColor: '#f5f5f5', fontSize: 13 } }}
+        loading={isLoading}
+        search={false}
+        options={false}
+        pagination={false}
+        size="small"
+        locale={{ emptyText: t('truck.empty') }}
       />
     </div>
   );
