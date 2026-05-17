@@ -59,7 +59,7 @@ export function BlocksHeatmap({ period }: IBlocksHeatmapProps) {
             return (
               <Tooltip
                 key={block.block_code}
-                title={`${block.block_name}: ${block.actual_kg.toLocaleString()} / ${block.plan_kg.toLocaleString()} kg (${block.pct.toFixed(1)}%)`}
+                title={ariaLabel}
               >
                 <div
                   role="button"
