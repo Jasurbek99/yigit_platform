@@ -22,8 +22,8 @@ export default function ShipmentSheet() {
   const shipments = data?.shipments;
   const commentCounts = data?.comment_counts ?? {};
   const taskCounts = data?.task_counts ?? {};
-  const rows = data?.rows ?? [];
-  const rowSettings = data?.row_settings ?? {};
+  const rows = useMemo(() => data?.rows ?? [], [data?.rows]);
+  const rowSettings = useMemo(() => data?.row_settings ?? {}, [data?.row_settings]);
   const lastEdits = data?.last_edits ?? {};
   const currentUserLang = data?.current_user_lang ?? 'tk';
   // Phase 2a: per-user row preferences fetched from their own endpoint

@@ -46,6 +46,38 @@ export function CommentComposer({ shipmentId, parentComment = null, onSubmit }: 
     ? activeCell.rowKey
     : undefined;
 
+  const handleSubmit = useCallback(() => {
+    const trimmed = content.trim();
+    if (!trimmed || !shipmentId) return;
+
+    createMutation.mutate(
+      {
+        shipment: shipmentId,
+        content: trimmed,
+        field_key: fieldKey ?? null,
+        mentions: mentionIds,
+        role_mentions: roleMentions,
+        parent_comment: parentComment?.id ?? null,
+        assignee: isReply ? null : assignee,
+      },
+      {
+        onSuccess: () => {
+          setContent('');
+          setMentionIds([]);
+          setRoleMentions([]);
+          setAssignee(null);
+          if (assignee != null) {
+            toast.success(t('comments.toast_assigned'));
+          }
+          onSubmit?.();
+        },
+        onError: () => {
+          toast.error(t('comments.toast_create_error'));
+        },
+      },
+    );
+  }, [content, shipmentId, fieldKey, mentionIds, roleMentions, parentComment?.id, isReply, assignee, createMutation, t, onSubmit]);
+
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // Submit on Ctrl+Enter
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
@@ -74,7 +106,7 @@ export function CommentComposer({ shipmentId, parentComment = null, onSubmit }: 
         setPopoverOpen(false);
       }
     }
-  }, [popoverOpen]);
+  }, [popoverOpen, handleSubmit]);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
@@ -119,38 +151,6 @@ export function CommentComposer({ shipmentId, parentComment = null, onSubmit }: 
       textarea.setSelectionRange(newPos, newPos);
     }, 0);
   }, [content, triggerStart]);
-
-  const handleSubmit = () => {
-    const trimmed = content.trim();
-    if (!trimmed || !shipmentId) return;
-
-    createMutation.mutate(
-      {
-        shipment: shipmentId,
-        content: trimmed,
-        field_key: fieldKey ?? null,
-        mentions: mentionIds,
-        role_mentions: roleMentions,
-        parent_comment: parentComment?.id ?? null,
-        assignee: isReply ? null : assignee,
-      },
-      {
-        onSuccess: () => {
-          setContent('');
-          setMentionIds([]);
-          setRoleMentions([]);
-          setAssignee(null);
-          if (assignee != null) {
-            toast.success(t('comments.toast_assigned'));
-          }
-          onSubmit?.();
-        },
-        onError: () => {
-          toast.error(t('comments.toast_create_error'));
-        },
-      },
-    );
-  };
 
   const assigneeOptions = assigneeUsers.map((u) => ({ value: u.id, label: u.name }));
 

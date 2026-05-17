@@ -47,7 +47,7 @@ export function DebtBreakdown({ period: _period }: IDebtBreakdownProps) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Text strong style={{ fontSize: 14 }}>{t('boss_dashboard.section.debt')}</Text>
           {(data?.is_placeholder ?? true) && (
-            <Tag color="orange" style={{ fontSize: 10 }}>Demo</Tag>
+            <Tag color="orange" style={{ fontSize: 10 }}>{t('common.demo_badge')}</Tag>
           )}
         </div>
       }

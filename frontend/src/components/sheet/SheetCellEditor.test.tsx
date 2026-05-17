@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseNumberInput } from './SheetCellEditor';
+import { parseNumberInput } from './SheetCellEditor.helpers';
 
 // Locks the B.1 fix: typing literal `0` in a number cell MUST persist as 0,
 // not get coerced to null. Previously `Number(value) || null` was treating

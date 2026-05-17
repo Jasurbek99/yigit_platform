@@ -149,10 +149,10 @@ export default function StatusesTab({ canWrite }: IProps) {
             <Input />
           </Form.Item>
           <Form.Item name="required_role" label={t('shipment_settings.col_role')}>
-            <Input placeholder="e.g. document_team" />
+            <Input placeholder={t('shipment_settings.placeholder_status_role')} />
           </Form.Item>
           <Form.Item name="phase" label={t('shipment_settings.col_phase')}>
-            <Input placeholder="e.g. loading" />
+            <Input placeholder={t('shipment_settings.placeholder_status_phase')} />
           </Form.Item>
         </Form>
       </Modal>

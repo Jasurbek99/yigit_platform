@@ -6,7 +6,7 @@ import { ShipmentKanbanCard } from '@/components/kanban/ShipmentKanbanCard';
 import { CountrySelect } from '@/components/CountrySelect';
 import { CustomerSelect } from '@/components/CustomerSelect';
 import { useShipmentBoard, type IBoardFilters } from '@/hooks/useShipmentBoard';
-import { formatDuration } from '@/components/shipment/PhaseContextStrip';
+import { formatDuration } from '@/components/shipment/PhaseContextStrip.helpers';
 import type { ShipmentPhase } from '@/types';
 
 const { Title } = Typography;

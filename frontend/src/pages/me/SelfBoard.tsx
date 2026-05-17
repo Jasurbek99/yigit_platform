@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import {
   Alert,
   Badge,
@@ -33,7 +33,7 @@ import { useBlockTask, useUnblockTask } from '@/hooks/useTaskActions';
 import { KanbanColumn } from '@/components/kanban/KanbanColumn';
 import { SelfKanbanCard } from '@/components/kanban/SelfKanbanCard';
 import { SelfBoardTaskDrawer } from '@/components/kanban/SelfBoardTaskDrawer';
-import { formatDuration } from '@/components/shipment/PhaseContextStrip';
+import { formatDuration } from '@/components/shipment/PhaseContextStrip.helpers';
 import type { ITaskListItem, ShipmentPhase, TaskState } from '@/types';
 
 const { Title, Text } = Typography;
@@ -250,7 +250,7 @@ export default function SelfBoard() {
 
   // ── Derived task lists ───────────────────────────────────────────────────
 
-  const allTasks: ITaskListItem[] = tasksData?.results ?? [];
+  const allTasks: ITaskListItem[] = useMemo(() => tasksData?.results ?? [], [tasksData?.results]);
 
   const filteredTasks = allTasks.filter((task) => {
     if (phaseFilter && task.phase !== phaseFilter) return false;

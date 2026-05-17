@@ -35,6 +35,8 @@ export function BlocksHeatmap({ period }: IBlocksHeatmapProps) {
         <Skeleton active paragraph={{ rows: 4 }} />
       ) : (
         <div
+          role="group"
+          aria-label={t('boss_dashboard.heatmap_aria')}
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))',
@@ -46,13 +48,30 @@ export function BlocksHeatmap({ period }: IBlocksHeatmapProps) {
             const planLabel = block.plan_kg > 0
               ? `${((block.actual_kg / block.plan_kg) * 100).toFixed(0)}%`
               : '—';
+            const navigateToBlock = () => navigate(`/export/plan?block=${block.block_code}`);
+            const ariaLabel = t('boss_dashboard.heatmap_tile_aria', {
+              block: block.block_name,
+              actual: block.actual_kg.toLocaleString(),
+              plan: block.plan_kg.toLocaleString(),
+              pct: block.pct.toFixed(1),
+              band: t(`boss_dashboard.band_${block.color_band}`),
+            });
             return (
               <Tooltip
                 key={block.block_code}
                 title={`${block.block_name}: ${block.actual_kg.toLocaleString()} / ${block.plan_kg.toLocaleString()} kg (${block.pct.toFixed(1)}%)`}
               >
                 <div
-                  onClick={() => navigate(`/export/plan?block=${block.block_code}`)}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={ariaLabel}
+                  onClick={navigateToBlock}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      navigateToBlock();
+                    }
+                  }}
                   style={{
                     background: colors.bg,
                     borderRadius: 6,
@@ -64,13 +83,13 @@ export function BlocksHeatmap({ period }: IBlocksHeatmapProps) {
                   onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.opacity = '0.85'; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.opacity = '1'; }}
                 >
-                  <div style={{ fontSize: 11, color: colors.text, fontWeight: 600 }}>
+                  <div aria-hidden="true" style={{ fontSize: 11, color: colors.text, fontWeight: 600 }}>
                     {block.block_code}
                   </div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: colors.text, lineHeight: 1.2 }}>
+                  <div aria-hidden="true" style={{ fontSize: 14, fontWeight: 700, color: colors.text, lineHeight: 1.2 }}>
                     {planLabel}
                   </div>
-                  <div style={{ fontSize: 10, color: colors.text, opacity: 0.8, marginTop: 2 }}>
+                  <div aria-hidden="true" style={{ fontSize: 10, color: colors.text, opacity: 0.8, marginTop: 2 }}>
                     {(block.actual_kg / 1000).toFixed(1)}t
                   </div>
                 </div>

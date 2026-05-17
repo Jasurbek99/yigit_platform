@@ -38,7 +38,8 @@ import { useGreenhouseConfig } from '@/hooks/useGreenhouseConfig';
 import { useSeasons } from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
 import { useUiStore } from '@/stores/uiStore';
-import { getCurrentForecastWindow, HarvestCell, num, fmtKg } from '@/components/HarvestCell';
+import { HarvestCell } from '@/components/HarvestCell';
+import { getCurrentForecastWindow, num, fmtKg } from '@/components/HarvestCell.helpers';
 import { CellHistoryModal } from '@/components/CellHistoryModal';
 import type { IWeeklyHarvestPlan, IHarvestDayEntry } from '@/types';
 import { TruckAllocationTable } from './TruckAllocationTable';
@@ -93,7 +94,7 @@ export default function WeeklyPlanGrid() {
 
   // ─── Derived data ──────────────────────────────────────────────────────────
 
-  const myBlockIds = new Set(user?.managed_block_ids ?? []);
+  const myBlockIds = useMemo(() => new Set(user?.managed_block_ids ?? []), [user?.managed_block_ids]);
   const isBlockManager = user?.role === 'greenhouse_manager' && myBlockIds.size > 0;
   const isAdmin = user?.role === 'admin' || user?.role === 'director';
   const isAdminRole = user?.role === 'admin';
@@ -451,6 +452,7 @@ export default function WeeklyPlanGrid() {
           <Button
             icon={<LeftOutlined />}
             onClick={() => setSelectedWeek((w) => (w ?? dayjs()).subtract(1, 'week'))}
+            aria-label={t('plan.prev_week')}
           />
           <DatePicker
             picker="week"
@@ -462,6 +464,7 @@ export default function WeeklyPlanGrid() {
           <Button
             icon={<RightOutlined />}
             onClick={() => setSelectedWeek((w) => (w ?? dayjs()).add(1, 'week'))}
+            aria-label={t('plan.next_week')}
           />
           {plans.length > 0 && (
             <Button

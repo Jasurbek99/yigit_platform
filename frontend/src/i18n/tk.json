@@ -33,6 +33,7 @@
     "boss": "Başlyk"
   },
   "nav": {
+    "brand_name": "YGT Platform",
     "dashboard": "Baş sahypa",
     "shipments": "Ýükler",
     "kanban": "Kanban",
@@ -102,6 +103,8 @@
   "plan": {
     "title": "Hepdäniň hasyly meýilnamasy",
     "week": "Hepde",
+    "prev_week": "Öňki hepde",
+    "next_week": "Indiki hepde",
     "blocks": "blok",
     "block": "Blok",
     "monday": "Duş",
@@ -266,6 +269,10 @@
     "input_unit": "Giriz birligi"
   },
   "quota_usage": {
+    "prev_month": "Öňki aý",
+    "next_month": "Indiki aý",
+    "view_grid": "Tor görnüşi",
+    "view_list": "Sanaw görnüşi",
     "date": "Sene",
     "firm": "Firma",
     "cargo_code": "Eksport kody",
@@ -291,6 +298,7 @@
     "grid_add_row": "Setir goş"
   },
   "local_sell": {
+    "double_click_hint": "Üýtgetmek üçin iki gezek basyň",
     "firm": "Firma",
     "total": "Jemi",
     "firms_count": "Firmalar",
@@ -314,6 +322,7 @@
   },
   "prices": {
     "title": "Bazar bahalary",
+    "subtitle": "Ugurlar boýunça bahalar paneli",
     "city": "Şäher",
     "days_7": "7 gün",
     "days_14": "14 gün",
@@ -527,6 +536,7 @@
   },
   "overdue": {
     "title": "Möhleti geçen hasabatlar",
+    "subtitle": "Satyldy emma hasabat iberilmedik ýükler",
     "total_overdue": "Jemi möhleti geçen",
     "avg_days": "Ort. gün",
     "critical": "Kritik (>14g)",
@@ -546,6 +556,7 @@
     "error_load": "Möhleti geçen maglumatlary ýükläp bolmady"
   },
   "advances": {
+    "batch_code_placeholder": "ADV-2026-XXX",
     "title": "Avanslary yzarlamak",
     "total_advances": "Jemi avanslar",
     "total_amount": "Jemi möçber",
@@ -612,6 +623,10 @@
     "toast_deleted": "Ugur pozuldy"
   },
   "shipment_settings": {
+    "placeholder_status_role": "myş. document_team",
+    "placeholder_status_phase": "myş. loading",
+    "placeholder_option_code": "myş. OK",
+    "placeholder_option_icon": "myş. check-circle",
     "title": "Ýük Sazlamalary",
     "subtitle": "Ýük statuslaryny, serhet nokatlaryny we saýlaw sanawlaryny dolandyryň",
     "tab_statuses": "Statuslar",
@@ -650,6 +665,10 @@
     "category_transport_responsible": "Transport jogapkäri"
   },
   "sheet_rows": {
+    "placeholder_field_key": "kz_remarks",
+    "placeholder_label_en": "Remarks",
+    "placeholder_label_ru": "Замечания",
+    "placeholder_label_tk": "Bellikler",
     "col_num": "#",
     "col_field": "Meýdan",
     "col_default_who": "Kim (deslapky)",
@@ -899,6 +918,7 @@
     "kind_task_done": "Wezipäňiz ýerine ýetirildi"
   },
   "common": {
+    "demo_badge": "Demo",
     "empty": "—",
     "loading": "Ýüklenýär...",
     "cancel": "Ýatyr",
@@ -1455,6 +1475,14 @@
     "no_data": "Maglumat ýok",
     "prev_season": "Öňki möwsüm",
     "placeholder_p4": "Demo — P4 Contracts gerek",
+    "revenue_chart_aria": "Hepdelik girdeji, häzirki we öňki möwsüm deňeşdirmesi",
+    "heatmap_aria": "Bloklaryň hasyl ýerine ýetiriş ýylylyk kartasy",
+    "heatmap_tile_aria": "Blok {{block}}: {{plan}} kg-dan {{actual}}, {{pct}}%, {{band}}",
+    "band_excellent": "Ajaýyp",
+    "band_good": "Gowy",
+    "band_ok": "Kabul ederlik",
+    "band_warn": "Duýduryş",
+    "band_alert": "Howply",
     "period": {
       "today": "Şu gün",
       "week": "Hepde",
@@ -1513,7 +1541,9 @@
       "routes": "Marşrutlar",
       "blocks": "Bloklar",
       "seasons_compare": "Möwsüm deňeşdirmesi",
-      "audit": "Audit"
+      "audit": "Audit",
+      "excel": "Excel",
+      "pdf": "PDF"
     },
     "production": {
       "header_block": "Ýyladyşhana",
@@ -1955,6 +1985,8 @@
   "audit_log": {
     "title": "Audit Žurnaly",
     "subtitle": "Status üýtgemelerini, döretmek we täzelemek hereketlerini görkezýän üýtgewsiz ýazgy.",
+    "placeholder_model": "Shipment",
+    "placeholder_object_id": "123",
     "col_created_at": "Wagty",
     "col_action": "Hereket",
     "col_user": "Ulanyjy",

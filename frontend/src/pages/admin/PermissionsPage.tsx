@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import {
   Tabs,
   Card,
@@ -180,7 +180,7 @@ function PageVisibilityTab() {
   const [draft, setDraft] = useState<Record<string, Record<string, boolean>> | null>(null);
 
   // Initialize draft from server data
-  const matrix = draft ?? data?.matrix ?? {};
+  const matrix = useMemo(() => draft ?? data?.matrix ?? {}, [draft, data?.matrix]);
 
   const handleToggle = useCallback((role: string, pageCode: string, checked: boolean) => {
     setDraft((prev) => {
@@ -269,7 +269,7 @@ function ResourcePermissionsTab() {
   type PermFlags = { view: boolean; create: boolean; edit: boolean; delete: boolean };
   const [draft, setDraft] = useState<Record<string, Record<string, PermFlags>> | null>(null);
 
-  const matrix = draft ?? data?.matrix ?? {};
+  const matrix = useMemo(() => draft ?? data?.matrix ?? {}, [draft, data?.matrix]);
 
   const handleToggle = useCallback((role: string, resourceCode: string, action: keyof PermFlags, checked: boolean) => {
     setDraft((prev) => {
@@ -384,9 +384,10 @@ function FieldPermissionsTab() {
 
   const resourceFields = data?.resource_fields ?? {};
   const fields = selectedResource ? (resourceFields[selectedResource] ?? []) : [];
-  const currentMatrix = selectedResource
-    ? (draft ?? data?.matrix?.[selectedResource] ?? {})
-    : {};
+  const currentMatrix = useMemo(
+    () => (selectedResource ? (draft ?? data?.matrix?.[selectedResource] ?? {}) : {}),
+    [selectedResource, draft, data?.matrix],
+  );
 
   const roles = data?.roles ?? [];
 

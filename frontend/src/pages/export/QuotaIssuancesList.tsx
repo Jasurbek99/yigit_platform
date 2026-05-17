@@ -5,16 +5,9 @@ import { useQuotaIssuances, useDeleteQuotaIssuance } from '@/hooks/useQuotaDashb
 import { useAuth } from '@/hooks/useAuth';
 import { canDo } from '@/utils/permissions';
 import { fmtWeight, weightSuffix, type WeightUnit } from '@/utils/weight';
+import { computeExpiry } from './QuotaIssuancesList.helpers';
 
 const { Text } = Typography;
-
-export function computeExpiry(issueDate: string, validity: string): dayjs.Dayjs {
-  const d = dayjs(issueDate);
-  if (validity === 'this_month') return d.endOf('month');
-  if (validity === 'next_month') return d.add(1, 'month').endOf('month');
-  if (validity === 'this_and_next') return d.add(1, 'month').endOf('month');
-  return d.endOf('month'); // safe fallback
-}
 
 type QuotaRowStatus = 'active' | 'expiring' | 'expired';
 const STATUS_CONFIG: Record<QuotaRowStatus, { color: string }> = {

@@ -131,20 +131,20 @@ function CustomRowModal({ open, onClose }: ICustomRowModalProps) {
           ]}
           extra={t('sheet_rows.custom_slug_hint')}
         >
-          <Input addonBefore="custom_" placeholder="kz_remarks" />
+          <Input addonBefore="custom_" placeholder={t('sheet_rows.placeholder_field_key')} />
         </Form.Item>
         <Form.Item
           label={t('sheet_rows.custom_label_en')}
           name="label_en"
           rules={[{ required: true, message: t('sheet_rows.custom_label_required') }]}
         >
-          <Input placeholder="Remarks" />
+          <Input placeholder={t('sheet_rows.placeholder_label_en')} />
         </Form.Item>
         <Form.Item label={t('sheet_rows.custom_label_ru')} name="label_ru">
-          <Input placeholder="Замечания" />
+          <Input placeholder={t('sheet_rows.placeholder_label_ru')} />
         </Form.Item>
         <Form.Item label={t('sheet_rows.custom_label_tk')} name="label_tk">
-          <Input placeholder="Bellikler" />
+          <Input placeholder={t('sheet_rows.placeholder_label_tk')} />
         </Form.Item>
       </Form>
     </Modal>

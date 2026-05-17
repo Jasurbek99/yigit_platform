@@ -108,8 +108,9 @@ export function ScreenshotInput({
 
   // Revoke all remaining URLs on unmount.
   useEffect(() => {
+    const urls = objectUrlsRef.current;
     return () => {
-      for (const url of objectUrlsRef.current.values()) {
+      for (const url of urls.values()) {
         URL.revokeObjectURL(url);
       }
     };
@@ -262,7 +263,7 @@ export function ScreenshotInput({
       restoreOverlays();
 
       if (!blob) {
-        // eslint-disable-next-line no-console
+         
         console.error('feedback: capture produced empty blob');
         toast.error(t('feedback.attachment.capture_failed'));
         return;
@@ -273,7 +274,7 @@ export function ScreenshotInput({
       });
       addFileSingle(file);
     } catch (err) {
-      // eslint-disable-next-line no-console
+       
       console.error('feedback: html-to-image capture failed', err);
       restoreOverlays();
       toast.error(t('feedback.attachment.capture_failed'));

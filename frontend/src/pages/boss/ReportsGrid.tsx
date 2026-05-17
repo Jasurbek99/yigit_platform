@@ -77,7 +77,7 @@ export function ReportsGrid() {
                 onClick={() => handleExcel(tile.section)}
                 style={{ flex: 1 }}
               >
-                Excel
+                {t('boss_dashboard.reports.excel')}
               </Button>
               <Button
                 size="small"
@@ -85,7 +85,7 @@ export function ReportsGrid() {
                 onClick={() => handlePdf(tile.section)}
                 style={{ flex: 1 }}
               >
-                PDF
+                {t('boss_dashboard.reports.pdf')}
               </Button>
             </div>
           </div>

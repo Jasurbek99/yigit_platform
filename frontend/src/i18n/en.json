@@ -33,6 +33,7 @@
     "boss": "Boss"
   },
   "nav": {
+    "brand_name": "YGT Platform",
     "dashboard": "Dashboard",
     "shipments": "Shipments",
     "kanban": "Kanban",
@@ -102,6 +103,8 @@
   "plan": {
     "title": "Weekly Harvest Plan",
     "week": "Week",
+    "prev_week": "Previous week",
+    "next_week": "Next week",
     "blocks": "blocks",
     "block": "Block",
     "monday": "Mon",
@@ -266,6 +269,10 @@
     "input_unit": "Input unit"
   },
   "quota_usage": {
+    "prev_month": "Previous month",
+    "next_month": "Next month",
+    "view_grid": "Grid view",
+    "view_list": "List view",
     "date": "Date",
     "firm": "Firm",
     "cargo_code": "Export Code",
@@ -291,6 +298,7 @@
     "grid_add_row": "Add row"
   },
   "local_sell": {
+    "double_click_hint": "Double-click to edit",
     "firm": "Firm",
     "total": "Total",
     "firms_count": "Firms",
@@ -314,6 +322,7 @@
   },
   "prices": {
     "title": "Market Prices",
+    "subtitle": "Daily price panel by route",
     "city": "City",
     "days_7": "7 days",
     "days_14": "14 days",
@@ -527,6 +536,7 @@
   },
   "overdue": {
     "title": "Overdue Reports",
+    "subtitle": "Shipments sold but with no sales report yet",
     "total_overdue": "Total Overdue",
     "avg_days": "Avg. Days",
     "critical": "Critical (>14d)",
@@ -546,6 +556,7 @@
     "error_load": "Failed to load overdue data"
   },
   "advances": {
+    "batch_code_placeholder": "ADV-2026-XXX",
     "title": "Advances Tracker",
     "total_advances": "Total Advances",
     "total_amount": "Total Amount",
@@ -612,6 +623,10 @@
     "toast_deleted": "Destination deleted"
   },
   "shipment_settings": {
+    "placeholder_status_role": "e.g. document_team",
+    "placeholder_status_phase": "e.g. loading",
+    "placeholder_option_code": "e.g. OK",
+    "placeholder_option_icon": "e.g. check-circle",
     "title": "Shipment Settings",
     "subtitle": "Manage shipment lifecycle statuses, border points and option lists",
     "tab_statuses": "Shipment Statuses",
@@ -650,6 +665,10 @@
     "category_transport_responsible": "Transport Responsible"
   },
   "sheet_rows": {
+    "placeholder_field_key": "kz_remarks",
+    "placeholder_label_en": "Remarks",
+    "placeholder_label_ru": "Замечания",
+    "placeholder_label_tk": "Bellikler",
     "col_num": "#",
     "col_field": "Field",
     "col_default_who": "Default Who",
@@ -899,6 +918,7 @@
     "kind_task_done": "Your task was marked done"
   },
   "common": {
+    "demo_badge": "Demo",
     "empty": "—",
     "loading": "Loading...",
     "cancel": "Cancel",
@@ -1451,6 +1471,14 @@
     "no_data": "No data",
     "prev_season": "Previous season",
     "placeholder_p4": "Demo — needs P4 Contracts",
+    "revenue_chart_aria": "Revenue by week, current versus previous season",
+    "heatmap_aria": "Block harvest performance heatmap",
+    "heatmap_tile_aria": "Block {{block}}: {{actual}} of {{plan}} kg, {{pct}}%, {{band}}",
+    "band_excellent": "Excellent",
+    "band_good": "Good",
+    "band_ok": "OK",
+    "band_warn": "Warning",
+    "band_alert": "Alert",
     "period": {
       "today": "Today",
       "week": "Week",
@@ -1509,7 +1537,9 @@
       "routes": "Routes",
       "blocks": "Blocks",
       "seasons_compare": "Season Comparison",
-      "audit": "Audit"
+      "audit": "Audit",
+      "excel": "Excel",
+      "pdf": "PDF"
     },
     "production": {
       "header_block": "Greenhouse",
@@ -1951,6 +1981,8 @@
   "audit_log": {
     "title": "Audit Log",
     "subtitle": "Immutable record of every status transition, create, and update.",
+    "placeholder_model": "Shipment",
+    "placeholder_object_id": "123",
     "col_created_at": "When",
     "col_action": "Action",
     "col_user": "User",

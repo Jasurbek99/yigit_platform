@@ -1,14 +1,31 @@
 import { useState } from 'react';
-import { Alert, Badge, Button, Group, Modal as MantineModal, Select, Stack, Switch, Text } from '@mantine/core';
-import { useForm } from '@mantine/form';
+import {
+  Alert,
+  Button,
+  Form,
+  Input,
+  Modal,
+  Select,
+  Space,
+  Switch,
+  Tag,
+  Typography,
+} from 'antd';
+import { ProTable, type ProColumns } from '@ant-design/pro-components';
 import { IconUsers } from '@tabler/icons-react';
-import { DataTable } from 'mantine-datatable';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Form, Input, Modal, Select as AntSelect, Switch as AntSwitch } from 'antd';
-import { useAdminUsers, useUpdateUserRole, useCreateUser, useDeleteUser, useSetUserPassword } from '@/hooks/useAdmin';
+import {
+  useAdminUsers,
+  useUpdateUserRole,
+  useCreateUser,
+  useDeleteUser,
+  useSetUserPassword,
+} from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
 import type { IAdminUser, UserRole } from '@/types';
+
+const { Text } = Typography;
 
 const ALL_ROLES: UserRole[] = [
   'admin',
@@ -27,7 +44,7 @@ const ALL_ROLES: UserRole[] = [
   'boss',
 ];
 
-interface UserEditFormValues {
+interface IUserEditFormValues {
   role: UserRole | null;
   is_active: boolean;
 }
@@ -38,15 +55,15 @@ const ROLE_COLORS: Record<UserRole, string> = {
   loading_dept_head: 'gold',
   warehouse_chief: 'cyan',
   weight_master: 'geekblue',
-  document_team: 'indigo',
+  document_team: 'blue',
   transport: 'orange',
   sales_rep: 'green',
-  finansist: 'yellow',
+  finansist: 'gold',
   director: 'volcano',
-  accountant: 'violet',
+  accountant: 'purple',
   greenhouse_manager: 'lime',
-  seller: 'teal',
-  boss: 'purple',
+  seller: 'cyan',
+  boss: 'magenta',
 };
 
 export default function UsersPage() {
@@ -55,27 +72,16 @@ export default function UsersPage() {
   const isAdmin = currentUser?.role === 'admin' || currentUser?.is_superuser === true;
   const isSuperuser = currentUser?.is_superuser === true;
 
-  const [modalOpen, setModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<IAdminUser | null>(null);
+  const [editForm] = Form.useForm<IUserEditFormValues>();
 
-  // ─── Superuser: create user state ────────────────────────────────────────
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [createForm] = Form.useForm();
 
-  // ─── Superuser: reset password state ─────────────────────────────────────
   const [passwordTarget, setPasswordTarget] = useState<IAdminUser | null>(null);
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const [passwordForm] = Form.useForm();
-
-  const form = useForm<UserEditFormValues>({
-    initialValues: {
-      role: null,
-      is_active: true,
-    },
-    validate: {
-      role: (v) => (!v ? t('common.required') : null),
-    },
-  });
 
   const { data, isLoading, isError } = useAdminUsers();
   const rows = data ?? [];
@@ -83,8 +89,8 @@ export default function UsersPage() {
   const updateMutation = useUpdateUserRole({
     onSuccess: () => {
       toast.success(t('users_admin.toast_updated'));
-      setModalOpen(false);
-      form.reset();
+      setEditModalOpen(false);
+      editForm.resetFields();
     },
     onError: () => toast.error(t('users_admin.toast_error')),
   });
@@ -115,33 +121,19 @@ export default function UsersPage() {
 
   function handleOpenEdit(record: IAdminUser) {
     setEditTarget(record);
-    form.setValues({ role: record.role, is_active: record.is_active });
-    setModalOpen(true);
+    editForm.setFieldsValue({ role: record.role, is_active: record.is_active });
+    setEditModalOpen(true);
   }
 
-  function handleSubmit() {
-    const result = form.validate();
-    if (result.hasErrors || !editTarget || !form.values.role) return;
-    updateMutation.mutate({ id: editTarget.id, role: form.values.role, is_active: form.values.is_active });
-  }
-
-  function handleCreateSubmit() {
-    createForm.validateFields().then((values) => {
-      createUser.mutate(values);
-    });
+  function handleEditSubmit(values: IUserEditFormValues) {
+    if (!editTarget || !values.role) return;
+    updateMutation.mutate({ id: editTarget.id, role: values.role, is_active: values.is_active });
   }
 
   function handleOpenPasswordModal(record: IAdminUser) {
     setPasswordTarget(record);
     passwordForm.resetFields();
     setPasswordModalOpen(true);
-  }
-
-  function handlePasswordSubmit() {
-    if (!passwordTarget) return;
-    passwordForm.validateFields().then((values) => {
-      setPassword.mutate({ id: passwordTarget.id, password: values.password });
-    });
   }
 
   function handleDeleteConfirm(record: IAdminUser) {
@@ -155,106 +147,130 @@ export default function UsersPage() {
     });
   }
 
-  const columns = [
+  const columns: ProColumns<IAdminUser>[] = [
     {
-      accessor: 'username' as keyof IAdminUser,
       title: t('users_admin.username'),
+      dataIndex: 'username',
       width: 130,
+      search: false,
+      sorter: (a, b) => a.username.localeCompare(b.username),
+      defaultSortOrder: 'ascend',
     },
     {
-      accessor: 'first_name' as keyof IAdminUser,
       title: t('users_admin.name'),
+      dataIndex: 'first_name',
       width: 160,
-      render: (record: IAdminUser) =>
+      search: false,
+      sorter: (a, b) =>
+        `${a.first_name ?? ''} ${a.last_name ?? ''}`
+          .trim()
+          .localeCompare(`${b.first_name ?? ''} ${b.last_name ?? ''}`.trim()),
+      render: (_, record) =>
         [record.first_name, record.last_name].filter(Boolean).join(' ') || (
           <span style={{ color: '#bfbfbf' }}>{t('common.empty')}</span>
         ),
     },
     {
-      accessor: 'email' as keyof IAdminUser,
       title: t('users_admin.email'),
+      dataIndex: 'email',
       width: 200,
-      render: (record: IAdminUser) =>
+      search: false,
+      sorter: (a, b) => (a.email ?? '').localeCompare(b.email ?? ''),
+      render: (_, record) =>
         record.email
           ? record.email
           : <span style={{ color: '#bfbfbf' }}>{t('common.empty')}</span>,
     },
     {
-      accessor: 'role' as keyof IAdminUser,
       title: t('users_admin.role'),
+      dataIndex: 'role',
       width: 160,
-      render: (record: IAdminUser) => (
-        <Badge variant="light" color={ROLE_COLORS[record.role] ?? 'gray'}>
+      search: false,
+      sorter: (a, b) => a.role.localeCompare(b.role),
+      render: (_, record) => (
+        <Tag color={ROLE_COLORS[record.role] ?? 'default'}>
           {t(`roles.${record.role}`)}
-        </Badge>
+        </Tag>
       ),
     },
     {
-      accessor: 'is_active' as keyof IAdminUser,
       title: t('users_admin.is_active'),
+      dataIndex: 'is_active',
       width: 90,
-      render: (record: IAdminUser) =>
+      search: false,
+      sorter: (a, b) => {
+        const diff = (b.is_active ? 1 : 0) - (a.is_active ? 1 : 0);
+        if (diff !== 0) return diff;
+        return a.username.localeCompare(b.username);
+      },
+      render: (_, record) =>
         record.is_active ? (
-          <Badge variant="light" color="green">{t('common.yes')}</Badge>
+          <Tag color="green">{t('common.yes')}</Tag>
         ) : (
-          <Badge variant="light" color="gray">{t('common.no')}</Badge>
+          <Tag color="default">{t('common.no')}</Tag>
         ),
     },
     ...(isAdmin
       ? [
           {
-            accessor: 'id' as keyof IAdminUser,
             title: '',
+            key: 'edit',
             width: 100,
-            render: (record: IAdminUser) => (
-              <Button variant="subtle" size="compact-xs" onClick={(e) => { e.stopPropagation(); handleOpenEdit(record); }}>
+            search: false,
+            render: (_: unknown, record: IAdminUser) => (
+              <Button
+                type="link"
+                size="small"
+                onClick={(e) => { e.stopPropagation(); handleOpenEdit(record); }}
+              >
                 {t('users_admin.edit_role')}
               </Button>
             ),
-          },
+          } as ProColumns<IAdminUser>,
         ]
       : []),
     ...(isSuperuser
       ? [
           {
-            accessor: '_pw' as keyof IAdminUser,
             title: '',
+            key: 'password',
             width: 120,
-            render: (record: IAdminUser) => (
+            search: false,
+            render: (_: unknown, record: IAdminUser) => (
               <Button
-                variant="subtle"
-                size="compact-xs"
-                color="orange"
+                type="link"
+                size="small"
+                style={{ color: '#fa8c16' }}
                 onClick={(e) => { e.stopPropagation(); handleOpenPasswordModal(record); }}
               >
                 {t('users_admin.reset_password')}
               </Button>
             ),
-          },
+          } as ProColumns<IAdminUser>,
           {
-            accessor: '_del' as keyof IAdminUser,
             title: '',
+            key: 'delete',
             width: 80,
-            render: (record: IAdminUser) =>
+            search: false,
+            render: (_: unknown, record: IAdminUser) =>
               record.id === currentUser?.id ? null : (
                 <Button
-                  variant="subtle"
-                  size="compact-xs"
-                  color="red"
+                  type="link"
+                  size="small"
+                  danger
                   onClick={(e) => { e.stopPropagation(); handleDeleteConfirm(record); }}
                 >
                   {t('users_admin.delete_btn')}
                 </Button>
               ),
-          },
+          } as ProColumns<IAdminUser>,
         ]
       : []),
   ];
 
   return (
     <div>
-      {/* Page Header */}
-      <Group justify="space-between" align="flex-start" mb="lg">
+      <Space style={{ width: '100%', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
           <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: '#1f1f1f', lineHeight: '1.3', display: 'flex', alignItems: 'center', gap: 8 }}>
             <IconUsers size={18} color="#1677ff" />
@@ -266,78 +282,89 @@ export default function UsersPage() {
         </div>
         {isSuperuser && (
           <Button
-            variant="filled"
-            size="compact-sm"
+            type="primary"
             onClick={() => { createForm.resetFields(); setCreateModalOpen(true); }}
           >
             {t('users_admin.create')}
           </Button>
         )}
-      </Group>
+      </Space>
 
       {isError && (
-        <Alert color="red" mb="md">{t('users_admin.error_load')}</Alert>
+        <Alert type="error" message={t('users_admin.error_load')} showIcon style={{ marginBottom: 16 }} />
       )}
 
-      <DataTable
-        idAccessor="id"
-        records={rows}
+      <ProTable<IAdminUser>
+        rowKey="id"
+        dataSource={rows}
         columns={columns}
-        fetching={isLoading}
-        noRecordsText={t('users_admin.empty') ?? 'Maglumat ýok'}
-        verticalSpacing="xs"
-        styles={{ header: { backgroundColor: '#f5f5f5', fontSize: 13 } }}
+        loading={isLoading}
+        search={false}
+        options={false}
+        pagination={{ pageSize: 50, showSizeChanger: false }}
+        size="small"
+        locale={{ emptyText: t('users_admin.empty') }}
       />
 
-      <MantineModal
-        opened={modalOpen}
-        onClose={() => { setModalOpen(false); form.reset(); }}
+      <Modal
+        open={editModalOpen}
+        onCancel={() => { setEditModalOpen(false); editForm.resetFields(); }}
         title={t('users_admin.edit_role')}
+        footer={null}
+        destroyOnClose
       >
         {editTarget && (
-          <Text size="sm" mb="md" c="dimmed">
+          <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
             <strong>{editTarget.username}</strong>
             {editTarget.first_name || editTarget.last_name
               ? ` — ${[editTarget.first_name, editTarget.last_name].filter(Boolean).join(' ')}`
               : ''}
           </Text>
         )}
-        <Stack>
-          <Select
+        <Form<IUserEditFormValues>
+          form={editForm}
+          layout="vertical"
+          onFinish={handleEditSubmit}
+        >
+          <Form.Item
+            name="role"
             label={t('users_admin.role')}
-            data={ALL_ROLES.map((r) => ({ value: r, label: t(`roles.${r}`) }))}
-            {...form.getInputProps('role')}
-          />
-          <Switch
-            label={t('users_admin.is_active')}
-            {...form.getInputProps('is_active', { type: 'checkbox' })}
-          />
-          <Group justify="flex-end" mt="md">
-            <Button variant="default" onClick={() => { setModalOpen(false); form.reset(); }}>
+            rules={[{ required: true, message: t('common.required') }]}
+          >
+            <Select
+              options={ALL_ROLES.map((r) => ({ value: r, label: t(`roles.${r}`) }))}
+            />
+          </Form.Item>
+          <Form.Item name="is_active" label={t('users_admin.is_active')} valuePropName="checked">
+            <Switch />
+          </Form.Item>
+          <Space style={{ width: '100%', justifyContent: 'flex-end', marginTop: 8 }}>
+            <Button onClick={() => { setEditModalOpen(false); editForm.resetFields(); }}>
               {t('common.cancel')}
             </Button>
-            <Button
-              loading={updateMutation.isPending}
-              onClick={handleSubmit}
-            >
+            <Button type="primary" htmlType="submit" loading={updateMutation.isPending}>
               {t('common.save')}
             </Button>
-          </Group>
-        </Stack>
-      </MantineModal>
+          </Space>
+        </Form>
+      </Modal>
 
-      {/* ── Superuser: Create User Modal (Ant Design) ─────────────────── */}
       <Modal
         title={t('users_admin.create_title')}
         open={createModalOpen}
         onCancel={() => { setCreateModalOpen(false); createForm.resetFields(); }}
-        onOk={handleCreateSubmit}
+        onOk={() => createForm.submit()}
         okText={t('users_admin.create_title')}
         cancelText={t('common.cancel')}
         confirmLoading={createUser.isPending}
-        destroyOnHidden
+        destroyOnClose
       >
-        <Form form={createForm} layout="vertical" style={{ marginTop: 8 }}>
+        <Form
+          form={createForm}
+          layout="vertical"
+          onFinish={(values) => createUser.mutate(values)}
+          style={{ marginTop: 8 }}
+        >
           <Form.Item
             name="username"
             label={t('users_admin.username')}
@@ -369,31 +396,37 @@ export default function UsersPage() {
             label={t('users_admin.role')}
             rules={[{ required: true, message: t('common.required') }]}
           >
-            <AntSelect
+            <Select
               options={ALL_ROLES.map((r) => ({ value: r, label: t(`roles.${r}`) }))}
             />
           </Form.Item>
           <Form.Item name="is_active" label={t('users_admin.is_active')} valuePropName="checked" initialValue={true}>
-            <AntSwitch />
+            <Switch />
           </Form.Item>
         </Form>
       </Modal>
 
-      {/* ── Superuser: Set Password Modal (Ant Design) ────────────────── */}
       <Modal
         title={t('users_admin.reset_password_title', { username: passwordTarget?.username ?? '' })}
         open={passwordModalOpen}
         onCancel={() => { setPasswordModalOpen(false); setPasswordTarget(null); passwordForm.resetFields(); }}
-        onOk={handlePasswordSubmit}
+        onOk={() => passwordForm.submit()}
         okText={t('users_admin.set')}
         cancelText={t('common.cancel')}
         confirmLoading={setPassword.isPending}
-        destroyOnHidden
+        destroyOnClose
       >
         <p style={{ fontSize: 13, color: '#8c8c8c', marginBottom: 12 }}>
           {t('users_admin.reset_password_hint')}
         </p>
-        <Form form={passwordForm} layout="vertical">
+        <Form
+          form={passwordForm}
+          layout="vertical"
+          onFinish={(values) => {
+            if (!passwordTarget) return;
+            setPassword.mutate({ id: passwordTarget.id, password: values.password });
+          }}
+        >
           <Form.Item
             name="password"
             label={t('users_admin.new_password')}

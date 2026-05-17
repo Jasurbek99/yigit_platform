@@ -35,7 +35,7 @@ export function FirmRiskMatrix({ period }: IFirmRiskMatrixProps) {
       title: (
         <span>
           {t('boss_dashboard.risk_matrix.col_debt')}
-          <Tag color="orange" style={{ fontSize: 9, marginLeft: 4 }}>Demo</Tag>
+          <Tag color="orange" style={{ fontSize: 9, marginLeft: 4 }}>{t('common.demo_badge')}</Tag>
         </span>
       ),
       dataIndex: 'debt_usd',

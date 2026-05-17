@@ -427,7 +427,7 @@ export default function AppLayout() {
           {!collapsed && (
             <div>
               <div style={{ color: '#fff', fontWeight: 600, fontSize: 15, lineHeight: 1.2, letterSpacing: '-0.01em' }}>
-                YGT Platform
+                {t('nav.brand_name')}
               </div>
               <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11 }}>
                 {t('nav.sidebar_tagline')}

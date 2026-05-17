@@ -33,6 +33,7 @@
     "boss": "Босс"
   },
   "nav": {
+    "brand_name": "YGT Platform",
     "dashboard": "Главная",
     "shipments": "Отгрузки",
     "kanban": "Канбан",
@@ -104,6 +105,8 @@
   "plan": {
     "title": "Недельный план сбора",
     "week": "Неделя",
+    "prev_week": "Предыдущая неделя",
+    "next_week": "Следующая неделя",
     "blocks": "блоков",
     "block": "Блок",
     "monday": "Пн",
@@ -268,6 +271,10 @@
     "input_unit": "Единица ввода"
   },
   "quota_usage": {
+    "prev_month": "Предыдущий месяц",
+    "next_month": "Следующий месяц",
+    "view_grid": "Сетка",
+    "view_list": "Список",
     "date": "Дата",
     "firm": "Фирма",
     "cargo_code": "Экспортный код",
@@ -293,6 +300,7 @@
     "grid_add_row": "Добавить строку"
   },
   "local_sell": {
+    "double_click_hint": "Двойной клик для редактирования",
     "firm": "Фирма",
     "total": "Итого",
     "firms_count": "Фирмы",
@@ -316,6 +324,7 @@
   },
   "prices": {
     "title": "Рыночные цены",
+    "subtitle": "Ежедневные цены по маршрутам",
     "city": "Город",
     "days_7": "7 дней",
     "days_14": "14 дней",
@@ -529,6 +538,7 @@
   },
   "overdue": {
     "title": "Просроченные отчёты",
+    "subtitle": "Отгрузки проданы, но отчёт о продаже ещё не отправлен",
     "total_overdue": "Всего просрочено",
     "avg_days": "Ср. дней",
     "critical": "Критич. (>14д)",
@@ -548,6 +558,7 @@
     "error_load": "Не удалось загрузить данные"
   },
   "advances": {
+    "batch_code_placeholder": "ADV-2026-XXX",
     "title": "Отслеживание авансов",
     "total_advances": "Всего авансов",
     "total_amount": "Общая сумма",
@@ -614,6 +625,10 @@
     "toast_deleted": "Направление удалено"
   },
   "shipment_settings": {
+    "placeholder_status_role": "напр. document_team",
+    "placeholder_status_phase": "напр. loading",
+    "placeholder_option_code": "напр. OK",
+    "placeholder_option_icon": "напр. check-circle",
     "title": "Настройки Отгрузок",
     "subtitle": "Управление статусами, пограничными пунктами и списками опций",
     "tab_statuses": "Статусы",
@@ -652,6 +667,10 @@
     "category_transport_responsible": "Ответственный за транспорт"
   },
   "sheet_rows": {
+    "placeholder_field_key": "kz_remarks",
+    "placeholder_label_en": "Remarks",
+    "placeholder_label_ru": "Замечания",
+    "placeholder_label_tk": "Bellikler",
     "col_num": "#",
     "col_field": "Поле",
     "col_default_who": "Кто (по умолч.)",
@@ -901,6 +920,7 @@
     "kind_task_done": "Ваша задача выполнена"
   },
   "common": {
+    "demo_badge": "Демо",
     "empty": "—",
     "loading": "Загрузка...",
     "cancel": "Отмена",
@@ -1453,6 +1473,14 @@
     "no_data": "Нет данных",
     "prev_season": "Прошлый сезон",
     "placeholder_p4": "Демо — нужен P4 Contracts",
+    "revenue_chart_aria": "Выручка по неделям, текущий и прошлый сезон",
+    "heatmap_aria": "Тепловая карта урожая по блокам",
+    "heatmap_tile_aria": "Блок {{block}}: {{actual}} из {{plan}} кг, {{pct}}%, {{band}}",
+    "band_excellent": "Отлично",
+    "band_good": "Хорошо",
+    "band_ok": "Норма",
+    "band_warn": "Внимание",
+    "band_alert": "Тревога",
     "period": {
       "today": "Сегодня",
       "week": "Неделя",
@@ -1511,7 +1539,9 @@
       "routes": "Маршруты",
       "blocks": "Блоки",
       "seasons_compare": "Сравнение сезонов",
-      "audit": "Аудит"
+      "audit": "Аудит",
+      "excel": "Excel",
+      "pdf": "PDF"
     },
     "production": {
       "header_block": "Теплица",
@@ -1953,6 +1983,8 @@
   "audit_log": {
     "title": "Журнал аудита",
     "subtitle": "Неизменяемая запись всех переходов статуса, создания и обновления.",
+    "placeholder_model": "Shipment",
+    "placeholder_object_id": "123",
     "col_created_at": "Когда",
     "col_action": "Действие",
     "col_user": "Пользователь",

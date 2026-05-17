@@ -35,7 +35,8 @@ import type {
   IShipmentQuality,
   ITaskListItem,
 } from '@/types';
-import { fmt, fmtDate, fmtNum, InfoRow, SectionBlock, SalesReportForm } from './ShipmentDetailHelpers';
+import { InfoRow, SectionBlock, SalesReportForm } from './ShipmentDetailHelpers';
+import { fmt, fmtDate, fmtNum } from './ShipmentDetailHelpers.helpers';
 
 const { Text, Title } = Typography;
 

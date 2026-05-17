@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Tabs, Spin } from 'antd';
 import { useTranslation } from 'react-i18next';
 import type { IMentionable } from '@/types';
@@ -60,6 +60,20 @@ export function MentionPopover({
   // Reset index when list changes
   useEffect(() => { setSelectedIdx(0); }, [activeKey, users.length, roles.length, cellOptions.length]);
 
+  const handlePick = useCallback((item: (typeof currentList)[number]) => {
+    if (mode === 'cells') {
+      const cell = item as ICellOption;
+      onPick(`#cell:${cell.fieldKey}`, cell.label);
+    } else if (activeKey === 'users') {
+      const user = item as Extract<IMentionable, { type: 'user' }>;
+      onPick(`@user:${user.id}`, user.name, user.id);
+    } else {
+      const role = item as Extract<IMentionable, { type: 'role' }>;
+      onPick(`@role:${role.code}`, role.label);
+    }
+    onClose();
+  }, [mode, activeKey, onPick, onClose]);
+
   // Keyboard navigation
   useEffect(() => {
     if (!open) return;
@@ -86,7 +100,7 @@ export function MentionPopover({
 
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [open, currentList, selectedIdx, onClose]);
+  }, [open, currentList, selectedIdx, onClose, handlePick]);
 
   // Close on outside click
   useEffect(() => {
@@ -99,20 +113,6 @@ export function MentionPopover({
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, [open, onClose]);
-
-  function handlePick(item: (typeof currentList)[number]) {
-    if (mode === 'cells') {
-      const cell = item as ICellOption;
-      onPick(`#cell:${cell.fieldKey}`, cell.label);
-    } else if (activeKey === 'users') {
-      const user = item as Extract<IMentionable, { type: 'user' }>;
-      onPick(`@user:${user.id}`, user.name, user.id);
-    } else {
-      const role = item as Extract<IMentionable, { type: 'role' }>;
-      onPick(`@role:${role.code}`, role.label);
-    }
-    onClose();
-  }
 
   if (!open) return null;
 

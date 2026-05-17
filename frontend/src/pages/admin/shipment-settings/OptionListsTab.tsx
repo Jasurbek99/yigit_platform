@@ -224,7 +224,7 @@ export default function OptionListsTab({ canWrite }: IProps) {
             label={t('shipment_settings.col_code')}
             rules={[{ required: true, message: t('common.required') }]}
           >
-            <Input disabled={editTarget !== null} placeholder="e.g. OK" />
+            <Input disabled={editTarget !== null} placeholder={t('shipment_settings.placeholder_option_code')} />
           </Form.Item>
           <Form.Item
             name="label_tk"
@@ -240,7 +240,7 @@ export default function OptionListsTab({ canWrite }: IProps) {
             <Input />
           </Form.Item>
           <Form.Item name="icon" label={t('shipment_settings.col_icon')}>
-            <Input placeholder="e.g. check-circle" />
+            <Input placeholder={t('shipment_settings.placeholder_option_icon')} />
           </Form.Item>
           <Form.Item name="sort_order" label={t('shipment_settings.col_sort')}>
             <InputNumber min={0} style={{ width: '100%' }} />

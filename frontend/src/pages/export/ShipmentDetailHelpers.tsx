@@ -2,26 +2,8 @@ import { Button, Form, Input, InputNumber } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import dayjs from 'dayjs';
 import api from '@/services/api';
 import type { ISalesReport } from '@/types';
-
-// ─── Formatters ─────────────────────────────────────────────────────────────
-
-export function fmt(val: string | null | undefined): string {
-  if (!val) return '—';
-  return dayjs(val).format('DD.MM.YYYY HH:mm');
-}
-
-export function fmtDate(val: string | null | undefined): string {
-  if (!val) return '—';
-  return dayjs(val).format('DD.MM.YYYY');
-}
-
-export function fmtNum(val: number | null | undefined): string {
-  if (val == null) return '—';
-  return Number(val).toLocaleString();
-}
 
 // ─── InfoRow ────────────────────────────────────────────────────────────────
 

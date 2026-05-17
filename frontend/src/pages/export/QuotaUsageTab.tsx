@@ -84,12 +84,14 @@ export function QuotaUsageTab({ weightUnit, productType }: IQuotaUsageTabProps) 
         icon={<AppstoreOutlined />}
         size="small"
         onClick={() => setViewMode('grid')}
+        aria-label={t('quota_usage.view_grid')}
       />
       <Button
         type={viewMode === 'list' ? 'primary' : 'default'}
         icon={<UnorderedListOutlined />}
         size="small"
         onClick={() => setViewMode('list')}
+        aria-label={t('quota_usage.view_list')}
       />
     </Space>
   );

@@ -92,7 +92,7 @@ function KpiCard({ labelKey, card, isLoading, format = 'int', onClick, showPlace
               zIndex: 1,
             }}
           >
-            Demo
+            {t('common.demo_badge')}
           </Tag>
         )}
         <Text
@@ -117,7 +117,7 @@ function KpiCard({ labelKey, card, isLoading, format = 'int', onClick, showPlace
         )}
         {card?.sparkline && card.sparkline.length > 0 && (
           <div style={{ marginTop: 8, height: 36 }}>
-            <EChart option={buildSparkOption(card.sparkline)} height={36} />
+            <EChart option={buildSparkOption(card.sparkline)} height={36} decorative />
           </div>
         )}
       </Card>

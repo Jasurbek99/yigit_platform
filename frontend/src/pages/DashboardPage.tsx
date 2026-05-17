@@ -1,9 +1,11 @@
-import { Alert, Badge, Button, Card, Group, Progress, SimpleGrid, Text, Title } from '@mantine/core';
-import { DataTable } from 'mantine-datatable';
+import { Alert, Button, Card, Col, Progress, Row, Space, Tag, Typography } from 'antd';
+import { ProTable, type ProColumns } from '@ant-design/pro-components';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
-interface StatItem {
+const { Text, Title } = Typography;
+
+interface IStatItem {
   icon: string;
   color: string;
   iconColor: string;
@@ -15,7 +17,7 @@ interface StatItem {
   onClick?: () => void;
 }
 
-interface ShipmentRow {
+interface IShipmentRow {
   code: string;
   customer: string;
   route: string;
@@ -26,7 +28,7 @@ interface ShipmentRow {
   location: string;
 }
 
-interface RouteRow {
+interface IRouteRow {
   flag: string;
   name: string;
   count: number;
@@ -37,7 +39,7 @@ interface RouteRow {
 
 const STATUS_COLORS: Record<string, string> = {
   transit: 'cyan',
-  border: 'violet',
+  border: 'purple',
   selling: 'orange',
   loading: 'blue',
   completed: 'green',
@@ -47,7 +49,7 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const { t } = useTranslation();
 
-  const stats: StatItem[] = [
+  const stats: IStatItem[] = [
     {
       icon: '📦',
       color: '#e6f4ff',
@@ -108,7 +110,7 @@ export default function DashboardPage() {
     },
   ];
 
-  const activeShipments: ShipmentRow[] = [
+  const activeShipments: IShipmentRow[] = [
     {
       code: '26FV047/25',
       customer: 'Begjan',
@@ -161,7 +163,7 @@ export default function DashboardPage() {
     },
   ];
 
-  const routes: RouteRow[] = [
+  const routes: IRouteRow[] = [
     {
       flag: '🇰🇿',
       name: 'Gazagystan',
@@ -182,198 +184,210 @@ export default function DashboardPage() {
     { flag: '🇧🇾', name: 'Belarusiya', count: 3, percent: 1, color: '#ff4d4f', sub: '' },
   ];
 
+  const shipmentColumns: ProColumns<IShipmentRow>[] = [
+    {
+      title: t('dashboard.col_code'),
+      dataIndex: 'code',
+      search: false,
+      sorter: (a, b) => a.code.localeCompare(b.code),
+      render: (_, r) => (
+        <span style={{ color: '#1677ff', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+          {r.code}
+        </span>
+      ),
+    },
+    {
+      title: t('dashboard.col_customer'),
+      dataIndex: 'customer',
+      search: false,
+      sorter: (a, b) => a.customer.localeCompare(b.customer),
+    },
+    {
+      title: t('dashboard.col_route'),
+      dataIndex: 'route',
+      search: false,
+      sorter: (a, b) => a.route.localeCompare(b.route),
+    },
+    {
+      title: t('dashboard.col_status'),
+      dataIndex: 'statusKey',
+      search: false,
+      render: (_, r) => (
+        <Tag color={STATUS_COLORS[r.status] ?? 'default'}>
+          {t(r.statusKey)}
+        </Tag>
+      ),
+    },
+    {
+      title: t('dashboard.col_weight'),
+      dataIndex: 'weight',
+      search: false,
+      render: (_, r) => (
+        <span style={{ fontVariantNumeric: 'tabular-nums' }}>{r.weight}</span>
+      ),
+    },
+    {
+      title: t('dashboard.col_departed'),
+      dataIndex: 'departed',
+      search: false,
+      render: (_, r) => (
+        <span style={{ fontVariantNumeric: 'tabular-nums', color: '#8c8c8c' }}>
+          {r.departed}
+        </span>
+      ),
+    },
+    {
+      title: t('dashboard.col_location'),
+      dataIndex: 'location',
+      search: false,
+    },
+  ];
+
   return (
-    <div style={{ fontFamily: 'var(--font, "DM Sans", sans-serif)' }}>
-      {/* Page Header */}
-      <Group justify="space-between" align="flex-start" mb="lg">
+    <div>
+      <Space style={{ width: '100%', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
-          <Title order={4} style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>
+          <Title level={4} style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>
             {t('dashboard.title')}
           </Title>
-          <Text c="dimmed" size="sm">
-            {t('dashboard.subtitle')}
-          </Text>
+          <Text type="secondary">{t('dashboard.subtitle')}</Text>
         </div>
-        <Group gap="xs">
-          <Button variant="default">{t('dashboard.btn_export_excel')}</Button>
-          <Button onClick={() => navigate('/export/shipments')}>
+        <Space size="small">
+          <Button>{t('dashboard.btn_export_excel')}</Button>
+          <Button type="primary" onClick={() => navigate('/export/shipments')}>
             {t('dashboard.btn_new_shipment')}
           </Button>
-        </Group>
-      </Group>
+        </Space>
+      </Space>
 
-      {/* Stat Cards */}
-      <SimpleGrid cols={{ base: 2, sm: 3, xl: 6 }} mb="lg">
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         {stats.map((stat, i) => (
-          <Card
-            key={i}
-            style={{
-              borderRadius: 12,
-              cursor: stat.onClick ? 'pointer' : 'default',
-            }}
-            padding="md"
-            onClick={stat.onClick}
-          >
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
-              <div
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 10,
-                  background: stat.color,
-                  color: stat.iconColor,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 20,
-                  flexShrink: 0,
-                }}
-              >
-                {stat.icon}
-              </div>
-              <div>
+          <Col key={i} xs={12} sm={8} xl={4}>
+            <Card
+              style={{
+                borderRadius: 12,
+                cursor: stat.onClick ? 'pointer' : 'default',
+                height: '100%',
+              }}
+              bodyStyle={{ padding: 16 }}
+              onClick={stat.onClick}
+              hoverable={!!stat.onClick}
+            >
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
                 <div
+                  aria-hidden="true"
                   style={{
-                    fontSize: 28,
-                    fontWeight: 700,
-                    lineHeight: 1.2,
-                    letterSpacing: '-0.02em',
-                    color: stat.trendUp === false ? '#ff4d4f' : undefined,
+                    width: 44,
+                    height: 44,
+                    borderRadius: 10,
+                    background: stat.color,
+                    color: stat.iconColor,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 20,
+                    flexShrink: 0,
                   }}
                 >
-                  {stat.value}
+                  {stat.icon}
                 </div>
-                <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
-                  {t(stat.labelKey)}
-                </div>
-                <div
-                  style={{
-                    fontSize: 12,
-                    marginTop: 4,
-                    color:
-                      stat.trendUp === true
-                        ? '#52c41a'
-                        : stat.trendUp === false
-                          ? '#ff4d4f'
-                          : '#8c8c8c',
-                  }}
-                >
-                  {t(stat.trendKey, stat.trendParams)}
+                <div>
+                  <div
+                    style={{
+                      fontSize: 28,
+                      fontWeight: 700,
+                      lineHeight: 1.2,
+                      letterSpacing: '-0.02em',
+                      color: stat.trendUp === false ? '#ff4d4f' : undefined,
+                    }}
+                  >
+                    {stat.value}
+                  </div>
+                  <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
+                    {t(stat.labelKey)}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      marginTop: 4,
+                      color:
+                        stat.trendUp === true
+                          ? '#52c41a'
+                          : stat.trendUp === false
+                            ? '#ff4d4f'
+                            : '#8c8c8c',
+                    }}
+                  >
+                    {t(stat.trendKey, stat.trendParams)}
+                  </div>
                 </div>
               </div>
-            </div>
-          </Card>
+            </Card>
+          </Col>
         ))}
-      </SimpleGrid>
+      </Row>
 
-      {/* Alerts + Routes */}
-      <SimpleGrid cols={{ base: 1, lg: 2 }} mb="lg">
-        <Card style={{ borderRadius: 12 }} padding="md">
-          <Group justify="space-between" mb="sm">
-            <Text fw={600}>⚡ {t('dashboard.alerts_title')}</Text>
-            <Badge color="red">4</Badge>
-          </Group>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <Alert color="red">
-              <strong>{t('dashboard.alert_no_report', { count: 90 })}</strong>
-            </Alert>
-            <Alert color="yellow">
-              <strong>{t('dashboard.alert_quota_exceeded')}</strong>
-            </Alert>
-            <Alert color="yellow">
-              <strong>{t('dashboard.alert_doc_deadline', { count: 8 })}</strong>
-            </Alert>
-            <Alert color="blue">
-              <strong>{t('dashboard.alert_weekly_plan', { week: 22, tons: 340, blocks: 15 })}</strong>
-            </Alert>
-          </div>
-        </Card>
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+        <Col xs={24} lg={12}>
+          <Card style={{ borderRadius: 12, height: '100%' }} bodyStyle={{ padding: 16 }}>
+            <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 12 }}>
+              <Text strong>⚡ {t('dashboard.alerts_title')}</Text>
+              <Tag color="red">4</Tag>
+            </Space>
+            <Space direction="vertical" size={8} style={{ width: '100%' }}>
+              <Alert type="error" message={<strong>{t('dashboard.alert_no_report', { count: 90 })}</strong>} />
+              <Alert type="warning" message={<strong>{t('dashboard.alert_quota_exceeded')}</strong>} />
+              <Alert type="warning" message={<strong>{t('dashboard.alert_doc_deadline', { count: 8 })}</strong>} />
+              <Alert type="info" message={<strong>{t('dashboard.alert_weekly_plan', { week: 22, tons: 340, blocks: 15 })}</strong>} />
+            </Space>
+          </Card>
+        </Col>
 
-        <Card style={{ borderRadius: 12 }} padding="md">
-          <Text fw={600} mb="md">📊 {t('dashboard.routes_title')}</Text>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {routes.map((r, i) => (
-              <div key={i}>
-                <div
-                  style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}
-                >
-                  <Text size="sm" fw={500}>
-                    {r.flag} {r.name}
-                  </Text>
-                  <Text size="sm" fw={600}>{r.count} {t('dashboard.shipment_suffix')}</Text>
+        <Col xs={24} lg={12}>
+          <Card style={{ borderRadius: 12, height: '100%' }} bodyStyle={{ padding: 16 }}>
+            <Text strong style={{ display: 'block', marginBottom: 16 }}>📊 {t('dashboard.routes_title')}</Text>
+            <Space direction="vertical" size={16} style={{ width: '100%' }}>
+              {routes.map((r, i) => (
+                <div key={i}>
+                  <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <Text style={{ fontSize: 13, fontWeight: 500 }}>
+                      {r.flag} {r.name}
+                    </Text>
+                    <Text style={{ fontSize: 13, fontWeight: 600 }}>{r.count} {t('dashboard.shipment_suffix')}</Text>
+                  </Space>
+                  <Progress percent={r.percent} size="small" strokeColor={r.color} showInfo={false} />
+                  {r.sub && (
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      {r.sub}
+                    </Text>
+                  )}
                 </div>
-                <Progress value={r.percent} color={r.color} size="sm" />
-                {r.sub && (
-                  <Text c="dimmed" size="xs">
-                    {r.sub}
-                  </Text>
-                )}
-              </div>
-            ))}
-          </div>
-        </Card>
-      </SimpleGrid>
+              ))}
+            </Space>
+          </Card>
+        </Col>
+      </Row>
 
-      {/* Active Shipments Table */}
-      <Card style={{ borderRadius: 12 }} padding={0}>
-        <Group justify="space-between" px="md" py="sm">
-          <Text fw={600}>🚛 {t('dashboard.active_shipments')}</Text>
-          <Button size="xs" variant="subtle" onClick={() => navigate('/export/shipments')}>
+      <Card style={{ borderRadius: 12 }} bodyStyle={{ padding: 0 }}>
+        <Space style={{ width: '100%', justifyContent: 'space-between', padding: '12px 16px' }}>
+          <Text strong>🚛 {t('dashboard.active_shipments')}</Text>
+          <Button size="small" type="link" onClick={() => navigate('/export/shipments')}>
             {t('dashboard.view_all')}
           </Button>
-        </Group>
-        <DataTable
-          idAccessor="code"
-          records={activeShipments}
-          columns={[
-            {
-              accessor: 'code',
-              title: t('dashboard.col_code'),
-              render: (r) => (
-                <span
-                  style={{
-                    fontFamily: 'var(--font-mono, monospace)',
-                    color: '#1677ff',
-                    fontWeight: 600,
-                  }}
-                >
-                  {r.code}
-                </span>
-              ),
-            },
-            { accessor: 'customer', title: t('dashboard.col_customer') },
-            { accessor: 'route', title: t('dashboard.col_route') },
-            {
-              accessor: 'statusKey',
-              title: t('dashboard.col_status'),
-              render: (r) => (
-                <Badge variant="light" color={STATUS_COLORS[r.status] ?? 'gray'}>
-                  {t(r.statusKey)}
-                </Badge>
-              ),
-            },
-            {
-              accessor: 'weight',
-              title: t('dashboard.col_weight'),
-              render: (r) => (
-                <span style={{ fontFamily: 'var(--font-mono, monospace)' }}>{r.weight}</span>
-              ),
-            },
-            {
-              accessor: 'departed',
-              title: t('dashboard.col_departed'),
-              render: (r) => (
-                <span style={{ fontFamily: 'var(--font-mono, monospace)', color: '#8c8c8c' }}>
-                  {r.departed}
-                </span>
-              ),
-            },
-            { accessor: 'location', title: t('dashboard.col_location') },
-          ]}
-          onRowClick={() => navigate('/export/shipments')}
-          noRecordsText={t('dashboard.no_data')}
-          verticalSpacing="xs"
-          styles={{ header: { backgroundColor: '#f5f5f5', fontSize: 13 } }}
+        </Space>
+        <ProTable<IShipmentRow>
+          rowKey="code"
+          dataSource={activeShipments}
+          columns={shipmentColumns}
+          search={false}
+          options={false}
+          pagination={false}
+          size="small"
+          onRow={() => ({
+            onClick: () => navigate('/export/shipments'),
+            style: { cursor: 'pointer' },
+          })}
+          locale={{ emptyText: t('dashboard.no_data') }}
         />
       </Card>
     </div>

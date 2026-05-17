@@ -27,7 +27,8 @@ import { QuotaPerFirmTable } from './QuotaPerFirmTable';
 import { QuotaVisualBars } from './QuotaVisualBars';
 import { QuotaWeeklyFlow } from './QuotaWeeklyFlow';
 import { LocalSellPlanGrid } from './LocalSellPlanGrid';
-import { QuotaIssuancesList, computeExpiry } from './QuotaIssuancesList';
+import { QuotaIssuancesList } from './QuotaIssuancesList';
+import { computeExpiry } from './QuotaIssuancesList.helpers';
 import { QuotaUsageTab } from './QuotaUsageTab';
 import type { ISeason } from '@/types';
 
@@ -159,7 +160,7 @@ export default function QuotaDashboard() {
 
   const kpis = data?.kpis;
   const perFirm = data?.per_firm ?? [];
-  const weeklyFlow = data?.weekly_flow ?? [];
+  const weeklyFlow = useMemo(() => data?.weekly_flow ?? [], [data?.weekly_flow]);
 
   // Compute expired unused quota from issuances
   const todayStr = dayjs().format('YYYY-MM-DD');
