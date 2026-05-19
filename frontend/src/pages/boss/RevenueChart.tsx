@@ -5,6 +5,7 @@ import type { EChartsOption } from 'echarts';
 import { EChart } from '@/components/EChart';
 import type { BossPeriod } from '@/hooks/useBossDashboard';
 import { useBossRevenue } from '@/hooks/useBossDashboard';
+import { COLORS } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -47,7 +48,7 @@ export function RevenueChart({ period }: IRevenueChartProps) {
             fontSize: 11,
             formatter: (v: number) => `$${(v / 1000).toFixed(0)}k`,
           },
-          splitLine: { lineStyle: { color: '#f0f0f0' } },
+          splitLine: { lineStyle: { color: COLORS.border } },
         },
         series: [
           {
@@ -57,7 +58,7 @@ export function RevenueChart({ period }: IRevenueChartProps) {
             smooth: true,
             symbol: 'circle',
             symbolSize: 4,
-            lineStyle: { color: '#1677ff', width: 2.5 },
+            lineStyle: { color: COLORS.primary, width: 2.5 },
             areaStyle: {
               color: {
                 type: 'linear',
@@ -78,7 +79,7 @@ export function RevenueChart({ period }: IRevenueChartProps) {
             data: data.previous_season.map((p) => p.total_usd),
             smooth: true,
             symbol: 'none',
-            lineStyle: { color: '#8c8c8c', width: 1.5, type: 'dashed' },
+            lineStyle: { color: COLORS.textSecondary, width: 1.5, type: 'dashed' },
           },
         ],
       }

@@ -37,6 +37,7 @@ import type {
 } from '@/types';
 import { InfoRow, SectionBlock, SalesReportForm } from './ShipmentDetailHelpers';
 import { fmt, fmtDate, fmtNum } from './ShipmentDetailHelpers.helpers';
+import { COLORS } from '@/constants/styles';
 
 const { Text, Title } = Typography;
 
@@ -217,7 +218,7 @@ export default function ShipmentDetail() {
             </div>
           </div>
           {shipment.varieties_dominant.length === 0 ? (
-            <span style={{ fontSize: 12, color: '#8c8c8c' }}>{t('variety.empty_state')}</span>
+            <span style={{ fontSize: 12, color: COLORS.textSecondary }}>{t('variety.empty_state')}</span>
           ) : (
             <Flex gap={4} wrap="wrap">
               {shipment.varieties_dominant.map((v) => (
@@ -338,7 +339,7 @@ export default function ShipmentDetail() {
           banner. Only shown to supervisors when they have no personal task on
           this shipment (otherwise the personal task takes priority). */}
       {showSupervisorHint && (
-        <div style={{ marginBottom: 12, paddingLeft: 44, fontSize: 12, color: '#8c8c8c', fontStyle: 'italic' }}>
+        <div style={{ marginBottom: 12, paddingLeft: 44, fontSize: 12, color: COLORS.textSecondary, fontStyle: 'italic' }}>
           {t('shipment.detail.supervisor_view')}
         </div>
       )}
@@ -402,15 +403,15 @@ export default function ShipmentDetail() {
             <Card title={`🔗 ${t('shipment_detail.links_card')}`} size="small">
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ color: '#8c8c8c' }}>Logo Tiger</span>
+                  <span style={{ color: COLORS.textSecondary }}>Logo Tiger</span>
                   <Tag>{t('shipment_detail.link_not_sent')}</Tag>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ color: '#8c8c8c' }}>Trip Management</span>
-                  <span style={{ color: '#8c8c8c' }}>—</span>
+                  <span style={{ color: COLORS.textSecondary }}>Trip Management</span>
+                  <span style={{ color: COLORS.textSecondary }}>—</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ color: '#8c8c8c' }}>GPS Tracking</span>
+                  <span style={{ color: COLORS.textSecondary }}>GPS Tracking</span>
                   <Tag>{t('shipment_detail.link_no_device')}</Tag>
                 </div>
               </div>

@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { Card, Progress, Skeleton, Tag, Typography } from 'antd';
 import type { BossPeriod } from '@/hooks/useBossDashboard';
 import { useBossCompliance, useBossOpsPulse } from '@/hooks/useBossDashboard';
+import { COLORS } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -49,7 +50,7 @@ export function ComplianceStrip({ period }: IComplianceStripProps) {
             <Progress
               percent={oneToTenPct}
               size="small"
-              strokeColor={oneToTenPct >= 80 ? '#52c41a' : '#faad14'}
+              strokeColor={oneToTenPct >= 80 ? COLORS.success : COLORS.warning}
               showInfo={false}
             />
           </div>
@@ -65,14 +66,14 @@ export function ComplianceStrip({ period }: IComplianceStripProps) {
             <Progress
               percent={comp?.docs_by_13.percent ?? 0}
               size="small"
-              strokeColor={(comp?.docs_by_13.percent ?? 0) >= 90 ? '#52c41a' : '#faad14'}
+              strokeColor={(comp?.docs_by_13.percent ?? 0) >= 90 ? COLORS.success : COLORS.warning}
               showInfo={false}
             />
           </div>
 
           {/* Ops pulse counters */}
           <div style={{ borderTop: '1px solid #f5f5f5', paddingTop: 10, marginTop: 4 }}>
-            <Text style={{ fontSize: 11, color: '#8c8c8c', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            <Text style={{ fontSize: 11, color: COLORS.textSecondary, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               {t('boss_dashboard.section.ops_pulse')}
             </Text>
             <div
@@ -92,14 +93,14 @@ export function ComplianceStrip({ period }: IComplianceStripProps) {
                 <div
                   key={key}
                   style={{
-                    background: '#fafafa',
+                    background: COLORS.bgLayout,
                     borderRadius: 6,
                     padding: '6px 10px',
                     textAlign: 'center',
                   }}
                 >
                   <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.2 }}>{value ?? 0}</div>
-                  <div style={{ fontSize: 11, color: '#8c8c8c', marginTop: 2 }}>{t(labelKey)}</div>
+                  <div style={{ fontSize: 11, color: COLORS.textSecondary, marginTop: 2 }}>{t(labelKey)}</div>
                 </div>
               ))}
             </div>

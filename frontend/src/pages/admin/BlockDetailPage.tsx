@@ -37,6 +37,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { canDo } from '@/utils/permissions';
 import type { IGreenhouseBlockSub } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -220,13 +221,13 @@ export default function BlockDetailPage() {
         <div>
           <div style={{
             fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em',
-            color: '#1f1f1f', lineHeight: '1.3',
+            color: COLORS.textDark, lineHeight: '1.3',
             display: 'flex', alignItems: 'center', gap: 8,
           }}>
-            <IconBuildingWarehouse size={18} color="#1677ff" />
+            <IconBuildingWarehouse size={18} color={COLORS.primary} />
             {block.code} — {block.name || t('block_detail.title_fallback')}
           </div>
-          <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
+          <div style={{ fontSize: 13, color: COLORS.textSecondary, marginTop: 2 }}>
             {block.location_name || '—'} · {block.is_active
               ? <Tag color="green" style={{ fontSize: 11 }}>{t('common.active')}</Tag>
               : <Tag color="default" style={{ fontSize: 11 }}>{t('common.inactive')}</Tag>}

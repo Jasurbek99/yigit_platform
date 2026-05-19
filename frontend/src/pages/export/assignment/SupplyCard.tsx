@@ -3,6 +3,7 @@ import dayjs from 'dayjs';
 import { FreshnessPill } from '@/components/FreshnessPill';
 import type { IShipmentDraft } from '@/types';
 import { FRESHNESS_BORDER } from './assignmentHelpers';
+import { COLORS } from '@/constants/styles';
 
 interface ISupplyCardProps {
   draft: IShipmentDraft;
@@ -27,7 +28,7 @@ export function SupplyCard({ draft, selected, onSelect }: ISupplyCardProps) {
     <div
       onClick={onSelect}
       style={{
-        background: selected ? '#e6f4ff' : '#e6fffb',
+        background: selected ? COLORS.bgBlue : COLORS.bgCyan,
         border: selected
           ? '2px solid #1677ff'
           : `1px solid #87e8de`,
@@ -41,7 +42,7 @@ export function SupplyCard({ draft, selected, onSelect }: ISupplyCardProps) {
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, alignItems: 'center' }}>
-        <div style={{ fontFamily: 'monospace', fontWeight: 600, fontSize: 12, color: '#1677ff' }}>
+        <div style={{ fontFamily: 'monospace', fontWeight: 600, fontSize: 12, color: COLORS.primary }}>
           {draft.cargo_code}
         </div>
         <div style={{ fontFamily: 'monospace', fontSize: 11, color: '#08979c' }}>
@@ -50,9 +51,9 @@ export function SupplyCard({ draft, selected, onSelect }: ISupplyCardProps) {
       </div>
       <div style={{ fontSize: 11, fontWeight: 500, marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
         <FreshnessPill freshness={freshness} ageDays={draft.harvest_age_days} size="small" />
-        <span style={{ color: '#595959' }}>{sourceCodes}</span>
+        <span style={{ color: COLORS.textTertiary }}>{sourceCodes}</span>
       </div>
-      <div style={{ fontSize: 10, color: '#8c8c8c', marginTop: 2, fontStyle: 'italic' }}>
+      <div style={{ fontSize: 10, color: COLORS.textSecondary, marginTop: 2, fontStyle: 'italic' }}>
         {ageLabel}
       </div>
     </div>

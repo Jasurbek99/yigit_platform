@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import api from '@/services/api';
 import type { ISalesReport } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 // ─── InfoRow ────────────────────────────────────────────────────────────────
 
@@ -17,7 +18,7 @@ interface IInfoRowProps {
 export function InfoRow({ label, value, bold, mono }: IInfoRowProps) {
   return (
     <div style={{ display: 'flex', padding: '6px 0' }}>
-      <div style={{ width: 160, fontSize: 13, color: '#8c8c8c', flexShrink: 0 }}>{label}</div>
+      <div style={{ width: 160, fontSize: 13, color: COLORS.textSecondary, flexShrink: 0 }}>{label}</div>
       <div style={{
         fontSize: 13,
         flex: 1,

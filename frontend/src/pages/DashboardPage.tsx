@@ -2,6 +2,7 @@ import { Alert, Button, Card, Col, Progress, Row, Space, Tag, Typography } from 
 import { ProTable, type ProColumns } from '@ant-design/pro-components';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { COLORS } from '@/constants/styles';
 
 const { Text, Title } = Typography;
 
@@ -52,8 +53,8 @@ export default function DashboardPage() {
   const stats: IStatItem[] = [
     {
       icon: '📦',
-      color: '#e6f4ff',
-      iconColor: '#1677ff',
+      color: COLORS.bgBlue,
+      iconColor: COLORS.primary,
       value: '983',
       labelKey: 'dashboard.stat_total',
       trendKey: 'dashboard.trend_this_week',
@@ -63,7 +64,7 @@ export default function DashboardPage() {
     },
     {
       icon: '🚛',
-      color: '#e6fffb',
+      color: COLORS.bgCyan,
       iconColor: '#13c2c2',
       value: '296',
       labelKey: 'dashboard.stat_transit',
@@ -72,8 +73,8 @@ export default function DashboardPage() {
     },
     {
       icon: '🛒',
-      color: '#fffbe6',
-      iconColor: '#faad14',
+      color: COLORS.bgYellow,
+      iconColor: COLORS.warning,
       value: '9',
       labelKey: 'dashboard.stat_selling',
       trendKey: 'dashboard.trend_at_market',
@@ -81,8 +82,8 @@ export default function DashboardPage() {
     },
     {
       icon: '✅',
-      color: '#f6ffed',
-      iconColor: '#52c41a',
+      color: COLORS.bgGreen,
+      iconColor: COLORS.success,
       value: '173',
       labelKey: 'dashboard.stat_sold',
       trendKey: 'dashboard.trend_this_week',
@@ -91,8 +92,8 @@ export default function DashboardPage() {
     },
     {
       icon: '⚠️',
-      color: '#fff2f0',
-      iconColor: '#ff4d4f',
+      color: COLORS.bgRed,
+      iconColor: COLORS.danger,
       value: '90',
       labelKey: 'dashboard.stat_no_report',
       trendKey: 'dashboard.trend_awaiting',
@@ -100,8 +101,8 @@ export default function DashboardPage() {
     },
     {
       icon: '📐',
-      color: '#f9f0ff',
-      iconColor: '#722ed1',
+      color: COLORS.bgPurple,
+      iconColor: COLORS.purple,
       value: '16',
       labelKey: 'dashboard.stat_firms',
       trendKey: 'dashboard.trend_tracking_quota',
@@ -169,7 +170,7 @@ export default function DashboardPage() {
       name: 'Gazagystan',
       count: 474,
       percent: 48,
-      color: '#1677ff',
+      color: COLORS.primary,
       sub: 'Şimkent: 166 · Astana: 117 · Almaty: 96 · Karaganda: 95',
     },
     {
@@ -177,11 +178,11 @@ export default function DashboardPage() {
       name: 'Rossiya',
       count: 371,
       percent: 38,
-      color: '#52c41a',
+      color: COLORS.success,
       sub: 'Gapy Satyş: 225 · Moskwa: 84 · Nowosibirsk: 62',
     },
-    { flag: '🇺🇿', name: 'Özbegistan', count: 26, percent: 3, color: '#faad14', sub: '' },
-    { flag: '🇧🇾', name: 'Belarusiya', count: 3, percent: 1, color: '#ff4d4f', sub: '' },
+    { flag: '🇺🇿', name: 'Özbegistan', count: 26, percent: 3, color: COLORS.warning, sub: '' },
+    { flag: '🇧🇾', name: 'Belarusiya', count: 3, percent: 1, color: COLORS.danger, sub: '' },
   ];
 
   const shipmentColumns: ProColumns<IShipmentRow>[] = [
@@ -191,7 +192,7 @@ export default function DashboardPage() {
       search: false,
       sorter: (a, b) => a.code.localeCompare(b.code),
       render: (_, r) => (
-        <span style={{ color: '#1677ff', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+        <span style={{ color: COLORS.primary, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
           {r.code}
         </span>
       ),
@@ -235,7 +236,7 @@ export default function DashboardPage() {
       search: false,
       responsive: ['md'],
       render: (_, r) => (
-        <span style={{ fontVariantNumeric: 'tabular-nums', color: '#8c8c8c' }}>
+        <span style={{ fontVariantNumeric: 'tabular-nums', color: COLORS.textSecondary }}>
           {r.departed}
         </span>
       ),
@@ -302,12 +303,12 @@ export default function DashboardPage() {
                       fontWeight: 700,
                       lineHeight: 1.2,
                       letterSpacing: '-0.02em',
-                      color: stat.trendUp === false ? '#ff4d4f' : undefined,
+                      color: stat.trendUp === false ? COLORS.danger : undefined,
                     }}
                   >
                     {stat.value}
                   </div>
-                  <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
+                  <div style={{ fontSize: 13, color: COLORS.textSecondary, marginTop: 2 }}>
                     {t(stat.labelKey)}
                   </div>
                   <div
@@ -316,10 +317,10 @@ export default function DashboardPage() {
                       marginTop: 4,
                       color:
                         stat.trendUp === true
-                          ? '#52c41a'
+                          ? COLORS.success
                           : stat.trendUp === false
-                            ? '#ff4d4f'
-                            : '#8c8c8c',
+                            ? COLORS.danger
+                            : COLORS.textSecondary,
                     }}
                   >
                     {t(stat.trendKey, stat.trendParams)}

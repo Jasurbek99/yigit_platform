@@ -2,6 +2,7 @@ import { Badge, Table, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 import type { IWeeklyFlow, IWeeklyFlowFirm } from '@/types';
 import { fmtWeight, weightSuffix, type WeightUnit } from '@/utils/weight';
+import { COLORS } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -17,7 +18,7 @@ export function QuotaWeeklyFlow({ data, weightUnit }: IProps) {
 
   if (data.length === 0) {
     return (
-      <div style={{ padding: 24, textAlign: 'center', color: '#8c8c8c' }}>
+      <div style={{ padding: 24, textAlign: 'center', color: COLORS.textSecondary }}>
         {t('quota_dashboard.no_data')}
       </div>
     );
@@ -29,7 +30,7 @@ export function QuotaWeeklyFlow({ data, weightUnit }: IProps) {
       dataIndex: 'firm_name',
       key: 'firm_name',
       render: (name: string, row: IWeeklyFlowFirm) => (
-        <span style={{ color: row.sold_kg > 0 && row.got_kg === 0 ? '#ff4d4f' : undefined }}>
+        <span style={{ color: row.sold_kg > 0 && row.got_kg === 0 ? COLORS.danger : undefined }}>
           {name}
         </span>
       ),
@@ -54,7 +55,7 @@ export function QuotaWeeklyFlow({ data, weightUnit }: IProps) {
       key: 'got_kg',
       align: 'right' as const,
       render: (v: number, row: IWeeklyFlowFirm) => (
-        <span style={{ color: row.sold_kg > 0 && v === 0 ? '#ff4d4f' : undefined }}>
+        <span style={{ color: row.sold_kg > 0 && v === 0 ? COLORS.danger : undefined }}>
           {fw(v)}
         </span>
       ),
@@ -65,7 +66,7 @@ export function QuotaWeeklyFlow({ data, weightUnit }: IProps) {
       key: 'diff_kg',
       align: 'right' as const,
       render: (v: number) => (
-        <span style={{ color: v < 0 ? '#ff4d4f' : v > 0 ? '#52c41a' : undefined }}>
+        <span style={{ color: v < 0 ? COLORS.danger : v > 0 ? COLORS.success : undefined }}>
           {v >= 0 ? '+' : ''}{fw(v)}
         </span>
       ),
@@ -111,7 +112,7 @@ export function QuotaWeeklyFlow({ data, weightUnit }: IProps) {
       align: 'right' as const,
       width: 120,
       render: (_: unknown, flow: IWeeklyFlow) => (
-        <Text style={{ color: '#1677ff', fontWeight: 600 }}>{fw(flow.issued_kg)}</Text>
+        <Text style={{ color: COLORS.primary, fontWeight: 600 }}>{fw(flow.issued_kg)}</Text>
       ),
     },
     {
@@ -122,7 +123,7 @@ export function QuotaWeeklyFlow({ data, weightUnit }: IProps) {
       render: (_: unknown, flow: IWeeklyFlow) => {
         const pct = Number(flow.coverage_pct).toFixed(1);
         return (
-          <Text style={{ fontWeight: 600, color: flow.coverage_pct < 80 ? '#ff4d4f' : '#52c41a' }}>
+          <Text style={{ fontWeight: 600, color: flow.coverage_pct < 80 ? COLORS.danger : COLORS.success }}>
             {pct}%
           </Text>
         );
@@ -134,7 +135,7 @@ export function QuotaWeeklyFlow({ data, weightUnit }: IProps) {
       align: 'right' as const,
       width: 140,
       render: (_: unknown, flow: IWeeklyFlow) => {
-        const gapColor = flow.gap_kg < 0 ? '#ff4d4f' : '#52c41a';
+        const gapColor = flow.gap_kg < 0 ? COLORS.danger : COLORS.success;
         const gapSign = flow.gap_kg >= 0 ? '+' : '';
         return (
           <Badge
@@ -166,7 +167,7 @@ export function QuotaWeeklyFlow({ data, weightUnit }: IProps) {
           <div style={{ padding: '8px 0' }}>
             {flow.issuances.length > 0 && (
               <div style={{ marginBottom: 8 }}>
-                <Text style={{ fontSize: 12, color: '#8c8c8c' }}>
+                <Text style={{ fontSize: 12, color: COLORS.textSecondary }}>
                   {t('quota_dashboard.matched_issuances')}:{' '}
                 </Text>
                 {flow.issuances.map((iss, idx) => (

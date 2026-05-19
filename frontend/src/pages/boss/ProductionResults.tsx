@@ -3,6 +3,7 @@ import { Card, Skeleton, Typography } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import type { BossPeriod, IBossProductionRow } from '@/hooks/useBossDashboard';
 import { useBossProduction } from '@/hooks/useBossDashboard';
+import { COLORS } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -29,7 +30,7 @@ function ProductionTable({ rows, scope, titleKey, onRowClick }: IProductionTable
       {/* Yellow header strip */}
       <div
         style={{
-          background: '#fffbe6',
+          background: COLORS.bgYellow,
           border: '1px solid #ffe58f',
           borderRadius: '6px 6px 0 0',
           padding: '8px 14px',
@@ -48,15 +49,15 @@ function ProductionTable({ rows, scope, titleKey, onRowClick }: IProductionTable
             display: 'grid',
             gridTemplateColumns: '2fr 1.2fr 1.2fr 2fr',
             gap: 0,
-            background: '#fafafa',
+            background: COLORS.bgLayout,
             borderBottom: '1px solid #f0f0f0',
             padding: '6px 14px',
           }}
         >
-          <Text style={{ fontSize: 11, color: '#595959', fontWeight: 600 }}>{t('boss_dashboard.production.header_block')}</Text>
-          <Text style={{ fontSize: 11, color: '#595959', fontWeight: 600, textAlign: 'right' }}>{t('boss_dashboard.production.header_planned')}</Text>
-          <Text style={{ fontSize: 11, color: '#595959', fontWeight: 600, textAlign: 'right' }}>{t('boss_dashboard.production.header_actual')}</Text>
-          <Text style={{ fontSize: 11, color: '#595959', fontWeight: 600, paddingLeft: 12 }}>{t('boss_dashboard.production.header_graph')}</Text>
+          <Text style={{ fontSize: 11, color: COLORS.textTertiary, fontWeight: 600 }}>{t('boss_dashboard.production.header_block')}</Text>
+          <Text style={{ fontSize: 11, color: COLORS.textTertiary, fontWeight: 600, textAlign: 'right' }}>{t('boss_dashboard.production.header_planned')}</Text>
+          <Text style={{ fontSize: 11, color: COLORS.textTertiary, fontWeight: 600, textAlign: 'right' }}>{t('boss_dashboard.production.header_actual')}</Text>
+          <Text style={{ fontSize: 11, color: COLORS.textTertiary, fontWeight: 600, paddingLeft: 12 }}>{t('boss_dashboard.production.header_graph')}</Text>
         </div>
 
         {/* Data rows */}
@@ -73,7 +74,7 @@ function ProductionTable({ rows, scope, titleKey, onRowClick }: IProductionTable
               cursor: 'pointer',
               transition: 'background 0.1s',
             }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = '#fafafa'; }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = COLORS.bgLayout; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
           >
             <Text style={{ fontSize: 12 }}>{row.block_name || row.block_code}</Text>
@@ -100,7 +101,7 @@ function ProductionTable({ rows, scope, titleKey, onRowClick }: IProductionTable
             gridTemplateColumns: '2fr 1.2fr 1.2fr 2fr',
             gap: 0,
             padding: '7px 14px',
-            background: '#f5f5f5',
+            background: COLORS.bgLight,
             borderTop: '1px solid #e8e8e8',
           }}
         >
@@ -135,13 +136,13 @@ function ProgressBar({ monthlyPct, scopePct, scope: _scope }: IProgressBarProps)
           <div
             style={{
               width: `${Math.min(monthlyPct, 100)}%`,
-              background: '#1677ff',
+              background: COLORS.primary,
               height: 5,
               borderRadius: 2,
             }}
           />
         </div>
-        <Text style={{ fontSize: 10, color: '#1677ff', minWidth: 28, textAlign: 'right' }}>
+        <Text style={{ fontSize: 10, color: COLORS.primary, minWidth: 28, textAlign: 'right' }}>
           {monthlyPct.toFixed(0)}%
         </Text>
       </div>
@@ -151,13 +152,13 @@ function ProgressBar({ monthlyPct, scopePct, scope: _scope }: IProgressBarProps)
           <div
             style={{
               width: `${Math.min(scopePct, 100)}%`,
-              background: '#ff4d4f',
+              background: COLORS.danger,
               height: 5,
               borderRadius: 2,
             }}
           />
         </div>
-        <Text style={{ fontSize: 10, color: '#ff4d4f', minWidth: 28, textAlign: 'right' }}>
+        <Text style={{ fontSize: 10, color: COLORS.danger, minWidth: 28, textAlign: 'right' }}>
           {scopePct.toFixed(0)}%
         </Text>
       </div>

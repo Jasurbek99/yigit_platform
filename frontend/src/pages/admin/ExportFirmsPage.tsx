@@ -8,6 +8,7 @@ import { useAdminFirms } from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
 import { canDo } from '@/utils/permissions';
 import type { IExportFirm } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 const { Title, Text } = Typography;
 
@@ -80,7 +81,7 @@ export default function ExportFirmsPage() {
     <div>
       <div style={{ marginBottom: 16 }}>
         <Title level={4} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <BankOutlined style={{ color: '#1677ff' }} />
+          <BankOutlined style={{ color: COLORS.primary }} />
           {t('firms_admin.title')}
         </Title>
         <Text type="secondary" style={{ fontSize: 13 }}>

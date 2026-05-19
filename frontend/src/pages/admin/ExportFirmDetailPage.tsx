@@ -31,6 +31,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { canDo } from '@/utils/permissions';
 import type { IExportFirm } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 const { Title, Text } = Typography;
 
@@ -173,7 +174,7 @@ export default function ExportFirmDetailPage() {
             {t('firms_admin.title')}
           </Button>
           <Title level={4} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <BankOutlined style={{ color: '#1677ff' }} />
+            <BankOutlined style={{ color: COLORS.primary }} />
             {isNew ? t('firms_admin.add') : (firm?.name_en || firm?.name_tk || '...')}
           </Title>
         </div>

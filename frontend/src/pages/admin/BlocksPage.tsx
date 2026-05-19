@@ -28,6 +28,7 @@ import {
   useTomatoVarieties,
 } from '@/hooks/useAdmin';
 import type { IGreenhouseBlock } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -210,17 +211,17 @@ export default function BlocksPage() {
             fontSize: 20,
             fontWeight: 600,
             letterSpacing: '-0.02em',
-            color: '#1f1f1f',
+            color: COLORS.textDark,
             lineHeight: '1.3',
             display: 'flex',
             alignItems: 'center',
             gap: 8,
           }}
         >
-          <IconBuildingWarehouse size={18} color="#1677ff" />
+          <IconBuildingWarehouse size={18} color={COLORS.primary} />
           {t('blocks_admin.title')}
         </div>
-        <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
+        <div style={{ fontSize: 13, color: COLORS.textSecondary, marginTop: 2 }}>
           {t('blocks_admin.subtitle')}
         </div>
       </div>

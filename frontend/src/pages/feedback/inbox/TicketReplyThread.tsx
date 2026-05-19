@@ -2,6 +2,7 @@ import { Divider, Image, Space, Tag, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import type { IFeedbackReply } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 const { Text, Paragraph } = Typography;
 
@@ -24,7 +25,7 @@ export function TicketReplyThread({ replies }: ITicketReplyThreadProps): React.R
           <div
             key={reply.id}
             style={{
-              background: reply.is_internal ? '#fffbe6' : '#f9f9f9',
+              background: reply.is_internal ? COLORS.bgYellow : '#f9f9f9',
               borderRadius: 6,
               padding: '10px 12px',
               marginBottom: 8,

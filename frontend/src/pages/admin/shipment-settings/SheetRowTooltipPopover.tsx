@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { ISheetRowSetting } from '@/types';
 import type { ISaveSheetRowPayload } from '@/hooks/useSheetRowSettings';
 import { InlineSavedInput } from './InlineSavedInput';
+import { COLORS } from '@/constants/styles';
 
 interface ISheetRowTooltipPopoverProps {
   record: ISheetRowSetting;
@@ -60,7 +61,7 @@ export function SheetRowTooltipPopover({
     >
       <Button size="small" type="text">
         {hasTooltip ? (
-          <span style={{ color: '#1677ff' }}>{t('sheet_rows.tooltip_set')}</span>
+          <span style={{ color: COLORS.primary }}>{t('sheet_rows.tooltip_set')}</span>
         ) : (
           <span style={{ color: '#aaa' }}>{t('sheet_rows.tooltip_empty')}</span>
         )}

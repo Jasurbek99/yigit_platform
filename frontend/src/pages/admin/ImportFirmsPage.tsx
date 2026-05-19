@@ -9,6 +9,7 @@ import { useAdminImportFirms } from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
 import { canDo } from '@/utils/permissions';
 import type { IImportFirm } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 const { Title, Text } = Typography;
 
@@ -96,7 +97,7 @@ export default function ImportFirmsPage() {
     <div>
       <div style={{ marginBottom: 16 }}>
         <Title level={4} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <ShopOutlined style={{ color: '#1677ff' }} />
+          <ShopOutlined style={{ color: COLORS.primary }} />
           {t('import_firms_admin.title')}
         </Title>
         <Text type="secondary" style={{ fontSize: 13 }}>

@@ -31,6 +31,7 @@ import { QuotaIssuancesList } from './QuotaIssuancesList';
 import { computeExpiry } from './QuotaIssuancesList.helpers';
 import { QuotaUsageTab } from './QuotaUsageTab';
 import type { ISeason } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 dayjs.extend(isoWeek);
 
@@ -98,10 +99,10 @@ const EMPTY_PERIOD: IPeriodState = { mode: 'season', monthKey: null, weekKey: nu
 
 function KpiLabel({ label, tip }: { label: string; tip: string }) {
   return (
-    <span style={{ fontSize: 12, color: '#8c8c8c' }}>
+    <span style={{ fontSize: 12, color: COLORS.textSecondary }}>
       {label}{' '}
       <Tooltip title={tip}>
-        <QuestionCircleOutlined style={{ fontSize: 10, color: '#bfbfbf', cursor: 'help' }} />
+        <QuestionCircleOutlined style={{ fontSize: 10, color: COLORS.textMuted, cursor: 'help' }} />
       </Tooltip>
     </span>
   );
@@ -302,7 +303,7 @@ export default function QuotaDashboard() {
       {/* ── Filter Panel (only for analytics tabs: per_firm, visual, weekly) ── */}
       {canSeeQuota && (activeTab === 'per_firm' || activeTab === 'visual' || activeTab === 'weekly') && <div
         style={{
-          background: '#fafafa',
+          background: COLORS.bgLayout,
           borderRadius: 8,
           padding: '12px 16px',
           marginBottom: 16,
@@ -391,7 +392,7 @@ export default function QuotaDashboard() {
             border: '1px solid #ffa39e',
             borderRadius: 6,
             marginBottom: 16,
-            color: '#ff4d4f',
+            color: COLORS.danger,
             fontSize: 13,
           }}
         >
@@ -411,7 +412,7 @@ export default function QuotaDashboard() {
               title={<KpiLabel label={t('quota_dashboard.kpi_sales')} tip={t('quota_dashboard.kpi_sales_tip')} />}
               value={displayWeight(kpis?.local_sales_kg ?? 0, weightUnit)}
               suffix={weightSuffix(weightUnit)}
-              styles={{ content: { fontSize: 22, fontWeight: 700, color: '#1677ff' } }}
+              styles={{ content: { fontSize: 22, fontWeight: 700, color: COLORS.primary } }}
               formatter={statFmt}
             />
           </Card>
@@ -419,7 +420,7 @@ export default function QuotaDashboard() {
 
         {/* Arrow */}
         <Col xs={0} md={1} style={{ textAlign: 'center' }}>
-          <RightOutlined style={{ fontSize: 16, color: '#d9d9d9' }} />
+          <RightOutlined style={{ fontSize: 16, color: COLORS.borderLight }} />
         </Col>
 
         {/* ALLOCATION */}
@@ -434,7 +435,7 @@ export default function QuotaDashboard() {
                   title={<KpiLabel label={t('quota_dashboard.kpi_expected')} tip={t('quota_dashboard.kpi_expected_tip')} />}
                   value={displayWeight(kpis?.expected_kg ?? 0, weightUnit)}
                   suffix={weightSuffix(weightUnit)}
-                  styles={{ content: { fontSize: 16, fontWeight: 600, color: '#52c41a' } }}
+                  styles={{ content: { fontSize: 16, fontWeight: 600, color: COLORS.success } }}
                   formatter={statFmt}
                 />
               </Col>
@@ -443,7 +444,7 @@ export default function QuotaDashboard() {
                   title={<KpiLabel label={t('quota_dashboard.kpi_issued')} tip={t('quota_dashboard.kpi_issued_tip')} />}
                   value={displayWeight(kpis?.issued_kg ?? 0, weightUnit)}
                   suffix={weightSuffix(weightUnit)}
-                  styles={{ content: { fontSize: 16, fontWeight: 600, color: '#722ed1' } }}
+                  styles={{ content: { fontSize: 16, fontWeight: 600, color: COLORS.purple } }}
                   formatter={statFmt}
                 />
               </Col>
@@ -452,7 +453,7 @@ export default function QuotaDashboard() {
                   title={<KpiLabel label={t('quota_dashboard.kpi_not_given')} tip={t('quota_dashboard.kpi_not_given_tip')} />}
                   value={displayWeight(kpis?.not_given_kg ?? 0, weightUnit)}
                   suffix={weightSuffix(weightUnit)}
-                  styles={{ content: { fontSize: 16, fontWeight: 600, color: kpis && kpis.not_given_kg > 0 ? '#ff4d4f' : undefined } }}
+                  styles={{ content: { fontSize: 16, fontWeight: 600, color: kpis && kpis.not_given_kg > 0 ? COLORS.danger : undefined } }}
                   formatter={statFmt}
                 />
               </Col>
@@ -460,7 +461,7 @@ export default function QuotaDashboard() {
             <Progress
               percent={coveragePct}
               size="small"
-              strokeColor={coveragePct >= 80 ? '#52c41a' : coveragePct >= 50 ? '#fa8c16' : '#ff4d4f'}
+              strokeColor={coveragePct >= 80 ? COLORS.success : coveragePct >= 50 ? COLORS.orange : COLORS.danger}
               format={(pct) => `${pct}% ${t('quota_dashboard.coverage')}`}
               style={{ marginTop: 8 }}
             />
@@ -469,7 +470,7 @@ export default function QuotaDashboard() {
 
         {/* Arrow */}
         <Col xs={0} md={1} style={{ textAlign: 'center' }}>
-          <RightOutlined style={{ fontSize: 16, color: '#d9d9d9' }} />
+          <RightOutlined style={{ fontSize: 16, color: COLORS.borderLight }} />
         </Col>
 
         {/* OUTCOME */}
@@ -493,7 +494,7 @@ export default function QuotaDashboard() {
                   title={<KpiLabel label={t('quota_dashboard.kpi_unused')} tip={t('quota_dashboard.kpi_unused_tip')} />}
                   value={displayWeight(kpis?.unused_kg ?? 0, weightUnit)}
                   suffix={weightSuffix(weightUnit)}
-                  styles={{ content: { fontSize: 16, fontWeight: 600, color: kpis && kpis.unused_kg > 0 ? '#fa8c16' : undefined } }}
+                  styles={{ content: { fontSize: 16, fontWeight: 600, color: kpis && kpis.unused_kg > 0 ? COLORS.orange : undefined } }}
                   formatter={statFmt}
                 />
               </Col>
@@ -502,7 +503,7 @@ export default function QuotaDashboard() {
                   title={<KpiLabel label={t('quota_dashboard.kpi_expired_unused')} tip={t('quota_dashboard.kpi_expired_tip')} />}
                   value={displayWeight(expiredStats.totalExpiredKg, weightUnit)}
                   suffix={weightSuffix(weightUnit)}
-                  styles={{ content: { fontSize: 16, fontWeight: 600, color: expiredStats.totalExpiredKg > 0 ? '#ff4d4f' : undefined } }}
+                  styles={{ content: { fontSize: 16, fontWeight: 600, color: expiredStats.totalExpiredKg > 0 ? COLORS.danger : undefined } }}
                   formatter={statFmt}
                 />
               </Col>

@@ -2,6 +2,7 @@ import { Button, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import type { IShipmentDraft, IDemandItem } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -20,12 +21,12 @@ export function MatchPanel({ draft, demand, onConfirm, onClear, isLoading }: IMa
     return (
       <div
         style={{
-          background: '#fafafa',
+          background: COLORS.bgLayout,
           border: '2px dashed #d9d9d9',
           borderRadius: 8,
           padding: 18,
           textAlign: 'center',
-          color: '#8c8c8c',
+          color: COLORS.textSecondary,
           margin: 12,
           minHeight: 180,
           display: 'flex',
@@ -61,7 +62,7 @@ export function MatchPanel({ draft, demand, onConfirm, onClear, isLoading }: IMa
         <div
           style={{
             padding: '8px 11px',
-            background: '#f6ffed',
+            background: COLORS.bgGreen,
             borderRadius: 6,
             fontSize: 11,
             color: '#389e0d',
@@ -77,7 +78,7 @@ export function MatchPanel({ draft, demand, onConfirm, onClear, isLoading }: IMa
         <div
           style={{
             padding: '8px 11px',
-            background: '#fffbe6',
+            background: COLORS.bgYellow,
             borderRadius: 6,
             fontSize: 11,
             color: '#d48806',
@@ -94,7 +95,7 @@ export function MatchPanel({ draft, demand, onConfirm, onClear, isLoading }: IMa
         <div
           style={{
             padding: '8px 11px',
-            background: '#f6ffed',
+            background: COLORS.bgGreen,
             borderRadius: 6,
             fontSize: 11,
             color: '#389e0d',
@@ -114,7 +115,7 @@ export function MatchPanel({ draft, demand, onConfirm, onClear, isLoading }: IMa
           <div
             style={{
               padding: '8px 11px',
-              background: '#fffbe6',
+              background: COLORS.bgYellow,
               borderRadius: 6,
               fontSize: 11,
               color: '#d48806',
@@ -133,7 +134,7 @@ export function MatchPanel({ draft, demand, onConfirm, onClear, isLoading }: IMa
           <div
             style={{
               padding: '8px 11px',
-              background: '#fffbe6',
+              background: COLORS.bgYellow,
               borderRadius: 6,
               fontSize: 11,
               color: '#d48806',
@@ -155,7 +156,7 @@ export function MatchPanel({ draft, demand, onConfirm, onClear, isLoading }: IMa
           <div
             style={{
               padding: '8px 11px',
-              background: '#fffbe6',
+              background: COLORS.bgYellow,
               borderRadius: 6,
               fontSize: 11,
               color: '#d48806',
@@ -191,7 +192,7 @@ export function MatchPanel({ draft, demand, onConfirm, onClear, isLoading }: IMa
           gap: 10,
           alignItems: 'center',
           padding: '9px 10px',
-          background: '#fff',
+          background: COLORS.white,
           borderRadius: 6,
           border: '1px solid #f0f0f0',
           marginBottom: 6,
@@ -200,7 +201,7 @@ export function MatchPanel({ draft, demand, onConfirm, onClear, isLoading }: IMa
         <div
           style={{
             fontSize: 10,
-            color: '#8c8c8c',
+            color: COLORS.textSecondary,
             textTransform: 'uppercase',
             letterSpacing: '0.04em',
             fontWeight: 600,
@@ -212,10 +213,10 @@ export function MatchPanel({ draft, demand, onConfirm, onClear, isLoading }: IMa
         </div>
         {draft ? (
           <div>
-            <div style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 500, color: '#1677ff' }}>
+            <div style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 500, color: COLORS.primary }}>
               {draft.cargo_code}
             </div>
-            <div style={{ fontSize: 11, color: '#8c8c8c' }}>
+            <div style={{ fontSize: 11, color: COLORS.textSecondary }}>
               {sourceCodes} · {(draft.weight_net ?? 0).toLocaleString('ru-RU')} kg · {ageLabel}
             </div>
           </div>
@@ -232,7 +233,7 @@ export function MatchPanel({ draft, demand, onConfirm, onClear, isLoading }: IMa
           gap: 10,
           alignItems: 'center',
           padding: '9px 10px',
-          background: '#fff',
+          background: COLORS.white,
           borderRadius: 6,
           border: '1px solid #f0f0f0',
           marginBottom: 6,
@@ -241,7 +242,7 @@ export function MatchPanel({ draft, demand, onConfirm, onClear, isLoading }: IMa
         <div
           style={{
             fontSize: 10,
-            color: '#8c8c8c',
+            color: COLORS.textSecondary,
             textTransform: 'uppercase',
             letterSpacing: '0.04em',
             fontWeight: 600,
@@ -253,10 +254,10 @@ export function MatchPanel({ draft, demand, onConfirm, onClear, isLoading }: IMa
         </div>
         {demand ? (
           <div>
-            <div style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 500, color: '#1677ff' }}>
+            <div style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 500, color: COLORS.primary }}>
               {demand.country}
             </div>
-            <div style={{ fontSize: 11, color: '#8c8c8c' }}>
+            <div style={{ fontSize: 11, color: COLORS.textSecondary }}>
               {demand.customer} · {demand.firm}
             </div>
           </div>
@@ -279,7 +280,7 @@ export function MatchPanel({ draft, demand, onConfirm, onClear, isLoading }: IMa
           </Button>
         </div>
       ) : (
-        <div style={{ fontSize: 11, color: '#8c8c8c', marginTop: 8, textAlign: 'center' }}>
+        <div style={{ fontSize: 11, color: COLORS.textSecondary, marginTop: 8, textAlign: 'center' }}>
           {t('assign.match_both_required')}
         </div>
       )}

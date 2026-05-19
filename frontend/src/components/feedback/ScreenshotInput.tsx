@@ -3,6 +3,7 @@ import { Upload, Button, Spin, Tooltip } from 'antd';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { IconCamera, IconTrash, IconClipboard } from '@tabler/icons-react';
+import { COLORS } from '@/constants/styles';
 
 const ALLOWED_MIME_TYPES = new Set([
   'image/png',
@@ -73,7 +74,7 @@ function ScreenshotThumbnails({
               justifyContent: 'center',
             }}
           >
-            <IconTrash size={12} color="#fff" />
+            <IconTrash size={12} color={COLORS.white} />
           </button>
         </div>
       ))}
@@ -255,7 +256,7 @@ export function ScreenshotInput({
       // which was breaking capture on every page.
       const { toBlob } = await import('html-to-image');
       const blob = await toBlob(document.body, {
-        backgroundColor: '#ffffff',
+        backgroundColor: COLORS.white,
         pixelRatio: window.devicePixelRatio || 1,
         cacheBust: true,
       });
@@ -299,7 +300,7 @@ export function ScreenshotInput({
         style={{ marginBottom: 8 }}
       >
         <p className="ant-upload-drag-icon">
-          <IconClipboard size={24} style={{ color: '#1677ff' }} />
+          <IconClipboard size={24} style={{ color: COLORS.primary }} />
         </p>
         <p className="ant-upload-text" style={{ fontSize: 13 }}>
           {t('feedback.attachment.dragger_text')}

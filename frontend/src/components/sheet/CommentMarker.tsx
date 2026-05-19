@@ -2,6 +2,7 @@ import { CommentOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { Tooltip } from 'antd';
 import type { ICommentTaskStatus } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 interface ICommentMarkerProps {
   count: number;
@@ -12,9 +13,9 @@ interface ICommentMarkerProps {
 }
 
 const COLOR_MAP: Record<string, string> = {
-  open: '#fa8c16',
-  done: '#52c41a',
-  comment: '#1677ff',
+  open: COLORS.orange,
+  done: COLORS.success,
+  comment: COLORS.primary,
 };
 
 export function CommentMarker({ count, taskState, showHoverHint = false, onClick }: ICommentMarkerProps) {
@@ -38,7 +39,7 @@ export function CommentMarker({ count, taskState, showHoverHint = false, onClick
             width: 14,
             height: 14,
             borderRadius: 7,
-            color: '#bfbfbf',
+            color: COLORS.textMuted,
             fontSize: 10,
             lineHeight: '14px',
             textAlign: 'center',
@@ -73,7 +74,7 @@ export function CommentMarker({ count, taskState, showHoverHint = false, onClick
         height: 14,
         borderRadius: 7,
         backgroundColor: color,
-        color: '#fff',
+        color: COLORS.white,
         fontSize: 9,
         fontWeight: 700,
         lineHeight: '14px',

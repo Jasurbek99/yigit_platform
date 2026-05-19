@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { Card, Skeleton, Tag, Tooltip, Typography } from 'antd';
 import type { BossPeriod, IBossDebtFirm } from '@/hooks/useBossDashboard';
 import { useBossDebt } from '@/hooks/useBossDashboard';
+import { COLORS } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -11,10 +12,10 @@ function AgingBar({ aging }: { aging: IBossDebtFirm['aging'] }) {
   if (total === 0) return null;
 
   const segments: { key: string; value: number; color: string; labelKey: string }[] = [
-    { key: 'fresh', value: aging.fresh, color: '#52c41a', labelKey: 'boss_dashboard.aging.fresh' },
-    { key: 'd30', value: aging.d30, color: '#faad14', labelKey: 'boss_dashboard.aging.d30' },
-    { key: 'd60', value: aging.d60, color: '#fa8c16', labelKey: 'boss_dashboard.aging.d60' },
-    { key: 'd90plus', value: aging.d90plus, color: '#ff4d4f', labelKey: 'boss_dashboard.aging.d90plus' },
+    { key: 'fresh', value: aging.fresh, color: COLORS.success, labelKey: 'boss_dashboard.aging.fresh' },
+    { key: 'd30', value: aging.d30, color: COLORS.warning, labelKey: 'boss_dashboard.aging.d30' },
+    { key: 'd60', value: aging.d60, color: COLORS.orange, labelKey: 'boss_dashboard.aging.d60' },
+    { key: 'd90plus', value: aging.d90plus, color: COLORS.danger, labelKey: 'boss_dashboard.aging.d90plus' },
   ];
 
   return (

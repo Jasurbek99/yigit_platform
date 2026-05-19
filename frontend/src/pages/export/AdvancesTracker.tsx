@@ -32,6 +32,7 @@ import type {
   IAdvanceShipmentLink,
 } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
+import { COLORS } from '@/constants/styles';
 
 const { Text, Link } = Typography;
 
@@ -320,7 +321,7 @@ export default function AdvancesTracker() {
       render: (_, record) => {
         const isOver = record.allocated_total > record.total_amount;
         return (
-          <span style={{ color: isOver ? '#ff4d4f' : undefined }}>
+          <span style={{ color: isOver ? COLORS.danger : undefined }}>
             ${record.allocated_total.toLocaleString()}
           </span>
         );
@@ -382,11 +383,11 @@ export default function AdvancesTracker() {
     <div style={{ padding: '0 4px' }}>
       <Space style={{ width: '100%', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
-          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: '#1f1f1f', lineHeight: '1.3', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <IconCurrencyDollar size={18} color="#1677ff" />
+          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: COLORS.textDark, lineHeight: '1.3', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <IconCurrencyDollar size={18} color={COLORS.primary} />
             {t('advances.title')}
           </div>
-          <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
+          <div style={{ fontSize: 13, color: COLORS.textSecondary, marginTop: 2 }}>
             {t('advances.subtitle')}
           </div>
         </div>
@@ -412,14 +413,14 @@ export default function AdvancesTracker() {
           <StatCard
             title={t('advances.unreconciled')}
             value={unreconciledCount}
-            color={unreconciledCount > 0 ? '#fa8c16' : undefined}
+            color={unreconciledCount > 0 ? COLORS.orange : undefined}
           />
         </Col>
         <Col xs={12} sm={6}>
           <StatCard
             title={t('advances.unreconciled_amount')}
             value={`$${unreconciledAmount.toLocaleString()}`}
-            color={unreconciledAmount > 0 ? '#fa8c16' : undefined}
+            color={unreconciledAmount > 0 ? COLORS.orange : undefined}
           />
         </Col>
       </Row>

@@ -3,6 +3,7 @@ import { Card, Skeleton, Table, Typography } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import type { BossPeriod, IBossCustomerRow } from '@/hooks/useBossDashboard';
 import { useBossTopCustomers } from '@/hooks/useBossDashboard';
+import { COLORS } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -39,7 +40,7 @@ export function TopCustomers({ period }: ITopCustomersProps) {
       dataIndex: 'customer_name',
       key: 'customer_name',
       render: (_: string, row: IBossCustomerRow) => (
-        <Text style={{ fontSize: 13, fontWeight: row.is_rest ? 400 : 500, color: row.is_rest ? '#8c8c8c' : undefined }}>
+        <Text style={{ fontSize: 13, fontWeight: row.is_rest ? 400 : 500, color: row.is_rest ? COLORS.textSecondary : undefined }}>
           {row.customer_name}
           {row.country_name && !row.is_rest && (
             <Text type="secondary" style={{ fontSize: 11, marginLeft: 6 }}>· {row.country_name}</Text>
@@ -70,7 +71,7 @@ export function TopCustomers({ period }: ITopCustomersProps) {
       align: 'right' as const,
       render: (v: number | null) => {
         if (v === null) return <Text type="secondary">—</Text>;
-        const color = v >= 0 ? '#52c41a' : '#ff4d4f';
+        const color = v >= 0 ? COLORS.success : COLORS.danger;
         const prefix = v >= 0 ? '+' : '';
         return <Text style={{ fontSize: 12, color }}>{prefix}{v.toFixed(1)}%</Text>;
       },

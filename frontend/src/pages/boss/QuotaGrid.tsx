@@ -3,13 +3,14 @@ import { Card, Skeleton, Tooltip, Typography } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import type { BossPeriod, IBossQuotaFirm } from '@/hooks/useBossDashboard';
 import { useBossQuotaGrid } from '@/hooks/useBossDashboard';
+import { COLORS } from '@/constants/styles';
 
 const { Text } = Typography;
 
 const LEVEL_COLORS: Record<IBossQuotaFirm['level'], { bg: string; border: string; text: string; bar: string }> = {
-  ok: { bg: '#f6ffed', border: '#b7eb8f', text: '#237804', bar: '#52c41a' },
-  warn: { bg: '#fffbe6', border: '#ffe58f', text: '#874d00', bar: '#faad14' },
-  alert: { bg: '#fff2f0', border: '#ffa39e', text: '#a8071a', bar: '#ff4d4f' },
+  ok: { bg: COLORS.bgGreen, border: '#b7eb8f', text: '#237804', bar: COLORS.success },
+  warn: { bg: COLORS.bgYellow, border: '#ffe58f', text: '#874d00', bar: COLORS.warning },
+  alert: { bg: COLORS.bgRed, border: '#ffa39e', text: '#a8071a', bar: COLORS.danger },
 };
 
 interface IQuotaGridProps {
@@ -66,7 +67,7 @@ export function QuotaGrid({ period }: IQuotaGridProps) {
                   <div
                     style={{
                       fontSize: 11,
-                      color: '#595959',
+                      color: COLORS.textTertiary,
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',

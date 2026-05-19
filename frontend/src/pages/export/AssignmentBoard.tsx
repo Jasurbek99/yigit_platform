@@ -9,6 +9,7 @@ import { SupplyCard } from './assignment/SupplyCard';
 import { DemandCard } from './assignment/DemandCard';
 import { MatchPanel } from './assignment/MatchPanel';
 import { getDemandGroups } from './assignment/assignmentHelpers';
+import { COLORS } from '@/constants/styles';
 
 const { Text, Title } = Typography;
 
@@ -120,7 +121,7 @@ export default function AssignmentBoard() {
         {/* Left: supply */}
         <div
           style={{
-            background: '#fff',
+            background: COLORS.white,
             border: '1px solid #f0f0f0',
             borderRadius: 8,
             display: 'flex',
@@ -143,12 +144,12 @@ export default function AssignmentBoard() {
             </div>
             <div
               style={{
-                background: '#f0f0f0',
+                background: COLORS.border,
                 padding: '2px 9px',
                 borderRadius: 12,
                 fontSize: 12,
                 fontWeight: 600,
-                color: '#595959',
+                color: COLORS.textTertiary,
               }}
             >
               {drafts.length}
@@ -182,7 +183,7 @@ export default function AssignmentBoard() {
         {/* Center: match panel */}
         <div
           style={{
-            background: '#fff',
+            background: COLORS.white,
             border: '1px solid #f0f0f0',
             borderRadius: 8,
             display: 'flex',
@@ -213,7 +214,7 @@ export default function AssignmentBoard() {
         {/* Right: demand */}
         <div
           style={{
-            background: '#fff',
+            background: COLORS.white,
             border: '1px solid #f0f0f0',
             borderRadius: 8,
             display: 'flex',
@@ -236,12 +237,12 @@ export default function AssignmentBoard() {
             </div>
             <div
               style={{
-                background: '#f0f0f0',
+                background: COLORS.border,
                 padding: '2px 9px',
                 borderRadius: 12,
                 fontSize: 12,
                 fontWeight: 600,
-                color: '#595959',
+                color: COLORS.textTertiary,
               }}
             >
               {MOCK_DEMAND.length}
@@ -256,10 +257,10 @@ export default function AssignmentBoard() {
                     padding: '7px 14px',
                     fontSize: 10,
                     fontWeight: 600,
-                    color: '#8c8c8c',
+                    color: COLORS.textSecondary,
                     textTransform: 'uppercase',
                     letterSpacing: '0.06em',
-                    background: '#fafafa',
+                    background: COLORS.bgLayout,
                     borderBottom: '1px solid #f0f0f0',
                     margin: '8px -10px 6px',
                   }}

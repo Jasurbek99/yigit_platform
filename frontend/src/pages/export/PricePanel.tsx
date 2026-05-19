@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import { usePriceEntries } from '@/hooks/usePlanning';
 import type { IPriceEntry } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -73,12 +74,12 @@ export default function PricePanel() {
       search: false,
       render: (_, record) => {
         const entry = record.cells[date];
-        if (!entry) return <span style={{ color: '#bfbfbf' }}>—</span>;
+        if (!entry) return <span style={{ color: COLORS.textMuted }}>—</span>;
         return (
           <span>
             <span style={{ fontWeight: 500 }}>${entry.price_usd?.toFixed(2)}</span>
             {entry.price_local != null && (
-              <span style={{ color: '#8c8c8c', fontSize: 11, marginLeft: 4 }}>
+              <span style={{ color: COLORS.textSecondary, fontSize: 11, marginLeft: 4 }}>
                 {Number(entry.price_local).toLocaleString()} {entry.currency}
               </span>
             )}
@@ -92,10 +93,10 @@ export default function PricePanel() {
     <div>
       <Space style={{ width: '100%', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
-          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: '#1f1f1f', lineHeight: '1.3' }}>
+          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: COLORS.textDark, lineHeight: '1.3' }}>
             {t('prices.title')}
           </div>
-          <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
+          <div style={{ fontSize: 13, color: COLORS.textSecondary, marginTop: 2 }}>
             {t('prices.subtitle')}
           </div>
         </div>

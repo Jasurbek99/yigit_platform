@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { canDo } from '@/utils/permissions';
 import { fmtWeight, weightSuffix, type WeightUnit } from '@/utils/weight';
 import { computeExpiry } from './QuotaIssuancesList.helpers';
+import { COLORS } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -18,9 +19,9 @@ const STATUS_CONFIG: Record<QuotaRowStatus, { color: string }> = {
 const STATUS_ORDER: Record<QuotaRowStatus, number> = { active: 0, expiring: 1, expired: 2 };
 
 function usageColor(pct: number): string {
-  if (pct >= 80) return '#52c41a';
-  if (pct >= 30) return '#fa8c16';
-  return '#ff4d4f';
+  if (pct >= 80) return COLORS.success;
+  if (pct >= 30) return COLORS.orange;
+  return COLORS.danger;
 }
 
 interface IFlatQuotaRow {

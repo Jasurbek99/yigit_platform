@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { useMutation } from '@tanstack/react-query';
 import api from '@/services/api';
 import type { ICurrentUser } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 interface ILoginForm {
   username: string;
@@ -63,7 +64,7 @@ export default function LoginPage() {
       {/* Login card */}
       <div
         style={{
-          background: '#fff',
+          background: COLORS.white,
           borderRadius: 16,
           padding: '48px 40px',
           width: '100%',
@@ -88,24 +89,24 @@ export default function LoginPage() {
             style={{
               width: 44,
               height: 44,
-              background: '#1677ff',
+              background: COLORS.primary,
               borderRadius: 12,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               fontWeight: 700,
               fontSize: 18,
-              color: '#fff',
+              color: COLORS.white,
               flexShrink: 0,
             }}
           >
             Y
           </div>
           <div>
-            <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em', color: '#1f1f1f' }}>
+            <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em', color: COLORS.textDark }}>
               {t('login.title')}
             </div>
-            <div style={{ fontSize: 12, color: '#8c8c8c', textAlign: 'center' }}>
+            <div style={{ fontSize: 12, color: COLORS.textSecondary, textAlign: 'center' }}>
               {t('login.ops_subtitle')}
             </div>
           </div>
@@ -153,7 +154,7 @@ export default function LoginPage() {
           </Form.Item>
         </Form>
 
-        <div style={{ textAlign: 'center', marginTop: 24, fontSize: 12, color: '#bfbfbf' }}>
+        <div style={{ textAlign: 'center', marginTop: 24, fontSize: 12, color: COLORS.textMuted }}>
           {t('login.footer')}
         </div>
       </div>

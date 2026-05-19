@@ -20,6 +20,7 @@ import { OfficialCodeEditor } from '@/components/draft/OfficialCodeEditor';
 import { useCreateDraft } from '@/hooks/useDrafts';
 import { useGreenhouseBlocks } from '@/hooks/useAdmin';
 import type { IShipmentDraft } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -73,9 +74,9 @@ function sumStatus(total: number): SumStatus {
 }
 
 function sumColor(status: SumStatus): string {
-  if (status === 'ok') return '#52c41a';
-  if (status === 'over') return '#ff4d4f';
-  return '#faad14';
+  if (status === 'ok') return COLORS.success;
+  if (status === 'over') return COLORS.danger;
+  return COLORS.warning;
 }
 
 function diffLabel(total: number, t: (k: string, v?: Record<string, unknown>) => string): string {
@@ -251,10 +252,10 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
             display: 'grid',
             gridTemplateColumns: '140px 1fr 120px 40px',
             padding: '8px 12px',
-            background: '#fafafa',
+            background: COLORS.bgLayout,
             fontSize: 11,
             fontWeight: 600,
-            color: '#595959',
+            color: COLORS.textTertiary,
             textTransform: 'uppercase',
             letterSpacing: '0.04em',
             gap: 8,
@@ -287,7 +288,7 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
             onClick={handleAddRow}
             style={{
               padding: '10px 14px',
-              color: '#1677ff',
+              color: COLORS.primary,
               fontSize: 13,
               cursor: 'pointer',
               borderTop: '1px solid #f0f0f0',
@@ -308,7 +309,7 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
             gap: 8,
             fontWeight: 600,
             borderTop: `2px solid ${sumColor(status)}`,
-            background: status === 'ok' ? '#f6ffed' : status === 'over' ? '#fff2f0' : '#fffbe6',
+            background: status === 'ok' ? COLORS.bgGreen : status === 'over' ? COLORS.bgRed : COLORS.bgYellow,
           }}
         >
           <div style={{ gridColumn: '1/2', fontSize: 12 }}>{t('draft.composer_total')}</div>
@@ -362,7 +363,7 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
         style={{
           marginTop: 12,
           padding: '8px 12px',
-          background: '#fffbe6',
+          background: COLORS.bgYellow,
           borderRadius: 6,
           fontSize: 12,
           color: '#854F0B',

@@ -7,6 +7,7 @@ import { useSheetCreate } from '@/hooks/useSheetCreate';
 import { useAuth } from '@/hooks/useAuth';
 import { canDo } from '@/utils/permissions';
 import type { IRowConfig, ISheetTaskCounts, IShipmentSheetItem } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 // Cap on how many SHIPMENT columns the user can freeze (on top of the 3
 // row-label columns: Row #, Who, Field name). Beyond this, freezing more
@@ -210,7 +211,7 @@ export function SheetToolbar({
               size="small"
               icon={<EyeOutlined />}
               onClick={() => setUnhideModalOpen(true)}
-              style={{ color: '#8c8c8c', borderColor: '#d9d9d9' }}
+              style={{ color: COLORS.textSecondary, borderColor: COLORS.borderLight }}
             >
               {t('sheet.hidden_rows_count', { count: hiddenCount })}
             </Button>

@@ -8,13 +8,14 @@ import { useDrafts } from '@/hooks/useDrafts';
 import { DraftComposerModal } from '@/components/draft/DraftComposerModal';
 import { FreshnessPill } from '@/components/FreshnessPill';
 import type { IShipmentDraft } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 const { Text } = Typography;
 
 const FRESHNESS_BORDER: Record<'today' | 'yesterday' | 'aged', string> = {
-  today: '#52c41a',
-  yesterday: '#faad14',
-  aged: '#ff4d4f',
+  today: COLORS.success,
+  yesterday: COLORS.warning,
+  aged: COLORS.danger,
 };
 
 // ─── DraftCard ────────────────────────────────────────────────────────────
@@ -45,7 +46,7 @@ function DraftCard({ draft }: IDraftCardProps) {
     <div
       onClick={handleCardClick}
       style={{
-        background: '#fff',
+        background: COLORS.white,
         border: `1px solid #d9d9d9`,
         borderLeft: `3px solid ${FRESHNESS_BORDER[freshness]}`,
         borderRadius: 8,
@@ -54,11 +55,11 @@ function DraftCard({ draft }: IDraftCardProps) {
         transition: 'all 0.15s',
       }}
       onMouseEnter={(e) => {
-        (e.currentTarget as HTMLDivElement).style.borderColor = '#1677ff';
+        (e.currentTarget as HTMLDivElement).style.borderColor = COLORS.primary;
         (e.currentTarget as HTMLDivElement).style.boxShadow = '0 1px 6px rgba(22,119,255,0.15)';
       }}
       onMouseLeave={(e) => {
-        (e.currentTarget as HTMLDivElement).style.borderColor = '#d9d9d9';
+        (e.currentTarget as HTMLDivElement).style.borderColor = COLORS.borderLight;
         (e.currentTarget as HTMLDivElement).style.borderLeft = `3px solid ${FRESHNESS_BORDER[freshness]}`;
         (e.currentTarget as HTMLDivElement).style.boxShadow = 'none';
       }}
@@ -68,7 +69,7 @@ function DraftCard({ draft }: IDraftCardProps) {
         <div
           style={{
             padding: '4px 8px',
-            background: '#fff2f0',
+            background: COLORS.bgRed,
             border: '1px solid #ffccc7',
             borderRadius: 4,
             fontSize: 11,
@@ -87,7 +88,7 @@ function DraftCard({ draft }: IDraftCardProps) {
             fontFamily: 'monospace',
             fontWeight: 600,
             fontSize: 14,
-            color: '#1677ff',
+            color: COLORS.primary,
             letterSpacing: '0.02em',
           }}
         >
@@ -119,7 +120,7 @@ function DraftCard({ draft }: IDraftCardProps) {
       <div
         style={{
           padding: '5px 8px',
-          background: '#fffbe6',
+          background: COLORS.bgYellow,
           borderRadius: 4,
           marginTop: 8,
           fontSize: 10,
@@ -180,11 +181,11 @@ export default function DraftPool() {
             {drafts.length > 0 && (
               <Badge
                 count={drafts.length}
-                style={{ marginLeft: 10, background: '#faad14' }}
+                style={{ marginLeft: 10, background: COLORS.warning }}
               />
             )}
           </div>
-          <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
+          <div style={{ fontSize: 13, color: COLORS.textSecondary, marginTop: 2 }}>
             {t('draft.page_subtitle')}
           </div>
         </div>
@@ -227,7 +228,7 @@ export default function DraftPool() {
           {/* Card list header */}
           <div
             style={{
-              background: '#fff',
+              background: COLORS.white,
               border: '1px solid #f0f0f0',
               borderRadius: 8,
               overflow: 'hidden',

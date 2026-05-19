@@ -14,17 +14,18 @@ import { useAuth } from '@/hooks/useAuth';
 import { useStartTask, useUnblockTask } from '@/hooks/useTaskActions';
 import { SUPERVISOR_ROLES } from '@/utils/detailSections';
 import type { ITaskListItem, TaskState } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 dayjs.extend(relativeTime);
 
 const { Text } = Typography;
 
 const STATE_ICON: Record<TaskState, React.ReactNode> = {
-  open: <ClockCircleOutlined style={{ color: '#8c8c8c' }} />,
-  in_progress: <SyncOutlined spin style={{ color: '#1677ff' }} />,
-  blocked: <StopOutlined style={{ color: '#ff4d4f' }} />,
-  done: <CheckCircleOutlined style={{ color: '#52c41a' }} />,
-  cancelled: <StopOutlined style={{ color: '#d9d9d9' }} />,
+  open: <ClockCircleOutlined style={{ color: COLORS.textSecondary }} />,
+  in_progress: <SyncOutlined spin style={{ color: COLORS.primary }} />,
+  blocked: <StopOutlined style={{ color: COLORS.danger }} />,
+  done: <CheckCircleOutlined style={{ color: COLORS.success }} />,
+  cancelled: <StopOutlined style={{ color: COLORS.borderLight }} />,
 };
 
 const STATE_COLOR: Record<TaskState, string> = {
@@ -124,7 +125,7 @@ export function OtherTasksRow({ tasks, onTaskClick }: IOtherTasksRowProps) {
           </Text>
         }
         dataSource={tasks}
-        style={{ background: '#fff', borderRadius: 8, marginBottom: 16 }}
+        style={{ background: COLORS.white, borderRadius: 8, marginBottom: 16 }}
         renderItem={(task) => (
           <List.Item
             style={{

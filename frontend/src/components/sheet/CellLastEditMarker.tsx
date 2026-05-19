@@ -5,6 +5,7 @@ import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import type { ICellLastEdit, IFieldHistoryEntry } from '@/types';
 import { useFieldHistory } from '@/hooks/useFieldHistory';
+import { COLORS } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -71,10 +72,10 @@ function HistoryPopoverContent({
             <Text strong style={{ fontSize: 12 }}>{entry.user_name}</Text>
             <Text type="secondary" style={{ fontSize: 11 }}>{formatDate(entry.edited_at)}</Text>
           </div>
-          <div style={{ fontSize: 12, color: '#595959' }}>
-            <Text delete style={{ fontSize: 12, color: '#8c8c8c' }}>{entry.old_value || '—'}</Text>
-            <Text style={{ margin: '0 4px', color: '#8c8c8c' }}>→</Text>
-            <Text style={{ fontSize: 12, color: '#262626' }}>{entry.new_value || '—'}</Text>
+          <div style={{ fontSize: 12, color: COLORS.textTertiary }}>
+            <Text delete style={{ fontSize: 12, color: COLORS.textSecondary }}>{entry.old_value || '—'}</Text>
+            <Text style={{ margin: '0 4px', color: COLORS.textSecondary }}>→</Text>
+            <Text style={{ fontSize: 12, color: COLORS.textPrimary }}>{entry.new_value || '—'}</Text>
           </div>
         </div>
       ))}
@@ -107,8 +108,8 @@ export function CellLastEditMarker({ shipmentId, fieldKey, lastEdit }: ICellLast
     width: 14,
     height: 14,
     borderRadius: 7,
-    backgroundColor: '#595959',
-    color: '#fff',
+    backgroundColor: COLORS.textTertiary,
+    color: COLORS.white,
     fontSize: 9,
     lineHeight: '14px',
     textAlign: 'center',

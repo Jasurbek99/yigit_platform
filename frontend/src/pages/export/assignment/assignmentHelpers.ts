@@ -1,9 +1,10 @@
 import type { IDemandItem } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 export const FRESHNESS_BORDER: Record<'today' | 'yesterday' | 'aged', string> = {
-  today: '#52c41a',
-  yesterday: '#faad14',
-  aged: '#ff4d4f',
+  today: COLORS.success,
+  yesterday: COLORS.warning,
+  aged: COLORS.danger,
 };
 
 export function getDemandGroups(

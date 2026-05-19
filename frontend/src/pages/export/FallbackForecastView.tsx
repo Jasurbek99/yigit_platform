@@ -18,6 +18,7 @@ import { useDayEntries, useUpsertDayEntry } from '@/hooks/usePlanning';
 import { useGreenhouseConfig } from '@/hooks/useGreenhouseConfig';
 import { useSeasons } from '@/hooks/useAdmin';
 import type { IHarvestDayEntry } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 const { Title, Text } = Typography;
 
@@ -107,7 +108,7 @@ export default function FallbackForecastView(): React.ReactElement {
       <Space size={24} style={{ marginBottom: 20 }} wrap>
         <div>
           <Text type="secondary" style={{ fontSize: 12 }}>{t('plan.total_forecast')}</Text>
-          <div style={{ fontSize: 18, fontWeight: 600, color: '#fa8c16' }}>
+          <div style={{ fontSize: 18, fontWeight: 600, color: COLORS.orange }}>
             {forecastTotal.toLocaleString()} kg
           </div>
         </div>
@@ -132,7 +133,7 @@ export default function FallbackForecastView(): React.ReactElement {
             <Card
               title={
                 <Space>
-                  <Badge color="#fa8c16" />
+                  <Badge color={COLORS.orange} />
                   <Text strong>{t('plan.forecast')}</Text>
                   <Tag color="orange">{pending.length}</Tag>
                 </Space>
@@ -159,7 +160,7 @@ export default function FallbackForecastView(): React.ReactElement {
             <Card
               title={
                 <Space>
-                  <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                  <CheckCircleOutlined style={{ color: COLORS.success }} />
                   <Text strong>{t('plan.status_submitted')}</Text>
                   <Tag color="success">{submitted.length}</Tag>
                 </Space>
@@ -261,7 +262,7 @@ function SubmittedRow({ entry }: ISubmittedRowProps): React.ReactElement {
         <Tag color="blue">{entry.block_code}</Tag>
         <Text type="secondary" style={{ fontSize: 12 }}>{entry.block_name}</Text>
       </div>
-      <Text style={{ color: '#52c41a', fontWeight: 500 }}>
+      <Text style={{ color: COLORS.success, fontWeight: 500 }}>
         {entry.forecast_value != null ? Number(entry.forecast_value).toLocaleString() : '—'}
       </Text>
       <Text type="secondary" style={{ fontSize: 12 }}>

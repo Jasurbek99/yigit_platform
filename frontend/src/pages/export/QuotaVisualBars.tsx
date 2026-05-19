@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import type { IQuotaDashboardFirm } from '@/types';
 import { fmtWeight, weightSuffix, type WeightUnit } from '@/utils/weight';
+import { COLORS } from '@/constants/styles';
 
 interface IProps {
   data: IQuotaDashboardFirm[];
@@ -25,13 +26,13 @@ function FirmBar({ firm, maxKg, weightUnit }: IFirmBarProps) {
   return (
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-        <span style={{ fontSize: 13, fontWeight: 500, color: firm.is_blocked ? '#ff4d4f' : '#1f1f1f' }}>
+        <span style={{ fontSize: 13, fontWeight: 500, color: firm.is_blocked ? COLORS.danger : COLORS.textDark }}>
           {firm.export_firm_name}
         </span>
-        <span style={{ fontSize: 12, color: '#595959' }}>
+        <span style={{ fontSize: 12, color: COLORS.textTertiary }}>
           {t('quota_dashboard.issued')}: {fw(firm.issued_kg)} {ws}
           {firm.not_given_kg > 0 && (
-            <span style={{ color: '#ff4d4f', marginLeft: 8 }}>
+            <span style={{ color: COLORS.danger, marginLeft: 8 }}>
               {t('quota_dashboard.not_given')}: {fw(firm.not_given_kg)} {ws}
             </span>
           )}
@@ -43,7 +44,7 @@ function FirmBar({ firm, maxKg, weightUnit }: IFirmBarProps) {
         style={{
           position: 'relative',
           height: 20,
-          background: '#f0f0f0',
+          background: COLORS.border,
           borderRadius: 4,
           overflow: 'hidden',
           width: `${Math.max(expectedPct, 4)}%`,
@@ -58,7 +59,7 @@ function FirmBar({ firm, maxKg, weightUnit }: IFirmBarProps) {
             top: 0,
             height: '100%',
             width: `${issuedPct}%`,
-            background: '#1677ff',
+            background: COLORS.primary,
             borderRadius: 4,
             opacity: 0.85,
           }}
@@ -71,7 +72,7 @@ function FirmBar({ firm, maxKg, weightUnit }: IFirmBarProps) {
             top: 0,
             height: '100%',
             width: `${(issuedPct * usedPct) / 100}%`,
-            background: '#52c41a',
+            background: COLORS.success,
             borderRadius: 4,
             opacity: 0.85,
           }}
@@ -79,14 +80,14 @@ function FirmBar({ firm, maxKg, weightUnit }: IFirmBarProps) {
       </div>
 
       {/* Legend */}
-      <div style={{ display: 'flex', gap: 16, marginTop: 4, fontSize: 11, color: '#8c8c8c' }}>
+      <div style={{ display: 'flex', gap: 16, marginTop: 4, fontSize: 11, color: COLORS.textSecondary }}>
         <span>
           <span
             style={{
               display: 'inline-block',
               width: 8,
               height: 8,
-              background: '#d9d9d9',
+              background: COLORS.borderLight,
               borderRadius: 2,
               marginRight: 4,
             }}
@@ -99,7 +100,7 @@ function FirmBar({ firm, maxKg, weightUnit }: IFirmBarProps) {
               display: 'inline-block',
               width: 8,
               height: 8,
-              background: '#1677ff',
+              background: COLORS.primary,
               borderRadius: 2,
               marginRight: 4,
             }}
@@ -112,7 +113,7 @@ function FirmBar({ firm, maxKg, weightUnit }: IFirmBarProps) {
               display: 'inline-block',
               width: 8,
               height: 8,
-              background: '#52c41a',
+              background: COLORS.success,
               borderRadius: 2,
               marginRight: 4,
             }}

@@ -1,5 +1,6 @@
 import { Badge, Empty, Typography } from 'antd';
 import React from 'react';
+import { COLORS } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -23,7 +24,7 @@ export function KanbanColumn({
   count,
   children,
   onDrop,
-  accentColor = '#d9d9d9',
+  accentColor = COLORS.borderLight,
   emptyText,
 }: IKanbanColumnProps) {
   const isDroppable = !!onDrop;
@@ -48,7 +49,7 @@ export function KanbanColumn({
         minWidth: 240,
         maxWidth: 280,
         flex: '0 0 auto',
-        background: '#fafafa',
+        background: COLORS.bgLayout,
         border: '1px solid #f0f0f0',
         borderRadius: 8,
         overflow: 'hidden',
@@ -61,7 +62,7 @@ export function KanbanColumn({
         style={{
           borderTop: `3px solid ${accentColor}`,
           padding: '10px 14px 8px',
-          background: '#fff',
+          background: COLORS.white,
           borderBottom: '1px solid #f0f0f0',
           display: 'flex',
           alignItems: 'center',
@@ -76,8 +77,8 @@ export function KanbanColumn({
           count={count}
           showZero
           style={{
-            backgroundColor: '#f5f5f5',
-            color: '#595959',
+            backgroundColor: COLORS.bgLight,
+            color: COLORS.textTertiary,
             boxShadow: 'none',
             fontSize: 11,
           }}
