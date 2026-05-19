@@ -238,7 +238,6 @@ export default function UsersPage() {
             key: 'password',
             width: 120,
             search: false,
-            responsive: ['md'],
             render: (_: unknown, record: IAdminUser) => (
               <Button
                 type="link"
@@ -255,7 +254,6 @@ export default function UsersPage() {
             key: 'delete',
             width: 80,
             search: false,
-            responsive: ['md'],
             render: (_: unknown, record: IAdminUser) =>
               record.id === currentUser?.id ? null : (
                 <Button

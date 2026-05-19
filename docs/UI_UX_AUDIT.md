@@ -146,3 +146,21 @@ Recommend a `src/theme/colors.ts` exporting semantic tokens (`status.warning`, `
 **Continuous (P3):**
 11. Expand test coverage — target high-risk pages first (`LoginPage`, `ShipmentList`, `SelfBoard`, `AppLayout` permission gates).
 12. Add a SelfBoard keyboard-drag fallback (arrow keys + Enter to move cards between columns).
+
+---
+
+## Known limitation — mobile responsiveness needs a dedicated pass
+
+The 2026-05-19 follow-up added `responsive: ['md']` to non-essential ProTable columns on 9 migrated pages, and then walked some of them back (OverdueReports `has_sales_report`, UsersPage password/delete) when reviews flagged that hiding a destructive or core-signal column on mobile broke the page's purpose.
+
+What that pass did NOT fix: the underlying layouts. Smoke-testing `/admin/users` at phone width on 2026-05-19 showed username + role + is_active + edit + reset_password + delete all squished into a single narrow column with the table header clipped — the column-by-column `responsive` strategy isn't enough when the visible columns themselves can't fit.
+
+Pages that still need a real mobile pass (not just `responsive` props):
+- `admin/UsersPage` — primary offender; the 3-button action group needs to collapse into an overflow menu (`Dropdown` with `MoreOutlined`), and the role + active columns need a card / list layout below a breakpoint
+- `admin/AuditLogPage` — 7 columns of audit chrome, only `created_at` + `action` + `user` fit on mobile; needs same overflow treatment
+- `export/AdvancesTracker` — 10 columns, same problem
+- `boss/BossDashboard` — KPI strip + heatmap + tables stack but the cards themselves use absolute-positioned chrome (badges, deltas) that overlap on narrow screens
+- `me/SelfBoard` — kanban columns side-by-side don't fit; need either a swipeable single-column view or a stacked vertical layout
+
+Suggested approach when this sprint comes up: replace the per-column `responsive` props on `UsersPage`, `AuditLogPage`, `AdvancesTracker` with a true mobile variant — at `xs/sm` breakpoints render a `<List>` of compact cards (using Ant `List.Item.Meta`) instead of a ProTable, and put row actions in an overflow menu. The existing ProTable code stays for `md`+. This is ~1 day of design + implementation per page.
+
