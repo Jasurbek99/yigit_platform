@@ -4,22 +4,23 @@ import { IconBell } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import { useNotifications, useMarkAllRead } from '@/hooks/useNotifications';
 import type { INotification } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 const { Text } = Typography;
 
 const KIND_COLOR: Record<INotification['kind'], string> = {
-  quota_80: '#faad14',
-  quota_90: '#fa8c16',
-  quota_95: '#ff4d4f',
+  quota_80: COLORS.warning,
+  quota_90: COLORS.orange,
+  quota_95: COLORS.danger,
   quota_100: '#cf1322',
-  overdue: '#ff4d4f',
-  action_required: '#1677ff',
-  plan_submitted: '#1677ff',
-  plan_approved: '#52c41a',
-  plan_rejected: '#ff4d4f',
-  mention: '#1677ff',
-  task_assigned: '#fa8c16',
-  task_done: '#52c41a',
+  overdue: COLORS.danger,
+  action_required: COLORS.primary,
+  plan_submitted: COLORS.primary,
+  plan_approved: COLORS.success,
+  plan_rejected: COLORS.danger,
+  mention: COLORS.primary,
+  task_assigned: COLORS.orange,
+  task_done: COLORS.success,
 };
 
 export function NotificationBell() {
@@ -97,7 +98,7 @@ export function NotificationBell() {
         <Button
           type="text"
           icon={<IconBell size={18} />}
-          style={{ color: '#595959', display: 'flex', alignItems: 'center' }}
+          style={{ color: COLORS.textTertiary, display: 'flex', alignItems: 'center' }}
           aria-label={t('notifications.title')}
         />
       </Badge>

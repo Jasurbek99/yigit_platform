@@ -3,6 +3,7 @@ import { Card, Skeleton, Typography } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import type { BossPeriod, IBossExportMarketRow } from '@/hooks/useBossDashboard';
 import { useBossExportMarket } from '@/hooks/useBossDashboard';
+import { COLORS } from '@/constants/styles';
 
 // CRITICAL: This component intentionally shows ONLY Daşarky Bazar (export market).
 // Içerki Bazar (domestic) and Sowgatlyk (gift) are explicitly excluded from v1.
@@ -39,20 +40,20 @@ export function ExportMarketByBlock({ period }: IExportMarketByBlockProps) {
                 display: 'grid',
                 gridTemplateColumns: '2fr 1.5fr 1fr 2.5fr',
                 padding: '7px 14px',
-                background: '#fafafa',
+                background: COLORS.bgLayout,
                 borderBottom: '1px solid #f0f0f0',
               }}
             >
-              <Text style={{ fontSize: 11, fontWeight: 600, color: '#595959' }}>
+              <Text style={{ fontSize: 11, fontWeight: 600, color: COLORS.textTertiary }}>
                 {t('boss_dashboard.export_market.header_block')}
               </Text>
-              <Text style={{ fontSize: 11, fontWeight: 600, color: '#595959', textAlign: 'right' }}>
+              <Text style={{ fontSize: 11, fontWeight: 600, color: COLORS.textTertiary, textAlign: 'right' }}>
                 {t('boss_dashboard.export_market.header_kg')}
               </Text>
-              <Text style={{ fontSize: 11, fontWeight: 600, color: '#595959', textAlign: 'right' }}>
+              <Text style={{ fontSize: 11, fontWeight: 600, color: COLORS.textTertiary, textAlign: 'right' }}>
                 {t('boss_dashboard.export_market.header_pct')}
               </Text>
-              <Text style={{ fontSize: 11, fontWeight: 600, color: '#595959', paddingLeft: 12 }}>
+              <Text style={{ fontSize: 11, fontWeight: 600, color: COLORS.textTertiary, paddingLeft: 12 }}>
                 {/* Share bar — no label */}
               </Text>
             </div>
@@ -70,14 +71,14 @@ export function ExportMarketByBlock({ period }: IExportMarketByBlockProps) {
                   cursor: 'pointer',
                   transition: 'background 0.1s',
                 }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = '#fafafa'; }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = COLORS.bgLayout; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
               >
                 <Text style={{ fontSize: 12 }}>{row.block_code}</Text>
                 <Text style={{ fontSize: 12, textAlign: 'right', fontFamily: 'monospace' }}>
                   {row.export_kg.toLocaleString()}
                 </Text>
-                <Text style={{ fontSize: 12, textAlign: 'right', color: '#1677ff' }}>
+                <Text style={{ fontSize: 12, textAlign: 'right', color: COLORS.primary }}>
                   {row.export_pct.toFixed(1)}%
                 </Text>
                 <div style={{ paddingLeft: 12, display: 'flex', alignItems: 'center' }}>
@@ -93,7 +94,7 @@ export function ExportMarketByBlock({ period }: IExportMarketByBlockProps) {
                   display: 'grid',
                   gridTemplateColumns: '2fr 1.5fr 1fr 2.5fr',
                   padding: '7px 14px',
-                  background: '#f5f5f5',
+                  background: COLORS.bgLight,
                   borderTop: '1px solid #e8e8e8',
                 }}
               >
@@ -131,11 +132,11 @@ export function ExportMarketByBlock({ period }: IExportMarketByBlockProps) {
 function ExportShareBar({ exportPct }: { exportPct: number }) {
   // Shows only the export segment — the remainder is shown as empty (unallocated in v1)
   return (
-    <div style={{ display: 'flex', width: '100%', height: 8, borderRadius: 4, overflow: 'hidden', background: '#f0f0f0', gap: 1 }}>
+    <div style={{ display: 'flex', width: '100%', height: 8, borderRadius: 4, overflow: 'hidden', background: COLORS.border, gap: 1 }}>
       <div
         style={{
           width: `${Math.min(exportPct, 100)}%`,
-          background: '#1677ff',
+          background: COLORS.primary,
           transition: 'width 0.3s',
         }}
       />

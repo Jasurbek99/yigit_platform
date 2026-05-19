@@ -7,6 +7,7 @@ import { handleCellKeyDown } from '@/utils/tableNavigation';
 import { AdminOverrideReasonModal } from '@/components/AdminOverrideReasonModal';
 import type { IHarvestDayEntry, IGreenhouseConfig } from '@/types';
 import { getCurrentForecastWindow } from './HarvestCell.helpers';
+import { COLORS } from '@/constants/styles';
 
 type InputNumberRef = ComponentRef<typeof InputNumber>;
 
@@ -82,13 +83,13 @@ interface IEmptyProps {
 function ValueOrEmpty({ valueStr, submittedAt, color }: IEmptyProps) {
   const { t } = useTranslation();
   if (valueStr == null) {
-    return <span style={{ color: '#bfbfbf' }}>—</span>;
+    return <span style={{ color: COLORS.textMuted }}>—</span>;
   }
   const n = Number(valueStr);
   if (n === 0 && submittedAt) {
     return (
       <Tooltip title={t('plan.empty_explicit_zero')}>
-        <span style={{ fontStyle: 'italic', color: color ?? '#8c8c8c' }}>0 ✓</span>
+        <span style={{ fontStyle: 'italic', color: color ?? COLORS.textSecondary }}>0 ✓</span>
       </Tooltip>
     );
   }
@@ -101,7 +102,7 @@ function ActualSourceBadge({ source }: { source: IHarvestDayEntry['actual_source
   const cfg =
     source === 'admin_override'
       ? { color: '#fa541c', bg: '#fff2e8', label: t('plan.source_admin_override') }
-      : { color: '#8c8c8c', bg: '#f5f5f5', label: t('plan.source_shipment_rollup') };
+      : { color: COLORS.textSecondary, bg: COLORS.bgLight, label: t('plan.source_shipment_rollup') };
   return (
     <Tooltip title={cfg.label}>
       <span
@@ -127,8 +128,8 @@ function PlanStateDot({ state }: { state: IHarvestDayEntry['plan_state'] }) {
   const { t } = useTranslation();
   if (state !== 'late' && state !== 'critical_late') return null;
   const cfg = state === 'critical_late'
-    ? { color: '#ff4d4f', label: t('plan.state_critical_late') }
-    : { color: '#faad14', label: t('plan.state_late') };
+    ? { color: COLORS.danger, label: t('plan.state_critical_late') }
+    : { color: COLORS.warning, label: t('plan.state_late') };
   return (
     <Tooltip title={cfg.label}>
       <span
@@ -362,7 +363,7 @@ export function HarvestCell({
         <ValueOrEmpty
           valueStr={entry.actual_value}
           submittedAt={entry.actual_finalized_at}
-          color="#52c41a"
+          color={COLORS.success}
         />
         <ActualSourceBadge source={entry.actual_source} />
         {(entry.plan_value || isAdmin) && (
@@ -370,7 +371,7 @@ export function HarvestCell({
             onClick={isAdmin ? (e) => { e.stopPropagation(); setEditingPlan(true); } : undefined}
             style={{
               fontSize: 10,
-              color: '#bfbfbf',
+              color: COLORS.textMuted,
               cursor: isAdmin ? 'pointer' : 'inherit',
               marginTop: 2,
             }}
@@ -387,7 +388,7 @@ export function HarvestCell({
             onClick={isAdmin ? (e) => { e.stopPropagation(); setEditingForecast(true); } : undefined}
             style={{
               fontSize: 10,
-              color: '#faad14',
+              color: COLORS.warning,
               cursor: isAdmin ? 'pointer' : 'inherit',
               marginTop: 2,
             }}
@@ -428,7 +429,7 @@ export function HarvestCell({
               style={{ width: 84 }}
             />
             {entry.forecast_value && (
-              <div style={{ fontSize: 10, color: '#faad14', marginTop: 2 }}>
+              <div style={{ fontSize: 10, color: COLORS.warning, marginTop: 2 }}>
                 {t('plan.forecast')}: {Number(entry.forecast_value).toLocaleString()}
               </div>
             )}
@@ -457,11 +458,11 @@ export function HarvestCell({
         <ValueOrEmpty
           valueStr={entry.actual_value}
           submittedAt={entry.actual_finalized_at}
-          color="#52c41a"
+          color={COLORS.success}
         />
         <ActualSourceBadge source={entry.actual_source} />
         {entry.forecast_value && (
-          <div style={{ fontSize: 10, color: '#faad14', marginTop: 2 }}>
+          <div style={{ fontSize: 10, color: COLORS.warning, marginTop: 2 }}>
             {t('plan.forecast')}: {Number(entry.forecast_value).toLocaleString()}
           </div>
         )}
@@ -495,7 +496,7 @@ export function HarvestCell({
               style={{ width: 84 }}
             />
             {entry.plan_value && (
-              <div style={{ fontSize: 10, color: '#1677ff', marginTop: 2 }}>
+              <div style={{ fontSize: 10, color: COLORS.primary, marginTop: 2 }}>
                 {t('plan.cell_plan_hint', { value: Number(entry.plan_value).toLocaleString() })}
               </div>
             )}
@@ -519,15 +520,15 @@ export function HarvestCell({
       <div
         data-edit-cell={canEditForecast ? 'true' : undefined}
         onClick={() => { if (canEditForecast) setEditingForecast(true); else onCellClick(entry.id); }}
-        style={{ cursor: canEditForecast ? 'text' : 'pointer', minHeight: 24, padding: '2px 0', backgroundColor: '#fff7e6' }}
+        style={{ cursor: canEditForecast ? 'text' : 'pointer', minHeight: 24, padding: '2px 0', backgroundColor: COLORS.bgOrange }}
       >
         <ValueOrEmpty
           valueStr={entry.forecast_value ?? entry.plan_value}
           submittedAt={entry.forecast_submitted_at ?? entry.plan_submitted_at}
-          color="#fa8c16"
+          color={COLORS.orange}
         />
         {entry.plan_value && (
-          <div style={{ fontSize: 10, color: '#1677ff', marginTop: 2 }}>
+          <div style={{ fontSize: 10, color: COLORS.primary, marginTop: 2 }}>
             {t('plan.cell_plan_hint', { value: Number(entry.plan_value).toLocaleString() })}
           </div>
         )}
@@ -540,15 +541,15 @@ export function HarvestCell({
     return (
       <div
         onClick={() => onCellClick(entry.id)}
-        style={{ cursor: 'pointer', minHeight: 24, padding: '2px 0', backgroundColor: '#fffbe6' }}
+        style={{ cursor: 'pointer', minHeight: 24, padding: '2px 0', backgroundColor: COLORS.bgYellow }}
       >
         <ValueOrEmpty
           valueStr={entry.forecast_value}
           submittedAt={entry.forecast_submitted_at}
-          color='#faad14'
+          color={COLORS.warning}
         />
         {entry.plan_value && (
-          <div style={{ fontSize: 10, color: '#1677ff', marginTop: 2 }}>
+          <div style={{ fontSize: 10, color: COLORS.primary, marginTop: 2 }}>
             {t('plan.cell_plan_hint', { value: Number(entry.plan_value).toLocaleString() })}
           </div>
         )}
@@ -603,7 +604,7 @@ export function HarvestCell({
       <ValueOrEmpty
         valueStr={entry.plan_value}
         submittedAt={entry.plan_submitted_at}
-        color="#1677ff"
+        color={COLORS.primary}
       />
       <PlanStateDot state={entry.plan_state} />
     </div>

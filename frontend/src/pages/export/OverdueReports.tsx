@@ -7,6 +7,7 @@ import { IconAlertTriangle } from '@tabler/icons-react';
 import { useOverdueShipments } from '@/hooks/useOverdueShipments';
 import { StatusTag } from '@/components/StatusTag';
 import type { IOverdueShipment } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 const { Text, Link } = Typography;
 
@@ -14,9 +15,9 @@ const THRESHOLD_OPTIONS = [5, 7, 10, 14] as const;
 type ThresholdValue = (typeof THRESHOLD_OPTIONS)[number];
 
 function daysOverdueColor(days: number): string {
-  if (days > 14) return '#ff4d4f';
-  if (days >= 10) return '#fa8c16';
-  return '#52c41a';
+  if (days > 14) return COLORS.danger;
+  if (days >= 10) return COLORS.orange;
+  return COLORS.success;
 }
 
 function StatCard({ title, value, color }: { title: string; value: string | number; color?: string }) {
@@ -126,9 +127,9 @@ export default function OverdueReports() {
       sorter: (a, b) => Number(a.has_sales_report) - Number(b.has_sales_report),
       render: (_, record) =>
         record.has_sales_report ? (
-          <span style={{ color: '#52c41a', fontWeight: 600, fontSize: 13 }}>{t('overdue.yes')}</span>
+          <span style={{ color: COLORS.success, fontWeight: 600, fontSize: 13 }}>{t('overdue.yes')}</span>
         ) : (
-          <span style={{ color: '#ff4d4f', fontWeight: 600, fontSize: 13 }}>{t('overdue.no')}</span>
+          <span style={{ color: COLORS.danger, fontWeight: 600, fontSize: 13 }}>{t('overdue.no')}</span>
         ),
     },
   ];
@@ -143,11 +144,11 @@ export default function OverdueReports() {
     <div style={{ padding: '0 4px' }}>
       <Space style={{ width: '100%', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
-          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: '#1f1f1f', lineHeight: '1.3', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <IconAlertTriangle style={{ color: '#ff4d4f', fontSize: 18 }} />
+          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: COLORS.textDark, lineHeight: '1.3', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <IconAlertTriangle style={{ color: COLORS.danger, fontSize: 18 }} />
             {t('overdue.title')}
           </div>
-          <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
+          <div style={{ fontSize: 13, color: COLORS.textSecondary, marginTop: 2 }}>
             {t('overdue.subtitle')}
           </div>
         </div>
@@ -158,7 +159,7 @@ export default function OverdueReports() {
           <StatCard
             title={t('overdue.total_overdue')}
             value={totalOverdue}
-            color={totalOverdue > 0 ? '#ff4d4f' : undefined}
+            color={totalOverdue > 0 ? COLORS.danger : undefined}
           />
         </Col>
         <Col xs={24} sm={8}>
@@ -171,7 +172,7 @@ export default function OverdueReports() {
           <StatCard
             title={t('overdue.critical')}
             value={criticalCount}
-            color={criticalCount > 0 ? '#ff4d4f' : undefined}
+            color={criticalCount > 0 ? COLORS.danger : undefined}
           />
         </Col>
       </Row>

@@ -36,6 +36,7 @@ import { canSeePage } from '@/utils/permissions';
 import { clearCachedPrefs } from '@/cache/userPrefsCache';
 import { FeedbackFAB } from '@/components/feedback/FeedbackFAB';
 import { NotificationBell } from '@/components/NotificationBell';
+import { COLORS } from '@/constants/styles';
 
 const { Sider, Header, Content } = Layout;
 const { Text } = Typography;
@@ -307,14 +308,14 @@ export default function AppLayout() {
             style={{
               width: 32,
               height: 32,
-              background: '#1677ff',
+              background: COLORS.primary,
               borderRadius: 8,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               fontWeight: 700,
               fontSize: 14,
-              color: '#fff',
+              color: COLORS.white,
               flexShrink: 0,
             }}
           >
@@ -322,7 +323,7 @@ export default function AppLayout() {
           </div>
           {!collapsed && (
             <div>
-              <div style={{ color: '#fff', fontWeight: 600, fontSize: 15, lineHeight: 1.2, letterSpacing: '-0.01em' }}>
+              <div style={{ color: COLORS.white, fontWeight: 600, fontSize: 15, lineHeight: 1.2, letterSpacing: '-0.01em' }}>
                 {t('nav.brand_name')}
               </div>
               <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11 }}>
@@ -366,7 +367,7 @@ export default function AppLayout() {
               justifyContent: 'center',
               fontSize: 12,
               fontWeight: 600,
-              color: '#fff',
+              color: COLORS.white,
               flexShrink: 0,
             }}
           >
@@ -376,7 +377,7 @@ export default function AppLayout() {
             <div style={{ flex: 1, minWidth: 0 }}>
               <div
                 style={{
-                  color: '#fff',
+                  color: COLORS.white,
                   fontSize: 13,
                   fontWeight: 500,
                   overflow: 'hidden',
@@ -405,7 +406,7 @@ export default function AppLayout() {
         {/* ── Header ──────────────────────────────────────────────────── */}
         <Header
           style={{
-            background: '#fff',
+            background: COLORS.white,
             borderBottom: '1px solid #f0f0f0',
             padding: '0 16px',
             height: 56,
@@ -424,7 +425,7 @@ export default function AppLayout() {
               type="text"
               icon={<IconMenu2 size={18} />}
               onClick={() => setCollapsed((c) => !c)}
-              style={{ color: '#595959', display: 'flex', alignItems: 'center' }}
+              style={{ color: COLORS.textTertiary, display: 'flex', alignItems: 'center' }}
               aria-label={t('nav.toggle_menu')}
             />
             <Flex align="center" gap={6} style={{ fontSize: 13 }}>
@@ -432,7 +433,7 @@ export default function AppLayout() {
               {currentPageLabel && (
                 <>
                   <Text type="secondary" style={{ fontSize: 13 }}>/</Text>
-                  <Text style={{ fontSize: 13, color: '#1f1f1f' }}>{currentPageLabel}</Text>
+                  <Text style={{ fontSize: 13, color: COLORS.textDark }}>{currentPageLabel}</Text>
                 </>
               )}
             </Flex>
@@ -461,7 +462,7 @@ export default function AppLayout() {
             (see SheetStyles.css). */}
         <Content
           style={{
-            background: '#f5f5f5',
+            background: COLORS.bgLight,
             padding: 24,
             height: 'calc(100vh - 56px)',
             overflowY: 'auto',

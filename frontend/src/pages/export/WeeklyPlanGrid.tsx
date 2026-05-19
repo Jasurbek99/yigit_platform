@@ -43,6 +43,7 @@ import { getCurrentForecastWindow, num, fmtKg } from '@/components/HarvestCell.h
 import { CellHistoryModal } from '@/components/CellHistoryModal';
 import type { IWeeklyHarvestPlan, IHarvestDayEntry } from '@/types';
 import { TruckAllocationTable } from './TruckAllocationTable';
+import { COLORS } from '@/constants/styles';
 
 dayjs.extend(isoWeek);
 dayjs.extend(weekOfYear);
@@ -241,7 +242,7 @@ export default function WeeklyPlanGrid() {
       title: (
         <div style={{ textAlign: 'center', lineHeight: '16px' }}>
           <div>{t(`plan.${day}`)}</div>
-          <div style={{ fontSize: 10, color: '#8c8c8c', fontWeight: 400 }}>
+          <div style={{ fontSize: 10, color: COLORS.textSecondary, fontWeight: 400 }}>
             {colDate.format('DD.MM')}
           </div>
         </div>
@@ -250,7 +251,7 @@ export default function WeeklyPlanGrid() {
       width: 120,
       render: (_: unknown, row: IWeeklyHarvestPlan) => {
         const entry = entriesByBlockDay.get(`${row.block}-${colDateStr}`);
-        if (!entry) return <span style={{ color: '#bfbfbf' }}>—</span>;
+        if (!entry) return <span style={{ color: COLORS.textMuted }}>—</span>;
         return (
           <HarvestCell
             entry={entry}
@@ -282,7 +283,7 @@ export default function WeeklyPlanGrid() {
           <Tag color={isBlockManager && myBlockIds.has(row.block) ? 'gold' : 'blue'}>
             {row.block_code}
           </Tag>
-          <div style={{ color: '#8c8c8c', fontSize: 11, marginTop: 2 }}>{row.block_name}</div>
+          <div style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 2 }}>{row.block_name}</div>
         </div>
       ),
     },
@@ -327,11 +328,11 @@ export default function WeeklyPlanGrid() {
         ),
         key: p.block_code,
         width: 130,
-        onCell: () => ({ style: isMine ? { backgroundColor: '#fffbe6' } : undefined }),
-        onHeaderCell: () => ({ style: isMine ? { backgroundColor: '#fffbe6' } : undefined }),
+        onCell: () => ({ style: isMine ? { backgroundColor: COLORS.bgYellow } : undefined }),
+        onHeaderCell: () => ({ style: isMine ? { backgroundColor: COLORS.bgYellow } : undefined }),
         render: (_: unknown, row: ITransposedRow) => {
           const entry = entriesByBlockDay.get(`${p.block}-${row.dateStr}`);
-          if (!entry) return <span style={{ color: '#bfbfbf' }}>—</span>;
+          if (!entry) return <span style={{ color: COLORS.textMuted }}>—</span>;
           return (
             <HarvestCell
               entry={entry}
@@ -373,9 +374,9 @@ export default function WeeklyPlanGrid() {
           return (
             <Table.Summary.Cell key={`sum_${day}`} index={1 + di}>
               <div>
-                <div style={{ color: '#1677ff', fontSize: 12 }}>{fmtKg(planTotal || null)}</div>
+                <div style={{ color: COLORS.primary, fontSize: 12 }}>{fmtKg(planTotal || null)}</div>
                 {actualTotal > 0 && (
-                  <div style={{ color: '#52c41a', fontSize: 12 }}>{fmtKg(actualTotal)}</div>
+                  <div style={{ color: COLORS.success, fontSize: 12 }}>{fmtKg(actualTotal)}</div>
                 )}
               </div>
             </Table.Summary.Cell>
@@ -390,7 +391,7 @@ export default function WeeklyPlanGrid() {
       <>
         <Table.Summary.Row style={{ fontWeight: 600 }}>
           <Table.Summary.Cell index={0}>
-            <span style={{ color: '#1677ff' }}>{t('plan.total')} {t('plan.plan')}</span>
+            <span style={{ color: COLORS.primary }}>{t('plan.total')} {t('plan.plan')}</span>
           </Table.Summary.Cell>
           {plans.map((p, i) => {
             const blockTotal = DAYS.reduce((s, _, di) => {
@@ -400,14 +401,14 @@ export default function WeeklyPlanGrid() {
             }, 0);
             return (
               <Table.Summary.Cell key={`tp_${p.id}`} index={1 + i}>
-                <span style={{ color: '#1677ff' }}>{fmtKg(blockTotal || null)}</span>
+                <span style={{ color: COLORS.primary }}>{fmtKg(blockTotal || null)}</span>
               </Table.Summary.Cell>
             );
           })}
         </Table.Summary.Row>
         <Table.Summary.Row style={{ fontWeight: 600 }}>
           <Table.Summary.Cell index={0}>
-            <span style={{ color: '#52c41a' }}>{t('plan.total')} {t('plan.actual')}</span>
+            <span style={{ color: COLORS.success }}>{t('plan.total')} {t('plan.actual')}</span>
           </Table.Summary.Cell>
           {plans.map((p, i) => {
             const blockTotal = DAYS.reduce((s, _, di) => {
@@ -417,7 +418,7 @@ export default function WeeklyPlanGrid() {
             }, 0);
             return (
               <Table.Summary.Cell key={`ta_${p.id}`} index={1 + i}>
-                <span style={{ color: '#52c41a' }}>{fmtKg(blockTotal || null)}</span>
+                <span style={{ color: COLORS.success }}>{fmtKg(blockTotal || null)}</span>
               </Table.Summary.Cell>
             );
           })}
@@ -501,7 +502,7 @@ export default function WeeklyPlanGrid() {
               title={t('plan.total_plan')}
               value={totalPlan}
               suffix="kg"
-              styles={{ content: { color: '#1677ff', fontSize: 20 } }}
+              styles={{ content: { color: COLORS.primary, fontSize: 20 } }}
               formatter={(v) => Number(v).toLocaleString()}
             />
           </Card>
@@ -510,7 +511,7 @@ export default function WeeklyPlanGrid() {
               title={t('plan.total_forecast')}
               value={totalForecast}
               suffix="kg"
-              styles={{ content: { color: '#fa8c16', fontSize: 20 } }}
+              styles={{ content: { color: COLORS.orange, fontSize: 20 } }}
               formatter={(v) => Number(v).toLocaleString()}
             />
           </Card>
@@ -519,7 +520,7 @@ export default function WeeklyPlanGrid() {
               title={t('plan.total_actual')}
               value={totalActual}
               suffix="kg"
-              styles={{ content: { color: '#52c41a', fontSize: 20 } }}
+              styles={{ content: { color: COLORS.success, fontSize: 20 } }}
               formatter={(v) => Number(v).toLocaleString()}
             />
           </Card>
@@ -527,7 +528,7 @@ export default function WeeklyPlanGrid() {
             <Statistic
               title={t('plan.est_trucks')}
               value={estTrucks}
-              styles={{ content: { color: '#722ed1', fontSize: 20 } }}
+              styles={{ content: { color: COLORS.purple, fontSize: 20 } }}
               suffix={t('plan.trucks_suffix')}
             />
           </Card>
@@ -539,7 +540,7 @@ export default function WeeklyPlanGrid() {
                 <Statistic
                   title={t('plan.late_submissions')}
                   value={lateCount + criticalLateCount}
-                  styles={{ content: { color: criticalLateCount > 0 ? '#ff4d4f' : '#faad14', fontSize: 20 } }}
+                  styles={{ content: { color: criticalLateCount > 0 ? COLORS.danger : COLORS.warning, fontSize: 20 } }}
                 />
               </Tooltip>
             </Card>
@@ -579,7 +580,7 @@ export default function WeeklyPlanGrid() {
           onRow={(row) => ({
             style: {
               backgroundColor:
-                isBlockManager && myBlockIds.has(row.block) ? '#fffbe6' : undefined,
+                isBlockManager && myBlockIds.has(row.block) ? COLORS.bgYellow : undefined,
               boxShadow:
                 isBlockManager && myBlockIds.has(row.block)
                   ? 'inset 3px 0 0 #faad14'

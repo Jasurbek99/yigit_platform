@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { IMentionable } from '@/types';
 import { useSheetStore } from '@/stores/sheetStore';
 import i18n from '@/i18n';
+import { COLORS } from '@/constants/styles';
 
 interface ICellOption {
   fieldKey: string;
@@ -122,7 +123,7 @@ export function MentionPopover({
     bottom: '100%',
     left: 0,
     zIndex: 1050,
-    background: '#fff',
+    background: COLORS.white,
     border: '1px solid #d9d9d9',
     borderRadius: 6,
     boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
@@ -150,7 +151,7 @@ export function MentionPopover({
   if (mode === 'cells') {
     return (
       <div ref={popoverRef} style={style}>
-        <div style={{ padding: '4px 8px', fontSize: 11, color: '#8c8c8c', borderBottom: '1px solid #f0f0f0' }}>
+        <div style={{ padding: '4px 8px', fontSize: 11, color: COLORS.textSecondary, borderBottom: '1px solid #f0f0f0' }}>
           {t('comments.mention_cell')}
         </div>
         <div style={listStyle}>
@@ -162,12 +163,12 @@ export function MentionPopover({
               onMouseDown={(e) => { e.preventDefault(); handlePick(cell); }}
               onMouseEnter={() => setSelectedIdx(idx)}
             >
-              <span style={{ color: '#8c8c8c', fontSize: 11 }}>#</span>
+              <span style={{ color: COLORS.textSecondary, fontSize: 11 }}>#</span>
               <span>{cell.label}</span>
             </div>
           ))}
           {cellOptions.length === 0 && !isLoading && (
-            <div style={{ padding: '8px 12px', color: '#8c8c8c', fontSize: 12 }}>—</div>
+            <div style={{ padding: '8px 12px', color: COLORS.textSecondary, fontSize: 12 }}>—</div>
           )}
         </div>
       </div>
@@ -191,7 +192,7 @@ export function MentionPopover({
               <span
                 style={{
                   width: 22, height: 22, borderRadius: '50%',
-                  background: '#1677ff', color: '#fff',
+                  background: COLORS.primary, color: COLORS.white,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 10, fontWeight: 700, flexShrink: 0,
                 }}
@@ -199,11 +200,11 @@ export function MentionPopover({
                 {u.name[0].toUpperCase()}
               </span>
               <span>{u.name}</span>
-              <span style={{ color: '#8c8c8c', fontSize: 11 }}>{u.role}</span>
+              <span style={{ color: COLORS.textSecondary, fontSize: 11 }}>{u.role}</span>
             </div>
           ))}
           {users.length === 0 && !isLoading && (
-            <div style={{ padding: '8px 12px', color: '#8c8c8c', fontSize: 12 }}>—</div>
+            <div style={{ padding: '8px 12px', color: COLORS.textSecondary, fontSize: 12 }}>—</div>
           )}
         </div>
       ),
@@ -220,15 +221,15 @@ export function MentionPopover({
               onMouseDown={(e) => { e.preventDefault(); handlePick(r); }}
               onMouseEnter={() => setSelectedIdx(idx)}
             >
-              <span style={{ color: '#722ed1', fontWeight: 600 }}>@</span>
+              <span style={{ color: COLORS.purple, fontWeight: 600 }}>@</span>
               <span>{r.label}</span>
-              <span style={{ color: '#8c8c8c', fontSize: 11 }}>
+              <span style={{ color: COLORS.textSecondary, fontSize: 11 }}>
                 {t('comments.role_member_count', { count: r.member_count })}
               </span>
             </div>
           ))}
           {roles.length === 0 && (
-            <div style={{ padding: '8px 12px', color: '#8c8c8c', fontSize: 12 }}>—</div>
+            <div style={{ padding: '8px 12px', color: COLORS.textSecondary, fontSize: 12 }}>—</div>
           )}
         </div>
       ),

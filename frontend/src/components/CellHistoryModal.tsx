@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import { useDayEntryHistory } from '@/hooks/usePlanning';
 import type { IHarvestDayEntry, PlanState, ForecastWindow } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 const { Text, Title } = Typography;
 
@@ -36,9 +37,9 @@ function PlanStateBadge({ state }: { state: PlanState | '' }) {
   const { t } = useTranslation();
   if (!state) return null;
   const map: Record<PlanState, { color: string; icon: React.ReactNode }> = {
-    on_time: { color: '#52c41a', icon: <CheckCircleOutlined /> },
-    late: { color: '#faad14', icon: <ClockCircleOutlined /> },
-    critical_late: { color: '#ff4d4f', icon: <ExclamationCircleOutlined /> },
+    on_time: { color: COLORS.success, icon: <CheckCircleOutlined /> },
+    late: { color: COLORS.warning, icon: <ClockCircleOutlined /> },
+    critical_late: { color: COLORS.danger, icon: <ExclamationCircleOutlined /> },
   };
   const cfg = map[state];
   return (
@@ -57,9 +58,9 @@ function ForecastWindowBadge({ win }: { win: ForecastWindow | '' }) {
   const { t } = useTranslation();
   if (!win) return null;
   const map: Record<ForecastWindow, string> = {
-    primary: '#1677ff',
-    fallback: '#fa8c16',
-    same_day_red_flag: '#ff4d4f',
+    primary: COLORS.primary,
+    fallback: COLORS.orange,
+    same_day_red_flag: COLORS.danger,
   };
   return (
     <Text style={{ color: map[win], fontSize: 12 }}>
@@ -94,7 +95,7 @@ export function CellHistoryModal({ entry, onClose }: ICellHistoryModalProps): Re
           <Space direction="vertical" style={{ width: '100%', marginBottom: 16 }} size={4}>
             {/* Plan */}
             <Space size={8} wrap>
-              <Text strong style={{ color: '#1677ff', minWidth: 70 }}>{t('plan.plan')}:</Text>
+              <Text strong style={{ color: COLORS.primary, minWidth: 70 }}>{t('plan.plan')}:</Text>
               <Text>{fmtVal(entry.plan_value)}</Text>
               {entry.plan_submitted_at && (
                 <Text type="secondary" style={{ fontSize: 12 }}>
@@ -107,7 +108,7 @@ export function CellHistoryModal({ entry, onClose }: ICellHistoryModalProps): Re
 
             {/* Forecast */}
             <Space size={8} wrap>
-              <Text strong style={{ color: '#fa8c16', minWidth: 70 }}>{t('plan.forecast')}:</Text>
+              <Text strong style={{ color: COLORS.orange, minWidth: 70 }}>{t('plan.forecast')}:</Text>
               <Text>{fmtVal(entry.forecast_value)}</Text>
               {entry.forecast_submitted_at && (
                 <Text type="secondary" style={{ fontSize: 12 }}>
@@ -125,7 +126,7 @@ export function CellHistoryModal({ entry, onClose }: ICellHistoryModalProps): Re
 
             {/* Actual */}
             <Space size={8} wrap>
-              <Text strong style={{ color: '#52c41a', minWidth: 70 }}>{t('plan.actual')}:</Text>
+              <Text strong style={{ color: COLORS.success, minWidth: 70 }}>{t('plan.actual')}:</Text>
               <Text>{fmtVal(entry.actual_value)}</Text>
               {entry.actual_finalized_at && (
                 <Text type="secondary" style={{ fontSize: 12 }}>
@@ -140,9 +141,9 @@ export function CellHistoryModal({ entry, onClose }: ICellHistoryModalProps): Re
             <>
               <Divider style={{ margin: '12px 0' }} />
               <Space size={4} align="start">
-                <EditOutlined style={{ color: '#ff4d4f', marginTop: 3 }} />
+                <EditOutlined style={{ color: COLORS.danger, marginTop: 3 }} />
                 <Space direction="vertical" size={2}>
-                  <Text strong style={{ color: '#ff4d4f', fontSize: 12 }}>
+                  <Text strong style={{ color: COLORS.danger, fontSize: 12 }}>
                     {t('plan.override_modal_title')}
                   </Text>
                   <Text type="secondary" style={{ fontSize: 12 }}>

@@ -8,6 +8,7 @@ import isoWeek from 'dayjs/plugin/isoWeek';
 import weekOfYear from 'dayjs/plugin/weekOfYear';
 import { useBlockSummary } from '@/hooks/usePlanning';
 import type { IBlockSummary } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 dayjs.extend(isoWeek);
 dayjs.extend(weekOfYear);
@@ -74,7 +75,7 @@ export default function BlockSummary() {
       responsive: ['md'],
       sorter: (a, b) => a.total_plan_kg - b.total_plan_kg,
       render: (_, record) => (
-        <span style={{ color: '#1677ff' }}>{fmtKg(record.total_plan_kg)}</span>
+        <span style={{ color: COLORS.primary }}>{fmtKg(record.total_plan_kg)}</span>
       ),
     },
     {
@@ -85,9 +86,9 @@ export default function BlockSummary() {
       sorter: (a, b) => (a.total_actual_kg ?? 0) - (b.total_actual_kg ?? 0),
       render: (_, record) =>
         record.total_actual_kg != null ? (
-          <span style={{ color: '#52c41a' }}>{fmtKg(record.total_actual_kg)}</span>
+          <span style={{ color: COLORS.success }}>{fmtKg(record.total_actual_kg)}</span>
         ) : (
-          <span style={{ color: '#bfbfbf' }}>—</span>
+          <span style={{ color: COLORS.textMuted }}>—</span>
         ),
     },
     {
@@ -99,9 +100,9 @@ export default function BlockSummary() {
       sorter: (a, b) => (a.deficit_kg ?? 0) - (b.deficit_kg ?? 0),
       render: (_, record) => {
         const val = record.deficit_kg;
-        if (val == null) return <span style={{ color: '#bfbfbf' }}>—</span>;
+        if (val == null) return <span style={{ color: COLORS.textMuted }}>—</span>;
         return (
-          <span style={{ color: val >= 0 ? '#52c41a' : '#ff4d4f', fontWeight: 500 }}>
+          <span style={{ color: val >= 0 ? COLORS.success : COLORS.danger, fontWeight: 500 }}>
             {val >= 0 ? '+' : ''}{fmtKg(val)}
           </span>
         );
@@ -114,13 +115,13 @@ export default function BlockSummary() {
       search: false,
       render: (_, record) => {
         if (record.total_actual_kg == null) {
-          return <span style={{ color: '#bfbfbf' }}>—</span>;
+          return <span style={{ color: COLORS.textMuted }}>—</span>;
         }
         const pct =
           record.total_plan_kg > 0
             ? Math.min(100, Math.round((record.total_actual_kg / record.total_plan_kg) * 100))
             : 0;
-        const strokeColor = pct >= 100 ? '#52c41a' : pct < 80 ? '#ff4d4f' : '#1677ff';
+        const strokeColor = pct >= 100 ? COLORS.success : pct < 80 ? COLORS.danger : COLORS.primary;
         return <Progress percent={pct} size="small" strokeColor={strokeColor} />;
       },
     },
@@ -130,11 +131,11 @@ export default function BlockSummary() {
     <div>
       <Space style={{ width: '100%', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
-          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: '#1f1f1f', lineHeight: '1.3', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <IconChartBar size={18} color="#1677ff" />
+          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: COLORS.textDark, lineHeight: '1.3', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <IconChartBar size={18} color={COLORS.primary} />
             {t('block_summary.title')}
           </div>
-          <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
+          <div style={{ fontSize: 13, color: COLORS.textSecondary, marginTop: 2 }}>
             {t('block_summary.subtitle')}
           </div>
         </div>
@@ -153,14 +154,14 @@ export default function BlockSummary() {
           <StatCard
             title={t('block_summary.total_plan')}
             value={fmtKg(totalPlan)}
-            color="#1677ff"
+            color={COLORS.primary}
           />
         </Col>
         <Col xs={12} sm={6}>
           <StatCard
             title={t('block_summary.total_actual')}
             value={totalActual != null ? fmtKg(totalActual) : '—'}
-            color="#52c41a"
+            color={COLORS.success}
           />
         </Col>
         <Col xs={12} sm={6}>
@@ -175,8 +176,8 @@ export default function BlockSummary() {
               totalDeficit == null
                 ? undefined
                 : totalDeficit >= 0
-                  ? '#52c41a'
-                  : '#ff4d4f'
+                  ? COLORS.success
+                  : COLORS.danger
             }
           />
         </Col>
@@ -188,10 +189,10 @@ export default function BlockSummary() {
               completionPct == null
                 ? undefined
                 : completionPct >= 95
-                  ? '#52c41a'
+                  ? COLORS.success
                   : completionPct < 80
-                    ? '#ff4d4f'
-                    : '#faad14'
+                    ? COLORS.danger
+                    : COLORS.warning
             }
           />
         </Col>
