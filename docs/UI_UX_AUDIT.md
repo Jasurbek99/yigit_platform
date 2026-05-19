@@ -18,7 +18,9 @@ ESLint v9.39 requires a flat `eslint.config.js`; the repo has neither flat nor l
 
 ### Test coverage gap
 
-Only 3 test files for 73 page files + 30+ shared components. Top-priority pages with zero tests: `LoginPage`, `ShipmentList`, `ShipmentSheet`, `AppLayout` (auth + permissions), `SelfBoard` (drag-drop logic).
+Only 3 test files for 73 page files + 30+ shared components. Top-priority pages with zero tests: ~~`LoginPage`~~, `ShipmentList`, `ShipmentSheet`, ~~`AppLayout` (auth + permissions)~~, `SelfBoard` (drag-drop logic).
+
+**Update 2026-05-19:** `LoginPage.test.tsx` (5 tests) and `ProtectedRoute.test.tsx` (12 tests) added — covers the auth boundary that was previously untested. Suite is now 30 tests across 5 files. Remaining gaps: ShipmentList, ShipmentSheet, SelfBoard drag-drop, AppLayout sidebar permission gates.
 
 ---
 
