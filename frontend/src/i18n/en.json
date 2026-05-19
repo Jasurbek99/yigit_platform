@@ -1953,6 +1953,10 @@
       "toast_blocked": "Task blocked",
       "toast_unblocked": "Task unblocked",
       "drop_not_allowed": "Cannot move task this way",
+      "action_menu": "Move task",
+      "action_mark_blocked": "Mark as blocked",
+      "action_unblock": "Unblock (move to in progress)",
+      "card_aria": "Task {{title}}, {{state}}. Press Enter to open.",
       "drawer_open_shipment": "Open shipment detail",
       "drawer_readonly_completed": "Completed {{when}}"
     },

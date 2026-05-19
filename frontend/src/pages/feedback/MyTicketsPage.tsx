@@ -229,6 +229,15 @@ export default function MyTicketsPage(): React.ReactElement {
         pagination={{ pageSize: 20, showSizeChanger: false }}
         onRow={(record) => ({
           onClick: () => setSelectedId(record.id),
+          onKeyDown: (e: React.KeyboardEvent<HTMLTableRowElement>) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setSelectedId(record.id);
+            }
+          },
+          tabIndex: 0,
+          role: 'button',
+          'aria-label': record.title,
           style: { cursor: 'pointer' },
         })}
       />
