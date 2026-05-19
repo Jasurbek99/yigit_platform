@@ -20,7 +20,7 @@ import { OfficialCodeEditor } from '@/components/draft/OfficialCodeEditor';
 import { useCreateDraft } from '@/hooks/useDrafts';
 import { useGreenhouseBlocks } from '@/hooks/useAdmin';
 import type { IShipmentDraft } from '@/types';
-import { COLORS } from '@/constants/styles';
+import { COLORS, FONT } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -216,7 +216,7 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
           }}
         >
           <Typography.Text strong>{t('official_code.title')}</Typography.Text>
-          <Tag color="blue" style={{ fontFamily: 'monospace' }}>
+          <Tag color="blue" style={{ fontFamily: FONT.mono }}>
             {t('official_code.platform_id_label')}: {cargoCode}
           </Tag>
         </div>
@@ -239,7 +239,7 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
         <Typography.Text type="secondary" style={{ fontSize: 12 }}>
           {t('draft.composer_target')}:
         </Typography.Text>
-        <span style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 600 }}>
+        <span style={{ fontFamily: FONT.mono, fontSize: 13, fontWeight: 600 }}>
           {TARGET_KG.toLocaleString('ru-RU')} kg
         </span>
       </div>
@@ -316,7 +316,7 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
           <div
             style={{
               textAlign: 'right',
-              fontFamily: 'monospace',
+              fontFamily: FONT.mono,
               fontSize: 14,
               color: sumColor(status),
             }}
@@ -435,7 +435,7 @@ function ComposerRow({
       <Space style={{ justifyContent: 'flex-end' }}>
         <Text
           type={row.weight_kg > 0 ? 'success' : 'secondary'}
-          style={{ fontFamily: 'monospace', fontSize: 12 }}
+          style={{ fontFamily: FONT.mono, fontSize: 12 }}
         >
           —
         </Text>

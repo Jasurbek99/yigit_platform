@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import AppLayout from '@/components/AppLayout';
 import { useAuth } from '@/hooks/useAuth';
-import { COLORS } from '@/constants/styles';
+import { COLORS, FONT } from '@/constants/styles';
 
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
 const UnauthorizedPage = lazy(() => import('@/pages/auth/UnauthorizedPage'));
@@ -95,7 +95,7 @@ export default function App() {
           token: {
             colorPrimary: COLORS.primary,
             borderRadius: 6,
-            fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif",
+            fontFamily: FONT.default,
           },
         }}
       >

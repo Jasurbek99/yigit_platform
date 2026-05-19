@@ -5,6 +5,7 @@ import dayjs from 'dayjs';
 import { MyTaskCard } from '@/components/shipment/MyTaskCard';
 import { useShipmentDetail } from '@/hooks/useShipmentDetail';
 import type { ITaskListItem, ShipmentPhase } from '@/types';
+import { FONT } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -95,7 +96,7 @@ function ReadOnlyTaskSummary({ task }: IReadOnlyTaskSummaryProps) {
 
   return (
     <Space direction="vertical" size={12} style={{ width: '100%' }}>
-      <div style={{ fontFamily: 'monospace', fontWeight: 600 }}>
+      <div style={{ fontFamily: FONT.mono, fontWeight: 600 }}>
         {task.shipment_cargo_code}
       </div>
 

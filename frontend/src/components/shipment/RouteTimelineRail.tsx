@@ -2,7 +2,7 @@ import { Card, Tag } from 'antd';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import type { IShipmentDetail, IStatusLogEntry } from '@/types';
-import { COLORS } from '@/constants/styles';
+import { COLORS, FONT } from '@/constants/styles';
 
 // State machine v2: 12 steps + draft (step 0).
 // transshipment is inserted only for has_peregruz=True shipments — see getStatusStepsForShipment.
@@ -138,7 +138,7 @@ export function RouteTimelineRail({ shipment }: IRouteTimelineRailProps) {
                   )}
                 </div>
                 {state !== 'pending' && logEntry && (
-                  <div style={{ fontSize: 11, color: COLORS.textSecondary, fontFamily: 'monospace' }}>
+                  <div style={{ fontSize: 11, color: COLORS.textSecondary, fontFamily: FONT.mono }}>
                     {fmt(logEntry.changed_at)}
                   </div>
                 )}

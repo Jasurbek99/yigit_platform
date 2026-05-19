@@ -21,6 +21,7 @@ import { DistributionPills } from './pallet/DistributionPills';
 import { VarietyRollupCard } from './pallet/VarietyRollupCard';
 import { PalletTable } from './pallet/PalletTable';
 import { palletToEditableRow, type IEditableRow } from './pallet/palletHelpers';
+import { FONT } from '@/constants/styles';
 
 const { Text, Title } = Typography;
 
@@ -121,7 +122,7 @@ export default function PalletManifest() {
       <Flex align="center" gap={12} wrap="wrap" style={{ marginBottom: 16 }}>
         <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)} aria-label={t('common.back')} />
         <Title level={4} style={{ margin: 0 }}>
-          {t('pallet.title')} — <span style={{ fontFamily: 'monospace' }}>{shipment.cargo_code}</span>
+          {t('pallet.title')} — <span style={{ fontFamily: FONT.mono }}>{shipment.cargo_code}</span>
         </Title>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
           <Button onClick={handleLogoExport}>{t('pallet.btn_logo_export')}</Button>

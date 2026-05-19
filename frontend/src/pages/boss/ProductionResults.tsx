@@ -3,7 +3,7 @@ import { Card, Skeleton, Typography } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import type { BossPeriod, IBossProductionRow } from '@/hooks/useBossDashboard';
 import { useBossProduction } from '@/hooks/useBossDashboard';
-import { COLORS } from '@/constants/styles';
+import { COLORS, FONT } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -78,10 +78,10 @@ function ProductionTable({ rows, scope, titleKey, onRowClick }: IProductionTable
             onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
           >
             <Text style={{ fontSize: 12 }}>{row.block_name || row.block_code}</Text>
-            <Text style={{ fontSize: 12, textAlign: 'right', fontFamily: 'monospace' }}>
+            <Text style={{ fontSize: 12, textAlign: 'right', fontFamily: FONT.mono }}>
               {row[planKey].toLocaleString()}
             </Text>
-            <Text style={{ fontSize: 12, textAlign: 'right', fontFamily: 'monospace' }}>
+            <Text style={{ fontSize: 12, textAlign: 'right', fontFamily: FONT.mono }}>
               {row[actualKey].toLocaleString()}
             </Text>
             <div style={{ paddingLeft: 12 }}>
@@ -106,10 +106,10 @@ function ProductionTable({ rows, scope, titleKey, onRowClick }: IProductionTable
           }}
         >
           <Text style={{ fontSize: 12, fontWeight: 600 }}>{t('boss_dashboard.production.total_row')}</Text>
-          <Text style={{ fontSize: 12, fontWeight: 600, textAlign: 'right', fontFamily: 'monospace' }}>
+          <Text style={{ fontSize: 12, fontWeight: 600, textAlign: 'right', fontFamily: FONT.mono }}>
             {totalPlan.toLocaleString()}
           </Text>
-          <Text style={{ fontSize: 12, fontWeight: 600, textAlign: 'right', fontFamily: 'monospace' }}>
+          <Text style={{ fontSize: 12, fontWeight: 600, textAlign: 'right', fontFamily: FONT.mono }}>
             {totalActual.toLocaleString()}
           </Text>
           <div style={{ paddingLeft: 12 }}>

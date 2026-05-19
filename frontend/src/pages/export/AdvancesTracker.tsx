@@ -32,7 +32,7 @@ import type {
   IAdvanceShipmentLink,
 } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
-import { COLORS } from '@/constants/styles';
+import { COLORS, FONT } from '@/constants/styles';
 
 const { Text, Link } = Typography;
 
@@ -260,7 +260,7 @@ export default function AdvancesTracker() {
       sorter: (a, b) => (a.batch_code ?? '').localeCompare(b.batch_code ?? ''),
       render: (_, record) =>
         record.batch_code ? (
-          <Link style={{ fontFamily: 'monospace' }}>{record.batch_code}</Link>
+          <Link style={{ fontFamily: FONT.mono }}>{record.batch_code}</Link>
         ) : (
           <Text type="secondary">—</Text>
         ),

@@ -3,7 +3,7 @@ import { Card, Skeleton, Table, Typography } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import type { BossPeriod, IBossCustomerRow } from '@/hooks/useBossDashboard';
 import { useBossTopCustomers } from '@/hooks/useBossDashboard';
-import { COLORS } from '@/constants/styles';
+import { COLORS, FONT } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -53,7 +53,7 @@ export function TopCustomers({ period }: ITopCustomersProps) {
       dataIndex: 'trucks',
       key: 'trucks',
       align: 'right' as const,
-      render: (v: number) => <Text style={{ fontSize: 12, fontFamily: 'monospace' }}>{v}</Text>,
+      render: (v: number) => <Text style={{ fontSize: 12, fontFamily: FONT.mono }}>{v}</Text>,
     },
     {
       title: t('boss_dashboard.top_customers.col_revenue'),
@@ -61,7 +61,7 @@ export function TopCustomers({ period }: ITopCustomersProps) {
       key: 'revenue_usd',
       align: 'right' as const,
       render: (v: number) => (
-        <Text style={{ fontSize: 12, fontFamily: 'monospace' }}>${(v / 1000).toFixed(0)}k</Text>
+        <Text style={{ fontSize: 12, fontFamily: FONT.mono }}>${(v / 1000).toFixed(0)}k</Text>
       ),
     },
     {

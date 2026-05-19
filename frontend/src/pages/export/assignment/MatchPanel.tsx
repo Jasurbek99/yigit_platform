@@ -2,7 +2,7 @@ import { Button, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import type { IShipmentDraft, IDemandItem } from '@/types';
-import { COLORS } from '@/constants/styles';
+import { COLORS, FONT } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -213,7 +213,7 @@ export function MatchPanel({ draft, demand, onConfirm, onClear, isLoading }: IMa
         </div>
         {draft ? (
           <div>
-            <div style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 500, color: COLORS.primary }}>
+            <div style={{ fontFamily: FONT.mono, fontSize: 13, fontWeight: 500, color: COLORS.primary }}>
               {draft.cargo_code}
             </div>
             <div style={{ fontSize: 11, color: COLORS.textSecondary }}>
@@ -254,7 +254,7 @@ export function MatchPanel({ draft, demand, onConfirm, onClear, isLoading }: IMa
         </div>
         {demand ? (
           <div>
-            <div style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 500, color: COLORS.primary }}>
+            <div style={{ fontFamily: FONT.mono, fontSize: 13, fontWeight: 500, color: COLORS.primary }}>
               {demand.country}
             </div>
             <div style={{ fontSize: 11, color: COLORS.textSecondary }}>

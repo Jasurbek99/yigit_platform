@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import { useTomatoVarieties } from '@/hooks/useAdmin';
 import { VarietySelect } from '@/components/VarietySelect';
-import { COLORS } from '@/constants/styles';
+import { COLORS, FONT } from '@/constants/styles';
 
 // ─── Month abbreviation map (Soltanmyrat's dept standard, signed 15.04.2026) ──
 
@@ -127,7 +127,7 @@ export function OfficialCodeEditor({ value, onChange, platformId }: IOfficialCod
   const joined = buildJoined(fields);
 
   const inputStyle: React.CSSProperties = {
-    fontFamily: 'monospace',
+    fontFamily: FONT.mono,
     textAlign: 'center' as const,
   };
 
@@ -167,7 +167,7 @@ export function OfficialCodeEditor({ value, onChange, platformId }: IOfficialCod
             onChange={(v) => handleField('month', v ?? '')}
             options={MONTH_OPTIONS}
             size="small"
-            style={{ width: '100%', fontFamily: 'monospace' }}
+            style={{ width: '100%', fontFamily: FONT.mono }}
             allowClear
           />
         </Form.Item>
@@ -249,11 +249,11 @@ export function OfficialCodeEditor({ value, onChange, platformId }: IOfficialCod
         <span style={{ color: COLORS.textSecondary, marginRight: 8 }}>
           {t('official_code.preview_label')}:
         </span>
-        <span style={{ fontFamily: 'monospace', fontWeight: 600, color: '#1d1d1d', flex: 1 }}>
+        <span style={{ fontFamily: FONT.mono, fontWeight: 600, color: '#1d1d1d', flex: 1 }}>
           {joined || '—'}
         </span>
         {platformId != null && (
-          <Tag color="blue" style={{ fontFamily: 'monospace', marginLeft: 8 }}>
+          <Tag color="blue" style={{ fontFamily: FONT.mono, marginLeft: 8 }}>
             {t('official_code.platform_id_label')}: {platformId}
           </Tag>
         )}

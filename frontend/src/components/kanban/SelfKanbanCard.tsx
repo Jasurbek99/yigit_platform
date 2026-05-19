@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import type { ITaskListItem, ShipmentPhase, TaskState } from '@/types';
 import { formatDuration } from '@/components/shipment/PhaseContextStrip.helpers';
 import dayjs from 'dayjs';
-import { COLORS } from '@/constants/styles';
+import { COLORS, FONT } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -190,7 +190,7 @@ export function SelfKanbanCard({ task, onCardClick, onMove }: ISelfKanbanCardPro
       >
         <Text
           strong
-          style={{ fontSize: 12, fontFamily: 'monospace', flex: 1, minWidth: 0 }}
+          style={{ fontSize: 12, fontFamily: FONT.mono, flex: 1, minWidth: 0 }}
           ellipsis
         >
           {task.shipment_cargo_code}

@@ -103,7 +103,7 @@ These bypass Ant Design's design tokens (breaks theming/dark-mode/contrast):
 - `pages/boss/BlocksHeatmap.tsx:9–15` — `BAND_COLORS` record of hex pairs
 - `pages/boss/QuotaGrid.tsx:9–13` — `LEVEL_COLORS` semantic but hardcoded
 - `pages/director/StuckShipments.tsx:165–169` — row CSS with `#fff2f0`/`#fff7e6`/`#fffbe6`
-- `pages/boss/DebtBreakdown.tsx:65` and `DashboardPage.tsx:335,359,366` — `fontFamily: 'var(--font-mono, monospace)'` referencing a CSS variable that isn't defined globally
+- ~~`pages/boss/DebtBreakdown.tsx:65` and `DashboardPage.tsx:335,359,366` — `fontFamily: 'var(--font-mono, monospace)'` referencing a CSS variable that isn't defined globally~~ **Resolved 2026-05-19** — the vars `--font` / `--font-mono` were in fact defined in `src/index.css:3-4` (audit was stale); follow-up sweep also consolidated all 28 components using inline `'monospace'` and the App.tsx inline DM Sans stack behind `FONT.mono` / `FONT.default` from `constants/styles.ts`.
 
 Recommend a `src/theme/colors.ts` exporting semantic tokens (`status.warning`, `status.danger`, `band.high`, etc.) used everywhere.
 
@@ -140,7 +140,7 @@ Recommend a `src/theme/colors.ts` exporting semantic tokens (`status.warning`, `
 **Next sprint (P2):**
 7. Split the 12 oversized files starting with `AssignmentBoard`, `AppLayout`, `SelfBoard`, `AdminInboxPage`.
 8. Introduce `src/theme/colors.ts` and refactor hardcoded hex usage.
-9. Define `--font-mono`/`--font` CSS variables in `index.css` or remove the references.
+9. ~~Define `--font-mono`/`--font` CSS variables in `index.css` or remove the references.~~ **Done 2026-05-19** — vars were already defined; sweep also consolidated all JS/TSX usage behind `FONT` constants.
 10. Add keyboard handlers to clickable cards/rows in `PublicFeedPage`, `MyTicketsPage`.
 
 **Continuous (P3):**

@@ -9,7 +9,7 @@ import { TransitionButton } from '@/components/TransitionButton';
 import { useAuth } from '@/hooks/useAuth';
 import { usePromoteFromDraft } from '@/hooks/useDrafts';
 import type { IShipmentDetail } from '@/types';
-import { COLORS } from '@/constants/styles';
+import { COLORS, FONT } from '@/constants/styles';
 
 interface IShipmentDetailHeroProps {
   shipment: IShipmentDetail;
@@ -74,10 +74,10 @@ export function ShipmentDetailHero({ shipment }: IShipmentDetailHeroProps) {
             Bottom line (small): Export Code (cargo_code) — the platform
             tracker, always present. */}
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
-          <span style={{ fontSize: 18, fontWeight: 600, fontFamily: 'monospace' }}>
+          <span style={{ fontSize: 18, fontWeight: 600, fontFamily: FONT.mono }}>
             {shipment.official_export_code || '—'}
           </span>
-          <span style={{ fontSize: 11, fontFamily: 'monospace', color: COLORS.textSecondary }}>
+          <span style={{ fontSize: 11, fontFamily: FONT.mono, color: COLORS.textSecondary }}>
             {t('shipment.detail.export_code_label')}: {shipment.cargo_code}
           </span>
         </div>
