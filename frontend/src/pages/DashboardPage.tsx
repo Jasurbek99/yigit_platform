@@ -200,12 +200,14 @@ export default function DashboardPage() {
       title: t('dashboard.col_customer'),
       dataIndex: 'customer',
       search: false,
+      responsive: ['md'],
       sorter: (a, b) => a.customer.localeCompare(b.customer),
     },
     {
       title: t('dashboard.col_route'),
       dataIndex: 'route',
       search: false,
+      responsive: ['md'],
       sorter: (a, b) => a.route.localeCompare(b.route),
     },
     {
@@ -222,6 +224,7 @@ export default function DashboardPage() {
       title: t('dashboard.col_weight'),
       dataIndex: 'weight',
       search: false,
+      responsive: ['md'],
       render: (_, r) => (
         <span style={{ fontVariantNumeric: 'tabular-nums' }}>{r.weight}</span>
       ),
@@ -230,6 +233,7 @@ export default function DashboardPage() {
       title: t('dashboard.col_departed'),
       dataIndex: 'departed',
       search: false,
+      responsive: ['md'],
       render: (_, r) => (
         <span style={{ fontVariantNumeric: 'tabular-nums', color: '#8c8c8c' }}>
           {r.departed}

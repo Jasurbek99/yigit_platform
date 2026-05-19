@@ -82,6 +82,7 @@ export default function OverdueReports() {
       dataIndex: 'country_name',
       width: 120,
       search: false,
+      responsive: ['md'],
       sorter: (a, b) => (a.country_name ?? '').localeCompare(b.country_name ?? ''),
       render: (_, record) => record.country_name ?? '—',
     },
@@ -90,6 +91,7 @@ export default function OverdueReports() {
       dataIndex: 'customer_name',
       width: 160,
       search: false,
+      responsive: ['md'],
       sorter: (a, b) => (a.customer_name ?? '').localeCompare(b.customer_name ?? ''),
       render: (_, record) => record.customer_name ?? '—',
     },
@@ -98,6 +100,7 @@ export default function OverdueReports() {
       dataIndex: 'weight_net',
       width: 110,
       search: false,
+      responsive: ['md'],
       sorter: (a, b) => (a.weight_net ?? 0) - (b.weight_net ?? 0),
       render: (_, record) =>
         record.weight_net != null ? record.weight_net.toLocaleString() : '—',

@@ -120,6 +120,7 @@ export default function AuditLogPage() {
       dataIndex: 'object_id',
       width: 90,
       search: false,
+      responsive: ['md'],
       render: (_, r) => (
         <span style={{ fontVariantNumeric: 'tabular-nums' }}>{r.object_id}</span>
       ),
@@ -130,6 +131,7 @@ export default function AuditLogPage() {
       width: 200,
       ellipsis: true,
       search: false,
+      responsive: ['md'],
       render: (_, r) => (
         <Tooltip title={r.object_repr || ''}>
           <span>{r.object_repr || '—'}</span>
@@ -140,6 +142,7 @@ export default function AuditLogPage() {
       title: t('audit_log.col_detail'),
       dataIndex: 'detail',
       search: false,
+      responsive: ['md'],
       render: (_, r) =>
         r.detail ? (
           <span style={{ fontSize: 13 }}>{r.detail}</span>

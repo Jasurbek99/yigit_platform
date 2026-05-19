@@ -117,6 +117,7 @@ export default function SeasonsPage() {
       dataIndex: 'start_date',
       width: 120,
       search: false,
+      responsive: ['md'],
       sorter: (a, b) => (a.start_date ?? '').localeCompare(b.start_date ?? ''),
       render: (_, record) =>
         record.start_date ? dayjs(record.start_date).format('DD.MM.YYYY') : '—',
@@ -126,6 +127,7 @@ export default function SeasonsPage() {
       dataIndex: 'end_date',
       width: 120,
       search: false,
+      responsive: ['md'],
       sorter: (a, b) => (a.end_date ?? '').localeCompare(b.end_date ?? ''),
       render: (_, record) =>
         record.end_date ? dayjs(record.end_date).format('DD.MM.YYYY') : '—',
