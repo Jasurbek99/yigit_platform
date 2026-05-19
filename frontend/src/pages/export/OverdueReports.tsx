@@ -123,7 +123,6 @@ export default function OverdueReports() {
       dataIndex: 'has_sales_report',
       width: 90,
       search: false,
-      responsive: ['md'],
       sorter: (a, b) => Number(a.has_sales_report) - Number(b.has_sales_report),
       render: (_, record) =>
         record.has_sales_report ? (

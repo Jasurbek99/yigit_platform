@@ -100,7 +100,7 @@ export function TicketListPanel({ selectedId, onSelect }: ITicketListPanelProps)
             options={statusOptions}
             size="small"
             style={{ flex: 1 }}
-            aria-label={t('feedback.filter.all_statuses')}
+            aria-label={t('feedback.filter.status_label')}
           />
           <Select
             value={category}
@@ -108,7 +108,7 @@ export function TicketListPanel({ selectedId, onSelect }: ITicketListPanelProps)
             options={categoryOptions}
             size="small"
             style={{ flex: 1 }}
-            aria-label={t('feedback.filter.all_categories')}
+            aria-label={t('feedback.filter.category_label')}
           />
         </Flex>
         <Select
@@ -121,7 +121,7 @@ export function TicketListPanel({ selectedId, onSelect }: ITicketListPanelProps)
           filterOption={(input, option) =>
             String(option?.label ?? '').toLowerCase().includes(input.toLowerCase())
           }
-          aria-label={t('feedback.filter.all_authors')}
+          aria-label={t('feedback.filter.author_label')}
         />
         <RangePicker
           size="small"

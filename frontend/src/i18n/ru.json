@@ -1815,7 +1815,10 @@
       "all_statuses": "Все статусы",
       "all_categories": "Все типы",
       "all_authors": "Все пользователи",
-      "search": "Поиск..."
+      "search": "Поиск...",
+      "status_label": "Фильтр по статусу",
+      "category_label": "Фильтр по типу",
+      "author_label": "Фильтр по автору"
     },
     "instructions": {
       "title": "Как правильно подать обращение?",

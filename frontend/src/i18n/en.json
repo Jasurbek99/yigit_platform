@@ -1813,7 +1813,10 @@
       "all_statuses": "All statuses",
       "all_categories": "All types",
       "all_authors": "All users",
-      "search": "Search..."
+      "search": "Search...",
+      "status_label": "Filter by status",
+      "category_label": "Filter by type",
+      "author_label": "Filter by author"
     },
     "instructions": {
       "title": "How to write a good report",
