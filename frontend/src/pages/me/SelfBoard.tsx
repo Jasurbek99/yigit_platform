@@ -282,43 +282,48 @@ export default function SelfBoard() {
         (t.completed_at == null || t.completed_at < todayMidnight)),
   );
 
-  // ── Drag and drop handlers ───────────────────────────────────────────────
+  // ── Move handlers (drag-drop + keyboard menu share this logic) ──────────
 
-  const handleDropOnColumn = useCallback(
-    (e: React.DragEvent, targetState: 'open' | 'in_progress' | 'blocked' | 'done') => {
-      e.preventDefault();
-      const taskIdStr = e.dataTransfer.getData('task_id');
-      const fromState = e.dataTransfer.getData('task_state') as TaskState;
-      const taskId = parseInt(taskIdStr, 10);
-      if (isNaN(taskId)) return;
+  // Single source of truth for "move task X to column Y". Used by both the
+  // drag-drop handler and the keyboard dropdown menu on each card.
+  const requestMove = useCallback(
+    (task: ITaskListItem, targetState: TaskState) => {
+      if (task.state === targetState) return;
 
-      const task = allTasks.find((t) => t.id === taskId);
-      if (!task) return;
-
-      // Drop on same column — nothing to do
-      if (fromState === targetState) return;
-
-      // Allowed moves: open ↔ blocked (open→blocked opens modal; blocked→in_progress is unblock).
-      // Every other transition either happens server-side via field edits or is
-      // forbidden by design — surface a toast so the user knows the drag was seen.
-      if (targetState === 'blocked' && fromState === 'open') {
-        setBlockTarget({ taskId, shipmentId: task.shipment });
+      // Allowed moves: open→blocked opens the reason modal;
+      // blocked→in_progress is unblock. Other transitions happen server-side
+      // via field edits or aren't valid — surface a toast either way.
+      if (targetState === 'blocked' && task.state === 'open') {
+        setBlockTarget({ taskId: task.id, shipmentId: task.shipment });
         return;
       }
-      if (targetState === 'in_progress' && fromState === 'blocked') {
+      if (targetState === 'in_progress' && task.state === 'blocked') {
         unblockTask.mutate(
-          { taskId, shipmentId: task.shipment },
+          { taskId: task.id, shipmentId: task.shipment },
           {
             onSuccess: () => toast.success(t('me.board.toast_unblocked')),
           },
         );
         return;
       }
-
-      // All other combinations: noop with a small informational toast.
       toast.info(t('me.board.drop_not_allowed'));
     },
-    [allTasks, unblockTask, t],
+    [unblockTask, t],
+  );
+
+  const handleDropOnColumn = useCallback(
+    (e: React.DragEvent, targetState: 'open' | 'in_progress' | 'blocked' | 'done') => {
+      e.preventDefault();
+      const taskIdStr = e.dataTransfer.getData('task_id');
+      const taskId = parseInt(taskIdStr, 10);
+      if (isNaN(taskId)) return;
+
+      const task = allTasks.find((t) => t.id === taskId);
+      if (!task) return;
+
+      requestMove(task, targetState);
+    },
+    [allTasks, requestMove],
   );
 
   // ── Loading / error states ───────────────────────────────────────────────
@@ -452,6 +457,7 @@ export default function SelfBoard() {
                     key={task.id}
                     task={task}
                     onCardClick={setDrawerTask}
+                    onMove={requestMove}
                   />
                 ))}
               </KanbanColumn>

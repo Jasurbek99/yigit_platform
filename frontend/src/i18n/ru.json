@@ -1955,6 +1955,10 @@
       "toast_blocked": "Задача заблокирована",
       "toast_unblocked": "Задача разблокирована",
       "drop_not_allowed": "Нельзя переместить задачу таким образом",
+      "action_menu": "Переместить задачу",
+      "action_mark_blocked": "Отметить как заблокированную",
+      "action_unblock": "Разблокировать (в работу)",
+      "card_aria": "Задача: {{title}}, статус: {{state}}. Нажмите Enter, чтобы открыть.",
       "drawer_open_shipment": "Открыть детали отгрузки",
       "drawer_readonly_completed": "Завершено {{when}}"
     },

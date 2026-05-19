@@ -1957,6 +1957,10 @@
       "toast_blocked": "Tabşyryk bökdeldi",
       "toast_unblocked": "Tabşyryk açyldy",
       "drop_not_allowed": "Tabşyrygy şeýle geçirmek bolmaýar",
+      "action_menu": "Tabşyrygy geçir",
+      "action_mark_blocked": "Bloklanan diýip belle",
+      "action_unblock": "Açyp goý (işde diýip belle)",
+      "card_aria": "Tabşyryk: {{title}}, ýagdaý: {{state}}. Açmak üçin Enter basyň.",
       "drawer_open_shipment": "Iberim jikme-jigligini aç",
       "drawer_readonly_completed": "{{when}} tamamlandy"
     },
