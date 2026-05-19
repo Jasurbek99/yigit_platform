@@ -156,6 +156,15 @@ export default function PublicFeedPage(): React.ReactElement {
             key={ticket.id}
             hoverable
             onClick={() => setSelectedId(ticket.id)}
+            tabIndex={0}
+            role="button"
+            aria-label={ticket.title}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setSelectedId(ticket.id);
+              }
+            }}
             style={{ cursor: 'pointer' }}
             size="small"
           >
