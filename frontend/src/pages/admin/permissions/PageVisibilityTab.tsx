@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { usePagePermissions, useSavePagePermissions } from '@/hooks/useAdmin';
 import { ROLE_COLOR } from './roleColors';
+import { COLORS } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -77,7 +78,7 @@ export function PageVisibilityTab() {
         pagination={false}
         sticky
         scroll={{ x: 'max-content', y: 'calc(100vh - 260px)' }}
-        style={{ background: '#fff', borderRadius: 8 }}
+        style={{ background: COLORS.white, borderRadius: 8 }}
       />
       <Flex justify="flex-end" style={{ marginTop: 16 }}>
         <Button

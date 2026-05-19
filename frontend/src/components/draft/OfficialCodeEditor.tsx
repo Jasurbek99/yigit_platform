@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import { useTomatoVarieties } from '@/hooks/useAdmin';
 import { VarietySelect } from '@/components/VarietySelect';
+import { COLORS } from '@/constants/styles';
 
 // ─── Month abbreviation map (Soltanmyrat's dept standard, signed 15.04.2026) ──
 
@@ -240,12 +241,12 @@ export function OfficialCodeEditor({ value, onChange, platformId }: IOfficialCod
           justifyContent: 'space-between',
           marginTop: 8,
           padding: '6px 10px',
-          background: '#f5f5f5',
+          background: COLORS.bgLight,
           borderRadius: 6,
           fontSize: 12,
         }}
       >
-        <span style={{ color: '#8c8c8c', marginRight: 8 }}>
+        <span style={{ color: COLORS.textSecondary, marginRight: 8 }}>
           {t('official_code.preview_label')}:
         </span>
         <span style={{ fontFamily: 'monospace', fontWeight: 600, color: '#1d1d1d', flex: 1 }}>

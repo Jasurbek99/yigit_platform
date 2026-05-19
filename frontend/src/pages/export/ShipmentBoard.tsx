@@ -8,6 +8,7 @@ import { CustomerSelect } from '@/components/CustomerSelect';
 import { useShipmentBoard, type IBoardFilters } from '@/hooks/useShipmentBoard';
 import { formatDuration } from '@/components/shipment/PhaseContextStrip.helpers';
 import type { ShipmentPhase } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 const { Title } = Typography;
 
@@ -16,13 +17,13 @@ const PHASES: ShipmentPhase[] = ['PLAN', 'PREP', 'DOCS', 'LOAD', 'TRANSIT', 'DES
 
 /** Accent colour for each phase column header. */
 const PHASE_ACCENT: Record<ShipmentPhase, string> = {
-  PLAN: '#8c8c8c',
-  PREP: '#fa8c16',
+  PLAN: COLORS.textSecondary,
+  PREP: COLORS.orange,
   DOCS: '#fadb14',
-  LOAD: '#1677ff',
+  LOAD: COLORS.primary,
   TRANSIT: '#13c2c2',
-  DEST: '#722ed1',
-  CLOSE: '#52c41a',
+  DEST: COLORS.purple,
+  CLOSE: COLORS.success,
 };
 
 /** Static owner-role options for the filter dropdown. */
@@ -180,7 +181,7 @@ export default function ShipmentBoard() {
                     padding: '6px 8px',
                     borderTop: '1px solid #f0f0f0',
                     fontSize: 11,
-                    color: '#8c8c8c',
+                    color: COLORS.textSecondary,
                     flexShrink: 0,
                     textAlign: 'center',
                   }}

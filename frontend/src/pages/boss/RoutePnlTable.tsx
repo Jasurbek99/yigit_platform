@@ -3,14 +3,15 @@ import { Card, Skeleton, Table, Tooltip, Typography } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import type { BossPeriod, IBossRouteRow } from '@/hooks/useBossDashboard';
 import { useBossRoutePnl } from '@/hooks/useBossDashboard';
+import { COLORS } from '@/constants/styles';
 
 const { Text } = Typography;
 
 function MarginBar({ pct }: { pct: number }) {
-  const color = pct >= 20 ? '#52c41a' : pct >= 10 ? '#faad14' : '#ff4d4f';
+  const color = pct >= 20 ? COLORS.success : pct >= 10 ? COLORS.warning : COLORS.danger;
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <div style={{ flex: 1, background: '#f0f0f0', borderRadius: 2, height: 6 }}>
+      <div style={{ flex: 1, background: COLORS.border, borderRadius: 2, height: 6 }}>
         <div style={{ width: `${Math.min(pct, 100)}%`, background: color, height: 6, borderRadius: 2 }} />
       </div>
       <Text style={{ fontSize: 12, color, minWidth: 36, textAlign: 'right' }}>{pct.toFixed(1)}%</Text>

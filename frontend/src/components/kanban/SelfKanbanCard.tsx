@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import type { ITaskListItem, ShipmentPhase, TaskState } from '@/types';
 import { formatDuration } from '@/components/shipment/PhaseContextStrip.helpers';
 import dayjs from 'dayjs';
+import { COLORS } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -21,10 +22,10 @@ const PHASE_TAG_COLOR: Record<ShipmentPhase, string> = {
 };
 
 function getBorderColor(task: ITaskListItem): string {
-  if (task.is_overdue) return '#ff4d4f';
-  if (task.state === 'in_progress') return '#1677ff';
-  if (task.state === 'blocked') return '#faad14';
-  return '#d9d9d9';
+  if (task.is_overdue) return COLORS.danger;
+  if (task.state === 'in_progress') return COLORS.primary;
+  if (task.state === 'blocked') return COLORS.warning;
+  return COLORS.borderLight;
 }
 
 /**
@@ -60,7 +61,7 @@ function DeadlineText({ task }: IDeadlineTextProps) {
   if (task.is_overdue || diffSeconds < 0) {
     const overdueSecs = Math.abs(diffSeconds);
     return (
-      <Text style={{ fontSize: 11, color: '#ff4d4f' }}>
+      <Text style={{ fontSize: 11, color: COLORS.danger }}>
         {t('me.board.overdue_by', { duration: formatDuration(overdueSecs) })}
       </Text>
     );
@@ -160,7 +161,7 @@ export function SelfKanbanCard({ task, onCardClick, onMove }: ISelfKanbanCardPro
       role="button"
       aria-label={t('me.board.card_aria', { title: titleLabel, state: stateLabel })}
       style={{
-        background: '#fff',
+        background: COLORS.white,
         border: '1px solid #f0f0f0',
         borderLeft: `3px solid ${getBorderColor(task)}`,
         borderRadius: 6,
@@ -223,7 +224,7 @@ export function SelfKanbanCard({ task, onCardClick, onMove }: ISelfKanbanCardPro
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                color: '#8c8c8c',
+                color: COLORS.textSecondary,
                 borderRadius: 4,
               }}
             >

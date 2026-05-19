@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import { useAuditLog } from '@/hooks/useAdmin';
 import type { AuditAction, IAuditLog } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -103,7 +104,7 @@ export default function AuditLogPage() {
       search: false,
       render: (_, r) =>
         r.user_name ?? (
-          <span style={{ color: '#8c8c8c', fontStyle: 'italic' }}>
+          <span style={{ color: COLORS.textSecondary, fontStyle: 'italic' }}>
             {t('audit_log.system_user')}
           </span>
         ),
@@ -147,7 +148,7 @@ export default function AuditLogPage() {
         r.detail ? (
           <span style={{ fontSize: 13 }}>{r.detail}</span>
         ) : (
-          <span style={{ color: '#bfbfbf' }}>—</span>
+          <span style={{ color: COLORS.textMuted }}>—</span>
         ),
     },
   ];
@@ -161,17 +162,17 @@ export default function AuditLogPage() {
               fontSize: 20,
               fontWeight: 600,
               letterSpacing: '-0.02em',
-              color: '#1f1f1f',
+              color: COLORS.textDark,
               lineHeight: '1.3',
               display: 'flex',
               alignItems: 'center',
               gap: 8,
             }}
           >
-            <IconClipboardList size={18} color="#1677ff" />
+            <IconClipboardList size={18} color={COLORS.primary} />
             {t('audit_log.title')}
           </div>
-          <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
+          <div style={{ fontSize: 13, color: COLORS.textSecondary, marginTop: 2 }}>
             {t('audit_log.subtitle')}
           </div>
         </div>

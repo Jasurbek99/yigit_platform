@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { Card, Skeleton, Table, Tag, Typography } from 'antd';
 import type { BossPeriod, IBossRiskFirm } from '@/hooks/useBossDashboard';
 import { useBossRiskMatrix } from '@/hooks/useBossDashboard';
+import { COLORS } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -42,7 +43,7 @@ export function FirmRiskMatrix({ period }: IFirmRiskMatrixProps) {
       key: 'debt_usd',
       align: 'right' as const,
       render: (v: number, row: IBossRiskFirm) => (
-        <Text style={{ fontSize: 12, fontFamily: 'monospace', color: row.debt_placeholder ? '#8c8c8c' : undefined }}>
+        <Text style={{ fontSize: 12, fontFamily: 'monospace', color: row.debt_placeholder ? COLORS.textSecondary : undefined }}>
           {row.debt_placeholder ? '—' : `$${(v / 1000).toFixed(0)}k`}
         </Text>
       ),
@@ -53,7 +54,7 @@ export function FirmRiskMatrix({ period }: IFirmRiskMatrixProps) {
       key: 'quota_pct',
       align: 'right' as const,
       render: (v: number) => {
-        const color = v >= 95 ? '#ff4d4f' : v >= 80 ? '#faad14' : '#52c41a';
+        const color = v >= 95 ? COLORS.danger : v >= 80 ? COLORS.warning : COLORS.success;
         return <Text style={{ fontSize: 12, color }}>{v.toFixed(1)}%</Text>;
       },
     },

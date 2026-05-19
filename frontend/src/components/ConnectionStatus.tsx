@@ -1,11 +1,12 @@
 import { Tooltip } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { COLORS } from '@/constants/styles';
 
 export function ConnectionStatus() {
   const { t } = useTranslation();
   const isOnline = useOnlineStatus();
-  const color = isOnline ? '#52c41a' : '#ff4d4f';
+  const color = isOnline ? COLORS.success : COLORS.danger;
   const label = isOnline ? t('connection.online') : t('connection.offline');
 
   return (

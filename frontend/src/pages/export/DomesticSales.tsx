@@ -4,6 +4,7 @@ import { IconShoppingCart } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import { useDomesticSales } from '@/hooks/usePlanning';
 import type { IDomesticSale } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -62,7 +63,7 @@ export default function DomesticSales() {
       render: (_, record) =>
         record.variety
           ? String(record.variety)
-          : <span style={{ color: '#bfbfbf' }}>—</span>,
+          : <span style={{ color: COLORS.textMuted }}>—</span>,
     },
     {
       title: t('domestic_sales.weight_kg'),
@@ -82,7 +83,7 @@ export default function DomesticSales() {
       render: (_, record) =>
         record.price_per_kg != null
           ? `$${Number(record.price_per_kg).toFixed(2)}`
-          : <span style={{ color: '#bfbfbf' }}>—</span>,
+          : <span style={{ color: COLORS.textMuted }}>—</span>,
     },
     {
       title: t('domestic_sales.tabel_no'),
@@ -93,7 +94,7 @@ export default function DomesticSales() {
       render: (_, record) =>
         record.tabel_no
           ? String(record.tabel_no)
-          : <span style={{ color: '#bfbfbf' }}>—</span>,
+          : <span style={{ color: COLORS.textMuted }}>—</span>,
     },
     {
       title: t('domestic_sales.firm'),
@@ -104,7 +105,7 @@ export default function DomesticSales() {
       render: (_, record) =>
         record.export_firm_name
           ? String(record.export_firm_name)
-          : <span style={{ color: '#bfbfbf' }}>—</span>,
+          : <span style={{ color: COLORS.textMuted }}>—</span>,
     },
   ];
 
@@ -112,11 +113,11 @@ export default function DomesticSales() {
     <div>
       <Space style={{ width: '100%', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
-          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: '#1f1f1f', lineHeight: '1.3', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <IconShoppingCart size={18} color="#1677ff" />
+          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: COLORS.textDark, lineHeight: '1.3', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <IconShoppingCart size={18} color={COLORS.primary} />
             {t('domestic_sales.title')}
           </div>
-          <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
+          <div style={{ fontSize: 13, color: COLORS.textSecondary, marginTop: 2 }}>
             {t('domestic_sales.subtitle')}
           </div>
         </div>
@@ -127,7 +128,7 @@ export default function DomesticSales() {
           <StatCard
             title={t('domestic_sales.total_sales')}
             value={rows.length}
-            color="#1677ff"
+            color={COLORS.primary}
           />
         </Col>
         <Col xs={24} sm={8}>

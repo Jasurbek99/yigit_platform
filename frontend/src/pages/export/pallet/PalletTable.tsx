@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { CrateTypeSelect } from '@/components/CrateTypeSelect';
 import { VarietySelect } from '@/components/VarietySelect';
 import { computeNet, type IEditableRow } from './palletHelpers';
+import { COLORS } from '@/constants/styles';
 
 interface IPalletTableProps {
   rows: IEditableRow[];
@@ -73,7 +74,7 @@ export function PalletTable({ rows, crateWeightMap, onChangeRow }: IPalletTableP
       render: (v: number, record) => {
         const cw = crateWeightMap[v] ?? 0;
         return (
-          <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#8c8c8c' }}>
+          <span style={{ fontFamily: 'monospace', fontSize: 12, color: COLORS.textSecondary }}>
             {(cw * record.crate_count).toFixed(2)}
           </span>
         );

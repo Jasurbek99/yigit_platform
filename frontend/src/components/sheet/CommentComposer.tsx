@@ -8,6 +8,7 @@ import { useCreateComment } from '@/hooks/useComments';
 import { useMentionable } from '@/hooks/useMentionable';
 import { useSheetStore } from '@/stores/sheetStore';
 import { MentionPopover } from './MentionPopover';
+import { COLORS } from '@/constants/styles';
 
 interface ICommentComposerProps {
   shipmentId: number;
@@ -155,15 +156,15 @@ export function CommentComposer({ shipmentId, parentComment = null, onSubmit }: 
   const assigneeOptions = assigneeUsers.map((u) => ({ value: u.id, label: u.name }));
 
   return (
-    <div style={{ borderTop: '1px solid #f0f0f0', padding: '8px 12px', background: '#fafafa' }}>
+    <div style={{ borderTop: '1px solid #f0f0f0', padding: '8px 12px', background: COLORS.bgLayout }}>
       {/* Cell pin toggle (root comments only) */}
       {!isReply && activeCell?.shipmentId === shipmentId && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, fontSize: 12 }}>
           <Switch size="small" checked={pinToActiveCell} onChange={setPinToActiveCell} />
-          <span style={{ color: '#595959' }}>
+          <span style={{ color: COLORS.textTertiary }}>
             {t('comments.pin_to_cell')}
             {pinToActiveCell && fieldKey && (
-              <span style={{ marginLeft: 4, color: '#1677ff' }}>({fieldKey})</span>
+              <span style={{ marginLeft: 4, color: COLORS.primary }}>({fieldKey})</span>
             )}
           </span>
         </div>

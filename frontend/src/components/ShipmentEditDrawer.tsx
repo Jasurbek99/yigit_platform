@@ -9,6 +9,7 @@ import { canEditField } from '@/utils/permissions';
 import { EDIT_FIELD_GROUPS } from '@/constants/shipmentEditConfig';
 import type { IEditFieldGroup, IEditFieldConfig } from '@/constants/shipmentEditConfig';
 import type { IShipmentDetail } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 const { Title, Text } = Typography;
 
@@ -140,7 +141,7 @@ export function ShipmentEditDrawer({
         </Space>
       }
     >
-      <div style={{ marginBottom: 12, fontSize: 12, color: '#8c8c8c' }}>
+      <div style={{ marginBottom: 12, fontSize: 12, color: COLORS.textSecondary }}>
         {shipment.cargo_code} — {shipment.customer_name ?? '—'}
       </div>
 

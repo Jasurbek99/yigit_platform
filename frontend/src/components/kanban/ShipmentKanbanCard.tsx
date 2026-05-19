@@ -3,15 +3,16 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import type { IBoardItem } from '@/hooks/useShipmentBoard';
 import { formatDuration } from '@/components/shipment/PhaseContextStrip.helpers';
+import { COLORS } from '@/constants/styles';
 
 const { Text } = Typography;
 
 /** Top border colour reflects the highest-priority alert on this shipment. */
 function getBorderColor(item: IBoardItem): string {
-  if (item.late_count > 0) return '#ff4d4f';
-  if (item.blocked_count > 0) return '#faad14';
-  if (item.in_progress_count > 0) return '#1677ff';
-  return '#d9d9d9';
+  if (item.late_count > 0) return COLORS.danger;
+  if (item.blocked_count > 0) return COLORS.warning;
+  if (item.in_progress_count > 0) return COLORS.primary;
+  return COLORS.borderLight;
 }
 
 interface IShipmentKanbanCardProps {
@@ -42,7 +43,7 @@ export function ShipmentKanbanCard({ item }: IShipmentKanbanCardProps) {
         if (e.key === 'Enter' || e.key === ' ') navigate(`/shipments/${item.id}`);
       }}
       style={{
-        background: '#fff',
+        background: COLORS.white,
         border: '1px solid #f0f0f0',
         borderTop: `3px solid ${borderColor}`,
         borderRadius: 6,
@@ -83,7 +84,7 @@ export function ShipmentKanbanCard({ item }: IShipmentKanbanCardProps) {
         percent={progressPercent}
         size="small"
         showInfo={false}
-        strokeColor={progressPercent === 100 ? '#52c41a' : '#1677ff'}
+        strokeColor={progressPercent === 100 ? COLORS.success : COLORS.primary}
         style={{ marginBottom: 2 }}
       />
 

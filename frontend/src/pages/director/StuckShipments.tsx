@@ -7,14 +7,15 @@ import dayjs from 'dayjs';
 import { useShipments } from '@/hooks/useShipments';
 import { StatusTag } from '@/components/StatusTag';
 import type { IShipmentListItem } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 const { Title, Text } = Typography;
 
 /** Color-coded by days_stuck per ADR-0005 §4.7 (master plan). */
 function stuckColor(days: number): { tag: 'warning' | 'orange' | 'error'; bg: string } {
-  if (days >= 15) return { tag: 'error', bg: '#fff2f0' };
-  if (days >= 8) return { tag: 'orange', bg: '#fff7e6' };
-  return { tag: 'warning', bg: '#fffbe6' };
+  if (days >= 15) return { tag: 'error', bg: COLORS.bgRed };
+  if (days >= 8) return { tag: 'orange', bg: COLORS.bgOrange };
+  return { tag: 'warning', bg: COLORS.bgYellow };
 }
 
 function daysSince(iso: string): number {

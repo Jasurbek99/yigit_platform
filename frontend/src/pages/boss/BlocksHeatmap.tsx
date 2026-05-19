@@ -3,15 +3,16 @@ import { Card, Skeleton, Tooltip, Typography } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import type { BossPeriod, IBossBlock } from '@/hooks/useBossDashboard';
 import { useBossBlocksHeatmap } from '@/hooks/useBossDashboard';
+import { COLORS } from '@/constants/styles';
 
 const { Text } = Typography;
 
 const BAND_COLORS: Record<IBossBlock['color_band'], { bg: string; text: string }> = {
-  excellent: { bg: '#135200', text: '#fff' },
-  good: { bg: '#52c41a', text: '#fff' },
+  excellent: { bg: '#135200', text: COLORS.white },
+  good: { bg: COLORS.success, text: COLORS.white },
   ok: { bg: '#95de64', text: '#135200' },
-  warn: { bg: '#fa8c16', text: '#fff' },
-  alert: { bg: '#ff4d4f', text: '#fff' },
+  warn: { bg: COLORS.orange, text: COLORS.white },
+  alert: { bg: COLORS.danger, text: COLORS.white },
 };
 
 interface IBlocksHeatmapProps {

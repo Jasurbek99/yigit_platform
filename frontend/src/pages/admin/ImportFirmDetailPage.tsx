@@ -38,6 +38,7 @@ import { canDo } from '@/utils/permissions';
 import { CountrySelect } from '@/components/CountrySelect';
 import { CitySelect } from '@/components/CitySelect';
 import type { IImportFirm } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 const { Title, Text } = Typography;
 
@@ -86,7 +87,7 @@ function FileUploadCard({
               borderRadius: 4,
               padding: 6,
               display: 'block',
-              background: '#fafafa',
+              background: COLORS.bgLayout,
             }}
           />
         </div>
@@ -232,7 +233,7 @@ export default function ImportFirmDetailPage() {
             {t('import_firms_admin.title')}
           </Button>
           <Title level={4} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <ShopOutlined style={{ color: '#1677ff' }} />
+            <ShopOutlined style={{ color: COLORS.primary }} />
             {isNew ? t('import_firms_admin.add') : (firm?.name_company || '...')}
           </Title>
         </div>

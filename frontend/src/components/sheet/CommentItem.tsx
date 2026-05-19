@@ -9,6 +9,7 @@ import i18n from '@/i18n';
 import { useUpdateComment, useDeleteComment, useMarkTaskDone, useReopenTask } from '@/hooks/useComments';
 import { useAuth } from '@/hooks/useAuth';
 import { useSheetStore } from '@/stores/sheetStore';
+import { COLORS } from '@/constants/styles';
 
 dayjs.extend(relativeTime);
 
@@ -157,8 +158,8 @@ export function CommentItem({ comment, shipmentId, isReply = false, isHighlighte
         <div
           style={{
             width: 24, height: 24, borderRadius: '50%',
-            background: comment.is_system ? '#8c8c8c' : '#1677ff',
-            color: '#fff', fontSize: 10, fontWeight: 700,
+            background: comment.is_system ? COLORS.textSecondary : COLORS.primary,
+            color: COLORS.white, fontSize: 10, fontWeight: 700,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             flexShrink: 0,
           }}
@@ -197,7 +198,7 @@ export function CommentItem({ comment, shipmentId, isReply = false, isHighlighte
       )}
 
       {/* Body */}
-      <div style={{ fontSize: 13, color: comment.is_system ? '#8c8c8c' : undefined, fontStyle: comment.is_system ? 'italic' : undefined, marginBottom: 4, paddingLeft: 30 }}>
+      <div style={{ fontSize: 13, color: comment.is_system ? COLORS.textSecondary : undefined, fontStyle: comment.is_system ? 'italic' : undefined, marginBottom: 4, paddingLeft: 30 }}>
         {isEditing ? (
           <div style={{ display: 'flex', gap: 4 }}>
             <Input.TextArea
@@ -266,7 +267,7 @@ export function CommentItem({ comment, shipmentId, isReply = false, isHighlighte
               type="text"
               size="small"
               icon={<CheckOutlined />}
-              style={{ padding: 0, fontSize: 11, color: '#52c41a' }}
+              style={{ padding: 0, fontSize: 11, color: COLORS.success }}
               onClick={handleMarkDone}
               loading={markDoneMutation.isPending}
             >

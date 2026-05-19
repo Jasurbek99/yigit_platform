@@ -9,6 +9,7 @@ import { useStartTask, useCompleteTask } from '@/hooks/useTaskActions';
 import { useAuth } from '@/hooks/useAuth';
 import { SUPERVISOR_ROLES } from '@/utils/detailSections';
 import type { IShipmentDetail } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 const { Text, Title } = Typography;
 
@@ -105,7 +106,7 @@ export function MyTaskCard({ shipment }: IMyTaskCardProps) {
       styles={isOverdue ? { header: { background: '#fff1f0' } } : undefined}
       title={
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <Text style={{ fontSize: 13, color: '#8c8c8c', fontWeight: 400 }}>
+          <Text style={{ fontSize: 13, color: COLORS.textSecondary, fontWeight: 400 }}>
             {t(`tasks.role.${task.assignee_role}`)}
           </Text>
           <Title level={5} style={{ margin: 0, fontSize: 15 }}>

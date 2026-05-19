@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { EChart } from '@/components/EChart';
 import type { BossPeriod, IBossKpiCard } from '@/hooks/useBossDashboard';
 import { useBossSummary } from '@/hooks/useBossDashboard';
+import { COLORS } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -33,7 +34,7 @@ function buildSparkOption(points: number[]) {
         data: points,
         smooth: true,
         symbol: 'none',
-        lineStyle: { width: 1.5, color: '#1677ff' },
+        lineStyle: { width: 1.5, color: COLORS.primary },
         areaStyle: { color: 'rgba(22,119,255,0.08)' },
       },
     ],
@@ -47,11 +48,11 @@ function KpiCard({ labelKey, card, isLoading, format = 'int', onClick, showPlace
   const level = card?.level;
 
   const bgColor =
-    level === 'alert' ? '#fff2f0' : level === 'warn' ? '#fffbe6' : '#fff';
+    level === 'alert' ? COLORS.bgRed : level === 'warn' ? COLORS.bgYellow : COLORS.white;
   const borderColor =
-    level === 'alert' ? '#ff4d4f' : level === 'warn' ? '#faad14' : '#f0f0f0';
+    level === 'alert' ? COLORS.danger : level === 'warn' ? COLORS.warning : COLORS.border;
 
-  const deltaColor = (card?.delta_pct ?? 0) >= 0 ? '#52c41a' : '#ff4d4f';
+  const deltaColor = (card?.delta_pct ?? 0) >= 0 ? COLORS.success : COLORS.danger;
   const deltaPrefix = (card?.delta_pct ?? 0) >= 0 ? '+' : '';
 
   if (isLoading) {
@@ -100,7 +101,7 @@ function KpiCard({ labelKey, card, isLoading, format = 'int', onClick, showPlace
             fontSize: 11,
             textTransform: 'uppercase',
             letterSpacing: '0.04em',
-            color: '#8c8c8c',
+            color: COLORS.textSecondary,
             display: 'block',
             marginBottom: 2,
           }}
@@ -186,7 +187,7 @@ export function HeroKpiStrip({ period }: IHeroKpiStripProps) {
           onClick={() => navigate('/export/quota')}
         />
         {!isLoading && (
-          <div style={{ gridColumn: '1 / -1', textAlign: 'right', fontSize: 11, color: '#bfbfbf' }}>
+          <div style={{ gridColumn: '1 / -1', textAlign: 'right', fontSize: 11, color: COLORS.textMuted }}>
             {t('boss_dashboard.last_updated')}
           </div>
         )}

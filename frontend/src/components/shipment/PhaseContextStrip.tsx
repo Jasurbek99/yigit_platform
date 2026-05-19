@@ -2,6 +2,7 @@ import { Card } from 'antd';
 import { useTranslation } from 'react-i18next';
 import type { IShipmentDetail, TaskState } from '@/types';
 import { formatDuration } from './PhaseContextStrip.helpers';
+import { COLORS } from '@/constants/styles';
 
 const ACTIVE_STATES: TaskState[] = ['open', 'in_progress', 'blocked'];
 
@@ -37,7 +38,7 @@ export function PhaseContextStrip({ shipment }: IPhaseContextStripProps) {
 
   const labelStyle: React.CSSProperties = {
     fontSize: 11,
-    color: '#8c8c8c',
+    color: COLORS.textSecondary,
     marginBottom: 4,
     textTransform: 'uppercase' as const,
     letterSpacing: '0.05em',
@@ -47,7 +48,7 @@ export function PhaseContextStrip({ shipment }: IPhaseContextStripProps) {
     fontSize: 20,
     fontWeight: 700,
     fontFamily: 'monospace',
-    color: '#262626',
+    color: COLORS.textPrimary,
   };
 
   return (
@@ -59,7 +60,7 @@ export function PhaseContextStrip({ shipment }: IPhaseContextStripProps) {
           <div style={valueStyle}>{formatDuration(shipment.in_phase_seconds)}</div>
         </div>
 
-        <div style={{ width: 1, background: '#f0f0f0', margin: '8px 0' }} />
+        <div style={{ width: 1, background: COLORS.border, margin: '8px 0' }} />
 
         {/* Cell 2: Average for current step (per-status average; not phase-wide).
             phase_avg_seconds is computed per-status on the backend; the
@@ -70,14 +71,14 @@ export function PhaseContextStrip({ shipment }: IPhaseContextStripProps) {
           <div style={valueStyle}>{formatDuration(shipment.phase_avg_seconds)}</div>
         </div>
 
-        <div style={{ width: 1, background: '#f0f0f0', margin: '8px 0' }} />
+        <div style={{ width: 1, background: COLORS.border, margin: '8px 0' }} />
 
         {/* Cell 3: Open tasks */}
         <div style={cellStyle}>
           <div style={labelStyle}>{t('shipment.detail.tasks_open')}</div>
           <div style={valueStyle}>
             {totalActive}
-            <span style={{ fontSize: 14, fontWeight: 400, color: '#8c8c8c' }}>
+            <span style={{ fontSize: 14, fontWeight: 400, color: COLORS.textSecondary }}>
               /{totalTasks}
             </span>
           </div>

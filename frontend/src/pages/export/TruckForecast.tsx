@@ -8,6 +8,7 @@ import isoWeek from 'dayjs/plugin/isoWeek';
 import weekOfYear from 'dayjs/plugin/weekOfYear';
 import { useTruckAllocations, useTruckDestinations } from '@/hooks/usePlanning';
 import type { IWeeklyTruckAllocation } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 dayjs.extend(isoWeek);
 dayjs.extend(weekOfYear);
@@ -102,7 +103,7 @@ export default function TruckForecast() {
       responsive: ['md'],
       render: (_, record) => {
         const count = getSplitCount(record, dest.id);
-        return count > 0 ? count : <span style={{ color: '#bfbfbf' }}>—</span>;
+        return count > 0 ? count : <span style={{ color: COLORS.textMuted }}>—</span>;
       },
     })),
     {
@@ -113,7 +114,7 @@ export default function TruckForecast() {
       render: (_, record) =>
         record.decided_by_name
           ? record.decided_by_name
-          : <span style={{ color: '#bfbfbf' }}>—</span>,
+          : <span style={{ color: COLORS.textMuted }}>—</span>,
     },
   ];
 
@@ -124,11 +125,11 @@ export default function TruckForecast() {
     <div>
       <Space style={{ width: '100%', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
-          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: '#1f1f1f', lineHeight: '1.3', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <IconTruck size={18} color="#1677ff" />
+          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: COLORS.textDark, lineHeight: '1.3', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <IconTruck size={18} color={COLORS.primary} />
             {t('truck.title')}
           </div>
-          <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
+          <div style={{ fontSize: 13, color: COLORS.textSecondary, marginTop: 2 }}>
             {t('truck.subtitle')}
           </div>
         </div>
@@ -144,7 +145,7 @@ export default function TruckForecast() {
 
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
         <Col xs={12} sm={colSpan}>
-          <StatCard title={t('truck.total_trucks')} value={totalTrucks.toFixed(1)} color="#1677ff" />
+          <StatCard title={t('truck.total_trucks')} value={totalTrucks.toFixed(1)} color={COLORS.primary} />
         </Col>
         {destTotals.map((d) => (
           <Col key={d.id} xs={12} sm={colSpan}>

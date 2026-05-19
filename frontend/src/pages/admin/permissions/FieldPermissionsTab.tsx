@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { useFieldPermissions, useSaveFieldPermissions } from '@/hooks/useAdmin';
 import { ROLE_COLOR } from './roleColors';
+import { COLORS } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -132,7 +133,7 @@ export function FieldPermissionsTab() {
             pagination={false}
             sticky
             scroll={{ x: 'max-content', y: 'calc(100vh - 320px)' }}
-            style={{ background: '#fff', borderRadius: 8 }}
+            style={{ background: COLORS.white, borderRadius: 8 }}
           />
           <Flex justify="flex-end" style={{ marginTop: 16 }}>
             <Button

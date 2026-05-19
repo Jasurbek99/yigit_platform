@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { ScreenshotInput } from '@/components/feedback/ScreenshotInput';
 import { useReplyToTicket } from '@/hooks/useFeedback';
 import type { FeedbackReplyMode } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 const { TextArea } = Input;
 const { Text } = Typography;
@@ -60,7 +61,7 @@ export function ReplyComposer({ ticketId }: IReplyComposerProps): React.ReactEle
       style={{
         padding: 16,
         borderTop: '1px solid #f0f0f0',
-        background: mode === 'internal' ? '#fffbe6' : undefined,
+        background: mode === 'internal' ? COLORS.bgYellow : undefined,
         borderRadius: mode === 'internal' ? '0 0 8px 8px' : undefined,
       }}
     >
@@ -74,7 +75,7 @@ export function ReplyComposer({ ticketId }: IReplyComposerProps): React.ReactEle
       )}
       {mode === 'public' && (
         <Text
-          style={{ display: 'block', fontSize: 12, marginBottom: 8, color: '#1677ff' }}
+          style={{ display: 'block', fontSize: 12, marginBottom: 8, color: COLORS.primary }}
         >
           {t('feedback.reply.public_warning')}
         </Text>

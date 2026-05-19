@@ -6,6 +6,7 @@ import { BlockAssignmentsTab } from './permissions/BlockAssignmentsTab';
 import { PageVisibilityTab } from './permissions/PageVisibilityTab';
 import { ResourcePermissionsTab } from './permissions/ResourcePermissionsTab';
 import { FieldPermissionsTab } from './permissions/FieldPermissionsTab';
+import { COLORS } from '@/constants/styles';
 
 export default function PermissionsPage() {
   const { t } = useTranslation();
@@ -25,17 +26,17 @@ export default function PermissionsPage() {
             fontSize: 20,
             fontWeight: 600,
             letterSpacing: '-0.02em',
-            color: '#1f1f1f',
+            color: COLORS.textDark,
             lineHeight: '1.3',
             display: 'flex',
             alignItems: 'center',
             gap: 8,
           }}
         >
-          <IconShield size={18} color="#1677ff" />
+          <IconShield size={18} color={COLORS.primary} />
           {t('nav.admin_permissions')}
         </div>
-        <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
+        <div style={{ fontSize: 13, color: COLORS.textSecondary, marginTop: 2 }}>
           {t('permissions_admin.subtitle')}
         </div>
       </div>

@@ -34,6 +34,7 @@ import {
 import { handleCellKeyDown } from '@/utils/tableNavigation';
 import { fmtWeight, type WeightUnit } from '@/utils/weight';
 import type { IQuotaUsageRecord, IExportFirm } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -267,13 +268,13 @@ export function QuotaUsageGrid({ weightUnit, productType }: IQuotaUsageGridProps
         );
       }
 
-      if (!value) return <span style={{ color: '#d9d9d9' }}>—</span>;
+      if (!value) return <span style={{ color: COLORS.borderLight }}>—</span>;
 
       return (
         <span>
           {fmtW(value)}
           {rec?.status === 'approved' && (
-            <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 10, marginLeft: 4 }} />
+            <CheckCircleOutlined style={{ color: COLORS.success, fontSize: 10, marginLeft: 4 }} />
           )}
         </span>
       );
@@ -299,9 +300,9 @@ export function QuotaUsageGrid({ weightUnit, productType }: IQuotaUsageGridProps
       render: (_: unknown, row: IGridRow) => {
         const total = num(row._rowTotal);
         return total > 0 ? (
-          <Text strong style={{ color: '#1677ff' }}>{fmtW(total)}</Text>
+          <Text strong style={{ color: COLORS.primary }}>{fmtW(total)}</Text>
         ) : (
-          <span style={{ color: '#d9d9d9' }}>—</span>
+          <span style={{ color: COLORS.borderLight }}>—</span>
         );
       },
     },
@@ -330,13 +331,13 @@ export function QuotaUsageGrid({ weightUnit, productType }: IQuotaUsageGridProps
         </Table.Summary.Cell>
         {gridFirms.map((firm, i) => (
           <Table.Summary.Cell key={firm.id} index={i + 1} align="right">
-            <span style={{ color: '#1677ff' }}>
+            <span style={{ color: COLORS.primary }}>
               {fmtW(columnTotals[`firm_${firm.id}`])}
             </span>
           </Table.Summary.Cell>
         ))}
         <Table.Summary.Cell index={gridFirms.length + 1} align="right">
-          <Text strong style={{ color: '#1677ff' }}>{fmtW(grandTotal)}</Text>
+          <Text strong style={{ color: COLORS.primary }}>{fmtW(grandTotal)}</Text>
         </Table.Summary.Cell>
         <Table.Summary.Cell index={gridFirms.length + 2} align="center">
           {grandTrucks > 0 && <Tag color="purple">{grandTrucks}</Tag>}

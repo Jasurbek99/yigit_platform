@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { useOverrideVarieties } from '@/hooks/usePallets';
 import { VarietySelect } from '@/components/VarietySelect';
 import { computeNet, type IEditableRow } from './palletHelpers';
+import { COLORS } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -52,14 +53,14 @@ export function VarietyRollupCard({ rows, crateWeightMap, shipmentId }: IVariety
     >
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, padding: '8px 0' }}>
         <div>
-          <div style={{ fontSize: 11, color: '#8c8c8c', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: COLORS.textSecondary, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: 8 }}>
             {t('pallet.rollup_computed')}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {computed.map((v) => (
               <div
                 key={v.id}
-                style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: '#f6ffed', borderRadius: 6, border: '1px solid #b7eb8f' }}
+                style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: COLORS.bgGreen, borderRadius: 6, border: '1px solid #b7eb8f' }}
               >
                 <span style={{ fontWeight: 600 }}>{v.name}</span>
                 <span style={{ fontFamily: 'monospace', fontWeight: 600, color: '#389e0d' }}>
@@ -73,10 +74,10 @@ export function VarietyRollupCard({ rows, crateWeightMap, shipmentId }: IVariety
           </div>
         </div>
         <div>
-          <div style={{ fontSize: 11, color: '#8c8c8c', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: COLORS.textSecondary, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: 8 }}>
             {t('pallet.rollup_override')}
           </div>
-          <div style={{ padding: 12, background: '#fafafa', borderRadius: 8, border: '1px solid #f0f0f0' }}>
+          <div style={{ padding: 12, background: COLORS.bgLayout, borderRadius: 8, border: '1px solid #f0f0f0' }}>
             <VarietySelect
               value={overrideIds[0] ?? null}
               onChange={(v) => setOverrideIds(v != null ? [v] : [])}
@@ -94,7 +95,7 @@ export function VarietyRollupCard({ rows, crateWeightMap, shipmentId }: IVariety
             </Button>
           </div>
           <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
-            <Text style={{ fontSize: 11, color: '#8c8c8c' }}>{t('pallet.confidence_high')}</Text>
+            <Text style={{ fontSize: 11, color: COLORS.textSecondary }}>{t('pallet.confidence_high')}</Text>
             <Tag color="success">✓</Tag>
           </div>
         </div>

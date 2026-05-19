@@ -20,6 +20,7 @@ import { useSeasons, useCreateSeason, useUpdateSeason, useDeleteSeason } from '@
 import { useAuth } from '@/hooks/useAuth';
 import { canDo } from '@/utils/permissions';
 import type { ISeason } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -189,11 +190,11 @@ export default function SeasonsPage() {
     <div>
       <Space style={{ width: '100%', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
-          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: '#1f1f1f', lineHeight: '1.3', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <IconCalendar size={18} color="#1677ff" />
+          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: COLORS.textDark, lineHeight: '1.3', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <IconCalendar size={18} color={COLORS.primary} />
             {t('seasons.title')}
           </div>
-          <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
+          <div style={{ fontSize: 13, color: COLORS.textSecondary, marginTop: 2 }}>
             {t('seasons.subtitle')}
           </div>
         </div>

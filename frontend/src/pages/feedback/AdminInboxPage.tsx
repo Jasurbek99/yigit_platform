@@ -3,6 +3,7 @@ import { Drawer, Flex, Grid, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { TicketListPanel } from './inbox/TicketListPanel';
 import { TicketDetailPanel } from './inbox/TicketDetailPanel';
+import { COLORS } from '@/constants/styles';
 
 const { Title } = Typography;
 const { useBreakpoint } = Grid;
@@ -50,7 +51,7 @@ export default function AdminInboxPage(): React.ReactElement {
           overflow: 'hidden',
           border: '1px solid #f0f0f0',
           borderRadius: 8,
-          background: '#fff',
+          background: COLORS.white,
         }}
       >
         <div

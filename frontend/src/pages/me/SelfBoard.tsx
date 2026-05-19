@@ -35,6 +35,7 @@ import { SelfKanbanCard } from '@/components/kanban/SelfKanbanCard';
 import { SelfBoardTaskDrawer } from '@/components/kanban/SelfBoardTaskDrawer';
 import { formatDuration } from '@/components/shipment/PhaseContextStrip.helpers';
 import type { ITaskListItem, ShipmentPhase, TaskState } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 const { Title, Text } = Typography;
 
@@ -62,7 +63,7 @@ const COLUMNS: IColumnDef[] = [
   {
     key: 'todo',
     states: ['open'],
-    accentColor: '#d9d9d9',
+    accentColor: COLORS.borderLight,
     titleKey: 'me.board.col_todo',
     emptyKey: 'me.board.empty_todo',
     dropTargetState: 'open',
@@ -70,7 +71,7 @@ const COLUMNS: IColumnDef[] = [
   {
     key: 'in_progress',
     states: ['in_progress'],
-    accentColor: '#1677ff',
+    accentColor: COLORS.primary,
     titleKey: 'me.board.col_in_progress',
     emptyKey: 'me.board.empty_col',
     dropTargetState: 'in_progress',
@@ -78,7 +79,7 @@ const COLUMNS: IColumnDef[] = [
   {
     key: 'blocked',
     states: ['blocked'],
-    accentColor: '#faad14',
+    accentColor: COLORS.warning,
     titleKey: 'me.board.col_blocked',
     emptyKey: 'me.board.empty_col',
     dropTargetState: 'blocked',
@@ -86,7 +87,7 @@ const COLUMNS: IColumnDef[] = [
   {
     key: 'done_today',
     states: ['done'],
-    accentColor: '#52c41a',
+    accentColor: COLORS.success,
     titleKey: 'me.board.col_done_today',
     emptyKey: 'me.board.empty_done_today',
     dropTargetState: 'done',
@@ -121,7 +122,7 @@ function KpiStrip({ doneCount, avgDurationSeconds, onTimeRate, isLoading }: IKpi
         alignItems: 'center',
         gap: 16,
         padding: '8px 12px',
-        background: '#fff',
+        background: COLORS.white,
         border: '1px solid #f0f0f0',
         borderRadius: 6,
         marginBottom: 16,
@@ -129,7 +130,7 @@ function KpiStrip({ doneCount, avgDurationSeconds, onTimeRate, isLoading }: IKpi
       }}
     >
       <Space size={4}>
-        <Badge color="#52c41a" />
+        <Badge color={COLORS.success} />
         <Text style={{ fontSize: 13 }}>
           <Text strong>{doneCount}</Text>
           {' '}{t('me.kpi.done_today')}
@@ -147,7 +148,7 @@ function KpiStrip({ doneCount, avgDurationSeconds, onTimeRate, isLoading }: IKpi
         <Text type="secondary" style={{ fontSize: 13 }}>
           {t('me.kpi.on_time_rate')}:
         </Text>
-        <Text strong style={{ fontSize: 13, color: onTimeRate == null ? undefined : onTimeRate >= 0.8 ? '#52c41a' : '#fa8c16' }}>
+        <Text strong style={{ fontSize: 13, color: onTimeRate == null ? undefined : onTimeRate >= 0.8 ? COLORS.success : COLORS.orange }}>
           {onTimeLabel}
         </Text>
       </Space>
@@ -422,7 +423,7 @@ export default function SelfBoard() {
               key={i}
               style={{
                 minWidth: 240,
-                background: '#fafafa',
+                background: COLORS.bgLayout,
                 borderRadius: 8,
                 padding: 12,
               }}
@@ -470,7 +471,7 @@ export default function SelfBoard() {
               key="history"
               title={t('me.board.col_history')}
               count={historyTasks.length}
-              accentColor="#d9d9d9"
+              accentColor={COLORS.borderLight}
               emptyText={t('me.board.empty_col')}
             >
               {historyTasks.map((task) => (

@@ -3,6 +3,7 @@ import { Card, Skeleton, Typography } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import type { IBossAlert } from '@/hooks/useBossDashboard';
 import { useBossAlerts } from '@/hooks/useBossDashboard';
+import { COLORS } from '@/constants/styles';
 
 function formatRelativeTime(iso: string, t: (k: string, opts?: Record<string, unknown>) => string): string {
   const ts = new Date(iso).getTime();
@@ -17,9 +18,9 @@ function formatRelativeTime(iso: string, t: (k: string, opts?: Record<string, un
 const { Text } = Typography;
 
 const LEVEL_COLORS: Record<IBossAlert['level'], string> = {
-  high: '#ff4d4f',
-  med: '#faad14',
-  low: '#1677ff',
+  high: COLORS.danger,
+  med: COLORS.warning,
+  low: COLORS.primary,
 };
 
 // Keys must match the icon codes returned by `_kind_to_icon()` in
@@ -51,8 +52,8 @@ export function AlertsPanel() {
           {alerts.length > 0 && (
             <span
               style={{
-                background: '#ff4d4f',
-                color: '#fff',
+                background: COLORS.danger,
+                color: COLORS.white,
                 borderRadius: 10,
                 fontSize: 11,
                 padding: '1px 6px',
@@ -78,7 +79,7 @@ export function AlertsPanel() {
                 borderLeft: `3px solid ${LEVEL_COLORS[alert.level]}`,
                 borderRadius: '0 6px 6px 0',
                 padding: '8px 10px',
-                background: '#fafafa',
+                background: COLORS.bgLayout,
                 cursor: alert.link ? 'pointer' : 'default',
               }}
             >

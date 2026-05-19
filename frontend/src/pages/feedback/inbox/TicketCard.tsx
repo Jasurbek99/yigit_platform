@@ -2,6 +2,7 @@ import { Space, Tag, Typography } from 'antd';
 import dayjs from 'dayjs';
 import { TicketStatusTag } from '@/components/feedback/TicketStatusTag';
 import type { IFeedbackTicket } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -19,7 +20,7 @@ export function TicketCard({ ticket, isSelected, onClick }: ITicketCardProps): R
         padding: '10px 12px',
         cursor: 'pointer',
         borderRadius: 6,
-        background: isSelected ? '#e6f4ff' : '#fff',
+        background: isSelected ? COLORS.bgBlue : COLORS.white,
         borderLeft: isSelected ? '3px solid #1677ff' : '3px solid transparent',
         borderBottom: '1px solid #f0f0f0',
         transition: 'background 0.15s',

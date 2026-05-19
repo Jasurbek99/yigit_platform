@@ -42,6 +42,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { SheetRowStylePopover } from './SheetRowStylePopover';
 import { SheetRowTooltipPopover } from './SheetRowTooltipPopover';
 import { InlineSavedInput } from './InlineSavedInput';
+import { COLORS } from '@/constants/styles';
 
 dayjs.extend(relativeTime);
 
@@ -335,7 +336,7 @@ export default function SheetRowsTab({ canWrite }: IProps) {
       key: 'id',
       width: 48,
       render: (v: number) => (
-        <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#8c8c8c' }}>{v}</span>
+        <span style={{ fontFamily: 'monospace', fontSize: 11, color: COLORS.textSecondary }}>{v}</span>
       ),
     },
     {
@@ -520,7 +521,7 @@ export default function SheetRowsTab({ canWrite }: IProps) {
         const fromNow = record.updated_at ? dayjs(record.updated_at).fromNow() : '—';
         return (
           <Tooltip title={`${byName} · ${record.updated_at ?? ''}`}>
-            <span style={{ fontSize: 11, color: '#8c8c8c' }}>
+            <span style={{ fontSize: 11, color: COLORS.textSecondary }}>
               {byName} · {fromNow}
             </span>
           </Tooltip>
@@ -556,7 +557,7 @@ export default function SheetRowsTab({ canWrite }: IProps) {
           >
             {t('sheet_rows.add_custom_row')}
           </Button>
-          <span style={{ marginLeft: 8, color: '#8c8c8c', fontSize: 12 }}>
+          <span style={{ marginLeft: 8, color: COLORS.textSecondary, fontSize: 12 }}>
             {t('sheet_rows.add_custom_hint')}
           </span>
         </div>

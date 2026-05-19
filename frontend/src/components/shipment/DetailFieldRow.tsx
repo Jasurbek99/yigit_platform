@@ -5,6 +5,7 @@ import { FieldEditor } from '@/components/FieldEditor';
 import { useShipmentPatchMulti } from '@/hooks/useShipmentPatch';
 import type { IEditFieldConfig } from '@/constants/shipmentEditConfig';
 import type { IShipmentDetail } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -149,7 +150,7 @@ export function DetailFieldRow({
         gap: 12,
       }}
     >
-      <Text style={{ flex: '0 0 180px', fontSize: 13, color: '#595959' }}>
+      <Text style={{ flex: '0 0 180px', fontSize: 13, color: COLORS.textTertiary }}>
         {label}
       </Text>
       <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 }}>

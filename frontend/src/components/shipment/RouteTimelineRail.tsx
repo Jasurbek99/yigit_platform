@@ -2,6 +2,7 @@ import { Card, Tag } from 'antd';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import type { IShipmentDetail, IStatusLogEntry } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 // State machine v2: 12 steps + draft (step 0).
 // transshipment is inserted only for has_peregruz=True shipments — see getStatusStepsForShipment.
@@ -89,7 +90,7 @@ export function RouteTimelineRail({ shipment }: IRouteTimelineRailProps) {
                     top: 32,
                     bottom: 0,
                     width: 2,
-                    background: state === 'done' ? '#52c41a' : '#f0f0f0',
+                    background: state === 'done' ? COLORS.success : COLORS.border,
                   }}
                 />
               )}
@@ -107,8 +108,8 @@ export function RouteTimelineRail({ shipment }: IRouteTimelineRailProps) {
                   fontWeight: 600,
                   zIndex: 1,
                   background:
-                    state === 'done' ? '#52c41a' : state === 'active' ? '#1677ff' : '#f5f5f5',
-                  color: state === 'pending' ? '#bfbfbf' : '#fff',
+                    state === 'done' ? COLORS.success : state === 'active' ? COLORS.primary : COLORS.bgLight,
+                  color: state === 'pending' ? COLORS.textMuted : COLORS.white,
                   border: state === 'pending' ? '2px solid #d9d9d9' : 'none',
                 }}
               >
@@ -121,12 +122,12 @@ export function RouteTimelineRail({ shipment }: IRouteTimelineRailProps) {
                     fontWeight: state === 'active' ? 600 : 500,
                     fontSize: 13,
                     color:
-                      state === 'pending' ? '#bfbfbf' : state === 'active' ? '#1677ff' : '#262626',
+                      state === 'pending' ? COLORS.textMuted : state === 'active' ? COLORS.primary : COLORS.textPrimary,
                   }}
                 >
                   {t(`shipment_status.${step.code}`)}
                   {step.code === 'dest_entry' && shipment.country_name && (
-                    <span style={{ color: '#8c8c8c', fontWeight: 400 }}>
+                    <span style={{ color: COLORS.textSecondary, fontWeight: 400 }}>
                       {` — ${shipment.country_name}`}
                     </span>
                   )}
@@ -137,17 +138,17 @@ export function RouteTimelineRail({ shipment }: IRouteTimelineRailProps) {
                   )}
                 </div>
                 {state !== 'pending' && logEntry && (
-                  <div style={{ fontSize: 11, color: '#8c8c8c', fontFamily: 'monospace' }}>
+                  <div style={{ fontSize: 11, color: COLORS.textSecondary, fontFamily: 'monospace' }}>
                     {fmt(logEntry.changed_at)}
                   </div>
                 )}
                 {state !== 'pending' && logEntry?.comment && (
-                  <div style={{ fontSize: 11, color: '#595959', marginTop: 2 }}>
+                  <div style={{ fontSize: 11, color: COLORS.textTertiary, marginTop: 2 }}>
                     {logEntry.comment}
                   </div>
                 )}
                 {state === 'active' && (
-                  <div style={{ fontSize: 11, color: '#8c8c8c' }}>
+                  <div style={{ fontSize: 11, color: COLORS.textSecondary }}>
                     {t('shipment_detail.status_now')}
                   </div>
                 )}

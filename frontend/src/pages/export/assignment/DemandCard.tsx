@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { IDemandItem } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 interface IDemandCardProps {
   item: IDemandItem;
@@ -13,7 +14,7 @@ export function DemandCard({ item, selected, onSelect }: IDemandCardProps) {
     <div
       onClick={onSelect}
       style={{
-        background: selected ? '#e6f4ff' : '#fff2e8',
+        background: selected ? COLORS.bgBlue : '#fff2e8',
         border: selected ? '2px solid #1677ff' : '1px solid #ffbb96',
         borderRadius: 6,
         padding: 10,
@@ -37,7 +38,7 @@ export function DemandCard({ item, selected, onSelect }: IDemandCardProps) {
         {item.strict && <span style={{ marginLeft: 6 }}>🔒 {t('assign.label_strict')}</span>}
       </div>
       <div style={{ fontSize: 13, fontWeight: 600 }}>{item.customer}</div>
-      <div style={{ fontSize: 11, color: '#595959', marginTop: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <div style={{ fontSize: 11, color: COLORS.textTertiary, marginTop: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
         <div>
           {t('assign.label_firm')}<strong>{item.firm}</strong>
         </div>

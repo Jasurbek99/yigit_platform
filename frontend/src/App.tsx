@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import AppLayout from '@/components/AppLayout';
 import { useAuth } from '@/hooks/useAuth';
+import { COLORS } from '@/constants/styles';
 
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
 const UnauthorizedPage = lazy(() => import('@/pages/auth/UnauthorizedPage'));
@@ -92,7 +93,7 @@ export default function App() {
         locale={antdLocale}
         theme={{
           token: {
-            colorPrimary: '#1677ff',
+            colorPrimary: COLORS.primary,
             borderRadius: 6,
             fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif",
           },

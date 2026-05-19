@@ -11,6 +11,7 @@ import {
 } from '@/hooks/usePlanning';
 import type { DayOfWeek, IWeeklyHarvestPlan, IWeeklyTruckAllocation } from '@/types';
 import { fmtKg } from '@/components/HarvestCell.helpers';
+import { COLORS } from '@/constants/styles';
 
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
 
@@ -102,7 +103,7 @@ export function TruckAllocationTable({
       title: (
         <div style={{ textAlign: 'center' as const, lineHeight: '16px' }}>
           <div>{t(`plan.${day}`)}</div>
-          <div style={{ fontSize: 10, color: '#8c8c8c', fontWeight: 400 }}>
+          <div style={{ fontSize: 10, color: COLORS.textSecondary, fontWeight: 400 }}>
             {weekMonday.add(di, 'day').format('DD.MM')}
           </div>
         </div>
@@ -117,7 +118,7 @@ export function TruckAllocationTable({
           const colDate = weekMonday.add(di, 'day').format('YYYY-MM-DD');
           const dayTotal = dayTotals[colDate] ?? 0;
           if (row.key === 'total_kg') {
-            return <strong style={{ color: '#1677ff' }}>{fmtKg(dayTotal || null)}</strong>;
+            return <strong style={{ color: COLORS.primary }}>{fmtKg(dayTotal || null)}</strong>;
           }
           const trucks = dayTotal > 0 ? Math.round(dayTotal / 18500) : 0;
           return <strong>{trucks}</strong>;
@@ -143,7 +144,7 @@ export function TruckAllocationTable({
             />
           );
         }
-        return currentVal > 0 ? currentVal : <span style={{ color: '#bfbfbf' }}>—</span>;
+        return currentVal > 0 ? currentVal : <span style={{ color: COLORS.textMuted }}>—</span>;
       },
     })),
     {
@@ -152,7 +153,7 @@ export function TruckAllocationTable({
       width: 80,
       render: (_: unknown, row: ITruckRow) => {
         if (row.key === 'total_kg') {
-          return <strong style={{ color: '#1677ff' }}>{fmtKg(totalPlanKg)}</strong>;
+          return <strong style={{ color: COLORS.primary }}>{fmtKg(totalPlanKg)}</strong>;
         }
         if (row.key === 'total_trucks') {
           return <strong>{totalPlanKg > 0 ? Math.round(totalPlanKg / 18500) : 0}</strong>;
@@ -178,8 +179,8 @@ export function TruckAllocationTable({
       scroll={{ x: 'max-content' }}
       onRow={(row) => ({
         style: row.type === 'editable'
-          ? { backgroundColor: '#fff7e6' }
-          : { backgroundColor: '#fafafa' },
+          ? { backgroundColor: COLORS.bgOrange }
+          : { backgroundColor: COLORS.bgLayout },
       })}
     />
   );

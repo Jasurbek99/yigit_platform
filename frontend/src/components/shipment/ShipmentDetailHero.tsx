@@ -9,6 +9,7 @@ import { TransitionButton } from '@/components/TransitionButton';
 import { useAuth } from '@/hooks/useAuth';
 import { usePromoteFromDraft } from '@/hooks/useDrafts';
 import type { IShipmentDetail } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 interface IShipmentDetailHeroProps {
   shipment: IShipmentDetail;
@@ -76,7 +77,7 @@ export function ShipmentDetailHero({ shipment }: IShipmentDetailHeroProps) {
           <span style={{ fontSize: 18, fontWeight: 600, fontFamily: 'monospace' }}>
             {shipment.official_export_code || '—'}
           </span>
-          <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#8c8c8c' }}>
+          <span style={{ fontSize: 11, fontFamily: 'monospace', color: COLORS.textSecondary }}>
             {t('shipment.detail.export_code_label')}: {shipment.cargo_code}
           </span>
         </div>
@@ -118,7 +119,7 @@ export function ShipmentDetailHero({ shipment }: IShipmentDetailHeroProps) {
       </Flex>
 
       {/* Route subtitle */}
-      <div style={{ paddingLeft: 44, fontSize: 13, color: '#8c8c8c' }}>
+      <div style={{ paddingLeft: 44, fontSize: 13, color: COLORS.textSecondary }}>
         {shipment.customer_name ?? '—'} → {shipment.country_name ?? '—'}
       </div>
     </div>

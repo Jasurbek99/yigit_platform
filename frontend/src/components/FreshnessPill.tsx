@@ -1,5 +1,6 @@
 import { Tag, Tooltip } from 'antd';
 import { useTranslation } from 'react-i18next';
+import { COLORS } from '@/constants/styles';
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -21,17 +22,17 @@ type FreshnessConfig = {
 const FRESHNESS_CONFIG: Record<'today' | 'yesterday' | 'aged', FreshnessConfig> = {
   today: {
     color: 'success',
-    dotBackground: '#52c41a',
+    dotBackground: COLORS.success,
     labelKey: 'freshness.today',
   },
   yesterday: {
     color: 'warning',
-    dotBackground: '#faad14',
+    dotBackground: COLORS.warning,
     labelKey: 'freshness.yesterday',
   },
   aged: {
     color: 'error',
-    dotBackground: '#ff4d4f',
+    dotBackground: COLORS.danger,
     labelKey: 'freshness.aged',
   },
 };

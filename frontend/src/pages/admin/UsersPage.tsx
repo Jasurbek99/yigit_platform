@@ -24,6 +24,7 @@ import {
 } from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
 import type { IAdminUser, UserRole } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -168,7 +169,7 @@ export default function UsersPage() {
           .localeCompare(`${b.first_name ?? ''} ${b.last_name ?? ''}`.trim()),
       render: (_, record) =>
         [record.first_name, record.last_name].filter(Boolean).join(' ') || (
-          <span style={{ color: '#bfbfbf' }}>{t('common.empty')}</span>
+          <span style={{ color: COLORS.textMuted }}>{t('common.empty')}</span>
         ),
     },
     {
@@ -181,7 +182,7 @@ export default function UsersPage() {
       render: (_, record) =>
         record.email
           ? record.email
-          : <span style={{ color: '#bfbfbf' }}>{t('common.empty')}</span>,
+          : <span style={{ color: COLORS.textMuted }}>{t('common.empty')}</span>,
     },
     {
       title: t('users_admin.role'),
@@ -242,7 +243,7 @@ export default function UsersPage() {
               <Button
                 type="link"
                 size="small"
-                style={{ color: '#fa8c16' }}
+                style={{ color: COLORS.orange }}
                 onClick={(e) => { e.stopPropagation(); handleOpenPasswordModal(record); }}
               >
                 {t('users_admin.reset_password')}
@@ -274,11 +275,11 @@ export default function UsersPage() {
     <div>
       <Space style={{ width: '100%', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
-          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: '#1f1f1f', lineHeight: '1.3', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <IconUsers size={18} color="#1677ff" />
+          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: COLORS.textDark, lineHeight: '1.3', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <IconUsers size={18} color={COLORS.primary} />
             {t('users_admin.title')}
           </div>
-          <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
+          <div style={{ fontSize: 13, color: COLORS.textSecondary, marginTop: 2 }}>
             {t('users_admin.subtitle')}
           </div>
         </div>
@@ -418,7 +419,7 @@ export default function UsersPage() {
         confirmLoading={setPassword.isPending}
         destroyOnClose
       >
-        <p style={{ fontSize: 13, color: '#8c8c8c', marginBottom: 12 }}>
+        <p style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 12 }}>
           {t('users_admin.reset_password_hint')}
         </p>
         <Form

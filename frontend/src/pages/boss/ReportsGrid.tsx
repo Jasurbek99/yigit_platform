@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Button, Card, Typography } from 'antd';
 import { IconFileText, IconDownload } from '@tabler/icons-react';
+import { COLORS } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -60,7 +61,7 @@ export function ReportsGrid() {
               border: '1px solid #f0f0f0',
               borderRadius: 8,
               padding: '14px 16px',
-              background: '#fafafa',
+              background: COLORS.bgLayout,
               display: 'flex',
               flexDirection: 'column',
               gap: 10,

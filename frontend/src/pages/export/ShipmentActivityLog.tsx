@@ -7,6 +7,7 @@ import { useShipmentDetail } from '@/hooks/useShipmentDetail';
 import { StatusTag } from '@/components/StatusTag';
 import { CommentComposer } from '@/components/CommentComposer';
 import type { IStatusLogEntry, IShipmentComment } from '@/types';
+import { COLORS } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -56,7 +57,7 @@ export default function ShipmentActivityLog() {
             </Link>
           </div>
         </Flex>
-        <div style={{ paddingLeft: 44, fontSize: 13, color: '#8c8c8c' }}>
+        <div style={{ paddingLeft: 44, fontSize: 13, color: COLORS.textSecondary }}>
           {t('shipment.detail.activity_link')}
         </div>
       </div>
@@ -94,7 +95,7 @@ export default function ShipmentActivityLog() {
               <div
                 key={c.id}
                 style={{
-                  background: '#fafafa',
+                  background: COLORS.bgLayout,
                   borderRadius: 6,
                   padding: '10px 14px',
                   border: '1px solid #f0f0f0',

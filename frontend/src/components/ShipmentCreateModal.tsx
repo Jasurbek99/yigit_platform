@@ -6,6 +6,7 @@ import { useState } from 'react';
 import api from '@/services/api';
 import { CountrySelect } from '@/components/CountrySelect';
 import { CustomerSelect } from '@/components/CustomerSelect';
+import { COLORS } from '@/constants/styles';
 
 interface IShipmentCreateModalProps {
   readonly open: boolean;
@@ -129,7 +130,7 @@ export function ShipmentCreateModal({ open, onClose, onSuccess }: IShipmentCreat
           gap={12}
           style={{
             padding: '8px 12px',
-            background: '#fafafa',
+            background: COLORS.bgLayout,
             borderRadius: 6,
             marginBottom: 16,
           }}
@@ -138,7 +139,7 @@ export function ShipmentCreateModal({ open, onClose, onSuccess }: IShipmentCreat
             <div style={{ fontWeight: 500, fontSize: 13 }}>
               {t('shipment_create.skip_prep')}
             </div>
-            <div style={{ fontSize: 12, color: '#8c8c8c' }}>
+            <div style={{ fontSize: 12, color: COLORS.textSecondary }}>
               {t('shipment_create.skip_prep_help')}
             </div>
           </div>
@@ -201,7 +202,7 @@ export function ShipmentCreateModal({ open, onClose, onSuccess }: IShipmentCreat
           label={
             <Flex gap={4} align="center">
               <span>{t('shipment_create.season')}</span>
-              <span style={{ color: '#8c8c8c', fontSize: 12, fontWeight: 400 }}>
+              <span style={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: 400 }}>
                 ({t('shipment_create.season_optional')})
               </span>
             </Flex>
