@@ -99,6 +99,7 @@ export default function TruckForecast() {
       key: `dest_${dest.id}`,
       width: 110,
       search: false,
+      responsive: ['md'],
       render: (_, record) => {
         const count = getSplitCount(record, dest.id);
         return count > 0 ? count : <span style={{ color: '#bfbfbf' }}>—</span>;
@@ -108,6 +109,7 @@ export default function TruckForecast() {
       title: t('truck.decided_by'),
       dataIndex: 'decided_by_name',
       search: false,
+      responsive: ['md'],
       render: (_, record) =>
         record.decided_by_name
           ? record.decided_by_name

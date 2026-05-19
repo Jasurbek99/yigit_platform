@@ -63,6 +63,7 @@ export default function BlockSummary() {
       title: t('block_summary.block_name'),
       dataIndex: 'block_name',
       search: false,
+      responsive: ['md'],
       sorter: (a, b) => a.block_name.localeCompare(b.block_name),
     },
     {
@@ -70,6 +71,7 @@ export default function BlockSummary() {
       dataIndex: 'total_plan_kg',
       width: 130,
       search: false,
+      responsive: ['md'],
       sorter: (a, b) => a.total_plan_kg - b.total_plan_kg,
       render: (_, record) => (
         <span style={{ color: '#1677ff' }}>{fmtKg(record.total_plan_kg)}</span>
@@ -93,6 +95,7 @@ export default function BlockSummary() {
       dataIndex: 'deficit_kg',
       width: 130,
       search: false,
+      responsive: ['md'],
       sorter: (a, b) => (a.deficit_kg ?? 0) - (b.deficit_kg ?? 0),
       render: (_, record) => {
         const val = record.deficit_kg;

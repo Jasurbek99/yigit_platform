@@ -255,6 +255,7 @@ export default function AdvancesTracker() {
       dataIndex: 'batch_code',
       width: 150,
       search: false,
+      responsive: ['md'],
       sorter: (a, b) => (a.batch_code ?? '').localeCompare(b.batch_code ?? ''),
       render: (_, record) =>
         record.batch_code ? (
@@ -287,11 +288,13 @@ export default function AdvancesTracker() {
       dataIndex: 'currency',
       width: 90,
       search: false,
+      responsive: ['md'],
     },
     {
       title: t('advances.purpose'),
       dataIndex: 'purpose',
       search: false,
+      responsive: ['md'],
       render: (_, record) => record.purpose ?? <Text type="secondary">—</Text>,
     },
     {
@@ -299,6 +302,7 @@ export default function AdvancesTracker() {
       dataIndex: 'shipment_count',
       width: 100,
       search: false,
+      responsive: ['md'],
       sorter: (a, b) => a.shipment_count - b.shipment_count,
       render: (_, record) => (
         <Tag color={record.shipment_count > 0 ? 'blue' : 'default'}>
@@ -311,6 +315,7 @@ export default function AdvancesTracker() {
       dataIndex: 'allocated_total',
       width: 130,
       search: false,
+      responsive: ['md'],
       sorter: (a, b) => a.allocated_total - b.allocated_total,
       render: (_, record) => {
         const isOver = record.allocated_total > record.total_amount;
@@ -339,6 +344,7 @@ export default function AdvancesTracker() {
       dataIndex: 'issued_by_name',
       width: 120,
       search: false,
+      responsive: ['md'],
       sorter: (a, b) => (a.issued_by_name ?? '').localeCompare(b.issued_by_name ?? ''),
     },
     {

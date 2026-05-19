@@ -161,6 +161,7 @@ export default function UsersPage() {
       dataIndex: 'first_name',
       width: 160,
       search: false,
+      responsive: ['md'],
       sorter: (a, b) =>
         `${a.first_name ?? ''} ${a.last_name ?? ''}`
           .trim()
@@ -175,6 +176,7 @@ export default function UsersPage() {
       dataIndex: 'email',
       width: 200,
       search: false,
+      responsive: ['md'],
       sorter: (a, b) => (a.email ?? '').localeCompare(b.email ?? ''),
       render: (_, record) =>
         record.email
@@ -236,6 +238,7 @@ export default function UsersPage() {
             key: 'password',
             width: 120,
             search: false,
+            responsive: ['md'],
             render: (_: unknown, record: IAdminUser) => (
               <Button
                 type="link"
@@ -252,6 +255,7 @@ export default function UsersPage() {
             key: 'delete',
             width: 80,
             search: false,
+            responsive: ['md'],
             render: (_: unknown, record: IAdminUser) =>
               record.id === currentUser?.id ? null : (
                 <Button

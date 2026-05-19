@@ -50,6 +50,7 @@ export default function DomesticSales() {
       dataIndex: 'block_code',
       width: 80,
       search: false,
+      responsive: ['md'],
       sorter: (a, b) => (a.block_code ?? '').localeCompare(b.block_code ?? ''),
     },
     {
@@ -57,6 +58,7 @@ export default function DomesticSales() {
       dataIndex: 'variety',
       width: 110,
       search: false,
+      responsive: ['md'],
       render: (_, record) =>
         record.variety
           ? String(record.variety)
@@ -75,6 +77,7 @@ export default function DomesticSales() {
       dataIndex: 'price_per_kg',
       width: 100,
       search: false,
+      responsive: ['md'],
       sorter: (a, b) => Number(a.price_per_kg ?? 0) - Number(b.price_per_kg ?? 0),
       render: (_, record) =>
         record.price_per_kg != null
@@ -86,6 +89,7 @@ export default function DomesticSales() {
       dataIndex: 'tabel_no',
       width: 100,
       search: false,
+      responsive: ['md'],
       render: (_, record) =>
         record.tabel_no
           ? String(record.tabel_no)
@@ -95,6 +99,7 @@ export default function DomesticSales() {
       title: t('domestic_sales.firm'),
       dataIndex: 'export_firm_name',
       search: false,
+      responsive: ['md'],
       sorter: (a, b) => (a.export_firm_name ?? '').localeCompare(b.export_firm_name ?? ''),
       render: (_, record) =>
         record.export_firm_name
