@@ -1958,7 +1958,8 @@
       "action_unblock": "Unblock (move to in progress)",
       "card_aria": "Task {{title}}, {{state}}. Press Enter to open.",
       "drawer_open_shipment": "Open shipment detail",
-      "drawer_readonly_completed": "Completed {{when}}"
+      "drawer_readonly_completed": "Completed {{when}}",
+      "drawer_more_details": "Other shipment details"
     },
     "kpi": {
       "done_today": "Done today",

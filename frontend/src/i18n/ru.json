@@ -1960,7 +1960,8 @@
       "action_unblock": "Разблокировать (в работу)",
       "card_aria": "Задача: {{title}}, статус: {{state}}. Нажмите Enter, чтобы открыть.",
       "drawer_open_shipment": "Открыть детали отгрузки",
-      "drawer_readonly_completed": "Завершено {{when}}"
+      "drawer_readonly_completed": "Завершено {{when}}",
+      "drawer_more_details": "Прочие детали отгрузки"
     },
     "kpi": {
       "done_today": "Сделано сегодня",
