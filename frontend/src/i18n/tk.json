@@ -1962,7 +1962,8 @@
       "action_unblock": "Açyp goý (işde diýip belle)",
       "card_aria": "Tabşyryk: {{title}}, ýagdaý: {{state}}. Açmak üçin Enter basyň.",
       "drawer_open_shipment": "Iberim jikme-jigligini aç",
-      "drawer_readonly_completed": "{{when}} tamamlandy"
+      "drawer_readonly_completed": "{{when}} tamamlandy",
+      "drawer_more_details": "Iberişiň beýleki maglumatlary"
     },
     "kpi": {
       "done_today": "Şu gün edildi",
