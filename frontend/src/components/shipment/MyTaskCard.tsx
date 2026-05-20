@@ -8,13 +8,22 @@ import { isFieldFilled } from '@/components/shipment/TaskCardEditor.helpers';
 import { useStartTask, useCompleteTask } from '@/hooks/useTaskActions';
 import { useAuth } from '@/hooks/useAuth';
 import { SUPERVISOR_ROLES } from '@/utils/detailSections';
-import type { IShipmentDetail } from '@/types';
+import type { IShipmentDetail, ITaskDetail, ITaskListItem } from '@/types';
 import { COLORS } from '@/constants/styles';
 
 const { Text, Title } = Typography;
 
 interface IMyTaskCardProps {
   shipment: IShipmentDetail;
+  /**
+   * Render the editor for this specific task instead of the shipment's
+   * `my_task`. Used by the Self Board drawer where the user clicks a
+   * specific card — that task may not match `shipment.my_task` when the
+   * shipment has multiple active tasks for the user. Defaults to
+   * `shipment.my_task` so existing callers (Shipment Detail page) are
+   * unaffected.
+   */
+  task?: ITaskDetail | ITaskListItem | null;
 }
 
 /**
@@ -32,10 +41,10 @@ interface IMyTaskCardProps {
  *   - Operational role with no tasks at all: keep the empty-state banner
  *     (truly nothing happening — likely a fresh draft awaiting rule engine).
  */
-export function MyTaskCard({ shipment }: IMyTaskCardProps) {
+export function MyTaskCard({ shipment, task: taskOverride }: IMyTaskCardProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const task = shipment.my_task;
+  const task = taskOverride ?? shipment.my_task;
 
   const startMutation = useStartTask();
   const completeMutation = useCompleteTask();

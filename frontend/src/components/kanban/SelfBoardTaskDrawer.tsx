@@ -44,10 +44,15 @@ export function SelfBoardTaskDrawer({ task, onClose }: ISelfBoardTaskDrawerProps
 
   const { data: shipment, isLoading, isError } = useShipmentDetail(task?.shipment);
 
-  const isActiveState =
+  // Active = the user can still complete this task. Done / cancelled cards
+  // collapse to the read-only summary instead. We deliberately do NOT require
+  // `shipment.my_task?.id === task.id` — a shipment can have several active
+  // tasks for the same user (e.g. Set destination, Assign driver, Start
+  // customs all open at once), and the backend's `my_task` only points at
+  // one of them. The card the user clicked is the source of truth.
+  const isActiveCard =
     task != null &&
     (task.state === 'open' || task.state === 'in_progress' || task.state === 'blocked');
-  const isActiveCard = isActiveState && shipment?.my_task?.id === task.id;
 
   function handleOpenShipment() {
     if (task == null) return;
@@ -78,7 +83,7 @@ export function SelfBoardTaskDrawer({ task, onClose }: ISelfBoardTaskDrawerProps
         <Alert type="error" message={t('common.error')} />
       ) : isActiveCard ? (
         <>
-          <MyTaskCard shipment={shipment} />
+          <MyTaskCard shipment={shipment} task={task} />
           <OtherShipmentDetails task={task} shipment={shipment} />
           <DrawerOpenInFullPageLink onOpen={handleOpenShipment} />
         </>
