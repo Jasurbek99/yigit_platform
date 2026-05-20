@@ -215,7 +215,15 @@ function formatShipmentFieldValue(
     return dayjs(raw as string).format('DD MMM YYYY HH:mm');
   }
 
-  // text, textarea, plain option_select (raw enum string like 'OK' / 'wed')
+  // Weekday select — translate the 'mon' / 'tue' / ... code via existing
+  // weekday.* keys instead of leaking the raw code into the UI.
+  if (field.optionsSource === 'weekdays') {
+    return t(`weekday.${String(raw)}`);
+  }
+
+  // text, textarea, plain option_select (raw enum string like 'OK')
+  // — option_select values are the same raw codes shown elsewhere in
+  // the app (e.g. SheetCell.tsx renders vehicle_condition the same way).
   return String(raw);
 }
 
@@ -235,11 +243,14 @@ function DrawerOpenInFullPageLink({ onOpen }: IDrawerOpenInFullPageLinkProps) {
   const { t } = useTranslation();
   return (
     <div style={{ marginTop: 24, textAlign: 'right' }}>
+      {/* type="text" so the inline `color: textSecondary` actually wins —
+          type="link" would force AntD's brand blue and override the inline
+          style, defeating the "de-emphasized escape hatch" intent. */}
       <Button
-        type="link"
+        type="text"
         size="small"
         onClick={onOpen}
-        style={{ fontSize: 12, color: COLORS.textSecondary, padding: 0 }}
+        style={{ fontSize: 12, color: COLORS.textSecondary, padding: 0, height: 'auto' }}
       >
         {t('me.board.drawer_open_shipment')}
       </Button>
