@@ -3,7 +3,7 @@ import dayjs from 'dayjs';
 import { FreshnessPill } from '@/components/FreshnessPill';
 import type { IShipmentDraft } from '@/types';
 import { FRESHNESS_BORDER } from './assignmentHelpers';
-import { COLORS } from '@/constants/styles';
+import { COLORS, FONT } from '@/constants/styles';
 
 interface ISupplyCardProps {
   draft: IShipmentDraft;
@@ -42,10 +42,10 @@ export function SupplyCard({ draft, selected, onSelect }: ISupplyCardProps) {
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, alignItems: 'center' }}>
-        <div style={{ fontFamily: 'monospace', fontWeight: 600, fontSize: 12, color: COLORS.primary }}>
+        <div style={{ fontFamily: FONT.mono, fontWeight: 600, fontSize: 12, color: COLORS.primary }}>
           {draft.cargo_code}
         </div>
-        <div style={{ fontFamily: 'monospace', fontSize: 11, color: '#08979c' }}>
+        <div style={{ fontFamily: FONT.mono, fontSize: 11, color: '#08979c' }}>
           {(draft.weight_net ?? 0).toLocaleString('ru-RU')} kg
         </div>
       </div>

@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { Card, Skeleton, Tag, Tooltip, Typography } from 'antd';
 import type { BossPeriod, IBossDebtFirm } from '@/hooks/useBossDashboard';
 import { useBossDebt } from '@/hooks/useBossDashboard';
-import { COLORS } from '@/constants/styles';
+import { COLORS, FONT } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -63,7 +63,7 @@ export function DebtBreakdown({ period: _period }: IDebtBreakdownProps) {
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                 <Text style={{ fontSize: 12, fontWeight: 500 }}>{firm.firm_name}</Text>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Text style={{ fontSize: 12, fontFamily: 'var(--font-mono, monospace)' }}>
+                  <Text style={{ fontSize: 12, fontFamily: FONT.mono }}>
                     ${(firm.total_usd / 1000).toFixed(0)}k
                   </Text>
                   <Tag
@@ -83,7 +83,7 @@ export function DebtBreakdown({ period: _period }: IDebtBreakdownProps) {
           {data?.total_usd !== undefined && data.total_usd > 0 && (
             <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 8, display: 'flex', justifyContent: 'space-between' }}>
               <Text style={{ fontSize: 12, fontWeight: 600 }}>{t('boss_dashboard.aging.fresh')}</Text>
-              <Text style={{ fontSize: 12, fontWeight: 700, fontFamily: 'monospace' }}>
+              <Text style={{ fontSize: 12, fontWeight: 700, fontFamily: FONT.mono }}>
                 ${(data.total_usd / 1_000_000).toFixed(2)}M
               </Text>
             </div>

@@ -7,7 +7,7 @@ import dayjs from 'dayjs';
 import { useShipments } from '@/hooks/useShipments';
 import { StatusTag } from '@/components/StatusTag';
 import type { IShipmentListItem } from '@/types';
-import { COLORS } from '@/constants/styles';
+import { COLORS, FONT } from '@/constants/styles';
 
 const { Title, Text } = Typography;
 
@@ -67,7 +67,7 @@ export default function StuckShipments() {
       key: 'cargo_code',
       width: 140,
       render: (_dom, record) => (
-        <Link to={`/shipments/${record.id}`} style={{ fontFamily: 'monospace' }}>
+        <Link to={`/shipments/${record.id}`} style={{ fontFamily: FONT.mono }}>
           {record.cargo_code}
         </Link>
       ),

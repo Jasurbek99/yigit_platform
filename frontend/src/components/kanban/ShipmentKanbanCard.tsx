@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import type { IBoardItem } from '@/hooks/useShipmentBoard';
 import { formatDuration } from '@/components/shipment/PhaseContextStrip.helpers';
-import { COLORS } from '@/constants/styles';
+import { COLORS, FONT } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -63,7 +63,7 @@ export function ShipmentKanbanCard({ item }: IShipmentKanbanCardProps) {
       {/* Row 1: cargo code */}
       <Text
         strong
-        style={{ fontSize: 12, fontFamily: 'monospace', display: 'block', marginBottom: 2 }}
+        style={{ fontSize: 12, fontFamily: FONT.mono, display: 'block', marginBottom: 2 }}
         ellipsis
       >
         {item.cargo_code}

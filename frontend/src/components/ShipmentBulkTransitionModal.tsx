@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import api from '@/services/api';
+import { FONT } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -179,7 +180,7 @@ export function ShipmentBulkTransitionModal({
           description={
             <div style={{ maxHeight: 160, overflowY: 'auto' }}>
               {failures.map((f) => (
-                <div key={f.id} style={{ fontSize: 12, fontFamily: 'monospace' }}>
+                <div key={f.id} style={{ fontSize: 12, fontFamily: FONT.mono }}>
                   <Text type="danger">#{f.id}</Text> — {f.message}
                 </div>
               ))}

@@ -42,7 +42,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { SheetRowStylePopover } from './SheetRowStylePopover';
 import { SheetRowTooltipPopover } from './SheetRowTooltipPopover';
 import { InlineSavedInput } from './InlineSavedInput';
-import { COLORS } from '@/constants/styles';
+import { COLORS, FONT } from '@/constants/styles';
 
 dayjs.extend(relativeTime);
 
@@ -336,7 +336,7 @@ export default function SheetRowsTab({ canWrite }: IProps) {
       key: 'id',
       width: 48,
       render: (v: number) => (
-        <span style={{ fontFamily: 'monospace', fontSize: 11, color: COLORS.textSecondary }}>{v}</span>
+        <span style={{ fontFamily: FONT.mono, fontSize: 11, color: COLORS.textSecondary }}>{v}</span>
       ),
     },
     {

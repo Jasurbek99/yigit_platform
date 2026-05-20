@@ -7,7 +7,7 @@ import { useShipmentDetail } from '@/hooks/useShipmentDetail';
 import { StatusTag } from '@/components/StatusTag';
 import { CommentComposer } from '@/components/CommentComposer';
 import type { IStatusLogEntry, IShipmentComment } from '@/types';
-import { COLORS } from '@/constants/styles';
+import { COLORS, FONT } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -45,7 +45,7 @@ export default function ShipmentActivityLog() {
       <div style={{ marginBottom: 20 }}>
         <Flex align="center" gap={12} wrap="wrap" style={{ marginBottom: 6 }}>
           <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)} />
-          <span style={{ fontSize: 18, fontWeight: 600, fontFamily: 'monospace' }}>
+          <span style={{ fontSize: 18, fontWeight: 600, fontFamily: FONT.mono }}>
             {shipment.cargo_code}
           </span>
           <StatusTag statusDisplay={shipment.status_display} />

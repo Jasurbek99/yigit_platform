@@ -8,7 +8,7 @@ import { useDrafts } from '@/hooks/useDrafts';
 import { DraftComposerModal } from '@/components/draft/DraftComposerModal';
 import { FreshnessPill } from '@/components/FreshnessPill';
 import type { IShipmentDraft } from '@/types';
-import { COLORS } from '@/constants/styles';
+import { COLORS, FONT } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -85,7 +85,7 @@ function DraftCard({ draft }: IDraftCardProps) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
         <div
           style={{
-            fontFamily: 'monospace',
+            fontFamily: FONT.mono,
             fontWeight: 600,
             fontSize: 14,
             color: COLORS.primary,
@@ -110,7 +110,7 @@ function DraftCard({ draft }: IDraftCardProps) {
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, gap: 8 }}>
           <Text type="secondary" style={{ flexShrink: 0 }}>{t('draft.card_weight')}</Text>
-          <Text style={{ fontFamily: 'monospace', fontWeight: 500 }}>
+          <Text style={{ fontFamily: FONT.mono, fontWeight: 500 }}>
             {(draft.weight_net ?? 0).toLocaleString('ru-RU')} kg
           </Text>
         </div>
@@ -142,7 +142,7 @@ function DraftCard({ draft }: IDraftCardProps) {
           gap: 8,
         }}
       >
-        <Text type="secondary" style={{ fontSize: 11, fontFamily: 'monospace' }}>
+        <Text type="secondary" style={{ fontSize: 11, fontFamily: FONT.mono }}>
           {draft.created_by_name} · {dayjs(draft.created_at).format('DD.MM HH:mm')}
         </Text>
         <Button size="small" type="primary" onClick={handleAssign}>

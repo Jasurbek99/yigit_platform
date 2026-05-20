@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { IDemandItem } from '@/types';
-import { COLORS } from '@/constants/styles';
+import { COLORS, FONT } from '@/constants/styles';
 
 interface IDemandCardProps {
   item: IDemandItem;
@@ -43,7 +43,7 @@ export function DemandCard({ item, selected, onSelect }: IDemandCardProps) {
           {t('assign.label_firm')}<strong>{item.firm}</strong>
         </div>
         <div>
-          {t('assign.label_remaining')}<strong style={{ fontFamily: 'monospace' }}>{item.remaining}</strong>
+          {t('assign.label_remaining')}<strong style={{ fontFamily: FONT.mono }}>{item.remaining}</strong>
           {item.due_days > 0 && ` · ${t('assign.label_days_suffix', { days: item.due_days })}`}
         </div>
         <div>

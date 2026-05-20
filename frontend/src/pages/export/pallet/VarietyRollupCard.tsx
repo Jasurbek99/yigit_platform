@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { useOverrideVarieties } from '@/hooks/usePallets';
 import { VarietySelect } from '@/components/VarietySelect';
 import { computeNet, type IEditableRow } from './palletHelpers';
-import { COLORS } from '@/constants/styles';
+import { COLORS, FONT } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -63,7 +63,7 @@ export function VarietyRollupCard({ rows, crateWeightMap, shipmentId }: IVariety
                 style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: COLORS.bgGreen, borderRadius: 6, border: '1px solid #b7eb8f' }}
               >
                 <span style={{ fontWeight: 600 }}>{v.name}</span>
-                <span style={{ fontFamily: 'monospace', fontWeight: 600, color: '#389e0d' }}>
+                <span style={{ fontFamily: FONT.mono, fontWeight: 600, color: '#389e0d' }}>
                   {v.pallets} palet · {v.kg.toFixed(0)} kg · {v.pct}%
                 </span>
               </div>

@@ -3,7 +3,7 @@ import { Card, Skeleton, Typography } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import type { BossPeriod, IBossExportMarketRow } from '@/hooks/useBossDashboard';
 import { useBossExportMarket } from '@/hooks/useBossDashboard';
-import { COLORS } from '@/constants/styles';
+import { COLORS, FONT } from '@/constants/styles';
 
 // CRITICAL: This component intentionally shows ONLY Daşarky Bazar (export market).
 // Içerki Bazar (domestic) and Sowgatlyk (gift) are explicitly excluded from v1.
@@ -75,7 +75,7 @@ export function ExportMarketByBlock({ period }: IExportMarketByBlockProps) {
                 onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
               >
                 <Text style={{ fontSize: 12 }}>{row.block_code}</Text>
-                <Text style={{ fontSize: 12, textAlign: 'right', fontFamily: 'monospace' }}>
+                <Text style={{ fontSize: 12, textAlign: 'right', fontFamily: FONT.mono }}>
                   {row.export_kg.toLocaleString()}
                 </Text>
                 <Text style={{ fontSize: 12, textAlign: 'right', color: COLORS.primary }}>
@@ -99,7 +99,7 @@ export function ExportMarketByBlock({ period }: IExportMarketByBlockProps) {
                 }}
               >
                 <Text style={{ fontSize: 12, fontWeight: 600 }}>{t('boss_dashboard.export_market.total_row')}</Text>
-                <Text style={{ fontSize: 12, fontWeight: 600, textAlign: 'right', fontFamily: 'monospace' }}>
+                <Text style={{ fontSize: 12, fontWeight: 600, textAlign: 'right', fontFamily: FONT.mono }}>
                   {totalKg.toLocaleString()}
                 </Text>
                 <Text style={{ fontSize: 12, fontWeight: 600, textAlign: 'right' }}>100%</Text>

@@ -1,6 +1,7 @@
 import { Select } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { useTomatoVarieties } from '@/hooks/useAdmin';
+import { FONT } from '@/constants/styles';
 
 // ─── Shared props ─────────────────────────────────────────────────────────
 
@@ -45,7 +46,7 @@ function buildOptions(varieties: { id: number; code: string | null; name: string
     value: v.id,
     label: (
       <span>
-        <span style={{ fontFamily: 'monospace' }}>{v.code}</span>
+        <span style={{ fontFamily: FONT.mono }}>{v.code}</span>
         {' · '}
         {v.name}
         {v.is_experimental && (

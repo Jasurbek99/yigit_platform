@@ -2,7 +2,7 @@ import { Card } from 'antd';
 import { useTranslation } from 'react-i18next';
 import type { IShipmentDetail, TaskState } from '@/types';
 import { formatDuration } from './PhaseContextStrip.helpers';
-import { COLORS } from '@/constants/styles';
+import { COLORS, FONT } from '@/constants/styles';
 
 const ACTIVE_STATES: TaskState[] = ['open', 'in_progress', 'blocked'];
 
@@ -47,7 +47,7 @@ export function PhaseContextStrip({ shipment }: IPhaseContextStripProps) {
   const valueStyle: React.CSSProperties = {
     fontSize: 20,
     fontWeight: 700,
-    fontFamily: 'monospace',
+    fontFamily: FONT.mono,
     color: COLORS.textPrimary,
   };
 

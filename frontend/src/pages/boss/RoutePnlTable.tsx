@@ -3,7 +3,7 @@ import { Card, Skeleton, Table, Tooltip, Typography } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import type { BossPeriod, IBossRouteRow } from '@/hooks/useBossDashboard';
 import { useBossRoutePnl } from '@/hooks/useBossDashboard';
-import { COLORS } from '@/constants/styles';
+import { COLORS, FONT } from '@/constants/styles';
 
 const { Text } = Typography;
 
@@ -44,7 +44,7 @@ export function RoutePnlTable({ period }: IRoutePnlTableProps) {
       dataIndex: 'trucks',
       key: 'trucks',
       align: 'right' as const,
-      render: (v: number) => <Text style={{ fontSize: 12, fontFamily: 'monospace' }}>{v}</Text>,
+      render: (v: number) => <Text style={{ fontSize: 12, fontFamily: FONT.mono }}>{v}</Text>,
     },
     {
       title: t('boss_dashboard.route_pnl.col_revenue'),
@@ -52,7 +52,7 @@ export function RoutePnlTable({ period }: IRoutePnlTableProps) {
       key: 'revenue_usd',
       align: 'right' as const,
       render: (v: number) => (
-        <Text style={{ fontSize: 12, fontFamily: 'monospace' }}>${(v / 1000).toFixed(0)}k</Text>
+        <Text style={{ fontSize: 12, fontFamily: FONT.mono }}>${(v / 1000).toFixed(0)}k</Text>
       ),
     },
     {
