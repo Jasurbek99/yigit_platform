@@ -286,10 +286,11 @@ export function SheetGrid({
     () =>
       frozenShipments.map((shipment, idx) => {
         const isLast = idx === frozenShipments.length - 1;
+        const cancelled = shipment.status_code === 'cancelled';
         return (
           <div
             key={shipment.id}
-            className={`sheet-col-header sheet-col-header--frozen${isLast ? ' sheet-col-header--last' : ''}`}
+            className={`sheet-col-header sheet-col-header--frozen${isLast ? ' sheet-col-header--last' : ''}${cancelled ? ' sheet-col-header--cancelled' : ''}`}
             style={{
               position: 'sticky',
               left: FROZEN_LEFT_TOTAL + idx * COL_WIDTH_SHIPMENT,
@@ -307,6 +308,7 @@ export function SheetGrid({
               seqNumber={idx + 1}
               exportCode={shipment.cargo_code}
               columnColor={shipment.column_color}
+              isCancelled={cancelled}
             />
           </div>
         );
@@ -319,10 +321,11 @@ export function SheetGrid({
     () =>
       virtualColumns.map((vc) => {
         const shipment = scrollableShipments[vc.index];
+        const cancelled = shipment.status_code === 'cancelled';
         return (
           <div
             key={shipment.id}
-            className="sheet-col-header"
+            className={`sheet-col-header${cancelled ? ' sheet-col-header--cancelled' : ''}`}
             style={{
               position: 'absolute',
               left: vc.start,
@@ -338,6 +341,7 @@ export function SheetGrid({
               seqNumber={vc.index + 1 + shipmentFreezeCount}
               exportCode={shipment.cargo_code}
               columnColor={shipment.column_color}
+              isCancelled={cancelled}
             />
           </div>
         );
@@ -404,10 +408,11 @@ export function SheetGrid({
           {frozenShipments.map((shipment, idx) => {
             const isLast = idx === frozenShipments.length - 1;
             const tinted = shipment.column_color ? ' sheet-col-tinted' : '';
+            const cancelled = shipment.status_code === 'cancelled' ? ' sheet-col--cancelled' : '';
             return (
               <div
                 key={shipment.id}
-                className={`sheet-frozen-col-wrap${isLast ? ' sheet-frozen-col-wrap--last' : ''}${tinted}`}
+                className={`sheet-frozen-col-wrap${isLast ? ' sheet-frozen-col-wrap--last' : ''}${tinted}${cancelled}`}
                 style={{
                   position: 'sticky',
                   left: FROZEN_LEFT_TOTAL + idx * COL_WIDTH_SHIPMENT,
@@ -436,10 +441,11 @@ export function SheetGrid({
             {virtualColumns.map((vc) => {
               const shipment = scrollableShipments[vc.index];
               const tinted = shipment.column_color ? ' sheet-col-tinted' : '';
+              const cancelled = shipment.status_code === 'cancelled' ? ' sheet-col--cancelled' : '';
               return (
                 <div
                   key={shipment.id}
-                  className={`sheet-virt-col-wrap${tinted}`}
+                  className={`sheet-virt-col-wrap${tinted}${cancelled}`}
                   style={{
                     position: 'absolute',
                     left: vc.start,

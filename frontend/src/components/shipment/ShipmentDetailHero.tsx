@@ -43,12 +43,12 @@ export function ShipmentDetailHero({ shipment }: IShipmentDetailHeroProps) {
     user?.role === 'export_manager' ||
     user?.is_superuser === true;
 
-  // Cancel shipment: only export_manager and director, and only when the
-  // shipment is not already cancelled or fully completed.
-  const CANCEL_ROLES: ReadonlyArray<string> = ['export_manager', 'director'];
+  // Cancel shipment: admin / export_manager / director (or any superuser),
+  // and only when the shipment is not already cancelled or fully completed.
+  const CANCEL_ROLES: ReadonlyArray<string> = ['admin', 'export_manager', 'director'];
   const canCancel =
     !!user &&
-    CANCEL_ROLES.includes(user.role) &&
+    (CANCEL_ROLES.includes(user.role) || user.is_superuser === true) &&
     shipment.status_code !== 'cancelled' &&
     shipment.status_code !== 'tamamlandy';
 

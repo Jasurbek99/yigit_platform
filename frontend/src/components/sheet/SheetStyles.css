@@ -213,6 +213,41 @@
   letter-spacing: -0.2px;
 }
 
+/* ═══ CANCELLED SHIPMENT COLUMN ═══
+   The shipment is cancelled — keep its column visible but clearly marked:
+   strike the code, show a red tag in the header, and grey/desaturate the
+   data cells so staff know not to act on it. */
+.sheet-col-header__code--cancelled {
+  text-decoration: line-through;
+  text-decoration-color: var(--red-500, #ef4444);
+  opacity: 0.7;
+}
+.sheet-col-header__cancel-tag {
+  display: inline-block;
+  margin-top: 1px;
+  padding: 0 calc(5px * var(--sheet-zoom, 1));
+  font-size: calc(8px * var(--sheet-zoom, 1));
+  font-weight: 700;
+  line-height: calc(13px * var(--sheet-zoom, 1));
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: #fff;
+  background: var(--red-500, #ef4444);
+  border-radius: 3px;
+}
+.sheet-col-header--cancelled {
+  background: color-mix(in srgb, var(--red-500, #ef4444) 28%, var(--gray-800, #1f2937));
+}
+/* Grey + strike the data cells of a cancelled shipment column. Inline admin
+   row-bg and column-tint still paint their own background; this rule targets
+   the cell text/foreground so it reads as inactive regardless of background. */
+.sheet-col--cancelled .sheet-cell {
+  background: var(--gray-100, #f3f4f6);
+  color: var(--text-tertiary, #9ca3af);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--red-500, #ef4444) 60%, transparent);
+}
+
 /* ═══ FROZEN TOP SECTION ═══ */
 .sheet-frozen-top {
   background: var(--surface);

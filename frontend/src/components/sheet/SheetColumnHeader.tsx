@@ -11,6 +11,8 @@ interface ISheetColumnHeaderProps {
   seqNumber: number;
   exportCode: string;
   columnColor: string | null;
+  /** When true, the shipment is cancelled — strike the code + show a red tag. */
+  isCancelled?: boolean;
 }
 
 const PRESET_COLORS = [
@@ -23,6 +25,7 @@ function SheetColumnHeaderInner({
   seqNumber,
   exportCode,
   columnColor,
+  isCancelled = false,
 }: ISheetColumnHeaderProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -49,7 +52,16 @@ function SheetColumnHeaderInner({
   return (
     <>
       <span className="sheet-col-header__seq">{seqNumber}</span>
-      <span className="sheet-col-header__code">{exportCode}</span>
+      <span
+        className={`sheet-col-header__code${isCancelled ? ' sheet-col-header__code--cancelled' : ''}`}
+      >
+        {exportCode}
+      </span>
+      {isCancelled && (
+        <span className="sheet-col-header__cancel-tag">
+          {t('shipment_status.cancelled')}
+        </span>
+      )}
       {canPaint && (
         <ColorPicker
           value={columnColor ?? undefined}
