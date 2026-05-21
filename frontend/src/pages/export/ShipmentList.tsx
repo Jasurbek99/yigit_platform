@@ -261,7 +261,7 @@ export default function ShipmentList() {
     void queryClient.invalidateQueries({ queryKey: ['shipments'] });
   }
 
-  const columns: ProColumns<IShipmentListItem>[] = [
+  const baseColumns: ProColumns<IShipmentListItem>[] = [
     {
       title: t('shipments.cargo_code'),
       dataIndex: 'cargo_code',
@@ -535,6 +535,17 @@ export default function ShipmentList() {
       },
     },
   ];
+
+  // Opt-in (Sheet-parity) columns are hidden by default and md-up only, so
+  // enabling one on mobile doesn't blow out the row. They're exactly the keys
+  // in HIDDEN_BY_DEFAULT — inject `responsive` here rather than on each def.
+  const hiddenKeys = new Set<string>(HIDDEN_BY_DEFAULT);
+  const columns: ProColumns<IShipmentListItem>[] = baseColumns.map(
+    (col): ProColumns<IShipmentListItem> =>
+      hiddenKeys.has((col.key as string) ?? '')
+        ? { ...col, responsive: ['md'] }
+        : col,
+  );
 
   return (
     <div>

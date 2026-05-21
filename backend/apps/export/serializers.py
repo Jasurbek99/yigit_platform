@@ -917,49 +917,32 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
     class Meta(ShipmentListSerializer.Meta):
         # harvest_age_days and freshness are inherited from ShipmentListSerializer
         # (both the SerializerMethodField declarations and their getter methods).
+        # NOTE: scalar shipment fields (box_count, timestamps, notes, vehicle_*,
+        # status_code, variety, import_firm, created_at, etc.) now live on
+        # ShipmentListSerializer.Meta.fields and are inherited — do not re-list
+        # them here, or a future removal from the base would be silently masked.
+        # Only detail-exclusive fields (nested objects, FK ids for the edit
+        # drawer, task/phase context) are added below.
         fields = ShipmentListSerializer.Meta.fields + [
             'platform_id',
-            'box_count',
-            'pallet_count',
-            'packaging_kg',
-            'rejected_weight_kg',
-            'vehicle_condition',
-            'vehicle_condition_note',
-            'vehicle_responsible',
-            'price_per_kg',
-            'total_amount_usd',
-            'loading_started_at',
-            'customs_entry_at',
-            'customs_exit_at',
-            'border_crossed_at',
-            'sale_started_at',
-            'sale_ended_at',
-            'notes',
-            'export_manager_note',
-            'warehouse_note',
-            'document_note',
-            'customs_clearance_planned_day',
-            'status_code',
             'allowed_transitions',
             'variety_confidence',
             'variety_confidence_display',
             'varieties_dominant',
             'quality',
             'sales_report',
-            'created_at',
-            'updated_at',
             'firm_splits',
             'block_sources',
             'status_log',
             'comments',
             # FK ids exposed for the web-management Edit drawer (frontend dropdowns).
             # Names are already on ShipmentListSerializer; ids let the drawer pre-select.
+            # (country/customer/city/variety/import_firm ids: variety + import_firm
+            # are inherited from the list serializer; the rest are detail-only.)
             'country',
             'customer',
             'city',
-            'variety',
             'border_point',
-            'import_firm',
             'loading_location',
             # D1 — task and phase context
             'my_task',
