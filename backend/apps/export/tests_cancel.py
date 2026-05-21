@@ -658,3 +658,50 @@ class QuotaUsageCleanupTests(TestCase):
         self.assertEqual(data['draft_quota_deleted'], 2)
         self.assertIn(approved.pk, data['approved_quota_to_reconcile'])
         self.assertEqual(len(data['approved_quota_to_reconcile']), 1)
+
+
+# ---------------------------------------------------------------------------
+# Test 11 — Cancelled shipments hidden from the operational list by default
+# ---------------------------------------------------------------------------
+
+class ListExcludesCancelledTests(TestCase):
+    """GET /shipments/ hides cancelled rows unless ?show_cancelled=true or
+    ?status_code=cancelled is set. Detail (retrieve) stays reachable."""
+
+    @classmethod
+    def setUpTestData(cls):
+        _ensure_statuses()
+        cls.manager = _make_user('list_excl_mgr', 'export_manager')
+        cls.season = _make_season()
+        cls.active = _make_shipment_at('bardy', cls.season, cls.manager, cargo_suffix='ACTIVE')
+        cls.cancelled = _make_shipment_at('cancelled', cls.season, cls.manager, cargo_suffix='CANCEL')
+
+    def setUp(self) -> None:
+        self.client = APIClient()
+        _auth(self.client, self.manager)
+
+    def _list_ids(self, query: str = '') -> set[int]:
+        resp = self.client.get(f'/api/v1/export/shipments/{query}')
+        self.assertEqual(resp.status_code, 200, resp.data)
+        results = resp.data['results'] if isinstance(resp.data, dict) else resp.data
+        return {row['id'] for row in results}
+
+    def test_default_list_hides_cancelled(self) -> None:
+        ids = self._list_ids()
+        self.assertIn(self.active.pk, ids)
+        self.assertNotIn(self.cancelled.pk, ids)
+
+    def test_show_cancelled_reveals_them(self) -> None:
+        ids = self._list_ids('?show_cancelled=true')
+        self.assertIn(self.active.pk, ids)
+        self.assertIn(self.cancelled.pk, ids)
+
+    def test_explicit_status_filter_shows_cancelled(self) -> None:
+        ids = self._list_ids('?status_code=cancelled')
+        self.assertIn(self.cancelled.pk, ids)
+        self.assertNotIn(self.active.pk, ids)
+
+    def test_cancelled_detail_still_reachable(self) -> None:
+        resp = self.client.get(f'/api/v1/export/shipments/{self.cancelled.pk}/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['status_code'], 'cancelled')

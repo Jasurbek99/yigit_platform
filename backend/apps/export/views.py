@@ -95,6 +95,9 @@ class ShipmentViewSet(ModelViewSet):
     queryset = Shipment.objects.select_related(
         'status', 'country', 'city', 'customer', 'season',
         'variety', 'border_point',
+        # Joined for the expanded list serializer (Sheet-parity columns):
+        # import firm name, creator username, and quality doc flags.
+        'import_firm', 'created_by', 'quality',
     ).order_by('-date', '-id')
 
     filterset_fields = ['status', 'country', 'season', 'is_gapy_satys', 'customer']
@@ -199,6 +202,15 @@ class ShipmentViewSet(ModelViewSet):
             # them here so the DraftPool render avoids per-row queries.
             if status_code == 'draft' and getattr(self, 'action', None) == 'list':
                 qs = qs.select_related('created_by').prefetch_related('block_sources__block')
+        # Cancelled shipments are hidden from the operational list by default.
+        # ?show_cancelled=true reveals them; an explicit ?status_code=cancelled
+        # filter also shows them. Scoped to `list` so detail pages of cancelled
+        # shipments stay reachable via retrieve.
+        if getattr(self, 'action', None) == 'list':
+            show_cancelled = self.request.query_params.get('show_cancelled') == 'true'
+            explicit_cancelled = self.request.query_params.get('status_code') == 'cancelled'
+            if not show_cancelled and not explicit_cancelled:
+                qs = qs.exclude(status__code='cancelled')
         # Inclusive date range on Shipment.date.
         if date_after := self.request.query_params.get('date_after'):
             qs = qs.filter(date__gte=date_after)
