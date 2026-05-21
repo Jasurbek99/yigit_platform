@@ -5,8 +5,11 @@ Usage:
     python manage.py seed_task_rules --reset  # delete all rules then re-seed
 
 The seed set is the source of truth defined in TASK_RULES below. Rules are
-keyed on (step, title_key). A re-run with update_or_create picks up any
-edits to the seed set (e.g. a deadline_rule change).
+keyed on (step, title_key, condition_field, condition_value). A re-run with
+update_or_create picks up any edits to the seed set (e.g. a deadline_rule or
+assignee_role change). Using condition in the key allows two rules to share
+the same step + title_key but target different shipment variants (e.g. gapy
+vs non-gapy assign_driver), without collision.
 
 State machine v2: each step has at least one auto-resolving TaskRule whose
 `target_fields` (or FIELD_EQUALS value) is the trigger for advancing to the
@@ -52,18 +55,33 @@ TASK_RULES: list[dict] = [
         'condition_value': '',
     },
     {
-        # The Sheet writes driver_name (R27) / driver_phone (R28) as free-text
-        # — not the legacy driver_id FK. Target driver_name so the task
-        # auto-resolves when the operator fills the driver row.
+        # Non-gapy shipments: transport team fills name + phone + plate.
+        # All three must be present for the task to auto-resolve (ALL_FIELDS_FILLED).
+        # The Sheet writes these at R23 (truck_plate), R27 (driver_name), R28 (driver_phone).
         'step': 'draft',
         'title_key': 'tasks.assign_driver',
         'assignee_role': 'transport',
-        'target_fields': 'driver_name',
+        'target_fields': 'driver_name,driver_phone,truck_plate',
         'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
         'target_value': '',
         'deadline_rule': '24h_after_status',
         'condition_field': 'is_gapy_satys',
         'condition_value': 'False',
+    },
+    {
+        # Gapy shipments: document_team fills name + phone + plate (transport
+        # team is not involved in gapy logistics). Shares title_key with the
+        # transport variant; the upsert key includes condition so both rows
+        # coexist without collision.
+        'step': 'draft',
+        'title_key': 'tasks.assign_driver',
+        'assignee_role': 'document_team',
+        'target_fields': 'driver_name,driver_phone,truck_plate',
+        'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
+        'target_value': '',
+        'deadline_rule': '24h_after_status',
+        'condition_field': 'is_gapy_satys',
+        'condition_value': 'True',
     },
     {
         'step': 'draft',
@@ -77,9 +95,10 @@ TASK_RULES: list[dict] = [
         'condition_value': 'False',
     },
     {
+        # Gapy document handoff is owned by document_team, not export_manager.
         'step': 'draft',
         'title_key': 'tasks.give_documents_gapy',
-        'assignee_role': 'export_manager',
+        'assignee_role': 'document_team',
         'target_fields': '',
         'completion_rule': TaskCompletionRule.MANUAL_DONE,
         'target_value': '',
@@ -311,7 +330,7 @@ TASK_RULES: list[dict] = [
 
 
 class Command(BaseCommand):
-    help = 'Seed TaskRule rows. Idempotent on (step, title_key). Use --reset to wipe and reload.'
+    help = 'Seed TaskRule rows. Idempotent on (step, title_key, condition_field, condition_value). Use --reset to wipe and reload.'
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -332,9 +351,15 @@ class Command(BaseCommand):
             updated_count = 0
 
             for rule_data in TASK_RULES:
+                # Upsert key includes condition so two rules sharing the same
+                # step + title_key but targeting different shipment variants
+                # (e.g. gapy vs non-gapy assign_driver) coexist as separate
+                # rows without collision.
                 key = {
                     'step': rule_data['step'],
                     'title_key': rule_data['title_key'],
+                    'condition_field': rule_data.get('condition_field', ''),
+                    'condition_value': rule_data.get('condition_value', ''),
                 }
                 defaults = {k: v for k, v in rule_data.items() if k not in key}
                 _rule, created = TaskRule.objects.update_or_create(

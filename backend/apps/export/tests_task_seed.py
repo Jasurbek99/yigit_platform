@@ -1,7 +1,7 @@
 """Integration tests for seed_task_rules and backfill_tasks management commands.
 
 Verifies:
-  - seed_task_rules creates 13 TaskRule rows.
+  - seed_task_rules creates len(TASK_RULES) TaskRule rows.
   - seed_task_rules --reset does not leave duplicates.
   - backfill_tasks --limit N creates tasks on N shipments.
   - backfill_tasks is idempotent (second run creates 0 new tasks).
