@@ -367,6 +367,115 @@ def resolve_for_shipment(shipment) -> list[Task]:
     return resolved
 
 
+def reconcile_open_tasks_with_rules(
+    shipments=None,
+    dry_run: bool = False,
+) -> dict:
+    """Sync stale open Task rows with their parent TaskRule, then re-resolve.
+
+    When a TaskRule is edited after Tasks have already been generated, those
+    existing open Tasks retain the old snapshotted values. This function
+    detects the drift and repairs it in-place so auto-resolution uses the
+    current rule definition.
+
+    Algorithm:
+      1. Select all OPEN / IN_PROGRESS / BLOCKED Tasks whose `rule` is not null.
+      2. For each Task, compare the four mutable axes against the live rule:
+         title_key, target_fields, completion_rule, target_value.
+      3. If any axis differs, update the Task (unless dry_run=True).
+      4. Collect the distinct set of affected Shipments and call
+         resolve_for_shipment() on each so newly-correct Tasks that are already
+         satisfiable close immediately.
+
+    Args:
+        shipments: Optional iterable of Shipment instances to scope the query.
+            When None, all active-state Tasks across all Shipments are checked.
+        dry_run: When True, compute and return the diff without writing anything.
+            The return dict includes a ``changes`` list of per-task diffs for
+            human-readable reporting.
+
+    Returns:
+        Summary dict with keys:
+          - ``tasks_synced``       — number of Task rows updated (0 in dry_run)
+          - ``shipments_reresolved`` — number of distinct Shipments re-checked
+          - ``tasks_resolved``     — number of Tasks auto-closed after re-check
+          - ``changes``            — list of dicts describing each changed Task
+            (always populated, even in non-dry-run, for reporting purposes).
+            Each entry: {task_id, shipment_code, rule_id, field, old, new}.
+    """
+    active_states = [TaskState.OPEN, TaskState.IN_PROGRESS, TaskState.BLOCKED]
+    candidate_qs = (
+        Task.objects
+        .filter(state__in=active_states, rule__isnull=False)
+        .select_related('rule', 'shipment')
+    )
+    if shipments is not None:
+        shipment_ids = [s.id for s in shipments]
+        candidate_qs = candidate_qs.filter(shipment_id__in=shipment_ids)
+
+    candidates = list(candidate_qs)
+    if not candidates:
+        return {'tasks_synced': 0, 'shipments_reresolved': 0, 'tasks_resolved': 0, 'changes': []}
+
+    _AXES = ('title_key', 'target_fields', 'completion_rule', 'target_value')
+    tasks_synced = 0
+    affected_shipment_ids: set[int] = set()
+    changes: list[dict] = []
+
+    for task in candidates:
+        rule = task.rule
+        task_changes_for_row: list[dict] = []
+
+        for axis in _AXES:
+            old_val = getattr(task, axis)
+            new_val = getattr(rule, axis)
+            if old_val != new_val:
+                task_changes_for_row.append({
+                    'task_id': task.pk,
+                    'shipment_code': task.shipment.cargo_code,
+                    'rule_id': rule.pk,
+                    'field': axis,
+                    'old': old_val,
+                    'new': new_val,
+                })
+
+        if not task_changes_for_row:
+            continue
+
+        changes.extend(task_changes_for_row)
+        affected_shipment_ids.add(task.shipment_id)
+
+        if not dry_run:
+            for axis in _AXES:
+                setattr(task, axis, getattr(rule, axis))
+            task.save(update_fields=list(_AXES))
+            tasks_synced += 1
+
+    tasks_resolved = 0
+    if not dry_run and affected_shipment_ids:
+        # Re-fetch shipments so resolve_for_shipment works with fresh instances.
+        from apps.export.models import Shipment  # noqa: PLC0415 — local import
+        affected_shipments = list(
+            Shipment.objects.filter(pk__in=affected_shipment_ids).select_related('status')
+        )
+        for shipment in affected_shipments:
+            resolved = resolve_for_shipment(shipment)
+            tasks_resolved += len(resolved)
+
+        logger.info(
+            'reconcile_open_tasks_with_rules: synced %d tasks across %d shipments, '
+            'resolved %d tasks',
+            tasks_synced, len(affected_shipments), tasks_resolved,
+        )
+
+    return {
+        'tasks_synced': tasks_synced,
+        'shipments_reresolved': len(affected_shipment_ids),
+        'tasks_resolved': tasks_resolved,
+        'changes': changes,
+    }
+
+
 def mark_started_for_changed_fields(
     shipment, changed_field_keys: Iterable[str],
 ) -> None:

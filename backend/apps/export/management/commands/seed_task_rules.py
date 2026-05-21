@@ -346,9 +346,28 @@ class Command(BaseCommand):
                     updated_count += 1
 
         total = len(TASK_RULES)
+
+        # Rule upserts committed above. Now reconcile any open Tasks that may
+        # have stale snapshots from a previous rule definition. Running AFTER
+        # the atomic block so the lock is not held across the full reconcile
+        # scan (which touches all active tasks + re-resolves affected shipments).
+        # If reconcile fails, the rule upserts are already committed — that is
+        # intentional: stale tasks are a cosmetic issue; losing rule data is not.
+        from apps.export.services.task_rules import reconcile_open_tasks_with_rules  # noqa: PLC0415
+        reconcile_summary = reconcile_open_tasks_with_rules()
         self.stdout.write(
             self.style.SUCCESS(
                 f'seed_task_rules complete: {total} rules total '
                 f'({created_count} created, {updated_count} updated).'
             )
         )
+        if reconcile_summary['tasks_synced'] > 0 or reconcile_summary['tasks_resolved'] > 0:
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f'reconcile: {reconcile_summary["tasks_synced"]} tasks synced, '
+                    f'{reconcile_summary["shipments_reresolved"]} shipments re-resolved, '
+                    f'{reconcile_summary["tasks_resolved"]} tasks auto-closed.'
+                )
+            )
+        else:
+            self.stdout.write('reconcile: no stale tasks found.')
