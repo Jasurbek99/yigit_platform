@@ -4,6 +4,12 @@ All notable changes to the YGT Platform.
 
 ## [Unreleased]
 
+### Fixed
+- **Task auto-close: stale Task `target_fields` snapshots reconciled** (fix(p3)). `Task` rows snapshot `target_fields`/`completion_rule`/`target_value` from their `TaskRule` at creation time; editing a rule left existing open tasks watching the old field (e.g. `assign_driver` still watching `driver_id` after the rule moved to `driver_name`), so they never auto-closed even when the work was done. New `reconcile_open_tasks_with_rules()` (`services/task_rules.py`) + `manage.py reconcile_tasks` (`--dry-run`/`--shipment`) re-syncs open tasks to their current rule and re-resolves; `seed_task_rules` runs it after upserting rules so the drift cannot recur. Applied to live DB (3 tasks synced, 1 auto-closed). 18 tests in `tests_task_reconcile.py`.
+
+### Changed
+- **Self Board task drawer fully editable inline** (feat(frontend)). The drawer now drives off the clicked task instead of `shipment.my_task` (which is null for supervisor roles), so both assignees and supervisors can complete a task without leaving the board. The task's target fields and the other shipment fields render through the shared Sheet cell renderer (`SheetCellEditor` + `getCellValue` extracted from `SheetCell`), fixing previously non-editable `driver_name`/timestamp task fields and raw-ID / `[object Object]` display in the field list. System + official shipment codes shown at the top; `['my-tasks']` invalidated on field save so auto-closed cards drop off the board. New `docs/obsidian/reference/task-rules.md` (full task list: responsible role, completion method, opening status) + `screens/self-board.md`.
+
 ### Added
 - **Main dashboard summary endpoint** `GET /api/v1/export/dashboard/summary/` (feat(p3)). New `DashboardViewSet` (`views_dashboard.py`) and pure-aggregation service `dashboard_summary.py`. Returns season, six stat cards (total/in_transit/selling/completed/no_report/quota_firms), alerts (overdue reports, quota exceeded, docs pending, weekly plan), per-country route breakdown with top-4 cities, and up to 5 live active shipments. Permission: `IsAuthenticated` only — no role gate. 60 s server-side cache (`'dashboard:summary'`). Weekly plan alert uses `HarvestDayEntry.plan_value` (not the dropped `*_plan_kg` wide columns on `WeeklyHarvestPlan`). 11 tests in `tests_dashboard_summary.py` — all pass.
 
