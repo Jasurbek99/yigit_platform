@@ -5,13 +5,12 @@ import {
   InputNumber,
   Input,
   Form,
-  Alert,
   Divider,
   Space,
-  Tag,
+  Popover,
   Typography,
 } from 'antd';
-import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { DeleteOutlined, PlusOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import dayjs from 'dayjs';
@@ -198,27 +197,28 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
         </Button>,
       ]}
     >
-      {/* Official export code + platform ID */}
-      <Alert
-        type="info"
-        showIcon
-        message={t('official_code.info_banner')}
-        style={{ marginBottom: 12 }}
-      />
-
+      {/* Shipment Code editor — the single Export Code anchor lives in the
+          editor's preview row, paired with the assembled code. */}
       <div style={{ marginBottom: 14 }}>
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 8,
-            marginBottom: 8,
+            gap: 6,
+            marginBottom: 10,
           }}
         >
           <Typography.Text strong>{t('official_code.title')}</Typography.Text>
-          <Tag color="blue" style={{ fontFamily: FONT.mono }}>
-            {t('official_code.platform_id_label')}: {cargoCode}
-          </Tag>
+          <Popover
+            content={
+              <div style={{ maxWidth: 320, fontSize: 12, lineHeight: 1.5 }}>
+                {t('official_code.info_banner')}
+              </div>
+            }
+            placement="rightTop"
+          >
+            <QuestionCircleOutlined style={{ color: COLORS.textSecondary, cursor: 'help' }} />
+          </Popover>
         </div>
         <OfficialCodeEditor
           value={officialCode}
