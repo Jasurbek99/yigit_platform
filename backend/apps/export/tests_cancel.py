@@ -259,6 +259,48 @@ class NonPrivilegedCancelForbiddenTests(TestCase):
         )
 
 
+class AdminSuperuserCancelTests(TestCase):
+    """admin role and superusers can cancel (gate widened beyond em/director)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        _ensure_statuses()
+        cls.season = _make_season()
+        cls.admin = _make_user('admin_cancel', 'admin')
+        # A superuser whose role is NOT in the operational privileged set.
+        cls.super_sales = _make_user('super_sales_cancel', 'sales_rep')
+        cls.super_sales.is_superuser = True
+        cls.super_sales.save(update_fields=['is_superuser'])
+
+    def _cancel_as(self, user, cargo: str) -> int:
+        client = APIClient()
+        _auth(client, user)
+        status_obj = ShipmentStatusType.objects.get(code='bardy')
+        shipment = Shipment.objects.create(
+            cargo_code=cargo,
+            date='2026-01-01',
+            season=self.season,
+            status=status_obj,
+            created_by=user,
+            updated_by=user,
+        )
+        resp = client.post(
+            f'/api/v1/export/shipments/{shipment.pk}/cancel/',
+            data={'reason': 'Cancelled by privileged user'},
+            format='json',
+        )
+        shipment.refresh_from_db()
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(shipment.status.code, 'cancelled')
+        return resp.status_code
+
+    def test_admin_role_can_cancel(self) -> None:
+        self._cancel_as(self.admin, 'ADMINCXL001/26')
+
+    def test_superuser_can_cancel(self) -> None:
+        self._cancel_as(self.super_sales, 'SUPERCXL001/26')
+
+
 # ---------------------------------------------------------------------------
 # Test 3 — Empty reason returns 400
 # ---------------------------------------------------------------------------
