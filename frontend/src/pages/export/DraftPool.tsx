@@ -116,20 +116,6 @@ function DraftCard({ draft }: IDraftCardProps) {
         </div>
       </div>
 
-      {/* Sort notice */}
-      <div
-        style={{
-          padding: '5px 8px',
-          background: COLORS.bgYellow,
-          borderRadius: 4,
-          marginTop: 8,
-          fontSize: 10,
-          color: '#854F0B',
-        }}
-      >
-        {t('draft.card_sort_note')}
-      </div>
-
       {/* Footer */}
       <div
         style={{
