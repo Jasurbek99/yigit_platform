@@ -1921,6 +1921,7 @@
       "quality.hil_sertifikaty": "Quality Certificate",
       "quality.kalibrowka_analiz": "Calibration Analysis"
     },
+    "edit_in_detail": "Edit in shipment detail",
     "fill_loading_data": "Fill loading data",
     "set_destination": "Set destination",
     "pick_export_firms": "Pick export firms",
@@ -1964,7 +1965,12 @@
       "card_aria": "Task {{title}}, {{state}}. Press Enter to open.",
       "drawer_open_shipment": "Open shipment detail",
       "drawer_readonly_completed": "Completed {{when}}",
-      "drawer_more_details": "Other shipment details"
+      "drawer_more_details": "Other shipment details",
+      "drawer_your_task_fields": "Your task",
+      "drawer_shipment_fields": "Shipment fields",
+      "drawer_no_editable_fields": "No editable fields",
+      "drawer_system_code": "System code",
+      "drawer_official_code": "Official code"
     },
     "kpi": {
       "done_today": "Done today",

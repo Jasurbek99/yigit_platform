@@ -1923,6 +1923,7 @@
       "quality.hil_sertifikaty": "Сертификат качества",
       "quality.kalibrowka_analiz": "Калибровочный анализ"
     },
+    "edit_in_detail": "Редактировать в деталях отгрузки",
     "fill_loading_data": "Заполнить данные загрузки",
     "set_destination": "Задать назначение",
     "pick_export_firms": "Выбрать экспортные фирмы",
@@ -1966,7 +1967,12 @@
       "card_aria": "Задача: {{title}}, статус: {{state}}. Нажмите Enter, чтобы открыть.",
       "drawer_open_shipment": "Открыть детали отгрузки",
       "drawer_readonly_completed": "Завершено {{when}}",
-      "drawer_more_details": "Прочие детали отгрузки"
+      "drawer_more_details": "Прочие детали отгрузки",
+      "drawer_your_task_fields": "Ваша задача",
+      "drawer_shipment_fields": "Поля отгрузки",
+      "drawer_no_editable_fields": "Нет доступных для редактирования полей",
+      "drawer_system_code": "Системный код",
+      "drawer_official_code": "Официальный код"
     },
     "kpi": {
       "done_today": "Сделано сегодня",

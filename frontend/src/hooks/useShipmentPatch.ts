@@ -137,6 +137,7 @@ export function useShipmentPatch() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['shipments'] });
+      queryClient.invalidateQueries({ queryKey: ['my-tasks'] });
     },
   });
 }
@@ -166,6 +167,7 @@ export function useShipmentPatchMulti() {
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['shipments'] });
       queryClient.invalidateQueries({ queryKey: ['shipment'] });
+      queryClient.invalidateQueries({ queryKey: ['my-tasks'] });
     },
   });
 }

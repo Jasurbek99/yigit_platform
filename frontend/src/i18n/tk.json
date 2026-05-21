@@ -1925,6 +1925,7 @@
       "quality.hil_sertifikaty": "Hil sertifikaty",
       "quality.kalibrowka_analiz": "Kalibrowka analizi"
     },
+    "edit_in_detail": "Iberişiň jikme-jikliginde redaktirle",
     "fill_loading_data": "Ýüklemek maglumatyny doldur",
     "set_destination": "Baryljak ýeri belle",
     "pick_export_firms": "Eksport firmalaryny saý",
@@ -1968,7 +1969,12 @@
       "card_aria": "Tabşyryk: {{title}}, ýagdaý: {{state}}. Açmak üçin Enter basyň.",
       "drawer_open_shipment": "Iberim jikme-jigligini aç",
       "drawer_readonly_completed": "{{when}} tamamlandy",
-      "drawer_more_details": "Iberişiň beýleki maglumatlary"
+      "drawer_more_details": "Iberişiň beýleki maglumatlary",
+      "drawer_your_task_fields": "Siziň tabşyrygyňyz",
+      "drawer_shipment_fields": "Iberişiň meýdanlary",
+      "drawer_no_editable_fields": "Redaktirlenip boljak meýdan ýok",
+      "drawer_system_code": "Ulgam kody",
+      "drawer_official_code": "Resmi kod"
     },
     "kpi": {
       "done_today": "Şu gün edildi",
