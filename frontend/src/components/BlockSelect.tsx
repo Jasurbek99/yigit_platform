@@ -35,7 +35,13 @@ export function BlockSelect({
     .filter((b) => b.is_active && !excludeIds.includes(b.id))
     .map((b) => ({
       value: b.id,
-      label: b.code + (b.name ? ` — ${b.name}` : ''),
+      // The block name already starts with its code (code "A" → name
+      // "A-Ýyladyşhana"), so prepending the code again doubles the letter
+      // ("A — A-Ýyladyş…"). Only prepend the code when the name lacks it.
+      label:
+        b.name && b.name !== b.code && !b.name.startsWith(`${b.code}-`)
+          ? `${b.code} — ${b.name}`
+          : b.name || b.code,
     }));
 
   return (
