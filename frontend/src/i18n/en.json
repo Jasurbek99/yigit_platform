@@ -1406,7 +1406,9 @@
     "composer_error_no_rows": "Fill at least one block row",
     "composer_error_no_code": "Enter a cargo code",
     "composer_toast_saved": "Draft created: {{code}}",
-    "composer_toast_error": "Failed to create draft"
+    "composer_toast_error": "Failed to create draft",
+    "composer_truck_estimate": "≈ {{count}} trucks",
+    "composer_truck_capacity": "Truck capacity"
   },
   "assign": {
     "page_title": "Assignment Board",
@@ -1457,7 +1459,38 @@
     "demand_label_queue": "Waiting",
     "demand_label_local": "Local Gapy Sale",
     "variety_pending_warning_title": "Variety not yet confirmed",
-    "variety_pending_warning_body": "Variety is confirmed at packaging — wait or pick another truck. Strict-variety customers need confirmation."
+    "variety_pending_warning_body": "Variety is confirmed at packaging — wait or pick another truck. Strict-variety customers need confirmation.",
+    "center_select_draft": "Select a draft from the left"
+  },
+  "split": {
+    "header_title": "Split Draft into Trucks",
+    "header_batch_code": "Cargo Code",
+    "header_shipment_code": "Shipment Code",
+    "header_harvest_total": "Total Harvest",
+    "header_remaining": "Remaining",
+    "truck_number": "Truck {{n}}",
+    "row_weight": "Weight",
+    "row_weight_ph": "Enter kg",
+    "row_country": "Country",
+    "row_country_ph": "Select country...",
+    "row_city": "City",
+    "row_city_ph": "Select city...",
+    "row_customer": "Customer",
+    "row_customer_ph": "Select customer...",
+    "row_import_firm": "Import Firm",
+    "row_import_firm_ph": "Import firm...",
+    "row_export_firms": "Export Firms",
+    "row_export_firm_ph": "Export firm...",
+    "add_export_firm": "+ Add Export Firm",
+    "add_truck": "+ Add Truck",
+    "remove_truck_tooltip": "Remove this truck row",
+    "discard_warning": "{{kg}} kg will be discarded",
+    "error_over_capacity": "Total truck weight exceeds harvest — please adjust",
+    "error_no_trucks": "Fill at least one truck row",
+    "submit": "✓ Split & Launch",
+    "cancel": "Cancel",
+    "toast_success": "{{count}} trucks created",
+    "toast_error": "Split failed"
   },
   "official_code": {
     "title": "Shipment Code",

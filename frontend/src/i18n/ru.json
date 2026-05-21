@@ -1408,7 +1408,9 @@
     "composer_error_no_rows": "Заполните хотя бы одну строку блока",
     "composer_error_no_code": "Введите код груза",
     "composer_toast_saved": "Черновик создан: {{code}}",
-    "composer_toast_error": "Не удалось создать черновик"
+    "composer_toast_error": "Не удалось создать черновик",
+    "composer_truck_estimate": "≈ {{count}} грузовика",
+    "composer_truck_capacity": "Грузоподъёмность"
   },
   "assign": {
     "page_title": "Назначение грузов",
@@ -1459,7 +1461,38 @@
     "demand_label_queue": "В очереди",
     "demand_label_local": "Местная продажа",
     "variety_pending_warning_title": "Сорт ещё не подтверждён",
-    "variety_pending_warning_body": "Сорт определится при упаковке — подождите или выберите другой груз. Для строгих требований клиента нужно подтверждение."
+    "variety_pending_warning_body": "Сорт определится при упаковке — подождите или выберите другой груз. Для строгих требований клиента нужно подтверждение.",
+    "center_select_draft": "Выберите черновик слева"
+  },
+  "split": {
+    "header_title": "Разбить черновик по грузовикам",
+    "header_batch_code": "Экспортный код",
+    "header_shipment_code": "Код груза",
+    "header_harvest_total": "Итого урожай",
+    "header_remaining": "Остаток",
+    "truck_number": "Грузовик {{n}}",
+    "row_weight": "Вес",
+    "row_weight_ph": "Введите кг",
+    "row_country": "Страна",
+    "row_country_ph": "Выбрать страну...",
+    "row_city": "Город",
+    "row_city_ph": "Выбрать город...",
+    "row_customer": "Клиент",
+    "row_customer_ph": "Выбрать клиента...",
+    "row_import_firm": "Импортная фирма",
+    "row_import_firm_ph": "Импортная фирма...",
+    "row_export_firms": "Экспортные фирмы",
+    "row_export_firm_ph": "Экспортная фирма...",
+    "add_export_firm": "+ Добавить экспортную фирму",
+    "add_truck": "+ Добавить грузовик",
+    "remove_truck_tooltip": "Удалить строку грузовика",
+    "discard_warning": "{{kg}} кг будет списано как излишек",
+    "error_over_capacity": "Суммарный вес грузовиков превышает урожай — исправьте",
+    "error_no_trucks": "Заполните хотя бы одну строку грузовика",
+    "submit": "✓ Разбить и запустить",
+    "cancel": "Отмена",
+    "toast_success": "Создано грузовиков: {{count}}",
+    "toast_error": "Ошибка при разбивке"
   },
   "official_code": {
     "title": "Код груза",

@@ -1267,6 +1267,29 @@ export interface IDraftAssignPayload {
   border_point?: number | null;
 }
 
+export interface ITruckFirmSplitInput {
+  export_firm_id: number;
+  weight_kg?: number | null;
+}
+
+export interface ITruckSplitInput {
+  weight_kg: number;
+  country?: number | null;
+  city?: number | null;
+  customer?: number | null;
+  import_firm?: number | null;
+  firm_splits?: ITruckFirmSplitInput[];
+}
+
+export interface IDraftSplitPayload {
+  trucks: ITruckSplitInput[];
+}
+
+export interface IDraftSplitResult {
+  created_truck_ids: number[];
+  cancelled_draft_id: number;
+}
+
 // â”€â”€â”€ Assignment Board (mock demand) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export type DemandType = 'contract' | 'quota' | 'queue';

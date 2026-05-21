@@ -1406,7 +1406,9 @@
     "composer_error_no_rows": "Azyndan bir blok setirimini dolduryň",
     "composer_error_no_code": "Ýük kodyny giriziň",
     "composer_toast_saved": "Garalama döredildi: {{code}}",
-    "composer_toast_error": "Garalama döredip bolmady"
+    "composer_toast_error": "Garalama döredip bolmady",
+    "composer_truck_estimate": "≈ {{count}} ulag",
+    "composer_truck_capacity": "Ulag sygymy"
   },
   "assign": {
     "page_title": "Ýüklere ýer bellemek",
@@ -1457,7 +1459,38 @@
     "demand_label_queue": "Garaşýan",
     "demand_label_local": "Ýerli Gapy Satyş",
     "variety_pending_warning_title": "Sort entek tassyklanmadyk",
-    "variety_pending_warning_body": "Paketlemede sort kesgitlener — ýa garaşmaly ýa-da başga TR saýla. Gaty sort talap edilýän müşderi üçin tassyklamak zerur."
+    "variety_pending_warning_body": "Paketlemede sort kesgitlener — ýa garaşmaly ýa-da başga TR saýla. Gaty sort talap edilýän müşderi üçin tassyklamak zerur.",
+    "center_select_draft": "Sol tarapdan garalama saýlaň"
+  },
+  "split": {
+    "header_title": "Garalama bölmek — ulaga paýlamak",
+    "header_batch_code": "Eksport kody",
+    "header_shipment_code": "Ýük kody",
+    "header_harvest_total": "Jemi hasyl",
+    "header_remaining": "Galan",
+    "truck_number": "Ulag {{n}}",
+    "row_weight": "Agram",
+    "row_weight_ph": "kg giriziň",
+    "row_country": "Ýurt",
+    "row_country_ph": "Ýurt saýla...",
+    "row_city": "Şäher",
+    "row_city_ph": "Şäher saýla...",
+    "row_customer": "Müşderi",
+    "row_customer_ph": "Müşderi saýla...",
+    "row_import_firm": "Import firmasy",
+    "row_import_firm_ph": "Import firmasy...",
+    "row_export_firms": "Eksport firmalary",
+    "row_export_firm_ph": "Eksport firmasy...",
+    "add_export_firm": "+ Eksport firmasy goş",
+    "add_truck": "+ Ulag goş",
+    "remove_truck_tooltip": "Bu ulagyň setirini pozuň",
+    "discard_warning": "{{kg}} kg goşmaça bolup, zyňylar",
+    "error_over_capacity": "Ulaglaryň jemi agramy hasyl jeminden köp — düzediň",
+    "error_no_trucks": "Azyndan bir ulag setirini dolduryň",
+    "submit": "✓ Bölüp ýola ber",
+    "cancel": "Ret et",
+    "toast_success": "{{count}} ulag döredildi",
+    "toast_error": "Bölmek başa barmady"
   },
   "nav_extended": {
     "drafts": "Garalama ýükler",

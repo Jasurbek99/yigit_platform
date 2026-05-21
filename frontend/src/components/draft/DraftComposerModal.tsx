@@ -19,8 +19,6 @@ import { useGreenhouseBlocks } from '@/hooks/useAdmin';
 import type { IShipmentDraft } from '@/types';
 import { COLORS, FONT } from '@/constants/styles';
 
-const { Text } = Typography;
-
 const TARGET_KG = 18_500;
 const MAX_ROWS = 11;
 
@@ -61,28 +59,6 @@ function autoCargo(): string {
   return `${dd}${mm}${seq}/${yy}`;
 }
 
-type SumStatus = 'ok' | 'under' | 'over';
-
-function sumStatus(total: number): SumStatus {
-  if (total === TARGET_KG) return 'ok';
-  const pct = Math.abs(total - TARGET_KG) / TARGET_KG;
-  if (total > TARGET_KG) return pct > 0.05 ? 'over' : 'over';
-  return 'under';
-}
-
-function sumColor(status: SumStatus): string {
-  if (status === 'ok') return COLORS.success;
-  if (status === 'over') return COLORS.danger;
-  return COLORS.warning;
-}
-
-function diffLabel(total: number, t: (k: string, v?: Record<string, unknown>) => string): string {
-  const diff = TARGET_KG - total;
-  if (diff === 0) return t('draft.composer_sum_exact');
-  if (diff > 0) return t('draft.composer_sum_under', { kg: diff.toLocaleString('ru-RU') });
-  return t('draft.composer_sum_over', { kg: Math.abs(diff).toLocaleString('ru-RU') });
-}
-
 /** Consistent numbered section heading inside the composer. */
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
@@ -104,7 +80,7 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
   const [notes, setNotes] = useState('');
 
   const totalKg = useMemo(() => rows.reduce((s, r) => s + r.weight_kg, 0), [rows]);
-  const status = sumStatus(totalKg);
+  const truckEstimate = totalKg > 0 ? Math.ceil(totalKg / TARGET_KG) : null;
 
   const usedBlockIds = rows.map((r) => r.block_id).filter((id): id is number => id !== null);
 
@@ -182,8 +158,6 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
 
   // ── Render ────────────────────────────────────────────────────────────
 
-  const pctDiff = totalKg > 0 ? ((Math.abs(totalKg - TARGET_KG) / TARGET_KG) * 100).toFixed(1) : null;
-
   return (
     <Modal
       open={open}
@@ -207,7 +181,7 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
       {/* ── Section 1: Harvest (blocks + kg) — the primary task ── */}
       <SectionTitle>1. {t('draft.composer_section_harvest')}</SectionTitle>
 
-      {/* Target weight info */}
+      {/* Truck capacity hint */}
       <div
         style={{
           display: 'flex',
@@ -217,11 +191,16 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
         }}
       >
         <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-          {t('draft.composer_target')}:
+          {t('draft.composer_truck_capacity')}:
         </Typography.Text>
         <span style={{ fontFamily: FONT.mono, fontSize: 13, fontWeight: 600 }}>
           {TARGET_KG.toLocaleString('ru-RU')} kg
         </span>
+        {truckEstimate !== null && (
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            ({t('draft.composer_truck_estimate', { count: truckEstimate })})
+          </Typography.Text>
+        )}
       </div>
 
       {/* Block rows table */}
@@ -287,32 +266,24 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
             padding: '10px 12px',
             gap: 8,
             fontWeight: 600,
-            borderTop: `2px solid ${sumColor(status)}`,
-            background: status === 'ok' ? COLORS.bgGreen : status === 'over' ? COLORS.bgRed : COLORS.bgYellow,
+            borderTop: `2px solid ${COLORS.border}`,
+            background: COLORS.bgLayout,
           }}
         >
           <div style={{ fontSize: 12 }}>{t('draft.composer_total')}</div>
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontFamily: FONT.mono, fontSize: 14, color: sumColor(status) }}>
+            <div style={{ fontFamily: FONT.mono, fontSize: 14, color: COLORS.textPrimary }}>
               {totalKg.toLocaleString('ru-RU')} kg
             </div>
-            <div style={{ fontSize: 11, color: sumColor(status) }}>
-              {diffLabel(totalKg, t)}
+            <div style={{ fontSize: 11, color: COLORS.textSecondary }}>
+              {truckEstimate !== null
+                ? t('draft.composer_truck_estimate', { count: truckEstimate })
+                : '—'}
             </div>
           </div>
           <div />
         </div>
       </div>
-
-      {/* Percentage badge */}
-      {pctDiff && status !== 'ok' && (
-        <Text
-          type={status === 'over' ? 'danger' : 'warning'}
-          style={{ display: 'block', marginTop: 4, fontSize: 11 }}
-        >
-          {pctDiff}% {t(status === 'over' ? 'draft.composer_pct_over' : 'draft.composer_pct_under')}
-        </Text>
-      )}
 
       {/* ── Section 2: Shipment Code (optional) — collapsed by default ── */}
       <Collapse
@@ -419,7 +390,6 @@ function ComposerRow({
         value={row.weight_kg || null}
         onChange={onWeightChange}
         min={0}
-        max={TARGET_KG}
         step={500}
         style={{ width: '100%', textAlign: 'right' }}
         size="small"

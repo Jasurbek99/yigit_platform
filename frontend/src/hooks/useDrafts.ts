@@ -2,7 +2,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import api from '@/services/api';
 import { MOCK_DRAFTS } from '@/mock/drafts';
-import type { IShipmentDraft, IDraftCreatePayload, IDraftAssignPayload } from '@/types';
+import type {
+  IShipmentDraft,
+  IDraftCreatePayload,
+  IDraftAssignPayload,
+  IDraftSplitPayload,
+  IDraftSplitResult,
+} from '@/types';
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
 
@@ -110,6 +116,48 @@ export function useAssignDraft() {
       queryClient.invalidateQueries({ queryKey: ['drafts'] });
       queryClient.invalidateQueries({ queryKey: ['shipments'] });
       queryClient.invalidateQueries({ queryKey: ['shipment', String(vars.draftId)] });
+    },
+  });
+}
+
+// ─── useSplitDraft ────────────────────────────────────────────────────────
+
+interface ISplitDraftArgs {
+  draftId: number;
+  payload: IDraftSplitPayload;
+}
+
+/**
+ * Splits a draft into N individual truck shipments via
+ * POST /api/v1/export/shipments/{draftId}/split/.
+ *
+ * In mock mode returns a stub result and skips the API call.
+ * On success, invalidates all the same query keys as usePromoteFromDraft
+ * so every consuming surface (drafts list, shipments list, sheet, board,
+ * task list) refreshes automatically.
+ */
+export function useSplitDraft() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ draftId, payload }: ISplitDraftArgs): Promise<IDraftSplitResult> => {
+      if (USE_MOCK) {
+        return { created_truck_ids: [draftId], cancelled_draft_id: draftId };
+      }
+
+      const { data } = await api.post<IDraftSplitResult>(
+        `/export/shipments/${draftId}/split/`,
+        payload,
+      );
+      return data;
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['shipment', String(vars.draftId)] });
+      queryClient.invalidateQueries({ queryKey: ['shipments'] });
+      queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+      queryClient.invalidateQueries({ queryKey: ['shipments', 'board'] });
+      queryClient.invalidateQueries({ queryKey: ['drafts'] });
+      queryClient.invalidateQueries({ queryKey: ['my-tasks'] });
     },
   });
 }
