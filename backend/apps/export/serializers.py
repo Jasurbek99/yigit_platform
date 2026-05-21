@@ -5,7 +5,7 @@ from rest_framework import serializers
 
 from apps.core.models import City, Country, Customer, ImportFirm, Season, GreenhouseBlock, TomatoVariety
 from apps.core.permissions import can_edit_field, PRIVILEGED_ROLES
-from apps.export.services import TRANSITIONS
+from apps.export.services import TRANSITIONS, _edge_to
 from apps.export.services.phases import get_phase as resolve_phase, resolve_phase_entry
 from apps.export.validators import validate_official_export_code  # noqa: F401  (kept for downstream importers)
 from apps.export.models import (
@@ -850,7 +850,11 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
         if obj.status is None:
             return []
         current_code = obj.status.code
-        return [to_code for to_code, _roles in TRANSITIONS.get(current_code, [])]
+        return [
+            _edge_to(edge)
+            for edge in TRANSITIONS.get(current_code, [])
+            if _edge_to(edge) != 'cancelled'
+        ]
 
     class Meta(ShipmentListSerializer.Meta):
         # harvest_age_days and freshness are inherited from ShipmentListSerializer

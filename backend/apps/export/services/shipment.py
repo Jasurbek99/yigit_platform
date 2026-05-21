@@ -37,6 +37,9 @@ logger = logging.getLogger(__name__)
 # kept as a hook in case a future status wants a dedicated auto-set timestamp.
 STATUS_TIMESTAMP_MAP: dict[str, str] = {}
 
+# Roles that may override role restrictions and trigger any valid transition.
+PRIVILEGED_ROLES = {'export_manager', 'director'}
+
 # Allowed transitions: from_code → list of edge tuples.
 # Edge tuple shape: (to_code, allowed_roles) OR (to_code, allowed_roles, predicate)
 # where predicate is Callable[[Shipment], bool] used by auto-advance to pick
@@ -44,30 +47,41 @@ STATUS_TIMESTAMP_MAP: dict[str, str] = {}
 # predicates — the user explicitly picks the target.
 #
 # None key = shipment has no status yet (legacy fallback, unused by current flow).
-# Roles export_manager and director are always privileged.
+# PRIVILEGED_ROLES is declared above; cancel edges use list(PRIVILEGED_ROLES)
+# so the set membership is captured at module load time.
 TRANSITIONS: dict[Optional[str], list[tuple]] = {
     None:              [('draft',          ['warehouse_chief'])],
-    'draft':           [('gumruk_girish',  ['document_team'])],
-    'gumruk_girish':   [('gumruk_chykysh', ['document_team'])],
-    'gumruk_chykysh':  [('yuklenme',       ['warehouse_chief'])],
-    'yuklenme':        [('yola_chykdy',    ['document_team'])],
-    'yola_chykdy':     [('serhet_gechdi',  ['transport'])],
-    'serhet_gechdi':   [('dest_entry',     ['sales_rep'])],
-    'dest_entry':      [('barysh_gumrugi', ['sales_rep'])],
+    'draft':           [('gumruk_girish',  ['document_team']),
+                        ('cancelled',      list(PRIVILEGED_ROLES))],
+    'gumruk_girish':   [('gumruk_chykysh', ['document_team']),
+                        ('cancelled',      list(PRIVILEGED_ROLES))],
+    'gumruk_chykysh':  [('yuklenme',       ['warehouse_chief']),
+                        ('cancelled',      list(PRIVILEGED_ROLES))],
+    'yuklenme':        [('yola_chykdy',    ['document_team']),
+                        ('cancelled',      list(PRIVILEGED_ROLES))],
+    'yola_chykdy':     [('serhet_gechdi',  ['transport']),
+                        ('cancelled',      list(PRIVILEGED_ROLES))],
+    'serhet_gechdi':   [('dest_entry',     ['sales_rep']),
+                        ('cancelled',      list(PRIVILEGED_ROLES))],
+    'dest_entry':      [('barysh_gumrugi', ['sales_rep']),
+                        ('cancelled',      list(PRIVILEGED_ROLES))],
     # Conditional fork: transshipment only on shipments with has_peregruz=True.
     'barysh_gumrugi':  [
         ('transshipment', ['sales_rep'], lambda s: bool(getattr(s, 'has_peregruz', False))),
         ('bardy',         ['sales_rep'], lambda s: not bool(getattr(s, 'has_peregruz', False))),
+        ('cancelled',     list(PRIVILEGED_ROLES)),
     ],
-    'transshipment':   [('bardy',          ['sales_rep'])],
-    'bardy':           [('satylyar',       ['sales_rep'])],
-    'satylyar':        [('satyldy',        ['sales_rep'])],
-    'satyldy':         [('tamamlandy',     ['finansist'])],
+    'transshipment':   [('bardy',          ['sales_rep']),
+                        ('cancelled',      list(PRIVILEGED_ROLES))],
+    'bardy':           [('satylyar',       ['sales_rep']),
+                        ('cancelled',      list(PRIVILEGED_ROLES))],
+    'satylyar':        [('satyldy',        ['sales_rep']),
+                        ('cancelled',      list(PRIVILEGED_ROLES))],
+    'satyldy':         [('tamamlandy',     ['finansist']),
+                        ('cancelled',      list(PRIVILEGED_ROLES))],
     'tamamlandy':      [],
+    # 'cancelled' key intentionally absent — no outgoing edges; terminal status.
 }
-
-# Roles that may override role restrictions and trigger any valid transition.
-PRIVILEGED_ROLES = {'export_manager', 'director'}
 
 # When a shipment transitions TO this status, notify these roles to fill their fields.
 STATUS_NOTIFY_ROLES: dict[str, list[str]] = {
@@ -251,6 +265,25 @@ def transition_to(
 
     # Notify roles that need to act in the new phase.
     _notify_action_required(shipment, new_status_code)
+
+
+def _cancel_open_tasks(shipment: Shipment) -> int:
+    """Mark every OPEN/IN_PROGRESS/BLOCKED task on the shipment as CANCELLED.
+
+    Idempotent. Mirrors the per-task cancel action in views.py which writes
+    only the `state` column. BLOCKED tasks are included because a blocked task
+    on a cancelled shipment is also stale.
+
+    Uses a single SQL UPDATE — no per-row save(), no Shipment.save() re-entry.
+
+    Returns:
+        Number of Task rows updated.
+    """
+    from apps.export.models import Task, TaskState
+    return Task.objects.filter(
+        shipment=shipment,
+        state__in=[TaskState.OPEN, TaskState.IN_PROGRESS, TaskState.BLOCKED],
+    ).update(state=TaskState.CANCELLED)
 
 
 def is_step_trigger_satisfied(shipment: Shipment, status_code: Optional[str]) -> bool:

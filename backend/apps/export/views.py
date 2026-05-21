@@ -60,6 +60,7 @@ from apps.export.services import (
     override_dominant_varieties,
     transition_to,
 )
+from apps.export.services.shipment import _cancel_open_tasks
 
 logger = logging.getLogger(__name__)
 
@@ -372,6 +373,68 @@ class ShipmentViewSet(ModelViewSet):
 
         serializer = ShipmentDetailSerializer(shipment, context={'request': request})
         return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='cancel')
+    def cancel(self, request, pk=None):
+        """POST /api/v1/export/shipments/{id}/cancel/
+
+        Request body:
+            { "reason": "non-empty string" }
+
+        Permissions: PRIVILEGED_ROLES only (export_manager, director).
+        Effects:
+          - Transitions the shipment to 'cancelled' via transition_to().
+          - All OPEN/IN_PROGRESS/BLOCKED Tasks on the shipment are marked CANCELLED.
+          - Draft QuotaUsageRecords linked to the shipment are deleted.
+          - Approved QuotaUsageRecords are left intact; their IDs are surfaced
+            in the response so the user can reconcile via the QuotaUsageGrid.
+
+        Returns:
+            ShipmentDetailSerializer response plus two extra fields:
+              draft_quota_deleted:        number of draft quota records removed
+              approved_quota_to_reconcile: list of approved quota record IDs
+        """
+        if getattr(request.user, 'role', None) not in PRIVILEGED_ROLES:
+            return Response(
+                {'error': 'Only export_manager or director can cancel shipments'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        reason = (request.data.get('reason') or '').strip()
+        if not reason:
+            return Response(
+                {'reason': ['A cancellation reason is required.']},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        shipment = self.get_object()
+
+        try:
+            with transaction.atomic():
+                transition_to(shipment, 'cancelled', request.user, comment=reason)
+                _cancel_open_tasks(shipment)
+                # Quota cleanup: delete draft records (placeholder allocations),
+                # surface approved records so the user can reconcile manually.
+                draft_qs = QuotaUsageRecord.objects.filter(
+                    shipment=shipment, status='draft',
+                )
+                draft_count = draft_qs.count()
+                draft_qs.delete()
+                approved_ids = list(
+                    QuotaUsageRecord.objects.filter(
+                        shipment=shipment, status='approved',
+                    ).values_list('id', flat=True)
+                )
+        except PermissionError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_403_FORBIDDEN)
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = ShipmentDetailSerializer(shipment, context={'request': request})
+        data = serializer.data
+        data['draft_quota_deleted'] = draft_count
+        data['approved_quota_to_reconcile'] = approved_ids
+        return Response(data)
 
     @action(detail=False, methods=['get'], url_path='overdue')
     def overdue(self, request):
