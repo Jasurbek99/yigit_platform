@@ -94,7 +94,10 @@ const PHASE_KEYS = [
 
 // localStorage key for the per-user column layout (visibility + order + pin).
 // ProTable's ColumnSetting writes/reads this map automatically.
-const COLUMN_STATE_KEY = 'ygt.shipmentList.columnsState';
+// NOTE: bump the version suffix whenever the default column set changes —
+// ProTable merges stored state over `defaultValue`, so a stale entry would
+// leave newly-added columns un-hidden (defaults don't override stored keys).
+const COLUMN_STATE_KEY = 'ygt.shipmentList.columnsState.v2';
 
 // Default column layout. Keys match each column's `key`/`dataIndex`. Columns
 // absent from this map are shown by default; the ones below ship hidden so the

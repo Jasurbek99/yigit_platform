@@ -26,7 +26,9 @@ Rule: every FK field returns both the ID (for mutations) and a `_display` or `_n
 ## Response shapes
 
 ### List endpoint: `GET /api/v1/export/shipments/`
-Lightweight — no nested objects, no related tables. Used by ProTable.
+Flat — no nested objects, no related tables. Used by ProTable.
+
+The example below shows the **default-visible** fields. As of the ShipmentList column-manager work, `ShipmentListSerializer` ALSO returns the full set of **scalar** shipment fields (Sheet parity) so the column-settings panel can offer them as opt-in columns: all AD-1 + operator timestamps (`loading_started_at`, `customs_entry_at`, `customs_exit_at`, `border_crossed_at`, `sale_started_at`, `sale_ended_at`, `dest_entry_at`, `loading_ended_at`, `sales_report_date`, `harvest_date`), weight detail (`packaging_kg`, `pallet_count`, `box_count`, `rejected_weight_kg`), transport (`vehicle_responsible`/`_display`, `trailer_id`, `truck_plate`, `driver_name`, `driver_phone`, `transport_temp_c`, `transit_days`, `has_peregruz`, `peregruz_city`, `peregruz_date`), `customs_clearance_planned_day`, vehicle condition (`vehicle_condition`/`_note`, `vehicle_live_status`), flattened quality flags (`doc_azyk`, `doc_suriji`, `doc_hil`, `doc_kalibrowka`), per-role notes (`notes`, `export_manager_note`, `warehouse_note`, `document_note`, `additional_notes_arap`), refs (`status_code`, `country_code`, `variety`/`variety_code`, `import_firm`/`import_firm_name`), and audit (`created_by_name`, `created_at`). Nested `firm_splits` / `block_sources` remain **detail/sheet only** — the list stays flat (no related-table prefetch). The list queryset adds `select_related('import_firm', 'created_by', 'quality')` to keep this N+1-safe.
 
 ```json
 {

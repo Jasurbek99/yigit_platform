@@ -52,7 +52,7 @@ The same `Shipment` model is exposed through three different screens, each tuned
 - Click a row → opens [[#A2 Shipment Detail `/export/shipments/:id`|Detail]].
 - Edit `weight_net` directly in the cell (only when your role allows).
 - Select multiple rows → run a bulk status transition.
-- **Column settings** (gear icon, top-right of the table) → ProTable's built-in `ColumnSetting` panel. Check/uncheck to show or hide any column, drag to reorder, and pin left/right. The table offers more fields than it shows by default — `date`, `official_export_code`, `weight_gross`, `city_name`, `variety_name`, `border_point_name`, `price_per_kg`, `total_amount_usd`, `is_gapy_satys` ship hidden and are opt-in here. Layout (visibility + order + pin) is remembered per browser via `columnsState` (localStorage key `ygt.shipmentList.columnsState`); defaults live in `DEFAULT_COLUMN_STATE`. The actions column is `hideInSetting` so it can't be hidden or moved.
+- **Column settings** (gear icon, top-right of the table) → ProTable's built-in `ColumnSetting` panel. Check/uncheck to show or hide any column, drag to reorder, and pin left/right. The List now offers **near-parity with the Sheet's rows** — almost every scalar shipment field is available as an opt-in column (all AD-1 + operator timestamps, weight detail, transport, doc checkboxes, per-role notes, vehicle condition, audit, etc.). Only nested `firm_splits` / `block_sources` are excluded (Sheet-only). Seven columns ship visible by default (cargo code, customer, country, status, net weight, departed, arrived); everything else ships hidden and is opt-in via `HIDDEN_BY_DEFAULT` → `DEFAULT_COLUMN_STATE`. Layout (visibility + order + pin) is remembered per browser via `columnsState` (localStorage key `ygt.shipmentList.columnsState.v2` — the version suffix is bumped whenever the default column set changes, since ProTable merges stored state over `DEFAULT_COLUMN_STATE` rather than letting defaults win). The actions column is `hideInSetting` so it can't be hidden or moved. Backing this, `ShipmentListSerializer` returns all those scalar fields (see [api-contract.md](../../../.claude/rules/api-contract.md)).
 - The Archive view is **read-only**; no inline edits, no row selection, no bulk actions.
 
 ### A2. Shipment Detail (`/export/shipments/:id`)
@@ -109,7 +109,9 @@ The canonical response field naming is owned by [api-contract.md](../../../.clau
 
 ### B2. Field coverage matrix (grouped summary)
 
-A representative sample, not exhaustive. Source-of-truth: [serializers.py](../../../backend/apps/export/serializers.py) (`ShipmentListSerializer` ~line 60, `ShipmentSheetSerializer` ~line 178) and `IShipmentDetail` in [types/index.ts](../../../frontend/src/types/index.ts).
+A representative sample, not exhaustive. Source-of-truth: [serializers.py](../../../backend/apps/export/serializers.py) (`ShipmentListSerializer` ~line 60, `ShipmentSheetSerializer` ~line 225) and `IShipmentDetail` in [types/index.ts](../../../frontend/src/types/index.ts).
+
+> **Note (column-manager update):** the "List" column in the matrix below shows the *default-visible* set. `ShipmentListSerializer` now also returns every **scalar** field marked ✓ for Sheet (timestamps, weight detail, transport, doc flags, notes, vehicle condition, audit) so they can be turned on as opt-in List columns. Treat any scalar Sheet ✓ as "List: opt-in column". Only nested `firm_splits` / `block_sources` stay Sheet/Detail-only.
 
 | Group | Field | List | Detail | Sheet |
 |---|---|---|---|---|
