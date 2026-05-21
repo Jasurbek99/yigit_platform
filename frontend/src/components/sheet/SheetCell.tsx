@@ -3,7 +3,7 @@ import { Tag, Tooltip } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import type { IShipmentSheetItem, IRowConfig, ICommentTaskStatus, ISheetRowSettingForUser } from '@/types';
 import { useSheetStore } from '@/stores/sheetStore';
-import { COL_WIDTH_SHIPMENT, ROW_HEIGHT } from '@/constants/sheetRowConfig';
+import { scaleSheetLayout } from '@/constants/sheetRowConfig';
 import { CommentMarker } from './CommentMarker';
 import { getCellValue } from './getCellValue';
 
@@ -29,13 +29,18 @@ function isEmpty(value: string): boolean {
 
 function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, commentTaskState = null, rowSetting }: ISheetCellProps) {
   const navigate = useNavigate();
-  const { setActiveCell, setEditingCell, activeCell, openCommentsForCell } = useSheetStore();
+  const { setActiveCell, setEditingCell, activeCell, openCommentsForCell, sheetZoom } = useSheetStore();
   const isActive = activeCell?.shipmentId === shipment.id && activeCell?.rowKey === rowConfig.field_key;
   const isGapy = shipment.is_gapy_satys;
   const isHidden = rowConfig.gapy_hidden && isGapy;
 
-  // Per-row style overrides from admin sheet-row settings
-  const cellWidth = rowSetting?.style?.width ?? COL_WIDTH_SHIPMENT;
+  const { colShipment: COL_WIDTH_SHIPMENT, rowHeight: ROW_HEIGHT } = scaleSheetLayout(sheetZoom);
+
+  // Per-row style overrides from admin sheet-row settings. A custom px width is
+  // itself scaled by zoom so it tracks its (scaled) column slot in SheetGrid.
+  const cellWidth = rowSetting?.style?.width
+    ? Math.round(rowSetting.style.width * sheetZoom)
+    : COL_WIDTH_SHIPMENT;
   const cellAlign = rowSetting?.style?.align;
   const cellBg = rowSetting?.style?.color ?? undefined;
 

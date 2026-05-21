@@ -4,11 +4,8 @@ import { LockOutlined, ArrowUpOutlined, ArrowDownOutlined, EllipsisOutlined, Eye
 import { Tooltip, Dropdown } from 'antd';
 import type { MenuProps } from 'antd';
 import type { IRowConfig, ISheetRowSettingForUser } from '@/types';
-import {
-  COL_WIDTH_ROW_NUM,
-  COL_WIDTH_WHO,
-  COL_WIDTH_FIELD,
-} from '@/constants/sheetRowConfig';
+import { scaleSheetLayout } from '@/constants/sheetRowConfig';
+import { useSheetStore } from '@/stores/sheetStore';
 
 interface ISheetLabelRowProps {
   rowConfig: IRowConfig;
@@ -70,6 +67,14 @@ function SheetLabelRowInner({
   onReorderTo,
 }: ISheetLabelRowProps) {
   const { t } = useTranslation();
+  const sheetZoom = useSheetStore((s) => s.sheetZoom);
+  // Same scaled widths SheetGrid uses, so the sticky-left `left` offsets here
+  // line up exactly with the header's frozen label band.
+  const {
+    colRowNum: COL_WIDTH_ROW_NUM,
+    colWho: COL_WIDTH_WHO,
+    colField: COL_WIDTH_FIELD,
+  } = scaleSheetLayout(sheetZoom);
   const [menuOpen, setMenuOpen] = useState(false);
   const [dragOver, setDragOver] = useState(false);
 

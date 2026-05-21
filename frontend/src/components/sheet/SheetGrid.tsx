@@ -1,4 +1,4 @@
-import { useRef, useCallback, useMemo } from 'react';
+import { useRef, useCallback, useMemo, useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useTranslation } from 'react-i18next';
 import type {
@@ -18,14 +18,7 @@ import { SheetCell } from './SheetCell';
 import { SheetCellEditor } from './SheetCellEditor';
 import { SheetLabelRow } from './SheetLabelColumn';
 import { SheetColumnHeader } from './SheetColumnHeader';
-import {
-  COL_WIDTH_SHIPMENT,
-  COL_WIDTH_ROW_NUM,
-  COL_WIDTH_WHO,
-  COL_WIDTH_FIELD,
-  FROZEN_LEFT_TOTAL,
-  ROW_HEIGHT,
-} from '@/constants/sheetRowConfig';
+import { scaleSheetLayout } from '@/constants/sheetRowConfig';
 
 // Sheet field keys that map to junction-table resources rather than direct
 // columns on Shipment. Editing these calls a dedicated action endpoint and
@@ -89,8 +82,19 @@ export function SheetGrid({
 }: ISheetGridProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { editingCell, frozenRowCount, frozenColCount } = useSheetStore();
+  const { editingCell, frozenRowCount, frozenColCount, sheetZoom } = useSheetStore();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Scaled layout px — every cell width/height + the virtualizer's estimateSize
+  // derive from the same zoom so the rendered grid and the virtualizer agree.
+  const {
+    colRowNum: COL_WIDTH_ROW_NUM,
+    colWho: COL_WIDTH_WHO,
+    colField: COL_WIDTH_FIELD,
+    colShipment: COL_WIDTH_SHIPMENT,
+    frozenLeftTotal: FROZEN_LEFT_TOTAL,
+    rowHeight: ROW_HEIGHT,
+  } = scaleSheetLayout(sheetZoom);
 
   // Clamp freeze counts to the data we actually have so an old localStorage
   // value (e.g. 5 frozen cols, but the user now sees only 2 shipments) still
@@ -133,6 +137,12 @@ export function SheetGrid({
     horizontal: true,
     overscan: 5,
   });
+
+  // Zoom changes the per-column estimate; force the virtualizer to discard its
+  // cached item sizes so positions recompute against the new scaled width.
+  useEffect(() => {
+    columnVirtualizer.measure();
+  }, [columnVirtualizer, COL_WIDTH_SHIPMENT]);
 
   // ─── Reorder helpers ───────────────────────────────────────────────────────
   // Compute the new ordered list of row IDs after moving row at `fromIndex`
@@ -301,7 +311,7 @@ export function SheetGrid({
           </div>
         );
       }),
-    [frozenShipments],
+    [frozenShipments, COL_WIDTH_SHIPMENT, FROZEN_LEFT_TOTAL, ROW_HEIGHT],
   );
 
   // Virtualized (scrollable) column headers — seq number continues from frozen count
@@ -332,7 +342,7 @@ export function SheetGrid({
           </div>
         );
       }),
-    [virtualColumns, scrollableShipments, shipmentFreezeCount],
+    [virtualColumns, scrollableShipments, shipmentFreezeCount, COL_WIDTH_SHIPMENT, ROW_HEIGHT],
   );
 
   const renderSection = (sectionRows: IRowConfig[], inFrozenSection: boolean) =>
@@ -450,7 +460,11 @@ export function SheetGrid({
     });
 
   return (
-    <div className="sheet-grid" ref={scrollContainerRef}>
+    <div
+      className="sheet-grid"
+      ref={scrollContainerRef}
+      style={{ ['--sheet-zoom' as string]: sheetZoom } as React.CSSProperties}
+    >
       {/* Header row — sticky-top */}
       <div
         className="sheet-header-row"

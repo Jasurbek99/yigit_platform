@@ -56,6 +56,43 @@ function persistFreezeState(state: IFreezeState): void {
   }
 }
 
+// ─── Zoom (cell + font scale, like Google Sheets' View › Zoom) ─────────────
+// We scale the layout constants in JS (not CSS `zoom`/`transform`) because the
+// sheet is virtualized: a CSS transform on the scroll container desyncs
+// scrollLeft from getBoundingClientRect and silently breaks @tanstack/react-virtual.
+const ZOOM_STORAGE_KEY = 'ygt-sheet-zoom';
+export const SHEET_ZOOM_MIN = 0.6;
+export const SHEET_ZOOM_MAX = 1.5;
+export const SHEET_ZOOM_STEP = 0.1;
+const DEFAULT_SHEET_ZOOM = 1;
+
+function clampZoom(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_SHEET_ZOOM;
+  const clamped = Math.min(SHEET_ZOOM_MAX, Math.max(SHEET_ZOOM_MIN, value));
+  // Round to 2 decimals so 0.1 steps don't accumulate float drift (0.7000001).
+  return Math.round(clamped * 100) / 100;
+}
+
+function loadZoom(): number {
+  if (typeof localStorage === 'undefined') return DEFAULT_SHEET_ZOOM;
+  try {
+    const raw = localStorage.getItem(ZOOM_STORAGE_KEY);
+    if (!raw) return DEFAULT_SHEET_ZOOM;
+    return clampZoom(parseFloat(raw));
+  } catch {
+    return DEFAULT_SHEET_ZOOM;
+  }
+}
+
+function persistZoom(value: number): void {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(ZOOM_STORAGE_KEY, String(value));
+  } catch {
+    // localStorage may throw in private mode or when full — ignore
+  }
+}
+
 interface ISheetState {
   activeCell: IActiveCell | null;
   setActiveCell: (cell: IActiveCell | null) => void;
@@ -71,6 +108,13 @@ interface ISheetState {
   frozenColCount: number;
   setFrozenRowCount: (count: number) => void;
   setFrozenColCount: (count: number) => void;
+
+  // ─── Zoom (scales cell dimensions + fonts) ──────────────────────────────
+  sheetZoom: number;
+  setSheetZoom: (zoom: number) => void;
+  zoomIn: () => void;
+  zoomOut: () => void;
+  resetZoom: () => void;
 
   // ─── Comments drawer ─────────────────────────────────────────────────────
   commentsDrawerOpen: boolean;
@@ -127,6 +171,30 @@ export const useSheetStore = create<ISheetState>((set) => ({
       persistFreezeState({ frozenRowCount: state.frozenRowCount, frozenColCount: clamped });
       return { frozenColCount: clamped };
     }),
+
+  // ─── Zoom ─────────────────────────────────────────────────────────────────
+  sheetZoom: loadZoom(),
+  setSheetZoom: (zoom) => {
+    const clamped = clampZoom(zoom);
+    persistZoom(clamped);
+    set({ sheetZoom: clamped });
+  },
+  zoomIn: () =>
+    set((state) => {
+      const clamped = clampZoom(state.sheetZoom + SHEET_ZOOM_STEP);
+      persistZoom(clamped);
+      return { sheetZoom: clamped };
+    }),
+  zoomOut: () =>
+    set((state) => {
+      const clamped = clampZoom(state.sheetZoom - SHEET_ZOOM_STEP);
+      persistZoom(clamped);
+      return { sheetZoom: clamped };
+    }),
+  resetZoom: () => {
+    persistZoom(DEFAULT_SHEET_ZOOM);
+    set({ sheetZoom: DEFAULT_SHEET_ZOOM });
+  },
 
   // ─── Comments drawer ─────────────────────────────────────────────────────
   commentsDrawerOpen: false,

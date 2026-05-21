@@ -1,8 +1,16 @@
 import { useMemo, useState } from 'react';
-import { Button, Input, Switch, Typography, Badge, Modal, List, Select, Space } from 'antd';
-import { PlusOutlined, SearchOutlined, CommentOutlined, EyeOutlined, SettingOutlined } from '@ant-design/icons';
+import { Button, Input, Switch, Typography, Badge, Modal, List, Select, Space, Tooltip } from 'antd';
+import {
+  PlusOutlined,
+  SearchOutlined,
+  CommentOutlined,
+  EyeOutlined,
+  SettingOutlined,
+  ZoomInOutlined,
+  ZoomOutOutlined,
+} from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { useSheetStore } from '@/stores/sheetStore';
+import { useSheetStore, SHEET_ZOOM_MIN, SHEET_ZOOM_MAX } from '@/stores/sheetStore';
 import { useSheetCreate } from '@/hooks/useSheetCreate';
 import { useAuth } from '@/hooks/useAuth';
 import { canDo } from '@/utils/permissions';
@@ -65,6 +73,10 @@ export function SheetToolbar({
     frozenColCount,
     setFrozenRowCount,
     setFrozenColCount,
+    sheetZoom,
+    zoomIn,
+    zoomOut,
+    resetZoom,
   } = useSheetStore();
   const createMutation = useSheetCreate();
 
@@ -201,6 +213,32 @@ export function SheetToolbar({
               {t('sheet.settings.label')}
             </Button>
           </Badge>
+
+          {/* Zoom: − / current % / + . Click the % to reset to 100%. */}
+          <Space.Compact size="small">
+            <Tooltip title={t('sheet.zoom_out')}>
+              <Button
+                icon={<ZoomOutOutlined />}
+                onClick={zoomOut}
+                disabled={sheetZoom <= SHEET_ZOOM_MIN}
+                aria-label={t('sheet.zoom_out')}
+              />
+            </Tooltip>
+            <Tooltip title={t('sheet.zoom_reset')}>
+              <Button onClick={resetZoom} style={{ width: 52, padding: 0 }}>
+                {Math.round(sheetZoom * 100)}%
+              </Button>
+            </Tooltip>
+            <Tooltip title={t('sheet.zoom_in')}>
+              <Button
+                icon={<ZoomInOutlined />}
+                onClick={zoomIn}
+                disabled={sheetZoom >= SHEET_ZOOM_MAX}
+                aria-label={t('sheet.zoom_in')}
+              />
+            </Tooltip>
+          </Space.Compact>
+
           <Text type="secondary" style={{ fontSize: 12 }}>
             {t('sheet.total_count', { count: shipmentCount })}
           </Text>

@@ -1245,6 +1245,9 @@
       "cancel": "Goýbolsun"
     },
     "add_column": "Täze Ýük",
+    "zoom_in": "Ulalt",
+    "zoom_out": "Kiçelt",
+    "zoom_reset": "Ölçegi 100% gaýtar",
     "create_success": "Ýük döredildi — maglumatlary dolduryň",
     "create_error": "Ýük döredip bolmady",
     "create_retry": "Kod gabat geldi — täzeden synanyşyň",

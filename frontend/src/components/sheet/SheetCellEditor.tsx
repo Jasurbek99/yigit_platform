@@ -19,7 +19,7 @@ import {
   useBorderPoints,
   useShipmentOptions,
 } from '@/hooks/useAdmin';
-import { COL_WIDTH_SHIPMENT, ROW_HEIGHT } from '@/constants/sheetRowConfig';
+import { scaleSheetLayout } from '@/constants/sheetRowConfig';
 import { parseNumberInput } from './SheetCellEditor.helpers';
 
 interface ISheetCellEditorProps {
@@ -29,7 +29,8 @@ interface ISheetCellEditorProps {
 
 export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) {
   const { t, i18n } = useTranslation();
-  const { setEditingCell } = useSheetStore();
+  const { setEditingCell, sheetZoom } = useSheetStore();
+  const { colShipment: COL_WIDTH_SHIPMENT, rowHeight: ROW_HEIGHT } = scaleSheetLayout(sheetZoom);
   const patchMutation = useShipmentPatch();
   const containerRef = useRef<HTMLDivElement>(null);
   // Multi-select cells (firm_splits, block_sources) defer saving until the

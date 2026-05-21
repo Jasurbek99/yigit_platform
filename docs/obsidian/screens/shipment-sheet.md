@@ -50,6 +50,15 @@ Both pickers apply changes live (no Save button); the modal has `Reset to defaul
 
 A blue 2px line on the trailing edge of the last frozen row/column marks the freeze line, mirroring Excel/Sheets. Header label cells (`#`, Who, Field name) are also `position: sticky; left: 0` so they remain visible during horizontal scrolling. Rows and section containers carry `min-width: max-content` so the sticky-left cells are bounded by the row's full content width — without this they unstick once the user scrolls past one viewport-width.
 
+## Zoom
+
+The toolbar's `−` / `%` / `+` group scales the whole grid between **60 %–150 %** in 10 % steps. State: `sheetZoom` in `sheetStore` (actions `zoomIn`/`zoomOut`/`resetZoom`/`setSheetZoom`, clamped + rounded to 2 dp), persisted per browser to `localStorage` under `ygt-sheet-zoom`. Default 100 %.
+
+**Why not CSS `zoom`/`transform`?** The Sheet is virtualized with `@tanstack/react-virtual`. A CSS transform/zoom on the scroll container (or any ancestor of it) makes `scrollLeft` and `getBoundingClientRect()` report values in different coordinate frames, so the virtualizer renders the wrong columns as you scroll — a silent, browser-version-dependent breakage. Instead:
+
+- **Layout px scale in JS.** `scaleSheetLayout(zoom)` in `constants/sheetRowConfig.ts` multiplies every layout constant (`COL_WIDTH_*`, `ROW_HEIGHT`, `FROZEN_LEFT_TOTAL`). `SheetGrid`, `SheetCell`, `SheetCellEditor`, and `SheetLabelColumn` all read `sheetZoom` from the store and derive identical scaled values, so the column virtualizer's `estimateSize`, the sticky-left `left` offsets, and the rendered cell widths stay in lockstep. The column virtualizer's `.measure()` re-runs whenever the scaled width changes so cached item sizes don't go stale. A per-cell custom width (`rowSetting.style.width`) is multiplied by zoom too.
+- **Fonts + cell padding scale in CSS.** `SheetGrid` sets `--sheet-zoom: <zoom>` inline on `.sheet-grid`; the font-size and padding declarations in `SheetStyles.css` use `calc(Npx * var(--sheet-zoom, 1))`. The fallback `1` keeps the styles correct anywhere the variable isn't set.
+
 ## Row config
 
 **Backend is the single source of truth.** `backend/apps/export/sheet_rows.py` exports `DEFAULT_SHEET_ROWS` (42 entries — row 16 is intentionally absent, matching the original Excel layout). The `/api/v1/export/shipments/sheet/` response ships these as the `rows` top-level key alongside `results` / `comment_counts` / `task_counts`. Frontend renders whatever the API returns; there is no longer a hard-coded `SHEET_ROW_CONFIG` array on the frontend. Adding, removing, or reordering rows is a one-place change in `sheet_rows.py`.
@@ -242,6 +251,7 @@ The picker has `disabledAlpha` to suppress the opacity slider, and the frontend 
 - Search — filters by `cargo_code` or `customer_name` (client-side)
 - Gapy only — filters to `is_gapy_satys = true`
 - **⚙ Settings** — opens the `Sheet Display Settings` modal with the freeze pickers (see Freeze panes above)
+- **Zoom `−` / `%` / `+`** — scales the whole grid (cells **and** fonts) 60 %–150 % in 10 % steps; click the `%` to reset to 100 %. State lives in `sheetStore` (`sheetZoom`, with `zoomIn`/`zoomOut`/`resetZoom`/`setSheetZoom`) and persists per browser to `localStorage` under `ygt-sheet-zoom`. See [Zoom](#zoom) below.
 - Deadline timer — global hour deadline indicator
 
 ## Backend payload
