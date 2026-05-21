@@ -1,6 +1,9 @@
+import { useState } from 'react';
 import { Spin } from 'antd';
+import { EditOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useShipmentDetail } from '@/hooks/useShipmentDetail';
+import { ShipmentEditDrawer } from '@/components/ShipmentEditDrawer';
 import { DetailSlideBody } from './DetailSlideBody';
 
 const STATUS_STEP_COLOR: Record<number, string> = {
@@ -34,6 +37,7 @@ interface IDetailSlideProps {
 export function DetailSlide({ shipmentId, onClose }: IDetailSlideProps) {
   const { t } = useTranslation();
   const { data: detail, isLoading } = useShipmentDetail(shipmentId ?? undefined);
+  const [isEditOpen, setIsEditOpen] = useState(false);
 
   if (shipmentId === null) return null;
 
@@ -86,23 +90,47 @@ export function DetailSlide({ shipmentId, onClose }: IDetailSlideProps) {
                 </>
               )}
             </div>
-            <button
-              onClick={onClose}
-              aria-label={t('dashboard.close')}
-              style={{
-                background: 'rgba(255,255,255,0.1)',
-                border: 'none',
-                color: '#fff',
-                borderRadius: 8,
-                width: 32,
-                height: 32,
-                fontSize: 16,
-                cursor: 'pointer',
-                flexShrink: 0,
-              }}
-            >
-              ✕
-            </button>
+            <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+              {!isLoading && detail && (
+                <button
+                  onClick={() => setIsEditOpen(true)}
+                  aria-label={t('common.edit')}
+                  style={{
+                    background: 'rgba(255,255,255,0.12)',
+                    border: 'none',
+                    color: '#fff',
+                    borderRadius: 8,
+                    height: 32,
+                    padding: '0 12px',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <EditOutlined />
+                  {t('common.edit')}
+                </button>
+              )}
+              <button
+                onClick={onClose}
+                aria-label={t('dashboard.close')}
+                style={{
+                  background: 'rgba(255,255,255,0.1)',
+                  border: 'none',
+                  color: '#fff',
+                  borderRadius: 8,
+                  width: 32,
+                  height: 32,
+                  fontSize: 16,
+                  cursor: 'pointer',
+                }}
+              >
+                ✕
+              </button>
+            </div>
           </div>
 
           {!isLoading && detail && (
@@ -160,6 +188,14 @@ export function DetailSlide({ shipmentId, onClose }: IDetailSlideProps) {
           )}
         </div>
       </div>
+
+      {detail && (
+        <ShipmentEditDrawer
+          open={isEditOpen}
+          onClose={() => setIsEditOpen(false)}
+          shipment={detail}
+        />
+      )}
     </>
   );
 }

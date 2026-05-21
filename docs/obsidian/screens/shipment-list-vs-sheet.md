@@ -52,6 +52,7 @@ The same `Shipment` model is exposed through three different screens, each tuned
 - Click a row → opens [[#A2 Shipment Detail `/export/shipments/:id`|Detail]].
 - Edit `weight_net` directly in the cell (only when your role allows).
 - Select multiple rows → run a bulk status transition.
+- **Column settings** (gear icon, top-right of the table) → ProTable's built-in `ColumnSetting` panel. Check/uncheck to show or hide any column, drag to reorder, and pin left/right. The table offers more fields than it shows by default — `date`, `official_export_code`, `weight_gross`, `city_name`, `variety_name`, `border_point_name`, `price_per_kg`, `total_amount_usd`, `is_gapy_satys` ship hidden and are opt-in here. Layout (visibility + order + pin) is remembered per browser via `columnsState` (localStorage key `ygt.shipmentList.columnsState`); defaults live in `DEFAULT_COLUMN_STATE`. The actions column is `hideInSetting` so it can't be hidden or moved.
 - The Archive view is **read-only**; no inline edits, no row selection, no bulk actions.
 
 ### A2. Shipment Detail (`/export/shipments/:id`)

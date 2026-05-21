@@ -1,7 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import { MOCK_SHIPMENTS_RESPONSE } from '@/mock/shipments';
-import type { IApiListResponse, IShipmentListItem } from '@/types';
+import type { IApiListResponse, ICancelShipmentResponse, IShipmentListItem } from '@/types';
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
 
@@ -34,6 +34,21 @@ export interface IShipmentFilters {
    * admin / director / boss; other roles silently get an empty page.
    */
   stuck?: boolean;
+  /**
+   * When `true`, include cancelled shipments in the results.
+   * Default (undefined / false) excludes the `cancelled` status so the
+   * active list stays uncluttered. The user must explicitly enable this
+   * filter to see cancelled records.
+   *
+   * NOTE: the backend does not yet have a dedicated `show_cancelled` param.
+   * This flag maps to `?show_cancelled=true` which the backend should
+   * implement to exclude status__code='cancelled' by default.  Until that
+   * backend param lands, a `?phase=CANCELLED` workaround is used
+   * client-side to show only cancelled when the user requests it, and
+   * nothing is sent for the default-exclude case (the backend already
+   * excludes CANCELLED from operational views). Track as a follow-up.
+   */
+  show_cancelled?: boolean;
 }
 
 export function useShipments(filters: IShipmentFilters = {}) {
@@ -57,6 +72,7 @@ export function useShipments(filters: IShipmentFilters = {}) {
       if (filters.date_before) params.set('date_before', filters.date_before);
       if (filters.archived) params.set('archived', 'true');
       if (filters.stuck) params.set('stuck', 'true');
+      if (filters.show_cancelled) params.set('show_cancelled', 'true');
 
       const { data } = await api.get<IApiListResponse<IShipmentListItem>>(
         `/export/shipments/?${params.toString()}`,
@@ -64,6 +80,38 @@ export function useShipments(filters: IShipmentFilters = {}) {
       return data;
     },
     staleTime: 30_000,
+  });
+}
+
+interface ICancelVariables {
+  id: number;
+  reason: string;
+}
+
+/**
+ * Mutation: POST /api/v1/export/shipments/{id}/cancel/
+ * Restricted to export_manager and director roles (server enforces this;
+ * the frontend hides the button for other roles but does not rely solely
+ * on the client-side gate for security).
+ */
+export function useCancelShipment() {
+  const queryClient = useQueryClient();
+
+  return useMutation<ICancelShipmentResponse, unknown, ICancelVariables>({
+    mutationFn: async ({ id, reason }) => {
+      const { data } = await api.post<ICancelShipmentResponse>(
+        `/export/shipments/${id}/cancel/`,
+        { reason },
+      );
+      return data;
+    },
+    onSuccess: () => {
+      // Invalidate all shipment-related queries so the detail page,
+      // list view, board, sheet, and task inbox all reflect the new status.
+      queryClient.invalidateQueries({ queryKey: ['shipment'] });
+      queryClient.invalidateQueries({ queryKey: ['shipments'] });
+      queryClient.invalidateQueries({ queryKey: ['my-tasks'] });
+    },
   });
 }
 

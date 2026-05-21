@@ -4,7 +4,6 @@ import { Spin, Alert } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { useShipments } from '@/hooks/useShipments';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
-import { UrgencyPanel } from '@/components/dashboard/UrgencyPanel';
 import { ShipmentTable } from '@/components/dashboard/ShipmentTable';
 import { DetailSlide } from '@/components/dashboard/DetailSlide';
 import './ShipmentDashboard.css';
@@ -102,10 +101,6 @@ export default function ShipmentDashboard() {
       <DashboardHeader shipments={shipments} />
 
       <div className="dashboard-content">
-        <div className="dashboard-urgency">
-          <UrgencyPanel shipments={shipments} onSelect={handleSelect} />
-        </div>
-
         <ShipmentTable
           shipments={shipments}
           filterMode={filterMode}

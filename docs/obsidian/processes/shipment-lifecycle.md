@@ -314,11 +314,10 @@ Single grouped fetch via `useShipmentBoard(filters)` → `GET /export/shipments/
 
 #### 5. ShipmentDashboard (`frontend/src/pages/export/ShipmentDashboard.tsx`)
 
-**Purpose**: Urgency-focused view with slide-out detail.
-- DashboardHeader with filter controls (all/active/completed, search)
-- UrgencyPanel (left) — shipments sorted by urgency
-- ShipmentTable (main) — filtered list
-- DetailSlide (right drawer) — selected shipment detail on click
+**Purpose**: Filterable shipment list with slide-out detail you can act on.
+- DashboardHeader with stats + filter controls (all/active/completed, search)
+- ShipmentTable (full-width) — filtered list (the UrgencyPanel sidebar was removed; the "Missing Reports" count lives in DashboardHeader)
+- DetailSlide (right drawer) — selected shipment detail on click, with an **Edit** button that opens the shared `ShipmentEditDrawer` for permission-aware inline field edits (via `useShipmentPatchMulti`)
 
 ### Components Used
 

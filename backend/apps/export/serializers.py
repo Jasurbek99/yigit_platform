@@ -69,12 +69,37 @@ class ShipmentListSerializer(serializers.ModelSerializer):
 
     # DB column is status_id (FK); expose both ID and display name per api-contract
     status_display = serializers.CharField(source='status.name_en', read_only=True)
+    status_code = serializers.CharField(source='status.code', read_only=True)
     status_step = serializers.IntegerField(source='status.step_order', read_only=True)
     country_name = serializers.CharField(source='country.name_en', read_only=True)
+    country_code = serializers.CharField(source='country.code', read_only=True, default=None)
     customer_name = serializers.CharField(source='customer.name', read_only=True)
     city_name = serializers.CharField(source='city.name', read_only=True, default=None)
     variety_name = serializers.CharField(source='variety.name', read_only=True, default=None)
+    variety_code = serializers.CharField(source='variety.code', read_only=True, default=None)
     border_point_name = serializers.CharField(source='border_point.name', read_only=True, default=None)
+
+    # Import firm — name_short with name_company fallback (mirrors sheet serializer)
+    import_firm_name = serializers.SerializerMethodField()
+
+    def get_import_firm_name(self, obj) -> str | None:
+        firm = obj.import_firm
+        if not firm:
+            return None
+        return firm.name_short or firm.name_company
+
+    # Transport — human label for the responsible-party enum
+    vehicle_responsible_display = serializers.CharField(source='vehicle_responsible', read_only=True)
+
+    # Audit
+    created_by_name = serializers.CharField(source='created_by.username', read_only=True, default=None)
+
+    # Quality document flags (flattened from OneToOne related_name 'quality').
+    # default=False so a shipment with no QualityDocument row reports unchecked.
+    doc_azyk = serializers.BooleanField(source='quality.azyk_maglumatnama', read_only=True, default=False)
+    doc_suriji = serializers.BooleanField(source='quality.suriji_gozukdiriji', read_only=True, default=False)
+    doc_hil = serializers.BooleanField(source='quality.hil_sertifikaty', read_only=True, default=False)
+    doc_kalibrowka = serializers.BooleanField(source='quality.kalibrowka_analiz', read_only=True, default=False)
 
     # Phase grouping (Stream C) — maps status code to PLAN/PREP/DOCS/LOAD/TRANSIT/DEST/CLOSE.
     phase = serializers.SerializerMethodField()
@@ -127,8 +152,10 @@ class ShipmentListSerializer(serializers.ModelSerializer):
             'date',
             'status',
             'status_display',
+            'status_code',
             'status_step',
             'country_name',
+            'country_code',
             'customer_name',
             'weight_net',
             'weight_gross',
@@ -151,6 +178,38 @@ class ShipmentListSerializer(serializers.ModelSerializer):
             'freshness',
             # Phase grouping (Stream C)
             'phase',
+            # ── Opt-in column fields (Sheet parity, scalar only) ──────────────
+            # These extend the list payload so the ShipmentList column manager
+            # can offer the same operational fields the Sheet shows as rows.
+            # Nested firm_splits / block_sources are intentionally excluded —
+            # the list endpoint stays flat (no related-table prefetch).
+            # Customer / product
+            'import_firm', 'import_firm_name',
+            'variety', 'variety_code',
+            # Weight detail
+            'packaging_kg', 'pallet_count', 'box_count', 'rejected_weight_kg',
+            # Transport
+            'vehicle_responsible', 'vehicle_responsible_display',
+            'trailer_id',
+            'truck_plate', 'driver_name', 'driver_phone',
+            'transport_temp_c', 'transit_days',
+            'has_peregruz', 'peregruz_city', 'peregruz_date',
+            # Operational planning
+            'customs_clearance_planned_day',
+            # AD-1 + operator-entered timestamps
+            'loading_started_at', 'customs_entry_at', 'customs_exit_at',
+            'border_crossed_at', 'sale_started_at', 'sale_ended_at',
+            'dest_entry_at', 'loading_ended_at', 'sales_report_date',
+            'harvest_date',
+            # AD-2 vehicle condition + live status
+            'vehicle_condition', 'vehicle_condition_note', 'vehicle_live_status',
+            # Quality doc flags (flattened)
+            'doc_azyk', 'doc_suriji', 'doc_hil', 'doc_kalibrowka',
+            # Notes
+            'notes', 'export_manager_note', 'warehouse_note',
+            'document_note', 'additional_notes_arap',
+            # Audit
+            'created_by_name', 'created_at',
         ]
 
 
@@ -187,13 +246,12 @@ class ShipmentDraftListSerializer(ShipmentListSerializer):
     layer the draft-specific fields on top.
     """
 
-    created_by_name = serializers.CharField(source='created_by.username', read_only=True, default=None)
+    # created_by_name is now provided by the base ShipmentListSerializer; the
+    # draft view adds only the block sources and draft-specific scalar fields.
     block_sources = DraftBlockSourceInlineSerializer(many=True, read_only=True)
 
     class Meta(ShipmentListSerializer.Meta):
         fields = ShipmentListSerializer.Meta.fields + [
-            'created_at',
-            'created_by_name',
             'block_sources',
             'previous_platform_id',
             'variety_confidence',

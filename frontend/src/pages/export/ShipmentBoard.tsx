@@ -24,6 +24,9 @@ const PHASE_ACCENT: Record<ShipmentPhase, string> = {
   TRANSIT: '#13c2c2',
   DEST: COLORS.purple,
   CLOSE: COLORS.success,
+  // CANCELLED is not rendered as a Kanban column (not in PHASES array).
+  // The entry is required for the exhaustive Record type.
+  CANCELLED: '#ff4d4f',
 };
 
 /** Static owner-role options for the filter dropdown. */

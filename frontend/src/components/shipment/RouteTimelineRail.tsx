@@ -1,4 +1,5 @@
 import { Card, Tag } from 'antd';
+import { CloseCircleOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import type { IShipmentDetail, IStatusLogEntry } from '@/types';
@@ -48,12 +49,15 @@ interface IRouteTimelineRailProps {
 /**
  * Vertical status-route timeline extracted from the old ShipmentDetail tabs.
  * Shows all 13 lifecycle steps with completion markers, timestamps, and comments.
+ * When a shipment is cancelled, forward steps that were never reached are
+ * rendered as dimmed/disabled (not pending-next), and a red "Cancelled" tile
+ * is appended at the end showing the timestamp and reason.
  */
 export function RouteTimelineRail({ shipment }: IRouteTimelineRailProps) {
   const { t } = useTranslation();
 
   const STATUS_STEPS = getStatusStepsForShipment(shipment.has_peregruz);
-  const currentIdx = STATUS_STEPS.findIndex((s) => s.code === shipment.status_code);
+  const isCancelled = shipment.status_code === 'cancelled';
 
   // Map log entries by status_code so we don't rely on positional ordering;
   // ShipmentStatusLog is ordered by -changed_at so log[0] is the most recent
@@ -63,6 +67,29 @@ export function RouteTimelineRail({ shipment }: IRouteTimelineRailProps) {
     logByCode.set(entry.status_code, entry);
   }
 
+  // For cancelled shipments: find the last forward step that was actually
+  // reached so we can mark everything up to that as 'done' and everything
+  // after as 'skipped' (dimmed, not pending-next).
+  const cancelledLogEntry: IStatusLogEntry | null = isCancelled
+    ? (logByCode.get('cancelled') ?? null)
+    : null;
+
+  // Determine the index of the last reached forward step.
+  // We walk STATUS_STEPS in reverse and find the first one present in logByCode.
+  let lastReachedIdx = -1;
+  if (isCancelled) {
+    for (let i = STATUS_STEPS.length - 1; i >= 0; i--) {
+      if (logByCode.has(STATUS_STEPS[i].code)) {
+        lastReachedIdx = i;
+        break;
+      }
+    }
+  }
+
+  const currentIdx = isCancelled
+    ? lastReachedIdx
+    : STATUS_STEPS.findIndex((s) => s.code === shipment.status_code);
+
   return (
     <Card
       title={`📍 ${t('shipment_detail.route_card')}`}
@@ -71,9 +98,16 @@ export function RouteTimelineRail({ shipment }: IRouteTimelineRailProps) {
     >
       <div style={{ padding: '4px 0' }}>
         {STATUS_STEPS.map((step, idx) => {
-          const state: 'done' | 'active' | 'pending' =
-            idx < currentIdx ? 'done' : idx === currentIdx ? 'active' : 'pending';
+          // For cancelled shipments, every step after the last reached one is
+          // 'skipped' (dimmed). Steps at or before lastReachedIdx are 'done'.
+          // For normal shipments: existing done/active/pending logic.
+          const state: 'done' | 'active' | 'pending' | 'skipped' = isCancelled
+            ? (idx <= currentIdx ? 'done' : 'skipped')
+            : (idx < currentIdx ? 'done' : idx === currentIdx ? 'active' : 'pending');
+
           const logEntry: IStatusLogEntry | null = logByCode.get(step.code) ?? null;
+          // For cancelled shipments there is no future "next" step — all
+          // remaining forward steps get a line to the cancel tile.
           const isLast = idx === STATUS_STEPS.length - 1;
 
           return (
@@ -108,21 +142,26 @@ export function RouteTimelineRail({ shipment }: IRouteTimelineRailProps) {
                   fontWeight: 600,
                   zIndex: 1,
                   background:
-                    state === 'done' ? COLORS.success : state === 'active' ? COLORS.primary : COLORS.bgLight,
-                  color: state === 'pending' ? COLORS.textMuted : COLORS.white,
-                  border: state === 'pending' ? '2px solid #d9d9d9' : 'none',
+                    state === 'done' ? COLORS.success :
+                    state === 'active' ? COLORS.primary :
+                    COLORS.bgLight,
+                  color: (state === 'pending' || state === 'skipped') ? COLORS.textMuted : COLORS.white,
+                  border: (state === 'pending' || state === 'skipped') ? '2px solid #d9d9d9' : 'none',
+                  opacity: state === 'skipped' ? 0.45 : 1,
                 }}
               >
                 {state === 'done' ? '✓' : state === 'active' ? '●' : idx + 1}
               </div>
               {/* Content */}
-              <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ flex: 1, minWidth: 0, opacity: state === 'skipped' ? 0.45 : 1 }}>
                 <div
                   style={{
                     fontWeight: state === 'active' ? 600 : 500,
                     fontSize: 13,
                     color:
-                      state === 'pending' ? COLORS.textMuted : state === 'active' ? COLORS.primary : COLORS.textPrimary,
+                      (state === 'pending' || state === 'skipped') ? COLORS.textMuted :
+                      state === 'active' ? COLORS.primary :
+                      COLORS.textPrimary,
                   }}
                 >
                   {t(`shipment_status.${step.code}`)}
@@ -131,18 +170,18 @@ export function RouteTimelineRail({ shipment }: IRouteTimelineRailProps) {
                       {` — ${shipment.country_name}`}
                     </span>
                   )}
-                  {state !== 'pending' && logEntry?.is_auto && (
+                  {state !== 'pending' && state !== 'skipped' && logEntry?.is_auto && (
                     <Tag color="default" style={{ marginLeft: 6, fontSize: 10, lineHeight: '16px' }}>
                       {t('shipment_status.auto_badge', 'Auto')}
                     </Tag>
                   )}
                 </div>
-                {state !== 'pending' && logEntry && (
+                {state !== 'pending' && state !== 'skipped' && logEntry && (
                   <div style={{ fontSize: 11, color: COLORS.textSecondary, fontFamily: FONT.mono }}>
                     {fmt(logEntry.changed_at)}
                   </div>
                 )}
-                {state !== 'pending' && logEntry?.comment && (
+                {state !== 'pending' && state !== 'skipped' && logEntry?.comment && (
                   <div style={{ fontSize: 11, color: COLORS.textTertiary, marginTop: 2 }}>
                     {logEntry.comment}
                   </div>
@@ -156,6 +195,68 @@ export function RouteTimelineRail({ shipment }: IRouteTimelineRailProps) {
             </div>
           );
         })}
+
+        {/* Cancelled tile — appended after all forward steps for cancelled shipments */}
+        {isCancelled && (
+          <div style={{ display: 'flex', gap: 12, position: 'relative', paddingTop: 20 }}>
+            {/* Red dot with X icon */}
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: '50%',
+                flexShrink: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 16,
+                zIndex: 1,
+                background: '#ff4d4f',
+                color: '#fff',
+                border: 'none',
+              }}
+            >
+              <CloseCircleOutlined />
+            </div>
+            {/* Connector line from last forward step to cancelled tile */}
+            <div
+              style={{
+                position: 'absolute',
+                left: 15,
+                top: 0,
+                height: 20,
+                width: 2,
+                background: COLORS.border,
+              }}
+            />
+            {/* Cancelled content */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 600, fontSize: 13, color: '#ff4d4f' }}>
+                {t('shipment_status.cancelled')}
+              </div>
+              {cancelledLogEntry && (
+                <div style={{ fontSize: 11, color: COLORS.textSecondary, fontFamily: FONT.mono }}>
+                  {fmt(cancelledLogEntry.changed_at)}
+                  {cancelledLogEntry.changed_by_name && (
+                    <span> · {cancelledLogEntry.changed_by_name}</span>
+                  )}
+                </div>
+              )}
+              {cancelledLogEntry?.comment && (
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: COLORS.textTertiary,
+                    marginTop: 2,
+                    fontStyle: 'italic',
+                  }}
+                >
+                  {cancelledLogEntry.comment}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </Card>
   );

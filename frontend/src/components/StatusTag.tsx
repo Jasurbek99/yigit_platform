@@ -14,6 +14,7 @@ const STATUS_COLORS: Record<string, string> = {
   Sold: 'green',
   Report: 'gold',
   Completed: 'default',
+  Cancelled: 'red',
 };
 
 export interface IStatusTagProps {

@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Button, Flex, Input, Select, Segmented, Tag, Tooltip, Typography } from 'antd';
+import { Button, Checkbox, Flex, Input, Select, Segmented, Tag, Tooltip, Typography } from 'antd';
 import { PlusOutlined, DownloadOutlined, EditOutlined, FilterOutlined } from '@ant-design/icons';
 import { ProTable } from '@ant-design/pro-components';
-import type { ProColumns } from '@ant-design/pro-components';
+import type { ProColumns, ColumnsState } from '@ant-design/pro-components';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
@@ -51,9 +51,77 @@ function withFlag(name: string | null): string {
   return flag ? `${flag} ${name}` : name;
 }
 
+// ─── Cell render helpers (shared by the opt-in Sheet-parity columns) ─────────
+const mutedDash = <span style={{ color: COLORS.textMuted }}>—</span>;
+
+function renderText(value: string | null | undefined): React.ReactNode {
+  return value ? value : mutedDash;
+}
+
+function renderMono(value: string | null | undefined): React.ReactNode {
+  return value ? (
+    <span style={{ fontFamily: FONT.mono, fontSize: 12 }}>{value}</span>
+  ) : mutedDash;
+}
+
+function renderNumber(value: number | null | undefined): React.ReactNode {
+  return value != null ? (
+    <span style={{ fontFamily: FONT.mono }}>{Number(value).toLocaleString()}</span>
+  ) : mutedDash;
+}
+
+function renderDate(value: string | null | undefined): React.ReactNode {
+  return value ? (
+    <span style={{ fontFamily: FONT.mono, fontSize: 12 }}>{dayjs(value).format('DD.MM.YYYY')}</span>
+  ) : mutedDash;
+}
+
+function renderDateTime(value: string | null | undefined): React.ReactNode {
+  return value ? (
+    <span style={{ fontFamily: FONT.mono, color: COLORS.textSecondary, fontSize: 12 }}>
+      {dayjs(value).format('DD.MM.YY HH:mm')}
+    </span>
+  ) : mutedDash;
+}
+
+function renderBool(value: boolean): React.ReactNode {
+  return value ? <Tag color="green">✓</Tag> : mutedDash;
+}
+
 const PHASE_KEYS = [
   'planlanyan', 'yuklenme', 'bardy', 'gumruk_girish', 'satylyor', 'satyldy', 'tamamlandy',
 ] as const;
+
+// localStorage key for the per-user column layout (visibility + order + pin).
+// ProTable's ColumnSetting writes/reads this map automatically.
+const COLUMN_STATE_KEY = 'ygt.shipmentList.columnsState';
+
+// Default column layout. Keys match each column's `key`/`dataIndex`. Columns
+// absent from this map are shown by default; the ones below ship hidden so the
+// out-of-the-box table matches the original 7-column view — users opt them in
+// via the column settings (gear) panel, which also reorders and pins them.
+const HIDDEN_BY_DEFAULT: ReadonlyArray<string> = [
+  // Round-2 opt-in columns
+  'date', 'official_export_code', 'weight_gross', 'city_name', 'variety_name',
+  'border_point_name', 'price_per_kg', 'total_amount_usd', 'is_gapy_satys',
+  // Sheet-parity opt-in columns
+  'import_firm_name', 'variety_code',
+  'packaging_kg', 'pallet_count', 'box_count', 'rejected_weight_kg',
+  'vehicle_responsible_display', 'truck_plate', 'driver_name', 'driver_phone',
+  'transport_temp_c', 'transit_days', 'has_peregruz', 'peregruz_city', 'peregruz_date',
+  'customs_clearance_planned_day',
+  'loading_started_at', 'loading_ended_at', 'customs_entry_at', 'customs_exit_at',
+  'border_crossed_at', 'dest_entry_at', 'sale_started_at', 'sale_ended_at',
+  'sales_report_date', 'harvest_date',
+  'vehicle_condition', 'vehicle_condition_note', 'vehicle_live_status',
+  'doc_azyk', 'doc_suriji', 'doc_hil', 'doc_kalibrowka',
+  'notes', 'export_manager_note', 'warehouse_note', 'document_note', 'additional_notes_arap',
+  'created_by_name', 'created_at',
+];
+
+const DEFAULT_COLUMN_STATE: Record<string, ColumnsState> = Object.fromEntries(
+  HIDDEN_BY_DEFAULT.map((key) => [key, { show: false }]),
+);
 
 function exportToExcel(rows: IShipmentListItem[], t: (k: string) => string) {
   const sheetData = rows.map((r) => ({
@@ -103,6 +171,8 @@ export default function ShipmentList() {
   const dateAfter = searchParams.get('date_after') ?? undefined;
   const dateBefore = searchParams.get('date_before') ?? undefined;
   const pendingMyFields = searchParams.get('pending_my_fields') === 'true';
+  // Show cancelled filter — false by default so the active list stays clean.
+  const showCancelled = searchParams.get('show_cancelled') === 'true';
 
   function updateParams(updates: Record<string, string | undefined>) {
     setSearchParams((prev) => {
@@ -138,6 +208,7 @@ export default function ShipmentList() {
     date_after: dateAfter,
     date_before: dateBefore,
     pending_my_fields: pendingMyFields || undefined,
+    show_cancelled: showCancelled || undefined,
   });
 
   const advancedFilterCount = [
@@ -147,6 +218,7 @@ export default function ShipmentList() {
     dateAfter,
     dateBefore,
     pendingMyFields ? 'on' : undefined,
+    showCancelled ? 'on' : undefined,
   ].filter(Boolean).length;
 
   function applyAdvancedFilters(values: {
@@ -177,6 +249,7 @@ export default function ShipmentList() {
       date_after: undefined,
       date_before: undefined,
       pending_my_fields: undefined,
+      show_cancelled: undefined,
       page: undefined,
     });
   }
@@ -189,6 +262,7 @@ export default function ShipmentList() {
     {
       title: t('shipments.cargo_code'),
       dataIndex: 'cargo_code',
+      key: 'cargo_code',
       width: 140,
       render: (_, record) => (
         <span
@@ -206,24 +280,28 @@ export default function ShipmentList() {
     {
       title: t('shipments.customer'),
       dataIndex: 'customer_name',
+      key: 'customer_name',
       width: 150,
       render: (_, record) => record.customer_name ?? '—',
     },
     {
       title: t('shipments.country'),
       dataIndex: 'country_name',
+      key: 'country_name',
       width: 130,
       render: (_, record) => withFlag(record.country_name ?? null),
     },
     {
       title: t('shipments.status'),
       dataIndex: 'status_display',
+      key: 'status_display',
       width: 150,
       render: (_, record) => <StatusTag statusDisplay={record.status_display} />,
     },
     {
       title: t('shipments.weight_net'),
       dataIndex: 'weight_net',
+      key: 'weight_net',
       width: 120,
       align: 'right',
       responsive: ['md'],
@@ -250,6 +328,7 @@ export default function ShipmentList() {
     {
       title: t('shipments.departed'),
       dataIndex: 'departed_at',
+      key: 'departed_at',
       width: 130,
       render: (_, record) =>
         record.departed_at ? (
@@ -263,6 +342,7 @@ export default function ShipmentList() {
     {
       title: t('shipments.arrived'),
       dataIndex: 'arrived_at',
+      key: 'arrived_at',
       width: 130,
       responsive: ['md'],
       render: (_, record) =>
@@ -274,9 +354,159 @@ export default function ShipmentList() {
           <span style={{ color: COLORS.textMuted }}>—</span>
         ),
     },
+    // ── Opt-in columns (hidden by default; toggled/reordered via the gear) ──
+    {
+      title: t('shipments.date'),
+      dataIndex: 'date',
+      key: 'date',
+      width: 110,
+      render: (_, record) =>
+        record.date ? (
+          <span style={{ fontFamily: FONT.mono, fontSize: 12 }}>
+            {dayjs(record.date).format('DD.MM.YYYY')}
+          </span>
+        ) : (
+          <span style={{ color: COLORS.textMuted }}>—</span>
+        ),
+    },
+    {
+      title: t('shipments.official_code'),
+      dataIndex: 'official_export_code',
+      key: 'official_export_code',
+      width: 140,
+      render: (_, record) =>
+        record.official_export_code ? (
+          <span style={{ fontFamily: FONT.mono, fontSize: 12 }}>{record.official_export_code}</span>
+        ) : (
+          <span style={{ color: COLORS.textMuted }}>—</span>
+        ),
+    },
+    {
+      title: t('shipments.weight_gross'),
+      dataIndex: 'weight_gross',
+      key: 'weight_gross',
+      width: 120,
+      align: 'right',
+      render: (_, record) =>
+        record.weight_gross != null ? (
+          <span style={{ fontFamily: FONT.mono }}>{Number(record.weight_gross).toLocaleString()}</span>
+        ) : (
+          <span style={{ color: COLORS.textMuted }}>—</span>
+        ),
+    },
+    {
+      title: t('shipments.city'),
+      dataIndex: 'city_name',
+      key: 'city_name',
+      width: 120,
+      render: (_, record) => record.city_name ?? '—',
+    },
+    {
+      title: t('shipments.variety'),
+      dataIndex: 'variety_name',
+      key: 'variety_name',
+      width: 120,
+      render: (_, record) => record.variety_name ?? '—',
+    },
+    {
+      title: t('shipments.border_point'),
+      dataIndex: 'border_point_name',
+      key: 'border_point_name',
+      width: 130,
+      render: (_, record) => record.border_point_name ?? '—',
+    },
+    {
+      title: t('shipments.price_per_kg'),
+      dataIndex: 'price_per_kg',
+      key: 'price_per_kg',
+      width: 110,
+      align: 'right',
+      render: (_, record) =>
+        record.price_per_kg != null ? (
+          <span style={{ fontFamily: FONT.mono }}>{Number(record.price_per_kg).toLocaleString()}</span>
+        ) : (
+          <span style={{ color: COLORS.textMuted }}>—</span>
+        ),
+    },
+    {
+      title: t('shipments.total_usd'),
+      dataIndex: 'total_amount_usd',
+      key: 'total_amount_usd',
+      width: 130,
+      align: 'right',
+      render: (_, record) =>
+        record.total_amount_usd != null ? (
+          <span style={{ fontFamily: FONT.mono }}>
+            ${Number(record.total_amount_usd).toLocaleString()}
+          </span>
+        ) : (
+          <span style={{ color: COLORS.textMuted }}>—</span>
+        ),
+    },
+    {
+      title: t('shipments.gapy_satys'),
+      dataIndex: 'is_gapy_satys',
+      key: 'is_gapy_satys',
+      width: 110,
+      render: (_, record) =>
+        record.is_gapy_satys ? (
+          <Tag color="purple">{t('shipments.gapy_satys')}</Tag>
+        ) : (
+          <span style={{ color: COLORS.textMuted }}>—</span>
+        ),
+    },
+    // Customer / product
+    { title: t('shipments.import_firm'), dataIndex: 'import_firm_name', key: 'import_firm_name', width: 150, render: (_, r) => renderText(r.import_firm_name) },
+    { title: t('shipments.variety_code'), dataIndex: 'variety_code', key: 'variety_code', width: 110, render: (_, r) => renderMono(r.variety_code) },
+    // Weight detail
+    { title: t('shipments.packaging_kg'), dataIndex: 'packaging_kg', key: 'packaging_kg', width: 120, align: 'right', render: (_, r) => renderNumber(r.packaging_kg) },
+    { title: t('shipments.pallet_count'), dataIndex: 'pallet_count', key: 'pallet_count', width: 90, align: 'right', render: (_, r) => renderNumber(r.pallet_count) },
+    { title: t('shipments.box_count'), dataIndex: 'box_count', key: 'box_count', width: 90, align: 'right', render: (_, r) => renderNumber(r.box_count) },
+    { title: t('shipments.rejected_weight_kg'), dataIndex: 'rejected_weight_kg', key: 'rejected_weight_kg', width: 120, align: 'right', render: (_, r) => renderNumber(r.rejected_weight_kg) },
+    // Transport
+    { title: t('shipments.vehicle_responsible'), dataIndex: 'vehicle_responsible_display', key: 'vehicle_responsible_display', width: 150, render: (_, r) => renderText(r.vehicle_responsible_display) },
+    { title: t('shipments.truck_plate'), dataIndex: 'truck_plate', key: 'truck_plate', width: 120, render: (_, r) => renderMono(r.truck_plate) },
+    { title: t('shipments.driver_name'), dataIndex: 'driver_name', key: 'driver_name', width: 140, render: (_, r) => renderText(r.driver_name) },
+    { title: t('shipments.driver_phone'), dataIndex: 'driver_phone', key: 'driver_phone', width: 140, render: (_, r) => renderMono(r.driver_phone) },
+    { title: t('shipments.transport_temp_c'), dataIndex: 'transport_temp_c', key: 'transport_temp_c', width: 100, align: 'right', render: (_, r) => renderNumber(r.transport_temp_c) },
+    { title: t('shipments.transit_days'), dataIndex: 'transit_days', key: 'transit_days', width: 100, align: 'right', render: (_, r) => renderNumber(r.transit_days) },
+    { title: t('shipments.has_peregruz'), dataIndex: 'has_peregruz', key: 'has_peregruz', width: 100, render: (_, r) => renderBool(r.has_peregruz) },
+    { title: t('shipments.peregruz_city'), dataIndex: 'peregruz_city', key: 'peregruz_city', width: 130, render: (_, r) => renderText(r.peregruz_city) },
+    { title: t('shipments.peregruz_date'), dataIndex: 'peregruz_date', key: 'peregruz_date', width: 110, render: (_, r) => renderDate(r.peregruz_date) },
+    { title: t('shipments.customs_planned_day'), dataIndex: 'customs_clearance_planned_day', key: 'customs_clearance_planned_day', width: 120, render: (_, r) => renderText(r.customs_clearance_planned_day) },
+    // Timestamps
+    { title: t('shipments.loading_started'), dataIndex: 'loading_started_at', key: 'loading_started_at', width: 130, render: (_, r) => renderDateTime(r.loading_started_at) },
+    { title: t('shipments.loading_ended'), dataIndex: 'loading_ended_at', key: 'loading_ended_at', width: 130, render: (_, r) => renderDateTime(r.loading_ended_at) },
+    { title: t('shipments.customs_entry'), dataIndex: 'customs_entry_at', key: 'customs_entry_at', width: 130, render: (_, r) => renderDateTime(r.customs_entry_at) },
+    { title: t('shipments.customs_exit'), dataIndex: 'customs_exit_at', key: 'customs_exit_at', width: 130, render: (_, r) => renderDateTime(r.customs_exit_at) },
+    { title: t('shipments.border_crossed'), dataIndex: 'border_crossed_at', key: 'border_crossed_at', width: 130, render: (_, r) => renderDateTime(r.border_crossed_at) },
+    { title: t('shipments.dest_entry'), dataIndex: 'dest_entry_at', key: 'dest_entry_at', width: 130, render: (_, r) => renderDateTime(r.dest_entry_at) },
+    { title: t('shipments.sale_started'), dataIndex: 'sale_started_at', key: 'sale_started_at', width: 130, render: (_, r) => renderDateTime(r.sale_started_at) },
+    { title: t('shipments.sale_ended'), dataIndex: 'sale_ended_at', key: 'sale_ended_at', width: 130, render: (_, r) => renderDateTime(r.sale_ended_at) },
+    { title: t('shipments.sales_report_date'), dataIndex: 'sales_report_date', key: 'sales_report_date', width: 120, render: (_, r) => renderDate(r.sales_report_date) },
+    { title: t('shipments.harvest_date'), dataIndex: 'harvest_date', key: 'harvest_date', width: 120, render: (_, r) => renderDate(r.harvest_date) },
+    // Vehicle condition (AD-2)
+    { title: t('shipments.vehicle_condition'), dataIndex: 'vehicle_condition', key: 'vehicle_condition', width: 120, render: (_, r) => renderText(r.vehicle_condition) },
+    { title: t('shipments.vehicle_condition_note'), dataIndex: 'vehicle_condition_note', key: 'vehicle_condition_note', width: 180, render: (_, r) => renderText(r.vehicle_condition_note) },
+    { title: t('shipments.vehicle_live_status'), dataIndex: 'vehicle_live_status', key: 'vehicle_live_status', width: 160, render: (_, r) => renderText(r.vehicle_live_status) },
+    // Quality docs
+    { title: t('shipments.doc_azyk'), dataIndex: 'doc_azyk', key: 'doc_azyk', width: 100, render: (_, r) => renderBool(r.doc_azyk) },
+    { title: t('shipments.doc_suriji'), dataIndex: 'doc_suriji', key: 'doc_suriji', width: 100, render: (_, r) => renderBool(r.doc_suriji) },
+    { title: t('shipments.doc_hil'), dataIndex: 'doc_hil', key: 'doc_hil', width: 100, render: (_, r) => renderBool(r.doc_hil) },
+    { title: t('shipments.doc_kalibrowka'), dataIndex: 'doc_kalibrowka', key: 'doc_kalibrowka', width: 110, render: (_, r) => renderBool(r.doc_kalibrowka) },
+    // Notes
+    { title: t('shipments.notes'), dataIndex: 'notes', key: 'notes', width: 200, ellipsis: true, render: (_, r) => renderText(r.notes) },
+    { title: t('shipments.export_manager_note'), dataIndex: 'export_manager_note', key: 'export_manager_note', width: 200, ellipsis: true, render: (_, r) => renderText(r.export_manager_note) },
+    { title: t('shipments.warehouse_note'), dataIndex: 'warehouse_note', key: 'warehouse_note', width: 200, ellipsis: true, render: (_, r) => renderText(r.warehouse_note) },
+    { title: t('shipments.document_note'), dataIndex: 'document_note', key: 'document_note', width: 200, ellipsis: true, render: (_, r) => renderText(r.document_note) },
+    { title: t('shipments.additional_notes_arap'), dataIndex: 'additional_notes_arap', key: 'additional_notes_arap', width: 200, ellipsis: true, render: (_, r) => renderText(r.additional_notes_arap) },
+    // Audit
+    { title: t('shipments.created_by'), dataIndex: 'created_by_name', key: 'created_by_name', width: 140, render: (_, r) => renderText(r.created_by_name) },
+    { title: t('shipments.created_at'), dataIndex: 'created_at', key: 'created_at', width: 130, render: (_, r) => renderDateTime(r.created_at) },
     {
       title: '',
       key: '_actions',
+      hideInSetting: true,
       width: 56,
       align: 'center',
       fixed: 'right',
@@ -346,6 +576,14 @@ export default function ShipmentList() {
           options={PHASE_KEYS.map((key) => ({ value: key, label: t(`phases.${key}`) }))}
           allowClear
         />
+        <Checkbox
+          checked={showCancelled}
+          onChange={(e) => {
+            updateParams({ show_cancelled: e.target.checked ? 'true' : undefined, page: undefined });
+          }}
+        >
+          {t('shipments.show_cancelled')}
+        </Checkbox>
         <Segmented
           value={viewMode}
           options={[
@@ -417,6 +655,15 @@ export default function ShipmentList() {
               {t('shipment_filter_drawer.chip_pending')}
             </Tag>
           )}
+          {showCancelled && (
+            <Tag
+              color="red"
+              closable
+              onClose={() => updateParams({ show_cancelled: undefined, page: undefined })}
+            >
+              {t('shipments.chip_show_cancelled')}
+            </Tag>
+          )}
           <Button size="small" type="link" onClick={clearAdvancedFilters}>
             {t('shipment_filter_drawer.clear_all')}
           </Button>
@@ -464,7 +711,12 @@ export default function ShipmentList() {
         loading={isLoading}
         columns={columns}
         search={false}
-        options={false}
+        options={{ reload: false, density: false, fullScreen: false, setting: { draggable: true, checkable: true } }}
+        columnsState={{
+          persistenceKey: COLUMN_STATE_KEY,
+          persistenceType: 'localStorage',
+          defaultValue: DEFAULT_COLUMN_STATE,
+        }}
         rowSelection={canEditAnyField && !isArchiveView ? {
           selectedRowKeys,
           onChange: (keys) => setSelectedRowKeys(keys as number[]),
@@ -487,7 +739,9 @@ export default function ShipmentList() {
         size="middle"
         scroll={{ x: 900 }}
         dateFormatter={false}
-        toolBarRender={false}
+        // Empty left toolbar — keeps the row minimal so only the column-settings
+        // gear (rendered from `options`) shows on the right.
+        toolBarRender={() => []}
       />
 
       <ShipmentCreateModal

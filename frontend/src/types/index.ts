@@ -2,7 +2,7 @@
 
 // --- Phase (Stream C) -------------------------------------------------------
 
-export type ShipmentPhase = 'PLAN' | 'PREP' | 'DOCS' | 'LOAD' | 'TRANSIT' | 'DEST' | 'CLOSE';
+export type ShipmentPhase = 'PLAN' | 'PREP' | 'DOCS' | 'LOAD' | 'TRANSIT' | 'DEST' | 'CLOSE' | 'CANCELLED';
 
 // --- Auth -------------------------------------------------------------------
 
@@ -192,6 +192,63 @@ export interface IShipmentListItem {
   freshness: 'today' | 'yesterday' | 'aged';
   // Phase grouping (Stream C)
   phase: ShipmentPhase;
+  // ─── Opt-in column fields (Sheet parity, scalar only) ──────────────────────
+  // Returned by ShipmentListSerializer so the column manager can offer the same
+  // operational fields the Sheet shows as rows. Hidden by default in the table.
+  status_code: string;
+  country_code: string | null;
+  variety: number | null;
+  variety_code: string | null;
+  import_firm: number | null;
+  import_firm_name: string | null;
+  // Weight detail
+  packaging_kg: number | null;
+  pallet_count: number | null;
+  box_count: number | null;
+  rejected_weight_kg: number | null;
+  // Transport
+  vehicle_responsible: string | null;
+  vehicle_responsible_display: string | null;
+  trailer_id: number | null;
+  truck_plate: string | null;
+  driver_name: string | null;
+  driver_phone: string | null;
+  transport_temp_c: number | null;
+  transit_days: number | null;
+  has_peregruz: boolean;
+  peregruz_city: string | null;
+  peregruz_date: string | null;
+  // Operational planning
+  customs_clearance_planned_day: 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun' | '' | null;
+  // AD-1 + operator-entered timestamps
+  loading_started_at: string | null;
+  customs_entry_at: string | null;
+  customs_exit_at: string | null;
+  border_crossed_at: string | null;
+  sale_started_at: string | null;
+  sale_ended_at: string | null;
+  dest_entry_at: string | null;
+  loading_ended_at: string | null;
+  sales_report_date: string | null;
+  harvest_date: string | null;
+  // AD-2 vehicle condition + live status
+  vehicle_condition: VehicleCondition | null;
+  vehicle_condition_note: string | null;
+  vehicle_live_status: string | null;
+  // Quality doc flags (flattened)
+  doc_azyk: boolean;
+  doc_suriji: boolean;
+  doc_hil: boolean;
+  doc_kalibrowka: boolean;
+  // Notes
+  notes: string | null;
+  export_manager_note: string | null;
+  warehouse_note: string | null;
+  document_note: string | null;
+  additional_notes_arap: string | null;
+  // Audit
+  created_by_name: string | null;
+  created_at: string;
 }
 
 // â”€â”€â”€ Sheet View â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1083,7 +1140,7 @@ export interface IShipmentDetail extends IShipmentListItem {
   // State machine v2: when True, the lifecycle includes a `transshipment`
   // step between barysh_gumrugi and bardy. RouteTimelineRail uses this to
   // decide whether to render the transshipment slot.
-  has_peregruz?: boolean | null;
+  // (has_peregruz inherited from IShipmentListItem as a required boolean.)
   created_at: string;
   updated_at: string;
   firm_splits: IFirmSplit[];
@@ -1116,6 +1173,20 @@ export interface IShipmentDetail extends IShipmentListItem {
   // do NOT block the flag — promotion is the user's call.
   can_promote_from_draft: boolean;
 }
+// ─── Cancel Shipment mutation response ───────────────────────────────────────
+
+/**
+ * Response shape for POST /api/v1/export/shipments/{id}/cancel/.
+ * Extends the full shipment detail with two quota-cleanup fields that are
+ * only present on the cancel response — not on GET detail.
+ */
+export interface ICancelShipmentResponse extends IShipmentDetail {
+  /** Number of draft QuotaUsageRecords deleted during cancellation. */
+  draft_quota_deleted: number;
+  /** IDs of approved QuotaUsageRecords that need manual reconciliation. */
+  approved_quota_to_reconcile: number[];
+}
+
 // ─── Task system (Stream B / D1) ───────────────────────────────────────────────────────────────────
 
 export type TaskState = 'open' | 'in_progress' | 'blocked' | 'done' | 'cancelled';

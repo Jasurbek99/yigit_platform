@@ -19,6 +19,7 @@ const PHASE_TAG_COLOR: Record<ShipmentPhase, string> = {
   TRANSIT: 'cyan',
   DEST: 'purple',
   CLOSE: 'green',
+  CANCELLED: 'red',
 };
 
 function getBorderColor(task: ITaskListItem): string {

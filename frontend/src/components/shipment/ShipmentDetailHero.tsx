@@ -1,5 +1,6 @@
-import { Button, Flex, Modal, Tag } from 'antd';
-import { ArrowLeftOutlined, RocketOutlined } from '@ant-design/icons';
+import { useState } from 'react';
+import { Button, Flex, Input, Modal, Tag } from 'antd';
+import { ArrowLeftOutlined, RocketOutlined, StopOutlined } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -8,6 +9,8 @@ import { FreshnessPill } from '@/components/FreshnessPill';
 import { TransitionButton } from '@/components/TransitionButton';
 import { useAuth } from '@/hooks/useAuth';
 import { usePromoteFromDraft } from '@/hooks/useDrafts';
+import { useCancelShipment } from '@/hooks/useShipments';
+import { extractPatchError } from '@/hooks/useShipmentPatch';
 import type { IShipmentDetail } from '@/types';
 import { COLORS, FONT } from '@/constants/styles';
 
@@ -25,6 +28,11 @@ export function ShipmentDetailHero({ shipment }: IShipmentDetailHeroProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
 
+  // Cancel modal state
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const cancelMutation = useCancelShipment();
+
   const isIdle =
     shipment.phase_avg_seconds != null &&
     shipment.in_phase_seconds > shipment.phase_avg_seconds * 1.5;
@@ -34,6 +42,41 @@ export function ShipmentDetailHero({ shipment }: IShipmentDetailHeroProps) {
     user?.role === 'warehouse_chief' ||
     user?.role === 'export_manager' ||
     user?.is_superuser === true;
+
+  // Cancel shipment: only export_manager and director, and only when the
+  // shipment is not already cancelled or fully completed.
+  const CANCEL_ROLES: ReadonlyArray<string> = ['export_manager', 'director'];
+  const canCancel =
+    !!user &&
+    CANCEL_ROLES.includes(user.role) &&
+    shipment.status_code !== 'cancelled' &&
+    shipment.status_code !== 'tamamlandy';
+
+  function handleCancelOpen() {
+    setCancelReason('');
+    setCancelModalOpen(true);
+  }
+
+  async function handleCancelConfirm() {
+    const trimmedReason = cancelReason.trim();
+    if (!trimmedReason) return;
+    try {
+      const result = await cancelMutation.mutateAsync({ id: shipment.id, reason: trimmedReason });
+      setCancelModalOpen(false);
+      setCancelReason('');
+      if (result.approved_quota_to_reconcile.length > 0) {
+        toast.warning(
+          t('shipment.cancel_quota_reconcile_toast', {
+            count: result.approved_quota_to_reconcile.length,
+          }),
+        );
+      } else {
+        toast.success(t('shipment.cancel_success_toast'));
+      }
+    } catch (err) {
+      toast.error(extractPatchError(err, t('shipment.cancel_error_toast')));
+    }
+  }
 
   // Stream F — only privileged roles can promote a draft. The backend's
   // /assign/ endpoint enforces this server-side; gating client-side just
@@ -115,6 +158,15 @@ export function ShipmentDetailHero({ shipment }: IShipmentDetailHeroProps) {
               allowedTransitions={shipment.allowed_transitions}
             />
           )}
+          {canCancel && (
+            <Button
+              danger
+              icon={<StopOutlined />}
+              onClick={handleCancelOpen}
+            >
+              {t('shipment.cancel_button')}
+            </Button>
+          )}
         </div>
       </Flex>
 
@@ -122,6 +174,35 @@ export function ShipmentDetailHero({ shipment }: IShipmentDetailHeroProps) {
       <div style={{ paddingLeft: 44, fontSize: 13, color: COLORS.textSecondary }}>
         {shipment.customer_name ?? '—'} → {shipment.country_name ?? '—'}
       </div>
+
+      {/* Cancel confirmation modal */}
+      <Modal
+        open={cancelModalOpen}
+        title={t('shipment.cancel_modal_title')}
+        onCancel={() => setCancelModalOpen(false)}
+        onOk={handleCancelConfirm}
+        okText={t('shipment.cancel_modal_confirm')}
+        cancelText={t('shipment.cancel_modal_cancel')}
+        okButtonProps={{
+          danger: true,
+          disabled: cancelReason.trim().length === 0,
+          loading: cancelMutation.isPending,
+        }}
+        destroyOnClose
+      >
+        <div style={{ marginBottom: 8, fontWeight: 500 }}>
+          {t('shipment.cancel_modal_reason_label')}
+        </div>
+        <Input.TextArea
+          autoFocus
+          rows={3}
+          value={cancelReason}
+          onChange={(e) => setCancelReason(e.target.value)}
+          placeholder={t('shipment.cancel_modal_reason_placeholder')}
+          maxLength={500}
+          showCount
+        />
+      </Modal>
     </div>
   );
 }
