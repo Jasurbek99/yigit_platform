@@ -5,31 +5,24 @@ import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import { handleCellKeyDown } from '@/utils/tableNavigation';
 import { AdminOverrideReasonModal } from '@/components/AdminOverrideReasonModal';
-import type { IHarvestDayEntry, IGreenhouseConfig } from '@/types';
-import { getCurrentForecastWindow } from './HarvestCell.helpers';
+import type { IHarvestDayEntry } from '@/types';
 import { COLORS } from '@/constants/styles';
 
 type InputNumberRef = ComponentRef<typeof InputNumber>;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type DisplayMode =
-  | 'past_actual'
-  | 'today_actual'
-  | 'today_forecast_input'
-  | 'tomorrow_forecast_input'
-  | 'tomorrow_forecast_locked'
-  | 'future_plan';
+// Forecast was removed from the weekly plan grid (May 2026) — the grid now shows
+// only Plan and Loaded/Exported. Forecast lives on its own page (FallbackForecastView).
+type DisplayMode = 'past_actual' | 'today_actual' | 'future_plan';
 
 export interface IHarvestCellProps {
   entry: IHarvestDayEntry;
-  config: IGreenhouseConfig | undefined;
   canEditPlan: boolean;
-  canEditForecast: boolean;
   canEditActual: boolean;
   onSave: (
     entryId: number,
-    field: 'plan_value' | 'forecast_value' | 'actual_value',
+    field: 'plan_value' | 'actual_value',
     value: number | null,
     reason?: string,
   ) => void;
@@ -38,37 +31,10 @@ export interface IHarvestCellProps {
   savingKey: string | null;
 }
 
-function computeDisplayMode(
-  entry: IHarvestDayEntry,
-  today: dayjs.Dayjs,
-  now: dayjs.Dayjs,
-  config: IGreenhouseConfig | undefined,
-  canEditForecast: boolean,
-  canEditActual: boolean,
-): DisplayMode {
+function computeDisplayMode(entry: IHarvestDayEntry, today: dayjs.Dayjs): DisplayMode {
   const entryDate = dayjs(entry.entry_date);
-
   if (entryDate.isBefore(today, 'day')) return 'past_actual';
-
-  if (entryDate.isSame(today, 'day')) {
-    // loading_dept_head edits forecast on today's cell (until 12:00 local).
-    // Admin keeps the actual-edit surface — they primarily override the
-    // computed actual_value, not the forecast. Distinguish by canEditActual.
-    if (canEditForecast && !canEditActual && entry.actual_value == null) {
-      return 'today_forecast_input';
-    }
-    return 'today_actual';
-  }
-
-  if (entryDate.isSame(today.add(1, 'day'), 'day')) {
-    if (entry.forecast_submitted_at) return 'tomorrow_forecast_locked';
-    if (config) {
-      const window = getCurrentForecastWindow(now, entryDate, config);
-      if (window) return 'tomorrow_forecast_input';
-    }
-    return 'future_plan';
-  }
-
+  if (entryDate.isSame(today, 'day')) return 'today_actual';
   return 'future_plan';
 }
 
@@ -150,16 +116,14 @@ function PlanStateDot({ state }: { state: IHarvestDayEntry['plan_state'] }) {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 interface IPendingOverride {
-  field: 'plan_value' | 'forecast_value' | 'actual_value';
+  field: 'plan_value' | 'actual_value';
   value: number | null;
   oldValue: number | null;
 }
 
 export function HarvestCell({
   entry,
-  config,
   canEditPlan,
-  canEditForecast,
   canEditActual,
   onSave,
   onCellClick,
@@ -168,15 +132,12 @@ export function HarvestCell({
 }: IHarvestCellProps): React.ReactElement {
   const { t } = useTranslation();
   const today = dayjs().startOf('day');
-  const now = dayjs();
 
   const [editingPlan, setEditingPlan] = useState(false);
-  const [editingForecast, setEditingForecast] = useState(false);
   const [editingActual, setEditingActual] = useState(false);
   const [pendingOverride, setPendingOverride] = useState<IPendingOverride | null>(null);
 
   const planInputRef = useRef<InputNumberRef>(null);
-  const forecastInputRef = useRef<InputNumberRef>(null);
   const actualInputRef = useRef<InputNumberRef>(null);
 
   // Single-click focus: AntD's `autoFocus` is unreliable inside virtualised
@@ -186,13 +147,10 @@ export function HarvestCell({
     if (editingPlan) planInputRef.current?.focus({ cursor: 'all' });
   }, [editingPlan]);
   useEffect(() => {
-    if (editingForecast) forecastInputRef.current?.focus({ cursor: 'all' });
-  }, [editingForecast]);
-  useEffect(() => {
     if (editingActual) actualInputRef.current?.focus({ cursor: 'all' });
   }, [editingActual]);
 
-  const mode = computeDisplayMode(entry, today, now, config, canEditForecast, canEditActual);
+  const mode = computeDisplayMode(entry, today);
   const isSaving = savingKey === String(entry.id);
 
   // ── Admin override gate ────────────────────────────────────────────────────
@@ -202,7 +160,7 @@ export function HarvestCell({
    * the save and ask for a reason before committing.
    */
   function handleValueBlur(
-    field: 'plan_value' | 'forecast_value' | 'actual_value',
+    field: 'plan_value' | 'actual_value',
     currentFieldValue: string | null,
     newVal: number | null,
     setEditing: (v: boolean) => void,
@@ -227,7 +185,6 @@ export function HarvestCell({
   function closeOverride() {
     setPendingOverride(null);
     setEditingPlan(false);
-    setEditingForecast(false);
     setEditingActual(false);
   }
 
@@ -311,48 +268,9 @@ export function HarvestCell({
         </>
       );
     }
-    // Admin override: edit forecast_value retroactively
-    if (isAdmin && editingForecast) {
-      const fcNum = entry.forecast_value != null ? Number(entry.forecast_value) : undefined;
-      return (
-        <>
-          <div style={{ minHeight: 24 }}>
-            <InputNumber
-              ref={forecastInputRef}
-              min={0}
-              step={100}
-              keyboard={false}
-              defaultValue={fcNum}
-              placeholder="—"
-              disabled={isSaving}
-              onBlur={(e) => {
-                const raw = e.target.value.replace(/,/g, '');
-                const v = raw === '' ? null : Number(raw) || 0;
-                handleValueBlur('forecast_value', entry.forecast_value, v, setEditingForecast);
-              }}
-              onKeyDown={handleCellKeyDown}
-              size="small"
-              style={{ width: 84 }}
-            />
-          </div>
-          <AdminOverrideReasonModal
-            open={pendingOverride !== null}
-            oldValue={pendingOverride?.oldValue ?? null}
-            newValue={pendingOverride?.value ?? null}
-            onConfirm={(reason) => {
-              if (pendingOverride) {
-                onSave(entry.id, pendingOverride.field, pendingOverride.value, reason);
-              }
-              closeOverride();
-            }}
-            onCancel={closeOverride}
-          />
-        </>
-      );
-    }
-    // Display: admins click the actual area to override; small edit icons let
-    // them retroactively override plan / forecast values too. Non-admins get
-    // the read-only history modal.
+    // Display: admins click the actual area to override; a small edit icon lets
+    // them retroactively override the plan value too. Non-admins get the
+    // read-only history modal.
     return (
       <div
         data-edit-cell={isAdmin ? 'true' : undefined}
@@ -380,23 +298,6 @@ export function HarvestCell({
             {entry.plan_value
               ? t('plan.cell_plan_hint', { value: Number(entry.plan_value).toLocaleString() })
               : `${t('plan.plan')}: —`}
-            {isAdmin && <EditOutlined style={{ marginLeft: 4, fontSize: 10 }} />}
-          </div>
-        )}
-        {(entry.forecast_value || isAdmin) && (
-          <div
-            onClick={isAdmin ? (e) => { e.stopPropagation(); setEditingForecast(true); } : undefined}
-            style={{
-              fontSize: 10,
-              color: COLORS.warning,
-              cursor: isAdmin ? 'pointer' : 'inherit',
-              marginTop: 2,
-            }}
-            title={isAdmin ? t('plan.admin_click_edit_forecast') : undefined}
-          >
-            {entry.forecast_value
-              ? `${t('plan.forecast')}: ${Number(entry.forecast_value).toLocaleString()}`
-              : `${t('plan.forecast')}: —`}
             {isAdmin && <EditOutlined style={{ marginLeft: 4, fontSize: 10 }} />}
           </div>
         )}
@@ -428,11 +329,6 @@ export function HarvestCell({
               size="small"
               style={{ width: 84 }}
             />
-            {entry.forecast_value && (
-              <div style={{ fontSize: 10, color: COLORS.warning, marginTop: 2 }}>
-                {t('plan.forecast')}: {Number(entry.forecast_value).toLocaleString()}
-              </div>
-            )}
           </div>
           <AdminOverrideReasonModal
             open={pendingOverride !== null}
@@ -461,98 +357,6 @@ export function HarvestCell({
           color={COLORS.success}
         />
         <ActualSourceBadge source={entry.actual_source} />
-        {entry.forecast_value && (
-          <div style={{ fontSize: 10, color: COLORS.warning, marginTop: 2 }}>
-            {t('plan.forecast')}: {Number(entry.forecast_value).toLocaleString()}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // ── tomorrow_forecast_input / today_forecast_input ─────────────────────────
-  // Both render an editable forecast cell (yellow background) with a plan hint.
-  // today_forecast_input is loading_dept_head's day-of slot before 12:00 local.
-  if (mode === 'tomorrow_forecast_input' || mode === 'today_forecast_input') {
-    const planNum = entry.plan_value != null ? Number(entry.plan_value) : undefined;
-    if (canEditForecast && editingForecast) {
-      return (
-        <>
-          <div style={{ minHeight: 24 }}>
-            <InputNumber
-              ref={forecastInputRef}
-              min={0}
-              step={100}
-              keyboard={false}
-              defaultValue={planNum}
-              disabled={isSaving}
-              onBlur={(e) => {
-                const raw = e.target.value.replace(/,/g, '');
-                const v = raw === '' ? null : Number(raw) || 0;
-                handleValueBlur('forecast_value', entry.forecast_value, v, setEditingForecast);
-              }}
-              onKeyDown={handleCellKeyDown}
-              size="small"
-              style={{ width: 84 }}
-            />
-            {entry.plan_value && (
-              <div style={{ fontSize: 10, color: COLORS.primary, marginTop: 2 }}>
-                {t('plan.cell_plan_hint', { value: Number(entry.plan_value).toLocaleString() })}
-              </div>
-            )}
-          </div>
-          <AdminOverrideReasonModal
-            open={pendingOverride !== null}
-            oldValue={pendingOverride?.oldValue ?? null}
-            newValue={pendingOverride?.value ?? null}
-            onConfirm={(reason) => {
-              if (pendingOverride) {
-                onSave(entry.id, pendingOverride.field, pendingOverride.value, reason);
-              }
-              closeOverride();
-            }}
-            onCancel={closeOverride}
-          />
-        </>
-      );
-    }
-    return (
-      <div
-        data-edit-cell={canEditForecast ? 'true' : undefined}
-        onClick={() => { if (canEditForecast) setEditingForecast(true); else onCellClick(entry.id); }}
-        style={{ cursor: canEditForecast ? 'text' : 'pointer', minHeight: 24, padding: '2px 0', backgroundColor: COLORS.bgOrange }}
-      >
-        <ValueOrEmpty
-          valueStr={entry.forecast_value ?? entry.plan_value}
-          submittedAt={entry.forecast_submitted_at ?? entry.plan_submitted_at}
-          color={COLORS.orange}
-        />
-        {entry.plan_value && (
-          <div style={{ fontSize: 10, color: COLORS.primary, marginTop: 2 }}>
-            {t('plan.cell_plan_hint', { value: Number(entry.plan_value).toLocaleString() })}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // ── tomorrow_forecast_locked ───────────────────────────────────────────────
-  if (mode === 'tomorrow_forecast_locked') {
-    return (
-      <div
-        onClick={() => onCellClick(entry.id)}
-        style={{ cursor: 'pointer', minHeight: 24, padding: '2px 0', backgroundColor: COLORS.bgYellow }}
-      >
-        <ValueOrEmpty
-          valueStr={entry.forecast_value}
-          submittedAt={entry.forecast_submitted_at}
-          color={COLORS.warning}
-        />
-        {entry.plan_value && (
-          <div style={{ fontSize: 10, color: COLORS.primary, marginTop: 2 }}>
-            {t('plan.cell_plan_hint', { value: Number(entry.plan_value).toLocaleString() })}
-          </div>
-        )}
       </div>
     );
   }

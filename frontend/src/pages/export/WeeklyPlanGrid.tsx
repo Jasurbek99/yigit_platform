@@ -135,13 +135,12 @@ export default function WeeklyPlanGrid() {
 
   // ─── KPI totals from day entries ───────────────────────────────────────────
 
-  const { totalPlan, totalForecast, totalActual, dayPlanTotals, lateCount, criticalLateCount } = useMemo(() => {
-    let plan = 0, forecast = 0, actual = 0, late = 0, critical = 0;
+  const { totalPlan, totalActual, dayPlanTotals, lateCount, criticalLateCount } = useMemo(() => {
+    let plan = 0, actual = 0, late = 0, critical = 0;
     const dayTotalsMap: Record<string, number> = {};
     for (const e of dayEntries) {
       const v = num(e.plan_value);
       plan += v;
-      forecast += e.forecast_value != null ? num(e.forecast_value) : 0;
       actual += e.actual_value != null ? num(e.actual_value) : 0;
       dayTotalsMap[e.entry_date] = (dayTotalsMap[e.entry_date] ?? 0) + v;
       if (e.plan_state === 'late') late += 1;
@@ -149,7 +148,6 @@ export default function WeeklyPlanGrid() {
     }
     return {
       totalPlan: plan,
-      totalForecast: forecast,
       totalActual: actual,
       dayPlanTotals: dayTotalsMap,
       lateCount: late,
@@ -177,21 +175,6 @@ export default function WeeklyPlanGrid() {
     return true;
   }
 
-  function canEditForecastForEntry(entry: IHarvestDayEntry): boolean {
-    if (!user) return false;
-    if (isAdminRole) return true;  // admin: any block, anytime, override modal collects reason
-    if (user.role === 'loading_dept_head') {
-      // Any block, from 00:00 local day-before through 12:00 local day-of.
-      // Mirrors backend LOADING_HEAD_FORECAST_DAY_OF_CLOSE in harvest_day_service.
-      const now = dayjs();
-      const entryDate = dayjs(entry.entry_date);
-      const dayBeforeStart = entryDate.subtract(1, 'day').startOf('day');
-      const dayOfClose = entryDate.startOf('day').add(12, 'hour');
-      return now.isAfter(dayBeforeStart) && now.isBefore(dayOfClose);
-    }
-    return false;
-  }
-
   function canEditActualForEntry(entry: IHarvestDayEntry): boolean {
     // Actuals are computed daily by the rollup_actuals job from shipment loading
     // data. Only admin can override a computed value. _entry parameter retained
@@ -204,7 +187,7 @@ export default function WeeklyPlanGrid() {
 
   function handleCellSave(
     entryId: number,
-    field: 'plan_value' | 'forecast_value' | 'actual_value',
+    field: 'plan_value' | 'actual_value',
     value: number | null,
     reason?: string,
   ) {
@@ -255,9 +238,7 @@ export default function WeeklyPlanGrid() {
         return (
           <HarvestCell
             entry={entry}
-            config={config}
             canEditPlan={canEditPlanForEntry(entry)}
-            canEditForecast={canEditForecastForEntry(entry)}
             canEditActual={canEditActualForEntry(entry)}
             onSave={handleCellSave}
             onCellClick={(id) => {
@@ -336,9 +317,7 @@ export default function WeeklyPlanGrid() {
           return (
             <HarvestCell
               entry={entry}
-              config={config}
               canEditPlan={canEditPlanForEntry(entry)}
-              canEditForecast={canEditForecastForEntry(entry)}
               canEditActual={canEditActualForEntry(entry)}
               onSave={handleCellSave}
               onCellClick={(id) => {
@@ -503,15 +482,6 @@ export default function WeeklyPlanGrid() {
               value={totalPlan}
               suffix="kg"
               styles={{ content: { color: COLORS.primary, fontSize: 20 } }}
-              formatter={(v) => Number(v).toLocaleString()}
-            />
-          </Card>
-          <Card size="small" style={{ flex: 1 }}>
-            <Statistic
-              title={t('plan.total_forecast')}
-              value={totalForecast}
-              suffix="kg"
-              styles={{ content: { color: COLORS.orange, fontSize: 20 } }}
               formatter={(v) => Number(v).toLocaleString()}
             />
           </Card>

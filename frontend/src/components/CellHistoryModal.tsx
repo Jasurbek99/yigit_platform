@@ -8,7 +8,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import { useDayEntryHistory } from '@/hooks/usePlanning';
-import type { IHarvestDayEntry, PlanState, ForecastWindow } from '@/types';
+import type { IHarvestDayEntry, PlanState } from '@/types';
 import { COLORS } from '@/constants/styles';
 
 const { Text, Title } = Typography;
@@ -54,21 +54,6 @@ function PlanStateBadge({ state }: { state: PlanState | '' }) {
   );
 }
 
-function ForecastWindowBadge({ win }: { win: ForecastWindow | '' }) {
-  const { t } = useTranslation();
-  if (!win) return null;
-  const map: Record<ForecastWindow, string> = {
-    primary: COLORS.primary,
-    fallback: COLORS.orange,
-    same_day_red_flag: COLORS.danger,
-  };
-  return (
-    <Text style={{ color: map[win], fontSize: 12 }}>
-      {t(`plan.window_${win}`)}
-    </Text>
-  );
-}
-
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function CellHistoryModal({ entry, onClose }: ICellHistoryModalProps): React.ReactElement {
@@ -106,25 +91,7 @@ export function CellHistoryModal({ entry, onClose }: ICellHistoryModalProps): Re
               <PlanStateBadge state={entry.plan_state} />
             </Space>
 
-            {/* Forecast */}
-            <Space size={8} wrap>
-              <Text strong style={{ color: COLORS.orange, minWidth: 70 }}>{t('plan.forecast')}:</Text>
-              <Text>{fmtVal(entry.forecast_value)}</Text>
-              {entry.forecast_submitted_at && (
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  {fmtTs(entry.forecast_submitted_at)}
-                  {entry.forecast_submitted_by_name && ` · ${entry.forecast_submitted_by_name}`}
-                </Text>
-              )}
-              {entry.forecast_window && <ForecastWindowBadge win={entry.forecast_window} />}
-              {entry.forecast_revision_count > 1 && (
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  (rev {entry.forecast_revision_count})
-                </Text>
-              )}
-            </Space>
-
-            {/* Actual */}
+            {/* Loaded/Exported */}
             <Space size={8} wrap>
               <Text strong style={{ color: COLORS.success, minWidth: 70 }}>{t('plan.actual')}:</Text>
               <Text>{fmtVal(entry.actual_value)}</Text>
