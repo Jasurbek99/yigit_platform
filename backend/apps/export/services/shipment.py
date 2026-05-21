@@ -40,6 +40,12 @@ STATUS_TIMESTAMP_MAP: dict[str, str] = {}
 # Roles that may override role restrictions and trigger any valid transition.
 PRIVILEGED_ROLES = {'export_manager', 'director'}
 
+# Roles allowed to CANCEL a shipment. Superset of PRIVILEGED_ROLES + the
+# system admin. (admin is the top-tier system role per ADR-15; it isn't in the
+# narrow operational PRIVILEGED_ROLES above, so it's listed explicitly here.)
+# Superusers bypass the role gate entirely — see transition_to().
+CANCEL_ROLES = PRIVILEGED_ROLES | {'admin'}
+
 # Allowed transitions: from_code → list of edge tuples.
 # Edge tuple shape: (to_code, allowed_roles) OR (to_code, allowed_roles, predicate)
 # where predicate is Callable[[Shipment], bool] used by auto-advance to pick
@@ -47,38 +53,38 @@ PRIVILEGED_ROLES = {'export_manager', 'director'}
 # predicates — the user explicitly picks the target.
 #
 # None key = shipment has no status yet (legacy fallback, unused by current flow).
-# PRIVILEGED_ROLES is declared above; cancel edges use list(PRIVILEGED_ROLES)
-# so the set membership is captured at module load time.
+# Cancel edges use list(CANCEL_ROLES) (declared above) so the set membership is
+# captured at module load time.
 TRANSITIONS: dict[Optional[str], list[tuple]] = {
     None:              [('draft',          ['warehouse_chief'])],
     'draft':           [('gumruk_girish',  ['document_team']),
-                        ('cancelled',      list(PRIVILEGED_ROLES))],
+                        ('cancelled',      list(CANCEL_ROLES))],
     'gumruk_girish':   [('gumruk_chykysh', ['document_team']),
-                        ('cancelled',      list(PRIVILEGED_ROLES))],
+                        ('cancelled',      list(CANCEL_ROLES))],
     'gumruk_chykysh':  [('yuklenme',       ['warehouse_chief']),
-                        ('cancelled',      list(PRIVILEGED_ROLES))],
+                        ('cancelled',      list(CANCEL_ROLES))],
     'yuklenme':        [('yola_chykdy',    ['document_team']),
-                        ('cancelled',      list(PRIVILEGED_ROLES))],
+                        ('cancelled',      list(CANCEL_ROLES))],
     'yola_chykdy':     [('serhet_gechdi',  ['transport']),
-                        ('cancelled',      list(PRIVILEGED_ROLES))],
+                        ('cancelled',      list(CANCEL_ROLES))],
     'serhet_gechdi':   [('dest_entry',     ['sales_rep']),
-                        ('cancelled',      list(PRIVILEGED_ROLES))],
+                        ('cancelled',      list(CANCEL_ROLES))],
     'dest_entry':      [('barysh_gumrugi', ['sales_rep']),
-                        ('cancelled',      list(PRIVILEGED_ROLES))],
+                        ('cancelled',      list(CANCEL_ROLES))],
     # Conditional fork: transshipment only on shipments with has_peregruz=True.
     'barysh_gumrugi':  [
         ('transshipment', ['sales_rep'], lambda s: bool(getattr(s, 'has_peregruz', False))),
         ('bardy',         ['sales_rep'], lambda s: not bool(getattr(s, 'has_peregruz', False))),
-        ('cancelled',     list(PRIVILEGED_ROLES)),
+        ('cancelled',     list(CANCEL_ROLES)),
     ],
     'transshipment':   [('bardy',          ['sales_rep']),
-                        ('cancelled',      list(PRIVILEGED_ROLES))],
+                        ('cancelled',      list(CANCEL_ROLES))],
     'bardy':           [('satylyar',       ['sales_rep']),
-                        ('cancelled',      list(PRIVILEGED_ROLES))],
+                        ('cancelled',      list(CANCEL_ROLES))],
     'satylyar':        [('satyldy',        ['sales_rep']),
-                        ('cancelled',      list(PRIVILEGED_ROLES))],
+                        ('cancelled',      list(CANCEL_ROLES))],
     'satyldy':         [('tamamlandy',     ['finansist']),
-                        ('cancelled',      list(PRIVILEGED_ROLES))],
+                        ('cancelled',      list(CANCEL_ROLES))],
     'tamamlandy':      [],
     # 'cancelled' key intentionally absent — no outgoing edges; terminal status.
 }
@@ -192,8 +198,10 @@ def transition_to(
     # Role check — privileged roles bypass per-transition restrictions. Auto-
     # advance bypasses too: the editing user may be sales_rep filling a field
     # that fires a transition whose canonical role is warehouse_chief; that's
-    # fine, the audit row is flagged is_auto=True.
-    if not is_auto:
+    # fine, the audit row is flagged is_auto=True. Superusers also bypass: the
+    # system admin/developer account can drive any transition (matches the
+    # is_superuser allow used across the viewsets).
+    if not is_auto and not getattr(user, 'is_superuser', False):
         user_role = getattr(user, 'role', None)
         if user_role not in PRIVILEGED_ROLES:
             allowed_roles = next(
@@ -401,42 +409,64 @@ def _notify_action_required(shipment: Shipment, new_status_code: str) -> None:
     )
 
 
-def generate_cargo_code(today=None) -> str:
-    """Generate a unique cargo_code in DDMMNNN/YY format.
+def generate_cargo_codes(n: int, today=None) -> list[str]:
+    """Generate N unique cargo_codes in DDMMNNN/YY format with a single DB scan.
 
-    DD = day of month, MM = month, NNN = next sequence within (year, day, month),
-    YY = 2-digit year. Sequence rolls forward until a free code is found —
-    100 attempts is more than enough for any realistic daily volume.
-
-    `cargo_code` is the platform-internal identifier; it's auto-generated so
-    operators don't have to compute it. Soltanmyrat's pallet-tag code lives
-    on the separate `official_export_code` field, which he fills in later
-    via the Sheet/Detail edit paths.
+    Performs one DB query to load all existing codes for the date, then picks N
+    consecutive free slots from the sequence. Adding each emitted code to the
+    local set prevents intra-batch collisions without extra round-trips.
 
     Args:
+        n: Number of distinct codes to generate (must be >= 1).
         today: Optional date — used by tests to make output deterministic.
             Defaults to timezone.now().date() in the active TM timezone.
+
+    Returns:
+        Ordered list of n unique cargo code strings.
+
+    Raises:
+        ValueError: If n < 1, or if the sequence is exhausted for the date.
     """
+    if n < 1:
+        raise ValueError('n must be >= 1')
     if today is None:
         today = timezone.now().date()
     dd = f'{today.day:02d}'
     mm = f'{today.month:02d}'
     yy = f'{today.year % 100:02d}'
     prefix = f'{dd}{mm}'
-    # Look at existing codes for this date to pick the next sequence.
-    existing = set(
+    # Single scan — load all codes for this date into a set.
+    existing: set[str] = set(
         Shipment.objects
         .filter(cargo_code__startswith=prefix, cargo_code__endswith=f'/{yy}')
         .values_list('cargo_code', flat=True)
     )
-    for n in range(1, 1000):
-        candidate = f'{prefix}{n:03d}/{yy}'
+    codes: list[str] = []
+    for seq in range(1, 1000):
+        candidate = f'{prefix}{seq:03d}/{yy}'
         if candidate not in existing:
-            return candidate
-    # 999 codes for one day is implausible — but fail loudly if we hit it.
+            # Add to local set so the next iteration skips this slot even
+            # before the DB row is created (intra-batch collision guard).
+            existing.add(candidate)
+            codes.append(candidate)
+            if len(codes) == n:
+                return codes
     raise ValueError(
-        f'Cargo code sequence exhausted for {today}. Need to extend format.'
+        f'Cargo code sequence exhausted for {today} (needed {n} codes). '
+        'Need to extend format.'
     )
+
+
+def generate_cargo_code(today=None) -> str:
+    """Generate a single unique cargo_code in DDMMNNN/YY format.
+
+    Delegates to generate_cargo_codes(1) so the scan logic lives in one place.
+
+    Args:
+        today: Optional date — used by tests to make output deterministic.
+            Defaults to timezone.now().date() in the active TM timezone.
+    """
+    return generate_cargo_codes(1, today=today)[0]
 
 
 def create_shipment(

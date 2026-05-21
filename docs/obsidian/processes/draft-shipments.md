@@ -95,6 +95,26 @@ TRANSITIONS = {
    - Appends `ShipmentStatusLog` row.
 4. Return `ShipmentDetailSerializer(shipment).data`.
 
+### Split draft → N trucks (whole-harvest batch model)
+
+A draft now holds the **whole daily harvest** of its block(s) — it is **not** capped at one truck (the composer shows "≈ N trucks" instead of an 18,500 target). At the Assignment Board the user splits it **by hand** into trucks.
+
+**Endpoint**: `POST /api/v1/export/shipments/{id}/split/` — role `{export_manager, director}`. Body:
+```json
+{ "trucks": [ { "weight_kg": 18000, "country": 3, "city": null, "customer": 7,
+  "import_firm": 2, "firm_splits": [{ "export_firm_id": 5, "weight_kg": null }] }, ... ] }
+```
+**ViewSet action** `ShipmentViewSet.split` (one `transaction.atomic()`, `select_for_update` on the draft):
+1. Assert `status == 'draft'`; validate each `weight_kg ≤ 18500` and `Σ ≤ draft_total` (= Σ block_sources).
+2. **Block-source sequential draw-down**: each truck draws `min(block_remaining, need)` from the draft's blocks (carrying `harvest_date`); per-block sums are preserved.
+3. Per truck: `create_shipment(...)` → set `city`/`import_firm`/`official_export_code` (shared batch code) / `previous_platform_id = draft` / `harvest_date`; `bulk_create` its block_sources; firm splits + draft `QuotaUsageRecord` (⚠️ **ADR-016**: `ShipmentFirmSplit.weight_kg` & `kg_used` use the OFFICIAL `get_default_truck_weight(num_firms)`, NOT the real truck weight, which lives on `ShipmentBlockSource.weight_kg`); `transition_to(truck, 'gumruk_girish', …)`.
+4. Finalize draft: delete its block_sources/draft firm_splits/draft quota usage; `transition_to(draft, 'cancelled', …)` + `_cancel_open_tasks(draft)`; AuditLog any discarded leftover.
+5. Return `{ created_truck_ids: [...], cancelled_draft_id }`.
+
+All trucks from one draft **share** the batch `official_export_code` (the Shipment Code, non-unique) but each gets its own unique `cargo_code` (`generate_cargo_codes(n)`). Leftover after splitting is discarded (Phase 2 will preserve it as a residual draft). Code/codes: `generate_cargo_code` now delegates to `generate_cargo_codes`. Tests: `backend/apps/export/tests_split.py` (26).
+
+**Frontend**: `SplitTrucksPanel` (`src/pages/export/assignment/`) renders in the Assignment Board centre column for a selected draft — truck rows (weight + destination + optional 1–3 export firms via `ExportFirmSelect`/`ImportFirmSelect`), a live **Remaining = Σ block_sources − Σ truck weights** counter that blocks over-allocation. Hook `useSplitDraft` (`useDrafts.ts`).
+
 ### Permissions
 
 Registered in `backend/apps/core/permission_registry.py`:
