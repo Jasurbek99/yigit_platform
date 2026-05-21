@@ -86,6 +86,18 @@ Each transition is strictly linear (no skipping steps, no going back). The `TRAN
 
 **Privileged roles**: `export_manager` and `director` can trigger **any** transition regardless of the required role.
 
+### Cancellation (the one off-ramp)
+
+The forward chain is linear, but a shipment can be **cancelled** from any non-terminal status (everything except `tamamlandy`). `cancelled` is a 14th terminal status (`step_order=99`, `phase='CANCELLED'`) — once cancelled it has no outgoing edges and never auto-advances (its `trigger_field` is null). See [[../../ADR#ADR-019]] for the decision record.
+
+- **Endpoint**: `POST /api/v1/export/shipments/{id}/cancel/` with body `{ "reason": "<non-empty>" }`. A dedicated action, not `/transition/`, so the reason is mandatory and the destructive UI stays separate from the forward TransitionButton.
+- **Who**: `export_manager` and `director` only (the `PRIVILEGED_ROLES`). All other roles get 403.
+- **Reason**: required free-text, stored as the `ShipmentStatusLog` comment on the cancel transition — no extra schema column.
+- **Side effects**: open / in-progress / blocked `Task` rows on the shipment are bulk-set to `CANCELLED`; comments are preserved; draft `QuotaUsageRecord` rows are deleted and approved ones are surfaced in the response (`draft_quota_deleted`, `approved_quota_to_reconcile`) for manual reconciliation.
+- **Visibility**: cancelled shipments are excluded from the operational list by default — reveal them with `?show_cancelled=true` or an explicit `?status_code=cancelled` filter. They never appear on the Kanban board (no `CANCELLED` phase column). Detail pages remain reachable.
+
+`cancelled` is not included in `allowed_transitions`, so the forward TransitionButton never offers it.
+
 ## Database
 
 ### Tables
