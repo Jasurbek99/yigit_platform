@@ -3,6 +3,7 @@ from rest_framework.routers import DefaultRouter
 
 from apps.export.views import ShipmentViewSet, CommentViewSet, TaskViewSet
 from apps.export.views_analytics import BossAnalyticsViewSet
+from apps.export.views_dashboard import DashboardViewSet
 from apps.export.views_finance import FinansistAdvanceViewSet
 from apps.export.views_kpi import KpiViewSet
 from apps.export.views_planning import (
@@ -28,6 +29,9 @@ router = DefaultRouter()
 
 # Boss Dashboard analytics
 router.register('boss', BossAnalyticsViewSet, basename='boss-analytics')
+
+# Main landing-page dashboard (all authenticated users)
+router.register('dashboard', DashboardViewSet, basename='dashboard')
 
 # Operational KPI endpoints
 router.register('kpi', KpiViewSet, basename='kpi')

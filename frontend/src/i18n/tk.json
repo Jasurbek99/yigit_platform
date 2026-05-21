@@ -1161,7 +1161,10 @@
     "sale_ended": "Satyldy",
     "report_status": "Hasabat",
     "report_missing": "ýok",
-    "season_label": "2025/2026 möwsüm"
+    "season_label": "2025/2026 möwsüm",
+    "loading": "Ýüklenýär...",
+    "load_error": "Baş sahypa maglumatlaryny ýüklemek başartmady",
+    "alerts_empty": "Işjeň bildiriş ýok"
   },
   "phases": {
     "planlanyan": "Planlanýar",

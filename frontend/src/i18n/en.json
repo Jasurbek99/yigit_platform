@@ -1161,7 +1161,10 @@
     "sale_ended": "Sale Ended",
     "report_status": "Report",
     "report_missing": "missing",
-    "season_label": "2025/2026 season"
+    "season_label": "2025/2026 season",
+    "loading": "Loading...",
+    "load_error": "Failed to load dashboard data",
+    "alerts_empty": "No active alerts"
   },
   "phases": {
     "planlanyan": "Planning",

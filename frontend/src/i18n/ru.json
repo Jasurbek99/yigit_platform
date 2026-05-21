@@ -1163,7 +1163,10 @@
     "sale_ended": "Продано",
     "report_status": "Отчёт",
     "report_missing": "отсутствует",
-    "season_label": "Сезон 2025/2026"
+    "season_label": "Сезон 2025/2026",
+    "loading": "Загрузка...",
+    "load_error": "Не удалось загрузить данные панели",
+    "alerts_empty": "Нет активных уведомлений"
   },
   "phases": {
     "planlanyan": "Планирование",

@@ -86,6 +86,15 @@ tags: [reference, api, backend, frontend]
 | POST | `/api/v1/export/quota-usage/approve/` | QuotaUsageViewSet.approve | `useBulkApproveQuotaUsage` | QuotaUsageTab |
 | GET | `/api/v1/export/quota-dashboard/` | QuotaDashboardView | `useQuotaDashboard` | QuotaDashboard |
 
+### Dashboard (main landing page)
+
+| Method | Endpoint | ViewSet | Hook | Page |
+|--------|----------|---------|------|------|
+| GET | `/api/v1/export/dashboard/summary/` | DashboardViewSet.summary | `useDashboardSummary` | DashboardPage |
+
+Permission: `IsAuthenticated` only (no role gate). Cache: 60 s. Returns: season, stats, alerts, routes, active_shipments.
+See [[screens/main-dashboard]] for the full response contract.
+
 ### Planning & Finance
 
 | Method | Endpoint | ViewSet | Hook | Page |

@@ -153,6 +153,61 @@ Empty `q` returns top users + all 12 roles.
 ### Notifications kinds (existing endpoint)
 `Notification.kind` choices include `mention`, `task_assigned`, `task_done` for the comment system. `link` format: `/export/shipments/sheet?shipment={id}&row={fieldKey}&comment={commentId}` — the Sheet page parses these query params on mount and auto-opens the Comments Drawer.
 
+### Dashboard summary: `GET /api/v1/export/dashboard/summary/`
+
+Main landing page for ALL authenticated users. 60 s server-side cache. No role gate.
+
+```json
+{
+  "season": { "id": 3, "name": "2024-2025" },
+  "stats": {
+    "total":       { "value": 983, "delta_7d": 47 },
+    "in_transit":  { "value": 296 },
+    "selling":     { "value": 9 },
+    "completed":   { "value": 173, "delta_7d": 12 },
+    "no_report":   { "value": 90 },
+    "quota_firms": { "value": 16 }
+  },
+  "alerts": {
+    "no_report_count": 90,
+    "quota_exceeded_count": 2,
+    "docs_pending_count": 8,
+    "weekly_plan": { "week": 22, "tons": 340.0, "blocks": 15 }
+  },
+  "routes": [
+    {
+      "country_id": 1,
+      "country_name": "Kazakhstan",
+      "trucks": 474,
+      "percent": 48,
+      "cities": [ { "city": "Şimkent", "trucks": 166 } ]
+    }
+  ],
+  "active_shipments": [
+    {
+      "id": 1,
+      "cargo_code": "26FV047/25",
+      "customer_name": "Begjan",
+      "country_name": "Kazakhstan",
+      "city_name": "Şimkent",
+      "status_display": "Yolda",
+      "phase": "TRANSIT",
+      "weight_net": 18400.0,
+      "departed_at": "2025-02-25T14:30:00+05:00",
+      "location": "Farap Postta"
+    }
+  ]
+}
+```
+
+Notes:
+- `season` is `null` when no active season exists.
+- `alerts.weekly_plan` is `null` when no `HarvestDayEntry` rows exist for the current ISO week.
+- `stats.in_transit` and `stats.selling` are LIVE (not season-scoped).
+- `active_shipments`: max 5, ordered by `-status_changed_at`. `location` = `Shipment.vehicle_live_status` or `""`.
+- `routes.percent` = integer percentage of season total trucks, rounded. Top 4 cities per country, null/empty city names omitted.
+- Implementation: `apps/export/views_dashboard.py`, service: `apps/export/services/dashboard_summary.py`.
+
 ## Pagination
 
 All list endpoints use `PageNumberPagination`:
