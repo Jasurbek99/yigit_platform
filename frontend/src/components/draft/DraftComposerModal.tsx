@@ -4,9 +4,7 @@ import {
   Button,
   InputNumber,
   Input,
-  Form,
-  Divider,
-  Space,
+  Collapse,
   Popover,
   Typography,
 } from 'antd';
@@ -83,6 +81,15 @@ function diffLabel(total: number, t: (k: string, v?: Record<string, unknown>) =>
   if (diff === 0) return t('draft.composer_sum_exact');
   if (diff > 0) return t('draft.composer_sum_under', { kg: diff.toLocaleString('ru-RU') });
   return t('draft.composer_sum_over', { kg: Math.abs(diff).toLocaleString('ru-RU') });
+}
+
+/** Consistent numbered section heading inside the composer. */
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <Typography.Text strong style={{ display: 'block', fontSize: 13, marginBottom: 8 }}>
+      {children}
+    </Typography.Text>
+  );
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
@@ -197,35 +204,8 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
         </Button>,
       ]}
     >
-      {/* Shipment Code editor — the single Export Code anchor lives in the
-          editor's preview row, paired with the assembled code. */}
-      <div style={{ marginBottom: 14 }}>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            marginBottom: 10,
-          }}
-        >
-          <Typography.Text strong>{t('official_code.title')}</Typography.Text>
-          <Popover
-            content={
-              <div style={{ maxWidth: 320, fontSize: 12, lineHeight: 1.5 }}>
-                {t('official_code.info_banner')}
-              </div>
-            }
-            placement="rightTop"
-          >
-            <QuestionCircleOutlined style={{ color: COLORS.textSecondary, cursor: 'help' }} />
-          </Popover>
-        </div>
-        <OfficialCodeEditor
-          value={officialCode}
-          onChange={setOfficialCode}
-          platformId={cargoCode}
-        />
-      </div>
+      {/* ── Section 1: Harvest (blocks + kg) — the primary task ── */}
+      <SectionTitle>1. {t('draft.composer_section_harvest')}</SectionTitle>
 
       {/* Target weight info */}
       <div
@@ -250,7 +230,7 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '140px 1fr 120px 40px',
+            gridTemplateColumns: '140px 1fr 40px',
             padding: '8px 12px',
             background: COLORS.bgLayout,
             fontSize: 11,
@@ -263,7 +243,6 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
         >
           <div>{t('draft.composer_col_block')}</div>
           <div style={{ textAlign: 'right' }}>{t('draft.composer_col_allocate')}</div>
-          <div style={{ textAlign: 'right' }}>{t('draft.composer_col_leftover')}</div>
           <div />
         </div>
 
@@ -304,7 +283,7 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '140px 1fr 120px 40px',
+            gridTemplateColumns: '140px 1fr 40px',
             padding: '10px 12px',
             gap: 8,
             fontWeight: 600,
@@ -312,25 +291,14 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
             background: status === 'ok' ? COLORS.bgGreen : status === 'over' ? COLORS.bgRed : COLORS.bgYellow,
           }}
         >
-          <div style={{ gridColumn: '1/2', fontSize: 12 }}>{t('draft.composer_total')}</div>
-          <div
-            style={{
-              textAlign: 'right',
-              fontFamily: FONT.mono,
-              fontSize: 14,
-              color: sumColor(status),
-            }}
-          >
-            {totalKg.toLocaleString('ru-RU')} kg
-          </div>
-          <div
-            style={{
-              textAlign: 'right',
-              fontSize: 11,
-              color: sumColor(status),
-            }}
-          >
-            {diffLabel(totalKg, t)}
+          <div style={{ fontSize: 12 }}>{t('draft.composer_total')}</div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontFamily: FONT.mono, fontSize: 14, color: sumColor(status) }}>
+              {totalKg.toLocaleString('ru-RU')} kg
+            </div>
+            <div style={{ fontSize: 11, color: sumColor(status) }}>
+              {diffLabel(totalKg, t)}
+            </div>
           </div>
           <div />
         </div>
@@ -346,31 +314,56 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
         </Text>
       )}
 
-      <Divider style={{ margin: '12px 0' }} />
+      {/* ── Section 2: Shipment Code (optional) — collapsed by default ── */}
+      <Collapse
+        ghost
+        style={{ marginTop: 16 }}
+        items={[
+          {
+            key: 'code',
+            label: (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <Typography.Text strong style={{ fontSize: 13 }}>
+                  2. {t('official_code.title')}{' '}
+                  <Typography.Text type="secondary" style={{ fontWeight: 400 }}>
+                    ({t('common.optional')})
+                  </Typography.Text>
+                </Typography.Text>
+                <Popover
+                  content={
+                    <div style={{ maxWidth: 320, fontSize: 12, lineHeight: 1.5 }}>
+                      {t('official_code.info_banner')}
+                    </div>
+                  }
+                  placement="rightTop"
+                >
+                  <QuestionCircleOutlined
+                    style={{ color: COLORS.textSecondary, cursor: 'help' }}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </Popover>
+                <Typography.Text
+                  type="secondary"
+                  style={{ fontFamily: FONT.mono, fontSize: 12, marginLeft: 'auto' }}
+                >
+                  {t('official_code.platform_id_label')}: {cargoCode}
+                </Typography.Text>
+              </div>
+            ),
+            children: <OfficialCodeEditor value={officialCode} onChange={setOfficialCode} />,
+          },
+        ]}
+      />
 
-      {/* Notes */}
-      <Form.Item label={t('draft.composer_notes_label')} style={{ margin: 0 }}>
+      {/* ── Section 3: Notes (optional) ── */}
+      <div style={{ marginTop: 16 }}>
+        <SectionTitle>3. {t('draft.composer_section_notes')}</SectionTitle>
         <Input.TextArea
           rows={2}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder={t('draft.composer_notes_ph')}
         />
-      </Form.Item>
-
-      {/* Sort notice */}
-      <div
-        style={{
-          marginTop: 12,
-          padding: '8px 12px',
-          background: COLORS.bgYellow,
-          borderRadius: 6,
-          fontSize: 12,
-          color: '#854F0B',
-        }}
-      >
-        <strong>{t('draft.composer_sort_notice_title')}</strong>{' '}
-        {t('draft.composer_sort_notice_body')}
       </div>
     </Modal>
   );
@@ -407,7 +400,7 @@ function ComposerRow({
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: '140px 1fr 120px 40px',
+        gridTemplateColumns: '140px 1fr 40px',
         padding: '8px 12px',
         gap: 8,
         alignItems: 'center',
@@ -432,14 +425,6 @@ function ComposerRow({
         size="small"
         addonAfter="kg"
       />
-      <Space style={{ justifyContent: 'flex-end' }}>
-        <Text
-          type={row.weight_kg > 0 ? 'success' : 'secondary'}
-          style={{ fontFamily: FONT.mono, fontSize: 12 }}
-        >
-          —
-        </Text>
-      </Space>
       <Button
         size="small"
         type="text"
@@ -451,4 +436,3 @@ function ComposerRow({
     </div>
   );
 }
-

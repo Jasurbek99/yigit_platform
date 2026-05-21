@@ -969,6 +969,7 @@
     "kind_task_done": "Your task was marked done"
   },
   "common": {
+    "optional": "optional",
     "demo_badge": "Demo",
     "empty": "—",
     "loading": "Loading...",
@@ -1384,6 +1385,8 @@
     "composer_save": "✓ Save as Draft",
     "composer_cargo_code": "Cargo Code",
     "composer_target": "Target Weight",
+    "composer_section_harvest": "Harvest",
+    "composer_section_notes": "Notes (optional)",
     "composer_info": "Add 1–11 blocks. Even the smallest leftover should not go to waste.",
     "composer_col_block": "Block",
     "composer_col_allocate": "Allocate (kg)",
