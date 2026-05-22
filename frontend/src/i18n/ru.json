@@ -948,7 +948,7 @@
     "password": "Пароль",
     "first_name": "Имя",
     "last_name": "Фамилия",
-    "password_min": "Пароль не менее 8 символов",
+    "password_min": "Пароль не менее 5 символов",
     "reset_password": "Сбросить пароль",
     "reset_password_title": "Сброс пароля — {{username}}",
     "reset_password_hint": "Текущий пароль скрыт — просто задайте новый.",
@@ -1974,7 +1974,8 @@
       "task_blocked_modal_title": "Задача заблокирована",
       "task_blocked_reason": "Причина",
       "unblock_button": "Разблокировать",
-      "unblock_role_required": "Только {{role}} или супервизор может разблокировать эту задачу."
+      "unblock_role_required": "Только {{role}} или супервизор может разблокировать эту задачу.",
+      "supervisor_view": "Вы просматриваете это как супервизор — задача вам здесь не назначена."
     },
     "cancel_button": "Отменить отгрузку",
     "cancel_modal_title": "Отменить эту отгрузку?",

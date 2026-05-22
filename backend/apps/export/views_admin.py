@@ -502,9 +502,9 @@ class UserManagementViewSet(ModelViewSet):
                 {'password': ['This field is required.']},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        if len(new_password) < 8:
+        if len(new_password) < 5:
             return Response(
-                {'password': ['Password must be at least 8 characters.']},
+                {'password': ['Password must be at least 5 characters.']},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

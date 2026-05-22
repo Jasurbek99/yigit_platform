@@ -380,7 +380,7 @@ export default function UsersPage() {
             label={t('users_admin.password')}
             rules={[
               { required: true, message: t('common.required') },
-              { min: 8, message: t('users_admin.password_min') },
+              { min: 5, message: t('users_admin.password_min') },
             ]}
           >
             <Input.Password autoComplete="new-password" />
@@ -435,7 +435,7 @@ export default function UsersPage() {
             label={t('users_admin.new_password')}
             rules={[
               { required: true, message: t('common.required') },
-              { min: 8, message: t('users_admin.password_min') },
+              { min: 5, message: t('users_admin.password_min') },
             ]}
           >
             <Input.Password autoComplete="new-password" />
