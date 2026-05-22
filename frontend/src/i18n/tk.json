@@ -1371,7 +1371,7 @@
     "card_list_title": "garalama",
     "total_suffix": "jemi",
     "sorted_oldest_first": "Köne ilki tertip edildi",
-    "empty": "Garalama ýük ýok — täze düzmek üçin '+ Täze garalama' basyň",
+    "empty": "Garalama ýük ýok — ilkinjisini döretmek üçin 'Garalama döret' basyň",
     "blocks_suffix": "blok",
     "card_sources": "Bloklardan",
     "card_weight": "Agram",
@@ -1408,7 +1408,27 @@
     "composer_toast_saved": "Garalama döredildi: {{code}}",
     "composer_toast_error": "Garalama döredip bolmady",
     "composer_truck_estimate": "≈ {{count}} ulag",
-    "composer_truck_capacity": "Ulag sygymy"
+    "composer_truck_capacity": "Ulag sygymy",
+    "enter_forecast_btn": "Hasyl maglumatyny giriziň",
+    "create_draft_btn": "Garalama döret",
+    "composer_available_kg": "bar: {{kg}} kg",
+    "composer_no_forecast": "çaklama ýok / 0 bar"
+  },
+  "forecast": {
+    "modal_title": "Hasyl çaklamasyny giriziň",
+    "date_label": "Senesi:",
+    "date_today": "Bu gün",
+    "date_tomorrow": "Ertir",
+    "col_block": "Blok",
+    "col_kg": "Çaklama (kg)",
+    "block_ph": "Blok saýla...",
+    "add_block": "Başga blok goş",
+    "total_label": "Jemi çaklama",
+    "btn_cancel": "Ret et",
+    "btn_submit": "Çaklamany ýatda sakla",
+    "toast_saved": "{{saved}} blok ýatda saklandy",
+    "toast_error": "Çaklamany ýatda saklap bolmady",
+    "error_no_rows": "Azyndan bir blok setirini dolduryň"
   },
   "assign": {
     "page_title": "Ýüklere ýer bellemek",

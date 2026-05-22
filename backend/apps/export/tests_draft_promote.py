@@ -17,11 +17,13 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 import datetime as dt
+from decimal import Decimal
 
 from apps.core.models import (
     Country,
     Customer,
     GreenhouseBlock,
+    GreenhouseConfig,
     ImportFirm,
     Season,
     ShipmentStatusType,
@@ -30,6 +32,7 @@ from apps.core.models import (
 from apps.export.management.commands.seed_task_rules import Command as SeedTaskRules
 from apps.export.models import Shipment, Task, TaskState
 from apps.export.serializers import ShipmentDetailSerializer
+from apps.greenhouse.models import HarvestDayEntry, WeeklyHarvestPlan
 
 
 def _make_user(username: str, role: str) -> User:
@@ -72,6 +75,27 @@ class DraftCreationGeneratesTasksTests(TestCase):
         cls.user = _make_user('soltanmyrat', 'warehouse_chief')
         cls.season = _make_season()
         cls.block = GreenhouseBlock.objects.create(code='F-A', name='Test block A')
+
+        # The forecast-first model requires a forecast entry for a block+date
+        # before a draft with block_sources can be created against it.
+        # Seed a forecast so test_draft_creation_generates_tasks can POST with
+        # block_sources=[{block, 1000}] for 2025-01-01.
+        GreenhouseConfig.get_solo()  # ensure singleton
+        draft_date = dt.date(2025, 1, 1)
+        iso_year, iso_week, _ = draft_date.isocalendar()
+        plan, _ = WeeklyHarvestPlan.objects.get_or_create(
+            season=cls.season,
+            block=cls.block,
+            week_number=iso_week,
+            year=iso_year,
+        )
+        entry, _ = HarvestDayEntry.objects.get_or_create(
+            weekly_plan=plan,
+            entry_date=draft_date,
+            defaults={'season': cls.season, 'block': cls.block, 'weekday': draft_date.weekday()},
+        )
+        entry.forecast_value = Decimal('20000')
+        entry.save(update_fields=['forecast_value'])
 
     def setUp(self):
         self.client = APIClient()
@@ -248,14 +272,15 @@ class CanPromoteFromDraftTests(TestCase):
 
 
 class PromoteEndpointStillWorksTests(TestCase):
-    """The existing /assign/ endpoint promotes a draft to yuklenme."""
+    """The existing /assign/ endpoint promotes a draft to gumruk_girish (v2)."""
 
     @classmethod
     def setUpTestData(cls):
         call_command('seed_permissions')
         _seed_task_rules()
         _make_status('draft', 0, 'Draft')
-        _make_status('yuklenme', 1, 'Loading')
+        _make_status('gumruk_girish', 1, 'Customs Entry')
+        _make_status('yuklenme', 3, 'Loading')
         cls.user = _make_user('gadam_p', 'export_manager')
         cls.season = _make_season()
         cls.country = Country.objects.create(name_tk='Kazakhstan2', name_en='Kazakhstan2', name_ru='Казахстан2', code='K2')
@@ -266,7 +291,7 @@ class PromoteEndpointStillWorksTests(TestCase):
         self.client.force_authenticate(user=self.user)
 
     def test_assign_promotes_draft(self):
-        """POST /shipments/:id/assign/ on a draft transitions it to yuklenme."""
+        """POST /shipments/:id/assign/ on a draft transitions it to gumruk_girish."""
         ship = Shipment.objects.create(
             cargo_code='0101200/25',
             date=dt.date(2025, 1, 1),
@@ -281,8 +306,8 @@ class PromoteEndpointStillWorksTests(TestCase):
         )
         self.assertEqual(resp.status_code, 200, resp.data)
         ship.refresh_from_db()
-        self.assertEqual(ship.status.code, 'yuklenme')
-        # Yuklenme tasks should now exist (transition_to triggers generate_tasks_for_status)
+        self.assertEqual(ship.status.code, 'gumruk_girish')
+        # gumruk_girish tasks should now exist (transition_to triggers generate_tasks_for_status)
         self.assertTrue(
-            Task.objects.filter(shipment=ship, step='yuklenme').exists(),
+            Task.objects.filter(shipment=ship, step='gumruk_girish').exists(),
         )

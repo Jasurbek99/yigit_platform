@@ -1371,7 +1371,7 @@
     "card_list_title": "drafts",
     "total_suffix": "total",
     "sorted_oldest_first": "Sorted: oldest first",
-    "empty": "No drafts — click '+ New Draft' to create one",
+    "empty": "No drafts yet — click 'Create Draft' to create the first one",
     "blocks_suffix": "blocks",
     "card_sources": "From blocks",
     "card_weight": "Weight",
@@ -1408,7 +1408,27 @@
     "composer_toast_saved": "Draft created: {{code}}",
     "composer_toast_error": "Failed to create draft",
     "composer_truck_estimate": "≈ {{count}} trucks",
-    "composer_truck_capacity": "Truck capacity"
+    "composer_truck_capacity": "Truck capacity",
+    "enter_forecast_btn": "Enter Forecast",
+    "create_draft_btn": "Create Draft",
+    "composer_available_kg": "available: {{kg}} kg",
+    "composer_no_forecast": "no forecast / 0 available"
+  },
+  "forecast": {
+    "modal_title": "Enter Harvest Forecast",
+    "date_label": "Date:",
+    "date_today": "Today",
+    "date_tomorrow": "Tomorrow",
+    "col_block": "Block",
+    "col_kg": "Forecast (kg)",
+    "block_ph": "Select block...",
+    "add_block": "Add Block",
+    "total_label": "Total forecast",
+    "btn_cancel": "Cancel",
+    "btn_submit": "Save Forecast",
+    "toast_saved": "{{saved}} block(s) saved",
+    "toast_error": "Failed to save forecast",
+    "error_no_rows": "Fill at least one block row"
   },
   "assign": {
     "page_title": "Assignment Board",

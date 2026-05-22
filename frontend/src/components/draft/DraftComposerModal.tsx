@@ -14,12 +14,12 @@ import { toast } from 'sonner';
 import dayjs from 'dayjs';
 import { BlockSelect } from '@/components/BlockSelect';
 import { OfficialCodeEditor } from '@/components/draft/OfficialCodeEditor';
-import { useCreateDraft } from '@/hooks/useDrafts';
+import { useCreateDraft, useHarvestForecastRemaining } from '@/hooks/useDrafts';
 import { useGreenhouseBlocks } from '@/hooks/useAdmin';
 import type { IShipmentDraft } from '@/types';
 import { COLORS, FONT } from '@/constants/styles';
 
-const TARGET_KG = 18_500;
+const MAX_TRUCK_KG = 18_500;
 const MAX_ROWS = 11;
 
 // ─── Types ────────────────────────────────────────────────────────────────
@@ -74,13 +74,22 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
   const { t } = useTranslation();
   const createDraft = useCreateDraft();
 
+  const today = dayjs().format('YYYY-MM-DD');
+
   const [rows, setRows] = useState<IComposerRow[]>([makeDefaultRow()]);
   const [cargoCode, setCargoCode] = useState<string>(autoCargo);
   const [officialCode, setOfficialCode] = useState<string>('');
   const [notes, setNotes] = useState('');
 
+  // Pool data: one call per composer open, maps block_id → remaining kg
+  const { data: remainingList = [] } = useHarvestForecastRemaining(today);
+  const remainingMap = useMemo(
+    () =>
+      new Map(remainingList.map((r) => [r.block_id, Number(r.remaining_kg)])),
+    [remainingList],
+  );
+
   const totalKg = useMemo(() => rows.reduce((s, r) => s + r.weight_kg, 0), [rows]);
-  const truckEstimate = totalKg > 0 ? Math.ceil(totalKg / TARGET_KG) : null;
 
   const usedBlockIds = rows.map((r) => r.block_id).filter((id): id is number => id !== null);
 
@@ -97,7 +106,14 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
 
   function handleBlockChange(key: number, blockId: number | null, blockCode: string) {
     setRows((prev) =>
-      prev.map((r) => (r.key === key ? { ...r, block_id: blockId, block_code: blockCode } : r)),
+      prev.map((r) => {
+        if (r.key !== key) return r;
+        // Clamp existing weight to the new block's cap on block change
+        const newRemaining = blockId !== null ? (remainingMap.get(blockId) ?? 0) : 0;
+        const cap = Math.min(newRemaining, MAX_TRUCK_KG);
+        const clampedWeight = Math.min(r.weight_kg, cap);
+        return { ...r, block_id: blockId, block_code: blockCode, weight_kg: clampedWeight };
+      }),
     );
   }
 
@@ -123,7 +139,7 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
     createDraft.mutate(
       {
         cargo_code: cargoCode.trim(),
-        date: dayjs().format('YYYY-MM-DD'),
+        date: today,
         is_draft: true,
         block_sources: validRows.map((r) => ({
           block_id: r.block_id as number,
@@ -139,7 +155,23 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
           handleReset();
           onClose();
         },
-        onError: () => toast.error(t('draft.composer_toast_error')),
+        onError: (err) => {
+          // Pool violations arrive either as { block_sources: {...} } (upfront
+          // serializer check) or { error: "..." } (race-safe locked re-check).
+          const data = (err as { response?: { data?: Record<string, unknown> } }).response?.data;
+          if (data && typeof data === 'object') {
+            if ('block_sources' in data && data.block_sources && typeof data.block_sources === 'object') {
+              const messages = Object.values(data.block_sources as Record<string, string>).join(' ');
+              toast.error(messages || t('draft.composer_toast_error'));
+              return;
+            }
+            if (typeof data.error === 'string' && data.error) {
+              toast.error(data.error);
+              return;
+            }
+          }
+          toast.error(t('draft.composer_toast_error'));
+        },
       },
     );
   }
@@ -181,28 +213,6 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
       {/* ── Section 1: Harvest (blocks + kg) — the primary task ── */}
       <SectionTitle>1. {t('draft.composer_section_harvest')}</SectionTitle>
 
-      {/* Truck capacity hint */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          marginBottom: 10,
-        }}
-      >
-        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-          {t('draft.composer_truck_capacity')}:
-        </Typography.Text>
-        <span style={{ fontFamily: FONT.mono, fontSize: 13, fontWeight: 600 }}>
-          {TARGET_KG.toLocaleString('ru-RU')} kg
-        </span>
-        {truckEstimate !== null && (
-          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            ({t('draft.composer_truck_estimate', { count: truckEstimate })})
-          </Typography.Text>
-        )}
-      </div>
-
       {/* Block rows table */}
       <div style={{ border: '1px solid #f0f0f0', borderRadius: 8, overflow: 'hidden' }}>
         {/* Header */}
@@ -231,6 +241,7 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
             key={row.key}
             row={row}
             excludeIds={usedBlockIds.filter((id) => id !== row.block_id)}
+            remainingMap={remainingMap}
             onBlockChange={(blockId, blockCode) =>
               handleBlockChange(row.key, blockId, blockCode)
             }
@@ -274,11 +285,6 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontFamily: FONT.mono, fontSize: 14, color: COLORS.textPrimary }}>
               {totalKg.toLocaleString('ru-RU')} kg
-            </div>
-            <div style={{ fontSize: 11, color: COLORS.textSecondary }}>
-              {truckEstimate !== null
-                ? t('draft.composer_truck_estimate', { count: truckEstimate })
-                : '—'}
             </div>
           </div>
           <div />
@@ -345,6 +351,7 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
 interface IComposerRowProps {
   row: IComposerRow;
   excludeIds: number[];
+  remainingMap: Map<number, number>;
   onBlockChange: (blockId: number | null, blockCode: string) => void;
   onWeightChange: (value: number | null) => void;
   onRemove: () => void;
@@ -354,6 +361,7 @@ interface IComposerRowProps {
 function ComposerRow({
   row,
   excludeIds,
+  remainingMap,
   onBlockChange,
   onWeightChange,
   onRemove,
@@ -362,9 +370,38 @@ function ComposerRow({
   const { t } = useTranslation();
   const { data: blocks = [] } = useGreenhouseBlocks();
 
+  // Per-row cap = min(remaining for this block, MAX_TRUCK_KG)
+  // If block has no forecast entry → remaining is undefined → 0 → cap = 0 → disabled
+  const remaining: number | undefined =
+    row.block_id !== null ? remainingMap.get(row.block_id) : undefined;
+  const hasNoForecast = row.block_id !== null && remaining === undefined;
+  const effectiveRemaining = remaining ?? 0;
+  const cap = Math.min(effectiveRemaining, MAX_TRUCK_KG);
+  const isDisabled = row.block_id !== null && cap === 0;
+
   function handleBlockSelect(id: number | null) {
     const blk = blocks.find((b) => b.id === id);
     onBlockChange(id, blk?.code ?? '');
+  }
+
+  // Available label shown under the block select
+  let availableNode: React.ReactNode = null;
+  if (row.block_id !== null) {
+    if (hasNoForecast) {
+      availableNode = (
+        <div style={{ fontSize: 10, color: COLORS.danger, marginTop: 2 }}>
+          {t('draft.composer_no_forecast')}
+        </div>
+      );
+    } else {
+      availableNode = (
+        <div style={{ fontSize: 10, color: COLORS.textSecondary, marginTop: 2 }}>
+          {t('draft.composer_available_kg', {
+            kg: effectiveRemaining.toLocaleString('ru-RU'),
+          })}
+        </div>
+      );
+    }
   }
 
   return (
@@ -374,26 +411,31 @@ function ComposerRow({
         gridTemplateColumns: '140px 1fr 40px',
         padding: '8px 12px',
         gap: 8,
-        alignItems: 'center',
+        alignItems: 'start',
         borderTop: '1px solid #f0f0f0',
         fontSize: 13,
       }}
     >
-      <BlockSelect
-        value={row.block_id}
-        onChange={handleBlockSelect}
-        excludeIds={excludeIds}
-        size="small"
-        placeholder={t('draft.composer_block_ph')}
-      />
+      <div>
+        <BlockSelect
+          value={row.block_id}
+          onChange={handleBlockSelect}
+          excludeIds={excludeIds}
+          size="small"
+          placeholder={t('draft.composer_block_ph')}
+        />
+        {availableNode}
+      </div>
       <InputNumber
         value={row.weight_kg || null}
         onChange={onWeightChange}
         min={0}
+        max={cap > 0 ? cap : undefined}
         step={500}
         style={{ width: '100%', textAlign: 'right' }}
         size="small"
         addonAfter="kg"
+        disabled={isDisabled}
       />
       <Button
         size="small"
@@ -402,6 +444,7 @@ function ComposerRow({
         icon={<DeleteOutlined />}
         onClick={onRemove}
         disabled={!canRemove}
+        style={{ marginTop: 4 }}
       />
     </div>
   );

@@ -44,7 +44,6 @@ from apps.export.serializers import (
     OverdueShipmentSerializer,
     SalesReportSerializer,
     ShipmentAssignSerializer,
-    ShipmentSplitSerializer,
     ShipmentCreateSerializer,
     ShipmentListSerializer,
     ShipmentDraftListSerializer,
@@ -58,7 +57,6 @@ from apps.export.serializers import (
 from apps.export.services import (
     close_pallet_manifest,
     create_shipment,
-    generate_cargo_codes,
     override_dominant_varieties,
     transition_to,
 )
@@ -1095,7 +1093,18 @@ class ShipmentViewSet(ModelViewSet):
         except ShipmentStatusType.DoesNotExist:
             raise ValueError('Draft status not configured. Run migrate and seed_data first.')
 
+        bs_rows = data.get('block_sources', [])
+
         with transaction.atomic():
+            # Race-safe drawdown re-check under a forecast-row lock (the
+            # serializer's upfront check is unlocked; this is authoritative).
+            if bs_rows:
+                from apps.export.services.harvest_forecast import assert_draw_within_pool
+                assert_draw_within_pool(
+                    {row['block_id'].id: row['weight_kg'] for row in bs_rows},
+                    data['date'],
+                )
+
             shipment = Shipment.objects.create(
                 cargo_code=data['cargo_code'],
                 date=data['date'],
@@ -1204,265 +1213,6 @@ class ShipmentViewSet(ModelViewSet):
         shipment.refresh_from_db()
         detail_serializer = ShipmentDetailSerializer(shipment, context={'request': request})
         return Response(detail_serializer.data)
-
-    @action(detail=True, methods=['post'], url_path='split')
-    def split(self, request, pk=None):
-        """POST /api/v1/export/shipments/{id}/split/
-
-        Split a whole-harvest DRAFT shipment into N individual truck shipments.
-        Each truck gets its own unique cargo_code but shares the draft's
-        official_export_code (batch identifier on the pallet tag).
-
-        Role gate: export_manager, director (same PRIVILEGED_ROLES as /assign/).
-
-        Request body::
-            {
-                "trucks": [
-                    {
-                        "weight_kg": <Decimal, 0.01–18500>,
-                        "country":     <int|null, optional>,
-                        "city":        <int|null, optional>,
-                        "customer":    <int|null, optional>,
-                        "import_firm": <int|null, optional>,
-                        "firm_splits": [
-                            { "export_firm_id": <int>, "weight_kg"?: <Decimal> },
-                            ...
-                        ]
-                    },
-                    ...
-                ]
-            }
-
-        Response 200::
-            { "created_truck_ids": [int, ...], "cancelled_draft_id": int }
-
-        Errors:
-            400 — draft not in 'draft' status, Σ truck weights > draft total,
-                  or any per-truck validation failure (from serializer).
-            403 — caller's role is not export_manager or director.
-
-        Defaults (documented):
-          - Leftover kg (draft_total − Σ truck weights) is DISCARDED in Phase 1;
-            an AuditLog row records the discarded amount.
-          - Truck shipments do NOT inherit draft.notes.
-          - Zero-firm trucks are allowed (no QuotaUsageRecord created for them),
-            mirroring the behaviour of /firm-splits/ when firms=[] is passed.
-          - Firm split weight_kg uses get_default_truck_weight(num_firms) per
-            ADR-016; the truck's real weight goes only to ShipmentBlockSource.
-        """
-        user_role = getattr(request.user, 'role', None)
-        if user_role not in PRIVILEGED_ROLES:
-            return Response(
-                {'error': 'Only export_manager or director can split draft shipments'},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        split_serializer = ShipmentSplitSerializer(data=request.data)
-        split_serializer.is_valid(raise_exception=True)
-        trucks_data = split_serializer.validated_data['trucks']
-
-        try:
-            with transaction.atomic():
-                # Row-lock the draft to prevent concurrent split/assign races.
-                draft = Shipment.objects.select_for_update().get(pk=pk)
-
-                if draft.status.code != 'draft':
-                    raise ValueError('Shipment is not in draft status.')
-
-                # --- Weight validation ---
-                block_sources = list(
-                    draft.block_sources.order_by('id')
-                    .values('id', 'block_id', 'weight_kg', 'harvest_date')
-                )
-                draft_total = sum(
-                    Decimal(str(bs['weight_kg'])) for bs in block_sources
-                )
-                truck_total = sum(
-                    Decimal(str(t['weight_kg'])) for t in trucks_data
-                )
-                if truck_total > draft_total:
-                    raise ValueError(
-                        f'Total truck weight ({truck_total} kg) exceeds draft total '
-                        f'({draft_total} kg).'
-                    )
-
-                # --- Generate one cargo_code per truck (single DB scan) ---
-                codes = generate_cargo_codes(len(trucks_data), today=draft.date)
-
-                # --- Block-source sequential draw-down ---
-                # For each truck (in submission order), draw min(block_remaining, need)
-                # across blocks ordered by id. Carries harvest_date per block.
-                # Single-block draft → one block_source per truck == truck weight.
-                block_pool = [
-                    {
-                        'block_id':    bs['block_id'],
-                        'remaining':   Decimal(str(bs['weight_kg'])),
-                        'harvest_date': bs['harvest_date'],
-                    }
-                    for bs in block_sources
-                ]
-
-                # Per-truck block draw plan: list of lists of dicts.
-                truck_block_rows: list[list[dict]] = []
-                for truck in trucks_data:
-                    need = Decimal(str(truck['weight_kg']))
-                    draws: list[dict] = []
-                    for blk in block_pool:
-                        if need <= Decimal('0'):
-                            break
-                        drawn = min(blk['remaining'], need)
-                        if drawn > Decimal('0'):
-                            draws.append({
-                                'block_id':    blk['block_id'],
-                                'weight_kg':   drawn,
-                                'harvest_date': blk['harvest_date'],
-                            })
-                            blk['remaining'] -= drawn
-                            need -= drawn
-                    truck_block_rows.append(draws)
-
-                # --- Create truck shipments ---
-                created_ids: list[int] = []
-                for i, truck in enumerate(trucks_data):
-                    # create_shipment() creates the shipment in 'draft' status,
-                    # writes the initial ShipmentStatusLog, and fires notifications.
-                    # It does NOT generate draft tasks (that is _create_draft_shipment).
-                    truck_shipment = create_shipment(
-                        cargo_code=codes[i],
-                        date=draft.date,
-                        country=truck.get('country'),
-                        customer=truck.get('customer'),
-                        season=draft.season,
-                        user=request.user,
-                    )
-
-                    # Set additional fields that create_shipment() doesn't accept.
-                    truck_shipment.city = truck.get('city')
-                    truck_shipment.import_firm = truck.get('import_firm')
-                    # Share the batch's official export code (non-unique indexed).
-                    truck_shipment.official_export_code = draft.official_export_code
-                    # Link back to the originating draft.
-                    truck_shipment.previous_platform_id = draft
-                    # Copy harvest date from the draft-level fallback.
-                    truck_shipment.harvest_date = draft.harvest_date
-                    truck_shipment.save(update_fields=[
-                        'city', 'import_firm', 'official_export_code',
-                        'previous_platform_id', 'harvest_date',
-                    ])
-
-                    # Block sources for this truck.
-                    block_source_rows = [
-                        ShipmentBlockSource(
-                            shipment=truck_shipment,
-                            block_id=row['block_id'],
-                            weight_kg=row['weight_kg'],
-                            harvest_date=row['harvest_date'],
-                        )
-                        for row in truck_block_rows[i]
-                    ]
-                    if block_source_rows:
-                        ShipmentBlockSource.objects.bulk_create(
-                            block_source_rows, batch_size=500
-                        )
-
-                    # --- Firm splits + quota usage (mirror /firm-splits/ exactly) ---
-                    # ADR-016: ShipmentFirmSplit.weight_kg and QuotaUsageRecord.kg_used
-                    # use the OFFICIAL capped weight from get_default_truck_weight(),
-                    # NOT the truck's real weight. Per-firm weight_kg override (if
-                    # supplied) replaces the official kg for ShipmentFirmSplit only.
-                    # Already validated by the serializer (≤3, no dup, valid FK).
-                    valid_firms = truck.get('firm_splits', [])
-                    num_firms = len(valid_firms)
-                    official_kg = (
-                        get_default_truck_weight(num_firms) if num_firms > 0
-                        else Decimal('0')
-                    )
-
-                    if valid_firms:
-                        split_rows = []
-                        for j, entry in enumerate(valid_firms):
-                            override = entry.get('weight_kg')
-                            weight = (
-                                Decimal(str(override))
-                                if override not in (None, 0, '0', '0.00')
-                                else official_kg
-                            )
-                            split_rows.append(ShipmentFirmSplit(
-                                shipment=truck_shipment,
-                                export_firm=entry['export_firm'],
-                                weight_kg=weight,
-                                split_order=j + 1,
-                            ))
-                        ShipmentFirmSplit.objects.bulk_create(
-                            split_rows, batch_size=500
-                        )
-
-                        # Draft QuotaUsageRecord per firm — uses official_kg flat
-                        # (no per-firm override), mirroring /firm-splits/ lines 1505-1519.
-                        QuotaUsageRecord.objects.bulk_create([
-                            QuotaUsageRecord(
-                                usage_date=truck_shipment.date,
-                                export_firm=row.export_firm,
-                                kg_used=official_kg,
-                                product_type='tomato',
-                                shipment=truck_shipment,
-                                status='draft',
-                                created_by=request.user,
-                            )
-                            for row in split_rows
-                        ], batch_size=500)
-
-                    # Advance truck from draft → gumruk_girish.
-                    transition_to(
-                        truck_shipment, 'gumruk_girish', request.user,
-                        comment=f'split from draft {draft.cargo_code}',
-                    )
-
-                    created_ids.append(truck_shipment.id)
-
-                # --- Finalize the draft ---
-                # Delete block sources, firm splits, and draft quota usage that
-                # were redistributed to the truck shipments to prevent double-count.
-                draft.block_sources.all().delete()
-                draft.firm_splits.all().delete()
-                draft.quota_usage_records.filter(status='draft').delete()
-
-                truck_codes_str = ', '.join(codes)
-                transition_to(
-                    draft, 'cancelled', request.user,
-                    comment=f'split into {len(trucks_data)} trucks: {truck_codes_str}',
-                )
-                # transition_to() does NOT cancel open tasks — do it explicitly.
-                _cancel_open_tasks(draft)
-
-                # AuditLog: note any discarded leftover kg (Phase 1 behaviour —
-                # leftover is intentionally discarded, not preserved as a residual
-                # draft. Phase 2 will keep it. See plan default #1).
-                leftover = draft_total - truck_total
-                if leftover > Decimal('0'):
-                    AuditLog.objects.create(
-                        user=request.user,
-                        action='split_leftover',
-                        model_name='Shipment',
-                        object_id=draft.id,
-                        object_repr=draft.cargo_code,
-                        detail=(
-                            f'{leftover} kg leftover discarded when splitting '
-                            f'{draft.cargo_code} into {truck_codes_str}'
-                        ),
-                    )
-
-        except Shipment.DoesNotExist:
-            return Response({'error': 'Shipment not found.'}, status=status.HTTP_404_NOT_FOUND)
-        except PermissionError as exc:
-            return Response({'error': str(exc)}, status=status.HTTP_403_FORBIDDEN)
-        except ValueError as exc:
-            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-
-        return Response({
-            'created_truck_ids': created_ids,
-            'cancelled_draft_id': draft.id,
-        })
 
     @action(detail=True, methods=['patch'], url_path='quality')
     def set_quality(self, request, pk=None):

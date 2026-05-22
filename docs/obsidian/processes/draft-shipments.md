@@ -95,25 +95,19 @@ TRANSITIONS = {
    - Appends `ShipmentStatusLog` row.
 4. Return `ShipmentDetailSerializer(shipment).data`.
 
-### Split draft → N trucks (whole-harvest batch model)
+### Forecast-first flow (2026-05-22) — drafts draw down a per-block harvest pool
 
-A draft now holds the **whole daily harvest** of its block(s) — it is **not** capped at one truck (the composer shows "≈ N trucks" instead of an 18,500 target). At the Assignment Board the user splits it **by hand** into trucks.
+A draft is **one truck** (≤18,500 kg). It draws from a **per-block daily harvest pool** entered up front as a forecast. (This replaced an earlier "draft = whole harvest, split at assignment" attempt, which was reverted.)
 
-**Endpoint**: `POST /api/v1/export/shipments/{id}/split/` — role `{export_manager, director}`. Body:
-```json
-{ "trucks": [ { "weight_kg": 18000, "country": 3, "city": null, "customer": 7,
-  "import_firm": 2, "firm_splits": [{ "export_firm_id": 5, "weight_kg": null }] }, ... ] }
-```
-**ViewSet action** `ShipmentViewSet.split` (one `transaction.atomic()`, `select_for_update` on the draft):
-1. Assert `status == 'draft'`; validate each `weight_kg ≤ 18500` and `Σ ≤ draft_total` (= Σ block_sources).
-2. **Block-source sequential draw-down**: each truck draws `min(block_remaining, need)` from the draft's blocks (carrying `harvest_date`); per-block sums are preserved.
-3. Per truck: `create_shipment(...)` → set `city`/`import_firm`/`official_export_code` (shared batch code) / `previous_platform_id = draft` / `harvest_date`; `bulk_create` its block_sources; firm splits + draft `QuotaUsageRecord` (⚠️ **ADR-016**: `ShipmentFirmSplit.weight_kg` & `kg_used` use the OFFICIAL `get_default_truck_weight(num_firms)`, NOT the real truck weight, which lives on `ShipmentBlockSource.weight_kg`); `transition_to(truck, 'gumruk_girish', …)`.
-4. Finalize draft: delete its block_sources/draft firm_splits/draft quota usage; `transition_to(draft, 'cancelled', …)` + `_cancel_open_tasks(draft)`; AuditLog any discarded leftover.
-5. Return `{ created_truck_ids: [...], cancelled_draft_id }`.
+**The pool needs no new table:** `remaining(block, date) = HarvestDayEntry.forecast_value − Σ ShipmentBlockSource.weight_kg` (block, `shipment.date`, non-cancelled), computed live. Leftover is "saved" automatically — the forecast persists; remaining just decreases as drafts are created.
 
-All trucks from one draft **share** the batch `official_export_code` (the Shipment Code, non-unique) but each gets its own unique `cargo_code` (`generate_cargo_codes(n)`). Leftover after splitting is discarded (Phase 2 will preserve it as a residual draft). Code/codes: `generate_cargo_code` now delegates to `generate_cargo_codes`. Tests: `backend/apps/export/tests_split.py` (26).
+**Step 1 — Enter forecast** (renamed "New Draft" button → "Enter Forecast"; `ForecastEntryModal`): per block, kg, for **today or +1 day**. `POST /api/v1/export/harvest-forecast/` body `{date, entries:[{block_id, forecast_kg}]}` (roles: admin / loading_dept_head / greenhouse_manager). Orchestrated in the **export** app (lazy-imports greenhouse): get-or-creates the `WeeklyHarvestPlan` + `HarvestDayEntry`, writes `forecast_value` via greenhouse `set_forecast_value` (reuses its role×window matrix — loading_dept_head: day-before 00:00 → 12:00 day-of), then creates a `Notification(kind='forecast_handoff')` to `loading_dept_head` (excluding the submitter).
 
-**Frontend**: `SplitTrucksPanel` (`src/pages/export/assignment/`) renders in the Assignment Board centre column for a selected draft — truck rows (weight + destination + optional 1–3 export firms via `ExportFirmSelect`/`ImportFirmSelect`), a live **Remaining = Σ block_sources − Σ truck weights** counter that blocks over-allocation. Hook `useSplitDraft` (`useDrafts.ts`).
+**Step 2 — Build drafts** (Soltanmyrat, `DraftComposerModal`): pick a block → composer shows **"available: X kg"** (`GET /api/v1/export/harvest-forecast/remaining/?date=`), caps the row at `min(remaining, 18500)`. On create, `_create_draft_shipment` calls `assert_draw_within_pool(...)` inside its `transaction.atomic()` — a `select_for_update` lock on the forecast rows makes concurrent creates serialize so the pool can't be over-allocated (rejects a block with no forecast, over-remaining, or >18,500). A block with no forecast cannot be drafted (forecast-first).
+
+**Step 3 — Assign** (unchanged): `POST /shipments/{id}/assign/` sets destination + `transition_to('gumruk_girish')`.
+
+Service: `apps/export/services/harvest_forecast.py` (`get_remaining_for_date`, `get_remaining_for_block`, `assert_draw_within_pool` — all lazy-import greenhouse). Endpoints: `apps/export/views_harvest_forecast.py`. Tests: `tests_harvest_forecast.py` (24). **Deferred (Phase 2):** a formal "build drafts" task on Soltanmyrat's My Work Board (needs `Task.shipment` nullable); pool re-validation on the draft *edit* path (`set_block_sources`). Frontend: `useHarvestForecastRemaining` / `useSubmitForecast` (`useDrafts.ts`).
 
 ### Permissions
 
@@ -137,7 +131,7 @@ Registered in `backend/apps/core/permission_registry.py`:
 
 ### Components
 
-- `DraftComposerModal` (`src/components/draft/DraftComposerModal.tsx`) — 1–11 rows, live sum validation, block selector. Reorganized into 3 numbered sections, **harvest-first** (the draft is the single harvest-entry point now): **1. Harvest** (target weight + block/kg table + over/under badge), **2. Shipment Code** (in a collapsed `Collapse`, optional — Export Code stays visible on the panel header, `?` popover carries the dual-code explainer), **3. Notes**. The block table is 3 columns (Block · Allocate · delete) — the always-empty "Leftover" column and the old yellow "sort notice" banner were removed.
+- `DraftComposerModal` (`src/components/draft/DraftComposerModal.tsx`) — 1–11 rows, block selector. 3 numbered sections, **harvest-first**: **1. Harvest** — per block it shows **"available: X kg"** from the forecast pool (`useHarvestForecastRemaining`) and caps each row at `min(remaining, 18500)`; a block with no forecast is disabled; **2. Shipment Code** (collapsed `Collapse`, optional — Export Code on the panel header, `?` popover with the dual-code explainer); **3. Notes**. 3-column table (Block · Allocate · delete); the old "Leftover" column, yellow "sort notice", and the brief "≈ N trucks" reframe were all removed. Surfaces backend pool-rejection errors (both `{block_sources}` and `{error}` shapes).
 - `OfficialCodeEditor` (`src/components/draft/OfficialCodeEditor.tsx`) — the 6-field Shipment Code (Day · Month · Seq · Block · Year). The 6th field (variety) is **omitted from the draft UI** per Finding #3, but the stored `official_export_code` keeps all 6 `|`-separated fields with the variety slot empty (backend validator requires exactly 6). The preview renders each field as a labelled slot, never the raw `21|MY|||26|` pipe string. (Used only inside the composer's collapsed "Shipment Code" section.)
 - `BlockSelect` (`src/components/BlockSelect.tsx`) — self-fetching `Select` of `IGreenhouseBlock`, supports `excludeIds` for multi-row deduplication.
 

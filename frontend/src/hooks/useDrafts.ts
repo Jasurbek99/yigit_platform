@@ -6,8 +6,9 @@ import type {
   IShipmentDraft,
   IDraftCreatePayload,
   IDraftAssignPayload,
-  IDraftSplitPayload,
-  IDraftSplitResult,
+  IForecastRemaining,
+  IForecastSubmitPayload,
+  IForecastSubmitResult,
 } from '@/types';
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
@@ -81,6 +82,10 @@ export function useCreateDraft() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['drafts'] });
       queryClient.invalidateQueries({ queryKey: ['shipments'] });
+      // Creating a draft draws down the forecast pool — refresh "remaining".
+      queryClient.invalidateQueries({
+        predicate: (q) => q.queryKey[0] === 'harvest-forecast-remaining',
+      });
     },
   });
 }
@@ -120,44 +125,67 @@ export function useAssignDraft() {
   });
 }
 
-// ─── useSplitDraft ────────────────────────────────────────────────────────
-
-interface ISplitDraftArgs {
-  draftId: number;
-  payload: IDraftSplitPayload;
-}
+// ─── useHarvestForecastRemaining ─────────────────────────────────────────
 
 /**
- * Splits a draft into N individual truck shipments via
- * POST /api/v1/export/shipments/{draftId}/split/.
- *
- * In mock mode returns a stub result and skips the API call.
- * On success, invalidates all the same query keys as usePromoteFromDraft
- * so every consuming surface (drafts list, shipments list, sheet, board,
- * task list) refreshes automatically.
+ * Fetches remaining harvest pool per block for a given date.
+ * Returns an empty array when no forecast has been entered for that date.
+ * Decimals are returned as strings by the backend — use Number() when
+ * performing arithmetic.
  */
-export function useSplitDraft() {
+export function useHarvestForecastRemaining(date: string) {
+  return useQuery({
+    queryKey: ['harvest-forecast-remaining', date],
+    queryFn: async (): Promise<IForecastRemaining[]> => {
+      if (USE_MOCK) return [];
+
+      const { data } = await api.get<IForecastRemaining[]>(
+        `/export/harvest-forecast/remaining/?date=${date}`,
+      );
+      return data;
+    },
+    enabled: Boolean(date),
+    staleTime: 60_000,
+  });
+}
+
+// ─── useSubmitForecast ────────────────────────────────────────────────────
+
+/**
+ * Submits (upserts) a harvest forecast for a given date.
+ * On success, invalidates the remaining-pool cache so the composer
+ * immediately reflects the new pool.
+ */
+export function useSubmitForecast() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ draftId, payload }: ISplitDraftArgs): Promise<IDraftSplitResult> => {
+    mutationFn: async (payload: IForecastSubmitPayload): Promise<IForecastSubmitResult> => {
       if (USE_MOCK) {
-        return { created_truck_ids: [draftId], cancelled_draft_id: draftId };
+        return {
+          saved: payload.entries.length,
+          date: payload.date,
+          entries: payload.entries.map((e) => ({
+            block_id: e.block_id,
+            block_code: `Block-${e.block_id}`,
+            forecast_kg: String(e.forecast_kg),
+          })),
+        };
       }
 
-      const { data } = await api.post<IDraftSplitResult>(
-        `/export/shipments/${draftId}/split/`,
+      const { data } = await api.post<IForecastSubmitResult>(
+        '/export/harvest-forecast/',
         payload,
       );
       return data;
     },
-    onSuccess: (_data, vars) => {
-      queryClient.invalidateQueries({ queryKey: ['shipment', String(vars.draftId)] });
-      queryClient.invalidateQueries({ queryKey: ['shipments'] });
-      queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
-      queryClient.invalidateQueries({ queryKey: ['shipments', 'board'] });
-      queryClient.invalidateQueries({ queryKey: ['drafts'] });
-      queryClient.invalidateQueries({ queryKey: ['my-tasks'] });
+    onSuccess: () => {
+      // Invalidate all remaining-pool queries regardless of date.
+      // ForecastEntryModal covers today and tomorrow; a single predicate
+      // matching on key[0] is simpler and correct for both.
+      queryClient.invalidateQueries({
+        predicate: (q) => q.queryKey[0] === 'harvest-forecast-remaining',
+      });
     },
   });
 }

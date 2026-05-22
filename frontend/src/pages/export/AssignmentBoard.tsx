@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Alert, Spin, Tag, Typography } from 'antd';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Alert, Modal, Spin, Tag, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
-import { useDrafts } from '@/hooks/useDrafts';
+import { toast } from 'sonner';
+import { useDrafts, useAssignDraft } from '@/hooks/useDrafts';
 import { MOCK_DEMAND } from '@/mock/demand';
 import { SupplyCard } from './assignment/SupplyCard';
 import { DemandCard } from './assignment/DemandCard';
-import { SplitTrucksPanel } from './assignment/SplitTrucksPanel';
+import { MatchPanel } from './assignment/MatchPanel';
 import { getDemandGroups } from './assignment/assignmentHelpers';
 import { COLORS } from '@/constants/styles';
 
@@ -14,9 +15,11 @@ const { Text, Title } = Typography;
 
 export default function AssignmentBoard() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
   const { data: drafts = [], isLoading: draftsLoading } = useDrafts();
+  const assignDraft = useAssignDraft();
 
   const [selectedDraftId, setSelectedDraftId] = useState<number | null>(null);
   const [selectedDemandId, setSelectedDemandId] = useState<number | null>(null);
@@ -29,12 +32,49 @@ export default function AssignmentBoard() {
   }, [searchParams]);
 
   const selectedDraft = drafts.find((d) => d.id === selectedDraftId) ?? null;
+  const selectedDemand = MOCK_DEMAND.find((d) => d.id === selectedDemandId) ?? null;
 
   const demandGroups = getDemandGroups(MOCK_DEMAND, t);
 
-  function handleSplitClose() {
-    setSelectedDraftId(null);
-    setSelectedDemandId(null);
+  function handleConfirm() {
+    if (!selectedDraft || !selectedDemand) return;
+
+    // MOCK_DEMAND does not yet carry real country/customer IDs (mock data only).
+    // Send null for fields we can't resolve — backend accepts null (destination
+    // is optional at assign-time; it can be edited later). Once demand is wired
+    // to real contract/quota endpoints, selectedDemand.country_id / customer_id
+    // should be used here.
+    assignDraft.mutate(
+      {
+        draftId: selectedDraft.id,
+        payload: {
+          country: null,
+          city: null,
+          customer: null,
+          import_firm: null,
+        },
+      },
+      {
+        onSuccess: (result) => {
+          toast.success(
+            t('assign.toast_confirmed', {
+              code: selectedDraft.cargo_code,
+              country: selectedDemand.country,
+            }),
+          );
+          Modal.confirm({
+            title: t('assign.confirm_navigate_title'),
+            content: t('assign.confirm_navigate_body'),
+            okText: t('assign.confirm_navigate_ok'),
+            cancelText: t('assign.confirm_navigate_cancel'),
+            onOk: () => navigate(`/shipments/${result.id}`),
+          });
+          setSelectedDraftId(null);
+          setSelectedDemandId(null);
+        },
+        onError: () => toast.error(t('assign.toast_error')),
+      },
+    );
   }
 
   return (
@@ -140,7 +180,7 @@ export default function AssignmentBoard() {
           </div>
         </div>
 
-        {/* Center: split trucks panel */}
+        {/* Center: match panel */}
         <div
           style={{
             background: COLORS.white,
@@ -149,29 +189,26 @@ export default function AssignmentBoard() {
             display: 'flex',
             flexDirection: 'column',
             minHeight: 600,
-            overflowY: 'auto',
           }}
         >
-          {selectedDraft ? (
-            <SplitTrucksPanel draft={selectedDraft} onClose={handleSplitClose} />
-          ) : (
-            <div
-              style={{
-                flex: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: 24,
-                color: COLORS.textSecondary,
-                textAlign: 'center',
-                gap: 8,
-              }}
-            >
-              <div style={{ fontSize: 28, opacity: 0.4 }}>&#9656;</div>
-              <div style={{ fontSize: 13 }}>{t('assign.center_select_draft')}</div>
-            </div>
-          )}
+          <div
+            style={{
+              padding: '12px 16px',
+              borderBottom: '1px solid #f0f0f0',
+            }}
+          >
+            <div style={{ fontSize: 13, fontWeight: 600 }}>{t('assign.col_match')}</div>
+          </div>
+          <MatchPanel
+            draft={selectedDraft}
+            demand={selectedDemand}
+            onConfirm={handleConfirm}
+            onClear={() => {
+              setSelectedDraftId(null);
+              setSelectedDemandId(null);
+            }}
+            isLoading={assignDraft.isPending}
+          />
         </div>
 
         {/* Right: demand */}

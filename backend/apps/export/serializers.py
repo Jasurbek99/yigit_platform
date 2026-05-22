@@ -1119,6 +1119,9 @@ class ShipmentCreateSerializer(serializers.Serializer):
 
     def validate(self, attrs: dict) -> dict:
         """Cross-field validation for draft vs. full-creation paths."""
+        import datetime
+        from decimal import Decimal as D
+
         block_sources = attrs.get('block_sources', [])
 
         # Stream F: drafts no longer REQUIRE block sources at creation time. The
@@ -1135,6 +1138,53 @@ class ShipmentCreateSerializer(serializers.Serializer):
                 raise serializers.ValidationError(
                     {'block_sources': 'Duplicate blocks are not allowed in a single shipment.'}
                 )
+
+        # Forecast pool drawdown validation (draft path only, when block_sources provided).
+        # Each block draw must not exceed:
+        #   1. 18,500 kg (single-truck physical capacity).
+        #   2. The remaining forecast pool for that block on the shipment date.
+        # Uses a single get_remaining_for_date() call (one grouped DB query, no N+1).
+        is_draft = attrs.get('is_draft', False)
+        if is_draft and block_sources:
+            from apps.export.services.harvest_forecast import get_remaining_for_date
+
+            ship_date = attrs.get('date') or datetime.date.today()
+            remaining_rows = get_remaining_for_date(ship_date)
+            remaining_map: dict[int, D] = {
+                row['block_id']: row['remaining_kg']
+                for row in remaining_rows
+            }
+
+            errors = {}
+            for i, row in enumerate(block_sources):
+                block = row['block_id']  # GreenhouseBlock instance (FK resolved)
+                weight_kg = D(str(row['weight_kg']))
+                block_code = getattr(block, 'code', str(block.pk))
+
+                # Cap 1: truck capacity.
+                if weight_kg > D('18500'):
+                    errors[f'block_sources[{i}]'] = (
+                        f'Block {block_code}: weight {weight_kg} kg exceeds the '
+                        f'18,500 kg truck capacity.'
+                    )
+                    continue
+
+                # Cap 2: forecast pool.
+                remaining = remaining_map.get(block.pk)
+                if remaining is None:
+                    # No forecast entry for this block on this date.
+                    errors[f'block_sources[{i}]'] = (
+                        f'Block {block_code}: no forecast has been entered for '
+                        f'{ship_date}. Submit a forecast before creating a draft.'
+                    )
+                elif weight_kg > remaining:
+                    errors[f'block_sources[{i}]'] = (
+                        f'Block {block_code}: only {remaining} kg of forecast '
+                        f'remaining on {ship_date} (requested {weight_kg} kg).'
+                    )
+
+            if errors:
+                raise serializers.ValidationError({'block_sources': errors})
 
         return attrs
 
@@ -1159,82 +1209,6 @@ class ShipmentAssignSerializer(serializers.Serializer):
     import_firm = serializers.PrimaryKeyRelatedField(
         queryset=ImportFirm.objects.all(), required=False, allow_null=True
     )
-
-
-# ---------------------------------------------------------------------------
-# Split-draft serializers
-# ---------------------------------------------------------------------------
-
-class TruckFirmSplitInputSerializer(serializers.Serializer):
-    """One export firm entry within a truck's firm_splits list.
-
-    export_firm_id resolves to the ExportFirm instance.
-    weight_kg is an optional per-firm override of the official truck weight
-    (ADR-016: if omitted, get_default_truck_weight(num_firms) is used instead).
-    """
-
-    # JSON key is `export_firm_id` (api-contract `_id` convention + matches the
-    # frontend payload); `source='export_firm'` keeps validated_data['export_firm']
-    # an ExportFirm instance, so the view/validation code is unchanged.
-    export_firm_id = serializers.PrimaryKeyRelatedField(
-        queryset=ExportFirm.objects.all(),
-        source='export_firm',
-    )
-    # Optional per-firm override weight. When provided, overrides the official
-    # per-firm kg for ShipmentFirmSplit only (not QuotaUsageRecord — mirroring
-    # the /firm-splits/ endpoint exactly per ADR-016).
-    weight_kg = serializers.DecimalField(
-        max_digits=10, decimal_places=2,
-        required=False, allow_null=True,
-        min_value=Decimal('0.01'),
-    )
-
-
-class TruckSplitInputSerializer(serializers.Serializer):
-    """One truck row in a split request.
-
-    weight_kg is the real load (≤18500). Destination fields are all optional.
-    firm_splits is a list of 0–3 export firms; zero firms = no quota usage.
-    """
-
-    weight_kg = serializers.DecimalField(
-        max_digits=10, decimal_places=2,
-        min_value=Decimal('0.01'),
-        max_value=Decimal('18500'),
-    )
-    country = serializers.PrimaryKeyRelatedField(
-        queryset=Country.objects.all(), required=False, allow_null=True
-    )
-    city = serializers.PrimaryKeyRelatedField(
-        queryset=City.objects.all(), required=False, allow_null=True
-    )
-    customer = serializers.PrimaryKeyRelatedField(
-        queryset=Customer.objects.all(), required=False, allow_null=True
-    )
-    import_firm = serializers.PrimaryKeyRelatedField(
-        queryset=ImportFirm.objects.all(), required=False, allow_null=True
-    )
-    firm_splits = TruckFirmSplitInputSerializer(many=True, required=False, default=list)
-
-    def validate_firm_splits(self, value: list) -> list:
-        """Enforce max 3 firms and no duplicate export_firm within one truck."""
-        if len(value) > 3:
-            raise serializers.ValidationError('At most 3 export firms per truck are allowed.')
-        firm_ids = [row['export_firm'].id for row in value]
-        if len(firm_ids) != len(set(firm_ids)):
-            raise serializers.ValidationError('Duplicate export_firm entries are not allowed.')
-        return value
-
-
-class ShipmentSplitSerializer(serializers.Serializer):
-    """Request body for POST /api/v1/export/shipments/{id}/split/.
-
-    The Σ(trucks[*].weight_kg) ≤ draft_total check is performed in the VIEW
-    (it requires the draft instance). Per-truck ≤18500 is enforced here via
-    TruckSplitInputSerializer.weight_kg max_value.
-    """
-
-    trucks = TruckSplitInputSerializer(many=True, allow_empty=False)
 
 
 # ---------------------------------------------------------------------------

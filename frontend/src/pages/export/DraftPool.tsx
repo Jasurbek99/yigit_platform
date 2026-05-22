@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Spin, Alert, Tag, Typography, Badge } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
+import { BarChartOutlined, PlusOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import { useDrafts } from '@/hooks/useDrafts';
 import { DraftComposerModal } from '@/components/draft/DraftComposerModal';
+import { ForecastEntryModal } from '@/components/draft/ForecastEntryModal';
 import { FreshnessPill } from '@/components/FreshnessPill';
 import type { IShipmentDraft } from '@/types';
 import { COLORS, FONT } from '@/constants/styles';
@@ -144,6 +145,7 @@ function DraftCard({ draft }: IDraftCardProps) {
 export default function DraftPool() {
   const { t } = useTranslation();
   const [composerOpen, setComposerOpen] = useState(false);
+  const [forecastOpen, setForecastOpen] = useState(false);
   const { data: drafts = [], isLoading, isError } = useDrafts();
 
   const totalWeight = drafts.reduce((s, d) => s + (d.weight_net ?? 0), 0);
@@ -177,11 +179,17 @@ export default function DraftPool() {
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <Button
+            icon={<BarChartOutlined />}
+            onClick={() => setForecastOpen(true)}
+          >
+            {t('draft.enter_forecast_btn')}
+          </Button>
+          <Button
             type="primary"
             icon={<PlusOutlined />}
             onClick={() => setComposerOpen(true)}
           >
-            {t('draft.create_btn')}
+            {t('draft.create_draft_btn')}
           </Button>
         </div>
       </div>
@@ -267,6 +275,11 @@ export default function DraftPool() {
       <DraftComposerModal
         open={composerOpen}
         onClose={() => setComposerOpen(false)}
+      />
+
+      <ForecastEntryModal
+        open={forecastOpen}
+        onClose={() => setForecastOpen(false)}
       />
     </div>
   );

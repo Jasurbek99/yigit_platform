@@ -293,7 +293,7 @@ export function useBlockSummary(
       const params = new URLSearchParams();
       if (filters.season) params.set('season', String(filters.season));
       if (filters.year) params.set('year', String(filters.year));
-      if (filters.week_number) params.set('week_number', String(filters.week_number));
+      if (filters.week_number) params.set('week', String(filters.week_number));
       const { data } = await api.get<IBlockSummary[]>(
         `/greenhouse/harvest-plans/block-summary/?${params}`,
       );

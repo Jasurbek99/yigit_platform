@@ -22,6 +22,7 @@ from apps.export.views_admin import (
     UserPermissionsView,
 )
 from apps.export.views_quota import QuotaIssuanceViewSet, QuotaUsageViewSet, QuotaDashboardView
+from apps.export.views_harvest_forecast import HarvestForecastView
 from apps.export.views_sheet_settings import SheetRowSettingViewSet
 from apps.export.views_user_preferences import UserSheetPreferencesView
 
@@ -75,4 +76,9 @@ urlpatterns = router.urls + [
         UserSheetPreferencesView.as_view(),
         name='user-sheet-preferences',
     ),
+    # Harvest-forecast pool: submit forecasts + query remaining kg per block.
+    # GET  /api/v1/export/harvest-forecast/remaining/?date=YYYY-MM-DD
+    # POST /api/v1/export/harvest-forecast/
+    path('harvest-forecast/', HarvestForecastView.as_view(), name='harvest-forecast'),
+    path('harvest-forecast/remaining/', HarvestForecastView.as_view(), name='harvest-forecast-remaining'),
 ]

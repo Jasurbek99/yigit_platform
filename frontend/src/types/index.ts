@@ -1267,30 +1267,36 @@ export interface IDraftAssignPayload {
   border_point?: number | null;
 }
 
-export interface ITruckFirmSplitInput {
-  export_firm_id: number;
-  weight_kg?: number | null;
+// ─── Harvest Forecast ─────────────────────────────────────────────────────────
+
+/** One block's remaining forecast for a given date.
+ *  Backend returns decimals as strings — use Number() when arithmetic is needed. */
+export interface IForecastRemaining {
+  block_id: number;
+  block_code: string;
+  forecast_kg: string;
+  allocated_kg: string;
+  remaining_kg: string;
 }
 
-export interface ITruckSplitInput {
-  weight_kg: number;
-  country?: number | null;
-  city?: number | null;
-  customer?: number | null;
-  import_firm?: number | null;
-  firm_splits?: ITruckFirmSplitInput[];
+export interface IForecastSubmitEntry {
+  block_id: number;
+  forecast_kg: number | string;
 }
 
-export interface IDraftSplitPayload {
-  trucks: ITruckSplitInput[];
+export interface IForecastSubmitPayload {
+  date: string;        // 'YYYY-MM-DD'
+  entries: IForecastSubmitEntry[];
 }
 
-export interface IDraftSplitResult {
-  created_truck_ids: number[];
-  cancelled_draft_id: number;
+export interface IForecastSubmitResult {
+  saved: number;
+  date: string;
+  entries: { block_id: number; block_code: string; forecast_kg: string }[];
+  errors?: string[];
 }
 
-// â”€â”€â”€ Assignment Board (mock demand) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//â”€â”€â”€ Assignment Board (mock demand) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export type DemandType = 'contract' | 'quota' | 'queue';
 
