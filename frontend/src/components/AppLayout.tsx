@@ -145,6 +145,7 @@ export default function AppLayout() {
       },
     ]},
     { label: t('nav.group_export'), items: [
+      { key: '/export/shipments/dashboard', icon: <IconLayoutDashboard size={15} />, label: t('nav.shipment_dashboard') },
       { key: '/export/shipments', icon: <IconTruck size={15} />, label: t('nav.shipments') },
       { key: '/export/shipments/sheet', icon: <IconLayoutGrid size={15} />, label: t('nav.shipment_sheet') },
       {
@@ -165,7 +166,6 @@ export default function AppLayout() {
           'seller', 'boss',
         ] as import('@/types').UserRole[],
       },
-      { key: '/export/shipments/dashboard', icon: <IconLayoutDashboard size={15} />, label: t('nav.shipment_dashboard') },
       { key: '/export/shipments/board', icon: <IconLayoutKanban size={15} />, label: t('nav.shipment_board') },
       { key: '/export/drafts', icon: <IconFileText size={15} />, label: t('nav.drafts') },
       { key: '/export/assign', icon: <IconArrowsSort size={15} />, label: t('nav.assign') },
