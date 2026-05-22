@@ -133,6 +133,8 @@
     "late_submissions_tooltip": "{{late}} gijä, {{critical}} agyr gijä galan",
     "trucks_suffix": "maşyn",
     "pivot": "Öwür",
+    "show_sunday": "Ýekşenbäni görkez",
+    "hide_sunday": "Ýekşenbäni gizle",
     "total_kg": "Jemi (KG)",
     "total_trucks_label": "Jemi Maşyn",
     "russia_trucks": "Rossiya",

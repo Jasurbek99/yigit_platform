@@ -21,6 +21,7 @@ import {
   RightOutlined,
   SwapOutlined,
   ThunderboltOutlined,
+  CalendarOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -66,6 +67,11 @@ export default function WeeklyPlanGrid() {
   );
   const transposed = useUiStore((s) => s.planPivotMode);
   const setTransposed = useUiStore((s) => s.setPlanPivotMode);
+  const showSunday = useUiStore((s) => s.planShowSunday);
+  const setShowSunday = useUiStore((s) => s.setPlanShowSunday);
+  // Sunday is the last day in DAYS, so dropping it keeps every other day's
+  // index (di) intact — used for date offsets and day_of_week throughout.
+  const activeDays: Day[] = showSunday ? [...DAYS] : DAYS.slice(0, 6);
   const [historyEntry, setHistoryEntry] = useState<IHarvestDayEntry | null>(null);
   const [savingKey, setSavingKey] = useState<string | null>(null);
 
@@ -226,7 +232,7 @@ export default function WeeklyPlanGrid() {
 
   // ─── Column definitions (normal view: blocks as rows) ─────────────────────
 
-  const dayColumns = DAYS.map((day, di) => {
+  const dayColumns = activeDays.map((day, di) => {
     const colDate = weekMonday.add(di, 'day');
     const colDateStr = colDate.format('YYYY-MM-DD');
     return {
@@ -288,7 +294,7 @@ export default function WeeklyPlanGrid() {
     dateStr: string;
   }
 
-  const transposedData: ITransposedRow[] = DAYS.map((day, di) => {
+  const transposedData: ITransposedRow[] = activeDays.map((day, di) => {
     const colDate = weekMonday.add(di, 'day');
     return {
       key: day,
@@ -347,7 +353,7 @@ export default function WeeklyPlanGrid() {
     return (
       <Table.Summary.Row style={{ fontWeight: 600 }}>
         <Table.Summary.Cell index={0}>{t('plan.total')}</Table.Summary.Cell>
-        {DAYS.map((day, di) => {
+        {activeDays.map((day, di) => {
           const colDate = weekMonday.add(di, 'day');
           const colDateStr = colDate.format('YYYY-MM-DD');
           const planTotal = plans.reduce((s, p) => {
@@ -381,7 +387,7 @@ export default function WeeklyPlanGrid() {
             <span style={{ color: COLORS.primary }}>{t('plan.total')} {t('plan.plan')}</span>
           </Table.Summary.Cell>
           {plans.map((p, i) => {
-            const blockTotal = DAYS.reduce((s, _, di) => {
+            const blockTotal = activeDays.reduce((s, _, di) => {
               const colDate = weekMonday.add(di, 'day');
               const e = entriesByBlockDay.get(`${p.block}-${colDate.format('YYYY-MM-DD')}`);
               return s + num(e?.plan_value);
@@ -398,7 +404,7 @@ export default function WeeklyPlanGrid() {
             <span style={{ color: COLORS.success }}>{t('plan.total')} {t('plan.actual')}</span>
           </Table.Summary.Cell>
           {plans.map((p, i) => {
-            const blockTotal = DAYS.reduce((s, _, di) => {
+            const blockTotal = activeDays.reduce((s, _, di) => {
               const colDate = weekMonday.add(di, 'day');
               const e = entriesByBlockDay.get(`${p.block}-${colDate.format('YYYY-MM-DD')}`);
               return s + num(e?.actual_value);
@@ -461,6 +467,15 @@ export default function WeeklyPlanGrid() {
               type={transposed ? 'primary' : 'default'}
             >
               {t('plan.pivot')}
+            </Button>
+          )}
+          {plans.length > 0 && (
+            <Button
+              icon={<CalendarOutlined />}
+              onClick={() => setShowSunday(!showSunday)}
+              type={showSunday ? 'primary' : 'default'}
+            >
+              {showSunday ? t('plan.hide_sunday') : t('plan.show_sunday')}
             </Button>
           )}
           {showInitialize && (
@@ -587,6 +602,7 @@ export default function WeeklyPlanGrid() {
                   weekMonday={weekMonday}
                   totalPlanKg={totalPlan}
                   dayTotals={dayPlanTotals}
+                  showSunday={showSunday}
                 />
               ),
             },

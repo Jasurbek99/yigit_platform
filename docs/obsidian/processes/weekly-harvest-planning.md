@@ -208,7 +208,9 @@ See `docs/operations/cron.md` for Linux + Windows Task Scheduler setup.
 
 **File**: `frontend/src/pages/export/WeeklyPlanGrid.tsx`
 
-**Layout**: week picker, pivot toggle, "Initialize" + "Submit week" + "Fallback Mode" buttons (role-gated), header tile row, grid table.
+**Layout**: week picker, pivot toggle, Show/Hide Sunday toggle, "Initialize" + "Submit week" + "Fallback Mode" buttons (role-gated), header tile row, grid table.
+
+**Sunday toggle**: Sunday is the 7th day column and is rarely used, so it is **hidden by default** to keep the grid narrower. A toolbar button (`plan.show_sunday` / `plan.hide_sunday`) reveals it; state lives in `uiStore.planShowSunday`. The toggle drives both the harvest grid and the truck-allocation table (`showSunday` prop) — Sunday is always the last day in `DAYS`, so slicing it off leaves every other day's index (`di`, used for date offsets and `day_of_week`) intact. Backend day-entry rows are still created for all 7 days; the toggle is display-only.
 
 **Header tiles** (4 across top, replaces the old Plan/Actual/Deficit/Trucks):
 

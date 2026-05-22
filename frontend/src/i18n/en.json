@@ -133,6 +133,8 @@
     "late_submissions_tooltip": "{{late}} late, {{critical}} critical-late this week",
     "trucks_suffix": "trucks",
     "pivot": "Pivot",
+    "show_sunday": "Show Sunday",
+    "hide_sunday": "Hide Sunday",
     "total_kg": "Total (KG)",
     "total_trucks_label": "Total Trucks",
     "russia_trucks": "Russia",

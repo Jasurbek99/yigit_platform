@@ -135,6 +135,8 @@
     "late_submissions_tooltip": "{{late}} поздних, {{critical}} критически поздних на этой неделе",
     "trucks_suffix": "машин",
     "pivot": "Развернуть",
+    "show_sunday": "Показать воскресенье",
+    "hide_sunday": "Скрыть воскресенье",
     "total_kg": "Всего (кг)",
     "total_trucks_label": "Всего машин",
     "russia_trucks": "Россия",

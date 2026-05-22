@@ -79,6 +79,8 @@ interface ITruckAllocationTableProps {
   totalPlanKg: number;
   /** Per-day plan kg totals keyed by ISO date string (YYYY-MM-DD). */
   dayTotals?: Record<string, number>;
+  /** When false (default), the Sunday column is hidden to save width. */
+  showSunday?: boolean;
 }
 
 export function TruckAllocationTable({
@@ -90,8 +92,12 @@ export function TruckAllocationTable({
   weekMonday,
   totalPlanKg,
   dayTotals = {},
+  showSunday = false,
 }: ITruckAllocationTableProps) {
   const { t } = useTranslation();
+  // Sunday is the last day, so slicing it off keeps every di index aligned
+  // with day_of_week (di + 1) and the date offset.
+  const days: (typeof DAYS)[number][] = showSunday ? [...DAYS] : DAYS.slice(0, 6);
   const { data: truckData } = useTruckAllocations({
     season: seasonId, year, week_number: weekNumber,
   });
@@ -156,7 +162,7 @@ export function TruckAllocationTable({
       fixed: 'left',
       render: (text: string) => <strong>{text}</strong>,
     },
-    ...DAYS.map((day, di) => ({
+    ...days.map((day, di) => ({
       title: (
         <div style={{ textAlign: 'center' as const, lineHeight: '16px' }}>
           <div>{t(`plan.${day}`)}</div>
