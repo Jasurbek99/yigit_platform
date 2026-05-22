@@ -59,7 +59,11 @@ export default function WeeklyPlanGrid() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [selectedWeek, setSelectedWeek] = useState<Dayjs | null>(dayjs());
+  // After Thursday (Fri/Sat/Sun) the current week's past/today cells are read-only
+  // for managers, so default to next week to land on editable cells.
+  const [selectedWeek, setSelectedWeek] = useState<Dayjs | null>(() =>
+    dayjs().isoWeekday() > 4 ? dayjs().add(1, 'week') : dayjs(),
+  );
   const transposed = useUiStore((s) => s.planPivotMode);
   const setTransposed = useUiStore((s) => s.setPlanPivotMode);
   const [historyEntry, setHistoryEntry] = useState<IHarvestDayEntry | null>(null);
@@ -100,6 +104,10 @@ export default function WeeklyPlanGrid() {
   const isAdmin = user?.role === 'admin' || user?.role === 'director';
   const isAdminRole = user?.role === 'admin';
   const isManager = isAdmin;
+  // Truck allocation is editable by the export_manager too (backend TRUCK_WRITE
+  // grants it write access), unlike the harvest grid / Initialize Week which stay
+  // admin+director only.
+  const canEditTrucks = isAdmin || user?.role === 'export_manager';
 
   const plans: IWeeklyHarvestPlan[] = useMemo(() => {
     const raw = plansData?.results ?? [];
@@ -575,7 +583,7 @@ export default function WeeklyPlanGrid() {
                   weekNumber={weekNumber}
                   year={year}
                   seasonId={activeSeason?.id}
-                  isManager={!!isManager}
+                  isManager={canEditTrucks}
                   weekMonday={weekMonday}
                   totalPlanKg={totalPlan}
                   dayTotals={dayPlanTotals}
