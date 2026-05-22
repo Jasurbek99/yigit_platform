@@ -1,5 +1,7 @@
+import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import { Table, InputNumber } from 'antd';
 import type { TableColumnsType } from 'antd';
+import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import type { Dayjs } from 'dayjs';
 import { handleCellKeyDown } from '@/utils/tableNavigation';
@@ -14,6 +16,58 @@ import { fmtKg } from '@/components/HarvestCell.helpers';
 import { COLORS } from '@/constants/styles';
 
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
+
+type InputNumberRef = ComponentRef<typeof InputNumber>;
+
+interface ITruckSplitCellProps {
+  value: number;
+  canEdit: boolean;
+  onSave: (value: number) => void;
+}
+
+/**
+ * Click-to-edit truck-count cell, mirroring the weekly-plan HarvestCell:
+ * shows the value as text; click reveals the input; blur saves and returns
+ * to display mode (so editing again requires another click).
+ */
+function TruckSplitCell({ value, canEdit, onSave }: ITruckSplitCellProps) {
+  const [editing, setEditing] = useState(false);
+  const inputRef = useRef<InputNumberRef>(null);
+
+  // autoFocus is unreliable inside Table cells; focus imperatively on enter-edit.
+  useEffect(() => {
+    if (editing) inputRef.current?.focus({ cursor: 'all' });
+  }, [editing]);
+
+  if (canEdit && editing) {
+    return (
+      <InputNumber
+        ref={inputRef}
+        min={0}
+        keyboard={false}
+        defaultValue={value}
+        onBlur={(e) => {
+          const v = Number(e.target.value.replace(/,/g, '')) || 0;
+          setEditing(false);
+          if (v !== value) onSave(v);
+        }}
+        onKeyDown={handleCellKeyDown}
+        size="small"
+        style={{ width: 70 }}
+      />
+    );
+  }
+
+  return (
+    <div
+      data-edit-cell={canEdit ? 'true' : undefined}
+      onClick={() => { if (canEdit) setEditing(true); }}
+      style={{ cursor: canEdit ? 'text' : 'default', minHeight: 24, padding: '2px 0' }}
+    >
+      {value > 0 ? value : <span style={{ color: COLORS.textMuted }}>—</span>}
+    </div>
+  );
+}
 
 interface ITruckAllocationTableProps {
   plans: IWeeklyHarvestPlan[];
@@ -68,23 +122,26 @@ export function TruckAllocationTable({
     })),
   ];
 
+  function saveSplits(allocationId: number, destId: number, value: number) {
+    setTruckSplits.mutate(
+      { allocationId, splits: [{ destination_id: destId, truck_count: value }] },
+      {
+        onSuccess: () => toast.success(t('plan.toast_truck_saved')),
+        onError: () => toast.error(t('plan.toast_truck_error')),
+      },
+    );
+  }
+
   function handleTruckSave(dayOfWeek: DayOfWeek, destId: number, value: number) {
     const allocation = truckByDay.get(dayOfWeek);
     if (allocation) {
-      setTruckSplits.mutate({
-        allocationId: allocation.id,
-        splits: [{ destination_id: destId, truck_count: value }],
-      });
+      saveSplits(allocation.id, destId, value);
     } else if (seasonId) {
       upsertTruck.mutate(
         { season: seasonId, week_number: weekNumber!, year: year!, day_of_week: dayOfWeek, total_planned_kg: null },
         {
-          onSuccess: (newAlloc) => {
-            setTruckSplits.mutate({
-              allocationId: newAlloc.id,
-              splits: [{ destination_id: destId, truck_count: value }],
-            });
-          },
+          onSuccess: (newAlloc) => saveSplits(newAlloc.id, destId, value),
+          onError: () => toast.error(t('plan.toast_truck_error')),
         },
       );
     }
@@ -128,23 +185,16 @@ export function TruckAllocationTable({
         const split = allocation?.destination_splits?.find((s) => s.destination === destId);
         const currentVal = split?.truck_count ?? 0;
 
-        if (isManager) {
-          return (
-            <InputNumber
-              min={0}
-              keyboard={false}
-              defaultValue={currentVal}
-              onBlur={(e) => {
-                const v = Number(e.target.value.replace(/,/g, '')) || 0;
-                if (v !== currentVal) handleTruckSave(dayOfWeek, destId, v);
-              }}
-              onKeyDown={handleCellKeyDown}
-              size="small"
-              style={{ width: 70 }}
-            />
-          );
-        }
-        return currentVal > 0 ? currentVal : <span style={{ color: COLORS.textMuted }}>—</span>;
+        return (
+          <TruckSplitCell
+            // Remount on value change so the input re-seeds its defaultValue
+            // after a save (matches the read-from-query display in HarvestCell).
+            key={`${dayOfWeek}-${destId}-${currentVal}`}
+            value={currentVal}
+            canEdit={isManager}
+            onSave={(v) => handleTruckSave(dayOfWeek, destId, v)}
+          />
+        );
       },
     })),
     {

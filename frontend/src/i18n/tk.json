@@ -120,6 +120,8 @@
     "error_load": "Meýilnamany ýükläp bolmady",
     "status": "Ýagdaýy",
     "toast_actual_saved": "Hakyky agramy ýatda saklandy",
+    "toast_truck_saved": "Ulaglaryň paýlanyşy ýatda saklandy",
+    "toast_truck_error": "Ulaglaryň paýlanyşyny saklamak başa barmady",
     "actual_future_day": "Geljekki günler üçin hakyky girizip bolmaýar",
     "initialize_week": "Hepdäni döret",
     "toast_initialized": "Ähli bloklar üçin hepdäniň meýilnamasy döredildi",
