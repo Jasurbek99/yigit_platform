@@ -1219,13 +1219,13 @@
     "alerts_empty": "Işjeň bildiriş ýok"
   },
   "phases": {
-    "planlanyan": "Planlanýar",
-    "yuklenme": "Ýüklenýär",
-    "bardy": "Ýolda",
-    "gumruk_girish": "Serhetde",
-    "satylyor": "Satylýar",
-    "satyldy": "Satyldy",
-    "tamamlandy": "Tamamlandy"
+    "DRAFT": "Garalama",
+    "CUSTOMS": "Gümrük",
+    "LOADING": "Ýüklenýär",
+    "TRANSIT": "Ýolda",
+    "BORDER": "Serhetde",
+    "SALES": "Satylýar",
+    "COMPLETE": "Tamamlandy"
   },
   "sheet": {
     "title": "Ýük Sahypasy",

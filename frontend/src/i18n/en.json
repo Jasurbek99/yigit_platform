@@ -1219,13 +1219,13 @@
     "alerts_empty": "No active alerts"
   },
   "phases": {
-    "planlanyan": "Planning",
-    "yuklenme": "Loading",
-    "bardy": "In Transit",
-    "gumruk_girish": "At Border",
-    "satylyor": "Selling",
-    "satyldy": "Sold",
-    "tamamlandy": "Completed"
+    "DRAFT": "Draft",
+    "CUSTOMS": "Customs",
+    "LOADING": "Loading",
+    "TRANSIT": "In Transit",
+    "BORDER": "At Border",
+    "SALES": "Selling",
+    "COMPLETE": "Completed"
   },
   "sheet": {
     "title": "Shipment Sheet",

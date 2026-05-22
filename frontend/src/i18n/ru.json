@@ -1221,13 +1221,13 @@
     "alerts_empty": "Нет активных уведомлений"
   },
   "phases": {
-    "planlanyan": "Планирование",
-    "yuklenme": "Загрузка",
-    "bardy": "В пути",
-    "gumruk_girish": "На границе",
-    "satylyor": "Продаётся",
-    "satyldy": "Продано",
-    "tamamlandy": "Завершено"
+    "DRAFT": "Черновик",
+    "CUSTOMS": "Таможня",
+    "LOADING": "Загрузка",
+    "TRANSIT": "В пути",
+    "BORDER": "На границе",
+    "SALES": "Продаётся",
+    "COMPLETE": "Завершено"
   },
   "sheet": {
     "title": "Лист Отгрузок",

@@ -88,8 +88,12 @@ function renderBool(value: boolean): React.ReactNode {
   return value ? <Tag color="green">✓</Tag> : mutedDash;
 }
 
+// Status-filter buckets. Values are ShipmentStatusType.phase values from the DB
+// (DDL v5.1 / migration 0010), NOT status codes — the list endpoint filters
+// `status__phase=<value>`. Ordered to follow the workflow. CANCELLED is omitted
+// here; cancelled shipments are toggled via the dedicated "show cancelled" box.
 const PHASE_KEYS = [
-  'planlanyan', 'yuklenme', 'bardy', 'gumruk_girish', 'satylyor', 'satyldy', 'tamamlandy',
+  'DRAFT', 'CUSTOMS', 'LOADING', 'TRANSIT', 'BORDER', 'SALES', 'COMPLETE',
 ] as const;
 
 // localStorage key for the per-user column layout (visibility + order + pin).
