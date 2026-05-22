@@ -1425,10 +1425,13 @@
     "add_block": "Add Block",
     "total_label": "Total forecast",
     "btn_cancel": "Cancel",
-    "btn_submit": "Save Forecast",
+    "btn_submit": "Save",
     "toast_saved": "{{saved}} block(s) saved",
     "toast_error": "Failed to save forecast",
-    "error_no_rows": "Fill at least one block row"
+    "error_no_rows": "Fill at least one block row",
+    "confirm_empty_title": "Some blocks are empty",
+    "confirm_empty_body": "These blocks have no forecast: {{blocks}}. Save anyway?",
+    "confirm_empty_ok": "Save anyway"
   },
   "assign": {
     "page_title": "Assignment Board",
@@ -2071,7 +2074,7 @@
   },
   "me": {
     "board": {
-      "title": "My Work",
+      "title": "My tasks",
       "col_todo": "To do",
       "col_in_progress": "In progress",
       "col_blocked": "Blocked",
@@ -2111,8 +2114,8 @@
       "on_time_rate": "On-time"
     },
     "nav": {
-      "label": "My Work",
-      "board": "Board"
+      "label": "My tasks",
+      "board": "My tasks"
     }
   },
   "shipment_board": {

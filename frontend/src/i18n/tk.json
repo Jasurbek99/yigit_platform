@@ -1425,10 +1425,13 @@
     "add_block": "Başga blok goş",
     "total_label": "Jemi çaklama",
     "btn_cancel": "Ret et",
-    "btn_submit": "Çaklamany ýatda sakla",
+    "btn_submit": "Ýatda sakla",
     "toast_saved": "{{saved}} blok ýatda saklandy",
     "toast_error": "Çaklamany ýatda saklap bolmady",
-    "error_no_rows": "Azyndan bir blok setirini dolduryň"
+    "error_no_rows": "Azyndan bir blok setirini dolduryň",
+    "confirm_empty_title": "Käbir bloklar boş",
+    "confirm_empty_body": "Bu bloklarda çaklama ýok: {{blocks}}. Şonda-da ýatda saklamaly?",
+    "confirm_empty_ok": "Şonda-da sakla"
   },
   "assign": {
     "page_title": "Ýüklere ýer bellemek",
@@ -2075,7 +2078,7 @@
   },
   "me": {
     "board": {
-      "title": "Meniň işim",
+      "title": "Meniň işlerim",
       "col_todo": "Etmeli",
       "col_in_progress": "Işde",
       "col_blocked": "Bökdelen",
@@ -2115,8 +2118,8 @@
       "on_time_rate": "Wagtynda"
     },
     "nav": {
-      "label": "Meniň işim",
-      "board": "Tagta"
+      "label": "Meniň işlerim",
+      "board": "Meniň işlerim"
     }
   },
   "shipment_board": {
