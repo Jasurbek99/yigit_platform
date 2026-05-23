@@ -25,14 +25,25 @@ interface IDraftCardProps {
   draft: IShipmentDraft;
 }
 
+/** The stored Shipment Code is pipe-delimited "DD|MM|NNN|BLK|YY|VV" with a
+ *  letter month (e.g. "MY"). Show the filled fields joined, never raw pipes. */
+function formatShipmentCode(raw: string | null): string | null {
+  if (!raw) return null;
+  const parts = raw.split('|').filter((p) => p.trim() !== '');
+  return parts.length > 0 ? parts.join('·') : null;
+}
+
 function DraftCard({ draft }: IDraftCardProps) {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const freshness = draft.freshness;
 
-  const sourcesStr = draft.block_sources
-    .map((s) => `${s.block_code} (${((s.weight_kg ?? 0) / 1000).toFixed(1)}t)`)
-    .join(' + ');
+  // Block codes only — weights live separately below, smaller.
+  const blockCodesStr = draft.block_sources.map((s) => s.block_code).join(' · ');
+  // Total from the block allocations (weight_net is null on fresh drafts).
+  const totalWeight = draft.block_sources.reduce((s, b) => s + Number(b.weight_kg ?? 0), 0);
+  // Prefer the Shipment Code (letter month, as typed); fall back to Export Code.
+  const shipmentCode = formatShipmentCode(draft.official_export_code);
 
   function handleAssign(e: React.MouseEvent) {
     e.stopPropagation();
@@ -84,16 +95,23 @@ function DraftCard({ draft }: IDraftCardProps) {
 
       {/* Header row */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-        <div
-          style={{
-            fontFamily: FONT.mono,
-            fontWeight: 600,
-            fontSize: 14,
-            color: COLORS.primary,
-            letterSpacing: '0.02em',
-          }}
-        >
-          {draft.cargo_code}
+        <div>
+          <div
+            style={{
+              fontFamily: FONT.mono,
+              fontWeight: 600,
+              fontSize: 14,
+              color: COLORS.primary,
+              letterSpacing: '0.02em',
+            }}
+          >
+            {shipmentCode ?? draft.cargo_code}
+          </div>
+          {shipmentCode && (
+            <div style={{ fontFamily: FONT.mono, fontSize: 10, color: COLORS.textSecondary, marginTop: 1 }}>
+              {t('official_code.platform_id_label')}: {draft.cargo_code}
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end', alignItems: 'center' }}>
           <FreshnessPill freshness={freshness} ageDays={draft.harvest_age_days} size="small" />
@@ -103,17 +121,13 @@ function DraftCard({ draft }: IDraftCardProps) {
         </div>
       </div>
 
-      {/* Meta rows */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 8 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, gap: 8 }}>
-          <Text type="secondary" style={{ flexShrink: 0 }}>{t('draft.card_sources')}</Text>
-          <Text style={{ fontWeight: 500, textAlign: 'right', fontSize: 11 }}>{sourcesStr}</Text>
+      {/* Block codes — prominent; weight smaller, below */}
+      <div style={{ marginTop: 10 }}>
+        <div style={{ fontSize: 15, fontWeight: 600, color: COLORS.textPrimary, letterSpacing: '0.03em' }}>
+          {blockCodesStr}
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, gap: 8 }}>
-          <Text type="secondary" style={{ flexShrink: 0 }}>{t('draft.card_weight')}</Text>
-          <Text style={{ fontFamily: FONT.mono, fontWeight: 500 }}>
-            {(draft.weight_net ?? 0).toLocaleString('ru-RU')} kg
-          </Text>
+        <div style={{ fontSize: 11, color: COLORS.textSecondary, fontFamily: FONT.mono, marginTop: 2 }}>
+          {totalWeight.toLocaleString('ru-RU')} kg
         </div>
       </div>
 
@@ -148,7 +162,10 @@ export default function DraftPool() {
   const [forecastOpen, setForecastOpen] = useState(false);
   const { data: drafts = [], isLoading, isError } = useDrafts();
 
-  const totalWeight = drafts.reduce((s, d) => s + (d.weight_net ?? 0), 0);
+  const totalWeight = drafts.reduce(
+    (s, d) => s + d.block_sources.reduce((bs, b) => bs + Number(b.weight_kg ?? 0), 0),
+    0,
+  );
 
   return (
     <div>

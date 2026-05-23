@@ -1416,7 +1416,10 @@
     "enter_forecast_btn": "Hasyl maglumatyny giriziň",
     "create_draft_btn": "Garalama döret",
     "composer_available_kg": "bar: {{kg}} kg",
-    "composer_no_forecast": "çaklama ýok / 0 bar"
+    "composer_no_forecast": "çaklama ýok / 0 bar",
+    "composer_no_pool": "Şu gün garalama üçin hasyl ýok. Ilki 'Çaklama gir' düwmesini ulan, soňra garalama döret.",
+    "composer_need_more": "doly tirkeg üçin ýene {{kg}} kg gerek",
+    "composer_min_truck": "Garalama doly tirkeg bolmaly — azyndan {{kg}} kg."
   },
   "forecast": {
     "modal_title": "Hasyl çaklamasyny giriziň",
@@ -1435,7 +1438,8 @@
     "error_no_rows": "Azyndan bir blok setirini dolduryň",
     "confirm_empty_title": "Käbir bloklar boş",
     "confirm_empty_body": "Bu bloklarda çaklama ýok: {{blocks}}. Şonda-da ýatda saklamaly?",
-    "confirm_empty_ok": "Şonda-da sakla"
+    "confirm_empty_ok": "Şonda-da sakla",
+    "editing_hint": "Bu sene üçin eýýäm ýatda saklanan çaklama görkezilýär — islän bahaňy üýtgedip, Ýatda sakla basyň."
   },
   "assign": {
     "page_title": "Ýüklere ýer bellemek",

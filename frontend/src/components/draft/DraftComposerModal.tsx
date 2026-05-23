@@ -2,8 +2,8 @@ import { useState, useMemo } from 'react';
 import {
   Modal,
   Button,
-  InputNumber,
   Input,
+  Select,
   Collapse,
   Popover,
   Typography,
@@ -12,10 +12,8 @@ import { DeleteOutlined, PlusOutlined, QuestionCircleOutlined } from '@ant-desig
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import dayjs from 'dayjs';
-import { BlockSelect } from '@/components/BlockSelect';
 import { OfficialCodeEditor } from '@/components/draft/OfficialCodeEditor';
 import { useCreateDraft, useHarvestForecastRemaining } from '@/hooks/useDrafts';
-import { useGreenhouseBlocks } from '@/hooks/useAdmin';
 import type { IShipmentDraft } from '@/types';
 import { COLORS, FONT } from '@/constants/styles';
 
@@ -29,7 +27,13 @@ interface IComposerRow {
   key: number;
   block_id: number | null;
   block_code: string;
-  weight_kg: number;
+}
+
+/** One pickable block from the forecast pool (code + remaining harvest). */
+interface IBlockOption {
+  block_id: number;
+  code: string;
+  remaining: number;
 }
 
 interface IDraftComposerModalProps {
@@ -45,7 +49,7 @@ function makeKey(): number {
 }
 
 function makeDefaultRow(): IComposerRow {
-  return { key: makeKey(), block_id: null, block_code: '', weight_kg: 0 };
+  return { key: makeKey(), block_id: null, block_code: '' };
 }
 
 function autoCargo(): string {
@@ -81,15 +85,41 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
   const [officialCode, setOfficialCode] = useState<string>('');
   const [notes, setNotes] = useState('');
 
-  // Pool data: one call per composer open, maps block_id → remaining kg
+  // Pool data: one call per composer open — block_id → remaining kg.
   const { data: remainingList = [] } = useHarvestForecastRemaining(today);
   const remainingMap = useMemo(
-    () =>
-      new Map(remainingList.map((r) => [r.block_id, Number(r.remaining_kg)])),
+    () => new Map(remainingList.map((r) => [r.block_id, Number(r.remaining_kg)])),
     [remainingList],
   );
 
-  const totalKg = useMemo(() => rows.reduce((s, r) => s + r.weight_kg, 0), [rows]);
+  // Pickable blocks (forecast pool, remaining > 0) shown as "code — remaining kg".
+  const blockOptions: IBlockOption[] = useMemo(
+    () =>
+      remainingList
+        .map((r) => ({ block_id: r.block_id, code: r.block_code, remaining: Number(r.remaining_kg) }))
+        .filter((o) => o.remaining > 0)
+        .sort((a, b) => a.code.localeCompare(b.code)),
+    [remainingList],
+  );
+  const hasPool = blockOptions.length > 0;
+
+  // Auto-fill greedily, in row order: each block takes min(its remaining, space
+  // left to fill the truck). Under-18,500 blocks empty fully; bigger blocks cap
+  // at 18,500 — so the truck fills from the fewest blocks. Weights are derived,
+  // never typed.
+  const allocations = useMemo(() => {
+    let used = 0;
+    return rows.map((r) => {
+      if (r.block_id === null) return 0;
+      const rem = remainingMap.get(r.block_id) ?? 0;
+      const take = Math.min(rem, Math.max(0, MAX_TRUCK_KG - used));
+      used += take;
+      return take;
+    });
+  }, [rows, remainingMap]);
+
+  const totalKg = useMemo(() => allocations.reduce((s, w) => s + w, 0), [allocations]);
+  const isFull = totalKg >= MAX_TRUCK_KG;
 
   const usedBlockIds = rows.map((r) => r.block_id).filter((id): id is number => id !== null);
 
@@ -101,38 +131,33 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
   }
 
   function handleRemoveRow(key: number) {
-    setRows((prev) => prev.filter((r) => r.key !== key));
+    setRows((prev) => (prev.length > 1 ? prev.filter((r) => r.key !== key) : prev));
   }
 
-  function handleBlockChange(key: number, blockId: number | null, blockCode: string) {
+  function handleBlockChange(key: number, blockId: number | null) {
+    const code = blockOptions.find((o) => o.block_id === blockId)?.code ?? '';
     setRows((prev) =>
-      prev.map((r) => {
-        if (r.key !== key) return r;
-        // Clamp existing weight to the new block's cap on block change
-        const newRemaining = blockId !== null ? (remainingMap.get(blockId) ?? 0) : 0;
-        const cap = Math.min(newRemaining, MAX_TRUCK_KG);
-        const clampedWeight = Math.min(r.weight_kg, cap);
-        return { ...r, block_id: blockId, block_code: blockCode, weight_kg: clampedWeight };
-      }),
-    );
-  }
-
-  function handleWeightChange(key: number, value: number | null) {
-    setRows((prev) =>
-      prev.map((r) => (r.key === key ? { ...r, weight_kg: value ?? 0 } : r)),
+      prev.map((r) => (r.key === key ? { ...r, block_id: blockId, block_code: code } : r)),
     );
   }
 
   // ── Save ──────────────────────────────────────────────────────────────
 
   function handleSave() {
-    const validRows = rows.filter((r) => r.block_id !== null && r.weight_kg > 0);
-    if (validRows.length === 0) {
+    const block_sources = rows
+      .map((r, i) => ({ block_id: r.block_id, weight_kg: allocations[i] }))
+      .filter((b): b is { block_id: number; weight_kg: number } => b.block_id !== null && b.weight_kg > 0);
+
+    if (block_sources.length === 0) {
       toast.error(t('draft.composer_error_no_rows'));
       return;
     }
     if (!cargoCode.trim()) {
       toast.error(t('draft.composer_error_no_code'));
+      return;
+    }
+    if (totalKg < MAX_TRUCK_KG) {
+      toast.error(t('draft.composer_min_truck', { kg: MAX_TRUCK_KG.toLocaleString('ru-RU') }));
       return;
     }
 
@@ -141,10 +166,7 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
         cargo_code: cargoCode.trim(),
         date: today,
         is_draft: true,
-        block_sources: validRows.map((r) => ({
-          block_id: r.block_id as number,
-          weight_kg: r.weight_kg,
-        })),
+        block_sources,
         notes: notes.trim() || undefined,
         official_export_code: officialCode.trim() || undefined,
       },
@@ -204,14 +226,31 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
           key="save"
           type="primary"
           loading={createDraft.isPending}
+          disabled={totalKg < MAX_TRUCK_KG}
           onClick={handleSave}
         >
           {t('draft.composer_save')}
         </Button>,
       ]}
     >
-      {/* ── Section 1: Harvest (blocks + kg) — the primary task ── */}
+      {/* ── Section 1: Harvest — pick blocks, the truck auto-fills ── */}
       <SectionTitle>1. {t('draft.composer_section_harvest')}</SectionTitle>
+
+      {/* No forecast pool → nothing to draft from (forecast-first) */}
+      {!hasPool && (
+        <div
+          style={{
+            marginBottom: 10,
+            padding: '8px 12px',
+            background: COLORS.bgYellow,
+            borderRadius: 6,
+            fontSize: 12,
+            color: '#854F0B',
+          }}
+        >
+          {t('draft.composer_no_pool')}
+        </div>
+      )}
 
       {/* Block rows table */}
       <div style={{ border: '1px solid #f0f0f0', borderRadius: 8, overflow: 'hidden' }}>
@@ -219,7 +258,7 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '140px 1fr 40px',
+            gridTemplateColumns: '1fr 140px 40px',
             padding: '8px 12px',
             background: COLORS.bgLayout,
             fontSize: 11,
@@ -236,23 +275,21 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
         </div>
 
         {/* Rows */}
-        {rows.map((row) => (
+        {rows.map((row, i) => (
           <ComposerRow
             key={row.key}
             row={row}
+            allocation={allocations[i]}
+            options={blockOptions}
             excludeIds={usedBlockIds.filter((id) => id !== row.block_id)}
-            remainingMap={remainingMap}
-            onBlockChange={(blockId, blockCode) =>
-              handleBlockChange(row.key, blockId, blockCode)
-            }
-            onWeightChange={(v) => handleWeightChange(row.key, v)}
+            onBlockChange={(blockId) => handleBlockChange(row.key, blockId)}
             onRemove={() => handleRemoveRow(row.key)}
             canRemove={rows.length > 1}
           />
         ))}
 
-        {/* Add row */}
-        {rows.length < MAX_ROWS && (
+        {/* Add row — only while the truck isn't full yet */}
+        {rows.length < MAX_ROWS && hasPool && !isFull && (
           <div
             onClick={handleAddRow}
             style={{
@@ -273,7 +310,7 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '140px 1fr 40px',
+            gridTemplateColumns: '1fr 140px 40px',
             padding: '10px 12px',
             gap: 8,
             fontWeight: 600,
@@ -283,9 +320,22 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
         >
           <div style={{ fontSize: 12 }}>{t('draft.composer_total')}</div>
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontFamily: FONT.mono, fontSize: 14, color: COLORS.textPrimary }}>
-              {totalKg.toLocaleString('ru-RU')} kg
+            <div
+              style={{
+                fontFamily: FONT.mono,
+                fontSize: 14,
+                color: isFull ? COLORS.success : COLORS.textPrimary,
+              }}
+            >
+              {totalKg.toLocaleString('ru-RU')} / {MAX_TRUCK_KG.toLocaleString('ru-RU')} kg
             </div>
+            {!isFull && (
+              <div style={{ fontSize: 11, color: COLORS.warning, fontWeight: 400 }}>
+                {t('draft.composer_need_more', {
+                  kg: (MAX_TRUCK_KG - totalKg).toLocaleString('ru-RU'),
+                })}
+              </div>
+            )}
           </div>
           <div />
         </div>
@@ -350,93 +400,70 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
 
 interface IComposerRowProps {
   row: IComposerRow;
+  /** Auto-computed kg this block contributes to the truck (read-only). */
+  allocation: number;
+  options: IBlockOption[];
   excludeIds: number[];
-  remainingMap: Map<number, number>;
-  onBlockChange: (blockId: number | null, blockCode: string) => void;
-  onWeightChange: (value: number | null) => void;
+  onBlockChange: (blockId: number | null) => void;
   onRemove: () => void;
   canRemove: boolean;
 }
 
 function ComposerRow({
   row,
+  allocation,
+  options,
   excludeIds,
-  remainingMap,
   onBlockChange,
-  onWeightChange,
   onRemove,
   canRemove,
 }: IComposerRowProps) {
   const { t } = useTranslation();
-  const { data: blocks = [] } = useGreenhouseBlocks();
 
-  // Per-row cap = min(remaining for this block, MAX_TRUCK_KG)
-  // If block has no forecast entry → remaining is undefined → 0 → cap = 0 → disabled
-  const remaining: number | undefined =
-    row.block_id !== null ? remainingMap.get(row.block_id) : undefined;
-  const hasNoForecast = row.block_id !== null && remaining === undefined;
-  const effectiveRemaining = remaining ?? 0;
-  const cap = Math.min(effectiveRemaining, MAX_TRUCK_KG);
-  const isDisabled = row.block_id !== null && cap === 0;
-
-  function handleBlockSelect(id: number | null) {
-    const blk = blocks.find((b) => b.id === id);
-    onBlockChange(id, blk?.code ?? '');
-  }
-
-  // Available label shown under the block select
-  let availableNode: React.ReactNode = null;
-  if (row.block_id !== null) {
-    if (hasNoForecast) {
-      availableNode = (
-        <div style={{ fontSize: 10, color: COLORS.danger, marginTop: 2 }}>
-          {t('draft.composer_no_forecast')}
-        </div>
-      );
-    } else {
-      availableNode = (
-        <div style={{ fontSize: 10, color: COLORS.textSecondary, marginTop: 2 }}>
-          {t('draft.composer_available_kg', {
-            kg: effectiveRemaining.toLocaleString('ru-RU'),
-          })}
-        </div>
-      );
-    }
-  }
+  // Offer blocks not used in other rows (keep this row's own pick visible).
+  const selectOptions = options
+    .filter((o) => o.block_id === row.block_id || !excludeIds.includes(o.block_id))
+    .map((o) => ({
+      value: o.block_id,
+      label: `${o.code} — ${o.remaining.toLocaleString('ru-RU')} kg`,
+    }));
 
   return (
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: '140px 1fr 40px',
+        gridTemplateColumns: '1fr 140px 40px',
         padding: '8px 12px',
         gap: 8,
-        alignItems: 'start',
+        alignItems: 'center',
         borderTop: '1px solid #f0f0f0',
         fontSize: 13,
       }}
     >
-      <div>
-        <BlockSelect
-          value={row.block_id}
-          onChange={handleBlockSelect}
-          excludeIds={excludeIds}
-          size="small"
-          placeholder={t('draft.composer_block_ph')}
-        />
-        {availableNode}
-      </div>
-      <InputNumber
-        value={row.weight_kg || null}
-        onChange={onWeightChange}
-        min={0}
-        max={cap > 0 ? cap : undefined}
-        step={500}
-        style={{ width: '100%', textAlign: 'right' }}
+      <Select
+        value={row.block_id ?? undefined}
+        onChange={(v) => onBlockChange(v ?? null)}
+        options={selectOptions}
+        showSearch
+        allowClear
         size="small"
-        addonAfter="kg"
-        disabled={isDisabled}
+        placeholder={t('draft.composer_block_ph')}
+        style={{ width: '100%' }}
+        filterOption={(input, option) =>
+          String(option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+        }
       />
+      <div
+        style={{
+          textAlign: 'right',
+          fontFamily: FONT.mono,
+          fontSize: 13,
+          fontWeight: 600,
+          color: row.block_id !== null && allocation > 0 ? COLORS.textPrimary : COLORS.textMuted,
+        }}
+      >
+        {row.block_id !== null ? `${allocation.toLocaleString('ru-RU')} kg` : '—'}
+      </div>
       <Button
         size="small"
         type="text"
@@ -444,7 +471,6 @@ function ComposerRow({
         icon={<DeleteOutlined />}
         onClick={onRemove}
         disabled={!canRemove}
-        style={{ marginTop: 4 }}
       />
     </div>
   );

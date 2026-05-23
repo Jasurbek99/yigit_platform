@@ -1416,7 +1416,10 @@
     "enter_forecast_btn": "Enter Forecast",
     "create_draft_btn": "Create Draft",
     "composer_available_kg": "available: {{kg}} kg",
-    "composer_no_forecast": "no forecast / 0 available"
+    "composer_no_forecast": "no forecast / 0 available",
+    "composer_no_pool": "No harvest available to draft today. Use 'Enter Forecast' first, then build drafts from it.",
+    "composer_need_more": "need {{kg}} kg more for a full truck",
+    "composer_min_truck": "A draft must be a full truck — at least {{kg}} kg."
   },
   "forecast": {
     "modal_title": "Enter Harvest Forecast",
@@ -1435,7 +1438,8 @@
     "error_no_rows": "Fill at least one block row",
     "confirm_empty_title": "Some blocks are empty",
     "confirm_empty_body": "These blocks have no forecast: {{blocks}}. Save anyway?",
-    "confirm_empty_ok": "Save anyway"
+    "confirm_empty_ok": "Save anyway",
+    "editing_hint": "Showing the forecast already saved for this date — change any value and Save."
   },
   "assign": {
     "page_title": "Assignment Board",

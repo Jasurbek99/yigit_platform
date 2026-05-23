@@ -12,6 +12,9 @@ interface IBlockSelectProps {
   style?: React.CSSProperties;
   /** Exclude specific block ids from the dropdown (e.g. already-selected blocks in composer) */
   excludeIds?: number[];
+  /** When provided, restrict the dropdown to ONLY these block ids (e.g. blocks
+   *  that have forecast remaining — drafts must be built from the forecast pool). */
+  allowedIds?: number[];
 }
 
 /**
@@ -27,12 +30,18 @@ export function BlockSelect({
   size,
   style,
   excludeIds = [],
+  allowedIds,
 }: IBlockSelectProps) {
   const { t } = useTranslation();
   const { data: blocks = [] } = useGreenhouseBlocks();
 
   const options = blocks
-    .filter((b) => b.is_active && !excludeIds.includes(b.id))
+    .filter(
+      (b) =>
+        b.is_active &&
+        !excludeIds.includes(b.id) &&
+        (allowedIds === undefined || allowedIds.includes(b.id)),
+    )
     .map((b) => ({
       value: b.id,
       // The block name already starts with its code (code "A" → name
