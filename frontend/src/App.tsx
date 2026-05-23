@@ -8,7 +8,6 @@ import { Toaster } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import AppLayout from '@/components/AppLayout';
-import { useAuth } from '@/hooks/useAuth';
 import { COLORS, FONT } from '@/constants/styles';
 
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
@@ -69,20 +68,6 @@ const PageLoader = () => (
   </div>
 );
 
-/**
- * Strict role guard for the Feedback Admin Inbox.
- * Checks user.role === 'admin' exclusively — does NOT honour is_superuser.
- * This is intentional: the feedback admin identity is the 'admin' role enum
- * value, not Django superuser status.
- * RequireAuth / ProtectedRoute higher up already handles unauthenticated users.
- */
-function FeedbackAdminGate({ children }: { children: React.ReactNode }): React.ReactElement | null {
-  const { user } = useAuth();
-  if (!user) return null;
-  if (user.role !== 'admin') return <Navigate to="/" replace />;
-  return <>{children}</>;
-}
-
 export default function App() {
   const { i18n } = useTranslation();
   const antdLocale = i18n.language.startsWith('ru') ? ruRU : enUS;
@@ -117,7 +102,7 @@ export default function App() {
                     <ProtectedRoute pageCode="analytics.boss"><BossDashboard /></ProtectedRoute>
                   } />
                   <Route path="director/stuck-shipments" element={
-                    <ProtectedRoute roles={['admin', 'director', 'boss']}><StuckShipments /></ProtectedRoute>
+                    <ProtectedRoute pageCode="director.stuck_shipments"><StuckShipments /></ProtectedRoute>
                   } />
                   <Route path="export/shipments" element={
                     <ProtectedRoute pageCode="export.shipments"><ShipmentList /></ProtectedRoute>
@@ -132,7 +117,7 @@ export default function App() {
                     <ProtectedRoute pageCode="export.shipments"><ShipmentDashboard /></ProtectedRoute>
                   } />
                   <Route path="export/shipments/board" element={
-                    <ProtectedRoute pageCode="export.shipments"><ShipmentBoard /></ProtectedRoute>
+                    <ProtectedRoute pageCode="export.shipments.board"><ShipmentBoard /></ProtectedRoute>
                   } />
                   <Route path="export/plan" element={
                     <ProtectedRoute pageCode="export.plan"><WeeklyPlanGrid /></ProtectedRoute>
@@ -213,18 +198,24 @@ export default function App() {
                     <ProtectedRoute pageCode="admin.shipment_settings"><ShipmentSettingsPage /></ProtectedRoute>
                   } />
                   <Route path="admin/audit-log" element={
-                    <ProtectedRoute roles={['admin', 'director', 'export_manager']}><AuditLogPage /></ProtectedRoute>
+                    <ProtectedRoute pageCode="audit_log"><AuditLogPage /></ProtectedRoute>
                   } />
                   {/* Me / Self board */}
                   <Route path="me/board" element={
-                    <ProtectedRoute><SelfBoard /></ProtectedRoute>
+                    <ProtectedRoute pageCode="me.board"><SelfBoard /></ProtectedRoute>
                   } />
                   {/* Feedback module */}
-                  <Route path="feedback/submit" element={<SubmitFeedbackPage />} />
-                  <Route path="feedback/my-tickets" element={<MyTicketsPage />} />
-                  <Route path="feedback/public" element={<PublicFeedPage />} />
+                  <Route path="feedback/submit" element={
+                    <ProtectedRoute pageCode="feedback.submit"><SubmitFeedbackPage /></ProtectedRoute>
+                  } />
+                  <Route path="feedback/my-tickets" element={
+                    <ProtectedRoute pageCode="feedback.my_tickets"><MyTicketsPage /></ProtectedRoute>
+                  } />
+                  <Route path="feedback/public" element={
+                    <ProtectedRoute pageCode="feedback.public"><PublicFeedPage /></ProtectedRoute>
+                  } />
                   <Route path="admin/feedback" element={
-                    <FeedbackAdminGate><AdminInboxPage /></FeedbackAdminGate>
+                    <ProtectedRoute pageCode="feedback.admin_inbox"><AdminInboxPage /></ProtectedRoute>
                   } />
                 </Route>
                 <Route path="/unauthorized" element={<UnauthorizedPage />} />

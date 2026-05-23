@@ -13,6 +13,7 @@ const ROUTE_PAGE_MAP: Record<string, string> = {
   '/export/shipments':          'export.shipments',
   '/export/shipments/sheet':    'export.shipments',
   '/export/shipments/dashboard':'export.shipments',
+  '/export/shipments/board':    'export.shipments.board',
   '/export/overdue':            'export.overdue',
   '/export/advances':           'export.advances',
   '/export/plan':               'export.plan',
@@ -33,7 +34,14 @@ const ROUTE_PAGE_MAP: Record<string, string> = {
   '/admin/customers':           'admin.customers',
   '/admin/truck-destinations':  'admin.truck_dest',
   '/admin/shipment-settings':   'admin.shipment_settings',
+  '/admin/audit-log':           'audit_log',
   '/boss/dashboard':            'analytics.boss',
+  '/director/stuck-shipments':  'director.stuck_shipments',
+  '/me/board':                  'me.board',
+  '/feedback/submit':           'feedback.submit',
+  '/feedback/my-tickets':       'feedback.my_tickets',
+  '/feedback/public':           'feedback.public',
+  '/admin/feedback':            'feedback.admin_inbox',
 };
 
 /**

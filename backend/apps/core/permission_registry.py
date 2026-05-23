@@ -17,6 +17,7 @@ PAGE_REGISTRY: dict[str, str] = OrderedDict([
     ('dashboard',               'Dashboard'),
     # Export
     ('export.shipments',        'Shipments'),
+    ('export.shipments.board',  'Shipment Board (Kanban)'),
     ('export.overdue',          'Overdue Reports'),
     ('export.advances',         'Advances'),
     ('export.plan',             'Weekly Plan'),
@@ -31,8 +32,20 @@ PAGE_REGISTRY: dict[str, str] = OrderedDict([
     ('export.assign',           'Assignment Board'),
     # Pallet manifest (Finding #4 / Phase 2)
     ('export.pallet_manifest',  'Pallet Manifest'),
+    # Personal workspace
+    ('me.board',                'My Tasks'),
     # Analytics (boss / director)
     ('analytics.boss',          'Boss Dashboard'),
+    # Director / oversight
+    ('director.stuck_shipments', 'Stuck Shipments'),
+    # System (NOT admin.* — visible to director/export_manager too, so it must
+    # not carry the admin. prefix that AD-15 reserves for admin-only pages).
+    ('audit_log',               'Audit Log'),
+    # Feedback module
+    ('feedback.submit',         'Feedback: Submit'),
+    ('feedback.my_tickets',     'Feedback: My Tickets'),
+    ('feedback.public',         'Feedback: Public Feed'),
+    ('feedback.admin_inbox',    'Feedback: Admin Inbox'),
     # Admin
     ('admin.users',             'Admin: Users'),
     ('admin.seasons',           'Admin: Seasons'),

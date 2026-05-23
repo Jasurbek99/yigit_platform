@@ -141,7 +141,6 @@ export default function AppLayout() {
         key: '/director/stuck-shipments',
         icon: <IconAlertTriangle size={15} />,
         label: t('nav.stuck_shipments'),
-        roles: ['admin', 'director', 'boss'],
       },
     ]},
     { label: t('nav.group_export'), items: [
@@ -156,15 +155,7 @@ export default function AppLayout() {
           </Badge>
         ),
         label: t('me.nav.board'),
-        // Visible to all authenticated users — no role restriction needed.
-        // The roles array lists every role so the canSeePage shortcut is bypassed
-        // and the item is always visible regardless of page_permissions entries.
-        roles: [
-          'admin', 'export_manager', 'loading_dept_head', 'warehouse_chief',
-          'weight_master', 'document_team', 'transport', 'sales_rep',
-          'finansist', 'director', 'accountant', 'greenhouse_manager',
-          'seller', 'boss',
-        ] as import('@/types').UserRole[],
+        // Matrix-driven via page_code 'me.board' (seeded visible for every role).
       },
       { key: '/export/shipments/board', icon: <IconLayoutKanban size={15} />, label: t('nav.shipment_board') },
       { key: '/export/drafts', icon: <IconFileText size={15} />, label: t('nav.drafts') },
@@ -194,7 +185,6 @@ export default function AppLayout() {
         key: '/admin/audit-log',
         icon: <IconClipboardList size={15} />,
         label: t('nav.admin_audit_log'),
-        roles: ['admin', 'director', 'export_manager'],
       },
     ]},
     { label: t('nav.group_feedback'), items: [
@@ -202,25 +192,16 @@ export default function AppLayout() {
         key: '/feedback/submit',
         icon: <IconMessageCircle size={15} />,
         label: t('nav.feedback_submit'),
-        roles: ['admin', 'export_manager', 'loading_dept_head', 'warehouse_chief', 'weight_master',
-          'document_team', 'transport', 'sales_rep', 'finansist', 'director',
-          'accountant', 'greenhouse_manager', 'seller', 'boss'],
       },
       {
         key: '/feedback/my-tickets',
         icon: <IconFileText size={15} />,
         label: t('nav.feedback_my_tickets'),
-        roles: ['admin', 'export_manager', 'loading_dept_head', 'warehouse_chief', 'weight_master',
-          'document_team', 'transport', 'sales_rep', 'finansist', 'director',
-          'accountant', 'greenhouse_manager', 'seller', 'boss'],
       },
       {
         key: '/feedback/public',
         icon: <IconChartPie size={15} />,
         label: t('nav.feedback_public'),
-        roles: ['admin', 'export_manager', 'loading_dept_head', 'warehouse_chief', 'weight_master',
-          'document_team', 'transport', 'sales_rep', 'finansist', 'director',
-          'accountant', 'greenhouse_manager', 'seller', 'boss'],
       },
       {
         key: '/admin/feedback',
@@ -230,7 +211,6 @@ export default function AppLayout() {
           </Badge>
         ),
         label: t('nav.feedback_admin_inbox'),
-        roles: ['admin'],
       },
     ]},
   ];
@@ -239,13 +219,6 @@ export default function AppLayout() {
   const menuItems: MenuProps['items'] = allMenuGroups
     .map((group) => {
       const visibleChildren = group.items.filter((item) => {
-        // Feedback admin inbox requires role === 'admin' exactly.
-        // is_superuser alone is NOT sufficient — this check must run before
-        // the shared is_superuser shortcut below so that a superuser whose
-        // actual role is not 'admin' cannot see the inbox entry.
-        if (item.key === '/admin/feedback') {
-          return user?.role === 'admin';
-        }
         // Role-gated items (no page_permissions entry) — use the inline list.
         if (item.roles) {
           if (!user) return false;

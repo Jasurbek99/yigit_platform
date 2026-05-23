@@ -20,8 +20,19 @@
               "icon": "lucide-file",
               "title": "shipment-creation"
             }
+          },
+          {
+            "id": "e8a16517d9725fd4",
+            "type": "leaf",
+            "state": {
+              "type": "graph",
+              "state": {},
+              "icon": "lucide-git-fork",
+              "title": "Graph view"
+            }
           }
-        ]
+        ],
+        "currentTab": 1
       }
     ],
     "direction": "vertical"
@@ -183,8 +194,13 @@
       "bases:Create new base": false
     }
   },
-  "active": "c5f2eceaf3ed4c43",
+  "active": "e8a16517d9725fd4",
   "lastOpenFiles": [
+    "operations/beta-runbook.md",
+    "Untitled.base",
+    "Untitled.canvas",
+    "Untitled.md",
+    "processes/shipment-creation.md",
     "processes/quota-management.md",
     "processes/quality-documents.md",
     "processes/local-sell-plan.md",

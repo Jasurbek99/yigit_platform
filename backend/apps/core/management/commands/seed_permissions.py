@@ -29,19 +29,33 @@ _ALL_PAGES = set(PAGE_REGISTRY.keys())
 _ALL_EXPORT = {k for k in PAGE_REGISTRY if k.startswith('export.')}
 _ALL_ADMIN = {k for k in PAGE_REGISTRY if k.startswith('admin.')}
 
+# Shipment Board (Kanban) — a view of the same data as export.shipments, so it
+# defaults visible to every role that can already see the Shipments page.
+_BOARD = 'export.shipments.board'
+
+# Pages every authenticated role gets by default. These match the previous
+# "all roles" inline lists in AppLayout / route guards (My Tasks + the three
+# non-admin Feedback pages). feedback.admin_inbox is intentionally excluded —
+# it stays admin-only.
+_FEEDBACK_COMMON = {'feedback.submit', 'feedback.my_tickets', 'feedback.public'}
+_UNIVERSAL = {'me.board'} | _FEEDBACK_COMMON
+
 PAGE_DEFAULTS: dict[str, set[str]] = {
     # admin: sole top-tier system administrator. Sees every page including
     # the permission matrix and admin pages. See AD-15.
     'admin': _ALL_PAGES,
     # director loses admin.* pages with AD-15 — operational role only.
-    # analytics.boss survives because its prefix is 'analytics.', not 'admin.'.
-    'director': _ALL_PAGES - _ALL_ADMIN,
+    # analytics.boss, audit_log, director.stuck_shipments and the feedback pages
+    # survive because their prefixes are not 'admin.'. feedback.admin_inbox is
+    # removed — that inbox stays admin-only.
+    'director': _ALL_PAGES - _ALL_ADMIN - {'feedback.admin_inbox'},
     # export_manager: drop the previous admin.permissions exception — AD-15
-    # restricts permission-matrix CRUD to admin only.
-    'export_manager': _ALL_PAGES - _ALL_ADMIN,
+    # restricts permission-matrix CRUD to admin only. Also drop stuck-shipments
+    # (director/boss oversight page) and the admin feedback inbox.
+    'export_manager': _ALL_PAGES - _ALL_ADMIN - {'director.stuck_shipments', 'feedback.admin_inbox'},
     'weight_master': {
-        'dashboard', 'export.shipments', 'export.pallet_manifest',
-    },
+        'dashboard', 'export.shipments', 'export.pallet_manifest', _BOARD,
+    } | _UNIVERSAL,
     # loading_dept_head: superset of warehouse_chief (same daily work) plus
     # 'export.plan' — Soltanmyrat needs the Weekly Harvest Plan grid to coordinate
     # forecast entry (day-before + day-of until 12:00) and to read computed actuals
@@ -51,40 +65,43 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
         'export.drafts',
         'export.pallet_manifest',
         'export.plan',
-    },
+        _BOARD,
+    } | _UNIVERSAL,
     'warehouse_chief': {
         'dashboard', 'export.shipments',
         # Draft workflow: warehouse_chief creates drafts (Finding #2)
         'export.drafts',
         # Pallet manifest oversight (Finding #4)
         'export.pallet_manifest',
-    },
+        _BOARD,
+    } | _UNIVERSAL,
     'document_team': {
-        'dashboard', 'export.shipments', 'export.quota',
-    },
+        'dashboard', 'export.shipments', 'export.quota', _BOARD,
+    } | _UNIVERSAL,
     'transport': {
-        'dashboard', 'export.shipments',
-    },
+        'dashboard', 'export.shipments', _BOARD,
+    } | _UNIVERSAL,
     'sales_rep': {
-        'dashboard', 'export.shipments', 'export.advances',
-    },
+        'dashboard', 'export.shipments', 'export.advances', _BOARD,
+    } | _UNIVERSAL,
     'finansist': {
-        'dashboard', 'export.shipments', 'export.prices', 'export.advances',
-    },
+        'dashboard', 'export.shipments', 'export.prices', 'export.advances', _BOARD,
+    } | _UNIVERSAL,
     'accountant': {
-        'dashboard', 'export.shipments',
-    },
+        'dashboard', 'export.shipments', _BOARD,
+    } | _UNIVERSAL,
     'greenhouse_manager': {
         'dashboard', 'export.plan', 'export.domestic_sales',
-    },
+    } | _UNIVERSAL,
     'seller': {
         'dashboard', 'export.quota.local_sell',
-    },
-    # Boss is strictly executive: only the analytics dashboard is visible.
-    # All other navigation hidden so the role lands exclusively on /boss/dashboard.
+    } | _UNIVERSAL,
+    # Boss is strictly executive: the analytics dashboard plus the stuck-shipments
+    # oversight page. My Tasks + Feedback pages come from _UNIVERSAL (boss was in
+    # every prior all-roles list). No other operational navigation.
     'boss': {
-        'analytics.boss',
-    },
+        'analytics.boss', 'director.stuck_shipments',
+    } | _UNIVERSAL,
 }
 
 
@@ -380,6 +397,12 @@ class Command(BaseCommand):
             self._seed_page_permissions()
             self._seed_resource_permissions()
             self._seed_field_permissions()
+
+        # Clear the per-role permission caches (60 s TTL) so freshly-seeded rows
+        # take effect immediately instead of after the next /auth/me/ cache miss.
+        # Mirrors the admin matrix-edit endpoints, which invalidate the same keys.
+        from apps.core.views_permissions import _invalidate_perm_cache
+        _invalidate_perm_cache()
 
         self.stdout.write(self.style.SUCCESS('Permission seed complete.'))
 
