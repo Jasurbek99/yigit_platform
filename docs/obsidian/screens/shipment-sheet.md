@@ -259,6 +259,7 @@ Columns created as **supply-only drafts** in the two-column Join flow are visual
 - Gapy only — filters to `is_gapy_satys = true`
 - **⚙ Settings** — opens the `Sheet Display Settings` modal with the freeze pickers (see Freeze panes above)
 - **Zoom `−` / `%` / `+`** — scales the whole grid (cells **and** fonts) 60 %–150 % in 10 % steps; click the `%` to reset to 100 %. State lives in `sheetStore` (`sheetZoom`, with `zoomIn`/`zoomOut`/`resetZoom`/`setSheetZoom`) and persists per browser to `localStorage` under `ygt-sheet-zoom`. See [Zoom](#zoom) below.
+- **⛶ Fullscreen** (toolbar right) — enters a distraction-free mode: the page pins itself over the entire viewport (`.sheet-page--fullscreen`, `position:fixed; inset:0; z-index:1000`), covering the AppLayout sidebar (z-index 100) and header (z-index 99). The toolbar itself is **unmounted** — only the grid plus a small floating circular **exit** button (top-right) remain. Exit via that button or the **Esc** key. State: `sheetFullscreen` in `sheetStore` (`setSheetFullscreen`/`toggleSheetFullscreen`) — **ephemeral** (not persisted; a per-session view choice), and force-reset on page unmount so navigating away can't leave the flag stuck.
 - Deadline timer — global hour deadline indicator
 
 ## Backend payload

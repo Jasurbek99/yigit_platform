@@ -116,6 +116,12 @@ interface ISheetState {
   zoomOut: () => void;
   resetZoom: () => void;
 
+  // ─── Fullscreen (distraction-free grid: hides app chrome + toolbar) ──────
+  // Ephemeral — a per-session view choice, not persisted across reloads.
+  sheetFullscreen: boolean;
+  setSheetFullscreen: (on: boolean) => void;
+  toggleSheetFullscreen: () => void;
+
   // ─── Comments drawer ─────────────────────────────────────────────────────
   commentsDrawerOpen: boolean;
   setCommentsDrawerOpen: (open: boolean) => void;
@@ -202,6 +208,11 @@ export const useSheetStore = create<ISheetState>((set) => ({
     persistZoom(DEFAULT_SHEET_ZOOM);
     set({ sheetZoom: DEFAULT_SHEET_ZOOM });
   },
+
+  // ─── Fullscreen ───────────────────────────────────────────────────────────
+  sheetFullscreen: false,
+  setSheetFullscreen: (on) => set({ sheetFullscreen: on }),
+  toggleSheetFullscreen: () => set((state) => ({ sheetFullscreen: !state.sheetFullscreen })),
 
   // ─── Comments drawer ─────────────────────────────────────────────────────
   commentsDrawerOpen: false,

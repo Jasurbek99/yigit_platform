@@ -1257,6 +1257,8 @@
     "zoom_in": "Zoom in",
     "zoom_out": "Zoom out",
     "zoom_reset": "Reset zoom to 100%",
+    "fullscreen_enter": "Fullscreen",
+    "fullscreen_exit": "Exit fullscreen (Esc)",
     "create_success": "Shipment created — fill in the details",
     "create_error": "Failed to create shipment",
     "create_retry": "Code collision — try again",

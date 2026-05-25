@@ -10,6 +10,7 @@ import {
   ZoomOutOutlined,
   MergeCellsOutlined,
   InboxOutlined,
+  FullscreenOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useSheetStore, SHEET_ZOOM_MIN, SHEET_ZOOM_MAX } from '@/stores/sheetStore';
@@ -82,6 +83,7 @@ export function SheetToolbar({
   const resetZoom = useSheetStore((s) => s.resetZoom);
   const joinMode = useSheetStore((s) => s.joinMode);
   const setJoinMode = useSheetStore((s) => s.setJoinMode);
+  const setSheetFullscreen = useSheetStore((s) => s.setSheetFullscreen);
 
   const [unhideModalOpen, setUnhideModalOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -333,6 +335,14 @@ export function SheetToolbar({
           )}
         </div>
         <div className="sheet-toolbar__right">
+          <Tooltip title={t('sheet.fullscreen_enter')}>
+            <Button
+              size="small"
+              icon={<FullscreenOutlined />}
+              onClick={() => setSheetFullscreen(true)}
+              aria-label={t('sheet.fullscreen_enter')}
+            />
+          </Tooltip>
           <Badge count={myOpenTaskCount} size="small" offset={[-4, 4]}>
             <Button
               size="small"

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useCallback } from 'react';
-import { Spin } from 'antd';
+import { Spin, Button, Tooltip } from 'antd';
+import { FullscreenExitOutlined } from '@ant-design/icons';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
@@ -54,6 +55,8 @@ export default function ShipmentSheet() {
   const setPendingHighlightCommentId = useSheetStore((s) => s.setPendingHighlightCommentId);
   const openCommentsForCell = useSheetStore((s) => s.openCommentsForCell);
   const setRows = useSheetStore((s) => s.setRows);
+  const sheetFullscreen = useSheetStore((s) => s.sheetFullscreen);
+  const setSheetFullscreen = useSheetStore((s) => s.setSheetFullscreen);
 
   // ─── Phase 2a: derive field_key → SheetRowSetting.id from the payload ─────
   // The /sheet/ payload emits `id` inside row_settings[fk] (since the N1 backend
@@ -140,6 +143,20 @@ export default function ShipmentSheet() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run once on mount
 
+  // Fullscreen: Esc exits; always exit on unmount so navigating away can't
+  // leave the store stuck in fullscreen (the overlay only renders on this page,
+  // but the flag would persist otherwise).
+  useEffect(() => {
+    if (!sheetFullscreen) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSheetFullscreen(false);
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [sheetFullscreen, setSheetFullscreen]);
+
+  useEffect(() => () => setSheetFullscreen(false), [setSheetFullscreen]);
+
   const filtered = useMemo(() => {
     if (!shipments) return [];
     let result = shipments;
@@ -171,16 +188,31 @@ export default function ShipmentSheet() {
   }
 
   return (
-    <div className="sheet-page page-fullheight-grid" style={{ position: 'relative' }}>
-      <SheetToolbar
-        shipments={filtered}
-        rows={rows}
-        taskCounts={taskCounts}
-        currentUserLang={currentUserLang}
-        hiddenRowIds={userPreferences.hidden_rows}
-        fieldKeyToRowId={fieldKeyToRowId}
-        onUnhideRow={handleUnhideRow}
-      />
+    <div
+      className={`sheet-page page-fullheight-grid${sheetFullscreen ? ' sheet-page--fullscreen' : ''}`}
+      style={{ position: 'relative' }}
+    >
+      {sheetFullscreen ? (
+        <Tooltip title={t('sheet.fullscreen_exit')} placement="left">
+          <Button
+            className="sheet-fullscreen-exit"
+            shape="circle"
+            icon={<FullscreenExitOutlined />}
+            onClick={() => setSheetFullscreen(false)}
+            aria-label={t('sheet.fullscreen_exit')}
+          />
+        </Tooltip>
+      ) : (
+        <SheetToolbar
+          shipments={filtered}
+          rows={rows}
+          taskCounts={taskCounts}
+          currentUserLang={currentUserLang}
+          hiddenRowIds={userPreferences.hidden_rows}
+          fieldKeyToRowId={fieldKeyToRowId}
+          onUnhideRow={handleUnhideRow}
+        />
+      )}
       <SheetGrid
         shipments={filtered}
         rows={rows}
