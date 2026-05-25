@@ -991,10 +991,13 @@
     "manage": "Manage",
     "select_country": "Select country",
     "select_city": "Select city",
+    "select_import_firm": "Select import firm",
+    "select_export_firm": "Select export firm",
     "create_option": "Create \"{{name}}\"",
     "search": "Search...",
     "error": "An error occurred. Please try again.",
-    "no_deadline": "No deadline"
+    "no_deadline": "No deadline",
+    "date": "Date"
   },
   "permissions_admin": {
     "subtitle": "Manage block rules and permissions",
@@ -1364,7 +1367,65 @@
     "move_up": "Move up",
     "move_down": "Move down",
     "row_menu": "Row menu",
-    "drag_to_reorder": "Drag to reorder"
+    "drag_to_reorder": "Drag to reorder",
+    "new_supply": {
+      "btn": "Supply column",
+      "tooltip": "Create a new supply draft (blocks + product, no destination)"
+    },
+    "new_destination": {
+      "btn": "Destination column",
+      "tooltip": "Create a new destination draft (country + customer, no blocks)"
+    },
+    "join": {
+      "btn": "Join",
+      "tooltip": "Merge a supply draft into a destination draft"
+    },
+    "join_bar": {
+      "instruction": "Click a supply column, then a destination column to join",
+      "join": "Join",
+      "cancel": "Cancel",
+      "kept": "Kept",
+      "removed": "Removed",
+      "need_pair": "Select one supply draft + one destination draft",
+      "only_drafts": "Only draft columns can be joined"
+    },
+    "supply_column_legend": {
+      "label": "Supply draft",
+      "tooltip": "Green columns are supply-side drafts (created by Soltanmyrat / warehouse). Use Join to assign them a destination."
+    },
+    "supply_modal": {
+      "title": "New Supply Draft",
+      "cargo_code_label": "Cargo Code",
+      "cargo_code_ph": "e.g. 2505201/26",
+      "variety_label": "Tomato Variety",
+      "varieties_label": "Tomato Varieties",
+      "varieties_ph": "Select one or more varieties",
+      "blocks_label": "Harvest Blocks",
+      "col_block": "Block",
+      "col_weight": "Weight",
+      "block_ph": "Select block...",
+      "add_row": "Add block",
+      "save": "Save as Draft",
+      "error_no_blocks": "Add at least one block with a weight",
+      "toast_saved": "Supply draft {{code}} created",
+      "toast_error": "Failed to create supply draft",
+      "truck_estimate": "≈ {{count}} truck(s) × 18,500 kg"
+    },
+    "dest_modal": {
+      "title": "New Shipment",
+      "save": "Save as Draft",
+      "firm_splits_label": "Export Firm Splits",
+      "firm_ph": "Select firm...",
+      "add_firm_split": "Add export firm",
+      "error_no_country": "Country is required",
+      "error_no_customer": "Customer is required",
+      "toast_saved": "Destination draft {{code}} created",
+      "toast_error": "Failed to create destination draft"
+    },
+    "join_modal": {
+      "toast_success": "Drafts merged successfully",
+      "toast_error": "Join failed"
+    }
   },
   "draft": {
     "page_title": "Draft Shipments",

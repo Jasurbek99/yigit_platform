@@ -28,6 +28,13 @@ const JUNCTION_RESOURCE_BY_FIELD: Record<string, string> = {
   block_sources: 'shipment_block_source',
 };
 
+// Roles whose columns get a supply-side green tint in the Sheet.
+const SUPPLY_ROLES = new Set(['loading_dept_head', 'warehouse_chief']);
+
+function isSupplyColumn(shipment: IShipmentSheetItem): boolean {
+  return SUPPLY_ROLES.has(shipment.created_by_role ?? '');
+}
+
 function canEditCell(user: ICurrentUser | null, fieldKey: string): boolean {
   if (!user) return false;
   const junctionResource = JUNCTION_RESOURCE_BY_FIELD[fieldKey];
@@ -90,6 +97,9 @@ export function SheetGrid({
   const frozenRowCount = useSheetStore((s) => s.frozenRowCount);
   const frozenColCount = useSheetStore((s) => s.frozenColCount);
   const sheetZoom = useSheetStore((s) => s.sheetZoom);
+  const joinMode = useSheetStore((s) => s.joinMode);
+  const joinSelection = useSheetStore((s) => s.joinSelection);
+  const toggleJoinSelection = useSheetStore((s) => s.toggleJoinSelection);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Scaled layout px — every cell width/height + the virtualizer's estimateSize
@@ -294,10 +304,22 @@ export function SheetGrid({
       frozenShipments.map((shipment, idx) => {
         const isLast = idx === frozenShipments.length - 1;
         const cancelled = shipment.status_code === 'cancelled';
+        const supply = isSupplyColumn(shipment) && !shipment.column_color;
+        const isDraft = shipment.status_code === 'draft';
+        const isSelected = joinSelection.includes(shipment.id);
+        const joinSelectable = joinMode && isDraft;
         return (
           <div
             key={shipment.id}
-            className={`sheet-col-header sheet-col-header--frozen${isLast ? ' sheet-col-header--last' : ''}${cancelled ? ' sheet-col-header--cancelled' : ''}`}
+            className={[
+              'sheet-col-header',
+              'sheet-col-header--frozen',
+              isLast ? 'sheet-col-header--last' : '',
+              cancelled ? 'sheet-col-header--cancelled' : '',
+              supply ? 'sheet-col-supply-tint' : '',
+              joinSelectable ? 'sheet-col-header--join-selectable' : '',
+              isSelected ? 'sheet-col-header--join-selected' : '',
+            ].filter(Boolean).join(' ')}
             style={{
               position: 'sticky',
               left: FROZEN_LEFT_TOTAL + idx * COL_WIDTH_SHIPMENT,
@@ -307,8 +329,13 @@ export function SheetGrid({
               flexShrink: 0,
               ...(shipment.column_color
                 ? { borderTop: `3px solid ${shipment.column_color}` }
+                : supply
+                ? { borderTop: '3px solid #16a34a' }
                 : null),
             }}
+            onClick={
+              joinMode && isDraft ? () => toggleJoinSelection(shipment.id) : undefined
+            }
           >
             <SheetColumnHeader
               shipmentId={shipment.id}
@@ -320,7 +347,8 @@ export function SheetGrid({
           </div>
         );
       }),
-    [frozenShipments, COL_WIDTH_SHIPMENT, FROZEN_LEFT_TOTAL, ROW_HEIGHT],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [frozenShipments, COL_WIDTH_SHIPMENT, FROZEN_LEFT_TOTAL, ROW_HEIGHT, joinMode, joinSelection, toggleJoinSelection],
   );
 
   // Virtualized (scrollable) column headers — seq number continues from frozen count
@@ -329,10 +357,20 @@ export function SheetGrid({
       virtualColumns.map((vc) => {
         const shipment = scrollableShipments[vc.index];
         const cancelled = shipment.status_code === 'cancelled';
+        const supply = isSupplyColumn(shipment) && !shipment.column_color;
+        const isDraft = shipment.status_code === 'draft';
+        const isSelected = joinSelection.includes(shipment.id);
+        const joinSelectable = joinMode && isDraft;
         return (
           <div
             key={shipment.id}
-            className={`sheet-col-header${cancelled ? ' sheet-col-header--cancelled' : ''}`}
+            className={[
+              'sheet-col-header',
+              cancelled ? 'sheet-col-header--cancelled' : '',
+              supply ? 'sheet-col-supply-tint' : '',
+              joinSelectable ? 'sheet-col-header--join-selectable' : '',
+              isSelected ? 'sheet-col-header--join-selected' : '',
+            ].filter(Boolean).join(' ')}
             style={{
               position: 'absolute',
               left: vc.start,
@@ -340,8 +378,13 @@ export function SheetGrid({
               height: ROW_HEIGHT,
               ...(shipment.column_color
                 ? { borderTop: `3px solid ${shipment.column_color}` }
+                : supply
+                ? { borderTop: '3px solid #16a34a' }
                 : null),
             }}
+            onClick={
+              joinMode && isDraft ? () => toggleJoinSelection(shipment.id) : undefined
+            }
           >
             <SheetColumnHeader
               shipmentId={shipment.id}
@@ -353,7 +396,8 @@ export function SheetGrid({
           </div>
         );
       }),
-    [virtualColumns, scrollableShipments, shipmentFreezeCount, COL_WIDTH_SHIPMENT, ROW_HEIGHT],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [virtualColumns, scrollableShipments, shipmentFreezeCount, COL_WIDTH_SHIPMENT, ROW_HEIGHT, joinMode, joinSelection, toggleJoinSelection],
   );
 
   const renderSection = (sectionRows: IRowConfig[], inFrozenSection: boolean) =>
@@ -415,11 +459,12 @@ export function SheetGrid({
           {frozenShipments.map((shipment, idx) => {
             const isLast = idx === frozenShipments.length - 1;
             const tinted = shipment.column_color ? ' sheet-col-tinted' : '';
+            const supply = isSupplyColumn(shipment) && !shipment.column_color ? ' sheet-col-supply-tint' : '';
             const cancelled = shipment.status_code === 'cancelled' ? ' sheet-col--cancelled' : '';
             return (
               <div
                 key={shipment.id}
-                className={`sheet-frozen-col-wrap${isLast ? ' sheet-frozen-col-wrap--last' : ''}${tinted}${cancelled}`}
+                className={`sheet-frozen-col-wrap${isLast ? ' sheet-frozen-col-wrap--last' : ''}${tinted}${supply}${cancelled}`}
                 style={{
                   position: 'sticky',
                   left: FROZEN_LEFT_TOTAL + idx * COL_WIDTH_SHIPMENT,
@@ -448,11 +493,12 @@ export function SheetGrid({
             {virtualColumns.map((vc) => {
               const shipment = scrollableShipments[vc.index];
               const tinted = shipment.column_color ? ' sheet-col-tinted' : '';
+              const supply = isSupplyColumn(shipment) && !shipment.column_color ? ' sheet-col-supply-tint' : '';
               const cancelled = shipment.status_code === 'cancelled' ? ' sheet-col--cancelled' : '';
               return (
                 <div
                   key={shipment.id}
-                  className={`sheet-virt-col-wrap${tinted}${cancelled}`}
+                  className={`sheet-virt-col-wrap${tinted}${supply}${cancelled}`}
                   style={{
                     position: 'absolute',
                     left: vc.start,

@@ -28,6 +28,7 @@ export const MOCK_SHEET_DATA: IShipmentSheetItem[] = [
     ],
     block_sources: [{ block_code: 'C', weight_kg: 17545 }],
     created_by_name: 'soltanmyrat', created_at: '2025-09-27T08:00:00+05:00', updated_at: '2025-10-08T21:00:00+05:00',
+    created_by_role: 'loading_dept_head',
   },
   {
     id: 2, cargo_code: '30SP002/25', date: '2025-09-30',
@@ -53,6 +54,7 @@ export const MOCK_SHEET_DATA: IShipmentSheetItem[] = [
     firm_splits: [{ firm_code: 'GB', firm_name: 'Gokbulut H.J.', weight_kg: 18545, amount_usd: 15763 }],
     block_sources: [{ block_code: 'C', weight_kg: 18545 }],
     created_by_name: 'soltanmyrat', created_at: '2025-09-30T08:00:00+05:00', updated_at: '2025-10-12T10:00:00+05:00',
+    created_by_role: null,
   },
   {
     id: 8, cargo_code: '18OC020/25', date: '2025-10-18',
@@ -84,6 +86,7 @@ export const MOCK_SHEET_DATA: IShipmentSheetItem[] = [
       { block_code: 'C', weight_kg: 9510 },
     ],
     created_by_name: 'soltanmyrat', created_at: '2025-10-18T08:00:00+05:00', updated_at: '2025-10-22T10:00:00+05:00',
+    created_by_role: null,
   },
   {
     id: 11, cargo_code: '21OC024/25', date: '2025-10-21',
@@ -111,6 +114,7 @@ export const MOCK_SHEET_DATA: IShipmentSheetItem[] = [
     ],
     block_sources: [{ block_code: 'B', weight_kg: 20026 }],
     created_by_name: 'soltanmyrat', created_at: '2025-10-21T08:00:00+05:00', updated_at: '2025-10-21T17:20:00+05:00',
+    created_by_role: null,
   },
   {
     id: 12, cargo_code: '21OC025/25', date: '2025-10-21',
@@ -138,6 +142,7 @@ export const MOCK_SHEET_DATA: IShipmentSheetItem[] = [
     ],
     block_sources: [{ block_code: 'C', weight_kg: 19514 }],
     created_by_name: 'soltanmyrat', created_at: '2025-10-21T09:00:00+05:00', updated_at: '2025-10-22T16:00:00+05:00',
+    created_by_role: null,
   },
 ];
 

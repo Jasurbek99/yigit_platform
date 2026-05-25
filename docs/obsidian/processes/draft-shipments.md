@@ -109,6 +109,42 @@ A draft is **one truck** (≤18,500 kg). It draws from a **per-block daily harve
 
 Service: `apps/export/services/harvest_forecast.py` (`get_remaining_for_date`, `get_remaining_for_block`, `assert_draw_within_pool` — all lazy-import greenhouse). Endpoints: `apps/export/views_harvest_forecast.py`. Tests: `tests_harvest_forecast.py` (24). **Deferred (Phase 2):** a formal "build drafts" task on Soltanmyrat's My Work Board (needs `Task.shipment` nullable); pool re-validation on the draft *edit* path (`set_block_sources`). Frontend: `useHarvestForecastRemaining` / `useSubmitForecast` (`useDrafts.ts`).
 
+### Two-column Join flow (coexisting alternative)
+
+A **second way to create shipments**, working directly in the [[../screens/shipment-sheet|Sheet]] and mirroring the old Google-Sheet manual process. It **coexists with** the forecast-first flow above — it does not replace it. In the Sheet each shipment is a **column**, so two half-built drafts are created and then merged.
+
+```mermaid
+flowchart LR
+    subgraph Supply["Supply column · Soltanmyrat (loading_dept_head)"]
+        SC1["New supply shipment\n(SupplyDraftModal)"] --> SC2["DRAFT\nblocks + variety, no destination"]
+    end
+    subgraph Dest["Destination column · Gadam (export_manager)"]
+        DC1["New destination shipment\n(DestinationDraftModal)"] --> DC2["DRAFT\ncountry + import_firm + customer\n(+ optional firm_splits), no blocks"]
+    end
+    SC2 --> J["Join\n(select 2 columns in Sheet)"]
+    DC2 --> J
+    J --> R["Target DRAFT\n(now has blocks + destination)\n→ assign as usual"]
+```
+
+**Step 1 — Supply column** (Soltanmyrat, role `loading_dept_head`): "New supply shipment" toolbar button → `SupplyDraftModal`. Picks blocks + **one OR MORE sorts** (varieties — a shipment can carry multiple tomato sorts; stored in the existing `Shipment.varieties_dominant` M2M, 1–4 entries, `variety_confidence='low'` = manually estimated), **no destination**. Saved as a `draft` with `skip_forecast_check=true`, so an ad-hoc supply column does **not** require a prior forecast entry. Those blocks still count toward the forecast remaining-pool's `allocated_kg`, so the forecast-first math is unaffected. `loading_dept_head` was newly granted draft-create permission (previously only `warehouse_chief` + export_manager/director).
+
+**Step 2 — Destination column** (Gadam, role `export_manager`): "New destination shipment" toolbar button → `DestinationDraftModal`. Picks country + import_firm + customer (+ optional firm_splits), **no blocks**. Also saved as a `draft`.
+
+**Step 3 — Join** (Gadam): "Join" toolbar button arms a **column-selection mode** — Gadam clicks two draft columns directly in the Sheet (they highlight). The `JoinActionBar` auto-detects which selected column is the destination (target) vs the supply (source), shows a supply→destination preview, and confirms via a Popconfirm (the source is hard-deleted). No modal.
+
+**Endpoint**: `POST /api/v1/export/shipments/{target_id}/join/` body `{"source_id": <int>}`. Caller must be `export_manager`/`director`. Gates: both must be `draft`; target ≠ source; target must have country + customer; target must **not** already have blocks; source must have ≥1 block. Effect:
+- `source.block_sources` (and `firm_splits` if the target has none) move to the target.
+- `variety` + `official_export_code` are copied to the target if the target's are empty.
+- The source's full set of sorts (`varieties_dominant`) is copied onto the target when the target has none.
+- `target.weight_net` is recomputed.
+- One `ShipmentStatusLog` audit row is written on the target ("Joined supply from {source.cargo_code} …").
+- The source creator gets a `Notification`.
+- The **source is hard-deleted**.
+
+The target stays `draft` and is then assigned via the existing assign action (Step 3 of the forecast-first flow). Returns the updated target detail (200); errors as `{error}` with 400/403/404.
+
+**Sheet tint**: supply columns are visually tinted in the Sheet by `created_by_role ∈ {loading_dept_head, warehouse_chief}`. A manual `column_color` still takes precedence over the tint. See [[../screens/shipment-sheet#Supply-column tint|Shipment Sheet]] for the toolbar buttons and tint rendering.
+
 ### Permissions
 
 Registered in `backend/apps/core/permission_registry.py`:

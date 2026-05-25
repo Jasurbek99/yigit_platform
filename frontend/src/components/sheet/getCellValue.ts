@@ -37,8 +37,14 @@ export function getCellValue(shipment: IShipmentSheetItem, rowConfig: IRowConfig
       return shipment.city_name ?? '—';
     case 'import_firm':
       return shipment.import_firm_name ?? '—';
-    case 'variety':
+    case 'variety': {
+      // When the backend sends multiple sorts, join their codes (falling back to name).
+      const dominant = shipment.varieties_dominant;
+      if (Array.isArray(dominant) && dominant.length > 1) {
+        return dominant.map((v) => v.code ?? v.name).join(', ');
+      }
       return shipment.variety_name ?? '—';
+    }
     case 'vehicle_responsible':
       return shipment.vehicle_responsible ?? '—';
     case 'vehicle_condition':

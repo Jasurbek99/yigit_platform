@@ -297,6 +297,8 @@ export interface IShipmentSheetItem {
   variety: number | null;
   variety_name: string | null;
   variety_code: string | null;
+  /** Full set of sorts on this shipment. First entry = dominant/primary. */
+  varieties_dominant?: IVarietyInline[];
   // Weight
   weight_gross: number | null;
   weight_net: number | null;
@@ -377,6 +379,11 @@ export interface IShipmentSheetItem {
   created_by_name: string | null;
   created_at: string;
   updated_at: string;
+  /**
+   * Role of the user who created this shipment.
+   * Used by the Sheet to tint supply-side columns (loading_dept_head / warehouse_chief).
+   */
+  created_by_role: string | null;
   /**
    * Phase 5c â€” admin-created custom row values.
    * Map of `field_key` (always starts with `custom_`) â†’ free-text value.
@@ -1114,6 +1121,15 @@ export interface IAuditLog {
 
 // â”€â”€â”€ Shipment (detail) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+// ─── Variety inline shape (shared between IShipmentDetail and IShipmentSheetItem) ─
+
+export interface IVarietyInline {
+  id: number;
+  code: string | null;
+  name: string;
+  is_experimental: boolean;
+}
+
 export interface IShipmentDetail extends IShipmentListItem {
   status_code: string;
   allowed_transitions: string[];
@@ -1152,7 +1168,7 @@ export interface IShipmentDetail extends IShipmentListItem {
   platform_id: number;
   variety_confidence: 'high' | 'low' | 'none';
   variety_confidence_display: string;
-  varieties_dominant: Array<{ id: number; code: string | null; name: string; is_experimental: boolean }>;
+  varieties_dominant: IVarietyInline[];
   rejected_weight_kg: number | null;
   vehicle_responsible: string | null;
   // FK ids â€” exposed for the Edit drawer's dropdowns. Names are inherited from IShipmentListItem.
@@ -1249,6 +1265,13 @@ export interface IShipmentDraft {
   variety_confidence: 'high' | 'low' | 'none';
 }
 
+export interface IDraftFirmSplitInput {
+  export_firm: number;
+  weight_kg: number;
+  amount_usd?: number;
+  split_order?: number;
+}
+
 export interface IDraftCreatePayload {
   cargo_code: string;
   date: string;
@@ -1256,6 +1279,17 @@ export interface IDraftCreatePayload {
   block_sources: { block_id: number; weight_kg: number }[];
   notes?: string;
   official_export_code?: string;
+  // Join flow — supply draft: skip the forecast pool check
+  skip_forecast_check?: boolean;
+  // Join flow — destination draft: no blocks, has destination
+  variety?: number | null;
+  /** Multiple variety IDs (1–4). First = primary/dominant. Supersedes single `variety` when present. */
+  varieties?: number[];
+  import_firm?: number | null;
+  country?: number | null;
+  city?: number | null;
+  customer?: number | null;
+  firm_splits?: IDraftFirmSplitInput[];
 }
 
 export interface IDraftAssignPayload {

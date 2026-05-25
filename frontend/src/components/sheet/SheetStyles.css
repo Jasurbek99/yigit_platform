@@ -238,6 +238,82 @@
 .sheet-col-header--cancelled {
   background: color-mix(in srgb, var(--red-500, #ef4444) 28%, var(--gray-800, #1f2937));
 }
+/* Supply-role column tint: columns created by loading_dept_head or
+   warehouse_chief get a subtle green tint so Gadam can visually distinguish
+   "supply only" drafts from destination drafts at a glance.
+   The manual column_color (--col-tint via .sheet-col-tinted) has higher
+   specificity (combined selector) so it always wins when both apply. */
+.sheet-col-supply-tint .sheet-cell {
+  background: color-mix(in srgb, #16a34a 8%, var(--surface));
+}
+/* Compound selector (no space): the same element carries both classes.
+   The inline borderTop in SheetGrid.tsx is the primary visual; this rule
+   is kept for completeness but must be a compound selector to match. */
+.sheet-col-supply-tint.sheet-col-header {
+  border-top: 3px solid #16a34a;
+}
+
+/* ═══ JOIN MODE — column header states ═══
+   When join mode is armed, draft columns become clickable (pointer cursor).
+   Selected columns get a vivid blue ring + subtle blue tint so the two picks
+   stand out clearly against the dark header background. */
+.sheet-col-header--join-selectable {
+  cursor: pointer;
+}
+.sheet-col-header--join-selectable:hover {
+  background: color-mix(in srgb, #2563eb 18%, var(--gray-800, #1f2937));
+}
+.sheet-col-header--join-selected {
+  box-shadow: inset 0 0 0 2px #2563eb;
+  background: color-mix(in srgb, #2563eb 28%, var(--gray-800, #1f2937));
+}
+
+/* ═══ JOIN ACTION BAR ═══
+   Displayed as a second band between the main toolbar and the grid when
+   join mode is armed. Flexbox row with wrap for narrow viewports. */
+.sheet-join-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 6px 20px;
+  background: #eff6ff;
+  border-bottom: 1px solid #bfdbfe;
+  font-size: 12px;
+  flex-shrink: 0;
+  min-height: 36px;
+}
+.sheet-join-bar__preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.sheet-join-bar__preview-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+.sheet-join-bar__preview-chip--supply {
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+}
+.sheet-join-bar__preview-chip--dest {
+  background: #eff6ff;
+  border: 1px solid #93c5fd;
+}
+.sheet-join-bar__chip-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  opacity: 0.65;
+  margin-right: 2px;
+}
+
 /* Grey + strike the data cells of a cancelled shipment column. Inline admin
    row-bg and column-tint still paint their own background; this rule targets
    the cell text/foreground so it reads as inactive regardless of background. */

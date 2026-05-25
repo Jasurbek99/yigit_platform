@@ -136,6 +136,13 @@ interface ISheetState {
   // ─── Row map (populated from /sheet/ API, used by comment components) ────
   rows: IRowConfig[];
   setRows: (rows: IRowConfig[]) => void;
+
+  // ─── Join mode (select two columns directly in the sheet to join) ─────────
+  joinMode: boolean;
+  joinSelection: number[];
+  setJoinMode: (on: boolean) => void;
+  toggleJoinSelection: (id: number) => void;
+  clearJoinSelection: () => void;
 }
 
 const initialFreeze = loadFreezeState();
@@ -227,6 +234,29 @@ export const useSheetStore = create<ISheetState>((set) => ({
   // ─── Row map ─────────────────────────────────────────────────────────────
   rows: [],
   setRows: (rows) => set({ rows }),
+
+  // ─── Join mode ───────────────────────────────────────────────────────────
+  joinMode: false,
+  joinSelection: [],
+  setJoinMode: (on) =>
+    set(on
+      // Clear active/editing cell when arming join mode
+      ? { joinMode: true, joinSelection: [], activeCell: null, editingCell: null }
+      : { joinMode: false, joinSelection: [] }
+    ),
+  toggleJoinSelection: (id) =>
+    set((state) => {
+      const current = state.joinSelection;
+      if (current.includes(id)) {
+        return { joinSelection: current.filter((x) => x !== id) };
+      }
+      if (current.length < 2) {
+        return { joinSelection: [...current, id] };
+      }
+      // Already 2 selected — ignore
+      return {};
+    }),
+  clearJoinSelection: () => set({ joinSelection: [] }),
 
   toggleCommentsDrawer: () =>
     set((state) => {

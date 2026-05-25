@@ -6,8 +6,9 @@ related: [[shipment-lifecycle]], [[weekly-harvest-planning]], [[truck-allocation
 
 # Shipment Creation
 
-> Two paths exist:
-> - **Two-phase (preferred)** — see [[draft-shipments]]. Soltanmyrat creates a draft (step 0), Gadam assigns it via the [[assignment-board]] which transitions to step 1.
+> Three paths exist:
+> - **Two-phase forecast-first (preferred)** — see [[draft-shipments]]. Soltanmyrat creates a draft (step 0) drawing from a per-block harvest forecast pool, Gadam assigns it via the [[assignment-board]] which transitions to step 1.
+> - **Two-column Join (Sheet)** — see [[draft-shipments#Two-column Join flow (coexisting alternative)]]. Soltanmyrat creates a supply-only draft column and Gadam a destination-only draft column directly in the [[../screens/shipment-sheet|Sheet]]; Gadam then **joins** them into one draft, which is assigned as usual. Mirrors the old Google-Sheet manual process.
 > - **Single-form (legacy)** — direct creation at step 1 via `ShipmentCreateModal`. Described below. Still supported for scenarios where destination is known upfront.
 
 ## What Is This Process?

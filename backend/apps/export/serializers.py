@@ -325,6 +325,10 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
 
     # Audit
     created_by_name = serializers.CharField(source='created_by.username', read_only=True, default=None)
+    # Role of the user who created this shipment — allows the frontend to tint
+    # columns created by loading_dept_head / warehouse_chief differently from
+    # export_manager drafts in the two-column join view.
+    created_by_role = serializers.CharField(source='created_by.role', read_only=True, default=None)
 
     # Quality document flags (flattened) — related_name on QualityDocument is 'quality'
     doc_azyk = serializers.BooleanField(source='quality.azyk_maglumatnama', read_only=True, default=False)
@@ -350,6 +354,8 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
     # Inline related data
     firm_splits = SheetFirmSplitInlineSerializer(many=True, read_only=True)
     block_sources = SheetBlockSourceInlineSerializer(many=True, read_only=True)
+    # Multi-variety dominant list — N+1-safe when queryset prefetches 'varieties_dominant'
+    varieties_dominant = TomatoVarietyInlineSerializer(many=True, read_only=True)
 
     class Meta:
         model = Shipment
@@ -415,9 +421,9 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
             # Sheet column tint (hex, e.g. '#ffe4b5') — null = default theme
             'column_color',
             # Inline related
-            'firm_splits', 'block_sources',
+            'firm_splits', 'block_sources', 'varieties_dominant',
             # Audit
-            'created_by_name', 'created_at', 'updated_at',
+            'created_by_name', 'created_by_role', 'created_at', 'updated_at',
         ]
 
 
@@ -1064,6 +1070,20 @@ class BlockSourceInputSerializer(serializers.Serializer):
     weight_kg = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal('0.01'))
 
 
+class FirmSplitInputSerializer(serializers.Serializer):
+    """One row of the firm split composer: export firm + weight + optional amount.
+
+    Used as a child serializer inside ShipmentCreateSerializer.firm_splits.
+    """
+
+    export_firm = serializers.PrimaryKeyRelatedField(queryset=ExportFirm.objects.all())
+    weight_kg = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal('0.01'))
+    amount_usd = serializers.DecimalField(
+        max_digits=12, decimal_places=2, required=False, allow_null=True
+    )
+    split_order = serializers.IntegerField(default=1, required=False)
+
+
 class ShipmentCreateSerializer(serializers.Serializer):
     """Validates the request body for POST /api/v1/export/shipments/.
 
@@ -1075,6 +1095,10 @@ class ShipmentCreateSerializer(serializers.Serializer):
       roles.
     - is_draft=True: supply-side draft. block_sources (≥1 item) is required.
       country/customer/city may be null — destination is decided during assignment.
+
+    New in two-column join flow: variety, import_firm, firm_splits, skip_forecast_check
+    are all optional on the draft path. When skip_forecast_check=True the forecast-pool
+    cap is bypassed (for ad-hoc in-Sheet supply drafts with no prior forecast).
     """
 
     # cargo_code is the auto-generated platform code. Optional on input —
@@ -1100,9 +1124,51 @@ class ShipmentCreateSerializer(serializers.Serializer):
     season = serializers.PrimaryKeyRelatedField(
         queryset=Season.objects.all(), required=False, allow_null=True
     )
+    # Product / sort — Soltanmyrat's variety (optional at draft time)
+    variety = serializers.PrimaryKeyRelatedField(
+        queryset=TomatoVariety.objects.all(), required=False, allow_null=True
+    )
+    # Multi-variety support: ordered list of 1–4 TomatoVariety IDs, first entry
+    # is the primary (dominant) variety. When provided, sets varieties_dominant
+    # M2M and mirrors varieties[0] into the scalar variety FK for back-compat.
+    # Mutually compatible with the single `variety` field — if only `variety` is
+    # given, varieties_dominant is NOT auto-populated (pass `varieties` explicitly).
+    varieties = serializers.PrimaryKeyRelatedField(
+        queryset=TomatoVariety.objects.all(),
+        many=True,
+        required=False,
+    )
+    # Destination import firm (optional at draft time)
+    import_firm = serializers.PrimaryKeyRelatedField(
+        queryset=ImportFirm.objects.all(), required=False, allow_null=True
+    )
     is_draft = serializers.BooleanField(default=False)
     block_sources = BlockSourceInputSerializer(many=True, required=False, default=list)
+    # Export firm splits — 1-3 firms with per-firm weight and optional amount
+    firm_splits = FirmSplitInputSerializer(many=True, required=False, default=list)
+    # When True, skip forecast-pool cap check. Intended for in-Sheet ad-hoc
+    # supply drafts that have no prior HarvestDayEntry forecast. The block
+    # sources still count toward allocated_kg for future checks.
+    skip_forecast_check = serializers.BooleanField(default=False)
     notes = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+    def validate_varieties(self, value: list) -> list:
+        """Enforce 1–4 unique entries when varieties list is provided.
+
+        DRF's PrimaryKeyRelatedField(many=True) validates existence automatically.
+        This validator guards against exceeding the 4-variety maximum and against
+        duplicate IDs (consistent with block_sources / firm_splits dedup rules).
+        """
+        if len(value) > 4:
+            raise serializers.ValidationError(
+                'A shipment may carry at most 4 dominant varieties.'
+            )
+        ids = [v.pk for v in value]
+        if len(ids) != len(set(ids)):
+            raise serializers.ValidationError(
+                'Duplicate variety IDs are not allowed.'
+            )
+        return value
 
     def validate_cargo_code(self, value: str) -> str:
         """Validate format DDMM###/YY when a cargo_code is supplied.
@@ -1128,6 +1194,7 @@ class ShipmentCreateSerializer(serializers.Serializer):
         from decimal import Decimal as D
 
         block_sources = attrs.get('block_sources', [])
+        firm_splits = attrs.get('firm_splits', [])
 
         # Stream F: drafts no longer REQUIRE block sources at creation time. The
         # supply-side DraftPool flow still includes them voluntarily; the
@@ -1144,13 +1211,45 @@ class ShipmentCreateSerializer(serializers.Serializer):
                     {'block_sources': 'Duplicate blocks are not allowed in a single shipment.'}
                 )
 
-        # Forecast pool drawdown validation (draft path only, when block_sources provided).
-        # Each block draw must not exceed:
-        #   1. 18,500 kg (single-truck physical capacity).
-        #   2. The remaining forecast pool for that block on the shipment date.
-        # Uses a single get_remaining_for_date() call (one grouped DB query, no N+1).
+        # Validate firm_splits uniqueness within the submitted list.
+        if firm_splits:
+            firm_ids = [row['export_firm'].id for row in firm_splits]
+            if len(firm_ids) != len(set(firm_ids)):
+                raise serializers.ValidationError(
+                    {'firm_splits': 'Duplicate export firms are not allowed in a single shipment.'}
+                )
+
+        # Block weight validation (draft path only, when block_sources provided).
+        # Two caps are applied when `enforce_caps` is True (normal one-truck drafts):
+        #   Cap 1: 18,500 kg physical truck capacity per block.
+        #   Cap 2: remaining forecast pool per block on the shipment date.
+        #
+        # Supply-column drafts (skip_forecast_check=True) aggregate an entire day's
+        # supply across multiple trucks and may legitimately exceed 18,500 kg.  They
+        # are split/joined downstream, so BOTH caps are intentionally skipped for
+        # them.  The forecast-first one-truck draft path (skip_forecast_check=False)
+        # keeps both caps in full force.
         is_draft = attrs.get('is_draft', False)
-        if is_draft and block_sources:
+        skip_forecast_check = attrs.get('skip_forecast_check', False)
+        enforce_caps = is_draft and block_sources and not skip_forecast_check
+
+        if enforce_caps:
+            # Cap 1: truck capacity.
+            truck_errors = {}
+            for i, row in enumerate(block_sources):
+                block = row['block_id']
+                weight_kg = D(str(row['weight_kg']))
+                block_code = getattr(block, 'code', str(block.pk))
+                if weight_kg > D('18500'):
+                    truck_errors[f'block_sources[{i}]'] = (
+                        f'Block {block_code}: weight {weight_kg} kg exceeds the '
+                        f'18,500 kg truck capacity.'
+                    )
+            if truck_errors:
+                raise serializers.ValidationError({'block_sources': truck_errors})
+
+            # Cap 2: forecast pool.
+            # Uses a single get_remaining_for_date() call (one grouped DB query, no N+1).
             from apps.export.services.harvest_forecast import get_remaining_for_date
 
             ship_date = attrs.get('date') or datetime.date.today()
@@ -1160,36 +1259,25 @@ class ShipmentCreateSerializer(serializers.Serializer):
                 for row in remaining_rows
             }
 
-            errors = {}
+            forecast_errors = {}
             for i, row in enumerate(block_sources):
-                block = row['block_id']  # GreenhouseBlock instance (FK resolved)
+                block = row['block_id']
                 weight_kg = D(str(row['weight_kg']))
                 block_code = getattr(block, 'code', str(block.pk))
-
-                # Cap 1: truck capacity.
-                if weight_kg > D('18500'):
-                    errors[f'block_sources[{i}]'] = (
-                        f'Block {block_code}: weight {weight_kg} kg exceeds the '
-                        f'18,500 kg truck capacity.'
-                    )
-                    continue
-
-                # Cap 2: forecast pool.
                 remaining = remaining_map.get(block.pk)
                 if remaining is None:
-                    # No forecast entry for this block on this date.
-                    errors[f'block_sources[{i}]'] = (
+                    forecast_errors[f'block_sources[{i}]'] = (
                         f'Block {block_code}: no forecast has been entered for '
                         f'{ship_date}. Submit a forecast before creating a draft.'
                     )
                 elif weight_kg > remaining:
-                    errors[f'block_sources[{i}]'] = (
+                    forecast_errors[f'block_sources[{i}]'] = (
                         f'Block {block_code}: only {remaining} kg of forecast '
                         f'remaining on {ship_date} (requested {weight_kg} kg).'
                     )
 
-            if errors:
-                raise serializers.ValidationError({'block_sources': errors})
+            if forecast_errors:
+                raise serializers.ValidationError({'block_sources': forecast_errors})
 
         return attrs
 
@@ -1214,6 +1302,16 @@ class ShipmentAssignSerializer(serializers.Serializer):
     import_firm = serializers.PrimaryKeyRelatedField(
         queryset=ImportFirm.objects.all(), required=False, allow_null=True
     )
+
+
+class ShipmentJoinSerializer(serializers.Serializer):
+    """Request body for POST /api/v1/export/shipments/{id}/join/.
+
+    Merges a supply draft (source) into a destination draft (target).
+    The target is identified by the URL pk; the source is provided in the body.
+    """
+
+    source_id = serializers.IntegerField(min_value=1)
 
 
 # ---------------------------------------------------------------------------

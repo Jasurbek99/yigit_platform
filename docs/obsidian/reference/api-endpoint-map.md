@@ -26,6 +26,8 @@ tags: [reference, api, backend, frontend]
 | POST | `/api/v1/export/shipments/` | ShipmentViewSet (create) | `useShipments` (mutation) | ShipmentCreateModal |
 | PATCH | `/api/v1/export/shipments/{id}/` | ShipmentViewSet (partial_update) | `useShipmentPatch` | ShipmentDetail, ShipmentSheet |
 | POST | `/api/v1/export/shipments/{id}/transition/` | ShipmentViewSet.transition | `useShipmentDetail` (mutation) | TransitionButton |
+| POST | `/api/v1/export/shipments/{id}/assign/` | ShipmentViewSet.assign | `useAssignDraft` | AssignmentBoard |
+| POST | `/api/v1/export/shipments/{target_id}/join/` | ShipmentViewSet.join | _(in useDrafts)_ | ShipmentSheet (JoinShipmentsModal) |
 | GET | `/api/v1/export/shipments/overdue/` | ShipmentViewSet.overdue | `useOverdueShipments` | OverdueReports |
 | GET | `/api/v1/export/shipments/sheet/` | ShipmentViewSet.sheet | `useShipmentSheet` | ShipmentSheet |
 | PATCH | `/api/v1/export/shipments/{id}/quality/` | ShipmentViewSet.set_quality | `useShipmentDetail` (mutation) | ShipmentDetail (Document tab) |
@@ -34,6 +36,16 @@ tags: [reference, api, backend, frontend]
 | POST | `/api/v1/export/shipments/{id}/block-sources/` | ShipmentViewSet.set_block_sources | `useShipmentDetail` (mutation) | ShipmentDetail |
 | POST | `/api/v1/export/shipments/{id}/firm-splits/` | ShipmentViewSet.set_firm_splits | `useShipmentDetail` (mutation) | ShipmentDetail |
 | GET | `/api/v1/export/shipments/{id}/tasks/` | ShipmentViewSet.tasks_list | `useShipmentTasks` | ShipmentDetail (Tasks tab) |
+
+**Draft create** (`POST /shipments/` with `is_draft=true`) now also accepts optional `varieties`, `import_firm`, `firm_splits[]`, and `skip_forecast_check`. This supports the two-column Join flow's supply-only and destination-only drafts — see [[../processes/draft-shipments#Two-column Join flow (coexisting alternative)]]. `skip_forecast_check=true` (sent by the supply-column modal) skips **both** weight caps for that draft: the forecast-pool remaining check **and** the 18,500 kg one-truck cap — a supply column aggregates a day's harvest and may span more than one truck. The forecast-first one-truck DraftComposer path (no `skip_forecast_check`) keeps both caps.
+
+**Multi-variety on draft create:** `varieties` is a list of **1–4 TomatoVariety IDs** (a shipment can carry multiple tomato sorts). The first ID is the **primary**; the list sets the `varieties_dominant` M2M plus the back-compat `variety` FK, with `variety_confidence='low'` (manually estimated). The single `variety` field still works for back-compat. No new DB table or migration — multi-variety reuses the existing `Shipment.varieties_dominant` M2M.
+
+**Join** (`POST /shipments/{target_id}/join/`) body `{"source_id": <int>}`. `export_manager`/`director` only. Gates: both must be `draft`; target ≠ source; target must have country + customer and **no** blocks; source must have ≥1 block. Effect: source's `block_sources` (and `firm_splits` if target has none) move to the target; `variety` + `official_export_code` copied if empty; `weight_net` recomputed; one `ShipmentStatusLog` row written on target; the source creator gets a `Notification`; the **source is hard-deleted**. Returns updated target detail (200); errors `{error}` 400/403/404.
+
+**`created_by_role`**: the `/shipments/sheet/` items now include `created_by_role: string|null`, used by the frontend to tint supply-created columns.
+
+**`varieties_dominant`**: the `/shipments/sheet/` items now also include `varieties_dominant` — an array of `{id, code, name, is_experimental}` per shipment (1–4 entries) so the variety cell can render all sorts a shipment carries.
 
 ### Tasks (Structured Task Engine)
 

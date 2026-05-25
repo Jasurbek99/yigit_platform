@@ -991,10 +991,13 @@
     "manage": "Dolandyr",
     "select_country": "Ýurt saýla",
     "select_city": "Şäher saýla",
+    "select_import_firm": "Import firmany saýla",
+    "select_export_firm": "Eksport firmany saýla",
     "create_option": "\"{{name}}\" döret",
     "search": "Gözle...",
     "error": "Ýalňyşlyk ýüze çykdy. Täzeden synanşyň.",
-    "no_deadline": "Möhlet ýok"
+    "no_deadline": "Möhlet ýok",
+    "date": "Senesi"
   },
   "permissions_admin": {
     "subtitle": "Blok düzgünlerini we rugsatlaryny dolandyrmak",
@@ -1364,7 +1367,65 @@
     "move_up": "Ýokary geçir",
     "move_down": "Aşak geçir",
     "row_menu": "Setir menýusy",
-    "drag_to_reorder": "Tertibi üýtgetmek üçin süýräň"
+    "drag_to_reorder": "Tertibi üýtgetmek üçin süýräň",
+    "new_supply": {
+      "btn": "Üpjünçilik sütüni",
+      "tooltip": "Täze üpjünçilik garalamasy dör (bloklar + önüm, barmaly ýer ýok)"
+    },
+    "new_destination": {
+      "btn": "Barmaly ýer sütüni",
+      "tooltip": "Täze barmaly ýer garalamasy dör (ýurt + müşderi, bloklar ýok)"
+    },
+    "join": {
+      "btn": "Birleşdir",
+      "tooltip": "Üpjünçilik garalamany barmaly ýer garalamasy bilen birleşdir"
+    },
+    "join_bar": {
+      "instruction": "Birleşdirmek üçin üpjünçilik sütünine, soňra barmaly ýer sütünine basyň",
+      "join": "Birleşdir",
+      "cancel": "Ýatyr",
+      "kept": "Galýar",
+      "removed": "Öçüriler",
+      "need_pair": "Bir üpjünçilik + bir barmaly ýer garalamasy saýlaň",
+      "only_drafts": "Diňe garalama sütünleri birleşdirilip bilner"
+    },
+    "supply_column_legend": {
+      "label": "Üpjünçilik garalamasy",
+      "tooltip": "Ýaşyl sütünler Soltanmyrat / ambar tarapyndan döredilen üpjünçilik garalamalarydyr. Barmaly ýer bellemek üçin Birleşdir düwmesini ulanyň."
+    },
+    "supply_modal": {
+      "title": "Täze Üpjünçilik Garalamasy",
+      "cargo_code_label": "Ýük kody",
+      "cargo_code_ph": "meselen 2505201/26",
+      "variety_label": "Pomidor görnüşi",
+      "varieties_label": "Pomidor görnüşleri",
+      "varieties_ph": "Bir ýa-da birnäçe görnüş saýlaň",
+      "blocks_label": "Ýygym bloklary",
+      "col_block": "Blok",
+      "col_weight": "Agram",
+      "block_ph": "Blok saýla...",
+      "add_row": "Blok goş",
+      "save": "Garalama hökmünde sakla",
+      "error_no_blocks": "Agramy bolan azyndan bir blok goşuň",
+      "toast_saved": "Üpjünçilik garalamasy {{code}} döredildi",
+      "toast_error": "Üpjünçilik garalamasy döredip bolmady",
+      "truck_estimate": "≈ {{count}} ulag × 18 500 kg"
+    },
+    "dest_modal": {
+      "title": "Täze Ýük",
+      "save": "Garalama hökmünde sakla",
+      "firm_splits_label": "Eksport firmalary bölünişigi",
+      "firm_ph": "Firma saýla...",
+      "add_firm_split": "Eksport firmasy goş",
+      "error_no_country": "Ýurt hökmany",
+      "error_no_customer": "Müşderi hökmany",
+      "toast_saved": "Barmaly ýer garalamasy {{code}} döredildi",
+      "toast_error": "Barmaly ýer garalamasy döredip bolmady"
+    },
+    "join_modal": {
+      "toast_success": "Garalamalar üstünlikli birleşdirildi",
+      "toast_error": "Birleşdirme başartmady"
+    }
   },
   "draft": {
     "page_title": "Garalama ýükler",

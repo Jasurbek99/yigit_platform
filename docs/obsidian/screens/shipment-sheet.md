@@ -245,9 +245,16 @@ Permission: gated by `canEditField(user, 'shipment', 'column_color')`. Only role
 
 The picker has `disabledAlpha` to suppress the opacity slider, and the frontend defensively truncates the hex to 7 chars before saving so an older Ant build emitting `#RRGGBBAA` still fits the `max_length=7` column. Save flow reuses `useShipmentPatch` (optimistic update + rollback). Every change writes one `AuditLog` row (`field_name='column_color'`) via the existing sheet-PATCH audit hook; the field is intentionally **not** in `DEFAULT_SHEET_ROWS`, so no clock-icon marker appears on any cell. The colour ships through `ShipmentSheetSerializer` as the `column_color` field.
 
+## Supply-column tint
+
+Columns created as **supply-only drafts** in the two-column Join flow are visually tinted so Gadam can spot them while assembling a shipment. The tint is driven by `created_by_role ∈ {loading_dept_head, warehouse_chief}` — the sheet endpoint items now carry a `created_by_role: string|null` field for this. A manual `column_color` (above) still **takes precedence** over the tint when set. See [[../processes/draft-shipments#Two-column Join flow (coexisting alternative)]] for the full creation + Join flow.
+
 ## Toolbar
 
-- `+ Add column` — creates a new draft shipment (`useSheetCreate`); visible when `canDo('shipment', 'create')`
+- **New supply shipment** — opens `SupplyDraftModal`; creates a supply-only `draft` column (blocks + a **multi-select sorts** field — one or more varieties, no destination). Used by Soltanmyrat (`loading_dept_head`). Sends `skip_forecast_check=true`, which exempts the supply column from both the forecast-pool check and the 18,500 kg one-truck cap (a supply column may span more than one truck); the modal shows a non-blocking "≈ N truck(s)" estimate under the kg total. See [[../processes/draft-shipments#Two-column Join flow (coexisting alternative)]].
+- **New destination shipment** — opens `DestinationDraftModal`; creates a destination-only `draft` column (country + import_firm + customer, optional firm_splits, no blocks). Used by Gadam (`export_manager`).
+- **Join** — arms a **column-selection mode** (no modal): Gadam clicks two draft columns directly in the grid (highlighted with a blue ring); the `JoinActionBar` below the toolbar auto-detects the destination (target) vs supply (source), shows a preview, and confirms via Popconfirm. Merges the supply's blocks into the destination draft via `POST /export/shipments/{target_id}/join/` `{source_id}`; the source is hard-deleted on success. `export_manager`/`director` only.
+- `+ Add column` — creates a new blank draft shipment (`useSheetCreate`); visible when `canDo('shipment', 'create')`
 - Search — filters by `cargo_code` or `customer_name` (client-side)
 - Gapy only — filters to `is_gapy_satys = true`
 - **⚙ Settings** — opens the `Sheet Display Settings` modal with the freeze pickers (see Freeze panes above)
@@ -260,7 +267,8 @@ The picker has `disabledAlpha` to suppress the opacity slider, and the frontend 
 - `firm_splits` and `block_sources` (inline `SheetFirmSplitInlineSerializer` / `SheetBlockSourceInlineSerializer`)
 - Quality doc booleans (`doc_azyk`, `doc_suriji`, `doc_hil`, `doc_kalibrowka`) — sourced from `quality.*` (related_name on `QualityDocument` is `quality`)
 - `has_sales_report` — annotated by viewset queryset via `Exists(SalesReport.objects.filter(shipment=OuterRef('pk')))`
-- `variety_code` from `TomatoVariety.code` (the official 01–10/E1–E3 registry code)
+- `variety_code` from `TomatoVariety.code` (the official 01–10/E1–E3 registry code) — single-sort back-compat field
+- `varieties_dominant` — array of `{id, code, name, is_experimental}` (1–4 entries). When a shipment carries more than one sort, the variety cell shows all of them joined (e.g. codes comma-separated). Backed by the existing `Shipment.varieties_dominant` M2M (no new table)
 - AD-1 timestamps — read-only display
 - AD-2 fields — `vehicle_condition`, `vehicle_condition_note`, `route_note`
 

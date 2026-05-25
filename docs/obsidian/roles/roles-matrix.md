@@ -49,6 +49,8 @@ related: [[permissions-system]]
 | Permission Matrix (page / resource / field) | CRUD | - | - | - | - | - | - | - | - |
 | User CRUD (role / activate / password) | CRUD | - | - | - | - | - | - | - | - |
 
+> **Draft-create (supply column):** `loading_dept_head` (Soltanmyrat) is now also granted shipment-**draft** create — supply-only columns (blocks + variety, no destination) in the [[draft-shipments#Two-column Join flow (coexisting alternative)]] flow. Previously draft-create was limited to `warehouse_chief` + `export_manager`/`director`. The **Join** action that merges a supply draft into a destination draft remains `export_manager`/`director` only.
+
 ## Shipment Lifecycle Steps by Role
 
 | Step | Code | Required Role | Privileged Override |

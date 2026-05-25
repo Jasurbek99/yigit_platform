@@ -8,14 +8,18 @@ import {
   SettingOutlined,
   ZoomInOutlined,
   ZoomOutOutlined,
+  MergeCellsOutlined,
+  InboxOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useSheetStore, SHEET_ZOOM_MIN, SHEET_ZOOM_MAX } from '@/stores/sheetStore';
-import { useSheetCreate } from '@/hooks/useSheetCreate';
 import { useAuth } from '@/hooks/useAuth';
 import { canDo } from '@/utils/permissions';
 import type { IRowConfig, ISheetTaskCounts, IShipmentSheetItem } from '@/types';
 import { COLORS } from '@/constants/styles';
+import { SupplyDraftModal } from './SupplyDraftModal';
+import { DestinationDraftModal } from './DestinationDraftModal';
+import { JoinActionBar } from './JoinActionBar';
 
 // Cap on how many SHIPMENT columns the user can freeze (on top of the 3
 // row-label columns: Row #, Who, Field name). Beyond this, freezing more
@@ -62,34 +66,53 @@ export function SheetToolbar({
 }: ISheetToolbarProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const {
-    searchText,
-    setSearchText,
-    showGapyOnly,
-    setShowGapyOnly,
-    commentsDrawerOpen,
-    toggleCommentsDrawer,
-    frozenRowCount,
-    frozenColCount,
-    setFrozenRowCount,
-    setFrozenColCount,
-    sheetZoom,
-    zoomIn,
-    zoomOut,
-    resetZoom,
-  } = useSheetStore();
-  const createMutation = useSheetCreate();
+  const searchText = useSheetStore((s) => s.searchText);
+  const setSearchText = useSheetStore((s) => s.setSearchText);
+  const showGapyOnly = useSheetStore((s) => s.showGapyOnly);
+  const setShowGapyOnly = useSheetStore((s) => s.setShowGapyOnly);
+  const commentsDrawerOpen = useSheetStore((s) => s.commentsDrawerOpen);
+  const toggleCommentsDrawer = useSheetStore((s) => s.toggleCommentsDrawer);
+  const frozenRowCount = useSheetStore((s) => s.frozenRowCount);
+  const frozenColCount = useSheetStore((s) => s.frozenColCount);
+  const setFrozenRowCount = useSheetStore((s) => s.setFrozenRowCount);
+  const setFrozenColCount = useSheetStore((s) => s.setFrozenColCount);
+  const sheetZoom = useSheetStore((s) => s.sheetZoom);
+  const zoomIn = useSheetStore((s) => s.zoomIn);
+  const zoomOut = useSheetStore((s) => s.zoomOut);
+  const resetZoom = useSheetStore((s) => s.resetZoom);
+  const joinMode = useSheetStore((s) => s.joinMode);
+  const setJoinMode = useSheetStore((s) => s.setJoinMode);
 
   const [unhideModalOpen, setUnhideModalOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [supplyModalOpen, setSupplyModalOpen] = useState(false);
+  const [destModalOpen, setDestModalOpen] = useState(false);
 
   const canCreate = canDo(user, 'shipment', 'create');
+
+  // Join flow: supply create is open to loading_dept_head / warehouse_chief / export_manager / director.
+  // Destination create and join are restricted to export_manager / director.
+  const userRole = user?.role ?? '';
+  const canCreateSupply =
+    user?.is_superuser ||
+    ['loading_dept_head', 'warehouse_chief', 'export_manager', 'director'].includes(userRole);
+  const canJoin =
+    user?.is_superuser || ['export_manager', 'director'].includes(userRole);
   const shipmentCount = shipments.length;
 
   // Sum of open tasks assigned to me across all shipments
   const myOpenTaskCount = Object.values(taskCounts).reduce(
     (acc, tc) => acc + (tc.assigned_to_me_open ?? 0),
     0,
+  );
+
+  // Supply-column legend: show a legend chip when the current view has ≥1 supply column
+  const hasSupplyColumns = useMemo(
+    () =>
+      shipments.some((s) =>
+        s.created_by_role === 'loading_dept_head' || s.created_by_role === 'warehouse_chief',
+      ),
+    [shipments],
   );
 
   // ─── Hidden rows pill ───────────────────────────────────────────────────────
@@ -181,11 +204,33 @@ export function SheetToolbar({
               type="primary"
               size="small"
               icon={<PlusOutlined />}
-              loading={createMutation.isPending}
-              onClick={() => createMutation.mutate()}
+              onClick={() => setDestModalOpen(true)}
             >
               {t('sheet.add_column')}
             </Button>
+          )}
+          {canCreateSupply && (
+            <Tooltip title={t('sheet.new_supply.tooltip')}>
+              <Button
+                size="small"
+                icon={<InboxOutlined />}
+                onClick={() => setSupplyModalOpen(true)}
+              >
+                {t('sheet.new_supply.btn')}
+              </Button>
+            </Tooltip>
+          )}
+          {canJoin && (
+            <Tooltip title={joinMode ? undefined : t('sheet.join.tooltip')}>
+              <Button
+                size="small"
+                type={joinMode ? 'primary' : 'default'}
+                icon={<MergeCellsOutlined />}
+                onClick={() => setJoinMode(!joinMode)}
+              >
+                {t('sheet.join.btn')}
+              </Button>
+            </Tooltip>
           )}
           <Input
             prefix={<SearchOutlined />}
@@ -243,6 +288,38 @@ export function SheetToolbar({
             {t('sheet.total_count', { count: shipmentCount })}
           </Text>
 
+          {/* Supply-column legend chip */}
+          {hasSupplyColumns && (
+            <Tooltip title={t('sheet.supply_column_legend.tooltip')}>
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  fontSize: 11,
+                  color: '#166534',
+                  background: '#dcfce7',
+                  borderRadius: 4,
+                  padding: '2px 6px',
+                  cursor: 'default',
+                  userSelect: 'none',
+                }}
+              >
+                <span
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    background: '#16a34a',
+                    display: 'inline-block',
+                    flexShrink: 0,
+                  }}
+                />
+                {t('sheet.supply_column_legend.label')}
+              </span>
+            </Tooltip>
+          )}
+
           {/* Phase 2a: Hidden rows pill — shown only when user has hidden rows */}
           {hiddenCount > 0 && (
             <Button
@@ -268,6 +345,9 @@ export function SheetToolbar({
           </Badge>
         </div>
       </div>
+
+      {/* Join flow: column-selection action bar — shown below toolbar when armed */}
+      {joinMode && <JoinActionBar shipments={shipments} />}
 
       {/* Phase 2a: Unhide modal */}
       <Modal
@@ -365,6 +445,19 @@ export function SheetToolbar({
           </div>
         </Space>
       </Modal>
+
+      {/* Join flow: supply draft modal */}
+      <SupplyDraftModal
+        open={supplyModalOpen}
+        onClose={() => setSupplyModalOpen(false)}
+      />
+
+      {/* Join flow: destination draft modal */}
+      <DestinationDraftModal
+        open={destModalOpen}
+        onClose={() => setDestModalOpen(false)}
+      />
+
     </>
   );
 }

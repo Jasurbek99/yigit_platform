@@ -24,7 +24,7 @@ Export managers are in the `PRIVILEGED_ROLES` set — they can trigger **any** s
 | Process | What They Do |
 |---------|-------------|
 | [[shipment-lifecycle]] | Full CRUD, trigger any transition, set quality docs, add comments, set firm splits/block sources |
-| [[shipment-creation]] | Create new shipments (cargo_code + date + country + customer) |
+| [[shipment-creation]] | Create new shipments (cargo_code + date + country + customer). In the [[draft-shipments#Two-column Join flow (coexisting alternative)]] flow, creates the destination-only draft column and owns the **Join** action that merges a supply draft into it |
 | [[quota-management]] | Full dashboard access, create/edit/delete issuances, approve usage records |
 | [[local-sell-plan]] | Create, edit, submit, approve/reject plans |
 | [[weekly-harvest-planning]] | View all blocks, edit all plans, approve/reject submissions |
@@ -42,6 +42,7 @@ All operational pages: Dashboard, Shipment List, Kanban, Sheet, Shipment Dashboa
 
 1. **Morning check**: Open Kanban → see overdue shipments by phase → follow up with responsible role
 2. **Create shipment**: ShipmentList → Create button → fill cargo_code, date, country, customer
+3. **Join supply + destination (Sheet)**: Sheet → "New destination shipment" → create a destination-only draft → "Join" → pick that draft (target) + Soltanmyrat's supply draft (source) → merge → assign as usual
 3. **Approve plans**: WeeklyPlanGrid → review submitted plans → bulk approve/reject
 4. **Quota oversight**: QuotaDashboard → check coverage % → create issuances → approve usage
 5. **Exception handling**: Transition any stuck shipment to next step (privileged override)

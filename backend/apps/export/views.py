@@ -45,6 +45,7 @@ from apps.export.serializers import (
     SalesReportSerializer,
     ShipmentAssignSerializer,
     ShipmentCreateSerializer,
+    ShipmentJoinSerializer,
     ShipmentListSerializer,
     ShipmentDraftListSerializer,
     ShipmentDetailSerializer,
@@ -536,6 +537,7 @@ class ShipmentViewSet(ModelViewSet):
             .prefetch_related(
                 'firm_splits__export_firm',
                 'block_sources__block',
+                'varieties_dominant',
             )
             .annotate(
                 has_sales_report=Exists(
@@ -1014,12 +1016,13 @@ class ShipmentViewSet(ModelViewSet):
         data = serializer.validated_data
         is_draft = data.get('is_draft', False)
 
-        # Role gate: drafts are accessible to warehouse_chief; full creation needs privilege.
+        # Role gate: drafts are accessible to warehouse_chief and loading_dept_head
+        # (Soltanmyrat — two-column join flow); full creation needs privilege.
         if is_draft:
-            allowed_draft_roles = PRIVILEGED_ROLES | {'warehouse_chief'}
+            allowed_draft_roles = PRIVILEGED_ROLES | {'warehouse_chief', 'loading_dept_head'}
             if user_role not in allowed_draft_roles:
                 return Response(
-                    {'error': 'Only warehouse_chief, export_manager, or director can create draft shipments'},
+                    {'error': 'Only warehouse_chief, loading_dept_head, export_manager, or director can create draft shipments'},
                     status=status.HTTP_403_FORBIDDEN,
                 )
         else:
@@ -1063,11 +1066,42 @@ class ShipmentViewSet(ModelViewSet):
         detail_serializer = ShipmentDetailSerializer(shipment, context={'request': request})
         return Response(detail_serializer.data, status=status.HTTP_201_CREATED)
 
+    @staticmethod
+    def _apply_draft_varieties(shipment: 'Shipment', varieties: list) -> None:
+        """Persist multi-variety data on a newly created draft shipment.
+
+        Sets the scalar ``variety`` FK to the first (primary) variety for
+        back-compat, marks ``variety_confidence`` as 'low' (manually estimated),
+        and populates the ``varieties_dominant`` M2M with all supplied varieties.
+
+        Uses QuerySet.update() instead of Model.save() to bypass the task-engine
+        auto-advance hook — consistent with the join path's .update() pattern.
+        Must be called AFTER the shipment row is saved (PK required for M2M).
+        May be called inside or outside an atomic block.
+
+        Args:
+            shipment: The newly created Shipment instance.
+            varieties: Ordered list of TomatoVariety instances; first = primary.
+        """
+        if not varieties:
+            return
+        Shipment.objects.filter(pk=shipment.pk).update(
+            variety_id=varieties[0].pk,
+            variety_confidence='low',
+        )
+        shipment.varieties_dominant.set(varieties)
+
     def _create_draft_shipment(self, data: dict, user) -> Shipment:
-        """Create a Shipment in DRAFT status together with its ShipmentBlockSource rows.
+        """Create a Shipment in DRAFT status together with its block/firm rows.
 
         Runs inside a single atomic transaction so that a failure during
         bulk_create rolls back the shipment header as well.
+
+        Supports the two-column join flow: variety, import_firm, firm_splits,
+        and skip_forecast_check are all optional. When skip_forecast_check is
+        True the race-safe assert_draw_within_pool call is omitted — the blocks
+        still count toward allocated_kg for future checks but no forecast entry
+        is required.
 
         Args:
             data: Validated data from ShipmentCreateSerializer (is_draft=True path).
@@ -1094,11 +1128,15 @@ class ShipmentViewSet(ModelViewSet):
             raise ValueError('Draft status not configured. Run migrate and seed_data first.')
 
         bs_rows = data.get('block_sources', [])
+        fs_rows = data.get('firm_splits', [])
+        skip_forecast_check = data.get('skip_forecast_check', False)
 
         with transaction.atomic():
             # Race-safe drawdown re-check under a forecast-row lock (the
             # serializer's upfront check is unlocked; this is authoritative).
-            if bs_rows:
+            # Skipped when skip_forecast_check=True (in-Sheet ad-hoc supply
+            # path with no prior HarvestDayEntry forecast).
+            if bs_rows and not skip_forecast_check:
                 from apps.export.services.harvest_forecast import assert_draw_within_pool
                 assert_draw_within_pool(
                     {row['block_id'].id: row['weight_kg'] for row in bs_rows},
@@ -1110,6 +1148,9 @@ class ShipmentViewSet(ModelViewSet):
                 date=data['date'],
                 country=data.get('country'),
                 customer=data.get('customer'),
+                import_firm=data.get('import_firm'),
+                variety=data.get('variety'),
+                official_export_code=data.get('official_export_code') or None,
                 season=season,
                 status=draft_status,
                 created_by=user,
@@ -1123,22 +1164,43 @@ class ShipmentViewSet(ModelViewSet):
                 comment='Draft created',
             )
 
+            # Multi-variety: when `varieties` list is provided, apply it now.
+            # The helper sets variety FK (back-compat), confidence='low', and
+            # populates varieties_dominant M2M — all inside the atomic block.
+            varieties = data.get('varieties') or []
+            if varieties:
+                self._apply_draft_varieties(shipment, varieties)
+
             block_source_rows = [
                 ShipmentBlockSource(
                     shipment=shipment,
                     block=row['block_id'],
                     weight_kg=row['weight_kg'],
                 )
-                for row in data.get('block_sources', [])
+                for row in bs_rows
             ]
             if block_source_rows:
                 ShipmentBlockSource.objects.bulk_create(block_source_rows, batch_size=500)
 
+            firm_split_rows = [
+                ShipmentFirmSplit(
+                    shipment=shipment,
+                    export_firm=row['export_firm'],
+                    weight_kg=row['weight_kg'],
+                    amount_usd=row.get('amount_usd'),
+                    split_order=row.get('split_order', 1),
+                )
+                for row in fs_rows
+            ]
+            if firm_split_rows:
+                ShipmentFirmSplit.objects.bulk_create(firm_split_rows, batch_size=500)
+
         logger.info(
-            'Draft shipment %s created by %s with %d block source(s)',
+            'Draft shipment %s created by %s with %d block source(s) and %d firm split(s)',
             shipment.cargo_code,
             user.username,
             len(block_source_rows),
+            len(firm_split_rows),
         )
 
         # Generate the draft-stage tasks (Stream F). Outside the atomic block so
@@ -1213,6 +1275,225 @@ class ShipmentViewSet(ModelViewSet):
         shipment.refresh_from_db()
         detail_serializer = ShipmentDetailSerializer(shipment, context={'request': request})
         return Response(detail_serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='join')
+    def join(self, request, pk=None):
+        """POST /api/v1/export/shipments/{target_id}/join/
+
+        Merges a supply draft (source) into a destination draft (target).
+
+        The target is identified by the URL pk and SURVIVES. The source is
+        identified by source_id in the request body and is DELETED (cascade).
+
+        After join:
+        - Source block_sources are re-pointed to target.
+        - Source firm_splits are moved to target if target has none.
+        - variety and official_export_code are copied from source if target has none.
+        - target.weight_net is recomputed from all its block_sources.
+        - A ShipmentStatusLog audit row is written on target (status unchanged).
+        - The source creator is notified via an action_required Notification.
+        - Source is hard-deleted.
+
+        Request body:
+            { "source_id": <int> }
+
+        Returns:
+            200 with full ShipmentDetailSerializer payload on success.
+            400 if validation fails (same draft, wrong status, missing blocks, etc.)
+            403 if caller's role is not in PRIVILEGED_ROLES.
+            404 if target or source not found.
+        """
+        # --- Permission gate ---
+        if getattr(request.user, 'role', None) not in PRIVILEGED_ROLES:
+            return Response(
+                {'error': 'Only export_manager or director can join draft shipments'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # --- Input validation ---
+        join_serializer = ShipmentJoinSerializer(data=request.data)
+        join_serializer.is_valid(raise_exception=True)
+        source_id = join_serializer.validated_data['source_id']
+
+        target = self.get_object()  # raises 404 if not found
+
+        try:
+            source = Shipment.objects.select_related('status', 'created_by').get(pk=source_id)
+        except Shipment.DoesNotExist:
+            return Response({'error': 'Source shipment not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        # --- Business rule gates (cheap pre-checks on unlocked rows) ---
+        error = self._validate_join(target, source)
+        if error:
+            return Response({'error': error}, status=status.HTTP_400_BAD_REQUEST)
+
+        # --- Atomic merge ---
+        # Only catch ValueError (business rejections that come from inside the
+        # transaction).  Any other exception is a real server error and must
+        # propagate so DRF returns a proper 500.
+        try:
+            target = self._execute_join(target, source, request.user)
+        except ValueError as exc:
+            logger.exception('join rejected target=%s source=%s', target.pk, source.pk)
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        target.refresh_from_db()
+        detail_serializer = ShipmentDetailSerializer(target, context={'request': request})
+        return Response(detail_serializer.data)
+
+    @staticmethod
+    def _validate_join(target: 'Shipment', source: 'Shipment') -> str | None:
+        """Return an error string if the join is invalid, otherwise None.
+
+        Args:
+            target: The destination draft that will survive.
+            source: The supply draft that will be consumed.
+
+        Returns:
+            Error message string, or None if validation passes.
+        """
+        if target.pk == source.pk:
+            return 'Source and target must be different shipments'
+        if target.status.code != 'draft':
+            return 'Target shipment is not a draft'
+        if source.status.code != 'draft':
+            return 'Source shipment is not a draft'
+        if not target.country_id or not target.customer_id:
+            return 'Target shipment has no destination (country and customer required)'
+        if not source.block_sources.exists():
+            return 'Source shipment has no supply blocks'
+        if target.block_sources.exists():
+            return 'Target shipment already has supply blocks — join not allowed'
+        return None
+
+    @staticmethod
+    def _execute_join(target: 'Shipment', source: 'Shipment', user) -> 'Shipment':
+        """Atomically merge source supply into target destination draft.
+
+        Locks both rows in pk order to prevent deadlocks on concurrent joins.
+        All authoritative business-rule gates are re-asserted under the lock so
+        that a concurrent assign/transition/join cannot sneak past them.
+
+        Args:
+            target: The destination draft (survives the merge).
+            source: The supply draft (consumed and deleted).
+            user: The user performing the merge.
+
+        Returns:
+            The updated target Shipment instance (stale — caller must refresh_from_db).
+
+        Raises:
+            ValueError: If the locked rows no longer satisfy the join invariants.
+        """
+        from decimal import Decimal
+        from django.db.models import Sum
+        from apps.export.models import ShipmentStatusLog, Notification
+
+        with transaction.atomic():
+            # Lock in deterministic pk order to prevent deadlocks.
+            first_pk, second_pk = sorted([target.pk, source.pk])
+            locked = (
+                Shipment.objects
+                .select_for_update()
+                .select_related('status')
+                .filter(pk__in=[first_pk, second_pk])
+                .order_by('pk')
+            )
+            # Re-bind references to the locked instances.
+            locked_map = {s.pk: s for s in locked}
+            target = locked_map[target.pk]
+            source = locked_map[source.pk]
+
+            # Re-assert status + block gates on the now-locked rows.
+            # (Cheap identity check already passed in _validate_join; no need to repeat.)
+            if target.status.code != 'draft':
+                raise ValueError('Target shipment is no longer a draft')
+            if source.status.code != 'draft':
+                raise ValueError('Source shipment is no longer a draft')
+            if not source.block_sources.exists():
+                raise ValueError('Source shipment has no supply blocks')
+            if target.block_sources.exists():
+                raise ValueError('Target shipment already has supply blocks — join not allowed')
+
+            # Count cascade victims before we move anything (for the audit trail).
+            n_comments = source.comments.count()
+            n_tasks = source.tasks.count()
+            n_open_tasks = source.tasks.filter(state='open').count()
+
+            # Move block sources from source → target.
+            source.block_sources.update(shipment=target)
+
+            # Move firm splits only if target has none.
+            if not target.firm_splits.exists():
+                source.firm_splits.update(shipment=target)
+
+            # Determine which fields changed so we only write those.
+            update_fields: dict = {}
+
+            variety_changed = (target.variety_id is None and source.variety_id is not None)
+            if variety_changed:
+                update_fields['variety_id'] = source.variety_id
+
+            # Copy varieties_dominant M2M from source → target only when target
+            # has none. Mirrors the firm_splits "only if target has none" pattern.
+            # The .set() call happens outside the scalar .update() because M2M
+            # is managed through a separate junction table.
+            if not target.varieties_dominant.exists() and source.varieties_dominant.exists():
+                target.varieties_dominant.set(source.varieties_dominant.all())
+
+            code_changed = (not target.official_export_code and source.official_export_code)
+            if code_changed:
+                update_fields['official_export_code'] = source.official_export_code
+
+            # Recompute weight_net from all block_sources now on target.
+            agg = target.block_sources.aggregate(total=Sum('weight_kg'))
+            update_fields['weight_net'] = agg['total'] or Decimal('0')
+            update_fields['updated_by_id'] = user.pk
+
+            # Use .update() to bypass the task engine (save() runs auto_advance_if_ready
+            # which could promote target out of draft — violating the "target stays draft"
+            # invariant documented in AD-join).
+            Shipment.objects.filter(pk=target.pk).update(**update_fields)
+
+            # Audit log on target (status unchanged — still draft).
+            source_creator_label = (
+                source.created_by.username if source.created_by_id else 'unknown'
+            )
+            ShipmentStatusLog.objects.create(
+                shipment=target,
+                status=target.status,
+                changed_by=user,
+                comment=(
+                    f'Joined supply from {source.cargo_code} '
+                    f'(created by {source_creator_label}; '
+                    f'discarded {n_tasks} task(s) [{n_open_tasks} open], '
+                    f'{n_comments} comment(s))'
+                ),
+            )
+
+            # Notify source creator (action_required — closest existing kind).
+            if source.created_by_id:
+                Notification.objects.create(
+                    user_id=source.created_by_id,
+                    kind='action_required',
+                    message=(
+                        f'Your supply draft {source.cargo_code} was merged into '
+                        f'{target.cargo_code} by {user.username}.'
+                    ),
+                    link=f'/export/shipments/sheet?shipment={target.pk}',
+                )
+
+            # Hard-delete source (block_sources + firm_splits already re-pointed;
+            # ShipmentComment and Task rows will cascade-delete here).
+            source.delete()
+
+        logger.info(
+            'join: source=%s merged into target=%s by %s',
+            source.cargo_code,
+            target.cargo_code,
+            user.username,
+        )
+        return target
 
     @action(detail=True, methods=['patch'], url_path='quality')
     def set_quality(self, request, pk=None):

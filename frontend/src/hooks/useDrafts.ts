@@ -11,6 +11,7 @@ import type {
   IForecastSubmitResult,
 } from '@/types';
 
+
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -186,6 +187,143 @@ export function useSubmitForecast() {
       queryClient.invalidateQueries({
         predicate: (q) => q.queryKey[0] === 'harvest-forecast-remaining',
       });
+    },
+  });
+}
+
+// ─── useCreateSupplyDraft ─────────────────────────────────────────────────
+
+/**
+ * Creates a SUPPLY draft (blocks + optional variety, NO destination).
+ * Passes skip_forecast_check: true so the forecast-pool check is bypassed.
+ * Invalidates sheet, drafts and shipments queries on success.
+ */
+export function useCreateSupplyDraft() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: IDraftCreatePayload): Promise<IShipmentDraft> => {
+      if (USE_MOCK) {
+        const stub: IShipmentDraft = {
+          id: Date.now(),
+          cargo_code: payload.cargo_code,
+          date: payload.date,
+          created_at: new Date().toISOString(),
+          created_by_name: 'Soltanmyrat (mock)',
+          weight_net: payload.block_sources.reduce((s, r) => s + r.weight_kg, 0),
+          official_export_code: null,
+          previous_platform_id: null,
+          harvest_age_days: 0,
+          freshness: 'today',
+          variety_confidence: 'none',
+          block_sources: payload.block_sources.map((s) => ({
+            block_id: s.block_id,
+            block_code: `Block-${s.block_id}`,
+            weight_kg: s.weight_kg,
+          })),
+        };
+        return stub;
+      }
+
+      const { data } = await api.post<IShipmentDraft>('/export/shipments/', {
+        ...payload,
+        is_draft: true,
+        skip_forecast_check: true,
+      });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['drafts'] });
+      queryClient.invalidateQueries({ queryKey: ['shipments'] });
+      queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+      queryClient.invalidateQueries({
+        predicate: (q) => q.queryKey[0] === 'harvest-forecast-remaining',
+      });
+    },
+  });
+}
+
+// ─── useCreateDestinationDraft ────────────────────────────────────────────
+
+/**
+ * Creates a DESTINATION draft (country / customer / import_firm, NO blocks).
+ * Invalidates sheet, drafts and shipments queries on success.
+ */
+export function useCreateDestinationDraft() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: IDraftCreatePayload): Promise<IShipmentDraft> => {
+      if (USE_MOCK) {
+        const stub: IShipmentDraft = {
+          id: Date.now(),
+          cargo_code: payload.cargo_code,
+          date: payload.date,
+          created_at: new Date().toISOString(),
+          created_by_name: 'Gadam (mock)',
+          weight_net: 0,
+          official_export_code: null,
+          previous_platform_id: null,
+          harvest_age_days: 0,
+          freshness: 'today',
+          variety_confidence: 'none',
+          block_sources: [],
+        };
+        return stub;
+      }
+
+      const { data } = await api.post<IShipmentDraft>('/export/shipments/', {
+        ...payload,
+        is_draft: true,
+        block_sources: [],
+      });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['drafts'] });
+      queryClient.invalidateQueries({ queryKey: ['shipments'] });
+      queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+    },
+  });
+}
+
+// ─── useJoinShipments ─────────────────────────────────────────────────────
+
+interface IJoinShipmentsArgs {
+  targetId: number;
+  sourceId: number;
+}
+
+/**
+ * Merges a supply draft (source, gets DELETED) into a destination draft
+ * (target, SURVIVES). Returns the updated target shipment detail.
+ *
+ * Gates (enforced server-side):
+ * - Caller must be export_manager / director
+ * - Both must be draft; target has country+customer; target has NO blocks;
+ *   source has ≥1 block source.
+ */
+export function useJoinShipments() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ targetId, sourceId }: IJoinShipmentsArgs): Promise<{ id: number }> => {
+      if (USE_MOCK) {
+        // No-op in mock mode — return the target id.
+        return { id: targetId };
+      }
+
+      const { data } = await api.post<{ id: number }>(
+        `/export/shipments/${targetId}/join/`,
+        { source_id: sourceId },
+      );
+      return data;
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['drafts'] });
+      queryClient.invalidateQueries({ queryKey: ['shipments'] });
+      queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+      queryClient.invalidateQueries({ queryKey: ['shipment', String(vars.targetId)] });
     },
   });
 }
