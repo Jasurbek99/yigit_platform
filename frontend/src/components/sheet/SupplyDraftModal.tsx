@@ -1,12 +1,11 @@
 import { useState, useMemo } from 'react';
-import { Modal, Button, Input, Typography, DatePicker } from 'antd';
+import { Modal, Button, Input, Select, Typography, DatePicker } from 'antd';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import dayjs from 'dayjs';
-import { useCreateSupplyDraft } from '@/hooks/useDrafts';
+import { useCreateSupplyDraft, useHarvestForecastRemaining } from '@/hooks/useDrafts';
 import { VarietySelect } from '@/components/VarietySelect';
-import { BlockSelect } from '@/components/BlockSelect';
 import { COLORS, FONT } from '@/constants/styles';
 
 const MAX_ROWS = 11;
@@ -16,7 +15,16 @@ const MAX_ROWS = 11;
 interface ISupplyRow {
   key: number;
   block_id: number | null;
+  /** kg taken from this block. Defaults to the block's full remaining harvest
+   *  when picked, but the user can edit it (e.g. take less than the whole block). */
   weight_kg: string;
+}
+
+/** One pickable block from the forecast pool (code + remaining harvest). */
+interface IBlockOption {
+  block_id: number;
+  code: string;
+  remaining: number;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -42,6 +50,10 @@ function autoCargo(): string {
 
 interface ISupplyRowItemProps {
   row: ISupplyRow;
+  /** The block's full remaining harvest — shown as a hint; the kg field
+   *  defaults to it but is editable. */
+  available: number;
+  options: IBlockOption[];
   excludeIds: number[];
   onBlockChange: (blockId: number | null) => void;
   onWeightChange: (weight: string) => void;
@@ -51,6 +63,8 @@ interface ISupplyRowItemProps {
 
 function SupplyRowItem({
   row,
+  available,
+  options,
   excludeIds,
   onBlockChange,
   onWeightChange,
@@ -59,35 +73,57 @@ function SupplyRowItem({
 }: ISupplyRowItemProps) {
   const { t } = useTranslation();
 
+  const selectOptions = options
+    .filter((o) => o.block_id === row.block_id || !excludeIds.includes(o.block_id))
+    .map((o) => ({
+      value: o.block_id,
+      label: `${o.code} — ${o.remaining.toLocaleString('ru-RU')} kg`,
+    }));
+
   return (
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: '1fr 120px 36px',
+        gridTemplateColumns: '1fr 130px 36px',
         padding: '8px 12px',
         gap: 8,
-        alignItems: 'center',
+        alignItems: 'start',
         borderTop: '1px solid #f0f0f0',
         fontSize: 13,
       }}
     >
-      <BlockSelect
-        value={row.block_id}
-        onChange={onBlockChange}
-        excludeIds={excludeIds}
+      <Select
+        value={row.block_id ?? undefined}
+        onChange={(v) => onBlockChange(v ?? null)}
+        options={selectOptions}
+        showSearch
+        allowClear
         size="small"
-        placeholder={t('sheet.supply_modal.block_ph')}
+        placeholder={t('draft.composer_block_ph')}
         style={{ width: '100%' }}
+        filterOption={(input, option) =>
+          String(option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+        }
       />
-      <Input
-        size="small"
-        type="number"
-        value={row.weight_kg}
-        onChange={(e) => onWeightChange(e.target.value)}
-        placeholder="kg"
-        suffix="kg"
-        style={{ fontFamily: FONT.mono }}
-      />
+      <div>
+        <Input
+          size="small"
+          type="number"
+          value={row.weight_kg}
+          onChange={(e) => onWeightChange(e.target.value)}
+          disabled={row.block_id === null}
+          suffix="kg"
+          style={{ fontFamily: FONT.mono, textAlign: 'right' }}
+        />
+        {row.block_id !== null && (
+          <Typography.Text
+            type="secondary"
+            style={{ fontSize: 10, display: 'block', textAlign: 'right', marginTop: 2 }}
+          >
+            {t('sheet.supply_modal.avail_hint', { kg: available.toLocaleString('ru-RU') })}
+          </Typography.Text>
+        )}
+      </div>
       <Button
         size="small"
         type="text"
@@ -97,27 +133,6 @@ function SupplyRowItem({
         disabled={!canRemove}
       />
     </div>
-  );
-}
-
-// ─── Sub-component: truck count estimate ─────────────────────────────────
-
-const TRUCK_CAPACITY_KG = 18_500;
-
-interface ITruckEstimateProps {
-  totalKg: number;
-}
-
-function TruckEstimate({ totalKg }: ITruckEstimateProps) {
-  const { t } = useTranslation();
-  const count = Math.max(1, Math.ceil(totalKg / TRUCK_CAPACITY_KG));
-  return (
-    <Typography.Text
-      type="secondary"
-      style={{ fontSize: 11, fontWeight: 400, display: 'block' }}
-    >
-      {t('sheet.supply_modal.truck_estimate', { count })}
-    </Typography.Text>
   );
 }
 
@@ -137,15 +152,49 @@ export function SupplyDraftModal({ open, onClose }: ISupplyDraftModalProps) {
   const [varieties, setVarieties] = useState<number[]>([]);
   const [rows, setRows] = useState<ISupplyRow[]>([makeRow()]);
 
-  const usedBlockIds = useMemo(
-    () => rows.map((r) => r.block_id).filter((id): id is number => id !== null),
+  // Fetch the forecast pool for the selected date (not locked to today).
+  const dateStr = date.format('YYYY-MM-DD');
+  const { data: remainingList = [] } = useHarvestForecastRemaining(dateStr);
+
+  // block_id → full remaining kg (number).
+  const remainingMap = useMemo(
+    () => new Map(remainingList.map((r) => [r.block_id, Number(r.remaining_kg)])),
+    [remainingList],
+  );
+
+  // Pickable blocks: remaining > 0, sorted by code.
+  const blockOptions: IBlockOption[] = useMemo(
+    () =>
+      remainingList
+        .map((r) => ({ block_id: r.block_id, code: r.block_code, remaining: Number(r.remaining_kg) }))
+        .filter((o) => o.remaining > 0)
+        .sort((a, b) => a.code.localeCompare(b.code)),
+    [remainingList],
+  );
+  const hasPool = blockOptions.length > 0;
+
+  // Allocation = the (editable) kg entered per row. Defaults to the block's
+  // full remaining harvest on pick, but the user can change it — including
+  // down from a whole-block amount over 18,500.
+  const allocations = useMemo(
+    () => rows.map((r) => (r.block_id !== null ? Number(r.weight_kg) || 0 : 0)),
     [rows],
   );
 
-  const totalKg = useMemo(
-    () => rows.reduce((acc, r) => acc + (Number(r.weight_kg) || 0), 0),
-    [rows],
-  );
+  const totalKg = useMemo(() => allocations.reduce((s, w) => s + w, 0), [allocations]);
+
+  const usedBlockIds = rows
+    .map((r) => r.block_id)
+    .filter((id): id is number => id !== null);
+
+  // ── Handlers ──────────────────────────────────────────────────────────
+
+  function handleDateChange(d: ReturnType<typeof dayjs> | null) {
+    if (!d) return;
+    setDate(d);
+    // Reset rows so orphaned block picks from the old pool don't persist.
+    setRows([makeRow()]);
+  }
 
   function handleAddRow() {
     if (rows.length < MAX_ROWS) {
@@ -158,7 +207,16 @@ export function SupplyDraftModal({ open, onClose }: ISupplyDraftModalProps) {
   }
 
   function handleBlockChange(key: number, blockId: number | null) {
-    setRows((prev) => prev.map((r) => (r.key === key ? { ...r, block_id: blockId } : r)));
+    // Default the kg to the block's full remaining harvest (whole block), but
+    // leave it editable so the user can adjust it afterwards.
+    const remaining = blockId !== null ? (remainingMap.get(blockId) ?? 0) : 0;
+    setRows((prev) =>
+      prev.map((r) =>
+        r.key === key
+          ? { ...r, block_id: blockId, weight_kg: blockId !== null ? String(remaining) : '' }
+          : r,
+      ),
+    );
   }
 
   function handleWeightChange(key: number, weight: string) {
@@ -183,8 +241,8 @@ export function SupplyDraftModal({ open, onClose }: ISupplyDraftModalProps) {
       return;
     }
     const block_sources = rows
-      .filter((r) => r.block_id !== null && Number(r.weight_kg) > 0)
-      .map((r) => ({ block_id: r.block_id as number, weight_kg: Number(r.weight_kg) }));
+      .map((r, i) => ({ block_id: r.block_id, weight_kg: allocations[i] }))
+      .filter((b): b is { block_id: number; weight_kg: number } => b.block_id !== null && b.weight_kg > 0);
 
     if (block_sources.length === 0) {
       toast.error(t('sheet.supply_modal.error_no_blocks'));
@@ -194,7 +252,7 @@ export function SupplyDraftModal({ open, onClose }: ISupplyDraftModalProps) {
     createDraft.mutate(
       {
         cargo_code: cargoCode.trim(),
-        date: date.format('YYYY-MM-DD'),
+        date: dateStr,
         is_draft: true,
         block_sources,
         skip_forecast_check: true,
@@ -246,7 +304,7 @@ export function SupplyDraftModal({ open, onClose }: ISupplyDraftModalProps) {
           </Typography.Text>
           <DatePicker
             value={date}
-            onChange={(d) => d && setDate(d)}
+            onChange={handleDateChange}
             format="DD.MM.YYYY"
             allowClear={false}
             style={{ width: '100%' }}
@@ -286,12 +344,29 @@ export function SupplyDraftModal({ open, onClose }: ISupplyDraftModalProps) {
       <Typography.Text strong style={{ display: 'block', marginBottom: 8, fontSize: 13 }}>
         {t('sheet.supply_modal.blocks_label')}
       </Typography.Text>
+
+      {/* No forecast pool for this date */}
+      {!hasPool && (
+        <div
+          style={{
+            marginBottom: 10,
+            padding: '8px 12px',
+            background: COLORS.bgYellow,
+            borderRadius: 6,
+            fontSize: 12,
+            color: '#854F0B',
+          }}
+        >
+          {t('draft.composer_no_pool')}
+        </div>
+      )}
+
       <div style={{ border: '1px solid #f0f0f0', borderRadius: 8, overflow: 'hidden' }}>
         {/* Header */}
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '1fr 120px 36px',
+            gridTemplateColumns: '1fr 130px 36px',
             padding: '8px 12px',
             background: COLORS.bgLayout,
             fontSize: 11,
@@ -302,7 +377,7 @@ export function SupplyDraftModal({ open, onClose }: ISupplyDraftModalProps) {
             gap: 8,
           }}
         >
-          <div>{t('sheet.supply_modal.col_block')}</div>
+          <div>{t('draft.composer_col_block')}</div>
           <div style={{ textAlign: 'right' }}>{t('sheet.supply_modal.col_weight')}</div>
           <div />
         </div>
@@ -311,6 +386,8 @@ export function SupplyDraftModal({ open, onClose }: ISupplyDraftModalProps) {
           <SupplyRowItem
             key={row.key}
             row={row}
+            available={row.block_id !== null ? (remainingMap.get(row.block_id) ?? 0) : 0}
+            options={blockOptions}
             excludeIds={usedBlockIds.filter((id) => id !== row.block_id)}
             onBlockChange={(blockId) => handleBlockChange(row.key, blockId)}
             onWeightChange={(weight) => handleWeightChange(row.key, weight)}
@@ -319,7 +396,8 @@ export function SupplyDraftModal({ open, onClose }: ISupplyDraftModalProps) {
           />
         ))}
 
-        {rows.length < MAX_ROWS && (
+        {/* Add row — show while pool exists and rows < max (no truck-full gate) */}
+        {rows.length < MAX_ROWS && hasPool && (
           <div
             onClick={handleAddRow}
             style={{
@@ -340,7 +418,7 @@ export function SupplyDraftModal({ open, onClose }: ISupplyDraftModalProps) {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '1fr 120px 36px',
+            gridTemplateColumns: '1fr 130px 36px',
             padding: '10px 12px',
             gap: 8,
             fontWeight: 600,
@@ -353,9 +431,6 @@ export function SupplyDraftModal({ open, onClose }: ISupplyDraftModalProps) {
             <div style={{ fontFamily: FONT.mono, fontSize: 13 }}>
               {totalKg.toLocaleString('ru-RU')} kg
             </div>
-            {totalKg > 0 && (
-              <TruckEstimate totalKg={totalKg} />
-            )}
           </div>
           <div />
         </div>

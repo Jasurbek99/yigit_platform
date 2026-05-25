@@ -1407,13 +1407,14 @@
       "blocks_label": "Блоки урожая",
       "col_block": "Блок",
       "col_weight": "Вес",
+      "col_available": "Доступно (кг)",
+      "avail_hint": "{{kg}} кг доступно",
       "block_ph": "Выбрать блок...",
       "add_row": "Добавить блок",
       "save": "Сохранить как черновик",
       "error_no_blocks": "Добавьте хотя бы один блок с весом",
       "toast_saved": "Черновик поставки {{code}} создан",
-      "toast_error": "Не удалось создать черновик поставки",
-      "truck_estimate": "≈ {{count}} машин(ы) × 18 500 кг"
+      "toast_error": "Не удалось создать черновик поставки"
     },
     "dest_modal": {
       "title": "Новая Отгрузка",
@@ -1517,6 +1518,7 @@
     "col_match": "Сопоставление",
     "col_demand": "Спрос",
     "supply_empty": "Черновиков нет",
+    "demand_empty": "Заявок нет",
     "match_empty_primary": "Выберите груз слева",
     "match_empty_secondary": "Затем выберите заявку справа",
     "match_title": "Сопоставление",

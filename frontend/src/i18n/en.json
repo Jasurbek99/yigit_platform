@@ -1405,13 +1405,14 @@
       "blocks_label": "Harvest Blocks",
       "col_block": "Block",
       "col_weight": "Weight",
+      "col_available": "Available (kg)",
+      "avail_hint": "{{kg}} kg available",
       "block_ph": "Select block...",
       "add_row": "Add block",
       "save": "Save as Draft",
       "error_no_blocks": "Add at least one block with a weight",
       "toast_saved": "Supply draft {{code}} created",
-      "toast_error": "Failed to create supply draft",
-      "truck_estimate": "≈ {{count}} truck(s) × 18,500 kg"
+      "toast_error": "Failed to create supply draft"
     },
     "dest_modal": {
       "title": "New Shipment",
@@ -1515,6 +1516,7 @@
     "col_match": "Match",
     "col_demand": "Demand",
     "supply_empty": "No draft shipments",
+    "demand_empty": "No demand",
     "match_empty_primary": "Select a shipment from the left",
     "match_empty_secondary": "Then select a demand from the right",
     "match_title": "Match",
