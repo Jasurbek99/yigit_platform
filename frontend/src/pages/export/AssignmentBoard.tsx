@@ -250,7 +250,12 @@ export default function AssignmentBoard() {
           </div>
 
           <div style={{ padding: 10, flex: 1, overflowY: 'auto', maxHeight: 680 }}>
-            {demandGroups.map((group) => (
+            {demandGroups.length === 0 ? (
+              <Text type="secondary" style={{ fontSize: 12, padding: 12, display: 'block', textAlign: 'center' }}>
+                {t('assign.demand_empty')}
+              </Text>
+            ) : (
+              demandGroups.map((group) => (
               <div key={group.label}>
                 <div
                   style={{
@@ -278,7 +283,8 @@ export default function AssignmentBoard() {
                   />
                 ))}
               </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>
