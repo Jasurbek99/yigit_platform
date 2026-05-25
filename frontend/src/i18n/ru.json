@@ -349,6 +349,7 @@
     "weight_net": "Нетто (кг)",
     "departed": "Выехал",
     "arrived": "Прибыл",
+    "export_failed": "Не удалось экспортировать в Excel",
     "weight_gross": "Брутто (кг)",
     "city": "Город",
     "variety": "Сорт",

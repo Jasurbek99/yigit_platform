@@ -29,7 +29,8 @@ interface ISheetCellEditorProps {
 
 export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) {
   const { t, i18n } = useTranslation();
-  const { setEditingCell, sheetZoom } = useSheetStore();
+  const setEditingCell = useSheetStore((s) => s.setEditingCell);
+  const sheetZoom = useSheetStore((s) => s.sheetZoom);
   const { colShipment: COL_WIDTH_SHIPMENT, rowHeight: ROW_HEIGHT } = scaleSheetLayout(sheetZoom);
   const patchMutation = useShipmentPatch();
   const containerRef = useRef<HTMLDivElement>(null);

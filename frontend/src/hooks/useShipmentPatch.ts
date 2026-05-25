@@ -116,6 +116,75 @@ function rollback(
   });
 }
 
+/**
+ * Copy the primitive (scalar) values the server echoed back into a cached row.
+ *
+ * Skips objects/arrays (firm_splits, block_sources, quality) whose detail-shape
+ * differs from the flat sheet/list shape, and skips keys absent from the row so
+ * we never introduce detail-only fields. This captures the server side effects
+ * the optimistic update cannot predict — an auto-advanced status + its AD-1
+ * timestamps, a recomputed total_amount_usd — without a full sheet refetch.
+ */
+export function mergeServerScalars<T extends object>(row: T, server: Record<string, unknown>): T {
+  const next = { ...row } as Record<string, unknown>;
+  for (const key of Object.keys(row)) {
+    if (!(key in server)) continue;
+    const value = server[key];
+    if (value === null || typeof value !== 'object') {
+      next[key] = value;
+    }
+  }
+  return next as T;
+}
+
+/**
+ * Reconcile the sheet + list caches with the PATCH response for one shipment.
+ *
+ * This replaces the per-edit full-sheet refetch: instead of re-downloading the
+ * entire un-paginated season, we surgically fold the authoritative scalar
+ * values from the response into the single edited row that's already cached.
+ */
+function reconcileFromServer(
+  queryClient: ReturnType<typeof useQueryClient>,
+  id: number,
+  server: unknown,
+): void {
+  if (!server || typeof server !== 'object') return;
+  const serverObj = server as Record<string, unknown>;
+
+  queryClient.setQueryData<ICachedSheet>(['shipments', 'sheet'], (old) => {
+    if (!old || !Array.isArray(old.shipments)) return old;
+    return {
+      ...old,
+      shipments: old.shipments.map((s) => (s.id === id ? mergeServerScalars(s, serverObj) : s)),
+    };
+  });
+
+  queryClient.setQueriesData<IApiListResponse<IShipmentListItem>>(
+    { predicate: (q) => isListQueryKey(q.queryKey) },
+    (old) => {
+      if (!old) return old;
+      return {
+        ...old,
+        results: old.results.map((s) => (s.id === id ? mergeServerScalars(s, serverObj) : s)),
+      };
+    },
+  );
+}
+
+/**
+ * Invalidate shipment-related queries WITHOUT touching the heavy, unpaginated
+ * `['shipments','sheet']` query — its cache was already reconciled from the
+ * PATCH response. Excluding it here is what stops every cell edit from
+ * refetching the whole season. Board + list queries are matched (they're
+ * inactive on the sheet page, so this only marks them stale — no network).
+ */
+function invalidateExceptSheet(queryClient: ReturnType<typeof useQueryClient>): void {
+  queryClient.invalidateQueries({
+    predicate: (q) => q.queryKey[0] === 'shipments' && q.queryKey[1] !== 'sheet',
+  });
+}
+
 export function useShipmentPatch() {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
@@ -129,14 +198,20 @@ export function useShipmentPatch() {
       await queryClient.cancelQueries({ queryKey: ['shipments'] });
       return applyOptimistic(queryClient, id, { [field]: value });
     },
+    onSuccess: (data, { id }) => {
+      // Fold server-computed scalars (auto-advanced status, AD-1 timestamps,
+      // recomputed totals) into the cached row instead of refetching the sheet.
+      reconcileFromServer(queryClient, id, data);
+    },
     onError: (err, _vars, context) => {
       rollback(queryClient, context);
       toast.error(extractPatchError(err, t('sheet.save_error')));
       // Always log full error for support: real value, status, response body.
       console.error('[useShipmentPatch] PATCH failed', err);
     },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['shipments'] });
+    onSettled: (_data, _err, { id }) => {
+      invalidateExceptSheet(queryClient);
+      queryClient.invalidateQueries({ queryKey: ['shipment', String(id)] });
       queryClient.invalidateQueries({ queryKey: ['my-tasks'] });
     },
   });
@@ -159,13 +234,18 @@ export function useShipmentPatchMulti() {
       await queryClient.cancelQueries({ queryKey: ['shipments'] });
       return applyOptimistic(queryClient, id, fields);
     },
+    onSuccess: (data, { id }) => {
+      reconcileFromServer(queryClient, id, data);
+    },
     onError: (err, _vars, context) => {
       rollback(queryClient, context);
       toast.error(extractPatchError(err, t('shipment_edit_drawer.save_error')));
       console.error('[useShipmentPatchMulti] PATCH failed', err);
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['shipments'] });
+      invalidateExceptSheet(queryClient);
+      // Detail pages (single-row fetch) are the primary consumer here; refresh
+      // any open detail so multi-field drawer edits show through immediately.
       queryClient.invalidateQueries({ queryKey: ['shipment'] });
       queryClient.invalidateQueries({ queryKey: ['my-tasks'] });
     },

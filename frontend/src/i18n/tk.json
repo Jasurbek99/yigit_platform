@@ -347,6 +347,7 @@
     "weight_net": "Arassa (kg)",
     "departed": "Ugrady",
     "arrived": "Geldi",
+    "export_failed": "Excel eksport şowsuz boldy",
     "weight_gross": "Brutto (kg)",
     "city": "Şäher",
     "variety": "Görnüş",

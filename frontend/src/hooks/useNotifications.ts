@@ -12,8 +12,11 @@ export function useNotifications() {
       if (Array.isArray(data)) return data;
       return data.results ?? [];
     },
-    refetchInterval: 30_000,
-    staleTime: 30_000,
+    // Polls app-wide (NotificationBell lives in AppLayout). 60s halves the
+    // steady-state request rate vs 30s; v5 already pauses the interval while
+    // the tab is backgrounded (refetchIntervalInBackground defaults to false).
+    refetchInterval: 60_000,
+    staleTime: 60_000,
   });
 }
 

@@ -484,23 +484,28 @@ class CommentSerializer(serializers.ModelSerializer):
             return None
         return obj.done_by.username if obj.done_by else None
 
+    @staticmethod
+    def user_chip(user) -> dict:
+        """Build the {id, name, role} chip payload for one mentioned user."""
+        full_name = ' '.join(p for p in [user.first_name, user.last_name] if p).strip()
+        return {'id': user.id, 'name': full_name or user.username, 'role': user.role}
+
     def get_mentions_users(self, obj) -> list[dict]:
         # Resolve user IDs into {id, name, role} so chips can render names.
-        # N+1 across the comments list — acceptable for typical thread sizes;
-        # optimize via a context-level prefetch only if it shows up in profiling.
         ids = obj.mentions_ids
         if not ids:
             return []
+        # Fast path: the list view pre-resolves every mentioned user across the
+        # whole page into context['mention_users_map'] with a single query,
+        # avoiding the N+1 that one query-per-comment would cause.
+        chip_map = self.context.get('mention_users_map')
+        if chip_map is not None:
+            return [chip_map[i] for i in ids if i in chip_map]
+        # Fallback for single-object serialization (detail / create response):
+        # one query for this comment only — no N+1 since there's one object.
         from apps.core.models import User
         users = User.objects.filter(id__in=ids).only('id', 'username', 'first_name', 'last_name', 'role')
-        return [
-            {
-                'id': u.id,
-                'name': (' '.join(p for p in [u.first_name, u.last_name] if p).strip() or u.username),
-                'role': u.role,
-            }
-            for u in users
-        ]
+        return [self.user_chip(u) for u in users]
 
     def get_role_mentions_list(self, obj) -> list[dict]:
         # Return [{code, label}] so the frontend chip can show the human label.

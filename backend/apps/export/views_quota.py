@@ -6,6 +6,7 @@ QuotaDashboardView    — aggregated KPIs / per-firm / weekly-flow analytics
 import datetime
 import logging
 
+from django.core.cache import cache
 from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -262,11 +263,24 @@ class QuotaDashboardView(APIView):
         except Season.DoesNotExist:
             raise ValidationError({'detail': f'Season {season_id} not found.'})
 
-        product_type = params.get('product_type', 'tomato')
+        # Normalize so ?product_type=Tomato and =tomato don't cache twice (and
+        # the service gets a consistent value).
+        product_type = params.get('product_type', 'tomato').lower()
         date_from = _parse_date(params.get('date_from'), season.start_date, 'date_from')
         date_to = _parse_date(params.get('date_to'), season.end_date, 'date_to')
 
+        # build_quota_dashboard() runs several aggregation passes per request and
+        # was uncached (unlike dashboard_summary / boss / KPI endpoints). Cache it
+        # for 60s keyed by every param that changes the result. Quota approvals
+        # are infrequent and analytics tolerate ≤60s staleness — same tradeoff as
+        # the other dashboards.
+        cache_key = f'quota_dashboard:{season_id}:{product_type}:{date_from}:{date_to}'
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
+
         data = build_quota_dashboard(date_from, date_to, product_type)
+        cache.set(cache_key, data, 60)
         return Response(data)
 
 

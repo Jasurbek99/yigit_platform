@@ -39,18 +39,21 @@ export default function ShipmentSheet() {
   // another tab arrives here as a query invalidation → instant rerender.
   useUserSheetPrefsBroadcast();
 
-  const {
-    searchText,
-    showGapyOnly,
-    commentsDrawerOpen,
-    setCommentsDrawerOpen,
-    setCommentsShipmentId,
-    setCommentsFilter,
-    setActiveCell,
-    setPendingHighlightCommentId,
-    openCommentsForCell,
-    setRows,
-  } = useSheetStore();
+  // Granular selectors only. A bare useSheetStore() here re-renders the whole
+  // page — and the non-memoized SheetGrid beneath it — on every store change,
+  // including activeCell updates that fire on each cell click. Reactive reads
+  // are limited to the three values this page actually renders against;
+  // setters are stable refs and never trigger a re-render.
+  const searchText = useSheetStore((s) => s.searchText);
+  const showGapyOnly = useSheetStore((s) => s.showGapyOnly);
+  const commentsDrawerOpen = useSheetStore((s) => s.commentsDrawerOpen);
+  const setCommentsDrawerOpen = useSheetStore((s) => s.setCommentsDrawerOpen);
+  const setCommentsShipmentId = useSheetStore((s) => s.setCommentsShipmentId);
+  const setCommentsFilter = useSheetStore((s) => s.setCommentsFilter);
+  const setActiveCell = useSheetStore((s) => s.setActiveCell);
+  const setPendingHighlightCommentId = useSheetStore((s) => s.setPendingHighlightCommentId);
+  const openCommentsForCell = useSheetStore((s) => s.openCommentsForCell);
+  const setRows = useSheetStore((s) => s.setRows);
 
   // ─── Phase 2a: derive field_key → SheetRowSetting.id from the payload ─────
   // The /sheet/ payload emits `id` inside row_settings[fk] (since the N1 backend

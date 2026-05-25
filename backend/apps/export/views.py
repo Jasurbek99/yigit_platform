@@ -1991,6 +1991,45 @@ class CommentViewSet(ModelViewSet):
             return CommentCreateSerializer
         return CommentSerializer
 
+    @staticmethod
+    def _build_mention_users_map(comments) -> dict:
+        """Resolve every @user mention across a page of comments in ONE query.
+
+        `mentions_ids` is parsed from comment text (not an FK relation), so it
+        can't be prefetch_related'd. Gathering the union of ids for the page and
+        resolving them once turns the serializer's per-comment lookup into a
+        single query — avoiding N+1 on the comments list.
+        """
+        from apps.core.models import User
+
+        all_ids: set[int] = set()
+        for comment in comments:
+            all_ids.update(comment.mentions_ids or [])
+        if not all_ids:
+            return {}
+        users = User.objects.filter(id__in=all_ids).only(
+            'id', 'username', 'first_name', 'last_name', 'role',
+        )
+        return {u.id: CommentSerializer.user_chip(u) for u in users}
+
+    def paginate_queryset(self, queryset):
+        # Called during list() before the serializer is built. Capture the page
+        # and pre-resolve its mentioned users so get_serializer_context can hand
+        # the map to the serializer (see _build_mention_users_map).
+        page = super().paginate_queryset(queryset)
+        if page is not None:
+            # Per-request state: DRF builds a fresh viewset instance per request
+            # (as_view().dispatch()), so stashing on self is safe here.
+            self._mention_users_map = self._build_mention_users_map(page)
+        return page
+
+    def get_serializer_context(self):
+        ctx = super().get_serializer_context()
+        mention_map = getattr(self, '_mention_users_map', None)
+        if mention_map is not None:
+            ctx['mention_users_map'] = mention_map
+        return ctx
+
     def perform_create(self, serializer):
         """Delegate to service via CommentCreateSerializer.create()."""
         serializer.save()

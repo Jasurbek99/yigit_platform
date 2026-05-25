@@ -29,8 +29,19 @@ function isEmpty(value: string): boolean {
 
 function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, commentTaskState = null, rowSetting }: ISheetCellProps) {
   const navigate = useNavigate();
-  const { setActiveCell, setEditingCell, activeCell, openCommentsForCell, sheetZoom } = useSheetStore();
-  const isActive = activeCell?.shipmentId === shipment.id && activeCell?.rowKey === rowConfig.field_key;
+  // Granular store selectors — NEVER `useSheetStore()` without a selector here.
+  // The grid renders hundreds of cells; a bare subscription re-renders every
+  // cell on any store change (cell click, search keystroke, drawer toggle),
+  // which defeats the surrounding memo(). Setters are stable refs (no
+  // re-render); `isActive` is a derived primitive so only the two cells whose
+  // active state actually flips re-render on selection.
+  const setActiveCell = useSheetStore((s) => s.setActiveCell);
+  const setEditingCell = useSheetStore((s) => s.setEditingCell);
+  const openCommentsForCell = useSheetStore((s) => s.openCommentsForCell);
+  const sheetZoom = useSheetStore((s) => s.sheetZoom);
+  const isActive = useSheetStore(
+    (s) => s.activeCell?.shipmentId === shipment.id && s.activeCell?.rowKey === rowConfig.field_key,
+  );
   const isGapy = shipment.is_gapy_satys;
   const isHidden = rowConfig.gapy_hidden && isGapy;
 

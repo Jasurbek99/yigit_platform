@@ -82,7 +82,14 @@ export function SheetGrid({
 }: ISheetGridProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { editingCell, frozenRowCount, frozenColCount, sheetZoom } = useSheetStore();
+  // Granular selectors — a bare useSheetStore() re-renders the whole grid on
+  // every unrelated store change (activeCell on each cell click, searchText on
+  // each keystroke, comments drawer toggles). Subscribe only to what the grid
+  // layout actually depends on.
+  const editingCell = useSheetStore((s) => s.editingCell);
+  const frozenRowCount = useSheetStore((s) => s.frozenRowCount);
+  const frozenColCount = useSheetStore((s) => s.frozenColCount);
+  const sheetZoom = useSheetStore((s) => s.sheetZoom);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Scaled layout px — every cell width/height + the virtualizer's estimateSize

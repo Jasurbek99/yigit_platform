@@ -17,7 +17,10 @@ export function useMyTasks(options: { enabled?: boolean } = {}) {
       const { data } = await api.get('/me/tasks/?page_size=200');
       return data;
     },
-    staleTime: 30_000,
-    refetchInterval: 30_000,
+    // Polls app-wide (AppLayout nav badge). 60s halves the steady-state
+    // request rate vs 30s; the interval auto-pauses while the tab is
+    // backgrounded (refetchIntervalInBackground defaults to false in v5).
+    staleTime: 60_000,
+    refetchInterval: 60_000,
   });
 }

@@ -347,6 +347,7 @@
     "weight_net": "Net (kg)",
     "departed": "Departed",
     "arrived": "Arrived",
+    "export_failed": "Excel export failed",
     "weight_gross": "Gross (kg)",
     "city": "City",
     "variety": "Variety",

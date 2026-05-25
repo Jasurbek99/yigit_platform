@@ -6,8 +6,8 @@ import { ProTable } from '@ant-design/pro-components';
 import type { ProColumns, ColumnsState } from '@ant-design/pro-components';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import dayjs from 'dayjs';
-import * as XLSX from 'xlsx';
 import { StatusTag } from '@/components/StatusTag';
 import { ShipmentCreateModal } from '@/components/ShipmentCreateModal';
 import { ShipmentEditDrawerForId } from '@/components/ShipmentEditDrawerForId';
@@ -130,7 +130,12 @@ const DEFAULT_COLUMN_STATE: Record<string, ColumnsState> = Object.fromEntries(
   HIDDEN_BY_DEFAULT.map((key) => [key, { show: false }]),
 );
 
-function exportToExcel(rows: IShipmentListItem[], t: (k: string) => string) {
+// SheetJS (`xlsx`) is ~900 kB raw / ~100 kB gzip. Importing it statically
+// pulled the whole library into the ShipmentList page chunk, so it downloaded
+// on every visit to the list even when no one exports. Load it on demand —
+// only when the user actually clicks Excel.
+async function exportToExcel(rows: IShipmentListItem[], t: (k: string) => string): Promise<void> {
+  const XLSX = await import('xlsx');
   const sheetData = rows.map((r) => ({
     [t('shipments.cargo_code')]: r.cargo_code,
     [t('shipments.date')]: r.date ? dayjs(r.date).format('DD.MM.YYYY') : '',
@@ -634,7 +639,12 @@ export default function ShipmentList() {
         </Button>
         <Button
           icon={<DownloadOutlined />}
-          onClick={() => exportToExcel(data?.results ?? [], t)}
+          onClick={() => {
+            void exportToExcel(data?.results ?? [], t).catch((err) => {
+              console.error('[ShipmentList] Excel export failed', err);
+              toast.error(t('shipments.export_failed'));
+            });
+          }}
         >
           Excel
         </Button>
