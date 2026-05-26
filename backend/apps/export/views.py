@@ -552,7 +552,13 @@ class ShipmentViewSet(ModelViewSet):
             # Phase 3: the operational Sheet view never shows archived rows.
             # Archive view lives on ShipmentList — no Sheet equivalent.
             .filter(is_archived=False)
-            .order_by('-date', '-id')
+            # Manually-placed shipments (sheet_position IS NOT NULL) appear in
+            # their saved order first; new shipments (NULL) fall back to
+            # newest-first by date so they surface at the top without requiring
+            # an explicit re-order after every new creation.
+            # Django renders F(...).asc(nulls_first=True) as a CASE WHEN IS NULL
+            # expression that MSSQL accepts without a window function.
+            .order_by(F('sheet_position').asc(nulls_first=True), '-date', '-id')
         )
 
         serializer = ShipmentSheetSerializer(qs, many=True)
@@ -927,6 +933,97 @@ class ShipmentViewSet(ModelViewSet):
             # hidden_rows contains ids where user.is_hidden=True
             'user_preferences': user_preferences_payload,
         })
+
+    @action(detail=False, methods=['post'], url_path='sheet-order')
+    def sheet_order(self, request):
+        """POST /api/v1/export/shipments/sheet-order/
+
+        Save a global manual column order for the Sheet view. Sets
+        ``sheet_position`` on each shipment so the Sheet endpoint returns
+        columns in the desired left-to-right sequence.
+
+        Permission: only superusers or users with role ``admin`` /
+        ``export_manager``. All other roles receive 403 — the global order
+        affects every user's Sheet view so it is restricted to senior
+        operators. (``director`` is intentionally excluded — narrower than
+        PRIVILEGED_ROLES, matching the frontend button gate.)
+
+        Request body:
+            { "shipment_ids": [12, 7, 99, ...] }
+
+        The list must be:
+          - a JSON array (not null / object / string)
+          - contain only integers (booleans are rejected — they are int
+            subclasses in Python but semantically wrong here)
+          - contain no duplicates
+
+        Effect: for each id at position idx the shipment receives
+        ``sheet_position = (idx + 1) * 1024``. Unknown ids are silently
+        ignored so the frontend does not need to guard against stale ids.
+        An empty list is a valid no-op that returns ``{"updated": 0}``.
+
+        Uses ``bulk_update(batch_size=500)`` to satisfy the MSSQL
+        bulk-operation rule. Bypasses ``Shipment.save()`` intentionally —
+        no lifecycle hooks are needed for a column reorder.
+
+        Response:
+            200 { "updated": <count_of_shipments_actually_updated> }
+        """
+        is_super = getattr(request.user, 'is_superuser', False)
+        if not is_super and getattr(request.user, 'role', None) not in ('admin', 'export_manager'):
+            return Response(
+                {'error': 'Only admin or export_manager can save the Sheet column order'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        shipment_ids = request.data.get('shipment_ids')
+
+        if not isinstance(shipment_ids, list):
+            return Response(
+                {'error': "'shipment_ids' must be a JSON array of integers"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        for item in shipment_ids:
+            # Reject booleans explicitly — bool is a subclass of int in Python
+            # so isinstance(True, int) is True, which would silently corrupt the list.
+            if isinstance(item, bool) or not isinstance(item, int):
+                return Response(
+                    {'error': "'shipment_ids' must contain only integers"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        if len(set(shipment_ids)) != len(shipment_ids):
+            return Response(
+                {'error': "'shipment_ids' must not contain duplicate ids"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not shipment_ids:
+            return Response({'updated': 0})
+
+        with transaction.atomic():
+            existing: dict[int, Shipment] = {
+                s.id: s
+                for s in Shipment.objects.filter(id__in=shipment_ids).only('id', 'sheet_position')
+            }
+            to_update: list[Shipment] = []
+            for idx, sid in enumerate(shipment_ids):
+                shipment = existing.get(sid)
+                if shipment is None:
+                    continue  # lenient: silently skip unknown ids
+                shipment.sheet_position = (idx + 1) * 1024
+                to_update.append(shipment)
+
+            if to_update:
+                Shipment.objects.bulk_update(to_update, ['sheet_position'], batch_size=500)
+
+        logger.info(
+            'sheet-order saved by %s: %d shipments repositioned',
+            request.user.username,
+            len(to_update),
+        )
+        return Response({'updated': len(to_update)})
 
     @action(detail=True, methods=['get'], url_path='field-history')
     def field_history(self, request, pk=None):

@@ -1,4 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 import api from '@/services/api';
 import { MOCK_SHEET_DATA, MOCK_ROW_SETTINGS, MOCK_USERS_INDEX } from '@/mock/shipmentSheet';
 import type {
@@ -24,9 +26,43 @@ interface IShipmentSheetResult {
   current_user_lang: 'tk' | 'ru' | 'en';
 }
 
+/** The TanStack Query key for the sheet endpoint — exported so callers can invalidate it. */
+export const SHEET_QUERY_KEY = ['shipments', 'sheet'] as const;
+
+/**
+ * POST /export/shipments/sheet-order/
+ * Saves the global left-to-right column order for all users.
+ * On success: invalidates the sheet query so the next render reflects
+ * the server-confirmed order and the optimistic override can be cleared.
+ */
+export function useSaveSheetColumnOrder() {
+  const queryClient = useQueryClient();
+  const { t } = useTranslation();
+
+  return useMutation<{ updated: number }, Error, { shipment_ids: number[] }>({
+    mutationFn: async (body) => {
+      const { data } = await api.post<{ updated: number }>(
+        '/export/shipments/sheet-order/',
+        body,
+      );
+      return data;
+    },
+    onSuccess: () => {
+      // Refetch canonical order — the backend now sorts by sheet_position.
+      // The optimistic columnOrder in the store is cleared by ShipmentSheet
+      // after the query settles (the refetched data becomes the truth).
+      void queryClient.invalidateQueries({ queryKey: SHEET_QUERY_KEY });
+      toast.success(t('sheet.reorder_columns_saved'));
+    },
+    onError: () => {
+      toast.error(t('sheet.reorder_columns_error'));
+    },
+  });
+}
+
 export function useShipmentSheet() {
   return useQuery({
-    queryKey: ['shipments', 'sheet'],
+    queryKey: SHEET_QUERY_KEY,
     queryFn: async (): Promise<IShipmentSheetResult> => {
       if (USE_MOCK) {
         return {

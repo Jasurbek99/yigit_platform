@@ -13,6 +13,11 @@ interface ISheetColumnHeaderProps {
   columnColor: string | null;
   /** When true, the shipment is cancelled — strike the code + show a red tag. */
   isCancelled?: boolean;
+  /**
+   * When true (reorder mode), the color picker dot is hidden so the entire
+   * header surface is safely draggable without interfering with picker clicks.
+   */
+  hideColorPicker?: boolean;
 }
 
 const PRESET_COLORS = [
@@ -26,6 +31,7 @@ function SheetColumnHeaderInner({
   exportCode,
   columnColor,
   isCancelled = false,
+  hideColorPicker = false,
 }: ISheetColumnHeaderProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -62,7 +68,7 @@ function SheetColumnHeaderInner({
           {t('shipment_status.cancelled')}
         </span>
       )}
-      {canPaint && (
+      {canPaint && !hideColorPicker && (
         <ColorPicker
           value={columnColor ?? undefined}
           onChangeComplete={handleChange}

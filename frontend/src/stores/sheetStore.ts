@@ -149,6 +149,20 @@ interface ISheetState {
   setJoinMode: (on: boolean) => void;
   toggleJoinSelection: (id: number) => void;
   clearJoinSelection: () => void;
+
+  // ─── Column reorder mode (drag shipment column headers left/right) ─────────
+  // Transient — not persisted. Mutually exclusive with joinMode.
+  // columnOrder: optimistic ordered list of shipment IDs; null = use server order.
+  // Trade-off: holding it in the store (vs. local state in ShipmentSheet) lets
+  // SheetGrid subscribe to it directly for the DnD drag-end handler, avoiding
+  // a prop-drilling chain. The downside is it lives longer than the component
+  // mount — but clearing it on setReorderMode(false) and on save success makes
+  // the lifecycle well-defined.
+  reorderMode: boolean;
+  setReorderMode: (on: boolean) => void;
+  toggleReorderMode: () => void;
+  columnOrder: number[] | null;
+  setColumnOrder: (order: number[] | null) => void;
 }
 
 const initialFreeze = loadFreezeState();
@@ -251,8 +265,8 @@ export const useSheetStore = create<ISheetState>((set) => ({
   joinSelection: [],
   setJoinMode: (on) =>
     set(on
-      // Clear active/editing cell when arming join mode
-      ? { joinMode: true, joinSelection: [], activeCell: null, editingCell: null }
+      // Clear active/editing cell when arming join mode; also exit reorder mode
+      ? { joinMode: true, joinSelection: [], activeCell: null, editingCell: null, reorderMode: false, columnOrder: null }
       : { joinMode: false, joinSelection: [] }
     ),
   toggleJoinSelection: (id) =>
@@ -268,6 +282,38 @@ export const useSheetStore = create<ISheetState>((set) => ({
       return {};
     }),
   clearJoinSelection: () => set({ joinSelection: [] }),
+
+  // ─── Column reorder mode ──────────────────────────────────────────────────
+  reorderMode: false,
+  setReorderMode: (on) =>
+    set(on
+      ? {
+          reorderMode: true,
+          // Clear editing state; also exit join mode — they're mutually exclusive
+          joinMode: false,
+          joinSelection: [],
+          activeCell: null,
+          editingCell: null,
+        }
+      : {
+          reorderMode: false,
+          columnOrder: null,
+        }
+    ),
+  toggleReorderMode: () =>
+    set((state) =>
+      state.reorderMode
+        ? { reorderMode: false, columnOrder: null }
+        : {
+            reorderMode: true,
+            joinMode: false,
+            joinSelection: [],
+            activeCell: null,
+            editingCell: null,
+          }
+    ),
+  columnOrder: null,
+  setColumnOrder: (order) => set({ columnOrder: order }),
 
   toggleCommentsDrawer: () =>
     set((state) => {

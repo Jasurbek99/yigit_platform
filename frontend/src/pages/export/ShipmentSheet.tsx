@@ -57,6 +57,9 @@ export default function ShipmentSheet() {
   const setRows = useSheetStore((s) => s.setRows);
   const sheetFullscreen = useSheetStore((s) => s.sheetFullscreen);
   const setSheetFullscreen = useSheetStore((s) => s.setSheetFullscreen);
+  // Column reorder mode state — read here so we can apply columnOrder to filtered
+  const columnOrder = useSheetStore((s) => s.columnOrder);
+  const setColumnOrder = useSheetStore((s) => s.setColumnOrder);
 
   // ─── Phase 2a: derive field_key → SheetRowSetting.id from the payload ─────
   // The /sheet/ payload emits `id` inside row_settings[fk] (since the N1 backend
@@ -174,8 +177,59 @@ export default function ShipmentSheet() {
       result = result.filter((s) => s.is_gapy_satys);
     }
 
+    // Apply optimistic column order from drag-to-reorder.
+    // Strategy: build a lookup by ID, then place IDs from columnOrder first
+    // (only those that exist in result), then append any result entries not in
+    // columnOrder (e.g. newly created shipments that arrived after the drag).
+    // This is tolerant of stale columnOrder referencing deleted IDs.
+    if (columnOrder && columnOrder.length > 0) {
+      const byId = new Map(result.map((s) => [s.id, s]));
+      const ordered: typeof result = [];
+      const placed = new Set<number>();
+      for (const id of columnOrder) {
+        const s = byId.get(id);
+        if (s) {
+          ordered.push(s);
+          placed.add(id);
+        }
+      }
+      for (const s of result) {
+        if (!placed.has(s.id)) {
+          ordered.push(s);
+        }
+      }
+      result = ordered;
+    }
+
     return result;
-  }, [shipments, searchText, showGapyOnly]);
+  }, [shipments, searchText, showGapyOnly, columnOrder]);
+
+  // Column reorder mode — also read to guard the optimistic-clear below.
+  const reorderMode = useSheetStore((s) => s.reorderMode);
+
+  // When the sheet query refetches (after a successful save), the server returns
+  // the canonical order. Clear the optimistic override so filtered derives from
+  // server data again. We detect a "fresh" server response by watching shipments
+  // identity — each refetch produces a new array reference.
+  //
+  // Guard: do NOT clear while the user is actively in reorder mode. An unrelated
+  // background invalidation (e.g. from a comment save) also produces a new
+  // shipments reference and would yank the optimistic state mid-session. Clearing
+  // only when reorderMode is false means we wait until the user exits the mode,
+  // at which point setReorderMode(false) already sets columnOrder=null anyway.
+  const prevShipmentsRef = useRef<typeof shipments | null>(null);
+  useEffect(() => {
+    if (shipments && shipments !== prevShipmentsRef.current) {
+      prevShipmentsRef.current = shipments;
+      // Only clear if we have an optimistic order AND we are not actively reordering
+      if (columnOrder !== null && !reorderMode) {
+        setColumnOrder(null);
+      }
+    }
+  // columnOrder/reorderMode intentionally excluded from deps: we react to
+  // shipments identity changes only; the guard values are read at effect time.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shipments, setColumnOrder]);
 
   if (isLoading) {
     return (

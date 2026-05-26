@@ -1,6 +1,21 @@
 import { useRef, useCallback, useMemo, useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useTranslation } from 'react-i18next';
+import {
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  useSortable,
+  horizontalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import type {
   IShipmentSheetItem,
   IRowConfig,
@@ -14,11 +29,66 @@ import type {
 import { useSheetStore } from '@/stores/sheetStore';
 import { useAuth } from '@/hooks/useAuth';
 import { canDo, canEditField } from '@/utils/permissions';
+import { useSaveSheetColumnOrder } from '@/hooks/useShipmentSheet';
 import { SheetCell } from './SheetCell';
 import { SheetCellEditor } from './SheetCellEditor';
 import { SheetLabelRow } from './SheetLabelColumn';
 import { SheetColumnHeader } from './SheetColumnHeader';
 import { scaleSheetLayout } from '@/constants/sheetRowConfig';
+
+// ─── Sortable column header wrapper ──────────────────────────────────────────
+// Each shipment column header becomes a useSortable item while reorderMode is on.
+// The wrapper handles the DnD listeners and transform CSS; the inner
+// SheetColumnHeader stays unchanged and the color picker is hidden during reorder
+// so the whole header surface is safely draggable.
+
+interface ISortableHeaderWrapperProps {
+  shipmentId: number;
+  children: React.ReactNode;
+  /** Extra class names forwarded from the outer header container. */
+  className: string;
+  style: React.CSSProperties;
+  onClick?: () => void;
+}
+
+function SortableHeaderWrapper({
+  shipmentId,
+  children,
+  className,
+  style,
+  onClick,
+}: ISortableHeaderWrapperProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: shipmentId });
+
+  const combinedStyle: React.CSSProperties = {
+    ...style,
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    cursor: isDragging ? 'grabbing' : 'grab',
+    userSelect: 'none',
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`${className} sheet-col-header--sortable`}
+      style={combinedStyle}
+      onClick={onClick}
+      {...attributes}
+      {...listeners}
+    >
+      {children}
+    </div>
+  );
+}
 
 // Sheet field keys that map to junction-table resources rather than direct
 // columns on Shipment. Editing these calls a dedicated action endpoint and
@@ -100,7 +170,39 @@ export function SheetGrid({
   const joinMode = useSheetStore((s) => s.joinMode);
   const joinSelection = useSheetStore((s) => s.joinSelection);
   const toggleJoinSelection = useSheetStore((s) => s.toggleJoinSelection);
+  const reorderMode = useSheetStore((s) => s.reorderMode);
+  const setColumnOrder = useSheetStore((s) => s.setColumnOrder);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // ─── Column reorder: dnd-kit setup ──────────────────────────────────────
+  // Use PointerSensor with a 5px activation distance so that a simple click
+  // (e.g. color picker in normal mode) doesn't accidentally start a drag.
+  // While reorderMode is on, the color picker is hidden (SheetColumnHeader
+  // receives reorderMode prop), so dragging the full header surface is safe.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+  );
+  const saveColumnOrder = useSaveSheetColumnOrder();
+
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+
+      const oldIndex = shipments.findIndex((s) => s.id === active.id);
+      const newIndex = shipments.findIndex((s) => s.id === over.id);
+      if (oldIndex === -1 || newIndex === -1) return;
+
+      const reordered = arrayMove(shipments, oldIndex, newIndex);
+      const orderedIds = reordered.map((s) => s.id);
+
+      // Apply optimistically — ShipmentSheet derives `filtered` from columnOrder
+      setColumnOrder(orderedIds);
+      // Persist to server — backend stores per-shipment sheet_position
+      saveColumnOrder.mutate({ shipment_ids: orderedIds });
+    },
+    [shipments, setColumnOrder, saveColumnOrder],
+  );
 
   // Scaled layout px — every cell width/height + the virtualizer's estimateSize
   // derive from the same zoom so the rendered grid and the virtualizer agree.
@@ -127,7 +229,12 @@ export function SheetGrid({
     TOTAL_LABEL_COLS + shipments.length,
   );
   const labelStickyCount = Math.min(safeFrozenColCount, TOTAL_LABEL_COLS) as 0 | 1 | 2 | 3;
-  const shipmentFreezeCount = Math.max(0, safeFrozenColCount - TOTAL_LABEL_COLS);
+  // While reorderMode is on, treat shipment freeze count as 0 so all shipment
+  // columns live in the single virtualized+sortable track and drag uniformly.
+  // The label band (Row #, Who, Field) keeps its freeze setting unchanged.
+  const shipmentFreezeCount = reorderMode
+    ? 0
+    : Math.max(0, safeFrozenColCount - TOTAL_LABEL_COLS);
 
   const frozenRows = useMemo(
     () => rows.slice(0, safeFrozenRowCount),
@@ -299,6 +406,8 @@ export function SheetGrid({
   const virtualColumns = columnVirtualizer.getVirtualItems();
 
   // Frozen data column headers (sticky-left)
+  // When reorderMode is on, shipmentFreezeCount is 0, so frozenShipments is
+  // always empty and this memo produces an empty array. Kept for non-reorder mode.
   const frozenColumnHeaders = useMemo(
     () =>
       frozenShipments.map((shipment, idx) => {
@@ -343,15 +452,17 @@ export function SheetGrid({
               exportCode={shipment.cargo_code}
               columnColor={shipment.column_color}
               isCancelled={cancelled}
+              hideColorPicker={reorderMode}
             />
           </div>
         );
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [frozenShipments, COL_WIDTH_SHIPMENT, FROZEN_LEFT_TOTAL, ROW_HEIGHT, joinMode, joinSelection, toggleJoinSelection],
+    [frozenShipments, COL_WIDTH_SHIPMENT, FROZEN_LEFT_TOTAL, ROW_HEIGHT, joinMode, joinSelection, toggleJoinSelection, reorderMode],
   );
 
-  // Virtualized (scrollable) column headers — seq number continues from frozen count
+  // Virtualized (scrollable) column headers — seq number continues from frozen count.
+  // When reorderMode is on, these become SortableHeaderWrapper items.
   const virtualColumnHeaders = useMemo(
     () =>
       virtualColumns.map((vc) => {
@@ -361,43 +472,71 @@ export function SheetGrid({
         const isDraft = shipment.status_code === 'draft';
         const isSelected = joinSelection.includes(shipment.id);
         const joinSelectable = joinMode && isDraft;
+
+        const headerClassName = [
+          'sheet-col-header',
+          cancelled ? 'sheet-col-header--cancelled' : '',
+          supply ? 'sheet-col-supply-tint' : '',
+          joinSelectable ? 'sheet-col-header--join-selectable' : '',
+          isSelected ? 'sheet-col-header--join-selected' : '',
+        ].filter(Boolean).join(' ');
+
+        const headerStyle: React.CSSProperties = {
+          position: 'absolute',
+          left: vc.start,
+          width: COL_WIDTH_SHIPMENT,
+          height: ROW_HEIGHT,
+          ...(shipment.column_color
+            ? { borderTop: `3px solid ${shipment.column_color}` }
+            : supply
+            ? { borderTop: '3px solid #16a34a' }
+            : null),
+        };
+
+        const headerContent = (
+          <SheetColumnHeader
+            shipmentId={shipment.id}
+            seqNumber={vc.index + 1 + shipmentFreezeCount}
+            exportCode={shipment.cargo_code}
+            columnColor={shipment.column_color}
+            isCancelled={cancelled}
+            hideColorPicker={reorderMode}
+          />
+        );
+
+        const handleJoinClick =
+          joinMode && isDraft ? () => toggleJoinSelection(shipment.id) : undefined;
+
+        if (reorderMode) {
+          // In reorder mode: wrap in SortableHeaderWrapper for dnd-kit drag support.
+          // The absolute position (left: vc.start) is applied as a base — the
+          // SortableHeaderWrapper adds a CSS transform on top of it during drag.
+          return (
+            <SortableHeaderWrapper
+              key={shipment.id}
+              shipmentId={shipment.id}
+              className={headerClassName}
+              style={headerStyle}
+              onClick={handleJoinClick}
+            >
+              {headerContent}
+            </SortableHeaderWrapper>
+          );
+        }
+
         return (
           <div
             key={shipment.id}
-            className={[
-              'sheet-col-header',
-              cancelled ? 'sheet-col-header--cancelled' : '',
-              supply ? 'sheet-col-supply-tint' : '',
-              joinSelectable ? 'sheet-col-header--join-selectable' : '',
-              isSelected ? 'sheet-col-header--join-selected' : '',
-            ].filter(Boolean).join(' ')}
-            style={{
-              position: 'absolute',
-              left: vc.start,
-              width: COL_WIDTH_SHIPMENT,
-              height: ROW_HEIGHT,
-              ...(shipment.column_color
-                ? { borderTop: `3px solid ${shipment.column_color}` }
-                : supply
-                ? { borderTop: '3px solid #16a34a' }
-                : null),
-            }}
-            onClick={
-              joinMode && isDraft ? () => toggleJoinSelection(shipment.id) : undefined
-            }
+            className={headerClassName}
+            style={headerStyle}
+            onClick={handleJoinClick}
           >
-            <SheetColumnHeader
-              shipmentId={shipment.id}
-              seqNumber={vc.index + 1 + shipmentFreezeCount}
-              exportCode={shipment.cargo_code}
-              columnColor={shipment.column_color}
-              isCancelled={cancelled}
-            />
+            {headerContent}
           </div>
         );
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [virtualColumns, scrollableShipments, shipmentFreezeCount, COL_WIDTH_SHIPMENT, ROW_HEIGHT, joinMode, joinSelection, toggleJoinSelection],
+    [virtualColumns, scrollableShipments, shipmentFreezeCount, COL_WIDTH_SHIPMENT, ROW_HEIGHT, joinMode, joinSelection, toggleJoinSelection, reorderMode],
   );
 
   const renderSection = (sectionRows: IRowConfig[], inFrozenSection: boolean) =>
@@ -434,22 +573,24 @@ export function SheetGrid({
             canMoveDown={canMoveDown}
             rowIndex={globalIndex}
             onReorderTo={
-              hasReorderCapability && rowHasId
+              // Disable row reorder while column reorder mode is active
+              // so the two DnD systems don't conflict.
+              !reorderMode && hasReorderCapability && rowHasId
                 ? handleReorderTo
                 : undefined
             }
             onMoveUp={
-              hasReorderCapability && rowHasId
+              !reorderMode && hasReorderCapability && rowHasId
                 ? () => handleMove(globalIndex, -1)
                 : undefined
             }
             onMoveDown={
-              hasReorderCapability && rowHasId
+              !reorderMode && hasReorderCapability && rowHasId
                 ? () => handleMove(globalIndex, 1)
                 : undefined
             }
             onHideRow={
-              fieldKeyToRowId !== undefined && onHideRow !== undefined && rowHasId
+              !reorderMode && fieldKeyToRowId !== undefined && onHideRow !== undefined && rowHasId
                 ? () => handleHideRow(rowConfig)
                 : undefined
             }
@@ -518,78 +659,131 @@ export function SheetGrid({
       );
     });
 
+  // SortableContext items must include ALL shipment IDs (not just visible ones)
+  // so dnd-kit knows the full order even when many columns are off-screen.
+  const sortableIds = useMemo(
+    () => shipments.map((s) => s.id),
+    [shipments],
+  );
+
+  // Inner header row content — extracted so it can be wrapped conditionally
+  // in DndContext without duplicating the label-band JSX.
+  const headerLabelBand = (
+    <>
+      <div
+        style={{
+          width: COL_WIDTH_ROW_NUM,
+          ...(labelStickyCount >= 1
+            ? { position: 'sticky' as const, left: 0, zIndex: Z_HEADER_CORNER }
+            : null),
+          flexShrink: 0,
+        }}
+        className="sheet-label-col sheet-label-col--num"
+      >
+        #
+      </div>
+      <div
+        style={{
+          width: COL_WIDTH_WHO,
+          ...(labelStickyCount >= 2
+            ? {
+                position: 'sticky' as const,
+                left: COL_WIDTH_ROW_NUM,
+                zIndex: Z_HEADER_CORNER,
+              }
+            : null),
+          flexShrink: 0,
+        }}
+        className="sheet-label-col sheet-label-col--who"
+      >
+        {t('sheet.who.none')}
+      </div>
+      <div
+        style={{
+          width: COL_WIDTH_FIELD,
+          ...(labelStickyCount >= 3
+            ? {
+                position: 'sticky' as const,
+                left: COL_WIDTH_ROW_NUM + COL_WIDTH_WHO,
+                zIndex: Z_HEADER_CORNER,
+              }
+            : null),
+          flexShrink: 0,
+        }}
+        className="sheet-label-col sheet-label-col--field"
+      >
+        {t('sheet.row.shipment_code')}
+      </div>
+    </>
+  );
+
+  const headerColumnArea = (
+    <>
+      {/* Frozen data column headers (sticky-left) — empty while reorderMode is on */}
+      {frozenColumnHeaders}
+
+      {/* Virtualized column headers */}
+      <div
+        style={{
+          position: 'relative',
+          width: columnVirtualizer.getTotalSize(),
+          height: ROW_HEIGHT,
+        }}
+      >
+        {virtualColumnHeaders}
+      </div>
+    </>
+  );
+
   return (
     <div
       className="sheet-grid"
       ref={scrollContainerRef}
       style={{ ['--sheet-zoom' as string]: sheetZoom } as React.CSSProperties}
     >
-      {/* Header row — sticky-top */}
-      <div
-        className="sheet-header-row"
-        style={{ display: 'flex', height: ROW_HEIGHT, position: 'sticky', top: 0, zIndex: 10 }}
-      >
-        {/* Frozen-left header label cells — each cell sticky-left only if the
-            user's freeze setting includes that column (labelStickyCount). */}
-        <div
-          style={{
-            width: COL_WIDTH_ROW_NUM,
-            ...(labelStickyCount >= 1
-              ? { position: 'sticky' as const, left: 0, zIndex: Z_HEADER_CORNER }
-              : null),
-            flexShrink: 0,
-          }}
-          className="sheet-label-col sheet-label-col--num"
+      {/* Header row — sticky-top.
+          When reorderMode is active, wrap in DndContext + SortableContext so the
+          virtual column headers (SortableHeaderWrapper items) can be dragged.
+          autoScroll is enabled so dragging near the edge scrolls the container. */}
+      {reorderMode ? (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+          autoScroll={{ threshold: { x: 0.15, y: 0 } }}
         >
-          #
-        </div>
+          <SortableContext items={sortableIds} strategy={horizontalListSortingStrategy}>
+            <div
+              className="sheet-header-row"
+              style={{ display: 'flex', height: ROW_HEIGHT, position: 'sticky', top: 0, zIndex: 10 }}
+            >
+              {headerLabelBand}
+              {headerColumnArea}
+            </div>
+          </SortableContext>
+        </DndContext>
+      ) : (
         <div
-          style={{
-            width: COL_WIDTH_WHO,
-            ...(labelStickyCount >= 2
-              ? {
-                  position: 'sticky' as const,
-                  left: COL_WIDTH_ROW_NUM,
-                  zIndex: Z_HEADER_CORNER,
-                }
-              : null),
-            flexShrink: 0,
-          }}
-          className="sheet-label-col sheet-label-col--who"
+          className="sheet-header-row"
+          style={{ display: 'flex', height: ROW_HEIGHT, position: 'sticky', top: 0, zIndex: 10 }}
         >
-          {t('sheet.who.none')}
+          {/* Frozen-left header label cells — each cell sticky-left only if the
+              user's freeze setting includes that column (labelStickyCount). */}
+          {headerLabelBand}
+          {/* Frozen data column headers (sticky-left) */}
+          {frozenColumnHeaders}
+          {/* Virtualized column headers */}
+          <div
+            style={{
+              position: 'relative',
+              width: columnVirtualizer.getTotalSize(),
+              height: ROW_HEIGHT,
+            }}
+          >
+            {virtualColumnHeaders}
+          </div>
         </div>
-        <div
-          style={{
-            width: COL_WIDTH_FIELD,
-            ...(labelStickyCount >= 3
-              ? {
-                  position: 'sticky' as const,
-                  left: COL_WIDTH_ROW_NUM + COL_WIDTH_WHO,
-                  zIndex: Z_HEADER_CORNER,
-                }
-              : null),
-            flexShrink: 0,
-          }}
-          className="sheet-label-col sheet-label-col--field"
-        >
-          {t('sheet.row.shipment_code')}
-        </div>
-
-        {/* Frozen data column headers (sticky-left) */}
-        {frozenColumnHeaders}
-
-        {/* Virtualized column headers */}
-        <div
-          style={{
-            position: 'relative',
-            width: columnVirtualizer.getTotalSize(),
-            height: ROW_HEIGHT,
-          }}
-        >
-          {virtualColumnHeaders}
-        </div>
-      </div>
+      )}
 
       {/* Frozen rows section — sticky-top below header */}
       {frozenRows.length > 0 && (

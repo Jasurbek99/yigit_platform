@@ -252,6 +252,15 @@ class Shipment(models.Model):
     # via the wildcard 'shipment' field permission they already have).
     column_color = models.CharField(max_length=7, null=True, blank=True)
 
+    # === Global Sheet column order (admin / export_manager only) ===
+    # Sparse integer (step 1024) set by POST /sheet-order/. NULL = not manually
+    # placed — falls back to date-descending order in the Sheet view so brand-new
+    # shipments automatically appear at the correct position without requiring an
+    # explicit re-order after every new creation. Only admin + export_manager can
+    # write this field via the sheet-order endpoint; bulk_update() bypasses
+    # Shipment.save() intentionally (no lifecycle hooks needed for a reorder).
+    sheet_position = models.PositiveIntegerField(null=True, blank=True, db_index=True)
+
     # === Archive split (Phase 3, ADR-0005) ===
     # `is_archived` is flipped to True by the daily archive_shipments cron when
     # the row is in a terminal status AND has not been touched in 21 days.

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Button, Input, Switch, Typography, Badge, Modal, List, Select, Space, Tooltip } from 'antd';
+import { Button, Input, Switch, Typography, Badge, Modal, List, Select, Space, Tooltip, Alert } from 'antd';
 import {
   PlusOutlined,
   SearchOutlined,
@@ -11,6 +11,7 @@ import {
   MergeCellsOutlined,
   InboxOutlined,
   FullscreenOutlined,
+  ColumnWidthOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useSheetStore, SHEET_ZOOM_MIN, SHEET_ZOOM_MAX } from '@/stores/sheetStore';
@@ -84,6 +85,9 @@ export function SheetToolbar({
   const joinMode = useSheetStore((s) => s.joinMode);
   const setJoinMode = useSheetStore((s) => s.setJoinMode);
   const setSheetFullscreen = useSheetStore((s) => s.setSheetFullscreen);
+  const reorderMode = useSheetStore((s) => s.reorderMode);
+  const toggleReorderMode = useSheetStore((s) => s.toggleReorderMode);
+  const setReorderMode = useSheetStore((s) => s.setReorderMode);
 
   const [unhideModalOpen, setUnhideModalOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -100,6 +104,10 @@ export function SheetToolbar({
     ['loading_dept_head', 'warehouse_chief', 'export_manager', 'director'].includes(userRole);
   const canJoin =
     user?.is_superuser || ['export_manager', 'director'].includes(userRole);
+  // Column reorder is restricted to admins and export managers — it changes the
+  // GLOBAL column order visible to all users, so it is not a per-user setting.
+  const canReorderColumns =
+    user?.is_superuser || ['admin', 'export_manager'].includes(userRole);
   const shipmentCount = shipments.length;
 
   // Sum of open tasks assigned to me across all shipments
@@ -234,6 +242,18 @@ export function SheetToolbar({
               </Button>
             </Tooltip>
           )}
+          {canReorderColumns && (
+            <Tooltip title={reorderMode ? undefined : t('sheet.reorder_columns')}>
+              <Button
+                size="small"
+                type={reorderMode ? 'primary' : 'default'}
+                icon={<ColumnWidthOutlined />}
+                onClick={toggleReorderMode}
+              >
+                {t('sheet.reorder_columns')}
+              </Button>
+            </Tooltip>
+          )}
           <Input
             prefix={<SearchOutlined />}
             placeholder={t('sheet.search_ph')}
@@ -358,6 +378,27 @@ export function SheetToolbar({
 
       {/* Join flow: column-selection action bar — shown below toolbar when armed */}
       {joinMode && <JoinActionBar shipments={shipments} />}
+
+      {/* Column reorder mode banner — shown below toolbar when reorder is active */}
+      {reorderMode && (
+        <Alert
+          type="info"
+          banner
+          message={
+            <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span>{t('sheet.reorder_columns_hint')}</span>
+              <Button
+                size="small"
+                type="primary"
+                onClick={() => setReorderMode(false)}
+              >
+                {t('sheet.reorder_columns_done')}
+              </Button>
+            </span>
+          }
+          style={{ fontSize: 12 }}
+        />
+      )}
 
       {/* Phase 2a: Unhide modal */}
       <Modal

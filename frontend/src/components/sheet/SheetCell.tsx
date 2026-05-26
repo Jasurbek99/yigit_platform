@@ -39,6 +39,7 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
   const setEditingCell = useSheetStore((s) => s.setEditingCell);
   const openCommentsForCell = useSheetStore((s) => s.openCommentsForCell);
   const sheetZoom = useSheetStore((s) => s.sheetZoom);
+  const reorderMode = useSheetStore((s) => s.reorderMode);
   const isActive = useSheetStore(
     (s) => s.activeCell?.shipmentId === shipment.id && s.activeCell?.rowKey === rowConfig.field_key,
   );
@@ -59,20 +60,25 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
   const cellIsEmpty = isEmpty(value);
 
   const handleClick = useCallback(() => {
+    // Editing is locked while reorder mode is active — clicks should not
+    // activate or enter edit mode on any cell.
+    if (reorderMode) return;
     // Empty editable cells → edit immediately on single click
     if (isEditable && !isHidden && cellIsEmpty) {
       setEditingCell({ shipmentId: shipment.id, rowKey: rowConfig.field_key });
       return;
     }
     setActiveCell({ shipmentId: shipment.id, rowKey: rowConfig.field_key });
-  }, [isEditable, isHidden, cellIsEmpty, setActiveCell, setEditingCell, shipment.id, rowConfig.field_key]);
+  }, [reorderMode, isEditable, isHidden, cellIsEmpty, setActiveCell, setEditingCell, shipment.id, rowConfig.field_key]);
 
   const handleDoubleClick = useCallback(() => {
+    // Editing locked while reorder mode is active
+    if (reorderMode) return;
     // Filled editable cells → edit on double click
     if (isEditable && !isHidden && !cellIsEmpty) {
       setEditingCell({ shipmentId: shipment.id, rowKey: rowConfig.field_key });
     }
-  }, [isEditable, isHidden, cellIsEmpty, setEditingCell, shipment.id, rowConfig.field_key]);
+  }, [reorderMode, isEditable, isHidden, cellIsEmpty, setEditingCell, shipment.id, rowConfig.field_key]);
 
   if (isHidden) {
     return (
