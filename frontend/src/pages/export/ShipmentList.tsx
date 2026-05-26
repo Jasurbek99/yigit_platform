@@ -770,7 +770,12 @@ export default function ShipmentList() {
           showSizeChanger: true,
           pageSizeOptions: ['20', '50', '100'],
           showTotal: (total) => t('shipments.total', { count: total }),
-          onChange: (p, ps) => { setPage(p); setPageSize(ps); },
+          onChange: (p, ps) => {
+            // Reset to page 1 only when page size changes; a plain page click
+            // must keep `p` (setPageSize always clears page, so don't call it here).
+            if (ps !== pageSize) setPageSize(ps);
+            else setPage(p);
+          },
         }}
         onRow={(record) => ({
           onClick: () => navigate(`/shipments/${record.id}`),
