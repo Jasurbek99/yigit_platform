@@ -1,5 +1,5 @@
 import { memo, useCallback } from 'react';
-import { Tag, Tooltip } from 'antd';
+import { Tag } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import type { IShipmentSheetItem, IRowConfig, ICommentTaskStatus, ISheetRowSettingForUser } from '@/types';
 import { useSheetStore } from '@/stores/sheetStore';
@@ -198,24 +198,27 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
     );
   }
 
-  // Default rendering
+  // Default rendering.
+  // Native `title` (not antd <Tooltip>) for the truncation hint: the grid mounts
+  // ~900 cells at once and remounts columns on every horizontal scroll step.
+  // An antd Tooltip per cell (rc-trigger + portal + align observers) was the
+  // dominant scroll-jank cost; the browser-native title is zero React overhead.
   return (
-    <Tooltip title={value.length > 15 ? value : undefined} mouseEnterDelay={0.5}>
-      <div
-        className={`sheet-cell sheet-cell--${rowConfig.style}${isActive ? ' sheet-cell--active' : ''}${isEditable ? ' sheet-cell--editable' : ''}${isGapy ? ' sheet-cell--gapy' : ''}`}
-        style={{ width: cellWidth, height: ROW_HEIGHT, position: 'relative', ...(cellBg ? { backgroundColor: cellBg } : {}) }}
-        onClick={handleClick}
-        onDoubleClick={handleDoubleClick}
-      >
-        <span className="sheet-cell__text" style={cellAlign ? { textAlign: cellAlign, display: 'block' } : undefined}>{value}</span>
-        <CommentMarker
-          count={commentCount}
-          taskState={commentTaskState}
-          showHoverHint
-          onClick={() => openCommentsForCell(shipment.id, rowConfig.field_key)}
-        />
-      </div>
-    </Tooltip>
+    <div
+      className={`sheet-cell sheet-cell--${rowConfig.style}${isActive ? ' sheet-cell--active' : ''}${isEditable ? ' sheet-cell--editable' : ''}${isGapy ? ' sheet-cell--gapy' : ''}`}
+      style={{ width: cellWidth, height: ROW_HEIGHT, position: 'relative', ...(cellBg ? { backgroundColor: cellBg } : {}) }}
+      title={value.length > 15 ? value : undefined}
+      onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
+    >
+      <span className="sheet-cell__text" style={cellAlign ? { textAlign: cellAlign, display: 'block' } : undefined}>{value}</span>
+      <CommentMarker
+        count={commentCount}
+        taskState={commentTaskState}
+        showHoverHint
+        onClick={() => openCommentsForCell(shipment.id, rowConfig.field_key)}
+      />
+    </div>
   );
 }
 
