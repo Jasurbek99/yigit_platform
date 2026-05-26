@@ -137,8 +137,25 @@ Unique constraint: `(date, city_id)` — use `ignore_conflicts=True`.
 
 ---
 
+### [x] 8. May shipments — shipments.xlsx (transposed YGT sheet) → Shipment — **442 shipments imported**
+
+**Source**: `docs/shipments/shipments.xlsx` → sheet `YGT` (transposed: each column = one shipment, rows 1-47 = fields, col 2 = TM field label)
+**Target**: `export.shipments` + `shipment_firm_splits` + `shipment_block_sources` + `varieties_dominant` M2M
+**Command**: `backend/apps/export/management/commands/import_sheet_shipments.py`
+**Volume**: 442 May (`MY`) shipments + 608 firm splits + 627 block sources + 523 variety links
+
+**Rules**:
+- Imports only cargo codes whose month abbrev = `MY` (configurable via `--month`); season = active 2025-2026
+- Status **derived** from timestamp-chain completeness (report→`tamamlandy` … →`yuklenme`), set directly (not via `transition_to()`) — historical bulk import
+- Auto-created 2 missing `ExportFirm` rows: `TELGURBAN`, `TELAMANG`
+- Parses TM datetimes, harvest-date ranges, `"N gün T"` transit/temp, multi-firm/block/variety shorthand
+- `--dry-run` / `--limit N` flags; per-row insert fallback (MSSQL bulk_create has no PK return / no ignore_conflicts)
+
+---
+
 ## Completed
 
+- **Task 8** — 442 May shipments from `shipments.xlsx` (transposed YGT sheet) — populates the Shipment Sheet
 - **Task 1** — 2,067 price entries from `Baha_Grafigi.xlsx` (8 cities, KZT/RUB/BYN/KGS)
 - **Task 2** — 1,145 shipments + 1,465 firm splits from `Hasabat_202526.xlsx` (all status=tamamlandy)
 - **Task 3** — 549 shipments enriched from `Export_contracts_20252026_1.xlsx` (weight, truck plate, box/pallet counts)
