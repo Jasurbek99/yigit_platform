@@ -34,6 +34,11 @@
 
 /* ─── Base reset ─────────────────────────────────────────────────────────── */
 * { box-sizing: border-box; }
+/* Zero the UA default body margin (8px). Without this the in-flow app shell is
+   pushed down 8px; full-height pages sized to 100vh (e.g. the Sheet grid) then
+   overflow the viewport by that amount, clipping the bottom of their horizontal
+   scrollbar below the screen edge. */
+html, body, #root { margin: 0; padding: 0; }
 body {
   font-family: var(--font);
   background: var(--bg-layout);

@@ -130,12 +130,22 @@
   overflow-y: auto;
   background: var(--surface);
   position: relative;
-  scrollbar-color: #001529 var(--gray-50);
-  scrollbar-width: thin;
+  /* NOTE: do NOT set the standard `scrollbar-width` / `scrollbar-color` here.
+     In Chromium (Chrome/Edge ≥121) declaring either of those switches the
+     element to standard scrollbar rendering and the ::-webkit-scrollbar rules
+     below are ignored — producing a thin bar that obeys the Windows
+     "auto-hide scrollbars" setting and only appears while scrolling. Styling
+     the ::-webkit-scrollbar pseudo-elements (with explicit sizes) instead
+     forces classic, always-visible, non-overlay scrollbars. */
 }
-.sheet-grid::-webkit-scrollbar {
+/* Vertical bar: keep the original 12px width. Horizontal bar: make it taller
+   (16px) and give it a wider, easier-to-grab thumb. Orientation pseudo-classes
+   let us size each bar independently from one shared thumb style. */
+.sheet-grid::-webkit-scrollbar:vertical {
   width: 12px;
-  height: 12px;
+}
+.sheet-grid::-webkit-scrollbar:horizontal {
+  height: 13px;
 }
 .sheet-grid::-webkit-scrollbar-track {
   background: var(--gray-50);
@@ -146,6 +156,12 @@
   background: #001529;
   border: 3px solid var(--gray-50);
   border-radius: 8px;
+}
+.sheet-grid::-webkit-scrollbar-thumb:horizontal {
+  /* Thinner inset = wider visible thumb; min-width keeps it grabbable when the
+     grid is very wide and the thumb would otherwise shrink to a sliver. */
+  border-width: 2px;
+  min-width: 120px;
 }
 .sheet-grid::-webkit-scrollbar-thumb:hover {
   background: #002a4a;
