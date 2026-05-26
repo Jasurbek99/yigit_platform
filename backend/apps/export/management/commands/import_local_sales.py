@@ -1,15 +1,32 @@
-"""Import historical local market sales from quota.xlsx Sheet 2 into WeeklyLocalSellPlan.
+"""Import daily domestic (local-market) sales from quota.xlsx into WeeklyLocalSellPlan.
 
-Reads sheet "Kwota ucin icerki bazara berlen": daily per-firm domestic sales,
-aggregates into weekly (Mon-Sat) plan_kg, and creates WeeklyLocalSellPlan rows.
+Reads sheet "Kwota ucin icerki bazara berlen" — the kg each firm submitted to the
+domestic market that earns export quota. Layout: firm rows 4-18 (col A name,
+col B "Kabul edilen KG" total — skipped), one column per sale date (row 3),
+trailing "Jemi tabsyrlan KG" total column — skipped.
+
+WeeklyLocalSellPlan stores Mon-Sat per ISO week, so each daily value is folded
+into its ISO week's day column. The lone Sunday date (2026-03-22, ISO 2026-W12)
+is folded into that week's Saturday column.
+
+Firm names use initials on this sheet ("Tel ED"); the shared FIRM_NAME_MAP maps
+them to the spelled-out firms. NOTE: this fixes two mislabels from the earlier
+import — "Tel G Amangeldiyew" → Tel Amangeldiyew G (not Tel Guwanc A.) and
+"Tel GJ" → Tel Gurban J (not Tel Jumamyradow G).
+
+Idempotent and non-destructive: update_or_create per (export_firm, week, year).
+Existing rows for firms/weeks NOT in this file are left untouched. Updates
+overwrite the Mon-Sat kg from the file but preserve the existing approval status;
+new rows are created as 'approved'.
 
 Usage:
-    python manage.py import_local_sales                  # dry-run
+    python manage.py import_local_sales                  # dry-run (default)
     python manage.py import_local_sales --commit         # write to DB
+    python manage.py import_local_sales /path/to/file    # custom path
 """
+import datetime
 import logging
 from collections import defaultdict
-from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
 
@@ -17,76 +34,33 @@ import openpyxl
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from apps.core.models import ExportFirm, Season
+from apps.core.models import Season
 from apps.export.models import WeeklyLocalSellPlan
+
+from ._quota_import_utils import resolve_firm
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_PATH = Path(__file__).parents[5] / 'data' / 'quota.xlsx'
-SHEET_NAME = 'Kwota ucin icerki bazara berlen'
+DEFAULT_PATH = Path(__file__).parents[5] / 'data' / 'quota' / 'quota.xlsx'
+SHEET_SALES = 'Kwota ucin icerki bazara berlen'
 
-# Excel firm name → DB name_en mapping
-FIRM_NAME_MAP = {
-    'Yigit H.J.': 'YGT HJ',
-    'Hemsaya': 'Hemsaya HJ',
-    'Datly Miwe': 'Durli Miweler HJ',
-    'Gok Bulut': 'GOK BOLUT',
-    'Miweli Atyz': 'MIWELI ATYZ',
-    'Ygtybarly Enjam': 'YGTYBARLY',
-    'Isgar HJ': 'ISGAR HJ',
-    'Ak Bulut': 'AKBULUT',
-    'Tel JD': 'Tel Dowranow J',
-    'Tel ED': 'Tel Dowranow E',
-    'Tel G Amangeldiyew': 'Tel Guwanc A.',
-    'Tel CH': 'Tel Hemidow C',
-    'Tel PH': 'Tel Hemidow P',
-    'Yumak H J': 'YUMAK',
-    'Tel GJ': 'Tel Jumamyradow G',
-}
+DATE_HEADER_ROW = 3
+FIRST_FIRM_ROW = 4
+# Total/derived rows in col A that are not firms.
+NON_FIRM_LABELS = {'jemi', 'ugradylan kg', 'ara tapawut'}
 
-
-def _auto_create_firm(name: str) -> ExportFirm:
-    """Create a missing ExportFirm from the Excel name."""
-    db_name = FIRM_NAME_MAP.get(name, name)
-    code = db_name[:10].upper().replace(' ', '').replace('.', '')
-    if ExportFirm.objects.filter(code=code).exists():
-        code = code[:8] + str(ExportFirm.objects.count())
-    return ExportFirm.objects.create(
-        code=code, name_en=db_name, name_tk=db_name, is_active=True,
-    )
-
-DAY_FIELDS = {
-    1: 'monday_plan_kg',
-    2: 'tuesday_plan_kg',
-    3: 'wednesday_plan_kg',
-    4: 'thursday_plan_kg',
-    5: 'friday_plan_kg',
-    6: 'saturday_plan_kg',
-}
-
-
-def _resolve_firm(name: str, cache: dict) -> ExportFirm | None:
-    """Resolve Excel firm name to ExportFirm."""
-    if name in cache:
-        return cache[name]
-
-    db_name = FIRM_NAME_MAP.get(name, name)
-    firm = ExportFirm.objects.filter(name_en__iexact=db_name).first()
-    if not firm:
-        firm = ExportFirm.objects.filter(name_en__icontains=name).first()
-    if not firm:
-        firm = ExportFirm.objects.filter(name_tk__icontains=name).first()
-
-    cache[name] = firm
-    return firm
+DAY_COLS = (
+    'monday_plan_kg', 'tuesday_plan_kg', 'wednesday_plan_kg',
+    'thursday_plan_kg', 'friday_plan_kg', 'saturday_plan_kg',
+)
 
 
 class Command(BaseCommand):
-    help = 'Import historical local sales from quota.xlsx into WeeklyLocalSellPlan'
+    help = 'Import daily domestic sales from quota.xlsx into WeeklyLocalSellPlan'
 
     def add_arguments(self, parser):
         parser.add_argument('path', nargs='?', default=str(DEFAULT_PATH))
-        parser.add_argument('--commit', action='store_true')
+        parser.add_argument('--commit', action='store_true', help='Write to DB (default: dry-run)')
 
     def handle(self, *args, **options):
         path = Path(options['path'])
@@ -96,119 +70,114 @@ class Command(BaseCommand):
             self.stderr.write(f'File not found: {path}')
             return
 
+        season = Season.objects.filter(is_active=True).first()
         self.stdout.write(f'Loading {path} ...')
+        self.stdout.write(f'  Active season: {season.name if season else "(none)"}')
         wb = openpyxl.load_workbook(path, data_only=True)
+        ws = wb[SHEET_SALES]
+        firm_cache: dict = {}
 
-        if SHEET_NAME not in wb.sheetnames:
-            self.stderr.write(f'Sheet "{SHEET_NAME}" not found')
-            return
+        rows = list(ws.iter_rows(min_row=1, max_row=ws.max_row, values_only=True))
 
-        ws = wb[SHEET_NAME]
+        # Date columns: any column whose row-3 cell is a real date. This excludes
+        # col B ("Kabul edilen KG") and the trailing "Jemi tabsyrlan KG" total.
+        date_header = rows[DATE_HEADER_ROW - 1]
+        date_by_idx: dict[int, datetime.date] = {
+            idx: val.date()
+            for idx, val in enumerate(date_header)
+            if isinstance(val, datetime.datetime)
+        }
+        self.stdout.write(
+            f'  Date columns: {len(date_by_idx)} '
+            f'({min(date_by_idx.values())} -> {max(date_by_idx.values())})'
+        )
 
-        # Read dates from row 3
-        dates: dict[int, date] = {}
-        for col in range(3, ws.max_column + 1):
-            val = ws.cell(row=3, column=col).value
-            if isinstance(val, datetime):
-                dates[col] = val.date()
-            elif isinstance(val, date):
-                dates[col] = val
+        # accum[(firm_id, iso_year, iso_week)] = [mon..sat]
+        accum: dict[tuple[int, int, int], list[Decimal]] = defaultdict(
+            lambda: [Decimal('0')] * 6
+        )
+        sunday_folded = 0
+        skipped_firms: list[str] = []
+        firms_seen: set[int] = set()
 
-        self.stdout.write(f'  Dates: {len(dates)} (from {min(dates.values())} to {max(dates.values())})')
-
-        # Read per-firm daily data (rows 4-18)
-        firm_cache: dict[str, ExportFirm | None] = {}
-
-        # Structure: {(year, week, firm_id): {day_field: Decimal}}
-        weekly_data: dict[tuple, dict[str, Decimal]] = defaultdict(lambda: {f: Decimal('0') for f in DAY_FIELDS.values()})
-
-        firms_found = 0
-        firms_missing = []
-        total_kg = Decimal('0')
-
-        for row_idx in range(4, 19):
-            name = ws.cell(row=row_idx, column=1).value
-            if not name:
+        for row in rows[FIRST_FIRM_ROW - 1:]:
+            name = row[0]
+            if name is None or not str(name).strip():
                 continue
-            name = str(name).strip()
+            if str(name).strip().lower() in NON_FIRM_LABELS:
+                continue
+            firm = resolve_firm(str(name), firm_cache)
+            if firm is None:
+                skipped_firms.append(str(name).strip())
+                continue
+            firms_seen.add(firm.id)
 
-            firm = _resolve_firm(name, firm_cache)
-            if not firm:
-                if commit:
-                    firm = _auto_create_firm(name)
-                    firm_cache[name] = firm
-                    self.stdout.write(f'    Created firm: {firm.name_en} (id={firm.id})')
-                else:
-                    firms_missing.append(name)
+            for idx, sale_date in date_by_idx.items():
+                val = row[idx] if idx < len(row) else None
+                if not val:
                     continue
-
-            firms_found += 1
-
-            for col, d in dates.items():
-                val = ws.cell(row=row_idx, column=col).value
-                if not val or not isinstance(val, (int, float)) or val <= 0:
+                try:
+                    kg = Decimal(str(val))
+                except (ValueError, ArithmeticError):
                     continue
-
-                iso = d.isocalendar()
-                weekday = iso[2]  # 1=Mon, 7=Sun
-                if weekday > 6:  # Skip Sunday
+                if kg <= 0:
                     continue
+                iso = sale_date.isocalendar()
+                weekday = sale_date.weekday()   # 0=Mon .. 6=Sun
+                if weekday == 6:                # Sunday → Saturday of same ISO week
+                    sunday_folded += 1
+                accum[(firm.id, iso[0], iso[1])][min(weekday, 5)] += kg
 
-                day_field = DAY_FIELDS.get(weekday)
-                if not day_field:
-                    continue
+        self.stdout.write(f'\n  Firms resolved: {len(firms_seen)}')
+        if skipped_firms:
+            self.stdout.write(self.style.WARNING(
+                f'  Firms NOT resolved (skipped): {", ".join(skipped_firms)}'
+            ))
+        if sunday_folded:
+            self.stdout.write(f'  Sunday cells folded into Saturday: {sunday_folded}')
+        self.stdout.write(f'  (firm, week, year) rows to upsert: {len(accum)}')
+        grand = sum(sum(v) for v in accum.values())
+        self.stdout.write(f'  Total kg across all rows: {grand:,.0f}')
 
-                key = (iso[0], iso[1], firm.id)
-                weekly_data[key][day_field] += Decimal(str(int(val)))
-                total_kg += Decimal(str(int(val)))
-
-        self.stdout.write(f'  Firms resolved: {firms_found}')
-        if firms_missing:
-            self.stdout.write(f'  Firms NOT found in DB: {firms_missing}')
-        self.stdout.write(f'  Weekly plan rows to create: {len(weekly_data)}')
-        self.stdout.write(f'  Total kg: {total_kg:,.0f}')
-
-        # Preview
-        for (year, week, firm_id), days in sorted(weekly_data.items())[:5]:
-            total = sum(days.values())
-            self.stdout.write(f'    W{week}/{year} firm#{firm_id}: {total:,.0f} kg')
-        if len(weekly_data) > 5:
-            self.stdout.write(f'    ... and {len(weekly_data) - 5} more')
+        # Classify against existing rows: create vs update, and flag non-approved
+        # (e.g. hand-entered draft) rows whose values an update would overwrite.
+        firm_ids = {k[0] for k in accum}
+        existing = {
+            (r['export_firm_id'], r['year'], r['week_number']): r['status']
+            for r in WeeklyLocalSellPlan.objects.filter(
+                export_firm_id__in=firm_ids,
+            ).values('export_firm_id', 'year', 'week_number', 'status')
+        }
+        to_create = [k for k in accum if k not in existing]
+        to_update = [k for k in accum if k in existing]
+        draft_overwrites = [k for k in to_update if existing[k] != 'approved']
+        self.stdout.write(f'  -> would CREATE {len(to_create)}, UPDATE {len(to_update)}')
+        if draft_overwrites:
+            self.stdout.write(self.style.WARNING(
+                f'  -> {len(draft_overwrites)} update(s) currently non-approved; their Mon-Sat '
+                f'values would be overwritten (existing status preserved).'
+            ))
 
         if not commit:
             self.stdout.write('\n  DRY RUN — use --commit to write to DB')
             return
 
-        # Get active season
-        season = Season.objects.filter(is_active=True).first()
-
         with transaction.atomic():
-            # Delete only rows that match imported (year, week, firm) combos.
-            # This avoids deleting manually created plans for other weeks.
-            import_keys = set(weekly_data.keys())  # (year, week, firm_id)
-            deleted = 0
-            for (year, week, firm_id) in import_keys:
-                d, _ = WeeklyLocalSellPlan.objects.filter(
-                    export_firm_id=firm_id, week_number=week, year=year,
-                ).delete()
-                deleted += d
-            if deleted:
-                self.stdout.write(f'  Deleted {deleted} previously imported plan rows')
-
-            # Bulk create all rows
-            new_plans = [
-                WeeklyLocalSellPlan(
-                    export_firm_id=firm_id,
-                    week_number=week,
-                    year=year,
-                    season=season,
-                    status='approved',
-                    **days,
+            created = updated = 0
+            for (firm_id, year, week), day_vals in accum.items():
+                defaults = dict(zip(DAY_COLS, day_vals))
+                defaults['season'] = season
+                obj, was_created = WeeklyLocalSellPlan.objects.update_or_create(
+                    export_firm_id=firm_id, year=year, week_number=week,
+                    defaults=defaults,
                 )
-                for (year, week, firm_id), days in weekly_data.items()
-            ]
-            WeeklyLocalSellPlan.objects.bulk_create(new_plans, batch_size=500)
+                if was_created:
+                    obj.status = 'approved'   # historical actuals; preserve status on update
+                    obj.save(update_fields=['status'])
+                    created += 1
+                else:
+                    updated += 1
 
             self.stdout.write(self.style.SUCCESS(
-                f'\n  Done: {len(new_plans)} WeeklyLocalSellPlan rows created.'
+                f'\n  Done: {created} created, {updated} updated.'
             ))

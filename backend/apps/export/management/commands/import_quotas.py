@@ -1,7 +1,13 @@
-"""Import government export quotas from quota.xlsx into QuotaIssuance.
+"""Import government export quotas (CYKAN KWOTA) from quota.xlsx into QuotaIssuance.
 
-Reads sheet Kwota-2: quota grant events (rows 9-16, cols B-P for tomato, X-AB for pepper).
+Reads sheet Kwota-2, "issued quota" section:
+  - Tomato: firm headers row 8 cols B-P (15 firms), date col A, data rows 9-25.
+  - Pepper: firm headers row 8 cols Y-Z (2 firms), date col X, data rows 9-10.
 Groups per-firm amounts by issue date into QuotaIssuance + QuotaIssuanceFirmAllocation.
+
+Idempotent: deletes existing issuances for each imported (issue_date, product_type)
+before recreating. Issuances from a previous file with dates not in this file are
+left untouched and reported.
 
 Usage:
     python manage.py import_quotas                  # dry-run (default)
@@ -9,9 +15,8 @@ Usage:
     python manage.py import_quotas /path/to/file    # custom path
 """
 import logging
-import re
 from collections import defaultdict
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
@@ -19,83 +24,30 @@ import openpyxl
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from apps.core.models import ExportFirm
 from apps.export.models import QuotaIssuance, QuotaIssuanceFirmAllocation
+
+from ._quota_import_utils import parse_quota_date, resolve_firm
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_PATH = Path(__file__).parents[5] / 'data' / 'quota.xlsx'
-
-# Excel firm name → DB firm name_en (for existing firms)
-FIRM_NAME_MAP = {
-    'YIGIT': 'YGT HJ',
-    'HEMSAYA': 'Hemsaya HJ',
-    'DATLY MIWE': 'Durli Miweler HJ',
-}
-
-# Tomato section: row 8 headers in cols B(2) through P(16)
-TOMATO_FIRM_COLS = list(range(2, 17))
-TOMATO_DATA_ROWS = list(range(9, 17))
-
-# Pepper section: row 8 headers in cols X(24) through AB(28)
-PEPPER_FIRM_COLS = list(range(24, 29))
-PEPPER_DATA_ROWS = list(range(9, 17))
-
+DEFAULT_PATH = Path(__file__).parents[5] / 'data' / 'quota' / 'quota.xlsx'
 SHEET_QUOTA = 'Kwota-2'
 
+HEADER_ROW = 8
 
-def _parse_date(raw) -> date | None:
-    """Parse mixed date formats from the Excel file."""
-    if raw is None:
-        return None
-    if isinstance(raw, datetime):
-        return raw.date()
-    if isinstance(raw, date):
-        return raw
+# Tomato: 15 firm columns B(2)-P(16), date in col A(1), issued data rows 9-25.
+TOMATO_FIRM_COLS = list(range(2, 17))
+TOMATO_DATE_COL = 1
+TOMATO_DATA_ROWS = list(range(9, 26))
 
-    s = str(raw).strip()
-    s = re.sub(r'\(.*$', '', s).strip()
-    if not s:
-        return None
-
-    for fmt in ('%d.%m.%Y', '%d.%m.%y'):
-        try:
-            return datetime.strptime(s, fmt).date()
-        except ValueError:
-            continue
-    logger.warning('Cannot parse date: %r', raw)
-    return None
-
-
-def _get_or_create_firm(name: str, firm_cache: dict) -> ExportFirm:
-    """Look up or create an ExportFirm by Excel name."""
-    key = name.strip().upper()
-    if key in firm_cache:
-        return firm_cache[key]
-
-    mapped_name = FIRM_NAME_MAP.get(key, name.strip())
-
-    firm = ExportFirm.objects.filter(name_en__iexact=mapped_name).first()
-    if not firm:
-        firm = ExportFirm.objects.filter(name_en__iexact=name.strip()).first()
-    if not firm:
-        firm = ExportFirm.objects.filter(name_tk__icontains=name.strip()).first()
-
-    if not firm:
-        code = key[:10].replace(' ', '').replace('.', '')
-        if ExportFirm.objects.filter(code=code).exists():
-            code = code[:8] + str(ExportFirm.objects.count())
-        firm = ExportFirm.objects.create(
-            code=code, name_en=name.strip(), name_tk=name.strip(), is_active=True,
-        )
-        logger.info('Created ExportFirm: %s (code=%s, id=%d)', firm.name_en, firm.code, firm.id)
-
-    firm_cache[key] = firm
-    return firm
+# Pepper: 2 firm columns Y(25)-Z(26), date in col X(24), issued data rows 9-10.
+PEPPER_FIRM_COLS = [25, 26]
+PEPPER_DATE_COL = 24
+PEPPER_DATA_ROWS = [9, 10]
 
 
 class Command(BaseCommand):
-    help = 'Import quota issuances from quota.xlsx'
+    help = 'Import issued quota (CYKAN KWOTA) from quota.xlsx'
 
     def add_arguments(self, parser):
         parser.add_argument('path', nargs='?', default=str(DEFAULT_PATH))
@@ -111,70 +63,77 @@ class Command(BaseCommand):
 
         self.stdout.write(f'Loading {path} ...')
         wb = openpyxl.load_workbook(path, data_only=True)
-        ws1 = wb[SHEET_QUOTA]
-        firm_cache: dict[str, ExportFirm] = {}
+        ws = wb[SHEET_QUOTA]
+        firm_cache: dict = {}
 
-        # Structure: {(issue_date, product_type): [(firm_name, kg)]}
+        # {(issue_date, product_type): [(firm_name, kg)]}
         issuance_data: dict[tuple[date, str], list[tuple[str, Decimal]]] = defaultdict(list)
 
-        def _read_section(firm_cols: list[int], data_rows: list[int], product: str):
-            col_firms: dict[int, str] = {}
-            for col in firm_cols:
-                name = ws1.cell(row=8, column=col).value
-                if name and str(name).strip():
-                    col_firms[col] = str(name).strip()
-
+        def _read_section(firm_cols, date_col, data_rows, product):
+            col_firms = {
+                col: str(ws.cell(row=HEADER_ROW, column=col).value).strip()
+                for col in firm_cols
+                if ws.cell(row=HEADER_ROW, column=col).value
+            }
             self.stdout.write(f'  {product.title()} section: {len(col_firms)} firms')
 
             for row_idx in data_rows:
-                grant_date = _parse_date(ws1.cell(row=row_idx, column=1).value)
-                if not grant_date:
+                issue_date = parse_quota_date(
+                    ws.cell(row=row_idx, column=date_col).value, fix_out_of_season=True,
+                )
+                if not issue_date:
                     continue
-
                 for col, firm_name in col_firms.items():
-                    val = ws1.cell(row=row_idx, column=col).value
+                    val = ws.cell(row=row_idx, column=col).value
                     if not val:
                         continue
                     try:
                         kg = Decimal(str(val))
-                    except Exception:
+                    except (ValueError, ArithmeticError):
                         continue
                     if kg <= 0:
                         continue
+                    issuance_data[(issue_date, product)].append((firm_name, kg))
 
-                    issuance_data[(grant_date, product)].append((firm_name, kg))
+        _read_section(TOMATO_FIRM_COLS, TOMATO_DATE_COL, TOMATO_DATA_ROWS, 'tomato')
+        _read_section(PEPPER_FIRM_COLS, PEPPER_DATE_COL, PEPPER_DATA_ROWS, 'pepper')
 
-        _read_section(TOMATO_FIRM_COLS, TOMATO_DATA_ROWS, 'tomato')
-        _read_section(PEPPER_FIRM_COLS, PEPPER_DATA_ROWS, 'pepper')
-
-        self.stdout.write(f'\n  Issuance events: {len(issuance_data)}')
         total_allocs = sum(len(v) for v in issuance_data.values())
+        self.stdout.write(f'\n  Issuance events: {len(issuance_data)}')
         self.stdout.write(f'  Total firm allocations: {total_allocs}')
-
-        for (d, p), allocs in sorted(issuance_data.items())[:5]:
+        for (d, p), allocs in sorted(issuance_data.items()):
             total = sum(kg for _, kg in allocs)
-            self.stdout.write(f'    {d} | {p} | {len(allocs)} firms | {total:,.0f} kg')
-        if len(issuance_data) > 5:
-            self.stdout.write(f'    ... and {len(issuance_data) - 5} more')
+            self.stdout.write(f'    {d} | {p:6} | {len(allocs):2} firms | {total:>12,.0f} kg')
+
+        # Report issuances already in the DB whose (date, product) is NOT in this
+        # file — these were imported from an older file and will remain untouched.
+        existing = set(
+            QuotaIssuance.objects.values_list('issue_date', 'product_type')
+        )
+        incoming = set(issuance_data.keys())
+        orphans = existing - incoming
+        if orphans:
+            self.stdout.write(self.style.WARNING(
+                f'\n  {len(orphans)} existing issuance(s) NOT in this file '
+                f'(will remain untouched): '
+                + ', '.join(f'{d}/{p}' for d, p in sorted(orphans))
+            ))
 
         if not commit:
             self.stdout.write('\n  DRY RUN — use --commit to write to DB')
             return
 
         with transaction.atomic():
-            # Delete existing issuances that match imported (date, product_type) combos
-            deleted_i = 0
-            for (issue_date, product_type) in issuance_data.keys():
+            deleted = 0
+            for (issue_date, product_type) in issuance_data:
                 d, _ = QuotaIssuance.objects.filter(
                     issue_date=issue_date, product_type=product_type,
                 ).delete()
-                deleted_i += d
-            if deleted_i:
-                self.stdout.write(f'  Deleted {deleted_i} previously imported issuances')
+                deleted += d
+            if deleted:
+                self.stdout.write(f'  Deleted {deleted} rows for re-imported (date, product) combos')
 
-            created_issuances = 0
-            created_allocs = 0
-
+            created_issuances = created_allocs = skipped = 0
             for (issue_date, product_type), allocs in sorted(issuance_data.items()):
                 iso = issue_date.isocalendar()
                 issuance = QuotaIssuance.objects.create(
@@ -188,18 +147,17 @@ class Command(BaseCommand):
 
                 alloc_objs = []
                 for firm_name, kg in allocs:
-                    firm = _get_or_create_firm(firm_name, firm_cache)
-                    alloc_objs.append(
-                        QuotaIssuanceFirmAllocation(
-                            issuance=issuance,
-                            export_firm=firm,
-                            kg_quota=kg,
-                        )
-                    )
+                    firm = resolve_firm(firm_name, firm_cache)
+                    if firm is None:
+                        skipped += 1
+                        continue
+                    alloc_objs.append(QuotaIssuanceFirmAllocation(
+                        issuance=issuance, export_firm=firm, kg_quota=kg,
+                    ))
                 QuotaIssuanceFirmAllocation.objects.bulk_create(alloc_objs, batch_size=500)
                 created_allocs += len(alloc_objs)
 
             self.stdout.write(self.style.SUCCESS(
                 f'\n  Done: {created_issuances} issuances, {created_allocs} firm allocations, '
-                f'{len(firm_cache)} firms resolved/created.'
+                f'{len(firm_cache)} firms resolved, {skipped} allocations skipped (firm not found).'
             ))

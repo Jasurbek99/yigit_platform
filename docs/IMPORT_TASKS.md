@@ -163,4 +163,5 @@ Unique constraint: `(date, city_id)` — use `ignore_conflicts=True`.
 - **Task 5** — 257 weekly harvest plans from `Pomidor_Dükany__20252026.xlsx` (24 weeks, 15 blocks) — *superseded by task #6*
 - **Task 6** — 318 harvest plans + 173 truck allocations + 446 destination splits from `weekly_plan.xlsx`
 - **Task 7** — 67 quota allocations (65 tomato + 2 pepper) from `quota.xlsx` (8 grant events, 15 firms, 12 new firms auto-created)
+- **Task 7b** — re-imported all three quota streams from the richer `data/quota/quota.xlsx`: 19 `QuotaIssuance` events + 157 allocations (`import_quotas`), 560 `QuotaUsageRecord` rows (`import_quota_usage`, now status=approved), 3,008,816 kg local sales into `WeeklyLocalSellPlan` (`import_local_sales`, daily→ISO-week). Shared `_quota_import_utils.py`; fixed prior firm-mislabel (`Tel G Amangeldiyew`→#19, `Tel GJ`→#18) + `cleanup_mislabeled_local_sales` removed the 14 stale double-count rows on #8/#13.
 - **Pre-req** — reference data seeded: 20 export firms, 172 import firms, 6 customers, 13 cities
