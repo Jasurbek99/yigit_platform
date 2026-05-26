@@ -37,6 +37,9 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
   // Multi-select cells (firm_splits, block_sources) defer saving until the
   // dropdown closes — saving on each pick would unmount the editor mid-edit.
   const pendingMultiRef = useRef<number[] | null>(null);
+  // Guards against a double save when the "Done" button blurs the Select and
+  // also triggers the click-outside (onOpenChange) commit path.
+  const multiCommittedRef = useRef(false);
 
   // Reference data hooks
   const { data: countries } = useCountries();
@@ -308,6 +311,34 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
           pendingMultiRef.current = currentIds;
         }
 
+        // Commit the pending selection (or close if unchanged). Shared by the
+        // explicit "Done" button and the click-outside path so operators don't
+        // have to click another cell — which would open that cell's editor —
+        // just to dismiss this dropdown.
+        const commitMulti = () => {
+          if (multiCommittedRef.current) return;
+          const next = pendingMultiRef.current ?? currentIds;
+          const nextSet = new Set(next);
+          const unchanged =
+            next.length === currentIds.length &&
+            currentIds.every((id) => nextSet.has(id));
+          if (unchanged) {
+            close();
+            return;
+          }
+          multiCommittedRef.current = true;
+          // Send IDs only — backend auto-fills weight_kg.
+          // R8 blocks → splits real shipment.weight_net evenly across N blocks.
+          // R9 firms  → uses TruckSplitDefault[N] (official kg per firm).
+          if (isBlocks) {
+            saveJunction('block-sources', next.map((id) => ({ block_id: id })), 'blocks');
+          } else if (isFirms) {
+            saveJunction('firm-splits', next.map((id) => ({ export_firm_id: id })), 'firms');
+          } else {
+            close();
+          }
+        };
+
         return (
           <Select
             size="small"
@@ -319,25 +350,7 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
             }}
             onOpenChange={(open) => {
               if (open) return;
-              const next = pendingMultiRef.current ?? currentIds;
-              const nextSet = new Set(next);
-              const unchanged =
-                next.length === currentIds.length &&
-                currentIds.every((id) => nextSet.has(id));
-              if (unchanged) {
-                close();
-                return;
-              }
-              // Send IDs only — backend auto-fills weight_kg.
-              // R8 blocks → splits real shipment.weight_net evenly across N blocks.
-              // R9 firms  → uses TruckSplitDefault[N] (official kg per firm).
-              if (isBlocks) {
-                saveJunction('block-sources', next.map((id) => ({ block_id: id })), 'blocks');
-              } else if (isFirms) {
-                saveJunction('firm-splits', next.map((id) => ({ export_firm_id: id })), 'firms');
-              } else {
-                close();
-              }
+              commitMulti();
             }}
             style={{ width: '100%' }}
             showSearch
@@ -348,6 +361,26 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
             defaultOpen
             popupMatchSelectWidth={false}
             popupStyle={{ minWidth: 220 }}
+            dropdownRender={(menu) => (
+              <>
+                {menu}
+                <div
+                  style={{
+                    borderTop: '1px solid #f0f0f0',
+                    padding: '4px 8px',
+                    display: 'flex',
+                    justifyContent: 'flex-end',
+                  }}
+                  // Prevent the mousedown from blurring the Select (which would
+                  // fire onOpenChange before our click handler runs).
+                  onMouseDown={(e) => e.preventDefault()}
+                >
+                  <Button size="small" type="primary" onClick={commitMulti}>
+                    {t('sheet.multiselect_done')}
+                  </Button>
+                </div>
+              </>
+            )}
           />
         );
       }

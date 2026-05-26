@@ -195,7 +195,7 @@ R24 = `has_doc_advance` (✓/❌, Babageldi). True once a `FinansistAdvanceShipm
 | `date` | Ant `DatePicker` | ISO date (YYYY-MM-DD) |
 | `datetime` | Ant `DatePicker showTime` | ISO 8601 with offset |
 | `dropdown` | Ant `Select` | Options from reference hooks (countries, firms, …) or `ShipmentOptionType` by category |
-| `multiselect` | Ant `Select mode="multiple"` | Junction tables (`firm_splits`, `block_sources`) — posts to `block-sources/` / `firm-splits/` action endpoints |
+| `multiselect` | Ant `Select mode="multiple"` | Junction tables (`firm_splits`, `block_sources`) — posts to `block-sources/` / `firm-splits/` action endpoints. The dropdown has an explicit **Done** button (`dropdownRender` footer) that commits and closes; users no longer have to click another cell to dismiss it (which would open that cell's editor). Click-outside still commits via `onOpenChange`; a guard ref prevents a double save. |
 | `status` | Ant `Select` | Options from `ShipmentOptionType` filtered by `category = fieldKey` |
 | `readonly` | None | Display-only; never editable |
 | `comment_count` | None | Display count + icon; click navigates to ShipmentDetail's Changes tab |

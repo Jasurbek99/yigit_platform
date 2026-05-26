@@ -1264,6 +1264,7 @@
     "create_error": "Failed to create shipment",
     "create_retry": "Code collision — try again",
     "has_peregruz_yes": "Yes",
+    "multiselect_done": "Done",
     "who": {
       "logist": "Logist",
       "malik": "Malik",

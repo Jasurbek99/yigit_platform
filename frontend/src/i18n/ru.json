@@ -1266,6 +1266,7 @@
     "create_error": "Не удалось создать отгрузку",
     "create_retry": "Код совпал — попробуйте ещё раз",
     "has_peregruz_yes": "Да",
+    "multiselect_done": "Готово",
     "who": {
       "logist": "Логист",
       "malik": "Малик",
