@@ -128,6 +128,11 @@ else:
             "or export it in your shell."
         )
     _db_name = os.environ.get('DB_NAME', 'YIGIT_PLATFROM_NEW')
+    # ODBC connection extras. Default keeps current dev behavior. In Docker on
+    # Linux (OpenSSL 3) the SQL Server's old TLS is rejected ("unsupported
+    # protocol"), so the deploy sets DB_EXTRA_PARAMS with Encrypt=no over the
+    # trusted LAN. Windows dev keeps the default and connects unchanged.
+    _db_extra_params = os.environ.get('DB_EXTRA_PARAMS', 'TrustServerCertificate=yes')
     DATABASES = {
         'default': {
             'ENGINE': 'mssql',
@@ -138,7 +143,7 @@ else:
             'PORT': os.environ.get('DB_PORT', ''),
             'OPTIONS': {
                 'driver': 'ODBC Driver 18 for SQL Server',
-                'extra_params': 'TrustServerCertificate=yes',
+                'extra_params': _db_extra_params,
             },
         }
     }
