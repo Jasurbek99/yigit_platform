@@ -41,11 +41,13 @@ function getProgressColor(step: number): string {
 
 interface IShipmentRowProps {
   shipment: IShipmentListItem;
+  index: number;
   onSelect: (id: number) => void;
 }
 
 export const ShipmentRow = memo(function ShipmentRow({
   shipment,
+  index,
   onSelect,
 }: IShipmentRowProps) {
   const { t } = useTranslation();
@@ -70,6 +72,21 @@ export const ShipmentRow = memo(function ShipmentRow({
         className="shipment-row-color-bar"
         style={{ background: barColor }}
       />
+
+      {/* Row number */}
+      <div
+        style={{
+          width: 28,
+          flexShrink: 0,
+          fontSize: 11,
+          fontWeight: 600,
+          color: '#98a2b3',
+          textAlign: 'right',
+          fontVariantNumeric: 'tabular-nums',
+        }}
+      >
+        {index + 1}
+      </div>
 
       {/* Cargo code + date */}
       <div style={{ width: 100, flexShrink: 0 }}>

@@ -272,6 +272,19 @@ export default function ShipmentList() {
 
   const baseColumns: ProColumns<IShipmentListItem>[] = [
     {
+      title: t('common.row_no'),
+      key: 'row_no',
+      width: 56,
+      fixed: 'left',
+      align: 'center',
+      hideInSetting: true,
+      render: (_, __, index) => (
+        <span style={{ color: '#98a2b3', fontVariantNumeric: 'tabular-nums' }}>
+          {(page - 1) * pageSize + index + 1}
+        </span>
+      ),
+    },
+    {
       title: t('shipments.cargo_code'),
       dataIndex: 'cargo_code',
       key: 'cargo_code',

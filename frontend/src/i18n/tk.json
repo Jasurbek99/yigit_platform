@@ -975,6 +975,7 @@
   },
   "common": {
     "optional": "hökman däl",
+    "row_no": "№",
     "demo_badge": "Demo",
     "empty": "—",
     "loading": "Ýüklenýär...",

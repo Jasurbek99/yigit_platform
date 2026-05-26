@@ -977,6 +977,7 @@
   },
   "common": {
     "optional": "необязательно",
+    "row_no": "№",
     "demo_badge": "Демо",
     "empty": "—",
     "loading": "Загрузка...",

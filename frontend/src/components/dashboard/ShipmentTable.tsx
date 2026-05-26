@@ -89,9 +89,10 @@ export function ShipmentTable({
           {t('dashboard.no_data')}
         </div>
       ) : (
-        filtered.map((shipment) => (
+        filtered.map((shipment, index) => (
           <ShipmentRow
             key={shipment.id}
+            index={index}
             shipment={shipment}
             onSelect={onSelect}
           />
