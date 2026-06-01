@@ -505,6 +505,13 @@
   cursor: default;
   transition: background 0.08s;
   box-sizing: border-box;
+  /* Perf: the grid mounts ~60 new cells per column as you scroll horizontally.
+     `contain: layout paint` isolates each cell's style-recalc, layout and paint
+     so a mounting cell can't invalidate the layout/paint of its siblings or the
+     row — cutting the per-mount cost during scroll. Inset highlights (active/
+     editing/hover) and the absolutely-positioned comment marker all stay within
+     the cell box, so paint containment clips nothing visible. */
+  contain: layout paint;
 }
 .sheet-cell__text {
   text-overflow: ellipsis;
@@ -535,27 +542,36 @@
   background: var(--gray-25);
 }
 
+/* Row-accent label styling.
+   These were `.sheet-row:has(.sheet-cell--<style>) .sheet-label-col--field`
+   selectors. `:has()` is re-evaluated by the browser on every DOM mutation
+   inside the row — and the grid mutates the row's data cells on every
+   horizontal-scroll step (virtualized columns mount/unmount), so each scroll
+   tick forced a full :has() re-match across every row. Replaced with direct
+   modifier classes applied by SheetLabelColumn (which already knows
+   rowConfig.style), so the label band is styled with zero scroll-time cost.
+   The 3px left border is applied inline in SheetLabelColumn (STYLE_COLORS),
+   so it's intentionally not repeated here. */
+
 /* Key info rows — blue accent */
 .sheet-cell--key {
   background: #fafcff;
 }
-.sheet-row:has(.sheet-cell--key) .sheet-label-col--field {
+.sheet-label-field--key {
   background: var(--blue-50);
   color: var(--blue-700);
-  border-left: 3px solid var(--blue-500);
 }
 
 /* Transport rows — cyan accent */
 .sheet-cell--transport {
   background: #fafeff;
 }
-.sheet-row:has(.sheet-cell--transport) .sheet-label-col--field {
+.sheet-label-field--transport {
   background: var(--cyan-50);
   color: var(--cyan-500);
   font-weight: 600;
-  border-left: 3px solid var(--cyan-500);
 }
-.sheet-row:has(.sheet-cell--transport) .sheet-label-col--who {
+.sheet-label-who--transport {
   background: var(--gray-700);
 }
 
@@ -563,20 +579,18 @@
 .sheet-cell--status {
   background: var(--surface);
 }
-.sheet-row:has(.sheet-cell--status) .sheet-label-col--field {
+.sheet-label-field--status {
   background: var(--warning-50);
   color: var(--warning-500);
-  border-left: 3px solid var(--warning-500);
 }
 
 /* Report rows — green accent */
 .sheet-cell--report {
   background: var(--surface);
 }
-.sheet-row:has(.sheet-cell--report) .sheet-label-col--field {
+.sheet-label-field--report {
   background: var(--success-50);
   color: var(--success-700);
-  border-left: 3px solid var(--success-500);
 }
 
 /* Separator */

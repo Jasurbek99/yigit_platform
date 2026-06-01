@@ -228,7 +228,7 @@ function SheetLabelRowInner({
 
       {/* Col B: Who */}
       <div
-        className="sheet-label-col sheet-label-col--who"
+        className={`sheet-label-col sheet-label-col--who sheet-label-who--${rowConfig.style}`}
         style={{
           width: COL_WIDTH_WHO,
           ...(labelStickyCount >= 2
@@ -242,7 +242,7 @@ function SheetLabelRowInner({
 
       {/* Col C: Field name (with optional lock icon + kebab menu) */}
       <div
-        className="sheet-label-col sheet-label-col--field"
+        className={`sheet-label-col sheet-label-col--field sheet-label-field--${rowConfig.style}`}
         style={{
           width: COL_WIDTH_FIELD,
           ...(labelStickyCount >= 3

@@ -259,7 +259,11 @@ export function SheetGrid({
     getScrollElement: () => scrollContainerRef.current,
     estimateSize: () => COL_WIDTH_SHIPMENT,
     horizontal: true,
-    overscan: 5,
+    // Pre-mount more off-screen columns so a scroll sweep crosses the
+    // mount-boundary less often (fewer cell-mount bursts mid-scroll). Tunable:
+    // higher = smoother scroll but more DOM + a heavier per-tick rebuild;
+    // lower = lighter rebuild but more frequent mount bursts.
+    overscan: 8,
   });
 
   // Zoom changes the per-column estimate; force the virtualizer to discard its
