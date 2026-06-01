@@ -38,10 +38,10 @@ export function getCellValue(shipment: IShipmentSheetItem, rowConfig: IRowConfig
     case 'import_firm':
       return shipment.import_firm_name ?? '—';
     case 'variety': {
-      // When the backend sends multiple sorts, join their codes (falling back to name).
+      // When the backend sends multiple sorts, join their names.
       const dominant = shipment.varieties_dominant;
       if (Array.isArray(dominant) && dominant.length > 1) {
-        return dominant.map((v) => v.code ?? v.name).join(', ');
+        return dominant.map((v) => v.name).join(', ');
       }
       return shipment.variety_name ?? '—';
     }
