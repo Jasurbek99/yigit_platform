@@ -79,7 +79,11 @@ class DailyHarvestBoardViewSet(ViewSet):
             )
 
         season = get_active_season()
-        blocks = list(GreenhouseBlock.objects.filter(is_active=True).order_by('code'))
+        # Only top-level blocks — inner sub-blocks (e.g. OD/OG under O) carry a
+        # parent and are excluded so the board matches the operational sheet.
+        blocks = list(
+            GreenhouseBlock.objects.filter(is_active=True, parent__isnull=True).order_by('code')
+        )
 
         entries: dict[int, HarvestDayEntry] = {}
         if season is not None:
