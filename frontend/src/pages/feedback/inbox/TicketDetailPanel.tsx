@@ -1,5 +1,7 @@
-import { Divider, Empty, Image, Select, Space, Spin, Tag, Typography } from 'antd';
+import { Button, Divider, Empty, Image, Select, Space, Spin, Tag, Typography } from 'antd';
+import { CheckOutlined, CloseOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import dayjs from 'dayjs';
 import { ReplyComposer } from '@/components/feedback/ReplyComposer';
 import { pathToLabel } from '@/components/feedback/pathLabels';
@@ -45,6 +47,23 @@ export function TicketDetailPanel({ ticketId }: ITicketDetailPanelProps): React.
     { value: 'rejected', label: t('feedback.status.rejected') },
   ];
 
+  const isActionable =
+    (ticket.category === 'bug' || ticket.category === 'suggestion') &&
+    ticket.status !== 'resolved' &&
+    ticket.status !== 'rejected';
+
+  const handleMarkSolved = () => {
+    updateStatus.mutate('resolved', {
+      onSuccess: () => toast.success(t('feedback.action.solved_toast')),
+    });
+  };
+
+  const handleReject = () => {
+    updateStatus.mutate('rejected', {
+      onSuccess: () => toast.success(t('feedback.action.rejected_toast')),
+    });
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
@@ -59,6 +78,28 @@ export function TicketDetailPanel({ ticketId }: ITicketDetailPanelProps): React.
               loading={updateStatus.isPending}
               onChange={(val) => updateStatus.mutate(val)}
             />
+            {isActionable && (
+              <>
+                <Button
+                  type="primary"
+                  size="small"
+                  icon={<CheckOutlined />}
+                  loading={updateStatus.isPending}
+                  onClick={handleMarkSolved}
+                >
+                  {t('feedback.action.mark_solved')}
+                </Button>
+                <Button
+                  danger
+                  size="small"
+                  icon={<CloseOutlined />}
+                  loading={updateStatus.isPending}
+                  onClick={handleReject}
+                >
+                  {t('feedback.action.mark_rejected')}
+                </Button>
+              </>
+            )}
           </Space>
           <Title level={5} style={{ margin: '8px 0 4px' }}>
             {ticket.title}
