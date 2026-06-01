@@ -1879,7 +1879,14 @@
     "transition_unknown_error": "Server error",
     "transition_all_ok": "All {{count}} shipments transitioned",
     "transition_partial": "{{ok}} succeeded, {{fail}} failed",
-    "transition_failures": "{{count}} shipments could not be transitioned"
+    "transition_failures": "{{count}} shipments could not be transitioned",
+    "delete_btn": "Delete permanently",
+    "delete_confirm_title": "Permanently delete {{count}} shipments?",
+    "delete_confirm_content": "This cannot be undone. All related comments, status history, firm splits, block sources, pallets, and quality records will also be deleted.",
+    "delete_confirm_ok": "Delete permanently",
+    "delete_success": "{{count}} shipments deleted",
+    "delete_error": "Failed to delete shipments",
+    "delete_approved_quota_warning": "{{count}} approved quota record(s) were orphaned — reconcile in the Quota Usage grid."
   },
   "shipment_edit_drawer": {
     "title": "Edit shipment",
@@ -1979,6 +1986,12 @@
       "attachments": "Attachments",
       "replies": "Replies",
       "reopen": "Reopen"
+    },
+    "action": {
+      "mark_solved": "Mark as Solved",
+      "mark_rejected": "Reject",
+      "solved_toast": "Ticket marked as solved",
+      "rejected_toast": "Ticket rejected"
     },
     "submit": {
       "title": "Submit Feedback",

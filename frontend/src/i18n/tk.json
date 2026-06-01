@@ -1883,7 +1883,14 @@
     "transition_unknown_error": "Serwer ýalňyşlygy",
     "transition_all_ok": "{{count}} iberliş üýtgedildi",
     "transition_partial": "Şowly: {{ok}}, şowsuz: {{fail}}",
-    "transition_failures": "{{count}} iberliş üýtgedilip bilinmedi"
+    "transition_failures": "{{count}} iberliş üýtgedilip bilinmedi",
+    "delete_btn": "Hemişelik pozmak",
+    "delete_confirm_title": "{{count}} iberlişi hemişelik pozmaly?",
+    "delete_confirm_content": "Bu hereket yza dolanyp bolmaýar. Baglanyşykly teswirler, status taryhy, firma bölünişleri, blok çeşmeleri, palletler we hil ýazgylary hem pozular.",
+    "delete_confirm_ok": "Hemişelik pozmak",
+    "delete_success": "{{count}} iberliş pozuldy",
+    "delete_error": "Iberlişleri pozup bolmady",
+    "delete_approved_quota_warning": "{{count}} tassyklanan kwota ýazgysy iberlişsiz galdy — Kwota Ulanyş tablisasynda gözden geçiriň."
   },
   "shipment_edit_drawer": {
     "title": "Iberlişi üýtgetmek",
@@ -1983,6 +1990,12 @@
       "attachments": "Goşundy faýllar",
       "replies": "Jogaplar",
       "reopen": "Täzeden açmak"
+    },
+    "action": {
+      "mark_solved": "Çözüldi diýip belle",
+      "mark_rejected": "Ret et",
+      "solved_toast": "Ýüz tutma çözüldi diýip bellendi",
+      "rejected_toast": "Ýüz tutma ret edildi"
     },
     "submit": {
       "title": "Ýüz tutma iberme",

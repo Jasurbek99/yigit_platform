@@ -450,6 +450,112 @@ class ShipmentViewSet(ModelViewSet):
         data['approved_quota_to_reconcile'] = approved_ids
         return Response(data)
 
+    # Hard-delete is tighter than cancel: only admin / superuser. Cancel uses
+    # PRIVILEGED_ROLES (admin / export_manager / director) — do NOT broaden this
+    # to match; permanent destruction is an admin-only escape hatch.
+    _BULK_DELETE_MAX = 200
+
+    @action(detail=False, methods=['post'], url_path='bulk-delete')
+    def bulk_delete(self, request):
+        """POST /api/v1/export/shipments/bulk-delete/
+
+        Request body:
+            { "ids": [1, 2, 3] }
+
+        Permanently deletes the listed shipments (hard delete, no soft-delete
+        flag). Cascade removes comments, status_log, firm_splits, block_sources,
+        pallets, quality, sales_report, custom_field_values, advance_links.
+
+        QuotaUsageRecord uses SET_NULL on shipment — draft rows are deleted
+        (matching the cancel action's cleanup); approved rows are left orphaned
+        with shipment_id=NULL and their IDs are returned so the admin can
+        reconcile via the QuotaUsageGrid.
+
+        AuditLog rows for the deleted shipments are kept (object_id is a plain
+        IntegerField, not an FK) so the audit trail survives. An AuditLog row
+        with action='delete' is also written per shipment before destruction.
+
+        Permissions: admin role or superuser only — destructive, irreversible.
+        """
+        is_super = getattr(request.user, 'is_superuser', False)
+        role = getattr(request.user, 'role', None)
+        if not is_super and role != 'admin':
+            return Response(
+                {'error': 'Only admin can permanently delete shipments.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        raw_ids = request.data.get('ids')
+        if not isinstance(raw_ids, list) or not raw_ids:
+            return Response(
+                {'error': 'ids must be a non-empty list of shipment IDs.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            ids = sorted({int(i) for i in raw_ids})
+        except (TypeError, ValueError):
+            return Response(
+                {'error': 'ids must be integers.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if len(ids) > self._BULK_DELETE_MAX:
+            return Response(
+                {'error': f'At most {self._BULK_DELETE_MAX} shipments per request.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Bypass operational/archive filters — admin tool deletes by ID
+        # regardless of which list the shipment lives in.
+        targets = list(
+            Shipment.objects.filter(id__in=ids).values('id', 'cargo_code')
+        )
+        if not targets:
+            return Response(
+                {'deleted': 0, 'approved_quota_to_reconcile': []},
+            )
+
+        found_ids = [row['id'] for row in targets]
+
+        with transaction.atomic():
+            # Draft quota cleanup mirrors the cancel action.
+            draft_count = QuotaUsageRecord.objects.filter(
+                shipment_id__in=found_ids, status='draft',
+            ).delete()[0]
+            approved_ids = list(
+                QuotaUsageRecord.objects.filter(
+                    shipment_id__in=found_ids, status='approved',
+                ).values_list('id', flat=True)
+            )
+
+            audit_rows = [
+                AuditLog(
+                    user=request.user,
+                    action='delete',
+                    model_name='Shipment',
+                    object_id=row['id'],
+                    object_repr=row['cargo_code'] or '',
+                    detail=f"HARD DELETE by {request.user.username}",
+                )
+                for row in targets
+            ]
+            AuditLog.objects.bulk_create(audit_rows, batch_size=500)
+
+            deleted_count, _ = Shipment.objects.filter(id__in=found_ids).delete()
+
+        logger.warning(
+            'Hard-deleted %d shipments by user=%s ids=%s',
+            len(found_ids), request.user.username, found_ids,
+        )
+
+        return Response({
+            'deleted': len(found_ids),
+            'cascade_rows_deleted': deleted_count,
+            'draft_quota_deleted': draft_count,
+            'approved_quota_to_reconcile': approved_ids,
+        })
+
     @action(detail=False, methods=['get'], url_path='overdue')
     def overdue(self, request):
         """GET /api/v1/export/shipments/overdue/?threshold=N

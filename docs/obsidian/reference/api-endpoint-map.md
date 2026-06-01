@@ -28,6 +28,7 @@ tags: [reference, api, backend, frontend]
 | POST | `/api/v1/export/shipments/{id}/transition/` | ShipmentViewSet.transition | `useShipmentDetail` (mutation) | TransitionButton |
 | POST | `/api/v1/export/shipments/{id}/assign/` | ShipmentViewSet.assign | `useAssignDraft` | AssignmentBoard |
 | POST | `/api/v1/export/shipments/{target_id}/join/` | ShipmentViewSet.join | _(in useDrafts)_ | ShipmentSheet (JoinShipmentsModal) |
+| POST | `/api/v1/export/shipments/bulk-delete/` | ShipmentViewSet.bulk_delete | _(inline in page)_ | ShipmentList (admin only) |
 | GET | `/api/v1/export/shipments/overdue/` | ShipmentViewSet.overdue | `useOverdueShipments` | OverdueReports |
 | GET | `/api/v1/export/shipments/sheet/` | ShipmentViewSet.sheet | `useShipmentSheet` | ShipmentSheet |
 | PATCH | `/api/v1/export/shipments/{id}/quality/` | ShipmentViewSet.set_quality | `useShipmentDetail` (mutation) | ShipmentDetail (Document tab) |
@@ -46,6 +47,8 @@ tags: [reference, api, backend, frontend]
 **`created_by_role`**: the `/shipments/sheet/` items now include `created_by_role: string|null`, used by the frontend to tint supply-created columns.
 
 **`varieties_dominant`**: the `/shipments/sheet/` items now also include `varieties_dominant` — an array of `{id, code, name, is_experimental}` per shipment (1–4 entries) so the variety cell can render all sorts a shipment carries.
+
+**Bulk hard-delete** (`POST /shipments/bulk-delete/`) body `{"ids": [int, ...]}` — **admin / superuser only** (tighter than `cancel`, which uses PRIVILEGED_ROLES). Capped at 200 IDs per call. Bypasses the operational/archive filter so admins can purge by ID regardless of view. Cascade removes: comments, status_log, firm_splits, block_sources, pallets, quality, sales_report, custom_field_values, advance_links. `QuotaUsageRecord.shipment` is `SET_NULL` — draft quotas are deleted (mirrors `cancel`), approved quotas are orphaned and their IDs returned in `approved_quota_to_reconcile` so the admin can reconcile via QuotaUsageGrid. One `AuditLog` row per shipment with `action='delete'` is written before destruction (AuditLog uses a plain IntegerField for `object_id`, so historical update/transition rows for the deleted shipment also survive). Response: `{deleted, cascade_rows_deleted, draft_quota_deleted, approved_quota_to_reconcile}`.
 
 ### Tasks (Structured Task Engine)
 

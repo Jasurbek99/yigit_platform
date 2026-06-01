@@ -1881,7 +1881,14 @@
     "transition_unknown_error": "Ошибка сервера",
     "transition_all_ok": "Переведено отправок: {{count}}",
     "transition_partial": "Успешно: {{ok}}, ошибок: {{fail}}",
-    "transition_failures": "Не удалось перевести: {{count}}"
+    "transition_failures": "Не удалось перевести: {{count}}",
+    "delete_btn": "Удалить навсегда",
+    "delete_confirm_title": "Удалить {{count}} отправок навсегда?",
+    "delete_confirm_content": "Это действие необратимо. Все связанные комментарии, история статусов, разбивки по фирмам, источники из блоков, паллеты и записи качества будут удалены.",
+    "delete_confirm_ok": "Удалить навсегда",
+    "delete_success": "Удалено отправок: {{count}}",
+    "delete_error": "Не удалось удалить отправки",
+    "delete_approved_quota_warning": "{{count}} утверждённых квотных записей остались без отправки — сверьте в таблице использования квот."
   },
   "shipment_edit_drawer": {
     "title": "Редактировать отправку",
@@ -1981,6 +1988,12 @@
       "attachments": "Вложения",
       "replies": "Ответы",
       "reopen": "Переоткрыть"
+    },
+    "action": {
+      "mark_solved": "Отметить решённым",
+      "mark_rejected": "Отклонить",
+      "solved_toast": "Обращение отмечено как решённое",
+      "rejected_toast": "Обращение отклонено"
     },
     "submit": {
       "title": "Отправить обращение",

@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Button, Checkbox, Flex, Input, Select, Segmented, Tag, Tooltip, Typography } from 'antd';
-import { PlusOutlined, DownloadOutlined, EditOutlined, FilterOutlined } from '@ant-design/icons';
+import { Button, Checkbox, Flex, Input, Modal, Select, Segmented, Tag, Tooltip, Typography } from 'antd';
+import { PlusOutlined, DownloadOutlined, EditOutlined, FilterOutlined, DeleteOutlined, ExclamationCircleFilled } from '@ant-design/icons';
 import { ProTable } from '@ant-design/pro-components';
 import type { ProColumns, ColumnsState } from '@ant-design/pro-components';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import dayjs from 'dayjs';
+import api from '@/services/api';
 import { StatusTag } from '@/components/StatusTag';
 import { ShipmentCreateModal } from '@/components/ShipmentCreateModal';
 import { ShipmentEditDrawerForId } from '@/components/ShipmentEditDrawerForId';
@@ -206,6 +207,10 @@ export default function ShipmentList() {
   const canCreate = canDo(user, 'shipment', 'create');
   const canEditWeightNet = canEditField(user, 'shipment', 'weight_net');
   const canEditAnyField = canDo(user, 'shipment', 'edit');
+  // Hard-delete is an admin-only escape hatch. Mirrors the backend gate in
+  // ShipmentViewSet.bulk_delete — keep these two checks in sync. Destructive,
+  // cascade-removes comments/status_log/firm_splits/block_sources/pallets.
+  const canHardDelete = !!user && (user.is_superuser || user.role === 'admin');
 
   const { data, isLoading } = useShipments({
     page,
@@ -268,6 +273,48 @@ export default function ShipmentList() {
 
   function handleCreateSuccess() {
     void queryClient.invalidateQueries({ queryKey: ['shipments'] });
+  }
+
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  function handleBulkDelete() {
+    const ids = [...selectedRowKeys];
+    if (ids.length === 0) return;
+    Modal.confirm({
+      title: t('shipment_bulk.delete_confirm_title', { count: ids.length }),
+      icon: <ExclamationCircleFilled style={{ color: '#ff4d4f' }} />,
+      content: t('shipment_bulk.delete_confirm_content'),
+      okText: t('shipment_bulk.delete_confirm_ok'),
+      okType: 'danger',
+      cancelText: t('common.cancel'),
+      async onOk() {
+        setBulkDeleting(true);
+        try {
+          const { data } = await api.post<{
+            deleted: number;
+            approved_quota_to_reconcile: number[];
+          }>('/export/shipments/bulk-delete/', { ids });
+          toast.success(t('shipment_bulk.delete_success', { count: data.deleted }));
+          if (data.approved_quota_to_reconcile.length > 0) {
+            toast.warning(
+              t('shipment_bulk.delete_approved_quota_warning', {
+                count: data.approved_quota_to_reconcile.length,
+              }),
+            );
+          }
+          setSelectedRowKeys([]);
+          // Invalidate both list and detail caches in case any deleted IDs
+          // are currently open in a detail view.
+          void queryClient.invalidateQueries({ queryKey: ['shipments'] });
+          void queryClient.invalidateQueries({ queryKey: ['shipment'] });
+        } catch (err) {
+          console.error('[ShipmentList] bulk delete failed', err);
+          toast.error(t('shipment_bulk.delete_error'));
+        } finally {
+          setBulkDeleting(false);
+        }
+      },
+    });
   }
 
   const baseColumns: ProColumns<IShipmentListItem>[] = [
@@ -736,6 +783,17 @@ export default function ShipmentList() {
               {t('shipment_bulk.transition_btn')}
             </Button>
           )}
+          {canHardDelete && (
+            <Button
+              size="small"
+              danger
+              icon={<DeleteOutlined />}
+              loading={bulkDeleting}
+              onClick={handleBulkDelete}
+            >
+              {t('shipment_bulk.delete_btn')}
+            </Button>
+          )}
           <Button
             size="small"
             onClick={() => setSelectedRowKeys([])}
@@ -758,7 +816,7 @@ export default function ShipmentList() {
           persistenceType: 'localStorage',
           defaultValue: DEFAULT_COLUMN_STATE,
         }}
-        rowSelection={canEditAnyField && !isArchiveView ? {
+        rowSelection={(canEditAnyField && !isArchiveView) || canHardDelete ? {
           selectedRowKeys,
           onChange: (keys) => setSelectedRowKeys(keys as number[]),
           preserveSelectedRowKeys: true,
