@@ -118,15 +118,6 @@ export function SheetToolbar({
     0,
   );
 
-  // Supply-column legend: show a legend chip when the current view has ≥1 supply column
-  const hasSupplyColumns = useMemo(
-    () =>
-      shipments.some((s) =>
-        s.created_by_role === 'loading_dept_head' || s.created_by_role === 'warehouse_chief',
-      ),
-    [shipments],
-  );
-
   // ─── Hidden rows pill ───────────────────────────────────────────────────────
   const hiddenCount = hiddenRowIds.length;
 
@@ -331,38 +322,6 @@ export function SheetToolbar({
           <Text type="secondary" style={{ fontSize: 12 }}>
             {t('sheet.total_count', { count: shipmentCount })}
           </Text>
-
-          {/* Supply-column legend chip */}
-          {hasSupplyColumns && (
-            <Tooltip title={t('sheet.supply_column_legend.tooltip')}>
-              <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 4,
-                  fontSize: 11,
-                  color: '#166534',
-                  background: '#dcfce7',
-                  borderRadius: 4,
-                  padding: '2px 6px',
-                  cursor: 'default',
-                  userSelect: 'none',
-                }}
-              >
-                <span
-                  style={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: '50%',
-                    background: '#16a34a',
-                    display: 'inline-block',
-                    flexShrink: 0,
-                  }}
-                />
-                {t('sheet.supply_column_legend.label')}
-              </span>
-            </Tooltip>
-          )}
 
           {/* Phase 2a: Hidden rows pill — shown only when user has hidden rows */}
           {hiddenCount > 0 && (
