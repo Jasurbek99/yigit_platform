@@ -496,7 +496,6 @@
   justify-content: center;
   padding: calc(6px * var(--sheet-zoom, 1)) calc(10px * var(--sheet-zoom, 1));
   font-size: calc(11px * var(--sheet-zoom, 1));
-  font-family: 'JetBrains Mono', monospace;
   color: var(--gray-700);
   border-right: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
