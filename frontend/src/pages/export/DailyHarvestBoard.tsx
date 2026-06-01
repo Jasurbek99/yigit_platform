@@ -36,11 +36,17 @@ function fmtKg(value: number | null): string {
   return Number(value).toLocaleString();
 }
 
+// Summary/aggregate totals: 0 is meaningful data, render it as "0" not as the
+// "no data entered" em-dash that per-cell fmtKg uses.
+function fmtKgTotal(value: number): string {
+  return Number(value).toLocaleString();
+}
+
 export default function DailyHarvestBoard() {
   const { t } = useTranslation();
 
   const [selectedDate, setSelectedDate] = useState<Dayjs>(() => dayjs());
-  const [savingBlock, setSavingBlock] = useState<number | null>(null);
+  const [savingBlocks, setSavingBlocks] = useState<Set<number>>(new Set());
 
   const dateStr = selectedDate.format('YYYY-MM-DD');
   const { data, isLoading, isError } = useDailyBoard(dateStr);
@@ -56,19 +62,21 @@ export default function DailyHarvestBoard() {
 
   // ─── Handlers ───────────────────────────────────────────────────────────────
   function handleSave(block: number, field: EditableField, value: number | string | null): void {
-    setSavingBlock(block);
+    setSavingBlocks((s) => new Set(s).add(block));
     upsert.mutate(
       { block, date: dateStr, [field]: value },
       {
-        onSuccess: () => {
-          toast.success(t('harvest_board.saved'));
-          setSavingBlock(null);
-        },
+        onSuccess: () => toast.success(t('harvest_board.saved')),
         onError: (err: unknown) => {
           const apiErr = err as { response?: { data?: { error?: string } } };
           toast.error(apiErr?.response?.data?.error ?? t('harvest_board.save_error'));
-          setSavingBlock(null);
         },
+        onSettled: () =>
+          setSavingBlocks((s) => {
+            const next = new Set(s);
+            next.delete(block);
+            return next;
+          }),
       },
     );
   }
@@ -99,7 +107,7 @@ export default function DailyHarvestBoard() {
         <DailyBoardNumberCell
           value={row.yesterday_rest}
           disabled={!season}
-          saving={savingBlock === row.block}
+          saving={savingBlocks.has(row.block)}
           onCommit={(v) => handleSave(row.block, 'yesterday_rest', v)}
         />
       ),
@@ -112,7 +120,7 @@ export default function DailyHarvestBoard() {
         <DailyBoardNumberCell
           value={row.today_plan}
           disabled={!season}
-          saving={savingBlock === row.block}
+          saving={savingBlocks.has(row.block)}
           onCommit={(v) => handleSave(row.block, 'today_plan', v)}
         />
       ),
@@ -133,7 +141,7 @@ export default function DailyHarvestBoard() {
         <DailyBoardTextCell
           value={row.note}
           disabled={!season}
-          saving={savingBlock === row.block}
+          saving={savingBlocks.has(row.block)}
           placeholder={t('harvest_board.note_placeholder')}
           onCommit={(v) => handleSave(row.block, 'note', v)}
         />
@@ -146,7 +154,7 @@ export default function DailyHarvestBoard() {
       responsive: ['lg'],
       render: (_, row) =>
         row.entered_at ? (
-          <Text style={{ fontSize: 12 }}>{dayjs(row.entered_at).format('DD.MM.YYYY')}</Text>
+          <Text style={{ fontSize: 12 }}>{dayjs(row.entered_at).format('DD.MM HH:mm')}</Text>
         ) : (
           <span style={{ color: COLORS.textMuted }}>—</span>
         ),
@@ -164,10 +172,10 @@ export default function DailyHarvestBoard() {
     return (
       <Table.Summary.Row style={{ fontWeight: 600 }}>
         <Table.Summary.Cell index={0}>{t('harvest_board.total_row')}</Table.Summary.Cell>
-        <Table.Summary.Cell index={1}>{fmtKg(totalRest)}</Table.Summary.Cell>
-        <Table.Summary.Cell index={2}>{fmtKg(totalPlan)}</Table.Summary.Cell>
+        <Table.Summary.Cell index={1}>{fmtKgTotal(totalRest)}</Table.Summary.Cell>
+        <Table.Summary.Cell index={2}>{fmtKgTotal(totalPlan)}</Table.Summary.Cell>
         <Table.Summary.Cell index={3}>
-          <strong style={{ color: COLORS.primary }}>{fmtKg(totalAll)}</strong>
+          <strong style={{ color: COLORS.primary }}>{fmtKgTotal(totalAll)}</strong>
         </Table.Summary.Cell>
         <Table.Summary.Cell index={4} />
         <Table.Summary.Cell index={5} />

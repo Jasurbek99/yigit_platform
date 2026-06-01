@@ -79,10 +79,12 @@ def upsert_daily_board(
     yesterday_rest=UNSET,
     note=UNSET,
     user,
-) -> HarvestDayEntry:
+) -> tuple[HarvestDayEntry, GreenhouseBlock]:
     """Create or update one daily-board cell.
 
-    Only the keys passed (not UNSET) are written. Returns the saved entry.
+    Only the keys passed (not UNSET) — and only those whose value actually
+    changed — are written. Returns ``(entry, block)`` so the caller can build a
+    response row without re-querying the block FK.
 
     Raises:
         ValueError: If no active season exists, the block is unknown, or a kg
@@ -106,31 +108,42 @@ def upsert_daily_board(
 
         if today_plan is not UNSET:
             new_plan = parse_kg(today_plan)
-            old = entry.forecast_value
-            entry.forecast_value = new_plan
-            entry.forecast_submitted_at = now
-            entry.forecast_submitted_by = user
-            update_fields += ['forecast_value', 'forecast_submitted_at', 'forecast_submitted_by']
-            changes.append(f'today_plan: {old!r} → {new_plan!r}')
+            if new_plan != entry.forecast_value:
+                old = entry.forecast_value
+                # forecast_value is shared with the Weekly Plan grid — keep its
+                # revision metadata correct: count a revision when an existing
+                # forecast value is changed (mirrors set_forecast_value).
+                if entry.forecast_value is not None and entry.forecast_submitted_at is not None:
+                    entry.forecast_revision_count = (entry.forecast_revision_count or 0) + 1
+                    update_fields.append('forecast_revision_count')
+                entry.forecast_value = new_plan
+                entry.forecast_submitted_at = now
+                entry.forecast_submitted_by = user
+                update_fields += ['forecast_value', 'forecast_submitted_at', 'forecast_submitted_by']
+                changes.append(f'today_plan: {old!r} → {new_plan!r}')
 
         if yesterday_rest is not UNSET:
             new_rest = parse_kg(yesterday_rest)
-            old = entry.yesterday_rest_value
-            entry.yesterday_rest_value = new_rest
-            update_fields.append('yesterday_rest_value')
-            changes.append(f'yesterday_rest: {old!r} → {new_rest!r}')
+            if new_rest != entry.yesterday_rest_value:
+                old = entry.yesterday_rest_value
+                entry.yesterday_rest_value = new_rest
+                update_fields.append('yesterday_rest_value')
+                changes.append(f'yesterday_rest: {old!r} → {new_rest!r}')
 
         if note is not UNSET:
-            entry.daily_note = (note or '').strip()
-            update_fields.append('daily_note')
-            changes.append('note updated')
+            new_note = (note or '').strip()
+            if new_note != entry.daily_note:
+                entry.daily_note = new_note
+                update_fields.append('daily_note')
+                changes.append('note updated')
 
         if not update_fields:
-            return entry
+            # Nothing actually changed — idempotent no-op, no audit stamp.
+            return entry, block
 
         entry.daily_entered_at = now
         entry.daily_entered_by = user
-        update_fields += ['daily_entered_at', 'daily_entered_by', 'updated_at']
+        update_fields += ['daily_entered_at', 'daily_entered_by']
         entry.save(update_fields=update_fields)
 
         create_audit_entry(
@@ -142,4 +155,4 @@ def upsert_daily_board(
         'Daily board entry %d (block=%s date=%s) updated by %s: %s',
         entry.id, block.code, entry_date, user.username, ' | '.join(changes),
     )
-    return entry
+    return entry, block

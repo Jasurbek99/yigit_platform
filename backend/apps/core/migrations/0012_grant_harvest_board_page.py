@@ -26,11 +26,9 @@ def grant_harvest_board(apps, schema_editor):
     if os.environ.get('DJANGO_TESTING') == 'true':
         return
     RolePagePermission = apps.get_model('core', 'RolePagePermission')
-    try:
-        from apps.core.models.user import ROLE_CHOICES
-        all_roles = [r[0] for r in ROLE_CHOICES]
-    except Exception:
-        all_roles = sorted(_VISIBLE_ROLES | {'seller', 'boss'})
+    # Freeze the role set at migration time — never import live models into a
+    # data migration. seller/boss are the only roles left hidden by default.
+    all_roles = sorted(_VISIBLE_ROLES | {'seller', 'boss'})
 
     for role in all_roles:
         RolePagePermission.objects.get_or_create(

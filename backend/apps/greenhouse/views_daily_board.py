@@ -100,7 +100,7 @@ class DailyHarvestBoardViewSet(ViewSet):
         data = request.data
 
         block_id = data.get('block')
-        if not block_id:
+        if block_id is None or block_id == '':
             return Response(
                 {'error': 'block is required.'},
                 status=http_status.HTTP_400_BAD_REQUEST,
@@ -127,7 +127,7 @@ class DailyHarvestBoardViewSet(ViewSet):
             )
 
         try:
-            entry = upsert_daily_board(
+            entry, block = upsert_daily_board(
                 block_id=int(block_id),
                 entry_date=entry_date,
                 user=request.user,
@@ -136,4 +136,4 @@ class DailyHarvestBoardViewSet(ViewSet):
         except ValueError as exc:
             return Response({'error': str(exc)}, status=http_status.HTTP_400_BAD_REQUEST)
 
-        return Response(_build_row(entry.block, entry, entry_date))
+        return Response(_build_row(block, entry, entry_date))
