@@ -12,6 +12,7 @@ from apps.greenhouse.services.harvest_day_service import (
     set_actual_value,
     set_forecast_value,
     set_plan_value,
+    _plan_edit_window_closed,
 )
 from apps.greenhouse.services.actual_rollup import (
     RollupResult,
@@ -31,4 +32,5 @@ __all__ = [
     'rollup_actuals_for_date',
     'yesterday_local',
     'RollupResult',
+    '_plan_edit_window_closed',
 ]

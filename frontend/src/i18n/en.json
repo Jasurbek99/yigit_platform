@@ -189,7 +189,14 @@
     "extension_revoked_toast": "Extension revoked",
     "edit_window_closed_toast": "Plan edit window is closed. Ask an admin for an extension.",
     "modal_title_grant": "Grant late-edit extension",
-    "extensions_active_count": "{{count}} blocks with active late-edit extension"
+    "extensions_active_count": "{{count}} blocks with active late-edit extension",
+    "bulk_grant_button": "Open editing for all blocks",
+    "bulk_modal_title": "Open editing for all blocks",
+    "bulk_grant_toast": "Editing opened for {{count}} blocks",
+    "bulk_revoke_button": "Close editing for all blocks",
+    "bulk_revoke_confirm_title": "Close editing for all blocks?",
+    "bulk_revoke_confirm_content": "Block managers will be blocked from editing this week again.",
+    "bulk_revoke_toast": "Editing closed for {{count}} blocks"
   },
   "quota_dashboard": {
     "title": "Quota Dashboard",

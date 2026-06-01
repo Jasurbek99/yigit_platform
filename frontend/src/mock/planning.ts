@@ -7,24 +7,37 @@ import type {
   IDomesticSale,
 } from '@/types';
 
+// Shared late-edit extension defaults (no active extension)
+const NO_EXTENSION = {
+  late_edit_granted_until: null,
+  late_edit_granted_by: null,
+  late_edit_granted_by_name: null,
+  late_edit_granted_at: null,
+  late_edit_granted_reason: '',
+  late_edit_active: false,
+} as const;
+
 export const MOCK_HARVEST_PLANS: IWeeklyHarvestPlan[] = [
   {
     id: 1, season: 1, season_name: '2025-2026', block: 1, block_code: 'A', block_name: 'A-Ýyladyşhana',
     week_number: 8, year: 2025,
     locked_at: '2025-02-14T12:00:00+05:00',
     entered_by_name: 'toyly_b', updated_at: '2025-02-17T08:00:00+05:00',
+    ...NO_EXTENSION,
   },
   {
     id: 2, season: 1, season_name: '2025-2026', block: 2, block_code: 'B', block_name: 'B-Ýyladyşhana',
     week_number: 8, year: 2025,
     locked_at: null,
     entered_by_name: 'guwanc_k', updated_at: '2025-02-17T08:00:00+05:00',
+    ...NO_EXTENSION,
   },
   {
     id: 3, season: 1, season_name: '2025-2026', block: 3, block_code: 'C', block_name: 'C-Ýyladyşhana',
     week_number: 8, year: 2025,
     locked_at: null,
     entered_by_name: 'geldimyrat_a', updated_at: '2025-02-16T10:00:00+05:00',
+    ...NO_EXTENSION,
   },
 ];
 

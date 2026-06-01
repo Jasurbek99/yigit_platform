@@ -13,6 +13,7 @@ import {
   Collapse,
   Statistic,
   Tooltip,
+  Modal,
 } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { toast } from 'sonner';
@@ -22,6 +23,8 @@ import {
   SwapOutlined,
   ThunderboltOutlined,
   CalendarOutlined,
+  ClockCircleOutlined,
+  UndoOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -34,6 +37,8 @@ import {
   useInitializeWeek,
   useDayEntries,
   useUpsertDayEntry,
+  useBulkGrantLateEdit,
+  useBulkRevokeLateEdit,
 } from '@/hooks/usePlanning';
 import { useGreenhouseConfig } from '@/hooks/useGreenhouseConfig';
 import { useSeasons } from '@/hooks/useAdmin';
@@ -42,6 +47,7 @@ import { useUiStore } from '@/stores/uiStore';
 import { HarvestCell } from '@/components/HarvestCell';
 import { getCurrentForecastWindow, num, fmtKg } from '@/components/HarvestCell.helpers';
 import { CellHistoryModal } from '@/components/CellHistoryModal';
+import { GrantExtensionModal } from '@/components/GrantExtensionModal';
 import type { IWeeklyHarvestPlan, IHarvestDayEntry } from '@/types';
 import { TruckAllocationTable } from './TruckAllocationTable';
 import { COLORS } from '@/constants/styles';
@@ -74,6 +80,7 @@ export default function WeeklyPlanGrid() {
   const activeDays: Day[] = showSunday ? [...DAYS] : DAYS.slice(0, 6);
   const [historyEntry, setHistoryEntry] = useState<IHarvestDayEntry | null>(null);
   const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [extensionModalOpen, setExtensionModalOpen] = useState(false);
 
   const weekNumber = selectedWeek?.isoWeek();
   const year = selectedWeek?.isoWeekYear();
@@ -100,6 +107,8 @@ export default function WeeklyPlanGrid() {
 
   const initWeek = useInitializeWeek();
   const upsertEntry = useUpsertDayEntry();
+  const bulkGrant = useBulkGrantLateEdit();
+  const bulkRevoke = useBulkRevokeLateEdit();
 
   const isLoading = plansLoading || entriesLoading;
 
@@ -172,6 +181,21 @@ export default function WeeklyPlanGrid() {
   const truckCapacity = config ? Number(config.truck_capacity_kg) : 18500;
   const estTrucks = totalPlan > 0 ? (totalPlan / truckCapacity).toFixed(1) : '0';
 
+  /** Plans that currently have an active late-edit extension */
+  const activeExtensionPlans = useMemo(
+    () => plans.filter((p) => p.late_edit_active),
+    [plans],
+  );
+
+  /** IDs of all currently-displayed plans (for bulk grant) */
+  const allPlanIds = useMemo(() => plans.map((p) => p.id), [plans]);
+
+  /** IDs of plans with an active extension (for bulk revoke) */
+  const activeExtensionIds = useMemo(
+    () => activeExtensionPlans.map((p) => p.id),
+    [activeExtensionPlans],
+  );
+
   // ─── Permission helpers ────────────────────────────────────────────────────
 
   function hasBlockPermission(blockId: number): boolean {
@@ -214,8 +238,14 @@ export default function WeeklyPlanGrid() {
           toast.success(t('plan.toast_actual_saved'));
           setSavingKey(null);
         },
-        onError: () => {
-          toast.error(t('plan.toast_save_error'));
+        onError: (err: unknown) => {
+          const apiErr = err as { response?: { data?: { error?: string } } };
+          const serverMsg = apiErr?.response?.data?.error ?? '';
+          if (serverMsg.includes('Plan edits')) {
+            toast.error(t('plan.edit_window_closed_toast'));
+          } else {
+            toast.error(t('plan.toast_save_error'));
+          }
           setSavingKey(null);
         },
       },
@@ -228,6 +258,45 @@ export default function WeeklyPlanGrid() {
       { season: activeSeason.id, week_number: weekNumber, year },
       { onSuccess: () => toast.success(t('plan.toast_initialized')) },
     );
+  }
+
+  function handleBulkGrant(granted_until: string) {
+    bulkGrant.mutate(
+      { plan_ids: allPlanIds, granted_until },
+      {
+        onSuccess: (data) => {
+          toast.success(t('plan.bulk_grant_toast', { count: data.updated }));
+          setExtensionModalOpen(false);
+        },
+        onError: (err: unknown) => {
+          const apiErr = err as { response?: { data?: { error?: string; granted_until?: string[] } } };
+          const msg =
+            apiErr?.response?.data?.granted_until?.[0] ??
+            apiErr?.response?.data?.error ??
+            t('common.error');
+          toast.error(msg);
+        },
+      },
+    );
+  }
+
+  function handleBulkRevoke() {
+    Modal.confirm({
+      title: t('plan.bulk_revoke_confirm_title'),
+      content: t('plan.bulk_revoke_confirm_content'),
+      okType: 'danger',
+      okText: t('plan.bulk_revoke_button'),
+      cancelText: t('common.cancel'),
+      onOk() {
+        bulkRevoke.mutate(
+          { plan_ids: activeExtensionIds },
+          {
+            onSuccess: (data) => toast.success(t('plan.bulk_revoke_toast', { count: data.updated })),
+            onError: () => toast.error(t('common.error')),
+          },
+        );
+      },
+    });
   }
 
   // ─── Column definitions (normal view: blocks as rows) ─────────────────────
@@ -272,12 +341,17 @@ export default function WeeklyPlanGrid() {
       title: t('plan.block'),
       key: 'block',
       fixed: 'left',
-      width: 130,
+      width: 160,
       render: (_: unknown, row: IWeeklyHarvestPlan) => (
         <div>
           <Tag color={isBlockManager && myBlockIds.has(row.block) ? 'gold' : 'blue'}>
             {row.block_code}
           </Tag>
+          {row.late_edit_active && (
+            <Tag color="orange" style={{ marginLeft: 2, fontSize: 10 }}>
+              <ClockCircleOutlined />
+            </Tag>
+          )}
           <div style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 2 }}>{row.block_name}</div>
         </div>
       ),
@@ -478,6 +552,26 @@ export default function WeeklyPlanGrid() {
               {showSunday ? t('plan.hide_sunday') : t('plan.show_sunday')}
             </Button>
           )}
+          {isAdminRole && plans.length > 0 && (
+            <Button
+              icon={<ClockCircleOutlined />}
+              size="small"
+              onClick={() => setExtensionModalOpen(true)}
+            >
+              {t('plan.bulk_grant_button')}
+            </Button>
+          )}
+          {isAdminRole && activeExtensionIds.length > 0 && (
+            <Button
+              danger
+              size="small"
+              icon={<UndoOutlined />}
+              loading={bulkRevoke.isPending}
+              onClick={handleBulkRevoke}
+            >
+              {t('plan.bulk_revoke_button')}
+            </Button>
+          )}
           {showInitialize && (
             <Button type="primary" loading={initWeek.isPending} onClick={handleInitializeWeek}>
               {t('plan.initialize_week')}
@@ -539,6 +633,57 @@ export default function WeeklyPlanGrid() {
             </Card>
           )}
         </Flex>
+      )}
+
+      {/* Late-edit extension banners (visible to all roles) */}
+      {activeExtensionPlans.length > 0 && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message={
+            activeExtensionPlans.length <= 2 ? (
+              <Flex vertical gap={4}>
+                {activeExtensionPlans.map((p) => (
+                  <div key={p.id}>
+                    <strong>{p.block_code}</strong>{' '}
+                    {t('plan.extension_active', {
+                      until: dayjs(p.late_edit_granted_until!).format('DD.MM.YYYY HH:mm'),
+                      by: p.late_edit_granted_by_name ?? '—',
+                    })}
+                    {p.late_edit_granted_reason && (
+                      <div style={{ color: COLORS.textSecondary, fontSize: 12 }}>
+                        {t('plan.extension_reason', { reason: p.late_edit_granted_reason })}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </Flex>
+            ) : (
+              <details>
+                <summary>
+                  {t('plan.extensions_active_count', { count: activeExtensionPlans.length })}
+                </summary>
+                <Flex vertical gap={4} style={{ marginTop: 4 }}>
+                  {activeExtensionPlans.map((p) => (
+                    <div key={p.id}>
+                      <strong>{p.block_code}</strong>{' '}
+                      {t('plan.extension_active', {
+                        until: dayjs(p.late_edit_granted_until!).format('DD.MM.YYYY HH:mm'),
+                        by: p.late_edit_granted_by_name ?? '—',
+                      })}
+                      {p.late_edit_granted_reason && (
+                        <div style={{ color: COLORS.textSecondary, fontSize: 12 }}>
+                          {t('plan.extension_reason', { reason: p.late_edit_granted_reason })}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </Flex>
+              </details>
+            )
+          }
+        />
       )}
 
       {isError && (
@@ -614,6 +759,14 @@ export default function WeeklyPlanGrid() {
       <CellHistoryModal
         entry={historyEntry}
         onClose={() => setHistoryEntry(null)}
+      />
+
+      {/* Late-edit extension modal (admin only) */}
+      <GrantExtensionModal
+        open={extensionModalOpen}
+        isSubmitting={bulkGrant.isPending}
+        onConfirm={handleBulkGrant}
+        onClose={() => setExtensionModalOpen(false)}
       />
     </div>
   );

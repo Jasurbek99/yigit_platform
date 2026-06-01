@@ -90,8 +90,20 @@ The state is implicit, derived from which of `plan_submitted_at` / `forecast_sub
 | `locked_at` | DateTime nullable | When set, all edits frozen; admin re-opens by clearing to NULL |
 | `entered_by` | FK User | Who created the row |
 | `created_at`, `updated_at` | DateTime | Standard |
+| `late_edit_granted_until` | DateTimeField nullable | If set and in the future, re-opens the plan edit window for this block/week past the Sunday-EOD cutoff |
+| `late_edit_granted_by` | FK User nullable (`SET_NULL`) | Admin who granted the extension |
+| `late_edit_granted_at` | DateTimeField nullable | When the extension was granted |
+| `late_edit_granted_reason` | CharField(500) blank | Why the extension was granted (Cyrillic-collated, required when granting) |
 
 The wide columns (`monday_plan_kg`…`saturday_actual_kg`, `actual_weekly_total_kg`) and approval workflow (`status`, `approved_at`, `approved_by`, `rejected_at`, `rejected_by`, `rejection_note`) were dropped in `greenhouse.0004_harvestdayentry_harvestdispatchlog_and_more`. See [[../../ADR|ADR-017]]. The container-level `submitted_at` / `submitted_by` columns were dropped in `greenhouse.0004_drop_weeklyharvestplan_submitted_fields` (May 2026) — every cell save already stamps its own per-day `plan_submitted_at`, so the week-level "submit" button became redundant. P1/P2/P3 dispatcher triggers now check "any HarvestDayEntry for this week+block has a plan_value" instead of `WeeklyHarvestPlan.submitted_at IS NOT NULL`.
+
+The 4 late-edit extension fields were added in migration `greenhouse.0005_weeklyharvestplan_late_edit_extension` (June 2026).
+
+#### Plan edit cutoff rule
+
+`greenhouse_manager` plan edits are allowed through the **Sunday before the plan week at 23:59:59 local time** (configured timezone from `GreenhouseConfig.timezone_name`). After that cutoff, `set_plan_value()` raises `PermissionError` with a human-readable message. The cutoff boundary is computed by `_plan_edit_window_closed(weekly_plan, now_utc=None) -> bool` in `services/harvest_day_service.py`.
+
+A `late_edit_granted_until` that is in the future bypasses the gate — the window re-opens until that datetime. Granting/revoking is admin-only via dedicated endpoints (see below). The `admin` role itself is never blocked (it takes the admin-override branch in `set_plan_value` before the time gate).
 
 ### `GreenhouseConfig` (singleton)
 
@@ -132,6 +144,7 @@ The wide columns (`monday_plan_kg`…`saturday_actual_kg`, `actual_weekly_total_
 | `admin_override(entry, field, value, reason, user)` | Wraps the appropriate setter; required `reason` non-empty. |
 | `compute_plan_state(submitted_at_local, plan_week_start, config)` | Returns `'on_time'` / `'late'` / `'critical_late'`. Pure function. |
 | `compute_forecast_window(submitted_at_local, entry_date, config)` | Returns `'primary'` / `'fallback'` / `'same_day_red_flag'` / `None` (locked). Pure function. |
+| `_plan_edit_window_closed(weekly_plan, now_utc=None) -> bool` | Returns `True` if the Sunday-EOD cutoff has passed for this week's plan AND no active late-edit extension exists. Used as a guard inside `set_plan_value()`. Leading underscore: internal to the service package, exported from `services/__init__.py` for tests only. |
 
 ### ViewSets & Endpoints
 
@@ -144,6 +157,8 @@ The wide columns (`monday_plan_kg`…`saturday_actual_kg`, `actual_weekly_total_
 | PATCH | `/api/v1/greenhouse/harvest-plans/{id}/` | Update container fields (locked_at) | IsAuthenticated + block auth |
 | POST | `/api/v1/greenhouse/harvest-plans/initialize-week/` | Create container rows for all active top-level blocks | greenhouse_manager / admin |
 | GET | `/api/v1/greenhouse/harvest-plans/block-summary/` | Block summary stats | `?year=&week=` |
+| POST | `/api/v1/greenhouse/harvest-plans/{id}/grant-late-edit/` | Grant a late-edit extension. Body: `{ "granted_until": "<ISO 8601 datetime>", "reason": "..." }`. Must be in the future; reason is required. Sets `late_edit_granted_until`, `late_edit_granted_by`, `late_edit_granted_at`, `late_edit_granted_reason`. Returns the updated plan serializer payload including `late_edit_active: true`. | admin only |
+| POST | `/api/v1/greenhouse/harvest-plans/{id}/revoke-late-edit/` | Revoke a previously granted extension. Clears all 4 late-edit fields to NULL / empty string. Returns the updated plan serializer payload including `late_edit_active: false`. | admin only |
 | GET | `/api/v1/greenhouse/day-entries/` | List daily entries | filter `?season=&block=&from_date=&to_date=` |
 | GET | `/api/v1/greenhouse/day-entries/{id}/` | Day entry detail | IsAuthenticated |
 | PATCH | `/api/v1/greenhouse/day-entries/{id}/` | Update plan_value / forecast_value / actual_value (with optional `reason` for admin) | Service-layer permission gate |
@@ -268,13 +283,13 @@ When `currentUser.role === 'admin'` edits any cell, `<AdminOverrideReasonModal>`
 | `IOperatingDayException` | same | Holiday calendar entry |
 | `IDayEntryHistoryItem` | same | AuditLog row for cell-history modal |
 | `ForecastWindow`, `PlanState`, `ActualSource` | same | Discriminated string-union types |
-| `IWeeklyHarvestPlan` | same | Stripped down to id, season, block, week_number, year, submitted_at, submitted_by_name, locked_at, entered_by_name, updated_at |
+| `IWeeklyHarvestPlan` | same | id, season, block, week_number, year, locked_at, entered_by_name, updated_at, late_edit_granted_until, late_edit_granted_by, late_edit_granted_by_name, late_edit_granted_at, late_edit_granted_reason, late_edit_active |
 
 ## Roles & Permissions
 
 | Role | View | Plan | Forecast | Actual | Admin override |
 |------|------|------|----------|--------|----------------|
-| `greenhouse_manager` | Own blocks (highlighted) | Own blocks (until Monday hard cutoff) | Own blocks during primary window only | No | No |
+| `greenhouse_manager` | Own blocks (highlighted) | Own blocks through Sunday 23:59:59 before plan week (extendable by admin via `grant-late-edit`) | Own blocks during primary window only | No | No |
 | `loading_dept_head` (Soltanmyrat) | All blocks | No | Any block, 00:00 day-before through 12:00 day-of (`LOADING_HEAD_FORECAST_DAY_OF_CLOSE`) | No (computed daily from shipments) | No |
 | `admin` | All blocks | Anytime, any block, with required reason | Anytime, any block, with required reason | Anytime, any block, with required reason | Yes (all paths) |
 | `export_manager` (Gadam) | All blocks | View only | View only | View only | No |

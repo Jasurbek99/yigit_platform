@@ -189,7 +189,14 @@
     "extension_revoked_toast": "Uzaldyş ýatyryldy",
     "edit_window_closed_toast": "Meýilnama redaktirlemek möhleti ýapyldy. Uzaldyş üçin admine ýüz tutuň.",
     "modal_title_grant": "Giç düzediş uzaldyşy ber",
-    "extensions_active_count": "Işjeň giç düzediş uzaldyşy: {{count}} blok"
+    "extensions_active_count": "Işjeň giç düzediş uzaldyşy: {{count}} blok",
+    "bulk_grant_button": "Ähli bloklar üçin redaktirlemäni aç",
+    "bulk_modal_title": "Ähli bloklar üçin redaktirlemäni aç",
+    "bulk_grant_toast": "{{count}} blok üçin redaktirlemä açyldy",
+    "bulk_revoke_button": "Ähli bloklar üçin redaktirlemäni ýap",
+    "bulk_revoke_confirm_title": "Ähli bloklar üçin redaktirlemäni ýapmaly?",
+    "bulk_revoke_confirm_content": "Blok menejerleri bu hepde üçin redaktirlemäni gaýtadan edip bilmez.",
+    "bulk_revoke_toast": "{{count}} blok üçin redaktirlemä ýapyldy"
   },
   "quota_dashboard": {
     "title": "Kwota paneli",

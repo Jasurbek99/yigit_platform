@@ -1,13 +1,36 @@
+from django.utils import timezone
 from rest_framework import serializers
 
 from apps.greenhouse.models import BlockManagerAssignment, DomesticSale, HarvestDayEntry, WeeklyHarvestPlan
 
 
 class WeeklyHarvestPlanSerializer(serializers.ModelSerializer):
+    # === Computed display fields ===
     block_code = serializers.CharField(source='block.code', read_only=True)
     block_name = serializers.CharField(source='block.name', read_only=True)
     season_name = serializers.CharField(source='season.name', read_only=True)
     entered_by_name = serializers.CharField(source='entered_by.username', read_only=True)
+
+    # === Late-edit extension (read-only) ===
+    late_edit_granted_by_name = serializers.SerializerMethodField()
+    late_edit_active = serializers.SerializerMethodField()
+
+    def get_late_edit_granted_by_name(self, obj: WeeklyHarvestPlan) -> str | None:
+        """Return the display name of the admin who granted the late-edit extension."""
+        if obj.late_edit_granted_by_id is None:
+            return None
+        user = obj.late_edit_granted_by
+        if user is None:
+            return None
+        full_name = f'{user.first_name} {user.last_name}'.strip()
+        return full_name or user.username
+
+    def get_late_edit_active(self, obj: WeeklyHarvestPlan) -> bool:
+        """Return True if a late-edit extension is currently active (not yet expired)."""
+        granted_until = obj.late_edit_granted_until
+        if not granted_until:
+            return False
+        return granted_until > timezone.now()
 
     class Meta:
         model = WeeklyHarvestPlan
@@ -15,12 +38,19 @@ class WeeklyHarvestPlanSerializer(serializers.ModelSerializer):
             'id', 'season', 'season_name', 'block', 'block_code', 'block_name',
             'week_number', 'year',
             'locked_at',
+            # Late-edit extension fields
+            'late_edit_granted_until', 'late_edit_granted_by', 'late_edit_granted_by_name',
+            'late_edit_granted_at', 'late_edit_granted_reason',
+            'late_edit_active',
             'entered_by_name', 'created_at', 'updated_at',
         ]
         read_only_fields = [
             'block_code', 'block_name', 'season_name',
             'entered_by_name',
             'locked_at', 'created_at', 'updated_at',
+            'late_edit_granted_until', 'late_edit_granted_by', 'late_edit_granted_by_name',
+            'late_edit_granted_at', 'late_edit_granted_reason',
+            'late_edit_active',
         ]
 
 

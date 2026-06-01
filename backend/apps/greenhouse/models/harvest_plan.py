@@ -1,5 +1,5 @@
 from django.db import models
-from apps.core.db_utils import schema_table
+from apps.core.db_utils import cyrillic_collation, schema_table
 
 
 class WeeklyHarvestPlan(models.Model):
@@ -22,6 +22,30 @@ class WeeklyHarvestPlan(models.Model):
     locked_at = models.DateTimeField(
         null=True, blank=True,
         help_text='When set, all edits are frozen. Admin can re-open by clearing to NULL.',
+    )
+
+    # === Late-edit extension (granted by admin after Sunday-EOD cutoff) ===
+    late_edit_granted_until = models.DateTimeField(
+        null=True, blank=True,
+        help_text='If set and in the future, greenhouse_manager may still edit plan values.',
+    )
+    late_edit_granted_by = models.ForeignKey(
+        'core.User',
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='+',
+        help_text='Admin user who granted the late-edit extension.',
+    )
+    late_edit_granted_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text='Timestamp when the extension was granted.',
+    )
+    late_edit_granted_reason = models.CharField(
+        max_length=500,
+        blank=True,
+        default='',
+        **cyrillic_collation(),
+        help_text='Reason for granting late-edit access (Cyrillic/Latin mixed).',
     )
 
     # === Audit ===

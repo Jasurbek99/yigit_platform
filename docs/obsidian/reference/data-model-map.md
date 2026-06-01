@@ -122,7 +122,7 @@ erDiagram
 
 | Model | Key Fields | Purpose |
 |-------|-----------|---------|
-| **WeeklyHarvestPlan** | season, block, week_number, year, 6 plan_kg, 6 actual_kg, status, approval fields | Weekly harvest per block |
+| **WeeklyHarvestPlan** | season, block, week_number, year, locked_at, entered_by; late-edit extension: late_edit_granted_until, late_edit_granted_by, late_edit_granted_at, late_edit_granted_reason | Weekly container (per-day cells in HarvestDayEntry); plan edits gated by Sunday-EOD cutoff with admin-extendable bypass |
 | **BlockManagerAssignment** | user (FK), block (FK), is_active | Who manages which block |
 | **DomesticSale** | date, buyer (FK), block (FK), export_firm (FK nullable), weight_kg, variety, price_per_kg | Local sale record |
 

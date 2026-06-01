@@ -9,7 +9,7 @@ Time-window notes:
 - Never compare aware and naive datetimes — that raises TypeError at runtime.
 """
 import logging
-from datetime import datetime, time as dtime, timedelta
+from datetime import datetime, time as dtime, timedelta, timezone as dt_timezone
 
 from django.utils import timezone
 
@@ -50,6 +50,61 @@ def plan_week_start(entry_date) -> datetime.date:
     """Return the Monday of the ISO week containing entry_date."""
     # weekday() returns 0 for Monday, 6 for Sunday
     return entry_date - timedelta(days=entry_date.weekday())
+
+
+def _plan_edit_window_closed(weekly_plan, now_utc=None) -> bool:
+    """Return True if the edit window for the given plan week has closed.
+
+    The cutoff is end-of-Sunday (23:59:59 local, Asia/Ashgabat) immediately
+    before the plan week's Monday.  For example:
+      - Plan week starting Mon 2026-06-08 → cutoff = Sun 2026-06-07 23:59:59 local.
+
+    A late-edit extension on the plan row opens the window back up if
+    ``weekly_plan.late_edit_granted_until > now_utc`` (aware comparison).
+
+    Args:
+        weekly_plan: WeeklyHarvestPlan instance with year/week_number fields.
+        now_utc: Aware UTC datetime to compare against (defaults to timezone.now()).
+
+    Returns:
+        True  → window is closed (edit should be blocked for greenhouse_manager).
+        False → window is open (edit is allowed).
+    """
+    try:
+        from zoneinfo import ZoneInfo
+    except ImportError:
+        from backports.zoneinfo import ZoneInfo
+
+    from apps.core.models import GreenhouseConfig
+
+    if now_utc is None:
+        now_utc = timezone.now()
+
+    config = GreenhouseConfig.get_solo()
+    tz = ZoneInfo(config.timezone_name)
+
+    # Build the Monday of the plan week from its ISO year + week_number.
+    # ISO week date: iso_year-W{week}-1 gives the Monday.
+    from datetime import date as date_type
+    monday = date_type.fromisocalendar(weekly_plan.year, weekly_plan.week_number, 1)
+
+    # Sunday before the plan week is monday - 1 day; cutoff is its EOD (aware).
+    sunday_before = monday - timedelta(days=1)
+    cutoff_local = datetime.combine(sunday_before, dtime(23, 59, 59))
+    cutoff_aware = cutoff_local.replace(tzinfo=tz)
+    # Convert to UTC for comparison with now_utc (both aware)
+    cutoff_utc = cutoff_aware.astimezone(dt_timezone.utc)
+
+    if now_utc <= cutoff_utc:
+        # Still within the allowed window
+        return False
+
+    # Past the cutoff — check for an active late-edit extension
+    granted_until = weekly_plan.late_edit_granted_until
+    if granted_until and granted_until > now_utc:
+        return False
+
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -179,6 +234,26 @@ def set_plan_value(entry, value, user, reason: str = '') -> None:
         ).exists():
             raise PermissionError(
                 f"greenhouse_manager '{user.username}' is not assigned to block {entry.block_id}."
+            )
+        # Sunday-EOD edit-window gate: block edits after the cutoff unless an
+        # admin has granted a late-edit extension.
+        weekly_plan = entry.weekly_plan
+        if _plan_edit_window_closed(weekly_plan, now_utc=now_utc):
+            try:
+                from zoneinfo import ZoneInfo
+            except ImportError:
+                from backports.zoneinfo import ZoneInfo
+            config_tz = ZoneInfo(config.timezone_name)
+            from datetime import date as _date
+            monday = _date.fromisocalendar(weekly_plan.year, weekly_plan.week_number, 1)
+            sunday_before = monday - timedelta(days=1)
+            cutoff_local_str = datetime.combine(sunday_before, dtime(23, 59, 59)).strftime(
+                '%Y-%m-%d %H:%M:%S'
+            )
+            raise PermissionError(
+                f"Plan edits for week {weekly_plan.week_number}/{weekly_plan.year} closed at "
+                f"{cutoff_local_str} {config.timezone_name}. "
+                f"Ask an admin to grant a late-edit extension."
             )
     else:
         raise PermissionError(

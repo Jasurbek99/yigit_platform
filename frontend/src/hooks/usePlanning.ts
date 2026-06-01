@@ -383,6 +383,82 @@ export function useDayEntryHistory(entryId: number | null) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Late-edit extension (admin only)
+// ---------------------------------------------------------------------------
+
+export function useGrantLateEdit() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      id: number;
+      granted_until: string;
+      reason: string;
+    }): Promise<IWeeklyHarvestPlan> => {
+      const { data } = await api.post<IWeeklyHarvestPlan>(
+        `/greenhouse/harvest-plans/${payload.id}/grant-late-edit/`,
+        { granted_until: payload.granted_until, reason: payload.reason },
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['harvest-plans'] });
+    },
+  });
+}
+
+export function useRevokeLateEdit() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number): Promise<IWeeklyHarvestPlan> => {
+      const { data } = await api.post<IWeeklyHarvestPlan>(
+        `/greenhouse/harvest-plans/${id}/revoke-late-edit/`,
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['harvest-plans'] });
+    },
+  });
+}
+
+export function useBulkGrantLateEdit() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      plan_ids: number[];
+      granted_until: string;
+    }): Promise<{ updated: number; results: IWeeklyHarvestPlan[] }> => {
+      const { data } = await api.post<{ updated: number; results: IWeeklyHarvestPlan[] }>(
+        '/greenhouse/harvest-plans/bulk-grant-late-edit/',
+        payload,
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['harvest-plans'] });
+    },
+  });
+}
+
+export function useBulkRevokeLateEdit() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      plan_ids: number[];
+    }): Promise<{ updated: number; results: IWeeklyHarvestPlan[] }> => {
+      const { data } = await api.post<{ updated: number; results: IWeeklyHarvestPlan[] }>(
+        '/greenhouse/harvest-plans/bulk-revoke-late-edit/',
+        payload,
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['harvest-plans'] });
+    },
+  });
+}
+
 export function useDomesticSales(
   filters: { block?: number; buyer?: number; page?: number } = {},
 ) {
