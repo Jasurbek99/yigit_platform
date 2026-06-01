@@ -116,7 +116,7 @@ A **second way to create shipments**, working directly in the [[../screens/shipm
 ```mermaid
 flowchart LR
     subgraph Supply["Supply column · Soltanmyrat (loading_dept_head)"]
-        SC1["New supply shipment\n(SupplyDraftModal)"] --> SC2["DRAFT\nblocks + variety, no destination"]
+        SC1["Ýük goş\n(one-click, empty)"] --> SC2["DRAFT\nempty — values typed into Sheet cells, no destination"]
     end
     subgraph Dest["Destination column · Gadam (export_manager)"]
         DC1["New destination shipment\n(DestinationDraftModal)"] --> DC2["DRAFT\ncountry + import_firm + customer\n(+ optional firm_splits), no blocks"]
@@ -126,7 +126,9 @@ flowchart LR
     J --> R["Target DRAFT\n(now has blocks + destination)\n→ assign as usual"]
 ```
 
-**Step 1 — Supply column** (Soltanmyrat, role `loading_dept_head`): "New supply shipment" toolbar button → `SupplyDraftModal`. Block-adding mirrors the [composer](#Forecast-first%20draft%20creation) — blocks are picked from the **forecast/harvest pool** (`useHarvestForecastRemaining`) and each kg field **defaults to the block's whole remaining harvest but is editable** (the user can take less than the whole block, or trim a >18,500 amount); an "X kg available" hint shows each block's remaining; **uncapped** — a supply column may span more than one truck, unlike the composer's one-truck greedy cap. Requires a forecast entered for the date (else "no pool"). Plus **one OR MORE sorts** (varieties — a shipment can carry multiple tomato sorts; stored in the existing `Shipment.varieties_dominant` M2M, 1–4 entries, `variety_confidence='low'` = manually estimated), **no destination**. Saved as a `draft` with `skip_forecast_check=true`, which exempts it from the 18,500 kg one-truck cap (so the whole-blocks total can exceed one truck). Those blocks still count toward the forecast remaining-pool's `allocated_kg`, so the forecast-first math is unaffected. `loading_dept_head` was newly granted draft-create permission (previously only `warehouse_chief` + export_manager/director).
+**Step 1 — Supply column** (Soltanmyrat, role `loading_dept_head`): **"Ýük goş"** toolbar button → **one-click** creation of an **empty** draft column. No modal: a single click `POST`s `{is_draft: true}` (hook `useCreateEmptyColumn`); the backend auto-generates `cargo_code` and defaults `date` to today, with **no blocks, no variety, no destination**. Soltanmyrat then types the column's values (blocks, weights, official export code, …) **directly into the Sheet cells**, and the column is later merged with Gadam's destination column via Join. The column renders **green** because `created_by_role ∈ {loading_dept_head, warehouse_chief}` (see Sheet tint below). Visible to the same roles as before (`loading_dept_head`, `warehouse_chief`, `export_manager`, `director`, superuser).
+
+> Replaces the earlier `SupplyDraftModal` (forecast-pool block picker). The modal and its forecast-pool workflow were removed in favour of the simpler empty-column + Sheet-cell entry flow. Note: the Join endpoint still requires the source column to have ≥1 block, so blocks must be entered in the Sheet before joining.
 
 **Step 2 — Destination column** (Gadam, role `export_manager`): "New destination shipment" toolbar button → `DestinationDraftModal`. Picks country + import_firm + customer (+ optional firm_splits), **no blocks**. Also saved as a `draft`.
 

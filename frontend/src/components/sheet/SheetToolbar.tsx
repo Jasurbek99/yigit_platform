@@ -14,12 +14,13 @@ import {
   ColumnWidthOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { useSheetStore, SHEET_ZOOM_MIN, SHEET_ZOOM_MAX } from '@/stores/sheetStore';
 import { useAuth } from '@/hooks/useAuth';
+import { useCreateEmptyColumn } from '@/hooks/useDrafts';
 import { canDo } from '@/utils/permissions';
 import type { IRowConfig, ISheetTaskCounts, IShipmentSheetItem } from '@/types';
 import { COLORS } from '@/constants/styles';
-import { SupplyDraftModal } from './SupplyDraftModal';
 import { DestinationDraftModal } from './DestinationDraftModal';
 import { JoinActionBar } from './JoinActionBar';
 
@@ -91,8 +92,9 @@ export function SheetToolbar({
 
   const [unhideModalOpen, setUnhideModalOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [supplyModalOpen, setSupplyModalOpen] = useState(false);
   const [destModalOpen, setDestModalOpen] = useState(false);
+
+  const createEmptyColumn = useCreateEmptyColumn();
 
   const canCreate = canDo(user, 'shipment', 'create');
 
@@ -205,6 +207,25 @@ export function SheetToolbar({
   // Default = freeze the full row-label band (Row #, Who, Field name).
   const isDefaultFreeze = frozenRowCount === 13 && frozenColCount === TOTAL_LABEL_COLS;
 
+  // ─── "Ýük goş": one-click create of an empty supply column ───────────────
+  // Soltanmyrat creates a blank draft column here, fills its values in the
+  // sheet cells, and joins it with Gadam's destination column afterward.
+  function handleAddCargo() {
+    createEmptyColumn.mutate(undefined, {
+      onSuccess: (draft) => {
+        toast.success(t('sheet.add_cargo.toast_saved', { code: draft.cargo_code }));
+      },
+      onError: (err) => {
+        const data = (err as { response?: { data?: Record<string, unknown> } }).response?.data;
+        if (data && typeof data === 'object' && typeof data.error === 'string' && data.error) {
+          toast.error(data.error);
+          return;
+        }
+        toast.error(t('sheet.add_cargo.toast_error'));
+      },
+    });
+  }
+
   return (
     <>
       <div className="sheet-toolbar">
@@ -220,13 +241,14 @@ export function SheetToolbar({
             </Button>
           )}
           {canCreateSupply && (
-            <Tooltip title={t('sheet.new_supply.tooltip')}>
+            <Tooltip title={t('sheet.add_cargo.tooltip')}>
               <Button
                 size="small"
                 icon={<InboxOutlined />}
-                onClick={() => setSupplyModalOpen(true)}
+                loading={createEmptyColumn.isPending}
+                onClick={handleAddCargo}
               >
-                {t('sheet.new_supply.btn')}
+                {t('sheet.add_cargo.btn')}
               </Button>
             </Tooltip>
           )}
@@ -496,12 +518,6 @@ export function SheetToolbar({
           </div>
         </Space>
       </Modal>
-
-      {/* Join flow: supply draft modal */}
-      <SupplyDraftModal
-        open={supplyModalOpen}
-        onClose={() => setSupplyModalOpen(false)}
-      />
 
       {/* Join flow: destination draft modal */}
       <DestinationDraftModal

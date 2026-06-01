@@ -1332,7 +1332,7 @@
       "export_manager_note": "Gadam J belligi",
       "documents": "Resminamalar (13:00)",
       "export_code": "Eksport kody",
-      "shipment_code": "Ýük Kody",
+      "shipment_code": "Export kody",
       "harvest_block": "Ýygylan bölümi",
       "export_firm": "Eksport eden Firma",
       "country": "Eksport ýurdy",
@@ -1423,6 +1423,12 @@
     "new_supply": {
       "btn": "Üpjünçilik sütüni",
       "tooltip": "Täze üpjünçilik garalamasy dör (bloklar + önüm, barmaly ýer ýok)"
+    },
+    "add_cargo": {
+      "btn": "Ýük goş",
+      "tooltip": "Boş täze ýük sütünini dör — soňra Gadamyň sütüni bilen birleşdiriler",
+      "toast_saved": "Boş ýük sütüni döredildi: {{code}}",
+      "toast_error": "Ýük sütünini döretmek başartmady"
     },
     "new_destination": {
       "btn": "Barmaly ýer sütüni",
