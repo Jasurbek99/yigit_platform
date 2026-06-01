@@ -79,6 +79,8 @@ export const MOCK_SHIPMENT_DETAIL: IShipmentDetail = {
   ],
   created_at: '2025-02-01T06:00:00+05:00',
   updated_at: '2025-02-01T14:30:00+05:00',
+  deleted_at: null,
+  deleted_by_name: null,
   firm_splits: [
     { export_firm_id: 1, export_firm_name: 'YGT H.J.', weight_kg: 10000, amount_usd: 8500, invoice_number: 'INV-001' },
     { export_firm_id: 2, export_firm_name: 'Gök Mäkan', weight_kg: 8500, amount_usd: 7225, invoice_number: 'INV-002' },

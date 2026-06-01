@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Button, Checkbox, Flex, Input, Modal, Select, Segmented, Tag, Tooltip, Typography } from 'antd';
-import { PlusOutlined, DownloadOutlined, EditOutlined, FilterOutlined, DeleteOutlined, ExclamationCircleFilled } from '@ant-design/icons';
+import { Button, Checkbox, Flex, Input, Modal, Select, Segmented, Space, Tag, Tooltip, Typography } from 'antd';
+import { PlusOutlined, DownloadOutlined, EditOutlined, FilterOutlined, DeleteOutlined, ExclamationCircleFilled, UndoOutlined } from '@ant-design/icons';
 import { ProTable } from '@ant-design/pro-components';
 import type { ProColumns, ColumnsState } from '@ant-design/pro-components';
 import { useTranslation } from 'react-i18next';
@@ -14,7 +14,7 @@ import { ShipmentCreateModal } from '@/components/ShipmentCreateModal';
 import { ShipmentEditDrawerForId } from '@/components/ShipmentEditDrawerForId';
 import { ShipmentBulkTransitionModal } from '@/components/ShipmentBulkTransitionModal';
 import { ShipmentFilterDrawer } from '@/components/ShipmentFilterDrawer';
-import { useShipments } from '@/hooks/useShipments';
+import { useShipments, useSoftDeleteShipment, useRestoreShipment } from '@/hooks/useShipments';
 import { useAuth } from '@/hooks/useAuth';
 import { canDo, canEditField } from '@/utils/permissions';
 import { COLORS, FONT } from '@/constants/styles';
@@ -186,6 +186,9 @@ export default function ShipmentList() {
   const pendingMyFields = searchParams.get('pending_my_fields') === 'true';
   // Show cancelled filter — false by default so the active list stays clean.
   const showCancelled = searchParams.get('show_cancelled') === 'true';
+  // Admin-only soft-delete view (Gmail trash). When true, the list shows ONLY
+  // soft-deleted shipments so admins can find and restore them.
+  const showDeleted = searchParams.get('show_deleted') === 'true';
 
   function updateParams(updates: Record<string, string | undefined>) {
     setSearchParams((prev) => {
@@ -226,6 +229,7 @@ export default function ShipmentList() {
     date_before: dateBefore,
     pending_my_fields: pendingMyFields || undefined,
     show_cancelled: showCancelled || undefined,
+    show_deleted: showDeleted || undefined,
   });
 
   const advancedFilterCount = [
@@ -236,6 +240,7 @@ export default function ShipmentList() {
     dateBefore,
     pendingMyFields ? 'on' : undefined,
     showCancelled ? 'on' : undefined,
+    showDeleted ? 'on' : undefined,
   ].filter(Boolean).length;
 
   function applyAdvancedFilters(values: {
@@ -267,6 +272,7 @@ export default function ShipmentList() {
       date_before: undefined,
       pending_my_fields: undefined,
       show_cancelled: undefined,
+      show_deleted: undefined,
       page: undefined,
     });
   }
@@ -312,6 +318,51 @@ export default function ShipmentList() {
           toast.error(t('shipment_bulk.delete_error'));
         } finally {
           setBulkDeleting(false);
+        }
+      },
+    });
+  }
+
+  // Per-row soft-delete / restore (admin-only "trash" flag, distinct from
+  // cancel + hard-delete). Lighter confirmation than hard-delete because the
+  // action is reversible via the Show Deleted view.
+  const softDeleteMutation = useSoftDeleteShipment();
+  const restoreMutation = useRestoreShipment();
+
+  function handleSoftDelete(record: IShipmentListItem) {
+    Modal.confirm({
+      title: t('shipment_soft_delete.confirm_title', { code: record.cargo_code }),
+      icon: <ExclamationCircleFilled style={{ color: '#faad14' }} />,
+      content: t('shipment_soft_delete.confirm_content'),
+      okText: t('shipment_soft_delete.confirm_ok'),
+      okType: 'danger',
+      cancelText: t('common.cancel'),
+      async onOk() {
+        try {
+          await softDeleteMutation.mutateAsync({ id: record.id });
+          toast.success(t('shipment_soft_delete.success', { code: record.cargo_code }));
+        } catch (err) {
+          console.error('[ShipmentList] soft delete failed', err);
+          toast.error(t('shipment_soft_delete.error'));
+        }
+      },
+    });
+  }
+
+  function handleRestore(record: IShipmentListItem) {
+    Modal.confirm({
+      title: t('shipment_soft_delete.restore_confirm_title', { code: record.cargo_code }),
+      icon: <ExclamationCircleFilled style={{ color: '#1677ff' }} />,
+      content: t('shipment_soft_delete.restore_confirm_content'),
+      okText: t('shipment_soft_delete.restore_confirm_ok'),
+      cancelText: t('common.cancel'),
+      async onOk() {
+        try {
+          await restoreMutation.mutateAsync({ id: record.id });
+          toast.success(t('shipment_soft_delete.restore_success', { code: record.cargo_code }));
+        } catch (err) {
+          console.error('[ShipmentList] restore failed', err);
+          toast.error(t('shipment_soft_delete.restore_error'));
         }
       },
     });
@@ -579,27 +630,65 @@ export default function ShipmentList() {
       title: '',
       key: '_actions',
       hideInSetting: true,
-      width: 56,
+      width: showDeleted ? 56 : (canHardDelete ? 96 : 56),
       align: 'center',
       fixed: 'right',
       render: (_, record) => {
-        if (!canEditAnyField) return null;
         // Archive view is read-only — no inline edits, no transitions, no
         // bulk actions. The row data still renders so management can audit
         // historical shipments without a separate page.
         if (isArchiveView) return null;
+        // Show Deleted view: only the Restore button is meaningful — edits and
+        // soft-delete are no-ops on an already-deleted row.
+        if (showDeleted) {
+          if (!canHardDelete) return null;
+          return (
+            <Tooltip title={t('shipment_soft_delete.restore_btn')}>
+              <Button
+                size="small"
+                type="text"
+                icon={<UndoOutlined />}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRestore(record);
+                }}
+              />
+            </Tooltip>
+          );
+        }
+        const showEdit = canEditAnyField;
+        const showDelete = canHardDelete;
+        if (!showEdit && !showDelete) return null;
         return (
-          <Tooltip title={t('common.edit')}>
-            <Button
-              size="small"
-              type="text"
-              icon={<EditOutlined />}
-              onClick={(e) => {
-                e.stopPropagation();
-                setEditShipmentId(record.id);
-              }}
-            />
-          </Tooltip>
+          <Space size={0}>
+            {showEdit && (
+              <Tooltip title={t('common.edit')}>
+                <Button
+                  size="small"
+                  type="text"
+                  icon={<EditOutlined />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditShipmentId(record.id);
+                  }}
+                />
+              </Tooltip>
+            )}
+            {showDelete && (
+              <Tooltip title={t('shipment_soft_delete.btn')}>
+                <Button
+                  size="small"
+                  type="text"
+                  danger
+                  icon={<DeleteOutlined />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSoftDelete(record);
+                  }}
+                />
+              </Tooltip>
+            )}
+          </Space>
         );
       },
     },
@@ -667,6 +756,16 @@ export default function ShipmentList() {
         >
           {t('shipments.show_cancelled')}
         </Checkbox>
+        {canHardDelete && (
+          <Checkbox
+            checked={showDeleted}
+            onChange={(e) => {
+              updateParams({ show_deleted: e.target.checked ? 'true' : undefined, page: undefined });
+            }}
+          >
+            {t('shipments.show_deleted')}
+          </Checkbox>
+        )}
         <Segmented
           value={viewMode}
           options={[
@@ -750,6 +849,15 @@ export default function ShipmentList() {
               onClose={() => updateParams({ show_cancelled: undefined, page: undefined })}
             >
               {t('shipments.chip_show_cancelled')}
+            </Tag>
+          )}
+          {showDeleted && (
+            <Tag
+              color="orange"
+              closable
+              onClose={() => updateParams({ show_deleted: undefined, page: undefined })}
+            >
+              {t('shipments.chip_show_deleted')}
             </Tag>
           )}
           <Button size="small" type="link" onClick={clearAdvancedFilters}>

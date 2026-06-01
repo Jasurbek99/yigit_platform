@@ -175,7 +175,21 @@
     "audit_field": "Meýdan",
     "audit_old_to_new": "{{old}} → {{new}}",
     "source_shipment_rollup": "Ýüklenme maglumatlaryndan awtomatiki hasaplanan",
-    "source_admin_override": "Gündelik hasaplamanyň üstünden adminiň düzedişi"
+    "source_admin_override": "Gündelik hasaplamanyň üstünden adminiň düzedişi",
+    "extension_active": "Giç düzediş uzaldylyşy {{until}} çenli işjeň ({{by}} tarapyndan berildi)",
+    "extension_reason": "Sebäp: {{reason}}",
+    "grant_extension_button": "Uzaldyş ber",
+    "edit_extension_button": "Uzaldyşy düzet",
+    "revoke_extension_button": "Ýatyr",
+    "revoke_confirm_title": "Giç düzediş uzaldyşy ýatyrmaly?",
+    "revoke_confirm_content": "Blok menejerleri bu setiri gaýtadan redaktirläp bilmez. Dowam etmeli?",
+    "granted_until": "Şu wagta çenli redaktirlemä rugsat ber",
+    "reason": "Sebäp",
+    "extension_granted_toast": "Uzaldyş berildi",
+    "extension_revoked_toast": "Uzaldyş ýatyryldy",
+    "edit_window_closed_toast": "Meýilnama redaktirlemek möhleti ýapyldy. Uzaldyş üçin admine ýüz tutuň.",
+    "modal_title_grant": "Giç düzediş uzaldyşy ber",
+    "extensions_active_count": "Işjeň giç düzediş uzaldyşy: {{count}} blok"
   },
   "quota_dashboard": {
     "title": "Kwota paneli",
@@ -406,7 +420,9 @@
     "subtitle_with_count": "Jemi {{count}} ýük — 2025/2026 eksport möwsümi",
     "empty_state": "Saýlanan filtrlere laýyk iberliş ýok",
     "show_cancelled": "Ýatyrylanlary görkez",
-    "chip_show_cancelled": "Ýatyrylanlary görkezýär"
+    "chip_show_cancelled": "Ýatyrylanlary görkezýär",
+    "show_deleted": "Pozulanlary görkez",
+    "chip_show_deleted": "Diňe pozulanlar"
   },
   "shipment_list": {
     "view_table": "Tablisa",
@@ -1891,6 +1907,20 @@
     "delete_success": "{{count}} iberliş pozuldy",
     "delete_error": "Iberlişleri pozup bolmady",
     "delete_approved_quota_warning": "{{count}} tassyklanan kwota ýazgysy iberlişsiz galdy — Kwota Ulanyş tablisasynda gözden geçiriň."
+  },
+  "shipment_soft_delete": {
+    "btn": "Pozmak (ýumşak)",
+    "confirm_title": "{{code}} iberlişi pozmaly?",
+    "confirm_content": "Iberliş ähli sanawlardan, sahypadan we tagtadan gizlener. Hemişelik pozulmaz — soňra Iberlişler sahypasynda «Pozulanlary görkez» filtri arkaly dikedip bolar.",
+    "confirm_ok": "Pozmak",
+    "success": "{{code}} iberliş pozuldy",
+    "error": "Iberlişi pozup bolmady",
+    "restore_btn": "Dikeltmek",
+    "restore_confirm_title": "{{code}} iberlişi dikeltmeli?",
+    "restore_confirm_content": "Iberliş ähli sanawlarda we sahypada gaýtadan görner.",
+    "restore_confirm_ok": "Dikeltmek",
+    "restore_success": "{{code}} iberliş dikeldildi",
+    "restore_error": "Iberlişi dikeldip bolmady"
   },
   "shipment_edit_drawer": {
     "title": "Iberlişi üýtgetmek",

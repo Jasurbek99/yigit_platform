@@ -93,6 +93,9 @@ class ShipmentListSerializer(serializers.ModelSerializer):
 
     # Audit
     created_by_name = serializers.CharField(source='created_by.username', read_only=True, default=None)
+    # Soft-delete metadata — only relevant on the admin ?show_deleted=true view,
+    # but cheap to always include (FK is on the base queryset).
+    deleted_by_name = serializers.CharField(source='deleted_by.username', read_only=True, default=None)
 
     # Quality document flags (flattened from OneToOne related_name 'quality').
     # default=False so a shipment with no QualityDocument row reports unchecked.
@@ -210,6 +213,8 @@ class ShipmentListSerializer(serializers.ModelSerializer):
             'document_note', 'additional_notes_arap',
             # Audit
             'created_by_name', 'created_at',
+            # Soft-delete metadata (admin show_deleted view)
+            'deleted_at', 'deleted_by_name',
         ]
 
 

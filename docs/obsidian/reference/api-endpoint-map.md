@@ -29,6 +29,8 @@ tags: [reference, api, backend, frontend]
 | POST | `/api/v1/export/shipments/{id}/assign/` | ShipmentViewSet.assign | `useAssignDraft` | AssignmentBoard |
 | POST | `/api/v1/export/shipments/{target_id}/join/` | ShipmentViewSet.join | _(in useDrafts)_ | ShipmentSheet (JoinShipmentsModal) |
 | POST | `/api/v1/export/shipments/bulk-delete/` | ShipmentViewSet.bulk_delete | _(inline in page)_ | ShipmentList (admin only) |
+| POST | `/api/v1/export/shipments/{id}/soft-delete/` | ShipmentViewSet.soft_delete | `useSoftDeleteShipment` | ShipmentList, ShipmentSheet (admin only) |
+| POST | `/api/v1/export/shipments/{id}/restore/` | ShipmentViewSet.restore | `useRestoreShipment` | ShipmentList ?show_deleted (admin only) |
 | GET | `/api/v1/export/shipments/overdue/` | ShipmentViewSet.overdue | `useOverdueShipments` | OverdueReports |
 | GET | `/api/v1/export/shipments/sheet/` | ShipmentViewSet.sheet | `useShipmentSheet` | ShipmentSheet |
 | PATCH | `/api/v1/export/shipments/{id}/quality/` | ShipmentViewSet.set_quality | `useShipmentDetail` (mutation) | ShipmentDetail (Document tab) |
@@ -49,6 +51,10 @@ tags: [reference, api, backend, frontend]
 **`varieties_dominant`**: the `/shipments/sheet/` items now also include `varieties_dominant` — an array of `{id, code, name, is_experimental}` per shipment (1–4 entries) so the variety cell can render all sorts a shipment carries.
 
 **Bulk hard-delete** (`POST /shipments/bulk-delete/`) body `{"ids": [int, ...]}` — **admin / superuser only** (tighter than `cancel`, which uses PRIVILEGED_ROLES). Capped at 200 IDs per call. Bypasses the operational/archive filter so admins can purge by ID regardless of view. Cascade removes: comments, status_log, firm_splits, block_sources, pallets, quality, sales_report, custom_field_values, advance_links. `QuotaUsageRecord.shipment` is `SET_NULL` — draft quotas are deleted (mirrors `cancel`), approved quotas are orphaned and their IDs returned in `approved_quota_to_reconcile` so the admin can reconcile via QuotaUsageGrid. One `AuditLog` row per shipment with `action='delete'` is written before destruction (AuditLog uses a plain IntegerField for `object_id`, so historical update/transition rows for the deleted shipment also survive). Response: `{deleted, cascade_rows_deleted, draft_quota_deleted, approved_quota_to_reconcile}`.
+
+**Soft delete (deactivate)** (`POST /shipments/{id}/soft-delete/`) — **admin / superuser only**, no body. Sets `Shipment.deleted_at = now()` + `deleted_by = request.user`; the row stays in the DB but is filtered out of every list / sheet / board / dashboard-active-shipments queryset by default. Idempotent (no-op on already-deleted). Writes one `AuditLog` row with `action='soft_delete'`. Editing a soft-deleted row via `PATCH` returns 403 (mirror of the archived-row guard). Returns the full `ShipmentDetailSerializer` response (so the UI can update in place).
+
+**Restore** (`POST /shipments/{id}/restore/`) — **admin / superuser only**, no body. Clears `deleted_at` + `deleted_by`. Idempotent. Writes one `AuditLog` row with `action='restore'`. Returns the full detail response. Admins find soft-deleted shipments via `GET /shipments/?show_deleted=true` on the Shipments page (admin-only param — non-admins get 200 with 0 results; the param flips the list to show **only** deleted rows). Detail-style actions (cancel, transition, retrieve, restore) bypass the soft-delete filter so the row is always reachable by ID. The Sheet column header has a small admin-only trash icon (bottom-right of each column — the seq number sits top-left and the color-dot top-right, so bottom-right is the one free corner) that fires soft-delete with a confirmation modal — hidden during reorder mode.
 
 ### Tasks (Structured Task Engine)
 
@@ -161,6 +167,8 @@ PATCH body (partial): `{ row_order?: [id, ...], hidden_rows?: [id, ...] }` — a
 | POST | `/api/v1/greenhouse/harvest-plans/bulk-reject/` | .bulk_reject | `useBulkRejectHarvestPlans` | WeeklyPlanGrid |
 | POST | `/api/v1/greenhouse/harvest-plans/initialize-week/` | .initialize_week | _(in usePlanning)_ | WeeklyPlanGrid |
 | GET | `/api/v1/greenhouse/harvest-plans/block-summary/` | .block_summary | _(in usePlanning)_ | BlockSummary |
+| POST | `/api/v1/greenhouse/harvest-plans/{id}/grant-late-edit/` | .grant_late_edit | _(admin only)_ | AdminPlanOverride |
+| POST | `/api/v1/greenhouse/harvest-plans/{id}/revoke-late-edit/` | .revoke_late_edit | _(admin only)_ | AdminPlanOverride |
 | GET/POST/PATCH | `/api/v1/greenhouse/domestic-sales/` | DomesticSaleViewSet | `useDomesticSales` | DomesticSales |
 | GET/POST/PATCH | `/api/v1/greenhouse/admin/blocks/` | GreenhouseBlockAdminViewSet | `useAdmin` | BlocksPage |
 | GET/POST/PATCH | `/api/v1/greenhouse/admin/block-assignments/` | BlockManagerAssignmentViewSet | `useAdmin` | BlockDetailPage |

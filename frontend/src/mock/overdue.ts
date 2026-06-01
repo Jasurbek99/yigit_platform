@@ -62,6 +62,8 @@ const DEFAULTS = {
   additional_notes_arap: null as string | null,
   created_by_name: null as string | null,
   created_at: '2025-01-01T00:00:00+05:00',
+  deleted_at: null as string | null,
+  deleted_by_name: null as string | null,
 };
 
 // Reference date: 2026-03-27. arrived_at dates computed backwards from days_overdue.

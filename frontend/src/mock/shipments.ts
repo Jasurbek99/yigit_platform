@@ -62,6 +62,8 @@ const MOCK_DEFAULTS = {
   additional_notes_arap: null,
   created_by_name: null,
   created_at: '2025-01-01T00:00:00+05:00',
+  deleted_at: null,
+  deleted_by_name: null,
 } as const;
 
 export const MOCK_SHIPMENTS: IShipmentListItem[] = [

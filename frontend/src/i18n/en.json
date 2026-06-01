@@ -175,7 +175,21 @@
     "audit_field": "Field",
     "audit_old_to_new": "{{old}} → {{new}}",
     "source_shipment_rollup": "Auto-computed from shipment loading data",
-    "source_admin_override": "Admin override of the daily rollup value"
+    "source_admin_override": "Admin override of the daily rollup value",
+    "extension_active": "Late-edit extension active until {{until}} (granted by {{by}})",
+    "extension_reason": "Reason: {{reason}}",
+    "grant_extension_button": "Grant extension",
+    "edit_extension_button": "Edit extension",
+    "revoke_extension_button": "Revoke",
+    "revoke_confirm_title": "Revoke late-edit extension?",
+    "revoke_confirm_content": "Block managers will be blocked from editing this row again. Continue?",
+    "granted_until": "Allow edits until",
+    "reason": "Reason",
+    "extension_granted_toast": "Extension granted",
+    "extension_revoked_toast": "Extension revoked",
+    "edit_window_closed_toast": "Plan edit window is closed. Ask an admin for an extension.",
+    "modal_title_grant": "Grant late-edit extension",
+    "extensions_active_count": "{{count}} blocks with active late-edit extension"
   },
   "quota_dashboard": {
     "title": "Quota Dashboard",
@@ -406,7 +420,9 @@
     "subtitle_with_count": "{{count}} shipments — 2025/2026 season",
     "empty_state": "No shipments match these filters",
     "show_cancelled": "Show cancelled",
-    "chip_show_cancelled": "Showing cancelled"
+    "chip_show_cancelled": "Showing cancelled",
+    "show_deleted": "Show deleted",
+    "chip_show_deleted": "Showing deleted only"
   },
   "shipment_list": {
     "view_table": "Table",
@@ -1887,6 +1903,20 @@
     "delete_success": "{{count}} shipments deleted",
     "delete_error": "Failed to delete shipments",
     "delete_approved_quota_warning": "{{count}} approved quota record(s) were orphaned — reconcile in the Quota Usage grid."
+  },
+  "shipment_soft_delete": {
+    "btn": "Deactivate (soft delete)",
+    "confirm_title": "Deactivate shipment {{code}}?",
+    "confirm_content": "The shipment will be hidden from every list, sheet, and board. It is not permanently deleted — you can restore it later from the Shipments page using the \"Show deleted\" filter.",
+    "confirm_ok": "Deactivate",
+    "success": "Shipment {{code}} deactivated",
+    "error": "Failed to deactivate shipment",
+    "restore_btn": "Restore",
+    "restore_confirm_title": "Restore shipment {{code}}?",
+    "restore_confirm_content": "The shipment will reappear in every list and sheet.",
+    "restore_confirm_ok": "Restore",
+    "restore_success": "Shipment {{code}} restored",
+    "restore_error": "Failed to restore shipment"
   },
   "shipment_edit_drawer": {
     "title": "Edit shipment",

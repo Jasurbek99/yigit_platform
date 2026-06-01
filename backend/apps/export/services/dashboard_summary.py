@@ -335,7 +335,7 @@ def _build_active_shipments() -> list:
 
     shipments = (
         Shipment.objects
-        .filter(status__code__in=active_codes)
+        .filter(status__code__in=active_codes, deleted_at__isnull=True)
         .select_related('status', 'country', 'city', 'customer')
         .order_by('-status_changed_at')[:5]
     )

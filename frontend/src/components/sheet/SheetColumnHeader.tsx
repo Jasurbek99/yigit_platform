@@ -1,10 +1,13 @@
 import { memo, useCallback } from 'react';
-import { ColorPicker } from 'antd';
+import { ColorPicker, Modal } from 'antd';
+import { DeleteOutlined, ExclamationCircleFilled } from '@ant-design/icons';
 import type { Color } from 'antd/es/color-picker';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { canEditField } from '@/utils/permissions';
 import { useShipmentPatch } from '@/hooks/useShipmentPatch';
+import { useSoftDeleteShipment } from '@/hooks/useShipments';
 
 interface ISheetColumnHeaderProps {
   shipmentId: number;
@@ -36,7 +39,33 @@ function SheetColumnHeaderInner({
   const { t } = useTranslation();
   const { user } = useAuth();
   const canPaint = canEditField(user, 'shipment', 'column_color');
+  const canSoftDelete = !!user && (user.is_superuser || user.role === 'admin');
   const patch = useShipmentPatch();
+  const softDelete = useSoftDeleteShipment();
+
+  const handleSoftDelete = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      Modal.confirm({
+        title: t('shipment_soft_delete.confirm_title', { code: exportCode }),
+        icon: <ExclamationCircleFilled style={{ color: '#faad14' }} />,
+        content: t('shipment_soft_delete.confirm_content'),
+        okText: t('shipment_soft_delete.confirm_ok'),
+        okType: 'danger',
+        cancelText: t('common.cancel'),
+        async onOk() {
+          try {
+            await softDelete.mutateAsync({ id: shipmentId });
+            toast.success(t('shipment_soft_delete.success', { code: exportCode }));
+          } catch (err) {
+            console.error('[SheetColumnHeader] soft delete failed', err);
+            toast.error(t('shipment_soft_delete.error'));
+          }
+        },
+      });
+    },
+    [exportCode, shipmentId, softDelete, t],
+  );
 
   const handleChange = useCallback(
     (color: Color) => {
@@ -67,6 +96,16 @@ function SheetColumnHeaderInner({
         <span className="sheet-col-header__cancel-tag">
           {t('shipment_status.cancelled')}
         </span>
+      )}
+      {canSoftDelete && !hideColorPicker && (
+        <button
+          type="button"
+          className="sheet-col-header__delete-btn"
+          title={t('shipment_soft_delete.btn')}
+          onClick={handleSoftDelete}
+        >
+          <DeleteOutlined />
+        </button>
       )}
       {canPaint && !hideColorPicker && (
         <ColorPicker

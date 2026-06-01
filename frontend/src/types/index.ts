@@ -249,6 +249,10 @@ export interface IShipmentListItem {
   // Audit
   created_by_name: string | null;
   created_at: string;
+  // Soft-delete metadata — null on operational rows; set on rows surfaced by
+  // the admin ?show_deleted=true view.
+  deleted_at: string | null;
+  deleted_by_name: string | null;
 }
 
 // â”€â”€â”€ Sheet View â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -748,6 +752,13 @@ export interface IWeeklyHarvestPlan {
   locked_at: string | null;
   entered_by_name: string | null;
   updated_at: string;
+  // Late-edit extension fields (AD: admin can grant a window past Sunday cutoff)
+  late_edit_granted_until: string | null;
+  late_edit_granted_by: number | null;
+  late_edit_granted_by_name: string | null;
+  late_edit_granted_at: string | null;
+  late_edit_granted_reason: string;
+  late_edit_active: boolean;
 }
 
 export interface IWeeklyLocalSellPlan {

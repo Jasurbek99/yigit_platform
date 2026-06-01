@@ -49,6 +49,13 @@ export interface IShipmentFilters {
    * excludes CANCELLED from operational views). Track as a follow-up.
    */
   show_cancelled?: boolean;
+  /**
+   * Admin-only soft-delete view. `true` returns ONLY soft-deleted shipments
+   * (deleted_at IS NOT NULL) so admins can find and restore them. Backend
+   * gates this to admin / superuser; other roles silently get an empty page.
+   * Default (undefined / false) excludes soft-deleted rows from every list.
+   */
+  show_deleted?: boolean;
 }
 
 export function useShipments(filters: IShipmentFilters = {}) {
@@ -73,6 +80,7 @@ export function useShipments(filters: IShipmentFilters = {}) {
       if (filters.archived) params.set('archived', 'true');
       if (filters.stuck) params.set('stuck', 'true');
       if (filters.show_cancelled) params.set('show_cancelled', 'true');
+      if (filters.show_deleted) params.set('show_deleted', 'true');
 
       const { data } = await api.get<IApiListResponse<IShipmentListItem>>(
         `/export/shipments/?${params.toString()}`,
@@ -111,6 +119,45 @@ export function useCancelShipment() {
       queryClient.invalidateQueries({ queryKey: ['shipment'] });
       queryClient.invalidateQueries({ queryKey: ['shipments'] });
       queryClient.invalidateQueries({ queryKey: ['my-tasks'] });
+    },
+  });
+}
+
+/**
+ * Mutation: POST /api/v1/export/shipments/{id}/soft-delete/
+ * Admin-only "trash" flag — distinct from cancel (which writes a lifecycle
+ * transition + reason). Soft-deleted rows are hidden from every list/sheet
+ * but kept in the DB; admins can list them via show_deleted=true and restore.
+ */
+export function useSoftDeleteShipment() {
+  const queryClient = useQueryClient();
+
+  return useMutation<unknown, unknown, { id: number }>({
+    mutationFn: async ({ id }) => {
+      const { data } = await api.post(`/export/shipments/${id}/soft-delete/`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['shipment'] });
+      queryClient.invalidateQueries({ queryKey: ['shipments'] });
+      queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+    },
+  });
+}
+
+/** Mutation: POST /api/v1/export/shipments/{id}/restore/ — admin only. */
+export function useRestoreShipment() {
+  const queryClient = useQueryClient();
+
+  return useMutation<unknown, unknown, { id: number }>({
+    mutationFn: async ({ id }) => {
+      const { data } = await api.post(`/export/shipments/${id}/restore/`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['shipment'] });
+      queryClient.invalidateQueries({ queryKey: ['shipments'] });
+      queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
     },
   });
 }

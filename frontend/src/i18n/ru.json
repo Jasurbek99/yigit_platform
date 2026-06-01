@@ -177,7 +177,21 @@
     "audit_field": "Поле",
     "audit_old_to_new": "{{old}} → {{new}}",
     "source_shipment_rollup": "Автоматически рассчитано по данным погрузки",
-    "source_admin_override": "Корректировка администратором поверх ежедневного расчёта"
+    "source_admin_override": "Корректировка администратором поверх ежедневного расчёта",
+    "extension_active": "Продление позднего редактирования активно до {{until}} (выдано: {{by}})",
+    "extension_reason": "Причина: {{reason}}",
+    "grant_extension_button": "Выдать продление",
+    "edit_extension_button": "Изменить продление",
+    "revoke_extension_button": "Отозвать",
+    "revoke_confirm_title": "Отозвать продление позднего редактирования?",
+    "revoke_confirm_content": "Менеджеры блоков снова не смогут редактировать эту строку. Продолжить?",
+    "granted_until": "Разрешить редактирование до",
+    "reason": "Причина",
+    "extension_granted_toast": "Продление выдано",
+    "extension_revoked_toast": "Продление отозвано",
+    "edit_window_closed_toast": "Окно редактирования плана закрыто. Обратитесь к администратору за продлением.",
+    "modal_title_grant": "Выдать продление позднего редактирования",
+    "extensions_active_count": "Активные продления позднего редактирования: {{count}} блоков"
   },
   "quota_dashboard": {
     "title": "Дашборд квот",
@@ -408,7 +422,9 @@
     "subtitle_with_count": "{{count}} отгрузок — сезон 2025/2026",
     "empty_state": "Нет отгрузок по выбранным фильтрам",
     "show_cancelled": "Показать отменённые",
-    "chip_show_cancelled": "Отменённые"
+    "chip_show_cancelled": "Отменённые",
+    "show_deleted": "Показать удалённые",
+    "chip_show_deleted": "Только удалённые"
   },
   "shipment_list": {
     "view_table": "Таблица",
@@ -1889,6 +1905,20 @@
     "delete_success": "Удалено отправок: {{count}}",
     "delete_error": "Не удалось удалить отправки",
     "delete_approved_quota_warning": "{{count}} утверждённых квотных записей остались без отправки — сверьте в таблице использования квот."
+  },
+  "shipment_soft_delete": {
+    "btn": "Деактивировать (мягкое удаление)",
+    "confirm_title": "Деактивировать отправку {{code}}?",
+    "confirm_content": "Отправка будет скрыта из всех списков, таблицы и канбана. Это не окончательное удаление — её можно восстановить на странице «Отправки» с помощью фильтра «Показать удалённые».",
+    "confirm_ok": "Деактивировать",
+    "success": "Отправка {{code}} деактивирована",
+    "error": "Не удалось деактивировать отправку",
+    "restore_btn": "Восстановить",
+    "restore_confirm_title": "Восстановить отправку {{code}}?",
+    "restore_confirm_content": "Отправка снова появится во всех списках и таблице.",
+    "restore_confirm_ok": "Восстановить",
+    "restore_success": "Отправка {{code}} восстановлена",
+    "restore_error": "Не удалось восстановить отправку"
   },
   "shipment_edit_drawer": {
     "title": "Редактировать отправку",

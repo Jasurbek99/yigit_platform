@@ -99,6 +99,8 @@ class ShipmentViewSet(ModelViewSet):
         # Joined for the expanded list serializer (Sheet-parity columns):
         # import firm name, creator username, and quality doc flags.
         'import_firm', 'created_by', 'quality',
+        # Joined for the soft-delete admin view (deleted_by username column).
+        'deleted_by',
     ).order_by('-date', '-id')
 
     filterset_fields = ['status', 'country', 'season', 'is_gapy_satys', 'customer']
@@ -157,6 +159,37 @@ class ShipmentViewSet(ModelViewSet):
                 ),
             )
             qs = qs.prefetch_related(task_prefetch, log_prefetch)
+
+        # ── Soft-delete filter ───────────────────────────────────────────────
+        # Soft-deleted shipments (deleted_at IS NOT NULL) are hidden from EVERY
+        # list/board/sheet queryset by default. Admins can opt in via
+        # ?show_deleted=true on the Shipments page to find and restore them.
+        #
+        # Detail-style actions (retrieve, partial_update, cancel, soft_delete,
+        # restore, etc.) bypass the filter — they target a single shipment by ID
+        # and need to find soft-deleted rows. Mutating actions on deleted rows
+        # are blocked at the partial_update / serializer layer so the caller
+        # gets a clear 403, not a misleading 404.
+        action_name = getattr(self, 'action', None)
+        _SINGLE_INSTANCE_DRF_ACTIONS = {'retrieve', 'update', 'partial_update', 'destroy'}
+        is_detail_action = False
+        if action_name:
+            handler = getattr(self, action_name, None)
+            is_detail_action = (
+                bool(getattr(handler, 'detail', False))
+                or action_name in _SINGLE_INSTANCE_DRF_ACTIONS
+            )
+        if not is_detail_action:
+            show_deleted = self.request.query_params.get('show_deleted') == 'true'
+            if show_deleted:
+                role = getattr(self.request.user, 'role', None)
+                is_super = getattr(self.request.user, 'is_superuser', False)
+                if not (is_super or role == 'admin'):
+                    return qs.none()
+                # admin: show ONLY deleted (so the filter chip is a focused view)
+                qs = qs.filter(deleted_at__isnull=False)
+            else:
+                qs = qs.filter(deleted_at__isnull=True)
 
         # ── Operational vs Archive split (Phase 3, ADR-0005) ─────────────────
         # Default: is_archived=False (operational). ?archived=true opens the
@@ -280,7 +313,8 @@ class ShipmentViewSet(ModelViewSet):
         Returns { "count": N } — number of shipments where the user's role
         has required fields still unfilled. Used by the frontend for badge counts.
         """
-        base_qs = super().get_queryset()
+        # Hide soft-deleted shipments — pending-count drives a UI badge.
+        base_qs = super().get_queryset().filter(deleted_at__isnull=True)
         qs = self._filter_pending_fields(base_qs)
         return Response({'count': qs.count()})
 
@@ -305,6 +339,15 @@ class ShipmentViewSet(ModelViewSet):
         if shipment.is_archived:
             return Response(
                 {'error': 'Archived shipments are read-only.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Soft-deleted shipments are read-only. The admin-only show_deleted
+        # view exposes them in the list but the only mutation allowed is
+        # POST /restore/. Edits would silently re-enter the system.
+        if shipment.deleted_at is not None:
+            return Response(
+                {'error': 'Deleted shipments are read-only. Restore first.'},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -556,6 +599,90 @@ class ShipmentViewSet(ModelViewSet):
             'approved_quota_to_reconcile': approved_ids,
         })
 
+    # Soft-delete (deactivate) — admin-only "trash" flag distinct from cancel.
+    # Cancel writes to ShipmentStatusLog and changes lifecycle status; soft-delete
+    # just hides the row from every list/board/sheet queryset. Restorable via
+    # POST /restore/. Hard-delete (bulk-delete) remains the permanent escape.
+    def _require_admin(self, request):
+        is_super = getattr(request.user, 'is_superuser', False)
+        role = getattr(request.user, 'role', None)
+        if not is_super and role != 'admin':
+            return Response(
+                {'error': 'Only admin can soft-delete or restore shipments.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return None
+
+    @action(detail=True, methods=['post'], url_path='soft-delete')
+    def soft_delete(self, request, pk=None):
+        """POST /api/v1/export/shipments/{id}/soft-delete/
+
+        Marks the shipment as soft-deleted (deactivated). The row is preserved
+        in the DB but hidden from every list, sheet, board, and dashboard list
+        by default. Admins can view soft-deleted rows via ?show_deleted=true on
+        the Shipments page and restore them with POST /restore/.
+
+        Idempotent: re-running on an already-deleted shipment is a no-op.
+
+        Permissions: admin role or superuser only.
+        """
+        if (err := self._require_admin(request)) is not None:
+            return err
+
+        shipment = self.get_object()
+        if shipment.deleted_at is None:
+            shipment.deleted_at = timezone.now()
+            shipment.deleted_by = request.user
+            shipment.save(update_fields=['deleted_at', 'deleted_by', 'updated_at'])
+            AuditLog.objects.create(
+                user=request.user,
+                action='soft_delete',
+                model_name='Shipment',
+                object_id=shipment.id,
+                object_repr=shipment.cargo_code or '',
+                detail=f"SOFT DELETE by {request.user.username}",
+            )
+            logger.info(
+                'Soft-deleted shipment id=%s cargo_code=%s by user=%s',
+                shipment.id, shipment.cargo_code, request.user.username,
+            )
+
+        serializer = ShipmentDetailSerializer(shipment, context={'request': request})
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='restore')
+    def restore(self, request, pk=None):
+        """POST /api/v1/export/shipments/{id}/restore/
+
+        Clears the soft-delete flag, returning the shipment to operational
+        visibility. Idempotent: re-running on a non-deleted shipment is a no-op.
+
+        Permissions: admin role or superuser only.
+        """
+        if (err := self._require_admin(request)) is not None:
+            return err
+
+        shipment = self.get_object()
+        if shipment.deleted_at is not None:
+            shipment.deleted_at = None
+            shipment.deleted_by = None
+            shipment.save(update_fields=['deleted_at', 'deleted_by', 'updated_at'])
+            AuditLog.objects.create(
+                user=request.user,
+                action='restore',
+                model_name='Shipment',
+                object_id=shipment.id,
+                object_repr=shipment.cargo_code or '',
+                detail=f"RESTORE by {request.user.username}",
+            )
+            logger.info(
+                'Restored shipment id=%s cargo_code=%s by user=%s',
+                shipment.id, shipment.cargo_code, request.user.username,
+            )
+
+        serializer = ShipmentDetailSerializer(shipment, context={'request': request})
+        return Response(serializer.data)
+
     @action(detail=False, methods=['get'], url_path='overdue')
     def overdue(self, request):
         """GET /api/v1/export/shipments/overdue/?threshold=N
@@ -587,9 +714,10 @@ class ShipmentViewSet(ModelViewSet):
 
         # Use the base queryset (not self.get_queryset()) to avoid
         # my_work / pending_my_fields filters leaking into the overdue endpoint.
+        # Hide soft-deleted shipments — overdue is a list-style view.
         qs = (
             super().get_queryset()
-            .filter(status__code__in=SALES_PHASE_CODES)
+            .filter(status__code__in=SALES_PHASE_CODES, deleted_at__isnull=True)
             .annotate(has_sales_report=has_report_expr)
         )
 
@@ -658,6 +786,9 @@ class ShipmentViewSet(ModelViewSet):
             # Phase 3: the operational Sheet view never shows archived rows.
             # Archive view lives on ShipmentList — no Sheet equivalent.
             .filter(is_archived=False)
+            # Soft-deleted shipments never appear in the Sheet — they live in
+            # the Shipments list under the ?show_deleted=true admin view.
+            .filter(deleted_at__isnull=True)
             # Manually-placed shipments (sheet_position IS NOT NULL) appear in
             # their saved order first; new shipments (NULL) fall back to
             # newest-first by date so they surface at the top without requiring
@@ -2207,12 +2338,14 @@ class ShipmentViewSet(ModelViewSet):
         from apps.export.services.phases import PHASE_ORDER, get_phase
 
         # ── Build the base queryset ────────────────────────────────────────────
-        # Always scope to active season, non-archived. These conditions mirror
-        # the intent of the Kanban: show live operational work only.
+        # Always scope to active season, non-archived, non-soft-deleted. These
+        # conditions mirror the intent of the Kanban: show live operational work
+        # only. Soft-deleted rows are hidden from every list-style view.
         qs = (
             Shipment.objects.filter(
                 season__is_active=True,
                 is_archived=False,
+                deleted_at__isnull=True,
             )
             .select_related('status', 'country', 'customer')
         )

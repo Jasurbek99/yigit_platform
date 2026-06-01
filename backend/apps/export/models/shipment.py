@@ -271,6 +271,22 @@ class Shipment(models.Model):
     is_archived = models.BooleanField(default=False, db_index=True)
     archived_at = models.DateTimeField(null=True, blank=True)
 
+    # === Soft delete (admin-only "trash" flag) ===
+    # Distinct from `cancelled` status (which is a business decision with a reason
+    # and pollutes the lifecycle log) and from `is_archived` (automatic after
+    # 21 days terminal). Soft-deleted rows are hidden from every list/sheet/board
+    # queryset by default; admins can list them via ?show_deleted=true on the
+    # Shipments page and restore via POST /shipments/{id}/restore/. Hard-delete
+    # (bulk-delete) remains the permanent escape hatch.
+    deleted_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    deleted_by = models.ForeignKey(
+        'core.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='soft_deleted_shipments',
+    )
+
     class Meta:
         db_table = schema_table('export', 'shipments')
         ordering = ['-date', '-id']
