@@ -67,6 +67,7 @@
     "shipment_sheet": "Sheet",
     "shipment_dashboard": "Dashboard",
     "shipment_board": "Board",
+    "harvest_board": "Cargo Plan & Remainder",
     "drafts": "Draft Shipments",
     "assign": "Assignment Board",
     "boss_dashboard": "Boss Dashboard",
@@ -99,6 +100,25 @@
   "connection": {
     "online": "Online",
     "offline": "Offline — changes may not save"
+  },
+  "harvest_board": {
+    "title": "Cargo Plan & Remainder",
+    "block": "Blocks",
+    "blocks": "blocks",
+    "yesterday_rest": "Yesterday's Rest",
+    "today_plan": "Today's Planned Harvest",
+    "total": "Total",
+    "note": "Note",
+    "note_placeholder": "Note…",
+    "entered_at": "Entered Date",
+    "entered_by": "Entered",
+    "total_row": "Total",
+    "no_season": "No active season — set a season as active in Admin → Seasons to enter values.",
+    "saved": "Saved",
+    "save_error": "Could not save — please try again.",
+    "prev_day": "Previous day",
+    "next_day": "Next day",
+    "today": "Today"
   },
   "plan": {
     "title": "Weekly Harvest Plan",

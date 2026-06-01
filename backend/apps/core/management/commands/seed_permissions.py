@@ -33,6 +33,11 @@ _ALL_ADMIN = {k for k in PAGE_REGISTRY if k.startswith('admin.')}
 # defaults visible to every role that can already see the Shipments page.
 _BOARD = 'export.shipments.board'
 
+# Daily Harvest Board (Ýük plan we galyndy) — yesterday's remainder + today's
+# plan per block. Defaults visible to every operational role that touches
+# harvest/loading work (mirrors the Board breadth, plus greenhouse_manager).
+_HARVEST_BOARD = 'export.harvest_board'
+
 # Pages every authenticated role gets by default. These match the previous
 # "all roles" inline lists in AppLayout / route guards (My Tasks + the three
 # non-admin Feedback pages). feedback.admin_inbox is intentionally excluded —
@@ -55,6 +60,7 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
     'export_manager': _ALL_PAGES - _ALL_ADMIN - {'director.stuck_shipments', 'feedback.admin_inbox'},
     'weight_master': {
         'dashboard', 'export.shipments', 'export.pallet_manifest', _BOARD,
+        _HARVEST_BOARD,
     } | _UNIVERSAL,
     # loading_dept_head: superset of warehouse_chief (same daily work) plus
     # 'export.plan' — Soltanmyrat needs the Weekly Harvest Plan grid to coordinate
@@ -66,6 +72,7 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
         'export.pallet_manifest',
         'export.plan',
         _BOARD,
+        _HARVEST_BOARD,
     } | _UNIVERSAL,
     'warehouse_chief': {
         'dashboard', 'export.shipments',
@@ -74,24 +81,31 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
         # Pallet manifest oversight (Finding #4)
         'export.pallet_manifest',
         _BOARD,
+        _HARVEST_BOARD,
     } | _UNIVERSAL,
     'document_team': {
         'dashboard', 'export.shipments', 'export.quota', _BOARD,
+        _HARVEST_BOARD,
     } | _UNIVERSAL,
     'transport': {
         'dashboard', 'export.shipments', _BOARD,
+        _HARVEST_BOARD,
     } | _UNIVERSAL,
     'sales_rep': {
         'dashboard', 'export.shipments', 'export.advances', _BOARD,
+        _HARVEST_BOARD,
     } | _UNIVERSAL,
     'finansist': {
         'dashboard', 'export.shipments', 'export.prices', 'export.advances', _BOARD,
+        _HARVEST_BOARD,
     } | _UNIVERSAL,
     'accountant': {
         'dashboard', 'export.shipments', _BOARD,
+        _HARVEST_BOARD,
     } | _UNIVERSAL,
     'greenhouse_manager': {
         'dashboard', 'export.plan', 'export.domestic_sales',
+        _HARVEST_BOARD,
     } | _UNIVERSAL,
     'seller': {
         'dashboard', 'export.quota.local_sell',

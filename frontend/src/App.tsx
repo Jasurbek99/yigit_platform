@@ -52,6 +52,7 @@ const PublicFeedPage = lazy(() => import('@/pages/feedback/PublicFeedPage'));
 const AdminInboxPage = lazy(() => import('@/pages/feedback/AdminInboxPage'));
 const SelfBoard = lazy(() => import('@/pages/me/SelfBoard'));
 const ShipmentBoard = lazy(() => import('@/pages/export/ShipmentBoard'));
+const DailyHarvestBoard = lazy(() => import('@/pages/export/DailyHarvestBoard'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -118,6 +119,9 @@ export default function App() {
                   } />
                   <Route path="export/shipments/board" element={
                     <ProtectedRoute pageCode="export.shipments.board"><ShipmentBoard /></ProtectedRoute>
+                  } />
+                  <Route path="export/harvest-board" element={
+                    <ProtectedRoute pageCode="export.harvest_board"><DailyHarvestBoard /></ProtectedRoute>
                   } />
                   <Route path="export/plan" element={
                     <ProtectedRoute pageCode="export.plan"><WeeklyPlanGrid /></ProtectedRoute>

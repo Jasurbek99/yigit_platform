@@ -738,6 +738,27 @@ export interface IDayEntryHistoryItem {
 
 // â”€â”€â”€ Planning â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+// Daily harvest board (Ýük plan we galyndy)
+export interface IDailyBoardRow {
+  block: number;
+  block_code: string;
+  block_name: string | null;
+  entry_id: number | null;
+  entry_date: string;            // ISO date YYYY-MM-DD
+  yesterday_rest: string | null; // Düýnki galyndy (kg)
+  today_plan: string | null;     // Bu günki meýilleşdirilýän ýygym (kg)
+  total: string | null;          // Jemi (kg) — yesterday_rest + today_plan
+  note: string;                  // Bellik
+  entered_at: string | null;     // Girizilen senesi (ISO datetime)
+  entered_by_name: string | null;
+}
+
+export interface IDailyBoardResponse {
+  date: string;
+  season: { id: number; name: string } | null;
+  results: IDailyBoardRow[];
+}
+
 export type PlanStatus = 'draft' | 'submitted' | 'approved' | 'rejected';
 
 export interface IWeeklyHarvestPlan {

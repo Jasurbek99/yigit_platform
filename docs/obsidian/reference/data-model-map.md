@@ -123,6 +123,7 @@ erDiagram
 | Model | Key Fields | Purpose |
 |-------|-----------|---------|
 | **WeeklyHarvestPlan** | season, block, week_number, year, locked_at, entered_by; late-edit extension: late_edit_granted_until, late_edit_granted_by, late_edit_granted_at, late_edit_granted_reason | Weekly container (per-day cells in HarvestDayEntry); plan edits gated by Sunday-EOD cutoff with admin-extendable bypass |
+| **HarvestDayEntry** | weekly_plan (FK), season, block, entry_date, weekday, plan_value, forecast_value (= daily-board "today plan"), actual_value; daily board: yesterday_rest_value, daily_note (Cyrillic), daily_entered_at, daily_entered_by | One row per (plan, date). Weekly grid edits plan/forecast/actual with role+window gates; the Daily Harvest Board edits forecast_value + yesterday_rest_value + daily_note gate-free via `upsert_daily_board()` |
 | **BlockManagerAssignment** | user (FK), block (FK), is_active | Who manages which block |
 | **DomesticSale** | date, buyer (FK), block (FK), export_firm (FK nullable), weight_kg, variety, price_per_kg | Local sale record |
 
