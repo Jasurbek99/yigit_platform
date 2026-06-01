@@ -1332,7 +1332,7 @@
       "export_manager_note": "Gadam's note",
       "documents": "Documents (13:00)",
       "export_code": "Export Code",
-      "shipment_code": "Shipment Code",
+      "shipment_code": "Export Code",
       "harvest_block": "Harvest Block",
       "export_firm": "Export Firm",
       "country": "Destination Country",
@@ -1423,6 +1423,12 @@
     "new_supply": {
       "btn": "Supply column",
       "tooltip": "Create a new supply draft (blocks + product, no destination)"
+    },
+    "add_cargo": {
+      "btn": "Add cargo",
+      "tooltip": "Create a new empty cargo column — joined with Gadam's column later",
+      "toast_saved": "Empty cargo column created: {{code}}",
+      "toast_error": "Failed to create cargo column"
     },
     "new_destination": {
       "btn": "Destination column",

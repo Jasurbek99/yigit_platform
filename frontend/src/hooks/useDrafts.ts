@@ -243,6 +243,52 @@ export function useCreateSupplyDraft() {
   });
 }
 
+// ─── useCreateEmptyColumn ─────────────────────────────────────────────────
+
+/**
+ * One-click create of an EMPTY draft shipment column (no blocks, no
+ * destination). The backend auto-generates the cargo_code and defaults the
+ * date to today. Used by Soltanmyrat's "Ýük goş" button on the Sheet: the
+ * column is created green (supply-side, by creator role) and its values are
+ * typed into the sheet cells afterward, then joined with Gadam's destination
+ * column via the Join flow.
+ */
+export function useCreateEmptyColumn() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (): Promise<IShipmentDraft> => {
+      if (USE_MOCK) {
+        const stub: IShipmentDraft = {
+          id: Date.now(),
+          cargo_code: dayjs().format('DDMMHHmm') + '/' + dayjs().format('YY'),
+          date: dayjs().format('YYYY-MM-DD'),
+          created_at: new Date().toISOString(),
+          created_by_name: 'Soltanmyrat (mock)',
+          weight_net: 0,
+          official_export_code: null,
+          previous_platform_id: null,
+          harvest_age_days: 0,
+          freshness: 'today',
+          variety_confidence: 'none',
+          block_sources: [],
+        };
+        return stub;
+      }
+
+      const { data } = await api.post<IShipmentDraft>('/export/shipments/', {
+        is_draft: true,
+      });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['drafts'] });
+      queryClient.invalidateQueries({ queryKey: ['shipments'] });
+      queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+    },
+  });
+}
+
 // ─── useCreateDestinationDraft ────────────────────────────────────────────
 
 /**
