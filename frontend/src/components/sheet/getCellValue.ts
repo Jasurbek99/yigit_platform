@@ -1,6 +1,6 @@
 import dayjs from 'dayjs';
 import i18n from '@/i18n';
-import type { IShipmentSheetItem, IRowConfig } from '@/types';
+import type { IShipmentSheetItem, IRowConfig, IShipmentOptionType } from '@/types';
 
 /**
  * Returns the canonical display string for a shipment cell.
@@ -11,8 +11,16 @@ import type { IShipmentSheetItem, IRowConfig } from '@/types';
  *   - SelfBoardShipmentFieldList.tsx  (the task drawer field list)
  *
  * The function always returns a string — callers render "—" when it equals '—'.
+ *
+ * `options` is optional: when provided, option-list codes for status fields
+ * (harvest_status, documents_status) are resolved to their Turkmen label
+ * (`label_tk`). Statuses are intentionally Turkmen-only regardless of UI locale.
  */
-export function getCellValue(shipment: IShipmentSheetItem, rowConfig: IRowConfig): string {
+export function getCellValue(
+  shipment: IShipmentSheetItem,
+  rowConfig: IRowConfig,
+  options?: IShipmentOptionType[],
+): string {
   const { field_key: fieldKey } = rowConfig;
 
   // Phase 5c: admin-created custom rows store free-text values in
@@ -138,10 +146,13 @@ export function getCellValue(shipment: IShipmentSheetItem, rowConfig: IRowConfig
     return shipment.block_sources.map((b) => b.block_code).join('/');
   }
 
-  // Status fields — show stored value or dash
+  // Status fields — resolve option code → Turkmen label (label_tk).
+  // Statuses are Turkmen-only by product decision; the UI locale is ignored.
   if (fieldKey === 'documents_status' || fieldKey === 'harvest_status') {
     const val = shipment[fieldKey as keyof IShipmentSheetItem] as string | null;
-    return val ?? '—';
+    if (!val) return '—';
+    const match = options?.find((o) => o.category === fieldKey && o.code === val);
+    return match?.label_tk ?? val;
   }
   if (fieldKey === 'transit_days_temp') {
     const days = shipment.transit_days;

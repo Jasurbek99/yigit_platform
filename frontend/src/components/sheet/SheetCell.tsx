@@ -3,6 +3,7 @@ import { Tag } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import type { IShipmentSheetItem, IRowConfig, ICommentTaskStatus, ISheetRowSettingForUser } from '@/types';
 import { useSheetStore } from '@/stores/sheetStore';
+import { useShipmentOptions } from '@/hooks/useAdmin';
 import { scaleSheetLayout } from '@/constants/sheetRowConfig';
 import { CommentMarker } from './CommentMarker';
 import { getCellValue } from './getCellValue';
@@ -56,7 +57,11 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
   const cellAlign = rowSetting?.style?.align;
   const cellBg = rowSetting?.style?.color ?? undefined;
 
-  const value = getCellValue(shipment, rowConfig);
+  // Option list is shared across all cells (TanStack Query dedupes the fetch
+  // and returns a referentially-stable array). Needed by getCellValue to
+  // resolve harvest_status / documents_status codes → Turkmen labels.
+  const { data: options } = useShipmentOptions();
+  const value = getCellValue(shipment, rowConfig, options);
   const cellIsEmpty = isEmpty(value);
 
   const handleClick = useCallback(() => {
