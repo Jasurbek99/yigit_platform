@@ -303,6 +303,28 @@ Service-layer enforcement is not just role-based — it also gates by submission
 
 **Actuals are computed, not entered.** As of May 2026, `actual_value` is filled by the daily `rollup_actuals` management command — it sums `ShipmentBlockSource.weight_kg` joined to `Shipment.loading_started_at` (in the configured local timezone) per block per day, and writes the result with `actual_source='shipment_rollup'`. Admin manual edits stamp `actual_source='admin_override'`, which the rollup respects on subsequent runs.
 
+## Daily Harvest Board (Ýük plan we galyndy)
+
+A separate, simpler surface from the weekly grid — the **Daily Harvest Board** page
+(`/export/harvest-board`, sidebar Export group, right after Board) mirrors the
+operational Google Sheet: one row per active block with **Düýnki galyndy**
+(yesterday's rest), **Bu günki meýilleşdirilýän ýygym** (today's plan), **Jemi**
+(their sum), and a **Bellik** note, for a chosen date.
+
+- **Storage**: reuses `HarvestDayEntry`. "Today's plan" writes the existing
+  `forecast_value` (so the board and the weekly grid stay in sync); the rest +
+  note live in new fields `yesterday_rest_value`, `daily_note`, with
+  `daily_entered_at` / `daily_entered_by` recording who/when (Girizilen senesi /
+  Girizildi).
+- **Endpoint**: `GET /api/v1/greenhouse/daily-plan/?date=YYYY-MM-DD` (one row per
+  active block; default today) and `POST` to upsert one cell
+  (`{block, date, today_plan?, yesterday_rest?, note?}`).
+- **No gates**: unlike the weekly forecast path, `upsert_daily_board()` applies
+  **no role or time-window restriction** — any authenticated user with the
+  `export.harvest_board` page permission may edit. The parent
+  `WeeklyHarvestPlan` / `HarvestDayEntry` rows are created on demand, and each
+  write logs an AuditLog `daily_board_set` entry.
+
 ## Connections to Other Processes
 
 - **[[truck-allocation]]** — Est. Trucks tile uses the most-current value per cell / `truck_capacity_kg` from `GreenhouseConfig`. The TruckAllocationTable embeds in WeeklyPlanGrid as before.

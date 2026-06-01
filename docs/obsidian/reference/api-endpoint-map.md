@@ -169,6 +169,7 @@ PATCH body (partial): `{ row_order?: [id, ...], hidden_rows?: [id, ...] }` — a
 | GET | `/api/v1/greenhouse/harvest-plans/block-summary/` | .block_summary | _(in usePlanning)_ | BlockSummary |
 | POST | `/api/v1/greenhouse/harvest-plans/{id}/grant-late-edit/` | .grant_late_edit | _(admin only)_ | AdminPlanOverride |
 | POST | `/api/v1/greenhouse/harvest-plans/{id}/revoke-late-edit/` | .revoke_late_edit | _(admin only)_ | AdminPlanOverride |
+| GET/POST | `/api/v1/greenhouse/daily-plan/` | DailyHarvestBoardViewSet | `useDailyBoard` / `useUpsertDailyBoard` | DailyHarvestBoard |
 | GET/POST/PATCH | `/api/v1/greenhouse/domestic-sales/` | DomesticSaleViewSet | `useDomesticSales` | DomesticSales |
 | GET/POST/PATCH | `/api/v1/greenhouse/admin/blocks/` | GreenhouseBlockAdminViewSet | `useAdmin` | BlocksPage |
 | GET/POST/PATCH | `/api/v1/greenhouse/admin/block-assignments/` | BlockManagerAssignmentViewSet | `useAdmin` | BlockDetailPage |

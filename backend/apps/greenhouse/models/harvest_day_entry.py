@@ -136,6 +136,39 @@ class HarvestDayEntry(models.Model):
                   'must leave alone.',
     )
 
+    # === Daily board (Ýük plan we galyndy page) ===
+    # The daily harvest board lets any page-authorised user record the carried-over
+    # remainder from the previous day plus a freeform note, alongside today's plan
+    # (which reuses forecast_value). These bypass the forecast role/window gates.
+    yesterday_rest_value = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Düýnki galyndy — remainder carried over from the previous day (kg). NULL = not entered.",
+    )
+    daily_note = models.CharField(
+        max_length=500,
+        blank=True,
+        default='',
+        **cyrillic_collation(),
+        help_text='Bellik — freeform daily-board note (Cyrillic/Latin mixed).',
+    )
+    daily_entered_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='UTC timestamp of the last daily-board write (Girizilen senesi).',
+    )
+    daily_entered_by = models.ForeignKey(
+        'core.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='daily_entered_by',
+        related_name='+',
+        help_text='User who last wrote a daily-board value (Girizildi).',
+    )
+
     # === Last admin-override snapshot (full history in AuditLog) ===
     last_override_at = models.DateTimeField(null=True, blank=True)
     last_override_by = models.ForeignKey(
@@ -180,6 +213,10 @@ class HarvestDayEntry(models.Model):
             models.CheckConstraint(
                 check=models.Q(actual_value__isnull=True) | models.Q(actual_value__gte=0),
                 name='chk_hde_act_gte0',
+            ),
+            models.CheckConstraint(
+                check=models.Q(yesterday_rest_value__isnull=True) | models.Q(yesterday_rest_value__gte=0),
+                name='chk_hde_rest_gte0',
             ),
         ]
         indexes = [

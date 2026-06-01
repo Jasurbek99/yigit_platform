@@ -19,6 +19,10 @@ from apps.greenhouse.services.actual_rollup import (
     rollup_actuals_for_date,
     yesterday_local,
 )
+from apps.greenhouse.services.daily_board import (
+    get_active_season,
+    upsert_daily_board,
+)
 
 __all__ = [
     'initialize_harvest_week',
@@ -33,4 +37,6 @@ __all__ = [
     'yesterday_local',
     'RollupResult',
     '_plan_edit_window_closed',
+    'get_active_season',
+    'upsert_daily_board',
 ]

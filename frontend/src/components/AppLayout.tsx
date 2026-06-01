@@ -24,6 +24,7 @@ import {
   IconMessageCircle,
   IconInbox,
   IconClipboardList,
+  IconPlant2,
 } from '@tabler/icons-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -86,6 +87,7 @@ export default function AppLayout() {
     '/export/shipments/sheet': t('nav.shipment_sheet'),
     '/export/shipments/dashboard': t('nav.shipment_dashboard'),
     '/export/shipments/board': t('nav.shipment_board'),
+    '/export/harvest-board': t('nav.harvest_board'),
     '/export/drafts': t('nav.drafts'),
     '/export/assign': t('nav.assign'),
     '/export/overdue': t('nav.overdue'),
@@ -158,6 +160,7 @@ export default function AppLayout() {
         // Matrix-driven via page_code 'me.board' (seeded visible for every role).
       },
       { key: '/export/shipments/board', icon: <IconLayoutKanban size={15} />, label: t('nav.shipment_board') },
+      { key: '/export/harvest-board', icon: <IconPlant2 size={15} />, label: t('nav.harvest_board') },
       { key: '/export/drafts', icon: <IconFileText size={15} />, label: t('nav.drafts') },
       { key: '/export/assign', icon: <IconArrowsSort size={15} />, label: t('nav.assign') },
       { key: '/export/overdue', icon: <IconAlertTriangle size={15} />, label: t('nav.overdue') },

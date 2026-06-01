@@ -21,6 +21,7 @@ PAGE_REGISTRY: dict[str, str] = OrderedDict([
     ('export.overdue',          'Overdue Reports'),
     ('export.advances',         'Advances'),
     ('export.plan',             'Weekly Plan'),
+    ('export.harvest_board',    'Daily Harvest Board (Ýük plan we galyndy)'),
     ('export.quota',            'Quota Dashboard'),
     ('export.quota.local_sell', 'Local Sell Plan (sub-tab)'),
     ('export.prices',           'Prices'),

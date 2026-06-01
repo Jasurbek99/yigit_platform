@@ -67,6 +67,7 @@
     "shipment_sheet": "Sahypa",
     "shipment_dashboard": "Dolandyryş",
     "shipment_board": "Tagta",
+    "harvest_board": "Ýük plan we galyndy",
     "drafts": "Garalama ýükler",
     "assign": "Belgilemek",
     "boss_dashboard": "Boss paneli",
@@ -99,6 +100,25 @@
   "connection": {
     "online": "Onlaýn",
     "offline": "Baglanyşyk ýok — üýtgeşmeler saklanmaz"
+  },
+  "harvest_board": {
+    "title": "Ýük plan we galyndy",
+    "block": "Bloklar",
+    "blocks": "blok",
+    "yesterday_rest": "Düýnki galyndy",
+    "today_plan": "Bu günki meýilleşdirilýän ýygym",
+    "total": "Jemi",
+    "note": "Bellik",
+    "note_placeholder": "Bellik…",
+    "entered_at": "Girizilen senesi",
+    "entered_by": "Girizildi",
+    "total_row": "Jemi",
+    "no_season": "Işjeň möwsüm ýok — maglumat girizmek üçin Admin → Möwsümler bölüminde möwsümi işjeň ediň.",
+    "saved": "Saklandy",
+    "save_error": "Saklap bolmady — gaýtadan synanyşyň.",
+    "prev_day": "Öňki gün",
+    "next_day": "Indiki gün",
+    "today": "Şu gün"
   },
   "plan": {
     "title": "Hepdäniň hasyly meýilnamasy",
