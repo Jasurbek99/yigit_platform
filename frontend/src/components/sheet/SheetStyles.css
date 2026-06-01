@@ -73,7 +73,7 @@
 /* Distraction-free grid: the page detaches from the AppLayout flow and pins
    itself over the entire viewport, covering the sidebar (z-index 100) and
    header (z-index 99). The toolbar is unmounted by the page; only the grid
-   and a floating exit button remain. */
+   and a small floating control cluster remain. */
 .sheet-page--fullscreen {
   position: fixed !important;
   inset: 0;
@@ -81,17 +81,28 @@
   height: 100vh;
   width: 100vw;
 }
-.sheet-fullscreen-exit {
+.sheet-fullscreen-controls {
   position: absolute;
   top: 12px;
   right: 16px;
   z-index: 1001;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sheet-fullscreen-btn {
   box-shadow: 0 2px 8px rgba(16, 24, 40, 0.2);
   opacity: 0.55;
   transition: opacity 0.12s;
 }
-.sheet-fullscreen-exit:hover {
+.sheet-fullscreen-btn:hover,
+.sheet-fullscreen-controls:hover .sheet-fullscreen-btn {
   opacity: 1;
+}
+.sheet-fullscreen-btn--zoom {
+  min-width: 56px;
+  padding: 0 10px;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ═══ TOOLBAR ═══ */

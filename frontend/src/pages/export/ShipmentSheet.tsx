@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useCallback } from 'react';
 import { Spin, Button, Tooltip } from 'antd';
-import { FullscreenExitOutlined } from '@ant-design/icons';
+import { FullscreenExitOutlined, ZoomInOutlined, ZoomOutOutlined } from '@ant-design/icons';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { useShipmentSheet } from '@/hooks/useShipmentSheet';
-import { useSheetStore } from '@/stores/sheetStore';
+import { useSheetStore, SHEET_ZOOM_MIN, SHEET_ZOOM_MAX } from '@/stores/sheetStore';
 import {
   useUserSheetPreferences,
   useSaveUserSheetPreferences,
@@ -57,6 +57,10 @@ export default function ShipmentSheet() {
   const setRows = useSheetStore((s) => s.setRows);
   const sheetFullscreen = useSheetStore((s) => s.sheetFullscreen);
   const setSheetFullscreen = useSheetStore((s) => s.setSheetFullscreen);
+  const sheetZoom = useSheetStore((s) => s.sheetZoom);
+  const zoomIn = useSheetStore((s) => s.zoomIn);
+  const zoomOut = useSheetStore((s) => s.zoomOut);
+  const resetZoom = useSheetStore((s) => s.resetZoom);
   // Column reorder mode state — read here so we can apply columnOrder to filtered
   const columnOrder = useSheetStore((s) => s.columnOrder);
   const setColumnOrder = useSheetStore((s) => s.setColumnOrder);
@@ -247,15 +251,47 @@ export default function ShipmentSheet() {
       style={{ position: 'relative' }}
     >
       {sheetFullscreen ? (
-        <Tooltip title={t('sheet.fullscreen_exit')} placement="left">
-          <Button
-            className="sheet-fullscreen-exit"
-            shape="circle"
-            icon={<FullscreenExitOutlined />}
-            onClick={() => setSheetFullscreen(false)}
-            aria-label={t('sheet.fullscreen_exit')}
-          />
-        </Tooltip>
+        <div className="sheet-fullscreen-controls">
+          <Tooltip title={t('sheet.zoom_out')}>
+            <Button
+              className="sheet-fullscreen-btn"
+              shape="circle"
+              icon={<ZoomOutOutlined />}
+              onClick={zoomOut}
+              disabled={sheetZoom <= SHEET_ZOOM_MIN}
+              aria-label={t('sheet.zoom_out')}
+            />
+          </Tooltip>
+          <Tooltip title={t('sheet.zoom_reset')}>
+            <Button
+              className="sheet-fullscreen-btn sheet-fullscreen-btn--zoom"
+              shape="round"
+              onClick={resetZoom}
+              aria-label={t('sheet.zoom_reset')}
+            >
+              {Math.round(sheetZoom * 100)}%
+            </Button>
+          </Tooltip>
+          <Tooltip title={t('sheet.zoom_in')}>
+            <Button
+              className="sheet-fullscreen-btn"
+              shape="circle"
+              icon={<ZoomInOutlined />}
+              onClick={zoomIn}
+              disabled={sheetZoom >= SHEET_ZOOM_MAX}
+              aria-label={t('sheet.zoom_in')}
+            />
+          </Tooltip>
+          <Tooltip title={t('sheet.fullscreen_exit')} placement="left">
+            <Button
+              className="sheet-fullscreen-btn"
+              shape="circle"
+              icon={<FullscreenExitOutlined />}
+              onClick={() => setSheetFullscreen(false)}
+              aria-label={t('sheet.fullscreen_exit')}
+            />
+          </Tooltip>
+        </div>
       ) : (
         <SheetToolbar
           shipments={filtered}
