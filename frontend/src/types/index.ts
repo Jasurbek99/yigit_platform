@@ -510,6 +510,11 @@ export interface ISheetRowSetting {
   updated_at: string;
   updated_by_name: string | null;
   deleted_at: string | null;
+  // Canonical i18n keys from DEFAULT_SHEET_ROWS (null for is_custom rows).
+  // Used by the admin Sheet Rows table to render the translated default as
+  // a placeholder / "default: X" hint when label_* / who_* are blank.
+  default_label_key: string | null;
+  default_who_key: string | null;
 }
 
 /**

@@ -33,6 +33,12 @@ logger = logging.getLogger(__name__)
 
 _ROLE_SET = {code for code, _ in ROLE_CHOICES}
 
+# Lookup of {field_key: DEFAULT_SHEET_ROWS entry}. Used by the admin serializer
+# to expose the canonical label_key / default_who_key for each row so the
+# frontend can render the i18n-translated default as a placeholder when the
+# admin override (label_*, who_*) is blank.
+_DEFAULT_ROW_BY_FIELD_KEY = {r['field_key']: r for r in DEFAULT_SHEET_ROWS}
+
 
 # ── Serializers ───────────────────────────────────────────────────────────────
 
@@ -61,6 +67,11 @@ class SheetRowSettingSerializer(serializers.ModelSerializer):
     triggered_user_active = serializers.SerializerMethodField()
     triggered_roles = serializers.SerializerMethodField()
     extra_users = serializers.SerializerMethodField()
+    # Canonical i18n keys from DEFAULT_SHEET_ROWS (null for is_custom rows).
+    # The frontend resolves these through i18n to display the current default
+    # as a placeholder when label_* / who_* are blank.
+    default_label_key = serializers.SerializerMethodField()
+    default_who_key = serializers.SerializerMethodField()
 
     # Write-only accepted for triggered_roles replacement
     triggered_roles_write = serializers.ListField(
@@ -113,6 +124,9 @@ class SheetRowSettingSerializer(serializers.ModelSerializer):
             'hidden_at',
             # Phase 5c — custom-row flag (read-only; flipped by POST create only)
             'is_custom',
+            # Canonical defaults (read-only, derived from DEFAULT_SHEET_ROWS)
+            'default_label_key',
+            'default_who_key',
         ]
         read_only_fields = [
             'id', 'field_key', 'row_number',
@@ -125,6 +139,7 @@ class SheetRowSettingSerializer(serializers.ModelSerializer):
             'hidden_at',
             # is_custom is set on POST create; never edited via PATCH.
             'is_custom',
+            'default_label_key', 'default_who_key',
         ]
 
     def get_updated_by_name(self, obj: SheetRowSetting) -> str | None:
@@ -149,6 +164,14 @@ class SheetRowSettingSerializer(serializers.ModelSerializer):
     def get_triggered_roles(self, obj: SheetRowSetting) -> list[str]:
         """Return list of role codes from prefetched role_triggers."""
         return [rt.role for rt in obj.role_triggers.all()]
+
+    def get_default_label_key(self, obj: SheetRowSetting) -> str | None:
+        entry = _DEFAULT_ROW_BY_FIELD_KEY.get(obj.field_key)
+        return entry['label_key'] if entry else None
+
+    def get_default_who_key(self, obj: SheetRowSetting) -> str | None:
+        entry = _DEFAULT_ROW_BY_FIELD_KEY.get(obj.field_key)
+        return entry['default_who_key'] if entry else None
 
     def get_extra_users(self, obj: SheetRowSetting) -> list[dict]:
         """Return list of active user grants from prefetched user_permissions."""

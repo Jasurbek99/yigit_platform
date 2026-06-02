@@ -152,6 +152,94 @@ function CustomRowModal({ open, onClose }: ICustomRowModalProps) {
   );
 }
 
+// ─── LocalizedDefaultsCell ─────────────────────────────────────────────────
+// Stacks three per-language inputs (tk / ru / en) for either the Label or the
+// Who column. When the saved value is blank, the input shows the i18n-translated
+// default (resolved via dottedKey from DEFAULT_SHEET_ROWS) as a gray placeholder.
+// When the saved value differs from that default, a tiny "default: X" hint is
+// rendered underneath so the admin can see what the underlying canonical value
+// is without losing the override.
+//
+// dottedKey is null for is_custom rows (they have no DEFAULT_SHEET_ROWS entry).
+
+const LANGS = ['tk', 'ru', 'en'] as const;
+
+interface ILocalizedDefaultsCellProps {
+  record: ISheetRowSetting;
+  /** i18n key, e.g. 'sheet.row.harvest_block' or 'sheet.who.soltanmyrat'. */
+  dottedKey: string | null;
+  /** Field-name prefix: 'label' → label_tk/_ru/_en; 'who' → who_tk/_ru/_en. */
+  fieldPrefix: 'label' | 'who';
+  disabled: boolean;
+  onSave: (field: string, next: string) => void;
+}
+
+// Narrowed field-name type: only label_{tk,ru,en} / who_{tk,ru,en} are valid.
+// Keeps the dynamic key construction safe even if ISheetRowSetting gains a
+// non-string member named e.g. `label_foo` in the future.
+type LocalizedField =
+  | `label_${(typeof LANGS)[number]}`
+  | `who_${(typeof LANGS)[number]}`;
+
+function LocalizedDefaultsCell({
+  record,
+  dottedKey,
+  fieldPrefix,
+  disabled,
+  onSave,
+}: ILocalizedDefaultsCellProps) {
+  // i18n is the singleton instance — calling t with `{ lng }` resolves in that
+  // explicit language without changing the user's active locale.
+  const { t, i18n } = useTranslation();
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {LANGS.map((lang) => {
+        const field = `${fieldPrefix}_${lang}` as LocalizedField;
+        const saved = record[field] ?? '';
+        // Resolve the canonical default for this language. When dottedKey is
+        // null (is_custom rows) or i18next can't find the key, fall back to
+        // the language code so the input still has *some* placeholder hint.
+        const defaultText = dottedKey
+          ? (i18n.t(dottedKey, { lng: lang, defaultValue: '' }) as string)
+          : '';
+        // Show the "default:" hint only when the saved value is a real
+        // override (differs from the default). If saved is blank, the
+        // placeholder already shows the default — repeating it is noise.
+        const showHint = !!defaultText && !!saved && saved !== defaultText;
+        return (
+          <div key={lang} style={{ display: 'flex', flexDirection: 'column' }}>
+            <InlineSavedInput
+              value={saved}
+              disabled={disabled}
+              placeholder={defaultText || lang.toUpperCase()}
+              addonBefore={
+                <span style={{ fontSize: 10, width: 20, display: 'inline-block', textAlign: 'center' }}>
+                  {lang.toUpperCase()}
+                </span>
+              }
+              onSave={(next) => onSave(field, next)}
+            />
+            {showHint && (
+              <span
+                style={{
+                  fontSize: 10,
+                  color: '#8c8c8c',
+                  marginLeft: 28,
+                  lineHeight: 1.2,
+                  marginTop: 1,
+                }}
+                title={defaultText}
+              >
+                {t('sheet_rows.default_hint', { value: defaultText })}
+              </span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── Main component ─────────────────────────────────────────────────────────
 
 export default function SheetRowsTab({ canWrite }: IProps) {
@@ -360,27 +448,15 @@ export default function SheetRowsTab({ canWrite }: IProps) {
       key: 'labels',
       width: 280,
       render: (_: unknown, record: ISheetRowSetting) => (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {(['tk', 'ru', 'en'] as const).map((lang) => {
-            const field = `label_${lang}` as 'label_tk' | 'label_ru' | 'label_en';
-            return (
-              <InlineSavedInput
-                key={lang}
-                value={record[field]}
-                disabled={!canWrite}
-                placeholder={lang.toUpperCase()}
-                addonBefore={
-                  <span style={{ fontSize: 10, width: 20, display: 'inline-block', textAlign: 'center' }}>
-                    {lang.toUpperCase()}
-                  </span>
-                }
-                onSave={(next) =>
-                  handleSave(record, { [field]: next } as Partial<ISaveSheetRowPayload>)
-                }
-              />
-            );
-          })}
-        </div>
+        <LocalizedDefaultsCell
+          record={record}
+          dottedKey={record.default_label_key}
+          fieldPrefix="label"
+          disabled={!canWrite}
+          onSave={(field, next) =>
+            handleSave(record, { [field]: next } as Partial<ISaveSheetRowPayload>)
+          }
+        />
       ),
     },
     {
@@ -388,27 +464,15 @@ export default function SheetRowsTab({ canWrite }: IProps) {
       key: 'who',
       width: 280,
       render: (_: unknown, record: ISheetRowSetting) => (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {(['tk', 'ru', 'en'] as const).map((lang) => {
-            const field = `who_${lang}` as 'who_tk' | 'who_ru' | 'who_en';
-            return (
-              <InlineSavedInput
-                key={lang}
-                value={record[field]}
-                disabled={!canWrite}
-                placeholder={lang.toUpperCase()}
-                addonBefore={
-                  <span style={{ fontSize: 10, width: 20, display: 'inline-block', textAlign: 'center' }}>
-                    {lang.toUpperCase()}
-                  </span>
-                }
-                onSave={(next) =>
-                  handleSave(record, { [field]: next } as Partial<ISaveSheetRowPayload>)
-                }
-              />
-            );
-          })}
-        </div>
+        <LocalizedDefaultsCell
+          record={record}
+          dottedKey={record.default_who_key}
+          fieldPrefix="who"
+          disabled={!canWrite}
+          onSave={(field, next) =>
+            handleSave(record, { [field]: next } as Partial<ISaveSheetRowPayload>)
+          }
+        />
       ),
     },
     {
