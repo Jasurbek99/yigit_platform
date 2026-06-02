@@ -417,6 +417,10 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
             // allowClear={false}: see 'date' case — same accidental-clear bug.
             allowClear={false}
             onChange={(date) => { if (date) save(date.startOf('minute').toISOString()); }}
+            // onOk fires when the operator presses the picker's "OK" button
+            // without scrolling the time wheels — without this, the default
+            // value (now) is silently dropped on close.
+            onOk={(date) => { if (date) save(date.startOf('minute').toISOString()); }}
             onOpenChange={(open) => { if (!open) close(); }}
             style={{ width: '100%' }}
             autoFocus
