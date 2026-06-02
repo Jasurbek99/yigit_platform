@@ -9,7 +9,6 @@ import {
   ZoomInOutlined,
   ZoomOutOutlined,
   MergeCellsOutlined,
-  InboxOutlined,
   FullscreenOutlined,
   ColumnWidthOutlined,
   SwapOutlined,
@@ -22,7 +21,6 @@ import { useCreateEmptyColumn } from '@/hooks/useDrafts';
 import { canDo } from '@/utils/permissions';
 import type { IRowConfig, ISheetTaskCounts, IShipmentSheetItem } from '@/types';
 import { COLORS } from '@/constants/styles';
-import { DestinationDraftModal } from './DestinationDraftModal';
 import { JoinActionBar } from './JoinActionBar';
 import { SwapActionBar } from './SwapActionBar';
 
@@ -96,18 +94,15 @@ export function SheetToolbar({
 
   const [unhideModalOpen, setUnhideModalOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [destModalOpen, setDestModalOpen] = useState(false);
 
   const createEmptyColumn = useCreateEmptyColumn();
 
   const canCreate = canDo(user, 'shipment', 'create');
 
-  // Join flow: supply create is open to loading_dept_head / warehouse_chief / export_manager / director.
-  // Destination create and join are restricted to export_manager / director.
+  // Join flow: join is restricted to export_manager / director.
+  // (canCreateSupply removed when the "Ýük goş" button was commented out — the
+  // primary "New Shipment" button now covers supply create via canDo('shipment','create').)
   const userRole = user?.role ?? '';
-  const canCreateSupply =
-    user?.is_superuser ||
-    ['loading_dept_head', 'warehouse_chief', 'export_manager', 'director'].includes(userRole);
   const canJoin =
     user?.is_superuser || ['export_manager', 'director'].includes(userRole);
   // Column reorder is restricted to admins and export managers — it changes the
@@ -230,12 +225,16 @@ export function SheetToolbar({
               type="primary"
               size="small"
               icon={<PlusOutlined />}
-              onClick={() => setDestModalOpen(true)}
+              loading={createEmptyColumn.isPending}
+              onClick={handleAddCargo}
             >
               {t('sheet.add_column')}
             </Button>
           )}
-          {canCreateSupply && (
+          {/* "Ýük goş" — commented out: now duplicates the "New Shipment" button above.
+              Both call handleAddCargo → useCreateEmptyColumn. Kept here in case the
+              supply-role gate (canCreateSupply) needs to be restored as a separate path. */}
+          {/* {canCreateSupply && (
             <Tooltip title={t('sheet.add_cargo.tooltip')}>
               <Button
                 size="small"
@@ -246,7 +245,7 @@ export function SheetToolbar({
                 {t('sheet.add_cargo.btn')}
               </Button>
             </Tooltip>
-          )}
+          )} */}
           {canJoin && (
             <Tooltip title={joinMode ? undefined : t('sheet.join.tooltip')}>
               <Button
@@ -494,12 +493,6 @@ export function SheetToolbar({
           </div>
         </Space>
       </Modal>
-
-      {/* Join flow: destination draft modal */}
-      <DestinationDraftModal
-        open={destModalOpen}
-        onClose={() => setDestModalOpen(false)}
-      />
 
     </>
   );
