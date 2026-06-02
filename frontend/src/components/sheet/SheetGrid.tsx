@@ -35,6 +35,12 @@ import { SheetCellEditor } from './SheetCellEditor';
 import { SheetLabelRow } from './SheetLabelColumn';
 import { SheetColumnHeader } from './SheetColumnHeader';
 import { scaleSheetLayout } from '@/constants/sheetRowConfig';
+import { getContrastTextColor, mixWithWhite } from '@/utils/contrastColor';
+
+// The column tint is rendered as `color-mix(in srgb, <pick> 60%, var(--surface))`
+// — JS-side mirror so we can compute the contrast color against the *rendered*
+// blend, not the raw pick. Keep this in sync with the rule in SheetStyles.css.
+const COL_TINT_PICK_WEIGHT = 0.6;
 
 // ─── Sortable column header wrapper ──────────────────────────────────────────
 // Each shipment column header becomes a useSortable item while reorderMode is on.
@@ -764,7 +770,12 @@ export function SheetGrid({
                   zIndex: Z_FROZEN_DATA_COL,
                   flexShrink: 0,
                   ...(shipment.column_color
-                    ? ({ ['--col-tint' as string]: shipment.column_color } as React.CSSProperties)
+                    ? ({
+                        ['--col-tint' as string]: shipment.column_color,
+                        ['--col-tint-fg' as string]: getContrastTextColor(
+                          mixWithWhite(shipment.column_color, COL_TINT_PICK_WEIGHT),
+                        ),
+                      } as React.CSSProperties)
                     : null),
                 }}
               >
@@ -796,7 +807,12 @@ export function SheetGrid({
                     width: COL_WIDTH_SHIPMENT,
                     height: ROW_HEIGHT,
                     ...(shipment.column_color
-                      ? ({ ['--col-tint' as string]: shipment.column_color } as React.CSSProperties)
+                      ? ({
+                          ['--col-tint' as string]: shipment.column_color,
+                          ['--col-tint-fg' as string]: getContrastTextColor(
+                            mixWithWhite(shipment.column_color, COL_TINT_PICK_WEIGHT),
+                          ),
+                        } as React.CSSProperties)
                       : null),
                   }}
                 >
@@ -862,7 +878,7 @@ export function SheetGrid({
         }}
         className="sheet-label-col sheet-label-col--field"
       >
-        {t('sheet.row.shipment_code')}
+        {t('sheet.row.export_code')}
       </div>
     </>
   );

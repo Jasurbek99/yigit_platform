@@ -1,12 +1,13 @@
 import { memo, useCallback } from 'react';
 import { Tag } from 'antd';
 import { useNavigate } from 'react-router-dom';
-import type { IShipmentSheetItem, IRowConfig, ICommentTaskStatus, ISheetRowSettingForUser } from '@/types';
+import type { IShipmentSheetItem, IRowConfig, ICommentTaskStatus, ISheetRowSettingForUser, IShipmentOptionType } from '@/types';
 import { useSheetStore } from '@/stores/sheetStore';
 import { useShipmentOptions } from '@/hooks/useAdmin';
 import { scaleSheetLayout } from '@/constants/sheetRowConfig';
 import { CommentMarker } from './CommentMarker';
 import { getCellValue } from './getCellValue';
+import { getContrastTextColor } from '@/utils/contrastColor';
 
 // Re-export for consumers that only need the formatter (e.g. test files).
 export { getCellValue } from './getCellValue';
@@ -14,6 +15,50 @@ export { getCellValue } from './getCellValue';
 const COUNTRY_FLAGS: Record<string, string> = {
   KZ: '🇰🇿', RU: '🇷🇺', BY: '🇧🇾', KG: '🇰🇬', TJ: '🇹🇯', UZ: '🇺🇿', AF: '🇦🇫',
 };
+
+// Sheet fields whose value is a code from ShipmentOptionType. When admin sets
+// a per-option color on the matching option, the cell paints with that color
+// (Google-Sheets-style conditional formatting on dropdown values).
+const FIELD_KEY_TO_OPTION_CATEGORY: Record<string, string> = {
+  harvest_status: 'harvest_status',
+  documents_status: 'documents_status',
+  vehicle_condition: 'vehicle_condition',
+  vehicle_responsible: 'transport_responsible',
+};
+
+// Single-FK dropdown fields → the matching `*_color` field embedded by the
+// backend ShipmentSheetSerializer. Admin sets the color on the FK row
+// (Country.color, Customer.color, etc.) and it travels with every shipment.
+const FIELD_KEY_TO_FK_COLOR_FIELD: Record<string, keyof IShipmentSheetItem> = {
+  country: 'country_color',
+  city: 'city_color',
+  customer: 'customer_color',
+  import_firm: 'import_firm_color',
+  variety: 'variety_color',
+  border_point: 'border_point_color',
+};
+
+function getCellAutoColor(
+  fieldKey: string,
+  shipment: IShipmentSheetItem,
+  options: IShipmentOptionType[] | undefined,
+): string | null {
+  // 1. Reference-FK color (country/customer/city/import_firm/variety/border_point).
+  const fkColorKey = FIELD_KEY_TO_FK_COLOR_FIELD[fieldKey];
+  if (fkColorKey) {
+    const fkColor = shipment[fkColorKey];
+    if (typeof fkColor === 'string' && fkColor) return fkColor;
+  }
+  // 2. ShipmentOptionType color (harvest_status, documents_status,
+  //    vehicle_condition, vehicle_responsible).
+  if (!options) return null;
+  const category = FIELD_KEY_TO_OPTION_CATEGORY[fieldKey];
+  if (!category) return null;
+  const raw = shipment[fieldKey as keyof IShipmentSheetItem];
+  if (typeof raw !== 'string' || !raw) return null;
+  const match = options.find((o) => o.category === category && o.code === raw);
+  return match?.color ?? null;
+}
 
 interface ISheetCellProps {
   shipment: IShipmentSheetItem;
@@ -55,13 +100,27 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
     ? Math.round(rowSetting.style.width * sheetZoom)
     : COL_WIDTH_SHIPMENT;
   const cellAlign = rowSetting?.style?.align;
-  const cellBg = rowSetting?.style?.color ?? undefined;
 
   // Option list is shared across all cells (TanStack Query dedupes the fetch
   // and returns a referentially-stable array). Needed by getCellValue to
-  // resolve harvest_status / documents_status codes → Turkmen labels.
+  // resolve harvest_status / documents_status codes → Turkmen labels, and by
+  // getOptionColor below to paint per-option cell backgrounds.
   const { data: options } = useShipmentOptions();
   const value = getCellValue(shipment, rowConfig, options);
+  // Per-value color (Google-Sheets-style conditional formatting on dropdown
+  // values) takes precedence over the row-level admin color: a specific value
+  // → specific color rule is more specific than "all cells in this row".
+  // Covers both FK-driven dropdowns (country/customer/...) and the option-list
+  // categories (harvest_status, documents_status, ...).
+  const autoColor = getCellAutoColor(rowConfig.field_key, shipment, options);
+  const cellBg = autoColor ?? rowSetting?.style?.color ?? undefined;
+  // Pair every painted background with a WCAG-contrast foreground so dark
+  // picks don't hide the cell text. Inline `color` beats the various class-
+  // based text colors (.sheet-cell__code, .sheet-cell--gapy .__text, etc.)
+  // exactly like the inline `backgroundColor` already beats them.
+  const cellBgStyle: React.CSSProperties = cellBg
+    ? { backgroundColor: cellBg, color: getContrastTextColor(cellBg) }
+    : {};
   const cellIsEmpty = isEmpty(value);
 
   const handleClick = useCallback(() => {
@@ -102,7 +161,7 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
     return (
       <div
         className={`sheet-cell sheet-cell--${rowConfig.style}${isActive ? ' sheet-cell--active' : ''}${isGapy ? ' sheet-cell--gapy' : ''}`}
-        style={{ width: cellWidth, height: ROW_HEIGHT, ...(cellBg ? { backgroundColor: cellBg } : {}), ...(cellAlign ? { textAlign: cellAlign } : {}) }}
+        style={{ width: cellWidth, height: ROW_HEIGHT, ...cellBgStyle, ...(cellAlign ? { textAlign: cellAlign } : {}) }}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
       >
@@ -118,7 +177,7 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
     return (
       <div
         className={`sheet-cell sheet-cell--${rowConfig.style}${isActive ? ' sheet-cell--active' : ''}${isGapy ? ' sheet-cell--gapy' : ''}`}
-        style={{ width: cellWidth, height: ROW_HEIGHT, ...(cellBg ? { backgroundColor: cellBg } : {}) }}
+        style={{ width: cellWidth, height: ROW_HEIGHT, ...cellBgStyle }}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
       >
@@ -126,7 +185,9 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
           {shipment.firm_splits.map((f) => (
             <Tag
               key={f.firm_code}
-              color={shipment.firm_splits.length > 1 ? 'purple' : undefined}
+              // Per-firm admin color wins over the multi-firm purple fallback.
+              // Antd Tag accepts hex strings directly via the `color` prop.
+              color={f.firm_color ?? (shipment.firm_splits.length > 1 ? 'purple' : undefined)}
               style={{ margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}
             >
               {f.firm_code}
@@ -142,13 +203,18 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
     return (
       <div
         className={`sheet-cell sheet-cell--${rowConfig.style}${isActive ? ' sheet-cell--active' : ''}${isGapy ? ' sheet-cell--gapy' : ''}`}
-        style={{ width: cellWidth, height: ROW_HEIGHT, ...(cellBg ? { backgroundColor: cellBg } : {}) }}
+        style={{ width: cellWidth, height: ROW_HEIGHT, ...cellBgStyle }}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
       >
         <div className="sheet-cell__tags">
           {shipment.block_sources.map((b) => (
-            <Tag key={b.block_code} color="blue" style={{ margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>
+            <Tag
+              key={b.block_code}
+              // Per-block admin color wins; default "blue" preset otherwise.
+              color={b.block_color ?? 'blue'}
+              style={{ margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}
+            >
               {b.block_code}
             </Tag>
           ))}
@@ -165,7 +231,7 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
     return (
       <div
         className={`sheet-cell sheet-cell--${rowConfig.style} sheet-cell--linkable${isActive ? ' sheet-cell--active' : ''}${isGapy ? ' sheet-cell--gapy' : ''}`}
-        style={{ width: cellWidth, height: ROW_HEIGHT, cursor: 'pointer', ...(cellBg ? { backgroundColor: cellBg } : {}) }}
+        style={{ width: cellWidth, height: ROW_HEIGHT, cursor: 'pointer', ...cellBgStyle }}
         onClick={handleAdvanceClick}
       >
         <span style={{ color: shipment.has_doc_advance ? '#067647' : '#b42318', fontWeight: 600 }}>
@@ -180,7 +246,7 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
     return (
       <div
         className={`sheet-cell sheet-cell--${rowConfig.style}${isActive ? ' sheet-cell--active' : ''}${isGapy ? ' sheet-cell--gapy' : ''}`}
-        style={{ width: cellWidth, height: ROW_HEIGHT, ...(cellBg ? { backgroundColor: cellBg } : {}) }}
+        style={{ width: cellWidth, height: ROW_HEIGHT, ...cellBgStyle }}
         onClick={handleClick}
       >
         <span style={{ color: shipment.has_sales_report ? '#067647' : '#b42318', fontWeight: 600 }}>
@@ -195,7 +261,7 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
     return (
       <div
         className={`sheet-cell sheet-cell--key${isActive ? ' sheet-cell--active' : ''}${isGapy ? ' sheet-cell--gapy' : ''}`}
-        style={{ width: cellWidth, height: ROW_HEIGHT, ...(cellBg ? { backgroundColor: cellBg } : {}) }}
+        style={{ width: cellWidth, height: ROW_HEIGHT, ...cellBgStyle }}
         onClick={handleClick}
       >
         <span className="sheet-cell__code">{shipment.cargo_code}</span>
@@ -211,7 +277,7 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
   return (
     <div
       className={`sheet-cell sheet-cell--${rowConfig.style}${isActive ? ' sheet-cell--active' : ''}${isEditable ? ' sheet-cell--editable' : ''}${isGapy ? ' sheet-cell--gapy' : ''}`}
-      style={{ width: cellWidth, height: ROW_HEIGHT, position: 'relative', ...(cellBg ? { backgroundColor: cellBg } : {}) }}
+      style={{ width: cellWidth, height: ROW_HEIGHT, position: 'relative', ...cellBgStyle }}
       title={value.length > 15 ? value : undefined}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}

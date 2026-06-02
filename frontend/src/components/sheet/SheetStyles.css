@@ -540,7 +540,13 @@
   justify-content: center;
   padding: calc(6px * var(--sheet-zoom, 1)) calc(10px * var(--sheet-zoom, 1));
   font-size: calc(11px * var(--sheet-zoom, 1));
-  color: var(--gray-700);
+  /* --col-tint-fg is the WCAG-contrast text colour the wrapper sets when a
+     column_color is picked (see SheetGrid). It cascades into every cell so the
+     default text colour adapts to dark / light column tints automatically.
+     Inline `color` from SheetCell (for cells with their own backgroundColor)
+     and explicit text colours on child spans (.sheet-cell__code etc.) still
+     override via specificity. */
+  color: var(--col-tint-fg, var(--gray-700));
   border-right: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
   overflow: hidden;
@@ -562,7 +568,9 @@
   overflow: hidden;
 }
 .sheet-cell__code {
-  color: var(--blue-600);
+  /* Cargo code is the key data identifier; adapts to column tint so it stays
+     readable on dark picks (falls back to blue-600 in untinted columns). */
+  color: var(--col-tint-fg, var(--blue-600));
   font-weight: 700;
   letter-spacing: -0.3px;
 }
@@ -694,9 +702,14 @@
 .sheet-cell--gapy {
   background: var(--pink-50);
 }
+/* Let gapy text spans inherit the cell's color. The pink-50 bg is the gapy
+   identity; forcing pink-500 text on top of that loses contrast when the cell
+   also carries an inline backgroundColor (FK / option / row color) or sits in
+   a tinted column — the explicit class color would otherwise beat the parent's
+   inherited contrast color via specificity. */
 .sheet-cell--gapy .sheet-cell__text,
 .sheet-cell--gapy .sheet-cell__code {
-  color: var(--pink-500);
+  color: inherit;
 }
 .sheet-cell--gapy-hidden {
   display: flex;
