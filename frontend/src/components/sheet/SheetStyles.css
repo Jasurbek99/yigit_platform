@@ -266,13 +266,13 @@
   background: color-mix(in srgb, var(--col-tint) 60%, var(--surface));
 }
 
-/* Gapy + column-tint: gapy's pink uses `!important` and would otherwise mask
-   the operator-picked colour. A combined-class rule (specificity 0,2,0) plus
-   `!important` wins by both specificity AND importance. 75% lets the picked
-   colour dominate the pink — a white pick now reads as white, dark picks
-   still keep a hint of pink so the gapy signal isn't completely lost. */
+/* Gapy + column-tint blend. Specificity (0,3,0) beats both the base gapy
+   rule (0,1,0) and the column tint (0,2,0), so for gapy cells in a tinted
+   column the blend shows. No `!important` — inline cellBg (autoColor,
+   rowSetting.style.color) must still win, otherwise admin-picked cell colors
+   are invisible on gapy shipments. */
 .sheet-col-tinted .sheet-cell.sheet-cell--gapy {
-  background: color-mix(in srgb, var(--col-tint) 75%, var(--pink-50)) !important;
+  background: color-mix(in srgb, var(--col-tint) 75%, var(--pink-50));
 }
 
 /* Frozen column headers need an opaque background so virtualized columns
@@ -688,8 +688,11 @@
 }
 
 /* ═══ GAPY SATYS ═══ */
+/* No `!important` — inline cellBg (FK / option / admin row color) must win
+   so cell-specific colors stay visible on gapy shipments, matching the
+   behavior of manual column_color. */
 .sheet-cell--gapy {
-  background: var(--pink-50) !important;
+  background: var(--pink-50);
 }
 .sheet-cell--gapy .sheet-cell__text,
 .sheet-cell--gapy .sheet-cell__code {
