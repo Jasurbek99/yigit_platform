@@ -19,12 +19,14 @@ class ExportFirm(models.Model):
     tax_code = models.CharField(max_length=50, blank=True, null=True)
     swift_code = models.CharField(max_length=20, blank=True, null=True)
     one_c_code = models.CharField(max_length=50, blank=True, null=True)
+    color = models.CharField(max_length=7, blank=True, null=True)
+    sort_order = models.IntegerField(default=0)
     is_active = models.BooleanField(default=True)
     is_gapy_satys = models.BooleanField(default=False)
 
     class Meta:
         db_table = schema_table('core', 'export_firms')
-        ordering = ['code']
+        ordering = ['sort_order', 'code']
 
     def __str__(self) -> str:
         return f'{self.code} — {self.name_en or self.name_tk}'
@@ -44,12 +46,14 @@ class ImportFirm(models.Model):
     phone = models.CharField(max_length=50, blank=True, null=True)
     director_signature = models.FileField(upload_to='import_firms/signatures/', null=True, blank=True)
     director_seal = models.FileField(upload_to='import_firms/seals/', null=True, blank=True)
+    color = models.CharField(max_length=7, blank=True, null=True)
+    sort_order = models.IntegerField(default=0)
     is_active = models.BooleanField(default=True)
     is_gapy_satys = models.BooleanField(default=False)
 
     class Meta:
         db_table = schema_table('core', 'import_firms')
-        ordering = ['name_company']
+        ordering = ['sort_order', 'name_company']
 
     def __str__(self) -> str:
         return self.name_short or self.name_company
@@ -80,11 +84,13 @@ class Customer(models.Model):
         related_name='customers',
         db_table=schema_table('core', 'customer_import_firms'),
     )
+    color = models.CharField(max_length=7, blank=True, null=True)
+    sort_order = models.IntegerField(default=0)
     is_active = models.BooleanField(default=True)
 
     class Meta:
         db_table = schema_table('core', 'customers')
-        ordering = ['name']
+        ordering = ['sort_order', 'name']
 
     def __str__(self) -> str:
         return self.name

@@ -23,11 +23,15 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Redirect to login on 401
+// Redirect to login on 401 — but NOT for the login endpoint itself,
+// otherwise bad-credential errors trigger a redirect and the page's
+// onError toast never renders.
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const url = error.config?.url ?? '';
+    const isLoginRequest = url.includes('/auth/login');
+    if (error.response?.status === 401 && !isLoginRequest) {
       window.location.href = '/login';
     }
     return Promise.reject(error);

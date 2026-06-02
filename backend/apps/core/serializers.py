@@ -46,19 +46,19 @@ class LoginSerializer(serializers.Serializer):
 class CountrySerializer(serializers.ModelSerializer):
     class Meta:
         model = Country
-        fields = ['id', 'name_tk', 'name_ru', 'name_en', 'code']
+        fields = ['id', 'name_tk', 'name_ru', 'name_en', 'code', 'color', 'sort_order']
 
 
 class CitySerializer(serializers.ModelSerializer):
     class Meta:
         model = City
-        fields = ['id', 'name', 'name_local', 'country']
+        fields = ['id', 'name', 'name_local', 'country', 'color', 'sort_order']
 
 
 class ExportFirmReferenceSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExportFirm
-        fields = ['id', 'code', 'name_tk', 'name_ru', 'name_en', 'is_active', 'is_gapy_satys']
+        fields = ['id', 'code', 'name_tk', 'name_ru', 'name_en', 'color', 'sort_order', 'is_active', 'is_gapy_satys']
 
 
 class ShipmentStatusTypeSerializer(serializers.ModelSerializer):
@@ -70,7 +70,7 @@ class ShipmentStatusTypeSerializer(serializers.ModelSerializer):
 class CustomerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Customer
-        fields = ['id', 'name', 'phone', 'default_country', 'is_active']
+        fields = ['id', 'name', 'phone', 'default_country', 'color', 'sort_order', 'is_active']
 
 
 class CustomerAdminSerializer(serializers.ModelSerializer):
@@ -90,6 +90,7 @@ class CustomerAdminSerializer(serializers.ModelSerializer):
             'default_country', 'country_name',
             'default_city', 'city_name',
             'import_firms', 'import_firm_names',
+            'color', 'sort_order',
             'is_active',
         ]
 
@@ -103,7 +104,7 @@ class CustomerAdminSerializer(serializers.ModelSerializer):
 class GreenhouseBlockSerializer(serializers.ModelSerializer):
     class Meta:
         model = GreenhouseBlock
-        fields = ['id', 'code', 'name', 'is_active']
+        fields = ['id', 'code', 'name', 'color', 'sort_order', 'is_active']
 
 
 class LoadingLocationSerializer(serializers.ModelSerializer):
@@ -117,7 +118,7 @@ class TomatoVarietySerializer(serializers.ModelSerializer):
         model = TomatoVariety
         fields = [
             'id', 'name', 'type', 'avg_fruit_weight_gr',
-            'code', 'is_experimental', 'scientific_name',
+            'code', 'is_experimental', 'scientific_name', 'color', 'sort_order',
         ]
 
 
@@ -138,13 +139,13 @@ class TruckDestinationSerializer(serializers.ModelSerializer):
 class BorderPointSerializer(serializers.ModelSerializer):
     class Meta:
         model = BorderPoint
-        fields = ['id', 'name', 'route_description', 'typical_transit_days', 'is_active']
+        fields = ['id', 'name', 'route_description', 'typical_transit_days', 'color', 'sort_order', 'is_active']
 
 
 class ShipmentOptionTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = ShipmentOptionType
-        fields = ['id', 'category', 'code', 'label_tk', 'label_en', 'label_ru', 'icon', 'sort_order', 'is_active']
+        fields = ['id', 'category', 'code', 'label_tk', 'label_en', 'label_ru', 'icon', 'color', 'sort_order', 'is_active']
 
 
 class GreenhouseConfigSerializer(serializers.ModelSerializer):

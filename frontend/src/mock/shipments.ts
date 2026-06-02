@@ -38,6 +38,7 @@ const MOCK_DEFAULTS = {
   peregruz_city: null,
   peregruz_date: null,
   customs_clearance_planned_day: null,
+  transport_docs_given_at: null,
   loading_started_at: null,
   customs_entry_at: null,
   customs_exit_at: null,

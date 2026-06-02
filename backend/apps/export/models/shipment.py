@@ -165,6 +165,9 @@ class Shipment(models.Model):
         ],
         help_text="Sirin's planned weekday for customs clearance prep",
     )
+    # R4 — Şirin logs the time the transport department handed over the docs.
+    # NULL = "Berilmedi" (not given); non-null = "Berildi" at this timestamp.
+    transport_docs_given_at = models.DateTimeField(null=True, blank=True)
 
     # === Finance ===
     price_per_kg = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)

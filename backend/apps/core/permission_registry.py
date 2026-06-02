@@ -133,6 +133,8 @@ RESOURCE_FIELDS: dict[str, list[str]] = {
         'harvest_date',
         # Operational status
         'documents_status', 'harvest_status', 'customs_clearance_planned_day',
+        # R4 — Şirin logs when transport dept handed over docs
+        'transport_docs_given_at',
         # Finance
         'price_per_kg', 'total_amount_usd',
         # Flags

@@ -52,6 +52,9 @@ export interface ICountry {
   name_ru: string | null;
   name_en: string | null;
   code: string | null;
+  /** Sheet cell color (hex like "#fde68a") — paints cells whose country = this row. */
+  color?: string | null;
+  sort_order?: number;
 }
 
 export interface ICity {
@@ -59,6 +62,8 @@ export interface ICity {
   name: string;
   name_local: string | null;
   country: number;
+  color?: string | null;
+  sort_order?: number;
 }
 
 export interface IExportFirm {
@@ -77,6 +82,8 @@ export interface IExportFirm {
   tax_code: string | null;
   swift_code: string | null;
   one_c_code: string | null;
+  color?: string | null;
+  sort_order?: number;
   is_active: boolean;
   is_gapy_satys: boolean;
 }
@@ -94,6 +101,8 @@ export interface IImportFirm {
   bank_details: string | null;
   contact_person: string | null;
   phone: string | null;
+  color?: string | null;
+  sort_order?: number;
   is_active: boolean;
   is_gapy_satys: boolean;
   director_signature: string | null;
@@ -110,6 +119,8 @@ export interface ICustomer {
   city_name: string | null;
   import_firms: number[];
   import_firm_names: { id: number; name: string }[];
+  color?: string | null;
+  sort_order?: number;
   is_active: boolean;
 }
 
@@ -129,6 +140,8 @@ export interface IBorderPoint {
   name: string;
   route_description: string | null;
   typical_transit_days: number | null;
+  color?: string | null;
+  sort_order?: number;
   is_active: boolean;
 }
 
@@ -140,6 +153,8 @@ export interface IShipmentOptionType {
   label_en: string | null;
   label_ru: string | null;
   icon: string | null;
+  /** Per-option cell background color (hex like "#fde68a") or null. */
+  color?: string | null;
   sort_order: number;
   is_active: boolean;
 }
@@ -220,6 +235,8 @@ export interface IShipmentListItem {
   peregruz_date: string | null;
   // Operational planning
   customs_clearance_planned_day: 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun' | '' | null;
+  // R4 — Şirin logs when transport dept handed over docs (null = Berilmedi)
+  transport_docs_given_at: string | null;
   // AD-1 + operator-entered timestamps
   loading_started_at: string | null;
   customs_entry_at: string | null;
@@ -260,6 +277,8 @@ export interface IShipmentListItem {
 export interface ISheetFirmSplit {
   firm_code: string;
   firm_name: string | null;
+  /** Per-firm cell color (hex) — paints the firm chip in the firm_splits cell. */
+  firm_color?: string | null;
   weight_kg: number;
   amount_usd: number | null;
 }
@@ -267,6 +286,8 @@ export interface ISheetFirmSplit {
 export interface ISheetBlockSource {
   block_id?: number;
   block_code: string;
+  /** Per-block cell color (hex) — paints the block chip in the block_sources cell. */
+  block_color?: string | null;
   weight_kg: number;
   // Per-block harvest date (R39 source) — null when never set; falls back
   // to shipment.harvest_date for display.
@@ -288,19 +309,26 @@ export interface IShipmentSheetItem {
   country: number | null;
   country_name: string | null;
   country_code: string | null;
+  /** Admin-managed Sheet cell color for this country (hex or null). */
+  country_color?: string | null;
   city: number | null;
   city_name: string | null;
+  city_color?: string | null;
   border_point: number | null;
   border_point_name: string | null;
+  border_point_color?: string | null;
   // Customer
   customer: number | null;
   customer_name: string | null;
+  customer_color?: string | null;
   import_firm: number | null;
   import_firm_name: string | null;
+  import_firm_color?: string | null;
   // Product
   variety: number | null;
   variety_name: string | null;
   variety_code: string | null;
+  variety_color?: string | null;
   /** Full set of sorts on this shipment. First entry = dominant/primary. */
   varieties_dominant?: IVarietyInline[];
   // Weight
@@ -371,6 +399,8 @@ export interface IShipmentSheetItem {
   additional_notes_arap: string | null;
   // Document team: planned weekday for customs clearance (e.g. 'mon', 'wed')
   customs_clearance_planned_day: 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun' | '' | null;
+  // R4 — Şirin logs when transport dept handed over docs (null = Berilmedi)
+  transport_docs_given_at: string | null;
   official_export_code: string | null;
   previous_platform_id: number | null;
   // Per-shipment tint applied to this column in the Sheet view.
@@ -1065,6 +1095,8 @@ export interface ITomatoVariety {
   code: string | null;
   is_experimental: boolean;
   scientific_name: string;
+  color?: string | null;
+  sort_order?: number;
 }
 
 export interface IGreenhouseBlockSub {
@@ -1099,6 +1131,8 @@ export interface IGreenhouseBlock {
   section_count: number | null;
   sowing_date: string | null;
   season_start_month: number | null;
+  color?: string | null;
+  sort_order?: number;
   is_active: boolean;
   sub_blocks: IGreenhouseBlockSub[];
 }
@@ -1190,6 +1224,8 @@ export interface IShipmentDetail extends IShipmentListItem {
   sales_report_date: string | null;
   harvest_date: string | null;
   customs_clearance_planned_day: 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun' | '' | null;
+  // R4 — Şirin logs when transport dept handed over docs (null = Berilmedi)
+  transport_docs_given_at: string | null;
   // State machine v2: when True, the lifecycle includes a `transshipment`
   // step between barysh_gumrugi and bardy. RouteTimelineRail uses this to
   // decide whether to render the transshipment slot.

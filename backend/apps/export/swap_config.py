@@ -60,6 +60,7 @@ SWAPPABLE_FIELDS: frozenset[str] = frozenset({
     'document_note',
     'customs_exit_at',
     'customs_clearance_planned_day',
+    'transport_docs_given_at',  # R4 (replaced Malik's notes per feedback #9)
     # Arap (destination / sales_rep)
     'border_point',     # FK — swaps border_point_id
     'border_crossed_at',
@@ -74,7 +75,9 @@ SWAPPABLE_FIELDS: frozenset[str] = frozenset({
     'sales_report_date',
     'additional_notes_arap',
     # General
-    'notes',
+    # NOTE: legacy Malik R4 'notes' removed from Sheet (replaced by
+    # transport_docs_given_at). Column still exists on the model for legacy data
+    # surfaced on the Detail view but is no longer swappable from the Sheet.
     'departed_at',
     'transit_days',
     # Weight (operator-entered)

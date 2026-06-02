@@ -32,9 +32,12 @@ class TomatoVariety(models.Model):
     scientific_name = models.CharField(max_length=50, blank=True)
     type = models.CharField(max_length=30, blank=True, null=True)
     avg_fruit_weight_gr = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)
+    color = models.CharField(max_length=7, blank=True, null=True)
+    sort_order = models.IntegerField(default=0)
 
     class Meta:
         db_table = schema_table('core', 'tomato_varieties')
+        ordering = ['sort_order', 'name']
         verbose_name_plural = 'Tomato varieties'
 
     def __str__(self) -> str:

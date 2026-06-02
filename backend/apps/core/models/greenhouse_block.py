@@ -53,11 +53,13 @@ class GreenhouseBlock(models.Model):
     section_count = models.IntegerField(blank=True, null=True)
     sowing_date = models.DateField(blank=True, null=True)
     season_start_month = models.IntegerField(blank=True, null=True)
+    color = models.CharField(max_length=7, blank=True, null=True)
+    sort_order = models.IntegerField(default=0)
     is_active = models.BooleanField(default=True)
 
     class Meta:
         db_table = schema_table('core', 'greenhouse_blocks')
-        ordering = ['code']
+        ordering = ['sort_order', 'code']
 
     def __str__(self) -> str:
         return f'{self.code} — {self.name or ""}'

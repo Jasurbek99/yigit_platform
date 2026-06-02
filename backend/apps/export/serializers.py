@@ -199,6 +199,8 @@ class ShipmentListSerializer(serializers.ModelSerializer):
             'has_peregruz', 'peregruz_city', 'peregruz_date',
             # Operational planning
             'customs_clearance_planned_day',
+            # R4 — Şirin logs when transport dept handed docs over
+            'transport_docs_given_at',
             # AD-1 + operator-entered timestamps
             'loading_started_at', 'customs_entry_at', 'customs_exit_at',
             'border_crossed_at', 'sale_started_at', 'sale_ended_at',
@@ -268,10 +270,12 @@ class SheetFirmSplitInlineSerializer(serializers.ModelSerializer):
 
     firm_code = serializers.CharField(source='export_firm.code', read_only=True)
     firm_name = serializers.CharField(source='export_firm.name_en', read_only=True)
+    # Per-firm cell color — paints the firm-chip in the firm_splits cell.
+    firm_color = serializers.CharField(source='export_firm.color', read_only=True, default=None)
 
     class Meta:
         model = ShipmentFirmSplit
-        fields = ['firm_code', 'firm_name', 'weight_kg', 'amount_usd']
+        fields = ['firm_code', 'firm_name', 'firm_color', 'weight_kg', 'amount_usd']
 
 
 class SheetBlockSourceInlineSerializer(serializers.ModelSerializer):
@@ -279,10 +283,12 @@ class SheetBlockSourceInlineSerializer(serializers.ModelSerializer):
 
     block_id = serializers.IntegerField(source='block.id', read_only=True)
     block_code = serializers.CharField(source='block.code', read_only=True)
+    # Per-block cell color — paints the block-chip in the block_sources cell.
+    block_color = serializers.CharField(source='block.color', read_only=True, default=None)
 
     class Meta:
         model = ShipmentBlockSource
-        fields = ['block_id', 'block_code', 'weight_kg', 'harvest_date']
+        fields = ['block_id', 'block_code', 'block_color', 'weight_kg', 'harvest_date']
 
 
 class ShipmentSheetSerializer(serializers.ModelSerializer):
@@ -307,12 +313,17 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
     # Geography
     country_name = serializers.CharField(source='country.name_en', read_only=True, default=None)
     country_code = serializers.CharField(source='country.code', read_only=True, default=None)
+    country_color = serializers.CharField(source='country.color', read_only=True, default=None)
     city_name = serializers.CharField(source='city.name', read_only=True, default=None)
+    city_color = serializers.CharField(source='city.color', read_only=True, default=None)
     border_point_name = serializers.CharField(source='border_point.name', read_only=True, default=None)
+    border_point_color = serializers.CharField(source='border_point.color', read_only=True, default=None)
 
     # Customer
     customer_name = serializers.CharField(source='customer.name', read_only=True, default=None)
+    customer_color = serializers.CharField(source='customer.color', read_only=True, default=None)
     import_firm_name = serializers.SerializerMethodField()
+    import_firm_color = serializers.CharField(source='import_firm.color', read_only=True, default=None)
 
     def get_import_firm_name(self, obj) -> str | None:
         firm = obj.import_firm
@@ -323,6 +334,7 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
     # Product — variety.code is the official registry code (01-10, E1-E3)
     variety_name = serializers.CharField(source='variety.name', read_only=True, default=None)
     variety_code = serializers.CharField(source='variety.code', read_only=True, default=None)
+    variety_color = serializers.CharField(source='variety.color', read_only=True, default=None)
     variety_confidence = serializers.CharField(read_only=True)
 
     # Transport
@@ -372,14 +384,14 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
             # Phase grouping (Stream C)
             'phase',
             # Geography
-            'country', 'country_name', 'country_code',
-            'city', 'city_name',
-            'border_point', 'border_point_name',
+            'country', 'country_name', 'country_code', 'country_color',
+            'city', 'city_name', 'city_color',
+            'border_point', 'border_point_name', 'border_point_color',
             # Customer
-            'customer', 'customer_name',
-            'import_firm', 'import_firm_name',
+            'customer', 'customer_name', 'customer_color',
+            'import_firm', 'import_firm_name', 'import_firm_color',
             # Product
-            'variety', 'variety_name', 'variety_code', 'variety_confidence',
+            'variety', 'variety_name', 'variety_code', 'variety_color', 'variety_confidence',
             # Weight
             'weight_gross', 'weight_net', 'packaging_kg',
             'pallet_count', 'box_count', 'rejected_weight_kg',
@@ -395,6 +407,8 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
             'is_gapy_satys',
             # Operational status (sheet rows 6, 14) + A2 customs planning
             'documents_status', 'harvest_status', 'customs_clearance_planned_day',
+            # R4 — Şirin logs when transport dept handed docs over
+            'transport_docs_given_at',
             # AD-1 Timestamps
             'loading_started_at', 'customs_entry_at', 'customs_exit_at',
             'departed_at', 'border_crossed_at', 'arrived_at',
@@ -1011,6 +1025,8 @@ _ALL_PATCHABLE_FIELDS = {
     'harvest_date',
     # Operational status
     'documents_status', 'harvest_status', 'customs_clearance_planned_day',
+    # R4 — Şirin logs when transport dept handed docs over
+    'transport_docs_given_at',
     # Finance
     'price_per_kg', 'total_amount_usd',
     # Flags

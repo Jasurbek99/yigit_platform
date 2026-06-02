@@ -42,6 +42,7 @@ export const SWAPPABLE_FIELD_KEYS = new Set<string>([
   'document_note',
   'customs_exit_at',
   'customs_clearance_planned_day',
+  'transport_docs_given_at', // R4 (replaced Malik's notes per feedback #9)
   // Arap
   'border_point',
   'border_crossed_at',
@@ -56,7 +57,9 @@ export const SWAPPABLE_FIELD_KEYS = new Set<string>([
   'sales_report_date',
   'additional_notes_arap',
   // General
-  'notes',
+  // NOTE: legacy Malik R4 'notes' removed from Sheet (replaced by
+  // transport_docs_given_at). Field still exists on the model for legacy
+  // data; not surfaced on the Sheet anymore.
   'departed_at',
   'transit_days',
   // Weight
@@ -143,7 +146,6 @@ export const GROUP_CONFIGS: ISwapFieldGroup[] = [
       'customer',
       'city',
       'import_firm',
-      'notes',
     ],
   },
   {
@@ -155,6 +157,7 @@ export const GROUP_CONFIGS: ISwapFieldGroup[] = [
       'document_note',
       'customs_exit_at',
       'customs_clearance_planned_day',
+      'transport_docs_given_at',
     ],
   },
   {

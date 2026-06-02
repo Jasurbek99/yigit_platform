@@ -469,6 +469,125 @@ export function useCreateCity(options: MutationOptions = {}) {
   });
 }
 
+// PATCH hooks used by the Cell Colors admin tab — limited to fields the tab
+// actually edits (color, etc.). The backend ModelViewSets accept partial
+// updates on the full serializer; we keep the payload type loose so future
+// fields can be patched without growing the type surface.
+export function useUpdateCountry(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...payload }: Partial<ICountry> & { id: number }) =>
+      api.patch<ICountry>(`/core/countries/${id}/`, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['core-countries'] });
+      // Sheet payload embeds country_color via FK — invalidate it so cells
+      // repaint as soon as the picker confirms.
+      queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+export function useUpdateCity(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...payload }: Partial<ICity> & { id: number }) =>
+      api.patch<ICity>(`/core/cities/${id}/`, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['core-cities'] });
+      queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+export function useUpdateTomatoVariety(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...payload }: Partial<ITomatoVariety> & { id: number }) =>
+      api.patch<ITomatoVariety>(`/core/tomato-varieties/${id}/`, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tomato-varieties'] });
+      queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+// Missing CRUD hooks for the Options-List full-CRUD flow. The dedicated admin
+// pages already cover Customer/Firms/Block create+delete; these fill the gaps
+// for Country/City/Variety/Block so every FK category in OptionListsTab has a
+// matching backend wiring.
+
+export function useDeleteCountry(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => api.delete(`/core/countries/${id}/`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['core-countries'] });
+      queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+export function useDeleteCity(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => api.delete(`/core/cities/${id}/`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['core-cities'] });
+      queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+export function useCreateTomatoVariety(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Partial<ITomatoVariety>) =>
+      api.post<ITomatoVariety>('/core/tomato-varieties/', payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tomato-varieties'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+export function useDeleteTomatoVariety(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => api.delete(`/core/tomato-varieties/${id}/`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tomato-varieties'] });
+      queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+export function useDeleteBlock(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => api.delete(`/greenhouse/admin/blocks/${id}/`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-blocks-full'] });
+      queryClient.invalidateQueries({ queryKey: ['core-blocks'] });
+      queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
 // ─── Import Firms ─────────────────────────────────────────────────────────
 
 export function useImportFirm(id: number | undefined) {
@@ -517,10 +636,10 @@ export function useAdminImportFirms() {
 type ImportFirmPayload = Omit<IImportFirm, 'id' | 'country_name' | 'city_name' | 'director_signature' | 'director_seal'>;
 
 function buildImportFirmBody(
-  payload: ImportFirmPayload,
+  payload: Partial<ImportFirmPayload>,
   signatureFile?: File | null,
   sealFile?: File | null,
-): FormData | ImportFirmPayload {
+): FormData | Partial<ImportFirmPayload> {
   if (!signatureFile && !sealFile) return payload;
   const fd = new FormData();
   Object.entries(payload).forEach(([k, v]) => { if (v != null) fd.append(k, String(v)); });
@@ -544,8 +663,10 @@ export function useCreateImportFirm(options: MutationOptions = {}) {
 
 export function useUpdateImportFirm(options: MutationOptions = {}) {
   const queryClient = useQueryClient();
+  // Accepts partial payloads — the detail page submits the full payload, but
+  // the OptionListsTab "color only" flow PATCHes a single field.
   return useMutation({
-    mutationFn: ({ id, signatureFile, sealFile, ...payload }: { id: number; signatureFile?: File | null; sealFile?: File | null } & ImportFirmPayload) =>
+    mutationFn: ({ id, signatureFile, sealFile, ...payload }: { id: number; signatureFile?: File | null; sealFile?: File | null } & Partial<ImportFirmPayload>) =>
       api.patch<IImportFirm>(`/export/admin/import-firms/${id}/`, buildImportFirmBody(payload, signatureFile, sealFile)).then(r => r.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-import-firms'] });
@@ -667,6 +788,8 @@ type CustomerPayload = {
   default_country?: number | null;
   default_city?: number | null;
   import_firms?: number[];
+  color?: string | null;
+  sort_order?: number;
   is_active?: boolean;
 };
 

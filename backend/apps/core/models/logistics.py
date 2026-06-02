@@ -78,6 +78,10 @@ class ShipmentOptionType(models.Model):
     label_en = models.CharField(max_length=100, blank=True, null=True)
     label_ru = models.CharField(max_length=100, blank=True, null=True, **cyrillic_collation())
     icon = models.CharField(max_length=10, blank=True, null=True)
+    # Per-option cell color (hex like "#fde68a"). When set, Sheet cells whose
+    # value matches this option get this background — admin-managed conditional
+    # formatting similar to Google Sheets data-validation colors.
+    color = models.CharField(max_length=7, blank=True, null=True)
     sort_order = models.IntegerField(default=0)
     is_active = models.BooleanField(default=True)
 

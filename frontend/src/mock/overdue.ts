@@ -38,6 +38,7 @@ const DEFAULTS = {
   peregruz_city: null as string | null,
   peregruz_date: null as string | null,
   customs_clearance_planned_day: null as 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun' | '' | null,
+  transport_docs_given_at: null as string | null,
   loading_started_at: null as string | null,
   customs_entry_at: null as string | null,
   customs_exit_at: null as string | null,

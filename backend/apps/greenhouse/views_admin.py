@@ -32,7 +32,9 @@ class GreenhouseBlockSubSerializer(serializers.ModelSerializer):
             'id', 'code', 'name',
             'variety_main', 'variety_main_name',
             'variety_secondary', 'variety_secondary_name',
-            'area_m2', 'section_count', 'sowing_date', 'is_active',
+            'area_m2', 'section_count', 'sowing_date',
+            'color', 'sort_order',
+            'is_active',
         ]
 
     def get_variety_main_name(self, obj: GreenhouseBlock) -> str | None:
@@ -63,7 +65,9 @@ class GreenhouseBlockAdminSerializer(serializers.ModelSerializer):
             'area_m2',
             'location', 'location_name',
             'section_count', 'sowing_date',
-            'season_start_month', 'is_active',
+            'season_start_month',
+            'color', 'sort_order',
+            'is_active',
             'sub_blocks',
         ]
 

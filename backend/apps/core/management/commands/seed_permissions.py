@@ -284,6 +284,9 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
             'document_note',
             # R25: Şirin logs TM customs-exit done time (was AD-1, now operator-entered).
             'customs_exit_at',
+            # R4: Şirin logs when transport dept handed docs over
+            # (replaced Malik's R4 notes column per feedback #9).
+            'transport_docs_given_at',
         ],
         'shipment_firm_split': ['*'],
         'quality_document': ['*'],

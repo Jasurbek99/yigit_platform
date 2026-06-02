@@ -34,11 +34,16 @@ DEFAULT_SHEET_ROWS: list[dict] = [
         'options_source': 'vehicleCondition',
     },
     {
+        # R4 repurposed (feedback #9): used to be Malik's "Goşmaça bellik" /
+        # Shipment.notes — now Şirin logs the time the transport department
+        # handed over the docs. Null = "Berilmedi"; set = "Berildi at <time>".
+        # Legacy Shipment.notes column still exists (Detail view / serializer)
+        # so historical data isn't lost.
         'row_number': 4,
-        'field_key': 'notes',
-        'default_who_key': 'sheet.who.malik',
-        'label_key': 'sheet.row.additional_notes',
-        'input_type': 'text',
+        'field_key': 'transport_docs_given_at',
+        'default_who_key': 'sheet.who.sirin',
+        'label_key': 'sheet.row.transport_docs_given',
+        'input_type': 'datetime',
         'style': 'base',
     },
     {

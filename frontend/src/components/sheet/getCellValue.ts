@@ -120,6 +120,16 @@ export function getCellValue(
     return dayjs(val).format('DD.MM.YYYY');
   }
 
+  // R4 — Şirin's "transport docs given" timestamp. Distinct from generic
+  // datetime fields below because the empty state has a semantic label
+  // ("Berilmedi" = not given) instead of the generic em-dash. Filling the
+  // datepicker implies "Berildi at this time".
+  if (fieldKey === 'transport_docs_given_at') {
+    const val = shipment.transport_docs_given_at;
+    if (!val) return i18n.t('sheet.transport_docs_berilmedi');
+    return dayjs(val).format('DD.MM HH:mm');
+  }
+
   // Timestamps (datetime, format DD.MM HH:mm).
   const tsFields = [
     'loading_started_at', 'loading_ended_at',

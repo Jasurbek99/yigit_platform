@@ -187,10 +187,15 @@ class LoadingLocationViewSet(ReadOnlyModelViewSet):
     queryset = LoadingLocation.objects.all()
 
 
-class TomatoVarietyViewSet(ReadOnlyModelViewSet):
-    """GET /api/v1/core/tomato-varieties/ — list all tomato varieties."""
+class TomatoVarietyViewSet(ModelViewSet):
+    """CRUD /api/v1/core/tomato-varieties/ — reads open, writes admin-only.
 
-    permission_classes = [IsAuthenticated]
+    Switched from ReadOnlyModelViewSet so admins can PATCH `color` (per-value
+    Sheet cell coloring). REFERENCE_DATA_WRITE matches the other reference
+    resource viewsets (Country, City, BorderPoint).
+    """
+
+    permission_classes = [IsAuthenticated, write_permission(*REFERENCE_DATA_WRITE)]
     serializer_class = TomatoVarietySerializer
     queryset = TomatoVariety.objects.all()
 
