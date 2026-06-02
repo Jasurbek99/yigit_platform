@@ -1057,7 +1057,12 @@ class ShipmentPatchSerializer(serializers.ModelSerializer):
         role = self.context.get('role')
         if role in PRIVILEGED_ROLES:
             return attrs
-        forbidden = [f for f in attrs if not can_edit_field(role, f)]
+        # column_color is a UI tint, not domain data — open to every Sheet
+        # viewer regardless of their per-field grants on shipment.
+        forbidden = [
+            f for f in attrs
+            if f != 'column_color' and not can_edit_field(role, f)
+        ]
         if forbidden:
             raise serializers.ValidationError(
                 {f: f"Role '{role}' cannot edit this field." for f in forbidden}

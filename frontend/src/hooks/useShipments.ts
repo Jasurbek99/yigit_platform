@@ -2,6 +2,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import { MOCK_SHIPMENTS_RESPONSE } from '@/mock/shipments';
 import type { IApiListResponse, ICancelShipmentResponse, IShipmentListItem } from '@/types';
+import {
+  applyOptimistic,
+  invalidateExceptSheet,
+  reconcileFromServer,
+  rollback,
+  type IPatchContext,
+} from './useShipmentPatch';
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
 
@@ -141,6 +148,43 @@ export function useSoftDeleteShipment() {
       queryClient.invalidateQueries({ queryKey: ['shipment'] });
       queryClient.invalidateQueries({ queryKey: ['shipments'] });
       queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+    },
+  });
+}
+
+/**
+ * Mutation: POST /api/v1/export/shipments/{id}/set-column-color/
+ *
+ * Sets the Sheet column tint for one shipment. Dedicated endpoint (not the
+ * shipment PATCH) because column_color is a UI decoration open to every
+ * authenticated Sheet viewer regardless of their per-field grants. Performs
+ * an optimistic update + server reconcile so the cell paints instantly.
+ */
+export function useSetColumnColor() {
+  const queryClient = useQueryClient();
+  return useMutation<
+    unknown,
+    unknown,
+    { id: number; color: string | null },
+    IPatchContext
+  >({
+    mutationFn: async ({ id, color }) => {
+      const { data } = await api.post(`/export/shipments/${id}/set-column-color/`, { color });
+      return data;
+    },
+    onMutate: async ({ id, color }) => {
+      await queryClient.cancelQueries({ queryKey: ['shipments'] });
+      return applyOptimistic(queryClient, id, { column_color: color });
+    },
+    onSuccess: (data, { id }) => {
+      reconcileFromServer(queryClient, id, data);
+    },
+    onError: (_err, _vars, context) => {
+      rollback(queryClient, context);
+    },
+    onSettled: (_data, _err, { id }) => {
+      invalidateExceptSheet(queryClient);
+      queryClient.invalidateQueries({ queryKey: ['shipment', String(id)] });
     },
   });
 }

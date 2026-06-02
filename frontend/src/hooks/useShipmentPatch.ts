@@ -64,7 +64,7 @@ interface ICachedSheet {
   [extra: string]: unknown;
 }
 
-interface IPatchContext {
+export interface IPatchContext {
   previousSheet: ICachedSheet | undefined;
   previousLists: [readonly unknown[], IApiListResponse<IShipmentListItem> | undefined][];
 }
@@ -72,7 +72,7 @@ interface IPatchContext {
 const isListQueryKey = (key: readonly unknown[]): boolean =>
   key[0] === 'shipments' && typeof key[1] === 'object' && key[1] !== null;
 
-function applyOptimistic(
+export function applyOptimistic(
   queryClient: ReturnType<typeof useQueryClient>,
   id: number,
   fields: Record<string, unknown>,
@@ -103,7 +103,7 @@ function applyOptimistic(
   return { previousSheet, previousLists };
 }
 
-function rollback(
+export function rollback(
   queryClient: ReturnType<typeof useQueryClient>,
   context: IPatchContext | undefined,
 ): void {
@@ -144,7 +144,7 @@ export function mergeServerScalars<T extends object>(row: T, server: Record<stri
  * entire un-paginated season, we surgically fold the authoritative scalar
  * values from the response into the single edited row that's already cached.
  */
-function reconcileFromServer(
+export function reconcileFromServer(
   queryClient: ReturnType<typeof useQueryClient>,
   id: number,
   server: unknown,
@@ -179,7 +179,7 @@ function reconcileFromServer(
  * refetching the whole season. Board + list queries are matched (they're
  * inactive on the sheet page, so this only marks them stale — no network).
  */
-function invalidateExceptSheet(queryClient: ReturnType<typeof useQueryClient>): void {
+export function invalidateExceptSheet(queryClient: ReturnType<typeof useQueryClient>): void {
   queryClient.invalidateQueries({
     predicate: (q) => q.queryKey[0] === 'shipments' && q.queryKey[1] !== 'sheet',
   });

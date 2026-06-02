@@ -94,6 +94,19 @@ class ShipmentViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated, DynamicResourcePermission]
     http_method_names = ['get', 'post', 'patch', 'head', 'options']  # no PUT/DELETE via API
 
+    # Sheet-level convenience actions (column tint, soft-delete, restore) are
+    # opened to every authenticated viewer of the Sheet — the page-permission
+    # gate on /export/shipments is the only access check. We drop
+    # DynamicResourcePermission for these specific actions so roles without
+    # shipment.can_create / can_edit / can_delete (transport, sales_rep,
+    # accountant, …) still pass.
+    _OPEN_ACTIONS = {'soft_delete', 'restore', 'set_column_color'}
+
+    def get_permissions(self):
+        if getattr(self, 'action', None) in self._OPEN_ACTIONS:
+            return [IsAuthenticated()]
+        return super().get_permissions()
+
     queryset = Shipment.objects.select_related(
         'status', 'country', 'city', 'customer', 'season',
         'variety', 'border_point',
@@ -182,12 +195,12 @@ class ShipmentViewSet(ModelViewSet):
             )
         if not is_detail_action:
             show_deleted = self.request.query_params.get('show_deleted') == 'true'
+            # Open to every authenticated user — mirrors soft_delete/restore.
+            # The UI toggle on /export/shipments stays admin-only, but a
+            # non-admin who soft-deleted a Sheet column can recover it via
+            # ?show_deleted=true → restore.
             if show_deleted:
-                role = getattr(self.request.user, 'role', None)
-                is_super = getattr(self.request.user, 'is_superuser', False)
-                if not (is_super or role == 'admin'):
-                    return qs.none()
-                # admin: show ONLY deleted (so the filter chip is a focused view)
+                # Focused view: show ONLY deleted rows (filter chip semantics).
                 qs = qs.filter(deleted_at__isnull=False)
             else:
                 qs = qs.filter(deleted_at__isnull=True)
@@ -600,20 +613,10 @@ class ShipmentViewSet(ModelViewSet):
             'approved_quota_to_reconcile': approved_ids,
         })
 
-    # Soft-delete (deactivate) — admin-only "trash" flag distinct from cancel.
-    # Cancel writes to ShipmentStatusLog and changes lifecycle status; soft-delete
+    # Soft-delete (deactivate) — "trash" flag distinct from cancel. Cancel
+    # writes to ShipmentStatusLog and changes lifecycle status; soft-delete
     # just hides the row from every list/board/sheet queryset. Restorable via
     # POST /restore/. Hard-delete (bulk-delete) remains the permanent escape.
-    def _require_admin(self, request):
-        is_super = getattr(request.user, 'is_superuser', False)
-        role = getattr(request.user, 'role', None)
-        if not is_super and role != 'admin':
-            return Response(
-                {'error': 'Only admin can soft-delete or restore shipments.'},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-        return None
-
     @action(detail=True, methods=['post'], url_path='soft-delete')
     def soft_delete(self, request, pk=None):
         """POST /api/v1/export/shipments/{id}/soft-delete/
@@ -625,11 +628,9 @@ class ShipmentViewSet(ModelViewSet):
 
         Idempotent: re-running on an already-deleted shipment is a no-op.
 
-        Permissions: admin role or superuser only.
+        Permissions: any authenticated Sheet viewer (page-permission gate is
+        the only access check — see get_permissions / _OPEN_ACTIONS).
         """
-        if (err := self._require_admin(request)) is not None:
-            return err
-
         shipment = self.get_object()
         if shipment.deleted_at is None:
             shipment.deleted_at = timezone.now()
@@ -658,11 +659,9 @@ class ShipmentViewSet(ModelViewSet):
         Clears the soft-delete flag, returning the shipment to operational
         visibility. Idempotent: re-running on a non-deleted shipment is a no-op.
 
-        Permissions: admin role or superuser only.
+        Permissions: any authenticated Sheet viewer (mirrors soft_delete —
+        see get_permissions / _OPEN_ACTIONS).
         """
-        if (err := self._require_admin(request)) is not None:
-            return err
-
         shipment = self.get_object()
         if shipment.deleted_at is not None:
             shipment.deleted_at = None
@@ -680,6 +679,57 @@ class ShipmentViewSet(ModelViewSet):
                 'Restored shipment id=%s cargo_code=%s by user=%s',
                 shipment.id, shipment.cargo_code, request.user.username,
             )
+
+        serializer = ShipmentDetailSerializer(shipment, context={'request': request})
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='set-column-color')
+    def set_column_color(self, request, pk=None):
+        """POST /api/v1/export/shipments/{id}/set-column-color/
+
+        Body: ``{"color": "#RRGGBB" | null | ""}``
+
+        Sets the per-shipment Sheet column tint. column_color is a UI-only
+        decoration, not domain data — every authenticated Sheet viewer may
+        set it, regardless of their per-field grants on shipment. Bypasses
+        DynamicResourcePermission via get_permissions() / _OPEN_ACTIONS so
+        roles without shipment.can_edit (accountant, weight_master, boss, …)
+        still pass.
+
+        Writes an AuditLog row only when the value actually changes (matches
+        partial_update's diff-audit behaviour).
+        """
+        from apps.export.services.sheet_audit import diff_audit_rows, snapshot_fields
+
+        shipment = self.get_object()
+        if shipment.deleted_at is not None or shipment.is_archived:
+            return Response(
+                {'error': 'Cannot edit a deleted or archived shipment.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        raw = request.data.get('color', None)
+        if raw in (None, ''):
+            new_value = None
+        elif isinstance(raw, str):
+            # Defensive truncation: column is CharField(max_length=7); accept
+            # only #RRGGBB. Older Ant builds occasionally still emit alpha.
+            new_value = raw[:7]
+        else:
+            return Response(
+                {'error': "'color' must be a hex string or null."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        before = snapshot_fields(shipment, ['column_color'])
+        with transaction.atomic():
+            shipment.column_color = new_value
+            shipment.save(update_fields=['column_color', 'updated_at'])
+            shipment.refresh_from_db()
+            after = snapshot_fields(shipment, ['column_color'])
+            audit_rows = diff_audit_rows(shipment, before, after, request.user)
+            if audit_rows:
+                AuditLog.objects.bulk_create(audit_rows, batch_size=500)
 
         serializer = ShipmentDetailSerializer(shipment, context={'request': request})
         return Response(serializer.data)

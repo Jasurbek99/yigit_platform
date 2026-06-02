@@ -5,9 +5,7 @@ import type { Color } from 'antd/es/color-picker';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
-import { canEditField } from '@/utils/permissions';
-import { useShipmentPatch } from '@/hooks/useShipmentPatch';
-import { useSoftDeleteShipment } from '@/hooks/useShipments';
+import { useSetColumnColor, useSoftDeleteShipment } from '@/hooks/useShipments';
 
 interface ISheetColumnHeaderProps {
   shipmentId: number;
@@ -38,9 +36,13 @@ function SheetColumnHeaderInner({
 }: ISheetColumnHeaderProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const canPaint = canEditField(user, 'shipment', 'column_color');
-  const canSoftDelete = !!user && (user.is_superuser || user.role === 'admin');
-  const patch = useShipmentPatch();
+  // Column tint and soft-delete are open to every authenticated viewer of the
+  // Sheet — the Sheet page itself is the only access gate. Column color goes
+  // through a dedicated endpoint (not shipment PATCH) so it doesn't require
+  // shipment.can_edit on the viewset.
+  const canPaint = !!user;
+  const canSoftDelete = !!user;
+  const setColumnColor = useSetColumnColor();
   const softDelete = useSoftDeleteShipment();
 
   const handleSoftDelete = useCallback(
@@ -75,14 +77,14 @@ function SheetColumnHeaderInner({
       // `CharField(max_length=7)`. Truncate defensively. The tint is applied
       // at 18% via color-mix anyway, so user-chosen opacity is redundant.
       const hex = color.toHexString().slice(0, 7);
-      patch.mutate({ id: shipmentId, field: 'column_color', value: hex });
+      setColumnColor.mutate({ id: shipmentId, color: hex });
     },
-    [patch, shipmentId],
+    [setColumnColor, shipmentId],
   );
 
   const handleClear = useCallback(() => {
-    patch.mutate({ id: shipmentId, field: 'column_color', value: null });
-  }, [patch, shipmentId]);
+    setColumnColor.mutate({ id: shipmentId, color: null });
+  }, [setColumnColor, shipmentId]);
 
   return (
     <>
