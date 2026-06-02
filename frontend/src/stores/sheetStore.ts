@@ -150,6 +150,12 @@ interface ISheetState {
   toggleJoinSelection: (id: number) => void;
   clearJoinSelection: () => void;
 
+  // ─── Swap mode (select two columns to swap fields between them) ──────────
+  swapMode: boolean;
+  swapSelection: number[]; // shipment IDs, max 2
+  setSwapMode: (on: boolean) => void;
+  toggleSwapSelection: (shipmentId: number) => void;
+
   // ─── Column reorder mode (drag shipment column headers left/right) ─────────
   // Transient — not persisted. Mutually exclusive with joinMode.
   // columnOrder: optimistic ordered list of shipment IDs; null = use server order.
@@ -265,8 +271,8 @@ export const useSheetStore = create<ISheetState>((set) => ({
   joinSelection: [],
   setJoinMode: (on) =>
     set(on
-      // Clear active/editing cell when arming join mode; also exit reorder mode
-      ? { joinMode: true, joinSelection: [], activeCell: null, editingCell: null, reorderMode: false, columnOrder: null }
+      // Clear active/editing cell when arming join mode; also exit reorder + swap modes
+      ? { joinMode: true, joinSelection: [], activeCell: null, editingCell: null, reorderMode: false, columnOrder: null, swapMode: false, swapSelection: [] }
       : { joinMode: false, joinSelection: [] }
     ),
   toggleJoinSelection: (id) =>
@@ -283,15 +289,39 @@ export const useSheetStore = create<ISheetState>((set) => ({
     }),
   clearJoinSelection: () => set({ joinSelection: [] }),
 
+  // ─── Swap mode ───────────────────────────────────────────────────────────
+  swapMode: false,
+  swapSelection: [],
+  setSwapMode: (on) =>
+    set(on
+      // Clear active/editing cell; exit join + reorder modes — mutually exclusive
+      ? { swapMode: true, swapSelection: [], activeCell: null, editingCell: null, joinMode: false, joinSelection: [], reorderMode: false, columnOrder: null }
+      : { swapMode: false, swapSelection: [] }
+    ),
+  toggleSwapSelection: (shipmentId) =>
+    set((state) => {
+      const current = state.swapSelection;
+      if (current.includes(shipmentId)) {
+        return { swapSelection: current.filter((x) => x !== shipmentId) };
+      }
+      if (current.length < 2) {
+        return { swapSelection: [...current, shipmentId] };
+      }
+      // Already 2 selected — FIFO: drop oldest (first), append new
+      return { swapSelection: [current[1], shipmentId] };
+    }),
+
   // ─── Column reorder mode ──────────────────────────────────────────────────
   reorderMode: false,
   setReorderMode: (on) =>
     set(on
       ? {
           reorderMode: true,
-          // Clear editing state; also exit join mode — they're mutually exclusive
+          // Clear editing state; also exit join + swap modes — they're mutually exclusive
           joinMode: false,
           joinSelection: [],
+          swapMode: false,
+          swapSelection: [],
           activeCell: null,
           editingCell: null,
         }
@@ -308,6 +338,8 @@ export const useSheetStore = create<ISheetState>((set) => ({
             reorderMode: true,
             joinMode: false,
             joinSelection: [],
+            swapMode: false,
+            swapSelection: [],
             activeCell: null,
             editingCell: null,
           }

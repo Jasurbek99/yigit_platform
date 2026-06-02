@@ -9,6 +9,7 @@ import type {
   IForecastRemaining,
   IForecastSubmitPayload,
   IForecastSubmitResult,
+  IShipmentSheetItem,
 } from '@/types';
 
 
@@ -370,6 +371,49 @@ export function useJoinShipments() {
       queryClient.invalidateQueries({ queryKey: ['shipments'] });
       queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
       queryClient.invalidateQueries({ queryKey: ['shipment', String(vars.targetId)] });
+    },
+  });
+}
+
+// ─── useSwapShipments ─────────────────────────────────────────────────────
+
+export interface ISwapShipmentsResponse {
+  shipments: IShipmentSheetItem[];
+  swapped_fields: string[];
+}
+
+interface ISwapShipmentsArgs {
+  aId: number;
+  otherId: number;
+  fields: string[];
+}
+
+/**
+ * Swaps selected fields between two shipments.
+ * Calls POST /api/v1/export/shipments/{aId}/swap/
+ * with { other_id, fields }.
+ *
+ * On success, invalidates all relevant queries so the sheet refreshes.
+ * The backend enforces per-field permission checks — the frontend offers
+ * all SWAPPABLE_FIELD_KEYS and lets the API reject what the user cannot edit.
+ */
+export function useSwapShipments() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ aId, otherId, fields }: ISwapShipmentsArgs): Promise<ISwapShipmentsResponse> => {
+      const { data } = await api.post<ISwapShipmentsResponse>(
+        `/export/shipments/${aId}/swap/`,
+        { other_id: otherId, fields },
+      );
+      return data;
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['drafts'] });
+      queryClient.invalidateQueries({ queryKey: ['shipments'] });
+      queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+      queryClient.invalidateQueries({ queryKey: ['shipment', String(vars.aId)] });
+      queryClient.invalidateQueries({ queryKey: ['shipment', String(vars.otherId)] });
     },
   });
 }

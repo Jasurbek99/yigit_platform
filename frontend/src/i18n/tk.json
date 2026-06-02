@@ -783,6 +783,7 @@
     "col_id": "ID",
     "col_labels": "Ady (TK / RU / EN)",
     "col_who": "Kim (TK / RU / EN)",
+    "default_hint": "Adaty bahasy: {{value}}",
     "col_tooltip": "Maslahat",
     "col_visible": "Görünüş",
     "col_locked": "Gulp",
@@ -1484,6 +1485,34 @@
     "join_modal": {
       "toast_success": "Garalamalar üstünlikli birleşdirildi",
       "toast_error": "Birleşdirme başartmady"
+    },
+    "swap": {
+      "btn": "Çalyş",
+      "tooltip": "Çalyş etmek üçin iki sütüni saýla"
+    },
+    "swap_bar": {
+      "instruction": "Çalyş etmek üçin iki sütüne basyň",
+      "need_pair": "Iki sütün saýlaň",
+      "cancel": "Ýatyr",
+      "swap": "Çalyş"
+    },
+    "swap_modal": {
+      "title": "Meýdanlary çalyş",
+      "subtitle": "Çalyşmaly meýdanlary saýla",
+      "cancel": "Ýatyr",
+      "confirm": "Çalyş ({{count}})",
+      "select_all": "Hemmesini saýla",
+      "deselect_all": "Saýlawy aýyr",
+      "field_label": "Meýdan",
+      "n_selected": "{{count}} meýdan saýlandy",
+      "toast_success": "{{count}} meýdan çalşyldy",
+      "toast_error": "Çalyşmak başartmady",
+      "group_soltanmyrat": "Soltanmyrat",
+      "group_transport": "Transport / Sürüji",
+      "group_gadam": "Gadam (Eksport)",
+      "group_sirin": "Şirin (Resminamalar)",
+      "group_arap": "Arap (Barmaly ýer)",
+      "group_other": "Beýleki"
     }
   },
   "draft": {

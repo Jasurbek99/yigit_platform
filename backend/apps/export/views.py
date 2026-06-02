@@ -46,6 +46,7 @@ from apps.export.serializers import (
     ShipmentAssignSerializer,
     ShipmentCreateSerializer,
     ShipmentJoinSerializer,
+    ShipmentSwapSerializer,
     ShipmentListSerializer,
     ShipmentDraftListSerializer,
     ShipmentDetailSerializer,
@@ -1828,6 +1829,276 @@ class ShipmentViewSet(ModelViewSet):
             user.username,
         )
         return target
+
+    # -----------------------------------------------------------------------
+    # Swap action
+    # -----------------------------------------------------------------------
+
+    @action(detail=True, methods=['post'], url_path='swap')
+    def swap(self, request, pk=None):
+        """POST /api/v1/export/shipments/{a_id}/swap/
+
+        Exchange the values of selected scalar / FK fields between two
+        shipments.  Any two shipments of any status may be swapped; the
+        operation is gated per-field by can_edit_sheet_field on both sides.
+
+        Request body:
+            {
+                "other_id": <int>,
+                "fields":   ["truck_plate", "driver_name", ...]
+            }
+
+        Response 200:
+            {
+                "shipments": [<ShipmentDetailSerializer A>, <ShipmentDetailSerializer B>],
+                "swapped_fields": ["truck_plate", "driver_name"]
+            }
+
+        Errors ({"error": "..."} shape):
+            400  self-swap, empty fields, non-existent other_id, field not in
+                 whitelist, or (implicitly) DRF validation errors.
+            403  user lacks edit permission for one of the requested fields on
+                 either shipment — includes the offending field name.
+            404  either shipment not found (get_object raises 404 for A).
+        """
+        from apps.core.permissions import can_edit_sheet_field
+        from apps.export.swap_config import FK_SWAPPABLE_FIELDS, SWAPPABLE_FIELDS
+        from apps.export.models import ShipmentStatusLog, Notification
+
+        # --- Deserialize request body ---
+        swap_serializer = ShipmentSwapSerializer(data=request.data)
+        swap_serializer.is_valid(raise_exception=True)
+        other_id = swap_serializer.validated_data['other_id']
+        requested_fields: list[str] = swap_serializer.validated_data['fields']
+
+        # --- Load shipment A (DRF raises 404 automatically) ---
+        shipment_a = self.get_object()
+
+        # --- Self-swap guard ---
+        if shipment_a.pk == other_id:
+            return Response(
+                {'error': 'Cannot swap a shipment with itself'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # --- Load shipment B ---
+        try:
+            shipment_b = (
+                Shipment.objects
+                .select_related('status', 'created_by')
+                .get(pk=other_id)
+            )
+        except Shipment.DoesNotExist:
+            return Response(
+                {'error': f'Shipment with id={other_id} not found'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # --- Whitelist + permission gate (cheap pre-checks on unlocked rows) ---
+        for field in requested_fields:
+            if field not in SWAPPABLE_FIELDS:
+                return Response(
+                    {'error': f"Field '{field}' is not swappable"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if not can_edit_sheet_field(request.user, field):
+                return Response(
+                    {
+                        'error': (
+                            f"You don't have permission to edit field '{field}' on this shipment"
+                        )
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+        # --- Atomic swap ---
+        try:
+            swapped, updated_a, updated_b = self._execute_swap(
+                shipment_a, shipment_b, requested_fields, request.user
+            )
+        except ValueError as exc:
+            logger.exception(
+                'swap rejected a=%s b=%s fields=%s',
+                shipment_a.pk, other_id, requested_fields,
+            )
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        updated_a.refresh_from_db()
+        updated_b.refresh_from_db()
+
+        serializer_a = ShipmentDetailSerializer(updated_a, context={'request': request})
+        serializer_b = ShipmentDetailSerializer(updated_b, context={'request': request})
+        return Response(
+            {
+                'shipments': [serializer_a.data, serializer_b.data],
+                'swapped_fields': swapped,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    @staticmethod
+    def _execute_swap(
+        shipment_a: 'Shipment',
+        shipment_b: 'Shipment',
+        fields: list[str],
+        user,
+    ) -> tuple[list[str], 'Shipment', 'Shipment']:
+        """Atomically swap field values between two shipments.
+
+        Locks both rows in pk order to prevent deadlocks.  All validations that
+        are cheap to re-assert under the lock (soft-delete, status sanity) are
+        re-checked so a concurrent delete/archive cannot sneak past them.
+
+        For FK fields (entries in FK_SWAPPABLE_FIELDS) the ``_id`` integer is
+        swapped rather than the related-object reference — no related-object
+        fetch required, no Django ORM overhead.
+
+        Args:
+            shipment_a: First shipment (from URL pk).
+            shipment_b: Second shipment (from request body other_id).
+            fields:     List of field names to swap (all in SWAPPABLE_FIELDS).
+            user:       The user performing the swap.
+
+        Returns:
+            (swapped_fields, updated_a, updated_b) — swapped_fields is the
+            subset of *fields* where A and B actually had different values.
+            updated_a / updated_b are the (stale) instances; caller must call
+            refresh_from_db() on both.
+
+        Raises:
+            ValueError: If a re-validation fails under the lock (e.g. soft-deleted).
+        """
+        from apps.export.swap_config import FK_SWAPPABLE_FIELDS
+        from apps.export.models import ShipmentStatusLog, Notification
+
+        with transaction.atomic():
+            # --- Lock in deterministic pk order to prevent deadlocks ---
+            first_pk, second_pk = sorted([shipment_a.pk, shipment_b.pk])
+            locked_qs = (
+                Shipment.objects
+                .select_for_update()
+                .select_related('status', 'created_by')
+                .filter(pk__in=[first_pk, second_pk])
+                .order_by('pk')
+            )
+            locked_map = {s.pk: s for s in locked_qs}
+            shipment_a = locked_map[shipment_a.pk]
+            shipment_b = locked_map[shipment_b.pk]
+
+            # --- Re-validate under lock (guard against concurrent soft-delete) ---
+            if shipment_a.deleted_at is not None:
+                raise ValueError(
+                    f'Shipment {shipment_a.cargo_code} has been deleted'
+                )
+            if shipment_b.deleted_at is not None:
+                raise ValueError(
+                    f'Shipment {shipment_b.cargo_code} has been deleted'
+                )
+
+            # --- Determine which fields actually differ ---
+            swapped: list[str] = []
+            a_update: dict = {}
+            b_update: dict = {}
+
+            for field in fields:
+                if field in FK_SWAPPABLE_FIELDS:
+                    # Operate on the raw integer FK column to avoid related-object
+                    # fetch and to keep save(update_fields=[]) minimal.
+                    attr = f'{field}_id'
+                else:
+                    attr = field
+
+                a_val = getattr(shipment_a, attr)
+                b_val = getattr(shipment_b, attr)
+
+                # Skip if both values are identical (no-op).
+                if a_val == b_val:
+                    continue
+
+                a_update[attr] = b_val
+                b_update[attr] = a_val
+                swapped.append(field)
+
+            # --- If nothing differs, skip DB writes and return empty list ---
+            if not swapped:
+                return [], shipment_a, shipment_b
+
+            # --- Apply the swap and persist ---
+            a_update['updated_by_id'] = user.pk
+            b_update['updated_by_id'] = user.pk
+            update_fields_a = list(a_update.keys())
+            update_fields_b = list(b_update.keys())
+
+            for attr, val in a_update.items():
+                setattr(shipment_a, attr, val)
+            for attr, val in b_update.items():
+                setattr(shipment_b, attr, val)
+
+            shipment_a.save(update_fields=update_fields_a)
+            shipment_b.save(update_fields=update_fields_b)
+
+            # --- Audit log on both shipments (status unchanged) ---
+            swapped_label = ', '.join(swapped)
+            ShipmentStatusLog.objects.create(
+                shipment=shipment_a,
+                status=shipment_a.status,
+                changed_by=user,
+                comment=(
+                    f'Swapped fields with shipment {shipment_b.cargo_code}: '
+                    f'{swapped_label}'
+                ),
+            )
+            ShipmentStatusLog.objects.create(
+                shipment=shipment_b,
+                status=shipment_b.status,
+                changed_by=user,
+                comment=(
+                    f'Swapped fields with shipment {shipment_a.cargo_code}: '
+                    f'{swapped_label}'
+                ),
+            )
+
+            # --- Notify each shipment's creator (skip if same as request.user) ---
+            notified_user_ids: set[int] = set()
+            for shipment in (shipment_a, shipment_b):
+                creator_id = shipment.created_by_id
+                if not creator_id or creator_id == user.pk or creator_id in notified_user_ids:
+                    continue
+                notified_user_ids.add(creator_id)
+                Notification.objects.create(
+                    user_id=creator_id,
+                    kind='action_required',
+                    message=(
+                        f'Fields were swapped between {shipment_a.cargo_code} and '
+                        f'{shipment_b.cargo_code} by {user.username}: {swapped_label}.'
+                    ),
+                    link=f'/export/shipments/sheet?shipment={shipment.pk}',
+                )
+
+        logger.info(
+            'swap: %s ↔ %s fields=%s by %s',
+            shipment_a.cargo_code,
+            shipment_b.cargo_code,
+            swapped_label,
+            user.username,
+        )
+        return swapped, shipment_a, shipment_b
+
+    @action(detail=False, methods=['get'], url_path='swappable-fields')
+    def swappable_fields(self, request):
+        """GET /api/v1/export/shipments/swappable-fields/
+
+        Returns the list of field names accepted by the swap endpoint so the
+        frontend can sanity-check before submitting a swap request.
+
+        No DB query — the whitelist is a class-level constant.
+
+        Response 200:
+            { "fields": ["truck_plate", "driver_name", ...] }
+        """
+        from apps.export.swap_config import SWAPPABLE_FIELDS
+
+        return Response({'fields': sorted(SWAPPABLE_FIELDS)})
 
     @action(detail=True, methods=['patch'], url_path='quality')
     def set_quality(self, request, pk=None):

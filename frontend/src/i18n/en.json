@@ -783,6 +783,7 @@
     "col_id": "ID",
     "col_labels": "Label (TK / RU / EN)",
     "col_who": "Who (TK / RU / EN)",
+    "default_hint": "default: {{value}}",
     "col_tooltip": "Tooltip",
     "col_visible": "Visible",
     "col_locked": "Lock",
@@ -1484,6 +1485,34 @@
     "join_modal": {
       "toast_success": "Drafts merged successfully",
       "toast_error": "Join failed"
+    },
+    "swap": {
+      "btn": "Swap",
+      "tooltip": "Select two columns to swap"
+    },
+    "swap_bar": {
+      "instruction": "Click two columns to swap",
+      "need_pair": "Select two columns",
+      "cancel": "Cancel",
+      "swap": "Swap"
+    },
+    "swap_modal": {
+      "title": "Swap fields",
+      "subtitle": "Select fields to swap",
+      "cancel": "Cancel",
+      "confirm": "Swap ({{count}})",
+      "select_all": "Select all",
+      "deselect_all": "Deselect all",
+      "field_label": "Field",
+      "n_selected": "{{count}} fields selected",
+      "toast_success": "{{count}} fields swapped",
+      "toast_error": "Swap failed",
+      "group_soltanmyrat": "Soltanmyrat",
+      "group_transport": "Transport / Driver",
+      "group_gadam": "Gadam (Export)",
+      "group_sirin": "Şirin (Documents)",
+      "group_arap": "Arap (Destination)",
+      "group_other": "Other"
     }
   },
   "draft": {

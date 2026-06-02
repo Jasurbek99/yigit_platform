@@ -12,6 +12,7 @@ import {
   InboxOutlined,
   FullscreenOutlined,
   ColumnWidthOutlined,
+  SwapOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -23,6 +24,7 @@ import type { IRowConfig, ISheetTaskCounts, IShipmentSheetItem } from '@/types';
 import { COLORS } from '@/constants/styles';
 import { DestinationDraftModal } from './DestinationDraftModal';
 import { JoinActionBar } from './JoinActionBar';
+import { SwapActionBar } from './SwapActionBar';
 
 // Cap on how many SHIPMENT columns the user can freeze (on top of the 3
 // row-label columns: Row #, Who, Field name). Beyond this, freezing more
@@ -85,6 +87,8 @@ export function SheetToolbar({
   const resetZoom = useSheetStore((s) => s.resetZoom);
   const joinMode = useSheetStore((s) => s.joinMode);
   const setJoinMode = useSheetStore((s) => s.setJoinMode);
+  const swapMode = useSheetStore((s) => s.swapMode);
+  const setSwapMode = useSheetStore((s) => s.setSwapMode);
   const setSheetFullscreen = useSheetStore((s) => s.setSheetFullscreen);
   const reorderMode = useSheetStore((s) => s.reorderMode);
   const toggleReorderMode = useSheetStore((s) => s.toggleReorderMode);
@@ -255,6 +259,16 @@ export function SheetToolbar({
               </Button>
             </Tooltip>
           )}
+          <Tooltip title={swapMode ? undefined : t('sheet.swap.tooltip')}>
+            <Button
+              size="small"
+              type={swapMode ? 'primary' : 'default'}
+              icon={<SwapOutlined />}
+              onClick={() => setSwapMode(!swapMode)}
+            >
+              {t('sheet.swap.btn')}
+            </Button>
+          </Tooltip>
           {canReorderColumns && (
             <Tooltip title={reorderMode ? undefined : t('sheet.reorder_columns')}>
               <Button
@@ -359,6 +373,9 @@ export function SheetToolbar({
 
       {/* Join flow: column-selection action bar — shown below toolbar when armed */}
       {joinMode && <JoinActionBar shipments={shipments} />}
+
+      {/* Swap flow: column-selection action bar — shown below toolbar when armed */}
+      {swapMode && <SwapActionBar shipments={shipments} />}
 
       {/* Column reorder mode banner — shown below toolbar when reorder is active */}
       {reorderMode && (

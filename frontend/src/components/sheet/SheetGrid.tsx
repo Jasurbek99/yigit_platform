@@ -170,6 +170,9 @@ export function SheetGrid({
   const joinMode = useSheetStore((s) => s.joinMode);
   const joinSelection = useSheetStore((s) => s.joinSelection);
   const toggleJoinSelection = useSheetStore((s) => s.toggleJoinSelection);
+  const swapMode = useSheetStore((s) => s.swapMode);
+  const swapSelection = useSheetStore((s) => s.swapSelection);
+  const toggleSwapSelection = useSheetStore((s) => s.toggleSwapSelection);
   const reorderMode = useSheetStore((s) => s.reorderMode);
   const setColumnOrder = useSheetStore((s) => s.setColumnOrder);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -419,8 +422,10 @@ export function SheetGrid({
         const cancelled = shipment.status_code === 'cancelled';
         const supply = isSupplyColumn(shipment) && !shipment.column_color;
         const isDraft = shipment.status_code === 'draft';
-        const isSelected = joinSelection.includes(shipment.id);
+        const isJoinSelected = joinSelection.includes(shipment.id);
         const joinSelectable = joinMode && isDraft;
+        const swapSelectable = swapMode;
+        const isSwapSelected = swapSelection.includes(shipment.id);
         return (
           <div
             key={shipment.id}
@@ -431,7 +436,9 @@ export function SheetGrid({
               cancelled ? 'sheet-col-header--cancelled' : '',
               supply ? 'sheet-col-supply-tint' : '',
               joinSelectable ? 'sheet-col-header--join-selectable' : '',
-              isSelected ? 'sheet-col-header--join-selected' : '',
+              isJoinSelected ? 'sheet-col-header--join-selected' : '',
+              swapSelectable ? 'sheet-col-header--swap-selectable' : '',
+              isSwapSelected ? 'sheet-col-header--swap-selected' : '',
             ].filter(Boolean).join(' ')}
             style={{
               position: 'sticky',
@@ -447,7 +454,11 @@ export function SheetGrid({
                 : null),
             }}
             onClick={
-              joinMode && isDraft ? () => toggleJoinSelection(shipment.id) : undefined
+              swapMode
+                ? () => toggleSwapSelection(shipment.id)
+                : joinMode && isDraft
+                ? () => toggleJoinSelection(shipment.id)
+                : undefined
             }
           >
             <SheetColumnHeader
@@ -461,8 +472,7 @@ export function SheetGrid({
           </div>
         );
       }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [frozenShipments, COL_WIDTH_SHIPMENT, FROZEN_LEFT_TOTAL, ROW_HEIGHT, joinMode, joinSelection, toggleJoinSelection, reorderMode],
+    [frozenShipments, COL_WIDTH_SHIPMENT, FROZEN_LEFT_TOTAL, ROW_HEIGHT, joinMode, joinSelection, toggleJoinSelection, swapMode, swapSelection, toggleSwapSelection, reorderMode],
   );
 
   // Virtualized (scrollable) column headers — seq number continues from frozen count.
@@ -474,15 +484,19 @@ export function SheetGrid({
         const cancelled = shipment.status_code === 'cancelled';
         const supply = isSupplyColumn(shipment) && !shipment.column_color;
         const isDraft = shipment.status_code === 'draft';
-        const isSelected = joinSelection.includes(shipment.id);
+        const isJoinSelected = joinSelection.includes(shipment.id);
         const joinSelectable = joinMode && isDraft;
+        const swapSelectable = swapMode;
+        const isSwapSelected = swapSelection.includes(shipment.id);
 
         const headerClassName = [
           'sheet-col-header',
           cancelled ? 'sheet-col-header--cancelled' : '',
           supply ? 'sheet-col-supply-tint' : '',
           joinSelectable ? 'sheet-col-header--join-selectable' : '',
-          isSelected ? 'sheet-col-header--join-selected' : '',
+          isJoinSelected ? 'sheet-col-header--join-selected' : '',
+          swapSelectable ? 'sheet-col-header--swap-selectable' : '',
+          isSwapSelected ? 'sheet-col-header--swap-selected' : '',
         ].filter(Boolean).join(' ');
 
         const headerStyle: React.CSSProperties = {
@@ -508,8 +522,11 @@ export function SheetGrid({
           />
         );
 
-        const handleJoinClick =
-          joinMode && isDraft ? () => toggleJoinSelection(shipment.id) : undefined;
+        const handleJoinClick = swapMode
+          ? () => toggleSwapSelection(shipment.id)
+          : joinMode && isDraft
+          ? () => toggleJoinSelection(shipment.id)
+          : undefined;
 
         if (reorderMode) {
           // In reorder mode: wrap in SortableHeaderWrapper for dnd-kit drag support.
@@ -539,8 +556,7 @@ export function SheetGrid({
           </div>
         );
       }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [virtualColumns, scrollableShipments, shipmentFreezeCount, COL_WIDTH_SHIPMENT, ROW_HEIGHT, joinMode, joinSelection, toggleJoinSelection, reorderMode],
+    [virtualColumns, scrollableShipments, shipmentFreezeCount, COL_WIDTH_SHIPMENT, ROW_HEIGHT, joinMode, joinSelection, toggleJoinSelection, swapMode, swapSelection, toggleSwapSelection, reorderMode],
   );
 
   const renderSection = (sectionRows: IRowConfig[], inFrozenSection: boolean) =>

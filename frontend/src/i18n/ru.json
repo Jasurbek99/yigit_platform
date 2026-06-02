@@ -785,6 +785,7 @@
     "col_id": "ID",
     "col_labels": "Название (TK / RU / EN)",
     "col_who": "Кто (TK / RU / EN)",
+    "default_hint": "По умолчанию: {{value}}",
     "col_tooltip": "Подсказка",
     "col_visible": "Видимость",
     "col_locked": "Замок",
@@ -1486,6 +1487,34 @@
     "join_modal": {
       "toast_success": "Черновики успешно объединены",
       "toast_error": "Ошибка при объединении"
+    },
+    "swap": {
+      "btn": "Обмен",
+      "tooltip": "Выберите две колонки для обмена"
+    },
+    "swap_bar": {
+      "instruction": "Нажмите на две колонки для обмена",
+      "need_pair": "Выберите две колонки",
+      "cancel": "Отмена",
+      "swap": "Обмен"
+    },
+    "swap_modal": {
+      "title": "Обмен полей",
+      "subtitle": "Выберите поля для обмена",
+      "cancel": "Отмена",
+      "confirm": "Обмен ({{count}})",
+      "select_all": "Выбрать все",
+      "deselect_all": "Снять выбор",
+      "field_label": "Поле",
+      "n_selected": "{{count}} полей выбрано",
+      "toast_success": "{{count}} полей обменено",
+      "toast_error": "Не удалось выполнить обмен",
+      "group_soltanmyrat": "Soltanmyrat",
+      "group_transport": "Транспорт / Водитель",
+      "group_gadam": "Gadam (Экспорт)",
+      "group_sirin": "Şirin (Документы)",
+      "group_arap": "Arap (Назначение)",
+      "group_other": "Прочее"
     }
   },
   "draft": {

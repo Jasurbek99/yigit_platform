@@ -396,6 +396,20 @@
   margin-right: 2px;
 }
 
+/* ═══ SWAP MODE COLUMN SELECTION ═══
+   Orange ring for swap — visually distinct from join (blue) so users
+   can tell the two modes apart at a glance. */
+.sheet-col-header--swap-selectable {
+  cursor: pointer;
+}
+.sheet-col-header--swap-selectable:hover {
+  background: color-mix(in srgb, #ea580c 18%, var(--gray-800, #1f2937));
+}
+.sheet-col-header--swap-selected {
+  box-shadow: inset 0 0 0 2px #ea580c;
+  background: color-mix(in srgb, #ea580c 28%, var(--gray-800, #1f2937));
+}
+
 /* Grey + strike the data cells of a cancelled shipment column. Inline admin
    row-bg and column-tint still paint their own background; this rule targets
    the cell text/foreground so it reads as inactive regardless of background. */
