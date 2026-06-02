@@ -1308,6 +1308,7 @@
     "total_count": "{{count}} shipments",
     "save_error": "Failed to save",
     "save_success": "Saved",
+    "clear_cell": "Clear cell",
     "column_color": {
       "tooltip": "Color this shipment column",
       "presets": "Flag colors"

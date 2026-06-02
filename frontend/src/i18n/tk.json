@@ -1308,6 +1308,7 @@
     "total_count": "{{count}} ýük",
     "save_error": "Ýazdyryp bolmady",
     "save_success": "Ýatda saklandy",
+    "clear_cell": "Öýjügi arassala",
     "column_color": {
       "tooltip": "Bu ýüküň sütünini reňkle",
       "presets": "Bellik reňkleri"

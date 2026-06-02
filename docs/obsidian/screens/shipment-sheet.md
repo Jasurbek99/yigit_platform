@@ -202,6 +202,18 @@ R24 = `has_doc_advance` (✓/❌, Babageldi). True once a `FinansistAdvanceShipm
 | `readonly` | None | Display-only; never editable |
 | `comment_count` | None | Display count + icon; click navigates to ShipmentDetail's Changes tab |
 
+## Clearing a cell (right-click)
+
+The `date` and `datetime` editors deliberately disable Ant's built-in `allowClear` X — operators kept accidentally wiping saved values when missing-click the picker's X. To clear a filled cell, **right-click → Clear cell**.
+
+`SheetCell` wraps each rendered cell with an Ant `Dropdown` (`trigger={['contextMenu']}`). The menu has one danger-styled item that dispatches per field type:
+
+- `custom_*` rows → `PATCH /shipments/{id}/custom-fields/` with `value=''`
+- `multiselect` junctions (`firm_splits`, `block_sources`) → `POST /shipments/{id}/firm-splits/` or `block-sources/` with the items array empty (server replaces all rows, so empty = delete-all)
+- Everything else → `PATCH /shipments/{id}/` with `{ field: null }`
+
+The context menu is suppressed on ineligible cells (read-only, `cargo_code`, `has_doc_advance`/`has_sales_report` computed cells, bool dropdowns `peregruz`/`gornushi`, already-empty cells, reorder mode). Those cells receive the browser's native right-click menu instead — there's no Dropdown wrapper to override it.
+
 ## Permissions
 
 The sheet now reads from the **dynamic permission registry** (no hardcoded role matrix):

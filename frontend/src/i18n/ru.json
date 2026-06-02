@@ -1310,6 +1310,7 @@
     "total_count": "{{count}} отгрузок",
     "save_error": "Ошибка сохранения",
     "save_success": "Сохранено",
+    "clear_cell": "Очистить ячейку",
     "column_color": {
       "tooltip": "Окрасить столбец этой отгрузки",
       "presets": "Цвета меток"

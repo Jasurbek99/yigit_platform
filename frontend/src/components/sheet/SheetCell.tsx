@@ -1,10 +1,15 @@
 import { memo, useCallback } from 'react';
-import { Tag } from 'antd';
+import { Dropdown, Tag } from 'antd';
 import { useNavigate } from 'react-router-dom';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 import type { IShipmentSheetItem, IRowConfig, ICommentTaskStatus, ISheetRowSettingForUser, IShipmentOptionType } from '@/types';
 import { useSheetStore } from '@/stores/sheetStore';
 import { useShipmentOptions } from '@/hooks/useAdmin';
 import { scaleSheetLayout } from '@/constants/sheetRowConfig';
+import { useShipmentPatch, extractPatchError } from '@/hooks/useShipmentPatch';
+import api from '@/services/api';
 import { CommentMarker } from './CommentMarker';
 import { getCellValue } from './getCellValue';
 import { getContrastTextColor } from '@/utils/contrastColor';
@@ -75,6 +80,7 @@ function isEmpty(value: string): boolean {
 
 function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, commentTaskState = null, rowSetting }: ISheetCellProps) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   // Granular store selectors — NEVER `useSheetStore()` without a selector here.
   // The grid renders hundreds of cells; a bare subscription re-renders every
   // cell on any store change (cell click, search keystroke, drawer toggle),
@@ -86,6 +92,43 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
   const openCommentsForCell = useSheetStore((s) => s.openCommentsForCell);
   const sheetZoom = useSheetStore((s) => s.sheetZoom);
   const reorderMode = useSheetStore((s) => s.reorderMode);
+  const queryClient = useQueryClient();
+  const patchMutation = useShipmentPatch();
+
+  // Right-click → "Clear cell". Operators asked for a safer alternative to the
+  // DatePicker's allowClear=false (which intentionally has no X to prevent
+  // accidental wipes). Right-click is explicit; left-click still edits.
+  // Per field-type clearing semantics:
+  //   • custom_*               → PATCH custom-fields with value=''
+  //   • multiselect (junctions)→ POST junction endpoint with empty array
+  //   • everything else        → PATCH shipment with field=null
+  const clearJunctionMutation = useMutation({
+    mutationFn: async ({ endpoint, key }: { endpoint: string; key: string }) => {
+      await api.post(`/export/shipments/${shipment.id}/${endpoint}/`, { [key]: [] });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+    },
+    onError: (err) => {
+      toast.error(extractPatchError(err, t('sheet.save_error')));
+      console.error('[SheetCell] clear junction failed', err);
+    },
+  });
+  const clearCustomMutation = useMutation({
+    mutationFn: async (fieldKey: string) => {
+      await api.patch(`/export/shipments/${shipment.id}/custom-fields/`, {
+        field_key: fieldKey,
+        value: '',
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+    },
+    onError: (err) => {
+      toast.error(extractPatchError(err, t('sheet.save_error')));
+      console.error('[SheetCell] clear custom field failed', err);
+    },
+  });
   const isActive = useSheetStore(
     (s) => s.activeCell?.shipmentId === shipment.id && s.activeCell?.rowKey === rowConfig.field_key,
   );
@@ -144,6 +187,70 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
     }
   }, [reorderMode, isEditable, isHidden, cellIsEmpty, setEditingCell, shipment.id, rowConfig.field_key]);
 
+  // Right-click → context menu. Every cell gets the Dropdown wrapper so
+  // future items (Copy value, View history, …) have a home; the **Clear cell**
+  // item is disabled (greyed out) when clearing doesn't apply:
+  //   • cell is not editable (read-only by role/lock)                — !isEditable
+  //   • cell is hidden because shipment is gapy_satys + gapy_hidden  — isHidden
+  //   • cargo_code (primary identifier, must never be null)
+  //   • bool-backed dropdowns (peregruz, gornushi) — they're 0/1, not nullable;
+  //     pick the "no" option from the dropdown instead.
+  //   • read-only computed cells (has_doc_advance, has_sales_report) — these
+  //     route handleClick to navigation, so even if isEditable were true the
+  //     value can't be cleared from here.
+  //   • cell is already empty — nothing to clear.
+  //   • reorder mode (no edits while reordering columns)
+  const isBoolDropdown =
+    rowConfig.options_source === 'peregruz' || rowConfig.options_source === 'gornushi';
+  const isClearableField =
+    rowConfig.field_key !== 'cargo_code' &&
+    rowConfig.field_key !== 'has_doc_advance' &&
+    rowConfig.field_key !== 'has_sales_report' &&
+    !isBoolDropdown;
+  const canClear =
+    isEditable && !isHidden && !reorderMode && !cellIsEmpty && isClearableField;
+
+  const handleClearCell = useCallback(() => {
+    const { field_key: fieldKey, input_type: inputType } = rowConfig;
+    if (fieldKey.startsWith('custom_')) {
+      clearCustomMutation.mutate(fieldKey);
+      return;
+    }
+    if (inputType === 'multiselect') {
+      if (fieldKey === 'firm_splits') {
+        clearJunctionMutation.mutate({ endpoint: 'firm-splits', key: 'firms' });
+      } else if (fieldKey === 'block_sources') {
+        clearJunctionMutation.mutate({ endpoint: 'block-sources', key: 'blocks' });
+      }
+      return;
+    }
+    patchMutation.mutate({ id: shipment.id, field: fieldKey, value: null });
+  }, [rowConfig, shipment.id, patchMutation, clearCustomMutation, clearJunctionMutation]);
+
+  // Wrap every rendered cell with an antd Dropdown that opens on right-click.
+  // We mount the wrapper unconditionally (not just for clearable cells) so we
+  // have a single hook for future menu items (Copy, View history, etc.). With
+  // ~880 cells in the DOM at peak (virtualized), each Dropdown is a thin
+  // rc-trigger that only attaches an onContextMenu listener until opened.
+  const wrap = (node: React.ReactElement): React.ReactElement => (
+    <Dropdown
+      trigger={['contextMenu']}
+      menu={{
+        items: [
+          {
+            key: 'clear',
+            label: t('sheet.clear_cell'),
+            danger: true,
+            disabled: !canClear,
+            onClick: canClear ? handleClearCell : undefined,
+          },
+        ],
+      }}
+    >
+      {node}
+    </Dropdown>
+  );
+
   if (isHidden) {
     return (
       <div className="sheet-cell sheet-cell--gapy-hidden" style={{ width: cellWidth, height: ROW_HEIGHT }}>
@@ -158,7 +265,7 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
   // Country with flag
   if (fieldKey === 'country' && shipment.country_code) {
     const flag = COUNTRY_FLAGS[shipment.country_code] ?? '';
-    return (
+    return wrap(
       <div
         className={`sheet-cell sheet-cell--${rowConfig.style}${isActive ? ' sheet-cell--active' : ''}${isGapy ? ' sheet-cell--gapy' : ''}`}
         style={{ width: cellWidth, height: ROW_HEIGHT, ...cellBgStyle, ...(cellAlign ? { textAlign: cellAlign } : {}) }}
@@ -174,7 +281,7 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
 
   // Firm splits as tags
   if (fieldKey === 'firm_splits' && shipment.firm_splits.length > 0) {
-    return (
+    return wrap(
       <div
         className={`sheet-cell sheet-cell--${rowConfig.style}${isActive ? ' sheet-cell--active' : ''}${isGapy ? ' sheet-cell--gapy' : ''}`}
         style={{ width: cellWidth, height: ROW_HEIGHT, ...cellBgStyle }}
@@ -200,7 +307,7 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
 
   // Block sources as tags
   if (fieldKey === 'block_sources' && shipment.block_sources.length > 0) {
-    return (
+    return wrap(
       <div
         className={`sheet-cell sheet-cell--${rowConfig.style}${isActive ? ' sheet-cell--active' : ''}${isGapy ? ' sheet-cell--gapy' : ''}`}
         style={{ width: cellWidth, height: ROW_HEIGHT, ...cellBgStyle }}
@@ -228,7 +335,7 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
     const handleAdvanceClick = () => {
       navigate(`/export/advances?shipment=${shipment.id}`);
     };
-    return (
+    return wrap(
       <div
         className={`sheet-cell sheet-cell--${rowConfig.style} sheet-cell--linkable${isActive ? ' sheet-cell--active' : ''}${isGapy ? ' sheet-cell--gapy' : ''}`}
         style={{ width: cellWidth, height: ROW_HEIGHT, cursor: 'pointer', ...cellBgStyle }}
@@ -274,7 +381,7 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
   // ~900 cells at once and remounts columns on every horizontal scroll step.
   // An antd Tooltip per cell (rc-trigger + portal + align observers) was the
   // dominant scroll-jank cost; the browser-native title is zero React overhead.
-  return (
+  return wrap(
     <div
       className={`sheet-cell sheet-cell--${rowConfig.style}${isActive ? ' sheet-cell--active' : ''}${isEditable ? ' sheet-cell--editable' : ''}${isGapy ? ' sheet-cell--gapy' : ''}`}
       style={{ width: cellWidth, height: ROW_HEIGHT, position: 'relative', ...cellBgStyle }}
