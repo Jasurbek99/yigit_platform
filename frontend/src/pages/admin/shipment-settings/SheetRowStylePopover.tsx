@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Popover, Slider, Radio, ColorPicker, Button } from 'antd';
+import type { Color } from 'antd/es/color-picker';
 import { useTranslation } from 'react-i18next';
 import type { ISheetRowSetting } from '@/types';
 import type { ISaveSheetRowPayload } from '@/hooks/useSheetRowSettings';
@@ -59,14 +60,19 @@ export function SheetRowStylePopover({
           {t('sheet_rows.style_color')}
         </div>
         <ColorPicker
-          value={record.style_color ?? ''}
+          value={record.style_color ?? undefined}
           disabled={!canWrite}
-          onChange={(color) => {
-            const hex = color.toHexString();
-            onSave({ style_color: hex === '#000000' ? null : hex });
+          onChangeComplete={(color: Color) => {
+            // Defensive slice: `disabledAlpha` should keep this at 7 chars,
+            // but older Ant builds still emit `#RRGGBBAA`. Backend column is
+            // CharField(max_length=7) — so we truncate before sending.
+            const hex = color.toHexString().slice(0, 7);
+            onSave({ style_color: hex });
           }}
+          onClear={() => onSave({ style_color: '' })}
           format="hex"
           allowClear
+          disabledAlpha
         />
       </div>
     </div>
