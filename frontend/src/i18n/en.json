@@ -2106,7 +2106,11 @@
       "mark_solved": "Mark as Solved",
       "mark_rejected": "Reject",
       "solved_toast": "Ticket marked as solved",
-      "rejected_toast": "Ticket rejected"
+      "rejected_toast": "Ticket rejected",
+      "delete": "Delete",
+      "delete_confirm_title": "Delete this ticket?",
+      "delete_confirm_body": "The ticket and all its replies and attachments will be permanently removed.",
+      "deleted_toast": "Ticket deleted"
     },
     "submit": {
       "title": "Submit Feedback",

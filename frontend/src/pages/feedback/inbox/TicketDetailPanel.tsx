@@ -1,11 +1,13 @@
-import { Button, Divider, Empty, Image, Select, Space, Spin, Tag, Typography } from 'antd';
-import { CheckOutlined, CloseOutlined } from '@ant-design/icons';
+import { Button, Divider, Empty, Image, Popconfirm, Select, Space, Spin, Tag, Typography } from 'antd';
+import { CheckOutlined, CloseOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import dayjs from 'dayjs';
 import { ReplyComposer } from '@/components/feedback/ReplyComposer';
 import { pathToLabel } from '@/components/feedback/pathLabels';
+import { useAuth } from '@/hooks/useAuth';
 import {
+  useDeleteTicket,
   useFeedbackTicketDetail,
   useUpdateTicketStatus,
 } from '@/hooks/useFeedback';
@@ -15,12 +17,16 @@ const { Text, Title, Paragraph } = Typography;
 
 interface ITicketDetailPanelProps {
   ticketId: number | null;
+  onDeleted?: () => void;
 }
 
-export function TicketDetailPanel({ ticketId }: ITicketDetailPanelProps): React.ReactElement {
+export function TicketDetailPanel({ ticketId, onDeleted }: ITicketDetailPanelProps): React.ReactElement {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const { data: ticket, isLoading } = useFeedbackTicketDetail(ticketId);
   const updateStatus = useUpdateTicketStatus(ticketId ?? 0);
+  const deleteTicket = useDeleteTicket(ticketId ?? 0);
+  const isAdmin = user?.role === 'admin';
 
   if (!ticketId) {
     return (
@@ -64,6 +70,15 @@ export function TicketDetailPanel({ ticketId }: ITicketDetailPanelProps): React.
     });
   };
 
+  const handleDelete = () => {
+    deleteTicket.mutate(undefined, {
+      onSuccess: () => {
+        toast.success(t('feedback.action.deleted_toast'));
+        onDeleted?.();
+      },
+    });
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
@@ -99,6 +114,25 @@ export function TicketDetailPanel({ ticketId }: ITicketDetailPanelProps): React.
                   {t('feedback.action.mark_rejected')}
                 </Button>
               </>
+            )}
+            {isAdmin && (
+              <Popconfirm
+                title={t('feedback.action.delete_confirm_title')}
+                description={t('feedback.action.delete_confirm_body')}
+                okText={t('feedback.action.delete')}
+                okButtonProps={{ danger: true, loading: deleteTicket.isPending }}
+                cancelText={t('common.cancel')}
+                onConfirm={handleDelete}
+              >
+                <Button
+                  danger
+                  size="small"
+                  icon={<DeleteOutlined />}
+                  loading={deleteTicket.isPending}
+                >
+                  {t('feedback.action.delete')}
+                </Button>
+              </Popconfirm>
             )}
           </Space>
           <Title level={5} style={{ margin: '8px 0 4px' }}>

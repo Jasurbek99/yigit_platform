@@ -33,7 +33,7 @@ export default function AdminInboxPage(): React.ReactElement {
           width="100%"
           destroyOnHidden
         >
-          <TicketDetailPanel ticketId={selectedId} />
+          <TicketDetailPanel ticketId={selectedId} onDeleted={() => setSelectedId(null)} />
         </Drawer>
       </div>
     );
@@ -68,7 +68,7 @@ export default function AdminInboxPage(): React.ReactElement {
         </div>
 
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          <TicketDetailPanel ticketId={selectedId} />
+          <TicketDetailPanel ticketId={selectedId} onDeleted={() => setSelectedId(null)} />
         </div>
       </Flex>
     </div>

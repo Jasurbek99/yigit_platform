@@ -2110,7 +2110,11 @@
       "mark_solved": "Çözüldi diýip belle",
       "mark_rejected": "Ret et",
       "solved_toast": "Ýüz tutma çözüldi diýip bellendi",
-      "rejected_toast": "Ýüz tutma ret edildi"
+      "rejected_toast": "Ýüz tutma ret edildi",
+      "delete": "Poz",
+      "delete_confirm_title": "Bu ýüz tutmany pozaýynmy?",
+      "delete_confirm_body": "Ýüz tutma we onuň ähli jogaplary, goşundylary biragyzdan pozulýar.",
+      "deleted_toast": "Ýüz tutma pozuldy"
     },
     "submit": {
       "title": "Ýüz tutma iberme",

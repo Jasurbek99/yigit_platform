@@ -124,6 +124,20 @@ export function useUpdateTicketStatus(ticketId: number) {
   });
 }
 
+// ─── Delete ticket (admin) ────────────────────────────────────────────────────
+
+export function useDeleteTicket(ticketId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      await api.delete(`/feedback/tickets/${ticketId}/`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: feedbackKeys.all });
+    },
+  });
+}
+
 // ─── Reopen ticket (author) ───────────────────────────────────────────────────
 
 export function useReopenTicket(ticketId: number) {

@@ -54,6 +54,7 @@ For both list and detail endpoints the queryset and reply filtering follow this 
 | GET | `/{id}/` | author / admin / public-viewer | Detail with replies (filtered by precedence above). |
 | POST | `/` | auth | Multipart create. Files in `attachments` (multi). |
 | PATCH | `/{id}/` | admin | Only `status` writable. Setting status to resolved/rejected stamps `resolved_at`. **`is_public` is rejected** with 400 — public is set ONLY via reply mode='public'. |
+| DELETE | `/{id}/` | admin | Permanently removes the ticket and (via `on_delete=CASCADE`) its replies + attachments. Exposed in the admin inbox detail pane behind a `Popconfirm`; non-admins never see the button and the server enforces `IsFeedbackAdmin` regardless. |
 | POST | `/{id}/reopen/` | author | Only when status ∈ {resolved, rejected}. Resets to `in_review`, clears `resolved_at`, bumps `last_activity_at`. |
 | POST | `/{id}/reply/` | admin | Multipart. Body: `content`, `mode` (standard/internal/public), `attachments`. `mode='public'` atomically flips `ticket.is_public=true`. |
 | GET | `/admin_unread_count/` | admin | `{count: <int>}` of `status='new'`. Polled every 60 s by the sidebar badge. |
