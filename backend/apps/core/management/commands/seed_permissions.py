@@ -236,6 +236,15 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
             'harvest_status', 'variety', 'product_type', 'loading_location',
             # R17: Soltanmyrat's freeform warehouse note
             'warehouse_note',
+            # R8: block sources picker (Soltanmyrat chooses which blocks supplied the truck)
+            'block_sources',
+            # R19/R20: warehouse logs the truck's loading-start and loading-end timestamps
+            'loading_started_at',
+            'loading_ended_at',
+            # R34: post-loading rejected weight adjustment
+            'rejected_weight_kg',
+            # R39: harvest day, operator-entered
+            'harvest_date',
         ],
     },
     # ── warehouse_chief (Soltanmyrat's deputies) ─────────────────────
