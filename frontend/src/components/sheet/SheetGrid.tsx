@@ -275,6 +275,136 @@ export function SheetGrid({
     columnVirtualizer.measure();
   }, [columnVirtualizer, COL_WIDTH_SHIPMENT]);
 
+  // ─── Arrow-key navigation ─────────────────────────────────────────────────
+  // Arrows move activeCell across the grid; Enter opens the editor on the
+  // current cell (if not readonly). The listener reads volatile flags
+  // (editingCell, modes, activeCell) via getState() so we don't have to
+  // re-bind the listener on every store change — only structural inputs
+  // (rows / shipments / dimensions) drive the effect deps.
+  useEffect(() => {
+    const NAV_KEYS = new Set([
+      'ArrowUp',
+      'ArrowDown',
+      'ArrowLeft',
+      'ArrowRight',
+      'Enter',
+    ]);
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!NAV_KEYS.has(e.key)) return;
+      if (e.altKey || e.ctrlKey || e.metaKey) return;
+
+      // Don't intercept keystrokes targeted at form controls or
+      // contenteditable surfaces (cell editor inputs, comments composer,
+      // search box, etc.).
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        if (
+          tag === 'INPUT' ||
+          tag === 'TEXTAREA' ||
+          tag === 'SELECT' ||
+          target.isContentEditable
+        ) {
+          return;
+        }
+      }
+
+      const state = useSheetStore.getState();
+      if (state.editingCell) return;
+      if (state.reorderMode || state.joinMode || state.swapMode) return;
+
+      const active = state.activeCell;
+      if (!active) return;
+
+      const rowIdx = rows.findIndex((r) => r.field_key === active.rowKey);
+      const shipmentIdx = shipments.findIndex((s) => s.id === active.shipmentId);
+      if (rowIdx === -1 || shipmentIdx === -1) return;
+
+      if (e.key === 'Enter') {
+        const rowConfig = rows[rowIdx];
+        if (rowConfig?.input_type !== 'readonly') {
+          state.setEditingCell({
+            shipmentId: active.shipmentId,
+            rowKey: active.rowKey,
+          });
+          e.preventDefault();
+        }
+        return;
+      }
+
+      const stepRow =
+        e.key === 'ArrowUp' ? -1 : e.key === 'ArrowDown' ? 1 : 0;
+      const stepCol =
+        e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0;
+      if (stepRow === 0 && stepCol === 0) return;
+
+      // Walk in the chosen direction until we land on a non-gapy-hidden cell
+      // or step out of the grid. The safety counter caps the search at the
+      // worst-case linear sweep across one axis.
+      let newRow = rowIdx;
+      let newCol = shipmentIdx;
+      const maxSteps = Math.max(rows.length, shipments.length) + 1;
+      let found = false;
+      for (let i = 0; i < maxSteps; i++) {
+        newRow += stepRow;
+        newCol += stepCol;
+        if (newRow < 0 || newRow >= rows.length) break;
+        if (newCol < 0 || newCol >= shipments.length) break;
+        const gapyHidden =
+          rows[newRow].gapy_hidden && shipments[newCol].is_gapy_satys;
+        if (!gapyHidden) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) return;
+
+      state.setActiveCell({
+        shipmentId: shipments[newCol].id,
+        rowKey: rows[newRow].field_key,
+      });
+      e.preventDefault();
+
+      // Horizontal: bring the new column into view via the virtualizer when
+      // it lives in the scrollable (non-frozen) shipment band.
+      if (newCol >= shipmentFreezeCount) {
+        columnVirtualizer.scrollToIndex(newCol - shipmentFreezeCount, {
+          align: 'auto',
+        });
+      }
+
+      // Vertical: only the scrollable rows section can be off-screen — frozen
+      // rows are sticky-top and always visible. Flow Y of row at globalIdx is
+      // (1 + globalIdx) * ROW_HEIGHT (header + every row above it). The sticky
+      // band covers (1 + frozenRowCount) * ROW_HEIGHT at the top of the
+      // viewport, so the first non-occluded pixel is scrollTop + stickyBand.
+      const container = scrollContainerRef.current;
+      if (container && newRow >= safeFrozenRowCount) {
+        const stickyBand = (1 + safeFrozenRowCount) * ROW_HEIGHT;
+        const rowTop = (1 + newRow) * ROW_HEIGHT;
+        const rowBottom = rowTop + ROW_HEIGHT;
+        const viewTop = container.scrollTop + stickyBand;
+        const viewBottom = container.scrollTop + container.clientHeight;
+        if (rowTop < viewTop) {
+          container.scrollTop = rowTop - stickyBand;
+        } else if (rowBottom > viewBottom) {
+          container.scrollTop = rowBottom - container.clientHeight;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    rows,
+    shipments,
+    shipmentFreezeCount,
+    safeFrozenRowCount,
+    ROW_HEIGHT,
+    columnVirtualizer,
+  ]);
+
   // ─── Reorder helpers ───────────────────────────────────────────────────────
   // Compute the new ordered list of row IDs after moving row at `fromIndex`
   // to `fromIndex + direction` (direction: -1 = up, +1 = down).
