@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'apps.core',
     'apps.greenhouse',
     'apps.export',
+    'apps.contracts',
     'apps.feedback',
 ]
 
