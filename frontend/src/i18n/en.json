@@ -1065,7 +1065,7 @@
     "color_hint": "Paints matching Sheet cells/tags"
   },
   "permissions_admin": {
-    "subtitle": "Manage block rules and permissions",
+    "subtitle": "Manage role permissions",
     "tab_blocks": "Block Assignments",
     "tab_permissions": "Permission Management",
     "col_user": "User",
@@ -1126,6 +1126,8 @@
   "blocks_admin": {
     "title": "Greenhouse Blocks",
     "subtitle": "Manage blocks and their details",
+    "tab_blocks_list": "Blocks",
+    "tab_manager_assignments": "Manager Assignments",
     "add": "Add Block",
     "col_code": "Code",
     "col_name": "Name",

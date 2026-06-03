@@ -8,6 +8,7 @@ import {
   InputNumber,
   Select,
   Switch,
+  Tabs,
   Tag,
   DatePicker,
   Space,
@@ -26,9 +27,12 @@ import {
   useAdminUsers,
   useLoadingLocations,
   useTomatoVarieties,
+  useGreenhouseBlocks,
+  useBlockAssignments,
 } from '@/hooks/useAdmin';
 import type { IGreenhouseBlock } from '@/types';
 import { COLORS } from '@/constants/styles';
+import { BlockAssignmentsTab } from './permissions/BlockAssignmentsTab';
 
 const { Text } = Typography;
 
@@ -54,9 +58,14 @@ export default function BlocksPage() {
   const [form] = Form.useForm<BlockFormValues>();
 
   const { data: blocks = [], isLoading } = useAdminBlocks();
-  const { data: allUsers = [] } = useAdminUsers();
+  const { data: allUsers = [], isLoading: usersLoading } = useAdminUsers();
   const { data: locations = [] } = useLoadingLocations();
   const { data: varieties = [] } = useTomatoVarieties();
+  const { data: assignableBlocks = [], isLoading: assignableBlocksLoading } = useGreenhouseBlocks();
+  const { data: assignments = [], isLoading: assignmentsLoading } = useBlockAssignments();
+
+  const managers = allUsers.filter((u) => u.role === 'greenhouse_manager');
+  const assignmentsTabLoading = usersLoading || assignableBlocksLoading || assignmentsLoading;
 
   const monthOptions = Array.from({ length: 12 }, (_, i) => ({
     value: i + 1,
@@ -226,29 +235,52 @@ export default function BlocksPage() {
         </div>
       </div>
 
-      <ProTable<IGreenhouseBlock>
-        rowKey="id"
-        onRow={(record) => ({
-          onClick: () => navigate(`/admin/blocks/${record.id}`),
-          style: { cursor: 'pointer' },
-        })}
-        dataSource={blocks}
-        columns={columns}
-        loading={isLoading}
-        search={false}
-        options={false}
-        pagination={false}
-        scroll={{ x: 'max-content' }}
-        size="small"
-        toolBarRender={() => [
-          <Button
-            key="create"
-            type="primary"
-            icon={<IconPlus size={14} />}
-            onClick={handleOpenCreate}
-          >
-            {t('blocks_admin.add')}
-          </Button>,
+      <Tabs
+        defaultActiveKey="blocks"
+        items={[
+          {
+            key: 'blocks',
+            label: t('blocks_admin.tab_blocks_list'),
+            children: (
+              <ProTable<IGreenhouseBlock>
+                rowKey="id"
+                onRow={(record) => ({
+                  onClick: () => navigate(`/admin/blocks/${record.id}`),
+                  style: { cursor: 'pointer' },
+                })}
+                dataSource={blocks}
+                columns={columns}
+                loading={isLoading}
+                search={false}
+                options={false}
+                pagination={false}
+                scroll={{ x: 'max-content' }}
+                size="small"
+                toolBarRender={() => [
+                  <Button
+                    key="create"
+                    type="primary"
+                    icon={<IconPlus size={14} />}
+                    onClick={handleOpenCreate}
+                  >
+                    {t('blocks_admin.add')}
+                  </Button>,
+                ]}
+              />
+            ),
+          },
+          {
+            key: 'assignments',
+            label: t('blocks_admin.tab_manager_assignments'),
+            children: (
+              <BlockAssignmentsTab
+                managers={managers}
+                blocks={assignableBlocks}
+                assignments={assignments}
+                isLoading={assignmentsTabLoading}
+              />
+            ),
+          },
         ]}
       />
 

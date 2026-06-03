@@ -1065,7 +1065,7 @@
     "color_hint": "Sheet öýjüklerini/etiketkalary reňkleýär"
   },
   "permissions_admin": {
-    "subtitle": "Blok düzgünlerini we rugsatlaryny dolandyrmak",
+    "subtitle": "Rol rugsatlaryny dolandyrmak",
     "tab_blocks": "Blok Düzgünleri",
     "tab_permissions": "Rugsat Dolandyryşy",
     "col_user": "Ulanyja",
@@ -1126,6 +1126,8 @@
   "blocks_admin": {
     "title": "Ýyladyşhana Bloklary",
     "subtitle": "Bloklary we olaryň maglumatlary dolandyrmak",
+    "tab_blocks_list": "Bloklar",
+    "tab_manager_assignments": "Menejer bellemeleri",
     "add": "Blok Goş",
     "col_code": "Kod",
     "col_name": "Ady",
