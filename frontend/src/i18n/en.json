@@ -140,6 +140,7 @@
     "error_load": "Failed to load harvest plan",
     "status": "Status",
     "toast_actual_saved": "Actual weight saved",
+    "toast_plan_saved": "Plan saved",
     "toast_truck_saved": "Truck allocation saved",
     "toast_truck_error": "Failed to save truck allocation",
     "actual_future_day": "Cannot enter actuals for future days",

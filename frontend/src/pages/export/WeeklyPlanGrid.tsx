@@ -235,7 +235,9 @@ export default function WeeklyPlanGrid() {
       { id: entryId, [field]: value, ...(reason ? { reason } : {}) },
       {
         onSuccess: () => {
-          toast.success(t('plan.toast_actual_saved'));
+          toast.success(
+            t(field === 'plan_value' ? 'plan.toast_plan_saved' : 'plan.toast_actual_saved'),
+          );
           setSavingKey(null);
         },
         onError: (err: unknown) => {
