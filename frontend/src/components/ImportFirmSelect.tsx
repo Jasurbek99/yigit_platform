@@ -1,6 +1,8 @@
 import { Select } from 'antd';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAdminImportFirms } from '@/hooks/useAdmin';
+import { buildSearchBlob, normalizeSearch } from '@/utils/normalizeSearch';
 
 interface IImportFirmSelectProps {
   value?: number | null;
@@ -12,9 +14,17 @@ interface IImportFirmSelectProps {
   style?: React.CSSProperties;
 }
 
+interface IFirmOption {
+  value: number;
+  label: string;
+  searchBlob: string;
+}
+
 /**
  * Self-fetching Select for ImportFirm reference data.
- * Emits number | null via onChange. Filters to is_active=true.
+ * Searchable by code + name_short + name_company (punctuation- and
+ * diacritic-insensitive). Label shows short name with the code appended
+ * when it differs.
  */
 export function ImportFirmSelect({
   value,
@@ -28,12 +38,25 @@ export function ImportFirmSelect({
   const { t } = useTranslation();
   const { data: firms = [], isLoading } = useAdminImportFirms();
 
-  const options = firms
-    .filter((f) => f.is_active)
-    .map((f) => ({
-      value: f.id,
-      label: f.name_short ?? f.name_company,
-    }));
+  const options = useMemo<IFirmOption[]>(
+    () =>
+      firms
+        .filter((f) => f.is_active)
+        .map((f) => {
+          const displayName = f.name_short || f.name_company;
+          const showCode = f.code && f.code !== displayName;
+          return {
+            value: f.id,
+            label: showCode ? `${displayName} · ${f.code}` : displayName,
+            searchBlob: buildSearchBlob([
+              f.code,
+              f.name_short,
+              f.name_company,
+            ]),
+          };
+        }),
+    [firms],
+  );
 
   return (
     <Select
@@ -47,9 +70,11 @@ export function ImportFirmSelect({
       placeholder={placeholder ?? t('common.select_import_firm')}
       size={size}
       style={style}
-      filterOption={(input, option) =>
-        String(option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-      }
+      filterOption={(input, option) => {
+        const needle = normalizeSearch(input);
+        if (!needle) return true;
+        return (option as unknown as IFirmOption).searchBlob.includes(needle);
+      }}
     />
   );
 }

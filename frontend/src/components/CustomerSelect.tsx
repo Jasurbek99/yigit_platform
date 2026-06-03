@@ -1,7 +1,9 @@
 import { Select } from 'antd';
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import api from '@/services/api';
+import { buildSearchBlob, normalizeSearch } from '@/utils/normalizeSearch';
 
 interface ISelectOption {
   id: number;
@@ -16,6 +18,12 @@ interface ICustomerSelectProps {
   placeholder?: string;
   size?: 'small' | 'middle' | 'large';
   style?: React.CSSProperties;
+}
+
+interface ICustomerOption {
+  value: number;
+  label: string;
+  searchBlob: string;
 }
 
 export function CustomerSelect({
@@ -38,7 +46,15 @@ export function CustomerSelect({
     staleTime: 5 * 60_000,
   });
 
-  const options = customers.map((c) => ({ value: c.id, label: c.name }));
+  const options = useMemo<ICustomerOption[]>(
+    () =>
+      customers.map((c) => ({
+        value: c.id,
+        label: c.name,
+        searchBlob: buildSearchBlob([c.name]),
+      })),
+    [customers],
+  );
 
   return (
     <Select
@@ -52,9 +68,11 @@ export function CustomerSelect({
       placeholder={placeholder ?? t('shipment_create.customer')}
       size={size}
       style={style}
-      filterOption={(input, option) =>
-        (String(option?.label ?? '')).toLowerCase().includes(input.toLowerCase())
-      }
+      filterOption={(input, option) => {
+        const needle = normalizeSearch(input);
+        if (!needle) return true;
+        return (option as unknown as ICustomerOption).searchBlob.includes(needle);
+      }}
     />
   );
 }
