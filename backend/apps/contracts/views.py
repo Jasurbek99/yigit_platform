@@ -5,16 +5,19 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import ModelViewSet
 
 from apps.core.permissions import write_permission
-from apps.contracts.models import Contract
+from apps.contracts.models import Contract, Invoice
 from apps.contracts.serializers import (
     ContractCreateSerializer,
     ContractDetailSerializer,
     ContractListSerializer,
+    InvoiceCreateSerializer,
+    InvoiceDetailSerializer,
+    InvoiceListSerializer,
 )
 
 logger = logging.getLogger(__name__)
 
-# Roles allowed to create and modify contracts.
+# Roles allowed to create and modify contracts and invoices.
 _CONTRACT_WRITE_ROLES = ('export_manager', 'director', 'admin')
 
 
@@ -87,3 +90,57 @@ class ContractViewSet(ModelViewSet):
             return ContractCreateSerializer
         # retrieve → full detail
         return ContractDetailSerializer
+
+
+class InvoiceViewSet(ModelViewSet):
+    """CRUD ViewSet for invoices.
+
+    List / retrieve: any authenticated user.
+    Create / update: export_manager, director, admin only.
+    Delete: admin / superuser only — rollback is too easy to mess up otherwise.
+
+    Supports filters:
+      ?contract=<id>  — only invoices for a specific contract
+      ?status=<code>  — filter by invoice status (draft|sent|paid|void)
+    """
+
+    queryset = Invoice.objects.select_related(
+        'contract',
+        'shipment',
+        'export_firm',
+        'import_firm',
+    )
+
+    def get_queryset(self):
+        """Apply optional contract and status filters."""
+        qs = super().get_queryset()
+
+        contract_id = self.request.query_params.get('contract')
+        if contract_id:
+            qs = qs.filter(contract_id=contract_id)
+
+        status_param = self.request.query_params.get('status')
+        if status_param:
+            qs = qs.filter(status=status_param)
+
+        return qs
+
+    def get_serializer_class(self):
+        """Use the appropriate serializer for each action."""
+        if self.action == 'list':
+            return InvoiceListSerializer
+        if self.action in ('create', 'update', 'partial_update'):
+            return InvoiceCreateSerializer
+        return InvoiceDetailSerializer
+
+    def get_permissions(self):
+        """Permission matrix:
+        - DELETE: admin/superuser only
+        - CREATE/UPDATE: export_manager, director, admin
+        - READ: any authenticated user
+        """
+        if self.action == 'destroy':
+            return [IsAuthenticated(), write_permission('admin')()]
+        if self.action in ('create', 'update', 'partial_update'):
+            return [IsAuthenticated(), write_permission(*_CONTRACT_WRITE_ROLES)()]
+        return [IsAuthenticated()]

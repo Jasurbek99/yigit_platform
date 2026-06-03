@@ -106,6 +106,7 @@ See [[roles-matrix]] for the full capability matrix.
 - [[api-endpoint-map]] — Every API endpoint mapped to frontend hook, page, and backend model
 - [[data-model-map]] — All 40+ models with ER diagram and field lists
 - [[contracts-contract-model]] — Contract model (P4 Slice A): fields, status enum, computed properties, API endpoints
+- [[contracts-invoice-model]] — Invoice model (P4 Slice B): fields, status enum, rollup service, auto-compute total_usd, API endpoints
 - [[status-codes]] — 13 shipment statuses with codes, phases, timestamps, roles
 - [[deployment-guide]] — Docker, MSSQL, env vars, seed commands
 - [[data-imports]] — 14 management commands for data migration

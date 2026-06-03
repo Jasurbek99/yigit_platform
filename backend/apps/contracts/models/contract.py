@@ -126,12 +126,17 @@ class Contract(models.Model):
         return self.contract_number
 
     def save(self, *args, **kwargs) -> None:
-        """Recompute remaining_usd before every save.
+        """Recompute remaining_usd as a fallback when no invoices exist.
 
-        This is a placeholder until the Slice B rollup service takes over.
-        The rollup service will recompute all denormalized fields from invoice/payment
-        aggregates and write them atomically. At that point, ``remaining_usd`` should
-        only ever be written by ``rollup_contract_totals()``, not here.
+        Primary path: ``rollup_contract_totals()`` (``contracts.services.rollup``)
+        recomputes all five denormalized fields from invoice/payment aggregates
+        and writes them via ``.update()`` (bypassing this save). That path fires
+        on every Invoice write/delete.
+
+        This placeholder formula only runs when the Contract is saved directly
+        (e.g. on create, or admin edits) without any invoice activity triggering
+        the rollup. It keeps remaining_usd consistent in the absence of invoices.
+        Never write exported_* or remaining_usd outside the rollup service.
         """
         self.remaining_usd = (self.exported_amount_usd or Decimal('0')) - (
             self.payment_received_usd or Decimal('0')

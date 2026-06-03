@@ -1,2 +1,3 @@
-# Services for the contracts app.
-# rollup.py and link_shipment.py will be added in Slice B.
+from .rollup import rollup_contract_totals
+
+__all__ = ['rollup_contract_totals']
