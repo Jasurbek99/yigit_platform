@@ -202,17 +202,31 @@ R24 = `has_doc_advance` (✓/❌, Babageldi). True once a `FinansistAdvanceShipm
 | `readonly` | None | Display-only; never editable |
 | `comment_count` | None | Display count + icon; click navigates to ShipmentDetail's Changes tab |
 
-## Clearing a cell (right-click)
+## Right-click context menu
 
-The `date` and `datetime` editors deliberately disable Ant's built-in `allowClear` X — operators kept accidentally wiping saved values when missing-click the picker's X. To clear a filled cell, **right-click → Clear cell**.
+Every non-hidden cell is wrapped in an Ant `Dropdown` (`trigger={['contextMenu']}`) so right-click always opens a Sheet-owned menu instead of the browser's native one. This is the foundation for future cell actions (Copy value, View history, etc.) — currently the only item is **Clear cell**.
 
-`SheetCell` wraps each rendered cell with an Ant `Dropdown` (`trigger={['contextMenu']}`). The menu has one danger-styled item that dispatches per field type:
+The `date` and `datetime` editors deliberately disable Ant's built-in `allowClear` X (operators kept accidentally wiping saved values when missing-click the picker's X), so the right-click → Clear cell path is the supported way to null a filled cell.
 
-- `custom_*` rows → `PATCH /shipments/{id}/custom-fields/` with `value=''`
-- `multiselect` junctions (`firm_splits`, `block_sources`) → `POST /shipments/{id}/firm-splits/` or `block-sources/` with the items array empty (server replaces all rows, so empty = delete-all)
-- Everything else → `PATCH /shipments/{id}/` with `{ field: null }`
+**Clear cell** dispatches per field type. All three paths apply an instant cache update first (so the cell repaints empty on the next render) and only then fire the network request:
 
-The context menu is suppressed on ineligible cells (read-only, `cargo_code`, `has_doc_advance`/`has_sales_report` computed cells, bool dropdowns `peregruz`/`gornushi`, already-empty cells, reorder mode). Those cells receive the browser's native right-click menu instead — there's no Dropdown wrapper to override it.
+- `custom_*` rows → optimistic `custom_fields[key] = ''` on the cached row, then `PATCH /shipments/{id}/custom-fields/` with `value=''`. Snapshot rolled back to the previous cache on error.
+- `multiselect` junctions (`firm_splits`, `block_sources`) → optimistic `[field] = []` on the cached row, then `POST /shipments/{id}/firm-splits/` or `block-sources/` with the items array empty (server replaces all rows, so empty = delete-all). Snapshot rolled back to the previous cache on error. **No post-success sheet invalidate** — the junction endpoints only return `{status, count}`, so the optimistic update IS the truth; an invalidate here would re-trigger a full-season refetch (~1–2 s, ~1000 rows) and felt like "needs refresh" before this was added.
+- FK fields (`country`, `customer`, `city`, `import_firm`, `variety`, `border_point`, `vehicle_responsible`) → wipe cached companion fields (`country_name`, `country_code`, `country_color`, etc.) via `applyOptimistic` *before* `useShipmentPatch` fires, so the cell flips empty on the next render instead of waiting ~200–500 ms for the PATCH response to land via `reconcileFromServer`. The reconcile step still runs and overwrites with the authoritative response.
+- Everything else → plain `PATCH /shipments/{id}/` with `{field: null}` via `useShipmentPatch` — the existing optimistic+reconcile path is enough because scalar fields have no companion data.
+
+The menu item is **disabled (greyed out)** rather than the whole menu being suppressed, in these cases — so the menu still mounts and future items can become enabled on a per-case basis:
+
+| Disabled when | Why |
+|---|---|
+| Cell is empty | nothing to clear |
+| Cell is not editable (role/lock) | user can't write the field anyway |
+| `cargo_code` | primary identifier — must never be null |
+| `has_doc_advance`, `has_sales_report` | computed from related rows, can't be set directly |
+| `peregruz`, `is_gapy_satys` | bool-backed 0/1 dropdowns — pick "no" from the dropdown instead |
+| Reorder mode is active | edits are blocked while reordering columns |
+
+Hidden cells (`gapy_hidden && is_gapy_satys` — the `—` placeholder rows) are the only ones that skip the Dropdown wrapper entirely; they have no semantic content to act on.
 
 ## Permissions
 

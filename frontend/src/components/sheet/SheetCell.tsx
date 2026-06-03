@@ -8,7 +8,7 @@ import type { IShipmentSheetItem, IRowConfig, ICommentTaskStatus, ISheetRowSetti
 import { useSheetStore } from '@/stores/sheetStore';
 import { useShipmentOptions } from '@/hooks/useAdmin';
 import { scaleSheetLayout } from '@/constants/sheetRowConfig';
-import { useShipmentPatch, extractPatchError } from '@/hooks/useShipmentPatch';
+import { useShipmentPatch, extractPatchError, applyOptimistic } from '@/hooks/useShipmentPatch';
 import api from '@/services/api';
 import { CommentMarker } from './CommentMarker';
 import { getCellValue } from './getCellValue';
@@ -41,6 +41,22 @@ const FIELD_KEY_TO_FK_COLOR_FIELD: Record<string, keyof IShipmentSheetItem> = {
   import_firm: 'import_firm_color',
   variety: 'variety_color',
   border_point: 'border_point_color',
+};
+
+// When right-click → Clear cell PATCHes an FK field to null, the cell still
+// renders from cached companion fields (`country_name`, `country_code`,
+// `country_color`, etc.) until the PATCH response reconciles them ~200-500 ms
+// later. To make the cell flip empty instantly, the optimistic update wipes
+// these companions too. (The wipe-then-reconcile pattern still works — the
+// server response is authoritative and overwrites whatever we set here.)
+const FK_CLEAR_COMPANION_FIELDS: Record<string, readonly (keyof IShipmentSheetItem)[]> = {
+  country: ['country_name', 'country_code', 'country_color'],
+  city: ['city_name', 'city_color'],
+  customer: ['customer_name', 'customer_color'],
+  import_firm: ['import_firm_name', 'import_firm_color'],
+  variety: ['variety_name', 'variety_code', 'variety_color'],
+  border_point: ['border_point_name', 'border_point_color'],
+  vehicle_responsible: ['vehicle_responsible_display'],
 };
 
 function getCellAutoColor(
@@ -102,29 +118,79 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
   //   • custom_*               → PATCH custom-fields with value=''
   //   • multiselect (junctions)→ POST junction endpoint with empty array
   //   • everything else        → PATCH shipment with field=null
-  const clearJunctionMutation = useMutation({
-    mutationFn: async ({ endpoint, key }: { endpoint: string; key: string }) => {
+  //
+  // Both junction and custom mutations apply an optimistic `setQueryData` in
+  // onMutate and snapshot the previous cache for rollback on error. Without
+  // this the cell stayed showing the old value until a full sheet refetch
+  // completed (1–2 s on a ~1000-row season) — which felt like "needs refresh".
+  const clearJunctionMutation = useMutation<
+    unknown,
+    unknown,
+    { endpoint: string; key: string; field: 'firm_splits' | 'block_sources' },
+    { previous: unknown }
+  >({
+    mutationFn: async ({ endpoint, key }) => {
       await api.post(`/export/shipments/${shipment.id}/${endpoint}/`, { [key]: [] });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+    onMutate: async ({ field }) => {
+      await queryClient.cancelQueries({ queryKey: ['shipments', 'sheet'] });
+      const previous = queryClient.getQueryData(['shipments', 'sheet']);
+      queryClient.setQueryData(['shipments', 'sheet'], (old: unknown) => {
+        const cache = old as { shipments?: IShipmentSheetItem[] } | undefined;
+        if (!cache || !Array.isArray(cache.shipments)) return old;
+        return {
+          ...cache,
+          shipments: cache.shipments.map((s) =>
+            s.id === shipment.id ? { ...s, [field]: [] } : s,
+          ),
+        };
+      });
+      return { previous };
     },
-    onError: (err) => {
+    onError: (err, _vars, ctx) => {
+      if (ctx?.previous !== undefined) {
+        queryClient.setQueryData(['shipments', 'sheet'], ctx.previous);
+      }
       toast.error(extractPatchError(err, t('sheet.save_error')));
       console.error('[SheetCell] clear junction failed', err);
     },
+    // No onSuccess refetch — the optimistic update IS the truth. The junction
+    // endpoints only return {status, count} so there's nothing to reconcile,
+    // and a sheet refetch here would re-introduce the 1–2 s lag we just fixed.
   });
-  const clearCustomMutation = useMutation({
+  const clearCustomMutation = useMutation<
+    unknown,
+    unknown,
+    string,
+    { previous: unknown }
+  >({
     mutationFn: async (fieldKey: string) => {
       await api.patch(`/export/shipments/${shipment.id}/custom-fields/`, {
         field_key: fieldKey,
         value: '',
       });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+    onMutate: async (fieldKey) => {
+      await queryClient.cancelQueries({ queryKey: ['shipments', 'sheet'] });
+      const previous = queryClient.getQueryData(['shipments', 'sheet']);
+      queryClient.setQueryData(['shipments', 'sheet'], (old: unknown) => {
+        const cache = old as { shipments?: IShipmentSheetItem[] } | undefined;
+        if (!cache || !Array.isArray(cache.shipments)) return old;
+        return {
+          ...cache,
+          shipments: cache.shipments.map((s) =>
+            s.id === shipment.id
+              ? { ...s, custom_fields: { ...(s.custom_fields ?? {}), [fieldKey]: '' } }
+              : s,
+          ),
+        };
+      });
+      return { previous };
     },
-    onError: (err) => {
+    onError: (err, _vars, ctx) => {
+      if (ctx?.previous !== undefined) {
+        queryClient.setQueryData(['shipments', 'sheet'], ctx.previous);
+      }
       toast.error(extractPatchError(err, t('sheet.save_error')));
       console.error('[SheetCell] clear custom field failed', err);
     },
@@ -218,14 +284,33 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
     }
     if (inputType === 'multiselect') {
       if (fieldKey === 'firm_splits') {
-        clearJunctionMutation.mutate({ endpoint: 'firm-splits', key: 'firms' });
+        clearJunctionMutation.mutate({
+          endpoint: 'firm-splits',
+          key: 'firms',
+          field: 'firm_splits',
+        });
       } else if (fieldKey === 'block_sources') {
-        clearJunctionMutation.mutate({ endpoint: 'block-sources', key: 'blocks' });
+        clearJunctionMutation.mutate({
+          endpoint: 'block-sources',
+          key: 'blocks',
+          field: 'block_sources',
+        });
       }
       return;
     }
+    // FK clears: pre-null the cached companion fields (country_name,
+    // country_code, country_color, …) BEFORE patchMutation fires so the cell
+    // flips empty on the next render. patchMutation's own optimistic update
+    // also sets the FK id null, and its reconcileFromServer on success
+    // overwrites everything with the authoritative response.
+    const companions = FK_CLEAR_COMPANION_FIELDS[fieldKey];
+    if (companions && companions.length) {
+      applyOptimistic(queryClient, shipment.id, {
+        ...Object.fromEntries(companions.map((k) => [k, null])),
+      });
+    }
     patchMutation.mutate({ id: shipment.id, field: fieldKey, value: null });
-  }, [rowConfig, shipment.id, patchMutation, clearCustomMutation, clearJunctionMutation]);
+  }, [rowConfig, shipment.id, patchMutation, clearCustomMutation, clearJunctionMutation, queryClient]);
 
   // Wrap every rendered cell with an antd Dropdown that opens on right-click.
   // We mount the wrapper unconditionally (not just for clearable cells) so we
@@ -350,7 +435,7 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
 
   // Report status
   if (fieldKey === 'has_sales_report') {
-    return (
+    return wrap(
       <div
         className={`sheet-cell sheet-cell--${rowConfig.style}${isActive ? ' sheet-cell--active' : ''}${isGapy ? ' sheet-cell--gapy' : ''}`}
         style={{ width: cellWidth, height: ROW_HEIGHT, ...cellBgStyle }}
@@ -365,7 +450,7 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
 
   // Cargo code (key field)
   if (fieldKey === 'cargo_code') {
-    return (
+    return wrap(
       <div
         className={`sheet-cell sheet-cell--key${isActive ? ' sheet-cell--active' : ''}${isGapy ? ' sheet-cell--gapy' : ''}`}
         style={{ width: cellWidth, height: ROW_HEIGHT, ...cellBgStyle }}
