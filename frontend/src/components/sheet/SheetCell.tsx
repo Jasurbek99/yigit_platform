@@ -107,7 +107,6 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
   const setEditingCell = useSheetStore((s) => s.setEditingCell);
   const openCommentsForCell = useSheetStore((s) => s.openCommentsForCell);
   const sheetZoom = useSheetStore((s) => s.sheetZoom);
-  const reorderMode = useSheetStore((s) => s.reorderMode);
   const queryClient = useQueryClient();
   const patchMutation = useShipmentPatch();
 
@@ -233,25 +232,20 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
   const cellIsEmpty = isEmpty(value);
 
   const handleClick = useCallback(() => {
-    // Editing is locked while reorder mode is active — clicks should not
-    // activate or enter edit mode on any cell.
-    if (reorderMode) return;
     // Empty editable cells → edit immediately on single click
     if (isEditable && !isHidden && cellIsEmpty) {
       setEditingCell({ shipmentId: shipment.id, rowKey: rowConfig.field_key });
       return;
     }
     setActiveCell({ shipmentId: shipment.id, rowKey: rowConfig.field_key });
-  }, [reorderMode, isEditable, isHidden, cellIsEmpty, setActiveCell, setEditingCell, shipment.id, rowConfig.field_key]);
+  }, [isEditable, isHidden, cellIsEmpty, setActiveCell, setEditingCell, shipment.id, rowConfig.field_key]);
 
   const handleDoubleClick = useCallback(() => {
-    // Editing locked while reorder mode is active
-    if (reorderMode) return;
     // Filled editable cells → edit on double click
     if (isEditable && !isHidden && !cellIsEmpty) {
       setEditingCell({ shipmentId: shipment.id, rowKey: rowConfig.field_key });
     }
-  }, [reorderMode, isEditable, isHidden, cellIsEmpty, setEditingCell, shipment.id, rowConfig.field_key]);
+  }, [isEditable, isHidden, cellIsEmpty, setEditingCell, shipment.id, rowConfig.field_key]);
 
   // Right-click → context menu. Every cell gets the Dropdown wrapper so
   // future items (Copy value, View history, …) have a home; the **Clear cell**
@@ -265,7 +259,6 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
   //     route handleClick to navigation, so even if isEditable were true the
   //     value can't be cleared from here.
   //   • cell is already empty — nothing to clear.
-  //   • reorder mode (no edits while reordering columns)
   const isBoolDropdown =
     rowConfig.options_source === 'peregruz' || rowConfig.options_source === 'gornushi';
   const isClearableField =
@@ -274,7 +267,7 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
     rowConfig.field_key !== 'has_sales_report' &&
     !isBoolDropdown;
   const canClear =
-    isEditable && !isHidden && !reorderMode && !cellIsEmpty && isClearableField;
+    isEditable && !isHidden && !cellIsEmpty && isClearableField;
 
   const handleClearCell = useCallback(() => {
     const { field_key: fieldKey, input_type: inputType } = rowConfig;

@@ -43,10 +43,11 @@ import { getContrastTextColor, mixWithWhite } from '@/utils/contrastColor';
 const COL_TINT_PICK_WEIGHT = 0.6;
 
 // ─── Sortable column header wrapper ──────────────────────────────────────────
-// Each shipment column header becomes a useSortable item while reorderMode is on.
-// The wrapper handles the DnD listeners and transform CSS; the inner
-// SheetColumnHeader stays unchanged and the color picker is hidden during reorder
-// so the whole header surface is safely draggable.
+// Drag-to-reorder is always-on for authorized users (Google-Sheets style).
+// `activationConstraint: { distance: 5 }` on the PointerSensor means a click
+// (no movement) still fires normally — color picker, delete, soft-delete, and
+// join/swap selection clicks on the header all work without entering a "mode".
+// A drag only starts after the pointer moves >5px.
 
 interface ISortableHeaderWrapperProps {
   shipmentId: number;
@@ -55,6 +56,8 @@ interface ISortableHeaderWrapperProps {
   className: string;
   style: React.CSSProperties;
   onClick?: () => void;
+  /** When true, drag is disabled (e.g. while join/swap mode is active). */
+  disabled?: boolean;
 }
 
 function SortableHeaderWrapper({
@@ -63,6 +66,7 @@ function SortableHeaderWrapper({
   className,
   style,
   onClick,
+  disabled = false,
 }: ISortableHeaderWrapperProps) {
   const {
     attributes,
@@ -71,14 +75,14 @@ function SortableHeaderWrapper({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: shipmentId });
+  } = useSortable({ id: shipmentId, disabled });
 
   const combinedStyle: React.CSSProperties = {
     ...style,
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
-    cursor: isDragging ? 'grabbing' : 'grab',
+    cursor: disabled ? style.cursor : isDragging ? 'grabbing' : 'grab',
     userSelect: 'none',
   };
 
@@ -89,7 +93,7 @@ function SortableHeaderWrapper({
       style={combinedStyle}
       onClick={onClick}
       {...attributes}
-      {...listeners}
+      {...(disabled ? {} : listeners)}
     >
       {children}
     </div>
@@ -179,18 +183,29 @@ export function SheetGrid({
   const swapMode = useSheetStore((s) => s.swapMode);
   const swapSelection = useSheetStore((s) => s.swapSelection);
   const toggleSwapSelection = useSheetStore((s) => s.toggleSwapSelection);
-  const reorderMode = useSheetStore((s) => s.reorderMode);
   const setColumnOrder = useSheetStore((s) => s.setColumnOrder);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // ─── Column reorder: dnd-kit setup ──────────────────────────────────────
-  // Use PointerSensor with a 5px activation distance so that a simple click
-  // (e.g. color picker in normal mode) doesn't accidentally start a drag.
-  // While reorderMode is on, the color picker is hidden (SheetColumnHeader
-  // receives reorderMode prop), so dragging the full header surface is safe.
+  // Drag-to-reorder on the column header is always-on for authorized users
+  // (Google-Sheets style). PointerSensor `activationConstraint: { distance: 5 }`
+  // means a click (no movement) doesn't accidentally start a drag — the color
+  // picker, delete button, and join/swap selection clicks all keep working.
+  // Drag is disabled while join/swap mode is active so the two interactions
+  // (column selection vs reorder) don't compete for the same gesture.
+  const userRole = user?.role ?? '';
+  // Column reorder writes a GLOBAL order visible to all users, so it is gated
+  // to the operational roles that actually live in the Sheet day-to-day:
+  // export_manager, document_team, loading_dept_head — plus admin/superuser.
+  const canReorderColumns =
+    !!user && (
+      user.is_superuser ||
+      ['admin', 'export_manager', 'document_team', 'loading_dept_head'].includes(userRole)
+    );
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   );
+  const reorderEnabled = canReorderColumns && !joinMode && !swapMode;
   const saveColumnOrder = useSaveSheetColumnOrder();
 
   const handleDragEnd = useCallback(
@@ -238,12 +253,12 @@ export function SheetGrid({
     TOTAL_LABEL_COLS + shipments.length,
   );
   const labelStickyCount = Math.min(safeFrozenColCount, TOTAL_LABEL_COLS) as 0 | 1 | 2 | 3;
-  // While reorderMode is on, treat shipment freeze count as 0 so all shipment
-  // columns live in the single virtualized+sortable track and drag uniformly.
-  // The label band (Row #, Who, Field) keeps its freeze setting unchanged.
-  const shipmentFreezeCount = reorderMode
-    ? 0
-    : Math.max(0, safeFrozenColCount - TOTAL_LABEL_COLS);
+  // Frozen shipments stay frozen even when reorder is enabled. Only the
+  // scrollable (non-frozen) shipment columns participate in the SortableContext;
+  // a user who wants to reorder a currently-frozen column lowers their freeze
+  // count first. This matches Google Sheets, where frozen columns aren't part
+  // of the same drag track as the scrollable ones.
+  const shipmentFreezeCount = Math.max(0, safeFrozenColCount - TOTAL_LABEL_COLS);
 
   const frozenRows = useMemo(
     () => rows.slice(0, safeFrozenRowCount),
@@ -318,7 +333,7 @@ export function SheetGrid({
 
       const state = useSheetStore.getState();
       if (state.editingCell) return;
-      if (state.reorderMode || state.joinMode || state.swapMode) return;
+      if (state.joinMode || state.swapMode) return;
 
       const active = state.activeCell;
       if (!active) return;
@@ -548,9 +563,9 @@ export function SheetGrid({
 
   const virtualColumns = columnVirtualizer.getVirtualItems();
 
-  // Frozen data column headers (sticky-left)
-  // When reorderMode is on, shipmentFreezeCount is 0, so frozenShipments is
-  // always empty and this memo produces an empty array. Kept for non-reorder mode.
+  // Frozen data column headers (sticky-left). Frozen columns are not part of
+  // the SortableContext, so they aren't draggable; a user who wants to reorder
+  // a frozen column lowers their freeze count first.
   const frozenColumnHeaders = useMemo(
     () =>
       frozenShipments.map((shipment, idx) => {
@@ -603,16 +618,16 @@ export function SheetGrid({
               exportCode={shipment.cargo_code}
               columnColor={shipment.column_color}
               isCancelled={cancelled}
-              hideColorPicker={reorderMode}
             />
           </div>
         );
       }),
-    [frozenShipments, COL_WIDTH_SHIPMENT, FROZEN_LEFT_TOTAL, ROW_HEIGHT, joinMode, joinSelection, toggleJoinSelection, swapMode, swapSelection, toggleSwapSelection, reorderMode],
+    [frozenShipments, COL_WIDTH_SHIPMENT, FROZEN_LEFT_TOTAL, ROW_HEIGHT, joinMode, joinSelection, toggleJoinSelection, swapMode, swapSelection, toggleSwapSelection],
   );
 
   // Virtualized (scrollable) column headers — seq number continues from frozen count.
-  // When reorderMode is on, these become SortableHeaderWrapper items.
+  // For authorized users (canReorderColumns), each scrollable header is a
+  // SortableHeaderWrapper so it can be dragged inline (no mode toggle needed).
   const virtualColumnHeaders = useMemo(
     () =>
       virtualColumns.map((vc) => {
@@ -654,7 +669,6 @@ export function SheetGrid({
             exportCode={shipment.cargo_code}
             columnColor={shipment.column_color}
             isCancelled={cancelled}
-            hideColorPicker={reorderMode}
           />
         );
 
@@ -664,10 +678,12 @@ export function SheetGrid({
           ? () => toggleJoinSelection(shipment.id)
           : undefined;
 
-        if (reorderMode) {
-          // In reorder mode: wrap in SortableHeaderWrapper for dnd-kit drag support.
-          // The absolute position (left: vc.start) is applied as a base — the
-          // SortableHeaderWrapper adds a CSS transform on top of it during drag.
+        if (canReorderColumns) {
+          // Drag-to-reorder is always-on for authorized users (Google-Sheets
+          // style). The SortableHeaderWrapper adds a CSS transform on top of the
+          // absolute `left: vc.start` base position during drag. Drag is disabled
+          // while join/swap mode is active so clicks-for-selection don't compete
+          // with drag-for-reorder.
           return (
             <SortableHeaderWrapper
               key={shipment.id}
@@ -675,6 +691,7 @@ export function SheetGrid({
               className={headerClassName}
               style={headerStyle}
               onClick={handleJoinClick}
+              disabled={joinMode || swapMode}
             >
               {headerContent}
             </SortableHeaderWrapper>
@@ -692,7 +709,7 @@ export function SheetGrid({
           </div>
         );
       }),
-    [virtualColumns, scrollableShipments, shipmentFreezeCount, COL_WIDTH_SHIPMENT, ROW_HEIGHT, joinMode, joinSelection, toggleJoinSelection, swapMode, swapSelection, toggleSwapSelection, reorderMode],
+    [virtualColumns, scrollableShipments, shipmentFreezeCount, COL_WIDTH_SHIPMENT, ROW_HEIGHT, joinMode, joinSelection, toggleJoinSelection, swapMode, swapSelection, toggleSwapSelection, canReorderColumns],
   );
 
   const renderSection = (sectionRows: IRowConfig[], inFrozenSection: boolean) =>
@@ -729,24 +746,20 @@ export function SheetGrid({
             canMoveDown={canMoveDown}
             rowIndex={globalIndex}
             onReorderTo={
-              // Disable row reorder while column reorder mode is active
-              // so the two DnD systems don't conflict.
-              !reorderMode && hasReorderCapability && rowHasId
-                ? handleReorderTo
-                : undefined
+              hasReorderCapability && rowHasId ? handleReorderTo : undefined
             }
             onMoveUp={
-              !reorderMode && hasReorderCapability && rowHasId
+              hasReorderCapability && rowHasId
                 ? () => handleMove(globalIndex, -1)
                 : undefined
             }
             onMoveDown={
-              !reorderMode && hasReorderCapability && rowHasId
+              hasReorderCapability && rowHasId
                 ? () => handleMove(globalIndex, 1)
                 : undefined
             }
             onHideRow={
-              !reorderMode && fieldKeyToRowId !== undefined && onHideRow !== undefined && rowHasId
+              fieldKeyToRowId !== undefined && onHideRow !== undefined && rowHasId
                 ? () => handleHideRow(rowConfig)
                 : undefined
             }
@@ -885,7 +898,7 @@ export function SheetGrid({
 
   const headerColumnArea = (
     <>
-      {/* Frozen data column headers (sticky-left) — empty while reorderMode is on */}
+      {/* Frozen data column headers (sticky-left) */}
       {frozenColumnHeaders}
 
       {/* Virtualized column headers */}
@@ -901,6 +914,18 @@ export function SheetGrid({
     </>
   );
 
+  const headerRow = (
+    <div
+      className="sheet-header-row"
+      style={{ display: 'flex', height: ROW_HEIGHT, position: 'sticky', top: 0, zIndex: 10 }}
+    >
+      {/* Frozen-left header label cells — each cell sticky-left only if the
+          user's freeze setting includes that column (labelStickyCount). */}
+      {headerLabelBand}
+      {headerColumnArea}
+    </div>
+  );
+
   return (
     <div
       className="sheet-grid"
@@ -908,10 +933,13 @@ export function SheetGrid({
       style={{ ['--sheet-zoom' as string]: sheetZoom } as React.CSSProperties}
     >
       {/* Header row — sticky-top.
-          When reorderMode is active, wrap in DndContext + SortableContext so the
-          virtual column headers (SortableHeaderWrapper items) can be dragged.
-          autoScroll is enabled so dragging near the edge scrolls the container. */}
-      {reorderMode ? (
+          For authorized users, wrap in DndContext + SortableContext so the
+          virtual column headers (SortableHeaderWrapper items) can be dragged
+          inline (Google-Sheets style, no mode toggle). PointerSensor's 5px
+          activation distance keeps clicks on color-picker / delete / join /
+          swap controls working untouched. autoScroll is enabled so dragging
+          near the edge scrolls the container. */}
+      {reorderEnabled ? (
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -919,36 +947,11 @@ export function SheetGrid({
           autoScroll={{ threshold: { x: 0.15, y: 0 } }}
         >
           <SortableContext items={sortableIds} strategy={horizontalListSortingStrategy}>
-            <div
-              className="sheet-header-row"
-              style={{ display: 'flex', height: ROW_HEIGHT, position: 'sticky', top: 0, zIndex: 10 }}
-            >
-              {headerLabelBand}
-              {headerColumnArea}
-            </div>
+            {headerRow}
           </SortableContext>
         </DndContext>
       ) : (
-        <div
-          className="sheet-header-row"
-          style={{ display: 'flex', height: ROW_HEIGHT, position: 'sticky', top: 0, zIndex: 10 }}
-        >
-          {/* Frozen-left header label cells — each cell sticky-left only if the
-              user's freeze setting includes that column (labelStickyCount). */}
-          {headerLabelBand}
-          {/* Frozen data column headers (sticky-left) */}
-          {frozenColumnHeaders}
-          {/* Virtualized column headers */}
-          <div
-            style={{
-              position: 'relative',
-              width: columnVirtualizer.getTotalSize(),
-              height: ROW_HEIGHT,
-            }}
-          >
-            {virtualColumnHeaders}
-          </div>
-        </div>
+        headerRow
       )}
 
       {/* Frozen rows section — sticky-top below header */}

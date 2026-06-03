@@ -1230,11 +1230,13 @@ class ShipmentViewSet(ModelViewSet):
         ``sheet_position`` on each shipment so the Sheet endpoint returns
         columns in the desired left-to-right sequence.
 
-        Permission: only superusers or users with role ``admin`` /
-        ``export_manager``. All other roles receive 403 — the global order
-        affects every user's Sheet view so it is restricted to senior
-        operators. (``director`` is intentionally excluded — narrower than
-        PRIVILEGED_ROLES, matching the frontend button gate.)
+        Permission: superusers and users with role ``admin``,
+        ``export_manager``, ``document_team``, or ``loading_dept_head``.
+        All other roles receive 403 — the global order affects every user's
+        Sheet view, so it is restricted to the operational roles that
+        actually live in the Sheet day-to-day. (``director`` is excluded —
+        narrower than PRIVILEGED_ROLES; the Sheet drag-handle gate on the
+        frontend matches this list.)
 
         Request body:
             { "shipment_ids": [12, 7, 99, ...] }
@@ -1258,9 +1260,10 @@ class ShipmentViewSet(ModelViewSet):
             200 { "updated": <count_of_shipments_actually_updated> }
         """
         is_super = getattr(request.user, 'is_superuser', False)
-        if not is_super and getattr(request.user, 'role', None) not in ('admin', 'export_manager'):
+        allowed_roles = ('admin', 'export_manager', 'document_team', 'loading_dept_head')
+        if not is_super and getattr(request.user, 'role', None) not in allowed_roles:
             return Response(
-                {'error': 'Only admin or export_manager can save the Sheet column order'},
+                {'error': 'Your role cannot save the Sheet column order'},
                 status=status.HTTP_403_FORBIDDEN,
             )
 

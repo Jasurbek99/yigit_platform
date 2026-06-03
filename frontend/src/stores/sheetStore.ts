@@ -157,16 +157,10 @@ interface ISheetState {
   toggleSwapSelection: (shipmentId: number) => void;
 
   // ─── Column reorder mode (drag shipment column headers left/right) ─────────
-  // Transient — not persisted. Mutually exclusive with joinMode.
   // columnOrder: optimistic ordered list of shipment IDs; null = use server order.
-  // Trade-off: holding it in the store (vs. local state in ShipmentSheet) lets
-  // SheetGrid subscribe to it directly for the DnD drag-end handler, avoiding
-  // a prop-drilling chain. The downside is it lives longer than the component
-  // mount — but clearing it on setReorderMode(false) and on save success makes
-  // the lifecycle well-defined.
-  reorderMode: boolean;
-  setReorderMode: (on: boolean) => void;
-  toggleReorderMode: () => void;
+  // Lives in the store so SheetGrid's drag-end handler can write it without
+  // prop-drilling. Cleared by ShipmentSheet's effect once the server refetch
+  // lands with the canonical order.
   columnOrder: number[] | null;
   setColumnOrder: (order: number[] | null) => void;
 }
@@ -271,8 +265,9 @@ export const useSheetStore = create<ISheetState>((set) => ({
   joinSelection: [],
   setJoinMode: (on) =>
     set(on
-      // Clear active/editing cell when arming join mode; also exit reorder + swap modes
-      ? { joinMode: true, joinSelection: [], activeCell: null, editingCell: null, reorderMode: false, columnOrder: null, swapMode: false, swapSelection: [] }
+      // Clear active/editing cell + optimistic column order when arming join mode;
+      // also exit swap mode (mutually exclusive).
+      ? { joinMode: true, joinSelection: [], activeCell: null, editingCell: null, columnOrder: null, swapMode: false, swapSelection: [] }
       : { joinMode: false, joinSelection: [] }
     ),
   toggleJoinSelection: (id) =>
@@ -294,8 +289,8 @@ export const useSheetStore = create<ISheetState>((set) => ({
   swapSelection: [],
   setSwapMode: (on) =>
     set(on
-      // Clear active/editing cell; exit join + reorder modes — mutually exclusive
-      ? { swapMode: true, swapSelection: [], activeCell: null, editingCell: null, joinMode: false, joinSelection: [], reorderMode: false, columnOrder: null }
+      // Clear active/editing cell + optimistic column order; exit join mode (mutually exclusive).
+      ? { swapMode: true, swapSelection: [], activeCell: null, editingCell: null, joinMode: false, joinSelection: [], columnOrder: null }
       : { swapMode: false, swapSelection: [] }
     ),
   toggleSwapSelection: (shipmentId) =>
@@ -311,39 +306,11 @@ export const useSheetStore = create<ISheetState>((set) => ({
       return { swapSelection: [current[1], shipmentId] };
     }),
 
-  // ─── Column reorder mode ──────────────────────────────────────────────────
-  reorderMode: false,
-  setReorderMode: (on) =>
-    set(on
-      ? {
-          reorderMode: true,
-          // Clear editing state; also exit join + swap modes — they're mutually exclusive
-          joinMode: false,
-          joinSelection: [],
-          swapMode: false,
-          swapSelection: [],
-          activeCell: null,
-          editingCell: null,
-        }
-      : {
-          reorderMode: false,
-          columnOrder: null,
-        }
-    ),
-  toggleReorderMode: () =>
-    set((state) =>
-      state.reorderMode
-        ? { reorderMode: false, columnOrder: null }
-        : {
-            reorderMode: true,
-            joinMode: false,
-            joinSelection: [],
-            swapMode: false,
-            swapSelection: [],
-            activeCell: null,
-            editingCell: null,
-          }
-    ),
+  // ─── Column reorder ───────────────────────────────────────────────────────
+  // Drag-to-reorder on the column header is always-on (Google-Sheets style)
+  // when the user has permission. `columnOrder` is the optimistic local order
+  // applied by SheetGrid's drag-end handler and cleared by ShipmentSheet once
+  // the server refetch lands with the canonical order.
   columnOrder: null,
   setColumnOrder: (order) => set({ columnOrder: order }),
 
