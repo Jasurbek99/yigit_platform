@@ -77,7 +77,11 @@
     "feedback_submit": "Feedback",
     "feedback_my_tickets": "My Tickets",
     "feedback_public": "Public Suggestions",
-    "feedback_admin_inbox": "Feedback Inbox"
+    "feedback_admin_inbox": "Feedback Inbox",
+    "group_contracts": "Contracts",
+    "contracts": {
+      "list": "Contract list"
+    }
   },
   "stuck": {
     "page_title": "Stuck Shipments",
@@ -1063,7 +1067,10 @@
     "no_deadline": "No deadline",
     "date": "Date",
     "color": "Color",
-    "color_hint": "Paints matching Sheet cells/tags"
+    "color_hint": "Paints matching Sheet cells/tags",
+    "all": "All",
+    "load_error": "Failed to load data",
+    "select_season": "Select season"
   },
   "permissions_admin": {
     "subtitle": "Manage role permissions",
@@ -2374,5 +2381,65 @@
     "value_after": "After",
     "system_user": "System",
     "refresh": "Refresh"
+  },
+  "contracts": {
+    "page_title": "Contracts",
+    "create_button": "Add contract",
+    "show_ended_toggle": "Show ended",
+    "column": {
+      "contract_number": "Contract no.",
+      "seller": "Seller",
+      "buyer": "Buyer",
+      "incoterm": "Incoterm",
+      "planned_trucks": "Trucks",
+      "planned_quantity_kg": "Qty (kg)",
+      "planned_amount_usd": "Amount ($)",
+      "exported_trucks": "Trucks",
+      "exported_quantity_kg": "Qty (kg)",
+      "exported_amount_usd": "Amount ($)",
+      "trucks_remaining": "Trucks",
+      "quantity_remaining_kg": "Qty (kg)",
+      "payment_received_usd": "Received ($)",
+      "ostatok_usd": "Remaining ($)",
+      "status": "Status"
+    },
+    "group": {
+      "planned": "Planned",
+      "exported": "Exported",
+      "remaining": "Remaining",
+      "payments": "Payments"
+    },
+    "status": {
+      "active": "Active",
+      "completed": "Completed",
+      "closed": "Closed",
+      "cancelled": "Cancelled"
+    },
+    "create": {
+      "title": "New contract",
+      "submit": "Create",
+      "cancel": "Cancel",
+      "field": {
+        "contract_number": "Contract number",
+        "export_firm": "Seller firm",
+        "import_firm": "Buyer firm",
+        "season": "Season",
+        "incoterm": "Incoterm",
+        "planned_trucks": "Planned trucks",
+        "planned_quantity_kg": "Planned quantity (kg)",
+        "planned_amount_usd": "Planned amount ($)",
+        "start_date": "Start date",
+        "end_date": "End date (optional)",
+        "customer": "Customer (optional)",
+        "contract_type": "Contract type (optional)"
+      },
+      "toast": {
+        "created": "Contract created",
+        "error": "Failed to create contract"
+      }
+    },
+    "detail": {
+      "placeholder": "The detail page will be expanded in Slice B. Basic data shown for now."
+    }
   }
 }

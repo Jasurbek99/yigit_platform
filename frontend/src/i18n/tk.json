@@ -77,7 +77,11 @@
     "feedback_submit": "Teklip / Şikaýat",
     "feedback_my_tickets": "Meniň ýüz tutmalarym",
     "feedback_public": "Köpçülige açyk teklipler",
-    "feedback_admin_inbox": "Şikaýat paneli"
+    "feedback_admin_inbox": "Şikaýat paneli",
+    "group_contracts": "Şertnamalar",
+    "contracts": {
+      "list": "Şertnamalar sanawy"
+    }
   },
   "stuck": {
     "page_title": "Saklanan ýükler",
@@ -1063,7 +1067,10 @@
     "no_deadline": "Möhlet ýok",
     "date": "Senesi",
     "color": "Reňk",
-    "color_hint": "Sheet öýjüklerini/etiketkalary reňkleýär"
+    "color_hint": "Sheet öýjüklerini/etiketkalary reňkleýär",
+    "all": "Ählisi",
+    "load_error": "Maglumatlary ýükläp bolmady",
+    "select_season": "Möwsüm saýla"
   },
   "permissions_admin": {
     "subtitle": "Rol rugsatlaryny dolandyrmak",
@@ -2378,5 +2385,65 @@
     "value_after": "Soň",
     "system_user": "Ulgam",
     "refresh": "Täzele"
+  },
+  "contracts": {
+    "page_title": "Şertnamalar",
+    "create_button": "Şertnama goş",
+    "show_ended_toggle": "Tamamlananlary görkez",
+    "column": {
+      "contract_number": "Şertnama belgisi",
+      "seller": "Satyjy",
+      "buyer": "Alyjy",
+      "incoterm": "Inc.ter",
+      "planned_trucks": "Ulag",
+      "planned_quantity_kg": "Mukdar (kg)",
+      "planned_amount_usd": "Summa ($)",
+      "exported_trucks": "Ulag",
+      "exported_quantity_kg": "Mukdar (kg)",
+      "exported_amount_usd": "Summa ($)",
+      "trucks_remaining": "Ulag",
+      "quantity_remaining_kg": "Mukdar (kg)",
+      "payment_received_usd": "Alnan ($)",
+      "ostatok_usd": "Galyndy ($)",
+      "status": "Ýagdaý"
+    },
+    "group": {
+      "planned": "Planlanan",
+      "exported": "Eksport edilen",
+      "remaining": "Galan",
+      "payments": "Tölegler"
+    },
+    "status": {
+      "active": "Işjeň",
+      "completed": "Tamamlanan",
+      "closed": "Ýapylan",
+      "cancelled": "Ýatyrlan"
+    },
+    "create": {
+      "title": "Täze şertnama",
+      "submit": "Döret",
+      "cancel": "Ýatyr",
+      "field": {
+        "contract_number": "Şertnama belgisi",
+        "export_firm": "Satyjy firma",
+        "import_firm": "Alyjy firma",
+        "season": "Möwsüm",
+        "incoterm": "Inc.ter",
+        "planned_trucks": "Meýilleşdirilen ulag sany",
+        "planned_quantity_kg": "Meýilleşdirilen mukdar (kg)",
+        "planned_amount_usd": "Meýilleşdirilen summa ($)",
+        "start_date": "Başlanýan senesi",
+        "end_date": "Gutarýan senesi (hökman däl)",
+        "customer": "Müşderi (hökman däl)",
+        "contract_type": "Şertnama görnüşi (hökman däl)"
+      },
+      "toast": {
+        "created": "Şertnama döredildi",
+        "error": "Şertnamany döretmek başartmady"
+      }
+    },
+    "detail": {
+      "placeholder": "Jikme-jik sahypa soňra giňeldiler (Slice B). Häzirki wagtda esasy maglumatlar görkezilýär."
+    }
   }
 }

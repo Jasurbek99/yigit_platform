@@ -109,6 +109,7 @@ export default function AppLayout() {
     '/admin/shipment-settings': t('nav.admin_shipment_settings'),
     '/admin/audit-log': t('nav.admin_audit_log'),
     '/me/board': t('me.nav.board'),
+    '/contracts': t('nav.contracts.list'),
   };
 
   const currentPageLabel = location.pathname.startsWith('/shipments/')
@@ -188,6 +189,22 @@ export default function AppLayout() {
         key: '/admin/audit-log',
         icon: <IconClipboardList size={15} />,
         label: t('nav.admin_audit_log'),
+      },
+    ]},
+    { label: t('nav.group_contracts'), items: [
+      {
+        key: '/contracts',
+        icon: <IconFileText size={15} />,
+        label: t('nav.contracts.list'),
+        // TODO: register page_code 'contracts.list' in backend seed_page_codes.py and
+        // remove the roles bypass below. Until that migration runs on the server,
+        // canSeePage() returns false for non-superusers (no page_permissions entry).
+        // Using roles: ALL_ROLES to temporarily surface the entry to every authenticated user.
+        roles: [
+          'admin', 'export_manager', 'loading_dept_head', 'warehouse_chief',
+          'weight_master', 'document_team', 'transport', 'sales_rep', 'finansist',
+          'director', 'accountant', 'greenhouse_manager', 'seller', 'boss',
+        ] as import('@/types').UserRole[],
       },
     ]},
     { label: t('nav.group_feedback'), items: [

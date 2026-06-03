@@ -120,7 +120,7 @@ class Contract(models.Model):
 
     class Meta:
         db_table = schema_table('contracts', 'contract')
-        ordering = ['-created_at']
+        ordering = ['created_at']
 
     def __str__(self) -> str:
         return self.contract_number

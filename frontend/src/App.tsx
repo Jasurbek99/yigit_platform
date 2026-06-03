@@ -53,6 +53,8 @@ const AdminInboxPage = lazy(() => import('@/pages/feedback/AdminInboxPage'));
 const SelfBoard = lazy(() => import('@/pages/me/SelfBoard'));
 const ShipmentBoard = lazy(() => import('@/pages/export/ShipmentBoard'));
 const DailyHarvestBoard = lazy(() => import('@/pages/export/DailyHarvestBoard'));
+const ContractList = lazy(() => import('@/pages/contracts/ContractList'));
+const ContractDetail = lazy(() => import('@/pages/contracts/ContractDetail'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -221,6 +223,10 @@ export default function App() {
                   <Route path="admin/feedback" element={
                     <ProtectedRoute pageCode="feedback.admin_inbox"><AdminInboxPage /></ProtectedRoute>
                   } />
+                  {/* Contracts module (P4 Slice A) */}
+                  {/* TODO: register page_code 'contracts.list' in backend seed_page_codes.py */}
+                  <Route path="contracts" element={<ContractList />} />
+                  <Route path="contracts/:id" element={<ContractDetail />} />
                 </Route>
                 <Route path="/unauthorized" element={<UnauthorizedPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />

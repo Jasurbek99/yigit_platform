@@ -77,7 +77,11 @@
     "feedback_submit": "Предложение / Жалоба",
     "feedback_my_tickets": "Мои обращения",
     "feedback_public": "Публичные предложения",
-    "feedback_admin_inbox": "Панель обращений"
+    "feedback_admin_inbox": "Панель обращений",
+    "group_contracts": "Контракты",
+    "contracts": {
+      "list": "Список контрактов"
+    }
   },
   "stuck": {
     "page_title": "Зависшие отгрузки",
@@ -1065,7 +1069,10 @@
     "no_deadline": "Без срока",
     "date": "Дата",
     "color": "Цвет",
-    "color_hint": "Окрашивает совпадающие ячейки и теги Sheet"
+    "color_hint": "Окрашивает совпадающие ячейки и теги Sheet",
+    "all": "Все",
+    "load_error": "Не удалось загрузить данные",
+    "select_season": "Выберите сезон"
   },
   "permissions_admin": {
     "subtitle": "Управление правами ролей",
@@ -2376,5 +2383,65 @@
     "value_after": "После",
     "system_user": "Система",
     "refresh": "Обновить"
+  },
+  "contracts": {
+    "page_title": "Контракты",
+    "create_button": "Добавить контракт",
+    "show_ended_toggle": "Показать завершённые",
+    "column": {
+      "contract_number": "Номер контракта",
+      "seller": "Продавец",
+      "buyer": "Покупатель",
+      "incoterm": "Инкотерм",
+      "planned_trucks": "Маш.",
+      "planned_quantity_kg": "Кол-во (кг)",
+      "planned_amount_usd": "Сумма ($)",
+      "exported_trucks": "Маш.",
+      "exported_quantity_kg": "Кол-во (кг)",
+      "exported_amount_usd": "Сумма ($)",
+      "trucks_remaining": "Маш.",
+      "quantity_remaining_kg": "Кол-во (кг)",
+      "payment_received_usd": "Получено ($)",
+      "ostatok_usd": "Остаток ($)",
+      "status": "Статус"
+    },
+    "group": {
+      "planned": "Planlanan",
+      "exported": "Eksport edilen",
+      "remaining": "Galan",
+      "payments": "Оплаты"
+    },
+    "status": {
+      "active": "Активен",
+      "completed": "Завершён",
+      "closed": "Закрыт",
+      "cancelled": "Отменён"
+    },
+    "create": {
+      "title": "Новый контракт",
+      "submit": "Создать",
+      "cancel": "Отмена",
+      "field": {
+        "contract_number": "Номер контракта",
+        "export_firm": "Фирма-продавец",
+        "import_firm": "Фирма-покупатель",
+        "season": "Сезон",
+        "incoterm": "Инкотерм",
+        "planned_trucks": "Плановое кол-во машин",
+        "planned_quantity_kg": "Плановое кол-во (кг)",
+        "planned_amount_usd": "Плановая сумма ($)",
+        "start_date": "Дата начала",
+        "end_date": "Дата окончания (необязательно)",
+        "customer": "Клиент (необязательно)",
+        "contract_type": "Тип контракта (необязательно)"
+      },
+      "toast": {
+        "created": "Контракт создан",
+        "error": "Не удалось создать контракт"
+      }
+    },
+    "detail": {
+      "placeholder": "Детальная страница будет расширена в Slice B. Сейчас показаны основные данные."
+    }
   }
 }
