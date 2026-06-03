@@ -194,9 +194,6 @@ export function SheetToolbar({
     [colMax, t],
   );
 
-  // Default = freeze the full row-label band (Row #, Who, Field name).
-  const isDefaultFreeze = frozenRowCount === 13 && frozenColCount === TOTAL_LABEL_COLS;
-
   // ─── "Ýük goş": one-click create of an empty supply column ───────────────
   // Soltanmyrat creates a blank draft column here, fills its values in the
   // sheet cells, and joins it with Gadam's destination column afterward.
@@ -297,15 +294,13 @@ export function SheetToolbar({
             />
             <Text style={{ fontSize: 12 }}>{t('sheet.gapy_only')}</Text>
           </div>
-          <Badge dot={!isDefaultFreeze} offset={[-2, 4]}>
-            <Button
-              size="small"
-              icon={<SettingOutlined />}
-              onClick={() => setSettingsOpen(true)}
-            >
-              {t('sheet.settings.label')}
-            </Button>
-          </Badge>
+          <Button
+            size="small"
+            icon={<SettingOutlined />}
+            onClick={() => setSettingsOpen(true)}
+          >
+            {t('sheet.settings.label')}
+          </Button>
 
           {/* Zoom: − / current % / + . Click the % to reset to 100%. */}
           <Space.Compact size="small">
