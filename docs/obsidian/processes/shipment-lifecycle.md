@@ -185,7 +185,7 @@ erDiagram
 
 **File**: `backend/apps/export/services.py`
 
-#### `transition_to(shipment, new_status_code, user, comment='')`
+#### `transition_to(shipment, new_status_code, user, comment='', is_auto=False, notify=True)`
 
 **The ONLY function that may update `shipment.status` and AD-1 timestamp fields.**
 
@@ -193,14 +193,31 @@ Logic:
 1. Get current status code (or `None` if no status)
 2. Look up allowed transitions from `TRANSITIONS[current_code]`
 3. Validate that `new_status_code` is in allowed list → raises `ValueError` if not
-4. Check user role permission (privileged roles bypass) → raises `PermissionError` if denied
-5. Look up `ShipmentStatusType` by code → raises `ValueError` if not found
-6. Set `shipment.status = new_status`, `shipment.updated_by = user`, `shipment.updated_at = now`
-7. If status has AD-1 timestamp mapping → set that field to `now`
-8. `shipment.save(update_fields=[...])` — explicit fields only
-9. Create `ShipmentStatusLog` entry with comment
-10. Create `AuditLog` entry (immutable trail)
-11. Log the transition
+4. **Two-row join guard** — when leaving `draft` (and not cancelling): require `block_sources`, `country`, and `customer` all to be set. Pure supply drafts (loading_dept_head, has blocks only) and pure destination drafts (export_manager, has destination only) raise `ValueError` here — they must `/join/` first. Applies uniformly to manual `/transition/`, `/assign/`, and the auto-advance cascade.
+5. Check user role permission (privileged roles bypass; `is_auto=True` also bypasses) → raises `PermissionError` if denied
+6. Look up `ShipmentStatusType` by code → raises `ValueError` if not found
+7. Set `shipment.status = new_status`, `shipment.updated_by = user`, `shipment.updated_at = now`
+8. If status has AD-1 timestamp mapping → set that field to `now`
+9. `shipment.save(update_fields=[...])` — explicit fields only
+10. Create `ShipmentStatusLog` entry with comment (flagged `is_auto`)
+11. Generate tasks for the new status (and auto-resolve any whose triggers are already filled)
+12. Create `AuditLog` entry (immutable trail)
+13. Fire `_notify_action_required(new_status_code)` if `notify=True`
+
+#### `auto_advance_if_ready(shipment, resolved_tasks)` — cascading auto-advance
+
+Called from `Shipment.save()` after the task engine resolves any newly satisfied tasks. **Walks the shipment forward through every step whose trigger is already satisfied**, not just one. Most saves fill one trigger and advance one step, but cascades through multiple when several triggers are pre-filled (TaskRule edit + reconcile, backfill, or a long-stuck draft whose downstream operator timestamps were filled before a rule fix landed).
+
+Loop:
+1. Check `is_step_trigger_satisfied(shipment, current_status)` — all non-MANUAL_DONE auto-tasks DONE?
+2. Resolve next status via `_resolve_next_status` (honours `has_peregruz` fork at `barysh_gumrugi`)
+3. Call `transition_to(..., is_auto=True, notify=False)` — the intermediate notification is suppressed; only the final step's role gets pinged
+4. Repeat until trigger unsatisfied / no next step / `MAX_CHAIN=13` (defensive cap — the graph is acyclic so the cap should never fire)
+5. After the loop, call `_notify_action_required` once for the final step
+
+Each cascaded transition still writes its own `ShipmentStatusLog` (flagged `is_auto=True`) and `AuditLog` row — audit trail captures every step individually.
+
+The thread-local re-entry guard in `Shipment.save()` prevents `transition_to`'s inner save from re-entering `auto_advance_if_ready` (which would cause infinite recursion via save). The cascade happens at the `auto_advance_if_ready` level, NOT via save recursion.
 
 #### `create_shipment(cargo_code, date, user, country=None, customer=None, season=None)`
 

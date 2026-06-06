@@ -3,8 +3,15 @@ from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APIClient
 
-from apps.core.models import ShipmentStatusType, Season, User
-from apps.export.models import Shipment, ShipmentStatusLog, SalesReport
+from apps.core.models import (
+    Country,
+    Customer,
+    GreenhouseBlock,
+    ShipmentStatusType,
+    Season,
+    User,
+)
+from apps.export.models import Shipment, ShipmentBlockSource, ShipmentStatusLog, SalesReport
 from apps.export.services import transition_to, TRANSITIONS
 
 
@@ -65,12 +72,22 @@ class TransitionServiceTest(TestCase):
         )
         _create_all_statuses()
         self.draft_status = ShipmentStatusType.objects.get(code='draft')
+        # The transition_to() draft-leave guard requires both halves of the
+        # two-row flow to be present, so a complete draft is created here.
+        self.country = Country.objects.create(name_tk='KZ', name_en='KZ', name_ru='KZ', code='KZ')
+        self.customer = Customer.objects.create(name='TestCustomer-Trans')
+        self.block = GreenhouseBlock.objects.create(code='F-A1', name='Test block A1')
         self.shipment = Shipment.objects.create(
             cargo_code='TEST-001',
             date='2025-11-01',
             season=self.season,
             status=self.draft_status,
+            country=self.country,
+            customer=self.customer,
             has_peregruz=False,
+        )
+        ShipmentBlockSource.objects.create(
+            shipment=self.shipment, block=self.block, weight_kg=10000,
         )
 
     def test_valid_transition(self):

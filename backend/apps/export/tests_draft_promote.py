@@ -30,8 +30,9 @@ from apps.core.models import (
     User,
 )
 from apps.export.management.commands.seed_task_rules import Command as SeedTaskRules
-from apps.export.models import Shipment, Task, TaskState
+from apps.export.models import Shipment, ShipmentBlockSource, Task, TaskState
 from apps.export.serializers import ShipmentDetailSerializer
+from apps.export.services import transition_to
 from apps.greenhouse.models import HarvestDayEntry, WeeklyHarvestPlan
 
 
@@ -292,6 +293,7 @@ class PromoteEndpointStillWorksTests(TestCase):
 
     def test_assign_promotes_draft(self):
         """POST /shipments/:id/assign/ on a draft transitions it to gumruk_girish."""
+        block = GreenhouseBlock.objects.create(code='ZZ-1', name='ZZ-1')
         ship = Shipment.objects.create(
             cargo_code='0101200/25',
             date=dt.date(2025, 1, 1),
@@ -300,6 +302,11 @@ class PromoteEndpointStillWorksTests(TestCase):
             country=self.country,
             customer=self.customer,
             created_by=self.user,
+        )
+        # Draft-leave guard requires block_sources too — assign() funnels
+        # through transition_to() which now enforces both halves are present.
+        ShipmentBlockSource.objects.create(
+            shipment=ship, block=block, weight_kg=10000,
         )
         resp = self.client.post(
             f'/api/v1/export/shipments/{ship.pk}/assign/', {}, format='json',
@@ -311,3 +318,78 @@ class PromoteEndpointStillWorksTests(TestCase):
         self.assertTrue(
             Task.objects.filter(shipment=ship, step='gumruk_girish').exists(),
         )
+
+
+class DraftLeaveGuardTests(TestCase):
+    """transition_to() must block half-drafts (supply-only or destination-only)
+    from leaving 'draft'. The two-row join flow requires both halves before
+    the merged row can advance into the lifecycle.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command('seed_permissions')
+        _seed_task_rules()
+        _make_status('draft', 0, 'Draft')
+        _make_status('gumruk_girish', 1, 'Customs Entry')
+        _make_status('cancelled', 99, 'Cancelled')
+        cls.user = _make_user('gadam_guard', 'export_manager')
+        cls.season = _make_season()
+        cls.country = Country.objects.create(
+            name_tk='KZ_G', name_en='Kazakhstan_G', name_ru='KZ_G', code='KG',
+        )
+        cls.customer = Customer.objects.create(name='GuardCustomer')
+        cls.block = GreenhouseBlock.objects.create(code='GA-1', name='GA-1')
+
+    def _draft(self, *, country=None, customer=None, with_block: bool, code: str) -> Shipment:
+        ship = Shipment.objects.create(
+            cargo_code=code,
+            date=dt.date(2025, 1, 1),
+            season=self.season,
+            status=ShipmentStatusType.objects.get(code='draft'),
+            country=country,
+            customer=customer,
+            created_by=self.user,
+        )
+        if with_block:
+            ShipmentBlockSource.objects.create(
+                shipment=ship, block=self.block, weight_kg=10000,
+            )
+        return ship
+
+    def test_supply_only_draft_cannot_leave_draft(self):
+        """Soltanmyrat's draft: has blocks, no destination → must join first."""
+        ship = self._draft(country=None, customer=None, with_block=True, code='0101301/25')
+        with self.assertRaises(ValueError) as ctx:
+            transition_to(ship, 'gumruk_girish', self.user)
+        msg = str(ctx.exception)
+        self.assertIn('country', msg)
+        self.assertIn('customer', msg)
+        self.assertNotIn('block_sources', msg)
+
+    def test_destination_only_draft_cannot_leave_draft(self):
+        """Gadam's draft: has destination, no blocks → must receive supply."""
+        ship = self._draft(
+            country=self.country, customer=self.customer, with_block=False, code='0101302/25',
+        )
+        with self.assertRaises(ValueError) as ctx:
+            transition_to(ship, 'gumruk_girish', self.user)
+        msg = str(ctx.exception)
+        self.assertIn('block_sources', msg)
+
+    def test_complete_draft_advances(self):
+        """A draft with both halves filled advances normally."""
+        ship = self._draft(
+            country=self.country, customer=self.customer, with_block=True, code='0101303/25',
+        )
+        transition_to(ship, 'gumruk_girish', self.user)
+        ship.refresh_from_db()
+        self.assertEqual(ship.status.code, 'gumruk_girish')
+
+    def test_half_draft_can_still_be_cancelled(self):
+        """Cancel is exempt from the guard — abandoned half-drafts must be
+        cancellable, otherwise they'd be unreachable forever."""
+        ship = self._draft(country=None, customer=None, with_block=True, code='0101304/25')
+        transition_to(ship, 'cancelled', self.user)
+        ship.refresh_from_db()
+        self.assertEqual(ship.status.code, 'cancelled')

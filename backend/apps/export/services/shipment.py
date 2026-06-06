@@ -160,6 +160,7 @@ def transition_to(
     user,
     comment: str = '',
     is_auto: bool = False,
+    notify: bool = True,
 ) -> None:
     """Execute a validated status transition with role enforcement.
 
@@ -176,6 +177,11 @@ def transition_to(
                  than an explicit user action. When True: the role check is
                  skipped (the editing user may not own the next role) and
                  the resulting ShipmentStatusLog row is flagged is_auto=True.
+        notify: When False, suppress the action-required notification for
+                this transition. Used by cascading auto-advance: intermediate
+                steps don't warrant a notification (the role's data is already
+                filled, otherwise the cascade would have stopped). The caller
+                fires the final-step notification once after the cascade ends.
 
     Raises:
         ValueError: If the transition is not allowed from the current status,
@@ -194,6 +200,28 @@ def transition_to(
             f'Cannot transition from {current_code!r} to {new_status_code!r}. '
             f'Allowed: {allowed_codes}'
         )
+
+    # Two-row join guard: a draft must carry BOTH the supply half
+    # (block_sources) and the destination half (country + customer) before
+    # it can leave 'draft'. Pure supply drafts (loading_dept_head) and pure
+    # destination drafts (export_manager) must therefore be joined via
+    # /shipments/{id}/join/ first. Cancel is always allowed — an incomplete
+    # draft can still be cancelled. Applies to manual /transition/, /assign/,
+    # and auto-advance alike (all funnel through here).
+    if current_code == 'draft' and new_status_code != 'cancelled':
+        missing: list[str] = []
+        if not shipment.country_id:
+            missing.append('country')
+        if not shipment.customer_id:
+            missing.append('customer')
+        if not shipment.block_sources.exists():
+            missing.append('block_sources')
+        if missing:
+            raise ValueError(
+                f'Draft {shipment.cargo_code} cannot advance to '
+                f'{new_status_code!r}: missing {", ".join(missing)}. '
+                'Supply-only and destination-only drafts must be joined first.'
+            )
 
     # Role check — privileged roles bypass per-transition restrictions. Auto-
     # advance bypasses too: the editing user may be sales_rep filling a field
@@ -271,8 +299,11 @@ def transition_to(
         ' (auto)' if is_auto else '',
     )
 
-    # Notify roles that need to act in the new phase.
-    _notify_action_required(shipment, new_status_code)
+    # Notify roles that need to act in the new phase. Suppressed during
+    # intermediate steps of a cascading auto-advance; the caller fires the
+    # final-step notification once after the cascade settles.
+    if notify:
+        _notify_action_required(shipment, new_status_code)
 
 
 def _cancel_open_tasks(shipment: Shipment) -> int:
@@ -327,50 +358,89 @@ def is_step_trigger_satisfied(shipment: Shipment, status_code: Optional[str]) ->
 
 
 def auto_advance_if_ready(shipment: Shipment, resolved_tasks) -> bool:
-    """Auto-fire transition_to() to the next step if the current step's
-    trigger field is satisfied.
+    """Cascade transition_to() forward as long as each new step's trigger
+    is already satisfied.
+
+    Most saves fill exactly one trigger field, so the cascade advances at
+    most one step. But when several triggers are already satisfied — e.g.
+    a TaskRule was changed and reconciliation flipped multiple stale tasks
+    to DONE, or a backfill / import filled the operator timestamps before
+    the status caught up — the loop walks the shipment forward until it
+    hits a step whose auto-rules are not all satisfied, runs out of next
+    steps, or hits the safety cap.
 
     Guards:
-      - resolved_tasks must be non-empty (something changed this save).
-        Without this, a step with zero TaskRules would falsely test as
-        "complete" and cause an infinite auto-advance loop.
-      - current status must have a single resolvable next step (via
-        _resolve_next_status, which honors predicates).
+      - resolved_tasks must be non-empty for the first iteration. This
+        prevents a no-op save (one that resolved nothing) from probing the
+        status graph. Subsequent iterations are unconditional: each
+        successful transition_to created and re-resolved the new step's
+        tasks via generate_tasks_for_status, so is_step_trigger_satisfied
+        is authoritative from then on.
       - shipment.updated_by must be set (skip silently for admin-shell /
         import-script saves with no user context).
+      - MAX_CHAIN caps iterations at the full lifecycle length. The status
+        graph is acyclic, so the cap is a defensive belt-and-braces against
+        a future misconfiguration — never expected to fire in normal use.
 
-    Returns True if a transition fired.
+    Intermediate transitions suppress action-required notifications (the
+    targeted role's data is already filled, otherwise the cascade would have
+    stopped). Only the final step fires its notification. Each step still
+    writes a ShipmentStatusLog row and AuditLog row — the audit trail
+    captures every transition individually.
+
+    Returns True if at least one transition fired.
     """
     if not resolved_tasks:
-        return False
-
-    current_code = shipment.status.code if shipment.status_id else None
-    if not is_step_trigger_satisfied(shipment, current_code):
-        return False
-
-    next_code = _resolve_next_status(shipment, current_code)
-    if not next_code:
         return False
 
     user = getattr(shipment, 'updated_by', None)
     if not user:
         return False
 
-    try:
-        transition_to(
-            shipment, next_code, user=user,
-            comment='Auto-advanced: trigger field filled',
-            is_auto=True,
+    MAX_CHAIN = 13  # Full lifecycle length; defensive cap, not expected to fire.
+    advanced_any = False
+    last_step_advanced_to: Optional[str] = None
+
+    for _ in range(MAX_CHAIN):
+        current_code = shipment.status.code if shipment.status_id else None
+        if not is_step_trigger_satisfied(shipment, current_code):
+            break
+
+        next_code = _resolve_next_status(shipment, current_code)
+        if not next_code:
+            break
+
+        try:
+            transition_to(
+                shipment, next_code, user=user,
+                comment='Auto-advanced: trigger field filled',
+                is_auto=True,
+                notify=False,
+            )
+        except ValueError:
+            # Lost a race — another concurrent save already advanced past
+            # `current_code`. Acceptable; log and move on with whatever
+            # cascade progress we made.
+            logger.info(
+                'auto_advance race lost on %s (current=%s, target=%s)',
+                shipment.cargo_code, current_code, next_code,
+            )
+            break
+
+        advanced_any = True
+        last_step_advanced_to = next_code
+    else:
+        logger.warning(
+            'auto_advance hit MAX_CHAIN=%d on %s (final status=%s) — '
+            'check for a status-graph cycle or runaway config',
+            MAX_CHAIN, shipment.cargo_code,
+            shipment.status.code if shipment.status_id else None,
         )
-    except ValueError:
-        # Lost a race — another concurrent save already advanced past
-        # `current_code`. Acceptable; log and move on.
-        logger.info(
-            'auto_advance race lost on %s (current=%s, target=%s)',
-            shipment.cargo_code, current_code, next_code,
-        )
-        return False
-    return True
+
+    if advanced_any and last_step_advanced_to:
+        _notify_action_required(shipment, last_step_advanced_to)
+
+    return advanced_any
 
 
 def _notify_action_required(shipment: Shipment, new_status_code: str) -> None:
