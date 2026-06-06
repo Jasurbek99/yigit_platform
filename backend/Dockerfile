@@ -26,4 +26,6 @@ COPY . .
 RUN python manage.py collectstatic --noinput || true
 
 EXPOSE 8000
-CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3"]
+# gunicorn supervises uvicorn workers — uvicorn speaks ASGI for both
+# `/api/` HTTP and `/ws/` WebSocket on the same port. wsgi.py is now unused.
+CMD ["gunicorn", "config.asgi:application", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "--workers", "3"]

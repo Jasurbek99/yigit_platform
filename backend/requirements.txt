@@ -28,9 +28,20 @@ reportlab>=4.4,<5.0
 gunicorn>=22.0,<23.0
 redis>=5.0,<6.0
 
+# Realtime (WebSocket — Phase 1 plumbing)
+# uvicorn workers under gunicorn handle both /api/ HTTP and /ws/ WebSocket
+# on the same port. channels-redis uses the existing Redis service as the
+# channel layer backing so presence/broadcast survives multi-worker setups.
+channels>=4.1,<5
+channels-redis>=4.2,<5
+uvicorn[standard]>=0.30,<0.40
+
 # Dev/test
 pytest-django>=4.8,<4.9
 factory-boy>=3.3,<3.4
+# daphne is only used by channels.testing (ChannelsLiveServerTestCase). The
+# production stack runs on uvicorn workers under gunicorn — see Dockerfile.
+daphne>=4.1,<5
 
 # Deferred (Sprint 3+)
 # celery>=5.4,<5.5
