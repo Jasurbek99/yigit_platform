@@ -303,11 +303,16 @@ class Shipment(models.Model):
         After every Model.save() call:
           1. The task engine re-checks all open/in-progress tasks on this
              shipment and marks DONE those whose target fields are now filled.
-          2. If any tasks resolved AND every auto-resolving task for the
-             current step is now DONE, fire transition_to() for the next step.
-             A thread-local re-entry guard prevents the resulting inner save()
-             from cascading into more auto-advances — strictly one step per
-             outer save (per plan).
+          2. If any tasks resolved, auto_advance_if_ready() walks the shipment
+             forward through every step whose trigger is already satisfied —
+             typically just one step (a save usually fills one trigger), but
+             cascades through multiple when several triggers are pre-filled
+             (e.g. a TaskRule edit + reconcile, a backfill, or a long-stuck
+             draft whose downstream operator timestamps were filled before
+             the rule fix landed). The thread-local re-entry guard prevents
+             transition_to()'s inner save() from re-entering auto_advance —
+             the cascade happens at the auto_advance level, not via save
+             recursion.
 
         Lazy imports of services avoid circular references at module-load time
         (models/ → services/ → models/).
