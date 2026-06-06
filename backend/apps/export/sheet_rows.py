@@ -345,7 +345,7 @@ DEFAULT_SHEET_ROWS: list[dict] = [
         'field_key': 'variety',
         'default_who_key': 'sheet.who.soltanmyrat',
         'label_key': 'sheet.row.variety',
-        'input_type': 'dropdown',
+        'input_type': 'multiselect',
         'style': 'base',
         'options_source': 'varieties',
     },

@@ -293,6 +293,10 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
         const options = getOptions();
         const isBlocks = rowConfig.field_key === 'block_sources';
         const isFirms = rowConfig.field_key === 'firm_splits';
+        // R38 — varieties_dominant M2M, written via /shipments/{id}/varieties/override/.
+        // Distinct from junction-table cells: payload is {variety_ids: [int]} (not
+        // objects with weight_kg), and the endpoint enforces 1-4 entries.
+        const isVarieties = rowConfig.field_key === 'variety';
 
         // Current selected IDs from junction table data
         const currentIds = isBlocks
@@ -305,7 +309,9 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
                 const match = (exportFirms ?? []).find((ef) => ef.code === f.firm_code);
                 return match?.id;
               }).filter((id): id is number => id != null)
-            : [];
+            : isVarieties
+              ? (shipment.varieties_dominant ?? []).map((v) => v.id)
+              : [];
 
         if (pendingMultiRef.current === null) {
           pendingMultiRef.current = currentIds;
@@ -330,10 +336,21 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
           // Send IDs only — backend auto-fills weight_kg.
           // R8 blocks → splits real shipment.weight_net evenly across N blocks.
           // R9 firms  → uses TruckSplitDefault[N] (official kg per firm).
+          // R38 varieties → POST varieties/override with {variety_ids:[int,...]}
+          // (1-4 entries enforced server-side; empty selection no-ops to avoid 400).
           if (isBlocks) {
             saveJunction('block-sources', next.map((id) => ({ block_id: id })), 'blocks');
           } else if (isFirms) {
             saveJunction('firm-splits', next.map((id) => ({ export_firm_id: id })), 'firms');
+          } else if (isVarieties) {
+            if (next.length === 0) {
+              close();
+              return;
+            }
+            junctionMutation.mutate({
+              endpoint: 'varieties/override',
+              body: { variety_ids: next },
+            });
           } else {
             close();
           }

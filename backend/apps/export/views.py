@@ -2571,10 +2571,13 @@ class ShipmentViewSet(ModelViewSet):
 
         Returns refreshed shipment detail on success.
         """
-        allowed_roles = PRIVILEGED_ROLES | {'warehouse_chief'}
+        # Same set as ROLE_REQUIRED_FIELDS owners of `variety` (loading_dept_head,
+        # warehouse_chief) plus PRIVILEGED_ROLES. Loading dept head edits variety
+        # on the Sheet R38 multiselect cell during draft entry.
+        allowed_roles = PRIVILEGED_ROLES | {'warehouse_chief', 'loading_dept_head'}
         if getattr(request.user, 'role', None) not in allowed_roles:
             return Response(
-                {'error': 'Only warehouse_chief, export_manager, or director can override varieties'},
+                {'error': 'Only loading_dept_head, warehouse_chief, export_manager, or director can override varieties'},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
