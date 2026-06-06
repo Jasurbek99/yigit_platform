@@ -107,15 +107,20 @@ TASK_RULES: list[dict] = [
         'condition_value': 'True',
     },
     {
-        # V2 trigger: Customs Entry fires when Sirin sets documents_status
-        # to "in_progress". Replaces the v1 ALL_FIELDS_FILLED rule that
-        # also required customs_clearance_planned_day.
+        # V2 trigger: Customs Entry fires when Sirin marks documents_status
+        # as "ready" (docs are complete and ready for customs). Previously
+        # this targeted "in_progress", but operators naturally walk
+        # pending → in_progress → ready, and once the value moved past
+        # "in_progress" the FIELD_EQUALS check could never re-fire, leaving
+        # drafts stuck even after every other draft task was DONE.
+        # Replaces the v1 ALL_FIELDS_FILLED rule that also required
+        # customs_clearance_planned_day.
         'step': 'draft',
         'title_key': 'tasks.start_documents_prep',
         'assignee_role': 'document_team',
         'target_fields': 'documents_status',
         'completion_rule': TaskCompletionRule.FIELD_EQUALS,
-        'target_value': 'in_progress',
+        'target_value': 'ready',
         'deadline_rule': '24h_after_status',
         'condition_field': '',
         'condition_value': '',
@@ -153,26 +158,14 @@ TASK_RULES: list[dict] = [
     # Operational task: fill loading data + quality certs. Trigger task:
     # departed_at fills (Mergen, R21).
     {
+        # weight_gross is intentionally NOT a trigger field: it is not surfaced
+        # on the Sheet (no row in DEFAULT_SHEET_ROWS), so operators have no UI
+        # path to fill it. weight_net is the operational ground truth for the
+        # loading step.
         'step': 'yuklenme',
         'title_key': 'tasks.fill_loading_data',
         'assignee_role': 'warehouse_chief',
-        'target_fields': 'cargo_code,block_sources,variety,weight_net,weight_gross',
-        'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
-        'target_value': '',
-        'deadline_rule': '4h_after_status',
-        'condition_field': '',
-        'condition_value': '',
-    },
-    {
-        'step': 'yuklenme',
-        'title_key': 'tasks.quality_inspection',
-        'assignee_role': 'greenhouse_manager',
-        'target_fields': (
-            'quality.azyk_maglumatnama,'
-            'quality.suriji_gozukdiriji,'
-            'quality.hil_sertifikaty,'
-            'quality.kalibrowka_analiz'
-        ),
+        'target_fields': 'cargo_code,block_sources,variety,weight_net',
         'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
         'target_value': '',
         'deadline_rule': '4h_after_status',

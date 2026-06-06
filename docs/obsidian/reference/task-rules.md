@@ -24,13 +24,12 @@ The assigned role acts on its own tasks. **Supervisors** (`export_manager`, `bos
 | | Assign driver | transport | auto: `driver_name` — *only if not gapy-satys* |
 | | Give documents | transport | **Mark Done** — *only if not gapy-satys* |
 | | Give documents (gapy) | export_manager | **Mark Done** — *only if gapy-satys* |
-| | Start documents prep | document_team | auto: `documents_status` = `in_progress` |
+| | Start documents prep | document_team | auto: `documents_status` = `ready` |
 | **Customs entry (TM)** `gumruk_girish` | Send documents to customs | document_team | **Mark Done** |
 | | Trigger customs exit | document_team | auto: `customs_exit_at` |
 | **Customs exit (TM)** `gumruk_chykysh` | Documents back to office | document_team | **Mark Done** |
 | | Trigger loading start | warehouse_chief | auto: `loading_started_at` |
-| **Loading** `yuklenme` | Fill loading data | warehouse_chief | auto: `cargo_code` + `block_sources` + `variety` + `weight_net` + `weight_gross` |
-| | Quality inspection | greenhouse_manager | auto: 4 quality checks |
+| **Loading** `yuklenme` | Fill loading data | warehouse_chief | auto: `cargo_code` + `block_sources` + `variety` + `weight_net` |
 | | Trigger departure | document_team | auto: `departed_at` |
 | **Departed** `yola_chykdy` | Trigger border crossing | transport | auto: `border_crossed_at` |
 | **Border crossed** `serhet_gechdi` | Trigger dest. entry | sales_rep | auto: `dest_entry_at` |
