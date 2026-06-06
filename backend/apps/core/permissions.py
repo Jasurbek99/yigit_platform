@@ -227,9 +227,12 @@ def can_edit_sheet_field(user, field_key: str) -> bool:
     Returns:
         True if the user is permitted to edit this cell, False otherwise.
     """
-    # Rule 1: superuser / admin / director bypass all gates (per plan D4 + AD-15).
+    # Rule 1: superuser / admin / director / export_manager bypass all gates
+    # (per plan D4 + AD-15). export_manager (Gadam J) is the operational owner
+    # of the shipment lifecycle and must be able to edit any Sheet cell to
+    # unstick a stalled truck, regardless of trigger/lock config.
     role = getattr(user, 'role', None)
-    if getattr(user, 'is_superuser', False) or role in ('admin', 'director'):
+    if getattr(user, 'is_superuser', False) or role in ('admin', 'director', 'export_manager'):
         return True
 
     # Virtual sheet rows: cells that display & edit two real fields combined.
@@ -315,8 +318,9 @@ def get_sheet_edit_map(user, settings_by_key: dict | None = None) -> dict[str, b
     from apps.export.models import SheetRowSetting
 
     # Privileged bypass: no DB queries needed.
+    # export_manager (Gadam J) bypasses all gates — see can_edit_sheet_field Rule 1.
     role = getattr(user, 'role', None)
-    if getattr(user, 'is_superuser', False) or role in ('admin', 'director'):
+    if getattr(user, 'is_superuser', False) or role in ('admin', 'director', 'export_manager'):
         return {row['field_key']: True for row in DEFAULT_SHEET_ROWS}
 
     # Query 1 (+2 prefetch SELECTs): load active settings with triggers and perms

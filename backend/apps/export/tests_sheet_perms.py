@@ -110,19 +110,23 @@ class TestSuperuserBypassesAll(TestCase):
 
 
 class TestNoSettingFallsBackToFieldPerm(TestCase):
-    """When no SheetRowSetting exists for a field, result equals can_edit_field outcome."""
+    """When no SheetRowSetting exists for a field, result equals can_edit_field outcome.
+
+    Uses warehouse_chief — export_manager is in the privileged-bypass set and
+    would short-circuit before the fallback path runs.
+    """
 
     def setUp(self):
         cache.clear()
-        self.user = _make_user('em_user', role='export_manager')
+        self.user = _make_user('wh_user', role='warehouse_chief')
         # Ensure no SheetRowSetting for _FIELD
         SheetRowSetting.objects.filter(field_key=_FIELD).delete()
         # Clean any wildcard perm from --keepdb leakage
-        RoleFieldPermission.objects.filter(role='export_manager', resource_code='shipment').delete()
+        RoleFieldPermission.objects.filter(role='warehouse_chief', resource_code='shipment').delete()
         cache.clear()
 
     def test_no_setting_falls_back_when_field_perm_granted(self):
-        _grant_field('export_manager', _FIELD)
+        _grant_field('warehouse_chief', _FIELD)
         cache.clear()
         result = can_edit_sheet_field(self.user, _FIELD)
         self.assertTrue(result)
@@ -168,13 +172,17 @@ class TestRoleTriggerMatchLacksFieldPerm(TestCase):
 
 
 class TestRoleTriggerMismatch(TestCase):
-    """User role doesn't match any role_trigger → False even with field perm."""
+    """User role doesn't match any role_trigger → False even with field perm.
+
+    Uses sales_rep — export_manager is in the privileged-bypass set and would
+    return True regardless of trigger config.
+    """
 
     def setUp(self):
         cache.clear()
-        self.user = _make_user('em_user2', role='export_manager')
+        self.user = _make_user('sr_user2', role='sales_rep')
         _make_setting(roles=['transport'])
-        _grant_field('export_manager', _FIELD)  # has field perm but wrong role trigger
+        _grant_field('sales_rep', _FIELD)  # has field perm but wrong role trigger
         cache.clear()
 
     def test_role_trigger_mismatch(self):
