@@ -55,6 +55,8 @@ const ShipmentBoard = lazy(() => import('@/pages/export/ShipmentBoard'));
 const DailyHarvestBoard = lazy(() => import('@/pages/export/DailyHarvestBoard'));
 const ContractList = lazy(() => import('@/pages/contracts/ContractList'));
 const ContractDetail = lazy(() => import('@/pages/contracts/ContractDetail'));
+const InvoiceList = lazy(() => import('@/pages/invoices/InvoiceList'));
+const WorklogPage = lazy(() => import('@/pages/worklog/WorklogPage'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -115,6 +117,10 @@ export default function App() {
                   } />
                   <Route path="export/shipments/sheet" element={
                     <ProtectedRoute pageCode="export.shipments"><ShipmentSheet /></ProtectedRoute>
+                  } />
+                  {/* Worklog — open to every authenticated user (radical-transparency rule). */}
+                  <Route path="worklog" element={
+                    <ProtectedRoute><WorklogPage /></ProtectedRoute>
                   } />
                   <Route path="export/shipments/dashboard" element={
                     <ProtectedRoute pageCode="export.shipments"><ShipmentDashboard /></ProtectedRoute>
@@ -227,6 +233,9 @@ export default function App() {
                   {/* TODO: register page_code 'contracts.list' in backend seed_page_codes.py */}
                   <Route path="contracts" element={<ContractList />} />
                   <Route path="contracts/:id" element={<ContractDetail />} />
+                  {/* Invoices list (P4 Slice C) */}
+                  {/* TODO: register page_code 'contracts.invoices' in backend seed_page_codes.py */}
+                  <Route path="invoices" element={<InvoiceList />} />
                 </Route>
                 <Route path="/unauthorized" element={<UnauthorizedPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />

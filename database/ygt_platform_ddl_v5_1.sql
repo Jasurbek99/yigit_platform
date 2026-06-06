@@ -950,6 +950,39 @@ CREATE TABLE sys_notifications (
     created_at DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET()
 );
 
+-- Work-time logging (Phase 3 of WS feature — ADR-020). One row per WS connect
+-- lifetime. ended_at is set by AppConsumer.disconnect or by the host-cron
+-- reaper (reap_work_sessions) when last_heartbeat_at lags beyond
+-- WS_IDLE_THRESHOLD_SECONDS. active_seconds accumulates a per-tick capped delta
+-- so laptop sleep doesn't pad the total.
+CREATE TABLE core_work_sessions (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES sys_users(id) ON DELETE CASCADE,
+    started_at DATETIMEOFFSET NOT NULL,
+    last_heartbeat_at DATETIMEOFFSET NOT NULL,
+    ended_at DATETIMEOFFSET NULL,
+    active_seconds INT NOT NULL DEFAULT 0,
+    last_state NVARCHAR(10) NOT NULL DEFAULT 'active',
+    tab_session_id NVARCHAR(40) NOT NULL DEFAULT '',
+    client_info NVARCHAR(300) NOT NULL DEFAULT '',
+    created_at DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET()
+);
+CREATE INDEX core_work_sessions_user_started_idx ON core_work_sessions (user_id, started_at DESC);
+CREATE INDEX core_work_sessions_reaper_idx       ON core_work_sessions (ended_at, last_heartbeat_at);
+
+-- Aggregation view — sums active_seconds per user per local date.
+-- WorkSessionDaily (Django managed=False) is bound to this view.
+CREATE VIEW core_work_session_daily AS
+SELECT
+    CAST(user_id AS VARCHAR(20)) + '_' + CONVERT(VARCHAR(10), CAST(started_at AS DATE), 23) AS id,
+    user_id,
+    CAST(started_at AS DATE) AS work_date,
+    SUM(active_seconds) AS active_seconds_total,
+    MIN(started_at) AS first_seen,
+    MAX(COALESCE(ended_at, last_heartbeat_at)) AS last_seen
+FROM core_work_sessions
+GROUP BY user_id, CAST(started_at AS DATE);
+
 
 -- ████████ SEED DATA ████████
 

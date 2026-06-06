@@ -73,6 +73,8 @@
     "boss_dashboard": "Boss Dashboard",
     "fallback_forecast": "Fallback Forecast",
     "stuck_shipments": "Stuck Shipments",
+    "group_team": "Team",
+    "worklog": "Work hours",
     "group_feedback": "Feedback",
     "feedback_submit": "Feedback",
     "feedback_my_tickets": "My Tickets",
@@ -114,7 +116,25 @@
   "presence": {
     "viewing_now": "Viewing now",
     "you": "you",
-    "tooltip_role": "{{name}} · {{role}}"
+    "tooltip_role": "{{name}} · {{role}}",
+    "total_viewers": "{{count}} total viewers",
+    "total_viewers_one": "{{count}} viewer"
+  },
+  "worklog": {
+    "title": "Work hours",
+    "subtitle": "Time each user has spent in the platform. Visible to everyone.",
+    "chip_today": "Today: {{time}}",
+    "chip_tooltip": "Active for {{count}} days in the last 7",
+    "chip_aria": "Your work time today",
+    "my_week_title": "My last 7 days",
+    "today_label": "Today",
+    "range_label": "Last 7 days",
+    "days_with_activity": "Active days",
+    "team_table_title": "Team — by day",
+    "col_user": "User",
+    "col_role": "Role",
+    "col_active": "Active time",
+    "no_data": "No activity recorded yet"
   },
   "harvest_board": {
     "title": "Cargo Plan & Remainder",

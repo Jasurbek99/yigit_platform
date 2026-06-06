@@ -8,6 +8,7 @@ from .role_permissions import RolePagePermission, RoleResourcePermission, RoleFi
 from .crate_type import CrateType
 from .config import GreenhouseConfig
 from .operating_day import OperatingDayException
+from .work_session import WorkSession, WorkSessionDaily
 
 __all__ = [
     'User',
@@ -32,4 +33,6 @@ __all__ = [
     'CrateType',
     'GreenhouseConfig',
     'OperatingDayException',
+    'WorkSession',
+    'WorkSessionDaily',
 ]

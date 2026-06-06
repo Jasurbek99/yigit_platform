@@ -15,6 +15,7 @@ import {
   IconUsers,
   IconLogout,
   IconMenu2,
+  IconClock,
   IconShield,
   IconBuildingWarehouse,
   IconLayoutGrid,
@@ -34,11 +35,13 @@ import { useAuth } from '@/hooks/useAuth';
 import { useFeedbackAdminUnreadCount } from '@/hooks/useFeedback';
 import { useMyTasks } from '@/hooks/useMyTasks';
 import { useRealtime } from '@/hooks/useRealtime';
+import { useWorklogHeartbeat } from '@/hooks/useWorklogHeartbeat';
 import { canSeePage } from '@/utils/permissions';
 import { clearCachedPrefs } from '@/cache/userPrefsCache';
 import { FeedbackFAB } from '@/components/feedback/FeedbackFAB';
 import { NotificationBell } from '@/components/NotificationBell';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
+import { WorklogChip } from '@/components/WorklogChip';
 import { COLORS } from '@/constants/styles';
 
 const { Sider, Header, Content } = Layout;
@@ -53,6 +56,7 @@ export default function AppLayout() {
   const { user } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   useRealtime({ enabled: !!user });
+  useWorklogHeartbeat({ enabled: !!user });
   const { data: feedbackUnreadCount = 0 } = useFeedbackAdminUnreadCount();
   const { data: myTasksData } = useMyTasks({ enabled: !!user });
   const myOpenCount = (myTasksData?.results ?? []).filter(
@@ -218,6 +222,21 @@ export default function AppLayout() {
         // remove the roles bypass below. Until that migration runs on the server,
         // canSeePage() returns false for non-superusers (no page_permissions entry).
         // Using roles: ALL_ROLES to temporarily surface the entry to every authenticated user.
+        roles: [
+          'admin', 'export_manager', 'loading_dept_head', 'warehouse_chief',
+          'weight_master', 'document_team', 'transport', 'sales_rep', 'finansist',
+          'director', 'accountant', 'greenhouse_manager', 'seller', 'boss',
+        ] as import('@/types').UserRole[],
+      },
+    ]},
+    { label: t('nav.group_team'), items: [
+      {
+        key: '/worklog',
+        icon: <IconClock size={15} />,
+        label: t('nav.worklog'),
+        // Radical transparency: every authenticated user sees this page. No
+        // page_code is registered for it, so we surface it via the same
+        // roles: ALL_ROLES bypass the Contracts / Invoices entries use.
         roles: [
           'admin', 'export_manager', 'loading_dept_head', 'warehouse_chief',
           'weight_master', 'document_team', 'transport', 'sales_rep', 'finansist',
@@ -448,9 +467,10 @@ export default function AppLayout() {
             </Flex>
           </Flex>
 
-          {/* Right: connection dot + lang switcher + notifications */}
+          {/* Right: connection dot + worklog chip + lang switcher + notifications */}
           <Flex align="center" gap={12}>
             <ConnectionStatus />
+            <WorklogChip />
             <Segmented
               size="small"
               value={currentLang}

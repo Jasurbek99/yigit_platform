@@ -21,6 +21,11 @@ ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,backend').s
 # Applications
 # ════════════════════════════════════════════════
 INSTALLED_APPS = [
+    # daphne MUST come before staticfiles so Channels' runserver hook
+    # replaces Django's WSGI runserver with the ASGI one. Production runs
+    # uvicorn workers under gunicorn (see Dockerfile); daphne is only used
+    # by `manage.py runserver` in dev and by channels.testing.
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -154,11 +159,19 @@ else:
 # ════════════════════════════════════════════════
 # Channels (WebSocket)
 # ════════════════════════════════════════════════
-# Redis-backed channel layer — required for cross-worker group broadcast
-# (presence roster needs every uvicorn worker to see the same room). In tests
-# the in-memory layer is fine and avoids needing Redis on the test host.
-REDIS_URL = os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379/0')
-if RUNNING_TESTS:
+# Redis-backed channel layer is required for cross-worker group broadcast
+# (presence roster needs every uvicorn worker to see the same room). But it
+# would force every developer to also run Redis locally just to log in — so
+# we fall back to the in-memory layer when:
+#   * tests are running, OR
+#   * DEBUG is True AND REDIS_URL was NOT set explicitly in the environment
+# In docker-compose REDIS_URL is set in the backend service's env, so prod /
+# beta / docker dev all use Redis as intended.
+_REDIS_URL_ENV = os.environ.get('REDIS_URL')
+REDIS_URL = _REDIS_URL_ENV or 'redis://127.0.0.1:6379/0'
+
+_USE_INMEMORY_CHANNELS = RUNNING_TESTS or (DEBUG and not _REDIS_URL_ENV)
+if _USE_INMEMORY_CHANNELS:
     CHANNEL_LAYERS = {
         'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'},
     }

@@ -71,6 +71,7 @@ flowchart LR
 | [[quality-documents]] | Quality certificates and document tracking | ShipmentDetail (Document tab) |
 | [[comments-tasks]] | Cell-anchored threaded comments with @user/@role mentions and single-assignee tasks | ShipmentSheet (Comments Drawer), ShipmentDetail (Changes tab) |
 | [[realtime-presence]] | WebSocket presence avatars showing who is on the Sheet right now (Channels + Redis + uvicorn workers) | ShipmentSheet (toolbar) |
+| [[worklog]] | Per-user work-time logging over the same WS (heartbeat → core.work_sessions + reaper cron); visible to everyone | WorklogPage, header chip |
 | [[detail-vs-sheet]] | Process flow on Detail page vs the Sheet — what each surface optimises for, decision matrix | ShipmentDetail, ShipmentSheet |
 | [[permissions-system]] | Dynamic RBAC: page/resource/field-level | PermissionsPage |
 | [[authentication]] | JWT httpOnly cookie auth with CSRF | LoginPage |

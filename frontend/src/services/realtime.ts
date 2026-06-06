@@ -94,15 +94,18 @@ class RealtimeClient {
     let ws: WebSocket;
     try {
       ws = new WebSocket(url);
-    } catch {
+    } catch (err) {
+      console.error('[realtime] new WebSocket(', url, ') threw', err);
       this.scheduleReconnect();
       return;
     }
     this.socket = ws;
+    console.info('[realtime] connecting to', url);
 
     ws.addEventListener('open', () => {
       this.reconnectAttempts = 0;
       this.setStatus('open');
+      console.info('[realtime] open');
     });
 
     ws.addEventListener('message', (event) => {
@@ -121,13 +124,21 @@ class RealtimeClient {
     ws.addEventListener('close', (event) => {
       this.socket = null;
       this.setStatus('closed');
-      // 4401 = server-side auth rejection. Don't retry — user needs to log in.
+      // The close code tells us why the server (or the proxy / browser) dropped
+      // us. Most useful when diagnosing a reconnect loop — paste this from the
+      // console when reporting a bug.
+      //   1000 normal · 1006 abnormal (no close frame) · 1011 internal server error
+      //   4401 our auth-failure code — terminal, no reconnect
+      console.warn(
+        `[realtime] closed code=${event.code} reason="${event.reason}" wasClean=${event.wasClean}`,
+      );
       if (event.code === 4401 || this.explicitlyClosed) return;
       this.scheduleReconnect();
     });
 
-    ws.addEventListener('error', () => {
-      // Let the 'close' handler decide whether to reconnect.
+    ws.addEventListener('error', (event) => {
+      // Browser usually fires this with no detail; 'close' follows with the code.
+      console.warn('[realtime] error event (close will follow)', event);
     });
   }
 

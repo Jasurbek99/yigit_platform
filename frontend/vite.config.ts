@@ -28,7 +28,10 @@ export default defineConfig({
         changeOrigin: true,
       },
       '/ws': {
-        target: 'ws://127.0.0.1:8000',
+        // Use the http:// scheme even for WS targets — Vite's underlying
+        // http-proxy-middleware does the upgrade itself when ws:true; passing
+        // ws:// here breaks the connection on some platforms.
+        target: 'http://127.0.0.1:8000',
         ws: true,
         changeOrigin: true,
       },

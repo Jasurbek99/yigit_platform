@@ -73,6 +73,8 @@
     "boss_dashboard": "Boss paneli",
     "fallback_forecast": "Ätiýaç çaklama",
     "stuck_shipments": "Saklanan ýükler",
+    "group_team": "Topar",
+    "worklog": "Iş wagty",
     "group_feedback": "Şikaýatlar we Teklipler",
     "feedback_submit": "Teklip / Şikaýat",
     "feedback_my_tickets": "Meniň ýüz tutmalarym",
@@ -114,7 +116,25 @@
   "presence": {
     "viewing_now": "Häzir görýärler",
     "you": "siz",
-    "tooltip_role": "{{name}} · {{role}}"
+    "tooltip_role": "{{name}} · {{role}}",
+    "total_viewers": "Jemi {{count}} görüji",
+    "total_viewers_one": "{{count}} görüji"
+  },
+  "worklog": {
+    "title": "Iş wagty",
+    "subtitle": "Her ulanyjynyň platformada geçiren wagty. Hemmesi üçin görünýär.",
+    "chip_today": "Bu gün: {{time}}",
+    "chip_tooltip": "Soňky 7 günüň {{count}}-de aktiw",
+    "chip_aria": "Bu günki iş wagtyňyz",
+    "my_week_title": "Soňky 7 günüm",
+    "today_label": "Bu gün",
+    "range_label": "Soňky 7 gün",
+    "days_with_activity": "Aktiw günler",
+    "team_table_title": "Topar — günler boýunça",
+    "col_user": "Ulanyjy",
+    "col_role": "Rol",
+    "col_active": "Aktiw wagty",
+    "no_data": "Heniz işjeňlik ýok"
   },
   "harvest_board": {
     "title": "Ýük plan we galyndy",

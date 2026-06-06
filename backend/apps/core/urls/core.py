@@ -24,6 +24,11 @@ from apps.core.views_permissions import (
     FieldPermissionMatrixView,
     PermissionRegistryView,
 )
+from apps.core.views_worklog import (
+    WorklogListView,
+    WorklogMeView,
+    WorklogTeamView,
+)
 
 router = DefaultRouter()
 router.register('countries', CountryViewSet, basename='country')
@@ -47,4 +52,8 @@ urlpatterns = router.urls + [
     path('admin/field-permissions/', FieldPermissionMatrixView.as_view(), name='field-permissions'),
     path('users/mentionable/', MentionableView.as_view(), name='users-mentionable'),
     path('greenhouse-config/', GreenhouseConfigView.as_view(), name='greenhouse-config'),
+    # Worklog (Phase 3 of WS feature). All authenticated users may read.
+    path('worklog/', WorklogListView.as_view(), name='worklog-list'),
+    path('worklog/me/', WorklogMeView.as_view(), name='worklog-me'),
+    path('worklog/team/', WorklogTeamView.as_view(), name='worklog-team'),
 ]

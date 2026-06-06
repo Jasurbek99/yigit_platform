@@ -73,6 +73,8 @@
     "boss_dashboard": "Босс панель",
     "fallback_forecast": "Резервный прогноз",
     "stuck_shipments": "Зависшие отгрузки",
+    "group_team": "Команда",
+    "worklog": "Рабочее время",
     "group_feedback": "Обратная связь",
     "feedback_submit": "Предложение / Жалоба",
     "feedback_my_tickets": "Мои обращения",
@@ -116,7 +118,25 @@
   "presence": {
     "viewing_now": "Сейчас смотрят",
     "you": "вы",
-    "tooltip_role": "{{name}} · {{role}}"
+    "tooltip_role": "{{name}} · {{role}}",
+    "total_viewers": "Всего {{count}} зрителей",
+    "total_viewers_one": "{{count}} зритель"
+  },
+  "worklog": {
+    "title": "Рабочее время",
+    "subtitle": "Время, проведённое каждым пользователем в платформе. Видно всем.",
+    "chip_today": "Сегодня: {{time}}",
+    "chip_tooltip": "Активность в {{count}} из последних 7 дней",
+    "chip_aria": "Ваше рабочее время сегодня",
+    "my_week_title": "Мои последние 7 дней",
+    "today_label": "Сегодня",
+    "range_label": "Последние 7 дней",
+    "days_with_activity": "Активных дней",
+    "team_table_title": "Команда — по дню",
+    "col_user": "Пользователь",
+    "col_role": "Роль",
+    "col_active": "Активное время",
+    "no_data": "Пока нет активности"
   },
   "harvest_board": {
     "title": "План груза и остаток",
