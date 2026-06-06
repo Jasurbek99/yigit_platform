@@ -81,6 +81,9 @@
     "group_contracts": "Контракты",
     "contracts": {
       "list": "Список контрактов"
+    },
+    "invoices": {
+      "list": "Список фактур"
     }
   },
   "stuck": {
@@ -105,7 +108,15 @@
   },
   "connection": {
     "online": "В сети",
-    "offline": "Нет связи — изменения могут не сохраниться"
+    "offline": "Нет связи — изменения могут не сохраниться",
+    "ws_open": "Живые обновления подключены",
+    "ws_connecting": "Переподключение…",
+    "ws_closed": "Живые обновления отключены"
+  },
+  "presence": {
+    "viewing_now": "Сейчас смотрят",
+    "you": "вы",
+    "tooltip_role": "{{name}} · {{role}}"
   },
   "harvest_board": {
     "title": "План груза и остаток",
@@ -2441,7 +2452,109 @@
       }
     },
     "detail": {
-      "placeholder": "Детальная страница будет расширена в Slice B. Сейчас показаны основные данные."
+      "back_to_list": "Назад к списку контрактов",
+      "tab": {
+        "invoices": "Фактуры",
+        "payments": "Оплаты",
+        "passports": "Паспорта сделок",
+        "comments": "Комментарии"
+      },
+      "group": {
+        "planned": "Плановые",
+        "exported": "Экспортировано",
+        "remaining": "Остаток",
+        "payments": "Оплаты",
+        "dates": "Период действия"
+      }
+    },
+    "select": {
+      "placeholder": "Выберите контракт"
+    }
+  },
+  "invoices_list": {
+    "column": {
+      "contract_number": "Контракт №",
+      "export_firm": "Экспортёр",
+      "import_firm": "Импортёр"
+    },
+    "toolbar": {
+      "search_placeholder": "Поиск...",
+      "status_placeholder": "По статусу",
+      "export_firm_placeholder": "Экспортёр",
+      "import_firm_placeholder": "Импортёр",
+      "date_range_placeholder": ["С даты", "По дату"]
+    },
+    "empty": {
+      "title": "Фактуры не найдены",
+      "cta": "Добавить фактуру"
+    },
+    "pagination": {
+      "total": "Всего {{total}} фактур"
+    }
+  },
+  "invoices": {
+    "title": "Фактуры",
+    "add_button": "Добавить фактуру",
+    "empty": {
+      "title": "По этому контракту пока нет фактур",
+      "cta": "Добавить первую фактуру"
+    },
+    "column": {
+      "invoice_number": "Фактура №",
+      "invoice_date": "Дата",
+      "serial_truck_number": "Тир №",
+      "shipment_code": "Код отправки",
+      "quantity_kg": "Кол-во (кг)",
+      "price_per_kg": "Цена ($/кг)",
+      "total_usd": "Итого ($)",
+      "passport_sdelka": "Паспорт сделки",
+      "scan_uploaded": "Скан",
+      "status": "Статус",
+      "action": "Действие"
+    },
+    "status": {
+      "draft": "Черновик",
+      "sent": "Отправлена",
+      "paid": "Оплачена",
+      "void": "Аннулирована"
+    },
+    "create": {
+      "title": "Новая фактура",
+      "submit": "Создать",
+      "cancel": "Отмена",
+      "money_hint": "Укажите кол-во + цену или итоговую сумму в USD",
+      "field": {
+        "invoice_number": "Фактура №",
+        "invoice_date": "Дата фактуры",
+        "serial_truck_number": "Тир №",
+        "quantity_kg": "Кол-во (кг)",
+        "price_per_kg": "Цена ($/кг)",
+        "total_usd": "Итого ($)",
+        "passport_sdelka": "Паспорт сделки",
+        "scan_uploaded": "Скан загружен",
+        "status": "Статус",
+        "contract": "Контракт"
+      },
+      "validation": {
+        "money_required": "Укажите кол-во + цену или итоговую сумму в USD"
+      },
+      "toast": {
+        "created": "Фактура создана",
+        "error": "Не удалось создать фактуру"
+      }
+    },
+    "edit": {
+      "title": "Редактировать фактуру",
+      "submit": "Сохранить",
+      "toast": {
+        "updated": "Фактура обновлена",
+        "error": "Не удалось обновить фактуру"
+      }
+    },
+    "delete": {
+      "confirm_title": "Удалить фактуру?",
+      "confirm_body": "Вы уверены, что хотите удалить эту фактуру? Итоги контракта будут пересчитаны.",
+      "toast": "Фактура удалена"
     }
   }
 }

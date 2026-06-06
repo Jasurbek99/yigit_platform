@@ -22,6 +22,7 @@ import type { IRowConfig, ISheetTaskCounts, IShipmentSheetItem } from '@/types';
 import { COLORS } from '@/constants/styles';
 import { JoinActionBar } from './JoinActionBar';
 import { SwapActionBar } from './SwapActionBar';
+import { PresenceAvatars } from '@/components/PresenceAvatars';
 
 // Cap on how many SHIPMENT columns the user can freeze (on top of the 3
 // row-label columns: Row #, Who, Field name). Beyond this, freezing more
@@ -324,6 +325,7 @@ export function SheetToolbar({
           )}
         </div>
         <div className="sheet-toolbar__right">
+          <PresenceAvatars />
           <Tooltip title={t('sheet.fullscreen_enter')}>
             <Button
               size="small"

@@ -70,6 +70,7 @@ flowchart LR
 | [[domestic-sales]] | Greenhouse domestic sales records | DomesticSales |
 | [[quality-documents]] | Quality certificates and document tracking | ShipmentDetail (Document tab) |
 | [[comments-tasks]] | Cell-anchored threaded comments with @user/@role mentions and single-assignee tasks | ShipmentSheet (Comments Drawer), ShipmentDetail (Changes tab) |
+| [[realtime-presence]] | WebSocket presence avatars showing who is on the Sheet right now (Channels + Redis + uvicorn workers) | ShipmentSheet (toolbar) |
 | [[detail-vs-sheet]] | Process flow on Detail page vs the Sheet — what each surface optimises for, decision matrix | ShipmentDetail, ShipmentSheet |
 | [[permissions-system]] | Dynamic RBAC: page/resource/field-level | PermissionsPage |
 | [[authentication]] | JWT httpOnly cookie auth with CSRF | LoginPage |
@@ -100,6 +101,8 @@ See [[roles-matrix]] for the full capability matrix.
 - [[screens/self-board]] — Personal task board at `/me/board` — inline task completion with editable fields and SheetCellEditor integration
 - [[screens/feedback-module]] — Centralised in-app feedback at `/feedback/*` and `/admin/feedback` — bug/suggestion/question tickets with screenshot attachments, three reply modes, public knowledge feed
 - [[screens/contract-list]] — Contracts list page at `/contracts` — ProTable with grouped columns, create modal, show-ended toggle (P4 Slice A)
+- [[screens/contract-detail]] — Contract detail page at `/contracts/:id` — header Descriptions + four tabs; Faktura tab with invoice CRUD (P4 Slice B)
+- [[screens/invoice-list]] — All-invoices list page at `/invoices` — cross-contract ProTable with search, status filter, full CRUD (P4 Slice C)
 
 ## Reference
 

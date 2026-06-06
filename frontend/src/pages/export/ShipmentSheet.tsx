@@ -5,6 +5,7 @@ import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { useShipmentSheet } from '@/hooks/useShipmentSheet';
+import { usePresenceSheet } from '@/hooks/usePresenceSheet';
 import { useSheetStore, SHEET_ZOOM_MIN, SHEET_ZOOM_MAX } from '@/stores/sheetStore';
 import {
   useUserSheetPreferences,
@@ -19,6 +20,9 @@ import '@/components/sheet/SheetStyles.css';
 
 export default function ShipmentSheet() {
   const { t } = useTranslation();
+  // Joins the presence.sheet room on mount, leaves on unmount.
+  // The roster is rendered by PresenceAvatars inside SheetToolbar.
+  usePresenceSheet();
   const { data, isLoading } = useShipmentSheet();
   const shipments = data?.shipments;
   const commentCounts = data?.comment_counts ?? {};

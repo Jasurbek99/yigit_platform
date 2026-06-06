@@ -157,7 +157,7 @@ else:
 # Redis-backed channel layer — required for cross-worker group broadcast
 # (presence roster needs every uvicorn worker to see the same room). In tests
 # the in-memory layer is fine and avoids needing Redis on the test host.
-_REDIS_URL = os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379/0')
+REDIS_URL = os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379/0')
 if RUNNING_TESTS:
     CHANNEL_LAYERS = {
         'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'},
@@ -166,7 +166,7 @@ else:
     CHANNEL_LAYERS = {
         'default': {
             'BACKEND': 'channels_redis.core.RedisChannelLayer',
-            'CONFIG': {'hosts': [_REDIS_URL]},
+            'CONFIG': {'hosts': [REDIS_URL]},
         },
     }
 

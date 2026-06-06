@@ -33,10 +33,12 @@ import api from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
 import { useFeedbackAdminUnreadCount } from '@/hooks/useFeedback';
 import { useMyTasks } from '@/hooks/useMyTasks';
+import { useRealtime } from '@/hooks/useRealtime';
 import { canSeePage } from '@/utils/permissions';
 import { clearCachedPrefs } from '@/cache/userPrefsCache';
 import { FeedbackFAB } from '@/components/feedback/FeedbackFAB';
 import { NotificationBell } from '@/components/NotificationBell';
+import { ConnectionStatus } from '@/components/ConnectionStatus';
 import { COLORS } from '@/constants/styles';
 
 const { Sider, Header, Content } = Layout;
@@ -50,6 +52,7 @@ export default function AppLayout() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
+  useRealtime({ enabled: !!user });
   const { data: feedbackUnreadCount = 0 } = useFeedbackAdminUnreadCount();
   const { data: myTasksData } = useMyTasks({ enabled: !!user });
   const myOpenCount = (myTasksData?.results ?? []).filter(
@@ -110,6 +113,7 @@ export default function AppLayout() {
     '/admin/audit-log': t('nav.admin_audit_log'),
     '/me/board': t('me.nav.board'),
     '/contracts': t('nav.contracts.list'),
+    '/invoices': t('nav.invoices.list'),
   };
 
   const currentPageLabel = location.pathname.startsWith('/shipments/')
@@ -197,6 +201,20 @@ export default function AppLayout() {
         icon: <IconFileText size={15} />,
         label: t('nav.contracts.list'),
         // TODO: register page_code 'contracts.list' in backend seed_page_codes.py and
+        // remove the roles bypass below. Until that migration runs on the server,
+        // canSeePage() returns false for non-superusers (no page_permissions entry).
+        // Using roles: ALL_ROLES to temporarily surface the entry to every authenticated user.
+        roles: [
+          'admin', 'export_manager', 'loading_dept_head', 'warehouse_chief',
+          'weight_master', 'document_team', 'transport', 'sales_rep', 'finansist',
+          'director', 'accountant', 'greenhouse_manager', 'seller', 'boss',
+        ] as import('@/types').UserRole[],
+      },
+      {
+        key: '/invoices',
+        icon: <IconFileText size={15} />,
+        label: t('nav.invoices.list'),
+        // TODO: register page_code 'contracts.invoices' in backend seed_page_codes.py and
         // remove the roles bypass below. Until that migration runs on the server,
         // canSeePage() returns false for non-superusers (no page_permissions entry).
         // Using roles: ALL_ROLES to temporarily surface the entry to every authenticated user.
@@ -430,8 +448,9 @@ export default function AppLayout() {
             </Flex>
           </Flex>
 
-          {/* Right: lang switcher + notifications */}
+          {/* Right: connection dot + lang switcher + notifications */}
           <Flex align="center" gap={12}>
+            <ConnectionStatus />
             <Segmented
               size="small"
               value={currentLang}

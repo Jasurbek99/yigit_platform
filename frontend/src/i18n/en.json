@@ -81,6 +81,9 @@
     "group_contracts": "Contracts",
     "contracts": {
       "list": "Contract list"
+    },
+    "invoices": {
+      "list": "Invoice list"
     }
   },
   "stuck": {
@@ -103,7 +106,15 @@
   },
   "connection": {
     "online": "Online",
-    "offline": "Offline — changes may not save"
+    "offline": "Offline — changes may not save",
+    "ws_open": "Live updates connected",
+    "ws_connecting": "Reconnecting…",
+    "ws_closed": "Live updates disconnected"
+  },
+  "presence": {
+    "viewing_now": "Viewing now",
+    "you": "you",
+    "tooltip_role": "{{name}} · {{role}}"
   },
   "harvest_board": {
     "title": "Cargo Plan & Remainder",
@@ -2439,7 +2450,109 @@
       }
     },
     "detail": {
-      "placeholder": "The detail page will be expanded in Slice B. Basic data shown for now."
+      "back_to_list": "Back to contracts list",
+      "tab": {
+        "invoices": "Invoices",
+        "payments": "Payments",
+        "passports": "Deal Passports",
+        "comments": "Comments"
+      },
+      "group": {
+        "planned": "Planned",
+        "exported": "Exported",
+        "remaining": "Remaining",
+        "payments": "Payments",
+        "dates": "Date range"
+      }
+    },
+    "select": {
+      "placeholder": "Select contract"
+    }
+  },
+  "invoices_list": {
+    "column": {
+      "contract_number": "Contract #",
+      "export_firm": "Exporter",
+      "import_firm": "Importer"
+    },
+    "toolbar": {
+      "search_placeholder": "Search...",
+      "status_placeholder": "Filter by status",
+      "export_firm_placeholder": "Exporter",
+      "import_firm_placeholder": "Importer",
+      "date_range_placeholder": ["From date", "To date"]
+    },
+    "empty": {
+      "title": "No invoices found",
+      "cta": "Add invoice"
+    },
+    "pagination": {
+      "total": "{{total}} invoices total"
+    }
+  },
+  "invoices": {
+    "title": "Invoices",
+    "add_button": "Add invoice",
+    "empty": {
+      "title": "No invoices for this contract yet",
+      "cta": "Add the first invoice"
+    },
+    "column": {
+      "invoice_number": "Invoice #",
+      "invoice_date": "Date",
+      "serial_truck_number": "Truck #",
+      "shipment_code": "Shipment code",
+      "quantity_kg": "Qty (kg)",
+      "price_per_kg": "Price ($/kg)",
+      "total_usd": "Total ($)",
+      "passport_sdelka": "Deal passport",
+      "scan_uploaded": "Scan",
+      "status": "Status",
+      "action": "Action"
+    },
+    "status": {
+      "draft": "Draft",
+      "sent": "Sent",
+      "paid": "Paid",
+      "void": "Void"
+    },
+    "create": {
+      "title": "New invoice",
+      "submit": "Create",
+      "cancel": "Cancel",
+      "money_hint": "Enter quantity + price, or a total USD amount",
+      "field": {
+        "invoice_number": "Invoice #",
+        "invoice_date": "Invoice date",
+        "serial_truck_number": "Truck #",
+        "quantity_kg": "Quantity (kg)",
+        "price_per_kg": "Price ($/kg)",
+        "total_usd": "Total ($)",
+        "passport_sdelka": "Deal passport",
+        "scan_uploaded": "Scan uploaded",
+        "status": "Status",
+        "contract": "Contract"
+      },
+      "validation": {
+        "money_required": "Provide quantity + price or a total USD amount"
+      },
+      "toast": {
+        "created": "Invoice created",
+        "error": "Failed to create invoice"
+      }
+    },
+    "edit": {
+      "title": "Edit invoice",
+      "submit": "Save",
+      "toast": {
+        "updated": "Invoice updated",
+        "error": "Failed to update invoice"
+      }
+    },
+    "delete": {
+      "confirm_title": "Delete invoice?",
+      "confirm_body": "Are you sure you want to delete this invoice? The contract totals will be recalculated.",
+      "toast": "Invoice deleted"
     }
   }
 }

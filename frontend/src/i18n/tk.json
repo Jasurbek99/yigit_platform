@@ -81,6 +81,9 @@
     "group_contracts": "Şertnamalar",
     "contracts": {
       "list": "Şertnamalar sanawy"
+    },
+    "invoices": {
+      "list": "Fakturalar sanawy"
     }
   },
   "stuck": {
@@ -103,7 +106,15 @@
   },
   "connection": {
     "online": "Onlaýn",
-    "offline": "Baglanyşyk ýok — üýtgeşmeler saklanmaz"
+    "offline": "Baglanyşyk ýok — üýtgeşmeler saklanmaz",
+    "ws_open": "Janly täzelenmeler birikdirildi",
+    "ws_connecting": "Gaýtadan birikdirilýär…",
+    "ws_closed": "Janly täzelenmeler üzüldi"
+  },
+  "presence": {
+    "viewing_now": "Häzir görýärler",
+    "you": "siz",
+    "tooltip_role": "{{name}} · {{role}}"
   },
   "harvest_board": {
     "title": "Ýük plan we galyndy",
@@ -2443,7 +2454,109 @@
       }
     },
     "detail": {
-      "placeholder": "Jikme-jik sahypa soňra giňeldiler (Slice B). Häzirki wagtda esasy maglumatlar görkezilýär."
+      "back_to_list": "Şertnamalar sanawyna gaýt",
+      "tab": {
+        "invoices": "Fakturalar",
+        "payments": "Tölegler",
+        "passports": "Passport sdelkalary",
+        "comments": "Kommentarlar"
+      },
+      "group": {
+        "planned": "Planlanan",
+        "exported": "Eksport edilen",
+        "remaining": "Galan",
+        "payments": "Tölegler",
+        "dates": "Sene aralygy"
+      }
+    },
+    "select": {
+      "placeholder": "Şertnama saýlaň"
+    }
+  },
+  "invoices": {
+    "title": "Fakturalar",
+    "add_button": "Faktura goş",
+    "empty": {
+      "title": "Bu şertnamanyň entek fakturasy ýok",
+      "cta": "Ilkinji fakturany goş"
+    },
+    "column": {
+      "invoice_number": "Faktura №",
+      "invoice_date": "Sene",
+      "serial_truck_number": "Tir №",
+      "shipment_code": "Şipment kody",
+      "quantity_kg": "Mukdar (kg)",
+      "price_per_kg": "Baha ($/kg)",
+      "total_usd": "Jemi ($)",
+      "passport_sdelka": "Passport sdelka",
+      "scan_uploaded": "Skan",
+      "status": "Ýagdaý",
+      "action": "Hereket"
+    },
+    "status": {
+      "draft": "Garalama",
+      "sent": "Ugradyldy",
+      "paid": "Tölenildi",
+      "void": "Ýatyryldy"
+    },
+    "create": {
+      "title": "Täze faktura",
+      "submit": "Döret",
+      "cancel": "Ýatyr",
+      "money_hint": "Mukdar + baha ýa-da jemi USD-ni giriziň",
+      "field": {
+        "invoice_number": "Faktura №",
+        "invoice_date": "Faktura senesi",
+        "serial_truck_number": "Tir №",
+        "quantity_kg": "Mukdar (kg)",
+        "price_per_kg": "Baha ($/kg)",
+        "total_usd": "Jemi ($)",
+        "passport_sdelka": "Passport sdelka",
+        "scan_uploaded": "Skan ýüklendi",
+        "status": "Ýagdaý",
+        "contract": "Şertnama"
+      },
+      "validation": {
+        "money_required": "Mukdar + baha ýa-da jemi USD doldurmaly"
+      },
+      "toast": {
+        "created": "Faktura döredildi",
+        "error": "Fakturany döretmek başartmady"
+      }
+    },
+    "edit": {
+      "title": "Fakturany üýtget",
+      "submit": "Ýatda sakla",
+      "toast": {
+        "updated": "Faktura täzelendi",
+        "error": "Fakturany täzelemek başartmady"
+      }
+    },
+    "delete": {
+      "confirm_title": "Fakturany pozmak?",
+      "confirm_body": "Bu fakturany pozjak bolýaňyzmy? Şertnamanyň jemleri täzelener.",
+      "toast": "Faktura pozuldy"
+    }
+  },
+  "invoices_list": {
+    "column": {
+      "contract_number": "Şertnama №",
+      "export_firm": "Eksport firması",
+      "import_firm": "Import firması"
+    },
+    "toolbar": {
+      "search_placeholder": "Gözleg...",
+      "status_placeholder": "Ýagdaý boýunça",
+      "export_firm_placeholder": "Eksport firması",
+      "import_firm_placeholder": "Import firması",
+      "date_range_placeholder": ["Başlangyç sene", "Soňky sene"]
+    },
+    "empty": {
+      "title": "Faktura tapylmady",
+      "cta": "Täze faktura goş"
+    },
+    "pagination": {
+      "total": "Jemi {{total}} faktura"
     }
   }
 }
