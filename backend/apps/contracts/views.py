@@ -99,9 +99,17 @@ class InvoiceViewSet(ModelViewSet):
     Create / update: export_manager, director, admin only.
     Delete: admin / superuser only — rollback is too easy to mess up otherwise.
 
-    Supports filters:
-      ?contract=<id>  — only invoices for a specific contract
-      ?status=<code>  — filter by invoice status (draft|sent|paid|void)
+    Standard PageNumberPagination (default 50, max 200 per project api-contract).
+
+    Supports filters (all combinable, all server-side):
+      ?contract=<id>             — only invoices for a specific contract
+      ?status=<code>             — filter by status (draft|sent|paid|void)
+      ?export_firm=<id>          — filter by seller
+      ?import_firm=<id>          — filter by buyer
+      ?date_from=YYYY-MM-DD      — invoice_date >= this
+      ?date_to=YYYY-MM-DD        — invoice_date <= this
+      ?search=<text>             — icontains match on passport_sdelka and
+                                   parent contract_number
     """
 
     queryset = Invoice.objects.select_related(
@@ -109,19 +117,44 @@ class InvoiceViewSet(ModelViewSet):
         'shipment',
         'export_firm',
         'import_firm',
-    )
+    ).order_by('-invoice_date', 'contract_id', 'invoice_number')
 
     def get_queryset(self):
-        """Apply optional contract and status filters."""
+        """Apply server-side filters."""
         qs = super().get_queryset()
+        p = self.request.query_params
 
-        contract_id = self.request.query_params.get('contract')
+        contract_id = p.get('contract')
         if contract_id:
             qs = qs.filter(contract_id=contract_id)
 
-        status_param = self.request.query_params.get('status')
+        status_param = p.get('status')
         if status_param:
             qs = qs.filter(status=status_param)
+
+        export_firm_id = p.get('export_firm')
+        if export_firm_id:
+            qs = qs.filter(export_firm_id=export_firm_id)
+
+        import_firm_id = p.get('import_firm')
+        if import_firm_id:
+            qs = qs.filter(import_firm_id=import_firm_id)
+
+        date_from = p.get('date_from')
+        if date_from:
+            qs = qs.filter(invoice_date__gte=date_from)
+
+        date_to = p.get('date_to')
+        if date_to:
+            qs = qs.filter(invoice_date__lte=date_to)
+
+        search = (p.get('search') or '').strip()
+        if search:
+            from django.db.models import Q
+            qs = qs.filter(
+                Q(passport_sdelka__icontains=search)
+                | Q(contract__contract_number__icontains=search)
+            )
 
         return qs
 

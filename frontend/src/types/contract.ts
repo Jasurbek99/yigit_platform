@@ -48,6 +48,9 @@ export interface IContract {
   payment_received_usd: string;
   ostatok_usd: string;
 
+  // Invoice tracking
+  last_invoice_number: number | null;
+
   // Dates
   start_date: string;
   end_date: string | null;

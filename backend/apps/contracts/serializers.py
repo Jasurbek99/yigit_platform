@@ -87,6 +87,7 @@ class ContractListSerializer(serializers.ModelSerializer):
             'amount_remaining_usd',
             'payment_received_usd',
             'ostatok_usd',
+            'last_invoice_number',
             'start_date',
             'end_date',
             'created_at',
