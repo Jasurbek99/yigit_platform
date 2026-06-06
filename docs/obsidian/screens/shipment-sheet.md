@@ -185,7 +185,7 @@ Defaults: `?limit` defaults to 50, capped at 200. The popover does no pagination
 
 **Known limitation:** fields modified by `save()` side effects (computed totals, auto status transitions) are NOT captured by this hook — only fields the user actually submitted in the PATCH body. Status transitions already emit their own `AuditLog` rows from `services_workflow.py`. Other side-effect fields would need their own service-level hooks.
 
-R24 = `has_doc_advance` (✓/❌, Babageldi). True once a `FinansistAdvanceShipment` row links the shipment to a `FinansistAdvance` — i.e. the finansist has issued documentation/customs money for the shipment. Click navigates to `/export/advances?shipment={id}`. R25 = `customs_exit_at` (Türkmenistan customs exit, Şirin). R26 = `transit_days_temp` (transit days + temperature, Quality inspector).
+R24 = `has_doc_advance` (✓/❌, Babageldi). True once a `FinansistAdvanceShipment` row links the shipment to a `FinansistAdvance` — i.e. the finansist has issued documentation/customs money for the shipment. Click navigates to `/export/advances?shipment={id}`. R25 = `customs_exit_at` (Türkmenistan customs exit, Şirin). R26 = `transit_days_temp` — a virtual combined cell that displays `${transit_days}d ${transport_temp_c}°C` and edits via a single text input. Operators type two numbers (e.g. `5 4` → days=5, temp=4); `SheetCellEditor` parses and PATCHes both real fields (`transit_days`, `transport_temp_c`) in one request. The Sheet perm gate (`can_edit_sheet_field`) special-cases this virtual key and delegates to the real `transit_days` field's perm; the row's `default_who_key` is `sheet.who.transport`. Owned by the Transport role.
 
 ## Input types
 
@@ -364,7 +364,7 @@ Querystring `?season=<id>` overrides the active season; default scopes to `seaso
 ## Known issues
 
 - All rows from R2 to R44 are now configured (R24 is the new finansist doc-advance flag).
-- **`harvest_date`, `additional_notes_arap`, `truck_capacity`, `product_date`, `transit_days_temp`, `truck_plate`, `driver_name`, `driver_phone`** — present in `sheetRowConfig.ts` but not in the `Shipment` model nor `_ALL_PATCHABLE_FIELDS`. They render but cell edits will 403 from the backend. Either map to the right model fields (e.g. `truck_plate` → `truck_head_id` lookup) or remove from the row config.
+- **`harvest_date`, `additional_notes_arap`, `truck_capacity`, `product_date`, `transit_days_temp`, `truck_plate`, `driver_name`, `driver_phone`** — present in `sheetRowConfig.ts` but not in the `Shipment` model nor `_ALL_PATCHABLE_FIELDS`. They render but cell edits will 403 from the backend. Either map to the right model fields (e.g. `truck_plate` → `truck_head_id` lookup) or remove from the row config. (`transit_days_temp` is a virtual key — its perm gate delegates to `transit_days` and saves dispatch to both real fields; see R26 above.)
 
 ## Related
 

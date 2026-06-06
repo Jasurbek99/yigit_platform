@@ -232,6 +232,15 @@ def can_edit_sheet_field(user, field_key: str) -> bool:
     if getattr(user, 'is_superuser', False) or role in ('admin', 'director'):
         return True
 
+    # Virtual sheet rows: cells that display & edit two real fields combined.
+    # The row's SheetRowSetting is keyed on the virtual key, but the underlying
+    # patch targets the real fields, so the perm gate has to delegate to one of
+    # them. transit_days_temp (R26) edits transit_days + transport_temp_c.
+    _VIRTUAL_FIELD_DELEGATES = {'transit_days_temp': 'transit_days'}
+    delegate_key = _VIRTUAL_FIELD_DELEGATES.get(field_key)
+    if delegate_key is not None:
+        return can_edit_sheet_field(user, delegate_key)
+
     # Import lazily to avoid circular import
     from apps.export.models import SheetRowSetting
 

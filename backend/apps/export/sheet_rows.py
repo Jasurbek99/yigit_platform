@@ -239,11 +239,18 @@ DEFAULT_SHEET_ROWS: list[dict] = [
         'style': 'key',
     },
     {
+        # Combined virtual cell: rendered as "${days}d ${temp}°C" by
+        # getCellValue (frontend). Edited via a single text input that parses
+        # two numbers from the typed string (e.g. "5 4" → days=5, temp=4) and
+        # PATCHes both real fields (transit_days, transport_temp_c) in one
+        # request. SheetCellEditor special-cases this field_key. The Sheet
+        # edit-perm gate (can_edit_sheet_field) delegates this virtual key to
+        # the real transit_days field's perm.
         'row_number': 26,
         'field_key': 'transit_days_temp',
-        'default_who_key': 'sheet.who.quality',
+        'default_who_key': 'sheet.who.transport',
         'label_key': 'sheet.row.transit_temp',
-        'input_type': 'readonly',
+        'input_type': 'text',
         'style': 'base',
     },
     {

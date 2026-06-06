@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import type { IShipmentSheetItem, IRowConfig } from '@/types';
 import { useSheetStore } from '@/stores/sheetStore';
-import { useShipmentPatch, extractPatchError } from '@/hooks/useShipmentPatch';
+import { useShipmentPatch, useShipmentPatchMulti, extractPatchError } from '@/hooks/useShipmentPatch';
 import api from '@/services/api';
 import {
   useCountries,
@@ -33,6 +33,7 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
   const sheetZoom = useSheetStore((s) => s.sheetZoom);
   const { colShipment: COL_WIDTH_SHIPMENT, rowHeight: ROW_HEIGHT } = scaleSheetLayout(sheetZoom);
   const patchMutation = useShipmentPatch();
+  const patchMultiMutation = useShipmentPatchMulti();
   const containerRef = useRef<HTMLDivElement>(null);
   // Multi-select cells (firm_splits, block_sources) defer saving until the
   // dropdown closes — saving on each pick would unmount the editor mid-edit.
@@ -235,7 +236,47 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
     }
   }
 
+  // Virtual combined cell R26: one text input edits BOTH transit_days and
+  // transport_temp_c. User types two numbers in any common form ("5 4",
+  // "5d 4°C", "5/4"); the first matched number becomes transit_days, the
+  // second transport_temp_c. Empty input clears both. One PATCH covers both
+  // real fields. Special-cased here because input_type='text' would otherwise
+  // PATCH the virtual field_key which has no backing column.
+  const saveTransitTemp = useCallback(
+    (raw: string) => {
+      const matches = raw.match(/-?\d+(\.\d+)?/g) ?? [];
+      const newDays = matches[0] != null ? Number(matches[0]) : null;
+      const newTemp = matches[1] != null ? Number(matches[1]) : null;
+      patchMultiMutation.mutate({
+        id: shipment.id,
+        fields: { transit_days: newDays, transport_temp_c: newTemp },
+      });
+      close();
+    },
+    [patchMultiMutation, shipment.id, close],
+  );
+
   const renderEditor = () => {
+    if (rowConfig.field_key === 'transit_days_temp') {
+      const days = shipment.transit_days;
+      const temp = shipment.transport_temp_c;
+      const defaultText =
+        days != null || temp != null
+          ? `${days ?? ''} ${temp ?? ''}`.trim()
+          : '';
+      return (
+        <Input
+          size="small"
+          defaultValue={defaultText}
+          placeholder="5 4"
+          onPressEnter={(e) => saveTransitTemp((e.target as HTMLInputElement).value)}
+          onBlur={(e) => saveTransitTemp(e.target.value)}
+          onKeyDown={handleKeyDown}
+          style={{ width: '100%', height: ROW_HEIGHT - 4 }}
+        />
+      );
+    }
+
     switch (rowConfig.input_type) {
       case 'text':
       case 'phone':

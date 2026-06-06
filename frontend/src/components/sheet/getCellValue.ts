@@ -170,6 +170,5 @@ export function getCellValue(
     if (days == null && temp == null) return '—';
     return `${days ?? '?'}d ${temp ?? '?'}°C`;
   }
-
   return '—';
 }

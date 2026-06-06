@@ -59,6 +59,14 @@ KNOWN_NESTED = {
     'extra_users',
 }
 
+# Virtual combined cells — display + edit two real fields under one virtual
+# field_key. Frontend SheetCellEditor special-cases the field_key and PATCHes
+# the real fields directly; the virtual key itself has no DB column. Perm
+# delegation lives in can_edit_sheet_field. See docs/obsidian/screens/shipment-sheet.md R26.
+KNOWN_VIRTUAL = {
+    'transit_days_temp',  # → transit_days + transport_temp_c
+}
+
 orphans: list[tuple[int, str, str, str]] = []
 
 for row in DEFAULT_SHEET_ROWS:
@@ -66,6 +74,8 @@ for row in DEFAULT_SHEET_ROWS:
         continue
     fk = row['field_key']
     if fk in KNOWN_NESTED:
+        continue
+    if fk in KNOWN_VIRTUAL:
         continue
     if fk not in PATCHABLE:
         orphans.append((
