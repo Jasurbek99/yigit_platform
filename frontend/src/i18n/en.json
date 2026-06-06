@@ -850,6 +850,7 @@
     "style_width": "Width (px)",
     "style_align": "Alignment",
     "style_color": "Background color",
+    "style_font_color": "Cell font color",
     "align_left": "Left",
     "align_center": "Center",
     "align_right": "Right",

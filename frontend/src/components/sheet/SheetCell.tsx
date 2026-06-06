@@ -222,13 +222,17 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
   // categories (harvest_status, documents_status, ...).
   const autoColor = getCellAutoColor(rowConfig.field_key, shipment, options);
   const cellBg = autoColor ?? rowSetting?.style?.color ?? undefined;
+  // Admin-picked per-row cell text color wins over the auto WCAG-contrast color
+  // chosen from the background — when no background is painted, font_color is
+  // still applied so admins can recolor cell text on a plain row.
+  const fontColorOverride = rowSetting?.style?.font_color ?? undefined;
   // Pair every painted background with a WCAG-contrast foreground so dark
   // picks don't hide the cell text. Inline `color` beats the various class-
   // based text colors (.sheet-cell__code, .sheet-cell--gapy .__text, etc.)
   // exactly like the inline `backgroundColor` already beats them.
   const cellBgStyle: React.CSSProperties = cellBg
-    ? { backgroundColor: cellBg, color: getContrastTextColor(cellBg) }
-    : {};
+    ? { backgroundColor: cellBg, color: fontColorOverride ?? getContrastTextColor(cellBg) }
+    : (fontColorOverride ? { color: fontColorOverride } : {});
   const cellIsEmpty = isEmpty(value);
 
   const handleClick = useCallback(() => {

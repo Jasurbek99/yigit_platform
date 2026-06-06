@@ -189,6 +189,14 @@ class SheetRowSetting(models.Model):
         blank=True,
         help_text='Background colour as #RRGGBB hex string.',
     )
+    style_font_color = models.CharField(
+        max_length=7,
+        blank=True,
+        help_text='Cell text colour as #RRGGBB hex string. Applied to value '
+                  'text inside this row\'s data cells across all shipments. '
+                  'Overrides the auto WCAG-contrast color picked from the '
+                  'cell background.',
+    )
 
     # === Permission trigger — single user exception ===
     triggered_user = models.ForeignKey(
@@ -280,6 +288,10 @@ class SheetRowSetting(models.Model):
         if self.style_color:
             if not _HEX_RE.match(self.style_color):
                 errors['style_color'] = 'style_color must be a valid #RRGGBB hex string.'
+
+        if self.style_font_color:
+            if not _HEX_RE.match(self.style_font_color):
+                errors['style_font_color'] = 'style_font_color must be a valid #RRGGBB hex string.'
 
         if errors:
             raise ValidationError(errors)

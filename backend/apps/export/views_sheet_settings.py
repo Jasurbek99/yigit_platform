@@ -109,6 +109,7 @@ class SheetRowSettingSerializer(serializers.ModelSerializer):
             'style_width',
             'style_align',
             'style_color',
+            'style_font_color',
             # Permissions (partially writable)
             'triggered_user',
             'triggered_user_name',
@@ -200,6 +201,14 @@ class SheetRowSettingSerializer(serializers.ModelSerializer):
         if value and not re.match(r'^#[0-9A-Fa-f]{6}$', value):
             raise serializers.ValidationError(
                 'style_color must be a valid #RRGGBB hex string or empty.'
+            )
+        return value
+
+    def validate_style_font_color(self, value: str) -> str:
+        import re
+        if value and not re.match(r'^#[0-9A-Fa-f]{6}$', value):
+            raise serializers.ValidationError(
+                'style_font_color must be a valid #RRGGBB hex string or empty.'
             )
         return value
 
@@ -708,7 +717,7 @@ class SheetRowSettingViewSet(viewsets.ModelViewSet):
             'is_visible', 'is_locked', 'display_order',
             'label_tk', 'label_ru', 'label_en',
             'description_tk', 'description_ru', 'description_en',
-            'style_width', 'style_align', 'style_color',
+            'style_width', 'style_align', 'style_color', 'style_font_color',
             'triggered_user_id',
         ]
         old_values = {f: getattr(instance, f) for f in tracked_fields}

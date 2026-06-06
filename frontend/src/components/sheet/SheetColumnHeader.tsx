@@ -10,7 +10,19 @@ import { useSetColumnColor, useSoftDeleteShipment } from '@/hooks/useShipments';
 interface ISheetColumnHeaderProps {
   shipmentId: number;
   seqNumber: number;
+  /**
+   * The cargo_code is kept on the prop name `exportCode` for back-compat
+   * with the confirm dialog (used in the soft-delete prompt). It is no
+   * longer rendered in the header — the header shows `officialExportCode`
+   * instead. cargo_code still appears as a normal data row (row 7) so it
+   * remains visible in the table.
+   */
   exportCode: string;
+  /**
+   * Operator-entered "Export code" (Soltanmyrat's pallet tag). Displayed in
+   * the column header when filled; when null the header shows only the seq.
+   */
+  officialExportCode: string | null;
   columnColor: string | null;
   /** When true, the shipment is cancelled — strike the code + show a red tag. */
   isCancelled?: boolean;
@@ -25,6 +37,7 @@ function SheetColumnHeaderInner({
   shipmentId,
   seqNumber,
   exportCode,
+  officialExportCode,
   columnColor,
   isCancelled = false,
 }: ISheetColumnHeaderProps) {
@@ -83,11 +96,13 @@ function SheetColumnHeaderInner({
   return (
     <>
       <span className="sheet-col-header__seq">{seqNumber}</span>
-      <span
-        className={`sheet-col-header__code${isCancelled ? ' sheet-col-header__code--cancelled' : ''}`}
-      >
-        {exportCode}
-      </span>
+      {officialExportCode ? (
+        <span
+          className={`sheet-col-header__code${isCancelled ? ' sheet-col-header__code--cancelled' : ''}`}
+        >
+          {officialExportCode}
+        </span>
+      ) : null}
       {isCancelled && (
         <span className="sheet-col-header__cancel-tag">
           {t('shipment_status.cancelled')}

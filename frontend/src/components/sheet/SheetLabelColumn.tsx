@@ -199,7 +199,7 @@ function SheetLabelRowInner({
               </button>
             </Tooltip>
             <span style={{ fontSize: 9, color: '#8c8c8c', lineHeight: 1 }}>
-              {rowConfig.row_number}
+              {rowConfig.global_position ?? (rowIndex ?? 0) + 1}
             </span>
             <Tooltip title={t('sheet.move_down')} mouseEnterDelay={0.5}>
               <button
@@ -222,7 +222,7 @@ function SheetLabelRowInner({
             </Tooltip>
           </div>
         ) : (
-          rowConfig.row_number
+          rowConfig.global_position ?? (rowIndex ?? 0) + 1
         )}
       </div>
 

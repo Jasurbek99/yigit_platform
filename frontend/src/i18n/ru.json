@@ -852,6 +852,7 @@
     "style_width": "Ширина (px)",
     "style_align": "Выравнивание",
     "style_color": "Цвет фона",
+    "style_font_color": "Цвет текста ячейки",
     "align_left": "Лево",
     "align_center": "Центр",
     "align_right": "Право",

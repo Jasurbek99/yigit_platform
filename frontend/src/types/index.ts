@@ -493,6 +493,13 @@ export interface IRowConfig {
   style: SheetRowStyle;
   options_source?: string;
   gapy_hidden?: boolean;
+  /**
+   * 1-based rank in the canonical admin display_order ordering. Matches the row's
+   * `#` value in the Shipment Settings → Sheet Rows admin tab, so staff can
+   * cross-reference a Sheet row with its admin entry. Stable across per-user
+   * reordering (which only changes the visual position, not this number).
+   */
+  global_position?: number;
 }
 
 // â”€â”€â”€ Sheet Row Settings v2 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -529,6 +536,7 @@ export interface ISheetRowSetting {
   style_width: number | null;
   style_align: 'left' | 'center' | 'right' | null;
   style_color: string | null;
+  style_font_color: string | null;
   // Permissions
   triggered_user: number | null;
   triggered_user_name: string | null;
@@ -565,7 +573,7 @@ export interface ISheetRowSettingForUser {
   /** Phase 5a: per-row override of Col B "Who" label. Null = fall back to default_who_key i18n. */
   who: { tk?: string; ru?: string; en?: string } | null;
   description: { tk?: string; ru?: string; en?: string } | null;
-  style: { width?: number; align?: 'left' | 'center' | 'right'; color?: string } | null;
+  style: { width?: number; align?: 'left' | 'center' | 'right'; color?: string; font_color?: string } | null;
   triggered_user_id: number | null;
   triggered_roles: string[];
   extra_user_ids: number[];

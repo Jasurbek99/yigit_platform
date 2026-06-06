@@ -1068,6 +1068,8 @@ class ShipmentViewSet(ModelViewSet):
                     style['align'] = setting.style_align
                 if setting.style_color:
                     style['color'] = setting.style_color
+                if setting.style_font_color:
+                    style['font_color'] = setting.style_font_color
 
                 # triggered_roles: list of role codes from child table
                 triggered_roles = [rt.role for rt in setting.role_triggers.all()]
@@ -1128,11 +1130,24 @@ class ShipmentViewSet(ModelViewSet):
         _visible_keys = set(row_settings.keys())
         # Build a lookup of field_key → DEFAULT_SHEET_ROWS entry for fast access
         _default_rows_by_key = {r['field_key']: r for r in DEFAULT_SHEET_ROWS}
+        # global_position: 1-based rank in the canonical admin display_order
+        # ordering. Identical to the row's index in the Shipment Settings ProTable
+        # (which is ordered by display_order). Stable across per-user reordering —
+        # this is the number that lets staff cross-reference a row between the
+        # Sheet's `#` column and the Sheet Rows admin tab. Computed over every
+        # active SheetRowSetting (visible AND hidden) because Shipment Settings
+        # shows hidden rows too; the Sheet just skips numbers for rows the user
+        # can't see.
+        global_position_by_fk = {fk: i + 1 for i, fk in enumerate(settings_by_key.keys())}
         rows = []
         for fk in row_settings.keys():
             default_entry = _default_rows_by_key.get(fk)
             if default_entry is not None:
-                rows.append(default_entry)
+                # Copy the module-level dict — never mutate DEFAULT_SHEET_ROWS in place.
+                rows.append({
+                    **default_entry,
+                    'global_position': global_position_by_fk.get(fk),
+                })
                 continue
             # Phase 5c: synthesize an IRowConfig-shaped entry for custom rows.
             # input_type=text is fixed (typed custom fields go through the L2
@@ -1148,6 +1163,7 @@ class ShipmentViewSet(ModelViewSet):
                 'label_key': f'sheet.row.{fk}',  # i18n fallback; admin override wins
                 'input_type': 'text',
                 'style': 'base',
+                'global_position': global_position_by_fk.get(fk),
             })
 
         # === user_preferences: informational payload (ids only, not full state) ===

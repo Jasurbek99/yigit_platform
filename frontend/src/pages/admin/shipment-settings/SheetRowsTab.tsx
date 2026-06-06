@@ -419,12 +419,13 @@ export default function SheetRowsTab({ canWrite }: IProps) {
       ),
     },
     {
-      title: t('sheet_rows.col_id'),
-      dataIndex: 'id',
-      key: 'id',
+      title: '#',
+      key: 'position',
       width: 48,
-      render: (v: number) => (
-        <span style={{ fontFamily: FONT.mono, fontSize: 11, color: COLORS.textSecondary }}>{v}</span>
+      render: (_: unknown, _record: ISheetRowSetting, index: number) => (
+        <span style={{ fontFamily: FONT.mono, fontSize: 11, color: COLORS.textSecondary }}>
+          {index + 1}
+        </span>
       ),
     },
     {

@@ -55,7 +55,7 @@ export function SheetRowStylePopover({
           <Radio.Button value="right">{t('sheet_rows.align_right')}</Radio.Button>
         </Radio.Group>
       </div>
-      <div>
+      <div style={{ marginBottom: 8 }}>
         <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>
           {t('sheet_rows.style_color')}
         </div>
@@ -70,6 +70,23 @@ export function SheetRowStylePopover({
             onSave({ style_color: hex });
           }}
           onClear={() => onSave({ style_color: '' })}
+          format="hex"
+          allowClear
+          disabledAlpha
+        />
+      </div>
+      <div>
+        <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>
+          {t('sheet_rows.style_font_color')}
+        </div>
+        <ColorPicker
+          value={record.style_font_color ?? undefined}
+          disabled={!canWrite}
+          onChangeComplete={(color: Color) => {
+            const hex = color.toHexString().slice(0, 7);
+            onSave({ style_font_color: hex });
+          }}
+          onClear={() => onSave({ style_font_color: '' })}
           format="hex"
           allowClear
           disabledAlpha
@@ -99,6 +116,20 @@ export function SheetRowStylePopover({
               borderRadius: 2,
               marginLeft: 4,
             }}
+          />
+        ) : null}
+        {record.style_font_color ? (
+          <span
+            style={{
+              display: 'inline-block',
+              width: 10,
+              height: 10,
+              background: record.style_font_color,
+              borderRadius: 2,
+              border: '1px solid rgba(0,0,0,0.15)',
+              marginLeft: 2,
+            }}
+            title="Cell font color"
           />
         ) : null}
       </Button>
