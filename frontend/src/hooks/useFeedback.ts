@@ -66,7 +66,6 @@ export function useCreateFeedbackTicket() {
     mutationFn: async (payload: IFeedbackTicketCreate): Promise<IFeedbackTicketDetail> => {
       const formData = new FormData();
       formData.append('category', payload.category);
-      formData.append('title', payload.title);
       formData.append('description', payload.description);
       formData.append('submitted_from_path', payload.submitted_from_path);
       formData.append('user_agent', payload.user_agent);

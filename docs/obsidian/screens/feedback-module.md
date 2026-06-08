@@ -14,7 +14,7 @@ Backend: `apps.feedback` Django app. API under `/api/v1/feedback/tickets/`.
 
 | Path | Audience | Purpose |
 |---|---|---|
-| `/feedback/submit` | every authenticated user | New-ticket form (category / title / description / screenshots), instructions panel right side |
+| `/feedback/submit` | every authenticated user | New-ticket form (category / description / screenshots), instructions panel right side |
 | `/feedback/my-tickets` | every authenticated user | Own tickets, status badges, thread Drawer, **Reopen** action |
 | `/feedback/public` | every authenticated user | Read-only stream of tickets the admin has marked public — internal knowledge feed |
 | `/admin/feedback` | `role==='admin'` only | Two-pane inbox (35% list / 65% detail). Filter by status / category / author / date / search. Reply with three modes (standard / internal / public). Status dropdown to change workflow state. |
@@ -33,7 +33,7 @@ Director, Gadam, and the other 12 non-`admin` roles see only their own tickets +
 
 | Model | Key fields | Notes |
 |---|---|---|
-| `FeedbackTicket` | `author / category / title / description / status / is_public / submitted_from_path / submitted_from_label / user_agent / created_at / last_activity_at / resolved_at` | category ∈ {bug, suggestion, question}; status ∈ {new, in_review, resolved, rejected}. Cyrillic collation on title/description. |
+| `FeedbackTicket` | `author / category / description / status / is_public / submitted_from_path / submitted_from_label / user_agent / created_at / last_activity_at / resolved_at` | category ∈ {bug, suggestion, question}; status ∈ {new, in_review, resolved, rejected}. Cyrillic collation on description. No `title` field — the description is the sole content field (removed 2026-06-08; lists/cards show the description as heading). |
 | `FeedbackReply` | `ticket / author / content / mode / is_internal / is_public / created_at` | mode ∈ {standard, internal, public}. `save()` denormalises `is_internal`/`is_public` from `mode` for fast filter. Mutual exclusion enforced at model + serializer level. |
 | `FeedbackAttachment` | `ticket / reply / file / original_filename / mime_type / size_bytes / uploaded_by / uploaded_at` | XOR check-constraint: exactly one of ticket/reply parent. Files stored at `media/feedback/<YYYY>/<MM>/`. |
 

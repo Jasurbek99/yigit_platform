@@ -2101,10 +2101,6 @@
       "category": "Görnüş",
       "category_placeholder": "Görnüşi saýlaň",
       "category_required": "Görnüşi saýlaň",
-      "title": "Ady",
-      "title_placeholder": "Gysgaça düşündiriş...",
-      "title_required": "Adyny giriziň",
-      "title_max": "Ady 200 nyşandan uzyn bolmaly däldir",
       "description": "Düşündiriş",
       "description_placeholder": "Jikme-jik düşündiriş...",
       "description_required": "Düşündiriş giriziň",
@@ -2179,7 +2175,6 @@
       "ticket_detail": "Ýüz tutma maglumatlary"
     },
     "table": {
-      "title": "Ady",
       "category": "Görnüş",
       "status": "Ýagdaý",
       "created_at": "Döredilen senesi"

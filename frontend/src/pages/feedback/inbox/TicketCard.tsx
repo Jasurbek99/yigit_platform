@@ -31,7 +31,7 @@ export function TicketCard({ ticket, isSelected, onClick }: ITicketCardProps): R
           strong
           style={{ fontSize: 13, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
         >
-          {ticket.title}
+          {ticket.description}
         </Text>
         <TicketStatusTag status={ticket.status} />
       </div>

@@ -2099,10 +2099,6 @@
       "category": "Тип",
       "category_placeholder": "Выберите тип",
       "category_required": "Выберите тип",
-      "title": "Заголовок",
-      "title_placeholder": "Краткое описание...",
-      "title_required": "Введите заголовок",
-      "title_max": "Заголовок не должен превышать 200 символов",
       "description": "Описание",
       "description_placeholder": "Подробное описание...",
       "description_required": "Введите описание",
@@ -2177,7 +2173,6 @@
       "ticket_detail": "Детали обращения"
     },
     "table": {
-      "title": "Заголовок",
       "category": "Тип",
       "status": "Статус",
       "created_at": "Дата создания"

@@ -47,9 +47,6 @@ function PublicDetailDrawer({ ticketId }: IPublicDetailDrawerProps): React.React
         <Tag color="blue">{ticket.category_display}</Tag>
         <TicketStatusTag status={ticket.status} />
       </Space>
-      <Title level={5} style={{ marginTop: 0 }}>
-        {ticket.title}
-      </Title>
       <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 12 }}>
         {ticket.author_name} — {dayjs(ticket.created_at).format('DD.MM.YYYY')}
       </Text>
@@ -158,7 +155,7 @@ export default function PublicFeedPage(): React.ReactElement {
             onClick={() => setSelectedId(ticket.id)}
             tabIndex={0}
             role="button"
-            aria-label={ticket.title}
+            aria-label={ticket.description}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
@@ -181,9 +178,13 @@ export default function PublicFeedPage(): React.ReactElement {
                   <Tag color="blue">{ticket.category_display}</Tag>
                   <TicketStatusTag status={ticket.status} />
                 </Space>
-                <Title level={5} style={{ margin: 0, fontSize: 14 }}>
-                  {ticket.title}
-                </Title>
+                <Paragraph
+                  strong
+                  ellipsis={{ rows: 2 }}
+                  style={{ margin: 0, fontSize: 14 }}
+                >
+                  {ticket.description}
+                </Paragraph>
                 <Text type="secondary" style={{ fontSize: 12 }}>
                   {ticket.author_name} — {dayjs(ticket.last_activity_at).format('DD.MM.YYYY')}
                 </Text>

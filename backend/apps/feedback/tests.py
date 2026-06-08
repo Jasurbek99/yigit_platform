@@ -29,7 +29,6 @@ def _make_user(username: str, role: str) -> User:
 def _make_ticket(author: User, **kwargs) -> FeedbackTicket:
     defaults = {
         'category': 'bug',
-        'title': 'Test ticket',
         'description': 'This is a test.',
         'status': 'new',
     }

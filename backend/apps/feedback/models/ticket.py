@@ -33,7 +33,6 @@ class FeedbackTicket(models.Model):
     category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
 
     # === Content — Cyrillic collation for user-entered text ===
-    title = models.CharField(max_length=200, db_collation='Cyrillic_General_CI_AS')
     description = models.CharField(max_length=4000, db_collation='Cyrillic_General_CI_AS')
 
     # === Status ===
@@ -65,4 +64,4 @@ class FeedbackTicket(models.Model):
         ]
 
     def __str__(self) -> str:
-        return f'[{self.category}] {self.title[:60]} ({self.status})'
+        return f'[{self.category}] {self.description[:60]} ({self.status})'

@@ -1498,12 +1498,12 @@ export interface IFeedbackReply {
   created_at: string;
 }
 
-/** List-level shape â€” lightweight, no replies or description. */
+/** List-level shape â€” lightweight, no replies or attachments. */
 export interface IFeedbackTicket {
   id: number;
   category: FeedbackCategory;
   category_display: string;
-  title: string;
+  description: string;
   status: FeedbackStatus;
   status_display: string;
   is_public: boolean;
@@ -1514,9 +1514,8 @@ export interface IFeedbackTicket {
   last_activity_at: string;
 }
 
-/** Full detail shape â€” includes description, attachments, replies. */
+/** Full detail shape â€” includes attachments and replies. */
 export interface IFeedbackTicketDetail extends IFeedbackTicket {
-  description: string;
   submitted_from_path: string;
   submitted_from_label: string;
   attachments: IFeedbackAttachment[];
@@ -1527,7 +1526,6 @@ export interface IFeedbackTicketDetail extends IFeedbackTicket {
 /** Create payload (converted to FormData in the hook). */
 export interface IFeedbackTicketCreate {
   category: FeedbackCategory;
-  title: string;
   description: string;
   submitted_from_path: string;
   submitted_from_label?: string;

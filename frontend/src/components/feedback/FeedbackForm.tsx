@@ -11,7 +11,6 @@ const { Text } = Typography;
 
 interface IFeedbackFormValues {
   category: FeedbackCategory;
-  title: string;
   description: string;
 }
 
@@ -44,7 +43,6 @@ export function FeedbackForm({
   async function handleSubmit(values: IFeedbackFormValues): Promise<void> {
     await createMutation.mutateAsync({
       category: values.category,
-      title: values.title,
       description: values.description,
       submitted_from_path: fromPath,
       user_agent: navigator.userAgent,
@@ -73,21 +71,6 @@ export function FeedbackForm({
         <Select
           options={categoryOptions}
           placeholder={t('feedback.form.category_placeholder')}
-        />
-      </Form.Item>
-
-      <Form.Item
-        name="title"
-        label={t('feedback.form.title')}
-        rules={[
-          { required: true, message: t('feedback.form.title_required') },
-          { max: 200, message: t('feedback.form.title_max') },
-        ]}
-      >
-        <Input
-          placeholder={t('feedback.form.title_placeholder')}
-          maxLength={200}
-          showCount
         />
       </Form.Item>
 

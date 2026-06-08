@@ -142,9 +142,7 @@ class FeedbackTicketViewSet(ModelViewSet):
 
         search = params.get('search')
         if search:
-            qs = qs.filter(
-                Q(title__icontains=search) | Q(description__icontains=search)
-            )
+            qs = qs.filter(Q(description__icontains=search))
 
         date_from = params.get('date_from')
         if date_from:

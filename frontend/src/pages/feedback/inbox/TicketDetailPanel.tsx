@@ -13,7 +13,7 @@ import {
 } from '@/hooks/useFeedback';
 import { TicketReplyThread } from './TicketReplyThread';
 
-const { Text, Title, Paragraph } = Typography;
+const { Text, Paragraph } = Typography;
 
 interface ITicketDetailPanelProps {
   ticketId: number | null;
@@ -135,9 +135,6 @@ export function TicketDetailPanel({ ticketId, onDeleted }: ITicketDetailPanelPro
               </Popconfirm>
             )}
           </Space>
-          <Title level={5} style={{ margin: '8px 0 4px' }}>
-            {ticket.title}
-          </Title>
           <Text type="secondary" style={{ fontSize: 12 }}>
             {ticket.author_name} ({t(`roles.${ticket.author_role}`)})
             {ticket.submitted_from_path && ` — ${pathToLabel(ticket.submitted_from_path, t)}`}

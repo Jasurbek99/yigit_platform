@@ -62,7 +62,7 @@ def send_admin_new_ticket_email(ticket) -> None:
         )
         author_display = ticket.author.get_full_name() or ticket.author.username
         send_mail(
-            subject=f"[YGT Feedback] {ticket.get_category_display()} — {ticket.title[:80]}",
+            subject=f"[YGT Feedback] {ticket.get_category_display()} — {ticket.description[:80]}",
             message=(
                 f"From {author_display} ({ticket.author.role})\n\n"
                 f"{ticket.description[:500]}{link_line}"

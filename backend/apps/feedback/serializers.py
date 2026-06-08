@@ -67,7 +67,7 @@ class FeedbackTicketListSerializer(serializers.ModelSerializer):
             'id',
             'category',
             'category_display',
-            'title',
+            'description',
             'status',
             'status_display',
             'is_public',
@@ -104,7 +104,6 @@ class FeedbackTicketDetailSerializer(serializers.ModelSerializer):
             'id',
             'category',
             'category_display',
-            'title',
             'status',
             'status_display',
             'is_public',
@@ -157,7 +156,6 @@ class FeedbackTicketCreateSerializer(serializers.ModelSerializer):
         model = FeedbackTicket
         fields = [
             'category',
-            'title',
             'description',
             'submitted_from_path',
             'submitted_from_label',

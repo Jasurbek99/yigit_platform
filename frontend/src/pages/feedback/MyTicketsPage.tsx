@@ -64,9 +64,6 @@ function TicketDetailDrawer({ ticketId }: IDetailDrawerProps): React.ReactElemen
             </Button>
           )}
         </Space>
-        <Title level={5} style={{ margin: '8px 0 4px' }}>
-          {ticket.title}
-        </Title>
         <Text type="secondary" style={{ fontSize: 12 }}>
           {dayjs(ticket.created_at).format('DD.MM.YYYY HH:mm')}
         </Text>
@@ -177,8 +174,8 @@ export default function MyTicketsPage(): React.ReactElement {
 
   const columns: ProColumns<IFeedbackTicket>[] = [
     {
-      title: t('feedback.table.title'),
-      dataIndex: 'title',
+      title: t('feedback.form.description'),
+      dataIndex: 'description',
       ellipsis: true,
     },
     {
@@ -237,7 +234,7 @@ export default function MyTicketsPage(): React.ReactElement {
           },
           tabIndex: 0,
           role: 'button',
-          'aria-label': record.title,
+          'aria-label': record.description,
           style: { cursor: 'pointer' },
         })}
       />

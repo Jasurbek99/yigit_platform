@@ -2097,10 +2097,6 @@
       "category": "Type",
       "category_placeholder": "Select type",
       "category_required": "Please select a type",
-      "title": "Title",
-      "title_placeholder": "Brief summary...",
-      "title_required": "Please enter a title",
-      "title_max": "Title must be 200 characters or fewer",
       "description": "Description",
       "description_placeholder": "Detailed description...",
       "description_required": "Please enter a description",
@@ -2175,7 +2171,6 @@
       "ticket_detail": "Ticket Details"
     },
     "table": {
-      "title": "Title",
       "category": "Type",
       "status": "Status",
       "created_at": "Created"
