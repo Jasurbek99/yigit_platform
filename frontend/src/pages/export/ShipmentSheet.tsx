@@ -177,7 +177,11 @@ export default function ShipmentSheet() {
       result = result.filter(
         (s) =>
           s.cargo_code.toLowerCase().includes(q) ||
-          s.customer_name?.toLowerCase().includes(q),
+          s.customer_name?.toLowerCase().includes(q) ||
+          s.official_export_code?.toLowerCase().includes(q) ||
+          s.driver_name?.toLowerCase().includes(q) ||
+          s.driver_phone?.toLowerCase().includes(q) ||
+          s.truck_plate?.toLowerCase().includes(q),
       );
     }
 

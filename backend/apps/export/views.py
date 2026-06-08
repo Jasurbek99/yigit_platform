@@ -118,7 +118,13 @@ class ShipmentViewSet(ModelViewSet):
     ).order_by('-date', '-id')
 
     filterset_fields = ['status', 'country', 'season', 'is_gapy_satys', 'customer']
-    search_fields = ['cargo_code']
+    search_fields = [
+        'cargo_code',
+        'official_export_code',
+        'driver_name',
+        'driver_phone',
+        'truck_plate',
+    ]
 
     def get_serializer_class(self):
         if self.action == 'retrieve':
