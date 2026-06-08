@@ -51,6 +51,7 @@ export default function ShipmentSheet() {
   // setters are stable refs and never trigger a re-render.
   const searchText = useSheetStore((s) => s.searchText);
   const showGapyOnly = useSheetStore((s) => s.showGapyOnly);
+  const sheetFilters = useSheetStore((s) => s.sheetFilters);
   const commentsDrawerOpen = useSheetStore((s) => s.commentsDrawerOpen);
   const setCommentsDrawerOpen = useSheetStore((s) => s.setCommentsDrawerOpen);
   const setCommentsShipmentId = useSheetStore((s) => s.setCommentsShipmentId);
@@ -189,6 +190,29 @@ export default function ShipmentSheet() {
       result = result.filter((s) => s.is_gapy_satys);
     }
 
+    // Column (= shipment) filters. country/customer/import_firm match the
+    // numeric FK; export firm and block match against the nested rows because
+    // the Sheet payload carries no id for them.
+    if (sheetFilters.country != null) {
+      result = result.filter((s) => s.country === sheetFilters.country);
+    }
+    if (sheetFilters.customer != null) {
+      result = result.filter((s) => s.customer === sheetFilters.customer);
+    }
+    if (sheetFilters.importFirm != null) {
+      result = result.filter((s) => s.import_firm === sheetFilters.importFirm);
+    }
+    if (sheetFilters.exportFirm) {
+      result = result.filter((s) =>
+        s.firm_splits.some((fs) => fs.firm_code === sheetFilters.exportFirm),
+      );
+    }
+    if (sheetFilters.block) {
+      result = result.filter((s) =>
+        s.block_sources.some((bs) => bs.block_code === sheetFilters.block),
+      );
+    }
+
     // Apply optimistic column order from drag-to-reorder.
     // Strategy: build a lookup by ID, then place IDs from columnOrder first
     // (only those that exist in result), then append any result entries not in
@@ -214,7 +238,7 @@ export default function ShipmentSheet() {
     }
 
     return result;
-  }, [shipments, searchText, showGapyOnly, columnOrder]);
+  }, [shipments, searchText, showGapyOnly, sheetFilters, columnOrder]);
 
   // When the sheet query refetches (after a successful save), the server returns
   // the canonical order. Clear the optimistic override so filtered derives from
@@ -297,6 +321,7 @@ export default function ShipmentSheet() {
       ) : (
         <SheetToolbar
           shipments={filtered}
+          allShipments={shipments ?? []}
           rows={rows}
           taskCounts={taskCounts}
           currentUserLang={currentUserLang}

@@ -6,6 +6,26 @@ interface IActiveCell {
   rowKey: string;
 }
 
+// Sheet column (= shipment) filters. All client-side over the loaded sheet
+// payload. Country / customer / import firm key on the numeric FK id; export
+// firm and block key on their code strings because the Sheet payload carries
+// no id for the nested firm_splits / block_sources rows.
+export interface ISheetFilters {
+  country: number | null;
+  customer: number | null;
+  importFirm: number | null;
+  exportFirm: string | null; // firm_splits[].firm_code
+  block: string | null; // block_sources[].block_code
+}
+
+const EMPTY_SHEET_FILTERS: ISheetFilters = {
+  country: null,
+  customer: null,
+  importFirm: null,
+  exportFirm: null,
+  block: null,
+};
+
 // v2: frozenColCount semantics changed — it now counts ALL frozen columns
 // (Row #, Who, Field name, then shipments) instead of just shipment columns.
 // Bumping the key resets old values so users don't jump from "label band
@@ -102,6 +122,9 @@ interface ISheetState {
   setSearchText: (text: string) => void;
   showGapyOnly: boolean;
   setShowGapyOnly: (val: boolean) => void;
+  sheetFilters: ISheetFilters;
+  setSheetFilter: <K extends keyof ISheetFilters>(key: K, value: ISheetFilters[K]) => void;
+  resetSheetFilters: () => void;
 
   // ─── Freeze panes (configurable like Google Sheets) ─────────────────────
   frozenRowCount: number;
@@ -182,6 +205,12 @@ export const useSheetStore = create<ISheetState>((set) => ({
   setSearchText: (text) => set({ searchText: text }),
   showGapyOnly: false,
   setShowGapyOnly: (val) => set({ showGapyOnly: val }),
+  sheetFilters: { ...EMPTY_SHEET_FILTERS },
+  setSheetFilter: (key, value) =>
+    set((state) => ({ sheetFilters: { ...state.sheetFilters, [key]: value } })),
+  // Clears every column filter, including the Gapy Satyş toggle, so the
+  // toolbar's "Clear all" wipes the whole filter set in one action.
+  resetSheetFilters: () => set({ sheetFilters: { ...EMPTY_SHEET_FILTERS }, showGapyOnly: false }),
 
   // ─── Freeze panes ───────────────────────────────────────────────────────
   frozenRowCount: initialFreeze.frozenRowCount,

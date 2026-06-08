@@ -1350,6 +1350,17 @@
     "gapy_only": "Только Гапы Сатыш",
     "my_work": "Мои задачи",
     "total_count": "{{count}} отгрузок",
+    "filtered_count": "{{count}} / {{total}} отгрузок",
+    "filters": {
+      "label": "Фильтры",
+      "country": "Страна",
+      "customer": "Клиент",
+      "import_firm": "Импорт-фирма",
+      "export_firm": "Экспорт-фирма",
+      "block": "Блок",
+      "all": "Все",
+      "clear": "Сбросить"
+    },
     "save_error": "Ошибка сохранения",
     "save_success": "Сохранено",
     "clear_cell": "Очистить ячейку",

@@ -14,7 +14,7 @@ Backend: `ShipmentViewSet.sheet()` action at `GET /api/v1/export/shipments/sheet
 
 ```
 ┌─────────────────────────────────────────────────┐
-│  Toolbar  [+ Add column]  [search]  [Gapy only] │
+│  Toolbar  [+ Add column]  [search]  [🜔 Filters] │
 ├──┬──────┬───────────┬────────┬────────┬─────────┤
 │ #│ Who  │ Field     │ S-001  │ S-002  │   ...   │  ← virtualised
 ├──┼──────┼───────────┼────────┼────────┼─────────┤
@@ -41,7 +41,7 @@ State lives in `sheetStore` (`frozenRowCount`, `frozenColCount`) and persists to
 
 ### Settings modal
 
-The toolbar's **⚙ Settings** button (top-left, after the Gapy switch) opens a `Sheet Display Settings` modal that houses the freeze pickers:
+The toolbar's **⚙ Settings** button (top-left, after the Filters popover) opens a `Sheet Display Settings` modal that houses the freeze pickers:
 
 - **Freeze rows up to:** Ant `Select` with one option per visible row in the current order — labelled `<field label> (R<row_number>)` (e.g. `Harvest Status (R14)`). Picking row at position N sets `frozenRowCount = N`. The list reflects the user's reordered + visible row sequence (not the original Excel numbering), so freezing matches what the user actually sees on screen.
 - **Freeze columns up to:** Ant `Select` with options `After column 1`, `After column 2`, …, capped at `min(20, shipmentCount − 1)`. Picking N sets `frozenColCount = N`. Disabled when there are fewer than 2 shipments.
@@ -300,8 +300,8 @@ Admin / export_manager can set a **global** left-to-right order for the shipment
 - **New destination shipment** — opens `DestinationDraftModal`; creates a destination-only `draft` column (country + import_firm + customer, optional firm_splits, no blocks). Used by Gadam (`export_manager`).
 - **Join** — arms a **column-selection mode** (no modal): Gadam clicks two draft columns directly in the grid (highlighted with a blue ring); the `JoinActionBar` below the toolbar auto-detects the destination (target) vs supply (source), shows a preview, and confirms via Popconfirm. Merges the supply's blocks into the destination draft via `POST /export/shipments/{target_id}/join/` `{source_id}`; the source is hard-deleted on success. `export_manager`/`director` only.
 - `+ Add column` — creates a new blank draft shipment (`useSheetCreate`); visible when `canDo('shipment', 'create')`
-- Search — filters by `cargo_code` or `customer_name` (client-side)
-- Gapy only — filters to `is_gapy_satys = true`
+- Search — filters by `cargo_code`, `customer_name`, `official_export_code`, `driver_name`, `driver_phone`, or `truck_plate` (client-side)
+- **🜔 Filters** — a `Popover` (button shows an active-count `Badge` and turns primary when any filter is set) housing all column filters: a **Gapy only** toggle (`is_gapy_satys = true`) plus single-select dropdowns for **Country**, **Customer**, **Import Firm**, **Export Firm**, and **Block**, with a **Clear all** button. State lives in `sheetStore` (`showGapyOnly` + `sheetFilters: {country, customer, importFirm, exportFirm, block}`, with `setSheetFilter` / `resetSheetFilters`). All matching is client-side in `ShipmentSheet`'s `filtered` useMemo: country/customer/importFirm match the numeric FK; exportFirm matches any `firm_splits[].firm_code`; block matches any `block_sources[].block_code`. Dropdown **options are derived from the full unfiltered payload** (`allShipments` prop) so the dimensions don't cascade, and only values actually present in the data are offered. When a filter is active the count reads `filtered / total` (`sheet.filtered_count`).
 - **⚙ Settings** — opens the `Sheet Display Settings` modal with the freeze pickers (see Freeze panes above)
 - **Zoom `−` / `%` / `+`** — scales the whole grid (cells **and** fonts) 60 %–150 % in 10 % steps; click the `%` to reset to 100 %. State lives in `sheetStore` (`sheetZoom`, with `zoomIn`/`zoomOut`/`resetZoom`/`setSheetZoom`) and persists per browser to `localStorage` under `ygt-sheet-zoom`. See [Zoom](#zoom) below.
 - **⛶ Fullscreen** (toolbar right) — enters a distraction-free mode: the page pins itself over the entire viewport (`.sheet-page--fullscreen`, `position:fixed; inset:0; z-index:1000`), covering the AppLayout sidebar (z-index 100) and header (z-index 99). The toolbar itself is **unmounted** — only the grid plus a small floating circular **exit** button (top-right) remain. Exit via that button or the **Esc** key. State: `sheetFullscreen` in `sheetStore` (`setSheetFullscreen`/`toggleSheetFullscreen`) — **ephemeral** (not persisted; a per-session view choice), and force-reset on page unmount so navigating away can't leave the flag stuck.

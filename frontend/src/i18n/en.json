@@ -1348,6 +1348,17 @@
     "gapy_only": "Gapy Satys only",
     "my_work": "My Work",
     "total_count": "{{count}} shipments",
+    "filtered_count": "{{count}} / {{total}} shipments",
+    "filters": {
+      "label": "Filters",
+      "country": "Country",
+      "customer": "Customer",
+      "import_firm": "Import Firm",
+      "export_firm": "Export Firm",
+      "block": "Block",
+      "all": "All",
+      "clear": "Clear all"
+    },
     "save_error": "Failed to save",
     "save_success": "Saved",
     "clear_cell": "Clear cell",

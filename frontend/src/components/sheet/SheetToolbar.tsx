@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Button, Input, Switch, Typography, Badge, Modal, List, Select, Space, Tooltip } from 'antd';
+import { Button, Input, Switch, Typography, Badge, Modal, List, Select, Space, Tooltip, Popover } from 'antd';
 import {
   PlusOutlined,
   SearchOutlined,
@@ -11,6 +11,7 @@ import {
   MergeCellsOutlined,
   FullscreenOutlined,
   SwapOutlined,
+  FilterOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -33,8 +34,29 @@ const TOTAL_LABEL_COLS = 3;
 
 const { Text } = Typography;
 
+/** Label-over-control wrapper for one filter row in the filter popover. */
+function FilterField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div style={{ marginBottom: 2 }}>
+        <Text type="secondary" style={{ fontSize: 11 }}>
+          {label}
+        </Text>
+      </div>
+      {children}
+    </div>
+  );
+}
+
 interface ISheetToolbarProps {
+  /** The filtered shipment list (drives the visible count + join/swap bars). */
   shipments: IShipmentSheetItem[];
+  /**
+   * The full, UNFILTERED sheet payload. Used only to build the filter dropdown
+   * options so the choices don't cascade (picking a country must not shrink the
+   * customer list). Defaults to `shipments` for backward compat.
+   */
+  allShipments?: IShipmentSheetItem[];
   taskCounts?: ISheetTaskCounts;
   /**
    * Full row config list from the sheet payload — used by the hidden-rows pill
@@ -59,6 +81,7 @@ interface ISheetToolbarProps {
 
 export function SheetToolbar({
   shipments,
+  allShipments,
   taskCounts = {},
   rows = [],
   // currentUserLang is part of the interface for future label resolution;
@@ -73,6 +96,9 @@ export function SheetToolbar({
   const setSearchText = useSheetStore((s) => s.setSearchText);
   const showGapyOnly = useSheetStore((s) => s.showGapyOnly);
   const setShowGapyOnly = useSheetStore((s) => s.setShowGapyOnly);
+  const sheetFilters = useSheetStore((s) => s.sheetFilters);
+  const setSheetFilter = useSheetStore((s) => s.setSheetFilter);
+  const resetSheetFilters = useSheetStore((s) => s.resetSheetFilters);
   const commentsDrawerOpen = useSheetStore((s) => s.commentsDrawerOpen);
   const toggleCommentsDrawer = useSheetStore((s) => s.toggleCommentsDrawer);
   const frozenRowCount = useSheetStore((s) => s.frozenRowCount);
@@ -103,6 +129,160 @@ export function SheetToolbar({
   const canJoin =
     user?.is_superuser || ['export_manager', 'director'].includes(userRole);
   const shipmentCount = shipments.length;
+
+  // ─── Column filters ─────────────────────────────────────────────────────
+  // Dropdown options are derived from the FULL (unfiltered) payload so the
+  // dimensions don't cascade — picking a country must not shrink the customer
+  // list. Only values actually present in the data are offered, which is why we
+  // derive options here instead of reusing the fetch-everything CountrySelect /
+  // CustomerSelect controls.
+  const filterSource = allShipments ?? shipments;
+
+  const countryOptions = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const s of filterSource) {
+      if (s.country != null) map.set(s.country, s.country_name ?? String(s.country));
+    }
+    return [...map.entries()]
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [filterSource]);
+
+  const customerOptions = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const s of filterSource) {
+      if (s.customer != null) map.set(s.customer, s.customer_name ?? String(s.customer));
+    }
+    return [...map.entries()]
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [filterSource]);
+
+  const importFirmOptions = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const s of filterSource) {
+      if (s.import_firm != null) map.set(s.import_firm, s.import_firm_name ?? String(s.import_firm));
+    }
+    return [...map.entries()]
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [filterSource]);
+
+  const exportFirmOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const s of filterSource) {
+      for (const fs of s.firm_splits) {
+        map.set(fs.firm_code, fs.firm_name ?? fs.firm_code);
+      }
+    }
+    return [...map.entries()]
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [filterSource]);
+
+  const blockOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of filterSource) {
+      for (const bs of s.block_sources) set.add(bs.block_code);
+    }
+    return [...set]
+      .map((value) => ({ value, label: value }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [filterSource]);
+
+  // Active-filter count drives the badge + "Clear all" enablement. Counts each
+  // set dropdown plus the Gapy toggle.
+  const activeFilterCount =
+    (sheetFilters.country != null ? 1 : 0) +
+    (sheetFilters.customer != null ? 1 : 0) +
+    (sheetFilters.importFirm != null ? 1 : 0) +
+    (sheetFilters.exportFirm ? 1 : 0) +
+    (sheetFilters.block ? 1 : 0) +
+    (showGapyOnly ? 1 : 0);
+
+  const filterPopoverContent = (
+    <div style={{ width: 260 }}>
+      <Space direction="vertical" size={10} style={{ width: '100%' }}>
+        <div className="sheet-toolbar__toggle">
+          <Switch size="small" checked={showGapyOnly} onChange={setShowGapyOnly} />
+          <Text style={{ fontSize: 12 }}>{t('sheet.gapy_only')}</Text>
+        </div>
+        <FilterField label={t('sheet.filters.country')}>
+          <Select
+            size="small"
+            style={{ width: '100%' }}
+            allowClear
+            showSearch
+            optionFilterProp="label"
+            placeholder={t('sheet.filters.all')}
+            value={sheetFilters.country ?? undefined}
+            onChange={(v) => setSheetFilter('country', v ?? null)}
+            options={countryOptions}
+          />
+        </FilterField>
+        <FilterField label={t('sheet.filters.customer')}>
+          <Select
+            size="small"
+            style={{ width: '100%' }}
+            allowClear
+            showSearch
+            optionFilterProp="label"
+            placeholder={t('sheet.filters.all')}
+            value={sheetFilters.customer ?? undefined}
+            onChange={(v) => setSheetFilter('customer', v ?? null)}
+            options={customerOptions}
+          />
+        </FilterField>
+        <FilterField label={t('sheet.filters.import_firm')}>
+          <Select
+            size="small"
+            style={{ width: '100%' }}
+            allowClear
+            showSearch
+            optionFilterProp="label"
+            placeholder={t('sheet.filters.all')}
+            value={sheetFilters.importFirm ?? undefined}
+            onChange={(v) => setSheetFilter('importFirm', v ?? null)}
+            options={importFirmOptions}
+          />
+        </FilterField>
+        <FilterField label={t('sheet.filters.export_firm')}>
+          <Select
+            size="small"
+            style={{ width: '100%' }}
+            allowClear
+            showSearch
+            optionFilterProp="label"
+            placeholder={t('sheet.filters.all')}
+            value={sheetFilters.exportFirm ?? undefined}
+            onChange={(v) => setSheetFilter('exportFirm', v ?? null)}
+            options={exportFirmOptions}
+          />
+        </FilterField>
+        <FilterField label={t('sheet.filters.block')}>
+          <Select
+            size="small"
+            style={{ width: '100%' }}
+            allowClear
+            showSearch
+            optionFilterProp="label"
+            placeholder={t('sheet.filters.all')}
+            value={sheetFilters.block ?? undefined}
+            onChange={(v) => setSheetFilter('block', v ?? null)}
+            options={blockOptions}
+          />
+        </FilterField>
+        <Button
+          size="small"
+          block
+          disabled={activeFilterCount === 0}
+          onClick={resetSheetFilters}
+        >
+          {t('sheet.filters.clear')}
+        </Button>
+      </Space>
+    </div>
+  );
 
   // Sum of open tasks assigned to me across all shipments
   const myOpenTaskCount = Object.values(taskCounts).reduce(
@@ -267,14 +447,22 @@ export function SheetToolbar({
             size="small"
             style={{ width: 200 }}
           />
-          <div className="sheet-toolbar__toggle">
-            <Switch
-              size="small"
-              checked={showGapyOnly}
-              onChange={setShowGapyOnly}
-            />
-            <Text style={{ fontSize: 12 }}>{t('sheet.gapy_only')}</Text>
-          </div>
+          <Popover
+            content={filterPopoverContent}
+            trigger="click"
+            placement="bottomLeft"
+            title={t('sheet.filters.label')}
+          >
+            <Badge count={activeFilterCount} size="small" offset={[-2, 2]}>
+              <Button
+                size="small"
+                icon={<FilterOutlined />}
+                type={activeFilterCount > 0 ? 'primary' : 'default'}
+              >
+                {t('sheet.filters.label')}
+              </Button>
+            </Badge>
+          </Popover>
           <Button
             size="small"
             icon={<SettingOutlined />}
@@ -309,7 +497,9 @@ export function SheetToolbar({
           </Space.Compact>
 
           <Text type="secondary" style={{ fontSize: 12 }}>
-            {t('sheet.total_count', { count: shipmentCount })}
+            {filterSource.length !== shipmentCount
+              ? t('sheet.filtered_count', { count: shipmentCount, total: filterSource.length })
+              : t('sheet.total_count', { count: shipmentCount })}
           </Text>
 
           {/* Phase 2a: Hidden rows pill — shown only when user has hidden rows */}
