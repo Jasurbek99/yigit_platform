@@ -35,6 +35,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useFeedbackAdminUnreadCount } from '@/hooks/useFeedback';
 import { useMyTasks } from '@/hooks/useMyTasks';
 import { useRealtime } from '@/hooks/useRealtime';
+import { realtime } from '@/services/realtime';
+import { useRealtimeStore } from '@/stores/realtimeStore';
 import { useWorklogHeartbeat } from '@/hooks/useWorklogHeartbeat';
 import { canSeePage } from '@/utils/permissions';
 import { clearCachedPrefs } from '@/cache/userPrefsCache';
@@ -80,6 +82,13 @@ export default function AppLayout() {
       if (user?.id) {
         await clearCachedPrefs(user.id);
       }
+      // Tear down the realtime socket so the next login opens a fresh
+      // connection under the new user's session. Without this, the singleton
+      // stays open as the previous user — connect() short-circuits on the
+      // still-open socket — so presence keeps showing the old account until a
+      // manual page refresh fires beforeunload → close().
+      realtime.close();
+      useRealtimeStore.setState({ sheetRoster: [], status: 'closed' });
       queryClient.removeQueries({ queryKey: ['auth', 'me'] });
       queryClient.clear();
       navigate('/login');
