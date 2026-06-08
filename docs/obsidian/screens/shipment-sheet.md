@@ -204,7 +204,9 @@ R24 = `has_doc_advance` (✓/❌, Babageldi). True once a `FinansistAdvanceShipm
 
 ## Right-click context menu
 
-Every non-hidden cell is wrapped in an Ant `Dropdown` (`trigger={['contextMenu']}`) so right-click always opens a Sheet-owned menu instead of the browser's native one. This is the foundation for future cell actions (Copy value, View history, etc.) — currently the only item is **Clear cell**.
+Every non-hidden cell is wrapped in an Ant `Dropdown` (`trigger={['contextMenu']}`) so right-click always opens a Sheet-owned menu instead of the browser's native one. Two items: **Show edit history** (clock icon) above a divider, then **Clear cell**.
+
+**Show edit history** is enabled on every cell. It opens an Ant `Modal` (`t('sheet.history_title')`) that lazily fetches the same `GET /api/v1/export/shipments/{id}/field-history/?field=<field_key>&limit=50` endpoint as the in-cell `CellLastEditMarker` clock badge and renders the rows newest-first — editor name, timestamp, `old → new`. The modal body is the shared `FieldHistoryContent` component (extracted from `CellLastEditMarker`); the modal mounts only while open and `useFieldHistory` fires only on open, so it adds nothing to the ~880 cells at peak. 403 (reader without `can_edit_sheet_field` on a sensitive field — old prices/phones) degrades to `t('sheet.history_forbidden')`; no recorded edits shows `t('sheet.history_empty')`.
 
 The `date` and `datetime` editors deliberately disable Ant's built-in `allowClear` X (operators kept accidentally wiping saved values when missing-click the picker's X), so the right-click → Clear cell path is the supported way to null a filled cell.
 

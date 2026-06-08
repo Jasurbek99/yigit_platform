@@ -19,7 +19,7 @@ function formatDate(iso: string): string {
   return dayjs(iso).format('DD MMM HH:mm');
 }
 
-function HistoryPopoverContent({
+export function FieldHistoryContent({
   shipmentId,
   fieldKey,
   open,
@@ -128,7 +128,7 @@ export function CellLastEditMarker({ shipmentId, fieldKey, lastEdit }: ICellLast
       trigger="click"
       title={t('sheet.history_title')}
       content={
-        <HistoryPopoverContent
+        <FieldHistoryContent
           shipmentId={shipmentId}
           fieldKey={fieldKey}
           open={popoverOpen}

@@ -1,5 +1,6 @@
-import { memo, useCallback } from 'react';
-import { Dropdown, Tag } from 'antd';
+import { memo, useCallback, useState } from 'react';
+import { Dropdown, Modal, Tag } from 'antd';
+import { HistoryOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -11,6 +12,7 @@ import { scaleSheetLayout } from '@/constants/sheetRowConfig';
 import { useShipmentPatch, extractPatchError, applyOptimistic } from '@/hooks/useShipmentPatch';
 import api from '@/services/api';
 import { CommentMarker } from './CommentMarker';
+import { FieldHistoryContent } from './CellLastEditMarker';
 import { getCellValue } from './getCellValue';
 import { getContrastTextColor } from '@/utils/contrastColor';
 
@@ -109,6 +111,11 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
   const sheetZoom = useSheetStore((s) => s.sheetZoom);
   const queryClient = useQueryClient();
   const patchMutation = useShipmentPatch();
+
+  // Right-click → "Show edit history" opens a modal listing this cell's
+  // AuditLog rows (user / timestamp / old → new). Lazy: the modal is only
+  // mounted when opened, and FieldHistoryContent only fetches when `open`.
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   // Right-click → "Clear cell". Operators asked for a safer alternative to the
   // DatePicker's allowClear=false (which intentionally has no X to prevent
@@ -315,22 +322,46 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
   // ~880 cells in the DOM at peak (virtualized), each Dropdown is a thin
   // rc-trigger that only attaches an onContextMenu listener until opened.
   const wrap = (node: React.ReactElement): React.ReactElement => (
-    <Dropdown
-      trigger={['contextMenu']}
-      menu={{
-        items: [
-          {
-            key: 'clear',
-            label: t('sheet.clear_cell'),
-            danger: true,
-            disabled: !canClear,
-            onClick: canClear ? handleClearCell : undefined,
-          },
-        ],
-      }}
-    >
-      {node}
-    </Dropdown>
+    <>
+      <Dropdown
+        trigger={['contextMenu']}
+        menu={{
+          items: [
+            {
+              key: 'history',
+              icon: <HistoryOutlined />,
+              label: t('sheet.show_history'),
+              onClick: () => setHistoryOpen(true),
+            },
+            { type: 'divider' },
+            {
+              key: 'clear',
+              label: t('sheet.clear_cell'),
+              danger: true,
+              disabled: !canClear,
+              onClick: canClear ? handleClearCell : undefined,
+            },
+          ],
+        }}
+      >
+        {node}
+      </Dropdown>
+      {historyOpen && (
+        <Modal
+          open
+          title={t('sheet.history_title')}
+          footer={null}
+          width={360}
+          onCancel={() => setHistoryOpen(false)}
+        >
+          <FieldHistoryContent
+            shipmentId={shipment.id}
+            fieldKey={rowConfig.field_key}
+            open={historyOpen}
+          />
+        </Modal>
+      )}
+    </>
   );
 
   if (isHidden) {
