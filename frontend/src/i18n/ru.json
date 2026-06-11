@@ -28,7 +28,7 @@
     "accountant": "Бухгалтер",
     "greenhouse_manager": "Менеджер теплицы",
     "seller": "Продавец",
-    "weight_master": "Мастер взвешивания",
+    "weight_master": "Упаковщик",
     "loading_dept_head": "Начальник отдела загрузки",
     "loading_dept_head_deputy": "Заместитель начальника отдела загрузки",
     "boss": "Босс"
@@ -2308,7 +2308,7 @@
       "greenhouse_manager": "Менеджер теплицы",
       "loading_dept_head": "Нач. загрузки",
       "loading_dept_head_deputy": "Зам. загрузки",
-      "weight_master": "Весовщик",
+      "weight_master": "Упаковщик",
       "boss": "Руководитель",
       "seller": "Продавец"
     },

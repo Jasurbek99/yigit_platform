@@ -28,7 +28,7 @@
     "accountant": "Accountant",
     "greenhouse_manager": "Greenhouse Manager",
     "seller": "Seller",
-    "weight_master": "Weight Master",
+    "weight_master": "Packer",
     "loading_dept_head": "Loading Dept Head",
     "loading_dept_head_deputy": "Loading Dept Deputy",
     "boss": "Boss"
@@ -2306,7 +2306,7 @@
       "greenhouse_manager": "Greenhouse Manager",
       "loading_dept_head": "Loading Dept Head",
       "loading_dept_head_deputy": "Loading Deputy",
-      "weight_master": "Weight Master",
+      "weight_master": "Packer",
       "boss": "Boss",
       "seller": "Seller"
     },
