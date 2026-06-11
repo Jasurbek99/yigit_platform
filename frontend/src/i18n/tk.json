@@ -1375,6 +1375,11 @@
     "save_success": "Ýatda saklandy",
     "clear_cell": "Öýjügi arassala",
     "show_history": "Üýtgeşme taryhyny görkez",
+    "cell_copied": "Göçürildi",
+    "paste_readonly": "Bu öýjügi üýtgedip bolmaýar",
+    "paste_unsupported": "Bu görnüşli öýjüge goýup bolmaýar",
+    "paste_incompatible": "Bu bahany bu öýjüge goýup bolmaýar",
+    "paste_nothing": "Goýara zat ýok",
     "column_color": {
       "tooltip": "Bu ýüküň sütünini reňkle",
       "presets": "Bellik reňkleri"

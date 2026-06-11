@@ -19,7 +19,6 @@ import { CSS } from '@dnd-kit/utilities';
 import type {
   IShipmentSheetItem,
   IRowConfig,
-  ICurrentUser,
   ISheetCommentCounts,
   ISheetTaskCounts,
   ICommentTaskStatus,
@@ -28,7 +27,8 @@ import type {
 } from '@/types';
 import { useSheetStore } from '@/stores/sheetStore';
 import { useAuth } from '@/hooks/useAuth';
-import { canDo, canEditField } from '@/utils/permissions';
+import { isCellEditable } from '@/utils/sheetPermissions';
+import { useSheetClipboard } from '@/hooks/useSheetClipboard';
 import { useSaveSheetColumnOrder } from '@/hooks/useShipmentSheet';
 import { SheetCell } from './SheetCell';
 import { SheetCellEditor } from './SheetCellEditor';
@@ -100,28 +100,11 @@ function SortableHeaderWrapper({
   );
 }
 
-// Sheet field keys that map to junction-table resources rather than direct
-// columns on Shipment. Editing these calls a dedicated action endpoint and
-// permission is gated by the resource's edit flag, not field-level grants.
-const JUNCTION_RESOURCE_BY_FIELD: Record<string, string> = {
-  firm_splits: 'shipment_firm_split',
-  block_sources: 'shipment_block_source',
-};
-
 // Roles whose columns get a supply-side green tint in the Sheet.
 const SUPPLY_ROLES = new Set(['loading_dept_head', 'loading_dept_head_deputy', 'warehouse_chief']);
 
 function isSupplyColumn(shipment: IShipmentSheetItem): boolean {
   return SUPPLY_ROLES.has(shipment.created_by_role ?? '');
-}
-
-function canEditCell(user: ICurrentUser | null, fieldKey: string): boolean {
-  if (!user) return false;
-  const junctionResource = JUNCTION_RESOURCE_BY_FIELD[fieldKey];
-  if (junctionResource) {
-    return canDo(user, junctionResource, 'edit');
-  }
-  return canEditField(user, 'shipment', fieldKey);
 }
 
 interface ISheetGridProps {
@@ -215,6 +198,10 @@ export function SheetGrid({
   );
   const reorderEnabled = canReorderColumns && !joinMode && !swapMode;
   const saveColumnOrder = useSaveSheetColumnOrder();
+
+  // Google-Sheets clipboard for the active cell: Ctrl+C / X / V + Delete.
+  const { copyActiveCell, cutActiveCell, pasteActiveCell, deleteActiveCell } =
+    useSheetClipboard(shipments, rows, rowSettings, user);
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
@@ -422,6 +409,51 @@ export function SheetGrid({
     ]);
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept keystrokes targeted at form controls or
+      // contenteditable surfaces (cell editor inputs, comments composer,
+      // search box, etc.) — native copy/paste/typing must win there.
+      const target = e.target as HTMLElement | null;
+      const inFormControl =
+        !!target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable);
+      if (inFormControl) return;
+
+      const state = useSheetStore.getState();
+
+      // ─── Clipboard + Delete shortcuts ─────────────────────────────────────
+      // Handled before nav/type-to-edit so Ctrl+C/X/V and Delete don't fall
+      // through to the editor-open path. Only act on the active cell while not
+      // editing and not in column join/swap selection.
+      if (state.activeCell && !state.editingCell && !state.joinMode && !state.swapMode) {
+        const mod = (e.ctrlKey || e.metaKey) && !e.altKey;
+        // Match on e.code (physical key), NOT e.key: on Russian / Kazakh layouts
+        // Ctrl+C yields e.key === 'с' (Cyrillic), which would never match 'c'.
+        // e.code is layout-independent, exactly like the OS copy/paste binding.
+        if (mod && e.code === 'KeyC') {
+          copyActiveCell();
+          e.preventDefault();
+          return;
+        }
+        if (mod && e.code === 'KeyX') {
+          cutActiveCell();
+          e.preventDefault();
+          return;
+        }
+        if (mod && e.code === 'KeyV') {
+          void pasteActiveCell();
+          e.preventDefault();
+          return;
+        }
+        if (!mod && (e.key === 'Delete' || e.key === 'Backspace')) {
+          deleteActiveCell();
+          e.preventDefault();
+          return;
+        }
+      }
+
       const isNav = NAV_KEYS.has(e.key);
       // Type-to-edit (Google Sheets): a single printable character on the
       // active cell opens its editor seeded with that character. Permit AltGr
@@ -433,23 +465,6 @@ export function SheetGrid({
       // Nav keys must not carry modifiers; the printable path handles its own.
       if (isNav && (e.altKey || e.ctrlKey || e.metaKey)) return;
 
-      // Don't intercept keystrokes targeted at form controls or
-      // contenteditable surfaces (cell editor inputs, comments composer,
-      // search box, etc.).
-      const target = e.target as HTMLElement | null;
-      if (target) {
-        const tag = target.tagName;
-        if (
-          tag === 'INPUT' ||
-          tag === 'TEXTAREA' ||
-          tag === 'SELECT' ||
-          target.isContentEditable
-        ) {
-          return;
-        }
-      }
-
-      const state = useSheetStore.getState();
       if (state.editingCell) return;
       if (state.joinMode || state.swapMode) return;
 
@@ -494,7 +509,15 @@ export function SheetGrid({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [rows, shipments, navigateActiveCell]);
+  }, [
+    rows,
+    shipments,
+    navigateActiveCell,
+    copyActiveCell,
+    cutActiveCell,
+    pasteActiveCell,
+    deleteActiveCell,
+  ]);
 
   // ─── Reorder helpers ───────────────────────────────────────────────────────
   // Compute the new ordered list of row IDs after moving row at `fromIndex`
@@ -583,17 +606,9 @@ export function SheetGrid({
         editingCell?.shipmentId === shipment.id &&
         editingCell?.rowKey === rowConfig.field_key;
 
-      // Trust the backend-computed decision (row_settings[fk].can_current_user_edit)
-      // when present — it already composes RoleFieldPermission with the v2 row
-      // triggers (is_locked, triggered_roles, triggered_user, extra_users). The
-      // legacy local canEditCell only knows about RoleFieldPermission and would
-      // disable cells the user can edit via a v2-only grant. Fallback to the
-      // legacy check only when the row has no row_settings entry (e.g., a field
-      // not in DEFAULT_SHEET_ROWS).
-      const v2EditDecision = rowSettings[rowConfig.field_key]?.can_current_user_edit;
-      const isEditable =
-        rowConfig.input_type !== 'readonly' &&
-        (v2EditDecision ?? canEditCell(user, rowConfig.field_key));
+      // Shared with the clipboard hook so cut / paste / Delete obey the same
+      // gate as inline editing (backend v2 decision, else legacy field check).
+      const isEditable = isCellEditable(rowConfig, rowSettings, user);
 
       // Comment / task badge for this specific cell
       const cellCounts = commentCounts[shipment.id] ?? {};

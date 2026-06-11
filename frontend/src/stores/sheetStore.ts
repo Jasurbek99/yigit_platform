@@ -6,6 +6,16 @@ interface IActiveCell {
   rowKey: string;
 }
 
+// In-app clipboard for Sheet copy/cut/paste. Holds the source cell's raw value
+// (for type-safe same-field paste) plus its formatted display text (for
+// free-text paste and the OS-clipboard mirror).
+export interface ISheetClipboardEntry {
+  fieldKey: string;
+  inputType: string;
+  rawValue: unknown;
+  displayText: string;
+}
+
 // Sheet column (= shipment) filters. All client-side over the loaded sheet
 // payload. Country / customer / import firm key on the numeric FK id; export
 // firm and block key on their code strings because the Sheet payload carries
@@ -128,6 +138,11 @@ interface ISheetState {
   // the editor (which owns commit/save) from the grid (which owns geometry).
   pendingNav: string | null;
   setPendingNav: (navKey: string | null) => void;
+  // Sheet clipboard (Ctrl+C/X). Null until the first copy/cut. Lives in the
+  // store so paste can read it from anywhere and a future cut-cell highlight can
+  // subscribe to it.
+  clipboard: ISheetClipboardEntry | null;
+  setClipboard: (entry: ISheetClipboardEntry | null) => void;
   searchText: string;
   setSearchText: (text: string) => void;
   showGapyOnly: boolean;
@@ -214,6 +229,8 @@ export const useSheetStore = create<ISheetState>((set) => ({
   setEditingCell: (cell, seed) => set({ editingCell: cell, editSeed: seed ?? null }),
   pendingNav: null,
   setPendingNav: (navKey) => set({ pendingNav: navKey }),
+  clipboard: null,
+  setClipboard: (entry) => set({ clipboard: entry }),
   searchText: '',
   setSearchText: (text) => set({ searchText: text }),
   showGapyOnly: false,

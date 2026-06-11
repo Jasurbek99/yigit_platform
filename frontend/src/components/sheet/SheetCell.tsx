@@ -2,15 +2,12 @@ import { memo, useCallback, useState } from 'react';
 import { Dropdown, Modal, Tag } from 'antd';
 import { HistoryOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import type { IShipmentSheetItem, IRowConfig, ICommentTaskStatus, ISheetRowSettingForUser, IShipmentOptionType } from '@/types';
 import { useSheetStore } from '@/stores/sheetStore';
 import { useShipmentOptions } from '@/hooks/useAdmin';
 import { scaleSheetLayout } from '@/constants/sheetRowConfig';
-import { useShipmentPatch, extractPatchError, applyOptimistic } from '@/hooks/useShipmentPatch';
-import api from '@/services/api';
+import { useSheetCellWrite, isClearableField } from '@/hooks/useSheetCellWrite';
 import { CommentMarker } from './CommentMarker';
 import { FieldHistoryContent } from './CellLastEditMarker';
 import { getCellValue } from './getCellValue';
@@ -53,22 +50,6 @@ const FIELD_KEY_TO_FK_COLOR_FIELD: Record<string, keyof IShipmentSheetItem> = {
   import_firm: 'import_firm_color',
   variety: 'variety_color',
   border_point: 'border_point_color',
-};
-
-// When right-click → Clear cell PATCHes an FK field to null, the cell still
-// renders from cached companion fields (`country_name`, `country_code`,
-// `country_color`, etc.) until the PATCH response reconciles them ~200-500 ms
-// later. To make the cell flip empty instantly, the optimistic update wipes
-// these companions too. (The wipe-then-reconcile pattern still works — the
-// server response is authoritative and overwrites whatever we set here.)
-const FK_CLEAR_COMPANION_FIELDS: Record<string, readonly (keyof IShipmentSheetItem)[]> = {
-  country: ['country_name', 'country_code', 'country_color'],
-  city: ['city_name', 'city_color'],
-  customer: ['customer_name', 'customer_color'],
-  import_firm: ['import_firm_name', 'import_firm_color'],
-  variety: ['variety_name', 'variety_code', 'variety_color'],
-  border_point: ['border_point_name', 'border_point_color'],
-  vehicle_responsible: ['vehicle_responsible_display'],
 };
 
 function getCellAutoColor(
@@ -119,98 +100,15 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
   const setEditingCell = useSheetStore((s) => s.setEditingCell);
   const openCommentsForCell = useSheetStore((s) => s.openCommentsForCell);
   const sheetZoom = useSheetStore((s) => s.sheetZoom);
-  const queryClient = useQueryClient();
-  const patchMutation = useShipmentPatch();
+  // Shared write/clear engine — same optimistic save paths used by the
+  // clipboard hook (cut / paste / Delete) and the cell editor.
+  const { clearCell } = useSheetCellWrite();
 
   // Right-click → "Show edit history" opens a modal listing this cell's
   // AuditLog rows (user / timestamp / old → new). Lazy: the modal is only
   // mounted when opened, and FieldHistoryContent only fetches when `open`.
   const [historyOpen, setHistoryOpen] = useState(false);
 
-  // Right-click → "Clear cell". Operators asked for a safer alternative to the
-  // DatePicker's allowClear=false (which intentionally has no X to prevent
-  // accidental wipes). Right-click is explicit; left-click still edits.
-  // Per field-type clearing semantics:
-  //   • custom_*               → PATCH custom-fields with value=''
-  //   • multiselect (junctions)→ POST junction endpoint with empty array
-  //   • everything else        → PATCH shipment with field=null
-  //
-  // Both junction and custom mutations apply an optimistic `setQueryData` in
-  // onMutate and snapshot the previous cache for rollback on error. Without
-  // this the cell stayed showing the old value until a full sheet refetch
-  // completed (1–2 s on a ~1000-row season) — which felt like "needs refresh".
-  const clearJunctionMutation = useMutation<
-    unknown,
-    unknown,
-    { endpoint: string; key: string; field: 'firm_splits' | 'block_sources' },
-    { previous: unknown }
-  >({
-    mutationFn: async ({ endpoint, key }) => {
-      await api.post(`/export/shipments/${shipment.id}/${endpoint}/`, { [key]: [] });
-    },
-    onMutate: async ({ field }) => {
-      await queryClient.cancelQueries({ queryKey: ['shipments', 'sheet'] });
-      const previous = queryClient.getQueryData(['shipments', 'sheet']);
-      queryClient.setQueryData(['shipments', 'sheet'], (old: unknown) => {
-        const cache = old as { shipments?: IShipmentSheetItem[] } | undefined;
-        if (!cache || !Array.isArray(cache.shipments)) return old;
-        return {
-          ...cache,
-          shipments: cache.shipments.map((s) =>
-            s.id === shipment.id ? { ...s, [field]: [] } : s,
-          ),
-        };
-      });
-      return { previous };
-    },
-    onError: (err, _vars, ctx) => {
-      if (ctx?.previous !== undefined) {
-        queryClient.setQueryData(['shipments', 'sheet'], ctx.previous);
-      }
-      toast.error(extractPatchError(err, t('sheet.save_error')));
-      console.error('[SheetCell] clear junction failed', err);
-    },
-    // No onSuccess refetch — the optimistic update IS the truth. The junction
-    // endpoints only return {status, count} so there's nothing to reconcile,
-    // and a sheet refetch here would re-introduce the 1–2 s lag we just fixed.
-  });
-  const clearCustomMutation = useMutation<
-    unknown,
-    unknown,
-    string,
-    { previous: unknown }
-  >({
-    mutationFn: async (fieldKey: string) => {
-      await api.patch(`/export/shipments/${shipment.id}/custom-fields/`, {
-        field_key: fieldKey,
-        value: '',
-      });
-    },
-    onMutate: async (fieldKey) => {
-      await queryClient.cancelQueries({ queryKey: ['shipments', 'sheet'] });
-      const previous = queryClient.getQueryData(['shipments', 'sheet']);
-      queryClient.setQueryData(['shipments', 'sheet'], (old: unknown) => {
-        const cache = old as { shipments?: IShipmentSheetItem[] } | undefined;
-        if (!cache || !Array.isArray(cache.shipments)) return old;
-        return {
-          ...cache,
-          shipments: cache.shipments.map((s) =>
-            s.id === shipment.id
-              ? { ...s, custom_fields: { ...(s.custom_fields ?? {}), [fieldKey]: '' } }
-              : s,
-          ),
-        };
-      });
-      return { previous };
-    },
-    onError: (err, _vars, ctx) => {
-      if (ctx?.previous !== undefined) {
-        queryClient.setQueryData(['shipments', 'sheet'], ctx.previous);
-      }
-      toast.error(extractPatchError(err, t('sheet.save_error')));
-      console.error('[SheetCell] clear custom field failed', err);
-    },
-  });
   const isActive = useSheetStore(
     (s) => s.activeCell?.shipmentId === shipment.id && s.activeCell?.rowKey === rowConfig.field_key,
   );
@@ -303,51 +201,14 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
   //     route handleClick to navigation, so even if isEditable were true the
   //     value can't be cleared from here.
   //   • cell is already empty — nothing to clear.
-  const isBoolDropdown =
-    rowConfig.options_source === 'peregruz' || rowConfig.options_source === 'gornushi';
-  const isClearableField =
-    rowConfig.field_key !== 'cargo_code' &&
-    rowConfig.field_key !== 'has_doc_advance' &&
-    rowConfig.field_key !== 'has_sales_report' &&
-    !isBoolDropdown;
+  // Per field-type clearing (custom → '', junction → [], else → null) and the
+  // optimistic FK-companion wipe all live in useSheetCellWrite().clearCell.
   const canClear =
-    isEditable && !isHidden && !cellIsEmpty && isClearableField;
+    isEditable && !isHidden && !cellIsEmpty && isClearableField(rowConfig);
 
   const handleClearCell = useCallback(() => {
-    const { field_key: fieldKey, input_type: inputType } = rowConfig;
-    if (fieldKey.startsWith('custom_')) {
-      clearCustomMutation.mutate(fieldKey);
-      return;
-    }
-    if (inputType === 'multiselect') {
-      if (fieldKey === 'firm_splits') {
-        clearJunctionMutation.mutate({
-          endpoint: 'firm-splits',
-          key: 'firms',
-          field: 'firm_splits',
-        });
-      } else if (fieldKey === 'block_sources') {
-        clearJunctionMutation.mutate({
-          endpoint: 'block-sources',
-          key: 'blocks',
-          field: 'block_sources',
-        });
-      }
-      return;
-    }
-    // FK clears: pre-null the cached companion fields (country_name,
-    // country_code, country_color, …) BEFORE patchMutation fires so the cell
-    // flips empty on the next render. patchMutation's own optimistic update
-    // also sets the FK id null, and its reconcileFromServer on success
-    // overwrites everything with the authoritative response.
-    const companions = FK_CLEAR_COMPANION_FIELDS[fieldKey];
-    if (companions && companions.length) {
-      applyOptimistic(queryClient, shipment.id, {
-        ...Object.fromEntries(companions.map((k) => [k, null])),
-      });
-    }
-    patchMutation.mutate({ id: shipment.id, field: fieldKey, value: null });
-  }, [rowConfig, shipment.id, patchMutation, clearCustomMutation, clearJunctionMutation, queryClient]);
+    clearCell(shipment, rowConfig);
+  }, [clearCell, shipment, rowConfig]);
 
   // Wrap every rendered cell with an antd Dropdown that opens on right-click.
   // We mount the wrapper unconditionally (not just for clearable cells) so we

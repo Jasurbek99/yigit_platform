@@ -1375,6 +1375,11 @@
     "save_success": "Saved",
     "clear_cell": "Clear cell",
     "show_history": "Show edit history",
+    "cell_copied": "Copied",
+    "paste_readonly": "This cell can't be edited",
+    "paste_unsupported": "Paste isn't supported for this cell type",
+    "paste_incompatible": "Can't paste this value into this cell",
+    "paste_nothing": "Nothing to paste",
     "column_color": {
       "tooltip": "Color this shipment column",
       "presets": "Flag colors"
