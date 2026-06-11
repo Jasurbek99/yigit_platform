@@ -222,6 +222,59 @@ class SheetRowSettingAdminTests(TestCase):
         self.assertIsNone(wn['triggered_user_active'])
         self.assertIsNone(wn['triggered_user_name'])
 
+    def test_patch_typography_fields_persist(self):
+        """PATCH style_font_weight/style/family persists and round-trips via GET."""
+        data = _provision(self.client, self.director)
+        row = _by_key(data, 'weight_net')
+        row_id = row['id']
+
+        resp = self.client.patch(
+            f'{_BASE}{row_id}/',
+            {
+                'style_font_weight': 'normal',
+                'style_font_style': 'italic',
+                'style_font_family': 'mono',
+                'style_font_size': 14,
+                'version': row['version'],
+            },
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(resp.data['style_font_weight'], 'normal')
+        self.assertEqual(resp.data['style_font_style'], 'italic')
+        self.assertEqual(resp.data['style_font_family'], 'mono')
+        self.assertEqual(resp.data['style_font_size'], 14)
+
+        # Round-trip through a fresh GET.
+        fresh = self.client.get(_BASE)
+        wn = _by_key(fresh.data, 'weight_net')
+        self.assertEqual(wn['style_font_weight'], 'normal')
+        self.assertEqual(wn['style_font_style'], 'italic')
+        self.assertEqual(wn['style_font_family'], 'mono')
+        self.assertEqual(wn['style_font_size'], 14)
+
+    def test_patch_typography_rejects_bad_choice(self):
+        """An out-of-allowlist font family is rejected by the ChoiceField (400)."""
+        data = _provision(self.client, self.director)
+        row = _by_key(data, 'weight_net')
+        resp = self.client.patch(
+            f'{_BASE}{row["id"]}/',
+            {'style_font_family': 'comic_sans', 'version': row['version']},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+
+    def test_patch_font_size_out_of_range_rejected(self):
+        """A font size outside 8–28 is rejected (400)."""
+        data = _provision(self.client, self.director)
+        row = _by_key(data, 'weight_net')
+        resp = self.client.patch(
+            f'{_BASE}{row["id"]}/',
+            {'style_font_size': 99, 'version': row['version']},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+
     # ── Test 7: AuditLog written on field change ──────────────────────────────
 
     def test_patch_writes_auditlog(self):

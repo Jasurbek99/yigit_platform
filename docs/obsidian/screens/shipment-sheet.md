@@ -123,6 +123,23 @@ Each row can be assigned **one or more formal roles** AND/OR **a specific user**
 
 **Visibility toggle**: `is_visible=False` rows are excluded entirely from the `row_settings` map in the `/sheet/` response. Hidden rows are always denied edit access.
 
+### Per-row cell styling (Style popover)
+
+The **Style** column in **Shipment Settings → Sheet Rows** (`SheetRowStylePopover`) configures how a row's data cells render across every shipment column. All style fields are split columns on `SheetRowSetting` (ADR-0008 — no JSONField) and travel to the frontend inside `row_settings[field_key].style` (omitted keys = unset):
+
+| Field | Values | Effect |
+|-------|--------|--------|
+| `style_width` | 50–500 (px) | Column width; multiplied by `sheetZoom`. |
+| `style_align` | left / center / right | Text alignment. |
+| `style_color` | `#RRGGBB` | Cell background (auto WCAG-contrast text unless `font_color` overrides). |
+| `style_font_color` | `#RRGGBB` | Cell text color override. |
+| `style_font_weight` | bold / normal | Cell text weight. **Blank = bold** — every data cell renders bold by default; admins set `normal` to un-bold a row. |
+| `style_font_style` | normal / italic | Cell text style. Blank = upright. |
+| `style_font_family` | dm_sans / inter / mono / serif | Cell font family (controlled allowlist; key → CSS stack via `SHEET_FONT_FAMILY` in `SheetCell.tsx`). Blank = inherit the sheet's default font. |
+| `style_font_size` | 8–28 (px) | Cell text size; multiplied by `sheetZoom` on render to track the rest of the cell. Null = inherit the sheet default (11px). |
+
+**Default-bold rule:** the bold baseline lives in `SheetCell` *outside* the `style?.` optional chain (`font_weight === 'normal' ? 400 : 700`), so it applies even to fallback rows with no `SheetRowSetting` (`style === null`). Per-value conditional colors and per-shipment column tints still take precedence over `style_color`. Typography is applied to the default `.sheet-cell__text` render; special-render cells (cargo code, country-with-flag, firm/block tags) keep their own component-level weights and do not inherit these row overrides.
+
 ### Sheet Rows Admin endpoint
 
 `/api/v1/export/admin/sheet-rows/` — managed by `SheetRowSettingViewSet`. Auth: `admin` role only.
@@ -366,7 +383,9 @@ Querystring `?season=<id>` overrides the active season; default scopes to `seaso
 ## Known issues
 
 - All rows from R2 to R44 are now configured (R24 is the new finansist doc-advance flag).
-- **`harvest_date`, `additional_notes_arap`, `truck_capacity`, `product_date`, `transit_days_temp`, `truck_plate`, `driver_name`, `driver_phone`** — present in `sheetRowConfig.ts` but not in the `Shipment` model nor `_ALL_PATCHABLE_FIELDS`. They render but cell edits will 403 from the backend. Either map to the right model fields (e.g. `truck_plate` → `truck_head_id` lookup) or remove from the row config. (`transit_days_temp` is a virtual key — its perm gate delegates to `transit_days` and saves dispatch to both real fields; see R26 above.)
+- **`truck_capacity`, `product_date`, `transit_days_temp`** — present in `sheetRowConfig.ts` but not backed by a model field in `_ALL_PATCHABLE_FIELDS`. They render but plain cell edits would 403. (`transit_days_temp` is a virtual key — its perm gate delegates to `transit_days` and saves dispatch to both real fields; see R26 above.) The previously-listed `harvest_date`, `additional_notes_arap`, `truck_plate`, `driver_name`, `driver_phone` are now real `Shipment` columns in `_ALL_PATCHABLE_FIELDS` and edit normally.
+
+**R39 `harvest_date` (Ýygylan senesi)** is a **free-text** cell (`input_type='text'`), not a date picker. `Shipment.harvest_date` is a `CharField` — operators type whatever form the operation uses (a single day, a range like `5–10 oktýabr`, or a note). The earlier multi-block per-`block_source` calendar editor was removed; the vestigial `ShipmentBlockSource.harvest_date` column is no longer read or written by the Sheet.
 
 ## Related
 

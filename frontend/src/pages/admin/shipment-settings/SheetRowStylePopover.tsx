@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Popover, Slider, Radio, ColorPicker, Button } from 'antd';
+import { Popover, Slider, Radio, ColorPicker, Button, Select } from 'antd';
 import type { Color } from 'antd/es/color-picker';
 import { useTranslation } from 'react-i18next';
 import type { ISheetRowSetting } from '@/types';
@@ -75,7 +75,7 @@ export function SheetRowStylePopover({
           disabledAlpha
         />
       </div>
-      <div>
+      <div style={{ marginBottom: 8 }}>
         <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>
           {t('sheet_rows.style_font_color')}
         </div>
@@ -90,6 +90,68 @@ export function SheetRowStylePopover({
           format="hex"
           allowClear
           disabledAlpha
+        />
+      </div>
+      <div style={{ marginBottom: 8 }}>
+        <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>
+          {t('sheet_rows.style_font_weight')}
+        </div>
+        <Radio.Group
+          // Blank = bold (the sheet-wide default). Only an explicit 'normal' un-bolds.
+          value={record.style_font_weight === 'normal' ? 'normal' : 'bold'}
+          disabled={!canWrite}
+          onChange={(e) => onSave({ style_font_weight: e.target.value as 'bold' | 'normal' })}
+          size="small"
+        >
+          <Radio.Button value="bold">{t('sheet_rows.weight_bold')}</Radio.Button>
+          <Radio.Button value="normal">{t('sheet_rows.weight_normal')}</Radio.Button>
+        </Radio.Group>
+      </div>
+      <div style={{ marginBottom: 8 }}>
+        <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>
+          {t('sheet_rows.style_font_style')}
+        </div>
+        <Radio.Group
+          value={record.style_font_style === 'italic' ? 'italic' : 'normal'}
+          disabled={!canWrite}
+          onChange={(e) => onSave({ style_font_style: e.target.value as 'normal' | 'italic' })}
+          size="small"
+        >
+          <Radio.Button value="normal">{t('sheet_rows.style_normal')}</Radio.Button>
+          <Radio.Button value="italic">{t('sheet_rows.style_italic')}</Radio.Button>
+        </Radio.Group>
+      </div>
+      <div style={{ marginBottom: 8 }}>
+        <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>
+          {t('sheet_rows.style_font_family')}
+        </div>
+        <Select<'dm_sans' | 'inter' | 'mono' | 'serif' | ''>
+          value={record.style_font_family || ''}
+          disabled={!canWrite}
+          onChange={(v) => onSave({ style_font_family: v })}
+          size="small"
+          style={{ width: '100%' }}
+          options={[
+            { value: '', label: t('sheet_rows.font_default') },
+            { value: 'dm_sans', label: 'DM Sans' },
+            { value: 'inter', label: 'Inter' },
+            { value: 'mono', label: t('sheet_rows.font_mono') },
+            { value: 'serif', label: t('sheet_rows.font_serif') },
+          ]}
+        />
+      </div>
+      <div>
+        <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>
+          {t('sheet_rows.style_font_size')}: {record.style_font_size ?? 11}px
+        </div>
+        <Slider
+          min={8}
+          max={28}
+          // Null = inherit the sheet default (11px). The slider shows 11 as a
+          // visual anchor; dragging writes an explicit value.
+          value={record.style_font_size ?? 11}
+          disabled={!canWrite}
+          onChange={(v) => onSave({ style_font_size: v })}
         />
       </div>
     </div>

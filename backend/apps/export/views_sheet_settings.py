@@ -110,6 +110,10 @@ class SheetRowSettingSerializer(serializers.ModelSerializer):
             'style_align',
             'style_color',
             'style_font_color',
+            'style_font_weight',
+            'style_font_style',
+            'style_font_family',
+            'style_font_size',
             # Permissions (partially writable)
             'triggered_user',
             'triggered_user_name',
@@ -215,6 +219,11 @@ class SheetRowSettingSerializer(serializers.ModelSerializer):
     def validate_style_width(self, value: int | None) -> int | None:
         if value is not None and not (50 <= value <= 500):
             raise serializers.ValidationError('style_width must be between 50 and 500.')
+        return value
+
+    def validate_style_font_size(self, value: int | None) -> int | None:
+        if value is not None and not (8 <= value <= 28):
+            raise serializers.ValidationError('style_font_size must be between 8 and 28.')
         return value
 
     def update(self, instance: SheetRowSetting, validated_data: dict) -> SheetRowSetting:
@@ -718,6 +727,8 @@ class SheetRowSettingViewSet(viewsets.ModelViewSet):
             'label_tk', 'label_ru', 'label_en',
             'description_tk', 'description_ru', 'description_en',
             'style_width', 'style_align', 'style_color', 'style_font_color',
+            'style_font_weight', 'style_font_style', 'style_font_family',
+            'style_font_size',
             'triggered_user_id',
         ]
         old_values = {f: getattr(instance, f) for f in tracked_fields}

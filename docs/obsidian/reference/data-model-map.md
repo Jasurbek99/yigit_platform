@@ -108,7 +108,7 @@ erDiagram
 | **FinansistAdvanceShipment** | advance (FK), shipment (FK), allocated_amount | Advance-shipment link |
 | **Notification** | user (FK), message, is_read, created_at | In-app notifications |
 | **AuditLog** | user (FK), action, model_name, object_id, object_repr, detail, created_at | Immutable audit trail |
-| **SheetRowSetting** | field_key (unique), label_tk/ru/en, description_tk/ru/en, style_color/background, triggered_user (FK nullable), is_locked, is_visible, display_order, version, deleted_at/by | Per-row display + access config for the Sheet (ADR-0008). Soft-deleted with `.active()` manager. |
+| **SheetRowSetting** | field_key (unique), label_tk/ru/en, description_tk/ru/en, style_width/align/color/font_color, style_font_weight/font_style/font_family/font_size (cell typography — blank = bold/upright/inherited/11px), triggered_user (FK nullable), is_locked, is_visible, display_order, version, deleted_at/by | Per-row display + access config for the Sheet (ADR-0008). Soft-deleted with `.active()` manager. |
 | **SheetRowRoleTrigger** | row (FK→SheetRowSetting), role | One row per allowed role per setting. Replaces old single `triggered_role` column (ADR-0009). |
 | **SheetRowUserPermission** | row (FK→SheetRowSetting), user (FK), deleted_at/by | Extra users who can edit the cell regardless of `is_locked` (ADR-0010). Soft-deleted. |
 | **Comment** | shipment (FK), user (FK), content, field_key (nullable), parent_comment (FK nullable), assignee (FK nullable), is_done, is_system, is_deleted, mentions_users (M2M), role_mentions (M2M) | Cell-anchored comment or task with @mention support. |

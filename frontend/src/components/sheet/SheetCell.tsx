@@ -23,6 +23,16 @@ const COUNTRY_FLAGS: Record<string, string> = {
   KZ: '🇰🇿', RU: '🇷🇺', BY: '🇧🇾', KG: '🇰🇬', TJ: '🇹🇯', UZ: '🇺🇿', AF: '🇦🇫',
 };
 
+// Maps the admin-stored font-family key (SheetRowSetting.style_font_family) to a
+// concrete CSS stack. Keys are a controlled allowlist on the backend so the
+// client never receives an arbitrary font the user's machine may lack.
+const SHEET_FONT_FAMILY: Record<string, string> = {
+  dm_sans: "'DM Sans', sans-serif",
+  inter: "'Inter', sans-serif",
+  mono: "ui-monospace, 'Cascadia Code', 'Roboto Mono', monospace",
+  serif: "Georgia, 'Times New Roman', serif",
+};
+
 // Sheet fields whose value is a code from ShipmentOptionType. When admin sets
 // a per-option color on the matching option, the cell paints with that color
 // (Google-Sheets-style conditional formatting on dropdown values).
@@ -215,6 +225,29 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
     ? Math.round(rowSetting.style.width * sheetZoom)
     : COL_WIDTH_SHIPMENT;
   const cellAlign = rowSetting?.style?.align;
+
+  // Per-row cell typography (Phase 5d). The bold default lives OUTSIDE the
+  // optional chain on purpose: every data cell renders bold unless an admin
+  // explicitly sets 'normal' — including fallback rows with no SheetRowSetting
+  // (style === null). Don't collapse this into `?? 'bold'` or un-configured
+  // rows silently stop rendering bold.
+  const cellTextStyle: React.CSSProperties = {
+    fontWeight: rowSetting?.style?.font_weight === 'normal' ? 400 : 700,
+  };
+  if (rowSetting?.style?.font_style === 'italic') cellTextStyle.fontStyle = 'italic';
+  const fontFamily = rowSetting?.style?.font_family
+    ? SHEET_FONT_FAMILY[rowSetting.style.font_family]
+    : undefined;
+  if (fontFamily) cellTextStyle.fontFamily = fontFamily;
+  // Per-row font size (px) is scaled by zoom so it tracks the rest of the cell
+  // (which uses calc(11px * --sheet-zoom) in CSS). Unset = inherit the default.
+  if (rowSetting?.style?.font_size) {
+    cellTextStyle.fontSize = Math.round(rowSetting.style.font_size * sheetZoom);
+  }
+  if (cellAlign) {
+    cellTextStyle.textAlign = cellAlign;
+    cellTextStyle.display = 'block';
+  }
 
   // Option list is shared across all cells (TanStack Query dedupes the fetch
   // and returns a referentially-stable array). Needed by getCellValue to
@@ -502,7 +535,7 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
     >
-      <span className="sheet-cell__text" style={cellAlign ? { textAlign: cellAlign, display: 'block' } : undefined}>{value}</span>
+      <span className="sheet-cell__text" style={cellTextStyle}>{value}</span>
       <CommentMarker
         count={commentCount}
         taskState={commentTaskState}

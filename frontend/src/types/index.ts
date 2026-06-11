@@ -10,6 +10,7 @@ export type UserRole =
   | 'admin'
   | 'export_manager'
   | 'loading_dept_head'
+  | 'loading_dept_head_deputy'
   | 'warehouse_chief'
   | 'weight_master'
   | 'document_team'
@@ -537,6 +538,12 @@ export interface ISheetRowSetting {
   style_align: 'left' | 'center' | 'right' | null;
   style_color: string | null;
   style_font_color: string | null;
+  // Cell text typography (Phase 5d). Blank string = baseline (bold, upright,
+  // inherited font); admins override per row.
+  style_font_weight: 'bold' | 'normal' | '';
+  style_font_style: 'normal' | 'italic' | '';
+  style_font_family: 'dm_sans' | 'inter' | 'mono' | 'serif' | '';
+  style_font_size: number | null;
   // Permissions
   triggered_user: number | null;
   triggered_user_name: string | null;
@@ -573,7 +580,16 @@ export interface ISheetRowSettingForUser {
   /** Phase 5a: per-row override of Col B "Who" label. Null = fall back to default_who_key i18n. */
   who: { tk?: string; ru?: string; en?: string } | null;
   description: { tk?: string; ru?: string; en?: string } | null;
-  style: { width?: number; align?: 'left' | 'center' | 'right'; color?: string; font_color?: string } | null;
+  style: {
+    width?: number;
+    align?: 'left' | 'center' | 'right';
+    color?: string;
+    font_color?: string;
+    font_weight?: 'bold' | 'normal';
+    font_style?: 'normal' | 'italic';
+    font_family?: 'dm_sans' | 'inter' | 'mono' | 'serif';
+    font_size?: number;
+  } | null;
   triggered_user_id: number | null;
   triggered_roles: string[];
   extra_user_ids: number[];

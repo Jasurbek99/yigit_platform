@@ -30,6 +30,7 @@
     "seller": "Seller",
     "weight_master": "Weight Master",
     "loading_dept_head": "Loading Dept Head",
+    "loading_dept_head_deputy": "Loading Dept Deputy",
     "boss": "Boss"
   },
   "nav": {
@@ -854,6 +855,17 @@
     "align_left": "Left",
     "align_center": "Center",
     "align_right": "Right",
+    "style_font_weight": "Font weight",
+    "weight_bold": "Bold",
+    "weight_normal": "Normal",
+    "style_font_style": "Font style",
+    "style_normal": "Normal",
+    "style_italic": "Italic",
+    "style_font_family": "Font",
+    "style_font_size": "Font size",
+    "font_default": "Default",
+    "font_mono": "Monospace",
+    "font_serif": "Serif",
     "tooltip_set": "Set",
     "tooltip_empty": "Not set",
     "extra_users_placeholder": "Extra users",
@@ -2292,6 +2304,7 @@
       "accountant": "Accountant",
       "greenhouse_manager": "Greenhouse Manager",
       "loading_dept_head": "Loading Dept Head",
+      "loading_dept_head_deputy": "Loading Deputy",
       "weight_master": "Weight Master",
       "boss": "Boss",
       "seller": "Seller"

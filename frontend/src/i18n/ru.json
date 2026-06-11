@@ -30,6 +30,7 @@
     "seller": "Продавец",
     "weight_master": "Мастер взвешивания",
     "loading_dept_head": "Начальник отдела загрузки",
+    "loading_dept_head_deputy": "Заместитель начальника отдела загрузки",
     "boss": "Босс"
   },
   "nav": {
@@ -856,6 +857,17 @@
     "align_left": "Лево",
     "align_center": "Центр",
     "align_right": "Право",
+    "style_font_weight": "Насыщенность",
+    "weight_bold": "Жирный",
+    "weight_normal": "Обычный",
+    "style_font_style": "Начертание",
+    "style_normal": "Обычный",
+    "style_italic": "Курсив",
+    "style_font_family": "Шрифт",
+    "style_font_size": "Размер шрифта",
+    "font_default": "По умолчанию",
+    "font_mono": "Моноширинный",
+    "font_serif": "С засечками",
     "tooltip_set": "Задано",
     "tooltip_empty": "Не задано",
     "extra_users_placeholder": "Доп. пользователи",
@@ -2294,6 +2306,7 @@
       "accountant": "Бухгалтер",
       "greenhouse_manager": "Менеджер теплицы",
       "loading_dept_head": "Нач. загрузки",
+      "loading_dept_head_deputy": "Зам. загрузки",
       "weight_master": "Весовщик",
       "boss": "Руководитель",
       "seller": "Продавец"

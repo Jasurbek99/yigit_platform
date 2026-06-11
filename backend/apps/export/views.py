@@ -74,6 +74,7 @@ SALES_PHASE_CODES = ['bardy', 'satylyar', 'satyldy']
 # Phase values match ShipmentStatusType.phase in the DB.
 ROLE_PHASE_MAP = {
     'loading_dept_head': ['LOADING'],  # same window as warehouse_chief
+    'loading_dept_head_deputy': ['LOADING'],  # deputy mirrors the head
     'warehouse_chief': ['LOADING'],
     'document_team': ['LOADING', 'CUSTOMS'],
     'transport': ['LOADING', 'CUSTOMS', 'TRANSIT', 'BORDER'],
@@ -461,14 +462,18 @@ class ShipmentViewSet(ModelViewSet):
         Effects:
           - Transitions the shipment to 'cancelled' via transition_to().
           - All OPEN/IN_PROGRESS/BLOCKED Tasks on the shipment are marked CANCELLED.
-          - Draft QuotaUsageRecords linked to the shipment are deleted.
-          - Approved QuotaUsageRecords are left intact; their IDs are surfaced
-            in the response so the user can reconcile via the QuotaUsageGrid.
+          - Draft QuotaUsageRecords linked to the shipment are deleted (cleanup
+            — drafts don't count anyway).
+          - Approved QuotaUsageRecords are PRESERVED but auto-released from
+            FIFO via QuotaUsageRecord.objects.counted() which filters on
+            shipment.status='cancelled'. The kg returns to the firm's balance.
+            If a future un-cancel transition lands, the rows count again.
 
         Returns:
             ShipmentDetailSerializer response plus two extra fields:
               draft_quota_deleted:        number of draft quota records removed
               approved_quota_to_reconcile: list of approved quota record IDs
+                                          (released, but kept for audit)
         """
         is_super = getattr(request.user, 'is_superuser', False)
         if not is_super and getattr(request.user, 'role', None) not in PRIVILEGED_ROLES:
@@ -490,8 +495,9 @@ class ShipmentViewSet(ModelViewSet):
             with transaction.atomic():
                 transition_to(shipment, 'cancelled', request.user, comment=reason)
                 _cancel_open_tasks(shipment)
-                # Quota cleanup: delete draft records (placeholder allocations),
-                # surface approved records so the user can reconcile manually.
+                # Quota cleanup: delete drafts (placeholders). Approveds are
+                # preserved — they're auto-excluded from FIFO via the
+                # counted() filter on shipment.status='cancelled'.
                 draft_qs = QuotaUsageRecord.objects.filter(
                     shipment=shipment, status='draft',
                 )
@@ -502,6 +508,10 @@ class ShipmentViewSet(ModelViewSet):
                         shipment=shipment, status='approved',
                     ).values_list('id', flat=True)
                 )
+            # Bust FIFO snapshot so any approveds tied to this shipment stop
+            # counting against the firm's balance immediately.
+            from apps.export.services.quota_sync import invalidate_quota_caches
+            invalidate_quota_caches()
         except PermissionError as exc:
             return Response({'error': str(exc)}, status=status.HTTP_403_FORBIDDEN)
         except ValueError as exc:
@@ -529,10 +539,12 @@ class ShipmentViewSet(ModelViewSet):
         flag). Cascade removes comments, status_log, firm_splits, block_sources,
         pallets, quality, sales_report, custom_field_values, advance_links.
 
-        QuotaUsageRecord uses SET_NULL on shipment — draft rows are deleted
-        (matching the cancel action's cleanup); approved rows are left orphaned
-        with shipment_id=NULL and their IDs are returned so the admin can
-        reconcile via the QuotaUsageGrid.
+        QuotaUsageRecord cleanup: ALL rows (drafts + approveds) tied to these
+        shipments are hard-deleted before the shipments are removed. The kg is
+        released back to the firm's quota balance immediately. Returned IDs let
+        the caller surface what was wiped (audit only — rows no longer exist).
+        Counterpart to soft-delete: soft-delete preserves rows so restore can
+        re-count them; hard-delete is destruction and severs the link.
 
         AuditLog rows for the deleted shipments are kept (object_id is a plain
         IntegerField, not an FK) so the audit trail survives. An AuditLog row
@@ -582,7 +594,11 @@ class ShipmentViewSet(ModelViewSet):
         found_ids = [row['id'] for row in targets]
 
         with transaction.atomic():
-            # Draft quota cleanup mirrors the cancel action.
+            # Hard-delete ALL quota usage rows for these shipments — drafts
+            # AND approveds — so the kg returns to the firm balance. The FK
+            # is SET_NULL, so without this explicit delete the approveds
+            # would orphan to shipment_id=NULL and still count in counted()
+            # (which treats NULL-shipment rows as historical imports).
             draft_count = QuotaUsageRecord.objects.filter(
                 shipment_id__in=found_ids, status='draft',
             ).delete()[0]
@@ -591,6 +607,9 @@ class ShipmentViewSet(ModelViewSet):
                     shipment_id__in=found_ids, status='approved',
                 ).values_list('id', flat=True)
             )
+            approved_count = QuotaUsageRecord.objects.filter(
+                shipment_id__in=found_ids, status='approved',
+            ).delete()[0]
 
             audit_rows = [
                 AuditLog(
@@ -599,7 +618,11 @@ class ShipmentViewSet(ModelViewSet):
                     model_name='Shipment',
                     object_id=row['id'],
                     object_repr=row['cargo_code'] or '',
-                    detail=f"HARD DELETE by {request.user.username}",
+                    detail=(
+                        f"HARD DELETE by {request.user.username} "
+                        f"(quota released: {approved_count} approved, "
+                        f"{draft_count} draft)"
+                    ),
                 )
                 for row in targets
             ]
@@ -607,15 +630,20 @@ class ShipmentViewSet(ModelViewSet):
 
             deleted_count, _ = Shipment.objects.filter(id__in=found_ids).delete()
 
+        # Bust FIFO snapshot after the transaction commits.
+        from apps.export.services.quota_sync import invalidate_quota_caches
+        invalidate_quota_caches()
+
         logger.warning(
-            'Hard-deleted %d shipments by user=%s ids=%s',
-            len(found_ids), request.user.username, found_ids,
+            'Hard-deleted %d shipments by user=%s ids=%s (released %d approved + %d draft quota rows)',
+            len(found_ids), request.user.username, found_ids, approved_count, draft_count,
         )
 
         return Response({
             'deleted': len(found_ids),
             'cascade_rows_deleted': deleted_count,
             'draft_quota_deleted': draft_count,
+            'approved_quota_released': approved_count,
             'approved_quota_to_reconcile': approved_ids,
         })
 
@@ -650,6 +678,12 @@ class ShipmentViewSet(ModelViewSet):
                 object_repr=shipment.cargo_code or '',
                 detail=f"SOFT DELETE by {request.user.username}",
             )
+            # Release this shipment's quota back to the firm's balance.
+            # Rows are kept (QuotaUsageRecord.objects.counted() drops them
+            # via the shipment.deleted_at filter) so restore() re-counts
+            # them naturally — including the approved state.
+            from apps.export.services.quota_sync import invalidate_quota_caches
+            invalidate_quota_caches()
             logger.info(
                 'Soft-deleted shipment id=%s cargo_code=%s by user=%s',
                 shipment.id, shipment.cargo_code, request.user.username,
@@ -681,6 +715,11 @@ class ShipmentViewSet(ModelViewSet):
                 object_repr=shipment.cargo_code or '',
                 detail=f"RESTORE by {request.user.username}",
             )
+            # Re-consume quota — the rows were preserved during soft-delete,
+            # so counted() picks them back up automatically. Bust FIFO cache
+            # so the firm's balance reflects the re-consumption immediately.
+            from apps.export.services.quota_sync import invalidate_quota_caches
+            invalidate_quota_caches()
             logger.info(
                 'Restored shipment id=%s cargo_code=%s by user=%s',
                 shipment.id, shipment.cargo_code, request.user.username,
@@ -1076,6 +1115,14 @@ class ShipmentViewSet(ModelViewSet):
                     style['color'] = setting.style_color
                 if setting.style_font_color:
                     style['font_color'] = setting.style_font_color
+                if setting.style_font_weight:
+                    style['font_weight'] = setting.style_font_weight
+                if setting.style_font_style:
+                    style['font_style'] = setting.style_font_style
+                if setting.style_font_family:
+                    style['font_family'] = setting.style_font_family
+                if setting.style_font_size:
+                    style['font_size'] = setting.style_font_size
 
                 # triggered_roles: list of role codes from child table
                 triggered_roles = [rt.role for rt in setting.role_triggers.all()]
@@ -1282,7 +1329,7 @@ class ShipmentViewSet(ModelViewSet):
             200 { "updated": <count_of_shipments_actually_updated> }
         """
         is_super = getattr(request.user, 'is_superuser', False)
-        allowed_roles = ('admin', 'export_manager', 'document_team', 'loading_dept_head')
+        allowed_roles = ('admin', 'export_manager', 'document_team', 'loading_dept_head', 'loading_dept_head_deputy')
         if not is_super and getattr(request.user, 'role', None) not in allowed_roles:
             return Response(
                 {'error': 'Your role cannot save the Sheet column order'},
@@ -1429,10 +1476,10 @@ class ShipmentViewSet(ModelViewSet):
         # Role gate: drafts are accessible to warehouse_chief and loading_dept_head
         # (Soltanmyrat — two-column join flow); full creation needs privilege.
         if is_draft:
-            allowed_draft_roles = PRIVILEGED_ROLES | {'warehouse_chief', 'loading_dept_head'}
+            allowed_draft_roles = PRIVILEGED_ROLES | {'warehouse_chief', 'loading_dept_head', 'loading_dept_head_deputy'}
             if user_role not in allowed_draft_roles:
                 return Response(
-                    {'error': 'Only warehouse_chief, loading_dept_head, export_manager, or director can create draft shipments'},
+                    {'error': 'Only warehouse_chief, loading_dept_head, loading_dept_head_deputy, export_manager, or director can create draft shipments'},
                     status=status.HTTP_403_FORBIDDEN,
                 )
         else:
@@ -1605,12 +1652,23 @@ class ShipmentViewSet(ModelViewSet):
             if firm_split_rows:
                 ShipmentFirmSplit.objects.bulk_create(firm_split_rows, batch_size=500)
 
+            # Auto-create draft QuotaUsageRecord rows mirroring the firm splits.
+            # Same rule as set_firm_splits: drafts only, approved untouched.
+            # Inside the atomic block so a failure rolls back the shipment too.
+            usage_created = 0
+            if firm_split_rows:
+                from apps.export.services.quota_sync import (
+                    sync_draft_quota_usage_for_shipment,
+                )
+                usage_created = sync_draft_quota_usage_for_shipment(shipment, user)
+
         logger.info(
-            'Draft shipment %s created by %s with %d block source(s) and %d firm split(s)',
+            'Draft shipment %s created by %s with %d block source(s), %d firm split(s), %d quota draft(s)',
             shipment.cargo_code,
             user.username,
             len(block_source_rows),
             len(firm_split_rows),
+            usage_created,
         )
 
         # Generate the draft-stage tasks (Stream F). Outside the atomic block so
@@ -2438,10 +2496,15 @@ class ShipmentViewSet(ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        from apps.export.services.quota_sync import (
+            ApprovedQuotaExistsError,
+            sync_draft_quota_usage_for_shipment,
+        )
+
         with transaction.atomic():
-            # Check approved records before deleting — inside transaction to prevent race
-            approved_count = shipment.quota_usage_records.filter(status='approved').count()
-            if approved_count > 0:
+            # Guard moved into the sync helper — but we run it once up front so the
+            # split writes don't happen before the check fails.
+            if shipment.quota_usage_records.filter(status='approved').exists():
                 return Response(
                     {'error': 'Cannot reassign firm splits: approved quota usage records exist. Delete them first.'},
                     status=status.HTTP_400_BAD_REQUEST,
@@ -2474,26 +2537,17 @@ class ShipmentViewSet(ModelViewSet):
             if split_rows:
                 ShipmentFirmSplit.objects.bulk_create(split_rows, batch_size=500)
 
-            # Auto-create quota usage records (draft) for each firm split
-            shipment.quota_usage_records.filter(status='draft').delete()
-            if num_firms > 0:
-                default_kg = official_kg
-                QuotaUsageRecord.objects.bulk_create([
-                    QuotaUsageRecord(
-                        usage_date=shipment.date,
-                        export_firm_id=row.export_firm_id,
-                        kg_used=default_kg,
-                        product_type='tomato',  # TODO: derive from shipment context when pepper support is added
-                        shipment=shipment,
-                        status='draft',
-                        created_by=request.user,
-                    )
-                    for row in split_rows
-                ], batch_size=500)
+            # Replace draft quota usage from the new splits. Approved-guard above
+            # makes the helper's own raise unreachable here, but we still catch it
+            # to be defensive (race between guard read and helper read).
+            try:
+                usage_count = sync_draft_quota_usage_for_shipment(shipment, request.user)
+            except ApprovedQuotaExistsError as exc:
+                return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         logger.info(
             'Firm splits for %s updated by %s (%d firms, %d usage records)',
-            shipment.cargo_code, request.user.username, len(firms_data), num_firms,
+            shipment.cargo_code, request.user.username, len(firms_data), usage_count,
         )
         return Response({'status': 'ok', 'count': len(firms_data)})
 
@@ -2596,10 +2650,10 @@ class ShipmentViewSet(ModelViewSet):
         # Same set as ROLE_REQUIRED_FIELDS owners of `variety` (loading_dept_head,
         # warehouse_chief) plus PRIVILEGED_ROLES. Loading dept head edits variety
         # on the Sheet R38 multiselect cell during draft entry.
-        allowed_roles = PRIVILEGED_ROLES | {'warehouse_chief', 'loading_dept_head'}
+        allowed_roles = PRIVILEGED_ROLES | {'warehouse_chief', 'loading_dept_head', 'loading_dept_head_deputy'}
         if getattr(request.user, 'role', None) not in allowed_roles:
             return Response(
-                {'error': 'Only loading_dept_head, warehouse_chief, export_manager, or director can override varieties'},
+                {'error': 'Only loading_dept_head, loading_dept_head_deputy, warehouse_chief, export_manager, or director can override varieties'},
                 status=status.HTTP_403_FORBIDDEN,
             )
 

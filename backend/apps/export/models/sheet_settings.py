@@ -31,6 +31,27 @@ STYLE_ALIGN_CHOICES = [
     ('right', 'Right'),
 ]
 
+# Cell text typography (Phase 5d). All blank-default: the frontend treats an
+# empty value as the baseline — bold weight, upright style, inherited font.
+# Admins override per row to unbold, italicize, or swap the font family.
+STYLE_FONT_WEIGHT_CHOICES = [
+    ('bold', 'Bold'),
+    ('normal', 'Normal'),
+]
+STYLE_FONT_STYLE_CHOICES = [
+    ('normal', 'Normal'),
+    ('italic', 'Italic'),
+]
+# Controlled allowlist — stored as a short key, mapped to a CSS font stack on
+# the frontend (keeps the column tiny and the client free of arbitrary fonts
+# the user's machine may not have). Blank = inherit the sheet's default font.
+STYLE_FONT_FAMILY_CHOICES = [
+    ('dm_sans', 'DM Sans'),
+    ('inter', 'Inter'),
+    ('mono', 'Monospace'),
+    ('serif', 'Serif'),
+]
+
 
 class SheetRowSettingManager(models.Manager):
     """Custom manager exposing .active() and .visible() querysets.
@@ -197,6 +218,33 @@ class SheetRowSetting(models.Model):
                   'Overrides the auto WCAG-contrast color picked from the '
                   'cell background.',
     )
+    style_font_weight = models.CharField(
+        max_length=6,
+        choices=STYLE_FONT_WEIGHT_CHOICES,
+        blank=True,
+        help_text="Cell text weight. Blank = bold (the sheet default). "
+                  "Set 'normal' to un-bold this row's data cells.",
+    )
+    style_font_style = models.CharField(
+        max_length=6,
+        choices=STYLE_FONT_STYLE_CHOICES,
+        blank=True,
+        help_text="Cell text style. Blank = upright. Set 'italic' to "
+                  "italicize this row's data cells.",
+    )
+    style_font_family = models.CharField(
+        max_length=10,
+        choices=STYLE_FONT_FAMILY_CHOICES,
+        blank=True,
+        help_text='Cell text font-family key (dm_sans/inter/mono/serif). '
+                  'Blank = inherit the sheet default font.',
+    )
+    style_font_size = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text='Cell text font size in pixels (scaled by zoom on render). '
+                  'Valid range: 8–28. Null = inherit the sheet default (11px).',
+    )
 
     # === Permission trigger — single user exception ===
     triggered_user = models.ForeignKey(
@@ -284,6 +332,10 @@ class SheetRowSetting(models.Model):
         if self.style_width is not None:
             if not (50 <= self.style_width <= 500):
                 errors['style_width'] = 'style_width must be between 50 and 500 pixels.'
+
+        if self.style_font_size is not None:
+            if not (8 <= self.style_font_size <= 28):
+                errors['style_font_size'] = 'style_font_size must be between 8 and 28 pixels.'
 
         if self.style_color:
             if not _HEX_RE.match(self.style_color):

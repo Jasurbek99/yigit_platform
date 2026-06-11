@@ -46,6 +46,10 @@ export interface ISaveSheetRowPayload {
   style_align?: 'left' | 'center' | 'right' | null;
   style_color?: string | null;
   style_font_color?: string | null;
+  style_font_weight?: 'bold' | 'normal' | '';
+  style_font_style?: 'normal' | 'italic' | '';
+  style_font_family?: 'dm_sans' | 'inter' | 'mono' | 'serif' | '';
+  style_font_size?: number | null;
   triggered_user?: number | null;
   /** Send as triggered_roles_write — backend's write-only alias. */
   triggered_roles?: string[];
