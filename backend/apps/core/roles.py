@@ -28,11 +28,11 @@ DIRECTOR_ONLY = frozenset({'director'})
 # write gates on plan/forecast/actual values.
 # May 2026: warehouse_chief replaced by loading_dept_head (Soltanmyrat) for forecast
 # writes; actual values are now computed by the daily shipment-rollup job.
-HARVEST_DAY_WRITE = frozenset({'admin', 'greenhouse_manager', 'loading_dept_head'})
+HARVEST_DAY_WRITE = frozenset({'admin', 'greenhouse_manager', 'loading_dept_head', 'loading_dept_head_deputy'})
 HARVEST_DAY_OVERRIDE = frozenset({'admin'})  # admin-only, with required `reason`
 
 # Domestic operations
-DOMESTIC_WRITE = frozenset({'admin', 'loading_dept_head', 'warehouse_chief', 'greenhouse_manager', 'export_manager', 'director'})
+DOMESTIC_WRITE = frozenset({'admin', 'loading_dept_head', 'loading_dept_head_deputy', 'warehouse_chief', 'greenhouse_manager', 'export_manager', 'director'})
 
 # Export logistics
 TRUCK_WRITE = frozenset({'admin', 'export_manager', 'director'})

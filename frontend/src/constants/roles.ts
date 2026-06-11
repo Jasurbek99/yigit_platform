@@ -5,6 +5,7 @@
 export const ROLE_CHOICES: ReadonlyArray<{ value: string; labelKey: string }> = [
   { value: 'export_manager',     labelKey: 'roles.export_manager' },
   { value: 'loading_dept_head',  labelKey: 'roles.loading_dept_head' },
+  { value: 'loading_dept_head_deputy', labelKey: 'roles.loading_dept_head_deputy' },
   { value: 'warehouse_chief',    labelKey: 'roles.warehouse_chief' },
   { value: 'weight_master',      labelKey: 'roles.weight_master' },
   { value: 'document_team',      labelKey: 'roles.document_team' },

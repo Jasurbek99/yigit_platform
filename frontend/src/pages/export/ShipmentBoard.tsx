@@ -34,6 +34,7 @@ const OWNER_ROLE_OPTIONS = [
   'admin',
   'export_manager',
   'loading_dept_head',
+  'loading_dept_head_deputy',
   'warehouse_chief',
   'weight_master',
   'document_team',

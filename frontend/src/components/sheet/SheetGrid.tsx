@@ -109,7 +109,7 @@ const JUNCTION_RESOURCE_BY_FIELD: Record<string, string> = {
 };
 
 // Roles whose columns get a supply-side green tint in the Sheet.
-const SUPPLY_ROLES = new Set(['loading_dept_head', 'warehouse_chief']);
+const SUPPLY_ROLES = new Set(['loading_dept_head', 'loading_dept_head_deputy', 'warehouse_chief']);
 
 function isSupplyColumn(shipment: IShipmentSheetItem): boolean {
   return SUPPLY_ROLES.has(shipment.created_by_role ?? '');
@@ -200,7 +200,7 @@ export function SheetGrid({
   const canReorderColumns =
     !!user && (
       user.is_superuser ||
-      ['admin', 'export_manager', 'document_team', 'loading_dept_head'].includes(userRole)
+      ['admin', 'export_manager', 'document_team', 'loading_dept_head', 'loading_dept_head_deputy'].includes(userRole)
     );
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),

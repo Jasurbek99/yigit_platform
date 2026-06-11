@@ -118,6 +118,11 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
     } | _UNIVERSAL,
 }
 
+# loading_dept_head_deputy: identical page access to the head (June 2026 request).
+# Copy (not a shared reference) so future in-place edits to either role's set
+# don't silently mutate the other.
+PAGE_DEFAULTS['loading_dept_head_deputy'] = set(PAGE_DEFAULTS['loading_dept_head'])
+
 
 # ── Resource permission defaults ─────────────────────────────────────────
 # Derived from roles.py constants.
@@ -206,6 +211,9 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
     # Boss is strictly read-only across every resource — never edits.
     'boss': {r: _VIEW for r in _ALL_RESOURCES},
 }
+
+# loading_dept_head_deputy: identical resource permissions to the head (copied, not shared).
+RESOURCE_DEFAULTS['loading_dept_head_deputy'] = dict(RESOURCE_DEFAULTS['loading_dept_head'])
 
 
 # ── Field permission defaults ────────────────────────────────────────────
@@ -379,6 +387,11 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
     'weight_master': {
         'shipment': [],  # no field edits on shipment proper
     },
+}
+
+# loading_dept_head_deputy: identical editable fields to the head (deep-copied, not shared).
+FIELD_DEFAULTS['loading_dept_head_deputy'] = {
+    resource: list(fields) for resource, fields in FIELD_DEFAULTS['loading_dept_head'].items()
 }
 
 

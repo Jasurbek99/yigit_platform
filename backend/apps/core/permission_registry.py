@@ -172,6 +172,7 @@ RESOURCE_FIELDS: dict[str, list[str]] = {
 
 ROLE_REQUIRED_FIELDS: dict[str, list[str]] = {
     'loading_dept_head': ['weight_net', 'weight_gross', 'variety', 'harvest_status'],
+    'loading_dept_head_deputy': ['weight_net', 'weight_gross', 'variety', 'harvest_status'],
     'warehouse_chief':   ['weight_net', 'weight_gross', 'variety', 'harvest_status'],
     'document_team':     ['documents_status'],
     'transport':         ['truck_head_id', 'driver_id', 'border_point'],

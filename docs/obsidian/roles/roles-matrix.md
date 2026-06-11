@@ -51,6 +51,8 @@ related: [[permissions-system]]
 
 > **Draft-create (supply column):** `loading_dept_head` (Soltanmyrat) is now also granted shipment-**draft** create — supply-only columns (blocks + variety, no destination) in the [[draft-shipments#Two-column Join flow (coexisting alternative)]] flow. Previously draft-create was limited to `warehouse_chief` + `export_manager`/`director`. The **Join** action that merges a supply draft into a destination draft remains `export_manager`/`director` only.
 
+> **Deputy role:** `loading_dept_head_deputy` (Ýükleme gaplama bölüminiň orunbassary, June 2026) has **identical** access to `loading_dept_head` — same page visibility, resource CRUD, editable Sheet fields, forecast-write window, draft-create, variety override, and Sheet column-order rights. On existing deployments the deputy's permission rows are cloned from the head by migration `core/0018_clone_loading_dept_head_deputy_perms`. **This parity is point-in-time** — after the clone the two roles hold independent permission rows, so a permission later granted to the head via the admin matrix UI is **not** auto-propagated to the deputy (re-run the clone or grant it manually). Anywhere this doc says `loading_dept_head`, read it as "head **or** deputy". The head's Turkmen label was also corrected to **Ýükleme gaplama bölüminiň müdiri**.
+
 ## Shipment Lifecycle Steps by Role
 
 | Step | Code | Required Role | Privileged Override |

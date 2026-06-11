@@ -12,6 +12,9 @@ ROLE_CHOICES = [
     # Same daily-work permissions as warehouse_chief; deputies hold warehouse_chief.
     # weight_master reports to this role organisationally (Kaka Findings #5).
     ('loading_dept_head', 'Loading Dept Head'),
+    # loading_dept_head_deputy: deputy head of the packaging + loading department.
+    # Identical access to loading_dept_head per stakeholder request (June 2026).
+    ('loading_dept_head_deputy', 'Loading Dept Deputy'),
     ('warehouse_chief', 'Warehouse Chief'),
     ('weight_master', 'Weight Master'),
     ('document_team', 'Document Team'),

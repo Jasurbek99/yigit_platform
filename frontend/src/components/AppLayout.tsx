@@ -218,7 +218,7 @@ export default function AppLayout() {
         // canSeePage() returns false for non-superusers (no page_permissions entry).
         // Using roles: ALL_ROLES to temporarily surface the entry to every authenticated user.
         roles: [
-          'admin', 'export_manager', 'loading_dept_head', 'warehouse_chief',
+          'admin', 'export_manager', 'loading_dept_head', 'loading_dept_head_deputy', 'warehouse_chief',
           'weight_master', 'document_team', 'transport', 'sales_rep', 'finansist',
           'director', 'accountant', 'greenhouse_manager', 'seller', 'boss',
         ] as import('@/types').UserRole[],
@@ -232,7 +232,7 @@ export default function AppLayout() {
         // canSeePage() returns false for non-superusers (no page_permissions entry).
         // Using roles: ALL_ROLES to temporarily surface the entry to every authenticated user.
         roles: [
-          'admin', 'export_manager', 'loading_dept_head', 'warehouse_chief',
+          'admin', 'export_manager', 'loading_dept_head', 'loading_dept_head_deputy', 'warehouse_chief',
           'weight_master', 'document_team', 'transport', 'sales_rep', 'finansist',
           'director', 'accountant', 'greenhouse_manager', 'seller', 'boss',
         ] as import('@/types').UserRole[],
@@ -247,7 +247,7 @@ export default function AppLayout() {
         // page_code is registered for it, so we surface it via the same
         // roles: ALL_ROLES bypass the Contracts / Invoices entries use.
         roles: [
-          'admin', 'export_manager', 'loading_dept_head', 'warehouse_chief',
+          'admin', 'export_manager', 'loading_dept_head', 'loading_dept_head_deputy', 'warehouse_chief',
           'weight_master', 'document_team', 'transport', 'sales_rep', 'finansist',
           'director', 'accountant', 'greenhouse_manager', 'seller', 'boss',
         ] as import('@/types').UserRole[],

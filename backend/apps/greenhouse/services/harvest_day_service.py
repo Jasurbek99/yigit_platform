@@ -367,7 +367,7 @@ def set_forecast_value(entry, value, user, reason: str = '') -> None:
                 f"greenhouse_manager can only submit forecasts during the primary window "
                 f"(current window: {window!r})."
             )
-    elif role == 'loading_dept_head':
+    elif role in ('loading_dept_head', 'loading_dept_head_deputy'):
         day_before_start = datetime.combine(
             entry.entry_date - timedelta(days=1), dtime(0, 0)
         )
@@ -376,7 +376,7 @@ def set_forecast_value(entry, value, user, reason: str = '') -> None:
         )
         if not (day_before_start <= now_l < day_of_close):
             raise PermissionError(
-                f"loading_dept_head can submit forecasts only between "
+                f"{role} can submit forecasts only between "
                 f"{day_before_start} and {day_of_close} local."
             )
     else:

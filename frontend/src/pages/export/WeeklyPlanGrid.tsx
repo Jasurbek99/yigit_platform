@@ -154,7 +154,7 @@ export default function WeeklyPlanGrid() {
   // Admin keeps access for ops support. The fallback-mode UI itself is now
   // a subset of loading_dept_head's broader window and may be retired later.
   const canSeeFallbackMode =
-    user?.role === 'loading_dept_head' || user?.role === 'admin';
+    user?.role === 'loading_dept_head' || user?.role === 'loading_dept_head_deputy' || user?.role === 'admin';
 
   // ─── KPI totals from day entries ───────────────────────────────────────────
 

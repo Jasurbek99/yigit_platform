@@ -1,7 +1,7 @@
 import type { IShipmentSheetItem } from '@/types';
 
 // ─── Role codes considered "supply side" ─────────────────────────────────────
-export const SUPPLY_ROLES = new Set(['loading_dept_head', 'warehouse_chief']);
+export const SUPPLY_ROLES = new Set(['loading_dept_head', 'loading_dept_head_deputy', 'warehouse_chief']);
 
 // ─── Draft classification helpers ────────────────────────────────────────────
 

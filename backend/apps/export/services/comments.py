@@ -62,7 +62,8 @@ SHEET_FIELD_KEYS: frozenset[str] = frozenset([
 ])
 
 # Valid role codes — mirrors ROLE_CHOICES from apps.core.models.user
-# (Note: 'loading_dept_head' is intentionally absent — pre-existing inconsistency tracked separately.)
+# (Note: 'loading_dept_head' and 'loading_dept_head_deputy' are intentionally absent —
+#  pre-existing inconsistency tracked separately.)
 _VALID_ROLES: frozenset[str] = frozenset([
     'admin',
     'export_manager',

@@ -2,13 +2,13 @@
 
 GET  /api/v1/export/harvest-forecast/remaining/?date=YYYY-MM-DD
     → pool of remaining kg per block for that date (export_manager, loading_dept_head,
-      greenhouse_manager, admin, director may read).
+      loading_dept_head_deputy, greenhouse_manager, admin, director may read).
 
 POST /api/v1/export/harvest-forecast/
     → upsert forecast_value on HarvestDayEntry for each (block, date) entry.
       Restricted to roles in HARVEST_DAY_WRITE (admin, greenhouse_manager,
-      loading_dept_head). After a successful submit, creates a forecast_handoff
-      Notification to all loading_dept_head users.
+      loading_dept_head, loading_dept_head_deputy). After a successful submit,
+      creates a forecast_handoff Notification to all loading-dept (head + deputy) users.
 
 Dependency note: greenhouse models/services are lazy-imported inside functions
 (never at module level) to preserve the export→greenhouse import direction.
@@ -135,7 +135,7 @@ class HarvestForecastView(APIView):
         """Upsert forecast_value for each (block, date) entry and notify loading dept.
 
         Only roles in HARVEST_DAY_WRITE (admin, greenhouse_manager,
-        loading_dept_head) may call this endpoint.
+        loading_dept_head, loading_dept_head_deputy) may call this endpoint.
 
         Request body:
             {
@@ -274,7 +274,7 @@ class HarvestForecastView(APIView):
 # ---------------------------------------------------------------------------
 
 def _notify_forecast_handoff(submitter, target_date: datetime.date, block_count: int) -> None:
-    """Create forecast_handoff Notifications for all active loading_dept_head users.
+    """Create forecast_handoff Notifications for all active loading-dept users (head + deputy).
 
     Mirrors the pattern of _notify_action_required() in services/shipment.py:
     lazy User import, filter by role, bulk_create with batch_size=500.
@@ -297,7 +297,7 @@ def _notify_forecast_handoff(submitter, target_date: datetime.date, block_count:
     link = f'/export/drafts?date={target_date.isoformat()}'
 
     user_ids = list(
-        User.objects.filter(role='loading_dept_head', is_active=True)
+        User.objects.filter(role__in=['loading_dept_head', 'loading_dept_head_deputy'], is_active=True)
         .exclude(id=submitter.id)  # don't notify the submitter about their own action
         .values_list('id', flat=True)
     )
