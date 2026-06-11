@@ -266,6 +266,71 @@ class ReopenTest(TestCase):
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
 
 
+# ── Resolution notification tests ───────────────────────────────────────────
+
+class ResolutionNotificationTests(TestCase):
+    """Verify the author is notified when an admin resolves/rejects their ticket."""
+
+    def setUp(self):
+        from apps.export.models import Notification  # noqa: PLC0415
+
+        self.Notification = Notification
+        self.author = _make_user('notif_author', 'document_team')
+        self.admin = _make_user('notif_admin', 'admin')
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.admin)
+
+    def _patch_status(self, ticket, new_status):
+        return self.client.patch(
+            f'/api/v1/feedback/tickets/{ticket.id}/',
+            {'status': new_status},
+            format='json',
+        )
+
+    def test_resolve_notifies_author(self):
+        ticket = _make_ticket(self.author, status='in_review')
+        resp = self._patch_status(ticket, 'resolved')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+
+        notif = self.Notification.objects.filter(user_id=self.author.id).first()
+        self.assertIsNotNone(notif)
+        self.assertEqual(notif.kind, 'feedback_resolved')
+        self.assertIn(str(ticket.id), notif.link)
+
+    def test_reject_notifies_author(self):
+        ticket = _make_ticket(self.author, status='in_review')
+        resp = self._patch_status(ticket, 'rejected')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+
+        notif = self.Notification.objects.filter(user_id=self.author.id).first()
+        self.assertIsNotNone(notif)
+        self.assertEqual(notif.kind, 'feedback_rejected')
+
+    def test_self_resolve_does_not_notify(self):
+        """An admin resolving their own ticket gets no notification."""
+        ticket = _make_ticket(self.admin, status='in_review')
+        resp = self._patch_status(ticket, 'resolved')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertFalse(self.Notification.objects.filter(user_id=self.admin.id).exists())
+
+    def test_already_resolved_does_not_renotify(self):
+        """Re-patching an already-terminal ticket to the SAME status notifies nobody."""
+        ticket = _make_ticket(self.author, status='resolved')
+        resp = self._patch_status(ticket, 'resolved')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertFalse(self.Notification.objects.filter(user_id=self.author.id).exists())
+
+    def test_resolved_to_rejected_notifies(self):
+        """Flipping resolved → rejected notifies the author of the new outcome."""
+        ticket = _make_ticket(self.author, status='resolved')
+        resp = self._patch_status(ticket, 'rejected')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+
+        notif = self.Notification.objects.filter(user_id=self.author.id).first()
+        self.assertIsNotNone(notif)
+        self.assertEqual(notif.kind, 'feedback_rejected')
+
+
 # ── File validation tests ─────────────────────────────────────────────────────
 
 class FileValidationTests(TestCase):

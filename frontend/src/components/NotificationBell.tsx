@@ -21,6 +21,8 @@ const KIND_COLOR: Record<INotification['kind'], string> = {
   mention: COLORS.primary,
   task_assigned: COLORS.orange,
   task_done: COLORS.success,
+  feedback_resolved: COLORS.success,
+  feedback_rejected: COLORS.danger,
 };
 
 export function NotificationBell() {

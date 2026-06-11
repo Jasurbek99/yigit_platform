@@ -53,7 +53,7 @@ For both list and detail endpoints the queryset and reply filtering follow this 
 | GET | `/` | auth | Paginated list. Admin sees all; non-admin defaults to `?scope=mine`. `?scope=public` for the public feed. Filters: `status`, `category`, `author`, `search`, `date_from`, `date_to`, `page`. |
 | GET | `/{id}/` | author / admin / public-viewer | Detail with replies (filtered by precedence above). |
 | POST | `/` | auth | Multipart create. Files in `attachments` (multi). |
-| PATCH | `/{id}/` | admin | Only `status` writable. Setting status to resolved/rejected stamps `resolved_at`. **`is_public` is rejected** with 400 — public is set ONLY via reply mode='public'. |
+| PATCH | `/{id}/` | admin | Only `status` writable. Setting status to resolved/rejected stamps `resolved_at` **and notifies the ticket author** (in-app bell, see below). **`is_public` is rejected** with 400 — public is set ONLY via reply mode='public'. |
 | DELETE | `/{id}/` | admin | Permanently removes the ticket and (via `on_delete=CASCADE`) its replies + attachments. Exposed in the admin inbox detail pane behind a `Popconfirm`; non-admins never see the button and the server enforces `IsFeedbackAdmin` regardless. |
 | POST | `/{id}/reopen/` | author | Only when status ∈ {resolved, rejected}. Resets to `in_review`, clears `resolved_at`, bumps `last_activity_at`. |
 | POST | `/{id}/reply/` | admin | Multipart. Body: `content`, `mode` (standard/internal/public), `attachments`. `mode='public'` atomically flips `ticket.is_public=true`. |
@@ -67,6 +67,19 @@ For both list and detail endpoints the queryset and reply filtering follow this 
 - **Atomicity:** dispatched via `transaction.on_commit(...)` so a DB rollback never sends a stale email.
 - **Dev:** `EMAIL_BACKEND` defaults to `console` — emails print to runserver output.
 - **Prod:** set `EMAIL_HOST/PORT/USER/PASSWORD/USE_TLS`, `DEFAULT_FROM_EMAIL`, `FEEDBACK_ADMIN_EMAIL`, `PLATFORM_URL` in env.
+
+## In-app notifications
+
+`services/notifications.py` — fires when an admin moves a ticket to a terminal status.
+- **Trigger:** `partial_update` (PATCH status) transitioning into `resolved` or `rejected`. The "should notify" decision is captured *before* `serializer.save()` (where `ticket.status` still holds the old value), then fired after the save.
+- **Recipient:** the ticket `author` only. A self-resolve (admin resolving their own ticket) sends nothing — `author_id != actor.id` guard.
+- **Kinds:** `feedback_resolved` (green) / `feedback_rejected` (red) — added to `Notification.KIND_CHOICES` (migration `0034`). The bell renders them via `KIND_COLOR` in `NotificationBell.tsx`.
+- **Guard:** fires on any change *into* a terminal status, including `resolved → rejected` (admin flips the outcome). A no-op re-patch to the same status (`resolved → resolved`) notifies nobody (`new_status != ticket.status` guard). Note `partial_update` does no transition validation, so terminal→terminal PATCHes return 200.
+- **Link:** `/feedback/my-tickets?ticket={id}` (forward-compat; the bell does not yet click-to-navigate for *any* kind).
+- **Fail-silent:** wrapped in `try/except` + `logger.warning` — a notification insert hiccup never rolls back or 500s the admin's status change.
+- **Cross-app note:** `Notification` lives in `apps.export`; the service lazy-imports it inside the function, mirroring the documented greenhouse exception until `Notification` moves to `core`.
+
+> Scope: covers resolve/reject only. Admin **replies** still do not notify the author (see Out of scope).
 
 ## File upload validation
 
@@ -105,12 +118,12 @@ Per spec §8, deliberately not built:
 - "Complaint" category (only bug, suggestion, question)
 - Director-level admin visibility
 - Structured shipment linking
-- User-side notifications (no toast/bell on reply — user must visit My Tickets)
+- User-side notifications on **reply** (no toast/bell when admin replies — user must visit My Tickets). Resolve/reject *does* notify the author via the in-app bell (added 2026-06-11).
 - AuditLog entries (the reply thread is the de-facto audit trail; adding AuditLog would force `apps.export → apps.feedback` reverse dependency or a refactor of AuditLog into `core/`)
 
 ## Testing
 
-`apps.feedback.tests` — 20 cases on MSSQL, all passing:
+`apps.feedback.tests` — 25 cases on MSSQL, all passing:
 - Visibility precedence (admin / author / peer / public)
 - Peer cannot retrieve a private ticket by guessing the URL (404)
 - Reply with `mode='public'` flips `ticket.is_public`
@@ -119,6 +132,7 @@ Per spec §8, deliberately not built:
 - Reopen by non-author returns 404 (consistent with 404-not-403 philosophy)
 - Bad upload (oversize / wrong magic bytes) rejected
 - Email function returns silently with no recipients
+- Resolve/reject notifies the author with the correct kind; resolved→rejected re-notifies; self-resolve and same-status re-patch notify nobody
 
 ## Migration
 

@@ -35,6 +35,9 @@ class Notification(models.Model):
         ('mention', 'Mention'),
         ('task_assigned', 'Task assigned'),
         ('task_done', 'Task done'),
+        # Feedback module — author notified of ticket outcome
+        ('feedback_resolved', 'Feedback resolved'),
+        ('feedback_rejected', 'Feedback rejected'),
         # Stuck shipment SLA escalation (Phase 4b, ADR-0005)
         ('stuck_8d', 'Stuck shipment — 8 days'),
         ('stuck_15d', 'Stuck shipment — 15 days'),

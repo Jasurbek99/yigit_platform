@@ -22,6 +22,7 @@ from apps.feedback.serializers import (
     FeedbackTicketStatusPatchSerializer,
 )
 from apps.feedback.services.email import send_admin_new_ticket_email
+from apps.feedback.services.notifications import notify_ticket_resolution
 from apps.feedback.services.files import (
     MAX_FILES_PER_PARENT,
     sanitise_filename,
@@ -189,6 +190,15 @@ class FeedbackTicketViewSet(ModelViewSet):
 
         new_status = serializer.validated_data.get('status')
         extra_fields: dict = {}
+        # Capture the "should notify" decision BEFORE save() — ticket.status still
+        # holds the OLD value here; serializer.save() mutates it in place below.
+        # Notify on ANY change INTO a terminal status (incl. resolved→rejected),
+        # but never on a no-op re-patch (resolved→resolved) or a self-resolve.
+        should_notify = (
+            new_status in ('resolved', 'rejected')
+            and new_status != ticket.status
+            and ticket.author_id != request.user.id
+        )
         if new_status in ('resolved', 'rejected') and ticket.status not in ('resolved', 'rejected'):
             extra_fields['resolved_at'] = timezone.now()
         elif new_status and new_status not in ('resolved', 'rejected'):
@@ -196,6 +206,9 @@ class FeedbackTicketViewSet(ModelViewSet):
             extra_fields['resolved_at'] = None
 
         serializer.save(**extra_fields)
+
+        if should_notify:
+            notify_ticket_resolution(ticket, new_status, request.user)
 
         detail_serializer = FeedbackTicketDetailSerializer(
             ticket,
