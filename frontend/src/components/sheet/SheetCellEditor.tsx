@@ -30,6 +30,13 @@ interface ISheetCellEditorProps {
 export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) {
   const { t, i18n } = useTranslation();
   const setEditingCell = useSheetStore((s) => s.setEditingCell);
+  // Google-Sheets type-to-edit: the character that opened this editor (null if
+  // opened via Enter/click). Text/phone/number seed their initial value with
+  // it, replacing the cell's current content.
+  const editSeed = useSheetStore((s) => s.editSeed);
+  // Type-to-edit commit-and-hop: when seeded, an arrow key commits the value
+  // and moves the selection one cell in that direction (Google Sheets parity).
+  const setPendingNav = useSheetStore((s) => s.setPendingNav);
   const sheetZoom = useSheetStore((s) => s.sheetZoom);
   const { colShipment: COL_WIDTH_SHIPMENT, rowHeight: ROW_HEIGHT } = scaleSheetLayout(sheetZoom);
   const patchMutation = useShipmentPatch();
@@ -131,8 +138,14 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
     const el = containerRef.current?.querySelector('input, .ant-select-selector');
     if (el instanceof HTMLElement) {
       el.focus();
+      // When seeded (type-to-edit), drop the caret at the end of the seeded
+      // glyph so the next keystroke appends instead of overwriting.
+      if (editSeed && el instanceof HTMLInputElement) {
+        const end = el.value.length;
+        el.setSelectionRange(end, end);
+      }
     }
-  }, []);
+  }, [editSeed]);
 
   // Phase 5c: custom rows store values in shipment.custom_fields, NOT on the
   // Shipment model. Resolve the editor's seed value from there for custom_*.
@@ -256,6 +269,44 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
     [patchMultiMutation, shipment.id, close],
   );
 
+  // Type-to-edit commit-and-hop for text-like inputs (text / phone / number /
+  // the R26 combined cell). While seeded, an arrow key commits the current
+  // value and moves the selection one cell over (via setPendingNav, consumed by
+  // SheetGrid). Enter-opened edits (editSeed null) keep the native caret move so
+  // operators can correct a typo mid-value. Escape always cancels.
+  const handleSeededKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        close();
+        return;
+      }
+      if (editSeed == null) return;
+      const isArrow =
+        e.key === 'ArrowUp' ||
+        e.key === 'ArrowDown' ||
+        e.key === 'ArrowLeft' ||
+        e.key === 'ArrowRight';
+      if (!isArrow) return;
+      // preventDefault suppresses the text caret move. (antd InputNumber's own
+      // up/down step may still fire depending on rc-input-number version, but
+      // we read the raw value *now*, before any step re-renders, so the value
+      // we commit is exactly what the operator typed.)
+      e.preventDefault();
+      e.stopPropagation();
+      const raw = (e.target as HTMLInputElement).value;
+      if (rowConfig.field_key === 'transit_days_temp') {
+        saveTransitTemp(raw);
+      } else if (rowConfig.input_type === 'number') {
+        save(parseNumberInput(raw));
+      } else {
+        save(raw);
+      }
+      setPendingNav(e.key);
+    },
+    [editSeed, close, rowConfig.field_key, rowConfig.input_type, save, saveTransitTemp, setPendingNav],
+  );
+
   const renderEditor = () => {
     if (rowConfig.field_key === 'transit_days_temp') {
       const days = shipment.transit_days;
@@ -267,11 +318,11 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
       return (
         <Input
           size="small"
-          defaultValue={defaultText}
+          defaultValue={editSeed ?? defaultText}
           placeholder="5 4"
           onPressEnter={(e) => saveTransitTemp((e.target as HTMLInputElement).value)}
           onBlur={(e) => saveTransitTemp(e.target.value)}
-          onKeyDown={handleKeyDown}
+          onKeyDown={handleSeededKeyDown}
           style={{ width: '100%', height: ROW_HEIGHT - 4 }}
         />
       );
@@ -283,10 +334,10 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
         return (
           <Input
             size="small"
-            defaultValue={(currentValue as string) ?? ''}
+            defaultValue={editSeed ?? ((currentValue as string) ?? '')}
             onPressEnter={(e) => save((e.target as HTMLInputElement).value)}
             onBlur={(e) => save(e.target.value)}
-            onKeyDown={handleKeyDown}
+            onKeyDown={handleSeededKeyDown}
             style={{ width: '100%', height: ROW_HEIGHT - 4 }}
           />
         );
@@ -295,10 +346,14 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
         return (
           <InputNumber
             size="small"
-            defaultValue={(currentValue as number | null) ?? undefined}
+            defaultValue={
+              editSeed != null
+                ? (parseNumberInput(editSeed) ?? undefined)
+                : ((currentValue as number | null) ?? undefined)
+            }
             onPressEnter={(e) => save(parseNumberInput((e.target as HTMLInputElement).value))}
             onBlur={(e) => save(parseNumberInput(e.target.value))}
-            onKeyDown={handleKeyDown}
+            onKeyDown={handleSeededKeyDown}
             style={{ width: '100%', height: ROW_HEIGHT - 4 }}
           />
         );

@@ -117,7 +117,17 @@ interface ISheetState {
   activeCell: IActiveCell | null;
   setActiveCell: (cell: IActiveCell | null) => void;
   editingCell: IActiveCell | null;
-  setEditingCell: (cell: IActiveCell | null) => void;
+  // `seed` (Google-Sheets type-to-edit): the printable character that opened
+  // the editor. Text/phone/number editors use it as their initial value,
+  // replacing the cell's current content. Cleared on every setEditingCell call.
+  setEditingCell: (cell: IActiveCell | null, seed?: string) => void;
+  editSeed: string | null;
+  // Type-to-edit cell→cell hop: when an open editor commits via an arrow key,
+  // it sets this to the arrow key name. SheetGrid watches it, moves activeCell
+  // one step in that direction (full nav incl. scroll), then clears it. Decouples
+  // the editor (which owns commit/save) from the grid (which owns geometry).
+  pendingNav: string | null;
+  setPendingNav: (navKey: string | null) => void;
   searchText: string;
   setSearchText: (text: string) => void;
   showGapyOnly: boolean;
@@ -200,7 +210,10 @@ export const useSheetStore = create<ISheetState>((set) => ({
       commentsShipmentId: cell?.shipmentId ?? state.commentsShipmentId,
     })),
   editingCell: null,
-  setEditingCell: (cell) => set({ editingCell: cell }),
+  editSeed: null,
+  setEditingCell: (cell, seed) => set({ editingCell: cell, editSeed: seed ?? null }),
+  pendingNav: null,
+  setPendingNav: (navKey) => set({ pendingNav: navKey }),
   searchText: '',
   setSearchText: (text) => set({ searchText: text }),
   showGapyOnly: false,
