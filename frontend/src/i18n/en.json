@@ -1495,6 +1495,7 @@
       "done": "Done"
     },
     "hide_row": "Hide row",
+    "row_settings": "Row settings",
     "unhide_row": "Show",
     "row_hidden_toast": "Row hidden",
     "hidden_rows_count": "Hidden rows: {{count}}",

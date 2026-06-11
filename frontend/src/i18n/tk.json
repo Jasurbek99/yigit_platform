@@ -26,9 +26,9 @@
     "finansist": "Maliýeçi",
     "director": "Direktor",
     "accountant": "Hasapçy",
-    "greenhouse_manager": "Ýyladyşhana menejeri",
+    "greenhouse_manager": "Ýyladyşhana müdiri",
     "seller": "Satyjy",
-    "weight_master": "Agramy ölçeýji usta",
+    "weight_master": "Gapançy",
     "loading_dept_head": "Ýükleme gaplama bölüminiň müdiri",
     "loading_dept_head_deputy": "Ýükleme gaplama bölüminiň orunbassary",
     "boss": "Başlyk"
@@ -1495,6 +1495,7 @@
       "done": "Bolýar"
     },
     "hide_row": "Setiri gizlemek",
+    "row_settings": "Setir sazlamalary",
     "unhide_row": "Görkez",
     "row_hidden_toast": "Setir gizlendi",
     "hidden_rows_count": "Gizlenen setirler: {{count}}",
@@ -2306,7 +2307,7 @@
       "finansist": "Finansist",
       "director": "Direktor",
       "accountant": "Hasapdar",
-      "greenhouse_manager": "Ýyladyşhana menejeri",
+      "greenhouse_manager": "Ýyladyşhana müdiri",
       "loading_dept_head": "Ýüklemek bölüminiň başlygy",
       "loading_dept_head_deputy": "Ýükleme orunbassary",
       "weight_master": "Agram ussady",

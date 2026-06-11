@@ -202,6 +202,14 @@ export function SheetGrid({
       user.is_superuser ||
       ['admin', 'export_manager', 'document_team', 'loading_dept_head', 'loading_dept_head_deputy'].includes(userRole)
     );
+  // Row STYLE editing from the Sheet gear writes the GLOBAL SheetRowSetting
+  // (affects every user), so it is gated to the settings-managing roles that
+  // also own the admin Sheet-Rows tab + the backend shipment-edit permission.
+  const canEditRowStyle =
+    !!user && (
+      user.is_superuser ||
+      ['admin', 'director', 'export_manager'].includes(userRole)
+    );
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   );
@@ -765,6 +773,7 @@ export function SheetGrid({
                 ? () => handleHideRow(rowConfig)
                 : undefined
             }
+            canEditRowStyle={canEditRowStyle}
           />
 
           {/* Frozen data columns (sticky-left, between label band and virtualizer) */}

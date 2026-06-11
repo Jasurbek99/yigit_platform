@@ -1,11 +1,11 @@
 import { Fragment, memo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LockOutlined, ArrowUpOutlined, ArrowDownOutlined, EllipsisOutlined, EyeInvisibleOutlined } from '@ant-design/icons';
-import { Tooltip, Dropdown } from 'antd';
-import type { MenuProps } from 'antd';
+import { LockOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons';
+import { Tooltip } from 'antd';
 import type { IRowConfig, ISheetRowSettingForUser } from '@/types';
 import { scaleSheetLayout } from '@/constants/sheetRowConfig';
 import { useSheetStore } from '@/stores/sheetStore';
+import { SheetRowSettingsPopover } from './SheetRowSettingsPopover';
 
 interface ISheetLabelRowProps {
   rowConfig: IRowConfig;
@@ -35,6 +35,9 @@ interface ISheetLabelRowProps {
   onMoveDown?: () => void;
   /** Called when the user wants to hide this row. Undefined = hide not available. */
   onHideRow?: () => void;
+  /** Privileged gate (admin/director/export_manager/superuser) — enables the
+   *  in-place row style controls inside the gear popover. */
+  canEditRowStyle?: boolean;
   /** Phase 2b: this row's index in the visible-rows list. Required for drag drop. */
   rowIndex?: number;
   /** Phase 2b: called when this row receives a drop from another row's drag.
@@ -63,6 +66,7 @@ function SheetLabelRowInner({
   onMoveUp,
   onMoveDown,
   onHideRow,
+  canEditRowStyle = false,
   rowIndex,
   onReorderTo,
 }: ISheetLabelRowProps) {
@@ -75,7 +79,6 @@ function SheetLabelRowInner({
     colWho: COL_WIDTH_WHO,
     colField: COL_WIDTH_FIELD,
   } = scaleSheetLayout(sheetZoom);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [dragOver, setDragOver] = useState(false);
 
   const borderColor = STYLE_COLORS[rowConfig.style] ?? STYLE_COLORS.base;
@@ -96,6 +99,12 @@ function SheetLabelRowInner({
   // Reorder controls are shown only when callbacks are provided
   const hasReorder = onMoveUp !== undefined && onMoveDown !== undefined;
   const hasHide = onHideRow !== undefined;
+  // The gear popover shows when there's something to do inside it: a per-user
+  // hide action, or (for privileged users) style editing on a DB-backed row.
+  // Whenever hasHide is true the row has a SheetRowSetting (fieldKeyToRowId is
+  // built from rows with an id), so `setting` is always present here.
+  const canStyleRow = canEditRowStyle && setting !== undefined && setting.id !== null;
+  const showGear = setting !== undefined && (hasHide || canStyleRow);
 
   // Phase 2b: drag-reorder. Available when both rowIndex and onReorderTo are
   // supplied AND this row participates in user-side ordering. Falls back to
@@ -129,20 +138,6 @@ function SheetLabelRowInner({
     if (Number.isNaN(fromIndex) || fromIndex === rowIndex) return;
     onReorderTo?.(fromIndex, rowIndex);
   };
-
-  // Kebab menu items
-  const kebabItems: MenuProps['items'] = [];
-  if (hasHide) {
-    kebabItems.push({
-      key: 'hide',
-      icon: <EyeInvisibleOutlined />,
-      label: t('sheet.hide_row'),
-      onClick: () => {
-        setMenuOpen(false);
-        onHideRow();
-      },
-    });
-  }
 
   // Rendered as a Fragment (not a wrapping div) so the 3 sticky-left cells
   // become direct flex children of the parent row. Wrapping them breaks
@@ -275,32 +270,12 @@ function SheetLabelRowInner({
             <LockOutlined style={{ fontSize: 11, color: '#8c8c8c', flexShrink: 0 }} />
           </Tooltip>
         )}
-        {kebabItems.length > 0 && (
-          <Dropdown
-            menu={{ items: kebabItems }}
-            trigger={['click']}
-            open={menuOpen}
-            onOpenChange={setMenuOpen}
-            placement="bottomRight"
-          >
-            <button
-              className="sheet-row-kebab"
-              aria-label={t('sheet.row_menu')}
-              style={{
-                border: 'none',
-                background: 'none',
-                cursor: 'pointer',
-                padding: '2px 3px',
-                lineHeight: 1,
-                color: '#8c8c8c',
-                fontSize: 12,
-                flexShrink: 0,
-                borderRadius: 2,
-              }}
-            >
-              <EllipsisOutlined />
-            </button>
-          </Dropdown>
+        {showGear && setting && (
+          <SheetRowSettingsPopover
+            setting={setting}
+            canEditStyle={canEditRowStyle}
+            onHideRow={hasHide ? onHideRow : undefined}
+          />
         )}
       </div>
     </Fragment>

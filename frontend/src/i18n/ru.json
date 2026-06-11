@@ -1497,6 +1497,7 @@
       "done": "Готово"
     },
     "hide_row": "Скрыть строку",
+    "row_settings": "Настройки строки",
     "unhide_row": "Показать",
     "row_hidden_toast": "Строка скрыта",
     "hidden_rows_count": "Скрытые строки: {{count}}",

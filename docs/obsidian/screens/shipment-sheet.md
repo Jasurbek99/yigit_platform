@@ -129,8 +129,8 @@ The **Style** column in **Shipment Settings → Sheet Rows** (`SheetRowStylePopo
 
 | Field | Values | Effect |
 |-------|--------|--------|
-| `style_width` | 50–500 (px) | Column width; multiplied by `sheetZoom`. |
-| `style_align` | left / center / right | Text alignment. |
+| `style_width` | 50–500 (px) | Column width; multiplied by `sheetZoom`. **No longer editable in the UI** (dropped as unusable); column still exists and any pre-set value is still honoured on render. |
+| `style_align` | left / center / right | Text alignment. **No longer editable in the UI** (dropped as unusable); column still honoured on render. |
 | `style_color` | `#RRGGBB` | Cell background (auto WCAG-contrast text unless `font_color` overrides). |
 | `style_font_color` | `#RRGGBB` | Cell text color override. |
 | `style_font_weight` | bold / normal | Cell text weight. **Blank = bold** — every data cell renders bold by default; admins set `normal` to un-bold a row. |
@@ -139,6 +139,12 @@ The **Style** column in **Shipment Settings → Sheet Rows** (`SheetRowStylePopo
 | `style_font_size` | 8–28 (px) | Cell text size; multiplied by `sheetZoom` on render to track the rest of the cell. Null = inherit the sheet default (11px). |
 
 **Default-bold rule:** the bold baseline lives in `SheetCell` *outside* the `style?.` optional chain (`font_weight === 'normal' ? 400 : 700`), so it applies even to fallback rows with no `SheetRowSetting` (`style === null`). Per-value conditional colors and per-shipment column tints still take precedence over `style_color`. Typography is applied to the default `.sheet-cell__text` render; special-render cells (cargo code, country-with-flag, firm/block tags) keep their own component-level weights and do not inherit these row overrides.
+
+**Editable from the Sheet too (gear popover).** The same style controls are reachable directly from the Sheet without opening the admin tab. Each row's label band (Col C) carries a **gear icon** (`SheetRowSettingsPopover`, replacing the old "…" kebab). Clicking it opens a popover with:
+- **The style controls** (the shared `SheetRowStyleControls` component, identical to the admin tab): background + font color (on one line), font weight, font style, font family, font size. (Width + alignment were removed as unusable.) Shown only to **admin / director / export_manager / superuser** (gated by `canEditRowStyle` in `SheetGrid`; the backend PATCH on `/admin/sheet-rows/{id}/` enforces the same shipment-edit permission).
+- **Hide row** — the per-user `is_hidden` preference, available to everyone (any user with a DB-backed row).
+
+Edits PATCH the global `SheetRowSetting` via `useSaveSheetRowSetting`, which invalidates `['shipments','sheet']` so the change is visible immediately and `version` refreshes for the next edit; a stale-version 409 prompts a refresh modal. Non-privileged users still see the gear, but it offers only **Hide row**. Fallback rows with no `SheetRowSetting` (`id === null`) cannot be styled (no PATCH key) — they show the hide action only.
 
 ### Sheet Rows Admin endpoint
 
