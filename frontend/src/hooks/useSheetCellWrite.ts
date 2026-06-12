@@ -5,6 +5,14 @@ import { useTranslation } from 'react-i18next';
 import type { IShipmentSheetItem, IRowConfig } from '@/types';
 import api from '@/services/api';
 import { useShipmentPatch, extractPatchError, applyOptimistic } from './useShipmentPatch';
+import {
+  recordCellEntry,
+  recordJunctionEntry,
+  setEntryAfter,
+  dropEntry,
+  reconciledCellValue,
+  cascadeFrom,
+} from './undoCapture';
 
 // When clearing/replacing an FK field the cell still renders from cached
 // companion fields (`country_name`, `country_code`, `country_color`, …) until
@@ -150,11 +158,13 @@ export function useSheetCellWrite(): IUseSheetCellWrite {
     (shipment: IShipmentSheetItem, rowConfig: IRowConfig, value: unknown) => {
       const fieldKey = rowConfig.field_key;
       if (fieldKey.startsWith('custom_')) {
-        customFieldMutation.mutate({
-          shipmentId: shipment.id,
-          fieldKey,
-          value: typeof value === 'string' ? value : String(value ?? ''),
-        });
+        const strValue = typeof value === 'string' ? value : String(value ?? '');
+        const before = shipment.custom_fields?.[fieldKey] ?? '';
+        const undoId = recordCellEntry(shipment.id, fieldKey, before, strValue);
+        customFieldMutation.mutate(
+          { shipmentId: shipment.id, fieldKey, value: strValue },
+          undoId === -1 ? undefined : { onError: () => dropEntry(undoId) },
+        );
         return;
       }
       // FK fields: pre-wipe cached companion fields (name / code / color) so a
@@ -173,7 +183,20 @@ export function useSheetCellWrite(): IUseSheetCellWrite {
       // pasting a not-yet-reconciled empty/cleared cell into the same field.
       const safeValue =
         value === null && isFreeTextType(rowConfig.input_type) ? '' : value;
-      patchMutation.mutate({ id: shipment.id, field: fieldKey, value: safeValue });
+      const before = shipment[fieldKey as keyof IShipmentSheetItem];
+      const undoId = recordCellEntry(shipment.id, fieldKey, before, safeValue);
+      patchMutation.mutate(
+        { id: shipment.id, field: fieldKey, value: safeValue },
+        undoId === -1
+          ? undefined
+          : {
+              onError: () => dropEntry(undoId),
+              onSuccess: (data) => {
+                const d = data as Record<string, unknown>;
+                setEntryAfter(undoId, reconciledCellValue(d, rowConfig), cascadeFrom(shipment, d));
+              },
+            },
+      );
     },
     // Depend on the stable `.mutate` refs (React Query guarantees them) rather
     // than the mutation objects, whose identity changes every render — that
@@ -187,24 +210,27 @@ export function useSheetCellWrite(): IUseSheetCellWrite {
     (shipment: IShipmentSheetItem, rowConfig: IRowConfig) => {
       const fieldKey = rowConfig.field_key;
       if (fieldKey.startsWith('custom_')) {
-        customFieldMutation.mutate({ shipmentId: shipment.id, fieldKey, value: '' });
+        const before = shipment.custom_fields?.[fieldKey] ?? '';
+        const undoId = recordCellEntry(shipment.id, fieldKey, before, '');
+        customFieldMutation.mutate(
+          { shipmentId: shipment.id, fieldKey, value: '' },
+          undoId === -1 ? undefined : { onError: () => dropEntry(undoId) },
+        );
         return;
       }
       if (rowConfig.input_type === 'multiselect') {
         if (fieldKey === 'firm_splits') {
-          clearJunctionMutation.mutate({
-            shipmentId: shipment.id,
-            endpoint: 'firm-splits',
-            key: 'firms',
-            field: 'firm_splits',
-          });
+          const undoId = recordJunctionEntry(shipment.id, 'firm_splits', shipment.firm_splits);
+          clearJunctionMutation.mutate(
+            { shipmentId: shipment.id, endpoint: 'firm-splits', key: 'firms', field: 'firm_splits' },
+            undoId === -1 ? undefined : { onError: () => dropEntry(undoId) },
+          );
         } else if (fieldKey === 'block_sources') {
-          clearJunctionMutation.mutate({
-            shipmentId: shipment.id,
-            endpoint: 'block-sources',
-            key: 'blocks',
-            field: 'block_sources',
-          });
+          const undoId = recordJunctionEntry(shipment.id, 'block_sources', shipment.block_sources);
+          clearJunctionMutation.mutate(
+            { shipmentId: shipment.id, endpoint: 'block-sources', key: 'blocks', field: 'block_sources' },
+            undoId === -1 ? undefined : { onError: () => dropEntry(undoId) },
+          );
         }
         return;
       }
@@ -224,7 +250,20 @@ export function useSheetCellWrite(): IUseSheetCellWrite {
       // be null"). Other scalar types (date / number / FK dropdown) are
       // nullable, so they clear to null.
       const clearValue = isFreeTextType(rowConfig.input_type) ? '' : null;
-      patchMutation.mutate({ id: shipment.id, field: fieldKey, value: clearValue });
+      const before = shipment[fieldKey as keyof IShipmentSheetItem];
+      const undoId = recordCellEntry(shipment.id, fieldKey, before, clearValue);
+      patchMutation.mutate(
+        { id: shipment.id, field: fieldKey, value: clearValue },
+        undoId === -1
+          ? undefined
+          : {
+              onError: () => dropEntry(undoId),
+              onSuccess: (data) => {
+                const d = data as Record<string, unknown>;
+                setEntryAfter(undoId, reconciledCellValue(d, rowConfig), cascadeFrom(shipment, d));
+              },
+            },
+      );
     },
     // Stable `.mutate` refs — see the writeCell note above.
     // eslint-disable-next-line react-hooks/exhaustive-deps

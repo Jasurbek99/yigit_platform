@@ -29,6 +29,7 @@ import { useSheetStore } from '@/stores/sheetStore';
 import { useAuth } from '@/hooks/useAuth';
 import { isCellEditable } from '@/utils/sheetPermissions';
 import { useSheetClipboard } from '@/hooks/useSheetClipboard';
+import { useApplyUndo } from '@/hooks/useApplyUndo';
 import { useSaveSheetColumnOrder } from '@/hooks/useShipmentSheet';
 import { SheetCell } from './SheetCell';
 import { SheetCellEditor } from './SheetCellEditor';
@@ -202,6 +203,9 @@ export function SheetGrid({
   // Google-Sheets clipboard for the active cell: Ctrl+C / X / V + Delete.
   const { copyActiveCell, cutActiveCell, pasteActiveCell, deleteActiveCell } =
     useSheetClipboard(shipments, rows, rowSettings, user);
+
+  // Ctrl+Z (undo) — pops the last Sheet cell write and replays its reverse.
+  const applyUndo = useApplyUndo(shipments, rows);
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
@@ -423,6 +427,23 @@ export function SheetGrid({
 
       const state = useSheetStore.getState();
 
+      // ─── Undo (Ctrl/⌘+Z) ──────────────────────────────────────────────────
+      // Grid-global (no active cell needed). Reserves Ctrl+Shift+Z for a future
+      // redo. Skipped while editing (native input undo wins) or in join/swap.
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        !e.altKey &&
+        !e.shiftKey &&
+        e.code === 'KeyZ' &&
+        !state.editingCell &&
+        !state.joinMode &&
+        !state.swapMode
+      ) {
+        void applyUndo();
+        e.preventDefault();
+        return;
+      }
+
       // ─── Clipboard + Delete shortcuts ─────────────────────────────────────
       // Handled before nav/type-to-edit so Ctrl+C/X/V and Delete don't fall
       // through to the editor-open path. Only act on the active cell while not
@@ -519,6 +540,7 @@ export function SheetGrid({
     cutActiveCell,
     pasteActiveCell,
     deleteActiveCell,
+    applyUndo,
   ]);
 
   // ─── Reorder helpers ───────────────────────────────────────────────────────

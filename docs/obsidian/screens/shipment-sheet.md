@@ -234,7 +234,25 @@ The same `SheetGrid` `keydown` listener also drives single-cell clipboard shortc
 
 `clearCell` (used by Cut / Delete / right-click **Clear cell**) sends **`''` for `text` / `phone` cells** and `null` for other scalar types: the per-role note columns (`*_note` / "belligi") are NOT NULL `CharField`s with default `''`, so a `PATCH` with `null` was rejected ("This field may not be null"). FK / date / number fields stay nullable and clear to `null`.
 
-Out of scope for this pass (deliberately): **range selection / multi-cell fill** (selection is still single-cell) and **Ctrl+Z undo** (to be designed separately — a forward re-PATCH would not reverse status auto-advance / AD-1 timestamps / notifications a cell edit can trigger).
+Still out of scope (deliberately): **range selection / multi-cell fill** (selection is single-cell).
+
+## Undo (Ctrl+Z)
+
+`Ctrl/⌘+Z` on the grid pops the most-recent cell write (LIFO) and replays its reverse. It is **grid-global** (no active cell needed), handled in the same `SheetGrid` keydown listener after the form-control bail (so native input undo wins while a cell editor is open) and skipped during join/swap. Matches on `e.code === 'KeyZ'` (layout-independent); `Ctrl+Shift+Z` is reserved for a future redo.
+
+**Coverage:** every Sheet write path — inline editor edits, paste, cut, delete, clear, dropdowns, dates, FK, the R26 `transit_days_temp` combined cell, and the junctions (`firm_splits`, `block_sources`, `variety`).
+
+**Architecture** (`stores/undoStore.ts`, `hooks/undoCapture.ts`, `hooks/useApplyUndo.ts`):
+- **Stack:** a bounded (`MAX_UNDO = 50`) in-memory Zustand list of typed, closure-free descriptors keyed by *reverse mechanism* — `cell` (scalar + `custom_*` + FK → reverse via `writeCell`), `multi` (the R26 pair → `patchMulti`), `junction` (`firm_splits`/`block_sources` → re-POST), `varieties` (→ `varieties/override`). Cleared on Sheet unmount (entries resolve by `shipmentId`, so filter/search don't clear it).
+- **Capture (distributed):** each write site reads the cached `before` value and calls a recorder *before* the mutation, threading a per-call `{ onError: dropEntry, onSuccess: setEntryAfter }`. `onError` drops entries whose optimistic write rolled back; `onSuccess` overwrites the guard baseline (`after`) with the **reconciled server value** (DRF serializes decimals→string / dates→ISO, so the sent value wouldn't match the cache). No-op saves (`before === sent`) aren't recorded.
+- **Reverse (centralized):** a pure, unit-tested `planUndo(entry, liveShipment, rowConfig, refData)` decides the action or a skip; `applyUndo` dispatches it.
+- **`isUndoing` guard:** `applyUndo` sets this before the reverse write (which itself routes through the capturing `writeCell`) and clears it in a `queueMicrotask`, so `pushUndo` no-ops during replay — otherwise the stack would ping-pong forever.
+
+**Guards & skips (each toasts):**
+- **Concurrent-edit guard** — if the cell's current value differs from the recorded `after` (someone/something changed it since), undo is skipped (`sheet.undo_cell_changed`) rather than clobbering the newer value. Best-effort for junction/varieties (their endpoints echo no scalar to compare).
+- **Shipment gone** (`sheet.undo_cell_gone`); **deactivated firm/block** can't resolve code→id (`sheet.undo_unsupported`); **varieties back-to-empty** is unrecoverable since `varieties/override` no-ops on empty (`sheet.undo_unsupported`); **empty stack** (`sheet.undo_nothing`).
+
+**Honest cascade handling (warn-on-undo):** when the original edit had **advanced the shipment status** (auto-advance cascade), undo restores the cell value AND toasts `sheet.undo_cascade_warning` ("Value restored, but the status advance *from → to* was not reverted"). The lifecycle is forward-only — a value re-PATCH cannot reverse a `transition_to`, the AD-1 timestamps, notifications, or created/closed tasks. Cascade is detected by comparing the pre-edit `status_code` to the PATCH response's; **detection is limited to scalar/multi PATCH** (the junction/custom endpoints return `{status:'ok',count}` with no shipment status, so a `block_sources` cascade can't be surfaced without a refetch, which is deliberately avoided).
 
 ## Input types
 

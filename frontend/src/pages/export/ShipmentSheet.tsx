@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useShipmentSheet } from '@/hooks/useShipmentSheet';
 import { usePresenceSheet } from '@/hooks/usePresenceSheet';
 import { useSheetStore, SHEET_ZOOM_MIN, SHEET_ZOOM_MAX } from '@/stores/sheetStore';
+import { useUndoStore } from '@/stores/undoStore';
 import {
   useUserSheetPreferences,
   useSaveUserSheetPreferences,
@@ -62,6 +63,7 @@ export default function ShipmentSheet() {
   const setRows = useSheetStore((s) => s.setRows);
   const sheetFullscreen = useSheetStore((s) => s.sheetFullscreen);
   const setSheetFullscreen = useSheetStore((s) => s.setSheetFullscreen);
+  const clearUndo = useUndoStore((s) => s.clearUndo);
   const sheetZoom = useSheetStore((s) => s.sheetZoom);
   const zoomIn = useSheetStore((s) => s.zoomIn);
   const zoomOut = useSheetStore((s) => s.zoomOut);
@@ -168,6 +170,11 @@ export default function ShipmentSheet() {
   }, [sheetFullscreen, setSheetFullscreen]);
 
   useEffect(() => () => setSheetFullscreen(false), [setSheetFullscreen]);
+
+  // Drop the undo history when leaving the Sheet — entries reference cached
+  // shipment rows that won't exist on the next visit. (Filters/search don't
+  // clear it: entries resolve by shipmentId, so filter→edit→unfilter→undo works.)
+  useEffect(() => () => clearUndo(), [clearUndo]);
 
   const filtered = useMemo(() => {
     if (!shipments) return [];

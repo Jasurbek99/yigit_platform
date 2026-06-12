@@ -7,6 +7,16 @@ import { useTranslation } from 'react-i18next';
 import type { IShipmentSheetItem, IRowConfig } from '@/types';
 import { useSheetStore } from '@/stores/sheetStore';
 import { useShipmentPatch, useShipmentPatchMulti, extractPatchError } from '@/hooks/useShipmentPatch';
+import {
+  recordCellEntry,
+  recordMultiEntry,
+  recordJunctionEntry,
+  recordVarietiesEntry,
+  setEntryAfter,
+  dropEntry,
+  reconciledCellValue,
+  cascadeFrom,
+} from '@/hooks/undoCapture';
 import api from '@/services/api';
 import {
   useCountries,
@@ -89,16 +99,32 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
     (value: unknown) => {
       // Custom rows: dispatch to the dedicated endpoint with a string value.
       if (rowConfig.field_key.startsWith('custom_')) {
-        customFieldMutation.mutate({
-          field_key: rowConfig.field_key,
-          value: typeof value === 'string' ? value : String(value ?? ''),
-        });
+        const strValue = typeof value === 'string' ? value : String(value ?? '');
+        const before = shipment.custom_fields?.[rowConfig.field_key] ?? '';
+        const undoId = recordCellEntry(shipment.id, rowConfig.field_key, before, strValue);
+        customFieldMutation.mutate(
+          { field_key: rowConfig.field_key, value: strValue },
+          undoId === -1 ? undefined : { onError: () => dropEntry(undoId) },
+        );
         return;
       }
-      patchMutation.mutate({ id: shipment.id, field: rowConfig.field_key, value });
+      const before = shipment[rowConfig.field_key as keyof IShipmentSheetItem];
+      const undoId = recordCellEntry(shipment.id, rowConfig.field_key, before, value);
+      patchMutation.mutate(
+        { id: shipment.id, field: rowConfig.field_key, value },
+        undoId === -1
+          ? undefined
+          : {
+              onError: () => dropEntry(undoId),
+              onSuccess: (data) => {
+                const d = data as Record<string, unknown>;
+                setEntryAfter(undoId, reconciledCellValue(d, rowConfig), cascadeFrom(shipment, d));
+              },
+            },
+      );
       close();
     },
-    [patchMutation, customFieldMutation, shipment.id, rowConfig.field_key, close],
+    [patchMutation, customFieldMutation, shipment, rowConfig, close],
   );
 
   const junctionMutation = useMutation({
@@ -117,8 +143,13 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
   });
 
   const saveJunction = useCallback(
-    (endpoint: string, items: Record<string, unknown>[], key: string) => {
-      junctionMutation.mutate({ endpoint, body: { [key]: items } });
+    (
+      endpoint: string,
+      items: Record<string, unknown>[],
+      key: string,
+      options?: { onError?: () => void },
+    ) => {
+      junctionMutation.mutate({ endpoint, body: { [key]: items } }, options);
     },
     [junctionMutation],
   );
@@ -260,13 +291,38 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
       const matches = raw.match(/-?\d+(\.\d+)?/g) ?? [];
       const newDays = matches[0] != null ? Number(matches[0]) : null;
       const newTemp = matches[1] != null ? Number(matches[1]) : null;
-      patchMultiMutation.mutate({
-        id: shipment.id,
-        fields: { transit_days: newDays, transport_temp_c: newTemp },
-      });
+      const fields = { transit_days: newDays, transport_temp_c: newTemp };
+      const before = {
+        transit_days: shipment.transit_days,
+        transport_temp_c: shipment.transport_temp_c,
+      };
+      const undoId = recordMultiEntry(shipment.id, before, fields);
+      patchMultiMutation.mutate(
+        { id: shipment.id, fields },
+        undoId === -1
+          ? undefined
+          : {
+              onError: () => dropEntry(undoId),
+              onSuccess: (data) => {
+                const d = data as Record<string, unknown>;
+                // Fall back to the sent value when the response omits a subfield,
+                // so `after` never carries `undefined` (which would make the next
+                // undo's concurrent guard false-positive "cell changed").
+                setEntryAfter(
+                  undoId,
+                  {
+                    transit_days: d.transit_days !== undefined ? d.transit_days : fields.transit_days,
+                    transport_temp_c:
+                      d.transport_temp_c !== undefined ? d.transport_temp_c : fields.transport_temp_c,
+                  },
+                  cascadeFrom(shipment, d),
+                );
+              },
+            },
+      );
       close();
     },
-    [patchMultiMutation, shipment.id, close],
+    [patchMultiMutation, shipment, close],
   );
 
   // Type-to-edit commit-and-hop for text-like inputs (text / phone / number /
@@ -435,18 +491,31 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
           // R38 varieties → POST varieties/override with {variety_ids:[int,...]}
           // (1-4 entries enforced server-side; empty selection no-ops to avoid 400).
           if (isBlocks) {
-            saveJunction('block-sources', next.map((id) => ({ block_id: id })), 'blocks');
+            const undoId = recordJunctionEntry(shipment.id, 'block_sources', shipment.block_sources);
+            saveJunction(
+              'block-sources',
+              next.map((id) => ({ block_id: id })),
+              'blocks',
+              undoId === -1 ? undefined : { onError: () => dropEntry(undoId) },
+            );
           } else if (isFirms) {
-            saveJunction('firm-splits', next.map((id) => ({ export_firm_id: id })), 'firms');
+            const undoId = recordJunctionEntry(shipment.id, 'firm_splits', shipment.firm_splits);
+            saveJunction(
+              'firm-splits',
+              next.map((id) => ({ export_firm_id: id })),
+              'firms',
+              undoId === -1 ? undefined : { onError: () => dropEntry(undoId) },
+            );
           } else if (isVarieties) {
             if (next.length === 0) {
               close();
               return;
             }
-            junctionMutation.mutate({
-              endpoint: 'varieties/override',
-              body: { variety_ids: next },
-            });
+            const undoId = recordVarietiesEntry(shipment.id, shipment.varieties_dominant ?? []);
+            junctionMutation.mutate(
+              { endpoint: 'varieties/override', body: { variety_ids: next } },
+              undoId === -1 ? undefined : { onError: () => dropEntry(undoId) },
+            );
           } else {
             close();
           }
