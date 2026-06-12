@@ -358,12 +358,13 @@ DEFAULT_SHEET_ROWS: list[dict] = [
     },
     {
         # R39 was an orphan readonly cell (no harvest_date column existed).
-        # Now backed by Shipment.harvest_date — operator-entered DateField.
+        # Now backed by Shipment.harvest_date — operator-entered free text
+        # (single day, ranges, notes). CharField, edited as a plain text cell.
         'row_number': 39,
         'field_key': 'harvest_date',
         'default_who_key': 'sheet.who.soltanmyrat',
         'label_key': 'sheet.row.harvest_date',
-        'input_type': 'date',
+        'input_type': 'text',
         'style': 'base',
     },
     {

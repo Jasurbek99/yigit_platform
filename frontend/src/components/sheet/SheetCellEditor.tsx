@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, DatePicker, Input, InputNumber, Popover, Select, Space, Typography } from 'antd';
+import { useCallback, useEffect, useRef } from 'react';
+import { Button, DatePicker, Input, InputNumber, Select } from 'antd';
 import dayjs from 'dayjs';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -568,11 +568,6 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
       }
 
       case 'date':
-        // harvest_date is multi-block: render a dedicated popover editor that
-        // stacks a DatePicker per block_source plus a shipment-level fallback.
-        if (rowConfig.field_key === 'harvest_date') {
-          return <HarvestDateMultiEditor shipment={shipment} onClose={close} />;
-        }
         return (
           <DatePicker
             size="small"
@@ -641,126 +636,5 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
     >
       {renderEditor()}
     </div>
-  );
-}
-
-/**
- * Multi-block harvest_date editor (Sheet R39).
- *
- * Renders inside a Popover anchored to a tiny invisible trigger that occupies
- * the cell slot. The popover stacks one DatePicker per block_source plus a
- * shipment-level fallback picker. On Save, two PATCHes fire:
- *   POST /shipments/{id}/block-sources/  — per-block harvest_date (preserves weight_kg)
- *   PATCH /shipments/{id}/                — shipment.harvest_date fallback
- * Closing the popover (Cancel button, click outside, ESC) discards changes.
- */
-function HarvestDateMultiEditor({
-  shipment,
-  onClose,
-}: {
-  shipment: IShipmentSheetItem;
-  onClose: () => void;
-}) {
-  const { t } = useTranslation();
-  const queryClient = useQueryClient();
-  const patchMutation = useShipmentPatch();
-
-  // Per-block date state — keyed by block_id. Defaults to today when the
-  // block has no prior harvest_date so opening the popover preselects "now"
-  // (matches the simple DatePicker behavior on R39/R43/datetime cells).
-  const todayIso = dayjs().format('YYYY-MM-DD');
-  const [blockDates, setBlockDates] = useState<Record<number, string | null>>(() => {
-    const init: Record<number, string | null> = {};
-    for (const b of shipment.block_sources ?? []) {
-      if (b.block_id != null) init[b.block_id] = b.harvest_date ?? todayIso;
-    }
-    return init;
-  });
-  const [shipmentDate, setShipmentDate] = useState<string | null>(
-    shipment.harvest_date ?? todayIso,
-  );
-  const [saving, setSaving] = useState(false);
-
-  const blocks = useMemo(() => shipment.block_sources ?? [], [shipment.block_sources]);
-
-  const handleSave = useCallback(async () => {
-    setSaving(true);
-    try {
-      // Send block-sources PATCH only if we have blocks — endpoint replaces all rows.
-      if (blocks.length > 0) {
-        const items = blocks.map((b) => ({
-          block_id: b.block_id,
-          // Pass weight_kg explicitly to prevent the auto-split fallback.
-          weight_kg: b.weight_kg,
-          harvest_date: b.block_id != null ? blockDates[b.block_id] ?? null : null,
-        }));
-        await api.post(`/export/shipments/${shipment.id}/block-sources/`, { blocks: items });
-      }
-      // Shipment-level fallback (only fires if changed).
-      if (shipmentDate !== (shipment.harvest_date ?? null)) {
-        patchMutation.mutate({ id: shipment.id, field: 'harvest_date', value: shipmentDate });
-      }
-      await queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
-      onClose();
-    } catch (err) {
-      toast.error(extractPatchError(err, t('sheet.save_error')));
-      console.error('[HarvestDateMultiEditor] save failed', err);
-      setSaving(false);
-    }
-  }, [blocks, blockDates, shipmentDate, shipment.id, shipment.harvest_date, patchMutation, queryClient, onClose, t]);
-
-  const content = (
-    <Space direction="vertical" size={8} style={{ minWidth: 260 }}>
-      {blocks.length === 0 && (
-        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-          {t('sheet.harvest_date.no_blocks')}
-        </Typography.Text>
-      )}
-      {blocks.map((b) => (
-        <div key={b.block_id ?? b.block_code} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Typography.Text strong style={{ minWidth: 60 }}>{b.block_code}</Typography.Text>
-          <DatePicker
-            size="small"
-            format="DD.MM.YYYY"
-            value={b.block_id != null && blockDates[b.block_id] ? dayjs(blockDates[b.block_id]!) : null}
-            onChange={(d) => {
-              if (b.block_id == null) return;
-              setBlockDates((prev) => ({ ...prev, [b.block_id!]: d ? d.format('YYYY-MM-DD') : null }));
-            }}
-            style={{ flex: 1 }}
-          />
-        </div>
-      ))}
-      <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 8, marginTop: 4 }}>
-        <Typography.Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
-          {t('sheet.harvest_date.shipment_fallback')}
-        </Typography.Text>
-        <DatePicker
-          size="small"
-          format="DD.MM.YYYY"
-          value={shipmentDate ? dayjs(shipmentDate) : null}
-          onChange={(d) => setShipmentDate(d ? d.format('YYYY-MM-DD') : null)}
-          style={{ width: '100%' }}
-        />
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
-        <Button size="small" onClick={onClose}>{t('sheet.harvest_date.cancel')}</Button>
-        <Button size="small" type="primary" onClick={handleSave} loading={saving}>
-          {t('sheet.harvest_date.save')}
-        </Button>
-      </div>
-    </Space>
-  );
-
-  return (
-    <Popover
-      content={content}
-      open
-      placement="bottomLeft"
-      trigger="click"
-      onOpenChange={(open) => { if (!open) onClose(); }}
-    >
-      <span style={{ display: 'inline-block', width: '100%', height: '100%' }} />
-    </Popover>
   );
 }

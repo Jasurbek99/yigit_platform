@@ -95,21 +95,9 @@ export function getCellValue(
       break;
   }
 
-  // harvest_date: read from block_sources (per-block primary) and render as a
-  // min-max range. Falls back to shipment.harvest_date when no per-block dates
-  // are set. See ShipmentBlockSource.harvest_date.
+  // harvest_date: free text (single day, ranges, notes) — display verbatim.
   if (fieldKey === 'harvest_date') {
-    const blockDates = (shipment.block_sources ?? [])
-      .map((b) => b.harvest_date)
-      .filter((d): d is string => !!d)
-      .sort();
-    if (blockDates.length > 0) {
-      const first = dayjs(blockDates[0]).format('DD.MM.YYYY');
-      const last = dayjs(blockDates[blockDates.length - 1]).format('DD.MM.YYYY');
-      return first === last ? first : `${first}–${last}`;
-    }
-    if (shipment.harvest_date) return dayjs(shipment.harvest_date).format('DD.MM.YYYY');
-    return '—';
+    return shipment.harvest_date || '—';
   }
 
   // Date-only fields (no time component) — format DD.MM.YYYY.

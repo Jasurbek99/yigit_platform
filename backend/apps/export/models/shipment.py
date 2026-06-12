@@ -208,10 +208,15 @@ class Shipment(models.Model):
     # the Sheet now shows this picker instead.
     sales_report_date = models.DateField(null=True, blank=True)
 
-    # Operator-entered date the cargo was harvested (Sheet R39, owned by
-    # Soltanmyrat/warehouse_chief). Shipment-level fallback — the primary
-    # per-block source lives on ShipmentBlockSource.harvest_date.
-    harvest_date = models.DateField(null=True, blank=True)
+    # Operator-entered harvest day (Sheet R39, owned by Soltanmyrat/
+    # warehouse_chief). Free text — operators enter whatever form the operation
+    # uses (single day, ranges like "5-10 oktýabr", notes), so this is a plain
+    # CharField, not a DateField. The legacy per-block ShipmentBlockSource.
+    # harvest_date column is now vestigial (the multi-block date editor was
+    # removed); the Sheet reads and writes this single shipment-level field.
+    harvest_date = models.CharField(
+        max_length=100, null=True, blank=True, db_collation='Cyrillic_General_CI_AS'
+    )
 
     # === AD-2: Structured vehicle fields (replaces deprecated vehicle_status_note) ===
     vehicle_condition = models.CharField(

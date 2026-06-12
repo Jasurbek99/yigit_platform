@@ -607,7 +607,7 @@ export default function ShipmentList() {
     { title: t('shipments.sale_started'), dataIndex: 'sale_started_at', key: 'sale_started_at', width: 130, render: (_, r) => renderDateTime(r.sale_started_at) },
     { title: t('shipments.sale_ended'), dataIndex: 'sale_ended_at', key: 'sale_ended_at', width: 130, render: (_, r) => renderDateTime(r.sale_ended_at) },
     { title: t('shipments.sales_report_date'), dataIndex: 'sales_report_date', key: 'sales_report_date', width: 120, render: (_, r) => renderDate(r.sales_report_date) },
-    { title: t('shipments.harvest_date'), dataIndex: 'harvest_date', key: 'harvest_date', width: 120, render: (_, r) => renderDate(r.harvest_date) },
+    { title: t('shipments.harvest_date'), dataIndex: 'harvest_date', key: 'harvest_date', width: 120, render: (_, r) => renderText(r.harvest_date) },
     // Vehicle condition (AD-2)
     { title: t('shipments.vehicle_condition'), dataIndex: 'vehicle_condition', key: 'vehicle_condition', width: 120, render: (_, r) => renderText(r.vehicle_condition) },
     { title: t('shipments.vehicle_condition_note'), dataIndex: 'vehicle_condition_note', key: 'vehicle_condition_note', width: 180, render: (_, r) => renderText(r.vehicle_condition_note) },
