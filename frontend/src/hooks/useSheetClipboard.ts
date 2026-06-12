@@ -59,6 +59,7 @@ export function useSheetClipboard(
   const { data: options } = useShipmentOptions();
   const { writeCell, clearCell } = useSheetCellWrite();
   const setClipboard = useSheetStore((s) => s.setClipboard);
+  const setEditingCell = useSheetStore((s) => s.setEditingCell);
 
   const resolveActiveCell = useCallback((): IResolvedCell | null => {
     const { activeCell } = useSheetStore.getState();
@@ -148,20 +149,27 @@ export function useSheetClipboard(
       return;
     }
 
-    // No internal clipboard (e.g. copied outside the app) → only paste into a
-    // free-text target, pulling plain text from the OS clipboard.
+    // No in-app clipboard (e.g. text copied from another app) → try the OS
+    // clipboard for a free-text target. `navigator.clipboard.readText` is
+    // unavailable in an insecure context (the plain-http beta server) and may
+    // be permission-blocked; when it can't deliver text, open the cell editor
+    // so the user can paste natively — a native Ctrl+V into the focused input
+    // works even when the clipboard API is blocked.
     if (isFreeTextType(rowConfig.input_type)) {
       try {
         const text = await navigator.clipboard.readText();
-        if (text != null && text !== '') writeCell(shipment, rowConfig, text);
-        else toast.warning(t('sheet.paste_nothing'));
+        if (text) {
+          writeCell(shipment, rowConfig, text);
+          return;
+        }
       } catch {
-        toast.warning(t('sheet.paste_nothing'));
+        // fall through to opening the editor
       }
+      setEditingCell({ shipmentId: shipment.id, rowKey: rowConfig.field_key });
       return;
     }
     toast.warning(t('sheet.paste_nothing'));
-  }, [resolveActiveCell, rowSettings, user, t, writeCell]);
+  }, [resolveActiveCell, rowSettings, user, t, writeCell, setEditingCell]);
 
   return { copyActiveCell, cutActiveCell, pasteActiveCell, deleteActiveCell };
 }

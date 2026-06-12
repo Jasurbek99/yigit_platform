@@ -228,9 +228,11 @@ The same `SheetGrid` `keydown` listener also drives single-cell clipboard shortc
 - **Ctrl/⌘+V — paste** — type-safe, routed through the field's own save path:
   - **Same `fieldKey`** → `writeCell` with the stored **raw value** (full typed paste: FK ids, option codes, dates, numbers, `custom_*` strings all round-trip correctly).
   - **Different field, both free-text** (`text` / `phone`) → paste the **display text**. No FK↔string or code coercion across types — those are rejected with `t('sheet.paste_incompatible')`.
-  - **No in-app clipboard** (value copied outside the app) → only into a free-text target, pulling `navigator.clipboard.readText()`.
+  - **No in-app clipboard** (value copied from another app) → for a free-text target, try `navigator.clipboard.readText()`; if it delivers text, write it. When `readText` is unavailable (insecure context — the plain-http beta server) or permission-blocked, **open the cell editor** so the user can paste natively (a native `Ctrl+V` into the focused input works even when the clipboard API is blocked). This replaced an earlier dead-end "nothing to paste" toast that left external paste impossible on http.
   - **Read-only / junction targets** (`firm_splits`, `block_sources`) are rejected with `t('sheet.paste_readonly')` / `t('sheet.paste_unsupported')` — junctions need the inline multiselect editor.
 - **Delete / Backspace — clear** — `clearCell` the active cell when editable, `isClearableField`, and not already empty (same gate as right-click **Clear cell**).
+
+`clearCell` (used by Cut / Delete / right-click **Clear cell**) sends **`''` for `text` / `phone` cells** and `null` for other scalar types: the per-role note columns (`*_note` / "belligi") are NOT NULL `CharField`s with default `''`, so a `PATCH` with `null` was rejected ("This field may not be null"). FK / date / number fields stay nullable and clear to `null`.
 
 Out of scope for this pass (deliberately): **range selection / multi-cell fill** (selection is still single-cell) and **Ctrl+Z undo** (to be designed separately — a forward re-PATCH would not reverse status auto-advance / AD-1 timestamps / notifications a cell edit can trigger).
 
@@ -262,7 +264,7 @@ The `date` and `datetime` editors deliberately disable Ant's built-in `allowClea
 - `custom_*` rows → optimistic `custom_fields[key] = ''` on the cached row, then `PATCH /shipments/{id}/custom-fields/` with `value=''`. Snapshot rolled back to the previous cache on error.
 - `multiselect` junctions (`firm_splits`, `block_sources`) → optimistic `[field] = []` on the cached row, then `POST /shipments/{id}/firm-splits/` or `block-sources/` with the items array empty (server replaces all rows, so empty = delete-all). Snapshot rolled back to the previous cache on error. **No post-success sheet invalidate** — the junction endpoints only return `{status, count}`, so the optimistic update IS the truth; an invalidate here would re-trigger a full-season refetch (~1–2 s, ~1000 rows) and felt like "needs refresh" before this was added.
 - FK fields (`country`, `customer`, `city`, `import_firm`, `variety`, `border_point`, `vehicle_responsible`) → wipe cached companion fields (`country_name`, `country_code`, `country_color`, etc.) via `applyOptimistic` *before* `useShipmentPatch` fires, so the cell flips empty on the next render instead of waiting ~200–500 ms for the PATCH response to land via `reconcileFromServer`. The reconcile step still runs and overwrites with the authoritative response.
-- Everything else → plain `PATCH /shipments/{id}/` with `{field: null}` via `useShipmentPatch` — the existing optimistic+reconcile path is enough because scalar fields have no companion data.
+- Everything else → plain `PATCH /shipments/{id}/` via `useShipmentPatch` (the existing optimistic+reconcile path is enough — scalar fields have no companion data), with `{field: ''}` for `text` / `phone` columns (NOT NULL CharFields, default `''`) and `{field: null}` for nullable types (date / number).
 
 The menu item is **disabled (greyed out)** rather than the whole menu being suppressed, in these cases — so the menu still mounts and future items can become enabled on a per-case basis:
 

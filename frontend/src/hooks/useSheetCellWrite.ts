@@ -194,7 +194,12 @@ export function useSheetCellWrite() {
           Object.fromEntries(companions.map((k) => [k, null])),
         );
       }
-      patchMutation.mutate({ id: shipment.id, field: fieldKey, value: null });
+      // Text/phone columns are NOT NULL CharFields (default ''), so clearing
+      // them must send '' — a PATCH with null is rejected ("This field may not
+      // be null"). Other scalar types (date / number / FK dropdown) are
+      // nullable, so they clear to null.
+      const clearValue = isFreeTextType(rowConfig.input_type) ? '' : null;
+      patchMutation.mutate({ id: shipment.id, field: fieldKey, value: clearValue });
     },
     [patchMutation, customFieldMutation, clearJunctionMutation, queryClient],
   );
