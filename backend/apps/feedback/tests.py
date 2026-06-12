@@ -288,7 +288,9 @@ class ResolutionNotificationTests(TestCase):
         )
 
     def test_resolve_notifies_author(self):
-        ticket = _make_ticket(self.author, status='in_review')
+        ticket = _make_ticket(
+            self.author, status='in_review', description='Map does not load on mobile',
+        )
         resp = self._patch_status(ticket, 'resolved')
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
 
@@ -296,6 +298,20 @@ class ResolutionNotificationTests(TestCase):
         self.assertIsNotNone(notif)
         self.assertEqual(notif.kind, 'feedback_resolved')
         self.assertIn(str(ticket.id), notif.link)
+        # Message carries the feedback content + the "solved" wording (not "#id").
+        self.assertIn('Map does not load on mobile', notif.message)
+        self.assertIn('solved', notif.message)
+
+    def test_long_description_is_truncated_in_message(self):
+        long_desc = 'A' * 200
+        ticket = _make_ticket(self.author, status='in_review', description=long_desc)
+        resp = self._patch_status(ticket, 'resolved')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+
+        notif = self.Notification.objects.filter(user_id=self.author.id).first()
+        self.assertIsNotNone(notif)
+        self.assertIn('…', notif.message)
+        self.assertLessEqual(len(notif.message), 500)
 
     def test_reject_notifies_author(self):
         ticket = _make_ticket(self.author, status='in_review')

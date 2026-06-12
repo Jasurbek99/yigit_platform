@@ -37,8 +37,14 @@ def notify_ticket_resolution(ticket, new_status: str, actor) -> None:
 
     from apps.export.models import Notification  # noqa: PLC0415 — see module docstring
 
-    verb = 'resolved' if new_status == 'resolved' else 'rejected'
-    message = f'{actor.username} marked your feedback #{ticket.id} as {verb}'
+    # Feedback has no title field — the description is the content. Show a
+    # snippet so the author recognises which ticket, capped well under the
+    # Notification.message 500-char limit.
+    verb = 'solved' if new_status == 'resolved' else 'rejected'
+    snippet = (ticket.description or '').strip().replace('\n', ' ')
+    if len(snippet) > 80:
+        snippet = snippet[:80].rstrip() + '…'
+    message = f'{actor.username} marked your feedback "{snippet}" as {verb}'
     link = f'/feedback/my-tickets?ticket={ticket.id}'
 
     try:
