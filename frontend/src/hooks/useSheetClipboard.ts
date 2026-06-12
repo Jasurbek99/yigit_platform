@@ -49,12 +49,19 @@ export function decidePaste(target: IRowConfig, clip: ISheetClipboardEntry): Pas
  * and read-only targets are rejected with a toast. (Range selection and Ctrl+Z
  * undo are deliberately out of scope for this pass.)
  */
+interface IUseSheetClipboard {
+  copyActiveCell: () => void;
+  cutActiveCell: () => void;
+  pasteActiveCell: () => Promise<void>;
+  deleteActiveCell: () => void;
+}
+
 export function useSheetClipboard(
   shipments: IShipmentSheetItem[],
   rows: IRowConfig[],
   rowSettings: Record<string, ISheetRowSettingForUser>,
   user: ICurrentUser | null,
-) {
+): IUseSheetClipboard {
   const { t } = useTranslation();
   const { data: options } = useShipmentOptions();
   const { writeCell, clearCell } = useSheetCellWrite();
@@ -80,35 +87,44 @@ export function useSheetClipboard(
     [],
   );
 
+  // Write the resolved cell into the in-app clipboard + mirror to the OS
+  // clipboard. No toast — callers (copy / cut) own their own user feedback.
+  const writeClipboard = useCallback(
+    (shipment: IShipmentSheetItem, rowConfig: IRowConfig): void => {
+      const displayText = getCellValue(shipment, rowConfig, options);
+      setClipboard({
+        fieldKey: rowConfig.field_key,
+        inputType: rowConfig.input_type,
+        rawValue: readRawValue(shipment, rowConfig),
+        displayText,
+      });
+      // Mirror to the OS clipboard so external paste (Excel, etc.) gets the
+      // formatted text. Best-effort: writeText is gesture-gated and can reject.
+      void navigator.clipboard
+        ?.writeText?.(displayText === '—' ? '' : displayText)
+        .catch(() => {});
+    },
+    [options, setClipboard, readRawValue],
+  );
+
   const copyActiveCell = useCallback(() => {
     const ctx = resolveActiveCell();
     if (!ctx) return;
-    const { shipment, rowConfig } = ctx;
-    const displayText = getCellValue(shipment, rowConfig, options);
-    setClipboard({
-      fieldKey: rowConfig.field_key,
-      inputType: rowConfig.input_type,
-      rawValue: readRawValue(shipment, rowConfig),
-      displayText,
-    });
-    // Mirror to the OS clipboard so external paste (Excel, etc.) gets the
-    // formatted text. Best-effort: writeText is gesture-gated and can reject.
-    void navigator.clipboard
-      ?.writeText?.(displayText === '—' ? '' : displayText)
-      .catch(() => {});
+    writeClipboard(ctx.shipment, ctx.rowConfig);
     toast.success(t('sheet.cell_copied'));
-  }, [resolveActiveCell, options, setClipboard, readRawValue, t]);
+  }, [resolveActiveCell, writeClipboard, t]);
 
   const cutActiveCell = useCallback(() => {
     const ctx = resolveActiveCell();
     if (!ctx) return;
     const { shipment, rowConfig } = ctx;
-    copyActiveCell();
+    writeClipboard(shipment, rowConfig);
+    toast.success(t('sheet.cell_cut'));
     // Clear only when the cell is editable and clearable and not already empty.
     if (!isCellEditable(rowConfig, rowSettings, user) || !isClearableField(rowConfig)) return;
     const value = getCellValue(shipment, rowConfig, options);
     if (value && value !== '—') clearCell(shipment, rowConfig);
-  }, [resolveActiveCell, copyActiveCell, rowSettings, user, options, clearCell]);
+  }, [resolveActiveCell, writeClipboard, t, rowSettings, user, options, clearCell]);
 
   const deleteActiveCell = useCallback(() => {
     const ctx = resolveActiveCell();

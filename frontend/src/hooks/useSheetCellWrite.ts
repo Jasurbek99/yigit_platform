@@ -66,7 +66,12 @@ interface IJunctionClearVars {
  * SheetCell (context menu) and useSheetClipboard (cut / paste / Delete) so all
  * write paths stay identical and optimistic.
  */
-export function useSheetCellWrite() {
+interface IUseSheetCellWrite {
+  writeCell: (shipment: IShipmentSheetItem, rowConfig: IRowConfig, value: unknown) => void;
+  clearCell: (shipment: IShipmentSheetItem, rowConfig: IRowConfig) => void;
+}
+
+export function useSheetCellWrite(): IUseSheetCellWrite {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
   const patchMutation = useShipmentPatch();
@@ -152,9 +157,29 @@ export function useSheetCellWrite() {
         });
         return;
       }
-      patchMutation.mutate({ id: shipment.id, field: fieldKey, value });
+      // FK fields: pre-wipe cached companion fields (name / code / color) so a
+      // cross-shipment paste can't flash the target's stale value before
+      // reconcileFromServer lands — same instant-repaint pattern as clearCell.
+      const companions = FK_CLEAR_COMPANION_FIELDS[fieldKey];
+      if (companions && companions.length) {
+        applyOptimistic(
+          queryClient,
+          shipment.id,
+          Object.fromEntries(companions.map((k) => [k, null])),
+        );
+      }
+      // Text/phone columns are NOT NULL CharFields (default ''); never PATCH
+      // them null (rejected as "may not be null") — guards the edge case of
+      // pasting a not-yet-reconciled empty/cleared cell into the same field.
+      const safeValue =
+        value === null && isFreeTextType(rowConfig.input_type) ? '' : value;
+      patchMutation.mutate({ id: shipment.id, field: fieldKey, value: safeValue });
     },
-    [patchMutation, customFieldMutation],
+    // Depend on the stable `.mutate` refs (React Query guarantees them) rather
+    // than the mutation objects, whose identity changes every render — that
+    // churn would re-bind SheetGrid's window keydown listener on each render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [patchMutation.mutate, customFieldMutation.mutate, queryClient],
   );
 
   /** Clear a cell's value, routing by field type (custom / junction / FK / scalar). */
@@ -201,7 +226,9 @@ export function useSheetCellWrite() {
       const clearValue = isFreeTextType(rowConfig.input_type) ? '' : null;
       patchMutation.mutate({ id: shipment.id, field: fieldKey, value: clearValue });
     },
-    [patchMutation, customFieldMutation, clearJunctionMutation, queryClient],
+    // Stable `.mutate` refs — see the writeCell note above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [patchMutation.mutate, customFieldMutation.mutate, clearJunctionMutation.mutate, queryClient],
   );
 
   return { writeCell, clearCell };

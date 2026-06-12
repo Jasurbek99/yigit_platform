@@ -1376,6 +1376,7 @@
     "clear_cell": "Clear cell",
     "show_history": "Show edit history",
     "cell_copied": "Copied",
+    "cell_cut": "Cut",
     "paste_readonly": "This cell can't be edited",
     "paste_unsupported": "Paste isn't supported for this cell type",
     "paste_incompatible": "Can't paste this value into this cell",

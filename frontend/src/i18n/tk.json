@@ -1376,6 +1376,7 @@
     "clear_cell": "Öýjügi arassala",
     "show_history": "Üýtgeşme taryhyny görkez",
     "cell_copied": "Göçürildi",
+    "cell_cut": "Kesildi",
     "paste_readonly": "Bu öýjügi üýtgedip bolmaýar",
     "paste_unsupported": "Bu görnüşli öýjüge goýup bolmaýar",
     "paste_incompatible": "Bu bahany bu öýjüge goýup bolmaýar",

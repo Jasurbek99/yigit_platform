@@ -428,7 +428,9 @@ export function SheetGrid({
       // through to the editor-open path. Only act on the active cell while not
       // editing and not in column join/swap selection.
       if (state.activeCell && !state.editingCell && !state.joinMode && !state.swapMode) {
-        const mod = (e.ctrlKey || e.metaKey) && !e.altKey;
+        // Exclude Shift so Ctrl+Shift+C/V/X (browser/OS shortcuts like
+        // paste-without-formatting) aren't hijacked by the cell clipboard.
+        const mod = (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey;
         // Match on e.code (physical key), NOT e.key: on Russian / Kazakh layouts
         // Ctrl+C yields e.key === 'с' (Cyrillic), which would never match 'c'.
         // e.code is layout-independent, exactly like the OS copy/paste binding.
