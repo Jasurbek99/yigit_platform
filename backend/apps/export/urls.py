@@ -20,6 +20,7 @@ from apps.export.views_admin import (
     TruckSplitDefaultViewSet,
     UserManagementViewSet,
     UserPermissionsView,
+    ManagedPagePermissionsView,
 )
 from apps.export.views_quota import QuotaIssuanceViewSet, QuotaUsageViewSet, QuotaDashboardView
 from apps.export.views_harvest_forecast import HarvestForecastView
@@ -69,6 +70,12 @@ urlpatterns = router.urls + [
         'admin/users/<int:pk>/permissions/',
         UserPermissionsView.as_view(),
         name='admin-user-permissions',
+    ),
+    # Delegated page-visibility management for department heads (AD-16).
+    path(
+        'admin/managed-page-permissions/',
+        ManagedPagePermissionsView.as_view(),
+        name='admin-managed-page-permissions',
     ),
     path('quota-dashboard/', QuotaDashboardView.as_view(), name='quota-dashboard'),
     path(

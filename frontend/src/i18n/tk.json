@@ -59,6 +59,7 @@
     "shipment_detail": "Ýük maglumatlary",
     "admin_shipment_settings": "Ýük Sazlamalary",
     "admin_audit_log": "Audit Žurnaly",
+    "admin_staff_access": "Işgärleriň Sahypalara Girişi",
     "group_main": "Esasy",
     "group_export": "Eksport",
     "group_management": "Dolandyryş",
@@ -2611,5 +2612,16 @@
     "pagination": {
       "total": "Jemi {{total}} faktura"
     }
+  },
+  "staff_access": {
+    "title": "Işgärleriň Sahypalara Girişi",
+    "subtitle": "Dolandyrýan işgärleriňize sahypalary açyp bilersiňiz. Üýtgeşmeler şol wezipedäki ähli ulanyjylara täsir eder. Siz özüňizde bar bolan sahypalary berip bilersiňiz.",
+    "col_page": "Sahypa",
+    "col_role": "Wezipesi",
+    "save": "Üýtgeşmeleri sakla",
+    "toast_saved": "Sahypa girişi saklandi",
+    "toast_error": "Sahypa girişini saklamak başa barmady",
+    "error_load": "Sahypa girişi sazlamalaryny ýükläp bolmady",
+    "empty": "Dolandyrýan işgär wezipeleriňiz ýok."
   }
 }

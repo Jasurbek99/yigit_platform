@@ -22,6 +22,7 @@ import type {
   IAuditLog,
   AuditAction,
   UserRole,
+  IManagedPagePermissions,
 } from '@/types';
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
@@ -923,6 +924,38 @@ export function useSaveFieldPermissions(options: MutationOptions = {}) {
       api.put('/core/admin/field-permissions/', payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-field-permissions'] });
+      queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+// ─── Delegated staff page-access (ADR-022) ────────────────────────────────────
+
+export function useManagedPagePermissions() {
+  return useQuery({
+    queryKey: ['admin-managed-page-permissions'],
+    queryFn: async (): Promise<IManagedPagePermissions> => {
+      const { data } = await api.get<IManagedPagePermissions>(
+        '/export/admin/managed-page-permissions/',
+      );
+      return data;
+    },
+    staleTime: 30_000,
+  });
+}
+
+export function useSaveManagedPagePermissions(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (matrix: Record<string, Record<string, boolean>>) =>
+      api.put<{ status: string; count: number }>(
+        '/export/admin/managed-page-permissions/',
+        { matrix },
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-managed-page-permissions'] });
       queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
       options.onSuccess?.();
     },

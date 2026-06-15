@@ -46,6 +46,14 @@ const ALL_ROLES: UserRole[] = [
   'boss',
 ];
 
+/**
+ * Maps which roles a given role may manage (ADR-022 delegated user management).
+ * Admin / superuser → all roles (handled separately via ALL_ROLES).
+ */
+const MANAGEABLE_BY_ROLE: Partial<Record<UserRole, UserRole[]>> = {
+  loading_dept_head: ['loading_dept_head_deputy', 'weight_master'],
+};
+
 interface IUserEditFormValues {
   role: UserRole | null;
   is_active: boolean;
@@ -73,7 +81,22 @@ export default function UsersPage() {
   const { t } = useTranslation();
   const { user: currentUser } = useAuth();
   const isAdmin = currentUser?.role === 'admin' || currentUser?.is_superuser === true;
+
+  // ADR-022: determine which roles the current user is allowed to manage.
+  // Admin / superuser → all roles; delegated managers → their subset; everyone else → none.
+  const manageableRoles: UserRole[] = isAdmin
+    ? ALL_ROLES
+    : currentUser?.role
+      ? (MANAGEABLE_BY_ROLE[currentUser.role] ?? [])
+      : [];
+  // Edit-role visibility: admin (AD-15) or a delegated manager (ADR-022).
+  const canManageUsers = manageableRoles.length > 0;
+  // Create / delete / reset-password stay superuser-only for the admin tier
+  // (AD-15) — only a delegated manager (e.g. loading_dept_head) is added here,
+  // NOT the plain admin role. Mirrors the backend _is_delegated_manager gate.
   const isSuperuser = currentUser?.is_superuser === true;
+  const isDelegatedManager = !!currentUser?.role && currentUser.role in MANAGEABLE_BY_ROLE;
+  const canCreateDeleteReset = isSuperuser || isDelegatedManager;
 
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<IAdminUser | null>(null);
@@ -215,50 +238,58 @@ export default function UsersPage() {
           <Tag color="default">{t('common.no')}</Tag>
         ),
     },
-    ...(isAdmin
+    ...(canManageUsers
       ? [
           {
             title: '',
             key: 'edit',
             width: 100,
             search: false,
-            render: (_: unknown, record: IAdminUser) => (
-              <Button
-                type="link"
-                size="small"
-                onClick={(e) => { e.stopPropagation(); handleOpenEdit(record); }}
-              >
-                {t('users_admin.edit_role')}
-              </Button>
-            ),
+            render: (_: unknown, record: IAdminUser) => {
+              if (!manageableRoles.includes(record.role)) return null;
+              return (
+                <Button
+                  type="link"
+                  size="small"
+                  onClick={(e) => { e.stopPropagation(); handleOpenEdit(record); }}
+                >
+                  {t('users_admin.edit_role')}
+                </Button>
+              );
+            },
           } as ProColumns<IAdminUser>,
         ]
       : []),
-    ...(isSuperuser
+    ...(canCreateDeleteReset
       ? [
           {
             title: '',
             key: 'password',
             width: 120,
             search: false,
-            render: (_: unknown, record: IAdminUser) => (
-              <Button
-                type="link"
-                size="small"
-                style={{ color: COLORS.orange }}
-                onClick={(e) => { e.stopPropagation(); handleOpenPasswordModal(record); }}
-              >
-                {t('users_admin.reset_password')}
-              </Button>
-            ),
+            render: (_: unknown, record: IAdminUser) => {
+              if (!manageableRoles.includes(record.role)) return null;
+              return (
+                <Button
+                  type="link"
+                  size="small"
+                  style={{ color: COLORS.orange }}
+                  onClick={(e) => { e.stopPropagation(); handleOpenPasswordModal(record); }}
+                >
+                  {t('users_admin.reset_password')}
+                </Button>
+              );
+            },
           } as ProColumns<IAdminUser>,
           {
             title: '',
             key: 'delete',
             width: 80,
             search: false,
-            render: (_: unknown, record: IAdminUser) =>
-              record.id === currentUser?.id ? null : (
+            render: (_: unknown, record: IAdminUser) => {
+              if (record.id === currentUser?.id) return null;
+              if (!manageableRoles.includes(record.role)) return null;
+              return (
                 <Button
                   type="link"
                   size="small"
@@ -267,7 +298,8 @@ export default function UsersPage() {
                 >
                   {t('users_admin.delete_btn')}
                 </Button>
-              ),
+              );
+            },
           } as ProColumns<IAdminUser>,
         ]
       : []),
@@ -285,7 +317,7 @@ export default function UsersPage() {
             {t('users_admin.subtitle')}
           </div>
         </div>
-        {isSuperuser && (
+        {canCreateDeleteReset && (
           <Button
             type="primary"
             onClick={() => { createForm.resetFields(); setCreateModalOpen(true); }}
@@ -337,7 +369,7 @@ export default function UsersPage() {
             rules={[{ required: true, message: t('common.required') }]}
           >
             <Select
-              options={ALL_ROLES.map((r) => ({ value: r, label: t(`roles.${r}`) }))}
+              options={manageableRoles.map((r) => ({ value: r, label: t(`roles.${r}`) }))}
             />
           </Form.Item>
           <Form.Item name="is_active" label={t('users_admin.is_active')} valuePropName="checked">
@@ -402,7 +434,7 @@ export default function UsersPage() {
             rules={[{ required: true, message: t('common.required') }]}
           >
             <Select
-              options={ALL_ROLES.map((r) => ({ value: r, label: t(`roles.${r}`) }))}
+              options={manageableRoles.map((r) => ({ value: r, label: t(`roles.${r}`) }))}
             />
           </Form.Item>
           <Form.Item name="is_active" label={t('users_admin.is_active')} valuePropName="checked" initialValue={true}>

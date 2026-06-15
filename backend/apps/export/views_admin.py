@@ -29,9 +29,16 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 
-from apps.core.models import ExportFirm, ImportFirm, Season, User
+from apps.core.models import ExportFirm, ImportFirm, RolePagePermission, Season, User
+from apps.core.permission_registry import PAGE_REGISTRY
 from apps.core.permissions import firm_write_permission, write_permission, DynamicResourcePermission
-from apps.core.roles import ADMIN_ONLY, AUDIT_VIEWERS, PRIVILEGED_ROLES as _PRIVILEGED_ROLES
+from apps.core.roles import (
+    ADMIN_ONLY,
+    AUDIT_VIEWERS,
+    PRIVILEGED_ROLES as _PRIVILEGED_ROLES,
+    can_manage_users,
+    manageable_roles,
+)
 from apps.export.models import AuditLog, Notification, TruckSplitDefault, invalidate_truck_split_cache
 
 logger = logging.getLogger(__name__)
@@ -53,6 +60,46 @@ def _require_superuser(user, verb: str = 'perform this action') -> None:
     """Raise PermissionDenied unless the user is a superuser."""
     if not getattr(user, 'is_superuser', False):
         raise PermissionDenied(f"Superuser privileges are required to {verb}.")
+
+
+def _is_full_admin(user) -> bool:
+    """Superuser or the admin role — bypasses delegated-manager scoping."""
+    return getattr(user, 'is_superuser', False) or getattr(user, 'role', None) == 'admin'
+
+
+def _is_delegated_manager(user) -> bool:
+    """A non-admin role granted a fixed manageable set under ADR-022.
+
+    Used to gate create / delete / set-password — which AD-15 keeps superuser-only
+    for the admin tier — WITHOUT widening them to the admin role. Only a role that
+    is an explicit key in MANAGEABLE_BY_ROLE (e.g. loading_dept_head) qualifies.
+    """
+    from apps.core.roles import MANAGEABLE_BY_ROLE
+    return getattr(user, 'role', None) in MANAGEABLE_BY_ROLE
+
+
+def _assert_can_manage(actor, target) -> None:
+    """Raise PermissionDenied unless `actor` may manage `target`'s current role (ADR-022)."""
+    if _is_full_admin(actor):
+        return
+    if getattr(target, 'role', None) not in manageable_roles(actor):
+        raise PermissionDenied(
+            f"Role '{actor.role}' is not allowed to manage user '{target.username}'."
+        )
+
+
+def _assert_can_assign_role(actor, role: str) -> None:
+    """Raise PermissionDenied unless `actor` may assign `role` to a user (ADR-022).
+
+    Guards both the create path and the role-change path so a delegated manager
+    can neither create nor promote/demote a user into a role outside their set.
+    """
+    if _is_full_admin(actor):
+        return
+    if role not in manageable_roles(actor):
+        raise PermissionDenied(
+            f"Role '{actor.role}' is not allowed to assign role '{role}'."
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -368,9 +415,15 @@ class UserManagementViewSet(ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if not user.is_superuser:
-            _require_role(user, _ADMIN_MANAGER, 'view user list')
-        return User.objects.prefetch_related('user_permissions').order_by('username')
+        qs = User.objects.prefetch_related('user_permissions').order_by('username')
+        if user.is_superuser or getattr(user, 'role', None) in _ADMIN_MANAGER:
+            return qs
+        # Delegated managers (ADR-022) see only the users whose role they may
+        # manage — e.g. loading_dept_head sees only deputies + weight masters.
+        allowed = manageable_roles(user)
+        if not allowed:
+            _require_role(user, _ADMIN_MANAGER, 'view user list')  # raises
+        return qs.filter(role__in=allowed)
 
     def get_serializer_class(self):
         if self.request.method == 'PATCH':
@@ -378,8 +431,10 @@ class UserManagementViewSet(ModelViewSet):
         return UserListSerializer
 
     def partial_update(self, request, *args, **kwargs):
-        if not request.user.is_superuser:
-            _require_role(request.user, _ADMIN_ONLY, 'update user roles')
+        # Gate the caller: full admins always; delegated managers if they manage
+        # anyone (target + new-role bounds are enforced in perform_update).
+        if not _is_full_admin(request.user) and not can_manage_users(request.user):
+            _require_role(request.user, _ADMIN_ONLY, 'update user roles')  # raises
         kwargs['partial'] = True
         return self.update(request, *args, **kwargs)
 
@@ -398,10 +453,18 @@ class UserManagementViewSet(ModelViewSet):
         # prevents that.
         from django.db import transaction
 
+        actor = self.request.user
         target_user = serializer.instance
         validated = serializer.validated_data
         new_role = validated.get('role', target_user.role)
         new_active = validated.get('is_active', target_user.is_active)
+
+        # Delegated managers (ADR-022): the target's CURRENT role and the NEW role
+        # must both be within the manager's set. This blocks pulling a user in
+        # from, or pushing one out to, a role they don't control (e.g. admin).
+        if not _is_full_admin(actor):
+            _assert_can_manage(actor, target_user)
+            _assert_can_assign_role(actor, new_role)
         demoting_admin = (
             target_user.role == 'admin'
             and (new_role != 'admin' or new_active is False)
@@ -430,8 +493,15 @@ class UserManagementViewSet(ModelViewSet):
 
         Required fields: username, password, role.
         Optional fields: first_name, last_name, email, phone, is_active.
+
+        Delegated managers (ADR-022) may also create users, but only with a role
+        inside their manageable set (validated after field checks below).
         """
-        _require_superuser(request.user, 'create users')
+        actor = request.user
+        # AD-15 keeps create superuser-only for the admin tier; ADR-022 adds the
+        # delegated path (loading_dept_head) without widening it to the admin role.
+        if not actor.is_superuser and not _is_delegated_manager(actor):
+            _require_superuser(actor, 'create users')  # raises
 
         username = request.data.get('username', '').strip()
         password = request.data.get('password', '')
@@ -453,6 +523,9 @@ class UserManagementViewSet(ModelViewSet):
         if errors:
             return Response(errors, status=status.HTTP_400_BAD_REQUEST)
 
+        # Delegated managers may only create users inside their manageable set.
+        _assert_can_assign_role(actor, role)
+
         new_user = User.objects.create_user(
             username=username,
             password=password,
@@ -470,21 +543,27 @@ class UserManagementViewSet(ModelViewSet):
         """DELETE /api/v1/export/admin/users/{id}/ — permanently delete a user.
 
         Superuser only. Self-deletion is blocked to prevent accidental lockout.
+
+        Delegated managers (ADR-022) may delete users within their manageable set.
         """
-        _require_superuser(request.user, 'delete users')
+        actor = request.user
+        # AD-15: delete stays superuser-only for admins; ADR-022 adds delegated path.
+        if not actor.is_superuser and not _is_delegated_manager(actor):
+            _require_superuser(actor, 'delete users')  # raises
 
         try:
             target_pk = int(pk)
         except (ValueError, TypeError):
             return Response({'error': 'Invalid user id.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        if target_pk == request.user.id:
+        if target_pk == actor.id:
             return Response(
                 {'error': 'Cannot delete your own account.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         instance = self.get_object()
+        _assert_can_manage(actor, instance)
         instance.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -496,8 +575,13 @@ class UserManagementViewSet(ModelViewSet):
 
         Request body: { "password": "<new_password>" }
         Response:     { "detail": "Password updated." }
+
+        Delegated managers (ADR-022) may reset passwords for users in their set.
         """
-        _require_superuser(request.user, 'set passwords')
+        actor = request.user
+        # AD-15: password reset stays superuser-only for admins; ADR-022 delegated path.
+        if not actor.is_superuser and not _is_delegated_manager(actor):
+            _require_superuser(actor, 'set passwords')  # raises
 
         new_password = request.data.get('password', '')
         if not new_password:
@@ -512,6 +596,7 @@ class UserManagementViewSet(ModelViewSet):
             )
 
         target_user = self.get_object()
+        _assert_can_manage(actor, target_user)
         target_user.set_password(new_password)
         target_user.save(update_fields=['password'])
         return Response({'detail': 'Password updated.'}, status=status.HTTP_200_OK)
@@ -578,3 +663,108 @@ class UserPermissionsView(APIView):
             target_user.user_permissions.add(*granted_perms)
 
         return Response({'permissions': list(raw_codenames)})
+
+
+# ---------------------------------------------------------------------------
+# Delegated page-visibility management (ADR-022)
+# ---------------------------------------------------------------------------
+
+class ManagedPagePermissionsView(APIView):
+    """Let a department head grant page visibility to the roles they manage.
+
+    A bounded exception to AD-15: the admin permission-matrix CRUD stays
+    admin-only, but a delegated manager (e.g. loading_dept_head) may toggle page
+    visibility for the roles in their manageable set — limited to the pages the
+    manager's OWN role can already see, and never an ``admin.*`` page (that would
+    leak user/permission administration to subordinates).
+
+    GET /api/v1/export/admin/managed-page-permissions/
+        → { roles: [code...], pages: [{code,label}...], matrix: {role: {page: bool}} }
+    PUT /api/v1/export/admin/managed-page-permissions/
+        body: { matrix: {role: {page_code: bool}} }
+
+    The PUT is a SURGICAL upsert: only the exact (managed_role, grantable_page)
+    pairs in the payload are written via update_or_create. Rows for other roles,
+    or for pages outside the grantable set (including ones the admin granted),
+    are never touched or deleted. Out-of-bounds roles/pages are rejected (403).
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def _managed_roles(self, actor) -> list[str]:
+        """Roles this manager may grant pages to (their set, minus self + admin)."""
+        return sorted(manageable_roles(actor) - {getattr(actor, 'role', None), 'admin'})
+
+    def _grantable_pages(self, actor) -> list[str]:
+        """Page codes the manager may delegate: own visible, non-admin pages.
+
+        Full admins may delegate any non-admin page. A delegated manager may
+        delegate only the non-admin pages their own role can currently see.
+        Order follows PAGE_REGISTRY for a stable UI.
+        """
+        if _is_full_admin(actor):
+            return [c for c in PAGE_REGISTRY if not c.startswith('admin.')]
+        visible = set(
+            RolePagePermission.objects
+            .filter(role=actor.role, is_visible=True)
+            .values_list('page_code', flat=True)
+        )
+        return [c for c in PAGE_REGISTRY if c in visible and not c.startswith('admin.')]
+
+    def get(self, request):
+        actor = request.user
+        if not can_manage_users(actor):
+            raise PermissionDenied('You are not allowed to manage staff page access.')
+
+        managed = self._managed_roles(actor)
+        grantable = self._grantable_pages(actor)
+
+        rows = RolePagePermission.objects.filter(
+            role__in=managed, page_code__in=grantable,
+        ).values('role', 'page_code', 'is_visible')
+        matrix: dict[str, dict[str, bool]] = {role: {} for role in managed}
+        for row in rows:
+            matrix[row['role']][row['page_code']] = row['is_visible']
+
+        return Response({
+            'roles': managed,
+            'pages': [{'code': c, 'label': PAGE_REGISTRY[c]} for c in grantable],
+            'matrix': matrix,
+        })
+
+    def put(self, request):
+        from django.db import transaction
+        from apps.core.views_permissions import _invalidate_perm_cache
+
+        actor = request.user
+        if not can_manage_users(actor):
+            raise PermissionDenied('You are not allowed to manage staff page access.')
+
+        matrix = request.data.get('matrix', {})
+        if not isinstance(matrix, dict):
+            return Response({'error': 'matrix must be an object'}, status=status.HTTP_400_BAD_REQUEST)
+
+        managed = set(self._managed_roles(actor))
+        grantable = set(self._grantable_pages(actor))
+
+        updates: list[tuple[str, str, bool]] = []
+        for role, pages in matrix.items():
+            if role not in managed:
+                raise PermissionDenied(f"You are not allowed to manage role '{role}'.")
+            if not isinstance(pages, dict):
+                continue
+            for page_code, is_visible in pages.items():
+                if page_code not in grantable:
+                    raise PermissionDenied(f"Page '{page_code}' is not yours to grant.")
+                updates.append((role, page_code, bool(is_visible)))
+
+        with transaction.atomic():
+            for role, page_code, is_visible in updates:
+                RolePagePermission.objects.update_or_create(
+                    role=role,
+                    page_code=page_code,
+                    defaults={'is_visible': is_visible},
+                )
+
+        _invalidate_perm_cache()
+        return Response({'status': 'ok', 'count': len(updates)})

@@ -45,3 +45,42 @@ ADVANCE_WRITE = frozenset({'admin', 'finansist', 'director'})
 
 # Quota
 QUOTA_WRITE = frozenset({'admin', 'export_manager', 'director'})
+
+
+# ---------------------------------------------------------------------------
+# Delegated user management (ADR-022)
+# ---------------------------------------------------------------------------
+# A bounded exception to AD-15 (which keeps user/permission admin admin-only):
+# a department head may create/edit/delete/reset-password a fixed set of
+# subordinate roles, and grant those roles a subset of the head's own visible
+# pages. The map below is the single source of truth for "who may manage whom".
+#
+# Security note: this is enforced server-side in UserManagementViewSet and the
+# managed-page-permissions endpoint — the frontend role dropdown is UX only.
+MANAGEABLE_BY_ROLE: dict[str, frozenset] = {
+    'loading_dept_head': frozenset({'loading_dept_head_deputy', 'weight_master'}),
+}
+
+
+def manageable_roles(user) -> frozenset:
+    """Return the set of role codes ``user`` may manage.
+
+    Admins and superusers may manage every role. A delegated manager may manage
+    only the roles listed for their role in ``MANAGEABLE_BY_ROLE``. Everyone
+    else manages nobody.
+
+    Args:
+        user: The acting user (must expose ``role`` and ``is_superuser``).
+
+    Returns:
+        Frozenset of role codes the user is allowed to manage.
+    """
+    if getattr(user, 'is_superuser', False) or getattr(user, 'role', None) == 'admin':
+        from apps.core.models.user import ROLE_CHOICES
+        return frozenset(code for code, _ in ROLE_CHOICES)
+    return MANAGEABLE_BY_ROLE.get(getattr(user, 'role', None), frozenset())
+
+
+def can_manage_users(user) -> bool:
+    """Whether ``user`` may manage at least one other role."""
+    return bool(manageable_roles(user))

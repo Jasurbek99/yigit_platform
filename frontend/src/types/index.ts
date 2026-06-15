@@ -160,6 +160,17 @@ export interface IShipmentOptionType {
   is_active: boolean;
 }
 
+// ─── Managed page permissions (ADR-022 delegated user management) ──────────────
+
+export interface IManagedPagePermissions {
+  /** Role codes the current user may manage (e.g. ['loading_dept_head_deputy', 'weight_master']). */
+  roles: string[];
+  /** Pages the manager is allowed to grant — already filtered server-side. */
+  pages: { code: string; label: string }[];
+  /** Current visibility per managed role per page. Missing key = false. */
+  matrix: Record<string, Record<string, boolean>>;
+}
+
 // â”€â”€â”€ API helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface IApiListResponse<T> {

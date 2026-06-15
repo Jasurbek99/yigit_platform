@@ -49,6 +49,8 @@ PAGE_REGISTRY: dict[str, str] = OrderedDict([
     ('feedback.admin_inbox',    'Feedback: Admin Inbox'),
     # Admin
     ('admin.users',             'Admin: Users'),
+    # Delegated staff page-access editor for department heads (ADR-022).
+    ('admin.staff_access',      'Admin: Staff Page Access'),
     ('admin.seasons',           'Admin: Seasons'),
     ('admin.firms',             'Admin: Export Firms'),
     ('admin.import_firms',      'Admin: Import Firms'),
