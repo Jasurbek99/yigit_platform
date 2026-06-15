@@ -28,6 +28,9 @@ reportlab>=4.4,<5.0
 gunicorn>=22.0,<23.0
 redis>=5.0,<6.0
 
+# Monitoring / error tracking
+sentry-sdk[django]>=2.0,<3.0
+
 # Realtime (WebSocket — Phase 1 plumbing)
 # Production runs uvicorn workers under gunicorn (see Dockerfile) so /api/
 # HTTP and /ws/ WebSocket share one port. daphne is also a runtime dep —

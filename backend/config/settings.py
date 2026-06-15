@@ -18,6 +18,33 @@ DEBUG = os.environ.get('DJANGO_DEBUG', 'True') == 'True'
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,backend').split(',')
 
 # ════════════════════════════════════════════════
+# Error tracking (Sentry)
+#
+# Initialised as early as possible so errors during the rest of settings
+# load are still captured. DSN is read from the environment with a default
+# baked in; set SENTRY_DSN='' to disable (e.g. in local dev or CI).
+# The DSN points at Sentry's EU (de) region — keeps event data in the EU,
+# which matters for our KZ/RU users.
+# ════════════════════════════════════════════════
+SENTRY_DSN = os.environ.get(
+    'SENTRY_DSN',
+    'https://d2b0cd886918386f1fdbb1f4723e0e52@o4507190478438400.ingest.de.sentry.io/4511556283007056',
+)
+
+if SENTRY_DSN:
+    import sentry_sdk
+
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        environment=os.environ.get('SENTRY_ENVIRONMENT', 'production' if not DEBUG else 'development'),
+        # Add data like request headers and IP for users,
+        # see https://docs.sentry.io/platforms/python/data-management/data-collected/ for more info
+        send_default_pii=True,
+        # Performance tracing — off by default to protect quota; raise via env when needed.
+        traces_sample_rate=float(os.environ.get('SENTRY_TRACES_SAMPLE_RATE', '0.0')),
+    )
+
+# ════════════════════════════════════════════════
 # Applications
 # ════════════════════════════════════════════════
 INSTALLED_APPS = [

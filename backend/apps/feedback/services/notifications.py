@@ -10,6 +10,8 @@ module import graph clean and to mirror the existing greenhouse exception.
 
 import logging
 
+import sentry_sdk
+
 logger = logging.getLogger(__name__)
 
 # Maps the terminal ticket status to the matching notification kind.
@@ -59,3 +61,5 @@ def notify_ticket_resolution(ticket, new_status: str, actor) -> None:
             'Failed to create feedback %s notification for ticket=%s author=%s',
             new_status, ticket.id, ticket.author_id, exc_info=True,
         )
+        # Swallowed to protect the status change, but report so the bug surfaces.
+        sentry_sdk.capture_exception()

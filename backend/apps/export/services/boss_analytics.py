@@ -13,6 +13,8 @@ import logging
 from datetime import date, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
+import sentry_sdk
+
 from django.db.models import Count, Sum, Q
 from django.db.models.functions import TruncWeek, Coalesce
 from django.utils import timezone
@@ -62,6 +64,7 @@ def period_to_range(period: str, today: date | None = None) -> tuple[date, date]
                 return season.start_date, season.end_date
         except Exception:
             logger.warning('Could not load active season — falling back to month range')
+            sentry_sdk.capture_exception()
         # Fallback: current month
         return period_to_range('month', today)
 
