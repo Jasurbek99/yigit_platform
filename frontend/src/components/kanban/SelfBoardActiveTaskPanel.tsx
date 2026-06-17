@@ -128,7 +128,7 @@ export function SelfBoardActiveTaskPanel({
         // SelfBoardShipmentFieldList rows do NOT stopPropagation, so clicks bubble.
         <div onClick={handleFirstEdit} onKeyDown={handleFirstEdit} role="presentation">
           <SelfBoardShipmentFieldList
-            shipmentId={task.shipment}
+            shipmentId={task.shipment ?? 0}
             sheetItem={sheetItem}
             rows={rows}
             rowSettings={rowSettings}

@@ -49,7 +49,7 @@ export function SelfBoardTaskDrawer({
   const { setEditingCell } = useSheetStore();
 
   const { data: shipment, isLoading: isDetailLoading, isError } = useShipmentDetail(
-    task?.shipment,
+    task?.shipment ?? undefined,
   );
 
   // ── Ownership check — mirrors backend IsTaskActor ──────────────────────
@@ -74,7 +74,7 @@ export function SelfBoardTaskDrawer({
   const isActiveCard = isActiveState && isOwnOrSupervised;
 
   function handleOpenShipment(): void {
-    if (task == null) return;
+    if (task == null || task.shipment == null) return;
     navigate(`/shipments/${task.shipment}`);
   }
 
@@ -265,7 +265,7 @@ function ActiveDrawerLayout({
           {t('me.board.drawer_shipment_fields')}
         </Text>
         <SelfBoardShipmentFieldList
-          shipmentId={task.shipment}
+          shipmentId={task.shipment ?? 0}
           sheetItem={sheetItem}
           rows={sheetRows}
           rowSettings={sheetRowSettings}

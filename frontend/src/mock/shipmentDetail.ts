@@ -139,6 +139,7 @@ export const MOCK_SHIPMENT_DETAIL: IShipmentDetail = {
   other_tasks: [
     {
       id: 2,
+      kind: 'shipment' as const,
       shipment: 1,
       shipment_cargo_code: '0201045/25',
       step: 'gumruk_girish',
@@ -157,9 +158,13 @@ export const MOCK_SHIPMENT_DETAIL: IShipmentDetail = {
       started_at: '2025-02-01T10:30:00+05:00',
       completed_at: '2025-02-01T12:45:00+05:00',
       blocked_reason: '',
+      link: '/export/shipments/1',
+      scope_year: null,
+      scope_week: null,
     },
     {
       id: 3,
+      kind: 'shipment' as const,
       shipment: 1,
       shipment_cargo_code: '0201045/25',
       step: 'bardy',
@@ -178,6 +183,9 @@ export const MOCK_SHIPMENT_DETAIL: IShipmentDetail = {
       started_at: null,
       completed_at: null,
       blocked_reason: '',
+      link: '/export/shipments/1',
+      scope_year: null,
+      scope_week: null,
     },
   ],
   in_phase_seconds: 14400,

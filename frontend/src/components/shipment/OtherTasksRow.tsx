@@ -91,7 +91,7 @@ export function OtherTasksRow({ tasks, onTaskClick }: IOtherTasksRowProps) {
     }
     // Fire /start/ when the current user is the assignee and the task is OPEN.
     // Supervisors don't auto-start someone else's task.
-    if (task.state === 'open' && role === task.assignee_role) {
+    if (task.state === 'open' && role === task.assignee_role && task.shipment != null) {
       startMutation.mutate(
         { taskId: task.id, shipmentId: task.shipment },
         {
@@ -103,7 +103,7 @@ export function OtherTasksRow({ tasks, onTaskClick }: IOtherTasksRowProps) {
   }
 
   function handleUnblock() {
-    if (!blockedTask) return;
+    if (!blockedTask || blockedTask.shipment == null) return;
     unblockMutation.mutate(
       { taskId: blockedTask.id, shipmentId: blockedTask.shipment },
       {

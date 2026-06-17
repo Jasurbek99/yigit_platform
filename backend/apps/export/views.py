@@ -3394,3 +3394,43 @@ class TaskViewSet(viewsets.ReadOnlyModelViewSet):
 
         task.refresh_from_db()
         return Response(TaskDetailSerializer(task).data)
+
+    @action(detail=False, methods=['post'], url_path='generate-weekly-plan')
+    def generate_weekly_plan(self, request):
+        """POST /api/v1/export/tasks/generate-weekly-plan/
+
+        Body: { "year": <ISO year>, "week": <ISO week number> }
+
+        Creates one weekly_plan Task per active block manager for the given ISO
+        week (idempotent). Supervisors only.
+        """
+        from apps.export.serializers import TaskListSerializer
+        from apps.export.services import generate_weekly_plan_tasks
+
+        role = getattr(request.user, 'role', None)
+        is_supervisor = getattr(request.user, 'is_superuser', False) or role in PRIVILEGED_ROLES
+        if not is_supervisor:
+            return Response(
+                {'error': f"Role '{role}' cannot generate weekly-plan tasks."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        try:
+            year = int(request.data.get('year'))
+            week = int(request.data.get('week'))
+        except (TypeError, ValueError):
+            return Response(
+                {'error': 'year and week are required integers.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not (1 <= week <= 53):
+            return Response(
+                {'error': 'week must be between 1 and 53.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        created = generate_weekly_plan_tasks(year, week, user=request.user)
+        return Response({
+            'created': len(created),
+            'results': TaskListSerializer(created, many=True).data,
+        })

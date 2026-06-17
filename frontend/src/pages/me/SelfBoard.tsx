@@ -33,6 +33,7 @@ import { useBlockTask, useUnblockTask } from '@/hooks/useTaskActions';
 import { KanbanColumn } from '@/components/kanban/KanbanColumn';
 import { SelfKanbanCard } from '@/components/kanban/SelfKanbanCard';
 import { SelfBoardTaskDrawer } from '@/components/kanban/SelfBoardTaskDrawer';
+import { PlanTaskCard } from '@/components/me/PlanTaskCard';
 import { formatDuration } from '@/components/shipment/PhaseContextStrip.helpers';
 import type { ITaskListItem, ShipmentPhase, TaskState } from '@/types';
 import { COLORS } from '@/constants/styles';
@@ -254,6 +255,8 @@ export default function SelfBoard() {
   const allTasks: ITaskListItem[] = useMemo(() => tasksData?.results ?? [], [tasksData?.results]);
 
   const filteredTasks = allTasks.filter((task) => {
+    // Plan tasks have no phase or cargo code — they always pass both filters.
+    if (task.kind === 'weekly_plan') return true;
     if (phaseFilter && task.phase !== phaseFilter) return false;
     if (
       searchText &&
@@ -295,10 +298,20 @@ export default function SelfBoard() {
       // blocked→in_progress is unblock. Other transitions happen server-side
       // via field edits or aren't valid — surface a toast either way.
       if (targetState === 'blocked' && task.state === 'open') {
+        // Plan tasks have no associated shipment — block modal requires one.
+        if (task.kind === 'weekly_plan' || task.shipment == null) {
+          toast.info(t('me.board.drop_not_allowed'));
+          return;
+        }
         setBlockTarget({ taskId: task.id, shipmentId: task.shipment });
         return;
       }
       if (targetState === 'in_progress' && task.state === 'blocked') {
+        // Plan tasks don't support block/unblock via this board.
+        if (task.kind === 'weekly_plan' || task.shipment == null) {
+          toast.info(t('me.board.drop_not_allowed'));
+          return;
+        }
         unblockTask.mutate(
           { taskId: task.id, shipmentId: task.shipment },
           {
@@ -453,14 +466,18 @@ export default function SelfBoard() {
                 emptyText={t(col.emptyKey)}
                 onDrop={(e) => handleDropOnColumn(e, col.dropTargetState)}
               >
-                {colTasks.map((task) => (
-                  <SelfKanbanCard
-                    key={task.id}
-                    task={task}
-                    onCardClick={setDrawerTask}
-                    onMove={requestMove}
-                  />
-                ))}
+                {colTasks.map((task) =>
+                  task.kind === 'weekly_plan' ? (
+                    <PlanTaskCard key={task.id} task={task} />
+                  ) : (
+                    <SelfKanbanCard
+                      key={task.id}
+                      task={task}
+                      onCardClick={setDrawerTask}
+                      onMove={requestMove}
+                    />
+                  ),
+                )}
               </KanbanColumn>
             );
           })}
@@ -474,13 +491,17 @@ export default function SelfBoard() {
               accentColor={COLORS.borderLight}
               emptyText={t('me.board.empty_col')}
             >
-              {historyTasks.map((task) => (
-                <SelfKanbanCard
-                  key={task.id}
-                  task={task}
-                  onCardClick={setDrawerTask}
-                />
-              ))}
+              {historyTasks.map((task) =>
+                task.kind === 'weekly_plan' ? (
+                  <PlanTaskCard key={task.id} task={task} />
+                ) : (
+                  <SelfKanbanCard
+                    key={task.id}
+                    task={task}
+                    onCardClick={setDrawerTask}
+                  />
+                ),
+              )}
             </KanbanColumn>
           )}
         </div>

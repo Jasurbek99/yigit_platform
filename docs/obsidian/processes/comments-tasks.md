@@ -299,6 +299,18 @@ The `TaskViewSet` at `/api/v1/export/tasks/` exposes the structured task engine 
 
 For existing shipments: `python manage.py backfill_tasks [--dry-run] [--limit N]`. Idempotent.
 
+### Non-shipment tasks — `kind`
+
+`Task.shipment` is **nullable**; a `kind` column (`shipment` | `weekly_plan`, default `shipment`) discriminates task families. Non-shipment tasks carry `link` (the frontend route the card opens) and `scope_year` / `scope_week` instead of a parent shipment. See [[../../ADR|ADR-021]].
+
+**`weekly_plan`** — a per-manager reminder to fill the weekly harvest-plan grid (see [[weekly-harvest-planning]]):
+
+- **Generation (on-demand)**: `POST /api/v1/export/tasks/generate-weekly-plan/` body `{year, week}`, supervisors only (`PRIVILEGED_ROLES`). Surfaced as a **"Generate plan tasks"** button on the WeeklyPlanGrid toolbar for admin / export_manager / director. Creates one task per active `BlockManagerAssignment` user for that ISO week (`assignee_user` = the manager, `assignee_role='greenhouse_manager'`, `completion_rule=MANUAL_DONE`, `link=/export/plan?week=…&year=…`). Idempotent — re-running skips managers who already have one for the week. Service: `apps/export/services/weekly_plan_tasks.py`.
+- **Click → navigate**: the SelfBoard renders these via `PlanTaskCard`; clicking opens the plan grid at the task's week (`navigate(task.link)`).
+- **Auto-complete (lazy)**: resolved on the `/me/tasks/` read path (`resolve_weekly_plan_tasks_for_user`), NOT on plan-save — greenhouse (where `set_plan_value` lives) may not call into export. The task flips to DONE once **no blank plan cells remain** for the manager's blocks that week (every assigned block has ≥1 `HarvestDayEntry` row and none has `plan_value IS NULL`; explicit `0` counts as filled). Worst-case latency = the 60 s nav-badge poll. `python manage.py resolve_weekly_plan_tasks` does the same across all users for cron/backfill.
+- **Scoping**: `/me/tasks/` shows a non-supervisor their role's shipment tasks (null `assignee_user`) **plus** tasks personally assigned to them — so manager A never sees manager B's weekly task.
+- **Coexists** with the dispatcher's P1/P2/P3 plan-reminder notifications (those are kept; the task is additive).
+
 ### Known limits
 
 - Reverse-FK targets (`firm_splits`, `block_sources`) won't auto-resolve until the next event that calls `Shipment.save()` on the parent. Adding a `ShipmentFirmSplit` row does NOT trigger parent save.

@@ -29,7 +29,7 @@ from .sheet_settings import (
     UserSheetRowPref,
     ShipmentCustomFieldValue,
 )
-from .task import Task, TaskRule, TaskState, TaskCompletionRule
+from .task import Task, TaskRule, TaskState, TaskCompletionRule, TaskKind
 
 __all__ = [
     'Shipment',
@@ -68,4 +68,5 @@ __all__ = [
     'TaskRule',
     'TaskState',
     'TaskCompletionRule',
+    'TaskKind',
 ]

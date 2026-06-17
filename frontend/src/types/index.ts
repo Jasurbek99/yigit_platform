@@ -1317,9 +1317,13 @@ export type TaskState = 'open' | 'in_progress' | 'blocked' | 'done' | 'cancelled
 
 export type TaskCompletionRule = 'all_fields_filled' | 'any_field_filled' | 'manual_done';
 
+export type TaskKind = 'shipment' | 'weekly_plan';
+
 export interface ITaskListItem {
   id: number;
-  shipment: number;
+  kind: TaskKind;
+  /** Null for `weekly_plan` tasks. */
+  shipment: number | null;
   shipment_cargo_code: string;
   step: string;
   phase: ShipmentPhase;
@@ -1339,6 +1343,10 @@ export interface ITaskListItem {
   // Stream G: blocked_reason surfaced on the list serializer too so the
   // Detail page's OtherTasksRow modal doesn't need an extra fetch.
   blocked_reason: string;
+  // weekly_plan task fields (null for shipment tasks)
+  link: string;
+  scope_year: number | null;
+  scope_week: number | null;
 }
 
 export interface ITaskDetail extends ITaskListItem {

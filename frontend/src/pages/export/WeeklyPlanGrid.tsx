@@ -25,9 +25,11 @@ import {
   CalendarOutlined,
   ClockCircleOutlined,
   UndoOutlined,
+  BulbOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek';
@@ -44,6 +46,7 @@ import { useGreenhouseConfig } from '@/hooks/useGreenhouseConfig';
 import { useSeasons } from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
 import { useUiStore } from '@/stores/uiStore';
+import api from '@/services/api';
 import { HarvestCell } from '@/components/HarvestCell';
 import { getCurrentForecastWindow, num, fmtKg } from '@/components/HarvestCell.helpers';
 import { CellHistoryModal } from '@/components/CellHistoryModal';
@@ -59,6 +62,10 @@ const { Title, Text } = Typography;
 
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
 type Day = (typeof DAYS)[number];
+
+interface IGenerateTasksResponse {
+  created: number;
+}
 
 
 export default function WeeklyPlanGrid() {
@@ -114,6 +121,8 @@ export default function WeeklyPlanGrid() {
 
   // ─── Derived data ──────────────────────────────────────────────────────────
 
+  const queryClient = useQueryClient();
+
   const myBlockIds = useMemo(() => new Set(user?.managed_block_ids ?? []), [user?.managed_block_ids]);
   const isBlockManager = user?.role === 'greenhouse_manager' && myBlockIds.size > 0;
   const isAdmin = user?.role === 'admin' || user?.role === 'director';
@@ -123,6 +132,32 @@ export default function WeeklyPlanGrid() {
   // grants it write access), unlike the harvest grid / Initialize Week which stay
   // admin+director only.
   const canEditTrucks = isAdmin || user?.role === 'export_manager';
+  // Generate plan tasks is a supervisor action: admin, export_manager, director.
+  const canGenerateTasks =
+    user?.role === 'admin' ||
+    user?.role === 'export_manager' ||
+    user?.role === 'director';
+
+  const generateTasksMutation = useMutation<
+    IGenerateTasksResponse,
+    unknown,
+    { year: number; week: number }
+  >({
+    mutationFn: async ({ year: y, week: w }) => {
+      const { data } = await api.post<IGenerateTasksResponse>(
+        '/export/tasks/generate-weekly-plan/',
+        { year: y, week: w },
+      );
+      return data;
+    },
+    onSuccess: (data) => {
+      toast.success(t('plan.generate_tasks_toast', { count: data.created }));
+      void queryClient.invalidateQueries({ queryKey: ['my-tasks'] });
+    },
+    onError: () => {
+      toast.error(t('common.error'));
+    },
+  });
 
   const plans: IWeeklyHarvestPlan[] = useMemo(() => {
     const raw = plansData?.results ?? [];
@@ -252,6 +287,11 @@ export default function WeeklyPlanGrid() {
         },
       },
     );
+  }
+
+  function handleGenerateTasks() {
+    if (!weekNumber || !year) return;
+    generateTasksMutation.mutate({ year, week: weekNumber });
   }
 
   function handleInitializeWeek() {
@@ -572,6 +612,16 @@ export default function WeeklyPlanGrid() {
               onClick={handleBulkRevoke}
             >
               {t('plan.bulk_revoke_button')}
+            </Button>
+          )}
+          {canGenerateTasks && (
+            <Button
+              icon={<BulbOutlined />}
+              loading={generateTasksMutation.isPending}
+              onClick={handleGenerateTasks}
+              disabled={!weekNumber || !year}
+            >
+              {t('plan.generate_tasks')}
             </Button>
           )}
           {showInitialize && (

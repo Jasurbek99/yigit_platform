@@ -51,18 +51,29 @@ class MeTaskListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        from django.db.models import Q
+
         from apps.core.pagination import StandardPagination
         from apps.export.models import Task, TaskState
         from apps.export.serializers import TaskListSerializer
+        from apps.export.services import resolve_weekly_plan_tasks_for_user
 
         role = getattr(request.user, 'role', None)
         is_supervisor = getattr(request.user, 'is_superuser', False) or role in _SUPERVISOR_ROLES
 
+        # Lazily auto-resolve the caller's weekly_plan tasks before listing — the
+        # plan-save path lives in greenhouse and may not call back into export
+        # (dependency direction), so resolution happens here on read.
+        resolve_weekly_plan_tasks_for_user(request.user)
+
         qs = Task.objects.select_related('shipment__status', 'rule', 'assignee_user').all()
 
         if not is_supervisor:
-            # Regular users: filter to their own role only
-            qs = qs.filter(assignee_role=role)
+            # Regular users: their role's shipment tasks (assignee_user null) plus
+            # any task personally assigned to them (e.g. their own weekly_plan task).
+            qs = qs.filter(assignee_role=role).filter(
+                Q(assignee_user__isnull=True) | Q(assignee_user=request.user)
+            )
 
         # Apply optional filters from query params
         state_param = request.query_params.get('state')

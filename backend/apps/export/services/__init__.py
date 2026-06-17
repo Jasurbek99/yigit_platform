@@ -29,6 +29,12 @@ from .shipment import (
 
 from . import comments as comments  # noqa: F401  — makes services.comments importable
 
+from .weekly_plan_tasks import (
+    generate_weekly_plan_tasks,
+    resolve_weekly_plan_tasks_for_user,
+    resolve_all_open_weekly_plan_tasks,
+)
+
 from .boss_analytics import (
     period_to_range,
     _aggregate_summary,
@@ -66,6 +72,10 @@ __all__ = [
     'compute_dominant_varieties',
     'close_pallet_manifest',
     'override_dominant_varieties',
+    # Weekly-plan tasks
+    'generate_weekly_plan_tasks',
+    'resolve_weekly_plan_tasks_for_user',
+    'resolve_all_open_weekly_plan_tasks',
     # Boss analytics
     'period_to_range',
     '_aggregate_summary',

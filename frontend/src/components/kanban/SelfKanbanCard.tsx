@@ -126,7 +126,9 @@ export function SelfKanbanCard({ task, onCardClick, onMove }: ISelfKanbanCardPro
       onCardClick(task);
       return;
     }
-    navigate(`/shipments/${task.shipment}`);
+    if (task.shipment != null) {
+      navigate(`/shipments/${task.shipment}`);
+    }
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
