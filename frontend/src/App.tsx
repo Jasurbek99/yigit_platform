@@ -234,12 +234,16 @@ export default function App() {
                     <ProtectedRoute pageCode="feedback.admin_inbox"><AdminInboxPage /></ProtectedRoute>
                   } />
                   {/* Contracts module (P4 Slice A) */}
-                  {/* TODO: register page_code 'contracts.list' in backend seed_page_codes.py */}
-                  <Route path="contracts" element={<ContractList />} />
-                  <Route path="contracts/:id" element={<ContractDetail />} />
+                  <Route path="contracts" element={
+                    <ProtectedRoute pageCode="contracts.list"><ContractList /></ProtectedRoute>
+                  } />
+                  <Route path="contracts/:id" element={
+                    <ProtectedRoute pageCode="contracts.list"><ContractDetail /></ProtectedRoute>
+                  } />
                   {/* Invoices list (P4 Slice C) */}
-                  {/* TODO: register page_code 'contracts.invoices' in backend seed_page_codes.py */}
-                  <Route path="invoices" element={<InvoiceList />} />
+                  <Route path="invoices" element={
+                    <ProtectedRoute pageCode="contracts.invoices"><InvoiceList /></ProtectedRoute>
+                  } />
                 </Route>
                 <Route path="/unauthorized" element={<UnauthorizedPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />

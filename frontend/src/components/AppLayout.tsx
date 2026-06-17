@@ -212,32 +212,17 @@ export default function AppLayout() {
     ]},
     { label: t('nav.group_contracts'), items: [
       {
+        // Matrix-driven via page_code 'contracts.list' (see ROUTE_PAGE_MAP).
+        // Defaults visible to admin / director / export_manager only.
         key: '/contracts',
         icon: <IconFileText size={15} />,
         label: t('nav.contracts.list'),
-        // TODO: register page_code 'contracts.list' in backend seed_page_codes.py and
-        // remove the roles bypass below. Until that migration runs on the server,
-        // canSeePage() returns false for non-superusers (no page_permissions entry).
-        // Using roles: ALL_ROLES to temporarily surface the entry to every authenticated user.
-        roles: [
-          'admin', 'export_manager', 'loading_dept_head', 'loading_dept_head_deputy', 'warehouse_chief',
-          'weight_master', 'document_team', 'transport', 'sales_rep', 'finansist',
-          'director', 'accountant', 'greenhouse_manager', 'seller', 'boss',
-        ] as import('@/types').UserRole[],
       },
       {
+        // Matrix-driven via page_code 'contracts.invoices' (see ROUTE_PAGE_MAP).
         key: '/invoices',
         icon: <IconFileText size={15} />,
         label: t('nav.invoices.list'),
-        // TODO: register page_code 'contracts.invoices' in backend seed_page_codes.py and
-        // remove the roles bypass below. Until that migration runs on the server,
-        // canSeePage() returns false for non-superusers (no page_permissions entry).
-        // Using roles: ALL_ROLES to temporarily surface the entry to every authenticated user.
-        roles: [
-          'admin', 'export_manager', 'loading_dept_head', 'loading_dept_head_deputy', 'warehouse_chief',
-          'weight_master', 'document_team', 'transport', 'sales_rep', 'finansist',
-          'director', 'accountant', 'greenhouse_manager', 'seller', 'boss',
-        ] as import('@/types').UserRole[],
       },
     ]},
     { label: t('nav.group_team'), items: [

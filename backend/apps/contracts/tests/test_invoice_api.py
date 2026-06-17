@@ -26,11 +26,43 @@ Test coverage:
 """
 from decimal import Decimal
 
+from django.core.cache import cache
+from django.core.management import call_command
 from django.test import TestCase
 from rest_framework.test import APIClient
 
 from apps.core.models import ExportFirm, ImportFirm, Season, User
 from apps.contracts.models import Contract, Invoice
+
+
+# ─── Permission seeding ──────────────────────────────────────────────────────
+
+class _SeededPermsMixin:
+    """Seed the dynamic permission matrix so DynamicResourcePermission resolves.
+
+    InvoiceViewSet gates on the RoleResourcePermission matrix (resource_code
+    'invoice'), not hardcoded roles. Those rows must exist in the test DB and the
+    60 s per-role perm cache must be clean.
+
+    - ``setUpTestData`` seeds the rows once per class (class-scoped — rolled back
+      after the class) and the seed command invalidates the perm cache, so each
+      class starts clean regardless of cache state left by a prior test module.
+    - ``tearDown`` clears the cache after every test so these seeded perms never
+      leak (the DB rows roll back, but the LocMemCache would otherwise persist
+      for 60 s) into other apps' tests that assume empty permission tables.
+
+    Subclasses define their own ``setUp`` (without ``super()``) for fixtures, so
+    the cache hygiene lives in ``tearDown`` (which they don't override).
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        call_command('seed_permissions')
+
+    def tearDown(self) -> None:
+        cache.clear()
+        super().tearDown()
 
 
 # ─── Fixture helpers ─────────────────────────────────────────────────────────
@@ -106,7 +138,7 @@ def _make_invoice(contract: Contract, invoice_number: int = 1, status: str = Inv
 
 # ─── Test classes ─────────────────────────────────────────────────────────────
 
-class InvoiceListAuthTest(TestCase):
+class InvoiceListAuthTest(_SeededPermsMixin, TestCase):
     """Test 1: Authenticated user can GET the list — returns empty page."""
 
     def setUp(self) -> None:
@@ -123,7 +155,7 @@ class InvoiceListAuthTest(TestCase):
         self.assertEqual(data['count'], 0)
 
 
-class InvoiceCreateRollupTest(TestCase):
+class InvoiceCreateRollupTest(_SeededPermsMixin, TestCase):
     """Test 2: Export manager creates invoice → contract totals roll up."""
 
     def setUp(self) -> None:
@@ -166,7 +198,7 @@ class InvoiceCreateRollupTest(TestCase):
         self.assertEqual(self.contract.last_invoice_number, 1)
 
 
-class InvoiceAutoComputeTotalTest(TestCase):
+class InvoiceAutoComputeTotalTest(_SeededPermsMixin, TestCase):
     """Test 3: total_usd auto-computed when qty + price provided but no total."""
 
     def setUp(self) -> None:
@@ -195,7 +227,7 @@ class InvoiceAutoComputeTotalTest(TestCase):
         self.assertAlmostEqual(float(invoice.total_usd), 1000.00)
 
 
-class InvoiceTotalOnlyTest(TestCase):
+class InvoiceTotalOnlyTest(_SeededPermsMixin, TestCase):
     """Test 4: Providing total_usd only (no qty/price) is accepted."""
 
     def setUp(self) -> None:
@@ -221,7 +253,7 @@ class InvoiceTotalOnlyTest(TestCase):
         self.assertAlmostEqual(float(self.contract.exported_amount_usd), 1500.0)
 
 
-class InvoiceNoMoneyTest(TestCase):
+class InvoiceNoMoneyTest(_SeededPermsMixin, TestCase):
     """Test 5: No money info at all → 400."""
 
     def setUp(self) -> None:
@@ -244,7 +276,7 @@ class InvoiceNoMoneyTest(TestCase):
         self.assertEqual(response.status_code, 400)
 
 
-class InvoiceCancelledContractTest(TestCase):
+class InvoiceCancelledContractTest(_SeededPermsMixin, TestCase):
     """Test 6: POST against cancelled contract → 400."""
 
     def setUp(self) -> None:
@@ -271,7 +303,7 @@ class InvoiceCancelledContractTest(TestCase):
         self.assertIn('cancelled', str(response.content).lower())
 
 
-class InvoiceDuplicateNumberTest(TestCase):
+class InvoiceDuplicateNumberTest(_SeededPermsMixin, TestCase):
     """Test 7: Duplicate (contract, invoice_number) → 400."""
 
     def setUp(self) -> None:
@@ -295,7 +327,7 @@ class InvoiceDuplicateNumberTest(TestCase):
         self.assertEqual(response.status_code, 400)
 
 
-class InvoiceAnonymousTest(TestCase):
+class InvoiceAnonymousTest(_SeededPermsMixin, TestCase):
     """Test 8: Anonymous POST → 401."""
 
     def setUp(self) -> None:
@@ -316,7 +348,7 @@ class InvoiceAnonymousTest(TestCase):
         self.assertIn(response.status_code, (401, 403))
 
 
-class InvoicePermissionTest(TestCase):
+class InvoicePermissionTest(_SeededPermsMixin, TestCase):
     """Test 9: warehouse_chief POST → 403."""
 
     def setUp(self) -> None:
@@ -339,7 +371,7 @@ class InvoicePermissionTest(TestCase):
         self.assertEqual(response.status_code, 403)
 
 
-class InvoiceDeletePermissionTest(TestCase):
+class InvoiceDeletePermissionTest(_SeededPermsMixin, TestCase):
     """Test 10: Non-admin DELETE → 403; admin DELETE → 204 and totals roll down."""
 
     def setUp(self) -> None:
@@ -377,7 +409,7 @@ class InvoiceDeletePermissionTest(TestCase):
         self.assertIsNone(self.contract.last_invoice_number)
 
 
-class InvoiceVoidExclusionTest(TestCase):
+class InvoiceVoidExclusionTest(_SeededPermsMixin, TestCase):
     """Test 11: 'void' invoice does NOT count toward exported totals."""
 
     def setUp(self) -> None:
@@ -403,7 +435,7 @@ class InvoiceVoidExclusionTest(TestCase):
         self.assertEqual(self.contract.exported_trucks, 1)
 
 
-class InvoiceContractFilterTest(TestCase):
+class InvoiceContractFilterTest(_SeededPermsMixin, TestCase):
     """Test 12: ?contract=<id> returns only that contract's invoices."""
 
     def setUp(self) -> None:
@@ -426,7 +458,7 @@ class InvoiceContractFilterTest(TestCase):
         self.assertEqual(data['results'][0]['contract'], self.contract_a.pk)
 
 
-class InvoicePatchRollupTest(TestCase):
+class InvoicePatchRollupTest(_SeededPermsMixin, TestCase):
     """Test 13: PATCH with explicit total_usd re-rolls up the contract totals.
 
     Note: auto-compute (total_usd = qty * price) only fires when total_usd is
@@ -470,7 +502,7 @@ class InvoicePatchRollupTest(TestCase):
         self.assertAlmostEqual(new_amount, 1740.0, places=1)
 
 
-class InvoiceContractReassignTest(TestCase):
+class InvoiceContractReassignTest(_SeededPermsMixin, TestCase):
     """Test 14: Moving invoice from contract A to B re-rolls BOTH contracts."""
 
     def setUp(self) -> None:
@@ -512,7 +544,7 @@ class InvoiceContractReassignTest(TestCase):
         self.assertGreater(self.contract_b.exported_amount_usd, Decimal('0'))
 
 
-class InvoicePatchStatusOnlyTest(TestCase):
+class InvoicePatchStatusOnlyTest(_SeededPermsMixin, TestCase):
     """Test 16: PATCH with only status field (no money fields) → 200.
 
     Regression test for the _merged() fix: a status-only PATCH must NOT
@@ -580,7 +612,7 @@ class InvoicePatchStatusOnlyTest(TestCase):
         self.assertEqual(self.invoice.status, Invoice.STATUS_VOID)
 
 
-class InvoiceDetailEditableFieldsTest(TestCase):
+class InvoiceDetailEditableFieldsTest(_SeededPermsMixin, TestCase):
     """Test 17: Detail endpoint includes editable_fields."""
 
     def setUp(self) -> None:

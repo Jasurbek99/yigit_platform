@@ -14,11 +14,43 @@ Test coverage:
   8. ?export_firm=<id> filter works
   9. Duplicate contract_number → 400
 """
+from django.core.cache import cache
+from django.core.management import call_command
 from django.test import TestCase
 from rest_framework.test import APIClient
 
 from apps.core.models import ExportFirm, ImportFirm, Season, User
 from apps.contracts.models import Contract
+
+
+# ─── Permission seeding ──────────────────────────────────────────────────────
+
+class _SeededPermsMixin:
+    """Seed the dynamic permission matrix so DynamicResourcePermission resolves.
+
+    ContractViewSet / InvoiceViewSet gate on the RoleResourcePermission matrix
+    (resource_code 'contract' / 'invoice'), not hardcoded roles. Those rows must
+    exist in the test DB and the 60 s per-role perm cache must be clean.
+
+    - ``setUpTestData`` seeds the rows once per class (class-scoped — rolled back
+      after the class) and the seed command invalidates the perm cache, so each
+      class starts clean regardless of cache state left by a prior test module.
+    - ``tearDown`` clears the cache after every test so these seeded perms never
+      leak (the DB rows roll back, but the LocMemCache would otherwise persist
+      for 60 s) into other apps' tests that assume empty permission tables.
+
+    Subclasses define their own ``setUp`` (without ``super()``) for fixtures, so
+    the cache hygiene lives in ``tearDown`` (which they don't override).
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        call_command('seed_permissions')
+
+    def tearDown(self) -> None:
+        cache.clear()
+        super().tearDown()
 
 
 # ─── Fixture helpers ─────────────────────────────────────────────────────────
@@ -83,7 +115,7 @@ def _make_user(username: str, role: str) -> User:
 
 # ─── Test classes ─────────────────────────────────────────────────────────────
 
-class ContractListAuthTest(TestCase):
+class ContractListAuthTest(_SeededPermsMixin, TestCase):
     """Test 1: Authenticated user can GET the list and get an empty page."""
 
     def setUp(self) -> None:
@@ -100,7 +132,7 @@ class ContractListAuthTest(TestCase):
         self.assertEqual(data['count'], 0)
 
 
-class ContractCreateTest(TestCase):
+class ContractCreateTest(_SeededPermsMixin, TestCase):
     """Test 2: Export manager can POST a valid contract."""
 
     def setUp(self) -> None:
@@ -134,7 +166,7 @@ class ContractCreateTest(TestCase):
         self.assertEqual(response.json()['count'], 1)
 
 
-class ContractCreatePermissionTest(TestCase):
+class ContractCreatePermissionTest(_SeededPermsMixin, TestCase):
     """Tests 3 & 4: Anonymous → 401, non-staff role → 403."""
 
     def setUp(self) -> None:
@@ -166,7 +198,7 @@ class ContractCreatePermissionTest(TestCase):
         self.assertEqual(response.status_code, 403)
 
 
-class ContractListFilterStatusTest(TestCase):
+class ContractListFilterStatusTest(_SeededPermsMixin, TestCase):
     """Tests 5 & 6: Default list excludes ended contracts; ?include_ended includes them."""
 
     def setUp(self) -> None:
@@ -214,7 +246,7 @@ class ContractListFilterStatusTest(TestCase):
         self.assertEqual(response.json()['count'], 0)
 
 
-class ContractDetailTest(TestCase):
+class ContractDetailTest(_SeededPermsMixin, TestCase):
     """Test 7: Detail endpoint returns expected fields."""
 
     def setUp(self) -> None:
@@ -262,7 +294,7 @@ class ContractDetailTest(TestCase):
         self.assertEqual(float(data['ostatok_usd']), 0.0)
 
 
-class ContractExportFirmFilterTest(TestCase):
+class ContractExportFirmFilterTest(_SeededPermsMixin, TestCase):
     """Test 8: ?export_firm=<id> filter."""
 
     def setUp(self) -> None:
@@ -284,7 +316,7 @@ class ContractExportFirmFilterTest(TestCase):
         self.assertEqual(response.json()['results'][0]['id'], c1.pk)
 
 
-class ContractDuplicateNumberTest(TestCase):
+class ContractDuplicateNumberTest(_SeededPermsMixin, TestCase):
     """Test 9: Duplicate contract_number → 400."""
 
     def setUp(self) -> None:

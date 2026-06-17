@@ -47,6 +47,10 @@ PAGE_REGISTRY: dict[str, str] = OrderedDict([
     ('feedback.my_tickets',     'Feedback: My Tickets'),
     ('feedback.public',         'Feedback: Public Feed'),
     ('feedback.admin_inbox',    'Feedback: Admin Inbox'),
+    # Contracts module (P4). Non-admin prefix on purpose — these are operational
+    # pages that delegated managers may also grant, not user/permission admin.
+    ('contracts.list',          'Contracts'),
+    ('contracts.invoices',      'Invoices'),
     # Admin
     ('admin.users',             'Admin: Users'),
     # Delegated staff page-access editor for department heads (ADR-022).
@@ -89,6 +93,11 @@ RESOURCE_REGISTRY: dict[str, str] = OrderedDict([
     # Pallet manifest resources (Finding #4 / Phase 2)
     ('pallet',                'Pallet manifest entries'),
     ('manifest_close',        'Close pallet manifest action'),
+    # Contracts module (P4). All-or-nothing resources (no field-level editing,
+    # so absent from RESOURCE_FIELDS). Reads + writes default to management only;
+    # invoice delete is admin-only (see RESOURCE_DEFAULTS in seed_permissions).
+    ('contract',              'Contract'),
+    ('invoice',               'Invoice'),
 ])
 
 # ── Editable fields per resource ─────────────────────────────────────────

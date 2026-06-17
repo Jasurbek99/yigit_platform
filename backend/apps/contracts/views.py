@@ -4,7 +4,7 @@ import logging
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import ModelViewSet
 
-from apps.core.permissions import write_permission
+from apps.core.permissions import DynamicResourcePermission
 from apps.contracts.models import Contract, Invoice
 from apps.contracts.serializers import (
     ContractCreateSerializer,
@@ -17,15 +17,15 @@ from apps.contracts.serializers import (
 
 logger = logging.getLogger(__name__)
 
-# Roles allowed to create and modify contracts and invoices.
-_CONTRACT_WRITE_ROLES = ('export_manager', 'director', 'admin')
-
 
 class ContractViewSet(ModelViewSet):
     """CRUD ViewSet for contracts.
 
-    List / retrieve: any authenticated user.
-    Create / update: export_manager, director, admin only.
+    Access is gated by the dynamic permission matrix via ``resource_code =
+    'contract'`` (RoleResourcePermission). Defaults (seed_permissions):
+    view/create/edit/delete for admin, director, export_manager; view-only for
+    boss; no access for other roles. Admins re-toggle per role in
+    *Admin → Permissions → Resource Permissions*.
 
     Default queryset excludes 'cancelled' contracts. Pass ``?status=`` to
     filter by a specific status (but 'cancelled' is never returned).
@@ -33,7 +33,8 @@ class ContractViewSet(ModelViewSet):
     'active' contracts.
     """
 
-    permission_classes = [IsAuthenticated, write_permission(*_CONTRACT_WRITE_ROLES)]
+    permission_classes = [IsAuthenticated, DynamicResourcePermission]
+    resource_code = 'contract'
 
     def get_queryset(self):
         """Return contracts queryset filtered by status.
@@ -95,9 +96,11 @@ class ContractViewSet(ModelViewSet):
 class InvoiceViewSet(ModelViewSet):
     """CRUD ViewSet for invoices.
 
-    List / retrieve: any authenticated user.
-    Create / update: export_manager, director, admin only.
-    Delete: admin / superuser only — rollback is too easy to mess up otherwise.
+    Access is gated by the dynamic permission matrix via ``resource_code =
+    'invoice'`` (RoleResourcePermission). Defaults (seed_permissions):
+    view/create/edit for admin, director, export_manager; **delete for admin
+    only** (rollback is too easy to mess up — director/export_manager get
+    view+create+edit, no delete); view-only for boss; no access for other roles.
 
     Standard PageNumberPagination (default 50, max 200 per project api-contract).
 
@@ -111,6 +114,9 @@ class InvoiceViewSet(ModelViewSet):
       ?search=<text>             — icontains match on passport_sdelka and
                                    parent contract_number
     """
+
+    permission_classes = [IsAuthenticated, DynamicResourcePermission]
+    resource_code = 'invoice'
 
     queryset = Invoice.objects.select_related(
         'contract',
@@ -165,15 +171,3 @@ class InvoiceViewSet(ModelViewSet):
         if self.action in ('create', 'update', 'partial_update'):
             return InvoiceCreateSerializer
         return InvoiceDetailSerializer
-
-    def get_permissions(self):
-        """Permission matrix:
-        - DELETE: admin/superuser only
-        - CREATE/UPDATE: export_manager, director, admin
-        - READ: any authenticated user
-        """
-        if self.action == 'destroy':
-            return [IsAuthenticated(), write_permission('admin')()]
-        if self.action in ('create', 'update', 'partial_update'):
-            return [IsAuthenticated(), write_permission(*_CONTRACT_WRITE_ROLES)()]
-        return [IsAuthenticated()]
