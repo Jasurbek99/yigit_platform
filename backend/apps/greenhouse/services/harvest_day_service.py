@@ -52,14 +52,36 @@ def plan_week_start(entry_date) -> datetime.date:
     return entry_date - timedelta(days=entry_date.weekday())
 
 
+def plan_week_cutoff_utc(weekly_plan, tz) -> datetime:
+    """Return the edit-window cutoff (aware UTC) for a plan week.
+
+    The window stays open through the END of the plan week itself — Sunday
+    23:59:59 local (Asia/Ashgabat) of that week. For example:
+      - Plan week ISO 2026-W24 (Mon 2026-06-08 … Sun 2026-06-14)
+        → cutoff = Sun 2026-06-14 23:59:59 local.
+
+    This lets greenhouse_managers enter or fix plan values for any day of the
+    current week — including days that have already passed this week — and keeps
+    not-yet-ended (future) weeks open too. Only fully-past weeks are locked.
+    """
+    from datetime import date as date_type
+
+    monday = date_type.fromisocalendar(weekly_plan.year, weekly_plan.week_number, 1)
+    sunday = monday + timedelta(days=6)
+    cutoff_local = datetime.combine(sunday, dtime(23, 59, 59))
+    cutoff_aware = cutoff_local.replace(tzinfo=tz)
+    return cutoff_aware.astimezone(dt_timezone.utc)
+
+
 def _plan_edit_window_closed(weekly_plan, now_utc=None) -> bool:
     """Return True if the edit window for the given plan week has closed.
 
-    The cutoff is end-of-Sunday (23:59:59 local, Asia/Ashgabat) immediately
-    before the plan week's Monday.  For example:
-      - Plan week starting Mon 2026-06-08 → cutoff = Sun 2026-06-07 23:59:59 local.
+    The cutoff is end-of-Sunday (23:59:59 local, Asia/Ashgabat) of the plan
+    week itself (see plan_week_cutoff_utc). A week is therefore editable by
+    greenhouse_managers throughout its own duration (incl. past days this week)
+    and beforehand; it locks only once the week has fully ended.
 
-    A late-edit extension on the plan row opens the window back up if
+    A late-edit extension on the plan row reopens a past week if
     ``weekly_plan.late_edit_granted_until > now_utc`` (aware comparison).
 
     Args:
@@ -83,23 +105,13 @@ def _plan_edit_window_closed(weekly_plan, now_utc=None) -> bool:
     config = GreenhouseConfig.get_solo()
     tz = ZoneInfo(config.timezone_name)
 
-    # Build the Monday of the plan week from its ISO year + week_number.
-    # ISO week date: iso_year-W{week}-1 gives the Monday.
-    from datetime import date as date_type
-    monday = date_type.fromisocalendar(weekly_plan.year, weekly_plan.week_number, 1)
-
-    # Sunday before the plan week is monday - 1 day; cutoff is its EOD (aware).
-    sunday_before = monday - timedelta(days=1)
-    cutoff_local = datetime.combine(sunday_before, dtime(23, 59, 59))
-    cutoff_aware = cutoff_local.replace(tzinfo=tz)
-    # Convert to UTC for comparison with now_utc (both aware)
-    cutoff_utc = cutoff_aware.astimezone(dt_timezone.utc)
+    cutoff_utc = plan_week_cutoff_utc(weekly_plan, tz)
 
     if now_utc <= cutoff_utc:
-        # Still within the allowed window
+        # Still within the allowed window (before or during the plan week)
         return False
 
-    # Past the cutoff — check for an active late-edit extension
+    # Past the week's end — check for an active late-edit extension
     granted_until = weekly_plan.late_edit_granted_until
     if granted_until and granted_until > now_utc:
         return False
@@ -235,7 +247,8 @@ def set_plan_value(entry, value, user, reason: str = '') -> None:
             raise PermissionError(
                 f"greenhouse_manager '{user.username}' is not assigned to block {entry.block_id}."
             )
-        # Sunday-EOD edit-window gate: block edits after the cutoff unless an
+        # End-of-week edit-window gate: a week is editable through its own Sunday
+        # EOD (incl. past days this week); only fully-past weeks lock, unless an
         # admin has granted a late-edit extension.
         weekly_plan = entry.weekly_plan
         if _plan_edit_window_closed(weekly_plan, now_utc=now_utc):
@@ -244,12 +257,9 @@ def set_plan_value(entry, value, user, reason: str = '') -> None:
             except ImportError:
                 from backports.zoneinfo import ZoneInfo
             config_tz = ZoneInfo(config.timezone_name)
-            from datetime import date as _date
-            monday = _date.fromisocalendar(weekly_plan.year, weekly_plan.week_number, 1)
-            sunday_before = monday - timedelta(days=1)
-            cutoff_local_str = datetime.combine(sunday_before, dtime(23, 59, 59)).strftime(
-                '%Y-%m-%d %H:%M:%S'
-            )
+            cutoff_local_str = plan_week_cutoff_utc(weekly_plan, config_tz).astimezone(
+                config_tz
+            ).strftime('%Y-%m-%d %H:%M:%S')
             raise PermissionError(
                 f"Plan edits for week {weekly_plan.week_number}/{weekly_plan.year} closed at "
                 f"{cutoff_local_str} {config.timezone_name}. "

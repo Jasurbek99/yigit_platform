@@ -1,4 +1,10 @@
-"""Tests for the Sunday-EOD plan edit cutoff and admin late-edit extension.
+"""Tests for the end-of-week plan edit cutoff and admin late-edit extension.
+
+Policy: a plan week is editable by greenhouse_managers through the END of that
+week (its own Sunday 23:59:59 local) — including days that have already passed
+within the current week — plus beforehand. Only fully-past weeks lock, unless an
+admin grants a late-edit extension.
+
 
 Covers:
 - _plan_edit_window_closed() helper (pure logic, no DB)
@@ -84,8 +90,10 @@ def _make_config_stub(timezone_name='Asia/Ashgabat'):
 class TestPlanEditWindowClosedHelper(unittest.TestCase):
     """Pure-function tests for _plan_edit_window_closed.
 
-    Week under test: ISO 2026-W24 (Mon 2026-06-08 … Sat 2026-06-13).
-    Cutoff: Sun 2026-06-07 23:59:59 Asia/Ashgabat = 2026-06-07 18:59:59 UTC.
+    Week under test: ISO 2026-W24 (Mon 2026-06-08 … Sun 2026-06-14).
+    Cutoff = end of that week: Sun 2026-06-14 23:59:59 Asia/Ashgabat
+    = 2026-06-14 18:59:59 UTC. The window is open before and throughout W24;
+    it closes once W24 has fully ended (i.e. from W25 onward).
     """
 
     # GreenhouseConfig is imported lazily inside _plan_edit_window_closed via
@@ -101,41 +109,47 @@ class TestPlanEditWindowClosedHelper(unittest.TestCase):
             mock_cls.get_solo.return_value = config_stub
             return _plan_edit_window_closed(plan_stub, now_utc=now_utc)
 
-    def test_saturday_noon_before_cutoff_returns_false(self):
-        """Sat noon of week W-1 is before the Sunday-EOD cutoff → window open."""
-        # 2026-W24 Monday = 2026-06-08 → Sunday before = 2026-06-07
-        # Sat noon = 2026-06-06 12:00 +05 = 2026-06-06 07:00 UTC
+    def test_saturday_noon_before_week_returns_false(self):
+        """Sat noon of the week before W24 → window open (planning ahead)."""
+        # Sat 2026-06-06 12:00 +05 = 2026-06-06 07:00 UTC, before W24 starts
         plan = _make_plan_stub(year=2026, week_number=24)
         now = _aware_dt(2026, 6, 6, 12, 0, 0)  # Sat 12:00 Ashgabat
         self.assertFalse(self._call(plan, now.astimezone(dt_timezone.utc)))
 
-    def test_sunday_23_59_59_returns_false(self):
-        """Exactly at the cutoff boundary (23:59:59 local Sunday) → window still open."""
+    def test_during_plan_week_returns_false(self):
+        """A day within W24 (incl. one already passed this week) → window open."""
         plan = _make_plan_stub(year=2026, week_number=24)
-        # Sun 2026-06-07 23:59:59 +05
-        now = _aware_dt(2026, 6, 7, 23, 59, 59)
+        # Wed 2026-06-10 09:00 +05 — mid-week, Mon/Tue already passed
+        now = _aware_dt(2026, 6, 10, 9, 0, 0)
         self.assertFalse(self._call(plan, now.astimezone(dt_timezone.utc)))
 
-    def test_monday_0001_after_cutoff_returns_true(self):
-        """Mon 00:01 of week W — one minute after cutoff → window closed."""
+    def test_week_end_boundary_returns_false(self):
+        """Exactly at the week-end cutoff (Sun 2026-06-14 23:59:59 local) → still open."""
         plan = _make_plan_stub(year=2026, week_number=24)
-        # Mon 2026-06-08 00:01 +05
-        now = _aware_dt(2026, 6, 8, 0, 1, 0)
+        now = _aware_dt(2026, 6, 14, 23, 59, 59)
+        self.assertFalse(self._call(plan, now.astimezone(dt_timezone.utc)))
+
+    def test_after_week_end_returns_true(self):
+        """First minute of the week after W24 → window closed."""
+        plan = _make_plan_stub(year=2026, week_number=24)
+        # Mon 2026-06-15 00:01 +05 (W25) — W24 ended Sun 2026-06-14
+        now = _aware_dt(2026, 6, 15, 0, 1, 0)
         self.assertTrue(self._call(plan, now.astimezone(dt_timezone.utc)))
 
-    def test_extension_active_reopens_window(self):
-        """Late-edit extension set to Mon 12:00 → window open at Mon 09:00."""
-        granted = _aware_dt(2026, 6, 8, 12, 0, 0)  # Mon 12:00 Ashgabat
+    def test_extension_active_reopens_past_week(self):
+        """A fully-past week (W24) with a future extension → window open."""
+        # now is in W25; extension valid a bit longer
+        granted = _aware_dt(2026, 6, 16, 12, 0, 0)  # Tue 12:00 W25 Ashgabat
         plan = _make_plan_stub(year=2026, week_number=24, granted_until=granted.astimezone(dt_timezone.utc))
-        now = _aware_dt(2026, 6, 8, 9, 0, 0)
+        now = _aware_dt(2026, 6, 16, 9, 0, 0)  # before granted_until, W24 long ended
         self.assertFalse(self._call(plan, now.astimezone(dt_timezone.utc)))
 
     def test_extension_expired_window_stays_closed(self):
-        """Late-edit extension expired (granted_until <= now) → window closed."""
-        granted = _aware_dt(2026, 6, 8, 12, 0, 0)  # Mon 12:00 Ashgabat
+        """Past week, extension expired (granted_until <= now) → window closed."""
+        granted = _aware_dt(2026, 6, 16, 12, 0, 0)  # Tue 12:00 W25 Ashgabat
         plan = _make_plan_stub(year=2026, week_number=24, granted_until=granted.astimezone(dt_timezone.utc))
-        # One second after expiry
-        now = _aware_dt(2026, 6, 8, 12, 0, 1)
+        # One second after expiry, W24 long ended
+        now = _aware_dt(2026, 6, 16, 12, 0, 1)
         self.assertTrue(self._call(plan, now.astimezone(dt_timezone.utc)))
 
 
@@ -207,54 +221,55 @@ class TestPlanEditCutoffIntegration(TestCase):
 
     # --- set_plan_value() time-gate tests ---
 
-    def test_greenhouse_manager_can_edit_before_sunday_cutoff(self):
-        """Sat noon of week W-1 → manager edit succeeds."""
-        # W24/2026 Monday = 2026-06-08; Sat before = 2026-06-06
+    def test_greenhouse_manager_can_edit_during_week(self):
+        """A day within the plan week (Mon already passed) → manager edit succeeds."""
+        # W24/2026 Monday = 2026-06-08; edit on Wed 2026-06-10
         plan, entry = self._make_plan_and_entry(2026, 24)
-        sat_noon_utc = _aware_dt(2026, 6, 6, 7, 0, 0, tz=dt_timezone.utc)  # ~12:00 Ashgabat
+        wed_noon_utc = _aware_dt(2026, 6, 10, 7, 0, 0, tz=dt_timezone.utc)  # ~12:00 Ashgabat, mid-week
 
         with patch('apps.greenhouse.services.harvest_day_service.timezone') as mock_tz:
-            mock_tz.now.return_value = sat_noon_utc
+            mock_tz.now.return_value = wed_noon_utc
             mock_tz.utc = dt_timezone.utc
-            # Should not raise
+            # Should not raise — current week stays editable incl. past days this week
             set_plan_value(entry, Decimal('1500.00'), self.manager_user)
 
         entry.refresh_from_db()
         self.assertEqual(entry.plan_value, Decimal('1500.00'))
 
-    def test_greenhouse_manager_blocked_after_sunday_cutoff(self):
-        """Mon 00:01 of week W → manager edit blocked; error references cutoff datetime."""
+    def test_greenhouse_manager_blocked_after_week_end(self):
+        """A fully-ended week → manager edit blocked; error references the week-end cutoff."""
         plan, entry = self._make_plan_and_entry(2026, 24)
         # Reset plan_value to avoid override-reason check
         entry.plan_value = None
         entry.save(update_fields=['plan_value'])
 
-        mon_0001_utc = _aware_dt(2026, 6, 7, 19, 1, 0, tz=dt_timezone.utc)  # Mon 00:01 Ashgabat
+        # Mon 2026-06-15 00:01 Ashgabat = 2026-06-14 19:01 UTC — W24 ended Sun 2026-06-14
+        after_end_utc = _aware_dt(2026, 6, 14, 19, 1, 0, tz=dt_timezone.utc)
 
         with patch('apps.greenhouse.services.harvest_day_service.timezone') as mock_tz:
-            mock_tz.now.return_value = mon_0001_utc
+            mock_tz.now.return_value = after_end_utc
             mock_tz.utc = dt_timezone.utc
             with self.assertRaises(PermissionError) as ctx:
                 set_plan_value(entry, Decimal('1000.00'), self.manager_user)
 
         msg = str(ctx.exception)
         self.assertIn('closed at', msg)
-        self.assertIn('2026-06-07', msg)  # Sunday before
+        self.assertIn('2026-06-14', msg)  # end of W24 (its own Sunday)
 
     def test_greenhouse_manager_can_edit_when_extension_active(self):
-        """Mon 09:00 with granted_until = Mon 12:00 → edit succeeds."""
+        """Past week with an active extension → edit succeeds."""
         plan, entry = self._make_plan_and_entry(2026, 24)
         entry.plan_value = None
         entry.save(update_fields=['plan_value'])
 
-        mon_12_utc = _aware_dt(2026, 6, 8, 7, 0, 0, tz=dt_timezone.utc)  # Mon 12:00 Ashgabat
-        plan.late_edit_granted_until = mon_12_utc
+        ext_utc = _aware_dt(2026, 6, 16, 7, 0, 0, tz=dt_timezone.utc)  # Tue 12:00 W25 Ashgabat
+        plan.late_edit_granted_until = ext_utc
         plan.save(update_fields=['late_edit_granted_until'])
 
-        mon_09_utc = _aware_dt(2026, 6, 8, 4, 0, 0, tz=dt_timezone.utc)  # Mon 09:00 Ashgabat
+        now_utc = _aware_dt(2026, 6, 16, 4, 0, 0, tz=dt_timezone.utc)  # Tue 09:00, before ext, W24 ended
 
         with patch('apps.greenhouse.services.harvest_day_service.timezone') as mock_tz:
-            mock_tz.now.return_value = mon_09_utc
+            mock_tz.now.return_value = now_utc
             mock_tz.utc = dt_timezone.utc
             # Should not raise
             set_plan_value(entry, Decimal('900.00'), self.manager_user)
@@ -263,17 +278,17 @@ class TestPlanEditCutoffIntegration(TestCase):
         self.assertEqual(entry.plan_value, Decimal('900.00'))
 
     def test_extension_passive_expiry_blocks_edit(self):
-        """One second after granted_until → edit blocked (> not >=)."""
+        """Past week, one second after granted_until → edit blocked (> not >=)."""
         plan, entry = self._make_plan_and_entry(2026, 24)
         entry.plan_value = None
         entry.save(update_fields=['plan_value'])
 
-        mon_12_utc = _aware_dt(2026, 6, 8, 7, 0, 0, tz=dt_timezone.utc)  # Mon 12:00:00 Ashgabat
-        plan.late_edit_granted_until = mon_12_utc
+        ext_utc = _aware_dt(2026, 6, 16, 7, 0, 0, tz=dt_timezone.utc)  # Tue 12:00 W25 Ashgabat
+        plan.late_edit_granted_until = ext_utc
         plan.save(update_fields=['late_edit_granted_until'])
 
-        # One second after expiry
-        expired_utc = mon_12_utc + timedelta(seconds=1)
+        # One second after expiry, W24 long ended
+        expired_utc = ext_utc + timedelta(seconds=1)
 
         with patch('apps.greenhouse.services.harvest_day_service.timezone') as mock_tz:
             mock_tz.now.return_value = expired_utc

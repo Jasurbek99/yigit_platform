@@ -90,7 +90,7 @@ The state is implicit, derived from which of `plan_submitted_at` / `forecast_sub
 | `locked_at` | DateTime nullable | When set, all edits frozen; admin re-opens by clearing to NULL |
 | `entered_by` | FK User | Who created the row |
 | `created_at`, `updated_at` | DateTime | Standard |
-| `late_edit_granted_until` | DateTimeField nullable | If set and in the future, re-opens the plan edit window for this block/week past the Sunday-EOD cutoff |
+| `late_edit_granted_until` | DateTimeField nullable | If set and in the future, re-opens the plan edit window for this block/week after the week-end cutoff (for editing a fully-past week) |
 | `late_edit_granted_by` | FK User nullable (`SET_NULL`) | Admin who granted the extension |
 | `late_edit_granted_at` | DateTimeField nullable | When the extension was granted |
 | `late_edit_granted_reason` | CharField(500) blank | Why the extension was granted (Cyrillic-collated, required when granting) |
@@ -101,7 +101,7 @@ The 4 late-edit extension fields were added in migration `greenhouse.0005_weekly
 
 #### Plan edit cutoff rule
 
-`greenhouse_manager` plan edits are allowed through the **Sunday before the plan week at 23:59:59 local time** (configured timezone from `GreenhouseConfig.timezone_name`). After that cutoff, `set_plan_value()` raises `PermissionError` with a human-readable message. The cutoff boundary is computed by `_plan_edit_window_closed(weekly_plan, now_utc=None) -> bool` in `services/harvest_day_service.py`.
+`greenhouse_manager` plan edits are allowed through the **end of the plan week itself — that week's Sunday at 23:59:59 local time** (configured timezone from `GreenhouseConfig.timezone_name`). This means a manager can enter or fix plan values for **any day of the current week, including days that have already passed this week**, as well as plan future weeks ahead. Only a **fully-ended** (past) week is locked; after that, `set_plan_value()` raises `PermissionError` with a human-readable message. The cutoff is computed by `plan_week_cutoff_utc(weekly_plan, tz)` and applied by `_plan_edit_window_closed(weekly_plan, now_utc=None) -> bool` in `services/harvest_day_service.py`. (Earlier policy locked the week at the Sunday *before* it started; relaxed June 2026 so managers can keep the in-progress week up to date.)
 
 A `late_edit_granted_until` that is in the future bypasses the gate — the window re-opens until that datetime. Granting/revoking is admin-only via dedicated endpoints (see below). The `admin` role itself is never blocked (it takes the admin-override branch in `set_plan_value` before the time gate).
 
@@ -144,7 +144,7 @@ A `late_edit_granted_until` that is in the future bypasses the gate — the wind
 | `admin_override(entry, field, value, reason, user)` | Wraps the appropriate setter; required `reason` non-empty. |
 | `compute_plan_state(submitted_at_local, plan_week_start, config)` | Returns `'on_time'` / `'late'` / `'critical_late'`. Pure function. |
 | `compute_forecast_window(submitted_at_local, entry_date, config)` | Returns `'primary'` / `'fallback'` / `'same_day_red_flag'` / `None` (locked). Pure function. |
-| `_plan_edit_window_closed(weekly_plan, now_utc=None) -> bool` | Returns `True` if the Sunday-EOD cutoff has passed for this week's plan AND no active late-edit extension exists. Used as a guard inside `set_plan_value()`. Leading underscore: internal to the service package, exported from `services/__init__.py` for tests only. |
+| `_plan_edit_window_closed(weekly_plan, now_utc=None) -> bool` | Returns `True` if the plan week has fully ended (now past that week's Sunday 23:59:59 cutoff, via `plan_week_cutoff_utc`) AND no active late-edit extension exists. Used as a guard inside `set_plan_value()`. Leading underscore: internal to the service package, exported from `services/__init__.py` for tests only. |
 
 ### ViewSets & Endpoints
 
@@ -244,7 +244,8 @@ See `docs/operations/cron.md` for Linux + Windows Task Scheduler setup.
 | Tomorrow during forecast primary window + role allows | Editable forecast input, pre-filled with `plan_value`, with grey "Plan: 12,000" hint underneath |
 | Tomorrow forecast submitted | Forecast value, yellow background, locked |
 | Today | Forecast value (yellow, locked) + editable Actual input next to it |
-| Past days | Actual value (green); em-dash if NULL |
+| Past days (admin) | Actual value (green, em-dash if NULL) + a grey retroactive-edit "Plan: …" line. |
+| Past days (`greenhouse_manager`) | **Plan value only** (blue) — the planning grid is single-value for managers; they never see/edit the actual. Click-to-edit when the day is in the **current week** (lets them enter/fix past-day plans this week); older weeks are read-only (click → history). |
 
 **Empty-vs-zero**: `value === null` → em-dash; `value === 0 && *_submitted_at` → italic `0 ✓`.
 
@@ -289,7 +290,7 @@ When `currentUser.role === 'admin'` edits any cell, `<AdminOverrideReasonModal>`
 
 | Role | View | Plan | Forecast | Actual | Admin override |
 |------|------|------|----------|--------|----------------|
-| `greenhouse_manager` | Own blocks (highlighted) | Own blocks through Sunday 23:59:59 before plan week (extendable by admin via `grant-late-edit`) | Own blocks during primary window only | No | No |
+| `greenhouse_manager` | Own blocks (highlighted) | Own blocks through that week's own Sunday 23:59:59 (incl. already-passed days of the current week; extendable by admin via `grant-late-edit` for past weeks) | Own blocks during primary window only | No | No |
 | `loading_dept_head` (Soltanmyrat) | All blocks | No | Any block, 00:00 day-before through 12:00 day-of (`LOADING_HEAD_FORECAST_DAY_OF_CLOSE`) | No (computed daily from shipments) | No |
 | `admin` | All blocks | Anytime, any block, with required reason | Anytime, any block, with required reason | Anytime, any block, with required reason | Yes (all paths) |
 | `export_manager` (Gadam) | All blocks | View only | View only | View only | No |
@@ -330,4 +331,5 @@ operational Google Sheet: one row per active block with **Düýnki galyndy**
 - **[[truck-allocation]]** — Est. Trucks tile uses the most-current value per cell / `truck_capacity_kg` from `GreenhouseConfig`. The TruckAllocationTable embeds in WeeklyPlanGrid as before.
 - **[[shipment-creation]]** — Harvest readiness (Actual vs Plan) feeds shipment-creation decisions.
 - **[[domestic-sales]]** — Domestic sale records track tomatoes sold locally (separate from this process).
+- **[[comments-tasks]]** — The `weekly_plan` board task (one per manager per week, "Generate plan tasks" button on this grid) nudges managers to fill the plan and auto-completes when no blank cells remain. See [[../../ADR|ADR-021]].
 - See [[../../ADR|ADR-017]] for the rationale on the daily-grain rewrite (supersedes ADR-012).

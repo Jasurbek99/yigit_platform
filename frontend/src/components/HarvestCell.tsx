@@ -38,6 +38,19 @@ function computeDisplayMode(entry: IHarvestDayEntry, today: dayjs.Dayjs): Displa
   return 'future_plan';
 }
 
+/**
+ * True if `entryDate` falls in the same ISO week (Mon–Sun) as `today`.
+ * Used to let block managers edit plan values for days that have already
+ * passed within the current week (older weeks stay locked).
+ */
+function isInCurrentWeek(entryDate: string, today: dayjs.Dayjs): boolean {
+  const d = dayjs(entryDate);
+  // dayjs().day(): 0=Sun…6=Sat → days since Monday = (day + 6) % 7
+  const weekMonday = today.subtract((today.day() + 6) % 7, 'day');
+  const weekSunday = weekMonday.add(6, 'day');
+  return !d.isBefore(weekMonday, 'day') && !d.isAfter(weekSunday, 'day');
+}
+
 // ─── Sub-renders ──────────────────────────────────────────────────────────────
 
 interface IEmptyProps {
@@ -268,29 +281,70 @@ export function HarvestCell({
         </>
       );
     }
-    // Display: admins click the actual area to override; a small edit icon lets
-    // them retroactively override the plan value too. Non-admins get the
-    // read-only history modal — except on a fully-empty cell where they have
-    // plan-edit permission, in which case the click jumps straight to the plan
-    // editor (history on an empty cell would have nothing to show anyway).
+    // Non-admin manager editing a plan value on a past day of the CURRENT week
+    // (no override modal — managers edit their own plans freely in-week).
+    if (!isAdmin && canEditPlan && editingPlan) {
+      const planNumMgr = entry.plan_value != null ? Number(entry.plan_value) : undefined;
+      return (
+        <div style={{ minHeight: 24 }}>
+          <InputNumber
+            ref={planInputRef}
+            min={0}
+            step={100}
+            keyboard={false}
+            defaultValue={planNumMgr}
+            placeholder="—"
+            disabled={isSaving}
+            onBlur={(e) => {
+              const raw = e.target.value.replace(/,/g, '');
+              const v = raw === '' ? null : Number(raw) || 0;
+              handleValueBlur('plan_value', entry.plan_value, v, setEditingPlan);
+            }}
+            onKeyDown={handleCellKeyDown}
+            size="small"
+            style={{ width: 84 }}
+          />
+        </div>
+      );
+    }
     const isEmpty = entry.plan_value == null && entry.actual_value == null;
-    const canClickEditPlan = !isAdmin && canEditPlan && isEmpty;
+    const inCurrentWeek = isInCurrentWeek(entry.entry_date, today);
+
+    // Non-admin (block manager): the plan grid is for PLANNING only — managers
+    // enter a single value (the plan). They never see or touch the actual
+    // (rollup/admin territory). Show just the plan value; it's editable when the
+    // day is in the current week (incl. days already passed this week) or the
+    // cell is still empty — otherwise click opens the read-only history modal.
+    if (!isAdmin) {
+      const managerCanEditPlan = canEditPlan && (isEmpty || inCurrentWeek);
+      return (
+        <div
+          data-edit-cell={managerCanEditPlan ? 'true' : undefined}
+          onClick={() => {
+            if (managerCanEditPlan) setEditingPlan(true);
+            else onCellClick(entry.id);
+          }}
+          style={{ cursor: managerCanEditPlan ? 'text' : 'pointer', minHeight: 24, padding: '2px 0' }}
+          title={managerCanEditPlan ? t('plan.admin_click_edit_plan') : t('plan.click_for_history')}
+        >
+          <ValueOrEmpty
+            valueStr={entry.plan_value}
+            submittedAt={entry.plan_submitted_at}
+            color={COLORS.primary}
+          />
+          <PlanStateDot state={entry.plan_state} />
+        </div>
+      );
+    }
+
+    // Admin display: click the actual area to override; a small edit icon lets
+    // them retroactively override the plan value too.
     return (
       <div
-        data-edit-cell={isAdmin || canClickEditPlan ? 'true' : undefined}
-        onClick={() => {
-          if (isAdmin) setEditingActual(true);
-          else if (canClickEditPlan) setEditingPlan(true);
-          else onCellClick(entry.id);
-        }}
+        data-edit-cell="true"
+        onClick={() => setEditingActual(true)}
         style={{ cursor: 'pointer', minHeight: 24, padding: '2px 0' }}
-        title={
-          isAdmin
-            ? t('plan.admin_click_edit_actual')
-            : canClickEditPlan
-              ? t('plan.admin_click_edit_plan')
-              : t('plan.click_for_history')
-        }
+        title={t('plan.admin_click_edit_actual')}
       >
         <ValueOrEmpty
           valueStr={entry.actual_value}
@@ -298,23 +352,21 @@ export function HarvestCell({
           color={COLORS.success}
         />
         <ActualSourceBadge source={entry.actual_source} />
-        {(entry.plan_value || isAdmin) && (
-          <div
-            onClick={isAdmin ? (e) => { e.stopPropagation(); setEditingPlan(true); } : undefined}
-            style={{
-              fontSize: 10,
-              color: COLORS.textMuted,
-              cursor: isAdmin ? 'pointer' : 'inherit',
-              marginTop: 2,
-            }}
-            title={isAdmin ? t('plan.admin_click_edit_plan') : undefined}
-          >
-            {entry.plan_value
-              ? t('plan.cell_plan_hint', { value: Number(entry.plan_value).toLocaleString() })
-              : `${t('plan.plan')}: —`}
-            {isAdmin && <EditOutlined style={{ marginLeft: 4, fontSize: 10 }} />}
-          </div>
-        )}
+        <div
+          onClick={(e) => { e.stopPropagation(); setEditingPlan(true); }}
+          style={{
+            fontSize: 10,
+            color: COLORS.textMuted,
+            cursor: 'pointer',
+            marginTop: 2,
+          }}
+          title={t('plan.admin_click_edit_plan')}
+        >
+          {entry.plan_value
+            ? t('plan.cell_plan_hint', { value: Number(entry.plan_value).toLocaleString() })
+            : `${t('plan.plan')}: —`}
+          <EditOutlined style={{ marginLeft: 4, fontSize: 10 }} />
+        </div>
       </div>
     );
   }
