@@ -248,7 +248,13 @@ class QuotaDashboardView(APIView):
     """
 
     permission_classes = [IsAuthenticated, DynamicResourcePermission]
-    resource_code = 'quota'
+    # Read-only quota analytics gated by view access to the underlying issuance
+    # data. There is no standalone 'quota' resource in RESOURCE_REGISTRY — using
+    # it here meant get_resource_perm() returned None and every non-superuser
+    # role (export_manager, document_team, director) got a 403. 'quota_issuance'
+    # is the actual aggregated resource and is held by exactly the roles that can
+    # see the export.quota page.
+    resource_code = 'quota_issuance'
 
     def get(self, request: Request) -> Response:
         """Parse query params and delegate to service layer."""

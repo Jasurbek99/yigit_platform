@@ -9,7 +9,11 @@ export interface IQuotaDashboardFilters {
   product_type?: string;
 }
 
-export function useQuotaDashboard(filters: IQuotaDashboardFilters) {
+export function useQuotaDashboard(
+  filters: IQuotaDashboardFilters,
+  options: { enabled?: boolean } = {},
+) {
+  const { enabled = true } = options;
   return useQuery({
     queryKey: ['quota-dashboard', filters],
     queryFn: async (): Promise<IQuotaDashboardResponse> => {
@@ -21,7 +25,10 @@ export function useQuotaDashboard(filters: IQuotaDashboardFilters) {
       const { data } = await api.get<IQuotaDashboardResponse>(`/export/quota-dashboard/?${params}`);
       return data;
     },
-    enabled: !!filters.season,
+    // Gate by season AND quota access: a seller reaches this page only for the
+    // local-sell tab and has no quota_issuance perm, so firing the dashboard
+    // query would 403 and surface the error banner. The caller passes enabled.
+    enabled: !!filters.season && enabled,
     staleTime: 60_000,
   });
 }

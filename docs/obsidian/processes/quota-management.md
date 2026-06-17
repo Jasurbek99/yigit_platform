@@ -75,12 +75,35 @@ Frontend computes expiry date from `issue_date + validity` and shows status: **a
 
 ### Auto-Created Usage Records
 
-When a user sets firm splits on a shipment (POST `/shipments/{id}/firm-splits/`), the system auto-creates **draft** `QuotaUsageRecord` entries for each firm using `get_default_truck_weight(num_firms)`:
+Draft `QuotaUsageRecord` entries are auto-created any time a shipment's firm splits are set, via the shared `sync_draft_quota_usage_for_shipment(shipment, user)` service in `apps/export/services/quota_sync.py`:
+
+| Trigger | Behavior |
+|---------|----------|
+| `POST /shipments/` (draft path) with `firm_splits` in body | Drafts created in the same atomic transaction as the shipment + splits |
+| `POST /shipments/{id}/firm-splits/` | Existing drafts replaced; approved rows untouched (request rejected if any exist) |
+
+Per-firm kg comes from `TruckSplitDefault` (admin-configurable; legacy defaults seeded):
 - 1 firm: 18,100 kg
 - 2 firms: 9,000 kg each
 - 3+ firms: 18,100 / N kg each
 
 These drafts must be **approved** by export_manager/director before they count in FIFO calculations.
+
+### Release-on-Delete Semantics
+
+When a shipment is removed from the operational pool, its approved kg should return to the firm's available quota balance. This is implemented at the **aggregation layer** via `QuotaUsageRecord.objects.counted()` — a manager method that filters out rows tied to soft-deleted or cancelled shipments. Every FIFO / KPI / dashboard aggregation calls `.counted()` first.
+
+| Action | Row state | Counts in FIFO? | Reversible? |
+|--------|-----------|----------------|-------------|
+| Shipment is alive | Approved row exists, `shipment.deleted_at IS NULL`, status != cancelled | ✅ Yes | — |
+| `POST /shipments/{id}/soft-delete/` | Row preserved | ❌ No | ✅ `POST /restore/` re-counts the same row |
+| `POST /shipments/{id}/cancel/` | Row preserved (draft rows deleted; approved rows kept) | ❌ No | Only via un-cancel transition |
+| `POST /shipments/bulk-delete/` (admin) | **Row hard-deleted** (drafts + approveds) | ❌ No | ❌ Permanent — shipment is gone |
+| Historical Excel import (no `shipment_id`) | Row exists, `shipment` is NULL | ✅ Yes | — |
+
+Every action above busts the `fifo_usage:tomato` / `fifo_usage:pepper` cache via `invalidate_quota_caches()` so the firm's balance updates immediately. The quota dashboard cache (60s TTL, parametrised by season/date) is left to expire on its own.
+
+**Why hard-delete is different.** Soft-delete and cancel keep the row so restore / un-cancel can re-consume the kg automatically (including the approved status). Bulk-delete severs the shipment FK (`SET_NULL`), which `counted()` would treat as a historical import and re-include — so the action explicitly hard-deletes the usage rows before destroying the shipment.
 
 ## Database
 
@@ -202,9 +225,11 @@ erDiagram
 | PUT | `/api/v1/export/quota-usage/{id}/` | Edit (draft only) | IsAuthenticated |
 | DELETE | `/api/v1/export/quota-usage/{id}/` | Delete (draft only) | IsAuthenticated |
 | POST | `/api/v1/export/quota-usage/approve/` | Bulk approve drafts | export_manager, director |
-| GET | `/api/v1/export/quota-dashboard/` | Dashboard analytics | IsAuthenticated |
+| GET | `/api/v1/export/quota-dashboard/` | Dashboard analytics | `quota_issuance` view |
 
 **Dashboard query params**: `season` (required), `product_type` (default='tomato'), `date_from`, `date_to`
+
+> **Permission note**: the read-only dashboard is gated by `DynamicResourcePermission` with `resource_code = 'quota_issuance'` (the resource it aggregates) — NOT a `'quota'` resource, which does not exist in `RESOURCE_REGISTRY`. Pointing it at the non-existent `'quota'` resource makes `get_resource_perm()` return `None` and 403s every non-superuser role; this was a real regression. The roles that hold `quota_issuance` view (export_manager, director, document_team, admin) are exactly those granted the `export.quota` page.
 
 **Filters on issuances**: `?product_type=`, `?date_from=`, `?date_to=`
 **Filters on usage**: `?status=`, `?product_type=`, `?date_from=`, `?date_to=`

@@ -151,12 +151,15 @@ export default function QuotaDashboard() {
     [period, currentSeason],
   );
 
-  const { data, isLoading, isError } = useQuotaDashboard({
-    season: seasonId ?? 0,
-    date_from,
-    date_to,
-    product_type: productType,
-  });
+  const { data, isLoading, isError } = useQuotaDashboard(
+    {
+      season: seasonId ?? 0,
+      date_from,
+      date_to,
+      product_type: productType,
+    },
+    { enabled: canSeeQuota },
+  );
   const { data: issuances = [] } = useQuotaIssuances({ product_type: productType });
 
   const kpis = data?.kpis;
