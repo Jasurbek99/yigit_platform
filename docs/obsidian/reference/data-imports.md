@@ -25,8 +25,8 @@ For the canonical task list see [IMPORT_TASKS.md](../IMPORT_TASKS.md).
 | `import_quotas` | `data/quota/quota.xlsx` (Kwota-2, rows 9-25) | QuotaIssuance, QuotaIssuanceFirmAllocation | 19 + 157 | Done |
 | `import_quota_usage` | `data/quota/quota.xlsx` (Kwota-2, rows 33-108) | QuotaUsageRecord | 560 | Done |
 | `cleanup_mislabeled_local_sales` | _(one-off)_ | WeeklyLocalSellPlan (delete) | 14 | Done |
-| `import_weekly_plan` | _(Excel)_ | WeeklyHarvestPlan, WeeklyTruckAllocation | 318 + 173 | Done |
-| `import_harvest_plans` | _(Excel)_ | WeeklyHarvestPlan | varies | Done |
+| `import_weekly_plan` | `data/weekly_plan.xlsx` (sheet `Hepdelik maşyn sany`) | WeeklyHarvestPlan + HarvestDayEntry, WeeklyTruckAllocation + TruckDestinationSplit | fill-empties | Done |
+| `import_harvest_plans` | `data/p3-export/Pomidor_Dükany__20252026.xlsx` (sheet `Hepdelik planlama`) | WeeklyHarvestPlan + HarvestDayEntry | fill-empties | Done |
 
 ## Running Imports
 
@@ -44,6 +44,21 @@ python manage.py seed_permissions --reset
 ## Quota importers (`data/quota/quota.xlsx`)
 
 The three quota commands share `_quota_import_utils.py` (firm-name resolver + mixed-date parser) and **default to dry-run** — pass `--commit` to write. The file has three streams: issued quota (`import_quotas`), used quota (`import_quota_usage`), and daily domestic sales folded into ISO-week Mon-Sat plans (`import_local_sales`). The sales sheet labels Telekeci firms by initials (`Tel ED` = Tel Dowranow E, `Tel GJ` = Tel Gurban J #18, `Tel G Amangeldiyew` = Tel Amangeldiyew G #19); the resolver maps these correctly — an earlier version mislabeled the last two as firms #8/#13, fixed by `cleanup_mislabeled_local_sales`. See [[quota-management]] and [[local-sell-plan]].
+
+## Weekly plan importer (`data/weekly_plan.xlsx`)
+
+`import_weekly_plan` reads the single sheet `Hepdelik maşyn sany` — 37 week blocks (weeks 40-52/2025 + 1-25/2026). Each block has 15 greenhouse rows × 6 days (Mon-Sat) of plan kg, a `Jemi (KG)` daily-total row, and `Rossiya/Gazak/Gapy Satys Masyn Sany` truck-count rows.
+
+It writes:
+- **WeeklyHarvestPlan** — one header per (season, block, week, year). ISO week/year are derived from each week's Monday so headers share the `get_or_create` key `daily_board` uses (imported plans dedupe with on-demand ones, not duplicate).
+- **HarvestDayEntry** — one row per (plan, day) carrying `plan_value`. `entry_date` comes from the sheet's header-row dates; per-day values live here since `WeeklyHarvestPlan`'s wide `*_plan_kg` columns were retired.
+- **WeeklyTruckAllocation** + **TruckDestinationSplit** — daily total + per-destination truck counts (these models were not refactored).
+
+**Fill-empties semantics (idempotent, non-destructive):** nothing is deleted. Rows are created if missing; an existing plan cell is filled only when `plan_value IS NULL`. Operator-entered **forecasts, actuals (shipment rollup), and daily-board** data are never touched, and an already-set `plan_value` is left as-is. The weekly-actual column (J) is **not** imported — actuals are per-day and rollup-sourced; a weekly total can't be split into days. Supports `--dry-run`.
+
+`import_harvest_plans` reads a different source workbook (`Pomidor_Dükany__20252026.xlsx`, sheet `Hepdelik planlama`) but now follows the **same** schema and fill-empties semantics as `import_weekly_plan`: it derives ISO week/year from each week's Monday, creates `WeeklyHarvestPlan` headers, and writes per-day `HarvestDayEntry` plan cells (filling `plan_value` only when NULL). It does **not** import truck allocations or the weekly-actual column (col J) — actuals are per-day and rollup-sourced. Supports `--dry-run`.
+
+See [[weekly-harvest-planning]].
 
 ## Import Safety Rules
 
