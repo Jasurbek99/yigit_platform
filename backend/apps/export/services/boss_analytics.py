@@ -691,11 +691,44 @@ def _aggregate_quota_grid() -> list[dict]:
 # Blocks Heatmap
 # ---------------------------------------------------------------------------
 
+def _sum_harvest_by_block(date_from: date, date_to: date) -> dict[int, dict]:
+    """Sum plan/actual harvest kg per block over an inclusive date range.
+
+    Reads HarvestDayEntry — the daily-grain table that replaced the dropped
+    WeeklyHarvestPlan wide columns (`monday_plan_kg`…) in migration
+    `greenhouse.0004`. Aggregates in the DB grouped by block.
+
+    Args:
+        date_from: Inclusive range start.
+        date_to:   Inclusive range end.
+
+    Returns:
+        {block_id: {'plan_kg': Decimal, 'actual_kg': Decimal}} — only blocks
+        with at least one entry in range are present.
+    """
+    from apps.greenhouse.models import HarvestDayEntry
+
+    rows = (
+        HarvestDayEntry.objects
+        .filter(entry_date__gte=date_from, entry_date__lte=date_to)
+        .values('block_id')
+        .annotate(
+            plan_kg=Coalesce(Sum('plan_value'), Decimal('0')),
+            actual_kg=Coalesce(Sum('actual_value'), Decimal('0')),
+        )
+        .order_by()  # strip Meta.ordering so the GROUP BY stays block_id only
+    )
+    return {
+        r['block_id']: {'plan_kg': r['plan_kg'], 'actual_kg': r['actual_kg']}
+        for r in rows
+    }
+
+
 def _aggregate_blocks_heatmap(from_date: date, to_date: date) -> list[dict]:
     """Return plan-vs-actual per block for the given date range.
 
-    Uses WeeklyHarvestPlan. Sums all six daily plan/actual columns per block
-    across weeks that overlap the range.
+    Sums HarvestDayEntry plan/actual values per block over the inclusive
+    [from_date, to_date] range.
 
     Args:
         from_date: Range start.
@@ -704,64 +737,12 @@ def _aggregate_blocks_heatmap(from_date: date, to_date: date) -> list[dict]:
     Returns:
         List of dicts: block_code, plan_kg, actual_kg, pct, color_band.
     """
-    from apps.greenhouse.models import WeeklyHarvestPlan
     from apps.core.models import GreenhouseBlock
 
-    # Get all blocks ordered by code
     blocks = list(
         GreenhouseBlock.objects.all().values('id', 'code', 'name').order_by('code')
     )
-
-    # Compute ISO week range for from_date → to_date
-    from_iso = from_date.isocalendar()
-    to_iso = to_date.isocalendar()
-
-    plan_fields = [
-        'monday_plan_kg', 'tuesday_plan_kg', 'wednesday_plan_kg',
-        'thursday_plan_kg', 'friday_plan_kg', 'saturday_plan_kg',
-    ]
-    actual_fields = [
-        'monday_actual_kg', 'tuesday_actual_kg', 'wednesday_actual_kg',
-        'thursday_actual_kg', 'friday_actual_kg', 'saturday_actual_kg',
-    ]
-
-    # Filter by (year, week_number) — MSSQL-safe.
-    # Single year: scope week_number too; cross-year: include all of intermediate years
-    # plus the partial start/end weeks at the boundaries.
-    plans_qs = WeeklyHarvestPlan.objects.select_related('block')
-    if from_iso[0] == to_iso[0]:
-        plans_qs = plans_qs.filter(
-            year=from_iso[0],
-            week_number__gte=from_iso[1],
-            week_number__lte=to_iso[1],
-        )
-    else:
-        plans_qs = plans_qs.filter(
-            Q(year=from_iso[0], week_number__gte=from_iso[1])
-            | Q(year=to_iso[0], week_number__lte=to_iso[1])
-            | Q(year__gt=from_iso[0], year__lt=to_iso[0])
-        )
-    plans_qs = plans_qs.values(
-        'block_id', *plan_fields, *actual_fields, 'actual_weekly_total_kg'
-    )
-
-    # Aggregate per block
-    block_totals: dict[int, dict] = {}
-    for plan in plans_qs:
-        bid = plan['block_id']
-        if bid not in block_totals:
-            block_totals[bid] = {'plan_kg': Decimal('0'), 'actual_kg': Decimal('0')}
-
-        for f in plan_fields:
-            block_totals[bid]['plan_kg'] += plan[f] or Decimal('0')
-
-        # Use actual_weekly_total_kg if per-day breakdown is missing
-        day_actuals = [plan[f] for f in actual_fields if plan[f] is not None]
-        if day_actuals:
-            for f in actual_fields:
-                block_totals[bid]['actual_kg'] += plan[f] or Decimal('0')
-        elif plan['actual_weekly_total_kg'] is not None:
-            block_totals[bid]['actual_kg'] += plan['actual_weekly_total_kg']
+    block_totals = _sum_harvest_by_block(from_date, to_date)
 
     result = []
     for block in blocks:
@@ -1010,7 +991,6 @@ def _aggregate_production(scope: str, from_date: date, to_date: date) -> list[di
         List of dicts per block: block_code, plan_kg, actual_kg, pct,
         monthly_plan_kg, monthly_actual_kg, monthly_pct.
     """
-    from apps.greenhouse.models import WeeklyHarvestPlan
     from apps.core.models import GreenhouseBlock
 
     today = date.today()
@@ -1033,64 +1013,8 @@ def _aggregate_production(scope: str, from_date: date, to_date: date) -> list[di
     else:
         month_to = today.replace(month=today.month + 1, day=1) - timedelta(days=1)
 
-    def _sum_plans(plans_qs_values) -> dict[int, dict]:
-        totals: dict[int, dict] = {}
-        for plan in plans_qs_values:
-            bid = plan['block_id']
-            if bid not in totals:
-                totals[bid] = {'plan_kg': Decimal('0'), 'actual_kg': Decimal('0')}
-            plan_fields = [
-                'monday_plan_kg', 'tuesday_plan_kg', 'wednesday_plan_kg',
-                'thursday_plan_kg', 'friday_plan_kg', 'saturday_plan_kg',
-            ]
-            actual_fields = [
-                'monday_actual_kg', 'tuesday_actual_kg', 'wednesday_actual_kg',
-                'thursday_actual_kg', 'friday_actual_kg', 'saturday_actual_kg',
-            ]
-            for f in plan_fields:
-                totals[bid]['plan_kg'] += plan[f] or Decimal('0')
-            day_actuals = [plan[f] for f in actual_fields if plan[f] is not None]
-            if day_actuals:
-                for f in actual_fields:
-                    totals[bid]['actual_kg'] += plan[f] or Decimal('0')
-            elif plan.get('actual_weekly_total_kg'):
-                totals[bid]['actual_kg'] += plan['actual_weekly_total_kg']
-        return totals
-
-    plan_fields_list = [
-        'block_id',
-        'monday_plan_kg', 'tuesday_plan_kg', 'wednesday_plan_kg',
-        'thursday_plan_kg', 'friday_plan_kg', 'saturday_plan_kg',
-        'monday_actual_kg', 'tuesday_actual_kg', 'wednesday_actual_kg',
-        'thursday_actual_kg', 'friday_actual_kg', 'saturday_actual_kg',
-        'actual_weekly_total_kg',
-    ]
-
-    def _week_filter(period_from: date, period_to: date) -> Q:
-        """Build a (year, week_number) Q filter that respects single- vs cross-year ranges."""
-        f_iso = period_from.isocalendar()
-        t_iso = period_to.isocalendar()
-        if f_iso[0] == t_iso[0]:
-            return Q(year=f_iso[0], week_number__gte=f_iso[1], week_number__lte=t_iso[1])
-        return (
-            Q(year=f_iso[0], week_number__gte=f_iso[1])
-            | Q(year=t_iso[0], week_number__lte=t_iso[1])
-            | Q(year__gt=f_iso[0], year__lt=t_iso[0])
-        )
-
-    scope_plans = (
-        WeeklyHarvestPlan.objects
-        .filter(_week_filter(scope_from, scope_to))
-        .values(*plan_fields_list)
-    )
-    scope_totals = _sum_plans(scope_plans)
-
-    monthly_plans = (
-        WeeklyHarvestPlan.objects
-        .filter(_week_filter(month_from, month_to))
-        .values(*plan_fields_list)
-    )
-    monthly_totals = _sum_plans(monthly_plans)
+    scope_totals = _sum_harvest_by_block(scope_from, scope_to)
+    monthly_totals = _sum_harvest_by_block(month_from, month_to)
 
     result = []
     for block in blocks:
