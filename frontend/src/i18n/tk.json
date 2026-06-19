@@ -88,7 +88,9 @@
     },
     "invoices": {
       "list": "Fakturalar sanawy"
-    }
+    },
+    "group_analytics": "Analitika",
+    "clients_report": "Müşderiler hasabaty"
   },
   "stuck": {
     "page_title": "Saklanan ýükler",
@@ -2623,5 +2625,33 @@
     "toast_error": "Sahypa girişini saklamak başa barmady",
     "error_load": "Sahypa girişi sazlamalaryny ýükläp bolmady",
     "empty": "Dolandyrýan işgär wezipeleriňiz ýok."
+  },
+  "clients_report": {
+    "title": "Müşderiler hasabaty",
+    "subtitle": "Möwsüm boýunça müşderilere ugradylan tirler we tonnaž",
+    "no_season": "Işjeň möwsüm ýok",
+    "matrix_title": "Müşderiler x Aýlar (tir / tonnaž)",
+    "totals_row": "Jemi",
+    "col_client": "Müşderi",
+    "col_market": "Bazar",
+    "col_total": "Jemi tir",
+    "col_share": "Paý",
+    "chart_by_client": "Müşderilere görä satuwlar (tir)",
+    "chart_by_country": "Ýurtlara görä tirler",
+    "chart_by_city": "Şäherlere görä tirler",
+    "months": [
+      "Ýanwar",
+      "Fewral",
+      "Mart",
+      "Aprel",
+      "Maý",
+      "Iýun",
+      "Iýul",
+      "Awgust",
+      "Sentýabr",
+      "Oktýabr",
+      "Noýabr",
+      "Dekabr"
+    ]
   }
 }

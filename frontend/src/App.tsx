@@ -44,6 +44,7 @@ const DraftPool = lazy(() => import('@/pages/export/DraftPool'));
 const AssignmentBoard = lazy(() => import('@/pages/export/AssignmentBoard'));
 const PalletManifest = lazy(() => import('@/pages/export/PalletManifest'));
 const BossDashboard = lazy(() => import('@/pages/boss/BossDashboard'));
+const ClientsReport = lazy(() => import('@/pages/analytics/ClientsReport'));
 const FallbackForecastView = lazy(() => import('@/pages/export/FallbackForecastView'));
 const StuckShipments = lazy(() => import('@/pages/director/StuckShipments'));
 const ShipmentActivityLog = lazy(() => import('@/pages/export/ShipmentActivityLog'));
@@ -104,6 +105,9 @@ export default function App() {
                   }
                 >
                   <Route index element={<DashboardPage />} />
+                  <Route path="analytics/clients-report" element={
+                    <ProtectedRoute pageCode="analytics.clients"><ClientsReport /></ProtectedRoute>
+                  } />
                   <Route path="boss/dashboard" element={
                     <ProtectedRoute pageCode="analytics.boss"><BossDashboard /></ProtectedRoute>
                   } />

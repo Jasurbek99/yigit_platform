@@ -38,6 +38,7 @@ const ROUTE_PAGE_MAP: Record<string, string> = {
   '/admin/audit-log':           'audit_log',
   '/admin/staff-access':        'admin.staff_access',
   '/boss/dashboard':            'analytics.boss',
+  '/analytics/clients-report':  'analytics.clients',
   '/director/stuck-shipments':  'director.stuck_shipments',
   '/me/board':                  'me.board',
   '/feedback/submit':           'feedback.submit',

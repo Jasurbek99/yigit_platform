@@ -120,7 +120,7 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
     # oversight page. My Tasks + Feedback pages come from _UNIVERSAL (boss was in
     # every prior all-roles list). No other operational navigation.
     'boss': {
-        'analytics.boss', 'director.stuck_shipments',
+        'analytics.boss', 'analytics.clients', 'director.stuck_shipments',
     } | _UNIVERSAL,
 }
 

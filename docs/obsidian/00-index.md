@@ -94,6 +94,7 @@ See [[roles-matrix]] for the full capability matrix.
 ## Analytics
 
 - [[screens/boss-dashboard]] — Boss / Director executive dashboard at `/boss/dashboard` — KPIs, charts, drill-down, Excel/PDF export
+- [[screens/clients-report]] — Clients Report at `/analytics/clients-report` — customer×month truck/tonnage matrix + 3 ECharts pies; live replacement for `by_clients.xlsx`
 
 ## Operational Screens
 

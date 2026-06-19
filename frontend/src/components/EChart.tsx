@@ -1,7 +1,7 @@
 import { useRef, useEffect } from 'react';
 import ReactEChartsCore from 'echarts-for-react/lib/core';
 import * as echarts from 'echarts/core';
-import { LineChart } from 'echarts/charts';
+import { LineChart, PieChart, BarChart } from 'echarts/charts';
 import { TooltipComponent, LegendComponent, GridComponent } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 import type { EChartsOption } from 'echarts';
@@ -9,11 +9,11 @@ import { Skeleton } from 'antd';
 
 // Tree-shaken echarts build. Importing the full `echarts` / `echarts-for-react`
 // pulled the entire library (~1 MB) into the BossDashboard chunk. Register only
-// the modules our charts actually use — line series, axis grid, tooltip, legend,
-// canvas renderer. If a chart starts rendering blank, a needed module is missing
-// here (e.g. add BarChart for bar series, or add a component). The `EChartsOption`
+// the modules our charts actually use — line/pie/bar series, axis grid, tooltip,
+// legend, canvas renderer. If a chart starts rendering blank, a needed module is
+// missing here (e.g. add a new series type or component). The `EChartsOption`
 // type import is erased at build time and adds nothing to the bundle.
-echarts.use([LineChart, TooltipComponent, LegendComponent, GridComponent, CanvasRenderer]);
+echarts.use([LineChart, PieChart, BarChart, TooltipComponent, LegendComponent, GridComponent, CanvasRenderer]);
 
 interface IEChartProps {
   option: EChartsOption;

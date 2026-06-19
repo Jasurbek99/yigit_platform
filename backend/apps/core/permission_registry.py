@@ -37,6 +37,7 @@ PAGE_REGISTRY: dict[str, str] = OrderedDict([
     ('me.board',                'My Tasks'),
     # Analytics (boss / director)
     ('analytics.boss',          'Boss Dashboard'),
+    ('analytics.clients',       'Clients Report'),
     # Director / oversight
     ('director.stuck_shipments', 'Stuck Shipments'),
     # System (NOT admin.* — visible to director/export_manager too, so it must

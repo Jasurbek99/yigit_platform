@@ -164,6 +164,9 @@ export default function AppLayout() {
         label: t('nav.stuck_shipments'),
       },
     ]},
+    { label: t('nav.group_analytics'), items: [
+      { key: '/analytics/clients-report', icon: <IconUsers size={15} />, label: t('nav.clients_report') },
+    ]},
     { label: t('nav.group_export'), items: [
       { key: '/export/shipments/dashboard', icon: <IconLayoutDashboard size={15} />, label: t('nav.shipment_dashboard') },
       { key: '/export/shipments', icon: <IconTruck size={15} />, label: t('nav.shipments') },

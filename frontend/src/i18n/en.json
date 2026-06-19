@@ -88,7 +88,9 @@
     },
     "invoices": {
       "list": "Invoice list"
-    }
+    },
+    "group_analytics": "Analytics",
+    "clients_report": "Clients Report"
   },
   "stuck": {
     "page_title": "Stuck Shipments",
@@ -2619,5 +2621,33 @@
     "toast_error": "Failed to save page access",
     "error_load": "Failed to load page access settings",
     "empty": "You have no staff roles to manage."
+  },
+  "clients_report": {
+    "title": "Clients Report",
+    "subtitle": "Truck dispatch and tonnage by customer for the season",
+    "no_season": "No active season",
+    "matrix_title": "Customers x Months (trucks / tonnage)",
+    "totals_row": "Total",
+    "col_client": "Customer",
+    "col_market": "Market",
+    "col_total": "Total trucks",
+    "col_share": "Share",
+    "chart_by_client": "Sales by customer (trucks)",
+    "chart_by_country": "Trucks by country",
+    "chart_by_city": "Trucks by city",
+    "months": [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December"
+    ]
   }
 }

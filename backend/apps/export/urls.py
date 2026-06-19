@@ -26,11 +26,15 @@ from apps.export.views_quota import QuotaIssuanceViewSet, QuotaUsageViewSet, Quo
 from apps.export.views_harvest_forecast import HarvestForecastView
 from apps.export.views_sheet_settings import SheetRowSettingViewSet
 from apps.export.views_user_preferences import UserSheetPreferencesView
+from apps.export.views_clients_report import ClientsReportViewSet
 
 router = DefaultRouter()
 
 # Boss Dashboard analytics
 router.register('boss', BossAnalyticsViewSet, basename='boss-analytics')
+
+# Clients Report (live replacement for by_clients.xlsx)
+router.register('clients-report', ClientsReportViewSet, basename='clients-report')
 
 # Main landing-page dashboard (all authenticated users)
 router.register('dashboard', DashboardViewSet, basename='dashboard')
