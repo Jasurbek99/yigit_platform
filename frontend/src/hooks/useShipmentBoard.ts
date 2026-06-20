@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import api from '@/services/api';
-import type { ShipmentPhase } from '@/types';
+import type { ITaskListItem, ShipmentPhase } from '@/types';
 
 export interface IBoardItem {
   id: number;
@@ -13,6 +13,9 @@ export interface IBoardItem {
   late_count: number;
   in_progress_count: number;
   blocked_count: number;
+  /** Full task rows (same shape as Detail's other_tasks) for the card's task
+   *  modal → SelfBoardTaskDrawer flow. */
+  tasks: ITaskListItem[];
 }
 
 export interface IBoardResponse {

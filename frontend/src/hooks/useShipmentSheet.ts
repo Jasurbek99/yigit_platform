@@ -60,9 +60,19 @@ export function useSaveSheetColumnOrder() {
   });
 }
 
-export function useShipmentSheet() {
+/**
+ * Sheet data for the spreadsheet view (no arg = full active season) or for a
+ * single shipment (`shipmentId` given → `?shipment=<id>`, a tiny payload with
+ * the same global row config). The drawer field editors use the single-shipment
+ * form so opening a task to act on it doesn't download the whole season sheet.
+ *
+ * The single-shipment query key (`['shipments','sheet','row',id]`) is still a
+ * descendant of `SHEET_QUERY_KEY`, so existing `invalidateQueries(['shipments',
+ * 'sheet'])` calls refresh it too.
+ */
+export function useShipmentSheet(shipmentId?: number) {
   return useQuery({
-    queryKey: SHEET_QUERY_KEY,
+    queryKey: shipmentId != null ? ['shipments', 'sheet', 'row', shipmentId] : SHEET_QUERY_KEY,
     queryFn: async (): Promise<IShipmentSheetResult> => {
       if (USE_MOCK) {
         return {
@@ -78,7 +88,11 @@ export function useShipmentSheet() {
         };
       }
 
-      const { data } = await api.get<IShipmentSheetResponse>('/export/shipments/sheet/');
+      const url =
+        shipmentId != null
+          ? `/export/shipments/sheet/?shipment=${shipmentId}`
+          : '/export/shipments/sheet/';
+      const { data } = await api.get<IShipmentSheetResponse>(url);
       return {
         shipments: data.results,
         comment_counts: data.comment_counts ?? {},

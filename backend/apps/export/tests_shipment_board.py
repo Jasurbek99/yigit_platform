@@ -367,6 +367,28 @@ class BoardItemFieldTests(TestCase):
         item = self._get_item('BRDF001')
         self.assertEqual(item['phase'], 'LOAD')
 
+    def test_tasks_field_returns_full_task_items(self) -> None:
+        """The per-card ``tasks`` array is the full ITaskListItem shape so the
+        board's task modal can hand each one to the shared task drawer."""
+        item = self._get_item('BRDF001')
+        self.assertEqual(len(item['tasks']), 2)
+        first = item['tasks'][0]
+        # Fields the SelfBoardTaskDrawer / modal consume.
+        for field in (
+            'id', 'shipment', 'phase', 'title_key', 'assignee_role',
+            'state', 'deadline', 'is_overdue', 'target_fields_list',
+            'completion_rule',
+        ):
+            self.assertIn(field, first, f"Missing task field: {field}")
+        self.assertEqual(first['shipment'], self.shipment.id)
+
+    def test_tasks_sorted_active_before_done(self) -> None:
+        """Active tasks (the open/late one) sort ahead of the done task."""
+        item = self._get_item('BRDF001')
+        states = [task['state'] for task in item['tasks']]
+        self.assertEqual(states[0], 'open')
+        self.assertEqual(states[-1], 'done')
+
     def test_time_in_phase_seconds_is_non_negative_int_or_null(self) -> None:
         item = self._get_item('BRDF001')
         val = item['time_in_phase_seconds']

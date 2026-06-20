@@ -2412,6 +2412,8 @@
   "shipment_board": {
     "title": "Ýük tagtasy",
     "tasks_progress": "{{done}}/{{total}} tabşyryk",
+    "no_tasks": "Tabşyryk ýok",
+    "open_detail": "Ýük kartoçkasyny açmak",
     "avg_in_phase": "Fazada ortaça: {{duration}}",
     "empty_phase": "Ýük ýok",
     "filter_country": "Ýurt",

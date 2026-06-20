@@ -212,10 +212,12 @@ function ActiveDrawerLayout({
 }: IActiveDrawerLayoutProps): React.ReactElement {
   const { t } = useTranslation();
 
-  // useShipmentSheet is called here (not in the parent) so the expensive
-  // full-season GET /export/shipments/sheet/ is only triggered when the
-  // drawer is opened for an active, owned task — not for read-only cards.
-  const { data: sheetData, isLoading: isSheetLoading } = useShipmentSheet();
+  // Single-shipment sheet fetch (?shipment=<id>) — only this task's row plus
+  // the global config, not the whole season. Called here (not in the parent)
+  // so it fires only when the drawer opens for an active, owned task.
+  const { data: sheetData, isLoading: isSheetLoading } = useShipmentSheet(
+    task.shipment ?? undefined,
+  );
   const sheetItem: IShipmentSheetItem | null =
     sheetData?.shipments.find((s) => s.id === task.shipment) ?? null;
   const sheetRows: IRowConfig[] = sheetData?.rows ?? [];

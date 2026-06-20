@@ -1,6 +1,5 @@
 import { Progress, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
 import type { IBoardItem } from '@/hooks/useShipmentBoard';
 import { formatDuration } from '@/components/shipment/PhaseContextStrip.helpers';
 import { COLORS, FONT } from '@/constants/styles';
@@ -17,17 +16,19 @@ function getBorderColor(item: IBoardItem): string {
 
 interface IShipmentKanbanCardProps {
   item: IBoardItem;
+  /** Open the task modal for this shipment — the user acts on tasks in place. */
+  onTasksClick: (item: IBoardItem) => void;
 }
 
 /**
  * A non-draggable card for the Shipment Board (/export/shipments/board).
- * Clicking navigates to the shipment detail page.
- * Cards in this board are deliberately read-only — status changes happen
- * via transitions on the Detail page, not by dragging here.
+ * Clicking the card opens the task modal so the user can act on this shipment's
+ * tasks without leaving the board (the detail page is reachable via a link in
+ * the modal). Status changes still happen via transitions on the Detail page,
+ * not by dragging here.
  */
-export function ShipmentKanbanCard({ item }: IShipmentKanbanCardProps) {
+export function ShipmentKanbanCard({ item, onTasksClick }: IShipmentKanbanCardProps) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
 
   const progressPercent =
     item.tasks_total > 0 ? (item.tasks_done / item.tasks_total) * 100 : 0;
@@ -38,9 +39,12 @@ export function ShipmentKanbanCard({ item }: IShipmentKanbanCardProps) {
     <div
       role="button"
       tabIndex={0}
-      onClick={() => navigate(`/shipments/${item.id}`)}
+      onClick={() => onTasksClick(item)}
       onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') navigate(`/shipments/${item.id}`);
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onTasksClick(item);
+        }
       }}
       style={{
         background: COLORS.white,
@@ -79,7 +83,7 @@ export function ShipmentKanbanCard({ item }: IShipmentKanbanCardProps) {
         </Text>
       )}
 
-      {/* Row 3: task progress bar */}
+      {/* Rows 3+4: task progress bar + count label */}
       <Progress
         percent={progressPercent}
         size="small"
@@ -87,8 +91,6 @@ export function ShipmentKanbanCard({ item }: IShipmentKanbanCardProps) {
         strokeColor={progressPercent === 100 ? COLORS.success : COLORS.primary}
         style={{ marginBottom: 2 }}
       />
-
-      {/* Row 4: task count label */}
       <Text type="secondary" style={{ fontSize: 11 }}>
         {t('shipment_board.tasks_progress', {
           done: item.tasks_done,

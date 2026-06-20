@@ -2408,6 +2408,8 @@
   "shipment_board": {
     "title": "Shipment Board",
     "tasks_progress": "{{done}} of {{total}} tasks",
+    "no_tasks": "No tasks",
+    "open_detail": "Open shipment detail",
     "avg_in_phase": "Avg in phase: {{duration}}",
     "empty_phase": "No shipments",
     "filter_country": "Country",

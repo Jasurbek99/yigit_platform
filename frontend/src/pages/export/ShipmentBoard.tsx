@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Input, Select, Space, Typography, Spin, Alert } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { KanbanColumn } from '@/components/kanban/KanbanColumn';
 import { ShipmentKanbanCard } from '@/components/kanban/ShipmentKanbanCard';
+import { BoardTasksModal } from '@/components/kanban/BoardTasksModal';
+import { SelfBoardTaskDrawer } from '@/components/kanban/SelfBoardTaskDrawer';
 import { CountrySelect } from '@/components/CountrySelect';
 import { CustomerSelect } from '@/components/CustomerSelect';
-import { useShipmentBoard, type IBoardFilters } from '@/hooks/useShipmentBoard';
+import { useShipmentBoard, type IBoardFilters, type IBoardItem } from '@/hooks/useShipmentBoard';
 import { formatDuration } from '@/components/shipment/PhaseContextStrip.helpers';
-import type { ShipmentPhase } from '@/types';
+import type { ITaskListItem, ShipmentPhase } from '@/types';
 import { COLORS } from '@/constants/styles';
 
 const { Title } = Typography;
@@ -76,6 +78,19 @@ export default function ShipmentBoard() {
   // ── Derived ──────────────────────────────────────────────────────────────
   const columns = data?.columns ?? {};
   const phaseAvgSeconds = data?.phase_avg_seconds ?? {};
+
+  // ── Task modal + drawer state ──────────────────────────────────────────────
+  // modalItemId is re-resolved against live board data each render so the modal
+  // list reflects fresh task states after an action (the board query refetches).
+  const [modalItemId, setModalItemId] = useState<number | null>(null);
+  const [drawerTask, setDrawerTask] = useState<ITaskListItem | null>(null);
+
+  const allItems = useMemo(
+    () => Object.values(data?.columns ?? {}).flat() as IBoardItem[],
+    [data?.columns],
+  );
+  const modalItem =
+    modalItemId != null ? allItems.find((i) => i.id === modalItemId) ?? null : null;
 
   // ── Role options with i18n labels ─────────────────────────────────────────
   const roleOptions = [
@@ -206,7 +221,11 @@ export default function ShipmentBoard() {
                   emptyText={t('shipment_board.empty_phase')}
                 >
                   {items.map((item) => (
-                    <ShipmentKanbanCard key={item.id} item={item} />
+                    <ShipmentKanbanCard
+                      key={item.id}
+                      item={item}
+                      onTasksClick={(it) => setModalItemId(it.id)}
+                    />
                   ))}
                 </KanbanColumn>
                 {footer}
@@ -215,6 +234,19 @@ export default function ShipmentBoard() {
           })}
         </div>
       )}
+
+      {/* Task list modal. Hidden (but its shipment id retained) while the task
+          drawer is open, so the two overlays never stack — stacking an
+          interactive Drawer over an antd Modal breaks the drawer's focus trap.
+          Closing the drawer brings the list back, re-resolved from live data. */}
+      <BoardTasksModal
+        item={drawerTask != null ? null : modalItem}
+        onClose={() => setModalItemId(null)}
+        onTaskClick={(task) => setDrawerTask(task)}
+      />
+
+      {/* Shared "do the task" surface — same drawer used on /me/board. */}
+      <SelfBoardTaskDrawer task={drawerTask} onClose={() => setDrawerTask(null)} />
     </div>
   );
 }

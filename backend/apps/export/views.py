@@ -850,10 +850,21 @@ class ShipmentViewSet(ModelViewSet):
 
         Applies the same my_work / phase filters as the list endpoint when those
         query params are present, so the sheet can be scoped by role if needed.
+
+        ``?shipment=<id>`` returns just that one shipment's row alongside the
+        same global config (rows / row_settings / users_index). The drawer field
+        editors (Shipment Board + Self Kanban) use this so opening a task to act
+        on it costs a tiny payload instead of the full-season sheet.
         """
         season_filter = {}
+        single_shipment_id = request.query_params.get('shipment')
         season_id = request.query_params.get('season')
-        if season_id:
+        if single_shipment_id:
+            # Single-shipment fetch — bypass season scoping (the archived /
+            # deleted guards below still apply). Config is unchanged; only the
+            # results list shrinks to one row.
+            pass
+        elif season_id:
             season_filter['season_id'] = season_id
         else:
             season_filter['season__is_active'] = True
@@ -893,6 +904,9 @@ class ShipmentViewSet(ModelViewSet):
             # expression that MSSQL accepts without a window function.
             .order_by(F('sheet_position').asc(nulls_first=True), '-date', '-id')
         )
+
+        if single_shipment_id:
+            qs = qs.filter(id=single_shipment_id)
 
         serializer = ShipmentSheetSerializer(qs, many=True)
         shipment_data = serializer.data
@@ -2809,10 +2823,15 @@ class ShipmentViewSet(ModelViewSet):
             ),
         )
 
-        # ── Prefetch tasks (for owner_role resolution in the serializer) ──────
+        # ── Prefetch tasks (owner_role + the per-card task list serializer) ───
+        # select_related keeps BoardItemSerializer.get_tasks → TaskListSerializer
+        # N+1-safe: it reads task.shipment.status (phase), task.shipment.code
+        # (cargo code) and task.assignee_user.username. Still one prefetch query.
         tasks_prefetch = Prefetch(
             'tasks',
-            queryset=_Task.objects.order_by('-created_at'),
+            queryset=_Task.objects.select_related(
+                'shipment__status', 'assignee_user',
+            ).order_by('-created_at'),
         )
         # ── Prefetch status_log (for time_in_phase_seconds phase-entry walk) ──
         # resolve_phase_entry() reads status_log.all() with .status.code on

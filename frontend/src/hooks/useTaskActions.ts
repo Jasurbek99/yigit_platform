@@ -28,6 +28,9 @@ function useTaskAction(action: 'start' | 'block' | 'unblock' | 'complete') {
       // Sheet endpoint returns per-shipment task_counts in its wrapped payload
       // — refresh those badge counts after any task state change.
       void queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+      // Shipment Board cards show per-shipment task counts + the task modal list
+      // — refresh after any task state change so they reflect the new state.
+      void queryClient.invalidateQueries({ queryKey: ['shipments', 'board'] });
     },
   });
 }

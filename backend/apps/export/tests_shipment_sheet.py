@@ -186,6 +186,18 @@ class SheetEndpointTests(TestCase):
         self.assertEqual(by_code['ACT-002']['warehouse_note'], '')
         self.assertEqual(by_code['ACT-002']['document_note'], '')
 
+    def test_shipment_query_param_returns_single_row_with_config(self):
+        """?shipment=<id> narrows results to that one row but keeps the global
+        config (rows / row_settings) — the drawer's slim fetch."""
+        resp = self.client.get(f'/api/v1/export/shipments/sheet/?shipment={self.s1.id}')
+        self.assertEqual(resp.status_code, 200, resp.data)
+        codes = {row['cargo_code'] for row in _sheet_results(resp)}
+        self.assertEqual(codes, {'ACT-001'})
+        # Global config still present (independent of the shipment list).
+        self.assertIn('rows', resp.data)
+        self.assertTrue(len(resp.data['rows']) > 0)
+        self.assertIn('row_settings', resp.data)
+
     def test_has_doc_advance_annotation(self):
         """R24 cell: true once a FinansistAdvanceShipment row links the shipment."""
         finansist = _create_user('fin_24', 'finansist')

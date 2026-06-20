@@ -2410,6 +2410,8 @@
   "shipment_board": {
     "title": "Доска грузов",
     "tasks_progress": "{{done}} из {{total}} задач",
+    "no_tasks": "Нет задач",
+    "open_detail": "Открыть карточку груза",
     "avg_in_phase": "Среднее в фазе: {{duration}}",
     "empty_phase": "Нет грузов",
     "filter_country": "Страна",

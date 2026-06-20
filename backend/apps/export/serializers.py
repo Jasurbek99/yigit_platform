@@ -1708,6 +1708,10 @@ class BoardItemSerializer(serializers.ModelSerializer):
     phase = serializers.SerializerMethodField()
     owner_role = serializers.SerializerMethodField()
     time_in_phase_seconds = serializers.SerializerMethodField()
+    # Full per-task list for the board card's task modal. Read entirely from
+    # the prefetched tasks queryset — adds no DB queries (keeps the board
+    # endpoint within its assertNumQueries bound).
+    tasks = serializers.SerializerMethodField()
 
     # Annotated by the viewset queryset — read as plain integers.
     tasks_done = serializers.IntegerField(read_only=True)
@@ -1729,8 +1733,33 @@ class BoardItemSerializer(serializers.ModelSerializer):
             'late_count',
             'in_progress_count',
             'blocked_count',
+            'tasks',
         ]
         read_only_fields = fields
+
+    # Active task states sort ahead of done/cancelled in the card task list.
+    _ACTIVE_TASK_STATES = ('open', 'in_progress', 'blocked')
+
+    def get_tasks(self, obj) -> list[dict]:
+        """Full task list for the card's task modal (ITaskListItem[]).
+
+        Reads from the prefetched ``tasks`` queryset (the board view prefetches
+        it with ``select_related('shipment__status', 'assignee_user')`` so this
+        adds no DB queries) and sorts for display: active tasks first, then by
+        deadline (nulls last), then oldest-created first. Returns the same shape
+        as the Detail page's ``other_tasks`` so the Shipment Board's task modal
+        can hand each item straight to the shared SelfBoardTaskDrawer.
+        """
+        from datetime import datetime, timezone as _tz
+
+        def _sort_key(task):
+            is_active = task.state in self._ACTIVE_TASK_STATES
+            # deadline None → sort after dated tasks
+            deadline = task.deadline or datetime.max.replace(tzinfo=_tz.utc)
+            return (0 if is_active else 1, deadline, task.created_at)
+
+        tasks = sorted(obj.tasks.all(), key=_sort_key)
+        return TaskListSerializer(tasks, many=True, context=self.context).data
 
     def get_phase(self, obj) -> str:
         """Resolve phase from current status code."""
