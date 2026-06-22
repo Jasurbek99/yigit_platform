@@ -31,6 +31,7 @@ flowchart LR
     subgraph Finance["Finance & Sales"]
         PM[["Price\nMonitoring"]]
         AR[["Advances &\nReconciliation"]]
+        CEL[["Customs/Document\nExpense Ledger"]]
         DS[["Domestic\nSales"]]
     end
 
@@ -67,8 +68,11 @@ flowchart LR
 | [[local-sell-plan]] | Domestic sale basis for quota calculation | LocalSellPlanGrid |
 | [[price-monitoring]] | Track tomato prices across 8 cities | PricePanel |
 | [[advances-reconciliation]] | Finansist advance payments linked to shipments | AdvancesTracker |
+| [[customs-expense-ledger]] | Customs/document cash-float expenses (money-out) + advances balance | AdvancesTracker (Customs expenses tab), ShipmentDetail |
 | [[domestic-sales]] | Greenhouse domestic sales records | DomesticSales |
 | [[quality-documents]] | Quality certificates and document tracking | ShipmentDetail (Document tab) |
+| [[document-generation]] | Auto-fill export documents (Invoice + CMR, RU/EN, .docx + PDF) from contract/invoice/shipment data | InvoiceList / InvoiceDetail (Generate) |
+| [[sales-report]] | Rich structured sales report with line items + itemized expenses + Kurs | ShipmentDetail (Sales Report section) |
 | [[comments-tasks]] | Cell-anchored threaded comments with @user/@role mentions and single-assignee tasks | ShipmentSheet (Comments Drawer), ShipmentDetail (Changes tab) |
 | [[realtime-presence]] | WebSocket presence avatars showing who is on the Sheet right now (Channels + Redis + uvicorn workers) | ShipmentSheet (toolbar) |
 | [[worklog]] | Per-user work-time logging over the same WS (heartbeat → core.work_sessions + reaper cron); visible to everyone | WorklogPage, header chip |

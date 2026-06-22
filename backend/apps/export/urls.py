@@ -4,7 +4,7 @@ from rest_framework.routers import DefaultRouter
 from apps.export.views import ShipmentViewSet, CommentViewSet, TaskViewSet
 from apps.export.views_analytics import BossAnalyticsViewSet
 from apps.export.views_dashboard import DashboardViewSet
-from apps.export.views_finance import FinansistAdvanceViewSet
+from apps.export.views_finance import FinansistAdvanceViewSet, CustomsExpenseViewSet
 from apps.export.views_kpi import KpiViewSet
 from apps.export.views_planning import (
     WeeklyLocalSellPlanViewSet,
@@ -22,7 +22,12 @@ from apps.export.views_admin import (
     UserPermissionsView,
     ManagedPagePermissionsView,
 )
-from apps.export.views_quota import QuotaIssuanceViewSet, QuotaUsageViewSet, QuotaDashboardView
+from apps.export.views_quota import (
+    QuotaIssuanceViewSet,
+    QuotaUsageViewSet,
+    QuotaDashboardView,
+    QuotaFirmBalancesView,
+)
 from apps.export.views_harvest_forecast import HarvestForecastView
 from apps.export.views_sheet_settings import SheetRowSettingViewSet
 from apps.export.views_user_preferences import UserSheetPreferencesView
@@ -47,6 +52,7 @@ router.register('shipments', ShipmentViewSet, basename='shipment')
 router.register('comments', CommentViewSet, basename='comment')
 router.register('tasks', TaskViewSet, basename='task')
 router.register('advances', FinansistAdvanceViewSet, basename='advance')
+router.register('customs-expenses', CustomsExpenseViewSet, basename='customs-expense')
 
 # Planning & pricing
 router.register('truck-allocations', WeeklyTruckAllocationViewSet, basename='truck-allocation')
@@ -82,6 +88,7 @@ urlpatterns = router.urls + [
         name='admin-managed-page-permissions',
     ),
     path('quota-dashboard/', QuotaDashboardView.as_view(), name='quota-dashboard'),
+    path('quota-firm-balances/', QuotaFirmBalancesView.as_view(), name='quota-firm-balances'),
     path(
         'user/sheet-preferences/',
         UserSheetPreferencesView.as_view(),
