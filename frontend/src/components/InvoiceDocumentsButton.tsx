@@ -10,17 +10,25 @@ interface IInvoiceDocumentsButtonProps {
   readonly size?: 'small' | 'middle' | 'large';
 }
 
-interface IDocFamily {
-  readonly labelKey: string;
-  readonly base: string; // registry key prefix, e.g. 'invoice' → invoice_ru / invoice_en
+interface IDocVariant {
+  readonly type: string; // registry key, e.g. 'invoice_ru', 'customs_tk'
+  readonly lang: string; // display badge: 'RU' | 'EN' | 'TK'
 }
 
+interface IDocFamily {
+  readonly labelKey: string;
+  readonly variants: readonly IDocVariant[];
+}
+
+// One group per document family; some are single-language per the source forms.
 const DOC_FAMILIES: readonly IDocFamily[] = [
-  { labelKey: 'documents.invoice', base: 'invoice' },
-  { labelKey: 'documents.cmr', base: 'cmr' },
+  { labelKey: 'documents.invoice', variants: [{ type: 'invoice_ru', lang: 'RU' }, { type: 'invoice_en', lang: 'EN' }] },
+  { labelKey: 'documents.cmr', variants: [{ type: 'cmr_ru', lang: 'RU' }, { type: 'cmr_en', lang: 'EN' }] },
+  { labelKey: 'documents.ct1', variants: [{ type: 'ct1_ru', lang: 'RU' }] },
+  { labelKey: 'documents.fito', variants: [{ type: 'fito_ru', lang: 'RU' }] },
+  { labelKey: 'documents.customs', variants: [{ type: 'customs_tk', lang: 'TK' }] },
 ];
 
-const LANGS = ['ru', 'en'] as const;
 const FORMATS = ['docx', 'pdf'] as const;
 
 /**
@@ -36,10 +44,10 @@ export function InvoiceDocumentsButton({
   const items: MenuProps['items'] = DOC_FAMILIES.map((family) => ({
     type: 'group' as const,
     label: t(family.labelKey),
-    children: LANGS.flatMap((lang) =>
+    children: family.variants.flatMap((variant) =>
       FORMATS.map((fmt) => ({
-        key: `${family.base}_${lang}|${fmt}`,
-        label: `${t(`documents.${fmt}`)} · ${lang.toUpperCase()}`,
+        key: `${variant.type}|${fmt}`,
+        label: `${t(`documents.${fmt}`)} · ${variant.lang}`,
       })),
     ),
   }));

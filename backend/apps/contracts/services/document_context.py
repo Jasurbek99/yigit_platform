@@ -162,17 +162,10 @@ def build_invoice_context(invoice, lang: str = 'ru') -> dict:
         'total': _money(invoice.total_usd, lang),
     }
 
-    contract_line = ''
-    if contract:
-        parts = [contract.contract_number]
-        if contract.start_date:
-            parts.append(_date(contract.start_date))
-        contract_line = ', '.join(parts)
-
     return {
         'invoice_no': str(invoice.invoice_number),
         'invoice_date': _date(invoice.invoice_date),
-        'contract_line': contract_line,
+        'contract_line': _contract_line(contract),
         'seller_name': _firm_attr(seller, 'name', lang),
         'seller_address': _firm_attr(seller, 'address', lang),
         'seller_bank': _firm_attr(seller, 'bank_details', lang),
@@ -286,4 +279,75 @@ def build_cmr_context(invoice, lang: str = 'ru') -> dict:
         'gross_with_pallet': _kg(gross_with, lang),
         'net': _kg(net_kg, lang),
         'transport': transport,
+    }
+
+
+# ─── Authority request letters (CT-1, phyto, customs) ────────────────────────
+
+def _contract_line(contract) -> str:
+    """``<number>, <DD.MM.YYYY>`` for a contract, '' if none."""
+    if not contract:
+        return ''
+    parts = [contract.contract_number]
+    if contract.start_date:
+        parts.append(_date(contract.start_date))
+    return ', '.join(parts)
+
+
+def _country_name(invoice, lang: str) -> str:
+    """Destination country name for the document language.
+
+    Prefers the shipment's country, falling back to the buyer firm's country.
+    Reads a nested FK (one extra query) — fine for single-document generation.
+    """
+    for src in (invoice.shipment, invoice.import_firm,
+                invoice.contract.import_firm if invoice.contract else None):
+        country = getattr(src, 'country', None)
+        if country is not None:
+            return (getattr(country, f'name_{lang}', '')
+                    or getattr(country, 'name_ru', '') or '')
+    return ''
+
+
+def build_ct1_context(invoice, lang: str = 'ru') -> dict:
+    """CT-1 certificate-of-origin request letter (RU). Needs only firm + contract."""
+    contract = invoice.contract
+    seller = invoice.export_firm or (contract.export_firm if contract else None)
+    return {
+        'firm_name': _firm_attr(seller, 'name', lang),
+        'product': 'Свежие Помидоры',
+        'contract_line': _contract_line(contract),
+        'doc_date': _date(invoice.invoice_date),
+    }
+
+
+def build_fito_context(invoice, lang: str = 'ru') -> dict:
+    """Phytosanitary-certificate request letter (RU). Firm, destination, weight, boxes."""
+    contract = invoice.contract
+    shipment = invoice.shipment
+    seller = invoice.export_firm or (contract.export_firm if contract else None)
+    net_kg = (shipment.weight_net if shipment and shipment.weight_net is not None
+              else invoice.quantity_kg)
+    boxes = shipment.box_count if shipment else None
+    return {
+        'firm_name': _firm_attr(seller, 'name', lang),
+        'country': _country_name(invoice, lang),
+        'product': 'Свежих Помидоров',
+        'net': _kg(net_kg, lang),
+        'boxes': str(boxes) if boxes else '',
+        'doc_date': _date(invoice.invoice_date),
+    }
+
+
+def build_customs_context(invoice, lang: str = 'tk') -> dict:
+    """Customs-clearance request letter (ARZA, Turkmen). Seller, buyer, contract, dest."""
+    contract = invoice.contract
+    seller = invoice.export_firm or (contract.export_firm if contract else None)
+    buyer = invoice.import_firm or (contract.import_firm if contract else None)
+    return {
+        'seller_name': _firm_attr(seller, 'name', lang),
+        'buyer_name': getattr(buyer, 'name_company', '') or '',
+        'contract_line': _contract_line(contract),
+        'country': _country_name(invoice, lang),
+        'doc_date': _date(invoice.invoice_date),
     }

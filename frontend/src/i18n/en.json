@@ -2641,6 +2641,9 @@
     "button": "Documents",
     "invoice": "Invoice",
     "cmr": "CMR",
+    "ct1": "CT-1 (origin)",
+    "fito": "Phytosanitary",
+    "customs": "Customs request",
     "word": "Word",
     "pdf": "PDF"
   },

@@ -38,13 +38,15 @@ def _mock_invoice(*, with_shipment=True):
         address_ru='г. Ашгабат', address_en='Ashgabat', address_tk='',
         bank_details_ru='Банк: АКБТ', bank_details_en='Bank: SCBT', bank_details_tk='',
     )
+    country = SimpleNamespace(name_ru='Узбекистан', name_en='Uzbekistan', name_tk='Özbegistan')
     buyer = SimpleNamespace(
         name_company='ООО TRUST', address='г. Ташкент', bank_details='ИНН: 311270964',
+        country=country,
     )
     shipment = SimpleNamespace(
         weight_net=Decimal('9000'), weight_gross=Decimal('10720'), box_count=1800,
         pallet_count=16, packaging_kg=Decimal('300'), pallet_weight_kg=Decimal('300'),
-        truck_plate='BR1427LB', trailer_id=5311, driver_name='Ahmet A.',
+        truck_plate='BR1427LB', trailer_id=5311, driver_name='Ahmet A.', country=country,
     ) if with_shipment else None
     contract = SimpleNamespace(
         contract_number='93/26-DM-EXP', start_date=date(2026, 3, 16),
@@ -133,6 +135,33 @@ class CmrContextBuilderTest(SimpleTestCase):
         self.assertEqual(c['net'], '9 000')
 
 
+class LetterContextBuilderTest(SimpleTestCase):
+    """Pure builders for the CT-1 / phyto / customs request letters."""
+
+    def test_ct1_needs_only_firm_and_contract(self):
+        c = ctx.build_ct1_context(_mock_invoice(), 'ru')
+        self.assertEqual(c['firm_name'], 'Х.О «Датлы миве»')
+        self.assertIn('93/26-DM-EXP', c['contract_line'])
+        self.assertEqual(c['product'], 'Свежие Помидоры')
+
+    def test_fito_resolves_country_weight_boxes(self):
+        c = ctx.build_fito_context(_mock_invoice(), 'ru')
+        self.assertEqual(c['country'], 'Узбекистан')
+        self.assertEqual(c['net'], '9 000')   # RU space-thousands
+        self.assertEqual(c['boxes'], '1800')
+
+    def test_customs_is_turkmen_with_both_firms(self):
+        c = ctx.build_customs_context(_mock_invoice(), 'tk')
+        self.assertEqual(c['buyer_name'], 'ООО TRUST')
+        self.assertEqual(c['country'], 'Özbegistan')  # tk country name
+        self.assertIn('93/26-DM-EXP', c['contract_line'])
+
+    def test_country_falls_back_when_no_shipment(self):
+        # No shipment → resolver falls back to buyer firm's country
+        c = ctx.build_fito_context(_mock_invoice(with_shipment=False), 'ru')
+        self.assertEqual(c['country'], 'Узбекистан')
+
+
 class InvoiceRenderSmokeTest(SimpleTestCase):
     """Fill the shipped templates and assert clean, value-bearing output."""
 
@@ -165,6 +194,16 @@ class InvoiceRenderSmokeTest(SimpleTestCase):
             self.assertNotIn('{%', text, f'{key}: unrendered tag')
             self.assertIn('CMR', text)
             self.assertIn('CMR_', filename)
+            self.assertEqual(content_type, render.DOCX_CONTENT_TYPE)
+
+    def test_render_request_letters(self):
+        expected = {'ct1_ru': 'СТ-1', 'fito_ru': 'Фитосанитарный', 'customs_tk': 'ARZA'}
+        for key, marker in expected.items():
+            data, filename, content_type = render.generate(key, _mock_invoice(), 'docx')
+            text = self._text(data)
+            self.assertNotIn('{{', text, f'{key}: unrendered tag')
+            self.assertNotIn('{%', text, f'{key}: unrendered tag')
+            self.assertIn(marker, text)
             self.assertEqual(content_type, render.DOCX_CONTENT_TYPE)
 
     def test_unsupported_format_raises(self):
@@ -212,6 +251,13 @@ class InvoiceDocumentEndpointTest(_SeededPermsMixin, TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertIn('CMR_', resp['Content-Disposition'])
         self.assertEqual(resp['Content-Type'], render.DOCX_CONTENT_TYPE)
+
+    def test_ct1_letter_type(self):
+        resp = self.client.get(
+            f'/api/v1/contracts/invoices/{self.invoice.pk}/document/?type=ct1_ru'
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('CT1_', resp['Content-Disposition'])
 
     def test_unknown_type_returns_400(self):
         resp = self.client.get(

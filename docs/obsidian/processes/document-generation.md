@@ -27,7 +27,8 @@ context builder", never "wire a new endpoint stack".
 GET /api/v1/contracts/invoices/{id}/document/?type=<key>&fmt=docx|pdf
 ```
 
-- `type`: `invoice_ru` (default), `invoice_en`, `cmr_ru`, `cmr_en`.
+- `type`: `invoice_ru` (default), `invoice_en`, `cmr_ru`, `cmr_en`, `ct1_ru`,
+  `fito_ru`, `customs_tk`.
 - `fmt`: `docx` (default) or `pdf`. **Named `fmt`, not `format`** — `format` is
   reserved by DRF content negotiation and would 404.
 - Permissions: existing `invoice` resource permission (document team / export_manager / director).
@@ -100,6 +101,16 @@ invoices onto one truck; the **official 24-box CMR form** (current template is a
 simplified labelled layout with the same Jinja field names, so the business can
 re-skin it); and the `route` / `place_loading` / `forwarder` / `tir_carnet`
 fields, blank until those sources are mapped.
+
+## Authority request letters (CT-1 / phyto / customs)
+
+Three short request letters, each **single-language** per its source form: CT-1
+certificate-of-origin (`ct1_ru`), phytosanitary certificate (`fito_ru`), and the
+customs-clearance ARZA (`customs_tk`, Turkmen). Builders `build_ct1_context` /
+`build_fito_context` / `build_customs_context`; static addressee/body boilerplate
+is baked into each template, only named fields injected. `fito`/`customs` resolve
+the destination country via `_country_name` (shipment → buyer-firm fallback). CT-1
+needs only firm + contract, so it fills even with no shipment link.
 
 ## Deliberate v1 limits
 

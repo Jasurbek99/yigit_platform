@@ -93,6 +93,34 @@ REGISTRY: dict[str, TemplateSpec] = {
         context_builder='apps.contracts.services.document_context.build_cmr_context',
         out_pattern='CMR_{contract_number}_{invoice_number}_EN',
     ),
+    # Authority request letters — single-language (per the source forms).
+    'ct1_ru': TemplateSpec(
+        key='ct1_ru',
+        filename='ct1_ru.docx',
+        scope=SCOPE_INVOICE,
+        language='ru',
+        version='1.0',
+        context_builder='apps.contracts.services.document_context.build_ct1_context',
+        out_pattern='CT1_{contract_number}_{invoice_number}_RU',
+    ),
+    'fito_ru': TemplateSpec(
+        key='fito_ru',
+        filename='fito_ru.docx',
+        scope=SCOPE_INVOICE,
+        language='ru',
+        version='1.0',
+        context_builder='apps.contracts.services.document_context.build_fito_context',
+        out_pattern='Fito_{contract_number}_{invoice_number}_RU',
+    ),
+    'customs_tk': TemplateSpec(
+        key='customs_tk',
+        filename='customs_tk.docx',
+        scope=SCOPE_INVOICE,
+        language='tk',
+        version='1.0',
+        context_builder='apps.contracts.services.document_context.build_customs_context',
+        out_pattern='Customs_{contract_number}_{invoice_number}_TK',
+    ),
 }
 
 

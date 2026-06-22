@@ -219,10 +219,69 @@ def build_cmr(lang: str) -> Path:
     return out
 
 
+# Authority request letters — short single-language forms. Static addressee/body
+# boilerplate baked in; only the named {{ fields }} are injected at render time.
+LETTERS = {
+    'ct1_ru': {
+        'addressee': ['Директору предприятия', '«Туркменэкспертиза» ТПП', 'в Туркменистане'],
+        'title': None,
+        'body': ('{{ firm_name }} просит Вас оформить сертификат происхождения '
+                 'формы «СТ-1», на {{ product }}. Контракт № {{ contract_line }}.'),
+        'sign': 'Директор ___________________ {{ firm_name }}',
+    },
+    'fito_ru': {
+        'addressee': ['Гос. служба по карантину', 'растений Ахалского велаята'],
+        'title': None,
+        'body': ('{{ firm_name }} просит Вас оформить Фитосанитарный сертификат на груз, '
+                 'направляемый в {{ country }}. Вес груза нетто {{ net }} кг., '
+                 'ящиков — {{ boxes }} шт., на {{ product }}.'),
+        'sign': 'Директор ___________________ {{ firm_name }}',
+    },
+    'customs_tk': {
+        'addressee': ['Aşgabat gümrükhanasynyň', '«AKÝOL» gümrük nokadynyň', 'müdirine'],
+        'title': 'ARZA',
+        'body': ('{{ seller_name }} bilen {{ buyer_name }} arasynda {{ contract_line }} '
+                 'senede baglaşylan şertnama boýunça ýükümizi {{ country }} Respublikasyna '
+                 'çykarmak üçin gümrük gözegçisini bermegiňizi Sizden haýyş edýäris.'),
+        'sign': 'Direktor ___________________ {{ seller_name }}',
+    },
+}
+
+
+def build_letter(key: str) -> Path:
+    spec = LETTERS[key]
+    doc = Document()
+    doc.styles['Normal'].font.size = Pt(11)
+
+    for line in spec['addressee']:
+        p = doc.add_paragraph(line)
+        p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+
+    doc.add_paragraph()
+    if spec['title']:
+        t = doc.add_paragraph()
+        t.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        t.add_run(spec['title']).bold = True
+        doc.add_paragraph()
+
+    body = doc.add_paragraph(spec['body'])
+    body.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+
+    doc.add_paragraph()
+    doc.add_paragraph('{{ doc_date }}')
+    doc.add_paragraph(spec['sign'])
+
+    out = OUT_DIR / f'{key}.docx'
+    doc.save(out)
+    return out
+
+
 def main() -> None:
     for lang in ('ru', 'en'):
         print(f'wrote {build(lang)}')
         print(f'wrote {build_cmr(lang)}')
+    for key in LETTERS:
+        print(f'wrote {build_letter(key)}')
 
 
 if __name__ == '__main__':
