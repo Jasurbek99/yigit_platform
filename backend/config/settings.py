@@ -17,6 +17,14 @@ DEBUG = os.environ.get('DJANGO_DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,backend').split(',')
 
+# Path to the LibreOffice binary used to convert generated .docx → PDF
+# (apps/contracts/services/document_render.py). Empty by default: in the Docker
+# image `soffice`/`libreoffice` is on PATH (installed via the Dockerfile), so the
+# render service auto-discovers it. Set this on a dev box where LibreOffice is
+# installed but not on PATH, e.g. on Windows:
+#   LIBREOFFICE_BIN=C:\Program Files\LibreOffice\program\soffice.exe
+LIBREOFFICE_BIN = os.environ.get('LIBREOFFICE_BIN', '')
+
 # ════════════════════════════════════════════════
 # Error tracking (Sentry)
 #

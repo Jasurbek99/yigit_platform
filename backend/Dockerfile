@@ -16,6 +16,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN sed -i '/^\[openssl_init\]/a ssl_conf = ssl_sect' /etc/ssl/openssl.cnf \
     && printf '\n[ssl_sect]\nsystem_default = system_default_sect\n\n[system_default_sect]\nMinProtocol = TLSv1\nCipherString = DEFAULT@SECLEVEL=0\n' >> /etc/ssl/openssl.cnf
 
+# LibreOffice headless — converts generated .docx → PDF (contracts document
+# generation, apps/contracts/services/document_render.py). `libreoffice-writer`
+# pulls the minimal core needed for Writer/docx conversion (no full suite).
+# The font packages give proper Cyrillic + Latin-extended coverage so the
+# Russian/Turkmen invoices render real glyphs instead of tofu boxes.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libreoffice-writer \
+    fonts-dejavu fonts-liberation fonts-noto-core \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 COPY requirements.txt .

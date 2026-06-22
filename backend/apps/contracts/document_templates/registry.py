@@ -1,0 +1,119 @@
+"""Template registry — the dumb lookup table for document generation.
+
+Maps a stable ``document key`` (e.g. ``invoice_ru``) to its template file, the
+scope of the primary object it renders, its language, the context-builder that
+assembles the Jinja context, and the output filename pattern.
+
+This is a plain Python dict, NOT a DB model: templates are developer-authored
+Word files versioned in git, with the same lifecycle as code. A ``DocumentTemplate``
+DB model is only warranted if non-developers must upload/swap templates at runtime
+(deferred).
+
+Variant *selection* (e.g. which of the five CMRs) is the caller's job, not the
+registry's — keep this a flat lookup with one entry per concrete document/variant.
+"""
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Callable
+
+TEMPLATES_DIR = Path(__file__).resolve().parent
+
+# Scope of the primary object a document renders from.
+SCOPE_INVOICE = 'invoice'
+SCOPE_CONTRACT = 'contract'
+SCOPE_SHIPMENT = 'shipment'
+
+
+@dataclass(frozen=True)
+class TemplateSpec:
+    """One renderable document/variant.
+
+    Attributes:
+        key: Stable document key used by the API ``?type=`` param.
+        filename: Template ``.docx`` file name within ``TEMPLATES_DIR``.
+        scope: Which primary object this renders from (invoice/contract/shipment).
+        language: Document language code ('ru' | 'en' | 'tk').
+        version: Template version, recorded by the (deferred) audit model.
+        context_builder: Dotted path to the builder ``(obj, lang) -> dict``,
+            resolved lazily to avoid import cycles at module load.
+        out_pattern: ``str.format`` pattern for the download filename (no extension),
+            fed a flat dict of the primary object's display fields.
+    """
+
+    key: str
+    filename: str
+    scope: str
+    language: str
+    version: str
+    context_builder: str
+    out_pattern: str
+
+    @property
+    def template_path(self) -> Path:
+        """Absolute path to the template ``.docx`` file."""
+        return TEMPLATES_DIR / self.filename
+
+
+REGISTRY: dict[str, TemplateSpec] = {
+    'invoice_ru': TemplateSpec(
+        key='invoice_ru',
+        filename='invoice_ru.docx',
+        scope=SCOPE_INVOICE,
+        language='ru',
+        version='1.0',
+        context_builder='apps.contracts.services.document_context.build_invoice_context',
+        out_pattern='Invoice_{contract_number}_{invoice_number}_RU',
+    ),
+    'invoice_en': TemplateSpec(
+        key='invoice_en',
+        filename='invoice_en.docx',
+        scope=SCOPE_INVOICE,
+        language='en',
+        version='1.0',
+        context_builder='apps.contracts.services.document_context.build_invoice_context',
+        out_pattern='Invoice_{contract_number}_{invoice_number}_EN',
+    ),
+    # CMR (road consignment note), single-firm base. Reads transport detail from
+    # invoice.shipment. 2-/3-seller variants are deferred follow-on entries.
+    'cmr_ru': TemplateSpec(
+        key='cmr_ru',
+        filename='cmr_ru.docx',
+        scope=SCOPE_INVOICE,
+        language='ru',
+        version='1.0',
+        context_builder='apps.contracts.services.document_context.build_cmr_context',
+        out_pattern='CMR_{contract_number}_{invoice_number}_RU',
+    ),
+    'cmr_en': TemplateSpec(
+        key='cmr_en',
+        filename='cmr_en.docx',
+        scope=SCOPE_INVOICE,
+        language='en',
+        version='1.0',
+        context_builder='apps.contracts.services.document_context.build_cmr_context',
+        out_pattern='CMR_{contract_number}_{invoice_number}_EN',
+    ),
+}
+
+
+def get_spec(document_key: str) -> TemplateSpec:
+    """Return the TemplateSpec for a document key.
+
+    Args:
+        document_key: A registry key such as ``invoice_ru``.
+
+    Raises:
+        KeyError: If the key is not registered.
+    """
+    return REGISTRY[document_key]
+
+
+def resolve_builder(spec: TemplateSpec) -> Callable:
+    """Import and return the context-builder callable for a spec.
+
+    Resolved lazily (not at module import) to avoid a registry → services →
+    models import cycle.
+    """
+    module_path, func_name = spec.context_builder.rsplit('.', 1)
+    module = __import__(module_path, fromlist=[func_name])
+    return getattr(module, func_name)

@@ -1,0 +1,101 @@
+# Document Generation
+
+Auto-fills the export documents that the document team used to fill by hand from
+the `Export_contracts` master sheet (2–3 hrs/day against a 13:00 deadline). P4
+ships this **one document at a time** on a shared, document-agnostic framework.
+
+**Shipped:** Invoice (RU/EN) and CMR base single-firm (RU/EN), each as both
+`.docx` (editable) and PDF.
+
+## Architecture
+
+A six-piece core so adding the next document is "drop in a template + write one
+context builder", never "wire a new endpoint stack".
+
+| Piece | Where | Role |
+|-------|-------|------|
+| Template registry | `apps/contracts/document_templates/registry.py` | Plain dict (not a DB model) keyed by document key → `.docx` file, scope, language, context-builder, filename pattern. One entry per concrete document/variant. |
+| Template files | `apps/contracts/document_templates/*.docx` | Authored Word layouts with Jinja tags. Static labels baked per language; only data values are `{{ }}`. Built by `build_templates.py`. |
+| Context builders | `apps/contracts/services/document_context.py` | Pure `(obj, lang) → dict`. Owns date/money/kg formatting, firm-language fallback, shipment-vs-invoice fallback. Unit-tested without rendering. |
+| Render service | `apps/contracts/services/document_render.py` | `render_docx` (docxtpl→bytes); `render_pdf` (LibreOffice headless→bytes); `generate(key, obj, fmt)` ties it together. |
+| API action | `InvoiceViewSet.document` in `apps/contracts/views.py` | Thin `@action`, returns the file as an attachment. |
+| Audit model | *(deferred)* | `GeneratedDocument` for the 13:00 board — not needed to generate. |
+
+## Endpoint
+
+```
+GET /api/v1/contracts/invoices/{id}/document/?type=<key>&fmt=docx|pdf
+```
+
+- `type`: `invoice_ru` (default), `invoice_en`, `cmr_ru`, `cmr_en`.
+- `fmt`: `docx` (default) or `pdf`. **Named `fmt`, not `format`** — `format` is
+  reserved by DRF content negotiation and would 404.
+- Permissions: existing `invoice` resource permission (document team / export_manager / director).
+- Errors: `400` unknown `type`; `503` when `fmt=pdf` but LibreOffice is absent
+  (with a clear message — the `.docx` path is unaffected).
+- Response: `Content-Disposition: attachment`, filename e.g. `Invoice_93-26-DM-EXP_118_RU.docx`.
+
+## Data sources (invoice)
+
+Header/firms from **Contract + ExportFirm/ImportFirm**; weights, pieces, pallets,
+truck plates from the linked **Shipment** when present (`invoice.shipment`), with
+graceful fallback to invoice fields (net ← `quantity_kg`) when not yet linked.
+Firm name/address/bank use the tri-lingual `*_ru`/`*_en`/`*_tk` columns selected
+by language (ru→en→tk fallback). Product line: HS code `070200000`, localized
+product name + packing.
+
+**Number formatting is locale-aware:** RU uses space-thousands + comma-decimal
+(`7 830,00`, `10 720`), EN keeps English (`7,830.00`, `10,720`). Dates are
+`DD.MM.YYYY` in both.
+
+## PDF dependency (server)
+
+`.docx` needs only `docxtpl` (pip). **PDF requires LibreOffice headless.** It is
+provisioned in `backend/Dockerfile` (`libreoffice-writer` + `fonts-dejavu` /
+`fonts-liberation` / `fonts-noto-core` for Cyrillic/Latin glyphs), so PDF works in
+the deployed container regardless of host OS — the runtime is Debian, not the
+dev machine. The filled `.docx` is converted to PDF (single source of truth:
+PDF == Word) via a unique `-env:UserInstallation` profile per call (avoids the
+shared-profile lock under concurrency). Resolution order: `LIBREOFFICE_BIN`
+setting → `soffice`/`libreoffice` on PATH.
+
+**Local dev (Windows/macOS):** LibreOffice is usually absent, so PDF returns 503
+and only `.docx` works — which is fine for development. To test PDF locally,
+install LibreOffice and either add its `program/` dir to PATH or set
+`LIBREOFFICE_BIN` (e.g. `C:\Program Files\LibreOffice\program\soffice.exe`).
+
+## Adding the next document (CMR, Pasport Sdelka, …)
+
+1. Author the `.docx` template (Jinja-tagged) under `document_templates/`.
+2. Add a `TemplateSpec` to `REGISTRY` (key, file, scope, language, builder path, filename pattern).
+3. Write the context builder in `document_context.py` (pure).
+4. For non-invoice scopes, add the scope's filename-fields extractor to `_FILENAME_FIELDS`
+   in `document_render.py` and expose an `@action` on the matching viewset.
+
+## Tests
+
+`apps/contracts/tests/test_document_generation.py` — pure builder (formatting /
+language / shipment fallback), RU+EN render smoke (asserts no leftover Jinja tags),
+and the API endpoint (docx download, EN variant, 400 unknown type, 503 PDF-without-LibreOffice).
+
+## CMR (road consignment note)
+
+CMR is a per-truck document; since one Invoice == one dispatched truck, it is
+`scope=invoice` and reads transport/cargo from `invoice.shipment` (graceful
+blanks when the link is absent). Builder: `build_cmr_context`. Computes
+`gross_with_pallet = weight_gross + pallet_weight`.
+
+**v1 is base single-firm only.** Deferred follow-ons (each a new registry entry,
+no framework change): the **2-/3-seller firm-split CMRs** that aggregate multiple
+invoices onto one truck; the **official 24-box CMR form** (current template is a
+simplified labelled layout with the same Jinja field names, so the business can
+re-skin it); and the `route` / `place_loading` / `forwarder` / `tir_carnet`
+fields, blank until those sources are mapped.
+
+## Deliberate v1 limits
+
+- `place_loading` is blank until a loading-location source is wired.
+- Single product line per invoice (`line_items[0]`); multi-line is a future template change.
+- CMR: single-firm only; firm-split variants + official box form deferred (above).
+- Trade passport / customs / phyto / CT-1 / packing list are later documents.
+- Most documents need `invoice.shipment` populated (Slice B) to fill transport/cargo.

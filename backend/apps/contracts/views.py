@@ -1,10 +1,14 @@
 """ViewSets for the contracts app."""
 import logging
 
+from django.http import HttpResponse
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from apps.core.permissions import DynamicResourcePermission
+from apps.contracts.document_templates.registry import SCOPE_INVOICE, get_spec
 from apps.contracts.models import Contract, Invoice
 from apps.contracts.serializers import (
     ContractCreateSerializer,
@@ -14,6 +18,7 @@ from apps.contracts.serializers import (
     InvoiceDetailSerializer,
     InvoiceListSerializer,
 )
+from apps.contracts.services.document_render import DocumentRenderError, generate
 
 logger = logging.getLogger(__name__)
 
@@ -171,3 +176,42 @@ class InvoiceViewSet(ModelViewSet):
         if self.action in ('create', 'update', 'partial_update'):
             return InvoiceCreateSerializer
         return InvoiceDetailSerializer
+
+    @action(detail=True, methods=['get'], url_path='document')
+    def document(self, request, pk=None):
+        """Generate an invoice document (.docx or PDF) for this invoice.
+
+        Query params:
+            type: registry key — defaults to ``invoice_ru`` (also ``invoice_en``).
+            fmt:  ``docx`` (default) or ``pdf``. (Named ``fmt`` not ``format`` —
+                  ``format`` is reserved by DRF content negotiation.)
+
+        Returns the file as an attachment. PDF requires LibreOffice on the server;
+        when absent it returns 503 with a clear message (the .docx path is fine).
+        """
+        invoice = self.get_object()
+        doc_type = request.query_params.get('type', 'invoice_ru')
+        fmt = request.query_params.get('fmt', 'docx')
+
+        try:
+            spec = get_spec(doc_type)
+        except KeyError:
+            return Response(
+                {'error': f'Unknown document type: {doc_type}'}, status=400,
+            )
+        if spec.scope != SCOPE_INVOICE:
+            return Response(
+                {'error': f'Document {doc_type!r} is not an invoice document.'},
+                status=400,
+            )
+
+        try:
+            data, filename, content_type = generate(doc_type, invoice, fmt)
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=400)
+        except DocumentRenderError as exc:
+            return Response({'error': str(exc)}, status=503)
+
+        response = HttpResponse(data, content_type=content_type)
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
