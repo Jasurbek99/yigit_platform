@@ -190,7 +190,7 @@ export type VehicleCondition = 'OK' | 'ISSUE' | 'BREAKDOWN' | 'RETURNED';
 
 export interface IShipmentListItem {
   id: number;
-  cargo_code: string;
+  shipment_code: string;
   date: string;             // ISO date
   status: number;           // FK id
   status_display: string;
@@ -213,7 +213,7 @@ export interface IShipmentListItem {
   driver_id: number | null;
   price_per_kg: number | null;
   total_amount_usd: number | null;
-  official_export_code: string | null;
+  export_code: string | null;
   previous_platform_id: number | null;
   harvest_age_days: number;
   freshness: 'today' | 'yesterday' | 'aged';
@@ -308,7 +308,7 @@ export interface ISheetBlockSource {
 
 export interface IShipmentSheetItem {
   id: number;
-  cargo_code: string;
+  shipment_code: string;
   date: string;
   // Status
   status: number;
@@ -413,7 +413,7 @@ export interface IShipmentSheetItem {
   customs_clearance_planned_day: 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun' | '' | null;
   // R4 — Şirin logs when transport dept handed over docs (null = Berilmedi)
   transport_docs_given_at: string | null;
-  official_export_code: string | null;
+  export_code: string | null;
   previous_platform_id: number | null;
   // Per-shipment tint applied to this column in the Sheet view.
   // Hex (#RRGGBB) when set, null = default theme. Edited by admin / export_manager.
@@ -901,7 +901,7 @@ export interface IQuotaUsageRecord {
   status: QuotaUsageStatus;
   notes: string;
   shipment: number | null;
-  cargo_code: string | null;
+  shipment_code: string | null;
   approved_by: number | null;
   approved_by_name: string | null;
   approved_at: string | null;
@@ -1001,17 +1001,102 @@ export interface IShipmentQuality {
   kalibrowka_analiz: boolean;
 }
 
+// ─── Sales Report (rich, line-item + expense tables) ──────────────────────────
+
+export type SalesReportExpenseCategory =
+  | 'TOM_ROSHOD'
+  | 'NAKLIYE'
+  | 'BAZAR_ROSHOD'
+  | 'INTERES'
+  | 'UZBEK_FURA_AWANS'
+  | 'DOZWOL'
+  | 'ANALIZ'
+  | 'PROSTOY'
+  | 'PERESEPKA'
+  | 'ARAP'
+  | 'KASPIY_KOMIS'
+  | 'UZBEK_FURA_SOLYARKA'
+  | 'NDS'
+  | 'SBOR'
+  | 'UZB_KAZ_POST'
+  | 'UZB_KAZ_NAKLIYE'
+  | 'UZBEK_TAM'
+  | 'MOI'
+  | 'DOSMOTR'
+  | 'PEREWOT'
+  | 'OTHER';
+
+export interface ISalesReportLineItem {
+  readonly line_number: number;
+  readonly product_name: string | null;
+  readonly quantity_kg: string;        // Decimal as string
+  readonly price_local: string;        // Decimal as string
+  readonly amount_local: string;       // server-computed: qty × price
+}
+
+export interface ISalesReportExpense {
+  readonly category: SalesReportExpenseCategory;
+  readonly category_display: string;   // read-only label from server
+  readonly label_raw: string | null;   // verbatim original text (import fidelity)
+  readonly amount_local: string;       // Decimal as string
+}
+
 export interface ISalesReport {
-  price_per_kg: string | null;
-  total_usd: string | null;
-  weight_sold_kg: string | null;
-  weight_rejected_kg: string | null;
-  transport_cost_usd: string | null;
-  market_fee_usd: string | null;
-  other_expenses_usd: string | null;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
+  // Header
+  readonly currency: string;                  // default 'KZT'
+  readonly exchange_rate: string | null;       // Kurs: local units per USD
+  readonly weight_loaded_kg: string | null;
+  readonly weight_sold_kg: string | null;
+  readonly weight_rejected_kg: string | null;
+  readonly price_per_kg: string | null;        // legacy back-compat
+  readonly notes: string | null;
+  // Server-computed totals (local currency)
+  readonly total_sales_local: string | null;
+  readonly total_expenses_local: string | null;
+  readonly net_income_local: string | null;
+  // Server-computed USD equivalents (= *_local / exchange_rate)
+  readonly total_sales_usd: string | null;
+  readonly total_expenses_usd: string | null;
+  readonly net_income_usd: string | null;
+  // Legacy back-compat flat fields (ignored in new UI)
+  readonly total_usd: string | null;
+  readonly transport_cost_usd: string | null;
+  readonly market_fee_usd: string | null;
+  readonly other_expenses_usd: string | null;
+  // Nested children
+  readonly line_items: ISalesReportLineItem[];
+  readonly expenses: ISalesReportExpense[];
+  // Audit
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
+// ─── Sales Report mutation payload ────────────────────────────────────────────
+
+export interface ISalesReportLineItemInput {
+  line_number: number;
+  product_name?: string | null;
+  quantity_kg: number | string;
+  price_local: number | string;
+  amount_local?: number | string;   // optional — server computes if omitted
+}
+
+export interface ISalesReportExpenseInput {
+  category: SalesReportExpenseCategory;
+  label_raw?: string | null;
+  amount_local: number | string;
+}
+
+export interface ISalesReportPayload {
+  currency?: string;
+  exchange_rate?: number | string | null;
+  weight_loaded_kg?: number | string | null;
+  weight_sold_kg?: number | string | null;
+  weight_rejected_kg?: number | string | null;
+  price_per_kg?: number | string | null;
+  notes?: string | null;
+  line_items?: ISalesReportLineItemInput[];
+  expenses?: ISalesReportExpenseInput[];
 }
 
 export interface IOverdueShipment extends IShipmentListItem {
@@ -1090,7 +1175,7 @@ export interface IDomesticSale {
 
 export interface IAdvanceShipmentLink {
   shipment: number;
-  shipment_cargo_code: string;
+  shipment_code: string;
   allocated_amount: number | null;
 }
 
@@ -1115,7 +1200,94 @@ export interface IFinansistAdvanceDetail extends IFinansistAdvanceListItem {
   shipment_links: IAdvanceShipmentLink[];
 }
 
-// â”€â”€â”€ Admin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Customs / Document Cash-Advance Ledger ───────────────────────────────────
+
+export const CUSTOMS_EXPENSE_CATEGORIES = [
+  'GUMRUKLEME',
+  'KARANTIN',
+  'CT1',
+  'FITO',
+  'ANALIZ',
+  'PASPORT_SDELKA',
+  'PLATYOSKA',
+  'DOC_POST',
+  'YUZLENME_HAT',
+  'GUMRUK_AMAL',
+  'BORDER_RETURN',
+  'SERTNAMA',
+  'OTHER',
+] as const;
+
+export type CustomsExpenseCategory = typeof CUSTOMS_EXPENSE_CATEGORIES[number];
+
+export interface ICustomsExpense {
+  id: number;
+  expense_date: string;           // YYYY-MM-DD
+  category: CustomsExpenseCategory;
+  category_display: string;
+  amount: string;                 // Decimal as string — parse with Number()
+  currency: string;               // “TMT”
+  shipment: number | null;
+  shipment_code: string | null;
+  shipment_code_raw: string | null;
+  vehicle_plate: string | null;
+  route_label: string | null;
+  label_raw: string | null;
+  quantity: number | null;
+  notes: string | null;
+  created_by: number;
+  created_by_name: string;
+  created_at: string;
+}
+
+export interface ICustomsExpensePayload {
+  expense_date: string;           // YYYY-MM-DD
+  category: CustomsExpenseCategory;
+  amount: string;                 // send as decimal string
+  currency?: string;
+  shipment?: number | null;
+  shipment_code_raw?: string | null;
+  vehicle_plate?: string | null;
+  route_label?: string | null;
+  label_raw?: string | null;
+  quantity?: number | null;
+  notes?: string | null;
+}
+
+export interface ICustomsExpenseFilters {
+  page?: number;
+  page_size?: number;
+  category?: CustomsExpenseCategory | '';
+  currency?: string;
+  shipment?: number;
+  date_from?: string;
+  date_to?: string;
+  search?: string;
+}
+
+export interface ICustomsLedgerByCategoryRow {
+  category: CustomsExpenseCategory;
+  category_display: string;
+  total: string;   // Decimal string
+  count: number;
+}
+
+export interface ICustomsLedgerByDateRow {
+  date: string;    // YYYY-MM-DD
+  advances: string;
+  expenses: string;
+}
+
+export interface ICustomsLedger {
+  currency: string;
+  advances_total: string;
+  expenses_total: string;
+  balance: string;
+  by_category: ICustomsLedgerByCategoryRow[];
+  by_date: ICustomsLedgerByDateRow[];
+}
+
+// ─── Admin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface ILoadingLocation {
   id: number;
@@ -1211,13 +1383,16 @@ export interface INotification {
   created_at: string;
 }
 
+// Filterable action values exposed by the audit viewset. The `action` column
+// itself carries many more free-form codes (plan_value_set, variety_override,
+// soft_delete, …) written by services — hence IAuditLog.action is a plain string.
 export type AuditAction = 'transition' | 'create' | 'update';
 
 export interface IAuditLog {
   id: number;
   user: number | null;
   user_name: string | null;
-  action: AuditAction;
+  action: string;
   model_name: string;
   object_id: number;
   object_repr: string;
@@ -1273,6 +1448,8 @@ export interface IShipmentDetail extends IShipmentListItem {
   comments: IShipmentComment[];
   quality: IShipmentQuality | null;
   sales_report: ISalesReport | null;
+  /** Customs / document expenses for this shipment (from customs-expenses API). */
+  customs_expenses?: ICustomsExpense[];
   platform_id: number;
   variety_confidence: 'high' | 'low' | 'none';
   variety_confidence_display: string;
@@ -1324,7 +1501,7 @@ export interface ITaskListItem {
   kind: TaskKind;
   /** Null for `weekly_plan` tasks. */
   shipment: number | null;
-  shipment_cargo_code: string;
+  shipment_code: string;
   step: string;
   phase: ShipmentPhase;
   title_key: string;
@@ -1368,13 +1545,13 @@ export interface IDraftBlockSource {
 
 export interface IShipmentDraft {
   id: number;
-  cargo_code: string;
+  shipment_code: string;
   date: string;
   created_at: string;
   created_by_name: string | null;
   weight_net: number | null;
   block_sources: IDraftBlockSource[];
-  official_export_code: string | null;
+  export_code: string | null;
   previous_platform_id: number | null;
   harvest_age_days: number;
   freshness: 'today' | 'yesterday' | 'aged';
@@ -1389,12 +1566,12 @@ export interface IDraftFirmSplitInput {
 }
 
 export interface IDraftCreatePayload {
-  cargo_code: string;
+  shipment_code: string;
   date: string;
   is_draft: true;
   block_sources: { block_id: number; weight_kg: number }[];
   notes?: string;
-  official_export_code?: string;
+  export_code?: string;
   // Join flow — supply draft: skip the forecast pool check
   skip_forecast_check?: boolean;
   // Join flow — destination draft: no blocks, has destination

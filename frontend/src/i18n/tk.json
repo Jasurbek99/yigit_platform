@@ -95,7 +95,7 @@
   "stuck": {
     "page_title": "Saklanan ýükler",
     "page_subtitle": "4+ gün dowamynda hereketsiz operasion ýükler. Jikme-jikligi açmak üçin koduň üstüne basyň.",
-    "col_cargo_code": "Eksport kody",
+    "col_shipment_code": "Iberiş kody",
     "col_status": "Status",
     "col_days_stuck": "Saklanan günler",
     "col_country": "Ýurt",
@@ -256,7 +256,9 @@
     "bulk_revoke_button": "Ähli bloklar üçin redaktirlemäni ýap",
     "bulk_revoke_confirm_title": "Ähli bloklar üçin redaktirlemäni ýapmaly?",
     "bulk_revoke_confirm_content": "Blok menejerleri bu hepde üçin redaktirlemäni gaýtadan edip bilmez.",
-    "bulk_revoke_toast": "{{count}} blok üçin redaktirlemä ýapyldy"
+    "bulk_revoke_toast": "{{count}} blok üçin redaktirlemä ýapyldy",
+    "generate_tasks": "Plan tabşyryklaryny döret",
+    "generate_tasks_toast": "{{count}} sany tabşyryk döredildi"
   },
   "quota_dashboard": {
     "title": "Kwota paneli",
@@ -360,7 +362,7 @@
     "view_list": "Sanaw görnüşi",
     "date": "Sene",
     "firm": "Firma",
-    "cargo_code": "Eksport kody",
+    "shipment_code": "Iberiş kody",
     "kg_used": "Agramy",
     "product_type": "Önüm",
     "status": "Ýagdaý",
@@ -420,7 +422,7 @@
     "all": "Ählisi",
     "my_work": "Meniň işim",
     "archive": "Arhiw",
-    "cargo_code": "Eksport kody",
+    "shipment_code": "Iberiş kody",
     "date": "Senesi",
     "status": "Ýagdaýy",
     "country": "Ýurt",
@@ -502,7 +504,7 @@
     "tab_logistics": "Logistika",
     "tab_comments": "Teswirler ({{count}})",
     "tab_history": "Taryh ({{count}})",
-    "cargo_code": "Eksport kody",
+    "shipment_code": "Iberiş kody",
     "date": "Senesi",
     "status": "Ýagdaýy",
     "customer": "Müşderi",
@@ -597,15 +599,15 @@
   },
   "shipment_create": {
     "title": "Täze ýük",
-    "cargo_code": "Eksport kody",
-    "cargo_code_help": "Format: NNNNNNN/ÝÝ (meselem 0201045/25)",
+    "shipment_code": "Iberiş kody",
+    "shipment_code_help": "Format: NNNNNNN/ÝÝ (meselem 0201045/25)",
     "date": "Senesi",
     "country": "Ýurt",
     "customer": "Müşderi",
     "season": "Möwsüm",
     "season_optional": "Islege görä",
     "submit": "Döret",
-    "cargo_code_format": "Format: NNNNNNN/ÝÝ (meselem 0201045/25)",
+    "shipment_code_format": "Format: NNNNNNN/ÝÝ (meselem 0201045/25)",
     "toast_success": "Ýük döredildi",
     "toast_success_draft": "Garalama döredildi — ugruny saýlaň we Ýüklemä geçiriň",
     "toast_success_loading": "Ýük gönüden Ýüklemede döredildi (taýynlyk geçilmedi)",
@@ -615,7 +617,7 @@
     "skip_prep_on": "Geç",
     "skip_prep_off": "Garalama",
     "draft_mode_alert": "Garalama hökmünde dörediler. Topar ugruny, firmalary, sürüjini saýlaýar we resminamalary taýýarlap başlaýar — soň siz Ýüklemä geçirýärsiňiz Detal sahypasyndan.",
-    "skip_prep_alert": "Gönüden Ýüklemede dörediler. Ýük kody awtomatiki döredilýär; ýükleme başlangyç wagty derrew bellenýär. Diňe howsalaly täzeden ýüklemeler we köne maglumatlar üçin."
+    "skip_prep_alert": "Gönüden Ýüklemede dörediler. Iberiş kody awtomatiki döredilýär; ýükleme başlangyç wagty derrew bellenýär. Diňe howsalaly täzeden ýüklemeler we köne maglumatlar üçin."
   },
   "kanban": {
     "title": "Kanban tagtasy",
@@ -663,6 +665,7 @@
     "total_usd": "Jemi (USD)",
     "weight_sold": "Satylan agram (kg)",
     "weight_rejected": "Yzyna (kg)",
+    "weight_loaded_kg": "Ýüklenilen agram (kg)",
     "transport_cost": "Transport çykdajy (USD)",
     "market_fee": "Bazar tölegi (USD)",
     "other_expenses": "Beýleki çykdajylar (USD)",
@@ -671,7 +674,48 @@
     "empty": "Satyş hasabaty ýok.",
     "toast_success": "Hasabat ýatda saklandy",
     "toast_error": "Hasabaty ýatda saklamak başa barmady",
-    "only_at_hasabat": "Ýük hasabat ýagdaýyna geçende elýeterli."
+    "only_at_hasabat": "Ýük ýola çykandan soň elýeterli.",
+    "currency": "Walýuta",
+    "exchange_rate": "Kurs (ýerli/USD)",
+    "section_lines": "Satyş setirler",
+    "section_expenses": "Çykdajylar",
+    "add_line": "Setir goş",
+    "add_expense": "Çykdajy goş",
+    "col_product": "Önüm ady",
+    "col_quantity_kg": "Mukdar (kg)",
+    "col_price_local": "Baha (ýerli)",
+    "col_amount_local": "Jemi (ýerli)",
+    "col_category": "Kategoriýa",
+    "gross_sales_local": "Jemi satuw (ýerli)",
+    "total_expenses_local": "Jemi çykdajy (ýerli)",
+    "net_income_local": "Arassa girdej (ýerli)",
+    "gross_sales_usd": "Jemi satuw (USD)",
+    "total_expenses_usd": "Jemi çykdajy (USD)",
+    "net_income_usd": "Arassa girdej (USD)",
+    "expense": {
+      "TOM_ROSHOD": "Tom roşod",
+      "NAKLIYE": "Nakliye (ulag)",
+      "BAZAR_ROSHOD": "Bazar roşod",
+      "INTERES": "Göterim (interes)",
+      "UZBEK_FURA_AWANS": "Özbek fura awans",
+      "DOZWOL": "Doswol (rugsat)",
+      "ANALIZ": "Analiz",
+      "PROSTOY": "Prostoy (durmaçylyk)",
+      "PERESEPKA": "Peresepka (geçiriş)",
+      "ARAP": "Arap töleg",
+      "KASPIY_KOMIS": "Kaspi komissiýa",
+      "UZBEK_FURA_SOLYARKA": "Özbek fura solyarka",
+      "NDS": "NDS (goşulan baha salgyt)",
+      "SBOR": "Sbor (ýygym)",
+      "UZB_KAZ_POST": "Özbek-Gazak posta",
+      "UZB_KAZ_NAKLIYE": "Özbek-Gazak nakliye",
+      "UZBEK_TAM": "Özbek gümrük",
+      "MOI": "MOI töleg",
+      "DOSMOTR": "Dosmotr (barlag)",
+      "PEREWOT": "Peréwot (terjime)",
+      "OTHER": "Beýleki"
+    },
+    "other_label_placeholder": "Beýlekisini ýaz..."
   },
   "overdue": {
     "title": "Möhleti geçen hasabatlar",
@@ -682,7 +726,7 @@
     "threshold": "Möhlet",
     "days": "{{count}} gün",
     "days_unit": "gün",
-    "cargo_code": "Eksport kody",
+    "shipment_code": "Iberiş kody",
     "status": "Ýagdaý",
     "country": "Ýurt",
     "customer": "Müşderi",
@@ -692,7 +736,9 @@
     "yes": "Hawa",
     "no": "Ýok",
     "empty": "Möhleti geçen ýük ýok",
-    "error_load": "Möhleti geçen maglumatlary ýükläp bolmady"
+    "error_load": "Möhleti geçen maglumatlary ýükläp bolmady",
+    "open_report": "Hasabaty doldur",
+    "drawer_title": "Satyş hasabaty"
   },
   "advances": {
     "batch_code_placeholder": "ADV-2026-XXX",
@@ -718,7 +764,7 @@
     "empty": "Awans tapylmady",
     "error_load": "Awans maglumatlaryny ýükläp bolmady",
     "linked_shipments": "Bagly ýükler",
-    "cargo_code": "Eksport kody",
+    "shipment_code": "Iberiş kody",
     "allocated_amount": "Paýlanan möçber",
     "no_shipments": "Bagly ýük ýok",
     "notes": "Bellikler",
@@ -1082,7 +1128,7 @@
     "title": "Habarlar",
     "mark_all_read": "Hemmesini okaldy belgile",
     "empty": "Habar ýok",
-    "action_required": "{{cargo_code}} — meýdanlaryňyzy doldurmaly",
+    "action_required": "{{shipment_code}} — meýdanlaryňyzy doldurmaly",
     "kind_mention": "Sizi agzadylar",
     "kind_task_assigned": "Size wezipe bellenildi",
     "kind_task_done": "Wezipäňiz ýerine ýetirildi"
@@ -1117,7 +1163,8 @@
     "color_hint": "Sheet öýjüklerini/etiketkalary reňkleýär",
     "all": "Ählisi",
     "load_error": "Maglumatlary ýükläp bolmady",
-    "select_season": "Möwsüm saýla"
+    "select_season": "Möwsüm saýla",
+    "select": "Saýla..."
   },
   "permissions_admin": {
     "subtitle": "Rol rugsatlaryny dolandyrmak",
@@ -1325,7 +1372,7 @@
     "overdue_days": "{{days}}g gijikdi",
     "eta_label": "ETA {{date}}",
     "needs_truck": "transport maglumaty gerek",
-    "cargo_code": "Eksport kody",
+    "shipment_code": "Iberiş kody",
     "customer": "Müşderi",
     "country_city": "Ýurt / Şäher",
     "block": "Blok",
@@ -1411,6 +1458,8 @@
     "has_peregruz_yes": "Boldy",
     "transport_docs_berilmedi": "Berilmedi",
     "multiselect_done": "Taýýar",
+    "firm_no_quota_tag": "kwota ýok",
+    "firm_no_quota_warning": "Üns beriň: {{firms}} kwotasy galmady. Bölünişik şonda-da saklandy.",
     "who": {
       "logist": "Logist",
       "malik": "Malik",
@@ -1435,8 +1484,8 @@
       "transport_docs_given": "Transport bölümiň resminamalary",
       "export_manager_note": "Gadam J belligi",
       "documents": "Resminamalar (13:00)",
-      "export_code": "Ýük kody",
-      "shipment_code": "Export kody",
+      "export_code": "Eksport kody",
+      "shipment_code": "Iberiş kody",
       "harvest_block": "Ýygylan bölümi",
       "export_firm": "Eksport eden Firma",
       "country": "Eksport ýurdy",
@@ -1526,11 +1575,11 @@
       "btn": "Üpjünçilik sütüni",
       "tooltip": "Täze üpjünçilik garalamasy dör (bloklar + önüm, barmaly ýer ýok)"
     },
-    "add_cargo": {
-      "btn": "Ýük goş",
-      "tooltip": "Boş täze ýük sütünini dör — soňra Gadamyň sütüni bilen birleşdiriler",
-      "toast_saved": "Boş ýük sütüni döredildi: {{code}}",
-      "toast_error": "Ýük sütünini döretmek başartmady"
+    "add_shipment": {
+      "btn": "Iberiş goş",
+      "tooltip": "Boş täze iberiş sütünini dör — soňra Gadamyň sütüni bilen birleşdiriler",
+      "toast_saved": "Boş iberiş sütüni döredildi: {{code}}",
+      "toast_error": "Iberiş sütünini döretmek başartmady"
     },
     "new_destination": {
       "btn": "Barmaly ýer sütüni",
@@ -1555,8 +1604,8 @@
     },
     "supply_modal": {
       "title": "Täze Üpjünçilik Garalamasy",
-      "cargo_code_label": "Ýük kody",
-      "cargo_code_ph": "meselen 2505201/26",
+      "shipment_code_label": "Iberiş kody",
+      "shipment_code_ph": "meselen 2505201/26",
       "variety_label": "Pomidor görnüşi",
       "varieties_label": "Pomidor görnüşleri",
       "varieties_ph": "Bir ýa-da birnäçe görnüş saýlaň",
@@ -1638,7 +1687,7 @@
     "composer_title": "Garalama ýük · multi-blok düzmek",
     "composer_cancel": "Ret et",
     "composer_save": "✓ Garalama hökmünde ýatda sakla",
-    "composer_cargo_code": "Ýük kody",
+    "composer_shipment_code": "Iberiş kody",
     "composer_target": "Maksat agram",
     "composer_section_harvest": "Hasyl",
     "composer_section_notes": "Bellik (hökman däl)",
@@ -1659,7 +1708,7 @@
     "composer_sort_notice_title": "Sort:",
     "composer_sort_notice_body": "Garalamada sort ýok. Bu TR üçin sort paketlemede weight master ýazar (her paletde).",
     "composer_error_no_rows": "Azyndan bir blok setirimini dolduryň",
-    "composer_error_no_code": "Ýük kodyny giriziň",
+    "composer_error_no_code": "Iberiş kodyny giriziň",
     "composer_toast_saved": "Garalama döredildi: {{code}}",
     "composer_toast_error": "Garalama döredip bolmady",
     "composer_truck_estimate": "≈ {{count}} ulag",
@@ -1747,7 +1796,7 @@
   },
   "split": {
     "header_title": "Garalama bölmek — ulaga paýlamak",
-    "header_batch_code": "Eksport kody",
+    "header_batch_code": "Iberiş kody",
     "header_shipment_code": "Ýük kody",
     "header_harvest_total": "Jemi hasyl",
     "header_remaining": "Galan",
@@ -1780,9 +1829,9 @@
     "assign": "Belgilemek"
   },
   "official_code": {
-    "title": "Ýük kody",
+    "title": "Eksport kody",
     "info_banner": "Iki kod ulgamy: 6 meýdandan Ýük kody (paketlerde + dokumentde) we awtomatiki Eksport kody (platforma yzarlaýjy). Ýük kody fiziki ýüküň özüni görkezýär — re-route bolsa-da şol bir bolýar.",
-    "platform_id_label": "Eksport kody",
+    "platform_id_label": "Iberiş kody",
     "field_day": "Gün",
     "field_month": "Aý",
     "field_seq": "№",
@@ -2286,7 +2335,26 @@
       "task_blocked_reason": "Sebäp",
       "unblock_button": "Bökdemekden çykar",
       "unblock_role_required": "Diňe {{role}} ýa-da ýolbaşçy bu tabşyrygy bökdemekden çykaryp biler.",
-      "supervisor_view": "Siz muny ýolbaşçy hökmünde görýärsiňiz — bu ýerde size tabşyryk bellenmedi."
+      "supervisor_view": "Siz muny ýolbaşçy hökmünde görýärsiňiz — bu ýerde size tabşyryk bellenmedi.",
+      "guide": {
+        "your_task": "Siziň tabşyrygyňyz: {{task}}",
+        "draft": "Bu garalama — barjak ýeri we müşderi entek bellenmedi. Aşakdaky meýdanlary dolduryp, ony geçirmäge taýýarlaň.",
+        "cancelled": "Bu ýük ýatyryldy.",
+        "completed": "Tamamlandy — satuw hasabaty taýýarlandy.",
+        "active": "Häzirki ýagdaý: {{status}}. Indiki ädime taýýar bolanda «Ýagdaýy üýtget» düwmesini ulanyň."
+      },
+      "stage": {
+        "destination": "Barjak ýeri we meýilnama",
+        "documents": "Resminamalar we gümrük",
+        "loading": "Haryt we ýükleme",
+        "transit": "Ulag we ýolda",
+        "sale": "Satuw we maliýe"
+      },
+      "stage_state": {
+        "done": "Tamamlandy",
+        "active": "Häzirki tapgyr",
+        "pending": "Öňde"
+      }
     },
     "cancel_button": "Ýüki ýatyrmak",
     "cancel_modal_title": "Bu ýüki ýatyrmalydymy?",
@@ -2361,7 +2429,8 @@
     "docs_back_to_office": "Resminamalar ofise gaýdyp geldi",
     "confirm_destination": "Barylýan şäheri tassykla",
     "finalize_sale": "Satyşy tamamla",
-    "submit_sales_report": "Satyş hasabatyny tabşyr"
+    "submit_sales_report": "Satyş hasabatyny tabşyr",
+    "fill_weekly_plan": "Hepdelik plany dolduryň"
   },
   "me": {
     "board": {
@@ -2443,6 +2512,23 @@
     "action_transition": "Geçiş",
     "action_create": "Döretmek",
     "action_update": "Üýtgetmek",
+    "action_delete": "Pozmak",
+    "action_soft_delete": "Arhiwleme",
+    "action_restore": "Dikeltmek",
+    "action_variety_override": "Sort üýtgedildi",
+    "action_admin_override": "Admin üýtgetdi",
+    "action_manifest_close": "Manifest ýapyldy",
+    "action_plan_value_set": "Plan girizildi",
+    "action_forecast_value_set": "Çaklama girizildi",
+    "action_actual_value_set": "Hakyky girizildi",
+    "action_daily_board_set": "Günlük tagta üýtgedildi",
+    "action_blocks_field_set": "Blok meýdany üýtgedildi",
+    "action_plan_submitted": "Plan iberildi",
+    "action_plan_approved": "Plan tassyklandy",
+    "action_local_sell_edit": "Ýerli satuw üýtgedildi",
+    "action_local_sell_submitted": "Ýerli satuw iberildi",
+    "action_local_sell_approved": "Ýerli satuw tassyklandy",
+    "action_local_sell_rejected": "Ýerli satuw ret edildi",
     "filter_all_actions": "Ähli hereketler",
     "filter_action": "Hereket",
     "filter_model": "Model ady",
@@ -2607,7 +2693,10 @@
       "status_placeholder": "Ýagdaý boýunça",
       "export_firm_placeholder": "Eksport firması",
       "import_firm_placeholder": "Import firması",
-      "date_range_placeholder": ["Başlangyç sene", "Soňky sene"]
+      "date_range_placeholder": [
+        "Başlangyç sene",
+        "Soňky sene"
+      ]
     },
     "empty": {
       "title": "Faktura tapylmady",
@@ -2655,5 +2744,69 @@
       "Noýabr",
       "Dekabr"
     ]
+  },
+  "customs_expense": {
+    "title": "Gümrük / Resminama Çykdajylary",
+    "subtitle": "Gümrük amallaryna we resminama taýýarlamaga edilýän çykdajylaryň hasaby",
+    "tab_advances": "Awanslar",
+    "tab_expenses": "Gümrük çykdajylary",
+    "ledger_title": "Ledger Jemi",
+    "ledger_advances": "Awanslar jemi (giriş)",
+    "ledger_expenses": "Çykdajylar jemi (çykyş)",
+    "ledger_balance": "Balans",
+    "ledger_by_category": "Kategoriýa boýunça",
+    "date_range": "Döwür",
+    "add": "Çykdajy goş",
+    "edit": "Çykdajy üýtget",
+    "confirm_delete": "Bu çykdajyny pozmak isleýärsiňizmi?",
+    "col_date": "Senesi",
+    "col_category": "Kategoriýa",
+    "col_amount": "Möçber",
+    "col_shipment": "Ýük",
+    "col_vehicle_plate": "Maşyn belgisi",
+    "col_route": "Ugur",
+    "col_quantity": "Mukdar",
+    "col_notes": "Bellikler",
+    "col_label": "Belgi",
+    "field_date": "Sene",
+    "field_category": "Kategoriýa",
+    "field_amount": "Möçber (TMT)",
+    "field_shipment": "Ýük (kod boýunça)",
+    "shipment_search_placeholder": "Iberiş kody boýunça gözle…",
+    "field_shipment_code_raw": "Iberiş kody (el ýazuwy)",
+    "field_vehicle_plate": "Maşyn belgisi",
+    "field_route_label": "Ugur belligi",
+    "field_label_raw": "Goşmaça belgi",
+    "field_quantity": "Mukdar",
+    "field_notes": "Bellikler",
+    "filter_category": "Kategoriýa boýunça süzgüç",
+    "search_placeholder": "Gözleg...",
+    "empty": "Gümrük çykdajysy tapylmady",
+    "error_load": "Gümrük çykdajylaryny ýükläp bolmady",
+    "create_success": "Çykdajy döredildi",
+    "update_success": "Çykdajy täzelendi",
+    "delete_success": "Çykdajy pozuldy",
+    "error_save": "Ýatda saklap bolmady",
+    "error_delete": "Pozup bolmady",
+    "validation_amount_positive": "Möçber 0-dan uly bolmaly",
+    "total_label": "Jemi",
+    "detail_section_title": "Gümrük / Resminama çykdajylary",
+    "detail_add_expense": "Çykdajy goş",
+    "detail_no_expenses": "Bu ýük boýunça çykdajy ýok",
+    "category": {
+      "GUMRUKLEME": "Gümrüklemek",
+      "KARANTIN": "Karantin tölegi",
+      "CT1": "ST-1 güwänamasy",
+      "FITO": "Fitosanitariýa güwänamasy",
+      "ANALIZ": "Laboratoriýa seljermesi",
+      "PASPORT_SDELKA": "Geleşik pasporty",
+      "PLATYOSKA": "Töleg tabşyrygy hasaba alynmagy",
+      "DOC_POST": "Resminama poçtasy",
+      "YUZLENME_HAT": "Ýüzlenme haty",
+      "GUMRUK_AMAL": "Gümrük amaly tölegi",
+      "BORDER_RETURN": "Maşyn serhetden yza dolandy",
+      "SERTNAMA": "Şertnama tölegi",
+      "OTHER": "Beýleki"
+    }
   }
 }

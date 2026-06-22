@@ -95,7 +95,7 @@
   "stuck": {
     "page_title": "Stuck Shipments",
     "page_subtitle": "Operational shipments untouched for 4+ days. Click any code to open the shipment detail.",
-    "col_cargo_code": "Export Code",
+    "col_shipment_code": "Shipment Code",
     "col_status": "Status",
     "col_days_stuck": "Days stuck",
     "col_country": "Country",
@@ -256,7 +256,9 @@
     "bulk_revoke_button": "Close editing for all blocks",
     "bulk_revoke_confirm_title": "Close editing for all blocks?",
     "bulk_revoke_confirm_content": "Block managers will be blocked from editing this week again.",
-    "bulk_revoke_toast": "Editing closed for {{count}} blocks"
+    "bulk_revoke_toast": "Editing closed for {{count}} blocks",
+    "generate_tasks": "Generate plan tasks",
+    "generate_tasks_toast": "{{count}} task(s) created"
   },
   "quota_dashboard": {
     "title": "Quota Dashboard",
@@ -360,7 +362,7 @@
     "view_list": "List view",
     "date": "Date",
     "firm": "Firm",
-    "cargo_code": "Export Code",
+    "shipment_code": "Shipment Code",
     "kg_used": "Weight",
     "product_type": "Product",
     "status": "Status",
@@ -420,7 +422,7 @@
     "all": "All",
     "my_work": "My Work",
     "archive": "Archive",
-    "cargo_code": "Export Code",
+    "shipment_code": "Shipment Code",
     "date": "Date",
     "status": "Status",
     "country": "Country",
@@ -502,7 +504,7 @@
     "tab_logistics": "Logistics",
     "tab_comments": "Comments ({{count}})",
     "tab_history": "History ({{count}})",
-    "cargo_code": "Export Code",
+    "shipment_code": "Shipment Code",
     "date": "Date",
     "status": "Status",
     "customer": "Customer",
@@ -597,15 +599,15 @@
   },
   "shipment_create": {
     "title": "New Shipment",
-    "cargo_code": "Export Code",
-    "cargo_code_help": "Format: NNNNNNN/YY (e.g. 0201045/25)",
+    "shipment_code": "Shipment Code",
+    "shipment_code_help": "Format: NNNNNNN/YY (e.g. 0201045/25)",
     "date": "Date",
     "country": "Country",
     "customer": "Customer",
     "season": "Season",
     "season_optional": "Optional",
     "submit": "Create",
-    "cargo_code_format": "Format: NNNNNNN/YY (e.g. 0201045/25)",
+    "shipment_code_format": "Format: NNNNNNN/YY (e.g. 0201045/25)",
     "toast_success": "Shipment created",
     "toast_success_draft": "Draft created — assign destination, then promote to Loading",
     "toast_success_loading": "Shipment created at Loading (skipped prep)",
@@ -615,7 +617,7 @@
     "skip_prep_on": "Skip",
     "skip_prep_off": "Draft",
     "draft_mode_alert": "Will be created in Draft. The team picks destination, firms, driver, and starts documents prep — then you promote it to Loading from the Detail page.",
-    "skip_prep_alert": "Will be created directly at Loading. The cargo code is auto-generated; the loading start time is set immediately. Use only for urgent reshipments and legacy imports."
+    "skip_prep_alert": "Will be created directly at Loading. The shipment code is auto-generated; the loading start time is set immediately. Use only for urgent reshipments and legacy imports."
   },
   "kanban": {
     "title": "Kanban Board",
@@ -663,6 +665,7 @@
     "total_usd": "Total (USD)",
     "weight_sold": "Weight Sold (kg)",
     "weight_rejected": "Rejected (kg)",
+    "weight_loaded_kg": "Loaded Weight (kg)",
     "transport_cost": "Transport Cost (USD)",
     "market_fee": "Market Fee (USD)",
     "other_expenses": "Other Expenses (USD)",
@@ -671,7 +674,48 @@
     "empty": "No sales report yet.",
     "toast_success": "Sales report saved",
     "toast_error": "Failed to save sales report",
-    "only_at_hasabat": "Available when shipment reaches Hasabat status."
+    "only_at_hasabat": "Available once the shipment has departed.",
+    "currency": "Currency",
+    "exchange_rate": "Exchange Rate (local/USD)",
+    "section_lines": "Sale Lines",
+    "section_expenses": "Expenses",
+    "add_line": "Add Line",
+    "add_expense": "Add Expense",
+    "col_product": "Product",
+    "col_quantity_kg": "Quantity (kg)",
+    "col_price_local": "Price (local)",
+    "col_amount_local": "Amount (local)",
+    "col_category": "Category",
+    "gross_sales_local": "Gross Sales (local)",
+    "total_expenses_local": "Total Expenses (local)",
+    "net_income_local": "Net Income (local)",
+    "gross_sales_usd": "Gross Sales (USD)",
+    "total_expenses_usd": "Total Expenses (USD)",
+    "net_income_usd": "Net Income (USD)",
+    "expense": {
+      "TOM_ROSHOD": "Tom Roshod",
+      "NAKLIYE": "Nakliye (freight)",
+      "BAZAR_ROSHOD": "Market Expenditure",
+      "INTERES": "Interest",
+      "UZBEK_FURA_AWANS": "Uzbek Truck Advance",
+      "DOZWOL": "Permit (Doswol)",
+      "ANALIZ": "Analysis",
+      "PROSTOY": "Demurrage (Prostoy)",
+      "PERESEPKA": "Transshipment Fee",
+      "ARAP": "Arap Payment",
+      "KASPIY_KOMIS": "Caspian Commission",
+      "UZBEK_FURA_SOLYARKA": "Uzbek Truck Fuel",
+      "NDS": "VAT (NDS)",
+      "SBOR": "Collection Fee",
+      "UZB_KAZ_POST": "Uzb-Kaz Duty",
+      "UZB_KAZ_NAKLIYE": "Uzb-Kaz Freight",
+      "UZBEK_TAM": "Uzbek Customs",
+      "MOI": "MOI Payment",
+      "DOSMOTR": "Inspection",
+      "PEREWOT": "Transfer",
+      "OTHER": "Other"
+    },
+    "other_label_placeholder": "Enter description..."
   },
   "overdue": {
     "title": "Overdue Reports",
@@ -682,7 +726,7 @@
     "threshold": "Threshold",
     "days": "{{count}} days",
     "days_unit": "days",
-    "cargo_code": "Export Code",
+    "shipment_code": "Shipment Code",
     "status": "Status",
     "country": "Country",
     "customer": "Customer",
@@ -692,7 +736,9 @@
     "yes": "Yes",
     "no": "No",
     "empty": "No overdue shipments",
-    "error_load": "Failed to load overdue data"
+    "error_load": "Failed to load overdue data",
+    "open_report": "Fill / edit report",
+    "drawer_title": "Sales Report"
   },
   "advances": {
     "batch_code_placeholder": "ADV-2026-XXX",
@@ -718,7 +764,7 @@
     "empty": "No advances found",
     "error_load": "Failed to load advances",
     "linked_shipments": "Linked Shipments",
-    "cargo_code": "Export Code",
+    "shipment_code": "Shipment Code",
     "allocated_amount": "Allocated Amount",
     "no_shipments": "No shipments linked",
     "notes": "Notes",
@@ -1082,7 +1128,7 @@
     "title": "Notifications",
     "mark_all_read": "Mark all read",
     "empty": "No notifications",
-    "action_required": "{{cargo_code}} — your fields need filling",
+    "action_required": "{{shipment_code}} — your fields need filling",
     "kind_mention": "You were mentioned",
     "kind_task_assigned": "Task assigned to you",
     "kind_task_done": "Your task was marked done"
@@ -1117,7 +1163,8 @@
     "color_hint": "Paints matching Sheet cells/tags",
     "all": "All",
     "load_error": "Failed to load data",
-    "select_season": "Select season"
+    "select_season": "Select season",
+    "select": "Select..."
   },
   "permissions_admin": {
     "subtitle": "Manage role permissions",
@@ -1325,7 +1372,7 @@
     "overdue_days": "{{days}}d overdue",
     "eta_label": "ETA {{date}}",
     "needs_truck": "needs truck info",
-    "cargo_code": "Export Code",
+    "shipment_code": "Shipment Code",
     "customer": "Customer",
     "country_city": "Country / City",
     "block": "Block",
@@ -1411,6 +1458,8 @@
     "has_peregruz_yes": "Yes",
     "transport_docs_berilmedi": "Not given",
     "multiselect_done": "Done",
+    "firm_no_quota_tag": "no quota",
+    "firm_no_quota_warning": "Heads up: {{firms}} has no remaining quota. The split was saved anyway.",
     "who": {
       "logist": "Logist",
       "malik": "Malik",
@@ -1435,8 +1484,8 @@
       "transport_docs_given": "Transport dept documents",
       "export_manager_note": "Gadam's note",
       "documents": "Documents (13:00)",
-      "export_code": "Shipment Code",
-      "shipment_code": "Export Code",
+      "export_code": "Export Code",
+      "shipment_code": "Shipment Code",
       "harvest_block": "Harvest Block",
       "export_firm": "Export Firm",
       "country": "Destination Country",
@@ -1526,11 +1575,11 @@
       "btn": "Supply column",
       "tooltip": "Create a new supply draft (blocks + product, no destination)"
     },
-    "add_cargo": {
-      "btn": "Add cargo",
-      "tooltip": "Create a new empty cargo column — joined with Gadam's column later",
-      "toast_saved": "Empty cargo column created: {{code}}",
-      "toast_error": "Failed to create cargo column"
+    "add_shipment": {
+      "btn": "Add shipment",
+      "tooltip": "Create a new empty shipment column — joined with Gadam's column later",
+      "toast_saved": "Empty shipment column created: {{code}}",
+      "toast_error": "Failed to create shipment column"
     },
     "new_destination": {
       "btn": "Destination column",
@@ -1555,8 +1604,8 @@
     },
     "supply_modal": {
       "title": "New Supply Draft",
-      "cargo_code_label": "Cargo Code",
-      "cargo_code_ph": "e.g. 2505201/26",
+      "shipment_code_label": "Shipment Code",
+      "shipment_code_ph": "e.g. 2505201/26",
       "variety_label": "Tomato Variety",
       "varieties_label": "Tomato Varieties",
       "varieties_ph": "Select one or more varieties",
@@ -1638,7 +1687,7 @@
     "composer_title": "Draft Shipment · Multi-block Composer",
     "composer_cancel": "Cancel",
     "composer_save": "✓ Save as Draft",
-    "composer_cargo_code": "Cargo Code",
+    "composer_shipment_code": "Shipment Code",
     "composer_target": "Target Weight",
     "composer_section_harvest": "Harvest",
     "composer_section_notes": "Notes (optional)",
@@ -1659,7 +1708,7 @@
     "composer_sort_notice_title": "Variety:",
     "composer_sort_notice_body": "No variety in draft. The weight master will record the variety per pallet at packaging.",
     "composer_error_no_rows": "Fill at least one block row",
-    "composer_error_no_code": "Enter a cargo code",
+    "composer_error_no_code": "Enter a shipment code",
     "composer_toast_saved": "Draft created: {{code}}",
     "composer_toast_error": "Failed to create draft",
     "composer_truck_estimate": "≈ {{count}} trucks",
@@ -1747,7 +1796,7 @@
   },
   "split": {
     "header_title": "Split Draft into Trucks",
-    "header_batch_code": "Cargo Code",
+    "header_batch_code": "Shipment Code",
     "header_shipment_code": "Shipment Code",
     "header_harvest_total": "Total Harvest",
     "header_remaining": "Remaining",
@@ -1776,9 +1825,9 @@
     "toast_error": "Split failed"
   },
   "official_code": {
-    "title": "Shipment Code",
+    "title": "Export Code",
     "info_banner": "Dual code system: 6-field Shipment Code (on pallets + documents) and the auto Export Code (platform tracker). The Shipment Code identifies the physical batch — stays the same across re-routings.",
-    "platform_id_label": "Export Code",
+    "platform_id_label": "Shipment Code",
     "field_day": "Day",
     "field_month": "Month",
     "field_seq": "Seq",
@@ -2282,7 +2331,26 @@
       "task_blocked_reason": "Reason",
       "unblock_button": "Unblock",
       "unblock_role_required": "Only the {{role}} or a supervisor can unblock this task.",
-      "supervisor_view": "You're viewing this as a supervisor — no task is assigned to you here."
+      "supervisor_view": "You're viewing this as a supervisor — no task is assigned to you here.",
+      "guide": {
+        "your_task": "Your task here: {{task}}",
+        "draft": "This is a draft — destination and customer aren't set yet. Fill in the fields below to ready it for promotion.",
+        "cancelled": "This shipment was cancelled.",
+        "completed": "Completed — the sales report is finalized.",
+        "active": "Current status: {{status}}. Use “Change Status” when it's ready to advance."
+      },
+      "stage": {
+        "destination": "Destination & Plan",
+        "documents": "Documents & Customs",
+        "loading": "Goods & Loading",
+        "transit": "Transport & Transit",
+        "sale": "Sale & Finance"
+      },
+      "stage_state": {
+        "done": "Completed",
+        "active": "Current stage",
+        "pending": "Upcoming"
+      }
     },
     "cancel_button": "Cancel shipment",
     "cancel_modal_title": "Cancel this shipment?",
@@ -2357,7 +2425,8 @@
     "docs_back_to_office": "Documents back to office",
     "confirm_destination": "Confirm destination city",
     "finalize_sale": "Finalize sale",
-    "submit_sales_report": "Submit sales report"
+    "submit_sales_report": "Submit sales report",
+    "fill_weekly_plan": "Fill the weekly plan"
   },
   "me": {
     "board": {
@@ -2420,7 +2489,7 @@
     "filter_gapy_no": "No",
     "filter_owner_role": "Owner role",
     "filter_owner_role_all": "All roles",
-    "filter_search": "Search cargo code"
+    "filter_search": "Search shipment code"
   },
   "audit_log": {
     "title": "Audit Log",
@@ -2439,6 +2508,23 @@
     "action_transition": "Transition",
     "action_create": "Create",
     "action_update": "Update",
+    "action_delete": "Delete",
+    "action_soft_delete": "Archive",
+    "action_restore": "Restore",
+    "action_variety_override": "Variety override",
+    "action_admin_override": "Admin override",
+    "action_manifest_close": "Manifest closed",
+    "action_plan_value_set": "Plan set",
+    "action_forecast_value_set": "Forecast set",
+    "action_actual_value_set": "Actual set",
+    "action_daily_board_set": "Daily board edit",
+    "action_blocks_field_set": "Block field edit",
+    "action_plan_submitted": "Plan submitted",
+    "action_plan_approved": "Plan approved",
+    "action_local_sell_edit": "Local sell edit",
+    "action_local_sell_submitted": "Local sell submitted",
+    "action_local_sell_approved": "Local sell approved",
+    "action_local_sell_rejected": "Local sell rejected",
     "filter_all_actions": "All actions",
     "filter_action": "Action",
     "filter_model": "Model name",
@@ -2538,7 +2624,10 @@
       "status_placeholder": "Filter by status",
       "export_firm_placeholder": "Exporter",
       "import_firm_placeholder": "Importer",
-      "date_range_placeholder": ["From date", "To date"]
+      "date_range_placeholder": [
+        "From date",
+        "To date"
+      ]
     },
     "empty": {
       "title": "No invoices found",
@@ -2651,5 +2740,69 @@
       "November",
       "December"
     ]
+  },
+  "customs_expense": {
+    "title": "Customs / Document Expenses",
+    "subtitle": "Cash ledger for customs clearance and document processing fees",
+    "tab_advances": "Advances",
+    "tab_expenses": "Customs Expenses",
+    "ledger_title": "Ledger Summary",
+    "ledger_advances": "Advances total (in)",
+    "ledger_expenses": "Expenses total (out)",
+    "ledger_balance": "Balance",
+    "ledger_by_category": "By Category",
+    "date_range": "Date Range",
+    "add": "Add Expense",
+    "edit": "Edit Expense",
+    "confirm_delete": "Delete this expense?",
+    "col_date": "Date",
+    "col_category": "Category",
+    "col_amount": "Amount",
+    "col_shipment": "Shipment",
+    "col_vehicle_plate": "Truck Plate",
+    "col_route": "Route",
+    "col_quantity": "Qty",
+    "col_notes": "Notes",
+    "col_label": "Label",
+    "field_date": "Date",
+    "field_category": "Category",
+    "field_amount": "Amount (TMT)",
+    "field_shipment": "Shipment (by code)",
+    "shipment_search_placeholder": "Search by shipment code…",
+    "field_shipment_code_raw": "Shipment Code (manual)",
+    "field_vehicle_plate": "Truck Plate",
+    "field_route_label": "Route Label",
+    "field_label_raw": "Extra Label",
+    "field_quantity": "Quantity",
+    "field_notes": "Notes",
+    "filter_category": "Filter by Category",
+    "search_placeholder": "Search...",
+    "empty": "No customs expenses found",
+    "error_load": "Failed to load customs expenses",
+    "create_success": "Expense created",
+    "update_success": "Expense updated",
+    "delete_success": "Expense deleted",
+    "error_save": "Failed to save",
+    "error_delete": "Failed to delete",
+    "validation_amount_positive": "Amount must be greater than 0",
+    "total_label": "Total",
+    "detail_section_title": "Customs / Document Expenses",
+    "detail_add_expense": "Add Expense",
+    "detail_no_expenses": "No expenses for this shipment",
+    "category": {
+      "GUMRUKLEME": "Customs clearance",
+      "KARANTIN": "Quarantine fee",
+      "CT1": "CT-1 certificate",
+      "FITO": "Phytosanitary certificate",
+      "ANALIZ": "Lab analysis",
+      "PASPORT_SDELKA": "Deal passport",
+      "PLATYOSKA": "Payment order registration",
+      "DOC_POST": "Document postage",
+      "YUZLENME_HAT": "Reference letter",
+      "GUMRUK_AMAL": "Customs operation fee",
+      "BORDER_RETURN": "Truck returned (border closed)",
+      "SERTNAMA": "Contract fee",
+      "OTHER": "Other"
+    }
   }
 }

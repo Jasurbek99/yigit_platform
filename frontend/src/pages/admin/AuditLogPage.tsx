@@ -21,11 +21,43 @@ const { Text } = Typography;
 
 const PAGE_SIZE = 50;
 
-const ACTION_COLOR: Record<AuditAction, string> = {
+// Maps every free-form audit action code (not just the 3 filterable ones) to a
+// Tag color, grouped by semantic family. Unknown codes fall back to 'default'.
+const ACTION_COLOR: Record<string, string> = {
+  // lifecycle
   transition: 'blue',
   create: 'green',
   update: 'orange',
+  delete: 'red',
+  soft_delete: 'volcano',
+  restore: 'cyan',
+  // overrides
+  variety_override: 'purple',
+  admin_override: 'purple',
+  manifest_close: 'gold',
+  // plan / forecast / board edits
+  plan_value_set: 'geekblue',
+  forecast_value_set: 'geekblue',
+  actual_value_set: 'geekblue',
+  daily_board_set: 'geekblue',
+  blocks_field_set: 'geekblue',
+  plan_submitted: 'geekblue',
+  plan_approved: 'geekblue',
+  // local sell workflow
+  local_sell_edit: 'magenta',
+  local_sell_submitted: 'magenta',
+  local_sell_approved: 'magenta',
+  local_sell_rejected: 'magenta',
 };
+
+/** Last-resort label for an action code with no i18n key: "plan_value_set" → "Plan value set". */
+function humanizeAction(action: string): string {
+  if (!action) return '—';
+  return action
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
 
 export default function AuditLogPage() {
   const { t } = useTranslation();
@@ -89,11 +121,14 @@ export default function AuditLogPage() {
     {
       title: t('audit_log.col_action'),
       dataIndex: 'action',
-      width: 110,
+      width: 160,
       search: false,
       render: (_, r) => (
-        <Tag color={ACTION_COLOR[r.action] ?? 'default'}>
-          {t(`audit_log.action_${r.action}`)}
+        <Tag
+          color={ACTION_COLOR[r.action] ?? 'default'}
+          style={{ marginInlineEnd: 0, whiteSpace: 'nowrap' }}
+        >
+          {t(`audit_log.action_${r.action}`, { defaultValue: humanizeAction(r.action) })}
         </Tag>
       ),
     },
