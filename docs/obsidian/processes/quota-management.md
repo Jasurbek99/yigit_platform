@@ -207,7 +207,7 @@ erDiagram
 - Returns full QuotaIssuanceSerializer representation
 
 **QuotaUsageRecordSerializer** (read/write):
-- Fields: id, usage_date, export_firm, export_firm_name, kg_used, product_type, status, notes, shipment, cargo_code, approved_by/name, approved_at, created_by/name, created_at
+- Fields: id, usage_date, export_firm, export_firm_name, kg_used, product_type, status, notes, shipment, shipment_code, approved_by/name, approved_at, created_by/name, created_at
 - Status, approved_by, approved_at are read-only (set via approve action)
 
 ### ViewSet & Endpoints
@@ -226,6 +226,7 @@ erDiagram
 | DELETE | `/api/v1/export/quota-usage/{id}/` | Delete (draft only) | IsAuthenticated |
 | POST | `/api/v1/export/quota-usage/approve/` | Bulk approve drafts | export_manager, director |
 | GET | `/api/v1/export/quota-dashboard/` | Dashboard analytics | `quota_issuance` view |
+| GET | `/api/v1/export/quota-firm-balances/` | Per-firm remaining quota (firm-split soft warning) | `quota_issuance` view |
 
 **Dashboard query params**: `season` (required), `product_type` (default='tomato'), `date_from`, `date_to`
 
@@ -233,6 +234,15 @@ erDiagram
 
 **Filters on issuances**: `?product_type=`, `?date_from=`, `?date_to=`
 **Filters on usage**: `?status=`, `?product_type=`, `?date_from=`, `?date_to=`
+
+### Firm-split "no quota" soft warning
+
+When an operator assigns export firms to a shipment via the **Sheet `firm_splits` cell**, the editor flags any chosen firm that has **no remaining quota** — but never blocks the save (quota is *tracked*, not hard-enforced).
+
+- **Endpoint**: `GET /api/v1/export/quota-firm-balances/?product_type=tomato` → `{ "<firm_id>": {issued_kg, used_kg, remaining_kg} }`. Service: `compute_firm_quota_balances()` in `services_quota.py`. `remaining_kg = issued − committed` over the **active season** range, where **committed = draft + approved** usage (NOT approved-only like the dashboard). This is deliberate: assigning firm splits auto-creates *draft* usage rows that stay draft until document_team approves, so at assignment time drafts are the live commitment — counting approved-only would under-warn until after the decision is made. Firms with no allocation are absent (treated as zero). 60 s cache (`quota_firm_balances:<product_type>`), invalidated on usage approval alongside the FIFO cache.
+- A firm is "no quota" when it is absent from the map **or** `remaining_kg <= 0` (covers both never-allocated and fully-used firms).
+- **UI** (`SheetCellEditor.tsx`): firms with no quota are tagged `⚠ no quota` in the multi-select dropdown; committing a selection that *adds* such a firm shows a non-blocking `toast.warning` (`sheet.firm_no_quota_warning`). The split still saves.
+- **Known limits (v1, deliberate)**: product type defaults to `tomato` (not on the sheet payload; pepper is a rare separate quota domain), and per-issuance **expiry** (`validity` month window) is *not* applied — this is a coarse "has any balance" signal, not the authoritative FIFO/expiry ledger. Only the Sheet firm-split cell is covered; backend create/`set_firm_splits` still does not block or warn.
 
 ## Frontend Implementation
 
@@ -309,7 +319,7 @@ Flattens nested allocations into individual rows.
 |---|--------|-------|-------|
 | 1 | Usage Date | 110px | |
 | 2 | Firm Name | 160px | Bold |
-| 3 | Cargo Code | 130px | Optional link |
+| 3 | Shipment Code | 130px | Optional link |
 | 4 | Kg Used | 130px | **Inline-editable** InputNumber if draft + canEdit |
 | 5 | Product Type | 100px | tomato/pepper |
 | 6 | Status | 110px | draft (pencil icon) / approved (checkmark icon) |
@@ -343,7 +353,7 @@ Flattens nested allocations into individual rows.
 
 **`IQuotaIssuance`**: id, issue_date, product_type, validity, matched_week, matched_year, notes, total_kg, allocations[] (each: id, export_firm, export_firm_name, kg_quota, used_kg)
 
-**`IQuotaUsageRecord`**: id, usage_date, export_firm, export_firm_name, kg_used, product_type, status, cargo_code, approved_by_name, created_by_name
+**`IQuotaUsageRecord`**: id, usage_date, export_firm, export_firm_name, kg_used, product_type, status, shipment_code, approved_by_name, created_by_name
 
 ## Roles & Permissions
 

@@ -59,7 +59,7 @@ export function SwapActionBar({ shipments }: ISwapActionBarProps) {
             >
               <span className="sheet-join-bar__chip-label">A</span>
               <span style={{ fontFamily: FONT.mono, fontWeight: 600, fontSize: 11 }}>
-                {shipmentA.cargo_code}
+                {shipmentA.shipment_code}
               </span>
               {(shipmentA.customer_name || shipmentA.country_name) && (
                 <span style={{ fontSize: 11, color: '#475467' }}>
@@ -79,7 +79,7 @@ export function SwapActionBar({ shipments }: ISwapActionBarProps) {
             >
               <span className="sheet-join-bar__chip-label">B</span>
               <span style={{ fontFamily: FONT.mono, fontWeight: 600, fontSize: 11 }}>
-                {shipmentB.cargo_code}
+                {shipmentB.shipment_code}
               </span>
               {(shipmentB.customer_name || shipmentB.country_name) && (
                 <span style={{ fontSize: 11, color: '#475467' }}>

@@ -81,11 +81,11 @@ Never: recreate these in export/ or any other app.
 | `TextField()` for Turkmen/Russian names | Add `db_collation='Cyrillic_General_CI_AS'` |
 | `CharField()` without max_length | Always set `max_length` explicitly |
 
-**Collation rule**: `db_collation='Cyrillic_General_CI_AS'` ONLY on fields storing Turkmen/Russian text (names, notes, addresses). NOT on cargo_code, phone numbers, or other Latin-only fields.
+**Collation rule**: `db_collation='Cyrillic_General_CI_AS'` ONLY on fields storing Turkmen/Russian text (names, notes, addresses). NOT on shipment_code, phone numbers, or other Latin-only fields.
 
 ## Domain rules the agent must know
 
-**Cargo code** = universal key, format `DDMM###/YY` (e.g., `0201045/25` = Feb 1, shipment 45, year 2025). Validate on save. Latin chars only.
+**Shipment code** = universal key, format `DDMM###/YY` (e.g., `0201045/25` = Feb 1, shipment 45, year 2025). Validate on save. Latin chars only.
 
 **Weight fields convention:**
 - `weight_net` = arassa agramy (r) = pure tomato weight
@@ -203,7 +203,7 @@ export.finansist_advance_shipments → junction: which shipments each advance co
 
 ```sql
 export.shipments:
-  code                 NVARCHAR(20) UNIQUE    -- cargo code DDMM###/YY
+  code                 NVARCHAR(20) UNIQUE    -- shipment code DDMM###/YY
   date                 DATE                    -- shipment date
   season_id            → core.seasons
   country_id           → core.countries
@@ -298,7 +298,7 @@ There is an existing Django app with these tables. Reference via ForeignKey, nev
 - `trips` — trip records linked to shipments
 - `driver_expenses`, `driver_earnings`, `exchange_rates`
 
-Link shipment to trip: `Shipment.trip = ForeignKey('trips.Trip')` or link via `cargo_code`.
+Link shipment to trip: `Shipment.trip = ForeignKey('trips.Trip')` or link via `shipment_code`.
 
 ## API conventions
 

@@ -80,4 +80,4 @@ class Pallet(models.Model):
         ordering = ['shipment', 'pallet_number']
 
     def __str__(self) -> str:
-        return f'{self.shipment.cargo_code}/P-{self.pallet_number}'
+        return f'{self.shipment.shipment_code}/P-{self.pallet_number}'

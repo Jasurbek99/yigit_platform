@@ -29,7 +29,7 @@ def _seed_audit_rows(shipment, field_key: str, user, count: int = 3) -> None:
             action='update',
             model_name='Shipment',
             object_id=shipment.pk,
-            object_repr=shipment.cargo_code or str(shipment.pk),
+            object_repr=shipment.shipment_code or str(shipment.pk),
             field_name=field_key,
             old_value=str(i * 100),
             new_value=str((i + 1) * 100),
@@ -55,7 +55,7 @@ class FieldHistoryTests(TestCase):
             step_order=1, phase='LOADING',
         )
         cls.shipment = Shipment.objects.create(
-            cargo_code='FH-001', date='2026-02-01', season=cls.season,
+            shipment_code='FH-001', date='2026-02-01', season=cls.season,
             status=cls.status, weight_net='18500.00',
         )
         # warehouse_chief can edit weight_net (per seed_permissions)

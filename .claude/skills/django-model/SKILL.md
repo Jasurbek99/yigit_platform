@@ -16,7 +16,7 @@ class Shipment(models.Model):
     """Export shipment record. Maps to export.shipments in DDL v5.1."""
     
     # === Identifiers ===
-    code = models.CharField(max_length=20, unique=True)  # cargo code DDMM###/YY, Latin only — no collation
+    code = models.CharField(max_length=20, unique=True)  # shipment code DDMM###/YY, Latin only — no collation
     date = models.DateField()
     season = models.ForeignKey('core.Season', on_delete=models.PROTECT)
     

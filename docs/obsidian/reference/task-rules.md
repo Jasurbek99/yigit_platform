@@ -29,7 +29,7 @@ The assigned role acts on its own tasks. **Supervisors** (`export_manager`, `bos
 | | Trigger customs exit | document_team | auto: `customs_exit_at` |
 | **Customs exit (TM)** `gumruk_chykysh` | Documents back to office | document_team | **Mark Done** |
 | | Trigger loading start | warehouse_chief | auto: `loading_started_at` |
-| **Loading** `yuklenme` | Fill loading data | warehouse_chief | auto: `cargo_code` + `block_sources` + `variety` + `weight_net` |
+| **Loading** `yuklenme` | Fill loading data | warehouse_chief | auto: `shipment_code` + `block_sources` + `variety` + `weight_net` |
 | | Trigger departure | document_team | auto: `departed_at` |
 | **Departed** `yola_chykdy` | Trigger border crossing | transport | auto: `border_crossed_at` |
 | **Border crossed** `serhet_gechdi` | Trigger dest. entry | sales_rep | auto: `dest_entry_at` |

@@ -131,7 +131,7 @@ def diff_audit_rows(instance, before: dict[str, str], after: dict[str, str], use
                 action='update',
                 model_name='Shipment',
                 object_id=instance.id,
-                object_repr=str(instance.cargo_code or instance.pk),
+                object_repr=str(instance.shipment_code or instance.pk),
                 field_name=field_name,
                 old_value=old_val,
                 new_value=new_val,

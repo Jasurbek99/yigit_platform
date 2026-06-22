@@ -40,10 +40,10 @@ def _make_status(code: str, step_order: int = 1) -> ShipmentStatusType:
     return status
 
 
-def _make_shipment(cargo_code: str, status_code: str = 'yuklenme') -> Shipment:
+def _make_shipment(shipment_code: str, status_code: str = 'yuklenme') -> Shipment:
     status = _make_status(status_code)
     ship, _ = Shipment.objects.get_or_create(
-        cargo_code=cargo_code,
+        shipment_code=shipment_code,
         defaults={
             'date': '2026-01-15',
             'season': _make_season(),

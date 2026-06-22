@@ -7,7 +7,7 @@ Covers:
   - Already-DONE / CANCELLED tasks are not candidates.
   - Dry-run mode reports diffs without writing.
   - Idempotency: second call on an already-reconciled dataset is a no-op.
-  - --shipment filter on the management command accepts a cargo_code.
+  - --shipment filter on the management command accepts a shipment_code.
   - --shipment with unknown code raises CommandError.
 """
 from io import StringIO
@@ -51,11 +51,11 @@ def _make_status(code: str = 'draft', step_order: int = 0) -> ShipmentStatusType
     return status
 
 
-def _make_shipment(cargo_code: str, status_code: str = 'draft') -> Shipment:
+def _make_shipment(shipment_code: str, status_code: str = 'draft') -> Shipment:
     """Create a minimal shipment without triggering auto-advance (no rules seeded)."""
     status = _make_status(status_code)
     ship, _ = Shipment.objects.get_or_create(
-        cargo_code=cargo_code,
+        shipment_code=shipment_code,
         defaults={
             'date': '2026-01-15',
             'season': _make_season(),
@@ -387,7 +387,7 @@ class ReconcileCommandTests(TestCase):
         self.assertEqual(self.task.target_fields, 'driver_name')  # synced
         self.assertEqual(task_b.target_fields, 'driver_id')       # untouched
 
-    def test_command_unknown_cargo_code_raises(self) -> None:
+    def test_command_unknown_shipment_code_raises(self) -> None:
         with self.assertRaises(CommandError):
             call_command('reconcile_tasks', '--shipment', 'DOESNOTEXIST/99', stdout=StringIO())
 

@@ -105,7 +105,7 @@ flowchart TB
 - **AD-1 timestamps** (`departed_at`, `arrived_at`, etc.) on Shipment are written **only** by `transition_to()`
 - **MSSQL forbidden**: `JSONField`, `ArrayField`, `.distinct('field')`, `bulk_create` without `batch_size=500`
 - **Auth**: httpOnly cookie JWT — never localStorage
-- **API field names ≠ DB columns** — serializers map `code → cargo_code`, `weight_net_kg → weight_net`
+- **API field names ≠ DB columns** — serializers map `code → shipment_code`, `weight_net_kg → weight_net`
 
 Full list: [`CLAUDE.md`](../CLAUDE.md) → "Critical rules" section.
 
@@ -135,7 +135,7 @@ Full list: [`CLAUDE.md`](../CLAUDE.md) → "Critical rules" section.
   - `core/services_workflow.py` — workflow state transitions
 - **Serializers** — DB→API field renaming, nested object assembly
 - **Views/ViewSets** — thin; delegate to model methods or `services/`. **Never put logic here.**
-- **`validators.py`** — shipment cargo-code, weight, and freshness validation (new module, currently uncommitted)
+- **`validators.py`** — shipment code, weight, and freshness validation (new module, currently uncommitted)
 
 ### 3.3 API surface
 

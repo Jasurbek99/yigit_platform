@@ -76,7 +76,7 @@ current model.
 **Symptom:** `IntegrityError: Cannot insert the value NULL into column 'status_id', table 'test_YIGIT_PLATFROM.dbo.export_shipments'`.
 
 **Root cause:** `tests_comments.py:_make_shipment()` does
-`Shipment.objects.create(cargo_code=…, date=…, season=…, created_by=…)`
+`Shipment.objects.create(shipment_code=…, date=…, season=…, created_by=…)`
 without passing `status`. The `Shipment.status` FK has no `default=` and no
 `save()` override that auto-resolves to the seeded `'draft'` row. Pre-refactor
 this was masked when the `0017_shipment_draft_status_seed` migration ran
@@ -94,7 +94,7 @@ def _make_shipment(author):
         code='draft', defaults={'step_order': 0, 'phase': 'DRAFT', ...}
     )
     return Shipment.objects.create(
-        cargo_code='0101001/25', date='2025-01-01',
+        shipment_code='0101001/25', date='2025-01-01',
         season=season, status=status, created_by=author,
     )
 ```

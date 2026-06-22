@@ -59,12 +59,12 @@ export function useCreateDraft() {
         // No-op in mock mode — optimistically return a stub.
         const stub: IShipmentDraft = {
           id: Date.now(),
-          cargo_code: payload.cargo_code,
+          shipment_code: payload.shipment_code,
           date: payload.date,
           created_at: new Date().toISOString(),
           created_by_name: 'Mock User',
           weight_net: payload.block_sources.reduce((s, r) => s + r.weight_kg, 0),
-          official_export_code: payload.official_export_code ?? null,
+          export_code: payload.export_code ?? null,
           previous_platform_id: null,
           harvest_age_days: 0,
           freshness: 'today',
@@ -207,12 +207,12 @@ export function useCreateSupplyDraft() {
       if (USE_MOCK) {
         const stub: IShipmentDraft = {
           id: Date.now(),
-          cargo_code: payload.cargo_code,
+          shipment_code: payload.shipment_code,
           date: payload.date,
           created_at: new Date().toISOString(),
           created_by_name: 'Soltanmyrat (mock)',
           weight_net: payload.block_sources.reduce((s, r) => s + r.weight_kg, 0),
-          official_export_code: null,
+          export_code: null,
           previous_platform_id: null,
           harvest_age_days: 0,
           freshness: 'today',
@@ -248,7 +248,7 @@ export function useCreateSupplyDraft() {
 
 /**
  * One-click create of an EMPTY draft shipment column (no blocks, no
- * destination). The backend auto-generates the cargo_code and defaults the
+ * destination). The backend auto-generates the shipment_code and defaults the
  * date to today. Used by Soltanmyrat's "Ýük goş" button on the Sheet: the
  * column is created green (supply-side, by creator role) and its values are
  * typed into the sheet cells afterward, then joined with Gadam's destination
@@ -262,12 +262,12 @@ export function useCreateEmptyColumn() {
       if (USE_MOCK) {
         const stub: IShipmentDraft = {
           id: Date.now(),
-          cargo_code: dayjs().format('DDMMHHmm') + '/' + dayjs().format('YY'),
+          shipment_code: dayjs().format('DDMMHHmm') + '/' + dayjs().format('YY'),
           date: dayjs().format('YYYY-MM-DD'),
           created_at: new Date().toISOString(),
           created_by_name: 'Soltanmyrat (mock)',
           weight_net: 0,
-          official_export_code: null,
+          export_code: null,
           previous_platform_id: null,
           harvest_age_days: 0,
           freshness: 'today',
@@ -304,12 +304,12 @@ export function useCreateDestinationDraft() {
       if (USE_MOCK) {
         const stub: IShipmentDraft = {
           id: Date.now(),
-          cargo_code: payload.cargo_code,
+          shipment_code: payload.shipment_code,
           date: payload.date,
           created_at: new Date().toISOString(),
           created_by_name: 'Gadam (mock)',
           weight_net: 0,
-          official_export_code: null,
+          export_code: null,
           previous_platform_id: null,
           harvest_age_days: 0,
           freshness: 'today',

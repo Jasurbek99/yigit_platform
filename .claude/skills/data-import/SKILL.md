@@ -99,7 +99,7 @@ def parse_decimal(value):
     except InvalidOperation:
         return None
 
-def normalize_cargo_code(code: str) -> str:
+def normalize_shipment_code(code: str) -> str:
     """Replace Cyrillic С with Latin C in month abbreviation."""
     return code.replace('\u0421', 'C').strip()
 ```

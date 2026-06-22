@@ -216,7 +216,7 @@ class InvoiceListSerializer(serializers.ModelSerializer):
         ]
 
     def get_shipment_code(self, obj: Invoice) -> str | None:
-        """Return the cargo_code of the linked shipment, or None."""
+        """Return the shipment_code of the linked shipment, or None."""
         if obj.shipment_id is None:
             return None
         shipment = obj.shipment

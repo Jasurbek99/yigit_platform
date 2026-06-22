@@ -6,7 +6,7 @@ from django.core.exceptions import ValidationError
 _VALID_MONTHS = {'YA', 'FB', 'MR', 'AP', 'MY', 'IY', 'IL', 'AG', 'SP', 'OC', 'NO', 'DC'}
 
 
-def validate_official_export_code(value: str) -> None:
+def validate_export_code(value: str) -> None:
     """Validate the 6-field official export code format.
 
     Format: DD|MM|NNN|BLK|YY|VV, e.g. ``22|AP|202|A4|26|02``.

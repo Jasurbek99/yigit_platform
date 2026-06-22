@@ -31,16 +31,16 @@ Login at `http://localhost:5173/login`
 - `GET /api/v1/auth/me/` returns role + `editable_fields[]`
 
 ### 2. Shipment List — `/export/shipments`
-- Paginated table (50/page) with cargo_code, date, status badge, country, customer, net weight, departed/arrived timestamps
+- Paginated table (50/page) with shipment_code, date, status badge, country, customer, net weight, departed/arrived timestamps
 - **All / My Work toggle** — "My Work" filters to shipments in your role's active phase (server-side)
-- **Search** by cargo code (light filter bar)
+- **Search** by shipment code (light filter bar)
 - **Click any row** → navigates to ShipmentDetail
 - Columns auto-hide on smaller screens (date, weight hidden on mobile)
 
 > With `VITE_USE_MOCK=true` in `frontend/.env.local`: shows 5 hardcoded mock shipments without a running backend.
 
 ### 3. Shipment Detail — `/shipments/:id`
-- Header: cargo code + status badge + back button
+- Header: shipment code + status badge + back button
 - **Overview tab**: all key fields in a Descriptions grid; export firm splits table; greenhouse block sources table
 - **Logistics tab**: vehicle condition, route note, all 8 AD-1 timestamps (loading → sale ended)
 - **Comments tab**: list of user comments with role badge and timestamp
@@ -77,7 +77,7 @@ All 13 statuses mapped to Ant Design tag colours:
 
 ### 7. Kanban Board — `/export/kanban`
 - 5 columns: Loading / Customs / Transit / Border / Sales
-- Each card: cargo code, customer, StatusTag, weight, days since last update
+- Each card: shipment code, customer, StatusTag, weight, days since last update
 - Red left border + ⚠ Overdue tag if stuck longer than phase threshold
 - Global alert banner if any overdue shipments exist
 - Click card → ShipmentDetail

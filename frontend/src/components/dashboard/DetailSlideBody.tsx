@@ -109,7 +109,7 @@ export function DetailSlideBody({ detail, activeColor }: IDetailSlideBodyProps) 
       {/* Overview */}
       <DetailSection titleKey="dashboard.section_overview">
         <div className="detail-grid">
-          <DetailField labelKey="dashboard.cargo_code" value={detail.cargo_code} mono />
+          <DetailField labelKey="dashboard.shipment_code" value={detail.shipment_code} mono />
           <DetailField labelKey="dashboard.customer" value={detail.customer_name} />
           <DetailField labelKey="dashboard.country_city" value={detail.country_name} />
           <DetailField labelKey="dashboard.block" value={blockNames} />

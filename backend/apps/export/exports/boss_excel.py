@@ -274,7 +274,7 @@ def _write_audit(wb: Workbook, from_date: date, to_date: date) -> None:
         ws.cell(row=row, column=1, value=log.changed_at.strftime('%Y-%m-%d %H:%M'))
         user = log.changed_by
         ws.cell(row=row, column=2, value=(user.get_full_name() or user.username) if user else '')
-        ws.cell(row=row, column=3, value=log.shipment.cargo_code if log.shipment_id else '')
+        ws.cell(row=row, column=3, value=log.shipment.shipment_code if log.shipment_id else '')
         ws.cell(row=row, column=4, value=log.status.name_tk if log.status_id else '')
         ws.cell(row=row, column=5, value=log.comment or '')
         row += 1

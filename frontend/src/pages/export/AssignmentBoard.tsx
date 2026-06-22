@@ -58,7 +58,7 @@ export default function AssignmentBoard() {
         onSuccess: (result) => {
           toast.success(
             t('assign.toast_confirmed', {
-              code: selectedDraft.cargo_code,
+              code: selectedDraft.shipment_code,
               country: selectedDemand.country,
             }),
           );

@@ -5,7 +5,7 @@ Code quality rules. For architecture (state management, file organization, auth)
 ## Naming
 - **Components**: PascalCase — `ShipmentList`, `QuotaDashboard`, `StatusTag`
 - **Hooks**: camelCase with `use` prefix — `useShipments`, `useUpdateShipment`
-- **Utilities**: camelCase, verb-first — `formatWeight()`, `parseCargoCode()`
+- **Utilities**: camelCase, verb-first — `formatWeight()`, `parseShipmentCode()`
 - **Constants**: SCREAMING_SNAKE — `MAX_TRUCK_WEIGHT_KG`, `STATUS_COLORS`
 - **Interfaces**: `I` prefix — `IShipment`, `IExportFirm`, `IApiResponse<T>`
 - **Event handlers**: `handle` prefix — `handleSubmit`, `handleStatusChange`

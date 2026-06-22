@@ -120,8 +120,8 @@ class ShipmentViewSet(ModelViewSet):
 
     filterset_fields = ['status', 'country', 'season', 'is_gapy_satys', 'customer']
     search_fields = [
-        'cargo_code',
-        'official_export_code',
+        'shipment_code',
+        'export_code',
         'driver_name',
         'driver_phone',
         'truck_plate',
@@ -179,7 +179,14 @@ class ShipmentViewSet(ModelViewSet):
                     '-changed_at'
                 ),
             )
-            qs = qs.prefetch_related(task_prefetch, log_prefetch)
+            # customs_expenses are only needed on the detail page; prefetch to
+            # avoid N+1 when CustomsExpenseSerializer iterates the related set.
+            qs = qs.prefetch_related(
+                task_prefetch,
+                log_prefetch,
+                'customs_expenses__created_by',
+                'customs_expenses__shipment',
+            )
 
         # ── Soft-delete filter ───────────────────────────────────────────────
         # Soft-deleted shipments (deleted_at IS NOT NULL) are hidden from EVERY
@@ -584,7 +591,7 @@ class ShipmentViewSet(ModelViewSet):
         # Bypass operational/archive filters — admin tool deletes by ID
         # regardless of which list the shipment lives in.
         targets = list(
-            Shipment.objects.filter(id__in=ids).values('id', 'cargo_code')
+            Shipment.objects.filter(id__in=ids).values('id', 'shipment_code')
         )
         if not targets:
             return Response(
@@ -617,7 +624,7 @@ class ShipmentViewSet(ModelViewSet):
                     action='delete',
                     model_name='Shipment',
                     object_id=row['id'],
-                    object_repr=row['cargo_code'] or '',
+                    object_repr=row['shipment_code'] or '',
                     detail=(
                         f"HARD DELETE by {request.user.username} "
                         f"(quota released: {approved_count} approved, "
@@ -675,7 +682,7 @@ class ShipmentViewSet(ModelViewSet):
                 action='soft_delete',
                 model_name='Shipment',
                 object_id=shipment.id,
-                object_repr=shipment.cargo_code or '',
+                object_repr=shipment.shipment_code or '',
                 detail=f"SOFT DELETE by {request.user.username}",
             )
             # Release this shipment's quota back to the firm's balance.
@@ -685,8 +692,8 @@ class ShipmentViewSet(ModelViewSet):
             from apps.export.services.quota_sync import invalidate_quota_caches
             invalidate_quota_caches()
             logger.info(
-                'Soft-deleted shipment id=%s cargo_code=%s by user=%s',
-                shipment.id, shipment.cargo_code, request.user.username,
+                'Soft-deleted shipment id=%s shipment_code=%s by user=%s',
+                shipment.id, shipment.shipment_code, request.user.username,
             )
 
         serializer = ShipmentDetailSerializer(shipment, context={'request': request})
@@ -712,7 +719,7 @@ class ShipmentViewSet(ModelViewSet):
                 action='restore',
                 model_name='Shipment',
                 object_id=shipment.id,
-                object_repr=shipment.cargo_code or '',
+                object_repr=shipment.shipment_code or '',
                 detail=f"RESTORE by {request.user.username}",
             )
             # Re-consume quota — the rows were preserved during soft-delete,
@@ -721,8 +728,8 @@ class ShipmentViewSet(ModelViewSet):
             from apps.export.services.quota_sync import invalidate_quota_caches
             invalidate_quota_caches()
             logger.info(
-                'Restored shipment id=%s cargo_code=%s by user=%s',
-                shipment.id, shipment.cargo_code, request.user.username,
+                'Restored shipment id=%s shipment_code=%s by user=%s',
+                shipment.id, shipment.shipment_code, request.user.username,
             )
 
         serializer = ShipmentDetailSerializer(shipment, context={'request': request})
@@ -1503,17 +1510,17 @@ class ShipmentViewSet(ModelViewSet):
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
-        # Stream F-followup: cargo_code and date are now optional on create.
-        # cargo_code is auto-generated server-side when missing; date defaults
-        # to today. Soltanmyrat's physical pallet code (official_export_code)
+        # Stream F-followup: shipment_code and date are now optional on create.
+        # shipment_code is auto-generated server-side when missing; date defaults
+        # to today. Soltanmyrat's physical pallet code (export_code)
         # is filled in later via the Sheet/Detail edit paths.
-        from apps.export.services.shipment import generate_cargo_code
+        from apps.export.services.shipment import generate_shipment_code
         from django.utils import timezone as _tz
 
-        cargo_code = data.get('cargo_code') or generate_cargo_code()
+        shipment_code = data.get('shipment_code') or generate_shipment_code()
         ship_date = data.get('date') or _tz.now().date()
         # Mutate the validated data so downstream paths see the resolved values.
-        data['cargo_code'] = cargo_code
+        data['shipment_code'] = shipment_code
         data['date'] = ship_date
 
         if is_draft:
@@ -1524,7 +1531,7 @@ class ShipmentViewSet(ModelViewSet):
         else:
             try:
                 shipment = create_shipment(
-                    cargo_code=cargo_code,
+                    shipment_code=shipment_code,
                     date=ship_date,
                     user=request.user,
                     country=data.get('country'),
@@ -1615,13 +1622,13 @@ class ShipmentViewSet(ModelViewSet):
                 )
 
             shipment = Shipment.objects.create(
-                cargo_code=data['cargo_code'],
+                shipment_code=data['shipment_code'],
                 date=data['date'],
                 country=data.get('country'),
                 customer=data.get('customer'),
                 import_firm=data.get('import_firm'),
                 variety=data.get('variety'),
-                official_export_code=data.get('official_export_code') or None,
+                export_code=data.get('export_code') or None,
                 season=season,
                 status=draft_status,
                 created_by=user,
@@ -1678,7 +1685,7 @@ class ShipmentViewSet(ModelViewSet):
 
         logger.info(
             'Draft shipment %s created by %s with %d block source(s), %d firm split(s), %d quota draft(s)',
-            shipment.cargo_code,
+            shipment.shipment_code,
             user.username,
             len(block_source_rows),
             len(firm_split_rows),
@@ -1770,7 +1777,7 @@ class ShipmentViewSet(ModelViewSet):
         After join:
         - Source block_sources are re-pointed to target.
         - Source firm_splits are moved to target if target has none.
-        - variety and official_export_code are copied from source if target has none.
+        - variety and export_code are copied from source if target has none.
         - target.weight_net is recomputed from all its block_sources.
         - A ShipmentStatusLog audit row is written on target (status unchanged).
         - The source creator is notified via an action_required Notification.
@@ -1923,9 +1930,9 @@ class ShipmentViewSet(ModelViewSet):
             if not target.varieties_dominant.exists() and source.varieties_dominant.exists():
                 target.varieties_dominant.set(source.varieties_dominant.all())
 
-            code_changed = (not target.official_export_code and source.official_export_code)
+            code_changed = (not target.export_code and source.export_code)
             if code_changed:
-                update_fields['official_export_code'] = source.official_export_code
+                update_fields['export_code'] = source.export_code
 
             # Recompute weight_net from all block_sources now on target.
             agg = target.block_sources.aggregate(total=Sum('weight_kg'))
@@ -1946,7 +1953,7 @@ class ShipmentViewSet(ModelViewSet):
                 status=target.status,
                 changed_by=user,
                 comment=(
-                    f'Joined supply from {source.cargo_code} '
+                    f'Joined supply from {source.shipment_code} '
                     f'(created by {source_creator_label}; '
                     f'discarded {n_tasks} task(s) [{n_open_tasks} open], '
                     f'{n_comments} comment(s))'
@@ -1959,8 +1966,8 @@ class ShipmentViewSet(ModelViewSet):
                     user_id=source.created_by_id,
                     kind='action_required',
                     message=(
-                        f'Your supply draft {source.cargo_code} was merged into '
-                        f'{target.cargo_code} by {user.username}.'
+                        f'Your supply draft {source.shipment_code} was merged into '
+                        f'{target.shipment_code} by {user.username}.'
                     ),
                     link=f'/export/shipments/sheet?shipment={target.pk}',
                 )
@@ -1971,8 +1978,8 @@ class ShipmentViewSet(ModelViewSet):
 
         logger.info(
             'join: source=%s merged into target=%s by %s',
-            source.cargo_code,
-            target.cargo_code,
+            source.shipment_code,
+            target.shipment_code,
             user.username,
         )
         return target
@@ -2135,11 +2142,11 @@ class ShipmentViewSet(ModelViewSet):
             # --- Re-validate under lock (guard against concurrent soft-delete) ---
             if shipment_a.deleted_at is not None:
                 raise ValueError(
-                    f'Shipment {shipment_a.cargo_code} has been deleted'
+                    f'Shipment {shipment_a.shipment_code} has been deleted'
                 )
             if shipment_b.deleted_at is not None:
                 raise ValueError(
-                    f'Shipment {shipment_b.cargo_code} has been deleted'
+                    f'Shipment {shipment_b.shipment_code} has been deleted'
                 )
 
             # --- Determine which fields actually differ ---
@@ -2191,7 +2198,7 @@ class ShipmentViewSet(ModelViewSet):
                 status=shipment_a.status,
                 changed_by=user,
                 comment=(
-                    f'Swapped fields with shipment {shipment_b.cargo_code}: '
+                    f'Swapped fields with shipment {shipment_b.shipment_code}: '
                     f'{swapped_label}'
                 ),
             )
@@ -2200,7 +2207,7 @@ class ShipmentViewSet(ModelViewSet):
                 status=shipment_b.status,
                 changed_by=user,
                 comment=(
-                    f'Swapped fields with shipment {shipment_a.cargo_code}: '
+                    f'Swapped fields with shipment {shipment_a.shipment_code}: '
                     f'{swapped_label}'
                 ),
             )
@@ -2216,16 +2223,16 @@ class ShipmentViewSet(ModelViewSet):
                     user_id=creator_id,
                     kind='action_required',
                     message=(
-                        f'Fields were swapped between {shipment_a.cargo_code} and '
-                        f'{shipment_b.cargo_code} by {user.username}: {swapped_label}.'
+                        f'Fields were swapped between {shipment_a.shipment_code} and '
+                        f'{shipment_b.shipment_code} by {user.username}: {swapped_label}.'
                     ),
                     link=f'/export/shipments/sheet?shipment={shipment.pk}',
                 )
 
         logger.info(
             'swap: %s ↔ %s fields=%s by %s',
-            shipment_a.cargo_code,
-            shipment_b.cargo_code,
+            shipment_a.shipment_code,
+            shipment_b.shipment_code,
             swapped_label,
             user.username,
         )
@@ -2265,7 +2272,7 @@ class ShipmentViewSet(ModelViewSet):
         quality_serializer.save()
         logger.info(
             'QualityDocument for %s updated by %s',
-            shipment.cargo_code,
+            shipment.shipment_code,
             request.user.username,
         )
         detail_serializer = ShipmentDetailSerializer(shipment, context={'request': request})
@@ -2366,7 +2373,7 @@ class ShipmentViewSet(ModelViewSet):
             action='update',
             model_name='Shipment',
             object_id=shipment.id,
-            object_repr=shipment.cargo_code,
+            object_repr=shipment.shipment_code,
             field_name=field_key,
             old_value='',  # we don't snapshot the prior value for custom fields here
             new_value=value[:500],
@@ -2388,15 +2395,22 @@ class ShipmentViewSet(ModelViewSet):
         Returns full shipment detail on success.
         """
         allowed_roles = PRIVILEGED_ROLES | {'sales_rep'}
-        if getattr(request.user, 'role', None) not in allowed_roles:
+        is_allowed = (
+            request.user.is_superuser
+            or getattr(request.user, 'role', None) in allowed_roles
+        )
+        if not is_allowed:
             return Response({'error': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
 
         shipment = self.get_object()
 
-        # State machine v2: satyldy is step 11, tamamlandy is step 12.
-        if shipment.status is None or shipment.status.step_order < 11:
+        # The sales report becomes fillable once the truck has departed
+        # (step 4, yola_chykdy) — system status often lags the real sale, so
+        # gating on "sold" (step 11) would block reports for trucks that have
+        # actually sold. Drafts (step 0) and pre-departure steps stay blocked.
+        if shipment.status is None or shipment.status.step_order < 4:
             return Response(
-                {'error': 'Sales report can only be submitted when shipment is at satyldy status or later.'},
+                {'error': 'Sales report can only be submitted once the shipment has departed.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -2410,7 +2424,7 @@ class ShipmentViewSet(ModelViewSet):
 
         logger.info(
             'SalesReport for %s saved by %s',
-            shipment.cargo_code,
+            shipment.shipment_code,
             request.user.username,
         )
 
@@ -2490,7 +2504,7 @@ class ShipmentViewSet(ModelViewSet):
 
         logger.info(
             'Block sources for %s updated by %s (%d blocks)',
-            shipment.cargo_code, request.user.username, n,
+            shipment.shipment_code, request.user.username, n,
         )
         return Response({'status': 'ok', 'count': n})
 
@@ -2561,7 +2575,7 @@ class ShipmentViewSet(ModelViewSet):
 
         logger.info(
             'Firm splits for %s updated by %s (%d firms, %d usage records)',
-            shipment.cargo_code, request.user.username, len(firms_data), usage_count,
+            shipment.shipment_code, request.user.username, len(firms_data), usage_count,
         )
         return Response({'status': 'ok', 'count': len(firms_data)})
 
@@ -2617,7 +2631,7 @@ class ShipmentViewSet(ModelViewSet):
 
         logger.info(
             'Pallets for %s upserted by %s (%d pallets)',
-            shipment.cargo_code, request.user.username, len(pallet_rows),
+            shipment.shipment_code, request.user.username, len(pallet_rows),
         )
         qs = shipment.pallets.select_related('crate_type', 'variety', 'sub_block', 'created_by')
         serializer = PalletSerializer(qs, many=True)
@@ -2744,7 +2758,7 @@ class ShipmentViewSet(ModelViewSet):
             ?gapy_satys=true|false — filter by is_gapy_satys
             ?owner_role=<role>    — keep only shipments whose most-recent task
                                     assignee_role matches
-            ?search=<text>        — cargo_code icontains
+            ?search=<text>        — shipment_code icontains
 
         assertNumQueries constraint: ≤ 8 queries regardless of result size.
         This is enforced by the bounded-query test in tests_shipment_board.py.
@@ -2782,7 +2796,7 @@ class ShipmentViewSet(ModelViewSet):
 
         search_text = request.query_params.get('search', '').strip()
         if search_text:
-            qs = qs.filter(cargo_code__icontains=search_text)
+            qs = qs.filter(shipment_code__icontains=search_text)
 
         # owner_role filter: keep only shipments whose most-recent task (by
         # created_at desc) has the given assignee_role. Uses a Subquery to
@@ -2826,7 +2840,7 @@ class ShipmentViewSet(ModelViewSet):
         # ── Prefetch tasks (owner_role + the per-card task list serializer) ───
         # select_related keeps BoardItemSerializer.get_tasks → TaskListSerializer
         # N+1-safe: it reads task.shipment.status (phase), task.shipment.code
-        # (cargo code) and task.assignee_user.username. Still one prefetch query.
+        # (shipment code) and task.assignee_user.username. Still one prefetch query.
         tasks_prefetch = Prefetch(
             'tasks',
             queryset=_Task.objects.select_related(

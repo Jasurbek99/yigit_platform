@@ -724,8 +724,8 @@ export function SheetGrid({
             <SheetColumnHeader
               shipmentId={shipment.id}
               seqNumber={idx + 1}
-              exportCode={shipment.cargo_code}
-              officialExportCode={shipment.official_export_code}
+              exportCode={shipment.shipment_code}
+              officialExportCode={shipment.export_code}
               columnColor={shipment.column_color}
               isCancelled={cancelled}
             />
@@ -776,8 +776,8 @@ export function SheetGrid({
           <SheetColumnHeader
             shipmentId={shipment.id}
             seqNumber={vc.index + 1 + shipmentFreezeCount}
-            exportCode={shipment.cargo_code}
-            officialExportCode={shipment.official_export_code}
+            exportCode={shipment.shipment_code}
+            officialExportCode={shipment.export_code}
             columnColor={shipment.column_color}
             isCancelled={cancelled}
           />

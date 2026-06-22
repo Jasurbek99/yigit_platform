@@ -1,16 +1,16 @@
 """Management command: import historical shipment data from Excel source files.
 
 Sources:
-  - Hasabat_202526.xlsx  → Saher sheet (primary: cargo codes, geography, firms)
+  - Hasabat_202526.xlsx  → Saher sheet (primary: shipment codes, geography, firms)
   - Export_contracts_20252026_1.xlsx → 2-Sales sheet (secondary: weight_net, USD amount)
   - Export_contracts_20252026_1.xlsx → gross net sheet (secondary: weight_gross, box/pallet)
 
 Architecture:
-  Step 1: Read Saher → cargo_code → shipment data map
+  Step 1: Read Saher → shipment_code → shipment data map
   Step 2: Read 2-Sales → (invoice_date, buyer_normalized) → [(seq_no, qty_kg, usd)] queue
   Step 3: Read gross net → seq_no → (brut_kg, net_kg, box_count, pallet_count, pallet_tare)
   Step 4: For each Saher row:
-    a. Normalize and validate cargo code
+    a. Normalize and validate shipment code
     b. Resolve FK lookups (country, customer, import firm, export firms)
     c. Enrich with weight data from 2-Sales match (best-effort by date+buyer)
     d. Enrich with gross/packaging data from gross net (via matched 2-Sales seq_no)
@@ -53,8 +53,8 @@ logger = logging.getLogger(__name__)
 
 BATCH_SIZE = 500
 
-# Cargo code: DDCC###/YY  (day + 2-letter month abbrev + 3-digit seq + slash + 2-digit year)
-CARGO_CODE_RE = re.compile(r'^\d{2}[A-Z]{2}\d{3}/\d{2}$')
+# Shipment code: DDCC###/YY  (day + 2-letter month abbrev + 3-digit seq + slash + 2-digit year)
+SHIPMENT_CODE_RE = re.compile(r'^\d{2}[A-Z]{2}\d{3}/\d{2}$')
 
 # Month abbreviation → month number (all uppercase)
 MONTH_ABBREV = {
@@ -153,18 +153,18 @@ BATCH_WEIGHT_THRESHOLD_KG = 50_000
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _normalize_cargo_code(raw: str) -> str:
+def _normalize_shipment_code(raw: str) -> str:
     """Replace Cyrillic С (U+0421) with Latin C (U+0043) and strip whitespace."""
     return raw.strip().replace('\u0421', 'C')
 
 
-def _validate_cargo_code(code: str) -> bool:
+def _validate_shipment_code(code: str) -> bool:
     """Return True if code matches DDCC###/YY after normalization."""
-    return bool(CARGO_CODE_RE.match(code))
+    return bool(SHIPMENT_CODE_RE.match(code))
 
 
-def _parse_date_from_cargo_code(code: str) -> datetime.date | None:
-    """Derive the shipment date from a normalized cargo code.
+def _parse_date_from_shipment_code(code: str) -> datetime.date | None:
+    """Derive the shipment date from a normalized shipment code.
 
     Format: DDCC###/YY
     Returns None if month abbreviation is unknown or date is invalid.
@@ -294,7 +294,7 @@ def _read_saher_sheet(wb_path: str) -> list[dict]:
     """Read Hasabat_202526.xlsx Saher sheet into a list of dicts.
 
     Columns (0-indexed, data starts at row 4):
-      0: cargo_code (Ýük Kody)
+      0: shipment_code (Ýük Kody)
       1: block_label (Pomidoryň ýygylan bölümi)
       2: export_firm_raw (Eksport eden Firma)
       3: country_raw (Eksport ýurdy)
@@ -313,7 +313,7 @@ def _read_saher_sheet(wb_path: str) -> list[dict]:
         if not isinstance(raw_code, str):
             continue
         rows.append({
-            'cargo_code_raw': raw_code,
+            'shipment_code_raw': raw_code,
             'block_label': _normalize_str(row[1] if len(row) > 1 else None),
             'export_firm_raw': _normalize_str(row[2] if len(row) > 2 else None),
             'country_raw': _normalize_str(row[3] if len(row) > 3 else None),
@@ -609,7 +609,7 @@ class Command(BaseCommand):
             '--skip-existing',
             action='store_true',
             default=False,
-            help='Skip rows where a Shipment with matching cargo_code already exists.',
+            help='Skip rows where a Shipment with matching shipment_code already exists.',
         )
         parser.add_argument(
             '--excel-dir',
@@ -700,7 +700,7 @@ class Command(BaseCommand):
         warnings: list[str] = []
         errors: list[str] = []
 
-        # Track cargo codes seen in this run to detect intra-file duplicates
+        # Track shipment codes seen in this run to detect intra-file duplicates
         seen_codes: set[str] = set()
 
         # Mutable queues: when we match a Saher row to 2-Sales by date+buyer,
@@ -710,46 +710,46 @@ class Command(BaseCommand):
 
         # Collect objects for bulk_create
         shipments_to_create: list[Shipment] = []
-        # splits and comments keyed by cargo_code (filled after shipment creation)
-        pending_splits: dict[str, list[dict]] = {}   # cargo_code → [{'firm_code':..., 'order':...}]
-        pending_comments: dict[str, list[str]] = {}  # cargo_code → [content, ...]
+        # splits and comments keyed by shipment_code (filled after shipment creation)
+        pending_splits: dict[str, list[dict]] = {}   # shipment_code → [{'firm_code':..., 'order':...}]
+        pending_comments: dict[str, list[str]] = {}  # shipment_code → [content, ...]
 
         # ── Process each Saher row ─────────────────────────────────────────────
         for row_idx, row in enumerate(saher_rows, start=4):
 
-            # 1. Normalize and validate cargo code
-            raw_code = row['cargo_code_raw']
-            normalized = _normalize_cargo_code(raw_code)
+            # 1. Normalize and validate shipment code
+            raw_code = row['shipment_code_raw']
+            normalized = _normalize_shipment_code(raw_code)
 
             if not normalized:
                 cnt_skipped_no_code += 1
                 continue
 
-            if not _validate_cargo_code(normalized):
+            if not _validate_shipment_code(normalized):
                 cnt_skipped_invalid_code += 1
                 warnings.append(
-                    f'Row {row_idx}: invalid cargo code {raw_code!r} (normalized: {normalized!r}) — skipped'
+                    f'Row {row_idx}: invalid shipment code {raw_code!r} (normalized: {normalized!r}) — skipped'
                 )
                 continue
 
             if normalized in seen_codes:
                 warnings.append(
-                    f'Row {row_idx}: duplicate cargo code {normalized!r} within source file — skipped'
+                    f'Row {row_idx}: duplicate shipment code {normalized!r} within source file — skipped'
                 )
                 cnt_skipped_invalid_code += 1
                 continue
             seen_codes.add(normalized)
 
             # 2. Skip if already exists
-            if skip_existing and Shipment.objects.filter(cargo_code=normalized).exists():
+            if skip_existing and Shipment.objects.filter(shipment_code=normalized).exists():
                 cnt_skipped_existing += 1
                 continue
 
-            # 3. Derive date from cargo code
-            shipment_date = _parse_date_from_cargo_code(normalized)
+            # 3. Derive date from shipment code
+            shipment_date = _parse_date_from_shipment_code(normalized)
             if shipment_date is None:
                 warnings.append(
-                    f'Row {row_idx}: cannot parse date from cargo code {normalized!r} — skipped'
+                    f'Row {row_idx}: cannot parse date from shipment code {normalized!r} — skipped'
                 )
                 cnt_skipped_invalid_code += 1
                 continue
@@ -862,7 +862,7 @@ class Command(BaseCommand):
 
             # 13. Build Shipment object
             shipment = Shipment(
-                cargo_code=normalized,
+                shipment_code=normalized,
                 date=shipment_date,
                 season=cache.season,
                 status=cache.tamamlandy,
@@ -986,10 +986,10 @@ class Command(BaseCommand):
             # Filter out duplicates if --skip-existing is off (unique constraint safeguard)
             existing_codes = set(
                 Shipment.objects.filter(
-                    cargo_code__in=[s.cargo_code for s in shipments]
-                ).values_list('cargo_code', flat=True)
+                    shipment_code__in=[s.shipment_code for s in shipments]
+                ).values_list('shipment_code', flat=True)
             )
-            to_insert = [s for s in shipments if s.cargo_code not in existing_codes]
+            to_insert = [s for s in shipments if s.shipment_code not in existing_codes]
 
             if not to_insert:
                 return
@@ -997,12 +997,12 @@ class Command(BaseCommand):
             created = Shipment.objects.bulk_create(to_insert, batch_size=BATCH_SIZE)
 
             # Reload the created shipments to get their PKs
-            code_to_shipment = {s.cargo_code: s for s in created}
+            code_to_shipment = {s.shipment_code: s for s in created}
 
             # Build firm splits
             splits_to_create = []
             for shipment in created:
-                split_defs = pending_splits.pop(shipment.cargo_code, [])
+                split_defs = pending_splits.pop(shipment.shipment_code, [])
                 weight_per_firm = (
                     (shipment.weight_net / len(split_defs))
                     if shipment.weight_net and split_defs
@@ -1028,7 +1028,7 @@ class Command(BaseCommand):
             # Build comments
             comments_to_create = []
             for shipment in created:
-                comment_contents = pending_comments.pop(shipment.cargo_code, [])
+                comment_contents = pending_comments.pop(shipment.shipment_code, [])
                 for content in comment_contents:
                     comments_to_create.append(ShipmentComment(
                         shipment=shipment,

@@ -71,7 +71,7 @@ class Command(BaseCommand):
 
             if dry_run:
                 self.stdout.write(
-                    f'  {shipment.cargo_code} [{status_code}]: '
+                    f'  {shipment.shipment_code} [{status_code}]: '
                     f'{rule_count} candidate rules'
                 )
                 for rule in rules:
@@ -91,7 +91,7 @@ class Command(BaseCommand):
 
             if created:
                 self.stdout.write(
-                    f'  {shipment.cargo_code}: created {len(created)} tasks'
+                    f'  {shipment.shipment_code}: created {len(created)} tasks'
                     + (f', skipped {skipped}' if skipped else '')
                 )
 

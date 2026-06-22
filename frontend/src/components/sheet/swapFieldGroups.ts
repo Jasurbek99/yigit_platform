@@ -14,7 +14,7 @@
 /** Complete set of field_keys the UI offers for swapping. */
 export const SWAPPABLE_FIELD_KEYS = new Set<string>([
   // Soltanmyrat
-  'official_export_code',
+  'export_code',
   'harvest_status',
   'warehouse_note',
   'loading_started_at',
@@ -104,7 +104,7 @@ export const GROUP_CONFIGS: ISwapFieldGroup[] = [
     titleKey: 'sheet.swap_modal.group_soltanmyrat',
     defaultExpanded: true,
     fieldKeys: [
-      'official_export_code',
+      'export_code',
       'harvest_status',
       'warehouse_note',
       'loading_started_at',

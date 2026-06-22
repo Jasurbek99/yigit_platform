@@ -45,7 +45,7 @@ tags: [reference, api, backend, frontend]
 
 **Multi-variety on draft create:** `varieties` is a list of **1–4 TomatoVariety IDs** (a shipment can carry multiple tomato sorts). The first ID is the **primary**; the list sets the `varieties_dominant` M2M plus the back-compat `variety` FK, with `variety_confidence='low'` (manually estimated). The single `variety` field still works for back-compat. No new DB table or migration — multi-variety reuses the existing `Shipment.varieties_dominant` M2M.
 
-**Join** (`POST /shipments/{target_id}/join/`) body `{"source_id": <int>}`. `export_manager`/`director` only. Gates: both must be `draft`; target ≠ source; target must have country + customer and **no** blocks; source must have ≥1 block. Effect: source's `block_sources` (and `firm_splits` if target has none) move to the target; `variety` + `official_export_code` copied if empty; `weight_net` recomputed; one `ShipmentStatusLog` row written on target; the source creator gets a `Notification`; the **source is hard-deleted**. Returns updated target detail (200); errors `{error}` 400/403/404.
+**Join** (`POST /shipments/{target_id}/join/`) body `{"source_id": <int>}`. `export_manager`/`director` only. Gates: both must be `draft`; target ≠ source; target must have country + customer and **no** blocks; source must have ≥1 block. Effect: source's `block_sources` (and `firm_splits` if target has none) move to the target; `variety` + `export_code` copied if empty; `weight_net` recomputed; one `ShipmentStatusLog` row written on target; the source creator gets a `Notification`; the **source is hard-deleted**. Returns updated target detail (200); errors `{error}` 400/403/404.
 
 **`created_by_role`**: the `/shipments/sheet/` items now include `created_by_role: string|null`, used by the frontend to tint supply-created columns.
 
@@ -76,11 +76,11 @@ tags: [reference, api, backend, frontend]
 **Task list response shape (lightweight):**
 ```json
 {
-  "id": 1, "shipment": 42, "shipment_cargo_code": "0201045/25",
+  "id": 1, "shipment": 42, "shipment_code": "0201045/25",
   "step": "yuklenme", "phase": "LOADING",
   "title_key": "tasks.fill_loading_data",
   "assignee_role": "warehouse_chief", "assignee_user": null, "assignee_user_name": null,
-  "target_fields_list": ["cargo_code", "block_sources", "weight_net"],
+  "target_fields_list": ["shipment_code", "block_sources", "weight_net"],
   "completion_rule": "ALL_FIELDS_FILLED",
   "deadline": "2025-02-01T23:59:00+05:00", "deadline_rule": "23:59_same_day",
   "state": "OPEN", "is_overdue": false,

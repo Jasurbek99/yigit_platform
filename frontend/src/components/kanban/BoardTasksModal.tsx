@@ -65,7 +65,7 @@ export function BoardTasksModal({ item, onClose, onTaskClick }: IBoardTasksModal
       title={
         item != null && (
           <span style={{ fontFamily: FONT.mono, fontSize: 14 }}>
-            {item.cargo_code}
+            {item.shipment_code}
             <Text type="secondary" style={{ fontFamily: 'inherit', fontSize: 12, marginLeft: 8 }}>
               {t('shipment_board.tasks_progress', {
                 done: item.tasks_done,

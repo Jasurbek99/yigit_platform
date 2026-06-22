@@ -348,11 +348,11 @@ export function SwapFieldsModal({
                 {t('sheet.swap_modal.field_label')}
               </Text>
               <Text type="secondary" style={{ fontSize: 11, fontWeight: 600, fontFamily: FONT.mono }}>
-                A: {shipmentA.cargo_code}
+                A: {shipmentA.shipment_code}
               </Text>
               <div />
               <Text type="secondary" style={{ fontSize: 11, fontWeight: 600, fontFamily: FONT.mono }}>
-                B: {shipmentB.cargo_code}
+                B: {shipmentB.shipment_code}
               </Text>
             </div>
             {group.fieldKeys.map((fieldKey) => (

@@ -19,7 +19,7 @@ export function fieldKeyToConfig(fieldKey: string): IEditFieldConfig | null {
     weight_net: { key: 'weight_net', labelKey: 'shipment_edit_drawer.field.weight_net', inputType: 'number', min: 0, suffix: 'kg' },
     weight_gross: { key: 'weight_gross', labelKey: 'shipment_edit_drawer.field.weight_gross', inputType: 'number', min: 0, suffix: 'kg' },
     variety: { key: 'variety', labelKey: 'shipment_edit_drawer.field.variety', inputType: 'select', optionsSource: 'varieties' },
-    cargo_code: { key: 'cargo_code', labelKey: 'shipment_edit_drawer.field.cargo_code', inputType: 'text' },
+    shipment_code: { key: 'shipment_code', labelKey: 'shipment_edit_drawer.field.shipment_code', inputType: 'text' },
     documents_status: { key: 'documents_status', labelKey: 'shipment_edit_drawer.field.documents_status', inputType: 'option_select', optionsSource: 'documentsStatus' },
     customs_clearance_planned_day: { key: 'customs_clearance_planned_day', labelKey: 'shipment_edit_drawer.field.customs_clearance_planned_day', inputType: 'select', optionsSource: 'weekdays' },
   };

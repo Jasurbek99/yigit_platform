@@ -88,7 +88,7 @@ export const ShipmentRow = memo(function ShipmentRow({
         {index + 1}
       </div>
 
-      {/* Cargo code + date */}
+      {/* Shipment code + date */}
       <div style={{ width: 100, flexShrink: 0 }}>
         <div
           style={{
@@ -99,7 +99,7 @@ export const ShipmentRow = memo(function ShipmentRow({
             letterSpacing: '-0.3px',
           }}
         >
-          {shipment.cargo_code}
+          {shipment.shipment_code}
         </div>
         <div style={{ fontSize: 9, color: '#98a2b3', marginTop: 1 }}>
           {shipment.date}

@@ -6,9 +6,9 @@ import api from '@/services/api';
 /**
  * Sheet "+" button — creates a new shipment as a DRAFT.
  *
- * The backend auto-generates cargo_code (DDMMNNN/YY) when omitted and
+ * The backend auto-generates shipment_code (DDMMNNN/YY) when omitted and
  * defaults date to today. Soltanmyrat fills in his physical pallet code
- * (official_export_code) later via the Sheet/Detail edit paths; the
+ * (export_code) later via the Sheet/Detail edit paths; the
  * shipment date can be edited too.
  *
  * Shipments NEVER start in Loading. They start in Draft and are

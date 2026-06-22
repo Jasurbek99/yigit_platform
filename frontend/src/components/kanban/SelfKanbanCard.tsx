@@ -181,7 +181,7 @@ export function SelfKanbanCard({ task, onCardClick, onMove }: ISelfKanbanCardPro
         (e.currentTarget as HTMLDivElement).style.boxShadow = 'none';
       }}
     >
-      {/* Row 1: cargo code + phase tag + move menu */}
+      {/* Row 1: shipment code + phase tag + move menu */}
       <div
         style={{
           display: 'flex',
@@ -196,7 +196,7 @@ export function SelfKanbanCard({ task, onCardClick, onMove }: ISelfKanbanCardPro
           style={{ fontSize: 12, fontFamily: FONT.mono, flex: 1, minWidth: 0 }}
           ellipsis
         >
-          {task.shipment_cargo_code}
+          {task.shipment_code}
         </Text>
         <Tag
           color={PHASE_TAG_COLOR[task.phase]}

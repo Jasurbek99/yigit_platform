@@ -50,7 +50,7 @@ export interface IDashboardRoute {
 
 export interface IDashboardActiveShipment {
   id: number;
-  cargo_code: string;
+  shipment_code: string;
   customer_name: string;
   country_name: string;
   city_name: string;

@@ -7,14 +7,14 @@ files), this source is **transposed**: each *column* (index 3+) is one shipment
 and each *row* (1-47) is a field. Column index 2 holds the Turkmen field label,
 column index 1 the responsible role.
 
-This command imports ONLY May shipments — cargo codes whose month abbreviation
+This command imports ONLY May shipments — shipment codes whose month abbreviation
 is ``MY``. May 2026 is the current month, so the data ranges from fully
 completed trucks (sale + report dates filled) to in-flight trucks (only loading
 filled). Status is **derived** from how far the timestamp chain is filled.
 
 Field → model map (row index → Shipment field):
     r6  documents_status        r28 transit_days / transport_temp_c
-    r7  cargo_code              r29 driver_name
+    r7  shipment_code              r29 driver_name
     r8  block label (fallback)  r30 driver_phone
     r9  export firm split(s)    r31 border_point
     r10 country                 r32 border_crossed_at
@@ -88,8 +88,8 @@ FIRST_DATA_COL = 3            # columns 0-2 are blank / role / label
 LABEL_COL = 2
 MAX_FIELD_ROW = 47
 
-# Cargo code: DD + 2-letter month + 3-digit seq + slash + 2-digit year
-CARGO_CODE_RE = re.compile(r'^\d{2}[A-Z]{2}\d{3}/\d{2}$')
+# Shipment code: DD + 2-letter month + 3-digit seq + slash + 2-digit year
+SHIPMENT_CODE_RE = re.compile(r'^\d{2}[A-Z]{2}\d{3}/\d{2}$')
 
 MONTH_ABBREV = {
     'SP': 9, 'OC': 10, 'NV': 11, 'DC': 12, 'JA': 1, 'FB': 2,
@@ -189,13 +189,13 @@ def _norm_str(value) -> str:
     return '' if value is None else str(value).strip()
 
 
-def _normalize_cargo_code(raw: str) -> str:
+def _normalize_shipment_code(raw: str) -> str:
     """Replace Cyrillic С (U+0421) with Latin C and strip whitespace."""
     return raw.strip().replace('С', 'C')
 
 
-def _parse_date_from_cargo_code(code: str) -> datetime.date | None:
-    """Derive shipment date from a normalized cargo code DDCC###/YY."""
+def _parse_date_from_shipment_code(code: str) -> datetime.date | None:
+    """Derive shipment date from a normalized shipment code DDCC###/YY."""
     if len(code) < 10:
         return None
     month = MONTH_ABBREV.get(code[2:4].upper())
@@ -561,14 +561,14 @@ def _read_sheet(path: str, month_filter: str) -> list[dict]:
         raw_code = cell(7, col)
         if not isinstance(raw_code, str):
             continue
-        code = _normalize_cargo_code(raw_code)
-        if not CARGO_CODE_RE.match(code):
+        code = _normalize_shipment_code(raw_code)
+        if not SHIPMENT_CODE_RE.match(code):
             continue
         if code[2:4].upper() != month_filter:
             continue
         records.append({
             'col': col,
-            'cargo_code': code,
+            'shipment_code': code,
             'documents_status': _norm_str(cell(6, col)),
             'block_r8': _norm_str(cell(8, col)),
             'firm_raw': _norm_str(cell(9, col)),
@@ -691,7 +691,7 @@ class Command(BaseCommand):
         unresolved_firms: Counter = Counter()
         unresolved_blocks: Counter = Counter()
 
-        # Build in-memory objects keyed by cargo_code for the flush stage.
+        # Build in-memory objects keyed by shipment_code for the flush stage.
         shipments: list[Shipment] = []
         pending_firm_splits: dict[str, list[str]] = {}
         pending_block_sources: dict[str, list[str]] = {}
@@ -700,15 +700,15 @@ class Command(BaseCommand):
 
         existing_codes = set(
             Shipment.objects.filter(
-                cargo_code__in=[r['cargo_code'] for r in records]
-            ).values_list('cargo_code', flat=True)
+                shipment_code__in=[r['shipment_code'] for r in records]
+            ).values_list('shipment_code', flat=True)
         )
         seen: set[str] = set()
 
         for rec in records:
-            code = rec['cargo_code']
+            code = rec['shipment_code']
             if code in seen:
-                warnings.append(f'{code}: duplicate cargo code within sheet — skipped')
+                warnings.append(f'{code}: duplicate shipment code within sheet — skipped')
                 cnt['skipped_dup'] += 1
                 continue
             seen.add(code)
@@ -716,9 +716,9 @@ class Command(BaseCommand):
                 cnt['skipped_existing'] += 1
                 continue
 
-            ship_date = _parse_date_from_cargo_code(code)
+            ship_date = _parse_date_from_shipment_code(code)
             if ship_date is None:
-                warnings.append(f'{code}: cannot derive date from cargo code — skipped')
+                warnings.append(f'{code}: cannot derive date from shipment code — skipped')
                 cnt['skipped_bad_date'] += 1
                 continue
 
@@ -759,11 +759,11 @@ class Command(BaseCommand):
             notes = ' | '.join(p for p in (rec['transport_note'], rec['extra_note']) if p) or None
 
             shipment = Shipment(
-                cargo_code=code,
+                shipment_code=code,
                 # The source's only code IS the platform code; mirror it into the
                 # operator-facing "Shipment Code" row so that visible Sheet row is
                 # filled (operators can later overwrite with the real pallet code).
-                official_export_code=code,
+                export_code=code,
                 date=ship_date,
                 season=cache.season,
                 status=status_obj,
@@ -858,10 +858,10 @@ class Command(BaseCommand):
             return
         existing = set(
             Shipment.objects.filter(
-                cargo_code__in=[s.cargo_code for s in shipments]
-            ).values_list('cargo_code', flat=True)
+                shipment_code__in=[s.shipment_code for s in shipments]
+            ).values_list('shipment_code', flat=True)
         )
-        to_insert = [s for s in shipments if s.cargo_code not in existing]
+        to_insert = [s for s in shipments if s.shipment_code not in existing]
         if not to_insert:
             return
 
@@ -878,21 +878,21 @@ class Command(BaseCommand):
                         Shipment.objects.bulk_create([obj])
                 except Exception as exc:  # noqa: BLE001 — record and continue
                     cnt['insert_errors'] += 1
-                    self._bad_rows.append((obj.cargo_code, str(exc)[:140]))
+                    self._bad_rows.append((obj.shipment_code, str(exc)[:140]))
 
         with transaction.atomic():
-            # MSSQL doesn't return PKs from bulk_create — re-fetch by cargo_code so
+            # MSSQL doesn't return PKs from bulk_create — re-fetch by shipment_code so
             # the child rows (splits / block sources / M2M) get valid FK ids.
             created = list(
                 Shipment.objects.filter(
-                    cargo_code__in=[s.cargo_code for s in to_insert]
+                    shipment_code__in=[s.shipment_code for s in to_insert]
                 )
             )
 
             splits: list[ShipmentFirmSplit] = []
             sources: list[ShipmentBlockSource] = []
             for ship in created:
-                firm_codes = pending_firm_splits.pop(ship.cargo_code, [])
+                firm_codes = pending_firm_splits.pop(ship.shipment_code, [])
                 per_firm = (
                     (ship.weight_net / len(firm_codes))
                     if ship.weight_net and firm_codes else Decimal('0.00')
@@ -906,7 +906,7 @@ class Command(BaseCommand):
                         weight_kg=per_firm, amount_usd=None, split_order=order,
                     ))
 
-                block_codes = pending_block_sources.pop(ship.cargo_code, [])
+                block_codes = pending_block_sources.pop(ship.shipment_code, [])
                 per_block = (
                     (ship.weight_net / len(block_codes))
                     if ship.weight_net and block_codes else Decimal('0.00')
@@ -931,7 +931,7 @@ class Command(BaseCommand):
             through = Shipment.varieties_dominant.through
             links = []
             for ship in created:
-                for variety in pending_varieties.pop(ship.cargo_code, []):
+                for variety in pending_varieties.pop(ship.shipment_code, []):
                     links.append(through(shipment_id=ship.id, tomatovariety_id=variety.id))
             if links:
                 through.objects.bulk_create(links, batch_size=BATCH_SIZE)

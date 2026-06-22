@@ -46,7 +46,7 @@ describe('isFreeTextType', () => {
 
 describe('isClearableField', () => {
   it('is false for the primary identifier and computed flags', () => {
-    expect(isClearableField(row('cargo_code', 'text'))).toBe(false);
+    expect(isClearableField(row('shipment_code', 'text'))).toBe(false);
     expect(isClearableField(row('has_doc_advance', 'readonly'))).toBe(false);
     expect(isClearableField(row('has_sales_report', 'readonly'))).toBe(false);
   });

@@ -29,7 +29,7 @@ def _get_or_create_shipment() -> Shipment:
         defaults={'name_tk': 'yuklenme', 'name_en': 'Loading', 'step_order': 1, 'phase': 'LOADING'},
     )
     shipment, _ = Shipment.objects.get_or_create(
-        cargo_code='A2TEST01',
+        shipment_code='A2TEST01',
         defaults={'date': '2026-01-15', 'season': season, 'status': status},
     )
     return shipment
@@ -58,7 +58,7 @@ class CustomsClearancePlannedDayFieldTests(TestCase):
             defaults={'name_tk': 'yuklenme', 'name_en': 'Loading', 'step_order': 1, 'phase': 'LOADING'},
         )
         fresh = Shipment.objects.create(
-            cargo_code='A2TEST02',
+            shipment_code='A2TEST02',
             date='2026-01-16',
             season=season,
             status=status,

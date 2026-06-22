@@ -142,7 +142,7 @@ export function ShipmentEditDrawer({
       }
     >
       <div style={{ marginBottom: 12, fontSize: 12, color: COLORS.textSecondary }}>
-        {shipment.cargo_code} — {shipment.customer_name ?? '—'}
+        {shipment.shipment_code} — {shipment.customer_name ?? '—'}
       </div>
 
       {noEditableFields ? (

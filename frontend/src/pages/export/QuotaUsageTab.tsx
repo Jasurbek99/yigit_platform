@@ -132,10 +132,10 @@ export function QuotaUsageTab({ weightUnit, productType }: IQuotaUsageTabProps) 
       render: (_: unknown, r: IQuotaUsageRecord) => <Text strong>{r.export_firm_name}</Text>,
     },
     {
-      title: t('quota_usage.cargo_code'),
-      dataIndex: 'cargo_code',
+      title: t('quota_usage.shipment_code'),
+      dataIndex: 'shipment_code',
       width: 130,
-      render: (_: unknown, r: IQuotaUsageRecord) => r.cargo_code ?? <Text type="secondary">—</Text>,
+      render: (_: unknown, r: IQuotaUsageRecord) => r.shipment_code ?? <Text type="secondary">—</Text>,
     },
     {
       title: `${t('quota_usage.kg_used')} (${weightSuffix(weightUnit)})`,

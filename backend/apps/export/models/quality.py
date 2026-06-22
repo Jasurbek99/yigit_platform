@@ -21,7 +21,7 @@ class QualityDocument(models.Model):
         db_table = schema_table('export', 'quality_documents')
 
     def __str__(self) -> str:
-        return f'QualityDoc for {self.shipment.cargo_code}'
+        return f'QualityDoc for {self.shipment.shipment_code}'
 
 
 class ShipmentComment(models.Model):
@@ -85,7 +85,7 @@ class ShipmentComment(models.Model):
         ]
 
     def __str__(self) -> str:
-        return f'Comment on {self.shipment.cargo_code} by {self.user.username}'
+        return f'Comment on {self.shipment.shipment_code} by {self.user.username}'
 
     @property
     def mentions_ids(self) -> list[int]:
@@ -140,6 +140,29 @@ class SalesReport(models.Model):
         db_column='other_expenses',
     )
 
+    # === Rich report header (new fields — back-compat: all null=True) ===
+    currency = models.CharField(max_length=10, default='KZT')
+    # Kurs: local currency units per 1 USD (e.g. 470 KZT/USD).
+    exchange_rate = models.DecimalField(
+        max_digits=12, decimal_places=4, null=True, blank=True
+    )
+    # Total loaded kg (from the truck, may differ from Shipment.weight_net).
+    weight_loaded_kg = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True
+    )
+    # Gross sales in local currency (sum of line item amounts — stored for fast queries).
+    total_sales_local = models.DecimalField(
+        max_digits=14, decimal_places=2, null=True, blank=True
+    )
+    # Sum of expense amounts in local currency.
+    total_expenses_local = models.DecimalField(
+        max_digits=14, decimal_places=2, null=True, blank=True
+    )
+    # total_sales_local − total_expenses_local (stored for fast queries).
+    net_income_local = models.DecimalField(
+        max_digits=14, decimal_places=2, null=True, blank=True
+    )
+
     # === Notes ===
     notes = models.TextField(null=True, blank=True, **cyrillic_collation())
 
@@ -154,4 +177,4 @@ class SalesReport(models.Model):
         db_table = schema_table('export', 'sales_reports')
 
     def __str__(self) -> str:
-        return f'SalesReport for {self.shipment.cargo_code}'
+        return f'SalesReport for {self.shipment.shipment_code}'

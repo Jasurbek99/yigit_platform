@@ -10,7 +10,7 @@ Django + React platform replacing Excel-based greenhouse tomato export operation
 - **AD-2**: `vehicle_status_note` is DEPRECATED — use `vehicle_condition` + Comments
 - **Auth**: httpOnly cookie JWT. Never localStorage. Users on public networks in KZ/RU.
 - **Dependencies**: `core ← greenhouse ← export ← contracts ← finance`. No reverse imports. No Django signals.
-- **API names ≠ DB columns**: serializer maps `code` → `cargo_code`, `weight_net_kg` → `weight_net`
+- **API names ≠ DB columns**: serializer maps `code` → `shipment_code`, `weight_net_kg` → `weight_net`
 - **models/ packages**: MUST have `__init__.py` with re-exports or migrations silently break
 - **Obsidian docs**: When adding/changing any feature, component, endpoint, or model — update the corresponding doc in `docs/obsidian/`. See `docs/obsidian/00-index.md` for the full vault structure.
 
@@ -32,7 +32,7 @@ Django + React platform replacing Excel-based greenhouse tomato export operation
 | `backend-dev` | Creating/modifying Django models, serializers, viewsets | DDL v5.1 schema, 13-step lifecycle, TRANSITIONS dict, role windows, architecture decisions |
 | `frontend-dev` | Creating/modifying React pages, components, hooks | 20+ screens, routing, role-based field visibility, Kanban/Planning grid specs, mobile targets |
 | `reviewer` | After implementing a feature — quality check | MSSQL violations, AD-1/AD-2/AD-3 compliance, DDL alignment, dependency direction, auth security |
-| `excel-analyst` | Analyzing .xlsx files for data migration | Excel→DDL target mapping, cargo code validation, data quality rules, R15→Comments migration |
+| `excel-analyst` | Analyzing .xlsx files for data migration | Excel→DDL target mapping, shipment code validation, data quality rules, R15→Comments migration |
 
 ## Skills — loaded on demand for code patterns
 
@@ -41,7 +41,7 @@ Django + React platform replacing Excel-based greenhouse tomato export operation
 | `django-model` | Creating a Django model | Template matching DDL v5.1 with AD-1/AD-2 fields, MSSQL-safe field types |
 | `react-page` | Building a React page | ProTable list, detail page, TanStack Query hooks, TypeScript types matching api-contract |
 | `api-endpoint` | Creating a DRF endpoint | Serializer with DB→API field renaming, ViewSet with my_work filter, transition endpoint |
-| `excel-import` | Writing a migration script | openpyxl template with dry-run, transaction, cargo code validation, batch_size=500 |
+| `excel-import` | Writing a migration script | openpyxl template with dry-run, transaction, shipment code validation, batch_size=500 |
 
 ## Commands — slash commands for workflows
 

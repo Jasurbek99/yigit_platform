@@ -86,7 +86,7 @@ Sprint 2: Lifecycle
   SalesReportForm      → Sales rep enters: price, weight, expenses, payments. Blocks closing without report.
   OverdueReports       → Table: shipment, sale date, days overdue, responsible. Red > 7 days.
   QualityInspection    → Form: temperature, transit days, shelf life, rejected weight, 4 document checkboxes.
-  AdvancesTracker      → Babageldi: batch advances with linked cargo codes, reconciliation status.
+  AdvancesTracker      → Babageldi: batch advances with linked shipment codes, reconciliation status.
   CommentThread        → Per-shipment threaded comments. @mention users. System-generated comments on status changes.
 
 Sprint 3: Planning
@@ -146,7 +146,7 @@ Same table, different editable columns per role. Read-only fields shown as plain
 The backend returns `editable_fields[]` per user in the API response. Frontend checks this before rendering edit controls. Field names below are API field names (defined in api-contract.md, serializer maps from DB columns):
 
 ```
-Soltanmyrat edits:    cargo_code, weight_net, weight_gross, box_count, block_sources, loading_started_at
+Soltanmyrat edits:    shipment_code, weight_net, weight_gross, box_count, block_sources, loading_started_at
 Document team edits:   document_status, customs_entry_at, customs_exit_at
 Transport edits:       truck_plate, trailer_plate, driver, border_exit_point, departed_at, vehicle_condition
 Sales reps edit:       arrived_at, dest_city, sale_started_at, sale_ended_at, price_per_kg, sold_weight, sales_report
@@ -159,7 +159,7 @@ Management:            read-only everything
 ## Domain-specific UI components
 
 ### Kanban board
-4-5 columns mapping to lifecycle phases: Loading (1-3), Transit (4-8), Sales (9-11), Report (12), Completed (13). Cards show: cargo code, weight, destination, days in current status. Drag-and-drop triggers `POST /api/v1/export/shipments/:id/transition/`. Color-coded by phase.
+4-5 columns mapping to lifecycle phases: Loading (1-3), Transit (4-8), Sales (9-11), Report (12), Completed (13). Cards show: shipment code, weight, destination, days in current status. Drag-and-drop triggers `POST /api/v1/export/shipments/:id/transition/`. Color-coded by phase.
 
 ### Weekly planning grid
 15 rows (blocks A-O) x 6 columns (Mon-Sat). Each cell = kg input. Row totals auto-calculated. Block managers see ONLY their rows (backend filters by `manager_id`). Bottom row: total ÷ 18,500 = truck forecast. Gadam sees all rows + truck split controls (RU / KZ / Gapy Satys).
@@ -200,7 +200,7 @@ Bell icon in top navigation bar with unread count badge. Dropdown shows recent n
 
 ## i18n (three languages)
 
-Turkmen primary, Russian for technical terms, English for development. Translation keys: `{module}.{screen}.{label}` → `export.shipmentList.cargoCode`. All user-facing text through `useTranslation()` hook — no hardcoded strings, even during development.
+Turkmen primary, Russian for technical terms, English for development. Translation keys: `{module}.{screen}.{label}` → `export.shipmentList.shipmentCode`. All user-facing text through `useTranslation()` hook — no hardcoded strings, even during development.
 
 ## Mock mode
 

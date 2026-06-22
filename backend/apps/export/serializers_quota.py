@@ -167,7 +167,7 @@ class QuotaUsageRecordSerializer(serializers.ModelSerializer):
     """Read/write serializer for QuotaUsageRecord."""
 
     export_firm_name = serializers.SerializerMethodField()
-    cargo_code = serializers.SerializerMethodField()
+    shipment_code = serializers.SerializerMethodField()
     approved_by_name = serializers.SerializerMethodField()
     created_by_name = serializers.SerializerMethodField()
 
@@ -176,22 +176,22 @@ class QuotaUsageRecordSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'usage_date', 'export_firm', 'export_firm_name',
             'kg_used', 'product_type', 'status', 'notes',
-            'shipment', 'cargo_code',
+            'shipment', 'shipment_code',
             'approved_by', 'approved_by_name', 'approved_at',
             'created_by', 'created_by_name', 'created_at',
         ]
         read_only_fields = [
             'id', 'status', 'approved_by', 'approved_by_name', 'approved_at',
-            'created_by', 'created_by_name', 'created_at', 'cargo_code',
+            'created_by', 'created_by_name', 'created_at', 'shipment_code',
         ]
 
     def get_export_firm_name(self, obj: QuotaUsageRecord) -> str:
         firm = obj.export_firm
         return getattr(firm, 'name_en', None) or getattr(firm, 'name_tk', None) or str(firm.id)
 
-    def get_cargo_code(self, obj: QuotaUsageRecord) -> str | None:
+    def get_shipment_code(self, obj: QuotaUsageRecord) -> str | None:
         if obj.shipment_id:
-            return getattr(obj.shipment, 'cargo_code', None)
+            return getattr(obj.shipment, 'shipment_code', None)
         return None
 
     def get_approved_by_name(self, obj: QuotaUsageRecord) -> str | None:

@@ -69,9 +69,9 @@ def _make_season() -> Season:
     return season
 
 
-def _make_shipment(cargo_code: str, season, status) -> Shipment:
+def _make_shipment(shipment_code: str, season, status) -> Shipment:
     return Shipment.objects.create(
-        cargo_code=cargo_code,
+        shipment_code=shipment_code,
         date=date(2026, 2, 1),
         season=season,
         status=status,
@@ -97,7 +97,7 @@ class AuditRowCountTests(TestCase):
         self.client.force_authenticate(user=self.user)
         # Fresh shipment per test so row counts are isolated.
         self.shipment = _make_shipment(
-            cargo_code=f'AU{self.id()[-4:]}001/26',
+            shipment_code=f'AU{self.id()[-4:]}001/26',
             season=self.season,
             status=self.status,
         )
@@ -173,7 +173,7 @@ class AuditFKRenderingTests(TestCase):
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
         self.shipment = Shipment.objects.create(
-            cargo_code=f'FK{self.id()[-4:]}001/26',
+            shipment_code=f'FK{self.id()[-4:]}001/26',
             date=date(2026, 2, 1),
             season=self.season,
             status=self.status,
@@ -225,7 +225,7 @@ class AuditAtomicRollbackTests(TestCase):
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
         self.shipment = Shipment.objects.create(
-            cargo_code=f'AT{self.id()[-4:]}001/26',
+            shipment_code=f'AT{self.id()[-4:]}001/26',
             date=date(2026, 2, 1),
             season=self.season,
             status=self.status,
@@ -235,7 +235,7 @@ class AuditAtomicRollbackTests(TestCase):
     def test_atomic_rollback_on_save_failure(self):
         """When serializer.save() raises, no AuditLog rows are persisted.
 
-        Note: Shipment.save() does not validate cargo_code format at the model
+        Note: Shipment.save() does not validate shipment_code format at the model
         level (validation happens in ShipmentCreateSerializer, not on save()).
         We therefore mock Shipment.save to raise IntegrityError — simulating any
         DB-level save failure — to verify that the surrounding transaction.atomic()
@@ -288,7 +288,7 @@ class AuditUserAssignmentTests(TestCase):
 
     def setUp(self):
         self.shipment = Shipment.objects.create(
-            cargo_code=f'UA{self.id()[-4:]}001/26',
+            shipment_code=f'UA{self.id()[-4:]}001/26',
             date=date(2026, 2, 1),
             season=self.season,
             status=self.status,
@@ -353,7 +353,7 @@ class AuditDecimalFormattingTests(TestCase):
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
         self.shipment = Shipment.objects.create(
-            cargo_code=f'DC{self.id()[-4:]}001/26',
+            shipment_code=f'DC{self.id()[-4:]}001/26',
             date=date(2026, 2, 1),
             season=self.season,
             status=self.status,
@@ -417,7 +417,7 @@ class AuditChoicesFieldTests(TestCase):
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
         self.shipment = Shipment.objects.create(
-            cargo_code=f'CH{self.id()[-4:]}001/26',
+            shipment_code=f'CH{self.id()[-4:]}001/26',
             date=date(2026, 2, 1),
             season=self.season,
             status=self.status,
@@ -468,7 +468,7 @@ class ForbiddenFieldPathTests(TestCase):
 
     def setUp(self):
         self.shipment = Shipment.objects.create(
-            cargo_code=f'FB{self.id()[-4:]}001/26',
+            shipment_code=f'FB{self.id()[-4:]}001/26',
             date=date(2026, 2, 1),
             season=self.season,
             status=self.status,

@@ -36,11 +36,11 @@ interface IFormValues {
 /**
  * Lightweight shipment create modal.
  *
- * Does NOT ask for cargo_code or shipment date — those are handled
+ * Does NOT ask for shipment_code or shipment date — those are handled
  * automatically:
- *   - cargo_code: server-generated DDMMNNN/YY format. The platform-internal
+ *   - shipment_code: server-generated DDMMNNN/YY format. The platform-internal
  *     identifier; not the same as Soltanmyrat's pallet tag
- *     (official_export_code), which he fills in later via the Sheet.
+ *     (export_code), which he fills in later via the Sheet.
  *   - date: defaults to today server-side; editable later via Sheet/Detail.
  *
  * Default: shipment is created as a DRAFT. Prep tasks (set destination,

@@ -110,7 +110,7 @@ const COLUMN_STATE_KEY = 'ygt.shipmentList.columnsState.v2';
 // via the column settings (gear) panel, which also reorders and pins them.
 const HIDDEN_BY_DEFAULT: ReadonlyArray<string> = [
   // Round-2 opt-in columns
-  'date', 'official_export_code', 'weight_gross', 'city_name', 'variety_name',
+  'date', 'export_code', 'weight_gross', 'city_name', 'variety_name',
   'border_point_name', 'price_per_kg', 'total_amount_usd', 'is_gapy_satys',
   // Sheet-parity opt-in columns
   'import_firm_name', 'variety_code',
@@ -138,7 +138,7 @@ const DEFAULT_COLUMN_STATE: Record<string, ColumnsState> = Object.fromEntries(
 async function exportToExcel(rows: IShipmentListItem[], t: (k: string) => string): Promise<void> {
   const XLSX = await import('xlsx');
   const sheetData = rows.map((r) => ({
-    [t('shipments.cargo_code')]: r.cargo_code,
+    [t('shipments.shipment_code')]: r.shipment_code,
     [t('shipments.date')]: r.date ? dayjs(r.date).format('DD.MM.YYYY') : '',
     [t('shipments.status')]: r.status_display,
     [t('shipments.country')]: r.country_name ?? '',
@@ -331,7 +331,7 @@ export default function ShipmentList() {
 
   function handleSoftDelete(record: IShipmentListItem) {
     Modal.confirm({
-      title: t('shipment_soft_delete.confirm_title', { code: record.cargo_code }),
+      title: t('shipment_soft_delete.confirm_title', { code: record.shipment_code }),
       icon: <ExclamationCircleFilled style={{ color: '#faad14' }} />,
       content: t('shipment_soft_delete.confirm_content'),
       okText: t('shipment_soft_delete.confirm_ok'),
@@ -340,7 +340,7 @@ export default function ShipmentList() {
       async onOk() {
         try {
           await softDeleteMutation.mutateAsync({ id: record.id });
-          toast.success(t('shipment_soft_delete.success', { code: record.cargo_code }));
+          toast.success(t('shipment_soft_delete.success', { code: record.shipment_code }));
         } catch (err) {
           console.error('[ShipmentList] soft delete failed', err);
           toast.error(t('shipment_soft_delete.error'));
@@ -351,7 +351,7 @@ export default function ShipmentList() {
 
   function handleRestore(record: IShipmentListItem) {
     Modal.confirm({
-      title: t('shipment_soft_delete.restore_confirm_title', { code: record.cargo_code }),
+      title: t('shipment_soft_delete.restore_confirm_title', { code: record.shipment_code }),
       icon: <ExclamationCircleFilled style={{ color: '#1677ff' }} />,
       content: t('shipment_soft_delete.restore_confirm_content'),
       okText: t('shipment_soft_delete.restore_confirm_ok'),
@@ -359,7 +359,7 @@ export default function ShipmentList() {
       async onOk() {
         try {
           await restoreMutation.mutateAsync({ id: record.id });
-          toast.success(t('shipment_soft_delete.restore_success', { code: record.cargo_code }));
+          toast.success(t('shipment_soft_delete.restore_success', { code: record.shipment_code }));
         } catch (err) {
           console.error('[ShipmentList] restore failed', err);
           toast.error(t('shipment_soft_delete.restore_error'));
@@ -383,9 +383,9 @@ export default function ShipmentList() {
       ),
     },
     {
-      title: t('shipments.cargo_code'),
-      dataIndex: 'cargo_code',
-      key: 'cargo_code',
+      title: t('shipments.shipment_code'),
+      dataIndex: 'shipment_code',
+      key: 'shipment_code',
       width: 140,
       render: (_, record) => (
         <span
@@ -396,7 +396,7 @@ export default function ShipmentList() {
             fontSize: 13,
           }}
         >
-          {record.cargo_code}
+          {record.shipment_code}
         </span>
       ),
     },
@@ -494,12 +494,12 @@ export default function ShipmentList() {
     },
     {
       title: t('shipments.official_code'),
-      dataIndex: 'official_export_code',
-      key: 'official_export_code',
+      dataIndex: 'export_code',
+      key: 'export_code',
       width: 140,
       render: (_, record) =>
-        record.official_export_code ? (
-          <span style={{ fontFamily: FONT.mono, fontSize: 12 }}>{record.official_export_code}</span>
+        record.export_code ? (
+          <span style={{ fontFamily: FONT.mono, fontSize: 12 }}>{record.export_code}</span>
         ) : (
           <span style={{ color: COLORS.textMuted }}>—</span>
         ),

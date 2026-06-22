@@ -33,7 +33,7 @@ A single-column layout (sticky right rail on desktop), top to bottom:
 User logs in, opens a `yuklenme` shipment. Walkthrough:
 
 1. **Hero shows status = Loading, phase = LOAD, idle warning = no.** The Shipment Code says "—" because Soltanmyrat hasn't tagged the pallets yet; the Export Code is `0205893/26` (the auto code).
-2. **MyTaskCard renders the `tasks.fill_loading_data` task.** Title visible, deadline 4h after status entry, progress bar shows "0 of 5 fields filled." The card body has 5 inline editors for cargo_code, block_sources, variety, weight_net, weight_gross.
+2. **MyTaskCard renders the `tasks.fill_loading_data` task.** Title visible, deadline 4h after status entry, progress bar shows "0 of 5 fields filled." The card body has 5 inline editors for shipment_code, block_sources, variety, weight_net, weight_gross.
 3. User starts typing in `weight_net`. After ~700 ms the autosave fires; the spinner blinks; the value persists. Critically, the input is NOT disabled during the save — typing keeps working.
 4. As fields fill, the progress bar updates. After the 5th field saves, `Shipment.save()` triggers `resolve_for_shipment` server-side; the task auto-resolves to DONE; `MyTaskCard` re-renders showing the "Done" tag.
 5. User scrolls down to the **Haryt** section to verify variety, **Dokument** to flip quality checkboxes, **Maliýe** to skim weight totals. Every editable field in those sections uses the same `<DetailFieldRow>` widget — same UX as MyTaskCard.
@@ -174,7 +174,7 @@ User edits `weight_net` on Detail:
 - `<DetailFieldRow>` debounces 700 ms.
 - `useShipmentPatchMulti.mutate({id, fields: {weight_net: 18900}})` fires.
 - Backend `PATCH /api/v1/export/shipments/123/` validates: role allowed to edit `weight_net`? yes. Calls `serializer.save()` → `Shipment.save()`.
-- `Shipment.save()` runs `resolve_for_shipment(self)` — checks every open/in_progress task on this shipment. The `tasks.fill_loading_data` task targets `[cargo_code, block_sources, variety, weight_net, weight_gross]`. If all five are now non-null, mark task DONE.
+- `Shipment.save()` runs `resolve_for_shipment(self)` — checks every open/in_progress task on this shipment. The `tasks.fill_loading_data` task targets `[shipment_code, block_sources, variety, weight_net, weight_gross]`. If all five are now non-null, mark task DONE.
 - View also calls `mark_started_for_changed_fields(shipment, ['weight_net'])` — finds OPEN tasks targeting `weight_net`, flips them to IN_PROGRESS with `started_at = now()`.
 - React-query `onSettled` invalidates `['shipments']` (Sheet, list views) and `['shipment']` (Detail). Both surfaces refetch.
 - Optimistic cache update means the user sees the new value immediately; the refetch confirms and adds the task state changes.

@@ -1,11 +1,13 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Alert, Card, Radio, Row, Col, Space, Typography } from 'antd';
+import { Alert, Button, Card, Radio, Row, Col, Space, Typography } from 'antd';
 import { ProTable, type ProColumns } from '@ant-design/pro-components';
+import { useQueryClient } from '@tanstack/react-query';
 import { IconAlertTriangle } from '@tabler/icons-react';
 import { useOverdueShipments } from '@/hooks/useOverdueShipments';
 import { StatusTag } from '@/components/StatusTag';
+import { OverdueReportDrawer } from '@/components/OverdueReportDrawer';
 import type { IOverdueShipment } from '@/types';
 import { COLORS } from '@/constants/styles';
 
@@ -34,6 +36,10 @@ export default function OverdueReports() {
   const navigate = useNavigate();
 
   const [threshold, setThreshold] = useState<ThresholdValue>(7);
+  const [drawerShipmentId, setDrawerShipmentId] = useState<number | null>(null);
+  const [drawerShipmentCode, setDrawerShipmentCode] = useState<string>('');
+
+  const queryClient = useQueryClient();
 
   const { data, isLoading, isError } = useOverdueShipments(threshold);
 
@@ -54,11 +60,11 @@ export default function OverdueReports() {
 
   const columns: ProColumns<IOverdueShipment>[] = [
     {
-      title: t('overdue.cargo_code'),
-      dataIndex: 'cargo_code',
+      title: t('overdue.shipment_code'),
+      dataIndex: 'shipment_code',
       width: 140,
       search: false,
-      sorter: (a, b) => a.cargo_code.localeCompare(b.cargo_code),
+      sorter: (a, b) => a.shipment_code.localeCompare(b.shipment_code),
       render: (_, record) => (
         <Link
           onClick={(e) => {
@@ -66,7 +72,7 @@ export default function OverdueReports() {
             navigate(`/shipments/${record.id}`);
           }}
         >
-          {record.cargo_code}
+          {record.shipment_code}
         </Link>
       ),
     },
@@ -132,7 +138,34 @@ export default function OverdueReports() {
           <span style={{ color: COLORS.danger, fontWeight: 600, fontSize: 13 }}>{t('overdue.no')}</span>
         ),
     },
+    {
+      title: '',
+      key: 'actions',
+      width: 120,
+      search: false,
+      render: (_, record) => (
+        <Button
+          size="small"
+          type="primary"
+          ghost
+          onClick={(e) => {
+            e.stopPropagation();
+            setDrawerShipmentId(record.id);
+            setDrawerShipmentCode(record.shipment_code);
+          }}
+        >
+          {t('overdue.open_report')}
+        </Button>
+      ),
+    },
   ];
+
+  const handleDrawerClose = () => setDrawerShipmentId(null);
+
+  const handleReportSaved = () => {
+    void queryClient.invalidateQueries({ queryKey: ['shipments', 'overdue'] });
+    handleDrawerClose();
+  };
 
   if (isError) {
     return (
@@ -205,6 +238,14 @@ export default function OverdueReports() {
           style: { cursor: 'pointer' },
         })}
         locale={{ emptyText: t('overdue.empty') }}
+      />
+
+      <OverdueReportDrawer
+        shipmentId={drawerShipmentId}
+        shipmentCode={drawerShipmentCode}
+        open={drawerShipmentId !== null}
+        onClose={handleDrawerClose}
+        onSaved={handleReportSaved}
       />
     </div>
   );

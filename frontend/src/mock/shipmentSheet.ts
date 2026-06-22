@@ -2,7 +2,7 @@ import type { IShipmentSheetItem, ISheetRowSettingForUser } from '@/types';
 
 export const MOCK_SHEET_DATA: IShipmentSheetItem[] = [
   {
-    id: 1, cargo_code: '27SP001/25', date: '2025-09-27',
+    id: 1, shipment_code: '27SP001/25', date: '2025-09-27',
     status: 13, status_display: 'Completed', status_code: 'tamamlandy', status_step: 13, phase: 'CLOSE' as const,
     country: 1, country_name: 'Gazagystan', country_code: 'KZ',
     city: 1, city_name: 'Almaty', border_point: 1, border_point_name: 'Farap',
@@ -21,7 +21,7 @@ export const MOCK_SHEET_DATA: IShipmentSheetItem[] = [
     vehicle_condition: 'OK', vehicle_condition_note: null,
     doc_azyk: true, doc_suriji: true, doc_hil: true, doc_kalibrowka: true,
     loading_ended_at: null, vehicle_live_status: null, truck_plate: null, driver_name: null, driver_phone: null, dest_entry_at: null, additional_notes_arap: null,
-    has_sales_report: true, has_doc_advance: true, notes: null, export_manager_note: null, warehouse_note: null, document_note: null, customs_clearance_planned_day: null, transport_docs_given_at: null, official_export_code: null, previous_platform_id: null, column_color: null, sales_report_date: null, harvest_date: null,
+    has_sales_report: true, has_doc_advance: true, notes: null, export_manager_note: null, warehouse_note: null, document_note: null, customs_clearance_planned_day: null, transport_docs_given_at: null, export_code: null, previous_platform_id: null, column_color: null, sales_report_date: null, harvest_date: null,
     firm_splits: [
       { firm_code: 'YGT', firm_name: 'Yigit H.J.', weight_kg: 10000, amount_usd: 8200 },
       { firm_code: 'OY', firm_name: 'Oguz Yoly', weight_kg: 7545, amount_usd: 6187 },
@@ -31,7 +31,7 @@ export const MOCK_SHEET_DATA: IShipmentSheetItem[] = [
     created_by_role: 'loading_dept_head',
   },
   {
-    id: 2, cargo_code: '30SP002/25', date: '2025-09-30',
+    id: 2, shipment_code: '30SP002/25', date: '2025-09-30',
     status: 13, status_display: 'Completed', status_code: 'tamamlandy', status_step: 13, phase: 'CLOSE' as const,
     country: 1, country_name: 'Gazagystan', country_code: 'KZ',
     city: 1, city_name: 'Almaty', border_point: 1, border_point_name: 'Farap',
@@ -50,14 +50,14 @@ export const MOCK_SHEET_DATA: IShipmentSheetItem[] = [
     vehicle_condition: 'OK', vehicle_condition_note: null,
     doc_azyk: true, doc_suriji: true, doc_hil: true, doc_kalibrowka: true,
     loading_ended_at: null, vehicle_live_status: null, truck_plate: null, driver_name: null, driver_phone: null, dest_entry_at: null, additional_notes_arap: null,
-    has_sales_report: true, has_doc_advance: true, notes: null, export_manager_note: null, warehouse_note: null, document_note: null, customs_clearance_planned_day: null, transport_docs_given_at: null, official_export_code: null, previous_platform_id: null, column_color: null, sales_report_date: null, harvest_date: null,
+    has_sales_report: true, has_doc_advance: true, notes: null, export_manager_note: null, warehouse_note: null, document_note: null, customs_clearance_planned_day: null, transport_docs_given_at: null, export_code: null, previous_platform_id: null, column_color: null, sales_report_date: null, harvest_date: null,
     firm_splits: [{ firm_code: 'GB', firm_name: 'Gokbulut H.J.', weight_kg: 18545, amount_usd: 15763 }],
     block_sources: [{ block_code: 'C', weight_kg: 18545 }],
     created_by_name: 'soltanmyrat', created_at: '2025-09-30T08:00:00+05:00', updated_at: '2025-10-12T10:00:00+05:00',
     created_by_role: null,
   },
   {
-    id: 8, cargo_code: '18OC020/25', date: '2025-10-18',
+    id: 8, shipment_code: '18OC020/25', date: '2025-10-18',
     status: 8, status_display: 'En Route', status_code: 'yolda', status_step: 8, phase: 'TRANSIT' as const,
     country: 2, country_name: 'Rossiya', country_code: 'RU',
     city: 3, city_name: 'Moskwa', border_point: 2, border_point_name: 'Garabogaz',
@@ -76,7 +76,7 @@ export const MOCK_SHEET_DATA: IShipmentSheetItem[] = [
     vehicle_condition: 'OK', vehicle_condition_note: null,
     doc_azyk: true, doc_suriji: true, doc_hil: true, doc_kalibrowka: false,
     loading_ended_at: null, vehicle_live_status: null, truck_plate: null, driver_name: null, driver_phone: null, dest_entry_at: null, additional_notes_arap: null,
-    has_sales_report: false, has_doc_advance: false, notes: null, export_manager_note: null, warehouse_note: null, document_note: null, customs_clearance_planned_day: null, transport_docs_given_at: null, official_export_code: null, previous_platform_id: null, column_color: null, sales_report_date: null, harvest_date: null,
+    has_sales_report: false, has_doc_advance: false, notes: null, export_manager_note: null, warehouse_note: null, document_note: null, customs_clearance_planned_day: null, transport_docs_given_at: null, export_code: null, previous_platform_id: null, column_color: null, sales_report_date: null, harvest_date: null,
     firm_splits: [
       { firm_code: 'YE', firm_name: 'Ygtybarly Enjam', weight_kg: 9255, amount_usd: null },
       { firm_code: 'ISG', firm_name: 'Isgar HJ', weight_kg: 9255, amount_usd: null },
@@ -89,7 +89,7 @@ export const MOCK_SHEET_DATA: IShipmentSheetItem[] = [
     created_by_role: null,
   },
   {
-    id: 11, cargo_code: '21OC024/25', date: '2025-10-21',
+    id: 11, shipment_code: '21OC024/25', date: '2025-10-21',
     status: 1, status_display: 'Loading Started', status_code: 'yuklenme', status_step: 1, phase: 'LOAD' as const,
     country: 2, country_name: 'Rossiya', country_code: 'RU',
     city: 5, city_name: 'Krasnodar', border_point: null, border_point_name: null,
@@ -107,7 +107,7 @@ export const MOCK_SHEET_DATA: IShipmentSheetItem[] = [
     vehicle_condition: null, vehicle_condition_note: null,
     doc_azyk: false, doc_suriji: false, doc_hil: false, doc_kalibrowka: false,
     loading_ended_at: null, vehicle_live_status: null, truck_plate: null, driver_name: null, driver_phone: null, dest_entry_at: null, additional_notes_arap: null,
-    has_sales_report: false, has_doc_advance: false, notes: null, export_manager_note: null, warehouse_note: null, document_note: null, customs_clearance_planned_day: null, transport_docs_given_at: null, official_export_code: null, previous_platform_id: null, column_color: null, sales_report_date: null, harvest_date: null,
+    has_sales_report: false, has_doc_advance: false, notes: null, export_manager_note: null, warehouse_note: null, document_note: null, customs_clearance_planned_day: null, transport_docs_given_at: null, export_code: null, previous_platform_id: null, column_color: null, sales_report_date: null, harvest_date: null,
     firm_splits: [
       { firm_code: 'GB', firm_name: 'Gokbulut H.J.', weight_kg: 10013, amount_usd: null },
       { firm_code: 'DM', firm_name: 'Datly Miwe H.J.', weight_kg: 10013, amount_usd: null },
@@ -117,7 +117,7 @@ export const MOCK_SHEET_DATA: IShipmentSheetItem[] = [
     created_by_role: null,
   },
   {
-    id: 12, cargo_code: '21OC025/25', date: '2025-10-21',
+    id: 12, shipment_code: '21OC025/25', date: '2025-10-21',
     status: 1, status_display: 'Loading Started', status_code: 'yuklenme', status_step: 1, phase: 'LOAD' as const,
     country: 2, country_name: 'Rossiya', country_code: 'RU',
     city: 6, city_name: 'Samara', border_point: null, border_point_name: null,
@@ -135,7 +135,7 @@ export const MOCK_SHEET_DATA: IShipmentSheetItem[] = [
     vehicle_condition: null, vehicle_condition_note: null,
     doc_azyk: false, doc_suriji: false, doc_hil: false, doc_kalibrowka: false,
     loading_ended_at: null, vehicle_live_status: null, truck_plate: null, driver_name: null, driver_phone: null, dest_entry_at: null, additional_notes_arap: null,
-    has_sales_report: false, has_doc_advance: false, notes: null, export_manager_note: null, warehouse_note: null, document_note: null, customs_clearance_planned_day: null, transport_docs_given_at: null, official_export_code: null, previous_platform_id: null, column_color: null, sales_report_date: null, harvest_date: null,
+    has_sales_report: false, has_doc_advance: false, notes: null, export_manager_note: null, warehouse_note: null, document_note: null, customs_clearance_planned_day: null, transport_docs_given_at: null, export_code: null, previous_platform_id: null, column_color: null, sales_report_date: null, harvest_date: null,
     firm_splits: [
       { firm_code: 'YGT', firm_name: 'Yigit H.J.', weight_kg: 9757, amount_usd: null },
       { firm_code: 'HMS', firm_name: 'Hemsaya H.J.', weight_kg: 9757, amount_usd: null },

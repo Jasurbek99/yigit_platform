@@ -42,7 +42,7 @@ class RollupResult:
     entries_updated: int = 0                # HarvestDayEntry rows actually written
     entries_skipped_override: int = 0       # rows skipped because actual_source='admin_override'
     entries_missing: int = 0                # blocks with shipments but no HarvestDayEntry row
-    shipments_without_blocks: list = field(default_factory=list)  # (id, cargo_code)
+    shipments_without_blocks: list = field(default_factory=list)  # (id, shipment_code)
     total_kg: Decimal = Decimal('0')
     dry_run: bool = False
 
@@ -93,7 +93,7 @@ def rollup_actuals_for_date(
         Shipment.objects
         .filter(loading_started_at__gte=start_aware, loading_started_at__lt=end_aware)
         .filter(block_sources__isnull=True)
-        .values_list('id', 'cargo_code')
+        .values_list('id', 'shipment_code')
     )
 
     result = RollupResult(

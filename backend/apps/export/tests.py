@@ -11,7 +11,14 @@ from apps.core.models import (
     Season,
     User,
 )
-from apps.export.models import Shipment, ShipmentBlockSource, ShipmentStatusLog, SalesReport
+from apps.export.models import (
+    Shipment,
+    ShipmentBlockSource,
+    ShipmentStatusLog,
+    SalesReport,
+    SalesReportLineItem,
+    SalesReportExpense,
+)
 from apps.export.services import transition_to, TRANSITIONS
 
 
@@ -78,7 +85,7 @@ class TransitionServiceTest(TestCase):
         self.customer = Customer.objects.create(name='TestCustomer-Trans')
         self.block = GreenhouseBlock.objects.create(code='F-A1', name='Test block A1')
         self.shipment = Shipment.objects.create(
-            cargo_code='TEST-001',
+            shipment_code='TEST-001',
             date='2025-11-01',
             season=self.season,
             status=self.draft_status,
@@ -226,13 +233,13 @@ class SalesReportTest(TestCase):
         )
 
         self.shipment_at_hasabat = Shipment.objects.create(
-            cargo_code='0101001/25',
+            shipment_code='0101001/25',
             date='2025-01-01',
             season=self.season,
             status=self.satyldy_status,
         )
         self.shipment_at_serhet_tm = Shipment.objects.create(
-            cargo_code='0101002/25',
+            shipment_code='0101002/25',
             date='2025-01-02',
             season=self.season,
             status=self.early_status,
@@ -321,3 +328,160 @@ class SalesReportTest(TestCase):
         )
         self.assertEqual(response.status_code, 200, response.data)
         self.assertTrue(SalesReport.objects.filter(shipment=self.shipment_at_hasabat).exists())
+
+    # ------------------------------------------------------------------
+    # Rich report: nested line_items + expenses
+    # ------------------------------------------------------------------
+
+    def _karaganda_payload(self) -> dict:
+        """Canonical Karaganda test case from the plan verification section.
+
+        1 line: 18371 kg × 680 KZT → 12,492,280 KZT
+        Expenses: NDS 1,476,000 + TOM_ROSHOD 227,250 + ANALIZ 59,745
+                  + BAZAR_ROSHOD 103,000 + NAKLIYE 800,000 + INTERES 500,000
+                  = 3,165,995 KZT
+        Net: 12,492,280 − 3,165,995 = 9,326,285 KZT
+        Kurs: 470 KZT/USD → net USD = 9,326,285 / 470 ≈ 19,843.16
+        """
+        return {
+            'currency': 'KZT',
+            'exchange_rate': '470.0000',
+            'weight_loaded_kg': '18500.00',
+            'line_items': [
+                {
+                    'line_number': 1,
+                    'product_name': 'Pomidor',
+                    'quantity_kg': '18371.00',
+                    'price_local': '680.00',
+                    # amount_local omitted — server must compute 18371 × 680
+                },
+            ],
+            'expenses': [
+                {'category': 'NDS',          'amount_local': '1476000.00'},
+                {'category': 'TOM_ROSHOD',   'amount_local': '227250.00'},
+                {'category': 'ANALIZ',       'amount_local': '59745.00'},
+                {'category': 'BAZAR_ROSHOD', 'amount_local': '103000.00'},
+                {'category': 'NAKLIYE',      'amount_local': '800000.00'},
+                {'category': 'INTERES',      'amount_local': '500000.00'},
+            ],
+        }
+
+    def test_nested_create_persists_children_and_computes_totals(self):
+        """PATCH with nested line_items + expenses returns 200, persists children,
+        and correctly computes total_sales_local, total_expenses_local, net_income_local."""
+        self.client.force_authenticate(user=self.sales_user)
+        payload = self._karaganda_payload()
+
+        response = self.client.patch(
+            self._url(self.shipment_at_hasabat.id), payload, format='json'
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+
+        report = SalesReport.objects.get(shipment=self.shipment_at_hasabat)
+
+        # --- Line item persisted ---
+        self.assertEqual(report.line_items.count(), 1)
+        line = report.line_items.first()
+        self.assertEqual(str(line.quantity_kg), '18371.00')
+        self.assertEqual(str(line.price_local), '680.00')
+        # Server must compute amount_local = 18371 × 680 = 12,492,280.00
+        self.assertEqual(str(line.amount_local), '12492280.00')
+
+        # --- Expenses persisted ---
+        self.assertEqual(report.expenses.count(), 6)
+
+        # --- Computed totals ---
+        self.assertEqual(str(report.total_sales_local), '12492280.00')
+        self.assertEqual(str(report.total_expenses_local), '3165995.00')
+        self.assertEqual(str(report.net_income_local), '9326285.00')
+
+        # --- Response shape includes the new fields ---
+        sr = response.data['sales_report']
+        self.assertEqual(sr['total_sales_local'], '12492280.00')
+        self.assertEqual(sr['total_expenses_local'], '3165995.00')
+        self.assertEqual(sr['net_income_local'], '9326285.00')
+        self.assertEqual(len(sr['line_items']), 1)
+        self.assertEqual(len(sr['expenses']), 6)
+
+    def test_usd_derived_fields_correct_when_exchange_rate_set(self):
+        """Derived USD fields equal local / exchange_rate (rounded to 2 dp)."""
+        self.client.force_authenticate(user=self.sales_user)
+        payload = self._karaganda_payload()
+
+        response = self.client.patch(
+            self._url(self.shipment_at_hasabat.id), payload, format='json'
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+
+        sr = response.data['sales_report']
+        # net_income_usd = 9,326,285 / 470 = 19,843.1595... → 19843.16
+        self.assertIsNotNone(sr['net_income_usd'])
+        from decimal import Decimal
+        net_usd = Decimal(sr['net_income_usd'])
+        expected = (Decimal('9326285.00') / Decimal('470.0000')).quantize(Decimal('0.01'))
+        self.assertEqual(net_usd, expected)
+
+        # total_sales_usd = 12,492,280 / 470 = 26,579.31...
+        sales_usd = Decimal(sr['total_sales_usd'])
+        expected_sales = (Decimal('12492280.00') / Decimal('470.0000')).quantize(Decimal('0.01'))
+        self.assertEqual(sales_usd, expected_sales)
+
+        # expenses_usd = 3,165,995 / 470 = 6,736.15...
+        exp_usd = Decimal(sr['total_expenses_usd'])
+        expected_exp = (Decimal('3165995.00') / Decimal('470.0000')).quantize(Decimal('0.01'))
+        self.assertEqual(exp_usd, expected_exp)
+
+    def test_replace_all_removes_old_children(self):
+        """A second PATCH with different children replaces the first set completely."""
+        self.client.force_authenticate(user=self.sales_user)
+
+        # First PATCH: 2 line items, 2 expenses.
+        first_payload = {
+            'currency': 'KZT',
+            'exchange_rate': '450.0000',
+            'line_items': [
+                {'line_number': 1, 'quantity_kg': '10000.00', 'price_local': '600.00',
+                 'amount_local': '6000000.00'},
+                {'line_number': 2, 'quantity_kg': '5000.00', 'price_local': '550.00',
+                 'amount_local': '2750000.00'},
+            ],
+            'expenses': [
+                {'category': 'NDS',    'amount_local': '100000.00'},
+                {'category': 'ANALIZ', 'amount_local': '50000.00'},
+            ],
+        }
+        r1 = self.client.patch(
+            self._url(self.shipment_at_hasabat.id), first_payload, format='json'
+        )
+        self.assertEqual(r1.status_code, 200, r1.data)
+
+        report = SalesReport.objects.get(shipment=self.shipment_at_hasabat)
+        self.assertEqual(report.line_items.count(), 2)
+        self.assertEqual(report.expenses.count(), 2)
+
+        # Second PATCH: 1 line item, 1 expense — must replace, not append.
+        second_payload = {
+            'line_items': [
+                {'line_number': 1, 'quantity_kg': '18000.00', 'price_local': '700.00',
+                 'amount_local': '12600000.00'},
+            ],
+            'expenses': [
+                {'category': 'NAKLIYE', 'amount_local': '900000.00'},
+            ],
+        }
+        r2 = self.client.patch(
+            self._url(self.shipment_at_hasabat.id), second_payload, format='json'
+        )
+        self.assertEqual(r2.status_code, 200, r2.data)
+
+        report.refresh_from_db()
+        self.assertEqual(report.line_items.count(), 1)
+        self.assertEqual(report.expenses.count(), 1)
+        # Old NDS expense must be gone.
+        self.assertFalse(
+            report.expenses.filter(category='NDS').exists()
+        )
+        # Total recomputed from new children.
+        self.assertEqual(str(report.total_sales_local), '12600000.00')
+        self.assertEqual(str(report.total_expenses_local), '900000.00')
+        self.assertEqual(str(report.net_income_local), '11700000.00')

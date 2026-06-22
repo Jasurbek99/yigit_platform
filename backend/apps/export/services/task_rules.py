@@ -217,7 +217,7 @@ def generate_tasks_for_status(
     if created:
         logger.info(
             'Generated %d tasks for shipment %s (status=%s)',
-            len(created), shipment.cargo_code, new_status_code,
+            len(created), shipment.shipment_code, new_status_code,
         )
         # Auto-resolve any new tasks whose targets happen to be already filled.
         # Without this, those tasks sit OPEN until an unrelated save triggers
@@ -362,7 +362,7 @@ def resolve_for_shipment(shipment) -> list[Task]:
     if resolved:
         logger.info(
             'Auto-resolved %d tasks for shipment %s',
-            len(resolved), shipment.cargo_code,
+            len(resolved), shipment.shipment_code,
         )
     return resolved
 
@@ -432,7 +432,7 @@ def reconcile_open_tasks_with_rules(
             if old_val != new_val:
                 task_changes_for_row.append({
                     'task_id': task.pk,
-                    'shipment_code': task.shipment.cargo_code,
+                    'shipment_code': task.shipment.shipment_code,
                     'rule_id': rule.pk,
                     'field': axis,
                     'old': old_val,

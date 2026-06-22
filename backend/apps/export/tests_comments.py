@@ -27,7 +27,7 @@ def _make_shipment(author: User) -> Shipment:
         defaults={'start_date': '2025-01-01', 'end_date': '2025-12-31'},
     )
     return Shipment.objects.create(
-        cargo_code='0101001/25',
+        shipment_code='0101001/25',
         date='2025-01-01',
         season=season,
         created_by=author,

@@ -255,12 +255,12 @@ export default function SelfBoard() {
   const allTasks: ITaskListItem[] = useMemo(() => tasksData?.results ?? [], [tasksData?.results]);
 
   const filteredTasks = allTasks.filter((task) => {
-    // Plan tasks have no phase or cargo code — they always pass both filters.
+    // Plan tasks have no phase or shipment code — they always pass both filters.
     if (task.kind === 'weekly_plan') return true;
     if (phaseFilter && task.phase !== phaseFilter) return false;
     if (
       searchText &&
-      !task.shipment_cargo_code.toLowerCase().includes(searchText.toLowerCase())
+      !task.shipment_code.toLowerCase().includes(searchText.toLowerCase())
     )
       return false;
     return true;

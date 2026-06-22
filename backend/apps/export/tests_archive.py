@@ -47,10 +47,10 @@ def _make_status(code: str, phase: str, step: int) -> ShipmentStatusType:
     return obj
 
 
-def _make_shipment(cargo_code: str, season: Season, status: ShipmentStatusType,
+def _make_shipment(shipment_code: str, season: Season, status: ShipmentStatusType,
                    updated_days_ago: int = 0) -> Shipment:
     s = Shipment.objects.create(
-        cargo_code=cargo_code,
+        shipment_code=shipment_code,
         date='2026-02-01',
         season=season,
         status=status,
@@ -98,7 +98,7 @@ class ArchiveFilterEndpointTests(TestCase):
         self._login('export_manager')
         resp = self.client.get('/api/v1/export/shipments/')
         self.assertEqual(resp.status_code, 200, resp.data)
-        codes = [r['cargo_code'] for r in resp.data['results']]
+        codes = [r['shipment_code'] for r in resp.data['results']]
         self.assertIn('ARC-ACT-1', codes)
         self.assertNotIn('ARC-OLD-1', codes)
 
@@ -106,7 +106,7 @@ class ArchiveFilterEndpointTests(TestCase):
         self._login('export_manager')
         resp = self.client.get('/api/v1/export/shipments/?archived=true')
         self.assertEqual(resp.status_code, 200, resp.data)
-        codes = [r['cargo_code'] for r in resp.data['results']]
+        codes = [r['shipment_code'] for r in resp.data['results']]
         self.assertNotIn('ARC-ACT-1', codes)
         self.assertIn('ARC-OLD-1', codes)
 
@@ -130,7 +130,7 @@ class ArchiveFilterEndpointTests(TestCase):
         self._login('director')
         resp = self.client.get('/api/v1/export/shipments/?stuck=true')
         self.assertEqual(resp.status_code, 200, resp.data)
-        codes = [r['cargo_code'] for r in resp.data['results']]
+        codes = [r['shipment_code'] for r in resp.data['results']]
         self.assertIn('STUCK-1', codes)
         self.assertNotIn('STUCK-RECENT', codes)
         self.assertNotIn('STUCK-DONE', codes)
@@ -145,7 +145,7 @@ class ArchiveFilterEndpointTests(TestCase):
 
         self._login('director')
         resp = self.client.get('/api/v1/export/shipments/?stuck=true')
-        codes = [r['cargo_code'] for r in resp.data['results']]
+        codes = [r['shipment_code'] for r in resp.data['results']]
         self.assertEqual(codes[:3], ['STUCK-OLD', 'STUCK-MID', 'STUCK-NEW'])
 
     def test_stuck_excludes_archived(self):
@@ -155,7 +155,7 @@ class ArchiveFilterEndpointTests(TestCase):
 
         self._login('director')
         resp = self.client.get('/api/v1/export/shipments/?stuck=true')
-        codes = [r['cargo_code'] for r in resp.data['results']]
+        codes = [r['shipment_code'] for r in resp.data['results']]
         self.assertNotIn('STUCK-ARC', codes)
 
     def test_stuck_admin_allowed(self):

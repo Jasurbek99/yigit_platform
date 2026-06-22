@@ -214,7 +214,7 @@ export function MatchPanel({ draft, demand, onConfirm, onClear, isLoading }: IMa
         {draft ? (
           <div>
             <div style={{ fontFamily: FONT.mono, fontSize: 13, fontWeight: 500, color: COLORS.primary }}>
-              {draft.cargo_code}
+              {draft.shipment_code}
             </div>
             <div style={{ fontSize: 11, color: COLORS.textSecondary }}>
               {sourceCodes} · {(draft.weight_net ?? 0).toLocaleString('ru-RU')} kg · {ageLabel}

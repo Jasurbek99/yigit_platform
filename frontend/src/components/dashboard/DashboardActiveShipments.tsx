@@ -32,12 +32,12 @@ export function DashboardActiveShipments({ shipments }: IDashboardActiveShipment
   const columns: ProColumns<IDashboardActiveShipment>[] = [
     {
       title: t('dashboard.col_code'),
-      dataIndex: 'cargo_code',
+      dataIndex: 'shipment_code',
       search: false,
-      sorter: (a, b) => a.cargo_code.localeCompare(b.cargo_code),
+      sorter: (a, b) => a.shipment_code.localeCompare(b.shipment_code),
       render: (_, r) => (
         <span style={{ color: COLORS.primary, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-          {r.cargo_code}
+          {r.shipment_code}
         </span>
       ),
     },

@@ -82,7 +82,7 @@ export function DetailSlide({ shipmentId, onClose }: IDetailSlideProps) {
                       letterSpacing: '-0.5px',
                     }}
                   >
-                    {detail?.cargo_code ?? '—'}
+                    {detail?.shipment_code ?? '—'}
                   </div>
                   <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: 4 }}>
                     {detail?.customer_name ?? '—'} → {flag} {detail?.country_name ?? '—'} · {weightFormatted}

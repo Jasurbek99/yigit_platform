@@ -87,7 +87,7 @@ def _make_block(code: str = 'JB') -> GreenhouseBlock:
 
 
 def _make_draft(
-    cargo_code: str,
+    shipment_code: str,
     country: Country | None = None,
     customer: Customer | None = None,
     user: User | None = None,
@@ -96,7 +96,7 @@ def _make_draft(
     draft_status = _make_status('draft', step_order=0, phase='DRAFT')
     season = _make_season()
     return Shipment.objects.create(
-        cargo_code=cargo_code,
+        shipment_code=shipment_code,
         date=datetime.date(2026, 5, 25),
         season=season,
         status=draft_status,
@@ -414,15 +414,15 @@ class JoinSuccessTests(TestCase):
         self.assertEqual(self.target.status.code, 'draft')
 
     def test_join_returns_detail_serializer_shape(self):
-        """Response is the full ShipmentDetailSerializer shape with cargo_code."""
+        """Response is the full ShipmentDetailSerializer shape with shipment_code."""
         resp = self.client.post(
             self._join_url(self.target.pk),
             {'source_id': self.source.pk},
             format='json',
         )
         self.assertEqual(resp.status_code, 200, resp.data)
-        self.assertIn('cargo_code', resp.data)
-        self.assertEqual(resp.data['cargo_code'], '0101001/25')
+        self.assertIn('shipment_code', resp.data)
+        self.assertEqual(resp.data['shipment_code'], '0101001/25')
 
 
 # ---------------------------------------------------------------------------
@@ -604,7 +604,7 @@ class SheetCreatedByRoleTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         results = resp.data.get('results', resp.data)
         # Find our draft in the results
-        matches = [s for s in results if s['cargo_code'] == '0101040/25']
+        matches = [s for s in results if s['shipment_code'] == '0101040/25']
         self.assertTrue(matches, 'Draft not found in sheet response')
         self.assertEqual(matches[0]['created_by_role'], 'loading_dept_head')
 
@@ -747,9 +747,9 @@ class JoinMultiVarietyTests(TestCase):
         self.v2 = _make_variety('JV02', 'JVar2')
         self.vx = _make_variety('JVX0', 'JVarX')  # pre-existing on target
 
-    def _make_supply_draft(self, cargo_code: str) -> 'Shipment':
+    def _make_supply_draft(self, shipment_code: str) -> 'Shipment':
         """Supply draft with one block source and two dominant varieties."""
-        source = _make_draft(cargo_code, user=self.supply_user)
+        source = _make_draft(shipment_code, user=self.supply_user)
         ShipmentBlockSource.objects.create(
             shipment=source, block=self.block, weight_kg=Decimal('11000.00')
         )

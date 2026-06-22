@@ -13,6 +13,7 @@ import {
   Radio,
   Row,
   Space,
+  Tabs,
   Tag,
   Typography,
 } from 'antd';
@@ -32,27 +33,43 @@ import type {
   IAdvanceShipmentLink,
 } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
+import { useCustomsLedger } from '@/hooks/useCustomsExpenses';
+import { CustomsLedgerSummary } from '@/components/customsExpense/CustomsLedgerSummary';
+import { CustomsExpensesTab, CUSTOMS_EXPENSE_WRITE_ROLES } from '@/components/customsExpense/CustomsExpensesTab';
 import { COLORS, FONT } from '@/constants/styles';
 
 const { Text, Link } = Typography;
+const { RangePicker } = DatePicker;
 
 type ReconcileFilter = 'all' | 'pending' | 'reconciled';
 
+/** Roles that may create advances (money-IN). Separate from customs-expense writers. */
 const CAN_CREATE_ROLES = new Set(['finansist', 'export_manager', 'director']);
+
+/** Group-separated amount + currency code (e.g. "35 640 TMT"). */
+function formatMoney(amount: number, currency?: string): string {
+  const num = Number(amount ?? 0).toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
+  return currency ? `${num} ${currency}` : num;
+}
+
+// ─── LinkedShipmentsPanel ────────────────────────────────────────────────────
 
 interface ILinkedShipmentsProps {
   advanceId: number;
   noShipmentsLabel: string;
-  cargoCodeLabel: string;
+  shipmentCodeLabel: string;
   allocatedAmountLabel: string;
 }
 
 function LinkedShipmentsPanel({
   advanceId,
   noShipmentsLabel,
-  cargoCodeLabel,
+  shipmentCodeLabel,
   allocatedAmountLabel,
-}: ILinkedShipmentsProps) {
+}: ILinkedShipmentsProps): React.ReactElement {
   const { data, isLoading } = useAdvanceDetail(advanceId);
 
   const links: IAdvanceShipmentLink[] = data?.shipment_links ?? [];
@@ -63,8 +80,8 @@ function LinkedShipmentsPanel({
 
   const cols: ProColumns<IAdvanceShipmentLink>[] = [
     {
-      title: cargoCodeLabel,
-      dataIndex: 'shipment_cargo_code',
+      title: shipmentCodeLabel,
+      dataIndex: 'shipment_code',
       search: false,
     },
     {
@@ -72,7 +89,9 @@ function LinkedShipmentsPanel({
       dataIndex: 'allocated_amount',
       search: false,
       render: (_, record) =>
-        record.allocated_amount != null ? `$${record.allocated_amount.toLocaleString()}` : '—',
+        record.allocated_amount != null
+          ? Number(record.allocated_amount).toLocaleString()
+          : '—',
     },
   ];
 
@@ -93,6 +112,8 @@ function LinkedShipmentsPanel({
   );
 }
 
+// ─── NewAdvanceModal ──────────────────────────────────────────────────────────
+
 interface INewAdvanceFormValues {
   batch_code?: string;
   advance_date: Dayjs | null;
@@ -107,12 +128,12 @@ interface INewAdvanceModalProps {
   onClose: () => void;
 }
 
-function NewAdvanceModal({ open, onClose }: INewAdvanceModalProps) {
+function NewAdvanceModal({ open, onClose }: INewAdvanceModalProps): React.ReactElement {
   const { t } = useTranslation();
   const createAdvance = useCreateAdvance();
   const [form] = Form.useForm<INewAdvanceFormValues>();
 
-  function handleSubmit(values: INewAdvanceFormValues) {
+  function handleSubmit(values: INewAdvanceFormValues): void {
     const payload: ICreateAdvancePayload = {
       batch_code: values.batch_code || undefined,
       advance_date: values.advance_date ? values.advance_date.format('YYYY-MM-DD') : '',
@@ -134,7 +155,7 @@ function NewAdvanceModal({ open, onClose }: INewAdvanceModalProps) {
     });
   }
 
-  function handleCancel() {
+  function handleCancel(): void {
     form.resetFields();
     onClose();
   }
@@ -173,7 +194,9 @@ function NewAdvanceModal({ open, onClose }: INewAdvanceModalProps) {
             precision={2}
             prefix="$"
             style={{ width: '100%' }}
-            formatter={(value) => (value != null ? `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',') : '')}
+            formatter={(value) =>
+              value != null ? `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',') : ''
+            }
             parser={(value): number => {
               const cleaned = (value ?? '').replace(/,/g, '');
               const n = Number(cleaned);
@@ -205,19 +228,35 @@ function NewAdvanceModal({ open, onClose }: INewAdvanceModalProps) {
   );
 }
 
-function StatCard({ title, value, color }: { title: string; value: string | number; color?: string }) {
+// ─── StatCard ────────────────────────────────────────────────────────────────
+
+function StatCard({
+  title,
+  value,
+  color,
+}: {
+  title: string;
+  value: string | number;
+  color?: string;
+}): React.ReactElement {
   return (
     <Card size="small">
-      <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>{title}</Text>
+      <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+        {title}
+      </Text>
       <div style={{ fontSize: 20, fontWeight: 700, color }}>{value}</div>
     </Card>
   );
 }
 
-export default function AdvancesTracker() {
-  const { t } = useTranslation();
-  const { user } = useAuth();
+// ─── AdvancesTab ─────────────────────────────────────────────────────────────
 
+interface IAdvancesTabProps {
+  canCreate: boolean;
+}
+
+function AdvancesTab({ canCreate }: IAdvancesTabProps): React.ReactElement {
+  const { t } = useTranslation();
   const [filter, setFilter] = useState<ReconcileFilter>('all');
   const [newAdvanceOpen, setNewAdvanceOpen] = useState(false);
   const [expandedIds, setExpandedIds] = useState<readonly React.Key[]>([]);
@@ -230,20 +269,29 @@ export default function AdvancesTracker() {
 
   const advances = useMemo(() => data?.results ?? [], [data?.results]);
 
-  const { totalCount, totalAmount, unreconciledCount, unreconciledAmount } =
-    useMemo(() => {
-      const unreconciled = advances.filter((a) => !a.reconciled);
-      return {
-        totalCount: data?.count ?? 0,
-        totalAmount: advances.reduce((sum, a) => sum + a.total_amount, 0),
-        unreconciledCount: unreconciled.length,
-        unreconciledAmount: unreconciled.reduce((sum, a) => sum + a.total_amount, 0),
-      };
-    }, [advances, data?.count]);
+  const {
+    totalCount,
+    totalAmount,
+    unreconciledCount,
+    unreconciledAmount,
+    summaryCurrency,
+  } = useMemo(() => {
+    const unreconciled = advances.filter((a) => !a.reconciled);
+    const currencies = new Set(advances.map((a) => a.currency));
+    return {
+      totalCount: data?.count ?? 0,
+      totalAmount: advances.reduce((sum, a) => sum + Number(a.total_amount), 0),
+      unreconciledCount: unreconciled.length,
+      unreconciledAmount: unreconciled.reduce(
+        (sum, a) => sum + Number(a.total_amount),
+        0,
+      ),
+      // Show the currency code only when every loaded advance shares one.
+      summaryCurrency: currencies.size === 1 ? [...currencies][0] : undefined,
+    };
+  }, [advances, data?.count]);
 
-  const canCreate = user ? CAN_CREATE_ROLES.has(user.role) : false;
-
-  function handleReconcile(id: number) {
+  function handleReconcile(id: number): void {
     reconcileAdvance.mutate(id, {
       onSuccess: () => toast.success(t('advances.reconciled')),
       onError: () => toast.error(t('advances.error_load')),
@@ -281,7 +329,7 @@ export default function AdvancesTracker() {
       search: false,
       sorter: (a, b) => a.total_amount - b.total_amount,
       render: (_, record) => (
-        <Text strong>${record.total_amount.toLocaleString()}</Text>
+        <Text strong>{formatMoney(record.total_amount)}</Text>
       ),
     },
     {
@@ -322,7 +370,7 @@ export default function AdvancesTracker() {
         const isOver = record.allocated_total > record.total_amount;
         return (
           <span style={{ color: isOver ? COLORS.danger : undefined }}>
-            ${record.allocated_total.toLocaleString()}
+            {formatMoney(record.allocated_total)}
           </span>
         );
       },
@@ -380,34 +428,16 @@ export default function AdvancesTracker() {
   }
 
   return (
-    <div style={{ padding: '0 4px' }}>
-      <Space style={{ width: '100%', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
-        <div>
-          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', color: COLORS.textDark, lineHeight: '1.3', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <IconCurrencyDollar size={18} color={COLORS.primary} />
-            {t('advances.title')}
-          </div>
-          <div style={{ fontSize: 13, color: COLORS.textSecondary, marginTop: 2 }}>
-            {t('advances.subtitle')}
-          </div>
-        </div>
-        {canCreate && (
-          <Button
-            type="primary"
-            icon={<IconPlus size={14} />}
-            onClick={() => setNewAdvanceOpen(true)}
-          >
-            {t('advances.new_advance')}
-          </Button>
-        )}
-      </Space>
-
+    <>
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
         <Col xs={12} sm={6}>
           <StatCard title={t('advances.total_advances')} value={totalCount} />
         </Col>
         <Col xs={12} sm={6}>
-          <StatCard title={t('advances.total_amount')} value={`$${totalAmount.toLocaleString()}`} />
+          <StatCard
+            title={t('advances.total_amount')}
+            value={formatMoney(totalAmount, summaryCurrency)}
+          />
         </Col>
         <Col xs={12} sm={6}>
           <StatCard
@@ -419,13 +449,13 @@ export default function AdvancesTracker() {
         <Col xs={12} sm={6}>
           <StatCard
             title={t('advances.unreconciled_amount')}
-            value={`$${unreconciledAmount.toLocaleString()}`}
+            value={formatMoney(unreconciledAmount, summaryCurrency)}
             color={unreconciledAmount > 0 ? COLORS.orange : undefined}
           />
         </Col>
       </Row>
 
-      <Space style={{ marginBottom: 16 }}>
+      <Space style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap' }}>
         <Radio.Group
           value={filter}
           onChange={(e) => setFilter(e.target.value as ReconcileFilter)}
@@ -437,6 +467,15 @@ export default function AdvancesTracker() {
             { label: t('advances.reconciled'), value: 'reconciled' },
           ]}
         />
+        {canCreate && (
+          <Button
+            type="primary"
+            icon={<IconPlus size={14} />}
+            onClick={() => setNewAdvanceOpen(true)}
+          >
+            {t('advances.new_advance')}
+          </Button>
+        )}
       </Space>
 
       <ProTable<IFinansistAdvanceListItem>
@@ -454,13 +493,16 @@ export default function AdvancesTracker() {
           onExpandedRowsChange: (keys) => setExpandedIds(keys),
           expandedRowRender: (record) => (
             <div style={{ padding: '8px 0 8px 16px' }}>
-              <Text type="secondary" style={{ display: 'block', marginBottom: 8, fontSize: 13 }}>
+              <Text
+                type="secondary"
+                style={{ display: 'block', marginBottom: 8, fontSize: 13 }}
+              >
                 {t('advances.linked_shipments')}
               </Text>
               <LinkedShipmentsPanel
                 advanceId={record.id}
                 noShipmentsLabel={t('advances.no_shipments')}
-                cargoCodeLabel={t('advances.cargo_code')}
+                shipmentCodeLabel={t('advances.shipment_code')}
                 allocatedAmountLabel={t('advances.allocated_amount')}
               />
             </div>
@@ -471,6 +513,97 @@ export default function AdvancesTracker() {
       <NewAdvanceModal
         open={newAdvanceOpen}
         onClose={() => setNewAdvanceOpen(false)}
+      />
+    </>
+  );
+}
+
+// ─── AdvancesTracker (page root) ─────────────────────────────────────────────
+
+export default function AdvancesTracker(): React.ReactElement {
+  const { t } = useTranslation();
+  const { user } = useAuth();
+
+  // Shared date range: filters both the ledger summary and the expenses tab.
+  const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
+  const [dateFrom, dateTo] = dateRange;
+
+  const ledgerFilters = {
+    date_from: dateFrom ? dateFrom.format('YYYY-MM-DD') : undefined,
+    date_to: dateTo ? dateTo.format('YYYY-MM-DD') : undefined,
+  };
+
+  const { data: ledger, isLoading: ledgerLoading } = useCustomsLedger(ledgerFilters);
+
+  const canCreateAdvance = user ? CAN_CREATE_ROLES.has(user.role) : false;
+  const canWriteExpense =
+    (user ? CUSTOMS_EXPENSE_WRITE_ROLES.has(user.role) : false) ||
+    user?.is_superuser === true;
+
+  return (
+    <div style={{ padding: '0 4px' }}>
+      {/* Page header */}
+      <div style={{ marginBottom: 20 }}>
+        <div
+          style={{
+            fontSize: 20,
+            fontWeight: 600,
+            letterSpacing: '-0.02em',
+            color: COLORS.textDark,
+            lineHeight: '1.3',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+          }}
+        >
+          <IconCurrencyDollar size={18} color={COLORS.primary} />
+          {t('advances.title')}
+        </div>
+        <div style={{ fontSize: 13, color: COLORS.textSecondary, marginTop: 2 }}>
+          {t('advances.subtitle')}
+        </div>
+      </div>
+
+      {/* Shared date-range filter — applies to ledger tiles AND expenses tab */}
+      <Space style={{ marginBottom: 16 }}>
+        <Text type="secondary" style={{ fontSize: 13 }}>
+          {t('customs_expense.date_range')}:
+        </Text>
+        <RangePicker
+          format="DD.MM.YYYY"
+          value={dateRange}
+          onChange={(vals) =>
+            setDateRange(vals ? [vals[0], vals[1]] : [null, null])
+          }
+          allowClear
+          size="small"
+        />
+      </Space>
+
+      {/* Ledger TMT summary (above tabs — currency: TMT, separate from USD advances) */}
+      <CustomsLedgerSummary ledger={ledger} isLoading={ledgerLoading} />
+
+      {/* Tabbed view */}
+      <Tabs
+        defaultActiveKey="advances"
+        items={[
+          {
+            key: 'advances',
+            label: t('customs_expense.tab_advances'),
+            children: <AdvancesTab canCreate={canCreateAdvance} />,
+          },
+          {
+            key: 'expenses',
+            label: t('customs_expense.tab_expenses'),
+            children: (
+              <CustomsExpensesTab
+                canWrite={canWriteExpense}
+                dateFrom={dateFrom}
+                dateTo={dateTo}
+              />
+            ),
+          },
+        ]}
       />
     </div>
   );

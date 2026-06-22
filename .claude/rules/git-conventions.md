@@ -95,7 +95,7 @@ Lives at project root. Claude MUST update this after every feature or fix. Forma
 
 ### Added
 - Shipment list page with ProTable, 6 filters, "All/My work" toggle (feat(p3))
-- StatusTag, WeightDisplay, CargoCodeLink shared components (feat(frontend))
+- StatusTag, WeightDisplay, ShipmentCodeLink shared components (feat(frontend))
 - Status transition API with 13-step validation (feat(p3))
 
 ### Changed

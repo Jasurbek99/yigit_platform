@@ -94,7 +94,7 @@ class DraftAutoAdvanceTests(TestCase):
 
         draft = ShipmentStatusType.objects.get(code='draft')
         shipment = Shipment.objects.create(
-            cargo_code='0101001/26',
+            shipment_code='0101001/26',
             date='2026-01-01',
             season=self.season,
             status=draft,
@@ -177,7 +177,7 @@ class PeregruzForkTests(TestCase):
     def _make_at_status(self, code: str, has_peregruz: bool) -> Shipment:
         status = ShipmentStatusType.objects.get(code=code)
         shipment = Shipment.objects.create(
-            cargo_code=f'TEST-{code[:4]}-{int(has_peregruz)}',
+            shipment_code=f'TEST-{code[:4]}-{int(has_peregruz)}',
             date='2026-01-01',
             season=self.season,
             status=status,
@@ -228,7 +228,7 @@ class CascadeTests(TestCase):
 
         gg = ShipmentStatusType.objects.get(code='gumruk_girish')
         shipment = Shipment.objects.create(
-            cargo_code='CASCADE-1',
+            shipment_code='CASCADE-1',
             date='2026-01-01',
             season=self.season,
             status=gg,
@@ -283,7 +283,7 @@ class StepWithoutAutoRulesStaysManualTests(TestCase):
     def test_no_rules_no_auto_advance(self):
         draft = ShipmentStatusType.objects.get(code='draft')
         shipment = Shipment.objects.create(
-            cargo_code='NORULES-1',
+            shipment_code='NORULES-1',
             date='2026-01-01',
             season=self.season,
             status=draft,

@@ -1,7 +1,7 @@
 """Shipment list search — `?search=` matches operator-entered identifiers.
 
 The Shipments list (and ProTable search box) must find a truck not only by its
-platform cargo_code but by the fields staff actually remember in the field:
+platform shipment_code but by the fields staff actually remember in the field:
 the official export code, the driver's name, the driver's phone, and the truck
 plate. This locks in `ShipmentViewSet.search_fields`.
 
@@ -38,7 +38,7 @@ def _make_status() -> ShipmentStatusType:
 
 
 class ShipmentSearchTests(TestCase):
-    """`?search=` matches cargo_code + official_export_code + driver/truck fields."""
+    """`?search=` matches shipment_code + export_code + driver/truck fields."""
 
     @classmethod
     def setUpTestData(cls):
@@ -49,8 +49,8 @@ class ShipmentSearchTests(TestCase):
 
         # The target row — every searchable field carries a unique token.
         cls.target = Shipment.objects.create(
-            cargo_code='0101001/25',
-            official_export_code='02|FB|777|FA|25|--',
+            shipment_code='0101001/25',
+            export_code='02|FB|777|FA|25|--',
             driver_name='Berdimyrat Annaýew',
             driver_phone='+99365123456',
             truck_plate='AG7788BX',
@@ -61,8 +61,8 @@ class ShipmentSearchTests(TestCase):
         )
         # A decoy row that must NOT match any of the target's tokens.
         cls.decoy = Shipment.objects.create(
-            cargo_code='0202002/25',
-            official_export_code='03|GH|111|GB|25|--',
+            shipment_code='0202002/25',
+            export_code='03|GH|111|GB|25|--',
             driver_name='Myrat Geldiýew',
             driver_phone='+99362999000',
             truck_plate='MR0011CD',
@@ -81,7 +81,7 @@ class ShipmentSearchTests(TestCase):
         self.assertEqual(resp.status_code, 200, resp.data)
         return {row['id'] for row in resp.json()['results']}
 
-    def test_search_by_official_export_code(self):
+    def test_search_by_export_code(self):
         ids = self._search_ids('777')
         self.assertIn(self.target.id, ids)
         self.assertNotIn(self.decoy.id, ids)
@@ -101,7 +101,7 @@ class ShipmentSearchTests(TestCase):
         self.assertIn(self.target.id, ids)
         self.assertNotIn(self.decoy.id, ids)
 
-    def test_search_by_cargo_code_still_works(self):
+    def test_search_by_shipment_code_still_works(self):
         ids = self._search_ids('0101001')
         self.assertIn(self.target.id, ids)
         self.assertNotIn(self.decoy.id, ids)

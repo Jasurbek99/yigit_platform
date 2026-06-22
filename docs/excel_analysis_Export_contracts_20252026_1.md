@@ -67,7 +67,7 @@ This is the main shipment/invoice register. One row = one truck delivery under a
 | N | `Scan` | `True`/`None` | `contracts.invoices.scan_uploaded` | Boolean |
 | O | *(unlabeled)* | `14000ton(ulandy)`, `tazeden asakda goylan` | `export.shipment_comments.content` via R15 migration | **R15 legacy notes** — 41 rows, migrate to `shipment_comments` with `is_system=True` |
 
-**Important observation:** Column H `inv.no` is NOT the cargo code (`DDMM###/YY`). The `inv.no` is a sequential number that resets per contract (confirmed: 1,782 rows but only 380 unique values, 306 duplicates). The cargo code must be reconstructed from date + serial or is in the `gross net` sheet row number.
+**Important observation:** Column H `inv.no` is NOT the shipment code (`DDMM###/YY`). The `inv.no` is a sequential number that resets per contract (confirmed: 1,782 rows but only 380 unique values, 306 duplicates). The shipment code must be reconstructed from date + serial or is in the `gross net` sheet row number.
 
 ### Sheet: `1-Contracts` (31 active contracts)
 
@@ -109,7 +109,7 @@ Example: `177/25-YGT-EXP, 22.09.2025` = number 177, year 25, firm YGT, type EXP,
 | M | *(empty)* | `None` | — |
 | N | Season tag | `2025-2026` | Validation: all rows should be current season |
 
-**Join strategy:** `gross net` row `№` aligns positionally with `2-Sales` invoice serial (`G: serial no. of truck`). No direct cargo code present — requires positional join.
+**Join strategy:** `gross net` row `№` aligns positionally with `2-Sales` invoice serial (`G: serial no. of truck`). No direct shipment code present — requires positional join.
 
 ### Sheet: `sellers` (25 export firms)
 
@@ -190,22 +190,22 @@ Example: `177/25-YGT-EXP, 22.09.2025` = number 177, year 25, firm YGT, type EXP,
 
 ---
 
-## 3. Cargo Code Discovery
+## 3. Shipment Code Discovery
 
-**Critical finding:** The standard cargo code format `DDMM###/YY` (e.g., `0201045/25`) is **NOT present** in this Excel file as an explicit column.
+**Critical finding:** The standard shipment code format `DDMM###/YY` (e.g., `0201045/25`) is **NOT present** in this Excel file as an explicit column.
 
 Instead, shipments are identified by a combination of:
 - `contracts.invoices.invoice_number` (col H in 2-Sales) — sequential integer, resets per contract
 - Contract number + serial truck number (cols D + G in 2-Sales)
 - Row position (aligns `gross net` weights with `2-Sales` rows)
 
-**Consequence for migration:** Cargo codes must be **generated** during import using the formula:
+**Consequence for migration:** Shipment codes must be **generated** during import using the formula:
 ```
-cargo_code = DDMM + zero-padded-serial(3) + "/" + YY
+shipment_code = DDMM + zero-padded-serial(3) + "/" + YY
 ```
 Where DDMM = invoice date, serial = global running count per date.
 
-Alternatively, if the existing operational system already has a cargo code table, the import must JOIN to that table using (contract + serial_truck_number) as the composite key.
+Alternatively, if the existing operational system already has a shipment code table, the import must JOIN to that table using (contract + serial_truck_number) as the composite key.
 
 This is a **migration blocker** that requires clarification with the domain owner before writing the import script.
 
@@ -296,9 +296,9 @@ This is a **migration blocker** that requires clarification with the domain owne
 
 ### CRITICAL — Blockers
 
-**DQ-1: No cargo code column exists.**
-The `DDMM###/YY` cargo code is absent from every sheet. `inv.no` (col H, 2-Sales) is NOT a cargo code — it resets per contract and has 306 duplicates across 1,782 rows. The migration script cannot populate `export.shipments.code` without either a cargo code generation rule or a join to the existing operational database.
-**Action required:** Clarify with domain owner whether cargo codes should be generated fresh or loaded from legacy system.
+**DQ-1: No shipment code column exists.**
+The `DDMM###/YY` shipment code is absent from every sheet. `inv.no` (col H, 2-Sales) is NOT a shipment code — it resets per contract and has 306 duplicates across 1,782 rows. The migration script cannot populate `export.shipments.code` without either a shipment code generation rule or a join to the existing operational database.
+**Action required:** Clarify with domain owner whether shipment codes should be generated fresh or loaded from legacy system.
 
 **DQ-2: `2-Sales` and `gross net` join is positional only.**
 There is no shared key between these two sheets. `gross net` has 114 rows, `2-Sales` has 1,961. The `gross net` sheet appears to be a partial extract (only ~6% of trucks have explicit weight detail). For the remaining 94%, weights must be taken from `2-Sales` col J (`Quantity (kg)`) as `weight_net_kg`, with `weight_gross_kg` estimated or left NULL.
@@ -372,7 +372,7 @@ Target file: `/Users/macbookpro/yigit_programm/backend/apps/core/management/comm
 #   6. export.shipments       ← 2-Sales + gross net (weight join)
 #   7. export.shipment_comments ← 2-Sales col O (R15 migration, is_system=True)
 #
-# BLOCKER: cargo code generation strategy must be resolved before step 6.
+# BLOCKER: shipment code generation strategy must be resolved before step 6.
 #
 # Key transforms:
 #   - Contract date: regex extract from contract_number string

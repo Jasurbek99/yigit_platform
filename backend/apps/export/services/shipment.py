@@ -218,7 +218,7 @@ def transition_to(
             missing.append('block_sources')
         if missing:
             raise ValueError(
-                f'Draft {shipment.cargo_code} cannot advance to '
+                f'Draft {shipment.shipment_code} cannot advance to '
                 f'{new_status_code!r}: missing {", ".join(missing)}. '
                 'Supply-only and destination-only drafts must be joined first.'
             )
@@ -286,13 +286,13 @@ def transition_to(
         action='transition',
         model_name='Shipment',
         object_id=shipment.id,
-        object_repr=shipment.cargo_code,
+        object_repr=shipment.shipment_code,
         detail=detail,
     )
 
     logger.info(
         'Shipment %s transitioned %s → %s by %s%s',
-        shipment.cargo_code,
+        shipment.shipment_code,
         current_code,
         new_status_code,
         user.username,
@@ -423,7 +423,7 @@ def auto_advance_if_ready(shipment: Shipment, resolved_tasks) -> bool:
             # cascade progress we made.
             logger.info(
                 'auto_advance race lost on %s (current=%s, target=%s)',
-                shipment.cargo_code, current_code, next_code,
+                shipment.shipment_code, current_code, next_code,
             )
             break
 
@@ -433,7 +433,7 @@ def auto_advance_if_ready(shipment: Shipment, resolved_tasks) -> bool:
         logger.warning(
             'auto_advance hit MAX_CHAIN=%d on %s (final status=%s) — '
             'check for a status-graph cycle or runaway config',
-            MAX_CHAIN, shipment.cargo_code,
+            MAX_CHAIN, shipment.shipment_code,
             shipment.status.code if shipment.status_id else None,
         )
 
@@ -467,7 +467,7 @@ def _notify_action_required(shipment: Shipment, new_status_code: str) -> None:
         Notification(
             user_id=uid,
             kind='action_required',
-            message=shipment.cargo_code,
+            message=shipment.shipment_code,
             link=f'/shipments/{shipment.id}',
         )
         for uid in user_ids
@@ -475,12 +475,12 @@ def _notify_action_required(shipment: Shipment, new_status_code: str) -> None:
     Notification.objects.bulk_create(notifications, batch_size=500)
     logger.info(
         'Created %d action_required notifications for %s (roles: %s)',
-        len(notifications), shipment.cargo_code, roles,
+        len(notifications), shipment.shipment_code, roles,
     )
 
 
-def generate_cargo_codes(n: int, today=None) -> list[str]:
-    """Generate N unique cargo_codes in DDMMNNN/YY format with a single DB scan.
+def generate_shipment_codes(n: int, today=None) -> list[str]:
+    """Generate N unique shipment_codes in DDMMNNN/YY format with a single DB scan.
 
     Performs one DB query to load all existing codes for the date, then picks N
     consecutive free slots from the sequence. Adding each emitted code to the
@@ -492,7 +492,7 @@ def generate_cargo_codes(n: int, today=None) -> list[str]:
             Defaults to timezone.now().date() in the active TM timezone.
 
     Returns:
-        Ordered list of n unique cargo code strings.
+        Ordered list of n unique shipment code strings.
 
     Raises:
         ValueError: If n < 1, or if the sequence is exhausted for the date.
@@ -508,8 +508,8 @@ def generate_cargo_codes(n: int, today=None) -> list[str]:
     # Single scan — load all codes for this date into a set.
     existing: set[str] = set(
         Shipment.objects
-        .filter(cargo_code__startswith=prefix, cargo_code__endswith=f'/{yy}')
-        .values_list('cargo_code', flat=True)
+        .filter(shipment_code__startswith=prefix, shipment_code__endswith=f'/{yy}')
+        .values_list('shipment_code', flat=True)
     )
     codes: list[str] = []
     for seq in range(1, 1000):
@@ -522,25 +522,25 @@ def generate_cargo_codes(n: int, today=None) -> list[str]:
             if len(codes) == n:
                 return codes
     raise ValueError(
-        f'Cargo code sequence exhausted for {today} (needed {n} codes). '
+        f'Shipment code sequence exhausted for {today} (needed {n} codes). '
         'Need to extend format.'
     )
 
 
-def generate_cargo_code(today=None) -> str:
-    """Generate a single unique cargo_code in DDMMNNN/YY format.
+def generate_shipment_code(today=None) -> str:
+    """Generate a single unique shipment_code in DDMMNNN/YY format.
 
-    Delegates to generate_cargo_codes(1) so the scan logic lives in one place.
+    Delegates to generate_shipment_codes(1) so the scan logic lives in one place.
 
     Args:
         today: Optional date — used by tests to make output deterministic.
             Defaults to timezone.now().date() in the active TM timezone.
     """
-    return generate_cargo_codes(1, today=today)[0]
+    return generate_shipment_codes(1, today=today)[0]
 
 
 def create_shipment(
-    cargo_code: str,
+    shipment_code: str,
     date,
     user,
     country=None,
@@ -554,7 +554,7 @@ def create_shipment(
     `gumruk_girish` via the task engine.
 
     Args:
-        cargo_code: Validated cargo code string in DDMM###/YY format.
+        shipment_code: Validated shipment code string in DDMM###/YY format.
         date: Shipment date (datetime.date instance).
         user: User performing the creation (core.User instance).
         country: Optional core.Country FK instance.
@@ -583,7 +583,7 @@ def create_shipment(
         raise ValueError('Draft status not configured. Run migrate first.')
 
     shipment = Shipment.objects.create(
-        cargo_code=cargo_code,
+        shipment_code=shipment_code,
         date=date,
         country=country,
         customer=customer,
@@ -602,7 +602,7 @@ def create_shipment(
         comment='Shipment created',
     )
 
-    logger.info('Shipment %s created by %s', shipment.cargo_code, user.username)
+    logger.info('Shipment %s created by %s', shipment.shipment_code, user.username)
 
     _notify_action_required(shipment, 'draft')
 
@@ -736,7 +736,7 @@ def close_pallet_manifest(shipment: Shipment, user) -> None:
     """
     if not shipment.pallets.exists():
         raise ValueError(
-            f'Shipment {shipment.cargo_code} has no pallets. '
+            f'Shipment {shipment.shipment_code} has no pallets. '
             'Enter pallet data before closing the manifest.'
         )
 
@@ -766,7 +766,7 @@ def close_pallet_manifest(shipment: Shipment, user) -> None:
         dominant = compute_dominant_varieties(shipment)
         if not dominant:
             raise ValueError(
-                f'Shipment {shipment.cargo_code}: could not determine dominant varieties. '
+                f'Shipment {shipment.shipment_code}: could not determine dominant varieties. '
                 'Check pallet variety assignments.'
             )
 
@@ -796,7 +796,7 @@ def close_pallet_manifest(shipment: Shipment, user) -> None:
             action='manifest_close',
             model_name='Shipment',
             object_id=shipment.id,
-            object_repr=shipment.cargo_code,
+            object_repr=shipment.shipment_code,
             detail=(
                 f'Manifest closed: gross={total_gross:.2f} kg, net={total_net:.2f} kg, '
                 f'{len(pallets)} pallets. Dominant varieties: {dominant_summary}'
@@ -805,7 +805,7 @@ def close_pallet_manifest(shipment: Shipment, user) -> None:
 
     logger.info(
         'Pallet manifest closed for %s by %s: gross=%.2f net=%.2f pallets=%d',
-        shipment.cargo_code, user.username, total_gross, total_net, len(pallets),
+        shipment.shipment_code, user.username, total_gross, total_net, len(pallets),
     )
 
 
@@ -842,13 +842,13 @@ def override_dominant_varieties(shipment: Shipment, variety_ids: list[int], user
             action='variety_override',
             model_name='Shipment',
             object_id=shipment.id,
-            object_repr=shipment.cargo_code,
+            object_repr=shipment.shipment_code,
             detail=f'Dominant varieties overridden to: {variety_ids}',
         )
 
     logger.info(
         'Dominant varieties for %s overridden to %s by %s',
-        shipment.cargo_code, variety_ids, user.username,
+        shipment.shipment_code, variety_ids, user.username,
     )
 
 

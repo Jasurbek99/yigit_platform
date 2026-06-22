@@ -43,7 +43,7 @@ export function SupplyCard({ draft, selected, onSelect }: ISupplyCardProps) {
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, alignItems: 'center' }}>
         <div style={{ fontFamily: FONT.mono, fontWeight: 600, fontSize: 12, color: COLORS.primary }}>
-          {draft.cargo_code}
+          {draft.shipment_code}
         </div>
         <div style={{ fontFamily: FONT.mono, fontSize: 11, color: '#08979c' }}>
           {(draft.weight_net ?? 0).toLocaleString('ru-RU')} kg

@@ -353,7 +353,7 @@ def _build_active_shipments() -> list:
 
         result.append({
             'id': s.id,
-            'cargo_code': s.cargo_code,
+            'shipment_code': s.shipment_code,
             'customer_name': customer_name,
             'country_name': country_name,
             'city_name': city_name,

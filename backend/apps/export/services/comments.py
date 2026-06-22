@@ -23,7 +23,7 @@ SHEET_FIELD_KEYS: frozenset[str] = frozenset([
     'notes',
     'export_manager_note',
     'documents_status',
-    'cargo_code',
+    'shipment_code',
     'block_sources',
     'firm_splits',
     'country',

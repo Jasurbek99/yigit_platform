@@ -22,9 +22,9 @@ class ShipmentBlockSourceInline(admin.TabularInline):
 
 @admin.register(Shipment)
 class ShipmentAdmin(admin.ModelAdmin):
-    list_display = ['cargo_code', 'date', 'country', 'customer', 'status', 'weight_net', 'departed_at']
+    list_display = ['shipment_code', 'date', 'country', 'customer', 'status', 'weight_net', 'departed_at']
     list_filter = ['status', 'country', 'season', 'is_gapy_satys']
-    search_fields = ['cargo_code']
+    search_fields = ['shipment_code']
     inlines = [ShipmentFirmSplitInline, ShipmentBlockSourceInline]
     # AD-2: vehicle_status_note is DEPRECATED — excluded to prevent new data entry
     exclude = ['vehicle_status_note']

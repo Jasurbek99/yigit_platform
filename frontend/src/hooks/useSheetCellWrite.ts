@@ -47,7 +47,7 @@ export function isClearableField(rowConfig: IRowConfig): boolean {
   const isBoolDropdown =
     rowConfig.options_source === 'peregruz' || rowConfig.options_source === 'gornushi';
   return (
-    rowConfig.field_key !== 'cargo_code' &&
+    rowConfig.field_key !== 'shipment_code' &&
     rowConfig.field_key !== 'has_doc_advance' &&
     rowConfig.field_key !== 'has_sales_report' &&
     !isBoolDropdown

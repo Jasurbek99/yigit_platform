@@ -17,7 +17,7 @@ Follow this sequence. Each step must be complete before the next.
 
 ### 3. Backend: Serializer + ViewSet + URLs
 - List serializer (lightweight, no nested objects) + Detail serializer (with related data)
-- Field names follow `api-contract.md` rules (DB `code` → API `cargo_code`)
+- Field names follow `api-contract.md` rules (DB `code` → API `shipment_code`)
 - ViewSet with `permission_classes`, `filterset_fields`, `search_fields`
 - Register in `urls.py` under `/api/v1/{app}/`
 

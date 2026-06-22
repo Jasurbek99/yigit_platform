@@ -38,7 +38,7 @@ def _make_shipment(author: User) -> Shipment:
         defaults={'name_tk': 'yuklenme', 'name_en': 'Loading', 'step_order': 1, 'phase': 'LOADING'},
     )
     return Shipment.objects.create(
-        cargo_code='0101099/25',
+        shipment_code='0101099/25',
         date='2025-01-01',
         season=season,
         status=status,

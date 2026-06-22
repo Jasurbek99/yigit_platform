@@ -47,7 +47,7 @@ CLOSE:    13 tamamlandy
 ALL roles see ALL shipments in the main list (like current Excel). Active window is a "my work" filter.
 
 ## Key domain facts
-- **Cargo code**: `DDMM###/YY` — universal key across all data. DB column: `export.shipments.code`
+- **Shipment code**: `DDMM###/YY` — universal key across all data. DB column: `export.shipments.code`
 - **Weight**: `weight_net_kg` (r) = arassa agramy (pure tomato), `weight_gross_kg` (h) = with boxes
 - **Truck capacity**: 18,500 kg standard export. Gapy Satys can exceed.
 - **Firms**: ~24 export (holding-related), ~111 import. 1-3 export firms per shipment via `shipment_firm_splits`.

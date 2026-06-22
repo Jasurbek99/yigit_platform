@@ -58,9 +58,9 @@ def _make_status(code: str = 'yuklenme') -> ShipmentStatusType:
     return st
 
 
-def _make_shipment(cargo_code: str = 'API001') -> Shipment:
+def _make_shipment(shipment_code: str = 'API001') -> Shipment:
     return Shipment.objects.get_or_create(
-        cargo_code=cargo_code,
+        shipment_code=shipment_code,
         defaults={
             'date': '2026-01-15',
             'season': _make_season(),

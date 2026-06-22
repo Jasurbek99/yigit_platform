@@ -52,7 +52,7 @@ function makeDefaultRow(): IComposerRow {
   return { key: makeKey(), block_id: null, block_code: '' };
 }
 
-function autoCargo(): string {
+function autoShipmentCode(): string {
   // Backend regex is ^\d{7}/\d{2}$ — exactly 7 digits, slash, 2-digit year.
   // Format: DDMM + 3-digit sequence + /YY, e.g. 1704202/26.
   const now = dayjs();
@@ -81,7 +81,7 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
   const today = dayjs().format('YYYY-MM-DD');
 
   const [rows, setRows] = useState<IComposerRow[]>([makeDefaultRow()]);
-  const [cargoCode, setCargoCode] = useState<string>(autoCargo);
+  const [shipmentCode, setShipmentCode] = useState<string>(autoShipmentCode);
   const [officialCode, setOfficialCode] = useState<string>('');
   const [notes, setNotes] = useState('');
 
@@ -152,7 +152,7 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
       toast.error(t('draft.composer_error_no_rows'));
       return;
     }
-    if (!cargoCode.trim()) {
+    if (!shipmentCode.trim()) {
       toast.error(t('draft.composer_error_no_code'));
       return;
     }
@@ -163,16 +163,16 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
 
     createDraft.mutate(
       {
-        cargo_code: cargoCode.trim(),
+        shipment_code: shipmentCode.trim(),
         date: today,
         is_draft: true,
         block_sources,
         notes: notes.trim() || undefined,
-        official_export_code: officialCode.trim() || undefined,
+        export_code: officialCode.trim() || undefined,
       },
       {
         onSuccess: (draft) => {
-          toast.success(t('draft.composer_toast_saved', { code: draft.cargo_code }));
+          toast.success(t('draft.composer_toast_saved', { code: draft.shipment_code }));
           onSaved?.(draft);
           handleReset();
           onClose();
@@ -200,7 +200,7 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
 
   function handleReset() {
     setRows([makeDefaultRow()]);
-    setCargoCode(autoCargo());
+    setShipmentCode(autoShipmentCode());
     setOfficialCode('');
     setNotes('');
   }
@@ -373,7 +373,7 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
                   type="secondary"
                   style={{ fontFamily: FONT.mono, fontSize: 12, marginLeft: 'auto' }}
                 >
-                  {t('official_code.platform_id_label')}: {cargoCode}
+                  {t('official_code.platform_id_label')}: {shipmentCode}
                 </Typography.Text>
               </div>
             ),

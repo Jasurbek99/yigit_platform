@@ -39,7 +39,7 @@ export function ShipmentTable({
       const q = search.toLowerCase();
       list = list.filter(
         (s) =>
-          s.cargo_code.toLowerCase().includes(q) ||
+          s.shipment_code.toLowerCase().includes(q) ||
           (s.customer_name?.toLowerCase().includes(q) ?? false) ||
           (s.country_name?.toLowerCase().includes(q) ?? false),
       );

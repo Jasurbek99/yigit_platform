@@ -11,10 +11,10 @@ interface ISheetColumnHeaderProps {
   shipmentId: number;
   seqNumber: number;
   /**
-   * The cargo_code is kept on the prop name `exportCode` for back-compat
+   * The shipment_code is kept on the prop name `exportCode` for back-compat
    * with the confirm dialog (used in the soft-delete prompt). It is no
    * longer rendered in the header — the header shows `officialExportCode`
-   * instead. cargo_code still appears as a normal data row (row 7) so it
+   * instead. shipment_code still appears as a normal data row (row 7) so it
    * remains visible in the table.
    */
   exportCode: string;

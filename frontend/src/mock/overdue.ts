@@ -10,7 +10,7 @@ const DEFAULTS = {
   driver_id: null as number | null,
   price_per_kg: null as number | null,
   total_amount_usd: null as number | null,
-  official_export_code: null as string | null,
+  export_code: null as string | null,
   previous_platform_id: null as number | null,
   harvest_age_days: 0 as number,
   freshness: 'today' as 'today' | 'yesterday' | 'aged',
@@ -73,7 +73,7 @@ export const MOCK_OVERDUE_SHIPMENTS: IOverdueShipment[] = [
     // Just overdue — 8 days, status "Arrived" (bardy), Kazakhstan
     ...DEFAULTS,
     id: 101,
-    cargo_code: '0319101/26',
+    shipment_code: '0319101/26',
     date: '2026-03-17',
     status: 9,
     status_display: 'Arrived',
@@ -93,7 +93,7 @@ export const MOCK_OVERDUE_SHIPMENTS: IOverdueShipment[] = [
     // Severely overdue — 15 days, status "Being Sold" (satylyar), Kazakhstan
     ...DEFAULTS,
     id: 102,
-    cargo_code: '0312102/26',
+    shipment_code: '0312102/26',
     date: '2026-03-10',
     status: 10,
     status_display: 'Being Sold',
@@ -113,7 +113,7 @@ export const MOCK_OVERDUE_SHIPMENTS: IOverdueShipment[] = [
     // Critical — 22 days, status "Sold" (satyldy), has_sales_report: false
     ...DEFAULTS,
     id: 103,
-    cargo_code: '0305103/26',
+    shipment_code: '0305103/26',
     date: '2026-03-03',
     status: 11,
     status_display: 'Sold',
@@ -133,7 +133,7 @@ export const MOCK_OVERDUE_SHIPMENTS: IOverdueShipment[] = [
     // 10 days, status "Arrived", Russia destination
     ...DEFAULTS,
     id: 104,
-    cargo_code: '0317104/26',
+    shipment_code: '0317104/26',
     date: '2026-03-15',
     status: 9,
     status_display: 'Arrived',
@@ -153,7 +153,7 @@ export const MOCK_OVERDUE_SHIPMENTS: IOverdueShipment[] = [
     // 30 days — most critical, is_gapy_satys: true
     ...DEFAULTS,
     id: 105,
-    cargo_code: '0225105/26',
+    shipment_code: '0225105/26',
     date: '2026-02-23',
     status: 10,
     status_display: 'Being Sold',

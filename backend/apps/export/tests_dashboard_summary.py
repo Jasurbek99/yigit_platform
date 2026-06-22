@@ -55,11 +55,11 @@ def _make_status(code: str, step_order: int = 1, phase: str = 'LOAD') -> Shipmen
     return st
 
 
-def _make_shipment(cargo_code: str, season: Season, status: ShipmentStatusType, shipment_date: str = '2026-01-10'):
+def _make_shipment(shipment_code: str, season: Season, status: ShipmentStatusType, shipment_date: str = '2026-01-10'):
     """Create a bare-minimum Shipment for test purposes."""
     from apps.export.models import Shipment
     return Shipment.objects.create(
-        cargo_code=cargo_code,
+        shipment_code=shipment_code,
         date=shipment_date,
         season=season,
         status=status,

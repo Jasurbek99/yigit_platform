@@ -87,7 +87,7 @@ function makeKey(): number {
   return Date.now() + Math.random();
 }
 
-function autoCargo(): string {
+function autoShipmentCode(): string {
   const now = dayjs();
   const dd = now.format('DD');
   const mm = now.format('MM');
@@ -108,7 +108,7 @@ export function DestinationDraftModal({ open, onClose }: IDestinationDraftModalP
   const createDraft = useCreateDestinationDraft();
 
   const [date, setDate] = useState<ReturnType<typeof dayjs>>(dayjs());
-  const [cargoCode, setCargoCode] = useState<string>(autoCargo);
+  const [shipmentCode, setShipmentCode] = useState<string>(autoShipmentCode);
   const [country, setCountry] = useState<number | null>(null);
   const [city, setCity] = useState<number | null>(null);
   const [customer, setCustomer] = useState<number | null>(null);
@@ -137,7 +137,7 @@ export function DestinationDraftModal({ open, onClose }: IDestinationDraftModalP
 
   function handleReset() {
     setDate(dayjs());
-    setCargoCode(autoCargo());
+    setShipmentCode(autoShipmentCode());
     setCountry(null);
     setCity(null);
     setCustomer(null);
@@ -151,7 +151,7 @@ export function DestinationDraftModal({ open, onClose }: IDestinationDraftModalP
   }
 
   function handleSave() {
-    if (!cargoCode.trim()) {
+    if (!shipmentCode.trim()) {
       toast.error(t('draft.composer_error_no_code'));
       return;
     }
@@ -166,7 +166,7 @@ export function DestinationDraftModal({ open, onClose }: IDestinationDraftModalP
 
     createDraft.mutate(
       {
-        cargo_code: cargoCode.trim(),
+        shipment_code: shipmentCode.trim(),
         date: date.format('YYYY-MM-DD'),
         is_draft: true,
         block_sources: [],
@@ -178,7 +178,7 @@ export function DestinationDraftModal({ open, onClose }: IDestinationDraftModalP
       },
       {
         onSuccess: (draft) => {
-          toast.success(t('sheet.dest_modal.toast_saved', { code: draft.cargo_code }));
+          toast.success(t('sheet.dest_modal.toast_saved', { code: draft.shipment_code }));
           handleReset();
           onClose();
         },
@@ -215,7 +215,7 @@ export function DestinationDraftModal({ open, onClose }: IDestinationDraftModalP
       ]}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {/* Date + Cargo code — side by side */}
+        {/* Date + Shipment code — side by side */}
         <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: 12 }}>
           <div>
             <label style={{ display: 'block', marginBottom: 6, fontSize: 13, fontWeight: 600 }}>
@@ -231,12 +231,12 @@ export function DestinationDraftModal({ open, onClose }: IDestinationDraftModalP
           </div>
           <div>
             <label style={{ display: 'block', marginBottom: 6, fontSize: 13, fontWeight: 600 }}>
-              {t('sheet.supply_modal.cargo_code_label')}
+              {t('sheet.supply_modal.shipment_code_label')}
             </label>
             <Input
-              value={cargoCode}
-              onChange={(e) => setCargoCode(e.target.value)}
-              placeholder={t('sheet.supply_modal.cargo_code_ph')}
+              value={shipmentCode}
+              onChange={(e) => setShipmentCode(e.target.value)}
+              placeholder={t('sheet.supply_modal.shipment_code_ph')}
               style={{ fontFamily: FONT.mono }}
             />
           </div>

@@ -90,7 +90,7 @@ Value formatter: `getCellValue(sheetItem, row)` from `src/components/sheet/getCe
 
 ### Fallback (done / cancelled / not-your-task)
 
-When `isActiveCard` is false (task state is done/cancelled, or the user doesn't own it), `ReadOnlyTaskSummary` renders the cargo code, state tag, deadline, and completed-at timestamp.
+When `isActiveCard` is false (task state is done/cancelled, or the user doesn't own it), `ReadOnlyTaskSummary` renders the shipment code, state tag, deadline, and completed-at timestamp.
 
 ### Global state cleanup
 

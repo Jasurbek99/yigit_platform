@@ -99,7 +99,7 @@ class SheetEndpointTests(TestCase):
         )
         # Active-season shipment with a sales report
         cls.s1, _ = Shipment.objects.get_or_create(
-            cargo_code='ACT-001',
+            shipment_code='ACT-001',
             defaults={
                 'date': '2026-02-01', 'season': cls.season,
                 'status': cls.status_hasabat, 'country': cls.country_kz,
@@ -112,7 +112,7 @@ class SheetEndpointTests(TestCase):
         )
         # Active-season shipment without a sales report
         cls.s2, _ = Shipment.objects.get_or_create(
-            cargo_code='ACT-002',
+            shipment_code='ACT-002',
             defaults={
                 'date': '2026-02-02', 'season': cls.season,
                 'status': cls.status_loading, 'country': cls.country_kz,
@@ -129,7 +129,7 @@ class SheetEndpointTests(TestCase):
         )
         # Old-season shipment — should NOT appear in default response
         cls.s_old, _ = Shipment.objects.get_or_create(
-            cargo_code='OLD-999',
+            shipment_code='OLD-999',
             defaults={
                 'date': '2025-01-15', 'season': cls.old_season,
                 'status': cls.status_hasabat,
@@ -149,24 +149,24 @@ class SheetEndpointTests(TestCase):
     def test_default_returns_active_season_only(self):
         resp = self.client.get('/api/v1/export/shipments/sheet/')
         self.assertEqual(resp.status_code, 200, resp.data)
-        codes = {row['cargo_code'] for row in _sheet_results(resp)}
+        codes = {row['shipment_code'] for row in _sheet_results(resp)}
         self.assertEqual(codes, {'ACT-001', 'ACT-002'})
 
     def test_season_query_param_overrides_active(self):
         resp = self.client.get(f'/api/v1/export/shipments/sheet/?season={self.old_season.id}')
         self.assertEqual(resp.status_code, 200, resp.data)
-        codes = {row['cargo_code'] for row in _sheet_results(resp)}
+        codes = {row['shipment_code'] for row in _sheet_results(resp)}
         self.assertEqual(codes, {'OLD-999'})
 
     def test_has_sales_report_annotation(self):
         resp = self.client.get('/api/v1/export/shipments/sheet/')
-        by_code = {row['cargo_code']: row for row in _sheet_results(resp)}
+        by_code = {row['shipment_code']: row for row in _sheet_results(resp)}
         self.assertTrue(by_code['ACT-001']['has_sales_report'])
         self.assertFalse(by_code['ACT-002']['has_sales_report'])
 
     def test_inline_firm_splits_and_block_sources(self):
         resp = self.client.get('/api/v1/export/shipments/sheet/')
-        by_code = {row['cargo_code']: row for row in _sheet_results(resp)}
+        by_code = {row['shipment_code']: row for row in _sheet_results(resp)}
         s2 = by_code['ACT-002']
         self.assertEqual(len(s2['firm_splits']), 1)
         self.assertEqual(len(s2['block_sources']), 1)
@@ -179,7 +179,7 @@ class SheetEndpointTests(TestCase):
         self.s1.document_note = 'cmr ready'
         self.s1.save(update_fields=['warehouse_note', 'document_note'])
         resp = self.client.get('/api/v1/export/shipments/sheet/')
-        by_code = {row['cargo_code']: row for row in _sheet_results(resp)}
+        by_code = {row['shipment_code']: row for row in _sheet_results(resp)}
         self.assertEqual(by_code['ACT-001']['warehouse_note'], 'tomato batch loaded')
         self.assertEqual(by_code['ACT-001']['document_note'], 'cmr ready')
         # Defaults: empty string when never set
@@ -191,7 +191,7 @@ class SheetEndpointTests(TestCase):
         config (rows / row_settings) — the drawer's slim fetch."""
         resp = self.client.get(f'/api/v1/export/shipments/sheet/?shipment={self.s1.id}')
         self.assertEqual(resp.status_code, 200, resp.data)
-        codes = {row['cargo_code'] for row in _sheet_results(resp)}
+        codes = {row['shipment_code'] for row in _sheet_results(resp)}
         self.assertEqual(codes, {'ACT-001'})
         # Global config still present (independent of the shipment list).
         self.assertIn('rows', resp.data)
@@ -208,7 +208,7 @@ class SheetEndpointTests(TestCase):
             advance=advance, shipment=self.s1, allocated_amount='500.00',
         )
         resp = self.client.get('/api/v1/export/shipments/sheet/')
-        by_code = {row['cargo_code']: row for row in _sheet_results(resp)}
+        by_code = {row['shipment_code']: row for row in _sheet_results(resp)}
         self.assertTrue(by_code['ACT-001']['has_doc_advance'])
         self.assertFalse(by_code['ACT-002']['has_doc_advance'])
 
@@ -228,7 +228,7 @@ class SheetPatchPermissionTests(TestCase):
             defaults={'name_tk': 'yuklenme', 'name_en': 'Loading', 'step_order': 1, 'phase': 'LOADING'},
         )
         cls.shipment, _ = Shipment.objects.get_or_create(
-            cargo_code='PCH-001',
+            shipment_code='PCH-001',
             defaults={'date': '2026-02-01', 'season': cls.season, 'status': cls.status_loading},
         )
 
@@ -294,7 +294,7 @@ class SheetJunctionEndpointTests(TestCase):
         self.user = _create_user(f'mgr_jct_{id(self)}', 'export_manager')
         self.client.force_authenticate(user=self.user)
         self.shipment = Shipment.objects.create(
-            cargo_code=f'JCT-{id(self) % 10000}', date='2026-02-01',
+            shipment_code=f'JCT-{id(self) % 10000}', date='2026-02-01',
             season=self.season, status=self.status_loading,
         )
 
@@ -480,11 +480,11 @@ class SheetExtendedResponseTests(TestCase):
             defaults={'name_tk': 'yuklenme_x', 'name_en': 'Loading X', 'step_order': 1, 'phase': 'LOADING'},
         )
         cls.s1, _ = Shipment.objects.get_or_create(
-            cargo_code='EXT-001',
+            shipment_code='EXT-001',
             defaults={'date': '2026-02-01', 'season': cls.season, 'status': cls.status_loading, 'weight_net': '18500.00'},
         )
         cls.s2, _ = Shipment.objects.get_or_create(
-            cargo_code='EXT-002',
+            shipment_code='EXT-002',
             defaults={'date': '2026-02-02', 'season': cls.season, 'status': cls.status_loading, 'weight_net': '18000.00'},
         )
 
@@ -595,7 +595,7 @@ class SheetExtendedResponseTests(TestCase):
             action='update',
             model_name='Shipment',
             object_id=self.s1.id,
-            object_repr=self.s1.cargo_code,
+            object_repr=self.s1.shipment_code,
             field_name='weight_net',
             old_value='18000',
             new_value='18500',
@@ -631,7 +631,7 @@ class SheetExtendedResponseTests(TestCase):
             action='update',
             model_name='Shipment',
             object_id=self.s1.id,
-            object_repr=self.s1.cargo_code,
+            object_repr=self.s1.shipment_code,
             field_name='weight_net',
             old_value='18000',
             new_value='18500',
@@ -727,7 +727,7 @@ class CanCurrentUserEditValueTests(TestCase):
             defaults={'name_tk': 'yuklenme_ccue', 'name_en': 'Loading CCUE', 'step_order': 1, 'phase': 'LOADING'},
         )
         Shipment.objects.get_or_create(
-            cargo_code='CCUE-001',
+            shipment_code='CCUE-001',
             defaults={'date': '2026-02-01', 'season': cls.season, 'status': cls.status_loading, 'weight_net': '18500.00'},
         )
         # Grant warehouse_chief edit on weight_net so case 1+2 resolve True.

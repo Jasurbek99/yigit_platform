@@ -4,7 +4,7 @@ import type { ITaskListItem, ShipmentPhase } from '@/types';
 
 export interface IBoardItem {
   id: number;
-  cargo_code: string;
+  shipment_code: string;
   phase: ShipmentPhase;
   owner_role: string | null;
   time_in_phase_seconds: number | null;

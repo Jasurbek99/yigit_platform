@@ -252,7 +252,7 @@ Run once per environment: `python manage.py seed_task_rules`. Idempotent.
 | draft | tasks.give_documents | transport | MANUAL_DONE, only if not is_gapy_satys |
 | draft | tasks.give_documents_gapy | export_manager | MANUAL_DONE, only if is_gapy_satys |
 | draft | tasks.start_documents_prep | document_team | ALL_FIELDS_FILLED (documents_status,customs_clearance_planned_day) |
-| yuklenme | tasks.fill_loading_data | warehouse_chief | ALL_FIELDS_FILLED (cargo_code,block_sources,variety,weight_net,weight_gross) |
+| yuklenme | tasks.fill_loading_data | warehouse_chief | ALL_FIELDS_FILLED (shipment_code,block_sources,variety,weight_net,weight_gross) |
 | yuklenme | tasks.quality_inspection | greenhouse_manager | ALL_FIELDS_FILLED (quality.azyk_maglumatnama,...) |
 | gumruk_girish | tasks.send_documents_to_customs | document_team | MANUAL_DONE |
 | gumruk_chykysh | tasks.docs_back_to_office | document_team | MANUAL_DONE |

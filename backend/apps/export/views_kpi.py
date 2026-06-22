@@ -189,7 +189,7 @@ class KpiViewSet(viewsets.ViewSet):
 
         data = {
             'shipment_id': shipment.id,
-            'cargo_code': shipment.cargo_code,
+            'shipment_code': shipment.shipment_code,
             'phase': current_phase,
             'in_phase_seconds': in_phase_seconds,
             'phase_avg_seconds': phase_avg_seconds,

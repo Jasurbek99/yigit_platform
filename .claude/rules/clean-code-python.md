@@ -21,18 +21,18 @@
 - Return early for guard clauses — avoid deep nesting:
   ```python
   # GOOD
-  def get_shipment(cargo_code: str) -> Shipment:
-      if not cargo_code:
-          raise ValueError("Cargo code required")
-      shipment = Shipment.objects.filter(cargo_code=cargo_code).first()
+  def get_shipment(shipment_code: str) -> Shipment:
+      if not shipment_code:
+          raise ValueError("Shipment code required")
+      shipment = Shipment.objects.filter(shipment_code=shipment_code).first()
       if not shipment:
-          raise Shipment.DoesNotExist(f"No shipment: {cargo_code}")
+          raise Shipment.DoesNotExist(f"No shipment: {shipment_code}")
       return shipment
   
   # BAD — unnecessary nesting
-  def get_shipment(cargo_code):
-      if cargo_code:
-          shipment = Shipment.objects.filter(cargo_code=cargo_code).first()
+  def get_shipment(shipment_code):
+      if shipment_code:
+          shipment = Shipment.objects.filter(shipment_code=shipment_code).first()
           if shipment:
               return shipment
           else:
@@ -47,7 +47,7 @@
   ```python
   class Shipment(models.Model):
       # === Identifiers ===
-      cargo_code = models.CharField(...)
+      shipment_code = models.CharField(...)
       
       # === Relationships ===
       export_firm = models.ForeignKey(...)

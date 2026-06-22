@@ -70,7 +70,7 @@ class Command(BaseCommand):
             )
             .exclude(status__phase='COMPLETE')
             .select_related('status')
-            .only('id', 'cargo_code', 'updated_at', 'status_id', 'status__name_en', 'status__name_tk')
+            .only('id', 'shipment_code', 'updated_at', 'status_id', 'status__name_en', 'status__name_tk')
         )
         if not stuck:
             self.stdout.write(self.style.SUCCESS(
@@ -121,7 +121,7 @@ class Command(BaseCommand):
                         user_id=recipient.id,
                         kind=kind,
                         message=(
-                            f'Shipment {shipment.cargo_code} stuck for {days} days '
+                            f'Shipment {shipment.shipment_code} stuck for {days} days '
                             f'at status "{status_name}".'
                         ),
                         link=link,

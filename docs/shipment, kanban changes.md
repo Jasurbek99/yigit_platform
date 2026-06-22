@@ -210,7 +210,7 @@ The 13 seed rules (in seed_task_rules command, idempotent on (step, title_key)):
 | draft | tasks.give_documents | transport | (manual) | manual | friday_eow | not gapy_satys |
 | draft | tasks.give_documents_gapy | export_manager | (manual) | manual | friday_eow | gapy_satys |
 | draft | tasks.start_documents_prep | document_team | documents_status, customs_clearance_planned_day | all | 24h | — |
-| yuklenme | tasks.fill_loading_data | warehouse_chief | cargo_code, block_sources, variety, weight_net, weight_gross | all | 4h | — |
+| yuklenme | tasks.fill_loading_data | warehouse_chief | shipment_code, block_sources, variety, weight_net, weight_gross | all | 4h | — |
 | yuklenme | tasks.quality_inspection | greenhouse_manager | quality.* (4 docs) | all | 4h | — |
 | gumruk_girish | tasks.send_documents_to_customs | document_team | (manual) | manual | 13:00_same_day | — |
 | gumruk_chykysh | tasks.docs_back_to_office | document_team | (manual) | manual | 24h | — |
@@ -320,7 +320,7 @@ StatusLogSerializer also gains status_code. This was a bug fix discovered in rev
 
 The page is a single column on mobile, single column + sticky right rail on ≥md. Six new components in frontend/src/components/shipment/:
 
-ShipmentDetailHero — top of the page. Shows cargo code, status pill (reuses the existing StatusTag), a blue phase tag, the route (origin → destination), a Manifest button, and an "idle warning" red tag that appears when in_phase_seconds > 1.5 × phase_avg_seconds (gentle nudge that this shipment has been sitting longer than usual).
+ShipmentDetailHero — top of the page. Shows shipment code, status pill (reuses the existing StatusTag), a blue phase tag, the route (origin → destination), a Manifest button, and an "idle warning" red tag that appears when in_phase_seconds > 1.5 × phase_avg_seconds (gentle nudge that this shipment has been sitting longer than usual).
 
 MyTaskCard — the hero-emphasis card. Renders only when my_task != null. Shows the assignee role label, task title, deadline badge with overdue colouring, a progress bar (count of filled targets / total targets), and a body that lists every target field as an inline editor.
 
@@ -364,11 +364,11 @@ The board has 4 columns by default, plus a 5th history column when the user togg
 - Done today — DONE tasks where completed_at >= midnight Asia/Ashgabat. Critical detail: the midnight boundary is anchored to the operational TM timezone via dayjs.tz("Asia/Ashgabat"). Without this, a user on a Windows laptop joined to a KZ/RU domain (which typically reports UTC) would see their TM-day tasks shifted by 5 hours.
 - History (Show All only) — DONE older than today, plus CANCELLED.
 
-Card layout (~140 × 80 px). Cargo code + small phase tag, task title, deadline indicator. Border-left colour: red (overdue), blue (in progress), amber (blocked), grey (default). Click a card → navigate to that shipment's Detail page.
+Card layout (~140 × 80 px). Shipment code + small phase tag, task title, deadline indicator. Border-left colour: red (overdue), blue (in progress), amber (blocked), grey (default). Click a card → navigate to that shipment's Detail page.
 
 KPI strip at the top of the page. Pulls from /me/kpi-today/ every 60 seconds. Three figures: ✓ done count, ⏱ average task duration, on-time rate as a percentage. Renders "—" when empty.
 
-Filters (top bar): phase dropdown (filters by task.phase), shipment-code search (substring match against task.shipment_cargo_code), and the "Show All" toggle.
+Filters (top bar): phase dropdown (filters by task.phase), shipment-code search (substring match against task.shipment_code), and the "Show All" toggle.
 
 Drag-and-drop is restricted to two transitions — the only two that an operator can legitimately perform from the kanban without doing field work:
 - OPEN → BLOCKED: opens a modal asking for reason, then calls POST /tasks/:id/block/. Reason is required (form validation).
@@ -411,13 +411,13 @@ All optional query params, applied before annotations:
 - ?customer=<id> — filter by customer FK.
 - ?gapy_satys=true|false — direct-sale shipments only / non-direct only.
 - ?owner_role=<role> — keep only shipments whose most-recent task assignee role matches.
-- ?search=<text> — cargo code icontains.
+- ?search=<text> — shipment code icontains.
 
 ### Frontend
 
 The page is purely consumer of the endpoint. Cards are NOT draggable — the Shipment Kanban is a status overview, not an action surface. Status changes happen via transition_to() triggered from the Detail page or supervisor actions, never from a kanban drag.
 
-Card layout (~110 × 60 px). Top-border colour: red (any late task), amber (any blocked), blue (any in_progress), grey (idle). Body: cargo code, owner role label, time-in-phase, a thin progress bar showing tasks done/total. Click → Detail page.
+Card layout (~110 × 60 px). Top-border colour: red (any late task), amber (any blocked), blue (any in_progress), grey (idle). Body: shipment code, owner role label, time-in-phase, a thin progress bar showing tasks done/total. Click → Detail page.
 
 Filters at the top of the page — CountrySelect, CustomerSelect, a 3-state gapy_satys dropdown (any/yes/no), an owner-role dropdown (all 14 roles), and a search input. Each filter writes to local component state which feeds into the useShipmentBoard hook query key.
 
@@ -485,14 +485,14 @@ Scenario: Soltanmyrat (warehouse_chief) opens the Detail page for a yuklenme shi
 
 1. The frontend ShipmentDetail page fires useShipmentDetail(id). The TanStack query returns the rich detail payload: shipment data + my_task (the warehouse_chief's tasks.fill_loading_data task) + other_tasks (e.g. greenhouse_manager's quality inspection task) + in_phase_seconds + phase_avg_seconds + phase.
 
-2. ShipmentDetailHero renders cargo code, status pill, phase tag (LOAD), idle warning if applicable. MyTaskCard renders for warehouse_chief — if it didn't, a supervisor would see no card, just the strip and other_tasks.
+2. ShipmentDetailHero renders shipment code, status pill, phase tag (LOAD), idle warning if applicable. MyTaskCard renders for warehouse_chief — if it didn't, a supervisor would see no card, just the strip and other_tasks.
 
 3. Soltanmyrat edits weight_net = 18900 in the inline editor inside MyTaskCard. The frontend fires useShipmentPatch with {weight_net: 18900}.
 
 4. The Detail PATCH viewset on the backend:
    a. Captures the changed-fields set: {"weight_net"}.
    b. Validates and calls serializer.save(), which calls Shipment.save().
-   c. Shipment.save() runs super().save() (writes the column), then calls task_rules.resolve_for_shipment(self). The resolver looks at the warehouse_chief's task: completion rule is all_fields_filled, target fields are cargo_code, block_sources, variety, weight_net, weight_gross. It checks all five against current shipment state. weight_gross is still empty, so the task stays open. No state change.
+   c. Shipment.save() runs super().save() (writes the column), then calls task_rules.resolve_for_shipment(self). The resolver looks at the warehouse_chief's task: completion rule is all_fields_filled, target fields are shipment_code, block_sources, variety, weight_net, weight_gross. It checks all five against current shipment state. weight_gross is still empty, so the task stays open. No state change.
    d. After save, the viewset calls mark_started_for_changed_fields(shipment, ["weight_net"]). The function finds open tasks targeting weight_net — finds the fill_loading_data task. State flips OPEN → IN_PROGRESS, started_at = now().
 
 5. The viewset returns the updated shipment serialization. TanStack invalidates the query.

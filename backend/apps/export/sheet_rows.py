@@ -63,27 +63,26 @@ DEFAULT_SHEET_ROWS: list[dict] = [
         'style': 'status',
     },
     {
-        # Stream G: cargo_code is the platform-internal Export Code, auto-generated
+        # Stream G: shipment_code is the system-generated platform code, auto-generated
         # at create time. Read-only here. Soltanmyrat's pallet-tag code lives on
-        # the separate official_export_code row below.
+        # the separate export_code row below.
         'row_number': 7,
-        'field_key': 'cargo_code',
+        'field_key': 'shipment_code',
         'default_who_key': 'sheet.who.soltanmyrat',
-        'label_key': 'sheet.row.export_code',
+        'label_key': 'sheet.row.shipment_code',
         'input_type': 'readonly',
         'style': 'key',
     },
     {
-        # Stream G: official_export_code is the operator-entered Shipment Code —
-        # the 6-field DD|MM|NNN|BLK|YY|VV pallet tag. Validated server-side by
-        # validate_official_export_code on every PATCH. Logical position is
-        # right next to the Export Code (row 7); display_order on
-        # SheetRowSetting can pin it there. row_number 46 keeps it clear of
+        # Stream G: export_code is the operator-entered 6-field DD|MM|NNN|BLK|YY|VV
+        # pallet tag. Validated server-side by validate_export_code on every PATCH.
+        # Logical position is right next to the Shipment Code (row 7); display_order
+        # on SheetRowSetting can pin it there. row_number 46 keeps it clear of
         # the original Excel 1-44 numbering convention.
         'row_number': 46,
-        'field_key': 'official_export_code',
+        'field_key': 'export_code',
         'default_who_key': 'sheet.who.soltanmyrat',
-        'label_key': 'sheet.row.shipment_code',
+        'label_key': 'sheet.row.export_code',
         'input_type': 'text',
         'style': 'key',
     },
@@ -153,7 +152,7 @@ DEFAULT_SHEET_ROWS: list[dict] = [
     # === Scrollable Section (Rows 15-44) — Operations & Logistics ===
     # Row 16 is intentionally absent (skipped in the original Excel layout).
     # State machine v2: every lifecycle timestamp is operator-entered on the
-    # Sheet — they are the trigger fields for auto-advance. Only cargo_code
+    # Sheet — they are the trigger fields for auto-advance. Only shipment_code
     # (R7) remains structurally readonly (auto-generated).
     # All previously-orphan rows (15, 23, 27, 28, 31, 44) are now backed by real
     # Shipment columns (migrations 0019/0020) and are inline-editable.

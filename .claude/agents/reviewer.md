@@ -34,7 +34,7 @@ grep -rn "FloatField" apps/
 - `FloatField` for money or weight → must be `DecimalField(max_digits=12, decimal_places=2)`
 - `CharField` or `TextField` storing Turkmen/Russian text WITHOUT `db_collation='Cyrillic_General_CI_AS'`
 - `CharField` without explicit `max_length`
-- Collation on fields that DON'T need it (cargo code, phone numbers = Latin only)
+- Collation on fields that DON'T need it (shipment code, phone numbers = Latin only)
 
 ## CRITICAL: Architecture decisions must be followed
 

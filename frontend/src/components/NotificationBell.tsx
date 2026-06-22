@@ -75,7 +75,7 @@ export function NotificationBell() {
           >
             <Text style={{ fontSize: 12, lineHeight: 1.4, display: 'block' }}>
               {n.kind === 'action_required'
-                ? t('notifications.action_required', { cargo_code: n.message })
+                ? t('notifications.action_required', { shipment_code: n.message })
                 : n.message}
             </Text>
             <Text type="secondary" style={{ fontSize: 11 }}>

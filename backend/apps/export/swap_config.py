@@ -26,13 +26,13 @@ FK_SWAPPABLE_FIELDS: frozenset[str] = frozenset({
 # Rules:
 #   - Use Django model attribute names (e.g. 'country', not 'country_id').
 #   - 'weight_net' is INTENTIONALLY EXCLUDED — it is recomputed from block_sources.
-#   - 'cargo_code' is INTENTIONALLY EXCLUDED — it is unique and auto-generated.
+#   - 'shipment_code' is INTENTIONALLY EXCLUDED — it is unique and auto-generated.
 #   - For FK entries in this set, the swap implementation operates on the
 #     ``<field>_id`` integer to avoid unnecessary related-object fetches.
 # ---------------------------------------------------------------------------
 SWAPPABLE_FIELDS: frozenset[str] = frozenset({
     # Soltanmyrat (warehouse / loading dept)
-    'official_export_code',
+    'export_code',
     'harvest_status',
     'warehouse_note',
     'loading_started_at',

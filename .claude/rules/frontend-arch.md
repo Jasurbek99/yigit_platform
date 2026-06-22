@@ -82,7 +82,7 @@ Extract to `src/components/` (not inline in a page) when ANY of these are true:
 
 1. **Used in 2+ pages or modules** — duplicated JSX/logic is always extracted
 2. **Self-fetching form control** — a `Select`, `Cascader`, or similar input that owns its own TanStack Query call (e.g. `CountrySelect`, `CitySelect`, `ExportFirmSelect`, `CustomerSelect`)
-3. **Domain-specific display widget** — a reusable render piece tied to a model (e.g. `StatusTag`, `WeightDisplay`, `CargoCodeLink`)
+3. **Domain-specific display widget** — a reusable render piece tied to a model (e.g. `StatusTag`, `WeightDisplay`, `ShipmentCodeLink`)
 
 ### Self-fetching form control pattern (STRICT)
 

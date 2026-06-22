@@ -105,7 +105,7 @@ class DraftCreationGeneratesTasksTests(TestCase):
     def test_draft_creation_generates_tasks(self):
         """A POST with is_draft=True spawns the draft-step tasks."""
         resp = self.client.post('/api/v1/export/shipments/', {
-            'cargo_code': '0101001/25',
+            'shipment_code': '0101001/25',
             'date': '2025-01-01',
             'is_draft': True,
             'block_sources': [{'block_id': self.block.id, 'weight_kg': 1000}],
@@ -129,7 +129,7 @@ class DraftCreationGeneratesTasksTests(TestCase):
         block_sources from the standard ShipmentCreateModal. They can be
         added later via the Sheet edit path."""
         resp = self.client.post('/api/v1/export/shipments/', {
-            'cargo_code': '0101002/25',
+            'shipment_code': '0101002/25',
             'date': '2025-01-02',
             'is_draft': True,
             'block_sources': [],
@@ -142,20 +142,20 @@ class DraftCreationGeneratesTasksTests(TestCase):
             5,
         )
 
-    def test_draft_creation_without_cargo_code_auto_generates(self):
-        """Stream F-followup: cargo_code is optional. Server generates one
+    def test_draft_creation_without_shipment_code_auto_generates(self):
+        """Stream F-followup: shipment_code is optional. Server generates one
         in DDMMNNN/YY format when omitted."""
         import re
         resp = self.client.post('/api/v1/export/shipments/', {
-            # No cargo_code, no date — let the server fill them in.
+            # No shipment_code, no date — let the server fill them in.
             'is_draft': True,
             'block_sources': [],
         }, format='json')
         self.assertEqual(resp.status_code, 201, resp.data)
-        cargo_code = resp.data['cargo_code']
+        shipment_code = resp.data['shipment_code']
         self.assertRegex(
-            cargo_code, r'^\d{7}/\d{2}$',
-            f'Auto-generated cargo_code {cargo_code!r} does not match DDMMNNN/YY',
+            shipment_code, r'^\d{7}/\d{2}$',
+            f'Auto-generated shipment_code {shipment_code!r} does not match DDMMNNN/YY',
         )
         # And the shipment landed in DRAFT, not Loading.
         self.assertEqual(resp.data['status_display'], 'Draft')
@@ -170,7 +170,7 @@ class DraftCreationGeneratesTasksTests(TestCase):
                 'block_sources': [],
             }, format='json')
             self.assertEqual(resp.status_code, 201, resp.data)
-            codes.append(resp.data['cargo_code'])
+            codes.append(resp.data['shipment_code'])
         self.assertEqual(len(set(codes)), 2, f'Duplicate codes generated: {codes}')
 
     def test_loading_started_at_NOT_set_when_creating_draft(self):
@@ -203,7 +203,7 @@ class CanPromoteFromDraftTests(TestCase):
 
     def _make_draft(self) -> Shipment:
         return Shipment.objects.create(
-            cargo_code='0101099/25',
+            shipment_code='0101099/25',
             date=dt.date(2025, 1, 1),
             season=self.season,
             status=ShipmentStatusType.objects.get(code='draft'),
@@ -222,7 +222,7 @@ class CanPromoteFromDraftTests(TestCase):
     def test_non_draft_never_promotable(self):
         """A shipment in yuklenme returns False — only draft is promotable."""
         ship = Shipment.objects.create(
-            cargo_code='0101100/25',
+            shipment_code='0101100/25',
             date=dt.date(2025, 1, 1),
             season=self.season,
             status=ShipmentStatusType.objects.get(code='yuklenme'),
@@ -295,7 +295,7 @@ class PromoteEndpointStillWorksTests(TestCase):
         """POST /shipments/:id/assign/ on a draft transitions it to gumruk_girish."""
         block = GreenhouseBlock.objects.create(code='ZZ-1', name='ZZ-1')
         ship = Shipment.objects.create(
-            cargo_code='0101200/25',
+            shipment_code='0101200/25',
             date=dt.date(2025, 1, 1),
             season=self.season,
             status=ShipmentStatusType.objects.get(code='draft'),
@@ -343,7 +343,7 @@ class DraftLeaveGuardTests(TestCase):
 
     def _draft(self, *, country=None, customer=None, with_block: bool, code: str) -> Shipment:
         ship = Shipment.objects.create(
-            cargo_code=code,
+            shipment_code=code,
             date=dt.date(2025, 1, 1),
             season=self.season,
             status=ShipmentStatusType.objects.get(code='draft'),

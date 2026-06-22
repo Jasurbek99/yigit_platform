@@ -10,7 +10,7 @@ const MOCK_DEFAULTS = {
   driver_id: null,
   price_per_kg: null,
   total_amount_usd: null,
-  official_export_code: null,
+  export_code: null,
   previous_platform_id: null,
   harvest_age_days: 0,
   freshness: 'today' as const,
@@ -70,7 +70,7 @@ const MOCK_DEFAULTS = {
 export const MOCK_SHIPMENTS: IShipmentListItem[] = [
   {
     id: 1,
-    cargo_code: '0201045/25',
+    shipment_code: '0201045/25',
     date: '2025-02-01',
     status: 4,
     status_display: 'Departed',
@@ -91,7 +91,7 @@ export const MOCK_SHIPMENTS: IShipmentListItem[] = [
   },
   {
     id: 2,
-    cargo_code: '0201046/25',
+    shipment_code: '0201046/25',
     date: '2025-02-02',
     status: 9,
     status_display: 'Arrived',
@@ -111,7 +111,7 @@ export const MOCK_SHIPMENTS: IShipmentListItem[] = [
   },
   {
     id: 3,
-    cargo_code: '0201047/25',
+    shipment_code: '0201047/25',
     date: '2025-02-03',
     status: 1,
     status_display: 'Loading',
@@ -128,7 +128,7 @@ export const MOCK_SHIPMENTS: IShipmentListItem[] = [
   },
   {
     id: 4,
-    cargo_code: '0201048/25',
+    shipment_code: '0201048/25',
     date: '2025-02-04',
     status: 13,
     status_display: 'Completed',
@@ -151,7 +151,7 @@ export const MOCK_SHIPMENTS: IShipmentListItem[] = [
   },
   {
     id: 5,
-    cargo_code: '0201049/25',
+    shipment_code: '0201049/25',
     date: '2025-02-05',
     status: 6,
     status_display: 'Border Crossed',

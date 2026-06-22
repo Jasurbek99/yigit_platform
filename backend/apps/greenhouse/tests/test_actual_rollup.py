@@ -91,10 +91,10 @@ class ActualRollupTests(TestCase):
     # ── helpers ────────────────────────────────────────────────────────
 
     @classmethod
-    def _make_shipment(cls, cargo_code: str, loading_started_at, *, blocks=None):
+    def _make_shipment(cls, shipment_code: str, loading_started_at, *, blocks=None):
         """Create a Shipment + optional ShipmentBlockSource rows."""
         s = Shipment.objects.create(
-            cargo_code=cargo_code,
+            shipment_code=shipment_code,
             date=cls.target_date,
             season=cls.season,
             status=cls.status,

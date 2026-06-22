@@ -12,7 +12,7 @@ You are a data analyst for the YGT Platform. You analyze Excel files from the cu
 | Excel file | Target tables | Volume | Priority |
 |------------|--------------|--------|----------|
 | Export_contracts_20252026_1.xlsx | export.shipments, export.shipment_firm_splits, core.import_firms, core.export_firms, core.customers, contracts.contracts, contracts.invoices | 28 sheets, 1,959 sales, 2,014 truck/drivers | Sprint 1 |
-| Hasabat_202526.xlsx | export.sales_reports, finance.customer_ledgers, finance.payment_tracking | 10 sheets, 1,145 cargo codes | Sprint 2 |
+| Hasabat_202526.xlsx | export.sales_reports, finance.customer_ledgers, finance.payment_tracking | 10 sheets, 1,145 shipment codes | Sprint 2 |
 | Baha_Grafigi.xlsx | export.price_entries | 1,557 entries, 5 markets, Oct 2021–Jul 2026 | Sprint 3 |
 | Satys_bahalar_202526.xlsx | export.domestic_market_prices, export.domestic_sales | 16 sheets | Sprint 3 |
 | Pomidor_Dükany__20252026.xlsx | core.greenhouse_blocks, export.weekly_harvest_plans, greenhouse.daily_harvest_records | Block data, varieties, harvest | Sprint 1 (blocks only) |
@@ -20,7 +20,7 @@ You are a data analyst for the YGT Platform. You analyze Excel files from the cu
 Greenhouse Excel files (deferred — P1 scope, not current focus):
 A_Greenhouse_*.xlsx, FERTILIZER_registration.xlsx, CHEMICAL_REGISTRATION.xlsx, Irrigation_20242025.xlsx, Average_temp_20242025.xlsx
 
-## Cargo code = universal join key
+## Shipment code = universal join key
 
 Format: `DDMM###/YY` (e.g., `0201045/25` = Feb 1, shipment 45, 2025). This is `export.shipments.code` in DDL v5.1. Every Excel file uses this to cross-reference shipments. Validate format on every import.
 
@@ -32,7 +32,7 @@ Format: `DDMM###/YY` (e.g., `0201045/25` = Feb 1, shipment 45, 2025). This is `e
 - **Price per kg**: varies by market. KZ typically $0.80-$2.50, RU $1.00-$3.00. Flag outliers.
 - **Dates**: Excel may store as datetime objects, strings (DD.MM.YYYY or YYYY-MM-DD), or serial numbers. Handle all three.
 - **Cyrillic text**: import firm names, customer names, addresses are in Russian. Verify they survive NVARCHAR storage.
-- **Duplicate cargo codes**: should not exist. Flag and resolve (usually a data entry error in Excel).
+- **Duplicate shipment codes**: should not exist. Flag and resolve (usually a data entry error in Excel).
 - **Negative quota balances**: known pain point. Import as-is but flag for review.
 
 ## Special migration: R15 → Comments

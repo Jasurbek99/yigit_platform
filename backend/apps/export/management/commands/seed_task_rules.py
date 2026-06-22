@@ -165,7 +165,7 @@ TASK_RULES: list[dict] = [
         'step': 'yuklenme',
         'title_key': 'tasks.fill_loading_data',
         'assignee_role': 'warehouse_chief',
-        'target_fields': 'cargo_code,block_sources,variety,weight_net',
+        'target_fields': 'shipment_code,block_sources,variety,weight_net',
         'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
         'target_value': '',
         'deadline_rule': '4h_after_status',

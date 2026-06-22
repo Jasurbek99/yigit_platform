@@ -303,7 +303,7 @@ def _build_audit(from_date: date, to_date: date) -> list:
         data.append([
             log.changed_at.strftime('%Y-%m-%d %H:%M'),
             (user.get_full_name() or user.username) if user else '',
-            log.shipment.cargo_code if log.shipment_id else '',
+            log.shipment.shipment_code if log.shipment_id else '',
             log.status.name_tk if log.status_id else '',
             (log.comment or '')[:60],
         ])

@@ -370,10 +370,10 @@ export function SheetToolbar({
   // ─── "Ýük goş": one-click create of an empty supply column ───────────────
   // Soltanmyrat creates a blank draft column here, fills its values in the
   // sheet cells, and joins it with Gadam's destination column afterward.
-  function handleAddCargo() {
+  function handleAddShipment() {
     createEmptyColumn.mutate(undefined, {
       onSuccess: (draft) => {
-        toast.success(t('sheet.add_cargo.toast_saved', { code: draft.cargo_code }));
+        toast.success(t('sheet.add_shipment.toast_saved', { code: draft.shipment_code }));
       },
       onError: (err) => {
         const data = (err as { response?: { data?: Record<string, unknown> } }).response?.data;
@@ -381,7 +381,7 @@ export function SheetToolbar({
           toast.error(data.error);
           return;
         }
-        toast.error(t('sheet.add_cargo.toast_error'));
+        toast.error(t('sheet.add_shipment.toast_error'));
       },
     });
   }
@@ -396,23 +396,23 @@ export function SheetToolbar({
               size="small"
               icon={<PlusOutlined />}
               loading={createEmptyColumn.isPending}
-              onClick={handleAddCargo}
+              onClick={handleAddShipment}
             >
               {t('sheet.add_column')}
             </Button>
           )}
           {/* "Ýük goş" — commented out: now duplicates the "New Shipment" button above.
-              Both call handleAddCargo → useCreateEmptyColumn. Kept here in case the
+              Both call handleAddShipment → useCreateEmptyColumn. Kept here in case the
               supply-role gate (canCreateSupply) needs to be restored as a separate path. */}
           {/* {canCreateSupply && (
-            <Tooltip title={t('sheet.add_cargo.tooltip')}>
+            <Tooltip title={t('sheet.add_shipment.tooltip')}>
               <Button
                 size="small"
                 icon={<InboxOutlined />}
                 loading={createEmptyColumn.isPending}
-                onClick={handleAddCargo}
+                onClick={handleAddShipment}
               >
-                {t('sheet.add_cargo.btn')}
+                {t('sheet.add_shipment.btn')}
               </Button>
             </Tooltip>
           )} */}

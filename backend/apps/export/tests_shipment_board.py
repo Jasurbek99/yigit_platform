@@ -85,7 +85,7 @@ def _make_customer(name: str) -> Customer:
 
 
 def _make_shipment(
-    cargo_code: str,
+    shipment_code: str,
     status_code: str = 'yuklenme',
     step_order: int = 1,
     season: Season | None = None,
@@ -98,7 +98,7 @@ def _make_shipment(
         season = _make_season()
     st = _make_status(status_code, step_order)
     shipment, _ = Shipment.objects.get_or_create(
-        cargo_code=cargo_code,
+        shipment_code=shipment_code,
         defaults={
             'date': '2026-01-15',
             'season': season,
@@ -256,7 +256,7 @@ class BoardPhaseGroupingTests(TestCase):
         resp = self.client.get(BOARD_URL)
         self.assertEqual(resp.status_code, 200)
         items = resp.json()['columns'][phase]
-        return {item['cargo_code'] for item in items}
+        return {item['shipment_code'] for item in items}
 
     def test_draft_status_in_prep_column(self) -> None:
         codes = self._get_column_codes('PREP')
@@ -288,22 +288,22 @@ class BoardPhaseGroupingTests(TestCase):
         )
         resp = self.client.get(BOARD_URL)
         all_codes = {
-            item['cargo_code']
+            item['shipment_code']
             for items in resp.json()['columns'].values()
             for item in items
         }
-        self.assertNotIn(archived.cargo_code, all_codes)
+        self.assertNotIn(archived.shipment_code, all_codes)
 
     def test_inactive_season_excluded(self) -> None:
         inactive = _make_season('brd-inact', is_active=False)  # <= 10 chars
         other = _make_shipment('BRD_INACT', 'yuklenme', season=inactive)
         resp = self.client.get(BOARD_URL)
         all_codes = {
-            item['cargo_code']
+            item['shipment_code']
             for items in resp.json()['columns'].values()
             for item in items
         }
-        self.assertNotIn(other.cargo_code, all_codes)
+        self.assertNotIn(other.shipment_code, all_codes)
 
 
 # ---------------------------------------------------------------------------
@@ -332,19 +332,19 @@ class BoardItemFieldTests(TestCase):
         self.client = APIClient()
         _auth(self.client, self.user)
 
-    def _get_item(self, cargo_code: str) -> dict:
+    def _get_item(self, shipment_code: str) -> dict:
         resp = self.client.get(BOARD_URL)
         self.assertEqual(resp.status_code, 200)
         for items in resp.json()['columns'].values():
             for item in items:
-                if item['cargo_code'] == cargo_code:
+                if item['shipment_code'] == shipment_code:
                     return item
-        self.fail(f"{cargo_code} not found in board response")
+        self.fail(f"{shipment_code} not found in board response")
 
     def test_item_has_required_fields(self) -> None:
         item = self._get_item('BRDF001')
         required = [
-            'id', 'cargo_code', 'phase', 'owner_role',
+            'id', 'shipment_code', 'phase', 'owner_role',
             'time_in_phase_seconds', 'tasks_done', 'tasks_total',
             'late_count', 'in_progress_count', 'blocked_count',
         ]
@@ -439,7 +439,7 @@ class BoardFilterTests(TestCase):
 
     def _all_codes(self, resp) -> set[str]:
         return {
-            item['cargo_code']
+            item['shipment_code']
             for items in resp.json()['columns'].values()
             for item in items
         }
@@ -475,7 +475,7 @@ class BoardFilterTests(TestCase):
         self.assertIn('BRD_FA1', codes)
         self.assertNotIn('BRD_FB1', codes)
 
-    def test_search_by_cargo_code_partial(self) -> None:
+    def test_search_by_shipment_code_partial(self) -> None:
         resp = self.client.get(BOARD_URL, {'search': 'BRD_FA'})
         codes = self._all_codes(resp)
         self.assertIn('BRD_FA1', codes)
@@ -531,7 +531,7 @@ class BoardColumnSortTests(TestCase):
         resp = self.client.get(BOARD_URL)
         self.assertEqual(resp.status_code, 200)
         load_items = resp.json()['columns']['LOAD']
-        codes = [i['cargo_code'] for i in load_items]
+        codes = [i['shipment_code'] for i in load_items]
 
         self.assertIn('BRDS_LATE', codes)
         self.assertIn('BRDS_ACT', codes)
@@ -566,11 +566,11 @@ class BoardQueryCountTests(TestCase):
         status = _make_status('yuklenme', step_order=1)
 
         # MSSQL: bulk_create doesn't return PKs. Create shipments, then fetch
-        # them back by cargo_code to get the PKs for task FK assignment.
+        # them back by shipment_code to get the PKs for task FK assignment.
         Shipment.objects.bulk_create(
             [
                 Shipment(
-                    cargo_code=f'BRDQ{i:04d}',
+                    shipment_code=f'BRDQ{i:04d}',
                     date='2026-01-15',
                     season=cls.season,
                     status=status,
@@ -581,7 +581,7 @@ class BoardQueryCountTests(TestCase):
         )
         # Re-fetch with PKs so tasks can reference them.
         shipments = list(
-            Shipment.objects.filter(cargo_code__startswith='BRDQ').only('pk')
+            Shipment.objects.filter(shipment_code__startswith='BRDQ').only('pk')
         )
         Task.objects.bulk_create(
             [

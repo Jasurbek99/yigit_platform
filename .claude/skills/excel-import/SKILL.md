@@ -25,7 +25,7 @@ import openpyxl
 from django.db import transaction
 
 
-def parse_cargo_code(value):
+def parse_shipment_code(value):
     """Validate DDMM###/YY format."""
     if not value:
         return None
@@ -111,6 +111,6 @@ if __name__ == '__main__':
 - `batch_size=500` on any `bulk_create` (MSSQL limit)
 - Parse dates flexibly — Excel stores as datetime, string, or serial number
 - Cache FK lookups (firms, countries) to avoid N+1
-- Validate cargo code format (`DDMM###/YY`) on every row
+- Validate shipment code format (`DDMM###/YY`) on every row
 - Validate `weight_net_kg ≤ weight_gross_kg`
 - R15 migration: old `vehicle_status_note` → `shipment_comments` with `is_system=True`

@@ -76,8 +76,8 @@ class Command(BaseCommand):
                 'Shipments loaded on this date with no ShipmentBlockSource rows '
                 '(silent under-reporting):'
             ))
-            for ship_id, cargo_code in result.shipments_without_blocks:
-                self.stdout.write(f'  - id={ship_id} cargo_code={cargo_code}')
+            for ship_id, shipment_code in result.shipments_without_blocks:
+                self.stdout.write(f'  - id={ship_id} shipment_code={shipment_code}')
 
     @staticmethod
     def _parse_date(value: str | None) -> date | None:

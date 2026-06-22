@@ -36,7 +36,7 @@ export function ShipmentCardAnt({ shipment, onEdit }: IShipmentCardAntProps) {
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
         <Text strong style={{ fontFamily: FONT.mono, color: COLORS.primary, fontSize: 14 }}>
-          {shipment.cargo_code}
+          {shipment.shipment_code}
         </Text>
         {onEdit && (
           <Tooltip title={t('common.edit')}>

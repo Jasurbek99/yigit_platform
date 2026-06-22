@@ -1,4 +1,5 @@
 import logging
+from datetime import date as _date
 from decimal import Decimal
 
 from django.db.models import Count, DecimalField, Sum
@@ -6,14 +7,22 @@ from django.db.models.functions import Coalesce
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import action
+from rest_framework.filters import SearchFilter
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from apps.core.permissions import DynamicResourcePermission
 from apps.core.roles import ADVANCE_WRITE
-from apps.export.models import FinansistAdvance, FinansistAdvanceShipment, Shipment
+from apps.export.models import (
+    CustomsExpense,
+    CustomsExpenseCategory,
+    FinansistAdvance,
+    FinansistAdvanceShipment,
+    Shipment,
+)
 from apps.export.serializers import (
+    CustomsExpenseSerializer,
     FinansistAdvanceCreateSerializer,
     FinansistAdvanceDetailSerializer,
     FinansistAdvanceListSerializer,
@@ -218,3 +227,256 @@ class FinansistAdvanceViewSet(ModelViewSet):
         advance.refresh_from_db()
         serializer = FinansistAdvanceDetailSerializer(advance)
         return Response(serializer.data)
+
+
+# ---------------------------------------------------------------------------
+# Customs/Document Cash-Advance Ledger (money-OUT side)
+# ---------------------------------------------------------------------------
+
+# Roles that may create/update/delete customs expenses.
+# Extends finansist+admin+director with document_team and export_manager who
+# also process day-to-day clearance fees at the border.
+CUSTOMS_EXPENSE_WRITE: frozenset[str] = ADVANCE_WRITE | frozenset({'document_team', 'export_manager'})
+
+
+class CustomsExpenseViewSet(ModelViewSet):
+    """CRUD + ledger summary for the customs/document cash-advance ledger.
+
+    Money-OUT side of the float ledger Hangeldi maintains.  Money-IN is tracked
+    by ``FinansistAdvance`` (unchanged).  Currency is TMT (Turkmen manat) by default.
+
+    GET    /api/v1/export/customs-expenses/                   — paginated list
+    POST   /api/v1/export/customs-expenses/                   — create expense
+    GET    /api/v1/export/customs-expenses/{id}/              — detail
+    PATCH  /api/v1/export/customs-expenses/{id}/              — partial update
+    DELETE /api/v1/export/customs-expenses/{id}/              — delete
+    GET    /api/v1/export/customs-expenses/ledger/            — cash-float summary
+    """
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = CustomsExpenseSerializer
+    http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
+
+    # Filtering — rely on DEFAULT_FILTER_BACKENDS (DjangoFilterBackend + SearchFilter)
+    # so both filterset_fields and search_fields work together (matching the sibling
+    # FinansistAdvanceViewSet which also omits filter_backends for the same reason).
+    filterset_fields = ['category', 'currency', 'shipment']
+    search_fields = ['shipment_code_raw', 'vehicle_plate', 'route_label', 'label_raw']
+
+    def get_queryset(self):
+        """Return expenses with optional date-range window applied.
+
+        Supports query params:
+            date_from (YYYY-MM-DD) — earliest expense_date inclusive
+            date_to   (YYYY-MM-DD) — latest expense_date inclusive
+        """
+        qs = (
+            CustomsExpense.objects
+            .select_related('shipment', 'created_by')
+            .order_by('-expense_date', '-id')
+        )
+
+        params = self.request.query_params
+        date_from_str = params.get('date_from')
+        date_to_str = params.get('date_to')
+
+        if date_from_str:
+            try:
+                qs = qs.filter(expense_date__gte=_date.fromisoformat(date_from_str))
+            except ValueError:
+                pass  # Silently ignore malformed dates; caller sees unfiltered results.
+
+        if date_to_str:
+            try:
+                qs = qs.filter(expense_date__lte=_date.fromisoformat(date_to_str))
+            except ValueError:
+                pass
+
+        return qs
+
+    def _is_write_allowed(self, request) -> bool:
+        """Return True if the requesting user may create/edit/delete an expense."""
+        role = getattr(request.user, 'role', None)
+        return role in CUSTOMS_EXPENSE_WRITE or request.user.is_superuser
+
+    def create(self, request, *args, **kwargs):
+        """Create a new customs expense.  Role-gated: CUSTOMS_EXPENSE_WRITE only."""
+        if not self._is_write_allowed(request):
+            role = getattr(request.user, 'role', None)
+            return Response(
+                {'error': f"Role '{role}' cannot create customs expenses."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        """Full update — not exposed (PUT excluded from http_method_names); kept for ModelViewSet compat."""
+        if not self._is_write_allowed(request):
+            role = getattr(request.user, 'role', None)
+            return Response(
+                {'error': f"Role '{role}' cannot update customs expenses."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        """Partial-update (PATCH) a customs expense.  Role-gated."""
+        if not self._is_write_allowed(request):
+            role = getattr(request.user, 'role', None)
+            return Response(
+                {'error': f"Role '{role}' cannot update customs expenses."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        kwargs['partial'] = True
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        """Delete a customs expense.  Role-gated."""
+        if not self._is_write_allowed(request):
+            role = getattr(request.user, 'role', None)
+            return Response(
+                {'error': f"Role '{role}' cannot delete customs expenses."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().destroy(request, *args, **kwargs)
+
+    def perform_create(self, serializer) -> None:
+        """Inject created_by from the authenticated user on every create."""
+        serializer.save(created_by=self.request.user)
+
+    @action(detail=False, methods=['get'], url_path='ledger')
+    def ledger(self, request):
+        """Cash-float ledger summary: advances (money-in) vs expenses (money-out).
+
+        Supports the same date_from / date_to query params as the list endpoint.
+        All aggregation is performed in the DB — no Python loops over querysets.
+
+        Response shape:
+        {
+            "currency": "TMT",
+            "advances_total": "12500.00",
+            "expenses_total": "9800.00",
+            "balance": "2700.00",
+            "by_category": [
+                {"category": "GUMRUKLEME",
+                 "category_display": "Customs clearance (per truck)",
+                 "total": "5000.00",
+                 "count": 10}
+            ],
+            "by_date": [
+                {"date": "2026-06-01", "advances": "2500.00", "expenses": "1200.00"}
+            ]
+        }
+        """
+        params = request.query_params
+        date_from_str = params.get('date_from')
+        date_to_str = params.get('date_to')
+        # Advances (FinansistAdvance) default to USD while customs expenses default
+        # to TMT — summing across currencies would be meaningless. Scope BOTH sides
+        # to a single currency so the balance is a valid same-unit figure. Rows in
+        # other currencies are excluded from this ledger window.
+        currency = params.get('currency') or 'TMT'
+
+        # Parse date bounds defensively — return 400 on clearly invalid input.
+        date_from: _date | None = None
+        date_to: _date | None = None
+        if date_from_str:
+            try:
+                date_from = _date.fromisoformat(date_from_str)
+            except ValueError:
+                return Response(
+                    {'error': f'Invalid date_from: {date_from_str!r}. Use YYYY-MM-DD.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        if date_to_str:
+            try:
+                date_to = _date.fromisoformat(date_to_str)
+            except ValueError:
+                return Response(
+                    {'error': f'Invalid date_to: {date_to_str!r}. Use YYYY-MM-DD.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        # ── Expenses (money-out) ──────────────────────────────────────────────
+        expense_qs = CustomsExpense.objects.filter(currency=currency)
+        if date_from:
+            expense_qs = expense_qs.filter(expense_date__gte=date_from)
+        if date_to:
+            expense_qs = expense_qs.filter(expense_date__lte=date_to)
+
+        expenses_total: Decimal = expense_qs.aggregate(
+            total=Coalesce(Sum('amount'), Decimal('0'), output_field=DecimalField())
+        )['total']
+
+        # By category — aggregated in SQL; label mapped in Python from choices dict.
+        _category_labels: dict[str, str] = dict(CustomsExpenseCategory.choices)
+        by_category_raw = (
+            expense_qs
+            .values('category')
+            .annotate(total=Sum('amount'), count=Count('id'))
+            .order_by('-total')
+        )
+        by_category = [
+            {
+                'category': row['category'],
+                'category_display': _category_labels.get(row['category'], row['category']),
+                'total': str(row['total']),
+                'count': row['count'],
+            }
+            for row in by_category_raw
+        ]
+
+        # By date — expenses aggregated per day.
+        by_expense_date: dict[_date, Decimal] = {
+            row['expense_date']: row['day_total']
+            for row in (
+                expense_qs
+                .values('expense_date')
+                .annotate(day_total=Sum('amount'))
+                .order_by('expense_date')
+            )
+        }
+
+        # ── Advances (money-in) ───────────────────────────────────────────────
+        advance_qs = FinansistAdvance.objects.filter(currency=currency)
+        if date_from:
+            advance_qs = advance_qs.filter(advance_date__gte=date_from)
+        if date_to:
+            advance_qs = advance_qs.filter(advance_date__lte=date_to)
+
+        advances_total: Decimal = advance_qs.aggregate(
+            total=Coalesce(Sum('total_amount'), Decimal('0'), output_field=DecimalField())
+        )['total']
+
+        # By date — advances aggregated per day.
+        by_advance_date: dict[_date, Decimal] = {
+            row['advance_date']: row['day_total']
+            for row in (
+                advance_qs
+                .values('advance_date')
+                .annotate(day_total=Sum('total_amount'))
+                .order_by('advance_date')
+            )
+        }
+
+        # ── Merge by_date — union of all dates that appear in either side ─────
+        all_dates = sorted(by_advance_date.keys() | by_expense_date.keys())
+        by_date = [
+            {
+                'date': str(d),
+                'advances': str(by_advance_date.get(d, Decimal('0'))),
+                'expenses': str(by_expense_date.get(d, Decimal('0'))),
+            }
+            for d in all_dates
+        ]
+
+        balance: Decimal = advances_total - expenses_total
+
+        return Response({
+            'currency': currency,
+            'advances_total': str(advances_total),
+            'expenses_total': str(expenses_total),
+            'balance': str(balance),
+            'by_category': by_category,
+            'by_date': by_date,
+        })

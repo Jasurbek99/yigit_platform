@@ -8,7 +8,7 @@ re-runs the resolver so any newly-correct Tasks auto-close immediately.
 Usage:
     python manage.py reconcile_tasks              # sync all open tasks
     python manage.py reconcile_tasks --dry-run    # report diffs, write nothing
-    python manage.py reconcile_tasks --shipment 0201045/25  # scope to one cargo code
+    python manage.py reconcile_tasks --shipment 0201045/25  # scope to one shipment code
 
 Idempotent: running twice on an already-reconciled dataset produces
 ``tasks_synced=0, tasks_resolved=0``.
@@ -31,14 +31,14 @@ class Command(BaseCommand):
         )
         parser.add_argument(
             '--shipment',
-            metavar='CARGO_CODE',
+            metavar='SHIPMENT_CODE',
             default=None,
-            help='Scope reconciliation to a single shipment by cargo code.',
+            help='Scope reconciliation to a single shipment by shipment code.',
         )
 
     def handle(self, *args, **options) -> None:
         dry_run: bool = options['dry_run']
-        cargo_code: str | None = options['shipment']
+        shipment_code: str | None = options['shipment']
 
         # Lazy imports inside handle() per task spec -- avoids any circular-import
         # risk and keeps the command fast at import time.
@@ -46,18 +46,18 @@ class Command(BaseCommand):
         from apps.export.services.task_rules import reconcile_open_tasks_with_rules
 
         shipments = None
-        if cargo_code is not None:
+        if shipment_code is not None:
             try:
                 shipment = Shipment.objects.select_related('status').get(
-                    cargo_code=cargo_code
+                    shipment_code=shipment_code
                 )
             except Shipment.DoesNotExist:
                 raise CommandError(
-                    f'No shipment found with cargo_code={cargo_code!r}. '
+                    f'No shipment found with shipment_code={shipment_code!r}. '
                     'Check the code and try again.'
                 )
             shipments = [shipment]
-            self.stdout.write(f'Scoped to shipment: {cargo_code}')
+            self.stdout.write(f'Scoped to shipment: {shipment_code}')
 
         if dry_run:
             self.stdout.write(self.style.WARNING('DRY RUN -- no Task rows will be written.'))

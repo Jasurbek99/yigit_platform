@@ -149,10 +149,10 @@ def _make_status(code: str, step_order: int = 1) -> ShipmentStatusType:
     return st
 
 
-def _make_shipment(cargo_code: str, status_code: str, step_order: int = 1) -> Shipment:
+def _make_shipment(shipment_code: str, status_code: str, step_order: int = 1) -> Shipment:
     status = _make_status(status_code, step_order)
     shipment, _ = Shipment.objects.get_or_create(
-        cargo_code=cargo_code,
+        shipment_code=shipment_code,
         defaults={
             'date': '2026-01-15',
             'season': _make_season(),
@@ -181,8 +181,8 @@ class ShipmentListPhaseIntegrationTests(TestCase):
             ('PHLIST004', 'bardy',       'DEST'),
             ('PHLIST005', 'tamamlandy',  'CLOSE'),
         ]
-        for cargo_code, status_code, _ in cls.cases:
-            _make_shipment(cargo_code, status_code)
+        for shipment_code, status_code, _ in cls.cases:
+            _make_shipment(shipment_code, status_code)
 
     def setUp(self) -> None:
         self.client = APIClient()
@@ -200,17 +200,17 @@ class ShipmentListPhaseIntegrationTests(TestCase):
         resp = self.client.get('/api/v1/export/shipments/')
         self.assertEqual(resp.status_code, 200)
         results = resp.json().get('results', [])
-        result_map = {r['cargo_code']: r for r in results}
-        for cargo_code, _status_code, expected_phase in self.cases:
+        result_map = {r['shipment_code']: r for r in results}
+        for shipment_code, _status_code, expected_phase in self.cases:
             self.assertIn(
-                cargo_code, result_map,
-                f"{cargo_code} missing from list response — fixture not visible",
+                shipment_code, result_map,
+                f"{shipment_code} missing from list response — fixture not visible",
             )
-            actual = result_map[cargo_code].get('phase')
+            actual = result_map[shipment_code].get('phase')
             self.assertEqual(
                 actual,
                 expected_phase,
-                f"{cargo_code}: expected phase={expected_phase}, got {actual}",
+                f"{shipment_code}: expected phase={expected_phase}, got {actual}",
             )
 
 
@@ -229,24 +229,24 @@ class ShipmentDetailPhaseIntegrationTests(TestCase):
             ('PHDET005', 'tamamlandy',  'CLOSE'),
         ]
         cls.shipments = {}
-        for cargo_code, status_code, _ in cls.cases:
-            cls.shipments[cargo_code] = _make_shipment(cargo_code, status_code)
+        for shipment_code, status_code, _ in cls.cases:
+            cls.shipments[shipment_code] = _make_shipment(shipment_code, status_code)
 
     def setUp(self) -> None:
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
 
     def test_detail_phase_correct_for_each_state(self) -> None:
-        for cargo_code, _status_code, expected_phase in self.cases:
-            shipment = self.shipments[cargo_code]
+        for shipment_code, _status_code, expected_phase in self.cases:
+            shipment = self.shipments[shipment_code]
             resp = self.client.get(f'/api/v1/export/shipments/{shipment.pk}/')
-            self.assertEqual(resp.status_code, 200, f"Detail 404 for {cargo_code}")
+            self.assertEqual(resp.status_code, 200, f"Detail 404 for {shipment_code}")
             data = resp.json()
-            self.assertIn('phase', data, f"'phase' missing from detail for {cargo_code}")
+            self.assertIn('phase', data, f"'phase' missing from detail for {shipment_code}")
             self.assertEqual(
                 data['phase'],
                 expected_phase,
-                f"{cargo_code}: expected phase={expected_phase}, got {data.get('phase')}",
+                f"{shipment_code}: expected phase={expected_phase}, got {data.get('phase')}",
             )
 
 
@@ -268,8 +268,8 @@ class ShipmentSheetPhaseIntegrationTests(TestCase):
         season = _make_season()
         season.is_active = True
         season.save(update_fields=['is_active'])
-        for cargo_code, status_code, _ in cls.cases:
-            _make_shipment(cargo_code, status_code)
+        for shipment_code, status_code, _ in cls.cases:
+            _make_shipment(shipment_code, status_code)
 
     def setUp(self) -> None:
         self.client = APIClient()
@@ -289,15 +289,15 @@ class ShipmentSheetPhaseIntegrationTests(TestCase):
         resp = self.client.get('/api/v1/export/shipments/sheet/')
         self.assertEqual(resp.status_code, 200)
         results = resp.json().get('results', [])
-        result_map = {r['cargo_code']: r for r in results}
-        for cargo_code, _status_code, expected_phase in self.cases:
+        result_map = {r['shipment_code']: r for r in results}
+        for shipment_code, _status_code, expected_phase in self.cases:
             self.assertIn(
-                cargo_code, result_map,
-                f"{cargo_code} missing from sheet response — fixture not visible",
+                shipment_code, result_map,
+                f"{shipment_code} missing from sheet response — fixture not visible",
             )
-            actual = result_map[cargo_code].get('phase')
+            actual = result_map[shipment_code].get('phase')
             self.assertEqual(
                 actual,
                 expected_phase,
-                f"{cargo_code}: expected phase={expected_phase}, got {actual}",
+                f"{shipment_code}: expected phase={expected_phase}, got {actual}",
             )

@@ -71,13 +71,13 @@ def _make_status(code: str = 'yuklenme', step_order: int = 1) -> ShipmentStatusT
     return status
 
 
-def _make_shipment(cargo_code: str = 'ENG0001', status_code: str = 'yuklenme') -> Shipment:
+def _make_shipment(shipment_code: str = 'ENG0001', status_code: str = 'yuklenme') -> Shipment:
     """Create a minimal shipment without triggering task generation (no rules exist yet)."""
     status = _make_status(status_code)
     # Bypass Shipment.save() override (no rules seeded in most tests so it's fine,
     # but using get_or_create avoids re-creating on each call in the same test).
     ship, _ = Shipment.objects.get_or_create(
-        cargo_code=cargo_code,
+        shipment_code=shipment_code,
         defaults={
             'date': '2026-01-15',
             'season': _make_season(),
@@ -92,7 +92,7 @@ def _make_rule(**kwargs) -> TaskRule:
         'step': 'yuklenme',
         'title_key': 'tasks.fill_loading_data',
         'assignee_role': 'warehouse_chief',
-        'target_fields': 'cargo_code,weight_net',
+        'target_fields': 'shipment_code,weight_net',
         'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
         'deadline_rule': '',
         'condition_field': '',
@@ -383,8 +383,8 @@ class ResolveValueTests(TestCase):
         self.shipment = _make_shipment('RESV0001')
 
     def test_simple_field_returns_value(self) -> None:
-        self.shipment.cargo_code = 'RESV0001'
-        result = _resolve_value(self.shipment, 'cargo_code')
+        self.shipment.shipment_code = 'RESV0001'
+        result = _resolve_value(self.shipment, 'shipment_code')
         self.assertEqual(result, 'RESV0001')
 
     def test_none_field_returns_none(self) -> None:
@@ -471,14 +471,14 @@ class ResolveForShipmentTests(TestCase):
         Task.objects.filter(shipment=self.shipment).delete()
 
     def test_all_fields_filled_resolves_to_done(self) -> None:
-        # cargo_code is always set; weight_net needs to be set.
+        # shipment_code is always set; weight_net needs to be set.
         self.shipment.weight_net = 18000
         self.shipment.save()
         Task.objects.filter(shipment=self.shipment).delete()
 
         task = _make_task(
             self.shipment,
-            target_fields='cargo_code,weight_net',
+            target_fields='shipment_code,weight_net',
             completion_rule=TaskCompletionRule.ALL_FIELDS_FILLED,
         )
         resolved = resolve_for_shipment(self.shipment)
@@ -495,21 +495,21 @@ class ResolveForShipmentTests(TestCase):
 
         _make_task(
             self.shipment,
-            target_fields='cargo_code,weight_net',
+            target_fields='shipment_code,weight_net',
             completion_rule=TaskCompletionRule.ALL_FIELDS_FILLED,
         )
         resolved = resolve_for_shipment(self.shipment)
         self.assertEqual(len(resolved), 0)
 
     def test_any_field_filled_resolves_on_first_fill(self) -> None:
-        # cargo_code is set; weight_net is None. With ANY_FIELD_FILLED, should resolve.
+        # shipment_code is set; weight_net is None. With ANY_FIELD_FILLED, should resolve.
         self.shipment.weight_net = None
         self.shipment.save()
         Task.objects.filter(shipment=self.shipment).delete()
 
         task = _make_task(
             self.shipment,
-            target_fields='cargo_code,weight_net',
+            target_fields='shipment_code,weight_net',
             completion_rule=TaskCompletionRule.ANY_FIELD_FILLED,
         )
         resolved = resolve_for_shipment(self.shipment)
@@ -525,7 +525,7 @@ class ResolveForShipmentTests(TestCase):
 
         task = _make_task(
             self.shipment,
-            target_fields='cargo_code,weight_net',
+            target_fields='shipment_code,weight_net',
             completion_rule=TaskCompletionRule.MANUAL_DONE,
         )
         resolved = resolve_for_shipment(self.shipment)
@@ -540,7 +540,7 @@ class ResolveForShipmentTests(TestCase):
 
         task = _make_task(
             self.shipment,
-            target_fields='cargo_code,weight_net',
+            target_fields='shipment_code,weight_net',
             completion_rule=TaskCompletionRule.ALL_FIELDS_FILLED,
             started_at=None,
         )
@@ -555,7 +555,7 @@ class ResolveForShipmentTests(TestCase):
 
         task = _make_task(
             self.shipment,
-            target_fields='cargo_code,weight_net',
+            target_fields='shipment_code,weight_net',
             completion_rule=TaskCompletionRule.ALL_FIELDS_FILLED,
             state=TaskState.DONE,
             completed_at=timezone.now(),
@@ -706,7 +706,7 @@ class MarkStartedTests(TestCase):
             target_fields='weight_net,weight_gross',
             state=TaskState.OPEN,
         )
-        mark_started_for_changed_fields(self.shipment, ['cargo_code'])
+        mark_started_for_changed_fields(self.shipment, ['shipment_code'])
         task.refresh_from_db()
         self.assertEqual(task.state, TaskState.OPEN)
 
@@ -765,7 +765,7 @@ class ShipmentSaveResolutionTests(TestCase):
 
         task = _make_task(
             shipment,
-            target_fields='cargo_code,weight_net',
+            target_fields='shipment_code,weight_net',
             completion_rule=TaskCompletionRule.ALL_FIELDS_FILLED,
             state=TaskState.OPEN,
         )
@@ -783,7 +783,7 @@ class ShipmentSaveResolutionTests(TestCase):
 
         task = _make_task(
             shipment,
-            target_fields='cargo_code,weight_net',
+            target_fields='shipment_code,weight_net',
             completion_rule=TaskCompletionRule.ALL_FIELDS_FILLED,
             state=TaskState.OPEN,
         )
@@ -822,7 +822,7 @@ class TransitionToGenerationTests(TestCase):
         )
 
         shipment = Shipment.objects.create(
-            cargo_code='TRANS0001',
+            shipment_code='TRANS0001',
             date='2026-01-15',
             season=_make_season('trn-test'),
             status=self.draft_status,

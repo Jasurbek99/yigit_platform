@@ -30,10 +30,14 @@ class Shipment(models.Model):
     """
 
     # === Identifiers ===
-    cargo_code = models.CharField(max_length=20, unique=True, db_column='code')
-    # Official 6-field export code physically tagged on pallets (format: DD|MM|NNN|BLK|YY|VV).
-    # Separate from the auto-generated platform cargo_code; survives re-routings.
-    official_export_code = models.CharField(max_length=30, blank=True, null=True, db_index=True)
+    # System-generated platform code (format: NNNNNNN/YY). Auto-assigned at create.
+    shipment_code = models.CharField(max_length=20, unique=True, db_column='code')
+    # Operator-typed 6-field export code physically tagged on pallets (format: DD|MM|NNN|BLK|YY|VV).
+    # Separate from the auto-generated shipment_code; survives re-routings.
+    # db_column kept as the original 'official_export_code' so the rename is state-only (no SQL).
+    export_code = models.CharField(
+        max_length=30, blank=True, null=True, db_index=True, db_column='official_export_code'
+    )
     # When a shipment is re-routed, link back to the original platform shipment.
     previous_platform_id = models.ForeignKey(
         'self',
@@ -300,7 +304,7 @@ class Shipment(models.Model):
         ordering = ['-date', '-id']
 
     def __str__(self) -> str:
-        return self.cargo_code
+        return self.shipment_code
 
     def save(self, *args, **kwargs):
         """Save, trigger task auto-resolution, then attempt status auto-advance.
@@ -370,7 +374,7 @@ class ShipmentStatusLog(models.Model):
         ordering = ['-changed_at']
 
     def __str__(self) -> str:
-        return f'{self.shipment.cargo_code} → {self.status.code}'
+        return f'{self.shipment.shipment_code} → {self.status.code}'
 
 
 class ShipmentFirmSplit(models.Model):
@@ -389,7 +393,7 @@ class ShipmentFirmSplit(models.Model):
         ordering = ['split_order']
 
     def __str__(self) -> str:
-        return f'{self.shipment.cargo_code} / {self.export_firm.code}'
+        return f'{self.shipment.shipment_code} / {self.export_firm.code}'
 
 
 class ShipmentBlockSource(models.Model):
@@ -409,4 +413,4 @@ class ShipmentBlockSource(models.Model):
         unique_together = [('shipment', 'block')]
 
     def __str__(self) -> str:
-        return f'{self.shipment.cargo_code} / block {self.block.code}'
+        return f'{self.shipment.shipment_code} / block {self.block.code}'

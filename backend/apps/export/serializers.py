@@ -7,13 +7,17 @@ from apps.core.models import City, Country, Customer, ExportFirm, ImportFirm, Se
 from apps.core.permissions import can_edit_field, PRIVILEGED_ROLES
 from apps.export.services import TRANSITIONS, _edge_to
 from apps.export.services.phases import get_phase as resolve_phase, resolve_phase_entry
-from apps.export.validators import validate_official_export_code  # noqa: F401  (kept for downstream importers)
+from apps.export.validators import validate_export_code  # noqa: F401  (kept for downstream importers)
 from apps.export.models import (
+    CustomsExpense,
+    CustomsExpenseCategory,
     FinansistAdvance,
     FinansistAdvanceShipment,
     Pallet,
     QualityDocument,
     SalesReport,
+    SalesReportLineItem,
+    SalesReportExpense,
     Shipment,
     ShipmentStatusLog,
     ShipmentFirmSplit,
@@ -41,12 +45,75 @@ class QualityDocumentSerializer(serializers.ModelSerializer):
         fields = ['azyk_maglumatnama', 'suriji_gozukdiriji', 'hil_sertifikaty', 'kalibrowka_analiz']
 
 
+class SalesReportLineItemSerializer(serializers.ModelSerializer):
+    """Serializer for one price-tier line in the sales report.
+
+    ``amount_local`` is optional on input: if omitted or null, the serializer
+    computes it as ``quantity_kg * price_local`` (Decimal arithmetic, no float).
+    """
+
+    amount_local = serializers.DecimalField(
+        max_digits=14, decimal_places=2, required=False, allow_null=True
+    )
+
+    class Meta:
+        model = SalesReportLineItem
+        fields = ['line_number', 'product_name', 'quantity_kg', 'price_local', 'amount_local']
+
+    def validate(self, attrs: dict) -> dict:
+        """Always derive amount_local = qty * price server-side.
+
+        The line amount is never trusted from the client: it is recomputed
+        from quantity and price so the stored total can never diverge from
+        the sum of qty x price (guards the direct-API surface).
+        """
+        qty = attrs.get('quantity_kg')
+        price = attrs.get('price_local')
+        if qty is not None and price is not None:
+            attrs['amount_local'] = (Decimal(str(qty)) * Decimal(str(price))).quantize(
+                Decimal('0.01')
+            )
+        return attrs
+
+
+class SalesReportExpenseSerializer(serializers.ModelSerializer):
+    """Serializer for one itemized expense row in the sales report."""
+
+    # Human-readable label for the category choice — read-only.
+    category_display = serializers.CharField(
+        source='get_category_display', read_only=True
+    )
+
+    class Meta:
+        model = SalesReportExpense
+        fields = ['category', 'category_display', 'label_raw', 'amount_local']
+
+
 class SalesReportSerializer(serializers.ModelSerializer):
-    """Serializer for the final sales report submitted at hasabat (step 12)."""
+    """Serializer for the final sales report submitted at hasabat (step 12).
+
+    Supports nested writable ``line_items`` and ``expenses`` lists.  When either
+    list is present in the request, it replaces all existing children for that
+    report (replace-all semantics).  Omitting a nested field entirely leaves the
+    existing children untouched (safe for partial=True PATCH).
+
+    Computed read-only USD fields are derived from the stored ``*_local`` totals
+    divided by ``exchange_rate`` when the rate is set and non-zero.
+    """
+
+    # === Nested child lists (optional on input) ===
+    line_items = SalesReportLineItemSerializer(many=True, required=False)
+    expenses = SalesReportExpenseSerializer(many=True, required=False)
+
+    # === Derived USD fields (read-only, computed at serialisation time) ===
+    total_sales_usd = serializers.SerializerMethodField()
+    total_expenses_usd = serializers.SerializerMethodField()
+    net_income_usd = serializers.SerializerMethodField()
 
     class Meta:
         model = SalesReport
         fields = [
+            # Legacy flat fields (back-compat)
             'price_per_kg',
             'total_usd',
             'weight_sold_kg',
@@ -55,10 +122,149 @@ class SalesReportSerializer(serializers.ModelSerializer):
             'market_fee_usd',
             'other_expenses_usd',
             'notes',
+            # New header fields
+            'currency',
+            'exchange_rate',
+            'weight_loaded_kg',
+            'total_sales_local',
+            'total_expenses_local',
+            'net_income_local',
+            # Nested children
+            'line_items',
+            'expenses',
+            # Derived USD fields (read-only)
+            'total_sales_usd',
+            'total_expenses_usd',
+            'net_income_usd',
+            # Audit
             'created_at',
             'updated_at',
         ]
-        read_only_fields = ['created_at', 'updated_at']
+        read_only_fields = [
+            'created_at',
+            'updated_at',
+            # Computed server-side via _recompute_totals() — never trust client values
+            'total_sales_local',
+            'total_expenses_local',
+            'net_income_local',
+        ]
+
+    # ------------------------------------------------------------------
+    # Derived USD helpers
+    # ------------------------------------------------------------------
+
+    def _to_usd(self, local_value, exchange_rate) -> Decimal | None:
+        """Convert a local-currency amount to USD using the exchange rate.
+
+        Returns None when either value is absent or the rate is zero.
+        """
+        if local_value is None or not exchange_rate:
+            return None
+        rate = Decimal(str(exchange_rate))
+        if rate == 0:
+            return None
+        return (Decimal(str(local_value)) / rate).quantize(Decimal('0.01'))
+
+    def get_total_sales_usd(self, obj: SalesReport) -> Decimal | None:
+        return self._to_usd(obj.total_sales_local, obj.exchange_rate)
+
+    def get_total_expenses_usd(self, obj: SalesReport) -> Decimal | None:
+        return self._to_usd(obj.total_expenses_local, obj.exchange_rate)
+
+    def get_net_income_usd(self, obj: SalesReport) -> Decimal | None:
+        return self._to_usd(obj.net_income_local, obj.exchange_rate)
+
+    # ------------------------------------------------------------------
+    # Nested write helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _recompute_totals(
+        instance: SalesReport,
+        line_items_data: list[dict],
+        expenses_data: list[dict],
+    ) -> None:
+        """Recompute and store *_local totals + net on ``instance``.
+
+        Called after children have been bulk-created so the stored totals
+        stay in sync with the child rows.  Uses Decimal throughout.
+        """
+        total_sales = sum(
+            (Decimal(str(item['amount_local'])) for item in line_items_data),
+            Decimal('0'),
+        )
+        total_expenses = sum(
+            (Decimal(str(exp['amount_local'])) for exp in expenses_data),
+            Decimal('0'),
+        )
+        instance.total_sales_local = total_sales.quantize(Decimal('0.01'))
+        instance.total_expenses_local = total_expenses.quantize(Decimal('0.01'))
+        instance.net_income_local = (total_sales - total_expenses).quantize(Decimal('0.01'))
+
+    def update(self, instance: SalesReport, validated_data: dict) -> SalesReport:
+        """Update scalar fields and replace nested children when provided.
+
+        Sentinel distinguishes "caller sent empty list []" (replace-all with
+        zero children) from "caller omitted the field entirely" (preserve
+        existing children).  The sentinel value `_MISSING` is used internally.
+        """
+        from django.db import transaction
+
+        _MISSING = object()  # sentinel distinguishing absent from empty list
+
+        line_items_data = validated_data.pop('line_items', _MISSING)
+        expenses_data = validated_data.pop('expenses', _MISSING)
+
+        with transaction.atomic():
+            # 1. Update scalar header fields via super().
+            instance = super().update(instance, validated_data)
+
+            # 2. Replace line items when the field was present in the request.
+            if line_items_data is not _MISSING:
+                instance.line_items.all().delete()
+                new_line_items = [
+                    SalesReportLineItem(report=instance, **item)
+                    for item in line_items_data
+                ]
+                SalesReportLineItem.objects.bulk_create(
+                    new_line_items, batch_size=500
+                )
+
+            # 3. Replace expenses when the field was present in the request.
+            if expenses_data is not _MISSING:
+                instance.expenses.all().delete()
+                new_expenses = [
+                    SalesReportExpense(report=instance, **exp)
+                    for exp in expenses_data
+                ]
+                SalesReportExpense.objects.bulk_create(
+                    new_expenses, batch_size=500
+                )
+
+            # 4. Recompute and persist *_local totals + net when EITHER nested
+            #    list was explicitly supplied.  Use the fresh data from the DB
+            #    when only one side changed so the sum stays correct.
+            if line_items_data is not _MISSING or expenses_data is not _MISSING:
+                fresh_lines = (
+                    list(instance.line_items.values('amount_local'))
+                    if line_items_data is _MISSING
+                    else line_items_data
+                )
+                fresh_expenses = (
+                    list(instance.expenses.values('amount_local'))
+                    if expenses_data is _MISSING
+                    else expenses_data
+                )
+                self._recompute_totals(instance, fresh_lines, fresh_expenses)
+                instance.save(
+                    update_fields=[
+                        'total_sales_local',
+                        'total_expenses_local',
+                        'net_income_local',
+                    ]
+                )
+
+        return instance
 
 
 class ShipmentListSerializer(serializers.ModelSerializer):
@@ -150,8 +356,8 @@ class ShipmentListSerializer(serializers.ModelSerializer):
         model = Shipment
         fields = [
             'id',
-            'cargo_code',
-            'official_export_code',
+            'shipment_code',
+            'export_code',
             'date',
             'status',
             'status_display',
@@ -378,7 +584,7 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
         model = Shipment
         fields = [
             # Identifiers
-            'id', 'cargo_code', 'official_export_code', 'date',
+            'id', 'shipment_code', 'export_code', 'date',
             # Status
             'status', 'status_display', 'status_code', 'status_step',
             # Phase grouping (Stream C)
@@ -686,6 +892,62 @@ class MentionRoleSerializer(serializers.Serializer):
         return 'role'
 
 
+class CustomsExpenseSerializer(serializers.ModelSerializer):
+    """Serializer for a single customs/document cash-advance expenditure line.
+
+    Supports read+write.  On write, ``created_by`` is injected by the ViewSet
+    (perform_create) and must NOT be sent by the client.
+    """
+
+    # Human-readable category label (read-only; source: TextChoices display value).
+    category_display = serializers.CharField(source='get_category_display', read_only=True)
+
+    # Shipment shipment code — read-only, null when shipment is null (batch fees).
+    shipment_code = serializers.SerializerMethodField()
+
+    # Audit — read-only; set server-side on create.
+    created_by = serializers.IntegerField(source='created_by_id', read_only=True)
+    created_by_name = serializers.CharField(source='created_by.username', read_only=True)
+    created_at = serializers.DateTimeField(read_only=True)
+
+    def get_shipment_code(self, obj: CustomsExpense) -> str | None:
+        """Return the shipment's shipment_code, or None when shipment is null."""
+        if obj.shipment_id is None:
+            return None
+        # Prefer the prefetched/cached shipment to avoid N+1.
+        shipment = obj.shipment
+        return shipment.shipment_code if shipment else None
+
+    def validate_amount(self, value: Decimal) -> Decimal:
+        """Amount must be strictly positive."""
+        if value <= Decimal('0'):
+            raise serializers.ValidationError('Amount must be greater than zero.')
+        return value
+
+    class Meta:
+        model = CustomsExpense
+        fields = [
+            'id',
+            'expense_date',
+            'category',
+            'category_display',
+            'amount',
+            'currency',
+            'shipment',
+            'shipment_code',
+            'shipment_code_raw',
+            'vehicle_plate',
+            'route_label',
+            'label_raw',
+            'quantity',
+            'notes',
+            'created_by',
+            'created_by_name',
+            'created_at',
+        ]
+        read_only_fields = ['id', 'created_by', 'created_by_name', 'created_at']
+
+
 class ShipmentDetailSerializer(ShipmentListSerializer):
     """Full detail serializer with all nested related objects.
 
@@ -701,6 +963,7 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
     comments = CommentSerializer(many=True, read_only=True)
     quality = QualityDocumentSerializer(read_only=True)
     sales_report = SalesReportSerializer(read_only=True)
+    customs_expenses = CustomsExpenseSerializer(many=True, read_only=True)
     status_code = serializers.CharField(source='status.code', read_only=True)
     allowed_transitions = serializers.SerializerMethodField()
 
@@ -974,6 +1237,8 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
             'city',
             'border_point',
             'loading_location',
+            # Customs/document cash-advance expense lines for this shipment
+            'customs_expenses',
             # D1 — task and phase context
             'my_task',
             'other_tasks',
@@ -990,7 +1255,7 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
 # sheet_rows.py R19 input_type='datetime' and create_shipment() (no auto-set).
 _ALL_PATCHABLE_FIELDS = {
     # Identifiers
-    'official_export_code',
+    'export_code',
     # Weight / packaging
     'box_count', 'pallet_count', 'pallet_weight_kg', 'packaging_kg',
     'weight_net', 'weight_gross', 'rejected_weight_kg',
@@ -1053,12 +1318,12 @@ class ShipmentPatchSerializer(serializers.ModelSerializer):
     Raises ValueError listing forbidden fields when validation fails.
     """
 
-    # Stream G follow-up: official_export_code (Shipment Code) is free text.
+    # Stream G follow-up: export_code (the operator-typed Export Code) is free text.
     # Soltanmyrat generates the code himself with whatever format the operation
     # uses today (variety + block conventions evolve). The strict 6-field
     # `DD|MM|NNN|BLK|YY|VV` validator was rejecting operationally-valid codes,
     # so we allow any non-blank string up to max_length.
-    official_export_code = serializers.CharField(
+    export_code = serializers.CharField(
         max_length=30,
         required=False,
         allow_blank=True,
@@ -1113,7 +1378,7 @@ class FirmSplitInputSerializer(serializers.Serializer):
 class ShipmentCreateSerializer(serializers.Serializer):
     """Validates the request body for POST /api/v1/export/shipments/.
 
-    Enforces cargo_code format and uniqueness before creating a Shipment.
+    Enforces shipment_code format and uniqueness before creating a Shipment.
 
     Two modes:
     - is_draft=False (default): full creation at yuklenme (legacy path). country/customer
@@ -1127,12 +1392,12 @@ class ShipmentCreateSerializer(serializers.Serializer):
     cap is bypassed (for ad-hoc in-Sheet supply drafts with no prior forecast).
     """
 
-    # cargo_code is the auto-generated platform code. Optional on input —
+    # shipment_code is the auto-generated platform code. Optional on input —
     # generated server-side if omitted (Stream F-followup). Soltanmyrat enters
-    # the physical pallet tag separately via official_export_code.
-    cargo_code = serializers.CharField(max_length=20, required=False, allow_blank=True)
-    # Stream G follow-up: free-text Shipment Code (no 6-field format check).
-    official_export_code = serializers.CharField(
+    # the physical pallet tag separately via export_code.
+    shipment_code = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    # Stream G follow-up: free-text Export Code (no 6-field format check).
+    export_code = serializers.CharField(
         max_length=30,
         required=False,
         allow_blank=True,
@@ -1196,8 +1461,8 @@ class ShipmentCreateSerializer(serializers.Serializer):
             )
         return value
 
-    def validate_cargo_code(self, value: str) -> str:
-        """Validate format DDMM###/YY when a cargo_code is supplied.
+    def validate_shipment_code(self, value: str) -> str:
+        """Validate format DDMM###/YY when a shipment_code is supplied.
 
         Empty/blank values are permitted — the create view will auto-generate
         a code in that case (Stream F-followup).
@@ -1206,11 +1471,11 @@ class ShipmentCreateSerializer(serializers.Serializer):
             return value
         if not re.match(r'^\d{7}/\d{2}$', value):
             raise serializers.ValidationError(
-                "Cargo code must match pattern NNNNNNN/YY (e.g. 0201045/25)"
+                "Shipment code must match pattern NNNNNNN/YY (e.g. 0201045/25)"
             )
-        if Shipment.objects.filter(cargo_code=value).exists():
+        if Shipment.objects.filter(shipment_code=value).exists():
             raise serializers.ValidationError(
-                "A shipment with this cargo code already exists"
+                "A shipment with this shipment code already exists"
             )
         return value
 
@@ -1363,13 +1628,13 @@ class ShipmentSwapSerializer(serializers.Serializer):
 class AdvanceShipmentSerializer(serializers.ModelSerializer):
     """Nested serializer for a single shipment link inside an advance."""
 
-    shipment_cargo_code = serializers.CharField(
-        source='shipment.cargo_code', read_only=True
+    shipment_code = serializers.CharField(
+        source='shipment.shipment_code', read_only=True
     )
 
     class Meta:
         model = FinansistAdvanceShipment
-        fields = ['shipment', 'shipment_cargo_code', 'allocated_amount']
+        fields = ['shipment', 'shipment_code', 'allocated_amount']
 
 
 class FinansistAdvanceListSerializer(serializers.ModelSerializer):
@@ -1584,9 +1849,9 @@ class TaskListSerializer(serializers.ModelSerializer):
     N+1-safe when the queryset has select_related('shipment', 'rule', 'assignee_user').
     """
 
-    # Denormalized cargo code from the parent shipment.
-    shipment_cargo_code = serializers.CharField(
-        source='shipment.cargo_code', read_only=True,
+    # Denormalized shipment code from the parent shipment.
+    shipment_code = serializers.CharField(
+        source='shipment.shipment_code', read_only=True,
     )
 
     # Phase derived from the parent shipment's current status code via PHASE_MAP.
@@ -1623,7 +1888,7 @@ class TaskListSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'shipment',
-            'shipment_cargo_code',
+            'shipment_code',
             'kind',
             'link',
             'scope_year',
@@ -1702,9 +1967,9 @@ class BoardItemSerializer(serializers.ModelSerializer):
     if there are no tasks.
     """
 
-    # cargo_code IS the model attribute name (db_column='code' is the raw
-    # SQL column, but Django maps it to .cargo_code). No source= needed.
-    cargo_code = serializers.CharField(read_only=True)
+    # shipment_code IS the model attribute name (db_column='code' is the raw
+    # SQL column, but Django maps it to .shipment_code). No source= needed.
+    shipment_code = serializers.CharField(read_only=True)
     phase = serializers.SerializerMethodField()
     owner_role = serializers.SerializerMethodField()
     time_in_phase_seconds = serializers.SerializerMethodField()
@@ -1724,7 +1989,7 @@ class BoardItemSerializer(serializers.ModelSerializer):
         model = Shipment
         fields = [
             'id',
-            'cargo_code',
+            'shipment_code',
             'phase',
             'owner_role',
             'time_in_phase_seconds',

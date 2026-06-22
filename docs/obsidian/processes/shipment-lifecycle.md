@@ -10,7 +10,7 @@ related: [[shipment-creation]], [[quota-management]], [[quality-documents]], [[a
 
 The shipment lifecycle is the **central process** of the YGT Platform. Every truck load of tomatoes leaving the Turkmenistan greenhouses goes through a 13-step state machine from Loading to Completed. Each step is owned by a specific role, and transitioning between steps writes an immutable audit trail.
 
-One Shipment = one truck load. The cargo code (format `DDMM###/YY`) is the universal identifier used across all systems (Logo Tiger ERP, Trip Management, GPS tracking).
+One Shipment = one truck load. The shipment code (format `DDMM###/YY`) is the universal identifier used across all systems (Logo Tiger ERP, Trip Management, GPS tracking).
 
 ## How It Works (Business Flow)
 
@@ -115,7 +115,7 @@ Distinct from cancellation: a **reversible "deactivate" flag** that hides a ship
 
 | Table | Schema | Purpose | Key Columns |
 |-------|--------|---------|-------------|
-| `export.shipments` | export | Main shipment record (1 per truck) | `code` (cargo_code), `status_id`, 8 AD-1 timestamps, weight, transport, finance |
+| `export.shipments` | export | Main shipment record (1 per truck) | `code` (shipment_code), `status_id`, 8 AD-1 timestamps, weight, transport, finance |
 | `export.shipment_status_log` | export | Audit trail (1 row per transition) | `shipment_id`, `status_id`, `changed_by_id`, `changed_at`, `comment` |
 | `core.shipment_status_types` | core | 13 status definitions | `code`, `step_order`, `phase`, `name_tk/en/ru` |
 | `export.shipment_firm_splits` | export | 1-3 export firms per shipment | `shipment_id`, `export_firm_id`, `weight_kg`, `amount_usd` |
@@ -143,7 +143,7 @@ erDiagram
 
 ### Key Constraints
 
-- `cargo_code` is **unique** across all shipments
+- `shipment_code` is **unique** across all shipments
 - `(shipment, export_firm)` is unique in firm_splits
 - `(shipment, block)` is unique in block_sources
 - All FKs to reference tables use `on_delete=PROTECT` (can't delete a country that has shipments)
@@ -159,7 +159,7 @@ erDiagram
 
 | Group | Fields | Notes |
 |-------|--------|-------|
-| Identifiers | `cargo_code` (CharField, unique, db_column='code'), `date`, `season` (FK) | Cargo code is the universal key |
+| Identifiers | `shipment_code` (CharField, unique, db_column='code'), `date`, `season` (FK) | Shipment code is the universal key |
 | Geography | `country`, `city`, `border_point`, `loading_location` (all FK, nullable) | Destination info |
 | Customer | `customer` (FK), `import_firm` (FK) | Buyer and importing company |
 | Product | `product_type`, `variety` (FKs, nullable) | What's being shipped |
@@ -219,7 +219,7 @@ Each cascaded transition still writes its own `ShipmentStatusLog` (flagged `is_a
 
 The thread-local re-entry guard in `Shipment.save()` prevents `transition_to`'s inner save from re-entering `auto_advance_if_ready` (which would cause infinite recursion via save). The cascade happens at the `auto_advance_if_ready` level, NOT via save recursion.
 
-#### `create_shipment(cargo_code, date, user, country=None, customer=None, season=None)`
+#### `create_shipment(shipment_code, date, user, country=None, customer=None, season=None)`
 
 Creates a new shipment at step 1 (yuklenme):
 1. Resolve active season if not provided
@@ -233,9 +233,9 @@ Creates a new shipment at step 1 (yuklenme):
 
 **File**: `backend/apps/export/serializers.py`
 
-- **ShipmentListSerializer** (read-only, lightweight): cargo_code, date, status + status_display, country_name, customer_name, weight_net, weight_gross, departed_at, arrived_at, is_gapy_satys, updated_at
+- **ShipmentListSerializer** (read-only, lightweight): shipment_code, date, status + status_display, country_name, customer_name, weight_net, weight_gross, departed_at, arrived_at, is_gapy_satys, updated_at
 - **ShipmentDetailSerializer** (read-only, full): all list fields + firm_splits (nested), block_sources (nested), status_log (nested), comments (nested), quality (nested), sales_report, editable_fields, allowed_transitions
-- **ShipmentCreateSerializer** (write): cargo_code, date, country, customer, season
+- **ShipmentCreateSerializer** (write): shipment_code, date, country, customer, season
 - **ShipmentPatchSerializer** (write, role-based): dynamically restricts writable fields based on user's role field permissions
 
 ### ViewSet & Endpoints
@@ -285,7 +285,7 @@ The shipment lifecycle is displayed across **5 different views**, each optimized
 **Columns Displayed**:
 | # | Column | Width | Notes |
 |---|--------|-------|-------|
-| 1 | Cargo Code | 140px | Monospace, clickable → detail page |
+| 1 | Shipment Code | 140px | Monospace, clickable → detail page |
 | 2 | Customer Name | 150px | |
 | 3 | Country | 130px | With flag emoji |
 | 4 | Status | 150px | StatusTag component (color-coded by phase) |
@@ -294,7 +294,7 @@ The shipment lifecycle is displayed across **5 different views**, each optimized
 | 7 | Arrived At | 130px | Format: DD.MM.YY HH:mm, responsive md+ |
 
 **Filters**:
-- Search input (cargo_code, customer_name)
+- Search input (shipment_code, customer_name)
 - Phase dropdown (planlanyan, yuklenme, bardy, gumruk_girish, satylyor, satyldy, tamamlandy)
 - View mode segmented: "All" vs "My Work"
 - Page size: 20 / 50 (default) / 100
@@ -338,7 +338,7 @@ The shipment lifecycle is displayed across **5 different views**, each optimized
 - Fetches ALL active-season shipments via `useShipmentSheet()` (no pagination)
 - `SheetGrid` component with inline cell editing
 - Zustand `SheetStore` manages: searchText, showGapyOnly
-- Filters in memory by cargo_code and customer_name
+- Filters in memory by shipment_code and customer_name
 
 #### 4. ShipmentBoard (`frontend/src/pages/export/ShipmentBoard.tsx`)
 
@@ -348,7 +348,7 @@ The shipment lifecycle is displayed across **5 different views**, each optimized
 
 **Filters**: country, customer, Gapy Satys (any/yes/no), owner role, free-text search.
 
-**Card Content**: cargo_code, owner role, time-in-phase, and a **task progress bar** with a `done/total` count. The top-border colour reflects the highest-priority task alert (late → blocked → in-progress). Each column footer shows the average time spent in that phase (`phase_avg_seconds` from the API).
+**Card Content**: shipment_code, owner role, time-in-phase, and a **task progress bar** with a `done/total` count. The top-border colour reflects the highest-priority task alert (late → blocked → in-progress). Each column footer shows the average time spent in that phase (`phase_avg_seconds` from the API).
 
 **Task modal → act-in-drawer (in-board)**: **clicking a card** opens `BoardTasksModal` listing every task on that shipment (state icon + tag, localized title + assignee role, deadline overdue-in-red, sorted active-first then by deadline). Clicking a task row opens the **shared `SelfBoardTaskDrawer`** (the same surface used on `/me/board`) so the user can start it, fill its target fields, and mark it done **without leaving the board**. The card itself **no longer navigates to detail** — the full detail page is reachable only via the modal's explicit "Open shipment detail →" link (deliberate: the board is for doing tasks in place). The modal and drawer never overlap — the modal is hidden (its shipment id retained) while the drawer is open and reappears on close, avoiding an antd Drawer-over-Modal focus-trap clash. On close the modal list shows the fresh state because the page re-resolves the modal's item from the live board query and `useTaskActions` invalidates `['shipments','board']`. The data is a `tasks[]` array on each `BoardItemSerializer` row — the **full `TaskListSerializer` / `ITaskListItem` shape** so the drawer consumes it directly — read from the board queryset's `tasks` prefetch (with `select_related('shipment__status','assignee_user')`) so it costs **no extra DB queries** (the endpoint's `assertNumQueries ≤ 8` bound holds). The Detail page's `MyTaskCard` / `OtherTasksRow` remain the other entry points to the same tasks.
 
@@ -365,7 +365,7 @@ Single grouped fetch via `useShipmentBoard(filters)` → `GET /export/shipments/
 
 - **StatusTag** (`components/StatusTag.tsx`): Ant Design Tag with color mapped to status phase (LOADING=blue, CUSTOMS=orange, TRANSIT=cyan, BORDER=geekblue, SALES=green)
 - **TransitionButton** (`components/TransitionButton.tsx`): Opens modal with status dropdown + comment textarea, POSTs to `/transition/` endpoint
-- **ShipmentCreateModal** (`components/ShipmentCreateModal.tsx`): Form with cargo_code, date, country (CountrySelect), customer (CustomerSelect), season
+- **ShipmentCreateModal** (`components/ShipmentCreateModal.tsx`): Form with shipment_code, date, country (CountrySelect), customer (CustomerSelect), season
 - **CommentComposer** (`components/CommentComposer.tsx`): TextArea + send button (Ctrl+Enter), POSTs to `/comment/` endpoint
 - **SheetGrid** (`components/sheet/SheetGrid.tsx`): Custom table with inline cell editing, uses SheetCell, SheetCellEditor, SheetLabelColumn, SheetToolbar
 
@@ -381,7 +381,7 @@ Single grouped fetch via `useShipmentBoard(filters)` → `GET /export/shipments/
 ### TypeScript Types
 
 **`IShipmentListItem`** (list view):
-- `id`, `cargo_code`, `date`, `status`, `status_display`, `status_step`, `country_name`, `customer_name`, `weight_net`, `weight_gross`, `departed_at`, `arrived_at`, `is_gapy_satys`, `updated_at`
+- `id`, `shipment_code`, `date`, `status`, `status_display`, `status_step`, `country_name`, `customer_name`, `weight_net`, `weight_gross`, `departed_at`, `arrived_at`, `is_gapy_satys`, `updated_at`
 
 **`IShipmentDetail`** (extends IShipmentListItem):
 - `status_code`, `allowed_transitions[]`, `box_count`, `pallet_count`, `packaging_kg`

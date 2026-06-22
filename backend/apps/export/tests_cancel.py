@@ -104,7 +104,7 @@ def _make_shipment_at(code: str, season: Season, user: User, cargo_suffix: str =
     """Create a shipment in the given status."""
     status_obj = ShipmentStatusType.objects.get(code=code)
     return Shipment.objects.create(
-        cargo_code=f'TEST{cargo_suffix or code[:4].upper()}001/26',
+        shipment_code=f'TEST{cargo_suffix or code[:4].upper()}001/26',
         date='2026-01-01',
         season=season,
         status=status_obj,
@@ -139,7 +139,7 @@ class PrivilegedCancelSuccessTests(TestCase):
         status_obj = ShipmentStatusType.objects.get(code=status_code)
         unique_code = f'CC{status_code[:4].upper()}{status_obj.pk:03d}/26'
         shipment = Shipment.objects.create(
-            cargo_code=unique_code,
+            shipment_code=unique_code,
             date='2026-01-01',
             season=self.season,
             status=status_obj,
@@ -237,7 +237,7 @@ class NonPrivilegedCancelForbiddenTests(TestCase):
     def test_sales_rep_cancel_returns_403(self) -> None:
         status_obj = ShipmentStatusType.objects.get(code='bardy')
         shipment = Shipment.objects.create(
-            cargo_code='FORB001/26',
+            shipment_code='FORB001/26',
             date='2026-01-01',
             season=self.season,
             status=status_obj,
@@ -277,7 +277,7 @@ class AdminSuperuserCancelTests(TestCase):
         _auth(client, user)
         status_obj = ShipmentStatusType.objects.get(code='bardy')
         shipment = Shipment.objects.create(
-            cargo_code=cargo,
+            shipment_code=cargo,
             date='2026-01-01',
             season=self.season,
             status=status_obj,
@@ -321,7 +321,7 @@ class EmptyReasonCancelTests(TestCase):
 
     def _make_bardy_shipment(self, code: str) -> Shipment:
         return Shipment.objects.create(
-            cargo_code=code,
+            shipment_code=code,
             date='2026-01-01',
             season=self.season,
             status=self.status_obj,
@@ -383,7 +383,7 @@ class CancelFromTerminalTests(TestCase):
     def test_cancel_from_tamamlandy_returns_400(self) -> None:
         status_obj = ShipmentStatusType.objects.get(code='tamamlandy')
         shipment = Shipment.objects.create(
-            cargo_code='TERM001/26',
+            shipment_code='TERM001/26',
             date='2026-01-01',
             season=self.season,
             status=status_obj,
@@ -422,7 +422,7 @@ class TaskCancellationTests(TestCase):
     def test_open_tasks_cancelled_done_preserved(self) -> None:
         status_obj = ShipmentStatusType.objects.get(code='bardy')
         shipment = Shipment.objects.create(
-            cargo_code='TASK001/26',
+            shipment_code='TASK001/26',
             date='2026-01-01',
             season=self.season,
             status=status_obj,
@@ -498,7 +498,7 @@ class NoAutoAdvanceOnCancelTests(TestCase):
         """
         status_obj = ShipmentStatusType.objects.get(code='bardy')
         shipment = Shipment.objects.create(
-            cargo_code='NOADV01/26',
+            shipment_code='NOADV01/26',
             date='2026-01-01',
             season=self.season,
             status=status_obj,
@@ -540,7 +540,7 @@ class AllowedTransitionsBardy(TestCase):
     def test_bardy_allowed_transitions_excludes_cancelled(self) -> None:
         status_obj = ShipmentStatusType.objects.get(code='bardy')
         shipment = Shipment.objects.create(
-            cargo_code='TRAN001/26',
+            shipment_code='TRAN001/26',
             date=datetime.date(2026, 1, 1),
             season=self.season,
             status=status_obj,
@@ -569,7 +569,7 @@ class CancelledShipmentNoTransitions(TestCase):
     def test_cancelled_shipment_has_empty_transitions(self) -> None:
         cancelled_status = ShipmentStatusType.objects.get(code='cancelled')
         shipment = Shipment.objects.create(
-            cargo_code='NOTR001/26',
+            shipment_code='NOTR001/26',
             date=datetime.date(2026, 1, 1),
             season=self.season,
             status=cancelled_status,
@@ -601,7 +601,7 @@ class BaryshGumrugiAllowedTransitionsRegressionTest(TestCase):
     def test_barysh_gumrugi_allowed_transitions_does_not_raise(self) -> None:
         status_obj = ShipmentStatusType.objects.get(code='barysh_gumrugi')
         shipment = Shipment.objects.create(
-            cargo_code='BGRE001/26',
+            shipment_code='BGRE001/26',
             date=datetime.date(2026, 1, 1),
             season=self.season,
             status=status_obj,
@@ -643,7 +643,7 @@ class QuotaUsageCleanupTests(TestCase):
 
         status_obj = ShipmentStatusType.objects.get(code='bardy')
         shipment = Shipment.objects.create(
-            cargo_code='QUOT001/26',
+            shipment_code='QUOT001/26',
             date='2026-01-01',
             season=self.season,
             status=status_obj,

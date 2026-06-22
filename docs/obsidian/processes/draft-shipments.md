@@ -70,13 +70,13 @@ TRANSITIONS = {
 
 ### Create draft
 
-**Endpoint**: `POST /api/v1/export/shipments/` with `{"is_draft": true, "cargo_code": "...", "date": "...", "block_sources": [{"block": 1, "weight_kg": "12000.00"}, ...]}`.
+**Endpoint**: `POST /api/v1/export/shipments/` with `{"is_draft": true, "shipment_code": "...", "date": "...", "block_sources": [{"block": 1, "weight_kg": "12000.00"}, ...]}`.
 
 **Service**: `ShipmentViewSet._create_draft_shipment(data, user)` in `backend/apps/export/views.py`:
 
 1. `transaction.atomic()`:
    1. Look up `ShipmentStatusType(code='draft')`.
-   2. `Shipment.objects.create(status=draft_row, cargo_code=..., date=..., created_by=user)`.
+   2. `Shipment.objects.create(status=draft_row, shipment_code=..., date=..., created_by=user)`.
    3. `ShipmentBlockSource.objects.bulk_create([...], batch_size=500)` — MSSQL requires explicit batch_size.
    4. `ShipmentStatusLog.objects.create(shipment, status=draft_row, changed_by=user, comment='Draft created')`.
 2. Return `ShipmentDetailSerializer(shipment).data`.
@@ -126,7 +126,7 @@ flowchart LR
     J --> R["Target DRAFT\n(now has blocks + destination)\n→ assign as usual"]
 ```
 
-**Step 1 — Supply column** (Soltanmyrat, role `loading_dept_head`): **"Ýük goş"** toolbar button → **one-click** creation of an **empty** draft column. No modal: a single click `POST`s `{is_draft: true}` (hook `useCreateEmptyColumn`); the backend auto-generates `cargo_code` and defaults `date` to today, with **no blocks, no variety, no destination**. Soltanmyrat then types the column's values (blocks, weights, official export code, …) **directly into the Sheet cells**, and the column is later merged with Gadam's destination column via Join. The column renders **green** because `created_by_role ∈ {loading_dept_head, warehouse_chief}` (see Sheet tint below). Visible to the same roles as before (`loading_dept_head`, `warehouse_chief`, `export_manager`, `director`, superuser).
+**Step 1 — Supply column** (Soltanmyrat, role `loading_dept_head`): **"Ýük goş"** toolbar button → **one-click** creation of an **empty** draft column. No modal: a single click `POST`s `{is_draft: true}` (hook `useCreateEmptyColumn`); the backend auto-generates `shipment_code` and defaults `date` to today, with **no blocks, no variety, no destination**. Soltanmyrat then types the column's values (blocks, weights, official export code, …) **directly into the Sheet cells**, and the column is later merged with Gadam's destination column via Join. The column renders **green** because `created_by_role ∈ {loading_dept_head, warehouse_chief}` (see Sheet tint below). Visible to the same roles as before (`loading_dept_head`, `warehouse_chief`, `export_manager`, `director`, superuser).
 
 > Replaces the earlier `SupplyDraftModal` (forecast-pool block picker). The modal and its forecast-pool workflow were removed in favour of the simpler empty-column + Sheet-cell entry flow. Note: the Join endpoint still requires the source column to have ≥1 block, so blocks must be entered in the Sheet before joining.
 
@@ -136,10 +136,10 @@ flowchart LR
 
 **Endpoint**: `POST /api/v1/export/shipments/{target_id}/join/` body `{"source_id": <int>}`. Caller must be `export_manager`/`director`. Gates: both must be `draft`; target ≠ source; target must have country + customer; target must **not** already have blocks; source must have ≥1 block. Effect:
 - `source.block_sources` (and `firm_splits` if the target has none) move to the target.
-- `variety` + `official_export_code` are copied to the target if the target's are empty.
+- `variety` + `export_code` are copied to the target if the target's are empty.
 - The source's full set of sorts (`varieties_dominant`) is copied onto the target when the target has none.
 - `target.weight_net` is recomputed.
-- One `ShipmentStatusLog` audit row is written on the target ("Joined supply from {source.cargo_code} …").
+- One `ShipmentStatusLog` audit row is written on the target ("Joined supply from {source.shipment_code} …").
 - The source creator gets a `Notification`.
 - The **source is hard-deleted**.
 
@@ -170,7 +170,7 @@ Registered in `backend/apps/core/permission_registry.py`:
 ### Components
 
 - `DraftComposerModal` (`src/components/draft/DraftComposerModal.tsx`) — 1–11 rows, block selector. 3 numbered sections, **harvest-first**: **1. Harvest** — per block it shows **"available: X kg"** from the forecast pool (`useHarvestForecastRemaining`) and caps each row at `min(remaining, 18500)`; a block with no forecast is disabled; **2. Shipment Code** (collapsed `Collapse`, optional — Export Code on the panel header, `?` popover with the dual-code explainer); **3. Notes**. 3-column table (Block · Allocate · delete); the old "Leftover" column, yellow "sort notice", and the brief "≈ N trucks" reframe were all removed. Surfaces backend pool-rejection errors (both `{block_sources}` and `{error}` shapes).
-- `OfficialCodeEditor` (`src/components/draft/OfficialCodeEditor.tsx`) — the 6-field Shipment Code (Day · Month · Seq · Block · Year). The 6th field (variety) is **omitted from the draft UI** per Finding #3, but the stored `official_export_code` keeps all 6 `|`-separated fields with the variety slot empty (backend validator requires exactly 6). The preview renders each field as a labelled slot, never the raw `21|MY|||26|` pipe string. (Used only inside the composer's collapsed "Shipment Code" section.)
+- `OfficialCodeEditor` (`src/components/draft/OfficialCodeEditor.tsx`) — the 6-field Shipment Code (Day · Month · Seq · Block · Year). The 6th field (variety) is **omitted from the draft UI** per Finding #3, but the stored `export_code` keeps all 6 `|`-separated fields with the variety slot empty (backend validator requires exactly 6). The preview renders each field as a labelled slot, never the raw `21|MY|||26|` pipe string. (Used only inside the composer's collapsed "Shipment Code" section.)
 - `BlockSelect` (`src/components/BlockSelect.tsx`) — self-fetching `Select` of `IGreenhouseBlock`, supports `excludeIds` for multi-row deduplication.
 
 ### Hooks

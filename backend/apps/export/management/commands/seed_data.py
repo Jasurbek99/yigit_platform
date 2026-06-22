@@ -212,7 +212,7 @@ class Command(BaseCommand):
         samples = [
             # Shipment 1 — completed, Kazakhstan, YGT
             dict(
-                cargo_code='27SP001/25',
+                shipment_code='27SP001/25',
                 date=datetime.date(2025, 9, 27),
                 status=statuses.get('tamamlandy'),
                 country=kz,
@@ -232,7 +232,7 @@ class Command(BaseCommand):
             ),
             # Shipment 2 — in transit, Russia, HMS+YGT split
             dict(
-                cargo_code='15OC042/25',
+                shipment_code='15OC042/25',
                 date=datetime.date(2025, 10, 15),
                 status=statuses.get('yolda'),
                 country=ru,
@@ -249,7 +249,7 @@ class Command(BaseCommand):
             ),
             # Shipment 3 — just loaded (active), Kazakhstan, YGT
             dict(
-                cargo_code='02JA001/26',
+                shipment_code='02JA001/26',
                 date=datetime.date(2026, 1, 2),
                 status=statuses.get('yuklenme'),
                 country=kz,
@@ -265,7 +265,7 @@ class Command(BaseCommand):
         ]
 
         for s in samples:
-            if Shipment.objects.filter(cargo_code=s['cargo_code']).exists():
+            if Shipment.objects.filter(shipment_code=s['shipment_code']).exists():
                 continue
             firm_codes = s.pop('firm_codes')
             shipment = Shipment.objects.create(created_by=admin, **s)

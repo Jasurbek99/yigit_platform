@@ -64,13 +64,13 @@ export function ShipmentKanbanCard({ item, onTasksClick }: IShipmentKanbanCardPr
         (e.currentTarget as HTMLDivElement).style.boxShadow = 'none';
       }}
     >
-      {/* Row 1: cargo code */}
+      {/* Row 1: shipment code */}
       <Text
         strong
         style={{ fontSize: 12, fontFamily: FONT.mono, display: 'block', marginBottom: 2 }}
         ellipsis
       >
-        {item.cargo_code}
+        {item.shipment_code}
       </Text>
 
       {/* Row 2: owner role + time in phase */}

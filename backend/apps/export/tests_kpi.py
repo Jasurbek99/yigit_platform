@@ -76,7 +76,7 @@ def _make_done_status() -> ShipmentStatusType:
 
 
 def _make_shipment(
-    cargo_code: str,
+    shipment_code: str,
     status=None,
     status_changed_at=None,
     is_archived: bool = False,
@@ -84,7 +84,7 @@ def _make_shipment(
     if status is None:
         status = _make_status()
     shipment = Shipment.objects.create(
-        cargo_code=cargo_code,
+        shipment_code=shipment_code,
         date='2026-01-15',
         season=_make_season(),
         status=status,
@@ -524,7 +524,7 @@ class KpiApiTests(TestCase):
         data = resp.json()
         self.assertIn('in_phase_seconds', data)
         self.assertIn('phase', data)
-        self.assertIn('cargo_code', data)
+        self.assertIn('shipment_code', data)
 
     def test_by_shipment_404_for_missing(self):
         """Non-existent shipment ID → 404."""

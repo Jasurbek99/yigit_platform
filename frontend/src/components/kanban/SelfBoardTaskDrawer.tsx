@@ -110,8 +110,8 @@ export function SelfBoardTaskDrawer({
       ) : (
         <>
           <ShipmentCodeHeader
-            cargoCode={shipment.cargo_code}
-            officialCode={shipment.official_export_code}
+            shipmentCode={shipment.shipment_code}
+            officialCode={shipment.export_code}
           />
           <Divider style={{ margin: '12px 0' }} />
           {isActiveCard ? (
@@ -136,12 +136,12 @@ export function SelfBoardTaskDrawer({
 // ─── Shipment code identity header ────────────────────────────────────────────
 
 interface IShipmentCodeHeaderProps {
-  cargoCode: string;
+  shipmentCode: string;
   officialCode: string | null;
 }
 
 function ShipmentCodeHeader({
-  cargoCode,
+  shipmentCode,
   officialCode,
 }: IShipmentCodeHeaderProps): React.ReactElement {
   const { t } = useTranslation();
@@ -163,7 +163,7 @@ function ShipmentCodeHeader({
           {t('me.board.drawer_system_code')}
         </Text>
         <Text style={{ fontFamily: FONT.mono, fontWeight: 600, fontSize: 15 }}>
-          {cargoCode}
+          {shipmentCode}
         </Text>
       </div>
 

@@ -12,7 +12,7 @@ DB column names → API field names via DRF serializer. The API uses **readable 
 
 | DB column (DDL v5.1) | API field name | Why |
 |----------------------|---------------|-----|
-| `code` | `cargo_code` | More descriptive for frontend |
+| `code` | `shipment_code` | More descriptive for frontend |
 | `weight_net_kg` | `weight_net` | Frontend doesn't need `_kg` suffix, unit is implied |
 | `weight_gross_kg` | `weight_gross` | Same |
 | `status_id` | `status` (int) + `status_display` (string) | Both: ID for mutations, display name for rendering |
@@ -37,7 +37,7 @@ The example below shows the **default-visible** fields. As of the ShipmentList c
   "results": [
     {
       "id": 1,
-      "cargo_code": "0201045/25",
+      "shipment_code": "0201045/25",
       "date": "2025-02-01",
       "status": 4,
       "status_display": "Departed",
@@ -59,7 +59,7 @@ Full data with nested related objects.
 ```json
 {
   "id": 1,
-  "cargo_code": "0201045/25",
+  "shipment_code": "0201045/25",
   "...all list fields...",
   "firm_splits": [
     { "export_firm_id": 1, "export_firm_name": "YGT H.J.", "weight_kg": 10000, "amount_usd": 14500 }
@@ -88,6 +88,54 @@ Full data with nested related objects.
 // Error 400: { "error": "Cannot transition from yuklenme to bardy" }
 // Error 403: { "error": "Role document_team cannot trigger this transition" }
 ```
+
+### Sales report: `POST`/`PATCH /api/v1/export/shipments/{id}/sales-report/`
+
+The final per-shipment sales report (the "hasabat" the export manager used to keep in Excel).
+Allowed roles: `sales_rep`, `export_manager`, `director`, plus superusers. The shipment must
+have departed (`yola_chykdy`, step 4) or later, else 400 (system status lags the real sale, so
+gating on "sold" would block trucks that have already departed and sold). Read it from the shipment **detail** response
+(nested under `sales_report`) — there is no separate GET. Returns the full shipment detail on success.
+
+Amounts are stored in the report's **native currency** (`currency`, default `KZT`); USD totals are
+**derived** server-side as `*_local / exchange_rate` (the "Kurs"). Money/weight are decimal strings.
+
+```json
+// Request (PATCH — partial; omitting line_items/expenses leaves children untouched)
+{
+  "currency": "KZT",
+  "exchange_rate": "680.0000",          // Kurs: local units per USD
+  "weight_loaded_kg": "18500.00",
+  "weight_sold_kg": "18371.00",
+  "weight_rejected_kg": "129.00",
+  "notes": "Karaganda, 25 AP 280",
+  "line_items": [                        // replace-all when present
+    { "line_number": 1, "product_name": null, "quantity_kg": "18371.00", "price_local": "680.00" }
+    // amount_local is ALWAYS recomputed server-side as quantity_kg * price_local (client value ignored)
+  ],
+  "expenses": [                          // replace-all when present
+    { "category": "NDS",     "label_raw": null, "amount_local": "1476000.00" },
+    { "category": "TOM_ROSHOD",          "amount_local": "227250.00" },
+    { "category": "ANALIZ",              "amount_local": "59745.00" },
+    { "category": "BAZAR_ROSHOD",        "amount_local": "103000.00" },
+    { "category": "NAKLIYE", "label_raw": "KAPLANB-KARAGANDA NAKLIYE", "amount_local": "800000.00" },
+    { "category": "INTERES",             "amount_local": "500000.00" }
+  ]
+}
+```
+
+Server-computed, read-only on the report object (cannot be set by the client):
+`total_sales_local`, `total_expenses_local`, `net_income_local` (= sales − expenses), and the
+derived `total_sales_usd` / `total_expenses_usd` / `net_income_usd`. For the example above:
+gross 12,492,280 / expenses 3,165,995 / net 9,326,285 KZT.
+
+`expenses[].category` is one of 21 enum codes: `TOM_ROSHOD`, `NAKLIYE`, `BAZAR_ROSHOD`, `INTERES`,
+`UZBEK_FURA_AWANS`, `DOZWOL`, `ANALIZ`, `PROSTOY`, `PERESEPKA`, `ARAP`, `KASPIY_KOMIS`,
+`UZBEK_FURA_SOLYARKA`, `NDS`, `SBOR`, `UZB_KAZ_POST`, `UZB_KAZ_NAKLIYE`, `UZBEK_TAM`, `MOI`,
+`DOSMOTR`, `PEREWOT`, `OTHER`. `category_display` (read-only) is the English label; the frontend
+localizes via `sales_report.expense.<CODE>`. `label_raw` carries the verbatim sheet text (e.g. the
+city-specific NAKLIYE) for audit/import fidelity. The legacy flat USD fields (`total_usd`,
+`transport_cost_usd`, `market_fee_usd`, `other_expenses_usd`, `price_per_kg`) remain for back-compat.
 
 ### Auth: `POST /api/v1/auth/login/`
 ```json
@@ -190,7 +238,7 @@ Main landing page for ALL authenticated users. 60 s server-side cache. No role g
   "active_shipments": [
     {
       "id": 1,
-      "cargo_code": "26FV047/25",
+      "shipment_code": "26FV047/25",
       "customer_name": "Begjan",
       "country_name": "Kazakhstan",
       "city_name": "Şimkent",
@@ -234,3 +282,99 @@ HTTP status codes: 400 (validation), 401 (not authenticated), 403 (no permission
 ## Timestamps
 
 All timestamps in ISO 8601 with timezone: `2025-02-01T14:30:00+05:00`. Frontend displays using `dayjs` with user's locale. Backend stores as `DATETIMEOFFSET`.
+
+## Customs/Document Cash-Advance Ledger
+
+Tracks money the cashier (Hangeldi) spends on per-shipment customs clearance and batch document fees. Money-IN is `FinansistAdvance`; this is the money-OUT side. Currency is `TMT` (Turkmen manat) by default.
+
+### List / CRUD: `GET|POST|PATCH|DELETE /api/v1/export/customs-expenses/`
+
+Write roles: `finansist`, `export_manager`, `document_team`, `admin`, `director`. Reads: any authenticated user.
+
+Filter params: `?category=GUMRUKLEME`, `?currency=TMT`, `?shipment=123`, `?date_from=YYYY-MM-DD`, `?date_to=YYYY-MM-DD`. Search: `?search=` matches `shipment_code_raw`, `vehicle_plate`, `route_label`, `label_raw`.
+
+Response item shape:
+```json
+{
+  "id": 1,
+  "expense_date": "2026-06-15",
+  "category": "GUMRUKLEME",
+  "category_display": "Customs clearance (per truck)",
+  "amount": "450.00",
+  "currency": "TMT",
+  "shipment": 42,
+  "shipment_code": "1506042/25",
+  "shipment_code_raw": "1506042/25",
+  "vehicle_plate": "48 AT 580",
+  "route_label": "HMS-DM",
+  "label_raw": "Gumrukleme haky",
+  "quantity": null,
+  "notes": null,
+  "created_by": 3,
+  "created_by_name": "hangeldi",
+  "created_at": "2026-06-15T10:00:00+05:00"
+}
+```
+
+Batch fee (no shipment, with quantity):
+```json
+{ "shipment": null, "shipment_code": null, "quantity": 19, "label_raw": "19 AD KARANTIN" }
+```
+
+### Category enum codes (`category` field)
+
+| Code | Display |
+|------|---------|
+| `GUMRUKLEME` | Customs clearance (per truck) |
+| `KARANTIN` | Quarantine fee |
+| `CT1` | CT-1 certificate of origin |
+| `FITO` | Phytosanitary certificate |
+| `ANALIZ` | Lab analysis |
+| `PASPORT_SDELKA` | Deal passport (bank) |
+| `PLATYOSKA` | Payment order registration |
+| `DOC_POST` | Document postage |
+| `YUZLENME_HAT` | Reference letter |
+| `GUMRUK_AMAL` | Customs operation fee |
+| `BORDER_RETURN` | Truck returned (border closed) |
+| `SERTNAMA` | Contract fee |
+| `OTHER` | Other |
+
+### Ledger summary: `GET /api/v1/export/customs-expenses/ledger/`
+
+Cash-float balance over an optional date window (same `?date_from`/`?date_to` params). All aggregation is DB-side.
+
+`FinansistAdvance` rows default to `USD` while customs expenses default to `TMT`; summing across currencies is meaningless, so the ledger **scopes both sides to a single currency** — `?currency=` (default `TMT`). Rows in other currencies are excluded from that window's totals. The response echoes the effective `currency`.
+
+```json
+{
+  "currency": "TMT",
+  "advances_total": "12500.00",
+  "expenses_total": "9800.00",
+  "balance": "2700.00",
+  "by_category": [
+    {
+      "category": "GUMRUKLEME",
+      "category_display": "Customs clearance (per truck)",
+      "total": "5000.00",
+      "count": 10
+    }
+  ],
+  "by_date": [
+    { "date": "2026-06-01", "advances": "2500.00", "expenses": "1200.00" }
+  ]
+}
+```
+
+`advances_total` sums `FinansistAdvance.total_amount` (filtered by `advance_date`). `by_date` merges both sides ascending by date. Empty window returns zeros and empty arrays. Money fields are decimal strings.
+
+### Shipment detail nesting
+
+`GET /api/v1/export/shipments/{id}/` includes:
+```json
+{
+  "customs_expenses": [
+    { "id": 1, "expense_date": "2026-06-15", "category": "GUMRUKLEME", "amount": "450.00", "..." }
+  ]
+}
+```
+Per-shipment expenses only (batch fees with `shipment=null` do not appear here). Use the list endpoint with `?shipment={id}` to query all expenses for a shipment including batch allocations.

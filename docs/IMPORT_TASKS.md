@@ -49,7 +49,7 @@ Unique constraint: `(date, city_id)` — use `ignore_conflicts=True`.
 
 ---
 
-### [x] 2. Cargo codes + shipments — Hasabat_202526.xlsx → Shipment — **1,145 shipments + 1,465 firm splits imported**
+### [x] 2. Shipment codes + shipments — Hasabat_202526.xlsx → Shipment — **1,145 shipments + 1,465 firm splits imported**
 
 **Source**: `data/p3-export/Hasabat_202526.xlsx` → sheet `Saher`
 **Target**: `export.shipments` (model: `Shipment`), `export.shipment_firm_splits`
@@ -57,7 +57,7 @@ Unique constraint: `(date, city_id)` — use `ignore_conflicts=True`.
 **Volume**: ~1,145 rows
 
 **Key fields in Saher sheet** (analyze first to confirm exact column indices):
-- Cargo code (`DDCC###/YY` format) — normalize Cyrillic С → Latin C
+- Shipment code (`DDCC###/YY` format) — normalize Cyrillic С → Latin C
 - Date
 - Export firm(s) — may be multi-firm (dash-separated e.g. `YGT-HMS`)
 - Country destination
@@ -65,7 +65,7 @@ Unique constraint: `(date, city_id)` — use `ignore_conflicts=True`.
 - Block source code
 
 **Rules**:
-- Skip if `Shipment.objects.filter(cargo_code=code).exists()` (the 3 sample shipments are already there)
+- Skip if `Shipment.objects.filter(shipment_code=code).exists()` (the 3 sample shipments are already there)
 - All imported shipments → status `tamamlandy` (step 13)
 - All AD-1 timestamps → `None` (historical, not tracked)
 - Multi-firm: split weight equally among firms in `ShipmentFirmSplit`
@@ -80,7 +80,7 @@ Unique constraint: `(date, city_id)` — use `ignore_conflicts=True`.
 **Command**: `backend/apps/export/management/commands/import_sales_details.py`
 **Volume**: 1,959 rows processed, 549 shipments enriched (769 matched, deduped), 1,190 unmatched (third-party sellers not in YGT DB)
 
-**Join**: (invoice_date, seller_code) → positional match within sorted group by cargo_code
+**Join**: (invoice_date, seller_code) → positional match within sorted group by shipment_code
 **gross_net sheet**: Right-side cols 7-11 give weight_gross, box_count, pallet_count indexed by global serial
 **Cancellations**: 3 cancelled rows detected (yatyryldy/iptal/YZA SUYSIRILDI) → ShipmentComment
 **R15 notes**: 44 rows with notes — all in unmatched groups (Sep 24 batch), logged as warnings
@@ -145,7 +145,7 @@ Unique constraint: `(date, city_id)` — use `ignore_conflicts=True`.
 **Volume**: 442 May (`MY`) shipments + 608 firm splits + 627 block sources + 523 variety links
 
 **Rules**:
-- Imports only cargo codes whose month abbrev = `MY` (configurable via `--month`); season = active 2025-2026
+- Imports only shipment codes whose month abbrev = `MY` (configurable via `--month`); season = active 2025-2026
 - Status **derived** from timestamp-chain completeness (report→`tamamlandy` … →`yuklenme`), set directly (not via `transition_to()`) — historical bulk import
 - Auto-created 2 missing `ExportFirm` rows: `TELGURBAN`, `TELAMANG`
 - Parses TM datetimes, harvest-date ranges, `"N gün T"` transit/temp, multi-firm/block/variety shorthand

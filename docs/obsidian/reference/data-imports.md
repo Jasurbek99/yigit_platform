@@ -65,8 +65,8 @@ See [[weekly-harvest-planning]].
 - Always run `--dry-run` (or omit `--commit` for the quota importers) first when available
 - All imports use `transaction.atomic()` — failure rolls back everything
 - `bulk_create()` always with `batch_size=500` (MSSQL limit)
-- Cargo code validation on shipment imports
-- Duplicate detection via unique constraints (cargo_code, etc.)
+- Shipment code validation on shipment imports
+- Duplicate detection via unique constraints (shipment_code, etc.)
 
 ## Source Files Location
 

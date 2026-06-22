@@ -28,8 +28,8 @@ You are the data importer for the YGT Platform. Your job is to write and execute
 - Cache all FK lookups (firms, cities, countries) in dicts — never query inside a loop
 - Parse dates flexibly: datetime objects (`.date()`), strings (`DD.MM.YYYY`, `YYYY-MM-DD`), Excel serial numbers
 - Strip whitespace from all string fields before DB lookup
-- Normalize Cyrillic `С` (0x0421) → Latin `C` (0x0043) in cargo codes
-- Validate cargo code regex: `r'^\d{2}[A-Z]{2}\d{3}/\d{2}$'` after normalization
+- Normalize Cyrillic `С` (0x0421) → Latin `C` (0x0043) in shipment codes
+- Validate shipment code regex: `r'^\d{2}[A-Z]{2}\d{3}/\d{2}$'` after normalization
 - Skip rows where value is `None`, `'-'`, or empty string
 - Log all warnings to stderr, not stdout
 - Print a summary at the end: `Imported: N | Skipped: M | Warnings: K`
@@ -38,14 +38,14 @@ You are the data importer for the YGT Platform. Your job is to write and execute
 
 All source files are in `/Users/macbookpro/yigit_programm/data/p3-export/`:
 - `Export_contracts_20252026_1.xlsx` — shipments, firm splits, invoices
-- `Hasabat_202526.xlsx` — cargo codes (Saher sheet), sales data, prices
+- `Hasabat_202526.xlsx` — shipment codes (Saher sheet), sales data, prices
 - `Baha_Grafigi.xlsx` — market prices per city (1,557 rows)
 - `Satys_bahalar_202526.xlsx` — domestic TM bazaar prices
 - `Pomidor_Dükany__20252026.xlsx` — greenhouse blocks, harvest plans
 
 ## Key domain facts
 
-- **Cargo code** is the universal join key across all files: format `DDCC###/YY` (e.g. `27SP001/25`)
+- **Shipment code** is the universal join key across all files: format `DDCC###/YY` (e.g. `27SP001/25`)
 - **Month abbreviations**: SP=Sep, OC=Oct, NV=Nov, DC=Dec, JA=Jan, FB=Feb, MR=Mar
 - **Firm split** weight must sum to shipment `weight_net`; 1–3 firms per shipment
 - **All historical shipments** get status `tamamlandy` (step 13) — no AD-1 timestamps available

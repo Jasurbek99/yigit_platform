@@ -41,10 +41,10 @@ def _make_status(code: str = 'draft', step_order: int = 0) -> ShipmentStatusType
     return st
 
 
-def _make_shipment(cargo_code: str) -> Shipment:
+def _make_shipment(shipment_code: str) -> Shipment:
     """Create a shipment with status_changed_at=None (pre-backfill state)."""
     s = Shipment.objects.create(
-        cargo_code=cargo_code,
+        shipment_code=shipment_code,
         date='2026-01-01',
         season=_make_season(),
         status=_make_status(),

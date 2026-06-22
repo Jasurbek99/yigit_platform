@@ -113,7 +113,7 @@ class CustomFieldValueTests(TestCase):
             defaults={'name_tk': 'yuklenme_cus', 'name_en': 'Loading CUS', 'step_order': 1, 'phase': 'LOADING'},
         )
         cls.shipment = Shipment.objects.create(
-            cargo_code='CUS-001', date='2026-02-01',
+            shipment_code='CUS-001', date='2026-02-01',
             season=cls.season, status=cls.status,
         )
 

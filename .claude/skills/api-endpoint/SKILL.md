@@ -16,7 +16,7 @@ from apps.export.models import Shipment
 class ShipmentListSerializer(serializers.ModelSerializer):
     """List view — lightweight, no nested objects."""
     # DB→API field renaming per api-contract.md
-    cargo_code = serializers.CharField(source='code', read_only=True)
+    shipment_code = serializers.CharField(source='code', read_only=True)
     weight_net = serializers.DecimalField(source='weight_net_kg', max_digits=10, decimal_places=2, read_only=True)
     weight_gross = serializers.DecimalField(source='weight_gross_kg', max_digits=10, decimal_places=2, read_only=True)
     
@@ -28,7 +28,7 @@ class ShipmentListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Shipment
         fields = [
-            'id', 'cargo_code', 'date', 'status', 'status_display',
+            'id', 'shipment_code', 'date', 'status', 'status_display',
             'country_name', 'customer_name',
             'weight_net', 'weight_gross',
             'departed_at', 'arrived_at', 'is_gapy_satys',

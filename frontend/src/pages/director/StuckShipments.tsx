@@ -62,13 +62,13 @@ export default function StuckShipments() {
   // only need `record` here, so the first arg is a typed-as-unknown placeholder.
   const columns: ProColumns<IShipmentListItem>[] = [
     {
-      title: t('stuck.col_cargo_code'),
-      dataIndex: 'cargo_code',
-      key: 'cargo_code',
+      title: t('stuck.col_shipment_code'),
+      dataIndex: 'shipment_code',
+      key: 'shipment_code',
       width: 140,
       render: (_dom, record) => (
         <Link to={`/shipments/${record.id}`} style={{ fontFamily: FONT.mono }}>
-          {record.cargo_code}
+          {record.shipment_code}
         </Link>
       ),
     },

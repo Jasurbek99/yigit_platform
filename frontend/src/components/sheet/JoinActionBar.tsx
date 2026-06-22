@@ -69,7 +69,7 @@ export function JoinActionBar({ shipments }: IJoinActionBarProps) {
           <div className="sheet-join-bar__preview-chip sheet-join-bar__preview-chip--supply">
             <span className="sheet-join-bar__chip-label">{t('sheet.join_bar.removed')}</span>
             <span style={{ fontFamily: FONT.mono, fontWeight: 600, fontSize: 11 }}>
-              {supply.cargo_code}
+              {supply.shipment_code}
             </span>
             {supply.block_sources.length > 0 && (
               <span style={{ fontSize: 11, color: '#475467' }}>
@@ -86,7 +86,7 @@ export function JoinActionBar({ shipments }: IJoinActionBarProps) {
           <div className="sheet-join-bar__preview-chip sheet-join-bar__preview-chip--dest">
             <span className="sheet-join-bar__chip-label">{t('sheet.join_bar.kept')}</span>
             <span style={{ fontFamily: FONT.mono, fontWeight: 600, fontSize: 11 }}>
-              {destination.cargo_code}
+              {destination.shipment_code}
             </span>
             {(destination.customer_name || destination.country_name) && (
               <span style={{ fontSize: 11, color: '#475467' }}>

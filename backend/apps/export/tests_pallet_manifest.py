@@ -49,7 +49,7 @@ def _make_shipment(user: User) -> Shipment:
         },
     )
     return Shipment.objects.create(
-        cargo_code='1001001/25',
+        shipment_code='1001001/25',
         date='2025-01-10',
         season=season,
         country=country,

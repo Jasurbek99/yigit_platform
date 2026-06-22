@@ -43,7 +43,7 @@ function DraftCard({ draft }: IDraftCardProps) {
   // Total from the block allocations (weight_net is null on fresh drafts).
   const totalWeight = draft.block_sources.reduce((s, b) => s + Number(b.weight_kg ?? 0), 0);
   // Prefer the Shipment Code (letter month, as typed); fall back to Export Code.
-  const shipmentCode = formatShipmentCode(draft.official_export_code);
+  const shipmentCode = formatShipmentCode(draft.export_code);
 
   function handleAssign(e: React.MouseEvent) {
     e.stopPropagation();
@@ -105,11 +105,11 @@ function DraftCard({ draft }: IDraftCardProps) {
               letterSpacing: '0.02em',
             }}
           >
-            {shipmentCode ?? draft.cargo_code}
+            {shipmentCode ?? draft.shipment_code}
           </div>
           {shipmentCode && (
             <div style={{ fontFamily: FONT.mono, fontSize: 10, color: COLORS.textSecondary, marginTop: 1 }}>
-              {t('official_code.platform_id_label')}: {draft.cargo_code}
+              {t('official_code.platform_id_label')}: {draft.shipment_code}
             </div>
           )}
         </div>

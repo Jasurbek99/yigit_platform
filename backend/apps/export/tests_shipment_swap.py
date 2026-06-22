@@ -4,7 +4,7 @@ Coverage:
   1.  Happy path: swap truck_plate + driver_name — DB updated, audit log written,
       response shape matches contract.
   2.  No-op: both fields already equal → 200 with swapped_fields: [], no audit log.
-  3.  Whitelist rejection: fields=['cargo_code'] → 400.
+  3.  Whitelist rejection: fields=['shipment_code'] → 400.
   4.  Whitelist rejection: fields=['weight_net'] → 400.
   5.  Self-swap: other_id == path id → 400.
   6.  Non-existent other: other_id points to missing pk → 400.
@@ -85,7 +85,7 @@ def _make_customer(name: str = 'SwapTestCustomer') -> Customer:
 
 
 def _make_shipment(
-    cargo_code: str,
+    shipment_code: str,
     user: User | None = None,
     country: Country | None = None,
     **kwargs,
@@ -94,7 +94,7 @@ def _make_shipment(
     status_obj = _make_status('yuklenme', step_order=1, phase='LOADING')
     season = _make_season()
     return Shipment.objects.create(
-        cargo_code=cargo_code,
+        shipment_code=shipment_code,
         date=datetime.date(2026, 5, 25),
         season=season,
         status=status_obj,
@@ -177,9 +177,9 @@ class SwapHappyPathTests(TestCase):
         self.assertEqual(log_a.count(), 1, 'Expected exactly one swap audit log on A')
         self.assertEqual(log_b.count(), 1, 'Expected exactly one swap audit log on B')
 
-        # Log on A should mention B's cargo code, and vice-versa.
-        self.assertIn(self.ship_b.cargo_code, log_a.first().comment)
-        self.assertIn(self.ship_a.cargo_code, log_b.first().comment)
+        # Log on A should mention B's shipment code, and vice-versa.
+        self.assertIn(self.ship_b.shipment_code, log_a.first().comment)
+        self.assertIn(self.ship_a.shipment_code, log_b.first().comment)
         self.assertEqual(log_a.first().changed_by_id, self.manager.pk)
 
     def test_happy_path_response_shape(self):
@@ -195,8 +195,8 @@ class SwapHappyPathTests(TestCase):
         self.assertIn('swapped_fields', resp.data)
         self.assertEqual(len(resp.data['shipments']), 2)
 
-        # Both cargo codes appear in the response shipments
-        codes = {s['cargo_code'] for s in resp.data['shipments']}
+        # Both shipment codes appear in the response shipments
+        codes = {s['shipment_code'] for s in resp.data['shipments']}
         self.assertIn('0301001/25', codes)
         self.assertIn('0301002/25', codes)
 
@@ -265,7 +265,7 @@ class SwapNoOpTests(TestCase):
 
 
 # ---------------------------------------------------------------------------
-# 3. Whitelist rejection: cargo_code
+# 3. Whitelist rejection: shipment_code
 # ---------------------------------------------------------------------------
 
 class SwapWhitelistRejectionTests(TestCase):
@@ -279,15 +279,15 @@ class SwapWhitelistRejectionTests(TestCase):
         self.ship_a = _make_shipment('0303001/25', user=self.manager)
         self.ship_b = _make_shipment('0303002/25', user=self.manager)
 
-    def test_cargo_code_rejected(self):
-        """'cargo_code' is not in the whitelist → 400."""
+    def test_shipment_code_rejected(self):
+        """'shipment_code' is not in the whitelist → 400."""
         resp = self.client.post(
             _swap_url(self.ship_a.pk),
-            {'other_id': self.ship_b.pk, 'fields': ['cargo_code']},
+            {'other_id': self.ship_b.pk, 'fields': ['shipment_code']},
             format='json',
         )
         self.assertEqual(resp.status_code, 400, resp.data)
-        self.assertIn('cargo_code', resp.data['error'])
+        self.assertIn('shipment_code', resp.data['error'])
         self.assertIn('not swappable', resp.data['error'])
 
     def test_weight_net_rejected(self):
@@ -638,10 +638,10 @@ class SwappableFieldsEndpointTests(TestCase):
         self.assertEqual(resp.status_code, 200, resp.data)
         self.assertEqual(sorted(resp.data['fields']), sorted(SWAPPABLE_FIELDS))
 
-    def test_cargo_code_not_in_fields(self):
-        """cargo_code must not appear in the whitelist response."""
+    def test_shipment_code_not_in_fields(self):
+        """shipment_code must not appear in the whitelist response."""
         resp = self.client.get('/api/v1/export/shipments/swappable-fields/')
-        self.assertNotIn('cargo_code', resp.data['fields'])
+        self.assertNotIn('shipment_code', resp.data['fields'])
 
     def test_weight_net_not_in_fields(self):
         """weight_net must not appear in the whitelist response (intentionally excluded)."""

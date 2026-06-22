@@ -46,7 +46,7 @@ export default function ShipmentActivityLog() {
         <Flex align="center" gap={12} wrap="wrap" style={{ marginBottom: 6 }}>
           <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)} />
           <span style={{ fontSize: 18, fontWeight: 600, fontFamily: FONT.mono }}>
-            {shipment.cargo_code}
+            {shipment.shipment_code}
           </span>
           <StatusTag statusDisplay={shipment.status_display} />
           <div style={{ marginLeft: 'auto' }}>

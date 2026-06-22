@@ -39,11 +39,11 @@ The same `Shipment` model is exposed through three different screens, each tuned
 
 **Use it for:** browsing and finding shipments.
 
-**What you see:** rows of shipments showing cargo code, date, status tag, country, customer, weights, departure / arrival timestamps, and a freshness clock.
+**What you see:** rows of shipments showing shipment code, date, status tag, country, customer, weights, departure / arrival timestamps, and a freshness clock.
 
 **Filters and toggles:**
 - **All / My Work / Archive** view toggle (Archive is restricted to admin / director / export manager / finansist / boss).
-- Search by cargo code or customer.
+- Search by shipment code or customer.
 - Phase dropdown (one of the seven status phases).
 - Country, customer, export firm, date range.
 - "Pending my fields" — only show shipments where I still owe data.
@@ -52,7 +52,7 @@ The same `Shipment` model is exposed through three different screens, each tuned
 - Click a row → opens [[#A2 Shipment Detail `/export/shipments/:id`|Detail]].
 - Edit `weight_net` directly in the cell (only when your role allows).
 - Select multiple rows → run a bulk status transition.
-- **Column settings** (gear icon, top-right of the table) → ProTable's built-in `ColumnSetting` panel. Check/uncheck to show or hide any column, drag to reorder, and pin left/right. The List now offers **near-parity with the Sheet's rows** — almost every scalar shipment field is available as an opt-in column (all AD-1 + operator timestamps, weight detail, transport, doc checkboxes, per-role notes, vehicle condition, audit, etc.). Only nested `firm_splits` / `block_sources` are excluded (Sheet-only). Seven columns ship visible by default (cargo code, customer, country, status, net weight, departed, arrived); everything else ships hidden and is opt-in via `HIDDEN_BY_DEFAULT` → `DEFAULT_COLUMN_STATE`. Layout (visibility + order + pin) is remembered per browser via `columnsState` (localStorage key `ygt.shipmentList.columnsState.v2` — the version suffix is bumped whenever the default column set changes, since ProTable merges stored state over `DEFAULT_COLUMN_STATE` rather than letting defaults win). The actions column is `hideInSetting` so it can't be hidden or moved. Backing this, `ShipmentListSerializer` returns all those scalar fields (see [api-contract.md](../../../.claude/rules/api-contract.md)).
+- **Column settings** (gear icon, top-right of the table) → ProTable's built-in `ColumnSetting` panel. Check/uncheck to show or hide any column, drag to reorder, and pin left/right. The List now offers **near-parity with the Sheet's rows** — almost every scalar shipment field is available as an opt-in column (all AD-1 + operator timestamps, weight detail, transport, doc checkboxes, per-role notes, vehicle condition, audit, etc.). Only nested `firm_splits` / `block_sources` are excluded (Sheet-only). Seven columns ship visible by default (shipment code, customer, country, status, net weight, departed, arrived); everything else ships hidden and is opt-in via `HIDDEN_BY_DEFAULT` → `DEFAULT_COLUMN_STATE`. Layout (visibility + order + pin) is remembered per browser via `columnsState` (localStorage key `ygt.shipmentList.columnsState.v2` — the version suffix is bumped whenever the default column set changes, since ProTable merges stored state over `DEFAULT_COLUMN_STATE` rather than letting defaults win). The actions column is `hideInSetting` so it can't be hidden or moved. Backing this, `ShipmentListSerializer` returns all those scalar fields (see [api-contract.md](../../../.claude/rules/api-contract.md)).
 - The Archive view is **read-only**; no inline edits, no row selection, no bulk actions.
 
 ### A2. Shipment Detail (`/export/shipments/:id`)
@@ -115,7 +115,7 @@ A representative sample, not exhaustive. Source-of-truth: [serializers.py](../..
 
 | Group | Field | List | Detail | Sheet |
 |---|---|---|---|---|
-| Identifiers | `id`, `cargo_code`, `date`, `official_export_code` | ✓ | ✓ | ✓ |
+| Identifiers | `id`, `shipment_code`, `date`, `export_code` | ✓ | ✓ | ✓ |
 | Status | `status`, `status_display`, `status_step` | ✓ | ✓ | ✓ |
 | Status | `status_code` | — | — | ✓ |
 | Status | `allowed_transitions[]` | — | ✓ | — |

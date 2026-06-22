@@ -20,7 +20,7 @@ interface IShipmentDetailHeroProps {
 
 /**
  * Top bar for the new single-column ShipmentDetail layout.
- * Shows cargo code, status pill, phase tag, optional idle warning,
+ * Shows shipment code, status pill, phase tag, optional idle warning,
  * origin → destination route line, and a manifest button.
  */
 export function ShipmentDetailHero({ shipment }: IShipmentDetailHeroProps) {
@@ -112,16 +112,16 @@ export function ShipmentDetailHero({ shipment }: IShipmentDetailHeroProps) {
       <Flex align="center" gap={12} wrap="wrap" style={{ marginBottom: 6 }}>
         <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)} />
         {/* Stream G: stacked dual-code display.
-            Top line (large): Shipment Code (official_export_code) — the
+            Top line (large): Shipment Code (export_code) — the
             human-meaningful pallet tag with block + variety. Falls back to "—".
-            Bottom line (small): Export Code (cargo_code) — the platform
+            Bottom line (small): Export Code (shipment_code) — the platform
             tracker, always present. */}
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
           <span style={{ fontSize: 18, fontWeight: 600, fontFamily: FONT.mono }}>
-            {shipment.official_export_code || '—'}
+            {shipment.export_code || '—'}
           </span>
           <span style={{ fontSize: 11, fontFamily: FONT.mono, color: COLORS.textSecondary }}>
-            {t('shipment.detail.export_code_label')}: {shipment.cargo_code}
+            {t('shipment.detail.export_code_label')}: {shipment.shipment_code}
           </span>
         </div>
         <StatusTag statusDisplay={shipment.status_display} />

@@ -82,7 +82,7 @@ erDiagram
 | 9 | Issued By | 120px | |
 | 10 | Actions | 100px | Reconcile button (if not reconciled + canCreate) |
 
-**Row Expansion**: Chevron → sub-table showing linked shipments (cargo_code, allocated_amount)
+**Row Expansion**: Chevron → sub-table showing linked shipments (shipment_code, allocated_amount)
 
 **New Advance Modal**:
 | Field | Component | Required |
@@ -106,7 +106,7 @@ erDiagram
 
 **`IFinansistAdvance`**: id, batch_code, advance_date, total_amount, currency, purpose, issued_by_name, reconciled, shipment_count, allocated_total
 
-**`IFinansistAdvanceDetail`** (extends above): notes, shipment_links[] (shipment, shipment_cargo_code, allocated_amount)
+**`IFinansistAdvanceDetail`** (extends above): notes, shipment_links[] (shipment, shipment_code, allocated_amount)
 
 ## Roles & Permissions
 

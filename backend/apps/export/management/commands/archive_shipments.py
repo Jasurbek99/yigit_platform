@@ -82,9 +82,9 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING(
                 f'[DRY RUN] Would archive {count} shipments older than {older_than} days:'
             ))
-            for s in qs.values('id', 'cargo_code', 'updated_at')[:20]:
+            for s in qs.values('id', 'shipment_code', 'updated_at')[:20]:
                 self.stdout.write(
-                    f'  - id={s["id"]:5d}  {s["cargo_code"]}  updated_at={s["updated_at"]:%Y-%m-%d}'
+                    f'  - id={s["id"]:5d}  {s["shipment_code"]}  updated_at={s["updated_at"]:%Y-%m-%d}'
                 )
             if count > 20:
                 self.stdout.write(f'  ... and {count - 20} more')

@@ -68,7 +68,7 @@ const ShipmentList: React.FC = () => {
   const { data, isLoading } = useShipments({ ...params, my_work: myWork || undefined });
 
   const columns: ProColumns<IShipment>[] = [
-    { title: t('export.shipment.cargoCode'), dataIndex: 'cargo_code', copyable: true },
+    { title: t('export.shipment.shipmentCode'), dataIndex: 'shipment_code', copyable: true },
     { title: t('export.shipment.status'), dataIndex: 'status_display',
       render: (_, r) => <Tag color={statusColor(r.status)}>{r.status_display}</Tag> },
     { title: t('export.shipment.country'), dataIndex: 'country_name' },
@@ -108,7 +108,7 @@ export default ShipmentList;
 // types/shipment.ts
 export interface IShipment {
   id: number;
-  cargo_code: string;
+  shipment_code: string;
   date: string;
   status: number;
   status_display: string;

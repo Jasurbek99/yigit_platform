@@ -33,10 +33,10 @@ export function getCellValue(
   }
 
   switch (fieldKey) {
-    case 'cargo_code':
-      return shipment.cargo_code;
-    case 'official_export_code':
-      return shipment.official_export_code ?? '—';
+    case 'shipment_code':
+      return shipment.shipment_code;
+    case 'export_code':
+      return shipment.export_code ?? '—';
     case 'country':
       return shipment.country_name ?? '—';
     case 'customer':

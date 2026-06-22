@@ -88,7 +88,7 @@ def _make_plan_and_entry(
 
 
 def _make_shipment(
-    cargo_code: str,
+    shipment_code: str,
     date: datetime.date,
     season: Season,
     status: ShipmentStatusType,
@@ -97,7 +97,7 @@ def _make_shipment(
 ) -> Shipment:
     """Create a shipment with one block source row."""
     s = Shipment.objects.create(
-        cargo_code=cargo_code,
+        shipment_code=shipment_code,
         date=date,
         season=season,
         status=status,
@@ -148,7 +148,7 @@ class GetRemainingForDateTests(TestCase):
 
         entry = _make_plan_and_entry(self.season, self.block_a, self.target_date, Decimal('30000'))
 
-        # First draft draws 18,500. Cargo codes must be NNNNNNN/YY (7+2 digits).
+        # First draft draws 18,500. Shipment codes must be NNNNNNN/YY (7+2 digits).
         _make_shipment(
             '0106001/26', self.target_date, self.season, self.draft_status,
             self.block_a, Decimal('18500'),
@@ -516,11 +516,11 @@ class DraftCreateDrawdownTests(TestCase):
         ).delete()
         Shipment.objects.filter(date=self.target_date, season=self.season).delete()
 
-    def _post_draft(self, cargo_code: str, weight_kg: str, date=None) -> object:
+    def _post_draft(self, shipment_code: str, weight_kg: str, date=None) -> object:
         return self.client.post(
             '/api/v1/export/shipments/',
             {
-                'cargo_code': cargo_code,
+                'shipment_code': shipment_code,
                 'date': str(date or self.target_date),
                 'is_draft': True,
                 'block_sources': [
@@ -532,7 +532,7 @@ class DraftCreateDrawdownTests(TestCase):
 
     def test_rejects_draw_over_18500(self):
         """A single-block draw > 18,500 kg is rejected with 400."""
-        # Cargo code: NNNNNNN/YY format — 7 digits / 2 digits.
+        # Shipment code: NNNNNNN/YY format — 7 digits / 2 digits.
         resp = self._post_draft('0806001/26', '18501')
         self.assertEqual(resp.status_code, 400, resp.data)
         self.assertIn('18,500', str(resp.data))
@@ -555,7 +555,7 @@ class DraftCreateDrawdownTests(TestCase):
         resp = self._post_draft('0806004/26', '15000')
         self.assertEqual(resp.status_code, 201, resp.data)
         self.assertEqual(
-            Shipment.objects.filter(cargo_code='0806004/26').count(), 1
+            Shipment.objects.filter(shipment_code='0806004/26').count(), 1
         )
 
     def test_no_forecast_entry_rejects_draft(self):
@@ -575,7 +575,7 @@ class DraftCreateDrawdownTests(TestCase):
         resp = self.client.post(
             '/api/v1/export/shipments/',
             {
-                'cargo_code': '0806005/26',
+                'shipment_code': '0806005/26',
                 'date': str(self.target_date),
                 'is_draft': False,
             },

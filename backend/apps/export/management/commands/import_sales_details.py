@@ -9,7 +9,7 @@ Join strategy:
   - 2-Sales rows each have a global serial (col 0) — look up gross_net data by that serial
   - Shipment match: (invoice_date, export_firm_code) from 2-Sales → DB lookup
     - If unique match: enrich the shipment
-    - If multiple matches: match positionally within the group by serial order vs cargo_code sort
+    - If multiple matches: match positionally within the group by serial order vs shipment_code sort
     - If no match: log warning, skip enrichment (comment still stored if has R15 note)
 
 Enrichment written to Shipment:
@@ -123,7 +123,7 @@ class Command(BaseCommand):
         self.stdout.write(f'  gross_net rows loaded: {len(gross_net_map)}')
 
         # --- Build shipment index keyed by (date, firm_code_upper) ---
-        # For each key, shipments are sorted by cargo_code to enable positional matching.
+        # For each key, shipments are sorted by shipment_code to enable positional matching.
         shipment_by_key = {}
         all_shipments = list(
             Shipment.objects.prefetch_related('firm_splits__export_firm')
@@ -133,7 +133,7 @@ class Command(BaseCommand):
                 key = (s.date, split.export_firm.code.upper())
                 shipment_by_key.setdefault(key, []).append(s)
         for key in shipment_by_key:
-            shipment_by_key[key].sort(key=lambda s: s.cargo_code)
+            shipment_by_key[key].sort(key=lambda s: s.shipment_code)
 
         # --- Parse 2-Sales sheet ---
         self.stdout.write('Parsing 2-Sales sheet...')

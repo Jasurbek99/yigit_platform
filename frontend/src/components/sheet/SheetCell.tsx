@@ -194,7 +194,7 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
   // item is disabled (greyed out) when clearing doesn't apply:
   //   • cell is not editable (read-only by role/lock)                — !isEditable
   //   • cell is hidden because shipment is gapy_satys + gapy_hidden  — isHidden
-  //   • cargo_code (primary identifier, must never be null)
+  //   • shipment_code (primary identifier, must never be null)
   //   • bool-backed dropdowns (peregruz, gornushi) — they're 0/1, not nullable;
   //     pick the "no" option from the dropdown instead.
   //   • read-only computed cells (has_doc_advance, has_sales_report) — these
@@ -370,15 +370,15 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
     );
   }
 
-  // Cargo code (key field)
-  if (fieldKey === 'cargo_code') {
+  // Shipment code (key field)
+  if (fieldKey === 'shipment_code') {
     return wrap(
       <div
         className={`sheet-cell sheet-cell--key${isActive ? ' sheet-cell--active' : ''}${isGapy ? ' sheet-cell--gapy' : ''}`}
         style={{ width: cellWidth, height: ROW_HEIGHT, ...cellBgStyle }}
         onClick={handleClick}
       >
-        <span className="sheet-cell__code">{shipment.cargo_code}</span>
+        <span className="sheet-cell__code">{shipment.shipment_code}</span>
       </div>
     );
   }
