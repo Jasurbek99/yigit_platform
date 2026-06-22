@@ -230,6 +230,7 @@ def _aggregate_summary(from_date: date, to_date: date) -> dict:
     )
     total_used_kg = (
         QuotaUsageRecord.objects
+        .counted()
         .filter(status='approved')
         .aggregate(total=Coalesce(Sum('kg_used'), Decimal('0')))['total']
     )
@@ -521,6 +522,7 @@ def _aggregate_compliance(from_date: date, to_date: date) -> dict:
         r['export_firm_id']: r['export_kg']
         for r in (
             QuotaUsageRecord.objects
+            .counted()
             .filter(
                 usage_date__gte=from_date,
                 usage_date__lte=to_date,
@@ -660,6 +662,7 @@ def _aggregate_quota_grid() -> list[dict]:
 
     usage_rows = (
         QuotaUsageRecord.objects
+        .counted()
         .filter(status='approved')
         .values('export_firm_id')
         .annotate(total_used=Coalesce(Sum('kg_used'), Decimal('0')))

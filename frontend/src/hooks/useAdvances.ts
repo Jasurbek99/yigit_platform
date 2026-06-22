@@ -12,6 +12,22 @@ import type {
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
 
+/**
+ * DRF serializes DecimalField as a string ("35640.00"). The UI types these as
+ * `number` and does arithmetic (sum, `>` comparisons) + `.toLocaleString()` on
+ * them, so coerce the money fields once here — otherwise `sum + total_amount`
+ * concatenates strings and the summary cards show glued-together digits.
+ */
+function normalizeAdvance(
+  item: IFinansistAdvanceListItem,
+): IFinansistAdvanceListItem {
+  return {
+    ...item,
+    total_amount: Number(item.total_amount ?? 0),
+    allocated_total: Number(item.allocated_total ?? 0),
+  };
+}
+
 export interface IAdvanceFilters {
   page?: number;
   page_size?: number;
@@ -43,7 +59,7 @@ export function useAdvances(filters: IAdvanceFilters = {}) {
       const { data } = await api.get<IApiListResponse<IFinansistAdvanceListItem>>(
         `/export/advances/?${params.toString()}`,
       );
-      return data;
+      return { ...data, results: data.results.map(normalizeAdvance) };
     },
     staleTime: 30_000,
   });
