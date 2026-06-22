@@ -554,7 +554,7 @@ export default function ShipmentDetail() {
         onClose={() => setCustomsExpenseOpen(false)}
         editTarget={null}
         prefilledShipmentId={shipment.id}
-        prefilledShipmentCode={shipment.shipment_code}
+        prefilledExportCode={shipment.export_code}
       />
     </div>
   );

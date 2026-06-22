@@ -935,7 +935,7 @@ class CustomsExpenseSerializer(serializers.ModelSerializer):
             'currency',
             'shipment',
             'shipment_code',
-            'shipment_code_raw',
+            'export_code_raw',
             'vehicle_plate',
             'route_label',
             'label_raw',

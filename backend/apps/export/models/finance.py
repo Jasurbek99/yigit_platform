@@ -141,10 +141,11 @@ class CustomsExpense(models.Model):
     )
 
     # === Raw source fields (verbatim from the Excel ledger) ===
-    # Shipment codes are Latin-only — no Cyrillic collation (matching Shipment.shipment_code
-    # avoids an MSSQL collation-conflict error if these are ever joined on import).
-    # db_column kept as the original 'cargo_code_raw' so the rename is state-only (no SQL).
-    shipment_code_raw = models.CharField(
+    # The Excel "Cykys Kody" (e.g. MY471) is the operator's export/trip code — it maps to
+    # Shipment.export_code, not the auto platform shipment_code. Latin-only (no Cyrillic
+    # collation). db_column kept as the original 'cargo_code_raw' so the field rename is
+    # state-only (no SQL ALTER).
+    export_code_raw = models.CharField(
         max_length=50, null=True, blank=True, db_column='cargo_code_raw'
     )
     vehicle_plate = models.CharField(max_length=60, null=True, blank=True)
@@ -184,5 +185,5 @@ class CustomsExpense(models.Model):
         ]
 
     def __str__(self) -> str:
-        shipment_ref = self.shipment_code_raw or (f'Shipment {self.shipment_id}' if self.shipment_id else 'batch')
+        shipment_ref = self.export_code_raw or (f'Shipment {self.shipment_id}' if self.shipment_id else 'batch')
         return f'{self.expense_date} {self.category} {self.amount} {self.currency} [{shipment_ref}]'

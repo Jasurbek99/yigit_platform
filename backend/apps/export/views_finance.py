@@ -261,7 +261,7 @@ class CustomsExpenseViewSet(ModelViewSet):
     # so both filterset_fields and search_fields work together (matching the sibling
     # FinansistAdvanceViewSet which also omits filter_backends for the same reason).
     filterset_fields = ['category', 'currency', 'shipment']
-    search_fields = ['shipment_code_raw', 'vehicle_plate', 'route_label', 'label_raw']
+    search_fields = ['export_code_raw', 'vehicle_plate', 'route_label', 'label_raw']
 
     def get_queryset(self):
         """Return expenses with optional date-range window applied.

@@ -42,9 +42,14 @@ export function ShipmentSelect({
   const { data, isFetching } = useShipments({ search: debounced, page_size: 20 });
 
   const results = data?.results ?? [];
+  // Search covers shipment_code AND export_code server-side; surface the export
+  // code in the label so an export-code match is visible in the dropdown.
   const options = results.map((s) => ({
     value: s.id,
-    label: `${s.shipment_code}${s.customer_name ? ` — ${s.customer_name}` : ''}`,
+    label:
+      `${s.shipment_code}` +
+      `${s.export_code ? ` · ${s.export_code}` : ''}` +
+      `${s.customer_name ? ` — ${s.customer_name}` : ''}`,
   }));
 
   function handleChange(v: number | undefined): void {

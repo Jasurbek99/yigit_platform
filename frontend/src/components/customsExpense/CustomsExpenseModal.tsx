@@ -29,7 +29,7 @@ interface IExpenseFormValues {
   category: CustomsExpenseCategory | null;
   amount: number | null;
   shipment: number | null;
-  shipment_code_raw: string | null;
+  export_code_raw: string | null;
   vehicle_plate: string | null;
   route_label: string | null;
   label_raw: string | null;
@@ -44,8 +44,8 @@ interface ICustomsExpenseModalProps {
   editTarget: ICustomsExpense | null;
   /** Pre-fills the shipment id (e.g. from ShipmentDetail "Add expense" button). */
   prefilledShipmentId?: number | null;
-  /** Pre-fills shipment_code_raw (shown alongside the shipment id). */
-  prefilledShipmentCode?: string | null;
+  /** Pre-fills export_code_raw (the shipment's Export Code). */
+  prefilledExportCode?: string | null;
 }
 
 export function CustomsExpenseModal({
@@ -53,7 +53,7 @@ export function CustomsExpenseModal({
   onClose,
   editTarget,
   prefilledShipmentId,
-  prefilledShipmentCode,
+  prefilledExportCode,
 }: ICustomsExpenseModalProps): React.ReactElement {
   const { t } = useTranslation();
   const [form] = Form.useForm<IExpenseFormValues>();
@@ -72,7 +72,7 @@ export function CustomsExpenseModal({
         category: editTarget.category,
         amount: Number(editTarget.amount),
         shipment: editTarget.shipment,
-        shipment_code_raw: editTarget.shipment_code_raw,
+        export_code_raw: editTarget.export_code_raw,
         vehicle_plate: editTarget.vehicle_plate,
         route_label: editTarget.route_label,
         label_raw: editTarget.label_raw,
@@ -84,10 +84,10 @@ export function CustomsExpenseModal({
       form.setFieldsValue({
         expense_date: dayjs(),
         shipment: prefilledShipmentId ?? null,
-        shipment_code_raw: prefilledShipmentCode ?? null,
+        export_code_raw: prefilledExportCode ?? null,
       });
     }
-  }, [open, editTarget, prefilledShipmentId, prefilledShipmentCode, form]);
+  }, [open, editTarget, prefilledShipmentId, prefilledExportCode, form]);
 
   function handleCancel(): void {
     form.resetFields();
@@ -98,7 +98,7 @@ export function CustomsExpenseModal({
   function handleShipmentPick(shipment: IShipmentListItem | null): void {
     if (!shipment) return;
     form.setFieldsValue({
-      shipment_code_raw: shipment.shipment_code,
+      export_code_raw: shipment.export_code ?? form.getFieldValue('export_code_raw'),
       vehicle_plate: shipment.truck_plate ?? form.getFieldValue('vehicle_plate'),
     });
   }
@@ -114,7 +114,7 @@ export function CustomsExpenseModal({
       amount: values.amount != null ? String(values.amount) : '0',
       currency: 'TMT',
       shipment: values.shipment ?? null,
-      shipment_code_raw: values.shipment_code_raw || null,
+      export_code_raw: values.export_code_raw || null,
       vehicle_plate: values.vehicle_plate || null,
       route_label: values.route_label || null,
       label_raw: values.label_raw || null,
@@ -235,8 +235,8 @@ export function CustomsExpenseModal({
         )}
 
         <Form.Item
-          name="shipment_code_raw"
-          label={t('customs_expense.field_shipment_code_raw')}
+          name="export_code_raw"
+          label={t('customs_expense.field_export_code_raw')}
         >
           <Input placeholder={t('common.optional')} />
         </Form.Item>

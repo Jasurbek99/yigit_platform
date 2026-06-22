@@ -1229,7 +1229,7 @@ export interface ICustomsExpense {
   currency: string;               // “TMT”
   shipment: number | null;
   shipment_code: string | null;
-  shipment_code_raw: string | null;
+  export_code_raw: string | null;
   vehicle_plate: string | null;
   route_label: string | null;
   label_raw: string | null;
@@ -1246,7 +1246,7 @@ export interface ICustomsExpensePayload {
   amount: string;                 // send as decimal string
   currency?: string;
   shipment?: number | null;
-  shipment_code_raw?: string | null;
+  export_code_raw?: string | null;
   vehicle_plate?: string | null;
   route_label?: string | null;
   label_raw?: string | null;

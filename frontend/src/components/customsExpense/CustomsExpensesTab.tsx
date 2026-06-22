@@ -139,8 +139,8 @@ export function CustomsExpensesTab({
             </Link>
           );
         }
-        if (record.shipment_code_raw) {
-          return <Text type="secondary">{record.shipment_code_raw}</Text>;
+        if (record.export_code_raw) {
+          return <Text type="secondary">{record.export_code_raw}</Text>;
         }
         return <Text type="secondary">—</Text>;
       },

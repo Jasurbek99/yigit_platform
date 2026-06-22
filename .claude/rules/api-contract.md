@@ -291,7 +291,7 @@ Tracks money the cashier (Hangeldi) spends on per-shipment customs clearance and
 
 Write roles: `finansist`, `export_manager`, `document_team`, `admin`, `director`. Reads: any authenticated user.
 
-Filter params: `?category=GUMRUKLEME`, `?currency=TMT`, `?shipment=123`, `?date_from=YYYY-MM-DD`, `?date_to=YYYY-MM-DD`. Search: `?search=` matches `shipment_code_raw`, `vehicle_plate`, `route_label`, `label_raw`.
+Filter params: `?category=GUMRUKLEME`, `?currency=TMT`, `?shipment=123`, `?date_from=YYYY-MM-DD`, `?date_to=YYYY-MM-DD`. Search: `?search=` matches `export_code_raw`, `vehicle_plate`, `route_label`, `label_raw`.
 
 Response item shape:
 ```json
@@ -304,7 +304,7 @@ Response item shape:
   "currency": "TMT",
   "shipment": 42,
   "shipment_code": "1506042/25",
-  "shipment_code_raw": "1506042/25",
+  "export_code_raw": "1506042/25",
   "vehicle_plate": "48 AT 580",
   "route_label": "HMS-DM",
   "label_raw": "Gumrukleme haky",

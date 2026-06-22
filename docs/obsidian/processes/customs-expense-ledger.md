@@ -40,10 +40,10 @@ flowchart TD
 
 | Table | Purpose | Key Columns |
 |-------|---------|-------------|
-| `export.customs_expenses` | One money-out row (customs/document fee) | expense_date, category, amount, currency, shipment_id, shipment_code_raw, vehicle_plate, route_label, label_raw, quantity, created_by |
+| `export.customs_expenses` | One money-out row (customs/document fee) | expense_date, category, amount, currency, shipment_id, export_code_raw, vehicle_plate, route_label, label_raw, quantity, created_by |
 | `export.finansist_advances` | Money-in float top-ups (existing) | advance_date, total_amount, currency, purpose, issued_by |
 
-`amount` is `DecimalField(12,2)`; **currency defaults to `TMT`** (manat — local cash). `shipment_code_raw`
+`amount` is `DecimalField(12,2)`; **currency defaults to `TMT`** (manat — local cash). `export_code_raw`
 is **Latin-only (no Cyrillic collation)** so it can be compared to `Shipment.shipment_code` without an
 MSSQL collation conflict; the Cyrillic text fields (`route_label`, `label_raw`, `notes`) carry the
 collation.

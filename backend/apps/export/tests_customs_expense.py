@@ -122,7 +122,7 @@ class TestCustomsExpenseCreate(CustomsExpenseSetUpMixin):
             'amount': '450.00',
             'currency': 'TMT',
             'shipment': self.shipment.pk,
-            'shipment_code_raw': 'TEST-CE-001',
+            'export_code_raw': 'TEST-CE-001',
             'vehicle_plate': '48 AT 580',
             'route_label': 'HMS-DM',
             'label_raw': 'Gumrukleme haky',

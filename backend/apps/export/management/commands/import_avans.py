@@ -5,7 +5,7 @@ Source: data/avans.xlsx -> sheet 'Sheet1'
 Structure (one running cash ledger, reconciles to zero):
   Col C  Senesi       - date
   Col D  Cykys Kody   - internal trip code (MY471, JN055, 15JN089/26) — NOT the
-                        DB shipment_code, kept verbatim as shipment_code_raw
+                        DB shipment_code, kept verbatim as export_code_raw
   Col E  Firma        - route firm pair / responsible person (HMS-DM, Tel Gurban J)
   Col F  Acyklama     - description -> drives category + label_raw
   Col G  Masyn nomeri - truck/trailer plate (4656AHF/2405TAH) — the shipment join key
@@ -245,7 +245,7 @@ class Command(BaseCommand):
                     amount=total,
                     currency=CURRENCY,
                     shipment_id=shipment_id,
-                    shipment_code_raw=_clean(ws.cell(r, COL_CODE).value, 50),
+                    export_code_raw=_clean(ws.cell(r, COL_CODE).value, 50),
                     vehicle_plate=_clean(ws.cell(r, COL_PLATE).value, 60),
                     route_label=_clean(ws.cell(r, COL_FIRM).value, 120),
                     label_raw=_clean(desc, 255),
