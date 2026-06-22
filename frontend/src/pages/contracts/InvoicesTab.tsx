@@ -126,7 +126,7 @@ export function InvoicesTab({
       render: (_, record) => {
         if (record.shipment && record.shipment_code) {
           return (
-            <Link to={`/export/shipments/${record.shipment}`}>
+            <Link to={`/shipments/${record.shipment}`}>
               {record.shipment_code}
             </Link>
           );
