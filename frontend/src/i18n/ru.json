@@ -2639,6 +2639,13 @@
       "total": "Всего {{total}} фактур"
     }
   },
+  "documents": {
+    "button": "Документы",
+    "invoice": "Инвойс",
+    "cmr": "CMR",
+    "word": "Word",
+    "pdf": "PDF"
+  },
   "invoices": {
     "title": "Фактуры",
     "add_button": "Добавить фактуру",

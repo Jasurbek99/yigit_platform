@@ -2617,6 +2617,13 @@
       "placeholder": "Şertnama saýlaň"
     }
   },
+  "documents": {
+    "button": "Resminamalar",
+    "invoice": "Inwoýs",
+    "cmr": "CMR",
+    "word": "Word",
+    "pdf": "PDF"
+  },
   "invoices": {
     "title": "Fakturalar",
     "add_button": "Faktura goş",

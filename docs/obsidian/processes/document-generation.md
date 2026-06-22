@@ -78,6 +78,15 @@ install LibreOffice and either add its `program/` dir to PATH or set
 language / shipment fallback), RU+EN render smoke (asserts no leftover Jinja tags),
 and the API endpoint (docx download, EN variant, 400 unknown type, 503 PDF-without-LibreOffice).
 
+## Frontend
+
+A per-invoice **Documents** dropdown (`components/InvoiceDocumentsButton.tsx`) sits
+in the action column of the contract **Faktura tab** (`InvoicesTab`) and the
+**all-invoices list** (`InvoiceList`). It offers Invoice / CMR in RU/EN as Word or
+PDF (8 entries) and downloads via `utils/fileDownload.ts::downloadUrl()` — a plain
+anchor click; the httpOnly auth cookie rides the same-origin GET (same mechanism as
+the Boss report exports). Labels are `documents.*` i18n keys (tk/ru/en).
+
 ## CMR (road consignment note)
 
 CMR is a per-truck document; since one Invoice == one dispatched truck, it is

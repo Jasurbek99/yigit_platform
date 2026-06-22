@@ -11,6 +11,7 @@ import { useInvoices, useDeleteInvoice } from '@/hooks/useInvoices';
 import { useAuth } from '@/hooks/useAuth';
 import { ExportFirmSelect } from '@/components/ExportFirmSelect';
 import { ImportFirmSelect } from '@/components/ImportFirmSelect';
+import { InvoiceDocumentsButton } from '@/components/InvoiceDocumentsButton';
 import { InvoiceCreate } from '@/pages/contracts/InvoiceCreate';
 import type { IInvoice, InvoiceStatus } from '@/types/invoice';
 
@@ -307,13 +308,14 @@ export default function InvoiceList() {
     {
       title: t('invoices.column.action'),
       dataIndex: 'action',
-      width: isAdmin ? 100 : 60,
+      width: isAdmin ? 130 : 96,
       search: false,
       render: (_, record) => (
         <span
           style={{ display: 'flex', gap: 4 }}
           onClick={(e) => e.stopPropagation()}
         >
+          <InvoiceDocumentsButton invoiceId={record.id} />
           <Button
             type="text"
             size="small"

@@ -2637,6 +2637,13 @@
       "total": "{{total}} invoices total"
     }
   },
+  "documents": {
+    "button": "Documents",
+    "invoice": "Invoice",
+    "cmr": "CMR",
+    "word": "Word",
+    "pdf": "PDF"
+  },
   "invoices": {
     "title": "Invoices",
     "add_button": "Add invoice",

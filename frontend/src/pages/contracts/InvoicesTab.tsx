@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import dayjs from 'dayjs';
 import { useInvoices, useDeleteInvoice } from '@/hooks/useInvoices';
+import { InvoiceDocumentsButton } from '@/components/InvoiceDocumentsButton';
 import { InvoiceCreate } from './InvoiceCreate';
 import type { IInvoice, InvoiceStatus } from '@/types/invoice';
 import type { ICurrentUser } from '@/types';
@@ -186,10 +187,12 @@ export function InvoicesTab({
     {
       title: t('invoices.column.action'),
       dataIndex: 'action',
-      width: isAdmin ? 100 : 60,
+      width: isAdmin ? 130 : 96,
       search: false,
       render: (_, record) => (
         <span style={{ display: 'flex', gap: 4 }}>
+          {/* Documents (Invoice / CMR, RU/EN, docx/pdf) */}
+          <InvoiceDocumentsButton invoiceId={record.id} />
           {/* Edit */}
           <Button
             type="text"
