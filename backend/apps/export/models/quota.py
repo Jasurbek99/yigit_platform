@@ -183,6 +183,31 @@ def invalidate_truck_split_cache(num_firms: int | None = None) -> None:
     cache.delete_many([f'{_TRUCK_SPLIT_CACHE_PREFIX}:{n}' for n in range(1, 11)])
 
 
+class QuotaUsageRecordQuerySet(models.QuerySet):
+    """Custom queryset for usage records.
+
+    counted() encodes the single rule for what's actually consuming quota:
+        - rows with no shipment (historical Excel imports) always count;
+        - rows with an alive shipment count;
+        - rows whose shipment was soft-deleted or cancelled do NOT count
+          (kg is released back to the firm's balance until the shipment
+          is restored or un-cancelled, at which point it counts again).
+
+    Use it everywhere quota consumption is aggregated — FIFO, dashboard
+    KPI, boss analytics, 10x rule compliance. Do not duplicate the filter.
+    """
+
+    def counted(self) -> 'QuotaUsageRecordQuerySet':
+        from django.db.models import Q
+        return self.filter(
+            Q(shipment__isnull=True)
+            | (
+                Q(shipment__deleted_at__isnull=True)
+                & ~Q(shipment__status__code='cancelled')
+            )
+        )
+
+
 class QuotaUsageRecord(models.Model):
     """Quota usage (export consumption) per firm per shipment.
 
@@ -190,7 +215,13 @@ class QuotaUsageRecord(models.Model):
     Each row = kg of quota consumed by a firm on a specific date via exports.
     Auto-created when firm splits are assigned to a shipment (status=draft).
     Document team or admin approves before it counts in FIFO consumption.
+
+    "Counted" semantics live on the manager — see QuotaUsageRecordQuerySet.counted().
+    Soft-deleting or cancelling a shipment auto-releases its approved kg; restoring
+    re-consumes it. No row deletion needed for the soft/cancel paths.
     """
+
+    objects = QuotaUsageRecordQuerySet.as_manager()
 
     usage_date = models.DateField()
     export_firm = models.ForeignKey(

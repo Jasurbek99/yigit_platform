@@ -28,7 +28,11 @@ from apps.export.serializers_quota import (
     QuotaIssuanceCreateSerializer,
     QuotaUsageRecordSerializer,
 )
-from apps.export.services_quota import build_quota_dashboard, compute_fifo_usage
+from apps.export.services_quota import (
+    build_quota_dashboard,
+    compute_fifo_usage,
+    compute_firm_quota_balances,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -226,10 +230,12 @@ class QuotaUsageViewSet(ModelViewSet):
                     )
                     for pk in approved_ids
                 ], batch_size=500)
-            # Invalidate FIFO cache since approved usage totals changed
+            # Invalidate FIFO + firm-balance caches since approved usage totals changed
             from django.core.cache import cache
             cache.delete('fifo_usage:tomato')
             cache.delete('fifo_usage:pepper')
+            cache.delete('quota_firm_balances:tomato')
+            cache.delete('quota_firm_balances:pepper')
         return Response({'approved': updated})
 
 
@@ -286,6 +292,41 @@ class QuotaDashboardView(APIView):
             return Response(cached)
 
         data = build_quota_dashboard(date_from, date_to, product_type)
+        cache.set(cache_key, data, 60)
+        return Response(data)
+
+
+# ---------------------------------------------------------------------------
+# QuotaFirmBalancesView
+# ---------------------------------------------------------------------------
+
+class QuotaFirmBalancesView(APIView):
+    """GET /api/v1/export/quota-firm-balances/?product_type=tomato
+
+    Per-firm remaining quota for the active season, consumed by the firm-split
+    editor to softly warn when a chosen firm has no quota left to assign.
+
+    Gated by the same resource as the dashboard ('quota_issuance' view) — which
+    is exactly the set of roles that may edit shipment firm splits
+    (export_manager, document_team, director, admin).
+
+    Response: { "<firm_id>": {"issued_kg", "used_kg", "remaining_kg"}, ... }
+    Firms absent from the map have no allocation (treat as zero remaining).
+    """
+
+    permission_classes = [IsAuthenticated, DynamicResourcePermission]
+    resource_code = 'quota_issuance'
+
+    def get(self, request: Request) -> Response:
+        product_type = request.query_params.get('product_type', 'tomato').lower()
+
+        cache_key = f'quota_firm_balances:{product_type}'
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
+
+        balances = compute_firm_quota_balances(product_type)
+        data = {str(firm_id): vals for firm_id, vals in balances.items()}
         cache.set(cache_key, data, 60)
         return Response(data)
 

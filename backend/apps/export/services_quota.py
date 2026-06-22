@@ -6,6 +6,7 @@ All functions are pure computation or DB queries; no HTTP/request handling.
 __all__ = [
     'build_quota_dashboard',
     'compute_fifo_usage',
+    'compute_firm_quota_balances',
     'fetch_plan_rows',
     'fetch_issuances',
     'aggregate_local_sales',
@@ -131,9 +132,12 @@ def aggregate_quota_used(
 
     Source: QuotaUsageRecord with status='approved'.
     Only approved records count — draft records are pending review.
+    counted() drops rows tied to soft-deleted / cancelled shipments — the kg
+    is released back to the firm until the shipment is restored.
     """
     usage_rows = (
         QuotaUsageRecord.objects
+        .counted()
         .filter(usage_date__gte=date_from, usage_date__lte=date_to, status='approved')
         .values('export_firm_id')
         .annotate(total=Coalesce(Sum('kg_used'), Decimal('0')))
@@ -370,6 +374,75 @@ def build_quota_dashboard(
 
 
 # ---------------------------------------------------------------------------
+# Per-firm balance (firm-split editor soft warning)
+# ---------------------------------------------------------------------------
+
+def compute_firm_quota_balances(product_type: str) -> dict[int, dict]:
+    """Per-firm remaining quota (issued − committed) for the active season.
+
+    Powers the firm-split editor's soft warning: a firm whose ``remaining_kg``
+    is <= 0 (including firms with no allocation at all, which are simply absent
+    from the result) has no quota left to assign. The check is non-blocking —
+    operators may still save against a firm with no quota.
+
+    ``used_kg`` here is **committed** quota = draft + approved usage, NOT
+    approved-only. This is deliberate and differs from the dashboard (which
+    reports *approved* consumption): assigning firm splits auto-creates *draft*
+    QuotaUsageRecord rows that stay draft until document_team approves, so at
+    assignment time the drafts are the live commitment. Counting approved-only
+    would let a firm be over-committed across many trucks without warning until
+    approval — i.e. after the assignment decisions are already made. We still
+    drop rows tied to soft-deleted / cancelled shipments via ``.counted()``.
+
+    Scope: the active season's [start_date, end_date]. Both issuance and usage
+    are date-bounded by this window so quota from other seasons is excluded.
+
+    NOTE: per-issuance expiry (``QuotaIssuance.validity`` month window) is NOT
+    applied here — this is a coarse "has any balance" signal, not the
+    authoritative FIFO/expiry ledger (see compute_fifo_usage / the dashboard).
+
+    Args:
+        product_type: 'tomato' or 'pepper'.
+
+    Returns:
+        Dict mapping export_firm_id → {issued_kg, used_kg, remaining_kg}.
+        Empty dict when no active season exists.
+    """
+    from apps.core.models import Season
+
+    season = Season.objects.filter(is_active=True).order_by('-start_date').first()
+    if not season:
+        return {}
+
+    issued = aggregate_quota_issued(season.start_date, season.end_date, product_type)
+
+    # Committed = draft + approved (no status filter) — see docstring.
+    used_rows = (
+        QuotaUsageRecord.objects
+        .counted()
+        .filter(
+            usage_date__gte=season.start_date,
+            usage_date__lte=season.end_date,
+            product_type=product_type,
+        )
+        .values('export_firm_id')
+        .annotate(total=Coalesce(Sum('kg_used'), Decimal('0')))
+    )
+    used = {row['export_firm_id']: row['total'] for row in used_rows}
+
+    balances: dict[int, dict] = {}
+    for firm_id in set(issued) | set(used):
+        issued_kg = issued.get(firm_id, Decimal('0'))
+        used_kg = used.get(firm_id, Decimal('0'))
+        balances[firm_id] = {
+            'issued_kg': issued_kg,
+            'used_kg': used_kg,
+            'remaining_kg': issued_kg - used_kg,
+        }
+    return balances
+
+
+# ---------------------------------------------------------------------------
 # FIFO per-allocation consumption
 # ---------------------------------------------------------------------------
 
@@ -409,9 +482,11 @@ def compute_fifo_usage(product_type: str) -> dict[int, Decimal]:
     for alloc_id, firm_id, kg_quota, _issue_date in allocs:
         firm_allocs[firm_id].append((alloc_id, kg_quota))
 
-    # 2. Get total usage per firm (approved records only)
+    # 2. Get total usage per firm (approved records only; counted() drops
+    #    rows tied to soft-deleted / cancelled shipments — released back).
     usage_rows = (
         QuotaUsageRecord.objects
+        .counted()
         .filter(product_type=product_type, status='approved')
         .values('export_firm_id')
         .annotate(total=Coalesce(Sum('kg_used'), Decimal('0')))

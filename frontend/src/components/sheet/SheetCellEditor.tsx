@@ -29,6 +29,7 @@ import {
   useBorderPoints,
   useShipmentOptions,
 } from '@/hooks/useAdmin';
+import { useQuotaFirmBalances } from '@/hooks/useQuotaDashboard';
 import { scaleSheetLayout } from '@/constants/sheetRowConfig';
 import { parseNumberInput } from './SheetCellEditor.helpers';
 
@@ -70,6 +71,24 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
   const { data: borderPoints } = useBorderPoints();
   // Fetch all shipment options at once (cached, 5 categories)
   const { data: allOptions } = useShipmentOptions();
+
+  // Per-firm remaining quota — only fetched when editing the firm_splits cell
+  // (the only roles that can edit it also hold quota_issuance view). Drives the
+  // non-blocking "no quota" warning. Defaults to 'tomato' because product_type
+  // isn't on the sheet payload; pepper is a rare separate quota domain.
+  const isFirmsCell = rowConfig.field_key === 'firm_splits';
+  const { data: firmBalances } = useQuotaFirmBalances('tomato', { enabled: isFirmsCell });
+  const firmHasNoQuota = useCallback(
+    (firmId: number): boolean => {
+      // Unknown while the balances query is still loading — don't warn (the
+      // dropdown is defaultOpen, so on first open data is briefly undefined;
+      // returning true here would flash a ⚠ tag on every firm + a spurious toast).
+      if (!firmBalances) return false;
+      const bal = firmBalances[String(firmId)];
+      return !bal || Number(bal.remaining_kg) <= 0;
+    },
+    [firmBalances],
+  );
 
   const close = useCallback(() => {
     setEditingCell(null);
@@ -499,6 +518,16 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
               undoId === -1 ? undefined : { onError: () => dropEntry(undoId) },
             );
           } else if (isFirms) {
+            // Soft, non-blocking warning: flag any newly-chosen firm with no
+            // remaining quota. The save proceeds regardless (quota is tracked,
+            // not hard-enforced).
+            const previousIds = new Set(currentIds);
+            const noQuotaNames = next
+              .filter((id) => !previousIds.has(id) && firmHasNoQuota(id))
+              .map((id) => options.find((o) => o.value === id)?.label ?? String(id));
+            if (noQuotaNames.length > 0) {
+              toast.warning(t('sheet.firm_no_quota_warning', { firms: noQuotaNames.join(', ') }));
+            }
             const undoId = recordJunctionEntry(shipment.id, 'firm_splits', shipment.firm_splits);
             saveJunction(
               'firm-splits',
@@ -526,7 +555,15 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
             size="small"
             mode="multiple"
             defaultValue={currentIds}
-            options={options}
+            options={
+              isFirms
+                ? options.map((o) =>
+                    firmHasNoQuota(o.value as number)
+                      ? { ...o, label: `${o.label} ⚠ ${t('sheet.firm_no_quota_tag')}` }
+                      : o,
+                  )
+                : options
+            }
             onChange={(selectedIds: number[]) => {
               pendingMultiRef.current = selectedIds;
             }}

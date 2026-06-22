@@ -53,6 +53,37 @@ export function useQuotaIssuances(
   });
 }
 
+export interface IFirmQuotaBalance {
+  issued_kg: number;
+  used_kg: number;
+  remaining_kg: number;
+}
+
+/**
+ * Per-firm remaining quota (issued − approved-used) for the active season,
+ * keyed by export_firm id (as a string). Firms absent from the map have no
+ * allocation → treat as zero remaining. Powers the firm-split editor's soft
+ * "no quota" warning. Gated by quota_issuance view on the backend, so only
+ * the roles that can edit firm splits fetch it (others pass enabled=false).
+ */
+export function useQuotaFirmBalances(
+  productType: string,
+  options: { enabled?: boolean } = {},
+) {
+  const { enabled = true } = options;
+  return useQuery({
+    queryKey: ['quota-firm-balances', productType],
+    queryFn: async (): Promise<Record<string, IFirmQuotaBalance>> => {
+      const { data } = await api.get<Record<string, IFirmQuotaBalance>>(
+        `/export/quota-firm-balances/?product_type=${encodeURIComponent(productType)}`,
+      );
+      return data;
+    },
+    enabled,
+    staleTime: 60_000,
+  });
+}
+
 export interface ICreateIssuancePayload {
   issue_date: string;
   product_type: string;
