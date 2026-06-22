@@ -7,6 +7,12 @@ from .shipment import (
 )
 from .pallet import Pallet
 from .quality import QualityDocument, ShipmentComment, SalesReport
+from .sales import (
+    SalesReportLineItem,
+    SalesReportExpense,
+    ExpenseCategory,
+    EXPENSE_CATEGORIES,
+)
 from .truck_allocation import WeeklyTruckAllocation, TruckDestinationSplit
 from .local_sell_plan import (
     LOCAL_SELL_STATUS_CHOICES,
@@ -19,7 +25,13 @@ from .quota import (
     TruckSplitDefault,
     USAGE_STATUS_CHOICES, get_default_truck_weight, invalidate_truck_split_cache,
 )
-from .finance import FinansistAdvance, FinansistAdvanceShipment
+from .finance import (
+    FinansistAdvance,
+    FinansistAdvanceShipment,
+    CustomsExpense,
+    CustomsExpenseCategory,
+    CUSTOMS_EXPENSE_CATEGORIES,
+)
 from .notification import Notification
 from .audit import AuditLog
 from .sheet_settings import (
@@ -40,6 +52,10 @@ __all__ = [
     'QualityDocument',
     'ShipmentComment',
     'SalesReport',
+    'SalesReportLineItem',
+    'SalesReportExpense',
+    'ExpenseCategory',
+    'EXPENSE_CATEGORIES',
     'WeeklyTruckAllocation',
     'TruckDestinationSplit',
     'LOCAL_SELL_STATUS_CHOICES',
@@ -56,6 +72,9 @@ __all__ = [
     'invalidate_truck_split_cache',
     'FinansistAdvance',
     'FinansistAdvanceShipment',
+    'CustomsExpense',
+    'CustomsExpenseCategory',
+    'CUSTOMS_EXPENSE_CATEGORIES',
     'Notification',
     'AuditLog',
     'Pallet',
