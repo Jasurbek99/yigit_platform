@@ -2533,6 +2533,8 @@
     "filter_action": "Hereket",
     "filter_model": "Model ady",
     "filter_object_id": "Obýekt ID",
+    "filter_user": "Ulanyjy",
+    "placeholder_user": "Ähli ulanyjylar",
     "filter_clear": "Arassala",
     "empty": "Audit ýazgylary tapylmady",
     "error_load": "Žurnal ýüklenmedi",

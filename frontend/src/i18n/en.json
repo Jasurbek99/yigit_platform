@@ -2529,6 +2529,8 @@
     "filter_action": "Action",
     "filter_model": "Model name",
     "filter_object_id": "Object ID",
+    "filter_user": "User",
+    "placeholder_user": "All users",
     "filter_clear": "Clear",
     "empty": "No audit entries found",
     "error_load": "Failed to load audit log",

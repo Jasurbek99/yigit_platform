@@ -1103,6 +1103,7 @@ export interface IAuditLogFilters {
   model_name?: string;
   action?: AuditAction | '';
   object_id?: number | '';
+  user?: number | '';
 }
 
 export function useAuditLog(filters: IAuditLogFilters = {}) {
@@ -1113,6 +1114,9 @@ export function useAuditLog(filters: IAuditLogFilters = {}) {
   if (filters.action) params.set('action', filters.action);
   if (filters.object_id !== undefined && filters.object_id !== '') {
     params.set('object_id', String(filters.object_id));
+  }
+  if (filters.user !== undefined && filters.user !== '') {
+    params.set('user', String(filters.user));
   }
   const qs = params.toString();
 

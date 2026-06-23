@@ -2531,6 +2531,8 @@
     "filter_action": "Действие",
     "filter_model": "Имя модели",
     "filter_object_id": "ID объекта",
+    "filter_user": "Пользователь",
+    "placeholder_user": "Все пользователи",
     "filter_clear": "Очистить",
     "empty": "Записей аудита не найдено",
     "error_load": "Не удалось загрузить журнал",

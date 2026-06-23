@@ -14,6 +14,7 @@ import { IconClipboardList, IconRefresh } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import { useAuditLog } from '@/hooks/useAdmin';
+import { UserSelect } from '@/components/UserSelect';
 import type { AuditAction, IAuditLog } from '@/types';
 import { COLORS } from '@/constants/styles';
 
@@ -66,6 +67,7 @@ export default function AuditLogPage() {
   const [action, setAction] = useState<AuditAction | ''>('');
   const [modelName, setModelName] = useState('');
   const [objectIdInput, setObjectIdInput] = useState('');
+  const [userId, setUserId] = useState<number | ''>('');
 
   const objectIdParam = useMemo<number | ''>(() => {
     const trimmed = objectIdInput.trim();
@@ -80,6 +82,7 @@ export default function AuditLogPage() {
     action,
     model_name: modelName.trim() || undefined,
     object_id: objectIdParam,
+    user: userId,
   });
 
   const rows = useMemo(() => data?.results ?? [], [data?.results]);
@@ -89,6 +92,7 @@ export default function AuditLogPage() {
     setAction('');
     setModelName('');
     setObjectIdInput('');
+    setUserId('');
     setPage(1);
   }
 
@@ -252,6 +256,17 @@ export default function AuditLogPage() {
             value={objectIdInput}
             onChange={(e) => onFilterChange(setObjectIdInput, e.currentTarget.value)}
             style={{ width: 140 }}
+          />
+        </div>
+        <div>
+          <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+            {t('audit_log.filter_user')}
+          </Text>
+          <UserSelect
+            value={userId === '' ? null : userId}
+            onChange={(v) => onFilterChange(setUserId, v ?? '')}
+            placeholder={t('audit_log.placeholder_user')}
+            style={{ width: 200 }}
           />
         </div>
         <Button type="link" onClick={resetFilters}>

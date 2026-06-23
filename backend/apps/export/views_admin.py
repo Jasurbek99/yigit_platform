@@ -264,7 +264,7 @@ class AuditLogViewSet(ReadOnlyModelViewSet):
 
     Accessible to admin, director, and export_manager (AUDIT_VIEWERS — AD-15).
 
-    GET /api/v1/export/audit-log/          — list (filter ?model_name=&action=&object_id=)
+    GET /api/v1/export/audit-log/          — list (filter ?model_name=&action=&object_id=&user=)
     GET /api/v1/export/audit-log/{id}/     — detail
     """
 
@@ -287,6 +287,11 @@ class AuditLogViewSet(ReadOnlyModelViewSet):
         if object_id := params.get('object_id'):
             try:
                 qs = qs.filter(object_id=int(object_id))
+            except (ValueError, TypeError):
+                pass
+        if user_id := params.get('user'):
+            try:
+                qs = qs.filter(user_id=int(user_id))
             except (ValueError, TypeError):
                 pass
         return qs
