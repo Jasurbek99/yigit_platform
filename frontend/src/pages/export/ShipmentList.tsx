@@ -113,7 +113,7 @@ const HIDDEN_BY_DEFAULT: ReadonlyArray<string> = [
   'date', 'export_code', 'weight_gross', 'city_name', 'variety_name',
   'border_point_name', 'price_per_kg', 'total_amount_usd', 'is_gapy_satys',
   // Sheet-parity opt-in columns
-  'import_firm_name', 'variety_code',
+  'import_firm_name', 'export_firms_display', 'variety_code',
   'packaging_kg', 'pallet_count', 'box_count', 'rejected_weight_kg',
   'vehicle_responsible_display', 'truck_plate', 'driver_name', 'driver_phone',
   'transport_temp_c', 'transit_days', 'has_peregruz', 'peregruz_city', 'peregruz_date',
@@ -580,6 +580,7 @@ export default function ShipmentList() {
     },
     // Customer / product
     { title: t('shipments.import_firm'), dataIndex: 'import_firm_name', key: 'import_firm_name', width: 150, render: (_, r) => renderText(r.import_firm_name) },
+    { title: t('shipments.export_firms'), dataIndex: 'export_firms_display', key: 'export_firms_display', width: 150, sorter: (a, b) => (a.export_firms_display || '').localeCompare(b.export_firms_display || ''), render: (_, r) => renderText(r.export_firms_display) },
     { title: t('shipments.variety_code'), dataIndex: 'variety_code', key: 'variety_code', width: 110, render: (_, r) => renderMono(r.variety_code) },
     // Weight detail
     { title: t('shipments.packaging_kg'), dataIndex: 'packaging_kg', key: 'packaging_kg', width: 120, align: 'right', render: (_, r) => renderNumber(r.packaging_kg) },

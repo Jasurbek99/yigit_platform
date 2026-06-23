@@ -22,6 +22,7 @@ const MOCK_DEFAULTS = {
   variety_code: null,
   import_firm: null,
   import_firm_name: null,
+  export_firms_display: null,
   packaging_kg: null,
   pallet_count: null,
   box_count: null,

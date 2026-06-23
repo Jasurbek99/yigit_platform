@@ -228,6 +228,8 @@ export interface IShipmentListItem {
   variety_code: string | null;
   import_firm: number | null;
   import_firm_name: string | null;
+  /** Comma-joined export firm codes from firm_splits (e.g. "YGT, HJ"). */
+  export_firms_display: string | null;
   // Weight detail
   packaging_kg: number | null;
   pallet_count: number | null;

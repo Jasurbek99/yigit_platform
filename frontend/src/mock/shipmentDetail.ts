@@ -53,6 +53,7 @@ export const MOCK_SHIPMENT_DETAIL: IShipmentDetail = {
   country_code: 'KZ',
   variety_code: '08',
   import_firm_name: null,
+  export_firms_display: null,
   vehicle_responsible_display: null,
   trailer_id: null,
   truck_plate: '01ABC123',

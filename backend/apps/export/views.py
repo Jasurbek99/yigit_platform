@@ -264,6 +264,11 @@ class ShipmentViewSet(ModelViewSet):
             # them here so the DraftPool render avoids per-row queries.
             if status_code == 'draft' and getattr(self, 'action', None) == 'list':
                 qs = qs.select_related('created_by').prefetch_related('block_sources__block')
+        # The ShipmentList serializer's export_firms_display column joins firm
+        # codes from the firm_splits junction. Prefetch once per page so the
+        # opt-in column stays N+1-safe (one extra query, not one per row).
+        if getattr(self, 'action', None) == 'list':
+            qs = qs.prefetch_related('firm_splits__export_firm')
         # Cancelled shipments are hidden from the operational list by default.
         # ?show_cancelled=true reveals them; an explicit ?status_code=cancelled
         # filter also shows them. Scoped to `list` so detail pages of cancelled
@@ -822,6 +827,8 @@ class ShipmentViewSet(ModelViewSet):
             super().get_queryset()
             .filter(status__code__in=SALES_PHASE_CODES, deleted_at__isnull=True)
             .annotate(has_sales_report=has_report_expr)
+            # export_firms_display column joins firm_splits — prefetch to stay N+1-safe.
+            .prefetch_related('firm_splits__export_firm')
         )
 
         # Compute days_overdue in Python — MSSQL-safe, no DurationField subtraction.

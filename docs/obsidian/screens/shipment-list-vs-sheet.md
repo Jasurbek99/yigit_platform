@@ -111,7 +111,7 @@ The canonical response field naming is owned by [api-contract.md](../../../.clau
 
 A representative sample, not exhaustive. Source-of-truth: [serializers.py](../../../backend/apps/export/serializers.py) (`ShipmentListSerializer` ~line 60, `ShipmentSheetSerializer` ~line 225) and `IShipmentDetail` in [types/index.ts](../../../frontend/src/types/index.ts).
 
-> **Note (column-manager update):** the "List" column in the matrix below shows the *default-visible* set. `ShipmentListSerializer` now also returns every **scalar** field marked ✓ for Sheet (timestamps, weight detail, transport, doc flags, notes, vehicle condition, audit) so they can be turned on as opt-in List columns. Treat any scalar Sheet ✓ as "List: opt-in column". Only nested `firm_splits` / `block_sources` stay Sheet/Detail-only.
+> **Note (column-manager update):** the "List" column in the matrix below shows the *default-visible* set. `ShipmentListSerializer` now also returns every **scalar** field marked ✓ for Sheet (timestamps, weight detail, transport, doc flags, notes, vehicle condition, audit) so they can be turned on as opt-in List columns. Treat any scalar Sheet ✓ as "List: opt-in column". Only nested `firm_splits` / `block_sources` stay Sheet/Detail-only — with one exception: export firms are exposed on the List as a flattened scalar `export_firms_display` (comma-joined firm codes, e.g. `"YGT, HJ"`, opt-in column), backed by `prefetch_related('firm_splits__export_firm')`.
 
 | Group | Field | List | Detail | Sheet |
 |---|---|---|---|---|

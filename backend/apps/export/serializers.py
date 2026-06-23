@@ -294,6 +294,21 @@ class ShipmentListSerializer(serializers.ModelSerializer):
             return None
         return firm.name_short or firm.name_company
 
+    # Export firms — comma-joined firm codes from the firm_splits junction.
+    # A shipment can be split across several export firms; this flattens them
+    # into one opt-in column for the list view. Detail/sheet keep the full
+    # nested firm_splits[]. Requires prefetch_related('firm_splits__export_firm')
+    # on the list queryset to stay N+1-safe.
+    export_firms_display = serializers.SerializerMethodField()
+
+    def get_export_firms_display(self, obj) -> str | None:
+        codes = [
+            split.export_firm.code
+            for split in obj.firm_splits.all()
+            if split.export_firm_id and split.export_firm.code
+        ]
+        return ', '.join(codes) if codes else None
+
     # Transport — human label for the responsible-party enum
     vehicle_responsible_display = serializers.CharField(source='vehicle_responsible', read_only=True)
 
@@ -394,6 +409,7 @@ class ShipmentListSerializer(serializers.ModelSerializer):
             # the list endpoint stays flat (no related-table prefetch).
             # Customer / product
             'import_firm', 'import_firm_name',
+            'export_firms_display',
             'variety', 'variety_code',
             # Weight detail
             'packaging_kg', 'pallet_count', 'box_count', 'rejected_weight_kg',

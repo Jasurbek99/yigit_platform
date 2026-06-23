@@ -22,6 +22,7 @@ const DEFAULTS = {
   variety_code: null as string | null,
   import_firm: null as number | null,
   import_firm_name: null as string | null,
+  export_firms_display: null as string | null,
   packaging_kg: null as number | null,
   pallet_count: null as number | null,
   box_count: null as number | null,
