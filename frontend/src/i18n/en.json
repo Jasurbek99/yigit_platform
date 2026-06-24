@@ -1092,7 +1092,11 @@
     "toast_updated": "Firm updated",
     "toast_deleted": "Firm deleted",
     "toast_error": "Operation failed",
-    "subtitle": "Manage import firms"
+    "subtitle": "Manage import firms",
+    "actions": "Actions",
+    "move_to_gapy": "Move to Gapy Satyş",
+    "move_to_our": "Move to Our Firms",
+    "confirm_move": "Change this firm's type?"
   },
   "users_admin": {
     "title": "Users",

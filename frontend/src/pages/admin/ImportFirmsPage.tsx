@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Alert, Button, Tabs, Tag, Typography } from 'antd';
-import { ShopOutlined, PlusOutlined } from '@ant-design/icons';
+import { Alert, Button, Popconfirm, Tabs, Tag, Typography } from 'antd';
+import { ShopOutlined, PlusOutlined, SwapOutlined } from '@ant-design/icons';
 import { ProTable } from '@ant-design/pro-components';
 import type { ProColumns } from '@ant-design/pro-components';
 import { useTranslation } from 'react-i18next';
-import { useAdminImportFirms } from '@/hooks/useAdmin';
+import { toast } from 'sonner';
+import { useAdminImportFirms, useUpdateImportFirm } from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
 import { canDo } from '@/utils/permissions';
 import type { IImportFirm } from '@/types';
@@ -20,6 +21,12 @@ export default function ImportFirmsPage() {
   const [activeTab, setActiveTab] = useState<string>('our');
 
   const canCreate = canDo(user, 'import_firm', 'create');
+  const canEdit = canDo(user, 'import_firm', 'edit');
+
+  const moveMutation = useUpdateImportFirm({
+    onSuccess: () => toast.success(t('import_firms_admin.toast_updated')),
+    onError: () => toast.error(t('import_firms_admin.toast_error')),
+  });
 
   const { data, isLoading, isError } = useAdminImportFirms();
   const allRows = useMemo(() => data ?? [], [data]);
@@ -89,6 +96,38 @@ export default function ImportFirmsPage() {
           ? <Tag color="green">{t('common.yes')}</Tag>
           : <Tag color="default">{t('common.no')}</Tag>,
     },
+    ...(canEdit
+      ? [
+          {
+            title: t('import_firms_admin.actions'),
+            dataIndex: 'actions',
+            width: 180,
+            search: false,
+            render: (_, record) => {
+              const targetGapy = !record.is_gapy_satys;
+              return (
+                <Popconfirm
+                  title={t('import_firms_admin.confirm_move')}
+                  okText={t('common.yes')}
+                  cancelText={t('common.no')}
+                  onConfirm={() => moveMutation.mutate({ id: record.id, is_gapy_satys: targetGapy })}
+                >
+                  <Button
+                    size="small"
+                    icon={<SwapOutlined />}
+                    loading={moveMutation.isPending}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {targetGapy
+                      ? t('import_firms_admin.move_to_gapy')
+                      : t('import_firms_admin.move_to_our')}
+                  </Button>
+                </Popconfirm>
+              );
+            },
+          } as ProColumns<IImportFirm>,
+        ]
+      : []),
   ];
 
   if (isError) return <Alert message={t('import_firms_admin.error_load')} type="error" style={{ marginTop: 40 }} />;
