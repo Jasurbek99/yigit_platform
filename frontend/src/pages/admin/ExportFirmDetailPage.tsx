@@ -37,6 +37,7 @@ const { Title, Text } = Typography;
 
 interface FirmFormValues {
   code: string;
+  name_short: string;
   name_tk: string;
   name_en: string;
   name_ru: string;
@@ -100,6 +101,7 @@ export default function ExportFirmDetailPage() {
     if (!firm) return;
     form.setFieldsValue({
       code: firm.code,
+      name_short: firm.name_short ?? '',
       name_tk: firm.name_tk,
       name_en: firm.name_en ?? '',
       name_ru: firm.name_ru ?? '',
@@ -123,6 +125,7 @@ export default function ExportFirmDetailPage() {
     const values = await form.validateFields();
     const payload: Omit<IExportFirm, 'id'> = {
       code: values.code,
+      name_short: values.name_short || null,
       name_tk: values.name_tk,
       name_en: values.name_en || null,
       name_ru: values.name_ru || null,
@@ -215,6 +218,7 @@ export default function ExportFirmDetailPage() {
         <>
           <Descriptions bordered column={2} size="small" style={{ marginBottom: 24 }}>
             <Descriptions.Item label={t('firms_admin.code')}>{firm.code}</Descriptions.Item>
+            <Descriptions.Item label={t('firms_admin.name_short')}>{firm.name_short || empty}</Descriptions.Item>
             <Descriptions.Item label={t('firms_admin.is_active')}>
               {firm.is_active
                 ? <Tag color="green">{t('common.yes')}</Tag>
@@ -241,9 +245,15 @@ export default function ExportFirmDetailPage() {
           </Descriptions>
 
           <Descriptions bordered column={1} size="small" title={t('firms_admin.bank_details')}>
-            <Descriptions.Item label={t('firms_admin.bank_details_tk')}>{firm.bank_details_tk || empty}</Descriptions.Item>
-            <Descriptions.Item label={t('firms_admin.bank_details_en')}>{firm.bank_details_en || empty}</Descriptions.Item>
-            <Descriptions.Item label={t('firms_admin.bank_details_ru')}>{firm.bank_details_ru || empty}</Descriptions.Item>
+            <Descriptions.Item label={t('firms_admin.bank_details_tk')}>
+              <span style={{ whiteSpace: 'pre-line' }}>{firm.bank_details_tk || empty}</span>
+            </Descriptions.Item>
+            <Descriptions.Item label={t('firms_admin.bank_details_en')}>
+              <span style={{ whiteSpace: 'pre-line' }}>{firm.bank_details_en || empty}</span>
+            </Descriptions.Item>
+            <Descriptions.Item label={t('firms_admin.bank_details_ru')}>
+              <span style={{ whiteSpace: 'pre-line' }}>{firm.bank_details_ru || empty}</span>
+            </Descriptions.Item>
           </Descriptions>
         </>
       )}
@@ -272,6 +282,9 @@ export default function ExportFirmDetailPage() {
       >
         <Form form={form} layout="vertical" initialValues={{ is_active: true, is_gapy_satys: false }}>
           <Form.Item name="code" label={t('firms_admin.code')} rules={[{ required: true, message: t('common.required') }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="name_short" label={t('firms_admin.name_short')}>
             <Input />
           </Form.Item>
           <Form.Item name="name_tk" label={t('firms_admin.name_tk')} rules={[{ required: true, message: t('common.required') }]}>

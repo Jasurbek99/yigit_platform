@@ -58,7 +58,7 @@ class CitySerializer(serializers.ModelSerializer):
 class ExportFirmReferenceSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExportFirm
-        fields = ['id', 'code', 'name_tk', 'name_ru', 'name_en', 'color', 'sort_order', 'is_active', 'is_gapy_satys']
+        fields = ['id', 'code', 'name_short', 'name_tk', 'name_ru', 'name_en', 'color', 'sort_order', 'is_active', 'is_gapy_satys']
 
 
 class ShipmentStatusTypeSerializer(serializers.ModelSerializer):

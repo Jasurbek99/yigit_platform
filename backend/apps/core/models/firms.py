@@ -6,6 +6,8 @@ class ExportFirm(models.Model):
     """YGT export companies (legal entities for customs documents)."""
 
     code = models.CharField(max_length=20, unique=True)
+    # Shorter label shown on the shipment list/sheet (documents use `code`).
+    name_short = models.CharField(max_length=100, blank=True, null=True, **cyrillic_collation())
     name_tk = models.CharField(max_length=200, **cyrillic_collation())
     name_ru = models.CharField(max_length=200, blank=True, null=True, **cyrillic_collation())
     name_en = models.CharField(max_length=200, blank=True, null=True)

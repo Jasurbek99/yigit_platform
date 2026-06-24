@@ -70,6 +70,7 @@ export interface ICity {
 export interface IExportFirm {
   id: number;
   code: string;
+  name_short: string | null;
   name_tk: string;
   name_ru: string | null;
   name_en: string | null;

@@ -298,7 +298,7 @@ export default function ImportFirmDetailPage() {
               {firm.address || empty}
             </Descriptions.Item>
             <Descriptions.Item label={t('import_firms_admin.bank_details')} span={2}>
-              {firm.bank_details || empty}
+              <span style={{ whiteSpace: 'pre-line' }}>{firm.bank_details || empty}</span>
             </Descriptions.Item>
             <Descriptions.Item label={t('import_firms_admin.is_active')}>
               {firm.is_active

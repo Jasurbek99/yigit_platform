@@ -597,6 +597,7 @@ export default function OptionListsTab({ canWrite }: IProps) {
       case 'export_firm': {
         const payload = {
           code: values.code ?? '',
+          name_short: values.name_short ?? null,
           name_tk: values.name_tk ?? '',
           name_en: values.name_en ?? null,
           name_ru: values.name_ru ?? null,

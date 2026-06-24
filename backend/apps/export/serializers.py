@@ -302,12 +302,14 @@ class ShipmentListSerializer(serializers.ModelSerializer):
     export_firms_display = serializers.SerializerMethodField()
 
     def get_export_firms_display(self, obj) -> str | None:
-        codes = [
-            split.export_firm.code
+        # Shipment display uses the firm short name; fall back to the document
+        # code for firms that have no short name set yet.
+        names = [
+            (split.export_firm.name_short or split.export_firm.code)
             for split in obj.firm_splits.all()
-            if split.export_firm_id and split.export_firm.code
+            if split.export_firm_id and (split.export_firm.name_short or split.export_firm.code)
         ]
-        return ', '.join(codes) if codes else None
+        return ', '.join(names) if names else None
 
     # Transport — human label for the responsible-party enum
     vehicle_responsible_display = serializers.CharField(source='vehicle_responsible', read_only=True)
@@ -490,8 +492,15 @@ class ShipmentDraftListSerializer(ShipmentListSerializer):
 class SheetFirmSplitInlineSerializer(serializers.ModelSerializer):
     """Inline firm split for sheet view — minimal fields."""
 
-    firm_code = serializers.CharField(source='export_firm.code', read_only=True)
+    # Shipment display uses the firm short name; fall back to the document code.
+    firm_code = serializers.SerializerMethodField()
     firm_name = serializers.CharField(source='export_firm.name_en', read_only=True)
+
+    def get_firm_code(self, obj) -> str | None:
+        firm = obj.export_firm
+        if not firm:
+            return None
+        return firm.name_short or firm.code
     # Per-firm cell color — paints the firm-chip in the firm_splits cell.
     firm_color = serializers.CharField(source='export_firm.color', read_only=True, default=None)
 
