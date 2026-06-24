@@ -4,12 +4,11 @@ Single source of truth for writing the denormalized totals on Contract:
     exported_trucks, exported_quantity_kg, exported_amount_usd,
     payment_received_usd, remaining_usd.
 
-Called from Invoice.save / Invoice.delete (Slice B) and will be called
-from InvoicePayment.save / delete (Slice C). Never write these fields
-directly anywhere else — Contract has an AD-1-style invariant that only
-this function may touch them.
+Called from ContractSale.save / ContractSale.delete. Never write these
+fields directly anywhere else — Contract has an AD-1-style invariant that
+only this function may touch them.
 
-Excludes invoices with status='void' from all aggregates.
+Excludes contract sales with status='void' from all aggregates.
 """
 from decimal import Decimal
 
@@ -33,16 +32,16 @@ def rollup_contract_totals(contract_id: int) -> None:
     """
     # Import here to avoid the circular import: models imports this service,
     # so a top-level import of Contract would fail at module load time.
-    from apps.contracts.models import Contract, Invoice
+    from apps.contracts.models import Contract, ContractSale
 
     with transaction.atomic():
         # Lock the contract row to prevent concurrent rollup races
         contract = Contract.objects.select_for_update().get(id=contract_id)
 
-        # Aggregate over non-void invoices
+        # Aggregate over non-void contract sales
         agg = (
-            Invoice.objects.filter(contract_id=contract_id)
-            .exclude(status=Invoice.STATUS_VOID)
+            ContractSale.objects.filter(contract_id=contract_id)
+            .exclude(status=ContractSale.STATUS_VOID)
             .aggregate(
                 truck_count=Count('id'),
                 total_kg=Sum('quantity_kg'),
@@ -61,9 +60,9 @@ def rollup_contract_totals(contract_id: int) -> None:
         # Ostatok = exported amount - payments received
         remaining_usd = exported_amount_usd - payment_received_usd
 
-        # Track the highest invoice number for convenience (NULL when no invoices)
+        # Track the highest invoice number for convenience (NULL when no sales)
         last_invoice_number = (
-            Invoice.objects.filter(contract_id=contract_id)
+            ContractSale.objects.filter(contract_id=contract_id)
             .aggregate(max_num=Max('invoice_number'))
             ['max_num']
         )

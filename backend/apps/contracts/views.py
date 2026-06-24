@@ -9,14 +9,14 @@ from rest_framework.viewsets import ModelViewSet
 
 from apps.core.permissions import DynamicResourcePermission
 from apps.contracts.document_templates.registry import SCOPE_INVOICE, get_spec
-from apps.contracts.models import Contract, Invoice
+from apps.contracts.models import Contract, ContractSale
 from apps.contracts.serializers import (
     ContractCreateSerializer,
     ContractDetailSerializer,
     ContractListSerializer,
-    InvoiceCreateSerializer,
-    InvoiceDetailSerializer,
-    InvoiceListSerializer,
+    ContractSaleCreateSerializer,
+    ContractSaleDetailSerializer,
+    ContractSaleListSerializer,
 )
 from apps.contracts.services.document_render import DocumentRenderError, generate
 
@@ -98,11 +98,11 @@ class ContractViewSet(ModelViewSet):
         return ContractDetailSerializer
 
 
-class InvoiceViewSet(ModelViewSet):
-    """CRUD ViewSet for invoices.
+class ContractSaleViewSet(ModelViewSet):
+    """CRUD ViewSet for contract sales.
 
     Access is gated by the dynamic permission matrix via ``resource_code =
-    'invoice'`` (RoleResourcePermission). Defaults (seed_permissions):
+    'sale'`` (RoleResourcePermission). Defaults (seed_permissions):
     view/create/edit for admin, director, export_manager; **delete for admin
     only** (rollback is too easy to mess up — director/export_manager get
     view+create+edit, no delete); view-only for boss; no access for other roles.
@@ -110,7 +110,7 @@ class InvoiceViewSet(ModelViewSet):
     Standard PageNumberPagination (default 50, max 200 per project api-contract).
 
     Supports filters (all combinable, all server-side):
-      ?contract=<id>             — only invoices for a specific contract
+      ?contract=<id>             — only sales for a specific contract
       ?status=<code>             — filter by status (draft|sent|paid|void)
       ?export_firm=<id>          — filter by seller
       ?import_firm=<id>          — filter by buyer
@@ -121,9 +121,9 @@ class InvoiceViewSet(ModelViewSet):
     """
 
     permission_classes = [IsAuthenticated, DynamicResourcePermission]
-    resource_code = 'invoice'
+    resource_code = 'sale'
 
-    queryset = Invoice.objects.select_related(
+    queryset = ContractSale.objects.select_related(
         'contract',
         'shipment',
         'export_firm',
@@ -172,14 +172,14 @@ class InvoiceViewSet(ModelViewSet):
     def get_serializer_class(self):
         """Use the appropriate serializer for each action."""
         if self.action == 'list':
-            return InvoiceListSerializer
+            return ContractSaleListSerializer
         if self.action in ('create', 'update', 'partial_update'):
-            return InvoiceCreateSerializer
-        return InvoiceDetailSerializer
+            return ContractSaleCreateSerializer
+        return ContractSaleDetailSerializer
 
     @action(detail=True, methods=['get'], url_path='document')
     def document(self, request, pk=None):
-        """Generate an invoice document (.docx or PDF) for this invoice.
+        """Generate an invoice document (.docx or PDF) for this sale.
 
         Query params:
             type: registry key — defaults to ``invoice_ru`` (also ``invoice_en``).

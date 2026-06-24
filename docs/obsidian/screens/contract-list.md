@@ -70,7 +70,7 @@ On submit: `POST /api/v1/contracts/contracts/` → sonner toast on success → P
 
 ## Detail page (Slice A placeholder)
 
-`ContractDetail.tsx` — Ant Design Descriptions block with all scalar fields. Rich tabs (Invoices / Shipments / Passports / Comments) are deferred to Slice B.
+`ContractDetail.tsx` — Ant Design Descriptions block with all scalar fields. Rich tabs (Sales / Shipments / Passports / Comments) are deferred to Slice B.
 
 ## Files
 

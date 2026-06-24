@@ -45,7 +45,7 @@ _HARVEST_BOARD = 'export.harvest_board'
 _FEEDBACK_COMMON = {'feedback.submit', 'feedback.my_tickets', 'feedback.public'}
 _UNIVERSAL = {'me.board'} | _FEEDBACK_COMMON
 
-# Contracts module pages (contracts.list, contracts.invoices) default to
+# Contracts module pages (contracts.list, contracts.sales) default to
 # MANAGEMENT ONLY: admin / director / export_manager get them automatically
 # because their sets are derived from _ALL_PAGES (contracts.* is not admin.*).
 # No other role is granted them here — they stay hidden until an admin toggles
@@ -146,9 +146,9 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
     'admin': {r: _VCRUD for r in _ALL_RESOURCES},
     'director': {
         **{r: _VCRUD for r in _ALL_RESOURCES},
-        # invoice: director may create/edit but NOT delete — invoice deletion is
-        # admin-only (rollback is too easy to mess up). See InvoiceViewSet.
-        'invoice': _VCE,
+        # sale: director may create/edit but NOT delete — sale deletion is
+        # admin-only (rollback is too easy to mess up). See ContractSaleViewSet.
+        'sale': _VCE,
     },
     'export_manager': {
         **{r: _VCRUD for r in _ALL_RESOURCES},
@@ -157,8 +157,8 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
         # truck_split_default: read-only for export_manager — only the director
         # may change the official kg-per-firm constants (Gap 7 / ADR-016).
         'truck_split_default': _VIEW,
-        # invoice: create/edit but NOT delete — invoice deletion is admin-only.
-        'invoice': _VCE,
+        # sale: create/edit but NOT delete — sale deletion is admin-only.
+        'sale': _VCE,
     },
     'weight_master': {
         'shipment': _VIEW,                              # can view but not edit shipment proper

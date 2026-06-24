@@ -57,7 +57,7 @@ const ShipmentBoard = lazy(() => import('@/pages/export/ShipmentBoard'));
 const DailyHarvestBoard = lazy(() => import('@/pages/export/DailyHarvestBoard'));
 const ContractList = lazy(() => import('@/pages/contracts/ContractList'));
 const ContractDetail = lazy(() => import('@/pages/contracts/ContractDetail'));
-const InvoiceList = lazy(() => import('@/pages/invoices/InvoiceList'));
+const ContractSaleList = lazy(() => import('@/pages/sales/ContractSaleList'));
 const WorklogPage = lazy(() => import('@/pages/worklog/WorklogPage'));
 
 const queryClient = new QueryClient({
@@ -244,9 +244,9 @@ export default function App() {
                   <Route path="contracts/:id" element={
                     <ProtectedRoute pageCode="contracts.list"><ContractDetail /></ProtectedRoute>
                   } />
-                  {/* Invoices list (P4 Slice C) */}
-                  <Route path="invoices" element={
-                    <ProtectedRoute pageCode="contracts.invoices"><InvoiceList /></ProtectedRoute>
+                  {/* Contract Sales list (P4 Slice C) */}
+                  <Route path="sales" element={
+                    <ProtectedRoute pageCode="contracts.sales"><ContractSaleList /></ProtectedRoute>
                   } />
                 </Route>
                 <Route path="/unauthorized" element={<UnauthorizedPage />} />

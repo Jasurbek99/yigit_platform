@@ -71,7 +71,7 @@ flowchart LR
 | [[customs-expense-ledger]] | Customs/document cash-float expenses (money-out) + advances balance | AdvancesTracker (Customs expenses tab), ShipmentDetail |
 | [[domestic-sales]] | Greenhouse domestic sales records | DomesticSales |
 | [[quality-documents]] | Quality certificates and document tracking | ShipmentDetail (Document tab) |
-| [[document-generation]] | Auto-fill export documents (Invoice + CMR, RU/EN, .docx + PDF) from contract/invoice/shipment data | InvoiceList / InvoiceDetail (Generate) |
+| [[document-generation]] | Auto-fill export documents (Invoice + CMR, RU/EN, .docx + PDF) from contract/sale/shipment data | ContractSaleList (Generate) |
 | [[sales-report]] | Rich structured sales report with line items + itemized expenses + Kurs | ShipmentDetail (Sales Report section) |
 | [[comments-tasks]] | Cell-anchored threaded comments with @user/@role mentions and single-assignee tasks | ShipmentSheet (Comments Drawer), ShipmentDetail (Changes tab) |
 | [[realtime-presence]] | WebSocket presence avatars showing who is on the Sheet right now (Channels + Redis + uvicorn workers) | ShipmentSheet (toolbar) |
@@ -107,15 +107,15 @@ See [[roles-matrix]] for the full capability matrix.
 - [[screens/self-board]] — Personal task board at `/me/board` — inline task completion with editable fields and SheetCellEditor integration
 - [[screens/feedback-module]] — Centralised in-app feedback at `/feedback/*` and `/admin/feedback` — bug/suggestion/question tickets with screenshot attachments, three reply modes, public knowledge feed
 - [[screens/contract-list]] — Contracts list page at `/contracts` — ProTable with grouped columns, create modal, show-ended toggle (P4 Slice A)
-- [[screens/contract-detail]] — Contract detail page at `/contracts/:id` — header Descriptions + four tabs; Faktura tab with invoice CRUD (P4 Slice B)
-- [[screens/invoice-list]] — All-invoices list page at `/invoices` — cross-contract ProTable with search, status filter, full CRUD (P4 Slice C)
+- [[screens/contract-detail]] — Contract detail page at `/contracts/:id` — header Descriptions + four tabs; Faktura tab with contract-sale CRUD (P4 Slice B)
+- [[screens/contract-sale-list]] — All-sales list page at `/sales` — cross-contract ProTable with search, status filter, full CRUD (P4 Slice C)
 
 ## Reference
 
 - [[api-endpoint-map]] — Every API endpoint mapped to frontend hook, page, and backend model
 - [[data-model-map]] — All 40+ models with ER diagram and field lists
 - [[contracts-contract-model]] — Contract model (P4 Slice A): fields, status enum, computed properties, API endpoints
-- [[contracts-invoice-model]] — Invoice model (P4 Slice B): fields, status enum, rollup service, auto-compute total_usd, API endpoints
+- [[contracts-contract-sale-model]] — Contract Sale model (P4 Slice B): fields, status enum, rollup service, auto-compute total_usd, API endpoints
 - [[status-codes]] — 13 shipment statuses with codes, phases, timestamps, roles
 - [[deployment-guide]] — Docker, MSSQL, env vars, seed commands
 - [[data-imports]] — 14 management commands for data migration

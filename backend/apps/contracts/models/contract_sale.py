@@ -1,4 +1,11 @@
-"""Invoice model — one truck dispatch against a contract (2-Sales row)."""
+"""ContractSale model — one truck sold against a contract (the "2-Sales" row).
+
+Renamed from ``Invoice`` to avoid confusion with the actual *invoice document*
+the platform generates (``invoice_ru`` / ``invoice_en`` templates). This model is
+the sale *record*; the invoice is one of several documents produced from it. The
+fields ``invoice_number`` / ``invoice_date`` are kept — they name the invoice
+document's number/date for this sale.
+"""
 from decimal import Decimal
 
 from django.db import models
@@ -6,8 +13,8 @@ from django.db import models
 from apps.core.db_utils import cyrillic_collation, schema_table
 
 
-class Invoice(models.Model):
-    """One invoice represents one truck dispatched under a parent contract.
+class ContractSale(models.Model):
+    """One contract sale represents one truck dispatched under a parent contract.
 
     Denormalized contract totals are updated automatically via
     ``rollup_contract_totals()`` called from save() and delete().
@@ -16,8 +23,8 @@ class Invoice(models.Model):
     Status flow: draft → sent → paid → void.
     Only 'void' is excluded from rollup aggregates; all other statuses count.
 
-    NOTE: A proper status-transition endpoint with audit trail is deferred to
-    Slice F. Until then, PATCH ``status`` directly is permitted.
+    NOTE: A proper status-transition endpoint with audit trail is deferred.
+    Until then, PATCH ``status`` directly is permitted.
     """
 
     STATUS_DRAFT = 'draft'
@@ -36,7 +43,7 @@ class Invoice(models.Model):
     contract = models.ForeignKey(
         'contracts.Contract',
         on_delete=models.PROTECT,
-        related_name='invoices',
+        related_name='sales',
     )
 
     # === Shipment link (nullable — wired later) ===
@@ -45,10 +52,10 @@ class Invoice(models.Model):
         on_delete=models.PROTECT,
         null=True,
         blank=True,
-        related_name='invoices',
+        related_name='sales',
     )
 
-    # === Invoice identifiers ===
+    # === Invoice-document identifiers (the invoice number/date for this sale) ===
     invoice_number = models.IntegerField()
     invoice_date = models.DateField()
     serial_truck_number = models.IntegerField(null=True, blank=True)
@@ -59,14 +66,14 @@ class Invoice(models.Model):
         on_delete=models.PROTECT,
         null=True,
         blank=True,
-        related_name='invoices',
+        related_name='sales',
     )
     import_firm = models.ForeignKey(
         'core.ImportFirm',
         on_delete=models.PROTECT,
         null=True,
         blank=True,
-        related_name='invoices',
+        related_name='sales',
     )
 
     # === Trade terms ===
@@ -104,7 +111,7 @@ class Invoice(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = schema_table('contracts', 'invoice')
+        db_table = schema_table('contracts', 'contract_sale')
         unique_together = [('contract', 'invoice_number')]
         ordering = ['contract_id', 'invoice_number']
 
@@ -127,9 +134,9 @@ class Invoice(models.Model):
 
         Rollup note: rollup_contract_totals() is the primary writer of
         Contract's exported_* fields. This save() calls it AFTER super().save()
-        so the new/updated invoice is visible to the aggregate query.
+        so the new/updated sale is visible to the aggregate query.
 
-        If the invoice is being moved from one contract to another (rare),
+        If the sale is being moved from one contract to another (rare),
         both old and new contracts are re-rolled so neither goes stale.
         """
         # Auto-compute total_usd when both components are present
@@ -149,7 +156,7 @@ class Invoice(models.Model):
 
         rollup_contract_totals(self.contract_id)
 
-        # If the invoice was reassigned to a different contract, roll up the old one too
+        # If the sale was reassigned to a different contract, roll up the old one too
         if old_contract_id is not None and old_contract_id != self.contract_id:
             rollup_contract_totals(old_contract_id)
 

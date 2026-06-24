@@ -1,7 +1,7 @@
 ---
 title: Contract Detail
 tags: [screen, contracts, p4, slice-b]
-related: [[../reference/contracts-invoice-model]], [[../reference/contracts-contract-model]], [[contract-list]]
+related: [[../reference/contracts-contract-sale-model]], [[../reference/contracts-contract-model]], [[contract-list]]
 ---
 
 # Contract Detail (P4 Slice B)
@@ -43,16 +43,16 @@ Four `Ant Design Tabs` below the Descriptions:
 
 | Tab key | Label (tk/ru/en) | Content |
 |---|---|---|
-| `invoices` | Fakturalar / Фактуры / Invoices | **InvoicesTab** — fully built (Slice B) |
+| `sales` | Fakturalar / Фактуры / Sales | **ContractSalesTab** — fully built (Slice B). i18n label key `contracts.detail.tab.sales` |
 | `payments` | Tölegler / Оплаты / Payments | "Coming soon" Empty — Slice C |
 | `passports` | Passport sdelkalary / Паспорта сделок / Deal Passports | "Coming soon" Empty — Slice D |
 | `comments` | Kommentarlar / Комментарии / Comments | "Coming soon" Empty — later |
 
-## Faktura Tab (InvoicesTab)
+## Faktura Tab (ContractSalesTab)
 
-Component: `pages/contracts/InvoicesTab.tsx`
+Component: `pages/contracts/ContractSalesTab.tsx`
 
-ProTable of `IInvoice` rows fetched from `GET /api/v1/contracts/invoices/?contract=<id>`.
+ProTable of `IContractSale` rows fetched from `GET /api/v1/contracts/sales/?contract=<id>`.
 
 ### Columns
 
@@ -62,7 +62,7 @@ ProTable of `IInvoice` rows fetched from `GET /api/v1/contracts/invoices/?contra
 | 2 | Faktura № | invoice_number |
 | 3 | Sene | invoice_date, formatted DD.MM.YYYY |
 | 4 | Tir № | serial_truck_number (— if null) |
-| 5 | Şipment kody | Link to `/export/shipments/{id}` when not null (always null until Slice E links invoices ↔ shipments) |
+| 5 | Şipment kody | Link to `/export/shipments/{id}` when not null (always null until Slice E links sales ↔ shipments) |
 | 6 | Mukdar (kg) | quantity_kg, integer formatted |
 | 7 | Baha ($/kg) | price_per_kg, 4 decimal places |
 | 8 | Jemi ($) | total_usd, prefixed with $ |
@@ -71,21 +71,21 @@ ProTable of `IInvoice` rows fetched from `GET /api/v1/contracts/invoices/?contra
 | 11 | Ýagdaý | status Tag — draft=default, sent=blue, paid=green, void=red |
 | 12 | Hereket | Edit button (all roles) + Delete button (admin/superuser only, with Popconfirm) |
 
-Pagination: off. All invoices per contract fit in one page (dozens, not thousands).
+Pagination: off. All sales per contract fit in one page (dozens, not thousands).
 
 ### Toolbar
 
-"Faktura goş" primary button opens InvoiceCreate modal.
+"Faktura goş" primary button opens ContractSaleCreate modal.
 
 ### Next invoice number
 
-Derived from `Math.max(0, ...invoices.map(i => i.invoice_number)) + 1` because `last_invoice_number` is a Contract model field but is **not serialized** in `ContractListSerializer`/`ContractDetailSerializer` (Slice A decision). No backend change needed.
+Derived from `Math.max(0, ...sales.map(s => s.invoice_number)) + 1` because `last_invoice_number` is a Contract model field but is **not serialized** in `ContractListSerializer`/`ContractDetailSerializer` (Slice A decision). No backend change needed.
 
-## InvoiceCreate Modal
+## ContractSaleCreate Modal
 
-Component: `pages/contracts/InvoiceCreate.tsx`
+Component: `pages/contracts/ContractSaleCreate.tsx`
 
-Single component handles both CREATE (POST) and EDIT (PATCH) modes. Edit mode is activated by passing `editingInvoice` prop.
+Single component handles both CREATE (POST) and EDIT (PATCH) modes. Edit mode is activated by passing `editingSale` prop.
 
 ### Fields
 
@@ -101,44 +101,44 @@ Single component handles both CREATE (POST) and EDIT (PATCH) modes. Edit mode is
 | Skan ýüklendi | no | Checkbox |
 | Ýagdaý | no | Select, defaults `sent` |
 
-Money validation: at least (qty + price) OR total_usd must be filled. Frontend validates before submit; server also enforces via `InvoiceCreateSerializer.validate()`.
+Money validation: at least (qty + price) OR total_usd must be filled. Frontend validates before submit; server also enforces via `ContractSaleCreateSerializer.validate()`.
 
 ### On success
 
 1. Sonner toast (created / updated).
-2. Both `['invoices']` and `['contracts']` TanStack Query families invalidated — contract header rollup refreshes automatically.
+2. Both `['contract-sales']` and `['contracts']` TanStack Query families invalidated — contract header rollup refreshes automatically.
 3. Form reset + modal close.
 
 ### DRF field errors
 
 Mapped to `Form.Item` via `form.setFields()`. Non-field / unexpected errors → toast.
 
-## Delete invoice
+## Delete sale
 
-Admin / superuser only (button hidden for other roles). Popconfirm two-step. On confirm: `DELETE /api/v1/contracts/invoices/{id}/` → server re-rolls contract totals → `['invoices']` + `['contracts']` invalidated.
+Admin / superuser only (button hidden for other roles). Popconfirm two-step. On confirm: `DELETE /api/v1/contracts/sales/{id}/` → server re-rolls contract totals → `['contract-sales']` + `['contracts']` invalidated.
 
 ## Files
 
 | File | Role |
 |---|---|
 | `frontend/src/pages/contracts/ContractDetail.tsx` | Detail page (header + tabs) |
-| `frontend/src/pages/contracts/InvoicesTab.tsx` | Faktura ProTable |
-| `frontend/src/pages/contracts/InvoiceCreate.tsx` | Create + Edit modal |
-| `frontend/src/hooks/useInvoices.ts` | useInvoices, useInvoice, useCreateInvoice, useUpdateInvoice, useDeleteInvoice |
-| `frontend/src/types/invoice.ts` | IInvoice, IInvoiceDetail, IInvoiceCreatePayload, IInvoiceUpdatePayload, InvoiceStatus |
+| `frontend/src/pages/contracts/ContractSalesTab.tsx` | Faktura ProTable |
+| `frontend/src/pages/contracts/ContractSaleCreate.tsx` | Create + Edit modal |
+| `frontend/src/hooks/useContractSales.ts` | useContractSales, useContractSale, useCreateContractSale, useUpdateContractSale, useDeleteContractSale |
+| `frontend/src/types/contractSale.ts` | IContractSale, IContractSaleDetail, IContractSaleCreatePayload, IContractSaleUpdatePayload, ContractSaleStatus |
 
 ## API
 
-`GET /api/v1/contracts/invoices/?contract=<id>` — list (flat, no pagination for now)
-`POST /api/v1/contracts/invoices/` — create
-`PATCH /api/v1/contracts/invoices/{id}/` — update
-`DELETE /api/v1/contracts/invoices/{id}/` — delete (admin/superuser)
+`GET /api/v1/contracts/sales/?contract=<id>` — list (flat, no pagination for now)
+`POST /api/v1/contracts/sales/` — create
+`PATCH /api/v1/contracts/sales/{id}/` — update
+`DELETE /api/v1/contracts/sales/{id}/` — delete (admin/superuser)
 
-See [[../reference/contracts-invoice-model]] for full field list, rollup service behaviour, and validation rules.
+See [[../reference/contracts-contract-sale-model]] for full field list, rollup service behaviour, and validation rules.
 
 ## Upcoming (out of scope for Slice B)
 
 - Slice C: Payments tab
 - Slice D: Passports tab
-- Slice E: Invoice ↔ Shipment linking (`shipment_code` column will become clickable)
+- Slice E: Contract Sale ↔ Shipment linking (`shipment_code` column will become clickable)
 - Slice F: Status transition workflow with audit trail

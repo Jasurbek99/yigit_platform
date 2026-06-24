@@ -1,4 +1,4 @@
 from .contract import Contract
-from .invoice import Invoice
+from .contract_sale import ContractSale
 
-__all__ = ['Contract', 'Invoice']
+__all__ = ['Contract', 'ContractSale']

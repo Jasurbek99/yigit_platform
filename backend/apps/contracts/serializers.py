@@ -5,14 +5,14 @@ Three serializers per the API contract rules:
   - ContractDetailSerializer — same plus editable_fields
   - ContractCreateSerializer — writable, sets created_by from request
 
-  - InvoiceListSerializer   — flat, for the Faktura tab table
-  - InvoiceDetailSerializer — same plus editable_fields
-  - InvoiceCreateSerializer — writable, validates money and contract status
+  - ContractSaleListSerializer   — flat, for the Sales tab table
+  - ContractSaleDetailSerializer — same plus editable_fields
+  - ContractSaleCreateSerializer — writable, validates money and contract status
 """
 from rest_framework import serializers
 
 from apps.core.permissions import get_editable_fields
-from apps.contracts.models import Contract, Invoice
+from apps.contracts.models import Contract, ContractSale
 
 
 class ContractListSerializer(serializers.ModelSerializer):
@@ -104,7 +104,7 @@ class ContractListSerializer(serializers.ModelSerializer):
 class ContractDetailSerializer(ContractListSerializer):
     """Full contract detail — same as list for Slice A.
 
-    Later slices will add nested invoices, payments, and passports.
+    Later slices will add nested sales, payments, and passports.
     """
 
     editable_fields = serializers.SerializerMethodField()
@@ -155,11 +155,11 @@ class ContractCreateSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
-# ─── Invoice serializers ──────────────────────────────────────────────────────
+# ─── Contract sale serializers ────────────────────────────────────────────────
 
 
-class InvoiceListSerializer(serializers.ModelSerializer):
-    """Flat serializer for the Faktura tab table.
+class ContractSaleListSerializer(serializers.ModelSerializer):
+    """Flat serializer for the Sales tab table.
 
     All FK fields follow the api-contract.md renaming convention:
     ID alongside a _name / _code display sibling.
@@ -189,7 +189,7 @@ class InvoiceListSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source='get_status_display', read_only=True)
 
     class Meta:
-        model = Invoice
+        model = ContractSale
         fields = [
             'id',
             'contract',
@@ -215,14 +215,14 @@ class InvoiceListSerializer(serializers.ModelSerializer):
             'updated_at',
         ]
 
-    def get_shipment_code(self, obj: Invoice) -> str | None:
+    def get_shipment_code(self, obj: ContractSale) -> str | None:
         """Return the shipment_code of the linked shipment, or None."""
         if obj.shipment_id is None:
             return None
         shipment = obj.shipment
         return getattr(shipment, 'code', None)
 
-    def get_import_firm_name(self, obj: Invoice) -> str | None:
+    def get_import_firm_name(self, obj: ContractSale) -> str | None:
         """Return name_short if available, else name_company."""
         firm = obj.import_firm
         if firm is None:
@@ -230,25 +230,25 @@ class InvoiceListSerializer(serializers.ModelSerializer):
         return getattr(firm, 'name_short', None) or getattr(firm, 'name_company', None)
 
 
-class InvoiceDetailSerializer(InvoiceListSerializer):
-    """Full invoice detail — adds editable_fields for the edit form."""
+class ContractSaleDetailSerializer(ContractSaleListSerializer):
+    """Full contract-sale detail — adds editable_fields for the edit form."""
 
     editable_fields = serializers.SerializerMethodField()
 
-    class Meta(InvoiceListSerializer.Meta):
-        fields = InvoiceListSerializer.Meta.fields + ['editable_fields']
+    class Meta(ContractSaleListSerializer.Meta):
+        fields = ContractSaleListSerializer.Meta.fields + ['editable_fields']
 
-    def get_editable_fields(self, obj: Invoice) -> list[str]:
+    def get_editable_fields(self, obj: ContractSale) -> list[str]:
         """Return the fields editable by the requesting user's role."""
         request = self.context.get('request')
         if request is None:
             return []
         role = getattr(request.user, 'role', None)
-        return get_editable_fields(role, resource_code='invoice')
+        return get_editable_fields(role, resource_code='sale')
 
 
-class InvoiceCreateSerializer(serializers.ModelSerializer):
-    """Writable serializer for invoice creation and updates.
+class ContractSaleCreateSerializer(serializers.ModelSerializer):
+    """Writable serializer for contract-sale creation and updates.
 
     Validation rules:
     - Either (quantity_kg AND price_per_kg) OR total_usd must be provided.
@@ -260,7 +260,7 @@ class InvoiceCreateSerializer(serializers.ModelSerializer):
     """
 
     class Meta:
-        model = Invoice
+        model = ContractSale
         fields = [
             'contract',
             'shipment',
@@ -323,13 +323,13 @@ class InvoiceCreateSerializer(serializers.ModelSerializer):
         # Validate contract is not cancelled — only when the caller is explicitly
         # assigning (or re-assigning) a contract.  On PATCH, if 'contract' is
         # absent from the request body we do NOT fall back to self.instance;
-        # that would block status-only PATCHes on invoices whose contract was
+        # that would block status-only PATCHes on sales whose contract was
         # later cancelled, which contradicts the spec intent ("Posting against
         # a cancelled contract is rejected").
         contract = attrs.get('contract')
         if contract is not None and contract.status == Contract.STATUS_CANCELLED:
             raise serializers.ValidationError(
-                'Cannot create an invoice against a cancelled contract.'
+                'Cannot create a sale against a cancelled contract.'
             )
 
         return attrs

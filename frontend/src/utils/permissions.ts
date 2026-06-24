@@ -46,7 +46,7 @@ const ROUTE_PAGE_MAP: Record<string, string> = {
   '/feedback/public':           'feedback.public',
   '/admin/feedback':            'feedback.admin_inbox',
   '/contracts':                 'contracts.list',
-  '/invoices':                  'contracts.invoices',
+  '/sales':                     'contracts.sales',
 };
 
 /**

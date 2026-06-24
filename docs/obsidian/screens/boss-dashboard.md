@@ -85,7 +85,7 @@ Firm risk_level (v1, until debt + credit data exists):
 
 - **Içerki Bazar** (domestic market per block) — excluded; will be added with the broader domestic-sales analytics phase.
 - **Sowgatlyk** (gift / promo per block) — excluded for the same reason.
-- **True debt aging + bank credit per firm** — wait for P4 Contracts (`Invoice`, `Payment`, firm credit table). v1 ships layout + placeholder badges only.
+- **True debt aging + bank credit per firm** — wait for P4 Contracts (`ContractSale`, `Payment`, firm credit table). v1 ships layout + placeholder badges only.
 - **AI summary block, drill-down modals, comparison mode, cash-flow forecast, what-if scenarios, mobile push, voice summary, PDF charts, Navixy GPS map, Logo Tiger / 1C live integrations** — all deferred to follow-up PRs.
 
 ## i18n

@@ -32,8 +32,8 @@ const DOC_FAMILIES: readonly IDocFamily[] = [
 const FORMATS = ['docx', 'pdf'] as const;
 
 /**
- * Per-invoice "Documents" dropdown — generates Invoice / CMR in RU/EN as
- * Word (.docx) or PDF, hitting GET /contracts/invoices/{id}/document/.
+ * Per-sale "Documents" dropdown — generates Invoice / CMR in RU/EN as
+ * Word (.docx) or PDF, hitting GET /contracts/sales/{id}/document/.
  */
 export function InvoiceDocumentsButton({
   invoiceId,
@@ -55,7 +55,7 @@ export function InvoiceDocumentsButton({
   const handleClick: MenuProps['onClick'] = ({ key }) => {
     const [type, fmt] = key.split('|');
     downloadUrl(
-      `/api/v1/contracts/invoices/${invoiceId}/document/?type=${type}&fmt=${fmt}`,
+      `/api/v1/contracts/sales/${invoiceId}/document/?type=${type}&fmt=${fmt}`,
     );
   };
 

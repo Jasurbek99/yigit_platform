@@ -7,26 +7,26 @@ import type { ProColumns } from '@ant-design/pro-components';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import dayjs from 'dayjs';
-import { useInvoices, useDeleteInvoice } from '@/hooks/useInvoices';
+import { useContractSales, useDeleteContractSale } from '@/hooks/useContractSales';
 import { useAuth } from '@/hooks/useAuth';
 import { ExportFirmSelect } from '@/components/ExportFirmSelect';
 import { ImportFirmSelect } from '@/components/ImportFirmSelect';
 import { InvoiceDocumentsButton } from '@/components/InvoiceDocumentsButton';
-import { InvoiceCreate } from '@/pages/contracts/InvoiceCreate';
-import type { IInvoice, InvoiceStatus } from '@/types/invoice';
+import { ContractSaleCreate } from '@/pages/contracts/ContractSaleCreate';
+import type { IContractSale, ContractSaleStatus } from '@/types/contractSale';
 
 const { Text, Link: TypoLink } = Typography;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const STATUS_COLORS: Record<InvoiceStatus, string> = {
+const STATUS_COLORS: Record<ContractSaleStatus, string> = {
   draft: 'default',
   sent: 'blue',
   paid: 'green',
   void: 'red',
 };
 
-const INVOICE_STATUSES: InvoiceStatus[] = ['draft', 'sent', 'paid', 'void'];
+const CONTRACT_SALE_STATUSES: ContractSaleStatus[] = ['draft', 'sent', 'paid', 'void'];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -46,13 +46,13 @@ function fmtPrice(value: string | number | null | undefined): string {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function InvoiceList() {
+export default function ContractSaleList() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [createOpen, setCreateOpen] = useState(false);
-  const [editingInvoice, setEditingInvoice] = useState<IInvoice | null>(null);
+  const [editingSale, setEditingSale] = useState<IContractSale | null>(null);
 
   // Local state for the search input so we can debounce URL writes (which
   // trigger refetches). Without the debounce every keystroke refetches.
@@ -78,7 +78,7 @@ export default function InvoiceList() {
 
   // ─── URL-synced filter state ─────────────────────────────────────────────
 
-  const statusFilter = (searchParams.get('status') as InvoiceStatus | null) ?? undefined;
+  const statusFilter = (searchParams.get('status') as ContractSaleStatus | null) ?? undefined;
   const searchText = searchParams.get('q') ?? '';
   const exportFirmFilter = searchParams.get('export_firm')
     ? Number(searchParams.get('export_firm'))
@@ -89,7 +89,7 @@ export default function InvoiceList() {
   const dateFrom = searchParams.get('date_from') ?? undefined;
   const dateTo = searchParams.get('date_to') ?? undefined;
 
-  const setStatus = (v: InvoiceStatus | undefined) => {
+  const setStatus = (v: ContractSaleStatus | undefined) => {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       if (v) next.set('status', v); else next.delete('status');
@@ -138,7 +138,7 @@ export default function InvoiceList() {
 
   // ─── Data fetch (server-side filtering + pagination) ─────────────────────
 
-  const { data, isLoading } = useInvoices({
+  const { data, isLoading } = useContractSales({
     status: statusFilter,
     exportFirm: exportFirmFilter,
     importFirm: importFirmFilter,
@@ -149,15 +149,15 @@ export default function InvoiceList() {
     pageSize,
   });
 
-  const invoices = data?.results ?? [];
+  const sales = data?.results ?? [];
   const total = data?.count ?? 0;
 
-  const deleteMutation = useDeleteInvoice();
+  const deleteMutation = useDeleteContractSale();
 
   const handleDelete = async (id: number) => {
     try {
       await deleteMutation.mutateAsync(id);
-      toast.success(t('invoices.delete.toast'));
+      toast.success(t('sales.delete.toast'));
     } catch {
       toast.error(t('common.error'));
     }
@@ -165,7 +165,7 @@ export default function InvoiceList() {
 
   // ─── Column definitions ──────────────────────────────────────────────────
 
-  const columns: ProColumns<IInvoice>[] = [
+  const columns: ProColumns<IContractSale>[] = [
     {
       title: '#',
       dataIndex: 'index',
@@ -174,13 +174,13 @@ export default function InvoiceList() {
       render: (_, __, index) => index + 1,
     },
     {
-      title: t('invoices.column.invoice_number'),
+      title: t('sales.column.invoice_number'),
       dataIndex: 'invoice_number',
       width: 80,
       sorter: (a, b) => a.invoice_number - b.invoice_number,
     },
     {
-      title: t('invoices.column.invoice_date'),
+      title: t('sales.column.invoice_date'),
       dataIndex: 'invoice_date',
       width: 110,
       defaultSortOrder: 'descend',
@@ -196,7 +196,7 @@ export default function InvoiceList() {
           : '—',
     },
     {
-      title: t('invoices_list.column.contract_number'),
+      title: t('sales_list.column.contract_number'),
       dataIndex: 'contract_number',
       width: 150,
       sorter: (a, b) =>
@@ -216,7 +216,7 @@ export default function InvoiceList() {
         ),
     },
     {
-      title: t('invoices_list.column.export_firm'),
+      title: t('sales_list.column.export_firm'),
       dataIndex: 'export_firm_name',
       width: 150,
       sorter: (a, b) =>
@@ -225,7 +225,7 @@ export default function InvoiceList() {
         record.export_firm_name ?? <Text type="secondary">—</Text>,
     },
     {
-      title: t('invoices_list.column.import_firm'),
+      title: t('sales_list.column.import_firm'),
       dataIndex: 'import_firm_name',
       width: 150,
       sorter: (a, b) =>
@@ -234,7 +234,7 @@ export default function InvoiceList() {
         record.import_firm_name ?? <Text type="secondary">—</Text>,
     },
     {
-      title: t('invoices.column.serial_truck_number'),
+      title: t('sales.column.serial_truck_number'),
       dataIndex: 'serial_truck_number',
       width: 80,
       render: (_, record) =>
@@ -243,7 +243,7 @@ export default function InvoiceList() {
         ),
     },
     {
-      title: t('invoices.column.quantity_kg'),
+      title: t('sales.column.quantity_kg'),
       dataIndex: 'quantity_kg',
       width: 110,
       sorter: (a, b) =>
@@ -252,13 +252,13 @@ export default function InvoiceList() {
       render: (_, record) => fmt(record.quantity_kg),
     },
     {
-      title: t('invoices.column.price_per_kg'),
+      title: t('sales.column.price_per_kg'),
       dataIndex: 'price_per_kg',
       width: 90,
       render: (_, record) => fmtPrice(record.price_per_kg),
     },
     {
-      title: t('invoices.column.total_usd'),
+      title: t('sales.column.total_usd'),
       dataIndex: 'total_usd',
       width: 110,
       sorter: (a, b) =>
@@ -270,7 +270,7 @@ export default function InvoiceList() {
         ),
     },
     {
-      title: t('invoices.column.passport_sdelka'),
+      title: t('sales.column.passport_sdelka'),
       dataIndex: 'passport_sdelka',
       width: 160,
       render: (_, record) => {
@@ -285,7 +285,7 @@ export default function InvoiceList() {
       },
     },
     {
-      title: t('invoices.column.scan_uploaded'),
+      title: t('sales.column.scan_uploaded'),
       dataIndex: 'scan_uploaded',
       width: 70,
       render: (_, record) =>
@@ -296,17 +296,17 @@ export default function InvoiceList() {
         ),
     },
     {
-      title: t('invoices.column.status'),
+      title: t('sales.column.status'),
       dataIndex: 'status',
       width: 90,
       render: (_, record) => (
         <Tag color={STATUS_COLORS[record.status] ?? 'default'}>
-          {t(`invoices.status.${record.status}`)}
+          {t(`sales.status.${record.status}`)}
         </Tag>
       ),
     },
     {
-      title: t('invoices.column.action'),
+      title: t('sales.column.action'),
       dataIndex: 'action',
       width: isAdmin ? 130 : 96,
       search: false,
@@ -322,13 +322,13 @@ export default function InvoiceList() {
             icon={<EditOutlined />}
             onClick={(e) => {
               e.stopPropagation();
-              setEditingInvoice(record);
+              setEditingSale(record);
             }}
           />
           {isAdmin && (
             <Popconfirm
-              title={t('invoices.delete.confirm_title')}
-              description={t('invoices.delete.confirm_body')}
+              title={t('sales.delete.confirm_title')}
+              description={t('sales.delete.confirm_body')}
               okText={t('common.delete')}
               cancelText={t('common.cancel')}
               okButtonProps={{ danger: true }}
@@ -352,14 +352,14 @@ export default function InvoiceList() {
     <Empty
       description={
         <span>
-          {t('invoices_list.empty.title')}
+          {t('sales_list.empty.title')}
           <br />
           <Button
             type="link"
             style={{ padding: 0, marginTop: 4 }}
             onClick={() => setCreateOpen(true)}
           >
-            {t('invoices_list.empty.cta')}
+            {t('sales_list.empty.cta')}
           </Button>
         </span>
       }
@@ -369,9 +369,9 @@ export default function InvoiceList() {
 
   return (
     <>
-      <ProTable<IInvoice>
+      <ProTable<IContractSale>
         rowKey="id"
-        dataSource={invoices}
+        dataSource={sales}
         columns={columns}
         loading={isLoading}
         search={false}
@@ -382,7 +382,7 @@ export default function InvoiceList() {
           total,
           pageSizeOptions: ['25', '50', '100', '200'],
           showSizeChanger: true,
-          showTotal: (n) => t('invoices_list.pagination.total', { total: n }),
+          showTotal: (n) => t('sales_list.pagination.total', { total: n }),
           onChange: (p, ps) => setPage(p, ps),
         }}
         size="small"
@@ -403,7 +403,7 @@ export default function InvoiceList() {
             key="search"
             type="text"
             value={searchInput}
-            placeholder={t('invoices_list.toolbar.search_placeholder')}
+            placeholder={t('sales_list.toolbar.search_placeholder')}
             onChange={(e) => setSearchInput(e.target.value)}
             style={{
               padding: '4px 8px',
@@ -419,7 +419,7 @@ export default function InvoiceList() {
           <ExportFirmSelect
             key="export_firm"
             allowClear
-            placeholder={t('invoices_list.toolbar.export_firm_placeholder')}
+            placeholder={t('sales_list.toolbar.export_firm_placeholder')}
             style={{ width: 160 }}
             value={exportFirmFilter ?? null}
             onChange={(v) => setExportFirm(v)}
@@ -429,7 +429,7 @@ export default function InvoiceList() {
           <ImportFirmSelect
             key="import_firm"
             allowClear
-            placeholder={t('invoices_list.toolbar.import_firm_placeholder')}
+            placeholder={t('sales_list.toolbar.import_firm_placeholder')}
             style={{ width: 160 }}
             value={importFirmFilter ?? null}
             onChange={(v) => setImportFirm(v)}
@@ -441,7 +441,7 @@ export default function InvoiceList() {
             allowClear
             style={{ width: 240 }}
             placeholder={
-              t('invoices_list.toolbar.date_range_placeholder', { returnObjects: true }) as [string, string]
+              t('sales_list.toolbar.date_range_placeholder', { returnObjects: true }) as [string, string]
             }
             value={
               dateFrom || dateTo
@@ -462,13 +462,13 @@ export default function InvoiceList() {
           <Select
             key="status"
             allowClear
-            placeholder={t('invoices_list.toolbar.status_placeholder')}
+            placeholder={t('sales_list.toolbar.status_placeholder')}
             style={{ width: 140 }}
             value={statusFilter}
-            onChange={(v) => setStatus(v as InvoiceStatus | undefined)}
-            options={INVOICE_STATUSES.map((s) => ({
+            onChange={(v) => setStatus(v as ContractSaleStatus | undefined)}
+            options={CONTRACT_SALE_STATUSES.map((s) => ({
               value: s,
-              label: t(`invoices.status.${s}`),
+              label: t(`sales.status.${s}`),
             }))}
           />,
 
@@ -479,25 +479,25 @@ export default function InvoiceList() {
             icon={<PlusOutlined />}
             onClick={() => setCreateOpen(true)}
           >
-            {t('invoices.add_button')}
+            {t('sales.add_button')}
           </Button>,
         ]}
-        headerTitle={t('nav.invoices.list')}
+        headerTitle={t('nav.sales.list')}
       />
 
       {/* Create modal — standalone mode (no contractId) */}
-      <InvoiceCreate
+      <ContractSaleCreate
         open={createOpen}
         onClose={() => setCreateOpen(false)}
       />
 
       {/* Edit modal */}
-      {editingInvoice && (
-        <InvoiceCreate
-          key={editingInvoice.id}
-          open={editingInvoice !== null}
-          onClose={() => setEditingInvoice(null)}
-          editingInvoice={editingInvoice}
+      {editingSale && (
+        <ContractSaleCreate
+          key={editingSale.id}
+          open={editingSale !== null}
+          onClose={() => setEditingSale(null)}
+          editingSale={editingSale}
         />
       )}
     </>

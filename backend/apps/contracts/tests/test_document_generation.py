@@ -3,9 +3,9 @@
 Three layers:
   * Pure context-builder unit tests (no DB; SimpleNamespace mocks).
   * Render smoke tests (fills the shipped templates; asserts no leftover tags).
-  * API integration tests (real DB) for the /invoices/{id}/document/ endpoint.
+  * API integration tests (real DB) for the /sales/{id}/document/ endpoint.
 
-Reuses the fixture helpers from test_invoice_api.
+Reuses the fixture helpers from test_contract_sale_api.
 """
 from datetime import date
 from decimal import Decimal
@@ -20,7 +20,7 @@ from django.test import SimpleTestCase, TestCase
 
 from apps.contracts.services import document_context as ctx
 from apps.contracts.services import document_render as render
-from apps.contracts.tests.test_invoice_api import (
+from apps.contracts.tests.test_contract_sale_api import (
     _SeededPermsMixin,
     _make_contract,
     _make_export_firm,
@@ -217,7 +217,7 @@ class InvoiceRenderSmokeTest(SimpleTestCase):
 
 
 class InvoiceDocumentEndpointTest(_SeededPermsMixin, TestCase):
-    """API: GET /api/v1/contracts/invoices/{id}/document/."""
+    """API: GET /api/v1/contracts/sales/{id}/document/."""
 
     def setUp(self) -> None:
         self.client = APIClient()
@@ -230,7 +230,7 @@ class InvoiceDocumentEndpointTest(_SeededPermsMixin, TestCase):
         self.invoice = _make_invoice(self.contract, invoice_number=1)
 
     def test_default_docx_download(self):
-        resp = self.client.get(f'/api/v1/contracts/invoices/{self.invoice.pk}/document/')
+        resp = self.client.get(f'/api/v1/contracts/sales/{self.invoice.pk}/document/')
         self.assertEqual(resp.status_code, 200, resp.content[:200])
         self.assertEqual(resp['Content-Type'], render.DOCX_CONTENT_TYPE)
         self.assertIn('attachment;', resp['Content-Disposition'])
@@ -239,14 +239,14 @@ class InvoiceDocumentEndpointTest(_SeededPermsMixin, TestCase):
 
     def test_invoice_en_type(self):
         resp = self.client.get(
-            f'/api/v1/contracts/invoices/{self.invoice.pk}/document/?type=invoice_en'
+            f'/api/v1/contracts/sales/{self.invoice.pk}/document/?type=invoice_en'
         )
         self.assertEqual(resp.status_code, 200)
         self.assertIn('_EN.docx', resp['Content-Disposition'])
 
     def test_cmr_ru_type(self):
         resp = self.client.get(
-            f'/api/v1/contracts/invoices/{self.invoice.pk}/document/?type=cmr_ru'
+            f'/api/v1/contracts/sales/{self.invoice.pk}/document/?type=cmr_ru'
         )
         self.assertEqual(resp.status_code, 200)
         self.assertIn('CMR_', resp['Content-Disposition'])
@@ -254,20 +254,20 @@ class InvoiceDocumentEndpointTest(_SeededPermsMixin, TestCase):
 
     def test_ct1_letter_type(self):
         resp = self.client.get(
-            f'/api/v1/contracts/invoices/{self.invoice.pk}/document/?type=ct1_ru'
+            f'/api/v1/contracts/sales/{self.invoice.pk}/document/?type=ct1_ru'
         )
         self.assertEqual(resp.status_code, 200)
         self.assertIn('CT1_', resp['Content-Disposition'])
 
     def test_unknown_type_returns_400(self):
         resp = self.client.get(
-            f'/api/v1/contracts/invoices/{self.invoice.pk}/document/?type=bogus'
+            f'/api/v1/contracts/sales/{self.invoice.pk}/document/?type=bogus'
         )
         self.assertEqual(resp.status_code, 400)
 
     def test_pdf_without_libreoffice_returns_503(self):
         with mock.patch.object(render, '_libreoffice_bin', return_value=None):
             resp = self.client.get(
-                f'/api/v1/contracts/invoices/{self.invoice.pk}/document/?fmt=pdf'
+                f'/api/v1/contracts/sales/{self.invoice.pk}/document/?fmt=pdf'
             )
         self.assertEqual(resp.status_code, 503)

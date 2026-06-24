@@ -127,7 +127,7 @@ export default function AppLayout() {
     '/admin/staff-access': t('nav.admin_staff_access'),
     '/me/board': t('me.nav.board'),
     '/contracts': t('nav.contracts.list'),
-    '/invoices': t('nav.invoices.list'),
+    '/sales': t('nav.sales.list'),
   };
 
   const currentPageLabel = location.pathname.startsWith('/shipments/')
@@ -222,10 +222,10 @@ export default function AppLayout() {
         label: t('nav.contracts.list'),
       },
       {
-        // Matrix-driven via page_code 'contracts.invoices' (see ROUTE_PAGE_MAP).
-        key: '/invoices',
+        // Matrix-driven via page_code 'contracts.sales' (see ROUTE_PAGE_MAP).
+        key: '/sales',
         icon: <IconFileText size={15} />,
-        label: t('nav.invoices.list'),
+        label: t('nav.sales.list'),
       },
     ]},
     { label: t('nav.group_team'), items: [

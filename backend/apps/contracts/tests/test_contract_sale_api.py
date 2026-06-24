@@ -1,10 +1,10 @@
-"""Integration tests for the Invoice API (Slice B).
+"""Integration tests for the ContractSale API (Slice B).
 
 Tests use a real database (project convention). Each test class sets up
 its own fixtures via setUp().
 
 Test coverage:
-  1.  Authenticated GET /api/v1/contracts/invoices/ → 200, empty page
+  1.  Authenticated GET /api/v1/contracts/sales/ → 200, empty page
   2.  Export manager POST valid invoice → 201, contract totals roll up
   3.  POST with quantity_kg + price_per_kg but no total_usd → auto-computed
   4.  POST with total_usd only (no qty/price) → accepted
@@ -32,7 +32,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from apps.core.models import ExportFirm, ImportFirm, Season, User
-from apps.contracts.models import Contract, Invoice
+from apps.contracts.models import Contract, ContractSale
 
 
 # ─── Permission seeding ──────────────────────────────────────────────────────
@@ -40,8 +40,8 @@ from apps.contracts.models import Contract, Invoice
 class _SeededPermsMixin:
     """Seed the dynamic permission matrix so DynamicResourcePermission resolves.
 
-    InvoiceViewSet gates on the RoleResourcePermission matrix (resource_code
-    'invoice'), not hardcoded roles. Those rows must exist in the test DB and the
+    ContractSaleViewSet gates on the RoleResourcePermission matrix (resource_code
+    'sale'), not hardcoded roles. Those rows must exist in the test DB and the
     60 s per-role perm cache must be clean.
 
     - ``setUpTestData`` seeds the rows once per class (class-scoped — rolled back
@@ -124,9 +124,9 @@ def _make_user(username: str, role: str) -> User:
     return user
 
 
-def _make_invoice(contract: Contract, invoice_number: int = 1, status: str = Invoice.STATUS_SENT) -> Invoice:
+def _make_invoice(contract: Contract, invoice_number: int = 1, status: str = ContractSale.STATUS_SENT) -> ContractSale:
     """Create a minimal valid invoice directly (bypasses API)."""
-    return Invoice.objects.create(
+    return ContractSale.objects.create(
         contract=contract,
         invoice_number=invoice_number,
         invoice_date='2025-10-01',
@@ -147,7 +147,7 @@ class InvoiceListAuthTest(_SeededPermsMixin, TestCase):
         self.client.force_authenticate(user=self.user)
 
     def test_authenticated_list_returns_empty_page(self) -> None:
-        response = self.client.get('/api/v1/contracts/invoices/')
+        response = self.client.get('/api/v1/contracts/sales/')
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIn('results', data)
@@ -176,7 +176,7 @@ class InvoiceCreateRollupTest(_SeededPermsMixin, TestCase):
             'price_per_kg': '0.0870',
             'status': 'sent',
         }
-        response = self.client.post('/api/v1/contracts/invoices/', payload, format='json')
+        response = self.client.post('/api/v1/contracts/sales/', payload, format='json')
         self.assertEqual(response.status_code, 201, response.content)
 
     def test_contract_totals_roll_up_after_create(self) -> None:
@@ -188,7 +188,7 @@ class InvoiceCreateRollupTest(_SeededPermsMixin, TestCase):
             'price_per_kg': '0.0870',
             'status': 'sent',
         }
-        self.client.post('/api/v1/contracts/invoices/', payload, format='json')
+        self.client.post('/api/v1/contracts/sales/', payload, format='json')
 
         self.contract.refresh_from_db()
         self.assertEqual(self.contract.exported_trucks, 1)
@@ -219,10 +219,10 @@ class InvoiceAutoComputeTotalTest(_SeededPermsMixin, TestCase):
             'price_per_kg': '0.1000',
             # total_usd intentionally omitted
         }
-        response = self.client.post('/api/v1/contracts/invoices/', payload, format='json')
+        response = self.client.post('/api/v1/contracts/sales/', payload, format='json')
         self.assertEqual(response.status_code, 201, response.content)
 
-        invoice = Invoice.objects.get(contract=self.contract, invoice_number=1)
+        invoice = ContractSale.objects.get(contract=self.contract, invoice_number=1)
         self.assertIsNotNone(invoice.total_usd)
         self.assertAlmostEqual(float(invoice.total_usd), 1000.00)
 
@@ -246,7 +246,7 @@ class InvoiceTotalOnlyTest(_SeededPermsMixin, TestCase):
             'invoice_date': '2025-10-01',
             'total_usd': '1500.00',
         }
-        response = self.client.post('/api/v1/contracts/invoices/', payload, format='json')
+        response = self.client.post('/api/v1/contracts/sales/', payload, format='json')
         self.assertEqual(response.status_code, 201, response.content)
 
         self.contract.refresh_from_db()
@@ -272,7 +272,7 @@ class InvoiceNoMoneyTest(_SeededPermsMixin, TestCase):
             'invoice_date': '2025-10-01',
             # No quantity_kg, price_per_kg, or total_usd
         }
-        response = self.client.post('/api/v1/contracts/invoices/', payload, format='json')
+        response = self.client.post('/api/v1/contracts/sales/', payload, format='json')
         self.assertEqual(response.status_code, 400)
 
 
@@ -298,7 +298,7 @@ class InvoiceCancelledContractTest(_SeededPermsMixin, TestCase):
             'invoice_date': '2025-10-01',
             'total_usd': '1000.00',
         }
-        response = self.client.post('/api/v1/contracts/invoices/', payload, format='json')
+        response = self.client.post('/api/v1/contracts/sales/', payload, format='json')
         self.assertEqual(response.status_code, 400)
         self.assertIn('cancelled', str(response.content).lower())
 
@@ -323,7 +323,7 @@ class InvoiceDuplicateNumberTest(_SeededPermsMixin, TestCase):
             'invoice_date': '2025-10-02',
             'total_usd': '999.00',
         }
-        response = self.client.post('/api/v1/contracts/invoices/', payload, format='json')
+        response = self.client.post('/api/v1/contracts/sales/', payload, format='json')
         self.assertEqual(response.status_code, 400)
 
 
@@ -344,7 +344,7 @@ class InvoiceAnonymousTest(_SeededPermsMixin, TestCase):
             'invoice_date': '2025-10-01',
             'total_usd': '1000.00',
         }
-        response = self.client.post('/api/v1/contracts/invoices/', payload, format='json')
+        response = self.client.post('/api/v1/contracts/sales/', payload, format='json')
         self.assertIn(response.status_code, (401, 403))
 
 
@@ -367,7 +367,7 @@ class InvoicePermissionTest(_SeededPermsMixin, TestCase):
             'invoice_date': '2025-10-01',
             'total_usd': '1000.00',
         }
-        response = self.client.post('/api/v1/contracts/invoices/', payload, format='json')
+        response = self.client.post('/api/v1/contracts/sales/', payload, format='json')
         self.assertEqual(response.status_code, 403)
 
 
@@ -388,7 +388,7 @@ class InvoiceDeletePermissionTest(_SeededPermsMixin, TestCase):
         mgr = _make_user('inv_mgr_del', 'export_manager')
         client = APIClient()
         client.force_authenticate(user=mgr)
-        response = client.delete(f'/api/v1/contracts/invoices/{self.invoice.pk}/')
+        response = client.delete(f'/api/v1/contracts/sales/{self.invoice.pk}/')
         self.assertEqual(response.status_code, 403)
 
     def test_admin_delete_returns_204_and_totals_drop(self) -> None:
@@ -399,7 +399,7 @@ class InvoiceDeletePermissionTest(_SeededPermsMixin, TestCase):
         # Confirm totals are set before delete
         self.assertEqual(self.contract.exported_trucks, 1)
 
-        response = client.delete(f'/api/v1/contracts/invoices/{self.invoice.pk}/')
+        response = client.delete(f'/api/v1/contracts/sales/{self.invoice.pk}/')
         self.assertEqual(response.status_code, 204)
 
         self.contract.refresh_from_db()
@@ -423,12 +423,12 @@ class InvoiceVoidExclusionTest(_SeededPermsMixin, TestCase):
 
     def test_void_invoice_excluded_from_totals(self) -> None:
         # Create a sent invoice (should count)
-        _make_invoice(self.contract, invoice_number=1, status=Invoice.STATUS_SENT)
+        _make_invoice(self.contract, invoice_number=1, status=ContractSale.STATUS_SENT)
         self.contract.refresh_from_db()
         self.assertEqual(self.contract.exported_trucks, 1)
 
         # Create a void invoice (should NOT count)
-        _make_invoice(self.contract, invoice_number=2, status=Invoice.STATUS_VOID)
+        _make_invoice(self.contract, invoice_number=2, status=ContractSale.STATUS_VOID)
         self.contract.refresh_from_db()
 
         # Still only 1 truck counted
@@ -451,7 +451,7 @@ class InvoiceContractFilterTest(_SeededPermsMixin, TestCase):
         _make_invoice(self.contract_b, invoice_number=1)
 
     def test_filter_by_contract(self) -> None:
-        response = self.client.get(f'/api/v1/contracts/invoices/?contract={self.contract_a.pk}')
+        response = self.client.get(f'/api/v1/contracts/sales/?contract={self.contract_a.pk}')
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data['count'], 1)
@@ -489,7 +489,7 @@ class InvoicePatchRollupTest(_SeededPermsMixin, TestCase):
         # triggers rollup.  Auto-compute is a create-time defensive mechanism,
         # not a PATCH-time recompute.
         response = self.client.patch(
-            f'/api/v1/contracts/invoices/{self.invoice.pk}/',
+            f'/api/v1/contracts/sales/{self.invoice.pk}/',
             {'quantity_kg': '20000.00', 'price_per_kg': '0.0870', 'total_usd': '1740.00'},
             format='json',
         )
@@ -526,7 +526,7 @@ class InvoiceContractReassignTest(_SeededPermsMixin, TestCase):
 
         # Move invoice from A to B via PATCH
         response = self.client.patch(
-            f'/api/v1/contracts/invoices/{self.invoice.pk}/',
+            f'/api/v1/contracts/sales/{self.invoice.pk}/',
             {'contract': self.contract_b.pk, 'quantity_kg': '18500.00', 'price_per_kg': '0.0870'},
             format='json',
         )
@@ -560,20 +560,20 @@ class InvoicePatchStatusOnlyTest(_SeededPermsMixin, TestCase):
         self.ef = _make_export_firm('YGTPST')
         self.imp = _make_import_firm('IMPPST')
         self.contract = _make_contract('INV-PST-001', self.ef, self.imp, self.season)
-        # Invoice has total_usd set via auto-compute
+        # ContractSale has total_usd set via auto-compute
         self.invoice = _make_invoice(self.contract, invoice_number=1)
 
     def test_status_only_patch_returns_200(self) -> None:
         """PATCH {"status": "paid"} must succeed — no money fields required."""
         response = self.client.patch(
-            f'/api/v1/contracts/invoices/{self.invoice.pk}/',
+            f'/api/v1/contracts/sales/{self.invoice.pk}/',
             {'status': 'paid'},
             format='json',
         )
         self.assertEqual(response.status_code, 200, response.content)
 
         self.invoice.refresh_from_db()
-        self.assertEqual(self.invoice.status, Invoice.STATUS_PAID)
+        self.assertEqual(self.invoice.status, ContractSale.STATUS_PAID)
 
     def test_status_void_patch_excludes_from_rollup(self) -> None:
         """PATCH to void should cause rollup to drop the truck count."""
@@ -581,7 +581,7 @@ class InvoicePatchStatusOnlyTest(_SeededPermsMixin, TestCase):
         self.assertEqual(self.contract.exported_trucks, 1)
 
         response = self.client.patch(
-            f'/api/v1/contracts/invoices/{self.invoice.pk}/',
+            f'/api/v1/contracts/sales/{self.invoice.pk}/',
             {'status': 'void'},
             format='json',
         )
@@ -603,13 +603,13 @@ class InvoicePatchStatusOnlyTest(_SeededPermsMixin, TestCase):
         self.contract.save()
 
         response = self.client.patch(
-            f'/api/v1/contracts/invoices/{self.invoice.pk}/',
+            f'/api/v1/contracts/sales/{self.invoice.pk}/',
             {'status': 'void'},
             format='json',
         )
         self.assertEqual(response.status_code, 200, response.content)
         self.invoice.refresh_from_db()
-        self.assertEqual(self.invoice.status, Invoice.STATUS_VOID)
+        self.assertEqual(self.invoice.status, ContractSale.STATUS_VOID)
 
 
 class InvoiceDetailEditableFieldsTest(_SeededPermsMixin, TestCase):
@@ -626,7 +626,7 @@ class InvoiceDetailEditableFieldsTest(_SeededPermsMixin, TestCase):
         self.invoice = _make_invoice(self.contract, invoice_number=1)
 
     def test_detail_contains_editable_fields(self) -> None:
-        response = self.client.get(f'/api/v1/contracts/invoices/{self.invoice.pk}/')
+        response = self.client.get(f'/api/v1/contracts/sales/{self.invoice.pk}/')
         self.assertEqual(response.status_code, 200)
         data = response.json()
 

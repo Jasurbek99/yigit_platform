@@ -2,18 +2,18 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import type { IApiListResponse } from '@/types';
 import type {
-  IInvoice,
-  IInvoiceDetail,
-  IInvoiceCreatePayload,
-  IInvoiceUpdatePayload,
-  InvoiceStatus,
-} from '@/types/invoice';
+  IContractSale,
+  IContractSaleDetail,
+  IContractSaleCreatePayload,
+  IContractSaleUpdatePayload,
+  ContractSaleStatus,
+} from '@/types/contractSale';
 
 // ─── Param types ─────────────────────────────────────────────────────────────
 
-export interface IInvoiceFilters {
+export interface IContractSaleFilters {
   contractId?: number;
-  status?: InvoiceStatus;
+  status?: ContractSaleStatus;
   exportFirm?: number;
   importFirm?: number;
   /** Inclusive lower bound on invoice_date, YYYY-MM-DD. */
@@ -26,17 +26,17 @@ export interface IInvoiceFilters {
   pageSize?: number;
 }
 
-interface IInvoiceListResult {
-  results: IInvoice[];
+interface IContractSaleListResult {
+  results: IContractSale[];
   count: number;
 }
 
 // ─── List ─────────────────────────────────────────────────────────────────────
 
-export function useInvoices(params: IInvoiceFilters = {}) {
+export function useContractSales(params: IContractSaleFilters = {}) {
   return useQuery({
-    queryKey: ['invoices', 'list', params] as const,
-    queryFn: async (): Promise<IInvoiceListResult> => {
+    queryKey: ['sales', 'list', params] as const,
+    queryFn: async (): Promise<IContractSaleListResult> => {
       const p = new URLSearchParams();
 
       if (params.contractId) p.set('contract', String(params.contractId));
@@ -49,8 +49,8 @@ export function useInvoices(params: IInvoiceFilters = {}) {
       if (params.page) p.set('page', String(params.page));
       if (params.pageSize) p.set('page_size', String(params.pageSize));
 
-      const { data } = await api.get<IApiListResponse<IInvoice>>(
-        `/contracts/invoices/?${p.toString()}`,
+      const { data } = await api.get<IApiListResponse<IContractSale>>(
+        `/contracts/sales/?${p.toString()}`,
       );
       return { results: data.results, count: data.count };
     },
@@ -61,12 +61,12 @@ export function useInvoices(params: IInvoiceFilters = {}) {
 
 // ─── Detail ───────────────────────────────────────────────────────────────────
 
-export function useInvoice(id: number) {
+export function useContractSale(id: number) {
   return useQuery({
-    queryKey: ['invoices', 'detail', id] as const,
-    queryFn: async (): Promise<IInvoiceDetail> => {
-      const { data } = await api.get<IInvoiceDetail>(
-        `/contracts/invoices/${id}/`,
+    queryKey: ['sales', 'detail', id] as const,
+    queryFn: async (): Promise<IContractSaleDetail> => {
+      const { data } = await api.get<IContractSaleDetail>(
+        `/contracts/sales/${id}/`,
       );
       return data;
     },
@@ -77,19 +77,19 @@ export function useInvoice(id: number) {
 
 // ─── Create ───────────────────────────────────────────────────────────────────
 
-export function useCreateInvoice() {
+export function useCreateContractSale() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (payload: IInvoiceCreatePayload): Promise<IInvoice> => {
-      const { data } = await api.post<IInvoice>(
-        '/contracts/invoices/',
+    mutationFn: async (payload: IContractSaleCreatePayload): Promise<IContractSale> => {
+      const { data } = await api.post<IContractSale>(
+        '/contracts/sales/',
         payload,
       );
       return data;
     },
     onSuccess: () => {
       // Invalidate entire families — detail rollup changes on the parent contract
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['sales'] });
       queryClient.invalidateQueries({ queryKey: ['contracts'] });
     },
   });
@@ -97,7 +97,7 @@ export function useCreateInvoice() {
 
 // ─── Update (PATCH) ───────────────────────────────────────────────────────────
 
-export function useUpdateInvoice() {
+export function useUpdateContractSale() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({
@@ -105,16 +105,16 @@ export function useUpdateInvoice() {
       payload,
     }: {
       id: number;
-      payload: IInvoiceUpdatePayload;
-    }): Promise<IInvoice> => {
-      const { data } = await api.patch<IInvoice>(
-        `/contracts/invoices/${id}/`,
+      payload: IContractSaleUpdatePayload;
+    }): Promise<IContractSale> => {
+      const { data } = await api.patch<IContractSale>(
+        `/contracts/sales/${id}/`,
         payload,
       );
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['sales'] });
       queryClient.invalidateQueries({ queryKey: ['contracts'] });
     },
   });
@@ -122,14 +122,14 @@ export function useUpdateInvoice() {
 
 // ─── Delete ───────────────────────────────────────────────────────────────────
 
-export function useDeleteInvoice() {
+export function useDeleteContractSale() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: number): Promise<void> => {
-      await api.delete(`/contracts/invoices/${id}/`);
+      await api.delete(`/contracts/sales/${id}/`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['sales'] });
       queryClient.invalidateQueries({ queryKey: ['contracts'] });
     },
   });

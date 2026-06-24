@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import { useContract } from '@/hooks/useContracts';
 import { useAuth } from '@/hooks/useAuth';
-import { InvoicesTab } from './InvoicesTab';
+import { ContractSalesTab } from './ContractSalesTab';
 import type { ContractStatus } from '@/types/contract';
 import { COLORS } from '@/constants/styles';
 
@@ -85,10 +85,10 @@ export default function ContractDetail() {
 
   const tabItems = [
     {
-      key: 'invoices',
-      label: t('contracts.detail.tab.invoices'),
+      key: 'sales',
+      label: t('contracts.detail.tab.sales'),
       children: (
-        <InvoicesTab
+        <ContractSalesTab
           contractId={contractId}
           currentUser={user}
         />
@@ -208,7 +208,7 @@ export default function ContractDetail() {
 
       {/* ── Tabs ─────────────────────────────────────────────────────────────── */}
       <Tabs
-        defaultActiveKey="invoices"
+        defaultActiveKey="sales"
         items={tabItems}
         destroyInactiveTabPane={false}
       />

@@ -14,14 +14,14 @@ import {
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import dayjs from 'dayjs';
-import { useCreateInvoice, useUpdateInvoice } from '@/hooks/useInvoices';
+import { useCreateContractSale, useUpdateContractSale } from '@/hooks/useContractSales';
 import { useContract } from '@/hooks/useContracts';
 import { ContractSelect } from '@/components/ContractSelect';
-import type { IInvoice, IInvoiceCreatePayload, InvoiceStatus } from '@/types/invoice';
+import type { IContractSale, IContractSaleCreatePayload, ContractSaleStatus } from '@/types/contractSale';
 
 // ─── Status options ───────────────────────────────────────────────────────────
 
-const STATUS_OPTIONS: InvoiceStatus[] = ['draft', 'sent', 'paid', 'void'];
+const STATUS_OPTIONS: ContractSaleStatus[] = ['draft', 'sent', 'paid', 'void'];
 
 // ─── Form shape ───────────────────────────────────────────────────────────────
 
@@ -35,18 +35,18 @@ interface IFormValues {
   total_usd?: number | null;
   passport_sdelka?: string;
   scan_uploaded?: boolean;
-  status: InvoiceStatus;
+  status: ContractSaleStatus;
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
-interface IInvoiceCreateProps {
+interface IContractSaleCreateProps {
   /** Whether the modal is visible */
   open: boolean;
   /** Called when the modal closes (cancel or success) */
   onClose: () => void;
   /**
-   * The contract this invoice belongs to.
+   * The contract this sale belongs to.
    * When omitted the modal renders in standalone mode and shows a ContractSelect
    * as the first field.
    */
@@ -60,33 +60,33 @@ interface IInvoiceCreateProps {
   nextInvoiceNumber?: number;
   /**
    * When set, the modal operates in EDIT mode: pre-fills fields from
-   * the existing invoice and PATCHes on submit instead of POSTing.
+   * the existing sale and PATCHes on submit instead of POSTing.
    */
-  editingInvoice?: IInvoice | null;
+  editingSale?: IContractSale | null;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function InvoiceCreate({
+export function ContractSaleCreate({
   open,
   onClose,
   contractId,
   nextInvoiceNumber,
-  editingInvoice = null,
-}: IInvoiceCreateProps) {
+  editingSale = null,
+}: IContractSaleCreateProps) {
   const { t } = useTranslation();
   const [form] = Form.useForm<IFormValues>();
-  const createMutation = useCreateInvoice();
-  const updateMutation = useUpdateInvoice();
+  const createMutation = useCreateContractSale();
+  const updateMutation = useUpdateContractSale();
 
-  const isEditing = editingInvoice !== null;
+  const isEditing = editingSale !== null;
   const isStandalone = contractId === undefined;
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   // In standalone mode, watch the selected contract_id to fetch last_invoice_number
   const watchedContractId = Form.useWatch('contract_id', form);
   const resolvedContractId: number = isEditing
-    ? (editingInvoice?.contract ?? 0)
+    ? (editingSale?.contract ?? 0)
     : (contractId ?? watchedContractId ?? 0);
 
   const { data: contractDetail } = useContract(resolvedContractId);
@@ -161,18 +161,18 @@ export function InvoiceCreate({
       form.setFields([
         {
           name: 'total_usd',
-          errors: [t('invoices.create.validation.money_required')],
+          errors: [t('sales.create.validation.money_required')],
         },
         {
           name: 'quantity_kg',
-          errors: [t('invoices.create.validation.money_required')],
+          errors: [t('sales.create.validation.money_required')],
         },
       ]);
       return;
     }
 
     // Build payload — strip nulls/undefined optional fields
-    const payload: IInvoiceCreatePayload = {
+    const payload: IContractSaleCreatePayload = {
       contract: resolvedContract,
       invoice_number: values.invoice_number,
       invoice_date: values.invoice_date.format('YYYY-MM-DD'),
@@ -201,15 +201,15 @@ export function InvoiceCreate({
     }
 
     try {
-      if (isEditing && editingInvoice) {
+      if (isEditing && editingSale) {
         await updateMutation.mutateAsync({
-          id: editingInvoice.id,
+          id: editingSale.id,
           payload,
         });
-        toast.success(t('invoices.edit.toast.updated'));
+        toast.success(t('sales.edit.toast.updated'));
       } else {
         await createMutation.mutateAsync(payload);
-        toast.success(t('invoices.create.toast.created'));
+        toast.success(t('sales.create.toast.created'));
       }
       form.resetFields();
       userManuallyEditedTotal.current = false;
@@ -228,8 +228,8 @@ export function InvoiceCreate({
       } else {
         toast.error(
           isEditing
-            ? t('invoices.edit.toast.error')
-            : t('invoices.create.toast.error'),
+            ? t('sales.edit.toast.error')
+            : t('sales.create.toast.error'),
         );
       }
     }
@@ -244,34 +244,34 @@ export function InvoiceCreate({
 
   // ─── Initial values ────────────────────────────────────────────────────────
 
-  const initialValues = isEditing && editingInvoice
+  const initialValues = isEditing && editingSale
     ? {
-        contract_id: editingInvoice.contract,
-        invoice_number: editingInvoice.invoice_number,
-        invoice_date: dayjs(editingInvoice.invoice_date),
-        serial_truck_number: editingInvoice.serial_truck_number,
-        quantity_kg: editingInvoice.quantity_kg != null
-          ? parseFloat(editingInvoice.quantity_kg)
+        contract_id: editingSale.contract,
+        invoice_number: editingSale.invoice_number,
+        invoice_date: dayjs(editingSale.invoice_date),
+        serial_truck_number: editingSale.serial_truck_number,
+        quantity_kg: editingSale.quantity_kg != null
+          ? parseFloat(editingSale.quantity_kg)
           : null,
-        price_per_kg: editingInvoice.price_per_kg != null
-          ? parseFloat(editingInvoice.price_per_kg)
+        price_per_kg: editingSale.price_per_kg != null
+          ? parseFloat(editingSale.price_per_kg)
           : null,
-        total_usd: editingInvoice.total_usd != null
-          ? parseFloat(editingInvoice.total_usd)
+        total_usd: editingSale.total_usd != null
+          ? parseFloat(editingSale.total_usd)
           : null,
-        passport_sdelka: editingInvoice.passport_sdelka,
-        scan_uploaded: editingInvoice.scan_uploaded,
-        status: editingInvoice.status,
+        passport_sdelka: editingSale.passport_sdelka,
+        scan_uploaded: editingSale.scan_uploaded,
+        status: editingSale.status,
       }
     : {
         invoice_number: nextInvoiceNumber ?? 1,
         invoice_date: dayjs(),
-        status: 'sent' as InvoiceStatus,
+        status: 'sent' as ContractSaleStatus,
         scan_uploaded: false,
       };
 
-  const titleKey = isEditing ? 'invoices.edit.title' : 'invoices.create.title';
-  const submitKey = isEditing ? 'invoices.edit.submit' : 'invoices.create.submit';
+  const titleKey = isEditing ? 'sales.edit.title' : 'sales.create.title';
+  const submitKey = isEditing ? 'sales.edit.submit' : 'sales.create.submit';
 
   return (
     <Modal
@@ -280,7 +280,7 @@ export function InvoiceCreate({
       onOk={handleSubmit}
       onCancel={handleCancel}
       okText={t(submitKey)}
-      cancelText={t('invoices.create.cancel')}
+      cancelText={t('sales.create.cancel')}
       confirmLoading={isPending}
       width={580}
       destroyOnClose
@@ -296,7 +296,7 @@ export function InvoiceCreate({
         {isStandalone && (
           <Form.Item
             name="contract_id"
-            label={t('invoices.create.field.contract')}
+            label={t('sales.create.field.contract')}
             rules={[{ required: true, message: t('common.required') }]}
           >
             <ContractSelect
@@ -312,7 +312,7 @@ export function InvoiceCreate({
           <Col span={12}>
             <Form.Item
               name="invoice_number"
-              label={t('invoices.create.field.invoice_number')}
+              label={t('sales.create.field.invoice_number')}
               rules={[{ required: true, message: t('common.required') }]}
             >
               <InputNumber precision={0} min={1} style={{ width: '100%' }} />
@@ -323,7 +323,7 @@ export function InvoiceCreate({
           <Col span={12}>
             <Form.Item
               name="invoice_date"
-              label={t('invoices.create.field.invoice_date')}
+              label={t('sales.create.field.invoice_date')}
               rules={[{ required: true, message: t('common.required') }]}
             >
               <DatePicker style={{ width: '100%' }} />
@@ -336,7 +336,7 @@ export function InvoiceCreate({
           <Col span={12}>
             <Form.Item
               name="serial_truck_number"
-              label={t('invoices.create.field.serial_truck_number')}
+              label={t('sales.create.field.serial_truck_number')}
             >
               <InputNumber precision={0} min={1} style={{ width: '100%' }} />
             </Form.Item>
@@ -346,12 +346,12 @@ export function InvoiceCreate({
           <Col span={12}>
             <Form.Item
               name="status"
-              label={t('invoices.create.field.status')}
+              label={t('sales.create.field.status')}
             >
               <Select
                 options={STATUS_OPTIONS.map((s) => ({
                   value: s,
-                  label: t(`invoices.status.${s}`),
+                  label: t(`sales.status.${s}`),
                 }))}
                 style={{ width: '100%' }}
               />
@@ -363,7 +363,7 @@ export function InvoiceCreate({
         <Alert
           type="info"
           showIcon
-          message={t('invoices.create.money_hint')}
+          message={t('sales.create.money_hint')}
           style={{ marginBottom: 12, fontSize: 12 }}
         />
 
@@ -372,7 +372,7 @@ export function InvoiceCreate({
           <Col span={8}>
             <Form.Item
               name="quantity_kg"
-              label={t('invoices.create.field.quantity_kg')}
+              label={t('sales.create.field.quantity_kg')}
             >
               <InputNumber
                 precision={0}
@@ -387,7 +387,7 @@ export function InvoiceCreate({
           <Col span={8}>
             <Form.Item
               name="price_per_kg"
-              label={t('invoices.create.field.price_per_kg')}
+              label={t('sales.create.field.price_per_kg')}
             >
               <InputNumber
                 precision={4}
@@ -402,7 +402,7 @@ export function InvoiceCreate({
           <Col span={8}>
             <Form.Item
               name="total_usd"
-              label={t('invoices.create.field.total_usd')}
+              label={t('sales.create.field.total_usd')}
             >
               <InputNumber
                 precision={0}
@@ -420,7 +420,7 @@ export function InvoiceCreate({
           <Col span={16}>
             <Form.Item
               name="passport_sdelka"
-              label={t('invoices.create.field.passport_sdelka')}
+              label={t('sales.create.field.passport_sdelka')}
             >
               <Input />
             </Form.Item>
@@ -429,7 +429,7 @@ export function InvoiceCreate({
           {/* Scan uploaded */}
           <Col span={8} style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: 8 }}>
             <Form.Item name="scan_uploaded" valuePropName="checked" style={{ marginBottom: 0 }}>
-              <Checkbox>{t('invoices.create.field.scan_uploaded')}</Checkbox>
+              <Checkbox>{t('sales.create.field.scan_uploaded')}</Checkbox>
             </Form.Item>
           </Col>
         </Row>

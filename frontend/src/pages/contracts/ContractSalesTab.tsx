@@ -7,10 +7,10 @@ import type { ProColumns } from '@ant-design/pro-components';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import dayjs from 'dayjs';
-import { useInvoices, useDeleteInvoice } from '@/hooks/useInvoices';
+import { useContractSales, useDeleteContractSale } from '@/hooks/useContractSales';
 import { InvoiceDocumentsButton } from '@/components/InvoiceDocumentsButton';
-import { InvoiceCreate } from './InvoiceCreate';
-import type { IInvoice, InvoiceStatus } from '@/types/invoice';
+import { ContractSaleCreate } from './ContractSaleCreate';
+import type { IContractSale, ContractSaleStatus } from '@/types/contractSale';
 import type { ICurrentUser } from '@/types';
 
 const { Text } = Typography;
@@ -31,7 +31,7 @@ function fmtPrice(value: string | number | null | undefined): string {
   return num.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
 }
 
-const STATUS_COLORS: Record<InvoiceStatus, string> = {
+const STATUS_COLORS: Record<ContractSaleStatus, string> = {
   draft: 'default',
   sent: 'blue',
   paid: 'green',
@@ -40,7 +40,7 @@ const STATUS_COLORS: Record<InvoiceStatus, string> = {
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
-interface IInvoicesTabProps {
+interface IContractSalesTabProps {
   contractId: number;
   /** Current user — used to gate the delete button */
   currentUser: ICurrentUser | null;
@@ -48,47 +48,47 @@ interface IInvoicesTabProps {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function InvoicesTab({
+export function ContractSalesTab({
   contractId,
   currentUser,
-}: IInvoicesTabProps) {
+}: IContractSalesTabProps) {
   const { t } = useTranslation();
   const [createOpen, setCreateOpen] = useState(false);
-  const [editingInvoice, setEditingInvoice] = useState<IInvoice | null>(null);
+  const [editingSale, setEditingSale] = useState<IContractSale | null>(null);
 
-  // pageSize=200 (the project max) — covers any single contract's invoice count
+  // pageSize=200 (the project max) — covers any single contract's sale count
   // (planned_trucks rarely exceeds 72). Pagination UI not needed inside the tab.
-  const { data, isLoading } = useInvoices({ contractId, pageSize: 200 });
-  const deleteMutation = useDeleteInvoice();
+  const { data, isLoading } = useContractSales({ contractId, pageSize: 200 });
+  const deleteMutation = useDeleteContractSale();
 
-  const invoices = data?.results ?? [];
+  const sales = data?.results ?? [];
   const isAdmin =
     currentUser?.is_superuser || currentUser?.role === 'admin';
 
-  // Derive the next invoice number from the max of existing invoices.
+  // Derive the next invoice number from the max of existing sales.
   // last_invoice_number is a model field but is NOT exposed by ContractListSerializer,
-  // so we compute it from the invoices already loaded for this tab.
+  // so we compute it from the sales already loaded for this tab.
   const nextInvoiceNumber =
-    invoices.length > 0
-      ? Math.max(...invoices.map((inv) => inv.invoice_number)) + 1
+    sales.length > 0
+      ? Math.max(...sales.map((s) => s.invoice_number)) + 1
       : 1;
 
   const handleDelete = async (id: number) => {
     try {
       await deleteMutation.mutateAsync(id);
-      toast.success(t('invoices.delete.toast'));
+      toast.success(t('sales.delete.toast'));
     } catch {
       toast.error(t('common.error'));
     }
   };
 
   const handleEditClose = () => {
-    setEditingInvoice(null);
+    setEditingSale(null);
   };
 
   // ─── Column definitions ─────────────────────────────────────────────────
 
-  const columns: ProColumns<IInvoice>[] = [
+  const columns: ProColumns<IContractSale>[] = [
     {
       title: '#',
       dataIndex: 'index',
@@ -97,12 +97,12 @@ export function InvoicesTab({
       render: (_, __, index) => index + 1,
     },
     {
-      title: t('invoices.column.invoice_number'),
+      title: t('sales.column.invoice_number'),
       dataIndex: 'invoice_number',
       width: 80,
     },
     {
-      title: t('invoices.column.invoice_date'),
+      title: t('sales.column.invoice_date'),
       dataIndex: 'invoice_date',
       width: 100,
       render: (_, record) =>
@@ -111,7 +111,7 @@ export function InvoicesTab({
           : '—',
     },
     {
-      title: t('invoices.column.serial_truck_number'),
+      title: t('sales.column.serial_truck_number'),
       dataIndex: 'serial_truck_number',
       width: 80,
       render: (_, record) =>
@@ -120,7 +120,7 @@ export function InvoicesTab({
         ),
     },
     {
-      title: t('invoices.column.shipment_code'),
+      title: t('sales.column.shipment_code'),
       dataIndex: 'shipment_code',
       width: 130,
       render: (_, record) => {
@@ -135,19 +135,19 @@ export function InvoicesTab({
       },
     },
     {
-      title: t('invoices.column.quantity_kg'),
+      title: t('sales.column.quantity_kg'),
       dataIndex: 'quantity_kg',
       width: 110,
       render: (_, record) => fmt(record.quantity_kg),
     },
     {
-      title: t('invoices.column.price_per_kg'),
+      title: t('sales.column.price_per_kg'),
       dataIndex: 'price_per_kg',
       width: 90,
       render: (_, record) => fmtPrice(record.price_per_kg),
     },
     {
-      title: t('invoices.column.total_usd'),
+      title: t('sales.column.total_usd'),
       dataIndex: 'total_usd',
       width: 110,
       render: (_, record) =>
@@ -156,7 +156,7 @@ export function InvoicesTab({
         ),
     },
     {
-      title: t('invoices.column.passport_sdelka'),
+      title: t('sales.column.passport_sdelka'),
       dataIndex: 'passport_sdelka',
       width: 130,
       ellipsis: true,
@@ -164,7 +164,7 @@ export function InvoicesTab({
         record.passport_sdelka || <Text type="secondary">—</Text>,
     },
     {
-      title: t('invoices.column.scan_uploaded'),
+      title: t('sales.column.scan_uploaded'),
       dataIndex: 'scan_uploaded',
       width: 70,
       render: (_, record) =>
@@ -175,17 +175,17 @@ export function InvoicesTab({
         ),
     },
     {
-      title: t('invoices.column.status'),
+      title: t('sales.column.status'),
       dataIndex: 'status',
       width: 90,
       render: (_, record) => (
         <Tag color={STATUS_COLORS[record.status] ?? 'default'}>
-          {t(`invoices.status.${record.status}`)}
+          {t(`sales.status.${record.status}`)}
         </Tag>
       ),
     },
     {
-      title: t('invoices.column.action'),
+      title: t('sales.column.action'),
       dataIndex: 'action',
       width: isAdmin ? 130 : 96,
       search: false,
@@ -198,13 +198,13 @@ export function InvoicesTab({
             type="text"
             size="small"
             icon={<EditOutlined />}
-            onClick={() => setEditingInvoice(record)}
+            onClick={() => setEditingSale(record)}
           />
           {/* Delete — admin/superuser only */}
           {isAdmin && (
             <Popconfirm
-              title={t('invoices.delete.confirm_title')}
-              description={t('invoices.delete.confirm_body')}
+              title={t('sales.delete.confirm_title')}
+              description={t('sales.delete.confirm_body')}
               okText={t('common.delete')}
               cancelText={t('common.cancel')}
               okButtonProps={{ danger: true }}
@@ -228,14 +228,14 @@ export function InvoicesTab({
     <Empty
       description={
         <span>
-          {t('invoices.empty.title')}
+          {t('sales.empty.title')}
           <br />
           <Button
             type="link"
             style={{ padding: 0, marginTop: 4 }}
             onClick={() => setCreateOpen(true)}
           >
-            {t('invoices.empty.cta')}
+            {t('sales.empty.cta')}
           </Button>
         </span>
       }
@@ -245,9 +245,9 @@ export function InvoicesTab({
 
   return (
     <>
-      <ProTable<IInvoice>
+      <ProTable<IContractSale>
         rowKey="id"
-        dataSource={invoices}
+        dataSource={sales}
         columns={columns}
         loading={isLoading}
         search={false}
@@ -264,28 +264,28 @@ export function InvoicesTab({
             icon={<PlusOutlined />}
             onClick={() => setCreateOpen(true)}
           >
-            {t('invoices.add_button')}
+            {t('sales.add_button')}
           </Button>,
         ]}
       />
 
       {/* Create modal */}
-      <InvoiceCreate
+      <ContractSaleCreate
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         contractId={contractId}
         nextInvoiceNumber={nextInvoiceNumber}
       />
 
-      {/* Edit modal — key forces remount when switching between different invoices */}
-      {editingInvoice && (
-        <InvoiceCreate
-          key={editingInvoice.id}
-          open={editingInvoice !== null}
+      {/* Edit modal — key forces remount when switching between different sales */}
+      {editingSale && (
+        <ContractSaleCreate
+          key={editingSale.id}
+          open={editingSale !== null}
           onClose={handleEditClose}
           contractId={contractId}
           nextInvoiceNumber={nextInvoiceNumber}
-          editingInvoice={editingInvoice}
+          editingSale={editingSale}
         />
       )}
     </>

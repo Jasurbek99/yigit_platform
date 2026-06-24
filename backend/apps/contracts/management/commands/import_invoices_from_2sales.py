@@ -2,7 +2,7 @@
 
 Reads the 2-Sales sheet of Export_contracts_2025-2026.xlsx and writes:
   - apps.contracts.Contract  (one-time / Pattern B contracts not in DB)
-  - apps.contracts.Invoice   (both Pattern A and Pattern B)
+  - apps.contracts.ContractSale   (both Pattern A and Pattern B)
 
 Pattern classification:
   Pattern A -- col G (serial_no_of_truck) is populated and non-zero.
@@ -43,7 +43,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from openpyxl import load_workbook
 
-from apps.contracts.models import Contract, Invoice
+from apps.contracts.models import Contract, ContractSale
 from apps.contracts.services.rollup import rollup_contract_totals
 from apps.core.models import ExportFirm, ImportFirm, Season
 
@@ -214,7 +214,7 @@ class Command(BaseCommand):
 
         # Existing invoices: (contract_id, invoice_number) to avoid unique_together collision
         existing_invoice_keys: set[tuple[int, int]] = set(
-            Invoice.objects.values_list('contract_id', 'invoice_number')
+            ContractSale.objects.values_list('contract_id', 'invoice_number')
         )
 
         # ── Counters / collectors ──────────────────────────────────────────────
@@ -242,7 +242,7 @@ class Command(BaseCommand):
         pat_b_invoice_payloads: list[dict] = []
 
         # Pattern A invoice objects
-        pat_a_invoices: list[Invoice] = []
+        pat_a_invoices: list[ContractSale] = []
         affected_contract_ids: set[int] = set()
 
         # ── Row processing ─────────────────────────────────────────────────────
@@ -321,7 +321,7 @@ class Command(BaseCommand):
             except (ValueError, TypeError):
                 inv_no = None
 
-            # ── Resolve firms for FK fields on Invoice ─────────────────────────
+            # ── Resolve firms for FK fields on ContractSale ─────────────────────────
             export_firm = export_firms.get(seller_raw)
             buyer_lower = buyer_raw.lower()
             import_firm = (
@@ -407,7 +407,7 @@ class Command(BaseCommand):
 
                 cnt_a_matched += 1
                 affected_contract_ids.add(contract_obj.id)
-                pat_a_invoices.append(Invoice(
+                pat_a_invoices.append(ContractSale(
                     contract=contract_obj,
                     invoice_number=inv_no,
                     invoice_date=inv_date,
@@ -420,7 +420,7 @@ class Command(BaseCommand):
                     total_usd=total_usd,
                     passport_sdelka=passport,
                     scan_uploaded=scan_uploaded,
-                    status=Invoice.STATUS_SENT,
+                    status=ContractSale.STATUS_SENT,
                 ))
 
             # ================================================================
@@ -512,7 +512,7 @@ class Command(BaseCommand):
                         'total_usd': total_usd,
                         'passport_sdelka': passport,
                         'scan_uploaded': scan_uploaded,
-                        'status': Invoice.STATUS_SENT,
+                        'status': ContractSale.STATUS_SENT,
                     })
                     continue
 
@@ -551,7 +551,7 @@ class Command(BaseCommand):
                     'total_usd': total_usd,
                     'passport_sdelka': passport,
                     'scan_uploaded': scan_uploaded,
-                    'status': Invoice.STATUS_SENT,
+                    'status': ContractSale.STATUS_SENT,
                 })
 
         # ── Post-loop: assign invoice_number for each Pattern B payload ────────
@@ -636,7 +636,7 @@ class Command(BaseCommand):
         )
         self.stdout.write(
             self.style.SUCCESS(
-                f'New Invoice rows:                          '
+                f'New ContractSale rows:                          '
                 f'{cnt_a_matched + cnt_b_invoices:,}'
                 f'  (A={cnt_a_matched:,} + B={cnt_b_invoices:,})'
             )
@@ -658,15 +658,15 @@ class Command(BaseCommand):
     def _execute_writes(
         self,
         new_one_time_contracts: dict[str, Contract],
-        pat_a_invoices: list[Invoice],
+        pat_a_invoices: list[ContractSale],
         pat_b_invoice_payloads: list[dict],
         affected_contract_ids: set[int],
     ) -> None:
         """Bulk-create one-time contracts + invoices inside a single transaction.
 
         Rollup is called ONCE per affected contract AFTER all inserts, never in
-        a loop during inserts.  bulk_create bypasses Invoice.save(), so the
-        rollup that Invoice.save() would normally trigger does NOT fire — we
+        a loop during inserts.  bulk_create bypasses ContractSale.save(), so the
+        rollup that ContractSale.save() would normally trigger does NOT fire — we
         call it manually here.
         """
         with transaction.atomic():
@@ -683,8 +683,8 @@ class Command(BaseCommand):
                 for c in Contract.objects.all()
             }
 
-            # 3. Build Pattern B Invoice objects
-            pat_b_invoices: list[Invoice] = []
+            # 3. Build Pattern B ContractSale objects
+            pat_b_invoices: list[ContractSale] = []
             for payload in pat_b_invoice_payloads:
                 ck = payload['_contract_key']
                 existing_id = payload['_use_existing_id']
@@ -700,7 +700,7 @@ class Command(BaseCommand):
                         continue
 
                 affected_contract_ids.add(contract_obj.id)
-                pat_b_invoices.append(Invoice(
+                pat_b_invoices.append(ContractSale(
                     contract_id=contract_obj.id,
                     invoice_number=payload['invoice_number'],
                     invoice_date=payload['invoice_date'],
@@ -718,11 +718,11 @@ class Command(BaseCommand):
 
             # 4. Bulk insert Pattern A invoices
             if pat_a_invoices:
-                Invoice.objects.bulk_create(pat_a_invoices, batch_size=BATCH_SIZE)
+                ContractSale.objects.bulk_create(pat_a_invoices, batch_size=BATCH_SIZE)
 
             # 5. Bulk insert Pattern B invoices
             if pat_b_invoices:
-                Invoice.objects.bulk_create(pat_b_invoices, batch_size=BATCH_SIZE)
+                ContractSale.objects.bulk_create(pat_b_invoices, batch_size=BATCH_SIZE)
 
             # 6. Rollup ONCE per affected contract — NEVER inside a row loop
             for cid in affected_contract_ids:

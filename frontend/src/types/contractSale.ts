@@ -1,11 +1,12 @@
-// ─── Invoice types ───────────────────────────────────────────────────────────
+// ─── Contract Sale types ──────────────────────────────────────────────────────
 //
-// Mirrors InvoiceListSerializer / InvoiceDetailSerializer / InvoiceCreateSerializer
-// from apps/contracts/serializers.py.
+// Mirrors ContractSaleListSerializer / ContractSaleDetailSerializer /
+// ContractSaleCreateSerializer from apps/contracts/serializers.py.
+// (Was: types/invoice.ts — renamed to remove confusion with invoice documents.)
 
-export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'void';
+export type ContractSaleStatus = 'draft' | 'sent' | 'paid' | 'void';
 
-export interface IInvoice {
+export interface IContractSale {
   id: number;
 
   // Contract FK
@@ -42,7 +43,7 @@ export interface IInvoice {
   scan_uploaded: boolean;
 
   // Status
-  status: InvoiceStatus;
+  status: ContractSaleStatus;
   status_display: string;
 
   // Audit
@@ -50,11 +51,11 @@ export interface IInvoice {
   updated_at: string;
 }
 
-export interface IInvoiceDetail extends IInvoice {
+export interface IContractSaleDetail extends IContractSale {
   editable_fields: string[];
 }
 
-export interface IInvoiceCreatePayload {
+export interface IContractSaleCreatePayload {
   contract: number;
   invoice_number: number;
   invoice_date: string; // YYYY-MM-DD
@@ -68,9 +69,9 @@ export interface IInvoiceCreatePayload {
   total_usd?: number | string | null;
   passport_sdelka?: string;
   scan_uploaded?: boolean;
-  status?: InvoiceStatus;
+  status?: ContractSaleStatus;
 }
 
-export interface IInvoiceUpdatePayload extends Partial<IInvoiceCreatePayload> {
+export interface IContractSaleUpdatePayload extends Partial<IContractSaleCreatePayload> {
   // All fields optional for PATCH
 }

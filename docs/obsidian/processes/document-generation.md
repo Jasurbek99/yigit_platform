@@ -18,20 +18,20 @@ context builder", never "wire a new endpoint stack".
 | Template files | `apps/contracts/document_templates/*.docx` | Authored Word layouts with Jinja tags. Static labels baked per language; only data values are `{{ }}`. Built by `build_templates.py`. |
 | Context builders | `apps/contracts/services/document_context.py` | Pure `(obj, lang) → dict`. Owns date/money/kg formatting, firm-language fallback, shipment-vs-invoice fallback. Unit-tested without rendering. |
 | Render service | `apps/contracts/services/document_render.py` | `render_docx` (docxtpl→bytes); `render_pdf` (LibreOffice headless→bytes); `generate(key, obj, fmt)` ties it together. |
-| API action | `InvoiceViewSet.document` in `apps/contracts/views.py` | Thin `@action`, returns the file as an attachment. |
+| API action | `ContractSaleViewSet.document` in `apps/contracts/views.py` | Thin `@action`, returns the file as an attachment. |
 | Audit model | *(deferred)* | `GeneratedDocument` for the 13:00 board — not needed to generate. |
 
 ## Endpoint
 
 ```
-GET /api/v1/contracts/invoices/{id}/document/?type=<key>&fmt=docx|pdf
+GET /api/v1/contracts/sales/{id}/document/?type=<key>&fmt=docx|pdf
 ```
 
 - `type`: `invoice_ru` (default), `invoice_en`, `cmr_ru`, `cmr_en`, `ct1_ru`,
   `fito_ru`, `customs_tk`.
 - `fmt`: `docx` (default) or `pdf`. **Named `fmt`, not `format`** — `format` is
   reserved by DRF content negotiation and would 404.
-- Permissions: existing `invoice` resource permission (document team / export_manager / director).
+- Permissions: existing `sale` resource permission (document team / export_manager / director).
 - Errors: `400` unknown `type`; `503` when `fmt=pdf` but LibreOffice is absent
   (with a clear message — the `.docx` path is unaffected).
 - Response: `Content-Disposition: attachment`, filename e.g. `Invoice_93-26-DM-EXP_118_RU.docx`.
@@ -81,9 +81,9 @@ and the API endpoint (docx download, EN variant, 400 unknown type, 503 PDF-witho
 
 ## Frontend
 
-A per-invoice **Documents** dropdown (`components/InvoiceDocumentsButton.tsx`) sits
-in the action column of the contract **Faktura tab** (`InvoicesTab`) and the
-**all-invoices list** (`InvoiceList`). It offers Invoice / CMR in RU/EN as Word or
+A per-sale **Documents** dropdown (`components/InvoiceDocumentsButton.tsx`) sits
+in the action column of the contract **Faktura tab** (`ContractSalesTab`) and the
+**all-sales list** (`ContractSaleList`). It offers Invoice / CMR in RU/EN as Word or
 PDF (8 entries) and downloads via `utils/fileDownload.ts::downloadUrl()` — a plain
 anchor click; the httpOnly auth cookie rides the same-origin GET (same mechanism as
 the Boss report exports). Labels are `documents.*` i18n keys (tk/ru/en).

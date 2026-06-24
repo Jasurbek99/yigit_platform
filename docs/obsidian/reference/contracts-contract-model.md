@@ -11,7 +11,7 @@ App: `apps.contracts` | DB table: `contracts_contract` | Slice: A (foundation)
 
 A `Contract` is the signed sale agreement between one YGT export firm (seller) and one foreign import firm (buyer) for a given season. Example: `177/25-YGT-EXP`, "36 trucks, 651 600 kg, $566 892, FCA".
 
-Contracts are the root of the P4 module. Invoices, payments, and PasportSdelki attach to them in later slices.
+Contracts are the root of the P4 module. Contract sales (reverse accessor `contract.sales`), payments, and PasportSdelki attach to them in later slices.
 
 ## Fields
 
@@ -62,7 +62,7 @@ Contracts are the root of the P4 module. Invoices, payments, and PasportSdelki a
 
 ## `save()` behaviour
 
-`remaining_usd = exported_amount_usd - payment_received_usd` is recomputed on every save. This is a placeholder until the Slice B/C rollup service (`contracts.services.rollup.rollup_contract_totals`) takes ownership and writes all five denormalized fields atomically from invoice/payment aggregates.
+`remaining_usd = exported_amount_usd - payment_received_usd` is recomputed on every save. This is a placeholder until the Slice B/C rollup service (`contracts.services.rollup.rollup_contract_totals`) takes ownership and writes all five denormalized fields atomically from sale/payment aggregates.
 
 ## API endpoints
 
@@ -82,7 +82,7 @@ Query params:
 
 ## Upcoming (not in Slice A)
 
-- Slice B: Invoice model + rollup service
+- Slice B: ContractSale model + rollup service
 - Slice C: Payment model + rollup hook + remaining_usd ownership moves here
 - Slice D: PasportSdelka model
 - Slice F: Status transition endpoint + audit log
