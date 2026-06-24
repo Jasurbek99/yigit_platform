@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Alert, Button, Tag, Typography } from 'antd';
 import { BankOutlined, PlusOutlined } from '@ant-design/icons';
@@ -7,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { useAdminFirms } from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
 import { canDo } from '@/utils/permissions';
+import { buildSearchBlob, normalizeSearch } from '@/utils/normalizeSearch';
 import type { IExportFirm } from '@/types';
 import { COLORS } from '@/constants/styles';
 
@@ -20,7 +22,18 @@ export default function ExportFirmsPage() {
   const canCreate = canDo(user, 'export_firm', 'create');
 
   const { data, isLoading, isError } = useAdminFirms();
-  const rows = data ?? [];
+  const [searchText, setSearchText] = useState('');
+
+  // Smart search across code, short name, and full names (tk/ru/en) —
+  // diacritic- and punctuation-insensitive (see normalizeSearch).
+  const rows = useMemo(() => {
+    const all = data ?? [];
+    const needle = normalizeSearch(searchText);
+    if (!needle) return all;
+    return all.filter((f) =>
+      buildSearchBlob([f.code, f.name_short, f.name_tk, f.name_ru, f.name_en]).includes(needle),
+    );
+  }, [data, searchText]);
 
   const columns: ProColumns<IExportFirm>[] = [
     {
@@ -96,6 +109,14 @@ export default function ExportFirmsPage() {
         loading={isLoading}
         search={false}
         options={false}
+        toolbar={{
+          search: {
+            placeholder: t('common.search'),
+            allowClear: true,
+            onChange: (e) => setSearchText(e.target.value),
+            onSearch: (v) => setSearchText(v),
+          },
+        }}
         pagination={{ pageSize: 50, showSizeChanger: false }}
         size="small"
         scroll={{ x: 'max-content' }}

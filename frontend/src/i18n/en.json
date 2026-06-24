@@ -1097,7 +1097,8 @@
     "actions": "Actions",
     "move_to_gapy": "Move to Gapy Satyş",
     "move_to_our": "Move to Our Firms",
-    "confirm_move": "Change this firm's type?"
+    "confirm_move": "Change this firm's type?",
+    "filter_country": "All countries"
   },
   "users_admin": {
     "title": "Users",

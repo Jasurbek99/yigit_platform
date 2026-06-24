@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Alert, Button, Popconfirm, Tabs, Tag, Typography } from 'antd';
+import { Alert, Button, Popconfirm, Select, Tabs, Tag, Typography } from 'antd';
 import { ShopOutlined, PlusOutlined, SwapOutlined } from '@ant-design/icons';
 import { ProTable } from '@ant-design/pro-components';
 import type { ProColumns } from '@ant-design/pro-components';
@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { useAdminImportFirms, useUpdateImportFirm } from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
 import { canDo } from '@/utils/permissions';
+import { buildSearchBlob, normalizeSearch } from '@/utils/normalizeSearch';
 import type { IImportFirm } from '@/types';
 import { COLORS } from '@/constants/styles';
 
@@ -19,6 +20,8 @@ export default function ImportFirmsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<string>('our');
+  const [searchText, setSearchText] = useState('');
+  const [countryFilter, setCountryFilter] = useState<number | null>(null);
 
   const canCreate = canDo(user, 'import_firm', 'create');
   const canEdit = canDo(user, 'import_firm', 'edit');
@@ -33,7 +36,35 @@ export default function ImportFirmsPage() {
 
   const ourRows = useMemo(() => allRows.filter((r) => !r.is_gapy_satys), [allRows]);
   const gapyRows = useMemo(() => allRows.filter((r) => r.is_gapy_satys), [allRows]);
-  const rows = activeTab === 'our' ? ourRows : gapyRows;
+  const tabRows = activeTab === 'our' ? ourRows : gapyRows;
+
+  // Country options derived from the firms actually present (unique, sorted) —
+  // so the dropdown only lists countries that have at least one firm.
+  const countryOptions = useMemo(() => {
+    const seen = new Map<number, string>();
+    allRows.forEach((f) => {
+      if (f.country != null && !seen.has(f.country)) {
+        seen.set(f.country, f.country_name ?? String(f.country));
+      }
+    });
+    return [...seen.entries()]
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [allRows]);
+
+  // Smart search across code, short name, and full company name —
+  // diacritic- and punctuation-insensitive (see normalizeSearch) — plus
+  // the country filter.
+  const rows = useMemo(() => {
+    const needle = normalizeSearch(searchText);
+    return tabRows.filter((f) => {
+      if (countryFilter != null && f.country !== countryFilter) return false;
+      if (needle && !buildSearchBlob([f.code, f.name_short, f.name_company]).includes(needle)) {
+        return false;
+      }
+      return true;
+    });
+  }, [tabRows, searchText, countryFilter]);
 
   const columns: ProColumns<IImportFirm>[] = [
     {
@@ -167,13 +198,33 @@ export default function ImportFirmsPage() {
         loading={isLoading}
         search={false}
         options={false}
+        toolbar={{
+          search: {
+            placeholder: t('common.search'),
+            allowClear: true,
+            onChange: (e) => setSearchText(e.target.value),
+            onSearch: (v) => setSearchText(v),
+          },
+        }}
         pagination={{ pageSize: 50, showSizeChanger: false }}
         size="small"
         scroll={{ x: 'max-content' }}
         onRow={(record) => ({ onClick: () => navigate(`/admin/import-firms/${record.id}`) })}
         rowHoverable
-        toolBarRender={() =>
-          canCreate
+        toolBarRender={() => [
+          <Select
+            key="country"
+            value={countryFilter ?? undefined}
+            onChange={(v) => setCountryFilter(v ?? null)}
+            options={countryOptions}
+            allowClear
+            showSearch
+            optionFilterProp="label"
+            placeholder={t('import_firms_admin.filter_country')}
+            style={{ minWidth: 180 }}
+            size="small"
+          />,
+          ...(canCreate
             ? [
                 <Button
                   key="add"
@@ -184,8 +235,8 @@ export default function ImportFirmsPage() {
                   {t('import_firms_admin.add')}
                 </Button>,
               ]
-            : []
-        }
+            : []),
+        ]}
       />
     </div>
   );

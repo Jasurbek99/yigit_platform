@@ -1097,7 +1097,8 @@
     "actions": "Amallar",
     "move_to_gapy": "Gapy Satyşa geçir",
     "move_to_our": "Biziň firmalarymyza geçir",
-    "confirm_move": "Bu firmanyň görnüşini üýtgetmelimi?"
+    "confirm_move": "Bu firmanyň görnüşini üýtgetmelimi?",
+    "filter_country": "Ähli ýurtlar"
   },
   "users_admin": {
     "title": "Ulanyjylar",
