@@ -19,7 +19,6 @@ import {
 import {
   ArrowLeftOutlined,
   DeleteOutlined,
-  EditOutlined,
   PlusOutlined,
   ShopOutlined,
   UploadOutlined,
@@ -37,6 +36,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { canDo } from '@/utils/permissions';
 import { CountrySelect } from '@/components/CountrySelect';
 import { CitySelect } from '@/components/CitySelect';
+import { InlineEdit } from '@/components/InlineEdit';
 import type { IImportFirm } from '@/types';
 import { COLORS } from '@/constants/styles';
 
@@ -136,12 +136,14 @@ export default function ImportFirmDetailPage() {
   });
 
   const updateMutation = useUpdateImportFirm({
-    onSuccess: () => {
-      toast.success(t('import_firms_admin.toast_updated'));
-      setDrawerOpen(false);
-    },
+    onSuccess: () => toast.success(t('import_firms_admin.toast_updated')),
     onError: () => toast.error(t('import_firms_admin.toast_error')),
   });
+
+  function saveField(patch: Partial<Omit<IImportFirm, 'id'>>) {
+    if (!firm) return;
+    updateMutation.mutate({ id: firm.id, ...patch });
+  }
 
   const deleteMutation = useDeleteImportFirm({
     onSuccess: () => {
@@ -155,26 +157,6 @@ export default function ImportFirmDetailPage() {
     onSuccess: () => toast.success(t('import_firms_admin.toast_file_uploaded')),
     onError: () => toast.error(t('import_firms_admin.toast_error')),
   });
-
-  function handleOpenEdit() {
-    if (!firm) return;
-    setSignatureFile(null);
-    setSealFile(null);
-    form.setFieldsValue({
-      code: firm.code ?? '',
-      name_company: firm.name_company,
-      name_short: firm.name_short ?? '',
-      country: firm.country,
-      city: firm.city,
-      address: firm.address ?? '',
-      bank_details: firm.bank_details ?? '',
-      contact_person: firm.contact_person ?? '',
-      phone: firm.phone ?? '',
-      is_active: firm.is_active,
-      is_gapy_satys: firm.is_gapy_satys,
-    });
-    setDrawerOpen(true);
-  }
 
   async function handleSubmit() {
     const values = await form.validateFields();
@@ -237,24 +219,15 @@ export default function ImportFirmDetailPage() {
             {isNew ? t('import_firms_admin.add') : (firm?.name_company || '...')}
           </Title>
         </div>
-        {!isNew && (
-          <Space>
-            {canEdit && (
-              <Button icon={<EditOutlined />} onClick={handleOpenEdit}>
-                {t('common.edit')}
-              </Button>
-            )}
-            {canDelete && (
-              <Button
-                danger
-                icon={<DeleteOutlined />}
-                loading={deleteMutation.isPending}
-                onClick={handleDelete}
-              >
-                {t('common.delete')}
-              </Button>
-            )}
-          </Space>
+        {!isNew && canDelete && (
+          <Button
+            danger
+            icon={<DeleteOutlined />}
+            loading={deleteMutation.isPending}
+            onClick={handleDelete}
+          >
+            {t('common.delete')}
+          </Button>
         )}
         {isNew && canCreate && (
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setDrawerOpen(true)}>
@@ -274,41 +247,75 @@ export default function ImportFirmDetailPage() {
         <Space direction="vertical" size={16} style={{ width: '100%' }}>
           <Descriptions bordered column={2} size="small">
             <Descriptions.Item label={t('import_firms_admin.name_company')} span={2}>
-              {firm.name_company}
+              <InlineEdit value={firm.name_company} required editable={canEdit} onSave={(v) => saveField({ name_company: v })} />
             </Descriptions.Item>
             <Descriptions.Item label={t('import_firms_admin.name_short')}>
-              {firm.name_short || empty}
+              <InlineEdit value={firm.name_short} editable={canEdit} onSave={(v) => saveField({ name_short: v || null })} />
             </Descriptions.Item>
             <Descriptions.Item label={t('import_firms_admin.code')}>
-              {firm.code || empty}
+              <InlineEdit value={firm.code} editable={canEdit} onSave={(v) => saveField({ code: v || null })} />
             </Descriptions.Item>
             <Descriptions.Item label={t('import_firms_admin.country')}>
-              {firm.country_name || empty}
+              {canEdit ? (
+                <CountrySelect
+                  value={firm.country}
+                  onChange={(v) => saveField({ country: v, city: null })}
+                  size="small"
+                  style={{ minWidth: 160 }}
+                />
+              ) : (
+                firm.country_name || empty
+              )}
             </Descriptions.Item>
             <Descriptions.Item label={t('import_firms_admin.city')}>
-              {firm.city_name || empty}
+              {canEdit ? (
+                <CitySelect
+                  countryId={firm.country}
+                  value={firm.city}
+                  onChange={(v) => saveField({ city: v })}
+                  size="small"
+                  style={{ minWidth: 160 }}
+                />
+              ) : (
+                firm.city_name || empty
+              )}
             </Descriptions.Item>
             <Descriptions.Item label={t('import_firms_admin.contact_person')} span={2}>
-              {firm.contact_person || empty}
+              <InlineEdit value={firm.contact_person} editable={canEdit} onSave={(v) => saveField({ contact_person: v || null })} />
             </Descriptions.Item>
             <Descriptions.Item label={t('import_firms_admin.phone')}>
-              {firm.phone || empty}
+              <InlineEdit value={firm.phone} editable={canEdit} onSave={(v) => saveField({ phone: v || null })} />
             </Descriptions.Item>
             <Descriptions.Item label={t('import_firms_admin.address')} span={2}>
-              {firm.address || empty}
+              <InlineEdit value={firm.address} multiline editable={canEdit} onSave={(v) => saveField({ address: v || null })} />
             </Descriptions.Item>
             <Descriptions.Item label={t('import_firms_admin.bank_details')} span={2}>
-              <span style={{ whiteSpace: 'pre-line' }}>{firm.bank_details || empty}</span>
+              <InlineEdit value={firm.bank_details} multiline editable={canEdit} onSave={(v) => saveField({ bank_details: v || null })} />
             </Descriptions.Item>
             <Descriptions.Item label={t('import_firms_admin.is_active')}>
-              {firm.is_active
-                ? <Tag color="green">{t('common.yes')}</Tag>
-                : <Tag color="default">{t('common.no')}</Tag>}
+              {canEdit
+                ? <Switch checked={firm.is_active} onChange={(v) => saveField({ is_active: v })} />
+                : firm.is_active
+                  ? <Tag color="green">{t('common.yes')}</Tag>
+                  : <Tag color="default">{t('common.no')}</Tag>}
             </Descriptions.Item>
             <Descriptions.Item label={t('import_firms_admin.is_gapy_satys')}>
-              {firm.is_gapy_satys
-                ? <Tag color="orange">{t('common.yes')}</Tag>
-                : <Tag color="default">{t('common.no')}</Tag>}
+              {canEdit ? (
+                <Select
+                  value={firm.is_gapy_satys}
+                  onChange={(v) => saveField({ is_gapy_satys: v })}
+                  size="small"
+                  style={{ minWidth: 140 }}
+                  options={[
+                    { value: false, label: t('import_firms_admin.tab_our') },
+                    { value: true, label: t('import_firms_admin.tab_gapy_satys') },
+                  ]}
+                />
+              ) : firm.is_gapy_satys ? (
+                <Tag color="orange">{t('common.yes')}</Tag>
+              ) : (
+                <Tag color="default">{t('common.no')}</Tag>
+              )}
             </Descriptions.Item>
           </Descriptions>
 

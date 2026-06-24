@@ -8,7 +8,6 @@ import {
   Input,
   Modal,
   Skeleton,
-  Space,
   Switch,
   Tag,
   Typography,
@@ -17,7 +16,6 @@ import {
   ArrowLeftOutlined,
   BankOutlined,
   DeleteOutlined,
-  EditOutlined,
   PlusOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
@@ -30,6 +28,7 @@ import {
 } from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
 import { canDo } from '@/utils/permissions';
+import { InlineEdit } from '@/components/InlineEdit';
 import type { IExportFirm } from '@/types';
 import { COLORS } from '@/constants/styles';
 
@@ -82,12 +81,14 @@ export default function ExportFirmDetailPage() {
   });
 
   const updateMutation = useUpdateFirm({
-    onSuccess: () => {
-      toast.success(t('firms_admin.toast_updated'));
-      setDrawerOpen(false);
-    },
+    onSuccess: () => toast.success(t('firms_admin.toast_updated')),
     onError: () => toast.error(t('firms_admin.toast_error')),
   });
+
+  function saveField(patch: Partial<IExportFirm>) {
+    if (!firm) return;
+    updateMutation.mutate({ id: firm.id, ...patch });
+  }
 
   const deleteMutation = useDeleteExportFirm({
     onSuccess: () => {
@@ -96,30 +97,6 @@ export default function ExportFirmDetailPage() {
     },
     onError: () => toast.error(t('firms_admin.toast_error')),
   });
-
-  function handleOpenEdit() {
-    if (!firm) return;
-    form.setFieldsValue({
-      code: firm.code,
-      name_short: firm.name_short ?? '',
-      name_tk: firm.name_tk,
-      name_en: firm.name_en ?? '',
-      name_ru: firm.name_ru ?? '',
-      director: firm.director ?? '',
-      tax_code: firm.tax_code ?? '',
-      swift_code: firm.swift_code ?? '',
-      one_c_code: firm.one_c_code ?? '',
-      address_tk: firm.address_tk ?? '',
-      address_en: firm.address_en ?? '',
-      address_ru: firm.address_ru ?? '',
-      bank_details_tk: firm.bank_details_tk ?? '',
-      bank_details_en: firm.bank_details_en ?? '',
-      bank_details_ru: firm.bank_details_ru ?? '',
-      is_active: firm.is_active,
-      is_gapy_satys: firm.is_gapy_satys,
-    });
-    setDrawerOpen(true);
-  }
 
   async function handleSubmit() {
     const values = await form.validateFields();
@@ -161,8 +138,6 @@ export default function ExportFirmDetailPage() {
     });
   }
 
-  const empty = <Text type="secondary">—</Text>;
-
   return (
     <div>
       {/* Header */}
@@ -181,24 +156,15 @@ export default function ExportFirmDetailPage() {
             {isNew ? t('firms_admin.add') : (firm?.name_en || firm?.name_tk || '...')}
           </Title>
         </div>
-        {!isNew && (
-          <Space>
-            {canEdit && (
-              <Button icon={<EditOutlined />} onClick={handleOpenEdit}>
-                {t('common.edit')}
-              </Button>
-            )}
-            {canDelete && (
-              <Button
-                danger
-                icon={<DeleteOutlined />}
-                loading={deleteMutation.isPending}
-                onClick={handleDelete}
-              >
-                {t('common.delete')}
-              </Button>
-            )}
-          </Space>
+        {!isNew && canDelete && (
+          <Button
+            danger
+            icon={<DeleteOutlined />}
+            loading={deleteMutation.isPending}
+            onClick={handleDelete}
+          >
+            {t('common.delete')}
+          </Button>
         )}
         {isNew && canCreate && (
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setDrawerOpen(true)}>
@@ -217,42 +183,70 @@ export default function ExportFirmDetailPage() {
       ) : (
         <>
           <Descriptions bordered column={2} size="small" style={{ marginBottom: 24 }}>
-            <Descriptions.Item label={t('firms_admin.code')}>{firm.code}</Descriptions.Item>
-            <Descriptions.Item label={t('firms_admin.name_short')}>{firm.name_short || empty}</Descriptions.Item>
-            <Descriptions.Item label={t('firms_admin.is_active')}>
-              {firm.is_active
-                ? <Tag color="green">{t('common.yes')}</Tag>
-                : <Tag color="default">{t('common.no')}</Tag>}
+            <Descriptions.Item label={t('firms_admin.code')}>
+              <InlineEdit value={firm.code} required editable={canEdit} onSave={(v) => saveField({ code: v })} />
             </Descriptions.Item>
-            <Descriptions.Item label={t('firms_admin.name_tk')}>{firm.name_tk || empty}</Descriptions.Item>
-            <Descriptions.Item label={t('firms_admin.name_en')}>{firm.name_en || empty}</Descriptions.Item>
-            <Descriptions.Item label={t('firms_admin.name_ru')}>{firm.name_ru || empty}</Descriptions.Item>
-            <Descriptions.Item label={t('firms_admin.director')}>{firm.director || empty}</Descriptions.Item>
-            <Descriptions.Item label={t('firms_admin.tax_code')}>{firm.tax_code || empty}</Descriptions.Item>
-            <Descriptions.Item label={t('firms_admin.swift_code')}>{firm.swift_code || empty}</Descriptions.Item>
-            <Descriptions.Item label={t('firms_admin.one_c_code')}>{firm.one_c_code || empty}</Descriptions.Item>
+            <Descriptions.Item label={t('firms_admin.name_short')}>
+              <InlineEdit value={firm.name_short} editable={canEdit} onSave={(v) => saveField({ name_short: v || null })} />
+            </Descriptions.Item>
+            <Descriptions.Item label={t('firms_admin.is_active')}>
+              {canEdit
+                ? <Switch checked={firm.is_active} onChange={(v) => saveField({ is_active: v })} />
+                : firm.is_active
+                  ? <Tag color="green">{t('common.yes')}</Tag>
+                  : <Tag color="default">{t('common.no')}</Tag>}
+            </Descriptions.Item>
+            <Descriptions.Item label={t('firms_admin.name_tk')}>
+              <InlineEdit value={firm.name_tk} required editable={canEdit} onSave={(v) => saveField({ name_tk: v })} />
+            </Descriptions.Item>
+            <Descriptions.Item label={t('firms_admin.name_en')}>
+              <InlineEdit value={firm.name_en} editable={canEdit} onSave={(v) => saveField({ name_en: v || null })} />
+            </Descriptions.Item>
+            <Descriptions.Item label={t('firms_admin.name_ru')}>
+              <InlineEdit value={firm.name_ru} editable={canEdit} onSave={(v) => saveField({ name_ru: v || null })} />
+            </Descriptions.Item>
+            <Descriptions.Item label={t('firms_admin.director')}>
+              <InlineEdit value={firm.director} editable={canEdit} onSave={(v) => saveField({ director: v || null })} />
+            </Descriptions.Item>
+            <Descriptions.Item label={t('firms_admin.tax_code')}>
+              <InlineEdit value={firm.tax_code} editable={canEdit} onSave={(v) => saveField({ tax_code: v || null })} />
+            </Descriptions.Item>
+            <Descriptions.Item label={t('firms_admin.swift_code')}>
+              <InlineEdit value={firm.swift_code} editable={canEdit} onSave={(v) => saveField({ swift_code: v || null })} />
+            </Descriptions.Item>
+            <Descriptions.Item label={t('firms_admin.one_c_code')}>
+              <InlineEdit value={firm.one_c_code} editable={canEdit} onSave={(v) => saveField({ one_c_code: v || null })} />
+            </Descriptions.Item>
             <Descriptions.Item label={t('firms_admin.is_gapy_satys')}>
-              {firm.is_gapy_satys
-                ? <Tag color="orange">{t('common.yes')}</Tag>
-                : <Tag color="default">{t('common.no')}</Tag>}
+              {canEdit
+                ? <Switch checked={firm.is_gapy_satys} onChange={(v) => saveField({ is_gapy_satys: v })} />
+                : firm.is_gapy_satys
+                  ? <Tag color="orange">{t('common.yes')}</Tag>
+                  : <Tag color="default">{t('common.no')}</Tag>}
             </Descriptions.Item>
           </Descriptions>
 
           <Descriptions bordered column={1} size="small" title={t('firms_admin.address')} style={{ marginBottom: 24 }}>
-            <Descriptions.Item label={t('firms_admin.address_tk')}>{firm.address_tk || empty}</Descriptions.Item>
-            <Descriptions.Item label={t('firms_admin.address_en')}>{firm.address_en || empty}</Descriptions.Item>
-            <Descriptions.Item label={t('firms_admin.address_ru')}>{firm.address_ru || empty}</Descriptions.Item>
+            <Descriptions.Item label={t('firms_admin.address_tk')}>
+              <InlineEdit value={firm.address_tk} multiline editable={canEdit} onSave={(v) => saveField({ address_tk: v || null })} />
+            </Descriptions.Item>
+            <Descriptions.Item label={t('firms_admin.address_en')}>
+              <InlineEdit value={firm.address_en} multiline editable={canEdit} onSave={(v) => saveField({ address_en: v || null })} />
+            </Descriptions.Item>
+            <Descriptions.Item label={t('firms_admin.address_ru')}>
+              <InlineEdit value={firm.address_ru} multiline editable={canEdit} onSave={(v) => saveField({ address_ru: v || null })} />
+            </Descriptions.Item>
           </Descriptions>
 
           <Descriptions bordered column={1} size="small" title={t('firms_admin.bank_details')}>
             <Descriptions.Item label={t('firms_admin.bank_details_tk')}>
-              <span style={{ whiteSpace: 'pre-line' }}>{firm.bank_details_tk || empty}</span>
+              <InlineEdit value={firm.bank_details_tk} multiline editable={canEdit} onSave={(v) => saveField({ bank_details_tk: v || null })} />
             </Descriptions.Item>
             <Descriptions.Item label={t('firms_admin.bank_details_en')}>
-              <span style={{ whiteSpace: 'pre-line' }}>{firm.bank_details_en || empty}</span>
+              <InlineEdit value={firm.bank_details_en} multiline editable={canEdit} onSave={(v) => saveField({ bank_details_en: v || null })} />
             </Descriptions.Item>
             <Descriptions.Item label={t('firms_admin.bank_details_ru')}>
-              <span style={{ whiteSpace: 'pre-line' }}>{firm.bank_details_ru || empty}</span>
+              <InlineEdit value={firm.bank_details_ru} multiline editable={canEdit} onSave={(v) => saveField({ bank_details_ru: v || null })} />
             </Descriptions.Item>
           </Descriptions>
         </>
