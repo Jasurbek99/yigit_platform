@@ -2590,6 +2590,8 @@
       "cancel": "Ýatyr",
       "field": {
         "contract_number": "Şertnama belgisi",
+        "contract_number_placeholder": "Awto-döretmek üçin boş goýuň",
+        "contract_number_hint": "Boş goýuň — belgi satyjy we ýyl boýunça awtomatiki dörediler (mysal: 6/26-YGT-EXP).",
         "export_firm": "Satyjy firma",
         "import_firm": "Alyjy firma",
         "season": "Möwsüm",

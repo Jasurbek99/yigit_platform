@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.db import models
+from django.db.models import Q
 
 from apps.core.db_utils import cyrillic_collation, schema_table
 
@@ -37,6 +38,13 @@ class Contract(models.Model):
         unique=True,
         **cyrillic_collation(),
     )
+    # Parsed components of contract_number for per-seller/per-year auto-numbering.
+    # seq is a running counter scoped to (export_firm, contract_year); the human
+    # string is `{seq}/{YY}-{export_firm.code}-EXP, {DD.MM.YYYY}` (buyer NOT in it).
+    # Nullable: non-standard numbers (-P pepper / TAT- / legacy) leave these NULL
+    # and are excluded from the counter via the filtered unique constraint. See ADR-023.
+    seq = models.IntegerField(null=True, blank=True)
+    contract_year = models.IntegerField(null=True, blank=True)
 
     # === Relationships ===
     season = models.ForeignKey(
@@ -121,6 +129,16 @@ class Contract(models.Model):
     class Meta:
         db_table = schema_table('contracts', 'contract')
         ordering = ['created_at']
+        constraints = [
+            # Per-seller, per-year contract sequence. Filtered so the many
+            # non-standard contracts (seq/year NULL) don't collide — MSSQL
+            # otherwise allows only a single NULL in a unique index.
+            models.UniqueConstraint(
+                fields=['export_firm', 'contract_year', 'seq'],
+                condition=Q(seq__isnull=False, contract_year__isnull=False),
+                name='uq_contract_firm_year_seq',
+            ),
+        ]
 
     def __str__(self) -> str:
         return self.contract_number

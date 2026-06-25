@@ -9,10 +9,18 @@ Three serializers per the API contract rules:
   - ContractSaleDetailSerializer — same plus editable_fields
   - ContractSaleCreateSerializer — writable, validates money and contract status
 """
+from datetime import date
+
+from django.db import transaction
 from rest_framework import serializers
 
+from apps.core.models import Season
 from apps.core.permissions import get_editable_fields
 from apps.contracts.models import Contract, ContractSale
+from apps.contracts.services.contract_number import (
+    next_contract_no,
+    parse_contract_number,
+)
 
 
 class ContractListSerializer(serializers.ModelSerializer):
@@ -126,6 +134,10 @@ class ContractCreateSerializer(serializers.ModelSerializer):
 
     Sets ``created_by`` from the request user automatically.
     On create, status defaults to 'active' and remaining_usd = 0.
+
+    ``contract_number`` is optional: when blank it is auto-generated per-seller,
+    per-year (``next_contract_no``); when supplied it is kept verbatim and its
+    seq/year are parsed out (best-effort) to keep the counter consistent.
     """
 
     class Meta:
@@ -144,15 +156,51 @@ class ContractCreateSerializer(serializers.ModelSerializer):
             'planned_quantity_kg',
             'planned_amount_usd',
         ]
+        # Optional (auto-generated when blank/omitted, see create()), but keep the
+        # model's UniqueValidator so a duplicate supplied number still returns 400.
+        extra_kwargs = {
+            'contract_number': {'required': False, 'allow_blank': True},
+            # Defaults server-side to the active season — a contract is always
+            # for the current season, so the create form doesn't ask for it.
+            'season': {'required': False},
+        }
 
     def create(self, validated_data: dict) -> Contract:
-        """Create a contract and set created_by from the request context."""
+        """Create a contract, auto-numbering it and setting created_by.
+
+        Wrapped in a transaction so the per-seller seq allocation and the insert
+        are atomic; the filtered unique constraint on
+        (export_firm, contract_year, seq) is the race backstop.
+        """
         request = self.context.get('request')
         if request and request.user and request.user.is_authenticated:
             validated_data['created_by'] = request.user
-        # status defaults to 'active' via model default
-        # remaining_usd is computed in model.save()
-        return super().create(validated_data)
+
+        # A contract is always for the current season — default it server-side
+        # so the create form need not ask.
+        if not validated_data.get('season'):
+            validated_data['season'] = (
+                Season.objects.filter(is_active=True).order_by('-start_date').first()
+            )
+
+        export_firm = validated_data['export_firm']
+        contract_date = validated_data.get('start_date') or date.today()
+        supplied = (validated_data.get('contract_number') or '').strip()
+
+        with transaction.atomic():
+            if supplied:
+                # Manual / import number — keep verbatim, parse seq+year if standard.
+                validated_data['contract_number'] = supplied
+                parsed = parse_contract_number(supplied)
+                if parsed:
+                    validated_data['seq'], validated_data['contract_year'] = parsed
+            else:
+                seq, year, number = next_contract_no(export_firm, contract_date)
+                validated_data['contract_number'] = number
+                validated_data['seq'] = seq
+                validated_data['contract_year'] = year
+            # status defaults to 'active'; remaining_usd computed in model.save()
+            return super().create(validated_data)
 
 
 # ─── Contract sale serializers ────────────────────────────────────────────────

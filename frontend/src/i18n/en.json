@@ -2586,6 +2586,8 @@
       "cancel": "Cancel",
       "field": {
         "contract_number": "Contract number",
+        "contract_number_placeholder": "Leave blank to auto-generate",
+        "contract_number_hint": "Leave blank — a number is auto-generated per seller and year (e.g. 6/26-YGT-EXP).",
         "export_firm": "Seller firm",
         "import_firm": "Buyer firm",
         "season": "Season",

@@ -6,7 +6,6 @@ import { useCreateContract } from '@/hooks/useContracts';
 import { ExportFirmSelect } from '@/components/ExportFirmSelect';
 import { ImportFirmSelect } from '@/components/ImportFirmSelect';
 import { CustomerSelect } from '@/components/CustomerSelect';
-import { SeasonSelect } from '@/components/SeasonSelect';
 import type { IContractCreatePayload } from '@/types/contract';
 
 // ─── Incoterm options (standard trade terms) ─────────────────────────────────
@@ -19,10 +18,9 @@ const INCOTERM_OPTIONS = ['FCA', 'CIP', 'DAP', 'CIF', 'FOB', 'EXW', 'DDP', 'DAT'
 // ─── Form shape ───────────────────────────────────────────────────────────────
 
 interface IFormValues {
-  contract_number: string;
+  contract_number?: string;
   export_firm: number;
   import_firm: number;
-  season: number;
   incoterm: string;
   planned_trucks: number;
   planned_quantity_kg: number;
@@ -56,10 +54,8 @@ export function ContractCreate({ open, onClose }: IContractCreateProps) {
     }
 
     const payload: IContractCreatePayload = {
-      contract_number: values.contract_number,
       export_firm: values.export_firm,
       import_firm: values.import_firm,
-      season: values.season,
       incoterm: values.incoterm,
       planned_trucks: values.planned_trucks,
       planned_quantity_kg: values.planned_quantity_kg,
@@ -68,6 +64,10 @@ export function ContractCreate({ open, onClose }: IContractCreateProps) {
       end_date: values.end_date ? values.end_date.format('YYYY-MM-DD') : null,
       customer: values.customer ?? null,
     };
+    const trimmedNumber = values.contract_number?.trim();
+    if (trimmedNumber) {
+      payload.contract_number = trimmedNumber;
+    }
     const trimmedType = values.contract_type?.trim();
     if (trimmedType) {
       payload.contract_type = trimmedType;
@@ -123,9 +123,9 @@ export function ContractCreate({ open, onClose }: IContractCreateProps) {
             <Form.Item
               name="contract_number"
               label={t('contracts.create.field.contract_number')}
-              rules={[{ required: true, message: t('common.required') }]}
+              extra={t('contracts.create.field.contract_number_hint')}
             >
-              <Input placeholder="2025-001" />
+              <Input placeholder={t('contracts.create.field.contract_number_placeholder')} />
             </Form.Item>
           </Col>
         </Row>
@@ -155,18 +155,7 @@ export function ContractCreate({ open, onClose }: IContractCreateProps) {
         </Row>
 
         <Row gutter={16}>
-          {/* Season */}
-          <Col span={12}>
-            <Form.Item
-              name="season"
-              label={t('contracts.create.field.season')}
-              rules={[{ required: true, message: t('common.required') }]}
-            >
-              <SeasonSelect style={{ width: '100%' }} />
-            </Form.Item>
-          </Col>
-
-          {/* Incoterm */}
+          {/* Incoterm — season is set server-side to the active season */}
           <Col span={12}>
             <Form.Item
               name="incoterm"

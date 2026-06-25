@@ -62,10 +62,12 @@ export interface IContractDetail extends IContract {
 }
 
 export interface IContractCreatePayload {
-  contract_number: string;
+  // Optional — the backend auto-generates a per-seller/per-year number when blank.
+  contract_number?: string;
   export_firm: number;
   import_firm: number;
-  season: number;
+  // Optional — defaults server-side to the active season.
+  season?: number;
   incoterm: string;
   planned_trucks: number;
   planned_quantity_kg: number;
