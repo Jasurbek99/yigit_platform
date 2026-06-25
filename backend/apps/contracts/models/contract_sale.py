@@ -68,8 +68,10 @@ class ContractSale(models.Model):
     )
 
     # === Invoice-document identifiers (the invoice number/date for this sale) ===
-    invoice_number = models.IntegerField()
-    invoice_date = models.DateField()
+    # Nullable: when a sale is created as the shipment↔contract bridge (Slice 4),
+    # the invoice number/date are filled later by a person at document time.
+    invoice_number = models.IntegerField(null=True, blank=True)
+    invoice_date = models.DateField(null=True, blank=True)
     serial_truck_number = models.IntegerField(null=True, blank=True)
 
     # === Denormalized firm references (for reporting, optional) ===
@@ -124,8 +126,24 @@ class ContractSale(models.Model):
 
     class Meta:
         db_table = schema_table('contracts', 'contract_sale')
-        unique_together = [('contract', 'invoice_number')]
         ordering = ['contract_id', 'invoice_number']
+        constraints = [
+            # Invoice number unique within a contract — filtered so the many
+            # bridge sales with a not-yet-filled NULL invoice_number coexist
+            # (MSSQL otherwise allows only one NULL).
+            models.UniqueConstraint(
+                fields=['contract', 'invoice_number'],
+                condition=models.Q(invoice_number__isnull=False),
+                name='uq_sale_contract_invoice',
+            ),
+            # One sale per (shipment, export_firm) — the Slice-4 bridge identity.
+            # Filtered to linked sales; historical 2-Sales rows have shipment NULL.
+            models.UniqueConstraint(
+                fields=['shipment', 'export_firm'],
+                condition=models.Q(shipment__isnull=False),
+                name='uq_sale_shipment_firm',
+            ),
+        ]
 
     def __str__(self) -> str:
         return f'{self.contract_id}/{self.invoice_number}'

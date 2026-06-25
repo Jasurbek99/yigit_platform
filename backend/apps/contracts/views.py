@@ -5,6 +5,7 @@ from django.http import HttpResponse
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
 from apps.core.permissions import DynamicResourcePermission
@@ -215,3 +216,117 @@ class ContractSaleViewSet(ModelViewSet):
         response = HttpResponse(data, content_type=content_type)
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
+
+
+class ShipmentFirmContractsView(APIView):
+    """Slice 4 — resolve/link each firm split of a shipment to a contract.
+
+    GET ?shipment=<id>  → per firm split: weight/amount, the $10K hint, the
+        already-linked contract (if any), and the active framework contracts of
+        the (seller, buyer) pair to choose from.
+    POST {shipment, export_firm, mode, contract_id?} → link the split to a
+        framework contract (mode='framework', contract_id required) or create a
+        one_time contract (mode='one_time'); returns the resulting contract.
+
+    Gated by the 'sale' resource (view for GET, create for POST). Lives in
+    contracts (which may read export); the export firm-split code never calls here.
+    """
+
+    permission_classes = [IsAuthenticated, DynamicResourcePermission]
+    resource_code = 'sale'
+
+    def get(self, request):
+        from apps.export.models import Shipment
+        from apps.contracts.services.shipment_firm_contracts import (
+            framework_contracts_for_pair,
+            money_warning,
+        )
+
+        shipment_id = request.query_params.get('shipment')
+        if not shipment_id:
+            return Response({'error': 'shipment query param is required.'}, status=400)
+        shipment = (
+            Shipment.objects.filter(pk=shipment_id)
+            .select_related('import_firm')
+            .prefetch_related('firm_splits__export_firm', 'sales__contract')
+            .first()
+        )
+        if shipment is None:
+            return Response({'error': 'Shipment not found.'}, status=404)
+
+        import_firm_id = shipment.import_firm_id
+        linked_by_firm = {
+            sale.export_firm_id: sale
+            for sale in shipment.sales.all()
+            if sale.export_firm_id is not None
+        }
+
+        rows = []
+        for split in shipment.firm_splits.all():
+            options = (
+                list(
+                    framework_contracts_for_pair(split.export_firm_id, import_firm_id)
+                    .values('id', 'contract_number')
+                )
+                if import_firm_id
+                else []
+            )
+            sale = linked_by_firm.get(split.export_firm_id)
+            linked = None
+            if sale is not None:
+                linked = {
+                    'contract_id': sale.contract_id,
+                    'contract_number': sale.contract.contract_number,
+                    'contract_type': sale.contract.contract_type,
+                }
+            rows.append({
+                'export_firm': split.export_firm_id,
+                'export_firm_code': split.export_firm.code,
+                'export_firm_name': split.export_firm.name_short or split.export_firm.name_tk,
+                'weight_kg': split.weight_kg,
+                'amount_usd': split.amount_usd,
+                'money_warning': money_warning(split.amount_usd),
+                'framework_options': options,
+                'linked': linked,
+            })
+
+        return Response({
+            'shipment': shipment.id,
+            'import_firm': import_firm_id,
+            'import_firm_name': (
+                shipment.import_firm.name_short or shipment.import_firm.name_company
+                if shipment.import_firm_id else None
+            ),
+            'rows': rows,
+        })
+
+    def post(self, request):
+        from apps.export.models import Shipment
+        from apps.contracts.services.shipment_firm_contracts import (
+            link_split_to_contract,
+            money_warning,
+        )
+
+        data = request.data
+        shipment = Shipment.objects.filter(pk=data.get('shipment')).first()
+        if shipment is None:
+            return Response({'error': 'Shipment not found.'}, status=404)
+
+        try:
+            sale = link_split_to_contract(
+                shipment=shipment,
+                export_firm_id=int(data['export_firm']),
+                mode=data.get('mode'),
+                contract_id=data.get('contract_id'),
+                user=request.user,
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            return Response({'error': str(exc)}, status=400)
+
+        return Response({
+            'export_firm': sale.export_firm_id,
+            'contract_id': sale.contract_id,
+            'contract_number': sale.contract.contract_number,
+            'contract_type': sale.contract.contract_type,
+            'money_warning': money_warning(sale.total_usd),
+        }, status=201)
