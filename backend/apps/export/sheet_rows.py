@@ -105,6 +105,18 @@ DEFAULT_SHEET_ROWS: list[dict] = [
         'options_source': 'exportFirms',
     },
     {
+        # Per-firm contract resolution (ADR-023 Slice 4): one cell per shipment,
+        # opens a popover to link each firm split to a framework contract or
+        # create a one-time one. Synthetic row — no backing shipment column;
+        # 'readonly' keeps the generic cell editor away, SheetCell special-cases it.
+        'row_number': 47,
+        'field_key': 'firm_contracts',
+        'default_who_key': 'sheet.who.gadam',
+        'label_key': 'sheet.row.firm_contracts',
+        'input_type': 'readonly',
+        'style': 'base',
+    },
+    {
         'row_number': 10,
         'field_key': 'country',
         'default_who_key': 'sheet.who.gadam',

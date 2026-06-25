@@ -138,6 +138,11 @@ export function getCellValue(
     return shipment.firm_splits.map((f) => f.firm_code).join('-');
   }
 
+  // Firm contracts — synthetic cell (popover only), no copyable text value.
+  if (fieldKey === 'firm_contracts') {
+    return '';
+  }
+
   // Block sources
   if (fieldKey === 'block_sources') {
     if (!shipment.block_sources.length) return '—';

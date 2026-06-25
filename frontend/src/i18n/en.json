@@ -1468,6 +1468,17 @@
     "multiselect_done": "Done",
     "firm_no_quota_tag": "no quota",
     "firm_no_quota_warning": "Heads up: {{firms}} has no remaining quota. The split was saved anyway.",
+    "firm_contracts": {
+      "title": "Contracts",
+      "no_buyer": "Set the buyer first to resolve contracts.",
+      "no_firms": "Add firms to resolve contracts.",
+      "link": "Link",
+      "create_one_time": "Create one-time",
+      "bank": "≥ $10K — bank",
+      "cash": "< $10K — cash",
+      "toast_linked": "Contract {{number}} linked",
+      "toast_error": "Failed to link contract"
+    },
     "who": {
       "logist": "Logist",
       "malik": "Malik",
@@ -1496,6 +1507,7 @@
       "shipment_code": "Shipment Code",
       "harvest_block": "Harvest Block",
       "export_firm": "Export Firm",
+      "firm_contracts": "Contracts",
       "country": "Destination Country",
       "customer": "Customer",
       "city": "Destination City",

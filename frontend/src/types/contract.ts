@@ -82,3 +82,34 @@ export interface IContractCreatePayload {
   customer?: number | null;
   contract_type?: string | null;
 }
+
+// ─── Shipment firm-split ↔ contract bridge (Slice 4) ─────────────────────────
+
+export interface IFrameworkOption {
+  id: number;
+  contract_number: string;
+}
+
+export interface ILinkedContract {
+  contract_id: number;
+  contract_number: string;
+  contract_type: 'FRAMEWORK' | 'ONE_TIME';
+}
+
+export interface IShipmentFirmContractRow {
+  export_firm: number;
+  export_firm_code: string;
+  export_firm_name: string;
+  weight_kg: string | null;
+  amount_usd: string | null;
+  money_warning: 'bank' | 'cash' | null;
+  framework_options: IFrameworkOption[];
+  linked: ILinkedContract | null;
+}
+
+export interface IShipmentFirmContracts {
+  shipment: number;
+  import_firm: number | null;
+  import_firm_name: string | null;
+  rows: IShipmentFirmContractRow[];
+}

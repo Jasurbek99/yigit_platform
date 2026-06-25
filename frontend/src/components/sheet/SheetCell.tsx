@@ -1,6 +1,6 @@
 import { memo, useCallback, useState } from 'react';
-import { Dropdown, Modal, Tag } from 'antd';
-import { HistoryOutlined } from '@ant-design/icons';
+import { Dropdown, Modal, Popover, Tag } from 'antd';
+import { HistoryOutlined, FileTextOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { IShipmentSheetItem, IRowConfig, ICommentTaskStatus, ISheetRowSettingForUser, IShipmentOptionType } from '@/types';
@@ -11,6 +11,7 @@ import { useSheetCellWrite, isClearableField } from '@/hooks/useSheetCellWrite';
 import { CommentMarker } from './CommentMarker';
 import { FieldHistoryContent } from './CellLastEditMarker';
 import { getCellValue } from './getCellValue';
+import { ShipmentFirmContractsPanel } from './ShipmentFirmContractsPanel';
 import { getContrastTextColor } from '@/utils/contrastColor';
 
 // Re-export for consumers that only need the formatter (e.g. test files).
@@ -268,6 +269,31 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
 
   // Special rendering
   const { field_key: fieldKey } = rowConfig;
+
+  // Firm contracts — synthetic cell, opens a popover to resolve per-firm
+  // contracts (link framework / create one-time). No cell editor.
+  if (fieldKey === 'firm_contracts') {
+    const hasFirms = shipment.firm_splits.length > 0;
+    return wrap(
+      <div
+        className={`sheet-cell sheet-cell--${rowConfig.style}${isActive ? ' sheet-cell--active' : ''}${isGapy ? ' sheet-cell--gapy' : ''}`}
+        style={{ width: cellWidth, height: ROW_HEIGHT, ...cellBgStyle, textAlign: 'center' }}
+      >
+        {hasFirms ? (
+          <Popover
+            trigger="click"
+            placement="bottomLeft"
+            destroyTooltipOnHide
+            content={<ShipmentFirmContractsPanel shipmentId={shipment.id} />}
+          >
+            <FileTextOutlined style={{ cursor: 'pointer', color: '#1677ff' }} />
+          </Popover>
+        ) : (
+          <span style={{ color: '#bbb' }}>—</span>
+        )}
+      </div>
+    );
+  }
 
   // Country with flag
   if (fieldKey === 'country' && shipment.country_code) {

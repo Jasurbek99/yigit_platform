@@ -1468,6 +1468,17 @@
     "multiselect_done": "Taýýar",
     "firm_no_quota_tag": "kwota ýok",
     "firm_no_quota_warning": "Üns beriň: {{firms}} kwotasy galmady. Bölünişik şonda-da saklandy.",
+    "firm_contracts": {
+      "title": "Şertnamalar",
+      "no_buyer": "Şertnamalar üçin ilki alyjyny saýlaň.",
+      "no_firms": "Şertnamalar üçin firmalary goşuň.",
+      "link": "Baglanyşdyr",
+      "create_one_time": "Bir gezeklik döret",
+      "bank": "≥ $10K — bank",
+      "cash": "< $10K — nagt",
+      "toast_linked": "{{number}} şertnamasy baglanyşdyryldy",
+      "toast_error": "Şertnamany baglanyşdyryp bolmady"
+    },
     "who": {
       "logist": "Logist",
       "malik": "Malik",
@@ -1496,6 +1507,7 @@
       "shipment_code": "Iberiş kody",
       "harvest_block": "Ýygylan bölümi",
       "export_firm": "Eksport eden Firma",
+      "firm_contracts": "Şertnamalar",
       "country": "Eksport ýurdy",
       "customer": "Müşderi",
       "city": "Şäheri",
