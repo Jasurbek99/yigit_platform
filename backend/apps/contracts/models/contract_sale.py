@@ -1,4 +1,11 @@
-"""ContractSale model — one truck sold against a contract (the "2-Sales" row).
+"""ContractSale model — one export firm's share of a truck (one "2-Sales" row).
+
+IMPORTANT: a 2-Sales row is NOT a whole truck. One physical truck is commonly
+split across 2 (~35%) — rarely 3 — export firms to keep each invoice under the
+$10,000 threshold; each firm's share is a separate row with its own invoice,
+CMR and contract. So 1 truck → 1..3 ContractSale rows. The truck itself lives in
+``export.Shipment``; this row is bridged to it by ``(shipment, export_firm)`` —
+the same identity as ``export.ShipmentFirmSplit``. See ADR-023.
 
 Renamed from ``Invoice`` to avoid confusion with the actual *invoice document*
 the platform generates (``invoice_ru`` / ``invoice_en`` templates). This model is
@@ -14,7 +21,9 @@ from apps.core.db_utils import cyrillic_collation, schema_table
 
 
 class ContractSale(models.Model):
-    """One contract sale represents one truck dispatched under a parent contract.
+    """One ContractSale = one export firm's share of a truck (one 2-Sales row),
+    NOT a whole truck. A truck split across 2-3 firms produces 2-3 rows. Bridged
+    to the export side by ``(shipment, export_firm)``. See ADR-023.
 
     Denormalized contract totals are updated automatically via
     ``rollup_contract_totals()`` called from save() and delete().
@@ -46,7 +55,10 @@ class ContractSale(models.Model):
         related_name='sales',
     )
 
-    # === Shipment link (nullable — wired later) ===
+    # === Shipment link (nullable — bridge to export.Shipment) ===
+    # Bridges to export.ShipmentFirmSplit by (shipment, export_firm). NOT yet
+    # populated by the 2-Sales importer — truck reconstruction is Slice 3.
+    # See ADR-023.
     shipment = models.ForeignKey(
         'export.Shipment',
         on_delete=models.PROTECT,

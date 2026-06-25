@@ -11,9 +11,9 @@ App: `apps.contracts` | DB table: `contracts_contract_sale` | Slice: B
 
 ## Purpose
 
-A `ContractSale` represents one truck dispatched against a parent `Contract` — one row in the `2-Sales` Excel sheet. Each non-void sale increments the contract's `exported_trucks` counter and accumulates `exported_quantity_kg` / `exported_amount_usd` via the rollup service.
+A `ContractSale` represents **one export firm's share of a truck** — one row in the `2-Sales` Excel sheet — against a parent `Contract`. It is **NOT** a whole truck: one physical truck is commonly split across 2 (~35.6%), rarely 3, export firms to keep each invoice under the **$10,000** threshold, so **1 truck → 1..3 `ContractSale` rows**, each with its own invoice/CMR/contract. Each non-void sale increments the contract's `exported_trucks` counter and accumulates `exported_quantity_kg` / `exported_amount_usd` via the rollup service.
 
-Contract sales attach to a `Shipment` once the truck loads (optional FK, wired in a later slice).
+The truck itself is `export.Shipment`; this row bridges to it by the identity key **`(shipment, export_firm)`** — the same firm-share as `export.ShipmentFirmSplit`. The `shipment` FK is nullable and **not yet populated** by the 2-Sales importer (truck reconstruction by `(truck_plate + date)` is Slice 3). See **ADR-023** for the full `Shipment → FirmSplit → Contract` model, the bridge invariant, and the two distinct identifiers (`shipment_code` vs `contract_no`).
 
 ## Fields
 

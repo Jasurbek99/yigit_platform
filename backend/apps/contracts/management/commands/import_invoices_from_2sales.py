@@ -1,5 +1,12 @@
 """Import invoices (and one-time contracts) from the 2-Sales sheet.
 
+NOTE (ADR-023): a 2-Sales row is one export firm's SHARE of a truck (a firm
+split), NOT a whole truck — one truck is split across 1..3 firms. This importer
+currently writes one ContractSale per row and does NOT yet reconstruct
+export.Shipment or populate ContractSale.shipment; truck reconstruction by
+(truck_plate + date) and the shipment bridge are Slice 3. The "truck dispatch"
+wording below is the legacy framing kept until then.
+
 Reads the 2-Sales sheet of Export_contracts_2025-2026.xlsx and writes:
   - apps.contracts.Contract  (one-time / Pattern B contracts not in DB)
   - apps.contracts.ContractSale   (both Pattern A and Pattern B)

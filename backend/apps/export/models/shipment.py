@@ -378,7 +378,10 @@ class ShipmentStatusLog(models.Model):
 
 
 class ShipmentFirmSplit(models.Model):
-    """Maps 1-3 export firms to a single shipment with per-firm weight and amount."""
+    """One export firm's share of a shipment (1-3 per shipment) — per-firm weight
+    and amount. The identity key (shipment, export_firm) bridges to the
+    contracts-side record contracts.ContractSale (the "2-Sales" row). See ADR-023.
+    """
 
     shipment = models.ForeignKey(Shipment, on_delete=models.CASCADE, related_name='firm_splits')
     export_firm = models.ForeignKey('core.ExportFirm', on_delete=models.PROTECT)
