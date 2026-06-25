@@ -2555,6 +2555,10 @@
     "page_title": "Şertnamalar",
     "create_button": "Şertnama goş",
     "show_ended_toggle": "Tamamlananlary görkez",
+    "type": {
+      "framework": "Çarçuwaly",
+      "one_time": "Bir gezeklik"
+    },
     "column": {
       "contract_number": "Şertnama belgisi",
       "seller": "Satyjy",
@@ -2602,7 +2606,9 @@
         "start_date": "Başlanýan senesi",
         "end_date": "Gutarýan senesi (hökman däl)",
         "customer": "Müşderi (hökman däl)",
-        "contract_type": "Şertnama görnüşi (hökman däl)"
+        "contract_type": "Şertnama görnüşi",
+        "passport_sdelka": "Geleşik pasporty (hökman däl)",
+        "passport_sdelka_hint": "Bank geleşik pasporty — diňe çarçuwaly şertnamalarda; bir gezeklikde boş."
       },
       "toast": {
         "created": "Şertnama döredildi",

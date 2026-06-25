@@ -29,6 +29,7 @@ interface IFormValues {
   end_date?: dayjs.Dayjs | null;
   customer?: number | null;
   contract_type?: string | null;
+  passport_sdelka?: string;
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -71,6 +72,10 @@ export function ContractCreate({ open, onClose }: IContractCreateProps) {
     const trimmedType = values.contract_type?.trim();
     if (trimmedType) {
       payload.contract_type = trimmedType;
+    }
+    const trimmedPassport = values.passport_sdelka?.trim();
+    if (trimmedPassport) {
+      payload.passport_sdelka = trimmedPassport;
     }
 
     try {
@@ -236,13 +241,33 @@ export function ContractCreate({ open, onClose }: IContractCreateProps) {
             </Form.Item>
           </Col>
 
-          {/* Contract type (optional) */}
+          {/* Contract type */}
           <Col span={12}>
             <Form.Item
               name="contract_type"
               label={t('contracts.create.field.contract_type')}
+              initialValue="FRAMEWORK"
             >
-              <Input placeholder="EXPORT" />
+              <Select
+                options={[
+                  { value: 'FRAMEWORK', label: t('contracts.type.framework') },
+                  { value: 'ONE_TIME', label: t('contracts.type.one_time') },
+                ]}
+                style={{ width: '100%' }}
+              />
+            </Form.Item>
+          </Col>
+        </Row>
+
+        <Row gutter={16}>
+          {/* Deal passport — framework only (one-time has none) */}
+          <Col span={12}>
+            <Form.Item
+              name="passport_sdelka"
+              label={t('contracts.create.field.passport_sdelka')}
+              extra={t('contracts.create.field.passport_sdelka_hint')}
+            >
+              <Input />
             </Form.Item>
           </Col>
         </Row>

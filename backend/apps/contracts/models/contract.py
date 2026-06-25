@@ -32,6 +32,16 @@ class Contract(models.Model):
         (STATUS_CANCELLED, 'Cancelled'),
     ]
 
+    # Framework (multi-use, has passport-sdelka + quota) vs one-time (ad-hoc,
+    # auto-created at Add-shipment when the firm pair has no framework). See ADR-023.
+    TYPE_FRAMEWORK = 'FRAMEWORK'
+    TYPE_ONE_TIME = 'ONE_TIME'
+
+    TYPE_CHOICES = [
+        (TYPE_FRAMEWORK, 'Framework'),
+        (TYPE_ONE_TIME, 'One-time'),
+    ]
+
     # === Identifiers ===
     contract_number = models.CharField(
         max_length=100,
@@ -73,7 +83,14 @@ class Contract(models.Model):
     )
 
     # === Contract terms ===
-    contract_type = models.CharField(max_length=20, default='EXPORT')
+    contract_type = models.CharField(
+        max_length=20, choices=TYPE_CHOICES, default=TYPE_FRAMEWORK,
+    )
+    # Bank deal-passport (valyuta control). A property of the framework contract,
+    # not of each truck sale — framework has it, one-time does not. See ADR-023.
+    passport_sdelka = models.CharField(
+        max_length=100, blank=True, default='', **cyrillic_collation(),
+    )
     incoterm = models.CharField(max_length=10, blank=True, default='')
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)

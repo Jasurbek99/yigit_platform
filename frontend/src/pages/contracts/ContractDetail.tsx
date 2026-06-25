@@ -153,6 +153,14 @@ export default function ContractDetail() {
         <Descriptions.Item label={t('contracts.create.field.season')}>
           {contract.season_name ?? '—'}
         </Descriptions.Item>
+        <Descriptions.Item label={t('contracts.create.field.contract_type')}>
+          {contract.contract_type === 'ONE_TIME'
+            ? t('contracts.type.one_time')
+            : t('contracts.type.framework')}
+        </Descriptions.Item>
+        <Descriptions.Item label={t('contracts.create.field.passport_sdelka')}>
+          {contract.passport_sdelka || '—'}
+        </Descriptions.Item>
         <Descriptions.Item label={t('contracts.column.incoterm')}>
           {contract.incoterm || '—'}
         </Descriptions.Item>

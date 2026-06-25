@@ -230,7 +230,7 @@ class Command(BaseCommand):
                     season=season,
                     export_firm=export_firm,
                     import_firm=import_firm,
-                    contract_type='EXPORT',
+                    contract_type='FRAMEWORK',
                     incoterm=incoterm,
                     start_date=start_date,
                     planned_trucks=planned_trucks,

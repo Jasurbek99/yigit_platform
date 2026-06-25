@@ -26,6 +26,10 @@ export interface IContract {
   season: number | null;
   season_name: string | null;
 
+  // Type + deal passport
+  contract_type: 'FRAMEWORK' | 'ONE_TIME';
+  passport_sdelka: string;
+
   // Terms
   incoterm: string;
 
@@ -68,6 +72,7 @@ export interface IContractCreatePayload {
   import_firm: number;
   // Optional — defaults server-side to the active season.
   season?: number;
+  passport_sdelka?: string;
   incoterm: string;
   planned_trucks: number;
   planned_quantity_kg: number;

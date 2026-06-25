@@ -2551,6 +2551,10 @@
     "page_title": "Contracts",
     "create_button": "Add contract",
     "show_ended_toggle": "Show ended",
+    "type": {
+      "framework": "Framework",
+      "one_time": "One-time"
+    },
     "column": {
       "contract_number": "Contract no.",
       "seller": "Seller",
@@ -2598,7 +2602,9 @@
         "start_date": "Start date",
         "end_date": "End date (optional)",
         "customer": "Customer (optional)",
-        "contract_type": "Contract type (optional)"
+        "contract_type": "Contract type",
+        "passport_sdelka": "Deal passport (optional)",
+        "passport_sdelka_hint": "Bank deal-passport — framework contracts only; leave blank for one-time."
       },
       "toast": {
         "created": "Contract created",

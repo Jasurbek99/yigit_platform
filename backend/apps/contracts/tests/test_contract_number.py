@@ -146,3 +146,41 @@ class SerializerAutoNumberTest(TestCase):
         self.assertEqual(contract.contract_number, '177-AM-P')
         self.assertIsNone(contract.seq)
         self.assertIsNone(contract.contract_year)
+
+
+class ContractTypeAndPassportTest(TestCase):
+    """Slice 2: contract_type (framework/one_time) + passport on the contract."""
+
+    def _create(self, data: dict) -> Contract:
+        ser = ContractCreateSerializer(data=data, context={})
+        ser.is_valid(raise_exception=True)
+        return ser.save()
+
+    def test_default_type_is_framework(self) -> None:
+        c = self._create({
+            'export_firm': _efirm('YGT').id,
+            'import_firm': _ifirm('B1').id,
+            'start_date': '2026-01-06',
+        })
+        self.assertEqual(c.contract_type, Contract.TYPE_FRAMEWORK)
+
+    def test_one_time_without_passport(self) -> None:
+        c = self._create({
+            'export_firm': _efirm('YGT').id,
+            'import_firm': _ifirm('B1').id,
+            'contract_type': 'ONE_TIME',
+            'start_date': '2026-01-06',
+        })
+        self.assertEqual(c.contract_type, Contract.TYPE_ONE_TIME)
+        self.assertEqual(c.passport_sdelka, '')
+
+    def test_framework_with_passport(self) -> None:
+        c = self._create({
+            'export_firm': _efirm('YGT').id,
+            'import_firm': _ifirm('B1').id,
+            'contract_type': 'FRAMEWORK',
+            'passport_sdelka': 'PS-2026-001',
+            'start_date': '2026-01-06',
+        })
+        self.assertEqual(c.contract_type, Contract.TYPE_FRAMEWORK)
+        self.assertEqual(c.passport_sdelka, 'PS-2026-001')
