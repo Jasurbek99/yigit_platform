@@ -132,6 +132,17 @@ export function QuotaUsageTab({ weightUnit, productType }: IQuotaUsageTabProps) 
       render: (_: unknown, r: IQuotaUsageRecord) => <Text strong>{r.export_firm_name}</Text>,
     },
     {
+      title: t('quota_usage.source'),
+      key: 'source',
+      width: 110,
+      render: (_: unknown, r: IQuotaUsageRecord) =>
+        r.shipment_code ? (
+          <Tag color="blue" icon={<AppstoreOutlined />}>{t('quota_usage.source_auto')}</Tag>
+        ) : (
+          <Tag>{t('quota_usage.source_manual')}</Tag>
+        ),
+    },
+    {
       title: t('quota_usage.shipment_code'),
       dataIndex: 'shipment_code',
       width: 130,
@@ -269,7 +280,7 @@ export function QuotaUsageTab({ weightUnit, productType }: IQuotaUsageTabProps) 
         search={false}
         options={false}
         pagination={false}
-        scroll={{ x: 1100 }}
+        scroll={{ x: 1210 }}
         rowSelection={
           canEdit
             ? {
