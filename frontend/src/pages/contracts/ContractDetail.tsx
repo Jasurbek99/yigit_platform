@@ -131,6 +131,11 @@ export default function ContractDetail() {
         <Tag color={STATUS_COLORS[contract.status] ?? 'default'}>
           {t(`contracts.status.${contract.status}`)}
         </Tag>
+        <Tag color={contract.contract_type === 'ONE_TIME' ? 'orange' : 'blue'}>
+          {contract.contract_type === 'ONE_TIME'
+            ? t('contracts.type.one_time')
+            : t('contracts.type.framework')}
+        </Tag>
       </div>
 
       {/* ── Header Descriptions ─────────────────────────────────────────────── */}
@@ -154,9 +159,11 @@ export default function ContractDetail() {
           {contract.season_name ?? '—'}
         </Descriptions.Item>
         <Descriptions.Item label={t('contracts.create.field.contract_type')}>
-          {contract.contract_type === 'ONE_TIME'
-            ? t('contracts.type.one_time')
-            : t('contracts.type.framework')}
+          <Tag color={contract.contract_type === 'ONE_TIME' ? 'orange' : 'blue'}>
+            {contract.contract_type === 'ONE_TIME'
+              ? t('contracts.type.one_time')
+              : t('contracts.type.framework')}
+          </Tag>
         </Descriptions.Item>
         <Descriptions.Item label={t('contracts.create.field.passport_sdelka')}>
           {contract.passport_sdelka || '—'}

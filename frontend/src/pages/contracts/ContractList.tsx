@@ -5,6 +5,7 @@ import {
   Button,
   Select,
   Switch,
+  Tabs,
   Tag,
   Typography,
   Input,
@@ -74,16 +75,27 @@ export default function ContractList() {
   // Create modal
   const [createOpen, setCreateOpen] = useState(false);
 
-  const { data, isLoading, isError } = useContracts({ includeEnded: showEnded });
+  // Fetch up to the max page so the Framework/One-time tab split + search
+  // cover all contracts (the list filters client-side).
+  const { data, isLoading, isError } = useContracts({ includeEnded: showEnded, pageSize: 200 });
   const allRows = data?.results ?? [];
 
-  // Apply client-side search + status filter
+  // Framework vs one-time split into tabs.
+  const [typeTab, setTypeTab] = useState<'FRAMEWORK' | 'ONE_TIME'>('FRAMEWORK');
+  const frameworkCount = allRows.filter((r) => r.contract_type !== 'ONE_TIME').length;
+  const oneTimeCount = allRows.filter((r) => r.contract_type === 'ONE_TIME').length;
+
+  // Apply tab (type) + client-side search + status filter
   const rows = allRows.filter((row) => {
+    const matchesType =
+      typeTab === 'ONE_TIME'
+        ? row.contract_type === 'ONE_TIME'
+        : row.contract_type !== 'ONE_TIME';
     const matchesStatus = statusFilter === 'all' || row.status === statusFilter;
     const matchesSearch =
       !searchText ||
       row.contract_number.toLowerCase().includes(searchText.toLowerCase());
-    return matchesStatus && matchesSearch;
+    return matchesType && matchesStatus && matchesSearch;
   });
 
   // ─── Column definitions ───────────────────────────────────────────────────
@@ -241,6 +253,17 @@ export default function ContractList() {
     },
   ];
 
+  // One-time contracts are single ad-hoc sales — the planned/exported/remaining
+  // truck-quota framework (and incoterm) doesn't apply, so trim to identity +
+  // status on that tab.
+  const ONE_TIME_KEEP = new Set([
+    'index', 'contract_number', 'export_firm_name', 'import_firm_name', 'status',
+  ]);
+  const visibleColumns =
+    typeTab === 'ONE_TIME'
+      ? columns.filter((c) => ONE_TIME_KEEP.has(c.dataIndex as string))
+      : columns;
+
   if (isError) {
     return (
       <Alert
@@ -268,10 +291,20 @@ export default function ContractList() {
         </Title>
       </div>
 
+      <Tabs
+        activeKey={typeTab}
+        onChange={(k) => setTypeTab(k as 'FRAMEWORK' | 'ONE_TIME')}
+        items={[
+          { key: 'FRAMEWORK', label: `${t('contracts.type.framework')} (${frameworkCount})` },
+          { key: 'ONE_TIME', label: `${t('contracts.type.one_time')} (${oneTimeCount})` },
+        ]}
+        style={{ marginBottom: -8 }}
+      />
+
       <ProTable<IContract>
         rowKey="id"
         dataSource={rows}
-        columns={columns}
+        columns={visibleColumns}
         loading={isLoading}
         search={false}
         options={false}
