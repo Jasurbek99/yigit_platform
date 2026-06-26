@@ -346,7 +346,9 @@ DEFAULT_SHEET_ROWS: list[dict] = [
         'row_number': 36,
         'field_key': 'rejected_weight_kg',
         'default_who_key': 'sheet.who.soltanmyrat',
-        'label_key': 'sheet.row.weight_received',
+        # Field column is named rejected_weight_kg for legacy reasons, but it
+        # holds the (unofficial) tonnage that must be loaded — "Ýüklemeli tonna".
+        'label_key': 'sheet.row.weight_to_load',
         'input_type': 'number',
         'style': 'base',
     },
