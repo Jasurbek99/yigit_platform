@@ -270,8 +270,9 @@ class ContractSaleListSerializer(serializers.ModelSerializer):
         """Return the shipment_code of the linked shipment, or None."""
         if obj.shipment_id is None:
             return None
-        shipment = obj.shipment
-        return getattr(shipment, 'code', None)
+        # The model attribute is `shipment_code` (it maps to db_column 'code');
+        # `getattr(shipment, 'code')` would always miss and return None.
+        return obj.shipment.shipment_code
 
     def get_import_firm_name(self, obj: ContractSale) -> str | None:
         """Return name_short if available, else name_company."""
