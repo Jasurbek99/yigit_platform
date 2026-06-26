@@ -8,8 +8,8 @@ Called from:
 - ShipmentViewSet.create (draft path) — when firm_splits arrive at create time
 - ShipmentViewSet.set_firm_splits — when splits are replaced after creation
 
-The two call sites must not diverge — approved-record guard, default-kg
-calculation, and audit/log shape all live here.
+The two call sites must not diverge — approved-record guard, per-firm kg
+(actual split weight, default-kg fallback), and audit/log shape all live here.
 
 Soft-delete / cancel / restore do NOT touch rows here — the manager method
 QuotaUsageRecord.objects.counted() handles those by filtering at aggregation
@@ -25,6 +25,7 @@ from django.core.cache import cache
 
 from apps.export.models import QuotaUsageRecord
 from apps.export.models.quota import get_default_truck_weight
+from apps.export.services.export_code import parse_export_code_date
 
 if TYPE_CHECKING:
     from apps.core.models import User
@@ -61,8 +62,10 @@ def sync_draft_quota_usage_for_shipment(
     """Replace this shipment's draft QuotaUsageRecord rows from its current firm splits.
 
     Reads the live ShipmentFirmSplit rows on the shipment, deletes existing draft
-    usage records for the shipment, and bulk-creates one fresh draft per split
-    using the per-firm kg from TruckSplitDefault (admin-configurable, see ADR-016).
+    usage records for the shipment, and bulk-creates one fresh draft per split.
+    kg_used mirrors each firm's actual split weight_kg, falling back to the
+    admin-configurable TruckSplitDefault (see ADR-016) only when a split has no
+    weight set.
 
     Approved records are NEVER deleted — they represent quota the document team
     already counted. If any exist for this shipment, the caller is asked to
@@ -89,7 +92,7 @@ def sync_draft_quota_usage_for_shipment(
             'Delete them first via /quota-usage/{id}/.'
         )
 
-    splits = list(shipment.firm_splits.values_list('export_firm_id', flat=True))
+    splits = list(shipment.firm_splits.values_list('export_firm_id', 'weight_kg'))
     num_firms = len(splits)
 
     # Drop drafts FIRST — even when there are zero splits, stale drafts must go.
@@ -98,20 +101,29 @@ def sync_draft_quota_usage_for_shipment(
     if num_firms == 0:
         return 0
 
-    per_firm_kg = get_default_truck_weight(num_firms)
+    # kg_used mirrors each firm's actual split weight. Editing a split's weight
+    # reassigns that firm's quota usage to the new number. Fall back to the
+    # admin TruckSplitDefault only when a split carries no weight (the input
+    # serializer allows weight_kg to be omitted at create time).
+    default_kg = get_default_truck_weight(num_firms)
+
+    # usage_date = the real date encoded in the operator's export code
+    # (e.g. 12JN121/26 → 12 Jun 2026). shipment.date is only the creation/import
+    # day, so it's the fallback when the code is missing or unparseable.
+    usage_date = parse_export_code_date(shipment.export_code) or shipment.date
 
     QuotaUsageRecord.objects.bulk_create(
         [
             QuotaUsageRecord(
-                usage_date=shipment.date,
+                usage_date=usage_date,
                 export_firm_id=firm_id,
-                kg_used=per_firm_kg,
+                kg_used=weight_kg if weight_kg and weight_kg > 0 else default_kg,
                 product_type=product_type,
                 shipment=shipment,
                 status='draft',
                 created_by=user,
             )
-            for firm_id in splits
+            for firm_id, weight_kg in splits
         ],
         batch_size=500,
     )

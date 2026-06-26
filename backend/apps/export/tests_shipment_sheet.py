@@ -13,6 +13,7 @@ Covers:
 - Sheet response includes `rows`, `row_settings`, `last_edits` keys (steps 5/8–12)
 """
 from datetime import date
+from decimal import Decimal
 
 from django.core.management import call_command
 from django.test import TestCase
@@ -329,6 +330,28 @@ class SheetJunctionEndpointTests(TestCase):
             shipment=self.shipment, status='draft',
         )
         self.assertEqual(draft_records.count(), 2)
+        # kg_used mirrors each firm's actual split weight, not the flat default
+        kg_by_firm = dict(draft_records.values_list('export_firm_id', 'kg_used'))
+        self.assertEqual(kg_by_firm[self.firm_a.id], Decimal('9000.00'))
+        self.assertEqual(kg_by_firm[self.firm_b.id], Decimal('9500.00'))
+
+    def test_firm_splits_quota_usage_matches_auto_filled_split_weight(self):
+        """No weight provided → split is auto-filled, and kg_used mirrors that weight."""
+        resp = self.client.post(
+            f'/api/v1/export/shipments/{self.shipment.id}/firm-splits/',
+            {'firms': [
+                {'export_firm_id': self.firm_a.id},
+                {'export_firm_id': self.firm_b.id},
+            ]},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        split_kg = dict(self.shipment.firm_splits.values_list('export_firm_id', 'weight_kg'))
+        usage_kg = dict(
+            QuotaUsageRecord.objects.filter(shipment=self.shipment, status='draft')
+            .values_list('export_firm_id', 'kg_used')
+        )
+        self.assertEqual(usage_kg, split_kg)
 
     def test_block_sources_auto_split_uses_weight_net(self):
         """R8: when caller omits weight_kg, server splits weight_net evenly."""

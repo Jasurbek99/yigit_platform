@@ -82,10 +82,14 @@ Draft `QuotaUsageRecord` entries are auto-created any time a shipment's firm spl
 | `POST /shipments/` (draft path) with `firm_splits` in body | Drafts created in the same atomic transaction as the shipment + splits |
 | `POST /shipments/{id}/firm-splits/` | Existing drafts replaced; approved rows untouched (request rejected if any exist) |
 
-Per-firm kg comes from `TruckSplitDefault` (admin-configurable; legacy defaults seeded):
+Per-firm `kg_used` mirrors each firm's **actual `ShipmentFirmSplit.weight_kg`** — so changing a firm's split weight reassigns that firm's quota usage to the new number. It falls back to the admin-configurable `TruckSplitDefault` only when a split carries no weight (the firm-splits input allows `weight_kg` to be omitted, in which case the split itself is auto-filled from the same defaults):
 - 1 firm: 18,100 kg
 - 2 firms: 9,000 kg each
 - 3+ firms: 18,100 / N kg each
+
+**`usage_date`** = the real date encoded in the operator's **export code** (`DD` + 2-letter month + `NNN` + `/YY`, e.g. `12JN121/26` → 12 Jun 2026), parsed by `apps/export/services/export_code.py::parse_export_code_date`. `Shipment.date` is only the creation/import day, so it's the **fallback** when the export code is missing or unparseable. Operator month codes are English 2-letter (`JA FB MR AP MY JN JL AG SP OC NV DC` — note **November = NV**), distinct from the Turkmen scheme in the now-disabled `validators.py`. Manually-added usage records (no shipment) keep their user-picked date.
+
+The Quota Usage **list view** shows a **Source** badge per row — `Auto` (created from a shipment, has a shipment code) vs `Manual` (user-entered, no shipment).
 
 These drafts must be **approved** by export_manager/director before they count in FIFO calculations.
 
