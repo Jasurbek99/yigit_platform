@@ -1,7 +1,7 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
-from apps.export.views import ShipmentViewSet, CommentViewSet, TaskViewSet
+from apps.export.views import ShipmentViewSet, CommentViewSet, TaskViewSet, SalesRepCoverageViewSet
 from apps.export.views_analytics import BossAnalyticsViewSet
 from apps.export.views_dashboard import DashboardViewSet
 from apps.export.views_finance import FinansistAdvanceViewSet, CustomsExpenseViewSet
@@ -51,6 +51,7 @@ router.register('kpi', KpiViewSet, basename='kpi')
 router.register('shipments', ShipmentViewSet, basename='shipment')
 router.register('comments', CommentViewSet, basename='comment')
 router.register('tasks', TaskViewSet, basename='task')
+router.register('sales-rep-coverage', SalesRepCoverageViewSet, basename='sales-rep-coverage')
 router.register('advances', FinansistAdvanceViewSet, basename='advance')
 router.register('customs-expenses', CustomsExpenseViewSet, basename='customs-expense')
 

@@ -1865,6 +1865,62 @@ class VarietyOverrideSerializer(serializers.Serializer):
 
 
 # ---------------------------------------------------------------------------
+# SalesRepCoverage serializers (customer-based ownership)
+# ---------------------------------------------------------------------------
+
+class SalesRepCoverageReadSerializer(serializers.Serializer):
+    """Read shape for GET /api/v1/export/sales-rep-coverage/.
+
+    Returns one row per sales_rep user with a flat list of assigned customer IDs.
+    The admin grid renders one row per rep; customer_ids is [] for reps with no
+    customers assigned.
+    """
+
+    sales_rep = serializers.IntegerField()
+    sales_rep_name = serializers.CharField()
+    customer_ids = serializers.ListField(child=serializers.IntegerField())
+
+
+class SalesRepCoverageWriteSerializer(serializers.Serializer):
+    """Write shape for PUT /api/v1/export/sales-rep-coverage/{user_id}/.
+
+    Accepts a list of customer_ids and replaces the rep's customer assignments
+    entirely (customers removed from this rep, new ones assigned to this rep).
+    Validates that all customer IDs exist.
+    """
+
+    customer_ids = serializers.ListField(
+        child=serializers.IntegerField(min_value=1),
+        allow_empty=True,
+    )
+
+    def validate_customer_ids(self, ids: list[int]) -> list[int]:
+        """Ensure all provided customer IDs exist in the DB."""
+        if not ids:
+            return ids
+        from apps.core.models import Customer
+        found = set(Customer.objects.filter(id__in=ids).values_list('id', flat=True))
+        missing = [cid for cid in ids if cid not in found]
+        if missing:
+            raise serializers.ValidationError(f'Customer IDs not found: {missing}')
+        return ids
+
+
+class MySalesReportShipmentSerializer(ShipmentListSerializer):
+    """Extends ShipmentListSerializer with has_sales_report annotation.
+
+    Used by GET /api/v1/export/shipments/my-sales-reports/.
+    The field is annotated (not a DB column) so it is read-only here.
+    days_overdue from OverdueShipmentSerializer is intentionally absent.
+    """
+
+    has_sales_report = serializers.BooleanField(read_only=True)
+
+    class Meta(ShipmentListSerializer.Meta):
+        fields = ShipmentListSerializer.Meta.fields + ['has_sales_report']
+
+
+# ---------------------------------------------------------------------------
 # Task serializers (B-api sub-PR)
 # ---------------------------------------------------------------------------
 

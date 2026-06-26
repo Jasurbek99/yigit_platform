@@ -14,6 +14,8 @@ export const MOCK_CUSTOMERS: ICustomer[] = [
       { id: 1, name: 'Berik Trade KZ' },
       { id: 3, name: 'Almaty Fresh' },
     ],
+    sales_rep: null,
+    sales_rep_name: null,
     is_active: true,
   },
   {
@@ -28,6 +30,8 @@ export const MOCK_CUSTOMERS: ICustomer[] = [
     import_firm_names: [
       { id: 2, name: 'Moscow Vegetables LLC' },
     ],
+    sales_rep: null,
+    sales_rep_name: null,
     is_active: true,
   },
   {
@@ -45,6 +49,8 @@ export const MOCK_CUSTOMERS: ICustomer[] = [
       { id: 5, name: 'Astana Agro' },
       { id: 7, name: 'Shymkent Import' },
     ],
+    sales_rep: null,
+    sales_rep_name: null,
     is_active: true,
   },
   {
@@ -57,6 +63,8 @@ export const MOCK_CUSTOMERS: ICustomer[] = [
     city_name: 'Saint Petersburg',
     import_firms: [],
     import_firm_names: [],
+    sales_rep: null,
+    sales_rep_name: null,
     is_active: false,
   },
   {
@@ -71,6 +79,8 @@ export const MOCK_CUSTOMERS: ICustomer[] = [
     import_firm_names: [
       { id: 5, name: 'Astana Agro' },
     ],
+    sales_rep: null,
+    sales_rep_name: null,
     is_active: true,
   },
 ];

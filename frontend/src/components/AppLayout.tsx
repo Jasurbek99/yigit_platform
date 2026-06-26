@@ -26,6 +26,8 @@ import {
   IconInbox,
   IconClipboardList,
   IconPlant2,
+  IconMapPin,
+  IconReportAnalytics,
 } from '@tabler/icons-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -128,6 +130,8 @@ export default function AppLayout() {
     '/me/board': t('me.nav.board'),
     '/contracts': t('nav.contracts.list'),
     '/sales': t('nav.sales.list'),
+    '/export/my-reports': t('nav.sales_reports'),
+    '/admin/sales-rep-coverage': t('nav.sales_rep_coverage'),
   };
 
   const currentPageLabel = location.pathname.startsWith('/shipments/')
@@ -186,6 +190,7 @@ export default function AppLayout() {
       { key: '/export/drafts', icon: <IconFileText size={15} />, label: t('nav.drafts') },
       { key: '/export/assign', icon: <IconArrowsSort size={15} />, label: t('nav.assign') },
       { key: '/export/overdue', icon: <IconAlertTriangle size={15} />, label: t('nav.overdue') },
+      { key: '/export/my-reports', icon: <IconReportAnalytics size={15} />, label: t('nav.sales_reports') },
       { key: '/export/advances', icon: <IconBuildingBank size={15} />, label: t('nav.advances') },
     ]},
     { label: t('nav.group_management'), items: [
@@ -207,6 +212,7 @@ export default function AppLayout() {
       { key: '/admin/shipment-settings', icon: <IconLayoutGrid size={15} />, label: t('nav.admin_shipment_settings') },
       { key: '/admin/permissions', icon: <IconShield size={15} />, label: t('nav.admin_permissions') },
       { key: '/admin/staff-access', icon: <IconUsers size={15} />, label: t('nav.admin_staff_access') },
+      { key: '/admin/sales-rep-coverage', icon: <IconMapPin size={15} />, label: t('nav.sales_rep_coverage') },
       {
         key: '/admin/audit-log',
         icon: <IconClipboardList size={15} />,

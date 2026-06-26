@@ -188,6 +188,52 @@ formatters live in `salesReport/salesReportUtils.ts`.
   in `src/types/index.ts`. **i18n**: `sales_report.*` keys (incl. all 21 `sales_report.expense.<CODE>`
   labels) in `tk.json` / `ru.json` / `en.json`.
 
+## Sales Rep page + customer-based ownership
+
+A dedicated worklist lets a `sales_rep` enter reports for only *his* shipments. The platform has
+no per-shipment sales-rep owner (`vehicle_responsible` is free text), so ownership is **by
+customer**: a rep handles specific buyers and sees only their shipments. One rep per customer.
+
+### Ownership link — `core.Customer.sales_rep`
+`Customer` (`apps/core/models/firms.py`) gains a nullable FK `sales_rep` → `core.User`
+(`on_delete=SET_NULL`, `related_name='customers'`; migration `core.0022`). Exposed on
+`CustomerAdminSerializer` as writable `sales_rep` + read-only `sales_rep_name`; `validate_sales_rep`
+rejects assigning a user whose role ≠ `sales_rep` (null clears). (The earlier country-based
+`SalesRepCoverage` join table was dropped — migration `export.0046`.)
+
+### Endpoints
+- `GET /api/v1/export/sales-rep-coverage/` → `[{sales_rep, sales_rep_name, customer_ids:[...]}]`
+  for every `role='sales_rep'` user (empty list when none). **Gate**: superuser / PRIVILEGED_ROLES.
+- `PUT /api/v1/export/sales-rep-coverage/{user_id}/` body `{customer_ids:[...]}` → replace-all in
+  `transaction.atomic()`: sets `Customer.sales_rep=user` for the listed customers and clears
+  (`=None`) the ones this rep had but dropped. Reassigning a customer from another rep just moves
+  the FK. Validates the target is a sales_rep (400) and that the customer IDs exist. Same gate.
+- `GET /api/v1/export/shipments/my-sales-reports/?needs_report=true|false` → the rep's worklist:
+  step-4+ (departed) non-deleted shipments filtered to `customer__sales_rep=request.user`.
+  `needs_report=true` drops shipments that already have a report. **Management bypass**: superuser /
+  PRIVILEGED_ROLES see ALL step-4+ shipments (oversight). A `sales_rep` with no customers gets an
+  empty list. `has_sales_report` annotated via the existing `Exists` pattern; `select_related('customer')`
+  keeps it N+1-safe. Serializer: `MySalesReportShipmentSerializer` (= `ShipmentListSerializer` + `has_sales_report`).
+
+### Permissions
+Page codes `export.sales_reports` (sales_rep + management) and `export.sales_rep_coverage`
+(admin/director/export_manager). The coverage page uses a **non-`admin.` prefix** deliberately so
+management roles inherit it via `_ALL_PAGES` without breaching AD-15 (admin-only `admin.*` pages).
+
+### Frontend
+- `SalesRepReports.tsx` (`/export/my-reports`, page code `export.sales_reports`): two tabs —
+  **Needs report** (default, `needs_report=true`) then **All my shipments** (report-status column).
+  Each row opens the shared `SalesReportDrawer`; saving invalidates both tab queries so the row
+  moves between tabs. Hook `useMySalesReports(needsReport)`.
+- `SalesReportDrawer.tsx` — the report editor in a Drawer (on-demand `useShipmentDetail`, the
+  step-4 `canEdit` gate, `SalesReportPanel`). Extracted from `OverdueReportDrawer`, which is now a
+  thin re-export shim so the Overdue page is unchanged.
+- The rep↔customer link is managed in **both** places: the **Customers admin page**
+  (`CustomersPage.tsx` — a Sales Rep select + column per customer, via `PATCH /core/customers/{id}/`)
+  and `SalesRepCoveragePage.tsx` (`/admin/sales-rep-coverage`, page code `export.sales_rep_coverage`)
+  — a grid with a customer multi-select per rep. Both write the same `Customer.sales_rep` FK. Hook
+  `useSalesRepCoverage` (invalidates the coverage + customer queries on save).
+
 ## Historical import
 
 478 Excel sheets (`kazak_export_report_begjan.xlsx`) are a separate follow-up task.

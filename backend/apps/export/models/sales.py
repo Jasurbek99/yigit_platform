@@ -1,6 +1,6 @@
 """Sales report child models: line items and itemized expenses.
 
-Lives alongside SalesReport (quality.py). These two child tables hang off
+Lives alongside SalesReport (quality.py). The child tables hang off
 SalesReport via CASCADE FKs and are managed together through the nested
 SalesReportSerializer.
 
@@ -120,3 +120,4 @@ class SalesReportExpense(models.Model):
 
     def __str__(self) -> str:
         return f'{self.category}: {self.amount_local}'
+

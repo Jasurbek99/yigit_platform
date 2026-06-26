@@ -59,6 +59,8 @@ const ContractList = lazy(() => import('@/pages/contracts/ContractList'));
 const ContractDetail = lazy(() => import('@/pages/contracts/ContractDetail'));
 const ContractSaleList = lazy(() => import('@/pages/sales/ContractSaleList'));
 const WorklogPage = lazy(() => import('@/pages/worklog/WorklogPage'));
+const SalesRepReports = lazy(() => import('@/pages/export/SalesRepReports'));
+const SalesRepCoveragePage = lazy(() => import('@/pages/admin/SalesRepCoveragePage'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -247,6 +249,14 @@ export default function App() {
                   {/* Contract Sales list (P4 Slice C) */}
                   <Route path="sales" element={
                     <ProtectedRoute pageCode="contracts.sales"><ContractSaleList /></ProtectedRoute>
+                  } />
+                  {/* Sales rep worklist */}
+                  <Route path="export/my-reports" element={
+                    <ProtectedRoute pageCode="export.sales_reports"><SalesRepReports /></ProtectedRoute>
+                  } />
+                  {/* Sales rep ↔ customer coverage */}
+                  <Route path="admin/sales-rep-coverage" element={
+                    <ProtectedRoute pageCode="export.sales_rep_coverage"><SalesRepCoveragePage /></ProtectedRoute>
                   } />
                 </Route>
                 <Route path="/unauthorized" element={<UnauthorizedPage />} />

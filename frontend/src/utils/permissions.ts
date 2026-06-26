@@ -47,6 +47,8 @@ const ROUTE_PAGE_MAP: Record<string, string> = {
   '/admin/feedback':            'feedback.admin_inbox',
   '/contracts':                 'contracts.list',
   '/sales':                     'contracts.sales',
+  '/export/my-reports':         'export.sales_reports',
+  '/admin/sales-rep-coverage':  'export.sales_rep_coverage',
 };
 
 /**

@@ -24,6 +24,7 @@ import {
   useCountries,
   useCities,
   useAdminImportFirms,
+  useAdminUsers,
 } from '@/hooks/useAdmin';
 import type { ICustomer } from '@/types';
 
@@ -35,6 +36,7 @@ interface CustomerFormValues {
   default_country?: number | null;
   default_city?: number | null;
   import_firms?: number[];
+  sales_rep?: number | null;
   is_active?: boolean;
 }
 
@@ -43,6 +45,7 @@ export default function CustomersPage() {
   const { data: customers = [], isLoading, isError } = useAdminCustomers();
   const { data: countries = [] } = useCountries();
   const { data: importFirms = [] } = useAdminImportFirms();
+  const { data: allUsers = [] } = useAdminUsers();
 
   const [searchText, setSearchText] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
@@ -96,6 +99,7 @@ export default function CustomersPage() {
       default_country: record.default_country,
       default_city: record.default_city,
       import_firms: record.import_firms,
+      sales_rep: record.sales_rep,
       is_active: record.is_active,
     });
     setModalOpen(true);
@@ -130,6 +134,15 @@ export default function CustomersPage() {
     value: f.id,
     label: f.name_short || f.name_company,
   }));
+
+  const salesRepOptions = allUsers
+    .filter((u) => u.role === 'sales_rep')
+    .map((u) => ({
+      value: u.id,
+      label: u.first_name && u.last_name
+        ? `${u.first_name} ${u.last_name}`
+        : u.username,
+    }));
 
   const filteredCustomers = searchText
     ? customers.filter((c) => {
@@ -176,6 +189,18 @@ export default function CustomersPage() {
           </Space>
         );
       },
+    },
+    {
+      title: t('customers_admin.col_sales_rep'),
+      dataIndex: 'sales_rep_name',
+      search: false,
+      sorter: (a, b) => (a.sales_rep_name || '').localeCompare(b.sales_rep_name || ''),
+      render: (_, record) =>
+        record.sales_rep_name ? (
+          <Text>{record.sales_rep_name}</Text>
+        ) : (
+          <Text type="secondary">—</Text>
+        ),
     },
     {
       title: t('customers_admin.status'),
@@ -281,6 +306,15 @@ export default function CustomersPage() {
               showSearch
               optionFilterProp="label"
               placeholder={t('customers_admin.import_firms_placeholder')}
+            />
+          </Form.Item>
+          <Form.Item name="sales_rep" label={t('customers_admin.col_sales_rep')}>
+            <Select
+              options={salesRepOptions}
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              placeholder={t('customers_admin.sales_rep_placeholder')}
             />
           </Form.Item>
           {editTarget && (

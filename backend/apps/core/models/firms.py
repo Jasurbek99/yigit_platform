@@ -86,6 +86,14 @@ class Customer(models.Model):
         related_name='customers',
         db_table=schema_table('core', 'customer_import_firms'),
     )
+    # One sales rep per customer — nullable so unassigned customers are valid.
+    sales_rep = models.ForeignKey(
+        'core.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='customers',
+    )
     color = models.CharField(max_length=7, blank=True, null=True)
     sort_order = models.IntegerField(default=0)
     is_active = models.BooleanField(default=True)

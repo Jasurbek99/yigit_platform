@@ -121,6 +121,8 @@ export interface ICustomer {
   city_name: string | null;
   import_firms: number[];
   import_firm_names: { id: number; name: string }[];
+  sales_rep: number | null;
+  sales_rep_name: string | null;
   color?: string | null;
   sort_order?: number;
   is_active: boolean;
@@ -1105,6 +1107,20 @@ export interface ISalesReportPayload {
 export interface IOverdueShipment extends IShipmentListItem {
   days_overdue: number;
   has_sales_report: boolean;
+}
+
+// ─── Sales Rep Reports ────────────────────────────────────────────────────────────────
+
+/** Flat shipment row returned by GET /export/shipments/my-sales-reports/ */
+export interface ISalesRepShipment extends IShipmentListItem {
+  has_sales_report: boolean;
+}
+
+/** One row from GET /export/sales-rep-coverage/ */
+export interface ISalesRepCoverage {
+  sales_rep: number;
+  sales_rep_name: string;
+  customer_ids: number[];
 }
 
 // â”€â”€â”€ Truck Allocations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

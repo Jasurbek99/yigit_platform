@@ -54,6 +54,8 @@ PAGE_REGISTRY: dict[str, str] = OrderedDict([
     ('contracts.sales',         'Contract Sales'),
     # Admin
     # Sales rep worklist + coverage admin
+    ('export.sales_reports',    'Sales Reports'),
+    ('export.sales_rep_coverage', 'Sales Rep Coverage'),
     ('admin.users',             'Admin: Users'),
     # Delegated staff page-access editor for department heads (ADR-022).
     ('admin.staff_access',      'Admin: Staff Page Access'),

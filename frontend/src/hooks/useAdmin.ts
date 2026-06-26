@@ -789,6 +789,7 @@ type CustomerPayload = {
   default_country?: number | null;
   default_city?: number | null;
   import_firms?: number[];
+  sales_rep?: number | null;
   color?: string | null;
   sort_order?: number;
   is_active?: boolean;

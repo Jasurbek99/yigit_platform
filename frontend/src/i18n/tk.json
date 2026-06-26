@@ -86,11 +86,13 @@
     "contracts": {
       "list": "Şertnamalar sanawy"
     },
-    "invoices": {
-      "list": "Fakturalar sanawy"
+    "sales": {
+      "list": "Satyşlar"
     },
     "group_analytics": "Analitika",
-    "clients_report": "Müşderiler hasabaty"
+    "clients_report": "Müşderiler hasabaty",
+    "sales_reports": "Satyş hasabatlary",
+    "sales_rep_coverage": "Satyjy müşderileri"
   },
   "stuck": {
     "page_title": "Saklanan ýükler",
@@ -362,6 +364,9 @@
     "view_list": "Sanaw görnüşi",
     "date": "Sene",
     "firm": "Firma",
+    "source": "Çeşme",
+    "source_auto": "Awto",
+    "source_manual": "El bilen",
     "shipment_code": "Iberiş kody",
     "kg_used": "Agramy",
     "product_type": "Önüm",
@@ -791,7 +796,9 @@
     "toast_updated": "Müşderi täzelendi",
     "toast_deleted": "Müşderi pozuldy",
     "toast_error": "Amal şowsuz boldy",
-    "error_load": "Müşderileri ýükläp bolmady"
+    "error_load": "Müşderileri ýükläp bolmady",
+    "col_sales_rep": "Satyjy wekil",
+    "sales_rep_placeholder": "Satyjy wekili saýlaň..."
   },
   "truck_dest_admin": {
     "title": "Maşyn ugurlary",
@@ -2630,7 +2637,8 @@
     "detail": {
       "back_to_list": "Şertnamalar sanawyna gaýt",
       "tab": {
-        "invoices": "Fakturalar",
+        "sales": "Şertnama satyşlary",
+        "documents": "Resminamalar",
         "payments": "Tölegler",
         "passports": "Passport sdelkalary",
         "comments": "Kommentarlar"
@@ -2642,6 +2650,16 @@
         "payments": "Tölegler",
         "dates": "Sene aralygy"
       }
+    },
+    "documents": {
+      "upload": "PDF ýükle",
+      "view": "Görmek",
+      "empty": "Heniz resminama goşulmadyk",
+      "delete_confirm": "Bu resminamany pozmaly?",
+      "toast_uploaded": "Resminama ýüklendi",
+      "toast_upload_failed": "Ýükläp bolmady",
+      "toast_deleted": "Resminama pozuldy",
+      "toast_delete_failed": "Resminamany pozup bolmady"
     },
     "select": {
       "placeholder": "Şertnama saýlaň"
@@ -2657,12 +2675,12 @@
     "word": "Word",
     "pdf": "PDF"
   },
-  "invoices": {
-    "title": "Fakturalar",
-    "add_button": "Faktura goş",
+  "sales": {
+    "title": "Şertnama satyşlary",
+    "add_button": "Satyş goş",
     "empty": {
-      "title": "Bu şertnamanyň entek fakturasy ýok",
-      "cta": "Ilkinji fakturany goş"
+      "title": "Bu şertnamanyň entek satyşy ýok",
+      "cta": "Ilkinji satyşy goş"
     },
     "column": {
       "invoice_number": "Faktura №",
@@ -2684,7 +2702,7 @@
       "void": "Ýatyryldy"
     },
     "create": {
-      "title": "Täze faktura",
+      "title": "Täze şertnama satyşy",
       "submit": "Döret",
       "cancel": "Ýatyr",
       "money_hint": "Mukdar + baha ýa-da jemi USD-ni giriziň",
@@ -2704,25 +2722,25 @@
         "money_required": "Mukdar + baha ýa-da jemi USD doldurmaly"
       },
       "toast": {
-        "created": "Faktura döredildi",
-        "error": "Fakturany döretmek başartmady"
+        "created": "Şertnama satyşy döredildi",
+        "error": "Şertnama satyşyny döretmek başartmady"
       }
     },
     "edit": {
-      "title": "Fakturany üýtget",
+      "title": "Şertnama satyşyny üýtget",
       "submit": "Ýatda sakla",
       "toast": {
-        "updated": "Faktura täzelendi",
-        "error": "Fakturany täzelemek başartmady"
+        "updated": "Şertnama satyşy täzelendi",
+        "error": "Şertnama satyşyny täzelemek başartmady"
       }
     },
     "delete": {
-      "confirm_title": "Fakturany pozmak?",
-      "confirm_body": "Bu fakturany pozjak bolýaňyzmy? Şertnamanyň jemleri täzelener.",
-      "toast": "Faktura pozuldy"
+      "confirm_title": "Şertnama satyşyny pozmak?",
+      "confirm_body": "Bu satyşy pozjak bolýaňyzmy? Şertnamanyň jemleri täzelener.",
+      "toast": "Şertnama satyşy pozuldy"
     }
   },
-  "invoices_list": {
+  "sales_list": {
     "column": {
       "contract_number": "Şertnama №",
       "export_firm": "Eksport firması",
@@ -2739,11 +2757,11 @@
       ]
     },
     "empty": {
-      "title": "Faktura tapylmady",
-      "cta": "Täze faktura goş"
+      "title": "Şertnama satyşy tapylmady",
+      "cta": "Täze satyş goş"
     },
     "pagination": {
-      "total": "Jemi {{total}} faktura"
+      "total": "Jemi {{total}} satyş"
     }
   },
   "staff_access": {
@@ -2848,5 +2866,37 @@
       "SERTNAMA": "Şertnama tölegi",
       "OTHER": "Beýleki"
     }
+  },
+  "sales_reports": {
+    "title": "Satyş hasabatlary",
+    "subtitle": "Size berkidilen müşderileriň ýükleri — satyş hasabatyny giriziň ýa-da barlaň",
+    "drawer_title": "Satyş hasabaty",
+    "tab_needs_report": "Hasabat gerek",
+    "tab_all": "Meniň ähli ýüklerim",
+    "col_shipment_code": "Ýük kody",
+    "col_status": "Ýagdaý",
+    "col_country": "Ýurt",
+    "col_city": "Şäher",
+    "col_customer": "Müşderi",
+    "col_weight_net": "Arassa (kg)",
+    "col_report_status": "Hasabat",
+    "report_filled": "Doldurylan",
+    "report_missing": "Ýok",
+    "open_report": "Hasabaty aç",
+    "empty": "Ýük tapylmady",
+    "no_regions_hint": "Heniz size müşderi berkidilmändir. Ýolbaşçyňyza ýüz tutuň.",
+    "error_load": "Ýük maglumatlaryny ýükläp bolmady"
+  },
+  "sales_rep_coverage": {
+    "title": "Satyjy müşderileri",
+    "subtitle": "Her satyjy wekiline müşderileri belläň",
+    "col_name": "Satyjy",
+    "col_customers": "Berkidilen müşderiler",
+    "customers_placeholder": "Müşderileri saýlaň...",
+    "save": "Ýatda sakla",
+    "toast_saved": "{{name}} üçin müşderiler ýatda saklandy",
+    "toast_error": "Ýatda saklap bolmady",
+    "error_load": "Müşderi maglumatlaryny ýükläp bolmady",
+    "no_reps_hint": "Satyjy wekilleri tapylmady."
   }
 }

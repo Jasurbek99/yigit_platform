@@ -94,6 +94,7 @@ export default function ShipmentDetail() {
       user?.role === 'sales_rep' ||
       user?.role === 'export_manager' ||
       user?.role === 'director' ||
+      user?.role === 'admin' ||
       user?.is_superuser === true
     ) && shipment.status_step >= MIN_SALES_REPORT_STEP;
   const canEditAnyField = canDo(user, 'shipment', 'edit');

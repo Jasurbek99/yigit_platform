@@ -63,7 +63,12 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
     # export_manager: drop the previous admin.permissions exception — AD-15
     # restricts permission-matrix CRUD to admin only. Also drop stuck-shipments
     # (director/boss oversight page) and the admin feedback inbox.
-    'export_manager': _ALL_PAGES - _ALL_ADMIN - {'director.stuck_shipments', 'feedback.admin_inbox'},
+    # export.sales_rep_coverage (assign reps to customers) is a non-admin export
+    # page, so export_manager inherits it from _ALL_PAGES automatically — no
+    # admin.* exception needed (keeps AD-15 clean).
+    'export_manager': (
+        _ALL_PAGES - _ALL_ADMIN - {'director.stuck_shipments', 'feedback.admin_inbox'}
+    ),
     'weight_master': {
         'dashboard', 'export.shipments', 'export.pallet_manifest', _BOARD,
         _HARVEST_BOARD,
@@ -100,6 +105,8 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
     'sales_rep': {
         'dashboard', 'export.shipments', 'export.advances', _BOARD,
         _HARVEST_BOARD,
+        # Sales rep worklist — dedicated page for their destination-country reports.
+        'export.sales_reports',
     } | _UNIVERSAL,
     'finansist': {
         'dashboard', 'export.shipments', 'export.prices', 'export.advances', _BOARD,

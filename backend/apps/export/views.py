@@ -55,6 +55,9 @@ from apps.export.serializers import (
     CommentCreateSerializer,
     ShipmentPatchSerializer,
     VarietyOverrideSerializer,
+    SalesRepCoverageReadSerializer,
+    SalesRepCoverageWriteSerializer,
+    MySalesReportShipmentSerializer,
 )
 from apps.export.services import (
     close_pallet_manifest,
@@ -852,6 +855,56 @@ class ShipmentViewSet(ModelViewSet):
             return self.get_paginated_response(serializer.data)
 
         serializer = OverdueShipmentSerializer(results, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], url_path='my-sales-reports')
+    def my_sales_reports(self, request):
+        """GET /api/v1/export/shipments/my-sales-reports/?needs_report=true|false
+
+        Returns step-4+ shipments scoped by the requesting user's customer ownership.
+
+        Scoping rules:
+        - Superusers and management roles (PRIVILEGED_ROLES) see ALL step-4+ shipments
+          (oversight).
+        - sales_rep and other roles see only shipments whose customer.sales_rep
+          matches the requesting user.  A rep with no assigned customers gets an
+          empty list.  Shipments with a null customer are excluded for reps.
+
+        Query param:
+        - needs_report=true  → only shipments without a SalesReport (has_sales_report=False)
+        - needs_report=false or absent → all shipments in scope
+        """
+        role = getattr(request.user, 'role', None)
+        is_superuser = getattr(request.user, 'is_superuser', False)
+        is_management = is_superuser or role in PRIVILEGED_ROLES
+
+        has_report_expr = Exists(SalesReport.objects.filter(shipment=OuterRef('pk')))
+
+        qs = (
+            super().get_queryset()
+            .filter(deleted_at__isnull=True, status__step_order__gte=4)
+            .annotate(has_sales_report=has_report_expr)
+            .select_related('customer')
+            .prefetch_related('firm_splits__export_firm')
+        )
+
+        if not is_management:
+            # Filter to shipments whose customer is assigned to this rep.
+            # Shipments with customer=NULL are excluded (not owned by any rep).
+            qs = qs.filter(customer__sales_rep=request.user)
+
+        needs_report = request.query_params.get('needs_report', '').lower()
+        if needs_report == 'true':
+            qs = qs.filter(has_sales_report=False)
+
+        qs = qs.order_by('-status_changed_at', '-id')
+
+        page = self.paginate_queryset(qs)
+        if page is not None:
+            serializer = MySalesReportShipmentSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = MySalesReportShipmentSerializer(qs, many=True)
         return Response(serializer.data)
 
     @action(detail=False, methods=['get'], url_path='sheet')
@@ -3474,3 +3527,99 @@ class TaskViewSet(viewsets.ReadOnlyModelViewSet):
             'created': len(created),
             'results': TaskListSerializer(created, many=True).data,
         })
+
+
+# ---------------------------------------------------------------------------
+# SalesRepCoverageViewSet
+# ---------------------------------------------------------------------------
+
+class SalesRepCoverageViewSet(viewsets.ViewSet):
+    """Customer-ownership assignments for sales reps.
+
+    GET  /api/v1/export/sales-rep-coverage/
+        Returns one row per User with role='sales_rep', including reps with no
+        assigned customers (customer_ids=[]).  Gated to superuser or PRIVILEGED_ROLES.
+
+    PUT  /api/v1/export/sales-rep-coverage/{user_id}/
+        Replaces the rep's customer assignments entirely.
+        Body: { "customer_ids": [...] }
+        - Clears customers previously owned by this rep but not in the new list.
+        - Assigns (or reassigns from another rep) all customers in the new list.
+        - Because ownership is one-rep-per-customer, reassignment is intentional:
+          the FK on Customer simply moves to this rep.
+        Validates that the target user has role='sales_rep'.
+        Returns the updated row in the same shape as the GET list items.
+
+    Only IsAuthenticated is attached; permission gate is enforced inline so the
+    403 message is explicit and coverage is not in RESOURCE_REGISTRY.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def _check_privileged(self, request) -> bool:
+        """Return True when the requester may manage coverage."""
+        return (
+            getattr(request.user, 'is_superuser', False)
+            or getattr(request.user, 'role', None) in PRIVILEGED_ROLES
+        )
+
+    def list(self, request):
+        """GET /api/v1/export/sales-rep-coverage/"""
+        if not self._check_privileged(request):
+            return Response({'error': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+
+        from apps.core.models import User as CoreUser, Customer
+        reps = (
+            CoreUser.objects.filter(role='sales_rep')
+            .prefetch_related('customers')
+            .order_by('username')
+        )
+        data = [
+            {
+                'sales_rep': rep.id,
+                'sales_rep_name': rep.get_full_name() or rep.username,
+                'customer_ids': list(rep.customers.values_list('id', flat=True)),
+            }
+            for rep in reps
+        ]
+        serializer = SalesRepCoverageReadSerializer(data, many=True)
+        return Response(serializer.data)
+
+    def update(self, request, pk=None):
+        """PUT /api/v1/export/sales-rep-coverage/{user_id}/"""
+        if not self._check_privileged(request):
+            return Response({'error': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+
+        from apps.core.models import User as CoreUser, Customer
+        try:
+            rep = CoreUser.objects.get(pk=pk)
+        except CoreUser.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        if rep.role != 'sales_rep':
+            return Response(
+                {'error': f"User '{rep.username}' has role '{rep.role}', not 'sales_rep'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = SalesRepCoverageWriteSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        customer_ids = serializer.validated_data['customer_ids']
+
+        with transaction.atomic():
+            # Remove rep from customers previously owned but not in the new list.
+            Customer.objects.filter(sales_rep=rep).exclude(
+                id__in=customer_ids
+            ).update(sales_rep=None)
+            # Assign (or reassign) rep to all customers in the new list.
+            if customer_ids:
+                Customer.objects.filter(id__in=customer_ids).update(sales_rep=rep)
+
+        result = {
+            'sales_rep': rep.id,
+            'sales_rep_name': rep.get_full_name() or rep.username,
+            'customer_ids': customer_ids,
+        }
+        return Response(SalesRepCoverageReadSerializer(result).data)

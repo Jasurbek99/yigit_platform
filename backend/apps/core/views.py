@@ -158,7 +158,7 @@ class CustomerViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated, write_permission(*REFERENCE_DATA_WRITE)]
     queryset = (
         Customer.objects
-        .select_related('default_country', 'default_city')
+        .select_related('default_country', 'default_city', 'sales_rep')
         .prefetch_related('import_firms')
         .all()
     )

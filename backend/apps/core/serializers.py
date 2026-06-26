@@ -74,7 +74,7 @@ class CustomerSerializer(serializers.ModelSerializer):
 
 
 class CustomerAdminSerializer(serializers.ModelSerializer):
-    """Full Customer serializer for admin CRUD — includes country/city names and import firms."""
+    """Full Customer serializer for admin CRUD — includes country/city names, import firms, and sales rep."""
 
     country_name = serializers.CharField(source='default_country.name_en', read_only=True, default=None)
     city_name = serializers.CharField(source='default_city.name', read_only=True, default=None)
@@ -82,6 +82,13 @@ class CustomerAdminSerializer(serializers.ModelSerializer):
         many=True, queryset=ImportFirm.objects.all(), required=False,
     )
     import_firm_names = serializers.SerializerMethodField()
+    # Writable FK (PK int or null).  Read companion returns display name.
+    sales_rep = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.filter(role='sales_rep'),
+        allow_null=True,
+        required=False,
+    )
+    sales_rep_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Customer
@@ -90,6 +97,7 @@ class CustomerAdminSerializer(serializers.ModelSerializer):
             'default_country', 'country_name',
             'default_city', 'city_name',
             'import_firms', 'import_firm_names',
+            'sales_rep', 'sales_rep_name',
             'color', 'sort_order',
             'is_active',
         ]
@@ -99,6 +107,28 @@ class CustomerAdminSerializer(serializers.ModelSerializer):
             {'id': f.id, 'name': f.name_short or f.name_company}
             for f in obj.import_firms.all()
         ]
+
+    def get_sales_rep_name(self, obj: Customer) -> str | None:
+        if obj.sales_rep_id is None:
+            return None
+        u = obj.sales_rep
+        full = f'{u.first_name} {u.last_name}'.strip()
+        return full or u.username
+
+    def validate_sales_rep(self, value: User | None) -> User | None:
+        """Reject assigning a user whose role is not 'sales_rep'.
+
+        Null is allowed — it clears the assignment.  The queryset on the field
+        already filters role='sales_rep' so a non-rep PK will cause a 'does not
+        exist' DRF validation error before this method is reached; this guard is
+        a belt-and-suspenders defence for edge cases (e.g. role changed after
+        the queryset was evaluated).
+        """
+        if value is not None and value.role != 'sales_rep':
+            raise serializers.ValidationError(
+                f"User '{value.username}' has role '{value.role}', not 'sales_rep'."
+            )
+        return value
 
 
 class GreenhouseBlockSerializer(serializers.ModelSerializer):

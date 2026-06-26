@@ -36,7 +36,11 @@ tags: [reference, api, backend, frontend]
 | GET | `/api/v1/export/shipments/sheet/` | ShipmentViewSet.sheet | `useShipmentSheet` | ShipmentSheet |
 | PATCH | `/api/v1/export/shipments/{id}/quality/` | ShipmentViewSet.set_quality | `useShipmentDetail` (mutation) | ShipmentDetail (Document tab) |
 | POST | `/api/v1/export/shipments/{id}/comment/` | ShipmentViewSet.comment | `useShipmentDetail` (mutation) | CommentComposer |
-| POST | `/api/v1/export/shipments/{id}/sales-report/` | ShipmentViewSet.set_sales_report | `useShipmentDetail` (mutation) | ShipmentDetail (Finance tab) |
+| POST/PATCH | `/api/v1/export/shipments/{id}/sales-report/` | ShipmentViewSet.set_sales_report | `useSaveSalesReport` | ShipmentDetail (Finance tab), SalesReportDrawer |
+| GET | `/api/v1/export/shipments/my-sales-reports/?needs_report=` | ShipmentViewSet.my_sales_reports | `useMySalesReports` | SalesRepReports — rep's worklist scoped to his customers (`customer__sales_rep`); mgmt/superuser see all step-4+ |
+| GET | `/api/v1/export/sales-rep-coverage/` | SalesRepCoverageViewSet (list) | `useSalesRepCoverage` | SalesRepCoveragePage — reps + their `customer_ids`; gate: superuser/PRIVILEGED_ROLES |
+| PUT | `/api/v1/export/sales-rep-coverage/{user_id}/` | SalesRepCoverageViewSet (update) | `useSaveSalesRepCoverage` | SalesRepCoveragePage — replace-all `{customer_ids}` (writes `Customer.sales_rep`); same gate |
+| PATCH | `/api/v1/core/customers/{id}/` | CustomerViewSet (update) | `useAdmin` (customer mutation) | CustomersPage — incl. `sales_rep` field (rejects non-sales_rep user) |
 | POST | `/api/v1/export/shipments/{id}/block-sources/` | ShipmentViewSet.set_block_sources | `useShipmentDetail` (mutation) | ShipmentDetail |
 | POST | `/api/v1/export/shipments/{id}/firm-splits/` | ShipmentViewSet.set_firm_splits | `useShipmentDetail` (mutation) | ShipmentDetail |
 | GET | `/api/v1/export/shipments/{id}/tasks/` | ShipmentViewSet.tasks_list | `useShipmentTasks` | ShipmentDetail (Tasks tab) |
