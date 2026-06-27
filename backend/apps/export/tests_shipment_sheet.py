@@ -214,6 +214,73 @@ class SheetEndpointTests(TestCase):
         self.assertFalse(by_code['ACT-002']['has_doc_advance'])
 
 
+class SheetSalesRepScopingTests(TestCase):
+    """A sales_rep sees only Sheet rows for customers assigned to them."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from apps.core.models import Customer
+        _seed_permissions()
+        cls.season, _ = Season.objects.get_or_create(
+            name='2025-SRS',
+            defaults={'start_date': '2025-09-01', 'end_date': '2026-06-30', 'is_active': True},
+        )
+        cls.status_loading, _ = ShipmentStatusType.objects.get_or_create(
+            code='yuklenme_srs',
+            defaults={'name_tk': 'yuklenme_srs', 'name_en': 'Loading SRS', 'step_order': 1, 'phase': 'LOADING'},
+        )
+        cls.rep = _create_user('rep_srs', 'sales_rep')
+        cls.other_rep = _create_user('rep_srs_other', 'sales_rep')
+        # cust_mine → rep, cust_other → other_rep, cust_unassigned → nobody
+        cls.cust_mine = Customer.objects.create(name='Mine SRS', sales_rep=cls.rep)
+        cls.cust_other = Customer.objects.create(name='Other SRS', sales_rep=cls.other_rep)
+        cls.cust_unassigned = Customer.objects.create(name='Unassigned SRS')
+        cls.s_mine = Shipment.objects.create(
+            shipment_code='SRS-MINE', date='2026-02-01', season=cls.season,
+            status=cls.status_loading, customer=cls.cust_mine,
+        )
+        cls.s_other = Shipment.objects.create(
+            shipment_code='SRS-OTHER', date='2026-02-02', season=cls.season,
+            status=cls.status_loading, customer=cls.cust_other,
+        )
+        cls.s_unassigned = Shipment.objects.create(
+            shipment_code='SRS-UNASSIGNED', date='2026-02-03', season=cls.season,
+            status=cls.status_loading, customer=cls.cust_unassigned,
+        )
+        cls.s_nocustomer = Shipment.objects.create(
+            shipment_code='SRS-NULLCUST', date='2026-02-04', season=cls.season,
+            status=cls.status_loading, customer=None,
+        )
+
+    def setUp(self):
+        self.client = APIClient()
+
+    def test_sales_rep_sees_only_own_customer_rows(self):
+        self.client.force_authenticate(user=self.rep)
+        resp = self.client.get('/api/v1/export/shipments/sheet/')
+        self.assertEqual(resp.status_code, 200, resp.data)
+        codes = {row['shipment_code'] for row in _sheet_results(resp)}
+        self.assertEqual(codes, {'SRS-MINE'})
+
+    def test_sales_rep_cannot_open_unowned_shipment_via_drawer(self):
+        self.client.force_authenticate(user=self.rep)
+        resp = self.client.get(
+            f'/api/v1/export/shipments/sheet/?shipment={self.s_other.id}'
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(_sheet_results(resp), [])
+
+    def test_manager_sees_all_rows(self):
+        manager = _create_user('mgr_srs', 'export_manager')
+        self.client.force_authenticate(user=manager)
+        resp = self.client.get('/api/v1/export/shipments/sheet/')
+        codes = {row['shipment_code'] for row in _sheet_results(resp)}
+        self.assertEqual(
+            codes,
+            {'SRS-MINE', 'SRS-OTHER', 'SRS-UNASSIGNED', 'SRS-NULLCUST'},
+        )
+
+
 class SheetPatchPermissionTests(TestCase):
     """PATCH /api/v1/export/shipments/{id}/ permission matrix."""
 

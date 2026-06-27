@@ -152,6 +152,8 @@ Same response shape as list, filtered by role's active window server-side.
 ### Sheet endpoint: `GET /api/v1/export/shipments/sheet/`
 Optional `?shipment=<id>` returns just that one shipment's row alongside the **same global config** (`rows` / `row_settings` / `users_index` / `current_user_*`) — a tiny payload used by the task drawer's field editors (Shipment Board + Self Kanban) so opening a task to act on it doesn't download the whole-season sheet. `?season=<id>` overrides the active-season default; with `?shipment=` the season scope is bypassed (archived/soft-deleted guards still apply).
 
+**Customer-based row scoping (sales_rep):** when the requesting user's role is `sales_rep` (and they are not a superuser), the Sheet rows are filtered to shipments whose `customer.sales_rep` is that user — assigned via `Customer.sales_rep` / the Sales Rep Coverage endpoint. Shipments with a null customer are excluded for reps, and a rep with no assigned customers gets an empty `results`. The filter applies to the `?shipment=` drawer path too, so a rep cannot open an unowned shipment. Management (`admin`/`export_manager`/`director`) and every other operational role (loading/transport/etc., who work by status phase, not customer) see all rows unchanged. The global config (`rows` / `row_settings` / `users_index`) is identical regardless of scoping.
+
 **Wrapped response shape** (not a flat array):
 ```json
 {

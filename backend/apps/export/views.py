@@ -975,6 +975,17 @@ class ShipmentViewSet(ModelViewSet):
         if single_shipment_id:
             qs = qs.filter(id=single_shipment_id)
 
+        # Customer-based ownership: a sales_rep only sees shipments whose
+        # customer is assigned to them (Customer.sales_rep). Shipments with a
+        # null customer are excluded for reps. Management and other operational
+        # roles (loading/transport/etc., who work by phase, not customer) are
+        # unaffected. Applied after the single-shipment filter so a rep also
+        # can't open an unowned shipment via the drawer's ?shipment= path.
+        role = getattr(request.user, 'role', None)
+        is_superuser = getattr(request.user, 'is_superuser', False)
+        if role == 'sales_rep' and not is_superuser:
+            qs = qs.filter(customer__sales_rep=request.user)
+
         serializer = ShipmentSheetSerializer(qs, many=True)
         shipment_data = serializer.data
 

@@ -307,6 +307,18 @@ The sheet now reads from the **dynamic permission registry** (no hardcoded role 
 
 Directors manage these matrices at `/admin/permissions`. The seed defaults are populated by `seed_permissions`.
 
+### Customer-based row scoping (sales_rep)
+
+A `sales_rep` user sees only the **shipment columns whose customer is assigned to them** (`Customer.sales_rep`, set via the Sales Rep Coverage endpoint). The `sheet()` action filters the queryset with `customer__sales_rep=request.user` whenever `request.user.role == 'sales_rep'` and they are not a superuser. Consequences:
+
+- Shipments with a **null customer** are excluded for reps (no customer → no owner).
+- A rep with **no assigned customers** gets an empty `results`.
+- The filter also covers the `?shipment=<id>` drawer path, so a rep cannot open an unowned shipment (the single-row fetch returns an empty list).
+- **Management** (`admin` / `export_manager` / `director`) and every **other operational role** (loading, transport, document_team, finansist, etc., who work by status phase, not customer) see all rows unchanged.
+- The global config (`rows` / `row_settings` / `users_index` / `current_user_*`) is identical regardless of scoping — only `results` shrinks.
+
+This mirrors the same ownership rule used by `GET /export/shipments/my-sales-reports/`. See [[../roles/sales-rep]].
+
 > **AD-1 timestamps** (`loading_started_at`, `customs_entry_at`, `customs_exit_at`, `departed_at`, `border_crossed_at`, `arrived_at`, `sale_started_at`, `sale_ended_at`) are **not** in `RESOURCE_FIELDS['shipment']` and are explicitly excluded from `_ALL_PATCHABLE_FIELDS` in `ShipmentPatchSerializer`. They render as non-editable in the sheet — set them via `transition_to()` (see [[../processes/shipment-lifecycle]]).
 
 ## Save flow
