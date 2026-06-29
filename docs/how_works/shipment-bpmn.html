@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="tk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Export Shipment — BPMN</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#eef1f6;color:#1f2733;font:14px "Segoe UI",Roboto,Arial,sans-serif;padding:22px 0 60px}
+  .head{padding:0 26px}
+  h1{font-size:22px;margin:0 0 4px}
+  .head p{color:#5b6675;margin:0 0 12px;font-size:13.5px}
+  .legend{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
+  .lg{font-size:12px;padding:4px 11px;border-radius:8px;font-weight:600;border:1px solid #0000001a;background:#fff;
+    display:inline-flex;align-items:center;gap:6px}
+  button{margin:6px 0 4px;padding:8px 16px;border:0;border-radius:8px;background:#2563eb;color:#fff;font-weight:600;cursor:pointer}
+  button:hover{background:#1d4ed8}
+  .scroll{overflow-x:auto;padding:6px 26px 10px}
+  .task{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+    text-align:center;border-radius:9px;border:1.4px solid #4b5563;background:#fff;font-size:11.5px;font-weight:600;
+    line-height:1.2;padding:5px 7px;box-shadow:0 1px 3px #0000001f;border-left-width:6px}
+  .task.st-planned{border-style:dashed;background:repeating-linear-gradient(45deg,#fff,#fff 6px,#eef0ff 6px,#eef0ff 12px)}
+  .badge{font-size:9px;font-weight:800;padding:1px 6px;border-radius:6px;letter-spacing:.3px;white-space:nowrap}
+  .bd-planned{background:#e0e7ff;color:#3730a3} .bd-partial{background:#fde68a;color:#92400e}
+  .note{padding:8px 26px 0;color:#5b6675;font-size:12px;max-width:1100px}
+  @media print{body{background:#fff;padding:0}.head button,.note{display:none}.scroll{overflow:visible}}
+</style>
+</head>
+<body>
+<div class="head">
+  <h1>🍅 Export Shipment — BPMN 2.0</h1>
+  <p>Bir Pool (YGT Export), bölümler = Lane. Diňe BPMN elementleri: waka, wezipe, derweze, yzygiderlik akym.</p>
+  <div class="legend">
+    <span class="lg"><svg width="20" height="20"><circle cx="10" cy="10" r="8" fill="#fff" stroke="#16a34a" stroke-width="2"/></svg> Başlangyç waka</span>
+    <span class="lg"><svg width="20" height="20"><circle cx="10" cy="10" r="8" fill="#fff" stroke="#b91c1c" stroke-width="3.5"/></svg> Soňky waka</span>
+    <span class="lg"><svg width="22" height="16"><rect x="1" y="1" width="20" height="13" rx="3" fill="#fff" stroke="#4b5563"/></svg> Wezipe (Task)</span>
+    <span class="lg"><svg width="20" height="20"><polygon points="10,2 18,10 10,18 2,10" fill="#fde68a" stroke="#c79f00"/><text x="10" y="13.5" font-size="10" font-weight="800" text-anchor="middle">×</text></svg> Aýyl-saýyl derweze (XOR)</span>
+    <span class="lg"><svg width="20" height="20"><polygon points="10,2 18,10 10,18 2,10" fill="#fde68a" stroke="#c79f00"/><text x="10" y="14" font-size="12" font-weight="800" text-anchor="middle">+</text></svg> Parallel derweze (AND)</span>
+    <span class="lg bd-partial">🚧 Ýarym</span>
+    <span class="lg bd-planned">◷ Planlanýar</span>
+  </div>
+  <button onclick="window.print()">🖨️  PDF / çap</button>
+</div>
+<div class="scroll"><div id="canvas"></div></div>
+<p class="note">BPMN belligi: parallel derwezeler (✚) üpjünçilik we maksat draftlaryny şahalandyrýar we «JOIN»-da birleşdirýär; aýyl-saýyl derwezeler (✕) «Kontrakt barmy?» we «Pregruz barmy?» ýaly kararlary dolandyrýar. Reňk diňe okamak üçin — BPMN-de many goşmaýar (figuralar manyny aňladýar).</p>
+
+<script>
+const LANES = [
+  {name:'Greenhouse Managers', c:'#e9c84a'},
+  {name:'Export Manager',      c:'#f08a4b'},
+  {name:'Document Team',       c:'#4aa3e0'},
+  {name:'Loading & Packaging', c:'#3fb7c4'},
+  {name:'Transport Dep.',      c:'#7fcdd6'},
+  {name:'Finansist',           c:'#9aa6b5'},
+  {name:'Sales',               c:'#6fb0e6'},
+];
+
+// id, lane, col, type(start|end|task|gwx|gwp), label, status?
+const N = [
+  ['start',1,1,'start','Hepdelik planlama'],
+  ['em_weekly',2,2,'task','Hepdelik maşyn planlamak'],
+  ['load_fc',4,3,'task','Günlük hasyly çaklamak (forecast)'],
+
+  ['g1',3,4,'gwp','Iki draft'],
+  ['destB',2,5,'task','Maksat draft açmak (ýurt, müşderi, firma)'],
+  ['supplyA',4,5,'task','Üpjünçilik draft açmak (bloklar, kg)'],
+  ['transA',5,6,'task','Maşyn we sürüji bellemek'],
+  ['g2',3,7,'gwp',''],
+
+  ['join',3,8,'task','Draftlary birleşdirmek (JOIN)'],
+  ['g3',3,9,'gwx','Kontrakt barmy?'],
+  ['onetime',4,10,'task','Bir saparlyk kontrakt açmak','partial'],
+  ['g4',3,11,'gwx',''],
+  ['invoice',3,12,'task','Invoice / faktura döretmek'],
+  ['docgen',3,13,'task','Dokument generasiýa'],
+  ['customs',3,14,'task','Gümrük (giriş / çykyş)'],
+  ['loadtruck',4,15,'task','Maşyna ýüklemek'],
+  ['departed',3,16,'task','Ýola çykarmak (departed)'],
+  ['border',5,17,'task','TM serhedinden geçmek'],
+
+  ['destcust',7,18,'task','Barjak ýurda girmek + gümrük'],
+  ['g5',7,19,'gwx','Pregruz barmy?'],
+  ['peregruz',5,20,'task','Pregruz (başga maşyna geçirmek)'],
+  ['g6',7,21,'gwx',''],
+  ['arrived',7,22,'task','Barmaly nokadyna baryp ýetmek'],
+  ['sell',7,23,'task','Satmak (başlady → gutardy)'],
+  ['report',7,24,'task','Hasabat tabşyrmak'],
+
+  ['accept',2,25,'task','Hasabaty kabul etmek / gaýtadan işlemek','planned'],
+  ['fin_close',6,26,'task','Maliýe taýdan ýapmak'],
+  ['end',6,27,'end','Tamamlandy'],
+];
+
+// from, to, label?
+const E = [
+  ['start','em_weekly'], ['em_weekly','load_fc'], ['load_fc','g1'],
+  ['g1','destB'], ['g1','supplyA'], ['supplyA','transA'],
+  ['destB','g2'], ['transA','g2'], ['g2','join'],
+  ['join','g3'], ['g3','onetime','Ýok'], ['g3','g4','Bar'], ['onetime','g4'],
+  ['g4','invoice'], ['invoice','docgen'], ['docgen','customs'], ['customs','loadtruck'],
+  ['loadtruck','departed'], ['departed','border'], ['border','destcust'],
+  ['destcust','g5'], ['g5','peregruz','Hawa'], ['g5','g6','Ýok'], ['peregruz','g6'],
+  ['g6','arrived'], ['arrived','sell'], ['sell','report'],
+  ['report','accept'], ['accept','fin_close'], ['fin_close','end'],
+];
+
+// geometry
+const LW=150, COLW=172, BW=150, BH=70, GW=48, EV=42, ROWH=132;
+const maxCol = Math.max(...N.map(n=>n[2]));
+const W = LW + maxCol*COLW + 30, H = LANES.length*ROWH + 16;
+const cx = col => LW + (col-1)*COLW + COLW/2;
+const cy = lane => (lane-1)*ROWH + 8 + (ROWH-16)/2;
+
+const map = {};
+N.forEach(([id,lane,col,type,label,status])=>{
+  let w,h;
+  if(type==='task'){w=BW;h=BH;} else if(type==='start'||type==='end'){w=EV;h=EV;} else {w=GW;h=GW;}
+  const ccx=cx(col), ccy=cy(lane);
+  map[id]={x:ccx-w/2,y:ccy-h/2,w,h,ccx,ccy,type,label,status,lc:LANES[lane-1].c};
+});
+
+function path(s,t){
+  const dx=t.ccx-s.ccx, dy=t.ccy-s.ccy; let sx,sy,tx,ty,c1x,c1y,c2x,c2y;
+  if(Math.abs(dx)>=Math.abs(dy)){
+    sx = dx>=0? s.x+s.w : s.x; sy=s.ccy;
+    tx = dx>=0? t.x : t.x+t.w; ty=t.ccy;
+    const o=Math.max(26,Math.abs(tx-sx)*0.4);
+    c1x=sx+(dx>=0?o:-o);c1y=sy;c2x=tx-(dx>=0?o:-o);c2y=ty;
+  }else{
+    sx=s.ccx; sy=dy>=0? s.y+s.h : s.y;
+    tx=t.ccx; ty=dy>=0? t.y : t.y+t.h;
+    const o=Math.max(22,Math.abs(ty-sy)*0.45);
+    c1x=sx;c1y=sy+(dy>=0?o:-o);c2x=tx;c2y=ty-(dy>=0?o:-o);
+  }
+  return {d:`M${sx},${sy} C${c1x},${c1y} ${c2x},${c2y} ${tx},${ty}`, mx:(c1x+c2x)/2, my:(c1y+c2y)/2};
+}
+
+let svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI,Arial">
+<defs><marker id="arr" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto" markerUnits="userSpaceOnUse">
+  <path d="M0,0 L7,3 L0,6 Z" fill="#3b4554"/></marker></defs>`;
+
+// lanes
+LANES.forEach((l,i)=>{
+  const ly=i*ROWH;
+  svg+=`<rect x="0" y="${ly}" width="${W}" height="${ROWH}" fill="${i%2?'#f5f8fc':'#ffffff'}" stroke="#dde4ec"/>`;
+  svg+=`<rect x="4" y="${ly+6}" width="${LW-12}" height="${ROWH-12}" rx="8" fill="${l.c}"/>`;
+  svg+=`<foreignObject x="4" y="${ly+6}" width="${LW-12}" height="${ROWH-12}">
+    <div xmlns="http://www.w3.org/1999/xhtml" style="height:100%;display:flex;align-items:center;justify-content:center;
+      text-align:center;color:#fff;font-weight:700;font-size:13px;line-height:1.25;padding:4px">${l.name}</div></foreignObject>`;
+});
+
+// sequence flows (under shapes)
+E.forEach(([f,t,lab])=>{
+  const s=map[f],tt=map[t]; if(!s||!tt) return;
+  const p=path(s,tt);
+  svg+=`<path d="${p.d}" fill="none" stroke="#3b4554" stroke-width="1.6" marker-end="url(#arr)"/>`;
+  if(lab){
+    svg+=`<rect x="${p.mx-15}" y="${p.my-9}" width="30" height="16" rx="4" fill="#fff" stroke="#cfd6e0"/>`;
+    svg+=`<text x="${p.mx}" y="${p.my+3}" text-anchor="middle" font-size="10" font-weight="700"
+      fill="${(lab==='Bar'||lab==='Hawa')?'#15803d':'#b45309'}">${lab}</text>`;
+  }
+});
+
+// shapes (on top)
+N.forEach(([id])=>{
+  const m=map[id];
+  if(m.type==='task'){
+    let inner=m.label;
+    if(m.status==='planned') inner+='<span class="badge bd-planned">◷ PLANLANÝAR</span>';
+    if(m.status==='partial') inner+='<span class="badge bd-partial">🚧 ÝARYM</span>';
+    svg+=`<foreignObject x="${m.x}" y="${m.y}" width="${m.w}" height="${m.h}">
+      <div xmlns="http://www.w3.org/1999/xhtml" class="task${m.status?' st-'+m.status:''}"
+        style="border-left-color:${m.lc}">${inner}</div></foreignObject>`;
+  } else if(m.type==='start' || m.type==='end'){
+    const r=EV/2, isEnd=m.type==='end';
+    svg+=`<circle cx="${m.ccx}" cy="${m.ccy}" r="${r}" fill="#fff"
+      stroke="${isEnd?'#b91c1c':'#16a34a'}" stroke-width="${isEnd?4:2.5}"/>`;
+    svg+=`<text x="${m.ccx}" y="${m.ccy+1}" text-anchor="middle" font-size="15">${isEnd?'■':'▶'}</text>`;
+    svg+=`<text x="${m.ccx}" y="${m.y+m.h+13}" text-anchor="middle" font-size="11" font-weight="700">${m.label}</text>`;
+  } else { // gateway diamond
+    const d=GW/2, X=m.ccx, Y=m.ccy;
+    svg+=`<polygon points="${X},${Y-d} ${X+d},${Y} ${X},${Y+d} ${X-d},${Y}" fill="#fde68a" stroke="#c79f00" stroke-width="1.4"/>`;
+    svg+=`<text x="${X}" y="${Y+ (m.type==='gwp'?5:4)}" text-anchor="middle"
+      font-size="${m.type==='gwp'?20:16}" font-weight="800" fill="#7a5d00">${m.type==='gwp'?'+':'×'}</text>`;
+    if(m.label) svg+=`<text x="${X}" y="${Y-d-6}" text-anchor="middle" font-size="10.5" font-weight="700">${m.label}</text>`;
+  }
+});
+
+svg+='</svg>';
+document.getElementById('canvas').innerHTML=svg;
+</script>
+</body>
+</html>

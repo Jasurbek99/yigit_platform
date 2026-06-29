@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="tk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Export Shipment — Process (colored swimlane)</title>
+<style>
+  :root{
+    --ink:#1f2733; --soft:#5b6675; --line:#d7dde6; --bg:#eef1f6;
+    /* phase colors */
+    --plan:#D5F692;     --plan-b:#a8cf57;
+    --draft:#C9B3F0;    --draft-b:#9f7fd6;
+    --docs:#A6CCF5;     --docs-b:#6fa6e6;
+    --customs:#67C6F0;  --customs-b:#2f9fd6;
+    --load:#7DD9D9;     --load-b:#3fb6b6;
+    --transport:#FFCC66;--transport-b:#e0a72e;
+    --sales:#F5A3C7;    --sales-b:#e06fa3;
+    --finance:#D8DCE2;  --finance-b:#a9b1bd;
+    --decision:#F5D128; --decision-b:#caa700;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:14px/1.4 "Segoe UI",-apple-system,Roboto,Arial,sans-serif;padding:26px 0 70px}
+  .head{padding:0 26px}
+  h1{font-size:24px;margin:0 0 4px}
+  .head p{color:var(--soft);margin:0 0 18px;font-size:14px}
+
+  /* legend */
+  .legend{display:flex;flex-wrap:wrap;gap:9px;margin-bottom:20px}
+  .lg{font-size:12.5px;padding:5px 12px;border-radius:8px;font-weight:600;border:1px solid #00000018}
+  .lg.plan{background:var(--plan)} .lg.draft{background:var(--draft)} .lg.docs{background:var(--docs)}
+  .lg.customs{background:var(--customs)} .lg.load{background:var(--load)} .lg.transport{background:var(--transport)}
+  .lg.sales{background:var(--sales)} .lg.finance{background:var(--finance)} .lg.decision{background:var(--decision)}
+
+  /* scroll area */
+  .scroll{overflow-x:auto;padding:0 26px 20px}
+  .board{display:grid;
+    grid-template-columns:150px repeat(21,140px);
+    grid-auto-rows:96px;
+    gap:0;min-width:max-content;position:relative}
+
+  /* lane background stripes */
+  .lane-bg{grid-column:1 / -1;z-index:0;border-bottom:1px solid var(--line)}
+  .lane-bg.even{background:#ffffff} .lane-bg.odd{background:#f6f8fb}
+
+  /* lane label */
+  .lane{grid-column:1;z-index:2;display:flex;align-items:center;justify-content:center;
+    writing-mode:vertical-rl;transform:rotate(180deg);font-weight:700;font-size:13px;
+    color:#fff;border-radius:8px;margin:6px 8px 6px 0;text-align:center;padding:6px 2px}
+  .lane.l1{background:#e9c84a} .lane.l2{background:#f08a4b} .lane.l3{background:#4aa3e0}
+  .lane.l4{background:#3fb7c4} .lane.l5{background:#7fcdd6} .lane.l6{background:#9aa6b5}
+  .lane.l7{background:#6fb0e6}
+
+  /* boxes */
+  .box{z-index:2;margin:6px;border-radius:9px;padding:8px 9px;font-size:12px;font-weight:600;
+    display:flex;align-items:center;text-align:center;justify-content:center;
+    border:1.5px solid;box-shadow:0 1px 3px #0000001a;line-height:1.25}
+  .plan{background:var(--plan);border-color:var(--plan-b)}
+  .draft{background:var(--draft);border-color:var(--draft-b)}
+  .docs{background:var(--docs);border-color:var(--docs-b)}
+  .customs{background:var(--customs);border-color:var(--customs-b)}
+  .load{background:var(--load);border-color:var(--load-b)}
+  .transport{background:var(--transport);border-color:var(--transport-b)}
+  .sales{background:var(--sales);border-color:var(--sales-b)}
+  .finance{background:var(--finance);border-color:var(--finance-b)}
+  .decision{background:var(--decision);border-color:var(--decision-b);border-radius:50% / 18%}
+  .decision small{display:block;font-weight:800;margin-top:3px;font-size:11px}
+  .event{background:#fff;border:2.5px solid #16a34a;border-radius:50%;
+    width:54px;height:54px;align-self:center;justify-self:center;margin:auto;font-size:11px}
+  .star{position:absolute;top:2px;right:4px;font-size:11px}
+
+  /* flow arrow hint */
+  .flowbar{grid-column:2 / -1;grid-row:1;height:0;position:relative;z-index:1}
+  .note{padding:0 26px;color:var(--soft);font-size:12.5px;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="head">
+  <h1>🍅 Export Shipment — Tutuş proses (reňkli)</h1>
+  <p>Setirler = bölümler (kim edýär) · reňkler = proses tapgyry (näme tapgyry). Akym çepden saga.</p>
+  <div class="legend">
+    <span class="lg plan">🟩 Planlama / Kwota</span>
+    <span class="lg draft">🟪 Draft / Saýlamak</span>
+    <span class="lg docs">🟦 Kontrakt &amp; Dokument</span>
+    <span class="lg customs">🟦 Gümrük</span>
+    <span class="lg load">🟦 Ýüklemek</span>
+    <span class="lg transport">🟧 Transport</span>
+    <span class="lg sales">🟥 Satuw / Ýolda</span>
+    <span class="lg finance">⬛ Maliýe</span>
+    <span class="lg decision">◆ Karar</span>
+  </div>
+</div>
+
+<div class="scroll">
+  <div class="board">
+
+    <!-- lane background stripes (rows 1..7) -->
+    <div class="lane-bg even" style="grid-row:1"></div>
+    <div class="lane-bg odd"  style="grid-row:2"></div>
+    <div class="lane-bg even" style="grid-row:3"></div>
+    <div class="lane-bg odd"  style="grid-row:4"></div>
+    <div class="lane-bg even" style="grid-row:5"></div>
+    <div class="lane-bg odd"  style="grid-row:6"></div>
+    <div class="lane-bg even" style="grid-row:7"></div>
+
+    <!-- lane labels -->
+    <div class="lane l1" style="grid-row:1">Greenhouse Managers</div>
+    <div class="lane l2" style="grid-row:2">Export Manager</div>
+    <div class="lane l3" style="grid-row:3">Document Team</div>
+    <div class="lane l4" style="grid-row:4">Loading &amp; Packaging</div>
+    <div class="lane l5" style="grid-row:5">Transport Dep.</div>
+    <div class="lane l6" style="grid-row:6">Finansist</div>
+    <div class="lane l7" style="grid-row:7">Sales</div>
+
+    <!-- ===== Greenhouse (row 1) ===== -->
+    <div class="box event" style="grid-row:1;grid-column:2">▶ Hepdelik planlama</div>
+
+    <!-- ===== Export Manager (row 2) ===== -->
+    <div class="box plan"      style="grid-row:2;grid-column:3">Hepdelik maşyn planlama</div>
+    <div class="box draft"     style="grid-row:2;grid-column:4">Export Shipment planlamak / garalama (draft döretmek)</div>
+    <div class="box draft"     style="grid-row:2;grid-column:5">Export Ýurt saýlamak</div>
+    <div class="box draft"     style="grid-row:2;grid-column:6">Import firma saýlamak</div>
+    <div class="box draft"     style="grid-row:2;grid-column:7">Export firma saýlamak</div>
+    <div class="box draft"     style="grid-row:2;grid-column:9">ýüklenmeli tonna</div>
+    <div class="box finance"   style="grid-row:2;grid-column:22">Hasabaty kabul etmek, gaýtadan işlemek</div>
+
+    <!-- ===== Document Team (row 3) ===== -->
+    <div class="box plan"      style="grid-row:3;grid-column:4">Kwota almak eksport firmalara</div>
+    <div class="box plan"      style="grid-row:3;grid-column:5">Kwotalary yzarlamak</div>
+    <div class="box decision"  style="grid-row:3;grid-column:7">Kontrakt barmy?<small>Bar ✓ / Ýok ✗</small></div>
+    <div class="box docs"      style="grid-row:3;grid-column:8">Bir saparlyk kontrakt açmak <span style="opacity:.6">(Ýok)</span></div>
+    <div class="box docs"      style="grid-row:3;grid-column:9">Invoice / faktura açmak</div>
+    <div class="box docs"      style="grid-row:3;grid-column:10">Dokument generasiýa</div>
+    <div class="box customs"   style="grid-row:3;grid-column:11">Gümrük</div>
+    <div class="box draft"     style="grid-row:3;grid-column:12">Draft shipmenti birleşdirmek (JOIN)</div>
+
+    <!-- ===== Loading & Packaging (row 4) ===== -->
+    <div class="box plan"      style="grid-row:4;grid-column:4">Bloklardaky düýnki pomidor möçberini hasaba almak, bugünki hasyly anyklamak</div>
+    <div class="box draft"     style="grid-row:4;grid-column:5">Export Shipment draft açmak</div>
+    <div class="box draft"     style="grid-row:4;grid-column:6">Ýük kodyny goýmak</div>
+    <div class="box draft"     style="grid-row:4;grid-column:7">Hasyl ýygnalýan bloklary bellemek</div>
+    <div class="box draft"     style="grid-row:4;grid-column:8">Ýüklenjek pomidorlaryň görnüşini kesgitlemek</div>
+    <div class="box load"      style="grid-row:4;grid-column:9">Hasyl statusy: Ýygnalýar / taýýar</div>
+    <div class="box load"      style="grid-row:4;grid-column:10">Hasyl statusy: taýýar</div>
+    <div class="box load"      style="grid-row:4;grid-column:11">Maşyn ýyladyşhana bardy</div>
+    <div class="box load"      style="grid-row:4;grid-column:12">Hasyl maşyna ýüklenýär</div>
+    <div class="box load"      style="grid-row:4;grid-column:13">Hasyl maşyna ýüklendi</div>
+    <div class="box load"      style="grid-row:4;grid-column:14">Ýyladyşhana çykdy</div>
+
+    <!-- ===== Transport (row 5) ===== -->
+    <div class="box transport" style="grid-row:5;grid-column:5">Maşyn goýmak</div>
+    <div class="box transport" style="grid-row:5;grid-column:6">Sürüji goýmak</div>
+    <div class="box transport" style="grid-row:5;grid-column:7">Maşyn we sürüji maglumatlaryny, resminalary taýýarlamak</div>
+    <div class="box transport" style="grid-row:5;grid-column:11">Maşyn ýyladyşhana ugrady</div>
+    <div class="box transport" style="grid-row:5;grid-column:15">Türkmenistanyň serhedinden çykdy</div>
+
+    <!-- ===== Finansist (row 6) ===== -->
+    <div class="box plan"      style="grid-row:6;grid-column:4">Kwota üçin pomidor tabşyrmak / satmak</div>
+    <div class="box finance"   style="grid-row:6;grid-column:8">Gümrük we dokumentler üçin awans</div>
+
+    <!-- ===== Sales (row 7) ===== -->
+    <div class="box sales"     style="grid-row:7;grid-column:16">Barmaly şäheri</div>
+    <div class="box sales"     style="grid-row:7;grid-column:17">Pregruz ýa-da ýok</div>
+    <div class="box sales"     style="grid-row:7;grid-column:18">Barmaly nokadyna ulag bardy</div>
+    <div class="box sales"     style="grid-row:7;grid-column:19">Satylyp başlady</div>
+    <div class="box sales"     style="grid-row:7;grid-column:20">Satyp gutardy</div>
+    <div class="box sales"     style="grid-row:7;grid-column:21">Hasabat tabşyrmak</div>
+
+  </div>
+</div>
+
+<p class="note">Bellik: Transport bölümi «Maşyn goýmak» + «Sürüji goýmak» — Gümrükden <b>öň</b> ýerine ýetirilýär (maşyn/sürüji draft tapgyrynda berkidilýär). Hex reňkleri Miro üçin: Planlama #D5F692 · Draft #C9B3F0 · Dokument #A6CCF5 · Gümrük #67C6F0 · Ýüklemek #7DD9D9 · Transport #FFCC66 · Satuw #F5A3C7 · Maliýe #D8DCE2 · Karar #F5D128.</p>
+
+</body>
+</html>

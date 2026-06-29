@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How a Shipment Works — YGT Export</title>
+<style>
+  :root{
+    --ink:#1f2733; --soft:#5b6675; --line:#e3e8ef; --bg:#f4f6fa; --card:#ffffff;
+    --green:#16a34a; --blue:#2563eb; --cyan:#0891b2; --amber:#d97706;
+    --purple:#7c3aed; --emerald:#059669; --red:#dc2626; --slate:#64748b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:16px/1.6 "Segoe UI",-apple-system,Roboto,Helvetica,Arial,sans-serif;padding:40px 20px 90px}
+  .wrap{max-width:1100px;margin:0 auto}
+  .head{text-align:center;margin-bottom:10px}
+  .head h1{font-size:34px;margin:0;font-weight:800;letter-spacing:-.5px}
+  .head p{color:var(--soft);font-size:17px;margin:10px 0 0}
+  h2{font-size:13px;letter-spacing:2.5px;text-transform:uppercase;color:var(--soft);
+     text-align:center;margin:54px 0 22px;font-weight:700}
+  h2 b{color:var(--ink)}
+
+  /* big 3-step picture */
+  .big{display:grid;grid-template-columns:1fr 40px 1fr 40px 1fr;align-items:center;gap:0}
+  .bigcard{background:var(--card);border-radius:18px;padding:26px 22px;text-align:center;
+           box-shadow:0 6px 22px #1f273312;border-top:6px solid}
+  .bigcard .ico{font-size:42px;line-height:1}
+  .bigcard h3{margin:12px 0 6px;font-size:20px}
+  .bigcard p{margin:0;color:var(--soft);font-size:14.5px}
+  .bigcard.a{border-color:var(--green)}
+  .bigcard.b{border-color:var(--purple)}
+  .bigcard.c{border-color:var(--amber)}
+  .go{text-align:center;font-size:30px;color:#c0c8d4}
+
+  /* generic card */
+  .card{background:var(--card);border-radius:16px;padding:26px 28px;margin:0 auto;
+        box-shadow:0 5px 18px #1f273310;max-width:980px}
+  .lead{font-size:17px;color:var(--soft);text-align:center;max-width:760px;margin:0 auto 22px}
+
+  /* planning row */
+  .plan3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+  .pcard{border:1px solid var(--line);border-radius:14px;padding:18px;text-align:center}
+  .pcard .n{font-size:13px;font-weight:700;color:var(--green);letter-spacing:1px}
+  .pcard .ico{font-size:30px;margin:6px 0}
+  .pcard h4{margin:4px 0 4px;font-size:16px}
+  .pcard p{margin:0;color:var(--soft);font-size:13.5px}
+  .result{text-align:center;margin-top:22px;font-size:18px;background:#ecfdf3;color:#08612f;
+          border:1px solid #b7e8c8;border-radius:12px;padding:14px 18px;font-weight:600}
+  .result b{font-size:24px}
+
+  /* two halves join */
+  .join{display:grid;grid-template-columns:1fr 70px 1fr;align-items:center;gap:0;margin-top:6px}
+  .half{border-radius:14px;padding:20px 22px}
+  .half.s{background:#eef4ff;border:1px solid #c9ddff}
+  .half.d{background:#f6f0ff;border:1px solid #e0ccff}
+  .half .who{font-size:13px;font-weight:700;letter-spacing:.5px}
+  .half.s .who{color:var(--blue)} .half.d .who{color:var(--purple)}
+  .half h4{margin:6px 0 12px;font-size:18px}
+  .half ul{margin:0;padding-left:0;list-style:none}
+  .half li{padding:5px 0;font-size:14.5px;display:flex;gap:8px;align-items:center}
+  .plus{text-align:center;font-size:34px;color:#9aa6b6}
+  .joined{margin-top:18px;text-align:center;background:#f0fdf4;border:1px solid #bbf7d0;
+          border-radius:12px;padding:16px;font-size:16px;color:#166534;font-weight:600}
+
+  /* JOURNEY timeline */
+  .journey{position:relative;margin-top:8px}
+  .row{display:grid;grid-template-columns:46px 1fr;gap:0}
+  .gut{display:flex;flex-direction:column;align-items:center}
+  .num{width:38px;height:38px;border-radius:50%;color:#fff;font-weight:800;font-size:15px;
+       display:flex;align-items:center;justify-content:center;flex:none;z-index:2;box-shadow:0 2px 6px #0003}
+  .line{width:4px;flex:1;background:var(--line);min-height:10px}
+  .body{background:var(--card);border:1px solid var(--line);border-radius:13px;
+        padding:14px 18px;margin-bottom:12px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .body .icn{font-size:24px}
+  .body .txt{flex:1;min-width:200px}
+  .body .name{font-weight:700;font-size:16.5px}
+  .body .desc{color:var(--soft);font-size:14px}
+  .body .owner{font-size:13px;font-weight:700;padding:6px 14px;border-radius:999px;white-space:nowrap}
+  .fork{margin:0 0 12px 0;background:#fffbeb;border:1px dashed var(--amber);border-radius:11px;
+        padding:11px 16px;font-size:14px;color:#92400e}
+
+  /* color helpers */
+  .bg-slate{background:var(--slate)} .bg-blue{background:var(--blue)} .bg-cyan{background:var(--cyan)}
+  .bg-amber{background:var(--amber)} .bg-purple{background:var(--purple)}
+  .bg-green{background:var(--green)} .bg-emerald{background:var(--emerald)}
+  .own-slate{background:#f1f5f9;color:#475569} .own-blue{background:#eff6ff;color:#1d4ed8}
+  .own-cyan{background:#ecfeff;color:#0e7490} .own-amber{background:#fffbeb;color:#b45309}
+  .own-purple{background:#faf5ff;color:#6d28d9} .own-green{background:#f0fdf4;color:#15803d}
+  .own-emerald{background:#ecfdf5;color:#047857}
+
+  /* money */
+  .money{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;text-align:center}
+  .mcard{border:1px solid var(--line);border-radius:13px;padding:18px}
+  .mcard .ico{font-size:28px}
+  .mcard h4{margin:8px 0 4px;font-size:15px}
+  .mcard p{margin:0;color:var(--soft);font-size:13.5px}
+  .meq{text-align:center;margin-top:20px;font-size:19px;font-weight:700}
+  .meq .pos{color:var(--green)}
+
+  /* roles */
+  table{width:100%;border-collapse:collapse;margin-top:4px}
+  td,th{padding:11px 14px;border-bottom:1px solid var(--line);text-align:left;font-size:15px}
+  th{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--soft)}
+  tr:last-child td{border-bottom:none}
+  .pill{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:8px;vertical-align:middle}
+
+  @media(max-width:780px){
+    .big,.plan3,.money{grid-template-columns:1fr;gap:14px}
+    .go{transform:rotate(90deg);padding:6px 0}
+    .join{grid-template-columns:1fr}.plus{transform:rotate(90deg);padding:6px 0}
+  }
+  @media print{body{background:#fff;padding:0}.card,.bigcard{box-shadow:none;border:1px solid var(--line)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head">
+    <h1>🍅 How an Export Shipment Works</h1>
+    <p>From the greenhouse harvest plan to a completed, paid sale — one truck's journey.</p>
+  </div>
+
+  <!-- BIG PICTURE -->
+  <h2>The journey in <b>3 simple stages</b></h2>
+  <div class="big">
+    <div class="bigcard a">
+      <div class="ico">📋</div>
+      <h3>1. Plan the harvest</h3>
+      <p>Decide how many tomatoes are ready each day, and how many trucks that fills.</p>
+    </div>
+    <div class="go">➜</div>
+    <div class="bigcard b">
+      <div class="ico">🚚</div>
+      <h3>2. Build the truck</h3>
+      <p>Loading dept reserves the tomatoes. Export manager assigns the buyer &amp; country.</p>
+    </div>
+    <div class="go">➜</div>
+    <div class="bigcard c">
+      <div class="ico">🛣️</div>
+      <h3>3. Ship &amp; sell</h3>
+      <p>The truck clears customs, crosses the border, arrives, sells — and we record the profit.</p>
+    </div>
+  </div>
+
+  <!-- STAGE 1: PLAN -->
+  <h2>Stage 1 — <b>Planning the harvest</b></h2>
+  <div class="card">
+    <p class="lead">Every block of the greenhouse forecasts how many kilograms it will harvest. We compare plan vs. forecast vs. what actually came in.</p>
+    <div class="plan3">
+      <div class="pcard">
+        <div class="n">PLANNED</div><div class="ico">🗓️</div>
+        <h4>Weekly plan</h4>
+        <p>Block managers set targets for the week (by Friday).</p>
+      </div>
+      <div class="pcard">
+        <div class="n">FORECAST</div><div class="ico">🔮</div>
+        <h4>Daily forecast</h4>
+        <p>The evening before, the loading dept estimates tomorrow's harvest.</p>
+      </div>
+      <div class="pcard">
+        <div class="n">ACTUAL</div><div class="ico">✅</div>
+        <h4>What came in</h4>
+        <p>Real kilograms once the trucks are filled.</p>
+      </div>
+    </div>
+    <div class="result">A standard truck holds <b>18,500 kg</b> &nbsp;→&nbsp; forecast ÷ 18,500 = <b>how many trucks</b> to send.</div>
+  </div>
+
+  <!-- STAGE 2: BUILD -->
+  <h2>Stage 2 — <b>Building a truck (a "shipment")</b></h2>
+  <div class="card">
+    <p class="lead">A shipment is built by two people who fill in two halves — then the halves are joined into one ready truck.</p>
+    <div class="join">
+      <div class="half s">
+        <div class="who">🌱 LOADING DEPARTMENT &nbsp;(morning)</div>
+        <h4>The supply half</h4>
+        <ul>
+          <li>✅ Which greenhouse blocks</li>
+          <li>✅ How many kilograms</li>
+          <li>❔ Buyer &amp; country — <i>not yet</i></li>
+        </ul>
+      </div>
+      <div class="plus">＋</div>
+      <div class="half d">
+        <div class="who">🌍 EXPORT MANAGER &nbsp;(late morning)</div>
+        <h4>The destination half</h4>
+        <ul>
+          <li>✅ Country &amp; city</li>
+          <li>✅ Customer &amp; buying firm</li>
+          <li>❔ The tomatoes — <i>comes from supply</i></li>
+        </ul>
+      </div>
+    </div>
+    <div class="joined">🔗 The two halves are <b>joined</b> → one complete truck, ready to ship.</div>
+    <p class="lead" style="margin:18px auto 0;font-size:14.5px">A truck can't leave until it has <b>both</b> the tomatoes <b>and</b> a confirmed buyer &amp; country.</p>
+  </div>
+
+  <!-- STAGE 3: JOURNEY -->
+  <h2>Stage 3 — <b>The truck's journey</b> (each step has one owner)</h2>
+  <div class="card">
+    <div class="journey">
+
+      <div class="row"><div class="gut"><div class="num bg-slate">0</div><div class="line"></div></div>
+        <div class="body"><span class="icn">📝</span><div class="txt"><div class="name">Truck created</div>
+          <div class="desc">Supply + destination joined and confirmed.</div></div>
+          <span class="owner own-slate">Loading / Export mgr</span></div></div>
+
+      <div class="row"><div class="gut"><div class="num bg-amber" style="font-size:18px">🚛</div><div class="line"></div></div>
+        <div class="body" style="border-color:#fcd9a3;background:#fffaf2"><span class="icn">🧑‍✈️</span>
+          <div class="txt"><div class="name">Driver &amp; truck attached</div>
+          <div class="desc">Truck plate, driver name &amp; phone added — <b>required before customs</b>.</div></div>
+          <span class="owner own-amber">Transport</span></div></div>
+
+      <div class="row"><div class="gut"><div class="num bg-blue">1</div><div class="line"></div></div>
+        <div class="body"><span class="icn">📄</span><div class="txt"><div class="name">Customs entry</div>
+          <div class="desc">Export documents opened.</div></div>
+          <span class="owner own-blue">Document team</span></div></div>
+
+      <div class="row"><div class="gut"><div class="num bg-blue">2</div><div class="line"></div></div>
+        <div class="body"><span class="icn">📑</span><div class="txt"><div class="name">Customs exit</div>
+          <div class="desc">Documents cleared, papers ready.</div></div>
+          <span class="owner own-blue">Document team</span></div></div>
+
+      <div class="row"><div class="gut"><div class="num bg-cyan">3</div><div class="line"></div></div>
+        <div class="body"><span class="icn">📦</span><div class="txt"><div class="name">Loading</div>
+          <div class="desc">Tomatoes loaded onto the truck.</div></div>
+          <span class="owner own-cyan">Warehouse chief</span></div></div>
+
+      <div class="row"><div class="gut"><div class="num bg-amber">4</div><div class="line"></div></div>
+        <div class="body"><span class="icn">🚚</span><div class="txt"><div class="name">Departed</div>
+          <div class="desc">Truck leaves the warehouse.</div></div>
+          <span class="owner own-amber">Document team</span></div></div>
+
+      <div class="row"><div class="gut"><div class="num bg-amber">5</div><div class="line"></div></div>
+        <div class="body"><span class="icn">🛂</span><div class="txt"><div class="name">Border crossed</div>
+          <div class="desc">Out of Turkmenistan.</div></div>
+          <span class="owner own-amber">Transport</span></div></div>
+
+      <div class="row"><div class="gut"><div class="num bg-amber">6</div><div class="line"></div></div>
+        <div class="body"><span class="icn">📍</span><div class="txt"><div class="name">Reached destination country</div>
+          <div class="desc">Arrived in the buyer's country.</div></div>
+          <span class="owner own-amber">Sales rep</span></div></div>
+
+      <div class="row"><div class="gut"><div class="num bg-amber">7</div><div class="line"></div></div>
+        <div class="body"><span class="icn">🛃</span><div class="txt"><div class="name">Destination customs</div>
+          <div class="desc">Cleared into the country.</div></div>
+          <span class="owner own-amber">Sales rep</span></div></div>
+
+      <div class="row"><div class="gut"><div class="line" style="background:var(--amber)"></div></div>
+        <div class="fork">↪️ <b>Sometimes:</b> cargo is moved to another truck at a hub (<i>transshipment</i>) before arriving.</div></div>
+
+      <div class="row"><div class="gut"><div class="num bg-purple">8</div><div class="line"></div></div>
+        <div class="body"><span class="icn">🏬</span><div class="txt"><div class="name">Arrived at the market</div>
+          <div class="desc">Truck is at the buyer / market.</div></div>
+          <span class="owner own-purple">Sales rep</span></div></div>
+
+      <div class="row"><div class="gut"><div class="num bg-green">9</div><div class="line"></div></div>
+        <div class="body"><span class="icn">🤝</span><div class="txt"><div class="name">Selling started</div>
+          <div class="desc">Sale in progress.</div></div>
+          <span class="owner own-green">Sales rep</span></div></div>
+
+      <div class="row"><div class="gut"><div class="num bg-green">10</div><div class="line"></div></div>
+        <div class="body"><span class="icn">💵</span><div class="txt"><div class="name">Sold</div>
+          <div class="desc">All tomatoes sold — sales report filled in.</div></div>
+          <span class="owner own-green">Sales rep</span></div></div>
+
+      <div class="row"><div class="gut"><div class="num bg-emerald">11</div></div>
+        <div class="body" style="border-color:#a7f3d0;background:#f0fdf9"><span class="icn">🏁</span>
+          <div class="txt"><div class="name">Completed</div>
+          <div class="desc">Money reconciled — the truck's job is done.</div></div>
+          <span class="owner own-emerald">Finance</span></div></div>
+
+    </div>
+  </div>
+
+  <!-- MONEY -->
+  <h2>The result — <b>did this truck make money?</b></h2>
+  <div class="card">
+    <div class="money">
+      <div class="mcard"><div class="ico">💰</div><h4>Sales</h4><p>Kilograms sold × price.</p></div>
+      <div class="mcard"><div class="ico">🧾</div><h4>Expenses</h4><p>Transport, customs, market fees, taxes…</p></div>
+      <div class="mcard"><div class="ico">📈</div><h4>Net profit</h4><p>Shown in local currency and USD.</p></div>
+    </div>
+    <div class="meq">Sales − Expenses = <span class="pos">Net profit</span></div>
+  </div>
+
+  <!-- WHO DOES WHAT -->
+  <h2>Who does what</h2>
+  <div class="card">
+    <table>
+      <tr><th>Team</th><th>Their job in the journey</th></tr>
+      <tr><td><span class="pill" style="background:var(--green)"></span>Loading department</td><td>Forecasts the harvest, reserves tomatoes for each truck.</td></tr>
+      <tr><td><span class="pill" style="background:var(--purple)"></span>Export manager</td><td>Assigns the buyer &amp; country, joins the truck, oversees everything.</td></tr>
+      <tr><td><span class="pill" style="background:var(--blue)"></span>Document team</td><td>Handles export customs paperwork &amp; departure.</td></tr>
+      <tr><td><span class="pill" style="background:var(--cyan)"></span>Warehouse chief</td><td>Loads the truck.</td></tr>
+      <tr><td><span class="pill" style="background:var(--amber)"></span>Transport</td><td>Attaches the driver &amp; truck (before customs), then manages border crossing &amp; travel.</td></tr>
+      <tr><td><span class="pill" style="background:var(--green)"></span>Sales rep</td><td>Receives, sells, and reports the sale at destination.</td></tr>
+      <tr><td><span class="pill" style="background:var(--emerald)"></span>Finance</td><td>Confirms the money and closes the truck.</td></tr>
+    </table>
+  </div>
+
+  <p style="text-align:center;color:var(--soft);font-size:13px;margin-top:36px">
+    YGT Holding — Export operations overview
+  </p>
+
+</div>
+</body>
+</html>

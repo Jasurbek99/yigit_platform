@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YGT Export — Interactive Walkthrough</title>
+<style>
+  :root{
+    --ink:#1a2230; --soft:#5b6675; --line:#e3e8ef; --bg:#0e1422; --accent:#7c3aed;
+    --chrome:#f2f4f8;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;font:15px/1.6 "Segoe UI",-apple-system,Roboto,Arial,sans-serif;color:#e7ecf5;
+    background:radial-gradient(1200px 700px at 70% -10%,#1b2540,#0e1422 60%);
+    display:flex;flex-direction:column;min-height:100vh;overflow:hidden}
+
+  header{display:flex;align-items:center;justify-content:space-between;padding:16px 30px}
+  header .brand{font-weight:800;font-size:18px;letter-spacing:.3px}
+  header .brand span{opacity:.6;font-weight:500;font-size:13px}
+  .journey{display:flex;gap:6px;flex-wrap:wrap}
+  .jchip{font-size:11px;font-weight:700;letter-spacing:.5px;padding:5px 11px;border-radius:999px;
+    background:#1b2438;color:#7e8aa3;border:1px solid #2a3550;transition:.25s}
+  .jchip.on{color:#fff;transform:translateY(-1px)}
+
+  main{flex:1;display:grid;grid-template-columns:1.35fr 1fr;gap:26px;padding:6px 30px 10px;min-height:0}
+
+  /* mock app window */
+  .device{background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 30px 70px #0009;display:flex;flex-direction:column;min-height:0}
+  .chrome{background:var(--chrome);border-bottom:1px solid #e2e6ee;padding:9px 14px;display:flex;align-items:center;gap:8px;flex:none}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .url{flex:1;margin-left:10px;background:#fff;border:1px solid #e0e4ec;border-radius:7px;padding:5px 12px;
+    font-size:12px;color:#67718a;font-family:ui-monospace,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .screen{flex:1;color:var(--ink);padding:22px 24px;overflow:auto;animation:pop .45s ease}
+  @keyframes pop{from{opacity:0;transform:translateY(10px) scale(.99)}to{opacity:1;transform:none}}
+
+  /* narration */
+  .tell{display:flex;flex-direction:column;min-height:0}
+  .tell .phase{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:800;letter-spacing:1.5px;
+    text-transform:uppercase;color:var(--accent)}
+  .tell h2{font-size:26px;margin:10px 0 4px;color:#fff;line-height:1.2}
+  .owner{display:inline-flex;align-items:center;gap:9px;background:#1b2438;border:1px solid #2a3550;border-radius:999px;
+    padding:6px 13px;font-size:13px;font-weight:600;width:fit-content;margin:6px 0 14px}
+  .owner .av{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;color:#fff}
+  .tell p.desc{color:#c4cee0;font-size:16px;margin:0 0 14px}
+  .tell .hl{background:linear-gradient(transparent 60%,var(--accent) 0);padding:0 2px;color:#fff;font-weight:600;
+    border-radius:2px;-webkit-box-decoration-break:clone}
+  .fact{margin-top:auto;background:#141d31;border:1px solid #26314c;border-left:4px solid var(--accent);
+    border-radius:0 10px 10px 0;padding:11px 15px;font-size:13.5px;color:#aeb9d0}
+
+  /* footer */
+  footer{display:flex;align-items:center;justify-content:space-between;padding:14px 30px 22px;gap:16px}
+  .dots{display:flex;gap:8px;flex-wrap:wrap}
+  .pd{width:10px;height:10px;border-radius:50%;background:#2a3550;cursor:pointer;transition:.2s}
+  .pd.on{background:var(--accent);transform:scale(1.35)}
+  .pd:hover{background:#42507a}
+  .ctrls{display:flex;gap:10px;align-items:center}
+  button{font:inherit;font-weight:700;border:0;border-radius:10px;padding:11px 20px;cursor:pointer;transition:.2s}
+  .back{background:#1b2438;color:#c4cee0;border:1px solid #2a3550}
+  .back:hover{background:#243150}
+  .next{background:var(--accent);color:#fff}
+  .next:hover{filter:brightness(1.1)}
+  .next:disabled,.back:disabled{opacity:.4;cursor:not-allowed}
+  .count{font-size:13px;color:#7e8aa3;font-weight:600;min-width:74px;text-align:center}
+
+  /* ---- mock screen helpers ---- */
+  .row{display:flex;gap:10px;align-items:center}
+  .tbl{width:100%;border-collapse:collapse;font-size:13px}
+  .tbl th,.tbl td{padding:8px 10px;border-bottom:1px solid #eef1f6;text-align:left}
+  .tbl th{color:#8a93a6;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+  .pill{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px}
+  .bar{height:26px;border-radius:7px;background:#eef1f6;display:flex;overflow:hidden;border:1px solid #e2e6ee}
+  .bar i{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;font-style:normal;color:#fff}
+  .card2{border:1px solid #e6eaf1;border-radius:11px;padding:14px;background:#fff;box-shadow:0 2px 8px #0000000a}
+  .lbl{font-size:11px;color:#8a93a6;text-transform:uppercase;letter-spacing:.5px;font-weight:700}
+  .big{font-size:30px;font-weight:800}
+  .chk{display:flex;align-items:center;gap:9px;padding:7px 0;font-size:14px;font-weight:600}
+  .chk .b{width:20px;height:20px;border-radius:6px;background:#16a34a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px}
+  .chk .b.todo{background:#e2e6ee;color:#9aa3b5}
+  .merge2{display:grid;grid-template-columns:1fr 40px 1fr;align-items:center;gap:0;margin-top:6px}
+  .track{position:relative;height:70px;background:#f4f7fb;border:1px solid #e6eaf1;border-radius:12px;margin-top:14px;overflow:hidden}
+  .track .road{position:absolute;top:50%;left:3%;right:3%;height:3px;background:repeating-linear-gradient(90deg,#cbd3e0,#cbd3e0 12px,transparent 12px,transparent 22px);transform:translateY(-50%)}
+  .track .pin{position:absolute;top:8px;font-size:11px;font-weight:700;color:#67718a;transform:translateX(-50%)}
+  .track .truck{position:absolute;top:50%;font-size:26px;transform:translate(-50%,-58%);animation:drive 3.4s ease-in-out infinite}
+  @keyframes drive{0%{left:6%}50%{left:88%}50.01%{left:88%}100%{left:6%}}
+  .stamp{display:inline-block;border:3px solid #16a34a;color:#16a34a;font-weight:900;letter-spacing:2px;
+    padding:6px 16px;border-radius:10px;transform:rotate(-7deg);font-size:20px}
+  @media(max-width:1000px){main{grid-template-columns:1fr;overflow:auto}.device{min-height:300px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">🍅 YGT Export <span>· interactive walkthrough</span></div>
+  <div class="journey" id="journey"></div>
+</header>
+
+<main>
+  <div class="device">
+    <div class="chrome">
+      <span class="dot" style="background:#ff5f57"></span>
+      <span class="dot" style="background:#febc2e"></span>
+      <span class="dot" style="background:#28c840"></span>
+      <span class="url" id="url">app.ygt.com</span>
+    </div>
+    <div class="screen" id="screen"></div>
+  </div>
+
+  <div class="tell">
+    <span class="phase" id="phase"></span>
+    <h2 id="title"></h2>
+    <div class="owner" id="owner"></div>
+    <p class="desc" id="desc"></p>
+    <div class="fact" id="fact"></div>
+  </div>
+</main>
+
+<footer>
+  <div class="dots" id="dots"></div>
+  <div class="ctrls">
+    <span class="count" id="count"></span>
+    <button class="back" id="back">← Back</button>
+    <button class="next" id="next">Next →</button>
+  </div>
+</footer>
+
+<script>
+const PHASES = [
+  {key:'PLAN',  c:'#16a34a'}, {key:'BUILD', c:'#7c3aed'}, {key:'DOCS', c:'#2563eb'},
+  {key:'LOAD',  c:'#0891b2'}, {key:'TRANSIT',c:'#d97706'}, {key:'SALE', c:'#db2777'},
+  {key:'CLOSE', c:'#059669'},
+];
+
+function owner(name, role, color){
+  const init = name[0];
+  return `<span class="av" style="background:${color}">${init}</span> ${name} · <span style="color:#8a93a6;font-weight:500">${role}</span>`;
+}
+
+const S = [
+ { phase:'PLAN', url:'app.ygt.com/planning/weekly',
+   title:'1 · Plan the harvest',
+   owner: owner('Soltanmyrat','Loading dept','#16a34a'),
+   desc:'Every greenhouse block forecasts how many kilograms it will harvest each day. The system turns that into <span class="hl">how many trucks</span> we can fill.',
+   fact:'A standard truck holds <b>18,500 kg</b>. Forecast ÷ 18,500 = trucks to send.',
+   screen:`<div class="row" style="justify-content:space-between"><b style="font-size:16px">Weekly harvest forecast</b><span class="pill" style="background:#dcfce7;color:#15803d">Season 2024–25</span></div>
+   <table class="tbl" style="margin-top:12px">
+     <tr><th>Block</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Forecast</th></tr>
+     <tr><td><b>A</b></td><td>5,800</td><td>6,200</td><td>6,500</td><td><b>18,500</b></td></tr>
+     <tr><td><b>C</b></td><td>3,900</td><td>4,100</td><td>4,000</td><td><b>12,000</b></td></tr>
+     <tr><td><b>F</b></td><td>5,000</td><td>5,300</td><td>5,200</td><td><b>15,500</b></td></tr>
+   </table>
+   <div class="card2" style="margin-top:14px;display:flex;justify-content:space-between;align-items:center">
+     <div><div class="lbl">Estimated trucks this week</div><div class="big" style="color:#16a34a">≈ 13</div></div>
+     <div style="font-size:42px">🚚</div></div>` },
+
+ { phase:'PLAN', url:'app.ygt.com/planning/remaining',
+   title:'2 · See what’s still available',
+   owner: owner('Soltanmyrat','Loading dept','#16a34a'),
+   desc:'As trucks are filled, the system subtracts them from the forecast — so everyone sees the <span class="hl">remaining tomatoes</span> per block, in real time.',
+   fact:'No double-booking: a new truck can never reserve more than what’s left.',
+   screen:`<b style="font-size:16px">Block A — today</b>
+   <div style="margin:16px 0 6px" class="lbl">Forecast 18,500 kg</div>
+   <div class="bar"><i style="width:65%;background:#94a3b8">allocated 12,000</i><i style="width:35%;background:#16a34a">remaining 6,500</i></div>
+   <div class="card2" style="margin-top:18px">
+     <div class="lbl">Available to reserve now</div>
+     <div class="big" style="color:#16a34a">6,500 kg</div>
+     <div style="color:#67718a;font-size:13px">≈ a third of one more truck</div>
+   </div>` },
+
+ { phase:'BUILD', url:'app.ygt.com/export/drafts/new',
+   title:'3 · Reserve the tomatoes (supply)',
+   owner: owner('Soltanmyrat','Loading dept','#7c3aed'),
+   desc:'In the morning the loading department builds a truck’s <span class="hl">supply half</span>: which blocks, how many kilograms. The buyer is added later.',
+   fact:'This is saved as a DRAFT. Destination is still empty — that’s normal at this stage.',
+   screen:`<div class="row" style="justify-content:space-between"><b style="font-size:16px">New shipment — draft</b><span class="pill" style="background:#ede9fe;color:#6d28d9">DRAFT</span></div>
+   <table class="tbl" style="margin-top:12px">
+     <tr><th>Block</th><th>Weight</th><th></th></tr>
+     <tr><td><b>A</b></td><td>6,500 kg</td><td>🟢</td></tr>
+     <tr><td><b>C</b></td><td>6,000 kg</td><td>🟢</td></tr>
+     <tr><td><b>F</b></td><td>6,000 kg</td><td>🟢</td></tr>
+   </table>
+   <div class="card2" style="margin-top:14px;display:flex;justify-content:space-between">
+     <div><div class="lbl">Total loaded</div><div class="big">18,500 kg</div></div>
+     <div><div class="lbl">Destination</div><div class="big" style="color:#cbd3e0">—</div></div>
+   </div>` },
+
+ { phase:'BUILD', url:'app.ygt.com/export/shipments/2418',
+   title:'4 · Attach the driver & truck',
+   owner: owner('Malik','Transport','#7c3aed'),
+   desc:'The transport team adds the <span class="hl">truck plate, driver and phone</span>. The system raises this as a task automatically — and it must be done <b>before customs</b>.',
+   fact:'The shipment can’t move forward until a driver & truck are attached.',
+   screen:`<div class="row" style="justify-content:space-between"><b style="font-size:16px">Transport details</b><span class="pill" style="background:#fef3c7;color:#92400e">Task · Transport</span></div>
+   <div class="card2" style="margin-top:14px">
+     <div class="lbl">Truck plate</div><div style="font-size:18px;font-weight:700;margin-bottom:10px">48 AT 580</div>
+     <div class="lbl">Driver</div><div style="font-size:18px;font-weight:700;margin-bottom:10px">Begench A.</div>
+     <div class="lbl">Phone</div><div style="font-size:18px;font-weight:700">+993 65 ••• •••</div>
+   </div>
+   <div class="chk" style="margin-top:12px"><span class="b">✓</span> Required before customs entry</div>` },
+
+ { phase:'BUILD', url:'app.ygt.com/export/assign',
+   title:'5 · Assign the buyer & country',
+   owner: owner('Gadam','Export manager','#7c3aed'),
+   desc:'Late morning, the export manager adds the <span class="hl">destination half</span>: country, city, customer and the selling firm.',
+   fact:'Now the truck has both halves — supply (tomatoes) and destination (buyer).',
+   screen:`<b style="font-size:16px">Assign destination</b>
+   <div class="card2" style="margin-top:14px">
+     <div class="lbl">Country</div><div style="font-size:17px;font-weight:700;margin-bottom:10px">🇰🇿 Kazakhstan — Şimkent</div>
+     <div class="lbl">Customer</div><div style="font-size:17px;font-weight:700;margin-bottom:10px">Begjan</div>
+     <div class="lbl">Export firm</div><div class="row" style="gap:6px"><span class="pill" style="background:#ede9fe;color:#6d28d9">YGT</span><span class="pill" style="background:#e0f2fe;color:#0369a1">H.J.</span></div>
+   </div>` },
+
+ { phase:'BUILD', url:'app.ygt.com/export/shipments/2418/join',
+   title:'6 · Join — one ready truck',
+   owner: owner('Gadam','Export manager','#7c3aed'),
+   desc:'The two halves are <span class="hl">joined into a single truck</span>, ready to ship. A truck can’t leave until it has both the tomatoes and a confirmed buyer.',
+   fact:'Behind the scenes the two drafts merge into one shipment record.',
+   screen:`<div class="merge2">
+     <div class="card2" style="border-color:#c9ddff;background:#f4f8ff"><div class="lbl" style="color:#2563eb">Supply</div>18,500 kg<br>Blocks A·C·F</div>
+     <div style="text-align:center;font-size:26px;color:#7c3aed">⤚<br>⤚</div>
+     <div class="card2" style="border-color:#e0ccff;background:#faf5ff"><div class="lbl" style="color:#7c3aed">Destination</div>Kazakhstan<br>Begjan · YGT</div>
+   </div>
+   <button style="margin:16px auto 0;display:block;background:#7c3aed;color:#fff" disabled>🔗 Join</button>
+   <div class="card2" style="margin-top:16px;text-align:center;background:#f0fdf4;border-color:#bbf7d0;color:#166534;font-weight:700">✓ Truck 26FV047/25 ready to ship</div>` },
+
+ { phase:'DOCS', url:'app.ygt.com/export/shipments/2418/documents',
+   title:'7 · Documents & customs',
+   owner: owner('Shirin','Document team','#2563eb'),
+   desc:'The document team generates the <span class="hl">invoice and export papers</span>, then clears customs entry and exit.',
+   fact:'Invoice, CMR, CT-1, phyto and customs declarations are generated from templates.',
+   screen:`<b style="font-size:16px">Export documents</b>
+   <div style="margin-top:12px">
+     <div class="chk"><span class="b">✓</span> Invoice / faktura generated</div>
+     <div class="chk"><span class="b">✓</span> CT-1 certificate of origin</div>
+     <div class="chk"><span class="b">✓</span> Phytosanitary certificate</div>
+     <div class="chk"><span class="b">✓</span> Customs entry (gümrük giriş)</div>
+     <div class="chk"><span class="b todo">○</span> Customs exit (gümrük çykyş)</div>
+   </div>` },
+
+ { phase:'LOAD', url:'app.ygt.com/export/shipments/2418',
+   title:'8 · Load & depart',
+   owner: owner('—','Warehouse · Documents','#0891b2'),
+   desc:'Tomatoes are loaded onto the truck, the net weight is recorded, and the truck <span class="hl">departs the warehouse</span>.',
+   fact:'Each status change is timestamped automatically for a full audit trail.',
+   screen:`<b style="font-size:16px">Status timeline</b>
+   <div style="margin-top:14px">
+     <div class="chk"><span class="b">✓</span> Loading — 18,500 kg <span style="color:#8a93a6;font-weight:500;font-size:12px">· 08:40</span></div>
+     <div class="chk"><span class="b">✓</span> Departed (ýola çykdy) <span style="color:#8a93a6;font-weight:500;font-size:12px">· 14:30</span></div>
+   </div>
+   <div class="card2" style="margin-top:14px;display:flex;justify-content:space-between">
+     <div><div class="lbl">Net weight</div><div class="big">18,500</div></div>
+     <div><div class="lbl">Truck</div><div class="big" style="font-size:20px">48 AT 580</div></div>
+   </div>` },
+
+ { phase:'TRANSIT', url:'app.ygt.com/export/shipments/2418',
+   title:'9 · On the road',
+   owner: owner('Malik','Transport · Sales','#d97706'),
+   desc:'The truck crosses the Turkmen border, enters the destination country, and clears customs there. Everyone tracks it <span class="hl">live</span>.',
+   fact:'If cargo is moved to another truck at a hub (peregruz), the system records that too.',
+   screen:`<b style="font-size:16px">Live transit</b>
+   <div class="track">
+     <span class="pin" style="left:6%">TM border</span>
+     <span class="pin" style="left:50%">Kazakhstan</span>
+     <span class="pin" style="left:88%">Şimkent</span>
+     <span class="road"></span><span class="truck">🚚</span>
+   </div>
+   <div class="row" style="gap:6px;margin-top:16px;flex-wrap:wrap">
+     <span class="pill" style="background:#fef3c7;color:#92400e">Border crossed</span>
+     <span class="pill" style="background:#fef3c7;color:#92400e">Entered KZ</span>
+     <span class="pill" style="background:#e2e6ee;color:#67718a">Dest. customs</span>
+   </div>` },
+
+ { phase:'SALE', url:'app.ygt.com/export/shipments/2418',
+   title:'10 · Arrive & sell',
+   owner: owner('Arap','Sales rep','#db2777'),
+   desc:'The truck reaches the market, the sales rep <span class="hl">sells the tomatoes</span>, and records how much was sold vs. rejected.',
+   fact:'Loaded 18,500 kg · sold 18,371 kg · 129 kg rejected.',
+   screen:`<b style="font-size:16px">At the market — Şimkent</b>
+   <div style="margin-top:14px">
+     <div class="chk"><span class="b">✓</span> Arrived at destination (bardy)</div>
+     <div class="chk"><span class="b">✓</span> Selling started (satylýar)</div>
+     <div class="chk"><span class="b">✓</span> Sold (satyldy)</div>
+   </div>
+   <div class="card2" style="margin-top:14px;display:flex;justify-content:space-between;text-align:center">
+     <div><div class="lbl">Loaded</div><div class="big" style="font-size:22px">18,500</div></div>
+     <div><div class="lbl">Sold</div><div class="big" style="font-size:22px;color:#16a34a">18,371</div></div>
+     <div><div class="lbl">Rejected</div><div class="big" style="font-size:22px;color:#dc2626">129</div></div>
+   </div>` },
+
+ { phase:'CLOSE', url:'app.ygt.com/export/shipments/2418/sales-report',
+   title:'11 · Report, profit & close',
+   owner: owner('Babageldi','Finance','#059669'),
+   desc:'The sale is reported — sales minus expenses gives the <span class="hl">net profit</span>, in local currency and USD. Finance reviews it and closes the truck.',
+   fact:'Every truck ends with a clear, auditable profit figure.',
+   screen:`<b style="font-size:16px">Sales report · KZT</b>
+   <div class="card2" style="margin-top:12px">
+     <div class="row" style="justify-content:space-between;padding:5px 0"><span>Sales</span><b>12,492,280</b></div>
+     <div class="row" style="justify-content:space-between;padding:5px 0;border-top:1px solid #eef1f6"><span>Expenses</span><b style="color:#dc2626">− 3,165,995</b></div>
+     <div class="row" style="justify-content:space-between;padding:8px 0;border-top:2px solid #e6eaf1;font-size:17px"><b>Net profit</b><b style="color:#16a34a">9,326,285 ₸</b></div>
+     <div class="row" style="justify-content:flex-end;color:#67718a;font-size:13px">≈ $13,715</div>
+   </div>
+   <div style="text-align:center;margin-top:18px"><span class="stamp">COMPLETED</span></div>` },
+];
+
+let i = 0;
+const phMap = Object.fromEntries(PHASES.map(p=>[p.key,p.c]));
+const $ = id => document.getElementById(id);
+
+// build journey chips + dots
+$('journey').innerHTML = PHASES.map(p=>`<span class="jchip" data-k="${p.key}">${p.key}</span>`).join('');
+$('dots').innerHTML = S.map((_,n)=>`<span class="pd" data-n="${n}"></span>`).join('');
+$('dots').onclick = e => { if(e.target.dataset.n!=null){ i=+e.target.dataset.n; render(); } };
+
+function render(){
+  const s = S[i], c = phMap[s.phase];
+  document.documentElement.style.setProperty('--accent', c);
+  $('url').textContent = s.url;
+  $('screen').innerHTML = s.screen;
+  $('screen').style.animation='none'; void $('screen').offsetWidth; $('screen').style.animation='';
+  $('phase').textContent = '● '+s.phase;
+  $('title').textContent = s.title;
+  $('owner').innerHTML = s.owner;
+  $('desc').innerHTML = s.desc;
+  $('fact').innerHTML = '💡 '+s.fact;
+  $('count').textContent = (i+1)+' / '+S.length;
+  [...$('dots').children].forEach((d,n)=>d.classList.toggle('on',n===i));
+  [...$('journey').children].forEach(ch=>{
+    const on = ch.dataset.k===s.phase;
+    ch.classList.toggle('on',on);
+    ch.style.background = on?c:''; ch.style.borderColor = on?c:'';
+  });
+  $('back').disabled = i===0;
+  $('next').textContent = i===S.length-1 ? '↺ Restart' : 'Next →';
+}
+$('next').onclick = ()=>{ i = (i===S.length-1)?0:i+1; render(); };
+$('back').onclick = ()=>{ if(i>0){i--;render();} };
+document.addEventListener('keydown', e=>{
+  if(e.key==='ArrowRight'||e.key===' ') $('next').click();
+  if(e.key==='ArrowLeft') $('back').click();
+});
+render();
+</script>
+</body>
+</html>

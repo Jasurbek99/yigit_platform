@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="tk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Export Shipment — Process (colored + arrows)</title>
+<style>
+  :root{
+    --plan:#D5F692;--plan-b:#9bc44a; --draft:#C9B3F0;--draft-b:#9f7fd6;
+    --docs:#A6CCF5;--docs-b:#6fa6e6; --customs:#67C6F0;--customs-b:#2f9fd6;
+    --load:#7DD9D9;--load-b:#3fb6b6; --transport:#FFCC66;--transport-b:#e0a72e;
+    --sales:#F5A3C7;--sales-b:#e06fa3; --finance:#D8DCE2;--finance-b:#9aa6b5;
+    --decision:#F5D128;--decision-b:#c79f00;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#eef1f6;color:#1f2733;font:14px "Segoe UI",Roboto,Arial,sans-serif;padding:22px 0 60px}
+  .head{padding:0 26px}
+  h1{font-size:23px;margin:0 0 4px}
+  .head p{color:#5b6675;margin:0 0 14px;font-size:13.5px}
+  .legend{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+  .lg{font-size:12px;padding:4px 11px;border-radius:8px;font-weight:600;border:1px solid #0000001a}
+  .lg.plan{background:var(--plan)}.lg.draft{background:var(--draft)}.lg.docs{background:var(--docs)}
+  .lg.customs{background:var(--customs)}.lg.load{background:var(--load)}.lg.transport{background:var(--transport)}
+  .lg.sales{background:var(--sales)}.lg.finance{background:var(--finance)}.lg.decision{background:var(--decision)}
+  button{margin:6px 0 4px;padding:8px 16px;border:0;border-radius:8px;background:#2563eb;color:#fff;
+    font-weight:600;cursor:pointer;font-size:13px}
+  button:hover{background:#1d4ed8}
+  .scroll{overflow-x:auto;padding:6px 26px 10px}
+  .nodebox{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:3px;text-align:center;border-radius:9px;border:1.5px solid;font-size:11.5px;font-weight:600;
+    line-height:1.2;padding:4px 6px;box-shadow:0 1px 3px #00000022}
+  .nodebox.st-planned{border-style:dashed;
+    background-image:repeating-linear-gradient(45deg,#0000,#0000 6px,#0000000d 6px,#0000000d 12px)}
+  .badge{font-size:9px;font-weight:800;padding:1px 6px;border-radius:6px;letter-spacing:.3px;white-space:nowrap}
+  .bd-planned{background:#e0e7ff;color:#3730a3} .bd-partial{background:#fde68a;color:#92400e}
+  .ph-plan{background:var(--plan);border-color:var(--plan-b)} .ph-draft{background:var(--draft);border-color:var(--draft-b)}
+  .ph-docs{background:var(--docs);border-color:var(--docs-b)} .ph-customs{background:var(--customs);border-color:var(--customs-b)}
+  .ph-load{background:var(--load);border-color:var(--load-b)} .ph-transport{background:var(--transport);border-color:var(--transport-b)}
+  .ph-sales{background:var(--sales);border-color:var(--sales-b)} .ph-finance{background:var(--finance);border-color:var(--finance-b)}
+  .ph-decision{background:var(--decision);border-color:var(--decision-b);border-radius:14px}
+  .ph-event{background:#eafbf0;border:2.5px solid #16a34a;border-radius:9px;font-size:11.5px;color:#15803d;font-weight:700}
+  .ph-decision b{display:block;font-size:10px;font-weight:800;margin-top:2px;color:#7a6200}
+  .note{padding:8px 26px 0;color:#5b6675;font-size:12px}
+  @media print{body{background:#fff;padding:0}.head button,.note{display:none}.scroll{overflow:visible;padding:6px}}
+</style>
+</head>
+<body>
+<div class="head">
+  <h1>🍅 Export Shipment — Tutuş proses (reňkli + akym oklary)</h1>
+  <p>Setirler = bölümler · reňkler = tapgyr · oklar = akym. Çepden saga okalýar.</p>
+  <div class="legend">
+    <span class="lg plan">🟩 Planlama / Kwota</span><span class="lg draft">🟪 Draft / Saýlamak</span>
+    <span class="lg docs">🟦 Kontrakt &amp; Dokument</span><span class="lg customs">🟦 Gümrük</span>
+    <span class="lg load">🟦 Ýüklemek</span><span class="lg transport">🟧 Transport</span>
+    <span class="lg sales">🟥 Satuw / Ýolda</span><span class="lg finance">⬛ Maliýe</span>
+    <span class="lg decision">◆ Karar</span>
+    <span class="lg" style="background:#eef0ff;border:1.5px dashed #3730a3">◷ Planlanýar (entäk ýok)</span>
+    <span class="lg" style="background:#fde68a">🚧 Ýarym ýerine ýetirilen</span>
+  </div>
+  <button onclick="window.print()">🖨️  PDF hökmünde ýatda saklamak / çap etmek</button>
+</div>
+<div class="scroll"><div id="canvas"></div></div>
+<p class="note">Bellik: üznüksiz ok = esasy akym · kese-kesik ok = birikdiriş/goldaw (mysal: «Draft birleşdirmek» (JOIN) iki tarapdan — ýük (supply) we maksat (destination) — gelýär; maliýe awansy gümrüge goldaw berýär). Hex: Planlama #D5F692 · Draft #C9B3F0 · Dokument #A6CCF5 · Gümrük #67C6F0 · Ýüklemek #7DD9D9 · Transport #FFCC66 · Satuw #F5A3C7 · Maliýe #D8DCE2 · Karar #F5D128.</p>
+
+<script>
+const LANES = [
+  {name:'Greenhouse Managers', c:'#e9c84a'},
+  {name:'Export Manager',      c:'#f08a4b'},
+  {name:'Document Team',       c:'#4aa3e0'},
+  {name:'Loading & Packaging', c:'#3fb7c4'},
+  {name:'Transport Dep.',      c:'#7fcdd6'},
+  {name:'Finansist',           c:'#9aa6b5'},
+  {name:'Sales',               c:'#6fb0e6'},
+];
+
+// id, lane(1..7), col(1..22), phase, label
+const N = [
+  ['g_start',1,2,'event','▶ Hepdelik planlama'],
+
+  ['em_weekly',2,3,'plan','Hepdelik maşyn planlama'],
+  ['em_draft',2,4,'draft','Export Shipment planlamak / garalama (draft döretmek)'],
+  ['em_country',2,5,'draft','Export Ýurt saýlamak'],
+  ['em_import',2,6,'draft','Import firma saýlamak'],
+  ['em_export',2,7,'draft','Export firma saýlamak'],
+  ['em_tonna',2,9,'draft','ýüklenmeli tonna'],
+  ['em_report',2,22,'finance','Hasabaty kabul etmek, gaýtadan işlemek','partial'],
+
+  ['dt_quota',3,4,'plan','Kwota almak eksport firmalara'],
+  ['dt_qtrack',3,5,'plan','Kwotalary yzarlamak'],
+  ['dt_contract',3,7,'decision','Kontrakt barmy?','partial'],
+  ['dt_onetime',3,8,'docs','Bir saparlyk kontrakt açmak','partial'],
+  ['dt_invoice',3,9,'docs','Invoice / faktura açmak'],
+  ['dt_docgen',3,10,'docs','Dokument generasiýa','partial'],
+  ['dt_customs',3,11,'customs','Gümrük'],
+  ['dt_join',3,12,'draft','Draft shipmenti birleşdirmek (JOIN)'],
+
+  ['load_count',4,4,'plan','Bloklardaky düýnki pomidor möçberi, bugünki hasyly anyklamak'],
+  ['load_draft',4,5,'draft','Export Shipment draft açmak'],
+  ['load_code',4,6,'draft','Ýük kodyny goýmak'],
+  ['load_blocks',4,7,'draft','Hasyl ýygnalýan bloklary bellemek'],
+  ['load_type',4,8,'draft','Ýüklenjek pomidorlaryň görnüşini kesgitlemek'],
+  ['load_st1',4,9,'load','Hasyl statusy: Ýygnalýar / taýýar'],
+  ['load_st2',4,10,'load','Hasyl statusy: taýýar'],
+  ['load_arr',4,11,'load','Maşyn ýyladyşhana bardy'],
+  ['load_loading',4,12,'load','Hasyl maşyna ýüklenýär'],
+  ['load_loaded',4,13,'load','Hasyl maşyna ýüklendi'],
+  ['load_left',4,14,'load','Ýyladyşhana çykdy'],
+
+  ['tr_truck',5,5,'transport','Maşyn goýmak'],
+  ['tr_driver',5,6,'transport','Sürüji goýmak'],
+  ['tr_prep',5,7,'transport','Maşyn we sürüji maglumatlary, resminalary taýýarlamak'],
+  ['tr_head',5,11,'transport','Maşyn ýyladyşhana ugrady'],
+  ['tr_border',5,15,'transport','Türkmenistanyň serhedinden çykdy'],
+
+  ['fin_quota',6,4,'plan','Kwota üçin pomidor tabşyrmak / satmak'],
+  ['fin_advance',6,8,'finance','Gümrük we dokumentler üçin awans'],
+
+  ['sl_city',7,16,'sales','Barmaly şäheri'],
+  ['sl_peregruz',7,17,'sales','Pregruz ýa-da ýok'],
+  ['sl_arr',7,18,'sales','Barmaly nokadyna ulag bardy'],
+  ['sl_start',7,19,'sales','Satylyp başlady'],
+  ['sl_end',7,20,'sales','Satyp gutardy'],
+  ['sl_report',7,21,'sales','Hasabat tabşyrmak','partial'],
+
+  // Transport — planlanýan goşmaça mümkinçilikler (entäk ýok)
+  ['tr_reg_vehicle',5,2,'transport','Maşynlary hasaba almak we dolandyrmak','planned'],
+  ['tr_reg_driver',5,3,'transport','Sürüjileri hasaba almak we dolandyrmak','planned'],
+  ['tr_gps',5,16,'transport','Maşynlary GPS boýunça yzarlamak','planned'],
+];
+
+// from, to, label?, dash?
+const E = [
+  ['g_start','em_weekly'], ['g_start','load_count'],
+  ['em_weekly','em_draft'], ['em_draft','em_country'], ['em_country','em_import'],
+  ['em_import','em_export'], ['em_export','em_tonna'],
+  ['em_draft','dt_quota',null,true], ['dt_quota','dt_qtrack'], ['fin_quota','dt_quota',null,true],
+  ['em_export','dt_contract'],
+  ['dt_contract','dt_onetime','Ýok'], ['dt_contract','dt_invoice','Bar'],
+  ['dt_onetime','dt_invoice'], ['dt_invoice','dt_docgen'], ['dt_docgen','dt_customs'],
+  ['dt_customs','dt_join'],
+  ['em_tonna','dt_join',null,true], ['load_blocks','dt_join',null,true],
+  ['fin_advance','dt_customs',null,true],
+  ['load_count','load_draft'], ['load_draft','load_code'], ['load_code','load_blocks'],
+  ['load_blocks','load_type'], ['load_type','load_st1'], ['load_st1','load_st2'],
+  ['load_st2','load_arr'], ['load_arr','load_loading'], ['load_loading','load_loaded'],
+  ['load_loaded','load_left'],
+  ['load_draft','tr_truck',null,true], ['tr_truck','tr_driver'], ['tr_driver','tr_prep'],
+  ['tr_prep','tr_head'], ['tr_head','load_arr'],
+  ['load_left','tr_border'], ['tr_border','sl_city'],
+  ['sl_city','sl_peregruz'], ['sl_peregruz','sl_arr'], ['sl_arr','sl_start'],
+  ['sl_start','sl_end'], ['sl_end','sl_report'], ['sl_report','em_report'],
+  // planlanýan transport mümkinçilikleri
+  ['tr_reg_vehicle','tr_truck',null,true], ['tr_reg_driver','tr_driver',null,true],
+  ['tr_border','tr_gps',null,true],
+];
+
+// geometry
+const LW=150, COLW=170, BW=152, BH=74, ROWH=128;
+const maxCol = Math.max(...N.map(n=>n[2]));
+const W = LW + maxCol*COLW + 30, H = LANES.length*ROWH + 16;
+const x = col => LW + (col-1)*COLW + (COLW-BW)/2;
+const y = lane => (lane-1)*ROWH + 8;
+
+const map = {};
+N.forEach(([id,lane,col,ph,label,status])=>{
+  map[id]={x:x(col), y:y(lane)+(ROWH-16-BH)/2, w:BW, h:BH, ph, label, status};
+});
+
+function path(s,t){
+  const sxc=s.x+s.w/2, syc=s.y+s.h/2, txc=t.x+t.w/2, tyc=t.y+t.h/2;
+  const dx=txc-sxc, dy=tyc-syc; let sx,sy,tx,ty,c1x,c1y,c2x,c2y;
+  if(Math.abs(dx)>=Math.abs(dy)){
+    sx = dx>=0? s.x+s.w : s.x; sy=syc;
+    tx = dx>=0? t.x : t.x+t.w; ty=tyc;
+    const o=Math.max(28,Math.abs(tx-sx)*0.4);
+    c1x=sx+(dx>=0?o:-o); c1y=sy; c2x=tx-(dx>=0?o:-o); c2y=ty;
+  }else{
+    sx=sxc; sy=dy>=0? s.y+s.h : s.y;
+    tx=txc; ty=dy>=0? t.y : t.y+t.h;
+    const o=Math.max(24,Math.abs(ty-sy)*0.45);
+    c1x=sx; c1y=sy+(dy>=0?o:-o); c2x=tx; c2y=ty-(dy>=0?o:-o);
+  }
+  return {d:`M${sx},${sy} C${c1x},${c1y} ${c2x},${c2y} ${tx},${ty}`, mx:(c1x+c2x)/2, my:(c1y+c2y)/2};
+}
+
+let svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI,Arial">
+<defs>
+  <marker id="arr" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="userSpaceOnUse">
+    <path d="M0,0 L7,3 L0,6 Z" fill="#5b6675"/>
+  </marker>
+</defs>`;
+
+// lane bands + labels (horizontal, wrapping)
+LANES.forEach((l,i)=>{
+  const ly=i*ROWH;
+  svg+=`<rect x="0" y="${ly}" width="${W}" height="${ROWH}" fill="${i%2?'#f5f8fc':'#ffffff'}" stroke="#e1e7ef"/>`;
+  svg+=`<rect x="4" y="${ly+6}" width="${LW-12}" height="${ROWH-12}" rx="8" fill="${l.c}"/>`;
+  svg+=`<foreignObject x="4" y="${ly+6}" width="${LW-12}" height="${ROWH-12}">
+    <div xmlns="http://www.w3.org/1999/xhtml" style="height:100%;display:flex;align-items:center;justify-content:center;
+      text-align:center;color:#fff;font-weight:700;font-size:13px;line-height:1.25;padding:4px 6px">${l.name}</div>
+  </foreignObject>`;
+});
+
+// edges (behind boxes)
+E.forEach(([f,t,lab,dash])=>{
+  const s=map[f], tt=map[t]; if(!s||!tt) return;
+  const p=path(s,tt);
+  svg+=`<path d="${p.d}" fill="none" stroke="#5b6675" stroke-width="1.6"
+    ${dash?'stroke-dasharray="5,4" opacity="0.7"':''} marker-end="url(#arr)"/>`;
+  if(lab){
+    svg+=`<rect x="${p.mx-13}" y="${p.my-9}" width="26" height="16" rx="4" fill="#fff" stroke="#cfd6e0"/>`;
+    svg+=`<text x="${p.mx}" y="${p.my+3}" text-anchor="middle" font-size="10" font-weight="700"
+      fill="${lab==='Bar'?'#15803d':'#dc2626'}">${lab}</text>`;
+  }
+});
+
+// nodes (foreignObject for easy wrapping)
+N.forEach(([id])=>{
+  const m=map[id];
+  const stCls = m.status ? ' st-'+m.status : '';
+  let inner = m.ph==='decision' ? m.label+'<b>Bar ✓ / Ýok ✗</b>' : m.label;
+  if(m.status==='planned') inner += '<span class="badge bd-planned">◷ PLANLANÝAR</span>';
+  if(m.status==='partial') inner += '<span class="badge bd-partial">🚧 ÝARYM</span>';
+  svg+=`<foreignObject x="${m.x}" y="${m.y}" width="${m.w}" height="${m.h}">
+    <div xmlns="http://www.w3.org/1999/xhtml" class="nodebox ph-${m.ph}${stCls}">${inner}</div></foreignObject>`;
+});
+
+svg+='</svg>';
+document.getElementById('canvas').innerHTML=svg;
+</script>
+</body>
+</html>

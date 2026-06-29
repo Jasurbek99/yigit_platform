@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>YGT Export — End-to-End Interactive BPMN</title>
+<style>
+  :root{--bg:#0f172a;--panel:#1e293b;--panel2:#334155;--ink:#e2e8f0;--muted:#94a3b8;--line:#475569;--accent:#38bdf8;}
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;font-family:-apple-system,"Segoe UI",Roboto,sans-serif;}
+  body{background:var(--bg);color:var(--ink);display:flex;flex-direction:column;overflow:hidden;}
+  header{padding:9px 16px;background:linear-gradient(90deg,#0b1220,#1e293b);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  header h1{font-size:15px;margin:0;font-weight:650;}
+  header .sub{color:var(--muted);font-size:11.5px;}
+  .toolbar{margin-left:auto;display:flex;gap:5px;flex-wrap:wrap;}
+  button{background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:5px 10px;font-size:11.5px;cursor:pointer;transition:.15s;}
+  button:hover{background:#475569;border-color:var(--accent);}
+  .legend{display:flex;gap:11px;flex-wrap:wrap;padding:6px 16px;background:#111c30;border-bottom:1px solid var(--line);font-size:11px;align-items:center;}
+  .legend .sw{width:12px;height:12px;border-radius:3px;display:inline-block;border:1px solid rgba(255,255,255,.25);vertical-align:-1px;margin-right:4px;}
+  .legend .glyph{color:var(--muted);}
+  .stage{flex:1;position:relative;overflow:hidden;cursor:grab;}
+  .stage.dragging{cursor:grabbing;}
+  svg{width:100%;height:100%;display:block;}
+  .lane-label{fill:var(--ink);font-size:12.5px;font-weight:600;}
+  .lane-sub{fill:var(--muted);font-size:10px;font-family:ui-monospace,Menlo,monospace;}
+  .band-label{fill:#cbd5e1;font-size:11.5px;font-weight:600;}
+  .node{cursor:pointer;}
+  .node .shape{transition:filter .15s,stroke-width .15s;}
+  .node:hover .shape{filter:brightness(1.18);}
+  .node.dim{opacity:.16;}
+  .node.sel .shape{stroke:#fff!important;stroke-width:3px!important;}
+  .n-title{font-size:11px;font-weight:650;}
+  .n-code{font-size:8.5px;font-family:ui-monospace,monospace;}
+  .n-role{font-size:8.5px;font-family:ui-monospace,monospace;font-weight:700;}
+  .stepno{font-size:10px;font-weight:700;fill:#06283d;}
+  .flow{stroke:#64748b;stroke-width:1.7;fill:none;marker-end:url(#arrow);}
+  .flow.dim{opacity:.1;}
+  .flow.hot{stroke:var(--accent);stroke-width:2.6;marker-end:url(#arrowHot);}
+  .feed{stroke:#7c8aa0;stroke-width:1.3;fill:none;stroke-dasharray:5 4;marker-end:url(#arrowFeed);opacity:.85;}
+  .feed.dim{opacity:.08;}
+  .feed.hot{stroke:var(--accent);opacity:1;stroke-width:2.2;marker-end:url(#arrowHot);}
+  .flow-label{fill:#cbd5e1;font-size:9.5px;}
+  .flow-label.cond{fill:#fbbf24;font-style:italic;}
+  .feed-label{fill:#8a97ad;font-size:9px;font-style:italic;}
+  .detail{position:absolute;top:0;right:0;width:372px;height:100%;background:var(--panel);border-left:1px solid var(--line);padding:18px;overflow-y:auto;transform:translateX(100%);transition:transform .22s ease;box-shadow:-8px 0 24px rgba(0,0,0,.4);z-index:8;}
+  .detail.open{transform:translateX(0);}
+  .detail h2{font-size:15px;margin:0 0 2px;padding-right:24px;}
+  .detail .codeline{font-family:ui-monospace,monospace;font-size:11px;color:var(--accent);margin-bottom:12px;}
+  .detail .row{margin-bottom:12px;}
+  .detail .k{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:3px;}
+  .detail .v{font-size:12.5px;line-height:1.45;}
+  .detail .pill{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:20px;padding:2px 9px;font-size:11px;margin:2px 4px 2px 0;}
+  .detail ul{margin:4px 0 0;padding-left:16px;}
+  .detail li{font-size:12px;line-height:1.5;margin-bottom:3px;}
+  .detail .fld{font-family:ui-monospace,monospace;font-size:11px;color:#7dd3fc;}
+  .detail .close{position:absolute;top:10px;right:12px;background:none;border:none;font-size:20px;color:var(--muted);padding:0;}
+  .detail .close:hover{color:#fff;}
+  .phase-tag{display:inline-block;padding:2px 9px;border-radius:5px;font-size:11px;font-weight:600;color:#06283d;}
+  .lang{font-family:monospace;font-size:11px;color:var(--muted);}
+  .refs{font-family:ui-monospace,monospace;font-size:10.5px;color:#64748b;}
+  .modal-bg{position:absolute;inset:0;background:rgba(2,6,23,.72);display:none;align-items:center;justify-content:center;z-index:20;}
+  .modal-bg.open{display:flex;}
+  .modal{width:min(700px,92%);max-height:82%;overflow-y:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.6);}
+  .modal h2{margin:0 0 4px;font-size:18px;}
+  .modal .lead{color:var(--muted);font-size:13px;margin-bottom:14px;}
+  .modal h3{font-size:13px;margin:15px 0 6px;color:var(--accent);}
+  .modal li{font-size:13px;line-height:1.55;margin-bottom:5px;}
+  .modal code{background:#0b1220;padding:1px 5px;border-radius:4px;font-size:12px;color:#7dd3fc;}
+  .modal .close{float:right;background:none;border:none;font-size:22px;color:var(--muted);}
+  .hint{position:absolute;bottom:10px;left:14px;font-size:10.5px;color:var(--muted);background:rgba(15,23,42,.85);padding:5px 10px;border-radius:7px;border:1px solid var(--line);}
+</style>
+</head>
+<body>
+<header>
+  <h1>🍅 YGT Export — End-to-End Process</h1>
+  <span class="sub">Planning → Quota → Contract → Draft → Customs → Loading → Transit → Sales · interactive BPMN, source-verified</span>
+  <div class="toolbar">
+    <button data-modal="planning">Planning</button>
+    <button data-modal="quota">Quota</button>
+    <button data-modal="contract">Contract</button>
+    <button data-modal="join">Draft Join</button>
+    <button data-modal="docgen">Doc Gen</button>
+    <button data-modal="autoadv">Auto-Advance</button>
+    <button data-modal="cancel">Cancel</button>
+    <span style="width:1px;background:var(--line);margin:0 3px"></span>
+    <button id="zoomIn">＋</button><button id="zoomOut">－</button><button id="zoomReset">Fit</button>
+  </div>
+</header>
+<div class="legend" id="legend"></div>
+<div class="stage" id="stage">
+  <svg id="svg" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L7,3 L0,6 Z" fill="#64748b"/></marker>
+      <marker id="arrowHot" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L7,3 L0,6 Z" fill="#38bdf8"/></marker>
+      <marker id="arrowFeed" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L7,3 L0,6 Z" fill="#7c8aa0"/></marker>
+    </defs>
+    <g id="viewport"></g>
+  </svg>
+  <aside class="detail" id="detail"><button class="close" id="detailClose">×</button><div id="detailBody"></div></aside>
+  <div class="modal-bg" id="modalBg"><div class="modal" id="modal"></div></div>
+  <div class="hint">Drag to pan · scroll to zoom · click any element for full detail · dashed = cross-process feed</div>
+</div>
+<script>
+//==================== PHASES (status lifecycle colour) ====================
+const PHASES={
+  DRAFT:{label:"Draft / Prep",color:"#94a3b8"},
+  DOCS:{label:"TM Customs",color:"#60a5fa"},
+  LOAD:{label:"Loading",color:"#fbbf24"},
+  TRANSIT:{label:"Transit",color:"#a78bfa"},
+  BORDER:{label:"Border / Dest entry",color:"#2dd4bf"},
+  SALES:{label:"Sales (destination)",color:"#4ade80"},
+  COMPLETE:{label:"Completed",color:"#34d399"},
+};
+//==================== LANES (swimlanes, top→bottom) ====================
+const LANES=[
+  {id:"gh",  label:"Greenhouse Managers", sub:"greenhouse_manager · block mgrs"},
+  {id:"mgr", label:"Export Manager / Director", sub:"export_manager · director"},
+  {id:"wh",  label:"Warehouse / Loading", sub:"warehouse_chief · loading_dept_head"},
+  {id:"doc", label:"Document Team", sub:"document_team"},
+  {id:"tr",  label:"Transport", sub:"transport · dispatcher"},
+  {id:"sal", label:"Sales Rep", sub:"sales_rep"},
+  {id:"fin", label:"Finansist", sub:"finansist"},
+  {id:"sys", label:"System / Automation", sub:"cron · auto-advance"},
+];
+//==================== PROCESS GROUP BANDS ====================
+const BANDS=[
+  {label:"1 · Weekly Planning",            c0:0, c1:1, color:"#2c3850"},
+  {label:"2 · Quota Acquisition",          c0:2, c1:3, color:"#352f50"},
+  {label:"3 · Contract",                   c0:4, c1:4, color:"#1c3450"},
+  {label:"4 · Cargo / Draft (forecast pool)",c0:5,c1:8, color:"#33301c"},
+  {label:"5 · Assign · Quota Sync · Link · Docs",c0:9,c1:12,color:"#1d3528"},
+  {label:"6 · TM Customs",                 c0:13,c1:14,color:"#1b2c48"},
+  {label:"7 · Loading",                    c0:15,c1:15,color:"#332b10"},
+  {label:"8 · Transit & Border",           c0:16,c1:19,color:"#262138"},
+  {label:"9 · Destination · Sales · Report",c0:20,c1:26,color:"#152d24"},
+];
+//==================== NODES ====================
+// kind: task | status | gateway | subprocess | event
+const NODES=[
+  // ----- 1 Planning -----
+  {id:"plan_entry",kind:"task",col:0,lane:"gh",d:{
+    title:"Weekly plan entry",role:"greenhouse_manager",
+    action:"Each of the 7 block managers enters next week's daily harvest plan per assigned block (Mon–Sat) on the planning grid. Editable through that week's Sunday 23:59 (Asia/Ashgabat); admin can re-open a past week with a reason.",
+    fields:["plan_value, plan_submitted_at/by, plan_state (on_time/late/critical_late)"],
+    next:"Forecast (day-before)",
+    refs:"greenhouse/models/harvest_plan.py · harvest_day_entry.py · services/harvest_day_service.py"}},
+  {id:"forecast",kind:"task",col:1,lane:"gh",d:{
+    title:"Next-day forecast",role:"greenhouse_manager (+ loading_dept_head fallback)",
+    action:"Block managers submit tomorrow's forecast in the primary window (17:00–18:00 day-before, pre-filled from plan). If missed, Soltanmyrat (loading_dept_head) may fill it in the fallback window (until ~12:00 day-of). This forecast becomes the cargo pool.",
+    fields:["forecast_value, forecast_window (primary/fallback/same_day_red_flag), forecast_revision_count"],
+    next:"Feeds the per-block daily forecast pool (→ Draft)",
+    refs:"set_forecast_value() · compute_forecast_window() · notifications: forecast_nudge/handoff/escalation"}},
+  // ----- 2 Quota -----
+  {id:"local_plan",kind:"task",col:2,lane:"sal",d:{
+    title:"Weekly local-sell plan",role:"seller / sales_rep",
+    action:"Per export firm per ISO week, the seller enters the domestic (local) sales plan Mon–Sat. Local sales are the basis for the government quota: expected_kg = local_sales_kg × 10 (the 10:1 rule).",
+    fields:["WeeklyLocalSellPlan.monday_plan_kg … saturday_plan_kg, status draft→submitted→approved"],
+    next:"Feeds expected quota; gov issues real quota",
+    refs:"export/models/local_sell_plan.py · aggregate_local_sales()"}},
+  {id:"quota_issue",kind:"task",col:3,lane:"mgr",d:{
+    title:"Record quota issuance",role:"export_manager / director",
+    action:"When the government issues export quota, the manager records a QuotaIssuance with one firm allocation per export firm. Validity (this_month / this_and_next / next_month) sets expiry (~1 month). Matched ISO week auto-computed from issue_date.",
+    fields:["QuotaIssuance(issue_date, product_type, validity) + QuotaIssuanceFirmAllocation(export_firm, kg_quota)"],
+    next:"Quota balance available for firm splits (FIFO, oldest-first)",
+    refs:"export/models/quota.py · POST /quota-issuances/ · compute_fifo_usage()"}},
+  // ----- 3 Contract -----
+  {id:"contract_create",kind:"task",col:4,lane:"mgr",d:{
+    title:"Create contract",role:"export_manager / director",
+    action:"Master sale agreement between one export firm (seller) and one import firm (buyer). Type = FRAMEWORK (multi-truck, carries deal-passport + quota) or ONE_TIME (ad-hoc). Auto-numbered: seq/YY-FIRM-EXP (per-seller, per-year counter).",
+    fields:["Contract(contract_number, contract_type, passport_sdelka, planned_trucks/qty/amount)"],
+    next:"Framework contract is linkable when firm splits are assigned",
+    refs:"contracts/models/contract.py · services/contract_number.py:next_contract_no()"}},
+  // ----- 4 Cargo / Draft -----
+  {id:"pool",kind:"task",col:5,lane:"wh",d:{
+    title:"View remaining forecast pool",role:"loading_dept_head",
+    action:"Soltanmyrat checks available kg per block: remaining = forecast_value − Σ already-drafted block_sources (same block/date). The pool is computed live (no table); drafts draw it down atomically (select_for_update).",
+    fields:["GET /harvest-forecast/remaining/?date= → {block, forecast_kg, allocated_kg, remaining_kg}"],
+    next:"Create one-truck supply draft from the pool",
+    refs:"services/harvest_forecast.py:get_remaining_for_date() / assert_draw_within_pool()"}},
+  {id:"supply_draft",kind:"task",col:6,lane:"wh",d:{
+    title:"Create supply draft",role:"warehouse_chief / loading_dept_head",
+    action:"Pick 1–11 blocks + per-block kg (capped at min(remaining, 18 500)). Creates a draft Shipment with SUPPLY only — block_sources + weight — and NO destination. Each create draws the pool down. ▶ This is where a shipment is born.",
+    fields:["ShipmentBlockSource(block, weight_kg, harvest_date) · Shipment.status=draft · export_code (6-field)"],
+    next:"Joined with a destination draft",
+    refs:"POST /shipments/ {is_draft:true} · _create_draft_shipment()"}},
+  {id:"dest_draft",kind:"task",col:6,lane:"mgr",d:{
+    title:"Create destination draft",role:"export_manager",
+    action:"In parallel the manager creates a destination draft — country + import_firm + customer (and optionally firm splits) — with NO blocks. Two roles, two moments, two rows.",
+    fields:["Shipment.status=draft · country, customer, import_firm (block_sources empty)"],
+    next:"Joined with the supply draft",
+    refs:"DestinationDraftModal · POST /shipments/"}},
+  {id:"join",kind:"subprocess",col:7,lane:"mgr",d:{
+    title:"Join supply + destination",role:"export_manager / director",
+    action:"Merge the supply draft (blocks) and destination draft (country+customer) into one shipment: move source block_sources → target, copy variety/export_code, recompute weight_net, audit-log, notify, then HARD-DELETE the source. Locks both rows in pk order.",
+    fields:["POST /shipments/{target}/join/ {source_id}"],
+    timing:"⟲ TIMING IS FLEXIBLE — the join is NOT a prerequisite for contract linking or document generation. Contracts and documents run off the destination draft's firm splits and can be prepared first; the supply↔destination merge can be done later, even AFTER the documents are ready.",
+    next:"Complete draft (status still 'draft')",
+    refs:"views.py:join() · see the Draft Join modal (toolbar)"}},
+  // ----- 5 Assign / sync / link / docs -----
+  {id:"draft",kind:"status",step:0,col:8,lane:"wh",phase:"DRAFT",d:{
+    title:"Draft",en:"Draft",tk:"Garalama",ru:"Черновик",role:"warehouse_chief",
+    action:"The merged draft sits in 'draft' status holding supply + destination. Draft-phase work (assign, driver/truck, documents handoff, docs prep) fills the remaining fields. GUARD: cannot advance until it has BOTH blocks AND country+customer.",
+    fields:["status=draft (step_order 0)"],
+    trigger:"documents_status == 'ready'  + tasks: set_destination, pick_export_firms, assign_driver, start_documents_prep all DONE",
+    effects:["sync_draft_quota_usage_for_shipment() → draft QuotaUsageRecord per firm split","warehouse_chief notified"],
+    refs:"core migration 0010 · shipment.py:211 join-guard · seed_task_rules.py"}},
+  {id:"assign",kind:"task",col:9,lane:"mgr",d:{
+    title:"Assign destination + firm splits",role:"export_manager",
+    action:"Set country / customer / import_firm and the 1–3 export-firm splits (each firm's official kg ≤18 100, NOT the real ~20 000). Assigning firm splits auto-syncs draft quota usage records.",
+    fields:["country, customer, import_firm · ShipmentFirmSplit(export_firm, weight_kg, amount_usd)"],
+    next:"→ documents prep → advance to Customs Entry",
+    refs:"POST /shipments/{id}/assign/ · sync_draft_quota_usage_for_shipment()"}},
+  {id:"driver",kind:"task",col:9,lane:"tr",d:{
+    title:"Assign driver + truck",role:"transport",
+    action:"Transport sets the vehicle responsible, truck/trailer plate, driver name & phone, transit days & temperature, and the live position. Required (non-gapy) before the draft can advance.",
+    fields:["vehicle_responsible · truck_plate · driver_name · driver_phone · transit_days/transport_temp_c · vehicle_live_status"],
+    next:"assign_driver task satisfied",
+    refs:"shipment.py:120-136 (R22/23/26/27/28) · seed_task_rules.py:assign_driver"}},
+  {id:"docs_handoff",kind:"task",col:10,lane:"doc",d:{
+    title:"Documents handed to team",role:"document_team",
+    action:"Transport hands the shipment paperwork to the document team (Şirin). Timestamp recorded; NULL means 'not given yet'. Document team starts customs-doc prep and sets documents_status.",
+    fields:["transport_docs_given_at (R4) · documents_status (R6): missing/in_progress/ready/ok · customs_clearance_planned_day (R45)"],
+    next:"documents_status='ready' → auto-advance to Customs Entry",
+    refs:"shipment.py:149-174 · seed_task_rules.py:start_documents_prep"}},
+  {id:"quota_sync",kind:"task",col:10,lane:"sys",d:{
+    title:"Quota usage auto-sync",role:"system (on save)",
+    action:"On firm-split create/edit, draft QuotaUsageRecord rows are regenerated (one per firm). kg_used = split weight or TruckSplitDefault (1→18 100, 2→9 000, 3→6 033). Approved rows are never touched.",
+    fields:["QuotaUsageRecord(usage_date, export_firm, kg_used, status=draft)"],
+    next:"Document team approves → counts against quota",
+    refs:"services/quota_sync.py:sync_draft_quota_usage_for_shipment()"}},
+  {id:"approve_quota",kind:"task",col:11,lane:"doc",d:{
+    title:"Approve quota usage",role:"document_team / export_manager",
+    action:"Bulk-approve the draft usage records (draft → approved). Only approved records consume quota (FIFO, oldest allocation first). Invalidates the FIFO cache. Cancel/soft-delete releases the kg automatically.",
+    fields:["POST /quota-usage/approve/ {ids:[…]} → status=approved"],
+    next:"Quota consumed; balance reflected on firm-split picker",
+    refs:"quota.py:.counted() · invalidate_quota_caches()"}},
+  {id:"link_contract",kind:"task",col:11,lane:"mgr",d:{
+    title:"Link firm-split → contract",role:"export_manager",
+    action:"For each firm split the operator links to an active FRAMEWORK contract of the (seller,buyer) pair, or creates a ONE_TIME contract (auto-numbered). Creates a ContractSale keyed on (shipment, export_firm) — the ADR-023 bridge. >$10K warns 'bank', <$10K 'cash'. Runs off the destination draft's firm splits — does NOT require the supply↔destination join first.",
+    fields:["ContractSale(contract, shipment, export_firm, quantity_kg, total_usd) · invoice_number filled later"],
+    next:"Generate documents from the sale",
+    refs:"contracts/services/shipment_firm_contracts.py:link_split_to_contract() · Sheet row 47"}},
+  {id:"docgen",kind:"task",col:12,lane:"doc",d:{
+    title:"Generate documents",role:"document_team / export_manager",
+    action:"From the ContractSale, generate the export documents as .docx or PDF: commercial Invoice (RU/EN), CMR road note (RU/EN), CT-1 certificate of origin, FITO phytosanitary, Customs ARZA (TK). Jinja docx templates → LibreOffice PDF. Independent of the supply↔destination join — the join can still be done afterwards.",
+    fields:["GET /contracts/sales/{id}/document/?type=invoice_ru|cmr_ru|ct1_ru|fito_ru|customs_tk&fmt=docx|pdf"],
+    next:"Documents ready for customs",
+    refs:"contracts/document_templates/registry.py · services/document_render.py:generate()"}},
+  {id:"quality",kind:"task",col:12,lane:"doc",yoff:46,d:{
+    title:"Quality certificates",role:"document_team",
+    action:"Toggle the four compliance certificate flags obtained before crossing the border: food-safety, origin, quality, calibration analysis.",
+    fields:["QualityDocument: azyk_maglumatnama · suriji_gozukdiriji · hil_sertifikaty · kalibrowka_analiz"],
+    next:"Compliance ready for TM customs",
+    refs:"export/models/quality.py · PATCH /shipments/{id}/quality/"}},
+  // ----- 6 TM Customs -----
+  {id:"gumruk_girish",kind:"status",step:1,col:13,lane:"doc",phase:"DOCS",d:{
+    title:"Customs Entry",en:"Customs Entry",tk:"Gümrük girizilmesi",ru:"Передача документов на таможню",role:"document_team",
+    action:"Documents submitted to the TM export customs. Document team works the customs paperwork and records when TM export customs is done.",
+    fields:["documents_status (R6) · customs_clearance_planned_day (R45)"],
+    trigger:"customs_exit_at (R25) filled — 'TM export customs done'",
+    effects:["Tasks for document_team; document_team notified"],
+    refs:"seed_task_rules.py:trigger_customs_exit (deadline 13:00 same day)"}},
+  {id:"gumruk_chykysh",kind:"status",step:2,col:14,lane:"doc",phase:"DOCS",d:{
+    title:"Customs Exit",en:"Customs Exit",tk:"Gümrükden çykyş",ru:"Выход с таможни",role:"document_team",
+    action:"Truck has cleared TM customs and is released to load. The next physical event is loading at the greenhouse.",
+    fields:["customs_exit_at (R25) already set"],
+    trigger:"loading_started_at (R19) filled — loading begins",
+    effects:["Loading-prep task for warehouse_chief"],
+    refs:"seed_task_rules.py:trigger_loading_start"}},
+  // ----- 7 Loading -----
+  {id:"yuklenme",kind:"status",step:3,col:15,lane:"wh",phase:"LOAD",d:{
+    title:"Loading",en:"Loading",tk:"Ýüklenme",ru:"Погрузка",role:"warehouse_chief",
+    action:"Soltanmyrat loads the truck at the greenhouse. Records loading start, then loading end, plus the official weights, variety, harvest date and pallet/box detail. All timestamps are operator-entered (the real gate/door times), not auto-stamped.",
+    fields:["loading_started_at (R19) → loading_ended_at (R20) · weight_net (R37) · variety (R38) · harvest_date (R39) · pallet_count/box_count/packaging_kg"],
+    trigger:"departed_at (R21) filled — truck leaves the greenhouse",
+    effects:["fill_loading_data + trigger_departure tasks"],
+    refs:"shipment.py:187-221 · seed_task_rules.py:fill_loading_data / trigger_departure"}},
+  // ----- 8 Transit & Border -----
+  {id:"yola_chykdy",kind:"status",step:4,col:16,lane:"tr",phase:"TRANSIT",d:{
+    title:"Departed",en:"Departed",tk:"Ýola çykdy",ru:"Отправлен",role:"transport",
+    action:"Truck departed the greenhouse and is en route to the TM border. Dispatcher (Haltaç) updates the live position; transshipment intent (has_peregruz) may be set here.",
+    fields:["vehicle_live_status (R15) · transit_days/temp (R26) · has_peregruz (R33)"],
+    trigger:"border_crossed_at (R30) filled — crossed TM border",
+    effects:["transport notified"],
+    refs:"seed_task_rules.py:trigger_border_crossing"}},
+  {id:"serhet_gechdi",kind:"status",step:5,col:17,lane:"tr",phase:"BORDER",d:{
+    title:"Crossed TM Border",en:"Crossed TM Border",tk:"Serhet geçdi",ru:"Пересёк границу",role:"transport",
+    action:"Truck physically crossed the Turkmenistan border — last TM-side action. Baton now passes to the sales rep in the destination country. (Merges the retired serhet_tm + serhet_gechdi.)",
+    fields:["border_crossed_at (R30) already set"],
+    trigger:"dest_entry_at (R31) filled — entered destination country",
+    effects:["transport notified"],
+    refs:"seed_task_rules.py:trigger_dest_entry · migration 0021 remap"}},
+  {id:"dest_entry",kind:"status",step:6,col:18,lane:"sal",phase:"BORDER",d:{
+    title:"Destination Entry",en:"Destination Entry",tk:"Barýan ýurduna girdi",ru:"Въезд в страну назначения",role:"sales_rep",
+    action:"Arap confirms the truck entered the destination country (KZ/RU/UZ). First sales_rep action.",
+    fields:["dest_entry_at (R31) set"],
+    trigger:"customs_entry_at (R32) filled — DESTINATION customs (≠ TM-side customs_exit_at)",
+    effects:["sales_rep notified"],
+    refs:"seed_task_rules.py:trigger_dest_customs · shipment.py:188 vs 189"}},
+  {id:"barysh_gumrugi",kind:"status",step:7,col:19,lane:"sal",phase:"BORDER",d:{
+    title:"Dest. Customs",en:"Dest. Customs",tk:"Baryş gümrugi",ru:"Таможня назначения",role:"sales_rep",
+    action:"Truck cleared destination-country customs. From here the path FORKS on has_peregruz (transshipment at a KZ hub, or straight to arrival).",
+    fields:["customs_entry_at (R32) set · has_peregruz (R33) · peregruz_date (R34)"],
+    trigger:"if has_peregruz → peregruz_date (R34); else → arrived_at (R35)",
+    effects:["sales_rep notified"],
+    refs:"shipment.py:75-79 (predicate fork) · seed_task_rules.py"}},
+  {id:"gw",kind:"gateway",col:20,lane:"sal",d:{
+    title:"Transshipment? (has_peregruz)",
+    action:"Exclusive gateway on the has_peregruz flag. Auto-advance picks the branch by predicate; a manual transition lets the sales rep choose.",
+    branches:["has_peregruz = True → Transshipment → Arrived","has_peregruz = False → Arrived (skip)"],
+    refs:"TRANSITIONS['barysh_gumrugi'] — shipment.py:75-79"}},
+  // ----- 9 Destination & Sales -----
+  {id:"transshipment",kind:"status",step:8,col:21,lane:"sal",phase:"SALES",yoff:-46,d:{
+    title:"Transshipment",en:"Transshipment",tk:"Peregruz",ru:"Перегрузка",role:"sales_rep",
+    action:"OPTIONAL. Truck stops at a KZ hub to off-load/reload. Reached only when has_peregruz=True.",
+    fields:["peregruz_date (R34) · peregruz_city"],
+    trigger:"arrived_at (R35) filled",
+    effects:["sales_rep notified"],
+    refs:"seed_task_rules.py:trigger_arrival"}},
+  {id:"bardy",kind:"status",step:9,col:22,lane:"sal",phase:"SALES",d:{
+    title:"Arrived",en:"Arrived",tk:"Bardy",ru:"Прибыл",role:"sales_rep",
+    action:"Truck arrived at the buyer's warehouse / distribution centre. Destination city confirmed.",
+    fields:["city (R12) confirm · arrived_at (R35) set"],
+    trigger:"sale_started_at (R41) filled — grading/negotiation begins",
+    effects:["confirm_destination + trigger_sale_start tasks"],
+    refs:"seed_task_rules.py"}},
+  {id:"satylyar",kind:"status",step:10,col:23,lane:"sal",phase:"SALES",d:{
+    title:"Selling",en:"Selling",tk:"Satylýar",ru:"Продаётся",role:"sales_rep",
+    action:"Arap negotiates with the buyer; truck offloaded, graded, priced.",
+    fields:["sale_started_at (R41) set"],
+    trigger:"sale_ended_at (R42) filled — sale concluded",
+    effects:["trigger_sale_end task"],
+    refs:"seed_task_rules.py"}},
+  {id:"satyldy",kind:"status",step:11,col:24,lane:"sal",phase:"SALES",d:{
+    title:"Sold (await report)",en:"Sold — waiting for Report",tk:"Satyldy",ru:"Продано (ждёт отчёт)",role:"sales_rep",
+    action:"Sale complete; goods handed to buyer. Awaiting the sales report (hasabat).",
+    fields:["sale_ended_at (R42) set · additional_notes_arap (R44)"],
+    trigger:"sales_report_date (R43) filled — report received",
+    effects:["trigger_report_received task; next transition by finansist"],
+    refs:"seed_task_rules.py"}},
+  {id:"tamamlandy",kind:"status",step:12,col:25,lane:"fin",phase:"COMPLETE",d:{
+    title:"Completed",en:"Report received & Completed",tk:"Tamamlandy",ru:"Отчёт получен и завершено",role:"finansist",
+    action:"Babageldi receives the report, fills line items + expenses + balances, creates the SalesReport. Customs/document expenses posted to the cash-advance ledger. TERMINAL.",
+    fields:["SalesReport (currency, exchange_rate, line_items, expenses) · CustomsExpense ledger"],
+    trigger:"— terminal (no outgoing transitions)",
+    effects:["SalesReport created · CustomsExpense posted · AuditLog · finansist notified"],
+    refs:"export/models/sales.py · sales-report endpoint"}},
+  // ----- system feedback -----
+  {id:"actual_rollup",kind:"task",col:16,lane:"sys",d:{
+    title:"Nightly actuals roll-up",role:"system (cron ~02:30)",
+    action:"Daily cron sums ShipmentBlockSource.weight_kg by block/day (loading date) and writes HarvestDayEntry.actual_value (actual_source='shipment_rollup'). Closes the Plan→Forecast→Actual loop. Admin overrides are preserved.",
+    fields:["HarvestDayEntry.actual_value ← Σ block_sources"],
+    next:"Feeds back into the weekly plan KPIs",
+    refs:"greenhouse/services/actual_rollup.py · management/commands/rollup_actuals.py"}},
+];
+//==================== FLOWS (solid) ====================
+const FLOWS=[
+  ["plan_entry","forecast"],
+  ["local_plan","quota_issue"],
+  ["pool","supply_draft"],
+  ["supply_draft","join"],["dest_draft","join"],["join","draft"],
+  ["draft","assign"],["assign","gumruk_girish"],
+  ["gumruk_girish","gumruk_chykysh"],["gumruk_chykysh","yuklenme"],
+  ["yuklenme","yola_chykdy"],["yola_chykdy","serhet_gechdi"],
+  ["serhet_gechdi","dest_entry"],["dest_entry","barysh_gumrugi"],
+  ["barysh_gumrugi","gw"],
+  ["gw","transshipment",{cond:"peregruz"}],["gw","bardy",{cond:"no peregruz"}],
+  ["transshipment","bardy"],["bardy","satylyar"],["satylyar","satyldy"],
+  ["satyldy","tamamlandy"],["tamamlandy","END"],
+];
+//==================== FEEDS (dashed, cross-process) ====================
+const FEEDS=[
+  ["forecast","pool","forecast → pool"],
+  ["quota_issue","assign","quota available"],
+  ["contract_create","link_contract","framework contract"],
+  ["assign","driver","needs driver"],
+  ["driver","docs_handoff","docs handed over"],
+  ["assign","quota_sync","firm splits"],
+  ["quota_sync","approve_quota","approve"],
+  ["assign","link_contract","per firm split"],
+  ["link_contract","docgen","generate"],
+  ["docgen","gumruk_girish","docs for customs"],
+  ["quality","gumruk_girish","compliance"],
+];
+const FEED_BACK=[["actual_rollup","forecast","actuals roll up"]];
+// join is not a hard predecessor of docs/contract — it can be done later, even after docs are ready
+const FEED_LATER=[["docgen","join","⟲ join can happen later (after docs ready)"]];
+//==================== MODALS ====================
+const SUBPROCESS={
+  planning:{title:"Weekly Harvest Planning",lead:"Three layers per block per day: Plan → Forecast → Actual. The forecast becomes the cargo pool that trucks draw from.",body:`
+    <h3>Plan (Friday, for next week)</h3><ul><li>7 block managers enter daily plan per assigned block; editable through that week's Sunday 23:59 (Asia/Ashgabat).</li><li>Admin re-opens a past week via <code>grant-late-edit</code> with a reason; <code>plan_state</code> = on_time/late/critical_late.</li></ul>
+    <h3>Forecast (day-before 17:00–18:00)</h3><ul><li>Managers submit tomorrow's forecast (pre-filled from plan). Missed → loading_dept_head fallback until ~12:00 day-of.</li><li>Notifications: forecast_nudge (−60 min), forecast_handoff (18:00), forecast_escalation (09:00 day-of).</li></ul>
+    <h3>Actual (nightly cron ~02:30)</h3><ul><li><code>rollup_actuals</code> sums shipment block_sources by block/day → <code>actual_value</code> (source 'shipment_rollup'). Admin overrides preserved.</li></ul>
+    <h3>Est. trucks</h3><p class="lead">Σ max(actual, forecast, plan) ÷ truck_capacity_kg (≈18 500).</p>`},
+  quota:{title:"Quota Acquisition & Consumption",lead:"Government quota is earned from domestic sales (10:1) and consumed FIFO per firm/product, ~1-month expiry.",body:`
+    <h3>1 · Local sell plan</h3><ul><li>Per firm per week; expected_kg = local_sales_kg × 10.</li></ul>
+    <h3>2 · Issuance</h3><ul><li>Manager records QuotaIssuance + one allocation per firm; validity sets expiry; matched ISO week auto-computed.</li></ul>
+    <h3>3 · Draft usage (auto)</h3><ul><li>Firm-split create/edit → draft QuotaUsageRecord per firm; kg = split weight or TruckSplitDefault (1→18 100, 2→9 000, 3→6 033).</li></ul>
+    <h3>4 · Approve</h3><ul><li>document_team bulk-approves draft→approved; only approved consume quota (FIFO oldest-first); cancel/soft-delete releases kg.</li></ul>
+    <p class="lead">Firm-split picker shows ⚠ no quota when remaining ≤ 0 (non-blocking).</p>`},
+  contract:{title:"Contracts & the Firm-Split Bridge (ADR-023)",lead:"One truck is split across 1–3 export firms (keep each invoice <$10K). Each firm-share bridges to a contract.",body:`
+    <h3>Contract</h3><ul><li>Seller (export firm) ↔ buyer (import firm). FRAMEWORK (multi-truck, deal-passport + quota) or ONE_TIME (ad-hoc).</li><li>Auto-numbered <code>seq/YY-FIRM-EXP</code> — per-seller, per-year counter (both types share it).</li><li>Denormalized totals (exported_trucks/qty/usd, remaining_usd) written ONLY by <code>rollup_contract_totals()</code>.</li></ul>
+    <h3>Bridge — identity (shipment, export_firm)</h3><ul><li>export.ShipmentFirmSplit ↔ contracts.ContractSale describe the same firm-share (a "2-Sales" row).</li><li>Link to active framework OR create one-time (auto-numbered). invoice_number filled later.</li><li>shipment_code (DDMM+seq/YY, one per truck) ≠ contract_no (1–3 per truck).</li></ul>
+    <p class="lead">Deferred: Payment model (Slice C), PasportSdelka as FK (Slice D).</p>`},
+  join:{title:"Draft Two-Row Join",lead:"A shipment is born from TWO drafts (supply + destination) created by two roles, then merged.",body:`
+    <h3>Why two rows</h3><ol><li>~09:00 warehouse_chief → SUPPLY draft (blocks + weight).</li><li>~10:00 export_manager → DESTINATION draft (country + customer, no blocks).</li></ol>
+    <h3>Join (privileged only)</h3><ol><li>Validate both draft; target has destination + no blocks; source has blocks.</li><li>Lock both rows in pk order.</li><li>Move source block_sources → target; copy variety/export_code; recompute weight_net.</li><li>Audit-log; notify source creator; HARD-DELETE source.</li></ol>
+    <p class="lead">POST /shipments/{target}/join/ {source_id}.</p>`},
+  docgen:{title:"Document Generation",lead:"Jinja .docx templates filled from a ContractSale (+ linked Shipment) → optional LibreOffice PDF.",body:`
+    <h3>Documents</h3><ul><li><b>Invoice</b> RU/EN — commercial invoice (one per firm-split).</li><li><b>CMR</b> RU/EN — road consignment note (one per truck; v1 single-firm).</li><li><b>CT-1</b> RU — certificate of origin.</li><li><b>FITO</b> RU — phytosanitary (needs weight/boxes from shipment).</li><li><b>Customs ARZA</b> TK — customs clearance request.</li></ul>
+    <h3>Endpoint</h3><p class="lead">GET /contracts/sales/{id}/document/?type=invoice_ru&fmt=docx|pdf — 400 unknown type, 503 if PDF requested but LibreOffice absent (.docx still works).</p>
+    <h3>Quality flags</h3><p class="lead">azyk · suriji · hil · kalibrowka toggled by document_team before the border.</p>`},
+  autoadv:{title:"Auto-Advance Cascade",lead:"Saving a shipment cascades it through every already-satisfied step in one pass.",body:`
+    <h3>How</h3><ol><li>Shipment.save() → resolve tasks → auto_advance_if_ready().</li><li>Needs ≥1 resolved task + updated_by set.</li><li>Loop (≤13): if the step's trigger field is filled & its auto-tasks DONE → transition_to(next, is_auto=True, notify=False).</li><li>Conditional edges resolved by predicate (has_peregruz).</li><li>One action-required notification fired for the final step's role.</li></ol>
+    <p class="lead">Auto transitions bypass role gates; a thread-local guard stops save-recursion; MANUAL_DONE tasks never gate it.</p>`},
+  cancel:{title:"Cancel Path (terminal)",lead:"Any active status → cancelled via POST /shipments/{id}/cancel/ (not the generic transition). Roles: export_manager, director, admin.",body:`
+    <h3>On cancel</h3><ul><li>All OPEN/IN_PROGRESS/BLOCKED tasks → CANCELLED.</li><li>Draft QuotaUsageRecord deleted; approved returned for manual reconciliation.</li><li>AuditLog entry with mandatory reason.</li><li>Hidden from default list; never on the Kanban board.</li></ul>
+    <p class="lead">Every active status carries a cancel edge gated to {export_manager, director, admin}.</p>`},
+};
+//==================== LAYOUT ====================
+const LANE_LABEL_W=210,COL_W=182,NODE_W=150,NODE_H=58,LANE_H=104,HEADER_H=58,BAND_H=24,EVT_R=20,GWR=27;
+const laneIndex=Object.fromEntries(LANES.map((l,i)=>[l.id,i]));
+const totalCols=27;
+const TOP=HEADER_H+BAND_H;
+const W=LANE_LABEL_W+totalCols*COL_W+50;
+const H=TOP+LANES.length*LANE_H+70;
+function colX(c){return LANE_LABEL_W+c*COL_W+16;}
+function laneTop(id){return TOP+laneIndex[id]*LANE_H;}
+function box(n){
+  if(n.id==="END")return {cx:colX(26)+EVT_R,cy:laneTop("fin")+LANE_H/2,w:EVT_R*2,h:EVT_R*2,evt:true};
+  if(n.kind==="gateway"){const cx=colX(n.col)+GWR,cy=laneTop(n.lane)+LANE_H/2;return{cx,cy,w:GWR*2,h:GWR*2,gw:true};}
+  const x=colX(n.col),y=laneTop(n.lane)+(LANE_H-NODE_H)/2+(n.yoff||0);
+  return{x,y,w:NODE_W,h:NODE_H,cx:x+NODE_W/2,cy:y+NODE_H/2};
+}
+const BY=Object.fromEntries(NODES.map(n=>[n.id,n]));
+BY.END={id:"END",kind:"event"};
+//==================== RENDER ====================
+const NS="http://www.w3.org/2000/svg";
+const vp=document.getElementById("viewport"),svg=document.getElementById("svg");
+svg.setAttribute("viewBox",`0 0 ${W} ${H}`);
+function el(t,a={},p=vp){const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);p.appendChild(e);return e;}
+
+// bands
+BANDS.forEach(b=>{
+  const x=colX(b.c0)-12,w=(b.c1-b.c0+1)*COL_W;
+  el("rect",{x,y:HEADER_H,width:w,height:BAND_H,fill:b.color,opacity:.9});
+  el("rect",{x,y:TOP,width:w,height:LANES.length*LANE_H,fill:b.color,opacity:.12});
+  const t=el("text",{x:x+10,y:HEADER_H+16,class:"band-label"});t.textContent=b.label;
+});
+// lanes
+LANES.forEach((l,i)=>{
+  const y=TOP+i*LANE_H;
+  el("rect",{x:0,y,width:LANE_LABEL_W,height:LANE_H,fill:"#0e1830"});
+  el("line",{x1:0,y1:y,x2:W,y2:y,stroke:"#23314c","stroke-width":1});
+  const t=el("text",{x:14,y:y+LANE_H/2-3,class:"lane-label"});t.textContent=l.label;
+  const s=el("text",{x:14,y:y+LANE_H/2+13,class:"lane-sub"});s.textContent=l.sub;
+});
+el("line",{x1:LANE_LABEL_W,y1:TOP,x2:LANE_LABEL_W,y2:TOP+LANES.length*LANE_H,stroke:"#334155","stroke-width":1.5});
+// header
+const h1=el("text",{x:LANE_LABEL_W+8,y:24,fill:"#e2e8f0","font-size":14,"font-weight":650});
+h1.textContent="Export value chain — left→right; solid = main flow, dashed = cross-process feed";
+const h2=el("text",{x:LANE_LABEL_W+8,y:42,fill:"#64748b","font-size":11});
+h2.textContent="Status steps numbered 0–12 (coloured by phase) · ⬦ gateway = has_peregruz fork · ◎ end · cancel from any active step (toolbar)";
+
+// flow routing
+function fwd(a,b){const A=box(BY[a]),B=box(BY[b]);const x1=(A.x!=null?A.x+A.w:A.cx+A.w/2),y1=A.cy,x2=(B.x!=null?B.x:B.cx-B.w/2),y2=B.cy;
+  if(Math.abs(y1-y2)<2)return`M${x1},${y1} L${x2},${y2}`;
+  const mx=x1+Math.max(16,(x2-x1)/2);return`M${x1},${y1} L${mx},${y1} L${mx},${y2} L${x2},${y2}`;}
+function backPath(a,b,off){const A=box(BY[a]),B=box(BY[b]);const chY=TOP+LANES.length*LANE_H+(off||30);
+  return`M${A.cx},${A.cy+A.h/2} L${A.cx},${chY} L${B.cx},${chY} L${B.cx},${B.cy+B.h/2}`;}
+
+const flowEls=[];
+FLOWS.forEach(([a,b,opt])=>{const p=el("path",{d:fwd(a,b),class:"flow"});p.dataset.a=a;p.dataset.b=b;flowEls.push(p);
+  if(opt&&opt.cond){const A=box(BY[a]),B=box(BY[b]);const lx=(A.cx+B.cx)/2,ly=Math.min(A.cy,B.cy)-6;const t=el("text",{x:lx-26,y:ly,class:"flow-label cond"});t.textContent=opt.cond;}});
+FEEDS.forEach(([a,b,lbl])=>{const p=el("path",{d:fwd(a,b),class:"feed"});p.dataset.a=a;p.dataset.b=b;p.dataset.feed=1;flowEls.push(p);
+  if(lbl){const A=box(BY[a]),B=box(BY[b]);const lx=(A.cx+(B.x!=null?B.x:B.cx))/2,ly=Math.min(A.cy,B.cy)-5;const t=el("text",{x:lx-24,y:ly,class:"feed-label"});t.textContent=lbl;}});
+FEED_BACK.forEach(([a,b,lbl])=>{const p=el("path",{d:backPath(a,b),class:"feed"});p.dataset.a=a;p.dataset.b=b;p.dataset.feed=1;flowEls.push(p);
+  const t=el("text",{x:colX(8),y:TOP+LANES.length*LANE_H+26,class:"feed-label"});t.textContent="↩ "+lbl;});
+FEED_LATER.forEach(([a,b,lbl])=>{const p=el("path",{d:backPath(a,b,56),class:"feed"});p.setAttribute("stroke","#fbbf24");p.dataset.a=a;p.dataset.b=b;p.dataset.feed=1;flowEls.push(p);
+  const t=el("text",{x:colX(7)+8,y:TOP+LANES.length*LANE_H+52,class:"feed-label",fill:"#fbbf24"});t.textContent=lbl;});
+
+// nodes
+function roleColor(lane){return{gh:"#16a34a",mgr:"#0ea5e9",wh:"#f59e0b",doc:"#6366f1",tr:"#a855f7",sal:"#22c55e",fin:"#14b8a6",sys:"#64748b"}[lane]||"#64748b";}
+function addNode(n){
+  const b=box(n);const g=el("g",{class:"node"});g.dataset.id=n.id;
+  if(n.kind==="status"){
+    const ph=PHASES[n.phase];
+    el("rect",{x:b.x,y:b.y,width:b.w,height:b.h,rx:9,fill:ph.color,stroke:"rgba(255,255,255,.2)","stroke-width":1.5,class:"shape"},g);
+    el("rect",{x:b.x,y:b.y,width:6,height:b.h,rx:3,fill:"rgba(0,0,0,.28)"},g);
+    el("circle",{cx:b.x+18,cy:b.y+15,r:9,fill:"rgba(255,255,255,.6)"},g);
+    const sn=el("text",{x:b.x+18,y:b.y+18.5,"text-anchor":"middle",class:"stepno"},g);sn.textContent=n.step;
+    const tt=el("text",{x:b.x+32,y:b.y+19,class:"n-title",fill:"#06283d"},g);tt.textContent=n.d.title;
+    const cc=el("text",{x:b.x+12,y:b.y+35,class:"n-code",fill:"#0b3350"},g);cc.textContent=n.id;
+    const rl=el("text",{x:b.x+12,y:b.y+49,class:"n-role",fill:"#0b3350"},g);rl.textContent="▸ "+n.d.role;
+  }else if(n.kind==="gateway"){
+    const pts=`${b.cx},${b.cy-GWR} ${b.cx+GWR},${b.cy} ${b.cx},${b.cy+GWR} ${b.cx-GWR},${b.cy}`;
+    el("polygon",{points:pts,fill:"#3b2f12",stroke:"#fbbf24","stroke-width":2,class:"shape"},g);
+    const x=el("text",{x:b.cx,y:b.cy+6,"text-anchor":"middle",fill:"#fbbf24","font-size":18,"font-weight":700},g);x.textContent="×";
+    const t=el("text",{x:b.cx,y:b.cy-GWR-6,"text-anchor":"middle",class:"flow-label"},g);t.textContent="peregruz?";
+  }else if(n.kind==="subprocess"){
+    el("rect",{x:b.x,y:b.y,width:b.w,height:b.h,rx:8,fill:"#312e81",stroke:"#818cf8","stroke-width":2.4,class:"shape"},g);
+    el("rect",{x:b.x+3,y:b.y+3,width:b.w-6,height:b.h-6,rx:6,fill:"none",stroke:"#818cf8","stroke-width":1});
+    const tt=el("text",{x:b.x+b.w/2,y:b.y+b.h/2-2,"text-anchor":"middle",class:"n-title",fill:"#e0e7ff"},g);tt.textContent="⧉ "+n.d.title;
+    const rl=el("text",{x:b.x+b.w/2,y:b.y+b.h/2+14,"text-anchor":"middle",class:"n-role",fill:"#c7d2fe"},g);rl.textContent=n.d.role;
+  }else{ // task
+    const rc=roleColor(n.lane);
+    el("rect",{x:b.x,y:b.y,width:b.w,height:b.h,rx:9,fill:"#243248",stroke:"#3b4a63","stroke-width":1.4,class:"shape"},g);
+    el("rect",{x:b.x,y:b.y,width:6,height:b.h,rx:3,fill:rc},g);
+    const tt=el("text",{x:b.x+14,y:b.y+21,class:"n-title",fill:"#e2e8f0"},g);tt.textContent=n.d.title;
+    const rl=el("text",{x:b.x+14,y:b.y+38,class:"n-role",fill:rc},g);rl.textContent="▸ "+n.d.role;
+  }
+  g.addEventListener("click",()=>select(n.id));
+  g.addEventListener("mouseenter",()=>highlight(n.id));
+  g.addEventListener("mouseleave",clearHi);
+}
+NODES.forEach(addNode);
+// END event
+(()=>{const b=box(BY.END);const g=el("g",{class:"node"});g.dataset.id="END";
+  el("circle",{cx:b.cx,cy:b.cy,r:EVT_R,fill:"#064e3b",stroke:"#34d399","stroke-width":2.4,class:"shape"},g);
+  el("circle",{cx:b.cx,cy:b.cy,r:EVT_R-4,fill:"none",stroke:"#34d399","stroke-width":1.4});
+  const t=el("text",{x:b.cx,y:b.cy+EVT_R+13,"text-anchor":"middle",fill:"#cbd5e1","font-size":10},g);t.textContent="Completed / archived";})();
+// cancel annotation
+(()=>{const ax=colX(13),ay=TOP+LANES.length*LANE_H+6;const g=el("g",{class:"node"});g.style.cursor="pointer";
+  el("rect",{x:ax,y:ay,width:320,height:38,rx:6,fill:"#2a1414",stroke:"#ef4444","stroke-dasharray":"4 3","stroke-width":1.5},g);
+  const t=el("text",{x:ax+12,y:ay+16,fill:"#fca5a5","font-size":11,"font-weight":600},g);t.textContent="✖ Cancel — reachable from EVERY active step";
+  const t2=el("text",{x:ax+12,y:ay+30,fill:"#f87171","font-size":9.5},g);t2.textContent="POST /cancel/ · export_manager · director · admin";
+  g.addEventListener("click",()=>openModal("cancel"));})();
+
+//==================== DETAIL PANEL ====================
+const detail=document.getElementById("detail"),body=document.getElementById("detailBody");
+let selected=null;
+function select(id){
+  const n=BY[id];if(!n||!n.d){return;}
+  selected=id;
+  document.querySelectorAll(".node").forEach(g=>g.classList.toggle("sel",g.dataset.id===id));
+  const d=n.d;let html=`<h2>${n.kind==="status"?("Step "+n.step+" · "):""}${d.title}</h2><div class="codeline">${id}</div>`;
+  if(n.kind==="status"){const ph=PHASES[n.phase];html+=`<div class="row"><span class="phase-tag" style="background:${ph.color}">${ph.label}</span></div>`;
+    html+=`<div class="row"><div class="k">Names</div><div class="v"><span class="lang">EN</span> ${d.en}<br><span class="lang">TK</span> ${d.tk}<br><span class="lang">RU</span> ${d.ru}</div></div>`;}
+  if(d.role)html+=`<div class="row"><div class="k">Role</div><div class="v"><span class="pill">${d.role}</span></div></div>`;
+  html+=`<div class="row"><div class="k">What happens</div><div class="v">${d.action}</div></div>`;
+  if(d.fields)html+=`<div class="row"><div class="k">Fields / endpoint</div><div class="v"><ul>${d.fields.map(f=>`<li class="fld">${f}</li>`).join("")}</ul></div></div>`;
+  if(d.timing)html+=`<div class="row"><div class="k">Timing</div><div class="v" style="background:#3a2a12;border:1px solid #a16207;border-radius:6px;padding:7px 9px">${d.timing}</div></div>`;
+  if(d.trigger)html+=`<div class="row"><div class="k">Trigger to advance</div><div class="v fld">${d.trigger}</div></div>`;
+  if(d.next)html+=`<div class="row"><div class="k">Enables next</div><div class="v">${d.next}</div></div>`;
+  if(d.branches)html+=`<div class="row"><div class="k">Branches</div><div class="v"><ul>${d.branches.map(b=>`<li>${b}</li>`).join("")}</ul></div></div>`;
+  if(d.effects)html+=`<div class="row"><div class="k">Side-effects</div><div class="v"><ul>${d.effects.map(e=>`<li>${e}</li>`).join("")}</ul></div></div>`;
+  if(d.refs)html+=`<div class="row"><div class="k">Source</div><div class="refs">${d.refs}</div></div>`;
+  body.innerHTML=html;detail.classList.add("open");highlight(id,true);
+}
+document.getElementById("detailClose").onclick=()=>{detail.classList.remove("open");document.querySelectorAll(".node").forEach(g=>g.classList.remove("sel"));selected=null;clearHi();};
+function highlight(id){
+  flowEls.forEach(p=>{const on=p.dataset.a===id||p.dataset.b===id;const f=p.dataset.feed;
+    p.classList.toggle("hot",on);p.classList.toggle("dim",!on);});
+  document.querySelectorAll(".node").forEach(g=>{const gid=g.dataset.id;
+    const conn=gid===id||FLOWS.some(([a,b])=>(a===id&&b===gid)||(b===id&&a===gid))||FEEDS.some(([a,b])=>(a===id&&b===gid)||(b===id&&a===gid));
+    g.classList.toggle("dim",!conn&&g.dataset.id!=="CANCEL");});
+}
+function clearHi(){if(selected){highlight(selected);return;}flowEls.forEach(p=>{p.classList.remove("hot");p.classList.remove("dim");});document.querySelectorAll(".node").forEach(g=>g.classList.remove("dim"));}
+
+//==================== LEGEND ====================
+const legend=document.getElementById("legend");
+Object.values(PHASES).forEach(p=>{const s=document.createElement("span");s.innerHTML=`<span class="sw" style="background:${p.color}"></span>${p.label}`;legend.appendChild(s);});
+const sep=document.createElement("span");sep.style.cssText="width:1px;height:13px;background:#475569";legend.appendChild(sep);
+[["▭ slate","activity / task"],["⧉ indigo","sub-process (join)"],["⬦ amber","gateway"],["◎ green","end"],["— solid","main flow"],["– – dashed","cross-process feed"]].forEach(([g,l])=>{const s=document.createElement("span");s.className="glyph";s.innerHTML=`<b style="color:#cbd5e1">${g}</b> ${l}`;legend.appendChild(s);});
+
+//==================== MODALS ====================
+const modalBg=document.getElementById("modalBg"),modal=document.getElementById("modal");
+function openModal(k){const m=SUBPROCESS[k];if(!m)return;modal.innerHTML=`<button class="close" id="mClose">×</button><h2>${m.title}</h2><div class="lead">${m.lead}</div>${m.body}`;modalBg.classList.add("open");document.getElementById("mClose").onclick=()=>modalBg.classList.remove("open");}
+document.querySelectorAll("[data-modal]").forEach(b=>b.onclick=()=>openModal(b.dataset.modal));
+modalBg.onclick=e=>{if(e.target===modalBg)modalBg.classList.remove("open");};
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){modalBg.classList.remove("open");detail.classList.remove("open");}});
+
+//==================== PAN + ZOOM ====================
+const stage=document.getElementById("stage");
+let scale=1,tx=0,ty=0,panning=false,sx=0,sy=0;
+function apply(){vp.setAttribute("transform",`translate(${tx},${ty}) scale(${scale})`);}
+function fit(){const r=stage.getBoundingClientRect();scale=Math.min(1,(r.width-30)/W);if(!isFinite(scale)||scale<=0)scale=.5;tx=8;ty=8;apply();}
+fit();
+stage.addEventListener("mousedown",e=>{if(e.target.closest(".detail")||e.target.closest(".modal-bg"))return;panning=true;stage.classList.add("dragging");sx=e.clientX-tx;sy=e.clientY-ty;});
+window.addEventListener("mousemove",e=>{if(!panning)return;tx=e.clientX-sx;ty=e.clientY-sy;apply();});
+window.addEventListener("mouseup",()=>{panning=false;stage.classList.remove("dragging");});
+stage.addEventListener("wheel",e=>{e.preventDefault();const r=svg.getBoundingClientRect();const mx=e.clientX-r.left,my=e.clientY-r.top;const f=e.deltaY<0?1.12:1/1.12;const ns=Math.min(2.6,Math.max(.2,scale*f));tx=mx-(mx-tx)*(ns/scale);ty=my-(my-ty)*(ns/scale);scale=ns;apply();},{passive:false});
+document.getElementById("zoomIn").onclick=()=>{scale=Math.min(2.6,scale*1.18);apply();};
+document.getElementById("zoomOut").onclick=()=>{scale=Math.max(.2,scale/1.18);apply();};
+document.getElementById("zoomReset").onclick=fit;
+</script>
+</body>
+</html>

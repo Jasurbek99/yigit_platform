@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YGT Shipment Process — End to End</title>
+<style>
+  :root{
+    --bg:#0f1420; --panel:#161c2b; --panel2:#1d2536; --ink:#e7ecf5; --muted:#9aa7bd;
+    --line:#2c374d; --accent:#5b9dff;
+    /* act colors */
+    --plan:#22c55e;   --plan-bg:#0f2a1c;
+    --create:#a855f7; --create-bg:#241332;
+    --life:#f59e0b;   --life-bg:#2a1f0c;
+    /* phase chips */
+    --c-draft:#64748b; --c-docs:#3b82f6; --c-load:#06b6d4; --c-transit:#f59e0b;
+    --c-dest:#a855f7; --c-sale:#22c55e; --c-close:#10b981; --c-cancel:#ef4444;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:linear-gradient(160deg,#0c111b,#0f1420 40%,#111726);
+       color:var(--ink);font:15px/1.55 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+       padding:36px 22px 80px}
+  .wrap{max-width:1180px;margin:0 auto}
+  h1{font-size:30px;margin:0 0 4px;letter-spacing:.3px}
+  h1 .sub{display:block;font-size:14px;color:var(--muted);font-weight:400;margin-top:6px}
+  h2{font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);
+     margin:46px 0 16px;border-bottom:1px solid var(--line);padding-bottom:8px}
+  .legend{display:flex;flex-wrap:wrap;gap:10px;margin:18px 0 6px}
+  .chip{font-size:12px;padding:4px 11px;border-radius:999px;font-weight:600;
+        color:#fff;display:inline-flex;align-items:center;gap:6px}
+
+  /* ACT OVERVIEW */
+  .acts{display:grid;grid-template-columns:1fr 26px 1fr 26px 1fr;align-items:stretch;gap:0;margin:8px 0}
+  .act{border-radius:16px;padding:18px 18px 16px;border:1px solid var(--line)}
+  .act.plan{background:var(--plan-bg);border-color:#1c5e3a}
+  .act.create{background:var(--create-bg);border-color:#5a2b80}
+  .act.life{background:var(--life-bg);border-color:#7a571a}
+  .act .tag{font-size:11px;letter-spacing:1.5px;font-weight:700;text-transform:uppercase}
+  .act.plan .tag{color:var(--plan)} .act.create .tag{color:var(--create)} .act.life .tag{color:var(--life)}
+  .act h3{margin:6px 0 8px;font-size:18px}
+  .act p{margin:0;color:var(--muted);font-size:13px}
+  .arrow{display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--accent)}
+
+  /* generic card */
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:14px 0}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+  .muted{color:var(--muted)}
+  small.path{display:inline-block;margin-top:10px;color:#6f7c93;font-family:ui-monospace,monospace;font-size:11.5px}
+
+  /* pool bar */
+  .bar{height:30px;border-radius:8px;background:var(--panel2);overflow:hidden;display:flex;border:1px solid var(--line);margin:6px 0}
+  .bar .alloc{background:repeating-linear-gradient(45deg,#3b4a66,#3b4a66 8px,#43547100 8px,#435471 16px);color:#cdd7ea}
+  .bar .rem{background:linear-gradient(90deg,#16a34a,#22c55e);color:#04210f}
+  .bar span{display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+
+  /* two-row join */
+  .join{display:grid;grid-template-columns:1fr 64px 1fr;gap:0;align-items:center}
+  .halfcard{border-radius:14px;padding:16px;border:1px dashed}
+  .supply{background:#0e2436;border-color:#2563eb}
+  .dest{background:#241332;border-color:#a855f7}
+  .halfcard h4{margin:0 0 10px;font-size:14px}
+  .kv{display:flex;justify-content:space-between;font-size:13px;padding:3px 0;border-bottom:1px dotted #ffffff14}
+  .ok{color:#22c55e;font-weight:700} .no{color:#ef4444;font-weight:700}
+  .merge{text-align:center;font-size:30px;color:var(--create)}
+  .joinbox{margin-top:16px;background:#1a1030;border:1px solid #5a2b80;border-radius:12px;padding:14px 18px}
+  .joinbox ul{margin:8px 0 0;padding-left:20px} .joinbox li{margin:3px 0;font-size:13.5px}
+
+  /* lifecycle steps */
+  .flow{display:flex;flex-direction:column;gap:0}
+  .step{display:grid;grid-template-columns:54px 1fr;gap:0;position:relative}
+  .rail{display:flex;flex-direction:column;align-items:center}
+  .dot{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+       font-weight:800;font-size:14px;color:#06121f;flex:none;z-index:2;border:3px solid #0f1420}
+  .seg{width:3px;flex:1;background:var(--line);min-height:14px}
+  .stepbody{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px 16px;
+            margin:0 0 12px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .stepbody .code{font-family:ui-monospace,monospace;font-weight:700;font-size:14px}
+  .stepbody .disp{color:var(--muted);font-size:13px}
+  .role{margin-left:auto;font-size:11.5px;font-weight:700;padding:3px 10px;border-radius:999px;
+        background:#0d1626;border:1px solid var(--line);color:#cdd7ea}
+  .ts{font-size:11px;color:#6f7c93;font-family:ui-monospace,monospace}
+  .fork{background:#2a1f0c;border:1px dashed #f59e0b;border-radius:10px;padding:8px 14px;margin:0 0 12px;font-size:13px}
+  .cancel{margin-top:6px;background:#2a0f12;border:1px solid var(--c-cancel)}
+
+  /* color helpers for dots */
+  .d-draft{background:var(--c-draft)} .d-docs{background:var(--c-docs)} .d-load{background:var(--c-load)}
+  .d-transit{background:var(--c-transit)} .d-dest{background:var(--c-dest)}
+  .d-sale{background:var(--c-sale)} .d-close{background:var(--c-close)}
+
+  /* table */
+  table{width:100%;border-collapse:collapse;margin-top:6px;font-size:13.5px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-size:11px;letter-spacing:1px;text-transform:uppercase}
+  tr:hover td{background:#ffffff07}
+
+  /* report */
+  .rep{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+  .repcard{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .repcard h5{margin:0 0 8px;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--c-sale)}
+  .eq{text-align:center;margin-top:14px;font-size:15px;font-family:ui-monospace,monospace;color:#cdd7ea}
+  .eq b{color:#22c55e}
+
+  .note{background:#10243a;border-left:4px solid var(--accent);padding:12px 16px;border-radius:0 10px 10px 0;
+        margin:16px 0;font-size:13.5px;color:#cfe0f5}
+  @media(max-width:820px){.acts{grid-template-columns:1fr}.arrow{transform:rotate(90deg);height:30px}
+    .grid2,.rep{grid-template-columns:1fr}.join{grid-template-columns:1fr}.merge{transform:rotate(90deg);padding:8px 0}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>YGT Shipment Process
+    <span class="sub">Greenhouse tomato export — from weekly plan to completed sale. Reconstructed from the live <span class="mono">TRANSITIONS</span> state machine + process docs.</span>
+  </h1>
+
+  <div class="legend">
+    <span class="chip" style="background:var(--c-draft)">Draft</span>
+    <span class="chip" style="background:var(--c-docs)">Customs / Docs</span>
+    <span class="chip" style="background:var(--c-load)">Loading</span>
+    <span class="chip" style="background:var(--c-transit)">Transit</span>
+    <span class="chip" style="background:var(--c-dest)">Destination</span>
+    <span class="chip" style="background:var(--c-sale)">Sale</span>
+    <span class="chip" style="background:var(--c-close)">Close</span>
+    <span class="chip" style="background:var(--c-cancel)">Cancelled</span>
+  </div>
+
+  <!-- ============ OVERVIEW ============ -->
+  <h2>Bird's-eye view — three acts</h2>
+  <div class="acts">
+    <div class="act plan">
+      <div class="tag">Act 1 · Plan</div>
+      <h3>Supply pool</h3>
+      <p>Weekly plan → daily forecast → remaining cargo pool. <span class="mono">remaining = forecast − allocated</span>.</p>
+    </div>
+    <div class="arrow">➜</div>
+    <div class="act create">
+      <div class="tag">Act 2 · Create</div>
+      <h3>Two-row drafts</h3>
+      <p>Loading dept makes a supply draft (blocks). Export manager makes a destination draft. <b>JOIN</b> merges them.</p>
+    </div>
+    <div class="arrow">➜</div>
+    <div class="act life">
+      <div class="tag">Act 3 · Lifecycle</div>
+      <h3>13-step state machine</h3>
+      <p>draft → customs → loading → transit → sale → sales report → completed. Role-gated, auto-advancing.</p>
+    </div>
+  </div>
+
+  <!-- ============ ACT 1 ============ -->
+  <h2>Act 1 — Planning: how the supply pool forms</h2>
+  <div class="card">
+    <div class="grid2">
+      <div>
+        <p style="margin-top:0"><b style="color:var(--plan)">WeeklyHarvestPlan</b> — one per block, per ISO week<br>
+        <span class="muted mono">block · week_number · year · locked_at</span></p>
+        <p>↓ breaks into 7 day rows</p>
+        <p><b style="color:var(--plan)">HarvestDayEntry</b> — one per block, per day <span class="muted">(unique: weekly_plan + entry_date)</span></p>
+        <table>
+          <tr><td><b>plan_value</b></td><td class="muted">greenhouse_manager plans (by Fri EOD)</td></tr>
+          <tr><td><b>forecast_value</b> ★</td><td class="muted">loading_dept_head forecasts (17:00 → 09:00 day-of)</td></tr>
+          <tr><td><b>actual_value</b></td><td class="muted">rolled up from shipment block_sources</td></tr>
+        </table>
+        <p class="mono" style="color:var(--plan)">Est. trucks = (actual ▸ forecast ▸ plan) / 18,500 kg</p>
+      </div>
+      <div>
+        <p style="margin-top:0"><b>Cargo plan remainder</b> <span class="muted">— "Ýük plan we galyndy", per (block, date)</span></p>
+        <div class="muted" style="font-size:12px">forecast_value = 18,500 kg</div>
+        <div class="bar">
+          <div class="alloc" style="width:65%"><span>allocated 12,000</span></div>
+          <div class="rem" style="width:35%"><span>remaining 6,500</span></div>
+        </div>
+        <p class="mono" style="font-size:13px">remaining = forecast − Σ block_sources<br>(non-cancelled shipments)</p>
+        <div class="note" style="margin:12px 0 0">A new draft can never draw more than <b>remaining</b>, and never &gt; <b>18,500 kg/truck</b>. Enforced race-safe with <span class="mono">select_for_update()</span>.</div>
+        <small class="path">backend/apps/export/services/harvest_forecast.py · assert_draw_within_pool()</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ ACT 2 ============ -->
+  <h2>Act 2 — Creation: the two-row draft &amp; JOIN</h2>
+  <div class="card">
+    <div class="join">
+      <div class="halfcard supply">
+        <h4>① Supply draft <span class="muted">~9–10am · loading_dept_head</span></h4>
+        <div class="kv"><span>status</span><span class="mono">draft</span></div>
+        <div class="kv"><span>block_sources</span><span class="ok">✓ blocks</span></div>
+        <div class="kv"><span>firm_splits</span><span class="ok">✓</span></div>
+        <div class="kv"><span>country</span><span class="no">✗ null</span></div>
+        <div class="kv"><span>customer</span><span class="no">✗ null</span></div>
+      </div>
+      <div class="merge">⤚<br>⤚</div>
+      <div class="halfcard dest">
+        <h4>② Destination draft <span class="muted">~10–11am · export_manager</span></h4>
+        <div class="kv"><span>status</span><span class="mono">draft</span></div>
+        <div class="kv"><span>block_sources</span><span class="no">✗ empty</span></div>
+        <div class="kv"><span>country</span><span class="ok">✓</span></div>
+        <div class="kv"><span>customer</span><span class="ok">✓</span></div>
+        <div class="kv"><span>import_firm</span><span class="ok">✓</span></div>
+      </div>
+    </div>
+
+    <div class="joinbox">
+      <b style="color:var(--create)">POST /shipments/{target}/join/</b> <span class="muted">— export_manager / director only · transaction.atomic()</span>
+      <ul>
+        <li>source.block_sources → <b>move to target</b></li>
+        <li>source.firm_splits → move (only if target has none)</li>
+        <li>copy variety / export_code if target lacks them; recompute <span class="mono">weight_net</span></li>
+        <li>ShipmentStatusLog on target — <b>status stays <span class="mono">draft</span></b></li>
+        <li>notify source creator, then <b>HARD-DELETE the source row</b></li>
+      </ul>
+      <small class="path">backend/apps/export/views.py · join (~1832)</small>
+    </div>
+
+    <div class="note"><b>Draft lock:</b> a draft cannot leave <span class="mono">draft</span> until all three exist —
+      <span class="ok">country ✓</span> &nbsp;<span class="ok">customer ✓</span> &nbsp;<span class="ok">block_sources ✓</span>.
+      Otherwise <span class="mono">transition_to()</span> raises: <i>"Supply-only and destination-only drafts must be joined first."</i>
+      A coexisting Assignment-Board path lets the manager <i>assign</i> a destination to a supply draft directly — same end state.
+    </div>
+  </div>
+
+  <!-- ============ ACT 3 ============ -->
+  <h2>Act 3 — The lifecycle (live TRANSITIONS dict)</h2>
+  <div class="card">
+    <div class="flow">
+
+      <div class="step"><div class="rail"><div class="dot d-draft">0</div><div class="seg"></div></div>
+        <div class="stepbody"><span class="code">draft</span><span class="disp">Draft</span>
+          <span class="ts">creator: warehouse_chief / loading</span><span class="role">JOIN required →</span></div></div>
+
+      <div class="step"><div class="rail"><div class="dot d-docs">1</div><div class="seg"></div></div>
+        <div class="stepbody"><span class="code">gumruk_girish</span><span class="disp">Customs Entry</span>
+          <span class="ts">→ customs_entry_at</span><span class="role">document_team</span></div></div>
+
+      <div class="step"><div class="rail"><div class="dot d-docs">2</div><div class="seg"></div></div>
+        <div class="stepbody"><span class="code">gumruk_chykysh</span><span class="disp">Customs Exit</span>
+          <span class="ts">→ customs_exit_at</span><span class="role">document_team</span></div></div>
+
+      <div class="step"><div class="rail"><div class="dot d-load">3</div><div class="seg"></div></div>
+        <div class="stepbody"><span class="code">yuklenme</span><span class="disp">Loading</span>
+          <span class="ts">→ loading_started_at</span><span class="role">warehouse_chief</span></div></div>
+
+      <div class="step"><div class="rail"><div class="dot d-transit">4</div><div class="seg"></div></div>
+        <div class="stepbody"><span class="code">yola_chykdy</span><span class="disp">Departed</span>
+          <span class="ts">→ departed_at</span><span class="role">document_team</span></div></div>
+
+      <div class="step"><div class="rail"><div class="dot d-transit">5</div><div class="seg"></div></div>
+        <div class="stepbody"><span class="code">serhet_gechdi</span><span class="disp">Border Crossed</span>
+          <span class="ts">→ border_crossed_at</span><span class="role">transport</span></div></div>
+
+      <div class="step"><div class="rail"><div class="dot d-transit">6</div><div class="seg"></div></div>
+        <div class="stepbody"><span class="code">dest_entry</span><span class="disp">Destination Entry</span>
+          <span class="ts">→ dest_entry_at</span><span class="role">sales_rep</span></div></div>
+
+      <div class="step"><div class="rail"><div class="dot d-transit">7</div><div class="seg"></div></div>
+        <div class="stepbody"><span class="code">barysh_gumrugi</span><span class="disp">Customs Clearance</span>
+          <span class="role">sales_rep</span></div></div>
+
+      <div class="step"><div class="rail"><div class="seg" style="background:#f59e0b"></div></div>
+        <div class="fork">⑂ <b>Conditional fork:</b> if <span class="mono">has_peregruz = true</span> →
+          <span class="mono">transshipment</span> (Transshipment, sales_rep) → then bardy. Otherwise straight to bardy.</div></div>
+
+      <div class="step"><div class="rail"><div class="dot d-dest">8</div><div class="seg"></div></div>
+        <div class="stepbody"><span class="code">bardy</span><span class="disp">At Destination</span>
+          <span class="ts">→ arrived_at</span><span class="role">sales_rep</span></div></div>
+
+      <div class="step"><div class="rail"><div class="dot d-sale">9</div><div class="seg"></div></div>
+        <div class="stepbody"><span class="code">satylyar</span><span class="disp">Selling Started</span>
+          <span class="ts">→ sale_started_at</span><span class="role">sales_rep</span></div></div>
+
+      <div class="step"><div class="rail"><div class="dot d-sale">10</div><div class="seg"></div></div>
+        <div class="stepbody"><span class="code">satyldy</span><span class="disp">Sold</span>
+          <span class="ts">→ sale_ended_at · SALES REPORT</span><span class="role">sales_rep</span></div></div>
+
+      <div class="step"><div class="rail"><div class="dot d-close">11</div></div>
+        <div class="stepbody" style="border-color:#10b981"><span class="code">tamamlandy</span><span class="disp">Completed (terminal)</span>
+          <span class="role">finansist</span></div></div>
+
+    </div>
+
+    <div class="stepbody cancel"><span class="dot d-draft" style="background:var(--c-cancel);width:26px;height:26px;font-size:12px">✗</span>
+      <span class="code">cancelled</span><span class="disp">Terminal — reachable from any non-terminal step</span>
+      <span class="role">export_manager / director</span></div>
+
+    <small class="path">backend/apps/export/services/shipment.py · TRANSITIONS (~58) · transition_to (~157) · auto_advance_if_ready (~360)</small>
+  </div>
+
+  <!-- transition mechanics -->
+  <div class="grid2">
+    <div class="card">
+      <h4 style="margin-top:0;color:var(--accent)">Manual transition</h4>
+      <p class="mono" style="font-size:13px">user → transition_to()<br>
+      ↳ role check (privileged bypass)<br>
+      ↳ set status + status_changed_at<br>
+      ↳ ShipmentStatusLog (audit)<br>
+      ↳ generate_tasks_for_status()<br>
+      ↳ notify the new role</p>
+    </div>
+    <div class="card">
+      <h4 style="margin-top:0;color:var(--life)">Auto-advance cascade</h4>
+      <p class="mono" style="font-size:13px">Shipment.save() → resolve tasks<br>
+      ↳ is_step_trigger_satisfied? — no → stop<br>
+      ↳ transition_to(is_auto=true, notify=false)<br>
+      ↳ ↺ loop through EVERY pre-satisfied step<br>
+      ↳ notify ONCE at the final step</p>
+    </div>
+  </div>
+
+  <!-- ============ SALES REPORT ============ -->
+  <h2>Sales report (at "Sold", before completion)</h2>
+  <div class="card">
+    <p class="muted" style="margin-top:0"><span class="mono">POST/PATCH /api/v1/export/shipments/{id}/sales-report/</span> — sales_rep / export_manager / director. Gated: must have departed (step 4+).</p>
+    <div class="rep">
+      <div class="repcard"><h5>Header</h5>
+        currency (KZT)<br>exchange_rate <span class="muted">(Kurs = local per USD)</span><br>weight loaded / sold / rejected</div>
+      <div class="repcard"><h5>Line items <span class="muted">(replace-all)</span></h5>
+        <span class="mono">qty_kg × price_local = amount_local</span><br><span class="muted">(server-recomputed)</span></div>
+      <div class="repcard"><h5>Expenses <span class="muted">(21 categories)</span></h5>
+        NDS · NAKLIYE · TOM_ROSHOD · ANALIZ · BAZAR_ROSHOD · INTERES …</div>
+    </div>
+    <div class="eq">total_sales − total_expenses = <b>net_income</b> &nbsp;·&nbsp; USD = local / kurs</div>
+  </div>
+
+  <!-- ============ ROLES ============ -->
+  <h2>Roles — who acts where</h2>
+  <div class="card">
+    <table>
+      <tr><th>Role</th><th>Person(s)</th><th>Acts on</th></tr>
+      <tr><td class="mono">loading_dept_head</td><td>Soltanmyrat</td><td>forecast + supply draft</td></tr>
+      <tr><td class="mono">export_manager</td><td>Gadam, Aganazar</td><td>join/assign destination · oversight (all)</td></tr>
+      <tr><td class="mono">document_team</td><td>Shohrat, Shirin, Sulgun, Aynur</td><td>steps 1, 2, 4 (customs + departed)</td></tr>
+      <tr><td class="mono">warehouse_chief</td><td>—</td><td>creates draft · step 3 (loading)</td></tr>
+      <tr><td class="mono">transport</td><td>Malik, Haltaç</td><td>step 5 (border)</td></tr>
+      <tr><td class="mono">sales_rep</td><td>Arap, Aganazar</td><td>steps 6–10 (transit → sold) + report</td></tr>
+      <tr><td class="mono">finansist</td><td>Babageldi</td><td>step 11 (completed)</td></tr>
+      <tr><td class="mono">director</td><td>CEO</td><td>override any transition</td></tr>
+    </table>
+  </div>
+
+  <p class="muted" style="text-align:center;margin-top:40px;font-size:12px">
+    Source of truth: live code (services/shipment.py · harvest_forecast.py · views.py) + docs/obsidian/processes/. Older docs list retired codes (serhet_tm, yolda, hasabat) — the dict above is current.
+  </p>
+
+</div>
+</body>
+</html>
