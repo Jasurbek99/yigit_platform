@@ -67,10 +67,33 @@ interface ICachedSheet {
 export interface IPatchContext {
   previousSheet: ICachedSheet | undefined;
   previousLists: [readonly unknown[], IApiListResponse<IShipmentListItem> | undefined][];
+  // The drawer field editors (Self board + Shipment board task modals) read the
+  // single-shipment sheet cache `['shipments','sheet','row',id]`, NOT the
+  // full-season `['shipments','sheet']`. We mirror every optimistic / reconcile /
+  // rollback into that row cache too, else a saved cell reverts to its stale
+  // cached value the moment its editor closes (the "first field disappears" bug).
+  drawerRowKey: readonly unknown[];
+  previousDrawerRow: ICachedSheet | undefined;
 }
 
 const isListQueryKey = (key: readonly unknown[]): boolean =>
   key[0] === 'shipments' && typeof key[1] === 'object' && key[1] !== null;
+
+const drawerRowKeyFor = (id: number): readonly unknown[] => ['shipments', 'sheet', 'row', id];
+
+/** Apply a row transform to a sheet-shaped cache entry, only if it is cached. */
+function updateSheetRowCache(
+  queryClient: ReturnType<typeof useQueryClient>,
+  key: readonly unknown[],
+  id: number,
+  transform: (row: IShipmentSheetItem) => IShipmentSheetItem,
+): void {
+  if (queryClient.getQueryData<ICachedSheet>(key) === undefined) return;
+  queryClient.setQueryData<ICachedSheet>(key, (old) => {
+    if (!old || !Array.isArray(old.shipments)) return old;
+    return { ...old, shipments: old.shipments.map((s) => (s.id === id ? transform(s) : s)) };
+  });
+}
 
 export function applyOptimistic(
   queryClient: ReturnType<typeof useQueryClient>,
@@ -100,7 +123,12 @@ export function applyOptimistic(
     },
   );
 
-  return { previousSheet, previousLists };
+  // Single-shipment drawer cache (task modals) — mirror the optimistic write.
+  const drawerRowKey = drawerRowKeyFor(id);
+  const previousDrawerRow = queryClient.getQueryData<ICachedSheet>(drawerRowKey);
+  updateSheetRowCache(queryClient, drawerRowKey, id, (s) => ({ ...s, ...fields }));
+
+  return { previousSheet, previousLists, drawerRowKey, previousDrawerRow };
 }
 
 export function rollback(
@@ -110,6 +138,9 @@ export function rollback(
   if (!context) return;
   if (context.previousSheet !== undefined) {
     queryClient.setQueryData(['shipments', 'sheet'], context.previousSheet);
+  }
+  if (context.previousDrawerRow !== undefined) {
+    queryClient.setQueryData(context.drawerRowKey, context.previousDrawerRow);
   }
   context.previousLists.forEach(([key, data]) => {
     queryClient.setQueryData(key, data);
@@ -159,6 +190,9 @@ export function reconcileFromServer(
       shipments: old.shipments.map((s) => (s.id === id ? mergeServerScalars(s, serverObj) : s)),
     };
   });
+
+  // Single-shipment drawer cache (task modals) — fold the server scalars in too.
+  updateSheetRowCache(queryClient, drawerRowKeyFor(id), id, (s) => mergeServerScalars(s, serverObj));
 
   queryClient.setQueriesData<IApiListResponse<IShipmentListItem>>(
     { predicate: (q) => isListQueryKey(q.queryKey) },
