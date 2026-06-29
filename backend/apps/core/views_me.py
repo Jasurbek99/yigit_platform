@@ -53,7 +53,7 @@ class MeTaskListView(APIView):
     def get(self, request):
         from django.db.models import Q
 
-        from apps.core.pagination import StandardPagination
+        from apps.core.pagination import TaskBoardPagination
         from apps.export.models import Task, TaskState
         from apps.export.serializers import TaskListSerializer
         from apps.export.services import (
@@ -106,7 +106,7 @@ class MeTaskListView(APIView):
 
         qs = qs.order_by('deadline', 'created_at')
 
-        paginator = StandardPagination()
+        paginator = TaskBoardPagination()
         page = paginator.paginate_queryset(qs, request)
         if page is not None:
             serializer = TaskListSerializer(page, many=True)

@@ -14,7 +14,11 @@ export function useMyTasks(options: { enabled?: boolean } = {}) {
     enabled: options.enabled ?? true,
     queryKey: ['my-tasks'],
     queryFn: async () => {
-      const { data } = await api.get('/me/tasks/?page_size=200');
+      // page_size=1000: the SelfBoard renders ALL of a user's tasks (active +
+      // done-today + history) from this single fetch, so the cap must clear a
+      // role's full per-season backlog or the newest tasks silently drop off.
+      // Backed by TaskBoardPagination (max 2000) on /me/tasks/.
+      const { data } = await api.get('/me/tasks/?page_size=1000');
       return data;
     },
     // Polls app-wide (AppLayout nav badge). 60s halves the steady-state
