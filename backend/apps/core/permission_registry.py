@@ -56,6 +56,9 @@ PAGE_REGISTRY: dict[str, str] = OrderedDict([
     # Sales rep worklist + coverage admin
     ('export.sales_reports',    'Sales Reports'),
     ('export.sales_rep_coverage', 'Sales Rep Coverage'),
+    # Expense template editor (categories + LOGO codes). Non-admin prefix on
+    # purpose (AD-15): admin/director/export_manager manage it, not admin-only.
+    ('export.expense_template', 'Expense Template'),
     ('admin.users',             'Admin: Users'),
     # Delegated staff page-access editor for department heads (ADR-022).
     ('admin.staff_access',      'Admin: Staff Page Access'),

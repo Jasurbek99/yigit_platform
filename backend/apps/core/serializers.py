@@ -46,7 +46,7 @@ class LoginSerializer(serializers.Serializer):
 class CountrySerializer(serializers.ModelSerializer):
     class Meta:
         model = Country
-        fields = ['id', 'name_tk', 'name_ru', 'name_en', 'code', 'color', 'sort_order']
+        fields = ['id', 'name_tk', 'name_ru', 'name_en', 'code', 'currency', 'color', 'sort_order']
 
 
 class CitySerializer(serializers.ModelSerializer):

@@ -7,10 +7,11 @@ from .shipment import (
 )
 from .pallet import Pallet
 from .quality import QualityDocument, ShipmentComment, SalesReport
+from .expense_category import ExpenseCategory
 from .sales import (
     SalesReportLineItem,
     SalesReportExpense,
-    ExpenseCategory,
+    ExpenseCategoryEnum,
     EXPENSE_CATEGORIES,
 )
 from .truck_allocation import WeeklyTruckAllocation, TruckDestinationSplit
@@ -52,9 +53,10 @@ __all__ = [
     'QualityDocument',
     'ShipmentComment',
     'SalesReport',
+    'ExpenseCategory',
     'SalesReportLineItem',
     'SalesReportExpense',
-    'ExpenseCategory',
+    'ExpenseCategoryEnum',
     'EXPENSE_CATEGORIES',
     'WeeklyTruckAllocation',
     'TruckDestinationSplit',

@@ -97,8 +97,14 @@ have departed (`yola_chykdy`, step 4) or later, else 400 (system status lags the
 gating on "sold" would block trucks that have already departed and sold). Read it from the shipment **detail** response
 (nested under `sales_report`) — there is no separate GET. Returns the full shipment detail on success.
 
-Amounts are stored in the report's **native currency** (`currency`, default `KZT`); USD totals are
-**derived** server-side as `*_local / exchange_rate` (the "Kurs"). Money/weight are decimal strings.
+Amounts are stored in the report's **native currency** (`currency`, defaults from `shipment.country.currency`
+on first create, falling back to `'KZT'`); USD totals are **derived** server-side as `*_local / exchange_rate`
+(the "Kurs"). Money/weight are decimal strings.
+
+**Wire format change (Phase 1):** `expenses[].category` is now an **integer PK** (FK to
+`ExpenseCategory`), not a string code. Frontend will send PKs from Phase 2 onward. The read
+response includes `category_code` (string, e.g. `"NDS"`), `category_display` (English label),
+and `logo_code` alongside the numeric `category` PK.
 
 ```json
 // Request (PATCH — partial; omitting line_items/expenses leaves children untouched)
@@ -113,29 +119,66 @@ Amounts are stored in the report's **native currency** (`currency`, default `KZT
     { "line_number": 1, "product_name": null, "quantity_kg": "18371.00", "price_local": "680.00" }
     // amount_local is ALWAYS recomputed server-side as quantity_kg * price_local (client value ignored)
   ],
-  "expenses": [                          // replace-all when present
-    { "category": "NDS",     "label_raw": null, "amount_local": "1476000.00" },
-    { "category": "TOM_ROSHOD",          "amount_local": "227250.00" },
-    { "category": "ANALIZ",              "amount_local": "59745.00" },
-    { "category": "BAZAR_ROSHOD",        "amount_local": "103000.00" },
-    { "category": "NAKLIYE", "label_raw": "KAPLANB-KARAGANDA NAKLIYE", "amount_local": "800000.00" },
-    { "category": "INTERES",             "amount_local": "500000.00" }
+  "expenses": [                          // replace-all when present; category = integer PK
+    { "category": 13, "label_raw": null, "amount_local": "1476000.00" },
+    { "category": 1,                     "amount_local": "227250.00" },
+    { "category": 7,                     "amount_local": "59745.00" },
+    { "category": 3,  "label_raw": "KAPLANB-KARAGANDA NAKLIYE", "amount_local": "800000.00" },
+    { "category": 4,                     "amount_local": "500000.00" }
   ]
+}
+```
+
+Expense read shape (per item in `expenses[]`):
+```json
+{
+  "category": 13,
+  "category_code": "NDS",
+  "category_display": "VAT (NDS)",
+  "logo_code": null,
+  "label_raw": null,
+  "amount_local": "1476000.00"
 }
 ```
 
 Server-computed, read-only on the report object (cannot be set by the client):
 `total_sales_local`, `total_expenses_local`, `net_income_local` (= sales − expenses), and the
-derived `total_sales_usd` / `total_expenses_usd` / `net_income_usd`. For the example above:
-gross 12,492,280 / expenses 3,165,995 / net 9,326,285 KZT.
+derived `total_sales_usd` / `total_expenses_usd` / `net_income_usd`.
 
-`expenses[].category` is one of 21 enum codes: `TOM_ROSHOD`, `NAKLIYE`, `BAZAR_ROSHOD`, `INTERES`,
+`expenses[].category` references an `ExpenseCategory` row (see `/expense-categories/` below).
+The 21 original seed codes remain: `TOM_ROSHOD`, `NAKLIYE`, `BAZAR_ROSHOD`, `INTERES`,
 `UZBEK_FURA_AWANS`, `DOZWOL`, `ANALIZ`, `PROSTOY`, `PERESEPKA`, `ARAP`, `KASPIY_KOMIS`,
 `UZBEK_FURA_SOLYARKA`, `NDS`, `SBOR`, `UZB_KAZ_POST`, `UZB_KAZ_NAKLIYE`, `UZBEK_TAM`, `MOI`,
-`DOSMOTR`, `PEREWOT`, `OTHER`. `category_display` (read-only) is the English label; the frontend
-localizes via `sales_report.expense.<CODE>`. `label_raw` carries the verbatim sheet text (e.g. the
-city-specific NAKLIYE) for audit/import fidelity. The legacy flat USD fields (`total_usd`,
-`transport_cost_usd`, `market_fee_usd`, `other_expenses_usd`, `price_per_kg`) remain for back-compat.
+`DOSMOTR`, `PEREWOT`, `OTHER`. Admin can add more at any time; `is_active=False` rows are
+rejected by the serializer. `label_raw` carries the verbatim sheet text for audit/import
+fidelity. The legacy flat USD fields (`total_usd`, `transport_cost_usd`, `market_fee_usd`,
+`other_expenses_usd`, `price_per_kg`) remain for back-compat.
+
+### Expense categories: `GET|POST|PATCH|DELETE /api/v1/export/expense-categories/`
+
+Admin-managed template for sales report expense categories. One pre-listed row per category
+appears in the Sale tab. Categories with `is_active=False` are hidden from the form and
+rejected by the expense serializer.
+
+Read: any authenticated user.
+Write (create/update/delete): `admin`, `director`, `export_manager`, superusers.
+
+Caution: DELETE of a category that has `SalesReportExpense` rows in use raises a 500
+(PROTECT FK). Prefer toggling `is_active=False` instead of deleting.
+
+Response item shape:
+```json
+{
+  "id": 13,
+  "code": "NDS",
+  "name_tk": "NDS (goşulan baha salgyt)",
+  "name_ru": "НДС",
+  "name_en": "VAT (NDS)",
+  "logo_code": null,
+  "sort_order": 12,
+  "is_active": true
+}
+```
 
 ### Auth: `POST /api/v1/auth/login/`
 ```json

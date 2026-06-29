@@ -3,9 +3,9 @@ import { Button, Input, InputNumber, Select, Table } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import type { ColumnsType } from 'antd/es/table';
-import type { SalesReportExpenseCategory } from '@/types';
+import { useExpenseCategories } from '@/hooks/useExpenseCategories';
 import type { IExpenseRow } from './salesReportUtils';
-import { EXPENSE_CATEGORIES, fmtLocal } from './salesReportUtils';
+import { fmtLocal } from './salesReportUtils';
 
 interface IExpensesTableProps {
   readonly rows: IExpenseRow[];
@@ -26,45 +26,65 @@ export function ExpensesTable({
   onAddRow,
   onRemoveRow,
 }: IExpensesTableProps): React.ReactElement {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const { data: categories = [] } = useExpenseCategories();
 
-  const categoryOptions = EXPENSE_CATEGORIES.map((code) => ({
-    value: code,
-    label: t(`sales_report.expense.${code}`),
+  // Build Select options from API template
+  const catOptions = categories.map((c) => ({
+    value: c.id,
+    label:
+      i18n.language === 'tk' && c.name_tk
+        ? c.name_tk
+        : i18n.language === 'ru' && c.name_ru
+        ? c.name_ru
+        : c.name_en || c.code,
   }));
 
   const columns: ColumnsType<IExpenseRow> = [
     {
       title: t('sales_report.col_category'),
-      dataIndex: 'category',
-      render: (_: unknown, record: IExpenseRow) =>
-        canEdit ? (
-          <>
-            <Select<SalesReportExpenseCategory>
-              value={record.category ?? undefined}
-              onChange={(v) => onRowChange(record._key, 'category', v)}
-              options={categoryOptions}
-              showSearch
+      dataIndex: 'category_code',
+      render: (_: unknown, record: IExpenseRow) => {
+        // When editing and no category selected yet (new row), show a Select picker
+        if (canEdit && record.category === null) {
+          return (
+            <Select
               size="small"
-              style={{ width: '100%', marginBottom: record.category === 'OTHER' ? 4 : 0 }}
-              placeholder={t('common.select')}
+              style={{ width: '100%' }}
+              placeholder={t('sales_report.col_category')}
+              options={catOptions}
+              onChange={(v: number) => {
+                const picked = categories.find((c) => c.id === v);
+                onRowChange(record._key, 'category', v);
+                onRowChange(record._key, 'category_code', picked?.code ?? '');
+              }}
+              showSearch
+              optionFilterProp="label"
             />
-            {record.category === 'OTHER' && (
+          );
+        }
+        // Saved / already-picked row: show label from i18n key
+        const label = record.category_code
+          ? t(`sales_report.expense.${record.category_code}`, { defaultValue: record.category_code })
+          : '—';
+        return (
+          <>
+            <span>{label}</span>
+            {record.category_code === 'OTHER' && canEdit && (
               <Input
                 value={record.label_raw}
                 onChange={(e) => onRowChange(record._key, 'label_raw', e.target.value)}
                 size="small"
                 placeholder={t('sales_report.other_label_placeholder')}
+                style={{ marginTop: 4 }}
               />
             )}
+            {record.category_code === 'OTHER' && !canEdit && record.label_raw && (
+              <div style={{ fontSize: 12, color: '#595959' }}>{record.label_raw}</div>
+            )}
           </>
-        ) : (
-          record.category
-            ? record.category === 'OTHER' && record.label_raw
-              ? record.label_raw
-              : t(`sales_report.expense.${record.category}`)
-            : '—'
-        ),
+        );
+      },
     },
     {
       title: t('sales_report.col_amount_local'),

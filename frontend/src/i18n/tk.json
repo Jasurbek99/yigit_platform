@@ -93,7 +93,33 @@
     "clients_report": "Müşderiler hasabaty",
     "block_summary": "Bloklaryň jemi",
     "sales_reports": "Satyş hasabatlary",
-    "sales_rep_coverage": "Satyjy müşderileri"
+    "sales_rep_coverage": "Satyjy müşderileri",
+    "admin_expense_template": "Çykdajy şablony"
+  },
+  "expense_template": {
+    "title": "Çykdajy kategoriýalarynyň şablony",
+    "subtitle": "Satyş hasabatlarynda ulanylýan çykdajy kategoriýalaryny dolandyryň. Işjeň däl kategoriýalar satyş wekilleri üçin gizlenýär, ýöne taryhy ýazgylarda saklanýar.",
+    "add": "Täze kategoriýa",
+    "col_sort_order": "Tertip",
+    "col_code": "Kod",
+    "col_name_tk": "Ady (TM)",
+    "col_name_ru": "Ady (RU)",
+    "col_name_en": "Ady (EN)",
+    "col_logo_code": "LOGO kody",
+    "col_status": "Ýagdaý",
+    "modal_create": "Täze çykdajy kategoriýasy",
+    "modal_edit": "Çykdajy kategoriýasyny redaktirlemek",
+    "code_placeholder": "mes. NAKLIYE",
+    "logo_code_placeholder": "mes. 7310",
+    "logo_code_hint": "LOGO ERP hasap kody. Sinhronizasiýa entek birikdirilmedi — geljekdäki integrasiýa üçin saklanýar.",
+    "toast_created": "Kategoriýa döredildi",
+    "toast_updated": "Kategoriýa täzelendi",
+    "toast_deleted": "Kategoriýa öçürildi",
+    "toast_delete_in_use": "Öçürmek mümkin däl — kategoriýa saklanylýan hasabatlarda ulanylýar. Munuň ýerine ony işjeň däl diýip belläň.",
+    "toast_error": "Näsazlyk ýüze çykdy",
+    "confirm_delete_title": "Kategoriýany öçürmeli?",
+    "confirm_delete_body": "Kategoriýa hemişelik öçüriler. Eger ol saklanylýan çykdajylarda ulanylýan bolsa, serwer öçürmegi ret eder. Täze hasabatlarda görünmez etmek üçin ony işjeň däl diýip belläň.",
+    "error_load": "Çykdajy kategoriýalaryny ýükläp bolmady"
   },
   "stuck": {
     "page_title": "Saklanan ýükler",
@@ -693,6 +719,7 @@
     "col_price_local": "Baha (ýerli)",
     "col_amount_local": "Jemi (ýerli)",
     "col_category": "Kategoriýa",
+    "expense_note_placeholder": "Bellik...",
     "gross_sales_local": "Jemi satuw (ýerli)",
     "total_expenses_local": "Jemi çykdajy (ýerli)",
     "net_income_local": "Arassa girdej (ýerli)",
@@ -722,7 +749,19 @@
       "PEREWOT": "Peréwot (terjime)",
       "OTHER": "Beýleki"
     },
-    "other_label_placeholder": "Beýlekisini ýaz..."
+    "other_label_placeholder": "Beýlekisini ýaz...",
+    "tab_sale": "Satyş",
+    "tab_processing": "Gaýtadan işlemek",
+    "page_title": "Satyş hasabaty",
+    "currency_hint": "Baryljak ýurduň walýutasy",
+    "processing_rejected": "Tapawutly",
+    "processing_block_code": "Blok",
+    "processing_block_weight": "Agramy (kg)",
+    "processing_block_loss": "Ýitgi paýy (kg)",
+    "processing_block_table": "Blok boýunça ýitgi",
+    "processing_usd_totals": "USD jemi",
+    "processing_line_sum_hint": "Satyş setirleriniň jemi: {{kg}} kg — Satylan agramyna göçürip bilersiňiz",
+    "summary": "Jemi"
   },
   "overdue": {
     "title": "Möhleti geçen hasabatlar",

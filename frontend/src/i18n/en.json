@@ -93,7 +93,33 @@
     "clients_report": "Clients Report",
     "block_summary": "Block Summary",
     "sales_reports": "Sales Reports",
-    "sales_rep_coverage": "Sales Rep Coverage"
+    "sales_rep_coverage": "Sales Rep Coverage",
+    "admin_expense_template": "Expense Template"
+  },
+  "expense_template": {
+    "title": "Expense Category Template",
+    "subtitle": "Manage expense categories used in sales reports. Inactive categories are hidden from sales reps but kept for historical records.",
+    "add": "New Category",
+    "col_sort_order": "Order",
+    "col_code": "Code",
+    "col_name_tk": "Name (TK)",
+    "col_name_ru": "Name (RU)",
+    "col_name_en": "Name (EN)",
+    "col_logo_code": "LOGO Code",
+    "col_status": "Status",
+    "modal_create": "New Expense Category",
+    "modal_edit": "Edit Expense Category",
+    "code_placeholder": "e.g. NAKLIYE",
+    "logo_code_placeholder": "e.g. 7310",
+    "logo_code_hint": "LOGO ERP account code. Sync not yet wired — stored for future integration.",
+    "toast_created": "Category created",
+    "toast_updated": "Category updated",
+    "toast_deleted": "Category deleted",
+    "toast_delete_in_use": "Cannot delete — category is used in saved reports. Toggle it inactive instead.",
+    "toast_error": "An error occurred",
+    "confirm_delete_title": "Delete category?",
+    "confirm_delete_body": "This will permanently remove the category. If it is referenced by any saved expense, the server will reject the delete. Toggle it inactive instead to hide it from new reports.",
+    "error_load": "Failed to load expense categories"
   },
   "stuck": {
     "page_title": "Stuck Shipments",
@@ -693,6 +719,7 @@
     "col_price_local": "Price (local)",
     "col_amount_local": "Amount (local)",
     "col_category": "Category",
+    "expense_note_placeholder": "Note...",
     "gross_sales_local": "Gross Sales (local)",
     "total_expenses_local": "Total Expenses (local)",
     "net_income_local": "Net Income (local)",
@@ -722,7 +749,19 @@
       "PEREWOT": "Transfer",
       "OTHER": "Other"
     },
-    "other_label_placeholder": "Enter description..."
+    "other_label_placeholder": "Enter description...",
+    "tab_sale": "Sale",
+    "tab_processing": "Processing",
+    "page_title": "Sales Report",
+    "currency_hint": "Default from destination country",
+    "processing_rejected": "Difference (Tapawutly)",
+    "processing_block_code": "Block",
+    "processing_block_weight": "Weight (kg)",
+    "processing_block_loss": "Loss share (kg)",
+    "processing_block_table": "Per-block loss",
+    "processing_usd_totals": "USD Totals",
+    "processing_line_sum_hint": "Line items total: {{kg}} kg — you may copy this to Weight Sold",
+    "summary": "Summary"
   },
   "overdue": {
     "title": "Overdue Reports",

@@ -15,6 +15,9 @@ class Country(models.Model):
     # Manual display order — admins set this from the Options List tab; falls
     # back to name_en when two rows share the same sort_order.
     sort_order = models.IntegerField(default=0)
+    # ISO 4217 currency code for this destination country (e.g. 'KZT', 'RUB').
+    # Used to default SalesReport.currency on first create. Null = unknown/not set.
+    currency = models.CharField(max_length=10, blank=True, null=True)
 
     class Meta:
         db_table = schema_table('core', 'countries')

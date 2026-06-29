@@ -12,6 +12,7 @@ from apps.core.models import (
     User,
 )
 from apps.export.models import (
+    ExpenseCategory,
     Shipment,
     ShipmentBlockSource,
     ShipmentStatusLog,
@@ -245,6 +246,14 @@ class SalesReportTest(TestCase):
             status=self.early_status,
         )
 
+        # Resolve ExpenseCategory PKs — the seed migration created these rows.
+        self.cat_nds = ExpenseCategory.objects.get(code='NDS').id
+        self.cat_tom_roshod = ExpenseCategory.objects.get(code='TOM_ROSHOD').id
+        self.cat_analiz = ExpenseCategory.objects.get(code='ANALIZ').id
+        self.cat_bazar_roshod = ExpenseCategory.objects.get(code='BAZAR_ROSHOD').id
+        self.cat_nakliye = ExpenseCategory.objects.get(code='NAKLIYE').id
+        self.cat_interes = ExpenseCategory.objects.get(code='INTERES').id
+
         self.client = APIClient()
 
     def _url(self, shipment_id: int) -> str:
@@ -342,6 +351,8 @@ class SalesReportTest(TestCase):
                   = 3,165,995 KZT
         Net: 12,492,280 − 3,165,995 = 9,326,285 KZT
         Kurs: 470 KZT/USD → net USD = 9,326,285 / 470 ≈ 19,843.16
+
+        Note: ``category`` is now a FK PK (int), not a string code.
         """
         return {
             'currency': 'KZT',
@@ -357,12 +368,12 @@ class SalesReportTest(TestCase):
                 },
             ],
             'expenses': [
-                {'category': 'NDS',          'amount_local': '1476000.00'},
-                {'category': 'TOM_ROSHOD',   'amount_local': '227250.00'},
-                {'category': 'ANALIZ',       'amount_local': '59745.00'},
-                {'category': 'BAZAR_ROSHOD', 'amount_local': '103000.00'},
-                {'category': 'NAKLIYE',      'amount_local': '800000.00'},
-                {'category': 'INTERES',      'amount_local': '500000.00'},
+                {'category': self.cat_nds,          'amount_local': '1476000.00'},
+                {'category': self.cat_tom_roshod,   'amount_local': '227250.00'},
+                {'category': self.cat_analiz,       'amount_local': '59745.00'},
+                {'category': self.cat_bazar_roshod, 'amount_local': '103000.00'},
+                {'category': self.cat_nakliye,      'amount_local': '800000.00'},
+                {'category': self.cat_interes,      'amount_local': '500000.00'},
             ],
         }
 
@@ -446,8 +457,8 @@ class SalesReportTest(TestCase):
                  'amount_local': '2750000.00'},
             ],
             'expenses': [
-                {'category': 'NDS',    'amount_local': '100000.00'},
-                {'category': 'ANALIZ', 'amount_local': '50000.00'},
+                {'category': self.cat_nds,    'amount_local': '100000.00'},
+                {'category': self.cat_analiz, 'amount_local': '50000.00'},
             ],
         }
         r1 = self.client.patch(
@@ -466,7 +477,7 @@ class SalesReportTest(TestCase):
                  'amount_local': '12600000.00'},
             ],
             'expenses': [
-                {'category': 'NAKLIYE', 'amount_local': '900000.00'},
+                {'category': self.cat_nakliye, 'amount_local': '900000.00'},
             ],
         }
         r2 = self.client.patch(
@@ -477,11 +488,212 @@ class SalesReportTest(TestCase):
         report.refresh_from_db()
         self.assertEqual(report.line_items.count(), 1)
         self.assertEqual(report.expenses.count(), 1)
-        # Old NDS expense must be gone.
+        # Old NDS expense must be gone (FK lookup uses category__code).
         self.assertFalse(
-            report.expenses.filter(category='NDS').exists()
+            report.expenses.filter(category__code='NDS').exists()
         )
         # Total recomputed from new children.
         self.assertEqual(str(report.total_sales_local), '12600000.00')
         self.assertEqual(str(report.total_expenses_local), '900000.00')
         self.assertEqual(str(report.net_income_local), '11700000.00')
+
+    def test_admin_added_category_accepted(self):
+        """An expense row referencing an admin-added (non-seed) category must save.
+
+        This is the key regression guard for the FK conversion: previously the
+        static-choices CharField would reject any code not in the 21-enum list.
+        With a FK, any active ExpenseCategory row — including ones added by the
+        admin after launch — is accepted.
+        """
+        # Create a new category that was NOT in the original seed list.
+        custom_cat = ExpenseCategory.objects.create(
+            code='CUSTOM_TEST',
+            name_tk='Synag',
+            name_en='Custom Test Category',
+            sort_order=99,
+            is_active=True,
+        )
+
+        self.client.force_authenticate(user=self.manager_user)
+        payload = {
+            'currency': 'KZT',
+            'exchange_rate': '500.0000',
+            'line_items': [
+                {'line_number': 1, 'quantity_kg': '1000.00', 'price_local': '100.00'},
+            ],
+            'expenses': [
+                {'category': custom_cat.id, 'amount_local': '5000.00'},
+            ],
+        }
+        response = self.client.patch(
+            self._url(self.shipment_at_hasabat.id), payload, format='json'
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+
+        report = SalesReport.objects.get(shipment=self.shipment_at_hasabat)
+        expense = report.expenses.get()
+        self.assertEqual(expense.category_id, custom_cat.id)
+        self.assertEqual(expense.category.code, 'CUSTOM_TEST')
+
+
+class ExpenseCategoryViewSetTest(TestCase):
+    """Tests for /api/v1/export/expense-categories/ — the four code-review fixes.
+
+    Fix 1: code writable on create, immutable on update.
+    Fix 2: ?is_active filter works correctly.
+    Fix 3: saving a report with a deactivated category succeeds.
+    Fix 4: DELETE of an in-use category returns 409.
+    """
+
+    def setUp(self):
+        call_command('seed_permissions')
+        self.admin_user = User.objects.create_user(
+            username='cat_admin', password='pass', role='export_manager'
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.admin_user)
+        self.url = '/api/v1/export/expense-categories/'
+
+    # ------------------------------------------------------------------
+    # Fix 1: code writable on create, immutable on update
+    # ------------------------------------------------------------------
+
+    def test_create_sets_code(self):
+        """POST /expense-categories/ with a code must persist the code field."""
+        resp = self.client.post(self.url, {
+            'code': 'TEST_FIX1',
+            'name_tk': 'Synag Fix1',
+            'sort_order': 90,
+        }, format='json')
+        self.assertEqual(resp.status_code, 201, resp.data)
+        cat = ExpenseCategory.objects.get(code='TEST_FIX1')
+        self.assertEqual(cat.code, 'TEST_FIX1')
+
+    def test_create_duplicate_code_returns_400(self):
+        """POST with a code that already exists must return 400 (UniqueValidator)."""
+        ExpenseCategory.objects.create(code='DUPE_CODE', name_tk='First')
+        resp = self.client.post(self.url, {
+            'code': 'DUPE_CODE',
+            'name_tk': 'Second',
+            'sort_order': 0,
+        }, format='json')
+        self.assertEqual(resp.status_code, 400, resp.data)
+
+    def test_update_cannot_change_code(self):
+        """PATCH /expense-categories/{id}/ must silently ignore code changes."""
+        cat = ExpenseCategory.objects.create(
+            code='IMMUTABLE_CODE', name_tk='Original name'
+        )
+        resp = self.client.patch(
+            f'{self.url}{cat.id}/', {'code': 'CHANGED_CODE', 'name_tk': 'Updated'}, format='json'
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        cat.refresh_from_db()
+        self.assertEqual(cat.code, 'IMMUTABLE_CODE')  # unchanged
+        self.assertEqual(cat.name_tk, 'Updated')       # other fields updated normally
+
+    # ------------------------------------------------------------------
+    # Fix 2: ?is_active filter
+    # ------------------------------------------------------------------
+
+    def test_is_active_filter(self):
+        """?is_active=false must return only inactive categories, not active ones."""
+        active_cat = ExpenseCategory.objects.create(
+            code='FILTER_ACTIVE', name_tk='Active', is_active=True
+        )
+        inactive_cat = ExpenseCategory.objects.create(
+            code='FILTER_INACTIVE', name_tk='Inactive', is_active=False
+        )
+
+        resp_inactive = self.client.get(f'{self.url}?is_active=false')
+        self.assertEqual(resp_inactive.status_code, 200)
+        result_codes = [r['code'] for r in resp_inactive.data['results']]
+        self.assertIn(inactive_cat.code, result_codes)
+        self.assertNotIn(active_cat.code, result_codes)
+
+        resp_active = self.client.get(f'{self.url}?is_active=true')
+        self.assertEqual(resp_active.status_code, 200)
+        result_codes_active = [r['code'] for r in resp_active.data['results']]
+        self.assertIn(active_cat.code, result_codes_active)
+        self.assertNotIn(inactive_cat.code, result_codes_active)
+
+    # ------------------------------------------------------------------
+    # Fix 3: saving a report referencing a deactivated category succeeds
+    # ------------------------------------------------------------------
+
+    def test_sales_report_expense_with_deactivated_category(self):
+        """PATCH sales-report with a deactivated category FK must return 200.
+
+        Regression guard: before Fix 3, PrimaryKeyRelatedField used
+        filter(is_active=True), which rejected inactive-category PKs.
+        """
+        call_command('seed_permissions')
+        _create_all_statuses()
+
+        season = Season.objects.create(
+            name='2025-FIX3', start_date='2025-09-01', end_date='2026-06-30'
+        )
+        satyldy = ShipmentStatusType.objects.get(code='satyldy')
+        shipment = Shipment.objects.create(
+            shipment_code='0101099/25',
+            date='2025-01-01',
+            season=season,
+            status=satyldy,
+        )
+
+        # Create and immediately deactivate a category.
+        cat = ExpenseCategory.objects.create(
+            code='DEACTIVATED_CAT',
+            name_tk='Öçürilen',
+            is_active=False,
+        )
+
+        resp = self.client.patch(
+            f'/api/v1/export/shipments/{shipment.id}/sales-report/',
+            {
+                'currency': 'KZT',
+                'exchange_rate': '500.0000',
+                'line_items': [
+                    {'line_number': 1, 'quantity_kg': '1000.00', 'price_local': '100.00'},
+                ],
+                'expenses': [
+                    {'category': cat.id, 'amount_local': '1000.00'},
+                ],
+            },
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        expense = SalesReportExpense.objects.get(report__shipment=shipment)
+        self.assertEqual(expense.category_id, cat.id)
+
+    # ------------------------------------------------------------------
+    # Fix 4: DELETE in-use category returns 409, not 500
+    # ------------------------------------------------------------------
+
+    def test_delete_in_use_category_returns_409(self):
+        """DELETE of a category referenced by an expense row must return 409."""
+        _create_all_statuses()
+
+        season = Season.objects.create(
+            name='2025-FIX4', start_date='2025-09-01', end_date='2026-06-30'
+        )
+        satyldy = ShipmentStatusType.objects.get(code='satyldy')
+        shipment = Shipment.objects.create(
+            shipment_code='0101098/25',
+            date='2025-01-01',
+            season=season,
+            status=satyldy,
+        )
+        cat = ExpenseCategory.objects.create(
+            code='IN_USE_CAT', name_tk='Ulanylýan'
+        )
+        report = SalesReport.objects.create(shipment=shipment, created_by=self.admin_user)
+        SalesReportExpense.objects.create(
+            report=report, category=cat, amount_local='100.00'
+        )
+
+        resp = self.client.delete(f'{self.url}{cat.id}/')
+        self.assertEqual(resp.status_code, 409, resp.data)
+        self.assertIn('error', resp.data)
+        # Category must still exist in the DB.
+        self.assertTrue(ExpenseCategory.objects.filter(id=cat.id).exists())

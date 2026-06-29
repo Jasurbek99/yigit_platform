@@ -28,9 +28,11 @@ from apps.core.permissions import (
     DynamicResourcePermission,
     can_edit_sheet_field,
     get_sheet_edit_map,
+    write_permission,
 )
 from apps.export.models import (
     AuditLog,
+    ExpenseCategory,
     FinansistAdvanceShipment,
     Pallet, QualityDocument, QuotaUsageRecord, SalesReport, Shipment, ShipmentComment,
     ShipmentBlockSource, ShipmentFirmSplit, SheetRowSetting, UserSheetRowPref,
@@ -38,6 +40,7 @@ from apps.export.models import (
 )
 from apps.export.sheet_rows import DEFAULT_SHEET_ROWS
 from apps.export.serializers import (
+    ExpenseCategorySerializer,
     PalletBulkUpsertSerializer,
     PalletSerializer,
     QualityDocumentSerializer,
@@ -2485,9 +2488,15 @@ class ShipmentViewSet(ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Default currency from the destination country on first create.
+        # Falls back to 'KZT' when country has no currency set (e.g. TM).
+        # A client-supplied currency value wins via the subsequent partial update.
+        default_currency = (
+            shipment.country.currency if shipment.country and shipment.country.currency else 'KZT'
+        )
         report, _ = SalesReport.objects.get_or_create(
             shipment=shipment,
-            defaults={'created_by': request.user},
+            defaults={'created_by': request.user, 'currency': default_currency},
         )
         serializer = SalesReportSerializer(report, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
@@ -3635,3 +3644,31 @@ class SalesRepCoverageViewSet(viewsets.ViewSet):
             'customer_ids': customer_ids,
         }
         return Response(SalesRepCoverageReadSerializer(result).data)
+
+
+class ExpenseCategoryViewSet(ModelViewSet):
+    """CRUD for admin-managed expense category templates.
+
+    GET    /api/v1/export/expense-categories/         — list (any authenticated)
+    GET    /api/v1/export/expense-categories/{id}/    — detail (any authenticated)
+    POST   /api/v1/export/expense-categories/         — create (admin/director/export_manager)
+    PATCH  /api/v1/export/expense-categories/{id}/    — update (same)
+    DELETE /api/v1/export/expense-categories/{id}/    — delete (same; 409 if in use via PROTECT FK)
+
+    Filter: ?is_active=true|false
+    Order:  ?ordering=sort_order|code|is_active (default: sort_order, code)
+
+    Note: deleting a category referenced by existing SalesReportExpense rows
+    returns HTTP 409.  Prefer soft-delete (toggle is_active) for categories
+    that have been used in production data.
+    """
+
+    queryset = ExpenseCategory.objects.order_by('sort_order', 'code')
+    serializer_class = ExpenseCategorySerializer
+    permission_classes = [
+        IsAuthenticated,
+        write_permission('admin', 'director', 'export_manager'),
+    ]
+    http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
+    filterset_fields = ['is_active']
+    ordering_fields = ['sort_order', 'code', 'is_active']

@@ -1,38 +1,31 @@
-import { useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { Tabs, Empty, Alert } from 'antd';
 import { IconFileText } from '@tabler/icons-react';
 import { ProTable } from '@ant-design/pro-components';
 import { useMySalesReports } from '@/hooks/useMySalesReports';
-import { SalesReportDrawer } from '@/components/SalesReportDrawer';
 import type { ISalesRepShipment } from '@/types';
 import { COLORS } from '@/constants/styles';
 import { buildSalesRepColumns } from './salesRepColumns';
-
-// ─── Drawer state helper ──────────────────────────────────────────────────────
-
-interface IDrawerState {
-  readonly shipmentId: number | null;
-  readonly shipmentCode: string;
-}
-
-const CLOSED_DRAWER: IDrawerState = { shipmentId: null, shipmentCode: '' };
 
 // ─── Tab pane ────────────────────────────────────────────────────────────────
 
 interface ITabPaneProps {
   readonly needsReport: boolean;
   readonly emptyText: string;
-  readonly onOpenDrawer: (id: number, code: string) => void;
+  readonly onOpenReport: (id: number, code: string) => void;
 }
 
-function ShipmentTab({ needsReport, emptyText, onOpenDrawer }: ITabPaneProps) {
+function ShipmentTab({ needsReport, emptyText, onOpenReport }: ITabPaneProps) {
   const { t } = useTranslation();
   const { data, isLoading, isError } = useMySalesReports(needsReport);
   const rows = data?.results ?? [];
 
-  const columns = buildSalesRepColumns({ t, showReportStatus: !needsReport, onOpenDrawer });
+  const columns = buildSalesRepColumns({
+    t,
+    showReportStatus: !needsReport,
+    onOpenDrawer: onOpenReport,
+  });
 
   if (isError) {
     return (
@@ -66,22 +59,10 @@ function ShipmentTab({ needsReport, emptyText, onOpenDrawer }: ITabPaneProps) {
 
 export default function SalesRepReports() {
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
-  const [drawer, setDrawer] = useState<IDrawerState>(CLOSED_DRAWER);
-
-  function handleOpenDrawer(id: number, code: string) {
-    setDrawer({ shipmentId: id, shipmentCode: code });
-  }
-
-  function handleCloseDrawer() {
-    setDrawer(CLOSED_DRAWER);
-  }
-
-  function handleReportSaved() {
-    void queryClient.invalidateQueries({ queryKey: ['shipments', 'my-sales-reports', true] });
-    void queryClient.invalidateQueries({ queryKey: ['shipments', 'my-sales-reports', false] });
-    handleCloseDrawer();
+  function handleOpenReport(id: number, _code: string) {
+    navigate(`/export/sales-reports/${id}`);
   }
 
   const tabs = [
@@ -92,7 +73,7 @@ export default function SalesRepReports() {
         <ShipmentTab
           needsReport
           emptyText={t('sales_reports.empty')}
-          onOpenDrawer={handleOpenDrawer}
+          onOpenReport={handleOpenReport}
         />
       ),
     },
@@ -103,8 +84,9 @@ export default function SalesRepReports() {
         <ShipmentTab
           needsReport={false}
           emptyText={t('sales_reports.no_regions_hint')}
-          onOpenDrawer={handleOpenDrawer}
+          onOpenReport={handleOpenReport}
         />
+
       ),
     },
   ];
@@ -133,15 +115,6 @@ export default function SalesRepReports() {
       </div>
 
       <Tabs defaultActiveKey="needs" items={tabs} />
-
-      <SalesReportDrawer
-        shipmentId={drawer.shipmentId}
-        shipmentCode={drawer.shipmentCode}
-        open={drawer.shipmentId !== null}
-        onClose={handleCloseDrawer}
-        onSaved={handleReportSaved}
-      />
     </div>
   );
 }
-

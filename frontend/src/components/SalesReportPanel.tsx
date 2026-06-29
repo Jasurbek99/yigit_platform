@@ -14,6 +14,9 @@ import type {
   ISalesReportPayload,
 } from '@/types';
 
+// SalesReportPanel is used by ShipmentDetail (via SalesReportForm alias in ShipmentDetailHelpers).
+// The new full-page SalesReportPage replaces the SalesReportDrawer flow; this panel stays for detail.
+
 const { Text } = Typography;
 
 interface ISalesReportPanelProps {
@@ -47,7 +50,7 @@ function buildPayload(
     }));
   const expenseItems: ISalesReportExpenseInput[] = expenses
     .filter((r) => r.category !== null && r.amount_local !== null)
-    .map((r) => ({ category: r.category!, label_raw: r.label_raw || null, amount_local: r.amount_local! }));
+    .map((r) => ({ category: r.category as number, label_raw: r.label_raw || null, amount_local: r.amount_local! }));
   return {
     currency: (vals['currency'] as string) || 'KZT',
     exchange_rate: (vals['exchange_rate'] as number | null | undefined) ?? null,
@@ -76,7 +79,8 @@ export function SalesReportPanel({ shipmentId, report, canEdit, onSaved }: ISale
   const [expenses, setExpenses] = useState<IExpenseRow[]>(() =>
     report?.expenses?.map((ex, i) => ({
       _key: i,
-      category: ex.category,
+      category: ex.category,      // now number PK
+      category_code: ex.category_code ?? '',
       label_raw: ex.label_raw ?? '',
       amount_local: ex.amount_local ? Number(ex.amount_local) : null,
     })) ?? [],
@@ -97,7 +101,7 @@ export function SalesReportPanel({ shipmentId, report, canEdit, onSaved }: ISale
   const updateExpense = (key: number, field: keyof Omit<IExpenseRow, '_key'>, v: unknown) =>
     setExpenses((p) => p.map((r) => (r._key === key ? { ...r, [field]: v } : r)));
   const addLine = () => { setLines((p) => [...p, { _key: nextKey, product_name: '', quantity_kg: null, price_local: null }]); bumpKey(); };
-  const addExpense = () => { setExpenses((p) => [...p, { _key: nextKey, category: null, label_raw: '', amount_local: null }]); bumpKey(); };
+  const addExpense = () => { setExpenses((p) => [...p, { _key: nextKey, category: null, category_code: '', label_raw: '', amount_local: null }]); bumpKey(); };
   const removeLine = (key: number) => setLines((p) => p.filter((r) => r._key !== key));
   const removeExpense = (key: number) => setExpenses((p) => p.filter((r) => r._key !== key));
 

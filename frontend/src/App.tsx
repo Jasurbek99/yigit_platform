@@ -60,7 +60,9 @@ const ContractDetail = lazy(() => import('@/pages/contracts/ContractDetail'));
 const ContractSaleList = lazy(() => import('@/pages/sales/ContractSaleList'));
 const WorklogPage = lazy(() => import('@/pages/worklog/WorklogPage'));
 const SalesRepReports = lazy(() => import('@/pages/export/SalesRepReports'));
+const SalesReportPage = lazy(() => import('@/pages/export/SalesReportPage'));
 const SalesRepCoveragePage = lazy(() => import('@/pages/admin/SalesRepCoveragePage'));
+const ExpenseTemplatePage = lazy(() => import('@/pages/admin/ExpenseTemplatePage'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -254,9 +256,17 @@ export default function App() {
                   <Route path="export/my-reports" element={
                     <ProtectedRoute pageCode="export.sales_reports"><SalesRepReports /></ProtectedRoute>
                   } />
+                  {/* Full-page sales report (replaces drawer) */}
+                  <Route path="export/sales-reports/:shipmentId" element={
+                    <ProtectedRoute pageCode="export.sales_reports"><SalesReportPage /></ProtectedRoute>
+                  } />
                   {/* Sales rep ↔ customer coverage */}
                   <Route path="admin/sales-rep-coverage" element={
                     <ProtectedRoute pageCode="export.sales_rep_coverage"><SalesRepCoveragePage /></ProtectedRoute>
+                  } />
+                  {/* Expense category template */}
+                  <Route path="admin/expense-template" element={
+                    <ProtectedRoute pageCode="export.expense_template"><ExpenseTemplatePage /></ProtectedRoute>
                   } />
                 </Route>
                 <Route path="/unauthorized" element={<UnauthorizedPage />} />

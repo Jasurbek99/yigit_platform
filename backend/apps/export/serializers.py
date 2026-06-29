@@ -11,6 +11,7 @@ from apps.export.validators import validate_export_code  # noqa: F401  (kept for
 from apps.export.models import (
     CustomsExpense,
     CustomsExpenseCategory,
+    ExpenseCategory,
     FinansistAdvance,
     FinansistAdvanceShipment,
     Pallet,
@@ -77,16 +78,52 @@ class SalesReportLineItemSerializer(serializers.ModelSerializer):
 
 
 class SalesReportExpenseSerializer(serializers.ModelSerializer):
-    """Serializer for one itemized expense row in the sales report."""
+    """Serializer for one itemized expense row in the sales report.
 
-    # Human-readable label for the category choice — read-only.
-    category_display = serializers.CharField(
-        source='get_category_display', read_only=True
+    ``category`` accepts the integer PK of an active ``ExpenseCategory`` row.
+    This replaces the former static-choices CharField so admin-added categories
+    are accepted without a code release.
+
+    Wire format change (Phase 1): ``category`` is now an integer PK (not a
+    string code like ``"NDS"``).  Frontend will be updated in Phase 2.  Until
+    then the old frontend may send string codes — but they will be rejected by
+    PrimaryKeyRelatedField; the Phase 2 frontend will send PKs.
+    """
+
+    # Writable FK — accepts any category PK (active or inactive).
+    # Active-only filtering is enforced at template-seed time on the frontend;
+    # widening here prevents re-saving reports that reference a now-deactivated
+    # category from being rejected by the API.
+    category = serializers.PrimaryKeyRelatedField(
+        queryset=ExpenseCategory.objects.all()
     )
+
+    # Read-only enrichment fields derived from the related category.
+    category_code = serializers.CharField(source='category.code', read_only=True)
+    category_display = serializers.SerializerMethodField()
+    logo_code = serializers.CharField(source='category.logo_code', read_only=True)
+
+    def get_category_display(self, obj: SalesReportExpense) -> str | None:
+        """Return best-available localised name for the category.
+
+        Falls back through name_en → name_tk → code so admin-added rows that
+        haven't been translated yet still render sensibly.
+        """
+        cat = obj.category
+        if cat is None:
+            return None
+        return cat.name_en or cat.name_tk or cat.code
 
     class Meta:
         model = SalesReportExpense
-        fields = ['category', 'category_display', 'label_raw', 'amount_local']
+        fields = [
+            'category',
+            'category_code',
+            'category_display',
+            'logo_code',
+            'label_raw',
+            'amount_local',
+        ]
 
 
 class SalesReportSerializer(serializers.ModelSerializer):
@@ -915,6 +952,34 @@ class MentionRoleSerializer(serializers.Serializer):
 
     def get_type(self, obj) -> str:
         return 'role'
+
+
+class ExpenseCategorySerializer(serializers.ModelSerializer):
+    """Serializer for admin-managed expense category template rows.
+
+    ``code`` is writable on create (required, unique) but immutable after
+    creation — it is the stable key used in data migrations and import scripts.
+    ``id`` is always read-only (set by the DB).
+    """
+
+    class Meta:
+        model = ExpenseCategory
+        fields = [
+            'id',
+            'code',
+            'name_tk',
+            'name_ru',
+            'name_en',
+            'logo_code',
+            'sort_order',
+            'is_active',
+        ]
+        read_only_fields = ['id']
+
+    def update(self, instance, validated_data):
+        """Prevent ``code`` from being changed after creation."""
+        validated_data.pop('code', None)  # code is immutable after creation
+        return super().update(instance, validated_data)
 
 
 class CustomsExpenseSerializer(serializers.ModelSerializer):

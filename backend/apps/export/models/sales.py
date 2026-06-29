@@ -13,14 +13,17 @@ from apps.core.db_utils import cyrillic_collation, schema_table
 
 
 # ---------------------------------------------------------------------------
-# Expense category constants
+# Expense category constants (seed source only — no longer used on the model)
 # ---------------------------------------------------------------------------
 
-class ExpenseCategory(models.TextChoices):
-    """Controlled vocabulary for itemized expense categories on a sales report.
+class ExpenseCategoryEnum(models.TextChoices):
+    """Controlled vocabulary for expense categories — kept as the canonical
+    seed list for the ``ExpenseCategory`` DB table and for data migrations.
 
-    Codes match the Excel template headings (transliterated).  Frontend handles
-    display labels via i18n; the code is the stable key.
+    The model field ``SalesReportExpense.category`` is now a FK to
+    ``export.ExpenseCategory``, not a choices field.  This enum is preserved
+    so data migrations and import scripts can reference code values without
+    depending on live ORM models.
     """
 
     TOM_ROSHOD = 'TOM_ROSHOD', 'Tom Roshod (Production cost deduction)'
@@ -46,8 +49,8 @@ class ExpenseCategory(models.TextChoices):
     OTHER = 'OTHER', 'Other'
 
 
-# Alias for external import without importing the class itself.
-EXPENSE_CATEGORIES = ExpenseCategory.choices
+# Alias kept for backward compat — external callers can still import this name.
+EXPENSE_CATEGORIES = ExpenseCategoryEnum.choices
 
 
 # ---------------------------------------------------------------------------
@@ -105,10 +108,17 @@ class SalesReportExpense(models.Model):
         on_delete=models.CASCADE,
         related_name='expenses',
     )
-    category = models.CharField(
-        max_length=32, choices=ExpenseCategory.choices
+    # FK to the admin-managed expense category template.  Use string ref to
+    # avoid import ordering issues (both models live in the export app).
+    # PROTECT so that deleting a category in use raises an error rather than
+    # silently removing expense rows (follow-up: consider a soft-delete guard
+    # in the admin viewset before production data accumulates).
+    category = models.ForeignKey(
+        'export.ExpenseCategory',
+        on_delete=models.PROTECT,
+        related_name='expense_rows',
     )
-    # Exact sheet label — allows city-specific variants to be preserved.
+    # Exact sheet label — allows city-specific NAKLIYE variants to be preserved.
     label_raw = models.CharField(
         max_length=120, null=True, blank=True, **cyrillic_collation()
     )
@@ -119,5 +129,6 @@ class SalesReportExpense(models.Model):
         ordering = ['id']
 
     def __str__(self) -> str:
-        return f'{self.category}: {self.amount_local}'
+        category_code = self.category.code if self.category_id else '?'
+        return f'{category_code}: {self.amount_local}'
 

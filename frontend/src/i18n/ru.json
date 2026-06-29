@@ -93,7 +93,33 @@
     "clients_report": "Отчёт по клиентам",
     "block_summary": "Сводка по блокам",
     "sales_reports": "Отчёты о продажах",
-    "sales_rep_coverage": "Клиенты продавцов"
+    "sales_rep_coverage": "Клиенты продавцов",
+    "admin_expense_template": "Шаблон расходов"
+  },
+  "expense_template": {
+    "title": "Шаблон категорий расходов",
+    "subtitle": "Управление категориями расходов, используемыми в отчётах о продажах. Неактивные категории скрыты от торговых представителей, но сохраняются для исторических записей.",
+    "add": "Новая категория",
+    "col_sort_order": "Порядок",
+    "col_code": "Код",
+    "col_name_tk": "Название (ТМ)",
+    "col_name_ru": "Название (RU)",
+    "col_name_en": "Название (EN)",
+    "col_logo_code": "Код LOGO",
+    "col_status": "Статус",
+    "modal_create": "Новая категория расхода",
+    "modal_edit": "Редактировать категорию расхода",
+    "code_placeholder": "напр. NAKLIYE",
+    "logo_code_placeholder": "напр. 7310",
+    "logo_code_hint": "Код счёта LOGO ERP. Синхронизация ещё не настроена — сохраняется для будущей интеграции.",
+    "toast_created": "Категория создана",
+    "toast_updated": "Категория обновлена",
+    "toast_deleted": "Категория удалена",
+    "toast_delete_in_use": "Нельзя удалить — категория используется в сохранённых отчётах. Вместо этого деактивируйте её.",
+    "toast_error": "Произошла ошибка",
+    "confirm_delete_title": "Удалить категорию?",
+    "confirm_delete_body": "Категория будет удалена навсегда. Если она используется в сохранённых расходах, сервер отклонит удаление. Лучше деактивировать категорию, чтобы скрыть её из новых отчётов.",
+    "error_load": "Не удалось загрузить категории расходов"
   },
   "stuck": {
     "page_title": "Зависшие отгрузки",
@@ -695,6 +721,7 @@
     "col_price_local": "Цена (местн.)",
     "col_amount_local": "Сумма (местн.)",
     "col_category": "Категория",
+    "expense_note_placeholder": "Примечание...",
     "gross_sales_local": "Валовая выручка (местн.)",
     "total_expenses_local": "Итого расходы (местн.)",
     "net_income_local": "Чистый доход (местн.)",
@@ -724,7 +751,19 @@
       "PEREWOT": "Перевод",
       "OTHER": "Прочее"
     },
-    "other_label_placeholder": "Введите описание..."
+    "other_label_placeholder": "Введите описание...",
+    "tab_sale": "Продажа",
+    "tab_processing": "Обработка",
+    "page_title": "Отчёт о продаже",
+    "currency_hint": "По умолчанию из страны назначения",
+    "processing_rejected": "Разница (Tapawutly)",
+    "processing_block_code": "Блок",
+    "processing_block_weight": "Вес (кг)",
+    "processing_block_loss": "Доля потерь (кг)",
+    "processing_block_table": "Потери по блокам",
+    "processing_usd_totals": "Итоги в USD",
+    "processing_line_sum_hint": "Сумма строк продаж: {{kg}} кг — можно скопировать в «Продано (кг)»",
+    "summary": "Итог"
   },
   "overdue": {
     "title": "Просроченные отчёты",
