@@ -3333,6 +3333,13 @@ class TaskViewSet(viewsets.ReadOnlyModelViewSet):
 
         qs = Task.objects.select_related('shipment__status', 'rule', 'assignee_user').all()
 
+        # Hide tasks whose shipment was soft-deleted — they are not live work.
+        # Non-shipment tasks (weekly_plan / local_sell_plan, shipment is null)
+        # are kept.
+        qs = qs.filter(
+            Q(shipment__isnull=True) | Q(shipment__deleted_at__isnull=True)
+        )
+
         # `?overdue=true` filter: deadline < now AND state NOT IN (DONE, CANCELLED)
         if self.request.query_params.get('overdue') == 'true':
             qs = qs.filter(

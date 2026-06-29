@@ -76,6 +76,13 @@ class MeTaskListView(APIView):
             'shipment__status', 'rule', 'assignee_user', 'scope_block',
         ).all()
 
+        # Hide tasks whose shipment was soft-deleted — they are not live work.
+        # Non-shipment tasks (weekly_plan / local_sell_plan, shipment is null)
+        # are kept.
+        qs = qs.filter(
+            Q(shipment__isnull=True) | Q(shipment__deleted_at__isnull=True)
+        )
+
         if not is_supervisor:
             # Regular users: their role's shipment tasks (assignee_user null) plus
             # any task personally assigned to them (e.g. their own weekly_plan task).
