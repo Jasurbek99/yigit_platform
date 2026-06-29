@@ -2493,7 +2493,8 @@
     "confirm_destination": "Confirm destination city",
     "finalize_sale": "Finalize sale",
     "submit_sales_report": "Submit sales report",
-    "fill_weekly_plan": "Fill the weekly plan"
+    "fill_weekly_plan": "Fill the weekly plan",
+    "fill_local_sell_plan": "Fill the local sell plan"
   },
   "me": {
     "board": {

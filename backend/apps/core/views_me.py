@@ -56,7 +56,10 @@ class MeTaskListView(APIView):
         from apps.core.pagination import StandardPagination
         from apps.export.models import Task, TaskState
         from apps.export.serializers import TaskListSerializer
-        from apps.export.services import resolve_weekly_plan_tasks_for_user
+        from apps.export.services import (
+            resolve_weekly_plan_tasks_for_user,
+            resolve_local_sell_plan_tasks,
+        )
 
         role = getattr(request.user, 'role', None)
         is_supervisor = getattr(request.user, 'is_superuser', False) or role in _SUPERVISOR_ROLES
@@ -65,6 +68,9 @@ class MeTaskListView(APIView):
         # plan-save path lives in greenhouse and may not call back into export
         # (dependency direction), so resolution happens here on read.
         resolve_weekly_plan_tasks_for_user(request.user)
+        # local_sell_plan tasks are role-wide (no assignee_user), so resolution
+        # is global rather than per-user — the open set is tiny (one per week).
+        resolve_local_sell_plan_tasks()
 
         qs = Task.objects.select_related(
             'shipment__status', 'rule', 'assignee_user', 'scope_block',

@@ -1534,7 +1534,7 @@ export type TaskState = 'open' | 'in_progress' | 'blocked' | 'done' | 'cancelled
 
 export type TaskCompletionRule = 'all_fields_filled' | 'any_field_filled' | 'manual_done';
 
-export type TaskKind = 'shipment' | 'weekly_plan';
+export type TaskKind = 'shipment' | 'weekly_plan' | 'local_sell_plan';
 
 export interface ITaskListItem {
   id: number;

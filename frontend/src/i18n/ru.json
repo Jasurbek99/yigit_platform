@@ -2495,7 +2495,8 @@
     "confirm_destination": "Подтвердить город назначения",
     "finalize_sale": "Завершить продажу",
     "submit_sales_report": "Отправить отчёт о продажах",
-    "fill_weekly_plan": "Заполните недельный план"
+    "fill_weekly_plan": "Заполните недельный план",
+    "fill_local_sell_plan": "Заполните план местных продаж"
   },
   "me": {
     "board": {

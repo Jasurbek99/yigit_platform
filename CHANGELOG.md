@@ -5,6 +5,23 @@ All notable changes to the YGT Platform.
 ## [Unreleased]
 
 ### Added
+- **Weekly "fill the local sell plan" task for the seller role** (feat(p3) + db + feat(frontend)).
+  New non-shipment `Task` kind `local_sell_plan` (`export.0051`), mirroring the weekly harvest-plan
+  task: one shared role-wide task per ISO week (`assignee_role='seller'`, `assignee_user=null`,
+  `scope_year`/`scope_week`). Created as a side effect of `initialize-week` and by a cron-backstop
+  command `generate_local_sell_plan_tasks` (defaults to the current ISO week). Auto-resolves
+  (lazily, on the `/me/tasks/` read path) once every `WeeklyLocalSellPlan` row for the week is
+  submitted/approved **or** is a zero-total draft (a firm with nothing to sell can never leave
+  draft, so an all-zero draft must not block); a rejected row or a non-zero draft keeps it open.
+  Service `apps/export/services/local_sell_plan_tasks.py`; the task card reuses `PlanTaskCard`
+  (SelfBoard now routes any non-shipment task to it via `isPlanTask`); the card link deep-links
+  the Quota → Local Sell grid to the task's week (`?week=&year=`). 7 new tests.
+  (`docs/obsidian/processes/comments-tasks.md` updated.)
+- **Local Sell plan: `admin` can now initialize/approve from the UI** (fix(frontend)).
+  `LocalSellPlanGrid` gated the "Initialize Week"/approve actions on `isManager` which omitted
+  `admin`, so an admin saw an empty grid with no way to seed it — even though the backend
+  (`LOCAL_SELL_APPROVE`) grants admin those rights. Added `admin` to the frontend check.
+
 - **Responsible block manager shown on the Weekly Plan grid** (feat(frontend) + feat(p3)).
   `WeeklyHarvestPlanSerializer` now returns `block_manager_names` (string array of the block's
   active `BlockManagerAssignment` users — full name, falling back to username), prefetched

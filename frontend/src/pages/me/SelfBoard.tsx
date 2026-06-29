@@ -40,6 +40,12 @@ import { COLORS } from '@/constants/styles';
 
 const { Title, Text } = Typography;
 
+/** Non-shipment reminder tasks (weekly harvest plan, local sell plan) rendered
+ *  with the compact PlanTaskCard rather than the shipment Kanban card. */
+function isPlanTask(task: ITaskListItem): boolean {
+  return task.kind === 'weekly_plan' || task.kind === 'local_sell_plan';
+}
+
 // ─── Phase filter options ────────────────────────────────────────────────────
 
 const PHASE_OPTIONS: ShipmentPhase[] = [
@@ -256,7 +262,7 @@ export default function SelfBoard() {
 
   const filteredTasks = allTasks.filter((task) => {
     // Plan tasks have no phase or shipment code — they always pass both filters.
-    if (task.kind === 'weekly_plan') return true;
+    if (isPlanTask(task)) return true;
     if (phaseFilter && task.phase !== phaseFilter) return false;
     if (
       searchText &&
@@ -467,7 +473,7 @@ export default function SelfBoard() {
                 onDrop={(e) => handleDropOnColumn(e, col.dropTargetState)}
               >
                 {colTasks.map((task) =>
-                  task.kind === 'weekly_plan' ? (
+                  isPlanTask(task) ? (
                     <PlanTaskCard key={task.id} task={task} />
                   ) : (
                     <SelfKanbanCard
@@ -492,7 +498,7 @@ export default function SelfBoard() {
               emptyText={t('me.board.empty_col')}
             >
               {historyTasks.map((task) =>
-                task.kind === 'weekly_plan' ? (
+                isPlanTask(task) ? (
                   <PlanTaskCard key={task.id} task={task} />
                 ) : (
                   <SelfKanbanCard

@@ -35,6 +35,11 @@ from .weekly_plan_tasks import (
     resolve_all_open_weekly_plan_tasks,
 )
 
+from .local_sell_plan_tasks import (
+    generate_local_sell_plan_tasks,
+    resolve_local_sell_plan_tasks,
+)
+
 from .boss_analytics import (
     period_to_range,
     _aggregate_summary,
@@ -76,6 +81,9 @@ __all__ = [
     'generate_weekly_plan_tasks',
     'resolve_weekly_plan_tasks_for_user',
     'resolve_all_open_weekly_plan_tasks',
+    # Local sell-plan tasks
+    'generate_local_sell_plan_tasks',
+    'resolve_local_sell_plan_tasks',
     # Boss analytics
     'period_to_range',
     '_aggregate_summary',

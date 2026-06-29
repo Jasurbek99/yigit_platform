@@ -24,6 +24,7 @@ import {
   RightOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek';
@@ -122,9 +123,20 @@ export function LocalSellPlanGrid() {
   const { user } = useAuth();
   const role = user?.role;
   const canEdit = canDo(user, 'local_sell_plan', 'edit');
-  const isManager = role === 'export_manager' || role === 'director';
+  const isManager = role === 'admin' || role === 'export_manager' || role === 'director';
 
-  const [selectedWeek, setSelectedWeek] = useState<Dayjs | null>(dayjs());
+  // Deep-link from a task card: ?week=&year= opens that ISO week (else current).
+  const [searchParams] = useSearchParams();
+  const [selectedWeek, setSelectedWeek] = useState<Dayjs | null>(() => {
+    const weekParam = Number(searchParams.get('week'));
+    const yearParam = Number(searchParams.get('year'));
+    if (weekParam >= 1 && weekParam <= 53 && yearParam > 2000) {
+      // ISO week 1 always contains Jan 4; add (week-1) weeks from its Monday.
+      const week1Monday = dayjs().year(yearParam).month(0).date(4).startOf('isoWeek');
+      return week1Monday.add(weekParam - 1, 'week');
+    }
+    return dayjs();
+  });
 
   const weekNumber = selectedWeek?.isoWeek();
   const year = selectedWeek?.isoWeekYear();

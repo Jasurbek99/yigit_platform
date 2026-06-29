@@ -27,6 +27,7 @@ from apps.export.services import (
     submit_local_sell_plan,
     approve_local_sell_plan,
     reject_local_sell_plan,
+    generate_local_sell_plan_tasks,
 )
 
 logger = logging.getLogger(__name__)
@@ -336,6 +337,9 @@ class WeeklyLocalSellPlanViewSet(ModelViewSet):
 
         if new_plans:
             WeeklyLocalSellPlan.objects.bulk_create(new_plans, batch_size=500)
+
+        # Create the shared seller reminder task for this week (idempotent).
+        generate_local_sell_plan_tasks(int(year), int(week_number), user=request.user)
 
         qs = WeeklyLocalSellPlan.objects.filter(
             week_number=week_number, year=year,
