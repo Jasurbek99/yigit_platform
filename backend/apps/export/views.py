@@ -3505,8 +3505,9 @@ class TaskViewSet(viewsets.ReadOnlyModelViewSet):
 
         Body: { "year": <ISO year>, "week": <ISO week number> }
 
-        Creates one weekly_plan Task per active block manager for the given ISO
-        week (idempotent). Supervisors only.
+        Creates one weekly_plan Task per active (block manager, block) pair for
+        the given ISO week (idempotent). A manager assigned to N blocks gets N
+        tasks, each resolving independently. Supervisors only.
         """
         from apps.export.serializers import TaskListSerializer
         from apps.export.services import generate_weekly_plan_tasks

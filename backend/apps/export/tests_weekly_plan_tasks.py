@@ -1,10 +1,12 @@
 """Tests for the weekly_plan Task feature.
 
 Covers:
-  - generate_weekly_plan_tasks: one task per active manager, idempotent re-run,
-    inactive assignments excluded.
-  - resolution: blank cell → stays OPEN; all cells filled (incl. explicit 0) →
-    DONE; a block with zero rows → stays OPEN.
+  - generate_weekly_plan_tasks: one task per (active manager, block), idempotent
+    re-run, inactive assignments excluded, multi-block manager → multiple tasks.
+  - resolution (per block, Mon–Sat only): blank weekday cell → stays OPEN; all
+    weekday cells filled (incl. explicit 0) → DONE; a blank Sunday cell does NOT
+    block; a block with zero rows → its task stays OPEN while a sibling block's
+    task resolves independently.
   - generate endpoint: supervisor OK, non-supervisor 403, bad payload 400.
   - /me/tasks/ scoping: a manager sees only their own weekly task, not another
     manager's; shipment tasks (assignee_user null) stay role-visible; the read
@@ -67,7 +69,7 @@ class WeeklyPlanTaskGenerationTests(TestCase):
         BlockManagerAssignment.objects.create(user=cls.mgr1, block=cls.block_a)
         BlockManagerAssignment.objects.create(user=cls.mgr2, block=cls.block_b)
 
-    def test_one_task_per_manager_and_idempotent(self):
+    def test_one_task_per_block_and_idempotent(self):
         created = generate_weekly_plan_tasks(YEAR, WEEK)
         self.assertEqual(len(created), 2)
         self.assertEqual(
@@ -77,8 +79,10 @@ class WeeklyPlanTaskGenerationTests(TestCase):
         task = created[0]
         self.assertIsNone(task.shipment_id)
         self.assertEqual(task.assignee_role, 'greenhouse_manager')
+        self.assertIsNotNone(task.scope_block_id)
         self.assertIn(f'week={WEEK}', task.link)
         self.assertIn(f'year={YEAR}', task.link)
+        self.assertIn(f'block={task.scope_block_id}', task.link)
 
         # Second run creates nothing.
         again = generate_weekly_plan_tasks(YEAR, WEEK)
@@ -86,6 +90,17 @@ class WeeklyPlanTaskGenerationTests(TestCase):
         self.assertEqual(
             Task.objects.filter(kind=TaskKind.WEEKLY_PLAN, scope_year=YEAR, scope_week=WEEK).count(),
             2,
+        )
+
+    def test_multi_block_manager_gets_one_task_per_block(self):
+        # mgr1 also manages block B → 2 tasks for mgr1 (A and B).
+        BlockManagerAssignment.objects.create(user=self.mgr1, block=self.block_b)
+        created = generate_weekly_plan_tasks(YEAR, WEEK)
+        mgr1_tasks = [t for t in created if t.assignee_user_id == self.mgr1.id]
+        self.assertEqual(len(mgr1_tasks), 2)
+        self.assertEqual(
+            {t.scope_block_id for t in mgr1_tasks},
+            {self.block_a.id, self.block_b.id},
         )
 
     def test_inactive_assignment_excluded(self):
@@ -139,16 +154,35 @@ class WeeklyPlanTaskResolutionTests(TestCase):
         self.assertEqual(task.state, TaskState.DONE)
         self.assertIsNotNone(task.completed_at)
 
-    def test_block_with_no_rows_keeps_task_open(self):
+    def test_sunday_blank_does_not_block(self):
+        # Mon–Sat filled, Sunday (day 6) blank → task still resolves.
+        generate_weekly_plan_tasks(YEAR, WEEK)
+        for day in range(6):  # Mon..Sat
+            self._entry(day, Decimal('100'))
+        self._entry(6, None)  # Sunday — not measured
+        resolved = resolve_weekly_plan_tasks_for_user(self.mgr)
+        self.assertEqual(len(resolved), 1)
+        task = Task.objects.get(kind=TaskKind.WEEKLY_PLAN, assignee_user=self.mgr)
+        self.assertEqual(task.state, TaskState.DONE)
+
+    def test_blocks_resolve_independently(self):
         # Manager assigned to a second block that has no rows this week.
         block_b, _ = GreenhouseBlock.objects.get_or_create(
             code='WPTR-B', defaults={'name': 'Block B', 'is_active': True},
         )
         BlockManagerAssignment.objects.create(user=self.mgr, block=block_b)
-        generate_weekly_plan_tasks(YEAR, WEEK)
+        generate_weekly_plan_tasks(YEAR, WEEK)  # one task per block
         self._entry(0, Decimal('100'))  # only block A has a row
         resolved = resolve_weekly_plan_tasks_for_user(self.mgr)
-        self.assertEqual(resolved, [])
+        # Block A's task resolves; block B's (no rows) stays open.
+        self.assertEqual(len(resolved), 1)
+        self.assertEqual(resolved[0].scope_block_id, self.block_a.id)
+        task_a = Task.objects.get(kind=TaskKind.WEEKLY_PLAN, assignee_user=self.mgr,
+                                  scope_block=self.block_a)
+        task_b = Task.objects.get(kind=TaskKind.WEEKLY_PLAN, assignee_user=self.mgr,
+                                  scope_block=block_b)
+        self.assertEqual(task_a.state, TaskState.DONE)
+        self.assertEqual(task_b.state, TaskState.OPEN)
 
 
 @unittest.skipUnless(DB_AVAILABLE, "Django models unavailable in this environment")

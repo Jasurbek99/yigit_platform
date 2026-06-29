@@ -1949,6 +1949,11 @@ class TaskListSerializer(serializers.ModelSerializer):
     # is_overdue is a model property — expose it as a read field.
     is_overdue = serializers.BooleanField(read_only=True)
 
+    # Block a weekly_plan task covers (null for shipment tasks).
+    scope_block_code = serializers.CharField(
+        source='scope_block.code', read_only=True, default=None,
+    )
+
     def get_phase(self, obj) -> str | None:
         """Resolve phase from the task's parent shipment status.
 
@@ -1974,6 +1979,8 @@ class TaskListSerializer(serializers.ModelSerializer):
             'link',
             'scope_year',
             'scope_week',
+            'scope_block',
+            'scope_block_code',
             'step',
             'phase',
             'title_key',

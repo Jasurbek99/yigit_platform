@@ -66,7 +66,9 @@ class MeTaskListView(APIView):
         # (dependency direction), so resolution happens here on read.
         resolve_weekly_plan_tasks_for_user(request.user)
 
-        qs = Task.objects.select_related('shipment__status', 'rule', 'assignee_user').all()
+        qs = Task.objects.select_related(
+            'shipment__status', 'rule', 'assignee_user', 'scope_block',
+        ).all()
 
         if not is_supervisor:
             # Regular users: their role's shipment tasks (assignee_user null) plus
