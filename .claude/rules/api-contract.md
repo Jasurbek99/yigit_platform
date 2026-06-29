@@ -89,6 +89,23 @@ Full data with nested related objects.
 // Error 403: { "error": "Role document_team cannot trigger this transition" }
 ```
 
+### Hard-delete draft: `POST /api/v1/export/shipments/{id}/hard-delete/`
+
+Permanently deletes a single **draft** shipment from the detail page, cascading its
+comments, status_log, firm_splits, block_sources, pallets, quality, tasks and custom field
+values, and releasing any `QuotaUsageRecord` rows (drafts deleted, approveds released — same
+cleanup as `bulk-delete`). Irreversible — there is no restore.
+
+Allowed roles: `admin` or superuser only. The shipment **must** be in `draft` status; once it
+has advanced, use `cancel` (lifecycle) or `soft-delete` (restorable trash) instead. No body.
+
+```json
+// Response 200: { "deleted": 1, "cascade_rows_deleted": 7, "draft_quota_deleted": 0,
+//                 "approved_quota_released": 0, "approved_quota_to_reconcile": [] }
+// Error 400: { "error": "Only draft shipments can be permanently deleted. Cancel or soft-delete active shipments instead." }
+// Error 403: { "error": "Only admin can permanently delete shipments." }
+```
+
 ### Sales report: `POST`/`PATCH /api/v1/export/shipments/{id}/sales-report/`
 
 The final per-shipment sales report (the "hasabat" the export manager used to keep in Excel).

@@ -189,6 +189,29 @@ export function useSetColumnColor() {
   });
 }
 
+/**
+ * Mutation: POST /api/v1/export/shipments/{id}/hard-delete/
+ * Admin-only permanent delete of a DRAFT shipment from the detail page.
+ * The row and all cascade rows are gone — there is no restore. We
+ * removeQueries (not invalidate) the detail key so the open ShipmentDetail
+ * doesn't refetch a now-404 row; the caller navigates away on success.
+ */
+export function useHardDeleteDraftShipment() {
+  const queryClient = useQueryClient();
+
+  return useMutation<unknown, unknown, { id: number }>({
+    mutationFn: async ({ id }) => {
+      const { data } = await api.post(`/export/shipments/${id}/hard-delete/`);
+      return data;
+    },
+    onSuccess: (_data, { id }) => {
+      queryClient.removeQueries({ queryKey: ['shipment', String(id)] });
+      queryClient.invalidateQueries({ queryKey: ['shipments'] });
+      queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+    },
+  });
+}
+
 /** Mutation: POST /api/v1/export/shipments/{id}/restore/ — admin only. */
 export function useRestoreShipment() {
   const queryClient = useQueryClient();

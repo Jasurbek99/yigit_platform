@@ -1,6 +1,12 @@
 import { useState } from 'react';
 import { Button, Flex, Input, Modal, Tag } from 'antd';
-import { ArrowLeftOutlined, RocketOutlined, StopOutlined } from '@ant-design/icons';
+import {
+  ArrowLeftOutlined,
+  DeleteOutlined,
+  ExclamationCircleFilled,
+  RocketOutlined,
+  StopOutlined,
+} from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -9,7 +15,7 @@ import { FreshnessPill } from '@/components/FreshnessPill';
 import { TransitionButton } from '@/components/TransitionButton';
 import { useAuth } from '@/hooks/useAuth';
 import { usePromoteFromDraft } from '@/hooks/useDrafts';
-import { useCancelShipment } from '@/hooks/useShipments';
+import { useCancelShipment, useHardDeleteDraftShipment } from '@/hooks/useShipments';
 import { extractPatchError } from '@/hooks/useShipmentPatch';
 import type { IShipmentDetail } from '@/types';
 import { COLORS, FONT } from '@/constants/styles';
@@ -90,6 +96,36 @@ export function ShipmentDetailHero({ shipment }: IShipmentDetailHeroProps) {
 
   const promote = usePromoteFromDraft();
 
+  // Admin-only permanent delete of a DRAFT scratch row. Distinct from cancel
+  // (lifecycle) and soft-delete (restorable trash). The backend enforces both
+  // the admin gate and the draft-only rule; this just hides the button.
+  const hardDelete = useHardDeleteDraftShipment();
+  const canHardDeleteDraft =
+    shipment.status_code === 'draft' &&
+    (user?.role === 'admin' || user?.is_superuser === true);
+
+  function handleHardDelete() {
+    Modal.confirm({
+      title: t('shipment.detail.hard_delete_confirm_title', {
+        code: shipment.shipment_code,
+      }),
+      icon: <ExclamationCircleFilled style={{ color: '#ff4d4f' }} />,
+      content: t('shipment.detail.hard_delete_confirm_content'),
+      okText: t('shipment.detail.hard_delete_confirm_ok'),
+      okType: 'danger',
+      cancelText: t('common.cancel'),
+      async onOk() {
+        try {
+          await hardDelete.mutateAsync({ id: shipment.id });
+          toast.success(t('shipment.detail.hard_delete_success'));
+          navigate('/export/shipments');
+        } catch (err) {
+          toast.error(extractPatchError(err, t('shipment.detail.hard_delete_error')));
+        }
+      },
+    });
+  }
+
   function handlePromote() {
     Modal.confirm({
       title: t('shipment.detail.promote_confirm_title'),
@@ -165,6 +201,16 @@ export function ShipmentDetailHero({ shipment }: IShipmentDetailHeroProps) {
               onClick={handleCancelOpen}
             >
               {t('shipment.cancel_button')}
+            </Button>
+          )}
+          {canHardDeleteDraft && (
+            <Button
+              danger
+              icon={<DeleteOutlined />}
+              loading={hardDelete.isPending}
+              onClick={handleHardDelete}
+            >
+              {t('shipment.detail.hard_delete_button')}
             </Button>
           )}
         </div>

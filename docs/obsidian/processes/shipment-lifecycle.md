@@ -108,6 +108,7 @@ Distinct from cancellation: a **reversible "deactivate" flag** that hides a ship
 - **Write protection**: `partial_update` returns 403 on a soft-deleted row (mirror of the archived-row guard), so the only mutation allowed is `restore`.
 - **vs cancel**: cancel writes to `ShipmentStatusLog`, changes lifecycle phase to `CANCELLED`, requires a reason, and pollutes lifecycle stats. Soft-delete is a side-flag with no lifecycle effect — use it when the row was created in error / is junk / needs to be hidden without explaining why.
 - **vs bulk-delete**: bulk-delete is permanent + cascade-removes related rows. Soft-delete preserves everything and can be undone.
+- **vs hard-delete-draft**: `POST /shipments/{id}/hard-delete/` (`ShipmentViewSet.hard_delete_draft`) is the per-shipment, **draft-only** twin of bulk-delete — admin/superuser only, refuses any non-draft with 400. Surfaced as the "Delete draft" button on `ShipmentDetailHero`. Both it and bulk-delete share `ShipmentViewSet._hard_delete_targets(user, targets)` for the quota cleanup + audit + cascade. Use it to purge a junk draft scratch row outright; use cancel/soft-delete once a shipment has left `draft`.
 
 ## Database
 

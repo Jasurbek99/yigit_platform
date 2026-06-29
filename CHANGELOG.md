@@ -5,6 +5,15 @@ All notable changes to the YGT Platform.
 ## [Unreleased]
 
 ### Added
+- **Admin can permanently delete a draft shipment from the detail page** (feat(p3) + feat(frontend)).
+  New `POST /api/v1/export/shipments/{id}/hard-delete/` (`ShipmentViewSet.hard_delete_draft`) —
+  admin/superuser only, refuses any non-draft shipment with 400. Shares the quota cleanup +
+  audit + cascade with `bulk-delete` via the extracted `_hard_delete_targets(user, targets)`
+  helper. Surfaced as a "Delete draft" danger button on `ShipmentDetailHero` (visible only when
+  `status_code === 'draft'` and the user is admin/superuser); the `useHardDeleteDraftShipment`
+  hook `removeQueries` the detail key (no 404 refetch flash) and the component navigates to
+  `/export/shipments`. i18n in tk/ru/en. 3 new backend tests. (`api-contract.md`,
+  `api-endpoint-map.md`, `shipment-lifecycle.md`, `quota-management.md` updated.)
 - **Weekly "fill the local sell plan" task for the seller role** (feat(p3) + db + feat(frontend)).
   New non-shipment `Task` kind `local_sell_plan` (`export.0051`), mirroring the weekly harvest-plan
   task: one shared role-wide task per ISO week (`assignee_role='seller'`, `assignee_user=null`,

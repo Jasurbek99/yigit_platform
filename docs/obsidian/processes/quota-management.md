@@ -103,6 +103,7 @@ When a shipment is removed from the operational pool, its approved kg should ret
 | `POST /shipments/{id}/soft-delete/` | Row preserved | ❌ No | ✅ `POST /restore/` re-counts the same row |
 | `POST /shipments/{id}/cancel/` | Row preserved (draft rows deleted; approved rows kept) | ❌ No | Only via un-cancel transition |
 | `POST /shipments/bulk-delete/` (admin) | **Row hard-deleted** (drafts + approveds) | ❌ No | ❌ Permanent — shipment is gone |
+| `POST /shipments/{id}/hard-delete/` (admin, draft only) | **Row hard-deleted** (same cleanup as bulk-delete) | ❌ No | ❌ Permanent — draft is gone |
 | Historical Excel import (no `shipment_id`) | Row exists, `shipment` is NULL | ✅ Yes | — |
 
 Every action above busts the `fifo_usage:tomato` / `fifo_usage:pepper` cache via `invalidate_quota_caches()` so the firm's balance updates immediately. The quota dashboard cache (60s TTL, parametrised by season/date) is left to expire on its own.

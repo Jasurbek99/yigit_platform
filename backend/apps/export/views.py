@@ -609,6 +609,23 @@ class ShipmentViewSet(ModelViewSet):
                 {'deleted': 0, 'approved_quota_to_reconcile': []},
             )
 
+        return Response(self._hard_delete_targets(request.user, targets))
+
+    @staticmethod
+    def _hard_delete_targets(user, targets):
+        """Permanently delete the given shipments and release their quota.
+
+        Args:
+            user: User performing the deletion (for audit attribution).
+            targets: list of ``{'id', 'shipment_code'}`` dicts to delete.
+
+        Returns:
+            dict of counts — the response body shared by bulk_delete (admin
+            multi-select) and hard_delete_draft (per-draft delete from the
+            detail page). Keys: ``deleted``, ``cascade_rows_deleted``,
+            ``draft_quota_deleted``, ``approved_quota_released``,
+            ``approved_quota_to_reconcile``.
+        """
         found_ids = [row['id'] for row in targets]
 
         with transaction.atomic():
@@ -631,13 +648,13 @@ class ShipmentViewSet(ModelViewSet):
 
             audit_rows = [
                 AuditLog(
-                    user=request.user,
+                    user=user,
                     action='delete',
                     model_name='Shipment',
                     object_id=row['id'],
                     object_repr=row['shipment_code'] or '',
                     detail=(
-                        f"HARD DELETE by {request.user.username} "
+                        f"HARD DELETE by {user.username} "
                         f"(quota released: {approved_count} approved, "
                         f"{draft_count} draft)"
                     ),
@@ -654,16 +671,49 @@ class ShipmentViewSet(ModelViewSet):
 
         logger.warning(
             'Hard-deleted %d shipments by user=%s ids=%s (released %d approved + %d draft quota rows)',
-            len(found_ids), request.user.username, found_ids, approved_count, draft_count,
+            len(found_ids), user.username, found_ids, approved_count, draft_count,
         )
 
-        return Response({
+        return {
             'deleted': len(found_ids),
             'cascade_rows_deleted': deleted_count,
             'draft_quota_deleted': draft_count,
             'approved_quota_released': approved_count,
             'approved_quota_to_reconcile': approved_ids,
-        })
+        }
+
+    @action(detail=True, methods=['post'], url_path='hard-delete')
+    def hard_delete_draft(self, request, pk=None):
+        """POST /api/v1/export/shipments/{id}/hard-delete/
+
+        Permanently delete a single DRAFT shipment from the detail page,
+        cascading its comments, status_log, firm_splits, block_sources,
+        pallets, quality, tasks and custom field values, and releasing any
+        quota usage rows. Drafts are pre-lifecycle scratch rows; once a
+        shipment has advanced past 'draft', use cancel (a lifecycle decision)
+        or soft-delete (the restorable trash flag) instead.
+
+        Permissions: admin role or superuser only — destructive, irreversible.
+        Returns 400 if the shipment is not in 'draft' status.
+        """
+        is_super = getattr(request.user, 'is_superuser', False)
+        role = getattr(request.user, 'role', None)
+        if not is_super and role != 'admin':
+            return Response(
+                {'error': 'Only admin can permanently delete shipments.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        shipment = self.get_object()
+        if shipment.status.code != 'draft':
+            return Response(
+                {'error': 'Only draft shipments can be permanently deleted. '
+                          'Cancel or soft-delete active shipments instead.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        targets = [{'id': shipment.id, 'shipment_code': shipment.shipment_code}]
+        return Response(self._hard_delete_targets(request.user, targets))
 
     # Soft-delete (deactivate) — "trash" flag distinct from cancel. Cancel
     # writes to ShipmentStatusLog and changes lifecycle status; soft-delete
