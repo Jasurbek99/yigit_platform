@@ -162,6 +162,8 @@ export const MOCK_SHIPMENT_DETAIL: IShipmentDetail = {
       link: '/export/shipments/1',
       scope_year: null,
       scope_week: null,
+      scope_block: null,
+      scope_block_code: null,
     },
     {
       id: 3,
@@ -187,6 +189,8 @@ export const MOCK_SHIPMENT_DETAIL: IShipmentDetail = {
       link: '/export/shipments/1',
       scope_year: null,
       scope_week: null,
+      scope_block: null,
+      scope_block_code: null,
     },
   ],
   in_phase_seconds: 14400,

@@ -40,6 +40,7 @@ export function PlanTaskCard({ task }: IPlanTaskCardProps) {
       ? `W${task.scope_week}/${task.scope_year}`
       : null;
 
+  const blockLabel = task.scope_block_code;
   const stateLabel = t(`tasks.state.${task.state}`);
 
   return (
@@ -48,7 +49,7 @@ export function PlanTaskCard({ task }: IPlanTaskCardProps) {
       tabIndex={0}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
-      aria-label={`${t(task.title_key)}${weekLabel ? ` ${weekLabel}` : ''}, ${stateLabel}`}
+      aria-label={`${t(task.title_key)}${blockLabel ? ` ${blockLabel}` : ''}${weekLabel ? ` ${weekLabel}` : ''}, ${stateLabel}`}
       style={{
         background: COLORS.white,
         border: '1px solid #f0f0f0',
@@ -85,6 +86,14 @@ export function PlanTaskCard({ task }: IPlanTaskCardProps) {
         >
           {t(task.title_key)}
         </Text>
+        {blockLabel && (
+          <Tag
+            color="blue"
+            style={{ fontSize: 10, lineHeight: '16px', padding: '0 4px', margin: 0 }}
+          >
+            {blockLabel}
+          </Tag>
+        )}
       </div>
 
       {/* Row 2: week label + state tag */}

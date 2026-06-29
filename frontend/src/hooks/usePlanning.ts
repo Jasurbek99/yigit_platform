@@ -364,6 +364,10 @@ export function useUpsertDayEntry() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['day-entries'] });
+      // Refetch /me/tasks/ so the backend's lazy resolver re-evaluates the
+      // block manager's "fill weekly plan" task — it flips to done once the
+      // week's plan cells are filled (an explicit 0 counts as a filled value).
+      queryClient.invalidateQueries({ queryKey: ['my-tasks'] });
     },
   });
 }
