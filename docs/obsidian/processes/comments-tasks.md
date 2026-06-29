@@ -295,6 +295,10 @@ The `TaskViewSet` at `/api/v1/export/tasks/` exposes the structured task engine 
 
 `get_queryset()` calls `select_related('shipment', 'rule', 'assignee_user')` — collapses all joins into a single SQL query. The list endpoint executes at most 2 queries (auth session + tasks with joins). Verified by `test_list_query_count_bounded` (`assertLessEqual(num_queries, 6)`).
 
+**Soft-deleted shipments are excluded.** Both `/api/v1/export/tasks/` (`TaskViewSet`) and `/api/v1/me/tasks/` filter `Q(shipment__isnull=True) | Q(shipment__deleted_at__isnull=True)` — a task whose parent shipment was soft-deleted (`deleted_at IS NOT NULL`) never reaches the task board (its sheet-backed field editors would be dead anyway, since the sheet endpoint also hides deleted shipments). Non-shipment plan tasks (`shipment IS NULL`) are kept. The Shipment Kanban `board` action already scopes to live shipments, so it was unaffected.
+
+**SelfBoard pagination.** The SelfBoard renders ALL of a user's tasks (active columns + done-today + history) from a single `/me/tasks/` fetch. The default `StandardPagination` 200-cap silently dropped the newest tasks once a role's backlog (incl. done history) crossed the page — with `deadline ASC` ordering, the freshest/just-created tasks sorted last and fell off. `/me/tasks/` now uses `TaskBoardPagination` (`page_size=1000`, `max_page_size=2000`) and the `useMyTasks` hook requests `?page_size=1000`. If a single role ever exceeds that, the board would need true multi-page loading or a history split.
+
 ### Backfill
 
 For existing shipments: `python manage.py backfill_tasks [--dry-run] [--limit N]`. Idempotent.
