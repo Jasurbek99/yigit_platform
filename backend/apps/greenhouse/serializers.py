@@ -8,12 +8,31 @@ class WeeklyHarvestPlanSerializer(serializers.ModelSerializer):
     # === Computed display fields ===
     block_code = serializers.CharField(source='block.code', read_only=True)
     block_name = serializers.CharField(source='block.name', read_only=True)
+    block_manager_names = serializers.SerializerMethodField()
     season_name = serializers.CharField(source='season.name', read_only=True)
     entered_by_name = serializers.CharField(source='entered_by.username', read_only=True)
 
     # === Late-edit extension (read-only) ===
     late_edit_granted_by_name = serializers.SerializerMethodField()
     late_edit_active = serializers.SerializerMethodField()
+
+    def get_block_manager_names(self, obj: WeeklyHarvestPlan) -> list[str]:
+        """Return display names of the block's active managers.
+
+        Reads the `active_manager_assignments` prefetch set by the viewset to
+        stay N+1-safe; falls back to a live query if the prefetch is absent.
+        """
+        assignments = getattr(obj.block, 'active_manager_assignments', None)
+        if assignments is None:
+            assignments = obj.block.manager_assignments.filter(
+                is_active=True
+            ).select_related('user')
+        names = []
+        for assignment in assignments:
+            user = assignment.user
+            full_name = f'{user.first_name} {user.last_name}'.strip()
+            names.append(full_name or user.username)
+        return names
 
     def get_late_edit_granted_by_name(self, obj: WeeklyHarvestPlan) -> str | None:
         """Return the display name of the admin who granted the late-edit extension."""
@@ -36,6 +55,7 @@ class WeeklyHarvestPlanSerializer(serializers.ModelSerializer):
         model = WeeklyHarvestPlan
         fields = [
             'id', 'season', 'season_name', 'block', 'block_code', 'block_name',
+            'block_manager_names',
             'week_number', 'year',
             'locked_at',
             # Late-edit extension fields
@@ -45,7 +65,7 @@ class WeeklyHarvestPlanSerializer(serializers.ModelSerializer):
             'entered_by_name', 'created_at', 'updated_at',
         ]
         read_only_fields = [
-            'block_code', 'block_name', 'season_name',
+            'block_code', 'block_name', 'block_manager_names', 'season_name',
             'entered_by_name',
             'locked_at', 'created_at', 'updated_at',
             'late_edit_granted_until', 'late_edit_granted_by', 'late_edit_granted_by_name',

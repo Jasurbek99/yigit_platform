@@ -4,6 +4,14 @@ All notable changes to the YGT Platform.
 
 ## [Unreleased]
 
+### Added
+- **Responsible block manager shown on the Weekly Plan grid** (feat(frontend) + feat(p3)).
+  `WeeklyHarvestPlanSerializer` now returns `block_manager_names` (string array of the block's
+  active `BlockManagerAssignment` users — full name, falling back to username), prefetched
+  N+1-safe via `active_manager_assignments`. The grid renders the names under the block name
+  (and under the block-code tag in the transposed view).
+  (`docs/obsidian/processes/weekly-harvest-planning.md` updated.)
+
 ### Changed
 - **Sheet rows scoped to a sales rep's own customers** (feat(p3)). The Shipment Sheet (`GET /api/v1/export/shipments/sheet/`) now filters its `results` to shipments whose `customer.sales_rep` is the requesting user when that user's role is `sales_rep` (and they are not a superuser) — a rep only sees columns for customers assigned to them; shipments with a null customer are excluded; a rep with no assigned customers gets an empty list. The filter also covers the `?shipment=<id>` drawer path, so a rep cannot open an unowned shipment. Management (`admin`/`export_manager`/`director`) and every other operational role (loading/transport/document_team/finansist/etc., who work by status phase not customer) see all rows unchanged; the global config (`rows`/`row_settings`/`users_index`) is identical regardless. Mirrors the ownership rule already used by `/export/shipments/my-sales-reports/`. 3 new tests; full sheet suite (38) green. (`api-contract.md`, `screens/shipment-sheet.md` updated.)
 

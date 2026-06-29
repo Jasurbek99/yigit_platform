@@ -26,6 +26,7 @@ import {
   ClockCircleOutlined,
   UndoOutlined,
   BulbOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -395,6 +396,12 @@ export default function WeeklyPlanGrid() {
             </Tag>
           )}
           <div style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 2 }}>{row.block_name}</div>
+          {row.block_manager_names.length > 0 && (
+            <div style={{ color: COLORS.textMuted, fontSize: 10, marginTop: 1 }}>
+              <UserOutlined style={{ marginRight: 3 }} />
+              {row.block_manager_names.join(', ')}
+            </div>
+          )}
         </div>
       ),
     },
@@ -435,6 +442,11 @@ export default function WeeklyPlanGrid() {
         title: (
           <div style={{ textAlign: 'center' as const }}>
             <Tag color={isMine ? 'gold' : 'blue'}>{p.block_code}</Tag>
+            {p.block_manager_names.length > 0 && (
+              <div style={{ color: COLORS.textMuted, fontSize: 10, fontWeight: 400, marginTop: 1 }}>
+                {p.block_manager_names.join(', ')}
+              </div>
+            )}
           </div>
         ),
         key: p.block_code,

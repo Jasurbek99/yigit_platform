@@ -1,6 +1,7 @@
 import logging
 
 from django.db import transaction
+from django.db.models import Prefetch
 from django.utils import timezone
 from rest_framework import status as http_status
 from rest_framework.decorators import action
@@ -55,6 +56,14 @@ class WeeklyHarvestPlanViewSet(ModelViewSet):
 
     queryset = WeeklyHarvestPlan.objects.select_related(
         'season', 'block', 'entered_by',
+    ).prefetch_related(
+        Prefetch(
+            'block__manager_assignments',
+            queryset=BlockManagerAssignment.objects.filter(
+                is_active=True
+            ).select_related('user'),
+            to_attr='active_manager_assignments',
+        ),
     ).order_by('year', 'week_number', 'block__code')
 
     def get_queryset(self):

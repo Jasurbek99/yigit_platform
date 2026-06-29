@@ -152,7 +152,7 @@ A `late_edit_granted_until` that is in the future bypasses the gate — the wind
 
 | Method | Endpoint | Action | Auth |
 |--------|----------|--------|------|
-| GET | `/api/v1/greenhouse/harvest-plans/` | List weekly containers | IsAuthenticated |
+| GET | `/api/v1/greenhouse/harvest-plans/` | List weekly containers. Each row includes `block_manager_names` — a string array of the block's **active** `BlockManagerAssignment` users (full name, falling back to username). The Weekly Plan grid renders these under the block name (and under the block-code tag in the transposed view). N+1-safe via a filtered `block__manager_assignments` prefetch (`active_manager_assignments`). | IsAuthenticated |
 | GET | `/api/v1/greenhouse/harvest-plans/{id}/` | Container detail | IsAuthenticated |
 | PATCH | `/api/v1/greenhouse/harvest-plans/{id}/` | Update container fields (locked_at) | IsAuthenticated + block auth |
 | POST | `/api/v1/greenhouse/harvest-plans/initialize-week/` | Create container rows for all active top-level blocks | greenhouse_manager / admin |

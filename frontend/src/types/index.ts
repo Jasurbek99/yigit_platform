@@ -53,6 +53,8 @@ export interface ICountry {
   name_ru: string | null;
   name_en: string | null;
   code: string | null;
+  /** Local sale currency for this destination (KZ→KZT, RU→RUB). Null when unset. */
+  currency?: string | null;
   /** Sheet cell color (hex like "#fde68a") — paints cells whose country = this row. */
   color?: string | null;
   sort_order?: number;
@@ -843,6 +845,7 @@ export interface IWeeklyHarvestPlan {
   block: number;
   block_code: string;
   block_name: string;
+  block_manager_names: string[];
   week_number: number;
   year: number;
   locked_at: string | null;
@@ -1008,6 +1011,8 @@ export interface IShipmentQuality {
 
 // ─── Sales Report (rich, line-item + expense tables) ──────────────────────────
 
+// String code union — kept as type for category_code on read responses and IExpenseRow.
+// The wire format now uses integer PKs for mutations (category: number in ISalesReportExpenseInput).
 export type SalesReportExpenseCategory =
   | 'TOM_ROSHOD'
   | 'NAKLIYE'
@@ -1031,6 +1036,18 @@ export type SalesReportExpenseCategory =
   | 'PEREWOT'
   | 'OTHER';
 
+// Admin-managed expense category template (from GET /api/v1/export/expense-categories/)
+export interface IExpenseCategory {
+  readonly id: number;
+  readonly code: string;
+  readonly name_tk: string;
+  readonly name_ru: string | null;
+  readonly name_en: string | null;
+  readonly logo_code: string | null;
+  readonly sort_order: number;
+  readonly is_active: boolean;
+}
+
 export interface ISalesReportLineItem {
   readonly line_number: number;
   readonly product_name: string | null;
@@ -1040,8 +1057,11 @@ export interface ISalesReportLineItem {
 }
 
 export interface ISalesReportExpense {
-  readonly category: SalesReportExpenseCategory;
-  readonly category_display: string;   // read-only label from server
+  // BREAKING CHANGE (Phase 1): category is now integer PK on the wire
+  readonly category: number;
+  readonly category_code: string;      // read-only string code from server
+  readonly category_display: string;   // read-only localized label from server
+  readonly logo_code: string | null;   // read-only
   readonly label_raw: string | null;   // verbatim original text (import fidelity)
   readonly amount_local: string;       // Decimal as string
 }
@@ -1087,7 +1107,8 @@ export interface ISalesReportLineItemInput {
 }
 
 export interface ISalesReportExpenseInput {
-  category: SalesReportExpenseCategory;
+  // BREAKING CHANGE (Phase 1): category is now integer PK
+  category: number;
   label_raw?: string | null;
   amount_local: number | string;
 }
@@ -1543,6 +1564,10 @@ export interface ITaskListItem {
   link: string;
   scope_year: number | null;
   scope_week: number | null;
+  /** Block PK a weekly_plan task covers; null for shipment tasks. */
+  scope_block: number | null;
+  /** Block code (e.g. "K") a weekly_plan task covers; null for shipment tasks. */
+  scope_block_code: string | null;
 }
 
 export interface ITaskDetail extends ITaskListItem {
