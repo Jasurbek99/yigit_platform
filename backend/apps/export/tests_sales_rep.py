@@ -575,3 +575,68 @@ class TestCustomerPatchSalesRepValidation(TestCase):
         # returns 400 with a 'does not exist' DRF validation error (not our custom
         # validate_sales_rep message, but still 400).
         self.assertEqual(resp.status_code, 400, resp.content)
+
+
+# ---------------------------------------------------------------------------
+# Test: sales_rep can POST a sales report (regression for can_create 403)
+# ---------------------------------------------------------------------------
+
+class TestSalesReportPostPermission(TestCase):
+    """POST /api/v1/export/shipments/{id}/sales-report/ for a sales_rep.
+
+    Regression: the frontend always POSTs, which DynamicResourcePermission
+    mapped to shipment.can_create — False for sales_rep (_VE) — and 403'd
+    before the action body's own role gate ran. The action now drops the
+    shipment-scoped resource permission; its body gate is the sole authority.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command('seed_permissions', verbosity=0)
+        cls.rep = _make_user('rep_sr_post', 'sales_rep')
+        cls.season = _make_season()
+        cls.status_4 = _make_status('yola_chykdy_srp', step_order=4, phase='TRANSIT')
+        cls.status_1 = _make_status('draft_srp', step_order=1, phase='PREP')
+        cls.kz = _make_country('KZP')
+        cls.cust = _make_customer('CustSRPost', sales_rep=cls.rep)
+        cls.ship = _make_shipment(
+            '0505001/25', cls.kz, cls.status_4, customer=cls.cust, season=cls.season
+        )
+
+    def setUp(self):
+        cache.clear()
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.rep)
+
+    def test_sales_rep_can_post_sales_report(self):
+        """sales_rep POSTing a new report on a departed shipment → 200."""
+        resp = self.client.post(
+            f'/api/v1/export/shipments/{self.ship.id}/sales-report/',
+            {'notes': 'Karaganda'},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertTrue(SalesReport.objects.filter(shipment=self.ship).exists())
+
+    def test_sales_rep_post_blocked_before_departure(self):
+        """A pre-departure (step < 4) shipment still returns 400, not 403."""
+        early = _make_shipment(
+            '0505002/25', self.kz, self.status_1, customer=self.cust, season=self.season
+        )
+        resp = self.client.post(
+            f'/api/v1/export/shipments/{early.id}/sales-report/',
+            {'notes': 'too early'},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.content)
+
+    def test_unprivileged_role_still_forbidden(self):
+        """A role outside the action's gate (e.g. transport) → 403."""
+        transport = _make_user('transport_srp', 'transport')
+        self.client.force_authenticate(user=transport)
+        resp = self.client.post(
+            f'/api/v1/export/shipments/{self.ship.id}/sales-report/',
+            {'notes': 'nope'},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 403, resp.content)

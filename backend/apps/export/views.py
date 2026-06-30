@@ -110,7 +110,16 @@ class ShipmentViewSet(ModelViewSet):
     _OPEN_ACTIONS = {'soft_delete', 'restore', 'set_column_color'}
 
     def get_permissions(self):
-        if getattr(self, 'action', None) in self._OPEN_ACTIONS:
+        action = getattr(self, 'action', None)
+        if action in self._OPEN_ACTIONS:
+            return [IsAuthenticated()]
+        if action == 'set_sales_report':
+            # This action writes the `sales_report` resource (where sales_rep
+            # HAS create rights), not `shipment`. The frontend always POSTs, so
+            # the shipment-scoped DynamicResourcePermission maps it to
+            # shipment.can_create — False for sales_rep (_VE) — and 403s before
+            # the body runs. The method body enforces its own role gate
+            # (PRIVILEGED_ROLES | {'sales_rep'}), so that is the sole authority.
             return [IsAuthenticated()]
         return super().get_permissions()
 

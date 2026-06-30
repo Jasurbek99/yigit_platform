@@ -5,6 +5,20 @@ All notable changes to the YGT Platform.
 ## [Unreleased]
 
 ### Added
+- **Link shipments to an advance from the UI** (feat(frontend)).
+  Two paths, both wiring up backend support that previously had no UI:
+  - **New Advance modal** — a self-fetching, search-driven multi-select (`ShipmentMultiSelect`)
+    that sends `shipment_ids` on create (`FinansistAdvanceCreateSerializer.shipment_ids`).
+  - **Existing advance** — the row-expansion "Linked shipments" panel now has an attach control
+    (`ShipmentSelect` + allocated amount) calling `POST /advances/{id}/link-shipment/` and a
+    per-row unlink button calling `DELETE /advances/{id}/unlink-shipment/{shipment_id}/`
+    (hooks `useLinkShipmentToAdvance` / `useUnlinkShipmentFromAdvance`).
+
+  Previously the modal never sent `shipment_ids` and there was no link/unlink UI, so every
+  UI-created advance was unlinked and the Sheet's R24 "Resminama pul berildi" cell
+  (`has_doc_advance`, read-only, driven by `Exists(FinansistAdvanceShipment)`) could never
+  flip to ✓. All three mutations invalidate `SHEET_QUERY_KEY` so the R24 cell updates
+  immediately. i18n in tk/ru/en. (`advances-reconciliation.md` updated.)
 - **Task Engine guard: system check for renamed-field drift** (fix(p3)).
   New `apps/export/checks.py` (`check_task_rule_fields`, registered under `Tags.database` via
   `ExportConfig.ready()`) fails `manage.py migrate` / `check --database` when any active
@@ -49,12 +63,65 @@ All notable changes to the YGT Platform.
   (`docs/obsidian/processes/weekly-harvest-planning.md` updated.)
 
 ### Changed
+- **Weekly-plan tasks are now per-block, not per-manager** (feat(p3) + db + feat(frontend)).
+  A `weekly_plan` Task previously covered *all* of a manager's blocks at once and only
+  completed when every block's whole week was filled — so filling block K but not L (or
+  leaving the unmeasured Sunday cell blank) left the task stuck OPEN. Added `Task.scope_block`
+  FK (`export.0050`, nullable, `SET_NULL`); the generator now creates one task per
+  active `(manager, block)` pair and each resolves independently. Completion now checks
+  **Mon–Sat only** — Sunday is not measured, so a blank Sunday cell no longer blocks (explicit
+  `0` still counts as filled). `TaskListSerializer` exposes `scope_block` + `scope_block_code`;
+  `PlanTaskCard` shows the block code; the plan grid's day-entry mutation invalidates `my-tasks`
+  so a filled block's task flips to done on the next board refresh rather than the 60 s poll.
+  Cleanup replaced 30 stuck/duplicate legacy null-block tasks (W25+W27 2026) with proper
+  per-block tasks. Tests updated for per-block + skip-Sunday semantics.
+  (`docs/obsidian/processes/comments-tasks.md` updated.)
+
+### Added
+- **Fix Sales Report Phase 1 — backend foundation** (feat(p3) + db). Replaced the static
+  `ExpenseCategory` TextChoices field on `SalesReportExpense.category` with an FK to a new
+  admin-managed `ExpenseCategory` model (`export_expense_categories` table), so admins can
+  add custom expense types without a code release. Wire format: `expenses[].category` is now
+  an integer PK (was a string code like `"NDS"`); read response adds `category_code`,
+  `category_display` (English label), `logo_code`. The 21 original codes were seeded by
+  migration `0049_seed_expense_categories` with names from the i18n JSON (tk/ru/en). New CRUD
+  endpoint `GET|POST|PATCH|DELETE /api/v1/export/expense-categories/`; write roles:
+  `admin`/`director`/`export_manager`. `Country.currency` added to `core.countries`
+  (migration `core.0024`), seeded KZ→`KZT`, RU→`RUB`; the sales-report view now defaults
+  `currency` from `shipment.country.currency` on first create, falling back to `'KZT'`.
+  The old `ExpenseCategory` enum is renamed `ExpenseCategoryEnum` and kept as a seed reference
+  only. Serializer test added: admin-added (non-seed) category accepted without a code release.
+  (`docs/obsidian/reference/sales-report-model.md` created; `api-contract.md` updated.)
+- **Fix Sales Report Phase 2 — full-page report split into Sale + Processing** (feat(frontend)).
+  Replaced the sales-report drawer (for the `SalesRepReports` worklist flow) with a routed
+  full page `SalesReportPage` at `/export/sales-reports/:shipmentId`, modelled on the Excel
+  "Export Hasabat" sheet. Two tabs over one `SalesReport`: **Sale** (sales rep — line items +
+  every active expense category **pre-listed** as a fixed row, blank rows dropped on save) and
+  **Processing** (export manager — Kurs/exchange rate, loaded vs. sold weight + the derived
+  "Tapawutly" difference, per-block kilograms from `block_sources`, USD totals/net income).
+  Currency auto-fills from the shipment's destination country (`Country.currency`, now exposed on
+  `CountrySerializer`) and stays editable; `useExpenseCategories` hook + `FixedExpensesTable`
+  added. The old `SalesReportDrawer`/`SalesReportPanel` remain for the ShipmentDetail +
+  OverdueReports surfaces (now PK-compatible). One save persists both tabs (both panes stay
+  mounted; `weight_rejected_kg` derived client-side).
+- **Fix Sales Report Phase 3 — expense-template admin screen** (feat(frontend) + feat(p3)).
+  New page `ExpenseTemplatePage` (route `/admin/expense-template`) — ProTable CRUD over
+  `/export/expense-categories/` to manage categories, their tk/ru/en names, `sort_order`,
+  `is_active`, and `logo_code` (the future LOGO-ERP account ref; no sync wired yet). Gated by the
+  new **non-admin** pageCode `export.expense_template` (AD-15: admin/director/export_manager
+  inherit it, restricted-set roles do not), seeded via `seed_permissions` (15 rows,
+  get_or_create — no existing grants touched). `code` is immutable after create; deleting an
+  in-use category returns 409 (centralised `ProtectedError` handler) instead of 500;
+  `?is_active=` filtering enabled on the viewset.
+
+### Changed
 - **Sheet rows scoped to a sales rep's own customers** (feat(p3)). The Shipment Sheet (`GET /api/v1/export/shipments/sheet/`) now filters its `results` to shipments whose `customer.sales_rep` is the requesting user when that user's role is `sales_rep` (and they are not a superuser) — a rep only sees columns for customers assigned to them; shipments with a null customer are excluded; a rep with no assigned customers gets an empty list. The filter also covers the `?shipment=<id>` drawer path, so a rep cannot open an unowned shipment. Management (`admin`/`export_manager`/`director`) and every other operational role (loading/transport/document_team/finansist/etc., who work by status phase not customer) see all rows unchanged; the global config (`rows`/`row_settings`/`users_index`) is identical regardless. Mirrors the ownership rule already used by `/export/shipments/my-sales-reports/`. 3 new tests; full sheet suite (38) green. (`api-contract.md`, `screens/shipment-sheet.md` updated.)
 
 ### Added
 - **Interactive end-to-end export BPMN** (docs). New self-contained, offline `docs/diagrams/export-process-bpmn.html` mapping the full export value chain across 8 role swimlanes: weekly harvest planning → quota acquisition → contract → cargo/forecast-pool draft (+ two-row join) → assign/firm-splits/quota-sync/contract-link/doc-gen → TM customs → loading → transit & border → destination, sales & report. The 13-step lifecycle (steps 0–12) is rendered as BPMN tasks coloured by phase with the `has_peregruz` exclusive gateway; every node is click-for-detail (role, action, fields with Sheet rows, trigger field, side-effects, source refs) and sub-process modals cover planning, quota, contract bridge (ADR-023), draft join, doc generation, auto-advance cascade and cancel. Source-verified against `apps/export/services/shipment.py` (TRANSITIONS), `seed_task_rules.py` (real per-status trigger fields), the greenhouse planning + quota_sync + harvest_forecast services and the contracts module. Pan/zoom, hover-trace, phase legend. Linked from `docs/obsidian/processes/shipment-lifecycle.md`.
 
 ### Fixed
+- **sales_rep got 403 when saving a sales report** (fix(p3)). The `sales-report` action self-gates with `PRIVILEGED_ROLES | {'sales_rep'}` in its body, but `ShipmentViewSet.resource_code='shipment'` meant `DynamicResourcePermission` ran first and mapped the request to a `shipment` permission. The frontend always **POSTs** (`useSaveSalesReport`, get-or-create on the backend), and `sales_rep` has `_VE` on `shipment` (view + edit, **no create**), so the POST was rejected as `shipment.can_create=False` with DRF's default `"You do not have permission to perform this action."` before the body's own role gate ran — yet the report's true resource is `sales_report`, where `sales_rep` does hold create rights. `get_permissions` now returns `[IsAuthenticated()]` for `set_sales_report`, making the body's role gate the sole authority (granting `shipment.can_create` was rejected — it would also unlock whole-shipment POST). New `TestSalesReportPostPermission` (3 tests: rep POST→200, pre-departure→400, unprivileged role→403); 28 sales_rep tests green.
 - **Transport couldn't edit the "Ýol güni we temperatura" (transit-days + temperature) Sheet cell** (fix(p3)). This is the virtual row `transit_days_temp` (R26) — one input editing two real fields (`transit_days` + `transport_temp_c`). The inline edit gate `can_edit_sheet_field` delegates the virtual key to the real `transit_days` field perm, but the batch `get_sheet_edit_map` (which feeds the frontend's `can_current_user_edit`, the flag that enables/disables the cell) did **not** delegate — it field-perm-checked the virtual key `transit_days_temp`, which no role holds in `RoleFieldPermission`, so it always returned `False`. Result: transport saw the cell as read-only even though a PATCH would have succeeded. Hoisted `_VIRTUAL_FIELD_DELEGATES` to module scope and made `get_sheet_edit_map` delegate virtual keys exactly like `can_edit_sheet_field`, so the display gate and the write gate can never disagree. New `TestVirtualFieldDelegation` (3 tests); 67 sheet-perm/sheet tests green.
 - **loading_dept_head (Soltanmyrat) couldn't edit the "Ýyladyşhanadan çykdy" (greenhouse-departure) Sheet cell** (fix(p3)). `can_edit_sheet_field` AND-composes the SheetRowSetting trigger gate with the per-role `RoleFieldPermission` allowlist. The `departed_at` row's `role_triggers` already named `loading_dept_head`/`loading_dept_head_deputy`, but neither role was ever granted the `departed_at` field permission — only `warehouse_chief` (his deputies) had it. Migration 0013's docstring claimed the head should match the deputies' fields, but `departed_at` was the one field that diverged. New migration `0026_grant_departed_at_loading_dept_head` grants `departed_at` to `loading_dept_head` and `loading_dept_head_deputy` (idempotent, clears the perm cache); `seed_permissions` updated so a `--reset` keeps it. Both gates now pass for Soltanmyrat and his deputies.
 - **Sheet drag-to-reorder columns left a column rendered twice until refresh** (fix(frontend)). Reordering shipment columns by dragging a header sometimes left the dragged column displayed in two places; a page refresh cleared it. Cause: the column headers are virtualized (only the visible+overscan headers are mounted), but `SortableHeaderWrapper` applied dnd-kit's per-item sort `transform` on top of the virtualizer's absolute `left`. `horizontalListSortingStrategy` assumes *every* sortable item is mounted, so its "make room" transforms collided with the virtualizer's positioning and left a stale, displaced header behind on drop (cleared only by remount/refresh). The data itself was never duplicated (`filtered` and the backend both dedupe by id) — it was a render artifact. Fix: stop applying any dnd-kit `transform`/`transition` to in-list headers (the virtualizer owns their position) and render the dragged column via a `<DragOverlay>` clone instead, with the source header fading in place — the canonical dnd-kit + virtualization pattern. Trade-off: sibling columns no longer animate to "make room" mid-drag (the floating clone + drop is the feedback).
