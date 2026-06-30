@@ -5,6 +5,16 @@ All notable changes to the YGT Platform.
 ## [Unreleased]
 
 ### Added
+- **Task Engine guard: system check for renamed-field drift** (fix(p3)).
+  New `apps/export/checks.py` (`check_task_rule_fields`, registered under `Tags.database` via
+  `ExportConfig.ready()`) fails `manage.py migrate` / `check --database` when any active
+  `TaskRule.target_fields` or `condition_field` names a Shipment attribute that no longer exists.
+  Root cause it prevents: migration `0042` renamed `cargo_code` → `shipment_code` in the
+  Sheet/Comment/Notification tables but missed `TaskRule.target_fields`, so the stale
+  `fill_loading_data` rule referenced a dead field and the task could never auto-complete (hung
+  silently with all real data filled). The check mirrors the resolver's `hasattr(Shipment, ...)`
+  access and skips cleanly when tables aren't migrated yet. Live data already repaired via
+  `seed_task_rules` (rule re-seeded, 11 stale tasks reconciled, 9 auto-closed).
 - **Admin can permanently delete a draft shipment from the detail page** (feat(p3) + feat(frontend)).
   New `POST /api/v1/export/shipments/{id}/hard-delete/` (`ShipmentViewSet.hard_delete_draft`) —
   admin/superuser only, refuses any non-draft shipment with 400. Shares the quota cleanup +
