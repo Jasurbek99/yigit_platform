@@ -1,13 +1,15 @@
-import { useRef, useCallback, useMemo, useEffect } from 'react';
+import { useRef, useState, useCallback, useMemo, useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useTranslation } from 'react-i18next';
 import {
   DndContext,
+  DragOverlay,
   PointerSensor,
   useSensor,
   useSensors,
   closestCenter,
   type DragEndEvent,
+  type DragStartEvent,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -15,7 +17,6 @@ import {
   horizontalListSortingStrategy,
   arrayMove,
 } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import type {
   IShipmentSheetItem,
   IRowConfig,
@@ -73,17 +74,21 @@ function SortableHeaderWrapper({
     attributes,
     listeners,
     setNodeRef,
-    transform,
-    transition,
     isDragging,
   } = useSortable({ id: shipmentId, disabled });
 
+  // The virtualizer owns each header's absolute position via `left: vc.start`.
+  // dnd-kit's sorting strategy assumes EVERY sortable item is mounted, but only
+  // the visible+overscan headers are — so its per-item "make room" transforms
+  // collide with the virtualizer's `left` and leave a stale, displaced column
+  // rendered twice until the page is refreshed. We therefore do NOT apply
+  // dnd-kit's transform/transition to in-list items; the column being dragged
+  // is shown via <DragOverlay> instead. The source header just fades while it
+  // is the active drag target.
   const combinedStyle: React.CSSProperties = {
     ...style,
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-    cursor: disabled ? style.cursor : isDragging ? 'grabbing' : 'grab',
+    opacity: isDragging ? 0 : 1,
+    cursor: disabled ? style.cursor : 'grab',
     userSelect: 'none',
   };
 
@@ -200,6 +205,11 @@ export function SheetGrid({
   const reorderEnabled = canReorderColumns && !joinMode && !swapMode;
   const saveColumnOrder = useSaveSheetColumnOrder();
 
+  // Id of the shipment column currently being dragged — drives the <DragOverlay>
+  // clone (the only element that visually follows the cursor) and fades the
+  // source header in place. Cleared on drop / cancel.
+  const [activeDragId, setActiveDragId] = useState<number | null>(null);
+
   // Google-Sheets clipboard for the active cell: Ctrl+C / X / V + Delete.
   const { copyActiveCell, cutActiveCell, pasteActiveCell, deleteActiveCell } =
     useSheetClipboard(shipments, rows, rowSettings, user);
@@ -207,8 +217,13 @@ export function SheetGrid({
   // Ctrl+Z (undo) — pops the last Sheet cell write and replays its reverse.
   const applyUndo = useApplyUndo(shipments, rows);
 
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setActiveDragId(Number(event.active.id));
+  }, []);
+
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
+      setActiveDragId(null);
       const { active, over } = event;
       if (!over || active.id === over.id) return;
 
@@ -226,6 +241,10 @@ export function SheetGrid({
     },
     [shipments, setColumnOrder, saveColumnOrder],
   );
+
+  const handleDragCancel = useCallback(() => {
+    setActiveDragId(null);
+  }, []);
 
   // Scaled layout px — every cell width/height + the virtualizer's estimateSize
   // derive from the same zoom so the rendered grid and the virtualizer agree.
@@ -957,6 +976,11 @@ export function SheetGrid({
     [shipments],
   );
 
+  // The column being dragged, rendered as the floating <DragOverlay> clone.
+  const activeDragIndex =
+    activeDragId != null ? shipments.findIndex((s) => s.id === activeDragId) : -1;
+  const activeDragShipment = activeDragIndex >= 0 ? shipments[activeDragIndex] : null;
+
   // Inner header row content — extracted so it can be wrapped conditionally
   // in DndContext without duplicating the label-band JSX.
   const headerLabelBand = (
@@ -1055,12 +1079,40 @@ export function SheetGrid({
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
           autoScroll={{ threshold: { x: 0.15, y: 0 } }}
         >
           <SortableContext items={sortableIds} strategy={horizontalListSortingStrategy}>
             {headerRow}
           </SortableContext>
+          {/* The only element that visually follows the cursor while dragging.
+              In-list headers keep their virtualizer-owned position (no dnd-kit
+              transform), so no stale/duplicate column is left behind on drop. */}
+          <DragOverlay>
+            {activeDragShipment ? (
+              <div
+                className="sheet-col-header sheet-col-header--sortable"
+                style={{
+                  width: COL_WIDTH_SHIPMENT,
+                  height: ROW_HEIGHT,
+                  ...(activeDragShipment.column_color
+                    ? { borderTop: `3px solid ${activeDragShipment.column_color}` }
+                    : null),
+                }}
+              >
+                <SheetColumnHeader
+                  shipmentId={activeDragShipment.id}
+                  seqNumber={activeDragIndex + 1}
+                  exportCode={activeDragShipment.shipment_code}
+                  officialExportCode={activeDragShipment.export_code}
+                  columnColor={activeDragShipment.column_color}
+                  isCancelled={activeDragShipment.status_code === 'cancelled'}
+                />
+              </div>
+            ) : null}
+          </DragOverlay>
         </DndContext>
       ) : (
         headerRow
