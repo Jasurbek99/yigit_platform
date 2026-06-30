@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
+import { SHEET_QUERY_KEY } from '@/hooks/useShipmentSheet';
 import {
   MOCK_ADVANCES_RESPONSE,
   MOCK_ADVANCE_DETAILS,
@@ -123,6 +124,61 @@ export function useCreateAdvance() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['advances'] });
+      // Linked shipments flip the Sheet's R24 "Resminama pul berildi" cell.
+      queryClient.invalidateQueries({ queryKey: SHEET_QUERY_KEY });
+    },
+  });
+}
+
+export interface ILinkShipmentPayload {
+  advanceId: number;
+  shipment_id: number;
+  allocated_amount?: number | null;
+}
+
+export function useLinkShipmentToAdvance() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      advanceId,
+      shipment_id,
+      allocated_amount,
+    }: ILinkShipmentPayload): Promise<IFinansistAdvanceDetail> => {
+      const { data } = await api.post<IFinansistAdvanceDetail>(
+        `/export/advances/${advanceId}/link-shipment/`,
+        { shipment_id, allocated_amount: allocated_amount ?? null },
+      );
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['advances'] });
+      queryClient.setQueryData(['advances', data.id], data);
+      // A new link flips the Sheet's R24 "Resminama pul berildi" cell to ✓.
+      queryClient.invalidateQueries({ queryKey: SHEET_QUERY_KEY });
+    },
+  });
+}
+
+export function useUnlinkShipmentFromAdvance() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      advanceId,
+      shipmentId,
+    }: {
+      advanceId: number;
+      shipmentId: number;
+    }): Promise<IFinansistAdvanceDetail> => {
+      const { data } = await api.delete<IFinansistAdvanceDetail>(
+        `/export/advances/${advanceId}/unlink-shipment/${shipmentId}/`,
+      );
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['advances'] });
+      queryClient.setQueryData(['advances', data.id], data);
+      // Removing the last link flips the Sheet's R24 cell back to ✗.
+      queryClient.invalidateQueries({ queryKey: SHEET_QUERY_KEY });
     },
   });
 }

@@ -815,7 +815,17 @@
     "no_shipments": "No shipments linked",
     "notes": "Notes",
     "create_success": "Advance created",
-    "subtitle": "Customer advance payment tracker"
+    "subtitle": "Customer advance payment tracker",
+    "link_shipments": "Link shipments",
+    "link_shipments_help": "Shipments linked here are marked as having a document/customs advance — the Sheet's \"Resminama pul berildi\" cell turns ✓ for each.",
+    "link_shipments_placeholder": "Search by shipment code or customer",
+    "attach": "Attach",
+    "attach_placeholder": "Search shipment to attach",
+    "attach_success": "Shipment attached",
+    "attach_error": "Failed to update shipment links",
+    "already_linked": "Shipment is already linked to this advance",
+    "unlink_confirm": "Remove this shipment from the advance?",
+    "unlink_success": "Shipment removed"
   },
   "customers_admin": {
     "title": "Customers",

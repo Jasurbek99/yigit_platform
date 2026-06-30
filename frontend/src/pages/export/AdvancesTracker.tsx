@@ -10,6 +10,7 @@ import {
   Input,
   InputNumber,
   Modal,
+  Popconfirm,
   Radio,
   Row,
   Space,
@@ -18,7 +19,7 @@ import {
   Typography,
 } from 'antd';
 import { ProTable, type ProColumns } from '@ant-design/pro-components';
-import { IconCurrencyDollar, IconPlus } from '@tabler/icons-react';
+import { IconCurrencyDollar, IconPlus, IconTrash } from '@tabler/icons-react';
 import dayjs, { type Dayjs } from 'dayjs';
 import { toast } from 'sonner';
 import {
@@ -26,6 +27,8 @@ import {
   useAdvanceDetail,
   useReconcileAdvance,
   useCreateAdvance,
+  useLinkShipmentToAdvance,
+  useUnlinkShipmentFromAdvance,
 } from '@/hooks/useAdvances';
 import type { ICreateAdvancePayload } from '@/hooks/useAdvances';
 import type {
@@ -36,6 +39,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCustomsLedger } from '@/hooks/useCustomsExpenses';
 import { CustomsLedgerSummary } from '@/components/customsExpense/CustomsLedgerSummary';
 import { CustomsExpensesTab, CUSTOMS_EXPENSE_WRITE_ROLES } from '@/components/customsExpense/CustomsExpensesTab';
+import { ShipmentMultiSelect } from '@/components/ShipmentMultiSelect';
+import { ShipmentSelect } from '@/components/ShipmentSelect';
 import { COLORS, FONT } from '@/constants/styles';
 
 const { Text, Link } = Typography;
@@ -59,6 +64,7 @@ function formatMoney(amount: number, currency?: string): string {
 
 interface ILinkedShipmentsProps {
   advanceId: number;
+  canEdit: boolean;
   noShipmentsLabel: string;
   shipmentCodeLabel: string;
   allocatedAmountLabel: string;
@@ -66,16 +72,49 @@ interface ILinkedShipmentsProps {
 
 function LinkedShipmentsPanel({
   advanceId,
+  canEdit,
   noShipmentsLabel,
   shipmentCodeLabel,
   allocatedAmountLabel,
 }: ILinkedShipmentsProps): React.ReactElement {
+  const { t } = useTranslation();
   const { data, isLoading } = useAdvanceDetail(advanceId);
+  const linkShipment = useLinkShipmentToAdvance();
+  const unlinkShipment = useUnlinkShipmentFromAdvance();
+
+  const [pickedShipment, setPickedShipment] = useState<number | null>(null);
+  const [allocated, setAllocated] = useState<number | null>(null);
 
   const links: IAdvanceShipmentLink[] = data?.shipment_links ?? [];
+  const linkedIds = new Set(links.map((l) => l.shipment));
 
-  if (!isLoading && links.length === 0) {
-    return <Text type="secondary">{noShipmentsLabel}</Text>;
+  function handleAttach(): void {
+    if (pickedShipment == null) return;
+    if (linkedIds.has(pickedShipment)) {
+      toast.error(t('advances.already_linked'));
+      return;
+    }
+    linkShipment.mutate(
+      { advanceId, shipment_id: pickedShipment, allocated_amount: allocated },
+      {
+        onSuccess: () => {
+          toast.success(t('advances.attach_success'));
+          setPickedShipment(null);
+          setAllocated(null);
+        },
+        onError: () => toast.error(t('advances.attach_error')),
+      },
+    );
+  }
+
+  function handleUnlink(shipmentId: number): void {
+    unlinkShipment.mutate(
+      { advanceId, shipmentId },
+      {
+        onSuccess: () => toast.success(t('advances.unlink_success')),
+        onError: () => toast.error(t('advances.attach_error')),
+      },
+    );
   }
 
   const cols: ProColumns<IAdvanceShipmentLink>[] = [
@@ -93,21 +132,83 @@ function LinkedShipmentsPanel({
           ? Number(record.allocated_amount).toLocaleString()
           : '—',
     },
+    ...(canEdit
+      ? [
+          {
+            title: '',
+            key: 'actions',
+            width: 48,
+            search: false,
+            render: (_, record) => (
+              <Popconfirm
+                title={t('advances.unlink_confirm')}
+                onConfirm={() => handleUnlink(record.shipment)}
+                okText={t('common.yes')}
+                cancelText={t('common.no')}
+              >
+                <Button
+                  type="text"
+                  size="small"
+                  danger
+                  icon={<IconTrash size={16} />}
+                  loading={unlinkShipment.isPending}
+                />
+              </Popconfirm>
+            ),
+          } as ProColumns<IAdvanceShipmentLink>,
+        ]
+      : []),
   ];
 
   return (
-    <div style={{ maxWidth: 480 }}>
-      <ProTable<IAdvanceShipmentLink>
-        rowKey="shipment"
-        dataSource={links}
-        columns={cols}
-        loading={isLoading}
-        search={false}
-        options={false}
-        pagination={false}
-        size="small"
-        locale={{ emptyText: noShipmentsLabel }}
-      />
+    <div style={{ maxWidth: 520 }}>
+      {links.length === 0 && !isLoading ? (
+        <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
+          {noShipmentsLabel}
+        </Text>
+      ) : (
+        <ProTable<IAdvanceShipmentLink>
+          rowKey="shipment"
+          dataSource={links}
+          columns={cols}
+          loading={isLoading}
+          search={false}
+          options={false}
+          pagination={false}
+          size="small"
+          locale={{ emptyText: noShipmentsLabel }}
+        />
+      )}
+
+      {canEdit && (
+        <Space.Compact style={{ width: '100%', marginTop: 8 }}>
+          <ShipmentSelect
+            value={pickedShipment}
+            onChange={setPickedShipment}
+            placeholder={t('advances.attach_placeholder')}
+            size="small"
+            style={{ flex: 1 }}
+          />
+          <InputNumber<number>
+            value={allocated ?? undefined}
+            onChange={(v) => setAllocated(v ?? null)}
+            min={0}
+            precision={2}
+            size="small"
+            placeholder={allocatedAmountLabel}
+            style={{ width: 140 }}
+          />
+          <Button
+            type="primary"
+            size="small"
+            onClick={handleAttach}
+            loading={linkShipment.isPending}
+            disabled={pickedShipment == null}
+          >
+            {t('advances.attach')}
+          </Button>
+        </Space.Compact>
+      )}
     </div>
   );
 }
@@ -121,6 +222,7 @@ interface INewAdvanceFormValues {
   currency: string;
   purpose?: string;
   notes?: string;
+  shipment_ids?: number[];
 }
 
 interface INewAdvanceModalProps {
@@ -141,6 +243,7 @@ function NewAdvanceModal({ open, onClose }: INewAdvanceModalProps): React.ReactE
       currency: values.currency,
       purpose: values.purpose || undefined,
       notes: values.notes || undefined,
+      shipment_ids: values.shipment_ids?.length ? values.shipment_ids : undefined,
     } as ICreateAdvancePayload;
 
     createAdvance.mutate(payload, {
@@ -213,6 +316,16 @@ function NewAdvanceModal({ open, onClose }: INewAdvanceModalProps): React.ReactE
         </Form.Item>
         <Form.Item name="purpose" label={t('advances.purpose')}>
           <Input />
+        </Form.Item>
+        <Form.Item
+          name="shipment_ids"
+          label={t('advances.link_shipments')}
+          tooltip={t('advances.link_shipments_help')}
+        >
+          <ShipmentMultiSelect
+            placeholder={t('advances.link_shipments_placeholder')}
+            style={{ width: '100%' }}
+          />
         </Form.Item>
         <Form.Item name="notes" label={t('advances.notes')}>
           <Input.TextArea rows={3} />
@@ -501,6 +614,7 @@ function AdvancesTab({ canCreate }: IAdvancesTabProps): React.ReactElement {
               </Text>
               <LinkedShipmentsPanel
                 advanceId={record.id}
+                canEdit={canCreate}
                 noShipmentsLabel={t('advances.no_shipments')}
                 shipmentCodeLabel={t('advances.shipment_code')}
                 allocatedAmountLabel={t('advances.allocated_amount')}

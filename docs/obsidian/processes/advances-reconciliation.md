@@ -47,8 +47,10 @@ erDiagram
 |--------|----------|--------|
 | GET | `/api/v1/export/advances/` | List advances (filterable by reconciled status) |
 | GET | `/api/v1/export/advances/{id}/` | Detail with linked shipments |
-| POST | `/api/v1/export/advances/` | Create new advance |
+| POST | `/api/v1/export/advances/` | Create new advance (optional `shipment_ids[]` to link at creation) |
 | PATCH | `/api/v1/export/advances/{id}/reconcile/` | Mark as reconciled |
+| POST | `/api/v1/export/advances/{id}/link-shipment/` | Link one shipment (`{shipment_id, allocated_amount?}`) |
+| DELETE | `/api/v1/export/advances/{id}/unlink-shipment/{shipment_id}/` | Remove a shipment link |
 
 **Filters**: `?reconciled=true/false`, `?search=` (batch_code)
 
@@ -82,7 +84,13 @@ erDiagram
 | 9 | Issued By | 120px | |
 | 10 | Actions | 100px | Reconcile button (if not reconciled + canCreate) |
 
-**Row Expansion**: Chevron → sub-table showing linked shipments (shipment_code, allocated_amount)
+**Row Expansion**: Chevron → sub-table showing linked shipments (shipment_code, allocated_amount).
+For users with write access (`finansist`/`export_manager`/`director`) the panel also has an
+**attach control** (`ShipmentSelect` + allocated-amount input + Attach button →
+`POST /advances/{id}/link-shipment/`) and a **per-row unlink** button
+(→ `DELETE /advances/{id}/unlink-shipment/{shipment_id}/`). Both, plus create-time linking,
+flip the Sheet's R24 "Resminama pul berildi" cell and invalidate the Sheet query so it updates
+immediately.
 
 **New Advance Modal**:
 | Field | Component | Required |
@@ -92,7 +100,14 @@ erDiagram
 | total_amount | InputNumber | Yes |
 | currency | Select | Yes |
 | purpose | Input | Yes |
+| shipment_ids | `ShipmentMultiSelect` (self-fetching, search) | No |
 | notes | TextArea | No |
+
+> **Why the shipment picker matters:** linking shipments at create time is the only UI path
+> that flips the Sheet's R24 **"Resminama pul berildi"** cell (`has_doc_advance`, read-only,
+> computed as `Exists(FinansistAdvanceShipment)` for the shipment) to ✓. Before this field
+> existed the modal never sent `shipment_ids`, so UI-created advances were always unlinked and
+> the cell stayed ✗ regardless of how many advances were added. See [[shipment-sheet]].
 
 ### Hooks
 

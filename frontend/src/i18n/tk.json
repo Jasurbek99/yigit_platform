@@ -815,7 +815,17 @@
     "no_shipments": "Bagly ýük ýok",
     "notes": "Bellikler",
     "create_success": "Awans döredildi",
-    "subtitle": "Müşderileriň öňünden töleg yzarlaýjysy"
+    "subtitle": "Müşderileriň öňünden töleg yzarlaýjysy",
+    "link_shipments": "Ýüklere baglamak",
+    "link_shipments_help": "Bu ýerde baglanan ýüklere resminama/gümrük awansy berlen diýip bellik edilýär — tablisadaky «Resminama pul berildi» öýjügi her biri üçin ✓ bolýar.",
+    "link_shipments_placeholder": "Ýük kody ýa-da müşderi boýunça gözleg",
+    "attach": "Bagla",
+    "attach_placeholder": "Baglamak üçin ýük gözle",
+    "attach_success": "Ýük baglandy",
+    "attach_error": "Ýük baglanyşygyny täzeläp bolmady",
+    "already_linked": "Ýük bu awansa eýýäm baglanan",
+    "unlink_confirm": "Bu ýügi awansdan aýyrmaly?",
+    "unlink_success": "Ýük aýryldy"
   },
   "customers_admin": {
     "title": "Müşderiler",

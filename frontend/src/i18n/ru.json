@@ -817,7 +817,17 @@
     "no_shipments": "Нет связанных грузов",
     "notes": "Примечания",
     "create_success": "Аванс создан",
-    "subtitle": "Отслеживание авансов клиентов"
+    "subtitle": "Отслеживание авансов клиентов",
+    "link_shipments": "Связать с грузами",
+    "link_shipments_help": "Грузы, связанные здесь, отмечаются как имеющие аванс на документы/таможню — ячейка «Resminama pul berildi» в таблице становится ✓ для каждого.",
+    "link_shipments_placeholder": "Поиск по коду груза или клиенту",
+    "attach": "Привязать",
+    "attach_placeholder": "Найдите груз для привязки",
+    "attach_success": "Груз привязан",
+    "attach_error": "Не удалось обновить связи груза",
+    "already_linked": "Груз уже привязан к этому авансу",
+    "unlink_confirm": "Убрать этот груз из аванса?",
+    "unlink_success": "Груз убран"
   },
   "customers_admin": {
     "title": "Клиенты",
