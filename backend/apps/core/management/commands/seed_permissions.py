@@ -266,9 +266,11 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
             'warehouse_note',
             # R8: block sources picker (Soltanmyrat chooses which blocks supplied the truck)
             'block_sources',
-            # R19/R20: warehouse logs the truck's loading-start and loading-end timestamps
+            # R19/R20/R21: warehouse logs loading-start, loading-end and
+            # greenhouse-departure timestamps (matches warehouse_chief deputies)
             'loading_started_at',
             'loading_ended_at',
+            'departed_at',
             # R34: post-loading rejected weight adjustment
             'rejected_weight_kg',
             # R39: harvest day, operator-entered
