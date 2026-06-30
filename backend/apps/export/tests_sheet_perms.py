@@ -429,3 +429,45 @@ class TestGetSheetEditMapQueryCount(TestCase):
         with self.assertNumQueries(0):
             edit_map = get_sheet_edit_map(director)
         self.assertTrue(all(edit_map.values()))
+
+
+class TestVirtualFieldDelegation(TestCase):
+    """Virtual rows (transit_days_temp) must resolve identically in the inline
+    gate (can_edit_sheet_field) and the batch map (get_sheet_edit_map).
+
+    Regression: the map field-perm-checked the virtual key 'transit_days_temp'
+    (which no role holds in RoleFieldPermission) instead of delegating to the
+    real 'transit_days' field, so transport saw the cell as read-only even
+    though a PATCH would succeed.
+    """
+
+    VIRTUAL = 'transit_days_temp'
+    REAL = 'transit_days'
+
+    def setUp(self):
+        cache.clear()
+        self.user = _make_user('transit_user', role='transport')
+        _grant_field('transport', self.REAL)
+        # Row config keyed on the virtual key, transport in triggers, unlocked.
+        _make_setting(self.VIRTUAL, roles=['transport'])
+        cache.clear()
+
+    def test_inline_gate_allows_transport(self):
+        self.assertTrue(can_edit_sheet_field(self.user, self.VIRTUAL))
+
+    def test_map_matches_inline_gate(self):
+        edit_map = get_sheet_edit_map(self.user)
+        self.assertEqual(
+            edit_map[self.VIRTUAL],
+            can_edit_sheet_field(self.user, self.VIRTUAL),
+            'get_sheet_edit_map must agree with can_edit_sheet_field on the '
+            'virtual transit_days_temp key',
+        )
+        self.assertTrue(edit_map[self.VIRTUAL])
+
+    def test_role_without_real_field_perm_denied_both_ways(self):
+        """A role lacking the real field perm is denied consistently."""
+        other = _make_user('no_transit_perm', role='loading_dept_head')
+        cache.clear()
+        self.assertFalse(can_edit_sheet_field(other, self.VIRTUAL))
+        self.assertFalse(get_sheet_edit_map(other)[self.VIRTUAL])

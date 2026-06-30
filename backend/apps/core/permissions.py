@@ -17,6 +17,14 @@ logger = logging.getLogger(__name__)
 PERM_CACHE_PREFIX = 'dynamic_perms'
 PERM_CACHE_TTL = 60  # seconds
 
+# Virtual sheet rows: cells that display & edit two real fields combined. The
+# row's SheetRowSetting + frontend editor are keyed on the virtual key, but the
+# underlying PATCH targets the real fields, so the field-perm gate delegates to
+# one of them. transit_days_temp (R26) edits transit_days + transport_temp_c.
+# Must be shared by can_edit_sheet_field AND get_sheet_edit_map so the inline
+# edit gate and the frontend's can_current_user_edit map never disagree.
+_VIRTUAL_FIELD_DELEGATES = {'transit_days_temp': 'transit_days'}
+
 
 def get_editable_fields(role: str | None, resource_code: str = 'shipment') -> list[str]:
     """Return the list of fields editable by the given role for a resource.
@@ -235,11 +243,8 @@ def can_edit_sheet_field(user, field_key: str) -> bool:
     if getattr(user, 'is_superuser', False) or role in ('admin', 'director', 'export_manager'):
         return True
 
-    # Virtual sheet rows: cells that display & edit two real fields combined.
-    # The row's SheetRowSetting is keyed on the virtual key, but the underlying
-    # patch targets the real fields, so the perm gate has to delegate to one of
-    # them. transit_days_temp (R26) edits transit_days + transport_temp_c.
-    _VIRTUAL_FIELD_DELEGATES = {'transit_days_temp': 'transit_days'}
+    # Virtual sheet rows delegate to their real underlying field (module-level
+    # _VIRTUAL_FIELD_DELEGATES, shared with get_sheet_edit_map).
     delegate_key = _VIRTUAL_FIELD_DELEGATES.get(field_key)
     if delegate_key is not None:
         return can_edit_sheet_field(user, delegate_key)
@@ -345,6 +350,12 @@ def get_sheet_edit_map(user, settings_by_key: dict | None = None) -> dict[str, b
 
     def _resolve(fk: str) -> bool:
         """Evaluate trigger + field-perm for a single field_key."""
+        # Virtual rows delegate to their real underlying field, mirroring
+        # can_edit_sheet_field so the inline gate and this map never disagree.
+        delegate_key = _VIRTUAL_FIELD_DELEGATES.get(fk)
+        if delegate_key is not None:
+            return _resolve(delegate_key)
+
         setting = settings_by_key.get(fk)
 
         if setting is None:
