@@ -9,13 +9,14 @@ import './i18n';
 import App from './App';
 
 // Sentry error tracking. DSN comes from VITE_SENTRY_DSN with the project DSN
-// baked in as default; set VITE_SENTRY_DSN='' to disable (e.g. local dev).
+// baked in as default; set VITE_SENTRY_DSN='' to disable.
+// Only active in production builds — never reports from local dev (import.meta.env.PROD).
 // EU (de) region keeps event data in the EU for our KZ/RU users.
 const SENTRY_DSN =
   import.meta.env.VITE_SENTRY_DSN ??
   'https://dad83704bd8fb98b0a82a7089505765d@o4507190478438400.ingest.de.sentry.io/4511568418308176';
 
-if (SENTRY_DSN) {
+if (SENTRY_DSN && import.meta.env.PROD) {
   Sentry.init({
     dsn: SENTRY_DSN,
     environment: import.meta.env.MODE,

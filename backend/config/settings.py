@@ -30,7 +30,8 @@ LIBREOFFICE_BIN = os.environ.get('LIBREOFFICE_BIN', '')
 #
 # Initialised as early as possible so errors during the rest of settings
 # load are still captured. DSN is read from the environment with a default
-# baked in; set SENTRY_DSN='' to disable (e.g. in local dev or CI).
+# baked in; set SENTRY_DSN='' to disable (e.g. in CI).
+# Only active in production (DEBUG=False) — never reports from local dev.
 # The DSN points at Sentry's EU (de) region — keeps event data in the EU,
 # which matters for our KZ/RU users.
 # ════════════════════════════════════════════════
@@ -39,7 +40,7 @@ SENTRY_DSN = os.environ.get(
     'https://d2b0cd886918386f1fdbb1f4723e0e52@o4507190478438400.ingest.de.sentry.io/4511556283007056',
 )
 
-if SENTRY_DSN:
+if SENTRY_DSN and not DEBUG:
     import sentry_sdk
 
     sentry_sdk.init(
