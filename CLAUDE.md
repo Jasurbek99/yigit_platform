@@ -13,7 +13,26 @@ Django + React platform replacing Excel-based greenhouse tomato export operation
 - **API names ≠ DB columns**: serializer maps `code` → `shipment_code`, `weight_net_kg` → `weight_net`
 - **models/ packages**: MUST have `__init__.py` with re-exports or migrations silently break
 - **Obsidian docs**: When adding/changing any feature, component, endpoint, or model — update the corresponding doc in `docs/obsidian/`. See `docs/obsidian/00-index.md` for the full vault structure.
+##  Think Before Coding
 
+**Don't assume. Don't hide confusion. Surface tradeoffs.**
+
+Before implementing:
+- State your assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them - don't pick silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop. Name what's confusing. Ask.
+## Simplicity First
+
+**Minimum code that solves the problem. Nothing speculative.**
+
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No "flexibility" or "configurability" that wasn't requested.
+- No error handling for impossible scenarios.
+- If you write 200 lines and it could be 50, rewrite it.
+
+Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
 ## Agent conduct (applies to ALL agents)
 
 - **Never commit or push without explicit instruction.** "Done", "ready", "finished" are NOT commit instructions. Wait for the word "commit".
