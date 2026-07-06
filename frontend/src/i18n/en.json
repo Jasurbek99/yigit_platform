@@ -2951,5 +2951,52 @@
     "toast_error": "Failed to save coverage",
     "error_load": "Failed to load coverage data",
     "no_reps_hint": "No sales representatives found."
+  },
+  "tour": {
+    "start": "Tour",
+    "step1": {
+      "title": "Harvest Planning",
+      "text": "Each greenhouse block forecasts daily kg yield. The system converts this into how many trucks are needed (18,500 kg = 1 truck)."
+    },
+    "step2": {
+      "title": "Remaining Cargo",
+      "text": "As trucks fill up, the system shows the remainder — how many kg are left in each block."
+    },
+    "step3": {
+      "title": "Create Supply Draft",
+      "text": "In the morning a supply draft is created: which blocks, how many kg. The customer is added later — hence DRAFT."
+    },
+    "step4": {
+      "title": "Truck & Driver",
+      "text": "The transport team adds the truck plate, driver name and phone — BEFORE customs."
+    },
+    "step5": {
+      "title": "Assign Destination",
+      "text": "The export manager sets the destination: country, city, customer and export firm."
+    },
+    "step6": {
+      "title": "Join (Merge)",
+      "text": "The two halves — supply and destination — are merged into one truck. Now ready to dispatch."
+    },
+    "step7": {
+      "title": "Documents & Customs",
+      "text": "Invoice and export documents are generated, customs entry/exit is processed."
+    },
+    "step8": {
+      "title": "Loading & Departure",
+      "text": "Tomatoes are loaded, weight is recorded, truck departs."
+    },
+    "step9": {
+      "title": "In Transit",
+      "text": "Truck crosses the border, enters the destination country, clears customs — tracked live."
+    },
+    "step10": {
+      "title": "Arrival & Sale",
+      "text": "Truck arrives at the market, sale starts and is completed."
+    },
+    "step11": {
+      "title": "Report & Revenue",
+      "text": "Sales report: revenue − expenses = net income. The financier reviews and closes the shipment."
+    }
   }
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Layout, Menu, Button, Badge, Typography, Segmented, Flex } from 'antd';
+import { Layout, Menu, Button, Badge, Typography, Segmented, Flex, Tooltip } from 'antd';
 import {
   IconLayoutDashboard,
   IconTruck,
@@ -25,6 +25,7 @@ import {
   IconPlant2,
   IconMapPin,
   IconReportAnalytics,
+  IconRoute,
 } from '@tabler/icons-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -39,6 +40,7 @@ import { useRealtimeStore } from '@/stores/realtimeStore';
 import { useWorklogHeartbeat } from '@/hooks/useWorklogHeartbeat';
 import { canSeePage } from '@/utils/permissions';
 import { clearCachedPrefs } from '@/cache/userPrefsCache';
+import { useProcessTour } from '@/hooks/useProcessTour';
 import { FeedbackFAB } from '@/components/feedback/FeedbackFAB';
 import { NotificationBell } from '@/components/NotificationBell';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
@@ -65,6 +67,7 @@ export default function AppLayout() {
   ).length;
 
   const { t, i18n } = useTranslation();
+  const startTour = useProcessTour();
 
   const currentLang = i18n.language.startsWith('tk')
     ? 'tk'
@@ -480,6 +483,15 @@ export default function AppLayout() {
               ]}
               onChange={(lang) => i18n.changeLanguage(lang as string)}
             />
+            <Tooltip title={t('tour.start')}>
+              <Button
+                type="text"
+                icon={<IconRoute size={17} />}
+                onClick={startTour}
+                style={{ display: 'flex', alignItems: 'center', color: COLORS.textTertiary }}
+                aria-label={t('tour.start')}
+              />
+            </Tooltip>
             <NotificationBell />
           </Flex>
         </Header>
@@ -490,6 +502,7 @@ export default function AppLayout() {
             full-height grid pages opt out via the .page-fullheight-grid class
             (see SheetStyles.css). */}
         <Content
+          data-tour="page"
           style={{
             background: COLORS.bgLight,
             padding: 24,

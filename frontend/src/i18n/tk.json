@@ -2955,5 +2955,52 @@
     "toast_error": "Ýatda saklap bolmady",
     "error_load": "Müşderi maglumatlaryny ýükläp bolmady",
     "no_reps_hint": "Satyjy wekilleri tapylmady."
+  },
+  "tour": {
+    "start": "Gezelenç",
+    "step1": {
+      "title": "Hasyl planlamak",
+      "text": "Her ýyladyşhana bloky her gün näçe kg hasyl boljakdygyny çaklaýar. Ulgam muny näçe TIR gerekdigine öwürýär (18 500 kg = 1 TIR)."
+    },
+    "step2": {
+      "title": "Galan ýük",
+      "text": "TIR-ler doldukça ulgam galyndyny görkezýär — her blokda näçe kg galandygyny."
+    },
+    "step3": {
+      "title": "Üpjünçilik draftyny döretmek",
+      "text": "Irden üpjünçilik drafty döredilýär: haýsy bloklar, näçe kg. Müşderi soň goşulýar — şonuň üçin DRAFT."
+    },
+    "step4": {
+      "title": "Maşyn we sürüji",
+      "text": "Transport bölümi maşyn belgisini, sürüjini we telefony goşýar — gümrükden ÖŇ."
+    },
+    "step5": {
+      "title": "Maksady bellemek",
+      "text": "Export menejer maksady belleýär: ýurt, şäher, müşderi we eksport firma."
+    },
+    "step6": {
+      "title": "Birleşdirmek (Join)",
+      "text": "Iki ýarym — üpjünçilik we maksat — bir TIR-e birleşdirilýär. Indi ugratmaga taýýar."
+    },
+    "step7": {
+      "title": "Resminamalar we gümrük",
+      "text": "Faktura we eksport resminamalary döredilýär, gümrük giriş/çykyş geçilýär."
+    },
+    "step8": {
+      "title": "Ýüklemek we ýola çykmak",
+      "text": "Pomidor ýüklenýär, agram bellenýär, TIR ýola çykýar."
+    },
+    "step9": {
+      "title": "Ýolda",
+      "text": "TIR serhetden geçýär, barjak ýurda girýär, gümrükden geçýär — janly yzarlanýar."
+    },
+    "step10": {
+      "title": "Baryp satmak",
+      "text": "TIR bazara baryp ýetýär, satuw başlaýar we tamamlanýar."
+    },
+    "step11": {
+      "title": "Hasabat we girdeji",
+      "text": "Satuw hasabaty: satuw − çykdajy = arassa girdeji. Maliýe seredip ýapýar."
+    }
   }
 }
