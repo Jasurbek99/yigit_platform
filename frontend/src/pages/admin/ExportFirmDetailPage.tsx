@@ -8,8 +8,8 @@ import {
   Input,
   Modal,
   Skeleton,
+  Space,
   Switch,
-  Tag,
   Typography,
 } from 'antd';
 import {
@@ -189,12 +189,14 @@ export default function ExportFirmDetailPage() {
             <Descriptions.Item label={t('firms_admin.name_short')}>
               <InlineEdit value={firm.name_short} editable={canEdit} onSave={(v) => saveField({ name_short: v || null })} />
             </Descriptions.Item>
-            <Descriptions.Item label={t('firms_admin.is_active')}>
-              {canEdit
-                ? <Switch checked={firm.is_active} onChange={(v) => saveField({ is_active: v })} />
-                : firm.is_active
-                  ? <Tag color="green">{t('common.yes')}</Tag>
-                  : <Tag color="default">{t('common.no')}</Tag>}
+            <Descriptions.Item label={t('firms_admin.is_active')} span={2}>
+              <Space size={40}>
+                <Switch checked={firm.is_active} disabled={!canEdit} onChange={(v) => saveField({ is_active: v })} />
+                <Space size={8}>
+                  <Switch checked={firm.is_gapy_satys} disabled={!canEdit} onChange={(v) => saveField({ is_gapy_satys: v })} />
+                  <Text type="secondary">{t('firms_admin.is_gapy_satys')}</Text>
+                </Space>
+              </Space>
             </Descriptions.Item>
             <Descriptions.Item label={t('firms_admin.name_tk')}>
               <InlineEdit value={firm.name_tk} required editable={canEdit} onSave={(v) => saveField({ name_tk: v })} />
@@ -216,13 +218,6 @@ export default function ExportFirmDetailPage() {
             </Descriptions.Item>
             <Descriptions.Item label={t('firms_admin.one_c_code')}>
               <InlineEdit value={firm.one_c_code} editable={canEdit} onSave={(v) => saveField({ one_c_code: v || null })} />
-            </Descriptions.Item>
-            <Descriptions.Item label={t('firms_admin.is_gapy_satys')}>
-              {canEdit
-                ? <Switch checked={firm.is_gapy_satys} onChange={(v) => saveField({ is_gapy_satys: v })} />
-                : firm.is_gapy_satys
-                  ? <Tag color="orange">{t('common.yes')}</Tag>
-                  : <Tag color="default">{t('common.no')}</Tag>}
             </Descriptions.Item>
           </Descriptions>
 

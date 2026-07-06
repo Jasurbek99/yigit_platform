@@ -12,7 +12,6 @@ import {
   Skeleton,
   Space,
   Switch,
-  Tag,
   Typography,
   Upload,
 } from 'antd';
@@ -292,30 +291,14 @@ export default function ImportFirmDetailPage() {
             <Descriptions.Item label={t('import_firms_admin.bank_details')} span={2}>
               <InlineEdit value={firm.bank_details} multiline editable={canEdit} onSave={(v) => saveField({ bank_details: v || null })} />
             </Descriptions.Item>
-            <Descriptions.Item label={t('import_firms_admin.is_active')}>
-              {canEdit
-                ? <Switch checked={firm.is_active} onChange={(v) => saveField({ is_active: v })} />
-                : firm.is_active
-                  ? <Tag color="green">{t('common.yes')}</Tag>
-                  : <Tag color="default">{t('common.no')}</Tag>}
-            </Descriptions.Item>
-            <Descriptions.Item label={t('import_firms_admin.is_gapy_satys')}>
-              {canEdit ? (
-                <Select
-                  value={firm.is_gapy_satys}
-                  onChange={(v) => saveField({ is_gapy_satys: v })}
-                  size="small"
-                  style={{ minWidth: 140 }}
-                  options={[
-                    { value: false, label: t('import_firms_admin.tab_our') },
-                    { value: true, label: t('import_firms_admin.tab_gapy_satys') },
-                  ]}
-                />
-              ) : firm.is_gapy_satys ? (
-                <Tag color="orange">{t('common.yes')}</Tag>
-              ) : (
-                <Tag color="default">{t('common.no')}</Tag>
-              )}
+            <Descriptions.Item label={t('import_firms_admin.is_active')} span={2}>
+              <Space size={40}>
+                <Switch checked={firm.is_active} disabled={!canEdit} onChange={(v) => saveField({ is_active: v })} />
+                <Space size={8}>
+                  <Switch checked={firm.is_gapy_satys} disabled={!canEdit} onChange={(v) => saveField({ is_gapy_satys: v })} />
+                  <Text type="secondary">{t('import_firms_admin.is_gapy_satys')}</Text>
+                </Space>
+              </Space>
             </Descriptions.Item>
           </Descriptions>
 
