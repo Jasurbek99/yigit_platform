@@ -36,11 +36,26 @@ GET /api/v1/contracts/sales/{id}/document/?type=<key>&fmt=docx|pdf
   (with a clear message — the `.docx` path is unaffected).
 - Response: `Content-Disposition: attachment`, filename e.g. `Invoice_93-26-DM-EXP_118_RU.docx`.
 
-## Data sources (invoice)
+## Data sources — the gross-net packing catalog
 
-Header/firms from **Contract + ExportFirm/ImportFirm**; weights, pieces, pallets,
-truck plates from the linked **Shipment** when present (`invoice.shipment`), with
-graceful fallback to invoice fields (net ← `quantity_kg`) when not yet linked.
+Header/firms from **Contract + ExportFirm/ImportFirm**. Packing comes from a single
+**whole-truck `PackingPreset`** picked on the shipment (`Shipment.packing_preset`), the
+digital "gross net" catalog the document team selects from *before loading*:
+
+- **CMR** ← the whole-truck config directly. BRUT = gross **with** pallet, so
+  `gross_without_pallet = gross_kg − pallet_weight_kg`. Falls back to the shipment's own
+  weight fields when no preset.
+- **Invoice** (per firm) ← NET = the firm's own weight (`quantity_kg`, never the real
+  `Shipment.weight_net`); gross/boxes/pallets are **derived** from the whole-truck preset by
+  the firm's weight share (`effective_firm_packing()` in `services/packing_split.py`), or a
+  per-firm **override** on the sale (`ContractSale.gross_kg` …). **Poka-yoke:** the per-firm
+  values always sum to the truck, so no inconsistent split is possible.
+
+Set from the **unified packing panel** (export Sheet `packing` row → popover): pick one
+whole-truck config, each firm's derived share shows with editable overrides and a live
+Σ-check. Truck plate still comes from the shipment. Catalog admin-managed
+(`/api/v1/export/packing-presets/`, seeded by `seed_packing_presets`). See
+[[../reference/packing-preset-model]].
 Firm name/address/bank use the tri-lingual `*_ru`/`*_en`/`*_tk` columns selected
 by language (ru→en→tk fallback). Product line: HS code `070200000`, localized
 product name + packing.

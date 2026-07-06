@@ -94,7 +94,8 @@
     "block_summary": "Bloklaryň jemi",
     "sales_reports": "Satyş hasabatlary",
     "sales_rep_coverage": "Satyjy müşderileri",
-    "admin_expense_template": "Çykdajy şablony"
+    "admin_expense_template": "Çykdajy şablony",
+    "admin_packing_presets": "Gaplaýyş şablonlary"
   },
   "expense_template": {
     "title": "Çykdajy kategoriýalarynyň şablony",
@@ -120,6 +121,32 @@
     "confirm_delete_title": "Kategoriýany öçürmeli?",
     "confirm_delete_body": "Kategoriýa hemişelik öçüriler. Eger ol saklanylýan çykdajylarda ulanylýan bolsa, serwer öçürmegi ret eder. Täze hasabatlarda görünmez etmek üçin ony işjeň däl diýip belläň.",
     "error_load": "Çykdajy kategoriýalaryny ýükläp bolmady"
+  },
+  "packing_preset": {
+    "title": "Gaplaýyş şablonlary",
+    "subtitle": "Satuw hasap-fakturalarynda ulanylýan brut/net gaplaýyş şablonlaryny dolandyryň. Işjeň däl şablonlar hasap-faktura formalarynda görkezilmeýär.",
+    "add": "Täze şablon",
+    "select_placeholder": "Gaplaýyş şablonyny saýlaň",
+    "col_sort_order": "Tertip",
+    "col_name": "Ady",
+    "col_product_type": "Önüm görnüşi",
+    "col_net_kg": "Net (kg)",
+    "col_gross_kg": "Brut (kg)",
+    "col_box_count": "Ýaşik",
+    "col_pallet_count": "Palet",
+    "col_pallet_weight_kg": "Palet agramy",
+    "col_status": "Ýagdaý",
+    "product_type_tomato": "Pomidor",
+    "product_type_pepper": "Burç",
+    "modal_create": "Täze gaplaýyş şablony",
+    "modal_edit": "Gaplaýyş şablonyny redaktirlemek",
+    "toast_created": "Şablon döredildi",
+    "toast_updated": "Şablon täzelendi",
+    "toast_deleted": "Şablon öçürildi",
+    "toast_error": "Näsazlyk ýüze çykdy",
+    "confirm_delete_title": "Şablony öçürmeli?",
+    "confirm_delete_body": "Şablon hemişelik öçüriler. Eger ol satuw hasap-fakturasynda ulanylýan bolsa, serwer öçürmegi ret eder.",
+    "error_load": "Gaplaýyş şablonlaryny ýükläp bolmady"
   },
   "stuck": {
     "page_title": "Saklanan ýükler",
@@ -1536,6 +1563,25 @@
       "toast_linked": "{{number}} şertnamasy baglanyşdyryldy",
       "toast_error": "Şertnamany baglanyşdyryp bolmady"
     },
+    "packing": {
+      "title": "Gaplama (brut-net)",
+      "whole_truck": "Doly maşyn → CMR",
+      "per_firm": "Firma boýunça → Faktura",
+      "pick": "Konfigurasiýa saýlaň",
+      "no_firms": "Ilki firmalary goşuň.",
+      "no_sale": "Ilki bu firma üçin şertnama baglanyşdyryň.",
+      "pick_truck_first": "Ilki maşyn konfigurasiýasyny saýlaň.",
+      "truck_totals": "Net {{net}} · Brut {{gross}} · {{boxes}} ýaşik",
+      "sum_ok": "Firmalaryň jemi: {{total}} kg ✓",
+      "sum_bad": "Firmalaryň jemi: {{total}} kg — maşyn konfigurasiýasy {{net}} kg. Firma agramlaryny ýa-da konfigurasiýany düzediň.",
+      "net": "Net",
+      "gross": "Brut",
+      "boxes": "Ýaşik",
+      "pallets": "Palet",
+      "pallet_wt": "Palet agr.",
+      "reset": "Hasaplanana dolan",
+      "toast_error": "Gaplamany ýatda saklap bolmady"
+    },
     "who": {
       "logist": "Logist",
       "malik": "Malik",
@@ -1595,6 +1641,7 @@
       "arrival": "Baryp ýetdi",
       "weight_to_load": "Ýüklemeli tonna",
       "weight_shipped": "Arassa agramy (h)",
+      "packing": "Gaplama (brut-net)",
       "variety": "Pomidoryň görnüşi",
       "harvest_date": "Ýygylan senesi",
       "sale_start": "Satylyp başlady",
@@ -2773,7 +2820,8 @@
         "passport_sdelka": "Passport sdelka",
         "scan_uploaded": "Skan ýüklendi",
         "status": "Ýagdaý",
-        "contract": "Şertnama"
+        "contract": "Şertnama",
+        "packing_preset": "Gaplaýyş şablony"
       },
       "validation": {
         "money_required": "Mukdar + baha ýa-da jemi USD doldurmaly"

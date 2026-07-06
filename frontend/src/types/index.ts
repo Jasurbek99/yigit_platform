@@ -343,6 +343,9 @@ export interface IShipmentSheetItem {
   import_firm: number | null;
   import_firm_name: string | null;
   import_firm_color?: string | null;
+  // Whole-truck packing config (gross-net catalog) → CMR
+  packing_preset: number | null;
+  packing_preset_name: string | null;
   // Product
   variety: number | null;
   variety_name: string | null;

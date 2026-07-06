@@ -63,6 +63,7 @@ const SalesRepReports = lazy(() => import('@/pages/export/SalesRepReports'));
 const SalesReportPage = lazy(() => import('@/pages/export/SalesReportPage'));
 const SalesRepCoveragePage = lazy(() => import('@/pages/admin/SalesRepCoveragePage'));
 const ExpenseTemplatePage = lazy(() => import('@/pages/admin/ExpenseTemplatePage'));
+const PackingPresetPage = lazy(() => import('@/pages/admin/PackingPresetPage'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -267,6 +268,12 @@ export default function App() {
                   {/* Expense category template */}
                   <Route path="admin/expense-template" element={
                     <ProtectedRoute pageCode="export.expense_template"><ExpenseTemplatePage /></ProtectedRoute>
+                  } />
+                  {/* Packing preset catalog */}
+                  <Route path="admin/packing-presets" element={
+                    <ProtectedRoute pageCode="export.packing_presets">
+                      <PackingPresetPage />
+                    </ProtectedRoute>
                   } />
                 </Route>
                 <Route path="/unauthorized" element={<UnauthorizedPage />} />

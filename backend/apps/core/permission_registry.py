@@ -59,6 +59,9 @@ PAGE_REGISTRY: dict[str, str] = OrderedDict([
     # Expense template editor (categories + LOGO codes). Non-admin prefix on
     # purpose (AD-15): admin/director/export_manager manage it, not admin-only.
     ('export.expense_template', 'Expense Template'),
+    # Packing preset catalog (the digital "gross net" — Invoice/CMR configs). Same
+    # non-admin prefix as expense_template: admin/director/export_manager manage it.
+    ('export.packing_presets',  'Packing Presets (gross-net)'),
     ('admin.users',             'Admin: Users'),
     # Delegated staff page-access editor for department heads (ADR-022).
     ('admin.staff_access',      'Admin: Staff Page Access'),
@@ -119,6 +122,8 @@ RESOURCE_FIELDS: dict[str, list[str]] = {
         'export_code',
         # Weight / packaging
         'box_count', 'pallet_count', 'pallet_weight_kg', 'packaging_kg',
+        # Whole-truck packing config (gross-net catalog) → CMR document
+        'packing_preset',
         'weight_net', 'weight_gross', 'rejected_weight_kg',
         # Geography / customer
         'country', 'city', 'customer', 'import_firm',

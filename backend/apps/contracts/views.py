@@ -1,5 +1,6 @@
 """ViewSets for the contracts app."""
 import logging
+from decimal import Decimal
 
 from django.http import FileResponse, HttpResponse
 from rest_framework.decorators import action
@@ -9,7 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
-from apps.core.permissions import DynamicResourcePermission
+from apps.core.permissions import DynamicResourcePermission, write_permission
 from apps.contracts.document_templates.registry import SCOPE_INVOICE, get_spec
 from apps.contracts.models import Contract, ContractAttachment, ContractSale
 from apps.contracts.serializers import (
@@ -221,6 +222,7 @@ class ContractSaleViewSet(ModelViewSet):
     queryset = ContractSale.objects.select_related(
         'contract',
         'shipment',
+        'shipment__packing_preset',  # whole-truck packing (CMR + per-firm derivation)
         'export_firm',
         'import_firm',
     ).order_by('-invoice_date', 'contract_id', 'invoice_number')
@@ -424,3 +426,126 @@ class ShipmentFirmContractsView(APIView):
             'contract_type': sale.contract.contract_type,
             'money_warning': money_warning(sale.total_usd),
         }, status=201)
+
+
+_FIRM_OVERRIDE_FIELDS = ('gross_kg', 'box_count', 'pallet_count', 'pallet_weight_kg')
+
+
+class ShipmentPackingView(APIView):
+    """Unified per-truck packing view (the digital "gross net" row).
+
+    You pick ONE whole-truck config (→ CMR). Each firm's packing is then DERIVED
+    by splitting that config by the firm's weight share (→ that firm's Invoice), so
+    the per-firm values always sum back to the truck — poka-yoke, no inconsistent
+    split possible. NET per firm is the firm's own weight, never derived. Each firm
+    field may be manually overridden; null = use the derived value.
+
+    GET ?shipment=<id> → { whole_truck (config values), total_firm_weight,
+        consistent (Σ weights == truck net), rows[] with derived + override }.
+    POST { shipment, scope:'truck', packing_preset }  → set Shipment.packing_preset (null clears).
+    POST { shipment, scope:'firm', export_firm, gross_kg?, box_count?, pallet_count?,
+        pallet_weight_kg? }  → set/clear this firm's ContractSale overrides (null clears a field).
+
+    Writes use `.update()` (no save() side effects). Lives in contracts (may read
+    export). Reads open; writes gated to document-preparing roles.
+    """
+
+    permission_classes = [
+        IsAuthenticated,
+        write_permission('admin', 'director', 'export_manager', 'document_team'),
+    ]
+
+    def get(self, request):
+        from apps.export.models import Shipment
+        from apps.contracts.services.packing_split import derive_firm_packing
+
+        shipment_id = request.query_params.get('shipment')
+        if not shipment_id:
+            return Response({'error': 'shipment query param is required.'}, status=400)
+        shipment = (
+            Shipment.objects.filter(pk=shipment_id)
+            .select_related('packing_preset')
+            .prefetch_related('firm_splits__export_firm', 'sales')
+            .first()
+        )
+        if shipment is None:
+            return Response({'error': 'Shipment not found.'}, status=404)
+
+        sale_by_firm = {
+            s.export_firm_id: s for s in shipment.sales.all() if s.export_firm_id is not None
+        }
+        splits = list(shipment.firm_splits.all())
+        total_weight = sum((s.weight_kg for s in splits if s.weight_kg is not None), Decimal('0'))
+        truck = shipment.packing_preset
+
+        rows = []
+        for split in splits:
+            sale = sale_by_firm.get(split.export_firm_id)
+            derived = derive_firm_packing(truck, split.weight_kg, total_weight or None)
+            override = {
+                f: (getattr(sale, f) if sale else None) for f in _FIRM_OVERRIDE_FIELDS
+            }
+            rows.append({
+                'export_firm': split.export_firm_id,
+                'export_firm_code': split.export_firm.code,
+                'export_firm_name': split.export_firm.name_short or split.export_firm.name_tk,
+                'weight_kg': split.weight_kg,
+                'sale_id': sale.id if sale else None,
+                'derived': derived,
+                'override': override,
+            })
+
+        truck_net = truck.net_kg if truck else None
+        consistent = (
+            truck_net is not None and total_weight > 0 and Decimal(truck_net) == total_weight
+        )
+        return Response({
+            'shipment': shipment.id,
+            'whole_truck': {
+                'packing_preset': truck.id if truck else None,
+                'packing_preset_name': truck.name if truck else None,
+                'net_kg': truck.net_kg if truck else None,
+                'gross_kg': truck.gross_kg if truck else None,
+                'box_count': truck.box_count if truck else None,
+                'pallet_count': truck.pallet_count if truck else None,
+                'pallet_weight_kg': truck.pallet_weight_kg if truck else None,
+            },
+            'total_firm_weight': total_weight,
+            'consistent': consistent,
+            'rows': rows,
+        })
+
+    def post(self, request):
+        from apps.export.models import PackingPreset, Shipment
+        from apps.contracts.models import ContractSale
+
+        data = request.data
+        shipment_id = data.get('shipment')
+        if not Shipment.objects.filter(pk=shipment_id).exists():
+            return Response({'error': 'Shipment not found.'}, status=404)
+
+        scope = data.get('scope')
+        if scope == 'truck':
+            preset_id = data.get('packing_preset')
+            if preset_id is not None and not PackingPreset.objects.filter(pk=preset_id).exists():
+                return Response({'error': 'Unknown packing_preset.'}, status=400)
+            Shipment.objects.filter(pk=shipment_id).update(packing_preset_id=preset_id)
+            return Response({'scope': 'truck', 'packing_preset': preset_id})
+
+        if scope == 'firm':
+            sale = ContractSale.objects.filter(
+                shipment_id=shipment_id, export_firm_id=data.get('export_firm'),
+            ).first()
+            if sale is None:
+                return Response(
+                    {'error': 'No sale linked for this firm — link a contract first.'},
+                    status=400,
+                )
+            # Only the override fields present in the body are updated (null clears).
+            updates = {f: data[f] for f in _FIRM_OVERRIDE_FIELDS if f in data}
+            if updates:
+                ContractSale.objects.filter(pk=sale.id).update(**updates)
+            return Response({'scope': 'firm', 'export_firm': sale.export_firm_id,
+                             'sale_id': sale.id, **updates})
+
+        return Response({'error': "scope must be 'truck' or 'firm'."}, status=400)

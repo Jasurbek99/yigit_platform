@@ -285,6 +285,11 @@ class ContractSaleListSerializer(serializers.ModelSerializer):
             'quantity_kg',
             'price_per_kg',
             'total_usd',
+            # Per-firm packing override (null = derived from the truck config)
+            'gross_kg',
+            'box_count',
+            'pallet_count',
+            'pallet_weight_kg',
             'passport_sdelka',
             'scan_uploaded',
             'status',

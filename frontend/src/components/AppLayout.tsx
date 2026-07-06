@@ -133,6 +133,7 @@ export default function AppLayout() {
     '/export/my-reports': t('nav.sales_reports'),
     '/admin/sales-rep-coverage': t('nav.sales_rep_coverage'),
     '/admin/expense-template': t('nav.admin_expense_template'),
+    '/admin/packing-presets': t('nav.admin_packing_presets'),
   };
 
   const currentPageLabel = location.pathname.startsWith('/shipments/')
@@ -225,6 +226,7 @@ export default function AppLayout() {
       { key: '/admin/staff-access', icon: <IconUsers size={15} />, label: t('nav.admin_staff_access') },
       { key: '/admin/sales-rep-coverage', icon: <IconMapPin size={15} />, label: t('nav.sales_rep_coverage') },
       { key: '/admin/expense-template', icon: <IconFileText size={15} />, label: t('nav.admin_expense_template') },
+      { key: '/admin/packing-presets', icon: <IconFileText size={15} />, label: t('nav.admin_packing_presets') },
       {
         key: '/admin/audit-log',
         icon: <IconClipboardList size={15} />,

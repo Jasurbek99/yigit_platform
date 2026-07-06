@@ -6,6 +6,7 @@ from apps.contracts.views import (
     ContractSaleViewSet,
     ContractViewSet,
     ShipmentFirmContractsView,
+    ShipmentPackingView,
 )
 
 router = DefaultRouter()
@@ -17,6 +18,11 @@ urlpatterns = [
         'shipment-firm-contracts/',
         ShipmentFirmContractsView.as_view(),
         name='shipment-firm-contracts',
+    ),
+    path(
+        'shipment-packing/',
+        ShipmentPackingView.as_view(),
+        name='shipment-packing',
     ),
     *router.urls,
 ]

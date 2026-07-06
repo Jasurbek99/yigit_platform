@@ -94,7 +94,8 @@
     "block_summary": "Block Summary",
     "sales_reports": "Sales Reports",
     "sales_rep_coverage": "Sales Rep Coverage",
-    "admin_expense_template": "Expense Template"
+    "admin_expense_template": "Expense Template",
+    "admin_packing_presets": "Packing Presets"
   },
   "expense_template": {
     "title": "Expense Category Template",
@@ -120,6 +121,32 @@
     "confirm_delete_title": "Delete category?",
     "confirm_delete_body": "This will permanently remove the category. If it is referenced by any saved expense, the server will reject the delete. Toggle it inactive instead to hide it from new reports.",
     "error_load": "Failed to load expense categories"
+  },
+  "packing_preset": {
+    "title": "Packing Presets",
+    "subtitle": "Manage gross/net packing templates used on sales invoices. Inactive presets are hidden from invoice forms.",
+    "add": "New Preset",
+    "select_placeholder": "Select packing preset",
+    "col_sort_order": "Order",
+    "col_name": "Name",
+    "col_product_type": "Product",
+    "col_net_kg": "Net (kg)",
+    "col_gross_kg": "Gross (kg)",
+    "col_box_count": "Boxes",
+    "col_pallet_count": "Pallets",
+    "col_pallet_weight_kg": "Pallet wt.",
+    "col_status": "Status",
+    "product_type_tomato": "Tomato",
+    "product_type_pepper": "Pepper",
+    "modal_create": "New Packing Preset",
+    "modal_edit": "Edit Packing Preset",
+    "toast_created": "Preset created",
+    "toast_updated": "Preset updated",
+    "toast_deleted": "Preset deleted",
+    "toast_error": "An error occurred",
+    "confirm_delete_title": "Delete preset?",
+    "confirm_delete_body": "This will permanently remove the packing preset. If it is referenced by a sales invoice, the server will reject the delete.",
+    "error_load": "Failed to load packing presets"
   },
   "stuck": {
     "page_title": "Stuck Shipments",
@@ -1536,6 +1563,25 @@
       "toast_linked": "Contract {{number}} linked",
       "toast_error": "Failed to link contract"
     },
+    "packing": {
+      "title": "Packing (gross-net)",
+      "whole_truck": "Whole truck → CMR",
+      "per_firm": "Per firm → Invoice",
+      "pick": "Pick a config",
+      "no_firms": "Add firms first.",
+      "no_sale": "Link a contract for this firm first.",
+      "pick_truck_first": "Pick a whole-truck config first.",
+      "truck_totals": "Net {{net}} · Gross {{gross}} · {{boxes}} boxes",
+      "sum_ok": "Firms add up to {{total}} kg ✓",
+      "sum_bad": "Firms add up to {{total}} kg — truck config is {{net}} kg. Fix the firm weights or the config.",
+      "net": "Net",
+      "gross": "Gross",
+      "boxes": "Boxes",
+      "pallets": "Pallets",
+      "pallet_wt": "Pallet wt",
+      "reset": "Reset to derived",
+      "toast_error": "Failed to save packing"
+    },
     "who": {
       "logist": "Logist",
       "malik": "Malik",
@@ -1595,6 +1641,7 @@
       "arrival": "Arrival",
       "weight_to_load": "Weight to load",
       "weight_shipped": "Net Weight (shipped)",
+      "packing": "Packing (gross-net)",
       "variety": "Tomato Variety",
       "harvest_date": "Harvest Date",
       "sale_start": "Sale Start",
@@ -2793,7 +2840,8 @@
         "passport_sdelka": "Deal passport",
         "scan_uploaded": "Scan uploaded",
         "status": "Status",
-        "contract": "Contract"
+        "contract": "Contract",
+        "packing_preset": "Packing preset"
       },
       "validation": {
         "money_required": "Provide quantity + price or a total USD amount"

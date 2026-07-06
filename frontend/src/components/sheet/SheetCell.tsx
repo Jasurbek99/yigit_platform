@@ -12,6 +12,7 @@ import { CommentMarker } from './CommentMarker';
 import { FieldHistoryContent } from './CellLastEditMarker';
 import { getCellValue } from './getCellValue';
 import { ShipmentFirmContractsPanel } from './ShipmentFirmContractsPanel';
+import { ShipmentPackingPanel } from './ShipmentPackingPanel';
 import { getContrastTextColor } from '@/utils/contrastColor';
 
 // Re-export for consumers that only need the formatter (e.g. test files).
@@ -291,6 +292,26 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
         ) : (
           <span style={{ color: '#bbb' }}>—</span>
         )}
+      </div>
+    );
+  }
+
+  // Packing — synthetic cell; opens the unified per-truck packing panel
+  // (whole-truck config → CMR, per-firm shares → Invoices). No cell editor.
+  if (fieldKey === 'packing') {
+    return wrap(
+      <div
+        className={`sheet-cell sheet-cell--${rowConfig.style}${isActive ? ' sheet-cell--active' : ''}${isGapy ? ' sheet-cell--gapy' : ''}`}
+        style={{ width: cellWidth, height: ROW_HEIGHT, ...cellBgStyle, textAlign: 'center' }}
+      >
+        <Popover
+          trigger="click"
+          placement="bottomLeft"
+          destroyTooltipOnHide
+          content={<ShipmentPackingPanel shipmentId={shipment.id} />}
+        >
+          <FileTextOutlined style={{ cursor: 'pointer', color: '#1677ff' }} />
+        </Popover>
       </div>
     );
   }

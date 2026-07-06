@@ -6,6 +6,7 @@ from .shipment import (
     VEHICLE_CONDITION_CHOICES,
 )
 from .pallet import Pallet
+from .packing_preset import PackingPreset, PRODUCT_TYPE_CHOICES
 from .quality import QualityDocument, ShipmentComment, SalesReport
 from .expense_category import ExpenseCategory
 from .sales import (
@@ -80,6 +81,8 @@ __all__ = [
     'Notification',
     'AuditLog',
     'Pallet',
+    'PackingPreset',
+    'PRODUCT_TYPE_CHOICES',
     'SheetRowSetting',
     'SheetRowRoleTrigger',
     'SheetRowUserPermission',

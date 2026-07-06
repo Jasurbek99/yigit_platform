@@ -14,6 +14,7 @@ from apps.export.models import (
     ExpenseCategory,
     FinansistAdvance,
     FinansistAdvanceShipment,
+    PackingPreset,
     Pallet,
     QualityDocument,
     SalesReport,
@@ -592,6 +593,9 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
     customer_color = serializers.CharField(source='customer.color', read_only=True, default=None)
     import_firm_name = serializers.SerializerMethodField()
     import_firm_color = serializers.CharField(source='import_firm.color', read_only=True, default=None)
+    packing_preset_name = serializers.CharField(
+        source='packing_preset.name', read_only=True, default=None,
+    )
 
     def get_import_firm_name(self, obj) -> str | None:
         firm = obj.import_firm
@@ -663,6 +667,8 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
             # Weight
             'weight_gross', 'weight_net', 'packaging_kg',
             'pallet_count', 'box_count', 'rejected_weight_kg',
+            # Whole-truck packing config (gross-net catalog) → CMR
+            'packing_preset', 'packing_preset_name',
             # Transport
             'vehicle_responsible', 'vehicle_responsible_display',
             'truck_head_id', 'trailer_id', 'driver_id',
@@ -980,6 +986,31 @@ class ExpenseCategorySerializer(serializers.ModelSerializer):
         """Prevent ``code`` from being changed after creation."""
         validated_data.pop('code', None)  # code is immutable after creation
         return super().update(instance, validated_data)
+
+
+class PackingPresetSerializer(serializers.ModelSerializer):
+    """CRUD shape for the gross-net packing catalog (Invoice/CMR presets)."""
+
+    product_type_display = serializers.CharField(
+        source='get_product_type_display', read_only=True,
+    )
+
+    class Meta:
+        model = PackingPreset
+        fields = [
+            'id',
+            'name',
+            'product_type',
+            'product_type_display',
+            'net_kg',
+            'gross_kg',
+            'box_count',
+            'pallet_count',
+            'pallet_weight_kg',
+            'is_active',
+            'sort_order',
+        ]
+        read_only_fields = ['id']
 
 
 class CustomsExpenseSerializer(serializers.ModelSerializer):
@@ -1349,6 +1380,8 @@ _ALL_PATCHABLE_FIELDS = {
     # Weight / packaging
     'box_count', 'pallet_count', 'pallet_weight_kg', 'packaging_kg',
     'weight_net', 'weight_gross', 'rejected_weight_kg',
+    # Whole-truck packing config (gross-net catalog) → CMR
+    'packing_preset',
     # Geography / customer
     'country', 'city', 'customer', 'import_firm',
     'border_point', 'loading_location',

@@ -45,6 +45,9 @@ export function getCellValue(
       return shipment.city_name ?? '—';
     case 'import_firm':
       return shipment.import_firm_name ?? '—';
+    case 'packing':
+      // Synthetic popover cell (unified packing panel) — no copyable text.
+      return '';
     case 'variety': {
       // When the backend sends multiple sorts, join their names.
       const dominant = shipment.varieties_dominant;

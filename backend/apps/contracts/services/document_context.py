@@ -85,6 +85,19 @@ def _date(value: date | None) -> str:
     return value.strftime('%d.%m.%Y')
 
 
+def _num(value) -> str:
+    """Format a count that may be fractional, dropping a trailing ``.0``.
+
+    Pallet counts are ``33`` for a full truck but ``16.5`` for a 2-firm share, so
+    the value is a Decimal — render ``33`` not ``33.0``, keep ``16.5``.
+    """
+    if value is None:
+        return ''
+    d = Decimal(str(value))
+    d = d.quantize(Decimal('1')) if d == d.to_integral_value() else d.normalize()
+    return f'{d}'
+
+
 def _firm_attr(firm, base: str, lang: str) -> str:
     """Return a tri-lingual ExportFirm attribute (e.g. name/address/bank_details).
 
@@ -128,13 +141,32 @@ def build_invoice_context(invoice, lang: str = 'ru') -> dict:
     # Year for "harvest YYYY" — invoice date drives it.
     year = invoice.invoice_date.year if invoice.invoice_date else ''
 
-    # Net = billed quantity; gross from shipment when linked.
-    net_kg = (shipment.weight_net if shipment and shipment.weight_net is not None
-              else invoice.quantity_kg)
-    gross_kg = shipment.weight_gross if shipment else None
-    pieces = shipment.box_count if shipment else None
-    pallets = shipment.pallet_count if shipment else None
-    pallet_kg = shipment.packaging_kg if shipment else None
+    # Per-firm packing = the truck's PackingPreset split by this firm's weight
+    # share, with optional per-firm overrides on the sale (poka-yoke: the split
+    # always sums to the truck). NET is the firm's OFFICIAL weight (quantity_kg) —
+    # never the real shipment.weight_net (ADR-023) and never derived, so it always
+    # agrees with the truck total. Gross/pieces/pallets fall back to the whole-truck
+    # shipment fields only when there is no truck preset.
+    from apps.contracts.services.packing_split import effective_firm_packing
+
+    truck_preset = shipment.packing_preset if shipment else None
+    total_weight = None
+    if shipment:
+        total_weight = sum(
+            (s.weight_kg for s in shipment.firm_splits.all() if s.weight_kg is not None),
+            Decimal('0'),
+        ) or invoice.quantity_kg
+    pack = effective_firm_packing(invoice, truck_preset, invoice.quantity_kg, total_weight)
+
+    net_kg = invoice.quantity_kg
+    gross_kg = (pack['gross_kg'] if pack['gross_kg'] is not None
+                else (shipment.weight_gross if shipment else None))
+    pieces = (pack['box_count'] if pack['box_count'] is not None
+              else (shipment.box_count if shipment else None))
+    pallets = (pack['pallet_count'] if pack['pallet_count'] is not None
+               else (shipment.pallet_count if shipment else None))
+    pallet_kg = (pack['pallet_weight_kg'] if pack['pallet_weight_kg'] is not None
+                 else ((shipment.pallet_weight_kg or shipment.packaging_kg) if shipment else None))
 
     transport = ''
     if shipment:
@@ -147,7 +179,7 @@ def build_invoice_context(invoice, lang: str = 'ru') -> dict:
     pallet_note = ''
     if pallets:
         pallet_note = loc['pallet_note'].format(
-            pallets=pallets, kg=_kg(pallet_kg, lang) or '0',
+            pallets=_num(pallets), kg=_kg(pallet_kg, lang) or '0',
         )
 
     line_item = {
@@ -237,13 +269,29 @@ def build_cmr_context(invoice, lang: str = 'ru') -> dict:
     seller = invoice.export_firm or (contract.export_firm if contract else None)
     buyer = invoice.import_firm or (contract.import_firm if contract else None)
 
-    net_kg = (shipment.weight_net if shipment and shipment.weight_net is not None
-              else invoice.quantity_kg)
-    gross_wo = shipment.weight_gross if shipment else None
-    pallet_w = None
-    if shipment:
-        pallet_w = shipment.pallet_weight_kg or shipment.packaging_kg
-    gross_with = (gross_wo + pallet_w) if (gross_wo is not None and pallet_w is not None) else None
+    # Whole-truck packing from the preset picked on the shipment (the gross-net
+    # catalog). BRUT = gross WITH pallets, so "without" is the subtraction. Falls
+    # back to the shipment's own fields when no preset is set.
+    preset = shipment.packing_preset if shipment else None
+    boxes = ((preset.box_count if preset and preset.box_count is not None else None)
+             or (shipment.box_count if shipment else None))
+    pallets = ((preset.pallet_count if preset and preset.pallet_count is not None else None)
+               or (shipment.pallet_count if shipment else None))
+    if preset and preset.gross_kg is not None:
+        net_kg = preset.net_kg or invoice.quantity_kg
+        pallet_w = preset.pallet_weight_kg
+        gross_with = preset.gross_kg
+        gross_wo = (gross_with - pallet_w) if pallet_w is not None else gross_with
+    else:
+        # Legacy fallback (no preset). shipment.weight_gross is BRUT = gross WITH
+        # pallet (matches the gross-net sheet / weighbridge reading), so "without
+        # pallet" is the subtraction — not the other way around.
+        net_kg = (shipment.weight_net if shipment and shipment.weight_net is not None
+                  else invoice.quantity_kg)
+        pallet_w = (shipment.pallet_weight_kg or shipment.packaging_kg) if shipment else None
+        gross_with = shipment.weight_gross if shipment else None
+        gross_wo = ((gross_with - pallet_w) if (gross_with is not None and pallet_w is not None)
+                    else gross_with)
 
     transport = ''
     if shipment:
@@ -271,9 +319,9 @@ def build_cmr_context(invoice, lang: str = 'ru') -> dict:
         'invoice_refs': invoice_refs,
         'tir_carnet': '',      # not modeled on shipment yet
         'cargo_name': loc['cargo_name'],
-        'boxes': str(shipment.box_count) if shipment and shipment.box_count else '',
+        'boxes': str(boxes) if boxes else '',
         'packing': loc['packing'],
-        'pallets': str(shipment.pallet_count) if shipment and shipment.pallet_count else '',
+        'pallets': _num(pallets) if pallets else '',
         'pallet_weight': _kg(pallet_w, lang),
         'gross_without_pallet': _kg(gross_wo, lang),
         'gross_with_pallet': _kg(gross_with, lang),

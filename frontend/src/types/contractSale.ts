@@ -42,6 +42,13 @@ export interface IContractSale {
   passport_sdelka: string;
   scan_uploaded: boolean;
 
+  // Per-firm packing override (null = derived from the truck config; set via the
+  // Sheet packing panel). Decimals arrive as strings.
+  gross_kg: string | null;
+  box_count: number | null;
+  pallet_count: string | null;
+  pallet_weight_kg: string | null;
+
   // Status
   status: ContractSaleStatus;
   status_display: string;

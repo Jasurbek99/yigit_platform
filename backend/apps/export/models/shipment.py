@@ -110,6 +110,14 @@ class Shipment(models.Model):
     pallet_weight_kg = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
     box_count = models.IntegerField(null=True, blank=True)
     rejected_weight_kg = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    # Whole-truck packing config picked from the gross-net catalog (pre-loading) → feeds the CMR.
+    packing_preset = models.ForeignKey(
+        'export.PackingPreset',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='shipments',
+    )
 
     # === Transport ===
     # Raw integer FKs — trip_mgmt is not yet a managed Django app

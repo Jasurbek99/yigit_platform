@@ -361,6 +361,17 @@ DEFAULT_SHEET_ROWS: list[dict] = [
         'style': 'key',
     },
     {
+        # Unified packing (the gross-net row): whole-truck config (→ CMR) plus each
+        # firm split's share config (→ that firm's Invoice). Synthetic popover cell
+        # (opens ShipmentPackingPanel) — no inline editor.
+        'row_number': 48,
+        'field_key': 'packing',
+        'default_who_key': 'sheet.who.gadam',
+        'label_key': 'sheet.row.packing',
+        'input_type': 'readonly',
+        'style': 'base',
+    },
+    {
         'row_number': 38,
         'field_key': 'variety',
         'default_who_key': 'sheet.who.soltanmyrat',

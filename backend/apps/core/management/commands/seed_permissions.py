@@ -309,6 +309,8 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
             'documents_status',
             'customs_clearance_planned_day',
             'box_count', 'pallet_count', 'weight_net', 'weight_gross',
+            # Whole-truck packing config the document team picks for the CMR.
+            'packing_preset',
             'notes',
             # R18: Şirin's freeform document-team note
             'document_note',

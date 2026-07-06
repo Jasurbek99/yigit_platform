@@ -34,6 +34,7 @@ from apps.export.models import (
     AuditLog,
     ExpenseCategory,
     FinansistAdvanceShipment,
+    PackingPreset,
     Pallet, QualityDocument, QuotaUsageRecord, SalesReport, Shipment, ShipmentComment,
     ShipmentBlockSource, ShipmentFirmSplit, SheetRowSetting, UserSheetRowPref,
     get_default_truck_weight,
@@ -41,6 +42,7 @@ from apps.export.models import (
 from apps.export.sheet_rows import DEFAULT_SHEET_ROWS
 from apps.export.serializers import (
     ExpenseCategorySerializer,
+    PackingPresetSerializer,
     PalletBulkUpsertSerializer,
     PalletSerializer,
     QualityDocumentSerializer,
@@ -1002,7 +1004,7 @@ class ShipmentViewSet(ModelViewSet):
             Shipment.objects.select_related(
                 'status', 'country', 'city', 'customer',
                 'import_firm', 'border_point', 'variety',
-                'created_by', 'quality',
+                'created_by', 'quality', 'packing_preset',
             )
             .prefetch_related(
                 'firm_splits__export_firm',
@@ -3738,3 +3740,34 @@ class ExpenseCategoryViewSet(ModelViewSet):
     http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
     filterset_fields = ['is_active']
     ordering_fields = ['sort_order', 'code', 'is_active']
+
+
+class PackingPresetViewSet(ModelViewSet):
+    """CRUD for the gross-net packing catalog (Invoice/CMR presets).
+
+    The digital `gross net` sheet: standard packing configs the document team
+    picks BEFORE loading. Picked whole-truck on the shipment (→ CMR) and per-firm
+    on the contract sale (→ Invoice). See `PackingPreset`.
+
+    GET    /api/v1/export/packing-presets/         — list (any authenticated)
+    GET    /api/v1/export/packing-presets/{id}/    — detail (any authenticated)
+    POST   /api/v1/export/packing-presets/         — create (admin/director/export_manager)
+    PATCH  /api/v1/export/packing-presets/{id}/    — update (same)
+    DELETE /api/v1/export/packing-presets/{id}/    — delete (same; 409 if in use via PROTECT FK)
+
+    Filter: ?product_type=tomato|pepper  ?is_active=true|false
+    Order:  ?ordering=sort_order|name|net_kg (default: sort_order, name)
+
+    Reads are open so any operator picking a preset can list them; only management
+    manages the catalog. Deleting a preset referenced by a shipment/sale returns 409.
+    """
+
+    queryset = PackingPreset.objects.order_by('sort_order', 'name')
+    serializer_class = PackingPresetSerializer
+    permission_classes = [
+        IsAuthenticated,
+        write_permission('admin', 'director', 'export_manager'),
+    ]
+    http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
+    filterset_fields = ['product_type', 'is_active']
+    ordering_fields = ['sort_order', 'name', 'net_kg']
