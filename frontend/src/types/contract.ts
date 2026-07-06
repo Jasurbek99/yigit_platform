@@ -61,8 +61,19 @@ export interface IContract {
   created_at: string;
 }
 
+export interface IContractAttachment {
+  id: number;
+  original_filename: string;
+  mime_type: string;
+  size_bytes: number;
+  uploaded_by: number;
+  uploaded_by_name: string;
+  uploaded_at: string;
+}
+
 export interface IContractDetail extends IContract {
   editable_fields: string[];
+  attachments: IContractAttachment[];
 }
 
 export interface IContractCreatePayload {

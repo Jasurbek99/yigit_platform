@@ -1,8 +1,9 @@
 """ViewSets for the contracts app."""
 import logging
 
-from django.http import HttpResponse
+from django.http import FileResponse, HttpResponse
 from rest_framework.decorators import action
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -10,8 +11,9 @@ from rest_framework.viewsets import ModelViewSet
 
 from apps.core.permissions import DynamicResourcePermission
 from apps.contracts.document_templates.registry import SCOPE_INVOICE, get_spec
-from apps.contracts.models import Contract, ContractSale
+from apps.contracts.models import Contract, ContractAttachment, ContractSale
 from apps.contracts.serializers import (
+    ContractAttachmentSerializer,
     ContractCreateSerializer,
     ContractDetailSerializer,
     ContractListSerializer,
@@ -20,6 +22,11 @@ from apps.contracts.serializers import (
     ContractSaleListSerializer,
 )
 from apps.contracts.services.document_render import DocumentRenderError, generate
+from apps.contracts.services.files import (
+    MAX_FILES_PER_CONTRACT,
+    sanitise_filename,
+    validate_contract_document,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +48,7 @@ class ContractViewSet(ModelViewSet):
 
     permission_classes = [IsAuthenticated, DynamicResourcePermission]
     resource_code = 'contract'
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_queryset(self):
         """Return contracts queryset filtered by status.
@@ -50,10 +58,20 @@ class ContractViewSet(ModelViewSet):
         ?status=<value>: exact match (cancelled still excluded).
 
         'cancelled' is NEVER returned by the list endpoint regardless of params.
+
+        Status / FK filtering applies to the **list** action only. Detail and the
+        attachment actions (retrieve, upload/download/delete) resolve by pk across
+        every status — contract documents are legal records still needed after the
+        contract is completed or closed.
         """
         qs = Contract.objects.select_related(
             'export_firm', 'import_firm', 'season', 'customer', 'created_by',
         )
+        if self.action == 'retrieve':
+            qs = qs.prefetch_related('attachments__uploaded_by')
+
+        if self.action != 'list':
+            return qs
 
         status_param = self.request.query_params.get('status')
         include_ended = self.request.query_params.get('include_ended', '').lower() == 'true'
@@ -97,6 +115,82 @@ class ContractViewSet(ModelViewSet):
             return ContractCreateSerializer
         # retrieve → full detail
         return ContractDetailSerializer
+
+    @action(detail=True, methods=['post'], url_path='attachments')
+    def upload_attachment(self, request, pk=None):
+        """Upload one or more PDF documents to this contract.
+
+        Multipart files are read from the ``files`` form key. Each file is
+        validated (size, .pdf extension, %PDF magic bytes) before any DB write.
+        POST is gated by the contract resource's ``can_create`` permission.
+        Returns the contract's full attachment list on success.
+        """
+        contract = self.get_object()
+        files = request.FILES.getlist('files')
+
+        if not files:
+            return Response({'error': 'No files provided.'}, status=400)
+
+        existing = contract.attachments.count()
+        if existing + len(files) > MAX_FILES_PER_CONTRACT:
+            return Response(
+                {'error': f'Maximum {MAX_FILES_PER_CONTRACT} documents allowed per contract.'},
+                status=400,
+            )
+
+        # Validate every file before persisting any of them
+        for f in files:
+            validate_contract_document(f)
+
+        created = [
+            ContractAttachment.objects.create(
+                contract=contract,
+                file=f,
+                original_filename=sanitise_filename(f.name),
+                mime_type=f.content_type or 'application/pdf',
+                size_bytes=f.size,
+                uploaded_by=request.user,
+            )
+            for f in files
+        ]
+        data = ContractAttachmentSerializer(created, many=True).data
+        return Response(data, status=201)
+
+    @action(
+        detail=True,
+        methods=['delete'],
+        url_path='attachments/(?P<att_id>[0-9]+)',
+    )
+    def delete_attachment(self, request, pk=None, att_id=None):
+        """Delete a single contract document. Gated by ``can_delete``."""
+        contract = self.get_object()
+        attachment = contract.attachments.filter(pk=att_id).first()
+        if attachment is None:
+            return Response({'error': 'Attachment not found.'}, status=404)
+
+        attachment.file.delete(save=False)
+        attachment.delete()
+        return Response(status=204)
+
+    @action(
+        detail=True,
+        methods=['get'],
+        url_path='attachments/(?P<att_id>[0-9]+)/download',
+    )
+    def download_attachment(self, request, pk=None, att_id=None):
+        """Stream a contract document inline (PDF preview). Gated by ``can_view``."""
+        contract = self.get_object()
+        attachment = contract.attachments.filter(pk=att_id).first()
+        if attachment is None:
+            return Response({'error': 'Attachment not found.'}, status=404)
+
+        response = FileResponse(
+            attachment.file.open('rb'),
+            content_type=attachment.mime_type or 'application/pdf',
+            as_attachment=False,
+            filename=attachment.original_filename,
+        )
+        return response
 
 
 class ContractSaleViewSet(ModelViewSet):

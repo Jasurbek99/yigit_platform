@@ -15,6 +15,7 @@ import dayjs from 'dayjs';
 import { useContract } from '@/hooks/useContracts';
 import { useAuth } from '@/hooks/useAuth';
 import { ContractSalesTab } from './ContractSalesTab';
+import { DocumentsTab } from './DocumentsTab';
 import type { ContractStatus } from '@/types/contract';
 import { COLORS } from '@/constants/styles';
 
@@ -62,6 +63,7 @@ export default function ContractDetail() {
 
   const { data: contract, isLoading, isError } = useContract(contractId);
   const { user } = useAuth();
+  const contractPerm = user?.resource_permissions?.contract;
 
   if (isLoading) {
     return (
@@ -91,6 +93,18 @@ export default function ContractDetail() {
         <ContractSalesTab
           contractId={contractId}
           currentUser={user}
+        />
+      ),
+    },
+    {
+      key: 'documents',
+      label: t('contracts.detail.tab.documents'),
+      children: (
+        <DocumentsTab
+          contractId={contractId}
+          attachments={contract.attachments ?? []}
+          canUpload={!!user?.is_superuser || !!contractPerm?.create}
+          canDelete={!!user?.is_superuser || !!contractPerm?.delete}
         />
       ),
     },

@@ -80,6 +80,36 @@ Query params:
 - `?status=<value>` — explicit status filter (cancelled always blocked)
 - `?include_ended=true` — include completed + closed alongside active
 
+## ContractAttachment (PDF documents)
+
+App: `apps.contracts` | DB table: `contracts_contract_attachment` | Migration: `0003`
+
+A PDF document attached to a contract (signed scan, annex, …) for download/inline preview. Mirrors `feedback.FeedbackAttachment`. The detail response nests read-only `attachments[]` metadata (no file URL — files are served only through the authenticated download action).
+
+| Field | Type | Notes |
+|---|---|---|
+| `contract` | FK → `contracts.Contract` | `CASCADE`, related `attachments` |
+| `file` | `FileField(upload_to='contracts/%Y/%m/')` | the stored PDF |
+| `original_filename` | `CharField(255)` | sanitised basename of the upload |
+| `mime_type` | `CharField(100)` | always `application/pdf` |
+| `size_bytes` | `IntegerField` | |
+| `uploaded_by` | FK → `core.User` | PROTECT |
+| `uploaded_at` | `DateTimeField` | auto_now_add |
+
+**Validation** (`contracts/services/files.py::validate_contract_document`): PDF only — `.pdf` extension + `%PDF-` magic bytes, ≤20 MB per file, max 20 per contract. Runs before any DB write.
+
+### Attachment endpoints (actions on `ContractViewSet`)
+
+| Method | URL | Permission | Notes |
+|---|---|---|---|
+| POST | `…/contracts/{id}/attachments/` | `can_create` | multipart `files` (one or more); validates all before persisting; returns created metadata |
+| GET | `…/contracts/{id}/attachments/{attId}/download/` | `can_view` | `FileResponse`, `Content-Disposition: inline` (browser previews the PDF) |
+| DELETE | `…/contracts/{id}/attachments/{attId}/` | `can_delete` | removes the file + row |
+
+Permission maps by HTTP method via `DynamicResourcePermission` on `resource_code='contract'`. Downloads are **authenticated** (never a direct `/media/` URL) because contract documents are legal/financial records.
+
+The status/FK filtering in `get_queryset` applies to the **list** action only — detail (`retrieve`) and the attachment actions resolve by pk across every status, so a contract's documents stay accessible after it is completed or closed (when they are most needed — settlement, disputes).
+
 ## Upcoming (not in Slice A)
 
 - Slice B: ContractSale model + rollup service

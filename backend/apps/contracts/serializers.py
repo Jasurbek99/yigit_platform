@@ -16,11 +16,37 @@ from rest_framework import serializers
 
 from apps.core.models import Season
 from apps.core.permissions import get_editable_fields
-from apps.contracts.models import Contract, ContractSale
+from apps.contracts.models import Contract, ContractAttachment, ContractSale
 from apps.contracts.services.contract_number import (
     next_contract_no,
     parse_contract_number,
 )
+
+
+class ContractAttachmentSerializer(serializers.ModelSerializer):
+    """Read-only metadata for a contract document attachment.
+
+    No file URL is exposed — contract documents are served only through the
+    authenticated ``attachments/<id>/download`` action, never a direct /media/ URL.
+    """
+
+    uploaded_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ContractAttachment
+        fields = [
+            'id',
+            'original_filename',
+            'mime_type',
+            'size_bytes',
+            'uploaded_by',
+            'uploaded_by_name',
+            'uploaded_at',
+        ]
+        read_only_fields = fields
+
+    def get_uploaded_by_name(self, obj: ContractAttachment) -> str:
+        return obj.uploaded_by.get_full_name() or obj.uploaded_by.username
 
 
 class ContractListSerializer(serializers.ModelSerializer):
@@ -118,9 +144,10 @@ class ContractDetailSerializer(ContractListSerializer):
     """
 
     editable_fields = serializers.SerializerMethodField()
+    attachments = ContractAttachmentSerializer(many=True, read_only=True)
 
     class Meta(ContractListSerializer.Meta):
-        fields = ContractListSerializer.Meta.fields + ['editable_fields']
+        fields = ContractListSerializer.Meta.fields + ['editable_fields', 'attachments']
 
     def get_editable_fields(self, obj: Contract) -> list[str]:
         """Return the fields editable by the requesting user's role."""

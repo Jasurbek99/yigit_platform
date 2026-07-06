@@ -39,14 +39,38 @@ Numbers use `fmt()` — `Math.round().toLocaleString('en-US', { maximumFractionD
 
 ### Tabs
 
-Four `Ant Design Tabs` below the Descriptions:
+Five `Ant Design Tabs` below the Descriptions:
 
 | Tab key | Label (tk/ru/en) | Content |
 |---|---|---|
 | `sales` | Fakturalar / Фактуры / Sales | **ContractSalesTab** — fully built (Slice B). i18n label key `contracts.detail.tab.sales` |
+| `documents` | Resminamalar / Документы / Documents | **DocumentsTab** — PDF attachments (upload / inline view / delete) |
 | `payments` | Tölegler / Оплаты / Payments | "Coming soon" Empty — Slice C |
 | `passports` | Passport sdelkalary / Паспорта сделок / Deal Passports | "Coming soon" Empty — Slice D |
 | `comments` | Kommentarlar / Комментарии / Comments | "Coming soon" Empty — later |
+
+## Documents Tab (DocumentsTab)
+
+Component: `pages/contracts/DocumentsTab.tsx`
+
+Lets users attach signed-contract PDFs (and annexes) to a contract for download/preview. Reads the nested `attachments[]` array from the contract detail response.
+
+### Behaviour
+
+- **Upload** (write-gated): antd `Upload`, `accept="application/pdf"`, multiple. Each file POSTs to `…/contracts/{id}/attachments/` (multipart `files`). PDF-only — backend rejects non-PDFs (magic-byte check), ≤20 MB, max 20 per contract.
+- **List**: bordered `List` of attachments — filename, size, uploader name, upload datetime (`DD.MM.YYYY HH:mm`).
+- **View**: opens `contractAttachmentUrl(contractId, attId)` (the authed `…/download/` endpoint) in a new tab. The httpOnly auth cookie rides the same-origin GET; the PDF previews inline (`Content-Disposition: inline`). Never a direct `/media/` URL — contract documents stay behind auth.
+- **Delete** (write-gated): Popconfirm → `DELETE …/attachments/{attId}/`.
+
+Write controls are gated on the user's **resource** permissions (contract has no field-level perms): the Upload button shows when `resource_permissions.contract.create` (or superuser); the Delete action shows when `resource_permissions.contract.delete`. The backend enforces the same (POST→`can_create`, DELETE→`can_delete`).
+
+### API
+
+`POST   /api/v1/contracts/contracts/{id}/attachments/` — upload one or more PDFs (multipart `files`); returns created attachment metadata. `can_create`.
+`GET    /api/v1/contracts/contracts/{id}/attachments/{attId}/download/` — stream the PDF inline. `can_view`.
+`DELETE /api/v1/contracts/contracts/{id}/attachments/{attId}/` — delete. `can_delete`.
+
+See [[../reference/contracts-contract-model]] for the `ContractAttachment` model + validation rules.
 
 ## Faktura Tab (ContractSalesTab)
 
@@ -123,6 +147,7 @@ Admin / superuser only (button hidden for other roles). Popconfirm two-step. On 
 |---|---|
 | `frontend/src/pages/contracts/ContractDetail.tsx` | Detail page (header + tabs) |
 | `frontend/src/pages/contracts/ContractSalesTab.tsx` | Faktura ProTable |
+| `frontend/src/pages/contracts/DocumentsTab.tsx` | Contract PDF attachments (upload / view / delete) |
 | `frontend/src/pages/contracts/ContractSaleCreate.tsx` | Create + Edit modal |
 | `frontend/src/hooks/useContractSales.ts` | useContractSales, useContractSale, useCreateContractSale, useUpdateContractSale, useDeleteContractSale |
 | `frontend/src/types/contractSale.ts` | IContractSale, IContractSaleDetail, IContractSaleCreatePayload, IContractSaleUpdatePayload, ContractSaleStatus |

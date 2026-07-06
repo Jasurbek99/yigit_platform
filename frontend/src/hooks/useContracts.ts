@@ -1,7 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import type { IApiListResponse } from '@/types';
-import type { IContract, IContractDetail, IContractCreatePayload, ContractStatus } from '@/types/contract';
+import type {
+  IContract,
+  IContractAttachment,
+  IContractDetail,
+  IContractCreatePayload,
+  ContractStatus,
+} from '@/types/contract';
 
 // ─── Param types ─────────────────────────────────────────────────────────────
 
@@ -71,6 +77,50 @@ export function useCreateContract() {
     onSuccess: () => {
       // Invalidate the entire contracts list family
       queryClient.invalidateQueries({ queryKey: ['contracts', 'list'] });
+    },
+  });
+}
+
+// ─── Attachments ────────────────────────────────────────────────────────────
+
+/**
+ * Browser-openable URL for an attachment. The auth cookie is httpOnly and
+ * same-origin, so the browser sends it automatically — opening this URL in a
+ * new tab previews the PDF inline.
+ */
+export function contractAttachmentUrl(contractId: number, attachmentId: number): string {
+  return `${api.defaults.baseURL}/contracts/contracts/${contractId}/attachments/${attachmentId}/download/`;
+}
+
+export function useUploadContractAttachments(contractId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (files: File[]): Promise<IContractAttachment[]> => {
+      const form = new FormData();
+      files.forEach((f) => form.append('files', f));
+      const { data } = await api.post<IContractAttachment[]>(
+        `/contracts/contracts/${contractId}/attachments/`,
+        form,
+        { headers: { 'Content-Type': 'multipart/form-data' } },
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contracts', 'detail', contractId] });
+    },
+  });
+}
+
+export function useDeleteContractAttachment(contractId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (attachmentId: number): Promise<void> => {
+      await api.delete(
+        `/contracts/contracts/${contractId}/attachments/${attachmentId}/`,
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contracts', 'detail', contractId] });
     },
   });
 }
