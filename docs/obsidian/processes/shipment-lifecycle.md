@@ -6,6 +6,8 @@ related: [[shipment-creation]], [[quota-management]], [[quality-documents]], [[a
 
 # Shipment Lifecycle
 
+> 📊 **Interactive BPMN diagram:** [`docs/diagrams/export-process-bpmn.html`](../../diagrams/export-process-bpmn.html) — swimlanes per role, the `has_peregruz` gateway, click-for-detail nodes, and sub-process modals (draft join, quota sync, auto-advance, sales report, customs ledger, cancel). Open in any browser; fully offline.
+
 ## What Is This Process?
 
 The shipment lifecycle is the **central process** of the YGT Platform. Every truck load of tomatoes leaving the Turkmenistan greenhouses goes through a 13-step state machine from Loading to Completed. Each step is owned by a specific role, and transitioning between steps writes an immutable audit trail.
