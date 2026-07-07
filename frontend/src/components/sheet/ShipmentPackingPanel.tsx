@@ -1,12 +1,14 @@
-import { Alert, Button, InputNumber, Space, Tooltip, Typography } from 'antd';
+import { Alert, Button, InputNumber, Select, Space, Tooltip, Typography } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import {
   useShipmentPacking,
   useSetShipmentPacking,
+  useApplyFirmSplit,
   type IShipmentPackingRow,
 } from '@/hooks/useShipmentPacking';
+import { useSplitTemplates } from '@/hooks/useSplitTemplates';
 import { PackingPresetSelect } from '@/components/PackingPresetSelect';
 
 const { Text } = Typography;
@@ -20,14 +22,21 @@ const num = (v: string | number | null): string =>
 
 /**
  * Unified per-truck packing panel (poka-yoke).
- * Pick ONE whole-truck config → each firm's packing is derived by its weight share
- * (always sums to the truck). NET per firm = its weight, never editable. Gross/boxes/
- * pallets can be overridden per firm; a live Σ-check warns on any mismatch.
+ * Pick ONE whole-truck config + one split template → each firm's weight is set and
+ * its packing derived by weight share (always sums to the truck). Firm weights are
+ * switchable; gross/boxes/pallets can be overridden per firm; a live Σ-check warns
+ * on any mismatch.
  */
 export function ShipmentPackingPanel({ shipmentId }: IShipmentPackingPanelProps) {
   const { t } = useTranslation();
   const { data, isLoading } = useShipmentPacking(shipmentId);
   const setPacking = useSetShipmentPacking();
+  const applySplit = useApplyFirmSplit();
+  const { data: splits = [] } = useSplitTemplates();
+
+  const truckPicked = data?.whole_truck.packing_preset != null;
+  const firmCount = data?.rows.length ?? 0;
+  const matchingSplits = splits.filter((s) => s.part_count === firmCount);
 
   const onTruckChange = (presetId: number | null) => {
     setPacking.mutate(
@@ -36,13 +45,50 @@ export function ShipmentPackingPanel({ shipmentId }: IShipmentPackingPanelProps)
     );
   };
 
-  const truckPicked = data?.whole_truck.packing_preset != null;
+  // Apply a split template: assign its weights to firms in current order.
+  const onSplitPick = (templateId: number) => {
+    const tpl = splits.find((s) => s.id === templateId);
+    if (!tpl || !data) return;
+    const weights = tpl.weights_list.map(Number);
+    const firms = data.rows.map((r, i) => ({ export_firm_id: r.export_firm, weight_kg: weights[i] }));
+    applySplit.mutate(
+      { shipmentId, firms },
+      { onError: () => toast.error(t('sheet.packing.toast_error')) },
+    );
+  };
+
+  // Switch: give firm `firmId` the weight `newWeight`, swapping with whichever
+  // firm currently holds it (keeps the split total unchanged — poka-yoke).
+  const onSwitchWeight = (firmId: number, newWeight: number) => {
+    if (!data) return;
+    const current = data.rows.map((r) => ({ id: r.export_firm, w: Number(r.weight_kg) }));
+    const target = current.find((f) => f.id === firmId);
+    if (!target || target.w === newWeight) return;
+    const holder = current.find((f) => f.id !== firmId && f.w === newWeight);
+    const oldWeight = target.w;
+    const firms = current.map((f) => {
+      if (f.id === firmId) return { export_firm_id: f.id, weight_kg: newWeight };
+      if (holder && f.id === holder.id) return { export_firm_id: f.id, weight_kg: oldWeight };
+      return { export_firm_id: f.id, weight_kg: f.w };
+    });
+    applySplit.mutate(
+      { shipmentId, firms },
+      { onError: () => toast.error(t('sheet.packing.toast_error')) },
+    );
+  };
+
+  // Distinct firm weights → the options for the per-firm switch dropdowns.
+  const weightOptions = data
+    ? Array.from(new Set(data.rows.map((r) => Number(r.weight_kg)).filter((w) => w > 0)))
+        .sort((a, b) => b - a)
+        .map((w) => ({ value: w, label: w.toLocaleString() }))
+    : [];
 
   return (
     <div
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
-      style={{ marginTop: 8, padding: 8, background: '#fafafa', borderRadius: 4, width: 360 }}
+      style={{ marginTop: 8, padding: 8, background: '#fafafa', borderRadius: 4, width: 380 }}
     >
       <Text strong style={{ fontSize: 12 }}>{t('sheet.packing.title')}</Text>
 
@@ -57,16 +103,36 @@ export function ShipmentPackingPanel({ shipmentId }: IShipmentPackingPanelProps)
           placeholder={t('sheet.packing.pick')}
           style={{ width: '100%', marginTop: 2 }}
         />
-        {truckPicked && (
+        {truckPicked && data && (
           <Text type="secondary" style={{ fontSize: 11 }}>
             {t('sheet.packing.truck_totals', {
-              net: num(data!.whole_truck.net_kg),
-              gross: num(data!.whole_truck.gross_kg),
-              boxes: num(data!.whole_truck.box_count),
+              net: num(data.whole_truck.net_kg),
+              gross: num(data.whole_truck.gross_kg),
+              boxes: num(data.whole_truck.box_count),
             })}
           </Text>
         )}
       </div>
+
+      {/* Split template → sets the firm weights */}
+      {firmCount > 1 && (
+        <div style={{ marginTop: 8 }}>
+          <Text type="secondary" style={{ fontSize: 11 }}>{t('sheet.packing.split')}</Text>
+          <Select
+            size="small"
+            style={{ width: '100%', marginTop: 2 }}
+            placeholder={t('sheet.packing.split_pick')}
+            loading={applySplit.isPending}
+            onChange={onSplitPick}
+            value={null}
+            notFoundContent={t('sheet.packing.no_split_match')}
+            options={matchingSplits.map((s) => ({
+              value: s.id,
+              label: `${s.name}  (${num(s.total_kg)} kg)`,
+            }))}
+          />
+        </div>
+      )}
 
       {/* Poka-yoke: firms must sum to the truck config net */}
       {truckPicked && data && (
@@ -95,7 +161,14 @@ export function ShipmentPackingPanel({ shipmentId }: IShipmentPackingPanelProps)
         ) : (
           <Space direction="vertical" size={8} style={{ width: '100%', marginTop: 4 }}>
             {data.rows.map((row) => (
-              <FirmPackingRow key={row.export_firm} shipmentId={shipmentId} row={row} truckPicked={truckPicked} />
+              <FirmPackingRow
+                key={row.export_firm}
+                shipmentId={shipmentId}
+                row={row}
+                truckPicked={truckPicked}
+                weightOptions={weightOptions}
+                onSwitchWeight={onSwitchWeight}
+              />
             ))}
           </Space>
         )}
@@ -106,9 +179,15 @@ export function ShipmentPackingPanel({ shipmentId }: IShipmentPackingPanelProps)
 
 type OverrideField = 'gross_kg' | 'box_count' | 'pallet_count' | 'pallet_weight_kg';
 
-function FirmPackingRow({
-  shipmentId, row, truckPicked,
-}: { shipmentId: number; row: IShipmentPackingRow; truckPicked: boolean }) {
+interface IFirmRowProps {
+  shipmentId: number;
+  row: IShipmentPackingRow;
+  truckPicked: boolean;
+  weightOptions: { value: number; label: string }[];
+  onSwitchWeight: (firmId: number, newWeight: number) => void;
+}
+
+function FirmPackingRow({ shipmentId, row, truckPicked, weightOptions, onSwitchWeight }: IFirmRowProps) {
   const { t } = useTranslation();
   const setPacking = useSetShipmentPacking();
 
@@ -129,9 +208,9 @@ function FirmPackingRow({
     );
   };
 
-  const weight = row.weight_kg != null ? Number(row.weight_kg).toLocaleString() : '—';
   const hasOverride = (['gross_kg', 'box_count', 'pallet_count', 'pallet_weight_kg'] as OverrideField[])
     .some((f) => row.override[f] != null);
+  const canSwitch = weightOptions.length > 1 && row.weight_kg != null;
 
   const fields: { key: OverrideField; label: string; precision: number }[] = [
     { key: 'gross_kg', label: t('sheet.packing.gross'), precision: 2 },
@@ -144,7 +223,20 @@ function FirmPackingRow({
     <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 6 }}>
       <Space size={6} wrap style={{ marginBottom: 2 }}>
         <Text strong style={{ fontSize: 12 }}>{row.export_firm_code}</Text>
-        <Text type="secondary" style={{ fontSize: 11 }}>{t('sheet.packing.net')}: {weight} kg</Text>
+        <Text type="secondary" style={{ fontSize: 11 }}>{t('sheet.packing.net')}:</Text>
+        {canSwitch ? (
+          <Select
+            size="small"
+            value={Number(row.weight_kg)}
+            options={weightOptions}
+            onChange={(v) => onSwitchWeight(row.export_firm, v)}
+            style={{ width: 90 }}
+          />
+        ) : (
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            {row.weight_kg != null ? Number(row.weight_kg).toLocaleString() : '—'} kg
+          </Text>
+        )}
         {hasOverride && (
           <Tooltip title={t('sheet.packing.reset')}>
             <Button size="small" type="text" icon={<ReloadOutlined />} onClick={resetOverrides} />

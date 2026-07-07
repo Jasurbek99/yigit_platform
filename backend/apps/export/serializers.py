@@ -16,6 +16,7 @@ from apps.export.models import (
     FinansistAdvanceShipment,
     PackingPreset,
     Pallet,
+    SplitTemplate,
     QualityDocument,
     SalesReport,
     SalesReportLineItem,
@@ -1011,6 +1012,47 @@ class PackingPresetSerializer(serializers.ModelSerializer):
             'sort_order',
         ]
         read_only_fields = ['id']
+
+
+class SplitTemplateSerializer(serializers.ModelSerializer):
+    """CRUD shape for the firm-split catalog (per-firm weight divisions)."""
+
+    weights_list = serializers.SerializerMethodField()
+    part_count = serializers.IntegerField(read_only=True)
+    total_kg = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+
+    class Meta:
+        model = SplitTemplate
+        fields = [
+            'id',
+            'name',
+            'weights',
+            'weights_list',
+            'part_count',
+            'total_kg',
+            'is_active',
+            'sort_order',
+        ]
+        read_only_fields = ['id']
+
+    def get_weights_list(self, obj) -> list[str]:
+        return [str(w) for w in obj.weight_list()]
+
+    def validate_weights(self, value: str) -> str:
+        """Must be comma-separated positive numbers; normalise to a clean string."""
+        parts = [p.strip() for p in value.split(',') if p.strip()]
+        if len(parts) < 2:
+            raise serializers.ValidationError('A split needs at least two weights.')
+        cleaned = []
+        for p in parts:
+            try:
+                d = Decimal(p)
+            except (ArithmeticError, ValueError):
+                raise serializers.ValidationError(f'"{p}" is not a number.')
+            if d <= 0:
+                raise serializers.ValidationError('Weights must be greater than 0.')
+            cleaned.append(format(d.normalize(), 'f'))
+        return ','.join(cleaned)
 
 
 class CustomsExpenseSerializer(serializers.ModelSerializer):

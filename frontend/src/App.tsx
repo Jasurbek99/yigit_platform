@@ -64,6 +64,7 @@ const SalesReportPage = lazy(() => import('@/pages/export/SalesReportPage'));
 const SalesRepCoveragePage = lazy(() => import('@/pages/admin/SalesRepCoveragePage'));
 const ExpenseTemplatePage = lazy(() => import('@/pages/admin/ExpenseTemplatePage'));
 const PackingPresetPage = lazy(() => import('@/pages/admin/PackingPresetPage'));
+const SplitTemplatePage = lazy(() => import('@/pages/admin/SplitTemplatePage'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -273,6 +274,12 @@ export default function App() {
                   <Route path="admin/packing-presets" element={
                     <ProtectedRoute pageCode="export.packing_presets">
                       <PackingPresetPage />
+                    </ProtectedRoute>
+                  } />
+                  {/* Firm-split catalog */}
+                  <Route path="admin/split-templates" element={
+                    <ProtectedRoute pageCode="export.packing_presets">
+                      <SplitTemplatePage />
                     </ProtectedRoute>
                   } />
                 </Route>

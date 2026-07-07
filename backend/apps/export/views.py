@@ -35,6 +35,7 @@ from apps.export.models import (
     ExpenseCategory,
     FinansistAdvanceShipment,
     PackingPreset,
+    SplitTemplate,
     Pallet, QualityDocument, QuotaUsageRecord, SalesReport, Shipment, ShipmentComment,
     ShipmentBlockSource, ShipmentFirmSplit, SheetRowSetting, UserSheetRowPref,
     get_default_truck_weight,
@@ -43,6 +44,7 @@ from apps.export.sheet_rows import DEFAULT_SHEET_ROWS
 from apps.export.serializers import (
     ExpenseCategorySerializer,
     PackingPresetSerializer,
+    SplitTemplateSerializer,
     PalletBulkUpsertSerializer,
     PalletSerializer,
     QualityDocumentSerializer,
@@ -3771,3 +3773,28 @@ class PackingPresetViewSet(ModelViewSet):
     http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
     filterset_fields = ['product_type', 'is_active']
     ordering_fields = ['sort_order', 'name', 'net_kg']
+
+
+class SplitTemplateViewSet(ModelViewSet):
+    """CRUD for the firm-split catalog (per-firm weight divisions).
+
+    Named splits (10000/8000, 14000/3000, …) picked on a truck to set its firm
+    weights. See `SplitTemplate`. Reads open; writes gated to management.
+
+    GET    /api/v1/export/split-templates/       — list (any authenticated)
+    POST   /api/v1/export/split-templates/       — create (admin/director/export_manager)
+    PATCH  /api/v1/export/split-templates/{id}/  — update (same)
+    DELETE /api/v1/export/split-templates/{id}/  — delete (same)
+
+    Filter: ?is_active=true|false. Order: ?ordering=sort_order|name.
+    """
+
+    queryset = SplitTemplate.objects.order_by('sort_order', 'name')
+    serializer_class = SplitTemplateSerializer
+    permission_classes = [
+        IsAuthenticated,
+        write_permission('admin', 'director', 'export_manager'),
+    ]
+    http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
+    filterset_fields = ['is_active']
+    ordering_fields = ['sort_order', 'name']

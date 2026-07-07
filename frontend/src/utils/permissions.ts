@@ -51,6 +51,7 @@ const ROUTE_PAGE_MAP: Record<string, string> = {
   '/admin/sales-rep-coverage':  'export.sales_rep_coverage',
   '/admin/expense-template':    'export.expense_template',
   '/admin/packing-presets':     'export.packing_presets',
+  '/admin/split-templates':     'export.packing_presets',
 };
 
 /**

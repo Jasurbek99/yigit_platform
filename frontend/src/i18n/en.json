@@ -95,7 +95,8 @@
     "sales_reports": "Sales Reports",
     "sales_rep_coverage": "Sales Rep Coverage",
     "admin_expense_template": "Expense Template",
-    "admin_packing_presets": "Packing Presets"
+    "admin_packing_presets": "Packing Presets",
+    "admin_split_templates": "Split Templates"
   },
   "expense_template": {
     "title": "Expense Category Template",
@@ -147,6 +148,26 @@
     "confirm_delete_title": "Delete preset?",
     "confirm_delete_body": "This will permanently remove the packing preset. If it is referenced by a sales invoice, the server will reject the delete.",
     "error_load": "Failed to load packing presets"
+  },
+  "split_template": {
+    "title": "Split Templates",
+    "subtitle": "Reusable firm-split divisions (e.g. 10000 / 8000). Picked on a truck to set each firm's weight; the per-firm packing derives from the whole-truck config.",
+    "add": "New Split",
+    "col_sort_order": "Order",
+    "col_name": "Name",
+    "col_weights": "Weights (kg)",
+    "col_total": "Total",
+    "col_status": "Status",
+    "weights_hint": "Comma-separated kg in firm order, e.g. 10000,8000",
+    "modal_create": "New Split Template",
+    "modal_edit": "Edit Split Template",
+    "toast_created": "Split created",
+    "toast_updated": "Split updated",
+    "toast_deleted": "Split deleted",
+    "toast_error": "An error occurred",
+    "confirm_delete_title": "Delete split?",
+    "confirm_delete_body": "This will permanently remove the split template.",
+    "error_load": "Failed to load split templates"
   },
   "stuck": {
     "page_title": "Stuck Shipments",
@@ -1571,6 +1592,9 @@
       "no_firms": "Add firms first.",
       "no_sale": "Link a contract for this firm first.",
       "pick_truck_first": "Pick a whole-truck config first.",
+      "split": "Split into firms",
+      "split_pick": "Apply a split template…",
+      "no_split_match": "No split template for this firm count.",
       "truck_totals": "Net {{net}} · Gross {{gross}} · {{boxes}} boxes",
       "sum_ok": "Firms add up to {{total}} kg ✓",
       "sum_bad": "Firms add up to {{total}} kg — truck config is {{net}} kg. Fix the firm weights or the config.",

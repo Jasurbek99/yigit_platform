@@ -81,3 +81,22 @@ export function useSetShipmentPacking() {
     },
   });
 }
+
+/**
+ * Set the per-firm split weights via the quota-safe firm-splits endpoint
+ * (replaces all splits; runs draft quota sync server-side).
+ */
+export function useApplyFirmSplit() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      shipmentId, firms,
+    }: { shipmentId: number; firms: { export_firm_id: number; weight_kg: number }[] }): Promise<void> => {
+      await api.post(`/export/shipments/${shipmentId}/firm-splits/`, { firms });
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['shipment-packing', vars.shipmentId] });
+      queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+    },
+  });
+}

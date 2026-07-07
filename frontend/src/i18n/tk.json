@@ -95,7 +95,8 @@
     "sales_reports": "Satyş hasabatlary",
     "sales_rep_coverage": "Satyjy müşderileri",
     "admin_expense_template": "Çykdajy şablony",
-    "admin_packing_presets": "Gaplaýyş şablonlary"
+    "admin_packing_presets": "Gaplaýyş şablonlary",
+    "admin_split_templates": "Bölüş şablonlary"
   },
   "expense_template": {
     "title": "Çykdajy kategoriýalarynyň şablony",
@@ -147,6 +148,26 @@
     "confirm_delete_title": "Şablony öçürmeli?",
     "confirm_delete_body": "Şablon hemişelik öçüriler. Eger ol satuw hasap-fakturasynda ulanylýan bolsa, serwer öçürmegi ret eder.",
     "error_load": "Gaplaýyş şablonlaryny ýükläp bolmady"
+  },
+  "split_template": {
+    "title": "Bölüş şablonlary",
+    "subtitle": "Firmalara bölüşiň taýýar görnüşleri (mysal üçin 10000 / 8000). Maşynda saýlananda her firmanyň agramyny belleýär; firma boýunça gaplama doly maşyn konfigurasiýasyndan hasaplanýar.",
+    "add": "Täze bölüş",
+    "col_sort_order": "Tertip",
+    "col_name": "Ady",
+    "col_weights": "Agramlar (kg)",
+    "col_total": "Jemi",
+    "col_status": "Ýagdaý",
+    "weights_hint": "Firma tertibinde otur bilen agramlar, mysal üçin 10000,8000",
+    "modal_create": "Täze bölüş şablony",
+    "modal_edit": "Bölüş şablonyny üýtget",
+    "toast_created": "Bölüş döredildi",
+    "toast_updated": "Bölüş täzelendi",
+    "toast_deleted": "Bölüş öçürildi",
+    "toast_error": "Ýalňyşlyk ýüze çykdy",
+    "confirm_delete_title": "Bölüşi öçürmeli?",
+    "confirm_delete_body": "Bölüş şablony hemişelik öçüriler.",
+    "error_load": "Bölüş şablonlaryny ýükläp bolmady"
   },
   "stuck": {
     "page_title": "Saklanan ýükler",
@@ -1571,6 +1592,9 @@
       "no_firms": "Ilki firmalary goşuň.",
       "no_sale": "Ilki bu firma üçin şertnama baglanyşdyryň.",
       "pick_truck_first": "Ilki maşyn konfigurasiýasyny saýlaň.",
+      "split": "Firmalara böl",
+      "split_pick": "Bölüş şablonyny ulan…",
+      "no_split_match": "Bu firma sany üçin şablon ýok.",
       "truck_totals": "Net {{net}} · Brut {{gross}} · {{boxes}} ýaşik",
       "sum_ok": "Firmalaryň jemi: {{total}} kg ✓",
       "sum_bad": "Firmalaryň jemi: {{total}} kg — maşyn konfigurasiýasy {{net}} kg. Firma agramlaryny ýa-da konfigurasiýany düzediň.",

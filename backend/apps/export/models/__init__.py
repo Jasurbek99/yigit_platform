@@ -7,6 +7,7 @@ from .shipment import (
 )
 from .pallet import Pallet
 from .packing_preset import PackingPreset, PRODUCT_TYPE_CHOICES
+from .split_template import SplitTemplate
 from .quality import QualityDocument, ShipmentComment, SalesReport
 from .expense_category import ExpenseCategory
 from .sales import (
@@ -83,6 +84,7 @@ __all__ = [
     'Pallet',
     'PackingPreset',
     'PRODUCT_TYPE_CHOICES',
+    'SplitTemplate',
     'SheetRowSetting',
     'SheetRowRoleTrigger',
     'SheetRowUserPermission',
