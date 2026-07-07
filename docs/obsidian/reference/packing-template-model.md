@@ -44,9 +44,14 @@ admin/director/export_manager/document_team):
 - `POST scope:'template'` — validates share-count == firm-count, sets each firm's weight from
   the share nets via the **quota-safe** `set_firm_splits` path (so `kg_used = weight_kg`
   stays correct — [[quota]]), copies each share's packing onto the firm's `ContractSale`,
-  sets `Shipment.packing_template`. Approved-quota guard → 400.
+  sets `Shipment.packing_template`. **All three writes are one `transaction.atomic()`.**
+  Returns **`no_sale_firms`** — firm ids whose packing couldn't be copied because no
+  `ContractSale` is linked yet (their weight/quota *are* set). Approved-quota guard → 400.
 - `POST scope:'firm'` — edit one firm's packing values (`.update()`).
-- `POST scope:'swap'` — exchange two firms' weight + packing.
+- `POST scope:'swap'` — exchange two firms' weight + packing. **Rebuilds the full weight map
+  and swaps only the two, so the other firms on a 3+ firm truck are preserved** (a bare
+  two-firm map would delete the rest — the fix for the review's HIGH finding). Returns
+  **`packing_swapped`** (false if a firm has no sale, so weight swapped but packing didn't).
 
 ## Catalog CRUD — `/api/v1/export/packing-templates/`
 
