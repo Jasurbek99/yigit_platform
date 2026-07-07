@@ -21,6 +21,7 @@ from apps.contracts.services.contract_number import (
     next_contract_no,
     parse_contract_number,
 )
+from apps.contracts.services.document_context import missing_packing_on
 
 
 class ContractAttachmentSerializer(serializers.ModelSerializer):
@@ -417,3 +418,56 @@ class ContractSaleCreateSerializer(serializers.ModelSerializer):
             )
 
         return attrs
+
+
+class DocumentPacketSerializer(serializers.Serializer):
+    """One truck's document packet for the Documents page (read-only).
+
+    A truck (``Shipment``) carries 1–3 export firms; each firm has its own
+    per-firm documents (invoice / letters, keyed by its ``sale_id``), while the
+    CMR is one truck-level document. ``packing_complete`` / ``missing_packing``
+    reflect the same guard the generation endpoints enforce, so the page can
+    flag trucks whose packing must still be filled before any document generates.
+
+    Renders from a ``Shipment`` queryset with ``import_firm`` / ``country`` /
+    ``city`` / ``status`` / ``packing_template`` select_related and
+    ``firm_splits__export_firm`` / ``sales`` prefetched.
+    """
+
+    id = serializers.IntegerField(read_only=True)
+    shipment_code = serializers.CharField(read_only=True)
+    date = serializers.DateField(read_only=True)
+    status_code = serializers.CharField(source='status.code', read_only=True)
+    status_display = serializers.CharField(source='status.name_en', read_only=True)
+    country_name = serializers.CharField(source='country.name_en', read_only=True, default=None)
+    city_name = serializers.CharField(source='city.name', read_only=True, default=None)
+    buyer_name = serializers.SerializerMethodField()
+    packing_complete = serializers.SerializerMethodField()
+    missing_packing = serializers.SerializerMethodField()
+    firms = serializers.SerializerMethodField()
+
+    def get_buyer_name(self, obj) -> str | None:
+        firm = obj.import_firm
+        if firm is None:
+            return None
+        return firm.name_short or firm.name_company
+
+    def get_missing_packing(self, obj) -> list[str]:
+        return missing_packing_on(obj)
+
+    def get_packing_complete(self, obj) -> bool:
+        return not missing_packing_on(obj)
+
+    def get_firms(self, obj) -> list[dict]:
+        sales_by_firm = {sale.export_firm_id: sale for sale in obj.sales.all()}
+        firms = []
+        for split in obj.firm_splits.all():
+            firm = split.export_firm
+            sale = sales_by_firm.get(firm.id)
+            firms.append({
+                'export_firm_id': firm.id,
+                'export_firm_name': firm.name_short or firm.code,
+                'sale_id': sale.id if sale else None,
+                'invoice_number': sale.invoice_number if sale else None,
+            })
+        return firms

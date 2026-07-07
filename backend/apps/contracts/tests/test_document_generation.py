@@ -33,15 +33,15 @@ from apps.contracts.tests.test_contract_sale_api import (
 )
 
 
-def _make_packed_shipment(season, import_firm):
+def _make_packed_shipment(season, import_firm, status_code='draft', code='0101777/25'):
     """A shipment with complete packing (gross/net/boxes/pallets) — passes the guard."""
     status, _ = ShipmentStatusType.objects.get_or_create(
-        code='draft',
-        defaults={'name_tk': 'draft', 'name_en': 'Draft', 'name_ru': 'Draft',
-                  'step_order': 0, 'phase': 'PREP'},
+        code=status_code,
+        defaults={'name_tk': status_code, 'name_en': status_code.title(),
+                  'name_ru': status_code, 'step_order': 0, 'phase': 'PREP'},
     )
     return Shipment.objects.create(
-        shipment_code='0101777/25', date='2025-10-01', season=season, status=status,
+        shipment_code=code, date='2025-10-01', season=season, status=status,
         import_firm=import_firm, weight_gross=Decimal('10720'), weight_net=Decimal('9000'),
         box_count=1800, pallet_count=16,
     )
@@ -493,3 +493,72 @@ class ShipmentCmrEndpointTest(_SeededPermsMixin, TestCase):
     def test_missing_shipment_returns_404(self):
         resp = self.client.get('/api/v1/contracts/shipments/999999/cmr/')
         self.assertEqual(resp.status_code, 404)
+
+
+class DocumentPacketEndpointTest(_SeededPermsMixin, TestCase):
+    """API: GET /api/v1/contracts/document-packets/ — one row per truck."""
+
+    def setUp(self) -> None:
+        self.client = APIClient()
+        self.user = _make_user('pkt_doc', 'export_manager')
+        self.client.force_authenticate(user=self.user)
+        self.season = _make_season()
+        self.season.is_active = True
+        self.season.save(update_fields=['is_active'])
+        self.imp = _make_import_firm('IMPPKT')
+        self.ef1 = _make_export_firm('PKTA')
+        self.ef2 = _make_export_firm('PKTB')
+        self.shipment = _make_packed_shipment(
+            self.season, self.imp, status_code='yola_chykdy', code='0101701/25',
+        )
+        for firm in (self.ef1, self.ef2):
+            ShipmentFirmSplit.objects.create(
+                shipment=self.shipment, export_firm=firm,
+                weight_kg=Decimal('9000'), amount_usd=Decimal('8000'),
+            )
+        # ef1 has a linked sale (invoice); ef2 does not yet.
+        contract = _make_contract('PKT-C1', self.ef1, self.imp, self.season)
+        sale = _make_invoice(contract, invoice_number=1)
+        sale.shipment = self.shipment
+        sale.export_firm = self.ef1
+        sale.save(update_fields=['shipment', 'export_firm'])
+
+    def test_lists_truck_packet(self):
+        resp = self.client.get('/api/v1/contracts/document-packets/')
+        self.assertEqual(resp.status_code, 200)
+        results = resp.json()['results']
+        self.assertEqual(len(results), 1)
+        pkt = results[0]
+        self.assertEqual(pkt['id'], self.shipment.id)
+        self.assertTrue(pkt['packing_complete'])
+        self.assertEqual(pkt['buyer_name'], self.imp.name_short or self.imp.name_company)
+        by_firm = {f['export_firm_id']: f for f in pkt['firms']}
+        self.assertEqual(len(by_firm), 2)
+        self.assertIsNotNone(by_firm[self.ef1.id]['sale_id'])   # ef1 has a sale
+        self.assertIsNone(by_firm[self.ef2.id]['sale_id'])      # ef2 does not
+
+    def test_excludes_draft_truck(self):
+        draft = _make_packed_shipment(
+            self.season, self.imp, status_code='draft', code='0101702/25',
+        )
+        ShipmentFirmSplit.objects.create(
+            shipment=draft, export_firm=self.ef1,
+            weight_kg=Decimal('9000'), amount_usd=Decimal('8000'),
+        )
+        ids = [p['id'] for p in self.client.get('/api/v1/contracts/document-packets/').json()['results']]
+        self.assertIn(self.shipment.id, ids)
+        self.assertNotIn(draft.id, ids)
+
+    def test_incomplete_packing_flag(self):
+        self.shipment.box_count = None
+        self.shipment.save(update_fields=['box_count'])
+        pkt = self.client.get('/api/v1/contracts/document-packets/').json()['results'][0]
+        self.assertFalse(pkt['packing_complete'])
+        self.assertIn('box_count', pkt['missing_packing'])
+
+    def test_firm_filter(self):
+        on = self.client.get(f'/api/v1/contracts/document-packets/?firm={self.ef1.id}')
+        self.assertEqual(len(on.json()['results']), 1)
+        other = _make_export_firm('PKTC')
+        off = self.client.get(f'/api/v1/contracts/document-packets/?firm={other.id}')
+        self.assertEqual(len(off.json()['results']), 0)

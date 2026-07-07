@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from django.http import FileResponse, HttpResponse
 from rest_framework.decorators import action
+from rest_framework.generics import ListAPIView
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -21,6 +22,7 @@ from apps.contracts.serializers import (
     ContractSaleCreateSerializer,
     ContractSaleDetailSerializer,
     ContractSaleListSerializer,
+    DocumentPacketSerializer,
 )
 from apps.contracts.services.document_context import (
     PACKING_REQUIRED_MESSAGE,
@@ -381,6 +383,49 @@ class ShipmentCmrView(APIView):
         response = HttpResponse(data, content_type=content_type)
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
+
+
+class DocumentPacketListView(ListAPIView):
+    """Document packets — one row per truck for the Documents page.
+
+    ``GET /api/v1/contracts/document-packets/`` returns non-draft, non-archived
+    trucks (with at least one firm split) and, per truck, its firms + per-firm
+    ``sale_id`` and the packing-complete flag. Defaults to the active season;
+    filters: ``?date=`` (exact), ``?date_from=`` / ``?date_to=`` (range),
+    ``?status=`` (status code), ``?firm=`` (export firm id). Gated by 'sale'.
+    """
+
+    permission_classes = [IsAuthenticated, DynamicResourcePermission]
+    resource_code = 'sale'
+    serializer_class = DocumentPacketSerializer
+
+    def get_queryset(self):
+        from apps.export.models import Shipment
+
+        qs = (
+            Shipment.objects.filter(deleted_at__isnull=True, is_archived=False)
+            .exclude(status__code='draft')
+            .filter(firm_splits__isnull=False)
+            .select_related('import_firm', 'country', 'city', 'status', 'packing_template')
+            .prefetch_related('firm_splits__export_firm', 'sales')
+            .distinct()
+            .order_by('-date', '-id')
+        )
+        params = self.request.query_params
+        if params.get('date'):
+            qs = qs.filter(date=params['date'])
+        else:
+            if params.get('date_from'):
+                qs = qs.filter(date__gte=params['date_from'])
+            if params.get('date_to'):
+                qs = qs.filter(date__lte=params['date_to'])
+            if not (params.get('date_from') or params.get('date_to')):
+                qs = qs.filter(season__is_active=True)
+        if params.get('status'):
+            qs = qs.filter(status__code=params['status'])
+        if params.get('firm'):
+            qs = qs.filter(firm_splits__export_firm_id=params['firm'])
+        return qs
 
 
 class ShipmentFirmContractsView(APIView):

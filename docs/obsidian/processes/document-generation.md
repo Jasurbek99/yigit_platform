@@ -156,10 +156,26 @@ is baked into each template, only named fields injected. `fito`/`customs` resolv
 the destination country via `_country_name` (shipment → buyer-firm fallback). CT-1
 needs only firm + contract, so it fills even with no shipment link.
 
-## Deliberate v1 limits
+## Documents page (packets endpoint)
 
-- `place_loading` is blank until a loading-location source is wired.
+The document team works **by truck**: one truck dispatches with a packet — the
+truck-level CMR plus each firm's invoice/letters. `GET /api/v1/contracts/
+document-packets/` (`DocumentPacketListView`, `DocumentPacketSerializer`) returns
+one row per truck for the Documents page: `shipment_code`, `date`, route
+(`country_name` / `city_name`), `buyer_name`, `status_code` / `status_display`,
+`packing_complete` + `missing_packing[]`, and `firms[]` — each firm with its
+`export_firm_id` / `export_firm_name`, its `sale_id` (drives the per-firm invoice/
+letter downloads; null when no contract is linked yet) and `invoice_number`.
+
+Scope: non-draft, non-archived, non-deleted trucks with ≥1 firm split. Defaults to
+the active season; filters `?date=` (exact), `?date_from=` / `?date_to=` (range),
+`?status=` (code), `?firm=` (export firm id). Gated by the `sale` resource. The
+frontend Documents page is Phase 3.
+
+## Deliberate limits
+
 - Single product line per invoice (`line_items[0]`); multi-line is a future template change.
-- CMR: single-firm only; firm-split variants + official box form deferred (above).
-- Trade passport / customs / phyto / CT-1 / packing list are later documents.
-- Most documents need `invoice.shipment` populated (Slice B) to fill transport/cargo.
+- CMR: simplified labelled layout; the official 24-box form is deferred (above).
+- Trade passport / packing list are later documents.
+- The truck CMR needs `firm_splits` (sellers) + whole-truck packing; per-firm docs
+  need the firm's `ContractSale`.
