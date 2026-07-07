@@ -320,15 +320,17 @@ def build_cmr_context(shipment, lang: str = 'ru', overrides: dict | None = None)
 
     # Whole-truck packing. BRUT = gross WITH pallets, so "without" is the
     # subtraction. A PackingTemplate on the shipment overrides the raw fields.
+    # Each dimension resolves independently (preset field, else raw cell) — the
+    # SAME per-field fallback missing_packing_on() checks, so a truck the guard
+    # passes never renders a blank cell here.
     preset = shipment.packing_template
     boxes = preset.box_count if preset and preset.box_count is not None else shipment.box_count
     pallets = preset.pallet_count if preset and preset.pallet_count is not None else shipment.pallet_count
+    net_kg = preset.net_kg if preset and preset.net_kg is not None else shipment.weight_net
     if preset and preset.gross_kg is not None:
-        net_kg = preset.net_kg or shipment.weight_net
         pallet_w = preset.pallet_weight_kg
         gross_with = preset.gross_kg
     else:
-        net_kg = shipment.weight_net
         pallet_w = shipment.pallet_weight_kg or shipment.packaging_kg
         gross_with = shipment.weight_gross
     gross_wo = ((gross_with - pallet_w) if (gross_with is not None and pallet_w is not None)
@@ -340,9 +342,12 @@ def build_cmr_context(shipment, lang: str = 'ru', overrides: dict | None = None)
     veh = f'{plate}/{trailer}' if plate and trailer else plate or ''
     transport = ' — '.join(part for part in (veh, driver) if part)
 
-    # Invoice refs: every invoice on the truck (one per firm).
+    # Invoice refs: every numbered invoice on the truck (one per firm). Bridge
+    # sales may still have a NULL invoice_number — skip them, don't print "None".
     sales = list(shipment.sales.all())
-    numbers = ', '.join(str(sale.invoice_number) for sale in sales)
+    numbers = ', '.join(
+        str(sale.invoice_number) for sale in sales if sale.invoice_number is not None
+    )
     ref_date = _date(sales[0].invoice_date) if sales and sales[0].invoice_date else _date(shipment.date)
     invoice_refs = loc['invoice_ref'].format(num=numbers, date=ref_date) if numbers else ''
 

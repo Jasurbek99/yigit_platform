@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { ProTable } from '@ant-design/pro-components';
 import type { ProColumns } from '@ant-design/pro-components';
-import { DatePicker, Tag } from 'antd';
+import { Alert, DatePicker, Tag } from 'antd';
 import dayjs from 'dayjs';
 
 import { DocumentPacketPanel } from '@/components/DocumentPacketPanel';
@@ -21,7 +21,7 @@ export default function DocumentsPage() {
   const page = Number(searchParams.get('page')) || 1;
   const pageSize = Number(searchParams.get('page_size')) || 50;
 
-  const { data, isLoading } = useDocumentPackets({ date, page, pageSize });
+  const { data, isLoading, error } = useDocumentPackets({ date, page, pageSize });
   const packets = data?.results ?? [];
   const total = data?.count ?? 0;
 
@@ -73,6 +73,10 @@ export default function DocumentsPage() {
         ),
     },
   ];
+
+  if (error) {
+    return <Alert type="error" showIcon message={t('documents_page.load_error')} />;
+  }
 
   return (
     <ProTable<IDocumentPacket>

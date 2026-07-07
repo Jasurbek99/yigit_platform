@@ -316,6 +316,10 @@ class ContractSaleViewSet(ModelViewSet):
                 status=400,
             )
 
+        # Packing guard applies to ALL document types (invoice + CT-1/FITO/customs
+        # letters), by product decision: no paper leaves for a truck whose
+        # gross/net/boxes/pallets aren't settled — even the letters, which don't
+        # print packing, should not be produced ahead of it.
         missing = missing_packing_fields(invoice)
         if missing:
             return Response(

@@ -273,6 +273,17 @@ class CmrContextBuilderTest(SimpleTestCase):
         self.assertEqual(c['country_dispatch'], 'Turkmenistan')
         self.assertEqual(c['gross_with_pallet'], '10,720')
 
+    def test_null_invoice_number_skipped_in_refs(self):
+        # a bridge sale with no invoice_number must not print "None" on the CMR
+        ship = _mock_shipment()
+        ship.sales = SimpleNamespace(all=lambda: [
+            SimpleNamespace(invoice_number=118, invoice_date=date(2026, 3, 16)),
+            SimpleNamespace(invoice_number=None, invoice_date=date(2026, 3, 16)),
+        ])
+        c = ctx.build_cmr_context(ship, 'ru')
+        self.assertIn('118', c['invoice_refs'])
+        self.assertNotIn('None', c['invoice_refs'])
+
 
 class CmrPresetTest(SimpleTestCase):
     """CMR reads the whole-truck template on the shipment; BRUT = gross WITH pallet."""
@@ -290,6 +301,15 @@ class CmrPresetTest(SimpleTestCase):
         self.assertEqual(c['pallet_weight'], '446')
         self.assertEqual(c['gross_with_pallet'], '20 450')   # BRUT as-is
         self.assertEqual(c['gross_without_pallet'], '20 004')  # BRUT − pallet weight
+
+    def test_net_from_template_when_gross_absent(self):
+        # net_kg resolves independently of gross_kg: template supplies net, raw
+        # cell is null → net still fills (mirrors the packing guard). Regression
+        # for the guard/builder divergence caught in review.
+        ship = _mock_shipment(truck_template=_preset(net_kg=Decimal('18000')))
+        ship.weight_net = None
+        c = ctx.build_cmr_context(ship, 'ru')
+        self.assertEqual(c['net'], '18 000')
 
 
 class LetterContextBuilderTest(SimpleTestCase):
@@ -536,6 +556,15 @@ class DocumentPacketEndpointTest(_SeededPermsMixin, TestCase):
         self.assertEqual(len(by_firm), 2)
         self.assertIsNotNone(by_firm[self.ef1.id]['sale_id'])   # ef1 has a sale
         self.assertIsNone(by_firm[self.ef2.id]['sale_id'])      # ef2 does not
+
+    def test_document_team_can_list(self):
+        # Regression: document_team is the page's primary user — it must have the
+        # 'sale' resource (view) or every Documents-page call 403s.
+        doc_user = _make_user('pkt_dt', 'document_team')
+        client = APIClient()
+        client.force_authenticate(user=doc_user)
+        resp = client.get('/api/v1/contracts/document-packets/')
+        self.assertEqual(resp.status_code, 200)
 
     def test_excludes_draft_truck(self):
         draft = _make_packed_shipment(

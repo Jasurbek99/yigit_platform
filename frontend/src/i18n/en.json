@@ -3073,6 +3073,7 @@
       "buyer": "Buyer",
       "status": "Status",
       "packing": "Packing"
-    }
+    },
+    "load_error": "Failed to load documents. Please retry."
   }
 }

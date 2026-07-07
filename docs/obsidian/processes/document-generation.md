@@ -4,8 +4,26 @@ Auto-fills the export documents that the document team used to fill by hand from
 the `Export_contracts` master sheet (2–3 hrs/day against a 13:00 deadline). P4
 ships this **one document at a time** on a shared, document-agnostic framework.
 
-**Shipped:** Invoice (RU/EN) and CMR base single-firm (RU/EN), each as both
-`.docx` (editable) and PDF.
+**Shipped:** per-firm **Invoice** (RU/EN) + the **CT-1 / FITO / Customs** request
+letters, and the truck-level **CMR** (RU/EN) — each as both `.docx` (editable) and
+PDF. Documents are produced from the **Documents page** (`/documents`), a
+truck-indexed workspace for the document team.
+
+## How it works (end to end)
+
+1. **Packing first.** A truck's whole-truck packing (gross / net / boxes /
+   pallets) is settled in the Sheet — raw cells or an applied `PackingTemplate`.
+   A **packing guard** (`missing_packing_on`) blocks *every* document until it is,
+   returning `400 {error, missing_packing[]}`.
+2. **Two document altitudes.** The **CMR is per-truck** (one `Shipment`, 1–3
+   seller firms, one buyer) — built from the shipment. The **Invoice + letters are
+   per-firm** — built from each firm's `ContractSale`.
+3. **Documents page.** One row per truck; expand → the packet: the truck CMR
+   button + a row per firm with that firm's Invoice/letters (driven by its
+   `sale_id`). Backed by `GET /contracts/document-packets/`.
+4. **Generate.** A button hits the relevant endpoint; the builder assembles a pure
+   context dict, docxtpl fills the `.docx`, LibreOffice optionally makes a PDF, and
+   the file downloads (`downloadFile` surfaces a `400`/`503` as a toast).
 
 ## Architecture
 
@@ -18,23 +36,41 @@ context builder", never "wire a new endpoint stack".
 | Template files | `apps/contracts/document_templates/*.docx` | Authored Word layouts with Jinja tags. Static labels baked per language; only data values are `{{ }}`. Built by `build_templates.py`. |
 | Context builders | `apps/contracts/services/document_context.py` | Pure `(obj, lang) → dict`. Owns date/money/kg formatting, firm-language fallback, shipment-vs-invoice fallback. Unit-tested without rendering. |
 | Render service | `apps/contracts/services/document_render.py` | `render_docx` (docxtpl→bytes); `render_pdf` (LibreOffice headless→bytes); `generate(key, obj, fmt)` ties it together. |
-| API action | `ContractSaleViewSet.document` in `apps/contracts/views.py` | Thin `@action`, returns the file as an attachment. |
+| API views | `ContractSaleViewSet.document` (per-firm docs), `ShipmentCmrView` (truck CMR), `DocumentPacketListView` (page list) — all in `apps/contracts/views.py` | Thin; run the packing guard, then return the file as an attachment (or the packet list). |
 | Audit model | *(deferred)* | `GeneratedDocument` for the 13:00 board — not needed to generate. |
 
-## Endpoint
+## Endpoints
 
-```
-GET /api/v1/contracts/sales/{id}/document/?type=<key>&fmt=docx|pdf
-```
+All gated by the **`sale`** resource (admin / director / export_manager / **document_team**
+— the last needs `sale` **view**, granted in `seed_permissions`, or the whole page 403s).
+`fmt` is `docx` (default) or `pdf`. **Named `fmt`, not `format`** — `format` is reserved by
+DRF content negotiation. PDF needs LibreOffice on the server (`503` with a clear message when
+absent; `.docx` is unaffected). Every generator first runs the **packing guard** →
+`400 {error, missing_packing[]}` if the truck's packing isn't resolvable.
 
-- `type`: `invoice_ru` (default), `invoice_en`, `cmr_ru`, `cmr_en`, `ct1_ru`,
-  `fito_ru`, `customs_tk`.
-- `fmt`: `docx` (default) or `pdf`. **Named `fmt`, not `format`** — `format` is
-  reserved by DRF content negotiation and would 404.
-- Permissions: existing `sale` resource permission (document team / export_manager / director).
-- Errors: `400` unknown `type`; `503` when `fmt=pdf` but LibreOffice is absent
-  (with a clear message — the `.docx` path is unaffected).
-- Response: `Content-Disposition: attachment`, filename e.g. `Invoice_93-26-DM-EXP_118_RU.docx`.
+**Per-firm documents** (Invoice + letters) — from a `ContractSale`:
+```
+GET /api/v1/contracts/sales/{id}/document/?type=<key>&fmt=docx|pdf&place_loading=&tir_carnet=
+```
+- `type`: `invoice_ru` (default), `invoice_en`, `ct1_ru`, `fito_ru`, `customs_tk`.
+  **Rejects `cmr_*`** (truck-scope) with `400`.
+- `place_loading` (invoice) is an optional generate-time value; `tir_carnet` is ignored here.
+
+**Truck CMR** — from a `Shipment`, all firms as senders:
+```
+GET /api/v1/contracts/shipments/{id}/cmr/?lang=ru|en&fmt=docx|pdf&place_loading=&tir_carnet=
+```
+- `place_loading` + `tir_carnet` (Uzbekistan transit) are optional generate-time values.
+
+**Document packets** — one row per truck for the page:
+```
+GET /api/v1/contracts/document-packets/?date=&date_from=&date_to=&status=&firm=
+```
+- Non-draft / non-archived / non-deleted trucks with ≥1 firm split; defaults to the active
+  season. Returns `packing_complete` + `missing_packing[]` and `firms[]` (each with `sale_id`).
+
+Response (files): `Content-Disposition: attachment`, e.g. `Invoice_93-26-DM-EXP_118_RU.docx`,
+`CMR_0201045-25_RU.docx`.
 
 ## Data sources — the gross-net packing template
 

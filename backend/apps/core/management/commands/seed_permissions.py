@@ -202,6 +202,10 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
         'shipment_comment': _VCE,
         'quota_issuance': _VCE,
         'quota_usage': _VCE,
+        # sale: VIEW only — the Documents page (their home screen) generates
+        # documents via GET endpoints gated by the 'sale' resource; they do not
+        # create/edit sales (export_manager owns that).
+        'sale': _VIEW,
     },
     'transport': {
         'shipment': _VE,
