@@ -125,6 +125,19 @@ class ShipmentPackingApiTest(TestCase):
         self.assertEqual(ygt_split.weight_kg, Decimal('8000.00'))   # got HJ's weight
         self.assertEqual(self.ygt_sale.gross_kg, Decimal('9099.00'))  # got HJ's packing
 
+    def test_swap_on_three_firm_truck_keeps_third(self):
+        # Regression: swapping two firms must NOT drop the third firm's split.
+        arap = ExportFirm.objects.create(code='ARAP', name_tk='Arap')
+        ShipmentFirmSplit.objects.create(shipment=self.shipment, export_firm=arap, weight_kg='6000', split_order=3)
+        self.client.force_authenticate(self.mgr)
+        r = self.client.post(_URL, {
+            'shipment': self.shipment.id, 'scope': 'swap',
+            'export_firm_a': self.ygt.id, 'export_firm_b': self.hj.id,
+        }, format='json')
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(ShipmentFirmSplit.objects.filter(shipment=self.shipment).count(), 3)
+        self.assertTrue(ShipmentFirmSplit.objects.filter(shipment=self.shipment, export_firm=arap).exists())
+
     def test_write_blocked_for_reader(self):
         self.client.force_authenticate(self.reader)
         r = self.client.post(_URL, {

@@ -536,6 +536,7 @@ class ShipmentPackingView(APIView):
         })
 
     def post(self, request):
+        from django.db import transaction
         from apps.export.models import PackingTemplate, Shipment
         from apps.export.services.quota_sync import ApprovedQuotaExistsError
         from apps.contracts.models import ContractSale
@@ -566,17 +567,25 @@ class ShipmentPackingView(APIView):
                     status=400,
                 )
             try:
-                _set_firm_weights(
-                    shipment, {fid: shares[i].net_kg for i, fid in enumerate(firms)}, request.user,
-                )
+                with transaction.atomic():
+                    _set_firm_weights(
+                        shipment, {fid: shares[i].net_kg for i, fid in enumerate(firms)}, request.user,
+                    )
+                    # Copy each share's packing onto the firm's sale. A firm with no
+                    # linked ContractSale matches 0 rows — report it so the operator
+                    # knows to link a contract (weight/quota are still set above).
+                    no_sale_firms = []
+                    for i, fid in enumerate(firms):
+                        updated = ContractSale.objects.filter(
+                            shipment=shipment, export_firm_id=fid,
+                        ).update(**{f: getattr(shares[i], f) for f in _FIRM_PACKING_FIELDS})
+                        if updated == 0:
+                            no_sale_firms.append(fid)
+                    Shipment.objects.filter(pk=shipment.id).update(packing_template_id=template.id)
             except ApprovedQuotaExistsError as exc:
                 return Response({'error': str(exc)}, status=400)
-            for i, fid in enumerate(firms):
-                ContractSale.objects.filter(shipment=shipment, export_firm_id=fid).update(
-                    **{f: getattr(shares[i], f) for f in _FIRM_PACKING_FIELDS}
-                )
-            Shipment.objects.filter(pk=shipment.id).update(packing_template_id=template.id)
-            return Response({'scope': 'template', 'packing_template': template.id})
+            return Response({'scope': 'template', 'packing_template': template.id,
+                             'no_sale_firms': no_sale_firms})
 
         if scope == 'firm':
             sale = ContractSale.objects.filter(
@@ -597,20 +606,24 @@ class ShipmentPackingView(APIView):
             splits = {s.export_firm_id: s for s in shipment.firm_splits.all()}
             if fa not in splits or fb not in splits:
                 return Response({'error': 'Both firms must be on the truck.'}, status=400)
+            # Keep every firm's weight; exchange only the two — otherwise the other
+            # firms on a 3+ firm truck would be deleted by _set_firm_weights.
+            new_weights = {fid: s.weight_kg for fid, s in splits.items()}
+            new_weights[fa], new_weights[fb] = splits[fb].weight_kg, splits[fa].weight_kg
             try:
-                _set_firm_weights(
-                    shipment,
-                    {fa: splits[fb].weight_kg, fb: splits[fa].weight_kg}, request.user,
-                )
+                with transaction.atomic():
+                    _set_firm_weights(shipment, new_weights, request.user)
+                    sales = {s.export_firm_id: s for s in ContractSale.objects.filter(
+                        shipment=shipment, export_firm_id__in=[fa, fb])}
+                    packing_swapped = fa in sales and fb in sales
+                    if packing_swapped:
+                        pa = {f: getattr(sales[fa], f) for f in _FIRM_PACKING_FIELDS}
+                        pb = {f: getattr(sales[fb], f) for f in _FIRM_PACKING_FIELDS}
+                        ContractSale.objects.filter(pk=sales[fa].id).update(**pb)
+                        ContractSale.objects.filter(pk=sales[fb].id).update(**pa)
             except ApprovedQuotaExistsError as exc:
                 return Response({'error': str(exc)}, status=400)
-            sales = {s.export_firm_id: s for s in ContractSale.objects.filter(
-                shipment=shipment, export_firm_id__in=[fa, fb])}
-            if fa in sales and fb in sales:
-                pa = {f: getattr(sales[fa], f) for f in _FIRM_PACKING_FIELDS}
-                pb = {f: getattr(sales[fb], f) for f in _FIRM_PACKING_FIELDS}
-                ContractSale.objects.filter(pk=sales[fa].id).update(**pb)
-                ContractSale.objects.filter(pk=sales[fb].id).update(**pa)
-            return Response({'scope': 'swap', 'export_firm_a': fa, 'export_firm_b': fb})
+            return Response({'scope': 'swap', 'export_firm_a': fa, 'export_firm_b': fb,
+                             'packing_swapped': packing_swapped})
 
         return Response({'error': "scope must be 'template', 'firm', or 'swap'."}, status=400)
