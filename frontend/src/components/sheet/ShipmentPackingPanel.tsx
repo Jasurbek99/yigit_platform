@@ -20,6 +20,13 @@ interface IShipmentPackingPanelProps {
 const num = (v: string | number | null): string =>
   v == null || v === '' ? '—' : Number(v).toLocaleString();
 
+/** Surface the server's message (e.g. the approved-quota guard), else a fallback. */
+function apiError(err: unknown, fallback: string): string {
+  const data = (err as { response?: { data?: Record<string, unknown> } }).response?.data;
+  if (data && typeof data.error === 'string') return data.error;
+  return fallback;
+}
+
 /**
  * Unified per-truck packing panel (poka-yoke).
  * Pick ONE whole-truck config + one split template → each firm's weight is set and
@@ -53,7 +60,7 @@ export function ShipmentPackingPanel({ shipmentId }: IShipmentPackingPanelProps)
     const firms = data.rows.map((r, i) => ({ export_firm_id: r.export_firm, weight_kg: weights[i] }));
     applySplit.mutate(
       { shipmentId, firms },
-      { onError: () => toast.error(t('sheet.packing.toast_error')) },
+      { onError: (err) => toast.error(apiError(err, t('sheet.packing.toast_error'))) },
     );
   };
 
@@ -73,7 +80,7 @@ export function ShipmentPackingPanel({ shipmentId }: IShipmentPackingPanelProps)
     });
     applySplit.mutate(
       { shipmentId, firms },
-      { onError: () => toast.error(t('sheet.packing.toast_error')) },
+      { onError: (err) => toast.error(apiError(err, t('sheet.packing.toast_error'))) },
     );
   };
 
