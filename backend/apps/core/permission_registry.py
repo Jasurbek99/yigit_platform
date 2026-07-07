@@ -52,6 +52,7 @@ PAGE_REGISTRY: dict[str, str] = OrderedDict([
     # pages that delegated managers may also grant, not user/permission admin.
     ('contracts.list',          'Contracts'),
     ('contracts.sales',         'Contract Sales'),
+    ('contracts.documents',     'Documents (truck packets)'),
     # Admin
     # Sales rep worklist + coverage admin
     ('export.sales_reports',    'Sales Reports'),

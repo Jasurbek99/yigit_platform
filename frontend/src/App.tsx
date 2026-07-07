@@ -58,6 +58,7 @@ const DailyHarvestBoard = lazy(() => import('@/pages/export/DailyHarvestBoard'))
 const ContractList = lazy(() => import('@/pages/contracts/ContractList'));
 const ContractDetail = lazy(() => import('@/pages/contracts/ContractDetail'));
 const ContractSaleList = lazy(() => import('@/pages/sales/ContractSaleList'));
+const DocumentsPage = lazy(() => import('@/pages/documents/DocumentsPage'));
 const WorklogPage = lazy(() => import('@/pages/worklog/WorklogPage'));
 const SalesRepReports = lazy(() => import('@/pages/export/SalesRepReports'));
 const SalesReportPage = lazy(() => import('@/pages/export/SalesReportPage'));
@@ -252,6 +253,10 @@ export default function App() {
                   {/* Contract Sales list (P4 Slice C) */}
                   <Route path="sales" element={
                     <ProtectedRoute pageCode="contracts.sales"><ContractSaleList /></ProtectedRoute>
+                  } />
+                  {/* Documents page — truck-indexed document packets */}
+                  <Route path="documents" element={
+                    <ProtectedRoute pageCode="contracts.documents"><DocumentsPage /></ProtectedRoute>
                   } />
                   {/* Sales rep worklist */}
                   <Route path="export/my-reports" element={

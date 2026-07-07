@@ -95,7 +95,8 @@
     "sales_reports": "Отчёты о продажах",
     "sales_rep_coverage": "Клиенты продавцов",
     "admin_expense_template": "Шаблон расходов",
-    "admin_packing_templates": "Шаблоны упаковки"
+    "admin_packing_templates": "Шаблоны упаковки",
+    "documents": "Документы"
   },
   "expense_template": {
     "title": "Шаблон категорий расходов",
@@ -3057,6 +3058,23 @@
     "step11": {
       "title": "Отчёт и доход",
       "text": "Отчёт о продажах: продажи − расходы = чистый доход. Финансист проверяет и закрывает."
+    }
+  },
+  "documents_page": {
+    "title": "Документы",
+    "filter_date": "Дата машины",
+    "packing_ok": "Упаковка ✓",
+    "packing_missing": "Нет упаковки",
+    "packing_incomplete": "Сначала заполните упаковку (брутто/нетто/ящики/поддоны) в Листе",
+    "no_contract": "Контракт ещё не привязан",
+    "pagination_total": "Машин: {{total}}",
+    "column": {
+      "code": "Машина",
+      "date": "Дата",
+      "route": "Маршрут",
+      "buyer": "Покупатель",
+      "status": "Статус",
+      "packing": "Упаковка"
     }
   }
 }

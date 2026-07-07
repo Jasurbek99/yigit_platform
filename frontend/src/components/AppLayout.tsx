@@ -130,6 +130,7 @@ export default function AppLayout() {
     '/me/board': t('me.nav.board'),
     '/contracts': t('nav.contracts.list'),
     '/sales': t('nav.sales.list'),
+    '/documents': t('nav.documents'),
     '/export/my-reports': t('nav.sales_reports'),
     '/admin/sales-rep-coverage': t('nav.sales_rep_coverage'),
     '/admin/expense-template': t('nav.admin_expense_template'),
@@ -207,6 +208,13 @@ export default function AppLayout() {
         key: '/sales',
         icon: <IconFileText size={15} />,
         label: t('nav.sales.list'),
+      },
+      {
+        // Matrix-driven via page_code 'contracts.documents' (see ROUTE_PAGE_MAP).
+        // The document team's home screen — truck packets to generate documents.
+        key: '/documents',
+        icon: <IconFileText size={15} />,
+        label: t('nav.documents'),
       },
     ]},
     { label: t('nav.group_management'), items: [

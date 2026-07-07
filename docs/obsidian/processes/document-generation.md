@@ -169,8 +169,14 @@ letter downloads; null when no contract is linked yet) and `invoice_number`.
 
 Scope: non-draft, non-archived, non-deleted trucks with ≥1 firm split. Defaults to
 the active season; filters `?date=` (exact), `?date_from=` / `?date_to=` (range),
-`?status=` (code), `?firm=` (export firm id). Gated by the `sale` resource. The
-frontend Documents page is Phase 3.
+`?status=` (code), `?firm=` (export firm id). Gated by the `sale` resource.
+
+The frontend **Documents page** (`/documents`, page code `contracts.documents`,
+default-visible to admin / director / export_manager / document_team) is a
+truck-indexed ProTable: each row expands to `DocumentPacketPanel` — the truck-level
+CMR (`CmrDocumentsButton`, disabled until packing is complete) plus a row per firm
+with that firm's `InvoiceDocumentsButton` (its `sale_id`), or a "no contract linked"
+note. Data via `useDocumentPackets`; a date filter drives the 13:00 workflow.
 
 ## Deliberate limits
 

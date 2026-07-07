@@ -95,7 +95,8 @@
     "sales_reports": "Satyş hasabatlary",
     "sales_rep_coverage": "Satyjy müşderileri",
     "admin_expense_template": "Çykdajy şablony",
-    "admin_packing_templates": "Gaplaýyş şablonlary"
+    "admin_packing_templates": "Gaplaýyş şablonlary",
+    "documents": "Resminamalar"
   },
   "expense_template": {
     "title": "Çykdajy kategoriýalarynyň şablony",
@@ -3059,6 +3060,23 @@
     "step11": {
       "title": "Hasabat we girdeji",
       "text": "Satuw hasabaty: satuw − çykdajy = arassa girdeji. Maliýe seredip ýapýar."
+    }
+  },
+  "documents_page": {
+    "title": "Resminamalar",
+    "filter_date": "Ulag senesi",
+    "packing_ok": "Gaplama ✓",
+    "packing_missing": "Gaplama ýok",
+    "packing_incomplete": "Ilki bilen gaplamany (brutto/netto/guty/pallet) Listde dolduryň",
+    "no_contract": "Şertnama heniz baglanmadyk",
+    "pagination_total": "{{total}} ulag",
+    "column": {
+      "code": "Ulag",
+      "date": "Sene",
+      "route": "Ugur",
+      "buyer": "Alyjy",
+      "status": "Ýagdaý",
+      "packing": "Gaplama"
     }
   }
 }

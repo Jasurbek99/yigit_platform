@@ -1809,3 +1809,34 @@ export interface IFeedbackFilters {
   date_to?: string;
   page?: number;
 }
+
+// ─── Document packets (Documents page) ───────────────────────────────────────
+
+export interface IDocumentPacketFirm {
+  readonly export_firm_id: number;
+  readonly export_firm_name: string;
+  readonly sale_id: number | null;      // drives the per-firm invoice/letter buttons
+  readonly invoice_number: number | null;
+}
+
+export interface IDocumentPacket {
+  readonly id: number;                  // shipment (truck) id
+  readonly shipment_code: string;
+  readonly date: string | null;
+  readonly status_code: string | null;
+  readonly status_display: string | null;
+  readonly country_name: string | null;
+  readonly city_name: string | null;
+  readonly buyer_name: string | null;
+  readonly packing_complete: boolean;
+  readonly missing_packing: readonly string[];
+  readonly firms: readonly IDocumentPacketFirm[];
+}
+
+export interface IDocumentPacketFilters {
+  date?: string;
+  status?: string;
+  firm?: number;
+  page?: number;
+  pageSize?: number;
+}

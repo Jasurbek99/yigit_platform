@@ -97,6 +97,8 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
     'document_team': {
         'dashboard', 'export.shipments', 'export.quota', _BOARD,
         _HARVEST_BOARD,
+        # The document team's home screen — truck packets to generate documents.
+        'contracts.documents',
     } | _UNIVERSAL,
     'transport': {
         'dashboard', 'export.shipments', _BOARD,
