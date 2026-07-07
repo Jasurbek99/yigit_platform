@@ -15,6 +15,55 @@ from decimal import Decimal
 # Constant: TN VED (HS) code for fresh tomatoes. Overridable per line if needed.
 TOMATO_HS_CODE = '070200000'
 
+# The shipment's whole-truck packing cells that MUST be filled in the Sheet before
+# any document generates (gross + net + boxes + pallets). ``box_count`` /
+# ``pallet_count`` may legitimately be 0? no — a truck always carries boxes on
+# pallets, so ``None`` (unfilled) is the only invalid state; ``is None`` is the test.
+REQUIRED_PACKING_FIELDS = ('weight_gross', 'weight_net', 'box_count', 'pallet_count')
+
+# Each required shipment cell → its PackingTemplate counterpart. Packing counts as
+# filled when EITHER the raw cell OR the applied template supplies it — mirroring
+# build_cmr_context's fallback, so a truck configured via a PackingTemplate (which
+# links the template + per-firm sales but leaves the raw cells null) is not blocked.
+_PACKING_TEMPLATE_FIELD = {
+    'weight_gross': 'gross_kg',
+    'weight_net': 'net_kg',
+    'box_count': 'box_count',
+    'pallet_count': 'pallet_count',
+}
+
+# Shared 400 message when the packing guard blocks generation.
+PACKING_REQUIRED_MESSAGE = (
+    'Packing (gross, net, boxes, pallets) must be filled in the Sheet before '
+    'generating documents.'
+)
+
+
+def missing_packing_on(shipment) -> list[str]:
+    """Return the packing fields still unresolved on a shipment (empty ⇒ complete).
+
+    Documents require the whole-truck packing (gross / net / boxes / pallets). A
+    field is satisfied by the raw shipment cell or by an applied PackingTemplate;
+    the returned list is the fields neither source provides. No shipment ⇒ every
+    field counts as missing.
+    """
+    if shipment is None:
+        return list(REQUIRED_PACKING_FIELDS)
+    preset = getattr(shipment, 'packing_template', None)
+    missing = []
+    for field, template_field in _PACKING_TEMPLATE_FIELD.items():
+        if getattr(shipment, field) is not None:
+            continue
+        if preset is not None and getattr(preset, template_field) is not None:
+            continue
+        missing.append(field)
+    return missing
+
+
+def missing_packing_fields(invoice) -> list[str]:
+    """``missing_packing_on`` for an invoice's linked shipment (firm-doc guard)."""
+    return missing_packing_on(invoice.shipment)
+
 # Localized data values the builder injects (template labels stay baked into each
 # language's .docx; these are *values* that depend on language).
 _LOCALE = {
@@ -114,7 +163,7 @@ def _firm_attr(firm, base: str, lang: str) -> str:
     return ''
 
 
-def build_invoice_context(invoice, lang: str = 'ru') -> dict:
+def build_invoice_context(invoice, lang: str = 'ru', overrides: dict | None = None) -> dict:
     """Build the Jinja context for an invoice document (RU or EN template).
 
     Pulls weight/transport/packing detail from the linked Shipment when present
@@ -131,6 +180,7 @@ def build_invoice_context(invoice, lang: str = 'ru') -> dict:
     Returns:
         A flat dict consumed by ``invoice_ru.docx`` / ``invoice_en.docx``.
     """
+    overrides = overrides or {}
     loc = _LOCALE.get(lang, _LOCALE['ru'])
     contract = invoice.contract
     shipment = invoice.shipment
@@ -193,7 +243,7 @@ def build_invoice_context(invoice, lang: str = 'ru') -> dict:
         'buyer_address': getattr(buyer, 'address', '') or '',
         'buyer_bank': getattr(buyer, 'bank_details', '') or '',
         'country_origin': loc['country_origin'].format(year=year) if year else '',
-        'place_loading': '',  # populated once a loading-location source is wired
+        'place_loading': overrides.get('place_loading', ''),  # picked at generate-time
         'delivery_terms': incoterm,
         'transport': transport,
         'line_items': [line_item],
@@ -229,83 +279,85 @@ _CMR_LOCALE = {
 }
 
 
-def build_cmr_context(invoice, lang: str = 'ru') -> dict:
-    """Build the Jinja context for a CMR (road consignment note), single-firm.
+def build_cmr_context(shipment, lang: str = 'ru', overrides: dict | None = None) -> dict:
+    """Build the Jinja context for a CMR (road consignment note), truck-level.
 
-    A CMR is a per-truck transport document; one Invoice == one truck dispatched,
-    so the invoice is the per-truck unit and ``invoice.shipment`` supplies the
-    transport/cargo detail. When the shipment link is absent (Slice B not yet
-    wired) those fields render blank — the document still produces.
+    A CMR is a per-**truck** transport document: one Shipment == one truck, which
+    may carry 1–3 export firms (``firm_splits``) selling to a single buyer
+    (``shipment.import_firm``). All firms are listed as senders; cargo/weights are
+    the whole-truck figures. Invoice refs aggregate every invoice on the truck.
 
-    **Deliberate v1 scope:** single seller only. The 2-/3-seller firm-split CMRs
-    (which aggregate multiple invoices onto one truck) and the official 24-box CMR
-    layout are follow-on registry entries; route/border/loading-place/TIR fields
-    are blank until those sources are mapped.
+    The packing guard (``missing_packing_on``) ensures the whole-truck packing is
+    resolvable before this runs — from the raw shipment cells or an applied
+    ``PackingTemplate`` (which overrides the raw fields when present). The
+    forwarder is the export firm(s); ``place_loading`` and ``tir_carnet`` are
+    supplied at generate-time via ``overrides`` (blank when not provided).
+
+    **Deliberate scope:** the official 24-box CMR layout is a follow-on; this uses
+    the simplified labelled template with the sellers joined into the sender box.
 
     Args:
-        invoice: An ``Invoice`` instance (caller should ``select_related``
-            ``contract``/``shipment``/firms).
+        shipment: A ``Shipment`` instance (caller should ``prefetch_related``
+            ``firm_splits__export_firm`` / ``sales`` and ``select_related``
+            ``import_firm`` / ``packing_template``).
         lang: ``'ru'`` or ``'en'``.
 
     Returns:
         Flat dict consumed by ``cmr_ru.docx`` / ``cmr_en.docx``.
     """
+    overrides = overrides or {}
     loc = _CMR_LOCALE.get(lang, _CMR_LOCALE['ru'])
-    contract = invoice.contract
-    shipment = invoice.shipment
 
-    seller = invoice.export_firm or (contract.export_firm if contract else None)
-    buyer = invoice.import_firm or (contract.import_firm if contract else None)
+    # Sellers: every export firm on the truck (1–3 firm splits), joined into the
+    # single sender box (the simplified template has no per-consignor rows). Joined
+    # with '; ' — a bare '\n' does NOT render as a line break in a docx run.
+    firms = [split.export_firm for split in shipment.firm_splits.all()]
+    sender_name = '; '.join(_firm_attr(firm, 'name', lang) for firm in firms)
+    sender_address = '; '.join(
+        addr for addr in (_firm_attr(firm, 'address', lang) for firm in firms) if addr
+    )
+    buyer = shipment.import_firm
 
-    # Whole-truck packing from the PackingTemplate picked on the shipment. BRUT =
-    # gross WITH pallets, so "without" is the subtraction. Falls back to the
-    # shipment's own fields when no template is set.
-    preset = shipment.packing_template if shipment else None
-    boxes = ((preset.box_count if preset and preset.box_count is not None else None)
-             or (shipment.box_count if shipment else None))
-    pallets = ((preset.pallet_count if preset and preset.pallet_count is not None else None)
-               or (shipment.pallet_count if shipment else None))
+    # Whole-truck packing. BRUT = gross WITH pallets, so "without" is the
+    # subtraction. A PackingTemplate on the shipment overrides the raw fields.
+    preset = shipment.packing_template
+    boxes = preset.box_count if preset and preset.box_count is not None else shipment.box_count
+    pallets = preset.pallet_count if preset and preset.pallet_count is not None else shipment.pallet_count
     if preset and preset.gross_kg is not None:
-        net_kg = preset.net_kg or invoice.quantity_kg
+        net_kg = preset.net_kg or shipment.weight_net
         pallet_w = preset.pallet_weight_kg
         gross_with = preset.gross_kg
-        gross_wo = (gross_with - pallet_w) if pallet_w is not None else gross_with
     else:
-        # Legacy fallback (no preset). shipment.weight_gross is BRUT = gross WITH
-        # pallet (matches the gross-net sheet / weighbridge reading), so "without
-        # pallet" is the subtraction — not the other way around.
-        net_kg = (shipment.weight_net if shipment and shipment.weight_net is not None
-                  else invoice.quantity_kg)
-        pallet_w = (shipment.pallet_weight_kg or shipment.packaging_kg) if shipment else None
-        gross_with = shipment.weight_gross if shipment else None
-        gross_wo = ((gross_with - pallet_w) if (gross_with is not None and pallet_w is not None)
-                    else gross_with)
+        net_kg = shipment.weight_net
+        pallet_w = shipment.pallet_weight_kg or shipment.packaging_kg
+        gross_with = shipment.weight_gross
+    gross_wo = ((gross_with - pallet_w) if (gross_with is not None and pallet_w is not None)
+                else gross_with)
 
-    transport = ''
-    if shipment:
-        plate = (shipment.truck_plate or '').strip()
-        trailer = shipment.trailer_id
-        driver = (shipment.driver_name or '').strip()
-        veh = f'{plate}/{trailer}' if plate and trailer else plate or ''
-        transport = ' — '.join(p for p in (veh, driver) if p)
+    plate = (shipment.truck_plate or '').strip()
+    trailer = shipment.trailer_id
+    driver = (shipment.driver_name or '').strip()
+    veh = f'{plate}/{trailer}' if plate and trailer else plate or ''
+    transport = ' — '.join(part for part in (veh, driver) if part)
 
-    invoice_refs = loc['invoice_ref'].format(
-        num=invoice.invoice_number, date=_date(invoice.invoice_date),
-    )
+    # Invoice refs: every invoice on the truck (one per firm).
+    sales = list(shipment.sales.all())
+    numbers = ', '.join(str(sale.invoice_number) for sale in sales)
+    ref_date = _date(sales[0].invoice_date) if sales and sales[0].invoice_date else _date(shipment.date)
+    invoice_refs = loc['invoice_ref'].format(num=numbers, date=ref_date) if numbers else ''
 
     return {
         'carrier': getattr(buyer, 'name_company', '') or '',
-        'sender_name': _firm_attr(seller, 'name', lang),
-        'sender_address': _firm_attr(seller, 'address', lang),
+        'sender_name': sender_name,
+        'sender_address': sender_address,
         'consignee_name': getattr(buyer, 'name_company', '') or '',
         'consignee_address': getattr(buyer, 'address', '') or '',
         'country_dispatch': loc['country_dispatch'],
-        'place_loading': '',   # pending loading-location source
-        'forwarder': '',       # not modeled yet
-        'route': '',           # pending border/route source
-        'doc_date': _date(invoice.invoice_date),
+        'place_loading': overrides.get('place_loading', ''),  # picked at generate-time
+        'forwarder': sender_name,  # the export firm(s) act as forwarder
+        'doc_date': _date(shipment.date),
         'invoice_refs': invoice_refs,
-        'tir_carnet': '',      # not modeled on shipment yet
+        'tir_carnet': overrides.get('tir_carnet', ''),  # typed at generate-time (Uzbekistan transit)
         'cargo_name': loc['cargo_name'],
         'boxes': str(boxes) if boxes else '',
         'packing': loc['packing'],
@@ -316,6 +368,11 @@ def build_cmr_context(invoice, lang: str = 'ru') -> dict:
         'net': _kg(net_kg, lang),
         'transport': transport,
     }
+
+
+def cmr_filename_fields(shipment) -> dict:
+    """Flat dict for the CMR registry ``out_pattern`` (download filename)."""
+    return {'shipment_code': (shipment.shipment_code or 'NA').replace('/', '-')}
 
 
 # ─── Authority request letters (CT-1, phyto, customs) ────────────────────────
@@ -345,8 +402,11 @@ def _country_name(invoice, lang: str) -> str:
     return ''
 
 
-def build_ct1_context(invoice, lang: str = 'ru') -> dict:
-    """CT-1 certificate-of-origin request letter (RU). Needs only firm + contract."""
+def build_ct1_context(invoice, lang: str = 'ru', overrides: dict | None = None) -> dict:
+    """CT-1 certificate-of-origin request letter (RU). Needs only firm + contract.
+
+    ``overrides`` is accepted for a uniform builder signature but unused here.
+    """
     contract = invoice.contract
     seller = invoice.export_firm or (contract.export_firm if contract else None)
     return {
@@ -357,8 +417,11 @@ def build_ct1_context(invoice, lang: str = 'ru') -> dict:
     }
 
 
-def build_fito_context(invoice, lang: str = 'ru') -> dict:
-    """Phytosanitary-certificate request letter (RU). Firm, destination, weight, boxes."""
+def build_fito_context(invoice, lang: str = 'ru', overrides: dict | None = None) -> dict:
+    """Phytosanitary-certificate request letter (RU). Firm, destination, weight, boxes.
+
+    ``overrides`` is accepted for a uniform builder signature but unused here.
+    """
     contract = invoice.contract
     shipment = invoice.shipment
     seller = invoice.export_firm or (contract.export_firm if contract else None)
@@ -375,8 +438,11 @@ def build_fito_context(invoice, lang: str = 'ru') -> dict:
     }
 
 
-def build_customs_context(invoice, lang: str = 'tk') -> dict:
-    """Customs-clearance request letter (ARZA, Turkmen). Seller, buyer, contract, dest."""
+def build_customs_context(invoice, lang: str = 'tk', overrides: dict | None = None) -> dict:
+    """Customs-clearance request letter (ARZA, Turkmen). Seller, buyer, contract, dest.
+
+    ``overrides`` is accepted for a uniform builder signature but unused here.
+    """
     contract = invoice.contract
     seller = invoice.export_firm or (contract.export_firm if contract else None)
     buyer = invoice.import_firm or (contract.import_firm if contract else None)

@@ -18,6 +18,8 @@ from rest_framework.test import APIClient
 
 from django.test import SimpleTestCase, TestCase
 
+from apps.core.models import ShipmentStatusType
+from apps.export.models import Shipment, ShipmentFirmSplit
 from apps.contracts.services import document_context as ctx
 from apps.contracts.services import document_render as render
 from apps.contracts.tests.test_contract_sale_api import (
@@ -29,6 +31,20 @@ from apps.contracts.tests.test_contract_sale_api import (
     _make_season,
     _make_user,
 )
+
+
+def _make_packed_shipment(season, import_firm):
+    """A shipment with complete packing (gross/net/boxes/pallets) — passes the guard."""
+    status, _ = ShipmentStatusType.objects.get_or_create(
+        code='draft',
+        defaults={'name_tk': 'draft', 'name_en': 'Draft', 'name_ru': 'Draft',
+                  'step_order': 0, 'phase': 'PREP'},
+    )
+    return Shipment.objects.create(
+        shipment_code='0101777/25', date='2025-10-01', season=season, status=status,
+        import_firm=import_firm, weight_gross=Decimal('10720'), weight_net=Decimal('9000'),
+        box_count=1800, pallet_count=16,
+    )
 
 
 def _preset(**kw):
@@ -79,6 +95,40 @@ def _mock_invoice(*, with_shipment=True, truck_template=None,
     )
 
 
+def _mock_firm(name_ru, name_en, address_ru, address_en):
+    return SimpleNamespace(
+        name_ru=name_ru, name_en=name_en, name_tk='',
+        address_ru=address_ru, address_en=address_en, address_tk='',
+        bank_details_ru='', bank_details_en='', bank_details_tk='',
+    )
+
+
+def _mock_shipment(*, firms=None, truck_template=None):
+    """A SimpleNamespace shipment mirroring the ORM attributes the CMR builder reads.
+
+    ``firms`` = the export firms on the truck (default one); each becomes a firm
+    split and a matching invoice. ``.firm_splits`` / ``.sales`` expose ``.all()``.
+    """
+    if firms is None:
+        firms = [_mock_firm('Х.О «Датлы миве»', 'Datly miwe LLC', 'г. Ашгабат', 'Ashgabat')]
+    country = SimpleNamespace(name_ru='Узбекистан', name_en='Uzbekistan', name_tk='Özbegistan')
+    buyer = SimpleNamespace(
+        name_company='ООО TRUST', address='г. Ташкент', bank_details='ИНН: 311270964', country=country,
+    )
+    splits = [SimpleNamespace(export_firm=firm) for firm in firms]
+    sales = [SimpleNamespace(invoice_number=118 + i, invoice_date=date(2026, 3, 16))
+             for i in range(len(firms))]
+    return SimpleNamespace(
+        shipment_code='0316118/25',
+        firm_splits=SimpleNamespace(all=lambda: splits),
+        sales=SimpleNamespace(all=lambda: sales),
+        import_firm=buyer, packing_template=truck_template,
+        weight_net=Decimal('9000'), weight_gross=Decimal('10720'), box_count=1800,
+        pallet_count=16, packaging_kg=Decimal('300'), pallet_weight_kg=Decimal('300'),
+        truck_plate='BR1427LB', trailer_id=5311, driver_name='Ahmet A.', date=date(2026, 3, 16),
+    )
+
+
 class InvoiceContextBuilderTest(SimpleTestCase):
     """Pure builder: formatting, language selection, shipment fallback."""
 
@@ -109,6 +159,12 @@ class InvoiceContextBuilderTest(SimpleTestCase):
         self.assertEqual(c['line_items'][0]['gross'], '10,720')
         self.assertEqual(c['line_items'][0]['price'], '0.87')
 
+    def test_place_loading_override(self):
+        # blank by default, filled from generate-time overrides
+        self.assertEqual(ctx.build_invoice_context(_mock_invoice(), 'ru')['place_loading'], '')
+        c = ctx.build_invoice_context(_mock_invoice(), 'ru', {'place_loading': 'Kaka'})
+        self.assertEqual(c['place_loading'], 'Kaka')
+
     def test_falls_back_to_invoice_qty_when_no_shipment(self):
         c = ctx.build_invoice_context(_mock_invoice(with_shipment=False), 'ru')
         # net falls back to invoice.quantity_kg; gross/transport empty
@@ -138,12 +194,43 @@ class InvoiceContextBuilderTest(SimpleTestCase):
         self.assertEqual(item['pieces'], '1800')   # shipment.box_count
 
 
+class PackingGuardTest(SimpleTestCase):
+    """missing_packing_on: raw cells OR an applied PackingTemplate satisfy the guard."""
+
+    def test_complete_raw_cells_pass(self):
+        self.assertEqual(ctx.missing_packing_on(_mock_shipment()), [])
+
+    def test_no_shipment_all_missing(self):
+        self.assertEqual(len(ctx.missing_packing_on(None)), 4)
+
+    def test_missing_raw_cell_reported(self):
+        ship = _mock_shipment()
+        ship.box_count = None
+        self.assertEqual(ctx.missing_packing_on(ship), ['box_count'])
+
+    def test_template_fills_null_raw_cells(self):
+        # Template-configured truck: raw cells null, but the template supplies all.
+        ship = _mock_shipment(truck_template=_preset(
+            net_kg=Decimal('18000'), gross_kg=Decimal('20450'),
+            box_count=2984, pallet_count=Decimal('33'), pallet_weight_kg=Decimal('446'),
+        ))
+        ship.weight_gross = ship.weight_net = ship.box_count = ship.pallet_count = None
+        self.assertEqual(ctx.missing_packing_on(ship), [])
+
+    def test_neither_source_blocks(self):
+        ship = _mock_shipment()  # no template
+        ship.weight_gross = ship.weight_net = ship.box_count = ship.pallet_count = None
+        self.assertEqual(sorted(ctx.missing_packing_on(ship)), sorted(ctx.REQUIRED_PACKING_FIELDS))
+
+
 class CmrContextBuilderTest(SimpleTestCase):
-    """Pure CMR builder: gross-with-pallet math, transport, refs, blanks."""
+    """Pure CMR builder (truck-level): gross-with-pallet math, transport, refs."""
 
     def test_ru_cmr_values(self):
-        c = ctx.build_cmr_context(_mock_invoice(), 'ru')
+        c = ctx.build_cmr_context(_mock_shipment(), 'ru')
         self.assertEqual(c['sender_name'], 'Х.О «Датлы миве»')
+        # forwarder is the export firm(s) (same as the sender box)
+        self.assertEqual(c['forwarder'], 'Х.О «Датлы миве»')
         self.assertEqual(c['consignee_name'], 'ООО TRUST')
         self.assertEqual(c['country_dispatch'], 'Туркменистан')
         self.assertEqual(c['cargo_name'], 'Помидоры свежие')
@@ -155,23 +242,36 @@ class CmrContextBuilderTest(SimpleTestCase):
         self.assertEqual(c['net'], '9 000')
         self.assertIn('118', c['invoice_refs'])
         self.assertIn('Ahmet A.', c['transport'])
-        # unmapped sources stay blank in v1
-        self.assertEqual(c['route'], '')
+        # generate-time fields stay blank when no overrides are supplied
         self.assertEqual(c['tir_carnet'], '')
+        self.assertEqual(c['place_loading'], '')
+
+    def test_multi_firm_lists_all_senders(self):
+        firms = [
+            _mock_firm('Х.О «Датлы миве»', 'Datly miwe LLC', 'г. Ашгабат', 'Ashgabat'),
+            _mock_firm('Х.О «Ýigit»', 'Yigit LLC', 'г. Мары', 'Mary'),
+        ]
+        c = ctx.build_cmr_context(_mock_shipment(firms=firms), 'ru')
+        # both export firms appear in the single sender box (newline-joined)
+        self.assertIn('Датлы миве', c['sender_name'])
+        self.assertIn('Ýigit', c['sender_name'])
+        # both invoices referenced on the one truck CMR
+        self.assertIn('118', c['invoice_refs'])
+        self.assertIn('119', c['invoice_refs'])
+
+    def test_generate_time_overrides(self):
+        c = ctx.build_cmr_context(
+            _mock_shipment(), 'ru',
+            {'place_loading': 'Dusak', 'tir_carnet': 'RU 82345678'},
+        )
+        self.assertEqual(c['place_loading'], 'Dusak')
+        self.assertEqual(c['tir_carnet'], 'RU 82345678')
 
     def test_en_cmr_localization(self):
-        c = ctx.build_cmr_context(_mock_invoice(), 'en')
+        c = ctx.build_cmr_context(_mock_shipment(), 'en')
         self.assertEqual(c['cargo_name'], 'FRESH TOMATOES')
         self.assertEqual(c['country_dispatch'], 'Turkmenistan')
         self.assertEqual(c['gross_with_pallet'], '10,720')
-
-    def test_no_shipment_blanks_transport_and_cargo(self):
-        c = ctx.build_cmr_context(_mock_invoice(with_shipment=False), 'ru')
-        self.assertEqual(c['transport'], '')
-        self.assertEqual(c['boxes'], '')
-        self.assertEqual(c['gross_without_pallet'], '')
-        # net still falls back to invoice.quantity_kg
-        self.assertEqual(c['net'], '9 000')
 
 
 class CmrPresetTest(SimpleTestCase):
@@ -183,7 +283,7 @@ class CmrPresetTest(SimpleTestCase):
             net_kg=Decimal('18000'), gross_kg=Decimal('20450'), box_count=2984,
             pallet_count=Decimal('33'), pallet_weight_kg=Decimal('446'),
         )
-        c = ctx.build_cmr_context(_mock_invoice(truck_template=truck), 'ru')
+        c = ctx.build_cmr_context(_mock_shipment(truck_template=truck), 'ru')
         self.assertEqual(c['boxes'], '2984')
         self.assertEqual(c['pallets'], '33')                 # _num drops the .0
         self.assertEqual(c['net'], '18 000')
@@ -244,13 +344,20 @@ class InvoiceRenderSmokeTest(SimpleTestCase):
             self.assertIn('118', filename)
 
     def test_render_cmr_ru_and_en(self):
-        for key in ('cmr_ru', 'cmr_en'):
-            data, filename, content_type = render.generate(key, _mock_invoice(), 'docx')
+        # two firms on the truck → both sender names must survive into the docx
+        firms = [
+            _mock_firm('Х.О «Датлы миве»', 'Datly miwe LLC', 'г. Ашгабат', 'Ashgabat'),
+            _mock_firm('Х.О «Ýigit»', 'Yigit LLC', 'г. Мары', 'Mary'),
+        ]
+        for key, names in (('cmr_ru', ('Датлы миве', 'Ýigit')), ('cmr_en', ('Datly miwe', 'Yigit'))):
+            data, filename, content_type = render.generate(key, _mock_shipment(firms=firms), 'docx')
             text = self._text(data)
             self.assertNotIn('{{', text, f'{key}: unrendered tag')
             self.assertNotIn('{%', text, f'{key}: unrendered tag')
             self.assertIn('CMR', text)
             self.assertIn('CMR_', filename)
+            for name in names:
+                self.assertIn(name, text, f'{key}: sender {name!r} missing from render')
             self.assertEqual(content_type, render.DOCX_CONTENT_TYPE)
 
     def test_render_request_letters(self):
@@ -285,6 +392,9 @@ class InvoiceDocumentEndpointTest(_SeededPermsMixin, TestCase):
         self.imp = _make_import_firm('IMPDOC')
         self.contract = _make_contract('INV-DOC-001', self.ef, self.imp, self.season)
         self.invoice = _make_invoice(self.contract, invoice_number=1)
+        # Documents require complete shipment packing; link a fully-packed shipment.
+        self.invoice.shipment = _make_packed_shipment(self.season, self.imp)
+        self.invoice.save(update_fields=['shipment'])
 
     def test_default_docx_download(self):
         resp = self.client.get(f'/api/v1/contracts/sales/{self.invoice.pk}/document/')
@@ -301,13 +411,12 @@ class InvoiceDocumentEndpointTest(_SeededPermsMixin, TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertIn('_EN.docx', resp['Content-Disposition'])
 
-    def test_cmr_ru_type(self):
+    def test_cmr_type_rejected_on_invoice_endpoint(self):
+        # CMR is now truck-level (shipment scope); the per-invoice endpoint rejects it.
         resp = self.client.get(
             f'/api/v1/contracts/sales/{self.invoice.pk}/document/?type=cmr_ru'
         )
-        self.assertEqual(resp.status_code, 200)
-        self.assertIn('CMR_', resp['Content-Disposition'])
-        self.assertEqual(resp['Content-Type'], render.DOCX_CONTENT_TYPE)
+        self.assertEqual(resp.status_code, 400)
 
     def test_ct1_letter_type(self):
         resp = self.client.get(
@@ -315,6 +424,20 @@ class InvoiceDocumentEndpointTest(_SeededPermsMixin, TestCase):
         )
         self.assertEqual(resp.status_code, 200)
         self.assertIn('CT1_', resp['Content-Disposition'])
+
+    def test_incomplete_packing_returns_400(self):
+        # clear a required packing cell → generation is blocked with a clear error
+        self.invoice.shipment.pallet_count = None
+        self.invoice.shipment.save(update_fields=['pallet_count'])
+        resp = self.client.get(f'/api/v1/contracts/sales/{self.invoice.pk}/document/')
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('pallet_count', resp.json()['missing_packing'])
+
+    def test_no_shipment_returns_400(self):
+        invoice = _make_invoice(self.contract, invoice_number=2)  # no shipment linked
+        resp = self.client.get(f'/api/v1/contracts/sales/{invoice.pk}/document/')
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(len(resp.json()['missing_packing']), 4)
 
     def test_unknown_type_returns_400(self):
         resp = self.client.get(
@@ -328,3 +451,45 @@ class InvoiceDocumentEndpointTest(_SeededPermsMixin, TestCase):
                 f'/api/v1/contracts/sales/{self.invoice.pk}/document/?fmt=pdf'
             )
         self.assertEqual(resp.status_code, 503)
+
+
+class ShipmentCmrEndpointTest(_SeededPermsMixin, TestCase):
+    """API: GET /api/v1/contracts/shipments/{id}/cmr/ — truck-level CMR."""
+
+    def setUp(self) -> None:
+        self.client = APIClient()
+        self.user = _make_user('cmr_doc', 'export_manager')
+        self.client.force_authenticate(user=self.user)
+        self.season = _make_season()
+        self.imp = _make_import_firm('IMPCMR')
+        self.shipment = _make_packed_shipment(self.season, self.imp)
+        # Two export firms on the one truck → both are senders on the CMR.
+        for code in ('YGTA', 'YGTB'):
+            ShipmentFirmSplit.objects.create(
+                shipment=self.shipment, export_firm=_make_export_firm(code),
+                weight_kg=Decimal('9000'), amount_usd=Decimal('8000'),
+            )
+
+    def test_truck_cmr_docx(self):
+        resp = self.client.get(f'/api/v1/contracts/shipments/{self.shipment.pk}/cmr/')
+        self.assertEqual(resp.status_code, 200, resp.content[:200])
+        self.assertEqual(resp['Content-Type'], render.DOCX_CONTENT_TYPE)
+        self.assertIn('CMR_', resp['Content-Disposition'])
+
+    def test_en_lang_filename(self):
+        resp = self.client.get(
+            f'/api/v1/contracts/shipments/{self.shipment.pk}/cmr/?lang=en'
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('_EN.docx', resp['Content-Disposition'])
+
+    def test_incomplete_packing_returns_400(self):
+        self.shipment.box_count = None
+        self.shipment.save(update_fields=['box_count'])
+        resp = self.client.get(f'/api/v1/contracts/shipments/{self.shipment.pk}/cmr/')
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('box_count', resp.json()['missing_packing'])
+
+    def test_missing_shipment_returns_404(self):
+        resp = self.client.get('/api/v1/contracts/shipments/999999/cmr/')
+        self.assertEqual(resp.status_code, 404)

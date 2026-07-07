@@ -101,19 +101,50 @@ PDF (8 entries) and downloads via `utils/fileDownload.ts::downloadUrl()` — a p
 anchor click; the httpOnly auth cookie rides the same-origin GET (same mechanism as
 the Boss report exports). Labels are `documents.*` i18n keys (tk/ru/en).
 
-## CMR (road consignment note)
+## CMR (road consignment note) — truck-level
 
-CMR is a per-truck document; since one Invoice == one dispatched truck, it is
-`scope=invoice` and reads transport/cargo from `invoice.shipment` (graceful
-blanks when the link is absent). Builder: `build_cmr_context`. Computes
-`gross_with_pallet = weight_gross + pallet_weight`.
+CMR is a per-**truck** document: one `Shipment` == one truck, which may carry 1–3
+export firms (`firm_splits`) selling to a single buyer (`shipment.import_firm`).
+So the CMR is `scope=shipment` (not invoice) — `build_cmr_context(shipment, …)`
+aggregates **all** export firms on the truck into the single sender box
+(`;`-joined — a bare newline won't line-break in a docx run), uses the one buyer
+as consignee, whole-truck cargo/weights, and
+references every invoice on the truck (`shipment.sales`). Computes
+`gross_without_pallet = weight_gross − pallet_weight` (BRUT is gross WITH pallet).
 
-**v1 is base single-firm only.** Deferred follow-ons (each a new registry entry,
-no framework change): the **2-/3-seller firm-split CMRs** that aggregate multiple
-invoices onto one truck; the **official 24-box CMR form** (current template is a
-simplified labelled layout with the same Jinja field names, so the business can
-re-skin it); and the `route` / `place_loading` / `forwarder` / `tir_carnet`
-fields, blank until those sources are mapped.
+Endpoint: **`GET /api/v1/contracts/shipments/{id}/cmr/?lang=ru|en&fmt=docx|pdf`**
+(`ShipmentCmrView`, gated by the `sale` resource). It lives in `contracts` — not
+an `export` ViewSet — because the builder is in `contracts`, which may import
+`export` (never the reverse). The per-invoice `sales/{id}/document/` endpoint now
+**rejects** `cmr_*` types (they are shipment-scope), so CMR is reachable only via
+this truck endpoint.
+
+The `forwarder` is auto-filled from the export firm(s). The `route` / border line
+was dropped — the destination borders don't require it. Deferred: the **official
+24-box CMR form** (current template is a simplified labelled layout with the same
+Jinja field names, so the business can re-skin it).
+
+**Generate-time inputs.** `place_loading` (invoice + CMR) and `tir_carnet` (CMR
+only, Uzbekistan transit) are not stored on the invoice — they're chosen when the
+document is generated and passed through as `?place_loading=&tir_carnet=` query
+params to `generate(..., overrides)`. The frontend `InvoiceDocumentsButton` opens
+a small modal for invoice/CMR downloads: `place_loading` is a dropdown from the
+`core.LoadingLocation` list (`GET /core/loading-locations/`), `tir_carnet` a free
+text field. Both optional → blank on the document when left empty. The CT-1 /
+phyto / customs letters accept the `overrides` arg (uniform signature) but ignore
+it and download immediately with no modal.
+
+**Packing guard (poka-yoke).** No document — invoice, CMR, or letter — generates
+until the truck's whole-truck packing is **resolvable**: `weight_gross`,
+`weight_net`, `box_count`, `pallet_count`. Each field is satisfied by the raw
+shipment cell **or** an applied `PackingTemplate` counterpart (`gross_kg` /
+`net_kg` / `box_count` / `pallet_count`) — so a template-configured truck (which
+links the template + per-firm sales but leaves the raw cells null) is NOT blocked.
+See `REQUIRED_PACKING_FIELDS` / `missing_packing_on()` in `document_context.py`.
+Both endpoints return **400** with `{error, missing_packing: [...]}` when a field
+is unresolved (a shipment-less invoice fails all four). The frontend downloads via
+`downloadFile()` (axios blob) so that 400 surfaces as a toast instead of dumping
+JSON into a new tab; a successful call saves the file.
 
 ## Authority request letters (CT-1 / phyto / customs)
 

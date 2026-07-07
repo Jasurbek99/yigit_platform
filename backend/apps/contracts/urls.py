@@ -5,6 +5,7 @@ from rest_framework.routers import DefaultRouter
 from apps.contracts.views import (
     ContractSaleViewSet,
     ContractViewSet,
+    ShipmentCmrView,
     ShipmentFirmContractsView,
     ShipmentPackingView,
 )
@@ -23,6 +24,11 @@ urlpatterns = [
         'shipment-packing/',
         ShipmentPackingView.as_view(),
         name='shipment-packing',
+    ),
+    path(
+        'shipments/<int:pk>/cmr/',
+        ShipmentCmrView.as_view(),
+        name='shipment-cmr',
     ),
     *router.urls,
 ]

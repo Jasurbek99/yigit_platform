@@ -37,6 +37,7 @@ PDF_CONTENT_TYPE = 'application/pdf'
 # Per-scope extractor for the registry out_pattern (download filename) fields.
 _FILENAME_FIELDS = {
     tpl_registry.SCOPE_INVOICE: document_context.invoice_filename_fields,
+    tpl_registry.SCOPE_SHIPMENT: document_context.cmr_filename_fields,
 }
 
 
@@ -100,13 +101,17 @@ def render_pdf(docx_bytes: bytes) -> bytes:
         return pdf.read_bytes()
 
 
-def generate(document_key: str, primary_obj, fmt: str = 'docx') -> tuple[bytes, str, str]:
+def generate(
+    document_key: str, primary_obj, fmt: str = 'docx', overrides: dict | None = None,
+) -> tuple[bytes, str, str]:
     """Render a registered document for a primary object.
 
     Args:
         document_key: A registry key (e.g. ``invoice_ru``).
         primary_obj: The Invoice/Contract/Shipment instance to render from.
         fmt: ``'docx'`` or ``'pdf'``.
+        overrides: Optional generate-time field values (e.g. ``place_loading``,
+            ``tir_carnet``) passed through to the context builder.
 
     Returns:
         ``(file_bytes, filename_with_extension, content_type)``.
@@ -121,7 +126,7 @@ def generate(document_key: str, primary_obj, fmt: str = 'docx') -> tuple[bytes, 
 
     spec = tpl_registry.get_spec(document_key)
     builder = tpl_registry.resolve_builder(spec)
-    context = builder(primary_obj, spec.language)
+    context = builder(primary_obj, spec.language, overrides)
 
     docx_bytes = render_docx(spec.template_path, context)
 

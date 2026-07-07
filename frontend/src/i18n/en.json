@@ -2800,7 +2800,14 @@
     "fito": "Phytosanitary",
     "customs": "Customs request",
     "word": "Word",
-    "pdf": "PDF"
+    "pdf": "PDF",
+    "options_title": "Document options",
+    "download": "Download",
+    "place_loading": "Place of loading",
+    "place_loading_ph": "Select loading point",
+    "tir_carnet": "TIR carnet №",
+    "tir_carnet_ph": "Uzbekistan transit only — leave blank otherwise",
+    "download_failed": "Document download failed"
   },
   "sales": {
     "title": "Contract Sales",

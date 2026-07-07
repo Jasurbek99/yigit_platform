@@ -73,25 +73,25 @@ REGISTRY: dict[str, TemplateSpec] = {
         context_builder='apps.contracts.services.document_context.build_invoice_context',
         out_pattern='Invoice_{contract_number}_{invoice_number}_EN',
     ),
-    # CMR (road consignment note), single-firm base. Reads transport detail from
-    # invoice.shipment. 2-/3-seller variants are deferred follow-on entries.
+    # CMR (road consignment note) — truck-level. Renders from a Shipment,
+    # aggregating all export firms on the truck as senders.
     'cmr_ru': TemplateSpec(
         key='cmr_ru',
         filename='cmr_ru.docx',
-        scope=SCOPE_INVOICE,
+        scope=SCOPE_SHIPMENT,
         language='ru',
         version='1.0',
         context_builder='apps.contracts.services.document_context.build_cmr_context',
-        out_pattern='CMR_{contract_number}_{invoice_number}_RU',
+        out_pattern='CMR_{shipment_code}_RU',
     ),
     'cmr_en': TemplateSpec(
         key='cmr_en',
         filename='cmr_en.docx',
-        scope=SCOPE_INVOICE,
+        scope=SCOPE_SHIPMENT,
         language='en',
         version='1.0',
         context_builder='apps.contracts.services.document_context.build_cmr_context',
-        out_pattern='CMR_{contract_number}_{invoice_number}_EN',
+        out_pattern='CMR_{shipment_code}_EN',
     ),
     # Authority request letters — single-language (per the source forms).
     'ct1_ru': TemplateSpec(

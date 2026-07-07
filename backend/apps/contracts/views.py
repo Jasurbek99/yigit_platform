@@ -22,6 +22,11 @@ from apps.contracts.serializers import (
     ContractSaleDetailSerializer,
     ContractSaleListSerializer,
 )
+from apps.contracts.services.document_context import (
+    PACKING_REQUIRED_MESSAGE,
+    missing_packing_fields,
+    missing_packing_on,
+)
 from apps.contracts.services.document_render import DocumentRenderError, generate
 from apps.contracts.services.files import (
     MAX_FILES_PER_CONTRACT,
@@ -282,6 +287,8 @@ class ContractSaleViewSet(ModelViewSet):
             type: registry key — defaults to ``invoice_ru`` (also ``invoice_en``).
             fmt:  ``docx`` (default) or ``pdf``. (Named ``fmt`` not ``format`` —
                   ``format`` is reserved by DRF content negotiation.)
+            place_loading: generate-time loading point (invoice + CMR).
+            tir_carnet:    generate-time TIR carnet № (CMR, Uzbekistan transit).
 
         Returns the file as an attachment. PDF requires LibreOffice on the server;
         when absent it returns 503 with a clear message (the .docx path is fine).
@@ -289,6 +296,11 @@ class ContractSaleViewSet(ModelViewSet):
         invoice = self.get_object()
         doc_type = request.query_params.get('type', 'invoice_ru')
         fmt = request.query_params.get('fmt', 'docx')
+        overrides = {
+            key: value
+            for key in ('place_loading', 'tir_carnet')
+            if (value := request.query_params.get(key, '').strip())
+        }
 
         try:
             spec = get_spec(doc_type)
@@ -302,8 +314,65 @@ class ContractSaleViewSet(ModelViewSet):
                 status=400,
             )
 
+        missing = missing_packing_fields(invoice)
+        if missing:
+            return Response(
+                {'error': PACKING_REQUIRED_MESSAGE, 'missing_packing': missing},
+                status=400,
+            )
+
         try:
-            data, filename, content_type = generate(doc_type, invoice, fmt)
+            data, filename, content_type = generate(doc_type, invoice, fmt, overrides)
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=400)
+        except DocumentRenderError as exc:
+            return Response({'error': str(exc)}, status=503)
+
+        response = HttpResponse(data, content_type=content_type)
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+
+
+class ShipmentCmrView(APIView):
+    """Truck-level CMR — one per shipment, all export firms listed as senders.
+
+    ``GET /api/v1/contracts/shipments/{pk}/cmr/?lang=ru|en&fmt=docx|pdf``, plus
+    the same generate-time ``place_loading`` / ``tir_carnet`` params as the
+    per-firm documents. Gated by the 'sale' resource; the packing guard applies
+    (whole-truck gross/net/boxes/pallets must be filled in the Sheet).
+    """
+
+    permission_classes = [IsAuthenticated, DynamicResourcePermission]
+    resource_code = 'sale'
+
+    def get(self, request, pk=None):
+        from apps.export.models import Shipment
+
+        shipment = (
+            Shipment.objects.filter(pk=pk)
+            .select_related('import_firm', 'packing_template')
+            .prefetch_related('firm_splits__export_firm', 'sales')
+            .first()
+        )
+        if shipment is None:
+            return Response({'error': 'Shipment not found.'}, status=404)
+
+        doc_type = 'cmr_en' if request.query_params.get('lang') == 'en' else 'cmr_ru'
+        fmt = request.query_params.get('fmt', 'docx')
+        overrides = {
+            key: value
+            for key in ('place_loading', 'tir_carnet')
+            if (value := request.query_params.get(key, '').strip())
+        }
+
+        missing = missing_packing_on(shipment)
+        if missing:
+            return Response(
+                {'error': PACKING_REQUIRED_MESSAGE, 'missing_packing': missing}, status=400,
+            )
+
+        try:
+            data, filename, content_type = generate(doc_type, shipment, fmt, overrides)
         except ValueError as exc:
             return Response({'error': str(exc)}, status=400)
         except DocumentRenderError as exc:
