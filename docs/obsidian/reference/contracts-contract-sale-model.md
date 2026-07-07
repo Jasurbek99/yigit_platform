@@ -26,7 +26,7 @@ The truck itself is `export.Shipment`; this row bridges to it by the identity ke
 | `serial_truck_number` | `IntegerField` | nullable — sequential truck serial for the contract |
 | `export_firm` | FK → `core.ExportFirm` | PROTECT, nullable — denormalized for reporting |
 | `import_firm` | FK → `core.ImportFirm` | PROTECT, nullable — denormalized for reporting |
-| `gross_kg` / `box_count` / `pallet_count` / `pallet_weight_kg` | `Decimal`/`Int` | nullable — per-firm packing **override** for this sale's **Invoice**. Null = use the value **derived** from the truck's `PackingPreset` split by this firm's weight share. Net is never here (it is `quantity_kg`). See [[packing-preset-model]]. |
+| `gross_kg` / `box_count` / `pallet_count` / `pallet_weight_kg` | `Decimal`/`Int` | nullable — this firm's **explicit** packing for its **Invoice**, copied from the applied `PackingTemplate` share (then editable). Net is not here (it is `quantity_kg` / the firm-split weight). See [[packing-template-model]]. |
 | `incoterm` | `CharField(10)` | blank OK, e.g. `FCA` |
 | `quantity_kg` | `DecimalField(10,2)` | nullable |
 | `price_per_kg` | `DecimalField(8,4)` | nullable |

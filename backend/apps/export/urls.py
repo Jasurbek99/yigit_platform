@@ -1,7 +1,7 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
-from apps.export.views import ShipmentViewSet, CommentViewSet, TaskViewSet, SalesRepCoverageViewSet, ExpenseCategoryViewSet, PackingPresetViewSet, SplitTemplateViewSet
+from apps.export.views import ShipmentViewSet, CommentViewSet, TaskViewSet, SalesRepCoverageViewSet, ExpenseCategoryViewSet, PackingTemplateViewSet
 from apps.export.views_analytics import BossAnalyticsViewSet
 from apps.export.views_dashboard import DashboardViewSet
 from apps.export.views_finance import FinansistAdvanceViewSet, CustomsExpenseViewSet
@@ -55,8 +55,7 @@ router.register('sales-rep-coverage', SalesRepCoverageViewSet, basename='sales-r
 router.register('advances', FinansistAdvanceViewSet, basename='advance')
 router.register('customs-expenses', CustomsExpenseViewSet, basename='customs-expense')
 router.register('expense-categories', ExpenseCategoryViewSet, basename='expense-category')
-router.register('packing-presets', PackingPresetViewSet, basename='packing-preset')
-router.register('split-templates', SplitTemplateViewSet, basename='split-template')
+router.register('packing-templates', PackingTemplateViewSet, basename='packing-template')
 
 # Planning & pricing
 router.register('truck-allocations', WeeklyTruckAllocationViewSet, basename='truck-allocation')

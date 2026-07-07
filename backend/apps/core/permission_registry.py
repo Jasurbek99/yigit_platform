@@ -123,7 +123,7 @@ RESOURCE_FIELDS: dict[str, list[str]] = {
         # Weight / packaging
         'box_count', 'pallet_count', 'pallet_weight_kg', 'packaging_kg',
         # Whole-truck packing config (gross-net catalog) → CMR document
-        'packing_preset',
+        'packing_template',
         'weight_net', 'weight_gross', 'rejected_weight_kg',
         # Geography / customer
         'country', 'city', 'customer', 'import_firm',

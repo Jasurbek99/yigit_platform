@@ -95,8 +95,7 @@
     "sales_reports": "Satyş hasabatlary",
     "sales_rep_coverage": "Satyjy müşderileri",
     "admin_expense_template": "Çykdajy şablony",
-    "admin_packing_presets": "Gaplaýyş şablonlary",
-    "admin_split_templates": "Bölüş şablonlary"
+    "admin_packing_templates": "Gaplaýyş şablonlary"
   },
   "expense_template": {
     "title": "Çykdajy kategoriýalarynyň şablony",
@@ -123,11 +122,10 @@
     "confirm_delete_body": "Kategoriýa hemişelik öçüriler. Eger ol saklanylýan çykdajylarda ulanylýan bolsa, serwer öçürmegi ret eder. Täze hasabatlarda görünmez etmek üçin ony işjeň däl diýip belläň.",
     "error_load": "Çykdajy kategoriýalaryny ýükläp bolmady"
   },
-  "packing_preset": {
+  "packing_template": {
     "title": "Gaplaýyş şablonlary",
-    "subtitle": "Satuw hasap-fakturalarynda ulanylýan brut/net gaplaýyş şablonlaryny dolandyryň. Işjeň däl şablonlar hasap-faktura formalarynda görkezilmeýär.",
+    "subtitle": "Bir şablon = bir brut/net setiri: doly maşynyň gaplamasy hem-de her firmanyň paýy. Maşynda saýlanyp CMR we her fakturany doldurýar.",
     "add": "Täze şablon",
-    "select_placeholder": "Gaplaýyş şablonyny saýlaň",
     "col_sort_order": "Tertip",
     "col_name": "Ady",
     "col_product_type": "Önüm görnüşi",
@@ -137,6 +135,9 @@
     "col_pallet_count": "Palet",
     "col_pallet_weight_kg": "Palet agramy",
     "col_status": "Ýagdaý",
+    "whole_truck": "Doly maşyn",
+    "firm_shares": "Firma paýlary",
+    "add_share": "Paý goş",
     "product_type_tomato": "Pomidor",
     "product_type_pepper": "Burç",
     "modal_create": "Täze gaplaýyş şablony",
@@ -146,28 +147,8 @@
     "toast_deleted": "Şablon öçürildi",
     "toast_error": "Näsazlyk ýüze çykdy",
     "confirm_delete_title": "Şablony öçürmeli?",
-    "confirm_delete_body": "Şablon hemişelik öçüriler. Eger ol satuw hasap-fakturasynda ulanylýan bolsa, serwer öçürmegi ret eder.",
+    "confirm_delete_body": "Şablon hemişelik öçüriler. Eger ol maşynda ulanylýan bolsa, serwer öçürmegi ret eder.",
     "error_load": "Gaplaýyş şablonlaryny ýükläp bolmady"
-  },
-  "split_template": {
-    "title": "Bölüş şablonlary",
-    "subtitle": "Firmalara bölüşiň taýýar görnüşleri (mysal üçin 10000 / 8000). Maşynda saýlananda her firmanyň agramyny belleýär; firma boýunça gaplama doly maşyn konfigurasiýasyndan hasaplanýar.",
-    "add": "Täze bölüş",
-    "col_sort_order": "Tertip",
-    "col_name": "Ady",
-    "col_weights": "Agramlar (kg)",
-    "col_total": "Jemi",
-    "col_status": "Ýagdaý",
-    "weights_hint": "Firma tertibinde otur bilen agramlar, mysal üçin 10000,8000",
-    "modal_create": "Täze bölüş şablony",
-    "modal_edit": "Bölüş şablonyny üýtget",
-    "toast_created": "Bölüş döredildi",
-    "toast_updated": "Bölüş täzelendi",
-    "toast_deleted": "Bölüş öçürildi",
-    "toast_error": "Ýalňyşlyk ýüze çykdy",
-    "confirm_delete_title": "Bölüşi öçürmeli?",
-    "confirm_delete_body": "Bölüş şablony hemişelik öçüriler.",
-    "error_load": "Bölüş şablonlaryny ýükläp bolmady"
   },
   "stuck": {
     "page_title": "Saklanan ýükler",
@@ -1586,15 +1567,13 @@
     },
     "packing": {
       "title": "Gaplama (brut-net)",
-      "whole_truck": "Doly maşyn → CMR",
+      "template": "Gaplaýyş şablony",
+      "template_pick": "Şablon saýlaň…",
+      "no_template_match": "{{n}} paýly şablon ýok. Goşuň ýa-da firmalary düzediň.",
       "per_firm": "Firma boýunça → Faktura",
-      "pick": "Konfigurasiýa saýlaň",
+      "swap": "Çalyş",
       "no_firms": "Ilki firmalary goşuň.",
       "no_sale": "Ilki bu firma üçin şertnama baglanyşdyryň.",
-      "pick_truck_first": "Ilki maşyn konfigurasiýasyny saýlaň.",
-      "split": "Firmalara böl",
-      "split_pick": "Bölüş şablonyny ulan…",
-      "no_split_match": "Bu firma sany üçin şablon ýok.",
       "truck_totals": "Net {{net}} · Brut {{gross}} · {{boxes}} ýaşik",
       "sum_ok": "Firmalaryň jemi: {{total}} kg ✓",
       "sum_bad": "Firmalaryň jemi: {{total}} kg — maşyn konfigurasiýasy {{net}} kg. Firma agramlaryny ýa-da konfigurasiýany düzediň.",

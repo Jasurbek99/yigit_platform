@@ -32,7 +32,7 @@ from apps.contracts.tests.test_contract_sale_api import (
 
 
 def _preset(**kw):
-    """A PackingPreset stand-in; unspecified packing fields default to None."""
+    """A PackingTemplate stand-in (whole-truck values), for the CMR."""
     return SimpleNamespace(
         net_kg=kw.get('net_kg'), gross_kg=kw.get('gross_kg'),
         box_count=kw.get('box_count'), pallet_count=kw.get('pallet_count'),
@@ -40,14 +40,13 @@ def _preset(**kw):
     )
 
 
-def _mock_invoice(*, with_shipment=True, truck_preset=None, firm_weights=None,
-                  quantity_kg=Decimal('9000'), override=None):
+def _mock_invoice(*, with_shipment=True, truck_template=None,
+                  quantity_kg=Decimal('9000'), packing=None):
     """Build a SimpleNamespace invoice mirroring the real ORM attributes used.
 
-    ``truck_preset`` = whole-truck PackingPreset on the shipment (drives CMR and the
-    per-firm derivation). ``firm_weights`` = the shipment's firm-split weights (the
-    total the truck config is split across); default [] → falls back to quantity_kg.
-    ``override`` = per-firm invoice override dict (gross_kg/box_count/…).
+    ``truck_template`` = whole-truck PackingTemplate on the shipment (drives the CMR).
+    ``packing`` = the firm's explicit packing on the sale (gross_kg/box_count/…), the
+    values copied from the template share and printed on the Invoice.
     """
     seller = SimpleNamespace(
         name_ru='Х.О «Датлы миве»', name_en='Datly miwe LLC', name_tk='',
@@ -59,26 +58,24 @@ def _mock_invoice(*, with_shipment=True, truck_preset=None, firm_weights=None,
         name_company='ООО TRUST', address='г. Ташкент', bank_details='ИНН: 311270964',
         country=country,
     )
-    splits = [SimpleNamespace(weight_kg=w) for w in (firm_weights or [])]
     shipment = SimpleNamespace(
         weight_net=Decimal('9000'), weight_gross=Decimal('10720'), box_count=1800,
         pallet_count=16, packaging_kg=Decimal('300'), pallet_weight_kg=Decimal('300'),
         truck_plate='BR1427LB', trailer_id=5311, driver_name='Ahmet A.', country=country,
-        packing_preset=truck_preset,
-        firm_splits=SimpleNamespace(all=lambda: splits),
+        packing_template=truck_template,
     ) if with_shipment else None
     contract = SimpleNamespace(
         contract_number='93/26-DM-EXP', start_date=date(2026, 3, 16),
         export_firm=seller, import_firm=buyer, incoterm='FCA',
     )
-    ov = override or {}
+    pk = packing or {}
     return SimpleNamespace(
         invoice_number=118, invoice_date=date(2026, 3, 16), contract=contract,
         shipment=shipment, export_firm=seller, import_firm=buyer, incoterm='FCA',
         quantity_kg=quantity_kg, price_per_kg=Decimal('0.87'),
         total_usd=Decimal('7830'),
-        gross_kg=ov.get('gross_kg'), box_count=ov.get('box_count'),
-        pallet_count=ov.get('pallet_count'), pallet_weight_kg=ov.get('pallet_weight_kg'),
+        gross_kg=pk.get('gross_kg'), box_count=pk.get('box_count'),
+        pallet_count=pk.get('pallet_count'), pallet_weight_kg=pk.get('pallet_weight_kg'),
     )
 
 
@@ -120,38 +117,25 @@ class InvoiceContextBuilderTest(SimpleTestCase):
         self.assertEqual(c['transport'], '')
         self.assertEqual(c['pallet_note'], '')
 
-    def test_per_firm_derives_from_truck_split(self):
-        """This firm's packing = truck config split by its weight share.
-        Truck 18000/20400 gross/3040 boxes; this firm 10000 of 10000+8000."""
-        truck = _preset(
-            net_kg=Decimal('18000'), gross_kg=Decimal('20400'), box_count=3040,
-            pallet_count=Decimal('33'), pallet_weight_kg=Decimal('380'),
-        )
+    def test_per_firm_packing_prints_explicit_share(self):
+        """The invoice prints the firm's explicit packing (copied from the share)."""
         c = ctx.build_invoice_context(
-            _mock_invoice(truck_preset=truck, firm_weights=[Decimal('10000'), Decimal('8000')],
-                          quantity_kg=Decimal('10000')),
+            _mock_invoice(quantity_kg=Decimal('10000'),
+                          packing={'gross_kg': Decimal('11373'), 'box_count': 1618,
+                                   'pallet_count': Decimal('18'), 'pallet_weight_kg': Decimal('229')}),
             'ru',
         )
         item = c['line_items'][0]
         self.assertEqual(item['net'], '10 000')    # firm's own weight (official)
-        self.assertEqual(item['gross'], '11 333')  # 20400 × 10000/18000
-        self.assertEqual(item['pieces'], '1689')   # round(3040 × 10000/18000)
-
-    def test_per_firm_override_wins_over_derived(self):
-        """A manual override on the sale beats the derived value."""
-        truck = _preset(
-            net_kg=Decimal('18000'), gross_kg=Decimal('20400'), box_count=3040,
-            pallet_count=Decimal('33'), pallet_weight_kg=Decimal('380'),
-        )
-        c = ctx.build_invoice_context(
-            _mock_invoice(truck_preset=truck, firm_weights=[Decimal('10000'), Decimal('8000')],
-                          quantity_kg=Decimal('10000'),
-                          override={'gross_kg': Decimal('11373'), 'box_count': 1618}),
-            'ru',
-        )
-        item = c['line_items'][0]
-        self.assertEqual(item['gross'], '11 373')  # override, not the derived 11333
+        self.assertEqual(item['gross'], '11 373')  # the firm's share gross, not the truck
         self.assertEqual(item['pieces'], '1618')
+
+    def test_per_firm_packing_falls_back_to_shipment(self):
+        """With no per-firm packing set, gross/boxes fall back to the shipment."""
+        c = ctx.build_invoice_context(_mock_invoice(), 'ru')  # no packing dict
+        item = c['line_items'][0]
+        self.assertEqual(item['gross'], '10 720')  # shipment.weight_gross
+        self.assertEqual(item['pieces'], '1800')   # shipment.box_count
 
 
 class CmrContextBuilderTest(SimpleTestCase):
@@ -191,15 +175,15 @@ class CmrContextBuilderTest(SimpleTestCase):
 
 
 class CmrPresetTest(SimpleTestCase):
-    """CMR reads the whole-truck preset on the shipment; BRUT = gross WITH pallet."""
+    """CMR reads the whole-truck template on the shipment; BRUT = gross WITH pallet."""
 
-    def test_whole_truck_preset_drives_cmr(self):
+    def test_whole_truck_template_drives_cmr(self):
         # gross-net row 152 right block: BRUT 20450, NET 18000, boxes 2984, 33 pal, pallet 446.
         truck = _preset(
             net_kg=Decimal('18000'), gross_kg=Decimal('20450'), box_count=2984,
             pallet_count=Decimal('33'), pallet_weight_kg=Decimal('446'),
         )
-        c = ctx.build_cmr_context(_mock_invoice(truck_preset=truck), 'ru')
+        c = ctx.build_cmr_context(_mock_invoice(truck_template=truck), 'ru')
         self.assertEqual(c['boxes'], '2984')
         self.assertEqual(c['pallets'], '33')                 # _num drops the .0
         self.assertEqual(c['net'], '18 000')

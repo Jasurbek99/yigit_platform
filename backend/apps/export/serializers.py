@@ -14,9 +14,9 @@ from apps.export.models import (
     ExpenseCategory,
     FinansistAdvance,
     FinansistAdvanceShipment,
-    PackingPreset,
+    PackingTemplate,
+    PackingTemplateShare,
     Pallet,
-    SplitTemplate,
     QualityDocument,
     SalesReport,
     SalesReportLineItem,
@@ -594,8 +594,8 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
     customer_color = serializers.CharField(source='customer.color', read_only=True, default=None)
     import_firm_name = serializers.SerializerMethodField()
     import_firm_color = serializers.CharField(source='import_firm.color', read_only=True, default=None)
-    packing_preset_name = serializers.CharField(
-        source='packing_preset.name', read_only=True, default=None,
+    packing_template_name = serializers.CharField(
+        source='packing_template.name', read_only=True, default=None,
     )
 
     def get_import_firm_name(self, obj) -> str | None:
@@ -669,7 +669,7 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
             'weight_gross', 'weight_net', 'packaging_kg',
             'pallet_count', 'box_count', 'rejected_weight_kg',
             # Whole-truck packing config (gross-net catalog) → CMR
-            'packing_preset', 'packing_preset_name',
+            'packing_template', 'packing_template_name',
             # Transport
             'vehicle_responsible', 'vehicle_responsible_display',
             'truck_head_id', 'trailer_id', 'driver_id',
@@ -989,70 +989,60 @@ class ExpenseCategorySerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
 
-class PackingPresetSerializer(serializers.ModelSerializer):
-    """CRUD shape for the gross-net packing catalog (Invoice/CMR presets)."""
+_PACKING_NUMS = ['net_kg', 'gross_kg', 'box_count', 'pallet_count', 'pallet_weight_kg']
+
+
+class PackingTemplateShareSerializer(serializers.ModelSerializer):
+    """One firm share inside a PackingTemplate."""
+
+    class Meta:
+        model = PackingTemplateShare
+        fields = ['id', 'share_order', *_PACKING_NUMS]
+        read_only_fields = ['id']
+
+
+class PackingTemplateSerializer(serializers.ModelSerializer):
+    """CRUD shape for the unified gross-net template (whole truck + firm shares)."""
 
     product_type_display = serializers.CharField(
         source='get_product_type_display', read_only=True,
     )
+    shares = PackingTemplateShareSerializer(many=True, required=False)
+    share_count = serializers.IntegerField(read_only=True)
 
     class Meta:
-        model = PackingPreset
+        model = PackingTemplate
         fields = [
-            'id',
-            'name',
-            'product_type',
-            'product_type_display',
-            'net_kg',
-            'gross_kg',
-            'box_count',
-            'pallet_count',
-            'pallet_weight_kg',
-            'is_active',
-            'sort_order',
+            'id', 'name', 'product_type', 'product_type_display',
+            *_PACKING_NUMS, 'shares', 'share_count', 'is_active', 'sort_order',
         ]
         read_only_fields = ['id']
 
+    def _write_shares(self, template, shares_data):
+        """Replace the template's shares with the supplied list (ordered)."""
+        template.shares.all().delete()
+        PackingTemplateShare.objects.bulk_create([
+            PackingTemplateShare(
+                template=template, share_order=i + 1,
+                **{k: s.get(k) for k in _PACKING_NUMS},
+            )
+            for i, s in enumerate(shares_data)
+        ], batch_size=500)
 
-class SplitTemplateSerializer(serializers.ModelSerializer):
-    """CRUD shape for the firm-split catalog (per-firm weight divisions)."""
+    def create(self, validated_data):
+        shares_data = validated_data.pop('shares', [])
+        template = PackingTemplate.objects.create(**validated_data)
+        self._write_shares(template, shares_data)
+        return template
 
-    weights_list = serializers.SerializerMethodField()
-    part_count = serializers.IntegerField(read_only=True)
-    total_kg = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
-
-    class Meta:
-        model = SplitTemplate
-        fields = [
-            'id',
-            'name',
-            'weights',
-            'weights_list',
-            'part_count',
-            'total_kg',
-            'is_active',
-            'sort_order',
-        ]
-        read_only_fields = ['id']
-
-    def get_weights_list(self, obj) -> list[str]:
-        return [str(w) for w in obj.weight_list()]
-
-    def validate_weights(self, value: str) -> str:
-        """Must be comma-separated positive numbers; normalise to a clean string."""
-        parts = [p.strip() for p in value.split(',') if p.strip()]
-        if len(parts) < 2:
-            raise serializers.ValidationError('A split needs at least two weights.')
-        cleaned = []
-        for p in parts:
-            try:
-                d = Decimal(p)
-            except (ArithmeticError, ValueError):
-                raise serializers.ValidationError(f'"{p}" is not a number.')
-            if d <= 0:
-                raise serializers.ValidationError('Weights must be greater than 0.')
-            cleaned.append(format(d.normalize(), 'f'))
-        return ','.join(cleaned)
+    def update(self, instance, validated_data):
+        shares_data = validated_data.pop('shares', None)
+        for k, v in validated_data.items():
+            setattr(instance, k, v)
+        instance.save()
+        if shares_data is not None:
+            self._write_shares(instance, shares_data)
+        return instance
 
 
 class CustomsExpenseSerializer(serializers.ModelSerializer):
@@ -1422,8 +1412,8 @@ _ALL_PATCHABLE_FIELDS = {
     # Weight / packaging
     'box_count', 'pallet_count', 'pallet_weight_kg', 'packaging_kg',
     'weight_net', 'weight_gross', 'rejected_weight_kg',
-    # Whole-truck packing config (gross-net catalog) → CMR
-    'packing_preset',
+    # Whole-truck packing template → CMR (applied via the packing panel)
+    'packing_template',
     # Geography / customer
     'country', 'city', 'customer', 'import_firm',
     'border_point', 'loading_location',

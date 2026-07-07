@@ -90,12 +90,11 @@ class ContractSale(models.Model):
         related_name='sales',
     )
 
-    # === Per-firm packing OVERRIDE (feeds this firm's Invoice) ===
-    # The firm's packing is DERIVED from the truck's PackingPreset split by this
-    # firm's weight share (net = quantity_kg, always consistent with the truck).
-    # These four are OPTIONAL manual overrides — null means "use the derived value".
-    # NET is never overridden here (it is the firm's official weight = quantity_kg),
-    # so the per-firm split can't be made to disagree with the truck total.
+    # === Per-firm packing (feeds this firm's Invoice) ===
+    # Copied from the applied PackingTemplate's firm share, then editable per truck.
+    # NET stays the firm's official weight (quantity_kg / ShipmentFirmSplit.weight_kg,
+    # set from the share net via set_firm_splits); these four are the explicit
+    # gross/boxes/pallets printed on the firm's Invoice.
     gross_kg = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     box_count = models.IntegerField(null=True, blank=True)
     pallet_count = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)

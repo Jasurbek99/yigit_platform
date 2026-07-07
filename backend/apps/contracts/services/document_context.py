@@ -141,31 +141,19 @@ def build_invoice_context(invoice, lang: str = 'ru') -> dict:
     # Year for "harvest YYYY" — invoice date drives it.
     year = invoice.invoice_date.year if invoice.invoice_date else ''
 
-    # Per-firm packing = the truck's PackingPreset split by this firm's weight
-    # share, with optional per-firm overrides on the sale (poka-yoke: the split
-    # always sums to the truck). NET is the firm's OFFICIAL weight (quantity_kg) —
-    # never the real shipment.weight_net (ADR-023) and never derived, so it always
-    # agrees with the truck total. Gross/pieces/pallets fall back to the whole-truck
-    # shipment fields only when there is no truck preset.
-    from apps.contracts.services.packing_split import effective_firm_packing
-
-    truck_preset = shipment.packing_preset if shipment else None
-    total_weight = None
-    if shipment:
-        total_weight = sum(
-            (s.weight_kg for s in shipment.firm_splits.all() if s.weight_kg is not None),
-            Decimal('0'),
-        ) or invoice.quantity_kg
-    pack = effective_firm_packing(invoice, truck_preset, invoice.quantity_kg, total_weight)
-
+    # Per-firm packing = the EXPLICIT values on this firm's ContractSale (copied
+    # from the applied PackingTemplate's share, then editable per truck). NET is the
+    # firm's OFFICIAL weight (quantity_kg) — never the real shipment.weight_net
+    # (ADR-023). Gross/pieces/pallets fall back to the whole-truck shipment fields
+    # only when the sale has no packing set.
     net_kg = invoice.quantity_kg
-    gross_kg = (pack['gross_kg'] if pack['gross_kg'] is not None
+    gross_kg = (invoice.gross_kg if invoice.gross_kg is not None
                 else (shipment.weight_gross if shipment else None))
-    pieces = (pack['box_count'] if pack['box_count'] is not None
+    pieces = (invoice.box_count if invoice.box_count is not None
               else (shipment.box_count if shipment else None))
-    pallets = (pack['pallet_count'] if pack['pallet_count'] is not None
+    pallets = (invoice.pallet_count if invoice.pallet_count is not None
                else (shipment.pallet_count if shipment else None))
-    pallet_kg = (pack['pallet_weight_kg'] if pack['pallet_weight_kg'] is not None
+    pallet_kg = (invoice.pallet_weight_kg if invoice.pallet_weight_kg is not None
                  else ((shipment.pallet_weight_kg or shipment.packaging_kg) if shipment else None))
 
     transport = ''
@@ -269,10 +257,10 @@ def build_cmr_context(invoice, lang: str = 'ru') -> dict:
     seller = invoice.export_firm or (contract.export_firm if contract else None)
     buyer = invoice.import_firm or (contract.import_firm if contract else None)
 
-    # Whole-truck packing from the preset picked on the shipment (the gross-net
-    # catalog). BRUT = gross WITH pallets, so "without" is the subtraction. Falls
-    # back to the shipment's own fields when no preset is set.
-    preset = shipment.packing_preset if shipment else None
+    # Whole-truck packing from the PackingTemplate picked on the shipment. BRUT =
+    # gross WITH pallets, so "without" is the subtraction. Falls back to the
+    # shipment's own fields when no template is set.
+    preset = shipment.packing_template if shipment else None
     boxes = ((preset.box_count if preset and preset.box_count is not None else None)
              or (shipment.box_count if shipment else None))
     pallets = ((preset.pallet_count if preset and preset.pallet_count is not None else None)

@@ -110,9 +110,10 @@ class Shipment(models.Model):
     pallet_weight_kg = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
     box_count = models.IntegerField(null=True, blank=True)
     rejected_weight_kg = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    # Whole-truck packing config picked from the gross-net catalog (pre-loading) → feeds the CMR.
-    packing_preset = models.ForeignKey(
-        'export.PackingPreset',
+    # Whole-truck packing template picked pre-loading → feeds the CMR. Its firm
+    # shares are copied onto each firm's ContractSale when applied.
+    packing_template = models.ForeignKey(
+        'export.PackingTemplate',
         on_delete=models.PROTECT,
         null=True,
         blank=True,

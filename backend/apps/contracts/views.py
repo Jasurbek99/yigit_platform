@@ -222,7 +222,7 @@ class ContractSaleViewSet(ModelViewSet):
     queryset = ContractSale.objects.select_related(
         'contract',
         'shipment',
-        'shipment__packing_preset',  # whole-truck packing (CMR + per-firm derivation)
+        'shipment__packing_template',  # whole-truck packing (CMR)
         'export_firm',
         'import_firm',
     ).order_by('-invoice_date', 'contract_id', 'invoice_number')
@@ -428,26 +428,55 @@ class ShipmentFirmContractsView(APIView):
         }, status=201)
 
 
-_FIRM_OVERRIDE_FIELDS = ('gross_kg', 'box_count', 'pallet_count', 'pallet_weight_kg')
+_FIRM_PACKING_FIELDS = ('gross_kg', 'box_count', 'pallet_count', 'pallet_weight_kg')
+_SHARE_FIELDS = ('net_kg', *_FIRM_PACKING_FIELDS)
+
+
+def _set_firm_weights(shipment, weight_by_firm, user):
+    """Replace firm-split weights (quota-safe) — mirrors ShipmentViewSet.set_firm_splits.
+
+    Deletes and recreates ShipmentFirmSplit with the given weights, then re-syncs
+    draft quota usage. Raises ApprovedQuotaExistsError (→ 400) if approved usage exists.
+    """
+    from django.db import transaction
+    from apps.export.models import ShipmentFirmSplit
+    from apps.export.services.quota_sync import sync_draft_quota_usage_for_shipment
+
+    with transaction.atomic():
+        existing = list(shipment.firm_splits.values_list('export_firm_id', 'split_order'))
+        order_by_firm = {fid: order for fid, order in existing}
+        shipment.firm_splits.all().delete()
+        rows = [
+            ShipmentFirmSplit(
+                shipment=shipment, export_firm_id=fid, weight_kg=weight,
+                split_order=order_by_firm.get(fid, i + 1),
+            )
+            for i, (fid, weight) in enumerate(weight_by_firm.items())
+        ]
+        ShipmentFirmSplit.objects.bulk_create(rows, batch_size=500)
+        sync_draft_quota_usage_for_shipment(shipment, user)
 
 
 class ShipmentPackingView(APIView):
-    """Unified per-truck packing view (the digital "gross net" row).
+    """Unified per-truck packing (one Excel "gross net" row).
 
-    You pick ONE whole-truck config (→ CMR). Each firm's packing is then DERIVED
-    by splitting that config by the firm's weight share (→ that firm's Invoice), so
-    the per-firm values always sum back to the truck — poka-yoke, no inconsistent
-    split possible. NET per firm is the firm's own weight, never derived. Each firm
-    field may be manually overridden; null = use the derived value.
+    Pick ONE PackingTemplate on the truck: its whole-truck line feeds the CMR, and
+    each firm share is copied onto that firm's ContractSale (editable per truck) and
+    sets the firm's weight (= share net, quota-safe). Nothing is derived — every
+    number is explicit. NET per firm = its weight; the packing fields print on the
+    firm's Invoice.
 
-    GET ?shipment=<id> → { whole_truck (config values), total_firm_weight,
-        consistent (Σ weights == truck net), rows[] with derived + override }.
-    POST { shipment, scope:'truck', packing_preset }  → set Shipment.packing_preset (null clears).
+    GET  ?shipment=<id> → { whole_truck (template values), total_firm_weight,
+         consistent, rows[] (per-firm weight + actual packing) }.
+    POST { shipment, scope:'template', packing_template } → apply: set template,
+         copy shares onto firms (by split order), set firm weights.
     POST { shipment, scope:'firm', export_firm, gross_kg?, box_count?, pallet_count?,
-        pallet_weight_kg? }  → set/clear this firm's ContractSale overrides (null clears a field).
+         pallet_weight_kg? } → edit one firm's packing values.
+    POST { shipment, scope:'swap', export_firm_a, export_firm_b } → exchange two
+         firms' weight + packing.
 
-    Writes use `.update()` (no save() side effects). Lives in contracts (may read
-    export). Reads open; writes gated to document-preparing roles.
+    Lives in contracts (may read/write export). Reads open; writes gated to
+    document-preparing roles.
     """
 
     permission_classes = [
@@ -457,14 +486,13 @@ class ShipmentPackingView(APIView):
 
     def get(self, request):
         from apps.export.models import Shipment
-        from apps.contracts.services.packing_split import derive_firm_packing
 
         shipment_id = request.query_params.get('shipment')
         if not shipment_id:
             return Response({'error': 'shipment query param is required.'}, status=400)
         shipment = (
             Shipment.objects.filter(pk=shipment_id)
-            .select_related('packing_preset')
+            .select_related('packing_template')
             .prefetch_related('firm_splits__export_firm', 'sales')
             .first()
         )
@@ -476,23 +504,18 @@ class ShipmentPackingView(APIView):
         }
         splits = list(shipment.firm_splits.all())
         total_weight = sum((s.weight_kg for s in splits if s.weight_kg is not None), Decimal('0'))
-        truck = shipment.packing_preset
+        truck = shipment.packing_template
 
         rows = []
         for split in splits:
             sale = sale_by_firm.get(split.export_firm_id)
-            derived = derive_firm_packing(truck, split.weight_kg, total_weight or None)
-            override = {
-                f: (getattr(sale, f) if sale else None) for f in _FIRM_OVERRIDE_FIELDS
-            }
             rows.append({
                 'export_firm': split.export_firm_id,
                 'export_firm_code': split.export_firm.code,
                 'export_firm_name': split.export_firm.name_short or split.export_firm.name_tk,
                 'weight_kg': split.weight_kg,
                 'sale_id': sale.id if sale else None,
-                'derived': derived,
-                'override': override,
+                **{f: (getattr(sale, f) if sale else None) for f in _FIRM_PACKING_FIELDS},
             })
 
         truck_net = truck.net_kg if truck else None
@@ -502,13 +525,10 @@ class ShipmentPackingView(APIView):
         return Response({
             'shipment': shipment.id,
             'whole_truck': {
-                'packing_preset': truck.id if truck else None,
-                'packing_preset_name': truck.name if truck else None,
-                'net_kg': truck.net_kg if truck else None,
-                'gross_kg': truck.gross_kg if truck else None,
-                'box_count': truck.box_count if truck else None,
-                'pallet_count': truck.pallet_count if truck else None,
-                'pallet_weight_kg': truck.pallet_weight_kg if truck else None,
+                'packing_template': truck.id if truck else None,
+                'packing_template_name': truck.name if truck else None,
+                **{f: (getattr(truck, f) if truck else None)
+                   for f in ('net_kg', *_FIRM_PACKING_FIELDS)},
             },
             'total_firm_weight': total_weight,
             'consistent': consistent,
@@ -516,36 +536,81 @@ class ShipmentPackingView(APIView):
         })
 
     def post(self, request):
-        from apps.export.models import PackingPreset, Shipment
+        from apps.export.models import PackingTemplate, Shipment
+        from apps.export.services.quota_sync import ApprovedQuotaExistsError
         from apps.contracts.models import ContractSale
 
         data = request.data
-        shipment_id = data.get('shipment')
-        if not Shipment.objects.filter(pk=shipment_id).exists():
+        shipment = (
+            Shipment.objects.filter(pk=data.get('shipment'))
+            .prefetch_related('firm_splits', 'sales').first()
+        )
+        if shipment is None:
             return Response({'error': 'Shipment not found.'}, status=404)
-
         scope = data.get('scope')
-        if scope == 'truck':
-            preset_id = data.get('packing_preset')
-            if preset_id is not None and not PackingPreset.objects.filter(pk=preset_id).exists():
-                return Response({'error': 'Unknown packing_preset.'}, status=400)
-            Shipment.objects.filter(pk=shipment_id).update(packing_preset_id=preset_id)
-            return Response({'scope': 'truck', 'packing_preset': preset_id})
+
+        if scope == 'template':
+            template = (
+                PackingTemplate.objects.filter(pk=data.get('packing_template'))
+                .prefetch_related('shares').first()
+            )
+            if template is None:
+                return Response({'error': 'Unknown packing_template.'}, status=400)
+            firms = list(shipment.firm_splits.order_by('split_order')
+                         .values_list('export_firm_id', flat=True))
+            shares = list(template.shares.all())
+            if len(shares) != len(firms):
+                return Response(
+                    {'error': f'Template has {len(shares)} shares but the truck has '
+                              f'{len(firms)} firms. Pick a template that matches, or fix the firms.'},
+                    status=400,
+                )
+            try:
+                _set_firm_weights(
+                    shipment, {fid: shares[i].net_kg for i, fid in enumerate(firms)}, request.user,
+                )
+            except ApprovedQuotaExistsError as exc:
+                return Response({'error': str(exc)}, status=400)
+            for i, fid in enumerate(firms):
+                ContractSale.objects.filter(shipment=shipment, export_firm_id=fid).update(
+                    **{f: getattr(shares[i], f) for f in _FIRM_PACKING_FIELDS}
+                )
+            Shipment.objects.filter(pk=shipment.id).update(packing_template_id=template.id)
+            return Response({'scope': 'template', 'packing_template': template.id})
 
         if scope == 'firm':
             sale = ContractSale.objects.filter(
-                shipment_id=shipment_id, export_firm_id=data.get('export_firm'),
+                shipment=shipment, export_firm_id=data.get('export_firm'),
             ).first()
             if sale is None:
                 return Response(
-                    {'error': 'No sale linked for this firm — link a contract first.'},
-                    status=400,
+                    {'error': 'No sale linked for this firm — link a contract first.'}, status=400,
                 )
-            # Only the override fields present in the body are updated (null clears).
-            updates = {f: data[f] for f in _FIRM_OVERRIDE_FIELDS if f in data}
+            updates = {f: data[f] for f in _FIRM_PACKING_FIELDS if f in data}
             if updates:
                 ContractSale.objects.filter(pk=sale.id).update(**updates)
             return Response({'scope': 'firm', 'export_firm': sale.export_firm_id,
                              'sale_id': sale.id, **updates})
 
-        return Response({'error': "scope must be 'truck' or 'firm'."}, status=400)
+        if scope == 'swap':
+            fa, fb = data.get('export_firm_a'), data.get('export_firm_b')
+            splits = {s.export_firm_id: s for s in shipment.firm_splits.all()}
+            if fa not in splits or fb not in splits:
+                return Response({'error': 'Both firms must be on the truck.'}, status=400)
+            try:
+                _set_firm_weights(
+                    shipment,
+                    {fa: splits[fb].weight_kg, fb: splits[fa].weight_kg}, request.user,
+                )
+            except ApprovedQuotaExistsError as exc:
+                return Response({'error': str(exc)}, status=400)
+            sales = {s.export_firm_id: s for s in ContractSale.objects.filter(
+                shipment=shipment, export_firm_id__in=[fa, fb])}
+            if fa in sales and fb in sales:
+                pa = {f: getattr(sales[fa], f) for f in _FIRM_PACKING_FIELDS}
+                pb = {f: getattr(sales[fb], f) for f in _FIRM_PACKING_FIELDS}
+                ContractSale.objects.filter(pk=sales[fa].id).update(**pb)
+                ContractSale.objects.filter(pk=sales[fb].id).update(**pa)
+            return Response({'scope': 'swap', 'export_firm_a': fa, 'export_firm_b': fb})
+
+        return Response({'error': "scope must be 'template', 'firm', or 'swap'."}, status=400)

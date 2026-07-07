@@ -36,26 +36,24 @@ GET /api/v1/contracts/sales/{id}/document/?type=<key>&fmt=docx|pdf
   (with a clear message — the `.docx` path is unaffected).
 - Response: `Content-Disposition: attachment`, filename e.g. `Invoice_93-26-DM-EXP_118_RU.docx`.
 
-## Data sources — the gross-net packing catalog
+## Data sources — the gross-net packing template
 
 Header/firms from **Contract + ExportFirm/ImportFirm**. Packing comes from a single
-**whole-truck `PackingPreset`** picked on the shipment (`Shipment.packing_preset`), the
-digital "gross net" catalog the document team selects from *before loading*:
+**`PackingTemplate`** applied to the shipment (`Shipment.packing_template`) — one Excel
+`gross net` row (whole truck + firm shares), picked *before loading*:
 
-- **CMR** ← the whole-truck config directly. BRUT = gross **with** pallet, so
+- **CMR** ← the template's whole-truck line directly. BRUT = gross **with** pallet, so
   `gross_without_pallet = gross_kg − pallet_weight_kg`. Falls back to the shipment's own
-  weight fields when no preset.
+  weight fields when no template.
 - **Invoice** (per firm) ← NET = the firm's own weight (`quantity_kg`, never the real
-  `Shipment.weight_net`); gross/boxes/pallets are **derived** from the whole-truck preset by
-  the firm's weight share (`effective_firm_packing()` in `services/packing_split.py`), or a
-  per-firm **override** on the sale (`ContractSale.gross_kg` …). **Poka-yoke:** the per-firm
-  values always sum to the truck, so no inconsistent split is possible.
+  `Shipment.weight_net`, ADR-023); gross/boxes/pallets are the firm's **explicit** packing on
+  the sale (`ContractSale.gross_kg` …), copied from the template share on apply and editable
+  per truck. Nothing is derived.
 
-Set from the **unified packing panel** (export Sheet `packing` row → popover): pick one
-whole-truck config, each firm's derived share shows with editable overrides and a live
-Σ-check. Truck plate still comes from the shipment. Catalog admin-managed
-(`/api/v1/export/packing-presets/`, seeded by `seed_packing_presets`). See
-[[../reference/packing-preset-model]].
+Set from the **packing panel** (export Sheet `packing` row → popover): pick one template →
+each firm's editable numbers + a live Σ-check + swap. Truck plate still comes from the
+shipment. Catalog admin-managed (`/api/v1/export/packing-templates/`, seeded by
+`seed_packing_templates`). See [[../reference/packing-template-model]].
 Firm name/address/bank use the tri-lingual `*_ru`/`*_en`/`*_tk` columns selected
 by language (ru→en→tk fallback). Product line: HS code `070200000`, localized
 product name + packing.
