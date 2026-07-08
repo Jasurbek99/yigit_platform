@@ -518,20 +518,31 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
               undoId === -1 ? undefined : { onError: () => dropEntry(undoId) },
             );
           } else if (isFirms) {
-            // Soft, non-blocking warning: flag any newly-chosen firm with no
-            // remaining quota. The save proceeds regardless (quota is tracked,
-            // not hard-enforced).
+            // Hard block: a firm with no remaining quota may not be added.
+            // No-quota firms are disabled in the dropdown; strip any that
+            // slipped through, show an error, and save only the allowed firms.
             const previousIds = new Set(currentIds);
-            const noQuotaNames = next
-              .filter((id) => !previousIds.has(id) && firmHasNoQuota(id))
-              .map((id) => options.find((o) => o.value === id)?.label ?? String(id));
-            if (noQuotaNames.length > 0) {
-              toast.warning(t('sheet.firm_no_quota_warning', { firms: noQuotaNames.join(', ') }));
+            const blocked = next.filter((id) => !previousIds.has(id) && firmHasNoQuota(id));
+            if (blocked.length > 0) {
+              const names = blocked.map(
+                (id) => options.find((o) => o.value === id)?.label ?? String(id),
+              );
+              toast.error(t('sheet.firm_no_quota_error', { firms: names.join(', ') }));
+            }
+            const allowed = blocked.length ? next.filter((id) => !blocked.includes(id)) : next;
+            // Nothing left to change after stripping blocked firms → just close.
+            const allowedSet = new Set(allowed);
+            if (
+              allowed.length === currentIds.length &&
+              currentIds.every((id) => allowedSet.has(id))
+            ) {
+              close();
+              return;
             }
             const undoId = recordJunctionEntry(shipment.id, 'firm_splits', shipment.firm_splits);
             saveJunction(
               'firm-splits',
-              next.map((id) => ({ export_firm_id: id })),
+              allowed.map((id) => ({ export_firm_id: id })),
               'firms',
               undoId === -1 ? undefined : { onError: () => dropEntry(undoId) },
             );
@@ -559,7 +570,14 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
               isFirms
                 ? options.map((o) =>
                     firmHasNoQuota(o.value as number)
-                      ? { ...o, label: `${o.label} ⚠ ${t('sheet.firm_no_quota_tag')}` }
+                      ? {
+                          ...o,
+                          label: `${o.label} ⚠ ${t('sheet.firm_no_quota_tag')}`,
+                          // Hard block: a no-quota firm cannot be chosen. Only
+                          // disable ones not already on the split so an existing
+                          // (over-committed) firm can still be removed.
+                          disabled: !currentIds.includes(o.value as number),
+                        }
                       : o,
                   )
                 : options

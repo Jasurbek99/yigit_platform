@@ -1554,7 +1554,7 @@
     "transport_docs_berilmedi": "Berilmedi",
     "multiselect_done": "Taýýar",
     "firm_no_quota_tag": "kwota ýok",
-    "firm_no_quota_warning": "Üns beriň: {{firms}} kwotasy galmady. Bölünişik şonda-da saklandy.",
+    "firm_no_quota_error": "{{firms}} kwotasy galmady — bölünişige goşup bolmaýar.",
     "firm_contracts": {
       "title": "Şertnamalar",
       "no_buyer": "Şertnamalar üçin ilki alyjyny saýlaň.",

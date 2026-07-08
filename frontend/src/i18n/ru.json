@@ -1556,7 +1556,7 @@
     "transport_docs_berilmedi": "Не выдано",
     "multiselect_done": "Готово",
     "firm_no_quota_tag": "нет квоты",
-    "firm_no_quota_warning": "Внимание: у {{firms}} не осталось квоты. Распределение всё равно сохранено.",
+    "firm_no_quota_error": "У {{firms}} не осталось квоты — добавить в распределение нельзя.",
     "firm_contracts": {
       "title": "Контракты",
       "no_buyer": "Сначала укажите покупателя для оформления контрактов.",

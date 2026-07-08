@@ -2669,6 +2669,7 @@ class ShipmentViewSet(ModelViewSet):
             ApprovedQuotaExistsError,
             sync_draft_quota_usage_for_shipment,
         )
+        from apps.export.services_quota import compute_firm_quota_balances
 
         with transaction.atomic():
             # Guard moved into the sync helper — but we run it once up front so the
@@ -2680,6 +2681,37 @@ class ShipmentViewSet(ModelViewSet):
                 )
 
             valid_entries = [e for e in firms_data if e.get('export_firm_id')]
+
+            # Hard block: a NEWLY-added firm with no remaining quota may not be
+            # assigned (mirrors the Sheet firm-split editor's client-side block).
+            # Firms already on this split are exempt, so an existing over-committed
+            # firm can stay while being edited. product_type defaults to 'tomato'
+            # (pepper is a rare separate quota domain and the payload carries none
+            # — matches the frontend check).
+            existing_firm_ids = set(
+                shipment.firm_splits.values_list('export_firm_id', flat=True)
+            )
+            balances = compute_firm_quota_balances('tomato')
+            blocked_ids = [
+                e['export_firm_id']
+                for e in valid_entries
+                if e['export_firm_id'] not in existing_firm_ids
+                and (
+                    balances.get(e['export_firm_id']) is None
+                    or balances[e['export_firm_id']]['remaining_kg'] <= 0
+                )
+            ]
+            if blocked_ids:
+                from apps.core.models import ExportFirm
+                names = ', '.join(
+                    f.name_short or f.code
+                    for f in ExportFirm.objects.filter(id__in=blocked_ids)
+                )
+                return Response(
+                    {'error': f'{names} has no remaining quota and cannot be added to the split.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             num_firms = len(valid_entries)
             # Official per-firm kg from TruckSplitDefault (admin-configurable).
             # ShipmentFirmSplit.weight_kg is the OFFICIAL export number, not the

@@ -346,6 +346,15 @@ Director changes the per-firm-count amounts at `/admin/shipment-settings` → "T
 
 If the client sends an explicit non-zero `weight_kg`, the backend honours it (admin override path).
 
+### Quota block on R9 `firm_splits` (no-quota firms rejected)
+
+Assigning an export firm to a truck draws down that firm's government export quota, so a firm with **no remaining quota** may not be added to a split. This is a **hard block on both tiers**:
+
+- **Frontend** (`SheetCellEditor` R9 multiselect): the editor fetches per-firm balances from `GET /export/quota-firm-balances/?product_type=tomato` (via `useQuotaFirmBalances`, enabled only on the `firm_splits` cell). Firms whose `remaining_kg <= 0` — including firms with **no allocation at all** — are shown with a `⚠ no quota` tag and rendered **`disabled`** so they cannot be picked. Only firms *not already on the split* are disabled, so an existing (over-committed) firm can still be **removed**. On commit, any no-quota firm that slipped through is stripped and an error toast fires (`sheet.firm_no_quota_error`).
+- **Backend** (`POST /shipments/{id}/firm-splits/`, `set_firm_splits`): re-checks server-side via `compute_firm_quota_balances('tomato')`. A **newly-added** firm (not in the shipment's current `firm_splits`) whose `remaining_kg <= 0` is rejected with `400 {"error": "<firms> has no remaining quota and cannot be added to the split."}` before any rows are written. Firms already on the split are exempt (they can be kept/re-saved while editing).
+
+`product_type` defaults to **`tomato`** on both sides — the sheet payload carries no product type and pepper is a rare separate quota domain. `used_kg` in the balance is **committed** quota (draft + approved usage) so a firm can't be over-committed across many trucks before approval; see [[reference/quota]] / `compute_firm_quota_balances`. Note this covers the Sheet edit path only — the two-column **join / create-draft** flow (`create_draft`) does **not** yet enforce the quota block.
+
 ## Per-shipment column color
 
 Each shipment column header carries a small swatch button (top-right of the cell) that opens an Ant `ColorPicker`. The picked hex (`#RRGGBB`) is stored on `Shipment.column_color` (nullable `CharField(max_length=7)`); clearing the picker writes `null`. Sheet cells in that column then render with a tinted background (`color-mix(in srgb, var(--col-tint) 60%, var(--surface))`), and the header gets a 3px top border in the raw color so the flag is visible from the column-header row alone. For gapy-satys shipments the tint is mixed 75/25 over the gapy pink with `!important` so the operator's pick wins (white reads as white instead of disappearing into pink).

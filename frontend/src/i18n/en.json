@@ -1554,7 +1554,7 @@
     "transport_docs_berilmedi": "Not given",
     "multiselect_done": "Done",
     "firm_no_quota_tag": "no quota",
-    "firm_no_quota_warning": "Heads up: {{firms}} has no remaining quota. The split was saved anyway.",
+    "firm_no_quota_error": "{{firms}} has no remaining quota and cannot be added to the split.",
     "firm_contracts": {
       "title": "Contracts",
       "no_buyer": "Set the buyer first to resolve contracts.",
