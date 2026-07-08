@@ -232,7 +232,7 @@ Frontend reads `comment_counts` for per-cell marker badges and `task_counts` for
 - `GET /comments/?shipment={id}&field_key={key}&assignee=me&is_done=false&parent_comment=null` — list with filters; standard `PageNumberPagination`
 - `POST /comments/` — body: `{shipment, content, field_key?, mentions?: number[], role_mentions?: string[], parent_comment?, assignee?}`; replies inherit parent's `field_key`; tasks live on root comments only
 - `PATCH /comments/{id}/` — body `{content}` only (own comments or `delete_any` perm)
-- `DELETE /comments/{id}/` — soft delete (sets `is_deleted=True`)
+- `DELETE /comments/{id}/` — soft delete (sets `is_deleted=True`); cascades to the comment's non-deleted replies so orphaned replies don't inflate the per-cell badge count
 - `POST /comments/{id}/done/` — mark task done (assignee or `delete_any`)
 - `POST /comments/{id}/reopen/` — reopen task (author or assignee)
 

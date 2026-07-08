@@ -70,7 +70,8 @@ class ShipmentComment(models.Model):
         related_name='completed_comments',
     )
 
-    # Soft-delete: threads stay coherent; replies still visible.
+    # Soft-delete. Deleting a root cascades to its replies (see comments
+    # ViewSet.destroy) so orphaned replies don't linger in comment_counts.
     is_deleted = models.BooleanField(default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)

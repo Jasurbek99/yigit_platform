@@ -52,7 +52,7 @@ flowchart LR
 | `is_done` | `BIT` NOT NULL DEFAULT 0 | Only meaningful when `assignee_id` set |
 | `done_at` | `DATETIMEOFFSET` NULL | |
 | `done_by_id` | `BIGINT` FK NULL | Usually = assignee; admin can also close |
-| `is_deleted` | `BIT` NOT NULL DEFAULT 0 | Soft delete keeps reply threads coherent |
+| `is_deleted` | `BIT` NOT NULL DEFAULT 0 | Soft delete. Deleting a root **cascades** to its replies so orphaned replies don't linger in `comment_counts` (a badge with an empty thread behind it) |
 
 ### Indexes
 - `ix_comments_shipment_field` on `(shipment_id, field_key)` — drawer's per-cell filter query
@@ -122,7 +122,7 @@ Validation:
 | `GET` | `/comments/?shipment=&field_key=&assignee=me&is_done=&parent_comment=null` | List + filter |
 | `POST` | `/comments/` | Create (delegates to service) |
 | `PATCH` | `/comments/{id}/` | Edit `content` only; own or `delete_any` |
-| `DELETE` | `/comments/{id}/` | Soft delete (sets `is_deleted=True`) |
+| `DELETE` | `/comments/{id}/` | Soft delete (sets `is_deleted=True`); cascades to the comment's non-deleted replies |
 | `POST` | `/comments/{id}/done/` | Mark task done; assignee permission |
 | `POST` | `/comments/{id}/reopen/` | Reopen task; author or assignee |
 

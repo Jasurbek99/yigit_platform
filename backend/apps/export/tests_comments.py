@@ -264,3 +264,51 @@ class TestLegacyCommentEndpoint(TestCase):
         url = f'/api/v1/export/shipments/{self.shipment.id}/comment/'
         resp = self.client.post(url, {'content': ''}, format='json')
         self.assertEqual(resp.status_code, 400)
+
+
+# ── Test: deleting a root cascades to its replies ────────────────────────────
+
+class TestDeleteRootCascadesReplies(TestCase):
+    """test_delete_root_soft_deletes_replies
+
+    Guards the badge/drawer consistency fix: a soft-deleted root with live
+    replies used to leave the replies counted by comment_counts (per-cell
+    badge) yet unreachable in the drawer (which lists only non-deleted roots).
+    """
+
+    def setUp(self):
+        from apps.core.models import ShipmentStatusType
+
+        self.author = _make_user('cascade_author')
+        self.author.is_superuser = True
+        self.author.save()
+        season, _ = Season.objects.get_or_create(
+            name='2025',
+            defaults={'start_date': '2025-01-01', 'end_date': '2025-12-31'},
+        )
+        status, _ = ShipmentStatusType.objects.get_or_create(
+            code='yuklenme',
+            defaults={'name_tk': 'yuklenme', 'name_en': 'Loading', 'step_order': 1, 'phase': 'LOADING'},
+        )
+        self.shipment = Shipment.objects.create(
+            shipment_code='0101002/25', date='2025-01-01',
+            season=season, status=status, created_by=self.author,
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.author)
+
+    def test_delete_root_soft_deletes_replies(self):
+        root = create_comment(
+            self.shipment, self.author, content='root', field_key='weight_net',
+        )
+        reply = create_comment(
+            self.shipment, self.author, content='reply', parent_comment=root,
+        )
+
+        resp = self.client.delete(f'/api/v1/export/comments/{root.id}/')
+        self.assertEqual(resp.status_code, 204)
+
+        root.refresh_from_db()
+        reply.refresh_from_db()
+        self.assertTrue(root.is_deleted)
+        self.assertTrue(reply.is_deleted)  # cascaded — no orphan left in the badge count

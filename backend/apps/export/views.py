@@ -3259,6 +3259,11 @@ class CommentViewSet(ModelViewSet):
 
         comment.is_deleted = True
         comment.save(update_fields=['is_deleted'])
+        # Cascade to replies. The drawer only lists non-deleted ROOT comments,
+        # so a soft-deleted root with live replies orphans those replies:
+        # unreachable in the drawer, yet still counted by comment_counts (the
+        # per-cell badge). Soft-deleting them keeps the badge honest.
+        comment.replies.filter(is_deleted=False).update(is_deleted=True)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=['post'], url_path='done')
