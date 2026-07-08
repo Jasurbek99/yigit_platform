@@ -1,10 +1,11 @@
 import { useTranslation } from 'react-i18next';
 import { Button, Popover, Space, Tag, Typography } from 'antd';
-import { IconLink } from '@tabler/icons-react';
+import { IconLink, IconScale } from '@tabler/icons-react';
 
 import { CmrDocumentsButton } from '@/components/CmrDocumentsButton';
 import { InvoiceDocumentsButton } from '@/components/InvoiceDocumentsButton';
 import { ShipmentFirmContractsPanel } from '@/components/sheet/ShipmentFirmContractsPanel';
+import { ShipmentPackingPanel } from '@/components/sheet/ShipmentPackingPanel';
 import type { IDocumentPacket } from '@/types';
 
 interface IDocumentPacketPanelProps {
@@ -25,9 +26,19 @@ export function DocumentPacketPanel({ packet }: IDocumentPacketPanelProps) {
         <Typography.Text strong>{t('documents.cmr')}:</Typography.Text>
         <CmrDocumentsButton shipmentId={packet.id} disabled={!packet.packing_complete} />
         {!packet.packing_complete && (
-          <Typography.Text type="warning">
-            {t('documents_page.packing_incomplete')}
-          </Typography.Text>
+          // Packing not settled → generation is blocked. Reuse the Sheet's packing
+          // panel here (its mutation invalidates 'document-packets'), so the truck
+          // can be packed without leaving the page; the CMR then enables.
+          <Popover
+            trigger="click"
+            placement="bottomLeft"
+            destroyTooltipOnHide
+            content={<ShipmentPackingPanel shipmentId={packet.id} />}
+          >
+            <Button size="small" type="dashed" danger icon={<IconScale size={14} />}>
+              {t('documents_page.fill_packing')}
+            </Button>
+          </Popover>
         )}
       </Space>
 

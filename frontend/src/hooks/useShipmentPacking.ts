@@ -62,6 +62,9 @@ export function useSetShipmentPacking() {
     onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ['shipment-packing', vars.shipment] });
       queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+      // Applying packing flips the truck's packing_complete on the Documents page,
+      // enabling its CMR/invoice generation — refresh the packet list.
+      queryClient.invalidateQueries({ queryKey: ['document-packets'] });
     },
   });
 }
