@@ -444,6 +444,8 @@ class DocumentPacketSerializer(serializers.Serializer):
     buyer_name = serializers.SerializerMethodField()
     packing_complete = serializers.SerializerMethodField()
     missing_packing = serializers.SerializerMethodField()
+    missing_setup = serializers.SerializerMethodField()
+    is_ready = serializers.SerializerMethodField()
     firms = serializers.SerializerMethodField()
 
     def get_buyer_name(self, obj) -> str | None:
@@ -457,6 +459,24 @@ class DocumentPacketSerializer(serializers.Serializer):
 
     def get_packing_complete(self, obj) -> bool:
         return not missing_packing_on(obj)
+
+    def get_missing_setup(self, obj) -> list[str]:
+        """Non-packing paperwork fields still empty on the truck — the ones the
+        team fills on the Sheet before documents can be generated."""
+        missing = []
+        if obj.import_firm_id is None:
+            missing.append('import_firm')
+        if obj.country_id is None:
+            missing.append('country')
+        if not (obj.driver_name or '').strip():
+            missing.append('driver_name')
+        if not (obj.truck_plate or '').strip():
+            missing.append('truck_plate')
+        return missing
+
+    def get_is_ready(self, obj) -> bool:
+        """True when nothing blocks document generation — setup + packing both done."""
+        return not self.get_missing_setup(obj) and not missing_packing_on(obj)
 
     def get_firms(self, obj) -> list[dict]:
         sales_by_firm = {sale.export_firm_id: sale for sale in obj.sales.all()}

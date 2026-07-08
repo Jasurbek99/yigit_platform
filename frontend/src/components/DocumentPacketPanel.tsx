@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Button, Popover, Space, Tag, Typography } from 'antd';
+import { Alert, Button, Popover, Space, Tag, Typography } from 'antd';
 import { IconLink, IconScale } from '@tabler/icons-react';
 
 import { CmrDocumentsButton } from '@/components/CmrDocumentsButton';
@@ -13,18 +13,31 @@ interface IDocumentPacketPanelProps {
 }
 
 /**
- * One truck's document packet (the expanded row on the Documents page): the
- * truck-level CMR at the top, then a row per export firm with that firm's
- * invoice / letters. The CMR is disabled until the truck's packing is complete.
+ * One truck's document packet (the expanded row on the Documents page): a
+ * readiness banner listing anything still to fill, the truck-level CMR, then a
+ * row per export firm with that firm's invoice / letters. The CMR is disabled
+ * until the truck is ready (setup + packing done).
  */
 export function DocumentPacketPanel({ packet }: IDocumentPacketPanelProps) {
   const { t } = useTranslation();
 
   return (
     <Space direction="vertical" size="small" style={{ width: '100%', padding: '4px 8px' }}>
+      {packet.missing_setup.length > 0 && (
+        // Show WHAT is missing (edited on the Sheet), so the team understands why
+        // the truck isn't document-ready instead of it silently not appearing.
+        <Alert
+          type="warning"
+          showIcon
+          message={t('documents_page.complete_on_sheet', {
+            fields: packet.missing_setup.map((f) => t(`documents_page.field.${f}`)).join(', '),
+          })}
+        />
+      )}
+
       <Space wrap>
         <Typography.Text strong>{t('documents.cmr')}:</Typography.Text>
-        <CmrDocumentsButton shipmentId={packet.id} disabled={!packet.packing_complete} />
+        <CmrDocumentsButton shipmentId={packet.id} disabled={!packet.is_ready} />
         {!packet.packing_complete && (
           // Packing not settled → generation is blocked. Reuse the Sheet's packing
           // panel here (its mutation invalidates 'document-packets'), so the truck

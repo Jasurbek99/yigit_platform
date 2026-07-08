@@ -1830,6 +1830,8 @@ export interface IDocumentPacket {
   readonly buyer_name: string | null;
   readonly packing_complete: boolean;
   readonly missing_packing: readonly string[];
+  readonly missing_setup: readonly string[];   // buyer/country/driver/plate still empty
+  readonly is_ready: boolean;                   // setup + packing both done
   readonly firms: readonly IDocumentPacketFirm[];
 }
 

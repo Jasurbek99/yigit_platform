@@ -3076,10 +3076,20 @@
       "route": "Ugur",
       "buyer": "Alyjy",
       "status": "Ýagdaý",
-      "packing": "Gaplama"
+      "packing": "Gaplama",
+      "ready": "Taýýarlyk"
     },
     "load_error": "Resminamalary ýükläp bolmady. Gaýtadan synanyşyň.",
     "link_contract": "Şertnama baglamak",
-    "fill_packing": "Gaplamany doldur"
+    "fill_packing": "Gaplamany doldur",
+    "ready": "Taýýar",
+    "setup_needed": "Doldurmaly",
+    "complete_on_sheet": "Ilki Listde dolduryň: {{fields}}",
+    "field": {
+      "import_firm": "alyjy",
+      "country": "ýurt",
+      "driver_name": "sürüji",
+      "truck_plate": "ulag belgisi"
+    }
   }
 }

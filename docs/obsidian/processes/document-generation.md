@@ -66,8 +66,11 @@ GET /api/v1/contracts/shipments/{id}/cmr/?lang=ru|en&fmt=docx|pdf&place_loading=
 ```
 GET /api/v1/contracts/document-packets/?date=&date_from=&date_to=&status=&firm=
 ```
-- Non-draft / non-archived / non-deleted trucks with ≥1 firm split; defaults to the active
-  season. Returns `packing_complete` + `missing_packing[]` and `firms[]` (each with `sale_id`).
+- Floor to appear: non-archived / non-deleted trucks with **≥1 export firm** (a firm split),
+  **regardless of status** (a draft qualifies). Missing buyer / country / driver / plate /
+  packing do NOT hide the truck — they surface as `is_ready=false` + `missing_setup[]` so the
+  team sees what to fill. Defaults to the active season. Returns `packing_complete` +
+  `missing_packing[]`, `is_ready` + `missing_setup[]`, and `firms[]` (each with `sale_id`).
 
 Response (files): `Content-Disposition: attachment`, e.g. `Invoice_93-26-DM-EXP_118_RU.docx`,
 `CMR_0201045-25_RU.docx`.
@@ -203,9 +206,15 @@ one row per truck for the Documents page: `shipment_code`, `date`, route
 `export_firm_id` / `export_firm_name`, its `sale_id` (drives the per-firm invoice/
 letter downloads; null when no contract is linked yet) and `invoice_number`.
 
-Scope: non-draft, non-archived, non-deleted trucks with ≥1 firm split. Defaults to
-the active season; filters `?date=` (exact), `?date_from=` / `?date_to=` (range),
-`?status=` (code), `?firm=` (export firm id). Gated by the `sale` resource.
+Scope: non-archived, non-deleted trucks with **≥1 export firm** (a firm split),
+**regardless of lifecycle status** (a draft qualifies). A truck missing buyer /
+country / driver / plate / packing is **shown, not hidden** — flagged
+`is_ready=false` with `missing_setup[]` (the Sheet-edited fields) so the team knows
+what to fill rather than wondering why it isn't listed; only a truck with no firms
+at all is out of scope. Defaults to the active season; filters `?date=` (exact),
+`?date_from=` / `?date_to=` (range), `?status=` (code), `?firm=` (export firm id).
+Gated by the `sale` resource. The page shows a **Ready / Setup needed** badge and,
+in the expanded panel, a banner listing the missing fields.
 
 The frontend **Documents page** (`/documents`, page code `contracts.documents`,
 default-visible to admin / director / export_manager / document_team) is a

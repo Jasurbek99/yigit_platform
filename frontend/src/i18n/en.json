@@ -3072,10 +3072,20 @@
       "route": "Route",
       "buyer": "Buyer",
       "status": "Status",
-      "packing": "Packing"
+      "packing": "Packing",
+      "ready": "Ready"
     },
     "load_error": "Failed to load documents. Please retry.",
     "link_contract": "Link contract",
-    "fill_packing": "Fill packing"
+    "fill_packing": "Fill packing",
+    "ready": "Ready",
+    "setup_needed": "Setup needed",
+    "complete_on_sheet": "Complete on the Sheet first: {{fields}}",
+    "field": {
+      "import_firm": "buyer",
+      "country": "country",
+      "driver_name": "driver",
+      "truck_plate": "truck plate"
+    }
   }
 }

@@ -62,14 +62,14 @@ export default function DocumentsPage() {
       render: (_, r) => (r.status_display ? <Tag>{r.status_display}</Tag> : '—'),
     },
     {
-      title: t('documents_page.column.packing'),
-      dataIndex: 'packing_complete',
-      width: 130,
+      title: t('documents_page.column.ready'),
+      dataIndex: 'is_ready',
+      width: 140,
       render: (_, r) =>
-        r.packing_complete ? (
-          <Tag color="green">{t('documents_page.packing_ok')}</Tag>
+        r.is_ready ? (
+          <Tag color="green">{t('documents_page.ready')}</Tag>
         ) : (
-          <Tag color="orange">{t('documents_page.packing_missing')}</Tag>
+          <Tag color="orange">{t('documents_page.setup_needed')}</Tag>
         ),
     },
   ];

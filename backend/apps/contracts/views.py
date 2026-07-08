@@ -392,10 +392,14 @@ class ShipmentCmrView(APIView):
 class DocumentPacketListView(ListAPIView):
     """Document packets — one row per truck for the Documents page.
 
-    ``GET /api/v1/contracts/document-packets/`` returns non-draft, non-archived
-    trucks (with at least one firm split) and, per truck, its firms + per-firm
-    ``sale_id`` and the packing-complete flag. Defaults to the active season;
-    filters: ``?date=`` (exact), ``?date_from=`` / ``?date_to=`` (range),
+    ``GET /api/v1/contracts/document-packets/`` returns non-archived, non-deleted
+    trucks that have **at least one export firm** assigned (a firm split) —
+    regardless of lifecycle status, so a truck in progress shows up rather than
+    silently vanishing. Trucks still missing buyer / country / driver / plate /
+    packing appear with ``is_ready=false`` + ``missing_setup[]`` so the team sees
+    *what to fill* instead of wondering why it isn't listed. Per truck: its firms
+    + per-firm ``sale_id`` and the packing-complete flag. Defaults to the active
+    season; filters: ``?date=`` (exact), ``?date_from=`` / ``?date_to=`` (range),
     ``?status=`` (status code), ``?firm=`` (export firm id). Gated by 'sale'.
     """
 
@@ -406,10 +410,15 @@ class DocumentPacketListView(ListAPIView):
     def get_queryset(self):
         from apps.export.models import Shipment
 
+        # Floor to appear: a real export truck (≥1 firm split). Buyer / country /
+        # driver / plate / packing are NOT filters — they surface as readiness
+        # flags on the row, so an in-progress truck is visible with guidance.
         qs = (
-            Shipment.objects.filter(deleted_at__isnull=True, is_archived=False)
-            .exclude(status__code='draft')
-            .filter(firm_splits__isnull=False)
+            Shipment.objects.filter(
+                deleted_at__isnull=True,
+                is_archived=False,
+                firm_splits__isnull=False,
+            )
             .select_related('import_firm', 'country', 'city', 'status', 'packing_template')
             .prefetch_related('firm_splits__export_firm', 'sales')
             .distinct()

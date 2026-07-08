@@ -18,7 +18,7 @@ from rest_framework.test import APIClient
 
 from django.test import SimpleTestCase, TestCase
 
-from apps.core.models import ShipmentStatusType
+from apps.core.models import Country, ShipmentStatusType
 from apps.export.models import Shipment, ShipmentFirmSplit
 from apps.contracts.services import document_context as ctx
 from apps.contracts.services import document_render as render
@@ -33,8 +33,18 @@ from apps.contracts.tests.test_contract_sale_api import (
 )
 
 
-def _make_packed_shipment(season, import_firm, status_code='draft', code='0101777/25'):
-    """A shipment with complete packing (gross/net/boxes/pallets) — passes the guard."""
+def _make_country(name='Kazakhstan', code='KZ'):
+    country, _ = Country.objects.get_or_create(
+        code=code, defaults={'name_tk': name, 'name_ru': name, 'name_en': name},
+    )
+    return country
+
+
+def _make_packed_shipment(season, import_firm, status_code='draft', code='0101777/25',
+                          driver_name='Ahmet A.', truck_plate='BR1427LB', with_country=True):
+    """A shipment with complete packing + the destination fields the Documents page
+    gates on (import firm, country, driver, plate). Pass blanks / with_country=False
+    to simulate an incomplete truck."""
     status, _ = ShipmentStatusType.objects.get_or_create(
         code=status_code,
         defaults={'name_tk': status_code, 'name_en': status_code.title(),
@@ -44,6 +54,8 @@ def _make_packed_shipment(season, import_firm, status_code='draft', code='010177
         shipment_code=code, date='2025-10-01', season=season, status=status,
         import_firm=import_firm, weight_gross=Decimal('10720'), weight_net=Decimal('9000'),
         box_count=1800, pallet_count=16,
+        driver_name=driver_name, truck_plate=truck_plate,
+        country=_make_country() if with_country else None,
     )
 
 
@@ -552,6 +564,8 @@ class DocumentPacketEndpointTest(_SeededPermsMixin, TestCase):
         self.assertEqual(pkt['id'], self.shipment.id)
         self.assertTrue(pkt['packing_complete'])
         self.assertEqual(pkt['buyer_name'], self.imp.name_short or self.imp.name_company)
+        self.assertTrue(pkt['is_ready'])           # fully filled → ready
+        self.assertEqual(pkt['missing_setup'], [])
         by_firm = {f['export_firm_id']: f for f in pkt['firms']}
         self.assertEqual(len(by_firm), 2)
         self.assertIsNotNone(by_firm[self.ef1.id]['sale_id'])   # ef1 has a sale
@@ -566,7 +580,9 @@ class DocumentPacketEndpointTest(_SeededPermsMixin, TestCase):
         resp = client.get('/api/v1/contracts/document-packets/')
         self.assertEqual(resp.status_code, 200)
 
-    def test_excludes_draft_truck(self):
+    def test_filled_draft_is_included(self):
+        # a DRAFT with all the gate fields (firms + buyer + country + driver + plate)
+        # now appears — the page gates on data readiness, not lifecycle status.
         draft = _make_packed_shipment(
             self.season, self.imp, status_code='draft', code='0101702/25',
         )
@@ -575,8 +591,31 @@ class DocumentPacketEndpointTest(_SeededPermsMixin, TestCase):
             weight_kg=Decimal('9000'), amount_usd=Decimal('8000'),
         )
         ids = [p['id'] for p in self.client.get('/api/v1/contracts/document-packets/').json()['results']]
-        self.assertIn(self.shipment.id, ids)
-        self.assertNotIn(draft.id, ids)
+        self.assertIn(draft.id, ids)
+
+    def test_incomplete_truck_shown_with_flags(self):
+        # missing driver + plate → still SHOWS, flagged not-ready, so the team sees
+        # what to fill instead of the truck silently vanishing.
+        incomplete = _make_packed_shipment(
+            self.season, self.imp, status_code='yola_chykdy', code='0101703/25',
+            driver_name='', truck_plate='',
+        )
+        ShipmentFirmSplit.objects.create(
+            shipment=incomplete, export_firm=self.ef1,
+            weight_kg=Decimal('9000'), amount_usd=Decimal('8000'),
+        )
+        by_id = {p['id']: p for p in self.client.get('/api/v1/contracts/document-packets/').json()['results']}
+        self.assertIn(incomplete.id, by_id)
+        pkt = by_id[incomplete.id]
+        self.assertFalse(pkt['is_ready'])
+        self.assertIn('driver_name', pkt['missing_setup'])
+        self.assertIn('truck_plate', pkt['missing_setup'])
+
+    def test_truck_without_firms_hidden(self):
+        # floor: no export firm assigned → nothing to invoice / no CMR sender, hidden
+        bare = _make_packed_shipment(self.season, self.imp, status_code='draft', code='0101704/25')
+        ids = [p['id'] for p in self.client.get('/api/v1/contracts/document-packets/').json()['results']]
+        self.assertNotIn(bare.id, ids)
 
     def test_incomplete_packing_flag(self):
         self.shipment.box_count = None
