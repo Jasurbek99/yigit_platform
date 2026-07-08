@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { ProTable } from '@ant-design/pro-components';
 import type { ProColumns } from '@ant-design/pro-components';
 import { Alert, DatePicker, Tag } from 'antd';
@@ -36,7 +36,17 @@ export default function DocumentsPage() {
   };
 
   const columns: ProColumns<IDocumentPacket>[] = [
-    { title: t('documents_page.column.code'), dataIndex: 'shipment_code', width: 130 },
+    {
+      title: t('documents_page.column.code'),
+      dataIndex: 'shipment_code',
+      width: 140,
+      // Link to the Sheet, pre-filtered to this one truck (via ?code=).
+      render: (_, r) => (
+        <Link to={`/export/shipments/sheet?code=${encodeURIComponent(r.shipment_code)}`}>
+          {r.shipment_code}
+        </Link>
+      ),
+    },
     {
       title: t('documents_page.column.date'),
       dataIndex: 'date',

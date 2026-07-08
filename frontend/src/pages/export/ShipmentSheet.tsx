@@ -51,6 +51,7 @@ export default function ShipmentSheet() {
   // are limited to the three values this page actually renders against;
   // setters are stable refs and never trigger a re-render.
   const searchText = useSheetStore((s) => s.searchText);
+  const setSearchText = useSheetStore((s) => s.setSearchText);
   const showGapyOnly = useSheetStore((s) => s.showGapyOnly);
   const sheetFilters = useSheetStore((s) => s.sheetFilters);
   const commentsDrawerOpen = useSheetStore((s) => s.commentsDrawerOpen);
@@ -154,6 +155,15 @@ export default function ShipmentSheet() {
         }
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run once on mount
+
+  // Deep-link from the Documents page: ?code=<shipment_code> pre-fills the search
+  // box so the Sheet narrows to that one truck (shipment_code is matched by the
+  // existing search filter). Distinct from ?shipment= (owned by the drawer above).
+  useEffect(() => {
+    const code = searchParams.get('code');
+    if (code) setSearchText(code);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run once on mount
 
