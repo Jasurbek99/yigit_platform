@@ -3074,6 +3074,7 @@
       "status": "Status",
       "packing": "Packing"
     },
-    "load_error": "Failed to load documents. Please retry."
+    "load_error": "Failed to load documents. Please retry.",
+    "link_contract": "Link contract"
   }
 }

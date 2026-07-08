@@ -46,6 +46,9 @@ export function useLinkFirmContract() {
     onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ['shipment-firm-contracts', vars.shipment] });
       queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+      // Linking creates the bridge ContractSale → the Documents page packet gains
+      // the firm's sale_id, so its invoice/letter buttons appear.
+      queryClient.invalidateQueries({ queryKey: ['document-packets'] });
     },
   });
 }

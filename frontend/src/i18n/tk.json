@@ -3078,6 +3078,7 @@
       "status": "Ýagdaý",
       "packing": "Gaplama"
     },
-    "load_error": "Resminamalary ýükläp bolmady. Gaýtadan synanyşyň."
+    "load_error": "Resminamalary ýükläp bolmady. Gaýtadan synanyşyň.",
+    "link_contract": "Şertnama baglamak"
   }
 }

@@ -1,8 +1,10 @@
 import { useTranslation } from 'react-i18next';
-import { Space, Tag, Typography } from 'antd';
+import { Button, Popover, Space, Tag, Typography } from 'antd';
+import { IconLink } from '@tabler/icons-react';
 
 import { CmrDocumentsButton } from '@/components/CmrDocumentsButton';
 import { InvoiceDocumentsButton } from '@/components/InvoiceDocumentsButton';
+import { ShipmentFirmContractsPanel } from '@/components/sheet/ShipmentFirmContractsPanel';
 import type { IDocumentPacket } from '@/types';
 
 interface IDocumentPacketPanelProps {
@@ -35,9 +37,19 @@ export function DocumentPacketPanel({ packet }: IDocumentPacketPanelProps) {
           {firm.sale_id !== null ? (
             <InvoiceDocumentsButton invoiceId={firm.sale_id} size="small" />
           ) : (
-            <Typography.Text type="secondary">
-              {t('documents_page.no_contract')}
-            </Typography.Text>
+            // No contract yet → reuse the Sheet's firm→contract linking panel
+            // (whole-truck). Linking creates the bridge sale; the panel's mutation
+            // invalidates 'document-packets', so the invoice buttons then appear.
+            <Popover
+              trigger="click"
+              placement="bottomLeft"
+              destroyTooltipOnHide
+              content={<ShipmentFirmContractsPanel shipmentId={packet.id} />}
+            >
+              <Button size="small" type="dashed" icon={<IconLink size={14} />}>
+                {t('documents_page.link_contract')}
+              </Button>
+            </Popover>
           )}
         </Space>
       ))}
