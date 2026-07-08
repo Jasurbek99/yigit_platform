@@ -97,8 +97,8 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
     'document_team': {
         'dashboard', 'export.shipments', 'export.quota', _BOARD,
         _HARVEST_BOARD,
-        # The document team's home screen — truck packets to generate documents.
-        'contracts.documents',
+        # Documents workspace + the Contracts / Sales pages they now fully manage.
+        'contracts.documents', 'contracts.list', 'contracts.sales',
     } | _UNIVERSAL,
     'transport': {
         'dashboard', 'export.shipments', _BOARD,
@@ -202,10 +202,12 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
         'shipment_comment': _VCE,
         'quota_issuance': _VCE,
         'quota_usage': _VCE,
-        # sale: VIEW only — the Documents page (their home screen) generates
-        # documents via GET endpoints gated by the 'sale' resource; they do not
-        # create/edit sales (export_manager owns that).
-        'sale': _VIEW,
+        # Documents/sales/contracts are the document team's core work — full
+        # operational CRUD, same level as export_manager. sale stays _VCE because
+        # sale DELETE is admin-only by design (see ContractSaleViewSet); contract
+        # has no such restriction.
+        'contract': _VCRUD,
+        'sale': _VCE,
     },
     'transport': {
         'shipment': _VE,

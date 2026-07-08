@@ -41,8 +41,10 @@ context builder", never "wire a new endpoint stack".
 
 ## Endpoints
 
-All gated by the **`sale`** resource (admin / director / export_manager / **document_team**
-— the last needs `sale` **view**, granted in `seed_permissions`, or the whole page 403s).
+All gated by the **`sale`** resource (admin / director / export_manager / **document_team**).
+The document team has full operational access — `contract` CRUD and `sale` view/create/edit
+(sale DELETE stays admin-only by design), plus the Contracts / Sales / Documents pages —
+granted in `seed_permissions`.
 `fmt` is `docx` (default) or `pdf`. **Named `fmt`, not `format`** — `format` is reserved by
 DRF content negotiation. PDF needs LibreOffice on the server (`503` with a clear message when
 absent; `.docx` is unaffected). Every generator first runs the **packing guard** →
