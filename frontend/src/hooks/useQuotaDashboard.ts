@@ -102,6 +102,9 @@ export function useCreateQuotaIssuance() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['quota-issuances'] });
       qc.invalidateQueries({ queryKey: ['quota-dashboard'] });
+      // Sheet firm-split editor reads these to hard-block no-quota firms; a new
+      // issuance raises a firm's remaining, so refetch or it stays unselectable.
+      qc.invalidateQueries({ queryKey: ['quota-firm-balances'] });
     },
   });
 }
@@ -115,6 +118,9 @@ export function useDeleteQuotaIssuance() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['quota-issuances'] });
       qc.invalidateQueries({ queryKey: ['quota-dashboard'] });
+      // Deleting a firm's only issuance drops its remaining to 0 → it must go
+      // back to unselectable on the Sheet; refetch the balances.
+      qc.invalidateQueries({ queryKey: ['quota-firm-balances'] });
     },
   });
 }

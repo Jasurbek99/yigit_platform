@@ -37,6 +37,20 @@ from apps.export.services_quota import (
 logger = logging.getLogger(__name__)
 
 
+def invalidate_quota_caches() -> None:
+    """Drop the FIFO + per-firm-balance caches for both product types.
+
+    Called whenever issued or approved-used quota totals change (issuance
+    create/update/delete, usage approve) so the firm-split editor's "no quota"
+    hard-block reflects new allocations immediately instead of after the 60s
+    TTL. No signals — explicit call per the architecture rules.
+    """
+    cache.delete('fifo_usage:tomato')
+    cache.delete('fifo_usage:pepper')
+    cache.delete('quota_firm_balances:tomato')
+    cache.delete('quota_firm_balances:pepper')
+
+
 # ---------------------------------------------------------------------------
 # QuotaIssuanceViewSet
 # ---------------------------------------------------------------------------
@@ -84,6 +98,17 @@ class QuotaIssuanceViewSet(ModelViewSet):
 
     def perform_create(self, serializer) -> None:
         serializer.save(created_by=self.request.user)
+        # New allocations change issued_kg → remaining_kg; bust the caches the
+        # Sheet firm-split editor reads or a firm stays "no quota"/unselectable.
+        invalidate_quota_caches()
+
+    def perform_update(self, serializer) -> None:
+        serializer.save()
+        invalidate_quota_caches()
+
+    def perform_destroy(self, instance) -> None:
+        instance.delete()
+        invalidate_quota_caches()
 
     @action(
         detail=True,
@@ -231,11 +256,7 @@ class QuotaUsageViewSet(ModelViewSet):
                     for pk in approved_ids
                 ], batch_size=500)
             # Invalidate FIFO + firm-balance caches since approved usage totals changed
-            from django.core.cache import cache
-            cache.delete('fifo_usage:tomato')
-            cache.delete('fifo_usage:pepper')
-            cache.delete('quota_firm_balances:tomato')
-            cache.delete('quota_firm_balances:pepper')
+            invalidate_quota_caches()
         return Response({'approved': updated})
 
 
