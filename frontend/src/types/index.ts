@@ -1729,6 +1729,43 @@ export interface IPalletUpsertRow {
   loaded_at?: string;
 }
 
+// ─── Weightmaster Excel import (dry-run preview) ────────────────────────────
+
+export interface IWeightmasterPreviewRow {
+  pallet_number: number;
+  gross_weight_kg: string;
+  crate_count: number;
+  pallet_weight_kg: string;
+  additions_kg: string;
+  crate_type: number | null;      // null = not resolved (fix in grid)
+  crate_type_name: string;
+  variety: number | null;
+  variety_name: string;
+  sub_block: number | null;
+  sub_block_code: string;
+}
+
+export interface IWeightmasterWarning {
+  row: number;                    // 1-based Excel row
+  pallet_number: number | null;
+  field: 'crate_type' | 'variety' | 'sub_block' | 'row';
+  raw: string;
+  message: string;
+}
+
+export interface IWeightmasterPreview {
+  rows: IWeightmasterPreviewRow[];
+  warnings: IWeightmasterWarning[];
+  summary: {
+    load_code: string;
+    harvest_date: string | null;
+    pallet_count: number;
+    total_gross_kg: string;
+    total_net_kg: string;
+    code_mismatch: boolean;
+  };
+}
+
 // â”€â”€â”€ Feedback Module â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export type FeedbackCategory = 'bug' | 'suggestion' | 'question';

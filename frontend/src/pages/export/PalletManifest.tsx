@@ -7,20 +7,30 @@ import {
   Flex,
   Skeleton,
   Typography,
+  Upload,
 } from 'antd';
-import { ArrowLeftOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, UploadOutlined } from '@ant-design/icons';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { useShipmentDetail } from '@/hooks/useShipmentDetail';
-import { usePallets, useUpsertPallets, useCloseManifest } from '@/hooks/usePallets';
+import {
+  usePallets,
+  useUpsertPallets,
+  useCloseManifest,
+  useImportWeightmaster,
+} from '@/hooks/usePallets';
 import { useAuth } from '@/hooks/useAuth';
 import { useCrateTypes } from '@/hooks/useAdmin';
-import type { IPalletUpsertRow } from '@/types';
+import type { IPalletUpsertRow, IWeightmasterWarning } from '@/types';
 import { ManifestStats } from './pallet/ManifestStats';
 import { DistributionPills } from './pallet/DistributionPills';
 import { VarietyRollupCard } from './pallet/VarietyRollupCard';
 import { PalletTable } from './pallet/PalletTable';
-import { palletToEditableRow, type IEditableRow } from './pallet/palletHelpers';
+import {
+  palletToEditableRow,
+  weightmasterRowToEditableRow,
+  type IEditableRow,
+} from './pallet/palletHelpers';
 import { FONT } from '@/constants/styles';
 
 const { Text, Title } = Typography;
@@ -38,6 +48,12 @@ export default function PalletManifest() {
 
   const upsertMutation = useUpsertPallets(shipmentId!);
   const closeMutation = useCloseManifest(shipmentId!);
+  const importMutation = useImportWeightmaster(shipmentId!);
+
+  const [warnings, setWarnings] = useState<IWeightmasterWarning[]>([]);
+
+  // Who last filled the manifest (created_by on the saved pallets).
+  const filledByName = palletsRaw[0]?.created_by_name ?? null;
 
   const crateWeightMap = useMemo<Record<number, number>>(() => {
     const map: Record<number, number> = {};
@@ -98,6 +114,25 @@ export default function PalletManifest() {
     });
   }
 
+  function handleWeightmasterUpload(file: File) {
+    importMutation.mutate(file, {
+      onSuccess: (preview) => {
+        setRows(preview.rows.map(weightmasterRowToEditableRow));
+        setInitialised(true);
+        setWarnings(preview.warnings);
+        if (preview.summary.code_mismatch) {
+          toast.warning(t('pallet.import_code_mismatch', { code: preview.summary.load_code }));
+        }
+        if (preview.warnings.length > 0) {
+          toast.warning(t('pallet.import_warnings', { count: preview.warnings.length }));
+        } else {
+          toast.success(t('pallet.import_ok', { count: preview.summary.pallet_count }));
+        }
+      },
+      onError: () => toast.error(t('pallet.import_failed')),
+    });
+  }
+
   function handleCloseManifest() {
     closeMutation.mutate(undefined, {
       onSuccess: () => toast.success(t('pallet.toast_closed')),
@@ -124,7 +159,24 @@ export default function PalletManifest() {
         <Title level={4} style={{ margin: 0 }}>
           {t('pallet.title')} — <span style={{ fontFamily: FONT.mono }}>{shipment.shipment_code}</span>
         </Title>
+        {filledByName && (
+          <Text type="secondary" style={{ fontSize: 13 }}>
+            {t('pallet.filled_by', { name: filledByName })}
+          </Text>
+        )}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+          <Upload
+            accept=".xlsx"
+            showUploadList={false}
+            beforeUpload={(file) => {
+              handleWeightmasterUpload(file);
+              return false; // prevent antd's auto-upload; we POST manually
+            }}
+          >
+            <Button icon={<UploadOutlined />} loading={importMutation.isPending}>
+              {t('pallet.btn_import_weightmaster')}
+            </Button>
+          </Upload>
           <Button onClick={handleLogoExport}>{t('pallet.btn_logo_export')}</Button>
           <Button
             type="primary"
@@ -144,6 +196,26 @@ export default function PalletManifest() {
         message={t('pallet.banner_source_of_truth')}
         style={{ marginBottom: 16 }}
       />
+
+      {warnings.length > 0 && (
+        <Alert
+          type="warning"
+          showIcon
+          closable
+          onClose={() => setWarnings([])}
+          message={t('pallet.import_warnings_title', { count: warnings.length })}
+          description={
+            <ul style={{ margin: 0, paddingInlineStart: 18 }}>
+              {warnings.map((w, i) => (
+                <li key={i}>
+                  {t('pallet.import_warning_row', { pallet: w.pallet_number ?? '—' })}: {w.message}
+                </li>
+              ))}
+            </ul>
+          }
+          style={{ marginBottom: 16 }}
+        />
+      )}
 
       <Card style={{ marginBottom: 14 }}>
         <div style={{ borderBottom: '1px solid #f0f0f0', paddingBottom: 12, marginBottom: 12 }}>

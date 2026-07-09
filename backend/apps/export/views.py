@@ -71,8 +71,20 @@ from apps.export.services import (
     transition_to,
 )
 from apps.export.services.shipment import _cancel_open_tasks
+from apps.export.services.weightmaster_import import (
+    WeightmasterParseError,
+    parse_weightmaster_workbook,
+)
 
 logger = logging.getLogger(__name__)
+
+# Roles allowed to fill / upload / close the pallet manifest (weightmaster flow).
+PALLET_WRITE_ROLES = PRIVILEGED_ROLES | {
+    'warehouse_chief',
+    'weight_master',
+    'loading_dept_head',
+    'loading_dept_head_deputy',
+}
 
 # Status codes for the SALES phase (steps 9-11) — shipments that have arrived
 # but haven't reached hasabat yet. Used by the overdue endpoint.
@@ -114,6 +126,19 @@ class ShipmentViewSet(ModelViewSet):
     def get_permissions(self):
         action = getattr(self, 'action', None)
         if action in self._OPEN_ACTIONS:
+            return [IsAuthenticated()]
+        # The pallet-manifest WRITE flow (fill / upload / close) is gated by the
+        # PALLET_WRITE_ROLES allowlist inside each method body — the same pattern
+        # as set_sales_report below. DynamicResourcePermission maps POST to
+        # shipment.can_create, which is False for weight_master and warehouse_chief
+        # even though they OWN the manifest, so it would wrongly block them. Drop
+        # it for these writes and let the in-body check decide. GET /pallets/ keeps
+        # its normal shipment.can_view gate (only the POST branch is relaxed).
+        is_pallet_write = (
+            action in {'manifest_close', 'import_weightmaster'}
+            or (action == 'pallets' and self.request.method == 'POST')
+        )
+        if is_pallet_write:
             return [IsAuthenticated()]
         if action == 'set_sales_report':
             # This action writes the `sales_report` resource (where sales_rep
@@ -2771,10 +2796,10 @@ class ShipmentViewSet(ModelViewSet):
             return Response(serializer.data)
 
         # POST — bulk upsert
-        allowed_write_roles = PRIVILEGED_ROLES | {'warehouse_chief', 'weight_master'}
-        if getattr(request.user, 'role', None) not in allowed_write_roles:
+        if getattr(request.user, 'role', None) not in PALLET_WRITE_ROLES:
             return Response(
-                {'error': 'Only weight_master, warehouse_chief, export_manager, or director can submit pallets'},
+                {'error': 'Only weight_master, loading department staff, warehouse_chief, '
+                          'export_manager, or director can submit pallets'},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -2810,6 +2835,90 @@ class ShipmentViewSet(ModelViewSet):
         serializer = PalletSerializer(qs, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @action(detail=True, methods=['post'], url_path='pallets/import-weightmaster')
+    def import_weightmaster(self, request, pk=None):
+        """POST /api/v1/export/shipments/{id}/pallets/import-weightmaster/
+
+        Parse an uploaded weightmaster loading-detail .xlsx into pallet rows and
+        return them for review. This is a DRY-RUN: it does NOT save. The frontend
+        loads the rows into the editable manifest grid; the user reviews warnings
+        (unmatched crate/variety/block), fixes them, then saves via the normal
+        pallets bulk-upsert endpoint.
+
+        Multipart body: field `file` = the .xlsx.
+        Same write roles as the pallet manifest.
+        """
+        if getattr(request.user, 'role', None) not in PALLET_WRITE_ROLES:
+            return Response(
+                {'error': 'Only weight_master, loading department staff, warehouse_chief, '
+                          'export_manager, or director can import pallets'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        upload = request.FILES.get('file')
+        if upload is None:
+            return Response(
+                {'error': 'No file uploaded. Send the .xlsx in the "file" field.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        shipment = self.get_object()
+
+        try:
+            parsed = parse_weightmaster_workbook(upload)
+        except WeightmasterParseError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Warn (do not block) when the file's load code does not match this shipment.
+        code_mismatch = bool(
+            parsed.load_code
+            and shipment.shipment_code
+            and parsed.load_code.replace('/', '') not in shipment.shipment_code.replace('/', '')
+        )
+
+        logger.info(
+            'Weightmaster preview for %s by %s: %d pallets, %d warnings, load_code=%s',
+            shipment.shipment_code, request.user.username,
+            len(parsed.rows), len(parsed.warnings), parsed.load_code,
+        )
+
+        return Response({
+            'rows': [
+                {
+                    'pallet_number': r.pallet_number,
+                    'gross_weight_kg': r.gross_weight_kg,
+                    'crate_count': r.crate_count,
+                    'pallet_weight_kg': r.pallet_weight_kg,
+                    'additions_kg': r.additions_kg,
+                    'crate_type': r.crate_type,
+                    'crate_type_name': r.crate_type_name,
+                    'variety': r.variety,
+                    'variety_name': r.variety_name,
+                    'sub_block': r.sub_block,
+                    'sub_block_code': r.sub_block_code,
+                }
+                for r in parsed.rows
+            ],
+            'warnings': [
+                {
+                    'row': w.row,
+                    'pallet_number': w.pallet_number,
+                    'field': w.field,
+                    'raw': w.raw,
+                    'message': w.message,
+                }
+                for w in parsed.warnings
+            ],
+            'summary': {
+                'load_code': parsed.load_code,
+                'harvest_date': parsed.harvest_date,
+                'pallet_count': len(parsed.rows),
+                'total_gross_kg': parsed.total_gross_kg,
+                'total_net_kg': parsed.total_net_kg,
+                'code_mismatch': code_mismatch,
+            },
+        }, status=status.HTTP_200_OK)
+
     @action(detail=True, methods=['post'], url_path='manifest/close')
     def manifest_close(self, request, pk=None):
         """POST /api/v1/export/shipments/{id}/manifest/close/
@@ -2817,14 +2926,15 @@ class ShipmentViewSet(ModelViewSet):
         Close the pallet manifest: aggregate pallet weights into shipment totals
         and compute dominant variety roll-up.
 
-        Only weight_master and warehouse_chief (plus privileged roles) may trigger.
+        Only weight_master, loading department staff and warehouse_chief
+        (plus privileged roles) may trigger.
 
         Returns refreshed shipment detail on success.
         """
-        allowed_roles = PRIVILEGED_ROLES | {'warehouse_chief', 'weight_master'}
-        if getattr(request.user, 'role', None) not in allowed_roles:
+        if getattr(request.user, 'role', None) not in PALLET_WRITE_ROLES:
             return Response(
-                {'error': 'Only weight_master, warehouse_chief, export_manager, or director can close the manifest'},
+                {'error': 'Only weight_master, loading department staff, warehouse_chief, '
+                          'export_manager, or director can close the manifest'},
                 status=status.HTTP_403_FORBIDDEN,
             )
 

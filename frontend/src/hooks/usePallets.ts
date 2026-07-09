@@ -1,7 +1,11 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import { MOCK_PALLETS } from '@/mock/pallets';
-import type { IPallet, IPalletUpsertRow } from '@/types';
+import type {
+  IPallet,
+  IPalletUpsertRow,
+  IWeightmasterPreview,
+} from '@/types';
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
 
@@ -55,6 +59,28 @@ export function useUpsertPallets(shipmentId: number) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['pallets', shipmentId] });
       void queryClient.invalidateQueries({ queryKey: ['shipment', String(shipmentId)] });
+    },
+  });
+}
+
+// ─── useImportWeightmaster ────────────────────────────────────────────────
+
+/**
+ * Uploads a weightmaster loading-detail .xlsx and returns a DRY-RUN preview
+ * (parsed pallet rows + warnings). Does NOT save — the caller loads the rows
+ * into the editable grid and the user saves via useUpsertPallets.
+ */
+export function useImportWeightmaster(shipmentId: number) {
+  return useMutation({
+    mutationFn: async (file: File): Promise<IWeightmasterPreview> => {
+      const form = new FormData();
+      form.append('file', file);
+      const { data } = await api.post<IWeightmasterPreview>(
+        `/export/shipments/${shipmentId}/pallets/import-weightmaster/`,
+        form,
+        { headers: { 'Content-Type': 'multipart/form-data' } },
+      );
+      return data;
     },
   });
 }

@@ -1,4 +1,4 @@
-import type { IPallet } from '@/types';
+import type { IPallet, IWeightmasterPreviewRow } from '@/types';
 
 export function computeNet(
   gross: number,
@@ -28,6 +28,28 @@ export interface IEditableRow {
   sub_block: number;
   sub_block_code: string;
   loaded_at?: string;
+}
+
+/**
+ * Converts a weightmaster import preview row into an editable grid row.
+ * Unresolved FKs (null crate/variety/block) become 0 so the Select renders as
+ * "unset" and the user picks the right value before saving.
+ */
+export function weightmasterRowToEditableRow(r: IWeightmasterPreviewRow): IEditableRow {
+  return {
+    key:              r.pallet_number,
+    pallet_number:    r.pallet_number,
+    crate_type:       r.crate_type ?? 0,
+    crate_type_name:  r.crate_type_name,
+    crate_count:      r.crate_count,
+    gross_weight_kg:  Number(r.gross_weight_kg),
+    pallet_weight_kg: Number(r.pallet_weight_kg),
+    additions_kg:     Number(r.additions_kg),
+    variety:          r.variety ?? 0,
+    variety_name:     r.variety_name,
+    sub_block:        r.sub_block ?? 0,
+    sub_block_code:   r.sub_block_code,
+  };
 }
 
 export function palletToEditableRow(p: IPallet): IEditableRow {
