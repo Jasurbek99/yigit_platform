@@ -562,7 +562,7 @@ export default function WeeklyPlanGrid() {
 
   return (
     <div>
-      <Flex justify="space-between" align="flex-start" style={{ marginBottom: 16 }}>
+      <Flex justify="space-between" align="flex-start" wrap gap={12} style={{ marginBottom: 16 }}>
         <div>
           <Title level={4} style={{ margin: 0 }}>{t('plan.title')}</Title>
           <Text type="secondary" style={{ fontSize: 13 }}>
@@ -570,7 +570,7 @@ export default function WeeklyPlanGrid() {
             {activeSeason && <span> · {activeSeason.name}</span>}
           </Text>
         </div>
-        <Space>
+        <Space wrap>
           <Button
             icon={<LeftOutlined />}
             onClick={() => setSelectedWeek((w) => (w ?? dayjs()).subtract(1, 'week'))}
@@ -656,8 +656,8 @@ export default function WeeklyPlanGrid() {
 
       {/* KPI stat cards */}
       {plans.length > 0 && (
-        <Flex gap={12} style={{ marginBottom: 16 }}>
-          <Card size="small" style={{ flex: 1 }}>
+        <Flex gap={12} wrap style={{ marginBottom: 16 }}>
+          <Card size="small" style={{ flex: 1, minWidth: 150 }}>
             <Statistic
               title={t('plan.total_plan')}
               value={totalPlan}
@@ -666,7 +666,7 @@ export default function WeeklyPlanGrid() {
               formatter={(v) => Number(v).toLocaleString()}
             />
           </Card>
-          <Card size="small" style={{ flex: 1 }}>
+          <Card size="small" style={{ flex: 1, minWidth: 150 }}>
             <Statistic
               title={t('plan.total_actual')}
               value={totalActual}
@@ -675,7 +675,7 @@ export default function WeeklyPlanGrid() {
               formatter={(v) => Number(v).toLocaleString()}
             />
           </Card>
-          <Card size="small" style={{ flex: 1 }}>
+          <Card size="small" style={{ flex: 1, minWidth: 150 }}>
             <Statistic
               title={t('plan.est_trucks')}
               value={estTrucks}
@@ -684,7 +684,7 @@ export default function WeeklyPlanGrid() {
             />
           </Card>
           {(lateCount > 0 || criticalLateCount > 0) && (
-            <Card size="small" style={{ flex: 1 }}>
+            <Card size="small" style={{ flex: 1, minWidth: 150 }}>
               <Tooltip
                 title={t('plan.late_submissions_tooltip', { late: lateCount, critical: criticalLateCount })}
               >
