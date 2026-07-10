@@ -134,8 +134,7 @@ export default function StaffPageAccessPage() {
         columns={columns}
         size="small"
         pagination={false}
-        sticky
-        scroll={{ x: 'max-content', y: 'calc(100vh - 300px)' }}
+        scroll={{ x: 'max-content' }}
         style={{ background: COLORS.white, borderRadius: 8 }}
       />
 
