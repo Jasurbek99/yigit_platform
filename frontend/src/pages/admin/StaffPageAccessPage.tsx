@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Alert, Button, Flex, Spin, Switch, Table, Tag, Typography } from 'antd';
-import { IconShieldHalf } from '@tabler/icons-react';
+import { IconShieldHalf, IconAlertTriangle } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { useManagedPagePermissions, useSaveManagedPagePermissions } from '@/hooks/useAdmin';
@@ -138,16 +138,36 @@ export default function StaffPageAccessPage() {
         style={{ background: COLORS.white, borderRadius: 8 }}
       />
 
-      <Flex justify="flex-end" style={{ marginTop: 16 }}>
-        <Button
-          type="primary"
-          onClick={handleSave}
-          loading={saveMutation.isPending}
-          disabled={!draft}
+      {draft && (
+        <Flex
+          justify="space-between"
+          align="center"
+          gap={12}
+          style={{
+            position: 'sticky',
+            bottom: 16,
+            marginTop: 16,
+            padding: '10px 16px',
+            background: COLORS.white,
+            border: `1px solid ${COLORS.border}`,
+            borderRadius: 8,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+            zIndex: 10,
+          }}
         >
-          {t('staff_access.save')}
-        </Button>
-      </Flex>
+          <Text type="warning" style={{ fontSize: 13 }}>
+            <IconAlertTriangle size={15} style={{ verticalAlign: '-2px', marginRight: 6 }} />
+            {t('staff_access.unsaved_changes')}
+          </Text>
+          <Button
+            type="primary"
+            onClick={handleSave}
+            loading={saveMutation.isPending}
+          >
+            {t('staff_access.save')}
+          </Button>
+        </Flex>
+      )}
     </div>
   );
 }
