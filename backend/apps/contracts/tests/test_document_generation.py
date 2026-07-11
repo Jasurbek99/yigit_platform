@@ -400,13 +400,21 @@ class InvoiceRenderSmokeTest(SimpleTestCase):
             self.assertEqual(content_type, render.XLSX_CONTENT_TYPE)
 
     def test_render_request_letters(self):
-        expected = {'ct1_ru': 'СТ-1', 'fito_ru': 'Фитосанитарный', 'customs_tk': 'ARZA'}
-        for key, marker in expected.items():
+        # marker + the richer per-letter content added to match the Excel sheets:
+        # ct1/fito carry the consignee block + weights; customs the truck table.
+        expected = {
+            'ct1_ru': ('СТ-1', ('Грузополучатель', 'ООО TRUST', '9 000')),
+            'fito_ru': ('Фитосанитарный', ('Грузополучатель', 'BR1427LB', '9 000')),
+            'customs_tk': ('ARZA', ('Ulag serişdeleriniň', 'BR1427LB', '10,720')),
+        }
+        for key, (marker, required) in expected.items():
             data, filename, content_type = render.generate(key, _mock_invoice(), 'docx')
             text = self._text(data)
             self.assertNotIn('{{', text, f'{key}: unrendered tag')
             self.assertNotIn('{%', text, f'{key}: unrendered tag')
             self.assertIn(marker, text)
+            for token in required:
+                self.assertIn(token, text, f'{key}: {token!r} missing from render')
             self.assertEqual(content_type, render.DOCX_CONTENT_TYPE)
 
     def test_unsupported_format_raises(self):

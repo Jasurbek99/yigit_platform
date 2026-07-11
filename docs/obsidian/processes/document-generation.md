@@ -215,13 +215,27 @@ JSON into a new tab; a successful call saves the file.
 
 ## Authority request letters (CT-1 / phyto / customs)
 
-Three short request letters, each **single-language** per its source form: CT-1
+Three request letters, each **single-language** per its source form: CT-1
 certificate-of-origin (`ct1_ru`), phytosanitary certificate (`fito_ru`), and the
 customs-clearance ARZA (`customs_tk`, Turkmen). Builders `build_ct1_context` /
-`build_fito_context` / `build_customs_context`; static addressee/body boilerplate
-is baked into each template, only named fields injected. `fito`/`customs` resolve
-the destination country via `_country_name` (shipment → buyer-firm fallback). CT-1
-needs only firm + contract, so it fills even with no shipment link.
+`build_fito_context` / `build_customs_context`; static addressee/boilerplate is
+baked into each template (three dedicated builders in `build_templates.py`,
+Times New Roman / A4), only named fields injected. `fito`/`customs` resolve the
+destination country via `_country_name` (shipment → buyer-firm fallback).
+
+Layouts mirror the office `letter CT1` / `fito` / `customs` sheets, so they carry
+more than the addressee + one line:
+- **CT-1** — sender + consignee (Отправитель / Грузополучатель) blocks and the
+  Нетто / Брутто / Кол-во мест weights.
+- **FITO** — the truck line (`1 автомашина: {plate}`) + sender/consignee blocks.
+- **Customs (ARZA)** — a truck **table** (T/b · plate · product · boxes · gross)
+  and the full four-paragraph legal boilerplate (gümrük Kodeksi articles, the
+  finance-ministry order), with the generate-time `place_loading` inserted, plus
+  the `Telekeçi` signature.
+
+`_letter_figures(invoice)` supplies per-firm net/gross/boxes/plate (same rule as
+the invoice line item). CT-1 still fills with no shipment link (weights fall back
+to the invoice's own quantity).
 
 ## Export contract (bilingual TK/RU agreement)
 

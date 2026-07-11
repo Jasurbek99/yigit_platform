@@ -509,55 +509,95 @@ def _country_name(invoice, lang: str) -> str:
     return ''
 
 
-def build_ct1_context(invoice, lang: str = 'ru', overrides: dict | None = None) -> dict:
-    """CT-1 certificate-of-origin request letter (RU). Needs only firm + contract.
+def _letter_figures(invoice) -> tuple:
+    """Per-firm (net, gross, boxes, plate) for the request letters.
 
-    ``overrides`` is accepted for a uniform builder signature but unused here.
+    Net/gross/boxes follow the same per-firm rule as the invoice line item (the
+    firm's official net = ``quantity_kg``; gross/boxes fall back to the truck).
+    ``plate`` is the whole-truck tractor/trailer string.
     """
-    contract = invoice.contract
-    seller = invoice.export_firm or (contract.export_firm if contract else None)
-    return {
-        'firm_name': _firm_attr(seller, 'name', lang),
-        'product': 'Свежие Помидоры',
-        'contract_line': _contract_line(contract),
-        'doc_date': _date(invoice.invoice_date),
-    }
-
-
-def build_fito_context(invoice, lang: str = 'ru', overrides: dict | None = None) -> dict:
-    """Phytosanitary-certificate request letter (RU). Firm, destination, weight, boxes.
-
-    ``overrides`` is accepted for a uniform builder signature but unused here.
-    """
-    contract = invoice.contract
     shipment = invoice.shipment
-    seller = invoice.export_firm or (contract.export_firm if contract else None)
-    net_kg = (shipment.weight_net if shipment and shipment.weight_net is not None
-              else invoice.quantity_kg)
-    boxes = shipment.box_count if shipment else None
-    return {
-        'firm_name': _firm_attr(seller, 'name', lang),
-        'country': _country_name(invoice, lang),
-        'product': 'Свежих Помидоров',
-        'net': _kg(net_kg, lang),
-        'boxes': str(boxes) if boxes else '',
-        'doc_date': _date(invoice.invoice_date),
-    }
+    net_kg = invoice.quantity_kg
+    gross_kg = (invoice.gross_kg if invoice.gross_kg is not None
+                else (shipment.weight_gross if shipment else None))
+    boxes = (invoice.box_count if invoice.box_count is not None
+             else (shipment.box_count if shipment else None))
+    plate = ''
+    if shipment:
+        p = (shipment.truck_plate or '').strip()
+        trailer = shipment.trailer_id
+        plate = f'{p}/{trailer}' if p and trailer else p or ''
+    return net_kg, gross_kg, boxes, plate
 
 
-def build_customs_context(invoice, lang: str = 'tk', overrides: dict | None = None) -> dict:
-    """Customs-clearance request letter (ARZA, Turkmen). Seller, buyer, contract, dest.
+def build_ct1_context(invoice, lang: str = 'ru', overrides: dict | None = None) -> dict:
+    """CT-1 certificate-of-origin request letter (RU): firm, contract, parties, weights.
 
     ``overrides`` is accepted for a uniform builder signature but unused here.
     """
     contract = invoice.contract
     seller = invoice.export_firm or (contract.export_firm if contract else None)
     buyer = invoice.import_firm or (contract.import_firm if contract else None)
+    net_kg, gross_kg, boxes, _plate = _letter_figures(invoice)
+    return {
+        'firm_name': _firm_attr(seller, 'name', lang),
+        'firm_address': _firm_attr(seller, 'address', lang),
+        'buyer_name': getattr(buyer, 'name_company', '') or '',
+        'buyer_address': getattr(buyer, 'address', '') or '',
+        'product': 'Свежие Помидоры',
+        'contract_line': _contract_line(contract),
+        'net': _kg(net_kg, lang),
+        'gross': _kg(gross_kg, lang),
+        'boxes': str(boxes) if boxes else '',
+        'doc_date': _date(invoice.invoice_date),
+    }
+
+
+def build_fito_context(invoice, lang: str = 'ru', overrides: dict | None = None) -> dict:
+    """Phytosanitary-certificate request letter (RU): firm, dest, weights, truck, parties.
+
+    ``overrides`` is accepted for a uniform builder signature but unused here.
+    """
+    contract = invoice.contract
+    seller = invoice.export_firm or (contract.export_firm if contract else None)
+    buyer = invoice.import_firm or (contract.import_firm if contract else None)
+    net_kg, _gross, boxes, plate = _letter_figures(invoice)
+    return {
+        'firm_name': _firm_attr(seller, 'name', lang),
+        'firm_address': _firm_attr(seller, 'address', lang),
+        'buyer_name': getattr(buyer, 'name_company', '') or '',
+        'buyer_address': getattr(buyer, 'address', '') or '',
+        'country': _country_name(invoice, lang),
+        'product': 'Свежих Помидоров',
+        'net': _kg(net_kg, lang),
+        'boxes': str(boxes) if boxes else '',
+        'plate': plate,
+        'doc_date': _date(invoice.invoice_date),
+    }
+
+
+def build_customs_context(invoice, lang: str = 'tk', overrides: dict | None = None) -> dict:
+    """Customs-clearance request letter (ARZA, Turkmen): parties, contract, dest, cargo.
+
+    Includes the truck-table fields (plate / product / boxes / gross) and the
+    generate-time ``place_loading`` inserted into the boilerplate. ``overrides``
+    supplies ``place_loading`` (blank when not chosen).
+    """
+    overrides = overrides or {}
+    contract = invoice.contract
+    seller = invoice.export_firm or (contract.export_firm if contract else None)
+    buyer = invoice.import_firm or (contract.import_firm if contract else None)
+    _net, gross_kg, boxes, plate = _letter_figures(invoice)
     return {
         'seller_name': _firm_attr(seller, 'name', lang),
         'buyer_name': getattr(buyer, 'name_company', '') or '',
         'contract_line': _contract_line(contract),
         'country': _country_name(invoice, lang),
+        'place_loading': overrides.get('place_loading', ''),
+        'product': 'Ter pomidor',
+        'plate': plate,
+        'gross': _kg(gross_kg, lang),
+        'boxes': str(boxes) if boxes else '',
         'doc_date': _date(invoice.invoice_date),
     }
 

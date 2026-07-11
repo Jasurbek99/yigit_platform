@@ -243,59 +243,160 @@ def build(lang: str) -> Path:
 # ``build_cmr_xlsx.py`` and ``document_context.build_cmr_overlay``.
 
 
-# Authority request letters — short single-language forms. Static addressee/body
-# boilerplate baked in; only the named {{ fields }} are injected at render time.
-LETTERS = {
-    'ct1_ru': {
-        'addressee': ['Директору предприятия', '«Туркменэкспертиза» ТПП', 'в Туркменистане'],
-        'title': None,
-        'body': ('{{ firm_name }} просит Вас оформить сертификат происхождения '
-                 'формы «СТ-1», на {{ product }}. Контракт № {{ contract_line }}.'),
-        'sign': 'Директор ___________________ {{ firm_name }}',
-    },
-    'fito_ru': {
-        'addressee': ['Гос. служба по карантину', 'растений Ахалского велаята'],
-        'title': None,
-        'body': ('{{ firm_name }} просит Вас оформить Фитосанитарный сертификат на груз, '
-                 'направляемый в {{ country }}. Вес груза нетто {{ net }} кг., '
-                 'ящиков — {{ boxes }} шт., на {{ product }}.'),
-        'sign': 'Директор ___________________ {{ firm_name }}',
-    },
-    'customs_tk': {
-        'addressee': ['Aşgabat gümrükhanasynyň', '«AKÝOL» gümrük nokadynyň', 'müdirine'],
-        'title': 'ARZA',
-        'body': ('{{ seller_name }} bilen {{ buyer_name }} arasynda {{ contract_line }} '
-                 'senede baglaşylan şertnama boýunça ýükümizi {{ country }} Respublikasyna '
-                 'çykarmak üçin gümrük gözegçisini bermegiňizi Sizden haýyş edýäris.'),
-        'sign': 'Direktor ___________________ {{ seller_name }}',
-    },
-}
+# Authority request letters — single-language forms mirroring the office Excel
+# sheets (`letter CT1` / `fito` / `customs`). Each is a self-contained builder:
+# addressee → body → sender/consignee blocks → weights/table → signature. Static
+# boilerplate is baked in; only the named {{ fields }} are injected at render time.
+
+# Letters use a serif face like the office correspondence.
+_LETTER_FONT = 'Times New Roman'
 
 
-def build_letter(key: str) -> Path:
-    spec = LETTERS[key]
+def _letter_doc() -> 'Document':
     doc = Document()
-    doc.styles['Normal'].font.size = Pt(11)
+    _a4(doc)
+    normal = doc.styles['Normal'].font
+    normal.name = _LETTER_FONT
+    normal.size = Pt(12)
+    return doc
 
-    for line in spec['addressee']:
-        p = doc.add_paragraph(line)
-        p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
 
+def _addressee(doc, lines) -> None:
+    """Right-aligned bold addressee block, indented into the right half."""
+    for line in lines:
+        p = doc.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p.paragraph_format.left_indent = Cm(7)
+        p.add_run(line).bold = True
+
+
+def _para(doc, text, *, justify=False, bold=False, size=12):
+    p = doc.add_paragraph()
+    if justify:
+        p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+    run = p.add_run(text)
+    run.bold = bold
+    run.font.size = Pt(size)
+    return p
+
+
+def _weight_rows(doc, rows) -> None:
+    """Borderless label/value grid (Нетто / Брутто / Кол-во мест)."""
+    table = doc.add_table(rows=len(rows), cols=2)
+    _col_widths(table, [Cm(3.5), Cm(6)])
+    for i, (label, tag) in enumerate(rows):
+        _set_cell(table.rows[i].cells[0], label, size=12)
+        _set_cell(table.rows[i].cells[1], tag, size=12)
+
+
+def build_ct1() -> Path:
+    """CT-1 certificate-of-origin request letter (RU)."""
+    doc = _letter_doc()
+    _addressee(doc, ['Директору предприятия', '«Туркменэкспертиза» ТПП в', 'Туркменистане'])
     doc.add_paragraph()
-    if spec['title']:
-        t = doc.add_paragraph()
-        t.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        t.add_run(spec['title']).bold = True
-        doc.add_paragraph()
-
-    body = doc.add_paragraph(spec['body'])
-    body.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-
+    _para(doc, '{{ firm_name }} просит Вас оформить сертификат происхождения '
+               'формы «СТ-1», на {{ product }}. Контракт № {{ contract_line }}.', justify=True)
+    _para(doc, 'Отправитель: {{ firm_name }}')
+    _para(doc, '{{ firm_address }}')
     doc.add_paragraph()
-    doc.add_paragraph('{{ doc_date }}')
-    doc.add_paragraph(spec['sign'])
+    _para(doc, 'Грузополучатель: {{ buyer_name }}')
+    _para(doc, '{{ buyer_address }}', size=9)
+    doc.add_paragraph()
+    _weight_rows(doc, [('Нетто:', '{{ net }} кг.'), ('Брутто:', '{{ gross }} кг.'),
+                       ('Кол-во мест:', '{{ boxes }} шт.')])
+    doc.add_paragraph()
+    _para(doc, '{{ firm_name }}__________________________', bold=True)
 
-    out = OUT_DIR / f'{key}.docx'
+    out = OUT_DIR / 'ct1_ru.docx'
+    doc.save(out)
+    return out
+
+
+def build_fito() -> Path:
+    """Phytosanitary-certificate request letter (RU)."""
+    doc = _letter_doc()
+    _addressee(doc, ['Гос служба по карантину', 'растений Ахалского велаята'])
+    doc.add_paragraph()
+    _para(doc, '{{ firm_name }} просит Вас оформить Фитосанитарный сертификат на груз, '
+               'направлению в {{ country }}. Вес груза нетто {{ net }} кг., '
+               'ящика - {{ boxes }} шт., на {{ product }}.', justify=True)
+    doc.add_paragraph()
+    _para(doc, '1 автомашина: {{ plate }}')
+    doc.add_paragraph()
+    _para(doc, 'Отправитель: {{ firm_name }}')
+    _para(doc, '{{ firm_address }}')
+    _para(doc, 'Грузополучатель: {{ buyer_name }}')
+    doc.add_paragraph()
+    _para(doc, '{{ buyer_address }}', size=9)
+    doc.add_paragraph()
+    doc.add_paragraph()
+    _para(doc, '{{ firm_name }}__________________________', bold=True)
+
+    out = OUT_DIR / 'fito_ru.docx'
+    doc.save(out)
+    return out
+
+
+# Static Turkmen legal boilerplate for the customs ARZA (verbatim from the sheet).
+_CUSTOMS_BODY = (
+    '{{ seller_name }} bilen {{ buyer_name }} arasynda {{ contract_line }} senede '
+    'baglaşylan şertnama boýunça ýükümizi {{ country }} Respublikasyna çykarmak üçin '
+    'gümrük gözegçisini bermegiňizi Sizden haýyş edýäris.'
+)
+_CUSTOMS_PARAS = [
+    'Harytlaryň ýüklenjek ýeri: {{ place_loading }} Bu harytlaryň arasynda '
+    'Türkmenistanyň çäginden alnyp gidilmegi gadagan edilen zatlaryň we neşe '
+    'serişdeleriniň ýokdugyna güwa geçmek bilen, Türkmenistanyň Kanunçylygynda '
+    'bellenen tertipde we möhletde degişli gümrük töleglerini wagtynda tölemäge '
+    'hem-de 10 günüň dowamynda görkezilen harytlary awtoulag serişdesine (demirýol '
+    'wagonlaryna) ýüklemäge we olary gümrük taýdan resmileşdirmek üçin ÝGD-ny, '
+    'gümrük edarasyna berilmegi göz öňüne tutulan beýleki resminamalary gümrük '
+    'edarasyna eltip bermäge borçlanýarys',
+    'Türkmenistanyň gümrük Kodeksiniň 31,47,53,77,78,81,273 Türkmenistanyň '
+    'administratiw-hukuk tertibiniň bozulmalary hakyndaky kodeksiniň 390-407-nji '
+    'hem-de jenaýat kodeksiniň 261-nji maddalary we bu düzgünleriň bozulmagy üçin '
+    'jogapkärçilik babatda doly düşündirildi.',
+    'Türkmenistanyň Maliýe we ykdysadyýet ministrligi bilen ylalaşylan we '
+    'Türkmenistanyň Döwlet gullugynyň başlygynyň 2024-nji ýylyň 22-nji maýyndaky 48 '
+    'belgili buýrugy bilen tassyklanan “Gümrük edaralary hyzmatlary üçin tölegleriň '
+    's/anawy we olaryň möçberleri” bilen tanyşdym.',
+    'Harytlary ýükläp ugratmak we olary gümrük taýdan resmileşdirmek boýunça jogapkär',
+]
+
+
+def build_customs() -> Path:
+    """Customs-clearance request letter (ARZA, Turkmen) — with truck table + boilerplate."""
+    doc = _letter_doc()
+    _addressee(doc, ['Aşgabat  gümrükhanasynyň', '“AKÝOL” gümrük nokadynyň', 'müdirine'])
+    doc.add_paragraph()
+    title = doc.add_paragraph()
+    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    title.add_run('ARZA').bold = True
+    doc.add_paragraph()
+    _para(doc, _CUSTOMS_BODY, justify=True)
+    doc.add_paragraph()
+
+    cols = ['T/b', 'Ulag serişdeleriniň Belgisi', 'Harydyň ady', 'Orun sany', 'Harydyň agramy']
+    fields = ['1', '{{ plate }}', '{{ product }}', '{{ boxes }}', '{{ gross }} kg.']
+    table = doc.add_table(rows=2, cols=len(cols))
+    table.style = 'Table Grid'
+    _col_widths(table, [Cm(1.3), Cm(5), Cm(2.5), Cm(2.2), Cm(4)])
+    for i, name in enumerate(cols):
+        _set_cell(table.rows[0].cells[i], name, bold=True, size=11)
+    for i, val in enumerate(fields):
+        _set_cell(table.rows[1].cells[i], val, size=11)
+    doc.add_paragraph()
+
+    for para in _CUSTOMS_PARAS:
+        _para(doc, para, justify=True)
+    doc.add_paragraph()
+
+    sign = doc.add_table(rows=1, cols=2)
+    _col_widths(sign, [Cm(6), Cm(11)])
+    _set_cell(sign.cell(0, 0), 'Telekeçi', bold=True, size=12)
+    _set_cell(sign.cell(0, 1), '{{ seller_name }}', bold=True, size=12)
+
+    out = OUT_DIR / 'customs_tk.docx'
     doc.save(out)
     return out
 
@@ -303,8 +404,8 @@ def build_letter(key: str) -> Path:
 def main() -> None:
     for lang in ('ru', 'en'):
         print(f'wrote {build(lang)}')
-    for key in LETTERS:
-        print(f'wrote {build_letter(key)}')
+    for builder in (build_ct1, build_fito, build_customs):
+        print(f'wrote {builder()}')
 
 
 if __name__ == '__main__':
