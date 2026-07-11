@@ -15,33 +15,43 @@ re-running this overwrites it. Only re-run to intentionally reset a template.
 from pathlib import Path
 
 from docx import Document
+from docx.enum.table import WD_ROW_HEIGHT_RULE
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.shared import Pt
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
+from docx.shared import Cm, Pt
 
 OUT_DIR = Path(__file__).resolve().parent
 
 # Per-language static label set. Data values stay as Jinja tags shared by both.
+# The invoice .docx mirrors the office Excel sheet (InvoiceRU / InvoiceEN): a first
+# INVOICE page and a second PACKING-LIST page ("Упаковочный лист" / "Packing List")
+# that repeats the parties/route but drops the price columns.
 LABELS = {
     'ru': {
-        'title': 'ИНВОЙС (счёт-фактура)',
-        'number_line': '№ {{ invoice_no }} от {{ invoice_date }}',
+        'title': 'ИНВОЙС (счет фактура)',
+        'packing_title': 'Упаковочный лист',
+        'number_line': '№ {{ invoice_no }} от   {{ invoice_date }}',
         'contract_line': 'Контракт № {{ contract_line }}',
         'seller': 'ПРОДАВЕЦ:',
         'buyer': 'ПОКУПАТЕЛЬ:',
-        'country': 'Страна происхождения товара:',
+        'country': 'Страна происхождение товара:',
         'loading': 'Место погрузки груза:',
         'delivery': 'Условие поставки:',
-        'transport': 'Вид транспорта (Авто):',
-        'cols': ['№', 'Наименование товара', 'Код ТН ВЭД', 'Кол-во мест',
-                 'Род упаковки', 'Брутто, кг', 'Нетто, кг',
+        'transport': 'Вид транспорта: Авто:',
+        'cols': ['№', 'Наименование товара', 'Код по ТН ВЭД', 'Кол-во мест',
+                 'Род упаковки', 'Брутто', 'Нетто',
                  'Цена долл.США за 1 кг', 'Сумма долл.США'],
+        'packing_cols': ['№', 'Наименование товара', 'Код по ТН ВЭД',
+                         'Кол-во мест', 'Брутто', 'Нетто'],
         'total': 'ИТОГО:',
         'seller_foot': 'ПРОДАВЕЦ',
-        'released': 'Товар отпустил: __________________ {{ seller_name }}',
+        'released': 'Товар отпустил: __________________{{ seller_name }}',
         'sign': '(подпись лица)',
     },
     'en': {
         'title': 'INVOICE',
+        'packing_title': 'Packing List',
         'number_line': '№ {{ invoice_no }}, {{ invoice_date }}',
         'contract_line': 'Contract № {{ contract_line }}',
         'seller': 'SELLER:',
@@ -49,172 +59,188 @@ LABELS = {
         'country': 'Country of origin:',
         'loading': 'Place of loading cargo:',
         'delivery': 'Delivery conditions:',
-        'transport': 'Type of transport (Auto):',
-        'cols': ['№', 'Name of product', 'Code TN FEA', 'Number of pieces',
-                 'Type of packing', 'Gross, kg', 'Net, kg',
-                 'Price US$ per kg', 'Total US$'],
+        'transport': 'Type of transport: Auto:',
+        'cols': ['№', 'Name of product', 'Code on TN FEA', 'Number of pieces',
+                 'Type of packing', 'Gross weight, kg', 'Net weight, kg',
+                 'Price of US dollars kg', 'Total price of US dollars'],
+        'packing_cols': ['№', 'Name of product', 'Code on TN FEA',
+                         'Number of pieces', 'Gross weight, kg', 'Net weight, kg'],
         'total': 'TOTAL:',
         'seller_foot': 'SELLER',
-        'released': 'Goods released by: __________________ {{ seller_name }}',
+        'released': ' __________________{{ seller_name }}',
         'sign': '(signature)',
     },
 }
 
+# Data field per invoice column (9-col invoice table / 6-col packing table).
+_INVOICE_FIELDS = ['n', 'name', 'code', 'pieces', 'packing', 'gross', 'net', 'price', 'total']
+_PACKING_FIELDS = ['n', 'name', 'code', 'pieces', 'gross', 'net']
 
-def _set_cell(cell, text, bold=False, size=9):
+
+def _set_cell(cell, text, bold=False, size=9, italic=False):
     cell.text = ''
     run = cell.paragraphs[0].add_run(text)
     run.bold = bold
+    run.italic = italic
     run.font.size = Pt(size)
+
+
+def _no_border(cell) -> None:
+    """Strip all borders from a single cell (used for the spacer between boxes)."""
+    tc_pr = cell._tc.get_or_add_tcPr()
+    borders = OxmlElement('w:tcBorders')
+    for edge in ('top', 'left', 'bottom', 'right'):
+        el = OxmlElement(f'w:{edge}')
+        el.set(qn('w:val'), 'nil')
+        borders.append(el)
+    tc_pr.append(borders)
+
+
+def _col_widths(table, widths) -> None:
+    """Pin column widths (python-docx needs each cell set, autofit off)."""
+    table.autofit = False
+    table.allow_autofit = False
+    for row in table.rows:
+        for cell, width in zip(row.cells, widths):
+            cell.width = width
+
+
+def _a4(doc) -> None:
+    section = doc.sections[0]
+    section.page_width = Cm(21)
+    section.page_height = Cm(29.7)
+    section.top_margin = Cm(1.5)
+    section.bottom_margin = Cm(1.5)
+    section.left_margin = Cm(2)
+    section.right_margin = Cm(1.5)
+
+
+def _header(doc, lab, title_text: str) -> None:
+    """Centered title + № line + contract line (shared by both invoice pages)."""
+    title = doc.add_paragraph()
+    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    r = title.add_run(title_text)
+    r.bold = True
+    r.font.size = Pt(13)
+    for key in ('number_line', 'contract_line'):
+        p = doc.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p.add_run(lab[key]).bold = True
+    doc.add_paragraph()
+
+
+def _fill_party_cell(cell, name_tag: str, addr_tag: str, bank_tag: str) -> None:
+    """Firm box: name (top, bold), address, gap, then multi-line bank block.
+
+    ``bank_tag`` resolves to the firm's bank-details blob whose embedded ``\\n``
+    docxtpl renders as line breaks — so the box mirrors the Excel requisites list.
+    """
+    cell.text = ''
+    top = cell.paragraphs[0].add_run(name_tag)
+    top.bold = True
+    top.font.size = Pt(10)
+    cell.add_paragraph().add_run(addr_tag).font.size = Pt(9)
+    for _ in range(3):
+        cell.add_paragraph()
+    cell.add_paragraph().add_run(bank_tag).font.size = Pt(8)
+
+
+def _party_block(doc, lab) -> None:
+    """ПРОДАВЕЦ / ПОКУПАТЕЛЬ labels over two tall bordered firm boxes with a gap."""
+    widths = [Cm(8), Cm(1.5), Cm(8)]
+    labels = doc.add_table(rows=1, cols=3)
+    _col_widths(labels, widths)
+    _set_cell(labels.cell(0, 0), lab['seller'], bold=True, size=10)
+    _set_cell(labels.cell(0, 2), lab['buyer'], bold=True, size=10)
+
+    boxes = doc.add_table(rows=1, cols=3)
+    boxes.style = 'Table Grid'
+    _col_widths(boxes, widths)
+    boxes.rows[0].height = Cm(8)
+    boxes.rows[0].height_rule = WD_ROW_HEIGHT_RULE.AT_LEAST
+    _fill_party_cell(boxes.cell(0, 0), '{{ seller_name }}', '{{ seller_address }}', '{{ seller_bank }}')
+    _no_border(boxes.cell(0, 1))
+    _fill_party_cell(boxes.cell(0, 2), '{{ buyer_name }}', '{{ buyer_address }}', '{{ buyer_bank }}')
+
+
+def _info_block(doc, lab) -> None:
+    """Route rows: origin / place of loading / delivery terms / transport."""
+    rows = (
+        (lab['country'], '{{ country_origin }}'),
+        (lab['loading'], '{{ place_loading }}'),
+        (lab['delivery'], '{{ delivery_terms }}'),
+        (lab['transport'], '{{ transport }}'),
+    )
+    table = doc.add_table(rows=len(rows), cols=2)
+    _col_widths(table, [Cm(6), Cm(11.5)])
+    for i, (label, tag) in enumerate(rows):
+        _set_cell(table.rows[i].cells[0], label, size=10)
+        _set_cell(table.rows[i].cells[1], tag, size=10)
+    doc.add_paragraph()
+
+
+def _items_table(doc, cols, fields, total_label=None) -> None:
+    """Bordered line-items table: header + one product row (+ optional ИТОГО row).
+
+    ``line_items`` stays a list so a future multi-row template can switch to a
+    docxtpl row loop; today invoices are one product line in practice.
+    """
+    rows = 2 + (1 if total_label else 0)
+    table = doc.add_table(rows=rows, cols=len(cols))
+    table.style = 'Table Grid'
+    for i, name in enumerate(cols):
+        _set_cell(table.rows[0].cells[i], name, bold=True, size=8)
+    body = table.rows[1].cells
+    for i, fld in enumerate(fields):
+        _set_cell(body[i], f'{{{{ line_items[0].{fld} }}}}', size=9)
+    if total_label:
+        total_cells = table.rows[2].cells
+        _set_cell(total_cells[1], total_label, bold=True)
+        _set_cell(total_cells[len(cols) - 1], '{{ total_sum }}', bold=True)
+
+
+def _footer(doc, lab) -> None:
+    """Pallet note + seller signature block (shared by both invoice pages)."""
+    note = doc.add_paragraph()
+    note.add_run('{{ pallet_note }}').italic = True
+    doc.add_paragraph()
+    doc.add_paragraph().add_run(lab['seller_foot']).bold = True
+    doc.add_paragraph().add_run(lab['released']).bold = True
+    sign = doc.add_paragraph()
+    sign.add_run(lab['sign']).italic = True
 
 
 def build(lang: str) -> Path:
     lab = LABELS[lang]
     doc = Document()
     doc.styles['Normal'].font.size = Pt(10)
+    _a4(doc)
 
-    title = doc.add_paragraph()
-    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r = title.add_run(lab['title'])
-    r.bold = True
-    r.font.size = Pt(14)
-
-    for key in ('number_line', 'contract_line'):
-        p = doc.add_paragraph()
-        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        p.add_run(lab[key]).bold = True
-
-    # Seller / Buyer two-column block
-    party = doc.add_table(rows=4, cols=2)
-    party.style = 'Table Grid'
-    _set_cell(party.rows[0].cells[0], lab['seller'], bold=True)
-    _set_cell(party.rows[0].cells[1], lab['buyer'], bold=True)
-    _set_cell(party.rows[1].cells[0], '{{ seller_name }}', bold=True, size=10)
-    _set_cell(party.rows[1].cells[1], '{{ buyer_name }}', bold=True, size=10)
-    _set_cell(party.rows[2].cells[0], '{{ seller_address }}')
-    _set_cell(party.rows[2].cells[1], '{{ buyer_address }}')
-    _set_cell(party.rows[3].cells[0], '{{ seller_bank }}', size=8)
-    _set_cell(party.rows[3].cells[1], '{{ buyer_bank }}', size=8)
-
+    # Page 1 — INVOICE (with price columns and ИТОГО total).
+    _header(doc, lab, lab['title'])
+    _party_block(doc, lab)
     doc.add_paragraph()
-    for lab_key, tag in (
-        ('country', '{{ country_origin }}'),
-        ('loading', '{{ place_loading }}'),
-        ('delivery', '{{ delivery_terms }}'),
-        ('transport', '{{ transport }}'),
-    ):
-        p = doc.add_paragraph()
-        p.add_run(lab[lab_key] + ' ').bold = True
-        p.add_run(tag)
+    _info_block(doc, lab)
+    _items_table(doc, lab['cols'], _INVOICE_FIELDS, total_label=lab['total'])
+    _footer(doc, lab)
 
-    # Line-items table: header + repeating body row + total row
-    cols = lab['cols']
-    table = doc.add_table(rows=3, cols=len(cols))
-    table.style = 'Table Grid'
-    for i, name in enumerate(cols):
-        _set_cell(table.rows[0].cells[i], name, bold=True, size=8)
-
-    # Single product line (invoices are one-line in practice). ``line_items`` stays
-    # a list so a future multi-row template can switch to a docxtpl row loop.
-    body = table.rows[1].cells
-    fields = ['n', 'name', 'code', 'pieces', 'packing', 'gross', 'net', 'price', 'total']
-    for i, fld in enumerate(fields):
-        _set_cell(body[i], f'{{{{ line_items[0].{fld} }}}}', size=9)
-
-    total_cells = table.rows[2].cells
-    _set_cell(total_cells[1], lab['total'], bold=True)
-    _set_cell(total_cells[len(cols) - 1], '{{ total_sum }}', bold=True)
-
-    doc.add_paragraph('{{ pallet_note }}')
+    # Page 2 — PACKING LIST (same header/parties/route, weights only, no prices).
+    doc.add_page_break()
+    _header(doc, lab, lab['packing_title'])
+    _party_block(doc, lab)
     doc.add_paragraph()
-    doc.add_paragraph().add_run(lab['seller_foot']).bold = True
-    doc.add_paragraph(lab['released'])
-    sign = doc.add_paragraph(lab['sign'])
-    sign.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    _info_block(doc, lab)
+    _items_table(doc, lab['packing_cols'], _PACKING_FIELDS)
+    _footer(doc, lab)
 
     out = OUT_DIR / f'invoice_{lang}.docx'
     doc.save(out)
     return out
 
 
-# CMR (road consignment note) — simplified labelled layout (NOT the official
-# 24-box form). Same Jinja field names the business can re-skin onto the real CMR.
-CMR_LABELS = {
-    'ru': {
-        'title': 'CMR — Международная товарно-транспортная накладная',
-        'fields': [
-            ('Отправитель (Продавец):', 'sender_name'),
-            ('Адрес отправителя:', 'sender_address'),
-            ('Получатель (Покупатель):', 'consignee_name'),
-            ('Адрес получателя:', 'consignee_address'),
-            ('Перевозчик / Экспедитор:', 'forwarder'),
-            ('Страна отправления:', 'country_dispatch'),
-            ('Место погрузки:', 'place_loading'),
-            ('Дата:', 'doc_date'),
-            ('Инвойсы:', 'invoice_refs'),
-            ('CARNET TIR:', 'tir_carnet'),
-            ('Транспорт (авто / водитель):', 'transport'),
-        ],
-        'cargo': 'Груз:',
-        'cols': ['Наименование', 'Кол-во мест', 'Упаковка', 'Поддоны',
-                 'Вес поддонов, кг', 'Брутто без подд., кг', 'Брутто с подд., кг', 'Нетто, кг'],
-        'cargo_fields': ['cargo_name', 'boxes', 'packing', 'pallets',
-                         'pallet_weight', 'gross_without_pallet', 'gross_with_pallet', 'net'],
-    },
-    'en': {
-        'title': 'CMR — International Consignment Note',
-        'fields': [
-            ('Sender (Seller):', 'sender_name'),
-            ('Sender address:', 'sender_address'),
-            ('Consignee (Buyer):', 'consignee_name'),
-            ('Consignee address:', 'consignee_address'),
-            ('Carrier / Forwarder:', 'forwarder'),
-            ('Country of dispatch:', 'country_dispatch'),
-            ('Place of loading:', 'place_loading'),
-            ('Date:', 'doc_date'),
-            ('Invoices:', 'invoice_refs'),
-            ('CARNET TIR:', 'tir_carnet'),
-            ('Transport (vehicle / driver):', 'transport'),
-        ],
-        'cargo': 'Cargo:',
-        'cols': ['Name', 'Pieces', 'Packing', 'Pallets',
-                 'Pallet weight, kg', 'Gross w/o pallet, kg', 'Gross w/ pallet, kg', 'Net, kg'],
-        'cargo_fields': ['cargo_name', 'boxes', 'packing', 'pallets',
-                         'pallet_weight', 'gross_without_pallet', 'gross_with_pallet', 'net'],
-    },
-}
-
-
-def build_cmr(lang: str) -> Path:
-    lab = CMR_LABELS[lang]
-    doc = Document()
-    doc.styles['Normal'].font.size = Pt(10)
-
-    title = doc.add_paragraph()
-    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r = title.add_run(lab['title'])
-    r.bold = True
-    r.font.size = Pt(13)
-    doc.add_paragraph()
-
-    info = doc.add_table(rows=len(lab['fields']), cols=2)
-    info.style = 'Table Grid'
-    for i, (label, field) in enumerate(lab['fields']):
-        _set_cell(info.rows[i].cells[0], label, bold=True)
-        _set_cell(info.rows[i].cells[1], f'{{{{ {field} }}}}')
-
-    doc.add_paragraph().add_run(lab['cargo']).bold = True
-    cols = lab['cols']
-    table = doc.add_table(rows=2, cols=len(cols))
-    table.style = 'Table Grid'
-    for i, name in enumerate(cols):
-        _set_cell(table.rows[0].cells[i], name, bold=True, size=8)
-    for i, field in enumerate(lab['cargo_fields']):
-        _set_cell(table.rows[1].cells[i], f'{{{{ {field} }}}}', size=9)
-
-    out = OUT_DIR / f'cmr_{lang}.docx'
-    doc.save(out)
-    return out
+# NOTE: the CMR is NOT built here — it is an xlsx print-overlay onto the
+# pre-printed official form (geometry python-docx can't reproduce). See
+# ``build_cmr_xlsx.py`` and ``document_context.build_cmr_overlay``.
 
 
 # Authority request letters — short single-language forms. Static addressee/body
@@ -277,7 +303,6 @@ def build_letter(key: str) -> Path:
 def main() -> None:
     for lang in ('ru', 'en'):
         print(f'wrote {build(lang)}')
-        print(f'wrote {build_cmr(lang)}')
     for key in LETTERS:
         print(f'wrote {build_letter(key)}')
 
