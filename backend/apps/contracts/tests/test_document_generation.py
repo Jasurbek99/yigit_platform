@@ -13,6 +13,7 @@ from io import BytesIO
 from types import SimpleNamespace
 from unittest import mock
 
+import openpyxl
 from docx import Document
 from rest_framework.test import APIClient
 
@@ -375,22 +376,28 @@ class InvoiceRenderSmokeTest(SimpleTestCase):
             self.assertEqual(content_type, render.DOCX_CONTENT_TYPE)
             self.assertIn('118', filename)
 
+    def _xlsx_text(self, data: bytes) -> str:
+        wb = openpyxl.load_workbook(BytesIO(data))
+        ws = wb.active
+        return '\n'.join(
+            str(c.value) for row in ws.iter_rows() for c in row if c.value is not None
+        )
+
     def test_render_cmr_ru_and_en(self):
-        # two firms on the truck → both sender names must survive into the docx
+        # CMR is an xlsx print-overlay (not docx). Two firms on the truck → both
+        # sender names must survive into the filled sheet (joined in the sender box).
         firms = [
             _mock_firm('Х.О «Датлы миве»', 'Datly miwe LLC', 'г. Ашгабат', 'Ashgabat'),
             _mock_firm('Х.О «Ýigit»', 'Yigit LLC', 'г. Мары', 'Mary'),
         ]
         for key, names in (('cmr_ru', ('Датлы миве', 'Ýigit')), ('cmr_en', ('Datly miwe', 'Yigit'))):
             data, filename, content_type = render.generate(key, _mock_shipment(firms=firms), 'docx')
-            text = self._text(data)
-            self.assertNotIn('{{', text, f'{key}: unrendered tag')
-            self.assertNotIn('{%', text, f'{key}: unrendered tag')
-            self.assertIn('CMR', text)
+            text = self._xlsx_text(data)
             self.assertIn('CMR_', filename)
+            self.assertTrue(filename.endswith('.xlsx'), f'{key}: {filename}')
             for name in names:
                 self.assertIn(name, text, f'{key}: sender {name!r} missing from render')
-            self.assertEqual(content_type, render.DOCX_CONTENT_TYPE)
+            self.assertEqual(content_type, render.XLSX_CONTENT_TYPE)
 
     def test_render_request_letters(self):
         expected = {'ct1_ru': 'СТ-1', 'fito_ru': 'Фитосанитарный', 'customs_tk': 'ARZA'}
@@ -410,6 +417,148 @@ class InvoiceRenderSmokeTest(SimpleTestCase):
         with mock.patch.object(render, '_libreoffice_bin', return_value=None):
             with self.assertRaises(render.DocumentRenderError):
                 render.generate('invoice_ru', _mock_invoice(), 'pdf')
+
+
+def _mock_seller():
+    """ExportFirm stand-in: bilingual name/address/director + bank blob per language."""
+    return SimpleNamespace(
+        name_tk='Hemsaya H.J.', name_ru='Хемсая Х.Дж.',
+        address_tk='Türkmenistan, Ahal w., Kaka etr.', address_ru='Туркменистан, Ахалская обл.',
+        director='Директор Худайназаров Ы.',
+        bank_details_tk='Bank: Türkmenbaşy\nSWIFT: INVATM2X',
+        bank_details_ru='Банк: Туркменбаши\nВал/счет: 23202\nSWIFT: INVATM2X',
+    )
+
+
+def _mock_contract(amount='7830.00', qty='9000', end=date(2026, 12, 31),
+                   structured_buyer=True):
+    """A SimpleNamespace Contract mirroring the ORM attributes the builder reads."""
+    country = SimpleNamespace(name_tk='Gazagystan', name_ru='Казахстан', code='KZ')
+    common = dict(name_company='TOO «Aranşy - KZ»', name_short='Aranşy',
+                  address='РК, Туркестанская обл.', bank_details='blob', country=country)
+    if structured_buyer:
+        buyer = SimpleNamespace(
+            name_tk='Aranşy - KZ', name_ru='Араншы - KZ',
+            address_tk='GR, Türküstan w.', address_ru='РК, Туркестанская обл., с. Первое Мая',
+            director_tk='Tuktibaýew Bekjan', director_ru='Туктибаев Бекжан',
+            bank_bin='191040016779', bank_bik='HSBKKZKX', bank_account='KZ97601A891001387241',
+            bank_name_tk='Halyk Bank', bank_name_ru='Народный Банк', **common,
+        )
+    else:
+        # Firm with only the legacy flat fields (no structured columns filled).
+        buyer = SimpleNamespace(
+            name_tk=None, name_ru=None, address_tk=None, address_ru=None,
+            director_tk=None, director_ru=None, bank_bin=None, bank_bik=None,
+            bank_account=None, bank_name_tk=None, bank_name_ru=None, **common,
+        )
+    return SimpleNamespace(
+        contract_number='108/26-YGT-EXP', start_date=date(2026, 3, 18), end_date=end,
+        planned_amount_usd=Decimal(amount) if amount is not None else None,
+        planned_quantity_kg=Decimal(qty) if qty is not None else None,
+        export_firm=_mock_seller(), import_firm=buyer,
+    )
+
+
+class ContractContextBuilderTest(SimpleTestCase):
+    """Pure contract builder: financials, amount-in-words, dates, seller + buyer."""
+
+    def test_financials_and_amount_in_words(self):
+        c = ctx.build_contract_context(_mock_contract(), 'ru')
+        self.assertEqual(c['contract_no'], '108/26-YGT-EXP')
+        self.assertEqual(c['contract_date'], '18.03.2026')
+        self.assertEqual(c['total_sum'], '7 830,00')
+        self.assertEqual(c['total_sum_words_tk'], 'ýedi müň sekiz ýüz otuz')
+        self.assertEqual(c['total_sum_words_ru'], 'семь тысяч восемьсот тридцать')
+        self.assertEqual(c['quantity'], '9 000')
+        self.assertEqual(c['price'], '0,87')
+
+    def test_dates_ru_spelled_tk_numeric(self):
+        c = ctx.build_contract_context(
+            _mock_contract(), 'ru', {'delivery_deadline': '2026-06-30'},
+        )
+        self.assertEqual(c['delivery_deadline_ru'], '30 июня 2026')
+        self.assertEqual(c['delivery_deadline_tk'], '30.06.2026 ý.')
+        self.assertEqual(c['validity_ru'], '31 декабря 2026')   # from end_date
+        self.assertEqual(c['validity_tk'], '31.12.2026 ý.')
+
+    def test_seller_from_export_firm(self):
+        c = ctx.build_contract_context(_mock_contract(), 'ru')
+        # legal-form suffix stripped (template supplies "HJ" / "Хозяйственное общество")
+        self.assertEqual(c['seller_name_tk'], 'Hemsaya')
+        self.assertEqual(c['seller_name_ru'], 'Хемсая')
+        # director title word stripped (template already prints "Direktor")
+        self.assertEqual(c['seller_director'], 'Худайназаров Ы.')
+        # bank blob collapsed to one line
+        self.assertEqual(c['seller_bank_ru'], 'Банк: Туркменбаши; Вал/счет: 23202; SWIFT: INVATM2X')
+
+    def test_buyer_structured_fields(self):
+        c = ctx.build_contract_context(_mock_contract(), 'ru')
+        self.assertEqual(c['buyer_name_tk'], 'Aranşy - KZ')
+        self.assertEqual(c['buyer_country_tk'], 'Gazagystan')
+        self.assertEqual(c['buyer_country_ru'], 'Казахстан')
+        self.assertEqual(c['buyer_director_tk'], 'Tuktibaýew Bekjan')
+        self.assertEqual(c['buyer_director_ru'], 'Туктибаев Бекжан')
+        self.assertEqual(c['buyer_bin'], '191040016779')
+        self.assertEqual(c['buyer_bik'], 'HSBKKZKX')
+        self.assertEqual(c['buyer_account'], 'KZ97601A891001387241')
+        self.assertEqual(c['buyer_bank_name_ru'], 'Народный Банк')
+
+    def test_buyer_falls_back_to_flat_fields_and_override_director(self):
+        c = ctx.build_contract_context(
+            _mock_contract(structured_buyer=False), 'ru',
+            {'buyer_director': 'Ivanov I.'},
+        )
+        # no structured name/address → flat name_company / address
+        self.assertEqual(c['buyer_name_ru'], 'TOO «Aranşy - KZ»')
+        self.assertEqual(c['buyer_address_ru'], 'РК, Туркестанская обл.')
+        # no director_* column → generate-time override fills both
+        self.assertEqual(c['buyer_director_tk'], 'Ivanov I.')
+        self.assertEqual(c['buyer_director_ru'], 'Ivanov I.')
+        # no structured bank → blank (the structured template lines render empty)
+        self.assertEqual(c['buyer_bin'], '')
+
+    def test_blank_deadline_when_no_override(self):
+        c = ctx.build_contract_context(_mock_contract(), 'ru')
+        self.assertEqual(c['delivery_deadline_ru'], '')
+        self.assertEqual(c['delivery_deadline_tk'], '')
+
+    def test_null_financials_render_blank_words(self):
+        c = ctx.build_contract_context(_mock_contract(amount=None, qty=None), 'ru')
+        self.assertEqual(c['total_sum'], '')
+        self.assertEqual(c['total_sum_words_ru'], '')
+        self.assertEqual(c['price'], '')
+
+
+class ContractRenderSmokeTest(SimpleTestCase):
+    """Fill the shipped contract template and assert clean, value-bearing output."""
+
+    def _text(self, data: bytes) -> str:
+        doc = Document(BytesIO(data))
+        parts = [p.text for p in doc.paragraphs]
+        for t in doc.tables:
+            for row in t.rows:
+                parts.append(' | '.join(c.text for c in row.cells))
+        return '\n'.join(parts)
+
+    def test_render_contract_docx(self):
+        data, filename, content_type = render.generate(
+            'contract_kz', _mock_contract(), 'docx',
+            {'buyer_director': 'Tuktibaýew Bekjan', 'delivery_deadline': '2026-06-30'},
+        )
+        text = self._text(data)
+        self.assertNotIn('{{', text)
+        self.assertNotIn('{%', text)
+        self.assertIn('7 830,00', text)
+        self.assertIn('ýedi müň sekiz ýüz otuz', text)      # TK amount in words
+        self.assertIn('семь тысяч восемьсот тридцать', text)  # RU amount in words
+        self.assertIn('30.06.2026', text)                    # TK numeric deadline
+        self.assertIn('30 июня 2026', text)                  # RU spelled deadline
+        self.assertIn('Hemsaya', text)                       # seller name (not hardcoded Ýigit)
+        self.assertIn('Худайназаров', text)                  # seller director
+        self.assertIn('191040016779', text)                  # buyer БИН (structured)
+        self.assertNotIn('Ýigit', text)                      # no leftover hardcoded seller
+        self.assertEqual(content_type, render.DOCX_CONTENT_TYPE)
+        self.assertEqual(filename, 'Contract_108-26-YGT-EXP_KZ.docx')
 
 
 class InvoiceDocumentEndpointTest(_SeededPermsMixin, TestCase):
@@ -502,10 +651,11 @@ class ShipmentCmrEndpointTest(_SeededPermsMixin, TestCase):
                 weight_kg=Decimal('9000'), amount_usd=Decimal('8000'),
             )
 
-    def test_truck_cmr_docx(self):
+    def test_truck_cmr_xlsx(self):
+        # CMR is an xlsx print-overlay onto the pre-printed official form.
         resp = self.client.get(f'/api/v1/contracts/shipments/{self.shipment.pk}/cmr/')
         self.assertEqual(resp.status_code, 200, resp.content[:200])
-        self.assertEqual(resp['Content-Type'], render.DOCX_CONTENT_TYPE)
+        self.assertEqual(resp['Content-Type'], render.XLSX_CONTENT_TYPE)
         self.assertIn('CMR_', resp['Content-Disposition'])
 
     def test_en_lang_filename(self):
@@ -513,7 +663,7 @@ class ShipmentCmrEndpointTest(_SeededPermsMixin, TestCase):
             f'/api/v1/contracts/shipments/{self.shipment.pk}/cmr/?lang=en'
         )
         self.assertEqual(resp.status_code, 200)
-        self.assertIn('_EN.docx', resp['Content-Disposition'])
+        self.assertIn('_EN.xlsx', resp['Content-Disposition'])
 
     def test_incomplete_packing_returns_400(self):
         self.shipment.box_count = None
@@ -525,6 +675,55 @@ class ShipmentCmrEndpointTest(_SeededPermsMixin, TestCase):
     def test_missing_shipment_returns_404(self):
         resp = self.client.get('/api/v1/contracts/shipments/999999/cmr/')
         self.assertEqual(resp.status_code, 404)
+
+
+class ContractAgreementEndpointTest(_SeededPermsMixin, TestCase):
+    """API: GET /api/v1/contracts/contracts/{id}/agreement/."""
+
+    def setUp(self) -> None:
+        self.client = APIClient()
+        self.user = _make_user('ctr_doc', 'export_manager')
+        self.client.force_authenticate(user=self.user)
+        self.season = _make_season()
+        self.ef = _make_export_firm('YGTCTR')
+        self.imp = _make_import_firm('IMPCTR')
+        self.imp.country = _make_country()  # Kazakhstan (KZ) — required by the gate
+        self.imp.save(update_fields=['country'])
+        self.contract = _make_contract('108/26-YGT-EXP', self.ef, self.imp, self.season)
+        self.contract.planned_amount_usd = Decimal('7830.00')
+        self.contract.planned_quantity_kg = Decimal('9000')
+        self.contract.start_date = date(2026, 3, 18)
+        self.contract.end_date = date(2026, 12, 31)
+        self.contract.save()
+
+    def test_default_docx_download(self):
+        resp = self.client.get(
+            f'/api/v1/contracts/contracts/{self.contract.pk}/agreement/'
+            '?buyer_director=Tuktibayew&delivery_deadline=2026-06-30'
+        )
+        self.assertEqual(resp.status_code, 200, resp.content[:200])
+        self.assertEqual(resp['Content-Type'], render.DOCX_CONTENT_TYPE)
+        self.assertIn('attachment;', resp['Content-Disposition'])
+        self.assertIn('Contract_108-26-YGT-EXP_KZ.docx', resp['Content-Disposition'])
+        self.assertGreater(len(resp.content), 1000)
+
+    def test_non_kz_buyer_returns_400(self):
+        # The KZ template's clauses are Kazakhstan-specific → reject other countries.
+        uz, _ = Country.objects.get_or_create(
+            code='UZ', defaults={'name_tk': 'Özbegistan', 'name_ru': 'Узбекистан', 'name_en': 'Uzbekistan'},
+        )
+        self.imp.country = uz
+        self.imp.save(update_fields=['country'])
+        resp = self.client.get(f'/api/v1/contracts/contracts/{self.contract.pk}/agreement/')
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('Kazakhstan', resp.json()['error'])
+
+    def test_pdf_without_libreoffice_returns_503(self):
+        with mock.patch.object(render, '_libreoffice_bin', return_value=None):
+            resp = self.client.get(
+                f'/api/v1/contracts/contracts/{self.contract.pk}/agreement/?fmt=pdf'
+            )
+        self.assertEqual(resp.status_code, 503)
 
 
 class DocumentPacketEndpointTest(_SeededPermsMixin, TestCase):

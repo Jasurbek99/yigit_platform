@@ -21,6 +21,7 @@ import tempfile
 from io import BytesIO
 from pathlib import Path
 
+import openpyxl
 from django.conf import settings
 from docxtpl import DocxTemplate
 
@@ -32,12 +33,16 @@ logger = logging.getLogger(__name__)
 DOCX_CONTENT_TYPE = (
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 )
+XLSX_CONTENT_TYPE = (
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+)
 PDF_CONTENT_TYPE = 'application/pdf'
 
 # Per-scope extractor for the registry out_pattern (download filename) fields.
 _FILENAME_FIELDS = {
     tpl_registry.SCOPE_INVOICE: document_context.invoice_filename_fields,
     tpl_registry.SCOPE_SHIPMENT: document_context.cmr_filename_fields,
+    tpl_registry.SCOPE_CONTRACT: document_context.contract_filename_fields,
 }
 
 
@@ -54,6 +59,23 @@ def render_docx(template_path: Path, context: dict) -> bytes:
     return buf.getvalue()
 
 
+def render_xlsx(template_path: Path, cell_values: dict) -> bytes:
+    """Fill an ``.xlsx`` overlay template by cell coordinate and return OOXML bytes.
+
+    The template's geometry (column widths, row heights, print scale, merges) is
+    preserved untouched — the builder returns a ``{coordinate: value}`` map that is
+    written into the single active sheet. Used by the CMR print-overlay, whose
+    layout must register on the pre-printed official form.
+    """
+    wb = openpyxl.load_workbook(template_path)
+    ws = wb.active
+    for coord, value in cell_values.items():
+        ws[coord] = value
+    buf = BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
 def _libreoffice_bin() -> str | None:
     """Locate the LibreOffice binary (setting first, then PATH)."""
     configured = getattr(settings, 'LIBREOFFICE_BIN', '') or ''
@@ -62,11 +84,13 @@ def _libreoffice_bin() -> str | None:
     return shutil.which('soffice') or shutil.which('libreoffice')
 
 
-def render_pdf(docx_bytes: bytes) -> bytes:
-    """Convert filled ``.docx`` bytes to PDF via LibreOffice headless.
+def render_pdf(source_bytes: bytes, source_ext: str = 'docx') -> bytes:
+    """Convert filled ``.docx`` / ``.xlsx`` bytes to PDF via LibreOffice headless.
 
     A unique ``-env:UserInstallation`` profile per call avoids the shared-profile
-    lock that serializes/breaks concurrent headless conversions.
+    lock that serializes/breaks concurrent headless conversions. LibreOffice picks
+    its input filter from the file extension, so the source is written with its
+    native ``source_ext`` (``docx`` for Word templates, ``xlsx`` for the CMR overlay).
 
     Raises:
         DocumentRenderError: If LibreOffice is not installed or conversion fails.
@@ -75,13 +99,14 @@ def render_pdf(docx_bytes: bytes) -> bytes:
     if not binary:
         raise DocumentRenderError(
             'PDF export requires LibreOffice (set LIBREOFFICE_BIN or install '
-            'soffice/libreoffice on the server). The .docx export is unaffected.'
+            'soffice/libreoffice on the server). The native (.docx/.xlsx) export '
+            'is unaffected.'
         )
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
-        src = tmp_path / 'in.docx'
-        src.write_bytes(docx_bytes)
+        src = tmp_path / f'in.{source_ext}'
+        src.write_bytes(source_bytes)
         profile = (tmp_path / 'lo_profile').as_uri()
         try:
             subprocess.run(
@@ -128,11 +153,16 @@ def generate(
     builder = tpl_registry.resolve_builder(spec)
     context = builder(primary_obj, spec.language, overrides)
 
-    docx_bytes = render_docx(spec.template_path, context)
+    if spec.engine == 'xlsx':
+        source_bytes = render_xlsx(spec.template_path, context)
+        native_ext, native_type = 'xlsx', XLSX_CONTENT_TYPE
+    else:
+        source_bytes = render_docx(spec.template_path, context)
+        native_ext, native_type = 'docx', DOCX_CONTENT_TYPE
 
     fields = _FILENAME_FIELDS[spec.scope](primary_obj)
     stem = spec.out_pattern.format(**fields)
 
     if fmt == 'pdf':
-        return render_pdf(docx_bytes), f'{stem}.pdf', PDF_CONTENT_TYPE
-    return docx_bytes, f'{stem}.docx', DOCX_CONTENT_TYPE
+        return render_pdf(source_bytes, native_ext), f'{stem}.pdf', PDF_CONTENT_TYPE
+    return source_bytes, f'{stem}.{native_ext}', native_type

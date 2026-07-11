@@ -5,9 +5,17 @@ the `Export_contracts` master sheet (2–3 hrs/day against a 13:00 deadline). P4
 ships this **one document at a time** on a shared, document-agnostic framework.
 
 **Shipped:** per-firm **Invoice** (RU/EN) + the **CT-1 / FITO / Customs** request
-letters, and the truck-level **CMR** (RU/EN) — each as both `.docx` (editable) and
-PDF. Documents are produced from the **Documents page** (`/documents`), a
-truck-indexed workspace for the document team.
+letters, and the truck-level **CMR** (RU/EN). Most documents download as `.docx`
+(editable) and PDF; the **CMR is the exception** — it is an **xlsx print-overlay**
+(see [[#CMR (road consignment note) — truck-level]]) so its native download is
+`.xlsx`. Template layouts mirror the office Excel sheets: e.g. the Invoice renders
+**two pages** — the invoice and the `Упаковочный лист` / `Packing List` (weights
+only, no prices), matching the `InvoiceRU` / `InvoiceEN` sheets. Documents are
+produced from the **Documents page** (`/documents`), a
+truck-indexed workspace for the document team. Plus the **export contract** itself
+(bilingual TK/RU agreement) — generated from the **Contract detail page**, not the
+Documents page (its scope is a `Contract`, not a truck). See
+[[#Export contract (bilingual TK/RU agreement)]].
 
 ## How it works (end to end)
 
@@ -32,10 +40,10 @@ context builder", never "wire a new endpoint stack".
 
 | Piece | Where | Role |
 |-------|-------|------|
-| Template registry | `apps/contracts/document_templates/registry.py` | Plain dict (not a DB model) keyed by document key → `.docx` file, scope, language, context-builder, filename pattern. One entry per concrete document/variant. |
-| Template files | `apps/contracts/document_templates/*.docx` | Authored Word layouts with Jinja tags. Static labels baked per language; only data values are `{{ }}`. Built by `build_templates.py`. |
-| Context builders | `apps/contracts/services/document_context.py` | Pure `(obj, lang) → dict`. Owns date/money/kg formatting, firm-language fallback, shipment-vs-invoice fallback. Unit-tested without rendering. |
-| Render service | `apps/contracts/services/document_render.py` | `render_docx` (docxtpl→bytes); `render_pdf` (LibreOffice headless→bytes); `generate(key, obj, fmt)` ties it together. |
+| Template registry | `apps/contracts/document_templates/registry.py` | Plain dict (not a DB model) keyed by document key → template file, scope, language, context-builder, filename pattern, **`engine`** (`docx` \| `xlsx`). One entry per concrete document/variant. |
+| Template files | `apps/contracts/document_templates/*.docx` / `*.xlsx` | docx: authored Word layouts with Jinja tags (static labels baked per language, only data as `{{ }}`), built by `build_templates.py`. xlsx: the CMR overlay sheets (geometry-preserving), built by `build_cmr_xlsx.py`. |
+| Context builders | `apps/contracts/services/document_context.py` | Pure `(obj, lang) → dict`. docx builders return a Jinja context; the xlsx CMR builder (`build_cmr_overlay`) returns a `{cell: value}` map. Owns date/money/kg formatting, firm-language fallback, shipment-vs-invoice fallback. Unit-tested without rendering. |
+| Render service | `apps/contracts/services/document_render.py` | `render_docx` (docxtpl→bytes); `render_xlsx` (openpyxl cell-fill→bytes); `render_pdf` (LibreOffice headless→bytes, any source ext); `generate(key, obj, fmt)` branches on `spec.engine`. |
 | API views | `ContractSaleViewSet.document` (per-firm docs), `ShipmentCmrView` (truck CMR), `DocumentPacketListView` (page list) — all in `apps/contracts/views.py` | Thin; run the packing guard, then return the file as an attachment (or the packet list). |
 | Audit model | *(deferred)* | `GeneratedDocument` for the 13:00 board — not needed to generate. |
 
@@ -161,9 +169,27 @@ an `export` ViewSet — because the builder is in `contracts`, which may import
 this truck endpoint.
 
 The `forwarder` is auto-filled from the export firm(s). The `route` / border line
-was dropped — the destination borders don't require it. Deferred: the **official
-24-box CMR form** (current template is a simplified labelled layout with the same
-Jinja field names, so the business can re-skin it).
+was dropped — the destination borders don't require it.
+
+**The CMR is an XLSX print-overlay, not a docx.** The office prints truck data ON
+TOP of the pre-printed official 24-box CMR form; the source `CMR RU` / `CMR EN`
+Excel sheets carry the exact geometry (A4 @ 60% scale, column/row sizes, merges)
+tuned to register on the paper. Reproducing that grid in python-docx is lossy by
+construction, so the CMR keeps the Excel geometry:
+- **Templates** `cmr_ru.xlsx` / `cmr_en.xlsx` — the source sheets stripped to
+  fixed unit labels + geometry (data/formula/helper cells blanked). Rebuilt by
+  `build_cmr_xlsx.py` from the operational workbook.
+- **Builder** `build_cmr_overlay(shipment, lang, overrides)` returns a
+  `{cell_coordinate: value}` map (reuses `build_cmr_context` for the figures, adds
+  destination country / driver / plates). RU and EN use **different coordinate
+  maps** (the two sheets sit data on slightly different rows/cols).
+- **Engine** `TemplateSpec.engine='xlsx'` → `render_xlsx` fills cells by coordinate
+  (openpyxl), preserving geometry untouched; PDF still goes through LibreOffice.
+- Known simplification: multiple firms are joined into one sender box (matches
+  single-firm trucks exactly; per-cell firm1/firm2 split is a future refinement).
+
+Because the CMR engine is xlsx, its native download is **`.xlsx`** (not `.docx`);
+`fmt=pdf` is unchanged.
 
 **Generate-time inputs.** `place_loading` (invoice + CMR) and `tir_carnet` (CMR
 only, Uzbekistan transit) are not stored on the invoice — they're chosen when the
@@ -196,6 +222,65 @@ customs-clearance ARZA (`customs_tk`, Turkmen). Builders `build_ct1_context` /
 is baked into each template, only named fields injected. `fito`/`customs` resolve
 the destination country via `_country_name` (shipment → buyer-firm fallback). CT-1
 needs only firm + contract, so it fills even with no shipment link.
+
+## Export contract (bilingual TK/RU agreement)
+
+The master sale agreement itself — a two-column Turkmen/Russian legal instrument
+(the `NNN/YY-YGT-EXP` contracts). Unlike every other document it renders from a
+**`Contract`** (`scope=contract`, key `contract_kz`), and unlike the per-language
+invoice/CMR it holds **both languages in one `.docx`** (the source is a two-column
+document). The template `contract_kz.docx` was cloned from a real signed contract
+to preserve the exact legal layout/logo; only the variable fields became Jinja tags.
+
+**Kazakhstan-specific + gated:** the clauses reference KZ customs authorities (§4),
+so the endpoint **rejects a non-Kazakhstan buyer with 400** (`import_firm.country.code
+!= 'KZ'`), and the frontend button is disabled (with a tooltip) unless the contract's
+buyer is in KZ (`import_firm_country_code`, exposed on the contract detail serializer).
+A per-country template set is the future extension.
+
+Endpoint (gated by the **`contract`** resource view permission — this one is NOT on
+the `sale` resource, since it hangs off the Contract, not a truck):
+```
+GET /api/v1/contracts/contracts/{id}/agreement/?fmt=docx|pdf&buyer_director=&delivery_deadline=
+```
+
+**Data sources.** Financials/dates come from the `Contract`.
+- **Seller** = `contract.export_firm`: bilingual name (**bare** — the template supplies
+  the legal form `HJ` / `Хозяйственное общество`, so a trailing `H.J.`/`Х.Дж.` in the
+  stored name is stripped), address, director (the leading `Директор`/`Direktor` title
+  the template already prints is stripped), and the `bank_details_tk/ru` **blob**
+  collapsed to one line (`_oneline` joins newlines with `; ` — a bare `\n` won't
+  line-break in a docx run; the template's structured seller-bank lines were merged
+  since ExportFirm stores only a blob).
+- **Buyer** = `contract.import_firm`: the **structured bilingual** requisites added to
+  `ImportFirm` for this feature — `name_tk/ru`, `address_tk/ru`, `director_tk/ru`,
+  `bank_bin`, `bank_bik`, `bank_account`, `bank_name_tk/ru` — each **falling back** to
+  the flat `name_company`/`address` when its language column is blank, plus the
+  bilingual country name. `buyer_director` may also be passed as a generate-time
+  override for firms whose `director_*` columns aren't filled yet.
+- **`delivery_deadline`** (§2.6 shipping cut-off, `YYYY-MM-DD`) is a generate-time
+  override; the contract **validity** date (§8.1) comes from `Contract.end_date`.
+
+The new `ImportFirm` requisite fields are editable in *Admin → Import Firms* (a
+"Contract requisites" section on the firm detail page; also on the create drawer).
+
+**Amount in words.** The total is spelled out in both languages —
+`services/amount_words.py` (`amount_words_ru` / `amount_words_tk`), hand-rolled (no
+`num2words` dependency) for the bounded USD range, with RU thousands
+gender/plural agreement and TK's dropped leading `bir` before `müň`/`ýüz`. Only the
+whole-dollar part is spelled. Tested against the two real contract amounts in
+`test_amount_words.py`.
+
+**Dates.** RU is spelled (`30 июня 2026`); TK is **numeric** (`30.06.2026 ý.`) —
+Turkmen ordinal-date morphology is applied inconsistently even in the source
+contracts, so the unambiguous numeric form (idiomatic in TK official text) is used
+rather than risk wrong grammar.
+
+Frontend: a **"Generate contract"** button (`components/ContractAgreementButton.tsx`)
+in the Contract detail header opens a modal for the director + deadline + format,
+then downloads via `downloadFile()`. Labels `contracts.generate.*` (tk/ru/en). The
+template's placeholder schema is documented in the standalone template under
+`data/contract_documents/` (the reusable `{{placeholder}}` version).
 
 ## Documents page (packets endpoint)
 

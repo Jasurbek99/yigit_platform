@@ -9,8 +9,11 @@ Date format for these export documents is ``DD.MM.YYYY`` (NOT ISO).
 """
 from __future__ import annotations
 
+import re
 from datetime import date
 from decimal import Decimal
+
+from apps.contracts.services.amount_words import amount_words_ru, amount_words_tk
 
 # Constant: TN VED (HS) code for fresh tomatoes. Overridable per line if needed.
 TOMATO_HS_CODE = '070200000'
@@ -380,6 +383,105 @@ def cmr_filename_fields(shipment) -> dict:
     return {'shipment_code': (shipment.shipment_code or 'NA').replace('/', '-')}
 
 
+# ─── CMR overlay (xlsx print-overlay onto the pre-printed official form) ──────
+#
+# The CMR is NOT a self-contained document: the office prints truck data ON TOP of
+# the pre-printed 24-box CMR form, using the ``CMR RU`` / ``CMR EN`` sheets whose
+# geometry (A4 @ 60% scale, column/row sizes) is tuned to register on the paper.
+# So instead of a docx layout we fill the cleaned template sheet (see
+# ``document_templates/build_cmr_xlsx.py``) by coordinate. This builder returns a
+# ``{cell_coordinate: value}`` map consumed by ``document_render.render_xlsx``.
+
+# Combined-phrase locale for the overlay (values the sheet baked into one cell).
+_CMR_OVERLAY_LOCALE = {
+    'ru': {'pallets_line': 'на {n} деревянных поддонах', 'net_suffix': ' кг.',
+           'tir_prefix': 'CARNET TIR '},
+    'en': {'pallets_line': 'on {n} wooden pallets', 'net_suffix': ' kg.',
+           'tir_prefix': 'CARNET TIR '},
+}
+
+# Per-language cell coordinate → overlay-value key. RU and EN diverge because the
+# two source sheets sit the same data on slightly different rows/columns.
+_CMR_OVERLAY_CELLS = {
+    'ru': {
+        'E2': 'sender_name', 'B3': 'sender_address',
+        'B8': 'consignee_name', 'B9': 'consignee_address', 'B15': 'country_destination',
+        'D18': 'place_loading', 'D19': 'country_dispatch', 'C20': 'doc_date',
+        'D22': 'invoice_refs', 'D23': 'tir_line',
+        'G26': 'cargo_name', 'D27': 'boxes', 'E27': 'packing', 'D28': 'pallets_line',
+        'L27': 'pallet_weight', 'L28': 'gross_without_pallet', 'L29': 'gross_with_pallet',
+        'N29': 'net_line', 'G46': 'doc_date', 'G48': 'driver_name', 'F53': 'plates',
+    },
+    'en': {
+        'E2': 'sender_name', 'B3': 'sender_address',
+        'B8': 'consignee_name', 'B9': 'consignee_address', 'C15': 'country_destination',
+        'D17': 'place_loading', 'D18': 'country_dispatch', 'D19': 'doc_date',
+        'D22': 'invoice_refs', 'D23': 'tir_line',
+        'G26': 'cargo_name', 'D27': 'boxes', 'E27': 'packing', 'D28': 'pallets_line',
+        'L27': 'pallet_weight', 'L28': 'gross_without_pallet', 'L29': 'gross_with_pallet',
+        'N29': 'net_line', 'G46': 'doc_date', 'F48': 'driver_name', 'F54': 'plates',
+    },
+}
+
+
+def _dest_country_name(shipment, lang: str) -> str:
+    """Destination country name (box 3 of the CMR), '' if unresolved."""
+    country = getattr(getattr(shipment, 'import_firm', None), 'country', None)
+    if country is None:
+        return ''
+    return getattr(country, f'name_{lang}', '') or getattr(country, 'name_ru', '') or ''
+
+
+def build_cmr_overlay(shipment, lang: str = 'ru', overrides: dict | None = None) -> dict:
+    """Build the ``{cell: value}`` map for the CMR xlsx overlay.
+
+    Reuses ``build_cmr_context`` for the formatted truck figures, then places them
+    (plus the destination country, driver, and plates) at the sheet coordinates the
+    pre-printed form expects. Empty values are dropped so the template's fixed
+    labels aren't overwritten with blanks.
+
+    Args:
+        shipment: A ``Shipment`` (same prefetch expectations as ``build_cmr_context``).
+        lang: ``'ru'`` or ``'en'`` — selects the coordinate map + phrase locale.
+
+    Returns:
+        ``{cell_coordinate: str}`` for the language's template sheet.
+    """
+    lang = lang if lang in _CMR_OVERLAY_CELLS else 'ru'
+    phrases = _CMR_OVERLAY_LOCALE[lang]
+    ctx = build_cmr_context(shipment, lang, overrides)
+
+    plate = (shipment.truck_plate or '').strip()
+    trailer = shipment.trailer_id
+    plates = f'{plate}/{trailer}' if plate and trailer else plate or ''
+    pallets = ctx['pallets']
+
+    values = {
+        'sender_name': ctx['sender_name'],
+        'sender_address': ctx['sender_address'],
+        'consignee_name': ctx['consignee_name'],
+        'consignee_address': ctx['consignee_address'],
+        'country_destination': _dest_country_name(shipment, lang),
+        'place_loading': ctx['place_loading'],
+        'country_dispatch': ctx['country_dispatch'],
+        'doc_date': ctx['doc_date'],
+        'invoice_refs': ctx['invoice_refs'],
+        'tir_line': f"{phrases['tir_prefix']}{ctx['tir_carnet']}" if ctx['tir_carnet'] else '',
+        'cargo_name': ctx['cargo_name'],
+        'boxes': ctx['boxes'],
+        'packing': ctx['packing'],
+        'pallets_line': phrases['pallets_line'].format(n=pallets) if pallets else '',
+        'pallet_weight': ctx['pallet_weight'],
+        'gross_without_pallet': ctx['gross_without_pallet'],
+        'gross_with_pallet': ctx['gross_with_pallet'],
+        'net_line': f"{ctx['net']}{phrases['net_suffix']}" if ctx['net'] else '',
+        'driver_name': (shipment.driver_name or '').strip(),
+        'plates': plates,
+    }
+    cells = {coord: values[key] for coord, key in _CMR_OVERLAY_CELLS[lang].items()}
+    return {coord: val for coord, val in cells.items() if val not in (None, '')}
+
+
 # ─── Authority request letters (CT-1, phyto, customs) ────────────────────────
 
 def _contract_line(contract) -> str:
@@ -458,3 +560,184 @@ def build_customs_context(invoice, lang: str = 'tk', overrides: dict | None = No
         'country': _country_name(invoice, lang),
         'doc_date': _date(invoice.invoice_date),
     }
+
+
+# ─── Export contract (bilingual TK/RU agreement) ─────────────────────────────
+
+# Russian genitive month names for spelled dates ("30 июня 2026").
+_RU_MONTHS_GEN = [
+    '', 'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
+    'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря',
+]
+
+
+def _date_ru_spelled(value: date | None) -> str:
+    """Spelled Russian date without the trailing 'года' ('30 июня 2026'), '' if None.
+
+    The template supplies the fixed 'года'/'г.' suffix, so this returns just
+    ``<day> <month-genitive> <year>``.
+    """
+    if value is None:
+        return ''
+    return f'{value.day} {_RU_MONTHS_GEN[value.month]} {value.year}'
+
+
+def _date_tk_numeric(value: date | None) -> str:
+    """Turkmen date as ``DD.MM.YYYY ý.``, '' if None.
+
+    Turkmen spelled-out ordinal dates need vowel-harmony morphology that the
+    source contracts apply inconsistently, so we use the unambiguous numeric
+    form (idiomatic in Turkmen official text) rather than risk wrong grammar.
+    """
+    if value is None:
+        return ''
+    return f'{value:%d.%m.%Y} ý.'
+
+
+def _oneline(text: str) -> str:
+    """Collapse line breaks in a blob to '; ' (docx runs don't render '\\n')."""
+    return '; '.join(part.strip() for part in text.splitlines() if part.strip())
+
+
+def _parse_iso(value: str | None) -> date | None:
+    """Parse a ``YYYY-MM-DD`` string (from a query param) to a date, None if invalid."""
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value.strip())
+    except ValueError:
+        return None
+
+
+# Legal-form suffix the template already supplies as a fixed word around the seller
+# name placeholder (e.g. ``«{{ seller_name_tk }}» HJ``), stripped from the stored
+# firm name so the form isn't printed twice ("Hemsaya H.J." → "Hemsaya"). Matches on
+# a whitespace separator only — it never consumes quote marks, so a name stored with
+# guillemets keeps both of them ("«X» H.J." → "«X»", not "«X").
+_SELLER_FORM_SUFFIX = re.compile(r'\s+(H\.?\s?J\.?|Х\.?\s?Дж\.?)\.?\s*$', re.IGNORECASE)
+# Director title the template already labels ("Direktor {{ seller_director }}"),
+# stripped from the stored value ("Директор Маммедов А.А." → "Маммедов А.А.").
+_DIRECTOR_TITLE = re.compile(r'^\s*(Директор|Direktor|Director)\s+', re.IGNORECASE)
+
+
+def _bare_seller_name(name: str) -> str:
+    """Strip a trailing legal-form suffix so it isn't duplicated by the template.
+
+    Falls back to the original name if stripping would empty it (a name that is
+    *only* a legal form, e.g. literally "H.J." — degenerate data, but never render
+    an empty "«»").
+    """
+    stripped = _SELLER_FORM_SUFFIX.sub('', name or '').strip()
+    return stripped or (name or '').strip()
+
+
+def _seller_director(firm) -> str:
+    """Director name without the leading title word the template already prints.
+
+    Single value (ExportFirm stores one ``director`` column, not a tk/ru split), so a
+    Cyrillic-stored name prints in the Turkmen column too — accepted, since it is a
+    proper name. Add ``director_tk``/``director_ru`` to ExportFirm for a script split.
+    """
+    return _DIRECTOR_TITLE.sub('', getattr(firm, 'director', '') or '').strip()
+
+
+def build_contract_context(contract, lang: str = 'ru', overrides: dict | None = None) -> dict:
+    """Build the Jinja context for the bilingual TK/RU export contract.
+
+    The contract .docx is a two-column legal instrument (a single template holds
+    both languages, unlike the per-language invoice/CMR).
+
+    - **Financials / dates / validity** come from the ``Contract``.
+    - **Seller** = ``contract.export_firm``: bilingual name (bare, the template
+      supplies the legal form) / address / director, and its ``bank_details_*``
+      blob collapsed to one line (the template's structured seller-bank lines were
+      merged, since ExportFirm stores only a blob).
+    - **Buyer** = ``contract.import_firm``: the structured bilingual requisites
+      (name/address/director/бИН/БИК/р-с/bank-name), each falling back to the flat
+      ``name_company`` / ``address`` field when its language-specific column is
+      blank, plus the bilingual country name. ``buyer_director`` may also be passed
+      as an override for firms whose ``director_*`` columns aren't filled yet.
+    - **``delivery_deadline``** (§2.6) is generate-time (``YYYY-MM-DD`` override);
+      the validity date (§8.1) is ``Contract.end_date``.
+
+    Args:
+        contract: A ``Contract`` instance. Caller should ``select_related``
+            ``export_firm``, ``import_firm__country``.
+        lang: Accepted for a uniform builder signature; the template is bilingual
+            so both language values are always emitted.
+        overrides: ``buyer_director`` and ``delivery_deadline`` from the request.
+
+    Returns:
+        Flat dict consumed by ``contract_kz.docx``.
+    """
+    overrides = overrides or {}
+    seller = contract.export_firm
+    buyer = contract.import_firm
+    country = getattr(buyer, 'country', None)
+
+    amount = contract.planned_amount_usd
+    qty = contract.planned_quantity_kg
+    unit_price = (amount / qty) if (amount and qty) else None
+    # The figure (total_sum) is 2dp; the spelled-out amount is whole-dollar only —
+    # matching the source contract convention ("7 830,00 (ýedi müň … otuz)"). These
+    # planned totals are always round dollars, so figure and words agree; a
+    # fractional planned_amount_usd would spell only the whole part (cents not voiced).
+    whole_dollars = int(amount) if amount is not None else None
+
+    deadline = _parse_iso(overrides.get('delivery_deadline'))
+    override_director = (overrides.get('buyer_director') or '').strip()
+
+    # Buyer: structured column, falling back to the flat blob field when blank so a
+    # firm that only has the legacy name_company/address still renders something.
+    flat_name = getattr(buyer, 'name_company', '') or getattr(buyer, 'name_short', '') or ''
+    flat_address = getattr(buyer, 'address', '') or ''
+
+    def _buyer(field: str, fallback: str = '') -> str:
+        return (getattr(buyer, field, '') or '').strip() or fallback
+
+    return {
+        'contract_no': contract.contract_number or '',
+        'contract_date': _date(contract.start_date),
+        # Financials — one numeric value shown in both language columns (RU grouping).
+        'total_sum': _money(amount, 'ru'),
+        'total_sum_words_tk': amount_words_tk(whole_dollars) if whole_dollars is not None else '',
+        'total_sum_words_ru': amount_words_ru(whole_dollars) if whole_dollars is not None else '',
+        'quantity': _kg(qty, 'ru'),
+        'price': _price(unit_price, 'ru'),
+        # Dates — RU spelled, TK numeric (see _date_tk_numeric).
+        'delivery_deadline_tk': _date_tk_numeric(deadline),
+        'delivery_deadline_ru': _date_ru_spelled(deadline),
+        'validity_tk': _date_tk_numeric(contract.end_date),
+        'validity_ru': _date_ru_spelled(contract.end_date),
+        # Seller (export firm) — name bare (template supplies the legal form).
+        'seller_name_tk': _bare_seller_name(getattr(seller, 'name_tk', '') or ''),
+        'seller_name_ru': _bare_seller_name(
+            getattr(seller, 'name_ru', '') or getattr(seller, 'name_tk', '') or ''
+        ),
+        'seller_address_tk': getattr(seller, 'address_tk', '') or '',
+        'seller_address_ru': getattr(seller, 'address_ru', '') or getattr(seller, 'address_tk', '') or '',
+        'seller_director': _seller_director(seller),
+        'seller_bank_tk': _oneline(getattr(seller, 'bank_details_tk', '') or ''),
+        'seller_bank_ru': _oneline(
+            getattr(seller, 'bank_details_ru', '') or getattr(seller, 'bank_details_tk', '') or ''
+        ),
+        # Buyer (import firm) — structured bilingual requisites with flat fallback.
+        'buyer_name_tk': _buyer('name_tk', flat_name),
+        'buyer_name_ru': _buyer('name_ru', flat_name),
+        'buyer_country_tk': getattr(country, 'name_tk', '') or '',
+        'buyer_country_ru': getattr(country, 'name_ru', '') or getattr(country, 'name_tk', '') or '',
+        'buyer_director_tk': _buyer('director_tk', override_director),
+        'buyer_director_ru': _buyer('director_ru', override_director),
+        'buyer_address_tk': _buyer('address_tk', flat_address),
+        'buyer_address_ru': _buyer('address_ru', flat_address),
+        'buyer_bin': _buyer('bank_bin'),
+        'buyer_bik': _buyer('bank_bik'),
+        'buyer_account': _buyer('bank_account'),
+        'buyer_bank_name_tk': _buyer('bank_name_tk'),
+        'buyer_bank_name_ru': _buyer('bank_name_ru'),
+    }
+
+
+def contract_filename_fields(contract) -> dict:
+    """Flat dict for the contract registry ``out_pattern`` (download filename)."""
+    return {'contract_number': (contract.contract_number or 'NA').replace('/', '-')}

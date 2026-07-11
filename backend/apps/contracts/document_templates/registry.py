@@ -47,10 +47,11 @@ class TemplateSpec:
     version: str
     context_builder: str
     out_pattern: str
+    engine: str = 'docx'  # 'docx' (docxtpl) | 'xlsx' (openpyxl cell-fill overlay)
 
     @property
     def template_path(self) -> Path:
-        """Absolute path to the template ``.docx`` file."""
+        """Absolute path to the template file."""
         return TEMPLATES_DIR / self.filename
 
 
@@ -74,24 +75,29 @@ REGISTRY: dict[str, TemplateSpec] = {
         out_pattern='Invoice_{contract_number}_{invoice_number}_EN',
     ),
     # CMR (road consignment note) — truck-level. Renders from a Shipment,
-    # aggregating all export firms on the truck as senders.
+    # aggregating all export firms on the truck as senders. This is an XLSX
+    # print-overlay onto the pre-printed official 24-box form (NOT a docx layout):
+    # the builder returns a {cell: value} map filled into the geometry-preserving
+    # template sheet. See document_templates/build_cmr_xlsx.py.
     'cmr_ru': TemplateSpec(
         key='cmr_ru',
-        filename='cmr_ru.docx',
+        filename='cmr_ru.xlsx',
         scope=SCOPE_SHIPMENT,
         language='ru',
         version='1.0',
-        context_builder='apps.contracts.services.document_context.build_cmr_context',
+        context_builder='apps.contracts.services.document_context.build_cmr_overlay',
         out_pattern='CMR_{shipment_code}_RU',
+        engine='xlsx',
     ),
     'cmr_en': TemplateSpec(
         key='cmr_en',
-        filename='cmr_en.docx',
+        filename='cmr_en.xlsx',
         scope=SCOPE_SHIPMENT,
         language='en',
         version='1.0',
-        context_builder='apps.contracts.services.document_context.build_cmr_context',
+        context_builder='apps.contracts.services.document_context.build_cmr_overlay',
         out_pattern='CMR_{shipment_code}_EN',
+        engine='xlsx',
     ),
     # Authority request letters — single-language (per the source forms).
     'ct1_ru': TemplateSpec(
@@ -120,6 +126,18 @@ REGISTRY: dict[str, TemplateSpec] = {
         version='1.0',
         context_builder='apps.contracts.services.document_context.build_customs_context',
         out_pattern='Customs_{contract_number}_{invoice_number}_TK',
+    ),
+    # Export contract (bilingual TK/RU agreement) — the one template that holds
+    # BOTH languages in a single .docx, diverging from the one-language-per-file
+    # convention above because the source is a two-column legal instrument.
+    'contract_kz': TemplateSpec(
+        key='contract_kz',
+        filename='contract_kz.docx',
+        scope=SCOPE_CONTRACT,
+        language='ru',
+        version='1.0',
+        context_builder='apps.contracts.services.document_context.build_contract_context',
+        out_pattern='Contract_{contract_number}_KZ',
     ),
 }
 
