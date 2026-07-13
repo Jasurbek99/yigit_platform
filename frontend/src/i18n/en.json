@@ -2780,6 +2780,17 @@
     },
     "select": {
       "placeholder": "Select contract"
+    },
+    "generate": {
+      "button": "Generate contract",
+      "title": "Generate contract (Kazakhstan)",
+      "buyer_director": "Buyer's director",
+      "buyer_director_ph": "Full name printed in the preamble and signature",
+      "delivery_deadline": "Delivery deadline",
+      "delivery_deadline_ph": "Shipping cut-off date (§2.6)",
+      "format": "Format",
+      "kz_only": "Available only for Kazakhstan buyers (this contract template is KZ-specific).",
+      "buyer_director_extra": "Pre-filled from the Import Firm's “Director's Full Name” — edit if needed."
     }
   },
   "sales_list": {

@@ -73,7 +73,8 @@ class ContractViewSet(ModelViewSet):
         contract is completed or closed.
         """
         qs = Contract.objects.select_related(
-            'export_firm', 'import_firm', 'season', 'customer', 'created_by',
+            'export_firm', 'import_firm', 'import_firm__country', 'season', 'customer',
+            'created_by',
         )
         if self.action == 'retrieve':
             qs = qs.prefetch_related('attachments__uploaded_by')
@@ -123,6 +124,51 @@ class ContractViewSet(ModelViewSet):
             return ContractCreateSerializer
         # retrieve → full detail
         return ContractDetailSerializer
+
+    @action(detail=True, methods=['get'], url_path='agreement')
+    def agreement(self, request, pk=None):
+        """Generate the bilingual TK/RU export contract (.docx or PDF).
+
+        Query params:
+            fmt: ``docx`` (default) or ``pdf``. (Named ``fmt`` not ``format`` —
+                 ``format`` is reserved by DRF content negotiation.)
+            buyer_director: buyer's director name — printed in the preamble and
+                signature blocks. Not stored on ImportFirm, so supplied here.
+            delivery_deadline: shipping cut-off date ``YYYY-MM-DD`` (§2.6). The
+                contract *validity* date (§8.1) comes from the contract's end_date.
+
+        Gated by the contract resource's view permission. Returns the file as an
+        attachment; PDF requires LibreOffice (503 with a clear message if absent).
+        """
+        contract = self.get_object()
+
+        # KZ-specific template: its liability clauses (§4) name Kazakh customs
+        # authorities, so it must not be emitted for a non-Kazakhstan buyer.
+        buyer = contract.import_firm
+        country_code = getattr(getattr(buyer, 'country', None), 'code', None)
+        if country_code != 'KZ':
+            return Response(
+                {'error': 'This contract template is for Kazakhstan buyers only.'},
+                status=400,
+            )
+
+        fmt = request.query_params.get('fmt', 'docx')
+        overrides = {
+            key: value
+            for key in ('buyer_director', 'delivery_deadline')
+            if (value := request.query_params.get(key, '').strip())
+        }
+
+        try:
+            data, filename, content_type = generate('contract_kz', contract, fmt, overrides)
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=400)
+        except DocumentRenderError as exc:
+            return Response({'error': str(exc)}, status=503)
+
+        response = HttpResponse(data, content_type=content_type)
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
 
     @action(detail=True, methods=['post'], url_path='attachments')
     def upload_attachment(self, request, pk=None):

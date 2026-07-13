@@ -692,13 +692,14 @@ def build_contract_context(contract, lang: str = 'ru', overrides: dict | None = 
       supplies the legal form) / address / director, and its ``bank_details_*``
       blob collapsed to one line (the template's structured seller-bank lines were
       merged, since ExportFirm stores only a blob).
-    - **Buyer** = ``contract.import_firm``: the structured bilingual requisites
-      (name/address/director/бИН/БИК/р-с/bank-name), each falling back to the flat
-      ``name_company`` / ``address`` field when its language-specific column is
-      blank, plus the bilingual country name. ``buyer_director`` may also be passed
-      as an override for firms whose ``director_*`` columns aren't filled yet.
-    - **``delivery_deadline``** (§2.6) is generate-time (``YYYY-MM-DD`` override);
-      the validity date (§8.1) is ``Contract.end_date``.
+    - **Buyer** = ``contract.import_firm``: the flat single-value fields the model
+      has (``name_company`` / ``address`` / ``bank_details`` blob) shown in both
+      language columns, plus the bilingual country name. The director name comes from
+      the ``buyer_director`` override (the modal pre-fills it from the firm's
+      ``contact_person`` "Director's Full Name" and lets it be edited), falling back
+      to ``contact_person`` when the request carries no override.
+    - **``delivery_deadline``** (§2.6) is a generate-time override; the validity date
+      (§8.1) is ``Contract.end_date``.
 
     Args:
         contract: A ``Contract`` instance. Caller should ``select_related``
@@ -725,15 +726,18 @@ def build_contract_context(contract, lang: str = 'ru', overrides: dict | None = 
     whole_dollars = int(amount) if amount is not None else None
 
     deadline = _parse_iso(overrides.get('delivery_deadline'))
-    override_director = (overrides.get('buyer_director') or '').strip()
+    # Buyer director: the modal sends buyer_director (pre-filled from the firm's
+    # "Director's Full Name" = ImportFirm.contact_person, and editable), so that wins;
+    # contact_person is the fallback when the request carries no override.
+    director = (overrides.get('buyer_director') or '').strip() or (
+        getattr(buyer, 'contact_person', '') or ''
+    ).strip()
 
-    # Buyer: structured column, falling back to the flat blob field when blank so a
-    # firm that only has the legacy name_company/address still renders something.
-    flat_name = getattr(buyer, 'name_company', '') or getattr(buyer, 'name_short', '') or ''
-    flat_address = getattr(buyer, 'address', '') or ''
-
-    def _buyer(field: str, fallback: str = '') -> str:
-        return (getattr(buyer, field, '') or '').strip() or fallback
+    # Buyer — single-value model fields shown in both language columns; a multi-line
+    # bank_details blob collapses to '; ' (a bare '\n' won't line-break in a docx run).
+    buyer_name = getattr(buyer, 'name_company', '') or getattr(buyer, 'name_short', '') or ''
+    buyer_address = getattr(buyer, 'address', '') or ''
+    buyer_bank = _oneline(getattr(buyer, 'bank_details', '') or '')
 
     return {
         'contract_no': contract.contract_number or '',
@@ -761,20 +765,18 @@ def build_contract_context(contract, lang: str = 'ru', overrides: dict | None = 
         'seller_bank_ru': _oneline(
             getattr(seller, 'bank_details_ru', '') or getattr(seller, 'bank_details_tk', '') or ''
         ),
-        # Buyer (import firm) — structured bilingual requisites with flat fallback.
-        'buyer_name_tk': _buyer('name_tk', flat_name),
-        'buyer_name_ru': _buyer('name_ru', flat_name),
+        # Buyer (import firm) — flat fields repeated across both columns; country
+        # is genuinely bilingual; director is generate-time.
+        'buyer_name_tk': buyer_name,
+        'buyer_name_ru': buyer_name,
         'buyer_country_tk': getattr(country, 'name_tk', '') or '',
         'buyer_country_ru': getattr(country, 'name_ru', '') or getattr(country, 'name_tk', '') or '',
-        'buyer_director_tk': _buyer('director_tk', override_director),
-        'buyer_director_ru': _buyer('director_ru', override_director),
-        'buyer_address_tk': _buyer('address_tk', flat_address),
-        'buyer_address_ru': _buyer('address_ru', flat_address),
-        'buyer_bin': _buyer('bank_bin'),
-        'buyer_bik': _buyer('bank_bik'),
-        'buyer_account': _buyer('bank_account'),
-        'buyer_bank_name_tk': _buyer('bank_name_tk'),
-        'buyer_bank_name_ru': _buyer('bank_name_ru'),
+        'buyer_director_tk': director,
+        'buyer_director_ru': director,
+        'buyer_address_tk': buyer_address,
+        'buyer_address_ru': buyer_address,
+        'buyer_bank_tk': buyer_bank,
+        'buyer_bank_ru': buyer_bank,
     }
 
 

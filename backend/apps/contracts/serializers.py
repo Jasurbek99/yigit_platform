@@ -146,9 +146,22 @@ class ContractDetailSerializer(ContractListSerializer):
 
     editable_fields = serializers.SerializerMethodField()
     attachments = ContractAttachmentSerializer(many=True, read_only=True)
+    # Buyer's destination country code — drives the "Generate contract" gate
+    # (the KZ contract template's clauses are Kazakhstan-specific).
+    import_firm_country_code = serializers.CharField(
+        source='import_firm.country.code', read_only=True, default=None,
+    )
+    # The buyer firm's director name ("Director's Full Name" = ImportFirm.contact_person).
+    # The generator modal pre-fills its director field from this (editable).
+    import_firm_director = serializers.CharField(
+        source='import_firm.contact_person', read_only=True, default=None,
+    )
 
     class Meta(ContractListSerializer.Meta):
-        fields = ContractListSerializer.Meta.fields + ['editable_fields', 'attachments']
+        fields = ContractListSerializer.Meta.fields + [
+            'editable_fields', 'attachments', 'import_firm_country_code',
+            'import_firm_director',
+        ]
 
     def get_editable_fields(self, obj: Contract) -> list[str]:
         """Return the fields editable by the requesting user's role."""

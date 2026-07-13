@@ -438,27 +438,21 @@ def _mock_seller():
     )
 
 
-def _mock_contract(amount='7830.00', qty='9000', end=date(2026, 12, 31),
-                   structured_buyer=True):
-    """A SimpleNamespace Contract mirroring the ORM attributes the builder reads."""
+def _mock_contract(amount='7830.00', qty='9000', end=date(2026, 12, 31), contact_person=None):
+    """A SimpleNamespace Contract mirroring the ORM attributes the builder reads.
+
+    Buyer is fidelity A: the flat single-value ImportFirm fields (name_company /
+    address / bank_details blob). The director is the firm's ``contact_person``
+    ("Director's Full Name"), or a generate-time override when that's blank.
+    """
     country = SimpleNamespace(name_tk='Gazagystan', name_ru='Казахстан', code='KZ')
-    common = dict(name_company='TOO «Aranşy - KZ»', name_short='Aranşy',
-                  address='РК, Туркестанская обл.', bank_details='blob', country=country)
-    if structured_buyer:
-        buyer = SimpleNamespace(
-            name_tk='Aranşy - KZ', name_ru='Араншы - KZ',
-            address_tk='GR, Türküstan w.', address_ru='РК, Туркестанская обл., с. Первое Мая',
-            director_tk='Tuktibaýew Bekjan', director_ru='Туктибаев Бекжан',
-            bank_bin='191040016779', bank_bik='HSBKKZKX', bank_account='KZ97601A891001387241',
-            bank_name_tk='Halyk Bank', bank_name_ru='Народный Банк', **common,
-        )
-    else:
-        # Firm with only the legacy flat fields (no structured columns filled).
-        buyer = SimpleNamespace(
-            name_tk=None, name_ru=None, address_tk=None, address_ru=None,
-            director_tk=None, director_ru=None, bank_bin=None, bank_bik=None,
-            bank_account=None, bank_name_tk=None, bank_name_ru=None, **common,
-        )
+    buyer = SimpleNamespace(
+        name_company='TOO «Aranşy - KZ»', name_short='Aranşy',
+        address='РК, Туркестанская обл., с. Первое Мая',
+        bank_details='БИН 191040016779\nБИК HSBKKZKX\nр/с KZ97601A891001387241',
+        contact_person=contact_person,
+        country=country,
+    )
     return SimpleNamespace(
         contract_number='108/26-YGT-EXP', start_date=date(2026, 3, 18), end_date=end,
         planned_amount_usd=Decimal(amount) if amount is not None else None,
@@ -499,36 +493,40 @@ class ContractContextBuilderTest(SimpleTestCase):
         # bank blob collapsed to one line
         self.assertEqual(c['seller_bank_ru'], 'Банк: Туркменбаши; Вал/счет: 23202; SWIFT: INVATM2X')
 
-    def test_buyer_structured_fields(self):
+    def test_buyer_flat_fields(self):
         c = ctx.build_contract_context(_mock_contract(), 'ru')
-        self.assertEqual(c['buyer_name_tk'], 'Aranşy - KZ')
+        # flat name_company shown in both columns; country is genuinely bilingual
+        self.assertEqual(c['buyer_name_tk'], 'TOO «Aranşy - KZ»')
+        self.assertEqual(c['buyer_name_ru'], 'TOO «Aranşy - KZ»')
         self.assertEqual(c['buyer_country_tk'], 'Gazagystan')
         self.assertEqual(c['buyer_country_ru'], 'Казахстан')
-        self.assertEqual(c['buyer_director_tk'], 'Tuktibaýew Bekjan')
-        self.assertEqual(c['buyer_director_ru'], 'Туктибаев Бекжан')
-        self.assertEqual(c['buyer_bin'], '191040016779')
-        self.assertEqual(c['buyer_bik'], 'HSBKKZKX')
-        self.assertEqual(c['buyer_account'], 'KZ97601A891001387241')
-        self.assertEqual(c['buyer_bank_name_ru'], 'Народный Банк')
-
-    def test_buyer_falls_back_to_flat_fields_and_override_director(self):
-        c = ctx.build_contract_context(
-            _mock_contract(structured_buyer=False), 'ru',
-            {'buyer_director': 'Ivanov I.'},
+        # bank_details blob collapses to '; ' (docx runs drop '\n')
+        self.assertEqual(
+            c['buyer_bank_ru'],
+            'БИН 191040016779; БИК HSBKKZKX; р/с KZ97601A891001387241',
         )
-        # no structured name/address → flat name_company / address
-        self.assertEqual(c['buyer_name_ru'], 'TOO «Aranşy - KZ»')
-        self.assertEqual(c['buyer_address_ru'], 'РК, Туркестанская обл.')
-        # no director_* column → generate-time override fills both
-        self.assertEqual(c['buyer_director_tk'], 'Ivanov I.')
-        self.assertEqual(c['buyer_director_ru'], 'Ivanov I.')
-        # no structured bank → blank (the structured template lines render empty)
-        self.assertEqual(c['buyer_bin'], '')
 
-    def test_blank_deadline_when_no_override(self):
+    def test_buyer_director_override_wins(self):
+        # The modal sends buyer_director (pre-filled from contact_person, editable),
+        # so an edited override takes precedence over the firm's stored value.
+        c = ctx.build_contract_context(
+            _mock_contract(contact_person='Азимов Г.Б.'), 'ru',
+            {'buyer_director': 'Edited Name'},
+        )
+        self.assertEqual(c['buyer_director_tk'], 'Edited Name')
+        self.assertEqual(c['buyer_director_ru'], 'Edited Name')
+
+    def test_buyer_director_falls_back_to_contact_person(self):
+        # No override in the request → the firm's stored "Director's Full Name" is used.
+        c = ctx.build_contract_context(_mock_contract(contact_person='Азимов Г.Б.'), 'ru')
+        self.assertEqual(c['buyer_director_tk'], 'Азимов Г.Б.')
+        self.assertEqual(c['buyer_director_ru'], 'Азимов Г.Б.')
+
+    def test_blank_deadline_and_director_when_neither_source(self):
         c = ctx.build_contract_context(_mock_contract(), 'ru')
         self.assertEqual(c['delivery_deadline_ru'], '')
         self.assertEqual(c['delivery_deadline_tk'], '')
+        self.assertEqual(c['buyer_director_ru'], '')
 
     def test_null_financials_render_blank_words(self):
         c = ctx.build_contract_context(_mock_contract(amount=None, qty=None), 'ru')
@@ -563,7 +561,7 @@ class ContractRenderSmokeTest(SimpleTestCase):
         self.assertIn('30 июня 2026', text)                  # RU spelled deadline
         self.assertIn('Hemsaya', text)                       # seller name (not hardcoded Ýigit)
         self.assertIn('Худайназаров', text)                  # seller director
-        self.assertIn('191040016779', text)                  # buyer БИН (structured)
+        self.assertIn('191040016779', text)                  # buyer bank blob (collapsed)
         self.assertNotIn('Ýigit', text)                      # no leftover hardcoded seller
         self.assertEqual(content_type, render.DOCX_CONTENT_TYPE)
         self.assertEqual(filename, 'Contract_108-26-YGT-EXP_KZ.docx')

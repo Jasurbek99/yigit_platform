@@ -266,17 +266,19 @@ GET /api/v1/contracts/contracts/{id}/agreement/?fmt=docx|pdf&buyer_director=&del
   collapsed to one line (`_oneline` joins newlines with `; ` — a bare `\n` won't
   line-break in a docx run; the template's structured seller-bank lines were merged
   since ExportFirm stores only a blob).
-- **Buyer** = `contract.import_firm`: the **structured bilingual** requisites added to
-  `ImportFirm` for this feature — `name_tk/ru`, `address_tk/ru`, `director_tk/ru`,
-  `bank_bin`, `bank_bik`, `bank_account`, `bank_name_tk/ru` — each **falling back** to
-  the flat `name_company`/`address` when its language column is blank, plus the
-  bilingual country name. `buyer_director` may also be passed as a generate-time
-  override for firms whose `director_*` columns aren't filled yet.
+- **Buyer** = `contract.import_firm`: the flat single-value fields the model has
+  (`name_company` / `address` / `bank_details` **blob**, collapsed to one line the
+  same way as the seller bank) shown in both language columns, plus the bilingual
+  country name (the one buyer field that's genuinely per-language). The buyer's
+  director name is the firm's **`contact_person`** ("Director's Full Name"); the
+  generate-time `buyer_director` override only fills in when that's blank, and the
+  modal **only asks for it when the firm has none** (`import_firm_has_director` on the
+  detail serializer drives `askDirector`). (This is deliberately "fidelity A" — the
+  seller was parametrized but the buyer reuses existing fields; adding structured
+  bilingual buyer columns was considered and rejected as duplication.)
 - **`delivery_deadline`** (§2.6 shipping cut-off, `YYYY-MM-DD`) is a generate-time
-  override; the contract **validity** date (§8.1) comes from `Contract.end_date`.
-
-The new `ImportFirm` requisite fields are editable in *Admin → Import Firms* (a
-"Contract requisites" section on the firm detail page; also on the create drawer).
+  override; the contract **validity** date (§8.1) comes from
+  `Contract.end_date`.
 
 **Amount in words.** The total is spelled out in both languages —
 `services/amount_words.py` (`amount_words_ru` / `amount_words_tk`), hand-rolled (no

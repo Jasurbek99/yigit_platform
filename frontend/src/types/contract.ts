@@ -21,6 +21,11 @@ export interface IContract {
   // Import firm
   import_firm: number | null;
   import_firm_name: string | null;
+  // Buyer destination country code (detail only) — gates the KZ contract generator.
+  import_firm_country_code?: string | null;
+  // The buyer firm's director name (detail only) — the generator modal pre-fills
+  // its director field from this.
+  import_firm_director?: string | null;
 
   // Season
   season: number | null;

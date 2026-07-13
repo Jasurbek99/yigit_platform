@@ -7,6 +7,7 @@ import {
   Spin,
   Tabs,
   Tag,
+  Tooltip,
   Typography,
 } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
@@ -14,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import { useContract } from '@/hooks/useContracts';
 import { useAuth } from '@/hooks/useAuth';
+import { ContractAgreementButton } from '@/components/ContractAgreementButton';
 import { ContractSalesTab } from './ContractSalesTab';
 import { DocumentsTab } from './DocumentsTab';
 import type { ContractStatus } from '@/types/contract';
@@ -150,6 +152,18 @@ export default function ContractDetail() {
             ? t('contracts.type.one_time')
             : t('contracts.type.framework')}
         </Tag>
+        <div style={{ marginLeft: 'auto' }}>
+          {contract.import_firm_country_code === 'KZ' ? (
+            <ContractAgreementButton
+              contractId={contract.id}
+              defaultDirector={contract.import_firm_director ?? ''}
+            />
+          ) : (
+            <Tooltip title={t('contracts.generate.kz_only')}>
+              <ContractAgreementButton contractId={contract.id} disabled />
+            </Tooltip>
+          )}
+        </div>
       </div>
 
       {/* ── Header Descriptions ─────────────────────────────────────────────── */}

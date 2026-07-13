@@ -2784,6 +2784,17 @@
     },
     "select": {
       "placeholder": "Şertnama saýlaň"
+    },
+    "generate": {
+      "button": "Şertnama döret",
+      "title": "Şertnama döret (Gazagystan)",
+      "buyer_director": "Alyjynyň direktory",
+      "buyer_director_ph": "Giriş böleginde we golda ýazyljak F.A.A.",
+      "delivery_deadline": "Ibermegiň möhleti",
+      "delivery_deadline_ph": "Harydy ugratmagyň soňky senesi (2.6 b.)",
+      "format": "Format",
+      "kz_only": "Diňe Gazagystanly alyjylar üçin elýeterli (bu şertnama şablony KZ üçin niýetlenen).",
+      "buyer_director_extra": "Import firmasynyň «Direktoryň doly ady» meýdanyndan dolduryldy — gerek bolsa üýtgediň."
     }
   },
   "documents": {
