@@ -103,29 +103,6 @@ function ActualSourceBadge({ source }: { source: IHarvestDayEntry['actual_source
   );
 }
 
-function PlanStateDot({ state }: { state: IHarvestDayEntry['plan_state'] }) {
-  const { t } = useTranslation();
-  if (state !== 'late' && state !== 'critical_late') return null;
-  const cfg = state === 'critical_late'
-    ? { color: COLORS.danger, label: t('plan.state_critical_late') }
-    : { color: COLORS.warning, label: t('plan.state_late') };
-  return (
-    <Tooltip title={cfg.label}>
-      <span
-        style={{
-          display: 'inline-block',
-          width: 8,
-          height: 8,
-          borderRadius: 4,
-          background: cfg.color,
-          marginLeft: 6,
-          verticalAlign: 'middle',
-        }}
-      />
-    </Tooltip>
-  );
-}
-
 // ─── Main component ───────────────────────────────────────────────────────────
 
 interface IPendingOverride {
@@ -332,7 +309,6 @@ export function HarvestCell({
             submittedAt={entry.plan_submitted_at}
             color={COLORS.primary}
           />
-          <PlanStateDot state={entry.plan_state} />
         </div>
       );
     }
@@ -554,7 +530,6 @@ export function HarvestCell({
         submittedAt={entry.plan_submitted_at}
         color={COLORS.primary}
       />
-      <PlanStateDot state={entry.plan_state} />
     </div>
   );
 }
