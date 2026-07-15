@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import { MOCK_PALLETS } from '@/mock/pallets';
 import type {
+  IBlockBreakdown,
   IPallet,
   IPalletUpsertRow,
   IWeightmasterPreview,
@@ -59,7 +60,29 @@ export function useUpsertPallets(shipmentId: number) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['pallets', shipmentId] });
       void queryClient.invalidateQueries({ queryKey: ['shipment', String(shipmentId)] });
+      void queryClient.invalidateQueries({ queryKey: ['block-breakdown', shipmentId] });
     },
+  });
+}
+
+// ─── useBlockBreakdown ────────────────────────────────────────────────────
+
+/**
+ * Fetches the per (parent block x variety) net-weight breakdown from the saved
+ * pallet manifest (sub-blocks F1/F2 summed into F). Feeds the sales report's
+ * block section. Refetches when pallets change.
+ */
+export function useBlockBreakdown(shipmentId: number | null) {
+  return useQuery({
+    queryKey: ['block-breakdown', shipmentId],
+    queryFn: async (): Promise<IBlockBreakdown> => {
+      const { data } = await api.get<IBlockBreakdown>(
+        `/export/shipments/${shipmentId}/block-breakdown/`,
+      );
+      return data;
+    },
+    enabled: shipmentId != null,
+    staleTime: 30_000,
   });
 }
 
@@ -91,7 +114,8 @@ export function useImportWeightmaster(shipmentId: number) {
  * Closes the pallet manifest:
  *   - Runs variety roll-up → sets varieties_dominant, variety_confidence='high'
  *   - Sets shipment.weight_net and weight_gross from pallet aggregates
- * Invalidates both pallets and shipment-detail queries on success.
+ *   - Writes parent-grain block_sources from pallet net weights
+ * Invalidates pallets, shipment-detail and block-breakdown queries on success.
  */
 export function useCloseManifest(shipmentId: number) {
   const queryClient = useQueryClient();
@@ -104,6 +128,7 @@ export function useCloseManifest(shipmentId: number) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['pallets', shipmentId] });
       void queryClient.invalidateQueries({ queryKey: ['shipment', String(shipmentId)] });
+      void queryClient.invalidateQueries({ queryKey: ['block-breakdown', shipmentId] });
     },
   });
 }

@@ -70,6 +70,7 @@
     "shipment_dashboard": "Панель",
     "shipment_board": "Доска",
     "harvest_board": "План груза и остаток",
+    "weightmaster": "Весовщик",
     "drafts": "Черновики",
     "assign": "Назначить",
     "boss_dashboard": "Босс панель",
@@ -1978,6 +1979,17 @@
     "preview_label": "Собранный",
     "variety_pending": "Сорт пока неизвестен — обновится после упаковки"
   },
+  "weightmaster": {
+    "title": "Весовщик",
+    "pick_truck": "Выберите фуру…",
+    "queue_title": "Фуры на погрузке",
+    "queue_empty": "Нет фур в фазе погрузки",
+    "select_hint": "Выберите фуру выше, чтобы открыть её манифест.",
+    "col_truck": "Фура",
+    "col_date": "Дата",
+    "col_customer": "Клиент",
+    "col_status": "Статус"
+  },
   "pallet": {
     "title": "Манифест паллет",
     "col_number": "№ паллета",
@@ -2836,6 +2848,7 @@
     "fito": "Фитосанитарный",
     "customs": "Заявка на таможню",
     "word": "Word",
+    "excel": "Excel",
     "pdf": "PDF",
     "options_title": "Параметры документа",
     "download": "Скачать",

@@ -43,10 +43,19 @@ export function ShipmentDetailHero({ shipment }: IShipmentDetailHeroProps) {
     shipment.phase_avg_seconds != null &&
     shipment.in_phase_seconds > shipment.phase_avg_seconds * 1.5;
 
+  // Mirrors backend PALLET_WRITE_ROLES (views.py) so everyone who can fill the
+  // manifest can reach it: weight_master, loading dept head/deputy, warehouse_chief,
+  // export_manager, director (+ any superuser).
+  const MANIFEST_ROLES: ReadonlyArray<string> = [
+    'weight_master',
+    'loading_dept_head',
+    'loading_dept_head_deputy',
+    'warehouse_chief',
+    'export_manager',
+    'director',
+  ];
   const canSeeManifest =
-    user?.role === 'weight_master' ||
-    user?.role === 'warehouse_chief' ||
-    user?.role === 'export_manager' ||
+    (user?.role != null && MANIFEST_ROLES.includes(user.role)) ||
     user?.is_superuser === true;
 
   // Cancel shipment: admin / export_manager / director (or any superuser),

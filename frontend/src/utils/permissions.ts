@@ -26,6 +26,7 @@ const ROUTE_PAGE_MAP: Record<string, string> = {
   '/export/drafts':             'export.drafts',
   '/export/assign':             'export.assign',
   '/export/pallet-manifest':    'export.pallet_manifest',
+  '/export/weightmaster':       'export.pallet_manifest',
   '/admin/users':               'admin.users',
   '/admin/seasons':             'admin.seasons',
   '/admin/firms':               'admin.firms',

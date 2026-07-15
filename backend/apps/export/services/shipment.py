@@ -742,9 +742,12 @@ def close_pallet_manifest(shipment: Shipment, user) -> None:
 
     from apps.export.models import AuditLog
 
+    from apps.export.services.block_sources import write_block_sources
+
     with transaction.atomic():
         pallets = list(
             shipment.pallets.select_related('crate_type').values(
+                'sub_block_id',
                 'gross_weight_kg',
                 'pallet_weight_kg',
                 'additions_kg',
@@ -755,13 +758,18 @@ def close_pallet_manifest(shipment: Shipment, user) -> None:
 
         total_gross = sum(p['gross_weight_kg'] for p in pallets)
         total_pallet_weight = sum(p['pallet_weight_kg'] for p in pallets)
-        total_net = sum(
-            p['gross_weight_kg']
-            - (p['crate_type__weight_kg'] * p['crate_count'])
-            - p['pallet_weight_kg']
-            - p['additions_kg']
-            for p in pallets
-        )
+        # Per-pallet net feeds both the shipment total and the per-block rollup.
+        total_net = Decimal('0')
+        block_entries = []
+        for p in pallets:
+            net = (
+                p['gross_weight_kg']
+                - (p['crate_type__weight_kg'] * p['crate_count'])
+                - p['pallet_weight_kg']
+                - p['additions_kg']
+            )
+            total_net += net
+            block_entries.append({'block': p['sub_block_id'], 'weight_kg': net})
 
         dominant = compute_dominant_varieties(shipment)
         if not dominant:
@@ -788,6 +796,11 @@ def close_pallet_manifest(shipment: Shipment, user) -> None:
         # M2M set — replaces any previously set dominant varieties
         shipment.varieties_dominant.set(dominant_ids)
 
+        # Roll pallet net weights up into block_sources at PARENT grain (sub-blocks
+        # F1/F2 merged into F). Replaces the draft's allocated split with the
+        # measured pallet weights — this is what the weekly plan actual reads.
+        blocks_written = write_block_sources(shipment, block_entries, replace=True)
+
         dominant_summary = ', '.join(
             f'variety_id={vid} ({kg:.2f} kg)' for vid, kg in dominant
         )
@@ -799,13 +812,15 @@ def close_pallet_manifest(shipment: Shipment, user) -> None:
             object_repr=shipment.shipment_code,
             detail=(
                 f'Manifest closed: gross={total_gross:.2f} kg, net={total_net:.2f} kg, '
-                f'{len(pallets)} pallets. Dominant varieties: {dominant_summary}'
+                f'{len(pallets)} pallets, {blocks_written} block(s). '
+                f'Dominant varieties: {dominant_summary}'
             ),
         )
 
     logger.info(
-        'Pallet manifest closed for %s by %s: gross=%.2f net=%.2f pallets=%d',
-        shipment.shipment_code, user.username, total_gross, total_net, len(pallets),
+        'Pallet manifest closed for %s by %s: gross=%.2f net=%.2f pallets=%d blocks=%d',
+        shipment.shipment_code, user.username, total_gross, total_net,
+        len(pallets), blocks_written,
     )
 
 

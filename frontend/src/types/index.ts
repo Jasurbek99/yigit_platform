@@ -1776,6 +1776,22 @@ export interface IWeightmasterPreview {
   };
 }
 
+// ─── Block × variety breakdown (parent-grain rollup from pallets) ────────────
+
+export interface IBlockBreakdownRow {
+  block_id: number;
+  block_code: string;       // parent block, e.g. "F" (F1/F2 summed)
+  block_name: string;
+  variety_id: number;
+  variety_name: string;
+  weight_kg: string;
+}
+
+export interface IBlockBreakdown {
+  rows: IBlockBreakdownRow[];
+  total_net_kg: string;
+}
+
 // â”€â”€â”€ Feedback Module â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export type FeedbackCategory = 'bug' | 'suggestion' | 'question';

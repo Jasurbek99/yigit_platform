@@ -27,6 +27,12 @@ from .shipment import (
     override_dominant_varieties,
 )
 
+from .block_sources import (
+    build_block_parent_map,
+    write_block_sources,
+    compute_block_variety_breakdown,
+)
+
 from . import comments as comments  # noqa: F401  — makes services.comments importable
 
 from .weekly_plan_tasks import (
@@ -77,6 +83,10 @@ __all__ = [
     'compute_dominant_varieties',
     'close_pallet_manifest',
     'override_dominant_varieties',
+    # Block sources (parent-grain normalization)
+    'build_block_parent_map',
+    'write_block_sources',
+    'compute_block_variety_breakdown',
     # Weekly-plan tasks
     'generate_weekly_plan_tasks',
     'resolve_weekly_plan_tasks_for_user',

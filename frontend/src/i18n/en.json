@@ -70,6 +70,7 @@
     "shipment_dashboard": "Dashboard",
     "shipment_board": "Board",
     "harvest_board": "Cargo Plan & Remainder",
+    "weightmaster": "Weightmaster",
     "drafts": "Draft Shipments",
     "assign": "Assignment Board",
     "boss_dashboard": "Boss Dashboard",
@@ -1976,6 +1977,17 @@
     "preview_label": "Combined",
     "variety_pending": "Variety unknown — updated after packaging"
   },
+  "weightmaster": {
+    "title": "Weightmaster",
+    "pick_truck": "Pick a truck…",
+    "queue_title": "Trucks in loading",
+    "queue_empty": "No trucks in the loading phase",
+    "select_hint": "Pick a truck above to open its manifest.",
+    "col_truck": "Truck",
+    "col_date": "Date",
+    "col_customer": "Customer",
+    "col_status": "Status"
+  },
   "pallet": {
     "title": "Pallet manifest",
     "col_number": "Pallet №",
@@ -2834,6 +2846,7 @@
     "fito": "Phytosanitary",
     "customs": "Customs request",
     "word": "Word",
+    "excel": "Excel",
     "pdf": "PDF",
     "options_title": "Document options",
     "download": "Download",

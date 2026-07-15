@@ -26,6 +26,7 @@ import {
   IconMapPin,
   IconReportAnalytics,
   IconRoute,
+  IconScale,
 } from '@tabler/icons-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -191,6 +192,7 @@ export default function AppLayout() {
       },
       { key: '/export/shipments/board', icon: <IconLayoutKanban size={15} />, label: t('nav.shipment_board') },
       { key: '/export/harvest-board', icon: <IconPlant2 size={15} />, label: t('nav.harvest_board') },
+      { key: '/export/weightmaster', icon: <IconScale size={15} />, label: t('nav.weightmaster') },
       { key: '/export/overdue', icon: <IconAlertTriangle size={15} />, label: t('nav.overdue') },
       { key: '/export/my-reports', icon: <IconReportAnalytics size={15} />, label: t('nav.sales_reports') },
       { key: '/export/advances', icon: <IconBuildingBank size={15} />, label: t('nav.advances') },

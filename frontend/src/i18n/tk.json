@@ -70,6 +70,7 @@
     "shipment_dashboard": "Dolandyryş",
     "shipment_board": "Tagta",
     "harvest_board": "Ýük plan we galyndy",
+    "weightmaster": "Çekimçi",
     "drafts": "Garalama ýükler",
     "assign": "Belgilemek",
     "boss_dashboard": "Boss paneli",
@@ -1980,6 +1981,17 @@
     "preview_label": "Birikdirilen",
     "variety_pending": "Sort entek näbelli — paketlemeden soň täzelener"
   },
+  "weightmaster": {
+    "title": "Çekimçi",
+    "pick_truck": "Ulag saýlaň…",
+    "queue_title": "Ýüklenýän ulaglar",
+    "queue_empty": "Ýükleme fazasynda ulag ýok",
+    "select_hint": "Manifesti açmak üçin ýokardan ulag saýlaň.",
+    "col_truck": "Ulag",
+    "col_date": "Sene",
+    "col_customer": "Müşderi",
+    "col_status": "Ýagdaýy"
+  },
   "pallet": {
     "title": "Palet manifest",
     "col_number": "Palet №",
@@ -2814,6 +2826,7 @@
     "fito": "Fitosanitar",
     "customs": "Gümrük arzasy",
     "word": "Word",
+    "excel": "Excel",
     "pdf": "PDF",
     "options_title": "Resminama sazlamalary",
     "download": "Ýükle",

@@ -66,9 +66,11 @@ from apps.export.serializers import (
 )
 from apps.export.services import (
     close_pallet_manifest,
+    compute_block_variety_breakdown,
     create_shipment,
     override_dominant_varieties,
     transition_to,
+    write_block_sources,
 )
 from apps.export.services.shipment import _cancel_open_tasks
 from apps.export.services.weightmaster_import import (
@@ -1809,16 +1811,15 @@ class ShipmentViewSet(ModelViewSet):
             if varieties:
                 self._apply_draft_varieties(shipment, varieties)
 
-            block_source_rows = [
-                ShipmentBlockSource(
-                    shipment=shipment,
-                    block=row['block_id'],
-                    weight_kg=row['weight_kg'],
+            # Normalize sub-blocks (F1/F2) to their parent (F) and merge — the
+            # weekly plan is keyed on parent blocks, so block_sources must be too.
+            blocks_written = 0
+            if bs_rows:
+                blocks_written = write_block_sources(
+                    shipment,
+                    [{'block': row['block_id'], 'weight_kg': row['weight_kg']} for row in bs_rows],
+                    replace=False,
                 )
-                for row in bs_rows
-            ]
-            if block_source_rows:
-                ShipmentBlockSource.objects.bulk_create(block_source_rows, batch_size=500)
 
             firm_split_rows = [
                 ShipmentFirmSplit(
@@ -1847,7 +1848,7 @@ class ShipmentViewSet(ModelViewSet):
             'Draft shipment %s created by %s with %d block source(s), %d firm split(s), %d quota draft(s)',
             shipment.shipment_code,
             user.username,
-            len(block_source_rows),
+            blocks_written,
             len(firm_split_rows),
             usage_created,
         )
@@ -2643,8 +2644,7 @@ class ShipmentViewSet(ModelViewSet):
             shipment.block_sources.values_list('block_id', 'harvest_date')
         )
 
-        shipment.block_sources.all().delete()
-        rows = []
+        entries = []
         for i, entry in enumerate(valid_entries):
             override = entry.get('weight_kg')
             weight = (
@@ -2659,20 +2659,16 @@ class ShipmentViewSet(ModelViewSet):
                 harvest_date = entry['harvest_date'] or None
             else:
                 harvest_date = existing_dates.get(block_id)
-            rows.append(ShipmentBlockSource(
-                shipment=shipment,
-                block_id=block_id,
-                weight_kg=weight,
-                harvest_date=harvest_date,
-            ))
-        if rows:
-            ShipmentBlockSource.objects.bulk_create(rows, batch_size=500)
+            entries.append({'block': block_id, 'weight_kg': weight, 'harvest_date': harvest_date})
+
+        # Normalize sub-blocks to parent grain and merge (F1/F2 -> F) before write.
+        count = write_block_sources(shipment, entries, replace=True)
 
         logger.info(
-            'Block sources for %s updated by %s (%d blocks)',
-            shipment.shipment_code, request.user.username, n,
+            'Block sources for %s updated by %s (%d blocks -> %d parent rows)',
+            shipment.shipment_code, request.user.username, n, count,
         )
-        return Response({'status': 'ok', 'count': n})
+        return Response({'status': 'ok', 'count': count})
 
     @action(detail=True, methods=['post'], url_path='firm-splits')
     def set_firm_splits(self, request, pk=None):
@@ -2918,6 +2914,20 @@ class ShipmentViewSet(ModelViewSet):
                 'code_mismatch': code_mismatch,
             },
         }, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['get'], url_path='block-breakdown')
+    def block_breakdown(self, request, pk=None):
+        """GET /api/v1/export/shipments/{id}/block-breakdown/
+
+        Per (top-level block × variety) net-weight breakdown from the pallet
+        manifest — sub-blocks (F1/F2) summed into their parent (F). This is the
+        data the sales report's block section is filled from (e.g.
+        "MIDELICE, block F, 9143 kg"). Read-only; any authenticated viewer.
+        """
+        shipment = self.get_object()
+        rows = compute_block_variety_breakdown(shipment)
+        total = sum((r['weight_kg'] for r in rows), Decimal('0'))
+        return Response({'rows': rows, 'total_net_kg': total})
 
     @action(detail=True, methods=['post'], url_path='manifest/close')
     def manifest_close(self, request, pk=None):
