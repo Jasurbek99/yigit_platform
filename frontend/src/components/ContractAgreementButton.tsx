@@ -19,10 +19,10 @@ interface IContractAgreementButtonProps {
 /**
  * Generate the bilingual TK/RU export contract (.docx or PDF) for a contract.
  *
- * The contract's number, date, financials, seller and validity come from the DB;
- * the modal collects the two fields the model does not store — the buyer's
- * director name and the delivery deadline (§2.6) — then hits
- * GET /contracts/contracts/{id}/agreement/. This template is Kazakhstan-specific
+ * The contract's number, date, financials, seller and validity come from the DB.
+ * The modal pre-fills the buyer's director from the firm's saved "Director's Full
+ * Name" (contact_person, editable) and collects the delivery deadline (§2.6), then
+ * hits GET /contracts/contracts/{id}/agreement/. This template is Kazakhstan-specific
  * (its clauses reference KZ customs authorities).
  */
 export function ContractAgreementButton({

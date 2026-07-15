@@ -132,8 +132,9 @@ class ContractViewSet(ModelViewSet):
         Query params:
             fmt: ``docx`` (default) or ``pdf``. (Named ``fmt`` not ``format`` —
                  ``format`` is reserved by DRF content negotiation.)
-            buyer_director: buyer's director name — printed in the preamble and
-                signature blocks. Not stored on ImportFirm, so supplied here.
+            buyer_director: buyer's director name, printed in the preamble and
+                signature blocks. Defaults to the firm's ``ImportFirm.contact_person``
+                ("Director's Full Name"); this param overrides it for one generation.
             delivery_deadline: shipping cut-off date ``YYYY-MM-DD`` (§2.6). The
                 contract *validity* date (§8.1) comes from the contract's end_date.
 

@@ -160,7 +160,11 @@ export default function ContractDetail() {
             />
           ) : (
             <Tooltip title={t('contracts.generate.kz_only')}>
-              <ContractAgreementButton contractId={contract.id} disabled />
+              {/* span wrapper: a disabled button has pointer-events:none and
+                  swallows hover events, so the Tooltip needs an element that does. */}
+              <span style={{ display: 'inline-block', cursor: 'not-allowed' }}>
+                <ContractAgreementButton contractId={contract.id} disabled />
+              </span>
             </Tooltip>
           )}
         </div>
