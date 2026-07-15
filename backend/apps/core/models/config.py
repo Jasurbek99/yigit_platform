@@ -110,7 +110,9 @@ class GreenhouseConfig(models.Model):
                 'plan_deadline_weekday': 4,
                 'plan_late_until_weekday': 6,
                 'plan_critical_late_at_weekday': 0,
-                'plan_critical_late_at_time': time(0, 0),
+                # P3 critical-late fires Monday 09:00 (tunable via config admin;
+                # the field default stays 00:00 to avoid a migration, get_solo seeds 09:00).
+                'plan_critical_late_at_time': time(9, 0),
                 'forecast_primary_open': time(17, 0),
                 'forecast_primary_close': time(18, 0),
                 'forecast_fallback_close': time(9, 0),

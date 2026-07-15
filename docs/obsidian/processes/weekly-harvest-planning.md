@@ -187,7 +187,7 @@ Six triggers, all idempotent via `HarvestDispatchLog(trigger_kind, target_user, 
 | **T3** `forecast_escalation` | `forecast_fallback_close` (09:00 day-of) | warehouse_chief + admin + director, urgent |
 | **P1** `plan_deadline_reminder` | Friday morning | Block manager (plan not yet submitted for next week) |
 | **P2** `plan_late` | Saturday morning | Block manager |
-| **P3** `plan_critical_late` | Monday 00:00 of plan week | Block manager + admin |
+| **P3** `plan_critical_late` | `plan_critical_late_at_time` on Monday of plan week (default **09:00**) | Block manager + admin |
 
 Run from system cron every 5 min:
 ```
@@ -196,7 +196,21 @@ Run from system cron every 5 min:
 
 In-app notifications only this iteration. SMS / Telegram / WhatsApp deferred. The personal-kanban auto-task hook is a TODO no-op call site in `dispatcher.fire(event)` — auto-tasks land when the parallel kanban work ships.
 
-**Automatic week initialization (side-effect of the same 5-min cron).** After firing notifications, `run_harvest_dispatcher` calls `initialize_upcoming_weeks(now_local.date())` (`services/legacy.py`), which runs `initialize_harvest_week` for the **current and next ISO week** of the active season. This guarantees every active top-level block has its container + Mon–Sun day-entry cells for the weeks managers actually plan. Previously weeks were only initialized ad-hoc (admin/director "Initialize Week", all-or-nothing), so an under-initialized week showed a **block manager only the blocks that already had rows** while past/closed weeks looked complete — confirmed on the live DB, where past+current weeks carry all active blocks but **future weeks were 0 blocks** (and early-season weeks were partial, e.g. a single block). The call is idempotent (only inserts missing rows), wrapped in try/except so a setup hiccup never blocks notifications, and stamps `entered_by=NULL` (system). **Caveat:** it only helps where this 5-min cron is actually scheduled, and only covers current+next week — back-filling far-future or historical partial weeks still needs a manual "Initialize Week" (admin/director).
+### Daily weekly-plan setup (`run_weekly_plan_setup`)
+
+A **separate daily cron** (not the 5-min dispatcher — week setup needs no 5-min cadence) auto-prepares the grid so block managers always open something complete:
+
+```
+0 6 * * * cd /opt/ygt/backend && venv/bin/python manage.py run_weekly_plan_setup
+```
+
+For the **current and next ISO week** of the active season it runs, in order:
+1. `initialize_upcoming_weeks(today_local)` (`greenhouse/services/legacy.py`) → `initialize_harvest_week` for both weeks, so every active top-level block has its container + Mon–Sun day-entry cells (`entered_by=NULL`, system).
+2. `generate_weekly_plan_tasks(year, week)` (`export/services/weekly_plan_tasks.py`) → the "fill weekly plan" task per (active manager, block) for those weeks.
+
+Both steps are idempotent (only insert what's missing). The command lives in **export** (not greenhouse) because it also calls the export-owned task generator — export may import greenhouse, not vice-versa. The manual buttons ("Initialize Week" admin/director, "Generate plan tasks" admin/export_manager/director) remain for ad-hoc back-fills.
+
+**Why this exists:** previously weeks were only initialized ad-hoc, so an under-initialized week showed a **block manager only the blocks that already had rows** while past/closed weeks looked complete — confirmed on the live DB, where past+current weeks carry all active blocks but **future weeks were 0 blocks** (and early-season weeks were partial, e.g. a single block). **Caveat:** it only helps where this daily cron is actually scheduled, and only covers current+next week — back-filling far-future or historical partial weeks still needs a manual "Initialize Week".
 
 ### Daily actual rollup
 

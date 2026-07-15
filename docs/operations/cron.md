@@ -22,7 +22,7 @@ Runs on a 5-minute cadence. Idempotent — safe to run multiple times per window
 | `t3_forecast_escalation` | `forecast_fallback_close` (default 09:00 day-of) | warehouse_chief + admin + director |
 | `p1_plan_reminder` | Friday 09:00 | Block managers with unsubmitted next-week plan |
 | `p2_plan_late` | Saturday 09:00 | Block managers with unsubmitted next-week plan |
-| `p3_plan_critical_late` | Monday 00:00 of plan week | Block managers (missing plan) + admin (escalation) |
+| `p3_plan_critical_late` | `plan_critical_late_at_time` on Monday of plan week (default 09:00) | Block managers (missing plan) + admin (escalation) |
 
 ### Linux/Mac cron entry
 
@@ -60,6 +60,25 @@ Register-ScheduledTask `
     -RunLevel Highest `
     -Force
 ```
+
+## Weekly Plan Setup (run_weekly_plan_setup)
+
+Runs **once a day** (not on the 5-minute dispatcher cadence). For the current and
+next ISO week of the active season it (1) `initialize_upcoming_weeks` — ensures
+every active top-level block has its `WeeklyHarvestPlan` container + Mon–Sun
+`HarvestDayEntry` cells, and (2) `generate_weekly_plan_tasks` — creates the "fill
+weekly plan" task per (active manager, block). Both idempotent, so re-running is a
+cheap no-op. This is what guarantees a block manager always opens a complete grid
+(historically weeks were only initialized ad-hoc → future weeks were empty).
+
+### Ubuntu/Linux cron entry
+
+```cron
+0 6 * * * cd /opt/ygt/backend && /opt/ygt/backend/venv/bin/python manage.py run_weekly_plan_setup >> /var/log/ygt/weekly_plan_setup.log 2>&1
+```
+
+The manual buttons ("Initialize Week" admin/director, "Generate plan tasks"
+admin/export_manager/director) remain for ad-hoc back-fills of arbitrary weeks.
 
 ### Idempotency guarantee
 
