@@ -18,6 +18,11 @@ class ExportFirm(models.Model):
     bank_details_ru = models.CharField(max_length=1000, blank=True, null=True, **cyrillic_collation())
     bank_details_en = models.CharField(max_length=1000, blank=True, null=True)
     director = models.CharField(max_length=200, blank=True, null=True, **cyrillic_collation())
+    # Director's signature + company seal images (optional) — stamped onto the
+    # export contract's signature block when generated "with stamps". Mirror of
+    # ImportFirm's fields, for the seller side.
+    director_signature = models.FileField(upload_to='export_firms/signatures/', null=True, blank=True)
+    director_seal = models.FileField(upload_to='export_firms/seals/', null=True, blank=True)
     tax_code = models.CharField(max_length=50, blank=True, null=True)
     swift_code = models.CharField(max_length=20, blank=True, null=True)
     one_c_code = models.CharField(max_length=50, blank=True, null=True)

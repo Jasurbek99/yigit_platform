@@ -292,11 +292,25 @@ Turkmen ordinal-date morphology is applied inconsistently even in the source
 contracts, so the unambiguous numeric form (idiomatic in TK official text) is used
 rather than risk wrong grammar.
 
+**Stamps.** The template is **unstamped by default** — the original signed contract
+it was cloned from carried both parties' seals as embedded images, which were
+stripped (image elements + media files removed) so a generated draft never shows
+someone else's seal; seals are applied at signing. Passing **`?stamps=1`** stamps the
+section-9 signature block with each firm's own uploaded seal + signature —
+`ExportFirm.director_seal`/`director_signature` (seller) and
+`ImportFirm.director_seal`/`director_signature` (buyer), uploaded on the firm's admin
+page. The builder emits a `StampImage` marker (a deferred FieldFile ref, so builders
+stay I/O-free) only when stamps are on **and** the firm has the image; `render_docx`
+reads the bytes and turns it into a docxtpl `InlineImage` (an unreadable/missing file
+degrades to blank, never breaks the doc). Placeholders `{{ seller_seal }}` /
+`{{ seller_signature }}` / `{{ buyer_seal }}` / `{{ buyer_signature }}`.
+
 Frontend: a **"Generate contract"** button (`components/ContractAgreementButton.tsx`)
-in the Contract detail header opens a modal for the director + deadline + format,
-then downloads via `downloadFile()`. Labels `contracts.generate.*` (tk/ru/en). The
-template's placeholder schema is documented in the standalone template under
-`data/contract_documents/` (the reusable `{{placeholder}}` version).
+in the Contract detail header opens a modal for the director + deadline + format + a
+**"With stamps"** checkbox (off by default), then downloads via `downloadFile()`.
+Labels `contracts.generate.*` (tk/ru/en). The template's placeholder schema is
+documented in the standalone template under `data/contract_documents/` (the reusable
+`{{placeholder}}` version).
 
 ## Documents page (packets endpoint)
 

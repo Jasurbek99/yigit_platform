@@ -114,11 +114,26 @@ export function useAdminFirms() {
   });
 }
 
+type ExportFirmPayload = Omit<IExportFirm, 'id' | 'director_signature' | 'director_seal'>;
+
+function buildExportFirmBody(
+  payload: Partial<ExportFirmPayload>,
+  signatureFile?: File | null,
+  sealFile?: File | null,
+): FormData | Partial<ExportFirmPayload> {
+  if (!signatureFile && !sealFile) return payload;
+  const fd = new FormData();
+  Object.entries(payload).forEach(([k, v]) => { if (v != null) fd.append(k, String(v)); });
+  if (signatureFile) fd.append('director_signature', signatureFile);
+  if (sealFile) fd.append('director_seal', sealFile);
+  return fd;
+}
+
 export function useCreateFirm(options: MutationOptions = {}) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (payload: Omit<IExportFirm, 'id'>) =>
-      api.post<IExportFirm>('/export/admin/firms/', payload),
+    mutationFn: ({ signatureFile, sealFile, ...payload }: ExportFirmPayload & { signatureFile?: File | null; sealFile?: File | null }) =>
+      api.post<IExportFirm>('/export/admin/firms/', buildExportFirmBody(payload, signatureFile, sealFile)).then(r => r.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-firms'] });
       options.onSuccess?.();
@@ -130,8 +145,25 @@ export function useCreateFirm(options: MutationOptions = {}) {
 export function useUpdateFirm(options: MutationOptions = {}) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...payload }: Partial<IExportFirm> & { id: number }) =>
-      api.patch<IExportFirm>(`/export/admin/firms/${id}/`, payload),
+    mutationFn: ({ id, signatureFile, sealFile, ...payload }: { id: number; signatureFile?: File | null; sealFile?: File | null } & Partial<ExportFirmPayload>) =>
+      api.patch<IExportFirm>(`/export/admin/firms/${id}/`, buildExportFirmBody(payload, signatureFile, sealFile)).then(r => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-firms'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-firm'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+export function useUploadExportFirmFile(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, field, file }: { id: number; field: 'director_signature' | 'director_seal'; file: File }) => {
+      const fd = new FormData();
+      fd.append(field, file);
+      return api.patch<IExportFirm>(`/export/admin/firms/${id}/`, fd).then(r => r.data);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-firms'] });
       queryClient.invalidateQueries({ queryKey: ['admin-firm'] });

@@ -23,10 +23,12 @@ from pathlib import Path
 
 import openpyxl
 from django.conf import settings
-from docxtpl import DocxTemplate
+from docx.shared import Mm
+from docxtpl import DocxTemplate, InlineImage
 
 from apps.contracts.document_templates import registry as tpl_registry
 from apps.contracts.services import document_context
+from apps.contracts.services.document_context import StampImage
 
 logger = logging.getLogger(__name__)
 
@@ -50,9 +52,37 @@ class DocumentRenderError(RuntimeError):
     """Raised when a document cannot be rendered (e.g. PDF converter missing)."""
 
 
+def _resolve_stamp(tpl: DocxTemplate, value):
+    """Turn a StampImage marker into a docxtpl InlineImage; '' if no image.
+
+    Reads the FieldFile's bytes here (render layer does the I/O, builders stay
+    pure). A missing/unreadable file degrades to '' rather than failing the doc.
+    """
+    if not isinstance(value, StampImage):
+        return value
+    field = value.file
+    if not field or not getattr(field, 'name', ''):
+        return ''
+    try:
+        field.open('rb')
+        try:
+            data = field.read()
+        finally:
+            field.close()
+    except (OSError, ValueError):
+        logger.warning('stamp image unreadable: %s', getattr(field, 'name', '?'))
+        return ''
+    return InlineImage(tpl, BytesIO(data), width=Mm(value.width_mm))
+
+
 def render_docx(template_path: Path, context: dict) -> bytes:
-    """Fill a ``.docx`` template with a Jinja context and return OOXML bytes."""
+    """Fill a ``.docx`` template with a Jinja context and return OOXML bytes.
+
+    ``StampImage`` markers in the context are resolved to ``InlineImage`` here
+    (they need the ``DocxTemplate``); every other value passes through untouched.
+    """
     tpl = DocxTemplate(str(template_path))
+    context = {key: _resolve_stamp(tpl, value) for key, value in context.items()}
     tpl.render(context)
     buf = BytesIO()
     tpl.save(buf)

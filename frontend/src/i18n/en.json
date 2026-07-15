@@ -1149,6 +1149,12 @@
     "bank_details_ru": "Bank Details (RU)",
     "is_active": "Active",
     "is_gapy_satys": "Gapy Satyş",
+    "signature_and_seal": "Signature & Seal",
+    "director_signature": "Director's Signature",
+    "director_seal": "Company Seal",
+    "upload_file": "Upload Image",
+    "replace_file": "Replace Image",
+    "toast_file_uploaded": "File uploaded",
     "empty": "No firms found",
     "error_load": "Failed to load firms",
     "confirm_delete": "Delete this firm?",
@@ -2811,7 +2817,9 @@
       "delivery_deadline_ph": "Shipping cut-off date (§2.6)",
       "format": "Format",
       "kz_only": "Available only for Kazakhstan buyers (this contract template is KZ-specific).",
-      "buyer_director_extra": "Pre-filled from the Import Firm's “Director's Full Name” — edit if needed."
+      "buyer_director_extra": "Pre-filled from the Import Firm's “Director's Full Name” — edit if needed.",
+      "with_stamps": "With stamps",
+      "with_stamps_extra": "Stamps appear only if the seller/buyer firm has its seal & signature uploaded (Admin → Firms)."
     }
   },
   "sales_list": {

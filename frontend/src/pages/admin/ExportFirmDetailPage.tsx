@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Button,
+  Card,
   Descriptions,
   Drawer,
   Form,
@@ -11,12 +12,14 @@ import {
   Space,
   Switch,
   Typography,
+  Upload,
 } from 'antd';
 import {
   ArrowLeftOutlined,
   BankOutlined,
   DeleteOutlined,
   PlusOutlined,
+  UploadOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -25,6 +28,7 @@ import {
   useCreateFirm,
   useUpdateFirm,
   useDeleteExportFirm,
+  useUploadExportFirmFile,
 } from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
 import { canDo } from '@/utils/permissions';
@@ -33,6 +37,56 @@ import type { IExportFirm } from '@/types';
 import { COLORS } from '@/constants/styles';
 
 const { Title, Text } = Typography;
+
+function FileUploadCard({
+  label,
+  currentUrl,
+  onUpload,
+  isUploading,
+  uploadLabel,
+  replaceLabel,
+}: {
+  label: string;
+  currentUrl: string | null;
+  onUpload: (file: File) => void;
+  isUploading: boolean;
+  uploadLabel: string;
+  replaceLabel: string;
+}) {
+  return (
+    <div>
+      <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>{label}</Text>
+      {currentUrl && (
+        <div style={{ marginBottom: 10 }}>
+          <img
+            src={currentUrl}
+            alt={label}
+            style={{
+              maxHeight: 140,
+              maxWidth: 320,
+              objectFit: 'contain',
+              border: '1px solid #f0f0f0',
+              borderRadius: 4,
+              padding: 6,
+              display: 'block',
+              background: COLORS.bgLayout,
+            }}
+          />
+        </div>
+      )}
+      <Upload
+        accept="image/*"
+        maxCount={1}
+        showUploadList={false}
+        beforeUpload={(file) => { onUpload(file); return false; }}
+      >
+        <Button icon={<UploadOutlined />} size="small" loading={isUploading}>
+          {currentUrl ? replaceLabel : uploadLabel}
+        </Button>
+      </Upload>
+    </div>
+  );
+}
 
 interface FirmFormValues {
   code: string;
@@ -64,6 +118,8 @@ export default function ExportFirmDetailPage() {
   const firmId = isNew ? undefined : Number(id);
 
   const [drawerOpen, setDrawerOpen] = useState(isNew);
+  const [signatureFile, setSignatureFile] = useState<File | null>(null);
+  const [sealFile, setSealFile] = useState<File | null>(null);
   const [form] = Form.useForm<FirmFormValues>();
 
   const { data: firm, isLoading } = useExportFirm(firmId);
@@ -98,9 +154,14 @@ export default function ExportFirmDetailPage() {
     onError: () => toast.error(t('firms_admin.toast_error')),
   });
 
+  const uploadFileMutation = useUploadExportFirmFile({
+    onSuccess: () => toast.success(t('firms_admin.toast_file_uploaded')),
+    onError: () => toast.error(t('firms_admin.toast_error')),
+  });
+
   async function handleSubmit() {
     const values = await form.validateFields();
-    const payload: Omit<IExportFirm, 'id'> = {
+    const payload: Omit<IExportFirm, 'id' | 'director_signature' | 'director_seal'> = {
       code: values.code,
       name_short: values.name_short || null,
       name_tk: values.name_tk,
@@ -120,9 +181,9 @@ export default function ExportFirmDetailPage() {
       is_gapy_satys: values.is_gapy_satys,
     };
     if (isNew) {
-      createMutation.mutate(payload);
+      createMutation.mutate({ ...payload, signatureFile, sealFile });
     } else if (firm) {
-      updateMutation.mutate({ id: firm.id, ...payload });
+      updateMutation.mutate({ id: firm.id, ...payload, signatureFile, sealFile });
     }
   }
 
@@ -136,6 +197,13 @@ export default function ExportFirmDetailPage() {
       cancelText: t('common.cancel'),
       onOk: () => deleteMutation.mutate(firm.id),
     });
+  }
+
+  function closeDrawer() {
+    setDrawerOpen(false);
+    setSignatureFile(null);
+    setSealFile(null);
+    if (isNew) navigate('/admin/firms');
   }
 
   return (
@@ -244,6 +312,58 @@ export default function ExportFirmDetailPage() {
               <InlineEdit value={firm.bank_details_ru} multiline editable={canEdit} onSave={(v) => saveField({ bank_details_ru: v || null })} />
             </Descriptions.Item>
           </Descriptions>
+
+          {/* Signature & Seal — separate upload section (edit permission required) */}
+          {canEdit && (
+            <Card
+              size="small"
+              title={t('firms_admin.signature_and_seal')}
+              style={{ borderRadius: 8, marginTop: 24 }}
+            >
+              <Space size={32} wrap>
+                <FileUploadCard
+                  label={t('firms_admin.director_signature')}
+                  currentUrl={firm.director_signature}
+                  onUpload={(file) => uploadFileMutation.mutate({ id: firm.id, field: 'director_signature', file })}
+                  isUploading={uploadFileMutation.isPending}
+                  uploadLabel={t('firms_admin.upload_file')}
+                  replaceLabel={t('firms_admin.replace_file')}
+                />
+                <FileUploadCard
+                  label={t('firms_admin.director_seal')}
+                  currentUrl={firm.director_seal}
+                  onUpload={(file) => uploadFileMutation.mutate({ id: firm.id, field: 'director_seal', file })}
+                  isUploading={uploadFileMutation.isPending}
+                  uploadLabel={t('firms_admin.upload_file')}
+                  replaceLabel={t('firms_admin.replace_file')}
+                />
+              </Space>
+            </Card>
+          )}
+
+          {/* Read-only view for users without edit */}
+          {!canEdit && (firm.director_signature || firm.director_seal) && (
+            <Card size="small" title={t('firms_admin.signature_and_seal')} style={{ borderRadius: 8, marginTop: 24 }}>
+              <Space size={32} wrap>
+                {firm.director_signature && (
+                  <div>
+                    <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
+                      {t('firms_admin.director_signature')}
+                    </Text>
+                    <img src={firm.director_signature} alt="Signature" style={{ maxHeight: 120, maxWidth: 280, objectFit: 'contain', border: '1px solid #f0f0f0', borderRadius: 4, padding: 6 }} />
+                  </div>
+                )}
+                {firm.director_seal && (
+                  <div>
+                    <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
+                      {t('firms_admin.director_seal')}
+                    </Text>
+                    <img src={firm.director_seal} alt="Seal" style={{ maxHeight: 120, maxWidth: 280, objectFit: 'contain', border: '1px solid #f0f0f0', borderRadius: 4, padding: 6 }} />
+                  </div>
+                )}
+              </Space>
+            </Card>
+          )}
         </>
       )}
 
@@ -251,12 +371,12 @@ export default function ExportFirmDetailPage() {
       <Drawer
         title={isNew ? t('firms_admin.add') : t('firms_admin.edit_title')}
         open={drawerOpen}
-        onClose={() => { setDrawerOpen(false); if (isNew) navigate('/admin/firms'); }}
+        onClose={closeDrawer}
         width={520}
         maskClosable={false}
         footer={
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <Button onClick={() => { setDrawerOpen(false); if (isNew) navigate('/admin/firms'); }}>
+            <Button onClick={closeDrawer}>
               {t('common.cancel')}
             </Button>
             <Button
@@ -315,6 +435,35 @@ export default function ExportFirmDetailPage() {
           <Form.Item name="bank_details_ru" label={t('firms_admin.bank_details_ru')}>
             <Input.TextArea rows={3} />
           </Form.Item>
+
+          {/* Optional file uploads in drawer */}
+          <Form.Item label={t('firms_admin.director_signature')}>
+            <Upload
+              accept="image/*"
+              maxCount={1}
+              beforeUpload={(file) => { setSignatureFile(file); return false; }}
+              onRemove={() => setSignatureFile(null)}
+              fileList={signatureFile ? [{ uid: '-1', name: signatureFile.name, status: 'done' as const }] : []}
+            >
+              <Button icon={<UploadOutlined />} size="small">
+                {t('firms_admin.upload_file')}
+              </Button>
+            </Upload>
+          </Form.Item>
+          <Form.Item label={t('firms_admin.director_seal')}>
+            <Upload
+              accept="image/*"
+              maxCount={1}
+              beforeUpload={(file) => { setSealFile(file); return false; }}
+              onRemove={() => setSealFile(null)}
+              fileList={sealFile ? [{ uid: '-1', name: sealFile.name, status: 'done' as const }] : []}
+            >
+              <Button icon={<UploadOutlined />} size="small">
+                {t('firms_admin.upload_file')}
+              </Button>
+            </Upload>
+          </Form.Item>
+
           <Form.Item name="is_active" label={t('firms_admin.is_active')} valuePropName="checked">
             <Switch />
           </Form.Item>

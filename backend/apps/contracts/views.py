@@ -137,6 +137,9 @@ class ContractViewSet(ModelViewSet):
                 ("Director's Full Name"); this param overrides it for one generation.
             delivery_deadline: shipping cut-off date ``YYYY-MM-DD`` (§2.6). The
                 contract *validity* date (§8.1) comes from the contract's end_date.
+            stamps: ``1``/``true`` to stamp the signature block with each firm's
+                uploaded seal + signature (``director_seal`` / ``director_signature``
+                on ExportFirm/ImportFirm). Omitted → a clean, unstamped draft.
 
         Gated by the contract resource's view permission. Returns the file as an
         attachment; PDF requires LibreOffice (503 with a clear message if absent).
@@ -156,7 +159,7 @@ class ContractViewSet(ModelViewSet):
         fmt = request.query_params.get('fmt', 'docx')
         overrides = {
             key: value
-            for key in ('buyer_director', 'delivery_deadline')
+            for key in ('buyer_director', 'delivery_deadline', 'stamps')
             if (value := request.query_params.get(key, '').strip())
         }
 

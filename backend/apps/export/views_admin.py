@@ -148,7 +148,8 @@ class ExportFirmSerializer(serializers.ModelSerializer):
             'id', 'code', 'name_short', 'name_tk', 'name_en', 'name_ru',
             'address_tk', 'address_en', 'address_ru',
             'bank_details_tk', 'bank_details_en', 'bank_details_ru',
-            'director', 'tax_code', 'swift_code', 'one_c_code',
+            'director', 'director_signature', 'director_seal',
+            'tax_code', 'swift_code', 'one_c_code',
             'color', 'sort_order',
             'is_active', 'is_gapy_satys',
         ]
@@ -369,6 +370,7 @@ class ExportFirmViewSet(ModelViewSet):
     """
 
     resource_code = 'export_firm'
+    parser_classes = [MultiPartParser, JSONParser]
     permission_classes = [IsAuthenticated, DynamicResourcePermission]
     serializer_class = ExportFirmSerializer
     queryset = ExportFirm.objects.all().order_by('name_en')

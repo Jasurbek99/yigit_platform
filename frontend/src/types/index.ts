@@ -90,6 +90,8 @@ export interface IExportFirm {
   sort_order?: number;
   is_active: boolean;
   is_gapy_satys: boolean;
+  director_signature: string | null;
+  director_seal: string | null;
 }
 
 export interface IImportFirm {

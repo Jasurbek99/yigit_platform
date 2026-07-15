@@ -1149,6 +1149,12 @@
     "bank_details_ru": "Bank maglumatlary (RU)",
     "is_active": "Işjeň",
     "is_gapy_satys": "Gapy Satyş",
+    "signature_and_seal": "Gol we möhür",
+    "director_signature": "Direktoryň goly",
+    "director_seal": "Kompaniýanyň möhri",
+    "upload_file": "Surat ýükle",
+    "replace_file": "Suraty çalyş",
+    "toast_file_uploaded": "Faýl ýüklendi",
     "empty": "Firma tapylmady",
     "error_load": "Firmalary ýükläp bolmady",
     "confirm_delete": "Bu firmany pozmak isleýärsiňizmi?",
@@ -2815,7 +2821,9 @@
       "delivery_deadline_ph": "Harydy ugratmagyň soňky senesi (2.6 b.)",
       "format": "Format",
       "kz_only": "Diňe Gazagystanly alyjylar üçin elýeterli (bu şertnama şablony KZ üçin niýetlenen).",
-      "buyer_director_extra": "Import firmasynyň «Direktoryň doly ady» meýdanyndan dolduryldy — gerek bolsa üýtgediň."
+      "buyer_director_extra": "Import firmasynyň «Direktoryň doly ady» meýdanyndan dolduryldy — gerek bolsa üýtgediň.",
+      "with_stamps": "Möhürler bilen",
+      "with_stamps_extra": "Möhürler diňe satyjy/alyjy firmanyň möhri we goly ýüklenen bolsa görüner (Admin → Firmalar)."
     }
   },
   "documents": {

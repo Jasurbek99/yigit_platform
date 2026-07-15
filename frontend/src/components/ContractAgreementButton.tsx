@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Button, DatePicker, Form, Input, Modal, Segmented } from 'antd';
+import { Button, Checkbox, DatePicker, Form, Input, Modal, Segmented } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { IconFileText } from '@tabler/icons-react';
 import { toast } from 'sonner';
@@ -37,12 +37,14 @@ export function ContractAgreementButton({
   const [buyerDirector, setBuyerDirector] = useState('');
   const [deadline, setDeadline] = useState<Dayjs | null>(null);
   const [fmt, setFmt] = useState<'docx' | 'pdf'>('docx');
+  const [withStamps, setWithStamps] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
   const handleOpen = (): void => {
     setBuyerDirector(defaultDirector);  // pre-fill from the firm's saved director
     setDeadline(null);
     setFmt('docx');
+    setWithStamps(false);
     setOpen(true);
   };
 
@@ -50,6 +52,7 @@ export function ContractAgreementButton({
     const params = new URLSearchParams({ fmt });
     if (buyerDirector.trim()) params.set('buyer_director', buyerDirector.trim());
     if (deadline) params.set('delivery_deadline', deadline.format('YYYY-MM-DD'));
+    if (withStamps) params.set('stamps', '1');
     setIsGenerating(true);
     try {
       // The PDF variant shells out to LibreOffice (slow); keep the modal open with
@@ -113,6 +116,11 @@ export function ContractAgreementButton({
                 { label: t('documents.pdf'), value: 'pdf' },
               ]}
             />
+          </Form.Item>
+          <Form.Item extra={t('contracts.generate.with_stamps_extra')}>
+            <Checkbox checked={withStamps} onChange={(e) => setWithStamps(e.target.checked)}>
+              {t('contracts.generate.with_stamps')}
+            </Checkbox>
           </Form.Item>
         </Form>
       </Modal>

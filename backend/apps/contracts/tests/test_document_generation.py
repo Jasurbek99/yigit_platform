@@ -534,6 +534,33 @@ class ContractContextBuilderTest(SimpleTestCase):
         self.assertEqual(c['total_sum_words_ru'], '')
         self.assertEqual(c['price'], '')
 
+    def test_stamps_off_by_default(self):
+        # No ?stamps → all stamp slots blank, even when the firm has images.
+        c = _mock_contract()
+        c.export_firm.director_seal = SimpleNamespace(name='s.png')
+        out = ctx.build_contract_context(c, 'ru')
+        self.assertEqual(out['seller_seal'], '')
+        self.assertEqual(out['buyer_seal'], '')
+
+    def test_stamps_on_emits_marker_only_when_image_present(self):
+        c = _mock_contract()
+        c.export_firm.director_seal = SimpleNamespace(name='seal.png')     # uploaded
+        c.export_firm.director_signature = None                            # not uploaded
+        out = ctx.build_contract_context(c, 'ru', {'stamps': '1'})
+        # seller seal → marker; seller signature (no file) → blank
+        self.assertIsInstance(out['seller_seal'], ctx.StampImage)
+        self.assertEqual(out['seller_signature'], '')
+        # buyer has no images in the mock → blank
+        self.assertEqual(out['buyer_seal'], '')
+
+    def test_stamps_flag_truthiness(self):
+        c = _mock_contract()
+        c.export_firm.director_seal = SimpleNamespace(name='seal.png')
+        self.assertEqual(ctx.build_contract_context(c, 'ru', {'stamps': '0'})['seller_seal'], '')
+        self.assertIsInstance(
+            ctx.build_contract_context(c, 'ru', {'stamps': 'true'})['seller_seal'], ctx.StampImage,
+        )
+
 
 class ContractRenderSmokeTest(SimpleTestCase):
     """Fill the shipped contract template and assert clean, value-bearing output."""
