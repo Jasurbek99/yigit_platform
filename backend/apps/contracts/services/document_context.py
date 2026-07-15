@@ -10,10 +10,28 @@ Date format for these export documents is ``DD.MM.YYYY`` (NOT ISO).
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
+from typing import NamedTuple
 
 from apps.contracts.services.amount_words import amount_words_ru, amount_words_tk
+
+
+@dataclass(frozen=True)
+class StampImage:
+    """A deferred image (a Django FieldFile) for a signature-block stamp.
+
+    Builders stay I/O-free: they emit this marker referencing the firm's seal /
+    signature FileField, and ``document_render.render_docx`` turns it into a
+    docxtpl ``InlineImage`` at render time (where the DocxTemplate exists). An
+    empty context value (``''``) renders nothing — used when stamps are off or
+    the firm has no image uploaded.
+    """
+
+    file: object          # a Django FieldFile, or None
+    width_mm: float = 32.0
+
 
 # Constant: TN VED (HS) code for fresh tomatoes. Overridable per line if needed.
 TOMATO_HS_CODE = '070200000'
@@ -166,6 +184,20 @@ def _firm_attr(firm, base: str, lang: str) -> str:
     return ''
 
 
+def _truck_plate(shipment) -> str:
+    """``'{tractor}/{trailer}'`` for a shipment ('' if no shipment/plate).
+
+    Single source of truth for how a truck's registration prints — the invoice,
+    CMR context, CMR overlay, and the request letters all read it, so the
+    separator / empty-trailer handling stays identical across every document.
+    """
+    if shipment is None:
+        return ''
+    plate = (shipment.truck_plate or '').strip()
+    trailer = shipment.trailer_id
+    return f'{plate}/{trailer}' if plate and trailer else plate or ''
+
+
 def build_invoice_context(invoice, lang: str = 'ru', overrides: dict | None = None) -> dict:
     """Build the Jinja context for an invoice document (RU or EN template).
 
@@ -209,11 +241,7 @@ def build_invoice_context(invoice, lang: str = 'ru', overrides: dict | None = No
     pallet_kg = (invoice.pallet_weight_kg if invoice.pallet_weight_kg is not None
                  else ((shipment.pallet_weight_kg or shipment.packaging_kg) if shipment else None))
 
-    transport = ''
-    if shipment:
-        plate = (shipment.truck_plate or '').strip()
-        trailer = shipment.trailer_id
-        transport = f'{plate}/{trailer}' if plate and trailer else plate or ''
+    transport = _truck_plate(shipment)
 
     incoterm = (invoice.incoterm or (contract.incoterm if contract else '') or '').strip()
 
@@ -296,8 +324,8 @@ def build_cmr_context(shipment, lang: str = 'ru', overrides: dict | None = None)
     forwarder is the export firm(s); ``place_loading`` and ``tir_carnet`` are
     supplied at generate-time via ``overrides`` (blank when not provided).
 
-    **Deliberate scope:** the official 24-box CMR layout is a follow-on; this uses
-    the simplified labelled template with the sellers joined into the sender box.
+    The sellers are joined into the single sender box (the pre-printed 24-box form
+    has one consignor slot).
 
     Args:
         shipment: A ``Shipment`` instance (caller should ``prefetch_related``
@@ -306,7 +334,8 @@ def build_cmr_context(shipment, lang: str = 'ru', overrides: dict | None = None)
         lang: ``'ru'`` or ``'en'``.
 
     Returns:
-        Flat dict consumed by ``cmr_ru.docx`` / ``cmr_en.docx``.
+        Flat dict of formatted figures. NOT rendered directly — ``build_cmr_overlay``
+        maps it to a ``{cell: value}`` overlay for ``cmr_ru.xlsx`` / ``cmr_en.xlsx``.
     """
     overrides = overrides or {}
     loc = _CMR_LOCALE.get(lang, _CMR_LOCALE['ru'])
@@ -339,10 +368,8 @@ def build_cmr_context(shipment, lang: str = 'ru', overrides: dict | None = None)
     gross_wo = ((gross_with - pallet_w) if (gross_with is not None and pallet_w is not None)
                 else gross_with)
 
-    plate = (shipment.truck_plate or '').strip()
-    trailer = shipment.trailer_id
     driver = (shipment.driver_name or '').strip()
-    veh = f'{plate}/{trailer}' if plate and trailer else plate or ''
+    veh = _truck_plate(shipment)
     transport = ' — '.join(part for part in (veh, driver) if part)
 
     # Invoice refs: every numbered invoice on the truck (one per firm). Bridge
@@ -451,9 +478,7 @@ def build_cmr_overlay(shipment, lang: str = 'ru', overrides: dict | None = None)
     phrases = _CMR_OVERLAY_LOCALE[lang]
     ctx = build_cmr_context(shipment, lang, overrides)
 
-    plate = (shipment.truck_plate or '').strip()
-    trailer = shipment.trailer_id
-    plates = f'{plate}/{trailer}' if plate and trailer else plate or ''
+    plates = _truck_plate(shipment)
     pallets = ctx['pallets']
 
     values = {
@@ -509,25 +534,32 @@ def _country_name(invoice, lang: str) -> str:
     return ''
 
 
-def _letter_figures(invoice) -> tuple:
-    """Per-firm (net, gross, boxes, plate) for the request letters.
+class LetterFigures(NamedTuple):
+    """Per-firm cargo figures shared by the request letters (attribute access so
+    call sites never depend on tuple ordering)."""
+
+    net: Decimal | None
+    gross: Decimal | None
+    boxes: int | None
+    plate: str
+
+
+def _letter_figures(invoice) -> LetterFigures:
+    """Per-firm net/gross/boxes/plate for the request letters.
 
     Net/gross/boxes follow the same per-firm rule as the invoice line item (the
     firm's official net = ``quantity_kg``; gross/boxes fall back to the truck).
     ``plate`` is the whole-truck tractor/trailer string.
     """
     shipment = invoice.shipment
-    net_kg = invoice.quantity_kg
     gross_kg = (invoice.gross_kg if invoice.gross_kg is not None
                 else (shipment.weight_gross if shipment else None))
     boxes = (invoice.box_count if invoice.box_count is not None
              else (shipment.box_count if shipment else None))
-    plate = ''
-    if shipment:
-        p = (shipment.truck_plate or '').strip()
-        trailer = shipment.trailer_id
-        plate = f'{p}/{trailer}' if p and trailer else p or ''
-    return net_kg, gross_kg, boxes, plate
+    return LetterFigures(
+        net=invoice.quantity_kg, gross=gross_kg, boxes=boxes,
+        plate=_truck_plate(shipment),
+    )
 
 
 def build_ct1_context(invoice, lang: str = 'ru', overrides: dict | None = None) -> dict:
@@ -538,7 +570,7 @@ def build_ct1_context(invoice, lang: str = 'ru', overrides: dict | None = None) 
     contract = invoice.contract
     seller = invoice.export_firm or (contract.export_firm if contract else None)
     buyer = invoice.import_firm or (contract.import_firm if contract else None)
-    net_kg, gross_kg, boxes, _plate = _letter_figures(invoice)
+    fig = _letter_figures(invoice)
     return {
         'firm_name': _firm_attr(seller, 'name', lang),
         'firm_address': _firm_attr(seller, 'address', lang),
@@ -546,9 +578,9 @@ def build_ct1_context(invoice, lang: str = 'ru', overrides: dict | None = None) 
         'buyer_address': getattr(buyer, 'address', '') or '',
         'product': 'Свежие Помидоры',
         'contract_line': _contract_line(contract),
-        'net': _kg(net_kg, lang),
-        'gross': _kg(gross_kg, lang),
-        'boxes': str(boxes) if boxes else '',
+        'net': _kg(fig.net, lang),
+        'gross': _kg(fig.gross, lang),
+        'boxes': str(fig.boxes) if fig.boxes else '',
         'doc_date': _date(invoice.invoice_date),
     }
 
@@ -561,7 +593,7 @@ def build_fito_context(invoice, lang: str = 'ru', overrides: dict | None = None)
     contract = invoice.contract
     seller = invoice.export_firm or (contract.export_firm if contract else None)
     buyer = invoice.import_firm or (contract.import_firm if contract else None)
-    net_kg, _gross, boxes, plate = _letter_figures(invoice)
+    fig = _letter_figures(invoice)
     return {
         'firm_name': _firm_attr(seller, 'name', lang),
         'firm_address': _firm_attr(seller, 'address', lang),
@@ -569,9 +601,9 @@ def build_fito_context(invoice, lang: str = 'ru', overrides: dict | None = None)
         'buyer_address': getattr(buyer, 'address', '') or '',
         'country': _country_name(invoice, lang),
         'product': 'Свежих Помидоров',
-        'net': _kg(net_kg, lang),
-        'boxes': str(boxes) if boxes else '',
-        'plate': plate,
+        'net': _kg(fig.net, lang),
+        'boxes': str(fig.boxes) if fig.boxes else '',
+        'plate': fig.plate,
         'doc_date': _date(invoice.invoice_date),
     }
 
@@ -587,7 +619,7 @@ def build_customs_context(invoice, lang: str = 'tk', overrides: dict | None = No
     contract = invoice.contract
     seller = invoice.export_firm or (contract.export_firm if contract else None)
     buyer = invoice.import_firm or (contract.import_firm if contract else None)
-    _net, gross_kg, boxes, plate = _letter_figures(invoice)
+    fig = _letter_figures(invoice)
     return {
         'seller_name': _firm_attr(seller, 'name', lang),
         'buyer_name': getattr(buyer, 'name_company', '') or '',
@@ -595,9 +627,9 @@ def build_customs_context(invoice, lang: str = 'tk', overrides: dict | None = No
         'country': _country_name(invoice, lang),
         'place_loading': overrides.get('place_loading', ''),
         'product': 'Ter pomidor',
-        'plate': plate,
-        'gross': _kg(gross_kg, lang),
-        'boxes': str(boxes) if boxes else '',
+        'plate': fig.plate,
+        'gross': _kg(fig.gross, lang),
+        'boxes': str(fig.boxes) if fig.boxes else '',
         'doc_date': _date(invoice.invoice_date),
     }
 
@@ -739,6 +771,14 @@ def build_contract_context(contract, lang: str = 'ru', overrides: dict | None = 
     buyer_address = getattr(buyer, 'address', '') or ''
     buyer_bank = _oneline(getattr(buyer, 'bank_details', '') or '')
 
+    # Stamps: only when the request opts in AND the firm actually has the image.
+    # Blank ('') otherwise → the placeholder renders nothing.
+    want_stamps = str(overrides.get('stamps', '')).strip().lower() in ('1', 'true', 'yes', 'on')
+
+    def _stamp(firm, field: str):
+        f = getattr(firm, field, None)
+        return StampImage(f) if (want_stamps and f and getattr(f, 'name', '')) else ''
+
     return {
         'contract_no': contract.contract_number or '',
         'contract_date': _date(contract.start_date),
@@ -777,6 +817,13 @@ def build_contract_context(contract, lang: str = 'ru', overrides: dict | None = 
         'buyer_address_ru': buyer_address,
         'buyer_bank_tk': buyer_bank,
         'buyer_bank_ru': buyer_bank,
+        # Signature-block stamps — only rendered when ?stamps=1 and the firm has
+        # the image uploaded (else '' → nothing). Seller from ExportFirm, buyer
+        # from ImportFirm.
+        'seller_seal': _stamp(seller, 'director_seal'),
+        'seller_signature': _stamp(seller, 'director_signature'),
+        'buyer_seal': _stamp(buyer, 'director_seal'),
+        'buyer_signature': _stamp(buyer, 'director_signature'),
     }
 
 
