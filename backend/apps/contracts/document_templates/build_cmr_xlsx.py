@@ -70,9 +70,11 @@ def build(source: Path, sheet_name: str) -> Path:
             del wb[name]
     ws = wb[sheet_name]
     _clean_sheet(ws, KEEP_LABELS[sheet_name])
-    # Constrain the print to the CMR content grid (cols A–N, rows 1–53) so the
-    # 60%-scale overlay lands on one page instead of trailing empty rows/cols.
-    ws.print_area = 'A1:N53'
+    # Constrain the print to the CMR content grid (cols A–N) so the 60%-scale
+    # overlay lands on one page instead of trailing empty rows/cols. Row 54 is
+    # included because the EN sheet's vehicle-plate cell (F54) sits there — the RU
+    # sheet ends at row 53, so its row 54 is simply blank.
+    ws.print_area = 'A1:N54'
     out = OUT_DIR / OUT_NAME[sheet_name]
     wb.save(out)
     return out
