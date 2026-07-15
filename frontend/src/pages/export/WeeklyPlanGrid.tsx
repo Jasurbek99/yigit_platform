@@ -29,7 +29,7 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
@@ -73,12 +73,23 @@ export default function WeeklyPlanGrid() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
-  // After Thursday (Fri/Sat/Sun) the current week's past/today cells are read-only
-  // for managers, so default to next week to land on editable cells.
-  const [selectedWeek, setSelectedWeek] = useState<Dayjs | null>(() =>
-    dayjs().isoWeekday() > 4 ? dayjs().add(1, 'week') : dayjs(),
-  );
+  // Deep links (weekly-plan tasks, boss heatmap) carry ?week=&year=&block=.
+  // `block` is a block_id from task links but a block_code from the heatmap, so
+  // match either when highlighting the linked row.
+  const deepLinkBlock = searchParams.get('block');
+
+  const [selectedWeek, setSelectedWeek] = useState<Dayjs | null>(() => {
+    // Honor a task/heatmap deep link's ISO week; Jan 4 is always in ISO week 1,
+    // so adding (week-1) weeks lands on the target ISO week regardless of year.
+    const wk = Number(searchParams.get('week'));
+    const yr = Number(searchParams.get('year'));
+    if (wk && yr) return dayjs(`${yr}-01-04`).add(wk - 1, 'week');
+    // After Thursday (Fri/Sat/Sun) the current week's past/today cells are read-only
+    // for managers, so default to next week to land on editable cells.
+    return dayjs().isoWeekday() > 4 ? dayjs().add(1, 'week') : dayjs();
+  });
   const transposed = useUiStore((s) => s.planPivotMode);
   const setTransposed = useUiStore((s) => s.setPlanPivotMode);
   const showSunday = useUiStore((s) => s.planShowSunday);
@@ -385,8 +396,18 @@ export default function WeeklyPlanGrid() {
       key: 'block',
       fixed: 'left',
       width: 160,
-      render: (_: unknown, row: IWeeklyHarvestPlan) => (
-        <div>
+      render: (_: unknown, row: IWeeklyHarvestPlan) => {
+        const isLinked =
+          !!deepLinkBlock &&
+          (String(row.block) === deepLinkBlock || row.block_code === deepLinkBlock);
+        return (
+        <div
+          style={
+            isLinked
+              ? { background: COLORS.bgLight, borderLeft: `3px solid ${COLORS.primary}`, paddingLeft: 6, margin: '-2px 0' }
+              : undefined
+          }
+        >
           <Tag color={isBlockManager && myBlockIds.has(row.block) ? 'gold' : 'blue'}>
             {row.block_code}
           </Tag>
@@ -403,7 +424,8 @@ export default function WeeklyPlanGrid() {
             </div>
           )}
         </div>
-      ),
+        );
+      },
     },
     ...dayColumns,
   ];

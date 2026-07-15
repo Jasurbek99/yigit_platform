@@ -4,7 +4,11 @@ Re-exports the public API used by views and management commands. Plan/forecast/
 actual writes go through the day-entry setters; there is no separate week-level
 submission step — every cell save stamps its own timestamp.
 """
-from apps.greenhouse.services.legacy import get_block_summary, initialize_harvest_week
+from apps.greenhouse.services.legacy import (
+    get_block_summary,
+    initialize_harvest_week,
+    initialize_upcoming_weeks,
+)
 from apps.greenhouse.services.harvest_day_service import (
     admin_override,
     compute_forecast_window,
@@ -26,6 +30,7 @@ from apps.greenhouse.services.daily_board import (
 
 __all__ = [
     'initialize_harvest_week',
+    'initialize_upcoming_weeks',
     'get_block_summary',
     'set_plan_value',
     'set_forecast_value',

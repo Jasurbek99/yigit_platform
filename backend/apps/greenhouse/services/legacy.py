@@ -81,6 +81,48 @@ def initialize_harvest_week(
     return plans
 
 
+def initialize_upcoming_weeks(today=None, user=None) -> list[tuple[int, int]]:
+    """Idempotently initialize the current and next ISO week for the active season.
+
+    Ensures every active top-level block has a WeeklyHarvestPlan plus its seven
+    Mon–Sun HarvestDayEntry rows for both weeks, so block managers always open a
+    complete grid instead of one missing the blocks an admin never initialized.
+    Designed to run on a cron cadence — initialize_harvest_week only inserts the
+    rows that are missing, so this is a cheap no-op once a week is set up.
+
+    Args:
+        today: Local date used to derive the current ISO week. Defaults to
+            datetime.date.today(); cron callers should pass the greenhouse local
+            date so the week boundary matches the operators' timezone.
+        user: Actor stamped as entered_by on newly created plans (None = system).
+
+    Returns:
+        The (iso_year, iso_week) pairs processed — empty if no active season.
+    """
+    from apps.greenhouse.services.daily_board import get_active_season
+
+    season = get_active_season()
+    if season is None:
+        logger.info('initialize_upcoming_weeks: no active season — skipped.')
+        return []
+
+    if today is None:
+        today = datetime.date.today()
+
+    this_iso = today.isocalendar()
+    next_iso = (today + datetime.timedelta(days=7)).isocalendar()
+    weeks = [(this_iso.year, this_iso.week), (next_iso.year, next_iso.week)]
+
+    for iso_year, iso_week in weeks:
+        initialize_harvest_week(season.id, iso_week, iso_year, user)
+
+    logger.info(
+        'initialize_upcoming_weeks: ensured weeks %s for season %s.',
+        weeks, season.id,
+    )
+    return weeks
+
+
 def get_block_summary(year: int, week: int, season_id: int | None = None) -> list[dict]:
     """Compute per-block aggregate totals for a given week from HarvestDayEntry.
 

@@ -196,6 +196,8 @@ Run from system cron every 5 min:
 
 In-app notifications only this iteration. SMS / Telegram / WhatsApp deferred. The personal-kanban auto-task hook is a TODO no-op call site in `dispatcher.fire(event)` — auto-tasks land when the parallel kanban work ships.
 
+**Automatic week initialization (side-effect of the same 5-min cron).** After firing notifications, `run_harvest_dispatcher` calls `initialize_upcoming_weeks(now_local.date())` (`services/legacy.py`), which runs `initialize_harvest_week` for the **current and next ISO week** of the active season. This guarantees every active top-level block has its container + Mon–Sun day-entry cells for the weeks managers actually plan. Previously weeks were only initialized ad-hoc (admin/director "Initialize Week", all-or-nothing), so an under-initialized week showed a **block manager only the blocks that already had rows** while past/closed weeks looked complete — confirmed on the live DB, where past+current weeks carry all active blocks but **future weeks were 0 blocks** (and early-season weeks were partial, e.g. a single block). The call is idempotent (only inserts missing rows), wrapped in try/except so a setup hiccup never blocks notifications, and stamps `entered_by=NULL` (system). **Caveat:** it only helps where this 5-min cron is actually scheduled, and only covers current+next week — back-filling far-future or historical partial weeks still needs a manual "Initialize Week" (admin/director).
+
 ### Daily actual rollup
 
 **Files**:
@@ -224,6 +226,8 @@ See `docs/operations/cron.md` for Linux + Windows Task Scheduler setup.
 **File**: `frontend/src/pages/export/WeeklyPlanGrid.tsx`
 
 **Layout**: week picker, pivot toggle, Show/Hide Sunday toggle, "Initialize" + "Submit week" + "Fallback Mode" buttons (role-gated), header tile row, grid table.
+
+**Deep-link params** (`?week=&year=&block=`): the grid reads these from `useSearchParams` on mount. A `weekly_plan` task link (`/export/plan?week=&year=&block={block_id}`) and the boss heatmap (`?block={block_code}`) now land on the linked ISO **week** — the initial `selectedWeek` is derived from `week`/`year` (via `dayjs(`${year}-01-04`).add(week-1,'week')`, since Jan 4 is always in ISO week 1) instead of always defaulting to today. Before this fix the grid ignored the URL, so clicking a task dropped the manager on the current/next week regardless of the task's week. The `block` param highlights the matching row (matched by `block` id **or** `block_code`, since the two link sources differ); it never filters — every block still renders.
 
 **Sunday toggle**: Sunday is the 7th day column and is rarely used, so it is **hidden by default** to keep the grid narrower. A toolbar button (`plan.show_sunday` / `plan.hide_sunday`) reveals it; state lives in `uiStore.planShowSunday`. The toggle drives both the harvest grid and the truck-allocation table (`showSunday` prop) — Sunday is always the last day in `DAYS`, so slicing it off leaves every other day's index (`di`, used for date offsets and `day_of_week`) intact. Backend day-entry rows are still created for all 7 days; the toggle is display-only.
 
