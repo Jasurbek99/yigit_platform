@@ -29,7 +29,18 @@ flowchart LR
 |-------|---------|-------------|
 | `export.weekly_truck_allocations` | One row per day of week | season, week_number, year, day_of_week, total_planned_kg, decided_by |
 | `export.truck_destination_splits` | N rows per allocation (one per destination) | allocation_id, destination_id, truck_count |
-| `core.truck_destinations` | Reference: destination names | name, code, is_active |
+| `export.weekly_destination_selections` | Which destinations show as grid rows for a week | season, week_number, year, destination_id |
+| `core.truck_destinations` | Reference: destination names | name, country, is_active, **is_default** |
+
+### Destination selection (which rows appear)
+
+The manager chooses which destinations appear as allocation rows for a given week
+(feature: "select the export country instead of auto-deriving it"). The choice is
+persisted in `weekly_destination_selections` — one row per selected destination per
+(season, week, year). When a week has **no** saved selection, the grid falls back to
+the destinations flagged `TruckDestination.is_default` (seeded to Russia, Kazakhstan,
+Gapy Satys; Kyrgyzstan and any other destination are pickable but not default). Admins
+toggle `is_default` from the Truck Destinations admin page.
 
 ### Relationships
 
@@ -62,6 +73,15 @@ erDiagram
 | GET | `/api/v1/export/truck-allocations/` | List (filterable by season, year, week_number) |
 | POST | `/api/v1/export/truck-allocations/` | Create |
 | PATCH | `/api/v1/export/truck-allocations/{id}/` | Update |
+| GET | `/api/v1/export/truck-destination-selections/` | List a week's selected destinations (filter season, year, week_number) |
+| POST | `/api/v1/export/truck-destination-selections/set/` | Replace a week's selection — body `{season, year, week_number, destination_ids[]}` |
+
+### Over-allocation warning
+
+The grid adds a **Planned Trucks** row = sum of the day's destination splits (across
+selected destinations only). When planned > capacity (`round(dayKg / 18500)`) for a day,
+that cell turns red; a week-level `Alert` lists the offending days. Non-blocking — plans
+are estimates, so saving over-capacity is still allowed.
 
 ## Frontend Implementation
 
@@ -94,6 +114,8 @@ The `TruckAllocationTable` component is also embedded as a collapsible section a
 |------|----------|--------|---------|------------|
 | `useTruckAllocations` | `GET /export/truck-allocations/` | season, year, week_number | `IApiListResponse<IWeeklyTruckAllocation>` | 60s |
 | `useTruckDestinations` | `GET /core/truck-destinations/?is_active=true` | _(none)_ | `ITruckDestination[]` | 300s |
+| `useTruckDestinationSelection` | `GET /export/truck-destination-selections/` | season, year, week_number | `IWeeklyDestinationSelection[]` | 60s |
+| `useSetTruckDestinationSelection` | `POST /export/truck-destination-selections/set/` | season, year, week_number, destination_ids | `IWeeklyDestinationSelection[]` | — |
 
 ### TypeScript Types
 

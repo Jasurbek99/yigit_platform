@@ -7,6 +7,7 @@ import type {
   IPriceEntry,
   IWeeklyTruckAllocation,
   ITruckDestination,
+  IWeeklyDestinationSelection,
   IBlockSummary,
   IDomesticSale,
   IHarvestDayEntry,
@@ -244,6 +245,48 @@ export function useTruckDestinations() {
       return Array.isArray(data) ? data : data.results;
     },
     staleTime: 300_000,
+  });
+}
+
+export function useTruckDestinationSelection(
+  filters: { season?: number; year?: number; week_number?: number } = {},
+) {
+  return useQuery({
+    queryKey: ['truck-destination-selections', filters],
+    enabled: !!filters.season && !!filters.year && !!filters.week_number,
+    queryFn: async (): Promise<IWeeklyDestinationSelection[]> => {
+      const params = new URLSearchParams();
+      if (filters.season) params.set('season', String(filters.season));
+      if (filters.year) params.set('year', String(filters.year));
+      if (filters.week_number) params.set('week_number', String(filters.week_number));
+      params.set('page_size', '200');
+      const { data } = await api.get<IApiListResponse<IWeeklyDestinationSelection>>(
+        `/export/truck-destination-selections/?${params}`,
+      );
+      return data.results;
+    },
+    staleTime: 60_000,
+  });
+}
+
+export function useSetTruckDestinationSelection() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      season: number;
+      year: number;
+      week_number: number;
+      destination_ids: number[];
+    }): Promise<IWeeklyDestinationSelection[]> => {
+      const { data } = await api.post<IWeeklyDestinationSelection[]>(
+        '/export/truck-destination-selections/set/',
+        payload,
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['truck-destination-selections'] });
+    },
   });
 }
 

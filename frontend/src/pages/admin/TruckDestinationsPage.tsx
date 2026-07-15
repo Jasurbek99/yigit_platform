@@ -56,7 +56,7 @@ export default function TruckDestinationsPage() {
   function handleCreate() {
     setEditTarget(null);
     form.resetFields();
-    form.setFieldsValue({ sort_order: (destinations.length + 1) * 10, is_active: true });
+    form.setFieldsValue({ sort_order: (destinations.length + 1) * 10, is_active: true, is_default: false });
     setModalOpen(true);
   }
 
@@ -67,11 +67,12 @@ export default function TruckDestinationsPage() {
       country: record.country,
       sort_order: record.sort_order,
       is_active: record.is_active,
+      is_default: record.is_default,
     });
     setModalOpen(true);
   }
 
-  function handleSubmit(values: { name: string; country?: number | null; sort_order?: number; is_active?: boolean }) {
+  function handleSubmit(values: { name: string; country?: number | null; sort_order?: number; is_active?: boolean; is_default?: boolean }) {
     if (editTarget) {
       updateDest.mutate({ id: editTarget.id, ...values });
     } else {
@@ -109,6 +110,14 @@ export default function TruckDestinationsPage() {
       dataIndex: 'sort_order',
       key: 'sort_order',
       width: 100,
+    },
+    {
+      title: t('truck_dest_admin.default_col'),
+      dataIndex: 'is_default',
+      key: 'is_default',
+      width: 100,
+      render: (isDefault: boolean) =>
+        isDefault ? <Tag color="blue">{t('truck_dest_admin.default_tag')}</Tag> : <Text type="secondary">—</Text>,
     },
     {
       title: t('truck_dest_admin.status'),
@@ -184,6 +193,14 @@ export default function TruckDestinationsPage() {
           </Form.Item>
           <Form.Item name="sort_order" label={t('truck_dest_admin.sort_order')}>
             <InputNumber min={0} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item
+            name="is_default"
+            label={t('truck_dest_admin.default_label')}
+            valuePropName="checked"
+            tooltip={t('truck_dest_admin.default_hint')}
+          >
+            <Switch />
           </Form.Item>
           {editTarget && (
             <Form.Item name="is_active" label={t('truck_dest_admin.status')} valuePropName="checked">

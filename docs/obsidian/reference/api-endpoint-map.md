@@ -141,6 +141,8 @@ See [[screens/main-dashboard]] for the full response contract.
 | Method | Endpoint | ViewSet | Hook | Page |
 |--------|----------|---------|------|------|
 | GET/POST/PATCH | `/api/v1/export/truck-allocations/` | WeeklyTruckAllocationViewSet | `useTruckAllocations` | TruckForecast |
+| GET | `/api/v1/export/truck-destination-selections/` | WeeklyDestinationSelectionViewSet | `useTruckDestinationSelection` | WeeklyPlanGrid |
+| POST | `/api/v1/export/truck-destination-selections/set/` | WeeklyDestinationSelectionViewSet | `useSetTruckDestinationSelection` | WeeklyPlanGrid |
 | GET/POST/PATCH | `/api/v1/export/prices/` | PriceEntryViewSet | `usePriceEntries` | PricePanel |
 | GET/POST/PATCH | `/api/v1/export/local-sell-plans/` | WeeklyLocalSellPlanViewSet | _(in QuotaDashboard)_ | LocalSellPlanGrid |
 | GET/POST | `/api/v1/export/advances/` | FinansistAdvanceViewSet | `useAdvances` | AdvancesTracker |

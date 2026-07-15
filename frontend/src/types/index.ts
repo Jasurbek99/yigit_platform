@@ -1156,6 +1156,16 @@ export interface ITruckDestination {
   country_name: string | null;
   sort_order: number;
   is_active: boolean;
+  is_default: boolean;
+}
+
+export interface IWeeklyDestinationSelection {
+  id: number;
+  season: number;
+  week_number: number;
+  year: number;
+  destination: number;
+  destination_name: string;
 }
 
 export interface ITruckDestinationSplit {

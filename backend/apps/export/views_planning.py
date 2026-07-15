@@ -16,11 +16,13 @@ from apps.export.models import (
     WeeklyLocalSellPlan,
     WeeklyTruckAllocation,
     TruckDestinationSplit,
+    WeeklyDestinationSelection,
     PriceEntry,
 )
 from apps.export.serializers_planning import (
     WeeklyLocalSellPlanSerializer,
     WeeklyTruckAllocationSerializer,
+    WeeklyDestinationSelectionSerializer,
     PriceEntrySerializer,
 )
 from apps.export.services import (
@@ -143,6 +145,62 @@ class WeeklyTruckAllocationViewSet(ModelViewSet):
             ).get(pk=allocation.pk)
         )
         return Response(serializer.data)
+
+
+class WeeklyDestinationSelectionViewSet(ModelViewSet):
+    """
+    GET   /api/v1/export/truck-destination-selections/       — list (filter ?season=&year=&week_number=)
+    POST  /api/v1/export/truck-destination-selections/set/   — replace a week's selected destinations
+
+    Persists which destinations appear as rows in a week's truck-allocation grid.
+    When a week has no rows, the frontend falls back to TruckDestination.is_default.
+    """
+
+    resource_code = 'truck_allocation'
+    permission_classes = [IsAuthenticated, DynamicResourcePermission]
+    serializer_class = WeeklyDestinationSelectionSerializer
+    http_method_names = ['get', 'post', 'head', 'options']
+    filterset_fields = ['season', 'year', 'week_number']
+
+    queryset = WeeklyDestinationSelection.objects.select_related(
+        'destination',
+    ).order_by('destination__sort_order')
+
+    @action(detail=False, methods=['post'], url_path='set')
+    def set_selection(self, request):
+        """POST /api/v1/export/truck-destination-selections/set/
+
+        Body: { "season": 3, "year": 2026, "week_number": 22, "destination_ids": [1, 2, 3] }
+        Replaces the full set of selected destinations for that week.
+        """
+        season = request.data.get('season')
+        year = request.data.get('year')
+        week_number = request.data.get('week_number')
+        destination_ids = request.data.get('destination_ids', [])
+
+        if not all([season, year, week_number]):
+            return Response(
+                {'error': 'season, year and week_number are required.'},
+                status=http_status.HTTP_400_BAD_REQUEST,
+            )
+        if not isinstance(destination_ids, list):
+            return Response(
+                {'error': 'destination_ids must be a list.'},
+                status=http_status.HTTP_400_BAD_REQUEST,
+            )
+
+        scope = {'season_id': season, 'year': year, 'week_number': week_number}
+        WeeklyDestinationSelection.objects.filter(**scope).delete()
+        WeeklyDestinationSelection.objects.bulk_create(
+            [
+                WeeklyDestinationSelection(destination_id=dest_id, **scope)
+                for dest_id in dict.fromkeys(destination_ids)  # de-dup, preserve order
+            ],
+            batch_size=500,
+        )
+
+        rows = WeeklyDestinationSelection.objects.filter(**scope).select_related('destination')
+        return Response(self.get_serializer(rows, many=True).data)
 
 
 # ---------------------------------------------------------------------------

@@ -15,7 +15,7 @@ from .sales import (
     ExpenseCategoryEnum,
     EXPENSE_CATEGORIES,
 )
-from .truck_allocation import WeeklyTruckAllocation, TruckDestinationSplit
+from .truck_allocation import WeeklyTruckAllocation, TruckDestinationSplit, WeeklyDestinationSelection
 from .local_sell_plan import (
     LOCAL_SELL_STATUS_CHOICES,
     LOCAL_SELL_TRANSITIONS,
@@ -61,6 +61,7 @@ __all__ = [
     'EXPENSE_CATEGORIES',
     'WeeklyTruckAllocation',
     'TruckDestinationSplit',
+    'WeeklyDestinationSelection',
     'LOCAL_SELL_STATUS_CHOICES',
     'LOCAL_SELL_TRANSITIONS',
     'WeeklyLocalSellPlan',

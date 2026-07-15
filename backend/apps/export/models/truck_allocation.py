@@ -75,3 +75,36 @@ class TruckDestinationSplit(models.Model):
 
     def __str__(self) -> str:
         return f'{self.truck_allocation} — {self.destination.name}: {self.truck_count}'
+
+
+class WeeklyDestinationSelection(models.Model):
+    """Which destinations appear as rows in a week's truck-allocation grid.
+
+    Persists the manager's per-week choice of export destinations. When no rows
+    exist for a week, the frontend falls back to TruckDestination.is_default.
+    One row per (season, week, year, destination).
+
+    DDL: export.weekly_destination_selections
+    """
+
+    season = models.ForeignKey('core.Season', on_delete=models.PROTECT, db_column='season_id')
+    week_number = models.PositiveSmallIntegerField()
+    year = models.PositiveSmallIntegerField()
+    destination = models.ForeignKey(
+        'core.TruckDestination',
+        on_delete=models.PROTECT,
+        related_name='week_selections',
+    )
+
+    class Meta:
+        db_table = schema_table('export', 'weekly_destination_selections')
+        constraints = [
+            models.UniqueConstraint(
+                fields=['season', 'week_number', 'year', 'destination'],
+                name='uq_weekly_dest_selection',
+            ),
+        ]
+        ordering = ['destination__sort_order']
+
+    def __str__(self) -> str:
+        return f'W{self.week_number}/{self.year} — {self.destination.name}'

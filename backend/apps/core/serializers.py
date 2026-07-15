@@ -163,7 +163,7 @@ class TruckDestinationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TruckDestination
-        fields = ['id', 'name', 'country', 'country_name', 'sort_order', 'is_active']
+        fields = ['id', 'name', 'country', 'country_name', 'sort_order', 'is_active', 'is_default']
 
 
 class BorderPointSerializer(serializers.ModelSerializer):

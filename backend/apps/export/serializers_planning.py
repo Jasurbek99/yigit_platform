@@ -1,7 +1,13 @@
 from decimal import Decimal
 
 from rest_framework import serializers
-from apps.export.models import WeeklyLocalSellPlan, WeeklyTruckAllocation, TruckDestinationSplit, PriceEntry
+from apps.export.models import (
+    WeeklyLocalSellPlan,
+    WeeklyTruckAllocation,
+    TruckDestinationSplit,
+    WeeklyDestinationSelection,
+    PriceEntry,
+)
 
 
 class TruckDestinationSplitSerializer(serializers.ModelSerializer):
@@ -34,6 +40,16 @@ class WeeklyTruckAllocationSerializer(serializers.ModelSerializer):
             'decided_by_name', 'created_at',
         ]
         read_only_fields = ['season_name', 'decided_by_name', 'created_at']
+
+
+class WeeklyDestinationSelectionSerializer(serializers.ModelSerializer):
+    """Read serializer for a week's chosen truck-allocation destinations."""
+
+    destination_name = serializers.CharField(source='destination.name', read_only=True)
+
+    class Meta:
+        model = WeeklyDestinationSelection
+        fields = ['id', 'season', 'week_number', 'year', 'destination', 'destination_name']
 
 
 class WeeklyLocalSellPlanSerializer(serializers.ModelSerializer):

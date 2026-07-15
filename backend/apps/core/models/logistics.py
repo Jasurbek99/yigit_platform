@@ -32,6 +32,9 @@ class TruckDestination(models.Model):
     )
     sort_order = models.IntegerField(default=0)
     is_active = models.BooleanField(default=True)
+    # Pre-selected in a week's truck-allocation grid when no explicit
+    # WeeklyDestinationSelection exists yet (Russia, Kazakhstan, Gapy Satys).
+    is_default = models.BooleanField(default=False)
 
     class Meta:
         db_table = schema_table('core', 'truck_destinations')

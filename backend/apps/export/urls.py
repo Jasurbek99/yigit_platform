@@ -9,6 +9,7 @@ from apps.export.views_kpi import KpiViewSet
 from apps.export.views_planning import (
     WeeklyLocalSellPlanViewSet,
     WeeklyTruckAllocationViewSet,
+    WeeklyDestinationSelectionViewSet,
     PriceEntryViewSet,
 )
 from apps.export.views_admin import (
@@ -59,6 +60,7 @@ router.register('packing-templates', PackingTemplateViewSet, basename='packing-t
 
 # Planning & pricing
 router.register('truck-allocations', WeeklyTruckAllocationViewSet, basename='truck-allocation')
+router.register('truck-destination-selections', WeeklyDestinationSelectionViewSet, basename='truck-destination-selection')
 router.register('prices', PriceEntryViewSet, basename='price')
 router.register('local-sell-plans', WeeklyLocalSellPlanViewSet, basename='local-sell-plan')
 

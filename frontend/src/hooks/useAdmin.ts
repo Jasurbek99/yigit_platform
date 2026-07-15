@@ -726,7 +726,7 @@ export function useAdminTruckDestinations() {
 export function useCreateTruckDestination(options: MutationOptions = {}) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (payload: { name: string; country?: number | null; sort_order?: number }) =>
+    mutationFn: (payload: { name: string; country?: number | null; sort_order?: number; is_default?: boolean }) =>
       api.post<ITruckDestination>('/core/truck-destinations/', payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-truck-destinations'] });
@@ -740,7 +740,7 @@ export function useCreateTruckDestination(options: MutationOptions = {}) {
 export function useUpdateTruckDestination(options: MutationOptions = {}) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...payload }: { id: number; name?: string; country?: number | null; sort_order?: number; is_active?: boolean }) =>
+    mutationFn: ({ id, ...payload }: { id: number; name?: string; country?: number | null; sort_order?: number; is_active?: boolean; is_default?: boolean }) =>
       api.patch<ITruckDestination>(`/core/truck-destinations/${id}/`, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-truck-destinations'] });
