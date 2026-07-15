@@ -27,7 +27,7 @@ flowchart TD
   Forecast --> Today[Day arrives]
   Today --> Loading[Shipments load<br/>loading_started_at recorded]
   Loading --> Rollup[Daily rollup_actuals<br/>cron next morning]
-  Rollup -->|SUM ShipmentBlockSource.weight_kg<br/>per block per local day| Actual[actual_value written<br/>actual_source='shipment_rollup']
+  Rollup -->|SUM ShipmentBlockSource.weight_kg per block<br/>bucketed by shipment_code date, sub-blocks folded to parent| Actual[actual_value written<br/>actual_source='shipment_rollup']
   Actual --> Estim[Most-current value<br/>per cell aggregated]
   Estim --> Trucks[Total / truck_capacity_kg<br/>= trucks needed]
   Trucks --> TA[[truck-allocation]]
@@ -140,7 +140,7 @@ A `late_edit_granted_until` that is in the future bypasses the gate — the wind
 | `set_plan_value(entry, value, user, reason='')` | Writes plan_value, plan_submitted_at/by, computes plan_state. Admin override path also writes `last_override_*` snapshot + `AuditLog.detail = "OVERRIDE: {reason}"`. |
 | `set_forecast_value(entry, value, user, reason='')` | Writes forecast_value, computes forecast_window per current time, increments forecast_revision_count, audit. |
 | `set_actual_value(entry, value, user, reason='')` | Admin-only manual override path. Stamps `actual_source='admin_override'` so the daily rollup respects it. |
-| `rollup_actuals_for_date(target_date, force=False, dry_run=False)` | Daily rollup. Sums `ShipmentBlockSource.weight_kg` joined to `Shipment.loading_started_at` per block per local day, writes `actual_value` + `actual_source='shipment_rollup'`. Skips `admin_override` rows unless `force`. Returns `RollupResult` with counters and silent-gap shipment list. |
+| `rollup_actuals_for_date(target_date, force=False, dry_run=False)` | Daily rollup. Buckets shipments by the day encoded in the numeric `shipment_code` (`DDMMNNN/YY`, via `parse_shipment_code_date()`) — **not** `loading_started_at` (null on many shipments post-AD-1, and can drift a calendar day; the code always exists and its DDMM equals `shipment.date` 100% of the time). Sums `ShipmentBlockSource.weight_kg` per block, folding sub-blocks (F1/F2) into their parent (F, how `HarvestDayEntry` is keyed), writes `actual_value` + `actual_source='shipment_rollup'`. Skips `admin_override` rows unless `force`. Returns `RollupResult` with counters and silent-gap shipment list. |
 | `admin_override(entry, field, value, reason, user)` | Wraps the appropriate setter; required `reason` non-empty. |
 | `compute_plan_state(submitted_at_local, plan_week_start, config)` | Returns `'on_time'` / `'late'` / `'critical_late'`. Pure function. |
 | `compute_forecast_window(submitted_at_local, entry_date, config)` | Returns `'primary'` / `'fallback'` / `'same_day_red_flag'` / `None` (locked). Pure function. |

@@ -293,6 +293,7 @@ export default function SalesReportPage(): React.ReactElement {
       forceRender: true,
       children: (
         <ProcessingTab
+          shipmentId={detail.id}
           blockSources={detail.block_sources ?? []}
           lines={lines}
           canEdit={canEdit}

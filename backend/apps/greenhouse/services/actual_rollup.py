@@ -1,28 +1,26 @@
 """Daily rollup of HarvestDayEntry.actual_value from shipment loading data.
 
-For a given local date D (Asia/Ashgabat by default), sum
-ShipmentBlockSource.weight_kg per block where the parent Shipment's
-loading_started_at falls inside D's local-day UTC range, then write the sum
-to the matching HarvestDayEntry row. The rollup job is intended to run once
-per day for D = yesterday (after midnight local), but the function also
-supports re-runs for any historical date.
+For a given date D, sum ShipmentBlockSource.weight_kg per block for every
+shipment whose loading day equals D, then write the sum to the matching
+HarvestDayEntry row. The rollup job is intended to run once per day for
+D = yesterday, but the function also supports re-runs for any historical date.
+
+Loading day = the day encoded in the numeric shipment_code (`DDMMNNN/YY`),
+NOT loading_started_at. loading_started_at is null on many shipments post-AD-1
+and can drift a calendar day from the real load; the code always exists and
+its DDMM matches shipment.date 100% of the time in production data. Sub-blocks
+(F1/F2) are summed into their parent (F) because HarvestDayEntry is keyed on
+top-level blocks.
 
 Idempotency:
   Re-running for the same date overwrites the previous shipment_rollup
   result (SUM is deterministic). Rows whose actual_source is
   'admin_override' are skipped unless force=True — admin manual edits win.
-
-Timezone correctness:
-  Shipment.loading_started_at is DateTimeField (DATETIMEOFFSET in MSSQL),
-  stored in UTC. The harvest "day" is local. We filter on a
-  timezone-aware UTC range derived from the local date, NOT on
-  loading_started_at__date — Django pushes __date to the DB and MSSQL
-  evaluates it in the connection's timezone (UTC by default), shifting
-  the answer for shipments loaded near midnight.
 """
 import logging
+import re
 from dataclasses import dataclass, field
-from datetime import date as date_type, datetime, time as dtime, timedelta
+from datetime import date as date_type, timedelta
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
@@ -31,6 +29,25 @@ from django.db.models import Sum
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
+
+# Numeric shipment code: DD MM NNN / YY  (e.g. "1004116/26" → 2026-04-10).
+_CODE_DATE_RE = re.compile(r'^(\d{2})(\d{2})\d+/(\d{2})$')
+
+
+def parse_shipment_code_date(code: str | None) -> date_type | None:
+    """Parse the loading date from the numeric shipment code (`DDMMNNN/YY`).
+
+    Returns None for a blank or malformed code, or an impossible date.
+    """
+    if not code:
+        return None
+    match = _CODE_DATE_RE.match(code)
+    if not match:
+        return None
+    try:
+        return date_type(2000 + int(match.group(3)), int(match.group(2)), int(match.group(1)))
+    except ValueError:
+        return None
 
 
 @dataclass
@@ -62,37 +79,60 @@ def rollup_actuals_for_date(
 
     Returns:
         RollupResult with counters for entries updated / skipped / missing,
-        plus a list of shipments that had loading_started_at on target_date
-        but no ShipmentBlockSource rows (silent under-reporting).
+        plus a list of shipments whose code-date is target_date but which have
+        no ShipmentBlockSource rows (silent under-reporting).
     """
     # Lazy imports to avoid loading these models at app-startup.
-    from apps.core.models import GreenhouseConfig
+    from apps.core.models import GreenhouseBlock
     from apps.export.models.shipment import Shipment, ShipmentBlockSource
     from apps.greenhouse.models import HarvestDayEntry
 
-    config = GreenhouseConfig.get_solo()
-    tz = ZoneInfo(config.timezone_name)
-
-    # Build the timezone-aware UTC range that corresponds to target_date in local.
-    start_aware = datetime.combine(target_date, dtime(0, 0)).replace(tzinfo=tz)
-    end_aware = start_aware + timedelta(days=1)
-
-    # ── 1) Aggregate weight per block from ShipmentBlockSource ──────────
-    block_sums = (
-        ShipmentBlockSource.objects.filter(
-            shipment__loading_started_at__gte=start_aware,
-            shipment__loading_started_at__lt=end_aware,
+    # ── 0) Shipments whose code encodes target_date ─────────────────────
+    # Prefilter by the DDMM prefix in the DB, then confirm the full date
+    # (including year) in Python via the code parser.
+    dd_mm = f'{target_date.day:02d}{target_date.month:02d}'
+    matching_ids = []
+    malformed_codes = []
+    for sid, code in (
+        Shipment.objects.filter(shipment_code__startswith=dd_mm)
+        .values_list('id', 'shipment_code')
+    ):
+        parsed = parse_shipment_code_date(code)
+        if parsed == target_date:
+            matching_ids.append(sid)
+        elif parsed is None:
+            malformed_codes.append(code)
+    if malformed_codes:
+        # No silent drops: a code that matched the DDMM prefix but didn't parse
+        # (e.g. missing /YY) is excluded — surface it for debugging.
+        logger.warning(
+            'rollup_actuals %s: %d shipment code(s) matched prefix %s but did not '
+            'parse and were excluded: %s',
+            target_date, len(malformed_codes), dd_mm, malformed_codes,
         )
+
+    # Parent-block map so sub-block sources (F1/F2) fold into their parent (F),
+    # which is how HarvestDayEntry is keyed. Tree is one level deep.
+    parent_of = {
+        b['id']: (b['parent_id'] or b['id'])
+        for b in GreenhouseBlock.objects.values('id', 'parent_id')
+    }
+
+    # ── 1) Aggregate weight per (parent) block from ShipmentBlockSource ─
+    block_sums = (
+        ShipmentBlockSource.objects.filter(shipment_id__in=matching_ids)
         .values('block_id')
         .annotate(total_kg=Sum('weight_kg'))
     )
-    block_totals = {row['block_id']: row['total_kg'] or Decimal('0') for row in block_sums}
+    block_totals: dict[int, Decimal] = {}
+    for row in block_sums:
+        top_id = parent_of.get(row['block_id'], row['block_id'])
+        block_totals[top_id] = block_totals.get(top_id, Decimal('0')) + (row['total_kg'] or Decimal('0'))
 
     # ── 2) Detect shipments loaded that day with no block_sources rows ──
     shipments_no_blocks = list(
         Shipment.objects
-        .filter(loading_started_at__gte=start_aware, loading_started_at__lt=end_aware)
-        .filter(block_sources__isnull=True)
+        .filter(id__in=matching_ids, block_sources__isnull=True)
         .values_list('id', 'shipment_code')
     )
 

@@ -13,9 +13,11 @@ import { COLORS } from '@/constants/styles';
 import { fmtLocal, fmtUsd } from './salesReportUtils';
 import { SummaryRow } from './SummaryRow';
 import { BlockLossTable } from './BlockLossTable';
+import { BlockBreakdownCard } from '@/components/BlockBreakdownCard';
 import type { ILineRow } from './salesReportUtils';
 
 interface IProcessingTabProps {
+  readonly shipmentId: number;
   readonly blockSources: IBlockSource[];
   readonly lines: ILineRow[];
   readonly canEdit: boolean;
@@ -25,6 +27,7 @@ interface IProcessingTabProps {
 }
 
 export function ProcessingTab({
+  shipmentId,
   blockSources,
   lines,
   canEdit,
@@ -94,6 +97,10 @@ export function ProcessingTab({
           <BlockLossTable blockSources={blockSources} rejectedKg={rejectedKg} />
         </Card>
       )}
+
+      {/* Per (block × variety) loaded-weight breakdown, auto-filled from the
+          weightmaster pallet data — the finansist verifies, never retypes. */}
+      <BlockBreakdownCard shipmentId={shipmentId} />
 
       {exchangeRate != null && (
         <Card size="small" title={t('sales_report.summary')}>

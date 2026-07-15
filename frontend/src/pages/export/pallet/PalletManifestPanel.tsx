@@ -15,7 +15,7 @@ import { ManifestStats } from './ManifestStats';
 import { DistributionPills } from './DistributionPills';
 import { VarietyRollupCard } from './VarietyRollupCard';
 import { PalletTable } from './PalletTable';
-import { BlockBreakdownCard } from './BlockBreakdownCard';
+import { BlockBreakdownCard } from '@/components/BlockBreakdownCard';
 import {
   palletToEditableRow,
   weightmasterRowToEditableRow,
