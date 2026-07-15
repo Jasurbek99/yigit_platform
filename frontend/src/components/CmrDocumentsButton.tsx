@@ -20,8 +20,9 @@ const VARIANTS = [
 ] as const;
 
 const FORMATS = ['docx', 'pdf'] as const;
-// docx uses the 'word' i18n key; pdf uses 'pdf'.
-const FMT_LABEL_KEY: Record<(typeof FORMATS)[number], string> = { docx: 'word', pdf: 'pdf' };
+// The CMR is an xlsx print-overlay, so the non-PDF native download is an Excel
+// file (fmt=docx still selects the native format server-side, which is xlsx here).
+const FMT_LABEL_KEY: Record<(typeof FORMATS)[number], string> = { docx: 'excel', pdf: 'pdf' };
 
 /**
  * Truck-level CMR download — one CMR per shipment, all export firms listed as
