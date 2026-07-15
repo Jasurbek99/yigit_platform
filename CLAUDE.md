@@ -43,6 +43,7 @@ Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, sim
 - **Stay in your lane.** `backend-dev` does not touch frontend code unless the task says so (and vice versa). If a task crosses lanes, flag it before acting.
 - **When uncertain — ask.** A clarifying question costs 30 seconds; reverting an unwanted action costs hours.
 - **When you make a mistake** — acknowledge briefly, propose options, wait for the user to choose. Do not auto-fix.
+- **Log every build that needs testing.** Whenever you build or meaningfully change a feature/fix, append an entry to `BUILD_TEST_LOG.md` (newest on top): `- [ ] YYYY-MM-DD — <what was built> — NEEDS TEST`. Then, in your reply, state plainly: *"Built — NOT tested yet. Did you test it?"* Check the item off (`- [x]`) only when the user confirms they tested it.
 
 ## Agents — use for domain-specific work
 

@@ -27,5 +27,17 @@
       "Bash(DROP DATABASE *)",
       "Bash(DROP TABLE *)"
     ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "c=$(grep -c '^- \\[ \\]' \"$CLAUDE_PROJECT_DIR/BUILD_TEST_LOG.md\" 2>/dev/null); c=${c:-0}; [ \"$c\" -gt 0 ] && printf '{\"systemMessage\":\"\\342\\232\\240 %s build(s) awaiting your test \\342\\200\\224 did you test them? See BUILD_TEST_LOG.md\"}\\n' \"$c\"; true"
+          }
+        ]
+      }
+    ]
   }
 }

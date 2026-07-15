@@ -1,0 +1,3212 @@
+Project "Django DBML" {
+  database_type: 'Microsoft SQL'
+  Note: '''Generated from Django models.
+  Last Updated At 07-09-2026 07:23AM UTC'''
+}
+
+enum admin.positive_small_integer_logentry_action_flag {
+  "1" [note: '''Goşmak''']
+  "2" [note: '''Üýtget''']
+  "3" [note: '''Pozmaklyk''']
+}
+
+enum contracts.char_contract_contract_type {
+  "FRAMEWORK" [note: '''Framework''']
+  "ONE_TIME" [note: '''One-time''']
+}
+
+enum contracts.char_contract_status {
+  "active" [note: '''Active''']
+  "completed" [note: '''Completed''']
+  "closed" [note: '''Closed''']
+  "cancelled" [note: '''Cancelled''']
+}
+
+enum contracts.char_contractsale_status {
+  "draft" [note: '''Draft''']
+  "sent" [note: '''Sent''']
+  "paid" [note: '''Paid''']
+  "void" [note: '''Void''']
+}
+
+enum core.char_rolefieldpermission_role {
+  "admin" [note: '''Admin''']
+  "export_manager" [note: '''Export Manager''']
+  "loading_dept_head" [note: '''Loading Dept Head''']
+  "loading_dept_head_deputy" [note: '''Loading Dept Deputy''']
+  "warehouse_chief" [note: '''Warehouse Chief''']
+  "weight_master" [note: '''Weight Master''']
+  "document_team" [note: '''Document Team''']
+  "transport" [note: '''Transport''']
+  "sales_rep" [note: '''Sales Rep''']
+  "finansist" [note: '''Finansist''']
+  "director" [note: '''Director''']
+  "accountant" [note: '''Accountant''']
+  "greenhouse_manager" [note: '''Greenhouse Manager''']
+  "seller" [note: '''Seller''']
+  "boss" [note: '''Boss''']
+}
+
+enum core.char_rolepagepermission_role {
+  "admin" [note: '''Admin''']
+  "export_manager" [note: '''Export Manager''']
+  "loading_dept_head" [note: '''Loading Dept Head''']
+  "loading_dept_head_deputy" [note: '''Loading Dept Deputy''']
+  "warehouse_chief" [note: '''Warehouse Chief''']
+  "weight_master" [note: '''Weight Master''']
+  "document_team" [note: '''Document Team''']
+  "transport" [note: '''Transport''']
+  "sales_rep" [note: '''Sales Rep''']
+  "finansist" [note: '''Finansist''']
+  "director" [note: '''Director''']
+  "accountant" [note: '''Accountant''']
+  "greenhouse_manager" [note: '''Greenhouse Manager''']
+  "seller" [note: '''Seller''']
+  "boss" [note: '''Boss''']
+}
+
+enum core.char_roleresourcepermission_role {
+  "admin" [note: '''Admin''']
+  "export_manager" [note: '''Export Manager''']
+  "loading_dept_head" [note: '''Loading Dept Head''']
+  "loading_dept_head_deputy" [note: '''Loading Dept Deputy''']
+  "warehouse_chief" [note: '''Warehouse Chief''']
+  "weight_master" [note: '''Weight Master''']
+  "document_team" [note: '''Document Team''']
+  "transport" [note: '''Transport''']
+  "sales_rep" [note: '''Sales Rep''']
+  "finansist" [note: '''Finansist''']
+  "director" [note: '''Director''']
+  "accountant" [note: '''Accountant''']
+  "greenhouse_manager" [note: '''Greenhouse Manager''']
+  "seller" [note: '''Seller''']
+  "boss" [note: '''Boss''']
+}
+
+enum core.char_user_role {
+  "admin" [note: '''Admin''']
+  "export_manager" [note: '''Export Manager''']
+  "loading_dept_head" [note: '''Loading Dept Head''']
+  "loading_dept_head_deputy" [note: '''Loading Dept Deputy''']
+  "warehouse_chief" [note: '''Warehouse Chief''']
+  "weight_master" [note: '''Weight Master''']
+  "document_team" [note: '''Document Team''']
+  "transport" [note: '''Transport''']
+  "sales_rep" [note: '''Sales Rep''']
+  "finansist" [note: '''Finansist''']
+  "director" [note: '''Director''']
+  "accountant" [note: '''Accountant''']
+  "greenhouse_manager" [note: '''Greenhouse Manager''']
+  "seller" [note: '''Seller''']
+  "boss" [note: '''Boss''']
+}
+
+enum export.char_auditlog_action {
+  "transition" [note: '''Status transition''']
+  "create" [note: '''Created''']
+  "update" [note: '''Updated''']
+}
+
+enum export.char_customsexpense_category {
+  "GUMRUKLEME" [note: '''Customs clearance (per truck)''']
+  "KARANTIN" [note: '''Quarantine fee''']
+  "CT1" [note: '''CT-1 certificate of origin''']
+  "FITO" [note: '''Phytosanitary certificate''']
+  "ANALIZ" [note: '''Lab analysis''']
+  "PASPORT_SDELKA" [note: '''Deal passport (bank)''']
+  "PLATYOSKA" [note: '''Payment order registration''']
+  "DOC_POST" [note: '''Document postage''']
+  "YUZLENME_HAT" [note: '''Reference letter''']
+  "GUMRUK_AMAL" [note: '''Customs operation fee''']
+  "BORDER_RETURN" [note: '''Truck returned (border closed)''']
+  "SERTNAMA" [note: '''Contract fee''']
+  "OTHER" [note: '''Other''']
+}
+
+enum export.char_notification_kind {
+  "quota_80" [note: '''Quota 80%''']
+  "quota_90" [note: '''Quota 90%''']
+  "quota_95" [note: '''Quota 95%''']
+  "quota_100" [note: '''Quota 100%''']
+  "overdue" [note: '''Overdue shipment''']
+  "action_required" [note: '''Action required''']
+  "forecast_nudge" [note: '''Forecast nudge''']
+  "forecast_handoff" [note: '''Forecast handoff''']
+  "forecast_escalation" [note: '''Forecast escalation''']
+  "plan_deadline_reminder" [note: '''Plan deadline reminder''']
+  "plan_late" [note: '''Plan late''']
+  "plan_critical_late" [note: '''Plan critical-late''']
+  "mention" [note: '''Mention''']
+  "task_assigned" [note: '''Task assigned''']
+  "task_done" [note: '''Task done''']
+  "feedback_resolved" [note: '''Feedback resolved''']
+  "feedback_rejected" [note: '''Feedback rejected''']
+  "stuck_8d" [note: '''Stuck shipment — 8 days''']
+  "stuck_15d" [note: '''Stuck shipment — 15 days''']
+  "stuck_30d" [note: '''Stuck shipment — 30+ days''']
+  "plan_submitted" [note: '''Plan submitted (deprecated)''']
+  "plan_approved" [note: '''Plan approved (deprecated)''']
+  "plan_rejected" [note: '''Plan rejected (deprecated)''']
+}
+
+enum export.char_packingtemplate_product_type {
+  "tomato" [note: '''Tomato''']
+  "pepper" [note: '''Pepper''']
+}
+
+enum export.char_quotaissuance_product_type {
+  "tomato" [note: '''Tomato''']
+  "pepper" [note: '''Pepper''']
+}
+
+enum export.char_quotaissuance_validity {
+  "this_month" [note: '''This month only''']
+  "this_and_next" [note: '''This month + next month''']
+  "next_month" [note: '''Next month only''']
+}
+
+enum export.char_quotausagerecord_product_type {
+  "tomato" [note: '''Tomato''']
+  "pepper" [note: '''Pepper''']
+}
+
+enum export.char_quotausagerecord_status {
+  "draft" [note: '''Draft''']
+  "approved" [note: '''Approved''']
+}
+
+enum export.char_sheetrowroletrigger_role {
+  "admin" [note: '''Admin''']
+  "export_manager" [note: '''Export Manager''']
+  "loading_dept_head" [note: '''Loading Dept Head''']
+  "loading_dept_head_deputy" [note: '''Loading Dept Deputy''']
+  "warehouse_chief" [note: '''Warehouse Chief''']
+  "weight_master" [note: '''Weight Master''']
+  "document_team" [note: '''Document Team''']
+  "transport" [note: '''Transport''']
+  "sales_rep" [note: '''Sales Rep''']
+  "finansist" [note: '''Finansist''']
+  "director" [note: '''Director''']
+  "accountant" [note: '''Accountant''']
+  "greenhouse_manager" [note: '''Greenhouse Manager''']
+  "seller" [note: '''Seller''']
+  "boss" [note: '''Boss''']
+}
+
+enum export.char_sheetrowsetting_style_align {
+  "left" [note: '''Left''']
+  "center" [note: '''Center''']
+  "right" [note: '''Right''']
+}
+
+enum export.char_sheetrowsetting_style_font_family {
+  "dm_sans" [note: '''DM Sans''']
+  "inter" [note: '''Inter''']
+  "mono" [note: '''Monospace''']
+  "serif" [note: '''Serif''']
+}
+
+enum export.char_sheetrowsetting_style_font_style {
+  "normal" [note: '''Normal''']
+  "italic" [note: '''Italic''']
+}
+
+enum export.char_sheetrowsetting_style_font_weight {
+  "bold" [note: '''Bold''']
+  "normal" [note: '''Normal''']
+}
+
+enum export.char_shipment_customs_clearance_planned_day {
+  "mon" [note: '''Mon''']
+  "tue" [note: '''Tue''']
+  "wed" [note: '''Wed''']
+  "thu" [note: '''Thu''']
+  "fri" [note: '''Fri''']
+  "sat" [note: '''Sat''']
+  "sun" [note: '''Sun''']
+}
+
+enum export.char_shipment_variety_confidence {
+  "high" [note: '''From pallet data''']
+  "low" [note: '''Manually estimated''']
+  "none" [note: '''Pending packaging''']
+}
+
+enum export.char_shipment_vehicle_condition {
+  "OK" [note: '''OK''']
+  "ISSUE" [note: '''Issue''']
+  "BREAKDOWN" [note: '''Breakdown''']
+  "RETURNED" [note: '''Returned''']
+}
+
+enum export.char_task_completion_rule {
+  "all_fields_filled" [note: '''All target fields filled''']
+  "any_field_filled" [note: '''Any target field filled''']
+  "field_equals" [note: '''Target field equals a specific value''']
+  "manual_done" [note: '''Marked done manually''']
+}
+
+enum export.char_task_kind {
+  "shipment" [note: '''Shipment task''']
+  "weekly_plan" [note: '''Weekly harvest-plan task''']
+  "local_sell_plan" [note: '''Local sell-plan task''']
+}
+
+enum export.char_task_state {
+  "open" [note: '''Open''']
+  "in_progress" [note: '''In progress''']
+  "blocked" [note: '''Blocked''']
+  "done" [note: '''Done''']
+  "cancelled" [note: '''Cancelled''']
+}
+
+enum export.char_taskrule_completion_rule {
+  "all_fields_filled" [note: '''All target fields filled''']
+  "any_field_filled" [note: '''Any target field filled''']
+  "field_equals" [note: '''Target field equals a specific value''']
+  "manual_done" [note: '''Marked done manually''']
+}
+
+enum export.char_weeklylocalsellplan_status {
+  "draft" [note: '''Draft''']
+  "submitted" [note: '''Submitted''']
+  "approved" [note: '''Approved''']
+  "rejected" [note: '''Rejected''']
+}
+
+enum feedback.char_feedbackreply_mode {
+  "standard" [note: '''Standard''']
+  "internal" [note: '''Internal''']
+  "public" [note: '''Public''']
+}
+
+enum feedback.char_feedbackticket_category {
+  "bug" [note: '''Bug''']
+  "suggestion" [note: '''Suggestion''']
+  "question" [note: '''Question''']
+}
+
+enum feedback.char_feedbackticket_status {
+  "new" [note: '''New''']
+  "in_review" [note: '''In Review''']
+  "resolved" [note: '''Resolved''']
+  "rejected" [note: '''Rejected''']
+}
+
+enum greenhouse.char_harvestdayentry_actual_source {
+  "manual" [note: '''manual''']
+  "pallet_rollup_pending" [note: '''pallet_rollup_pending''']
+  "admin_override" [note: '''admin_override''']
+  "shipment_rollup" [note: '''shipment_rollup''']
+}
+
+enum greenhouse.char_harvestdayentry_forecast_window {
+  "primary" [note: '''primary''']
+  "fallback" [note: '''fallback''']
+  "same_day_red_flag" [note: '''same_day_red_flag''']
+}
+
+enum greenhouse.char_harvestdayentry_plan_state {
+  "on_time" [note: '''on_time''']
+  "late" [note: '''late''']
+  "critical_late" [note: '''critical_late''']
+}
+
+enum greenhouse.char_harvestdispatchlog_trigger_kind {
+  "t1_forecast_nudge" [note: '''T1 Forecast Nudge''']
+  "t2_forecast_handoff" [note: '''T2 Forecast Handoff''']
+  "t3_forecast_escalation" [note: '''T3 Forecast Escalation''']
+  "p1_plan_reminder" [note: '''P1 Plan Reminder''']
+  "p2_plan_late" [note: '''P2 Plan Late''']
+  "p3_plan_critical_late" [note: '''P3 Plan Critical-Late''']
+}
+
+Table admin.LogEntry {
+  Note: '''
+LogEntry(id, action_time, user, content_type, object_id, object_repr, action_flag, change_message)
+
+*table: public.django_admin_log*'''
+
+  id auto [note: '''*ID*''', pk, unique, not null]
+  action_time date_time [note: '''*hereket wagty*''', default:`django.utils.timezone.now()`, not null]
+  user_id big_auto [not null]
+  content_type_id auto [null]
+  object_id text [note: '''*obýekt id-sy*''', null]
+  object_repr char [note: '''*obýekt repr-y*''', not null]
+  action_flag admin.positive_small_integer_logentry_action_flag [note: '''*hereket belligi*''', not null]
+  change_message text [note: '''*Habarnamany üýtget*''', not null]
+
+  indexes {
+    (content_type_id) [name: 'django_admin_log_content_type_id_c4bce8eb', type: btree]
+    (id) [pk, unique, name: 'django_admin_log_pkey', type: btree]
+    (user_id) [name: 'django_admin_log_user_id_c564eba6', type: btree]
+  }
+}
+ref: admin.LogEntry.user_id > core.User.id
+ref: admin.LogEntry.content_type_id > contenttypes.ContentType.id
+
+
+Table auth.Group {
+  Note: '''
+Groups are a generic way of categorizing users to apply permissions, or
+some other label, to those users. A user can belong to any number of
+groups.
+
+A user in a group automatically has all the permissions granted to that
+group. For example, if the group 'Site editors' has the permission
+can_edit_home_page, any user in that group will have that permission.
+
+Beyond permissions, groups are a convenient way to categorize users to
+apply some label, or extended functionality, to them. For example, you
+could create a group 'Special users', and you could write code that would
+do special things to those users -- such as giving them access to a
+members-only portion of your site, or sending them members-only email
+messages.
+
+
+*table: public.auth_group*'''
+
+  id auto [note: '''*ID*''', pk, unique, not null]
+  name char [note: '''*at*''', unique, not null]
+
+  indexes {
+    (name) [unique, name: 'auth_group_name_key', type: btree]
+    (id) [pk, unique, name: 'auth_group_pkey', type: btree]
+  }
+}
+
+
+Table auth.Permission {
+  Note: '''
+The permissions system provides a way to assign permissions to specific
+users and groups of users.
+
+The permission system is used by the Django admin site, but may also be
+useful in your own code. The Django admin site uses permissions as follows:
+
+- The "add" permission limits the user's ability to view the "add" form
+and add an object.
+- The "change" permission limits a user's ability to view the change
+list, view the "change" form and change an object.
+- The "delete" permission limits the ability to delete an object.
+- The "view" permission limits the ability to view an object.
+
+Permissions are set globally per type of object, not per specific object
+instance. It is possible to say "Mary may change news stories," but it's
+not currently possible to say "Mary may change news stories, but only the
+ones she created herself" or "Mary may only change news stories that have a
+certain status or publication date."
+
+The permissions listed above are automatically created for each model.
+
+
+*table: public.auth_permission*'''
+
+  id auto [note: '''*ID*''', pk, unique, not null]
+  name char [note: '''*at*''', not null]
+  content_type_id auto [not null]
+  codename char [note: '''*kod ady*''', not null]
+
+  indexes {
+    (content_type_id) [name: 'auth_permission_content_type_id_2f476e4b', type: btree]
+    (content_type_id,codename) [unique, name: 'auth_permission_content_type_id_codename_01ab375a_uniq', type: btree]
+    (id) [pk, unique, name: 'auth_permission_pkey', type: btree]
+  }
+}
+ref: auth.Permission.content_type_id > contenttypes.ContentType.id
+
+
+Table auth.group_permissions {
+  Note: '''
+This is a Many-To-Many linking table autogenerated by Django.
+
+*DB table: auth_group_permissions*'''
+
+  id auto [pk, not null]
+  permission_id auto [not null]
+  group_id auto [not null]
+
+  indexes {
+    (group_id) [name: 'auth_group_permissions_group_id_b120cbf9', type: btree]
+    (group_id,permission_id) [unique, name: 'auth_group_permissions_group_id_permission_id_0cd325b0_uniq', type: btree]
+    (permission_id) [name: 'auth_group_permissions_permission_id_84c5c92e', type: btree]
+    (id) [pk, unique, name: 'auth_group_permissions_pkey', type: btree]
+  }
+}
+ref: auth.Group.id > auth.group_permissions.group_id
+ref: auth.Permission.id > auth.group_permissions.permission_id
+
+
+Table contenttypes.ContentType {
+  Note: '''
+ContentType(id, app_label, model)
+
+*table: public.django_content_type*'''
+
+  id auto [note: '''*ID*''', pk, unique, not null]
+  app_label char [note: '''*app label*''', not null]
+  model char [note: '''*python model synpynyň ady*''', not null]
+
+  indexes {
+    (app_label,model) [unique, name: 'django_content_type_app_label_model_76bd3d3b_uniq', type: btree]
+    (id) [pk, unique, name: 'django_content_type_pkey', type: btree]
+  }
+}
+
+
+Table contracts.Contract {
+  Note: '''
+A signed sale agreement for one season between an export firm (seller) and import firm (buyer).
+
+Denormalized totals (exported_trucks, exported_quantity_kg, exported_amount_usd,
+payment_received_usd, remaining_usd) are written ONLY by the rollup service
+(``contracts.services.rollup.rollup_contract_totals``), never edited directly.
+Until Slice B introduces the rollup service, ``remaining_usd`` is kept consistent
+in ``save()`` as a placeholder calculation.
+
+Status flow: active → completed → closed → cancelled.
+
+
+*table: public.contracts_contract*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  contract_number char [note: '''*contract number*''', unique, not null]
+  seq integer [note: '''*seq*''', null]
+  contract_year integer [note: '''*contract year*''', null]
+  season_id big_auto [null]
+  export_firm_id big_auto [not null]
+  import_firm_id big_auto [not null]
+  customer_id big_auto [null]
+  contract_type contracts.char_contract_contract_type [note: '''*contract type*''', default:`"FRAMEWORK"`, not null]
+  passport_sdelka char [note: '''*passport sdelka*''', default:`""`, not null]
+  incoterm char [note: '''*incoterm*''', default:`""`, not null]
+  start_date date [note: '''*start date*''', null]
+  end_date date [note: '''*end date*''', null]
+  planned_trucks integer [note: '''*planned trucks*''', null]
+  planned_quantity_kg decimal [note: '''*planned quantity kg*''', null]
+  planned_amount_usd decimal [note: '''*planned amount usd*''', null]
+  exported_trucks integer [note: '''*exported trucks*''', default:`0`, not null]
+  exported_quantity_kg decimal [note: '''*exported quantity kg*''', default:`0`, not null]
+  exported_amount_usd decimal [note: '''*exported amount usd*''', default:`0`, not null]
+  payment_received_usd decimal [note: '''*payment received usd*''', default:`0`, not null]
+  remaining_usd decimal [note: '''*remaining usd*''', default:`0`, not null]
+  last_invoice_number integer [note: '''*last invoice number*''', null]
+  sent_to_unk boolean [note: '''*sent to unk*''', default:`False`, not null]
+  status contracts.char_contract_status [note: '''*status*''', default:`"active"`, not null]
+  created_by_id big_auto [null]
+  created_at date_time [note: '''*created at*''', not null]
+  updated_at date_time [note: '''*updated at*''', not null]
+
+  indexes {
+    (contract_number) [unique, name: 'contracts_contract_contract_number_key', type: btree]
+    (created_by_id) [name: 'contracts_contract_created_by_id_1552fda4', type: btree]
+    (customer_id) [name: 'contracts_contract_customer_id_b91a6462', type: btree]
+    (export_firm_id) [name: 'contracts_contract_export_firm_id_04820666', type: btree]
+    (import_firm_id) [name: 'contracts_contract_import_firm_id_4588a58a', type: btree]
+    (id) [pk, unique, name: 'contracts_contract_pkey', type: btree]
+    (season_id) [name: 'contracts_contract_season_id_ec21970c', type: btree]
+  }
+}
+ref: contracts.Contract.season_id > core.Season.id
+ref: contracts.Contract.export_firm_id > core.ExportFirm.id
+ref: contracts.Contract.import_firm_id > core.ImportFirm.id
+ref: contracts.Contract.customer_id > core.Customer.id
+ref: contracts.Contract.created_by_id > core.User.id
+
+
+Table contracts.ContractAttachment {
+  Note: '''
+A PDF document attached to a contract (signed contract scan, annex, etc.).
+
+File validation (size, extension, magic bytes) is done at the service layer
+(``contracts.services.files.validate_contract_document``) before this model
+is saved. Files are served only through the authenticated download action on
+ContractViewSet — never via a direct /media/ URL — because contract documents
+are legal/financial records.
+
+
+*table: public.contracts_contract_attachment*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  contract_id big_auto [not null]
+  file file [note: '''*file*''', not null]
+  original_filename char [note: '''*original filename*''', not null]
+  mime_type char [note: '''*mime type*''', not null]
+  size_bytes integer [note: '''*size bytes*''', not null]
+  uploaded_by_id big_auto [not null]
+  uploaded_at date_time [note: '''*uploaded at*''', not null]
+
+  indexes {
+    (contract_id) [name: 'contracts_contract_attachment_contract_id_5d4f10aa', type: btree]
+    (id) [pk, unique, name: 'contracts_contract_attachment_pkey', type: btree]
+    (uploaded_by_id) [name: 'contracts_contract_attachment_uploaded_by_id_8b21ce7d', type: btree]
+  }
+}
+ref: contracts.ContractAttachment.contract_id > contracts.Contract.id
+ref: contracts.ContractAttachment.uploaded_by_id > core.User.id
+
+
+Table contracts.ContractSale {
+  Note: '''
+One ContractSale = one export firm's share of a truck (one 2-Sales row),
+NOT a whole truck. A truck split across 2-3 firms produces 2-3 rows. Bridged
+to the export side by ``(shipment, export_firm)``. See ADR-023.
+
+Denormalized contract totals are updated automatically via
+``rollup_contract_totals()`` called from save() and delete().
+That function is the single writer of Contract's exported_* fields.
+
+Status flow: draft → sent → paid → void.
+Only 'void' is excluded from rollup aggregates; all other statuses count.
+
+NOTE: A proper status-transition endpoint with audit trail is deferred.
+Until then, PATCH ``status`` directly is permitted.
+
+
+*table: public.contracts_contract_sale*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  contract_id big_auto [not null]
+  shipment_id big_auto [null]
+  invoice_number integer [note: '''*invoice number*''', null]
+  invoice_date date [note: '''*invoice date*''', null]
+  serial_truck_number integer [note: '''*serial truck number*''', null]
+  export_firm_id big_auto [null]
+  import_firm_id big_auto [null]
+  gross_kg decimal [note: '''*gross kg*''', null]
+  box_count integer [note: '''*box count*''', null]
+  pallet_count decimal [note: '''*pallet count*''', null]
+  pallet_weight_kg decimal [note: '''*pallet weight kg*''', null]
+  incoterm char [note: '''*incoterm*''', default:`""`, not null]
+  quantity_kg decimal [note: '''*quantity kg*''', null]
+  price_per_kg decimal [note: '''*price per kg*''', null]
+  total_usd decimal [note: '''*total usd*''', null]
+  passport_sdelka char [note: '''*passport sdelka*''', default:`""`, not null]
+  scan_uploaded boolean [note: '''*scan uploaded*''', default:`False`, not null]
+  status contracts.char_contractsale_status [note: '''*status*''', default:`"sent"`, not null]
+  created_at date_time [note: '''*created at*''', not null]
+  updated_at date_time [note: '''*updated at*''', not null]
+
+  indexes {
+    (contract_id) [name: 'contracts_contract_sale_contract_id_f6a91d3c', type: btree]
+    (export_firm_id) [name: 'contracts_contract_sale_export_firm_id_3b7f4efc', type: btree]
+    (import_firm_id) [name: 'contracts_contract_sale_import_firm_id_f4baf360', type: btree]
+    (id) [pk, unique, name: 'contracts_contract_sale_pkey', type: btree]
+    (shipment_id) [name: 'contracts_contract_sale_shipment_id_a1592a38', type: btree]
+  }
+}
+ref: contracts.ContractSale.contract_id > contracts.Contract.id
+ref: contracts.ContractSale.shipment_id > export.Shipment.id
+ref: contracts.ContractSale.export_firm_id > core.ExportFirm.id
+ref: contracts.ContractSale.import_firm_id > core.ImportFirm.id
+
+
+Table core.BorderPoint {
+  Note: '''
+Border crossing points used in shipment routing.
+
+*table: public.core_border_points*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  name char [note: '''*name*''', unique, not null]
+  route_description char [note: '''*route description*''', null]
+  typical_transit_days integer [note: '''*typical transit days*''', null]
+  color char [note: '''*color*''', null]
+  sort_order integer [note: '''*sort order*''', default:`0`, not null]
+  is_active boolean [note: '''*is active*''', default:`True`, not null]
+
+  indexes {
+    (name) [unique, name: 'core_border_points_name_key', type: btree]
+    (id) [pk, unique, name: 'core_border_points_pkey', type: btree]
+  }
+}
+
+
+Table core.City {
+  Note: '''
+Cities within countries.
+
+*table: public.core_cities*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  country_id big_auto [not null]
+  name char [note: '''*name*''', not null]
+  name_local char [note: '''*name local*''', null]
+  color char [note: '''*color*''', null]
+  sort_order integer [note: '''*sort order*''', default:`0`, not null]
+
+  indexes {
+    (country_id) [name: 'core_cities_country_id_ce1bfeaa', type: btree]
+    (country_id,name) [unique, name: 'core_cities_country_id_name_246cb286_uniq', type: btree]
+    (id) [pk, unique, name: 'core_cities_pkey', type: btree]
+  }
+}
+ref: core.City.country_id > core.Country.id
+
+
+Table core.Country {
+  Note: '''
+Destination countries for shipments.
+
+*table: public.core_countries*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  name_tk char [note: '''*name tk*''', not null]
+  name_ru char [note: '''*name ru*''', null]
+  name_en char [note: '''*name en*''', null]
+  code char [note: '''*code*''', unique, null]
+  color char [note: '''*color*''', null]
+  sort_order integer [note: '''*sort order*''', default:`0`, not null]
+  currency char [note: '''*currency*''', null]
+
+  indexes {
+    (code) [unique, name: 'core_countries_code_key', type: btree]
+    (id) [pk, unique, name: 'core_countries_pkey', type: btree]
+  }
+}
+
+
+Table core.CrateType {
+  Note: '''
+Reference table for crate types used in pallet manifests.
+
+Each crate type has a fixed empty weight in kg used to compute pallet net weight:
+pallet.net_weight = gross - (crate_type.weight_kg * crate_count) - pallet_weight - additions
+
+Real data verified from 10AP116_CEKIM_GAPAN.xlsx:
+LEBIZ PLAST 18 = 0.543 kg (confirmed)
+AGAÇ and PLASMAS weights are placeholders pending Soltanmyrat confirmation
+(marked is_active=False until confirmed).
+
+
+*table: public.core_crate_types*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  name char [note: '''*name*''', unique, not null]
+  weight_kg decimal [note: '''*weight kg*''', not null]
+  is_active boolean [note: '''*is active*''', default:`True`, not null]
+
+  indexes {
+    (name) [unique, name: 'core_crate_types_name_key', type: btree]
+    (id) [pk, unique, name: 'core_crate_types_pkey', type: btree]
+  }
+}
+
+
+Table core.Customer {
+  Note: '''
+Individual buyer/customer (person, not company).
+
+*table: public.core_customers*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  name char [note: '''*name*''', unique, not null]
+  phone char [note: '''*phone*''', null]
+  default_country_id big_auto [null]
+  default_city_id big_auto [null]
+  sales_rep_id big_auto [null]
+  color char [note: '''*color*''', null]
+  sort_order integer [note: '''*sort order*''', default:`0`, not null]
+  is_active boolean [note: '''*is active*''', default:`True`, not null]
+
+  indexes {
+    (default_city_id) [name: 'core_customers_default_city_id_27979b89', type: btree]
+    (default_country_id) [name: 'core_customers_default_country_id_a7212963', type: btree]
+    (name) [unique, name: 'core_customers_name_key', type: btree]
+    (id) [pk, unique, name: 'core_customers_pkey', type: btree]
+    (sales_rep_id) [name: 'core_customers_sales_rep_id_e6b44c64', type: btree]
+  }
+}
+ref: core.Customer.default_country_id > core.Country.id
+ref: core.Customer.default_city_id > core.City.id
+ref: core.Customer.sales_rep_id > core.User.id
+
+
+Table core.DomesticBuyer {
+  Note: '''
+Domestic TM buyers who purchase tomatoes directly from the greenhouse.
+
+Used in export.domestic_sales to track quota-forming daily purchases
+per block. DDL: core.domestic_buyers
+
+
+*table: public.core_domestic_buyers*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  name char [note: '''*name*''', unique, not null]
+  contact_person char [note: '''*contact person*''', null]
+  phone char [note: '''*phone*''', null]
+  is_active boolean [note: '''*is active*''', default:`True`, not null]
+
+  indexes {
+    (name) [unique, name: 'core_domestic_buyers_name_key', type: btree]
+    (id) [pk, unique, name: 'core_domestic_buyers_pkey', type: btree]
+  }
+}
+
+
+Table core.ExportFirm {
+  Note: '''
+YGT export companies (legal entities for customs documents).
+
+*table: public.core_export_firms*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  code char [note: '''*code*''', unique, not null]
+  name_short char [note: '''*name short*''', null]
+  name_tk char [note: '''*name tk*''', not null]
+  name_ru char [note: '''*name ru*''', null]
+  name_en char [note: '''*name en*''', null]
+  address_tk char [note: '''*address tk*''', null]
+  address_ru char [note: '''*address ru*''', null]
+  address_en char [note: '''*address en*''', null]
+  bank_details_tk char [note: '''*bank details tk*''', null]
+  bank_details_ru char [note: '''*bank details ru*''', null]
+  bank_details_en char [note: '''*bank details en*''', null]
+  director char [note: '''*director*''', null]
+  tax_code char [note: '''*tax code*''', null]
+  swift_code char [note: '''*swift code*''', null]
+  one_c_code char [note: '''*one c code*''', null]
+  color char [note: '''*color*''', null]
+  sort_order integer [note: '''*sort order*''', default:`0`, not null]
+  is_active boolean [note: '''*is active*''', default:`True`, not null]
+  is_gapy_satys boolean [note: '''*is gapy satys*''', default:`False`, not null]
+
+  indexes {
+    (code) [unique, name: 'core_export_firms_code_key', type: btree]
+    (id) [pk, unique, name: 'core_export_firms_pkey', type: btree]
+  }
+}
+
+
+Table core.GreenhouseBlock {
+  Note: '''
+Greenhouse blocks A–O, plus inner sub-blocks (e.g. OD, OG under O).
+
+parent is NULL for top-level blocks; set for inner sub-blocks.
+
+
+*table: public.core_greenhouse_blocks*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  code char [note: '''*code*''', unique, not null]
+  name char [note: '''*name*''', null]
+  parent_id big_auto [null]
+  manager_id big_auto [null]
+  variety_main_id big_auto [null]
+  variety_secondary_id big_auto [null]
+  area_m2 integer [note: '''*area m2*''', null]
+  location_id big_auto [null]
+  section_count integer [note: '''*section count*''', null]
+  sowing_date date [note: '''*sowing date*''', null]
+  season_start_month integer [note: '''*season start month*''', null]
+  color char [note: '''*color*''', null]
+  sort_order integer [note: '''*sort order*''', default:`0`, not null]
+  is_active boolean [note: '''*is active*''', default:`True`, not null]
+
+  indexes {
+    (code) [unique, name: 'core_greenhouse_blocks_code_key', type: btree]
+    (location_id) [name: 'core_greenhouse_blocks_location_id_4f88462e', type: btree]
+    (manager_id) [name: 'core_greenhouse_blocks_manager_id_40a8daac', type: btree]
+    (parent_id) [name: 'core_greenhouse_blocks_parent_id_acb19562', type: btree]
+    (id) [pk, unique, name: 'core_greenhouse_blocks_pkey', type: btree]
+    (variety_main_id) [name: 'core_greenhouse_blocks_variety_main_id_3715b0b8', type: btree]
+    (variety_secondary_id) [name: 'core_greenhouse_blocks_variety_secondary_id_9a7891a4', type: btree]
+  }
+}
+ref: core.GreenhouseBlock.parent_id > core.GreenhouseBlock.id
+ref: core.GreenhouseBlock.manager_id > core.User.id
+ref: core.GreenhouseBlock.variety_main_id > core.TomatoVariety.id
+ref: core.GreenhouseBlock.variety_secondary_id > core.TomatoVariety.id
+ref: core.GreenhouseBlock.location_id > core.LoadingLocation.id
+
+
+Table core.GreenhouseConfig {
+  Note: '''
+Singleton configuration row (pk=1 always) for greenhouse scheduling.
+
+Controls plan-submission deadlines, forecast time windows, notification
+lead time, truck capacity, and the bitmask of operating weekdays.
+
+Use GreenhouseConfig.get_solo() to read; never call objects.create()
+directly after initial seed.
+
+DDL: core.greenhouse_config
+
+
+*table: public.core_greenhouse_config*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  plan_deadline_weekday positive_small_integer [note: '''
+*plan deadline weekday*
+ISO weekday by which managers must submit plans (4=Friday).''', default:`4`, not null]
+  plan_late_until_weekday positive_small_integer [note: '''
+*plan late until weekday*
+ISO weekday until which late submissions are accepted (6=Sunday).''', default:`6`, not null]
+  plan_critical_late_at_weekday positive_small_integer [note: '''
+*plan critical late at weekday*
+ISO weekday when plan is considered critically late (0=Monday).''', default:`0`, not null]
+  plan_critical_late_at_time time [note: '''
+*plan critical late at time*
+Local time on plan_critical_late_at_weekday that triggers critical-late.''', default:`00:00:00`, not null]
+  forecast_primary_open time [note: '''
+*forecast primary open*
+Local time when the primary forecast window opens (day-before).''', default:`17:00:00`, not null]
+  forecast_primary_close time [note: '''
+*forecast primary close*
+Local time when the primary forecast window closes (day-before).''', default:`18:00:00`, not null]
+  forecast_fallback_close time [note: '''
+*forecast fallback close*
+Local time of day-of when the fallback window closes.''', default:`09:00:00`, not null]
+  forecast_same_day_close time [note: '''
+*forecast same day close*
+Local time of day-of when the same-day red-flag window closes.''', default:`23:59:00`, not null]
+  notification_lead_minutes positive_small_integer [note: '''
+*notification lead minutes*
+Minutes before a deadline to fire a reminder notification.''', default:`60`, not null]
+  truck_capacity_kg decimal [note: '''
+*truck capacity kg*
+Standard truck capacity in kg; used for Est. Trucks calculation.''', default:`18500`, not null]
+  operating_days_bitmask positive_small_integer [note: '''
+*operating days bitmask*
+Bitmask of operating weekdays: bit 0=Mon … bit 6=Sun. Default 0b0111111 = Mon–Sat.''', default:`63`, not null]
+  timezone_name char [note: '''
+*timezone name*
+IANA timezone name used for local-time window calculations.''', default:`"Asia/Ashgabat"`, not null]
+  updated_by_id big_auto [null]
+  updated_at date_time [note: '''*updated at*''', not null]
+
+  indexes {
+    (id) [pk, unique, name: 'core_greenhouse_config_pkey', type: btree]
+    (updated_by_id) [name: 'core_greenhouse_config_updated_by_id_7bcd9f5e', type: btree]
+  }
+}
+ref: core.GreenhouseConfig.updated_by_id > core.User.id
+
+
+Table core.ImportFirm {
+  Note: '''
+Buyer / importer companies.
+
+*table: public.core_import_firms*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  code char [note: '''*code*''', null]
+  name_company char [note: '''*name company*''', not null]
+  name_short char [note: '''*name short*''', null]
+  country_id big_auto [null]
+  city_id big_auto [null]
+  address char [note: '''*address*''', null]
+  bank_details char [note: '''*bank details*''', null]
+  contact_person char [note: '''*contact person*''', null]
+  phone char [note: '''*phone*''', null]
+  director_signature file [note: '''*director signature*''', null]
+  director_seal file [note: '''*director seal*''', null]
+  color char [note: '''*color*''', null]
+  sort_order integer [note: '''*sort order*''', default:`0`, not null]
+  is_active boolean [note: '''*is active*''', default:`True`, not null]
+  is_gapy_satys boolean [note: '''*is gapy satys*''', default:`False`, not null]
+
+  indexes {
+    (city_id) [name: 'core_import_firms_city_id_8e117037', type: btree]
+    (country_id) [name: 'core_import_firms_country_id_666dded3', type: btree]
+    (id) [pk, unique, name: 'core_import_firms_pkey', type: btree]
+  }
+}
+ref: core.ImportFirm.country_id > core.Country.id
+ref: core.ImportFirm.city_id > core.City.id
+
+
+Table core.LoadingLocation {
+  Note: '''
+Greenhouse loading points (Dusak, Kaka, Owadandepe).
+
+*table: public.core_loading_locations*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  name char [note: '''*name*''', unique, not null]
+
+  indexes {
+    (name) [unique, name: 'core_loading_locations_name_key', type: btree]
+    (id) [pk, unique, name: 'core_loading_locations_pkey', type: btree]
+  }
+}
+
+
+Table core.OperatingDayException {
+  Note: '''
+Override an individual calendar date as a holiday or extra working day.
+
+The dispatcher checks this table before firing time-based notifications.
+When `is_holiday=True`, the date is skipped even if the operating_days_bitmask
+would normally allow it. (Future: is_holiday=False would mark a normally-off day
+as working, but the dispatcher doesn't use that path yet.)
+
+DDL: core.operating_day_exceptions
+UNIQUE: date
+
+
+*table: public.core_operating_day_exceptions*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  date date [note: '''*date*''', unique, not null]
+  is_holiday boolean [note: '''
+*is holiday*
+True = treat this date as non-operating (skip notifications).''', default:`True`, not null]
+  note char [note: '''*note*''', default:`""`, not null]
+  created_by_id big_auto [null]
+  created_at date_time [note: '''*created at*''', not null]
+
+  indexes {
+    (created_by_id) [name: 'core_operating_day_exceptions_created_by_id_f1659d46', type: btree]
+    (date) [unique, name: 'core_operating_day_exceptions_date_key', type: btree]
+    (id) [pk, unique, name: 'core_operating_day_exceptions_pkey', type: btree]
+  }
+}
+ref: core.OperatingDayException.created_by_id > core.User.id
+
+
+Table core.ProductType {
+  Note: '''
+Product types (Pomidor, Bolgar burç, etc.).
+
+*table: public.core_product_types*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  name char [note: '''*name*''', unique, not null]
+
+  indexes {
+    (name) [unique, name: 'core_product_types_name_key', type: btree]
+    (id) [pk, unique, name: 'core_product_types_pkey', type: btree]
+  }
+}
+
+
+Table core.RoleFieldPermission {
+  Note: '''
+Controls which fields each role can edit on a given resource.
+
+field_name='*' means unrestricted access to all fields.
+
+
+*table: public.core_role_field_permissions*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  role core.char_rolefieldpermission_role [note: '''*role*''', not null]
+  resource_code char [note: '''*resource code*''', not null]
+  field_name char [note: '''*field name*''', not null]
+
+  indexes {
+    (id) [pk, unique, name: 'core_role_field_permissions_pkey', type: btree]
+    (role,resource_code,field_name) [unique, name: 'core_role_field_permissions_role_resource_code_field_name_9c4876e1_uniq', type: btree]
+  }
+}
+
+
+Table core.RolePagePermission {
+  Note: '''
+Controls which pages/routes are visible to each role.
+
+page_code uses dot notation matching frontend route groups:
+'dashboard', 'export.shipments', 'admin.users', etc.
+
+
+*table: public.core_role_page_permissions*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  role core.char_rolepagepermission_role [note: '''*role*''', not null]
+  page_code char [note: '''*page code*''', not null]
+  is_visible boolean [note: '''*is visible*''', default:`False`, not null]
+
+  indexes {
+    (id) [pk, unique, name: 'core_role_page_permissions_pkey', type: btree]
+    (role,page_code) [unique, name: 'core_role_page_permissions_role_page_code_7e1bd3f7_uniq', type: btree]
+  }
+}
+
+
+Table core.RoleResourcePermission {
+  Note: '''
+Controls view/create/edit/delete permissions per resource per role.
+
+resource_code maps to backend models: 'shipment', 'quota_issuance',
+'weekly_plan', 'price_entry', etc.
+
+
+*table: public.core_role_resource_permissions*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  role core.char_roleresourcepermission_role [note: '''*role*''', not null]
+  resource_code char [note: '''*resource code*''', not null]
+  can_view boolean [note: '''*can view*''', default:`False`, not null]
+  can_create boolean [note: '''*can create*''', default:`False`, not null]
+  can_edit boolean [note: '''*can edit*''', default:`False`, not null]
+  can_delete boolean [note: '''*can delete*''', default:`False`, not null]
+
+  indexes {
+    (id) [pk, unique, name: 'core_role_resource_permissions_pkey', type: btree]
+    (role,resource_code) [unique, name: 'core_role_resource_permissions_role_resource_code_8899aa63_uniq', type: btree]
+  }
+}
+
+
+Table core.Season {
+  Note: '''
+Export season (e.g. 2025-2026).
+
+*table: public.core_seasons*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  name char [note: '''*name*''', unique, not null]
+  start_date date [note: '''*start date*''', not null]
+  end_date date [note: '''*end date*''', not null]
+  is_active boolean [note: '''*is active*''', default:`False`, not null]
+
+  indexes {
+    (name) [unique, name: 'core_seasons_name_key', type: btree]
+    (id) [pk, unique, name: 'core_seasons_pkey', type: btree]
+  }
+}
+
+
+Table core.ShipmentOptionType {
+  Note: '''
+Configurable dropdown options for shipment sheet fields.
+
+Categories: documents_status, harvest_status,
+vehicle_condition, transport_responsible.
+
+
+*table: public.core_shipment_option_types*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  category char [note: '''*category*''', not null]
+  code char [note: '''*code*''', not null]
+  label_tk char [note: '''*label tk*''', not null]
+  label_en char [note: '''*label en*''', null]
+  label_ru char [note: '''*label ru*''', null]
+  icon char [note: '''*icon*''', null]
+  color char [note: '''*color*''', null]
+  sort_order integer [note: '''*sort order*''', default:`0`, not null]
+  is_active boolean [note: '''*is active*''', default:`True`, not null]
+
+  indexes {
+    (category,code) [unique, name: 'core_shipment_option_types_category_code_94ccb7db_uniq', type: btree]
+    (category) [name: 'core_shipment_option_types_category_f49e1b0d', type: btree]
+    (id) [pk, unique, name: 'core_shipment_option_types_pkey', type: btree]
+  }
+}
+
+
+Table core.ShipmentStatusType {
+  Note: '''
+13-step shipment lifecycle status definitions.
+
+Python TRANSITIONS dict (in export app) handles multi-role logic.
+required_role here is DB reference only.
+
+
+*table: public.core_shipment_status_types*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  code char [note: '''*code*''', unique, not null]
+  name_tk char [note: '''*name tk*''', not null]
+  name_en char [note: '''*name en*''', null]
+  name_ru char [note: '''*name ru*''', null]
+  step_order integer [note: '''*step order*''', not null]
+  required_role char [note: '''*required role*''', null]
+  phase char [note: '''*phase*''', null]
+  is_active boolean [note: '''*is active*''', default:`True`, not null]
+
+  indexes {
+    (code) [unique, name: 'core_shipment_status_types_code_key', type: btree]
+    (id) [pk, unique, name: 'core_shipment_status_types_pkey', type: btree]
+  }
+}
+
+
+Table core.TomatoVariety {
+  Note: '''
+Tomato cultivar reference.
+
+Official variety codes (01-10) and experimental codes (E1-E3) are assigned
+by the signed 15.04.2026 departmental document. code=None means legacy
+row not yet mapped to the official registry.
+
+
+*table: public.core_tomato_varieties*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  name char [note: '''*name*''', unique, not null]
+  code char [note: '''*code*''', unique, null]
+  is_experimental boolean [note: '''*is experimental*''', default:`False`, not null]
+  scientific_name char [note: '''*scientific name*''', not null]
+  type char [note: '''*type*''', null]
+  avg_fruit_weight_gr decimal [note: '''*avg fruit weight gr*''', null]
+  color char [note: '''*color*''', null]
+  sort_order integer [note: '''*sort order*''', default:`0`, not null]
+
+  indexes {
+    (code) [unique, name: 'core_tomato_varieties_code_key', type: btree]
+    (name) [unique, name: 'core_tomato_varieties_name_key', type: btree]
+    (id) [pk, unique, name: 'core_tomato_varieties_pkey', type: btree]
+  }
+}
+
+
+Table core.TruckDestination {
+  Note: '''
+Admin-managed truck destination for weekly truck allocation.
+
+Real countries (Russia, Kazakhstan) link to Country via country FK.
+Non-country categories (Gapy Satys) have country=NULL.
+
+
+*table: public.core_truck_destinations*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  name char [note: '''*name*''', not null]
+  country_id big_auto [null]
+  sort_order integer [note: '''*sort order*''', default:`0`, not null]
+  is_active boolean [note: '''*is active*''', default:`True`, not null]
+
+  indexes {
+    (country_id) [name: 'core_truck_destinations_country_id_27cc187b', type: btree]
+    (id) [pk, unique, name: 'core_truck_destinations_pkey', type: btree]
+  }
+}
+ref: core.TruckDestination.country_id > core.Country.id
+
+
+Table core.User {
+  Note: '''
+Platform user extending Django AbstractUser.
+
+Maps to sys_users table in DDL v5.1.
+password_hash column is handled by Django's auth system.
+managed_blocks is DEPRECATED — use GreenhouseBlock.manager FK.
+
+
+*table: public.sys_users*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  password char [note: '''*parol*''', not null]
+  last_login date_time [note: '''*soňky giriş*''', null]
+  is_superuser boolean [note: '''
+*superuser ýagdaýy*
+Bu ulanyjynyň aç-açan bellemezden ähli rugsatlarynyň bardygyny belleýär.''', default:`False`, not null]
+  username char [note: '''
+*ulanyjy ady*
+Gerekli. 150 harp ýa-da azyrak. Diňe harplar, sanlar we @/./+/-/_ mümkin.''', unique, not null]
+  first_name char [note: '''*at*''', not null]
+  last_name char [note: '''*familiýa*''', not null]
+  email email [note: '''*email salgy*''', not null]
+  is_staff boolean [note: '''
+*işgärleriň ýagdaýy*
+Ulanyjynyň bu administrator sahypasyna girip biljekdigini kesgitleýär.''', default:`False`, not null]
+  is_active boolean [note: '''
+*işjeň*
+Bu ulanyja işjeň garalmalydygyny ýa-da ýokdugyny kesgitleýär. Hasaplary pozmagyň ýerine şuny saýlaň.''', default:`True`, not null]
+  date_joined date_time [note: '''*goşulan senesi*''', default:`django.utils.timezone.now()`, not null]
+  role core.char_user_role [note: '''*role*''', default:`"export_manager"`, not null]
+  phone char [note: '''*phone*''', null]
+  telegram_chat_id char [note: '''*telegram chat id*''', null]
+
+  indexes {
+    (id) [pk, unique, name: 'sys_users_pkey', type: btree]
+    (username) [unique, name: 'sys_users_username_key', type: btree]
+  }
+}
+
+
+Table core.WorkSession {
+  Note: '''
+A single WS connection's work-time window.
+
+*table: public.core_work_sessions*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  user_id big_auto [not null]
+  started_at date_time [note: '''*started at*''', not null]
+  last_heartbeat_at date_time [note: '''*last heartbeat at*''', not null]
+  ended_at date_time [note: '''*ended at*''', null]
+  active_seconds integer [note: '''*active seconds*''', default:`0`, not null]
+  last_state char [note: '''*last state*''', default:`"active"`, not null]
+  tab_session_id char [note: '''*tab session id*''', default:`""`, not null]
+  client_info char [note: '''*client info*''', default:`""`, not null]
+  created_at date_time [note: '''*created at*''', not null]
+
+  indexes {
+    (ended_at,last_heartbeat_at) [name: 'core_work_s_ended_a_699108_idx', type: btree]
+    (user_id,started_at) [name: 'core_work_s_user_id_b9abd6_idx', type: btree]
+    (id) [pk, unique, name: 'core_work_sessions_pkey', type: btree]
+    (user_id) [name: 'core_work_sessions_user_id_e32fc78c', type: btree]
+  }
+}
+ref: core.WorkSession.user_id > core.User.id
+
+
+Table core.WorkSessionDaily {
+  Note: '''
+Read-only view: per-user-per-day summed active seconds.
+
+Backed by the SQL view `core_work_session_daily` created in the migration
+via RunSQL. `managed = False` — Django neither creates nor drops it.
+
+
+*table: public.core_work_session_daily*'''
+
+  id char [note: '''*id*''', pk, unique, not null]
+  user_id big_auto [not null]
+  work_date date [note: '''*work date*''', not null]
+  active_seconds_total integer [note: '''*active seconds total*''', not null]
+  first_seen date_time [note: '''*first seen*''', not null]
+  last_seen date_time [note: '''*last seen*''', not null]
+
+  indexes {
+    (id) [pk, unique, name: 'core_work_session_daily_pkey', type: btree]
+    (user_id) [name: 'core_work_session_daily_user_id_3305dd18', type: btree]
+  }
+}
+ref: core.WorkSessionDaily.user_id > core.User.id
+
+
+Table core.customer_import_firms {
+  Note: '''
+This is a Many-To-Many linking table autogenerated by Django.
+
+*DB table: core_customer_import_firms*'''
+
+  id auto [pk, not null]
+  importfirm_id auto [not null]
+  customer_id auto [not null]
+
+  indexes {
+    (customer_id) [name: 'core_customer_import_firms_customer_id_07978f5f', type: btree]
+    (customer_id,importfirm_id) [unique, name: 'core_customer_import_firms_customer_id_importfirm_id_76ce68f2_uniq', type: btree]
+    (importfirm_id) [name: 'core_customer_import_firms_importfirm_id_4425ce6b', type: btree]
+    (id) [pk, unique, name: 'core_customer_import_firms_pkey', type: btree]
+  }
+}
+ref: core.Customer.id > core.customer_import_firms.customer_id
+ref: core.ImportFirm.id > core.customer_import_firms.importfirm_id
+
+
+Table export.AuditLog {
+  Note: '''
+Immutable audit trail for create/update/transition events.
+
+Written by services.py on every successful status transition and by
+serializer save hooks for create/update operations. Never mutated after
+creation — read-only through the API.
+
+DDL: export_audit_log
+
+
+*table: public.export_audit_log*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  user_id big_auto [null]
+  action export.char_auditlog_action [note: '''*action*''', not null]
+  model_name char [note: '''*model name*''', not null]
+  object_id integer [note: '''*object id*''', not null]
+  object_repr char [note: '''*object repr*''', not null]
+  detail char [note: '''*detail*''', not null]
+  field_name char [note: '''
+*field name*
+Serializer field name for cell-level edit audit. Empty for transition/create rows.''', default:`""`, not null]
+  old_value text [note: '''
+*old value*
+Rendered string of the value before the edit (via _render()). May be Cyrillic.''', default:`""`, not null]
+  new_value text [note: '''
+*new value*
+Rendered string of the value after the edit (via _render()). May be Cyrillic.''', default:`""`, not null]
+  created_at date_time [note: '''*created at*''', not null]
+
+  indexes {
+    (model_name,object_id,field_name,created_at) [name: 'audit_field_history_idx', type: btree]
+    (field_name) [name: 'export_audit_log_field_name_bfcb4091', type: btree]
+    (id) [pk, unique, name: 'export_audit_log_pkey', type: btree]
+    (user_id) [name: 'export_audit_log_user_id_9a53a095', type: btree]
+  }
+}
+ref: export.AuditLog.user_id > core.User.id
+
+
+Table export.CustomsExpense {
+  Note: '''
+A single line of the customs/document cash-advance ledger (money-OUT side).
+
+Context: the cashier (e.g. Hangeldi) receives periodic float top-ups
+(FinansistAdvance, the money-IN side) and spends cash on per-truck or
+batch customs/document fees.  This model records each expenditure.
+
+Per-shipment fees (gumrukleme, fito, analiz, …) link to a Shipment via FK.
+Batch fees covering a group of shipments (e.g. "19 AD KARANTIN") set
+shipment=NULL and use the ``quantity`` field to store the unit count.
+
+Currency is TMT (Turkmen manat) by default — unlike FinansistAdvance which
+uses USD for advance float-ups.  A non-TMT row is valid but rare.
+
+The ledger balance at any point = sum(FinansistAdvance.total_amount) in TMT
+minus sum(CustomsExpense.amount).  See views_finance.py CustomsExpenseViewSet
+for the /ledger/ summary action.
+
+
+*table: public.export_customs_expenses*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  expense_date date [note: '''*expense date*''', not null]
+  category export.char_customsexpense_category [note: '''*category*''', not null]
+  amount decimal [note: '''*amount*''', not null]
+  currency char [note: '''*currency*''', default:`"TMT"`, not null]
+  shipment_id big_auto [null]
+  export_code_raw char [note: '''*export code raw*''', null]
+  vehicle_plate char [note: '''*vehicle plate*''', null]
+  route_label char [note: '''*route label*''', null]
+  label_raw char [note: '''*label raw*''', null]
+  quantity positive_small_integer [note: '''
+*quantity*
+Unit count for batch fees, e.g. 19 for \"19 AD KARANTIN\".''', null]
+  notes char [note: '''*notes*''', null]
+  created_by_id big_auto [not null]
+  created_at date_time [note: '''*created at*''', not null]
+
+  indexes {
+    (category) [name: 'customs_exp_category_idx', type: btree]
+    (expense_date) [name: 'customs_exp_date_idx', type: btree]
+    (shipment_id) [name: 'customs_exp_shipment_idx', type: btree]
+    (created_by_id) [name: 'export_customs_expenses_created_by_id_c6e83e71', type: btree]
+    (id) [pk, unique, name: 'export_customs_expenses_pkey', type: btree]
+    (shipment_id) [name: 'export_customs_expenses_shipment_id_3f8ec429', type: btree]
+  }
+}
+ref: export.CustomsExpense.shipment_id > export.Shipment.id
+ref: export.CustomsExpense.created_by_id > core.User.id
+
+
+Table export.DomesticMarketPrice {
+  Note: '''
+Domestic Turkmenistan market prices from the Satys_bahalar Excel file.
+
+Tracks daily tomato/vegetable prices at named bazaars (Tolkuçka, Teke bazar, etc.)
+split by price type (bazar/klent/online) and variety. Used to compare
+local TM prices against export destination prices.
+
+DDL: export.domestic_market_prices
+No unique constraint in DDL — an index covers (date, market_name, price_type, variety_type)
+for fast range queries.
+
+
+*table: public.export_domestic_market_prices*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  date date [note: '''*date*''', not null]
+  market_name char [note: '''*market name*''', not null]
+  price_type char [note: '''*price type*''', null]
+  variety_type char [note: '''*variety type*''', null]
+  price decimal [note: '''*price*''', not null]
+  entered_by_id big_auto [null]
+  created_at date_time [note: '''*created at*''', not null]
+
+  indexes {
+    (entered_by_id) [name: 'export_domestic_market_prices_entered_by_id_6d8f099a', type: btree]
+    (id) [pk, unique, name: 'export_domestic_market_prices_pkey', type: btree]
+    (date,market_name,price_type,variety_type) [name: 'ix_domestic_price', type: btree]
+  }
+}
+ref: export.DomesticMarketPrice.entered_by_id > core.User.id
+
+
+Table export.ExpenseCategory {
+  Note: '''
+One expense category in the sales-report template.
+
+The ``code`` is the stable key (matches the former TextChoices enum codes
+plus any future admin-added entries). Frontend uses ``name_en``/``name_ru``/
+``name_tk`` for display instead of hardcoded i18n keys so new admin-added
+categories are immediately visible without a code release.
+
+
+*table: public.export_expense_categories*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  code char [note: '''*code*''', unique, not null]
+  name_tk char [note: '''*name tk*''', not null]
+  name_ru char [note: '''*name ru*''', null]
+  name_en char [note: '''*name en*''', null]
+  logo_code char [note: '''*logo code*''', null]
+  sort_order integer [note: '''*sort order*''', default:`0`, not null]
+  is_active boolean [note: '''*is active*''', default:`True`, not null]
+
+  indexes {
+    (code) [unique, name: 'export_expense_categories_code_key', type: btree]
+    (id) [pk, unique, name: 'export_expense_categories_pkey', type: btree]
+  }
+}
+
+
+Table export.FinansistAdvance {
+  Note: '''
+A batch advance issued by the finansist (Babageldi) to cover customs costs.
+
+One advance may cover multiple shipments. Reconciliation marks the advance
+as settled once all covered shipments are accounted for in the final sales report.
+
+
+*table: public.export_finansist_advances*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  batch_code char [note: '''*batch code*''', null]
+  advance_date date [note: '''*advance date*''', not null]
+  total_amount decimal [note: '''*total amount*''', not null]
+  currency char [note: '''*currency*''', default:`"USD"`, not null]
+  purpose char [note: '''*purpose*''', null]
+  issued_by_id big_auto [not null]
+  notes char [note: '''*notes*''', null]
+  reconciled boolean [note: '''*reconciled*''', default:`False`, not null]
+  reconciled_at date_time [note: '''*reconciled at*''', null]
+  created_at date_time [note: '''*created at*''', not null]
+
+  indexes {
+    (issued_by_id) [name: 'export_finansist_advances_issued_by_id_023b7822', type: btree]
+    (id) [pk, unique, name: 'export_finansist_advances_pkey', type: btree]
+  }
+}
+ref: export.FinansistAdvance.issued_by_id > core.User.id
+
+
+Table export.FinansistAdvanceShipment {
+  Note: '''
+Junction table: which shipments a batch advance covers.
+
+allocated_amount is the portion of the advance earmarked for this specific
+shipment. It may be NULL when the advance covers multiple shipments and the
+per-shipment split hasn't been determined yet.
+
+
+*table: public.export_finansist_advance_shipments*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  advance_id big_auto [not null]
+  shipment_id big_auto [not null]
+  allocated_amount decimal [note: '''*allocated amount*''', null]
+
+  indexes {
+    (advance_id) [name: 'export_finansist_advance_shipments_advance_id_b3888d58', type: btree]
+    (advance_id,shipment_id) [unique, name: 'export_finansist_advance_shipments_advance_id_shipment_id_ead556de_uniq', type: btree]
+    (id) [pk, unique, name: 'export_finansist_advance_shipments_pkey', type: btree]
+    (shipment_id) [name: 'export_finansist_advance_shipments_shipment_id_ffc6a544', type: btree]
+  }
+}
+ref: export.FinansistAdvanceShipment.advance_id > export.FinansistAdvance.id
+ref: export.FinansistAdvanceShipment.shipment_id > export.Shipment.id
+
+
+Table export.Notification {
+  Note: '''
+Per-user notification record.
+
+Created by services when quota thresholds are crossed or shipments become
+overdue. The KIND_CHOICES drive the frontend icon and copy.
+Marked read via NotificationViewSet.read / read_all actions.
+
+DDL: export_notifications
+
+
+*table: public.export_notifications*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  user_id big_auto [not null]
+  kind export.char_notification_kind [note: '''*kind*''', not null]
+  message char [note: '''*message*''', not null]
+  link char [note: '''*link*''', null]
+  read_at date_time [note: '''*read at*''', null]
+  created_at date_time [note: '''*created at*''', not null]
+
+  indexes {
+    (id) [pk, unique, name: 'export_notifications_pkey', type: btree]
+    (user_id) [name: 'export_notifications_user_id_2752cfc2', type: btree]
+  }
+}
+ref: export.Notification.user_id > core.User.id
+
+
+Table export.PackingTemplate {
+  Note: '''
+Whole-truck packing (→ CMR) + a set of firm shares (→ Invoices).
+
+*table: public.export_packing_template*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  name char [note: '''*name*''', not null]
+  product_type export.char_packingtemplate_product_type [note: '''*product type*''', default:`"tomato"`, not null]
+  net_kg decimal [note: '''*net kg*''', null]
+  gross_kg decimal [note: '''*gross kg*''', null]
+  box_count integer [note: '''*box count*''', null]
+  pallet_count decimal [note: '''*pallet count*''', null]
+  pallet_weight_kg decimal [note: '''*pallet weight kg*''', null]
+  is_active boolean [note: '''*is active*''', default:`True`, not null]
+  sort_order integer [note: '''*sort order*''', default:`0`, not null]
+
+  indexes {
+    (id) [pk, unique, name: 'export_packing_template_pkey', type: btree]
+  }
+}
+
+
+Table export.PackingTemplateShare {
+  Note: '''
+One firm's share within a PackingTemplate (→ that firm's Invoice).
+
+*table: public.export_packing_template_share*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  template_id big_auto [not null]
+  share_order integer [note: '''*share order*''', default:`0`, not null]
+  net_kg decimal [note: '''*net kg*''', null]
+  gross_kg decimal [note: '''*gross kg*''', null]
+  box_count integer [note: '''*box count*''', null]
+  pallet_count decimal [note: '''*pallet count*''', null]
+  pallet_weight_kg decimal [note: '''*pallet weight kg*''', null]
+
+  indexes {
+    (id) [pk, unique, name: 'export_packing_template_share_pkey', type: btree]
+    (template_id) [name: 'export_packing_template_share_template_id_21be2d0a', type: btree]
+  }
+}
+ref: export.PackingTemplateShare.template_id > export.PackingTemplate.id
+
+
+Table export.Pallet {
+  Note: '''
+Per-pallet manifest entry. Sent weight + variety + sub-block source of truth.
+
+Created during loading by weight_master (a subordinate of warehouse_chief,
+Artykow Maksat at Kaka). Aggregated values feed Shipment.weight_net,
+weight_gross, varieties_dominant via close_pallet_manifest() in services.py.
+
+Net weight formula (matches 10AP116 reference data):
+net_weight = gross - (crate_type.weight_kg * crate_count) - pallet_weight - additions
+
+
+*table: public.export_pallets*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  shipment_id big_auto [not null]
+  pallet_number positive_small_integer [note: '''*pallet number*''', not null]
+  crate_type_id big_auto [not null]
+  crate_count positive_small_integer [note: '''*crate count*''', not null]
+  gross_weight_kg decimal [note: '''*gross weight kg*''', not null]
+  pallet_weight_kg decimal [note: '''*pallet weight kg*''', not null]
+  additions_kg decimal [note: '''*additions kg*''', default:`0`, not null]
+  variety_id big_auto [not null]
+  sub_block_id big_auto [not null]
+  loaded_at date_time [note: '''*loaded at*''', default:`django.utils.timezone.now()`, not null]
+  created_by_id big_auto [not null]
+
+  indexes {
+    (crate_type_id) [name: 'export_pallets_crate_type_id_04cc46ac', type: btree]
+    (created_by_id) [name: 'export_pallets_created_by_id_04e58cf2', type: btree]
+    (id) [pk, unique, name: 'export_pallets_pkey', type: btree]
+    (shipment_id) [name: 'export_pallets_shipment_id_73d25c3a', type: btree]
+    (shipment_id,pallet_number) [unique, name: 'export_pallets_shipment_id_pallet_number_79939b02_uniq', type: btree]
+    (sub_block_id) [name: 'export_pallets_sub_block_id_edca5bae', type: btree]
+    (variety_id) [name: 'export_pallets_variety_id_7bcc3135', type: btree]
+  }
+}
+ref: export.Pallet.shipment_id > export.Shipment.id
+ref: export.Pallet.crate_type_id > core.CrateType.id
+ref: export.Pallet.variety_id > core.TomatoVariety.id
+ref: export.Pallet.sub_block_id > core.GreenhouseBlock.id
+ref: export.Pallet.created_by_id > core.User.id
+
+
+Table export.PriceEntry {
+  Note: '''
+Market tomato price per city per day.
+
+DDL: export.price_entries — UNIQUE (date, city_id)
+Used by the PricePanel 7-day trend view.
+
+
+*table: public.export_price_entries*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  date date [note: '''*date*''', not null]
+  city_id big_auto [not null]
+  price_local decimal [note: '''*price local*''', null]
+  price_usd decimal [note: '''*price usd*''', null]
+  currency char [note: '''*currency*''', default:`""`, not null]
+  source char [note: '''*source*''', default:`""`, not null]
+  entered_by_id big_auto [null]
+  created_at date_time [note: '''*created at*''', not null]
+
+  indexes {
+    (city_id) [name: 'export_price_entries_city_id_a2db9d76', type: btree]
+    (entered_by_id) [name: 'export_price_entries_entered_by_id_1cc25eaf', type: btree]
+    (id) [pk, unique, name: 'export_price_entries_pkey', type: btree]
+  }
+}
+ref: export.PriceEntry.city_id > core.City.id
+ref: export.PriceEntry.entered_by_id > core.User.id
+
+
+Table export.QualityDocument {
+  Note: '''
+Quality inspection document flags for a shipment.
+
+One record per shipment. All four boolean fields correspond to physical
+documents that must accompany the cargo.
+
+
+*table: public.export_quality_documents*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  shipment_id big_auto [unique, not null]
+  azyk_maglumatnama boolean [note: '''*azyk maglumatnama*''', default:`False`, not null]
+  suriji_gozukdiriji boolean [note: '''*suriji gozukdiriji*''', default:`False`, not null]
+  hil_sertifikaty boolean [note: '''*hil sertifikaty*''', default:`False`, not null]
+  kalibrowka_analiz boolean [note: '''*kalibrowka analiz*''', default:`False`, not null]
+
+  indexes {
+    (id) [pk, unique, name: 'export_quality_documents_pkey', type: btree]
+    (shipment_id) [unique, name: 'export_quality_documents_shipment_id_key', type: btree]
+  }
+}
+ref: export.QualityDocument.shipment_id - export.Shipment.id
+
+
+Table export.QuotaIssuance {
+  Note: '''
+One government quota issuance event on a specific date.
+
+DDL: export.quota_issuances
+
+
+*table: public.export_quota_issuances*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  issue_date date [note: '''*issue date*''', not null]
+  product_type export.char_quotaissuance_product_type [note: '''*product type*''', default:`"tomato"`, not null]
+  matched_week positive_small_integer [note: '''
+*matched week*
+ISO week number this issuance is matched to''', not null]
+  matched_year positive_small_integer [note: '''
+*matched year*
+ISO year for matched_week''', not null]
+  is_manually_reassigned boolean [note: '''*is manually reassigned*''', default:`False`, not null]
+  validity export.char_quotaissuance_validity [note: '''*validity*''', default:`"this_month"`, not null]
+  notes char [note: '''*notes*''', default:`""`, not null]
+  created_at date_time [note: '''*created at*''', null]
+  created_by_id big_auto [null]
+
+  indexes {
+    (created_by_id) [name: 'export_quota_issuances_created_by_id_4f9e4436', type: btree]
+    (id) [pk, unique, name: 'export_quota_issuances_pkey', type: btree]
+  }
+}
+ref: export.QuotaIssuance.created_by_id > core.User.id
+
+
+Table export.QuotaIssuanceFirmAllocation {
+  Note: '''
+Per-firm allocation within a single quota issuance event.
+
+DDL: export.quota_issuance_firm_allocations
+UNIQUE (issuance, export_firm)
+
+
+*table: public.export_quota_issuance_firm_allocations*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  issuance_id big_auto [not null]
+  export_firm_id big_auto [not null]
+  kg_quota decimal [note: '''*kg quota*''', not null]
+
+  indexes {
+    (export_firm_id) [name: 'export_quota_issuance_firm_allocations_export_firm_id_f05ad2f9', type: btree]
+    (issuance_id) [name: 'export_quota_issuance_firm_allocations_issuance_id_1bb841c3', type: btree]
+    (id) [pk, unique, name: 'export_quota_issuance_firm_allocations_pkey', type: btree]
+  }
+}
+ref: export.QuotaIssuanceFirmAllocation.issuance_id > export.QuotaIssuance.id
+ref: export.QuotaIssuanceFirmAllocation.export_firm_id > core.ExportFirm.id
+
+
+Table export.QuotaUsageRecord {
+  Note: '''
+Quota usage (export consumption) per firm per shipment.
+
+DDL: export.quota_usage_records
+Each row = kg of quota consumed by a firm on a specific date via exports.
+Auto-created when firm splits are assigned to a shipment (status=draft).
+Document team or admin approves before it counts in FIFO consumption.
+
+"Counted" semantics live on the manager — see QuotaUsageRecordQuerySet.counted().
+Soft-deleting or cancelling a shipment auto-releases its approved kg; restoring
+re-consumes it. No row deletion needed for the soft/cancel paths.
+
+
+*table: public.export_quota_usage_records*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  usage_date date [note: '''*usage date*''', not null]
+  export_firm_id big_auto [not null]
+  kg_used decimal [note: '''*kg used*''', not null]
+  product_type export.char_quotausagerecord_product_type [note: '''*product type*''', default:`"tomato"`, not null]
+  notes char [note: '''*notes*''', default:`""`, not null]
+  shipment_id big_auto [null]
+  status export.char_quotausagerecord_status [note: '''*status*''', default:`"draft"`, not null]
+  approved_by_id big_auto [null]
+  approved_at date_time [note: '''*approved at*''', null]
+  created_by_id big_auto [null]
+  created_at date_time [note: '''*created at*''', null]
+
+  indexes {
+    (approved_by_id) [name: 'export_quota_usage_records_approved_by_id_7b3b8a61', type: btree]
+    (created_by_id) [name: 'export_quota_usage_records_created_by_id_b06741c0', type: btree]
+    (export_firm_id) [name: 'export_quota_usage_records_export_firm_id_ab942b47', type: btree]
+    (id) [pk, unique, name: 'export_quota_usage_records_pkey', type: btree]
+    (shipment_id) [name: 'export_quota_usage_records_shipment_id_67b2c9c3', type: btree]
+  }
+}
+ref: export.QuotaUsageRecord.export_firm_id > core.ExportFirm.id
+ref: export.QuotaUsageRecord.shipment_id > export.Shipment.id
+ref: export.QuotaUsageRecord.approved_by_id > core.User.id
+ref: export.QuotaUsageRecord.created_by_id > core.User.id
+
+
+Table export.SalesReport {
+  Note: '''
+Final sales report filled when shipment reaches hasabat status.
+
+One record per shipment (OneToOne). Created by the sales rep at hasabat (step 12).
+Fields map to export.sales_reports in DDL v5.1 with column renames for clarity.
+
+
+*table: public.export_sales_reports*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  shipment_id big_auto [unique, not null]
+  price_per_kg decimal [note: '''*price per kg*''', null]
+  total_usd decimal [note: '''*total usd*''', null]
+  weight_sold_kg decimal [note: '''*weight sold kg*''', null]
+  weight_rejected_kg decimal [note: '''*weight rejected kg*''', null]
+  transport_cost_usd decimal [note: '''*transport cost usd*''', null]
+  market_fee_usd decimal [note: '''*market fee usd*''', null]
+  other_expenses_usd decimal [note: '''*other expenses usd*''', null]
+  currency char [note: '''*currency*''', default:`"KZT"`, not null]
+  exchange_rate decimal [note: '''*exchange rate*''', null]
+  weight_loaded_kg decimal [note: '''*weight loaded kg*''', null]
+  total_sales_local decimal [note: '''*total sales local*''', null]
+  total_expenses_local decimal [note: '''*total expenses local*''', null]
+  net_income_local decimal [note: '''*net income local*''', null]
+  notes text [note: '''*notes*''', null]
+  created_by_id big_auto [not null]
+  created_at date_time [note: '''*created at*''', not null]
+  updated_at date_time [note: '''*updated at*''', not null]
+
+  indexes {
+    (created_by_id) [name: 'export_sales_reports_created_by_id_e12fb967', type: btree]
+    (id) [pk, unique, name: 'export_sales_reports_pkey', type: btree]
+    (shipment_id) [unique, name: 'export_sales_reports_shipment_id_key', type: btree]
+  }
+}
+ref: export.SalesReport.shipment_id - export.Shipment.id
+ref: export.SalesReport.created_by_id > core.User.id
+
+
+Table export.SalesReportExpense {
+  Note: '''
+One itemized expense row in the sales report.
+
+Uses a controlled ``category`` enum for reliable aggregation across
+shipments.  ``label_raw`` preserves the exact text from the source
+Excel sheet for audit/import fidelity (e.g. city-specific NAKLIYE labels).
+
+
+*table: public.export_sales_report_expenses*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  report_id big_auto [not null]
+  category_id big_auto [not null]
+  label_raw char [note: '''*label raw*''', null]
+  amount_local decimal [note: '''*amount local*''', not null]
+
+  indexes {
+    (category_id) [name: 'export_sales_report_expenses_category_id_996fe46b', type: btree]
+    (id) [pk, unique, name: 'export_sales_report_expenses_pkey', type: btree]
+    (report_id) [name: 'export_sales_report_expenses_report_id_1df3524f', type: btree]
+  }
+}
+ref: export.SalesReportExpense.report_id > export.SalesReport.id
+ref: export.SalesReportExpense.category_id > export.ExpenseCategory.id
+
+
+Table export.SalesReportLineItem {
+  Note: '''
+One price-tier row in the sales report (qty kg × price → amount).
+
+A single shipment may have 1–14 line items (different price tiers for the
+same lot, or different product grades).  The serializer computes amount_local
+= quantity_kg × price_local and stores it here for fast aggregation.
+
+
+*table: public.export_sales_report_line_items*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  report_id big_auto [not null]
+  line_number positive_small_integer [note: '''*line number*''', not null]
+  product_name char [note: '''*product name*''', null]
+  quantity_kg decimal [note: '''*quantity kg*''', not null]
+  price_local decimal [note: '''*price local*''', not null]
+  amount_local decimal [note: '''*amount local*''', not null]
+
+  indexes {
+    (id) [pk, unique, name: 'export_sales_report_line_items_pkey', type: btree]
+    (report_id) [name: 'export_sales_report_line_items_report_id_bfb87c33', type: btree]
+  }
+}
+ref: export.SalesReportLineItem.report_id > export.SalesReport.id
+
+
+Table export.SheetRowRoleTrigger {
+  Note: '''
+Role-level edit trigger for a SheetRowSetting.
+
+Replaces the single triggered_role CharField (v1) with a proper
+child table supporting multiple roles per row.
+
+When is_locked=True, matching users in these roles may edit (exception
+to lock per ADR-0001). When is_locked=False, matching users gain edit
+access (AND with field perm).
+
+DDL: export_sheet_row_role_trigger
+
+
+*table: public.export_sheet_row_role_trigger*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  row_id big_auto [not null]
+  role export.char_sheetrowroletrigger_role [note: '''*role*''', not null]
+
+  indexes {
+    (id) [pk, unique, name: 'export_sheet_row_role_trigger_pkey', type: btree]
+    (row_id) [name: 'export_sheet_row_role_trigger_row_id_34db9958', type: btree]
+  }
+}
+ref: export.SheetRowRoleTrigger.row_id > export.SheetRowSetting.id
+
+
+Table export.SheetRowSetting {
+  Note: '''
+Per-row configuration for the shipment Sheet view (Sheet Control v2).
+
+Controls display order, visibility, lock state, localized labels/descriptions,
+style, and permission triggers for each row in the Shipment Sheet.
+
+Identity:
+``field_key`` is the canonical immutable identifier — it matches values
+in DEFAULT_SHEET_ROWS and serializer field names. Never change it after
+creation.
+
+Permission model (ADR-0001, ADR-0010):
+- is_locked=False → triggered_user/roles/extra_users each independently
+grant edit access (AND with field perm).
+- is_locked=True  → only users in role_triggers or user_permissions
+(can_edit=True, not soft-deleted) may edit. Superuser/admin/director
+always bypass.
+
+Concurrency (ADR-0006):
+``version`` is incremented on every save(). PATCH endpoints must supply
+the current version; mismatch → 409 Conflict.
+
+Soft-delete (ADR-0002):
+``deleted_at`` / ``deleted_by`` mark deletion. Use objects.active()
+for all application queries.
+
+Display order (ADR-0007):
+Sparse integers starting at 1024 with step 1024. Drag-reorder updates
+a single row's display_order. Rebalance happens only when gap < 2.
+
+DDL: export_sheet_row_setting (no SQL schema prefix — platform table)
+
+
+*table: public.export_sheet_row_setting*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  field_key char [note: '''
+*field key*
+Matches field_key in DEFAULT_SHEET_ROWS. Immutable after creation.''', unique, not null]
+  row_number positive_small_integer [note: '''
+*row number*
+Original display ordinal from DEFAULT_SHEET_ROWS. Superseded by display_order.''', not null]
+  display_order positive_integer [note: '''
+*display order*
+Sparse integer (step 1024). Controls row order in Sheet view.''', default:`0`, not null]
+  is_visible boolean [note: '''
+*is visible*
+Hidden rows are excluded from the /sheet/ payload entirely.''', default:`True`, not null]
+  is_locked boolean [note: '''
+*is locked*
+When True, only users in role_triggers or active user_permissions may edit. Superuser/admin/director bypass this lock always.''', default:`False`, not null]
+  label_tk char [note: '''
+*label tk*
+Row label in Turkmen. Fallback: i18n file → field_key raw.''', not null]
+  label_ru char [note: '''
+*label ru*
+Row label in Russian.''', not null]
+  label_en char [note: '''
+*label en*
+Row label in English.''', not null]
+  who_tk char [note: '''
+*who tk*
+\"Who\" column override in Turkmen. Falls back to default_who_key i18n.''', not null]
+  who_ru char [note: '''
+*who ru*
+\"Who\" column override in Russian.''', not null]
+  who_en char [note: '''
+*who en*
+\"Who\" column override in English.''', not null]
+  description_tk char [note: '''
+*description tk*
+Tooltip description in Turkmen.''', not null]
+  description_ru char [note: '''
+*description ru*
+Tooltip description in Russian.''', not null]
+  description_en char [note: '''
+*description en*
+Tooltip description in English.''', not null]
+  style_width positive_small_integer [note: '''
+*style width*
+Column width in pixels. Valid range: 50–500.''', null]
+  style_align export.char_sheetrowsetting_style_align [note: '''
+*style align*
+Text alignment: "left", "center", or "right".''', not null]
+  style_color char [note: '''
+*style color*
+Background colour as #RRGGBB hex string.''', not null]
+  style_font_color char [note: '''
+*style font color*
+Cell text colour as #RRGGBB hex string. Applied to value text inside this row"s data cells across all shipments. Overrides the auto WCAG-contrast color picked from the cell background.''', not null]
+  style_font_weight export.char_sheetrowsetting_style_font_weight [note: '''
+*style font weight*
+Cell text weight. Blank = bold (the sheet default). Set "normal" to un-bold this row"s data cells.''', not null]
+  style_font_style export.char_sheetrowsetting_style_font_style [note: '''
+*style font style*
+Cell text style. Blank = upright. Set "italic" to italicize this row"s data cells.''', not null]
+  style_font_family export.char_sheetrowsetting_style_font_family [note: '''
+*style font family*
+Cell text font-family key (dm_sans/inter/mono/serif). Blank = inherit the sheet default font.''', not null]
+  style_font_size positive_small_integer [note: '''
+*style font size*
+Cell text font size in pixels (scaled by zoom on render). Valid range: 8–28. Null = inherit the sheet default (11px).''', null]
+  triggered_user_id big_auto [null]
+  version positive_integer [note: '''
+*version*
+Incremented on every save(). Used for optimistic locking in PATCH.''', default:`1`, not null]
+  deleted_at date_time [note: '''
+*deleted at*
+Set to now() on soft-delete. Null = active.''', null]
+  deleted_by_id big_auto [null]
+  is_custom boolean [note: '''
+*is custom*
+True for admin-created runtime rows (Phase 5c). Values stored in ShipmentCustomFieldValue, not on Shipment.''', default:`False`, not null]
+  hidden_at date_time [note: '''
+*hidden at*
+Timestamp of the most recent is_visible=False transition. Null when is_visible=True (or never hidden).''', null]
+  updated_at date_time [note: '''*updated at*''', not null]
+  updated_by_id big_auto [null]
+
+  indexes {
+    (deleted_at) [name: 'export_sheet_row_setting_deleted_at_f0226b9e', type: btree]
+    (deleted_by_id) [name: 'export_sheet_row_setting_deleted_by_id_ba88f3ce', type: btree]
+    (display_order) [name: 'export_sheet_row_setting_display_order_2e255278', type: btree]
+    (field_key) [unique, name: 'export_sheet_row_setting_field_key_key', type: btree]
+    (hidden_at) [name: 'export_sheet_row_setting_hidden_at_ab4a8636', type: btree]
+    (is_custom) [name: 'export_sheet_row_setting_is_custom_94021b8c', type: btree]
+    (id) [pk, unique, name: 'export_sheet_row_setting_pkey', type: btree]
+    (triggered_user_id) [name: 'export_sheet_row_setting_triggered_user_id_69429eac', type: btree]
+    (updated_by_id) [name: 'export_sheet_row_setting_updated_by_id_7cb926cf', type: btree]
+  }
+}
+ref: export.SheetRowSetting.triggered_user_id > core.User.id
+ref: export.SheetRowSetting.deleted_by_id > core.User.id
+ref: export.SheetRowSetting.updated_by_id > core.User.id
+
+
+Table export.SheetRowUserPermission {
+  Note: '''
+Per-user extra grant for a SheetRowSetting.
+
+When is_locked=True, users listed here with can_edit=True are exceptions
+to the lock (ADR-0001). When is_locked=False, they gain regular edit access.
+
+Soft-deleted entries (deleted_at set) are ignored by permission checks.
+User FK uses SET_NULL so history is preserved when a user account is
+deleted (ADR-0002). The partial UniqueConstraint prevents duplicate active
+grants but allows multiple soft-deleted rows (MSSQL filtered index).
+
+DDL: export_sheet_row_user_permission
+
+
+*table: public.export_sheet_row_user_permission*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  row_id big_auto [not null]
+  user_id big_auto [null]
+  can_edit boolean [note: '''
+*can edit*
+When False, this is a read-only grant (reserved for future use).''', default:`True`, not null]
+  deleted_at date_time [note: '''*deleted at*''', null]
+  deleted_by_id big_auto [null]
+  created_at date_time [note: '''*created at*''', not null]
+  created_by_id big_auto [null]
+
+  indexes {
+    (created_by_id) [name: 'export_sheet_row_user_permission_created_by_id_3a055c9a', type: btree]
+    (deleted_at) [name: 'export_sheet_row_user_permission_deleted_at_c418a6a4', type: btree]
+    (deleted_by_id) [name: 'export_sheet_row_user_permission_deleted_by_id_6543971b', type: btree]
+    (id) [pk, unique, name: 'export_sheet_row_user_permission_pkey', type: btree]
+    (row_id) [name: 'export_sheet_row_user_permission_row_id_b0536545', type: btree]
+    (user_id) [name: 'export_sheet_row_user_permission_user_id_6af2b1a6', type: btree]
+  }
+}
+ref: export.SheetRowUserPermission.row_id > export.SheetRowSetting.id
+ref: export.SheetRowUserPermission.user_id > core.User.id
+ref: export.SheetRowUserPermission.deleted_by_id > core.User.id
+ref: export.SheetRowUserPermission.created_by_id > core.User.id
+
+
+Table export.Shipment {
+  Note: '''
+Main shipment record — one row per truck load.
+
+Status transitions happen ONLY via transition_to() in services.py.
+AD-1 denormalized timestamp fields are written ONLY by transition_to().
+AD-2 vehicle_status_note is deprecated; use vehicle_condition + comments.
+
+
+*table: public.export_shipments*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  shipment_code char [note: '''*shipment code*''', unique, not null]
+  export_code char [note: '''*export code*''', null]
+  previous_platform_id_id big_auto [null]
+  date date [note: '''*date*''', not null]
+  season_id big_auto [not null]
+  country_id big_auto [null]
+  city_id big_auto [null]
+  border_point_id big_auto [null]
+  loading_location_id big_auto [null]
+  customer_id big_auto [null]
+  import_firm_id big_auto [null]
+  product_type_id big_auto [null]
+  variety_id big_auto [null]
+  variety_confidence export.char_shipment_variety_confidence [note: '''*variety confidence*''', default:`"none"`, not null]
+  weight_gross decimal [note: '''*weight gross*''', null]
+  weight_net decimal [note: '''*weight net*''', null]
+  packaging_kg decimal [note: '''*packaging kg*''', null]
+  pallet_count integer [note: '''*pallet count*''', null]
+  pallet_weight_kg decimal [note: '''*pallet weight kg*''', null]
+  box_count integer [note: '''*box count*''', null]
+  rejected_weight_kg decimal [note: '''*rejected weight kg*''', null]
+  packing_template_id big_auto [null]
+  truck_head_id big_integer [note: '''*truck head id*''', null]
+  trailer_id big_integer [note: '''*trailer id*''', null]
+  driver_id big_integer [note: '''*driver id*''', null]
+  trip_id big_integer [note: '''*trip id*''', null]
+  vehicle_responsible char [note: '''*vehicle responsible*''', null]
+  vehicle_live_status char [note: '''*vehicle live status*''', null]
+  truck_plate char [note: '''*truck plate*''', null]
+  driver_name char [note: '''*driver name*''', null]
+  driver_phone char [note: '''*driver phone*''', null]
+  transport_temp_c decimal [note: '''*transport temp c*''', null]
+  transit_days integer [note: '''*transit days*''', null]
+  shelf_life_days integer [note: '''*shelf life days*''', null]
+  has_peregruz boolean [note: '''*has peregruz*''', default:`False`, not null]
+  peregruz_city char [note: '''*peregruz city*''', null]
+  peregruz_date date_time [note: '''*peregruz date*''', null]
+  status_id big_auto [not null]
+  is_gapy_satys boolean [note: '''*is gapy satys*''', default:`False`, not null]
+  documents_status char [note: '''
+*documents status*
+Row 6: ok, missing, in_progress''', null]
+  harvest_status char [note: '''
+*harvest status*
+Row 14: ok, harvesting, not_ready''', null]
+  customs_clearance_planned_day export.char_shipment_customs_clearance_planned_day [note: '''
+*customs clearance planned day*
+Sirin"s planned weekday for customs clearance prep''', default:`""`, not null]
+  transport_docs_given_at date_time [note: '''*transport docs given at*''', null]
+  price_per_kg decimal [note: '''*price per kg*''', null]
+  total_amount_usd decimal [note: '''*total amount usd*''', null]
+  loading_started_at date_time [note: '''*loading started at*''', null]
+  customs_entry_at date_time [note: '''*customs entry at*''', null]
+  customs_exit_at date_time [note: '''*customs exit at*''', null]
+  departed_at date_time [note: '''*departed at*''', null]
+  border_crossed_at date_time [note: '''*border crossed at*''', null]
+  dest_entry_at date_time [note: '''*dest entry at*''', null]
+  arrived_at date_time [note: '''*arrived at*''', null]
+  sale_started_at date_time [note: '''*sale started at*''', null]
+  sale_ended_at date_time [note: '''*sale ended at*''', null]
+  status_changed_at date_time [note: '''*status changed at*''', null]
+  loading_ended_at date_time [note: '''*loading ended at*''', null]
+  sales_report_date date [note: '''*sales report date*''', null]
+  harvest_date char [note: '''*harvest date*''', null]
+  vehicle_condition export.char_shipment_vehicle_condition [note: '''*vehicle condition*''', null]
+  vehicle_condition_note char [note: '''*vehicle condition note*''', null]
+  vehicle_status_note char [note: '''*vehicle status note*''', null]
+  created_by_id big_auto [null]
+  updated_by_id big_auto [null]
+  created_at date_time [note: '''*created at*''', not null]
+  updated_at date_time [note: '''*updated at*''', not null]
+  notes text [note: '''*notes*''', null]
+  export_manager_note text [note: '''*export manager note*''', default:`""`, not null]
+  warehouse_note text [note: '''*warehouse note*''', default:`""`, not null]
+  document_note text [note: '''*document note*''', default:`""`, not null]
+  additional_notes_arap text [note: '''*additional notes arap*''', default:`""`, not null]
+  column_color char [note: '''*column color*''', null]
+  sheet_position positive_integer [note: '''*sheet position*''', null]
+  is_archived boolean [note: '''*is archived*''', default:`False`, not null]
+  archived_at date_time [note: '''*archived at*''', null]
+  deleted_at date_time [note: '''*deleted at*''', null]
+  deleted_by_id big_auto [null]
+
+  indexes {
+    (border_point_id) [name: 'export_shipments_border_point_id_2ab8a1cd', type: btree]
+    (city_id) [name: 'export_shipments_city_id_97c436b4', type: btree]
+    (country_id) [name: 'export_shipments_country_id_f2a2d327', type: btree]
+    (created_by_id) [name: 'export_shipments_created_by_id_4587d2cb', type: btree]
+    (customer_id) [name: 'export_shipments_customer_id_f7904b24', type: btree]
+    (deleted_at) [name: 'export_shipments_deleted_at_ed639cb1', type: btree]
+    (deleted_by_id) [name: 'export_shipments_deleted_by_id_6ca5c741', type: btree]
+    (export_code) [name: 'export_shipments_export_code_2fde687c', type: btree]
+    (import_firm_id) [name: 'export_shipments_import_firm_id_960c2f52', type: btree]
+    (is_archived) [name: 'export_shipments_is_archived_e99d25ce', type: btree]
+    (loading_location_id) [name: 'export_shipments_loading_location_id_b961427e', type: btree]
+    (packing_template_id) [name: 'export_shipments_packing_template_id_202b284e', type: btree]
+    (id) [pk, unique, name: 'export_shipments_pkey', type: btree]
+    (previous_platform_id_id) [name: 'export_shipments_previous_platform_id_id_77a24651', type: btree]
+    (product_type_id) [name: 'export_shipments_product_type_id_4fd0c84d', type: btree]
+    (season_id) [name: 'export_shipments_season_id_287c93d4', type: btree]
+    (sheet_position) [name: 'export_shipments_sheet_position_07097997', type: btree]
+    (shipment_code) [unique, name: 'export_shipments_shipment_code_key', type: btree]
+    (status_changed_at) [name: 'export_shipments_status_changed_at_1553311a', type: btree]
+    (status_id) [name: 'export_shipments_status_id_985b2682', type: btree]
+    (updated_by_id) [name: 'export_shipments_updated_by_id_d6321a09', type: btree]
+    (variety_id) [name: 'export_shipments_variety_id_80db6a22', type: btree]
+  }
+}
+ref: export.Shipment.previous_platform_id_id > export.Shipment.id
+ref: export.Shipment.season_id > core.Season.id
+ref: export.Shipment.country_id > core.Country.id
+ref: export.Shipment.city_id > core.City.id
+ref: export.Shipment.border_point_id > core.BorderPoint.id
+ref: export.Shipment.loading_location_id > core.LoadingLocation.id
+ref: export.Shipment.customer_id > core.Customer.id
+ref: export.Shipment.import_firm_id > core.ImportFirm.id
+ref: export.Shipment.product_type_id > core.ProductType.id
+ref: export.Shipment.variety_id > core.TomatoVariety.id
+ref: export.Shipment.packing_template_id > export.PackingTemplate.id
+ref: export.Shipment.status_id > core.ShipmentStatusType.id
+ref: export.Shipment.created_by_id > core.User.id
+ref: export.Shipment.updated_by_id > core.User.id
+ref: export.Shipment.deleted_by_id > core.User.id
+
+
+Table export.ShipmentBlockSource {
+  Note: '''
+Records which greenhouse blocks (1-3) contributed weight to a shipment.
+
+*table: public.export_shipment_block_sources*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  shipment_id big_auto [not null]
+  block_id big_auto [not null]
+  weight_kg decimal [note: '''*weight kg*''', not null]
+  harvest_date date [note: '''*harvest date*''', null]
+
+  indexes {
+    (block_id) [name: 'export_shipment_block_sources_block_id_8956af6f', type: btree]
+    (id) [pk, unique, name: 'export_shipment_block_sources_pkey', type: btree]
+    (shipment_id) [name: 'export_shipment_block_sources_shipment_id_30acc75e', type: btree]
+    (shipment_id,block_id) [unique, name: 'export_shipment_block_sources_shipment_id_block_id_0b003320_uniq', type: btree]
+  }
+}
+ref: export.ShipmentBlockSource.shipment_id > export.Shipment.id
+ref: export.ShipmentBlockSource.block_id > core.GreenhouseBlock.id
+
+
+Table export.ShipmentComment {
+  Note: '''
+Per-shipment threaded comments with @mentions and task assignment.
+
+AD-2: replaces free-text notes (vehicle_status_note).
+field_key: cell anchor from SHEET_ROW_CONFIG.fieldKey; NULL = shipment-level.
+mentions: CSV of user IDs (@user mentions). Nullable for backward compat.
+role_mentions: CSV of role codes (@role mentions). Non-null, default=''.
+
+
+*table: public.export_shipment_comments*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  shipment_id big_auto [not null]
+  user_id big_auto [not null]
+  content char [note: '''*content*''', not null]
+  field_key char [note: '''*field key*''', null]
+  mentions char [note: '''*mentions*''', null]
+  role_mentions char [note: '''*role mentions*''', default:`""`, not null]
+  parent_comment_id big_auto [null]
+  is_system boolean [note: '''*is system*''', default:`False`, not null]
+  assignee_id big_auto [null]
+  is_done boolean [note: '''*is done*''', default:`False`, not null]
+  done_at date_time [note: '''*done at*''', null]
+  done_by_id big_auto [null]
+  is_deleted boolean [note: '''*is deleted*''', default:`False`, not null]
+  created_at date_time [note: '''*created at*''', not null]
+  updated_at date_time [note: '''*updated at*''', null]
+
+  indexes {
+    (assignee_id) [name: 'export_shipment_comments_assignee_id_efd8ad6e', type: btree]
+    (done_by_id) [name: 'export_shipment_comments_done_by_id_fad9d4b7', type: btree]
+    (parent_comment_id) [name: 'export_shipment_comments_parent_comment_id_a49ccbc9', type: btree]
+    (id) [pk, unique, name: 'export_shipment_comments_pkey', type: btree]
+    (shipment_id) [name: 'export_shipment_comments_shipment_id_cc5b7b17', type: btree]
+    (user_id) [name: 'export_shipment_comments_user_id_93f34c98', type: btree]
+    (assignee_id,is_done) [name: 'ix_comments_assignee_open', type: btree]
+    (shipment_id,field_key) [name: 'ix_comments_shipment_field', type: btree]
+  }
+}
+ref: export.ShipmentComment.shipment_id > export.Shipment.id
+ref: export.ShipmentComment.user_id > core.User.id
+ref: export.ShipmentComment.parent_comment_id > export.ShipmentComment.id
+ref: export.ShipmentComment.assignee_id > core.User.id
+ref: export.ShipmentComment.done_by_id > core.User.id
+
+
+Table export.ShipmentCustomFieldValue {
+  Note: '''
+Per-shipment value for an admin-created custom Sheet row (Phase 5c).
+
+Custom rows live in SheetRowSetting (is_custom=True). Their per-shipment
+cell values live HERE — one row per (shipment, sheet_row). Free text only;
+typed custom fields are intentionally L2 (require a migration via the
+runbook in docs/runbooks/add_sheet_row.md).
+
+Cascade strategy:
+- Soft-delete on the parent SheetRowSetting (deleted_at IS NOT NULL)
+leaves these rows in place — restoring the parent makes the values
+reappear. This matches the "soft-delete with restore" pattern from
+master plan §3.5.
+- Hard-delete of a Shipment cascades these via on_delete=CASCADE.
+- Clearing a single value: write the empty string. Don't delete the
+row, so updated_at + updated_by track the clearing event.
+
+DDL: export_shipment_custom_field_value (no SQL schema prefix — flat name
+via schema_table per the post-collapse refactor).
+
+
+*table: public.export_shipment_custom_field_value*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  shipment_id big_auto [not null]
+  row_id big_auto [not null]
+  value_text text [note: '''
+*value text*
+Free-text cell value. Empty string = explicitly cleared by user.''', not null]
+  updated_at date_time [note: '''*updated at*''', not null]
+  updated_by_id big_auto [null]
+
+  indexes {
+    (id) [pk, unique, name: 'export_shipment_custom_field_value_pkey', type: btree]
+    (row_id) [name: 'export_shipment_custom_field_value_row_id_42341de6', type: btree]
+    (shipment_id) [name: 'export_shipment_custom_field_value_shipment_id_c6055644', type: btree]
+    (updated_by_id) [name: 'export_shipment_custom_field_value_updated_by_id_b6bcc50a', type: btree]
+  }
+}
+ref: export.ShipmentCustomFieldValue.shipment_id > export.Shipment.id
+ref: export.ShipmentCustomFieldValue.row_id > export.SheetRowSetting.id
+ref: export.ShipmentCustomFieldValue.updated_by_id > core.User.id
+
+
+Table export.ShipmentFirmSplit {
+  Note: '''
+One export firm's share of a shipment (1-3 per shipment) — per-firm weight
+and amount. The identity key (shipment, export_firm) bridges to the
+contracts-side record contracts.ContractSale (the "2-Sales" row). See ADR-023.
+
+
+*table: public.export_shipment_firm_splits*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  shipment_id big_auto [not null]
+  export_firm_id big_auto [not null]
+  weight_kg decimal [note: '''*weight kg*''', not null]
+  amount_usd decimal [note: '''*amount usd*''', null]
+  invoice_number char [note: '''*invoice number*''', null]
+  split_order integer [note: '''*split order*''', default:`1`, not null]
+
+  indexes {
+    (export_firm_id) [name: 'export_shipment_firm_splits_export_firm_id_585df7bf', type: btree]
+    (id) [pk, unique, name: 'export_shipment_firm_splits_pkey', type: btree]
+    (shipment_id) [name: 'export_shipment_firm_splits_shipment_id_2a305a77', type: btree]
+    (shipment_id,export_firm_id) [unique, name: 'export_shipment_firm_splits_shipment_id_export_firm_id_6452726d_uniq', type: btree]
+  }
+}
+ref: export.ShipmentFirmSplit.shipment_id > export.Shipment.id
+ref: export.ShipmentFirmSplit.export_firm_id > core.ExportFirm.id
+
+
+Table export.ShipmentStatusLog {
+  Note: '''
+Audit trail for every status transition.
+
+Every call to transition_to() appends one row here.
+
+
+*table: public.export_shipment_status_log*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  shipment_id big_auto [not null]
+  status_id big_auto [not null]
+  changed_by_id big_auto [not null]
+  changed_at date_time [note: '''*changed at*''', not null]
+  comment char [note: '''*comment*''', null]
+  is_manual_override boolean [note: '''*is manual override*''', default:`False`, not null]
+  is_auto boolean [note: '''*is auto*''', default:`False`, not null]
+
+  indexes {
+    (changed_by_id) [name: 'export_shipment_status_log_changed_by_id_9f8fdaa0', type: btree]
+    (id) [pk, unique, name: 'export_shipment_status_log_pkey', type: btree]
+    (shipment_id) [name: 'export_shipment_status_log_shipment_id_a2e945bd', type: btree]
+    (status_id) [name: 'export_shipment_status_log_status_id_c443e26e', type: btree]
+  }
+}
+ref: export.ShipmentStatusLog.shipment_id > export.Shipment.id
+ref: export.ShipmentStatusLog.status_id > core.ShipmentStatusType.id
+ref: export.ShipmentStatusLog.changed_by_id > core.User.id
+
+
+Table export.Task {
+  Note: '''
+A unit of work on a specific Shipment, generated by a TaskRule.
+
+*table: public.export_task*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  shipment_id big_auto [null]
+  kind export.char_task_kind [note: '''
+*kind*
+Task category. shipment = generated by the status rule engine; weekly_plan = per-(manager, block) weekly harvest-plan to-do''', default:`"shipment"`, not null]
+  step char [note: '''
+*step*
+Shipment status when the task was generated; "weekly_plan" for weekly-plan tasks''', not null]
+  rule_id big_auto [null]
+  title_key char [note: '''*title key*''', not null]
+  assignee_role char [note: '''*assignee role*''', not null]
+  assignee_user_id big_auto [null]
+  target_fields char [note: '''*target fields*''', default:`""`, not null]
+  completion_rule export.char_task_completion_rule [note: '''*completion rule*''', default:`"all_fields_filled"`, not null]
+  target_value char [note: '''
+*target value*
+Mirrors TaskRule.target_value at task-create time''', default:`""`, not null]
+  deadline date_time [note: '''
+*deadline*
+Computed at task creation from rule.deadline_rule''', null]
+  deadline_rule char [note: '''*deadline rule*''', default:`""`, not null]
+  link char [note: '''
+*link*
+Frontend route the task card navigates to (e.g. weekly_plan grid)''', default:`""`, not null]
+  scope_year positive_small_integer [note: '''
+*scope year*
+ISO year this task covers (weekly_plan tasks)''', null]
+  scope_week positive_small_integer [note: '''
+*scope week*
+ISO week number this task covers (weekly_plan tasks)''', null]
+  scope_block_id big_auto [null]
+  state export.char_task_state [note: '''*state*''', default:`"open"`, not null]
+  blocked_reason text [note: '''*blocked reason*''', default:`""`, not null]
+  created_at date_time [note: '''*created at*''', not null]
+  started_at date_time [note: '''*started at*''', null]
+  completed_at date_time [note: '''*completed at*''', null]
+
+  indexes {
+    (assignee_role,state) [name: 'export_task_assigne_250b44_idx', type: btree]
+    (assignee_role) [name: 'export_task_assignee_role_e3603d01', type: btree]
+    (assignee_user_id) [name: 'export_task_assignee_user_id_2fd593fb', type: btree]
+    (created_at) [name: 'export_task_created_at_091c40cd', type: btree]
+    (deadline) [name: 'export_task_deadline_51b3b5e1', type: btree]
+    (kind) [name: 'export_task_kind_81b1cb81', type: btree]
+    (id) [pk, unique, name: 'export_task_pkey', type: btree]
+    (rule_id) [name: 'export_task_rule_id_a7ea27df', type: btree]
+    (scope_block_id) [name: 'export_task_scope_block_id_d245652d', type: btree]
+    (shipment_id,state) [name: 'export_task_shipmen_e7db76_idx', type: btree]
+    (shipment_id) [name: 'export_task_shipment_id_547ae226', type: btree]
+    (state,deadline) [name: 'export_task_state_577027_idx', type: btree]
+    (state) [name: 'export_task_state_8e3b00a7', type: btree]
+    (step) [name: 'export_task_step_4df4eb72', type: btree]
+  }
+}
+ref: export.Task.shipment_id > export.Shipment.id
+ref: export.Task.rule_id > export.TaskRule.id
+ref: export.Task.assignee_user_id > core.User.id
+ref: export.Task.scope_block_id > core.GreenhouseBlock.id
+
+
+Table export.TaskRule {
+  Note: '''
+A recipe for generating Tasks when a Shipment enters a status.
+
+*table: public.export_task_rule*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  step char [note: '''
+*step*
+Shipment status code that triggers this rule''', not null]
+  title_key char [note: '''
+*title key*
+i18n key, e.g. tasks.fill_loading_data''', not null]
+  assignee_role char [note: '''
+*assignee role*
+Role that owns the generated Task by default''', not null]
+  target_fields char [note: '''
+*target fields*
+CSV of Shipment field_keys; whitespace-trimmed on read''', default:`""`, not null]
+  completion_rule export.char_taskrule_completion_rule [note: '''*completion rule*''', default:`"all_fields_filled"`, not null]
+  target_value char [note: '''
+*target value*
+For FIELD_EQUALS rules: the value to compare against (string-cast)''', default:`""`, not null]
+  deadline_rule char [note: '''
+*deadline rule*
+Grammar parsed in services/task_rules.py; e.g. 13:00_same_day''', default:`""`, not null]
+  condition_field char [note: '''
+*condition field*
+Shipment attr name for the gating condition; blank = always match''', default:`""`, not null]
+  condition_value char [note: '''
+*condition value*
+String-cast comparison: str(getattr(shipment, condition_field)) == condition_value''', default:`""`, not null]
+  is_active boolean [note: '''*is active*''', default:`True`, not null]
+  created_at date_time [note: '''*created at*''', not null]
+
+  indexes {
+    (id) [pk, unique, name: 'export_task_rule_pkey', type: btree]
+    (step) [name: 'export_task_rule_step_1f059353', type: btree]
+    (step,is_active) [name: 'export_task_step_9b30cb_idx', type: btree]
+  }
+}
+
+
+Table export.TruckDestinationSplit {
+  Note: '''
+Truck count per destination per day.
+
+Links to WeeklyTruckAllocation (the day) and TruckDestination (the destination).
+One row per (allocation, destination).
+
+
+*table: public.export_truck_destination_splits*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  truck_allocation_id big_auto [not null]
+  destination_id big_auto [not null]
+  truck_count integer [note: '''*truck count*''', default:`0`, not null]
+
+  indexes {
+    (destination_id) [name: 'export_truck_destination_splits_destination_id_1628e1fd', type: btree]
+    (id) [pk, unique, name: 'export_truck_destination_splits_pkey', type: btree]
+    (truck_allocation_id) [name: 'export_truck_destination_splits_truck_allocation_id_89188c79', type: btree]
+  }
+}
+ref: export.TruckDestinationSplit.truck_allocation_id > export.WeeklyTruckAllocation.id
+ref: export.TruckDestinationSplit.destination_id > core.TruckDestination.id
+
+
+Table export.TruckSplitDefault {
+  Note: '''
+Official kg-per-firm written on export documents, keyed by # of firms on a truck.
+
+Director-configurable from /admin/shipment-settings. Seeded with the legacy
+DEFAULT_TRUCK_WEIGHTS values (1→18100, 2→9000, 3→6000). The value is the
+OFFICIAL export number (capped at 18,100 kg total per truck), not the real
+weight — trucks really carry 20,000–21,000 kg but documents use the cap.
+
+
+*table: public.export_truck_split_defaults*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  num_firms positive_small_integer [note: '''*num firms*''', unique, not null]
+  kg_per_firm decimal [note: '''*kg per firm*''', not null]
+  notes char [note: '''*notes*''', null]
+  updated_at date_time [note: '''*updated at*''', not null]
+  updated_by_id big_auto [null]
+
+  indexes {
+    (num_firms) [unique, name: 'export_truck_split_defaults_num_firms_key', type: btree]
+    (id) [pk, unique, name: 'export_truck_split_defaults_pkey', type: btree]
+    (updated_by_id) [name: 'export_truck_split_defaults_updated_by_id_148c6354', type: btree]
+  }
+}
+ref: export.TruckSplitDefault.updated_by_id > core.User.id
+
+
+Table export.UserSheetRowPref {
+  Note: '''
+Per-user override for SheetRowSetting display order and visibility.
+
+Replaces the JSONField-based row_order/hidden_rows plan field per ADR-0008
+(MSSQL forbids JSONField). One row per (user, sheet_row) pair when the user
+has a non-default preference. Absent = inherit admin defaults.
+
+position semantics:
+- NULL  → use admin display_order for ordering (user hasn't reordered this row)
+- N     → user's explicit position, sparse integer (step 1024)
+
+is_hidden semantics:
+- False → not hidden by user (default)
+- True  → user has hidden this row; AND-composes with admin is_visible
+
+A pref row is created only when the user expresses a preference (hide or
+reorder). Rows absent from this table inherit admin defaults, keeping the
+table small for users who never customise.
+
+Note: rows are not deleted when a preference reverts to default (position→NULL,
+is_hidden→False) to avoid the race between simultaneous PATCH requests. A
+separate cleanup pass (not in scope for v1) can prune no-op rows.
+
+DDL: export_user_sheet_row_pref
+
+
+*table: public.export_user_sheet_row_pref*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  user_id big_auto [not null]
+  row_id big_auto [not null]
+  position positive_integer [note: '''
+*position*
+Per-user display position (sparse). Null inherits admin display_order.''', null]
+  is_hidden boolean [note: '''
+*is hidden*
+User-side row hide. AND-composes with admin is_visible.''', default:`False`, not null]
+  updated_at date_time [note: '''*updated at*''', not null]
+
+  indexes {
+    (id) [pk, unique, name: 'export_user_sheet_row_pref_pkey', type: btree]
+    (row_id) [name: 'export_user_sheet_row_pref_row_id_830dd2eb', type: btree]
+    (user_id) [name: 'export_user_sheet_row_pref_user_id_53cb8fa1', type: btree]
+  }
+}
+ref: export.UserSheetRowPref.user_id > core.User.id
+ref: export.UserSheetRowPref.row_id > export.SheetRowSetting.id
+
+
+Table export.WeeklyLocalSellPlan {
+  Note: '''
+Weekly domestic sell plan per export firm.
+
+One row per (export_firm, week_number, year). Plan vs actual for Mon–Sat.
+Includes approval workflow: draft → submitted → approved / rejected.
+
+DDL: export.weekly_local_sell_plans — UNIQUE (export_firm_id, week_number, year)
+
+
+*table: public.export_weekly_local_sell_plans*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  export_firm_id big_auto [not null]
+  week_number positive_small_integer [note: '''*week number*''', not null]
+  year positive_small_integer [note: '''*year*''', not null]
+  season_id big_auto [null]
+  monday_plan_kg decimal [note: '''*monday plan kg*''', default:`0`, not null]
+  tuesday_plan_kg decimal [note: '''*tuesday plan kg*''', default:`0`, not null]
+  wednesday_plan_kg decimal [note: '''*wednesday plan kg*''', default:`0`, not null]
+  thursday_plan_kg decimal [note: '''*thursday plan kg*''', default:`0`, not null]
+  friday_plan_kg decimal [note: '''*friday plan kg*''', default:`0`, not null]
+  saturday_plan_kg decimal [note: '''*saturday plan kg*''', default:`0`, not null]
+  status export.char_weeklylocalsellplan_status [note: '''*status*''', default:`"draft"`, not null]
+  submitted_at date_time [note: '''*submitted at*''', null]
+  submitted_by_id big_auto [null]
+  approved_at date_time [note: '''*approved at*''', null]
+  approved_by_id big_auto [null]
+  rejected_at date_time [note: '''*rejected at*''', null]
+  rejected_by_id big_auto [null]
+  rejection_note char [note: '''*rejection note*''', null]
+  entered_by_id big_auto [null]
+  created_at date_time [note: '''*created at*''', not null]
+  updated_at date_time [note: '''*updated at*''', not null]
+
+  indexes {
+    (approved_by_id) [name: 'export_weekly_local_sell_plans_approved_by_id_06027f66', type: btree]
+    (entered_by_id) [name: 'export_weekly_local_sell_plans_entered_by_id_22297eb9', type: btree]
+    (export_firm_id) [name: 'export_weekly_local_sell_plans_export_firm_id_7c795284', type: btree]
+    (id) [pk, unique, name: 'export_weekly_local_sell_plans_pkey', type: btree]
+    (rejected_by_id) [name: 'export_weekly_local_sell_plans_rejected_by_id_56641cdd', type: btree]
+    (season_id) [name: 'export_weekly_local_sell_plans_season_id_5cf277e1', type: btree]
+    (submitted_by_id) [name: 'export_weekly_local_sell_plans_submitted_by_id_31052b60', type: btree]
+    (status) [name: 'ix_local_sell_plan_status', type: btree]
+  }
+}
+ref: export.WeeklyLocalSellPlan.export_firm_id > core.ExportFirm.id
+ref: export.WeeklyLocalSellPlan.season_id > core.Season.id
+ref: export.WeeklyLocalSellPlan.submitted_by_id > core.User.id
+ref: export.WeeklyLocalSellPlan.approved_by_id > core.User.id
+ref: export.WeeklyLocalSellPlan.rejected_by_id > core.User.id
+ref: export.WeeklyLocalSellPlan.entered_by_id > core.User.id
+
+
+Table export.WeeklyTruckAllocation {
+  Note: '''
+Daily truck allocation per (season, week, year, day).
+
+One row per day. Truck counts per destination stored in TruckDestinationSplit.
+total_trucks_calc is stored (planned_kg / 18500) for fast reads.
+
+DDL: export.weekly_truck_allocations
+UNIQUE (season_id, week_number, year, day_of_week)
+
+
+*table: public.export_weekly_truck_allocations*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  season_id big_auto [not null]
+  week_number positive_small_integer [note: '''*week number*''', not null]
+  year positive_small_integer [note: '''*year*''', not null]
+  day_of_week positive_small_integer [note: '''*day of week*''', not null]
+  total_planned_kg decimal [note: '''*total planned kg*''', null]
+  total_trucks_calc decimal [note: '''*total trucks calc*''', null]
+  decided_by_id big_auto [null]
+  created_at date_time [note: '''*created at*''', not null]
+
+  indexes {
+    (decided_by_id) [name: 'export_weekly_truck_allocations_decided_by_id_361b9f6f', type: btree]
+    (id) [pk, unique, name: 'export_weekly_truck_allocations_pkey', type: btree]
+    (season_id) [name: 'export_weekly_truck_allocations_season_id_1fb8699b', type: btree]
+    (season_id,week_number,year,day_of_week) [unique, name: 'export_weekly_truck_allocations_season_id_week_number_year_day_of_week_a2a30053_uniq', type: btree]
+  }
+}
+ref: export.WeeklyTruckAllocation.season_id > core.Season.id
+ref: export.WeeklyTruckAllocation.decided_by_id > core.User.id
+
+
+Table export.shipments_varieties_dominant {
+  Note: '''
+This is a Many-To-Many linking table autogenerated by Django.
+
+*DB table: export_shipments_varieties_dominant*'''
+
+  id auto [pk, not null]
+  tomatovariety_id auto [not null]
+  shipment_id auto [not null]
+
+  indexes {
+    (id) [pk, unique, name: 'export_shipments_varieties_dominant_pkey', type: btree]
+    (shipment_id) [name: 'export_shipments_varieties_dominant_shipment_id_53e59328', type: btree]
+    (shipment_id,tomatovariety_id) [unique, name: 'export_shipments_varieties_dominant_shipment_id_tomatovariety_id_cf4da145_uniq', type: btree]
+    (tomatovariety_id) [name: 'export_shipments_varieties_dominant_tomatovariety_id_4ef17e06', type: btree]
+  }
+}
+ref: export.Shipment.id > export.shipments_varieties_dominant.shipment_id
+ref: core.TomatoVariety.id > export.shipments_varieties_dominant.tomatovariety_id
+
+
+Table export.task_blocked_by {
+  Note: '''
+This is a Many-To-Many linking table autogenerated by Django.
+
+*DB table: export_task_blocked_by*'''
+
+  id auto [pk, not null]
+  to_task_id auto [not null]
+  from_task_id auto [not null]
+
+  indexes {
+    (from_task_id) [name: 'export_task_blocked_by_from_task_id_34d22ce7', type: btree]
+    (from_task_id,to_task_id) [unique, name: 'export_task_blocked_by_from_task_id_to_task_id_4aba1428_uniq', type: btree]
+    (id) [pk, unique, name: 'export_task_blocked_by_pkey', type: btree]
+    (to_task_id) [name: 'export_task_blocked_by_to_task_id_c06474cb', type: btree]
+  }
+}
+ref: export.Task.id > export.task_blocked_by.from_task_id
+ref: export.Task.id > export.task_blocked_by.to_task_id
+
+
+Table feedback.FeedbackAttachment {
+  Note: '''
+File attachment for a feedback ticket or reply.
+
+Exactly one of ticket or reply must be set (enforced by CheckConstraint).
+File validation (magic bytes, size, extension) is done at the service layer
+before this model is saved.
+
+
+*table: public.feedback_feedbackattachment*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  ticket_id big_auto [null]
+  reply_id big_auto [null]
+  file file [note: '''*file*''', not null]
+  original_filename char [note: '''*original filename*''', not null]
+  mime_type char [note: '''*mime type*''', not null]
+  size_bytes integer [note: '''*size bytes*''', not null]
+  uploaded_by_id big_auto [not null]
+  uploaded_at date_time [note: '''*uploaded at*''', not null]
+
+  indexes {
+    (id) [pk, unique, name: 'feedback_feedbackattachment_pkey', type: btree]
+    (reply_id) [name: 'feedback_feedbackattachment_reply_id_5d3a5320', type: btree]
+    (ticket_id) [name: 'feedback_feedbackattachment_ticket_id_b6a45673', type: btree]
+    (uploaded_by_id) [name: 'feedback_feedbackattachment_uploaded_by_id_df78563f', type: btree]
+  }
+}
+ref: feedback.FeedbackAttachment.ticket_id > feedback.FeedbackTicket.id
+ref: feedback.FeedbackAttachment.reply_id > feedback.FeedbackReply.id
+ref: feedback.FeedbackAttachment.uploaded_by_id > core.User.id
+
+
+Table feedback.FeedbackReply {
+  Note: '''
+Admin reply to a feedback ticket.
+
+Supports three modes:
+- standard: visible to both the author and admin (default response)
+- internal: admin-only note, hidden from the ticket author
+- public: promoted to the Public Feed along with the parent ticket
+
+is_internal and is_public are denormalised booleans synced from mode on save().
+This ensures the DB cannot enter an inconsistent state.
+
+
+*table: public.feedback_feedbackreply*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  ticket_id big_auto [not null]
+  author_id big_auto [not null]
+  content char [note: '''*content*''', not null]
+  mode feedback.char_feedbackreply_mode [note: '''*mode*''', default:`"standard"`, not null]
+  is_internal boolean [note: '''*is internal*''', default:`False`, not null]
+  is_public boolean [note: '''*is public*''', default:`False`, not null]
+  created_at date_time [note: '''*created at*''', not null]
+
+  indexes {
+    (author_id) [name: 'feedback_feedbackreply_author_id_f04096ea', type: btree]
+    (id) [pk, unique, name: 'feedback_feedbackreply_pkey', type: btree]
+    (ticket_id) [name: 'feedback_feedbackreply_ticket_id_fcdc5c3a', type: btree]
+  }
+}
+ref: feedback.FeedbackReply.ticket_id > feedback.FeedbackTicket.id
+ref: feedback.FeedbackReply.author_id > core.User.id
+
+
+Table feedback.FeedbackTicket {
+  Note: '''
+A user-submitted feedback ticket (bug / suggestion / question).
+
+Status lifecycle: new → in_review → resolved | rejected.
+Tickets can be reopened by the author from resolved or rejected.
+The is_public flag is set server-side only — when admin posts a reply
+with mode='public', the ticket becomes visible on the Public Feed.
+
+
+*table: public.feedback_feedbackticket*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  author_id big_auto [not null]
+  category feedback.char_feedbackticket_category [note: '''*category*''', not null]
+  description char [note: '''*description*''', not null]
+  status feedback.char_feedbackticket_status [note: '''*status*''', default:`"new"`, not null]
+  is_public boolean [note: '''*is public*''', default:`False`, not null]
+  submitted_from_path char [note: '''*submitted from path*''', default:`""`, not null]
+  submitted_from_label char [note: '''*submitted from label*''', default:`""`, not null]
+  user_agent char [note: '''*user agent*''', default:`""`, not null]
+  created_at date_time [note: '''*created at*''', not null]
+  last_activity_at date_time [note: '''*last activity at*''', not null]
+  resolved_at date_time [note: '''*resolved at*''', null]
+
+  indexes {
+    (author_id,created_at) [name: 'feedback_fe_author__95434e_idx', type: btree]
+    (status,created_at) [name: 'feedback_fe_status_4eba76_idx', type: btree]
+    (author_id) [name: 'feedback_feedbackticket_author_id_0189bda6', type: btree]
+    (created_at) [name: 'feedback_feedbackticket_created_at_b427b1bd', type: btree]
+    (is_public) [name: 'feedback_feedbackticket_is_public_38701847', type: btree]
+    (id) [pk, unique, name: 'feedback_feedbackticket_pkey', type: btree]
+    (status) [name: 'feedback_feedbackticket_status_8952bd48', type: btree]
+  }
+}
+ref: feedback.FeedbackTicket.author_id > core.User.id
+
+
+Table greenhouse.BlockManagerAssignment {
+  Note: '''
+Maps a greenhouse_manager user to one or more greenhouse blocks.
+
+Used by WeeklyHarvestPlanViewSet to enforce per-block write authorization:
+a greenhouse_manager may only create/update harvest plans for blocks they
+are assigned to.
+
+DDL: export.block_manager_assignments
+UNIQUE (user_id, block_id)
+
+
+*table: public.export_block_manager_assignments*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  user_id big_auto [not null]
+  block_id big_auto [not null]
+  is_active boolean [note: '''*is active*''', default:`True`, not null]
+  created_at date_time [note: '''*created at*''', not null]
+
+  indexes {
+    (block_id) [name: 'export_block_manager_assignments_block_id_2ed3de21', type: btree]
+    (id) [pk, unique, name: 'export_block_manager_assignments_pkey', type: btree]
+    (user_id) [name: 'export_block_manager_assignments_user_id_9a7a7cb7', type: btree]
+  }
+}
+ref: greenhouse.BlockManagerAssignment.user_id > core.User.id
+ref: greenhouse.BlockManagerAssignment.block_id > core.GreenhouseBlock.id
+
+
+Table greenhouse.DomesticSale {
+  Note: '''
+Daily domestic tomato sale record per buyer per block.
+
+Tracks kg sold locally within Turkmenistan (not exported). Used to
+form quota-related data and compare against export volumes.
+
+DDL: export.domestic_sales
+
+
+*table: public.export_domestic_sales*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  date date [note: '''*date*''', not null]
+  buyer_id big_auto [not null]
+  block_id big_auto [not null]
+  export_firm_id big_auto [null]
+  weight_kg decimal [note: '''*weight kg*''', not null]
+  variety char [note: '''*variety*''', null]
+  price_per_kg decimal [note: '''*price per kg*''', null]
+  tabel_no char [note: '''*tabel no*''', null]
+  notes char [note: '''*notes*''', null]
+  created_by_id big_auto [null]
+  created_at date_time [note: '''*created at*''', not null]
+
+  indexes {
+    (block_id) [name: 'export_domestic_sales_block_id_01e770c7', type: btree]
+    (buyer_id) [name: 'export_domestic_sales_buyer_id_dae044a5', type: btree]
+    (created_by_id) [name: 'export_domestic_sales_created_by_id_32ff8b04', type: btree]
+    (export_firm_id) [name: 'export_domestic_sales_export_firm_id_ea43f1e2', type: btree]
+    (id) [pk, unique, name: 'export_domestic_sales_pkey', type: btree]
+  }
+}
+ref: greenhouse.DomesticSale.buyer_id > core.DomesticBuyer.id
+ref: greenhouse.DomesticSale.block_id > core.GreenhouseBlock.id
+ref: greenhouse.DomesticSale.export_firm_id > core.ExportFirm.id
+ref: greenhouse.DomesticSale.created_by_id > core.User.id
+
+
+Table greenhouse.HarvestDayEntry {
+  Note: '''
+One row per (weekly_plan, entry_date) carrying plan/forecast/actual values.
+
+Replaces the 12 wide columns on WeeklyHarvestPlan. Each cell in the 15-block × 6-day
+grid maps to exactly one HarvestDayEntry row.
+
+Empty-vs-zero semantics:
+- value IS NULL → "not entered" (render as em-dash).
+- value = 0 AND *_submitted_at IS NOT NULL → explicit confirmed zero (italic style).
+
+Plan state is computed from the submission time relative to GreenhouseConfig deadlines:
+on_time / late / critical_late.
+
+Forecast window identifies which time slot the forecast was entered in:
+primary / fallback / same_day_red_flag. None means locked (after same_day_close).
+
+DDL: export.harvest_day_entries
+UNIQUE: (weekly_plan, entry_date)
+
+
+*table: public.export_harvest_day_entries*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  weekly_plan_id big_auto [not null]
+  season_id big_auto [not null]
+  block_id big_auto [not null]
+  entry_date date [note: '''
+*entry date*
+Local date (Asia/Ashgabat) this entry covers.''', not null]
+  weekday positive_small_integer [note: '''
+*weekday*
+0=Mon … 6=Sun. Sunday is allowed for end-of-season harvesting.''', not null]
+  plan_value decimal [note: '''
+*plan value*
+Planned harvest kg. NULL = not entered.''', null]
+  plan_submitted_at date_time [note: '''
+*plan submitted at*
+UTC timestamp when plan_value was submitted.''', null]
+  plan_submitted_by_id big_auto [null]
+  plan_state greenhouse.char_harvestdayentry_plan_state [note: '''
+*plan state*
+Timeliness of plan submission relative to config deadlines.''', default:`""`, not null]
+  forecast_value decimal [note: '''
+*forecast value*
+Forecast harvest kg. NULL = not entered.''', null]
+  forecast_submitted_at date_time [note: '''*forecast submitted at*''', null]
+  forecast_submitted_by_id big_auto [null]
+  forecast_window greenhouse.char_harvestdayentry_forecast_window [note: '''
+*forecast window*
+Which time window the forecast was submitted in.''', default:`""`, not null]
+  forecast_revision_count positive_small_integer [note: '''
+*forecast revision count*
+Number of times the forecast value has been revised (first entry = 0).''', default:`0`, not null]
+  actual_value decimal [note: '''
+*actual value*
+Actual harvest kg. NULL = not yet recorded.''', null]
+  actual_finalized_at date_time [note: '''*actual finalized at*''', null]
+  actual_source greenhouse.char_harvestdayentry_actual_source [note: '''
+*actual source*
+How actual_value was set. shipment_rollup is the daily computed source; admin_override marks a value the rollup must leave alone.''', default:`""`, not null]
+  yesterday_rest_value decimal [note: '''
+*yesterday rest value*
+Düýnki galyndy — remainder carried over from the previous day (kg). NULL = not entered.''', null]
+  daily_note char [note: '''
+*daily note*
+Bellik — freeform daily-board note (Cyrillic/Latin mixed).''', default:`""`, not null]
+  daily_entered_at date_time [note: '''
+*daily entered at*
+UTC timestamp of the last daily-board write (Girizilen senesi).''', null]
+  daily_entered_by_id big_auto [null]
+  last_override_at date_time [note: '''*last override at*''', null]
+  last_override_by_id big_auto [null]
+  last_override_reason char [note: '''
+*last override reason*
+Most-recent admin override reason (Cyrillic/Latin mixed).''', default:`""`, not null]
+  created_at date_time [note: '''*created at*''', not null]
+  updated_at date_time [note: '''*updated at*''', not null]
+
+  indexes {
+    (block_id) [name: 'export_harvest_day_entries_block_id_817eea63', type: btree]
+    (daily_entered_by_id) [name: 'export_harvest_day_entries_daily_entered_by_id_dd1c4809', type: btree]
+    (forecast_submitted_by_id) [name: 'export_harvest_day_entries_forecast_submitted_by_id_e6be354d', type: btree]
+    (last_override_by_id) [name: 'export_harvest_day_entries_last_override_by_id_1444cd2f', type: btree]
+    (id) [pk, unique, name: 'export_harvest_day_entries_pkey', type: btree]
+    (plan_submitted_by_id) [name: 'export_harvest_day_entries_plan_submitted_by_id_8ef67b25', type: btree]
+    (season_id) [name: 'export_harvest_day_entries_season_id_5ca58ade', type: btree]
+    (weekly_plan_id) [name: 'export_harvest_day_entries_weekly_plan_id_78d64f12', type: btree]
+    (block_id,entry_date) [name: 'ix_hde_block_date', type: btree]
+    (entry_date) [name: 'ix_hde_date', type: btree]
+    (season_id,entry_date) [name: 'ix_hde_season_date', type: btree]
+  }
+}
+ref: greenhouse.HarvestDayEntry.weekly_plan_id > greenhouse.WeeklyHarvestPlan.id
+ref: greenhouse.HarvestDayEntry.season_id > core.Season.id
+ref: greenhouse.HarvestDayEntry.block_id > core.GreenhouseBlock.id
+ref: greenhouse.HarvestDayEntry.plan_submitted_by_id > core.User.id
+ref: greenhouse.HarvestDayEntry.forecast_submitted_by_id > core.User.id
+ref: greenhouse.HarvestDayEntry.daily_entered_by_id > core.User.id
+ref: greenhouse.HarvestDayEntry.last_override_by_id > core.User.id
+
+
+Table greenhouse.HarvestDispatchLog {
+  Note: '''
+Record of a dispatcher trigger firing for a specific (kind, user, date).
+
+The UNIQUE(trigger_kind, target_user, scope_date) constraint is the idempotency
+key: if the management command runs twice within the same 5-minute window, the
+second attempt raises IntegrityError on get_or_create and the trigger is skipped.
+
+trigger_kind choices:
+t1_forecast_nudge        — notify block manager of upcoming forecast window
+t2_forecast_handoff      — notify warehouse_chief at primary window close
+t3_forecast_escalation   — urgent escalation at fallback window close
+p1_plan_reminder         — Friday: plan not yet submitted for next week
+p2_plan_late             — Saturday: plan still missing
+p3_plan_critical_late    — Monday: plan critical-late, escalate to admin
+
+DDL: export.harvest_dispatch_log
+UNIQUE: (trigger_kind, target_user, scope_date)
+
+
+*table: public.export_harvest_dispatch_log*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  trigger_kind greenhouse.char_harvestdispatchlog_trigger_kind [note: '''*trigger kind*''', not null]
+  target_user_id big_auto [not null]
+  scope_date date [note: '''
+*scope date*
+The date this trigger is scoped to (tomorrow for forecasts, plan-week-start for plan triggers).''', not null]
+  fired_at date_time [note: '''*fired at*''', not null]
+
+  indexes {
+    (id) [pk, unique, name: 'export_harvest_dispatch_log_pkey', type: btree]
+    (target_user_id) [name: 'export_harvest_dispatch_log_target_user_id_d16da06f', type: btree]
+  }
+}
+ref: greenhouse.HarvestDispatchLog.target_user_id > core.User.id
+
+
+Table greenhouse.WeeklyHarvestPlan {
+  Note: '''
+Per-week submission container for one greenhouse block.
+
+Wide columns (monday_plan_kg…saturday_actual_kg) and approval workflow
+were dropped in migration `greenhouse.0004_harvestdayentry_harvestdispatchlog_and_more`.
+Daily plan/forecast/actual data lives in `HarvestDayEntry` (related_name='day_entries').
+
+DDL: export.weekly_harvest_plans -- UNIQUE (season_id, block_id, week_number, year)
+
+
+*table: public.export_weekly_harvest_plans*'''
+
+  id big_auto [note: '''*ID*''', pk, unique, not null]
+  season_id big_auto [not null]
+  block_id big_auto [not null]
+  week_number positive_small_integer [note: '''
+*week number*
+ISO week number 1–53.''', not null]
+  year positive_small_integer [note: '''
+*year*
+ISO year.''', not null]
+  locked_at date_time [note: '''
+*locked at*
+When set, all edits are frozen. Admin can re-open by clearing to NULL.''', null]
+  late_edit_granted_until date_time [note: '''
+*late edit granted until*
+If set and in the future, greenhouse_manager may still edit plan values.''', null]
+  late_edit_granted_by_id big_auto [null]
+  late_edit_granted_at date_time [note: '''
+*late edit granted at*
+Timestamp when the extension was granted.''', null]
+  late_edit_granted_reason char [note: '''
+*late edit granted reason*
+Reason for granting late-edit access (Cyrillic/Latin mixed).''', default:`""`, not null]
+  entered_by_id big_auto [null]
+  created_at date_time [note: '''*created at*''', not null]
+  updated_at date_time [note: '''*updated at*''', not null]
+
+  indexes {
+    (block_id) [name: 'export_weekly_harvest_plans_block_id_818a8148', type: btree]
+    (entered_by_id) [name: 'export_weekly_harvest_plans_entered_by_id_19266850', type: btree]
+    (late_edit_granted_by_id) [name: 'export_weekly_harvest_plans_late_edit_granted_by_id_ddfeaa7c', type: btree]
+    (id) [pk, unique, name: 'export_weekly_harvest_plans_pkey', type: btree]
+    (season_id) [name: 'export_weekly_harvest_plans_season_id_3578e52f', type: btree]
+  }
+}
+ref: greenhouse.WeeklyHarvestPlan.season_id > core.Season.id
+ref: greenhouse.WeeklyHarvestPlan.block_id > core.GreenhouseBlock.id
+ref: greenhouse.WeeklyHarvestPlan.late_edit_granted_by_id > core.User.id
+ref: greenhouse.WeeklyHarvestPlan.entered_by_id > core.User.id
+
+
+Table sessions.Session {
+  Note: '''
+Django provides full support for anonymous sessions. The session
+framework lets you store and retrieve arbitrary data on a
+per-site-visitor basis. It stores data on the server side and
+abstracts the sending and receiving of cookies. Cookies contain a
+session ID -- not the data itself.
+
+The Django sessions framework is entirely cookie-based. It does
+not fall back to putting session IDs in URLs. This is an intentional
+design decision. Not only does that behavior make URLs ugly, it makes
+your site vulnerable to session-ID theft via the "Referer" header.
+
+For complete documentation on using Sessions in your code, consult
+the sessions documentation that is shipped with Django (also available
+on the Django web site).
+
+
+*table: public.django_session*'''
+
+  session_key char [note: '''*sessiýa açary*''', pk, unique, not null]
+  session_data text [note: '''*sessiýa maglumaty*''', not null]
+  expire_date date_time [note: '''*gutarýan senesi*''', not null]
+
+  indexes {
+    (expire_date) [name: 'django_session_expire_date_a5c62663', type: btree]
+    (session_key) [pk, unique, name: 'django_session_pkey', type: btree]
+  }
+}
+
+
+Table sys.users_groups {
+  Note: '''
+This is a Many-To-Many linking table autogenerated by Django.
+
+*DB table: sys_users_groups*'''
+
+  id auto [pk, not null]
+  group_id auto [not null]
+  user_id auto [not null]
+
+  indexes {
+    (group_id) [name: 'sys_users_groups_group_id_01ed11f4', type: btree]
+    (id) [pk, unique, name: 'sys_users_groups_pkey', type: btree]
+    (user_id) [name: 'sys_users_groups_user_id_1b5a1db8', type: btree]
+    (user_id,group_id) [unique, name: 'sys_users_groups_user_id_group_id_3996e268_uniq', type: btree]
+  }
+}
+ref: core.User.id > sys.users_groups.user_id
+ref: auth.Group.id > sys.users_groups.group_id
+
+
+Table sys.users_user_permissions {
+  Note: '''
+This is a Many-To-Many linking table autogenerated by Django.
+
+*DB table: sys_users_user_permissions*'''
+
+  id auto [pk, not null]
+  permission_id auto [not null]
+  user_id auto [not null]
+
+  indexes {
+    (permission_id) [name: 'sys_users_user_permissions_permission_id_6881b217', type: btree]
+    (id) [pk, unique, name: 'sys_users_user_permissions_pkey', type: btree]
+    (user_id) [name: 'sys_users_user_permissions_user_id_f53b6317', type: btree]
+    (user_id,permission_id) [unique, name: 'sys_users_user_permissions_user_id_permission_id_e5823581_uniq', type: btree]
+  }
+}
+ref: core.User.id > sys.users_user_permissions.user_id
+ref: auth.Permission.id > sys.users_user_permissions.permission_id
+
+
+Table token_blacklist.BlacklistedToken {
+  Note: '''
+BlacklistedToken(id, token, blacklisted_at)
+
+*table: public.token_blacklist_blacklistedtoken*'''
+
+  id big_auto [note: '''*id*''', pk, unique, not null]
+  token_id big_auto [unique, not null]
+  blacklisted_at date_time [note: '''*blacklisted at*''', not null]
+
+  indexes {
+    (id) [pk, unique, name: 'token_blacklist_blacklistedtoken_pkey', type: btree]
+    (token_id) [unique, name: 'token_blacklist_blacklistedtoken_token_id_key', type: btree]
+  }
+}
+ref: token_blacklist.BlacklistedToken.token_id - token_blacklist.OutstandingToken.id
+
+
+Table token_blacklist.OutstandingToken {
+  Note: '''
+OutstandingToken(id, user, jti, token, created_at, expires_at)
+
+*table: public.token_blacklist_outstandingtoken*'''
+
+  id big_auto [note: '''*id*''', pk, unique, not null]
+  user_id big_auto [null]
+  jti char [note: '''*jti*''', unique, not null]
+  token text [note: '''*token*''', not null]
+  created_at date_time [note: '''*created at*''', null]
+  expires_at date_time [note: '''*expires at*''', not null]
+
+  indexes {
+    (jti) [unique, name: 'token_blacklist_outstandingtoken_jti_key', type: btree]
+    (id) [pk, unique, name: 'token_blacklist_outstandingtoken_pkey', type: btree]
+    (user_id) [name: 'token_blacklist_outstandingtoken_user_id_83bc629a', type: btree]
+  }
+}
+ref: token_blacklist.OutstandingToken.user_id > core.User.id
+
