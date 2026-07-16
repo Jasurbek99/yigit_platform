@@ -186,7 +186,9 @@ def _parse_one_row(
     def cell(key):
         return ws.cell(row=excel_row, column=_COL[key]).value
 
-    gross = _to_decimal(cell('gross'))
+    # default=None so a BLANK gross cell trips the skip-guard below, rather than
+    # defaulting to 0 and producing a nonsensical negative net with no warning.
+    gross = _to_decimal(cell('gross'), default=None)
     pallet_w = _to_decimal(cell('pallet_w'))
     additions = _to_decimal(cell('additions'))
     crate_w = _to_decimal(cell('crate_w'), default=None)

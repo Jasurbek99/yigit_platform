@@ -742,7 +742,7 @@ def close_pallet_manifest(shipment: Shipment, user) -> None:
 
     from apps.export.models import AuditLog
 
-    from apps.export.services.block_sources import write_block_sources
+    from apps.export.services.block_sources import build_block_parent_map, write_block_sources
 
     with transaction.atomic():
         pallets = list(
@@ -755,6 +755,12 @@ def close_pallet_manifest(shipment: Shipment, user) -> None:
                 'crate_type__weight_kg',
             )
         )
+
+        # Preserve any per-block harvest_date entered during the draft/supply
+        # phase — write_block_sources(replace=True) below deletes the old rows,
+        # so re-attach the date (keyed by parent block, the stored grain).
+        existing_dates = dict(shipment.block_sources.values_list('block_id', 'harvest_date'))
+        parent_of = build_block_parent_map()
 
         total_gross = sum(p['gross_weight_kg'] for p in pallets)
         total_pallet_weight = sum(p['pallet_weight_kg'] for p in pallets)
@@ -769,7 +775,12 @@ def close_pallet_manifest(shipment: Shipment, user) -> None:
                 - p['additions_kg']
             )
             total_net += net
-            block_entries.append({'block': p['sub_block_id'], 'weight_kg': net})
+            top_id = parent_of.get(p['sub_block_id'], p['sub_block_id'])
+            block_entries.append({
+                'block': p['sub_block_id'],
+                'weight_kg': net,
+                'harvest_date': existing_dates.get(top_id),
+            })
 
         dominant = compute_dominant_varieties(shipment)
         if not dominant:

@@ -12,6 +12,12 @@ its DDMM matches shipment.date 100% of the time in production data. Sub-blocks
 (F1/F2) are summed into their parent (F) because HarvestDayEntry is keyed on
 top-level blocks.
 
+Known limitation: legacy shipments imported under the old letter-month code
+convention (`DDCC###/YY`, e.g. "10AP116/25") do not match the numeric DDMM
+prefix and are excluded — harmless for the daily rollup (current codes are
+numeric-only, enforced by validate_shipment_code) but relevant if the rollup is
+ever re-run over historical dates.
+
 Idempotency:
   Re-running for the same date overwrites the previous shipment_rollup
   result (SUM is deterministic). Rows whose actual_source is

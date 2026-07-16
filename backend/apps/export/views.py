@@ -67,6 +67,7 @@ from apps.export.serializers import (
 from apps.export.services import (
     close_pallet_manifest,
     compute_block_variety_breakdown,
+    build_block_parent_map,
     create_shipment,
     override_dominant_varieties,
     transition_to,
@@ -2595,6 +2596,12 @@ class ShipmentViewSet(ModelViewSet):
             request.user.username,
         )
 
+        # Close the step-4 sales-report reminder task and fire the task-engine
+        # save chain so the satyldy report-existence trigger resolves (and the
+        # shipment auto-advances to tamamlandy when it is at satyldy).
+        from apps.export.services.task_rules import close_sales_report_task
+        close_sales_report_task(shipment, request.user)
+
         shipment.refresh_from_db()
         detail_serializer = ShipmentDetailSerializer(shipment, context={'request': request})
         return Response(detail_serializer.data)
@@ -2639,10 +2646,13 @@ class ShipmentViewSet(ModelViewSet):
 
         # Preserve existing harvest_date for blocks the caller didn't send —
         # R8's multiselect editor only ships block_id, so without this the
-        # date would silently reset every time blocks were reordered.
+        # date would silently reset every time blocks were reordered. block_sources
+        # are stored at PARENT grain, so existing_dates is parent-keyed; normalize
+        # the incoming (possibly sub-block) id to its parent before the lookup.
         existing_dates = dict(
             shipment.block_sources.values_list('block_id', 'harvest_date')
         )
+        parent_of = build_block_parent_map()
 
         entries = []
         for i, entry in enumerate(valid_entries):
@@ -2658,7 +2668,7 @@ class ShipmentViewSet(ModelViewSet):
             if 'harvest_date' in entry:
                 harvest_date = entry['harvest_date'] or None
             else:
-                harvest_date = existing_dates.get(block_id)
+                harvest_date = existing_dates.get(parent_of.get(block_id, block_id))
             entries.append({'block': block_id, 'weight_kg': weight, 'harvest_date': harvest_date})
 
         # Normalize sub-blocks to parent grain and merge (F1/F2 -> F) before write.
@@ -2865,11 +2875,14 @@ class ShipmentViewSet(ModelViewSet):
         except WeightmasterParseError as exc:
             return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Warn (do not block) when the file's load code does not match this shipment.
+        # Warn (do not block) when the file's load code doesn't match this
+        # shipment. The weightmaster KODLAMA (e.g. "10AP116") is the physically
+        # tagged letter code, which lives in Shipment.export_code (NOT the numeric
+        # shipment_code). Skip the check when export_code is blank.
         code_mismatch = bool(
             parsed.load_code
-            and shipment.shipment_code
-            and parsed.load_code.replace('/', '') not in shipment.shipment_code.replace('/', '')
+            and shipment.export_code
+            and parsed.load_code.replace('/', '') not in shipment.export_code.replace('/', '')
         )
 
         logger.info(

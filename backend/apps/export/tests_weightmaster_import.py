@@ -100,6 +100,17 @@ class WeightmasterParserTests(TestCase):
         self.assertIn('variety', fields)
         self.assertIn('sub_block', fields)
 
+    def test_blank_gross_is_skipped_with_warning(self):
+        """A blank gross cell must skip the row with a warning, not produce a
+        garbage negative-net pallet."""
+        wb = _build_workbook([
+            ['Palet 1', None, 0.543, 64, 34.752, 7.5, 4, 0, 'MIDELICE', '10AP116-F01', 'F2', 'x', '10,04,2026', 'AGAÇ'],
+        ])
+        result = parse_weightmaster_workbook(wb)
+
+        self.assertEqual(len(result.rows), 0)
+        self.assertTrue(any(w.field == 'row' for w in result.warnings))
+
     def test_non_template_file_raises(self):
         wb = openpyxl.Workbook()
         wb.active['A1'] = 'Some other spreadsheet'
@@ -140,8 +151,10 @@ class WeightmasterImportEndpointTests(TestCase):
             defaults={'name_en': 'D', 'name_tk': 'D', 'name_ru': 'D', 'step_order': 0, 'phase': 'LOADING'},
         )
         self.shipment = Shipment.objects.create(
-            shipment_code='10AP116/26', date='2026-04-10', season=season,
+            shipment_code='1004116/26', date='2026-04-10', season=season,
             country=country, status=status, created_by=self.wm,
+            # code_mismatch compares the file's letter KODLAMA against export_code.
+            export_code='10AP116/26',
         )
 
     def _upload_file(self):

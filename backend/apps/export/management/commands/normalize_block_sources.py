@@ -44,9 +44,13 @@ class Command(BaseCommand):
             f'{len(shipment_ids)} shipment(s) have sub-block block_sources.'
         )
 
+        # Batch-load the shipments + their sources (no per-row query in the loop).
+        shipments = (
+            Shipment.objects.filter(id__in=shipment_ids).prefetch_related('block_sources')
+        )
         changed = 0
-        for sid in shipment_ids:
-            shipment = Shipment.objects.get(id=sid)
+        for shipment in shipments:
+            sid = shipment.id
             existing = list(shipment.block_sources.all())
             entries = [
                 {'block': bs.block_id, 'weight_kg': bs.weight_kg, 'harvest_date': bs.harvest_date}

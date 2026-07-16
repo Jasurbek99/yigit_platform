@@ -87,6 +87,27 @@ class BlockSourceNormalizationTests(TestCase):
         self.assertEqual(set(rows), {'F'})
         self.assertEqual(rows['F'], Decimal('18000'))
 
+    def test_set_block_sources_preserves_harvest_date_across_sub_block(self):
+        """Re-posting a sub-block WITHOUT harvest_date must keep the prior date,
+        even though block_sources are stored at parent grain (HIGH-1b fix)."""
+        from rest_framework.test import APIClient
+        boss = User.objects.create_superuser(username='boss', password='p')
+        shipment = _shipment(self.user, [self.f])
+        client = APIClient()
+        client.force_authenticate(boss)
+        url = f'/api/v1/export/shipments/{shipment.id}/block-sources/'
+        # 1) set F1 with a harvest_date → stored on parent F.
+        client.post(url, {'blocks': [
+            {'block_id': self.f1.id, 'weight_kg': '9000', 'harvest_date': '2026-04-10'},
+        ]}, format='json')
+        # 2) re-post F1 with NO harvest_date key → prior date must survive.
+        client.post(url, {'blocks': [
+            {'block_id': self.f1.id, 'weight_kg': '9500'},
+        ]}, format='json')
+        bs = shipment.block_sources.get()
+        self.assertEqual(bs.block.code, 'F')
+        self.assertEqual(str(bs.harvest_date), '2026-04-10')
+
 
 class CloseManifestBlockSourceTests(TestCase):
     def setUp(self):

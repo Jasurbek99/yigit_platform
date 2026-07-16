@@ -76,6 +76,7 @@ export function useBlockBreakdown(shipmentId: number | null) {
   return useQuery({
     queryKey: ['block-breakdown', shipmentId],
     queryFn: async (): Promise<IBlockBreakdown> => {
+      if (USE_MOCK) return { rows: [], total_net_kg: '0' };
       const { data } = await api.get<IBlockBreakdown>(
         `/export/shipments/${shipmentId}/block-breakdown/`,
       );
@@ -96,6 +97,16 @@ export function useBlockBreakdown(shipmentId: number | null) {
 export function useImportWeightmaster(shipmentId: number) {
   return useMutation({
     mutationFn: async (file: File): Promise<IWeightmasterPreview> => {
+      if (USE_MOCK) {
+        return {
+          rows: [],
+          warnings: [],
+          summary: {
+            load_code: '', harvest_date: null, pallet_count: 0,
+            total_gross_kg: '0', total_net_kg: '0', code_mismatch: false,
+          },
+        };
+      }
       const form = new FormData();
       form.append('file', file);
       const { data } = await api.post<IWeightmasterPreview>(

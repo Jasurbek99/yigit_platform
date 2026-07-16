@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Card, Flex, Table, Tag, Typography } from 'antd';
-import type { ColumnsType } from 'antd/es/table';
+import { Card, Flex, Tag, Typography } from 'antd';
+import { ProTable, type ProColumns } from '@ant-design/pro-components';
 import { useTranslation } from 'react-i18next';
 import { useShipments } from '@/hooks/useShipments';
 import { useAuth } from '@/hooks/useAuth';
@@ -27,18 +27,18 @@ export default function WeightmasterPage() {
   const { data, isLoading } = useShipments({ phase: 'LOADING', page_size: 50 });
   const queue = data?.results ?? [];
 
-  const columns: ColumnsType<IShipmentListItem> = [
+  const columns: ProColumns<IShipmentListItem>[] = [
     {
       title: t('weightmaster.col_truck'),
       dataIndex: 'shipment_code',
-      render: (code: string) => <span style={{ fontFamily: FONT.mono }}>{code}</span>,
+      render: (_dom, record) => <span style={{ fontFamily: FONT.mono }}>{record.shipment_code}</span>,
     },
     { title: t('weightmaster.col_date'), dataIndex: 'date', responsive: ['md'] },
     { title: t('weightmaster.col_customer'), dataIndex: 'customer_name', responsive: ['md'] },
     {
       title: t('weightmaster.col_status'),
       dataIndex: 'status_display',
-      render: (s: string) => <Tag>{s}</Tag>,
+      render: (_dom, record) => <Tag>{record.status_display}</Tag>,
     },
   ];
 
@@ -55,8 +55,10 @@ export default function WeightmasterPage() {
       </Flex>
 
       <Card title={t('weightmaster.queue_title')} style={{ marginBottom: 16 }}>
-        <Table<IShipmentListItem>
+        <ProTable<IShipmentListItem>
           size="small"
+          search={false}
+          options={false}
           loading={isLoading}
           rowKey="id"
           columns={columns}
