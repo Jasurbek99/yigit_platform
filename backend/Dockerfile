@@ -40,4 +40,9 @@ RUN python manage.py collectstatic --noinput || true
 EXPOSE 8000
 # gunicorn supervises uvicorn workers — uvicorn speaks ASGI for both
 # `/api/` HTTP and `/ws/` WebSocket on the same port. wsgi.py is now unused.
-CMD ["gunicorn", "config.asgi:application", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "--workers", "3"]
+# --timeout 180: document PDF generation shells out to LibreOffice, which
+# render_pdf lets run up to 120s. gunicorn's 30s default could reap the worker
+# mid-conversion, dropping the connection with NO response — the client then
+# spins forever. Keep this ABOVE render_pdf's 120s so LibreOffice's own timeout
+# fires first and the user gets a real 503 instead of a hang.
+CMD ["gunicorn", "config.asgi:application", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "180"]

@@ -31,7 +31,9 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    command: gunicorn config.asgi:application -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --workers 3
+    # --timeout 180 must stay above render_pdf's 120s LibreOffice budget, else
+    # gunicorn's 30s default reaps the worker mid-PDF and the client hangs.
+    command: gunicorn config.asgi:application -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --workers 3 --timeout 180
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings
       - DB_HOST=db
