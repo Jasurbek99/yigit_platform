@@ -114,13 +114,16 @@ product name + packing.
 ## PDF dependency (server)
 
 `.docx` needs only `docxtpl` (pip). **PDF requires LibreOffice headless.** It is
-provisioned in `backend/Dockerfile` (`libreoffice-writer` + `fonts-dejavu` /
-`fonts-liberation` / `fonts-noto-core` for Cyrillic/Latin glyphs), so PDF works in
-the deployed container regardless of host OS — the runtime is Debian, not the
-dev machine. The filled `.docx` is converted to PDF (single source of truth:
-PDF == Word) via a unique `-env:UserInstallation` profile per call (avoids the
-shared-profile lock under concurrency). Resolution order: `LIBREOFFICE_BIN`
-setting → `soffice`/`libreoffice` on PATH.
+provisioned in `backend/Dockerfile` (`libreoffice-writer` **+ `libreoffice-calc`** +
+`fonts-dejavu` / `fonts-liberation` / `fonts-noto-core` for Cyrillic/Latin glyphs),
+so PDF works in the deployed container regardless of host OS — the runtime is
+Debian, not the dev machine. **Calc is required for the CMR**, which is an `.xlsx`
+overlay — Writer alone converts the `.docx` documents but cannot render xlsx→PDF,
+so a Writer-only image makes the CMR PDF button error while invoice/letter PDFs
+still work. The filled source is converted to PDF via a unique
+`-env:UserInstallation` profile per call (avoids the shared-profile lock under
+concurrency). Resolution order: `LIBREOFFICE_BIN` setting → `soffice`/`libreoffice`
+on PATH.
 
 **Local dev (Windows/macOS):** LibreOffice is usually absent, so PDF returns 503
 and only `.docx` works — which is fine for development. To test PDF locally,
