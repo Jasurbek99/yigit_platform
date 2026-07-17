@@ -9,16 +9,28 @@ export interface IMyTasksResponse {
   results: ITaskListItem[];
 }
 
-export function useMyTasks(options: { enabled?: boolean } = {}) {
+export function useMyTasks(
+  options: { enabled?: boolean; role?: string | null } = {},
+) {
+  const { enabled, role = null } = options;
   return useQuery<IMyTasksResponse>({
-    enabled: options.enabled ?? true,
-    queryKey: ['my-tasks'],
+    enabled: enabled ?? true,
+    // role is part of the key: without it, switching roles would render the
+    // previous role's cached tasks under the new role's name.
+    queryKey: ['my-tasks', role],
     queryFn: async () => {
-      // page_size=1000: the SelfBoard renders ALL of a user's tasks (active +
+      // page_size=1000: the My tasks page renders ALL tasks (active +
       // done-today + history) from this single fetch, so the cap must clear a
       // role's full per-season backlog or the newest tasks silently drop off.
       // Backed by TaskBoardPagination (max 2000) on /me/tasks/.
-      const { data } = await api.get('/me/tasks/?page_size=1000');
+      //
+      // A supervisor with NO role selected still exceeds this cap (1270 tasks
+      // across all roles as of 2026-07) — that truncation is pre-existing.
+      // Selecting a role is what makes the view complete: the largest single
+      // role is ~574.
+      const params = new URLSearchParams({ page_size: '1000' });
+      if (role) params.set('assignee_role', role);
+      const { data } = await api.get(`/me/tasks/?${params.toString()}`);
       return data;
     },
     // Polls app-wide (AppLayout nav badge). 60s halves the steady-state

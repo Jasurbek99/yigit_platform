@@ -209,6 +209,32 @@ Response item shape:
 ### My work filter: `GET /api/v1/export/shipments/?my_work=true`
 Same response shape as list, filtered by role's active window server-side.
 
+### My tasks: `GET /api/v1/me/tasks/` and `GET /api/v1/me/kpi-today/`
+
+Backs the **My tasks** page (`/me/board`, `SelfBoard.tsx`) — not to be confused with the
+**Board** page (`/export/shipments/board`).
+
+Regular users are locked to their own `assignee_role` (plus tasks personally assigned to
+them). Supervisors — `export_manager`, `boss`, `admin`, `director`, superusers — receive
+**every** role's tasks by default.
+
+Optional `?assignee_role=<role>` narrows to one role. **Supervisors only** — silently
+ignored for every other role, whose own-role lock is unconditional. Unknown role → 400
+on `/me/tasks/`. Other filters: `?state=`, `?step=`, `?overdue=true`.
+
+`/me/kpi-today/` accepts the same param under the same gate, so the KPI tiles describe the
+role being viewed. Its 60s cache key includes the effective role
+(`me:kpi-today:{user_id}:{role}`) — tests that clear this key must include the role or they
+silently stop isolating.
+
+The supervisor-filtered view is a **superset** of that role's own screen: it applies
+`assignee_role=X` with no `assignee_user` clause, so tasks another user has personally
+picked up are included (intended oversight semantic).
+
+Caution: with **no** role selected, a supervisor's list is truncated — `count=1213` vs
+`page_size=1000` as of 2026-07. Selecting a role makes the view complete; the largest
+single role is ~550.
+
 ### Sheet endpoint: `GET /api/v1/export/shipments/sheet/`
 Optional `?shipment=<id>` returns just that one shipment's row alongside the **same global config** (`rows` / `row_settings` / `users_index` / `current_user_*`) — a tiny payload used by the task drawer's field editors (Shipment Board + Self Kanban) so opening a task to act on it doesn't download the whole-season sheet. `?season=<id>` overrides the active-season default; with `?shipment=` the season scope is bypassed (archived/soft-deleted guards still apply).
 

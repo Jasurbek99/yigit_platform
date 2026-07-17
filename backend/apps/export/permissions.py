@@ -49,4 +49,10 @@ class IsTaskActor(BasePermission):
             return role in _CANCEL_ROLES
 
         # For all other mutating actions: assignee_role match or supervisor.
-        return role == obj.assignee_role or role in _SUPERVISOR_ROLES
+        # task_roles_for() expands to operationally-equivalent roles, so a deputy
+        # can act on their head's tasks — seeing a card without being able to
+        # touch it would be worse than not seeing it. Same helper as the task
+        # list and KPI, so visibility and permission cannot drift apart.
+        from apps.core.roles import task_roles_for
+
+        return obj.assignee_role in task_roles_for(role) or role in _SUPERVISOR_ROLES

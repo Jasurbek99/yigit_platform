@@ -365,6 +365,27 @@ class TaskStartActionTests(TestCase):
         defaults.update(kwargs)
         return Task.objects.create(**defaults)
 
+    def test_deputy_can_start_loading_dept_head_task(self) -> None:
+        """Visibility without action-permission would be worse than useless: the
+        deputy would see the card and be unable to touch it."""
+        deputy = _make_user('start_deputy', 'loading_dept_head_deputy')
+        task = self._fresh_task(assignee_role='loading_dept_head')
+        client = APIClient()
+        _auth(client, deputy)
+        resp = client.post(f'/api/v1/export/tasks/{task.pk}/start/')
+        self.assertEqual(resp.status_code, 200)
+        task.refresh_from_db()
+        self.assertEqual(task.state, TaskState.IN_PROGRESS)
+
+    def test_weight_master_cannot_start_loading_dept_head_task(self) -> None:
+        """Equivalence must not leak to weight_master (21 users)."""
+        wm = _make_user('start_wm', 'weight_master')
+        task = self._fresh_task(assignee_role='loading_dept_head')
+        client = APIClient()
+        _auth(client, wm)
+        resp = client.post(f'/api/v1/export/tasks/{task.pk}/start/')
+        self.assertEqual(resp.status_code, 403)
+
     def test_assignee_can_start(self) -> None:
         task = self._fresh_task()
         client = APIClient()
@@ -783,6 +804,75 @@ class MeTasksTests(TestCase):
         self.assertNotIn(done_task.pk, ids)
         done_task.delete()
 
+    def test_deputy_sees_loading_dept_head_tasks(self) -> None:
+        """A deputy acts with identical authority to their head (June 2026), so
+        the head's tasks must appear on the deputy's board."""
+        deputy = _make_user('me_deputy', 'loading_dept_head_deputy')
+        head_task = _make_task(
+            shipment=self.shipment,
+            assignee_role='loading_dept_head',
+            state=TaskState.OPEN,
+        )
+        client = APIClient()
+        _auth(client, deputy)
+        resp = client.get('/api/v1/me/tasks/')
+        self.assertEqual(resp.status_code, 200)
+        ids = [t['id'] for t in resp.data['results']]
+        self.assertIn(head_task.pk, ids)
+        # Equivalence must stay narrow — it must NOT leak other roles' work.
+        self.assertNotIn(self.doc_task.pk, ids)
+        head_task.delete()
+
+    def test_equivalence_does_not_leak_to_weight_master(self) -> None:
+        """weight_master reports to loading_dept_head organisationally, but must
+        NOT inherit its tasks — MANAGEABLE_BY_ROLE is a management hierarchy,
+        not a task-ownership one."""
+        wm = _make_user('me_wm', 'weight_master')
+        head_task = _make_task(
+            shipment=self.shipment,
+            assignee_role='loading_dept_head',
+            state=TaskState.OPEN,
+        )
+        client = APIClient()
+        _auth(client, wm)
+        resp = client.get('/api/v1/me/tasks/')
+        ids = [t['id'] for t in resp.data['results']]
+        self.assertNotIn(head_task.pk, ids)
+        head_task.delete()
+
+    def test_supervisor_can_filter_by_assignee_role(self) -> None:
+        client = APIClient()
+        _auth(client, self.em_user)
+        resp = client.get('/api/v1/me/tasks/?assignee_role=document_team')
+        self.assertEqual(resp.status_code, 200)
+        ids = [t['id'] for t in resp.data['results']]
+        self.assertIn(self.doc_task.pk, ids)
+        self.assertNotIn(self.wh_task.pk, ids)
+
+    def test_non_supervisor_cannot_escape_own_role(self) -> None:
+        """Security: ?assignee_role= must never widen a regular user's view."""
+        client = APIClient()
+        _auth(client, self.wh_user)
+        resp = client.get('/api/v1/me/tasks/?assignee_role=document_team')
+        self.assertEqual(resp.status_code, 200)
+        ids = [t['id'] for t in resp.data['results']]
+        self.assertNotIn(self.doc_task.pk, ids)
+        self.assertIn(self.wh_task.pk, ids)
+
+    def test_supervisor_unknown_role_returns_400(self) -> None:
+        client = APIClient()
+        _auth(client, self.em_user)
+        resp = client.get('/api/v1/me/tasks/?assignee_role=not_a_role')
+        self.assertEqual(resp.status_code, 400)
+
+    def test_supervisor_without_param_still_sees_all(self) -> None:
+        client = APIClient()
+        _auth(client, self.em_user)
+        resp = client.get('/api/v1/me/tasks/')
+        ids = [t['id'] for t in resp.data['results']]
+        self.assertIn(self.wh_task.pk, ids)
+        self.assertIn(self.doc_task.pk, ids)
+
 
 # ---------------------------------------------------------------------------
 # /me/kpi-today/
@@ -844,9 +934,11 @@ class MeKpiTodayTests(TestCase):
             deadline=deadline_future,
         )
 
-        # Clear cache so we get fresh computation
+        # Clear cache so we get fresh computation. The key includes the effective
+        # role — a plain me:kpi-today:{id} would silently miss and leave a stale
+        # entry from an earlier test in place.
         from django.core.cache import cache
-        cache.delete(f'me:kpi-today:{self.user.id}')
+        cache.delete(f'me:kpi-today:{self.user.id}:{self.user.role}')
 
         client = APIClient()
         _auth(client, self.user)
@@ -863,11 +955,46 @@ class MeKpiTodayTests(TestCase):
         task_late.delete()
         task_ontime.delete()
 
+    def test_supervisor_kpi_follows_assignee_role(self) -> None:
+        em_user = _make_user('kpi_em', 'export_manager')
+        done = _make_task(
+            shipment=self.shipment,
+            assignee_role='warehouse_chief',
+            state=TaskState.DONE,
+        )
+        done.completed_at = timezone.now()
+        done.save()
+
+        client = APIClient()
+        _auth(client, em_user)
+        # Own role (export_manager) has no tasks completed today.
+        resp_own = client.get('/api/v1/me/kpi-today/')
+        self.assertEqual(resp_own.data['done_count'], 0)
+        # Viewing warehouse_chief must surface that role's completed task.
+        resp_wh = client.get('/api/v1/me/kpi-today/?assignee_role=warehouse_chief')
+        self.assertEqual(resp_wh.data['done_count'], 1)
+        done.delete()
+
+    def test_non_supervisor_kpi_ignores_assignee_role(self) -> None:
+        done = _make_task(
+            shipment=self.shipment,
+            assignee_role='document_team',
+            state=TaskState.DONE,
+        )
+        done.completed_at = timezone.now()
+        done.save()
+
+        client = APIClient()
+        _auth(client, self.user)  # warehouse_chief
+        resp = client.get('/api/v1/me/kpi-today/?assignee_role=document_team')
+        self.assertEqual(resp.data['done_count'], 0)
+        done.delete()
+
     def test_caching_avoids_second_query(self) -> None:
         """Second request within 60s should be served from cache (0 DB queries)."""
         from django.core.cache import cache
 
-        cache.delete(f'me:kpi-today:{self.user.id}')
+        cache.delete(f'me:kpi-today:{self.user.id}:{self.user.role}')
 
         client = APIClient()
         _auth(client, self.user)

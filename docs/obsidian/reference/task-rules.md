@@ -15,6 +15,37 @@ Completion rules: `all_fields_filled` (all listed fields set), `any_field_filled
 
 The assigned role acts on its own tasks. **Supervisors** (`export_manager`, `boss`, `admin`, `director`) can act on **any** task — mirrors `IsTaskActor` in `apps/export/permissions.py`.
 
+### Role equivalence (deputies)
+
+`Task.assignee_role` holds **one** role, but some roles are operationally the same team.
+`task_roles_for(role)` in `apps/core/roles.py` is the **single source of truth**: it expands
+a role to the set whose tasks it may see and act on. Roles with no declared equivalent map
+to themselves, so it is safe to call unconditionally.
+
+Current map (`TASK_ROLE_EQUIVALENTS`) — deliberately narrow:
+
+| Role | Also sees/acts on |
+|---|---|
+| `loading_dept_head` | `loading_dept_head_deputy` |
+| `loading_dept_head_deputy` | `loading_dept_head` |
+
+Rationale: a deputy acts with identical authority to their head (stakeholder decision,
+June 2026), so a task assigned to `loading_dept_head` (Soltanmyrat) is also the work of his
+5 deputies.
+
+**Three call sites must always use this helper** or visibility and permission drift apart —
+a user would see a card they cannot touch:
+1. `MeTaskListView` — visibility (`assignee_role__in=`)
+2. `IsTaskActor` — actions (start/block/complete)
+3. `MeKpiTodayView._compute_kpi` — the "Done today" tiles
+
+The frontend mirrors it in `constants/roles.ts` (`taskRolesFor`), used by
+`SelfBoardTaskDrawer` to decide the editable-vs-read-only view.
+
+**Do NOT** derive this from `MANAGEABLE_BY_ROLE` in the same file. That is a *management*
+hierarchy and includes `weight_master` (21 users), who must not receive the loading
+department's tasks.
+
 ## Full task list
 
 | Opens when shipment enters… | Task | Responsible role | Completes by |
@@ -28,10 +59,11 @@ The assigned role acts on its own tasks. **Supervisors** (`export_manager`, `bos
 | **Customs entry (TM)** `gumruk_girish` | Send documents to customs | document_team | **Mark Done** |
 | | Trigger customs exit | document_team | auto: `customs_exit_at` |
 | **Customs exit (TM)** `gumruk_chykysh` | Documents back to office | document_team | **Mark Done** |
-| | Trigger loading start | warehouse_chief | auto: `loading_started_at` |
-| **Loading** `yuklenme` | Fill loading data | warehouse_chief | auto: `shipment_code` + `block_sources` + `variety` + `weight_net` |
+| | Trigger loading start | loading_dept_head | auto: `loading_started_at` |
+| **Loading** `yuklenme` | Fill loading data | loading_dept_head | auto: `shipment_code` + `block_sources` + `variety` + `weight_net` |
 | | Trigger departure | document_team | auto: `departed_at` |
 | **Departed** `yola_chykdy` | Trigger border crossing | transport | auto: `border_crossed_at` |
+| | **Submit sales report** | sales_rep | **Mark Done** *(non-gating reminder — closed when the SalesReport is saved; see below)* |
 | **Border crossed** `serhet_gechdi` | Trigger dest. entry | sales_rep | auto: `dest_entry_at` |
 | **Dest. entry** `dest_entry` | Trigger dest. customs | sales_rep | auto: `customs_entry_at` |
 | **Dest. customs** `barysh_gumrugi` | Trigger transshipment | sales_rep | auto: `peregruz_date` — *only if has transshipment* |
@@ -41,8 +73,36 @@ The assigned role acts on its own tasks. **Supervisors** (`export_manager`, `bos
 | | Trigger sale start | sales_rep | auto: `sale_started_at` |
 | **Selling** `satylyar` | Trigger sale end | sales_rep | auto: `sale_ended_at` |
 | **Sold** `satyldy` | Finalize sale | sales_rep | **Mark Done** |
-| | Trigger report received | sales_rep | auto: `sales_report_date` |
+| | Trigger report received | sales_rep | auto: `sales_report` *(report-existence — retargeted from the old `sales_report_date` date field)* |
 | **Report** `hasabat` | Submit sales report | sales_rep | **Mark Done** *(currently inactive)* |
+
+## Sales-report task wiring
+
+The sales report is fillable from **step 4 (`yola_chykdy`, departed)** onward — the
+truck usually sells before the system status catches up. Two rules cooperate:
+
+- **Step 4 reminder** (`tasks.submit_sales_report`, sales_rep, `MANUAL_DONE`): appears the
+  moment the truck departs so the rep sees "fill the report" on the board early. It **must**
+  be `MANUAL_DONE` — a field-based (auto-resolving) task on step 4 would gate auto-advance
+  and freeze the truck at step 4 until the report is filled (weeks later). `MANUAL_DONE`
+  tasks are exempt from `is_step_trigger_satisfied`, so this stays a non-gating reminder.
+- **Step 11 trigger** (`satyldy` → `tamamlandy`, target `sales_report`): closes the lifecycle
+  when the SalesReport **row exists** (retargeted from the old `sales_report_date` date field).
+  `_resolve_value` returns the report on existence / `None` when absent, so `ALL_FIELDS_FILLED`
+  resolves the instant a report exists.
+
+**Close link:** the engine never auto-resolves `MANUAL_DONE`, so saving the report closes the
+reminder via `close_sales_report_task(shipment, user)` (`services/task_rules.py`), called from
+the `set_sales_report` endpoint. That helper (1) marks the reminder DONE and (2) runs
+`shipment.save()` so the step-11 report-existence trigger resolves and auto-advances to
+`tamamlandy` — on the **common early-fill path** it resolves on satyldy entry; on **late-fill**
+(report saved while already at satyldy) it resolves right away.
+
+**Backfill:** rules only generate on transition INTO a step, so departed shipments that
+predate the reminder rule need `python manage.py backfill_sales_report_tasks` (run
+`seed_task_rules` first). It creates the reminder for step-4+ shipments lacking a report and
+advances `satyldy`-with-report shipments to `tamamlandy`. Supports `--dry-run` / `--limit` /
+`--skip-advance`.
 
 ## Maintenance note
 

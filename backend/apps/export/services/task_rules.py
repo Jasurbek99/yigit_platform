@@ -367,6 +367,62 @@ def resolve_for_shipment(shipment) -> list[Task]:
     return resolved
 
 
+def close_sales_report_task(shipment, user) -> int:
+    """Close the step-4 sales-report reminder and re-run resolution/auto-advance.
+
+    Called from the set_sales_report endpoint AFTER the SalesReport is saved.
+    Two distinct actions (the engine handles neither on its own here because
+    saving a SalesReport does not call Shipment.save()):
+
+      1. Explicitly mark the ``tasks.submit_sales_report`` reminder DONE. That
+         rule is MANUAL_DONE (non-gating, or a step-4 task would freeze the
+         truck), and the engine never auto-resolves MANUAL_DONE tasks — so it
+         must be closed in code when the report is filled.
+      2. Call ``shipment.save()`` so the standard Shipment.save() chain
+         (resolve_for_shipment → auto_advance_if_ready) fires. This resolves the
+         retargeted ``satyldy`` trigger (target_fields='sales_report') and
+         auto-advances to ``tamamlandy`` when the shipment is at satyldy. On the
+         common early-fill path (report saved mid-transit) nothing advances now;
+         the satyldy trigger instead resolves on step entry later.
+
+    Idempotent: re-PATCHing the report finds no OPEN reminder to close and the
+    save chain is a no-op advance-wise.
+
+    Args:
+        shipment: The Shipment instance (fully loaded, PK exists).
+        user: The user saving the report — credited for any auto-transition.
+
+    Returns:
+        Number of reminder tasks closed by this call (0 or more).
+    """
+    now = timezone.now()
+    reminders = list(
+        shipment.tasks.filter(
+            title_key='tasks.submit_sales_report',
+            state__in=[TaskState.OPEN, TaskState.IN_PROGRESS],
+        )
+    )
+    for task in reminders:
+        task.state = TaskState.DONE
+        task.completed_at = now
+        if not task.started_at:
+            task.started_at = now
+        task.save(update_fields=['state', 'completed_at', 'started_at'])
+
+    if reminders:
+        logger.info(
+            'Closed %d sales-report reminder task(s) for shipment %s',
+            len(reminders), shipment.shipment_code,
+        )
+
+    # Fire the standard save chain so the satyldy report-existence trigger
+    # resolves and auto-advance runs (auto_advance needs updated_by set).
+    shipment.updated_by = user
+    shipment.save()
+
+    return len(reminders)
+
+
 def reconcile_open_tasks_with_rules(
     shipments=None,
     dry_run: bool = False,
@@ -417,7 +473,11 @@ def reconcile_open_tasks_with_rules(
     if not candidates:
         return {'tasks_synced': 0, 'shipments_reresolved': 0, 'tasks_resolved': 0, 'changes': []}
 
-    _AXES = ('title_key', 'target_fields', 'completion_rule', 'target_value')
+    # assignee_role is synced too: repointing a rule at the correct role (e.g. the
+    # 2026-07 warehouse_chief → loading_dept_head fix) must move the open tasks,
+    # or the right team still can't see today's work. Only active tasks are
+    # candidates (see active_states above), so completed history is never rewritten.
+    _AXES = ('title_key', 'target_fields', 'completion_rule', 'target_value', 'assignee_role')
     tasks_synced = 0
     affected_shipment_ids: set[int] = set()
     changes: list[dict] = []

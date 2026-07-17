@@ -145,7 +145,9 @@ TASK_RULES: list[dict] = [
     {
         'step': 'gumruk_chykysh',
         'title_key': 'tasks.trigger_loading_start',
-        'assignee_role': 'warehouse_chief',
+        # Soltanmyrat holds loading_dept_head (not warehouse_chief) since the
+        # May 2026 role change; his 5 deputies see this via task_roles_for().
+        'assignee_role': 'loading_dept_head',
         'target_fields': 'loading_started_at',
         'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
         'target_value': '',
@@ -164,7 +166,10 @@ TASK_RULES: list[dict] = [
         # loading step.
         'step': 'yuklenme',
         'title_key': 'tasks.fill_loading_data',
-        'assignee_role': 'warehouse_chief',
+        # The loading department owns this, not warehouse_chief — the latter is a
+        # leftover of the May 2026 role change (confirmed 2026-07-16: no real user
+        # holds it). Deputies see it via task_roles_for().
+        'assignee_role': 'loading_dept_head',
         'target_fields': 'shipment_code,block_sources,variety,weight_net',
         'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
         'target_value': '',
@@ -194,6 +199,26 @@ TASK_RULES: list[dict] = [
         'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
         'target_value': '',
         'deadline_rule': '24h_after_status',
+        'condition_field': '',
+        'condition_value': '',
+    },
+    {
+        # Sales-report reminder for the rep. Appears the moment the truck
+        # departs (step 4), because in practice the truck sells before the
+        # system status catches up — the report is fillable from yola_chykdy
+        # onward. MUST be MANUAL_DONE: a field-based (auto-resolving) task
+        # here would gate auto-advance and freeze the truck at step 4 until
+        # the report is filled (weeks later). MANUAL_DONE tasks are exempt
+        # from is_step_trigger_satisfied, so this stays a non-gating reminder.
+        # It is closed explicitly by close_sales_report_task() when the rep
+        # saves the SalesReport (the engine never auto-resolves MANUAL_DONE).
+        'step': 'yola_chykdy',
+        'title_key': 'tasks.submit_sales_report',
+        'assignee_role': 'sales_rep',
+        'target_fields': '',
+        'completion_rule': TaskCompletionRule.MANUAL_DONE,
+        'target_value': '',
+        'deadline_rule': '',
         'condition_field': '',
         'condition_value': '',
     },
@@ -307,12 +332,21 @@ TASK_RULES: list[dict] = [
     },
 
     # ── satyldy → tamamlandy ───────────────────────────────────────────────────
-    # Trigger: sales_report_date fills (R43).
+    # Trigger: a SalesReport row exists for the shipment. Retargeted from the
+    # old `sales_report_date` date field to the `sales_report` OneToOne reverse
+    # accessor so the lifecycle closes on the actual (rich) report, not a
+    # separate date picker. `_resolve_value` returns the related SalesReport on
+    # existence and None when absent, so ALL_FIELDS_FILLED resolves the instant
+    # a report exists. Common early-fill path (report saved mid-transit) resolves
+    # this on satyldy ENTRY; late-fill resolves when close_sales_report_task()
+    # triggers resolution. Pairs with the step-4 tasks.submit_sales_report
+    # reminder — in the common case the report already exists by satyldy, so this
+    # task resolves on entry and is never seen as open.
     {
         'step': 'satyldy',
         'title_key': 'tasks.trigger_report_received',
         'assignee_role': 'sales_rep',
-        'target_fields': 'sales_report_date',
+        'target_fields': 'sales_report',
         'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
         'target_value': '',
         'deadline_rule': 'friday_eow',

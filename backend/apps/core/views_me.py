@@ -14,6 +14,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.roles import task_roles_for
+
 logger = logging.getLogger(__name__)
 
 # Cache TTL for /me/kpi-today/ in seconds.
@@ -46,6 +48,8 @@ class MeTaskListView(APIView):
         ?state=open
         ?step=yuklenme
         ?overdue=true
+        ?assignee_role=warehouse_chief — supervisors only; silently ignored for
+            every other role, which stays locked to its own. Unknown role → 400.
     """
 
     permission_classes = [IsAuthenticated]
@@ -86,9 +90,33 @@ class MeTaskListView(APIView):
         if not is_supervisor:
             # Regular users: their role's shipment tasks (assignee_user null) plus
             # any task personally assigned to them (e.g. their own weekly_plan task).
-            qs = qs.filter(assignee_role=role).filter(
+            # task_roles_for() expands to operationally-equivalent roles (a deputy
+            # sees their head's tasks); roles with no equivalent map to themselves.
+            # NOTE: ?assignee_role= is deliberately ignored here — a regular user
+            # must never be able to widen their view to another role's work.
+            qs = qs.filter(assignee_role__in=task_roles_for(role)).filter(
                 Q(assignee_user__isnull=True) | Q(assignee_user=request.user)
             )
+        else:
+            # Supervisors see every role by default; ?assignee_role= narrows to one.
+            # Fetching the role as its own query makes the result complete, rather
+            # than a slice of the all-roles payload (which exceeds page_size).
+            #
+            # Deliberately NO assignee_user clause: unlike a regular user of role X
+            # — who also filters assignee_user IS NULL OR = self — a supervisor sees
+            # role-X tasks another user has personally picked up. That is the
+            # oversight semantic ("what is this role sitting on?"), and it makes
+            # this view a superset of that role's own screen.
+            role_param = request.query_params.get('assignee_role')
+            if role_param:
+                from apps.core.models.user import ROLE_CHOICES
+
+                if role_param not in {code for code, _ in ROLE_CHOICES}:
+                    return Response({'error': f'Unknown role: {role_param}'}, status=400)
+                # Equivalence applies here too, so picking either half of the
+                # loading department shows that department's work — and the KPI
+                # tiles (which use the same helper) always agree with the columns.
+                qs = qs.filter(assignee_role__in=task_roles_for(role_param))
 
         # Apply optional filters from query params
         state_param = request.query_params.get('state')
@@ -135,20 +163,43 @@ class MeKpiTodayView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        cache_key = f'me:kpi-today:{request.user.id}'
+        role = self._effective_role(request)
+        cache_key = f'me:kpi-today:{request.user.id}:{role}'
         cached = cache.get(cache_key)
         if cached is not None:
             return Response(cached)
 
-        result = self._compute_kpi(request.user)
+        result = self._compute_kpi(request.user, role)
         cache.set(cache_key, result, _KPI_CACHE_TTL)
         return Response(result)
 
     @staticmethod
-    def _compute_kpi(user) -> dict:
+    def _effective_role(request) -> str | None:
+        """Role whose KPI to report.
+
+        Supervisors may pass ?assignee_role= to follow the role they are viewing
+        on the My tasks page; everyone else always gets their own. Mirrors the
+        gate in MeTaskListView so the tiles and the columns below them always
+        describe the same role.
+        """
+        user_role = getattr(request.user, 'role', None)
+        is_supervisor = (
+            getattr(request.user, 'is_superuser', False)
+            or user_role in _SUPERVISOR_ROLES
+        )
+        if not is_supervisor:
+            return user_role
+        return request.query_params.get('assignee_role') or user_role
+
+    @staticmethod
+    def _compute_kpi(user, role: str | None = None) -> dict:
         """Compute today's KPI metrics from completed tasks.
 
         All tasks must have been completed at or after today's local midnight.
+
+        Args:
+            user: the requesting user.
+            role: role to report on; defaults to the user's own role.
 
         Returns a dict with:
             done_count: number of tasks completed today
@@ -159,10 +210,16 @@ class MeKpiTodayView(APIView):
         """
         from apps.export.models import Task, TaskState
 
+        if role is None:
+            role = getattr(user, 'role', None)
+
         midnight = _today_midnight_utc()
         today_tasks = list(
             Task.objects.filter(
-                assignee_role=getattr(user, 'role', None),
+                # Same helper as the task list, so the tiles and the columns
+                # below them always count the same set — a deputy's "Done today"
+                # must include the head's tasks they actually completed.
+                assignee_role__in=task_roles_for(role),
                 state=TaskState.DONE,
                 completed_at__gte=midnight,
             ).only('started_at', 'completed_at', 'deadline')

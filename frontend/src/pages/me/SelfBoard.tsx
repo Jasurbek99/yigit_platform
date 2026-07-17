@@ -37,6 +37,7 @@ import { PlanTaskCard } from '@/components/me/PlanTaskCard';
 import { formatDuration } from '@/components/shipment/PhaseContextStrip.helpers';
 import type { ITaskListItem, ShipmentPhase, TaskState } from '@/types';
 import { COLORS } from '@/constants/styles';
+import { ROLE_CHOICES } from '@/constants/roles';
 
 const { Title, Text } = Typography;
 
@@ -50,6 +51,15 @@ function isPlanTask(task: ITaskListItem): boolean {
 
 const PHASE_OPTIONS: ShipmentPhase[] = [
   'PLAN', 'PREP', 'DOCS', 'LOAD', 'TRANSIT', 'DEST', 'CLOSE',
+];
+
+// ─── Role filter ─────────────────────────────────────────────────────────────
+
+/** Mirrors _SUPERVISOR_ROLES in backend/apps/core/views_me.py. These roles
+ *  receive EVERY role's tasks from /me/tasks/, so only they get the role
+ *  switcher — everyone else already sees just their own work. */
+const SUPERVISOR_ROLES: readonly string[] = [
+  'export_manager', 'boss', 'admin', 'director',
 ];
 
 // ─── Column definitions ──────────────────────────────────────────────────────
@@ -236,8 +246,16 @@ export default function SelfBoard() {
   const { t } = useTranslation();
   const { user } = useAuth();
 
-  const { data: tasksData, isLoading: tasksLoading, isError: tasksError } = useMyTasks();
-  const { data: kpi, isLoading: kpiLoading } = useMyKpiToday();
+  // Supervisors receive every role's tasks; the switcher narrows to one.
+  // Non-supervisors never render the Select, and the backend ignores the
+  // param for them regardless.
+  const [roleFilter, setRoleFilter] = useState<string | null>(null);
+  const isSupervisor =
+    !!user && (user.is_superuser || SUPERVISOR_ROLES.includes(user.role));
+
+  const { data: tasksData, isLoading: tasksLoading, isError: tasksError } =
+    useMyTasks({ role: roleFilter });
+  const { data: kpi, isLoading: kpiLoading } = useMyKpiToday(roleFilter);
   const unblockTask = useUnblockTask();
 
   // Block modal state
@@ -402,6 +420,19 @@ export default function SelfBoard() {
           marginBottom: 16,
         }}
       >
+        {isSupervisor && (
+          <Select<string | null>
+            value={roleFilter}
+            onChange={(v) => setRoleFilter(v ?? null)}
+            allowClear
+            placeholder={t('me.board.filter_role')}
+            style={{ width: 180 }}
+            options={ROLE_CHOICES.map((r) => ({
+              value: r.value,
+              label: t(r.labelKey),
+            }))}
+          />
+        )}
         <Select<ShipmentPhase | null>
           value={phaseFilter}
           onChange={(v) => setPhaseFilter(v)}

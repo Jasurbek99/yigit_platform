@@ -2616,6 +2616,7 @@
       "empty_col": "Empty",
       "show_all": "Show all",
       "show_today_only": "Show today only",
+      "filter_role": "All roles",
       "filter_phase": "Phase",
       "search_shipment": "Search shipment",
       "block_modal_title": "Block task",

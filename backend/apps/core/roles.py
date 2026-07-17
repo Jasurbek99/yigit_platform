@@ -7,6 +7,41 @@ Single source of truth — all view/service files import from here.
 # permission matrix; director and export_manager are operational. See AD-15.
 ADMIN_ONLY = frozenset({'admin'})
 
+# ── Task ownership equivalence ────────────────────────────────────────────────
+# Task.assignee_role holds ONE role, but some roles are operationally the same
+# team: a deputy acts with identical authority to their head (stakeholder
+# decision, June 2026). A task assigned to the head is therefore also the
+# deputies' work — they must both SEE it and be able to ACT on it.
+#
+# Deliberately NOT derived from MANAGEABLE_BY_ROLE below: that is a *management*
+# hierarchy and includes weight_master (21 users), who must not receive the
+# loading department's tasks. Keep this map narrow and explicit.
+TASK_ROLE_EQUIVALENTS = {
+    'loading_dept_head': frozenset({'loading_dept_head', 'loading_dept_head_deputy'}),
+    'loading_dept_head_deputy': frozenset({'loading_dept_head', 'loading_dept_head_deputy'}),
+}
+
+
+def task_roles_for(role: str | None) -> frozenset[str]:
+    """Roles whose tasks ``role`` may see and act on.
+
+    Always includes ``role`` itself. Roles with no declared equivalent map to
+    just themselves, so this is safe to call unconditionally.
+
+    Single source of truth — task visibility (MeTaskListView), task actions
+    (IsTaskActor), and the KPI tiles (MeKpiTodayView) all call this, so the
+    three cannot drift apart.
+
+    Args:
+        role: role code, or None for an anonymous/roleless user.
+
+    Returns:
+        Frozenset of role codes; empty when ``role`` is falsy.
+    """
+    if not role:
+        return frozenset()
+    return TASK_ROLE_EQUIVALENTS.get(role, frozenset({role}))
+
 # Reference-data writes (countries, cities, customers, blocks, etc.) are
 # operational, not administrative. Admin is a superset of director and EM.
 REFERENCE_DATA_WRITE = frozenset({'admin', 'director', 'export_manager'})

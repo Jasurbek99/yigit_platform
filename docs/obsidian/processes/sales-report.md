@@ -234,6 +234,34 @@ management roles inherit it via `_ALL_PAGES` without breaching AD-15 (admin-only
   — a grid with a customer multi-select per rep. Both write the same `Customer.sales_rep` FK. Hook
   `useSalesRepCoverage` (invalidates the coverage + customer queries on save).
 
+## Task integration (Board / Self Kanban)
+
+Filling the report is surfaced as a **task for the sales rep**, wired to the Task Engine:
+
+- **Step 4 reminder** — a `tasks.submit_sales_report` rule (`sales_rep`, `MANUAL_DONE`) is
+  generated when the truck departs (`yola_chykdy`). It appears on the board from departure so
+  the rep knows to enter the report, but is **non-gating** (`MANUAL_DONE`) — a field-based task
+  on step 4 would freeze the truck there until the report is filled weeks later.
+- **Close on save** — `set_sales_report` calls `close_sales_report_task(shipment, user)`
+  (`services/task_rules.py`), which marks the reminder DONE and runs `shipment.save()` so the
+  lifecycle trigger resolves.
+- **Lifecycle close** — the `satyldy → tamamlandy` trigger was retargeted from the old
+  `sales_report_date` date field to the `sales_report` OneToOne (report existence). So the
+  shipment completes when the actual report exists, not when a separate date is picked. Common
+  early-fill (report saved mid-transit) resolves on satyldy entry; late-fill resolves when the
+  report is saved at satyldy.
+- **Backfill for existing shipments** — `python manage.py backfill_sales_report_tasks` (run
+  after `seed_task_rules`) creates the reminder for departed shipments that predate the rule and
+  advances `satyldy`-with-report shipments to `tamamlandy`. `--dry-run` / `--limit` /
+  `--skip-advance` supported.
+
+See `reference/task-rules.md` → *Sales-report task wiring* for the full rule detail.
+
+> **Doc drift note:** the wire format for `expenses[].category` is now an **integer FK PK** to
+> `ExpenseCategory` (not the string enum listed above), and the editor is the two-tab
+> `SalesReportPage` (Sale / Processing), not only the single `SalesReportPanel`. See
+> `.claude/rules/api-contract.md` and `screens/sales-report-page.md` for the current shape.
+
 ## Historical import
 
 478 Excel sheets (`kazak_export_report_begjan.xlsx`) are a separate follow-up task.

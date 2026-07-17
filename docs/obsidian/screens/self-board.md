@@ -8,11 +8,44 @@ related: [[../processes/comments-tasks]], [[../processes/shipment-lifecycle]], [
 
 ## What Is This Screen?
 
-Route: `/me/board` (navigation label: "My Work" / "Meniň işim" / "Моя работа").
+Route: `/me/board`. **Navigation label: "My tasks"** (`me.nav.board`). The file is named
+`SelfBoard.tsx` but users only ever see "My tasks" — do not confuse it with the separate
+**Board** screen (`/export/shipments/board`, `ShipmentBoard.tsx`), which is
+shipments-by-status, not tasks.
 
-A personal task board showing only the tasks assigned to the current user (or their role). Unlike the main ShipmentList which shows all shipments, this board surfaces *actionable work right now* — grouped into To Do, In Progress, Blocked, and Done Today columns.
+A personal task board showing the tasks assigned to the current user (or their role). Unlike the main ShipmentList which shows all shipments, this board surfaces *actionable work right now* — grouped into To Do, In Progress, Blocked, and Done Today columns.
 
-The screen uses `useMyTasks()` → `GET /api/v1/export/tasks/?my_tasks=true` and renders tasks as `ITaskListItem` cards (not full `IShipmentDetail`). Clicking a card opens the **SelfBoardTaskDrawer** for inline task completion.
+The screen uses `useMyTasks()` → `GET /api/v1/me/tasks/` and renders tasks as `ITaskListItem` cards (not full `IShipmentDetail`). Clicking a card opens the **SelfBoardTaskDrawer** for inline task completion.
+
+## Role filter (supervisors only)
+
+Supervisors — `export_manager`, `boss`, `admin`, `director`, and superusers — do **not**
+get a role-scoped list: `MeTaskListView` skips the `assignee_role` filter for them, so
+they receive *every* role's tasks in one undifferentiated board.
+
+A role `Select` (leftmost in the filter toolbar, rendered only when `isSupervisor`) sends
+`?assignee_role=<role>` to both `/me/tasks/` and `/me/kpi-today/`, so the KPI tiles always
+describe the role being viewed. Options come from `ROLE_CHOICES` (`constants/roles.ts`).
+The role is part of both hooks' TanStack query keys, so each role caches independently.
+
+**Why the filter is server-side, not client-side.** The unfiltered supervisor payload is
+already truncated: measured 2026-07-16 against live data, `count=1213` but `page_size=1000`
+returns 1000 — 213 tasks silently dropped, ordered by `deadline, created_at`. In that
+truncated page `document_team` appears 484 times, but the role actually has 550 tasks. A
+client-side filter would slice the incomplete set and show 484 of 550 with no indication
+anything was missing. Filtering server-side fetches the role as its own query, so all 550
+come back — every single role fits under the cap.
+
+**The supervisor view is a superset of that role's own screen**, not a mirror: it applies
+`assignee_role=X` with no `assignee_user` clause, whereas a regular user of role X also
+filters `assignee_user IS NULL OR = self`. So a supervisor additionally sees role-X tasks
+another user has personally picked up. That is the intended oversight semantic.
+
+**Known limitation:** with no role selected, the all-roles view is still truncated at 1000.
+Selecting a role is what makes the view complete.
+
+A non-supervisor sending `?assignee_role=` is silently ignored — their own-role lock is
+unconditional (covered by `test_non_supervisor_cannot_escape_own_role`).
 
 ## SelfBoardTaskDrawer — Inline Task Completion
 

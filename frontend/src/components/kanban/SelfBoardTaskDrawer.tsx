@@ -11,6 +11,7 @@ import { useShipmentSheet } from '@/hooks/useShipmentSheet';
 import { useSheetStore } from '@/stores/sheetStore';
 import { useAuth } from '@/hooks/useAuth';
 import { SUPERVISOR_ROLES } from '@/utils/detailSections';
+import { taskRolesFor } from '@/constants/roles';
 import type {
   IRowConfig,
   ISheetRowSettingForUser,
@@ -66,10 +67,16 @@ export function SelfBoardTaskDrawer({
 
   const isSupervisor = SUPERVISOR_ROLES.has(user?.role ?? '');
 
+  // taskRolesFor() expands to operationally-equivalent roles (a deputy acts on
+  // their head's tasks) — mirrors task_roles_for() in apps/core/roles.py, which
+  // backs both IsTaskActor and the /me/tasks/ visibility filter. Without it a
+  // deputy would see the card and fall through to the dead-end read-only view.
   const isOwnOrSupervised =
     user != null &&
     task != null &&
-    (task.assignee_user === user.id || task.assignee_role === user.role || isSupervisor);
+    (task.assignee_user === user.id ||
+      taskRolesFor(user.role).includes(task.assignee_role) ||
+      isSupervisor);
 
   const isActiveCard = isActiveState && isOwnOrSupervised;
 
