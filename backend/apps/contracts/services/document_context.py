@@ -482,9 +482,25 @@ def build_cmr_overlay_values(shipment, lang: str = 'ru', overrides: dict | None 
     plates = _truck_plate(shipment)
     pallets = ctx['pallets']
 
+    # Per-firm sender slots. The office CMR form has TWO consignor blocks (a truck
+    # may carry 1–3 export firms), so expose them individually as well as joined:
+    # the Word template fills sender1/sender2 separately, matching the paper form.
+    # A 3rd firm (rare) is appended to slot 2 so it is never silently dropped.
+    firms = [split.export_firm for split in shipment.firm_splits.all()]
+    names = [_firm_attr(firm, 'name', lang) for firm in firms]
+    addresses = [_firm_attr(firm, 'address', lang) for firm in firms]
+
     return {
         'sender_name': ctx['sender_name'],
         'sender_address': ctx['sender_address'],
+        'sender1_name': names[0] if names else '',
+        'sender1_address': addresses[0] if addresses else '',
+        'sender2_name': '; '.join(n for n in names[1:] if n),
+        'sender2_address': '; '.join(a for a in addresses[1:] if a),
+        # Not stored on Shipment (no passport / vehicle-model columns) — rendered
+        # blank so the crew can complete them by hand on the printed form.
+        'driver_passport': '',
+        'truck_model': '',
         'consignee_name': ctx['consignee_name'],
         'consignee_address': ctx['consignee_address'],
         'country_destination': _dest_country_name(shipment, lang),

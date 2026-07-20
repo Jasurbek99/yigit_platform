@@ -200,12 +200,20 @@ construction, so the CMR keeps the Excel geometry:
 | `pdf` | `.pdf` | Converted from the xlsx via LibreOffice — the slow path (seconds). |
 
 The Word variant exists because LibreOffice **cannot** convert a spreadsheet to
-Word (xlsx→docx is refused), so it is a purpose-built template: `build_cmr_docx.py`
-derives the Word table's column widths / row heights from the **xlsx template
-itself** (× its print scale) and places each field using the same
-`_CMR_OVERLAY_CELLS` map, merging each field across the free columns to its right
-to mimic Excel's cell overflow. Both formats read one values function
+Word (xlsx→docx is refused), so it needs its own template. Its source is the
+office's **real Word CMR** (`data/CMR_RU_template.docx`) — a flat sequence of
+positioned paragraphs (no tables) already laid out for the blank form.
+`build_cmr_docx.py` keeps that document as the layout and only swaps each sample
+value for a Jinja tag, leaving the fixed labels (`Брутто:` / `кг.` / `вес поддона`)
+untouched; the EN variant reuses the same positions with the `CMR EN` sheet's
+English wording. Both formats read one values function
 (`build_cmr_overlay_values`) so they cannot drift.
+
+The Word form has **two consignor blocks**, so the values function exposes
+`sender1_*` / `sender2_*` per firm (3rd+ firm appended to slot 2) alongside the
+joined `sender_name`. `driver_passport` and `truck_model` render **blank** —
+`Shipment` has no passport/vehicle-model columns, so the crew completes those two
+by hand (add the columns if they should be generated).
 
 **Caveat:** a Word table *approximates* Excel's print registration — it is not
 guaranteed identical. For printing onto the blank customs form the `.xlsx` is the
