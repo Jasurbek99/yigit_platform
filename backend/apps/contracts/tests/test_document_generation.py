@@ -684,11 +684,11 @@ class ShipmentCmrEndpointTest(_SeededPermsMixin, TestCase):
                 weight_kg=Decimal('9000'), amount_usd=Decimal('8000'),
             )
 
-    def test_truck_cmr_xlsx(self):
-        # CMR is an xlsx print-overlay onto the pre-printed official form.
+    def test_truck_cmr_defaults_to_word(self):
+        # The office's Word form is the default CMR output.
         resp = self.client.get(f'/api/v1/contracts/shipments/{self.shipment.pk}/cmr/')
         self.assertEqual(resp.status_code, 200, resp.content[:200])
-        self.assertEqual(resp['Content-Type'], render.XLSX_CONTENT_TYPE)
+        self.assertEqual(resp['Content-Type'], render.DOCX_CONTENT_TYPE)
         self.assertIn('CMR_', resp['Content-Disposition'])
 
     def test_en_lang_filename(self):
@@ -696,7 +696,16 @@ class ShipmentCmrEndpointTest(_SeededPermsMixin, TestCase):
             f'/api/v1/contracts/shipments/{self.shipment.pk}/cmr/?lang=en'
         )
         self.assertEqual(resp.status_code, 200)
-        self.assertIn('_EN.xlsx', resp['Content-Disposition'])
+        self.assertIn('_EN.docx', resp['Content-Disposition'])
+
+    def test_xlsx_overlay_still_served(self):
+        """The spreadsheet overlay is off the UI but still reachable via fmt=xlsx."""
+        resp = self.client.get(
+            f'/api/v1/contracts/shipments/{self.shipment.pk}/cmr/?fmt=xlsx'
+        )
+        self.assertEqual(resp.status_code, 200, resp.content[:200])
+        self.assertEqual(resp['Content-Type'], render.XLSX_CONTENT_TYPE)
+        self.assertIn('.xlsx', resp['Content-Disposition'])
 
     def test_word_variant(self):
         """fmt=docx returns the editable Word overlay (same values, .docx)."""

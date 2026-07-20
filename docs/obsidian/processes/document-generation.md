@@ -191,13 +191,16 @@ construction, so the CMR keeps the Excel geometry:
 - Known simplification: multiple firms are joined into one sender box (matches
   single-firm trucks exactly; per-cell firm1/firm2 split is a future refinement).
 
-**Three CMR outputs** (`?fmt=`), all carrying the same values in the same boxes:
+**CMR outputs** (`?fmt=`), all carrying the same values in the same boxes:
 
 | `fmt` | Output | Notes |
 |-------|--------|-------|
-| `xlsx` *(default)* | `.xlsx` overlay | **The registration reference** — its geometry is what lines up on the pre-printed blank. ~300 ms. |
-| `docx` | `.docx` Word overlay | Editable before printing. ~65 ms. Keys `cmr_ru_docx` / `cmr_en_docx`. |
-| `pdf` | `.pdf` | Converted from the xlsx via LibreOffice — the slow path (seconds). |
+| `docx` *(default)* | `.docx` Word form | **The office's own CMR form.** ~65 ms. Keys `cmr_ru_docx` / `cmr_en_docx`. |
+| `pdf` | `.pdf` | Converted **from the Word form** via LibreOffice — the slow path (~6 s). |
+| `xlsx` | `.xlsx` overlay | Spreadsheet overlay. **Not offered in the UI** (Word supersedes it) but still wired — re-add `'xlsx'` to `FORMATS` in `CmrDocumentsButton.tsx` to bring it back. |
+
+PDF renders from the **Word** form, not the xlsx: converting the spreadsheet
+would emit the older overlay layout rather than the office document.
 
 The Word variant exists because LibreOffice **cannot** convert a spreadsheet to
 Word (xlsx→docx is refused), so it needs its own template. Its source is the

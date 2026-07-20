@@ -4,6 +4,9 @@ All notable changes to the YGT Platform.
 
 ## [Unreleased]
 
+### Changed
+- **Word is now the CMR's default output; Excel dropped from the UI (feat(p4) + feat(frontend)).** The CMR dropdown offers **Word · PDF** per language (was Excel/Word/PDF) now that the office's own Word form backs the document. **PDF renders from the Word form, not the xlsx** — converting the spreadsheet would emit the older overlay layout instead of the office document (cost: ~6s vs ~1.6s; correctness over speed, and PDF was already the slow path). The spreadsheet overlay is **kept wired** at `?fmt=xlsx` (templates, registry entries and `render_xlsx` untouched) for future use — re-add `'xlsx'` to `FORMATS` in `CmrDocumentsButton.tsx` to restore the menu entry. 63 doc-gen tests green (default-is-Word + xlsx-still-served); `tsc` clean.
+
 ### Fixed
 - **Word CMR now uses the office's own Word form as its template (fix(p4)).** The first Word CMR rebuilt the layout as a Word table derived from the xlsx grid; positions were right but the formatting was not the office document. Replaced with the real form (`data/CMR_RU_template.docx`) — a flat sequence of positioned paragraphs, no tables — kept verbatim as the layout, with each sample value swapped for a Jinja tag and the fixed labels (`Брутто:` / `кг.` / `вес поддона` …) left untouched; the EN variant reuses the same positions with the `CMR EN` sheet's English wording. The form has **two consignor blocks**, so `build_cmr_overlay_values` now exposes `sender1_*` / `sender2_*` per export firm (a 3rd firm is appended to slot 2, never dropped) alongside the joined `sender_name`. `driver_passport` and `truck_model` render blank — `Shipment` has no such columns, so the crew fills those two by hand. Verified by rendering RU + EN against the source form. 62 doc-gen tests green.
 
