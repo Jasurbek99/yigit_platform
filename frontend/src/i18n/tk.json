@@ -2552,7 +2552,10 @@
       "completeness": "{{total}} meýdandan {{filled}} dolduryldy",
       "missing_label": "Ýetmeýän maglumat:",
       "manual_tasks_label": "El bilen bellenýän işler:",
-      "overdue": "möhleti geçdi"
+      "overdue": "möhleti geçdi",
+      "stage_not_reached": "bu tapgyr entek gelmedi",
+      "stage_missing": "{{count}} doldurylmadyk",
+      "stage_complete": "doly"
     },
     "cancel_button": "Ýüki ýatyrmak",
     "cancel_modal_title": "Bu ýüki ýatyrmalydymy?",

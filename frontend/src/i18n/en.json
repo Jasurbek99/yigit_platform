@@ -2548,7 +2548,10 @@
       "completeness": "{{filled}} of {{total}} fields filled",
       "missing_label": "Missing:",
       "manual_tasks_label": "Manual tasks:",
-      "overdue": "overdue"
+      "overdue": "overdue",
+      "stage_not_reached": "stage not reached yet",
+      "stage_missing": "{{count}} missing",
+      "stage_complete": "complete"
     },
     "cancel_button": "Cancel shipment",
     "cancel_modal_title": "Cancel this shipment?",

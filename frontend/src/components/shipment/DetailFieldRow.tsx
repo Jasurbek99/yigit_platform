@@ -33,6 +33,12 @@ interface IDetailFieldRowProps {
   readOnly?: boolean;
   /** Optional formatter for read-only display (timestamps, currencies, etc.). */
   format?: (value: unknown) => string;
+  /**
+   * This field is listed in `shipment.completeness.missing_fields` — i.e. it
+   * should have been filled by the step the shipment has already reached.
+   * Merely-empty fields that nothing is waiting on are NOT highlighted.
+   */
+  isMissing?: boolean;
 }
 
 /**
@@ -60,6 +66,7 @@ export function DetailFieldRow({
   labelOverride,
   readOnly = false,
   format,
+  isMissing = false,
 }: IDetailFieldRowProps) {
   const { t } = useTranslation();
   const patch = useShipmentPatchMulti();
@@ -197,6 +204,8 @@ export function DetailFieldRow({
         padding: '6px 0',
         borderBottom: '1px solid #f5f5f5',
         gap: 12,
+        background: isMissing ? COLORS.bgGold : undefined,
+        boxShadow: isMissing ? `inset 3px 0 0 ${COLORS.warning}` : undefined,
       }}
     >
       <Text style={{ flex: '0 0 180px', fontSize: 13, color: COLORS.textTertiary }}>

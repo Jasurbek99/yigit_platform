@@ -2550,7 +2550,10 @@
       "completeness": "Заполнено {{filled}} из {{total}} полей этого этапа",
       "missing_label": "Не хватает:",
       "manual_tasks_label": "Задачи, отмечаются вручную:",
-      "overdue": "просрочено"
+      "overdue": "просрочено",
+      "stage_not_reached": "этап ещё не наступил",
+      "stage_missing": "{{count}} не заполнено",
+      "stage_complete": "готово"
     },
     "cancel_button": "Отменить отгрузку",
     "cancel_modal_title": "Отменить эту отгрузку?",
