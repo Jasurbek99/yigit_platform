@@ -459,20 +459,21 @@ def _dest_country_name(shipment, lang: str) -> str:
     return getattr(country, f'name_{lang}', '') or getattr(country, 'name_ru', '') or ''
 
 
-def build_cmr_overlay(shipment, lang: str = 'ru', overrides: dict | None = None) -> dict:
-    """Build the ``{cell: value}`` map for the CMR xlsx overlay.
+def build_cmr_overlay_values(shipment, lang: str = 'ru', overrides: dict | None = None) -> dict:
+    """The CMR overlay's field values keyed by NAME (not cell coordinate).
 
-    Reuses ``build_cmr_context`` for the formatted truck figures, then places them
-    (plus the destination country, driver, and plates) at the sheet coordinates the
-    pre-printed form expects. Empty values are dropped so the template's fixed
-    labels aren't overwritten with blanks.
+    Single source of truth for what the overlay prints, shared by both output
+    formats: ``build_cmr_overlay`` maps these onto the xlsx sheet's coordinates,
+    while the Word variant consumes them directly as a Jinja context (its template
+    already has each ``{{ name }}`` positioned in the matching grid cell). Keeping
+    one values function means the two formats can never drift apart.
 
     Args:
         shipment: A ``Shipment`` (same prefetch expectations as ``build_cmr_context``).
-        lang: ``'ru'`` or ``'en'`` — selects the coordinate map + phrase locale.
+        lang: ``'ru'`` or ``'en'`` — selects the phrase locale.
 
     Returns:
-        ``{cell_coordinate: str}`` for the language's template sheet.
+        ``{field_name: str}`` — the same keys the coordinate map references.
     """
     lang = lang if lang in _CMR_OVERLAY_CELLS else 'ru'
     phrases = _CMR_OVERLAY_LOCALE[lang]
@@ -481,7 +482,7 @@ def build_cmr_overlay(shipment, lang: str = 'ru', overrides: dict | None = None)
     plates = _truck_plate(shipment)
     pallets = ctx['pallets']
 
-    values = {
+    return {
         'sender_name': ctx['sender_name'],
         'sender_address': ctx['sender_address'],
         'consignee_name': ctx['consignee_name'],
@@ -503,6 +504,20 @@ def build_cmr_overlay(shipment, lang: str = 'ru', overrides: dict | None = None)
         'driver_name': (shipment.driver_name or '').strip(),
         'plates': plates,
     }
+
+
+def build_cmr_overlay(shipment, lang: str = 'ru', overrides: dict | None = None) -> dict:
+    """Build the ``{cell: value}`` map for the CMR **xlsx** overlay.
+
+    Places ``build_cmr_overlay_values`` onto the sheet coordinates the pre-printed
+    form expects. Empty values are dropped so the template's fixed labels aren't
+    overwritten with blanks.
+
+    Returns:
+        ``{cell_coordinate: str}`` for the language's template sheet.
+    """
+    lang = lang if lang in _CMR_OVERLAY_CELLS else 'ru'
+    values = build_cmr_overlay_values(shipment, lang, overrides)
     cells = {coord: values[key] for coord, key in _CMR_OVERLAY_CELLS[lang].items()}
     return {coord: val for coord, val in cells.items() if val not in (None, '')}
 

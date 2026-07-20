@@ -413,8 +413,19 @@ class ShipmentCmrView(APIView):
         if shipment is None:
             return Response({'error': 'Shipment not found.'}, status=404)
 
-        doc_type = 'cmr_en' if request.query_params.get('lang') == 'en' else 'cmr_ru'
-        fmt = request.query_params.get('fmt', 'docx')
+        # Three CMR outputs. The .xlsx overlay is the registration reference for
+        # printing onto the pre-printed form; .docx is the editable Word variant
+        # (same values, same box positions); .pdf is converted from the xlsx.
+        # NOTE: for the xlsx-engine spec, generate()'s 'docx' means "the engine's
+        # native format" — i.e. the .xlsx itself.
+        lang = 'en' if request.query_params.get('lang') == 'en' else 'ru'
+        requested = request.query_params.get('fmt', 'xlsx')
+        if requested == 'pdf':
+            doc_type, fmt = f'cmr_{lang}', 'pdf'
+        elif requested == 'docx':
+            doc_type, fmt = f'cmr_{lang}_docx', 'docx'
+        else:
+            doc_type, fmt = f'cmr_{lang}', 'docx'
         overrides = {
             key: value
             for key in ('place_loading', 'tir_carnet')

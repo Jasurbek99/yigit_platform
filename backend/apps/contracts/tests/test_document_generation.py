@@ -698,6 +698,23 @@ class ShipmentCmrEndpointTest(_SeededPermsMixin, TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertIn('_EN.xlsx', resp['Content-Disposition'])
 
+    def test_word_variant(self):
+        """fmt=docx returns the editable Word overlay (same values, .docx)."""
+        for lang, badge in (('ru', '_RU.docx'), ('en', '_EN.docx')):
+            resp = self.client.get(
+                f'/api/v1/contracts/shipments/{self.shipment.pk}/cmr/?lang={lang}&fmt=docx'
+            )
+            self.assertEqual(resp.status_code, 200, resp.content[:200])
+            self.assertEqual(resp['Content-Type'], render.DOCX_CONTENT_TYPE)
+            self.assertIn(badge, resp['Content-Disposition'])
+            text = '\n'.join(
+                cell.text
+                for table in Document(BytesIO(resp.content)).tables
+                for row in table.rows
+                for cell in row.cells
+            )
+            self.assertNotIn('{{', text, f'{lang}: unrendered tag')
+
     def test_incomplete_packing_returns_400(self):
         self.shipment.box_count = None
         self.shipment.save(update_fields=['box_count'])

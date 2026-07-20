@@ -99,6 +99,29 @@ REGISTRY: dict[str, TemplateSpec] = {
         out_pattern='CMR_{shipment_code}_EN',
         engine='xlsx',
     ),
+    # Word counterparts of the CMR overlay, for users who want to edit before
+    # printing. Same field values (build_cmr_overlay_values) placed on a Word
+    # table whose geometry is derived from the xlsx template, so both formats
+    # put every value in the same box. The .xlsx remains the registration
+    # reference for printing onto the pre-printed form — see build_cmr_docx.py.
+    'cmr_ru_docx': TemplateSpec(
+        key='cmr_ru_docx',
+        filename='cmr_ru_docx.docx',
+        scope=SCOPE_SHIPMENT,
+        language='ru',
+        version='1.0',
+        context_builder='apps.contracts.services.document_context.build_cmr_overlay_values',
+        out_pattern='CMR_{shipment_code}_RU',
+    ),
+    'cmr_en_docx': TemplateSpec(
+        key='cmr_en_docx',
+        filename='cmr_en_docx.docx',
+        scope=SCOPE_SHIPMENT,
+        language='en',
+        version='1.0',
+        context_builder='apps.contracts.services.document_context.build_cmr_overlay_values',
+        out_pattern='CMR_{shipment_code}_EN',
+    ),
     # Authority request letters — single-language (per the source forms).
     'ct1_ru': TemplateSpec(
         key='ct1_ru',

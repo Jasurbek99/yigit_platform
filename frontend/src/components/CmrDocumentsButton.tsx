@@ -19,10 +19,16 @@ const VARIANTS = [
   { lang: 'en', badge: 'EN' },
 ] as const;
 
-const FORMATS = ['docx', 'pdf'] as const;
-// The CMR is an xlsx print-overlay, so the non-PDF native download is an Excel
-// file (fmt=docx still selects the native format server-side, which is xlsx here).
-const FMT_LABEL_KEY: Record<(typeof FORMATS)[number], string> = { docx: 'excel', pdf: 'pdf' };
+// The CMR is a print-overlay onto the pre-printed customs form. Excel is the
+// reference output (its geometry is what registers on the blank); Word is the
+// editable counterpart with the same values in the same boxes; PDF is converted
+// from the Excel and is the slow path (LibreOffice).
+const FORMATS = ['xlsx', 'docx', 'pdf'] as const;
+const FMT_LABEL_KEY: Record<(typeof FORMATS)[number], string> = {
+  xlsx: 'excel',
+  docx: 'word',
+  pdf: 'pdf',
+};
 
 /**
  * Truck-level CMR download — one CMR per shipment, all export firms listed as

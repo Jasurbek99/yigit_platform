@@ -191,8 +191,25 @@ construction, so the CMR keeps the Excel geometry:
 - Known simplification: multiple firms are joined into one sender box (matches
   single-firm trucks exactly; per-cell firm1/firm2 split is a future refinement).
 
-Because the CMR engine is xlsx, its native download is **`.xlsx`** (not `.docx`);
-`fmt=pdf` is unchanged.
+**Three CMR outputs** (`?fmt=`), all carrying the same values in the same boxes:
+
+| `fmt` | Output | Notes |
+|-------|--------|-------|
+| `xlsx` *(default)* | `.xlsx` overlay | **The registration reference** — its geometry is what lines up on the pre-printed blank. ~300 ms. |
+| `docx` | `.docx` Word overlay | Editable before printing. ~65 ms. Keys `cmr_ru_docx` / `cmr_en_docx`. |
+| `pdf` | `.pdf` | Converted from the xlsx via LibreOffice — the slow path (seconds). |
+
+The Word variant exists because LibreOffice **cannot** convert a spreadsheet to
+Word (xlsx→docx is refused), so it is a purpose-built template: `build_cmr_docx.py`
+derives the Word table's column widths / row heights from the **xlsx template
+itself** (× its print scale) and places each field using the same
+`_CMR_OVERLAY_CELLS` map, merging each field across the free columns to its right
+to mimic Excel's cell overflow. Both formats read one values function
+(`build_cmr_overlay_values`) so they cannot drift.
+
+**Caveat:** a Word table *approximates* Excel's print registration — it is not
+guaranteed identical. For printing onto the blank customs form the `.xlsx` is the
+reference; the Word variant should be confirmed with a physical test print first.
 
 **Generate-time inputs.** `place_loading` (invoice + CMR) and `tir_carnet` (CMR
 only, Uzbekistan transit) are not stored on the invoice — they're chosen when the
