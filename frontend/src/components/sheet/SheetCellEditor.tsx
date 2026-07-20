@@ -105,6 +105,9 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+      // The task drawer's progress bar reads the shipment DETAIL cache, not the
+      // sheet cache — without this it stays stale until the drawer remounts.
+      queryClient.invalidateQueries({ queryKey: ['shipment', String(shipment.id)] });
       close();
     },
     onError: (err) => {
@@ -152,6 +155,9 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+      // firm_splits / block_sources are target_fields on seeded task rules, so
+      // the drawer's progress bar depends on the detail cache refreshing here.
+      queryClient.invalidateQueries({ queryKey: ['shipment', String(shipment.id)] });
       close();
     },
     onError: (err) => {
