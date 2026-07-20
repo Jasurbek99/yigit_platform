@@ -1466,6 +1466,29 @@ export interface IVarietyInline {
   is_experimental: boolean;
 }
 
+// ─── Completeness block (shipment detail — Task 3) ───────────────────────────
+
+export interface IMissingField {
+  key: string;
+  title_key: string;
+  step: string;
+  role: string;
+}
+
+export interface IManualTask {
+  id: number;
+  title_key: string;
+  role: string;
+  is_overdue: boolean;
+}
+
+export interface ICompleteness {
+  required_total: number;
+  filled_count: number;
+  missing_fields: IMissingField[];
+  manual_tasks: IManualTask[];
+}
+
 export interface IShipmentDetail extends IShipmentListItem {
   status_code: string;
   allowed_transitions: string[];
@@ -1528,6 +1551,7 @@ export interface IShipmentDetail extends IShipmentListItem {
   // (every auto-resolving draft task is DONE/CANCELLED). Manual draft tasks
   // do NOT block the flag — promotion is the user's call.
   can_promote_from_draft: boolean;
+  completeness: ICompleteness;
 }
 // ─── Cancel Shipment mutation response ───────────────────────────────────────
 

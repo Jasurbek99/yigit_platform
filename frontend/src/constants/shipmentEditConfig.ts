@@ -70,6 +70,9 @@ export const EDIT_FIELD_GROUPS: IEditFieldGroup[] = [
     key: 'transport',
     titleKey: 'shipment_edit_drawer.section_transport',
     fields: [
+      { key: 'truck_plate', labelKey: 'shipment_edit_drawer.field.truck_plate', inputType: 'text' },
+      { key: 'driver_name', labelKey: 'shipment_edit_drawer.field.driver_name', inputType: 'text' },
+      { key: 'driver_phone', labelKey: 'shipment_edit_drawer.field.driver_phone', inputType: 'text' },
       { key: 'vehicle_responsible', labelKey: 'shipment_edit_drawer.field.vehicle_responsible', inputType: 'option_select', optionsSource: 'transportUsers' },
       { key: 'vehicle_condition', labelKey: 'shipment_edit_drawer.field.vehicle_condition', inputType: 'option_select', optionsSource: 'vehicleCondition' },
       { key: 'vehicle_condition_note', labelKey: 'shipment_edit_drawer.field.vehicle_condition_note', inputType: 'textarea' },
