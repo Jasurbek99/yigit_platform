@@ -179,12 +179,14 @@ export function FieldEditor({
       );
 
     case 'boolean':
+      // No autoFocus: booleans are always-rendered (never enter a separate
+      // "editing" state), so forwarding autoFocus here would yank focus to
+      // every boolean row's Switch on mount instead of only after a click.
       return (
         <Switch
           checked={Boolean(value)}
           onChange={(checked) => onChange(checked)}
           disabled={disabled}
-          autoFocus={autoFocus}
         />
       );
 
