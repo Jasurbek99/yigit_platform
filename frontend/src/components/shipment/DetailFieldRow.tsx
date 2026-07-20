@@ -6,7 +6,7 @@ import { useShipmentPatchMulti } from '@/hooks/useShipmentPatch';
 import type { IEditFieldConfig } from '@/constants/shipmentEditConfig';
 import type { IShipmentDetail } from '@/types';
 import { COLORS } from '@/constants/styles';
-import { deriveSaveState } from './DetailFieldRow.helpers';
+import { deriveSaveState, shouldAutoOpenEditor } from './DetailFieldRow.helpers';
 
 const { Text } = Typography;
 
@@ -83,6 +83,19 @@ export function DetailFieldRow({
     hasSavedOnce,
   });
 
+  // Click-to-edit: the value renders as plain text until clicked, so the row
+  // reads as a table cell. Booleans skip this entirely — the Switch click IS
+  // the edit — and readOnly rows never enter edit mode at all.
+  const [isEditing, setIsEditing] = useState(false);
+  const isBoolean = config.inputType === 'boolean';
+  const canEdit = !readOnly;
+  const showEditor = canEdit && (isEditing || isBoolean);
+
+  function enterEdit() {
+    if (!canEdit || isBoolean) return;
+    setIsEditing(true);
+  }
+
   // Pending-debounce handle and the value queued by it. We keep both so blur
   // can flush even if React state hasn't caught up to the latest typed value
   // (rare but possible on fast keystroke trails).
@@ -147,6 +160,7 @@ export function DetailFieldRow({
   function handleBlur(e: React.FocusEvent<HTMLDivElement>) {
     if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
       flushPending();
+      setIsEditing(false);
     }
   }
 
@@ -169,11 +183,7 @@ export function DetailFieldRow({
         {label}
       </Text>
       <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-        {readOnly ? (
-          <Text style={{ fontSize: 13 }}>
-            {format ? format(persisted) : (persisted as string | number | null) ?? '—'}
-          </Text>
-        ) : (
+        {showEditor ? (
           <div style={{ flex: 1, minWidth: 0 }}>
             <FieldEditor
               config={config}
@@ -182,8 +192,24 @@ export function DetailFieldRow({
               countryId={countryId}
               // Deliberately NOT disabling on patch.isPending. If we did, every
               // keystroke that triggers a save would lock the input mid-word.
+              autoFocus
+              defaultOpen={shouldAutoOpenEditor(config.inputType)}
             />
           </div>
+        ) : (
+          <Text
+            onClick={enterEdit}
+            tabIndex={canEdit ? 0 : -1}
+            onFocus={enterEdit}
+            style={{
+              fontSize: 13,
+              flex: 1,
+              cursor: canEdit ? 'text' : 'default',
+              color: persisted == null || persisted === '' ? COLORS.textTertiary : undefined,
+            }}
+          >
+            {format ? format(persisted) : (persisted as string | number | null) ?? '—'}
+          </Text>
         )}
         {saveState === 'pending' && <Spin size="small" />}
         {saveState === 'saved' && (

@@ -20,6 +20,10 @@ interface IFieldEditorProps {
   /** Used by city dropdown to filter by country. */
   countryId?: number | null;
   disabled?: boolean;
+  /** Focus the control as soon as it mounts (click-to-edit rows). */
+  autoFocus?: boolean;
+  /** Open the picker/dropdown popup as soon as it mounts. Select and DatePicker only. */
+  defaultOpen?: boolean;
 }
 
 /**
@@ -27,7 +31,15 @@ interface IFieldEditorProps {
  * Self-fetches reference data via the same hooks the SheetCellEditor uses,
  * so the Edit drawer doesn't need to plumb options through props.
  */
-export function FieldEditor({ config, value, onChange, countryId, disabled }: IFieldEditorProps) {
+export function FieldEditor({
+  config,
+  value,
+  onChange,
+  countryId,
+  disabled,
+  autoFocus,
+  defaultOpen,
+}: IFieldEditorProps) {
   const { i18n } = useTranslation();
   const lang = i18n.language;
 
@@ -92,6 +104,7 @@ export function FieldEditor({ config, value, onChange, countryId, disabled }: IF
           value={(value as string | null) ?? ''}
           onChange={(e) => onChange(e.target.value || null)}
           disabled={disabled}
+          autoFocus={autoFocus}
           allowClear
         />
       );
@@ -102,6 +115,7 @@ export function FieldEditor({ config, value, onChange, countryId, disabled }: IF
           value={(value as string | null) ?? ''}
           onChange={(e) => onChange(e.target.value || null)}
           disabled={disabled}
+          autoFocus={autoFocus}
           autoSize={{ minRows: 2, maxRows: 5 }}
           allowClear
         />
@@ -113,6 +127,7 @@ export function FieldEditor({ config, value, onChange, countryId, disabled }: IF
           value={(value as number | null) ?? undefined}
           onChange={(v) => onChange(v ?? null)}
           disabled={disabled}
+          autoFocus={autoFocus}
           min={config.min}
           style={{ width: '100%' }}
           addonAfter={config.suffix}
@@ -125,6 +140,8 @@ export function FieldEditor({ config, value, onChange, countryId, disabled }: IF
           value={value ? dayjs(value as string) : undefined}
           onChange={(date) => onChange(date ? date.format('YYYY-MM-DD') : null)}
           disabled={disabled}
+          autoFocus={autoFocus}
+          defaultOpen={defaultOpen}
           style={{ width: '100%' }}
         />
       );
@@ -136,6 +153,8 @@ export function FieldEditor({ config, value, onChange, countryId, disabled }: IF
           value={value ? dayjs(value as string) : undefined}
           onChange={(date) => onChange(date ? date.toISOString() : null)}
           disabled={disabled}
+          autoFocus={autoFocus}
+          defaultOpen={defaultOpen}
           style={{ width: '100%' }}
         />
       );
@@ -148,6 +167,8 @@ export function FieldEditor({ config, value, onChange, countryId, disabled }: IF
           onChange={(v) => onChange(v ?? null)}
           options={getOptions()}
           disabled={disabled}
+          autoFocus={autoFocus}
+          defaultOpen={defaultOpen}
           showSearch
           allowClear
           filterOption={(input, option) =>
@@ -163,6 +184,7 @@ export function FieldEditor({ config, value, onChange, countryId, disabled }: IF
           checked={Boolean(value)}
           onChange={(checked) => onChange(checked)}
           disabled={disabled}
+          autoFocus={autoFocus}
         />
       );
 

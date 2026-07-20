@@ -30,3 +30,27 @@ describe('deriveSaveState', () => {
       .toBe('pending');
   });
 });
+
+import { shouldAutoOpenEditor } from './DetailFieldRow.helpers';
+
+// Booleans must never enter an "editing" state — a checkbox click IS the
+// edit. Selects and dates should open their popup on the same click that
+// enters edit mode, so the user does not have to click twice.
+describe('shouldAutoOpenEditor', () => {
+  it('auto-opens pickers', () => {
+    expect(shouldAutoOpenEditor('select')).toBe(true);
+    expect(shouldAutoOpenEditor('option_select')).toBe(true);
+    expect(shouldAutoOpenEditor('date')).toBe(true);
+    expect(shouldAutoOpenEditor('datetime')).toBe(true);
+  });
+
+  it('does not auto-open free-text inputs', () => {
+    expect(shouldAutoOpenEditor('text')).toBe(false);
+    expect(shouldAutoOpenEditor('textarea')).toBe(false);
+    expect(shouldAutoOpenEditor('number')).toBe(false);
+  });
+
+  it('does not auto-open booleans', () => {
+    expect(shouldAutoOpenEditor('boolean')).toBe(false);
+  });
+});
