@@ -356,7 +356,7 @@ cd backend && python manage.py test apps.export.tests_completeness -v 2
 
 Expected: `OK` — 6 tests.
 
-If `Task.is_overdue` or `Task.title_key` / `Task.assignee_role` do not exist with those names, read `backend/apps/export/models/task.py` and use the real attribute names — do **not** invent a property. If there is no `is_overdue`, compute it inline as `task.deadline_at is not None and task.deadline_at < timezone.now()`.
+All three attributes used above are verified to exist: `Task.title_key` and `Task.assignee_role` are model fields, and `Task.is_overdue` is a model property (`backend/apps/export/models/task.py:203`, already exposed read-only by the task serializer). Use them as written.
 
 - [ ] **Step 5: Commit**
 
