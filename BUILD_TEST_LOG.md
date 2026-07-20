@@ -11,6 +11,8 @@ Format: `- [ ] YYYY-MM-DD — <what was built> — NEEDS TEST`
 
 ---
 
+- [x] 2026-07-20 — Sheet page: hovering/navigating to a cell no longer washes out its text (hover now layers a translucent blue instead of replacing the painted background with `--blue-50 !important`; editing cell resets the inherited light `--col-tint-fg`) — NEEDS TEST
+
 - [x] 2026-07-20 — /me/board task drawer: progress bar now updates live after editing a field (fixed number-vs-string shipment detail query key + added detail invalidation to junction/custom-field saves) — NEEDS TEST
 
 - 2026-07-16 — Loading tasks repointed `warehouse_chief` → `loading_dept_head` (both `fill_loading_data` + `trigger_loading_start`), plus new deputy role-equivalence (`task_roles_for`) so Soltanmyrat's 5 deputies both **see** and can **act on** his loading tasks. Rules already re-seeded + reconciled on the live DB (2 open tasks moved; 146 done left as history). Verify: log in as a **deputy** (jumanyyazg / nepesk / hudaynazary / yalkapa / azatbayd) → the loading task appears on **My tasks** AND the drawer lets them start/complete it (not a read-only card). Also confirm a **weight_master** does NOT see it. — NEEDS TEST

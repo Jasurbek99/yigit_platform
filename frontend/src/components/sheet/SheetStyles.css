@@ -680,9 +680,16 @@
 .sheet-cell--editable {
   cursor: pointer;
 }
+/* Hover must NOT replace the cell background. Painted cells (column tint,
+   admin row color, conditional formatting) pair their background with a
+   WCAG-contrast foreground; swapping in a pale bg while that light text
+   stays put makes the cell unreadable. So we layer a translucent blue over
+   whatever is already there — the underlying colour, and therefore the
+   text contrast, survives. */
 .sheet-cell--editable:hover {
-  background: var(--blue-50) !important;
-  box-shadow: inset 0 0 0 1.5px var(--blue-500);
+  box-shadow:
+    inset 0 0 0 1.5px var(--blue-500),
+    inset 0 0 0 999px rgba(37, 99, 235, 0.1);
 }
 .sheet-cell--active {
   box-shadow: inset 0 0 0 2px var(--blue-500);
@@ -692,6 +699,9 @@
   box-shadow: inset 0 0 0 2px var(--blue-500);
   z-index: 2;
   background: #fff;
+  /* The editor forces a white background, so it must also drop the column's
+     inherited --col-tint-fg (which may be white for a dark tint). */
+  color: var(--gray-800, #1f2937);
   padding: 1px;
 }
 
