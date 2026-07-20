@@ -7,11 +7,17 @@ Covers:
   - duplicate field keys across rules are counted once
   - rules with empty target_fields surface as manual_tasks, not missing_fields
   - cancelled shipments report nothing
+  - manual_tasks positive path: open Task on an empty-target_fields rule
+    appears with correct id/title_key/role/is_overdue; a Task on a
+    field-targeted rule or in a terminal state does not appear
 """
+from datetime import timedelta
+
 from django.test import TestCase
+from django.utils import timezone
 
 from apps.core.models import Season, ShipmentStatusType
-from apps.export.models import Shipment, TaskRule
+from apps.export.models import Shipment, Task, TaskRule, TaskState
 from apps.export.services.completeness import compute_completeness
 
 
@@ -128,4 +134,64 @@ class CompletenessTests(TestCase):
         self.assertEqual(result['required_total'], 0)
         self.assertEqual(result['filled_count'], 0)
         self.assertEqual(result['missing_fields'], [])
+        self.assertEqual(result['manual_tasks'], [])
+
+    def test_manual_task_appears_with_correct_fields(self):
+        rule = TaskRule.objects.create(
+            step='yuklenme', title_key='tasks.give_documents',
+            assignee_role='transport', target_fields='',
+        )
+        shipment = self._shipment(self.loading)
+        past_deadline = timezone.now() - timedelta(hours=2)
+        task = Task.objects.create(
+            shipment=shipment, step='yuklenme', rule=rule,
+            title_key=rule.title_key, assignee_role=rule.assignee_role,
+            target_fields='', state=TaskState.OPEN, deadline=past_deadline,
+        )
+
+        result = compute_completeness(shipment)
+
+        self.assertEqual(len(result['manual_tasks']), 1)
+        manual_task = result['manual_tasks'][0]
+        self.assertEqual(manual_task['id'], task.id)
+        self.assertEqual(manual_task['title_key'], 'tasks.give_documents')
+        self.assertEqual(manual_task['role'], 'transport')
+        self.assertTrue(manual_task['is_overdue'])
+
+    def test_manual_task_excludes_field_targeted_rule(self):
+        rule = TaskRule.objects.create(
+            step='yuklenme', title_key='tasks.fill_loading_data',
+            assignee_role='loading_dept_head', target_fields='weight_net',
+        )
+        shipment = self._shipment(self.loading)
+        Task.objects.create(
+            shipment=shipment, step='yuklenme', rule=rule,
+            title_key=rule.title_key, assignee_role=rule.assignee_role,
+            target_fields='weight_net', state=TaskState.OPEN,
+        )
+
+        result = compute_completeness(shipment)
+
+        self.assertEqual(result['manual_tasks'], [])
+        self.assertEqual(result['required_total'], 1)
+
+    def test_manual_task_excludes_terminal_states(self):
+        rule = TaskRule.objects.create(
+            step='yuklenme', title_key='tasks.give_documents',
+            assignee_role='transport', target_fields='',
+        )
+        shipment = self._shipment(self.loading)
+        Task.objects.create(
+            shipment=shipment, step='yuklenme', rule=rule,
+            title_key=rule.title_key, assignee_role=rule.assignee_role,
+            target_fields='', state=TaskState.DONE,
+        )
+        Task.objects.create(
+            shipment=shipment, step='yuklenme', rule=rule,
+            title_key=rule.title_key, assignee_role=rule.assignee_role,
+            target_fields='', state=TaskState.CANCELLED,
+        )
+
+        result = compute_completeness(shipment)
+
         self.assertEqual(result['manual_tasks'], [])
