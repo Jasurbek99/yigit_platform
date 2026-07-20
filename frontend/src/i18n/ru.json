@@ -2338,7 +2338,21 @@
       "documents_status": "Статус документов",
       "harvest_status": "Статус сбора",
       "notes": "Заметки",
-      "customs_clearance_planned_day": "Плановый день таможенного оформления"
+      "customs_clearance_planned_day": "Плановый день таможенного оформления",
+      "shipment_code": "Код отгрузки",
+      "firm_splits": "Экспортные фирмы",
+      "block_sources": "Блоки теплицы",
+      "loading_started_at": "Загрузка начата",
+      "customs_entry_at": "Таможня вход",
+      "customs_exit_at": "Таможня выход",
+      "departed_at": "Выехал",
+      "border_crossed_at": "Пересёк границу",
+      "dest_entry_at": "Въезд в страну назначения",
+      "arrived_at": "Прибыл",
+      "peregruz_date": "Дата перегруза",
+      "sale_started_at": "Продажа начата",
+      "sale_ended_at": "Продажа завершена",
+      "sales_report": "Отчёт о продаже"
     }
   },
   "feedback": {

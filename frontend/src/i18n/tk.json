@@ -2340,7 +2340,21 @@
       "documents_status": "Resminamalaryň ýagdaýy",
       "harvest_status": "Hasylyň ýagdaýy",
       "notes": "Bellikler",
-      "customs_clearance_planned_day": "Plan boýunça gümrükleme güni"
+      "customs_clearance_planned_day": "Plan boýunça gümrükleme güni",
+      "shipment_code": "Iberiş kody",
+      "firm_splits": "Eksport firmalary",
+      "block_sources": "Ýyladyşhana bloklary",
+      "loading_started_at": "Ýüklenip başlandy",
+      "customs_entry_at": "Gümrük giriş",
+      "customs_exit_at": "Gümrük çykyş",
+      "departed_at": "Ugrady",
+      "border_crossed_at": "Serhetden geçdi",
+      "dest_entry_at": "Barjak ýurduna girdi",
+      "arrived_at": "Geldi",
+      "peregruz_date": "Peregruz senesi",
+      "sale_started_at": "Satyş başlandy",
+      "sale_ended_at": "Satyş tamamlandy",
+      "sales_report": "Satyş hasabaty"
     }
   },
   "feedback": {

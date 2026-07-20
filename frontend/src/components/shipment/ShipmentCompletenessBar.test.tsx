@@ -71,18 +71,20 @@ describe('ShipmentCompletenessBar', () => {
     expect(screen.queryByText('country')).not.toBeInTheDocument();
   });
 
-  // Field keys the backend can emit that have no shipment_edit_drawer.field
-  // entry (e.g. customs_exit_at — a TaskRule trigger field, not an editable
-  // drawer field) must fall back to the raw key via i18next's defaultValue
-  // rather than rendering a dotted i18n key string in front of the user.
+  // As of Task 6b, every current TaskRule.target_fields key has a
+  // shipment_edit_drawer.field translation, so this uses a synthetic key
+  // that deliberately has no entry — it must still fall back to the raw
+  // key via i18next's defaultValue rather than rendering a dotted i18n key
+  // string in front of the user. This guards the fallback mechanism itself
+  // for whatever field TaskRule grows next, decoupled from the live key set.
   it('falls back to the raw field key for a missing_field with no shipment_edit_drawer.field translation', () => {
     const completeness: ICompleteness = {
       required_total: 1,
       filled_count: 0,
-      missing_fields: [{ key: 'customs_exit_at', title_key: 'tasks.trigger_customs_exit', step: 'gumruk_girish', role: 'document_team' }],
+      missing_fields: [{ key: 'unmapped_future_field', title_key: 'tasks.trigger_unmapped_future_field', step: 'gumruk_girish', role: 'document_team' }],
       manual_tasks: [],
     };
     render(<ShipmentCompletenessBar completeness={completeness} onJumpToField={vi.fn()} />);
-    expect(screen.getByText('customs_exit_at')).toBeInTheDocument();
+    expect(screen.getByText('unmapped_future_field')).toBeInTheDocument();
   });
 });

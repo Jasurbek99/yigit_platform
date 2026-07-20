@@ -2336,7 +2336,21 @@
       "documents_status": "Documents status",
       "harvest_status": "Harvest status",
       "notes": "Notes",
-      "customs_clearance_planned_day": "Planned customs day"
+      "customs_clearance_planned_day": "Planned customs day",
+      "shipment_code": "Shipment Code",
+      "firm_splits": "Export Firm Splits",
+      "block_sources": "Greenhouse Block Sources",
+      "loading_started_at": "Loading Started",
+      "customs_entry_at": "Customs Entry",
+      "customs_exit_at": "Customs Exit",
+      "departed_at": "Departed",
+      "border_crossed_at": "Border Crossed",
+      "dest_entry_at": "Destination Entry",
+      "arrived_at": "Arrived",
+      "peregruz_date": "Peregruz Date",
+      "sale_started_at": "Sale Started",
+      "sale_ended_at": "Sale Ended",
+      "sales_report": "Sales Report"
     }
   },
   "feedback": {
