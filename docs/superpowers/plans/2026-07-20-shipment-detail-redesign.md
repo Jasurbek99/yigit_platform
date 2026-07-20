@@ -1058,6 +1058,53 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 
 ---
 
+## Task 6b: Translate the field keys the completeness chips can surface
+
+**Files:**
+- Modify: `frontend/src/i18n/tk.json`, `ru.json`, `en.json`
+
+**Why:** Task 6 found that only 10 of the ~24 field keys `TaskRule.target_fields` can emit have a `shipment_edit_drawer.field.*` translation. The other ~14 (`firm_splits`, `block_sources`, `departed_at`, `customs_exit_at`, `loading_started_at`, `border_crossed_at`, `dest_entry_at`, `sales_report`, …) fall back to the raw snake_case key, so a Turkmen warehouse operator sees a chip reading `firm_splits`. The completeness bar is the headline feature of this redesign; raw keys in it read as unfinished exactly where users look first.
+
+- [ ] **Step 1: Derive the authoritative key list**
+
+Do not guess which keys are missing. Collect every distinct value across all `target_fields` entries in `backend/apps/export/management/commands/seed_task_rules.py`, then diff that set against the keys already present under `shipment_edit_drawer.field` in `frontend/src/i18n/en.json`. The difference is your work list. Put the derived list in your report.
+
+- [ ] **Step 2: Derive each translation rather than inventing it**
+
+Most missing keys already have a translated concept elsewhere in the i18n files — use it, and cite your source key for each translation in your report.
+
+- Lifecycle timestamps map to statuses that are already translated under `shipment_status.*`. `departed_at` is "the time it departed", and `shipment_status.yola_chykdy` already holds the Turkmen, Russian and English for "departed". Build the label from that, keeping the three files' wording consistent with their own language's existing phrasing.
+- `firm_splits` and `block_sources` correspond to concepts already named on the detail and sheet screens — search the i18n files for the existing labels for export-firm splits and block sources and follow them.
+- Only invent a string where no existing translation covers the concept, and flag every invented one in your report so a native speaker can check it.
+
+**Do not put English text in `tk.json` or `ru.json` as a placeholder.** If you genuinely cannot derive a Turkmen or Russian label for a key, leave that key out of all three files entirely and list it in your report as needing a native speaker — a missing key falls back to the raw name, which is no worse than today, whereas a wrong-language label is a constraint violation and silently misleads.
+
+- [ ] **Step 3: Keep the fallback**
+
+Task 6 added `defaultValue` fallbacks so an untranslated key renders as the bare key rather than a leaked dotted path. Leave that in place as defence in depth for keys added to `TaskRule` in future.
+
+- [ ] **Step 4: Verify**
+
+```bash
+cd frontend && npx tsc --noEmit --ignoreDeprecations 5.0 && npx vitest run src/components/shipment/
+```
+
+Then confirm every key you added exists in **all three** files with the same nesting path, and that each file contains its own language.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add frontend/src/i18n/
+git commit -m "feat(p3): translate the field keys surfaced by completeness chips
+
+Only 10 of ~24 TaskRule target fields had labels; the rest rendered as raw
+snake_case in the summary bar.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
+```
+
+---
+
 ## Task 7: ShipmentStageCard + page layout rewrite
 
 **Files:**
