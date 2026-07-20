@@ -1119,6 +1119,7 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
     customs_expenses = CustomsExpenseSerializer(many=True, read_only=True)
     status_code = serializers.CharField(source='status.code', read_only=True)
     allowed_transitions = serializers.SerializerMethodField()
+    completeness = serializers.SerializerMethodField()
 
     # Variety confidence display label.
     variety_confidence_display = serializers.CharField(
@@ -1360,6 +1361,12 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
             if _edge_to(edge) != 'cancelled'
         ]
 
+    def get_completeness(self, obj: Shipment) -> dict:
+        """Which fields are owed by this shipment's current step — see
+        services/completeness.py. Computed, never stored."""
+        from apps.export.services.completeness import compute_completeness
+        return compute_completeness(obj)
+
     class Meta(ShipmentListSerializer.Meta):
         # harvest_age_days and freshness are inherited from ShipmentListSerializer
         # (both the SerializerMethodField declarations and their getter methods).
@@ -1372,6 +1379,7 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
         fields = ShipmentListSerializer.Meta.fields + [
             'platform_id',
             'allowed_transitions',
+            'completeness',
             'variety_confidence',
             'variety_confidence_display',
             'varieties_dominant',
