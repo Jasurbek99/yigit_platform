@@ -11,6 +11,7 @@ Format: `- [ ] YYYY-MM-DD — <what was built> — NEEDS TEST`
 
 ---
 
+- [ ] 2026-07-20 — Shipment Detail redesign (Task 7): accordion replaced with always-open stage cards in a 2-column grid + route rail. All 6 field groups visible at once (Destination / Documents / Loading / Transit / Notes cards, Sale full-width). Rows the backend reports as missing are highlighted amber; completeness-bar chips jump to and open the field. LifecycleStage removed. **Check visually in a browser — layout not yet verified against real data.** — NEEDS TEST
 - [x] 2026-07-20 — Sheet page: hovering/navigating to a cell no longer washes out its text (hover now layers a translucent blue instead of replacing the painted background with `--blue-50 !important`; editing cell resets the inherited light `--col-tint-fg`) — NEEDS TEST
 
 - [x] 2026-07-20 — /me/board task drawer: progress bar now updates live after editing a field (fixed number-vs-string shipment detail query key + added detail invalidation to junction/custom-field saves) — NEEDS TEST
