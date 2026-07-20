@@ -19,6 +19,9 @@
 - **Status transitions only through `transition_to()`** — this plan never writes `status_id` directly.
 - **Component size**: max 150 lines per React component, max 200 lines per Python file. `ShipmentDetail.tsx` is currently 562 lines and gets split by this plan.
 - **Typecheck command is `npx tsc --noEmit --ignoreDeprecations 5.0`** — `npm run type-check` is broken in this repo (TS5103).
+- **Backend tests MUST run with `DJANGO_TESTING=true`.** Migrations `0006_seed_shipment_draft_status` and `0011_add_cancelled_status` seed the `draft` / `cancelled` status rows and skip that seeding only when this variable is set; without it, any test that creates those rows dies on a UNIQUE constraint in `setUpClass`. Example: `cd backend && DJANGO_TESTING=true python manage.py test apps.export.tests_completeness -v 2`.
+- **Test fixtures need required fields the examples may omit:** `Season` requires `start_date` and `end_date`; `Shipment` requires `date`. Follow `apps/export/tests_field_history.py` for the established pattern.
+- **The backend suite has ~71 pre-existing failures** in unrelated modules. Run only the test module you are touching; do not try to fix unrelated failures.
 - **Do not commit** unless the task's commit step says to. One commit per task.
 - **Log every built feature** to `BUILD_TEST_LOG.md` (newest on top, `- [ ] YYYY-MM-DD — <what> — NEEDS TEST`) — see Task 12.
 
@@ -199,7 +202,7 @@ class CompletenessTests(TestCase):
 - [ ] **Step 2: Run the test to verify it fails**
 
 ```bash
-cd backend && python manage.py test apps.export.tests_completeness -v 2
+cd backend && DJANGO_TESTING=true python manage.py test apps.export.tests_completeness -v 2
 ```
 
 Expected: `ModuleNotFoundError: No module named 'apps.export.services.completeness'`
@@ -351,7 +354,7 @@ def compute_completeness(shipment) -> dict:
 - [ ] **Step 4: Run the test to verify it passes**
 
 ```bash
-cd backend && python manage.py test apps.export.tests_completeness -v 2
+cd backend && DJANGO_TESTING=true python manage.py test apps.export.tests_completeness -v 2
 ```
 
 Expected: `OK` — 6 tests.
@@ -430,7 +433,7 @@ class CompletenessApiTests(APITestCase):
 - [ ] **Step 2: Run the test to verify it fails**
 
 ```bash
-cd backend && python manage.py test apps.export.tests_completeness.CompletenessApiTests -v 2
+cd backend && DJANGO_TESTING=true python manage.py test apps.export.tests_completeness.CompletenessApiTests -v 2
 ```
 
 Expected: `KeyError: 'completeness'`
@@ -454,7 +457,7 @@ Add `'completeness'` to that serializer's `Meta.fields` list.
 - [ ] **Step 4: Run the tests to verify they pass**
 
 ```bash
-cd backend && python manage.py test apps.export.tests_completeness -v 2
+cd backend && DJANGO_TESTING=true python manage.py test apps.export.tests_completeness -v 2
 ```
 
 Expected: `OK` — 7 tests.
