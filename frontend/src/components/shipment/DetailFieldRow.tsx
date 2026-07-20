@@ -6,6 +6,7 @@ import { useShipmentPatchMulti } from '@/hooks/useShipmentPatch';
 import type { IEditFieldConfig } from '@/constants/shipmentEditConfig';
 import type { IShipmentDetail } from '@/types';
 import { COLORS } from '@/constants/styles';
+import { deriveSaveState } from './DetailFieldRow.helpers';
 
 const { Text } = Typography;
 
@@ -72,6 +73,16 @@ export function DetailFieldRow({
     setDraft(persisted);
   }, [persisted]);
 
+  // Tracks whether this row's own save has ever succeeded. Reset to false the
+  // moment the user edits again (see handleChange) so a stale "Saved" never
+  // sits next to a value the user has since changed.
+  const [hasSavedOnce, setHasSavedOnce] = useState(false);
+  const saveState = deriveSaveState({
+    isPending: patch.isPending,
+    isError: patch.isError,
+    hasSavedOnce,
+  });
+
   // Pending-debounce handle and the value queued by it. We keep both so blur
   // can flush even if React state hasn't caught up to the latest typed value
   // (rare but possible on fast keystroke trails).
@@ -90,7 +101,10 @@ export function DetailFieldRow({
 
   function commit(value: unknown) {
     if (value === persisted) return;
-    patch.mutate({ id: shipment.id, fields: { [config.key]: value } });
+    patch.mutate(
+      { id: shipment.id, fields: { [config.key]: value } },
+      { onSuccess: () => setHasSavedOnce(true) },
+    );
   }
 
   function flushPending() {
@@ -113,6 +127,7 @@ export function DetailFieldRow({
   }
 
   function handleChange(next: unknown) {
+    setHasSavedOnce(false);
     setDraft(next);
     if (DEBOUNCED_TYPES.has(config.inputType)) {
       scheduleDebouncedSave(next);
@@ -170,7 +185,16 @@ export function DetailFieldRow({
             />
           </div>
         )}
-        {patch.isPending && <Spin size="small" />}
+        {saveState === 'pending' && <Spin size="small" />}
+        {saveState === 'saved' && (
+          <Text style={{ fontSize: 11, color: COLORS.success }}>{t('shipment.detail.saved')}</Text>
+        )}
+        {saveState === 'error' && (
+          <Text style={{ fontSize: 11, color: COLORS.danger }}>
+            {t('shipment.detail.save_failed')}{' '}
+            <a onClick={() => commit(draft)}>{t('shipment.detail.retry')}</a>
+          </Text>
+        )}
       </div>
     </div>
   );

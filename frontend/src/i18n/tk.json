@@ -2513,6 +2513,9 @@
       "unblock_button": "Bökdemekden çykar",
       "unblock_role_required": "Diňe {{role}} ýa-da ýolbaşçy bu tabşyrygy bökdemekden çykaryp biler.",
       "supervisor_view": "Siz muny ýolbaşçy hökmünde görýärsiňiz — bu ýerde size tabşyryk bellenmedi.",
+      "saved": "Ýatda saklandy",
+      "save_failed": "Saklanmady",
+      "retry": "Gaýtala",
       "guide": {
         "your_task": "Siziň tabşyrygyňyz: {{task}}",
         "draft": "Bu garalama — barjak ýeri we müşderi entek bellenmedi. Aşakdaky meýdanlary dolduryp, ony geçirmäge taýýarlaň.",

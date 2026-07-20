@@ -2509,6 +2509,9 @@
       "unblock_button": "Unblock",
       "unblock_role_required": "Only the {{role}} or a supervisor can unblock this task.",
       "supervisor_view": "You're viewing this as a supervisor — no task is assigned to you here.",
+      "saved": "Saved",
+      "save_failed": "Not saved",
+      "retry": "Retry",
       "guide": {
         "your_task": "Your task here: {{task}}",
         "draft": "This is a draft — destination and customer aren't set yet. Fill in the fields below to ready it for promotion.",
