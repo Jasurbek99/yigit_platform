@@ -2532,7 +2532,11 @@
         "done": "Завершено",
         "active": "Текущий этап",
         "pending": "Предстоит"
-      }
+      },
+      "completeness": "Заполнено {{filled}} из {{total}} полей этого этапа",
+      "missing_label": "Не хватает:",
+      "manual_tasks_label": "Задачи, отмечаются вручную:",
+      "overdue": "просрочено"
     },
     "cancel_button": "Отменить отгрузку",
     "cancel_modal_title": "Отменить эту отгрузку?",

@@ -2530,7 +2530,11 @@
         "done": "Completed",
         "active": "Current stage",
         "pending": "Upcoming"
-      }
+      },
+      "completeness": "{{filled}} of {{total}} fields filled",
+      "missing_label": "Missing:",
+      "manual_tasks_label": "Manual tasks:",
+      "overdue": "overdue"
     },
     "cancel_button": "Cancel shipment",
     "cancel_modal_title": "Cancel this shipment?",

@@ -2534,7 +2534,11 @@
         "done": "Tamamlandy",
         "active": "Häzirki tapgyr",
         "pending": "Öňde"
-      }
+      },
+      "completeness": "{{total}} meýdandan {{filled}} dolduryldy",
+      "missing_label": "Ýetmeýän maglumat:",
+      "manual_tasks_label": "El bilen bellenýän işler:",
+      "overdue": "möhleti geçdi"
     },
     "cancel_button": "Ýüki ýatyrmak",
     "cancel_modal_title": "Bu ýüki ýatyrmalydymy?",
