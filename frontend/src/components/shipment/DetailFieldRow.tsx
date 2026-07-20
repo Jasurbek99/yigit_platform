@@ -157,11 +157,31 @@ export function DetailFieldRow({
   // Blur handler on the wrapper. When focus leaves the row entirely (i.e.
   // the new focus target is OUTSIDE this row), flush any pending save so
   // the user's last keystroke isn't stuck in the debounce queue.
+  //
+  // enterEdit() unmounts the focused `Text` and mounts `FieldEditor` with
+  // autoFocus in the same tick. That swap fires a blur/focusout on the
+  // removed `Text` node, and `relatedTarget` on that event is unreliable
+  // during a same-tick focus handoff — some browsers report `null` because
+  // the new element hasn't received focus yet. `contains(null)` is false,
+  // so a naive synchronous check here would see "focus left the row" and
+  // immediately call setIsEditing(false), closing the editor the same
+  // click just opened.
+  //
+  // Fix: defer the decision to a microtask. By the time it runs, the
+  // autoFocus on FieldEditor's input has landed and `document.activeElement`
+  // reflects the real post-swap focus target. We re-check containment
+  // against the CURRENT active element (not the stale relatedTarget) so a
+  // genuine focus move out of the row is still caught and still flushes —
+  // only the in-row swap is ignored. A microtask (not a timer) keeps this
+  // tied to the current render/paint cycle rather than an arbitrary delay.
   function handleBlur(e: React.FocusEvent<HTMLDivElement>) {
-    if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
-      flushPending();
-      setIsEditing(false);
-    }
+    const row = e.currentTarget;
+    queueMicrotask(() => {
+      if (!row.contains(document.activeElement)) {
+        flushPending();
+        setIsEditing(false);
+      }
+    });
   }
 
   const label = labelOverride ?? t(config.labelKey);
@@ -192,7 +212,14 @@ export function DetailFieldRow({
               countryId={countryId}
               // Deliberately NOT disabling on patch.isPending. If we did, every
               // keystroke that triggers a save would lock the input mid-word.
-              autoFocus
+              // autoFocus only for non-boolean rows: booleans never pass
+              // through enterEdit() (showEditor is true for them from first
+              // render via isBoolean), so autoFocus here would steal focus
+              // and scroll every boolean row's Switch into view on page load.
+              // FieldEditor's boolean case also refuses to forward autoFocus
+              // (see its comment) — this is defense in depth, not a duplicate
+              // of the only guard.
+              autoFocus={!isBoolean}
               defaultOpen={shouldAutoOpenEditor(config.inputType)}
             />
           </div>
