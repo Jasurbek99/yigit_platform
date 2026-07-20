@@ -380,7 +380,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 
 **Files:**
 - Modify: `backend/apps/export/serializers.py` (class `ShipmentDetailSerializer`, line ~1104)
-- Test: `backend/apps/export/tests_completeness.py` (append)
+- Test: `backend/apps/export/tests_completeness_api.py` (**new file** — `tests_completeness.py` is already at 197 of the 200-line cap after Task 1's added coverage, so the API tests get their own module rather than breaking the limit)
 
 **Interfaces:**
 - Consumes: `compute_completeness(shipment)` from Task 1.
@@ -388,7 +388,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 
 - [ ] **Step 1: Write the failing test**
 
-Append to `backend/apps/export/tests_completeness.py`:
+Create `backend/apps/export/tests_completeness_api.py` (a new module — see the Files note above). It needs its own imports; do not assume the other test file's imports are in scope:
 
 ```python
 from django.urls import reverse
@@ -433,7 +433,7 @@ class CompletenessApiTests(APITestCase):
 - [ ] **Step 2: Run the test to verify it fails**
 
 ```bash
-cd backend && DJANGO_TESTING=true python manage.py test apps.export.tests_completeness.CompletenessApiTests -v 2
+cd backend && DJANGO_TESTING=true python manage.py test apps.export.tests_completeness_api -v 2
 ```
 
 Expected: `KeyError: 'completeness'`
@@ -473,7 +473,7 @@ Expected: `No changes detected`. If a migration appears, something was added as 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add backend/apps/export/serializers.py backend/apps/export/tests_completeness.py
+git add backend/apps/export/serializers.py backend/apps/export/tests_completeness_api.py
 git commit -m "feat(p3): expose completeness block on shipment detail endpoint
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
