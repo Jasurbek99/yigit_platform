@@ -26,6 +26,25 @@ describe('ShipmentCompletenessBar', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  // required_total is cumulative across every step a shipment has passed
+  // (backend/apps/export/services/completeness.py) and never resets to
+  // zero once the shipment has advanced. A shipment that has fully caught
+  // up (filled_count === required_total) still has required_total > 0, so
+  // gating on required_total === 0 would keep rendering a stale 100% bar
+  // forever. The gate must be on what's actually outstanding.
+  it('renders nothing when everything owed has been filled, even though required_total > 0', () => {
+    const completeness: ICompleteness = {
+      required_total: 3,
+      filled_count: 3,
+      missing_fields: [],
+      manual_tasks: [],
+    };
+    const { container } = render(
+      <ShipmentCompletenessBar completeness={completeness} onJumpToField={vi.fn()} />,
+    );
+    expect(container).toBeEmptyDOMElement();
+  });
+
   // required_total === 0 but filled_count / required_total would divide by
   // zero — the component must short-circuit to 100% instead of NaN, and
   // still render because a manual task is present.

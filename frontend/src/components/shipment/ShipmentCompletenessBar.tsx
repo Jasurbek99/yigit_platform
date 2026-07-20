@@ -34,7 +34,12 @@ export function ShipmentCompletenessBar({
   const { t } = useTranslation();
   const { required_total, filled_count, missing_fields, manual_tasks } = completeness;
 
-  if (required_total === 0 && manual_tasks.length === 0) return null;
+  // required_total is cumulative across every step the shipment has passed
+  // (see backend/apps/export/services/completeness.py) and never returns to
+  // zero once a shipment has advanced — it is NOT "nothing is owed right
+  // now". Gate on what is actually outstanding instead: no missing fields
+  // and no open manual tasks means nothing left to show, full stop.
+  if (missing_fields.length === 0 && manual_tasks.length === 0) return null;
 
   const percent = required_total === 0
     ? 100
@@ -82,7 +87,7 @@ export function ShipmentCompletenessBar({
           </Text>
           {manual_tasks.map((task) => (
             <div key={task.id} style={{ fontSize: 12, padding: '3px 0' }}>
-              ☐ {t(task.title_key)}
+              ☐ {t(task.title_key, { defaultValue: task.title_key })}
               <Tag style={{ marginLeft: 6, fontSize: 10 }}>
                 {t(`tasks.role.${task.role}`, { defaultValue: task.role })}
               </Tag>
