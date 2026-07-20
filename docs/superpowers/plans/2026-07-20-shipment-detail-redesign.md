@@ -1544,10 +1544,21 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 
 ---
 
-## Task 11: Remove the placeholder Links card and the stale comment
+## Task 11: Split DetailFieldRow, remove the placeholder Links card and the stale comment
 
 **Files:**
 - Modify: `frontend/src/pages/export/ShipmentDetail.tsx`
+- Split: `frontend/src/components/shipment/DetailFieldRow.tsx`
+
+- [ ] **Step 0: Split `DetailFieldRow.tsx` back under the 150-line component limit**
+
+Tasks 4, 5 and 9 each added behaviour to this file (save states, click-to-edit, the comment affordance). It was 177 lines before this plan and is over 150 now — the repo's limit. Splitting was deferred to here deliberately, so it happens once after all three features landed rather than three times.
+
+Extract along the seams the features created, keeping `DetailFieldRow` itself as the row's composition point:
+- the save-state indicator (pending spinner / "Saved" / error + retry) into `DetailFieldRowStatus.tsx`
+- the read-vs-edit value cell into `DetailFieldValue.tsx`
+
+Pure logic already lives in `DetailFieldRow.helpers.ts` — leave it there. Do not change any behaviour in this step: the debounce timing, the never-disable-while-pending rule, the `detail-field-<key>` DOM id, and the reset of `hasSavedOnce` on edit must all survive verbatim. Re-run the component's tests after the split and confirm they still pass unchanged.
 
 - [ ] **Step 1: Delete the Links card**
 
