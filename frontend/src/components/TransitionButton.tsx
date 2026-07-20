@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import api from '@/services/api';
+import { getShipmentDetailKey } from '@/hooks/useShipmentDetail';
 
 const STATUS_DISPLAY: Record<string, string> = {
   yuklenme: 'Loading',
@@ -59,7 +60,7 @@ export function TransitionButton({ shipmentId, allowedTransitions, onSuccess }: 
         comment: values.comment?.trim() || undefined,
       });
       toast.success(t('transition.toast_success', { status: STATUS_DISPLAY[values.new_status] ?? values.new_status }));
-      await queryClient.invalidateQueries({ queryKey: ['shipment', String(shipmentId)] });
+      await queryClient.invalidateQueries({ queryKey: getShipmentDetailKey(shipmentId) });
       setIsOpen(false);
       onSuccess?.();
     } catch (err: unknown) {

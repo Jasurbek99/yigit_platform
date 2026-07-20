@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
+import { getShipmentDetailKey } from './useShipmentDetail';
 
 /**
  * Hook factory that builds a task action mutation.
@@ -23,7 +24,7 @@ function useTaskAction(action: 'start' | 'block' | 'unblock' | 'complete') {
       return data;
     },
     onSuccess: (_data, variables) => {
-      void queryClient.invalidateQueries({ queryKey: ['shipment', String(variables.shipmentId)] });
+      void queryClient.invalidateQueries({ queryKey: getShipmentDetailKey(variables.shipmentId) });
       void queryClient.invalidateQueries({ queryKey: ['my-tasks'] });
       // Sheet endpoint returns per-shipment task_counts in its wrapped payload
       // — refresh those badge counts after any task state change.

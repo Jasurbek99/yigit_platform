@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import type { AxiosError } from 'axios';
 import api from '@/services/api';
+import { getShipmentDetailKey } from './useShipmentDetail';
 import type { IApiListResponse, IShipmentListItem, IShipmentSheetItem } from '@/types';
 
 /**
@@ -245,7 +246,7 @@ export function useShipmentPatch() {
     },
     onSettled: (_data, _err, { id }) => {
       invalidateExceptSheet(queryClient);
-      queryClient.invalidateQueries({ queryKey: ['shipment', String(id)] });
+      queryClient.invalidateQueries({ queryKey: getShipmentDetailKey(id) });
       queryClient.invalidateQueries({ queryKey: ['my-tasks'] });
     },
   });

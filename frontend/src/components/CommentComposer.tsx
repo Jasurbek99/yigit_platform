@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import api from '@/services/api';
+import { getShipmentDetailKey } from '@/hooks/useShipmentDetail';
 
 interface ICommentComposerProps {
   shipmentId: number;
@@ -25,7 +26,7 @@ export function CommentComposer({ shipmentId }: ICommentComposerProps) {
       await api.post(`/export/shipments/${shipmentId}/comment/`, { content: trimmed });
       setContent('');
       toast.success(t('comments.toast_success'));
-      await queryClient.invalidateQueries({ queryKey: ['shipment', String(shipmentId)] });
+      await queryClient.invalidateQueries({ queryKey: getShipmentDetailKey(shipmentId) });
     } catch {
       toast.error(t('comments.toast_error'));
     } finally {

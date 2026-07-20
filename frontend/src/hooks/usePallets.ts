@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
+import { getShipmentDetailKey } from './useShipmentDetail';
 import { MOCK_PALLETS } from '@/mock/pallets';
 import type {
   IBlockBreakdown,
@@ -39,7 +40,7 @@ export function usePallets(shipmentId: number | null) {
 
 /**
  * Bulk-upserts all pallets for a shipment (replaces the full list).
- * Invalidates ['pallets', shipmentId] and ['shipment', shipmentId] on success
+ * Invalidates ['pallets', shipmentId] and getShipmentDetailKey(shipmentId) on success
  * so variety_confidence and weight fields refresh in ShipmentDetail.
  */
 export function useUpsertPallets(shipmentId: number) {
@@ -59,7 +60,7 @@ export function useUpsertPallets(shipmentId: number) {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['pallets', shipmentId] });
-      void queryClient.invalidateQueries({ queryKey: ['shipment', String(shipmentId)] });
+      void queryClient.invalidateQueries({ queryKey: getShipmentDetailKey(shipmentId) });
       void queryClient.invalidateQueries({ queryKey: ['block-breakdown', shipmentId] });
     },
   });
@@ -138,7 +139,7 @@ export function useCloseManifest(shipmentId: number) {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['pallets', shipmentId] });
-      void queryClient.invalidateQueries({ queryKey: ['shipment', String(shipmentId)] });
+      void queryClient.invalidateQueries({ queryKey: getShipmentDetailKey(shipmentId) });
       void queryClient.invalidateQueries({ queryKey: ['block-breakdown', shipmentId] });
     },
   });
@@ -162,7 +163,7 @@ export function useOverrideVarieties(shipmentId: number) {
       });
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['shipment', String(shipmentId)] });
+      void queryClient.invalidateQueries({ queryKey: getShipmentDetailKey(shipmentId) });
     },
   });
 }

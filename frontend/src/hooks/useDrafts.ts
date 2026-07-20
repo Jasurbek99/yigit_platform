@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import api from '@/services/api';
+import { getShipmentDetailKey } from './useShipmentDetail';
 import { MOCK_DRAFTS } from '@/mock/drafts';
 import type {
   IShipmentDraft,
@@ -122,7 +123,7 @@ export function useAssignDraft() {
     onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ['drafts'] });
       queryClient.invalidateQueries({ queryKey: ['shipments'] });
-      queryClient.invalidateQueries({ queryKey: ['shipment', String(vars.draftId)] });
+      queryClient.invalidateQueries({ queryKey: getShipmentDetailKey(vars.draftId) });
     },
   });
 }
@@ -370,7 +371,7 @@ export function useJoinShipments() {
       queryClient.invalidateQueries({ queryKey: ['drafts'] });
       queryClient.invalidateQueries({ queryKey: ['shipments'] });
       queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
-      queryClient.invalidateQueries({ queryKey: ['shipment', String(vars.targetId)] });
+      queryClient.invalidateQueries({ queryKey: getShipmentDetailKey(vars.targetId) });
     },
   });
 }
@@ -412,8 +413,8 @@ export function useSwapShipments() {
       queryClient.invalidateQueries({ queryKey: ['drafts'] });
       queryClient.invalidateQueries({ queryKey: ['shipments'] });
       queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
-      queryClient.invalidateQueries({ queryKey: ['shipment', String(vars.aId)] });
-      queryClient.invalidateQueries({ queryKey: ['shipment', String(vars.otherId)] });
+      queryClient.invalidateQueries({ queryKey: getShipmentDetailKey(vars.aId) });
+      queryClient.invalidateQueries({ queryKey: getShipmentDetailKey(vars.otherId) });
     },
   });
 }
@@ -440,7 +441,7 @@ export function usePromoteFromDraft() {
       return data;
     },
     onSuccess: (_data, vars) => {
-      queryClient.invalidateQueries({ queryKey: ['shipment', String(vars.shipmentId)] });
+      queryClient.invalidateQueries({ queryKey: getShipmentDetailKey(vars.shipmentId) });
       queryClient.invalidateQueries({ queryKey: ['shipments'] });
       queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
       queryClient.invalidateQueries({ queryKey: ['shipments', 'board'] });

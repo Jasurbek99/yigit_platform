@@ -22,7 +22,7 @@ import { RouteTimelineRail } from '@/components/shipment/RouteTimelineRail';
 import { LifecycleStage, type StageState } from '@/components/shipment/LifecycleStage';
 import { DetailFieldRow } from '@/components/shipment/DetailFieldRow';
 import { VarietySelect } from '@/components/VarietySelect';
-import { useShipmentDetail } from '@/hooks/useShipmentDetail';
+import { useShipmentDetail, getShipmentDetailKey } from '@/hooks/useShipmentDetail';
 import { useOverrideVarieties } from '@/hooks/usePallets';
 import { useAuth } from '@/hooks/useAuth';
 import { canDo } from '@/utils/permissions';
@@ -66,7 +66,7 @@ export default function ShipmentDetail() {
       await api.patch(`/export/shipments/${id}/quality/`, { [field]: checked });
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['shipment', id] });
+      void queryClient.invalidateQueries({ queryKey: getShipmentDetailKey(id) });
     },
   });
 

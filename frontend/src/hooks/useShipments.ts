@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
+import { getShipmentDetailKey } from './useShipmentDetail';
 import { MOCK_SHIPMENTS_RESPONSE } from '@/mock/shipments';
 import type { IApiListResponse, ICancelShipmentResponse, IShipmentListItem } from '@/types';
 import {
@@ -184,7 +185,7 @@ export function useSetColumnColor() {
     },
     onSettled: (_data, _err, { id }) => {
       invalidateExceptSheet(queryClient);
-      queryClient.invalidateQueries({ queryKey: ['shipment', String(id)] });
+      queryClient.invalidateQueries({ queryKey: getShipmentDetailKey(id) });
     },
   });
 }
@@ -205,7 +206,7 @@ export function useHardDeleteDraftShipment() {
       return data;
     },
     onSuccess: (_data, { id }) => {
-      queryClient.removeQueries({ queryKey: ['shipment', String(id)] });
+      queryClient.removeQueries({ queryKey: getShipmentDetailKey(id) });
       queryClient.invalidateQueries({ queryKey: ['shipments'] });
       queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
     },

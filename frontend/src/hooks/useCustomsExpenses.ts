@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
+import { getShipmentDetailKey } from './useShipmentDetail';
 import type { IApiListResponse } from '@/types';
 import type {
   ICustomsExpense,
@@ -74,7 +75,7 @@ export function useCreateCustomsExpense(): ReturnType<typeof useMutation<ICustom
       void queryClient.invalidateQueries({ queryKey: ['customs-ledger'] });
       if (data.shipment) {
         void queryClient.invalidateQueries({
-          queryKey: ['shipment', String(data.shipment)],
+          queryKey: getShipmentDetailKey(data.shipment),
         });
       }
     },
@@ -103,7 +104,7 @@ export function useUpdateCustomsExpense(): ReturnType<typeof useMutation<ICustom
       void queryClient.invalidateQueries({ queryKey: ['customs-ledger'] });
       if (data.shipment) {
         void queryClient.invalidateQueries({
-          queryKey: ['shipment', String(data.shipment)],
+          queryKey: getShipmentDetailKey(data.shipment),
         });
       }
     },

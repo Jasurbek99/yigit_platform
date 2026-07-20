@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
+import { getShipmentDetailKey } from './useShipmentDetail';
 import type { IShipmentDetail, ISalesReportPayload } from '@/types';
 
 /**
@@ -8,8 +9,9 @@ import type { IShipmentDetail, ISalesReportPayload } from '@/types';
  * On success, the shipment detail query is invalidated so the UI re-reads the
  * updated `sales_report` from the detail response.
  *
- * The query key `['shipment', id]` must be a string — matches `useShipmentDetail`,
- * which keys on the raw route param (e.g. '42', not 42).
+ * The detail query key comes from `getShipmentDetailKey()`, which normalises the
+ * id — a hand-written `['shipment', id]` here would silently miss the cache if a
+ * caller ever passed a number (TanStack matches key parts type-strictly).
  */
 export function useSaveSalesReport(shipmentId: string) {
   const queryClient = useQueryClient();
@@ -23,7 +25,7 @@ export function useSaveSalesReport(shipmentId: string) {
       return data;
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['shipment', shipmentId] });
+      void queryClient.invalidateQueries({ queryKey: getShipmentDetailKey(shipmentId) });
     },
   });
 }
