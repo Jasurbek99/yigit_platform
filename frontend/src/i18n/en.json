@@ -2546,6 +2546,8 @@
       "completeness": "{{filled}} of {{total}} fields filled",
       "missing_label": "Missing:",
       "manual_tasks_label": "Manual tasks:",
+      "info_fields_label": "Filled elsewhere or by the system:",
+      "info_field_hint": "Filled automatically by the system — not editable here",
       "overdue": "overdue",
       "stage_not_reached": "stage not reached yet",
       "stage_missing": "{{count}} missing",

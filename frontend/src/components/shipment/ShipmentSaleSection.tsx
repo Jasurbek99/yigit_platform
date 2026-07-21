@@ -47,6 +47,7 @@ export function ShipmentSaleSection({
 
   return (
     <Card
+      id="section-sale"
       size="small"
       style={{ marginBottom: 16 }}
       title={

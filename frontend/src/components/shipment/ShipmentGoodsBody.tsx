@@ -53,7 +53,9 @@ export function ShipmentGoodsBody({
 
   return (
     <>
-      <InfoRow label={t('shipment_detail.block_sources')} value={blockDisplay} />
+      <div id="section-block-sources">
+        <InfoRow label={t('shipment_detail.block_sources')} value={blockDisplay} />
+      </div>
 
       <div style={{ padding: '8px 0', borderBottom: '1px solid #f0f0f0', marginBottom: 6 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>

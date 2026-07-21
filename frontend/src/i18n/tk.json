@@ -2550,6 +2550,8 @@
       "completeness": "{{total}} meýdandan {{filled}} dolduryldy",
       "missing_label": "Ýetmeýän maglumat:",
       "manual_tasks_label": "El bilen bellenýän işler:",
+      "info_fields_label": "Ulgam ýa-da başga ýerde doldurylýan maglumatlar:",
+      "info_field_hint": "Bu maglumat ulgam tarapyndan awtomatiki dolduryldy, şu ýerde üýtgedip bolmaýar",
       "overdue": "möhleti geçdi",
       "stage_not_reached": "bu tapgyr entek gelmedi",
       "stage_missing": "{{count}} doldurylmadyk",

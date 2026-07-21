@@ -1,7 +1,9 @@
-import { Card, Progress, Tag, Typography } from 'antd';
+import { Card, Progress, Tag, Tooltip, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 import type { ICompleteness } from '@/types';
 import { COLORS } from '@/constants/styles';
+import { classifyMissingFields, sectionAnchorFor } from './ShipmentCompletenessBar.helpers';
+import { jumpToSection } from '@/pages/export/ShipmentDetailHelpers.helpers';
 
 const { Text } = Typography;
 
@@ -39,6 +41,13 @@ export function ShipmentCompletenessBar({
   // and no open manual tasks means nothing left to show, full stop.
   if (missing_fields.length === 0 && manual_tasks.length === 0) return null;
 
+  // Two-tier split (Task 13): some missing keys (AD-1 timestamps,
+  // firm_splits, block_sources, sales_report, shipment_code) have no
+  // `#detail-field-<key>` row on the Detail page — their chip used to jump
+  // nowhere. filled_count/required_total below still count everything
+  // owed; only the chip rendering is split.
+  const { actionable, informational } = classifyMissingFields(missing_fields);
+
   const percent = required_total === 0
     ? 100
     : Math.round((filled_count / required_total) * 100);
@@ -60,12 +69,12 @@ export function ShipmentCompletenessBar({
         style={{ margin: '6px 0 8px' }}
       />
 
-      {missing_fields.length > 0 && (
-        <div style={{ marginBottom: manual_tasks.length > 0 ? 10 : 0 }}>
+      {actionable.length > 0 && (
+        <div style={{ marginBottom: informational.length > 0 || manual_tasks.length > 0 ? 10 : 0 }}>
           <Text type="secondary" style={{ fontSize: 12, marginRight: 6 }}>
             {t('shipment.detail.missing_label')}
           </Text>
-          {missing_fields.map((field) => (
+          {actionable.map((field) => (
             <Tag
               key={field.key}
               color="warning"
@@ -75,6 +84,38 @@ export function ShipmentCompletenessBar({
               {t(`shipment_edit_drawer.field.${field.key}`, { defaultValue: field.key })}
             </Tag>
           ))}
+        </div>
+      )}
+
+      {informational.length > 0 && (
+        <div style={{ marginBottom: manual_tasks.length > 0 ? 10 : 0 }}>
+          <Text type="secondary" style={{ fontSize: 12, marginRight: 6 }}>
+            {t('shipment.detail.info_fields_label')}
+          </Text>
+          {informational.map((field) => {
+            const sectionId = sectionAnchorFor(field.key);
+            const label = t(`shipment_edit_drawer.field.${field.key}`, { defaultValue: field.key });
+            const chip = (
+              <Tag
+                color="default"
+                style={{
+                  marginBottom: 4,
+                  cursor: sectionId ? 'pointer' : 'default',
+                  color: COLORS.textTertiary,
+                }}
+                onClick={sectionId ? () => jumpToSection(sectionId) : undefined}
+              >
+                {label}
+              </Tag>
+            );
+            return sectionId ? (
+              <span key={field.key}>{chip}</span>
+            ) : (
+              <Tooltip key={field.key} title={t('shipment.detail.info_field_hint')}>
+                {chip}
+              </Tooltip>
+            );
+          })}
         </div>
       )}
 

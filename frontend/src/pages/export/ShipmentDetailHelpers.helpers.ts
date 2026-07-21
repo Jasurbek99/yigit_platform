@@ -29,3 +29,16 @@ export function jumpToField(fieldKey: string): void {
   el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   el.querySelector<HTMLElement>('[tabindex="0"]')?.focus();
 }
+
+/**
+ * Scroll a Detail-page *section* into view (e.g. the Sale card, the Goods
+ * block-sources row) rather than a single field row. Used by the
+ * completeness bar's informational chips whose key isn't a single editable
+ * field — there's nothing to focus, so unlike `jumpToField` this never
+ * touches focus.
+ */
+export function jumpToSection(sectionId: string): void {
+  const el = document.getElementById(sectionId);
+  if (!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}

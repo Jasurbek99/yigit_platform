@@ -1,8 +1,21 @@
 import { describe, it, expect, beforeAll, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import i18n from '@/i18n';
 import { ShipmentCompletenessBar } from './ShipmentCompletenessBar';
+import { ShipmentSaleSection } from './ShipmentSaleSection';
+import { MOCK_SHIPMENT_DETAIL } from '@/mock/shipmentDetail';
 import type { ICompleteness } from '@/types';
+
+vi.mock('@/services/api', () => ({
+  default: { patch: vi.fn(), get: vi.fn(), post: vi.fn() },
+}));
+
+// jsdom has no layout engine, so scrollIntoView isn't implemented — stub it
+// so section chips (firm_splits/sales_report/block_sources) don't throw.
+beforeAll(() => {
+  Element.prototype.scrollIntoView = vi.fn();
+});
 
 const EMPTY_COMPLETENESS: ICompleteness = {
   required_total: 0,
@@ -86,5 +99,92 @@ describe('ShipmentCompletenessBar', () => {
     };
     render(<ShipmentCompletenessBar completeness={completeness} onJumpToField={vi.fn()} />);
     expect(screen.getByText('unmapped_future_field')).toBeInTheDocument();
+  });
+
+  // Task 13: two-tier split. 'weight_net' has an EDIT_FIELD_GROUPS entry
+  // (goods group) so it must stay an actionable, clickable amber chip under
+  // the existing "Missing:" label.
+  it('renders an editable key as an actionable chip that calls onJumpToField', () => {
+    const onJumpToField = vi.fn();
+    const completeness: ICompleteness = {
+      required_total: 1,
+      filled_count: 0,
+      missing_fields: [{ key: 'weight_net', title_key: 'tasks.set_weight', step: 'yuklenme', role: 'warehouse_chief' }],
+      manual_tasks: [],
+    };
+    render(<ShipmentCompletenessBar completeness={completeness} onJumpToField={onJumpToField} />);
+
+    const chip = screen.getByText('Net weight');
+    expect(chip).toBeInTheDocument();
+    fireEvent.click(chip);
+    expect(onJumpToField).toHaveBeenCalledWith('weight_net');
+  });
+
+  // 'departed_at' is an AD-1 timestamp written only by transition_to() — it
+  // has no EDIT_FIELD_GROUPS entry and no section anchor, so it must render
+  // under the informational label, muted, and must NOT call onJumpToField
+  // (there is no #detail-field-departed_at row to jump to).
+  it('renders a non-editable AD-1 key as a muted, non-clickable informational chip', () => {
+    const onJumpToField = vi.fn();
+    const completeness: ICompleteness = {
+      required_total: 1,
+      filled_count: 0,
+      missing_fields: [{ key: 'departed_at', title_key: 'tasks.depart', step: 'yola_chykdy', role: 'transport' }],
+      manual_tasks: [],
+    };
+    render(<ShipmentCompletenessBar completeness={completeness} onJumpToField={onJumpToField} />);
+
+    expect(screen.getByText('Filled elsewhere or by the system:')).toBeInTheDocument();
+    const chip = screen.getByText('Departed');
+    expect(chip).toBeInTheDocument();
+    fireEvent.click(chip);
+    expect(onJumpToField).not.toHaveBeenCalled();
+  });
+
+  // 'firm_splits' has no editable row either, but it maps to the Sale
+  // section anchor — its chip is informational (muted) yet still clickable,
+  // scrolling to #section-sale instead of opening a field editor. Renders
+  // the REAL ShipmentSaleSection alongside the bar (not a fabricated stand-in
+  // div) so this proves the id="section-sale" anchor actually reaches the
+  // DOM through antd's Card — not just that the click handler fires.
+  it('renders a section-mapped informational key as clickable, scrolling to the real Sale section anchor', () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const onJumpToField = vi.fn();
+    const completeness: ICompleteness = {
+      required_total: 1,
+      filled_count: 0,
+      missing_fields: [{ key: 'firm_splits', title_key: 'tasks.set_firm_splits', step: 'satys', role: 'export_manager' }],
+      manual_tasks: [],
+    };
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ShipmentSaleSection
+          shipment={MOCK_SHIPMENT_DETAIL}
+          missingKeys={new Set()}
+          readOnly
+          canEditSalesReport={false}
+        />
+        <ShipmentCompletenessBar completeness={completeness} onJumpToField={onJumpToField} />
+      </QueryClientProvider>,
+    );
+
+    const sectionEl = document.getElementById('section-sale');
+    expect(sectionEl).not.toBeNull();
+    const scrollSpy = vi.spyOn(sectionEl as HTMLElement, 'scrollIntoView');
+
+    // "Export Firm Splits" also labels the firm-split table's own section
+    // title inside ShipmentSaleSection — disambiguate to the completeness
+    // bar's chip (an ant-tag), not that heading.
+    const chip = screen
+      .getAllByText('Export Firm Splits')
+      .find((el) => el.closest('.ant-tag'));
+    expect(chip).toBeDefined();
+    fireEvent.click(chip as HTMLElement);
+
+    expect(scrollSpy).toHaveBeenCalled();
+    expect(onJumpToField).not.toHaveBeenCalled();
   });
 });
