@@ -1,8 +1,10 @@
 """Tests for the team-KPI aggregation service."""
 from datetime import timedelta
 
+from django.core.cache import cache
 from django.test import TestCase
 from django.utils import timezone
+from rest_framework.test import APIClient
 
 from apps.core.models import User
 from apps.core.services_team_kpi import parse_period, compute_team_kpi
@@ -87,3 +89,37 @@ class ComputeTeamKpiTest(TestCase):
         self._done_task(self.alice, completed_at=old)
         rows = {r['user_id']: r for r in compute_team_kpi('today')}
         self.assertEqual(rows[self.alice.id]['completed'], 0)
+
+
+class TeamKpiApiTest(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.user = User.objects.create(username='viewer', role='document_team', is_active=True)
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+    def test_returns_period_and_results(self):
+        resp = self.client.get('/api/v1/core/team-kpi/?period=week')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['period'], 'week')
+        self.assertIsInstance(resp.data['results'], list)
+        row = next(r for r in resp.data['results'] if r['user_id'] == self.user.id)
+        self.assertEqual(
+            set(row.keys()),
+            {'user_id', 'user_name', 'role', 'completed', 'on_time_rate',
+             'overdue_now', 'active_seconds'},
+        )
+
+    def test_default_period_is_week(self):
+        resp = self.client.get('/api/v1/core/team-kpi/')
+        self.assertEqual(resp.data['period'], 'week')
+
+    def test_unknown_period_400(self):
+        resp = self.client.get('/api/v1/core/team-kpi/?period=decade')
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('error', resp.data)
+
+    def test_requires_auth(self):
+        anon = APIClient()
+        resp = anon.get('/api/v1/core/team-kpi/?period=week')
+        self.assertIn(resp.status_code, (401, 403))
