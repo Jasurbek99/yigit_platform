@@ -240,6 +240,20 @@ All under `/api/v1/export/kpi/`. Require `IsAuthenticated`, no role restriction.
 
 **Boss Dashboard integration:** `GET /api/v1/export/boss/task_throughput/?window_days=7` returns `{closed_count, created_count, on_time_rate, window_days}`.
 
+## Team KPI Leaderboard
+
+| Method | Endpoint | View | Hook | Page |
+|--------|----------|------|------|------|
+| GET | `/api/v1/core/team-kpi/?period=today\|week\|month\|season` | `TeamKpiView` | `useTeamKpi` | TeamKpi (`/team/kpi`) |
+
+`IsAuthenticated` only, no role gate (visible in the sidebar to every role). 60s cache
+keyed by period (`team-kpi:{period}`). One row per active user:
+`{user_id, user_name, role, completed, on_time_rate, overdue_now, active_seconds}`.
+`completed`/`on_time_rate`/`active_seconds` are windowed by `period` and attributed by
+`Task.completed_by`; `overdue_now` is current-state and **window-independent**, attributed
+by `assignee_role` instead. Service: `apps/core/services_team_kpi.py`. Full response shape
+and caveats: `.claude/rules/api-contract.md` ("Team KPI leaderboard").
+
 **`Shipment.status_changed_at`:** New indexed DateTimeField set by `transition_to()` on every status change and by `create_shipment()` on creation. Backfilled from `ShipmentStatusLog` by migration 0011. Used by KPI helpers and replaces `Max(status_log__changed_at)` annotation in the board view's sort key.
 
 ## Core Reference Endpoints
