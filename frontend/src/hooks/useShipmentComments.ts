@@ -13,6 +13,22 @@ export interface IUseShipmentComments {
 }
 
 /**
+ * Pure grouping logic behind `countsByField` — extracted so it can be unit
+ * tested without mounting the hook (no Zustand/React Query needed). Mirrors
+ * the Sheet's own per-cell aggregation (views.py `comment_counts`): grouped
+ * by `field_key`, non-deleted only, replies included, comments without a
+ * `field_key` (whole-shipment thread) excluded.
+ */
+export function groupCommentCountsByField(comments: IShipmentComment[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const c of comments) {
+    if (c.is_deleted || !c.field_key) continue;
+    counts[c.field_key] = (counts[c.field_key] ?? 0) + 1;
+  }
+  return counts;
+}
+
+/**
  * Drives the Detail page's two entry points into the (Sheet-authored)
  * CommentsDrawer: the hero's whole-shipment button and each row's per-field
  * icon.
@@ -26,8 +42,13 @@ export interface IUseShipmentComments {
  * `isOpen` is tracked locally (NOT from the store's `commentsDrawerOpen`)
  * because that flag is a cross-page singleton: driving `open` from it here
  * would auto-open the drawer on mount if the Sheet was left open, pointed at
- * a stale shipment. The store flag is still cleared on close/unmount so a
- * trip back to the Sheet doesn't inherit a drawer left open from here.
+ * a stale shipment. The store's whole comments context (`commentsDrawerOpen`,
+ * `commentsShipmentId`, `commentsFilter`, `activeCell`) is cleared — not just
+ * the open flag — on close/unmount so a trip back to the Sheet doesn't
+ * inherit this shipment/field: the Sheet toolbar's own comments button falls
+ * back to `commentsShipmentId`/`commentsFilter` when no cell is selected, and
+ * `activeCell` drives the Sheet grid's cell highlight, so leaving either one
+ * pointed here would leak into the Sheet's own UI.
  */
 export function useShipmentComments(
   shipmentId: number,
@@ -36,7 +57,7 @@ export function useShipmentComments(
   const [field, setField] = useState<string | null | undefined>(undefined);
   const openCommentsForCell = useSheetStore((s) => s.openCommentsForCell);
   const openCommentsForShipment = useSheetStore((s) => s.openCommentsForShipment);
-  const setCommentsDrawerOpen = useSheetStore((s) => s.setCommentsDrawerOpen);
+  const resetCommentsContext = useSheetStore((s) => s.resetCommentsContext);
 
   const open = useCallback(
     (fieldKey: string | null) => {
@@ -52,25 +73,17 @@ export function useShipmentComments(
 
   const close = useCallback(() => {
     setField(undefined);
-    setCommentsDrawerOpen(false);
-  }, [setCommentsDrawerOpen]);
+    resetCommentsContext();
+  }, [resetCommentsContext]);
 
   // Leaving the page without an explicit close (nav link, browser back)
-  // must not leave the Sheet inheriting a drawer pointed at this shipment.
-  useEffect(() => () => setCommentsDrawerOpen(false), [setCommentsDrawerOpen]);
+  // must not leave the Sheet inheriting a drawer/context pointed at this
+  // shipment.
+  useEffect(() => () => resetCommentsContext(), [resetCommentsContext]);
 
-  // Mirrors the Sheet's own per-cell aggregation (views.py comment_counts:
-  // non-deleted, grouped by field_key, replies included) so the same cell
-  // shows the same count on both pages. Derived from the shipment detail
-  // payload's already-loaded `comments` array — no extra per-field request.
-  const countsByField = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const c of comments) {
-      if (c.is_deleted || !c.field_key) continue;
-      counts[c.field_key] = (counts[c.field_key] ?? 0) + 1;
-    }
-    return counts;
-  }, [comments]);
+  // Derived from the shipment detail payload's already-loaded `comments`
+  // array — no extra per-field request.
+  const countsByField = useMemo(() => groupCommentCountsByField(comments), [comments]);
 
   return { isOpen: field !== undefined, open, close, countsByField };
 }

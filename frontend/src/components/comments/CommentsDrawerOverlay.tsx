@@ -27,13 +27,23 @@ interface ICommentsDrawerOverlayProps {
  * events — confirmed by hand: an earlier version made the whole viewport
  * `pointerEvents: auto`, which silently ate every click on the page (even
  * with the drawer closed) until the column was narrowed to match the panel.
+ *
+ * That narrowed column was still rendered unconditionally, though — only the
+ * `CommentsDrawer` inside it was gated on `open`. A closed drawer therefore
+ * left a 360px-wide, full-viewport-height, invisible `pointerEvents: auto`
+ * strip docked to the right edge, silently swallowing clicks on whatever real
+ * content sits there (RouteTimelineRail, the Links card, "View activity log").
+ * The clickable column itself must be gated on `open` so nothing intercepts
+ * pointer events in the closed state — not just the drawer it contains.
  */
 export function CommentsDrawerOverlay({ open, onClose }: ICommentsDrawerOverlayProps) {
   return (
     <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 1000, display: 'flex', justifyContent: 'flex-end' }}>
-      <div style={{ width: 360, pointerEvents: 'auto' }}>
-        <CommentsDrawer open={open} onClose={onClose} />
-      </div>
+      {open && (
+        <div style={{ width: 360, pointerEvents: 'auto' }}>
+          <CommentsDrawer open={open} onClose={onClose} />
+        </div>
+      )}
     </div>
   );
 }
