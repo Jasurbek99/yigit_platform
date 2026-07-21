@@ -215,7 +215,14 @@
     "period_month": "Month",
     "period_season": "Season",
     "no_data": "No data yet",
-    "load_error": "Failed to load the leaderboard."
+    "load_error": "Failed to load the leaderboard.",
+    "ranking_title": "Ranking by completed tasks",
+    "card_completed": "Completed",
+    "card_on_time": "On time",
+    "card_overdue": "Overdue now",
+    "card_active": "Active",
+    "card_trend": "Last 14 days",
+    "no_users": "No users to show"
   },
   "harvest_board": {
     "title": "Cargo Plan & Remainder",

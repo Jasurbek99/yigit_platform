@@ -217,7 +217,14 @@
     "period_month": "Месяц",
     "period_season": "Сезон",
     "no_data": "Пока нет данных",
-    "load_error": "Не удалось загрузить рейтинг."
+    "load_error": "Не удалось загрузить рейтинг.",
+    "ranking_title": "Рейтинг по выполненным задачам",
+    "card_completed": "Выполнено",
+    "card_on_time": "Вовремя",
+    "card_overdue": "Просрочено",
+    "card_active": "Активность",
+    "card_trend": "Последние 14 дней",
+    "no_users": "Нет пользователей"
   },
   "harvest_board": {
     "title": "План груза и остаток",

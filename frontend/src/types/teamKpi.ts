@@ -10,6 +10,7 @@ export interface ITeamKpiRow {
   on_time_rate: number | null;
   overdue_now: number;
   active_seconds: number;
+  trend: number[]; // 14-day daily completed count, oldest -> newest
 }
 
 export interface ITeamKpiResponse {

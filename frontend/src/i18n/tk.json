@@ -215,7 +215,14 @@
     "period_month": "Aý",
     "period_season": "Möwsüm",
     "no_data": "Entek maglumat ýok",
-    "load_error": "Reýtingi ýükläp bolmady."
+    "load_error": "Reýtingi ýükläp bolmady.",
+    "ranking_title": "Tamamlanan işler boýunça reýting",
+    "card_completed": "Tamamlanan",
+    "card_on_time": "Wagtynda",
+    "card_overdue": "Möhleti geçen",
+    "card_active": "Işjeňlik",
+    "card_trend": "Soňky 14 gün",
+    "no_users": "Ulanyjy ýok"
   },
   "harvest_board": {
     "title": "Ýük plan we galyndy",
