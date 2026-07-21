@@ -90,6 +90,21 @@ class ComputeTeamKpiTest(TestCase):
         rows = {r['user_id']: r for r in compute_team_kpi('today')}
         self.assertEqual(rows[self.alice.id]['completed'], 0)
 
+    def test_trend_is_14_day_series(self):
+        # 2 tasks completed today, 1 completed 3 days ago.
+        now = timezone.now()
+        self._done_task(self.alice, completed_at=now)
+        self._done_task(self.alice, completed_at=now)
+        self._done_task(self.alice, completed_at=now - timedelta(days=3))
+        rows = {r['user_id']: r for r in compute_team_kpi('week')}
+        trend = rows[self.alice.id]['trend']
+        self.assertEqual(len(trend), 14)
+        self.assertEqual(trend[-1], 2)      # today = last element
+        self.assertEqual(trend[-4], 1)      # 3 days ago
+        self.assertEqual(sum(trend), 3)
+        # A user with no completions gets an all-zero 14-length series.
+        self.assertEqual(rows[self.bob.id]['trend'], [0] * 14)
+
 
 class TeamKpiApiTest(TestCase):
     def setUp(self):
@@ -107,7 +122,7 @@ class TeamKpiApiTest(TestCase):
         self.assertEqual(
             set(row.keys()),
             {'user_id', 'user_name', 'role', 'completed', 'on_time_rate',
-             'overdue_now', 'active_seconds'},
+             'overdue_now', 'active_seconds', 'trend'},
         )
 
     def test_default_period_is_week(self):

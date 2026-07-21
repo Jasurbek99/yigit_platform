@@ -9,6 +9,7 @@ from __future__ import annotations
 from datetime import date, datetime, time, timedelta
 
 from django.db.models import Count, F, Q, Sum
+from django.db.models.functions import TruncDate
 from django.utils import timezone
 from zoneinfo import ZoneInfo
 
@@ -17,6 +18,7 @@ from apps.core.roles import task_roles_for
 
 _TM_TZ = ZoneInfo('Asia/Ashgabat')
 _VALID_PERIODS = ('today', 'week', 'month', 'season')
+_TREND_DAYS = 14
 
 
 def parse_period(value: str | None) -> str:
@@ -102,6 +104,26 @@ def compute_team_kpi(period: str) -> list[dict]:
     active_rows = active_qs.values('user_id').annotate(s=Sum('active_seconds_total'))
     active_by_user = {r['user_id']: int(r['s'] or 0) for r in active_rows}
 
+    # 3b. 14-day daily completion trend per user (fixed window, TM-local days).
+    now_local = timezone.now().astimezone(_TM_TZ)
+    trend_start_date = now_local.date() - timedelta(days=_TREND_DAYS - 1)
+    trend_since = _local_midnight(trend_start_date)
+    trend_rows = (
+        Task.objects.filter(
+            state=TaskState.DONE,
+            completed_by__isnull=False,
+            completed_at__gte=trend_since,
+        )
+        .annotate(day=TruncDate('completed_at', tzinfo=_TM_TZ))
+        .values('completed_by', 'day')
+        .annotate(c=Count('id'))
+    )
+    # index: {user_id: {date: count}}
+    trend_by_user: dict[int, dict] = {}
+    for r in trend_rows:
+        trend_by_user.setdefault(r['completed_by'], {})[r['day']] = r['c']
+    trend_dates = [trend_start_date + timedelta(days=i) for i in range(_TREND_DAYS)]
+
     # 4. Roster merge.
     users = User.objects.filter(is_active=True).values(
         'id', 'username', 'first_name', 'last_name', 'role',
@@ -118,6 +140,8 @@ def compute_team_kpi(period: str) -> list[dict]:
         else:
             on_time_rate = None
         overdue_now = sum(overdue_by_role.get(r, 0) for r in task_roles_for(u['role']))
+        user_trend_map = trend_by_user.get(u['id'], {})
+        trend = [int(user_trend_map.get(d, 0)) for d in trend_dates]
         payload.append({
             'user_id': u['id'],
             'user_name': full or u['username'],
@@ -126,6 +150,7 @@ def compute_team_kpi(period: str) -> list[dict]:
             'on_time_rate': on_time_rate,
             'overdue_now': overdue_now,
             'active_seconds': active_by_user.get(u['id'], 0),
+            'trend': trend,
         })
 
     payload.sort(key=lambda r: (-r['completed'], r['user_name']))
