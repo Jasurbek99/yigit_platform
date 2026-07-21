@@ -9,7 +9,6 @@ import { ShipmentFieldGroup, countMissing } from '@/components/shipment/Shipment
 import { ShipmentGoodsBody } from '@/components/shipment/ShipmentGoodsBody';
 import { ShipmentDocumentsBody } from '@/components/shipment/ShipmentDocumentsBody';
 import { ShipmentSaleSection } from '@/components/shipment/ShipmentSaleSection';
-import { ShipmentLinksCard } from '@/components/shipment/ShipmentLinksCard';
 import { RouteTimelineRail } from '@/components/shipment/RouteTimelineRail';
 import { ShipmentCustomsExpensesCard } from '@/components/customsExpense/ShipmentCustomsExpensesCard';
 import { CUSTOMS_EXPENSE_WRITE_ROLES } from '@/components/customsExpense/CustomsExpensesTab';
@@ -127,7 +126,6 @@ export default function ShipmentDetail() {
         {screens.md && (
           <div style={{ gridColumn: 3, gridRow: '1 / span 3' }}>
             <RouteTimelineRail shipment={shipment} />
-            <ShipmentLinksCard />
           </div>
         )}
       </div>

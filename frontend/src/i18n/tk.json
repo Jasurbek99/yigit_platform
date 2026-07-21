@@ -621,7 +621,6 @@
     "section_timestamps": "Wagt möhürleri",
     "section_weight_price": "Agram we baha",
     "route_card": "Ýük ýoly",
-    "links_card": "Baglanyşyklar",
     "import_firm": "Import firma",
     "loading_point": "Ýüklenýän ýer",
     "vehicle": "Maşyn",
@@ -635,9 +634,7 @@
     "weight_official": "Agram (resmi)",
     "weight_actual": "Agram (hakyky)",
     "transit_days": "Tranzit güni",
-    "temperature": "Temperaturasy",
-    "link_not_sent": "Heniz iberilmedi",
-    "link_no_device": "Enjam ýok"
+    "temperature": "Temperaturasy"
   },
   "shipment_status": {
     "draft": "Garalama",

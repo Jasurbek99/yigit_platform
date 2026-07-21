@@ -623,7 +623,6 @@
     "section_timestamps": "Временны́е метки",
     "section_weight_price": "Вес и цена",
     "route_card": "Маршрут груза",
-    "links_card": "Интеграции",
     "import_firm": "Импортная фирма",
     "loading_point": "Место загрузки",
     "vehicle": "Автомобиль",
@@ -637,9 +636,7 @@
     "weight_official": "Вес (официальный)",
     "weight_actual": "Вес (фактический)",
     "transit_days": "Дней в пути",
-    "temperature": "Температура",
-    "link_not_sent": "Ещё не отправлено",
-    "link_no_device": "Нет устройства"
+    "temperature": "Температура"
   },
   "shipment_status": {
     "draft": "Черновик",

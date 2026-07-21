@@ -621,7 +621,6 @@
     "section_timestamps": "Timestamps",
     "section_weight_price": "Weight & Price",
     "route_card": "Shipment Route",
-    "links_card": "Integrations",
     "import_firm": "Import Firm",
     "loading_point": "Loading Point",
     "vehicle": "Vehicle",
@@ -635,9 +634,7 @@
     "weight_official": "Weight (Official)",
     "weight_actual": "Weight (Actual)",
     "transit_days": "Transit Days",
-    "temperature": "Temperature",
-    "link_not_sent": "Not yet sent",
-    "link_no_device": "No device"
+    "temperature": "Temperature"
   },
   "shipment_status": {
     "draft": "Draft",

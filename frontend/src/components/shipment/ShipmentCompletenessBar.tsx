@@ -21,11 +21,9 @@ interface IShipmentCompletenessBarProps {
  * same label the operator sees when they actually go fill that field in
  * the Edit drawer, and it covers most of TaskRule.target_fields (draft
  * step: country/customer/import_firm/driver_name/driver_phone/truck_plate/
- * documents_status). A handful of target_fields (firm_splits,
- * block_sources, the *_at trigger timestamps, sales_report, ...) have no
- * entry in either that namespace or `tasks.field_label`, so those fall
- * back to the raw key via i18next's `defaultValue` rather than leaking a
- * dotted i18n key path onto the page.
+ * documents_status). Any target_field with no entry in that namespace or
+ * `tasks.field_label` falls back to the raw key via i18next's
+ * `defaultValue` rather than leaking a dotted i18n key path onto the page.
  */
 export function ShipmentCompletenessBar({
   completeness,
