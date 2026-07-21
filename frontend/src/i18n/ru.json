@@ -206,12 +206,6 @@
   "team_kpi": {
     "title": "Рейтинг команды",
     "subtitle": "Выполненные задачи по каждому сотруднику. Видно всей команде.",
-    "col_user": "Сотрудник",
-    "col_role": "Роль",
-    "col_completed": "Выполнено",
-    "col_on_time": "Вовремя",
-    "col_overdue": "Просрочено",
-    "col_active": "Активность",
     "period_today": "Сегодня",
     "period_week": "Неделя",
     "period_month": "Месяц",

@@ -204,12 +204,6 @@
   "team_kpi": {
     "title": "Team leaderboard",
     "subtitle": "Tasks completed per user. Public to the whole team.",
-    "col_user": "User",
-    "col_role": "Role",
-    "col_completed": "Completed",
-    "col_on_time": "On time",
-    "col_overdue": "Overdue now",
-    "col_active": "Active",
     "period_today": "Today",
     "period_week": "Week",
     "period_month": "Month",

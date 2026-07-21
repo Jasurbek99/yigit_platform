@@ -47,7 +47,7 @@ interface ITeamKpiCardProps {
 export function TeamKpiCard({ row, rank }: ITeamKpiCardProps) {
   const { t } = useTranslation();
   const pct = row.on_time_rate == null ? null : Math.round(row.on_time_rate * 100);
-  const onTimeColor = row.on_time_rate != null && row.on_time_rate >= 0.8 ? COLORS.success : COLORS.orange;
+  const onTimeColor = row.on_time_rate == null ? undefined : (row.on_time_rate >= 0.8 ? COLORS.success : COLORS.orange);
   const hasTrend = row.trend.some((n) => n > 0);
 
   return (

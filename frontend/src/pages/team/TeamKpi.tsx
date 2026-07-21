@@ -22,6 +22,7 @@ export default function TeamKpi() {
 
   const query = useTeamKpi(period);
   const rows = query.data?.results ?? [];
+  const hasCompletions = rows.some((r) => r.completed > 0);
 
   return (
     <div style={{ padding: '0 4px' }}>
@@ -46,9 +47,11 @@ export default function TeamKpi() {
         <Card size="small"><Text type="secondary">{t('team_kpi.no_users')}</Text></Card>
       ) : (
         <>
-          <Card size="small" title={t('team_kpi.ranking_title')} style={{ marginBottom: 16 }}>
-            <TeamRankingChart rows={rows} />
-          </Card>
+          {hasCompletions && (
+            <Card size="small" title={t('team_kpi.ranking_title')} style={{ marginBottom: 16 }}>
+              <TeamRankingChart rows={rows} />
+            </Card>
+          )}
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
