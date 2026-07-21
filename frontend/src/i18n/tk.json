@@ -214,7 +214,8 @@
     "period_week": "Hepde",
     "period_month": "Aý",
     "period_season": "Möwsüm",
-    "no_data": "Entek maglumat ýok"
+    "no_data": "Entek maglumat ýok",
+    "load_error": "Reýtingi ýükläp bolmady."
   },
   "harvest_board": {
     "title": "Ýük plan we galyndy",

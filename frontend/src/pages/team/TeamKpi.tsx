@@ -5,8 +5,8 @@
 // tasks completed in the selected period; overdue-now is current-state and
 // does not follow the period selector.
 
-import { useMemo } from 'react';
-import { Card, Segmented, Table, Tag, Typography } from 'antd';
+import { useMemo, useState } from 'react';
+import { Alert, Card, Segmented, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -34,13 +34,16 @@ export default function TeamKpi() {
     raw && (PERIODS as string[]).includes(raw) ? (raw as TeamKpiPeriod) : 'week';
 
   const query = useTeamKpi(period);
+  const [page, setPage] = useState({ current: 1, pageSize: 25 });
 
   const columns: ColumnsType<ITeamKpiRow> = useMemo(() => [
     {
       title: '#',
       key: 'rank',
       width: 56,
-      render: (_v, _row, idx) => <Text type="secondary">{idx + 1}</Text>,
+      render: (_v, _row, idx) => (
+        <Text type="secondary">{(page.current - 1) * page.pageSize + idx + 1}</Text>
+      ),
     },
     {
       title: t('team_kpi.col_user'),
@@ -113,12 +116,21 @@ export default function TeamKpi() {
       ),
       sorter: (a, b) => a.active_seconds - b.active_seconds,
     },
-  ], [t]);
+  ], [t, page]);
 
   return (
     <div style={{ padding: '0 4px' }}>
       <Title level={3} style={{ marginBottom: 4 }}>{t('team_kpi.title')}</Title>
       <Text type="secondary">{t('team_kpi.subtitle')}</Text>
+
+      {query.isError && (
+        <Alert
+          type="error"
+          message={t('team_kpi.load_error')}
+          showIcon
+          style={{ marginTop: 16 }}
+        />
+      )}
 
       <Card size="small" style={{ marginTop: 16 }}
         title={
@@ -136,7 +148,15 @@ export default function TeamKpi() {
           dataSource={query.data?.results ?? []}
           columns={columns}
           rowKey="user_id"
-          pagination={{ pageSize: 25, showSizeChanger: false, hideOnSinglePage: true }}
+          pagination={{
+            current: page.current,
+            pageSize: page.pageSize,
+            showSizeChanger: false,
+            hideOnSinglePage: true,
+          }}
+          onChange={(pagination) =>
+            setPage({ current: pagination.current ?? 1, pageSize: pagination.pageSize ?? 25 })
+          }
           locale={{ emptyText: t('team_kpi.no_data') }}
         />
       </Card>

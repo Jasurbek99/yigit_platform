@@ -216,7 +216,8 @@
     "period_week": "Неделя",
     "period_month": "Месяц",
     "period_season": "Сезон",
-    "no_data": "Пока нет данных"
+    "no_data": "Пока нет данных",
+    "load_error": "Не удалось загрузить рейтинг."
   },
   "harvest_board": {
     "title": "План груза и остаток",

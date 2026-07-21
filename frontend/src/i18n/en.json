@@ -214,7 +214,8 @@
     "period_week": "Week",
     "period_month": "Month",
     "period_season": "Season",
-    "no_data": "No data yet"
+    "no_data": "No data yet",
+    "load_error": "Failed to load the leaderboard."
   },
   "harvest_board": {
     "title": "Cargo Plan & Remainder",
