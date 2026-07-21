@@ -186,6 +186,15 @@ class InvoiceContextBuilderTest(SimpleTestCase):
         self.assertEqual(c['transport'], '')
         self.assertEqual(c['pallet_note'], '')
 
+    def test_null_invoice_number_renders_blank_not_none(self):
+        # invoice_number is nullable (bridge sale / not yet numbered) — the
+        # document must show blank, never the literal "None".
+        inv = _mock_invoice()
+        inv.invoice_number = None
+        c = ctx.build_invoice_context(inv, 'ru')
+        self.assertEqual(c['invoice_no'], '')
+        self.assertEqual(ctx.invoice_filename_fields(inv)['invoice_number'], 'NA')
+
     def test_per_firm_packing_prints_explicit_share(self):
         """The invoice prints the firm's explicit packing (copied from the share)."""
         c = ctx.build_invoice_context(

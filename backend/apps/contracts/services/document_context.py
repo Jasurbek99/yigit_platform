@@ -264,7 +264,9 @@ def build_invoice_context(invoice, lang: str = 'ru', overrides: dict | None = No
     }
 
     return {
-        'invoice_no': str(invoice.invoice_number),
+        # invoice_number is nullable — a bridge sale (or one not yet numbered)
+        # has NULL; render blank, never the literal "None". See ContractSale.
+        'invoice_no': str(invoice.invoice_number) if invoice.invoice_number is not None else '',
         'invoice_date': _date(invoice.invoice_date),
         'contract_line': _contract_line(contract),
         'seller_name': _firm_attr(seller, 'name', lang),
@@ -288,7 +290,8 @@ def invoice_filename_fields(invoice) -> dict:
     return {
         'contract_number': (invoice.contract.contract_number if invoice.contract else 'NA')
         .replace('/', '-'),
-        'invoice_number': invoice.invoice_number,
+        # NULL invoice_number would otherwise land as "None" in the filename.
+        'invoice_number': invoice.invoice_number if invoice.invoice_number is not None else 'NA',
     }
 
 
