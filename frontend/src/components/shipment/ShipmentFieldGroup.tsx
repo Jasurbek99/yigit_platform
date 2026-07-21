@@ -21,6 +21,15 @@ interface IShipmentFieldGroupProps {
   onOpenComments?: (fieldKey: string) => void;
   /** field_key → live comment count, for the 💬 icon's badge. */
   commentCountsByField?: Record<string, number>;
+  /**
+   * Field keys to skip — for a group whose card renders one of its fields
+   * standalone elsewhere (e.g. `harvest_status` in the `goods` group, shown
+   * ahead of the variety block by ShipmentGoodsBody) so it isn't rendered
+   * twice. The field stays part of the group for every other consumer
+   * (completeness chip, section scroll-jump, kanban overflow panel, the
+   * generic multi-group edit drawer) — only this render skips it.
+   */
+  excludeKeys?: readonly string[];
 }
 
 /**
@@ -34,10 +43,15 @@ export function ShipmentFieldGroup({
   readOnly,
   onOpenComments,
   commentCountsByField,
+  excludeKeys,
 }: IShipmentFieldGroupProps) {
+  const fields = excludeKeys
+    ? groupByKey(groupKey).fields.filter((f) => !excludeKeys.includes(f.key))
+    : groupByKey(groupKey).fields;
+
   return (
     <div>
-      {groupByKey(groupKey).fields.map((config) => (
+      {fields.map((config) => (
         <DetailFieldRow
           key={config.key}
           shipment={shipment}

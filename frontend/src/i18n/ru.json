@@ -576,6 +576,7 @@
     "tab_comments": "Комментарии ({{count}})",
     "tab_history": "История ({{count}})",
     "shipment_code": "Код отгрузки",
+    "export_code": "Экспортный код",
     "date": "Дата",
     "status": "Статус",
     "customer": "Клиент",

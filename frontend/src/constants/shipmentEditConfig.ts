@@ -54,6 +54,21 @@ export interface IEditFieldGroup {
   fields: IEditFieldConfig[];
 }
 
+/**
+ * `harvest_status` lives in the `goods` group (Goods & Loading card renders
+ * it standalone, ahead of the variety block — see ShipmentGoodsBody). It
+ * used to sit in `status` (Documents & Customs); moved per product owner
+ * so harvest status reads alongside the other loading-stage fields. Exported
+ * so ShipmentGoodsBody can render it outside the group's normal field order
+ * without duplicating the config object.
+ */
+export const HARVEST_STATUS_FIELD: IEditFieldConfig = {
+  key: 'harvest_status',
+  labelKey: 'shipment_edit_drawer.field.harvest_status',
+  inputType: 'option_select',
+  optionsSource: 'harvestStatus',
+};
+
 export const EDIT_FIELD_GROUPS: IEditFieldGroup[] = [
   {
     key: 'logistics',
@@ -85,6 +100,7 @@ export const EDIT_FIELD_GROUPS: IEditFieldGroup[] = [
     key: 'goods',
     titleKey: 'shipment_edit_drawer.section_goods',
     fields: [
+      HARVEST_STATUS_FIELD,
       { key: 'variety', labelKey: 'shipment_edit_drawer.field.variety', inputType: 'select', optionsSource: 'varieties' },
       { key: 'weight_net', labelKey: 'shipment_edit_drawer.field.weight_net', inputType: 'number', min: 0, suffix: 'kg' },
       { key: 'weight_gross', labelKey: 'shipment_edit_drawer.field.weight_gross', inputType: 'number', min: 0, suffix: 'kg' },
@@ -107,7 +123,6 @@ export const EDIT_FIELD_GROUPS: IEditFieldGroup[] = [
     titleKey: 'shipment_edit_drawer.section_status',
     fields: [
       { key: 'documents_status', labelKey: 'shipment_edit_drawer.field.documents_status', inputType: 'option_select', optionsSource: 'documentsStatus' },
-      { key: 'harvest_status', labelKey: 'shipment_edit_drawer.field.harvest_status', inputType: 'option_select', optionsSource: 'harvestStatus' },
       { key: 'customs_clearance_planned_day', labelKey: 'shipment_edit_drawer.field.customs_clearance_planned_day', inputType: 'select', optionsSource: 'weekdays' },
     ],
   },

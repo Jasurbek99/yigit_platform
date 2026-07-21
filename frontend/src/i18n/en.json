@@ -574,6 +574,7 @@
     "tab_comments": "Comments ({{count}})",
     "tab_history": "History ({{count}})",
     "shipment_code": "Shipment Code",
+    "export_code": "Export code",
     "date": "Date",
     "status": "Status",
     "customer": "Customer",

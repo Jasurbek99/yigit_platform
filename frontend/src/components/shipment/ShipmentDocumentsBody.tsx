@@ -14,11 +14,12 @@ interface IShipmentDocumentsBodyProps {
 
 /**
  * "Documents & Customs" card body: the editable `status` field group (docs
- * status, harvest status, planned customs day) and the loading/customs
- * timestamps, which are read-only because only `transition_to()` writes
- * them. The quality certificates and the border/arrival/sale timestamps
- * moved to their own Quality Certificates, Transport & Transit, and Sale
- * cards respectively.
+ * status, planned customs day) and the loading/customs timestamps, which
+ * are read-only because only `transition_to()` writes them. Harvest status
+ * moved to the Goods & Loading card (see `HARVEST_STATUS_FIELD` in
+ * shipmentEditConfig.ts). The quality certificates and the
+ * border/arrival/sale timestamps moved to their own Quality Certificates,
+ * Transport & Transit, and Sale cards respectively.
  */
 export function ShipmentDocumentsBody({
   shipment,
