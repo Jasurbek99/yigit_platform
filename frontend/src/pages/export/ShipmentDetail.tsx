@@ -14,7 +14,7 @@ import { RouteTimelineRail } from '@/components/shipment/RouteTimelineRail';
 import { ShipmentCustomsExpensesCard } from '@/components/customsExpense/ShipmentCustomsExpensesCard';
 import { CUSTOMS_EXPENSE_WRITE_ROLES } from '@/components/customsExpense/CustomsExpensesTab';
 import { MIN_SALES_REPORT_STEP } from '@/components/salesReport/salesReportUtils';
-import { CommentsDrawer } from '@/components/comments/CommentsDrawer';
+import { CommentsDrawerOverlay } from '@/components/comments/CommentsDrawerOverlay';
 import { useShipmentDetail } from '@/hooks/useShipmentDetail';
 import { useShipmentComments } from '@/hooks/useShipmentComments';
 import { useAuth } from '@/hooks/useAuth';
@@ -69,7 +69,7 @@ export default function ShipmentDetail() {
   };
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div>
       <ShipmentDetailHero shipment={shipment} onOpenComments={comments.open} />
       <ShipmentGuidanceLine shipment={shipment} />
       <ShipmentCompletenessBar completeness={shipment.completeness} onJumpToField={jumpToField} />
@@ -144,7 +144,7 @@ export default function ShipmentDetail() {
           {t('shipment.detail.activity_link')} →
         </Link>
       </Flex>
-      <CommentsDrawer open={comments.isOpen} onClose={comments.close} />
+      <CommentsDrawerOverlay open={comments.isOpen} onClose={comments.close} />
     </div>
   );
 }

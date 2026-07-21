@@ -80,6 +80,11 @@ export function useCreateComment() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['comments'] });
       queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+      // The Detail page's hero comment_count badge and per-field 💬 counts
+      // (Task 9) come from the shipment-detail payload's nested `comments`
+      // array, not from this ['comments'] query — without this, posting a
+      // comment on Detail leaves both stale until the next full reload.
+      queryClient.invalidateQueries({ queryKey: ['shipment'] });
     },
   });
 }
@@ -100,6 +105,8 @@ export function useUpdateComment() {
       return data;
     },
     onSuccess: () => {
+      // Content-only edit — doesn't touch is_deleted/field_key, so it can't
+      // change comment_count or the per-field counts; no ['shipment'] invalidation needed.
       queryClient.invalidateQueries({ queryKey: ['comments'] });
     },
   });
@@ -117,6 +124,7 @@ export function useDeleteComment() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['comments'] });
       queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+      queryClient.invalidateQueries({ queryKey: ['shipment'] });
     },
   });
 }
