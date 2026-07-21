@@ -1524,6 +1524,8 @@ export interface IShipmentDetail extends IShipmentListItem {
   block_sources: IBlockSource[];
   status_log: IStatusLogEntry[];
   comments: IShipmentComment[];
+  /** Non-deleted root comment (thread) count — drives the hero discussion badge. */
+  comment_count: number;
   quality: IShipmentQuality | null;
   sales_report: ISalesReport | null;
   /** Customs / document expenses for this shipment (from customs-expenses API). */

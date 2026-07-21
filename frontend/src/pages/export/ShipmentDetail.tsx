@@ -14,7 +14,9 @@ import { RouteTimelineRail } from '@/components/shipment/RouteTimelineRail';
 import { ShipmentCustomsExpensesCard } from '@/components/customsExpense/ShipmentCustomsExpensesCard';
 import { CUSTOMS_EXPENSE_WRITE_ROLES } from '@/components/customsExpense/CustomsExpensesTab';
 import { MIN_SALES_REPORT_STEP } from '@/components/salesReport/salesReportUtils';
+import { CommentsDrawer } from '@/components/comments/CommentsDrawer';
 import { useShipmentDetail } from '@/hooks/useShipmentDetail';
+import { useShipmentComments } from '@/hooks/useShipmentComments';
 import { useAuth } from '@/hooks/useAuth';
 import { canDo } from '@/utils/permissions';
 import { COLORS } from '@/constants/styles';
@@ -26,6 +28,8 @@ export default function ShipmentDetail() {
   const { data: shipment, isLoading, isError } = useShipmentDetail(id);
   const { user } = useAuth();
   const { t } = useTranslation();
+  // Must run every render (Rules of Hooks) — harmless fallback pre-load.
+  const comments = useShipmentComments(shipment?.id ?? 0, shipment?.comments ?? []);
 
   if (isLoading) {
     return (
@@ -59,16 +63,18 @@ export default function ShipmentDetail() {
     user?.is_superuser === true;
 
   const missingKeys = new Set(shipment.completeness.missing_fields.map((f) => f.key));
-  const groupProps = { shipment, missingKeys, readOnly };
+  const groupProps = {
+    shipment, missingKeys, readOnly,
+    onOpenComments: comments.open, commentCountsByField: comments.countsByField,
+  };
 
   return (
-    <div>
-      <ShipmentDetailHero shipment={shipment} />
+    <div style={{ position: 'relative' }}>
+      <ShipmentDetailHero shipment={shipment} onOpenComments={comments.open} />
       <ShipmentGuidanceLine shipment={shipment} />
       <ShipmentCompletenessBar completeness={shipment.completeness} onJumpToField={jumpToField} />
 
-      {/* Always-open stage cards. Five cards flow into columns 1-2 across three
-          rows; the route rail is pinned to column 3 spanning all three. */}
+      {/* Always-open stage cards: five flow into columns 1-2 across three rows; the route rail spans column 3. */}
       <div
         style={{
           display: 'grid',
@@ -138,6 +144,7 @@ export default function ShipmentDetail() {
           {t('shipment.detail.activity_link')} →
         </Link>
       </Flex>
+      <CommentsDrawer open={comments.isOpen} onClose={comments.close} />
     </div>
   );
 }

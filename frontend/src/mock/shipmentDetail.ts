@@ -119,6 +119,7 @@ export const MOCK_SHIPMENT_DETAIL: IShipmentDetail = {
       updated_at: null,
     },
   ],
+  comment_count: 1,
   quality: {
     azyk_maglumatnama: true,
     suriji_gozukdiriji: true,

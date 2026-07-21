@@ -16,7 +16,7 @@ import {
 } from '@/hooks/useUserSheetPreferences';
 import { SheetToolbar } from '@/components/sheet/SheetToolbar';
 import { SheetGrid } from '@/components/sheet/SheetGrid';
-import { CommentsDrawer } from '@/components/sheet/CommentsDrawer';
+import { CommentsDrawer } from '@/components/comments/CommentsDrawer';
 import '@/components/sheet/SheetStyles.css';
 
 export default function ShipmentSheet() {

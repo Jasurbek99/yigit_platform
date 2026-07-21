@@ -14,6 +14,8 @@ interface IShipmentSaleSectionProps {
   missingKeys: Set<string>;
   readOnly: boolean;
   canEditSalesReport: boolean;
+  onOpenComments?: (fieldKey: string) => void;
+  commentCountsByField?: Record<string, number>;
 }
 
 /**
@@ -29,6 +31,8 @@ export function ShipmentSaleSection({
   missingKeys,
   readOnly,
   canEditSalesReport,
+  onOpenComments,
+  commentCountsByField,
 }: IShipmentSaleSectionProps) {
   const { t } = useTranslation();
 
@@ -54,6 +58,8 @@ export function ShipmentSaleSection({
         groupKey="finance"
         missingKeys={missingKeys}
         readOnly={readOnly}
+        onOpenComments={onOpenComments}
+        commentCountsByField={commentCountsByField}
       />
 
       {shipment.firm_splits.length > 0 && (

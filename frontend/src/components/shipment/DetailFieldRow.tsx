@@ -39,6 +39,10 @@ interface IDetailFieldRowProps {
    * Merely-empty fields that nothing is waiting on are NOT highlighted.
    */
   isMissing?: boolean;
+  /** Opens this field's comments thread. Omit to hide the 💬 icon entirely. */
+  onOpenComments?: () => void;
+  /** Live comment count for this field, shown next to the 💬 icon. */
+  commentCount?: number;
 }
 
 /**
@@ -67,6 +71,8 @@ export function DetailFieldRow({
   readOnly = false,
   format,
   isMissing = false,
+  onOpenComments,
+  commentCount = 0,
 }: IDetailFieldRowProps) {
   const { t } = useTranslation();
   const patch = useShipmentPatchMulti();
@@ -197,6 +203,7 @@ export function DetailFieldRow({
   return (
     <div
       id={`detail-field-${config.key}`}
+      className="detail-row"
       onBlur={handleBlur}
       style={{
         display: 'flex',
@@ -256,6 +263,20 @@ export function DetailFieldRow({
             {t('shipment.detail.save_failed')}{' '}
             <a onClick={() => commit(draft)}>{t('shipment.detail.retry')}</a>
           </Text>
+        )}
+        {onOpenComments && (
+          <span
+            onClick={onOpenComments}
+            style={{
+              fontSize: 11,
+              cursor: 'pointer',
+              color: commentCount > 0 ? COLORS.primary : COLORS.textMuted,
+              opacity: commentCount > 0 ? 1 : 0,
+            }}
+            className="detail-row-comment"
+          >
+            💬{commentCount > 0 ? ` ${commentCount}` : ''}
+          </span>
         )}
       </div>
     </div>

@@ -13,6 +13,8 @@ interface IShipmentDocumentsBodyProps {
   missingKeys: Set<string>;
   readOnly: boolean;
   canEditQuality: boolean;
+  onOpenComments?: (fieldKey: string) => void;
+  commentCountsByField?: Record<string, number>;
 }
 
 const QUALITY_FIELDS: (keyof IShipmentQuality)[] = [
@@ -40,6 +42,8 @@ export function ShipmentDocumentsBody({
   missingKeys,
   readOnly,
   canEditQuality,
+  onOpenComments,
+  commentCountsByField,
 }: IShipmentDocumentsBodyProps) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -92,6 +96,8 @@ export function ShipmentDocumentsBody({
         groupKey="status"
         missingKeys={missingKeys}
         readOnly={readOnly}
+        onOpenComments={onOpenComments}
+        commentCountsByField={commentCountsByField}
       />
 
       <div style={{ marginTop: 12 }}>

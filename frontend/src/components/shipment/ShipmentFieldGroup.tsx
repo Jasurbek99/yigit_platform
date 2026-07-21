@@ -17,6 +17,10 @@ interface IShipmentFieldGroupProps {
   /** Keys from `shipment.completeness.missing_fields` — drives row highlighting. */
   missingKeys: Set<string>;
   readOnly: boolean;
+  /** Opens the comments drawer for one field's thread. Omit to hide the 💬 icon. */
+  onOpenComments?: (fieldKey: string) => void;
+  /** field_key → live comment count, for the 💬 icon's badge. */
+  commentCountsByField?: Record<string, number>;
 }
 
 /**
@@ -28,6 +32,8 @@ export function ShipmentFieldGroup({
   groupKey,
   missingKeys,
   readOnly,
+  onOpenComments,
+  commentCountsByField,
 }: IShipmentFieldGroupProps) {
   return (
     <div>
@@ -38,6 +44,8 @@ export function ShipmentFieldGroup({
           config={config}
           readOnly={readOnly}
           isMissing={missingKeys.has(config.key)}
+          onOpenComments={onOpenComments ? () => onOpenComments(config.key) : undefined}
+          commentCount={commentCountsByField?.[config.key] ?? 0}
         />
       ))}
     </div>

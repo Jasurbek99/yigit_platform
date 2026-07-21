@@ -14,6 +14,8 @@ interface IShipmentGoodsBodyProps {
   missingKeys: Set<string>;
   readOnly: boolean;
   canOverrideVariety: boolean;
+  onOpenComments?: (fieldKey: string) => void;
+  commentCountsByField?: Record<string, number>;
 }
 
 const CONFIDENCE_TAG: Record<string, { color: string; labelKey: string; mark: string }> = {
@@ -32,6 +34,8 @@ export function ShipmentGoodsBody({
   missingKeys,
   readOnly,
   canOverrideVariety,
+  onOpenComments,
+  commentCountsByField,
 }: IShipmentGoodsBodyProps) {
   const { t } = useTranslation();
   const [overrideOpen, setOverrideOpen] = useState(false);
@@ -90,6 +94,8 @@ export function ShipmentGoodsBody({
         groupKey="goods"
         missingKeys={missingKeys}
         readOnly={readOnly}
+        onOpenComments={onOpenComments}
+        commentCountsByField={commentCountsByField}
       />
       <InfoRow label={t('shipment_detail.harvest_date')} value={fmtDate(shipment.date)} />
 

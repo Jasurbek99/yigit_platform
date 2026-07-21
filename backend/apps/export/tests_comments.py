@@ -312,3 +312,54 @@ class TestDeleteRootCascadesReplies(TestCase):
         reply.refresh_from_db()
         self.assertTrue(root.is_deleted)
         self.assertTrue(reply.is_deleted)  # cascaded — no orphan left in the badge count
+
+
+# ── Test: ShipmentDetailSerializer.comment_count (Task 9 hero badge) ────────
+
+class TestShipmentDetailCommentCount(TestCase):
+    """test_comment_count_excludes_replies_and_deleted
+
+    comment_count backs the Detail page hero's discussion badge. It must
+    count distinct threads only: non-deleted root comments. Replies (shown
+    nested under their root, not as separate threads) and soft-deleted roots
+    must NOT inflate it.
+    """
+
+    def setUp(self):
+        from apps.core.models import ShipmentStatusType
+
+        self.author = _make_user('count_author')
+        # _make_shipment() leaves status unset, which a NOT NULL constraint on
+        # status_id rejects on MSSQL (a pre-existing, unrelated gap in that
+        # helper) — set status explicitly here, matching
+        # TestDeleteRootCascadesReplies's pattern.
+        season, _ = Season.objects.get_or_create(
+            name='2025',
+            defaults={'start_date': '2025-01-01', 'end_date': '2025-12-31'},
+        )
+        status, _ = ShipmentStatusType.objects.get_or_create(
+            code='yuklenme',
+            defaults={'name_tk': 'yuklenme', 'name_en': 'Loading', 'step_order': 1, 'phase': 'LOADING'},
+        )
+        self.shipment = Shipment.objects.create(
+            shipment_code='0101003/25', date='2025-01-01',
+            season=season, status=status, created_by=self.author,
+        )
+        # Reload so `date` etc. come back as real python types (date, not str)
+        # — required for ShipmentDetailSerializer's other computed fields
+        # (e.g. get_harvest_age_days) which the create()-returned in-memory
+        # instance doesn't have.
+        self.shipment.refresh_from_db()
+
+    def test_comment_count_excludes_replies_and_deleted(self):
+        from apps.export.serializers import ShipmentDetailSerializer
+
+        create_comment(self.shipment, self.author, content='root 1')
+        root2 = create_comment(self.shipment, self.author, content='root 2')
+        create_comment(self.shipment, self.author, content='a reply', parent_comment=root2)
+        deleted_root = create_comment(self.shipment, self.author, content='root 3 deleted')
+        deleted_root.is_deleted = True
+        deleted_root.save(update_fields=['is_deleted'])
+
+        data = ShipmentDetailSerializer(self.shipment).data
+        self.assertEqual(data['comment_count'], 2)

@@ -54,6 +54,11 @@ code, .text-mono { font-family: var(--font-mono); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-placeholder); }
 
+/* ─── Shipment Detail field rows: reveal the comment icon on hover ────────
+   even when the field has no comments yet (DetailFieldRow renders it at
+   opacity:0 until hovered so the row isn't cluttered by default). ────────── */
+.detail-row:hover .detail-row-comment { opacity: 1 !important; }
+
 /* ─── Print styles ──────────────────────────────────────────────────────── */
 @media print {
   .mantine-AppShell-navbar,
