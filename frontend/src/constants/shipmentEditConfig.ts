@@ -63,7 +63,6 @@ export const EDIT_FIELD_GROUPS: IEditFieldGroup[] = [
       { key: 'customer', labelKey: 'shipment_edit_drawer.field.customer', inputType: 'select', optionsSource: 'customers' },
       { key: 'city', labelKey: 'shipment_edit_drawer.field.city', inputType: 'select', optionsSource: 'cities', countryFiltered: true },
       { key: 'import_firm', labelKey: 'shipment_edit_drawer.field.import_firm', inputType: 'select', optionsSource: 'importFirms' },
-      { key: 'border_point', labelKey: 'shipment_edit_drawer.field.border_point', inputType: 'select', optionsSource: 'borderPoints' },
     ],
   },
   {
@@ -78,6 +77,7 @@ export const EDIT_FIELD_GROUPS: IEditFieldGroup[] = [
       { key: 'vehicle_condition_note', labelKey: 'shipment_edit_drawer.field.vehicle_condition_note', inputType: 'textarea' },
       { key: 'transit_days', labelKey: 'shipment_edit_drawer.field.transit_days', inputType: 'number', min: 0, suffix: 'd' },
       { key: 'transport_temp_c', labelKey: 'shipment_edit_drawer.field.transport_temp_c', inputType: 'number', suffix: '°C' },
+      { key: 'border_point', labelKey: 'shipment_edit_drawer.field.border_point', inputType: 'select', optionsSource: 'borderPoints' },
     ],
   },
   {

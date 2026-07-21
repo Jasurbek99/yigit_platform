@@ -1,8 +1,8 @@
 import { Card, Table, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { ShipmentFieldGroup } from '@/components/shipment/ShipmentFieldGroup';
-import { SalesReportForm } from '@/pages/export/ShipmentDetailHelpers';
-import { fmtNum } from '@/pages/export/ShipmentDetailHelpers.helpers';
+import { InfoRow, SalesReportForm } from '@/pages/export/ShipmentDetailHelpers';
+import { fmt, fmtNum } from '@/pages/export/ShipmentDetailHelpers.helpers';
 import { MIN_SALES_REPORT_STEP } from '@/components/salesReport/salesReportUtils';
 import type { TableColumnsType } from 'antd';
 import type { IFirmSplit, IShipmentDetail } from '@/types';
@@ -62,6 +62,11 @@ export function ShipmentSaleSection({
         onOpenComments={onOpenComments}
         commentCountsByField={commentCountsByField}
       />
+
+      <div style={{ marginTop: 8 }}>
+        <InfoRow label={t('shipment_detail.sale_started')} value={fmt(shipment.sale_started_at)} />
+        <InfoRow label={t('shipment_detail.sale_ended')} value={fmt(shipment.sale_ended_at)} />
+      </div>
 
       {shipment.firm_splits.length > 0 && (
         <div style={{ marginTop: 16 }}>
