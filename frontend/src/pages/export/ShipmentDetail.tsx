@@ -4,10 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { ShipmentDetailHero } from '@/components/shipment/ShipmentDetailHero';
 import { ShipmentGuidanceLine } from '@/components/shipment/ShipmentGuidanceLine';
 import { ShipmentCompletenessBar } from '@/components/shipment/ShipmentCompletenessBar';
-import { ShipmentStageCard } from '@/components/shipment/ShipmentStageCard';
-import { ShipmentFieldGroup, countMissing } from '@/components/shipment/ShipmentFieldGroup';
-import { ShipmentGoodsBody } from '@/components/shipment/ShipmentGoodsBody';
-import { ShipmentDocumentsBody } from '@/components/shipment/ShipmentDocumentsBody';
+import { ShipmentDetailStageCards } from '@/components/shipment/ShipmentDetailStageCards';
 import { ShipmentSaleSection } from '@/components/shipment/ShipmentSaleSection';
 import { RouteTimelineRail } from '@/components/shipment/RouteTimelineRail';
 import { ShipmentCustomsExpensesCard } from '@/components/customsExpense/ShipmentCustomsExpensesCard';
@@ -73,62 +70,16 @@ export default function ShipmentDetail() {
       <ShipmentGuidanceLine shipment={shipment} />
       <ShipmentCompletenessBar completeness={shipment.completeness} onJumpToField={jumpToField} />
       {!screens.md && <RouteTimelineRail shipment={shipment} />}
-      {/* Always-open stage cards: five flow into columns 1-2 across three rows; the route rail spans column 3. */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: screens.md ? '1fr 1fr 320px' : '1fr',
-          gap: 16,
-          alignItems: 'start',
-          marginBottom: 16,
-        }}
-      >
-        <ShipmentStageCard
-          title={t('shipment.detail.stage.destination')}
-          missingCount={countMissing('logistics', missingKeys)}
-          isFutureStage={false}
-        >
-          <ShipmentFieldGroup {...groupProps} groupKey="logistics" />
-        </ShipmentStageCard>
-
-        <ShipmentStageCard
-          title={t('shipment.detail.stage.documents')}
-          missingCount={countMissing('status', missingKeys)}
-          isFutureStage={false}
-        >
-          <ShipmentDocumentsBody {...groupProps} canEditQuality={canEditAnyField} />
-        </ShipmentStageCard>
-
-        <ShipmentStageCard
-          title={t('shipment.detail.stage.loading')}
-          missingCount={countMissing('goods', missingKeys)}
-          isFutureStage={false}
-        >
-          <ShipmentGoodsBody {...groupProps} canOverrideVariety={canOverrideVariety} />
-        </ShipmentStageCard>
-
-        <ShipmentStageCard
-          title={t('shipment.detail.stage.transit')}
-          missingCount={countMissing('transport', missingKeys)}
-          isFutureStage={false}
-        >
-          <ShipmentFieldGroup {...groupProps} groupKey="transport" />
-        </ShipmentStageCard>
-
-        <ShipmentStageCard
-          title={t('shipment_edit_drawer.section_notes')}
-          missingCount={countMissing('notes', missingKeys)}
-          isFutureStage={false}
-        >
-          <ShipmentFieldGroup {...groupProps} groupKey="notes" />
-        </ShipmentStageCard>
-
-        {screens.md && (
-          <div style={{ gridColumn: 3, gridRow: '1 / span 3' }}>
-            <RouteTimelineRail shipment={shipment} />
-          </div>
-        )}
-      </div>
+      <ShipmentDetailStageCards
+        shipment={shipment}
+        isDesktop={!!screens.md}
+        missingKeys={missingKeys}
+        readOnly={readOnly}
+        onOpenComments={comments.open}
+        commentCountsByField={comments.countsByField}
+        canEditAnyField={canEditAnyField}
+        canOverrideVariety={canOverrideVariety}
+      />
 
       <ShipmentSaleSection {...groupProps} canEditSalesReport={canEditSalesReport} />
 
