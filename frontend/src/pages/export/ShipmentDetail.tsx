@@ -73,7 +73,7 @@ export default function ShipmentDetail() {
       <ShipmentDetailHero shipment={shipment} onOpenComments={comments.open} />
       <ShipmentGuidanceLine shipment={shipment} />
       <ShipmentCompletenessBar completeness={shipment.completeness} onJumpToField={jumpToField} />
-
+      {!screens.md && <RouteTimelineRail shipment={shipment} />}
       {/* Always-open stage cards: five flow into columns 1-2 across three rows; the route rail spans column 3. */}
       <div
         style={{
