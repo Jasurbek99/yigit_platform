@@ -254,7 +254,8 @@ row per active user, ranked by tasks completed in the selected window. **Public*
       "completed": 42,
       "on_time_rate": 0.9048,
       "overdue_now": 1,
-      "active_seconds": 93600
+      "active_seconds": 93600,
+      "trend": [0,1,0,2,0,0,3,1,0,0,2,1,0,4]
     }
   ]
 }
@@ -265,6 +266,11 @@ row per active user, ranked by tasks completed in the selected window. **Public*
   `docs/obsidian/processes/comments-tasks.md`). `on_time_rate` is `null` when the user has no
   completed tasks with a deadline in the window (same convention as `/me/kpi-today/`).
 - `active_seconds` sums `WorkSessionDaily.active_seconds_total` over the same window.
+- **`trend`**: 14 ints, oldest→newest, one per calendar day in Asia/Ashgabat — the user's
+  daily completed-task count (attributed by `completed_by`, same as `completed`). This is a
+  **FIXED 14-day window, independent of `period`** — it does not shrink/grow when the
+  `period` selector changes, so don't read it as period-scoped. A user with zero completions
+  in the window gets `[0,0,0,0,0,0,0,0,0,0,0,0,0,0]`.
 - **Caution — `overdue_now` is current-state and window-independent**: it counts tasks that
   are overdue **right now**, regardless of the `period` selector, and is attributed by
   **role** (`assignee_role`, expanded through `task_roles_for()` for deputy equivalence) —

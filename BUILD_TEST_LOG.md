@@ -11,6 +11,7 @@ Format: `- [ ] YYYY-MM-DD — <what was built> — NEEDS TEST`
 
 ---
 
+- [ ] 2026-07-21 — Team KPI leaderboard VISUAL redesign (cards + ranking chart + sparklines) — NEEDS TEST
 - [ ] 2026-07-21 — Team KPI leaderboard (Task.completed_by + /team/kpi page) — NEEDS TEST
 
 - [x] 2026-07-20 — Sheet page: hovering/navigating to a cell no longer washes out its text (hover now layers a translucent blue instead of replacing the painted background with `--blue-50 !important`; editing cell resets the inherited light `--col-tint-fg`) — NEEDS TEST

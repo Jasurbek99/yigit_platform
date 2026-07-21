@@ -248,11 +248,15 @@ All under `/api/v1/export/kpi/`. Require `IsAuthenticated`, no role restriction.
 
 `IsAuthenticated` only, no role gate (visible in the sidebar to every role). 60s cache
 keyed by period (`team-kpi:{period}`). One row per active user:
-`{user_id, user_name, role, completed, on_time_rate, overdue_now, active_seconds}`.
+`{user_id, user_name, role, completed, on_time_rate, overdue_now, active_seconds, trend}`.
 `completed`/`on_time_rate`/`active_seconds` are windowed by `period` and attributed by
 `Task.completed_by`; `overdue_now` is current-state and **window-independent**, attributed
-by `assignee_role` instead. Service: `apps/core/services_team_kpi.py`. Full response shape
-and caveats: `.claude/rules/api-contract.md` ("Team KPI leaderboard").
+by `assignee_role` instead. `trend` is a 14-int daily completed-task series (oldest→newest,
+Asia/Ashgabat days) attributed the same way as `completed`, but on a **FIXED 14-day window
+independent of `period`**. Service: `apps/core/services_team_kpi.py`. Page rebuilt as cards +
+a ranking bar chart + per-card trend sparklines (was a plain table) — see
+`screens/team-kpi.md`. Full response shape and caveats: `.claude/rules/api-contract.md`
+("Team KPI leaderboard").
 
 **`Shipment.status_changed_at`:** New indexed DateTimeField set by `transition_to()` on every status change and by `create_shipment()` on creation. Backfilled from `ShipmentStatusLog` by migration 0011. Used by KPI helpers and replaces `Max(status_log__changed_at)` annotation in the board view's sort key.
 
