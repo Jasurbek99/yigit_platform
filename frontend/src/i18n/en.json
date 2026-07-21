@@ -78,6 +78,7 @@
     "stuck_shipments": "Stuck Shipments",
     "group_team": "Team",
     "worklog": "Work hours",
+    "team_kpi": "Team leaderboard",
     "group_feedback": "Feedback",
     "feedback_submit": "Feedback",
     "feedback_my_tickets": "My Tickets",
@@ -199,6 +200,21 @@
     "col_role": "Role",
     "col_active": "Active time",
     "no_data": "No activity recorded yet"
+  },
+  "team_kpi": {
+    "title": "Team leaderboard",
+    "subtitle": "Tasks completed per user. Public to the whole team.",
+    "col_user": "User",
+    "col_role": "Role",
+    "col_completed": "Completed",
+    "col_on_time": "On time",
+    "col_overdue": "Overdue now",
+    "col_active": "Active",
+    "period_today": "Today",
+    "period_week": "Week",
+    "period_month": "Month",
+    "period_season": "Season",
+    "no_data": "No data yet"
   },
   "harvest_board": {
     "title": "Cargo Plan & Remainder",
