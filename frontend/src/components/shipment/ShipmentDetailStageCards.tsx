@@ -37,7 +37,7 @@ const COLUMN_STYLE = { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'co
  *
  * Cards are declared once in reading order; desktop splits them across the
  * two columns by even/odd index — left = Destination/Loading/Notes, right =
- * Transport/Quality/Documents — while mobile renders them in the same single
+ * Transport/Documents/Quality — while mobile renders them in the same single
  * column, in that reading order.
  */
 export function ShipmentDetailStageCards({
@@ -82,12 +82,12 @@ export function ShipmentDetailStageCards({
     </ShipmentStageCard>,
 
     <ShipmentStageCard
-      key="quality"
-      title={t('shipment_detail.section_certs')}
-      missingCount={0}
+      key="documents"
+      title={t('shipment.detail.stage.documents')}
+      missingCount={countMissing('status', missingKeys)}
       isFutureStage={false}
     >
-      <ShipmentQualityBody shipment={shipment} canEditQuality={canEditAnyField} />
+      <ShipmentDocumentsBody {...groupProps} />
     </ShipmentStageCard>,
 
     <ShipmentStageCard
@@ -100,12 +100,12 @@ export function ShipmentDetailStageCards({
     </ShipmentStageCard>,
 
     <ShipmentStageCard
-      key="documents"
-      title={t('shipment.detail.stage.documents')}
-      missingCount={countMissing('status', missingKeys)}
+      key="quality"
+      title={t('shipment_detail.section_certs')}
+      missingCount={0}
       isFutureStage={false}
     >
-      <ShipmentDocumentsBody {...groupProps} />
+      <ShipmentQualityBody shipment={shipment} canEditQuality={canEditAnyField} />
     </ShipmentStageCard>,
   ];
 

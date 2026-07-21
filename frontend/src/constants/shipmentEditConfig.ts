@@ -63,6 +63,7 @@ export const EDIT_FIELD_GROUPS: IEditFieldGroup[] = [
       { key: 'customer', labelKey: 'shipment_edit_drawer.field.customer', inputType: 'select', optionsSource: 'customers' },
       { key: 'city', labelKey: 'shipment_edit_drawer.field.city', inputType: 'select', optionsSource: 'cities', countryFiltered: true },
       { key: 'import_firm', labelKey: 'shipment_edit_drawer.field.import_firm', inputType: 'select', optionsSource: 'importFirms' },
+      { key: 'is_gapy_satys', labelKey: 'shipment_edit_drawer.field.is_gapy_satys', inputType: 'boolean' },
     ],
   },
   {
@@ -99,7 +100,6 @@ export const EDIT_FIELD_GROUPS: IEditFieldGroup[] = [
     fields: [
       { key: 'price_per_kg', labelKey: 'shipment_edit_drawer.field.price_per_kg', inputType: 'number', min: 0, suffix: '$' },
       { key: 'total_amount_usd', labelKey: 'shipment_edit_drawer.field.total_amount_usd', inputType: 'number', min: 0, suffix: '$' },
-      { key: 'is_gapy_satys', labelKey: 'shipment_edit_drawer.field.is_gapy_satys', inputType: 'boolean' },
     ],
   },
   {
