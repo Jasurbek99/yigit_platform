@@ -5,6 +5,10 @@ All notable changes to the YGT Platform.
 ## [Unreleased]
 
 ### Changed
+- **`DetailFieldRow` split into 4 files to get back under the 150-line component limit (refactor(frontend)).** Tasks 4/5/9 had layered the save-state indicator, click-to-edit, and the per-field comment icon onto one 284-line component. Extracted `useDetailFieldAutosave` (the debounce/save state machine), `DetailFieldValue` (the Text/FieldEditor swap + comment icon), and `DetailFieldRowStatus` (the four-state save indicator); `DetailFieldRow.tsx` stays the 150-line composition point. No behaviour change — all 111 existing frontend tests (incl. `DetailFieldRow.test.tsx`'s click-to-edit and blur-race-guard tests) pass unmodified.
+- **Placeholder Links card dropped from Shipment Detail (chore(frontend)).** `ShipmentLinksCard` showed three hardcoded rows (Logo Tiger / Trip Management / GPS) with no backing data. Deleted the component and its three orphaned i18n keys from all three locale files.
+
+### Changed
 - **Word is now the CMR's default output; Excel dropped from the UI (feat(p4) + feat(frontend)).** The CMR dropdown offers **Word · PDF** per language (was Excel/Word/PDF) now that the office's own Word form backs the document. **PDF renders from the Word form, not the xlsx** — converting the spreadsheet would emit the older overlay layout instead of the office document (cost: ~6s vs ~1.6s; correctness over speed, and PDF was already the slow path). The spreadsheet overlay is **kept wired** at `?fmt=xlsx` (templates, registry entries and `render_xlsx` untouched) for future use — re-add `'xlsx'` to `FORMATS` in `CmrDocumentsButton.tsx` to restore the menu entry. 63 doc-gen tests green (default-is-Word + xlsx-still-served); `tsc` clean.
 
 ### Fixed
