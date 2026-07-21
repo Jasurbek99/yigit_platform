@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { IEditFieldConfig } from '@/constants/shipmentEditConfig';
 import type { IShipmentDetail } from '@/types';
 import { COLORS } from '@/constants/styles';
-import { shouldAutoOpenEditor } from './DetailFieldRow.helpers';
+import { shouldAutoOpenEditor, resolveReadDisplay } from './DetailFieldRow.helpers';
 import { useDetailFieldAutosave } from './useDetailFieldAutosave';
 import { DetailFieldValue } from './DetailFieldValue';
 import { DetailFieldRowStatus } from './DetailFieldRowStatus';
@@ -108,6 +108,9 @@ export function DetailFieldRow({
 
   const label = labelOverride ?? t(config.labelKey);
   const countryId = (shipment as unknown as Record<string, unknown>).country as number | null;
+  const readDisplay = resolveReadDisplay(config.key, shipment, persisted, (day) =>
+    t(`weekday.${day}`),
+  );
 
   return (
     <div
@@ -136,6 +139,7 @@ export function DetailFieldRow({
           draft={draft}
           persisted={persisted}
           format={format}
+          readDisplay={readDisplay}
           countryId={countryId}
           defaultOpen={shouldAutoOpenEditor(config.inputType)}
           onChange={handleChange}

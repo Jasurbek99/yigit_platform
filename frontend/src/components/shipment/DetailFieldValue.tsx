@@ -14,6 +14,15 @@ interface IDetailFieldValueProps {
   draft: unknown;
   persisted: unknown;
   format?: (value: unknown) => string;
+  /**
+   * Read-mode display string for FK/code fields whose `persisted` value is
+   * an id or code (e.g. country=1) rather than something human-readable.
+   * When provided, read mode shows this instead of `persisted` — editing is
+   * unaffected, it still binds to `persisted`/`draft` via `config.key`.
+   * Undefined for fields with no display sibling (text/number/date/etc.),
+   * which render exactly as before.
+   */
+  readDisplay?: string;
   countryId: number | null;
   defaultOpen: boolean;
   onChange: (next: unknown) => void;
@@ -45,6 +54,7 @@ export function DetailFieldValue({
   draft,
   persisted,
   format,
+  readDisplay,
   countryId,
   defaultOpen,
   onChange,
@@ -87,7 +97,9 @@ export function DetailFieldValue({
             color: persisted == null || persisted === '' ? COLORS.textTertiary : undefined,
           }}
         >
-          {format ? format(persisted) : (persisted as string | number | null) ?? '—'}
+          {format
+            ? format(persisted)
+            : readDisplay ?? (persisted as string | number | null) ?? '—'}
         </Text>
       )}
       {statusSlot}

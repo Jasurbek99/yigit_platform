@@ -26,6 +26,13 @@ const BOOLEAN_CONFIG: IEditFieldConfig = {
   inputType: 'boolean',
 };
 
+const COUNTRY_CONFIG: IEditFieldConfig = {
+  key: 'country',
+  labelKey: 'shipment_edit_drawer.field.country',
+  inputType: 'select',
+  optionsSource: 'countries',
+};
+
 function renderRow(props: { config: IEditFieldConfig; readOnly?: boolean }) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -174,5 +181,14 @@ describe('DetailFieldRow', () => {
 
     expect(screen.getByRole('switch')).toBeInTheDocument();
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+  });
+
+  // ── Bug: read mode showed the raw FK id instead of its display name ──────
+  it('renders the FK display name in read mode, not the raw id', () => {
+    renderRow({ config: COUNTRY_CONFIG });
+
+    // MOCK_SHIPMENT_DETAIL.country === 1, country_name === 'Kazakhstan'.
+    expect(screen.getByText('Kazakhstan')).toBeInTheDocument();
+    expect(screen.queryByText('1')).not.toBeInTheDocument();
   });
 });
