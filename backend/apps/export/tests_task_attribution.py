@@ -1,5 +1,9 @@
 """Tests for Task.completed_by attribution across every completion site."""
+import datetime
+from decimal import Decimal
+
 from django.test import TestCase
+from rest_framework.test import APIClient
 
 from apps.core.models import User
 from apps.export.models import Task, TaskState, TaskCompletionRule
@@ -70,3 +74,67 @@ class AutoCompleteAttributionTest(TestCase):
         reminder.refresh_from_db()
         self.assertEqual(reminder.state, TaskState.DONE)
         self.assertEqual(reminder.completed_by_id, user.id)
+
+
+class ManualCompleteAttributionTest(TestCase):
+    def test_manual_complete_credits_request_user(self):
+        user = User.objects.create(username='clicker', role='export_manager')
+        user.set_password('x'); user.save()
+        task = Task.objects.create(
+            title_key='t.manual', assignee_role='export_manager',
+            completion_rule=TaskCompletionRule.MANUAL_DONE, state=TaskState.OPEN,
+        )
+        client = APIClient()
+        client.force_authenticate(user=user)
+        resp = client.post(f'/api/v1/export/tasks/{task.id}/complete/')
+        self.assertEqual(resp.status_code, 200)
+        task.refresh_from_db()
+        self.assertEqual(task.state, TaskState.DONE)
+        self.assertEqual(task.completed_by_id, user.id)
+
+
+class WeeklyPlanResolverAttributionTest(TestCase):
+    """_resolve_task in weekly_plan_tasks.py must credit task.assignee_user."""
+
+    def test_resolve_task_credits_assignee_user(self):
+        from apps.core.models import GreenhouseBlock, Season
+        from apps.export.models import TaskKind
+        from apps.export.services.weekly_plan_tasks import _resolve_task
+        from apps.greenhouse.models import (
+            BlockManagerAssignment, HarvestDayEntry, WeeklyHarvestPlan,
+        )
+
+        year, week = 2026, 30
+        monday = datetime.date.fromisocalendar(year, week, 1)
+        season, _ = Season.objects.get_or_create(
+            name='wpt-attr',
+            defaults={'start_date': '2025-09-01', 'end_date': '2026-06-30', 'is_active': True},
+        )
+        block, _ = GreenhouseBlock.objects.get_or_create(
+            code='WPT-ATTR', defaults={'name': 'Attr Block', 'is_active': True},
+        )
+        mgr = User.objects.create(username='wpt_attr_mgr', role='greenhouse_manager')
+        BlockManagerAssignment.objects.create(user=mgr, block=block)
+        plan, _ = WeeklyHarvestPlan.objects.get_or_create(
+            season=season, block=block, week_number=week, year=year,
+        )
+        for day in range(6):  # Mon..Sat filled — Sunday is not measured
+            d = monday + datetime.timedelta(days=day)
+            HarvestDayEntry.objects.create(
+                weekly_plan=plan, season=season, block=block,
+                entry_date=d, weekday=d.weekday(), plan_value=Decimal('100'),
+            )
+        task = Task.objects.create(
+            kind=TaskKind.WEEKLY_PLAN, title_key='tasks.fill_weekly_plan',
+            assignee_role='greenhouse_manager', assignee_user=mgr,
+            scope_block=block, scope_year=year, scope_week=week,
+            completion_rule=TaskCompletionRule.MANUAL_DONE, state=TaskState.OPEN,
+        )
+
+        resolved = _resolve_task(task)
+
+        self.assertTrue(resolved)
+        task.refresh_from_db()
+        self.assertEqual(task.state, TaskState.DONE)
+        self.assertEqual(task.completed_by_id, task.assignee_user_id)
+        self.assertEqual(task.completed_by_id, mgr.id)
