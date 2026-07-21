@@ -1,5 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import { groupCommentCountsByField } from './useShipmentComments';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { act, renderHook } from '@testing-library/react';
+import { groupCommentCountsByField, useShipmentComments } from './useShipmentComments';
+import { useSheetStore } from '@/stores/sheetStore';
 import type { IShipmentComment } from '@/types';
 
 let nextId = 1;
@@ -59,5 +61,71 @@ describe('groupCommentCountsByField', () => {
 
   it('returns an empty object for an empty comment list', () => {
     expect(groupCommentCountsByField([])).toEqual({});
+  });
+});
+
+// A Sheet cell selection already in the store, pointed at a different
+// shipment (999) than the one the hook below mounts for (1).
+const STALE_CONTEXT = {
+  activeCell: { shipmentId: 999, rowKey: 'weight_net' },
+  commentsShipmentId: 999,
+  commentsFilter: { fieldKey: 'weight_net' },
+  commentsDrawerOpen: false,
+} as const;
+
+describe('useShipmentComments — unmount reset gating (regression: closed-drawer detour)', () => {
+  beforeEach(() => {
+    useSheetStore.setState({ ...STALE_CONTEXT });
+  });
+
+  afterEach(() => {
+    useSheetStore.setState({
+      activeCell: null,
+      commentsShipmentId: null,
+      commentsFilter: {},
+      commentsDrawerOpen: false,
+    });
+  });
+
+  it('leaves the store untouched when unmounted without ever opening the drawer', () => {
+    // Simulates: Sheet has a cell selected (activeCell/commentsShipmentId set),
+    // user clicks a shipment-code link into Detail, never touches comments,
+    // then navigates back — mount + unmount only.
+    const { unmount } = renderHook(() => useShipmentComments(1, []));
+
+    unmount();
+
+    const state = useSheetStore.getState();
+    expect(state.activeCell).toEqual(STALE_CONTEXT.activeCell);
+    expect(state.commentsShipmentId).toBe(STALE_CONTEXT.commentsShipmentId);
+    expect(state.commentsFilter).toEqual(STALE_CONTEXT.commentsFilter);
+  });
+
+  it('resets the store after the drawer is opened then explicitly closed', () => {
+    const { result } = renderHook(() => useShipmentComments(1, []));
+
+    act(() => result.current.open('weight_net'));
+    expect(useSheetStore.getState().commentsShipmentId).toBe(1);
+
+    act(() => result.current.close());
+
+    const state = useSheetStore.getState();
+    expect(state.activeCell).toBeNull();
+    expect(state.commentsShipmentId).toBeNull();
+    expect(state.commentsFilter).toEqual({});
+  });
+
+  it('resets the store on unmount if the drawer was opened but never explicitly closed', () => {
+    const { result, unmount } = renderHook(() => useShipmentComments(1, []));
+
+    act(() => result.current.open('weight_net'));
+    expect(useSheetStore.getState().commentsShipmentId).toBe(1);
+
+    unmount();
+
+    const state = useSheetStore.getState();
+    expect(state.activeCell).toBeNull();
+    expect(state.commentsShipmentId).toBeNull();
+    expect(state.commentsFilter).toEqual({});
   });
 });
