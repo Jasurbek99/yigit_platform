@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import { Flex } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { ShipmentStageCard } from '@/components/shipment/ShipmentStageCard';
@@ -18,19 +19,24 @@ interface IShipmentDetailStageCardsProps {
   canOverrideVariety: boolean;
 }
 
+const COLUMN_STYLE = { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 } as const;
+
 /**
  * The five always-open stage cards (Destination, Documents, Loading,
  * Transit, Notes) plus the route rail — desktop only.
  *
- * Cards live in their own content-sized 2-col grid; the route rail is a
- * fixed-width sidebar next to it, NOT a third grid column. The rail has
- * 13 lifecycle steps and is much taller than any single card — sharing one
- * grid with it previously forced every row track to stretch to the rail's
- * height, leaving a large empty gap under each short card.
+ * Desktop lays the cards out as TWO INDEPENDENT flex columns, not a 2-col
+ * CSS grid. A grid couples the two columns into shared row tracks, so a short
+ * card (Destination) sitting in the same row as a tall one (Documents &
+ * Customs, with its quality certificates + full timestamp list) is left with
+ * a large empty gap beneath it until the next row. Independent flex columns
+ * each stack their own cards at natural height, so no gap. The route rail is
+ * a third fixed-width sidebar.
  *
- * Mobile renders the rail full-width above this component instead (see
- * ShipmentDetail.tsx) — `isDesktop` here only toggles the 2-col grid and
- * whether the sidebar rail renders at all.
+ * Cards are declared once in reading order; desktop splits them across the
+ * two columns by even/odd index (left = Destination/Loading/Notes, right =
+ * Documents/Transit — the same assignment the old grid produced), while
+ * mobile renders them in a single column in reading order.
  */
 export function ShipmentDetailStageCards({
   shipment,
@@ -45,64 +51,81 @@ export function ShipmentDetailStageCards({
   const { t } = useTranslation();
   const groupProps = { shipment, missingKeys, readOnly, onOpenComments, commentCountsByField };
 
+  const cards = [
+    <ShipmentStageCard
+      key="destination"
+      title={t('shipment.detail.stage.destination')}
+      missingCount={countMissing('logistics', missingKeys)}
+      isFutureStage={false}
+    >
+      <ShipmentFieldGroup {...groupProps} groupKey="logistics" />
+    </ShipmentStageCard>,
+
+    <ShipmentStageCard
+      key="documents"
+      title={t('shipment.detail.stage.documents')}
+      missingCount={countMissing('status', missingKeys)}
+      isFutureStage={false}
+    >
+      <ShipmentDocumentsBody {...groupProps} canEditQuality={canEditAnyField} />
+    </ShipmentStageCard>,
+
+    <ShipmentStageCard
+      key="loading"
+      title={t('shipment.detail.stage.loading')}
+      missingCount={countMissing('goods', missingKeys)}
+      isFutureStage={false}
+    >
+      <ShipmentGoodsBody {...groupProps} canOverrideVariety={canOverrideVariety} />
+    </ShipmentStageCard>,
+
+    <ShipmentStageCard
+      key="transit"
+      title={t('shipment.detail.stage.transit')}
+      missingCount={countMissing('transport', missingKeys)}
+      isFutureStage={false}
+    >
+      <ShipmentFieldGroup {...groupProps} groupKey="transport" />
+    </ShipmentStageCard>,
+
+    <ShipmentStageCard
+      key="notes"
+      title={t('shipment_edit_drawer.section_notes')}
+      missingCount={countMissing('notes', missingKeys)}
+      isFutureStage={false}
+    >
+      <ShipmentFieldGroup {...groupProps} groupKey="notes" />
+    </ShipmentStageCard>,
+  ];
+
+  if (!isDesktop) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 16 }}>
+        {cards.map((card) => (
+          <Fragment key={card.key}>{card}</Fragment>
+        ))}
+      </div>
+    );
+  }
+
+  const leftColumn = cards.filter((_, i) => i % 2 === 0);
+  const rightColumn = cards.filter((_, i) => i % 2 === 1);
+
   return (
     <Flex gap={16} align="flex-start" style={{ marginBottom: 16 }}>
-      <div
-        style={{
-          flex: 1,
-          minWidth: 0,
-          display: 'grid',
-          gridTemplateColumns: isDesktop ? '1fr 1fr' : '1fr',
-          gap: 16,
-          alignItems: 'start',
-        }}
-      >
-        <ShipmentStageCard
-          title={t('shipment.detail.stage.destination')}
-          missingCount={countMissing('logistics', missingKeys)}
-          isFutureStage={false}
-        >
-          <ShipmentFieldGroup {...groupProps} groupKey="logistics" />
-        </ShipmentStageCard>
-
-        <ShipmentStageCard
-          title={t('shipment.detail.stage.documents')}
-          missingCount={countMissing('status', missingKeys)}
-          isFutureStage={false}
-        >
-          <ShipmentDocumentsBody {...groupProps} canEditQuality={canEditAnyField} />
-        </ShipmentStageCard>
-
-        <ShipmentStageCard
-          title={t('shipment.detail.stage.loading')}
-          missingCount={countMissing('goods', missingKeys)}
-          isFutureStage={false}
-        >
-          <ShipmentGoodsBody {...groupProps} canOverrideVariety={canOverrideVariety} />
-        </ShipmentStageCard>
-
-        <ShipmentStageCard
-          title={t('shipment.detail.stage.transit')}
-          missingCount={countMissing('transport', missingKeys)}
-          isFutureStage={false}
-        >
-          <ShipmentFieldGroup {...groupProps} groupKey="transport" />
-        </ShipmentStageCard>
-
-        <ShipmentStageCard
-          title={t('shipment_edit_drawer.section_notes')}
-          missingCount={countMissing('notes', missingKeys)}
-          isFutureStage={false}
-        >
-          <ShipmentFieldGroup {...groupProps} groupKey="notes" />
-        </ShipmentStageCard>
+      <div style={COLUMN_STYLE}>
+        {leftColumn.map((card) => (
+          <Fragment key={card.key}>{card}</Fragment>
+        ))}
       </div>
-
-      {isDesktop && (
-        <div style={{ width: 320, flexShrink: 0 }}>
-          <RouteTimelineRail shipment={shipment} />
-        </div>
-      )}
+      <div style={COLUMN_STYLE}>
+        {rightColumn.map((card) => (
+          <Fragment key={card.key}>{card}</Fragment>
+        ))}
+      </div>
+      <div style={{ width: 320, flexShrink: 0 }}>
+        <RouteTimelineRail shipment={shipment} />
+      </div>
     </Flex>
   );
 }
