@@ -1717,3 +1717,31 @@ Run against a real shipment after Task 12. This is the user's list — do not ti
 **Spec coverage:** §3 completeness rules → Tasks 1–2. §4 layout → Tasks 6–8. §5 entry → Tasks 4–5. §6 comments → Task 9. §7 route rail → Task 10. §8 bugs: driver fields → Task 3, mobile rail → Task 10, Links card + stale comment → Task 11, stale docs → Task 12. §9 component split → Task 7. §12 acceptance → checklist above.
 
 **Known gaps, deliberately left to the user:** spec §11 open questions (rule completeness audit, whether historical shipments surface too many gaps, real mobile usage) are product questions that require real data and real operators — they are not implementable steps and are not assigned to a task.
+
+---
+
+## Task 13: Two-tier completeness chips (final-review fix)
+
+**Origin:** whole-branch review found the completeness bar lists ~14 owed keys with no editable row (AD-1 timestamps, `firm_splits`, `block_sources`, `sales_report`, `shipment_code`): their chips jump nowhere, never highlight, and make the stage badge disagree with the bar count. **Product decision (user):** show everything (keep the full-picture count) but render non-editable keys as *informational*, not actionable.
+
+**Files:**
+- Modify: `frontend/src/components/shipment/ShipmentCompletenessBar.tsx`
+- Modify: `frontend/src/components/shipment/ShipmentSaleSection.tsx` (add section anchor)
+- Modify: `frontend/src/components/shipment/ShipmentGoodsBody.tsx` (add section anchor)
+- Modify: `frontend/src/pages/export/ShipmentDetailHelpers.helpers.ts` (or wherever `jumpToField` lives) — add `jumpToSection`
+- Modify: `frontend/src/i18n/{tk,ru,en}.json`
+- Test: `frontend/src/components/shipment/ShipmentCompletenessBar.test.tsx`
+
+**Behaviour:**
+- Build the editable-key set from `EDIT_FIELD_GROUPS` (the 35 `key`s). A missing field is **actionable** if its key is in that set (it has a `#detail-field-<key>` row), else **informational**.
+- Actionable chips: unchanged — amber, clickable, `onJumpToField` (current behaviour).
+- Informational chips: visually muted (not amber), grouped under their own label. Of these:
+  - `firm_splits`, `sales_report` → clickable, scroll to the sale section (add `id="section-sale"` to `ShipmentSaleSection`'s root).
+  - `block_sources` → clickable, scroll to the goods card (add `id="section-block-sources"` near the block-sources table in `ShipmentGoodsBody`).
+  - everything else (AD-1 timestamps, `shipment_code`): **non-clickable**, muted, with a hint they're filled by the system / elsewhere.
+- The summary count (`filled_count`/`required_total`) is unchanged — it still reflects everything owed. No backend change, no migration.
+- The stage-card badges are unchanged; the previously-confusing disagreement is now explained because the informational chips make the non-editable missing items visible.
+
+**i18n:** add `shipment.detail.info_fields_label` (e.g. en "Filled elsewhere or by the system:", ru "Заполняется в другом месте или системой:", tk to be derived) in all three files.
+
+**Verify:** typecheck; `npx vitest run src/components/shipment/`; a test that an informational key (e.g. `departed_at`) renders muted and non-clickable while an editable key (`weight_net`) renders an actionable chip; and that a section key (`firm_splits`) is clickable.
