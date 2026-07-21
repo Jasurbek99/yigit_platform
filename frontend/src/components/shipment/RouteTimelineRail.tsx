@@ -202,8 +202,8 @@ export function RouteTimelineRail({ shipment }: IRouteTimelineRailProps) {
             {/* Red dot with X icon */}
             <div
               style={{
-                width: 32,
-                height: 32,
+                width: 24,
+                height: 24,
                 borderRadius: '50%',
                 flexShrink: 0,
                 display: 'flex',
@@ -222,7 +222,7 @@ export function RouteTimelineRail({ shipment }: IRouteTimelineRailProps) {
             <div
               style={{
                 position: 'absolute',
-                left: 15,
+                left: 11,
                 top: 0,
                 height: 20,
                 width: 2,
