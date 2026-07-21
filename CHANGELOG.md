@@ -4,9 +4,17 @@ All notable changes to the YGT Platform.
 
 ## [Unreleased]
 
+### Added
+- `completeness` block on the shipment detail endpoint — required/missing fields derived live from `TaskRule.target_fields`, not a stored field or a new rule table (feat(p3))
+- `driver_name` / `driver_phone` / `truck_plate` inputs on Shipment Detail's transport group — previously required by the task system but had no inputs on the page (feat(p3))
+
 ### Changed
+- ShipmentDetail rebuilt: accordion replaced with an always-open grid of stage cards (nothing collapsed behind a click), a completeness summary driven by `TaskRule`, click-to-edit rows with a persistent save confirmation and a visible error+retry state, and comments moved onto the page (hero "Discussion" thread + per-field comment icon, reusing the Sheet's `CommentsDrawer`) (feat(p3) + feat(frontend))
 - **`DetailFieldRow` split into 4 files to get back under the 150-line component limit (refactor(frontend)).** Tasks 4/5/9 had layered the save-state indicator, click-to-edit, and the per-field comment icon onto one 284-line component. Extracted `useDetailFieldAutosave` (the debounce/save state machine), `DetailFieldValue` (the Text/FieldEditor swap + comment icon), and `DetailFieldRowStatus` (the four-state save indicator); `DetailFieldRow.tsx` stays the 150-line composition point. No behaviour change — all 111 existing frontend tests (incl. `DetailFieldRow.test.tsx`'s click-to-edit and blur-race-guard tests) pass unmodified.
 - **Placeholder Links card dropped from Shipment Detail (chore(frontend)).** `ShipmentLinksCard` showed three hardcoded rows (Logo Tiger / Trip Management / GPS) with no backing data. Deleted the component and its three orphaned i18n keys from all three locale files.
+
+### Fixed
+- RouteTimelineRail no longer disappears on mobile (fix(p3))
 
 ### Changed
 - **Word is now the CMR's default output; Excel dropped from the UI (feat(p4) + feat(frontend)).** The CMR dropdown offers **Word · PDF** per language (was Excel/Word/PDF) now that the office's own Word form backs the document. **PDF renders from the Word form, not the xlsx** — converting the spreadsheet would emit the older overlay layout instead of the office document (cost: ~6s vs ~1.6s; correctness over speed, and PDF was already the slow path). The spreadsheet overlay is **kept wired** at `?fmt=xlsx` (templates, registry entries and `render_xlsx` untouched) for future use — re-add `'xlsx'` to `FORMATS` in `CmrDocumentsButton.tsx` to restore the menu entry. 63 doc-gen tests green (default-is-Word + xlsx-still-served); `tsc` clean.

@@ -11,7 +11,7 @@ The same `Shipment` model is exposed through three different screens, each tuned
 ## TL;DR
 
 - **List** = "find a shipment" — paginated table, filters, role-aware "My Work / Archive" toggle.
-- **Detail** = "work on one shipment" — task-centric single-column page (5 collapsible sections, all expanded by default), status transitions, inline-editable fields, activity log on `/shipments/:id/activity`. Process walkthrough: [[../processes/detail-vs-sheet]].
+- **Detail** = "work on one shipment" — hero + guidance line + completeness bar, then an always-open grid of stage cards (nothing collapsed, nothing behind a click), click-to-edit fields, status transitions, activity log on `/shipments/:id/activity`. Process walkthrough: [[../processes/detail-vs-sheet]].
 - **Sheet** = "work across many shipments at once" — Excel-style season grid, inline cell edits, per-cell comments and tasks.
 
 | You want to… | Use |
@@ -28,8 +28,8 @@ The same `Shipment` model is exposed through three different screens, each tuned
 | Sidebar item | "Shipments" | (drilled into from List) | "Shipment Sheet" (separate menu entry) |
 | Endpoint | `GET /api/v1/export/shipments/` | `GET /api/v1/export/shipments/{id}/` | `GET /api/v1/export/shipments/sheet/` |
 | Data scope | Paginated (50/page, max 200) | One record | All shipments for the active season, no pagination |
-| Layout | ProTable rows | Tabs + sidebar | Excel-style grid (column = shipment, row = field) |
-| Primary action | Drill into Detail; bulk transition | Status transition; section edit | Inline cell edit; comment / assign task |
+| Layout | ProTable rows | Hero + completeness bar + always-open stage cards + route rail | Excel-style grid (column = shipment, row = field) |
+| Primary action | Drill into Detail; bulk transition | Status transition; click a row to edit it in place | Inline cell edit; comment / assign task |
 
 ---
 
@@ -59,17 +59,14 @@ The same `Shipment` model is exposed through three different screens, each tuned
 
 **Use it for:** working on one shipment — moving its status, filling in your phase's fields, reading its history.
 
-**Tabs:**
-- **Overview** — identifiers, route, freight, transport, and the status route sidebar showing where this shipment sits in the 13-step lifecycle.
-- **Document** — quality document checkboxes (azyk maglumatnama, suriji gözükdiriji, hil sertifikaty, kalibrowka analiz) and the timestamp checkpoints (loading, customs entry / exit, departed, border, arrived).
-- **Finance** — firm splits table, price/weight totals, and the Sales Report form (visible from the *hasabat* phase onward).
-- **Changes** — audit log plus the inline comment thread for this shipment.
+**Layout — no tabs, nothing collapsed.** The page is one scroll: hero → guidance line → completeness bar → a 2-column grid of **always-open stage cards** (Destination, Documents, Loading, Transit, Notes, …) with the route timeline rail as a third column → a full-width Sale section → the customs-expenses card → a link to the activity log. Every field group is visible at once — an operator reconciling weights against firm splits against timestamps no longer has to hold a collapsed section's contents in memory while looking at another one.
 
-**Header actions:**
-- A status-transition button that only offers transitions allowed for your role and the current status.
-- An edit pencil per section (Overview, Document, Finance) opens a side drawer (`ShipmentEditDrawer`) with the editable fields for that group.
+- **Completeness bar** — "X of Y fields filled", amber chips for fields the shipment's current lifecycle step expects but that are still empty (click a chip to scroll to the field and open it for editing), and a checklist of manual tasks (TaskRules with no target field, so they can't be measured as "filled"). Renders nothing when nothing is outstanding. The underlying `completeness` data is computed live on the detail endpoint from `TaskRule.target_fields` — it is not a stored field or a new rule table.
+- **Route timeline rail** — same design as before, now also rendered on mobile (previously it disappeared below the `md` breakpoint).
+- **Stage cards** — each row shows its value as plain text; clicking turns it into an editor, and Tab moves to the next row and opens that one too. Saves autosave with a persistent "Saved" confirmation (not a transient spinner) and a visible error + Retry state if the save fails.
+- **Header actions** — a status-transition button that only offers transitions allowed for your role and the current status, plus a **Discussion** button (badge = comment count) opening the whole-shipment thread.
 
-**Comments here are flat per-shipment** — there is no per-cell scoping. For cell-level comments and task assignments use the [[#A3 Shipment Sheet `/export/shipments/sheet`|Sheet]].
+**Comments are on the page, at two scopes**: the hero's **Discussion** button for the whole shipment, and a 💬 icon on each field row for that field's thread. Both reuse the Sheet's `CommentsDrawer` (now in `frontend/src/components/comments/`) — per-field comment counts are derived client-side from the already-loaded comments, no per-field API calls. For editing the same field across many shipments, or assigning a task to a specific cell, still use the [[#A3 Shipment Sheet `/export/shipments/sheet`|Sheet]].
 
 ### A3. Shipment Sheet (`/export/shipments/sheet`)
 
@@ -100,9 +97,9 @@ The Sheet has its own dedicated page in this knowledge base: [[shipment-sheet]] 
 | Verb | Path | Pagination | Response shape |
 |---|---|---|---|
 | `GET` | `/api/v1/export/shipments/` | `PageNumberPagination` (50 / 100 / 200) | `{count, next, previous, results: IShipmentListItem[]}` |
-| `GET` | `/api/v1/export/shipments/{id}/` | n/a | `IShipmentDetail` (flat list fields + `firm_splits[]`, `block_sources[]`, `status_log[]`, `quality`, `comments[]`, `editable_fields`, …) |
+| `GET` | `/api/v1/export/shipments/{id}/` | n/a | `IShipmentDetail` (flat list fields + `firm_splits[]`, `block_sources[]`, `status_log[]`, `quality`, `comments[]`, `editable_fields`, `completeness`, …) |
 | `GET` | `/api/v1/export/shipments/sheet/` | none — flat per season | `{results: IShipmentSheetItem[], comment_counts, task_counts, rows, user_preferences}` |
-| `PATCH` | `/api/v1/export/shipments/{id}/` | n/a | Same endpoint serves inline cell edits from List, drawer edits from Detail, and cell edits from Sheet. |
+| `PATCH` | `/api/v1/export/shipments/{id}/` | n/a | Same endpoint serves inline cell edits from List, click-to-edit row saves from Detail, and cell edits from Sheet. |
 | `POST` | `/api/v1/export/shipments/{id}/transition/` | n/a | Returns updated detail (per [api-contract.md](../../../.claude/rules/api-contract.md)). |
 
 The canonical response field naming is owned by [api-contract.md](../../../.claude/rules/api-contract.md) — do not duplicate it here.
@@ -124,7 +121,7 @@ A representative sample, not exhaustive. Source-of-truth: [serializers.py](../..
 | Weights | `weight_net`, `weight_gross` | ✓ | ✓ | ✓ |
 | Weights | `box_count`, `pallet_count`, `packaging_kg`, `rejected_weight_kg` | — | ✓ | ✓ |
 
-> **Note:** `rejected_weight_kg` is a legacy column name — it actually holds the (unofficial) tonnage that **must be loaded** and is displayed as **"Weight to load" / "Ýüklemeli tonna"** everywhere (Sheet row 36, List column, Edit drawer). There is no "rejected weight" concept on the shipment. (The separate sales-report `weight_rejected_kg`, db_column `waste_kg`, is unrelated — it is waste recorded during the sale.)
+> **Note:** `rejected_weight_kg` is a legacy column name — it actually holds the (unofficial) tonnage that **must be loaded** and is displayed as **"Weight to load" / "Ýüklemeli tonna"** everywhere (Sheet row 36, List column, Detail field row). There is no "rejected weight" concept on the shipment. (The separate sales-report `weight_rejected_kg`, db_column `waste_kg`, is unrelated — it is waste recorded during the sale.)
 | Timestamps | `departed_at`, `arrived_at` | ✓ | ✓ | ✓ |
 | Timestamps | `loading_started_at`, `customs_entry_at`, `customs_exit_at`, `border_crossed_at`, `sale_started_at`, `sale_ended_at` | — | ✓ | ✓ |
 | Quality | `quality` (nested object) | — | ✓ | — |
@@ -134,7 +131,7 @@ A representative sample, not exhaustive. Source-of-truth: [serializers.py](../..
 | Finance | `sales_report` object | — | ✓ (≥ hasabat) | — |
 | Finance | `has_sales_report`, `has_doc_advance` (flags) | — | — | ✓ |
 | Vehicle (AD-2) | `vehicle_condition`, `vehicle_condition_note`, `route_note` | — | ✓ | ✓ |
-| Comments | inline thread on Changes tab | — | ✓ | — |
+| Comments | whole-shipment thread + per-field thread | — | ✓ | — |
 | Comments / tasks | per-cell `comment_counts`, `task_counts` | — | — | ✓ |
 | Notes (per-role freeform) | `export_manager_note`, `warehouse_note`, `document_note` | — | ✓ | ✓ |
 | Sheet-only | `variety_code`, `custom_fields` (Phase 5c admin rows) | — | — | ✓ |
@@ -148,14 +145,14 @@ Sheet-only flat fields exist because the grid renders one cell per (shipment, fi
 - **ViewSet:** `ShipmentViewSet` in [backend/apps/export/views.py](../../../backend/apps/export/views.py) (~line 79). `list()` and `retrieve()` are inherited; `sheet()` is a custom `@action`.
 - **Serializers** in [backend/apps/export/serializers.py](../../../backend/apps/export/serializers.py):
   - `ShipmentListSerializer` (~line 60) — lightweight list shape.
-  - `ShipmentDetailSerializer` — extends list with FK ids, nested `firm_splits[]`, `block_sources[]`, `status_log[]`, `quality`, `comments[]`, `editable_fields`, `allowed_transitions`.
+  - `ShipmentDetailSerializer` — extends list with FK ids, nested `firm_splits[]`, `block_sources[]`, `status_log[]`, `quality`, `comments[]`, `editable_fields`, `allowed_transitions`, `completeness` (required/missing fields for the current lifecycle step, derived live from `TaskRule.target_fields`).
   - `ShipmentSheetSerializer` (~line 178) — flat 44+ fields, plus inline `SheetFirmSplitInlineSerializer` / `SheetBlockSourceInlineSerializer` and viewset-annotated booleans / counts.
 - **Sheet action** annotates `has_sales_report`, `has_doc_advance` via `Exists()` subqueries before serialising — single-pass, N+1 safe.
 - **Pagination:** `PageNumberPagination` (default 50, max 200) on the list endpoint. Sheet returns the whole season — no pagination.
 - **Filters:**
   - List honours `?my_work=true` (filters by the role's active phase window), `?view=archive` (gated to `_ARCHIVE_VIEW_ROLES`), plus phase / country / customer / date range.
   - Sheet ignores phase windows — it always returns the operational shipments for the active season regardless of role.
-- **Permissions:** the same `editable_fields` per (role × status) drives the Detail edit drawer, the List inline `weight_net` cell, and the Sheet cell editor. Change role permissions in one place — see [[../processes/permissions-system]].
+- **Permissions:** the same `editable_fields` per (role × status) drives which Detail rows are click-to-edit (a role without edit rights sees plain text and clicking does nothing), the List inline `weight_net` cell, and the Sheet cell editor. Change role permissions in one place — see [[../processes/permissions-system]].
 
 ### B4. Frontend
 
@@ -164,17 +161,17 @@ Sheet-only flat fields exist because the grid renders one cell per (shipment, fi
 | Page | [ShipmentList.tsx](../../../frontend/src/pages/export/ShipmentList.tsx) | [ShipmentDetail.tsx](../../../frontend/src/pages/export/ShipmentDetail.tsx) | [ShipmentSheet.tsx](../../../frontend/src/pages/export/ShipmentSheet.tsx) + `SheetGrid` |
 | Hook | [`useShipments.ts`](../../../frontend/src/hooks/useShipments.ts) | [`useShipmentDetail.ts`](../../../frontend/src/hooks/useShipmentDetail.ts) | [`useShipmentSheet.ts`](../../../frontend/src/hooks/useShipmentSheet.ts) |
 | Type | `IShipmentListItem` ([types/index.ts](../../../frontend/src/types/index.ts)) | `IShipmentDetail` (same file) | `IShipmentSheetItem` (same file) |
-| Edit UI | `ListEditableCell` for `weight_net`; bulk transition modal | `ShipmentEditDrawer` (one drawer per Tab section); transition modal | Inline cell editor; debounced PATCH |
-| Comments UI | — | Inline thread on the Changes tab | `CommentsDrawer` opened per cell, scoped to `(shipment_id, field_key)` |
+| Edit UI | `ListEditableCell` for `weight_net`; bulk transition modal | Click-to-edit `DetailFieldRow` (value → editor on click, Tab to next field); transition modal | Inline cell editor; debounced PATCH |
+| Comments UI | — | Hero **Discussion** button (whole-shipment) + per-field 💬 icon on each row | `CommentsDrawer` opened per cell, scoped to `(shipment_id, field_key)` |
 
-Detail's tabs are defined in [ShipmentDetail.tsx:249–457](../../../frontend/src/pages/export/ShipmentDetail.tsx) — keys `overview`, `document`, `finance`, `changes`.
+Detail reuses the Sheet's `CommentsDrawer` (moved to [`components/comments/`](../../../frontend/src/components/comments/)) for both scopes — whole-shipment (no `field_key`) and per-field. Detail has no tabs and no `ShipmentEditDrawer` anymore; the page is one scroll of always-open stage cards — see [[#A2 Shipment Detail `/export/shipments/:id`|Part A]] above for the layout.
 
 ### B5. Routing and deep-links
 
 | View | Query / path params |
 |---|---|
 | List | `?view=all\|my_work\|archive`, `?page=`, `?page_size=`, `?search=`, `?phase=`, `?country=`, `?customer=`, `?export_firm=`, `?date_after=`, `?date_before=`, `?pending_my_fields=true` |
-| Detail | `/:id?tab=overview\|document\|finance\|changes` |
+| Detail | no query params — one scroll, no deep-linkable sections |
 | Sheet | `?shipment={id}&row={field_key}&comment={comment_id}` — the format used by `Notification.link` for `mention`, `task_assigned`, `task_done` notifications. The Sheet parses these on mount and auto-opens the Comments Drawer on the right cell. |
 
 ### B6. Performance and data-load contrast
@@ -184,15 +181,15 @@ Detail's tabs are defined in [ShipmentDetail.tsx:249–457](../../../frontend/sr
 | Rows per request | 50 (default) | 1 | Whole season (~100–500) |
 | Server queries | List serializer + `select_related` on FKs | Detail serializer + `prefetch_related` for splits / sources / log / comments | Sheet action: 6× `select_related` + 2× `prefetch_related` + grouped queries for `comment_counts`, `task_counts`, user prefs (≈ 9–10 total) |
 | TanStack Query `staleTime` | 30 s | 30 s | 30 s |
-| Edit cadence | One PATCH per cell (`weight_net`) | One PATCH per drawer save (grouped fields) | One PATCH per cell, debounced; row reorder PATCHes user prefs |
+| Edit cadence | One PATCH per cell (`weight_net`) | One PATCH per field, autosaved on click-away | One PATCH per cell, debounced; row reorder PATCHes user prefs |
 
 ### B7. Common drift to watch for
 
 When changing the shipment domain, ask all four questions:
 
-1. **Adding a new shipment field.** Does it belong as a List column? In a Detail tab? As a Sheet row? Is it in `editable_fields` for any role?
-2. **Adding a phase.** Update `status_step`, `status_display` ordering, the route sidebar in Detail, and `allowed_transitions`. The Sheet needs no change unless the phase introduces a new operational field.
+1. **Adding a new shipment field.** Does it belong as a List column? In a Detail stage card? As a Sheet row? Is it in `editable_fields` for any role? If a `TaskRule` targets it, does the Detail completeness bar need to know about it (it does, automatically, via `target_fields` — but confirm the field is reachable from a stage card so a chip's "jump to field" has somewhere to land)?
+2. **Adding a phase.** Update `status_step`, `status_display` ordering, the route timeline rail in Detail, and `allowed_transitions`. The Sheet needs no change unless the phase introduces a new operational field.
 3. **Changing role permissions.** Verify the `editable_fields` response after the change — it drives all three views' edit eligibility.
-4. **Adding a notification kind that points at a shipment.** Use the Sheet `?shipment=&row=&comment=` deep-link if the user should land on a cell; use Detail `/:id?tab=…` if they should land on a tab.
+4. **Adding a notification kind that points at a shipment.** Use the Sheet `?shipment=&row=&comment=` deep-link if the user should land on a cell; Detail has no equivalent deep-link — it opens the whole page and its Discussion/field threads.
 
 When a Sheet-only flat field (like `doc_*`) starts being read elsewhere — promote it to the Detail serializer rather than copying the flattening logic.
