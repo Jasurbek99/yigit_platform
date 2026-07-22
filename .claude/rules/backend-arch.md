@@ -31,6 +31,22 @@ core → greenhouse → export → contracts → finance
 - All endpoints under `/api/v1/` with proper versioning
 - Use DRF's content negotiation — JSON by default
 
+## SQL safety (SQL injection prevention)
+
+The runtime API is 100% Django ORM — the ORM parameterizes every query, so runtime code is injection-safe by construction. Keep it that way:
+
+- **Runtime code (views / serializers / services / filters / model methods): ORM only.** No `.raw()`, `.extra()`, `RawSQL`, or `connection.cursor()` in the request path. If you think you need raw SQL in runtime code — stop and ask; there's almost always an ORM/`annotate`/`Subquery` equivalent.
+- **Sorting / filtering from query params must use a whitelist**, never a column name pulled straight from the URL. Use DRF `OrderingFilter` (explicit `ordering_fields`) and `.filter(...)` with values — never build `.order_by(request.query_params['sort'])` or f-string a column name.
+- **If raw SQL is ever unavoidable (management commands, migrations), values go through parameters — never string formatting:**
+  ```python
+  # RIGHT — value is a bind parameter
+  cursor.execute("SELECT COUNT(*) FROM sys.identity_columns WHERE object_id = OBJECT_ID(%s)", [f'dbo.{table}'])
+
+  # WRONG — user/dynamic value concatenated into SQL
+  cursor.execute(f"SELECT * FROM export_shipment WHERE code = '{code}'")
+  ```
+  Only fixed **internal identifiers** (table names from a hardcoded map, like the migrate/dump-fk commands) may be interpolated with an f-string — never a value that could originate from a request. Table/column identifiers can't be parameterized with `%s`, so they must come from code constants, not input.
+
 ## Django modular app gotchas
 
 ### 1. models/ package requires __init__.py re-exports
