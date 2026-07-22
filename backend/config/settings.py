@@ -220,13 +220,37 @@ else:
     }
 
 # ════════════════════════════════════════════════
+# Cache — shared across gunicorn/uvicorn workers via Redis
+# ════════════════════════════════════════════════
+# The django-axes brute-force lockout counters and the 60s API caches
+# (team-kpi, dashboard, me/kpi-today) live here. LocMemCache is per-process, so
+# with 3 uvicorn workers a shared Redis backend is REQUIRED for the lockout
+# counters to be consistent (and it upgrades those API caches from per-worker
+# to shared). Same fallback rule as the channel layer above: LocMem for tests
+# and for DEBUG dev that hasn't set REDIS_URL.
+if RUNNING_TESTS or (DEBUG and not _REDIS_URL_ENV):
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        }
+    }
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': REDIS_URL,
+            'KEY_PREFIX': 'ygt',
+        }
+    }
+
+# ════════════════════════════════════════════════
 # Auth
 # ════════════════════════════════════════════════
 AUTH_USER_MODEL = 'core.User'
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator', 'OPTIONS': {'min_length': 5}},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator', 'OPTIONS': {'min_length': 8}},
     {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
@@ -269,6 +293,41 @@ SIMPLE_JWT = {
     'AUTH_COOKIE_SAMESITE': 'Lax',
     'AUTH_COOKIE_SECURE': not DEBUG,
 }
+
+# ════════════════════════════════════════════════
+# Brute-force lockout (django-axes) — escalating ladder
+# ════════════════════════════════════════════════
+# Locks the (username, IP) pair on repeated failed logins. Disabled under tests
+# by default so the existing auth suite is unaffected; the lockout tests opt in
+# with @override_settings(AXES_ENABLED=True). See apps/core/security_axes.py.
+AXES_ENABLED = not RUNNING_TESTS
+
+INSTALLED_APPS += ['axes']
+AUTHENTICATION_BACKENDS = [
+    'axes.backends.AxesStandaloneBackend',   # MUST be first — blocks locked-out users
+    'django.contrib.auth.backends.ModelBackend',
+]
+MIDDLEWARE += ['axes.middleware.AxesMiddleware']   # MUST be last
+
+AXES_FAILURE_LIMIT = 3
+# Lock on the (username, IP) combination: resists distributed guessing against
+# one account AND a single IP spraying many accounts, without letting an
+# attacker lock a victim out purely by knowing their username.
+AXES_LOCKOUT_PARAMETERS = [['username', 'ip_address']]
+# Escalating block length: 30 min -> 5 h -> 1 day per episode. The callable is
+# side-effect free; the tier counter lives in the Redis cache.
+AXES_COOLOFF_TIME = 'apps.core.security_axes.escalating_cooloff'
+# Attempts made DURING an active block neither count nor extend the timer — this
+# is what makes each escalation tier grant a fresh 3 attempts, and it lets us
+# tell a threshold-crossing apart from a blocked-during-lockout request.
+AXES_RESET_COOL_OFF_ON_FAILURE_DURING_LOCKOUT = False
+AXES_RESET_ON_SUCCESS = True                 # (also reset explicitly in LoginView; JWT login skips Django login())
+AXES_ENABLE_ACCESS_FAILURE_LOG = True        # keep the per-attempt audit trail (admin-visible)
+AXES_LOCKOUT_CALLABLE = 'apps.core.security_axes.lockout_response'
+AXES_HTTP_RESPONSE_CODE = 429
+# Real client IP from nginx's X-Real-IP (see frontend/nginx.conf); checked before
+# django-ipware so it works regardless of whether ipware is installed.
+AXES_CLIENT_IP_CALLABLE = 'apps.core.security_axes.client_ip'
 
 # ════════════════════════════════════════════════
 # CORS
