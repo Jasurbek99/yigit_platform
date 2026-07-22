@@ -276,6 +276,20 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.JSONRenderer',
     ],
     'EXCEPTION_HANDLER': 'apps.core.exceptions.custom_exception_handler',
+    # Flood / DoS backstop — caps total request RATE (django-axes only caps
+    # failed logins). Proxy-aware so the anon bucket keys on the real client IP
+    # behind nginx (see apps/core/throttling.py). Counters live in the shared
+    # Redis cache, so the limit holds across all workers.
+    'DEFAULT_THROTTLE_CLASSES': [
+        'apps.core.throttling.ProxyAwareAnonThrottle',
+        'apps.core.throttling.ProxyAwareUserThrottle',
+    ],
+    # None under tests so the existing suite is unaffected; generous in prod —
+    # a backstop against abuse, not a limiter of normal use. Tune via env.
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': None if RUNNING_TESTS else os.environ.get('THROTTLE_ANON', '120/min'),
+        'user': None if RUNNING_TESTS else os.environ.get('THROTTLE_USER', '1200/min'),
+    },
 }
 
 # ════════════════════════════════════════════════
