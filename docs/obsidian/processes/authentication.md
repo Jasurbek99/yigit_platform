@@ -67,6 +67,42 @@ sequenceDiagram
 - Never expose JWT in localStorage, sessionStorage, or JavaScript variables
 - Token refresh handled server-side
 
+### Brute-force lockout (django-axes)
+
+The login endpoint is protected against password guessing by **django-axes**
+with a custom **escalating** ladder. Config lives in `config/settings.py`
+(the `AXES_*` block) and the logic in `apps/core/security_axes.py`.
+
+- **Key**: the `(username, IP)` pair (`AXES_LOCKOUT_PARAMETERS = [['username','ip_address']]`).
+  Combining both resists distributed guessing against one account *and* a single
+  IP spraying many accounts, without letting an attacker lock a victim out just
+  by knowing their username.
+- **Ladder** (`AXES_FAILURE_LIMIT = 3`): 3 failed logins → **30 min** block; if
+  they fail 3 more after it lifts → **5 h**; any further episode → **1 day**.
+  Each tier grants a fresh 3 attempts. The tier is tracked in a Redis counter
+  (`axes:episode:{username}:{ip}`, 48 h sliding TTL); the block length comes from
+  `escalating_cooloff` wired to `AXES_COOLOFF_TIME`. The counter is bumped once
+  per episode by `on_user_locked_out` (axes' `user_locked_out` signal), and
+  cleared on a successful login (`reset_lockout`) so a legitimate user restarts
+  at tier 1. Because our JWT login never calls Django `login()`, the reset is
+  done explicitly in `LoginView`, not via axes' `RESET_ON_SUCCESS` signal.
+- **Real client IP** comes from nginx's `X-Real-IP` header via
+  `AXES_CLIENT_IP_CALLABLE = apps.core.security_axes.client_ip` (checked before
+  django-ipware). In production the backend is **not** published to the host
+  (`docker-compose.prod.yml` resets `ports`), so the header can't be spoofed by
+  hitting `:8000` directly.
+- **Locked response**: HTTP **429** with `{"error", "detail":"locked_out",
+  "retry_after": <seconds>}` and a `Retry-After` header (`lockout_response`,
+  wired to `AXES_LOCKOUT_CALLABLE`). The login page shows a localized countdown.
+- **Audit**: `AXES_ENABLE_ACCESS_FAILURE_LOG = True` keeps a per-attempt trail
+  (`AccessAttempt` / `AccessFailureLog`), visible in Django admin.
+- **Shared cache**: the tier counters live in the Redis Django cache
+  (`CACHES` default), required because the 3 uvicorn workers each hold a separate
+  LocMemCache. Disabled under tests (`AXES_ENABLED = not RUNNING_TESTS`); the
+  lockout tests opt in with `@override_settings(AXES_ENABLED=True)`.
+- Passwords require a minimum length of **8** (`AUTH_PASSWORD_VALIDATORS`);
+  raising this only affects new/changed passwords, not existing ones.
+
 ## Frontend Implementation
 
 ### Page: LoginPage
