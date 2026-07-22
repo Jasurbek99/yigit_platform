@@ -42,6 +42,12 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-}
       - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:-}
+    # Do NOT publish backend:8000 to the host in production. The dev compose maps
+    # "8000:8000" for direct API access, but in prod that bypasses the frontend
+    # nginx — exposing the Django admin and letting a client spoof the X-Real-IP
+    # header (which the brute-force lockout keys on). nginx reaches the backend
+    # over the internal docker network (backend:8000), which this does not affect.
+    ports: !reset []
     # Drop the dev bind mount — container serves the baked image.
     volumes:
       - static_files:/app/static
