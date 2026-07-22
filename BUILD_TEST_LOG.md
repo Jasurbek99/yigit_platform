@@ -7,6 +7,8 @@ Running record of things Claude built that still need **manual testing by you**.
 - After **you** test it, check it off: change `- [ ]` to `- [x]` (or tell Claude "tested X" and it will check it off).
 - The Stop hook counts open `- [ ]` items and reminds you if any are pending.
 
+- [ ] 2026-07-22 — Brute-force login lockout (django-axes, escalating 30m/5h/1d by username+IP): verify on beta that 3 wrong passwords lock for 30 min with a 429 + login-page countdown, that a correct login before lockout resets the counter, and that a locked user from another IP/browser is unaffected. Also confirm Redis cache is wired in prod (lockout must survive across the 3 workers). Needs `pip install django-axes` + `migrate axes` on the server. — NEEDS TEST
+
 Format: `- [ ] YYYY-MM-DD — <what was built> — NEEDS TEST`
 
 ---

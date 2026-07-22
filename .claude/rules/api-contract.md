@@ -204,7 +204,17 @@ Response item shape:
 
 // Response: sets httpOnly cookie, returns user info
 { "id": 1, "username": "gadam", "role": "export_manager", "editable_fields": ["..."] }
+
+// Error 401: { "error": "Invalid credentials" } | { "error": "Account disabled" }
+// Error 429 (brute-force lockout — django-axes, keyed on username+IP):
+{ "error": "Too many failed login attempts. Please try again later.",
+  "detail": "locked_out", "retry_after": 1800 }   // also sends a Retry-After header (seconds)
 ```
+
+Brute-force lockout is **escalating**: 3 failed logins for one `(username, IP)` pair block it
+for 30 min, 3 more → 5 h, then 1 day (fresh 3 attempts per tier). A successful login before
+lockout resets the counter. `retry_after` is the block's remaining seconds. See
+`docs/obsidian/processes/authentication.md`.
 
 ### My work filter: `GET /api/v1/export/shipments/?my_work=true`
 Same response shape as list, filtered by role's active window server-side.
