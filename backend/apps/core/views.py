@@ -78,15 +78,34 @@ class LoginView(APIView):
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = authenticate(
-            request,
-            username=serializer.validated_data['username'],
-            password=serializer.validated_data['password'],
-        )
+        username = serializer.validated_data['username']
+        password = serializer.validated_data['password']
+
+        # axes operates on the underlying Django request (DRF wraps it), so pass
+        # request._request everywhere it needs to see/set lockout attributes.
+        django_request = request._request
+
+        if settings.AXES_ENABLED:
+            from axes.handlers.proxy import AxesProxyHandler
+            from axes.helpers import get_credentials, get_lockout_response
+            from apps.core.security_axes import reset_lockout
+
+            django_request._login_username = username
+            credentials = get_credentials(username=username, password=password)
+            if not AxesProxyHandler.is_allowed(django_request, credentials):
+                # Already locked out — return the escalating 429 without touching auth.
+                return get_lockout_response(django_request, credentials)
+
+        user = authenticate(django_request, username=username, password=password)
         if user is None:
             return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
         if not user.is_active:
             return Response({'error': 'Account disabled'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        if settings.AXES_ENABLED:
+            # JWT login never calls Django login(), so axes' reset-on-success
+            # signal won't fire — clear attempts and the escalation tier here.
+            reset_lockout(django_request, username)
 
         refresh = RefreshToken.for_user(user)
         response = Response(UserMeSerializer(user).data, status=status.HTTP_200_OK)
