@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useMutation } from '@tanstack/react-query';
+import axios from 'axios';
 import api from '@/services/api';
 import type { ICurrentUser } from '@/types';
 import { COLORS } from '@/constants/styles';
@@ -28,7 +29,18 @@ export default function LoginPage() {
       });
       navigate(data.role === 'boss' ? '/boss/dashboard' : '/');
     },
-    onError: () => {
+    onError: (error: unknown) => {
+      // 429 = brute-force lockout (django-axes). Show the cool-off countdown.
+      if (axios.isAxiosError(error) && error.response?.status === 429) {
+        const retryAfter = (error.response.data as { retry_after?: number })?.retry_after;
+        const minutes = retryAfter ? Math.ceil(retryAfter / 60) : null;
+        toast.error(t('login.locked_title'), {
+          description: minutes
+            ? t('login.locked_desc', { minutes })
+            : t('login.locked_desc_generic'),
+        });
+        return;
+      }
       toast.error(t('login.toast_error'), {
         description: t('login.toast_error_desc'),
       });
