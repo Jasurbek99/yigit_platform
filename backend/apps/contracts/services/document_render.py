@@ -18,11 +18,14 @@ import logging
 import shutil
 import subprocess
 import tempfile
+import time
+from contextlib import contextmanager
 from io import BytesIO
 from pathlib import Path
 
 import openpyxl
 from django.conf import settings
+from django.core.cache import cache
 from docx.shared import Mm
 from docxtpl import DocxTemplate, InlineImage
 
@@ -50,6 +53,61 @@ _FILENAME_FIELDS = {
 
 class DocumentRenderError(RuntimeError):
     """Raised when a document cannot be rendered (e.g. PDF converter missing)."""
+
+
+class PdfBusyError(DocumentRenderError):
+    """No PDF render slot was free within the wait window.
+
+    Subclasses ``DocumentRenderError`` so the views already map it to HTTP 503
+    ("service busy") with no extra handling.
+    """
+
+
+# ════════════════════════════════════════════════
+# PDF concurrency limit (worker-starvation guard)
+# ════════════════════════════════════════════════
+# Each PDF request shells out to LibreOffice and blocks a worker for up to 120s.
+# With only 3 uvicorn workers, a handful of concurrent PDF requests would stall
+# the whole API. We cap the number of renders running at once across ALL workers
+# via slot keys in the shared Redis cache; excess requests wait briefly, then get
+# a 503 telling them to retry — the API stays responsive for everyone else.
+PDF_MAX_CONCURRENCY = getattr(settings, 'PDF_MAX_CONCURRENCY', 2)
+# Safety TTL on a held slot: if a worker dies mid-render the slot self-frees.
+# Must exceed the 120s LibreOffice timeout so a live render never loses its slot.
+_PDF_SLOT_TTL = 180
+# How long a request waits for a free slot before giving up with 503.
+_PDF_ACQUIRE_TIMEOUT = 8.0
+_PDF_ACQUIRE_POLL = 0.25
+
+
+@contextmanager
+def _pdf_render_slot():
+    """Hold one of ``PDF_MAX_CONCURRENCY`` render slots for the duration.
+
+    Uses atomic ``cache.add`` (Redis SET NX) so the slot count is enforced across
+    all gunicorn/uvicorn workers, not per-process. Raises :class:`PdfBusyError`
+    if no slot frees within ``_PDF_ACQUIRE_TIMEOUT``.
+    """
+    deadline = time.monotonic() + _PDF_ACQUIRE_TIMEOUT
+    held_key = None
+    while held_key is None:
+        for slot in range(PDF_MAX_CONCURRENCY):
+            key = f'pdf:render:slot:{slot}'
+            if cache.add(key, 1, _PDF_SLOT_TTL):
+                held_key = key
+                break
+        if held_key is not None:
+            break
+        if time.monotonic() >= deadline:
+            raise PdfBusyError(
+                'PDF service is busy (too many conversions at once). '
+                'Please try again in a moment.'
+            )
+        time.sleep(_PDF_ACQUIRE_POLL)
+    try:
+        yield
+    finally:
+        cache.delete(held_key)
 
 
 def _resolve_stamp(tpl: DocxTemplate, value):
@@ -139,13 +197,14 @@ def render_pdf(source_bytes: bytes, source_ext: str = 'docx') -> bytes:
         src.write_bytes(source_bytes)
         profile = (tmp_path / 'lo_profile').as_uri()
         try:
-            subprocess.run(
-                [
-                    binary, '--headless', f'-env:UserInstallation={profile}',
-                    '--convert-to', 'pdf', '--outdir', str(tmp_path), str(src),
-                ],
-                check=True, capture_output=True, timeout=120,
-            )
+            with _pdf_render_slot():
+                subprocess.run(
+                    [
+                        binary, '--headless', f'-env:UserInstallation={profile}',
+                        '--convert-to', 'pdf', '--outdir', str(tmp_path), str(src),
+                    ],
+                    check=True, capture_output=True, timeout=120,
+                )
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
             logger.error('LibreOffice PDF conversion failed: %s', exc, exc_info=True)
             raise DocumentRenderError('PDF conversion failed.') from exc
