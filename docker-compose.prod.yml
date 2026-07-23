@@ -70,7 +70,7 @@ services:
     # Bind host port 80 directly — the outer nginx service is intentionally
     # not started in production (see deploy command above).
     ports:
-      - "80:80"
+      - "8080:80"
 
 volumes:
   static_files:
