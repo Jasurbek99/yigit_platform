@@ -21,6 +21,8 @@ export const SERA_TOP_NAV: readonly SeraNavItem[] = [
   { path: 'tir-takip', label: 'Maşyn Yzarlama' },
   { path: 'yurtdisi-hasabat', label: 'Daşary Hasabat' },
   { path: 'finans-hasabatlar', label: 'Maliýe Hasabatlar' },
+  { path: 'yardim', label: 'Kömek' },
+  { path: 'ayarlar', label: 'Sazlamalar' },
 ];
 
 /** The 15 Bütçe hub section cards / sub-routes. */

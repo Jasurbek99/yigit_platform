@@ -1,16 +1,25 @@
 import { useState } from 'react';
-import { Progress, Select } from 'antd';
+import dayjs, { type Dayjs } from 'dayjs';
+import type { EChartsOption } from 'echarts';
+import { Progress, Select, Button, DatePicker } from 'antd';
 import {
   IconLeaf, IconMessageCircle2, IconChevronDown, IconSeeding, IconMap2,
   IconClock, IconAlertTriangle, IconTemperature, IconPencil, IconSettings,
+  IconPlus, IconDownload, IconUpload, IconFileText, IconTrash, IconCircleCheck,
 } from '@tabler/icons-react';
+import { EChart } from '@/components/EChart';
 import { SeraPageHeader } from '../components/SeraPageHeader';
 import { SeraCard } from '../components/SeraCard';
+import { SeraMatrixTable, type MatrixRow } from '../components/SeraMatrixTable';
 import { SERA, fmtPct } from '../seraTheme';
 import { SERA_BLOCKS, SERA_BLOCKS_BY_GROUP } from '../mock/seraData';
 import {
   BLOCK_READINESS, GROUP_OVERVIEW, IZLEME_BLOCK_CARDS, IZLEME_SEASONS,
   IZLEME_DEFAULT_SELECTED, type BlockProgressCard as BlockProgressCardData,
+  HEALTH_LEGEND, MAP_ROW_COUNT, IZLEME_RECORDS,
+  DISEASE_BLOCK_CATEGORIES, DISEASE_BLOCK_COUNTS, DISEASE_TREND_DATES, DISEASE_TREND_COUNTS,
+  SEVERITY_DIST, CLIMATE_TREND_DATES, CLIMATE_TREND_TEMP, CLIMATE_TREND_HUMIDITY,
+  CLIMATE_TREND_SUN_HOURS, CLIMATE_TREND_JOULE_WANTED, CLIMATE_TREND_JOULE_ACTUAL,
 } from '../mock/izleme';
 
 const MAIN_TABS = [
@@ -156,6 +165,349 @@ function BlockProgressCard({ data }: { data: BlockProgressCardData }) {
   );
 }
 
+// ─── Sera Kartasy (Sera Haritası) tab ────────────────────────────────────
+function FilterField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div style={{ fontSize: 12, color: SERA.sub, marginBottom: 6 }}>{label}</div>
+      {children}
+    </div>
+  );
+}
+
+function LegendDot({ label, color }: { label: string; color: string }) {
+  return (
+    <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: SERA.sub, whiteSpace: 'nowrap' }}>
+      <span style={{ width: 11, height: 11, borderRadius: '50%', background: color, display: 'inline-block' }} />
+      {label}
+    </span>
+  );
+}
+
+function SeraHaritaTab() {
+  const [mapBlockId, setMapBlockId] = useState<string>('DUS-A');
+  const [mapDate, setMapDate] = useState<Dayjs>(dayjs('2026-07-24'));
+
+  const block = SERA_BLOCKS.find((b) => b.id === mapBlockId) ?? SERA_BLOCKS[0];
+  const rowPrefix = block.name.split(' ')[1] ?? 'A';
+  const rows = Array.from({ length: MAP_ROW_COUNT }, (_, i) => `${rowPrefix}${String(i + 1).padStart(2, '0')}`);
+
+  return (
+    <>
+      <SeraCard>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'flex-end' }}>
+          <FilterField label="Sera">
+            <Select
+              value={mapBlockId}
+              onChange={setMapBlockId}
+              style={{ width: 200 }}
+              showSearch
+              optionFilterProp="label"
+              options={SERA_BLOCKS.map((b) => ({ value: b.id, label: b.name }))}
+            />
+          </FilterField>
+          <FilterField label="Sene">
+            <DatePicker value={mapDate} onChange={(d) => d && setMapDate(d)} format="MM/DD/YYYY" style={{ width: 160 }} />
+          </FilterField>
+          <Button type="primary" icon={<IconPlus size={15} />} style={{ background: SERA.green, borderColor: SERA.green }}>
+            Ýazgy goş
+          </Button>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginLeft: 'auto' }}>
+            {HEALTH_LEGEND.map((l) => (
+              <LegendDot key={l.label} label={l.label} color={l.color} />
+            ))}
+          </div>
+        </div>
+      </SeraCard>
+
+      <SeraCard
+        title={`${block.name} — Hatar meýilnamasy · ${mapDate.format('YYYY-MM-DD')}`}
+        extra={`0 / ${MAP_ROW_COUNT} hatar ýazgyly`}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 520, overflowY: 'auto' }}>
+          {rows.map((r) => (
+            <div
+              key={r}
+              style={{
+                padding: '9px 12px', borderRadius: 6,
+                background: SERA.bg, color: SERA.sub, fontSize: 11, fontWeight: 600,
+              }}
+            >
+              {r}
+            </div>
+          ))}
+        </div>
+      </SeraCard>
+
+      <SeraCard title="Ähli bloklar — Umumy ýagdaý">
+        {SERA_BLOCKS_BY_GROUP.map((g) => (
+          <div key={g.group} style={{ marginBottom: 18 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: SERA.sub, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, textAlign: 'center' }}>
+              {g.group}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10 }}>
+              {g.blocks.map((b) => (
+                <button
+                  key={b.id}
+                  type="button"
+                  onClick={() => setMapBlockId(b.id)}
+                  style={{
+                    textAlign: 'left', border: `1px solid ${b.id === mapBlockId ? SERA.green : SERA.line}`,
+                    borderRadius: 10, padding: '10px 12px', cursor: 'pointer', background: '#fff',
+                  }}
+                >
+                  <div style={{ fontWeight: 700, color: SERA.ink, fontSize: 13 }}>{b.name}</div>
+                  <div style={{ fontSize: 12, color: SERA.sub }}>Ýazgy ýok</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </SeraCard>
+    </>
+  );
+}
+
+// ─── Ýazgylar (Kayıtlar) tab ─────────────────────────────────────────────
+function HealthBadge({ ok }: { ok: boolean }) {
+  return (
+    <span
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 10px', borderRadius: 20,
+        background: ok ? SERA.greenLight : '#fee2e2', color: ok ? SERA.green : SERA.neg, fontSize: 12, fontWeight: 600,
+      }}
+    >
+      {ok && <IconCircleCheck size={13} />} {ok ? 'Ýok' : 'Bar'}
+    </span>
+  );
+}
+
+function RecordIconBtn({ icon, ariaLabel }: { icon: React.ReactNode; ariaLabel: string }) {
+  return (
+    <button
+      type="button"
+      aria-label={ariaLabel}
+      style={{
+        border: `1px solid ${SERA.line}`, background: '#fff', borderRadius: 6, width: 26, height: 26,
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: SERA.sub,
+      }}
+    >
+      {icon}
+    </button>
+  );
+}
+
+function YazgylarTab() {
+  const [filterBlock, setFilterBlock] = useState<string>('all');
+  const [filterRow, setFilterRow] = useState<string>('all');
+  const [filterDisease, setFilterDisease] = useState<string>('all');
+
+  const rowOptions = Array.from({ length: MAP_ROW_COUNT }, (_, i) => `A${String(i + 1).padStart(2, '0')}`);
+
+  const headers = [
+    'Sera', 'Hatar', 'Sene', 'Gyzgynlyk (°C)', 'Çyglylyk (%)', 'Gün şöhlesi (sagat)',
+    'Joule isl. (J)', 'Joule ýer. (J)', 'Kesel', 'Kesel görnüşi', 'Derejesi', 'Täsir %', 'Bellikler', '',
+  ];
+  const rows: MatrixRow[] = IZLEME_RECORDS.map((r) => ({
+    label: r.seraNo,
+    cells: [
+      r.rowCode, r.date, `${r.tempC}°`, `${r.humidityPct}%`, r.sunHours,
+      '—', '—',
+      <HealthBadge key="health" ok={r.isHealthy} />,
+      '—', '—', '—',
+      r.notes || '—',
+      <div key="actions" style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+        <RecordIconBtn icon={<IconPencil size={13} />} ariaLabel="Üýtget" />
+        <RecordIconBtn icon={<IconTrash size={13} />} ariaLabel="Poz" />
+      </div>,
+    ],
+  }));
+
+  return (
+    <>
+      <SeraCard>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'flex-end', marginBottom: 16 }}>
+          <FilterField label="Blok / Sera">
+            <Select
+              value={filterBlock}
+              onChange={setFilterBlock}
+              style={{ width: 180 }}
+              options={[{ value: 'all', label: 'Ähli bloklar' }, ...SERA_BLOCKS.map((b) => ({ value: b.id, label: b.name }))]}
+            />
+          </FilterField>
+          <FilterField label="Hatar (A01–A49)">
+            <Select
+              value={filterRow}
+              onChange={setFilterRow}
+              style={{ width: 160 }}
+              options={[{ value: 'all', label: 'Ähli hatarlar' }, ...rowOptions.map((r) => ({ value: r, label: r }))]}
+            />
+          </FilterField>
+          <FilterField label="Başlangyç">
+            <DatePicker style={{ width: 150 }} placeholder="aa/gg/ýýýý" />
+          </FilterField>
+          <FilterField label="Gutarnyk">
+            <DatePicker style={{ width: 150 }} placeholder="aa/gg/ýýýý" />
+          </FilterField>
+          <FilterField label="Kesel">
+            <Select
+              value={filterDisease}
+              onChange={setFilterDisease}
+              style={{ width: 150 }}
+              options={[
+                { value: 'all', label: 'Ählisi' },
+                { value: 'sick', label: 'Keselli' },
+                { value: 'healthy', label: 'Sagdyn' },
+              ]}
+            />
+          </FilterField>
+        </div>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            <Button type="primary" icon={<IconPlus size={15} />} style={{ background: SERA.green, borderColor: SERA.green }}>
+              Täze ýazgy
+            </Button>
+            <Button icon={<IconDownload size={15} />}>CSV göçürip al</Button>
+            <Button icon={<IconUpload size={15} />}>CSV ýükle</Button>
+            <Button icon={<IconFileText size={15} />}>CSV şablony</Button>
+          </div>
+          <span style={{ fontSize: 12, color: SERA.sub }}>{IZLEME_RECORDS.length} ýazgy tapyldy</span>
+        </div>
+      </SeraCard>
+
+      <SeraCard padding={0} style={{ overflow: 'hidden' }}>
+        <SeraMatrixTable headers={headers} rows={rows} numeric={false} minWidth={1180} />
+      </SeraCard>
+    </>
+  );
+}
+
+// ─── Kesel (Hastalık) tab ────────────────────────────────────────────────
+function CardTitle({ label }: { label: string }) {
+  return (
+    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <IconAlertTriangle size={15} color={SERA.red} /> {label}
+    </span>
+  );
+}
+
+function SeverityTile({ value, label, tint, color }: { value: number; label: string; tint: string; color: string }) {
+  return (
+    <div style={{ background: tint, borderRadius: 12, padding: '20px 16px', textAlign: 'center' }}>
+      <div style={{ fontSize: 28, fontWeight: 700, color }}>{value}</div>
+      <div style={{ fontSize: 13, color: SERA.sub, marginTop: 4 }}>{label}</div>
+    </div>
+  );
+}
+
+function KeselTab() {
+  const barOption: EChartsOption = {
+    tooltip: { trigger: 'axis' },
+    grid: { left: 40, right: 20, top: 20, bottom: 40 },
+    xAxis: { type: 'category', data: [...DISEASE_BLOCK_CATEGORIES], axisLabel: { fontSize: 11 } },
+    yAxis: { type: 'value', max: 4, minInterval: 1 },
+    series: [{ type: 'bar', data: [...DISEASE_BLOCK_COUNTS], itemStyle: { color: SERA.red }, barWidth: 24 }],
+  };
+  const trendOption: EChartsOption = {
+    tooltip: { trigger: 'axis' },
+    grid: { left: 40, right: 20, top: 20, bottom: 30 },
+    xAxis: { type: 'category', data: [...DISEASE_TREND_DATES] },
+    yAxis: { type: 'value', max: 4, minInterval: 1 },
+    series: [{ type: 'line', data: [...DISEASE_TREND_COUNTS], itemStyle: { color: SERA.red }, lineStyle: { color: SERA.red } }],
+  };
+
+  return (
+    <>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
+        <SeraCard title={<CardTitle label="Kesel görnüşi paýlanyşy" />}>
+          <div style={{ padding: '48px 0', textAlign: 'center', color: SERA.sub, fontSize: 13 }}>
+            Kesel ýazgysy ýok
+          </div>
+        </SeraCard>
+        <SeraCard title={<CardTitle label="Sera boýunça kesel sany" />}>
+          <EChart option={barOption} height={260} ariaLabel="Sera boýunça kesel sany" />
+        </SeraCard>
+      </div>
+
+      <SeraCard title={<CardTitle label="Günlük kesel tendensiýasy (soňky 90 gün)" />}>
+        <EChart option={trendOption} height={260} ariaLabel="Günlük kesel tendensiýasy, soňky 90 gün" />
+      </SeraCard>
+
+      <SeraCard title="Agyrlyk derejesi paýlanyşy">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+          <SeverityTile value={SEVERITY_DIST.light} label="Ýeňil" tint="#fef9c3" color="#ca8a04" />
+          <SeverityTile value={SEVERITY_DIST.medium} label="Orta" tint="#fef3c7" color="#d97706" />
+          <SeverityTile value={SEVERITY_DIST.severe} label="Agyr" tint="#fee2e2" color={SERA.neg} />
+        </div>
+      </SeraCard>
+    </>
+  );
+}
+
+// ─── Howa & Yşyk (İklim & Işık) tab ──────────────────────────────────────
+function HowaTab() {
+  const tempHumidityOption: EChartsOption = {
+    tooltip: { trigger: 'axis' },
+    legend: { data: ['Gyzgynlyk', 'Çyglylyk'], bottom: 0 },
+    grid: { left: 50, right: 50, top: 20, bottom: 50 },
+    xAxis: { type: 'category', data: [...CLIMATE_TREND_DATES] },
+    yAxis: [
+      { type: 'value', name: '°C', max: 28 },
+      { type: 'value', name: '%', max: 80, splitLine: { show: false } },
+    ],
+    series: [
+      { name: 'Gyzgynlyk', type: 'line', data: [...CLIMATE_TREND_TEMP], itemStyle: { color: SERA.amber }, yAxisIndex: 0 },
+      { name: 'Çyglylyk', type: 'line', data: [...CLIMATE_TREND_HUMIDITY], itemStyle: { color: SERA.blue }, yAxisIndex: 1 },
+    ],
+  };
+  const sunOption: EChartsOption = {
+    tooltip: { trigger: 'axis' },
+    grid: { left: 40, right: 20, top: 20, bottom: 30 },
+    xAxis: { type: 'category', data: [...CLIMATE_TREND_DATES] },
+    yAxis: { type: 'value', max: 16 },
+    series: [{ type: 'line', data: [...CLIMATE_TREND_SUN_HOURS], itemStyle: { color: SERA.amber } }],
+  };
+  const jouleOption: EChartsOption = {
+    tooltip: { trigger: 'axis' },
+    legend: { data: ['Islenen (J)', 'Ýerine ýetirilen (J)'], bottom: 0 },
+    grid: { left: 40, right: 20, top: 20, bottom: 50 },
+    xAxis: { type: 'category', data: [...CLIMATE_TREND_DATES] },
+    yAxis: { type: 'value' },
+    series: [
+      { name: 'Islenen (J)', type: 'line', data: [...CLIMATE_TREND_JOULE_WANTED], itemStyle: { color: SERA.green } },
+      { name: 'Ýerine ýetirilen (J)', type: 'line', data: [...CLIMATE_TREND_JOULE_ACTUAL], itemStyle: { color: SERA.amber } },
+    ],
+  };
+
+  const avgRows: MatrixRow[] = SERA_BLOCKS.map((b) => ({
+    label: b.name,
+    cells: ['0', '—', '—', '—', '—', '—', '—'],
+  }));
+
+  return (
+    <>
+      <SeraCard title="Gyzgynlyk & Çyglylyk tendensiýasy (soňky 90 gün)">
+        <EChart option={tempHumidityOption} height={280} ariaLabel="Gyzgynlyk we çyglylyk tendensiýasy, soňky 90 gün" />
+      </SeraCard>
+      <SeraCard title="Günlük gün şöhle sagady tendensiýasy (soňky 90 gün)">
+        <EChart option={sunOption} height={260} ariaLabel="Günlük gün şöhle sagady tendensiýasy, soňky 90 gün" />
+      </SeraCard>
+      <SeraCard title="Joule islenen we ýerine ýetirilen (soňky 90 gün)">
+        <EChart option={jouleOption} height={260} ariaLabel="Joule islenen we ýerine ýetirilen, soňky 90 gün" />
+      </SeraCard>
+      <SeraCard title="Sera boýunça ortaça bahalar">
+        <SeraMatrixTable
+          headers={['Sera', 'Ýazgy', 'Ort. gyzgynlyk', 'Ort. çyglylyk', 'Ort. gün şöhlesi', 'Joule isl. (J)', 'Joule ýer. (J)', 'Soňky sene']}
+          rows={avgRows}
+          numeric={false}
+          minWidth={900}
+        />
+      </SeraCard>
+    </>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────
 export default function SeraIzleme() {
   const [mainTab, setMainTab] = useState<MainTabKey>('ekis');
@@ -214,13 +566,12 @@ export default function SeraIzleme() {
         </div>
       </SeraCard>
 
-      {mainTab !== 'ekis' ? (
-        <SeraCard>
-          <div style={{ padding: 24, textAlign: 'center', color: SERA.sub, fontSize: 13 }}>
-            Bu bölüm häzirlikçe taýýarlanýar…
-          </div>
-        </SeraCard>
-      ) : (
+      {mainTab === 'harita' && <SeraHaritaTab />}
+      {mainTab === 'ýazgy' && <YazgylarTab />}
+      {mainTab === 'kesel' && <KeselTab />}
+      {mainTab === 'howa' && <HowaTab />}
+
+      {mainTab === 'ekis' && (
         <>
           {/* Season + block select */}
           <SeraCard>

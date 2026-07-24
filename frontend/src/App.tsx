@@ -93,6 +93,8 @@ const SeraTirTakip = lazy(() => import('@/pages/sera/pages/SeraTirTakip'));
 const SeraYurtdisiHasabat = lazy(() => import('@/pages/sera/pages/SeraYurtdisiHasabat'));
 const SeraFinansHasabatlar = lazy(() => import('@/pages/sera/pages/SeraFinansHasabatlar'));
 const SeraFinansButceKarsilastirma = lazy(() => import('@/pages/sera/pages/finans/ButceKarsilastirma'));
+const SeraYardim = lazy(() => import('@/pages/sera/pages/SeraYardim'));
+const SeraAyarlar = lazy(() => import('@/pages/sera/pages/SeraAyarlar'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -337,6 +339,8 @@ export default function App() {
                     <Route path="yurtdisi-hasabat" element={<SeraYurtdisiHasabat />} />
                     <Route path="finans-hasabatlar" element={<SeraFinansHasabatlar />} />
                     <Route path="finans-hasabatlar/butce-karsilastirma" element={<SeraFinansButceKarsilastirma />} />
+                    <Route path="yardim" element={<SeraYardim />} />
+                    <Route path="ayarlar" element={<SeraAyarlar />} />
                   </Route>
                 </Route>
                 <Route path="/unauthorized" element={<UnauthorizedPage />} />

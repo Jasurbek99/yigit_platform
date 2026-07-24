@@ -1,11 +1,15 @@
 import { useState } from 'react';
-import { IconUsers, IconMessageCircle, IconChevronDown } from '@tabler/icons-react';
+import type { CSSProperties } from 'react';
+import { IconUsers, IconMessageCircle, IconChevronDown, IconTrash } from '@tabler/icons-react';
 import { SeraPageHeader } from '../../components/SeraPageHeader';
 import { SeraCard } from '../../components/SeraCard';
 import { SeraMatrixTable, type MatrixRow } from '../../components/SeraMatrixTable';
 import { SERA, fmtNum } from '../../seraTheme';
 import { SERA_BLOCKS_BY_GROUP, MONTHS_TR, type SeraBlock } from '../../mock/seraData';
-import { ADMIN_BLOCK, MONTHLY_STAFF_COST_ROWS, FOREIGN_STAFF } from '../../mock/personel';
+import {
+  ADMIN_BLOCK, MONTHLY_STAFF_COST_ROWS, FOREIGN_STAFF, SALARY_CATEGORIES,
+  type SalaryCurrency, type SalaryPositionRow,
+} from '../../mock/personel';
 
 type TabKey = 'sayisi' | 'maas';
 
@@ -92,6 +96,93 @@ function BlockGroupSection({ title, blocks }: BlockGroupSectionProps) {
         <PersonnelRow key={b.id} label={b.name} sub={`${b.areaGa} GA`} last={i === blocks.length - 1} />
       ))}
     </GroupBox>
+  );
+}
+
+// ─── Maaş Tablosu — per-position salary rows, grouped by cost code ───────
+const th: CSSProperties = { padding: '8px 12px', textAlign: 'left', color: SERA.sub, fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.3, borderBottom: `1px solid ${SERA.line}`, whiteSpace: 'nowrap' };
+const thCenter: CSSProperties = { ...th, textAlign: 'center' };
+const thRight: CSSProperties = { ...th, textAlign: 'right' };
+const td: CSSProperties = { padding: '8px 12px', fontSize: 13, color: SERA.ink, borderBottom: `1px solid ${SERA.line}` };
+const tdCenter: CSSProperties = { ...td, textAlign: 'center' };
+const tdRight: CSSProperties = { ...td, textAlign: 'right' };
+
+interface CurrencyBadgeProps {
+  readonly currency: SalaryCurrency;
+}
+
+/** Two-way DTM/USD pill — display-only (matches the source app's toggle look). */
+function CurrencyBadge({ currency }: CurrencyBadgeProps) {
+  const pill = (label: SalaryCurrency): CSSProperties => ({
+    padding: '3px 10px',
+    fontSize: 11,
+    fontWeight: 700,
+    background: currency === label ? SERA.green : SERA.card,
+    color: currency === label ? '#fff' : SERA.sub,
+  });
+  return (
+    <span style={{ display: 'inline-flex', borderRadius: 6, overflow: 'hidden', border: `1px solid ${SERA.line}` }}>
+      <span style={pill('DTM')}>DTM</span>
+      <span style={pill('USD')}>USD</span>
+    </span>
+  );
+}
+
+interface SalaryValueBoxProps {
+  readonly value: number;
+  readonly currency: SalaryCurrency;
+}
+
+/** Input-styled read-out box: "500  DTM". */
+function SalaryValueBox({ value, currency }: SalaryValueBoxProps) {
+  return (
+    <span
+      style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+        minWidth: 92, border: `1px solid ${SERA.line}`, borderRadius: 8, padding: '4px 10px', background: SERA.card,
+      }}
+    >
+      <span style={{ fontSize: 13, color: SERA.ink, fontVariantNumeric: 'tabular-nums' }}>{fmtNum(value)}</span>
+      <span style={{ fontSize: 11, color: SERA.sub }}>{currency}</span>
+    </span>
+  );
+}
+
+interface SalaryCategoryTableProps {
+  readonly title: string;
+  readonly positions: readonly SalaryPositionRow[];
+  readonly last?: boolean;
+}
+
+function SalaryCategoryTable({ title, positions, last }: SalaryCategoryTableProps) {
+  return (
+    <div style={{ borderBottom: last ? 'none' : `1px solid ${SERA.line}` }}>
+      <div style={{ background: SERA.greenSoft, padding: '10px 16px', fontWeight: 700, color: SERA.ink, fontSize: 14 }}>{title}</div>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              <th style={th}>Vazife</th>
+              <th style={thCenter}>Para Birimi</th>
+              <th style={thRight}>İşgär Aylygı</th>
+              <th style={thRight}>Resmi Aylygı</th>
+              <th style={th} />
+            </tr>
+          </thead>
+          <tbody>
+            {positions.map((p) => (
+              <tr key={p.vazife}>
+                <td style={{ ...td, fontWeight: 500 }}>{p.vazife}</td>
+                <td style={tdCenter}><CurrencyBadge currency={p.currency} /></td>
+                <td style={tdRight}><SalaryValueBox value={p.isgarAylygy} currency={p.currency} /></td>
+                <td style={tdRight}><SalaryValueBox value={p.resmiAylygy} currency={p.currency} /></td>
+                <td style={tdCenter}><IconTrash size={15} color={SERA.sub} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 
@@ -184,6 +275,17 @@ export default function Personel() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ background: SERA.card, border: `1px solid ${SERA.line}`, borderRadius: 12, overflow: 'hidden' }}>
+            {SALARY_CATEGORIES.map((cat, i) => (
+              <SalaryCategoryTable
+                key={cat.code}
+                title={cat.title}
+                positions={cat.positions}
+                last={i === SALARY_CATEGORIES.length - 1}
+              />
+            ))}
+          </div>
+
           <SeraCard
             title={
               <div>

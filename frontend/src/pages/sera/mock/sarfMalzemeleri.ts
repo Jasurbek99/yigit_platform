@@ -25,9 +25,9 @@ export interface ConsumableMaterial {
 }
 
 export const DEFAULT_CONSUMABLE_MATERIALS: readonly ConsumableMaterial[] = [
-  { key: 'tohum', name: 'Tohum', unit: 'adet', standardQty: 98, defaultGiderAyIdx: 6, unitPriceUsd: 0 },
-  { key: 'kokopeat', name: 'Kokopeat', unit: 'litre', standardQty: 100, defaultGiderAyIdx: 6, unitPriceUsd: 0 },
-  { key: 'kubik', name: 'Kübik (Taş Yünü)', unit: 'adet', standardQty: 10, defaultGiderAyIdx: 6, unitPriceUsd: 0 },
+  { key: 'tohum', name: 'Tohum', unit: 'adet', standardQty: 98, defaultGiderAyIdx: 6, unitPriceUsd: 5 },
+  { key: 'kokopeat', name: 'Kokopeat', unit: 'litre', standardQty: 100, defaultGiderAyIdx: 6, unitPriceUsd: 6 },
+  { key: 'kubik', name: 'Kübik (Taş Yünü)', unit: 'adet', standardQty: 10, defaultGiderAyIdx: 6, unitPriceUsd: 9 },
   { key: 'ilac', name: 'İlaç', unit: 'ml', standardQty: 1, defaultGiderAyIdx: 6, unitPriceUsd: 0 },
 ];
 

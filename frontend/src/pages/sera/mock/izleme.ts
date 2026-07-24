@@ -90,3 +90,60 @@ export const IZLEME_BLOCK_CARDS: readonly BlockProgressCard[] = [
 export const IZLEME_SEASONS = ['2024-2025', '2025-2026', '2026-2027'] as const;
 
 export const IZLEME_DEFAULT_SELECTED: readonly string[] = ['DUS-A', 'DUS-B', 'DUS-C'];
+
+// ─── Sera Kartasy (Sera Haritası) — health-status legend + row plan ─────
+export interface HealthLegendItem {
+  readonly label: string;
+  readonly color: string;
+}
+
+export const HEALTH_LEGEND: readonly HealthLegendItem[] = [
+  { label: 'Sagdyn', color: '#86efac' },
+  { label: 'Ýeňil kesel', color: '#fde047' },
+  { label: 'Orta kesel', color: '#fb923c' },
+  { label: 'Agyr', color: '#f87171' },
+  { label: 'Sowuk (<12°C)', color: '#93c5fd' },
+  { label: 'Yssy (>35°C)', color: '#fed7aa' },
+  { label: 'Maglumat ýok', color: '#e5e7eb' },
+];
+
+/** Row plan grid size ("Sıra Planı") for the map tab. Only Dusak A confirmed by source — reused for every block. */
+export const MAP_ROW_COUNT = 49;
+
+// ─── Ýazgylar (Kayıtlar) — greenhouse monitoring log rows ────────────────
+export interface IzlemeRecord {
+  readonly id: number;
+  readonly seraNo: number;
+  readonly rowCode: string;
+  readonly date: string;
+  readonly tempC: number;
+  readonly humidityPct: number;
+  readonly sunHours: number;
+  readonly isHealthy: boolean;
+  readonly notes: string;
+}
+
+export const IZLEME_RECORDS: readonly IzlemeRecord[] = [
+  { id: 1, seraNo: 3, rowCode: 'A08', date: '2026-06-29', tempC: 25, humidityPct: 65, sunHours: 8.5, isHealthy: true, notes: 'dsds' },
+  { id: 2, seraNo: 3, rowCode: 'A01', date: '2026-06-29', tempC: 30, humidityPct: 70, sunHours: 8.5, isHealthy: true, notes: '' },
+  { id: 3, seraNo: 10, rowCode: 'A01', date: '2026-06-26', tempC: 26, humidityPct: 65, sunHours: 9, isHealthy: true, notes: 'sdssdsdsds' },
+];
+
+// ─── Kesel (Hastalık) dashboard — currently empty (no disease records) ──
+export const DISEASE_BLOCK_CATEGORIES: readonly string[] = [
+  'Dusak C', 'Dusak 3', 'Dusak 6', 'Dusak 9', 'Kaka E', 'Kaka H', 'Kaka K', 'Owadandepe O',
+];
+export const DISEASE_BLOCK_COUNTS: readonly number[] = DISEASE_BLOCK_CATEGORIES.map(() => 0);
+
+export const DISEASE_TREND_DATES: readonly string[] = ['06-26'];
+export const DISEASE_TREND_COUNTS: readonly number[] = [0];
+
+export const SEVERITY_DIST = { light: 0, medium: 0, severe: 0 } as const;
+
+// ─── Howa & Yşyk (İklim & Işık) — 90-day trend + per-block averages ─────
+export const CLIMATE_TREND_DATES: readonly string[] = ['06-26'];
+export const CLIMATE_TREND_TEMP: readonly number[] = [0];
+export const CLIMATE_TREND_HUMIDITY: readonly number[] = [0];
+export const CLIMATE_TREND_SUN_HOURS: readonly number[] = [0];
+export const CLIMATE_TREND_JOULE_WANTED: readonly number[] = [0];
+export const CLIMATE_TREND_JOULE_ACTUAL: readonly number[] = [0];

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button, Input, InputNumber, Select } from 'antd';
 import {
-  IconPackage, IconPlus, IconMessageCircle2, IconChevronDown, IconChevronUp,
+  IconPackage, IconPlus, IconMessageCircle2, IconChevronDown, IconChevronUp, IconTrash,
 } from '@tabler/icons-react';
 import { SeraPageHeader } from '../../components/SeraPageHeader';
 import { SeraCard } from '../../components/SeraCard';
@@ -34,6 +34,14 @@ function ProductChip({ label, active, onClick }: { label: string; active: boolea
     </button>
   );
 }
+
+const th: React.CSSProperties = {
+  padding: '8px 12px', textAlign: 'left', color: SERA.sub, fontWeight: 600, fontSize: 12,
+  textTransform: 'uppercase', letterSpacing: 0.3, borderBottom: `2px solid ${SERA.line}`, whiteSpace: 'nowrap',
+};
+const td: React.CSSProperties = {
+  padding: '8px 12px', borderBottom: `1px solid ${SERA.line}`, whiteSpace: 'nowrap', fontSize: 13, color: SERA.ink,
+};
 
 function TabButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
@@ -102,6 +110,10 @@ export default function SarfMalzemeleri() {
     setNewMaterialName('');
   };
 
+  const handleDeleteMaterial = (key: string) => {
+    setMaterials((prev) => prev.filter((m) => m.key !== key));
+  };
+
   const setStandardQty = (key: string, value: number | null) => {
     setMaterials((prev) => prev.map((m) => (m.key === key ? { ...m, standardQty: value ?? 0 } : m)));
   };
@@ -150,14 +162,8 @@ export default function SarfMalzemeleri() {
   }));
 
   // ─── Tab 2: Birim Fiyat & Tutar ─────────────────────────────────────────
-  const priceRows: MatrixRow[] = materials.map((m) => ({
-    label: m.name,
-    cells: [
-      m.unit,
-      <InputNumber key="price" size="small" min={0} value={m.unitPriceUsd} onChange={(v) => setUnitPrice(m.key, v)} style={{ width: 90 }} />,
-      fmtUsd(m.unitPriceUsd * needFor()),
-    ],
-  }));
+  const totalTahminiTutar = materials.reduce((acc, m) => acc + m.unitPriceUsd * needFor(), 0);
+  const monthlyTutarTotals = months.map(() => totalTahminiTutar);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -223,37 +229,37 @@ export default function SarfMalzemeleri() {
         <TabButton label="Birim Fiyat & Tutar" active={activeTab === 'fiyat'} onClick={() => setActiveTab('fiyat')} />
       </div>
 
-      <SeraBlockSelector selected={blocks} onChange={setBlocks} title="Blok Seçimi (birden fazla)" />
-      <SeraMonthSelector selected={months} onChange={setMonths} title="Ay Seçimi (birleştirilebilir)" />
-
-      {/* Sarf Malzemesi Ekle */}
-      <SeraCard title="Sarf Malzemesi Ekle">
-        <div style={{ fontSize: 12, color: SERA.sub, marginTop: -8, marginBottom: 12 }}>
-          Listede olmayan bir kalem ekleyin (ör. fide kabı, ip, askı vb.). Tüm ürün türleri için 0 olarak eklenir;
-          her ürünün kendi standart oranını ve birim fiyatını ayrı ayrı girebilirsiniz.
-        </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          <Input
-            placeholder="Yeni malzeme adı (ör. Fide Kabı)"
-            value={newMaterialName}
-            onChange={(e) => setNewMaterialName(e.target.value)}
-            style={{ maxWidth: 280 }}
-          />
-          <Select value={newMaterialUnit} onChange={setNewMaterialUnit} style={{ width: 110 }} options={CONSUMABLE_UNITS.map((u) => ({ value: u, label: u }))} />
-          <Button type="primary" icon={<IconPlus size={14} />} onClick={handleAddMaterial} style={{ background: SERA.greenDark }}>
-            Ekle
-          </Button>
-        </div>
-      </SeraCard>
-
-      {/* Stat row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-        <SeraStatCard label="Seçili Blok" value={blocks.length} />
-        <SeraStatCard label="Seçili Ay" value={months.length} tint="#eef2ff" accent={SERA.blue} />
-      </div>
-
       {activeTab === 'miktar' ? (
         <>
+          <SeraBlockSelector selected={blocks} onChange={setBlocks} title="Blok Seçimi (birden fazla)" />
+          <SeraMonthSelector selected={months} onChange={setMonths} title="Ay Seçimi (birleştirilebilir)" />
+
+          {/* Sarf Malzemesi Ekle */}
+          <SeraCard title="Sarf Malzemesi Ekle">
+            <div style={{ fontSize: 12, color: SERA.sub, marginTop: -8, marginBottom: 12 }}>
+              Listede olmayan bir kalem ekleyin (ör. fide kabı, ip, askı vb.). Tüm ürün türleri için 0 olarak eklenir;
+              her ürünün kendi standart oranını ve birim fiyatını ayrı ayrı girebilirsiniz.
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              <Input
+                placeholder="Yeni malzeme adı (ör. Fide Kabı)"
+                value={newMaterialName}
+                onChange={(e) => setNewMaterialName(e.target.value)}
+                style={{ maxWidth: 280 }}
+              />
+              <Select value={newMaterialUnit} onChange={setNewMaterialUnit} style={{ width: 110 }} options={CONSUMABLE_UNITS.map((u) => ({ value: u, label: u }))} />
+              <Button type="primary" icon={<IconPlus size={14} />} onClick={handleAddMaterial} style={{ background: SERA.greenDark }}>
+                Ekle
+              </Button>
+            </div>
+          </SeraCard>
+
+          {/* Stat row */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+            <SeraStatCard label="Seçili Blok" value={blocks.length} />
+            <SeraStatCard label="Seçili Ay" value={months.length} tint="#eef2ff" accent={SERA.blue} />
+          </div>
+
           <SeraCard title={`Standart Oran & İhtiyaç — ${selectedProduct}`}>
             <div style={{ fontSize: 12, color: SERA.sub, marginBottom: 12 }}>
               Bu malzemeler sezonluk/tek seferlik kabul edilir: her malzemenin "Gider Ayı" sütununda seçtiğiniz ayda
@@ -280,12 +286,99 @@ export default function SarfMalzemeleri() {
           </SeraCard>
         </>
       ) : (
-        <SeraCard title={`Birim Fiyat & Tutar — ${selectedProduct}`}>
-          <div style={{ fontSize: 12, color: SERA.sub, marginBottom: 12 }}>
-            Birim fiyat her ürün türü için ayrı tutulur. Tutar, İhtiyaç × Birim Fiyat olarak hesaplanır.
+        <>
+          <div style={{ fontSize: 12, color: SERA.sub }}>
+            Blok ve ay seçimi &quot;Miktar (Standart &amp; İhtiyaç)&quot; sekmesiyle ortaktır; orada yaptığınız seçim
+            burada da geçerlidir.
           </div>
-          <SeraMatrixTable headers={['Malzeme', 'Birim', 'Birim Fiyat (USD)', 'Tutar (USD)']} rows={priceRows} minWidth={560} />
-        </SeraCard>
+
+          <SeraStatCard
+            label={`Tahmini Toplam Maliyet — ${selectedProduct}`}
+            value={fmtUsd(totalTahminiTutar)}
+            accent={SERA.amber}
+            tint="#fff4e0"
+          />
+
+          <SeraCard title={`Birim Fiyat & Tutar — ${selectedProduct}`}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', minWidth: 560, borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr>
+                    <th style={th}>Malzeme</th>
+                    <th style={{ ...th, textAlign: 'right' }}>İhtiyaç</th>
+                    <th style={{ ...th, textAlign: 'right' }}>Birim Fiyat ($)</th>
+                    <th style={{ ...th, textAlign: 'right' }}>Tahmini Tutar</th>
+                    <th style={th} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {materials.map((m) => (
+                    <tr key={m.key}>
+                      <td style={td}>{m.name}</td>
+                      <td style={{ ...td, textAlign: 'right' }}>{fmtNum(needFor())} {m.unit}</td>
+                      <td style={{ ...td, textAlign: 'right' }}>
+                        <InputNumber
+                          size="small"
+                          min={0}
+                          value={m.unitPriceUsd}
+                          onChange={(v) => setUnitPrice(m.key, v)}
+                          style={{ width: 90 }}
+                        />
+                      </td>
+                      <td style={{ ...td, textAlign: 'right' }}>{fmtUsd(m.unitPriceUsd * needFor())}</td>
+                      <td style={{ ...td, textAlign: 'center' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteMaterial(m.key)}
+                          style={{ border: 'none', background: 'none', color: SERA.neg, cursor: 'pointer', display: 'flex' }}
+                          aria-label="Sil"
+                        >
+                          <IconTrash size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colSpan={3} style={{ ...td, borderBottom: 'none', fontWeight: 700, color: SERA.amber }}>
+                      TAHMİNİ TOPLAM TUTAR
+                    </td>
+                    <td style={{ ...td, borderBottom: 'none', fontWeight: 700, color: SERA.amber, textAlign: 'right' }}>
+                      {fmtUsd(totalTahminiTutar)}
+                    </td>
+                    <td style={{ ...td, borderBottom: 'none' }} />
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            <div style={{ fontSize: 12, color: SERA.sub, marginTop: 12 }}>
+              <b>Açıklama:</b> Tutar = İhtiyaç × Birim Fiyat. Birim fiyat her ürün türü için ayrı tutulur; yukarıdaki
+              &quot;Ürün Türü&quot; seçimine göre güncellenir.
+            </div>
+          </SeraCard>
+
+          <SeraCard title={`Ay Bazında Tahmini Tutar — ${selectedProduct}`}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', minWidth: months.length > 4 ? 900 : 320, borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr>
+                    {selectedMonthNames.map((mn) => (
+                      <th key={mn} style={{ ...th, textAlign: 'right' }}>{mn}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    {monthlyTutarTotals.map((v, i) => (
+                      <td key={i} style={{ ...td, textAlign: 'right', borderBottom: 'none' }}>{fmtUsd(v)}</td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </SeraCard>
+        </>
       )}
     </div>
   );
