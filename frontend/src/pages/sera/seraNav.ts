@@ -17,6 +17,10 @@ export const SERA_TOP_NAV: readonly SeraNavItem[] = [
   { path: 'dashboard', label: 'Esasy Dashboard' },
   { path: 'butce', label: 'Býujet' },
   { path: 'pomidor', label: 'Pomidor Dükany' },
+  { path: 'izleme', label: 'Sera Gözegçiligi' },
+  { path: 'tir-takip', label: 'Maşyn Yzarlama' },
+  { path: 'yurtdisi-hasabat', label: 'Daşary Hasabat' },
+  { path: 'finans-hasabatlar', label: 'Maliýe Hasabatlar' },
 ];
 
 /** The 15 Bütçe hub section cards / sub-routes. */

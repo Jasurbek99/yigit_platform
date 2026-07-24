@@ -88,6 +88,11 @@ const SeraGiderler = lazy(() => import('@/pages/sera/pages/butce/Giderler'));
 const SeraSatis = lazy(() => import('@/pages/sera/pages/butce/Satis'));
 const SeraRaporlar = lazy(() => import('@/pages/sera/pages/butce/Raporlar'));
 const SeraBlokAyarlari = lazy(() => import('@/pages/sera/pages/butce/BlokAyarlari'));
+const SeraIzleme = lazy(() => import('@/pages/sera/pages/SeraIzleme'));
+const SeraTirTakip = lazy(() => import('@/pages/sera/pages/SeraTirTakip'));
+const SeraYurtdisiHasabat = lazy(() => import('@/pages/sera/pages/SeraYurtdisiHasabat'));
+const SeraFinansHasabatlar = lazy(() => import('@/pages/sera/pages/SeraFinansHasabatlar'));
+const SeraFinansButceKarsilastirma = lazy(() => import('@/pages/sera/pages/finans/ButceKarsilastirma'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -327,6 +332,11 @@ export default function App() {
                     <Route path="butce/satis" element={<SeraSatis />} />
                     <Route path="butce/raporlar" element={<SeraRaporlar />} />
                     <Route path="butce/blok-ayarlari" element={<SeraBlokAyarlari />} />
+                    <Route path="izleme" element={<SeraIzleme />} />
+                    <Route path="tir-takip" element={<SeraTirTakip />} />
+                    <Route path="yurtdisi-hasabat" element={<SeraYurtdisiHasabat />} />
+                    <Route path="finans-hasabatlar" element={<SeraFinansHasabatlar />} />
+                    <Route path="finans-hasabatlar/butce-karsilastirma" element={<SeraFinansButceKarsilastirma />} />
                   </Route>
                 </Route>
                 <Route path="/unauthorized" element={<UnauthorizedPage />} />
