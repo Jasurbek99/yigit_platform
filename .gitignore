@@ -49,3 +49,4 @@ docker-compose.override.yml
 backend/walk_shipment.py
 # Superpowers brainstorm runtime state (pids, tokens, ports)
 .superpowers/
+sera-ref/

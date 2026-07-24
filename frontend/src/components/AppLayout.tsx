@@ -136,6 +136,7 @@ export default function AppLayout() {
     '/admin/sales-rep-coverage': t('nav.sales_rep_coverage'),
     '/admin/expense-template': t('nav.admin_expense_template'),
     '/admin/packing-templates': t('nav.admin_packing_templates'),
+    '/sera': 'Sera Býujet',
   };
 
   const currentPageLabel = location.pathname.startsWith('/shipments/')
@@ -258,6 +259,20 @@ export default function AppLayout() {
         ] as import('@/types').UserRole[],
       },
     ]},
+    { label: 'Sera Býujet', items: [
+      {
+        key: '/sera',
+        icon: <IconPlant2 size={15} />,
+        label: 'Sera Býujet',
+        // UI-only prototype module — surfaced to every role via the same
+        // roles-bypass the Worklog entry uses (no page_permissions needed).
+        roles: [
+          'admin', 'export_manager', 'loading_dept_head', 'loading_dept_head_deputy', 'warehouse_chief',
+          'weight_master', 'document_team', 'transport', 'sales_rep', 'finansist',
+          'director', 'accountant', 'greenhouse_manager', 'seller', 'boss',
+        ] as import('@/types').UserRole[],
+      },
+    ]},
     { label: t('nav.group_feedback'), items: [
       {
         key: '/feedback/submit',
@@ -310,6 +325,8 @@ export default function AppLayout() {
 
   const selectedKey = location.pathname.startsWith('/shipments/')
     ? '/export/shipments'
+    : location.pathname.startsWith('/sera')
+    ? '/sera'
     : location.pathname;
 
   return (

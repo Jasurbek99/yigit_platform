@@ -67,6 +67,28 @@ const SalesRepCoveragePage = lazy(() => import('@/pages/admin/SalesRepCoveragePa
 const ExpenseTemplatePage = lazy(() => import('@/pages/admin/ExpenseTemplatePage'));
 const PackingTemplatePage = lazy(() => import('@/pages/admin/PackingTemplatePage'));
 
+// ── Sera Bütçe (UI-only prototype module) ──────────────────────────────
+const SeraShell = lazy(() => import('@/pages/sera/SeraShell'));
+const SeraAnaSayfa = lazy(() => import('@/pages/sera/pages/SeraAnaSayfa'));
+const SeraAnaDashboard = lazy(() => import('@/pages/sera/pages/SeraAnaDashboard'));
+const SeraButceHub = lazy(() => import('@/pages/sera/pages/SeraButceHub'));
+const SeraPomidor = lazy(() => import('@/pages/sera/pages/SeraPomidor'));
+const ButceDashboard = lazy(() => import('@/pages/sera/pages/butce/ButceDashboard'));
+const SeraUretimPlani = lazy(() => import('@/pages/sera/pages/butce/UretimPlani'));
+const SeraGunlukUretim = lazy(() => import('@/pages/sera/pages/butce/GunlukUretim'));
+const SeraUretim = lazy(() => import('@/pages/sera/pages/butce/Uretim'));
+const SeraPersonel = lazy(() => import('@/pages/sera/pages/butce/Personel'));
+const SeraGubre = lazy(() => import('@/pages/sera/pages/butce/Gubre'));
+const SeraSarfMalzemeleri = lazy(() => import('@/pages/sera/pages/butce/SarfMalzemeleri'));
+const SeraGenelUretimGideri = lazy(() => import('@/pages/sera/pages/butce/GenelUretimGideri'));
+const SeraPazarlamaGaplama = lazy(() => import('@/pages/sera/pages/butce/PazarlamaGaplama'));
+const SeraGenelYonetimGiderleri = lazy(() => import('@/pages/sera/pages/butce/GenelYonetimGiderleri'));
+const SeraYonetimRaporlari = lazy(() => import('@/pages/sera/pages/butce/YonetimRaporlari'));
+const SeraGiderler = lazy(() => import('@/pages/sera/pages/butce/Giderler'));
+const SeraSatis = lazy(() => import('@/pages/sera/pages/butce/Satis'));
+const SeraRaporlar = lazy(() => import('@/pages/sera/pages/butce/Raporlar'));
+const SeraBlokAyarlari = lazy(() => import('@/pages/sera/pages/butce/BlokAyarlari'));
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -284,6 +306,28 @@ export default function App() {
                       <PackingTemplatePage />
                     </ProtectedRoute>
                   } />
+                  {/* Sera Bütçe — UI-only prototype module (mock data) */}
+                  <Route path="sera" element={<ProtectedRoute><SeraShell /></ProtectedRoute>}>
+                    <Route index element={<SeraAnaSayfa />} />
+                    <Route path="dashboard" element={<SeraAnaDashboard />} />
+                    <Route path="butce" element={<SeraButceHub />} />
+                    <Route path="pomidor" element={<SeraPomidor />} />
+                    <Route path="butce/dashboard" element={<ButceDashboard />} />
+                    <Route path="butce/uretim-plani" element={<SeraUretimPlani />} />
+                    <Route path="butce/gunluk-uretim" element={<SeraGunlukUretim />} />
+                    <Route path="butce/uretim" element={<SeraUretim />} />
+                    <Route path="butce/personel" element={<SeraPersonel />} />
+                    <Route path="butce/gubre" element={<SeraGubre />} />
+                    <Route path="butce/sarf-malzemeleri" element={<SeraSarfMalzemeleri />} />
+                    <Route path="butce/genel-uretim-gideri" element={<SeraGenelUretimGideri />} />
+                    <Route path="butce/pazarlama-gaplama" element={<SeraPazarlamaGaplama />} />
+                    <Route path="butce/genel-yonetim-giderleri" element={<SeraGenelYonetimGiderleri />} />
+                    <Route path="butce/yonetim-raporlari" element={<SeraYonetimRaporlari />} />
+                    <Route path="butce/giderler" element={<SeraGiderler />} />
+                    <Route path="butce/satis" element={<SeraSatis />} />
+                    <Route path="butce/raporlar" element={<SeraRaporlar />} />
+                    <Route path="butce/blok-ayarlari" element={<SeraBlokAyarlari />} />
+                  </Route>
                 </Route>
                 <Route path="/unauthorized" element={<UnauthorizedPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
