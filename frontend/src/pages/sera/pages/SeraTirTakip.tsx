@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { InputNumber } from 'antd';
+import { InputNumber, Select } from 'antd';
 import type { EChartsOption } from 'echarts';
 import {
   IconTruck, IconMessageCircle, IconChevronDown,
@@ -24,6 +24,10 @@ import {
   SERTNAMA_COMPANIES, SERTNAMA_TOTAL, SERTNAMA_ZDELKA, SERTNAMA_ROWS,
   DATALAR_ROWS, type DatalarTag,
 } from '../mock/tirTakipTabs';
+import {
+  INVOICE_ROWS, INVOICE_EXPORT_FIRMS, INVOICE_IMPORT_FIRMS,
+  ALYJY_FIRMS, ALYJY_FIELD_DEFS,
+} from '../mock/tirSertnama';
 
 const TIR_ACCENT = '#8a5a2b';
 const TIR_ACCENT_DARK = '#5f3d18';
@@ -586,6 +590,113 @@ function KwotaTab() {
   );
 }
 
+// ─── Yurtdışı Sertnamaları → Invoice sub-tab ─────────────────────────────
+function InvoiceTab() {
+  const [exportFirm, setExportFirm] = useState('');
+  const [importFirm, setImportFirm] = useState('');
+
+  const filteredRows = INVOICE_ROWS.filter((r) => {
+    if (exportFirm && r.exportFirm !== exportFirm) return false;
+    if (importFirm && r.importFirm !== importFirm) return false;
+    return true;
+  });
+
+  const headers = ['Eksport Kody', 'Senesi', 'Invoice №', 'Eksport Firma', 'Import Firma', 'Mesta Sany', 'Brutto kg', 'Netto kg', 'Birlik Baha', 'Tutary USD', ''];
+  const rows: MatrixRow[] = filteredRows.map((r) => ({
+    label: r.exportCode ? <span style={{ color: SERA.green, fontWeight: 600 }}>{r.exportCode}</span> : <span style={{ color: SERA.sub }}>—</span>,
+    cells: [
+      r.date,
+      r.invoiceNo ?? '—',
+      r.exportFirm,
+      r.importFirm ?? '—',
+      fmtNum(r.mestaSany),
+      fmtNum(r.bruttoKg),
+      fmtNum(r.nettoKg),
+      r.unitPrice !== null ? r.unitPrice.toFixed(2) : '—',
+      r.tutaryUsd !== null ? fmtNum(r.tutaryUsd, 2) : '—',
+      <button
+        key="print"
+        type="button"
+        style={{ fontSize: 12, padding: '2px 8px', borderRadius: 6, border: 'none', background: SERA.green, color: '#fff', cursor: 'pointer' }}
+      >
+        🖨️
+      </button>,
+    ],
+  }));
+
+  const footer: MatrixRow = {
+    label: `Jemi — ${filteredRows.length} setir`,
+    bold: true,
+    cells: [
+      '', '', '', '',
+      fmtNum(filteredRows.reduce((s, r) => s + r.mestaSany, 0)),
+      fmtNum(filteredRows.reduce((s, r) => s + r.bruttoKg, 0)),
+      fmtNum(filteredRows.reduce((s, r) => s + r.nettoKg, 0)),
+      '', '—', '',
+    ],
+  };
+
+  return (
+    <SeraCard title="Invoice Arhiwi" extra={`${filteredRows.length} setir`}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+        <Select
+          style={{ width: 180 }}
+          value={exportFirm}
+          onChange={setExportFirm}
+          options={[{ value: '', label: '— Eksport firma —' }, ...INVOICE_EXPORT_FIRMS.map((f) => ({ value: f, label: f }))]}
+        />
+        <Select
+          style={{ width: 180 }}
+          value={importFirm}
+          onChange={setImportFirm}
+          options={[{ value: '', label: '— Import firma —' }, ...INVOICE_IMPORT_FIRMS.map((f) => ({ value: f, label: f }))]}
+        />
+      </div>
+      <SeraMatrixTable headers={headers} rows={rows} footer={footer} minWidth={1200} />
+    </SeraCard>
+  );
+}
+
+// ─── Yurtdışı Sertnamaları → Alyjylar sub-tab ────────────────────────────
+function AlyjylarTab() {
+  return (
+    <SeraCard
+      title={
+        <div>
+          <div style={{ fontWeight: 700, color: SERA.ink }}>Alyjy firmalar</div>
+          <div style={{ fontWeight: 400, fontSize: 12, color: SERA.sub, marginTop: 2 }}>
+            Her alyjy firmanyň doly maglumatlary — şertnamada awtomatik ulanylýar
+          </div>
+        </div>
+      }
+      extra={
+        <button type="button" style={{ padding: '6px 14px', borderRadius: 8, border: 'none', background: SERA.green, color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+          + Alyjy goş
+        </button>
+      }
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {ALYJY_FIRMS.map((f) => (
+          <div key={f.name} style={{ border: `1px solid ${SERA.line}`, borderRadius: 12, padding: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <span style={{ fontWeight: 700, color: SERA.ink, fontSize: 14 }}>{f.name}</span>
+              <span style={{ fontSize: 12, color: SERA.neg, cursor: 'pointer' }}>🗑 Sil</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px 18px' }}>
+              {ALYJY_FIELD_DEFS.map(({ label, key }) => (
+                <div key={label}>
+                  <div style={{ fontSize: 10, color: SERA.sub, textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 2 }}>{label}</div>
+                  <div style={{ fontSize: 12.5, color: SERA.ink, wordBreak: 'break-word' }}>{f[key] ?? '—'}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </SeraCard>
+  );
+}
+
 // ─── Yurtdışı Sertnamaları tab ───────────────────────────────────────────
 function SertnamaTab() {
   const [subTab, setSubTab] = useState<'Sertnamalar' | 'Invoice' | 'Alyjylar'>('Sertnamalar');
@@ -630,11 +741,9 @@ function SertnamaTab() {
           <TabButton key={t} label={t} active={t === subTab} onClick={() => setSubTab(t)} />
         ))}
       </div>
-      {subTab !== 'Sertnamalar' ? (
-        <SeraCard>
-          <div style={{ padding: 24, textAlign: 'center', color: SERA.sub }}>{subTab} — bu bölüm heniz taýýarlanýar…</div>
-        </SeraCard>
-      ) : (
+      {subTab === 'Invoice' && <InvoiceTab />}
+      {subTab === 'Alyjylar' && <AlyjylarTab />}
+      {subTab === 'Sertnamalar' && (
         <SeraCard title="Yurtdışı Sertnamaları" extra="Fitosanitariya, Saglyk, Gelip çykyş we beýleki halkara şahadatnamalary">
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
             <WeekNavButton active={company === 'Hemmesi'} onClick={() => setCompany('Hemmesi')} label={`Hemmesi (${SERTNAMA_TOTAL})`} />
