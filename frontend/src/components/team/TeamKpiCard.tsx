@@ -3,6 +3,8 @@
 
 import { Card, Progress, Tag, Typography, Avatar } from 'antd';
 import { useTranslation } from 'react-i18next';
+import type { EChartsOption } from 'echarts';
+import { EChart } from '@/components/EChart';
 import { COLORS } from '@/constants/styles';
 import type { ITeamKpiRow } from '@/types/teamKpi';
 
@@ -24,46 +26,22 @@ function formatHm(seconds: number): string {
   return `${h}h ${m}m`;
 }
 
-interface ISparklineProps {
-  readonly points: number[];
-}
-
-const SPARK_WIDTH = 120;
-const SPARK_HEIGHT = 32;
-const SPARK_PADDING = 2;
-
-function Sparkline({ points }: ISparklineProps) {
-  if (points.length === 0) return null;
-
-  const max = Math.max(...points, 1);
-  const usableHeight = SPARK_HEIGHT - SPARK_PADDING * 2;
-  const coords = points
-    .map((value, i) => {
-      const x = points.length === 1 ? 0 : (i / (points.length - 1)) * SPARK_WIDTH;
-      const y = SPARK_HEIGHT - SPARK_PADDING - (value / max) * usableHeight;
-      return `${x},${y}`;
-    })
-    .join(' ');
-
-  return (
-    <svg
-      width={SPARK_WIDTH}
-      height={SPARK_HEIGHT}
-      viewBox={`0 0 ${SPARK_WIDTH} ${SPARK_HEIGHT}`}
-      preserveAspectRatio="none"
-      style={{ width: '100%', height: SPARK_HEIGHT, display: 'block' }}
-      aria-hidden
-    >
-      <polyline
-        fill="none"
-        stroke={COLORS.primary}
-        strokeWidth={1.5}
-        strokeLinejoin="round"
-        strokeLinecap="round"
-        points={coords}
-      />
-    </svg>
-  );
+// Apache ECharts sparkline. Rendered with the SVG renderer (not canvas) so the
+// leaderboard's 60+ per-card sparklines don't each spin up a canvas context.
+function buildSparkOption(points: number[]): EChartsOption {
+  return {
+    grid: { left: 0, right: 0, top: 2, bottom: 2 },
+    xAxis: { type: 'category', show: false, data: points.map((_, i) => String(i)) },
+    yAxis: { type: 'value', show: false },
+    series: [{
+      type: 'line',
+      data: points,
+      smooth: true,
+      symbol: 'none',
+      lineStyle: { width: 1.5, color: COLORS.primary },
+      areaStyle: { color: 'rgba(22,119,255,0.08)' },
+    }],
+  };
 }
 
 interface ITeamKpiCardProps {
@@ -125,7 +103,7 @@ export function TeamKpiCard({ row, rank }: ITeamKpiCardProps) {
         <div style={{ marginTop: 8 }}>
           <Text type="secondary" style={{ fontSize: 11 }}>{t('team_kpi.card_trend')}</Text>
           <div style={{ height: 32 }}>
-            <Sparkline points={row.trend} />
+            <EChart option={buildSparkOption(row.trend)} height={32} renderer="svg" decorative />
           </div>
         </div>
       )}

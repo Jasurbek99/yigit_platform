@@ -3,17 +3,19 @@ import ReactEChartsCore from 'echarts-for-react/lib/core';
 import * as echarts from 'echarts/core';
 import { LineChart, PieChart, BarChart } from 'echarts/charts';
 import { TooltipComponent, LegendComponent, GridComponent } from 'echarts/components';
-import { CanvasRenderer } from 'echarts/renderers';
+import { CanvasRenderer, SVGRenderer } from 'echarts/renderers';
 import type { EChartsOption } from 'echarts';
 import { Skeleton } from 'antd';
 
 // Tree-shaken echarts build. Importing the full `echarts` / `echarts-for-react`
 // pulled the entire library (~1 MB) into the BossDashboard chunk. Register only
 // the modules our charts actually use — line/pie/bar series, axis grid, tooltip,
-// legend, canvas renderer. If a chart starts rendering blank, a needed module is
-// missing here (e.g. add a new series type or component). The `EChartsOption`
-// type import is erased at build time and adds nothing to the bundle.
-echarts.use([LineChart, PieChart, BarChart, TooltipComponent, LegendComponent, GridComponent, CanvasRenderer]);
+// legend, and both renderers. Canvas is the default; SVG is used for many-small-
+// charts pages (e.g. the team KPI leaderboard's 60+ per-card sparklines) where a
+// canvas context per instance is too heavy for low-end clients. If a chart starts
+// rendering blank, a needed module is missing here (e.g. add a new series type).
+// The `EChartsOption` type import is erased at build time and adds nothing.
+echarts.use([LineChart, PieChart, BarChart, TooltipComponent, LegendComponent, GridComponent, CanvasRenderer, SVGRenderer]);
 
 interface IEChartProps {
   option: EChartsOption;
@@ -30,13 +32,19 @@ interface IEChartProps {
    * the data (e.g. a sparkline next to a numeric KPI). Adds aria-hidden.
    */
   decorative?: boolean;
+  /**
+   * Renderer to use. Defaults to 'canvas'. Use 'svg' on pages that mount many
+   * small charts at once (e.g. per-row sparklines) to avoid one canvas context
+   * per instance — lighter on low-end / public-network clients.
+   */
+  renderer?: 'canvas' | 'svg';
 }
 
 /**
  * Thin wrapper around echarts-for-react.
  * Adds: loading skeleton, auto-resize on sidebar collapse via ResizeObserver.
  */
-export function EChart({ option, height = 320, loading = false, onEvents, ariaLabel, decorative }: IEChartProps) {
+export function EChart({ option, height = 320, loading = false, onEvents, ariaLabel, decorative, renderer = 'canvas' }: IEChartProps) {
   const chartRef = useRef<ReactEChartsCore>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -73,6 +81,7 @@ export function EChart({ option, height = 320, loading = false, onEvents, ariaLa
         ref={chartRef}
         option={option}
         style={{ height, width: '100%' }}
+        opts={{ renderer }}
         notMerge
         lazyUpdate
         onEvents={onEvents}
