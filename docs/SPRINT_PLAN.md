@@ -13,7 +13,7 @@
 - Excel import: Export_contracts → 1,959 shipments + firms + customers
 - Block reference data from Pomidor_Dükany
 - **ShipmentList** page: ProTable with search, sort, 6 filters, "All / My work" toggle
-- **ShipmentDetail** page: tabs (General, Firms, Timeline, Block Sources, Quality, Comments)
+- **ShipmentDetail** page: always-open stage cards (General, Firms, Timeline, Block Sources, Quality, Comments), not tabs — operators reconcile weights against firm splits against timestamps, which tabs would force them to do from memory
 - JWT auth with httpOnly cookies, 3 test users
 - Done: browse all shipments, filter by status/firm/country
 

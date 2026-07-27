@@ -1,8 +1,8 @@
 import { Drawer, Segmented, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { useSheetStore } from '@/stores/sheetStore';
-import { CommentList } from './CommentList';
-import { CommentComposer } from './CommentComposer';
+import { CommentList } from '@/components/sheet/CommentList';
+import { CommentComposer } from '@/components/sheet/CommentComposer';
 
 const { Text } = Typography;
 

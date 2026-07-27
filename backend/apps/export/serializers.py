@@ -1119,6 +1119,13 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
     customs_expenses = CustomsExpenseSerializer(many=True, read_only=True)
     status_code = serializers.CharField(source='status.code', read_only=True)
     allowed_transitions = serializers.SerializerMethodField()
+    completeness = serializers.SerializerMethodField()
+    # Task 9 — hero "discussion" badge. Counts distinct threads (root comments
+    # only; replies are shown nested under their root, not as separate threads),
+    # excluding soft-deleted ones. Not restricted to a field_key — this is the
+    # whole-shipment total, unlike the Sheet's per-cell comment_counts which
+    # also include replies (see ShipmentSheetView).
+    comment_count = serializers.SerializerMethodField()
 
     # Variety confidence display label.
     variety_confidence_display = serializers.CharField(
@@ -1360,6 +1367,16 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
             if _edge_to(edge) != 'cancelled'
         ]
 
+    def get_completeness(self, obj: Shipment) -> dict:
+        """Which fields are owed by this shipment's current step — see
+        services/completeness.py. Computed, never stored."""
+        from apps.export.services.completeness import compute_completeness
+        return compute_completeness(obj)
+
+    def get_comment_count(self, obj: Shipment) -> int:
+        """Count of non-deleted root comments (threads), for the hero badge."""
+        return obj.comments.filter(is_deleted=False, parent_comment__isnull=True).count()
+
     class Meta(ShipmentListSerializer.Meta):
         # harvest_age_days and freshness are inherited from ShipmentListSerializer
         # (both the SerializerMethodField declarations and their getter methods).
@@ -1372,6 +1389,7 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
         fields = ShipmentListSerializer.Meta.fields + [
             'platform_id',
             'allowed_transitions',
+            'completeness',
             'variety_confidence',
             'variety_confidence_display',
             'varieties_dominant',
@@ -1381,6 +1399,7 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
             'block_sources',
             'status_log',
             'comments',
+            'comment_count',
             # FK ids exposed for the web-management Edit drawer (frontend dropdowns).
             # Names are already on ShipmentListSerializer; ids let the drawer pre-select.
             # (country/customer/city/variety/import_firm ids: variety + import_firm

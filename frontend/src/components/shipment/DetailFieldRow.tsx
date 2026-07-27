@@ -1,25 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
-import { Spin, Typography } from 'antd';
+import { useState } from 'react';
+import { Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
-import { FieldEditor } from '@/components/FieldEditor';
-import { useShipmentPatchMulti } from '@/hooks/useShipmentPatch';
 import type { IEditFieldConfig } from '@/constants/shipmentEditConfig';
 import type { IShipmentDetail } from '@/types';
 import { COLORS } from '@/constants/styles';
+import { shouldAutoOpenEditor, resolveReadDisplay } from './DetailFieldRow.helpers';
+import { useDetailFieldAutosave } from './useDetailFieldAutosave';
+import { DetailFieldValue } from './DetailFieldValue';
+import { DetailFieldRowStatus } from './DetailFieldRowStatus';
 
 const { Text } = Typography;
-
-// Input types where every keystroke fires onChange. We must NOT save on every
-// keystroke or the user is rate-limited by the round-trip latency. Saves are
-// debounced 700ms (typing ends → save fires) and also flushed on blur of the
-// row's container so tabbing away commits immediately.
-const DEBOUNCED_TYPES = new Set<IEditFieldConfig['inputType']>([
-  'text',
-  'textarea',
-  'number',
-]);
-
-const SAVE_DEBOUNCE_MS = 700;
 
 interface IDetailFieldRowProps {
   shipment: IShipmentDetail;
@@ -32,19 +22,22 @@ interface IDetailFieldRowProps {
   readOnly?: boolean;
   /** Optional formatter for read-only display (timestamps, currencies, etc.). */
   format?: (value: unknown) => string;
+  /**
+   * Listed in `shipment.completeness.missing_fields` (should be filled by
+   * now). Merely-empty fields nothing is waiting on are NOT highlighted.
+   */
+  isMissing?: boolean;
+  /** Opens this field's comments thread. Omit to hide the 💬 icon entirely. */
+  onOpenComments?: () => void;
+  /** Live comment count for this field, shown next to the 💬 icon. */
+  commentCount?: number;
 }
 
 /**
- * One labeled, autosaving row on the Detail page sections.
- *
- * Save behaviour:
- *   - Text / textarea / number: keystrokes update local state immediately;
- *     server PATCH is debounced 700 ms (and flushed on blur of the row).
- *     The input is NEVER disabled while a save is in flight — typing keeps
- *     working and the next save supersedes the in-flight one via the
- *     useShipmentPatchMulti optimistic cache.
- *   - Select / date / boolean / option_select: discrete events, save fires
- *     immediately on each change.
+ * One labeled, autosaving row on the Detail page sections. The save state
+ * machine (debounce timing, discrete-vs-debounced inputs, the input is NEVER
+ * disabled while a save is in flight) lives in useDetailFieldAutosave — see
+ * that file for the full contract.
  *
  * Each row carries a stable DOM id `#detail-field-<fieldKey>` so OtherTasksRow
  * can scroll to it when a task card is clicked.
@@ -59,88 +52,70 @@ export function DetailFieldRow({
   labelOverride,
   readOnly = false,
   format,
+  isMissing = false,
+  onOpenComments,
+  commentCount = 0,
 }: IDetailFieldRowProps) {
   const { t } = useTranslation();
-  const patch = useShipmentPatchMulti();
   const key = (valueKey ?? config.key) as keyof IShipmentDetail;
-
-  // Local state mirrors the persisted value. Re-syncs when the shipment query
-  // refetches (after a save lands or another tab edits the same row).
   const persisted = shipment[key];
-  const [draft, setDraft] = useState<unknown>(persisted);
-  useEffect(() => {
-    setDraft(persisted);
-  }, [persisted]);
 
-  // Pending-debounce handle and the value queued by it. We keep both so blur
-  // can flush even if React state hasn't caught up to the latest typed value
-  // (rare but possible on fast keystroke trails).
-  const pendingRef = useRef<{ timer: ReturnType<typeof setTimeout>; value: unknown } | null>(null);
+  const { draft, saveState, handleChange, flushPending, retry } = useDetailFieldAutosave({
+    shipmentId: shipment.id,
+    fieldKey: config.key,
+    inputType: config.inputType,
+    persisted,
+  });
 
-  // Clear any pending save on unmount so we don't fire after navigation.
-  useEffect(
-    () => () => {
-      if (pendingRef.current) {
-        clearTimeout(pendingRef.current.timer);
-        pendingRef.current = null;
-      }
-    },
-    [],
-  );
+  // Click-to-edit: the value renders as plain text until clicked, so the row
+  // reads as a table cell. Booleans skip this entirely — the Switch click IS
+  // the edit — and readOnly rows never enter edit mode at all.
+  const [isEditing, setIsEditing] = useState(false);
+  const isBoolean = config.inputType === 'boolean';
+  const canEdit = !readOnly;
+  const showEditor = canEdit && (isEditing || isBoolean);
 
-  function commit(value: unknown) {
-    if (value === persisted) return;
-    patch.mutate({ id: shipment.id, fields: { [config.key]: value } });
+  function enterEdit() {
+    if (!canEdit || isBoolean) return;
+    setIsEditing(true);
   }
 
-  function flushPending() {
-    if (!pendingRef.current) return;
-    clearTimeout(pendingRef.current.timer);
-    const { value } = pendingRef.current;
-    pendingRef.current = null;
-    commit(value);
-  }
-
-  function scheduleDebouncedSave(next: unknown) {
-    if (pendingRef.current) {
-      clearTimeout(pendingRef.current.timer);
-    }
-    const timer = setTimeout(() => {
-      pendingRef.current = null;
-      commit(next);
-    }, SAVE_DEBOUNCE_MS);
-    pendingRef.current = { timer, value: next };
-  }
-
-  function handleChange(next: unknown) {
-    setDraft(next);
-    if (DEBOUNCED_TYPES.has(config.inputType)) {
-      scheduleDebouncedSave(next);
-    } else {
-      // Discrete input — commit immediately.
-      if (pendingRef.current) {
-        clearTimeout(pendingRef.current.timer);
-        pendingRef.current = null;
-      }
-      commit(next);
-    }
-  }
-
-  // Blur handler on the wrapper. When focus leaves the row entirely (i.e.
-  // the new focus target is OUTSIDE this row), flush any pending save so
-  // the user's last keystroke isn't stuck in the debounce queue.
+  // Blur handler on the wrapper. When focus leaves the row entirely (the new
+  // focus target is OUTSIDE this row), flush any pending save so the user's
+  // last keystroke isn't stuck in the debounce queue.
+  // enterEdit() unmounts the focused `Text` and mounts `FieldEditor` with
+  // autoFocus in the same tick. That swap fires a blur/focusout on the
+  // removed `Text` node, and `relatedTarget` on that event is unreliable
+  // during a same-tick focus handoff — some browsers report `null` because
+  // the new element hasn't received focus yet. `contains(null)` is false, so
+  // a naive synchronous check here would see "focus left the row" and
+  // immediately close the editor the same click just opened.
+  // Fix: defer the decision to a microtask. By the time it runs, the
+  // autoFocus on FieldEditor's input has landed and `document.activeElement`
+  // reflects the real post-swap focus target — re-checked against the
+  // CURRENT active element, not the stale relatedTarget, so a genuine focus
+  // move out of the row is still caught and still flushes; only the in-row
+  // swap is ignored.
   function handleBlur(e: React.FocusEvent<HTMLDivElement>) {
-    if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
-      flushPending();
-    }
+    const row = e.currentTarget;
+    queueMicrotask(() => {
+      if (!row.contains(document.activeElement)) {
+        flushPending();
+        setIsEditing(false);
+      }
+    });
   }
 
   const label = labelOverride ?? t(config.labelKey);
   const countryId = (shipment as unknown as Record<string, unknown>).country as number | null;
+  const readDisplay = resolveReadDisplay(config.key, shipment, persisted, (day) =>
+    t(`weekday.${day}`),
+  );
 
   return (
     <div
       id={`detail-field-${config.key}`}
+      className="detail-row"
       onBlur={handleBlur}
       style={{
         display: 'flex',
@@ -148,29 +123,31 @@ export function DetailFieldRow({
         padding: '6px 0',
         borderBottom: '1px solid #f5f5f5',
         gap: 12,
+        background: isMissing ? COLORS.bgGold : undefined,
+        boxShadow: isMissing ? `inset 3px 0 0 ${COLORS.warning}` : undefined,
       }}
     >
       <Text style={{ flex: '0 0 180px', fontSize: 13, color: COLORS.textTertiary }}>
         {label}
       </Text>
       <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-        {readOnly ? (
-          <Text style={{ fontSize: 13 }}>
-            {format ? format(persisted) : (persisted as string | number | null) ?? '—'}
-          </Text>
-        ) : (
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <FieldEditor
-              config={config}
-              value={draft}
-              onChange={handleChange}
-              countryId={countryId}
-              // Deliberately NOT disabling on patch.isPending. If we did, every
-              // keystroke that triggers a save would lock the input mid-word.
-            />
-          </div>
-        )}
-        {patch.isPending && <Spin size="small" />}
+        <DetailFieldValue
+          config={config}
+          showEditor={showEditor}
+          canEdit={canEdit}
+          isBoolean={isBoolean}
+          draft={draft}
+          persisted={persisted}
+          format={format}
+          readDisplay={readDisplay}
+          countryId={countryId}
+          defaultOpen={shouldAutoOpenEditor(config.inputType)}
+          onChange={handleChange}
+          onEnterEdit={enterEdit}
+          statusSlot={<DetailFieldRowStatus saveState={saveState} onRetry={retry} />}
+          onOpenComments={onOpenComments}
+          commentCount={commentCount}
+        />
       </div>
     </div>
   );

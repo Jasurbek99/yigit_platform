@@ -186,6 +186,15 @@ interface ISheetState {
   openCommentsForShipment: (shipmentId: number) => void;
   /** Toggle the drawer; uses the active cell's shipment+field as context when opening */
   toggleCommentsDrawer: () => void;
+  /**
+   * Clears the drawer's shipment/filter/cell context back to a clean slate
+   * (not just `commentsDrawerOpen`). Used by the Detail page's own comments
+   * hook on close/unmount — without it, `commentsShipmentId` / `commentsFilter`
+   * / `activeCell` keep pointing at the Detail page's last shipment, so the
+   * Sheet toolbar's comments button (which falls back to these when no cell
+   * is selected) shows a stale, unrelated thread after a Detail visit.
+   */
+  resetCommentsContext: () => void;
 
   // ─── Row map (populated from /sheet/ API, used by comment components) ────
   rows: IRowConfig[];
@@ -313,6 +322,14 @@ export const useSheetStore = create<ISheetState>((set) => ({
       commentsDrawerOpen: true,
       commentsShipmentId: shipmentId,
       commentsFilter: {},
+    }),
+
+  resetCommentsContext: () =>
+    set({
+      commentsDrawerOpen: false,
+      commentsShipmentId: null,
+      commentsFilter: {},
+      activeCell: null,
     }),
 
   // ─── Row map ─────────────────────────────────────────────────────────────

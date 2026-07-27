@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Button, Flex, Input, Modal, Tag } from 'antd';
+import { Badge, Button, Flex, Input, Modal, Tag } from 'antd';
 import {
   ArrowLeftOutlined,
   DeleteOutlined,
   ExclamationCircleFilled,
+  MessageOutlined,
   RocketOutlined,
   StopOutlined,
 } from '@ant-design/icons';
@@ -22,6 +23,8 @@ import { COLORS, FONT } from '@/constants/styles';
 
 interface IShipmentDetailHeroProps {
   shipment: IShipmentDetail;
+  /** Opens the whole-shipment comments thread (the discussion drawer). */
+  onOpenComments: (fieldKey: string | null) => void;
 }
 
 /**
@@ -29,7 +32,7 @@ interface IShipmentDetailHeroProps {
  * Shows shipment code, status pill, phase tag, optional idle warning,
  * origin → destination route line, and a manifest button.
  */
-export function ShipmentDetailHero({ shipment }: IShipmentDetailHeroProps) {
+export function ShipmentDetailHero({ shipment, onOpenComments }: IShipmentDetailHeroProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -182,6 +185,11 @@ export function ShipmentDetailHero({ shipment }: IShipmentDetailHeroProps) {
         <FreshnessPill freshness={shipment.freshness} ageDays={shipment.harvest_age_days} />
 
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+          <Badge count={shipment.comment_count ?? 0} size="small">
+            <Button icon={<MessageOutlined />} onClick={() => onOpenComments(null)}>
+              {t('shipment.detail.discussion')}
+            </Button>
+          </Badge>
           {canSeeManifest && (
             <Link to={`/shipments/${shipment.id}/manifest`}>
               <Button>{t('pallet.title')}</Button>

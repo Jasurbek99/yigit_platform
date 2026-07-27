@@ -19,6 +19,9 @@
 - **Status transitions only through `transition_to()`** — this plan never writes `status_id` directly.
 - **Component size**: max 150 lines per React component, max 200 lines per Python file. `ShipmentDetail.tsx` is currently 562 lines and gets split by this plan.
 - **Typecheck command is `npx tsc --noEmit --ignoreDeprecations 5.0`** — `npm run type-check` is broken in this repo (TS5103).
+- **Backend tests MUST run with `DJANGO_TESTING=true`.** Migrations `0006_seed_shipment_draft_status` and `0011_add_cancelled_status` seed the `draft` / `cancelled` status rows and skip that seeding only when this variable is set; without it, any test that creates those rows dies on a UNIQUE constraint in `setUpClass`. Example: `cd backend && DJANGO_TESTING=true python manage.py test apps.export.tests_completeness -v 2`.
+- **Test fixtures need required fields the examples may omit:** `Season` requires `start_date` and `end_date`; `Shipment` requires `date`. Follow `apps/export/tests_field_history.py` for the established pattern.
+- **The backend suite has ~71 pre-existing failures** in unrelated modules. Run only the test module you are touching; do not try to fix unrelated failures.
 - **Do not commit** unless the task's commit step says to. One commit per task.
 - **Log every built feature** to `BUILD_TEST_LOG.md` (newest on top, `- [ ] YYYY-MM-DD — <what> — NEEDS TEST`) — see Task 12.
 
@@ -199,7 +202,7 @@ class CompletenessTests(TestCase):
 - [ ] **Step 2: Run the test to verify it fails**
 
 ```bash
-cd backend && python manage.py test apps.export.tests_completeness -v 2
+cd backend && DJANGO_TESTING=true python manage.py test apps.export.tests_completeness -v 2
 ```
 
 Expected: `ModuleNotFoundError: No module named 'apps.export.services.completeness'`
@@ -351,12 +354,12 @@ def compute_completeness(shipment) -> dict:
 - [ ] **Step 4: Run the test to verify it passes**
 
 ```bash
-cd backend && python manage.py test apps.export.tests_completeness -v 2
+cd backend && DJANGO_TESTING=true python manage.py test apps.export.tests_completeness -v 2
 ```
 
 Expected: `OK` — 6 tests.
 
-If `Task.is_overdue` or `Task.title_key` / `Task.assignee_role` do not exist with those names, read `backend/apps/export/models/task.py` and use the real attribute names — do **not** invent a property. If there is no `is_overdue`, compute it inline as `task.deadline_at is not None and task.deadline_at < timezone.now()`.
+All three attributes used above are verified to exist: `Task.title_key` and `Task.assignee_role` are model fields, and `Task.is_overdue` is a model property (`backend/apps/export/models/task.py:203`, already exposed read-only by the task serializer). Use them as written.
 
 - [ ] **Step 5: Commit**
 
@@ -377,7 +380,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 
 **Files:**
 - Modify: `backend/apps/export/serializers.py` (class `ShipmentDetailSerializer`, line ~1104)
-- Test: `backend/apps/export/tests_completeness.py` (append)
+- Test: `backend/apps/export/tests_completeness_api.py` (**new file** — `tests_completeness.py` is already at 197 of the 200-line cap after Task 1's added coverage, so the API tests get their own module rather than breaking the limit)
 
 **Interfaces:**
 - Consumes: `compute_completeness(shipment)` from Task 1.
@@ -385,7 +388,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 
 - [ ] **Step 1: Write the failing test**
 
-Append to `backend/apps/export/tests_completeness.py`:
+Create `backend/apps/export/tests_completeness_api.py` (a new module — see the Files note above). It needs its own imports; do not assume the other test file's imports are in scope:
 
 ```python
 from django.urls import reverse
@@ -430,7 +433,7 @@ class CompletenessApiTests(APITestCase):
 - [ ] **Step 2: Run the test to verify it fails**
 
 ```bash
-cd backend && python manage.py test apps.export.tests_completeness.CompletenessApiTests -v 2
+cd backend && DJANGO_TESTING=true python manage.py test apps.export.tests_completeness_api -v 2
 ```
 
 Expected: `KeyError: 'completeness'`
@@ -454,7 +457,7 @@ Add `'completeness'` to that serializer's `Meta.fields` list.
 - [ ] **Step 4: Run the tests to verify they pass**
 
 ```bash
-cd backend && python manage.py test apps.export.tests_completeness -v 2
+cd backend && DJANGO_TESTING=true python manage.py test apps.export.tests_completeness -v 2
 ```
 
 Expected: `OK` — 7 tests.
@@ -470,7 +473,7 @@ Expected: `No changes detected`. If a migration appears, something was added as 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add backend/apps/export/serializers.py backend/apps/export/tests_completeness.py
+git add backend/apps/export/serializers.py backend/apps/export/tests_completeness_api.py
 git commit -m "feat(p3): expose completeness block on shipment detail endpoint
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
@@ -1055,6 +1058,53 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 
 ---
 
+## Task 6b: Translate the field keys the completeness chips can surface
+
+**Files:**
+- Modify: `frontend/src/i18n/tk.json`, `ru.json`, `en.json`
+
+**Why:** Task 6 found that only 10 of the ~24 field keys `TaskRule.target_fields` can emit have a `shipment_edit_drawer.field.*` translation. The other ~14 (`firm_splits`, `block_sources`, `departed_at`, `customs_exit_at`, `loading_started_at`, `border_crossed_at`, `dest_entry_at`, `sales_report`, …) fall back to the raw snake_case key, so a Turkmen warehouse operator sees a chip reading `firm_splits`. The completeness bar is the headline feature of this redesign; raw keys in it read as unfinished exactly where users look first.
+
+- [ ] **Step 1: Derive the authoritative key list**
+
+Do not guess which keys are missing. Collect every distinct value across all `target_fields` entries in `backend/apps/export/management/commands/seed_task_rules.py`, then diff that set against the keys already present under `shipment_edit_drawer.field` in `frontend/src/i18n/en.json`. The difference is your work list. Put the derived list in your report.
+
+- [ ] **Step 2: Derive each translation rather than inventing it**
+
+Most missing keys already have a translated concept elsewhere in the i18n files — use it, and cite your source key for each translation in your report.
+
+- Lifecycle timestamps map to statuses that are already translated under `shipment_status.*`. `departed_at` is "the time it departed", and `shipment_status.yola_chykdy` already holds the Turkmen, Russian and English for "departed". Build the label from that, keeping the three files' wording consistent with their own language's existing phrasing.
+- `firm_splits` and `block_sources` correspond to concepts already named on the detail and sheet screens — search the i18n files for the existing labels for export-firm splits and block sources and follow them.
+- Only invent a string where no existing translation covers the concept, and flag every invented one in your report so a native speaker can check it.
+
+**Do not put English text in `tk.json` or `ru.json` as a placeholder.** If you genuinely cannot derive a Turkmen or Russian label for a key, leave that key out of all three files entirely and list it in your report as needing a native speaker — a missing key falls back to the raw name, which is no worse than today, whereas a wrong-language label is a constraint violation and silently misleads.
+
+- [ ] **Step 3: Keep the fallback**
+
+Task 6 added `defaultValue` fallbacks so an untranslated key renders as the bare key rather than a leaked dotted path. Leave that in place as defence in depth for keys added to `TaskRule` in future.
+
+- [ ] **Step 4: Verify**
+
+```bash
+cd frontend && npx tsc --noEmit --ignoreDeprecations 5.0 && npx vitest run src/components/shipment/
+```
+
+Then confirm every key you added exists in **all three** files with the same nesting path, and that each file contains its own language.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add frontend/src/i18n/
+git commit -m "feat(p3): translate the field keys surfaced by completeness chips
+
+Only 10 of ~24 TaskRule target fields had labels; the rest rendered as raw
+snake_case in the summary bar.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
+```
+
+---
+
 ## Task 7: ShipmentStageCard + page layout rewrite
 
 **Files:**
@@ -1541,10 +1591,21 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 
 ---
 
-## Task 11: Remove the placeholder Links card and the stale comment
+## Task 11: Split DetailFieldRow, remove the placeholder Links card and the stale comment
 
 **Files:**
 - Modify: `frontend/src/pages/export/ShipmentDetail.tsx`
+- Split: `frontend/src/components/shipment/DetailFieldRow.tsx`
+
+- [ ] **Step 0: Split `DetailFieldRow.tsx` back under the 150-line component limit**
+
+Tasks 4, 5 and 9 each added behaviour to this file (save states, click-to-edit, the comment affordance). It was 177 lines before this plan and is over 150 now — the repo's limit. Splitting was deferred to here deliberately, so it happens once after all three features landed rather than three times.
+
+Extract along the seams the features created, keeping `DetailFieldRow` itself as the row's composition point:
+- the save-state indicator (pending spinner / "Saved" / error + retry) into `DetailFieldRowStatus.tsx`
+- the read-vs-edit value cell into `DetailFieldValue.tsx`
+
+Pure logic already lives in `DetailFieldRow.helpers.ts` — leave it there. Do not change any behaviour in this step: the debounce timing, the never-disable-while-pending rule, the `detail-field-<key>` DOM id, and the reset of `hasSavedOnce` on edit must all survive verbatim. Re-run the component's tests after the split and confirm they still pass unchanged.
 
 - [ ] **Step 1: Delete the Links card**
 
@@ -1656,3 +1717,31 @@ Run against a real shipment after Task 12. This is the user's list — do not ti
 **Spec coverage:** §3 completeness rules → Tasks 1–2. §4 layout → Tasks 6–8. §5 entry → Tasks 4–5. §6 comments → Task 9. §7 route rail → Task 10. §8 bugs: driver fields → Task 3, mobile rail → Task 10, Links card + stale comment → Task 11, stale docs → Task 12. §9 component split → Task 7. §12 acceptance → checklist above.
 
 **Known gaps, deliberately left to the user:** spec §11 open questions (rule completeness audit, whether historical shipments surface too many gaps, real mobile usage) are product questions that require real data and real operators — they are not implementable steps and are not assigned to a task.
+
+---
+
+## Task 13: Two-tier completeness chips (final-review fix)
+
+**Origin:** whole-branch review found the completeness bar lists ~14 owed keys with no editable row (AD-1 timestamps, `firm_splits`, `block_sources`, `sales_report`, `shipment_code`): their chips jump nowhere, never highlight, and make the stage badge disagree with the bar count. **Product decision (user):** show everything (keep the full-picture count) but render non-editable keys as *informational*, not actionable.
+
+**Files:**
+- Modify: `frontend/src/components/shipment/ShipmentCompletenessBar.tsx`
+- Modify: `frontend/src/components/shipment/ShipmentSaleSection.tsx` (add section anchor)
+- Modify: `frontend/src/components/shipment/ShipmentGoodsBody.tsx` (add section anchor)
+- Modify: `frontend/src/pages/export/ShipmentDetailHelpers.helpers.ts` (or wherever `jumpToField` lives) — add `jumpToSection`
+- Modify: `frontend/src/i18n/{tk,ru,en}.json`
+- Test: `frontend/src/components/shipment/ShipmentCompletenessBar.test.tsx`
+
+**Behaviour:**
+- Build the editable-key set from `EDIT_FIELD_GROUPS` (the 35 `key`s). A missing field is **actionable** if its key is in that set (it has a `#detail-field-<key>` row), else **informational**.
+- Actionable chips: unchanged — amber, clickable, `onJumpToField` (current behaviour).
+- Informational chips: visually muted (not amber), grouped under their own label. Of these:
+  - `firm_splits`, `sales_report` → clickable, scroll to the sale section (add `id="section-sale"` to `ShipmentSaleSection`'s root).
+  - `block_sources` → clickable, scroll to the goods card (add `id="section-block-sources"` near the block-sources table in `ShipmentGoodsBody`).
+  - everything else (AD-1 timestamps, `shipment_code`): **non-clickable**, muted, with a hint they're filled by the system / elsewhere.
+- The summary count (`filled_count`/`required_total`) is unchanged — it still reflects everything owed. No backend change, no migration.
+- The stage-card badges are unchanged; the previously-confusing disagreement is now explained because the informational chips make the non-editable missing items visible.
+
+**i18n:** add `shipment.detail.info_fields_label` (e.g. en "Filled elsewhere or by the system:", ru "Заполняется в другом месте или системой:", tk to be derived) in all three files.
+
+**Verify:** typecheck; `npx vitest run src/components/shipment/`; a test that an informational key (e.g. `departed_at`) renders muted and non-clickable while an editable key (`weight_net`) renders an actionable chip; and that a section key (`firm_splits`) is clickable.

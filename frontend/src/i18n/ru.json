@@ -579,6 +579,7 @@
     "tab_comments": "Комментарии ({{count}})",
     "tab_history": "История ({{count}})",
     "shipment_code": "Код отгрузки",
+    "export_code": "Экспортный код",
     "date": "Дата",
     "status": "Статус",
     "customer": "Клиент",
@@ -626,7 +627,6 @@
     "section_timestamps": "Временны́е метки",
     "section_weight_price": "Вес и цена",
     "route_card": "Маршрут груза",
-    "links_card": "Интеграции",
     "import_firm": "Импортная фирма",
     "loading_point": "Место загрузки",
     "vehicle": "Автомобиль",
@@ -640,9 +640,7 @@
     "weight_official": "Вес (официальный)",
     "weight_actual": "Вес (фактический)",
     "transit_days": "Дней в пути",
-    "temperature": "Температура",
-    "link_not_sent": "Ещё не отправлено",
-    "link_no_device": "Нет устройства"
+    "temperature": "Температура"
   },
   "shipment_status": {
     "draft": "Черновик",
@@ -2320,6 +2318,9 @@
       "city": "Город",
       "import_firm": "Импортёр",
       "border_point": "Пограничный пункт",
+      "truck_plate": "Номер машины",
+      "driver_name": "Имя водителя",
+      "driver_phone": "Телефон водителя",
       "vehicle_responsible": "Ответственный за транспорт",
       "vehicle_condition": "Состояние транспорта",
       "vehicle_condition_note": "Заметка по состоянию",
@@ -2338,7 +2339,21 @@
       "documents_status": "Статус документов",
       "harvest_status": "Статус сбора",
       "notes": "Заметки",
-      "customs_clearance_planned_day": "Плановый день таможенного оформления"
+      "customs_clearance_planned_day": "Плановый день таможенного оформления",
+      "shipment_code": "Код отгрузки",
+      "firm_splits": "Экспортные фирмы",
+      "block_sources": "Блоки теплицы",
+      "loading_started_at": "Загрузка начата",
+      "customs_entry_at": "Таможня вход",
+      "customs_exit_at": "Таможня выход",
+      "departed_at": "Выехал",
+      "border_crossed_at": "Пересёк границу",
+      "dest_entry_at": "Въезд в страну назначения",
+      "arrived_at": "Прибыл",
+      "peregruz_date": "Дата перегруза",
+      "sale_started_at": "Продажа начата",
+      "sale_ended_at": "Продажа завершена",
+      "sales_report": "Отчёт о продаже"
     }
   },
   "feedback": {
@@ -2488,6 +2503,7 @@
       "tasks_open": "Открытые задачи",
       "no_active_task": "Нет задачи для вас по этой отгрузке",
       "mark_done": "Отметить как выполнено",
+      "discussion": "Обсуждение",
       "activity_link": "Журнал активности",
       "other_tasks_title": "Другие задачи",
       "back_to_detail": "Назад к отгрузке",
@@ -2511,6 +2527,9 @@
       "unblock_button": "Разблокировать",
       "unblock_role_required": "Только {{role}} или супервизор может разблокировать эту задачу.",
       "supervisor_view": "Вы просматриваете это как супервизор — задача вам здесь не назначена.",
+      "saved": "Сохранено",
+      "save_failed": "Не сохранилось",
+      "retry": "Повторить",
       "guide": {
         "your_task": "Ваша задача здесь: {{task}}",
         "draft": "Это черновик — пункт назначения и клиент ещё не указаны. Заполните поля ниже, чтобы подготовить отгрузку к переводу.",
@@ -2529,7 +2548,16 @@
         "done": "Завершено",
         "active": "Текущий этап",
         "pending": "Предстоит"
-      }
+      },
+      "completeness": "Заполнено {{filled}} из {{total}} полей этого этапа",
+      "missing_label": "Не хватает:",
+      "manual_tasks_label": "Задачи, отмечаются вручную:",
+      "info_fields_label": "Заполняется в другом месте или системой:",
+      "info_field_hint": "Заполняется автоматически системой — здесь не редактируется",
+      "overdue": "просрочено",
+      "stage_not_reached": "этап ещё не наступил",
+      "stage_missing": "{{count}} не заполнено",
+      "stage_complete": "готово"
     },
     "cancel_button": "Отменить отгрузку",
     "cancel_modal_title": "Отменить эту отгрузку?",

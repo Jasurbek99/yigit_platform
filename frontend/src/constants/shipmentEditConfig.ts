@@ -54,6 +54,21 @@ export interface IEditFieldGroup {
   fields: IEditFieldConfig[];
 }
 
+/**
+ * `harvest_status` lives in the `goods` group (Goods & Loading card renders
+ * it standalone, ahead of the variety block — see ShipmentGoodsBody). It
+ * used to sit in `status` (Documents & Customs); moved per product owner
+ * so harvest status reads alongside the other loading-stage fields. Exported
+ * so ShipmentGoodsBody can render it outside the group's normal field order
+ * without duplicating the config object.
+ */
+export const HARVEST_STATUS_FIELD: IEditFieldConfig = {
+  key: 'harvest_status',
+  labelKey: 'shipment_edit_drawer.field.harvest_status',
+  inputType: 'option_select',
+  optionsSource: 'harvestStatus',
+};
+
 export const EDIT_FIELD_GROUPS: IEditFieldGroup[] = [
   {
     key: 'logistics',
@@ -63,24 +78,29 @@ export const EDIT_FIELD_GROUPS: IEditFieldGroup[] = [
       { key: 'customer', labelKey: 'shipment_edit_drawer.field.customer', inputType: 'select', optionsSource: 'customers' },
       { key: 'city', labelKey: 'shipment_edit_drawer.field.city', inputType: 'select', optionsSource: 'cities', countryFiltered: true },
       { key: 'import_firm', labelKey: 'shipment_edit_drawer.field.import_firm', inputType: 'select', optionsSource: 'importFirms' },
-      { key: 'border_point', labelKey: 'shipment_edit_drawer.field.border_point', inputType: 'select', optionsSource: 'borderPoints' },
+      { key: 'is_gapy_satys', labelKey: 'shipment_edit_drawer.field.is_gapy_satys', inputType: 'boolean' },
     ],
   },
   {
     key: 'transport',
     titleKey: 'shipment_edit_drawer.section_transport',
     fields: [
+      { key: 'truck_plate', labelKey: 'shipment_edit_drawer.field.truck_plate', inputType: 'text' },
+      { key: 'driver_name', labelKey: 'shipment_edit_drawer.field.driver_name', inputType: 'text' },
+      { key: 'driver_phone', labelKey: 'shipment_edit_drawer.field.driver_phone', inputType: 'text' },
       { key: 'vehicle_responsible', labelKey: 'shipment_edit_drawer.field.vehicle_responsible', inputType: 'option_select', optionsSource: 'transportUsers' },
       { key: 'vehicle_condition', labelKey: 'shipment_edit_drawer.field.vehicle_condition', inputType: 'option_select', optionsSource: 'vehicleCondition' },
       { key: 'vehicle_condition_note', labelKey: 'shipment_edit_drawer.field.vehicle_condition_note', inputType: 'textarea' },
       { key: 'transit_days', labelKey: 'shipment_edit_drawer.field.transit_days', inputType: 'number', min: 0, suffix: 'd' },
       { key: 'transport_temp_c', labelKey: 'shipment_edit_drawer.field.transport_temp_c', inputType: 'number', suffix: '°C' },
+      { key: 'border_point', labelKey: 'shipment_edit_drawer.field.border_point', inputType: 'select', optionsSource: 'borderPoints' },
     ],
   },
   {
     key: 'goods',
     titleKey: 'shipment_edit_drawer.section_goods',
     fields: [
+      HARVEST_STATUS_FIELD,
       { key: 'variety', labelKey: 'shipment_edit_drawer.field.variety', inputType: 'select', optionsSource: 'varieties' },
       { key: 'weight_net', labelKey: 'shipment_edit_drawer.field.weight_net', inputType: 'number', min: 0, suffix: 'kg' },
       { key: 'weight_gross', labelKey: 'shipment_edit_drawer.field.weight_gross', inputType: 'number', min: 0, suffix: 'kg' },
@@ -96,7 +116,6 @@ export const EDIT_FIELD_GROUPS: IEditFieldGroup[] = [
     fields: [
       { key: 'price_per_kg', labelKey: 'shipment_edit_drawer.field.price_per_kg', inputType: 'number', min: 0, suffix: '$' },
       { key: 'total_amount_usd', labelKey: 'shipment_edit_drawer.field.total_amount_usd', inputType: 'number', min: 0, suffix: '$' },
-      { key: 'is_gapy_satys', labelKey: 'shipment_edit_drawer.field.is_gapy_satys', inputType: 'boolean' },
     ],
   },
   {
@@ -104,7 +123,6 @@ export const EDIT_FIELD_GROUPS: IEditFieldGroup[] = [
     titleKey: 'shipment_edit_drawer.section_status',
     fields: [
       { key: 'documents_status', labelKey: 'shipment_edit_drawer.field.documents_status', inputType: 'option_select', optionsSource: 'documentsStatus' },
-      { key: 'harvest_status', labelKey: 'shipment_edit_drawer.field.harvest_status', inputType: 'option_select', optionsSource: 'harvestStatus' },
       { key: 'customs_clearance_planned_day', labelKey: 'shipment_edit_drawer.field.customs_clearance_planned_day', inputType: 'select', optionsSource: 'weekdays' },
     ],
   },

@@ -113,15 +113,15 @@ export function RouteTimelineRail({ shipment }: IRouteTimelineRailProps) {
           return (
             <div
               key={step.code}
-              style={{ display: 'flex', gap: 12, position: 'relative', paddingBottom: isLast ? 0 : 20 }}
+              style={{ display: 'flex', gap: 12, position: 'relative', paddingBottom: isLast ? 0 : 14 }}
             >
               {/* Connector line */}
               {!isLast && (
                 <div
                   style={{
                     position: 'absolute',
-                    left: 15,
-                    top: 32,
+                    left: 11,
+                    top: 24,
                     bottom: 0,
                     width: 2,
                     background: state === 'done' ? COLORS.success : COLORS.border,
@@ -131,8 +131,8 @@ export function RouteTimelineRail({ shipment }: IRouteTimelineRailProps) {
               {/* Step dot */}
               <div
                 style={{
-                  width: 32,
-                  height: 32,
+                  width: 24,
+                  height: 24,
                   borderRadius: '50%',
                   flexShrink: 0,
                   display: 'flex',
@@ -157,7 +157,7 @@ export function RouteTimelineRail({ shipment }: IRouteTimelineRailProps) {
                 <div
                   style={{
                     fontWeight: state === 'active' ? 600 : 500,
-                    fontSize: 13,
+                    fontSize: 12,
                     color:
                       (state === 'pending' || state === 'skipped') ? COLORS.textMuted :
                       state === 'active' ? COLORS.primary :
@@ -177,7 +177,7 @@ export function RouteTimelineRail({ shipment }: IRouteTimelineRailProps) {
                   )}
                 </div>
                 {state !== 'pending' && state !== 'skipped' && logEntry && (
-                  <div style={{ fontSize: 11, color: COLORS.textSecondary, fontFamily: FONT.mono }}>
+                  <div style={{ fontSize: 10, color: COLORS.textSecondary, fontFamily: FONT.mono }}>
                     {fmt(logEntry.changed_at)}
                   </div>
                 )}
@@ -202,8 +202,8 @@ export function RouteTimelineRail({ shipment }: IRouteTimelineRailProps) {
             {/* Red dot with X icon */}
             <div
               style={{
-                width: 32,
-                height: 32,
+                width: 24,
+                height: 24,
                 borderRadius: '50%',
                 flexShrink: 0,
                 display: 'flex',
@@ -222,7 +222,7 @@ export function RouteTimelineRail({ shipment }: IRouteTimelineRailProps) {
             <div
               style={{
                 position: 'absolute',
-                left: 15,
+                left: 11,
                 top: 0,
                 height: 20,
                 width: 2,

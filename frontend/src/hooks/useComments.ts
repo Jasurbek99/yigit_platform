@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import { MOCK_COMMENTS } from '@/mock/comments';
+import { getShipmentDetailKey } from '@/hooks/useShipmentDetail';
 import type { IShipmentComment } from '@/types';
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
@@ -77,9 +78,18 @@ export function useCreateComment() {
       const { data } = await api.post<IShipmentComment>('/export/comments/', payload);
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['comments'] });
       queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+      // The Detail page's hero comment_count badge and per-field 💬 counts
+      // (Task 9) come from the shipment-detail payload's nested `comments`
+      // array, not from this ['comments'] query — without this, posting a
+      // comment on Detail leaves both stale until the next full reload.
+      // Scoped to the one shipment the comment was posted on (via
+      // `variables.shipment`, available on every create payload) instead of
+      // the bare `['shipment']` prefix, so posting a comment on one shipment
+      // doesn't mark every other cached shipment-detail query stale too.
+      queryClient.invalidateQueries({ queryKey: getShipmentDetailKey(variables.shipment) });
     },
   });
 }
@@ -100,6 +110,8 @@ export function useUpdateComment() {
       return data;
     },
     onSuccess: () => {
+      // Content-only edit — doesn't touch is_deleted/field_key, so it can't
+      // change comment_count or the per-field counts; no ['shipment'] invalidation needed.
       queryClient.invalidateQueries({ queryKey: ['comments'] });
     },
   });
@@ -117,6 +129,11 @@ export function useDeleteComment() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['comments'] });
       queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+      // Kept broad (bare ['shipment'] prefix): the delete payload is only the
+      // comment id, with no shipment id to scope to. Narrowing this would
+      // need a signature change (passing {id, shipment} instead of id) —
+      // left as-is for this fix.
+      queryClient.invalidateQueries({ queryKey: ['shipment'] });
     },
   });
 }

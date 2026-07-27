@@ -577,6 +577,7 @@
     "tab_comments": "Comments ({{count}})",
     "tab_history": "History ({{count}})",
     "shipment_code": "Shipment Code",
+    "export_code": "Export code",
     "date": "Date",
     "status": "Status",
     "customer": "Customer",
@@ -624,7 +625,6 @@
     "section_timestamps": "Timestamps",
     "section_weight_price": "Weight & Price",
     "route_card": "Shipment Route",
-    "links_card": "Integrations",
     "import_firm": "Import Firm",
     "loading_point": "Loading Point",
     "vehicle": "Vehicle",
@@ -638,9 +638,7 @@
     "weight_official": "Weight (Official)",
     "weight_actual": "Weight (Actual)",
     "transit_days": "Transit Days",
-    "temperature": "Temperature",
-    "link_not_sent": "Not yet sent",
-    "link_no_device": "No device"
+    "temperature": "Temperature"
   },
   "shipment_status": {
     "draft": "Draft",
@@ -2318,6 +2316,9 @@
       "city": "City",
       "import_firm": "Import firm",
       "border_point": "Border point",
+      "truck_plate": "Truck plate",
+      "driver_name": "Driver name",
+      "driver_phone": "Driver phone",
       "vehicle_responsible": "Vehicle responsible",
       "vehicle_condition": "Vehicle condition",
       "vehicle_condition_note": "Vehicle condition note",
@@ -2336,7 +2337,21 @@
       "documents_status": "Documents status",
       "harvest_status": "Harvest status",
       "notes": "Notes",
-      "customs_clearance_planned_day": "Planned customs day"
+      "customs_clearance_planned_day": "Planned customs day",
+      "shipment_code": "Shipment Code",
+      "firm_splits": "Export Firm Splits",
+      "block_sources": "Greenhouse Block Sources",
+      "loading_started_at": "Loading Started",
+      "customs_entry_at": "Customs Entry",
+      "customs_exit_at": "Customs Exit",
+      "departed_at": "Departed",
+      "border_crossed_at": "Border Crossed",
+      "dest_entry_at": "Destination Entry",
+      "arrived_at": "Arrived",
+      "peregruz_date": "Peregruz Date",
+      "sale_started_at": "Sale Started",
+      "sale_ended_at": "Sale Ended",
+      "sales_report": "Sales Report"
     }
   },
   "feedback": {
@@ -2486,6 +2501,7 @@
       "tasks_open": "Tasks open",
       "no_active_task": "No task assigned to you on this shipment",
       "mark_done": "Mark task done",
+      "discussion": "Discussion",
       "activity_link": "View activity log",
       "other_tasks_title": "Other tasks",
       "back_to_detail": "Back to shipment",
@@ -2509,6 +2525,9 @@
       "unblock_button": "Unblock",
       "unblock_role_required": "Only the {{role}} or a supervisor can unblock this task.",
       "supervisor_view": "You're viewing this as a supervisor — no task is assigned to you here.",
+      "saved": "Saved",
+      "save_failed": "Not saved",
+      "retry": "Retry",
       "guide": {
         "your_task": "Your task here: {{task}}",
         "draft": "This is a draft — destination and customer aren't set yet. Fill in the fields below to ready it for promotion.",
@@ -2527,7 +2546,16 @@
         "done": "Completed",
         "active": "Current stage",
         "pending": "Upcoming"
-      }
+      },
+      "completeness": "{{filled}} of {{total}} fields filled",
+      "missing_label": "Missing:",
+      "manual_tasks_label": "Manual tasks:",
+      "info_fields_label": "Filled elsewhere or by the system:",
+      "info_field_hint": "Filled automatically by the system — not editable here",
+      "overdue": "overdue",
+      "stage_not_reached": "stage not reached yet",
+      "stage_missing": "{{count}} missing",
+      "stage_complete": "complete"
     },
     "cancel_button": "Cancel shipment",
     "cancel_modal_title": "Cancel this shipment?",

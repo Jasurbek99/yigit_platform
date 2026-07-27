@@ -577,6 +577,7 @@
     "tab_comments": "Teswirler ({{count}})",
     "tab_history": "Taryh ({{count}})",
     "shipment_code": "Iberiş kody",
+    "export_code": "Eksport kody",
     "date": "Senesi",
     "status": "Ýagdaýy",
     "customer": "Müşderi",
@@ -624,7 +625,6 @@
     "section_timestamps": "Wagt möhürleri",
     "section_weight_price": "Agram we baha",
     "route_card": "Ýük ýoly",
-    "links_card": "Baglanyşyklar",
     "import_firm": "Import firma",
     "loading_point": "Ýüklenýän ýer",
     "vehicle": "Maşyn",
@@ -638,9 +638,7 @@
     "weight_official": "Agram (resmi)",
     "weight_actual": "Agram (hakyky)",
     "transit_days": "Tranzit güni",
-    "temperature": "Temperaturasy",
-    "link_not_sent": "Heniz iberilmedi",
-    "link_no_device": "Enjam ýok"
+    "temperature": "Temperaturasy"
   },
   "shipment_status": {
     "draft": "Garalama",
@@ -2322,6 +2320,9 @@
       "city": "Şäher",
       "import_firm": "Import firma",
       "border_point": "Serhet nokady",
+      "truck_plate": "Ulag belgisi",
+      "driver_name": "Sürüjiniň ady",
+      "driver_phone": "Sürüjiniň telefony",
       "vehicle_responsible": "Transportyň jogapkäri",
       "vehicle_condition": "Transportyň ýagdaýy",
       "vehicle_condition_note": "Ýagdaý belligi",
@@ -2340,7 +2341,21 @@
       "documents_status": "Resminamalaryň ýagdaýy",
       "harvest_status": "Hasylyň ýagdaýy",
       "notes": "Bellikler",
-      "customs_clearance_planned_day": "Plan boýunça gümrükleme güni"
+      "customs_clearance_planned_day": "Plan boýunça gümrükleme güni",
+      "shipment_code": "Iberiş kody",
+      "firm_splits": "Eksport firmalary",
+      "block_sources": "Ýyladyşhana bloklary",
+      "loading_started_at": "Ýüklenip başlandy",
+      "customs_entry_at": "Gümrük giriş",
+      "customs_exit_at": "Gümrük çykyş",
+      "departed_at": "Ugrady",
+      "border_crossed_at": "Serhetden geçdi",
+      "dest_entry_at": "Barjak ýurduna girdi",
+      "arrived_at": "Geldi",
+      "peregruz_date": "Peregruz senesi",
+      "sale_started_at": "Satyş başlandy",
+      "sale_ended_at": "Satyş tamamlandy",
+      "sales_report": "Satyş hasabaty"
     }
   },
   "feedback": {
@@ -2490,6 +2505,7 @@
       "tasks_open": "Açyk tabşyryklar",
       "no_active_task": "Bu ýüklemede siziň tabşyrygyňyz ýok",
       "mark_done": "Tamamlandı diý",
+      "discussion": "Ara alyp maslahatlaşma",
       "activity_link": "Işjeňlik žurnaly",
       "other_tasks_title": "Beýleki tabşyryklar",
       "back_to_detail": "Ýüklemä yzyna",
@@ -2513,6 +2529,9 @@
       "unblock_button": "Bökdemekden çykar",
       "unblock_role_required": "Diňe {{role}} ýa-da ýolbaşçy bu tabşyrygy bökdemekden çykaryp biler.",
       "supervisor_view": "Siz muny ýolbaşçy hökmünde görýärsiňiz — bu ýerde size tabşyryk bellenmedi.",
+      "saved": "Ýatda saklandy",
+      "save_failed": "Saklanmady",
+      "retry": "Gaýtala",
       "guide": {
         "your_task": "Siziň tabşyrygyňyz: {{task}}",
         "draft": "Bu garalama — barjak ýeri we müşderi entek bellenmedi. Aşakdaky meýdanlary dolduryp, ony geçirmäge taýýarlaň.",
@@ -2531,7 +2550,16 @@
         "done": "Tamamlandy",
         "active": "Häzirki tapgyr",
         "pending": "Öňde"
-      }
+      },
+      "completeness": "{{total}} meýdandan {{filled}} dolduryldy",
+      "missing_label": "Ýetmeýän maglumat:",
+      "manual_tasks_label": "El bilen bellenýän işler:",
+      "info_fields_label": "Ulgam ýa-da başga ýerde doldurylýan maglumatlar:",
+      "info_field_hint": "Bu maglumat ulgam tarapyndan awtomatiki dolduryldy, şu ýerde üýtgedip bolmaýar",
+      "overdue": "möhleti geçdi",
+      "stage_not_reached": "bu tapgyr entek gelmedi",
+      "stage_missing": "{{count}} doldurylmadyk",
+      "stage_complete": "doly"
     },
     "cancel_button": "Ýüki ýatyrmak",
     "cancel_modal_title": "Bu ýüki ýatyrmalydymy?",
