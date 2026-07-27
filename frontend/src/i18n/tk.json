@@ -81,6 +81,7 @@
     "stuck_shipments": "Saklanan ýükler",
     "group_team": "Topar",
     "worklog": "Iş wagty",
+    "team_kpi": "Toparyň reýtingi",
     "group_feedback": "Şikaýatlar we Teklipler",
     "feedback_submit": "Teklip / Şikaýat",
     "feedback_my_tickets": "Meniň ýüz tutmalarym",
@@ -202,6 +203,23 @@
     "col_role": "Rol",
     "col_active": "Aktiw wagty",
     "no_data": "Heniz işjeňlik ýok"
+  },
+  "team_kpi": {
+    "title": "Toparyň reýtingi",
+    "subtitle": "Her ulanyjy boýunça tamamlanan işler. Ähli topara açyk.",
+    "period_today": "Şu gün",
+    "period_week": "Hepde",
+    "period_month": "Aý",
+    "period_season": "Möwsüm",
+    "no_data": "Entek maglumat ýok",
+    "load_error": "Reýtingi ýükläp bolmady.",
+    "ranking_title": "Tamamlanan işler boýunça reýting",
+    "card_completed": "Tamamlanan",
+    "card_on_time": "Wagtynda",
+    "card_overdue": "Möhleti geçen",
+    "card_active": "Işjeňlik",
+    "card_trend": "Soňky 14 gün",
+    "no_users": "Ulanyjy ýok"
   },
   "harvest_board": {
     "title": "Ýük plan we galyndy",

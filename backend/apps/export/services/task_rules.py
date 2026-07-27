@@ -349,6 +349,7 @@ def resolve_for_shipment(shipment) -> list[Task]:
 
     now = timezone.now()
     resolved: list[Task] = []
+    actor = getattr(shipment, 'updated_by', None)
 
     for task in open_tasks:
         if _completion_satisfied(task, shipment):
@@ -356,7 +357,8 @@ def resolve_for_shipment(shipment) -> list[Task]:
             task.completed_at = now
             if not task.started_at:
                 task.started_at = now
-            task.save(update_fields=['state', 'completed_at', 'started_at'])
+            task.completed_by = actor
+            task.save(update_fields=['state', 'completed_at', 'started_at', 'completed_by'])
             resolved.append(task)
 
     if resolved:
@@ -407,7 +409,8 @@ def close_sales_report_task(shipment, user) -> int:
         task.completed_at = now
         if not task.started_at:
             task.started_at = now
-        task.save(update_fields=['state', 'completed_at', 'started_at'])
+        task.completed_by = user
+        task.save(update_fields=['state', 'completed_at', 'started_at', 'completed_by'])
 
     if reminders:
         logger.info(

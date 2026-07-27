@@ -3716,7 +3716,8 @@ class TaskViewSet(viewsets.ReadOnlyModelViewSet):
         task.completed_at = now
         if not task.started_at:
             task.started_at = now
-        task.save(update_fields=['state', 'completed_at', 'started_at'])
+        task.completed_by = request.user
+        task.save(update_fields=['state', 'completed_at', 'started_at', 'completed_by'])
 
         task.refresh_from_db()
         return Response(TaskDetailSerializer(task).data)

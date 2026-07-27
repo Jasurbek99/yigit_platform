@@ -29,6 +29,7 @@ from apps.core.views_worklog import (
     WorklogMeView,
     WorklogTeamView,
 )
+from apps.core.views_team_kpi import TeamKpiView
 
 router = DefaultRouter()
 router.register('countries', CountryViewSet, basename='country')
@@ -56,4 +57,6 @@ urlpatterns = router.urls + [
     path('worklog/', WorklogListView.as_view(), name='worklog-list'),
     path('worklog/me/', WorklogMeView.as_view(), name='worklog-me'),
     path('worklog/team/', WorklogTeamView.as_view(), name='worklog-team'),
+    # Team KPI leaderboard — all authenticated users may read (radical transparency).
+    path('team-kpi/', TeamKpiView.as_view(), name='team-kpi'),
 ]

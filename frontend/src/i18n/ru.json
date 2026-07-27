@@ -81,6 +81,7 @@
     "stuck_shipments": "Зависшие отгрузки",
     "group_team": "Команда",
     "worklog": "Рабочее время",
+    "team_kpi": "Рейтинг команды",
     "group_feedback": "Обратная связь",
     "feedback_submit": "Предложение / Жалоба",
     "feedback_my_tickets": "Мои обращения",
@@ -204,6 +205,23 @@
     "col_role": "Роль",
     "col_active": "Активное время",
     "no_data": "Пока нет активности"
+  },
+  "team_kpi": {
+    "title": "Рейтинг команды",
+    "subtitle": "Выполненные задачи по каждому сотруднику. Видно всей команде.",
+    "period_today": "Сегодня",
+    "period_week": "Неделя",
+    "period_month": "Месяц",
+    "period_season": "Сезон",
+    "no_data": "Пока нет данных",
+    "load_error": "Не удалось загрузить рейтинг.",
+    "ranking_title": "Рейтинг по выполненным задачам",
+    "card_completed": "Выполнено",
+    "card_on_time": "Вовремя",
+    "card_overdue": "Просрочено",
+    "card_active": "Активность",
+    "card_trend": "Последние 14 дней",
+    "no_users": "Нет пользователей"
   },
   "harvest_board": {
     "title": "План груза и остаток",

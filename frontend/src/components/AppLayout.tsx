@@ -27,6 +27,7 @@ import {
   IconReportAnalytics,
   IconRoute,
   IconScale,
+  IconTrophy,
 } from '@tabler/icons-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -251,6 +252,16 @@ export default function AppLayout() {
         // Radical transparency: every authenticated user sees this page. No
         // page_code is registered for it, so we surface it via the same
         // roles: ALL_ROLES bypass the Contracts / Invoices entries use.
+        roles: [
+          'admin', 'export_manager', 'loading_dept_head', 'loading_dept_head_deputy', 'warehouse_chief',
+          'weight_master', 'document_team', 'transport', 'sales_rep', 'finansist',
+          'director', 'accountant', 'greenhouse_manager', 'seller', 'boss',
+        ] as import('@/types').UserRole[],
+      },
+      {
+        key: '/team/kpi',
+        icon: <IconTrophy size={15} />,
+        label: t('nav.team_kpi'),
         roles: [
           'admin', 'export_manager', 'loading_dept_head', 'loading_dept_head_deputy', 'warehouse_chief',
           'weight_master', 'document_team', 'transport', 'sales_rep', 'finansist',

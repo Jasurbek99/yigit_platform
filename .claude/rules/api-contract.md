@@ -245,6 +245,50 @@ Caution: with **no** role selected, a supervisor's list is truncated — `count=
 `page_size=1000` as of 2026-07. Selecting a role makes the view complete; the largest
 single role is ~550.
 
+### Team KPI leaderboard: `GET /api/v1/core/team-kpi/?period=today|week|month|season`
+
+Backs the **Team KPI** page (`/team/kpi`, `TeamKpi.tsx`) — a Bitrix-style leaderboard, one
+row per active user, ranked by tasks completed in the selected window. **Public**:
+`IsAuthenticated` only, no role gate — every authenticated user sees everyone's numbers
+(same radical-transparency rule as `/worklog`). Default period is `week`; unknown period →
+400. 60 s server-side cache keyed by period (`team-kpi:{period}`).
+
+```json
+{
+  "period": "week",
+  "results": [
+    {
+      "user_id": 7,
+      "user_name": "Soltanmyrat",
+      "role": "loading_dept_head",
+      "completed": 42,
+      "on_time_rate": 0.9048,
+      "overdue_now": 1,
+      "active_seconds": 93600,
+      "trend": [0,1,0,2,0,0,3,1,0,0,2,1,0,4]
+    }
+  ]
+}
+```
+
+- `completed` / `on_time_rate` are **windowed** and attributed by `Task.completed_by` — the
+  user credited with finishing the task (see `Task.completed_by` in
+  `docs/obsidian/processes/comments-tasks.md`). `on_time_rate` is `null` when the user has no
+  completed tasks with a deadline in the window (same convention as `/me/kpi-today/`).
+- `active_seconds` sums `WorkSessionDaily.active_seconds_total` over the same window.
+- **`trend`**: 14 ints, oldest→newest, one per calendar day in Asia/Ashgabat — the user's
+  daily completed-task count (attributed by `completed_by`, same as `completed`). This is a
+  **FIXED 14-day window, independent of `period`** — it does not shrink/grow when the
+  `period` selector changes, so don't read it as period-scoped. A user with zero completions
+  in the window gets `[0,0,0,0,0,0,0,0,0,0,0,0,0,0]`.
+- **Caution — `overdue_now` is current-state and window-independent**: it counts tasks that
+  are overdue **right now**, regardless of the `period` selector, and is attributed by
+  **role** (`assignee_role`, expanded through `task_roles_for()` for deputy equivalence) —
+  not by `completed_by`. It does not change when you switch periods; only the other three
+  metrics do.
+- Roster is every `User.is_active=True` row, so a user with zero activity in the window
+  still appears with `completed=0`, `on_time_rate=null`, `active_seconds=0`.
+
 ### Sheet endpoint: `GET /api/v1/export/shipments/sheet/`
 Optional `?shipment=<id>` returns just that one shipment's row alongside the **same global config** (`rows` / `row_settings` / `users_index` / `current_user_*`) — a tiny payload used by the task drawer's field editors (Shipment Board + Self Kanban) so opening a task to act on it doesn't download the whole-season sheet. `?season=<id>` overrides the active-season default; with `?shipment=` the season scope is bypassed (archived/soft-deleted guards still apply).
 

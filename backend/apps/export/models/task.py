@@ -127,6 +127,14 @@ class Task(models.Model):
         on_delete=models.SET_NULL, related_name='+',
         help_text='Set when a specific user picks up the task',
     )
+    completed_by = models.ForeignKey(
+        'core.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='completed_tasks',
+        help_text='User credited with completing this task; null when no user was in scope.',
+    )
 
     target_fields = models.CharField(max_length=512, blank=True, default='')
     completion_rule = models.CharField(

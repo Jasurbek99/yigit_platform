@@ -61,6 +61,7 @@ const ContractDetail = lazy(() => import('@/pages/contracts/ContractDetail'));
 const ContractSaleList = lazy(() => import('@/pages/sales/ContractSaleList'));
 const DocumentsPage = lazy(() => import('@/pages/documents/DocumentsPage'));
 const WorklogPage = lazy(() => import('@/pages/worklog/WorklogPage'));
+const TeamKpi = lazy(() => import('@/pages/team/TeamKpi'));
 const SalesRepReports = lazy(() => import('@/pages/export/SalesRepReports'));
 const SalesReportPage = lazy(() => import('@/pages/export/SalesReportPage'));
 const SalesRepCoveragePage = lazy(() => import('@/pages/admin/SalesRepCoveragePage'));
@@ -133,6 +134,10 @@ export default function App() {
                   {/* Worklog — open to every authenticated user (radical-transparency rule). */}
                   <Route path="worklog" element={
                     <ProtectedRoute><WorklogPage /></ProtectedRoute>
+                  } />
+                  {/* Team KPI — open to every authenticated user (radical-transparency rule). */}
+                  <Route path="team/kpi" element={
+                    <ProtectedRoute><TeamKpi /></ProtectedRoute>
                   } />
                   <Route path="export/shipments/dashboard" element={
                     <ProtectedRoute pageCode="export.shipments"><ShipmentDashboard /></ProtectedRoute>

@@ -219,6 +219,13 @@ The above describes *ad-hoc* tasks created manually via a comment's assignee fie
 - `state` — `OPEN` → `IN_PROGRESS` → `DONE` (or `BLOCKED` / `CANCELLED`)
 - `started_at` — set by `mark_started_for_changed_fields()` when a related field is patched
 - `completed_at` — set by `resolve_for_shipment()` when completion rule is satisfied
+- `completed_by` — FK to `core.User` (`SET_NULL`, `related_name='completed_tasks'`), the user
+  credited with finishing the task; `null` when no user was in scope for the completion. Set
+  at all five completion sites: `resolve_for_shipment()` (credits `shipment.updated_by`),
+  `close_sales_report_task()` (credits the report-saving user), `TaskViewSet.complete`
+  (credits `request.user`), and the local-sell-plan / weekly-plan task resolvers (credit
+  `task.assignee_user`). Backs the per-user `completed`/`on_time_rate` columns on the
+  [[../screens/team-kpi|Team KPI leaderboard]] (`/team/kpi`).
 - `deadline` — absolute datetime computed from `deadline_rule` at task creation time
 
 ### Engine entry points (in `apps/export/services/task_rules.py`)

@@ -111,6 +111,7 @@ See [[roles-matrix]] for the full capability matrix.
 - [[screens/contract-sale-list]] — All-sales list page at `/sales` — cross-contract ProTable with search, status filter, full CRUD (P4 Slice C)
 - [[screens/sales-report-page]] — Full-page Excel-like sales report at `/export/sales-reports/:shipmentId` — Sale + Processing tabs over one SalesReport
 - [[screens/expense-template-admin]] — Expense-template CRUD at `/admin/expense-template` — categories, tk/ru/en names, logo_code, is_active
+- [[screens/team-kpi]] — Team KPI leaderboard at `/team/kpi` — per-user tasks-completed ranking with on-time %, overdue-now, active hours, period switcher; visible to every role, wired to `GET /api/v1/core/team-kpi/`
 
 ## Reference
 

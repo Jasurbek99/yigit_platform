@@ -155,7 +155,8 @@ def _resolve_task(task: Task) -> bool:
     task.completed_at = now
     if not task.started_at:
         task.started_at = now
-    task.save(update_fields=['state', 'completed_at', 'started_at'])
+    task.completed_by_id = task.assignee_user_id
+    task.save(update_fields=['state', 'completed_at', 'started_at', 'completed_by'])
     return True
 
 
