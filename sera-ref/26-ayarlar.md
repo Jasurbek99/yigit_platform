@@ -1,0 +1,236 @@
+- generic [ref=f11e9]:
+  - generic [ref=f11e10]:
+    - generic [ref=f11e11]:
+      - button "TR" [ref=f11e12] [cursor=pointer]
+      - button "TM" [ref=f11e13] [cursor=pointer]
+    - generic [ref=f11e14]:
+      - generic [ref=f11e15]: "Yıl:"
+      - spinbutton [ref=f11e16]: "2026"
+    - generic [ref=f11e17]: Kaydedildi ✓
+    - button "Varsayılana sıfırla" [ref=f11e18] [cursor=pointer]
+    - button "Şifre" [ref=f11e22] [cursor=pointer]
+    - button "Çıkış" [ref=f11e26] [cursor=pointer]
+  - navigation [ref=f11e30]:
+    - button "Ana Sayfa" [ref=f11e31] [cursor=pointer]
+    - button "Ana Dashboard" [ref=f11e32] [cursor=pointer]
+    - button "Bütçe" [ref=f11e33] [cursor=pointer]
+    - button "Pomidor Dükânı" [ref=f11e34] [cursor=pointer]
+    - button "Sera İzleme" [ref=f11e35] [cursor=pointer]
+    - button "Tır Takip" [ref=f11e36] [cursor=pointer]
+    - button "Yurtdışı Hasabat" [ref=f11e37] [cursor=pointer]
+    - button "Finans Hasabatlar" [ref=f11e38] [cursor=pointer]
+    - button "Yardım" [ref=f11e39] [cursor=pointer]
+    - button "Ayarlar" [active] [ref=f11e40] [cursor=pointer]
+  - main [ref=f11e41]:
+    - generic [ref=f11e259]:
+      - generic [ref=f11e261]:
+        - generic [ref=f11e267]:
+          - heading "Ayarlar — Kullanıcılar ve Yetkilendirme" [level=1] [ref=f11e268]
+          - paragraph [ref=f11e269]: Kullanıcı listesi oluşturun ve her kullanıcının hangi bölümleri görebileceğini belirleyin.
+        - button "PDF Olarak Kaydet" [ref=f11e270] [cursor=pointer]
+      - generic [ref=f11e274]:
+        - generic [ref=f11e275]: Baş Sahypa Sazlamalary
+        - generic [ref=f11e283]:
+          - generic [ref=f11e284]:
+            - paragraph [ref=f11e285]: San / Tutar görkeziliş
+            - paragraph [ref=f11e286]: Ana Dasboard we Finans sahypalarynda takyk san/tutar görkezmek. Öçürilende diňe % görkezilýär.
+          - button [ref=f11e287] [cursor=pointer]
+      - generic [ref=f11e289]:
+        - generic [ref=f11e290]: Yeni Kullanıcı Ekle
+        - generic [ref=f11e291]:
+          - textbox "Ad Soyad (ör. Soltan Annayev)" [ref=f11e292]
+          - textbox "Giriş adı (ör. soltan)" [ref=f11e293]
+          - textbox "Şifre" [ref=f11e294]
+        - button "Ekle" [disabled] [ref=f11e295]
+        - generic [ref=f11e299]: Yönetici hesabı her zaman tam erişime sahiptir ve bu listeden yönetilmez.
+      - generic [ref=f11e300]:
+        - generic [ref=f11e301]: Kullanıcılar (11)
+        - generic [ref=f11e303]:
+          - generic [ref=f11e305]:
+            - textbox "Ad Soyad" [ref=f11e318]: Yigit HJ export
+            - textbox "Giriş adı" [ref=f11e319]: "2019"
+            - generic [ref=f11e320]:
+              - textbox "Selamlama adı" [ref=f11e321]: Yigit HJ export
+              - generic [ref=f11e322]: Baş Sahypa
+            - generic [ref=f11e323]:
+              - textbox "Şifre" [ref=f11e324]
+              - button [ref=f11e325] [cursor=pointer]
+            - combobox [ref=f11e329]:
+              - option "Yönetici" [selected]
+              - option "Bölüm Müdürü"
+              - option "Muhasebe"
+              - option "Görüntüleyici"
+            - generic [ref=f11e330]: 0/19 bölüm
+            - button "Yetkileri düzenle" [ref=f11e331] [cursor=pointer]
+            - button "Kullanıcıyı sil" [ref=f11e334] [cursor=pointer]
+          - generic [ref=f11e339]:
+            - textbox "Ad Soyad" [ref=f11e352]: MUDURLER
+            - textbox "Giriş adı" [ref=f11e353]: mudurler
+            - generic [ref=f11e354]:
+              - textbox "Selamlama adı" [ref=f11e355]
+              - generic [ref=f11e356]: Baş Sahypa
+            - generic [ref=f11e357]:
+              - textbox "Şifre" [ref=f11e358]
+              - button [ref=f11e359] [cursor=pointer]
+            - combobox [ref=f11e363]:
+              - option "Yönetici"
+              - option "Bölüm Müdürü"
+              - option "Muhasebe"
+              - option "Görüntüleyici" [selected]
+            - generic [ref=f11e364]: 0/19 bölüm
+            - button "Yetkileri düzenle" [ref=f11e365] [cursor=pointer]
+            - button "Kullanıcıyı sil" [ref=f11e368] [cursor=pointer]
+          - generic [ref=f11e373]:
+            - textbox "Ad Soyad" [ref=f11e386]: soltanmyrat
+            - textbox "Giriş adı" [ref=f11e387]: Soltanmyrat
+            - generic [ref=f11e388]:
+              - textbox "Selamlama adı" [ref=f11e389]: Soltanmyrat Pirjikow
+              - generic [ref=f11e390]: Baş Sahypa
+            - generic [ref=f11e391]:
+              - textbox "Şifre" [ref=f11e392]
+              - button [ref=f11e393] [cursor=pointer]
+            - combobox [ref=f11e397]:
+              - option "Yönetici"
+              - option "Bölüm Müdürü"
+              - option "Muhasebe"
+              - option "Görüntüleyici" [selected]
+            - generic [ref=f11e398]: 0/19 bölüm
+            - button "Yetkileri düzenle" [ref=f11e399] [cursor=pointer]
+            - button "Kullanıcıyı sil" [ref=f11e402] [cursor=pointer]
+          - generic [ref=f11e407]:
+            - textbox "Ad Soyad" [ref=f11e420]: export
+            - textbox "Giriş adı" [ref=f11e421]: Export
+            - generic [ref=f11e422]:
+              - textbox "Selamlama adı" [ref=f11e423]: Export işgarleri
+              - generic [ref=f11e424]: Baş Sahypa
+            - generic [ref=f11e425]:
+              - textbox "Şifre" [ref=f11e426]
+              - button [ref=f11e427] [cursor=pointer]
+            - combobox [ref=f11e431]:
+              - option "Yönetici"
+              - option "Bölüm Müdürü"
+              - option "Muhasebe"
+              - option "Görüntüleyici" [selected]
+            - generic [ref=f11e432]: 0/19 bölüm
+            - button "Yetkileri düzenle" [ref=f11e433] [cursor=pointer]
+            - button "Kullanıcıyı sil" [ref=f11e436] [cursor=pointer]
+          - generic [ref=f11e441]:
+            - textbox "Ad Soyad" [ref=f11e454]: ex
+            - textbox "Giriş adı" [ref=f11e455]: ex
+            - generic [ref=f11e456]:
+              - textbox "Selamlama adı" [ref=f11e457]
+              - generic [ref=f11e458]: Baş Sahypa
+            - generic [ref=f11e459]:
+              - textbox "Şifre" [ref=f11e460]
+              - button [ref=f11e461] [cursor=pointer]
+            - combobox [ref=f11e465]:
+              - option "Yönetici"
+              - option "Bölüm Müdürü"
+              - option "Muhasebe"
+              - option "Görüntüleyici" [selected]
+            - generic [ref=f11e466]: 0/19 bölüm
+            - button "Yetkileri düzenle" [ref=f11e467] [cursor=pointer]
+            - button "Kullanıcıyı sil" [ref=f11e470] [cursor=pointer]
+          - generic [ref=f11e475]:
+            - textbox "Ad Soyad" [ref=f11e488]: Josgun
+            - textbox "Giriş adı" [ref=f11e489]: Josgun
+            - generic [ref=f11e490]:
+              - textbox "Selamlama adı" [ref=f11e491]
+              - generic [ref=f11e492]: Baş Sahypa
+            - generic [ref=f11e493]:
+              - textbox "Şifre" [ref=f11e494]
+              - button [ref=f11e495] [cursor=pointer]
+            - combobox [ref=f11e499]:
+              - option "Yönetici"
+              - option "Bölüm Müdürü"
+              - option "Muhasebe"
+              - option "Görüntüleyici" [selected]
+            - generic [ref=f11e500]: 0/19 bölüm
+            - button "Yetkileri düzenle" [ref=f11e501] [cursor=pointer]
+            - button "Kullanıcıyı sil" [ref=f11e504] [cursor=pointer]
+          - generic [ref=f11e509]:
+            - textbox "Ad Soyad" [ref=f11e522]: "1115"
+            - textbox "Giriş adı" [ref=f11e523]: "1115"
+            - generic [ref=f11e524]:
+              - textbox "Selamlama adı" [ref=f11e525]: Döwranow Eziz Agamyradowiç
+              - generic [ref=f11e526]: Baş Sahypa
+            - generic [ref=f11e527]:
+              - textbox "Şifre" [ref=f11e528]
+              - button [ref=f11e529] [cursor=pointer]
+            - combobox [ref=f11e533]:
+              - option "Yönetici"
+              - option "Bölüm Müdürü"
+              - option "Muhasebe"
+              - option "Görüntüleyici" [selected]
+            - generic [ref=f11e534]: 0/19 bölüm
+            - button "Yetkileri düzenle" [ref=f11e535] [cursor=pointer]
+            - button "Kullanıcıyı sil" [ref=f11e538] [cursor=pointer]
+          - generic [ref=f11e543]:
+            - textbox "Ad Soyad" [ref=f11e556]: "2002"
+            - textbox "Giriş adı" [ref=f11e557]: "2002"
+            - generic [ref=f11e558]:
+              - textbox "Selamlama adı" [ref=f11e559]: Agamyrat Çaryýew
+              - generic [ref=f11e560]: Baş Sahypa
+            - generic [ref=f11e561]:
+              - textbox "Şifre" [ref=f11e562]
+              - button [ref=f11e563] [cursor=pointer]
+            - combobox [ref=f11e567]:
+              - option "Yönetici"
+              - option "Bölüm Müdürü"
+              - option "Muhasebe"
+              - option "Görüntüleyici" [selected]
+            - generic [ref=f11e568]: 0/19 bölüm
+            - button "Yetkileri düzenle" [ref=f11e569] [cursor=pointer]
+            - button "Kullanıcıyı sil" [ref=f11e572] [cursor=pointer]
+          - generic [ref=f11e577]:
+            - textbox "Ad Soyad" [ref=f11e590]: "1114"
+            - textbox "Giriş adı" [ref=f11e591]: "1114"
+            - generic [ref=f11e592]:
+              - textbox "Selamlama adı" [ref=f11e593]: Döwranow Jumamyrat Agamyradowiç
+              - generic [ref=f11e594]: Baş Sahypa
+            - generic [ref=f11e595]:
+              - textbox "Şifre" [ref=f11e596]
+              - button [ref=f11e597] [cursor=pointer]
+            - combobox [ref=f11e601]:
+              - option "Yönetici"
+              - option "Bölüm Müdürü"
+              - option "Muhasebe"
+              - option "Görüntüleyici" [selected]
+            - generic [ref=f11e602]: 0/19 bölüm
+            - button "Yetkileri düzenle" [ref=f11e603] [cursor=pointer]
+            - button "Kullanıcıyı sil" [ref=f11e606] [cursor=pointer]
+          - generic [ref=f11e611]:
+            - textbox "Ad Soyad" [ref=f11e624]: "1010"
+            - textbox "Giriş adı" [ref=f11e625]: "1010"
+            - generic [ref=f11e626]:
+              - textbox "Selamlama adı" [ref=f11e627]: Açylow Polat
+              - generic [ref=f11e628]: Baş Sahypa
+            - generic [ref=f11e629]:
+              - textbox "Şifre" [ref=f11e630]
+              - button [ref=f11e631] [cursor=pointer]
+            - combobox [ref=f11e635]:
+              - option "Yönetici"
+              - option "Bölüm Müdürü"
+              - option "Muhasebe"
+              - option "Görüntüleyici" [selected]
+            - generic [ref=f11e636]: 0/19 bölüm
+            - button "Yetkileri düzenle" [ref=f11e637] [cursor=pointer]
+            - button "Kullanıcıyı sil" [ref=f11e640] [cursor=pointer]
+          - generic [ref=f11e645]:
+            - textbox "Ad Soyad" [ref=f11e658]: Gandymow Kuwat
+            - textbox "Giriş adı" [ref=f11e659]: Kuwat
+            - generic [ref=f11e660]:
+              - textbox "Selamlama adı" [ref=f11e661]: Gandymow Kuwat
+              - generic [ref=f11e662]: Baş Sahypa
+            - generic [ref=f11e663]:
+              - textbox "Şifre" [ref=f11e664]
+              - button [ref=f11e665] [cursor=pointer]
+            - combobox [ref=f11e669]:
+              - option "Yönetici"
+              - option "Bölüm Müdürü"
+              - option "Muhasebe"
+              - option "Görüntüleyici" [selected]
+            - generic [ref=f11e670]: 0/19 bölüm
+            - button "Yetkileri düzenle" [ref=f11e671] [cursor=pointer]
+            - button "Kullanıcıyı sil" [ref=f11e674] [cursor=pointer]
+  - contentinfo [ref=f11e227]: Veriler bu cihazda/hesapta saklanır ve diğer kullanıcılarla paylaşılmaz.

@@ -1,0 +1,304 @@
+- generic [active] [ref=f1e1]:
+  - generic [ref=f1e9]:
+    - generic [ref=f1e10]:
+      - generic [ref=f1e11]:
+        - button "TR" [ref=f1e12] [cursor=pointer]
+        - button "TM" [ref=f1e13] [cursor=pointer]
+      - generic [ref=f1e14]:
+        - generic [ref=f1e15]: "Yıl:"
+        - spinbutton [ref=f1e16]: "2026"
+      - generic [ref=f1e17]: Kaydedildi ✓
+      - button "Varsayılana sıfırla" [ref=f1e18] [cursor=pointer]
+      - button "Şifre" [ref=f1e22] [cursor=pointer]
+      - button "Çıkış" [ref=f1e26] [cursor=pointer]
+    - navigation [ref=f1e30]:
+      - button "Ana Sayfa" [ref=f1e31] [cursor=pointer]
+      - button "Ana Dashboard" [ref=f1e32] [cursor=pointer]
+      - button "Bütçe" [ref=f1e33] [cursor=pointer]
+      - button "Pomidor Dükânı" [ref=f1e34] [cursor=pointer]
+      - button "Sera İzleme" [ref=f1e35] [cursor=pointer]
+      - button "Tır Takip" [ref=f1e36] [cursor=pointer]
+      - button "Yurtdışı Hasabat" [ref=f1e37] [cursor=pointer]
+      - button "Finans Hasabatlar" [ref=f1e38] [cursor=pointer]
+      - button "Yardım" [ref=f1e39] [cursor=pointer]
+      - button "Ayarlar" [ref=f1e40] [cursor=pointer]
+    - main [ref=f1e41]:
+      - generic [ref=f1e8991]:
+        - generic [ref=f1e8993]:
+          - generic [ref=f1e8999]:
+            - heading "Yönetim Raporları" [level=1] [ref=f1e9000]
+            - paragraph [ref=f1e9001]: Satış Dağılımı — Miktar & Tutar
+          - generic [ref=f1e9002]:
+            - generic "Bu sayfada üzerinde çalışılan yıl" [ref=f1e9003]:
+              - spinbutton [ref=f1e9006]: "2026"
+            - button "PDF Olarak Kaydet" [ref=f1e9007] [cursor=pointer]
+        - button [ref=f1e9012] [cursor=pointer]
+        - generic [ref=f1e9018]:
+          - generic [ref=f1e9019]: Blok Seçimi
+          - generic [ref=f1e9020]:
+            - generic [ref=f1e9021]:
+              - button "Tümünü Seç" [ref=f1e9022] [cursor=pointer]
+              - button "Temizle" [ref=f1e9023] [cursor=pointer]
+            - generic [ref=f1e9024]:
+              - generic [ref=f1e9025]:
+                - text: Dusak
+                - button "(tümünü seç/kaldır)" [ref=f1e9026] [cursor=pointer]
+              - generic [ref=f1e9027]:
+                - button "Dusak A" [ref=f1e9028] [cursor=pointer]
+                - button "Dusak B" [ref=f1e9031] [cursor=pointer]
+                - button "Dusak C" [ref=f1e9034] [cursor=pointer]
+                - button "Dusak 1" [ref=f1e9037] [cursor=pointer]
+                - button "Dusak 2" [ref=f1e9040] [cursor=pointer]
+                - button "Dusak 3" [ref=f1e9043] [cursor=pointer]
+                - button "Dusak 4" [ref=f1e9046] [cursor=pointer]
+                - button "Dusak 5" [ref=f1e9049] [cursor=pointer]
+                - button "Dusak 6" [ref=f1e9052] [cursor=pointer]
+                - button "Dusak 7" [ref=f1e9055] [cursor=pointer]
+                - button "Dusak 8" [ref=f1e9058] [cursor=pointer]
+                - button "Dusak 9" [ref=f1e9061] [cursor=pointer]
+                - button "Dusak 10" [ref=f1e9064] [cursor=pointer]
+            - generic [ref=f1e9067]:
+              - generic [ref=f1e9068]:
+                - text: Kaka
+                - button "(tümünü seç/kaldır)" [ref=f1e9069] [cursor=pointer]
+              - generic [ref=f1e9070]:
+                - button "Kaka D" [ref=f1e9071] [cursor=pointer]
+                - button "Kaka E" [ref=f1e9074] [cursor=pointer]
+                - button "Kaka F" [ref=f1e9077] [cursor=pointer]
+                - button "Kaka G" [ref=f1e9080] [cursor=pointer]
+                - button "Kaka H" [ref=f1e9083] [cursor=pointer]
+                - button "Kaka I" [ref=f1e9086] [cursor=pointer]
+                - button "Kaka J" [ref=f1e9089] [cursor=pointer]
+                - button "Kaka K" [ref=f1e9092] [cursor=pointer]
+                - button "Kaka L" [ref=f1e9095] [cursor=pointer]
+                - button "Kaka N" [ref=f1e9098] [cursor=pointer]
+                - button "Kaka P" [ref=f1e9101] [cursor=pointer]
+                - button "Kaka M15" [ref=f1e9104] [cursor=pointer]
+                - button "Kaka M5" [ref=f1e9107] [cursor=pointer]
+            - generic [ref=f1e9110]:
+              - generic [ref=f1e9111]:
+                - text: Owadandepe
+                - button "(tümünü seç/kaldır)" [ref=f1e9112] [cursor=pointer]
+              - button "Owadandepe O" [ref=f1e9114] [cursor=pointer]
+        - generic [ref=f1e9117]:
+          - generic [ref=f1e9118]:
+            - generic [ref=f1e9119]: Satış Dağılımı — MİKTAR (kg)
+            - generic [ref=f1e9120]:
+              - button "Ocak" [ref=f1e9121] [cursor=pointer]
+              - button "Şubat" [ref=f1e9122] [cursor=pointer]
+              - button "Mart" [ref=f1e9123] [cursor=pointer]
+              - button "Nisan" [ref=f1e9124] [cursor=pointer]
+              - button "Mayıs" [ref=f1e9125] [cursor=pointer]
+              - button "Haziran" [ref=f1e9126] [cursor=pointer]
+              - button "Temmuz" [ref=f1e9127] [cursor=pointer]
+              - button "Ağustos" [ref=f1e9128] [cursor=pointer]
+              - button "Eylül" [ref=f1e9129] [cursor=pointer]
+              - button "Ekim" [ref=f1e9130] [cursor=pointer]
+              - button "Kasım" [ref=f1e9131] [cursor=pointer]
+              - button "Aralık" [ref=f1e9132] [cursor=pointer]
+          - table [ref=f1e9134]:
+            - rowgroup [ref=f1e9135]:
+              - row [ref=f1e9136]:
+                - columnheader "Kanal" [ref=f1e9137]
+                - columnheader "Ocak" [ref=f1e9138]
+                - columnheader "Şubat" [ref=f1e9139]
+                - columnheader "Mart" [ref=f1e9140]
+                - columnheader "Nisan" [ref=f1e9141]
+                - columnheader "Mayıs" [ref=f1e9142]
+                - columnheader "Haziran" [ref=f1e9143]
+                - columnheader "Temmuz" [ref=f1e9144]
+                - columnheader "Ağustos" [ref=f1e9145]
+                - columnheader "Eylül" [ref=f1e9146]
+                - columnheader "Ekim" [ref=f1e9147]
+                - columnheader "Kasım" [ref=f1e9148]
+                - columnheader "Aralık" [ref=f1e9149]
+                - columnheader "Toplam" [ref=f1e9150]
+            - rowgroup [ref=f1e9151]:
+              - row [ref=f1e9152]:
+                - cell "Kazakistan" [ref=f1e9153]
+                - cell "2.875.492" [ref=f1e9154]
+                - cell "2.858.798" [ref=f1e9155]
+                - cell "3.311.068" [ref=f1e9156]
+                - cell "5.607.800" [ref=f1e9157]
+                - cell "4.989.272" [ref=f1e9158]
+                - cell "3.061.324" [ref=f1e9159]
+                - cell "0" [ref=f1e9160]
+                - cell "0" [ref=f1e9161]
+                - cell "0" [ref=f1e9162]
+                - cell "0" [ref=f1e9163]
+                - cell "0" [ref=f1e9164]
+                - cell "0" [ref=f1e9165]
+                - cell "22.703.753" [ref=f1e9166]
+              - row [ref=f1e9167]:
+                - cell "Rusya" [ref=f1e9168]
+                - cell "1.437.746" [ref=f1e9169]
+                - cell "1.250.724" [ref=f1e9170]
+                - cell "2.015.433" [ref=f1e9171]
+                - cell "2.560.082" [ref=f1e9172]
+                - cell "3.088.597" [ref=f1e9173]
+                - cell "1.360.588" [ref=f1e9174]
+                - cell "0" [ref=f1e9175]
+                - cell "0" [ref=f1e9176]
+                - cell "0" [ref=f1e9177]
+                - cell "0" [ref=f1e9178]
+                - cell "0" [ref=f1e9179]
+                - cell "0" [ref=f1e9180]
+                - cell "11.713.170" [ref=f1e9181]
+              - row [ref=f1e9182]:
+                - cell "Kapı Satışı" [ref=f1e9183]
+                - cell "1.437.746" [ref=f1e9184]
+                - cell "1.846.307" [ref=f1e9185]
+                - cell "1.871.473" [ref=f1e9186]
+                - cell "4.022.987" [ref=f1e9187]
+                - cell "3.801.350" [ref=f1e9188]
+                - cell "1.247.206" [ref=f1e9189]
+                - cell "0" [ref=f1e9190]
+                - cell "0" [ref=f1e9191]
+                - cell "0" [ref=f1e9192]
+                - cell "0" [ref=f1e9193]
+                - cell "0" [ref=f1e9194]
+                - cell "0" [ref=f1e9195]
+                - cell "14.227.069" [ref=f1e9196]
+              - row [ref=f1e9197]:
+                - cell "İç Pazar" [ref=f1e9198]
+                - cell "784.225" [ref=f1e9199]
+                - cell "812.158" [ref=f1e9200]
+                - cell "981.542" [ref=f1e9201]
+                - cell "1.662.391" [ref=f1e9202]
+                - cell "3.959.739" [ref=f1e9203]
+                - cell "3.052.602" [ref=f1e9204]
+                - cell "0" [ref=f1e9205]
+                - cell "0" [ref=f1e9206]
+                - cell "0" [ref=f1e9207]
+                - cell "0" [ref=f1e9208]
+                - cell "0" [ref=f1e9209]
+                - cell "0" [ref=f1e9210]
+                - cell "11.252.658" [ref=f1e9211]
+            - rowgroup [ref=f1e9212]:
+              - row [ref=f1e9213]:
+                - cell "Toplam" [ref=f1e9214]
+                - cell "6.535.209" [ref=f1e9215]
+                - cell "6.767.987" [ref=f1e9216]
+                - cell "8.179.516" [ref=f1e9217]
+                - cell "13.853.260" [ref=f1e9218]
+                - cell "15.838.958" [ref=f1e9219]
+                - cell "8.721.720" [ref=f1e9220]
+                - cell "0" [ref=f1e9221]
+                - cell "0" [ref=f1e9222]
+                - cell "0" [ref=f1e9223]
+                - cell "0" [ref=f1e9224]
+                - cell "0" [ref=f1e9225]
+                - cell "0" [ref=f1e9226]
+                - cell "59.896.650" [ref=f1e9227]
+        - generic [ref=f1e9228]:
+          - generic [ref=f1e9229]:
+            - generic [ref=f1e9230]: Satış Dağılımı — TUTAR (USD / DTM)
+            - generic [ref=f1e9231]:
+              - button "Ocak" [ref=f1e9232] [cursor=pointer]
+              - button "Şubat" [ref=f1e9233] [cursor=pointer]
+              - button "Mart" [ref=f1e9234] [cursor=pointer]
+              - button "Nisan" [ref=f1e9235] [cursor=pointer]
+              - button "Mayıs" [ref=f1e9236] [cursor=pointer]
+              - button "Haziran" [ref=f1e9237] [cursor=pointer]
+              - button "Temmuz" [ref=f1e9238] [cursor=pointer]
+              - button "Ağustos" [ref=f1e9239] [cursor=pointer]
+              - button "Eylül" [ref=f1e9240] [cursor=pointer]
+              - button "Ekim" [ref=f1e9241] [cursor=pointer]
+              - button "Kasım" [ref=f1e9242] [cursor=pointer]
+              - button "Aralık" [ref=f1e9243] [cursor=pointer]
+          - table [ref=f1e9245]:
+            - rowgroup [ref=f1e9246]:
+              - row [ref=f1e9247]:
+                - columnheader "Kanal" [ref=f1e9248]
+                - columnheader "Ocak" [ref=f1e9249]
+                - columnheader "Şubat" [ref=f1e9250]
+                - columnheader "Mart" [ref=f1e9251]
+                - columnheader "Nisan" [ref=f1e9252]
+                - columnheader "Mayıs" [ref=f1e9253]
+                - columnheader "Haziran" [ref=f1e9254]
+                - columnheader "Temmuz" [ref=f1e9255]
+                - columnheader "Ağustos" [ref=f1e9256]
+                - columnheader "Eylül" [ref=f1e9257]
+                - columnheader "Ekim" [ref=f1e9258]
+                - columnheader "Kasım" [ref=f1e9259]
+                - columnheader "Aralık" [ref=f1e9260]
+                - columnheader "Toplam" [ref=f1e9261]
+            - rowgroup [ref=f1e9262]:
+              - row [ref=f1e9263]:
+                - cell "Kazakistan" [ref=f1e9264]
+                - cell "3.615.356 $" [ref=f1e9265]
+                - cell "5.094.377 $" [ref=f1e9266]
+                - cell "6.392.017 $" [ref=f1e9267]
+                - cell "7.883.445 $" [ref=f1e9268]
+                - cell "4.297.260 $" [ref=f1e9269]
+                - cell "1.860.060 $" [ref=f1e9270]
+                - cell "—" [ref=f1e9271]
+                - cell "—" [ref=f1e9272]
+                - cell "—" [ref=f1e9273]
+                - cell "—" [ref=f1e9274]
+                - cell "—" [ref=f1e9275]
+                - cell "—" [ref=f1e9276]
+                - cell "29.142.515 $" [ref=f1e9277]
+              - row [ref=f1e9278]:
+                - cell "Rusya" [ref=f1e9279]
+                - cell "1.807.678 $" [ref=f1e9280]
+                - cell "2.228.790 $" [ref=f1e9281]
+                - cell "3.890.793 $" [ref=f1e9282]
+                - cell "3.598.964 $" [ref=f1e9283]
+                - cell "2.660.208 $" [ref=f1e9284]
+                - cell "826.693 $" [ref=f1e9285]
+                - cell "—" [ref=f1e9286]
+                - cell "—" [ref=f1e9287]
+                - cell "—" [ref=f1e9288]
+                - cell "—" [ref=f1e9289]
+                - cell "—" [ref=f1e9290]
+                - cell "—" [ref=f1e9291]
+                - cell "15.013.127 $" [ref=f1e9292]
+              - row [ref=f1e9293]:
+                - cell "Kapı Satışı" [ref=f1e9294]
+                - cell "1.222.084 $" [ref=f1e9295]
+                - cell "2.492.514 $" [ref=f1e9296]
+                - cell "2.769.780 $" [ref=f1e9297]
+                - cell "4.022.987 $" [ref=f1e9298]
+                - cell "1.710.607 $" [ref=f1e9299]
+                - cell "249.441 $" [ref=f1e9300]
+                - cell "—" [ref=f1e9301]
+                - cell "—" [ref=f1e9302]
+                - cell "—" [ref=f1e9303]
+                - cell "—" [ref=f1e9304]
+                - cell "—" [ref=f1e9305]
+                - cell "—" [ref=f1e9306]
+                - cell "12.467.414 $" [ref=f1e9307]
+              - row [ref=f1e9308]:
+                - cell "İç Pazar (DTM)" [ref=f1e9309]
+                - cell "3.921.126 DTM" [ref=f1e9310]
+                - cell "4.060.792 DTM" [ref=f1e9311]
+                - cell "4.907.709 DTM" [ref=f1e9312]
+                - cell "8.311.956 DTM" [ref=f1e9313]
+                - cell "19.798.697 DTM" [ref=f1e9314]
+                - cell "6.105.204 DTM" [ref=f1e9315]
+                - cell "—" [ref=f1e9316]
+                - cell "—" [ref=f1e9317]
+                - cell "—" [ref=f1e9318]
+                - cell "—" [ref=f1e9319]
+                - cell "—" [ref=f1e9320]
+                - cell "—" [ref=f1e9321]
+                - cell "47.105.484 DTM" [ref=f1e9322]
+            - rowgroup [ref=f1e9323]:
+              - row [ref=f1e9324]:
+                - cell "Toplam USD" [ref=f1e9325]
+                - cell "6.645.118 $" [ref=f1e9326]
+                - cell "9.815.682 $" [ref=f1e9327]
+                - cell "13.052.590 $" [ref=f1e9328]
+                - cell "15.505.395 $" [ref=f1e9329]
+                - cell "8.668.076 $" [ref=f1e9330]
+                - cell "2.936.195 $" [ref=f1e9331]
+                - cell "—" [ref=f1e9332]
+                - cell "—" [ref=f1e9333]
+                - cell "—" [ref=f1e9334]
+                - cell "—" [ref=f1e9335]
+                - cell "—" [ref=f1e9336]
+                - cell "—" [ref=f1e9337]
+                - cell "56.623.056 $" [ref=f1e9338]
+    - contentinfo [ref=f1e164]: Veriler bu cihazda/hesapta saklanır ve diğer kullanıcılarla paylaşılmaz.
+  - generic [ref=f1e927]: "-5500000"

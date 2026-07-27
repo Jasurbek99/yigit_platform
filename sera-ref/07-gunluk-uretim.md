@@ -1,0 +1,220 @@
+- generic [active] [ref=f1e1]:
+  - generic [ref=f1e9]:
+    - generic [ref=f1e10]:
+      - generic [ref=f1e11]:
+        - button "TR" [ref=f1e12] [cursor=pointer]
+        - button "TM" [ref=f1e13] [cursor=pointer]
+      - generic [ref=f1e14]:
+        - generic [ref=f1e15]: "Yıl:"
+        - spinbutton [ref=f1e16]: "2026"
+      - generic [ref=f1e17]: Kaydedildi ✓
+      - button "Varsayılana sıfırla" [ref=f1e18] [cursor=pointer]
+      - button "Şifre" [ref=f1e22] [cursor=pointer]
+      - button "Çıkış" [ref=f1e26] [cursor=pointer]
+    - navigation [ref=f1e30]:
+      - button "Ana Sayfa" [ref=f1e31] [cursor=pointer]
+      - button "Ana Dashboard" [ref=f1e32] [cursor=pointer]
+      - button "Bütçe" [ref=f1e33] [cursor=pointer]
+      - button "Pomidor Dükânı" [ref=f1e34] [cursor=pointer]
+      - button "Sera İzleme" [ref=f1e35] [cursor=pointer]
+      - button "Tır Takip" [ref=f1e36] [cursor=pointer]
+      - button "Yurtdışı Hasabat" [ref=f1e37] [cursor=pointer]
+      - button "Finans Hasabatlar" [ref=f1e38] [cursor=pointer]
+      - button "Yardım" [ref=f1e39] [cursor=pointer]
+      - button "Ayarlar" [ref=f1e40] [cursor=pointer]
+    - main [ref=f1e41]:
+      - generic [ref=f1e1486]:
+        - generic [ref=f1e1487]:
+          - generic [ref=f1e1488]:
+            - heading "Günlük Üretim Girişi" [level=1] [ref=f1e1489]
+            - paragraph [ref=f1e1490]: Günlük Önümçilik Girizme
+          - generic [ref=f1e1491]:
+            - generic "Bu sayfada üzerinde çalışılan yıl" [ref=f1e1492]:
+              - spinbutton [ref=f1e1495]: "2026"
+            - button "PDF Olarak Kaydet" [ref=f1e1496] [cursor=pointer]
+        - button [ref=f1e1501] [cursor=pointer]
+        - generic [ref=f1e1507]:
+          - button [ref=f1e1508] [cursor=pointer]
+          - textbox [ref=f1e1511]: 2026-07-23
+          - button [ref=f1e1512] [cursor=pointer]
+          - button "Bugün" [ref=f1e1515] [cursor=pointer]
+        - generic [ref=f1e1516]: 23 Temmuz 2026 Perşembe
+        - table [ref=f1e1518]:
+          - rowgroup [ref=f1e1519]:
+            - row [ref=f1e1520]:
+              - columnheader "Blok" [ref=f1e1521]
+              - columnheader "Meýilnama (kg)" [ref=f1e1522]
+              - columnheader "Hakyky (kg)" [ref=f1e1523]
+              - columnheader "Tapawut" [ref=f1e1524]
+          - rowgroup [ref=f1e1525]:
+            - row [ref=f1e1526]:
+              - cell "Dusak A" [ref=f1e1527]
+              - cell "—" [ref=f1e1528]
+              - cell [ref=f1e1529]:
+                - spinbutton "0" [ref=f1e1530]
+              - cell "—" [ref=f1e1531]
+            - row [ref=f1e1532]:
+              - cell "Dusak B" [ref=f1e1533]
+              - cell "—" [ref=f1e1534]
+              - cell [ref=f1e1535]:
+                - spinbutton "0" [ref=f1e1536]
+              - cell "—" [ref=f1e1537]
+            - row [ref=f1e1538]:
+              - cell "Dusak C" [ref=f1e1539]
+              - cell "—" [ref=f1e1540]
+              - cell [ref=f1e1541]:
+                - spinbutton "0" [ref=f1e1542]
+              - cell "—" [ref=f1e1543]
+            - row [ref=f1e1544]:
+              - cell "Dusak 1" [ref=f1e1545]
+              - cell "—" [ref=f1e1546]
+              - cell [ref=f1e1547]:
+                - spinbutton "0" [ref=f1e1548]
+              - cell "—" [ref=f1e1549]
+            - row [ref=f1e1550]:
+              - cell "Dusak 2" [ref=f1e1551]
+              - cell "—" [ref=f1e1552]
+              - cell [ref=f1e1553]:
+                - spinbutton "0" [ref=f1e1554]
+              - cell "—" [ref=f1e1555]
+            - row [ref=f1e1556]:
+              - cell "Dusak 3" [ref=f1e1557]
+              - cell "—" [ref=f1e1558]
+              - cell [ref=f1e1559]:
+                - spinbutton "0" [ref=f1e1560]
+              - cell "—" [ref=f1e1561]
+            - row [ref=f1e1562]:
+              - cell "Dusak 4" [ref=f1e1563]
+              - cell "—" [ref=f1e1564]
+              - cell [ref=f1e1565]:
+                - spinbutton "0" [ref=f1e1566]
+              - cell "—" [ref=f1e1567]
+            - row [ref=f1e1568]:
+              - cell "Dusak 5" [ref=f1e1569]
+              - cell "—" [ref=f1e1570]
+              - cell [ref=f1e1571]:
+                - spinbutton "0" [ref=f1e1572]
+              - cell "—" [ref=f1e1573]
+            - row [ref=f1e1574]:
+              - cell "Dusak 6" [ref=f1e1575]
+              - cell "—" [ref=f1e1576]
+              - cell [ref=f1e1577]:
+                - spinbutton "0" [ref=f1e1578]
+              - cell "—" [ref=f1e1579]
+            - row [ref=f1e1580]:
+              - cell "Dusak 7" [ref=f1e1581]
+              - cell "—" [ref=f1e1582]
+              - cell [ref=f1e1583]:
+                - spinbutton "0" [ref=f1e1584]
+              - cell "—" [ref=f1e1585]
+            - row [ref=f1e1586]:
+              - cell "Dusak 8" [ref=f1e1587]
+              - cell "—" [ref=f1e1588]
+              - cell [ref=f1e1589]:
+                - spinbutton "0" [ref=f1e1590]
+              - cell "—" [ref=f1e1591]
+            - row [ref=f1e1592]:
+              - cell "Dusak 9" [ref=f1e1593]
+              - cell "—" [ref=f1e1594]
+              - cell [ref=f1e1595]:
+                - spinbutton "0" [ref=f1e1596]
+              - cell "—" [ref=f1e1597]
+            - row [ref=f1e1598]:
+              - cell "Dusak 10" [ref=f1e1599]
+              - cell "—" [ref=f1e1600]
+              - cell [ref=f1e1601]:
+                - spinbutton "0" [ref=f1e1602]
+              - cell "—" [ref=f1e1603]
+            - row [ref=f1e1604]:
+              - cell "Kaka D" [ref=f1e1605]
+              - cell "—" [ref=f1e1606]
+              - cell [ref=f1e1607]:
+                - spinbutton "0" [ref=f1e1608]
+              - cell "—" [ref=f1e1609]
+            - row [ref=f1e1610]:
+              - cell "Kaka E" [ref=f1e1611]
+              - cell "—" [ref=f1e1612]
+              - cell [ref=f1e1613]:
+                - spinbutton "0" [ref=f1e1614]
+              - cell "—" [ref=f1e1615]
+            - row [ref=f1e1616]:
+              - cell "Kaka F" [ref=f1e1617]
+              - cell "—" [ref=f1e1618]
+              - cell [ref=f1e1619]:
+                - spinbutton "0" [ref=f1e1620]
+              - cell "—" [ref=f1e1621]
+            - row [ref=f1e1622]:
+              - cell "Kaka G" [ref=f1e1623]
+              - cell "—" [ref=f1e1624]
+              - cell [ref=f1e1625]:
+                - spinbutton "0" [ref=f1e1626]
+              - cell "—" [ref=f1e1627]
+            - row [ref=f1e1628]:
+              - cell "Kaka H" [ref=f1e1629]
+              - cell "—" [ref=f1e1630]
+              - cell [ref=f1e1631]:
+                - spinbutton "0" [ref=f1e1632]
+              - cell "—" [ref=f1e1633]
+            - row [ref=f1e1634]:
+              - cell "Kaka I" [ref=f1e1635]
+              - cell "—" [ref=f1e1636]
+              - cell [ref=f1e1637]:
+                - spinbutton "0" [ref=f1e1638]
+              - cell "—" [ref=f1e1639]
+            - row [ref=f1e1640]:
+              - cell "Kaka J" [ref=f1e1641]
+              - cell "—" [ref=f1e1642]
+              - cell [ref=f1e1643]:
+                - spinbutton "0" [ref=f1e1644]
+              - cell "—" [ref=f1e1645]
+            - row [ref=f1e1646]:
+              - cell "Kaka K" [ref=f1e1647]
+              - cell "—" [ref=f1e1648]
+              - cell [ref=f1e1649]:
+                - spinbutton "0" [ref=f1e1650]
+              - cell "—" [ref=f1e1651]
+            - row [ref=f1e1652]:
+              - cell "Kaka L" [ref=f1e1653]
+              - cell "—" [ref=f1e1654]
+              - cell [ref=f1e1655]:
+                - spinbutton "0" [ref=f1e1656]
+              - cell "—" [ref=f1e1657]
+            - row [ref=f1e1658]:
+              - cell "Kaka N" [ref=f1e1659]
+              - cell "—" [ref=f1e1660]
+              - cell [ref=f1e1661]:
+                - spinbutton "0" [ref=f1e1662]
+              - cell "—" [ref=f1e1663]
+            - row [ref=f1e1664]:
+              - cell "Kaka P" [ref=f1e1665]
+              - cell "—" [ref=f1e1666]
+              - cell [ref=f1e1667]:
+                - spinbutton "0" [ref=f1e1668]
+              - cell "—" [ref=f1e1669]
+            - row [ref=f1e1670]:
+              - cell "Kaka M15" [ref=f1e1671]
+              - cell "—" [ref=f1e1672]
+              - cell [ref=f1e1673]:
+                - spinbutton "0" [ref=f1e1674]
+              - cell "—" [ref=f1e1675]
+            - row [ref=f1e1676]:
+              - cell "Kaka M5" [ref=f1e1677]
+              - cell "—" [ref=f1e1678]
+              - cell [ref=f1e1679]:
+                - spinbutton "0" [ref=f1e1680]
+              - cell "—" [ref=f1e1681]
+            - row [ref=f1e1682]:
+              - cell "Owadandepe O" [ref=f1e1683]
+              - cell "—" [ref=f1e1684]
+              - cell [ref=f1e1685]:
+                - spinbutton "0" [ref=f1e1686]
+              - cell "—" [ref=f1e1687]
+          - rowgroup [ref=f1e1688]:
+            - row [ref=f1e1689]:
+              - cell "Jemi" [ref=f1e1690]
+              - cell "—" [ref=f1e1691]
+              - cell "—" [ref=f1e1692]
+              - cell "—" [ref=f1e1693]
+        - generic [ref=f1e1694]: Girişler otomatik ýatda saklanýar.
+    - contentinfo [ref=f1e164]: Veriler bu cihazda/hesapta saklanır ve diğer kullanıcılarla paylaşılmaz.
+  - generic [ref=f1e927]: "-5500000"

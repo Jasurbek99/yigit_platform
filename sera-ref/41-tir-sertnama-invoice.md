@@ -1,0 +1,123 @@
+- generic [ref=f14e9]:
+  - generic [ref=f14e10]:
+    - generic [ref=f14e11]:
+      - button "TR" [ref=f14e12] [cursor=pointer]
+      - button "TM" [ref=f14e13] [cursor=pointer]
+    - generic [ref=f14e14]:
+      - generic [ref=f14e15]: "Yıl:"
+      - spinbutton [ref=f14e16]: "2026"
+    - generic [ref=f14e17]: Kaydedildi ✓
+    - button "Varsayılana sıfırla" [ref=f14e18] [cursor=pointer]
+    - button "Şifre" [ref=f14e22] [cursor=pointer]
+    - button "Çıkış" [ref=f14e26] [cursor=pointer]
+  - navigation [ref=f14e30]:
+    - button "Baş sahypa" [ref=f14e31] [cursor=pointer]
+    - button "Ana Dasboard" [ref=f14e32] [cursor=pointer]
+    - button "Býudjet" [ref=f14e33] [cursor=pointer]
+    - button "Pomidor Dükany" [ref=f14e34] [cursor=pointer]
+    - button "Ýyladyşhana Gözegçiligi" [ref=f14e35] [cursor=pointer]
+    - button "Maşyn Yzarlamasy" [ref=f14e36] [cursor=pointer]
+    - button "Daşary Ýurt Hasabaty" [ref=f14e37] [cursor=pointer]
+    - button "Finans Hasabatlary" [ref=f14e38] [cursor=pointer]
+    - button "Kömek" [ref=f14e39] [cursor=pointer]
+    - button "Sazlamalar" [ref=f14e40] [cursor=pointer]
+  - main [ref=f14e41]:
+    - generic [ref=f14e228]:
+      - generic [ref=f14e230]:
+        - generic [ref=f14e238]:
+          - heading "Maşyn Yzarlamasy (Tır Takip)" [level=1] [ref=f14e239]
+          - paragraph [ref=f14e240]: Önümçilik meýilnamasyndan awtomatiki tır teklipleri, QR ýagdaýly yzarlama
+        - generic [ref=f14e241]:
+          - generic "Bu sayfada üzerinde çalışılan yıl" [ref=f14e242]:
+            - spinbutton [ref=f14e245]: "2026"
+          - button "PDF Olarak Kaydet" [ref=f14e246] [cursor=pointer]
+      - button [ref=f14e251] [cursor=pointer]
+      - generic [ref=f14e257]:
+        - button "Önümçilik" [ref=f14e258] [cursor=pointer]
+        - button "Gaplama" [ref=f14e259] [cursor=pointer]
+        - button "Tırlar" [ref=f14e260] [cursor=pointer]
+        - button "📦 Export Raporu" [ref=f14e261] [cursor=pointer]
+        - button "📊 Hasabat" [ref=f14e262] [cursor=pointer]
+        - button "Gümrük Ewraklary" [ref=f14e263] [cursor=pointer]
+        - button "Kwota Takibi" [ref=f14e264] [cursor=pointer]
+        - button "Yurtdışı Sertnamaları" [ref=f14e265] [cursor=pointer]
+        - button "Datalar" [ref=f14e266] [cursor=pointer]
+      - generic [ref=f14e1086]:
+        - generic [ref=f14e1087]:
+          - button "Sertnamalar" [ref=f14e1088] [cursor=pointer]
+          - button "Invoice" [ref=f14e1089] [cursor=pointer]
+          - button "Alyjylar" [ref=f14e1090] [cursor=pointer]
+        - generic [ref=f14e1091]:
+          - heading "Invoice Arhiwi" [level=3] [ref=f14e1092]
+          - combobox [ref=f14e1093]:
+            - option "— Eksport firma —" [selected]
+            - option "Hemsaya"
+            - option "Yigit"
+          - combobox [ref=f14e1094]:
+            - option "— Import firma —" [selected]
+            - option "Aranşy - KZ"
+          - generic [ref=f14e1095]: 3 setir
+        - table [ref=f14e1097]:
+          - rowgroup [ref=f14e1098]:
+            - row [ref=f14e1099]:
+              - columnheader "Eksport Kody" [ref=f14e1100]
+              - columnheader "Senesi" [ref=f14e1101]
+              - columnheader "Invoice №" [ref=f14e1102]
+              - columnheader "Eksport Firma" [ref=f14e1103]
+              - columnheader "Import Firma" [ref=f14e1104]
+              - columnheader "Mesta Sany" [ref=f14e1105]
+              - columnheader "Brutto kg" [ref=f14e1106]
+              - columnheader "Netto kg" [ref=f14e1107]
+              - columnheader "Birlik baha" [ref=f14e1108]
+              - columnheader "Tutary USD" [ref=f14e1109]
+              - columnheader [ref=f14e1110]
+          - rowgroup [ref=f14e1111]:
+            - row [ref=f14e1112]:
+              - cell "23JL001/26" [ref=f14e1113]
+              - cell "2026-07-23" [ref=f14e1114]
+              - cell "—" [ref=f14e1115]
+              - cell "Yigit" [ref=f14e1116]
+              - cell "—" [ref=f14e1117]
+              - cell "3,500" [ref=f14e1118]
+              - cell "18,100" [ref=f14e1119]
+              - cell "18,000" [ref=f14e1120]
+              - cell "—" [ref=f14e1121]
+              - cell "—" [ref=f14e1122]
+              - cell [ref=f14e1123]:
+                - button "🖨️" [ref=f14e1124] [cursor=pointer]
+            - row [ref=f14e1125]:
+              - cell [ref=f14e1126]
+              - cell "2026-07-23" [ref=f14e1127]
+              - cell "—" [ref=f14e1128]
+              - cell "Hemsaya" [ref=f14e1129]
+              - cell "—" [ref=f14e1130]
+              - cell "3,400" [ref=f14e1131]
+              - cell "18,200" [ref=f14e1132]
+              - cell "18,000" [ref=f14e1133]
+              - cell "—" [ref=f14e1134]
+              - cell "—" [ref=f14e1135]
+              - cell [ref=f14e1136]:
+                - button "🖨️" [ref=f14e1137] [cursor=pointer]
+            - row [ref=f14e1138]:
+              - cell [ref=f14e1139]
+              - cell "2026-07-23" [ref=f14e1140]
+              - cell "—" [ref=f14e1141]
+              - cell "Yigit" [ref=f14e1142]
+              - cell "Aranşy - KZ" [ref=f14e1143]
+              - cell "3,333" [ref=f14e1144]
+              - cell "17,200" [ref=f14e1145]
+              - cell "17,000" [ref=f14e1146]
+              - cell "—" [ref=f14e1147]
+              - cell "—" [ref=f14e1148]
+              - cell [ref=f14e1149]:
+                - button "🖨️" [ref=f14e1150] [cursor=pointer]
+          - rowgroup [ref=f14e1151]:
+            - row [ref=f14e1152]:
+              - cell "Jemi — 3 setir" [ref=f14e1153]
+              - cell "10,233" [ref=f14e1154]
+              - cell "53,500" [ref=f14e1155]
+              - cell "53,000" [ref=f14e1156]
+              - cell [ref=f14e1157]
+              - cell "—" [ref=f14e1158]
+              - cell [ref=f14e1159]
+  - contentinfo [ref=f14e227]: Veriler bu cihazda/hesapta saklanır ve diğer kullanıcılarla paylaşılmaz.

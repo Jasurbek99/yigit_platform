@@ -1,0 +1,230 @@
+- generic [ref=f11e9]:
+  - generic [ref=f11e10]:
+    - generic [ref=f11e11]:
+      - button "TR" [ref=f11e12] [cursor=pointer]
+      - button "TM" [ref=f11e13] [cursor=pointer]
+    - generic [ref=f11e14]:
+      - generic [ref=f11e15]: "Yıl:"
+      - spinbutton [ref=f11e16]: "2026"
+    - generic [ref=f11e17]: Kaydedildi ✓
+    - button "Varsayılana sıfırla" [ref=f11e18] [cursor=pointer]
+    - button "Şifre" [ref=f11e22] [cursor=pointer]
+    - button "Çıkış" [ref=f11e26] [cursor=pointer]
+  - navigation [ref=f11e30]:
+    - button "Ana Sayfa" [ref=f11e31] [cursor=pointer]
+    - button "Ana Dashboard" [ref=f11e32] [cursor=pointer]
+    - button "Bütçe" [ref=f11e33] [cursor=pointer]
+    - button "Pomidor Dükânı" [ref=f11e34] [cursor=pointer]
+    - button "Sera İzleme" [ref=f11e35] [cursor=pointer]
+    - button "Tır Takip" [ref=f11e36] [cursor=pointer]
+    - button "Yurtdışı Hasabat" [ref=f11e37] [cursor=pointer]
+    - button "Finans Hasabatlar" [ref=f11e38] [cursor=pointer]
+    - button "Yardım" [ref=f11e39] [cursor=pointer]
+    - button "Ayarlar" [ref=f11e40] [cursor=pointer]
+  - main [ref=f11e41]:
+    - generic [ref=f11e678]:
+      - generic [ref=f11e680]:
+        - generic [ref=f11e686]:
+          - heading "Sera İzleme" [level=1] [ref=f11e687]
+          - paragraph [ref=f11e688]: Sıcaklık · Nem · Güneş Işığı · Hastalık Takip — 10 sera
+        - generic [ref=f11e689]:
+          - generic "Bu sayfada üzerinde çalışılan yıl" [ref=f11e690]:
+            - spinbutton [ref=f11e693]: "2026"
+          - button "PDF Olarak Kaydet" [ref=f11e694] [cursor=pointer]
+      - button [ref=f11e699] [cursor=pointer]
+      - generic [ref=f11e705]:
+        - button "Ekiş Taýýarlygy" [ref=f11e706] [cursor=pointer]
+        - button "Sera Haritası" [active] [ref=f11e710] [cursor=pointer]
+        - button "Kayıtlar" [ref=f11e713] [cursor=pointer]
+        - button "Hastalık" [ref=f11e717] [cursor=pointer]
+        - button "İklim & Işık" [ref=f11e727] [cursor=pointer]
+      - generic [ref=f11e977]:
+        - generic [ref=f11e978]:
+          - generic [ref=f11e979]:
+            - generic [ref=f11e980]: Sera
+            - combobox [ref=f11e981]:
+              - option "Dusak A" [selected]
+              - option "Dusak B"
+              - option "Dusak C"
+              - option "Dusak 1"
+              - option "Dusak 2"
+              - option "Dusak 3"
+              - option "Dusak 4"
+              - option "Dusak 5"
+              - option "Dusak 6"
+              - option "Dusak 7"
+              - option "Dusak 8"
+              - option "Dusak 9"
+              - option "Dusak 10"
+              - option "Kaka D"
+              - option "Kaka E"
+              - option "Kaka F"
+              - option "Kaka G"
+              - option "Kaka H"
+              - option "Kaka I"
+              - option "Kaka J"
+              - option "Kaka K"
+              - option "Kaka L"
+              - option "Kaka N"
+              - option "Kaka P"
+              - option "Kaka M15"
+              - option "Kaka M5"
+              - option "Owadandepe O"
+          - generic [ref=f11e982]:
+            - generic [ref=f11e983]: Tarih
+            - textbox [ref=f11e984]: 2026-07-24
+          - button "Kayıt Ekle" [ref=f11e985] [cursor=pointer]
+          - generic [ref=f11e987]:
+            - generic [ref=f11e988]: Sağlıklı
+            - generic [ref=f11e990]: Hafif Hastalık
+            - generic [ref=f11e992]: Orta Hastalık
+            - generic [ref=f11e994]: Şiddetli
+            - generic [ref=f11e996]: Soğuk (<12°C)
+            - generic [ref=f11e998]: Sıcak (>35°C)
+            - generic [ref=f11e1000]: Veri Yok
+        - generic [ref=f11e1003]:
+          - generic [ref=f11e1004]:
+            - heading "Dusak A — Sıra Planı · 2026-07-24" [level=3] [ref=f11e1005]
+            - generic [ref=f11e1006]: 0 / 49 sıra kayıtlı
+          - generic [ref=f11e1008]:
+            - button "A01" [ref=f11e1009] [cursor=pointer]
+            - button "A02" [ref=f11e1011] [cursor=pointer]
+            - button "A03" [ref=f11e1013] [cursor=pointer]
+            - button "A04" [ref=f11e1015] [cursor=pointer]
+            - button "A05" [ref=f11e1017] [cursor=pointer]
+            - button "A06" [ref=f11e1019] [cursor=pointer]
+            - button "A07" [ref=f11e1021] [cursor=pointer]
+            - button "A08" [ref=f11e1023] [cursor=pointer]
+            - button "A09" [ref=f11e1025] [cursor=pointer]
+            - button "A10" [ref=f11e1027] [cursor=pointer]
+            - button "A11" [ref=f11e1029] [cursor=pointer]
+            - button "A12" [ref=f11e1031] [cursor=pointer]
+            - button "A13" [ref=f11e1033] [cursor=pointer]
+            - button "A14" [ref=f11e1035] [cursor=pointer]
+            - button "A15" [ref=f11e1037] [cursor=pointer]
+            - button "A16" [ref=f11e1039] [cursor=pointer]
+            - button "A17" [ref=f11e1041] [cursor=pointer]
+            - button "A18" [ref=f11e1043] [cursor=pointer]
+            - button "A19" [ref=f11e1045] [cursor=pointer]
+            - button "A20" [ref=f11e1047] [cursor=pointer]
+            - button "A21" [ref=f11e1049] [cursor=pointer]
+            - button "A22" [ref=f11e1051] [cursor=pointer]
+            - button "A23" [ref=f11e1053] [cursor=pointer]
+            - button "A24" [ref=f11e1055] [cursor=pointer]
+            - button "A25" [ref=f11e1057] [cursor=pointer]
+            - button "A26" [ref=f11e1059] [cursor=pointer]
+            - button "A27" [ref=f11e1061] [cursor=pointer]
+            - button "A28" [ref=f11e1063] [cursor=pointer]
+            - button "A29" [ref=f11e1065] [cursor=pointer]
+            - button "A30" [ref=f11e1067] [cursor=pointer]
+            - button "A31" [ref=f11e1069] [cursor=pointer]
+            - button "A32" [ref=f11e1071] [cursor=pointer]
+            - button "A33" [ref=f11e1073] [cursor=pointer]
+            - button "A34" [ref=f11e1075] [cursor=pointer]
+            - button "A35" [ref=f11e1077] [cursor=pointer]
+            - button "A36" [ref=f11e1079] [cursor=pointer]
+            - button "A37" [ref=f11e1081] [cursor=pointer]
+            - button "A38" [ref=f11e1083] [cursor=pointer]
+            - button "A39" [ref=f11e1085] [cursor=pointer]
+            - button "A40" [ref=f11e1087] [cursor=pointer]
+            - button "A41" [ref=f11e1089] [cursor=pointer]
+            - button "A42" [ref=f11e1091] [cursor=pointer]
+            - button "A43" [ref=f11e1093] [cursor=pointer]
+            - button "A44" [ref=f11e1095] [cursor=pointer]
+            - button "A45" [ref=f11e1097] [cursor=pointer]
+            - button "A46" [ref=f11e1099] [cursor=pointer]
+            - button "A47" [ref=f11e1101] [cursor=pointer]
+            - button "A48" [ref=f11e1103] [cursor=pointer]
+            - button "A49" [ref=f11e1105] [cursor=pointer]
+        - generic [ref=f11e1107]:
+          - heading "Tüm Bloklar — Genel Durum" [level=3] [ref=f11e1108]
+          - generic [ref=f11e1109]:
+            - generic [ref=f11e1110]: Dusak
+            - generic [ref=f11e1113]:
+              - generic [ref=f11e1114] [cursor=pointer]:
+                - generic [ref=f11e1115]: Dusak A
+                - generic [ref=f11e1116]: Kayıt yok
+              - generic [ref=f11e1119] [cursor=pointer]:
+                - generic [ref=f11e1120]: Dusak B
+                - generic [ref=f11e1121]: Kayıt yok
+              - generic [ref=f11e1124] [cursor=pointer]:
+                - generic [ref=f11e1125]: Dusak C
+                - generic [ref=f11e1126]: Kayıt yok
+              - generic [ref=f11e1129] [cursor=pointer]:
+                - generic [ref=f11e1130]: Dusak 1
+                - generic [ref=f11e1131]: Kayıt yok
+              - generic [ref=f11e1134] [cursor=pointer]:
+                - generic [ref=f11e1135]: Dusak 2
+                - generic [ref=f11e1136]: Kayıt yok
+              - generic [ref=f11e1139] [cursor=pointer]:
+                - generic [ref=f11e1140]: Dusak 3
+                - generic [ref=f11e1141]: Kayıt yok
+              - generic [ref=f11e1144] [cursor=pointer]:
+                - generic [ref=f11e1145]: Dusak 4
+                - generic [ref=f11e1146]: Kayıt yok
+              - generic [ref=f11e1149] [cursor=pointer]:
+                - generic [ref=f11e1150]: Dusak 5
+                - generic [ref=f11e1151]: Kayıt yok
+              - generic [ref=f11e1154] [cursor=pointer]:
+                - generic [ref=f11e1155]: Dusak 6
+                - generic [ref=f11e1156]: Kayıt yok
+              - generic [ref=f11e1159] [cursor=pointer]:
+                - generic [ref=f11e1160]: Dusak 7
+                - generic [ref=f11e1161]: Kayıt yok
+              - generic [ref=f11e1164] [cursor=pointer]:
+                - generic [ref=f11e1165]: Dusak 8
+                - generic [ref=f11e1166]: Kayıt yok
+              - generic [ref=f11e1169] [cursor=pointer]:
+                - generic [ref=f11e1170]: Dusak 9
+                - generic [ref=f11e1171]: Kayıt yok
+              - generic [ref=f11e1174] [cursor=pointer]:
+                - generic [ref=f11e1175]: Dusak 10
+                - generic [ref=f11e1176]: Kayıt yok
+          - generic [ref=f11e1179]:
+            - generic [ref=f11e1180]: Kaka
+            - generic [ref=f11e1183]:
+              - generic [ref=f11e1184] [cursor=pointer]:
+                - generic [ref=f11e1185]: Kaka D
+                - generic [ref=f11e1186]: Kayıt yok
+              - generic [ref=f11e1189] [cursor=pointer]:
+                - generic [ref=f11e1190]: Kaka E
+                - generic [ref=f11e1191]: Kayıt yok
+              - generic [ref=f11e1194] [cursor=pointer]:
+                - generic [ref=f11e1195]: Kaka F
+                - generic [ref=f11e1196]: Kayıt yok
+              - generic [ref=f11e1199] [cursor=pointer]:
+                - generic [ref=f11e1200]: Kaka G
+                - generic [ref=f11e1201]: Kayıt yok
+              - generic [ref=f11e1204] [cursor=pointer]:
+                - generic [ref=f11e1205]: Kaka H
+                - generic [ref=f11e1206]: Kayıt yok
+              - generic [ref=f11e1209] [cursor=pointer]:
+                - generic [ref=f11e1210]: Kaka I
+                - generic [ref=f11e1211]: Kayıt yok
+              - generic [ref=f11e1214] [cursor=pointer]:
+                - generic [ref=f11e1215]: Kaka J
+                - generic [ref=f11e1216]: Kayıt yok
+              - generic [ref=f11e1219] [cursor=pointer]:
+                - generic [ref=f11e1220]: Kaka K
+                - generic [ref=f11e1221]: Kayıt yok
+              - generic [ref=f11e1224] [cursor=pointer]:
+                - generic [ref=f11e1225]: Kaka L
+                - generic [ref=f11e1226]: Kayıt yok
+              - generic [ref=f11e1229] [cursor=pointer]:
+                - generic [ref=f11e1230]: Kaka N
+                - generic [ref=f11e1231]: Kayıt yok
+              - generic [ref=f11e1234] [cursor=pointer]:
+                - generic [ref=f11e1235]: Kaka P
+                - generic [ref=f11e1236]: Kayıt yok
+              - generic [ref=f11e1239] [cursor=pointer]:
+                - generic [ref=f11e1240]: Kaka M15
+                - generic [ref=f11e1241]: Kayıt yok
+              - generic [ref=f11e1244] [cursor=pointer]:
+                - generic [ref=f11e1245]: Kaka M5
+                - generic [ref=f11e1246]: Kayıt yok
+          - generic [ref=f11e1249]:
+            - generic [ref=f11e1250]: Owadandepe
+            - generic [ref=f11e1254] [cursor=pointer]:
+              - generic [ref=f11e1255]: Owadandepe O
+              - generic [ref=f11e1256]: Kayıt yok
+  - contentinfo [ref=f11e227]: Veriler bu cihazda/hesapta saklanır ve diğer kullanıcılarla paylaşılmaz.

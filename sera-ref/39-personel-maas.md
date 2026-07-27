@@ -1,0 +1,793 @@
+- generic [ref=f11e1]:
+  - generic [ref=f11e9]:
+    - generic [ref=f11e10]:
+      - generic [ref=f11e11]:
+        - button "TR" [ref=f11e12] [cursor=pointer]
+        - button "TM" [ref=f11e13] [cursor=pointer]
+      - generic [ref=f11e14]:
+        - generic [ref=f11e15]: "Yıl:"
+        - spinbutton [ref=f11e16]: "2026"
+      - generic [ref=f11e17]: Kaydedildi ✓
+      - button "Varsayılana sıfırla" [ref=f11e18] [cursor=pointer]
+      - button "Şifre" [ref=f11e22] [cursor=pointer]
+      - button "Çıkış" [ref=f11e26] [cursor=pointer]
+    - navigation [ref=f11e30]:
+      - button "Ana Sayfa" [ref=f11e31] [cursor=pointer]
+      - button "Ana Dashboard" [ref=f11e32] [cursor=pointer]
+      - button "Bütçe" [ref=f11e33] [cursor=pointer]
+      - button "Pomidor Dükânı" [ref=f11e34] [cursor=pointer]
+      - button "Sera İzleme" [ref=f11e35] [cursor=pointer]
+      - button "Tır Takip" [ref=f11e36] [cursor=pointer]
+      - button "Yurtdışı Hasabat" [ref=f11e37] [cursor=pointer]
+      - button "Finans Hasabatlar" [ref=f11e38] [cursor=pointer]
+      - button "Yardım" [ref=f11e39] [cursor=pointer]
+      - button "Ayarlar" [ref=f11e40] [cursor=pointer]
+    - main [ref=f11e41]:
+      - generic [ref=f11e7540]:
+        - generic [ref=f11e7542]:
+          - generic [ref=f11e7550]:
+            - heading "Personel & Maaşlar" [level=1] [ref=f11e7551]
+            - paragraph [ref=f11e7552]: Bölüm müdürleri personel sayısını girer; maaşları muhasebe girer.
+          - generic [ref=f11e7553]:
+            - generic "Bu sayfada üzerinde çalışılan yıl" [ref=f11e7554]:
+              - spinbutton [ref=f11e7557]: "2026"
+            - button "PDF Olarak Kaydet" [ref=f11e7558] [cursor=pointer]
+        - button [ref=f11e7563] [cursor=pointer]
+        - generic [ref=f11e7569]:
+          - button "Personel Sayısı (Müdürler)" [ref=f11e7570] [cursor=pointer]
+          - button "Maaş Tablosu (Muhasebe)" [active] [ref=f11e7571] [cursor=pointer]
+        - generic [ref=f11e7845]:
+          - generic [ref=f11e7846]:
+            - generic [ref=f11e7847]: 720 — Direkt İşçilik
+            - table [ref=f11e7848]:
+              - rowgroup [ref=f11e7849]:
+                - row [ref=f11e7850]:
+                  - columnheader "Vazife" [ref=f11e7851]
+                  - columnheader "Para Birimi" [ref=f11e7852]
+                  - columnheader "İşgär Aylygı" [ref=f11e7853]
+                  - columnheader "Resmi Aylygı" [ref=f11e7854]
+                  - columnheader [ref=f11e7855]
+              - rowgroup [ref=f11e7856]:
+                - row [ref=f11e7857]:
+                  - cell "Kömekçi işgär II derejeli (nahar paýlaýan)" [ref=f11e7858]
+                  - cell [ref=f11e7859]:
+                    - generic [ref=f11e7860]:
+                      - button "DTM" [ref=f11e7861] [cursor=pointer]
+                      - button "USD" [ref=f11e7862] [cursor=pointer]
+                  - cell "0 DTM" [ref=f11e7863]:
+                    - generic [ref=f11e7864]:
+                      - spinbutton [ref=f11e7865]: "0"
+                      - generic [ref=f11e7866]: DTM
+                  - cell "0 DTM" [ref=f11e7867]:
+                    - generic [ref=f11e7868]:
+                      - spinbutton [ref=f11e7869]: "0"
+                      - generic [ref=f11e7870]: DTM
+                  - cell [ref=f11e7871]:
+                    - button [ref=f11e7872] [cursor=pointer]
+                - row [ref=f11e7876]:
+                  - cell "Kömekçi işgär I derejeli (posuda ýuwýan)" [ref=f11e7877]
+                  - cell [ref=f11e7878]:
+                    - generic [ref=f11e7879]:
+                      - button "DTM" [ref=f11e7880] [cursor=pointer]
+                      - button "USD" [ref=f11e7881] [cursor=pointer]
+                  - cell "0 DTM" [ref=f11e7882]:
+                    - generic [ref=f11e7883]:
+                      - spinbutton [ref=f11e7884]: "0"
+                      - generic [ref=f11e7885]: DTM
+                  - cell "0 DTM" [ref=f11e7886]:
+                    - generic [ref=f11e7887]:
+                      - spinbutton [ref=f11e7888]: "0"
+                      - generic [ref=f11e7889]: DTM
+                  - cell [ref=f11e7890]:
+                    - button [ref=f11e7891] [cursor=pointer]
+                - row [ref=f11e7895]:
+                  - cell "Brigadir" [ref=f11e7896]
+                  - cell [ref=f11e7897]:
+                    - generic [ref=f11e7898]:
+                      - button "DTM" [ref=f11e7899] [cursor=pointer]
+                      - button "USD" [ref=f11e7900] [cursor=pointer]
+                  - cell "0 DTM" [ref=f11e7901]:
+                    - generic [ref=f11e7902]:
+                      - spinbutton [ref=f11e7903]: "0"
+                      - generic [ref=f11e7904]: DTM
+                  - cell "0 DTM" [ref=f11e7905]:
+                    - generic [ref=f11e7906]:
+                      - spinbutton [ref=f11e7907]: "0"
+                      - generic [ref=f11e7908]: DTM
+                  - cell [ref=f11e7909]:
+                    - button [ref=f11e7910] [cursor=pointer]
+                - row [ref=f11e7914]:
+                  - cell "Topor ýolbaşçysy oglanlaryň" [ref=f11e7915]
+                  - cell [ref=f11e7916]:
+                    - generic [ref=f11e7917]:
+                      - button "DTM" [ref=f11e7918] [cursor=pointer]
+                      - button "USD" [ref=f11e7919] [cursor=pointer]
+                  - cell "0 DTM" [ref=f11e7920]:
+                    - generic [ref=f11e7921]:
+                      - spinbutton [ref=f11e7922]: "0"
+                      - generic [ref=f11e7923]: DTM
+                  - cell "0 DTM" [ref=f11e7924]:
+                    - generic [ref=f11e7925]:
+                      - spinbutton [ref=f11e7926]: "0"
+                      - generic [ref=f11e7927]: DTM
+                  - cell [ref=f11e7928]:
+                    - button [ref=f11e7929] [cursor=pointer]
+                - row [ref=f11e7933]:
+                  - cell "I-II-III-IV-nji derejeli önümçilik işçileri" [ref=f11e7934]
+                  - cell [ref=f11e7935]:
+                    - generic [ref=f11e7936]:
+                      - button "DTM" [ref=f11e7937] [cursor=pointer]
+                      - button "USD" [ref=f11e7938] [cursor=pointer]
+                  - cell "0 DTM" [ref=f11e7939]:
+                    - generic [ref=f11e7940]:
+                      - spinbutton [ref=f11e7941]: "0"
+                      - generic [ref=f11e7942]: DTM
+                  - cell "0 DTM" [ref=f11e7943]:
+                    - generic [ref=f11e7944]:
+                      - spinbutton [ref=f11e7945]: "0"
+                      - generic [ref=f11e7946]: DTM
+                  - cell [ref=f11e7947]:
+                    - button [ref=f11e7948] [cursor=pointer]
+                - row [ref=f11e7952]:
+                  - cell "I-II-III-IV-nji derejeli işçileri" [ref=f11e7953]
+                  - cell [ref=f11e7954]:
+                    - generic [ref=f11e7955]:
+                      - button "DTM" [ref=f11e7956] [cursor=pointer]
+                      - button "USD" [ref=f11e7957] [cursor=pointer]
+                  - cell "0 DTM" [ref=f11e7958]:
+                    - generic [ref=f11e7959]:
+                      - spinbutton [ref=f11e7960]: "0"
+                      - generic [ref=f11e7961]: DTM
+                  - cell "0 DTM" [ref=f11e7962]:
+                    - generic [ref=f11e7963]:
+                      - spinbutton [ref=f11e7964]: "0"
+                      - generic [ref=f11e7965]: DTM
+                  - cell [ref=f11e7966]:
+                    - button [ref=f11e7967] [cursor=pointer]
+                - row [ref=f11e7971]:
+                  - cell "Günlikçi işçiler" [ref=f11e7972]
+                  - cell [ref=f11e7973]:
+                    - generic [ref=f11e7974]:
+                      - button "DTM" [ref=f11e7975] [cursor=pointer]
+                      - button "USD" [ref=f11e7976] [cursor=pointer]
+                  - cell "0 DTM" [ref=f11e7977]:
+                    - generic [ref=f11e7978]:
+                      - spinbutton [ref=f11e7979]: "0"
+                      - generic [ref=f11e7980]: DTM
+                  - cell "0 DTM" [ref=f11e7981]:
+                    - generic [ref=f11e7982]:
+                      - spinbutton [ref=f11e7983]: "0"
+                      - generic [ref=f11e7984]: DTM
+                  - cell [ref=f11e7985]:
+                    - button [ref=f11e7986] [cursor=pointer]
+          - generic [ref=f11e7990]:
+            - generic [ref=f11e7991]: 730 — Genel Üretim Giderleri
+            - table [ref=f11e7992]:
+              - rowgroup [ref=f11e7993]:
+                - row [ref=f11e7994]:
+                  - columnheader "Vazife" [ref=f11e7995]
+                  - columnheader "Para Birimi" [ref=f11e7996]
+                  - columnheader "İşgär Aylygı" [ref=f11e7997]
+                  - columnheader "Resmi Aylygı" [ref=f11e7998]
+                  - columnheader [ref=f11e7999]
+              - rowgroup [ref=f11e8000]:
+                - row [ref=f11e8001]:
+                  - cell "Önümçilik Müdir" [ref=f11e8002]
+                  - cell [ref=f11e8003]:
+                    - generic [ref=f11e8004]:
+                      - button "DTM" [ref=f11e8005] [cursor=pointer]
+                      - button "USD" [ref=f11e8006] [cursor=pointer]
+                  - cell "0 DTM" [ref=f11e8007]:
+                    - generic [ref=f11e8008]:
+                      - spinbutton [ref=f11e8009]: "0"
+                      - generic [ref=f11e8010]: DTM
+                  - cell "0 DTM" [ref=f11e8011]:
+                    - generic [ref=f11e8012]:
+                      - spinbutton [ref=f11e8013]: "0"
+                      - generic [ref=f11e8014]: DTM
+                  - cell [ref=f11e8015]:
+                    - button [ref=f11e8016] [cursor=pointer]
+                - row [ref=f11e8020]:
+                  - cell "Önümçilik müdiriniň orunbasary" [ref=f11e8021]
+                  - cell [ref=f11e8022]:
+                    - generic [ref=f11e8023]:
+                      - button "DTM" [ref=f11e8024] [cursor=pointer]
+                      - button "USD" [ref=f11e8025] [cursor=pointer]
+                  - cell "0 DTM" [ref=f11e8026]:
+                    - generic [ref=f11e8027]:
+                      - spinbutton [ref=f11e8028]: "0"
+                      - generic [ref=f11e8029]: DTM
+                  - cell "0 DTM" [ref=f11e8030]:
+                    - generic [ref=f11e8031]:
+                      - spinbutton [ref=f11e8032]: "0"
+                      - generic [ref=f11e8033]: DTM
+                  - cell [ref=f11e8034]:
+                    - button [ref=f11e8035] [cursor=pointer]
+                - row [ref=f11e8039]:
+                  - cell "Önümçilik Müdiriniň kömekçisi" [ref=f11e8040]
+                  - cell [ref=f11e8041]:
+                    - generic [ref=f11e8042]:
+                      - button "DTM" [ref=f11e8043] [cursor=pointer]
+                      - button "USD" [ref=f11e8044] [cursor=pointer]
+                  - cell "0 DTM" [ref=f11e8045]:
+                    - generic [ref=f11e8046]:
+                      - spinbutton [ref=f11e8047]: "0"
+                      - generic [ref=f11e8048]: DTM
+                  - cell "0 DTM" [ref=f11e8049]:
+                    - generic [ref=f11e8050]:
+                      - spinbutton [ref=f11e8051]: "0"
+                      - generic [ref=f11e8052]: DTM
+                  - cell [ref=f11e8053]:
+                    - button [ref=f11e8054] [cursor=pointer]
+                - row [ref=f11e8058]:
+                  - cell "Tam süpüriji" [ref=f11e8059]
+                  - cell [ref=f11e8060]:
+                    - generic [ref=f11e8061]:
+                      - button "DTM" [ref=f11e8062] [cursor=pointer]
+                      - button "USD" [ref=f11e8063] [cursor=pointer]
+                  - cell "0 DTM" [ref=f11e8064]:
+                    - generic [ref=f11e8065]:
+                      - spinbutton [ref=f11e8066]: "0"
+                      - generic [ref=f11e8067]: DTM
+                  - cell "0 DTM" [ref=f11e8068]:
+                    - generic [ref=f11e8069]:
+                      - spinbutton [ref=f11e8070]: "0"
+                      - generic [ref=f11e8071]: DTM
+                  - cell [ref=f11e8072]:
+                    - button [ref=f11e8073] [cursor=pointer]
+                - row [ref=f11e8077]:
+                  - cell "Ambarçy" [ref=f11e8078]
+                  - cell [ref=f11e8079]:
+                    - generic [ref=f11e8080]:
+                      - button "DTM" [ref=f11e8081] [cursor=pointer]
+                      - button "USD" [ref=f11e8082] [cursor=pointer]
+                  - cell "0 DTM" [ref=f11e8083]:
+                    - generic [ref=f11e8084]:
+                      - spinbutton [ref=f11e8085]: "0"
+                      - generic [ref=f11e8086]: DTM
+                  - cell "0 DTM" [ref=f11e8087]:
+                    - generic [ref=f11e8088]:
+                      - spinbutton [ref=f11e8089]: "0"
+                      - generic [ref=f11e8090]: DTM
+                  - cell [ref=f11e8091]:
+                    - button [ref=f11e8092] [cursor=pointer]
+                - row [ref=f11e8096]:
+                  - cell "Agsamky garawullar" [ref=f11e8097]
+                  - cell [ref=f11e8098]:
+                    - generic [ref=f11e8099]:
+                      - button "DTM" [ref=f11e8100] [cursor=pointer]
+                      - button "USD" [ref=f11e8101] [cursor=pointer]
+                  - cell "0 DTM" [ref=f11e8102]:
+                    - generic [ref=f11e8103]:
+                      - spinbutton [ref=f11e8104]: "0"
+                      - generic [ref=f11e8105]: DTM
+                  - cell "0 DTM" [ref=f11e8106]:
+                    - generic [ref=f11e8107]:
+                      - spinbutton [ref=f11e8108]: "0"
+                      - generic [ref=f11e8109]: DTM
+                  - cell [ref=f11e8110]:
+                    - button [ref=f11e8111] [cursor=pointer]
+                - row [ref=f11e8115]:
+                  - cell "I derejeli tehniki işgär (santehnik)" [ref=f11e8116]
+                  - cell [ref=f11e8117]:
+                    - generic [ref=f11e8118]:
+                      - button "DTM" [ref=f11e8119] [cursor=pointer]
+                      - button "USD" [ref=f11e8120] [cursor=pointer]
+                  - cell "0 DTM" [ref=f11e8121]:
+                    - generic [ref=f11e8122]:
+                      - spinbutton [ref=f11e8123]: "0"
+                      - generic [ref=f11e8124]: DTM
+                  - cell "0 DTM" [ref=f11e8125]:
+                    - generic [ref=f11e8126]:
+                      - spinbutton [ref=f11e8127]: "0"
+                      - generic [ref=f11e8128]: DTM
+                  - cell [ref=f11e8129]:
+                    - button [ref=f11e8130] [cursor=pointer]
+                - row [ref=f11e8134]:
+                  - cell "Agronomlar" [ref=f11e8135]
+                  - cell [ref=f11e8136]:
+                    - generic [ref=f11e8137]:
+                      - button "DTM" [ref=f11e8138] [cursor=pointer]
+                      - button "USD" [ref=f11e8139] [cursor=pointer]
+                  - cell "0 DTM" [ref=f11e8140]:
+                    - generic [ref=f11e8141]:
+                      - spinbutton [ref=f11e8142]: "0"
+                      - generic [ref=f11e8143]: DTM
+                  - cell "0 DTM" [ref=f11e8144]:
+                    - generic [ref=f11e8145]:
+                      - spinbutton [ref=f11e8146]: "0"
+                      - generic [ref=f11e8147]: DTM
+                  - cell [ref=f11e8148]:
+                    - button [ref=f11e8149] [cursor=pointer]
+                - row [ref=f11e8153]:
+                  - cell "IT bölümi hünärmeni" [ref=f11e8154]
+                  - cell [ref=f11e8155]:
+                    - generic [ref=f11e8156]:
+                      - button "DTM" [ref=f11e8157] [cursor=pointer]
+                      - button "USD" [ref=f11e8158] [cursor=pointer]
+                  - cell "0 DTM" [ref=f11e8159]:
+                    - generic [ref=f11e8160]:
+                      - spinbutton [ref=f11e8161]: "0"
+                      - generic [ref=f11e8162]: DTM
+                  - cell "0 DTM" [ref=f11e8163]:
+                    - generic [ref=f11e8164]:
+                      - spinbutton [ref=f11e8165]: "0"
+                      - generic [ref=f11e8166]: DTM
+                  - cell [ref=f11e8167]:
+                    - button [ref=f11e8168] [cursor=pointer]
+                - row [ref=f11e8172]:
+                  - cell "Hasapçy" [ref=f11e8173]
+                  - cell [ref=f11e8174]:
+                    - generic [ref=f11e8175]:
+                      - button "DTM" [ref=f11e8176] [cursor=pointer]
+                      - button "USD" [ref=f11e8177] [cursor=pointer]
+                  - cell "0 DTM" [ref=f11e8178]:
+                    - generic [ref=f11e8179]:
+                      - spinbutton [ref=f11e8180]: "0"
+                      - generic [ref=f11e8181]: DTM
+                  - cell "0 DTM" [ref=f11e8182]:
+                    - generic [ref=f11e8183]:
+                      - spinbutton [ref=f11e8184]: "0"
+                      - generic [ref=f11e8185]: DTM
+                  - cell [ref=f11e8186]:
+                    - button [ref=f11e8187] [cursor=pointer]
+                - row [ref=f11e8191]:
+                  - cell "Işgärler boýunça hünärmen" [ref=f11e8192]
+                  - cell [ref=f11e8193]:
+                    - generic [ref=f11e8194]:
+                      - button "DTM" [ref=f11e8195] [cursor=pointer]
+                      - button "USD" [ref=f11e8196] [cursor=pointer]
+                  - cell "0 DTM" [ref=f11e8197]:
+                    - generic [ref=f11e8198]:
+                      - spinbutton [ref=f11e8199]: "0"
+                      - generic [ref=f11e8200]: DTM
+                  - cell "0 DTM" [ref=f11e8201]:
+                    - generic [ref=f11e8202]:
+                      - spinbutton [ref=f11e8203]: "0"
+                      - generic [ref=f11e8204]: DTM
+                  - cell [ref=f11e8205]:
+                    - button [ref=f11e8206] [cursor=pointer]
+                - row [ref=f11e8210]:
+                  - cell "AR (adam resurslary) b/ça hünärmen" [ref=f11e8211]
+                  - cell [ref=f11e8212]:
+                    - generic [ref=f11e8213]:
+                      - button "DTM" [ref=f11e8214] [cursor=pointer]
+                      - button "USD" [ref=f11e8215] [cursor=pointer]
+                  - cell "0 DTM" [ref=f11e8216]:
+                    - generic [ref=f11e8217]:
+                      - spinbutton [ref=f11e8218]: "0"
+                      - generic [ref=f11e8219]: DTM
+                  - cell "0 DTM" [ref=f11e8220]:
+                    - generic [ref=f11e8221]:
+                      - spinbutton [ref=f11e8222]: "0"
+                      - generic [ref=f11e8223]: DTM
+                  - cell [ref=f11e8224]:
+                    - button [ref=f11e8225] [cursor=pointer]
+                - row [ref=f11e8229]:
+                  - cell "Tehniki bölümiň mehanigi" [ref=f11e8230]
+                  - cell [ref=f11e8231]:
+                    - generic [ref=f11e8232]:
+                      - button "DTM" [ref=f11e8233] [cursor=pointer]
+                      - button "USD" [ref=f11e8234] [cursor=pointer]
+                  - cell "0 DTM" [ref=f11e8235]:
+                    - generic [ref=f11e8236]:
+                      - spinbutton [ref=f11e8237]: "0"
+                      - generic [ref=f11e8238]: DTM
+                  - cell "0 DTM" [ref=f11e8239]:
+                    - generic [ref=f11e8240]:
+                      - spinbutton [ref=f11e8241]: "0"
+                      - generic [ref=f11e8242]: DTM
+                  - cell [ref=f11e8243]:
+                    - button [ref=f11e8244] [cursor=pointer]
+                - row [ref=f11e8248]:
+                  - cell "Elektrik" [ref=f11e8249]
+                  - cell [ref=f11e8250]:
+                    - generic [ref=f11e8251]:
+                      - button "DTM" [ref=f11e8252] [cursor=pointer]
+                      - button "USD" [ref=f11e8253] [cursor=pointer]
+                  - cell "0 DTM" [ref=f11e8254]:
+                    - generic [ref=f11e8255]:
+                      - spinbutton [ref=f11e8256]: "0"
+                      - generic [ref=f11e8257]: DTM
+                  - cell "0 DTM" [ref=f11e8258]:
+                    - generic [ref=f11e8259]:
+                      - spinbutton [ref=f11e8260]: "0"
+                      - generic [ref=f11e8261]: DTM
+                  - cell [ref=f11e8262]:
+                    - button [ref=f11e8263] [cursor=pointer]
+                - row [ref=f11e8267]:
+                  - cell "Kotelny (suw gyzdyryjy)" [ref=f11e8268]
+                  - cell [ref=f11e8269]:
+                    - generic [ref=f11e8270]:
+                      - button "DTM" [ref=f11e8271] [cursor=pointer]
+                      - button "USD" [ref=f11e8272] [cursor=pointer]
+                  - cell "0 DTM" [ref=f11e8273]:
+                    - generic [ref=f11e8274]:
+                      - spinbutton [ref=f11e8275]: "0"
+                      - generic [ref=f11e8276]: DTM
+                  - cell "0 DTM" [ref=f11e8277]:
+                    - generic [ref=f11e8278]:
+                      - spinbutton [ref=f11e8279]: "0"
+                      - generic [ref=f11e8280]: DTM
+                  - cell [ref=f11e8281]:
+                    - button [ref=f11e8282] [cursor=pointer]
+                - row [ref=f11e8286]:
+                  - cell "ZG we TH bölümi" [ref=f11e8287]
+                  - cell [ref=f11e8288]:
+                    - generic [ref=f11e8289]:
+                      - button "DTM" [ref=f11e8290] [cursor=pointer]
+                      - button "USD" [ref=f11e8291] [cursor=pointer]
+                  - cell "0 DTM" [ref=f11e8292]:
+                    - generic [ref=f11e8293]:
+                      - spinbutton [ref=f11e8294]: "0"
+                      - generic [ref=f11e8295]: DTM
+                  - cell "0 DTM" [ref=f11e8296]:
+                    - generic [ref=f11e8297]:
+                      - spinbutton [ref=f11e8298]: "0"
+                      - generic [ref=f11e8299]: DTM
+                  - cell [ref=f11e8300]:
+                    - button [ref=f11e8301] [cursor=pointer]
+                - row [ref=f11e8305]:
+                  - cell "ZG we TH bölümi lukman" [ref=f11e8306]
+                  - cell [ref=f11e8307]:
+                    - generic [ref=f11e8308]:
+                      - button "DTM" [ref=f11e8309] [cursor=pointer]
+                      - button "USD" [ref=f11e8310] [cursor=pointer]
+                  - cell "0 DTM" [ref=f11e8311]:
+                    - generic [ref=f11e8312]:
+                      - spinbutton [ref=f11e8313]: "0"
+                      - generic [ref=f11e8314]: DTM
+                  - cell "0 DTM" [ref=f11e8315]:
+                    - generic [ref=f11e8316]:
+                      - spinbutton [ref=f11e8317]: "0"
+                      - generic [ref=f11e8318]: DTM
+                  - cell [ref=f11e8319]:
+                    - button [ref=f11e8320] [cursor=pointer]
+                - row [ref=f11e8324]:
+                  - cell "KIP awtomatçy" [ref=f11e8325]
+                  - cell [ref=f11e8326]:
+                    - generic [ref=f11e8327]:
+                      - button "DTM" [ref=f11e8328] [cursor=pointer]
+                      - button "USD" [ref=f11e8329] [cursor=pointer]
+                  - cell "0 DTM" [ref=f11e8330]:
+                    - generic [ref=f11e8331]:
+                      - spinbutton [ref=f11e8332]: "0"
+                      - generic [ref=f11e8333]: DTM
+                  - cell "0 DTM" [ref=f11e8334]:
+                    - generic [ref=f11e8335]:
+                      - spinbutton [ref=f11e8336]: "0"
+                      - generic [ref=f11e8337]: DTM
+                  - cell [ref=f11e8338]:
+                    - button [ref=f11e8339] [cursor=pointer]
+                - row [ref=f11e8343]:
+                  - cell "Tehniki bölümi brigadir" [ref=f11e8344]
+                  - cell [ref=f11e8345]:
+                    - generic [ref=f11e8346]:
+                      - button "DTM" [ref=f11e8347] [cursor=pointer]
+                      - button "USD" [ref=f11e8348] [cursor=pointer]
+                  - cell "0 DTM" [ref=f11e8349]:
+                    - generic [ref=f11e8350]:
+                      - spinbutton [ref=f11e8351]: "0"
+                      - generic [ref=f11e8352]: DTM
+                  - cell "0 DTM" [ref=f11e8353]:
+                    - generic [ref=f11e8354]:
+                      - spinbutton [ref=f11e8355]: "0"
+                      - generic [ref=f11e8356]: DTM
+                  - cell [ref=f11e8357]:
+                    - button [ref=f11e8358] [cursor=pointer]
+                - row [ref=f11e8362]:
+                  - cell "Nasosçy" [ref=f11e8363]
+                  - cell [ref=f11e8364]:
+                    - generic [ref=f11e8365]:
+                      - button "DTM" [ref=f11e8366] [cursor=pointer]
+                      - button "USD" [ref=f11e8367] [cursor=pointer]
+                  - cell "0 DTM" [ref=f11e8368]:
+                    - generic [ref=f11e8369]:
+                      - spinbutton [ref=f11e8370]: "0"
+                      - generic [ref=f11e8371]: DTM
+                  - cell "0 DTM" [ref=f11e8372]:
+                    - generic [ref=f11e8373]:
+                      - spinbutton [ref=f11e8374]: "0"
+                      - generic [ref=f11e8375]: DTM
+                  - cell [ref=f11e8376]:
+                    - button [ref=f11e8377] [cursor=pointer]
+                - row [ref=f11e8381]:
+                  - cell "Awtobus sürüji (ýerleşýän adaam sana görä)" [ref=f11e8382]
+                  - cell [ref=f11e8383]:
+                    - generic [ref=f11e8384]:
+                      - button "DTM" [ref=f11e8385] [cursor=pointer]
+                      - button "USD" [ref=f11e8386] [cursor=pointer]
+                  - cell "0 DTM" [ref=f11e8387]:
+                    - generic [ref=f11e8388]:
+                      - spinbutton [ref=f11e8389]: "0"
+                      - generic [ref=f11e8390]: DTM
+                  - cell "0 DTM" [ref=f11e8391]:
+                    - generic [ref=f11e8392]:
+                      - spinbutton [ref=f11e8393]: "0"
+                      - generic [ref=f11e8394]: DTM
+                  - cell [ref=f11e8395]:
+                    - button [ref=f11e8396] [cursor=pointer]
+                - row [ref=f11e8400]:
+                  - cell "Mehanik (garaž)" [ref=f11e8401]
+                  - cell [ref=f11e8402]:
+                    - generic [ref=f11e8403]:
+                      - button "DTM" [ref=f11e8404] [cursor=pointer]
+                      - button "USD" [ref=f11e8405] [cursor=pointer]
+                  - cell "0 DTM" [ref=f11e8406]:
+                    - generic [ref=f11e8407]:
+                      - spinbutton [ref=f11e8408]: "0"
+                      - generic [ref=f11e8409]: DTM
+                  - cell "0 DTM" [ref=f11e8410]:
+                    - generic [ref=f11e8411]:
+                      - spinbutton [ref=f11e8412]: "0"
+                      - generic [ref=f11e8413]: DTM
+                  - cell [ref=f11e8414]:
+                    - button [ref=f11e8415] [cursor=pointer]
+                - row [ref=f11e8419]:
+                  - cell "Slesar (garaž)" [ref=f11e8420]
+                  - cell [ref=f11e8421]:
+                    - generic [ref=f11e8422]:
+                      - button "DTM" [ref=f11e8423] [cursor=pointer]
+                      - button "USD" [ref=f11e8424] [cursor=pointer]
+                  - cell "0 DTM" [ref=f11e8425]:
+                    - generic [ref=f11e8426]:
+                      - spinbutton [ref=f11e8427]: "0"
+                      - generic [ref=f11e8428]: DTM
+                  - cell "0 DTM" [ref=f11e8429]:
+                    - generic [ref=f11e8430]:
+                      - spinbutton [ref=f11e8431]: "0"
+                      - generic [ref=f11e8432]: DTM
+                  - cell [ref=f11e8433]:
+                    - button [ref=f11e8434] [cursor=pointer]
+          - generic [ref=f11e8438]:
+            - generic [ref=f11e8439]: 750 —
+            - table [ref=f11e8440]:
+              - rowgroup [ref=f11e8441]:
+                - row [ref=f11e8442]:
+                  - columnheader "Vazife" [ref=f11e8443]
+                  - columnheader "Para Birimi" [ref=f11e8444]
+                  - columnheader "İşgär Aylygı" [ref=f11e8445]
+                  - columnheader "Resmi Aylygı" [ref=f11e8446]
+                  - columnheader [ref=f11e8447]
+              - rowgroup [ref=f11e8448]:
+                - row [ref=f11e8449]:
+                  - cell "Hilçiler" [ref=f11e8450]
+                  - cell [ref=f11e8451]:
+                    - generic [ref=f11e8452]:
+                      - button "DTM" [ref=f11e8453] [cursor=pointer]
+                      - button "USD" [ref=f11e8454] [cursor=pointer]
+                  - cell "0 DTM" [ref=f11e8455]:
+                    - generic [ref=f11e8456]:
+                      - spinbutton [ref=f11e8457]: "0"
+                      - generic [ref=f11e8458]: DTM
+                  - cell "0 DTM" [ref=f11e8459]:
+                    - generic [ref=f11e8460]:
+                      - spinbutton [ref=f11e8461]: "0"
+                      - generic [ref=f11e8462]: DTM
+                  - cell [ref=f11e8463]:
+                    - button [ref=f11e8464] [cursor=pointer]
+          - generic [ref=f11e8468]:
+            - generic [ref=f11e8469]: 760 — Pazarlama, Satış ve Dağıtım
+            - table [ref=f11e8470]:
+              - rowgroup [ref=f11e8471]:
+                - row [ref=f11e8472]:
+                  - columnheader "Vazife" [ref=f11e8473]
+                  - columnheader "Para Birimi" [ref=f11e8474]
+                  - columnheader "İşgär Aylygı" [ref=f11e8475]
+                  - columnheader "Resmi Aylygı" [ref=f11e8476]
+                  - columnheader [ref=f11e8477]
+              - rowgroup [ref=f11e8478]:
+                - row [ref=f11e8479]:
+                  - cell "Satuw menejeri" [ref=f11e8480]
+                  - cell [ref=f11e8481]:
+                    - generic [ref=f11e8482]:
+                      - button "DTM" [ref=f11e8483] [cursor=pointer]
+                      - button "USD" [ref=f11e8484] [cursor=pointer]
+                  - cell "0 DTM" [ref=f11e8485]:
+                    - generic [ref=f11e8486]:
+                      - spinbutton [ref=f11e8487]: "0"
+                      - generic [ref=f11e8488]: DTM
+                  - cell "0 DTM" [ref=f11e8489]:
+                    - generic [ref=f11e8490]:
+                      - spinbutton [ref=f11e8491]: "0"
+                      - generic [ref=f11e8492]: DTM
+                  - cell [ref=f11e8493]:
+                    - button [ref=f11e8494] [cursor=pointer]
+                - row [ref=f11e8498]:
+                  - cell "Gapançy we Ýükl/gaplama işgärleri" [ref=f11e8499]
+                  - cell [ref=f11e8500]:
+                    - generic [ref=f11e8501]:
+                      - button "DTM" [ref=f11e8502] [cursor=pointer]
+                      - button "USD" [ref=f11e8503] [cursor=pointer]
+                  - cell "0 DTM" [ref=f11e8504]:
+                    - generic [ref=f11e8505]:
+                      - spinbutton [ref=f11e8506]: "0"
+                      - generic [ref=f11e8507]: DTM
+                  - cell "0 DTM" [ref=f11e8508]:
+                    - generic [ref=f11e8509]:
+                      - spinbutton [ref=f11e8510]: "0"
+                      - generic [ref=f11e8511]: DTM
+                  - cell [ref=f11e8512]:
+                    - button [ref=f11e8513] [cursor=pointer]
+          - generic [ref=f11e8517]:
+            - generic [ref=f11e8518]: 770 — Genel Yönetim (Havuz)
+            - table [ref=f11e8519]:
+              - rowgroup [ref=f11e8520]:
+                - row [ref=f11e8521]:
+                  - columnheader "Vazife" [ref=f11e8522]
+                  - columnheader "Para Birimi" [ref=f11e8523]
+                  - columnheader "İşgär Aylygı" [ref=f11e8524]
+                  - columnheader "Resmi Aylygı" [ref=f11e8525]
+                  - columnheader [ref=f11e8526]
+              - rowgroup [ref=f11e8527]:
+                - row [ref=f11e8528]:
+                  - cell "Üpjünçilik b/ç Hünärmen" [ref=f11e8529]
+                  - cell [ref=f11e8530]:
+                    - generic [ref=f11e8531]:
+                      - button "DTM" [ref=f11e8532] [cursor=pointer]
+                      - button "USD" [ref=f11e8533] [cursor=pointer]
+                  - cell "500 DTM" [ref=f11e8534]:
+                    - generic [ref=f11e8535]:
+                      - spinbutton [ref=f11e8536]: "500"
+                      - generic [ref=f11e8537]: DTM
+                  - cell "500 DTM" [ref=f11e8538]:
+                    - generic [ref=f11e8539]:
+                      - spinbutton [ref=f11e8540]: "500"
+                      - generic [ref=f11e8541]: DTM
+                  - cell [ref=f11e8542]:
+                    - button [ref=f11e8543] [cursor=pointer]
+                - row [ref=f11e8547]:
+                  - cell "Dolandyryş hünärmeni" [ref=f11e8548]
+                  - cell [ref=f11e8549]:
+                    - generic [ref=f11e8550]:
+                      - button "DTM" [ref=f11e8551] [cursor=pointer]
+                      - button "USD" [ref=f11e8552] [cursor=pointer]
+                  - cell "550 DTM" [ref=f11e8553]:
+                    - generic [ref=f11e8554]:
+                      - spinbutton [ref=f11e8555]: "550"
+                      - generic [ref=f11e8556]: DTM
+                  - cell "550 DTM" [ref=f11e8557]:
+                    - generic [ref=f11e8558]:
+                      - spinbutton [ref=f11e8559]: "550"
+                      - generic [ref=f11e8560]: DTM
+                  - cell [ref=f11e8561]:
+                    - button [ref=f11e8562] [cursor=pointer]
+                - row [ref=f11e8566]:
+                  - cell "Satuw Hünärmeni" [ref=f11e8567]
+                  - cell [ref=f11e8568]:
+                    - generic [ref=f11e8569]:
+                      - button "DTM" [ref=f11e8570] [cursor=pointer]
+                      - button "USD" [ref=f11e8571] [cursor=pointer]
+                  - cell "520 DTM" [ref=f11e8572]:
+                    - generic [ref=f11e8573]:
+                      - spinbutton [ref=f11e8574]: "520"
+                      - generic [ref=f11e8575]: DTM
+                  - cell "520 DTM" [ref=f11e8576]:
+                    - generic [ref=f11e8577]:
+                      - spinbutton [ref=f11e8578]: "520"
+                      - generic [ref=f11e8579]: DTM
+                  - cell [ref=f11e8580]:
+                    - button [ref=f11e8581] [cursor=pointer]
+                - row [ref=f11e8585]:
+                  - cell "Eksport boýunça Hünärmen" [ref=f11e8586]
+                  - cell [ref=f11e8587]:
+                    - generic [ref=f11e8588]:
+                      - button "DTM" [ref=f11e8589] [cursor=pointer]
+                      - button "USD" [ref=f11e8590] [cursor=pointer]
+                  - cell "540 DTM" [ref=f11e8591]:
+                    - generic [ref=f11e8592]:
+                      - spinbutton [ref=f11e8593]: "540"
+                      - generic [ref=f11e8594]: DTM
+                  - cell "540 DTM" [ref=f11e8595]:
+                    - generic [ref=f11e8596]:
+                      - spinbutton [ref=f11e8597]: "540"
+                      - generic [ref=f11e8598]: DTM
+                  - cell [ref=f11e8599]:
+                    - button [ref=f11e8600] [cursor=pointer]
+                - row [ref=f11e8604]:
+                  - cell "Gözleg we Seljeriş boýunça Hünärmen" [ref=f11e8605]
+                  - cell [ref=f11e8606]:
+                    - generic [ref=f11e8607]:
+                      - button "DTM" [ref=f11e8608] [cursor=pointer]
+                      - button "USD" [ref=f11e8609] [cursor=pointer]
+                  - cell "510 DTM" [ref=f11e8610]:
+                    - generic [ref=f11e8611]:
+                      - spinbutton [ref=f11e8612]: "510"
+                      - generic [ref=f11e8613]: DTM
+                  - cell "510 DTM" [ref=f11e8614]:
+                    - generic [ref=f11e8615]:
+                      - spinbutton [ref=f11e8616]: "510"
+                      - generic [ref=f11e8617]: DTM
+                  - cell [ref=f11e8618]:
+                    - button [ref=f11e8619] [cursor=pointer]
+        - generic [ref=f11e7753]:
+          - generic [ref=f11e7754]: Adam Başına Aylık Çykdajy
+          - generic [ref=f11e7755]: Her ay için kişi başına tutar girin. Giderler sayfasında seçili bloklardaki toplam kişi sayısıyla çarpılarak hesaplanır.
+          - table [ref=f11e7757]:
+            - rowgroup [ref=f11e7758]:
+              - row [ref=f11e7759]:
+                - columnheader "Kalem" [ref=f11e7760]
+                - columnheader "Ocak" [ref=f11e7761]
+                - columnheader "Şubat" [ref=f11e7762]
+                - columnheader "Mart" [ref=f11e7763]
+                - columnheader "Nisan" [ref=f11e7764]
+                - columnheader "Mayıs" [ref=f11e7765]
+                - columnheader "Haziran" [ref=f11e7766]
+                - columnheader "Temmuz" [ref=f11e7767]
+                - columnheader "Ağustos" [ref=f11e7768]
+                - columnheader "Eylül" [ref=f11e7769]
+                - columnheader "Ekim" [ref=f11e7770]
+                - columnheader "Kasım" [ref=f11e7771]
+                - columnheader "Aralık" [ref=f11e7772]
+            - rowgroup [ref=f11e7773]:
+              - row [ref=f11e7774]:
+                - cell "Işgärleri gatnatmak çykdajylary" [ref=f11e7775]
+                - cell [ref=f11e7776]:
+                  - spinbutton [ref=f11e7777]: "0"
+                - cell [ref=f11e7778]:
+                  - spinbutton [ref=f11e7779]: "0"
+                - cell [ref=f11e7780]:
+                  - spinbutton [ref=f11e7781]: "0"
+                - cell [ref=f11e7782]:
+                  - spinbutton [ref=f11e7783]: "0"
+                - cell [ref=f11e7784]:
+                  - spinbutton [ref=f11e7785]: "0"
+                - cell [ref=f11e7786]:
+                  - spinbutton [ref=f11e7787]: "0"
+                - cell [ref=f11e7788]:
+                  - spinbutton [ref=f11e7789]: "0"
+                - cell [ref=f11e7790]:
+                  - spinbutton [ref=f11e7791]: "0"
+                - cell [ref=f11e7792]:
+                  - spinbutton [ref=f11e7793]: "0"
+                - cell [ref=f11e7794]:
+                  - spinbutton [ref=f11e7795]: "0"
+                - cell [ref=f11e7796]:
+                  - spinbutton [ref=f11e7797]: "0"
+                - cell [ref=f11e7798]:
+                  - spinbutton [ref=f11e7799]: "0"
+              - row [ref=f11e7800]:
+                - cell "Işgärleriň saglygy boýunça çykdajylar" [ref=f11e7801]
+                - cell [ref=f11e7802]:
+                  - spinbutton [ref=f11e7803]: "0"
+                - cell [ref=f11e7804]:
+                  - spinbutton [ref=f11e7805]: "0"
+                - cell [ref=f11e7806]:
+                  - spinbutton [ref=f11e7807]: "0"
+                - cell [ref=f11e7808]:
+                  - spinbutton [ref=f11e7809]: "0"
+                - cell [ref=f11e7810]:
+                  - spinbutton [ref=f11e7811]: "0"
+                - cell [ref=f11e7812]:
+                  - spinbutton [ref=f11e7813]: "0"
+                - cell [ref=f11e7814]:
+                  - spinbutton [ref=f11e7815]: "0"
+                - cell [ref=f11e7816]:
+                  - spinbutton [ref=f11e7817]: "0"
+                - cell [ref=f11e7818]:
+                  - spinbutton [ref=f11e7819]: "0"
+                - cell [ref=f11e7820]:
+                  - spinbutton [ref=f11e7821]: "0"
+                - cell [ref=f11e7822]:
+                  - spinbutton [ref=f11e7823]: "0"
+                - cell [ref=f11e7824]:
+                  - spinbutton [ref=f11e7825]: "0"
+        - generic [ref=f11e7826]:
+          - generic [ref=f11e7827]:
+            - generic [ref=f11e7828]:
+              - generic [ref=f11e7829]: Daşary Ýurt Işgärleri
+              - generic [ref=f11e7830]: Her yurt için işçi sayısı ve ortalama maaş girin.
+            - generic [ref=f11e7831]: 1.000 $ yıllık
+          - generic [ref=f11e7832]:
+            - generic [ref=f11e7834]:
+              - generic [ref=f11e7835]:
+                - generic [ref=f11e7836]: Kazakistan
+                - generic [ref=f11e7837]: 1.000 $ yıllık
+              - button "İşçi Gir" [ref=f11e7838] [cursor=pointer]
+            - generic [ref=f11e7840]:
+              - generic [ref=f11e7841]:
+                - generic [ref=f11e7842]: Rusya
+                - generic [ref=f11e7843]: 0 $ yıllık
+              - button "İşçi Gir" [ref=f11e7844] [cursor=pointer]
+    - contentinfo [ref=f11e227]: Veriler bu cihazda/hesapta saklanır ve diğer kullanıcılarla paylaşılmaz.
+  - generic [ref=f11e1501]: Dusak B

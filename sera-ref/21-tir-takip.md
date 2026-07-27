@@ -1,0 +1,161 @@
+- generic [ref=f8e25]:
+  - generic [ref=f8e26]:
+    - generic [ref=f8e27]:
+      - button "TR" [ref=f8e28] [cursor=pointer]
+      - button "TM" [ref=f8e29] [cursor=pointer]
+    - generic [ref=f8e30]:
+      - generic [ref=f8e31]: "Yıl:"
+      - spinbutton [ref=f8e32]: "2026"
+    - generic [ref=f8e33]: Kaydedildi ✓
+    - button "Varsayılana sıfırla" [ref=f8e34] [cursor=pointer]
+    - button "Şifre" [ref=f8e38] [cursor=pointer]
+    - button "Çıkış" [ref=f8e42] [cursor=pointer]
+  - navigation [ref=f8e46]:
+    - button "Ana Sayfa" [ref=f8e47] [cursor=pointer]
+    - button "Ana Dashboard" [ref=f8e48] [cursor=pointer]
+    - button "Bütçe" [ref=f8e49] [cursor=pointer]
+    - button "Pomidor Dükânı" [ref=f8e50] [cursor=pointer]
+    - button "Sera İzleme" [ref=f8e51] [cursor=pointer]
+    - button "Tır Takip" [active] [ref=f8e52] [cursor=pointer]
+    - button "Yurtdışı Hasabat" [ref=f8e53] [cursor=pointer]
+    - button "Finans Hasabatlar" [ref=f8e54] [cursor=pointer]
+    - button "Yardım" [ref=f8e55] [cursor=pointer]
+    - button "Ayarlar" [ref=f8e56] [cursor=pointer]
+  - main [ref=f8e57]:
+    - generic [ref=f8e543]:
+      - generic [ref=f8e545]:
+        - generic [ref=f8e553]:
+          - heading "Maşyn Yzarlamasy (Tır Takip)" [level=1] [ref=f8e554]
+          - paragraph [ref=f8e555]: Önümçilik meýilnamasyndan awtomatiki tır teklipleri, QR ýagdaýly yzarlama
+        - generic [ref=f8e556]:
+          - generic "Bu sayfada üzerinde çalışılan yıl" [ref=f8e557]:
+            - spinbutton [ref=f8e560]: "2026"
+          - button "PDF Olarak Kaydet" [ref=f8e561] [cursor=pointer]
+      - button [ref=f8e566] [cursor=pointer]
+      - generic [ref=f8e572]:
+        - button "Önümçilik" [ref=f8e573] [cursor=pointer]
+        - button "Gaplama" [ref=f8e574] [cursor=pointer]
+        - button "Tırlar" [ref=f8e575] [cursor=pointer]
+        - button "📦 Export Raporu" [ref=f8e576] [cursor=pointer]
+        - button "📊 Hasabat" [ref=f8e577] [cursor=pointer]
+        - button "Gümrük Ewraklary" [ref=f8e578] [cursor=pointer]
+        - button "Kwota Takibi" [ref=f8e579] [cursor=pointer]
+        - button "Yurtdışı Sertnamaları" [ref=f8e580] [cursor=pointer]
+        - button "Datalar" [ref=f8e581] [cursor=pointer]
+      - generic [ref=f8e582]:
+        - generic [ref=f8e583]:
+          - generic [ref=f8e584]: Önümçilik — Haftalyk Meýilnama
+          - generic [ref=f8e585]:
+            - button "◀ Öňki hepde" [ref=f8e586] [cursor=pointer]
+            - button "Şu hepde" [ref=f8e587] [cursor=pointer]
+            - button "Indiki hepde ▶" [ref=f8e588] [cursor=pointer]
+        - generic [ref=f8e589]: 24.07.2026 — 30.07.2026
+        - generic [ref=f8e590]: Her gün üçin Üretim Plany'ndan gelen kg (mawy, salt okalýar) we müdiriň ýazan hakyky kg-sy (ýaşyl, el bilen).
+        - generic [ref=f8e592]:
+          - generic [ref=f8e593]:
+            - button "Tümünü Seç" [ref=f8e594] [cursor=pointer]
+            - button "Temizle" [ref=f8e595] [cursor=pointer]
+          - generic [ref=f8e596]:
+            - generic [ref=f8e597]:
+              - text: Dusak
+              - button "(tümünü seç/kaldır)" [ref=f8e598] [cursor=pointer]
+            - generic [ref=f8e599]:
+              - button "Dusak A" [ref=f8e600] [cursor=pointer]
+              - button "Dusak B" [ref=f8e603] [cursor=pointer]
+              - button "Dusak C" [ref=f8e604] [cursor=pointer]
+              - button "Dusak 1" [ref=f8e605] [cursor=pointer]
+              - button "Dusak 2" [ref=f8e606] [cursor=pointer]
+              - button "Dusak 3" [ref=f8e607] [cursor=pointer]
+              - button "Dusak 4" [ref=f8e608] [cursor=pointer]
+              - button "Dusak 5" [ref=f8e609] [cursor=pointer]
+              - button "Dusak 6" [ref=f8e610] [cursor=pointer]
+              - button "Dusak 7" [ref=f8e611] [cursor=pointer]
+              - button "Dusak 8" [ref=f8e612] [cursor=pointer]
+              - button "Dusak 9" [ref=f8e613] [cursor=pointer]
+              - button "Dusak 10" [ref=f8e614] [cursor=pointer]
+          - generic [ref=f8e615]:
+            - generic [ref=f8e616]:
+              - text: Kaka
+              - button "(tümünü seç/kaldır)" [ref=f8e617] [cursor=pointer]
+            - generic [ref=f8e618]:
+              - button "Kaka D" [ref=f8e619] [cursor=pointer]
+              - button "Kaka E" [ref=f8e620] [cursor=pointer]
+              - button "Kaka F" [ref=f8e621] [cursor=pointer]
+              - button "Kaka G" [ref=f8e622] [cursor=pointer]
+              - button "Kaka H" [ref=f8e623] [cursor=pointer]
+              - button "Kaka I" [ref=f8e624] [cursor=pointer]
+              - button "Kaka J" [ref=f8e625] [cursor=pointer]
+              - button "Kaka K" [ref=f8e626] [cursor=pointer]
+              - button "Kaka L" [ref=f8e627] [cursor=pointer]
+              - button "Kaka N" [ref=f8e628] [cursor=pointer]
+              - button "Kaka P" [ref=f8e629] [cursor=pointer]
+              - button "Kaka M15" [ref=f8e630] [cursor=pointer]
+              - button "Kaka M5" [ref=f8e631] [cursor=pointer]
+          - generic [ref=f8e632]:
+            - generic [ref=f8e633]:
+              - text: Owadandepe
+              - button "(tümünü seç/kaldır)" [ref=f8e634] [cursor=pointer]
+            - button "Owadandepe O" [ref=f8e636] [cursor=pointer]
+        - table [ref=f8e638]:
+          - rowgroup [ref=f8e639]:
+            - row [ref=f8e640]:
+              - columnheader "Blok" [ref=f8e641]
+              - columnheader "24.07 şu gün" [ref=f8e642]:
+                - generic [ref=f8e643]: "24.07"
+                - generic [ref=f8e644]: şu gün
+              - columnheader "25.07" [ref=f8e645]
+              - columnheader "26.07" [ref=f8e647]
+              - columnheader "27.07" [ref=f8e649]
+              - columnheader "28.07" [ref=f8e651]
+              - columnheader "29.07" [ref=f8e653]
+              - columnheader "30.07" [ref=f8e655]
+              - columnheader "JEMI" [ref=f8e657]
+          - rowgroup [ref=f8e658]:
+            - row [ref=f8e659]:
+              - cell "Dusak A" [ref=f8e660]
+              - 'cell "15000 Export+Gapy: 0" [ref=f8e661]':
+                - spinbutton [ref=f8e662]: "15000"
+                - generic [ref=f8e663]: "Export+Gapy: 0"
+              - 'cell "16000 Export+Gapy: 0" [ref=f8e665]':
+                - spinbutton [ref=f8e666]: "16000"
+                - generic [ref=f8e667]: "Export+Gapy: 0"
+              - 'cell "0 Export+Gapy: 0" [ref=f8e669]':
+                - spinbutton [ref=f8e670]: "0"
+                - generic [ref=f8e671]: "Export+Gapy: 0"
+              - 'cell "0 Export+Gapy: 0" [ref=f8e673]':
+                - spinbutton [ref=f8e674]: "0"
+                - generic [ref=f8e675]: "Export+Gapy: 0"
+              - 'cell "0 Export+Gapy: 0" [ref=f8e677]':
+                - spinbutton [ref=f8e678]: "0"
+                - generic [ref=f8e679]: "Export+Gapy: 0"
+              - 'cell "0 Export+Gapy: 0" [ref=f8e681]':
+                - spinbutton [ref=f8e682]: "0"
+                - generic [ref=f8e683]: "Export+Gapy: 0"
+              - 'cell "0 Export+Gapy: 0" [ref=f8e685]':
+                - spinbutton [ref=f8e686]: "0"
+                - generic [ref=f8e687]: "Export+Gapy: 0"
+              - cell "31.000" [ref=f8e689]
+          - rowgroup [ref=f8e690]:
+            - row [ref=f8e691]:
+              - cell "JEMI (gün)" [ref=f8e692]
+              - cell "15.000" [ref=f8e693]
+              - cell "16.000" [ref=f8e694]
+              - cell "0" [ref=f8e695]
+              - cell "0" [ref=f8e696]
+              - cell "0" [ref=f8e697]
+              - cell "0" [ref=f8e698]
+              - cell "0" [ref=f8e699]
+              - cell "31.000" [ref=f8e700]
+            - row [ref=f8e701]:
+              - cell "Tır sany — Domates (÷20.000 kg)" [ref=f8e702]:
+                - text: Tır sany — Domates
+                - generic [ref=f8e703]: (÷20.000 kg)
+              - cell "0,75" [ref=f8e704]
+              - cell "0,8" [ref=f8e705]
+              - cell "—" [ref=f8e706]
+              - cell "—" [ref=f8e707]
+              - cell "—" [ref=f8e708]
+              - cell "—" [ref=f8e709]
+              - cell "—" [ref=f8e710]
+              - cell "1,55" [ref=f8e711]
+  - contentinfo [ref=f8e243]: Veriler bu cihazda/hesapta saklanır ve diğer kullanıcılarla paylaşılmaz.

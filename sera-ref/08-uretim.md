@@ -1,0 +1,129 @@
+- generic [active] [ref=f1e1]:
+  - generic [ref=f1e9]:
+    - generic [ref=f1e10]:
+      - generic [ref=f1e11]:
+        - button "TR" [ref=f1e12] [cursor=pointer]
+        - button "TM" [ref=f1e13] [cursor=pointer]
+      - generic [ref=f1e14]:
+        - generic [ref=f1e15]: "Yıl:"
+        - spinbutton [ref=f1e16]: "2026"
+      - generic [ref=f1e17]: Kaydedildi ✓
+      - button "Varsayılana sıfırla" [ref=f1e18] [cursor=pointer]
+      - button "Şifre" [ref=f1e22] [cursor=pointer]
+      - button "Çıkış" [ref=f1e26] [cursor=pointer]
+    - navigation [ref=f1e30]:
+      - button "Ana Sayfa" [ref=f1e31] [cursor=pointer]
+      - button "Ana Dashboard" [ref=f1e32] [cursor=pointer]
+      - button "Bütçe" [ref=f1e33] [cursor=pointer]
+      - button "Pomidor Dükânı" [ref=f1e34] [cursor=pointer]
+      - button "Sera İzleme" [ref=f1e35] [cursor=pointer]
+      - button "Tır Takip" [ref=f1e36] [cursor=pointer]
+      - button "Yurtdışı Hasabat" [ref=f1e37] [cursor=pointer]
+      - button "Finans Hasabatlar" [ref=f1e38] [cursor=pointer]
+      - button "Yardım" [ref=f1e39] [cursor=pointer]
+      - button "Ayarlar" [ref=f1e40] [cursor=pointer]
+    - main [ref=f1e41]:
+      - generic [ref=f1e1817]:
+        - generic [ref=f1e1819]:
+          - generic [ref=f1e1826]:
+            - heading "Aylık Üretim" [level=1] [ref=f1e1827]
+            - paragraph [ref=f1e1828]: Bu değerler artık Üretim Planı sayfasındaki haftalık girişlerden otomatik hesaplanır; burada düzenlenemez.
+          - generic [ref=f1e1829]:
+            - generic "Bu sayfada üzerinde çalışılan yıl" [ref=f1e1830]:
+              - spinbutton [ref=f1e1833]: "2026"
+            - button "PDF Olarak Kaydet" [ref=f1e1834] [cursor=pointer]
+        - button [ref=f1e1839] [cursor=pointer]
+        - generic [ref=f1e1845]:
+          - generic [ref=f1e1846]: Blok Seçimi
+          - generic [ref=f1e1847]:
+            - generic [ref=f1e1848]:
+              - button "Tümünü Seç" [ref=f1e1849] [cursor=pointer]
+              - button "Temizle" [ref=f1e1850] [cursor=pointer]
+            - generic [ref=f1e1851]:
+              - generic [ref=f1e1852]:
+                - text: Dusak
+                - button "(tümünü seç/kaldır)" [ref=f1e1853] [cursor=pointer]
+              - generic [ref=f1e1854]:
+                - button "Dusak A" [ref=f1e1855] [cursor=pointer]
+                - button "Dusak B" [ref=f1e1858] [cursor=pointer]
+                - button "Dusak C" [ref=f1e1859] [cursor=pointer]
+                - button "Dusak 1" [ref=f1e1860] [cursor=pointer]
+                - button "Dusak 2" [ref=f1e1861] [cursor=pointer]
+                - button "Dusak 3" [ref=f1e1862] [cursor=pointer]
+                - button "Dusak 4" [ref=f1e1863] [cursor=pointer]
+                - button "Dusak 5" [ref=f1e1864] [cursor=pointer]
+                - button "Dusak 6" [ref=f1e1865] [cursor=pointer]
+                - button "Dusak 7" [ref=f1e1866] [cursor=pointer]
+                - button "Dusak 8" [ref=f1e1867] [cursor=pointer]
+                - button "Dusak 9" [ref=f1e1868] [cursor=pointer]
+                - button "Dusak 10" [ref=f1e1869] [cursor=pointer]
+            - generic [ref=f1e1870]:
+              - generic [ref=f1e1871]:
+                - text: Kaka
+                - button "(tümünü seç/kaldır)" [ref=f1e1872] [cursor=pointer]
+              - generic [ref=f1e1873]:
+                - button "Kaka D" [ref=f1e1874] [cursor=pointer]
+                - button "Kaka E" [ref=f1e1875] [cursor=pointer]
+                - button "Kaka F" [ref=f1e1876] [cursor=pointer]
+                - button "Kaka G" [ref=f1e1877] [cursor=pointer]
+                - button "Kaka H" [ref=f1e1878] [cursor=pointer]
+                - button "Kaka I" [ref=f1e1879] [cursor=pointer]
+                - button "Kaka J" [ref=f1e1880] [cursor=pointer]
+                - button "Kaka K" [ref=f1e1881] [cursor=pointer]
+                - button "Kaka L" [ref=f1e1882] [cursor=pointer]
+                - button "Kaka N" [ref=f1e1883] [cursor=pointer]
+                - button "Kaka P" [ref=f1e1884] [cursor=pointer]
+                - button "Kaka M15" [ref=f1e1885] [cursor=pointer]
+                - button "Kaka M5" [ref=f1e1886] [cursor=pointer]
+            - generic [ref=f1e1887]:
+              - generic [ref=f1e1888]:
+                - text: Owadandepe
+                - button "(tümünü seç/kaldır)" [ref=f1e1889] [cursor=pointer]
+              - button "Owadandepe O" [ref=f1e1891] [cursor=pointer]
+        - generic [ref=f1e1892]:
+          - generic [ref=f1e1893]: Ay Seçimi (birleştirilebilir)
+          - generic [ref=f1e1894]:
+            - button "Tüm Yıl" [ref=f1e1895] [cursor=pointer]
+            - button "Temizle" [ref=f1e1896] [cursor=pointer]
+            - button "Ocak" [ref=f1e1898] [cursor=pointer]
+            - button "Şubat" [ref=f1e1901] [cursor=pointer]
+            - button "Mart" [ref=f1e1902] [cursor=pointer]
+            - button "Nisan" [ref=f1e1903] [cursor=pointer]
+            - button "Mayıs" [ref=f1e1904] [cursor=pointer]
+            - button "Haziran" [ref=f1e1905] [cursor=pointer]
+            - button "Temmuz" [ref=f1e1906] [cursor=pointer]
+            - button "Ağustos" [ref=f1e1907] [cursor=pointer]
+            - button "Eylül" [ref=f1e1908] [cursor=pointer]
+            - button "Ekim" [ref=f1e1909] [cursor=pointer]
+            - button "Kasım" [ref=f1e1910] [cursor=pointer]
+            - button "Aralık" [ref=f1e1911] [cursor=pointer]
+        - generic [ref=f1e1912]:
+          - generic [ref=f1e1913]:
+            - generic [ref=f1e1914]: Seçili Blok
+            - generic [ref=f1e1916]: "1"
+          - generic [ref=f1e1917]:
+            - generic [ref=f1e1918]: Seçili Ay
+            - generic [ref=f1e1920]: "1"
+          - generic [ref=f1e1921]:
+            - generic [ref=f1e1922]: Birleşik Toplam Üretim
+            - generic [ref=f1e1924]: 382.725 kg
+        - generic [ref=f1e1925]:
+          - generic [ref=f1e1926]: Üretim Matrisi (kg) — Üretim Planı'ndan, salt okunur
+          - table [ref=f1e1928]:
+            - rowgroup [ref=f1e1929]:
+              - row [ref=f1e1930]:
+                - columnheader "Blok" [ref=f1e1931]
+                - columnheader "Ocak" [ref=f1e1932]
+                - columnheader "Blok Toplamı" [ref=f1e1933]
+            - rowgroup [ref=f1e1934]:
+              - row [ref=f1e1935]:
+                - cell "Dusak A" [ref=f1e1936]
+                - cell "382.725" [ref=f1e1937]
+                - cell "382.725 kg" [ref=f1e1938]
+              - row [ref=f1e1939]:
+                - cell "Ay Toplamı" [ref=f1e1940]
+                - cell "382.725 kg" [ref=f1e1941]
+                - cell "382.725 kg" [ref=f1e1942]
+          - generic [ref=f1e1943]: Bu tablodaki sayıları değiştirmek için Üretim Planı sayfasındaki haftalık girişleri güncelleyin; aylık toplam buradan otomatik gelir.
+    - contentinfo [ref=f1e164]: Veriler bu cihazda/hesapta saklanır ve diğer kullanıcılarla paylaşılmaz.
+  - generic [ref=f1e927]: "-5500000"

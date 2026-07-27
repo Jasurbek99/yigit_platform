@@ -1,0 +1,117 @@
+- generic [ref=f11e1]:
+  - generic [ref=f11e9]:
+    - generic [ref=f11e10]:
+      - generic [ref=f11e11]:
+        - button "TR" [ref=f11e12] [cursor=pointer]
+        - button "TM" [ref=f11e13] [cursor=pointer]
+      - generic [ref=f11e14]:
+        - generic [ref=f11e15]: "Yıl:"
+        - spinbutton [ref=f11e16]: "2026"
+      - generic [ref=f11e17]: Kaydedildi ✓
+      - button "Varsayılana sıfırla" [ref=f11e18] [cursor=pointer]
+      - button "Şifre" [ref=f11e22] [cursor=pointer]
+      - button "Çıkış" [ref=f11e26] [cursor=pointer]
+    - navigation [ref=f11e30]:
+      - button "Ana Sayfa" [ref=f11e31] [cursor=pointer]
+      - button "Ana Dashboard" [ref=f11e32] [cursor=pointer]
+      - button "Bütçe" [ref=f11e33] [cursor=pointer]
+      - button "Pomidor Dükânı" [ref=f11e34] [cursor=pointer]
+      - button "Sera İzleme" [ref=f11e35] [cursor=pointer]
+      - button "Tır Takip" [ref=f11e36] [cursor=pointer]
+      - button "Yurtdışı Hasabat" [ref=f11e37] [cursor=pointer]
+      - button "Finans Hasabatlar" [ref=f11e38] [cursor=pointer]
+      - button "Yardım" [ref=f11e39] [cursor=pointer]
+      - button "Ayarlar" [ref=f11e40] [cursor=pointer]
+    - main [ref=f11e41]:
+      - generic [ref=f11e8745]:
+        - generic [ref=f11e8747]:
+          - generic [ref=f11e8754]:
+            - heading "Sarf Malzemeleri" [level=1] [ref=f11e8755]
+            - paragraph [ref=f11e8756]: Tohum, kokopeat, kübik, ilaç vb. — ürün türüne göre miktar ve maliyet takibi
+          - generic [ref=f11e8757]:
+            - generic "Bu sayfada üzerinde çalışılan yıl" [ref=f11e8758]:
+              - spinbutton [ref=f11e8761]: "2026"
+            - button "PDF Olarak Kaydet" [ref=f11e8762] [cursor=pointer]
+        - button [ref=f11e8767] [cursor=pointer]
+        - generic [ref=f11e8773]:
+          - generic [ref=f11e8774]: Ürün Türü
+          - generic [ref=f11e8775]: Standart oran ve birim fiyat her ürün türü için ayrı tutulur. Silme/yeniden adlandırma için Satış sayfasını kullanın.
+          - generic [ref=f11e8776]:
+            - button "Domates" [ref=f11e8777] [cursor=pointer]
+            - button "HYYRA" [ref=f11e8778] [cursor=pointer]
+            - button "hyyar" [ref=f11e8779] [cursor=pointer]
+            - button "ggfggf" [ref=f11e8780] [cursor=pointer]
+            - button "Alma" [ref=f11e8781] [cursor=pointer]
+            - button "sdss" [ref=f11e8782] [cursor=pointer]
+            - button "dfdf" [ref=f11e8783] [cursor=pointer]
+          - generic [ref=f11e8784]:
+            - textbox "Yeni ürün türü (ör. Salatalık)" [ref=f11e8785]
+            - button "Ekle" [ref=f11e8786] [cursor=pointer]
+        - generic [ref=f11e8788]:
+          - button "Miktar (Standart & İhtiyaç)" [ref=f11e8789] [cursor=pointer]
+          - button "Birim Fiyat & Tutar" [active] [ref=f11e8790] [cursor=pointer]
+        - generic [ref=f11e9249]:
+          - generic [ref=f11e9250]: Blok ve ay seçimi "Miktar (Standart &amp; İhtiyaç)" sekmesiyle ortaktır; orada yaptığınız seçim burada da geçerlidir.
+          - generic [ref=f11e9251]:
+            - generic [ref=f11e9252]: Tahmini Toplam Maliyet — Domates
+            - generic [ref=f11e9254]: 0 $
+          - generic [ref=f11e9255]:
+            - generic [ref=f11e9256]: Birim Fiyat &amp; Tutar — Domates
+            - table [ref=f11e9258]:
+              - rowgroup [ref=f11e9259]:
+                - row [ref=f11e9260]:
+                  - columnheader "Malzeme" [ref=f11e9261]
+                  - columnheader "İhtiyaç" [ref=f11e9262]
+                  - columnheader "Birim Fiyat ($)" [ref=f11e9263]
+                  - columnheader "Tahmini Tutar" [ref=f11e9264]
+                  - columnheader [ref=f11e9265]
+              - rowgroup [ref=f11e9266]:
+                - row [ref=f11e9267]:
+                  - cell "Tohum" [ref=f11e9268]
+                  - cell "0 adet" [ref=f11e9269]
+                  - cell [ref=f11e9270]:
+                    - spinbutton [ref=f11e9271]: "5"
+                  - cell "0 $" [ref=f11e9272]
+                  - cell [ref=f11e9273]:
+                    - button [ref=f11e9274] [cursor=pointer]
+                - row [ref=f11e9278]:
+                  - cell "Kokopeat" [ref=f11e9279]
+                  - cell "0 litre" [ref=f11e9280]
+                  - cell [ref=f11e9281]:
+                    - spinbutton [ref=f11e9282]: "6"
+                  - cell "0 $" [ref=f11e9283]
+                  - cell [ref=f11e9284]:
+                    - button [ref=f11e9285] [cursor=pointer]
+                - row [ref=f11e9289]:
+                  - cell "Kübik (Taş Yünü)" [ref=f11e9290]
+                  - cell "0 adet" [ref=f11e9291]
+                  - cell [ref=f11e9292]:
+                    - spinbutton [ref=f11e9293]: "9"
+                  - cell "0 $" [ref=f11e9294]
+                  - cell [ref=f11e9295]:
+                    - button [ref=f11e9296] [cursor=pointer]
+                - row [ref=f11e9300]:
+                  - cell "İlaç" [ref=f11e9301]
+                  - cell "0 ml" [ref=f11e9302]
+                  - cell [ref=f11e9303]:
+                    - spinbutton [ref=f11e9304]: "0"
+                  - cell "0 $" [ref=f11e9305]
+                  - cell [ref=f11e9306]:
+                    - button [ref=f11e9307] [cursor=pointer]
+              - rowgroup [ref=f11e9311]:
+                - row [ref=f11e9312]:
+                  - cell "TAHMİNİ TOPLAM TUTAR" [ref=f11e9313]
+                  - cell "0 $" [ref=f11e9314]
+                  - cell [ref=f11e9315]
+            - generic [ref=f11e9316]: "Açıklama: Tutar = İhtiyaç × Birim Fiyat. Birim fiyat her ürün türü için ayrı tutulur; yukarıdaki \"Ürün Türü\" seçimine göre güncellenir."
+          - generic [ref=f11e9317]:
+            - generic [ref=f11e9318]: Ay Bazında Tahmini Tutar — Domates
+            - table [ref=f11e9320]:
+              - rowgroup [ref=f11e9321]:
+                - row [ref=f11e9322]:
+                  - columnheader "Ocak" [ref=f11e9323]
+              - rowgroup [ref=f11e9324]:
+                - row [ref=f11e9325]:
+                  - cell "0 $" [ref=f11e9326]
+    - contentinfo [ref=f11e227]: Veriler bu cihazda/hesapta saklanır ve diğer kullanıcılarla paylaşılmaz.
+  - generic [ref=f11e1501]: Dusak B

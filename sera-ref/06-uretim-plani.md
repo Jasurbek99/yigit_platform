@@ -1,0 +1,338 @@
+- generic [active] [ref=f1e1]:
+  - generic [ref=f1e9]:
+    - generic [ref=f1e10]:
+      - generic [ref=f1e11]:
+        - button "TR" [ref=f1e12] [cursor=pointer]
+        - button "TM" [ref=f1e13] [cursor=pointer]
+      - generic [ref=f1e14]:
+        - generic [ref=f1e15]: "Yıl:"
+        - spinbutton [ref=f1e16]: "2026"
+      - generic [ref=f1e17]: Kaydedildi ✓
+      - button "Varsayılana sıfırla" [ref=f1e18] [cursor=pointer]
+      - button "Şifre" [ref=f1e22] [cursor=pointer]
+      - button "Çıkış" [ref=f1e26] [cursor=pointer]
+    - navigation [ref=f1e30]:
+      - button "Ana Sayfa" [ref=f1e31] [cursor=pointer]
+      - button "Ana Dashboard" [ref=f1e32] [cursor=pointer]
+      - button "Bütçe" [ref=f1e33] [cursor=pointer]
+      - button "Pomidor Dükânı" [ref=f1e34] [cursor=pointer]
+      - button "Sera İzleme" [ref=f1e35] [cursor=pointer]
+      - button "Tır Takip" [ref=f1e36] [cursor=pointer]
+      - button "Yurtdışı Hasabat" [ref=f1e37] [cursor=pointer]
+      - button "Finans Hasabatlar" [ref=f1e38] [cursor=pointer]
+      - button "Yardım" [ref=f1e39] [cursor=pointer]
+      - button "Ayarlar" [ref=f1e40] [cursor=pointer]
+    - main [ref=f1e41]:
+      - generic [ref=f1e1050]:
+        - generic [ref=f1e1052]:
+          - generic [ref=f1e1057]:
+            - heading "Üretim Planı" [level=1] [ref=f1e1058]
+            - paragraph [ref=f1e1059]: Danışmanın verdiği haftalık tonajları girin — Pazar ve izin günlerinde üretim gösterilmez
+          - generic [ref=f1e1060]:
+            - generic "Bu sayfada üzerinde çalışılan yıl" [ref=f1e1061]:
+              - spinbutton [ref=f1e1064]: "2026"
+            - button "PDF Olarak Kaydet" [ref=f1e1065] [cursor=pointer]
+        - button [ref=f1e1070] [cursor=pointer]
+        - generic [ref=f1e1076]:
+          - generic [ref=f1e1077]: Yıllık İzin Günleri
+          - generic [ref=f1e1078]: Eklediğiniz tarihler haftalık dağıtımda Pazar günü gibi kabul edilir; o günlerde üretim gösterilmez ve haftalık toplam kalan çalışma günlerine bölünür.
+          - generic [ref=f1e1079]:
+            - textbox [ref=f1e1080]
+            - textbox "Açıklama (ör. Bayram tatili)" [ref=f1e1081]
+            - button "Ekle" [ref=f1e1082] [cursor=pointer]
+          - generic [ref=f1e1085]:
+            - generic [ref=f1e1086]:
+              - text: 01.01.2026
+              - generic [ref=f1e1087]: — bayramcylyk
+            - button [ref=f1e1088] [cursor=pointer]
+        - generic [ref=f1e1092]:
+          - generic [ref=f1e1093]: Blok Seçimi (birden fazla)
+          - generic [ref=f1e1094]: Tabloda uzun sayıların sığması için bir kerede az sayıda blok seçmeniz önerilir.
+          - generic [ref=f1e1095]:
+            - generic [ref=f1e1096]:
+              - button "Tümünü Seç" [ref=f1e1097] [cursor=pointer]
+              - button "Temizle" [ref=f1e1098] [cursor=pointer]
+            - generic [ref=f1e1099]:
+              - generic [ref=f1e1100]:
+                - text: Dusak
+                - button "(tümünü seç/kaldır)" [ref=f1e1101] [cursor=pointer]
+              - generic [ref=f1e1102]:
+                - button "Dusak A" [ref=f1e1103] [cursor=pointer]
+                - button "Dusak B" [ref=f1e1106] [cursor=pointer]
+                - button "Dusak C" [ref=f1e1107] [cursor=pointer]
+                - button "Dusak 1" [ref=f1e1108] [cursor=pointer]
+                - button "Dusak 2" [ref=f1e1109] [cursor=pointer]
+                - button "Dusak 3" [ref=f1e1110] [cursor=pointer]
+                - button "Dusak 4" [ref=f1e1111] [cursor=pointer]
+                - button "Dusak 5" [ref=f1e1112] [cursor=pointer]
+                - button "Dusak 6" [ref=f1e1113] [cursor=pointer]
+                - button "Dusak 7" [ref=f1e1114] [cursor=pointer]
+                - button "Dusak 8" [ref=f1e1115] [cursor=pointer]
+                - button "Dusak 9" [ref=f1e1116] [cursor=pointer]
+                - button "Dusak 10" [ref=f1e1117] [cursor=pointer]
+            - generic [ref=f1e1118]:
+              - generic [ref=f1e1119]:
+                - text: Kaka
+                - button "(tümünü seç/kaldır)" [ref=f1e1120] [cursor=pointer]
+              - generic [ref=f1e1121]:
+                - button "Kaka D" [ref=f1e1122] [cursor=pointer]
+                - button "Kaka E" [ref=f1e1123] [cursor=pointer]
+                - button "Kaka F" [ref=f1e1124] [cursor=pointer]
+                - button "Kaka G" [ref=f1e1125] [cursor=pointer]
+                - button "Kaka H" [ref=f1e1126] [cursor=pointer]
+                - button "Kaka I" [ref=f1e1127] [cursor=pointer]
+                - button "Kaka J" [ref=f1e1128] [cursor=pointer]
+                - button "Kaka K" [ref=f1e1129] [cursor=pointer]
+                - button "Kaka L" [ref=f1e1130] [cursor=pointer]
+                - button "Kaka N" [ref=f1e1131] [cursor=pointer]
+                - button "Kaka P" [ref=f1e1132] [cursor=pointer]
+                - button "Kaka M15" [ref=f1e1133] [cursor=pointer]
+                - button "Kaka M5" [ref=f1e1134] [cursor=pointer]
+            - generic [ref=f1e1135]:
+              - generic [ref=f1e1136]:
+                - text: Owadandepe
+                - button "(tümünü seç/kaldır)" [ref=f1e1137] [cursor=pointer]
+              - button "Owadandepe O" [ref=f1e1139] [cursor=pointer]
+        - generic [ref=f1e1140]:
+          - generic [ref=f1e1141]: Ay Seçimi (birden fazla)
+          - generic [ref=f1e1142]:
+            - button "Tüm Yıl" [ref=f1e1143] [cursor=pointer]
+            - button "Temizle" [ref=f1e1144] [cursor=pointer]
+            - button "Ocak" [ref=f1e1146] [cursor=pointer]
+            - button "Şubat" [ref=f1e1149] [cursor=pointer]
+            - button "Mart" [ref=f1e1150] [cursor=pointer]
+            - button "Nisan" [ref=f1e1151] [cursor=pointer]
+            - button "Mayıs" [ref=f1e1152] [cursor=pointer]
+            - button "Haziran" [ref=f1e1153] [cursor=pointer]
+            - button "Temmuz" [ref=f1e1154] [cursor=pointer]
+            - button "Ağustos" [ref=f1e1155] [cursor=pointer]
+            - button "Eylül" [ref=f1e1156] [cursor=pointer]
+            - button "Ekim" [ref=f1e1157] [cursor=pointer]
+            - button "Kasım" [ref=f1e1158] [cursor=pointer]
+            - button "Aralık" [ref=f1e1159] [cursor=pointer]
+        - generic [ref=f1e1160]:
+          - generic [ref=f1e1161]:
+            - generic [ref=f1e1162]: Haftalık Üretim Planı
+            - button "Excel'den Yapıştır" [ref=f1e1163] [cursor=pointer]
+          - generic [ref=f1e1168]: Danışmanın verdiği haftalık tonaj değerlerini blok başına girin; her hafta otomatik olarak çalışma günlerine (Pazar ve izin günleri hariç) eşit bölünür.
+          - table [ref=f1e1170]:
+            - rowgroup [ref=f1e1171]:
+              - row [ref=f1e1172]:
+                - columnheader "Hafta" [ref=f1e1173]
+                - columnheader "Dusak A" [ref=f1e1174]
+                - columnheader "Toplam" [ref=f1e1175]
+            - rowgroup [ref=f1e1176]:
+              - row [ref=f1e1177]:
+                - cell "Hafta 1" [ref=f1e1178]
+                - cell [ref=f1e1179]:
+                  - spinbutton [ref=f1e1180]: "120000"
+                - cell "120.000" [ref=f1e1181]
+              - row [ref=f1e1182]:
+                - cell "Hafta 2" [ref=f1e1183]
+                - cell [ref=f1e1184]:
+                  - spinbutton [ref=f1e1185]: "66633.17"
+                - cell "66.633" [ref=f1e1186]
+              - row [ref=f1e1187]:
+                - cell "Hafta 3" [ref=f1e1188]
+                - cell [ref=f1e1189]:
+                  - spinbutton [ref=f1e1190]: "74728.39"
+                - cell "74.728" [ref=f1e1191]
+              - row [ref=f1e1192]:
+                - cell "Hafta 4" [ref=f1e1193]
+                - cell [ref=f1e1194]:
+                  - spinbutton [ref=f1e1195]: "52012.8"
+                - cell "52.013" [ref=f1e1196]
+              - row [ref=f1e1197]:
+                - cell "Hafta 5" [ref=f1e1198]
+                - cell [ref=f1e1199]:
+                  - spinbutton [ref=f1e1200]: "69350.4"
+                - cell "69.350" [ref=f1e1201]
+              - row [ref=f1e1202]:
+                - cell "Hafta 53" [ref=f1e1203]
+                - cell [ref=f1e1204]:
+                  - spinbutton [ref=f1e1205]: "0"
+                - cell "0" [ref=f1e1206]
+        - generic [ref=f1e1207]:
+          - generic [ref=f1e1208]: Günlük Dağılım (Tek Blok)
+          - generic [ref=f1e1209]: Seçili bloğun haftalık tonajının güne göre nasıl bölündüğünü gösterir. Ay seçimi yukarıdaki "Ay Seçimi" ile ortaktır.
+          - combobox [ref=f1e1211]:
+            - option "Dusak A" [selected]
+            - option "Dusak B"
+            - option "Dusak C"
+            - option "Dusak 1"
+            - option "Dusak 2"
+            - option "Dusak 3"
+            - option "Dusak 4"
+            - option "Dusak 5"
+            - option "Dusak 6"
+            - option "Dusak 7"
+            - option "Dusak 8"
+            - option "Dusak 9"
+            - option "Dusak 10"
+            - option "Kaka D"
+            - option "Kaka E"
+            - option "Kaka F"
+            - option "Kaka G"
+            - option "Kaka H"
+            - option "Kaka I"
+            - option "Kaka J"
+            - option "Kaka K"
+            - option "Kaka L"
+            - option "Kaka N"
+            - option "Kaka P"
+            - option "Kaka M15"
+            - option "Kaka M5"
+            - option "Owadandepe O"
+          - table [ref=f1e1213]:
+            - rowgroup [ref=f1e1214]:
+              - row [ref=f1e1215]:
+                - columnheader "Hafta" [ref=f1e1216]
+                - columnheader "Paz" [ref=f1e1217]
+                - columnheader "Pzt" [ref=f1e1218]
+                - columnheader "Sal" [ref=f1e1219]
+                - columnheader "Çar" [ref=f1e1220]
+                - columnheader "Per" [ref=f1e1221]
+                - columnheader "Cum" [ref=f1e1222]
+                - columnheader "Cmt" [ref=f1e1223]
+            - rowgroup [ref=f1e1224]:
+              - row [ref=f1e1225]:
+                - cell "Hafta 1" [ref=f1e1226]
+                - cell "28 —" [ref=f1e1227]:
+                  - generic [ref=f1e1228]: "28"
+                  - generic [ref=f1e1229]: —
+                - cell "29 24.000" [ref=f1e1230]:
+                  - generic [ref=f1e1231]: "29"
+                  - generic [ref=f1e1232]: "24.000"
+                - cell "30 24.000" [ref=f1e1233]:
+                  - generic [ref=f1e1234]: "30"
+                  - generic [ref=f1e1235]: "24.000"
+                - cell "31 24.000" [ref=f1e1236]:
+                  - generic [ref=f1e1237]: "31"
+                  - generic [ref=f1e1238]: "24.000"
+                - cell "1 İzin" [ref=f1e1239]:
+                  - generic [ref=f1e1240]: "1"
+                  - generic [ref=f1e1241]: İzin
+                - cell "2 24.000" [ref=f1e1242]:
+                  - generic [ref=f1e1243]: "2"
+                  - generic [ref=f1e1244]: "24.000"
+                - cell "3 24.000" [ref=f1e1245]:
+                  - generic [ref=f1e1246]: "3"
+                  - generic [ref=f1e1247]: "24.000"
+              - row [ref=f1e1248]:
+                - cell "Hafta 2" [ref=f1e1249]
+                - cell "4 —" [ref=f1e1250]:
+                  - generic [ref=f1e1251]: "4"
+                  - generic [ref=f1e1252]: —
+                - cell "5 11.105,5" [ref=f1e1253]:
+                  - generic [ref=f1e1254]: "5"
+                  - generic [ref=f1e1255]: 11.105,5
+                - cell "6 11.105,5" [ref=f1e1256]:
+                  - generic [ref=f1e1257]: "6"
+                  - generic [ref=f1e1258]: 11.105,5
+                - cell "7 11.105,5" [ref=f1e1259]:
+                  - generic [ref=f1e1260]: "7"
+                  - generic [ref=f1e1261]: 11.105,5
+                - cell "8 11.105,5" [ref=f1e1262]:
+                  - generic [ref=f1e1263]: "8"
+                  - generic [ref=f1e1264]: 11.105,5
+                - cell "9 11.105,5" [ref=f1e1265]:
+                  - generic [ref=f1e1266]: "9"
+                  - generic [ref=f1e1267]: 11.105,5
+                - cell "10 11.105,5" [ref=f1e1268]:
+                  - generic [ref=f1e1269]: "10"
+                  - generic [ref=f1e1270]: 11.105,5
+              - row [ref=f1e1271]:
+                - cell "Hafta 3" [ref=f1e1272]
+                - cell "11 —" [ref=f1e1273]:
+                  - generic [ref=f1e1274]: "11"
+                  - generic [ref=f1e1275]: —
+                - cell "12 12.454,7" [ref=f1e1276]:
+                  - generic [ref=f1e1277]: "12"
+                  - generic [ref=f1e1278]: 12.454,7
+                - cell "13 12.454,7" [ref=f1e1279]:
+                  - generic [ref=f1e1280]: "13"
+                  - generic [ref=f1e1281]: 12.454,7
+                - cell "14 12.454,7" [ref=f1e1282]:
+                  - generic [ref=f1e1283]: "14"
+                  - generic [ref=f1e1284]: 12.454,7
+                - cell "15 12.454,7" [ref=f1e1285]:
+                  - generic [ref=f1e1286]: "15"
+                  - generic [ref=f1e1287]: 12.454,7
+                - cell "16 12.454,7" [ref=f1e1288]:
+                  - generic [ref=f1e1289]: "16"
+                  - generic [ref=f1e1290]: 12.454,7
+                - cell "17 12.454,7" [ref=f1e1291]:
+                  - generic [ref=f1e1292]: "17"
+                  - generic [ref=f1e1293]: 12.454,7
+              - row [ref=f1e1294]:
+                - cell "Hafta 4" [ref=f1e1295]
+                - cell "18 —" [ref=f1e1296]:
+                  - generic [ref=f1e1297]: "18"
+                  - generic [ref=f1e1298]: —
+                - cell "19 8.668,8" [ref=f1e1299]:
+                  - generic [ref=f1e1300]: "19"
+                  - generic [ref=f1e1301]: 8.668,8
+                - cell "20 8.668,8" [ref=f1e1302]:
+                  - generic [ref=f1e1303]: "20"
+                  - generic [ref=f1e1304]: 8.668,8
+                - cell "21 8.668,8" [ref=f1e1305]:
+                  - generic [ref=f1e1306]: "21"
+                  - generic [ref=f1e1307]: 8.668,8
+                - cell "22 8.668,8" [ref=f1e1308]:
+                  - generic [ref=f1e1309]: "22"
+                  - generic [ref=f1e1310]: 8.668,8
+                - cell "23 8.668,8" [ref=f1e1311]:
+                  - generic [ref=f1e1312]: "23"
+                  - generic [ref=f1e1313]: 8.668,8
+                - cell "24 8.668,8" [ref=f1e1314]:
+                  - generic [ref=f1e1315]: "24"
+                  - generic [ref=f1e1316]: 8.668,8
+              - row [ref=f1e1317]:
+                - cell "Hafta 5" [ref=f1e1318]
+                - cell "25 —" [ref=f1e1319]:
+                  - generic [ref=f1e1320]: "25"
+                  - generic [ref=f1e1321]: —
+                - cell "26 11.558,4" [ref=f1e1322]:
+                  - generic [ref=f1e1323]: "26"
+                  - generic [ref=f1e1324]: 11.558,4
+                - cell "27 11.558,4" [ref=f1e1325]:
+                  - generic [ref=f1e1326]: "27"
+                  - generic [ref=f1e1327]: 11.558,4
+                - cell "28 11.558,4" [ref=f1e1328]:
+                  - generic [ref=f1e1329]: "28"
+                  - generic [ref=f1e1330]: 11.558,4
+                - cell "29 11.558,4" [ref=f1e1331]:
+                  - generic [ref=f1e1332]: "29"
+                  - generic [ref=f1e1333]: 11.558,4
+                - cell "30 11.558,4" [ref=f1e1334]:
+                  - generic [ref=f1e1335]: "30"
+                  - generic [ref=f1e1336]: 11.558,4
+                - cell "31 11.558,4" [ref=f1e1337]:
+                  - generic [ref=f1e1338]: "31"
+                  - generic [ref=f1e1339]: 11.558,4
+              - row [ref=f1e1340]:
+                - cell "Hafta 53" [ref=f1e1341]
+                - cell "27 —" [ref=f1e1342]:
+                  - generic [ref=f1e1343]: "27"
+                  - generic [ref=f1e1344]: —
+                - cell "28 0" [ref=f1e1345]:
+                  - generic [ref=f1e1346]: "28"
+                  - generic [ref=f1e1347]: "0"
+                - cell "29 0" [ref=f1e1348]:
+                  - generic [ref=f1e1349]: "29"
+                  - generic [ref=f1e1350]: "0"
+                - cell "30 0" [ref=f1e1351]:
+                  - generic [ref=f1e1352]: "30"
+                  - generic [ref=f1e1353]: "0"
+                - cell "31 0" [ref=f1e1354]:
+                  - generic [ref=f1e1355]: "31"
+                  - generic [ref=f1e1356]: "0"
+                - cell "1 0" [ref=f1e1357]:
+                  - generic [ref=f1e1358]: "1"
+                  - generic [ref=f1e1359]: "0"
+                - cell "2 0" [ref=f1e1360]:
+                  - generic [ref=f1e1361]: "2"
+                  - generic [ref=f1e1362]: "0"
+          - generic [ref=f1e1363]: Pazar günleri ("—") ve izin günleri ("İzin") üretim göstermez; haftalık toplam, kalan çalışma günlerine eşit bölünür.
+    - contentinfo [ref=f1e164]: Veriler bu cihazda/hesapta saklanır ve diğer kullanıcılarla paylaşılmaz.
+  - generic [ref=f1e927]: "-5500000"

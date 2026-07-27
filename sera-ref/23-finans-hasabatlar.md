@@ -1,0 +1,36 @@
+- generic [ref=f8e25]:
+  - generic [ref=f8e26]:
+    - generic [ref=f8e27]:
+      - button "TR" [ref=f8e28] [cursor=pointer]
+      - button "TM" [ref=f8e29] [cursor=pointer]
+    - generic [ref=f8e30]:
+      - generic [ref=f8e31]: "Yıl:"
+      - spinbutton [ref=f8e32]: "2026"
+    - generic [ref=f8e33]: Kaydedildi ✓
+    - button "Varsayılana sıfırla" [ref=f8e34] [cursor=pointer]
+    - button "Şifre" [ref=f8e38] [cursor=pointer]
+    - button "Çıkış" [ref=f8e42] [cursor=pointer]
+  - navigation [ref=f8e46]:
+    - button "Ana Sayfa" [ref=f8e47] [cursor=pointer]
+    - button "Ana Dashboard" [ref=f8e48] [cursor=pointer]
+    - button "Bütçe" [ref=f8e49] [cursor=pointer]
+    - button "Pomidor Dükânı" [ref=f8e50] [cursor=pointer]
+    - button "Sera İzleme" [ref=f8e51] [cursor=pointer]
+    - button "Tır Takip" [ref=f8e52] [cursor=pointer]
+    - button "Yurtdışı Hasabat" [ref=f8e53] [cursor=pointer]
+    - button "Finans Hasabatlar" [active] [ref=f8e54] [cursor=pointer]
+    - button "Yardım" [ref=f8e55] [cursor=pointer]
+    - button "Ayarlar" [ref=f8e56] [cursor=pointer]
+  - main [ref=f8e57]:
+    - generic [ref=f8e1334]:
+      - generic [ref=f8e1336]:
+        - generic [ref=f8e1342]:
+          - heading "Finans Hasabatlar" [level=1] [ref=f8e1343]
+          - paragraph [ref=f8e1344]: Maliýe hasabatlaryna we deňeşdirmelere bu ýerden giriş
+        - generic [ref=f8e1345]:
+          - generic "Bu sayfada üzerinde çalışılan yıl" [ref=f8e1346]:
+            - spinbutton [ref=f8e1349]: "2026"
+          - button "PDF Olarak Kaydet" [ref=f8e1350] [cursor=pointer]
+      - button [ref=f8e1355] [cursor=pointer]
+      - button "Bütçe Karşılaştırma (Gelir)" [ref=f8e1362] [cursor=pointer]
+  - contentinfo [ref=f8e243]: Veriler bu cihazda/hesapta saklanır ve diğer kullanıcılarla paylaşılmaz.

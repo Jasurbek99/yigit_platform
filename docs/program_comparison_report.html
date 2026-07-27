@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Two Programs, One Decision — YGT Platform vs. Sera Bütçe</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --surface:#ffffff; --ink:#1a1f2b; --muted:#5b6472;
+    --line:#e5e8ee; --accent:#1f7a4d; --accent-soft:#e8f4ee;
+    --blue:#2563a8; --blue-soft:#e9f0f8; --amber:#a86b12; --amber-soft:#fbf1df;
+    --red:#b3402e; --red-soft:#f8e9e6; --shadow:0 1px 2px rgba(20,30,50,.06),0 6px 20px rgba(20,30,50,.06);
+    --radius:14px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0f1319; --surface:#161c25; --ink:#e8ecf3; --muted:#9aa4b4;
+      --line:#26303c; --accent:#4cc489; --accent-soft:#12281e;
+      --blue:#6fa8e0; --blue-soft:#122234; --amber:#e0b062; --amber-soft:#2a2110;
+      --red:#e8897a; --red-soft:#2c1613; --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 28px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0f1319; --surface:#161c25; --ink:#e8ecf3; --muted:#9aa4b4;
+    --line:#26303c; --accent:#4cc489; --accent-soft:#12281e;
+    --blue:#6fa8e0; --blue-soft:#122234; --amber:#e0b062; --amber-soft:#2a2110;
+    --red:#e8897a; --red-soft:#2c1613;
+  }
+  :root[data-theme="light"]{
+    --bg:#f6f7f9; --surface:#ffffff; --ink:#1a1f2b; --muted:#5b6472;
+    --line:#e5e8ee; --accent:#1f7a4d; --accent-soft:#e8f4ee;
+    --blue:#2563a8; --blue-soft:#e9f0f8; --amber:#a86b12; --amber-soft:#fbf1df;
+    --red:#b3402e; --red-soft:#f8e9e6;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.55; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:900px; margin:0 auto; padding:40px 22px 80px}
+  header.masthead{margin-bottom:8px}
+  .eyebrow{font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); font-weight:700}
+  h1{font-size:30px; line-height:1.2; margin:10px 0 6px; letter-spacing:-.01em}
+  .sub{color:var(--muted); font-size:15px; margin:0}
+  .meta{margin-top:14px; font-size:12.5px; color:var(--muted); display:flex; flex-wrap:wrap; gap:6px 18px}
+  .meta b{color:var(--ink); font-weight:600}
+  section{margin-top:30px}
+  h2{font-size:19px; margin:0 0 12px; letter-spacing:-.01em; display:flex; align-items:center; gap:9px}
+  h2 .n{display:inline-grid; place-items:center; width:24px; height:24px; border-radius:7px;
+    background:var(--accent-soft); color:var(--accent); font-size:13px; font-weight:800}
+  h3{font-size:15px; margin:20px 0 8px}
+  p{margin:10px 0}
+  .card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:22px 24px}
+  .verdict{border-left:5px solid var(--accent)}
+  .verdict .big{font-size:18px; font-weight:700; margin:0 0 6px}
+  .pill{display:inline-block; font-size:12px; font-weight:700; padding:3px 10px; border-radius:999px; background:var(--accent-soft); color:var(--accent); vertical-align:middle}
+  .cols{display:grid; grid-template-columns:1fr 1fr; gap:16px}
+  @media (max-width:640px){ .cols{grid-template-columns:1fr} h1{font-size:25px} }
+  .appcard h4{margin:0 0 2px; font-size:15px}
+  .appcard .tag{font-size:12px; color:var(--muted); font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .appcard.p1{border-top:3px solid var(--accent)}
+  .appcard.p2{border-top:3px solid var(--blue)}
+  .appcard ul{margin:10px 0 0; padding-left:18px; font-size:13.5px; color:var(--muted)}
+  .appcard li{margin:4px 0}
+  .tablewrap{overflow-x:auto; border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow)}
+  table{border-collapse:collapse; width:100%; min-width:560px; background:var(--surface); font-size:13.5px}
+  caption{caption-side:top; text-align:left; font-size:12.5px; color:var(--muted); padding:12px 16px 0}
+  th,td{padding:11px 14px; text-align:left; border-bottom:1px solid var(--line); vertical-align:top}
+  thead th{font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); background:var(--bg)}
+  tbody tr:last-child td{border-bottom:none}
+  td.dim{color:var(--muted)}
+  .yes{color:var(--accent); font-weight:700}
+  .no{color:var(--red); font-weight:700}
+  .win{background:var(--accent-soft)}
+  .callout{border-radius:12px; padding:14px 16px; font-size:14px; margin:14px 0}
+  .callout.blue{background:var(--blue-soft); border:1px solid color-mix(in srgb,var(--blue) 30%, transparent)}
+  .callout.amber{background:var(--amber-soft); border:1px solid color-mix(in srgb,var(--amber) 32%, transparent)}
+  .callout .lbl{font-weight:700; display:block; margin-bottom:3px}
+  .callout.blue .lbl{color:var(--blue)} .callout.amber .lbl{color:var(--amber)}
+  .phase{display:grid; grid-template-columns:auto 1fr; gap:14px; align-items:start; padding:14px 0; border-bottom:1px dashed var(--line)}
+  .phase:last-child{border-bottom:none}
+  .phase .badge{font-size:12px; font-weight:800; color:var(--accent); background:var(--accent-soft); border-radius:8px; padding:6px 10px; white-space:nowrap}
+  .phase h4{margin:0 0 3px; font-size:14.5px}
+  .phase p{margin:0; font-size:13.5px; color:var(--muted)}
+  .oneliner{font-size:17px; font-weight:600; line-height:1.5}
+  .oneliner .hl{color:var(--accent)}
+  footer{margin-top:36px; padding-top:16px; border-top:1px solid var(--line); font-size:12px; color:var(--muted)}
+  .legend{font-size:12px; color:var(--muted); margin-top:8px}
+  @media print{
+    body{background:#fff; color:#000}
+    .card,.tablewrap{box-shadow:none}
+    .wrap{max-width:none; padding:0}
+    section{break-inside:avoid}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">Technical Decision Memo · Prepared for Management</div>
+    <h1>Two Programs, One Decision</h1>
+    <p class="sub">Consolidating <b>YGT Platform</b> and <b>Sera Bütçe Yönetimi</b> into a single product for the greenhouse&nbsp;→&nbsp;export business.</p>
+    <div class="meta">
+      <span><b>Question:</b> which program should absorb the other?</span>
+      <span><b>Method:</b> live inspection of both running apps + source review</span>
+      <span><b>Date:</b> 25 July 2026</span>
+    </div>
+  </header>
+
+  <section>
+    <div class="card verdict">
+      <p class="big">Recommendation <span class="pill">Build on YGT Platform</span></p>
+      <p style="margin:6px 0 0">
+        Keep <b>YGT Platform</b> as the company's system, and rebuild <b>Sera Bütçe</b>'s budget &amp; greenhouse
+        strengths as modules inside it. The two apps look alike because they serve the same business — but they are
+        <b>different classes of software</b>, and that asymmetry sets the direction: merging Sera's screens onto YGT's
+        shared backend is a matter of weeks; the reverse would mean rebuilding YGT's foundation from scratch.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <div class="cols">
+      <div class="card appcard p1">
+        <h4>YGT Platform</h4>
+        <div class="tag">10.10.39.243:3000 · Django + React + MSSQL</div>
+        <ul>
+          <li><b>Multi-user system of record</b> — the whole company works off one shared database.</li>
+          <li>40+ relational tables, 12 roles, per-role permissions, secure JWT login.</li>
+          <li>Full audit log, validated status lifecycle, ~24,000 lines of automated tests.</li>
+          <li>REST API (ready for a future mobile app); 3 languages (TK / RU / EN).</li>
+          <li>Focus today: the <b>export shipment lifecycle</b>.</li>
+        </ul>
+      </div>
+      <div class="card appcard p2">
+        <h4>Sera Bütçe Yönetimi</h4>
+        <div class="tag">10.10.49.54:3001 · React, per-account storage</div>
+        <ul>
+          <li><b>Single-user planning &amp; budgeting tool</b> — each person keeps a private copy of the data.</li>
+          <li>Polished, fast, 42 screens; genuinely strong quota &amp; budget modules.</li>
+          <li>Deep on <b>greenhouse cultivation economics</b> — cost, fertilizer, consumables, salary, packaging.</li>
+          <li>Data saved as one JSON document per account; no roles, audit, or shared source of truth.</li>
+          <li>2 languages (TR / TM).</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="n">1</span>The decisive fact: how each program stores data</h2>
+    <p>This is not a matter of opinion — it is visible directly in each app's own network traffic, and it determines everything else.</p>
+    <div class="tablewrap">
+      <table>
+        <caption>Same-looking screens, fundamentally different foundations.</caption>
+        <thead>
+          <tr><th>Capability</th><th>Sera Bütçe</th><th class="win">YGT Platform</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Where data lives</td><td class="dim">One JSON blob per user account</td><td class="win">Relational MSSQL DB, 40+ tables</td></tr>
+          <tr><td>Shared across staff</td><td><span class="no">No</span> — private copy each</td><td class="win"><span class="yes">Yes</span> — one source of truth</td></tr>
+          <tr><td>Many roles on one shipment</td><td><span class="no">No</span> — copies drift apart</td><td class="win"><span class="yes">Yes</span> — each role updates the same record</td></tr>
+          <tr><td>Data integrity (valid firms, etc.)</td><td><span class="no">No</span> — a blob has no rules</td><td class="win"><span class="yes">Yes</span> — foreign keys &amp; constraints</td></tr>
+          <tr><td>Audit — who changed a number, when</td><td><span class="no">None</span></td><td class="win"><span class="yes">Full audit log</span></td></tr>
+          <tr><td>Security &amp; access control</td><td class="dim">Single login, no roles</td><td class="win">12 roles, JWT, brute-force lockout</td></tr>
+          <tr><td>API for future mobile app</td><td><span class="no">No</span></td><td class="win"><span class="yes">REST /api/v1/…</span></td></tr>
+          <tr><td>Automated test suite</td><td class="dim">None observed</td><td class="win">~24,000 lines</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="legend">In plain terms: Sera is like an excellent personal Excel workbook that lives in the browser; YGT is the shared company database many people safely write to at once. That difference is the entire reason one is faster to build and the other is what the company actually runs on.</p>
+  </section>
+
+  <section>
+    <h2><span class="n">2</span>Why the merge goes this direction (and not the other)</h2>
+    <p>
+      Putting Sera's <b>screens</b> on top of YGT's backend is a user-interface and data-modeling job. Doing it the
+      other way — adding shared multi-user data, roles, audit, security and a real API <i>underneath</i> Sera — means
+      rebuilding precisely the hard 80% that YGT Platform already has. The effort is not symmetric.
+    </p>
+    <div class="callout blue">
+      <span class="lbl">Already the chosen direction</span>
+      Sera's 42 screens have been captured as reference material inside the YGT repository (<code>sera-ref/</code>), and a
+      build brief exists to port them into the YGT frontend as a "Sera Bütçe" module. The direction is scoped — this memo
+      confirms it is the right one.
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="n">3</span>What Sera genuinely brings — real scope, not just a nicer look</h2>
+    <p>
+      Sera is bigger than a dashboard. Its 42 screens cover a whole <b>greenhouse production-economics domain that YGT
+      does not yet model</b>, which is exactly what makes merging worthwhile rather than redundant:
+    </p>
+    <ul>
+      <li><b>Cultivation costs</b> — fertilizer, consumables, production overhead, per-block settings.</li>
+      <li><b>Budget &amp; planning</b> — plan-vs-actual for production, revenue, cost and profit; weekly production plans.</li>
+      <li><b>Personnel &amp; salary, marketing/packaging costs, management &amp; finance reports.</b></li>
+      <li><b>Greenhouse monitoring</b> — climate, disease, maps.</li>
+      <li>A <b>well-designed quota module</b> (issued vs. used per firm, live balance).</li>
+    </ul>
+    <p>YGT today is strongest on the <b>export shipment lifecycle</b>; Sera is strongest on the <b>greenhouse&nbsp;→&nbsp;budget</b> side. They are largely <b>complementary</b>.</p>
+  </section>
+
+  <section>
+    <h2><span class="n">4</span>The real cost and risk — stated plainly</h2>
+    <p>This is <b>not</b> "bolt on a budget page." The dominant cost is <b>reconciling entities both apps model independently</b>:</p>
+    <div class="callout amber">
+      <span class="lbl">Overlap that must be reconciled</span>
+      Buyers/firms (Sera's <code>alyjylar</code> — e.g. "Nur-Alem" — vs. YGT's Customer / Export Firm / Import Firm),
+      plus a parallel version of TIR/export, quota, contracts, customs and sales. Sera also holds real accumulated data
+      (~1.1&nbsp;MB of state + ~400&nbsp;KB of planting records) that must be <b>migrated</b> into YGT's tables, not just re-keyed.
+    </div>
+    <p>
+      The rule for the merge: where the two overlap, <b>YGT's model wins</b> (it is the shared, constrained one) and
+      Sera's overlapping screens are re-pointed at YGT's existing data. Where Sera is new (greenhouse cost &amp; budget),
+      it becomes <b>new modules and new tables</b> in YGT.
+    </p>
+  </section>
+
+  <section>
+    <h2><span class="n">5</span>A phased path to one product</h2>
+    <div class="card">
+      <div class="phase">
+        <span class="badge">Phase 1</span>
+        <div>
+          <h4>Sera screens on YGT data — where entities already exist</h4>
+          <p>Rebuild Sera's export/TIR, quota, contracts and sales views on top of YGT's live shared data. Fast wins, no new schema, immediate single-source-of-truth benefit.</p>
+        </div>
+      </div>
+      <div class="phase">
+        <span class="badge">Phase 2</span>
+        <div>
+          <h4>New greenhouse-cost &amp; budget tables + data migration</h4>
+          <p>Add the genuinely new domain — cultivation costs, budget plan-vs-actual, personnel/salary, monitoring — as new YGT modules, and migrate Sera's accumulated data into them.</p>
+        </div>
+      </div>
+      <div class="phase">
+        <span class="badge">Team</span>
+        <div>
+          <h4>One team, one product</h4>
+          <p>Combine Sera's UI/UX strengths with YGT's secure shared backend. The outcome is one product and one team instead of two half-products and a rivalry.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="n">6</span>The one-line version for the boss</h2>
+    <div class="card verdict">
+      <p class="oneliner">
+        Sera is an excellent <span class="hl">planning tool</span>; YGT is the <span class="hl">shared operational system</span>
+        a planning tool can't replace. <b>Merge Sera's ideas into YGT</b> — keep YGT as the base, rebuild Sera's budget and
+        greenhouse strengths inside it.
+      </p>
+    </div>
+  </section>
+
+  <footer>
+    Prepared from direct inspection of both running applications (user interface, network traffic and data-storage
+    behaviour) and review of the YGT Platform source. Figures and storage behaviour are drawn from each app's own live
+    responses. Intended as an internal technical decision aid.
+  </footer>
+
+</div>
+
+<script>
+  // Respect an explicit theme toggle if the host sets data-theme; otherwise follow the OS.
+  (function(){
+    try{
+      var t = localStorage.getItem('memo-theme');
+      if(t){ document.documentElement.setAttribute('data-theme', t); }
+    }catch(e){}
+  })();
+</script>
+</body>
+</html>

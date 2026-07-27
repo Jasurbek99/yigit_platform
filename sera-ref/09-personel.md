@@ -1,0 +1,280 @@
+- generic [active] [ref=f1e1]:
+  - generic [ref=f1e9]:
+    - generic [ref=f1e10]:
+      - generic [ref=f1e11]:
+        - button "TR" [ref=f1e12] [cursor=pointer]
+        - button "TM" [ref=f1e13] [cursor=pointer]
+      - generic [ref=f1e14]:
+        - generic [ref=f1e15]: "Yıl:"
+        - spinbutton [ref=f1e16]: "2026"
+      - generic [ref=f1e17]: Kaydedildi ✓
+      - button "Varsayılana sıfırla" [ref=f1e18] [cursor=pointer]
+      - button "Şifre" [ref=f1e22] [cursor=pointer]
+      - button "Çıkış" [ref=f1e26] [cursor=pointer]
+    - navigation [ref=f1e30]:
+      - button "Ana Sayfa" [ref=f1e31] [cursor=pointer]
+      - button "Ana Dashboard" [ref=f1e32] [cursor=pointer]
+      - button "Bütçe" [ref=f1e33] [cursor=pointer]
+      - button "Pomidor Dükânı" [ref=f1e34] [cursor=pointer]
+      - button "Sera İzleme" [ref=f1e35] [cursor=pointer]
+      - button "Tır Takip" [ref=f1e36] [cursor=pointer]
+      - button "Yurtdışı Hasabat" [ref=f1e37] [cursor=pointer]
+      - button "Finans Hasabatlar" [ref=f1e38] [cursor=pointer]
+      - button "Yardım" [ref=f1e39] [cursor=pointer]
+      - button "Ayarlar" [ref=f1e40] [cursor=pointer]
+    - main [ref=f1e41]:
+      - generic [ref=f1e2066]:
+        - generic [ref=f1e2068]:
+          - generic [ref=f1e2076]:
+            - heading "Personel & Maaşlar" [level=1] [ref=f1e2077]
+            - paragraph [ref=f1e2078]: Bölüm müdürleri personel sayısını girer; maaşları muhasebe girer.
+          - generic [ref=f1e2079]:
+            - generic "Bu sayfada üzerinde çalışılan yıl" [ref=f1e2080]:
+              - spinbutton [ref=f1e2083]: "2026"
+            - button "PDF Olarak Kaydet" [ref=f1e2084] [cursor=pointer]
+        - button [ref=f1e2089] [cursor=pointer]
+        - generic [ref=f1e2095]:
+          - button "Personel Sayısı (Müdürler)" [ref=f1e2096] [cursor=pointer]
+          - button "Maaş Tablosu (Muhasebe)" [ref=f1e2097] [cursor=pointer]
+        - generic [ref=f1e2098]:
+          - generic [ref=f1e2099]:
+            - generic [ref=f1e2100]: Dusak Bölümü
+            - generic [ref=f1e2101]:
+              - generic [ref=f1e2103]:
+                - generic [ref=f1e2104]:
+                  - generic [ref=f1e2105]: Dusak A
+                  - generic [ref=f1e2106]: 10 GA
+                - button "Personel Gir" [ref=f1e2107] [cursor=pointer]
+              - generic [ref=f1e2109]:
+                - generic [ref=f1e2110]:
+                  - generic [ref=f1e2111]: Dusak B
+                  - generic [ref=f1e2112]: 12 GA
+                - button "Personel Gir" [ref=f1e2113] [cursor=pointer]
+              - generic [ref=f1e2115]:
+                - generic [ref=f1e2116]:
+                  - generic [ref=f1e2117]: Dusak C
+                  - generic [ref=f1e2118]: 12 GA
+                - button "Personel Gir" [ref=f1e2119] [cursor=pointer]
+              - generic [ref=f1e2121]:
+                - generic [ref=f1e2122]:
+                  - generic [ref=f1e2123]: Dusak 1
+                  - generic [ref=f1e2124]: 10 GA
+                - button "Personel Gir" [ref=f1e2125] [cursor=pointer]
+              - generic [ref=f1e2127]:
+                - generic [ref=f1e2128]:
+                  - generic [ref=f1e2129]: Dusak 2
+                  - generic [ref=f1e2130]: 10 GA
+                - button "Personel Gir" [ref=f1e2131] [cursor=pointer]
+              - generic [ref=f1e2133]:
+                - generic [ref=f1e2134]:
+                  - generic [ref=f1e2135]: Dusak 3
+                  - generic [ref=f1e2136]: 10 GA
+                - button "Personel Gir" [ref=f1e2137] [cursor=pointer]
+              - generic [ref=f1e2139]:
+                - generic [ref=f1e2140]:
+                  - generic [ref=f1e2141]: Dusak 4
+                  - generic [ref=f1e2142]: 10 GA
+                - button "Personel Gir" [ref=f1e2143] [cursor=pointer]
+              - generic [ref=f1e2145]:
+                - generic [ref=f1e2146]:
+                  - generic [ref=f1e2147]: Dusak 5
+                  - generic [ref=f1e2148]: 10 GA
+                - button "Personel Gir" [ref=f1e2149] [cursor=pointer]
+              - generic [ref=f1e2151]:
+                - generic [ref=f1e2152]:
+                  - generic [ref=f1e2153]: Dusak 6
+                  - generic [ref=f1e2154]: 10 GA
+                - button "Personel Gir" [ref=f1e2155] [cursor=pointer]
+              - generic [ref=f1e2157]:
+                - generic [ref=f1e2158]:
+                  - generic [ref=f1e2159]: Dusak 7
+                  - generic [ref=f1e2160]: 10 GA
+                - button "Personel Gir" [ref=f1e2161] [cursor=pointer]
+              - generic [ref=f1e2163]:
+                - generic [ref=f1e2164]:
+                  - generic [ref=f1e2165]: Dusak 8
+                  - generic [ref=f1e2166]: 10 GA
+                - button "Personel Gir" [ref=f1e2167] [cursor=pointer]
+              - generic [ref=f1e2169]:
+                - generic [ref=f1e2170]:
+                  - generic [ref=f1e2171]: Dusak 9
+                  - generic [ref=f1e2172]: 10 GA
+                - button "Personel Gir" [ref=f1e2173] [cursor=pointer]
+              - generic [ref=f1e2175]:
+                - generic [ref=f1e2176]:
+                  - generic [ref=f1e2177]: Dusak 10
+                  - generic [ref=f1e2178]: 10 GA
+                - button "Personel Gir" [ref=f1e2179] [cursor=pointer]
+          - generic [ref=f1e2180]:
+            - generic [ref=f1e2181]: Kaka Bölümü
+            - generic [ref=f1e2182]:
+              - generic [ref=f1e2184]:
+                - generic [ref=f1e2185]:
+                  - generic [ref=f1e2186]: Kaka D
+                  - generic [ref=f1e2187]: 20 GA
+                - button "Personel Gir" [ref=f1e2188] [cursor=pointer]
+              - generic [ref=f1e2190]:
+                - generic [ref=f1e2191]:
+                  - generic [ref=f1e2192]: Kaka E
+                  - generic [ref=f1e2193]: 20 GA
+                - button "Personel Gir" [ref=f1e2194] [cursor=pointer]
+              - generic [ref=f1e2196]:
+                - generic [ref=f1e2197]:
+                  - generic [ref=f1e2198]: Kaka F
+                  - generic [ref=f1e2199]: 20 GA
+                - button "Personel Gir" [ref=f1e2200] [cursor=pointer]
+              - generic [ref=f1e2202]:
+                - generic [ref=f1e2203]:
+                  - generic [ref=f1e2204]: Kaka G
+                  - generic [ref=f1e2205]: 20 GA
+                - button "Personel Gir" [ref=f1e2206] [cursor=pointer]
+              - generic [ref=f1e2208]:
+                - generic [ref=f1e2209]:
+                  - generic [ref=f1e2210]: Kaka H
+                  - generic [ref=f1e2211]: 20 GA
+                - button "Personel Gir" [ref=f1e2212] [cursor=pointer]
+              - generic [ref=f1e2214]:
+                - generic [ref=f1e2215]:
+                  - generic [ref=f1e2216]: Kaka I
+                  - generic [ref=f1e2217]: 20 GA
+                - button "Personel Gir" [ref=f1e2218] [cursor=pointer]
+              - generic [ref=f1e2220]:
+                - generic [ref=f1e2221]:
+                  - generic [ref=f1e2222]: Kaka J
+                  - generic [ref=f1e2223]: 20 GA
+                - button "Personel Gir" [ref=f1e2224] [cursor=pointer]
+              - generic [ref=f1e2226]:
+                - generic [ref=f1e2227]:
+                  - generic [ref=f1e2228]: Kaka K
+                  - generic [ref=f1e2229]: 20 GA
+                - button "Personel Gir" [ref=f1e2230] [cursor=pointer]
+              - generic [ref=f1e2232]:
+                - generic [ref=f1e2233]:
+                  - generic [ref=f1e2234]: Kaka L
+                  - generic [ref=f1e2235]: 20 GA
+                - button "Personel Gir" [ref=f1e2236] [cursor=pointer]
+              - generic [ref=f1e2238]:
+                - generic [ref=f1e2239]:
+                  - generic [ref=f1e2240]: Kaka N
+                  - generic [ref=f1e2241]: 20 GA
+                - button "Personel Gir" [ref=f1e2242] [cursor=pointer]
+              - generic [ref=f1e2244]:
+                - generic [ref=f1e2245]:
+                  - generic [ref=f1e2246]: Kaka P
+                  - generic [ref=f1e2247]: 20 GA
+                - button "Personel Gir" [ref=f1e2248] [cursor=pointer]
+              - generic [ref=f1e2250]:
+                - generic [ref=f1e2251]:
+                  - generic [ref=f1e2252]: Kaka M15
+                  - generic [ref=f1e2253]: 15 GA
+                - button "Personel Gir" [ref=f1e2254] [cursor=pointer]
+              - generic [ref=f1e2256]:
+                - generic [ref=f1e2257]:
+                  - generic [ref=f1e2258]: Kaka M5
+                  - generic [ref=f1e2259]: 5 GA
+                - button "Personel Gir" [ref=f1e2260] [cursor=pointer]
+          - generic [ref=f1e2261]:
+            - generic [ref=f1e2262]: Owadandepe Bölümü
+            - generic [ref=f1e2265]:
+              - generic [ref=f1e2266]:
+                - generic [ref=f1e2267]: Owadandepe O
+                - generic [ref=f1e2268]: 20 GA
+              - button "Personel Gir" [ref=f1e2269] [cursor=pointer]
+          - generic [ref=f1e2270]:
+            - generic [ref=f1e2271]: Dolandyryş Bölümü
+            - generic [ref=f1e2274]:
+              - generic [ref=f1e2275]:
+                - generic [ref=f1e2276]: Dolandyryş
+                - generic [ref=f1e2277]: Yalnız personel sayısı — üretim/gübre/alan hesaplarına dahil değildir
+              - button "Personel Gir" [ref=f1e2278] [cursor=pointer]
+        - generic [ref=f1e2279]:
+          - generic [ref=f1e2280]: Adam Başına Aylık Çykdajy
+          - generic [ref=f1e2281]: Her ay için kişi başına tutar girin. Giderler sayfasında seçili bloklardaki toplam kişi sayısıyla çarpılarak hesaplanır.
+          - table [ref=f1e2283]:
+            - rowgroup [ref=f1e2284]:
+              - row [ref=f1e2285]:
+                - columnheader "Kalem" [ref=f1e2286]
+                - columnheader "Ocak" [ref=f1e2287]
+                - columnheader "Şubat" [ref=f1e2288]
+                - columnheader "Mart" [ref=f1e2289]
+                - columnheader "Nisan" [ref=f1e2290]
+                - columnheader "Mayıs" [ref=f1e2291]
+                - columnheader "Haziran" [ref=f1e2292]
+                - columnheader "Temmuz" [ref=f1e2293]
+                - columnheader "Ağustos" [ref=f1e2294]
+                - columnheader "Eylül" [ref=f1e2295]
+                - columnheader "Ekim" [ref=f1e2296]
+                - columnheader "Kasım" [ref=f1e2297]
+                - columnheader "Aralık" [ref=f1e2298]
+            - rowgroup [ref=f1e2299]:
+              - row [ref=f1e2300]:
+                - cell "Işgärleri gatnatmak çykdajylary" [ref=f1e2301]
+                - cell [ref=f1e2302]:
+                  - spinbutton [ref=f1e2303]: "0"
+                - cell [ref=f1e2304]:
+                  - spinbutton [ref=f1e2305]: "0"
+                - cell [ref=f1e2306]:
+                  - spinbutton [ref=f1e2307]: "0"
+                - cell [ref=f1e2308]:
+                  - spinbutton [ref=f1e2309]: "0"
+                - cell [ref=f1e2310]:
+                  - spinbutton [ref=f1e2311]: "0"
+                - cell [ref=f1e2312]:
+                  - spinbutton [ref=f1e2313]: "0"
+                - cell [ref=f1e2314]:
+                  - spinbutton [ref=f1e2315]: "0"
+                - cell [ref=f1e2316]:
+                  - spinbutton [ref=f1e2317]: "0"
+                - cell [ref=f1e2318]:
+                  - spinbutton [ref=f1e2319]: "0"
+                - cell [ref=f1e2320]:
+                  - spinbutton [ref=f1e2321]: "0"
+                - cell [ref=f1e2322]:
+                  - spinbutton [ref=f1e2323]: "0"
+                - cell [ref=f1e2324]:
+                  - spinbutton [ref=f1e2325]: "0"
+              - row [ref=f1e2326]:
+                - cell "Işgärleriň saglygy boýunça çykdajylar" [ref=f1e2327]
+                - cell [ref=f1e2328]:
+                  - spinbutton [ref=f1e2329]: "0"
+                - cell [ref=f1e2330]:
+                  - spinbutton [ref=f1e2331]: "0"
+                - cell [ref=f1e2332]:
+                  - spinbutton [ref=f1e2333]: "0"
+                - cell [ref=f1e2334]:
+                  - spinbutton [ref=f1e2335]: "0"
+                - cell [ref=f1e2336]:
+                  - spinbutton [ref=f1e2337]: "0"
+                - cell [ref=f1e2338]:
+                  - spinbutton [ref=f1e2339]: "0"
+                - cell [ref=f1e2340]:
+                  - spinbutton [ref=f1e2341]: "0"
+                - cell [ref=f1e2342]:
+                  - spinbutton [ref=f1e2343]: "0"
+                - cell [ref=f1e2344]:
+                  - spinbutton [ref=f1e2345]: "0"
+                - cell [ref=f1e2346]:
+                  - spinbutton [ref=f1e2347]: "0"
+                - cell [ref=f1e2348]:
+                  - spinbutton [ref=f1e2349]: "0"
+                - cell [ref=f1e2350]:
+                  - spinbutton [ref=f1e2351]: "0"
+        - generic [ref=f1e2352]:
+          - generic [ref=f1e2353]:
+            - generic [ref=f1e2354]:
+              - generic [ref=f1e2355]: Daşary Ýurt Işgärleri
+              - generic [ref=f1e2356]: Her yurt için işçi sayısı ve ortalama maaş girin.
+            - generic [ref=f1e2357]: 1.000 $ yıllık
+          - generic [ref=f1e2358]:
+            - generic [ref=f1e2360]:
+              - generic [ref=f1e2361]:
+                - generic [ref=f1e2362]: Kazakistan
+                - generic [ref=f1e2363]: 1.000 $ yıllık
+              - button "İşçi Gir" [ref=f1e2364] [cursor=pointer]
+            - generic [ref=f1e2366]:
+              - generic [ref=f1e2367]:
+                - generic [ref=f1e2368]: Rusya
+                - generic [ref=f1e2369]: 0 $ yıllık
+              - button "İşçi Gir" [ref=f1e2370] [cursor=pointer]
+    - contentinfo [ref=f1e164]: Veriler bu cihazda/hesapta saklanır ve diğer kullanıcılarla paylaşılmaz.
+  - generic [ref=f1e927]: "-5500000"

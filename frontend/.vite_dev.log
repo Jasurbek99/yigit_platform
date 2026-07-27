@@ -1,0 +1,226 @@
+
+> ygt-platform-frontend@0.1.0 dev
+> vite
+
+
+  [32m[1mVITE[22m v6.4.1[39m  [2mready in [0m[1m202[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m3000[22m/[39m
+[2m  [32m➜[39m  [1mNetwork[22m[2m: use [22m[1m--host[22m[2m to expose[22m
+[2m1:19:16 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/ShipmentEditDrawer.tsx, /src/components/FieldEditor.tsx, /src/components/shipment/ShipmentCompletenessBar.tsx, /src/components/shipment/ShipmentFieldGroup.tsx[22m
+[2m1:19:16 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [33mhmr invalidate [39m[2m/src/components/shipment/ShipmentFieldGroup.tsx[22m Could not Fast Refresh ("countMissing" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m1:19:16 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentSaleSection.tsx, /src/components/shipment/ShipmentDetailStageCards.tsx, /src/components/shipment/ShipmentDocumentsBody.tsx, /src/components/shipment/ShipmentGoodsBody.tsx[22m
+[2m1:19:58 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentDocumentsBody.tsx[22m
+[2m1:20:17 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentDetailStageCards.tsx[22m
+[2m1:20:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentSaleSection.tsx[22m
+[2m1:20:29 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentSaleSection.tsx[22m
+[2m1:30:50 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/ShipmentEditDrawer.tsx, /src/components/FieldEditor.tsx, /src/components/shipment/ShipmentCompletenessBar.tsx, /src/components/shipment/ShipmentFieldGroup.tsx[22m
+[2m1:30:50 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [33mhmr invalidate [39m[2m/src/components/shipment/ShipmentFieldGroup.tsx[22m Could not Fast Refresh ("countMissing" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m1:30:50 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentSaleSection.tsx, /src/components/shipment/ShipmentDetailStageCards.tsx, /src/components/shipment/ShipmentDocumentsBody.tsx, /src/components/shipment/ShipmentGoodsBody.tsx, /src/components/shipment/ShipmentDestinationBody.tsx, /src/components/shipment/ShipmentTransportBody.tsx[22m
+[2m1:31:08 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/ShipmentEditDrawer.tsx, /src/components/FieldEditor.tsx, /src/components/shipment/ShipmentCompletenessBar.tsx, /src/components/shipment/ShipmentFieldGroup.tsx[22m
+[2m1:31:08 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [33mhmr invalidate [39m[2m/src/components/shipment/ShipmentFieldGroup.tsx[22m Could not Fast Refresh ("countMissing" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m1:31:08 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentSaleSection.tsx, /src/components/shipment/ShipmentDetailStageCards.tsx, /src/components/shipment/ShipmentDocumentsBody.tsx, /src/components/shipment/ShipmentGoodsBody.tsx, /src/components/shipment/ShipmentDestinationBody.tsx, /src/components/shipment/ShipmentTransportBody.tsx[22m
+[2m1:31:39 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentDetailStageCards.tsx[22m
+[2m1:31:56 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentDetailStageCards.tsx[22m
+[2m1:32:13 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentDetailStageCards.tsx[22m
+[2m2:58:18 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/ShipmentEditDrawer.tsx, /src/components/FieldEditor.tsx, /src/components/shipment/ShipmentCompletenessBar.tsx, /src/components/shipment/ShipmentFieldGroup.tsx, /src/components/kanban/SelfBoardTaskDrawer.tsx, /src/components/kanban/OtherShipmentDetails.tsx[22m
+[2m2:58:18 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [33mhmr invalidate [39m[2m/src/components/shipment/ShipmentFieldGroup.tsx[22m Could not Fast Refresh ("countMissing" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m2:58:18 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentSaleSection.tsx, /src/components/shipment/ShipmentDetailStageCards.tsx, /src/components/shipment/ShipmentDocumentsBody.tsx, /src/components/shipment/ShipmentGoodsBody.tsx, /src/components/shipment/ShipmentDestinationBody.tsx, /src/components/shipment/ShipmentTransportBody.tsx[22m
+[2m2:58:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/ShipmentEditDrawer.tsx, /src/components/FieldEditor.tsx, /src/components/shipment/ShipmentCompletenessBar.tsx, /src/components/shipment/ShipmentFieldGroup.tsx, /src/components/kanban/SelfBoardTaskDrawer.tsx, /src/components/kanban/OtherShipmentDetails.tsx[22m
+[2m2:58:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [33mhmr invalidate [39m[2m/src/components/shipment/ShipmentFieldGroup.tsx[22m Could not Fast Refresh ("countMissing" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m2:58:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentSaleSection.tsx, /src/components/shipment/ShipmentDetailStageCards.tsx, /src/components/shipment/ShipmentDocumentsBody.tsx, /src/components/shipment/ShipmentGoodsBody.tsx, /src/components/shipment/ShipmentDestinationBody.tsx, /src/components/shipment/ShipmentTransportBody.tsx[22m
+[2m2:58:33 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/ShipmentEditDrawer.tsx, /src/components/FieldEditor.tsx, /src/components/shipment/ShipmentCompletenessBar.tsx, /src/components/shipment/ShipmentFieldGroup.tsx, /src/components/kanban/SelfBoardTaskDrawer.tsx, /src/components/kanban/OtherShipmentDetails.tsx[22m
+[2m2:58:33 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [33mhmr invalidate [39m[2m/src/components/shipment/ShipmentFieldGroup.tsx[22m Could not Fast Refresh ("countMissing" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m2:58:33 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentSaleSection.tsx, /src/components/shipment/ShipmentDetailStageCards.tsx, /src/components/shipment/ShipmentDocumentsBody.tsx, /src/components/shipment/ShipmentGoodsBody.tsx, /src/components/shipment/ShipmentDestinationBody.tsx, /src/components/shipment/ShipmentTransportBody.tsx[22m
+[2m2:58:45 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentFieldGroup.tsx[22m
+[2m2:58:45 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [33mhmr invalidate [39m[2m/src/components/shipment/ShipmentFieldGroup.tsx[22m Could not Fast Refresh ("countMissing" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m2:58:45 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentSaleSection.tsx, /src/components/shipment/ShipmentDetailStageCards.tsx, /src/components/shipment/ShipmentDocumentsBody.tsx, /src/components/shipment/ShipmentGoodsBody.tsx, /src/components/shipment/ShipmentDestinationBody.tsx, /src/components/shipment/ShipmentTransportBody.tsx[22m
+[2m2:59:20 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentGoodsBody.tsx[22m
+[2m2:59:28 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentDocumentsBody.tsx[22m
+[2m2:59:35 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/i18n/en.json[22m
+[2m2:59:48 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/i18n/ru.json[22m
+[2m2:59:49 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/i18n/tk.json[22m
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/DetailFieldRow.tsx[22m
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/ShipmentEditDrawer.tsx, /src/components/FieldEditor.tsx, /src/components/shipment/ShipmentCompletenessBar.tsx, /src/components/shipment/ShipmentFieldGroup.tsx, /src/components/kanban/SelfBoardTaskDrawer.tsx, /src/components/kanban/OtherShipmentDetails.tsx, /src/components/shipment/ShipmentGoodsBody.tsx[22m
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/sheet/CommentList.tsx, /src/components/sheet/CommentComposer.tsx, /src/components/sheet/CommentItem.tsx[22m
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/i18n/en.json[22m
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/FieldEditor.tsx[22m
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/RouteTimelineRail.tsx[22m
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentDetailHero.tsx[22m
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/i18n/ru.json[22m
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/i18n/tk.json[22m
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/ShipmentEditDrawerForId.tsx, /src/pages/export/ShipmentList.tsx, /src/components/shipment/ShipmentDetailHero.tsx, /src/components/ShipmentSelect.tsx, /src/pages/export/ListEditableCell.tsx, /src/components/ShipmentEditDrawer.tsx, /src/components/shipment/DetailFieldRow.tsx, /src/components/sheet/SheetCellEditor.tsx, /src/pages/export/ShipmentDetail.tsx, /src/components/customsExpense/CustomsExpensesTab.tsx, /src/components/customsExpense/CustomsExpenseModal.tsx, /src/components/TransitionButton.tsx, /src/components/shipment/VarietyOverrideRow.tsx, /src/components/sheet/CommentList.tsx, /src/components/sheet/CommentComposer.tsx, /src/components/sheet/CommentItem.tsx, /src/components/SalesReportPanel.tsx, /src/components/shipment/ShipmentQualityBody.tsx, /src/pages/me/SelfBoard.tsx, /src/components/kanban/SelfBoardActiveTaskPanel.tsx, /src/components/kanban/SelfBoardTaskDrawer.tsx[22m
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/export/ShipmentDetail.tsx[22m
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/export/ShipmentDetail.tsx, /src/components/comments/CommentsDrawer.tsx, /src/components/sheet/CommentList.tsx, /src/components/sheet/CommentComposer.tsx, /src/components/sheet/MentionPopover.tsx, /src/components/sheet/CommentItem.tsx, /src/components/kanban/SelfBoardTaskDrawer.tsx, /src/components/kanban/SelfBoardShipmentFieldList.tsx, /src/components/sheet/SheetCellEditor.tsx[22m
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/customsExpense/CustomsExpensesTab.tsx, /src/components/customsExpense/CustomsExpenseModal.tsx[22m
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css[22m
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/export/ShipmentDetail.tsx, /src/components/shipment/ShipmentCompletenessBar.tsx, /src/components/customsExpense/ShipmentCustomsExpensesCard.tsx, /src/components/shipment/ShipmentSaleSection.tsx, /src/components/shipment/ShipmentDocumentsBody.tsx, /src/components/shipment/ShipmentGoodsBody.tsx, /src/components/shipment/ShipmentTransportBody.tsx[22m
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/comments/CommentsDrawer.tsx[22m
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/comments/CommentsDrawerOverlay.tsx[22m
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/customsExpense/ShipmentCustomsExpensesCard.tsx[22m
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/components/shipment/DetailFieldRow.helpers.ts[22m
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/DetailFieldRowStatus.tsx[22m
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/DetailFieldValue.tsx[22m
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/components/shipment/ShipmentCompletenessBar.helpers.ts[22m
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentCompletenessBar.tsx[22m
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentDetailStageCards.tsx[22m
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentDocumentsBody.tsx[22m
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentFieldGroup.tsx[22m
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentGoodsBody.tsx[22m
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentGuidanceLine.tsx[22m
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentSaleSection.tsx[22m
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentStageCard.tsx[22m
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/components/shipment/useDetailFieldAutosave.ts[22m
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentDestinationBody.tsx[22m
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentTransportBody.tsx[22m
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentQualityBody.tsx[22m
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/VarietyOverrideRow.tsx[22m
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/export/ShipmentDetail.tsx[22m
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [33mhmr invalidate [39m[2m/src/components/shipment/ShipmentFieldGroup.tsx[22m Could not Fast Refresh ("countMissing" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m3:11:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/components/shipment/ShipmentFieldGroup.tsx[22m
+[2m3:11:06 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+Error: read ECONNRESET
+    at TCP.onStreamRead (node:internal/stream_base_commons:216:20)
+[2m3:11:06 PM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/auth/me/[39m
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1645:16)
+[2m3:48:12 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+Error: read ECONNRESET
+    at TCP.onStreamRead (node:internal/stream_base_commons:216:20)
+[2m3:48:16 PM[22m [31m[1m[vite][22m[39m [31mws proxy error:[39m
+Error: read ECONNRESET
+    at TCP.onStreamRead (node:internal/stream_base_commons:216:20)
+[2m4:01:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx[22m
+[2m4:01:18 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx[22m
+[2m4:01:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/AppLayout.tsx[22m
+[2m4:01:32 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/AppLayout.tsx[22m
+[2m4:01:37 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/i18n/en.json[22m
+[2m4:01:42 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/i18n/en.json[22m
+[2m4:02:01 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/i18n/ru.json[22m
+[2m4:02:04 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/i18n/ru.json[22m
+[2m4:02:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/i18n/tk.json[22m
+[2m4:02:08 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/i18n/tk.json[22m
+[2m4:26:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/i18n/tk.json[22m
+[2m4:26:15 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/i18n/ru.json[22m
+[2m4:26:21 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/i18n/en.json[22m
+[2m5:31:18 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/team/TeamKpi.tsx[22m
+[2m5:31:40 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/i18n/en.json[22m
+[2m5:31:45 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/i18n/ru.json[22m
+[2m5:31:52 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/i18n/tk.json[22m
+[2m5:38:15 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/team/TeamKpi.tsx[22m
+[2m5:38:20 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/team/TeamKpi.tsx[22m
+[2m5:38:33 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/i18n/tk.json[22m
+[2m5:38:34 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/i18n/ru.json[22m
+[2m5:38:35 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/i18n/en.json[22m
+[2m9:54:17 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/i18n/en.json[22m
+[2m9:54:25 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/i18n/ru.json[22m
+[2m9:54:32 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/i18n/tk.json[22m
+[2m9:54:40 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/auth/LoginPage.tsx[22m
+[2m9:54:48 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/auth/LoginPage.tsx[22m
+[2m12:04:04 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx[22m
+[2m12:04:04 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/AppLayout.tsx[22m
+[2m12:04:04 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/i18n/en.json[22m
+[2m12:04:04 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/i18n/ru.json[22m
+[2m12:04:04 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/i18n/tk.json[22m
+[2m12:04:04 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/auth/LoginPage.tsx[22m
+[2m12:04:04 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/hooks/useTeamKpi.ts[22m
+[2m12:04:04 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/team/TeamKpi.tsx[22m
+[2m12:04:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/i18n/en.json[22m
+[2m12:04:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/i18n/tk.json[22m
+[2m12:04:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/auth/LoginPage.tsx[22m
+[2m12:04:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/i18n/ru.json[22m
+[2m6:11:49 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx[22m
+[2m6:12:01 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx[22m
+[2m6:12:14 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/AppLayout.tsx[22m
+[2m6:12:25 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/AppLayout.tsx[22m
+[2m6:12:31 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/AppLayout.tsx[22m
+[2m9:33:17 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/sera/SeraShell.tsx[22m
+[2m9:33:54 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx[22m
+[2m9:34:07 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx[22m
+[2m10:18:18 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/sera/SeraShell.tsx[22m
+[2m10:19:28 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx[22m
+[2m10:19:58 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx[22m
+[2m10:27:03 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/sera/pages/SeraIzleme.tsx[22m
+[2m10:30:15 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/sera/pages/SeraIzleme.tsx[22m
+[2m10:33:38 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/sera/pages/SeraIzleme.tsx[22m
+[2m12:00:20 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/sera/pages/SeraTirTakip.tsx[22m
+[2m12:00:32 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/sera/pages/SeraTirTakip.tsx[22m
+[2m12:00:59 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/sera/pages/SeraTirTakip.tsx[22m
+[2m12:01:12 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/sera/pages/SeraTirTakip.tsx[22m
+[2m11:11:10 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx[22m
+[2m11:11:10 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/AppLayout.tsx[22m
+[2m11:11:10 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/i18n/en.json[22m
+[2m11:11:10 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/i18n/ru.json[22m
+[2m11:11:10 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/i18n/tk.json[22m
+[2m11:11:10 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/hooks/useTeamKpi.ts[22m
+[2m11:11:10 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/auth/LoginPage.tsx[22m
+[2m11:11:10 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/team/TeamKpi.tsx[22m
+[2m11:11:10 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/sera/SeraShell.tsx[22m
+[2m11:11:10 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/sera/components/SeraCard.tsx[22m
+[2m11:11:10 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/sera/components/SeraPageHeader.tsx[22m
+[2m11:11:10 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/sera/components/SeraStatCard.tsx[22m
+[2m11:11:10 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/sera/components/SeraChipSelector.tsx[22m
+[2m11:11:10 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/sera/components/SeraMatrixTable.tsx[22m
+[2m11:11:10 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/pages/sera/mock/seraData.ts[22m
+[2m11:11:10 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/pages/sera/mock/pomidor.ts[22m
+[2m11:11:10 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/pages/sera/mock/izleme.ts[22m
+[2m11:11:10 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/pages/sera/mock/yurtdisiHasabat.ts[22m
+[2m11:11:10 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/pages/sera/mock/tirTakip.ts[22m
+[2m11:11:10 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/pages/sera/mock/ayarlar.ts[22m
+[2m11:11:10 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/pages/sera/mock/tirTakipTabs.ts[22m
+[2m11:11:10 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/pages/sera/mock/tirSertnama.ts[22m
+[2m11:11:10 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/pages/sera/seraTheme.ts[22m
+[2m11:11:10 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/pages/sera/seraNav.ts[22m
+[2m11:11:10 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/sera/pages/SeraAnaSayfa.tsx[22m
+[2m11:11:10 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/sera/pages/butce/ButceDashboard.tsx[22m
+[2m11:11:10 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/sera/pages/SeraPomidor.tsx[22m
+[2m11:11:10 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/sera/pages/SeraIzleme.tsx[22m
+[2m11:11:10 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/sera/pages/SeraTirTakip.tsx[22m
+[2m11:11:10 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/sera/pages/SeraYurtdisiHasabat.tsx[22m
+[2m11:11:10 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/sera/pages/SeraAyarlar.tsx[22m
+[2m11:19:20 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/EChart.tsx[22m
+[2m11:19:28 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/EChart.tsx[22m
+[2m11:19:36 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/EChart.tsx[22m
+[2m11:19:43 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/EChart.tsx[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/AppLayout.tsx[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/EChart.tsx[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/FieldEditor.tsx[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/DetailFieldRow.tsx[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/RouteTimelineRail.tsx[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/customsExpense/ShipmentCustomsExpensesCard.tsx[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/components/shipment/DetailFieldRow.helpers.ts[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/DetailFieldRowStatus.tsx[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/DetailFieldValue.tsx[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentDetailHero.tsx[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/ShipmentEditDrawer.tsx, /src/components/FieldEditor.tsx, /src/components/kanban/SelfBoardTaskDrawer.tsx, /src/components/kanban/OtherShipmentDetails.tsx, /src/pages/export/ShipmentDetail.tsx[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/sheet/CommentList.tsx, /src/components/sheet/CommentComposer.tsx, /src/components/sheet/CommentItem.tsx[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/components/shipment/ShipmentCompletenessBar.helpers.ts[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentCompletenessBar.tsx[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentDestinationBody.tsx[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentDetailStageCards.tsx[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentDocumentsBody.tsx[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentFieldGroup.tsx[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentGoodsBody.tsx[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentGuidanceLine.tsx[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentQualityBody.tsx[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentSaleSection.tsx[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/i18n/en.json[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/ShipmentEditDrawerForId.tsx, /src/pages/export/ShipmentList.tsx, /src/components/shipment/ShipmentDetailHero.tsx, /src/components/ShipmentSelect.tsx, /src/pages/export/ListEditableCell.tsx, /src/components/ShipmentEditDrawer.tsx, /src/components/sheet/SheetCellEditor.tsx, /src/components/shipment/DetailFieldRow.tsx, /src/pages/export/ShipmentDetail.tsx, /src/components/customsExpense/CustomsExpensesTab.tsx, /src/components/customsExpense/CustomsExpenseModal.tsx, /src/components/TransitionButton.tsx, /src/components/SalesReportPanel.tsx, /src/pages/me/SelfBoard.tsx, /src/components/kanban/SelfBoardActiveTaskPanel.tsx, /src/components/kanban/SelfBoardTaskDrawer.tsx[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/export/ShipmentDetail.tsx[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/sheet/CommentList.tsx, /src/components/sheet/CommentComposer.tsx, /src/components/sheet/MentionPopover.tsx, /src/components/sheet/CommentItem.tsx, /src/components/kanban/SelfBoardTaskDrawer.tsx, /src/components/kanban/SelfBoardShipmentFieldList.tsx, /src/components/sheet/SheetCellEditor.tsx[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/customsExpense/CustomsExpensesTab.tsx, /src/components/customsExpense/CustomsExpenseModal.tsx[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/hooks/useShipmentComments.ts[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/i18n/ru.json[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/i18n/tk.json[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/export/ShipmentDetail.tsx[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/LifecycleStage.tsx[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/hooks/useTeamKpi.ts[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/team/TeamKpi.tsx[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentStageCard.tsx[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/ShipmentTransportBody.tsx[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/components/shipment/useDetailFieldAutosave.ts[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/shipment/VarietyOverrideRow.tsx[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/comments/CommentsDrawer.tsx[22m
+[2m5:48:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/comments/CommentsDrawerOverlay.tsx[22m

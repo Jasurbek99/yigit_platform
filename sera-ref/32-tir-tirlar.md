@@ -1,0 +1,1218 @@
+- generic [ref=f11e1]:
+  - generic [ref=f11e9]:
+    - generic [ref=f11e10]:
+      - generic [ref=f11e11]:
+        - button "TR" [ref=f11e12] [cursor=pointer]
+        - button "TM" [ref=f11e13] [cursor=pointer]
+      - generic [ref=f11e14]:
+        - generic [ref=f11e15]: "Yıl:"
+        - spinbutton [ref=f11e16]: "2026"
+      - generic [ref=f11e17]: Kaydedildi ✓
+      - button "Varsayılana sıfırla" [ref=f11e18] [cursor=pointer]
+      - button "Şifre" [ref=f11e22] [cursor=pointer]
+      - button "Çıkış" [ref=f11e26] [cursor=pointer]
+    - navigation [ref=f11e30]:
+      - button "Ana Sayfa" [ref=f11e31] [cursor=pointer]
+      - button "Ana Dashboard" [ref=f11e32] [cursor=pointer]
+      - button "Bütçe" [ref=f11e33] [cursor=pointer]
+      - button "Pomidor Dükânı" [ref=f11e34] [cursor=pointer]
+      - button "Sera İzleme" [ref=f11e35] [cursor=pointer]
+      - button "Tır Takip" [ref=f11e36] [cursor=pointer]
+      - button "Yurtdışı Hasabat" [ref=f11e37] [cursor=pointer]
+      - button "Finans Hasabatlar" [ref=f11e38] [cursor=pointer]
+      - button "Yardım" [ref=f11e39] [cursor=pointer]
+      - button "Ayarlar" [ref=f11e40] [cursor=pointer]
+    - main [ref=f11e41]:
+      - generic [ref=f11e1982]:
+        - generic [ref=f11e1984]:
+          - generic [ref=f11e1992]:
+            - heading "Maşyn Yzarlamasy (Tır Takip)" [level=1] [ref=f11e1993]
+            - paragraph [ref=f11e1994]: Önümçilik meýilnamasyndan awtomatiki tır teklipleri, QR ýagdaýly yzarlama
+          - generic [ref=f11e1995]:
+            - generic "Bu sayfada üzerinde çalışılan yıl" [ref=f11e1996]:
+              - spinbutton [ref=f11e1999]: "2026"
+            - button "PDF Olarak Kaydet" [ref=f11e2000] [cursor=pointer]
+        - button [ref=f11e2005] [cursor=pointer]
+        - generic [ref=f11e2011]:
+          - button "Önümçilik" [ref=f11e2012] [cursor=pointer]
+          - button "Gaplama" [ref=f11e2013] [cursor=pointer]
+          - button "Tırlar" [active] [ref=f11e2014] [cursor=pointer]
+          - button "📦 Export Raporu" [ref=f11e2015] [cursor=pointer]
+          - button "📊 Hasabat" [ref=f11e2016] [cursor=pointer]
+          - button "Gümrük Ewraklary" [ref=f11e2017] [cursor=pointer]
+          - button "Kwota Takibi" [ref=f11e2018] [cursor=pointer]
+          - button "Yurtdışı Sertnamaları" [ref=f11e2019] [cursor=pointer]
+          - button "Datalar" [ref=f11e2020] [cursor=pointer]
+        - button "Filtrler" [ref=f11e2416] [cursor=pointer]
+        - generic [ref=f11e2421]:
+          - generic [ref=f11e2422]: El bilen Tır Aç
+          - button "Doly Tır Aç" [ref=f11e2423] [cursor=pointer]
+        - generic [ref=f11e2425]:
+          - generic [ref=f11e2426]:
+            - generic [ref=f11e2427]:
+              - generic [ref=f11e2428]: Tırlar
+              - generic [ref=f11e2429]: 8 sany
+            - button "Grup goş" [ref=f11e2430] [cursor=pointer]
+          - generic [ref=f11e2432]:
+            - table [ref=f11e2434]:
+              - rowgroup [ref=f11e2445]:
+                - row [ref=f11e2446]:
+                  - columnheader "Kategoriýa / Açyklama" [ref=f11e2447]
+                  - columnheader "23JL001/26 Dusak A + Dusak B Açyldy 📦 Gaplama ✂ Ayır Tiri poz" [ref=f11e2448]:
+                    - generic [ref=f11e2449]: 23JL001/26
+                    - generic [ref=f11e2450]: Dusak A + Dusak B
+                    - generic [ref=f11e2451]: Açyldy
+                    - generic [ref=f11e2453]: 📦 Gaplama
+                    - button "✂ Ayır" [ref=f11e2454] [cursor=pointer]
+                    - button "Tiri poz" [ref=f11e2455] [cursor=pointer]
+                  - columnheader "23JL002/26 Dusak B + Dusak C Açyldy 📦 Gaplama ✂ Ayır Tiri poz" [ref=f11e2459]:
+                    - generic [ref=f11e2460]: 23JL002/26
+                    - generic [ref=f11e2461]: Dusak B + Dusak C
+                    - generic [ref=f11e2462]: Açyldy
+                    - generic [ref=f11e2464]: 📦 Gaplama
+                    - button "✂ Ayır" [ref=f11e2465] [cursor=pointer]
+                    - button "Tiri poz" [ref=f11e2466] [cursor=pointer]
+                  - columnheader "23JL003/26 Dusak C + Kaka D Açyldy 📦 Gaplama ✂ Ayır Tiri poz" [ref=f11e2470]:
+                    - generic [ref=f11e2471]: 23JL003/26
+                    - generic [ref=f11e2472]: Dusak C + Kaka D
+                    - generic [ref=f11e2473]: Açyldy
+                    - generic [ref=f11e2475]: 📦 Gaplama
+                    - button "✂ Ayır" [ref=f11e2476] [cursor=pointer]
+                    - button "Tiri poz" [ref=f11e2477] [cursor=pointer]
+                  - columnheader "— Açyldy 📋 Export Bölüm ↗ Aktar Tiri poz" [ref=f11e2481]:
+                    - generic [ref=f11e2482]: —
+                    - generic [ref=f11e2483]: Açyldy
+                    - generic [ref=f11e2485]: 📋 Export Bölüm
+                    - button "↗ Aktar" [ref=f11e2486] [cursor=pointer]
+                    - button "Tiri poz" [ref=f11e2487] [cursor=pointer]
+                  - columnheader "— Açyldy 📋 Export Bölüm ↗ Aktar Tiri poz" [ref=f11e2491]:
+                    - generic [ref=f11e2492]: —
+                    - generic [ref=f11e2493]: Açyldy
+                    - generic [ref=f11e2495]: 📋 Export Bölüm
+                    - button "↗ Aktar" [ref=f11e2496] [cursor=pointer]
+                    - button "Tiri poz" [ref=f11e2497] [cursor=pointer]
+                  - columnheader "— Açyldy 📋 Export Bölüm ↗ Aktar Tiri poz" [ref=f11e2501]:
+                    - generic [ref=f11e2502]: —
+                    - generic [ref=f11e2503]: Açyldy
+                    - generic [ref=f11e2505]: 📋 Export Bölüm
+                    - button "↗ Aktar" [ref=f11e2506] [cursor=pointer]
+                    - button "Tiri poz" [ref=f11e2507] [cursor=pointer]
+                  - columnheader "— Açyldy 📋 Export Bölüm ↗ Aktar Tiri poz" [ref=f11e2511]:
+                    - generic [ref=f11e2512]: —
+                    - generic [ref=f11e2513]: Açyldy
+                    - generic [ref=f11e2515]: 📋 Export Bölüm
+                    - button "↗ Aktar" [ref=f11e2516] [cursor=pointer]
+                    - button "Tiri poz" [ref=f11e2517] [cursor=pointer]
+                  - columnheader "— Açyldy 📋 Export Bölüm ↗ Aktar Tiri poz" [ref=f11e2521]:
+                    - generic [ref=f11e2522]: —
+                    - generic [ref=f11e2523]: Açyldy
+                    - generic [ref=f11e2525]: 📋 Export Bölüm
+                    - button "↗ Aktar" [ref=f11e2526] [cursor=pointer]
+                    - button "Tiri poz" [ref=f11e2527] [cursor=pointer]
+              - rowgroup [ref=f11e2531]:
+                - row [ref=f11e2532]:
+                  - cell "📋 Genel Bilgiler" [ref=f11e2533]
+                  - cell [ref=f11e2534]
+                  - cell [ref=f11e2535]
+                  - cell [ref=f11e2536]
+                  - cell [ref=f11e2537]
+                  - cell [ref=f11e2538]
+                  - cell [ref=f11e2539]
+                  - cell [ref=f11e2540]
+                  - cell [ref=f11e2541]
+                - row [ref=f11e2542]:
+                  - cell "⚡Kg / Açylan wagty" [ref=f11e2543]
+                  - cell "20.000 kg 23.07.2026 09:36" [ref=f11e2544]:
+                    - generic [ref=f11e2545]: 20.000 kg
+                    - generic [ref=f11e2546]: 23.07.2026 09:36
+                  - cell "20.000 kg 23.07.2026 09:36" [ref=f11e2547]:
+                    - generic [ref=f11e2548]: 20.000 kg
+                    - generic [ref=f11e2549]: 23.07.2026 09:36
+                  - cell "20.000 kg 23.07.2026 09:36" [ref=f11e2550]:
+                    - generic [ref=f11e2551]: 20.000 kg
+                    - generic [ref=f11e2552]: 23.07.2026 09:36
+                  - cell "20.000 kg 23.07.2026 09:37" [ref=f11e2553]:
+                    - generic [ref=f11e2554]: 20.000 kg
+                    - generic [ref=f11e2555]: 23.07.2026 09:37
+                  - cell "20.000 kg 23.07.2026 09:37" [ref=f11e2556]:
+                    - generic [ref=f11e2557]: 20.000 kg
+                    - generic [ref=f11e2558]: 23.07.2026 09:37
+                  - cell "20.000 kg 23.07.2026 09:37" [ref=f11e2559]:
+                    - generic [ref=f11e2560]: 20.000 kg
+                    - generic [ref=f11e2561]: 23.07.2026 09:37
+                  - cell "20.000 kg 23.07.2026 09:37" [ref=f11e2562]:
+                    - generic [ref=f11e2563]: 20.000 kg
+                    - generic [ref=f11e2564]: 23.07.2026 09:37
+                  - cell "20.000 kg 23.07.2026 09:41" [ref=f11e2565]:
+                    - generic [ref=f11e2566]: 20.000 kg
+                    - generic [ref=f11e2567]: 23.07.2026 09:41
+                - row [ref=f11e2568]:
+                  - cell "🏗Ýüklenjek ýeri" [ref=f11e2569]
+                  - cell "AB" [ref=f11e2570]
+                  - cell "BC" [ref=f11e2571]
+                  - cell "C/D" [ref=f11e2572]
+                  - cell [ref=f11e2573]
+                  - cell [ref=f11e2574]
+                  - cell [ref=f11e2575]
+                  - cell [ref=f11e2576]
+                  - cell [ref=f11e2577]
+                - row [ref=f11e2578]:
+                  - cell "🌿Ýygym ýagdaýy" [ref=f11e2579]
+                  - cell "—" [ref=f11e2580]:
+                    - combobox [ref=f11e2581]:
+                      - option "—" [selected]
+                      - option "Dowam edyar"
+                      - option "Tayyar"
+                      - option "Ok"
+                  - cell "—" [ref=f11e2582]:
+                    - combobox [ref=f11e2583]:
+                      - option "—" [selected]
+                      - option "Dowam edyar"
+                      - option "Tayyar"
+                      - option "Ok"
+                  - cell "—" [ref=f11e2584]:
+                    - combobox [ref=f11e2585]:
+                      - option "—" [selected]
+                      - option "Dowam edyar"
+                      - option "Tayyar"
+                      - option "Ok"
+                  - cell [ref=f11e2586]
+                  - cell [ref=f11e2587]
+                  - cell [ref=f11e2588]
+                  - cell [ref=f11e2589]
+                  - cell [ref=f11e2590]
+                - row [ref=f11e2591]:
+                  - cell "🏷 Export Kody" [ref=f11e2592]
+                  - cell [ref=f11e2593]:
+                    - textbox "—" [ref=f11e2594]: 23JL001/26
+                  - cell [ref=f11e2595]:
+                    - textbox "—" [ref=f11e2596]: 23JL002/26
+                  - cell [ref=f11e2597]:
+                    - textbox "—" [ref=f11e2598]: 23JL003/26
+                  - cell [ref=f11e2599]:
+                    - textbox "—" [ref=f11e2600]
+                  - cell [ref=f11e2601]:
+                    - textbox "—" [ref=f11e2602]
+                  - cell [ref=f11e2603]:
+                    - textbox "—" [ref=f11e2604]
+                  - cell [ref=f11e2605]:
+                    - textbox "—" [ref=f11e2606]
+                  - cell [ref=f11e2607]:
+                    - textbox "—" [ref=f11e2608]
+                - row [ref=f11e2609]:
+                  - cell "📦 Ýük & Gümrük Maglumatlary" [ref=f11e2610]
+                  - cell [ref=f11e2611]
+                  - cell [ref=f11e2612]
+                  - cell [ref=f11e2613]
+                  - cell [ref=f11e2614]
+                  - cell [ref=f11e2615]
+                  - cell [ref=f11e2616]
+                  - cell [ref=f11e2617]
+                  - cell [ref=f11e2618]
+                - row [ref=f11e2619]:
+                  - cell [ref=f11e2620]:
+                    - text: 🏭Eksport eden Firmalar
+                    - button "▼ Brutto/Kap" [ref=f11e2621] [cursor=pointer]
+                  - cell "Yigit 18,000 kg ✏️ düzenle" [ref=f11e2622]:
+                    - generic [ref=f11e2624]:
+                      - 'generic "Yigit • Netto: 18000 kg • Brutto: 18100 kg • Kap: 3500" [ref=f11e2626]':
+                        - generic [ref=f11e2627]: Yigit
+                        - generic [ref=f11e2628]: 18,000 kg
+                      - button "✏️ düzenle" [ref=f11e2629] [cursor=pointer]
+                  - cell [ref=f11e2630]:
+                    - button "+ Firma goş" [ref=f11e2632] [cursor=pointer]
+                  - cell [ref=f11e2633]:
+                    - button "+ Firma goş" [ref=f11e2635] [cursor=pointer]
+                  - cell "Hemsaya 18,000 kg ✏️ düzenle" [ref=f11e2636]:
+                    - generic [ref=f11e2638]:
+                      - 'generic "Hemsaya • Netto: 18000 kg • Brutto: 18200 kg • Kap: 3400" [ref=f11e2640]':
+                        - generic [ref=f11e2641]: Hemsaya
+                        - generic [ref=f11e2642]: 18,000 kg
+                      - button "✏️ düzenle" [ref=f11e2643] [cursor=pointer]
+                  - cell "Yigit 17,000 kg ✏️ düzenle" [ref=f11e2644]:
+                    - generic [ref=f11e2646]:
+                      - 'generic "Yigit • Netto: 17000 kg • Brutto: 17200 kg • Kap: 3333" [ref=f11e2648]':
+                        - generic [ref=f11e2649]: Yigit
+                        - generic [ref=f11e2650]: 17,000 kg
+                      - button "✏️ düzenle" [ref=f11e2651] [cursor=pointer]
+                  - cell [ref=f11e2652]:
+                    - button "+ Firma goş" [ref=f11e2654] [cursor=pointer]
+                  - cell [ref=f11e2655]:
+                    - button "+ Firma goş" [ref=f11e2657] [cursor=pointer]
+                  - cell [ref=f11e2658]:
+                    - button "+ Firma goş" [ref=f11e2660] [cursor=pointer]
+                - row [ref=f11e2661]:
+                  - cell "📄Resminamalar▾" [ref=f11e2662]
+                  - cell "—" [ref=f11e2663]:
+                    - combobox [ref=f11e2664]:
+                      - option "—" [selected]
+                      - option "Dowam edyar"
+                      - option "Tayyar"
+                  - cell "—" [ref=f11e2665]:
+                    - combobox [ref=f11e2666]:
+                      - option "—" [selected]
+                      - option "Dowam edyar"
+                      - option "Tayyar"
+                  - cell "—" [ref=f11e2667]:
+                    - combobox [ref=f11e2668]:
+                      - option "—" [selected]
+                      - option "Dowam edyar"
+                      - option "Tayyar"
+                  - cell "Dowam edyar" [ref=f11e2669]:
+                    - combobox [ref=f11e2670]:
+                      - option "—"
+                      - option "Dowam edyar" [selected]
+                      - option "Tayyar"
+                  - cell "Dowam edyar" [ref=f11e2671]:
+                    - combobox [ref=f11e2672]:
+                      - option "—"
+                      - option "Dowam edyar" [selected]
+                      - option "Tayyar"
+                  - cell "—" [ref=f11e2673]:
+                    - combobox [ref=f11e2674]:
+                      - option "—" [selected]
+                      - option "Dowam edyar"
+                      - option "Tayyar"
+                  - cell "—" [ref=f11e2675]:
+                    - combobox [ref=f11e2676]:
+                      - option "—" [selected]
+                      - option "Dowam edyar"
+                      - option "Tayyar"
+                  - cell "Dowam edyar" [ref=f11e2677]:
+                    - combobox [ref=f11e2678]:
+                      - option "—"
+                      - option "Dowam edyar" [selected]
+                      - option "Tayyar"
+                - row [ref=f11e2679]:
+                  - cell "🌍Eksport ýurdy▾" [ref=f11e2680]
+                  - cell "—" [ref=f11e2681]:
+                    - combobox [ref=f11e2682]:
+                      - option "—" [selected]
+                      - option "Gazagystan"
+                      - option "Eyran"
+                      - option "Rossiya"
+                      - option "Gyrgysyztan"
+                  - cell "—" [ref=f11e2683]:
+                    - combobox [ref=f11e2684]:
+                      - option "—" [selected]
+                      - option "Gazagystan"
+                      - option "Eyran"
+                      - option "Rossiya"
+                      - option "Gyrgysyztan"
+                  - cell "—" [ref=f11e2685]:
+                    - combobox [ref=f11e2686]:
+                      - option "—" [selected]
+                      - option "Gazagystan"
+                      - option "Eyran"
+                      - option "Rossiya"
+                      - option "Gyrgysyztan"
+                  - cell "—" [ref=f11e2687]:
+                    - combobox [ref=f11e2688]:
+                      - option "—" [selected]
+                      - option "Gazagystan"
+                      - option "Eyran"
+                      - option "Rossiya"
+                      - option "Gyrgysyztan"
+                  - cell "—" [ref=f11e2689]:
+                    - combobox [ref=f11e2690]:
+                      - option "—" [selected]
+                      - option "Gazagystan"
+                      - option "Eyran"
+                      - option "Rossiya"
+                      - option "Gyrgysyztan"
+                  - cell "—" [ref=f11e2691]:
+                    - combobox [ref=f11e2692]:
+                      - option "—" [selected]
+                      - option "Gazagystan"
+                      - option "Eyran"
+                      - option "Rossiya"
+                      - option "Gyrgysyztan"
+                  - cell "—" [ref=f11e2693]:
+                    - combobox [ref=f11e2694]:
+                      - option "—" [selected]
+                      - option "Gazagystan"
+                      - option "Eyran"
+                      - option "Rossiya"
+                      - option "Gyrgysyztan"
+                  - cell "Gazagystan" [ref=f11e2695]:
+                    - combobox [ref=f11e2696]:
+                      - option "—"
+                      - option "Gazagystan" [selected]
+                      - option "Eyran"
+                      - option "Rossiya"
+                      - option "Gyrgysyztan"
+                - row [ref=f11e2697]:
+                  - cell "👤Müşderi ady▾" [ref=f11e2698]
+                  - cell "—" [ref=f11e2699]:
+                    - combobox [ref=f11e2700]:
+                      - option "—" [selected]
+                      - option "Begjan"
+                      - option "Berik"
+                      - option "Eldar"
+                  - cell "—" [ref=f11e2701]:
+                    - combobox [ref=f11e2702]:
+                      - option "—" [selected]
+                      - option "Begjan"
+                      - option "Berik"
+                      - option "Eldar"
+                  - cell "—" [ref=f11e2703]:
+                    - combobox [ref=f11e2704]:
+                      - option "—" [selected]
+                      - option "Begjan"
+                      - option "Berik"
+                      - option "Eldar"
+                  - cell "—" [ref=f11e2705]:
+                    - combobox [ref=f11e2706]:
+                      - option "—" [selected]
+                      - option "Begjan"
+                      - option "Berik"
+                      - option "Eldar"
+                  - cell "—" [ref=f11e2707]:
+                    - combobox [ref=f11e2708]:
+                      - option "—" [selected]
+                      - option "Begjan"
+                      - option "Berik"
+                      - option "Eldar"
+                  - cell "—" [ref=f11e2709]:
+                    - combobox [ref=f11e2710]:
+                      - option "—" [selected]
+                      - option "Begjan"
+                      - option "Berik"
+                      - option "Eldar"
+                  - cell "—" [ref=f11e2711]:
+                    - combobox [ref=f11e2712]:
+                      - option "—" [selected]
+                      - option "Begjan"
+                      - option "Berik"
+                      - option "Eldar"
+                  - cell "Begjan" [ref=f11e2713]:
+                    - combobox [ref=f11e2714]:
+                      - option "—"
+                      - option "Begjan" [selected]
+                      - option "Berik"
+                      - option "Eldar"
+                - row [ref=f11e2715]:
+                  - cell "📞Müşderi tel.▾" [ref=f11e2716]
+                  - cell "—" [ref=f11e2717]:
+                    - combobox [ref=f11e2718]:
+                      - option "—" [selected]
+                      - option "+99363719364"
+                  - cell "—" [ref=f11e2719]:
+                    - combobox [ref=f11e2720]:
+                      - option "—" [selected]
+                      - option "+99363719364"
+                  - cell "—" [ref=f11e2721]:
+                    - combobox [ref=f11e2722]:
+                      - option "—" [selected]
+                      - option "+99363719364"
+                  - cell "—" [ref=f11e2723]:
+                    - combobox [ref=f11e2724]:
+                      - option "—" [selected]
+                      - option "+99363719364"
+                  - cell "—" [ref=f11e2725]:
+                    - combobox [ref=f11e2726]:
+                      - option "—" [selected]
+                      - option "+99363719364"
+                  - cell "—" [ref=f11e2727]:
+                    - combobox [ref=f11e2728]:
+                      - option "—" [selected]
+                      - option "+99363719364"
+                  - cell "—" [ref=f11e2729]:
+                    - combobox [ref=f11e2730]:
+                      - option "—" [selected]
+                      - option "+99363719364"
+                  - cell "+99363719364" [ref=f11e2731]:
+                    - combobox [ref=f11e2732]:
+                      - option "—"
+                      - option "+99363719364" [selected]
+                - row [ref=f11e2733]:
+                  - cell "🏙Şäheri▾" [ref=f11e2734]
+                  - cell "—" [ref=f11e2735]:
+                    - combobox [ref=f11e2736]:
+                      - option "—" [selected]
+                      - option "Astana"
+                      - option "Almata"
+                      - option "Moskwa"
+                  - cell "—" [ref=f11e2737]:
+                    - combobox [ref=f11e2738]:
+                      - option "—" [selected]
+                      - option "Astana"
+                      - option "Almata"
+                      - option "Moskwa"
+                  - cell "—" [ref=f11e2739]:
+                    - combobox [ref=f11e2740]:
+                      - option "—" [selected]
+                      - option "Astana"
+                      - option "Almata"
+                      - option "Moskwa"
+                  - cell "—" [ref=f11e2741]:
+                    - combobox [ref=f11e2742]:
+                      - option "—" [selected]
+                      - option "Astana"
+                      - option "Almata"
+                      - option "Moskwa"
+                  - cell "—" [ref=f11e2743]:
+                    - combobox [ref=f11e2744]:
+                      - option "—" [selected]
+                      - option "Astana"
+                      - option "Almata"
+                      - option "Moskwa"
+                  - cell "—" [ref=f11e2745]:
+                    - combobox [ref=f11e2746]:
+                      - option "—" [selected]
+                      - option "Astana"
+                      - option "Almata"
+                      - option "Moskwa"
+                  - cell "—" [ref=f11e2747]:
+                    - combobox [ref=f11e2748]:
+                      - option "—" [selected]
+                      - option "Astana"
+                      - option "Almata"
+                      - option "Moskwa"
+                  - cell "Astana" [ref=f11e2749]:
+                    - combobox [ref=f11e2750]:
+                      - option "—"
+                      - option "Astana" [selected]
+                      - option "Almata"
+                      - option "Moskwa"
+                - row [ref=f11e2751]:
+                  - cell "🏢Import Firma▾" [ref=f11e2752]
+                  - cell "—" [ref=f11e2753]:
+                    - combobox [ref=f11e2754]:
+                      - option "—" [selected]
+                      - option "Aranşy - KZ"
+                      - option "Hususy telekeçi Tursynbaýew"
+                      - option "Nur-Alem"
+                      - option "TURKMENFRUKT"
+                      - option "TransAsia Trade"
+                      - option "Winta Plus"
+                      - option "ŞAHFRUKT"
+                  - cell "—" [ref=f11e2755]:
+                    - combobox [ref=f11e2756]:
+                      - option "—" [selected]
+                      - option "Aranşy - KZ"
+                      - option "Hususy telekeçi Tursynbaýew"
+                      - option "Nur-Alem"
+                      - option "TURKMENFRUKT"
+                      - option "TransAsia Trade"
+                      - option "Winta Plus"
+                      - option "ŞAHFRUKT"
+                  - cell "—" [ref=f11e2757]:
+                    - combobox [ref=f11e2758]:
+                      - option "—" [selected]
+                      - option "Aranşy - KZ"
+                      - option "Hususy telekeçi Tursynbaýew"
+                      - option "Nur-Alem"
+                      - option "TURKMENFRUKT"
+                      - option "TransAsia Trade"
+                      - option "Winta Plus"
+                      - option "ŞAHFRUKT"
+                  - cell "—" [ref=f11e2759]:
+                    - combobox [ref=f11e2760]:
+                      - option "—" [selected]
+                      - option "Aranşy - KZ"
+                      - option "Hususy telekeçi Tursynbaýew"
+                      - option "Nur-Alem"
+                      - option "TURKMENFRUKT"
+                      - option "TransAsia Trade"
+                      - option "Winta Plus"
+                      - option "ŞAHFRUKT"
+                  - cell "Aranşy - KZ" [ref=f11e2761]:
+                    - combobox [ref=f11e2762]:
+                      - option "—"
+                      - option "Aranşy - KZ" [selected]
+                      - option "Hususy telekeçi Tursynbaýew"
+                      - option "Nur-Alem"
+                      - option "TURKMENFRUKT"
+                      - option "TransAsia Trade"
+                      - option "Winta Plus"
+                      - option "ŞAHFRUKT"
+                  - cell "—" [ref=f11e2763]:
+                    - combobox [ref=f11e2764]:
+                      - option "—" [selected]
+                      - option "Aranşy - KZ"
+                      - option "Hususy telekeçi Tursynbaýew"
+                      - option "Nur-Alem"
+                      - option "TURKMENFRUKT"
+                      - option "TransAsia Trade"
+                      - option "Winta Plus"
+                      - option "ŞAHFRUKT"
+                  - cell "—" [ref=f11e2765]:
+                    - combobox [ref=f11e2766]:
+                      - option "—" [selected]
+                      - option "Aranşy - KZ"
+                      - option "Hususy telekeçi Tursynbaýew"
+                      - option "Nur-Alem"
+                      - option "TURKMENFRUKT"
+                      - option "TransAsia Trade"
+                      - option "Winta Plus"
+                      - option "ŞAHFRUKT"
+                  - cell "Aranşy - KZ" [ref=f11e2767]:
+                    - combobox [ref=f11e2768]:
+                      - option "—"
+                      - option "Aranşy - KZ" [selected]
+                      - option "Hususy telekeçi Tursynbaýew"
+                      - option "Nur-Alem"
+                      - option "TURKMENFRUKT"
+                      - option "TransAsia Trade"
+                      - option "Winta Plus"
+                      - option "ŞAHFRUKT"
+                - row [ref=f11e2769]:
+                  - cell [ref=f11e2770]:
+                    - text: 📜Sertnama No
+                    - button "▼ 🖨️" [ref=f11e2771] [cursor=pointer]
+                  - cell [ref=f11e2772]:
+                    - textbox "YGT001/26" [ref=f11e2774]: YGT006/26
+                  - cell [ref=f11e2775]:
+                    - textbox "YGT001/26" [ref=f11e2777]
+                  - cell [ref=f11e2778]:
+                    - textbox "YGT001/26" [ref=f11e2780]
+                  - cell [ref=f11e2781]:
+                    - textbox "YGT001/26" [ref=f11e2783]
+                  - cell [ref=f11e2784]:
+                    - textbox "YGT001/26" [ref=f11e2786]: YGT006/26
+                  - cell [ref=f11e2787]:
+                    - textbox "YGT001/26" [ref=f11e2789]
+                  - cell [ref=f11e2790]:
+                    - textbox "YGT001/26" [ref=f11e2792]
+                  - cell [ref=f11e2793]:
+                    - textbox "YGT001/26" [ref=f11e2795]
+                - row [ref=f11e2796]:
+                  - cell "🧾Invoice Num" [ref=f11e2797]
+                  - cell "INV-001/26" [ref=f11e2798]
+                  - cell [ref=f11e2801]:
+                    - textbox "INV-001" [ref=f11e2803]
+                  - cell [ref=f11e2804]:
+                    - textbox "INV-001" [ref=f11e2806]
+                  - cell "INV-002/26" [ref=f11e2807]
+                  - cell "INV-002/26" [ref=f11e2810]
+                  - cell [ref=f11e2813]:
+                    - textbox "INV-001" [ref=f11e2815]
+                  - cell [ref=f11e2816]:
+                    - textbox "INV-001" [ref=f11e2818]
+                  - cell [ref=f11e2819]:
+                    - textbox "INV-001" [ref=f11e2821]
+            - table [ref=f11e2823]:
+              - rowgroup [ref=f11e2834]:
+                - row [ref=f11e2835]:
+                  - cell "🚛 Transport Maglumatlary" [ref=f11e2836]
+                  - cell [ref=f11e2837]
+                  - cell [ref=f11e2838]
+                  - cell [ref=f11e2839]
+                  - cell [ref=f11e2840]
+                  - cell [ref=f11e2841]
+                  - cell [ref=f11e2842]
+                  - cell [ref=f11e2843]
+                  - cell [ref=f11e2844]
+                - row [ref=f11e2845]:
+                  - cell "🧑‍✈️Sürüji F.A." [ref=f11e2846]
+                  - cell [ref=f11e2847]:
+                    - textbox [ref=f11e2848]
+                  - cell [ref=f11e2849]:
+                    - textbox [ref=f11e2850]
+                  - cell [ref=f11e2851]:
+                    - textbox [ref=f11e2852]
+                  - cell [ref=f11e2853]:
+                    - textbox [ref=f11e2854]
+                  - cell [ref=f11e2855]:
+                    - textbox [ref=f11e2856]
+                  - cell [ref=f11e2857]:
+                    - textbox [ref=f11e2858]
+                  - cell [ref=f11e2859]:
+                    - textbox [ref=f11e2860]
+                  - cell [ref=f11e2861]:
+                    - textbox [ref=f11e2862]
+                - row [ref=f11e2863]:
+                  - cell "📱Sürüji tel." [ref=f11e2864]
+                  - cell [ref=f11e2865]:
+                    - textbox [ref=f11e2866]
+                  - cell [ref=f11e2867]:
+                    - textbox [ref=f11e2868]
+                  - cell [ref=f11e2869]:
+                    - textbox [ref=f11e2870]
+                  - cell [ref=f11e2871]:
+                    - textbox [ref=f11e2872]
+                  - cell [ref=f11e2873]:
+                    - textbox [ref=f11e2874]
+                  - cell [ref=f11e2875]:
+                    - textbox [ref=f11e2876]
+                  - cell [ref=f11e2877]:
+                    - textbox [ref=f11e2878]
+                  - cell [ref=f11e2879]:
+                    - textbox [ref=f11e2880]
+                - row [ref=f11e2881]:
+                  - cell "🚘Plaka▾" [ref=f11e2882]
+                  - cell "—" [ref=f11e2883]:
+                    - combobox [ref=f11e2884]:
+                      - option "—" [selected]
+                      - option "5241/5631"
+                      - option "6235/4587"
+                      - option "6255/6991"
+                  - cell "—" [ref=f11e2885]:
+                    - combobox [ref=f11e2886]:
+                      - option "—" [selected]
+                      - option "5241/5631"
+                      - option "6235/4587"
+                      - option "6255/6991"
+                  - cell "—" [ref=f11e2887]:
+                    - combobox [ref=f11e2888]:
+                      - option "—" [selected]
+                      - option "5241/5631"
+                      - option "6235/4587"
+                      - option "6255/6991"
+                  - cell "—" [ref=f11e2889]:
+                    - combobox [ref=f11e2890]:
+                      - option "—" [selected]
+                      - option "5241/5631"
+                      - option "6235/4587"
+                      - option "6255/6991"
+                  - cell "—" [ref=f11e2891]:
+                    - combobox [ref=f11e2892]:
+                      - option "—" [selected]
+                      - option "5241/5631"
+                      - option "6235/4587"
+                      - option "6255/6991"
+                  - cell "—" [ref=f11e2893]:
+                    - combobox [ref=f11e2894]:
+                      - option "—" [selected]
+                      - option "5241/5631"
+                      - option "6235/4587"
+                      - option "6255/6991"
+                  - cell "—" [ref=f11e2895]:
+                    - combobox [ref=f11e2896]:
+                      - option "—" [selected]
+                      - option "5241/5631"
+                      - option "6235/4587"
+                      - option "6255/6991"
+                  - cell "—" [ref=f11e2897]:
+                    - combobox [ref=f11e2898]:
+                      - option "—" [selected]
+                      - option "5241/5631"
+                      - option "6235/4587"
+                      - option "6255/6991"
+                - row [ref=f11e2899]:
+                  - cell "👷Transport jogapkar" [ref=f11e2900]
+                  - cell [ref=f11e2901]:
+                    - textbox [ref=f11e2902]
+                  - cell [ref=f11e2903]:
+                    - textbox [ref=f11e2904]
+                  - cell [ref=f11e2905]:
+                    - textbox [ref=f11e2906]
+                  - cell [ref=f11e2907]:
+                    - textbox [ref=f11e2908]
+                  - cell [ref=f11e2909]:
+                    - textbox [ref=f11e2910]
+                  - cell [ref=f11e2911]:
+                    - textbox [ref=f11e2912]
+                  - cell [ref=f11e2913]:
+                    - textbox [ref=f11e2914]
+                  - cell [ref=f11e2915]:
+                    - textbox [ref=f11e2916]
+                - row [ref=f11e2917]:
+                  - cell "⏱ Ýükleme Zamanlary" [ref=f11e2918]
+                  - cell [ref=f11e2919]
+                  - cell [ref=f11e2920]
+                  - cell [ref=f11e2921]
+                  - cell [ref=f11e2922]
+                  - cell [ref=f11e2923]
+                  - cell [ref=f11e2924]
+                  - cell [ref=f11e2925]
+                  - cell [ref=f11e2926]
+                - row [ref=f11e2927]:
+                  - cell "📜Gümrük edilen wagty" [ref=f11e2928]
+                  - cell [ref=f11e2929]:
+                    - textbox [ref=f11e2930]
+                  - cell [ref=f11e2931]:
+                    - textbox [ref=f11e2932]
+                  - cell [ref=f11e2933]:
+                    - textbox [ref=f11e2934]
+                  - cell [ref=f11e2935]:
+                    - textbox [ref=f11e2936]
+                  - cell [ref=f11e2937]:
+                    - textbox [ref=f11e2938]
+                  - cell [ref=f11e2939]:
+                    - textbox [ref=f11e2940]
+                  - cell [ref=f11e2941]:
+                    - textbox [ref=f11e2942]
+                  - cell [ref=f11e2943]:
+                    - textbox [ref=f11e2944]
+                - row [ref=f11e2945]:
+                  - cell "▶️Ýüklemäniň Başlan wagty" [ref=f11e2946]
+                  - cell [ref=f11e2947]:
+                    - textbox [ref=f11e2948]
+                  - cell [ref=f11e2949]:
+                    - textbox [ref=f11e2950]
+                  - cell [ref=f11e2951]:
+                    - textbox [ref=f11e2952]
+                  - cell [ref=f11e2953]:
+                    - textbox [ref=f11e2954]
+                  - cell [ref=f11e2955]:
+                    - textbox [ref=f11e2956]
+                  - cell [ref=f11e2957]:
+                    - textbox [ref=f11e2958]
+                  - cell [ref=f11e2959]:
+                    - textbox [ref=f11e2960]
+                  - cell [ref=f11e2961]:
+                    - textbox [ref=f11e2962]
+                - row [ref=f11e2963]:
+                  - cell "⏹Ýüklemäniň gutaran wagty" [ref=f11e2964]
+                  - cell [ref=f11e2965]:
+                    - textbox [ref=f11e2966]
+                  - cell [ref=f11e2967]:
+                    - textbox [ref=f11e2968]
+                  - cell [ref=f11e2969]:
+                    - textbox [ref=f11e2970]
+                  - cell [ref=f11e2971]:
+                    - textbox [ref=f11e2972]
+                  - cell [ref=f11e2973]:
+                    - textbox [ref=f11e2974]
+                  - cell [ref=f11e2975]:
+                    - textbox [ref=f11e2976]
+                  - cell [ref=f11e2977]:
+                    - textbox [ref=f11e2978]
+                  - cell [ref=f11e2979]:
+                    - textbox [ref=f11e2980]
+                - row [ref=f11e2981]:
+                  - cell "🏭Ýyladyşhanadan çykan wagty" [ref=f11e2982]
+                  - cell [ref=f11e2983]:
+                    - textbox [ref=f11e2984]
+                  - cell [ref=f11e2985]:
+                    - textbox [ref=f11e2986]
+                  - cell [ref=f11e2987]:
+                    - textbox [ref=f11e2988]
+                  - cell [ref=f11e2989]:
+                    - textbox [ref=f11e2990]
+                  - cell [ref=f11e2991]:
+                    - textbox [ref=f11e2992]
+                  - cell [ref=f11e2993]:
+                    - textbox [ref=f11e2994]
+                  - cell [ref=f11e2995]:
+                    - textbox [ref=f11e2996]
+                  - cell [ref=f11e2997]:
+                    - textbox [ref=f11e2998]
+                - row [ref=f11e2999]:
+                  - cell "🗓Takmynan ýol güni" [ref=f11e3000]
+                  - cell [ref=f11e3001]:
+                    - textbox [ref=f11e3002]
+                  - cell [ref=f11e3003]:
+                    - textbox [ref=f11e3004]
+                  - cell [ref=f11e3005]:
+                    - textbox [ref=f11e3006]
+                  - cell [ref=f11e3007]:
+                    - textbox [ref=f11e3008]
+                  - cell [ref=f11e3009]:
+                    - textbox [ref=f11e3010]
+                  - cell [ref=f11e3011]:
+                    - textbox [ref=f11e3012]
+                  - cell [ref=f11e3013]:
+                    - textbox [ref=f11e3014]
+                  - cell [ref=f11e3015]:
+                    - textbox [ref=f11e3016]
+                - row [ref=f11e3017]:
+                  - cell "🛣 Ýolda / Serhet" [ref=f11e3018]
+                  - cell [ref=f11e3019]
+                  - cell [ref=f11e3020]
+                  - cell [ref=f11e3021]
+                  - cell [ref=f11e3022]
+                  - cell [ref=f11e3023]
+                  - cell [ref=f11e3024]
+                  - cell [ref=f11e3025]
+                  - cell [ref=f11e3026]
+                - row [ref=f11e3027]:
+                  - cell "📍TM çykan nokady▾" [ref=f11e3028]
+                  - cell "—" [ref=f11e3029]:
+                    - combobox [ref=f11e3030]:
+                      - option "—" [selected]
+                      - option "Farap"
+                      - option "Bektas"
+                      - option "Garabogaz"
+                      - option "Kerki"
+                  - cell "—" [ref=f11e3031]:
+                    - combobox [ref=f11e3032]:
+                      - option "—" [selected]
+                      - option "Farap"
+                      - option "Bektas"
+                      - option "Garabogaz"
+                      - option "Kerki"
+                  - cell "—" [ref=f11e3033]:
+                    - combobox [ref=f11e3034]:
+                      - option "—" [selected]
+                      - option "Farap"
+                      - option "Bektas"
+                      - option "Garabogaz"
+                      - option "Kerki"
+                  - cell "—" [ref=f11e3035]:
+                    - combobox [ref=f11e3036]:
+                      - option "—" [selected]
+                      - option "Farap"
+                      - option "Bektas"
+                      - option "Garabogaz"
+                      - option "Kerki"
+                  - cell "—" [ref=f11e3037]:
+                    - combobox [ref=f11e3038]:
+                      - option "—" [selected]
+                      - option "Farap"
+                      - option "Bektas"
+                      - option "Garabogaz"
+                      - option "Kerki"
+                  - cell "—" [ref=f11e3039]:
+                    - combobox [ref=f11e3040]:
+                      - option "—" [selected]
+                      - option "Farap"
+                      - option "Bektas"
+                      - option "Garabogaz"
+                      - option "Kerki"
+                  - cell "—" [ref=f11e3041]:
+                    - combobox [ref=f11e3042]:
+                      - option "—" [selected]
+                      - option "Farap"
+                      - option "Bektas"
+                      - option "Garabogaz"
+                      - option "Kerki"
+                  - cell "—" [ref=f11e3043]:
+                    - combobox [ref=f11e3044]:
+                      - option "—" [selected]
+                      - option "Farap"
+                      - option "Bektas"
+                      - option "Garabogaz"
+                      - option "Kerki"
+                - row [ref=f11e3045]:
+                  - cell "🕐TM çykan wagty" [ref=f11e3046]
+                  - cell [ref=f11e3047]:
+                    - textbox [ref=f11e3048]
+                  - cell [ref=f11e3049]:
+                    - textbox [ref=f11e3050]
+                  - cell [ref=f11e3051]:
+                    - textbox [ref=f11e3052]
+                  - cell [ref=f11e3053]:
+                    - textbox [ref=f11e3054]
+                  - cell [ref=f11e3055]:
+                    - textbox [ref=f11e3056]
+                  - cell [ref=f11e3057]:
+                    - textbox [ref=f11e3058]
+                  - cell [ref=f11e3059]:
+                    - textbox [ref=f11e3060]
+                  - cell [ref=f11e3061]:
+                    - textbox [ref=f11e3062]
+                - row [ref=f11e3063]:
+                  - cell "🛂Barmaly ýurduna giren" [ref=f11e3064]
+                  - cell [ref=f11e3065]:
+                    - textbox [ref=f11e3066]
+                  - cell [ref=f11e3067]:
+                    - textbox [ref=f11e3068]
+                  - cell [ref=f11e3069]:
+                    - textbox [ref=f11e3070]
+                  - cell [ref=f11e3071]:
+                    - textbox [ref=f11e3072]
+                  - cell [ref=f11e3073]:
+                    - textbox [ref=f11e3074]
+                  - cell [ref=f11e3075]:
+                    - textbox [ref=f11e3076]
+                  - cell [ref=f11e3077]:
+                    - textbox [ref=f11e3078]
+                  - cell [ref=f11e3079]:
+                    - textbox [ref=f11e3080]
+                - row [ref=f11e3081]:
+                  - cell "🔄Peregruz ýagdaýy▾" [ref=f11e3082]
+                  - cell "—" [ref=f11e3083]:
+                    - combobox [ref=f11e3084]:
+                      - option "—" [selected]
+                      - option "Yok"
+                      - option "Hawa"
+                  - cell "—" [ref=f11e3085]:
+                    - combobox [ref=f11e3086]:
+                      - option "—" [selected]
+                      - option "Yok"
+                      - option "Hawa"
+                  - cell "—" [ref=f11e3087]:
+                    - combobox [ref=f11e3088]:
+                      - option "—" [selected]
+                      - option "Yok"
+                      - option "Hawa"
+                  - cell "—" [ref=f11e3089]:
+                    - combobox [ref=f11e3090]:
+                      - option "—" [selected]
+                      - option "Yok"
+                      - option "Hawa"
+                  - cell "—" [ref=f11e3091]:
+                    - combobox [ref=f11e3092]:
+                      - option "—" [selected]
+                      - option "Yok"
+                      - option "Hawa"
+                  - cell "—" [ref=f11e3093]:
+                    - combobox [ref=f11e3094]:
+                      - option "—" [selected]
+                      - option "Yok"
+                      - option "Hawa"
+                  - cell "—" [ref=f11e3095]:
+                    - combobox [ref=f11e3096]:
+                      - option "—" [selected]
+                      - option "Yok"
+                      - option "Hawa"
+                  - cell "—" [ref=f11e3097]:
+                    - combobox [ref=f11e3098]:
+                      - option "—" [selected]
+                      - option "Yok"
+                      - option "Hawa"
+                - row [ref=f11e3099]:
+                  - cell "🕑Peregruz wagty" [ref=f11e3100]
+                  - cell [ref=f11e3101]:
+                    - textbox [ref=f11e3102]
+                  - cell [ref=f11e3103]:
+                    - textbox [ref=f11e3104]
+                  - cell [ref=f11e3105]:
+                    - textbox [ref=f11e3106]
+                  - cell [ref=f11e3107]:
+                    - textbox [ref=f11e3108]
+                  - cell [ref=f11e3109]:
+                    - textbox [ref=f11e3110]
+                  - cell [ref=f11e3111]:
+                    - textbox [ref=f11e3112]
+                  - cell [ref=f11e3113]:
+                    - textbox [ref=f11e3114]
+                  - cell [ref=f11e3115]:
+                    - textbox [ref=f11e3116]
+                - row [ref=f11e3117]:
+                  - cell "📦Barmaly nokada gelen" [ref=f11e3118]
+                  - cell [ref=f11e3119]:
+                    - textbox [ref=f11e3120]
+                  - cell [ref=f11e3121]:
+                    - textbox [ref=f11e3122]
+                  - cell [ref=f11e3123]:
+                    - textbox [ref=f11e3124]
+                  - cell [ref=f11e3125]:
+                    - textbox [ref=f11e3126]
+                  - cell [ref=f11e3127]:
+                    - textbox [ref=f11e3128]
+                  - cell [ref=f11e3129]:
+                    - textbox [ref=f11e3130]
+                  - cell [ref=f11e3131]:
+                    - textbox [ref=f11e3132]
+                  - cell [ref=f11e3133]:
+                    - textbox [ref=f11e3134]
+                - row [ref=f11e3135]:
+                  - cell "📊 Satyş & Hasabat" [ref=f11e3136]
+                  - cell [ref=f11e3137]
+                  - cell [ref=f11e3138]
+                  - cell [ref=f11e3139]
+                  - cell [ref=f11e3140]
+                  - cell [ref=f11e3141]
+                  - cell [ref=f11e3142]
+                  - cell [ref=f11e3143]
+                  - cell [ref=f11e3144]
+                - row [ref=f11e3145]:
+                  - cell "⚖️Arassa agramy (h)" [ref=f11e3146]
+                  - cell [ref=f11e3147]:
+                    - textbox [ref=f11e3148]
+                  - cell [ref=f11e3149]:
+                    - textbox [ref=f11e3150]
+                  - cell [ref=f11e3151]:
+                    - textbox [ref=f11e3152]
+                  - cell [ref=f11e3153]:
+                    - textbox [ref=f11e3154]
+                  - cell [ref=f11e3155]:
+                    - textbox [ref=f11e3156]
+                  - cell [ref=f11e3157]:
+                    - textbox [ref=f11e3158]
+                  - cell [ref=f11e3159]:
+                    - textbox [ref=f11e3160]
+                  - cell [ref=f11e3161]:
+                    - textbox [ref=f11e3162]
+                - row [ref=f11e3163]:
+                  - cell "🍅Pomidor görnüşi▾" [ref=f11e3164]
+                  - cell "—" [ref=f11e3165]:
+                    - combobox [ref=f11e3166]:
+                      - option "—" [selected]
+                      - option "Marvelans"
+                      - option "Wetka"
+                  - cell "—" [ref=f11e3167]:
+                    - combobox [ref=f11e3168]:
+                      - option "—" [selected]
+                      - option "Marvelans"
+                      - option "Wetka"
+                  - cell "—" [ref=f11e3169]:
+                    - combobox [ref=f11e3170]:
+                      - option "—" [selected]
+                      - option "Marvelans"
+                      - option "Wetka"
+                  - cell "—" [ref=f11e3171]:
+                    - combobox [ref=f11e3172]:
+                      - option "—" [selected]
+                      - option "Marvelans"
+                      - option "Wetka"
+                  - cell "—" [ref=f11e3173]:
+                    - combobox [ref=f11e3174]:
+                      - option "—" [selected]
+                      - option "Marvelans"
+                      - option "Wetka"
+                  - cell "—" [ref=f11e3175]:
+                    - combobox [ref=f11e3176]:
+                      - option "—" [selected]
+                      - option "Marvelans"
+                      - option "Wetka"
+                  - cell "—" [ref=f11e3177]:
+                    - combobox [ref=f11e3178]:
+                      - option "—" [selected]
+                      - option "Marvelans"
+                      - option "Wetka"
+                  - cell "—" [ref=f11e3179]:
+                    - combobox [ref=f11e3180]:
+                      - option "—" [selected]
+                      - option "Marvelans"
+                      - option "Wetka"
+                - row [ref=f11e3181]:
+                  - cell "📅Ýygylan senesi" [ref=f11e3182]
+                  - cell [ref=f11e3183]:
+                    - textbox [ref=f11e3184]
+                  - cell [ref=f11e3185]:
+                    - textbox [ref=f11e3186]
+                  - cell [ref=f11e3187]:
+                    - textbox [ref=f11e3188]
+                  - cell [ref=f11e3189]:
+                    - textbox [ref=f11e3190]
+                  - cell [ref=f11e3191]:
+                    - textbox [ref=f11e3192]
+                  - cell [ref=f11e3193]:
+                    - textbox [ref=f11e3194]
+                  - cell [ref=f11e3195]:
+                    - textbox [ref=f11e3196]
+                  - cell [ref=f11e3197]:
+                    - textbox [ref=f11e3198]
+                - row [ref=f11e3199]:
+                  - cell "▶️Satylyp başlan" [ref=f11e3200]
+                  - cell [ref=f11e3201]:
+                    - textbox [ref=f11e3202]
+                  - cell [ref=f11e3203]:
+                    - textbox [ref=f11e3204]
+                  - cell [ref=f11e3205]:
+                    - textbox [ref=f11e3206]
+                  - cell [ref=f11e3207]:
+                    - textbox [ref=f11e3208]
+                  - cell [ref=f11e3209]:
+                    - textbox [ref=f11e3210]
+                  - cell [ref=f11e3211]:
+                    - textbox [ref=f11e3212]
+                  - cell [ref=f11e3213]:
+                    - textbox [ref=f11e3214]
+                  - cell [ref=f11e3215]:
+                    - textbox [ref=f11e3216]
+                - row [ref=f11e3217]:
+                  - cell "⏹Satylyp gutaran" [ref=f11e3218]
+                  - cell [ref=f11e3219]:
+                    - textbox [ref=f11e3220]
+                  - cell [ref=f11e3221]:
+                    - textbox [ref=f11e3222]
+                  - cell [ref=f11e3223]:
+                    - textbox [ref=f11e3224]
+                  - cell [ref=f11e3225]:
+                    - textbox [ref=f11e3226]
+                  - cell [ref=f11e3227]:
+                    - textbox [ref=f11e3228]
+                  - cell [ref=f11e3229]:
+                    - textbox [ref=f11e3230]
+                  - cell [ref=f11e3231]:
+                    - textbox [ref=f11e3232]
+                  - cell [ref=f11e3233]:
+                    - textbox [ref=f11e3234]
+                - row [ref=f11e3235]:
+                  - cell "📋Hasabat gelen" [ref=f11e3236]
+                  - cell [ref=f11e3237]:
+                    - textbox [ref=f11e3238]
+                  - cell [ref=f11e3239]:
+                    - textbox [ref=f11e3240]
+                  - cell [ref=f11e3241]:
+                    - textbox [ref=f11e3242]
+                  - cell [ref=f11e3243]:
+                    - textbox [ref=f11e3244]
+                  - cell [ref=f11e3245]:
+                    - textbox [ref=f11e3246]
+                  - cell [ref=f11e3247]:
+                    - textbox [ref=f11e3248]
+                  - cell [ref=f11e3249]:
+                    - textbox [ref=f11e3250]
+                  - cell [ref=f11e3251]:
+                    - textbox [ref=f11e3252]
+                - row [ref=f11e3253]:
+                  - cell "🏁 Tapgyrlar" [ref=f11e3254]
+                  - cell [ref=f11e3255]
+                  - cell [ref=f11e3256]
+                  - cell [ref=f11e3257]
+                  - cell [ref=f11e3258]
+                  - cell [ref=f11e3259]
+                  - cell [ref=f11e3260]
+                  - cell [ref=f11e3261]
+                  - cell [ref=f11e3262]
+                - row [ref=f11e3263]:
+                  - cell "▶ Ýüklemä Başlandy" [ref=f11e3264]
+                  - cell [ref=f11e3265]:
+                    - button "Okat" [ref=f11e3266] [cursor=pointer]
+                  - cell [ref=f11e3267]:
+                    - button "Okat" [ref=f11e3268] [cursor=pointer]
+                  - cell [ref=f11e3269]:
+                    - button "Okat" [ref=f11e3270] [cursor=pointer]
+                  - cell [ref=f11e3271]:
+                    - button "Okat" [ref=f11e3272] [cursor=pointer]
+                  - cell [ref=f11e3273]:
+                    - button "Okat" [ref=f11e3274] [cursor=pointer]
+                  - cell [ref=f11e3275]:
+                    - button "Okat" [ref=f11e3276] [cursor=pointer]
+                  - cell [ref=f11e3277]:
+                    - button "Okat" [ref=f11e3278] [cursor=pointer]
+                  - cell [ref=f11e3279]:
+                    - button "Okat" [ref=f11e3280] [cursor=pointer]
+                - row [ref=f11e3281]:
+                  - cell "⏹ Ýükleme Gutardy" [ref=f11e3282]
+                  - cell [ref=f11e3283]:
+                    - button "Okat" [ref=f11e3284] [cursor=pointer]
+                  - cell [ref=f11e3285]:
+                    - button "Okat" [ref=f11e3286] [cursor=pointer]
+                  - cell [ref=f11e3287]:
+                    - button "Okat" [ref=f11e3288] [cursor=pointer]
+                  - cell [ref=f11e3289]:
+                    - button "Okat" [ref=f11e3290] [cursor=pointer]
+                  - cell [ref=f11e3291]:
+                    - button "Okat" [ref=f11e3292] [cursor=pointer]
+                  - cell [ref=f11e3293]:
+                    - button "Okat" [ref=f11e3294] [cursor=pointer]
+                  - cell [ref=f11e3295]:
+                    - button "Okat" [ref=f11e3296] [cursor=pointer]
+                  - cell [ref=f11e3297]:
+                    - button "Okat" [ref=f11e3298] [cursor=pointer]
+                - row [ref=f11e3299]:
+                  - cell "🛂 Gümrükden Çykdy" [ref=f11e3300]
+                  - cell [ref=f11e3301]:
+                    - button "Okat" [ref=f11e3302] [cursor=pointer]
+                  - cell [ref=f11e3303]:
+                    - button "Okat" [ref=f11e3304] [cursor=pointer]
+                  - cell [ref=f11e3305]:
+                    - button "Okat" [ref=f11e3306] [cursor=pointer]
+                  - cell [ref=f11e3307]:
+                    - button "Okat" [ref=f11e3308] [cursor=pointer]
+                  - cell [ref=f11e3309]:
+                    - button "Okat" [ref=f11e3310] [cursor=pointer]
+                  - cell [ref=f11e3311]:
+                    - button "Okat" [ref=f11e3312] [cursor=pointer]
+                  - cell [ref=f11e3313]:
+                    - button "Okat" [ref=f11e3314] [cursor=pointer]
+                  - cell [ref=f11e3315]:
+                    - button "Okat" [ref=f11e3316] [cursor=pointer]
+                - row [ref=f11e3317]:
+                  - cell "🏁 Barmaly Ýerine Geldi" [ref=f11e3318]
+                  - cell [ref=f11e3319]:
+                    - button "Okat" [ref=f11e3320] [cursor=pointer]
+                  - cell [ref=f11e3321]:
+                    - button "Okat" [ref=f11e3322] [cursor=pointer]
+                  - cell [ref=f11e3323]:
+                    - button "Okat" [ref=f11e3324] [cursor=pointer]
+                  - cell [ref=f11e3325]:
+                    - button "Okat" [ref=f11e3326] [cursor=pointer]
+                  - cell [ref=f11e3327]:
+                    - button "Okat" [ref=f11e3328] [cursor=pointer]
+                  - cell [ref=f11e3329]:
+                    - button "Okat" [ref=f11e3330] [cursor=pointer]
+                  - cell [ref=f11e3331]:
+                    - button "Okat" [ref=f11e3332] [cursor=pointer]
+                  - cell [ref=f11e3333]:
+                    - button "Okat" [ref=f11e3334] [cursor=pointer]
+    - contentinfo [ref=f11e227]: Veriler bu cihazda/hesapta saklanır ve diğer kullanıcılarla paylaşılmaz.
+  - generic [ref=f11e1501]: "8"

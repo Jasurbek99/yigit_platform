@@ -1,0 +1,947 @@
+- generic [active] [ref=f1e1]:
+  - generic [ref=f1e9]:
+    - generic [ref=f1e10]:
+      - generic [ref=f1e11]:
+        - button "TR" [ref=f1e12] [cursor=pointer]
+        - button "TM" [ref=f1e13] [cursor=pointer]
+      - generic [ref=f1e14]:
+        - generic [ref=f1e15]: "Yıl:"
+        - spinbutton [ref=f1e16]: "2026"
+      - generic [ref=f1e17]: Kaydedildi ✓
+      - button "Varsayılana sıfırla" [ref=f1e18] [cursor=pointer]
+      - button "Şifre" [ref=f1e22] [cursor=pointer]
+      - button "Çıkış" [ref=f1e26] [cursor=pointer]
+    - navigation [ref=f1e30]:
+      - button "Ana Sayfa" [ref=f1e31] [cursor=pointer]
+      - button "Ana Dashboard" [ref=f1e32] [cursor=pointer]
+      - button "Bütçe" [ref=f1e33] [cursor=pointer]
+      - button "Pomidor Dükânı" [ref=f1e34] [cursor=pointer]
+      - button "Sera İzleme" [ref=f1e35] [cursor=pointer]
+      - button "Tır Takip" [ref=f1e36] [cursor=pointer]
+      - button "Yurtdışı Hasabat" [ref=f1e37] [cursor=pointer]
+      - button "Finans Hasabatlar" [ref=f1e38] [cursor=pointer]
+      - button "Yardım" [ref=f1e39] [cursor=pointer]
+      - button "Ayarlar" [ref=f1e40] [cursor=pointer]
+    - main [ref=f1e41]:
+      - generic [ref=f1e4323]:
+        - generic [ref=f1e4325]:
+          - generic [ref=f1e4331]:
+            - heading "Genel Üretim Gideri" [level=1] [ref=f1e4332]
+            - paragraph [ref=f1e4333]: 730 — Soğutmalı ve soğutmasız için ayrı ayrı, 10 GA referans alanı başına aylık tutar girilir. Her bloğun gerçek alanıyla ölçeklenerek giderlere aktarılır.
+          - generic [ref=f1e4334]:
+            - generic [ref=f1e4336]:
+              - generic [ref=f1e4337]: Soğutmalı Yıllık Toplam (10 GA)
+              - generic [ref=f1e4338]: 908.722 $
+            - generic "Bu sayfada üzerinde çalışılan yıl" [ref=f1e4339]:
+              - spinbutton [ref=f1e4342]: "2026"
+            - button "PDF Olarak Kaydet" [ref=f1e4343] [cursor=pointer]
+        - button [ref=f1e4348] [cursor=pointer]
+        - generic [ref=f1e4354]:
+          - generic [ref=f1e4355]:
+            - generic [ref=f1e4356]: Ürün Türü
+            - button "Ürün Ekle" [ref=f1e4357] [cursor=pointer]
+          - generic [ref=f1e4359]:
+            - generic [ref=f1e4360]:
+              - button "Domates" [ref=f1e4361] [cursor=pointer]
+              - button [ref=f1e4362] [cursor=pointer]
+            - generic [ref=f1e4366]:
+              - button "HYYRA" [ref=f1e4367] [cursor=pointer]
+              - button [ref=f1e4368] [cursor=pointer]
+              - button [ref=f1e4372] [cursor=pointer]
+            - generic [ref=f1e4376]:
+              - button "hyyar" [ref=f1e4377] [cursor=pointer]
+              - button [ref=f1e4378] [cursor=pointer]
+              - button [ref=f1e4382] [cursor=pointer]
+            - generic [ref=f1e4386]:
+              - button "ggfggf" [ref=f1e4387] [cursor=pointer]
+              - button [ref=f1e4388] [cursor=pointer]
+              - button [ref=f1e4392] [cursor=pointer]
+            - generic [ref=f1e4396]:
+              - button "Alma" [ref=f1e4397] [cursor=pointer]
+              - button [ref=f1e4398] [cursor=pointer]
+              - button [ref=f1e4402] [cursor=pointer]
+            - generic [ref=f1e4406]:
+              - button "sdss" [ref=f1e4407] [cursor=pointer]
+              - button [ref=f1e4408] [cursor=pointer]
+              - button [ref=f1e4412] [cursor=pointer]
+            - generic [ref=f1e4416]:
+              - button "dfdf" [ref=f1e4417] [cursor=pointer]
+              - button [ref=f1e4418] [cursor=pointer]
+              - button [ref=f1e4422] [cursor=pointer]
+        - generic [ref=f1e4427]:
+          - generic [ref=f1e4428]: Soğutmalı bloklara ait 10 GA referans başına aylık gider tutarları
+          - generic [ref=f1e4429]:
+            - button "Soğutmalı" [ref=f1e4430] [cursor=pointer]
+            - button "Soğutmasız" [ref=f1e4431] [cursor=pointer]
+        - generic [ref=f1e4432]:
+          - generic [ref=f1e4433]:
+            - generic [ref=f1e4434]: Energiýa we kommunal çykdajylar
+            - generic [ref=f1e4435]: 100.251 $
+          - table [ref=f1e4437]:
+            - rowgroup [ref=f1e4438]:
+              - row [ref=f1e4439]:
+                - columnheader "Kalem" [ref=f1e4440]
+                - columnheader "Ocak" [ref=f1e4441]
+                - columnheader "Şubat" [ref=f1e4442]
+                - columnheader "Mart" [ref=f1e4443]
+                - columnheader "Nisan" [ref=f1e4444]
+                - columnheader "Mayıs" [ref=f1e4445]
+                - columnheader "Haziran" [ref=f1e4446]
+                - columnheader "Temmuz" [ref=f1e4447]
+                - columnheader "Ağustos" [ref=f1e4448]
+                - columnheader "Eylül" [ref=f1e4449]
+                - columnheader "Ekim" [ref=f1e4450]
+                - columnheader "Kasım" [ref=f1e4451]
+                - columnheader "Aralık" [ref=f1e4452]
+                - columnheader "Toplam" [ref=f1e4453]
+                - columnheader [ref=f1e4454]
+            - rowgroup [ref=f1e4455]:
+              - row [ref=f1e4456]:
+                - cell [ref=f1e4457]:
+                  - button "Elektrik energiýasy" [ref=f1e4458] [cursor=pointer]
+                - cell [ref=f1e4462]:
+                  - spinbutton [ref=f1e4463]: "10"
+                - cell [ref=f1e4464]:
+                  - spinbutton [ref=f1e4465]: "1"
+                - cell [ref=f1e4466]:
+                  - spinbutton [ref=f1e4467]: "0"
+                - cell [ref=f1e4468]:
+                  - spinbutton [ref=f1e4469]: "4570"
+                - cell [ref=f1e4470]:
+                  - spinbutton [ref=f1e4471]: "6150"
+                - cell [ref=f1e4472]:
+                  - spinbutton [ref=f1e4473]: "7250"
+                - cell [ref=f1e4474]:
+                  - spinbutton [ref=f1e4475]: "0"
+                - cell [ref=f1e4476]:
+                  - spinbutton [ref=f1e4477]: "0"
+                - cell [ref=f1e4478]:
+                  - spinbutton [ref=f1e4479]: "0"
+                - cell [ref=f1e4480]:
+                  - spinbutton [ref=f1e4481]: "0"
+                - cell [ref=f1e4482]:
+                  - spinbutton [ref=f1e4483]: "0"
+                - cell [ref=f1e4484]:
+                  - spinbutton [ref=f1e4485]: "0"
+                - cell "17.981 $" [ref=f1e4486]
+                - cell [ref=f1e4487]:
+                  - generic [ref=f1e4488]:
+                    - button "Yukarı taşı" [disabled] [ref=f1e4489]
+                    - button "Aşağı taşı" [ref=f1e4492] [cursor=pointer]
+                    - button "Kalemi sil" [ref=f1e4495] [cursor=pointer]
+              - row [ref=f1e4499]:
+                - cell [ref=f1e4500]:
+                  - button "Ýangyç çykdajylary" [ref=f1e4501] [cursor=pointer]
+                - cell [ref=f1e4505]:
+                  - spinbutton [ref=f1e4506]: "10"
+                - cell [ref=f1e4507]:
+                  - spinbutton [ref=f1e4508]: "4050"
+                - cell [ref=f1e4509]:
+                  - spinbutton [ref=f1e4510]: "4150"
+                - cell [ref=f1e4511]:
+                  - spinbutton [ref=f1e4512]: "4200"
+                - cell [ref=f1e4513]:
+                  - spinbutton [ref=f1e4514]: "4500"
+                - cell [ref=f1e4515]:
+                  - spinbutton [ref=f1e4516]: "4400"
+                - cell [ref=f1e4517]:
+                  - spinbutton [ref=f1e4518]: "0"
+                - cell [ref=f1e4519]:
+                  - spinbutton [ref=f1e4520]: "0"
+                - cell [ref=f1e4521]:
+                  - spinbutton [ref=f1e4522]: "0"
+                - cell [ref=f1e4523]:
+                  - spinbutton [ref=f1e4524]: "0"
+                - cell [ref=f1e4525]:
+                  - spinbutton [ref=f1e4526]: "0"
+                - cell [ref=f1e4527]:
+                  - spinbutton [ref=f1e4528]: "0"
+                - cell "21.310 $" [ref=f1e4529]
+                - cell [ref=f1e4530]:
+                  - generic [ref=f1e4531]:
+                    - button "Yukarı taşı" [ref=f1e4532] [cursor=pointer]
+                    - button "Aşağı taşı" [ref=f1e4535] [cursor=pointer]
+                    - button "Kalemi sil" [ref=f1e4538] [cursor=pointer]
+              - row [ref=f1e4542]:
+                - cell [ref=f1e4543]:
+                  - button "Tebigy gaz üpjünçiligi" [ref=f1e4544] [cursor=pointer]
+                - cell [ref=f1e4548]:
+                  - spinbutton [ref=f1e4549]: "10"
+                - cell [ref=f1e4550]:
+                  - spinbutton [ref=f1e4551]: "9895"
+                - cell [ref=f1e4552]:
+                  - spinbutton [ref=f1e4553]: "10095"
+                - cell [ref=f1e4554]:
+                  - spinbutton [ref=f1e4555]: "2595"
+                - cell [ref=f1e4556]:
+                  - spinbutton [ref=f1e4557]: "695"
+                - cell [ref=f1e4558]:
+                  - spinbutton [ref=f1e4559]: "395"
+                - cell [ref=f1e4560]:
+                  - spinbutton [ref=f1e4561]: "0"
+                - cell [ref=f1e4562]:
+                  - spinbutton [ref=f1e4563]: "0"
+                - cell [ref=f1e4564]:
+                  - spinbutton [ref=f1e4565]: "0"
+                - cell [ref=f1e4566]:
+                  - spinbutton [ref=f1e4567]: "0"
+                - cell [ref=f1e4568]:
+                  - spinbutton [ref=f1e4569]: "0"
+                - cell [ref=f1e4570]:
+                  - spinbutton [ref=f1e4571]: "0"
+                - cell "23.685 $" [ref=f1e4572]
+                - cell [ref=f1e4573]:
+                  - generic [ref=f1e4574]:
+                    - button "Yukarı taşı" [ref=f1e4575] [cursor=pointer]
+                    - button "Aşağı taşı" [ref=f1e4578] [cursor=pointer]
+                    - button "Kalemi sil" [ref=f1e4581] [cursor=pointer]
+              - row [ref=f1e4585]:
+                - cell [ref=f1e4586]:
+                  - button "Internet hyzmatlary" [ref=f1e4587] [cursor=pointer]
+                - cell [ref=f1e4591]:
+                  - spinbutton [ref=f1e4592]: "10"
+                - cell [ref=f1e4593]:
+                  - spinbutton [ref=f1e4594]: "1088"
+                - cell [ref=f1e4595]:
+                  - spinbutton [ref=f1e4596]: "1088"
+                - cell [ref=f1e4597]:
+                  - spinbutton [ref=f1e4598]: "1088"
+                - cell [ref=f1e4599]:
+                  - spinbutton [ref=f1e4600]: "1088"
+                - cell [ref=f1e4601]:
+                  - spinbutton [ref=f1e4602]: "1088"
+                - cell [ref=f1e4603]:
+                  - spinbutton [ref=f1e4604]: "0"
+                - cell [ref=f1e4605]:
+                  - spinbutton [ref=f1e4606]: "0"
+                - cell [ref=f1e4607]:
+                  - spinbutton [ref=f1e4608]: "0"
+                - cell [ref=f1e4609]:
+                  - spinbutton [ref=f1e4610]: "0"
+                - cell [ref=f1e4611]:
+                  - spinbutton [ref=f1e4612]: "0"
+                - cell [ref=f1e4613]:
+                  - spinbutton [ref=f1e4614]: "0"
+                - cell "5.450 $" [ref=f1e4615]
+                - cell [ref=f1e4616]:
+                  - generic [ref=f1e4617]:
+                    - button "Yukarı taşı" [ref=f1e4618] [cursor=pointer]
+                    - button "Aşağı taşı" [ref=f1e4621] [cursor=pointer]
+                    - button "Kalemi sil" [ref=f1e4624] [cursor=pointer]
+              - row [ref=f1e4628]:
+                - cell [ref=f1e4629]:
+                  - button "Suw üpjünçilik hyzmatlary" [ref=f1e4630] [cursor=pointer]
+                - cell [ref=f1e4634]:
+                  - spinbutton [ref=f1e4635]: "10"
+                - cell [ref=f1e4636]:
+                  - spinbutton [ref=f1e4637]: "6350"
+                - cell [ref=f1e4638]:
+                  - spinbutton [ref=f1e4639]: "6350"
+                - cell [ref=f1e4640]:
+                  - spinbutton [ref=f1e4641]: "6350"
+                - cell [ref=f1e4642]:
+                  - spinbutton [ref=f1e4643]: "6350"
+                - cell [ref=f1e4644]:
+                  - spinbutton [ref=f1e4645]: "6350"
+                - cell [ref=f1e4646]:
+                  - spinbutton [ref=f1e4647]: "0"
+                - cell [ref=f1e4648]:
+                  - spinbutton [ref=f1e4649]: "0"
+                - cell [ref=f1e4650]:
+                  - spinbutton [ref=f1e4651]: "0"
+                - cell [ref=f1e4652]:
+                  - spinbutton [ref=f1e4653]: "0"
+                - cell [ref=f1e4654]:
+                  - spinbutton [ref=f1e4655]: "0"
+                - cell [ref=f1e4656]:
+                  - spinbutton [ref=f1e4657]: "0"
+                - cell "31.760 $" [ref=f1e4658]
+                - cell [ref=f1e4659]:
+                  - generic [ref=f1e4660]:
+                    - button "Yukarı taşı" [ref=f1e4661] [cursor=pointer]
+                    - button "Aşağı taşı" [ref=f1e4664] [cursor=pointer]
+                    - button "Kalemi sil" [ref=f1e4667] [cursor=pointer]
+              - row [ref=f1e4671]:
+                - cell [ref=f1e4672]:
+                  - button "Telefon aragatnaşyk hyzmatlary" [ref=f1e4673] [cursor=pointer]
+                - cell [ref=f1e4677]:
+                  - spinbutton [ref=f1e4678]: "10"
+                - cell [ref=f1e4679]:
+                  - spinbutton [ref=f1e4680]: "11"
+                - cell [ref=f1e4681]:
+                  - spinbutton [ref=f1e4682]: "11"
+                - cell [ref=f1e4683]:
+                  - spinbutton [ref=f1e4684]: "11"
+                - cell [ref=f1e4685]:
+                  - spinbutton [ref=f1e4686]: "11"
+                - cell [ref=f1e4687]:
+                  - spinbutton [ref=f1e4688]: "11"
+                - cell [ref=f1e4689]:
+                  - spinbutton [ref=f1e4690]: "0"
+                - cell [ref=f1e4691]:
+                  - spinbutton [ref=f1e4692]: "0"
+                - cell [ref=f1e4693]:
+                  - spinbutton [ref=f1e4694]: "0"
+                - cell [ref=f1e4695]:
+                  - spinbutton [ref=f1e4696]: "0"
+                - cell [ref=f1e4697]:
+                  - spinbutton [ref=f1e4698]: "0"
+                - cell [ref=f1e4699]:
+                  - spinbutton [ref=f1e4700]: "0"
+                - cell "65 $" [ref=f1e4701]
+                - cell [ref=f1e4702]:
+                  - generic [ref=f1e4703]:
+                    - button "Yukarı taşı" [ref=f1e4704] [cursor=pointer]
+                    - button "Aşağı taşı" [disabled] [ref=f1e4707]
+                    - button "Kalemi sil" [ref=f1e4710] [cursor=pointer]
+            - rowgroup [ref=f1e4714]:
+              - row [ref=f1e4715]:
+                - cell "Grup Toplamı" [ref=f1e4716]
+                - cell "60 $" [ref=f1e4717]
+                - cell "21.395 $" [ref=f1e4718]
+                - cell "21.694 $" [ref=f1e4719]
+                - cell "18.814 $" [ref=f1e4720]
+                - cell "18.794 $" [ref=f1e4721]
+                - cell "19.494 $" [ref=f1e4722]
+                - cell "—" [ref=f1e4723]
+                - cell "—" [ref=f1e4724]
+                - cell "—" [ref=f1e4725]
+                - cell "—" [ref=f1e4726]
+                - cell "—" [ref=f1e4727]
+                - cell "—" [ref=f1e4728]
+                - cell "100.251 $" [ref=f1e4729]
+                - cell [ref=f1e4730]
+          - generic [ref=f1e4731]:
+            - textbox "Yeni kalem adı..." [ref=f1e4732]
+            - button "Ekle" [ref=f1e4733] [cursor=pointer]
+        - generic [ref=f1e4735]:
+          - generic [ref=f1e4736]:
+            - generic [ref=f1e4737]: Remont we abatlaýyş çykdajylary
+            - generic [ref=f1e4738]: 496.047 $
+          - table [ref=f1e4740]:
+            - rowgroup [ref=f1e4741]:
+              - row [ref=f1e4742]:
+                - columnheader "Kalem" [ref=f1e4743]
+                - columnheader "Ocak" [ref=f1e4744]
+                - columnheader "Şubat" [ref=f1e4745]
+                - columnheader "Mart" [ref=f1e4746]
+                - columnheader "Nisan" [ref=f1e4747]
+                - columnheader "Mayıs" [ref=f1e4748]
+                - columnheader "Haziran" [ref=f1e4749]
+                - columnheader "Temmuz" [ref=f1e4750]
+                - columnheader "Ağustos" [ref=f1e4751]
+                - columnheader "Eylül" [ref=f1e4752]
+                - columnheader "Ekim" [ref=f1e4753]
+                - columnheader "Kasım" [ref=f1e4754]
+                - columnheader "Aralık" [ref=f1e4755]
+                - columnheader "Toplam" [ref=f1e4756]
+                - columnheader [ref=f1e4757]
+            - rowgroup [ref=f1e4758]:
+              - row [ref=f1e4759]:
+                - cell [ref=f1e4760]:
+                  - button "Ýyladyşhananyň abatlaýyş işleri" [ref=f1e4761] [cursor=pointer]
+                - cell [ref=f1e4765]:
+                  - spinbutton [ref=f1e4766]: "25135"
+                - cell [ref=f1e4767]:
+                  - spinbutton [ref=f1e4768]: "25135"
+                - cell [ref=f1e4769]:
+                  - spinbutton [ref=f1e4770]: "25135"
+                - cell [ref=f1e4771]:
+                  - spinbutton [ref=f1e4772]: "41892"
+                - cell [ref=f1e4773]:
+                  - spinbutton [ref=f1e4774]: "58649"
+                - cell [ref=f1e4775]:
+                  - spinbutton [ref=f1e4776]: "58649"
+                - cell [ref=f1e4777]:
+                  - spinbutton [ref=f1e4778]: "0"
+                - cell [ref=f1e4779]:
+                  - spinbutton [ref=f1e4780]: "0"
+                - cell [ref=f1e4781]:
+                  - spinbutton [ref=f1e4782]: "0"
+                - cell [ref=f1e4783]:
+                  - spinbutton [ref=f1e4784]: "0"
+                - cell [ref=f1e4785]:
+                  - spinbutton [ref=f1e4786]: "0"
+                - cell [ref=f1e4787]:
+                  - spinbutton [ref=f1e4788]: "0"
+                - cell "234.595 $" [ref=f1e4789]
+                - cell [ref=f1e4790]:
+                  - generic [ref=f1e4791]:
+                    - button "Yukarı taşı" [disabled] [ref=f1e4792]
+                    - button "Aşağı taşı" [ref=f1e4795] [cursor=pointer]
+                    - button "Kalemi sil" [ref=f1e4798] [cursor=pointer]
+              - row [ref=f1e4802]:
+                - cell [ref=f1e4803]:
+                  - button "Beýleki abatlaýyş işleri" [ref=f1e4804] [cursor=pointer]
+                - cell [ref=f1e4808]:
+                  - spinbutton [ref=f1e4809]: "4686"
+                - cell [ref=f1e4810]:
+                  - spinbutton [ref=f1e4811]: "5474"
+                - cell [ref=f1e4812]:
+                  - spinbutton [ref=f1e4813]: "46170"
+                - cell [ref=f1e4814]:
+                  - spinbutton [ref=f1e4815]: "6447"
+                - cell [ref=f1e4816]:
+                  - spinbutton [ref=f1e4817]: "7981"
+                - cell [ref=f1e4818]:
+                  - spinbutton [ref=f1e4819]: "2441"
+                - cell [ref=f1e4820]:
+                  - spinbutton [ref=f1e4821]: "0"
+                - cell [ref=f1e4822]:
+                  - spinbutton [ref=f1e4823]: "0"
+                - cell [ref=f1e4824]:
+                  - spinbutton [ref=f1e4825]: "0"
+                - cell [ref=f1e4826]:
+                  - spinbutton [ref=f1e4827]: "0"
+                - cell [ref=f1e4828]:
+                  - spinbutton [ref=f1e4829]: "0"
+                - cell [ref=f1e4830]:
+                  - spinbutton [ref=f1e4831]: "0"
+                - cell "73.199 $" [ref=f1e4832]
+                - cell [ref=f1e4833]:
+                  - generic [ref=f1e4834]:
+                    - button "Yukarı taşı" [ref=f1e4835] [cursor=pointer]
+                    - button "Aşağı taşı" [ref=f1e4838] [cursor=pointer]
+                    - button "Kalemi sil" [ref=f1e4841] [cursor=pointer]
+              - row [ref=f1e4845]:
+                - cell [ref=f1e4846]:
+                  - button "Enjamlary abatlamak" [ref=f1e4847] [cursor=pointer]
+                - cell [ref=f1e4851]:
+                  - spinbutton [ref=f1e4852]: "1648"
+                - cell [ref=f1e4853]:
+                  - spinbutton [ref=f1e4854]: "1648"
+                - cell [ref=f1e4855]:
+                  - spinbutton [ref=f1e4856]: "1648"
+                - cell [ref=f1e4857]:
+                  - spinbutton [ref=f1e4858]: "1648"
+                - cell [ref=f1e4859]:
+                  - spinbutton [ref=f1e4860]: "1648"
+                - cell [ref=f1e4861]:
+                  - spinbutton [ref=f1e4862]: "1648"
+                - cell [ref=f1e4863]:
+                  - spinbutton [ref=f1e4864]: "0"
+                - cell [ref=f1e4865]:
+                  - spinbutton [ref=f1e4866]: "0"
+                - cell [ref=f1e4867]:
+                  - spinbutton [ref=f1e4868]: "0"
+                - cell [ref=f1e4869]:
+                  - spinbutton [ref=f1e4870]: "0"
+                - cell [ref=f1e4871]:
+                  - spinbutton [ref=f1e4872]: "0"
+                - cell [ref=f1e4873]:
+                  - spinbutton [ref=f1e4874]: "0"
+                - cell "9.888 $" [ref=f1e4875]
+                - cell [ref=f1e4876]:
+                  - generic [ref=f1e4877]:
+                    - button "Yukarı taşı" [ref=f1e4878] [cursor=pointer]
+                    - button "Aşağı taşı" [ref=f1e4881] [cursor=pointer]
+                    - button "Kalemi sil" [ref=f1e4884] [cursor=pointer]
+              - row [ref=f1e4888]:
+                - cell [ref=f1e4889]:
+                  - button "Elektrik enjamlaryny abatlamak" [ref=f1e4890] [cursor=pointer]
+                - cell [ref=f1e4894]:
+                  - spinbutton [ref=f1e4895]: "6255"
+                - cell [ref=f1e4896]:
+                  - spinbutton [ref=f1e4897]: "16285"
+                - cell [ref=f1e4898]:
+                  - spinbutton [ref=f1e4899]: "8675"
+                - cell [ref=f1e4900]:
+                  - spinbutton [ref=f1e4901]: "4318"
+                - cell [ref=f1e4902]:
+                  - spinbutton [ref=f1e4903]: "4701"
+                - cell [ref=f1e4904]:
+                  - spinbutton [ref=f1e4905]: "5090"
+                - cell [ref=f1e4906]:
+                  - spinbutton [ref=f1e4907]: "0"
+                - cell [ref=f1e4908]:
+                  - spinbutton [ref=f1e4909]: "0"
+                - cell [ref=f1e4910]:
+                  - spinbutton [ref=f1e4911]: "0"
+                - cell [ref=f1e4912]:
+                  - spinbutton [ref=f1e4913]: "0"
+                - cell [ref=f1e4914]:
+                  - spinbutton [ref=f1e4915]: "0"
+                - cell [ref=f1e4916]:
+                  - spinbutton [ref=f1e4917]: "0"
+                - cell "45.324 $" [ref=f1e4918]
+                - cell [ref=f1e4919]:
+                  - generic [ref=f1e4920]:
+                    - button "Yukarı taşı" [ref=f1e4921] [cursor=pointer]
+                    - button "Aşağı taşı" [ref=f1e4924] [cursor=pointer]
+                    - button "Kalemi sil" [ref=f1e4927] [cursor=pointer]
+              - row [ref=f1e4931]:
+                - cell [ref=f1e4932]:
+                  - button "Awtoulaglary abatlamak" [ref=f1e4933] [cursor=pointer]
+                - cell [ref=f1e4937]:
+                  - spinbutton [ref=f1e4938]: "19309"
+                - cell [ref=f1e4939]:
+                  - spinbutton [ref=f1e4940]: "25559"
+                - cell [ref=f1e4941]:
+                  - spinbutton [ref=f1e4942]: "16730"
+                - cell [ref=f1e4943]:
+                  - spinbutton [ref=f1e4944]: "18068"
+                - cell [ref=f1e4945]:
+                  - spinbutton [ref=f1e4946]: "16953"
+                - cell [ref=f1e4947]:
+                  - spinbutton [ref=f1e4948]: "14422"
+                - cell [ref=f1e4949]:
+                  - spinbutton [ref=f1e4950]: "0"
+                - cell [ref=f1e4951]:
+                  - spinbutton [ref=f1e4952]: "0"
+                - cell [ref=f1e4953]:
+                  - spinbutton [ref=f1e4954]: "0"
+                - cell [ref=f1e4955]:
+                  - spinbutton [ref=f1e4956]: "0"
+                - cell [ref=f1e4957]:
+                  - spinbutton [ref=f1e4958]: "0"
+                - cell [ref=f1e4959]:
+                  - spinbutton [ref=f1e4960]: "0"
+                - cell "111.041 $" [ref=f1e4961]
+                - cell [ref=f1e4962]:
+                  - generic [ref=f1e4963]:
+                    - button "Yukarı taşı" [ref=f1e4964] [cursor=pointer]
+                    - button "Aşağı taşı" [ref=f1e4967] [cursor=pointer]
+                    - button "Kalemi sil" [ref=f1e4970] [cursor=pointer]
+              - row [ref=f1e4974]:
+                - cell [ref=f1e4975]:
+                  - button "Daşky böleklerini hekläp aklamak" [ref=f1e4976] [cursor=pointer]
+                - cell [ref=f1e4980]:
+                  - spinbutton [ref=f1e4981]: "0"
+                - cell [ref=f1e4982]:
+                  - spinbutton [ref=f1e4983]: "0"
+                - cell [ref=f1e4984]:
+                  - spinbutton [ref=f1e4985]: "15000"
+                - cell [ref=f1e4986]:
+                  - spinbutton [ref=f1e4987]: "7000"
+                - cell [ref=f1e4988]:
+                  - spinbutton [ref=f1e4989]: "0"
+                - cell [ref=f1e4990]:
+                  - spinbutton [ref=f1e4991]: "0"
+                - cell [ref=f1e4992]:
+                  - spinbutton [ref=f1e4993]: "0"
+                - cell [ref=f1e4994]:
+                  - spinbutton [ref=f1e4995]: "0"
+                - cell [ref=f1e4996]:
+                  - spinbutton [ref=f1e4997]: "0"
+                - cell [ref=f1e4998]:
+                  - spinbutton [ref=f1e4999]: "0"
+                - cell [ref=f1e5000]:
+                  - spinbutton [ref=f1e5001]: "0"
+                - cell [ref=f1e5002]:
+                  - spinbutton [ref=f1e5003]: "0"
+                - cell "22.000 $" [ref=f1e5004]
+                - cell [ref=f1e5005]:
+                  - generic [ref=f1e5006]:
+                    - button "Yukarı taşı" [ref=f1e5007] [cursor=pointer]
+                    - button "Aşağı taşı" [disabled] [ref=f1e5010]
+                    - button "Kalemi sil" [ref=f1e5013] [cursor=pointer]
+            - rowgroup [ref=f1e5017]:
+              - row [ref=f1e5018]:
+                - cell "Grup Toplamı" [ref=f1e5019]
+                - cell "57.033 $" [ref=f1e5020]
+                - cell "74.101 $" [ref=f1e5021]
+                - cell "113.358 $" [ref=f1e5022]
+                - cell "79.373 $" [ref=f1e5023]
+                - cell "89.932 $" [ref=f1e5024]
+                - cell "82.250 $" [ref=f1e5025]
+                - cell "—" [ref=f1e5026]
+                - cell "—" [ref=f1e5027]
+                - cell "—" [ref=f1e5028]
+                - cell "—" [ref=f1e5029]
+                - cell "—" [ref=f1e5030]
+                - cell "—" [ref=f1e5031]
+                - cell "496.047 $" [ref=f1e5032]
+                - cell [ref=f1e5033]
+          - generic [ref=f1e5034]:
+            - textbox "Yeni kalem adı..." [ref=f1e5035]
+            - button "Ekle" [ref=f1e5036] [cursor=pointer]
+        - generic [ref=f1e5038]:
+          - generic [ref=f1e5039]:
+            - generic [ref=f1e5040]: Beýleki umumy önümçilik çykdajylary
+            - generic [ref=f1e5041]: 312.424 $
+          - table [ref=f1e5043]:
+            - rowgroup [ref=f1e5044]:
+              - row [ref=f1e5045]:
+                - columnheader "Kalem" [ref=f1e5046]
+                - columnheader "Ocak" [ref=f1e5047]
+                - columnheader "Şubat" [ref=f1e5048]
+                - columnheader "Mart" [ref=f1e5049]
+                - columnheader "Nisan" [ref=f1e5050]
+                - columnheader "Mayıs" [ref=f1e5051]
+                - columnheader "Haziran" [ref=f1e5052]
+                - columnheader "Temmuz" [ref=f1e5053]
+                - columnheader "Ağustos" [ref=f1e5054]
+                - columnheader "Eylül" [ref=f1e5055]
+                - columnheader "Ekim" [ref=f1e5056]
+                - columnheader "Kasım" [ref=f1e5057]
+                - columnheader "Aralık" [ref=f1e5058]
+                - columnheader "Toplam" [ref=f1e5059]
+                - columnheader [ref=f1e5060]
+            - rowgroup [ref=f1e5061]:
+              - row [ref=f1e5062]:
+                - cell [ref=f1e5063]:
+                  - button "Işgärleriň nahar (iýmit) çykdajylary" [ref=f1e5064] [cursor=pointer]
+                - cell [ref=f1e5068]:
+                  - spinbutton [ref=f1e5069]: "47509"
+                - cell [ref=f1e5070]:
+                  - spinbutton [ref=f1e5071]: "48038"
+                - cell [ref=f1e5072]:
+                  - spinbutton [ref=f1e5073]: "48566"
+                - cell [ref=f1e5074]:
+                  - spinbutton [ref=f1e5075]: "48243"
+                - cell [ref=f1e5076]:
+                  - spinbutton [ref=f1e5077]: "48771"
+                - cell [ref=f1e5078]:
+                  - spinbutton [ref=f1e5079]: "48771"
+                - cell [ref=f1e5080]:
+                  - spinbutton [ref=f1e5081]: "0"
+                - cell [ref=f1e5082]:
+                  - spinbutton [ref=f1e5083]: "0"
+                - cell [ref=f1e5084]:
+                  - spinbutton [ref=f1e5085]: "0"
+                - cell [ref=f1e5086]:
+                  - spinbutton [ref=f1e5087]: "0"
+                - cell [ref=f1e5088]:
+                  - spinbutton [ref=f1e5089]: "0"
+                - cell [ref=f1e5090]:
+                  - spinbutton [ref=f1e5091]: "0"
+                - cell "289.898 $" [ref=f1e5092]
+                - cell [ref=f1e5093]:
+                  - generic [ref=f1e5094]:
+                    - button "Yukarı taşı" [disabled] [ref=f1e5095]
+                    - button "Aşağı taşı" [ref=f1e5098] [cursor=pointer]
+                    - button "Kalemi sil" [ref=f1e5101] [cursor=pointer]
+              - row [ref=f1e5105]:
+                - cell [ref=f1e5106]:
+                  - button "Beýleki gaýry çykdajylar" [ref=f1e5107] [cursor=pointer]
+                - cell [ref=f1e5111]:
+                  - spinbutton [ref=f1e5112]: "390"
+                - cell [ref=f1e5113]:
+                  - spinbutton [ref=f1e5114]: "288"
+                - cell [ref=f1e5115]:
+                  - spinbutton [ref=f1e5116]: "548"
+                - cell [ref=f1e5117]:
+                  - spinbutton [ref=f1e5118]: "733"
+                - cell [ref=f1e5119]:
+                  - spinbutton [ref=f1e5120]: "666"
+                - cell [ref=f1e5121]:
+                  - spinbutton [ref=f1e5122]: "1769"
+                - cell [ref=f1e5123]:
+                  - spinbutton [ref=f1e5124]: "0"
+                - cell [ref=f1e5125]:
+                  - spinbutton [ref=f1e5126]: "0"
+                - cell [ref=f1e5127]:
+                  - spinbutton [ref=f1e5128]: "0"
+                - cell [ref=f1e5129]:
+                  - spinbutton [ref=f1e5130]: "0"
+                - cell [ref=f1e5131]:
+                  - spinbutton [ref=f1e5132]: "0"
+                - cell [ref=f1e5133]:
+                  - spinbutton [ref=f1e5134]: "0"
+                - cell "4.394 $" [ref=f1e5135]
+                - cell [ref=f1e5136]:
+                  - generic [ref=f1e5137]:
+                    - button "Yukarı taşı" [ref=f1e5138] [cursor=pointer]
+                    - button "Aşağı taşı" [ref=f1e5141] [cursor=pointer]
+                    - button "Kalemi sil" [ref=f1e5144] [cursor=pointer]
+              - row [ref=f1e5148]:
+                - cell [ref=f1e5149]:
+                  - button "Möwsümleýin arassaçylyk çykdajylary" [ref=f1e5150] [cursor=pointer]
+                - cell [ref=f1e5154]:
+                  - spinbutton [ref=f1e5155]: "1000"
+                - cell [ref=f1e5156]:
+                  - spinbutton [ref=f1e5157]: "1000"
+                - cell [ref=f1e5158]:
+                  - spinbutton [ref=f1e5159]: "1000"
+                - cell [ref=f1e5160]:
+                  - spinbutton [ref=f1e5161]: "1000"
+                - cell [ref=f1e5162]:
+                  - spinbutton [ref=f1e5163]: "1000"
+                - cell [ref=f1e5164]:
+                  - spinbutton [ref=f1e5165]: "1000"
+                - cell [ref=f1e5166]:
+                  - spinbutton [ref=f1e5167]: "0"
+                - cell [ref=f1e5168]:
+                  - spinbutton [ref=f1e5169]: "0"
+                - cell [ref=f1e5170]:
+                  - spinbutton [ref=f1e5171]: "0"
+                - cell [ref=f1e5172]:
+                  - spinbutton [ref=f1e5173]: "0"
+                - cell [ref=f1e5174]:
+                  - spinbutton [ref=f1e5175]: "0"
+                - cell [ref=f1e5176]:
+                  - spinbutton [ref=f1e5177]: "0"
+                - cell "6.000 $" [ref=f1e5178]
+                - cell [ref=f1e5179]:
+                  - generic [ref=f1e5180]:
+                    - button "Yukarı taşı" [ref=f1e5181] [cursor=pointer]
+                    - button "Aşağı taşı" [ref=f1e5184] [cursor=pointer]
+                    - button "Kalemi sil" [ref=f1e5187] [cursor=pointer]
+              - row [ref=f1e5191]:
+                - cell [ref=f1e5192]:
+                  - button "Sanitar-arassaçylyk çykdajylary" [ref=f1e5193] [cursor=pointer]
+                - cell [ref=f1e5197]:
+                  - spinbutton [ref=f1e5198]: "2015"
+                - cell [ref=f1e5199]:
+                  - spinbutton [ref=f1e5200]: "2020"
+                - cell [ref=f1e5201]:
+                  - spinbutton [ref=f1e5202]: "2035"
+                - cell [ref=f1e5203]:
+                  - spinbutton [ref=f1e5204]: "2045"
+                - cell [ref=f1e5205]:
+                  - spinbutton [ref=f1e5206]: "2005"
+                - cell [ref=f1e5207]:
+                  - spinbutton [ref=f1e5208]: "2012"
+                - cell [ref=f1e5209]:
+                  - spinbutton [ref=f1e5210]: "0"
+                - cell [ref=f1e5211]:
+                  - spinbutton [ref=f1e5212]: "0"
+                - cell [ref=f1e5213]:
+                  - spinbutton [ref=f1e5214]: "0"
+                - cell [ref=f1e5215]:
+                  - spinbutton [ref=f1e5216]: "0"
+                - cell [ref=f1e5217]:
+                  - spinbutton [ref=f1e5218]: "0"
+                - cell [ref=f1e5219]:
+                  - spinbutton [ref=f1e5220]: "0"
+                - cell "12.132 $" [ref=f1e5221]
+                - cell [ref=f1e5222]:
+                  - generic [ref=f1e5223]:
+                    - button "Yukarı taşı" [ref=f1e5224] [cursor=pointer]
+                    - button "Aşağı taşı" [ref=f1e5227] [cursor=pointer]
+                    - button "Kalemi sil" [ref=f1e5230] [cursor=pointer]
+              - row [ref=f1e5234]:
+                - cell [ref=f1e5235]:
+                  - button "Hojalyk harytlary we hyzmatlary" [ref=f1e5236] [cursor=pointer]
+                - cell [ref=f1e5240]:
+                  - spinbutton [ref=f1e5241]: "0"
+                - cell [ref=f1e5242]:
+                  - spinbutton [ref=f1e5243]: "0"
+                - cell [ref=f1e5244]:
+                  - spinbutton [ref=f1e5245]: "0"
+                - cell [ref=f1e5246]:
+                  - spinbutton [ref=f1e5247]: "0"
+                - cell [ref=f1e5248]:
+                  - spinbutton [ref=f1e5249]: "0"
+                - cell [ref=f1e5250]:
+                  - spinbutton [ref=f1e5251]: "0"
+                - cell [ref=f1e5252]:
+                  - spinbutton [ref=f1e5253]: "0"
+                - cell [ref=f1e5254]:
+                  - spinbutton [ref=f1e5255]: "0"
+                - cell [ref=f1e5256]:
+                  - spinbutton [ref=f1e5257]: "0"
+                - cell [ref=f1e5258]:
+                  - spinbutton [ref=f1e5259]: "0"
+                - cell [ref=f1e5260]:
+                  - spinbutton [ref=f1e5261]: "0"
+                - cell [ref=f1e5262]:
+                  - spinbutton [ref=f1e5263]: "0"
+                - cell "0 $" [ref=f1e5264]
+                - cell [ref=f1e5265]:
+                  - generic [ref=f1e5266]:
+                    - button "Yukarı taşı" [ref=f1e5267] [cursor=pointer]
+                    - button "Aşağı taşı" [ref=f1e5270] [cursor=pointer]
+                    - button "Kalemi sil" [ref=f1e5273] [cursor=pointer]
+              - row [ref=f1e5277]:
+                - cell [ref=f1e5278]:
+                  - button "Kiçi göwrümli sarp ediş serişdeleri" [ref=f1e5279] [cursor=pointer]
+                - cell [ref=f1e5283]:
+                  - spinbutton [ref=f1e5284]: "0"
+                - cell [ref=f1e5285]:
+                  - spinbutton [ref=f1e5286]: "0"
+                - cell [ref=f1e5287]:
+                  - spinbutton [ref=f1e5288]: "0"
+                - cell [ref=f1e5289]:
+                  - spinbutton [ref=f1e5290]: "0"
+                - cell [ref=f1e5291]:
+                  - spinbutton [ref=f1e5292]: "0"
+                - cell [ref=f1e5293]:
+                  - spinbutton [ref=f1e5294]: "0"
+                - cell [ref=f1e5295]:
+                  - spinbutton [ref=f1e5296]: "0"
+                - cell [ref=f1e5297]:
+                  - spinbutton [ref=f1e5298]: "0"
+                - cell [ref=f1e5299]:
+                  - spinbutton [ref=f1e5300]: "0"
+                - cell [ref=f1e5301]:
+                  - spinbutton [ref=f1e5302]: "0"
+                - cell [ref=f1e5303]:
+                  - spinbutton [ref=f1e5304]: "0"
+                - cell [ref=f1e5305]:
+                  - spinbutton [ref=f1e5306]: "0"
+                - cell "0 $" [ref=f1e5307]
+                - cell [ref=f1e5308]:
+                  - generic [ref=f1e5309]:
+                    - button "Yukarı taşı" [ref=f1e5310] [cursor=pointer]
+                    - button "Aşağı taşı" [ref=f1e5313] [cursor=pointer]
+                    - button "Kalemi sil" [ref=f1e5316] [cursor=pointer]
+              - row [ref=f1e5320]:
+                - cell [ref=f1e5321]:
+                  - button "Iş eşikleri we gurallary" [ref=f1e5322] [cursor=pointer]
+                - cell [ref=f1e5326]:
+                  - spinbutton [ref=f1e5327]: "0"
+                - cell [ref=f1e5328]:
+                  - spinbutton [ref=f1e5329]: "0"
+                - cell [ref=f1e5330]:
+                  - spinbutton [ref=f1e5331]: "0"
+                - cell [ref=f1e5332]:
+                  - spinbutton [ref=f1e5333]: "0"
+                - cell [ref=f1e5334]:
+                  - spinbutton [ref=f1e5335]: "0"
+                - cell [ref=f1e5336]:
+                  - spinbutton [ref=f1e5337]: "0"
+                - cell [ref=f1e5338]:
+                  - spinbutton [ref=f1e5339]: "0"
+                - cell [ref=f1e5340]:
+                  - spinbutton [ref=f1e5341]: "0"
+                - cell [ref=f1e5342]:
+                  - spinbutton [ref=f1e5343]: "0"
+                - cell [ref=f1e5344]:
+                  - spinbutton [ref=f1e5345]: "0"
+                - cell [ref=f1e5346]:
+                  - spinbutton [ref=f1e5347]: "0"
+                - cell [ref=f1e5348]:
+                  - spinbutton [ref=f1e5349]: "0"
+                - cell "0 $" [ref=f1e5350]
+                - cell [ref=f1e5351]:
+                  - generic [ref=f1e5352]:
+                    - button "Yukarı taşı" [ref=f1e5353] [cursor=pointer]
+                    - button "Aşağı taşı" [ref=f1e5356] [cursor=pointer]
+                    - button "Kalemi sil" [ref=f1e5359] [cursor=pointer]
+              - row [ref=f1e5363]:
+                - cell [ref=f1e5364]:
+                  - button "Kanselýariýa harytlary" [ref=f1e5365] [cursor=pointer]
+                - cell [ref=f1e5369]:
+                  - spinbutton [ref=f1e5370]: "0"
+                - cell [ref=f1e5371]:
+                  - spinbutton [ref=f1e5372]: "0"
+                - cell [ref=f1e5373]:
+                  - spinbutton [ref=f1e5374]: "0"
+                - cell [ref=f1e5375]:
+                  - spinbutton [ref=f1e5376]: "0"
+                - cell [ref=f1e5377]:
+                  - spinbutton [ref=f1e5378]: "0"
+                - cell [ref=f1e5379]:
+                  - spinbutton [ref=f1e5380]: "0"
+                - cell [ref=f1e5381]:
+                  - spinbutton [ref=f1e5382]: "0"
+                - cell [ref=f1e5383]:
+                  - spinbutton [ref=f1e5384]: "0"
+                - cell [ref=f1e5385]:
+                  - spinbutton [ref=f1e5386]: "0"
+                - cell [ref=f1e5387]:
+                  - spinbutton [ref=f1e5388]: "0"
+                - cell [ref=f1e5389]:
+                  - spinbutton [ref=f1e5390]: "0"
+                - cell [ref=f1e5391]:
+                  - spinbutton [ref=f1e5392]: "0"
+                - cell "0 $" [ref=f1e5393]
+                - cell [ref=f1e5394]:
+                  - generic [ref=f1e5395]:
+                    - button "Yukarı taşı" [ref=f1e5396] [cursor=pointer]
+                    - button "Aşağı taşı" [disabled] [ref=f1e5399]
+                    - button "Kalemi sil" [ref=f1e5402] [cursor=pointer]
+            - rowgroup [ref=f1e5406]:
+              - row [ref=f1e5407]:
+                - cell "Grup Toplamı" [ref=f1e5408]
+                - cell "50.914 $" [ref=f1e5409]
+                - cell "51.346 $" [ref=f1e5410]
+                - cell "52.149 $" [ref=f1e5411]
+                - cell "52.021 $" [ref=f1e5412]
+                - cell "52.442 $" [ref=f1e5413]
+                - cell "53.552 $" [ref=f1e5414]
+                - cell "—" [ref=f1e5415]
+                - cell "—" [ref=f1e5416]
+                - cell "—" [ref=f1e5417]
+                - cell "—" [ref=f1e5418]
+                - cell "—" [ref=f1e5419]
+                - cell "—" [ref=f1e5420]
+                - cell "312.424 $" [ref=f1e5421]
+                - cell [ref=f1e5422]
+          - generic [ref=f1e5423]:
+            - textbox "Yeni kalem adı..." [ref=f1e5424]
+            - button "Ekle" [ref=f1e5425] [cursor=pointer]
+        - generic [ref=f1e5427]:
+          - generic [ref=f1e5428]: Aylık Toplam Özeti — Domates (Soğutmalı)
+          - table [ref=f1e5430]:
+            - rowgroup [ref=f1e5431]:
+              - row [ref=f1e5432]:
+                - columnheader "Grup" [ref=f1e5433]
+                - columnheader "Ocak" [ref=f1e5434]
+                - columnheader "Şubat" [ref=f1e5435]
+                - columnheader "Mart" [ref=f1e5436]
+                - columnheader "Nisan" [ref=f1e5437]
+                - columnheader "Mayıs" [ref=f1e5438]
+                - columnheader "Haziran" [ref=f1e5439]
+                - columnheader "Temmuz" [ref=f1e5440]
+                - columnheader "Ağustos" [ref=f1e5441]
+                - columnheader "Eylül" [ref=f1e5442]
+                - columnheader "Ekim" [ref=f1e5443]
+                - columnheader "Kasım" [ref=f1e5444]
+                - columnheader "Aralık" [ref=f1e5445]
+                - columnheader "Toplam" [ref=f1e5446]
+            - rowgroup [ref=f1e5447]:
+              - row [ref=f1e5448]:
+                - cell "Energiýa we kommunal çykdajylar" [ref=f1e5449]
+                - cell "60 $" [ref=f1e5450]
+                - cell "21.395 $" [ref=f1e5451]
+                - cell "21.694 $" [ref=f1e5452]
+                - cell "18.814 $" [ref=f1e5453]
+                - cell "18.794 $" [ref=f1e5454]
+                - cell "19.494 $" [ref=f1e5455]
+                - cell "—" [ref=f1e5456]
+                - cell "—" [ref=f1e5457]
+                - cell "—" [ref=f1e5458]
+                - cell "—" [ref=f1e5459]
+                - cell "—" [ref=f1e5460]
+                - cell "—" [ref=f1e5461]
+                - cell "100.251 $" [ref=f1e5462]
+              - row [ref=f1e5463]:
+                - cell "Remont we abatlaýyş çykdajylary" [ref=f1e5464]
+                - cell "57.033 $" [ref=f1e5465]
+                - cell "74.101 $" [ref=f1e5466]
+                - cell "113.358 $" [ref=f1e5467]
+                - cell "79.373 $" [ref=f1e5468]
+                - cell "89.932 $" [ref=f1e5469]
+                - cell "82.250 $" [ref=f1e5470]
+                - cell "—" [ref=f1e5471]
+                - cell "—" [ref=f1e5472]
+                - cell "—" [ref=f1e5473]
+                - cell "—" [ref=f1e5474]
+                - cell "—" [ref=f1e5475]
+                - cell "—" [ref=f1e5476]
+                - cell "496.047 $" [ref=f1e5477]
+              - row [ref=f1e5478]:
+                - cell "Beýleki umumy önümçilik çykdajylary" [ref=f1e5479]
+                - cell "50.914 $" [ref=f1e5480]
+                - cell "51.346 $" [ref=f1e5481]
+                - cell "52.149 $" [ref=f1e5482]
+                - cell "52.021 $" [ref=f1e5483]
+                - cell "52.442 $" [ref=f1e5484]
+                - cell "53.552 $" [ref=f1e5485]
+                - cell "—" [ref=f1e5486]
+                - cell "—" [ref=f1e5487]
+                - cell "—" [ref=f1e5488]
+                - cell "—" [ref=f1e5489]
+                - cell "—" [ref=f1e5490]
+                - cell "—" [ref=f1e5491]
+                - cell "312.424 $" [ref=f1e5492]
+            - rowgroup [ref=f1e5493]:
+              - row [ref=f1e5494]:
+                - cell "730 Genel Toplam" [ref=f1e5495]
+                - cell "108.007 $" [ref=f1e5496]
+                - cell "146.842 $" [ref=f1e5497]
+                - cell "187.201 $" [ref=f1e5498]
+                - cell "150.208 $" [ref=f1e5499]
+                - cell "161.168 $" [ref=f1e5500]
+                - cell "155.296 $" [ref=f1e5501]
+                - cell "—" [ref=f1e5502]
+                - cell "—" [ref=f1e5503]
+                - cell "—" [ref=f1e5504]
+                - cell "—" [ref=f1e5505]
+                - cell "—" [ref=f1e5506]
+                - cell "—" [ref=f1e5507]
+                - cell "908.722 $" [ref=f1e5508]
+    - contentinfo [ref=f1e164]: Veriler bu cihazda/hesapta saklanır ve diğer kullanıcılarla paylaşılmaz.
+  - generic [ref=f1e927]: "-5500000"

@@ -1,0 +1,219 @@
+- generic [ref=f11e9]:
+  - generic [ref=f11e10]:
+    - generic [ref=f11e11]:
+      - button "TR" [ref=f11e12] [cursor=pointer]
+      - button "TM" [ref=f11e13] [cursor=pointer]
+    - generic [ref=f11e14]:
+      - generic [ref=f11e15]: "Yıl:"
+      - spinbutton [ref=f11e16]: "2026"
+    - generic [ref=f11e17]: Kaydedildi ✓
+    - button "Varsayılana sıfırla" [ref=f11e18] [cursor=pointer]
+    - button "Şifre" [ref=f11e22] [cursor=pointer]
+    - button "Çıkış" [ref=f11e26] [cursor=pointer]
+  - navigation [ref=f11e30]:
+    - button "Ana Sayfa" [ref=f11e31] [cursor=pointer]
+    - button "Ana Dashboard" [ref=f11e32] [cursor=pointer]
+    - button "Bütçe" [ref=f11e33] [cursor=pointer]
+    - button "Pomidor Dükânı" [ref=f11e34] [cursor=pointer]
+    - button "Sera İzleme" [ref=f11e35] [cursor=pointer]
+    - button "Tır Takip" [ref=f11e36] [cursor=pointer]
+    - button "Yurtdışı Hasabat" [ref=f11e37] [cursor=pointer]
+    - button "Finans Hasabatlar" [ref=f11e38] [cursor=pointer]
+    - button "Yardım" [ref=f11e39] [cursor=pointer]
+    - button "Ayarlar" [ref=f11e40] [cursor=pointer]
+  - main [ref=f11e41]:
+    - generic [ref=f11e678]:
+      - generic [ref=f11e680]:
+        - generic [ref=f11e686]:
+          - heading "Sera İzleme" [level=1] [ref=f11e687]
+          - paragraph [ref=f11e688]: Sıcaklık · Nem · Güneş Işığı · Hastalık Takip — 10 sera
+        - generic [ref=f11e689]:
+          - generic "Bu sayfada üzerinde çalışılan yıl" [ref=f11e690]:
+            - spinbutton [ref=f11e693]: "2026"
+          - button "PDF Olarak Kaydet" [ref=f11e694] [cursor=pointer]
+      - button [ref=f11e699] [cursor=pointer]
+      - generic [ref=f11e705]:
+        - button "Ekiş Taýýarlygy" [ref=f11e706] [cursor=pointer]
+        - button "Sera Haritası" [ref=f11e710] [cursor=pointer]
+        - button "Kayıtlar" [active] [ref=f11e713] [cursor=pointer]
+        - button "Hastalık" [ref=f11e717] [cursor=pointer]
+        - button "İklim & Işık" [ref=f11e727] [cursor=pointer]
+      - generic [ref=f11e1259]:
+        - generic [ref=f11e1260]:
+          - generic [ref=f11e1261]:
+            - generic [ref=f11e1262]:
+              - generic [ref=f11e1263]: Blok / Sera
+              - combobox [ref=f11e1264]:
+                - option "Tüm Bloklar" [selected]
+                - option "Dusak A"
+                - option "Dusak B"
+                - option "Dusak C"
+                - option "Dusak 1"
+                - option "Dusak 2"
+                - option "Dusak 3"
+                - option "Dusak 4"
+                - option "Dusak 5"
+                - option "Dusak 6"
+                - option "Dusak 7"
+                - option "Dusak 8"
+                - option "Dusak 9"
+                - option "Dusak 10"
+                - option "Kaka D"
+                - option "Kaka E"
+                - option "Kaka F"
+                - option "Kaka G"
+                - option "Kaka H"
+                - option "Kaka I"
+                - option "Kaka J"
+                - option "Kaka K"
+                - option "Kaka L"
+                - option "Kaka N"
+                - option "Kaka P"
+                - option "Kaka M15"
+                - option "Kaka M5"
+                - option "Owadandepe O"
+            - generic [ref=f11e1265]:
+              - generic [ref=f11e1266]: Sıra (A01–A49)
+              - combobox [ref=f11e1267]:
+                - option "Tüm Sıralar" [selected]
+                - option "A01"
+                - option "A02"
+                - option "A03"
+                - option "A04"
+                - option "A05"
+                - option "A06"
+                - option "A07"
+                - option "A08"
+                - option "A09"
+                - option "A10"
+                - option "A11"
+                - option "A12"
+                - option "A13"
+                - option "A14"
+                - option "A15"
+                - option "A16"
+                - option "A17"
+                - option "A18"
+                - option "A19"
+                - option "A20"
+                - option "A21"
+                - option "A22"
+                - option "A23"
+                - option "A24"
+                - option "A25"
+                - option "A26"
+                - option "A27"
+                - option "A28"
+                - option "A29"
+                - option "A30"
+                - option "A31"
+                - option "A32"
+                - option "A33"
+                - option "A34"
+                - option "A35"
+                - option "A36"
+                - option "A37"
+                - option "A38"
+                - option "A39"
+                - option "A40"
+                - option "A41"
+                - option "A42"
+                - option "A43"
+                - option "A44"
+                - option "A45"
+                - option "A46"
+                - option "A47"
+                - option "A48"
+                - option "A49"
+            - generic [ref=f11e1268]:
+              - generic [ref=f11e1269]: Başlangıç
+              - textbox [ref=f11e1270]
+            - generic [ref=f11e1271]:
+              - generic [ref=f11e1272]: Bitiş
+              - textbox [ref=f11e1273]
+            - generic [ref=f11e1274]:
+              - generic [ref=f11e1275]: Hastalık
+              - combobox [ref=f11e1276]:
+                - option "Tümü" [selected]
+                - option "Hastalıklı"
+                - option "Sağlıklı"
+            - button [ref=f11e1277] [cursor=pointer]
+          - generic [ref=f11e1281]:
+            - button "Yeni Kayıt" [ref=f11e1282] [cursor=pointer]
+            - button "CSV İndir" [ref=f11e1284] [cursor=pointer]
+            - button "CSV Yükle" [ref=f11e1288] [cursor=pointer]
+            - button "CSV Şablon" [ref=f11e1292] [cursor=pointer]
+            - generic [ref=f11e1293]: 3 kayıt bulundu
+        - table [ref=f11e1296]:
+          - rowgroup [ref=f11e1297]:
+            - row [ref=f11e1298]:
+              - columnheader "Sera" [ref=f11e1299]
+              - columnheader "Sıra" [ref=f11e1300]
+              - columnheader "Tarih" [ref=f11e1301]
+              - columnheader "Sıcaklık (°C)" [ref=f11e1302]
+              - columnheader "Nem (%)" [ref=f11e1303]
+              - columnheader "Güneş (saat)" [ref=f11e1304]
+              - columnheader "Joule İst. (J)" [ref=f11e1305]
+              - columnheader "Joule Ger. (J)" [ref=f11e1306]
+              - columnheader "Hastalık" [ref=f11e1307]
+              - columnheader "Hastalık Türü" [ref=f11e1308]
+              - columnheader "Şiddet" [ref=f11e1309]
+              - columnheader "Etk. %" [ref=f11e1310]
+              - columnheader "Notlar" [ref=f11e1311]
+              - columnheader [ref=f11e1312]
+          - rowgroup [ref=f11e1313]:
+            - row [ref=f11e1314]:
+              - cell "3" [ref=f11e1315]
+              - cell "A08" [ref=f11e1316]
+              - cell "2026-06-29" [ref=f11e1317]
+              - cell "25°" [ref=f11e1318]
+              - cell "65%" [ref=f11e1319]
+              - cell "8.5" [ref=f11e1320]
+              - cell "—" [ref=f11e1321]
+              - cell "—" [ref=f11e1322]
+              - cell [ref=f11e1323]
+              - cell "—" [ref=f11e1327]
+              - cell "—" [ref=f11e1328]
+              - cell "—" [ref=f11e1329]
+              - cell "dsds" [ref=f11e1330]
+              - cell [ref=f11e1331]:
+                - generic [ref=f11e1332]:
+                  - button [ref=f11e1333] [cursor=pointer]
+                  - button [ref=f11e1337] [cursor=pointer]
+            - row [ref=f11e1341]:
+              - cell "3" [ref=f11e1342]
+              - cell "A01" [ref=f11e1343]
+              - cell "2026-06-29" [ref=f11e1344]
+              - cell "30°" [ref=f11e1345]
+              - cell "70%" [ref=f11e1346]
+              - cell "8.5" [ref=f11e1347]
+              - cell "—" [ref=f11e1348]
+              - cell "—" [ref=f11e1349]
+              - cell [ref=f11e1350]
+              - cell "—" [ref=f11e1354]
+              - cell "—" [ref=f11e1355]
+              - cell "—" [ref=f11e1356]
+              - cell "—" [ref=f11e1357]
+              - cell [ref=f11e1358]:
+                - generic [ref=f11e1359]:
+                  - button [ref=f11e1360] [cursor=pointer]
+                  - button [ref=f11e1364] [cursor=pointer]
+            - row [ref=f11e1368]:
+              - cell "10" [ref=f11e1369]
+              - cell "A01" [ref=f11e1370]
+              - cell "2026-06-26" [ref=f11e1371]
+              - cell "26°" [ref=f11e1372]
+              - cell "65%" [ref=f11e1373]
+              - cell "9" [ref=f11e1374]
+              - cell "—" [ref=f11e1375]
+              - cell "—" [ref=f11e1376]
+              - cell [ref=f11e1377]
+              - cell "—" [ref=f11e1381]
+              - cell "—" [ref=f11e1382]
+              - cell "—" [ref=f11e1383]
+              - cell "sdssdsdsds" [ref=f11e1384]
+              - cell [ref=f11e1385]:
+                - generic [ref=f11e1386]:
+                  - button [ref=f11e1387] [cursor=pointer]
+                  - button [ref=f11e1391] [cursor=pointer]
+  - contentinfo [ref=f11e227]: Veriler bu cihazda/hesapta saklanır ve diğer kullanıcılarla paylaşılmaz.
