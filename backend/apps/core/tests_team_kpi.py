@@ -76,6 +76,21 @@ class ComputeTeamKpiTest(TestCase):
         self.assertEqual(rows[self.alice.id]['overdue_now'], 1)
         self.assertEqual(rows[self.bob.id]['overdue_now'], 0)
 
+    def test_overdue_excludes_soft_deleted_shipment_tasks(self):
+        # An overdue open task on a soft-deleted shipment must NOT count —
+        # matches the task board's filter.
+        from apps.export.tests_task_attribution_helpers import make_basic_shipment
+        shipment = make_basic_shipment(created_by=self.alice)
+        shipment.deleted_at = timezone.now()
+        shipment.save(update_fields=['deleted_at'])
+        Task.objects.create(
+            shipment=shipment, title_key='t', assignee_role='loading_dept_head',
+            completion_rule=TaskCompletionRule.MANUAL_DONE,
+            state=TaskState.OPEN, deadline=timezone.now() - timedelta(hours=2),
+        )
+        rows = {r['user_id']: r for r in compute_team_kpi('today')}
+        self.assertEqual(rows[self.alice.id]['overdue_now'], 0)
+
     def test_zero_completion_users_present_and_sorted_last(self):
         self._done_task(self.alice)
         rows = compute_team_kpi('week')
