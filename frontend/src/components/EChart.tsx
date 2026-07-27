@@ -2,7 +2,7 @@ import { useRef, useEffect } from 'react';
 import ReactEChartsCore from 'echarts-for-react/lib/core';
 import * as echarts from 'echarts/core';
 import { LineChart, PieChart, BarChart } from 'echarts/charts';
-import { TooltipComponent, LegendComponent, GridComponent } from 'echarts/components';
+import { TooltipComponent, LegendComponent, GridComponent, PolarComponent } from 'echarts/components';
 import { CanvasRenderer, SVGRenderer } from 'echarts/renderers';
 import type { EChartsOption } from 'echarts';
 import { Skeleton } from 'antd';
@@ -10,12 +10,13 @@ import { Skeleton } from 'antd';
 // Tree-shaken echarts build. Importing the full `echarts` / `echarts-for-react`
 // pulled the entire library (~1 MB) into the BossDashboard chunk. Register only
 // the modules our charts actually use — line/pie/bar series, axis grid, tooltip,
-// legend, and both renderers. Canvas is the default; SVG is used for many-small-
+// legend, polar coordinate (radial charts), and both renderers. Canvas is the
+// default; SVG is used for many-small-
 // charts pages (e.g. the team KPI leaderboard's 60+ per-card sparklines) where a
 // canvas context per instance is too heavy for low-end clients. If a chart starts
 // rendering blank, a needed module is missing here (e.g. add a new series type).
 // The `EChartsOption` type import is erased at build time and adds nothing.
-echarts.use([LineChart, PieChart, BarChart, TooltipComponent, LegendComponent, GridComponent, CanvasRenderer, SVGRenderer]);
+echarts.use([LineChart, PieChart, BarChart, TooltipComponent, LegendComponent, GridComponent, PolarComponent, CanvasRenderer, SVGRenderer]);
 
 interface IEChartProps {
   option: EChartsOption;
