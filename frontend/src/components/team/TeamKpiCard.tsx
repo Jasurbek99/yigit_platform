@@ -1,5 +1,5 @@
-// Per-user KPI card: rank medal, avatar, completed headline, on-time meter,
-// overdue badge, active hours, 14-day trend sparkline.
+// Per-user KPI card: rank medal, avatar, completed headline, circular on-time
+// gauge, overdue badge, active hours, 14-day trend sparkline.
 
 import { Card, Progress, Tag, Typography, Avatar } from 'antd';
 import { useTranslation } from 'react-i18next';
@@ -77,12 +77,16 @@ export function TeamKpiCard({ row, rank }: ITeamKpiCardProps) {
         <Text type="secondary" style={{ fontSize: 12 }}>{t('team_kpi.card_completed')}</Text>
       </div>
 
-      <div style={{ marginTop: 8 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
-          <Text type="secondary">{t('team_kpi.card_on_time')}</Text>
-          <Text style={{ color: pct == null ? undefined : onTimeColor }}>{pct == null ? '—' : `${pct}%`}</Text>
-        </div>
-        <Progress percent={pct ?? 0} size="small" showInfo={false} strokeColor={onTimeColor} />
+      <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <Progress
+          type="circle"
+          percent={pct ?? 0}
+          size={58}
+          strokeColor={onTimeColor}
+          trailColor={COLORS.border}
+          format={() => (pct == null ? '—' : `${pct}%`)}
+        />
+        <Text type="secondary" style={{ fontSize: 12 }}>{t('team_kpi.card_on_time')}</Text>
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 12 }}>
