@@ -33,22 +33,9 @@ from apps.export.services_quota import (
     compute_fifo_usage,
     compute_firm_quota_balances,
 )
+from apps.export.services.quota_sync import invalidate_quota_caches
 
 logger = logging.getLogger(__name__)
-
-
-def invalidate_quota_caches() -> None:
-    """Drop the FIFO + per-firm-balance caches for both product types.
-
-    Called whenever issued or approved-used quota totals change (issuance
-    create/update/delete, usage approve) so the firm-split editor's "no quota"
-    hard-block reflects new allocations immediately instead of after the 60s
-    TTL. No signals — explicit call per the architecture rules.
-    """
-    cache.delete('fifo_usage:tomato')
-    cache.delete('fifo_usage:pepper')
-    cache.delete('quota_firm_balances:tomato')
-    cache.delete('quota_firm_balances:pepper')
 
 
 # ---------------------------------------------------------------------------
@@ -255,8 +242,12 @@ class QuotaUsageViewSet(ModelViewSet):
                     )
                     for pk in approved_ids
                 ], batch_size=500)
-            # Invalidate FIFO + firm-balance caches since approved usage totals changed
-            invalidate_quota_caches()
+            # Bust FIFO + firm-balance caches once approved usage totals change.
+            # on_commit (not a bare call): we're inside transaction.atomic(), so a
+            # bare delete would drop the cache BEFORE this UPDATE commits — a
+            # concurrent read could then repopulate it with pre-approval numbers
+            # that stick for the full 60s TTL. Deferring to commit closes that race.
+            transaction.on_commit(invalidate_quota_caches)
         return Response({'approved': updated})
 
 

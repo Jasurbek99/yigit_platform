@@ -37,21 +37,32 @@ class ApprovedQuotaExistsError(Exception):
 
 
 def invalidate_quota_caches() -> None:
-    """Bust FIFO cache for every product type.
+    """Bust the FIFO + per-firm-balance caches for every product type.
 
-    Call after any change that could affect quota consumption:
+    Canonical quota-cache buster — the single place that knows which keys go
+    stale when quota consumption or issuance changes. Call after any change
+    that could affect a firm's remaining balance:
+        - issuing / editing / deleting a quota issuance
+        - assigning / editing firm splits (auto-creates draft usage)
         - approving / unapproving a usage record
         - soft-deleting / restoring / cancelling a shipment
         - hard-deleting an approved usage row
 
+    Both keys must be busted together: FIFO (approved-only consumption) backs
+    the dashboard/issuance list, while quota_firm_balances (draft + approved
+    committed) backs the Sheet firm-split editor's "no quota" hard-block — a
+    firm-split or issuance change moves both, so busting only one leaves the
+    Sheet showing a stale "no quota" state for up to the 60s TTL.
+
     Dashboard cache (quota_dashboard:*) is left to expire on its own 60s TTL
     — Django's default backend has no pattern-delete and the keys are
     parameterised by season/date range. Acceptable lag for the dashboard,
-    not for FIFO (which other writes read back immediately).
+    not for these (which other writes read back immediately).
     """
-    # Mirrors keys touched by QuotaUsageViewSet.approve.
     cache.delete('fifo_usage:tomato')
     cache.delete('fifo_usage:pepper')
+    cache.delete('quota_firm_balances:tomato')
+    cache.delete('quota_firm_balances:pepper')
 
 
 def sync_draft_quota_usage_for_shipment(
