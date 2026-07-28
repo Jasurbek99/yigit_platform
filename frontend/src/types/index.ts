@@ -83,6 +83,7 @@ export interface IExportFirm {
   bank_details_en: string | null;
   bank_details_ru: string | null;
   director: string | null;
+  director_tk: string | null;
   tax_code: string | null;
   swift_code: string | null;
   one_c_code: string | null;

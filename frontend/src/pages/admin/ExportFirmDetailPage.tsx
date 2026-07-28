@@ -95,6 +95,7 @@ interface FirmFormValues {
   name_en: string;
   name_ru: string;
   director: string;
+  director_tk: string;
   tax_code: string;
   swift_code: string;
   one_c_code: string;
@@ -168,6 +169,7 @@ export default function ExportFirmDetailPage() {
       name_en: values.name_en || null,
       name_ru: values.name_ru || null,
       director: values.director || null,
+      director_tk: values.director_tk || null,
       tax_code: values.tax_code || null,
       swift_code: values.swift_code || null,
       one_c_code: values.one_c_code || null,
@@ -277,6 +279,9 @@ export default function ExportFirmDetailPage() {
             </Descriptions.Item>
             <Descriptions.Item label={t('firms_admin.director')}>
               <InlineEdit value={firm.director} editable={canEdit} onSave={(v) => saveField({ director: v || null })} />
+            </Descriptions.Item>
+            <Descriptions.Item label={t('firms_admin.director_tk')}>
+              <InlineEdit value={firm.director_tk} editable={canEdit} onSave={(v) => saveField({ director_tk: v || null })} />
             </Descriptions.Item>
             <Descriptions.Item label={t('firms_admin.tax_code')}>
               <InlineEdit value={firm.tax_code} editable={canEdit} onSave={(v) => saveField({ tax_code: v || null })} />
@@ -406,6 +411,9 @@ export default function ExportFirmDetailPage() {
             <Input />
           </Form.Item>
           <Form.Item name="director" label={t('firms_admin.director')}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="director_tk" label={t('firms_admin.director_tk')}>
             <Input />
           </Form.Item>
           <Form.Item name="tax_code" label={t('firms_admin.tax_code')}>

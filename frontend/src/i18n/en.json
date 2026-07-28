@@ -1181,7 +1181,8 @@
     "toast_updated": "Firm updated",
     "toast_deleted": "Firm deleted",
     "toast_error": "Operation failed",
-    "subtitle": "Manage export firms"
+    "subtitle": "Manage export firms",
+    "director_tk": "Director (Turkmen)"
   },
   "import_firms_admin": {
     "title": "Import Firms",

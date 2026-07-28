@@ -1181,7 +1181,8 @@
     "toast_updated": "Firma täzelendi",
     "toast_deleted": "Firma pozuldy",
     "toast_error": "Amal başa barmady",
-    "subtitle": "Eksport firmalaryny dolandyrmak"
+    "subtitle": "Eksport firmalaryny dolandyrmak",
+    "director_tk": "Direktor (türkmençe)"
   },
   "import_firms_admin": {
     "title": "Import firmalary",

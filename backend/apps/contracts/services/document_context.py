@@ -834,7 +834,13 @@ def build_contract_context(contract, lang: str = 'ru', overrides: dict | None = 
         ),
         'seller_address_tk': getattr(seller, 'address_tk', '') or '',
         'seller_address_ru': getattr(seller, 'address_ru', '') or getattr(seller, 'address_tk', '') or '',
-        'seller_director': _seller_director(seller),
+        # Director: RU/Cyrillic from `director`; TK/Latin from `director_tk` (falling
+        # back to the RU form when the Turkmen spelling isn't filled).
+        'seller_director_ru': _seller_director(seller),
+        'seller_director_tk': (
+            _DIRECTOR_TITLE.sub('', getattr(seller, 'director_tk', '') or '').strip()
+            or _seller_director(seller)
+        ),
         'seller_bank_tk': _oneline(getattr(seller, 'bank_details_tk', '') or ''),
         'seller_bank_ru': _oneline(
             getattr(seller, 'bank_details_ru', '') or getattr(seller, 'bank_details_tk', '') or ''

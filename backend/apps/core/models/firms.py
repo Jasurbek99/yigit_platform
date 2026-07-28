@@ -18,6 +18,9 @@ class ExportFirm(models.Model):
     bank_details_ru = models.CharField(max_length=1000, blank=True, null=True, **cyrillic_collation())
     bank_details_en = models.CharField(max_length=1000, blank=True, null=True)
     director = models.CharField(max_length=200, blank=True, null=True, **cyrillic_collation())
+    # Turkmen/Latin spelling of the director's name (e.g. "Çaryýew Agamyrat"), for the
+    # export contract's Turkmen column. `director` above stays the Russian/Cyrillic form.
+    director_tk = models.CharField(max_length=200, blank=True, null=True, **cyrillic_collation())
     # Director's signature + company seal images (optional) — stamped onto the
     # export contract's signature block when generated "with stamps". Mirror of
     # ImportFirm's fields, for the seller side.

@@ -608,6 +608,7 @@ export default function OptionListsTab({ canWrite }: IProps) {
           bank_details_en: null,
           bank_details_ru: null,
           director: null,
+          director_tk: null,
           tax_code: null,
           swift_code: null,
           one_c_code: null,

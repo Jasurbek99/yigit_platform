@@ -442,6 +442,7 @@ def _mock_seller():
         name_tk='Hemsaya H.J.', name_ru='Хемсая Х.Дж.',
         address_tk='Türkmenistan, Ahal w., Kaka etr.', address_ru='Туркменистан, Ахалская обл.',
         director='Директор Худайназаров Ы.',
+        director_tk='Direktor Hudaýnazarow Ý.',
         bank_details_tk='Bank: Türkmenbaşy\nSWIFT: INVATM2X',
         bank_details_ru='Банк: Туркменбаши\nВал/счет: 23202\nSWIFT: INVATM2X',
     )
@@ -497,8 +498,15 @@ class ContractContextBuilderTest(SimpleTestCase):
         # legal-form suffix stripped (template supplies "HJ" / "Хозяйственное общество")
         self.assertEqual(c['seller_name_tk'], 'Hemsaya')
         self.assertEqual(c['seller_name_ru'], 'Хемсая')
-        # director title word stripped (template already prints "Direktor")
-        self.assertEqual(c['seller_director'], 'Худайназаров Ы.')
+        # director title word stripped; RU/Cyrillic from `director`, TK/Latin from `director_tk`
+        self.assertEqual(c['seller_director_ru'], 'Худайназаров Ы.')
+        self.assertEqual(c['seller_director_tk'], 'Hudaýnazarow Ý.')
+
+    def test_seller_director_tk_falls_back_to_ru_when_blank(self):
+        c = _mock_contract()
+        c.export_firm.director_tk = None  # Turkmen spelling not filled
+        out = ctx.build_contract_context(c, 'ru')
+        self.assertEqual(out['seller_director_tk'], 'Худайназаров Ы.')  # falls back to `director`
         # bank blob collapsed to one line
         self.assertEqual(c['seller_bank_ru'], 'Банк: Туркменбаши; Вал/счет: 23202; SWIFT: INVATM2X')
 
