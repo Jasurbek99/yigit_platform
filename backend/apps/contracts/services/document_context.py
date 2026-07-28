@@ -689,15 +689,48 @@ def _date_ru_spelled(value: date | None) -> str:
 
 
 def _date_tk_numeric(value: date | None) -> str:
-    """Turkmen date as ``DD.MM.YYYY ý.``, '' if None.
-
-    Turkmen spelled-out ordinal dates need vowel-harmony morphology that the
-    source contracts apply inconsistently, so we use the unambiguous numeric
-    form (idiomatic in Turkmen official text) rather than risk wrong grammar.
-    """
+    """Turkmen date as ``DD.MM.YYYY ý.``, '' if None (kept as a fallback)."""
     if value is None:
         return ''
     return f'{value:%d.%m.%Y} ý.'
+
+
+# Turkmen month names in the locative form the contract dates use
+# ("…ýylyň 30-njy iýunyna"). Vowel harmony: back-vowel months take ``-yna``;
+# the one front-vowel month (aprel) takes ``-ine``.
+_TK_MONTHS_LOCATIVE = [
+    '', 'ýanwaryna', 'fewralyna', 'martyna', 'apreline', 'maýyna', 'iýunyna',
+    'iýulyna', 'awgustyna', 'sentýabryna', 'oktýabryna', 'noýabryna', 'dekabryna',
+]
+
+# Thin (front) vowels — an ordinal ending in one of these takes ``-nji``; a back
+# vowel (a, u, y, o) takes ``-njy`` (rule confirmed by the export team).
+_TK_THIN_VOWELS = set('ieüäö')
+
+
+def _tk_ordinal(n: int) -> str:
+    """Turkmen ordinal, e.g. ``30`` → ``30-njy``, ``31`` → ``31-nji``.
+
+    The suffix follows vowel harmony of the number's spelled form: the last vowel
+    of the last spoken word decides ``-nji`` (thin) vs ``-njy`` (back). Reuses the
+    Turkmen number speller so compounds resolve correctly (``26`` → "ýigrimi alty"
+    → back → ``-njy``).
+    """
+    words = amount_words_tk(n).split()
+    last = words[-1] if words else ''
+    last_vowel = next((c for c in reversed(last) if c in 'aeiouyäöü'), 'a')
+    return f'{n}-nji' if last_vowel in _TK_THIN_VOWELS else f'{n}-njy'
+
+
+def _date_tk_spelled(value: date | None) -> str:
+    """Spelled Turkmen date: ``2026-njy ýylyň 30-njy iýunyna``, '' if None.
+
+    The template supplies the trailing word (``çenli``), so this returns just
+    ``<year-ord> ýylyň <day-ord> <month-locative>``.
+    """
+    if value is None:
+        return ''
+    return f'{_tk_ordinal(value.year)} ýylyň {_tk_ordinal(value.day)} {_TK_MONTHS_LOCATIVE[value.month]}'
 
 
 def _oneline(text: str) -> str:
@@ -822,10 +855,10 @@ def build_contract_context(contract, lang: str = 'ru', overrides: dict | None = 
         'total_sum_words_ru': amount_words_ru(whole_dollars) if whole_dollars is not None else '',
         'quantity': _kg(qty, 'ru'),
         'price': _price(unit_price, 'ru'),
-        # Dates — RU spelled, TK numeric (see _date_tk_numeric).
-        'delivery_deadline_tk': _date_tk_numeric(deadline),
+        # Dates — both spelled: RU genitive, TK ordinal (vowel-harmony suffix).
+        'delivery_deadline_tk': _date_tk_spelled(deadline),
         'delivery_deadline_ru': _date_ru_spelled(deadline),
-        'validity_tk': _date_tk_numeric(contract.end_date),
+        'validity_tk': _date_tk_spelled(contract.end_date),
         'validity_ru': _date_ru_spelled(contract.end_date),
         # Seller (export firm) — name bare (template supplies the legal form).
         'seller_name_tk': _bare_seller_name(getattr(seller, 'name_tk', '') or ''),

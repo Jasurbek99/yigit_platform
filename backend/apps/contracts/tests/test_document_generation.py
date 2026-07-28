@@ -484,14 +484,21 @@ class ContractContextBuilderTest(SimpleTestCase):
         self.assertEqual(c['quantity'], '9 000')
         self.assertEqual(c['price'], '0,87')
 
-    def test_dates_ru_spelled_tk_numeric(self):
+    def test_dates_spelled_ru_and_tk(self):
         c = ctx.build_contract_context(
             _mock_contract(), 'ru', {'delivery_deadline': '2026-06-30'},
         )
+        # RU genitive
         self.assertEqual(c['delivery_deadline_ru'], '30 июня 2026')
-        self.assertEqual(c['delivery_deadline_tk'], '30.06.2026 ý.')
         self.assertEqual(c['validity_ru'], '31 декабря 2026')   # from end_date
-        self.assertEqual(c['validity_tk'], '31.12.2026 ý.')
+        # TK ordinal (vowel-harmony suffix): 30 -> -njy, 31 -> -nji
+        self.assertEqual(c['delivery_deadline_tk'], '2026-njy ýylyň 30-njy iýunyna')
+        self.assertEqual(c['validity_tk'], '2026-njy ýylyň 31-nji dekabryna')
+
+    def test_tk_ordinal_vowel_harmony(self):
+        # back-vowel last word -> -njy; thin/front -> -nji
+        self.assertEqual([n for n in range(1, 32) if ctx._tk_ordinal(n).endswith('-njy')],
+                         [6, 9, 10, 16, 19, 26, 29, 30])
 
     def test_seller_from_export_firm(self):
         c = ctx.build_contract_context(_mock_contract(), 'ru')
@@ -601,8 +608,8 @@ class ContractRenderSmokeTest(SimpleTestCase):
         self.assertIn('7 830,00', text)
         self.assertIn('ýedi müň sekiz ýüz otuz', text)      # TK amount in words
         self.assertIn('семь тысяч восемьсот тридцать', text)  # RU amount in words
-        self.assertIn('30.06.2026', text)                    # TK numeric deadline
-        self.assertIn('30 июня 2026', text)                  # RU spelled deadline
+        self.assertIn('2026-njy ýylyň 30-njy iýunyna', text)  # TK spelled deadline
+        self.assertIn('30 июня 2026', text)                   # RU spelled deadline
         self.assertIn('Hemsaya', text)                       # seller name (not hardcoded Ýigit)
         self.assertIn('Худайназаров', text)                  # seller director
         self.assertIn('191040016779', text)                  # buyer bank blob (collapsed)
