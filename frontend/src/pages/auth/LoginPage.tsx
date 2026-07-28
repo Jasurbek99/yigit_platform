@@ -92,33 +92,23 @@ export default function LoginPage() {
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 12,
+            gap: 14,
             marginBottom: 32,
             justifyContent: 'center',
           }}
         >
-          <div
-            style={{
-              width: 44,
-              height: 44,
-              background: COLORS.primary,
-              borderRadius: 12,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 700,
-              fontSize: 18,
-              color: COLORS.white,
-              flexShrink: 0,
-            }}
-          >
-            Y
-          </div>
+          <img
+            src="/logo.png"
+            alt={t('login.title')}
+            width={64}
+            height={64}
+            style={{ display: 'block', objectFit: 'contain', flexShrink: 0 }}
+          />
           <div>
             <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em', color: COLORS.textDark }}>
               {t('login.title')}
             </div>
-            <div style={{ fontSize: 12, color: COLORS.textSecondary, textAlign: 'center' }}>
+            <div style={{ fontSize: 12, color: COLORS.textSecondary }}>
               {t('login.ops_subtitle')}
             </div>
           </div>
