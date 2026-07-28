@@ -760,6 +760,61 @@ class ShipmentCmrEndpointTest(_SeededPermsMixin, TestCase):
         self.assertEqual(resp.status_code, 404)
 
 
+class ShipmentPacketZipEndpointTest(_SeededPermsMixin, TestCase):
+    """API: GET /api/v1/contracts/shipments/{id}/packet.zip — whole packet zip."""
+
+    def setUp(self) -> None:
+        self.client = APIClient()
+        self.user = _make_user('zip_doc', 'export_manager')
+        self.client.force_authenticate(user=self.user)
+        self.season = _make_season()
+        self.imp = _make_import_firm('IMPZIP')
+        self.ef = _make_export_firm('ZIPA')
+        self.shipment = _make_packed_shipment(self.season, self.imp, code='0202001/25')
+        ShipmentFirmSplit.objects.create(
+            shipment=self.shipment, export_firm=self.ef,
+            weight_kg=Decimal('9000'), amount_usd=Decimal('8000'),
+        )
+        contract = _make_contract('ZIP-C1', self.ef, self.imp, self.season)
+        sale = _make_invoice(contract, invoice_number=1)
+        sale.shipment = self.shipment
+        sale.export_firm = self.ef
+        sale.save(update_fields=['shipment', 'export_firm'])
+
+    def test_zip_bundles_cmr_invoice_and_letters(self):
+        import zipfile
+        resp = self.client.get(f'/api/v1/contracts/shipments/{self.shipment.pk}/packet.zip')
+        self.assertEqual(resp.status_code, 200, resp.content[:200])
+        self.assertEqual(resp['Content-Type'], 'application/zip')
+        self.assertIn('.zip', resp['Content-Disposition'])
+        names = zipfile.ZipFile(BytesIO(resp.content)).namelist()
+        # 1 truck CMR + the firm's invoice + CT-1 + FITO + customs = 5 files.
+        self.assertEqual(len(names), 5, names)
+        self.assertTrue(any(n.startswith('CMR_') for n in names), names)
+        self.assertTrue(any(n.startswith('Invoice_') for n in names), names)
+
+    def test_void_sale_excluded(self):
+        import zipfile
+        from apps.contracts.models import ContractSale
+        ContractSale.objects.filter(shipment=self.shipment).update(status=ContractSale.STATUS_VOID)
+        resp = self.client.get(f'/api/v1/contracts/shipments/{self.shipment.pk}/packet.zip')
+        self.assertEqual(resp.status_code, 200, resp.content[:200])
+        names = zipfile.ZipFile(BytesIO(resp.content)).namelist()
+        # voided sale → no invoice/letters; only the truck CMR remains
+        self.assertEqual(len(names), 1, names)
+        self.assertTrue(names[0].startswith('CMR_'), names)
+
+    def test_incomplete_packing_returns_400(self):
+        self.shipment.box_count = None
+        self.shipment.save(update_fields=['box_count'])
+        resp = self.client.get(f'/api/v1/contracts/shipments/{self.shipment.pk}/packet.zip')
+        self.assertEqual(resp.status_code, 400)
+
+    def test_missing_shipment_returns_404(self):
+        resp = self.client.get('/api/v1/contracts/shipments/999999/packet.zip')
+        self.assertEqual(resp.status_code, 404)
+
+
 class ContractAgreementEndpointTest(_SeededPermsMixin, TestCase):
     """API: GET /api/v1/contracts/contracts/{id}/agreement/."""
 

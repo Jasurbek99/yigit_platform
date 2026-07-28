@@ -19,6 +19,7 @@ import shutil
 import subprocess
 import tempfile
 import time
+import zipfile
 from contextlib import contextmanager
 from io import BytesIO
 from pathlib import Path
@@ -235,6 +236,16 @@ def generate(
         ValueError: Unsupported fmt.
         DocumentRenderError: PDF requested but converter unavailable / failed.
     """
+    # TODO(docs): persist generated documents.
+    #   1. GeneratedDocument audit model — one row per generation (document_key,
+    #      shipment/sale, user, timestamp) to back the "13:00 board": at a glance
+    #      per truck, what's done vs pending. Doesn't block generation; it's
+    #      progress tracking for the document team.
+    #   2. Save-and-reuse — store the rendered file so that, if nothing about the
+    #      truck changed since, re-download serves the saved copy instead of
+    #      re-rendering (faster, and the PDF the office printed is preserved).
+    #      Needs a "dirty since generated" check (e.g. compare shipment/sale
+    #      updated_at vs the saved doc's timestamp) to know when to regenerate.
     if fmt not in ('docx', 'pdf'):
         raise ValueError(f'Unsupported format: {fmt!r}')
 
@@ -255,3 +266,45 @@ def generate(
     if fmt == 'pdf':
         return render_pdf(source_bytes, native_ext), f'{stem}.pdf', PDF_CONTENT_TYPE
     return source_bytes, f'{stem}.{native_ext}', native_type
+
+
+ZIP_CONTENT_TYPE = 'application/zip'
+
+# Per-firm request letters bundled into the packet (single-language forms).
+_PACKET_LETTER_KEYS = ('ct1_ru', 'fito_ru', 'customs_tk')
+
+
+def generate_packet_zip(shipment, sales, lang='ru', fmt='docx', overrides=None) -> bytes:
+    """Bundle a truck's whole document packet into a single zip.
+
+    Contents: the truck-level CMR, then per firm (each ``ContractSale`` in
+    ``sales``) that firm's invoice + the CT-1 / FITO / customs request letters.
+    Filenames are the same per-document names ``generate`` produces, so nothing
+    collides (invoice/CMR names carry the contract/invoice/shipment code).
+
+    Args:
+        shipment: the ``Shipment`` (truck) — drives the CMR.
+        sales: its ``ContractSale`` rows (firms with a linked contract). Firms
+            without a sale have no invoice/letters, so they're simply absent.
+        lang: ``'ru'`` | ``'en'`` — CMR + invoice language (letters are fixed-lang).
+        fmt: ``'docx'`` | ``'pdf'`` — applied to every document in the packet.
+        overrides: generate-time values (``place_loading`` / ``tir_carnet``).
+
+    Raises:
+        ValueError / DocumentRenderError: propagated from ``generate`` (e.g. PDF
+        requested but LibreOffice missing) — the whole packet fails as one.
+    """
+    # The Word CMR (``cmr_*_docx``) is the form the office uses — same as the CMR
+    # button; the xlsx overlay (``cmr_*``) is not offered in the UI.
+    cmr_key = 'cmr_en_docx' if lang == 'en' else 'cmr_ru_docx'
+    invoice_key = 'invoice_en' if lang == 'en' else 'invoice_ru'
+
+    buf = BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as archive:
+        data, filename, _ = generate(cmr_key, shipment, fmt, overrides)
+        archive.writestr(filename, data)
+        for sale in sales:
+            for key in (invoice_key, *_PACKET_LETTER_KEYS):
+                data, filename, _ = generate(key, sale, fmt, overrides)
+                archive.writestr(filename, data)
+    return buf.getvalue()

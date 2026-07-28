@@ -343,9 +343,11 @@ def build_cmr_context(shipment, lang: str = 'ru', overrides: dict | None = None)
     overrides = overrides or {}
     loc = _CMR_LOCALE.get(lang, _CMR_LOCALE['ru'])
 
-    # Sellers: every export firm on the truck (1–3 firm splits), joined into the
-    # single sender box (the simplified template has no per-consignor rows). Joined
-    # with '; ' — a bare '\n' does NOT render as a line break in a docx run.
+    # Sellers: every export firm on the truck (1–3 firm splits), joined with '; '
+    # into the official form's single consignor box (box 1 has one slot).
+    # TODO(docs): make the CMR/invoice/letter templates editable from the admin
+    # (upload/swap the .xlsx/.docx at runtime) so the office can tweak the layout
+    # without a code change — see the DocumentTemplate note in registry.py.
     firms = [split.export_firm for split in shipment.firm_splits.all()]
     sender_name = '; '.join(_firm_attr(firm, 'name', lang) for firm in firms)
     sender_address = '; '.join(

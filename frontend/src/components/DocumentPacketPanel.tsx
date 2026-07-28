@@ -4,6 +4,7 @@ import { IconLink, IconScale } from '@tabler/icons-react';
 
 import { CmrDocumentsButton } from '@/components/CmrDocumentsButton';
 import { InvoiceDocumentsButton } from '@/components/InvoiceDocumentsButton';
+import { PacketZipButton } from '@/components/PacketZipButton';
 import { ShipmentFirmContractsPanel } from '@/components/sheet/ShipmentFirmContractsPanel';
 import { ShipmentPackingPanel } from '@/components/sheet/ShipmentPackingPanel';
 import type { IDocumentPacket } from '@/types';
@@ -36,6 +37,7 @@ export function DocumentPacketPanel({ packet }: IDocumentPacketPanelProps) {
       )}
 
       <Space wrap>
+        <PacketZipButton shipmentId={packet.id} disabled={!packet.is_ready} />
         <Typography.Text strong>{t('documents.cmr')}:</Typography.Text>
         <CmrDocumentsButton shipmentId={packet.id} disabled={!packet.is_ready} />
         {!packet.packing_complete && (

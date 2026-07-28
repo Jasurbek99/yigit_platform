@@ -3194,6 +3194,7 @@
       "country": "страна",
       "driver_name": "водитель",
       "truck_plate": "номер машины"
-    }
+    },
+    "download_packet": "Скачать пакет"
   }
 }

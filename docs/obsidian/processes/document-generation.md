@@ -72,6 +72,14 @@ GET /api/v1/contracts/shipments/{id}/cmr/?lang=ru|en&fmt=docx|pdf&place_loading=
 ```
 - `place_loading` + `tir_carnet` (Uzbekistan transit) are optional generate-time values.
 
+**Whole-packet ZIP** — the truck's entire packet in one download:
+```
+GET /api/v1/contracts/shipments/{id}/packet.zip?lang=ru|en&fmt=docx|pdf&place_loading=&tir_carnet=
+```
+- Bundles the truck CMR + **per firm** (each linked `ContractSale`): invoice + CT-1 + FITO
+  + customs letters. `generate_packet_zip` in `document_render.py`. Whole packet fails as one
+  (e.g. 503 if PDF requested but LibreOffice absent). Filename `Packet_<code>_<LANG>.zip`.
+
 **Document packets** — one row per truck for the page:
 ```
 GET /api/v1/contracts/document-packets/?date=&date_from=&date_to=&status=&firm=
@@ -371,10 +379,21 @@ CMR (`CmrDocumentsButton`, disabled until packing is complete) plus a row per fi
 with that firm's `InvoiceDocumentsButton` (its `sale_id`), or a "no contract linked"
 note. Data via `useDocumentPackets`; a date filter drives the 13:00 workflow.
 
-## Deliberate limits
+## Roadmap / TODO
 
-- Single product line per invoice (`line_items[0]`); multi-line is a future template change.
-- CMR: simplified labelled layout; the official 24-box form is deferred (above).
+- **Multi-line invoice** — currently one product line (`line_items[0]`); support
+  several lines (different products/varieties on one truck). Template + builder change.
+- **`GeneratedDocument` audit model** — one row per generation (doc, truck/sale,
+  user, time) to back the **13:00 board**: per truck, what's done vs pending.
+  Doesn't block generation — progress tracking only.
+- **Save-and-reuse** — persist the rendered file so an unchanged truck re-downloads
+  the saved copy instead of re-rendering (needs a "dirty since generated" check on
+  shipment/sale `updated_at`).
+- **Editable templates** — let the office upload/swap the `.xlsx`/`.docx` templates
+  from the admin at runtime (see the `DocumentTemplate` note in `registry.py`).
 - Trade passport / packing list are later documents.
-- The truck CMR needs `firm_splits` (sellers) + whole-truck packing; per-firm docs
-  need the firm's `ContractSale`.
+
+The CMR now renders onto the **official 24-box form** (xlsx overlay,
+`build_cmr_overlay`) — no longer a simplified layout. The truck CMR needs
+`firm_splits` (sellers) + whole-truck packing; per-firm docs need the firm's
+`ContractSale`.

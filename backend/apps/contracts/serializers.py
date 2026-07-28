@@ -492,7 +492,12 @@ class DocumentPacketSerializer(serializers.Serializer):
         return not self.get_missing_setup(obj) and not missing_packing_on(obj)
 
     def get_firms(self, obj) -> list[dict]:
-        sales_by_firm = {sale.export_firm_id: sale for sale in obj.sales.all()}
+        # Voided sales don't count — the firm then shows "link contract" again.
+        sales_by_firm = {
+            sale.export_firm_id: sale
+            for sale in obj.sales.all()
+            if sale.status != ContractSale.STATUS_VOID
+        }
         firms = []
         for split in obj.firm_splits.all():
             firm = split.export_firm

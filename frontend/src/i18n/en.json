@@ -3192,6 +3192,7 @@
       "country": "country",
       "driver_name": "driver",
       "truck_plate": "truck plate"
-    }
+    },
+    "download_packet": "Download packet"
   }
 }

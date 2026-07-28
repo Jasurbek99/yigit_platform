@@ -29,7 +29,12 @@ from apps.contracts.services.document_context import (
     missing_packing_fields,
     missing_packing_on,
 )
-from apps.contracts.services.document_render import DocumentRenderError, generate
+from apps.contracts.services.document_render import (
+    ZIP_CONTENT_TYPE,
+    DocumentRenderError,
+    generate,
+    generate_packet_zip,
+)
 from apps.contracts.services.files import (
     MAX_FILES_PER_CONTRACT,
     sanitise_filename,
@@ -448,6 +453,62 @@ class ShipmentCmrView(APIView):
 
         response = HttpResponse(data, content_type=content_type)
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+
+
+class ShipmentPacketZipView(APIView):
+    """Whole document packet for a truck as one zip.
+
+    ``GET /api/v1/contracts/shipments/{pk}/packet.zip?lang=ru|en&fmt=docx|pdf``
+    (plus ``place_loading`` / ``tir_carnet``). Bundles the truck CMR + every
+    firm's invoice + CT-1/FITO/customs letters. Gated by 'sale'; packing guard
+    applies. PDF needs LibreOffice — else 503 (whole packet fails as one).
+    """
+
+    permission_classes = [IsAuthenticated, DynamicResourcePermission]
+    resource_code = 'sale'
+
+    def get(self, request, pk=None):
+        from apps.export.models import Shipment
+
+        shipment = (
+            Shipment.objects.filter(pk=pk)
+            .select_related('import_firm', 'packing_template')
+            .prefetch_related(
+                'firm_splits__export_firm',
+                'sales__contract', 'sales__export_firm', 'sales__import_firm',
+            )
+            .first()
+        )
+        if shipment is None:
+            return Response({'error': 'Shipment not found.'}, status=404)
+
+        missing = missing_packing_on(shipment)
+        if missing:
+            return Response(
+                {'error': PACKING_REQUIRED_MESSAGE, 'missing_packing': missing}, status=400,
+            )
+
+        lang = 'en' if request.query_params.get('lang') == 'en' else 'ru'
+        fmt = 'pdf' if request.query_params.get('fmt') == 'pdf' else 'docx'
+        overrides = {
+            key: value
+            for key in ('place_loading', 'tir_carnet')
+            if (value := request.query_params.get(key, '').strip())
+        }
+
+        # Skip voided sales — no invoice/letters for a cancelled firm share.
+        active_sales = [s for s in shipment.sales.all() if s.status != ContractSale.STATUS_VOID]
+        try:
+            data = generate_packet_zip(shipment, active_sales, lang, fmt, overrides)
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=400)
+        except DocumentRenderError as exc:
+            return Response({'error': str(exc)}, status=503)
+
+        code = (shipment.shipment_code or 'NA').replace('/', '-')
+        response = HttpResponse(data, content_type=ZIP_CONTENT_TYPE)
+        response['Content-Disposition'] = f'attachment; filename="Packet_{code}_{lang.upper()}.zip"'
         return response
 
 
