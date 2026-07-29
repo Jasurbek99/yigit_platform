@@ -344,7 +344,10 @@ The existing docs are mostly accurate but several recent additions haven't been 
 - All 14 process docs in `obsidian/processes/` map cleanly to working code
 - 8 of the 12 documented roles have accurate role-matrix entries
 - ADR-001 through ADR-013 each have a clear code referent
-- `.claude/rules/*` files (api-contract, backend-arch, frontend-arch, mssql-compat) are all current
+- The agent rule files are all current: `.claude/rules/mssql-compat.md`, `.claude/rules/git-conventions.md`,
+  `backend/CLAUDE.md` (architecture + Python style), `frontend/CLAUDE.md` (architecture + TS style + i18n),
+  and the `api-contract` skill (`.claude/skills/api-contract/SKILL.md`). The old `.claude/rules/api-contract.md`,
+  `backend-arch.md`, `frontend-arch.md` and `clean-code-*.md` paths are now one-line stubs pointing to those homes.
 
 ---
 

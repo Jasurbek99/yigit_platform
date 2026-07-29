@@ -143,7 +143,7 @@ API: `GET /api/v1/export/shipments/?my_work=true` — backend filters by role.
 
 Same table, different editable columns per role. Read-only fields shown as plain text, editable fields shown as inline edit or click-to-edit.
 
-The backend returns `editable_fields[]` per user in the API response. Frontend checks this before rendering edit controls. Field names below are API field names (defined in api-contract.md, serializer maps from DB columns):
+The backend returns `editable_fields[]` per user in the API response. Frontend checks this before rendering edit controls. Field names below are API field names (defined in the `api-contract` skill, serializer maps from DB columns):
 
 ```
 Soltanmyrat edits:    shipment_code, weight_net, weight_gross, box_count, block_sources, loading_started_at
@@ -211,4 +211,5 @@ Turkmen primary, Russian for technical terms, English for development. Translati
 Ant Design 5 (ProTable, Form, Descriptions) · TanStack Query (server state) · Zustand (UI state only) · Axios + httpOnly cookie auth · React Router v6 · react-i18next · Vite · dayjs
 
 For code patterns (how to write a ProTable page, how to create hooks, TypeScript types) → use the `react-page` skill.
-For API response shapes and field naming → see `api-contract.md` rules file.
+For API response shapes and field naming → invoke the `api-contract` skill
+(`.claude/skills/api-contract/SKILL.md`).

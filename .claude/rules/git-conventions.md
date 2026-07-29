@@ -86,42 +86,8 @@ Skip these for docs-only or config-only commits.
 
 ## CHANGELOG.md
 
-Lives at project root. Claude MUST update this after every feature or fix. Format:
-
-```markdown
-# Changelog
-
-## [Unreleased]
-
-### Added
-- Shipment list page with ProTable, 6 filters, "All/My work" toggle (feat(p3))
-- StatusTag, WeightDisplay, ShipmentCodeLink shared components (feat(frontend))
-- Status transition API with 13-step validation (feat(p3))
-
-### Changed
-- Shipment model: added AD-1 denormalized timestamps (db)
-- vehicle_status_note replaced with vehicle_condition + Comments (db)
-
-### Fixed
-- Cyrillic collation missing on ExportFirm.name_ru (fix(core))
-- bulk_create without batch_size on price import (fix(p3))
-
-### Data
-- Imported 1,959 shipments from Export_contracts.xlsx (data(p3))
-- Imported 1,557 price entries from Baha_Grafigi.xlsx (data(p3))
-
----
-
-## [0.1.0] - 2026-04-XX (Sprint 1 complete)
-
-### Added
-- Django project scaffold with MSSQL connection
-- Core models: User, ShipmentStatusType, ExportFirm, Country, City
-- Shipment model matching DDL v5.1
-- ShipmentList and ShipmentDetail pages
-- JWT auth with httpOnly cookies
-- Docker Compose with 5 services
-```
+Lives at project root. Claude MUST update this after every feature or fix.
+Follow the format already in `CHANGELOG.md` — Keep-a-Changelog style, newest section on top.
 
 Rules for CHANGELOG:
 - **Added** for new features/pages/components
