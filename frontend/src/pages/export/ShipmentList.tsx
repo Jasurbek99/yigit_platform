@@ -745,7 +745,12 @@ export default function ShipmentList() {
           style={{ width: 160 }}
           placeholder={t('shipments.status_filter_ph')}
           value={phaseFilter}
-          onChange={(val) => { setPhaseFilter(val ?? undefined); setPage(1); }}
+          // setPhaseFilter already resets page (page: undefined). A second
+          // setPage(1) here fires a second setSearchParams whose functional
+          // updater reads the SAME stale searchParams (react-router closes over
+          // the render-time value, not a live ref), rebuilds without phase, and
+          // clobbers the phase param — the filter silently did nothing. (BUG-001)
+          onChange={(val) => setPhaseFilter(val ?? undefined)}
           options={PHASE_KEYS.map((key) => ({ value: key, label: t(`phases.${key}`) }))}
           allowClear
         />
