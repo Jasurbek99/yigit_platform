@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Modal,
   Form,
@@ -14,10 +14,23 @@ import {
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import dayjs from 'dayjs';
-import { useCreateContractSale, useUpdateContractSale } from '@/hooks/useContractSales';
+import {
+  useCreateContractSale,
+  useUpdateContractSale,
+  useContractSale,
+} from '@/hooks/useContractSales';
 import { useContract } from '@/hooks/useContracts';
 import { ContractSelect } from '@/components/ContractSelect';
+import { SaleLineItemsEditor } from '@/components/SaleLineItemsEditor';
 import type { IContractSale, IContractSaleCreatePayload, ContractSaleStatus } from '@/types/contractSale';
+
+interface ILineItemFormRow {
+  product_name?: string;
+  quantity_kg?: number | null;
+  price_per_kg?: number | null;
+  gross_kg?: number | null;
+  box_count?: number | null;
+}
 
 // ─── Status options ───────────────────────────────────────────────────────────
 
@@ -36,6 +49,7 @@ interface IFormValues {
   passport_sdelka?: string;
   scan_uploaded?: boolean;
   status: ContractSaleStatus;
+  line_items?: ILineItemFormRow[];
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -90,6 +104,30 @@ export function ContractSaleCreate({
     : (contractId ?? watchedContractId ?? 0);
 
   const { data: contractDetail } = useContract(resolvedContractId);
+
+  // Editing: fetch the sale detail to hydrate its existing invoice line items
+  // (line_items live on the detail serializer, not the list row we're handed).
+  const { data: saleDetail } = useContractSale(isEditing && editingSale ? editingSale.id : 0);
+  // Guards the data-loss race: until the sale's existing line items have loaded,
+  // we must NOT submit line_items (an empty array would DELETE them server-side).
+  // Create mode has nothing to hydrate → ready immediately.
+  const [linesHydrated, setLinesHydrated] = useState(!isEditing);
+  const hydratedSaleIdRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!isEditing || !saleDetail || saleDetail.id === hydratedSaleIdRef.current) return;
+    hydratedSaleIdRef.current = saleDetail.id;
+    form.setFieldValue(
+      'line_items',
+      (saleDetail.line_items ?? []).map((li) => ({
+        product_name: li.product_name ?? '',
+        quantity_kg: li.quantity_kg != null ? Number(li.quantity_kg) : null,
+        price_per_kg: li.price_per_kg != null ? Number(li.price_per_kg) : null,
+        gross_kg: li.gross_kg != null ? Number(li.gross_kg) : null,
+        box_count: li.box_count ?? null,
+      })),
+    );
+    setLinesHydrated(true);
+  }, [saleDetail?.id, isEditing, form]);
 
   // Track whether the user has manually overridden total_usd so auto-fill
   // doesn't clobber their override.
@@ -200,6 +238,22 @@ export function ContractSaleCreate({
       payload.scan_uploaded = values.scan_uploaded;
     }
 
+    // Invoice line items: send the current rows (blank rows dropped). Empty clears
+    // them; the backend rejects non-empty lines that don't sum to quantity/total.
+    // Only send once hydrated — otherwise an edit whose existing lines haven't
+    // loaded yet would wipe them (an omitted key leaves them untouched).
+    if (linesHydrated) {
+      payload.line_items = (values.line_items ?? [])
+        .filter((li) => li && li.quantity_kg != null && li.price_per_kg != null)
+        .map((li) => ({
+          product_name: li.product_name?.trim() || undefined,
+          quantity_kg: li.quantity_kg as number,
+          price_per_kg: li.price_per_kg as number,
+          gross_kg: li.gross_kg ?? null,
+          box_count: li.box_count ?? null,
+        }));
+    }
+
     try {
       if (isEditing && editingSale) {
         await updateMutation.mutateAsync({
@@ -282,6 +336,7 @@ export function ContractSaleCreate({
       okText={t(submitKey)}
       cancelText={t('sales.create.cancel')}
       confirmLoading={isPending}
+      okButtonProps={{ disabled: isEditing && !linesHydrated }}
       width={580}
       destroyOnClose
     >
@@ -414,6 +469,16 @@ export function ContractSaleCreate({
             </Form.Item>
           </Col>
         </Row>
+
+        {/* Invoice line items — optional per-product breakdown (varieties/grades).
+            Left empty, the invoice prints one 'fresh tomatoes' line. */}
+        <Form.Item
+          label={t('sales.lines.label')}
+          tooltip={t('sales.lines.hint')}
+          style={{ marginBottom: 12 }}
+        >
+          <SaleLineItemsEditor form={form} />
+        </Form.Item>
 
         <Row gutter={16}>
           {/* Passport sdelka */}

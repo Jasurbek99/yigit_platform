@@ -58,8 +58,21 @@ export interface IContractSale {
   updated_at: string;
 }
 
+export interface IContractSaleLineItem {
+  readonly id?: number;
+  readonly line_number?: number;
+  product_name?: string;
+  hs_code?: string;
+  quantity_kg: number | string;
+  gross_kg?: number | string | null;
+  box_count?: number | null;
+  price_per_kg: number | string;
+  readonly total_usd?: string;
+}
+
 export interface IContractSaleDetail extends IContractSale {
   editable_fields: string[];
+  line_items: IContractSaleLineItem[];
 }
 
 export interface IContractSaleCreatePayload {
@@ -77,6 +90,9 @@ export interface IContractSaleCreatePayload {
   passport_sdelka?: string;
   scan_uploaded?: boolean;
   status?: ContractSaleStatus;
+  // Present → replace all lines (must sum to quantity_kg / total_usd); [] clears;
+  // omitted → leave untouched.
+  line_items?: IContractSaleLineItem[];
 }
 
 export interface IContractSaleUpdatePayload extends Partial<IContractSaleCreatePayload> {

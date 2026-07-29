@@ -2979,6 +2979,16 @@
       "confirm_title": "Delete contract sale?",
       "confirm_body": "Are you sure you want to delete this contract sale? The contract totals will be recalculated.",
       "toast": "Contract sale deleted"
+    },
+    "lines": {
+      "label": "Invoice line items",
+      "hint": "Optional. Several products/varieties at their own price. Must sum to the sale quantity and total. Leave empty for one “fresh tomatoes” line.",
+      "product": "Product",
+      "qty": "Qty, kg",
+      "price": "Price/kg",
+      "add": "Add line",
+      "sum": "Σ {{qty}} kg / ${{total}}",
+      "mismatch": "Line items must sum to the sale quantity and total."
     }
   },
   "staff_access": {

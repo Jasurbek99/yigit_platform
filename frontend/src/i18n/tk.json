@@ -2959,6 +2959,16 @@
       "confirm_title": "Şertnama satyşyny pozmak?",
       "confirm_body": "Bu satyşy pozjak bolýaňyzmy? Şertnamanyň jemleri täzelener.",
       "toast": "Şertnama satyşy pozuldy"
+    },
+    "lines": {
+      "label": "Inwoýs setirleri",
+      "hint": "Hökman däl. Öz bahasy bilen birnäçe haryt/sort. Jemi satuwyň mukdaryna we jemine deň bolmaly. Boş bolsa — bir “täze pomidor” setiri.",
+      "product": "Haryt",
+      "qty": "Mukdar, kg",
+      "price": "Baha/kg",
+      "add": "Setir goş",
+      "sum": "Σ {{qty}} kg / ${{total}}",
+      "mismatch": "Setirleriň jemi satuwyň mukdaryna we jemine deň bolmaly."
     }
   },
   "sales_list": {
