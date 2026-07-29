@@ -477,6 +477,7 @@ class ShipmentPacketZipView(APIView):
             .prefetch_related(
                 'firm_splits__export_firm',
                 'sales__contract', 'sales__export_firm', 'sales__import_firm',
+                'sales__line_items',
             )
             .first()
         )

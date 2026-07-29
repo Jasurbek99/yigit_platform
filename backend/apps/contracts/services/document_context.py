@@ -168,6 +168,13 @@ def _num(value) -> str:
     return f'{d}'
 
 
+def _line_total(line) -> Decimal:
+    """A line's amount — the stored ``total_usd`` or ``quantity_kg × price_per_kg``."""
+    if line.total_usd is not None:
+        return line.total_usd
+    return line.quantity_kg * line.price_per_kg
+
+
 def _firm_attr(firm, base: str, lang: str) -> str:
     """Return a tri-lingual ExportFirm attribute (e.g. name/address/bank_details).
 
@@ -251,17 +258,53 @@ def build_invoice_context(invoice, lang: str = 'ru', overrides: dict | None = No
             pallets=_num(pallets), kg=_kg(pallet_kg, lang) or '0',
         )
 
-    line_item = {
-        'n': '1',
-        'name': loc['product_name'],
-        'code': TOMATO_HS_CODE,
-        'pieces': str(pieces) if pieces else '',
-        'packing': loc['packing'],
-        'gross': _kg(gross_kg, lang),
-        'net': _kg(net_kg, lang),
-        'price': _price(invoice.price_per_kg, lang),
-        'total': _money(invoice.total_usd, lang),
-    }
+    # Explicit per-line breakdown (different varieties/grades/products) when the
+    # sale has line items; otherwise one line synthesized from the sale's fields.
+    # The lines reconcile to the sale (validated on save), so total_sum = their sum.
+    raw_lines = list(invoice.line_items.all()) if hasattr(invoice, 'line_items') else []
+    if raw_lines:
+        # A line's gross/pieces default to a weight-proportional slice of the sale's
+        # whole-truck gross/boxes (so the customs table never shows a blank cell),
+        # unless the line carries its own explicit value.
+        total_line_qty = sum(
+            (line.quantity_kg for line in raw_lines if line.quantity_kg is not None), Decimal('0'),
+        )
+
+        def _alloc(line, sale_value):
+            if not (sale_value is not None and total_line_qty and line.quantity_kg is not None):
+                return None
+            return sale_value * (line.quantity_kg / total_line_qty)
+
+        line_items = []
+        for index, line in enumerate(raw_lines, start=1):
+            line_gross = line.gross_kg if line.gross_kg is not None else _alloc(line, gross_kg)
+            raw_boxes = line.box_count if line.box_count is not None else _alloc(line, pieces)
+            line_boxes = int(round(raw_boxes)) if raw_boxes is not None else None
+            line_items.append({
+                'n': str(index),
+                'name': line.product_name or loc['product_name'],
+                'code': line.hs_code or TOMATO_HS_CODE,
+                'pieces': str(line_boxes) if line_boxes else '',
+                'packing': loc['packing'],
+                'gross': _kg(line_gross, lang),
+                'net': _kg(line.quantity_kg, lang),
+                'price': _price(line.price_per_kg, lang),
+                'total': _money(_line_total(line), lang),
+            })
+        total_sum = _money(sum((_line_total(line) for line in raw_lines), Decimal('0')), lang)
+    else:
+        line_items = [{
+            'n': '1',
+            'name': loc['product_name'],
+            'code': TOMATO_HS_CODE,
+            'pieces': str(pieces) if pieces else '',
+            'packing': loc['packing'],
+            'gross': _kg(gross_kg, lang),
+            'net': _kg(net_kg, lang),
+            'price': _price(invoice.price_per_kg, lang),
+            'total': _money(invoice.total_usd, lang),
+        }]
+        total_sum = _money(invoice.total_usd, lang)
 
     return {
         # invoice_number is nullable — a bridge sale (or one not yet numbered)
@@ -279,8 +322,8 @@ def build_invoice_context(invoice, lang: str = 'ru', overrides: dict | None = No
         'place_loading': overrides.get('place_loading', ''),  # picked at generate-time
         'delivery_terms': incoterm,
         'transport': transport,
-        'line_items': [line_item],
-        'total_sum': _money(invoice.total_usd, lang),
+        'line_items': line_items,
+        'total_sum': total_sum,
         'pallet_note': pallet_note,
     }
 
@@ -827,12 +870,14 @@ def build_contract_context(contract, lang: str = 'ru', overrides: dict | None = 
     whole_dollars = int(amount) if amount is not None else None
 
     deadline = _parse_iso(overrides.get('delivery_deadline'))
-    # Buyer director: the modal sends buyer_director (pre-filled from the firm's
-    # "Director's Full Name" = ImportFirm.contact_person, and editable), so that wins;
-    # contact_person is the fallback when the request carries no override.
-    director = (overrides.get('buyer_director') or '').strip() or (
+    # Buyer director. RU/Cyrillic: the modal sends buyer_director (pre-filled from
+    # the firm's "Director's Full Name" = ImportFirm.contact_person, editable) so it
+    # wins; contact_person is the fallback. TK/Latin: the firm's contact_person_tk,
+    # falling back to the RU form when the Turkmen spelling isn't filled.
+    director_ru = (overrides.get('buyer_director') or '').strip() or (
         getattr(buyer, 'contact_person', '') or ''
     ).strip()
+    director_tk = (getattr(buyer, 'contact_person_tk', '') or '').strip() or director_ru
 
     # Buyer — single-value model fields shown in both language columns; a multi-line
     # bank_details blob collapses to '; ' (a bare '\n' won't line-break in a docx run).
@@ -886,8 +931,8 @@ def build_contract_context(contract, lang: str = 'ru', overrides: dict | None = 
         'buyer_name_ru': buyer_name,
         'buyer_country_tk': getattr(country, 'name_tk', '') or '',
         'buyer_country_ru': getattr(country, 'name_ru', '') or getattr(country, 'name_tk', '') or '',
-        'buyer_director_tk': director,
-        'buyer_director_ru': director,
+        'buyer_director_tk': director_tk,
+        'buyer_director_ru': director_ru,
         'buyer_address_tk': buyer_address,
         'buyer_address_ru': buyer_address,
         'buyer_bank_tk': buyer_bank,

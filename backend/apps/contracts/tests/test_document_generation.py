@@ -108,6 +108,22 @@ def _mock_invoice(*, with_shipment=True, truck_template=None,
     )
 
 
+def _line(name, qty, price, *, gross=None, boxes=None, hs=''):
+    """A ContractSaleLineItem stand-in for the invoice builder."""
+    q, p = Decimal(qty), Decimal(price)
+    return SimpleNamespace(
+        product_name=name, hs_code=hs, quantity_kg=q, price_per_kg=p,
+        gross_kg=Decimal(gross) if gross else None, box_count=boxes, total_usd=q * p,
+    )
+
+
+def _invoice_with_lines(*lines):
+    """A mock invoice carrying explicit line items (``.line_items.all()``)."""
+    inv = _mock_invoice()
+    inv.line_items = SimpleNamespace(all=lambda: list(lines))
+    return inv
+
+
 def _mock_firm(name_ru, name_en, address_ru, address_en):
     return SimpleNamespace(
         name_ru=name_ru, name_en=name_en, name_tk='',
@@ -177,6 +193,43 @@ class InvoiceContextBuilderTest(SimpleTestCase):
         self.assertEqual(ctx.build_invoice_context(_mock_invoice(), 'ru')['place_loading'], '')
         c = ctx.build_invoice_context(_mock_invoice(), 'ru', {'place_loading': 'Kaka'})
         self.assertEqual(c['place_loading'], 'Kaka')
+
+    def test_multi_line_from_line_items(self):
+        # explicit line items → multiple rows; total_sum = their sum (not the sale's)
+        inv = _invoice_with_lines(
+            _line('Сорт А', '5000', '1.00'),
+            _line('Сорт Б', '4000', '0.80'),
+        )
+        c = ctx.build_invoice_context(inv, 'ru')
+        self.assertEqual(len(c['line_items']), 2)
+        self.assertEqual([li['name'] for li in c['line_items']], ['Сорт А', 'Сорт Б'])
+        self.assertEqual([li['n'] for li in c['line_items']], ['1', '2'])
+        self.assertEqual(c['line_items'][0]['price'], '1')      # 1.00 → trimmed
+        self.assertEqual(c['total_sum'], '8 200,00')            # 5000·1 + 4000·0.8
+
+    def test_line_name_falls_back_to_default(self):
+        inv = _invoice_with_lines(_line('', '9000', '0.87'))
+        c = ctx.build_invoice_context(inv, 'ru')
+        self.assertEqual(c['line_items'][0]['name'], 'Помидор свежий')
+        self.assertEqual(c['line_items'][0]['code'], ctx.TOMATO_HS_CODE)
+
+    def test_no_line_items_uses_single_synthesized_line(self):
+        # a sale with an empty line_items manager → the classic single line
+        inv = _invoice_with_lines()  # .all() == []
+        c = ctx.build_invoice_context(inv, 'ru')
+        self.assertEqual(len(c['line_items']), 1)
+        self.assertEqual(c['line_items'][0]['name'], 'Помидор свежий')
+        self.assertEqual(c['total_sum'], '7 830,00')           # the sale's total_usd
+
+    def test_multi_line_gross_boxes_allocated_by_weight(self):
+        # lines carry no gross/box → split the sale's whole-truck gross(10720) /
+        # boxes(1800, from the shipment) by each line's weight share (no blank cell).
+        inv = _invoice_with_lines(_line('A', '6000', '1.00'), _line('B', '3000', '1.00'))
+        c = ctx.build_invoice_context(inv, 'ru')
+        self.assertEqual(c['line_items'][0]['pieces'], '1200')   # 1800 · 6000/9000
+        self.assertEqual(c['line_items'][1]['pieces'], '600')    # 1800 · 3000/9000
+        self.assertEqual(c['line_items'][0]['gross'], '7 147')   # 10720 · 2/3, rounded
+        self.assertEqual(c['line_items'][1]['gross'], '3 573')   # 10720 · 1/3
 
     def test_falls_back_to_invoice_qty_when_no_shipment(self):
         c = ctx.build_invoice_context(_mock_invoice(with_shipment=False), 'ru')
@@ -385,6 +438,20 @@ class InvoiceRenderSmokeTest(SimpleTestCase):
             self.assertEqual(content_type, render.DOCX_CONTENT_TYPE)
             self.assertIn('118', filename)
 
+    def test_render_multi_line_invoice(self):
+        # the docxtpl row loop emits one table row per line item; both render.
+        inv = _invoice_with_lines(
+            _line('Pomidor A', '5000', '1.00'),
+            _line('Pomidor B', '4000', '0.80'),
+        )
+        data, _f, _ct = render.generate('invoice_ru', inv, 'docx')
+        text = self._text(data)
+        self.assertNotIn('{{', text, 'unrendered tag')
+        self.assertNotIn('{%', text, 'unrendered loop tag')
+        self.assertIn('Pomidor A', text)
+        self.assertIn('Pomidor B', text)
+        self.assertIn('8 200,00', text)   # summed total
+
     def _xlsx_text(self, data: bytes) -> str:
         wb = openpyxl.load_workbook(BytesIO(data))
         ws = wb.active
@@ -448,19 +515,21 @@ def _mock_seller():
     )
 
 
-def _mock_contract(amount='7830.00', qty='9000', end=date(2026, 12, 31), contact_person=None):
+def _mock_contract(amount='7830.00', qty='9000', end=date(2026, 12, 31),
+                   contact_person=None, contact_person_tk=None):
     """A SimpleNamespace Contract mirroring the ORM attributes the builder reads.
 
     Buyer is fidelity A: the flat single-value ImportFirm fields (name_company /
     address / bank_details blob). The director is the firm's ``contact_person``
-    ("Director's Full Name"), or a generate-time override when that's blank.
+    ("Director's Full Name", RU/Cyrillic) + ``contact_person_tk`` (TK/Latin), or a
+    generate-time override when the RU form is blank.
     """
     country = SimpleNamespace(name_tk='Gazagystan', name_ru='Казахстан', code='KZ')
     buyer = SimpleNamespace(
         name_company='TOO «Aranşy - KZ»', name_short='Aranşy',
         address='РК, Туркестанская обл., с. Первое Мая',
         bank_details='БИН 191040016779\nБИК HSBKKZKX\nр/с KZ97601A891001387241',
-        contact_person=contact_person,
+        contact_person=contact_person, contact_person_tk=contact_person_tk,
         country=country,
     )
     return SimpleNamespace(
@@ -541,10 +610,19 @@ class ContractContextBuilderTest(SimpleTestCase):
         self.assertEqual(c['buyer_director_ru'], 'Edited Name')
 
     def test_buyer_director_falls_back_to_contact_person(self):
-        # No override in the request → the firm's stored "Director's Full Name" is used.
+        # No override, no Turkmen spelling → both columns use contact_person (RU form).
         c = ctx.build_contract_context(_mock_contract(contact_person='Азимов Г.Б.'), 'ru')
-        self.assertEqual(c['buyer_director_tk'], 'Азимов Г.Б.')
+        self.assertEqual(c['buyer_director_tk'], 'Азимов Г.Б.')  # falls back to RU form
         self.assertEqual(c['buyer_director_ru'], 'Азимов Г.Б.')
+
+    def test_buyer_director_tk_from_contact_person_tk(self):
+        # TK column uses the Latin spelling; RU stays Cyrillic.
+        c = ctx.build_contract_context(
+            _mock_contract(contact_person='Туктибаев Бекжан',
+                           contact_person_tk='Tuktibaýew Bekjan'), 'ru',
+        )
+        self.assertEqual(c['buyer_director_tk'], 'Tuktibaýew Bekjan')
+        self.assertEqual(c['buyer_director_ru'], 'Туктибаев Бекжан')
 
     def test_blank_deadline_and_director_when_neither_source(self):
         c = ctx.build_contract_context(_mock_contract(), 'ru')
@@ -813,6 +891,88 @@ class ShipmentPacketZipEndpointTest(_SeededPermsMixin, TestCase):
     def test_missing_shipment_returns_404(self):
         resp = self.client.get('/api/v1/contracts/shipments/999999/packet.zip')
         self.assertEqual(resp.status_code, 404)
+
+
+class ContractSaleLineItemApiTest(_SeededPermsMixin, TestCase):
+    """API: invoice line items on POST/PATCH /api/v1/contracts/sales/."""
+
+    def setUp(self) -> None:
+        self.client = APIClient()
+        self.user = _make_user('li_doc', 'export_manager')
+        self.client.force_authenticate(user=self.user)
+        self.season = _make_season()
+        self.ef = _make_export_firm('LIA')
+        self.imp = _make_import_firm('LII')
+        self.contract = _make_contract('LI-C1', self.ef, self.imp, self.season)
+
+    def _payload(self, lines, quantity='9000', total='8200'):
+        return {
+            'contract': self.contract.id, 'export_firm': self.ef.id,
+            'import_firm': self.imp.id, 'quantity_kg': quantity, 'total_usd': total,
+            'line_items': lines,
+        }
+
+    def test_create_with_matching_lines(self):
+        lines = [
+            {'product_name': 'Сорт А', 'quantity_kg': '5000', 'price_per_kg': '1.0000'},
+            {'product_name': 'Сорт Б', 'quantity_kg': '4000', 'price_per_kg': '0.8000'},
+        ]
+        resp = self.client.post('/api/v1/contracts/sales/', self._payload(lines), format='json')
+        self.assertEqual(resp.status_code, 201, resp.content[:300])
+        detail = self.client.get(f"/api/v1/contracts/sales/{resp.json()['id']}/").json()
+        self.assertEqual(len(detail['line_items']), 2)
+        self.assertEqual(detail['line_items'][0]['line_number'], 1)   # server-assigned
+        self.assertEqual(detail['line_items'][0]['total_usd'], '5000.00')  # server-computed
+
+    def test_lines_must_sum_to_total(self):
+        lines = [
+            {'product_name': 'A', 'quantity_kg': '5000', 'price_per_kg': '1.0000'},
+            {'product_name': 'B', 'quantity_kg': '4000', 'price_per_kg': '0.5000'},  # → 7000 ≠ 8200
+        ]
+        resp = self.client.post('/api/v1/contracts/sales/', self._payload(lines), format='json')
+        self.assertEqual(resp.status_code, 400)
+
+    def test_lines_must_sum_to_quantity(self):
+        lines = [{'product_name': 'A', 'quantity_kg': '5000', 'price_per_kg': '1.6400'}]  # 5000≠9000
+        resp = self.client.post('/api/v1/contracts/sales/', self._payload(lines), format='json')
+        self.assertEqual(resp.status_code, 400)
+
+    def test_money_patch_revalidates_existing_lines(self):
+        # existing lines sum to 8200; PATCHing total_usd away from that (without
+        # resending line_items) must be rejected, not leave a stale mismatch.
+        create = self.client.post('/api/v1/contracts/sales/', self._payload([
+            {'product_name': 'A', 'quantity_kg': '5000', 'price_per_kg': '1.0000'},
+            {'product_name': 'B', 'quantity_kg': '4000', 'price_per_kg': '0.8000'},
+        ]), format='json')
+        sale_id = create.json()['id']
+        bad = self.client.patch(
+            f'/api/v1/contracts/sales/{sale_id}/', {'total_usd': '9999'}, format='json',
+        )
+        self.assertEqual(bad.status_code, 400)
+
+    def test_status_only_patch_skips_line_check(self):
+        # a status-only PATCH doesn't touch money → no re-reconciliation, no block.
+        create = self.client.post('/api/v1/contracts/sales/', self._payload([
+            {'product_name': 'A', 'quantity_kg': '9000', 'price_per_kg': '0.9111'},
+        ], total='8199.90'), format='json')
+        sale_id = create.json()['id']
+        ok = self.client.patch(
+            f'/api/v1/contracts/sales/{sale_id}/', {'status': 'paid'}, format='json',
+        )
+        self.assertEqual(ok.status_code, 200, ok.content[:300])
+
+    def test_patch_empty_list_clears_lines(self):
+        create = self.client.post('/api/v1/contracts/sales/', self._payload([
+            {'product_name': 'A', 'quantity_kg': '5000', 'price_per_kg': '1.0000'},
+            {'product_name': 'B', 'quantity_kg': '4000', 'price_per_kg': '0.8000'},
+        ]), format='json')
+        sale_id = create.json()['id']
+        patch = self.client.patch(
+            f'/api/v1/contracts/sales/{sale_id}/', {'line_items': []}, format='json',
+        )
+        self.assertEqual(patch.status_code, 200, patch.content[:300])
+        detail = self.client.get(f'/api/v1/contracts/sales/{sale_id}/').json()
+        self.assertEqual(detail['line_items'], [])
 
 
 class ContractAgreementEndpointTest(_SeededPermsMixin, TestCase):

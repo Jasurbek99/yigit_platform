@@ -106,6 +106,13 @@ Header/firms from **Contract + ExportFirm/ImportFirm**. Packing comes from a sin
   `Shipment.weight_net`, ADR-023); gross/boxes/pallets are the firm's **explicit** packing on
   the sale (`ContractSale.gross_kg` …), copied from the template share on apply and editable
   per truck. Nothing is derived.
+  - **Multi-line invoice:** a sale may carry explicit `ContractSaleLineItem` rows
+    (product / qty / price) — entered in the sale modal — for different
+    varieties/grades. When present, the invoice lists them (docxtpl row loop) and
+    `total_sum` = their sum; the lines are validated to **break down** the sale
+    (`Σ quantity_kg == quantity_kg`, `Σ amount == total_usd`) so quota/contract
+    rollups stay correct. With no line items, the classic single tomato line
+    renders from the sale's own fields.
 
 Set from the **packing panel** (export Sheet `packing` row → popover): pick one template →
 each firm's editable numbers + a live Σ-check + swap. Truck plate still comes from the
@@ -381,8 +388,6 @@ note. Data via `useDocumentPackets`; a date filter drives the 13:00 workflow.
 
 ## Roadmap / TODO
 
-- **Multi-line invoice** — currently one product line (`line_items[0]`); support
-  several lines (different products/varieties on one truck). Template + builder change.
 - **`GeneratedDocument` audit model** — one row per generation (doc, truck/sale,
   user, time) to back the **13:00 board**: per truck, what's done vs pending.
   Doesn't block generation — progress tracking only.

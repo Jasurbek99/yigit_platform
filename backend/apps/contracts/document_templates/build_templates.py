@@ -180,21 +180,28 @@ def _info_block(doc, lab) -> None:
 
 
 def _items_table(doc, cols, fields, total_label=None) -> None:
-    """Bordered line-items table: header + one product row (+ optional ИТОГО row).
+    """Bordered line-items table: header + a docxtpl row-loop over ``line_items``
+    (+ optional ИТОГО row). The data row is emitted once per line item at render
+    time — one product line (the common case) or several (varieties/grades).
 
-    ``line_items`` stays a list so a future multi-row template can switch to a
-    docxtpl row loop; today invoices are one product line in practice.
+    docxtpl 0.19 row loop: the ``{%tr for%}`` / ``{%tr endfor%}`` markers must sit
+    in their OWN rows (bracketing the data row); docxtpl removes the two marker
+    rows and repeats the data row between them. (Both tags in one row — the older
+    idiom — is rejected as 'unknown tag endfor' by this version.)
     """
-    rows = 2 + (1 if total_label else 0)
-    table = doc.add_table(rows=rows, cols=len(cols))
+    # header + for-marker + data + endfor-marker (+ optional total)
+    n_rows = 4 + (1 if total_label else 0)
+    table = doc.add_table(rows=n_rows, cols=len(cols))
     table.style = 'Table Grid'
     for i, name in enumerate(cols):
         _set_cell(table.rows[0].cells[i], name, bold=True, size=8)
-    body = table.rows[1].cells
+    _set_cell(table.rows[1].cells[0], '{%tr for item in line_items %}', size=9)
+    data = table.rows[2].cells
     for i, fld in enumerate(fields):
-        _set_cell(body[i], f'{{{{ line_items[0].{fld} }}}}', size=9)
+        _set_cell(data[i], f'{{{{ item.{fld} }}}}', size=9)
+    _set_cell(table.rows[3].cells[0], '{%tr endfor %}', size=9)
     if total_label:
-        total_cells = table.rows[2].cells
+        total_cells = table.rows[4].cells
         _set_cell(total_cells[1], total_label, bold=True)
         _set_cell(total_cells[len(cols) - 1], '{{ total_sum }}', bold=True)
 

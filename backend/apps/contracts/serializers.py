@@ -10,13 +10,19 @@ Three serializers per the API contract rules:
   - ContractSaleCreateSerializer — writable, validates money and contract status
 """
 from datetime import date
+from decimal import Decimal
 
 from django.db import transaction
 from rest_framework import serializers
 
 from apps.core.models import Season
 from apps.core.permissions import get_editable_fields
-from apps.contracts.models import Contract, ContractAttachment, ContractSale
+from apps.contracts.models import (
+    Contract,
+    ContractAttachment,
+    ContractSale,
+    ContractSaleLineItem,
+)
 from apps.contracts.services.contract_number import (
     next_contract_no,
     parse_contract_number,
@@ -250,6 +256,25 @@ class ContractCreateSerializer(serializers.ModelSerializer):
 # ─── Contract sale serializers ────────────────────────────────────────────────
 
 
+class ContractSaleLineItemSerializer(serializers.ModelSerializer):
+    """One invoice line (name × qty × price). ``line_number`` / ``total_usd`` are
+    server-assigned; the client sends an ordered list, each row's price/quantity."""
+
+    class Meta:
+        model = ContractSaleLineItem
+        fields = [
+            'id', 'line_number', 'product_name', 'hs_code',
+            'quantity_kg', 'gross_kg', 'box_count', 'price_per_kg', 'total_usd',
+        ]
+        read_only_fields = ['id', 'line_number', 'total_usd']
+        extra_kwargs = {
+            'product_name': {'required': False},
+            'hs_code': {'required': False},
+            'gross_kg': {'required': False, 'allow_null': True},
+            'box_count': {'required': False, 'allow_null': True},
+        }
+
+
 class ContractSaleListSerializer(serializers.ModelSerializer):
     """Flat serializer for the Sales tab table.
 
@@ -329,12 +354,13 @@ class ContractSaleListSerializer(serializers.ModelSerializer):
 
 
 class ContractSaleDetailSerializer(ContractSaleListSerializer):
-    """Full contract-sale detail — adds editable_fields for the edit form."""
+    """Full contract-sale detail — adds editable_fields + invoice line items."""
 
     editable_fields = serializers.SerializerMethodField()
+    line_items = ContractSaleLineItemSerializer(many=True, read_only=True)
 
     class Meta(ContractSaleListSerializer.Meta):
-        fields = ContractSaleListSerializer.Meta.fields + ['editable_fields']
+        fields = ContractSaleListSerializer.Meta.fields + ['editable_fields', 'line_items']
 
     def get_editable_fields(self, obj: ContractSale) -> list[str]:
         """Return the fields editable by the requesting user's role."""
@@ -355,11 +381,17 @@ class ContractSaleCreateSerializer(serializers.ModelSerializer):
       contract is rejected with 400.
     - Duplicate (contract, invoice_number) is rejected by the DB unique constraint,
       surfaced as a 400 by DRF's UniqueTogetherValidator.
+    - When ``line_items`` are supplied, they must break down the sale exactly:
+      sum(quantity_kg) == quantity_kg and sum(qty × price) == total_usd. Sending
+      ``line_items: []`` clears them; omitting the field leaves them untouched.
     """
+
+    line_items = ContractSaleLineItemSerializer(many=True, required=False)
 
     class Meta:
         model = ContractSale
         fields = [
+            'id',
             'contract',
             'shipment',
             'invoice_number',
@@ -374,6 +406,7 @@ class ContractSaleCreateSerializer(serializers.ModelSerializer):
             'passport_sdelka',
             'scan_uploaded',
             'status',
+            'line_items',
         ]
         extra_kwargs = {
             'shipment': {'required': False, 'allow_null': True},
@@ -430,7 +463,80 @@ class ContractSaleCreateSerializer(serializers.ModelSerializer):
                 'Cannot create a sale against a cancelled contract.'
             )
 
+        # Line items must break down the sale exactly (weights + money reconcile),
+        # so quotas / contract rollups — which read the sale's own totals — stay
+        # correct. Compared with a 0.01 tolerance for rounding. (When the sale has
+        # only total_usd and no quantity_kg — a bare bridge sale — only the money
+        # side is checked.)
+        line_items = attrs.get('line_items')
+        # A money-changing PATCH that omits line_items must still reconcile against
+        # the sale's EXISTING rows, else changing quantity/price/total would leave a
+        # now-mismatched set of lines untouched and silent.
+        if line_items is None and self.instance is not None and any(
+            field in attrs for field in ('quantity_kg', 'price_per_kg', 'total_usd')
+        ):
+            line_items = [
+                {'quantity_kg': li.quantity_kg, 'price_per_kg': li.price_per_kg}
+                for li in self.instance.line_items.all()
+            ]
+        if line_items:
+            sale_qty = quantity_kg
+            sale_total = total_usd
+            if sale_total is None and quantity_kg is not None and price_per_kg is not None:
+                sale_total = quantity_kg * price_per_kg
+            sum_qty = sum((li['quantity_kg'] for li in line_items), Decimal('0'))
+            sum_total = sum(
+                (li['quantity_kg'] * li['price_per_kg'] for li in line_items), Decimal('0'),
+            )
+            if sale_qty is not None and abs(sum_qty - sale_qty) > Decimal('0.01'):
+                raise serializers.ValidationError(
+                    f'Line item quantities ({sum_qty} kg) must sum to the sale '
+                    f'quantity ({sale_qty} kg).'
+                )
+            if sale_total is not None and abs(sum_total - sale_total) > Decimal('0.01'):
+                raise serializers.ValidationError(
+                    f'Line item amounts (${sum_total}) must sum to the sale '
+                    f'total (${sale_total}).'
+                )
+
         return attrs
+
+    def _replace_line_items(self, sale: ContractSale, line_items: list[dict]) -> None:
+        """Replace all of a sale's line items — line_number reassigned by order,
+        total_usd computed. ``[]`` clears them."""
+        sale.line_items.all().delete()
+        rows = [
+            ContractSaleLineItem(
+                sale=sale,
+                line_number=index,
+                product_name=li.get('product_name', '') or '',
+                hs_code=li.get('hs_code', '') or '',
+                quantity_kg=li['quantity_kg'],
+                gross_kg=li.get('gross_kg'),
+                box_count=li.get('box_count'),
+                price_per_kg=li['price_per_kg'],
+                total_usd=li['quantity_kg'] * li['price_per_kg'],
+            )
+            for index, li in enumerate(line_items, start=1)
+        ]
+        if rows:
+            ContractSaleLineItem.objects.bulk_create(rows, batch_size=500)
+
+    @transaction.atomic
+    def create(self, validated_data: dict) -> ContractSale:
+        line_items = validated_data.pop('line_items', None)
+        sale = super().create(validated_data)
+        if line_items is not None:
+            self._replace_line_items(sale, line_items)
+        return sale
+
+    @transaction.atomic
+    def update(self, instance: ContractSale, validated_data: dict) -> ContractSale:
+        line_items = validated_data.pop('line_items', None)
+        sale = super().update(instance, validated_data)
+        if line_items is not None:  # present (incl. []) → replace; omitted → leave
+            self._replace_line_items(sale, line_items)
+        return sale
 
 
 class DocumentPacketSerializer(serializers.Serializer):
