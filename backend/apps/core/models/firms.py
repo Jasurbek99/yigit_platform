@@ -53,6 +53,9 @@ class ImportFirm(models.Model):
     address = models.CharField(max_length=500, blank=True, null=True, **cyrillic_collation())
     bank_details = models.CharField(max_length=1000, blank=True, null=True, **cyrillic_collation())
     contact_person = models.CharField(max_length=200, blank=True, null=True, **cyrillic_collation())
+    # Turkmen/Latin spelling of the director's name, for the export contract's
+    # Turkmen column. `contact_person` above stays the Russian/Cyrillic form.
+    contact_person_tk = models.CharField(max_length=200, blank=True, null=True, **cyrillic_collation())
     phone = models.CharField(max_length=50, blank=True, null=True)
     director_signature = models.FileField(upload_to='import_firms/signatures/', null=True, blank=True)
     director_seal = models.FileField(upload_to='import_firms/seals/', null=True, blank=True)

@@ -107,6 +107,7 @@ export interface IImportFirm {
   address: string | null;
   bank_details: string | null;
   contact_person: string | null;
+  contact_person_tk: string | null;
   phone: string | null;
   color?: string | null;
   sort_order?: number;

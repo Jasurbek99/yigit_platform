@@ -1223,7 +1223,8 @@
     "move_to_gapy": "Перенести в Гапы Сатыш",
     "move_to_our": "Перенести в Наши партнеры",
     "confirm_move": "Изменить тип этой фирмы?",
-    "filter_country": "Все страны"
+    "filter_country": "Все страны",
+    "contact_person_tk": "ФИО директора (туркменский)"
   },
   "users_admin": {
     "title": "Пользователи",

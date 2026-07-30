@@ -50,6 +50,7 @@ interface FirmFormValues {
   address: string;
   bank_details: string;
   contact_person: string;
+  contact_person_tk: string;
   phone: string;
   is_active: boolean;
   is_gapy_satys: boolean;
@@ -168,6 +169,7 @@ export default function ImportFirmDetailPage() {
       address: values.address || null,
       bank_details: values.bank_details || null,
       contact_person: values.contact_person || null,
+      contact_person_tk: values.contact_person_tk || null,
       phone: values.phone || null,
       is_active: values.is_active,
       is_gapy_satys: values.is_gapy_satys,
@@ -282,6 +284,9 @@ export default function ImportFirmDetailPage() {
             <Descriptions.Item label={t('import_firms_admin.contact_person')} span={2}>
               <InlineEdit value={firm.contact_person} editable={canEdit} onSave={(v) => saveField({ contact_person: v || null })} />
             </Descriptions.Item>
+            <Descriptions.Item label={t('import_firms_admin.contact_person_tk')} span={2}>
+              <InlineEdit value={firm.contact_person_tk} editable={canEdit} onSave={(v) => saveField({ contact_person_tk: v || null })} />
+            </Descriptions.Item>
             <Descriptions.Item label={t('import_firms_admin.phone')}>
               <InlineEdit value={firm.phone} editable={canEdit} onSave={(v) => saveField({ phone: v || null })} />
             </Descriptions.Item>
@@ -393,6 +398,9 @@ export default function ImportFirmDetailPage() {
             <CitySelect countryId={watchedCountry ?? null} />
           </Form.Item>
           <Form.Item name="contact_person" label={t('import_firms_admin.contact_person')}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="contact_person_tk" label={t('import_firms_admin.contact_person_tk')}>
             <Input />
           </Form.Item>
           <Form.Item name="phone" label={t('import_firms_admin.phone')}>

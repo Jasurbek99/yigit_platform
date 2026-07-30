@@ -184,7 +184,7 @@ class ImportFirmSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'code', 'name_company', 'name_short',
             'country', 'country_name', 'city', 'city_name',
-            'address', 'bank_details', 'contact_person', 'phone',
+            'address', 'bank_details', 'contact_person', 'contact_person_tk', 'phone',
             'director_signature', 'director_seal',
             'color', 'sort_order',
             'is_active', 'is_gapy_satys',

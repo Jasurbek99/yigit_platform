@@ -584,6 +584,7 @@ export default function OptionListsTab({ canWrite }: IProps) {
           address: null,
           bank_details: null,
           contact_person: null,
+          contact_person_tk: null,
           phone: values.phone ?? null,
           color: values.color ?? null,
           sort_order: values.sort_order ?? 0,

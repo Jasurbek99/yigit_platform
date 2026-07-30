@@ -1221,7 +1221,8 @@
     "move_to_gapy": "Gapy Satyşa geçir",
     "move_to_our": "Biziň firmalarymyza geçir",
     "confirm_move": "Bu firmanyň görnüşini üýtgetmelimi?",
-    "filter_country": "Ähli ýurtlar"
+    "filter_country": "Ähli ýurtlar",
+    "contact_person_tk": "Direktoryň doly ady (türkmençe)"
   },
   "users_admin": {
     "title": "Ulanyjylar",
