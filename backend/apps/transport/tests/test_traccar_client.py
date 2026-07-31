@@ -22,3 +22,12 @@ class TraccarClientTests(TestCase):
         mock_get.side_effect = requests.RequestException('boom')
         with self.assertRaises(TraccarUnavailable):
             TraccarClient().get_positions()
+
+    @patch('apps.transport.services.traccar_client.requests.get')
+    def test_non_json_response_raises_unavailable(self, mock_get):
+        response = MagicMock(status_code=200)
+        response.raise_for_status = lambda: None
+        response.json.side_effect = ValueError('Expecting value: line 1 column 1 (char 0)')
+        mock_get.return_value = response
+        with self.assertRaises(TraccarUnavailable):
+            TraccarClient().get_devices()

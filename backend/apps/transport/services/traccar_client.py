@@ -34,6 +34,11 @@ class TraccarClient:
         except requests.RequestException as exc:
             logger.error('Traccar request failed: %s', url, exc_info=True)
             raise TraccarUnavailable(str(exc)) from exc
+        except ValueError as exc:
+            # response.json() raises JSONDecodeError (a ValueError subclass)
+            # when a 200 response has a non-JSON body.
+            logger.error('Traccar returned non-JSON response: %s', url, exc_info=True)
+            raise TraccarUnavailable(str(exc)) from exc
 
     def get_devices(self) -> list[dict]:
         return self._get('/api/devices')
