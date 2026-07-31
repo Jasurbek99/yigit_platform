@@ -80,6 +80,7 @@ INSTALLED_APPS = [
     'apps.greenhouse',
     'apps.export',
     'apps.contracts',
+    'apps.transport',
     'apps.feedback',
 ]
 
