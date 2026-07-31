@@ -54,6 +54,57 @@ services:
       - ./backend:/app
       - static_files:/app/static
 
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    # Live Traccar poller (apps.transport.tasks.poll_traccar), scheduled by
+    # celery-beat every 120s — see docs/obsidian/processes/fleet-map.md.
+    command: celery -A config worker -l info
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings
+      - DB_HOST=db
+      - DB_PORT=1433
+      - DB_NAME=ygt_platform
+      - DB_USER=sa
+      - DB_PASSWORD=${DB_PASSWORD:-YgtPlatform2025!}
+      - REDIS_URL=redis://redis:6379/0
+      - DJANGO_DEBUG=${DJANGO_DEBUG:-False}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - static_files:/app/static
+
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    # --schedule /tmp/celerybeat-schedule: /app is a source bind mount owned by
+    # the host user, not writable by the container's runtime user — writing the
+    # schedule file there fails with a permission error. /tmp is always writable.
+    command: celery -A config beat -l info --schedule /tmp/celerybeat-schedule
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings
+      - DB_HOST=db
+      - DB_PORT=1433
+      - DB_NAME=ygt_platform
+      - DB_USER=sa
+      - DB_PASSWORD=${DB_PASSWORD:-YgtPlatform2025!}
+      - REDIS_URL=redis://redis:6379/0
+      - DJANGO_DEBUG=${DJANGO_DEBUG:-False}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - static_files:/app/static
+
   frontend:
     build:
       context: ./frontend

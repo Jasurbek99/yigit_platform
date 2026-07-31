@@ -7,6 +7,7 @@ Running record of things Claude built that still need **manual testing by you**.
 - After **you** test it, check it off: change `- [ ]` to `- [x]` (or tell Claude "tested X" and it will check it off).
 - The Stop hook counts open `- [ ]` items and reminds you if any are pending.
 
+- [ ] 2026-07-31 — Celery worker+beat live poller (120s) + docker-compose services — NEEDS TEST
 - [ ] 2026-07-31 — Celery app + beat-scheduled `poll_traccar` task (120s) so the Fleet Map polls live without a manual cron. `celery -A config worker` / `celery -A config beat` not yet run against real Redis+worker processes (that requires the docker-compose wiring — C-Task 2); only Django-level checks + `manage.py test apps.transport` (27/27) verified so far — NEEDS TEST
 - [ ] 2026-07-31 — Fleet Map: Traccar registry + poller + live-positions API + Leaflet map page — NEEDS TEST
 

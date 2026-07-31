@@ -158,9 +158,47 @@ management command below) and returns `{'devices': N, 'positions': M, 'ok': True
 late with a stale window. `CELERY_TASK_TIME_LIMIT = 110` (with `CELERY_TASK_SOFT_TIME_LIMIT
 = 100`) kills a hung run *before* the next 120s tick fires, so two overlapping
 `poll_traccar` runs can never hit the same `update_or_create` rows on MSSQL at once
-(overlap = deadlock/IntegrityError risk). Running the worker/beat processes
-(`celery -A config worker`, `celery -A config beat`) is deploy/docker-compose wiring —
-tracked separately, not covered here.
+(overlap = deadlock/IntegrityError risk).
+
+### Running the scheduler
+
+**Production (Ubuntu/Docker):** two new compose services, `celery-worker` and
+`celery-beat`, both reuse the `backend` image/build context (`./backend`, same
+`Dockerfile`) — no separate image to maintain. Start them alongside the rest of the
+stack:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d celery-worker celery-beat
+```
+
+`celery-beat` runs with `--schedule /tmp/celerybeat-schedule` — `/app` is the baked
+image's read-only source dir in prod (no bind mount), so the schedule file has to live
+somewhere writable. Neither service publishes a port; they only need `db`/`redis`
+reachability, same as `backend`.
+
+**Dev (Windows):** from `backend/` with the venv active, two terminals:
+
+```bash
+celery -A config worker -l info -P solo
+celery -A config beat -l info
+```
+
+`-P solo` is **required** on Windows — Celery's default `prefork` pool uses `os.fork()`,
+which Windows doesn't have; the worker won't start without it. (Not needed in
+docker-compose — those containers run Linux.)
+
+**DEPLOY-ORDER WARNING:** `backend/config/__init__.py` imports the Celery app on every
+Django process boot (not just the worker/beat containers) — `manage.py`, gunicorn, and
+any management command all import Celery at startup now. On the beta server's
+`update.sh` flow, `pip install -r requirements.txt` (which installs `celery`) **must run
+before** restarting Django/gunicorn, or the process fails to boot entirely — this breaks
+the whole app, not just Fleet Map.
+
+**Env vars:** both containers load `TRACCAR_BASE_URL` / `TRACCAR_TOKEN` /
+`TRACCAR_STALE_MINUTES` the same way `backend` does (`backend/.env`, via
+`load_dotenv()` in `settings.py`) — no separate config. If they're unset or wrong, the
+poll still runs on schedule but logs "Traccar unavailable" every cycle and
+`DevicePosition` rows go stale.
 
 ## Management Commands
 
