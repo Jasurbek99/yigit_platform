@@ -15,6 +15,7 @@ class LivePositionViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     def get_queryset(self):
         return (
             DevicePosition.objects
+            .filter(valid=True)
             .select_related('device', 'device__truck')
             .order_by('device__name')
         )

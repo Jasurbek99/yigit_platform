@@ -14,6 +14,8 @@ class LivePositionSerializer(serializers.ModelSerializer):
     status = serializers.CharField(source='device.status')
     lat = serializers.FloatField(source='latitude')
     lon = serializers.FloatField(source='longitude')
+    speed = serializers.FloatField(allow_null=True, required=False)
+    course = serializers.FloatField(allow_null=True, required=False)
     is_online = serializers.SerializerMethodField()
     is_stale = serializers.SerializerMethodField()
 
