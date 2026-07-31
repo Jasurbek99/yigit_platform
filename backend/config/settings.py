@@ -404,6 +404,27 @@ LOGGING = {
 }
 
 # ════════════════════════════════════════════════
+# Celery (Traccar Fleet Map live polling)
+#
+# Fire-and-forget: no result backend, nothing reads task results.
+# Beat owns the schedule (static dict below) — no django-celery-beat.
+# Under tests, CELERY_TASK_ALWAYS_EAGER runs poll_traccar() inline with no
+# broker, so the Redis dependency never needs to be up in CI.
+# ════════════════════════════════════════════════
+CELERY_BROKER_URL = REDIS_URL
+CELERY_RESULT_BACKEND = None
+CELERY_TASK_ALWAYS_EAGER = RUNNING_TESTS
+CELERY_TASK_TIME_LIMIT = 300
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_BEAT_SCHEDULE = {
+    'poll-traccar-positions': {
+        'task': 'apps.transport.tasks.poll_traccar',
+        'schedule': 120.0,
+    },
+}
+
+# ════════════════════════════════════════════════
 # Email (Feedback Module)
 #
 # In development, EMAIL_BACKEND defaults to the console backend so all
