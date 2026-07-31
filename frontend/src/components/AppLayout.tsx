@@ -137,6 +137,7 @@ export default function AppLayout() {
     '/admin/sales-rep-coverage': t('nav.sales_rep_coverage'),
     '/admin/expense-template': t('nav.admin_expense_template'),
     '/admin/packing-templates': t('nav.admin_packing_templates'),
+    '/transport/map': t('nav.fleet_map'),
   };
 
   const currentPageLabel = location.pathname.startsWith('/shipments/')
@@ -197,6 +198,18 @@ export default function AppLayout() {
       { key: '/export/overdue', icon: <IconAlertTriangle size={15} />, label: t('nav.overdue') },
       { key: '/export/my-reports', icon: <IconReportAnalytics size={15} />, label: t('nav.sales_reports') },
       { key: '/export/advances', icon: <IconBuildingBank size={15} />, label: t('nav.advances') },
+      {
+        key: '/transport/map',
+        icon: <IconMapPin size={15} />,
+        label: t('nav.fleet_map'),
+        // No page_code registered yet for this page — open to every
+        // authenticated user (same bypass as worklog / team/kpi below).
+        roles: [
+          'admin', 'export_manager', 'loading_dept_head', 'loading_dept_head_deputy', 'warehouse_chief',
+          'weight_master', 'document_team', 'transport', 'sales_rep', 'finansist',
+          'director', 'accountant', 'greenhouse_manager', 'seller', 'boss',
+        ] as import('@/types').UserRole[],
+      },
     ]},
     { label: t('nav.group_contracts'), items: [
       {
