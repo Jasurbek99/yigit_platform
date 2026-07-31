@@ -2016,6 +2016,10 @@
     "col_customer": "Customer",
     "col_status": "Status"
   },
+  "fleet_map": {
+    "search_placeholder": "Search plate / fleet / place",
+    "load_error": "Could not load truck positions"
+  },
   "pallet": {
     "title": "Pallet manifest",
     "col_number": "Pallet №",

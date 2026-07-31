@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
 import { Input, List, Badge, Spin, Alert, Typography } from 'antd';
+import { useTranslation } from 'react-i18next';
 import 'leaflet/dist/leaflet.css';
 import { useLivePositions, type ILivePosition } from '@/hooks/useLivePositions';
 
@@ -17,6 +18,7 @@ function pinColor(p: ILivePosition): string {
 }
 
 export default function FleetMap() {
+  const { t } = useTranslation();
   const { data, isLoading, isError } = useLivePositions();
   const [search, setSearch] = useState('');
 
@@ -33,13 +35,13 @@ export default function FleetMap() {
   }, [data, search]);
 
   if (isLoading) return <Spin style={{ margin: 48 }} />;
-  if (isError) return <Alert type="error" message="Could not load truck positions" />;
+  if (isError) return <Alert type="error" message={t('fleet_map.load_error')} />;
 
   return (
     <div style={{ display: 'flex', height: 'calc(100vh - 120px)', gap: 12 }}>
       <div style={{ width: 320, overflowY: 'auto' }}>
         <Input.Search
-          placeholder="Search plate / fleet / place"
+          placeholder={t('fleet_map.search_placeholder')}
           allowClear
           onChange={(e) => setSearch(e.target.value)}
           style={{ marginBottom: 8 }}
