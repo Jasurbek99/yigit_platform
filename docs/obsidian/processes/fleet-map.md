@@ -41,7 +41,7 @@ Every poll now calls **both** `sync_devices()` and `sync_positions()` (in that o
 added to Traccar after the initial seed are picked up automatically — `sync_positions`
 only skips a `deviceId` that still has no `TraccarDevice` row, which `sync_devices` now
 prevents by re-registering every poll. `sync_devices` is idempotent (`update_or_create`),
-so running it every minute for ~95 devices is cheap.
+so running it every 120s for ~95 devices is cheap.
 
 If Traccar is unreachable, `TraccarClient` raises `TraccarUnavailable`; both management
 commands **and** the Celery task catch it, log a warning, and return/exit non-fatally —

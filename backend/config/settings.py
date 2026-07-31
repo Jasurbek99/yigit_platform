@@ -411,18 +411,17 @@ LOGGING = {
 # Under tests, CELERY_TASK_ALWAYS_EAGER runs poll_traccar() inline with no
 # broker, so the Redis dependency never needs to be up in CI.
 #
-# TASK_TIME_LIMIT is kept under the 120s beat interval (with a SOFT limit
-# 10s earlier) so a slow/hung run is killed before the next one is due —
-# two overlapping poll_traccar runs would hit the same update_or_create
-# rows on MSSQL and risk deadlocks/IntegrityError. The beat entry's
-# `expires` mirrors the hard limit: a task that's still queued (not yet
-# started) after 110s is dropped rather than run late with a stale window.
+# poll_traccar's time_limit/soft_time_limit are set on the task itself
+# (apps/transport/tasks.py), not here — scoping them to the task (not a
+# project-global CELERY_TASK_TIME_LIMIT) avoids trapping some future,
+# legitimately long-running task (e.g. offloaded PDF generation) under a
+# 110s hard kill. The beat entry's `expires` below mirrors that task's
+# 110s hard limit: a task that's still queued (not yet started) after
+# 110s is dropped rather than run late with a stale window.
 # ════════════════════════════════════════════════
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = None
 CELERY_TASK_ALWAYS_EAGER = RUNNING_TESTS
-CELERY_TASK_TIME_LIMIT = 110
-CELERY_TASK_SOFT_TIME_LIMIT = 100
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_BEAT_SCHEDULE = {
