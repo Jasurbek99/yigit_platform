@@ -72,12 +72,14 @@ def sync_positions(client: TraccarClient | None = None) -> int:
             )
             continue
         attrs = pos.get('attributes') or {}
+        raw_speed = pos.get('speed')
+        speed_kmh = round(raw_speed * 1.852, 2) if raw_speed is not None else None
         DevicePosition.objects.update_or_create(
             device=device,
             defaults={
                 'latitude': pos['latitude'],
                 'longitude': pos['longitude'],
-                'speed': pos.get('speed'),
+                'speed': speed_kmh,
                 'course': pos.get('course'),
                 'address': (pos.get('address') or '')[:300] or None,
                 'ignition': attrs.get('ignition'),

@@ -28,15 +28,25 @@ Out of Scope).
 flowchart LR
     A["seed_traccar_devices<br/>(one-time, idempotent)"] --> B["Truck + TraccarDevice rows<br/>created from Traccar's /api/devices"]
     B --> C["Cron every 1 min:<br/>poll_traccar_positions"]
-    C --> D["TraccarClient.get_positions()<br/>GET /api/positions"]
-    D --> E["sync_positions():<br/>upsert latest DevicePosition<br/>per known device"]
+    C --> D1["sync_devices():<br/>refresh status/last_seen,<br/>auto-register new devices"]
+    D1 --> D["TraccarClient.get_positions()<br/>GET /api/positions"]
+    D --> E["sync_positions():<br/>upsert latest DevicePosition<br/>per known device, speed knots→km/h"]
     E --> F["GET /api/v1/transport/live-positions/<br/>reads DB only, never Traccar"]
     F --> G["FleetMap page<br/>(react-leaflet, 30s refetch)"]
 ```
 
+Every poll now calls **both** `sync_devices()` and `sync_positions()` (in that order), so
+`TraccarDevice.status`/`last_seen` stay live (not frozen at the one-time seed) and trucks
+added to Traccar after the initial seed are picked up automatically — `sync_positions`
+only skips a `deviceId` that still has no `TraccarDevice` row, which `sync_devices` now
+prevents by re-registering every poll. `sync_devices` is idempotent (`update_or_create`),
+so running it every minute for ~95 devices is cheap.
+
 If Traccar is unreachable, `TraccarClient` raises `TraccarUnavailable`; both management
 commands catch it, log a warning, and exit non-fatally — the last-known `DevicePosition`
-rows stay as-is and the next scheduled poll retries.
+rows stay as-is and the next scheduled poll retries. In `poll_traccar_positions`, if
+`sync_devices()` raises, `sync_positions()` is never called that cycle (both share the
+same `try`); either failure still exits 0.
 
 ## Data Model
 
@@ -118,14 +128,17 @@ Any network error, non-2xx status, or non-JSON body raises `TraccarUnavailable`.
 - **`sync_positions(client=None)`** — pulls `get_positions()`, upserts one
   `DevicePosition` per **known** device (looked up by `traccar_id`). Positions for a
   `deviceId` with no matching `TraccarDevice`, or with a null `latitude`, are skipped and
-  logged as a warning — they never raise.
+  logged as a warning — they never raise. Traccar reports `speed` in **knots**;
+  `sync_positions` converts to km/h at write time (`speed * 1.852`, rounded to 2dp) so it
+  matches the `DevicePosition.speed` field's km/h label — a `None`/absent speed stays
+  `None` (not converted).
 
 ## Management Commands
 
 | Command | Type | Schedule |
 |---|---|---|
-| `seed_traccar_devices` | one-time, idempotent | run manually once (and again if new trucks/devices are added in Traccar) |
-| `poll_traccar_positions` | recurring | **every 1 minute** — mirrors `archive_shipments`'s cron pattern |
+| `seed_traccar_devices` | one-time, idempotent | run manually once for an explicit initial load — `poll_traccar_positions` now keeps devices in sync on its own, so re-running this is optional |
+| `poll_traccar_positions` | recurring | **every 1 minute** — mirrors `archive_shipments`'s cron pattern; calls `sync_devices()` then `sync_positions()` each cycle, reporting both counts (`"Synced N devices, updated M positions."`) |
 
 ```cron
 * * * * * cd /app/backend && python manage.py poll_traccar_positions
@@ -197,7 +210,7 @@ sidebar (plate / fleet_no / address) list next to the `MapContainer`; each truck
 | Serializer | [`backend/apps/transport/serializers.py`](../../../backend/apps/transport/serializers.py) |
 | ViewSet | [`backend/apps/transport/views.py`](../../../backend/apps/transport/views.py) |
 | URLs | [`backend/apps/transport/urls.py`](../../../backend/apps/transport/urls.py) (mounted at `api/v1/transport/`) |
-| Tests | `backend/apps/transport/tests/` (`test_models.py`, `test_traccar_client.py`, `test_sync.py`, `test_commands.py`, `test_api.py` — 22 cases) |
+| Tests | `backend/apps/transport/tests/` (`test_models.py`, `test_traccar_client.py`, `test_sync.py`, `test_commands.py`, `test_api.py` — 25 cases) |
 | Query hook | [`frontend/src/hooks/useLivePositions.ts`](../../../frontend/src/hooks/useLivePositions.ts) — `ILivePosition`, 30s `refetchInterval` |
 | Page | [`frontend/src/pages/transport/FleetMap.tsx`](../../../frontend/src/pages/transport/FleetMap.tsx) |
 | Route + nav | `frontend/src/App.tsx` (`transport/map`), `frontend/src/components/AppLayout.tsx` (`nav.fleet_map`) |
@@ -222,12 +235,13 @@ sidebar (plate / fleet_no / address) list next to the `MapContainer`; each truck
 
 1. **Seed**: `python manage.py seed_traccar_devices` — creates `Truck`/`TraccarDevice`
    rows from Traccar; re-running is a no-op (idempotent `update_or_create`).
-2. **Poll**: `python manage.py poll_traccar_positions` — updates `DevicePosition` rows;
-   stop Traccar (or point `TRACCAR_BASE_URL` at nothing) and re-run — command prints a
-   warning and exits 0, existing rows untouched.
+2. **Poll**: `python manage.py poll_traccar_positions` — refreshes `TraccarDevice`
+   status/last_seen (incl. auto-registering any new device) and updates `DevicePosition`
+   rows; stop Traccar (or point `TRACCAR_BASE_URL` at nothing) and re-run — command prints
+   a warning and exits 0, existing rows untouched.
 3. **API**: `GET /api/v1/transport/live-positions/` as an authenticated user returns the
    JSON list above; unauthenticated → 401/403.
 4. **Page**: `/transport/map` shows the sidebar + map, pins colour-matching device state;
    typing in the search box filters both the list and the pins; wait 30s and confirm the
    list quietly refetches (no full-page reload).
-5. **Backend tests**: `python manage.py test apps.transport` — 22 cases across 5 files.
+5. **Backend tests**: `python manage.py test apps.transport` — 25 cases across 5 files.

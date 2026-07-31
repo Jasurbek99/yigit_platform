@@ -19,6 +19,7 @@ All notable changes to the YGT Platform.
 - **Placeholder Links card dropped from Shipment Detail (chore(frontend)).** `ShipmentLinksCard` showed three hardcoded rows (Logo Tiger / Trip Management / GPS) with no backing data. Deleted the component and its three orphaned i18n keys from all three locale files.
 
 ### Fixed
+- **Fleet Map: poller now refreshes device status and auto-registers new Traccar devices; speed converted knots→km/h (fix(transport)).** `poll_traccar_positions` called only `sync_positions()`, so `TraccarDevice.status`/`last_seen` were frozen at the one-time `seed_traccar_devices` run — `is_online` never changed and trucks added to Traccar after the seed never appeared on the map (`sync_positions` skips unknown deviceIds). The poll now calls `sync_devices()` first, then `sync_positions()`, reporting both counts. Also, `sync_positions()` stored Traccar's raw `speed` (knots) straight into `DevicePosition.speed`, which the serializer/popup label as km/h (74 km/h showed as 40) — now converted at sync time (`speed * 1.852`, rounded to 2dp; `None` stays `None`). +4 tests (`test_commands.py`, `test_sync.py`); 25/25 `apps.transport` tests green.
 - RouteTimelineRail no longer disappears on mobile (fix(p3))
 
 ### Changed

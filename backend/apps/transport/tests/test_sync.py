@@ -1,3 +1,4 @@
+from decimal import Decimal
 from unittest.mock import MagicMock
 
 from django.test import TestCase
@@ -46,6 +47,35 @@ class SyncTests(TestCase):
         pos = DevicePosition.objects.get()
         self.assertEqual(pos.ignition, True)
         self.assertEqual(str(pos.address), 'Artyk')
+
+    def test_sync_positions_converts_speed_knots_to_kmh(self):
+        # Traccar reports speed in knots; DevicePosition.speed is labelled km/h.
+        # 10 knots * 1.852 = 18.52 km/h.
+        sync_devices(client=self._client())
+        client = MagicMock()
+        client.get_positions.return_value = [
+            {'deviceId': 74, 'latitude': 37.9734, 'longitude': 58.4925, 'speed': 10,
+             'course': 298, 'address': 'Artyk', 'valid': True,
+             'fixTime': '2026-07-30T05:26:28.060+00:00',
+             'attributes': {'ignition': True}},
+        ]
+        sync_positions(client=client)
+        pos = DevicePosition.objects.get()
+        self.assertEqual(pos.speed, Decimal('18.52'))
+
+    def test_sync_positions_keeps_null_speed_null(self):
+        sync_devices(client=self._client())
+        client = MagicMock()
+        client.get_positions.return_value = [
+            {'deviceId': 74, 'latitude': 37.9734, 'longitude': 58.4925, 'speed': None,
+             'course': 298, 'address': 'Artyk', 'valid': True,
+             'fixTime': '2026-07-30T05:26:28.060+00:00',
+             'attributes': {'ignition': True}},
+        ]
+        written = sync_positions(client=client)
+        self.assertEqual(written, 1)
+        pos = DevicePosition.objects.get()
+        self.assertIsNone(pos.speed)
 
     def test_sync_positions_skips_position_without_device_row(self):
         # position references device 74 but no TraccarDevice exists yet
