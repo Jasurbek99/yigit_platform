@@ -160,6 +160,10 @@ late with a stale window. `CELERY_TASK_TIME_LIMIT = 110` (with `CELERY_TASK_SOFT
 `poll_traccar` runs can never hit the same `update_or_create` rows on MSSQL at once
 (overlap = deadlock/IntegrityError risk).
 
+> **Caveat:** the `time_limit`/`soft_time_limit` overlap guard applies to the Linux
+> prefork worker used in production; the Windows `-P solo` dev pool (see below) does
+> not enforce them, so avoid overlapping runs there by not lowering the interval.
+
 ### Running the scheduler
 
 **Production (Ubuntu/Docker):** two new compose services, `celery-worker` and

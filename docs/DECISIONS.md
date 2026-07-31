@@ -398,29 +398,43 @@ docstring `SheetRowSetting`). В Sheet Control v2 семантика
 
 ---
 
-## ADR-0012: celery-worker / celery-beat get `restart: unless-stopped`, other services don't
+## ADR-0012: celery-worker / celery-beat получают `restart: unless-stopped`, остальные сервисы — нет
 
 **Дата:** 2026-07-31
 **Статус:** accepted
 
 ### Контекст
-`docker-compose.prod.yml` added two new services for the Fleet Map live poller,
-`celery-worker` and `celery-beat`. No service in either compose file (dev or prod)
-sets a `restart:` policy today — this would be the first.
+В `docker-compose.prod.yml` добавлены два новых сервиса для live-поллера
+Fleet Map — `celery-worker` и `celery-beat`. Ни один сервис ни в одном compose-файле
+(dev или prod) сегодня не задаёт политику `restart:` — это будет первый случай.
 
 ### Решение
-`celery-worker` and `celery-beat` set `restart: unless-stopped`; `backend`, `db`,
-`redis`, `frontend`, `nginx` intentionally do not. Rationale: the two Celery
-processes are long-lived daemons with no HTTP endpoint, healthcheck, or reverse
-proxy watching them — a crash or an unhandled exception in `poll_traccar` just
-kills the process silently and the Fleet Map goes stale with no alert. The other
-services are either fronted by something that would surface a failure (nginx/
-frontend for `backend`) or already carry their own healthcheck (`db`, `redis`).
+`celery-worker` и `celery-beat` получают `restart: unless-stopped`; `backend`, `db`,
+`redis`, `frontend`, `nginx` — намеренно нет. Обоснование: два процесса Celery —
+долгоживущие демоны без HTTP-эндпоинта, healthcheck'а или reverse-proxy, который бы
+их отслеживал — падение или необработанное исключение в `poll_traccar` просто тихо
+убивает процесс, и Fleet Map зависает на последних данных без какого-либо алерта.
+Остальные сервисы либо прикрыты чем-то, что проявит сбой (nginx/frontend для
+`backend`), либо уже несут собственный healthcheck (`db`, `redis`).
+
+### Альтернативы
+- Никакой restart-политики (текущее поведение до этого ADR) — отвергли, упавший
+  Celery-процесс остаётся мёртвым до ручного перезапуска, а Fleet Map тихо
+  замирает без единого сигнала.
+- Полагаться на restart-политику самого Docker-хоста (systemd/Docker daemon
+  restart на уровне ОС) — отвергли, это охватывает падение всего контейнера при
+  рестарте хоста, но не падение процесса *внутри* работающего контейнера, что и
+  является основным сценарием отказа для `poll_traccar`.
+- Отдельный процесс-supervisor внутри контейнера (`supervisord`/`tini` с
+  перезапуском) — отвергли как избыточное усложнение образа ради того, что
+  `restart: unless-stopped` уже даёт на уровне Compose без изменения
+  `Dockerfile`.
 
 ### Последствия
-- Asymmetric restart policy across the compose file — intentional, not an
-  oversight. Note this if auditing "why does X have restart but not Y."
-- If `backend` itself is later found to need `restart: unless-stopped` (e.g. an
-  unsupervised deploy target with no process manager), that's a separate decision,
-  not implied by this one.
+- Асимметричная restart-политика в рамках одного compose-файла — это
+  осознанное решение, а не недосмотр. Учитывать при аудите вопроса «почему у
+  X есть restart, а у Y нет».
+- Если позже выяснится, что `backend` тоже нуждается в `restart: unless-stopped`
+  (например, для деплоя без process manager), это отдельное решение, не
+  вытекающее из данного ADR.
 

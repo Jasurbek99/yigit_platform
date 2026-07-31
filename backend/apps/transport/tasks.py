@@ -16,6 +16,12 @@ def poll_traccar():
     and kept under the 120s beat interval so a hung run is killed before the
     next tick fires — two overlapping runs would hit the same
     update_or_create rows on MSSQL and risk deadlocks/IntegrityError.
+
+    Caveat: this overlap guard relies on Celery's prefork/billiard supervisor
+    (hard `time_limit`) and SIGUSR1 (`soft_time_limit`), which only work under
+    the Linux prefork pool used in production. The Windows `-P solo` dev pool
+    does not enforce either limit, so avoid overlapping runs there by not
+    lowering the beat interval.
     """
     try:
         devices = sync_devices()

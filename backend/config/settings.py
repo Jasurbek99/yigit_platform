@@ -419,6 +419,12 @@ LOGGING = {
 # 110s hard limit: a task that's still queued (not yet started) after
 # 110s is dropped rather than run late with a stale window.
 # ════════════════════════════════════════════════
+# NOTE: the Celery broker shares Redis logical DB 0 with the channel layer
+# (CHANNEL_LAYERS above) and the prod cache (CACHES above) — their keyspaces
+# don't collide today, but a future `cache.clear()` (Django's RedisCache
+# issues `FLUSHDB`) would also wipe the Celery queue and channels state. If a
+# cache-clear path is ever added, move the Celery broker to a dedicated DB
+# index instead (e.g. `redis://.../1`).
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = None
 CELERY_TASK_ALWAYS_EAGER = RUNNING_TESTS

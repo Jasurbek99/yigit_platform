@@ -90,6 +90,9 @@ services:
       - DB_USER=${DB_USER:?DB_USER must be set in backend/.env}
       - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set in backend/.env}
       - REDIS_URL=redis://redis:6379/0
+      - TRACCAR_BASE_URL=${TRACCAR_BASE_URL:-}
+      - TRACCAR_TOKEN=${TRACCAR_TOKEN:-}
+      - TRACCAR_STALE_MINUTES=${TRACCAR_STALE_MINUTES:-15}
     restart: unless-stopped
     # !reset (not a plain `[]`) to actually clear the base's `./backend:/app`
     # bind mount — a plain empty list is a no-op in Compose's merge, same
@@ -113,6 +116,9 @@ services:
       - DB_USER=${DB_USER:?DB_USER must be set in backend/.env}
       - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set in backend/.env}
       - REDIS_URL=redis://redis:6379/0
+      - TRACCAR_BASE_URL=${TRACCAR_BASE_URL:-}
+      - TRACCAR_TOKEN=${TRACCAR_TOKEN:-}
+      - TRACCAR_STALE_MINUTES=${TRACCAR_STALE_MINUTES:-15}
     restart: unless-stopped
     volumes: !reset []
     depends_on:
