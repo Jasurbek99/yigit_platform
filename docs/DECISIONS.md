@@ -396,3 +396,31 @@ docstring `SheetRowSetting`). В Sheet Control v2 семантика
   механизм stuck-shipments dashboard и SLA-эскалации (ADR-0005),
   а не возвращать UI-таймер на каждый экран.
 
+---
+
+## ADR-0012: celery-worker / celery-beat get `restart: unless-stopped`, other services don't
+
+**Дата:** 2026-07-31
+**Статус:** accepted
+
+### Контекст
+`docker-compose.prod.yml` added two new services for the Fleet Map live poller,
+`celery-worker` and `celery-beat`. No service in either compose file (dev or prod)
+sets a `restart:` policy today — this would be the first.
+
+### Решение
+`celery-worker` and `celery-beat` set `restart: unless-stopped`; `backend`, `db`,
+`redis`, `frontend`, `nginx` intentionally do not. Rationale: the two Celery
+processes are long-lived daemons with no HTTP endpoint, healthcheck, or reverse
+proxy watching them — a crash or an unhandled exception in `poll_traccar` just
+kills the process silently and the Fleet Map goes stale with no alert. The other
+services are either fronted by something that would surface a failure (nginx/
+frontend for `backend`) or already carry their own healthcheck (`db`, `redis`).
+
+### Последствия
+- Asymmetric restart policy across the compose file — intentional, not an
+  oversight. Note this if auditing "why does X have restart but not Y."
+- If `backend` itself is later found to need `restart: unless-stopped` (e.g. an
+  unsupervised deploy target with no process manager), that's a separate decision,
+  not implied by this one.
+

@@ -3,7 +3,8 @@
 # Differences from docker-compose.yml (dev):
 #   - The local `db` service is removed (Compose v2 marks services as removed
 #     via `!reset`-style overrides; the simplest pattern is "don't run it"
-#     by selecting only the services you need: `up -d backend frontend redis`).
+#     by selecting only the services you need:
+#     `up -d backend frontend redis celery-worker celery-beat`).
 #   - The outer `nginx` service is dropped for beta (its config dir is
 #     missing; frontend's internal nginx already serves the SPA + proxies
 #     `/api/`). Frontend now binds host port 80 directly.
@@ -16,7 +17,7 @@
 #     runs the baked image from `backend/Dockerfile`.
 #
 # Deploy command (run on the office server, NOT the dev machine):
-#   docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d backend frontend redis
+#   docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d backend frontend redis celery-worker celery-beat
 #
 # Verify before staff arrive:
 #   docker-compose -f docker-compose.yml -f docker-compose.prod.yml exec backend \
@@ -76,7 +77,12 @@ services:
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set in backend/.env}
-      - DJANGO_DEBUG=True
+      # NOT True like backend: backend needs DEBUG=True for unstyled-admin-CSS
+      # reasons (see note above), but a Celery worker serves no HTTP, and
+      # DEBUG=True makes Django append every SQL query to `connection.queries`
+      # for the life of the process — unbounded growth over weeks on a daemon
+      # that never restarts on its own.
+      - DJANGO_DEBUG=${DJANGO_DEBUG:-False}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS:?ALLOWED_HOSTS must include office server hostname/IP}
       - DB_HOST=${DB_HOST:?DB_HOST must be set in backend/.env}
       - DB_PORT=${DB_PORT:-}
@@ -85,7 +91,10 @@ services:
       - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set in backend/.env}
       - REDIS_URL=redis://redis:6379/0
     restart: unless-stopped
-    volumes: []
+    # !reset (not a plain `[]`) to actually clear the base's `./backend:/app`
+    # bind mount — a plain empty list is a no-op in Compose's merge, same
+    # reason `backend.ports` above uses `!reset` instead of `[]`.
+    volumes: !reset []
     depends_on:
       redis:
         condition: service_healthy
@@ -94,7 +103,9 @@ services:
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set in backend/.env}
-      - DJANGO_DEBUG=True
+      # Same DEBUG rationale as celery-worker above — no HTTP, unbounded
+      # connection.queries growth otherwise.
+      - DJANGO_DEBUG=${DJANGO_DEBUG:-False}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS:?ALLOWED_HOSTS must include office server hostname/IP}
       - DB_HOST=${DB_HOST:?DB_HOST must be set in backend/.env}
       - DB_PORT=${DB_PORT:-}
@@ -103,7 +114,7 @@ services:
       - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set in backend/.env}
       - REDIS_URL=redis://redis:6379/0
     restart: unless-stopped
-    volumes: []
+    volumes: !reset []
     depends_on:
       redis:
         condition: service_healthy
