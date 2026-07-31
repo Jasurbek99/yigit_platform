@@ -59,7 +59,17 @@ def sync_positions(client: TraccarClient | None = None) -> int:
     written = 0
     for pos in positions:
         device = known.get(pos['deviceId'])
-        if device is None or pos.get('latitude') is None:
+        if device is None:
+            logger.warning(
+                'Skipping position for unknown deviceId=%s (no TraccarDevice row)',
+                pos.get('deviceId'),
+            )
+            continue
+        if pos.get('latitude') is None:
+            logger.warning(
+                'Skipping position for deviceId=%s: missing latitude',
+                pos.get('deviceId'),
+            )
             continue
         attrs = pos.get('attributes') or {}
         DevicePosition.objects.update_or_create(

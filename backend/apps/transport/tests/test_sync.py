@@ -52,3 +52,25 @@ class SyncTests(TestCase):
         written = sync_positions(client=self._client())
         self.assertEqual(written, 0)
         self.assertEqual(DevicePosition.objects.count(), 0)
+
+    def test_sync_devices_allows_multiple_null_fleet_no(self):
+        # Regression test: Truck.fleet_no is unique=True, null=True. On MSSQL
+        # this maps to a FILTERED unique index (WHERE fleet_no IS NOT NULL),
+        # the same pattern already used by Country.code / TomatoVariety.code.
+        # Multiple devices with no TR## token in their name must not collide.
+        client = MagicMock()
+        client.get_devices.return_value = [
+            {'id': 1, 'uniqueId': 'imei-1', 'name': '1780TAH',
+             'category': None, 'status': 'online', 'lastUpdate': None},
+            {'id': 2, 'uniqueId': 'imei-2', 'name': '6247 TAH',
+             'category': None, 'status': 'online', 'lastUpdate': None},
+        ]
+        count = sync_devices(client=client)
+        self.assertEqual(count, 2)
+        self.assertEqual(Truck.objects.count(), 2)
+        self.assertTrue(
+            Truck.objects.filter(plate='1780TAH', fleet_no__isnull=True).exists()
+        )
+        self.assertTrue(
+            Truck.objects.filter(plate='6247 TAH', fleet_no__isnull=True).exists()
+        )

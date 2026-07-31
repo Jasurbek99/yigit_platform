@@ -25,9 +25,18 @@ class TraccarClientTests(TestCase):
 
     @patch('apps.transport.services.traccar_client.requests.get')
     def test_non_json_response_raises_unavailable(self, mock_get):
+        # requests.exceptions.JSONDecodeError (raised by response.json() on a
+        # 200 with a non-JSON body) is itself a RequestException subclass, so
+        # this is already caught by `except requests.RequestException` in
+        # _get(). This test proves the REAL exception type from the requests
+        # library converts to TraccarUnavailable end-to-end.
+        import requests
+
         response = MagicMock(status_code=200)
         response.raise_for_status = lambda: None
-        response.json.side_effect = ValueError('Expecting value: line 1 column 1 (char 0)')
+        response.json.side_effect = requests.exceptions.JSONDecodeError(
+            'Expecting value', 'doc', 0
+        )
         mock_get.return_value = response
         with self.assertRaises(TraccarUnavailable):
             TraccarClient().get_devices()

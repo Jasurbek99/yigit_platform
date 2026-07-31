@@ -35,8 +35,11 @@ class TraccarClient:
             logger.error('Traccar request failed: %s', url, exc_info=True)
             raise TraccarUnavailable(str(exc)) from exc
         except ValueError as exc:
-            # response.json() raises JSONDecodeError (a ValueError subclass)
-            # when a 200 response has a non-JSON body.
+            # Defense-in-depth: requests.exceptions.JSONDecodeError (raised by
+            # response.json() on a non-JSON 200 body) already subclasses
+            # RequestException and is caught above. This branch only guards
+            # against some future/alternate json() implementation raising a
+            # bare ValueError instead.
             logger.error('Traccar returned non-JSON response: %s', url, exc_info=True)
             raise TraccarUnavailable(str(exc)) from exc
 
