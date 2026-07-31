@@ -25,6 +25,11 @@ ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,backend').s
 #   LIBREOFFICE_BIN=C:\Program Files\LibreOffice\program\soffice.exe
 LIBREOFFICE_BIN = os.environ.get('LIBREOFFICE_BIN', '')
 
+# Traccar GPS integration (read-only)
+TRACCAR_BASE_URL = os.environ.get('TRACCAR_BASE_URL', '')
+TRACCAR_TOKEN = os.environ.get('TRACCAR_TOKEN', '')
+TRACCAR_STALE_MINUTES = int(os.environ.get('TRACCAR_STALE_MINUTES', '15'))
+
 # ════════════════════════════════════════════════
 # Error tracking (Sentry)
 #

@@ -12,6 +12,9 @@ pyodbc>=5.1,<5.2
 # Config
 python-dotenv>=1.0,<2.0
 
+# HTTP client (Traccar GPS integration)
+requests>=2.31,<3.0
+
 # API
 django-filter>=24.1,<25.0
 django-cors-headers>=4.4,<4.5
