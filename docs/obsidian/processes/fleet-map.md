@@ -10,10 +10,11 @@ related: [[worklog]], [[../screens/team-kpi]]
 
 Live truck positions on a map, sourced from the office's existing **Traccar** GPS server
 (`10.10.11.79:8082`). Lives in a new standalone Django app, `apps.transport` — a registry
-of trucks/drivers/devices plus a 1-minute poller that keeps a "last known position" table
-in our own DB. The `/api/v1/transport/live-positions/` endpoint and the `/transport/map`
-page **never** call Traccar in the request path; they only ever read our DB, so a slow or
-down Traccar server cannot slow down or break the app for users looking at the map.
+of trucks/drivers/devices plus a poller (Celery beat, every 120s) that keeps a
+"last known position" table in our own DB. The `/api/v1/transport/live-positions/`
+endpoint and the `/transport/map` page **never** call Traccar in the request path; they
+only ever read our DB, so a slow or down Traccar server cannot slow down or break the app
+for users looking at the map.
 
 `apps.transport` depends **only on `apps.core`** (for the shared `schema_table` /
 `cyrillic_collation` DB helpers) — it does not touch `greenhouse`/`export`/`contracts`/
@@ -27,7 +28,7 @@ Out of Scope).
 ```mermaid
 flowchart LR
     A["seed_traccar_devices<br/>(one-time, idempotent)"] --> B["Truck + TraccarDevice rows<br/>created from Traccar's /api/devices"]
-    B --> C["Cron every 1 min:<br/>poll_traccar_positions"]
+    B --> C["Celery beat every 120s:<br/>apps.transport.tasks.poll_traccar"]
     C --> D1["sync_devices():<br/>refresh status/last_seen,<br/>auto-register new devices"]
     D1 --> D["TraccarClient.get_positions()<br/>GET /api/positions"]
     D --> E["sync_positions():<br/>upsert latest DevicePosition<br/>per known device, speed knots→km/h"]
@@ -43,10 +44,11 @@ prevents by re-registering every poll. `sync_devices` is idempotent (`update_or_
 so running it every minute for ~95 devices is cheap.
 
 If Traccar is unreachable, `TraccarClient` raises `TraccarUnavailable`; both management
-commands catch it, log a warning, and exit non-fatally — the last-known `DevicePosition`
-rows stay as-is and the next scheduled poll retries. In `poll_traccar_positions`, if
-`sync_devices()` raises, `sync_positions()` is never called that cycle (both share the
-same `try`); either failure still exits 0.
+commands **and** the Celery task catch it, log a warning, and return/exit non-fatally —
+the last-known `DevicePosition` rows stay as-is and the next scheduled poll retries. In
+`poll_traccar_positions` and in `poll_traccar` (the Celery task), if `sync_devices()`
+raises, `sync_positions()` is never called that cycle (both share the same `try`); either
+failure still exits 0 / returns `{'devices': 0, 'positions': 0, 'ok': False}`.
 
 ## Data Model
 
@@ -133,24 +135,48 @@ Any network error, non-2xx status, or non-JSON body raises `TraccarUnavailable`.
   matches the `DevicePosition.speed` field's km/h label — a `None`/absent speed stays
   `None` (not converted).
 
+## Scheduling — Celery beat (primary)
+
+`poll_traccar` (`backend/apps/transport/tasks.py`) is the primary, live scheduler —
+registered in `CELERY_BEAT_SCHEDULE` (`backend/config/settings.py`) and run by **Celery
+beat every 120 seconds**:
+
+```python
+CELERY_BEAT_SCHEDULE = {
+    'poll-traccar-positions': {
+        'task': 'apps.transport.tasks.poll_traccar',
+        'schedule': 120.0,
+        'options': {'expires': 110},
+    },
+}
+```
+
+The task calls `sync_devices()` then `sync_positions()` (same order/behaviour as the
+management command below) and returns `{'devices': N, 'positions': M, 'ok': True/False}`
+— nothing reads the result (`CELERY_RESULT_BACKEND = None`, fire-and-forget). `expires:
+110` drops a task that's still queued (not yet started) after 110s rather than running it
+late with a stale window. `CELERY_TASK_TIME_LIMIT = 110` (with `CELERY_TASK_SOFT_TIME_LIMIT
+= 100`) kills a hung run *before* the next 120s tick fires, so two overlapping
+`poll_traccar` runs can never hit the same `update_or_create` rows on MSSQL at once
+(overlap = deadlock/IntegrityError risk). Running the worker/beat processes
+(`celery -A config worker`, `celery -A config beat`) is deploy/docker-compose wiring —
+tracked separately, not covered here.
+
 ## Management Commands
 
 | Command | Type | Schedule |
 |---|---|---|
-| `seed_traccar_devices` | one-time, idempotent | run manually once for an explicit initial load — `poll_traccar_positions` now keeps devices in sync on its own, so re-running this is optional |
-| `poll_traccar_positions` | recurring | **every 1 minute** — mirrors `archive_shipments`'s cron pattern; calls `sync_devices()` then `sync_positions()` each cycle, reporting both counts (`"Synced N devices, updated M positions."`) |
-
-```cron
-* * * * * cd /app/backend && python manage.py poll_traccar_positions
-```
+| `seed_traccar_devices` | one-time, idempotent | run manually once for an explicit initial load — the poller now keeps devices in sync on its own, so re-running this is optional |
+| `poll_traccar_positions` | **manual, one-shot** | superseded by Celery beat (above) as the live scheduler; kept for manual ad-hoc runs (e.g. debugging, forcing a refresh outside the 120s cadence) — calls `sync_devices()` then `sync_positions()`, reporting both counts (`"Synced N devices, updated M positions."`) |
 
 ```
-Windows Task Scheduler: run `python manage.py poll_traccar_positions` every 1 minute.
+python manage.py poll_traccar_positions
 ```
 
-Both commands catch `TraccarUnavailable` and exit non-fatally (warning for the poller,
-error for the seed command) — a down Traccar server never crashes the schedule, it just
-means positions go stale until Traccar comes back.
+Both commands, and the `poll_traccar` Celery task, catch `TraccarUnavailable` and exit/return
+non-fatally (warning for the poller and the task, error for the seed command) — a down
+Traccar server never crashes the schedule, it just means positions go stale until Traccar
+comes back.
 
 ## REST Surface
 
@@ -206,11 +232,13 @@ sidebar (plate / fleet_no / address) list next to the `MapContainer`; each truck
 | Traccar client | [`backend/apps/transport/services/traccar_client.py`](../../../backend/apps/transport/services/traccar_client.py) |
 | Sync service | [`backend/apps/transport/services/sync.py`](../../../backend/apps/transport/services/sync.py) |
 | Seed command | [`backend/apps/transport/management/commands/seed_traccar_devices.py`](../../../backend/apps/transport/management/commands/seed_traccar_devices.py) |
-| Poll command | [`backend/apps/transport/management/commands/poll_traccar_positions.py`](../../../backend/apps/transport/management/commands/poll_traccar_positions.py) |
+| Poll command (manual one-shot) | [`backend/apps/transport/management/commands/poll_traccar_positions.py`](../../../backend/apps/transport/management/commands/poll_traccar_positions.py) |
+| Celery task (beat-scheduled, live) | [`backend/apps/transport/tasks.py`](../../../backend/apps/transport/tasks.py) |
+| Celery app + beat schedule | [`backend/config/celery.py`](../../../backend/config/celery.py), `CELERY_*` settings in [`backend/config/settings.py`](../../../backend/config/settings.py) |
 | Serializer | [`backend/apps/transport/serializers.py`](../../../backend/apps/transport/serializers.py) |
 | ViewSet | [`backend/apps/transport/views.py`](../../../backend/apps/transport/views.py) |
 | URLs | [`backend/apps/transport/urls.py`](../../../backend/apps/transport/urls.py) (mounted at `api/v1/transport/`) |
-| Tests | `backend/apps/transport/tests/` (`test_models.py`, `test_traccar_client.py`, `test_sync.py`, `test_commands.py`, `test_api.py` — 25 cases) |
+| Tests | `backend/apps/transport/tests/` (`test_models.py`, `test_traccar_client.py`, `test_sync.py`, `test_commands.py`, `test_api.py`, `test_tasks.py` — 27 cases) |
 | Query hook | [`frontend/src/hooks/useLivePositions.ts`](../../../frontend/src/hooks/useLivePositions.ts) — `ILivePosition`, 30s `refetchInterval` |
 | Page | [`frontend/src/pages/transport/FleetMap.tsx`](../../../frontend/src/pages/transport/FleetMap.tsx) |
 | Route + nav | `frontend/src/App.tsx` (`transport/map`), `frontend/src/components/AppLayout.tsx` (`nav.fleet_map`) |
@@ -244,4 +272,4 @@ sidebar (plate / fleet_no / address) list next to the `MapContainer`; each truck
 4. **Page**: `/transport/map` shows the sidebar + map, pins colour-matching device state;
    typing in the search box filters both the list and the pins; wait 30s and confirm the
    list quietly refetches (no full-page reload).
-5. **Backend tests**: `python manage.py test apps.transport` — 25 cases across 5 files.
+5. **Backend tests**: `python manage.py test apps.transport` — 27 cases across 6 files.
