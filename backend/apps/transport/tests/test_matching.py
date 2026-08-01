@@ -65,3 +65,44 @@ class ResolveTests(TestCase):
         device, how = resolve_device_for_shipment(_shipment(''))
         self.assertIsNone(device)
         self.assertEqual(how, 'none')
+
+    def test_messy_plate_space_before_slash_no_match(self):
+        # tractor token = 'AG2236' (split on the first '/' or whitespace); no Truck
+        # with that plate exists, so this must fall through to 'none', not crash.
+        device, how = resolve_device_for_shipment(_shipment('AG2236/ TAH2526'))
+        self.assertIsNone(device)
+        self.assertEqual(how, 'none')
+
+    def test_garbage_plate_no_match(self):
+        device, how = resolve_device_for_shipment(_shipment('sadas'))
+        self.assertIsNone(device)
+        self.assertEqual(how, 'none')
+
+
+class DevicePreferenceTests(TestCase):
+    """_pick_device() tier coverage: position > category='truck' > first-by-name."""
+
+    def test_tier2_prefers_category_truck_without_position(self):
+        # Neither device has a DevicePosition, so tier 1 (position) is skipped.
+        # Tier 2 must pick the category='truck' device regardless of name order.
+        truck = Truck.objects.create(plate='TIER2AAA', fleet_no='TR200')
+        TraccarDevice.objects.create(traccar_id=201, name='Z Other', truck=truck, category='unknown')
+        truck_device = TraccarDevice.objects.create(
+            traccar_id=202, name='A TruckDev', truck=truck, category='truck',
+        )
+        device, how = resolve_device_for_shipment(_shipment('TIER2AAA'))
+        self.assertEqual(device, truck_device)
+        self.assertEqual(how, 'auto')
+
+    def test_tier3_falls_back_to_first_by_name(self):
+        # No device has a position and none is category='truck', so both earlier
+        # tiers are skipped — the resolver must fall back to devices[0], which is
+        # TraccarDevice.Meta.ordering = ['name'] (alphabetically first).
+        truck = Truck.objects.create(plate='TIER3BBB', fleet_no='TR300')
+        first_by_name = TraccarDevice.objects.create(
+            traccar_id=301, name='A First', truck=truck, category='unknown',
+        )
+        TraccarDevice.objects.create(traccar_id=302, name='B Second', truck=truck, category=None)
+        device, how = resolve_device_for_shipment(_shipment('TIER3BBB'))
+        self.assertEqual(device, first_by_name)
+        self.assertEqual(how, 'auto')
