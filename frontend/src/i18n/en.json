@@ -2018,7 +2018,18 @@
   },
   "fleet_map": {
     "search_placeholder": "Search plate / fleet / place",
-    "load_error": "Could not load truck positions"
+    "load_error": "Could not load truck positions",
+    "shipment_card_title": "Truck location",
+    "shipment_no_gps": "No GPS device linked for this truck",
+    "link_device": "Link a device",
+    "no_position": "No position yet",
+    "pick_device": "Pick a device",
+    "reset_auto": "Reset to auto",
+    "online": "online",
+    "offline": "offline",
+    "stale": "stale",
+    "resolved_auto": "auto",
+    "resolved_manual": "manual"
   },
   "pallet": {
     "title": "Pallet manifest",

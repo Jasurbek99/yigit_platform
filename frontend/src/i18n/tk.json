@@ -2022,7 +2022,18 @@
   },
   "fleet_map": {
     "search_placeholder": "Belgi / flot / ýer boýunça gözle",
-    "load_error": "Ulaglaryň ýerleşişini ýüklemek başa barmady"
+    "load_error": "Ulaglaryň ýerleşişini ýüklemek başa barmady",
+    "shipment_card_title": "Ulagyň ýerleşişi",
+    "shipment_no_gps": "Bu ulaga GPS enjamy baglanmandyr",
+    "link_device": "Enjam baglamak",
+    "no_position": "Entek ýerleşiş ýok",
+    "pick_device": "Enjam saýlaň",
+    "reset_auto": "Awtomata gaýtar",
+    "online": "onlaýn",
+    "offline": "oflaýn",
+    "stale": "köne",
+    "resolved_auto": "awtomatik",
+    "resolved_manual": "el bilen"
   },
   "pallet": {
     "title": "Palet manifest",

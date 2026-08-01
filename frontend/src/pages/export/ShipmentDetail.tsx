@@ -8,6 +8,7 @@ import { ShipmentDetailStageCards } from '@/components/shipment/ShipmentDetailSt
 import { ShipmentSaleSection } from '@/components/shipment/ShipmentSaleSection';
 import { RouteTimelineRail } from '@/components/shipment/RouteTimelineRail';
 import { ShipmentCustomsExpensesCard } from '@/components/customsExpense/ShipmentCustomsExpensesCard';
+import { ShipmentTruckLocationCard } from '@/components/shipment/ShipmentTruckLocationCard';
 import { CUSTOMS_EXPENSE_WRITE_ROLES } from '@/components/customsExpense/CustomsExpensesTab';
 import { MIN_SALES_REPORT_STEP } from '@/components/salesReport/salesReportUtils';
 import { CommentsDrawerOverlay } from '@/components/comments/CommentsDrawerOverlay';
@@ -17,6 +18,18 @@ import { useAuth } from '@/hooks/useAuth';
 import { canDo } from '@/utils/permissions';
 import { COLORS } from '@/constants/styles';
 import { jumpToField } from './ShipmentDetailHelpers.helpers';
+
+// Roles the backend `CanEditShipment` permission allows to write shipment
+// fields (see backend/apps/transport/permissions.py) — mirrored here so the
+// truck-link override control is only shown to users who can actually use it.
+const TRANSPORT_EDIT_ROLES = [
+  'admin',
+  'export_manager',
+  'director',
+  'warehouse_chief',
+  'loading_dept_head',
+  'loading_dept_head_deputy',
+];
 
 export default function ShipmentDetail() {
   const { id } = useParams<{ id: string }>();
@@ -57,6 +70,8 @@ export default function ShipmentDetail() {
     user?.role === 'export_manager' ||
     user?.role === 'director' ||
     user?.is_superuser === true;
+  const canEditTruckLink =
+    user?.is_superuser === true || (user?.role != null && TRANSPORT_EDIT_ROLES.includes(user.role));
 
   const missingKeys = new Set(shipment.completeness.missing_fields.map((f) => f.key));
   const groupProps = {
@@ -84,6 +99,8 @@ export default function ShipmentDetail() {
       <ShipmentSaleSection {...groupProps} canEditSalesReport={canEditSalesReport} />
 
       <ShipmentCustomsExpensesCard shipment={shipment} canWrite={canWriteExpense} />
+
+      <ShipmentTruckLocationCard shipmentId={shipment.id} canEdit={canEditTruckLink} />
 
       <Flex justify="flex-end" style={{ marginBottom: 8 }}>
         <Link
