@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
-import { Card, Select, Button, Space, Tag, Typography, Spin, Empty } from 'antd';
+import { Card, Select, Button, Space, Tag, Typography, Spin, Empty, Alert } from 'antd';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import 'leaflet/dist/leaflet.css';
 import { useShipmentTruckPosition, useSetShipmentDevice } from '@/hooks/useShipmentTruckPosition';
 import { useTransportDevices } from '@/hooks/useTransportDevices';
@@ -17,7 +18,7 @@ export function ShipmentTruckLocationCard({
   canEdit: boolean;
 }) {
   const { t } = useTranslation();
-  const { data, isLoading } = useShipmentTruckPosition(shipmentId);
+  const { data, isLoading, isError } = useShipmentTruckPosition(shipmentId);
   const { set, clear } = useSetShipmentDevice(shipmentId);
   const [picking, setPicking] = useState(false);
   const devicesQuery = useTransportDevices();
@@ -33,6 +34,13 @@ export function ShipmentTruckLocationCard({
 
   const title = t('fleet_map.shipment_card_title');
   if (isLoading) return <Card title={title}><Spin /></Card>;
+  if (isError) {
+    return (
+      <Card title={title} style={{ marginBottom: 8 }}>
+        <Alert type="error" message={t('fleet_map.load_error')} />
+      </Card>
+    );
+  }
 
   const pos = data?.position ?? null;
   const pinColor = pos?.is_stale ? '#9ca3af' : pos?.is_online ? '#16a34a' : '#f59e0b';
@@ -97,10 +105,19 @@ export function ShipmentTruckLocationCard({
             options={deviceOptions}
             optionFilterProp="label"
             loading={devicesQuery.isLoading}
-            onChange={(v) => set.mutate(v as number, { onSuccess: () => setPicking(false) })}
+            onChange={(v) =>
+              set.mutate(v as number, {
+                onSuccess: () => setPicking(false),
+                onError: () => toast.error(t('fleet_map.load_error')),
+              })
+            }
           />
           {data?.resolved_by === 'manual' && (
-            <Button onClick={() => clear.mutate()}>{t('fleet_map.reset_auto')}</Button>
+            <Button
+              onClick={() => clear.mutate(undefined, { onError: () => toast.error(t('fleet_map.load_error')) })}
+            >
+              {t('fleet_map.reset_auto')}
+            </Button>
           )}
         </Space>
       )}
