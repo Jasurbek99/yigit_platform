@@ -329,13 +329,20 @@ resolver on every read.
 1. **Manual** — a `ShipmentDeviceLink` row for the shipment, if one exists.
 2. **Auto** — extract the tractor plate from `Shipment.truck_plate` via `_tractor_token`
    (the token before the first `/` or whitespace — a combined tractor+trailer plate like
-   `"4378AHF/2602TAH"` yields `"4378AHF"`), normalize both sides with `normalize_plate`
-   (uppercase, strip everything but `[A-Z0-9]`), and match against `Truck.plate`. If the
-   truck has ≥1 `TraccarDevice`, `_pick_device` prefers (a) a device that already has a
-   stored `DevicePosition` row (**not** filtered to `valid=True` — any stored fix counts),
-   then (b) a device with `category='truck'`, then (c) the first device found (by
+   `"4378AHF/2602TAH"` yields `"4378AHF"`). If that token contains any Cyrillic letter, bail
+   out to `(None, 'none')` immediately — `normalize_plate` (uppercase, strip everything but
+   `[A-Z0-9]`) silently drops Cyrillic characters, which can shrink a homoglyph plate (e.g. a
+   Cyrillic `А` in `"4378АHF"`) into a token that collides with a *different* Latin
+   `Truck.plate`; the fleet's registry plates are all Latin, so a Cyrillic-containing shipment
+   plate can never be trusted to match correctly. Otherwise normalize both sides and match
+   against `Truck.objects.filter(is_active=True)` (retired trucks are excluded so a
+   decommissioned truck's stale GPS can't surface). If the matched truck has ≥1
+   `TraccarDevice`, `_pick_device` prefers (a) a device that already has a stored
+   `DevicePosition` row (**not** filtered to `valid=True` — any stored fix counts), then (b) a
+   device with `category='truck'`, then (c) the first device found (by
    `TraccarDevice.Meta.ordering = ['name']`).
-3. **None** — no manual link and no plate match (or the matched truck has no device).
+3. **None** — no manual link, a Cyrillic plate, an inactive-truck match, or no plate match at
+   all (or the matched truck has no device).
 
 `resolved_by='auto'` or `'manual'` with `position: null` is a real, distinct state — the
 device resolved but has no stored `DevicePosition` (e.g. never polled yet, or its rows are
@@ -362,7 +369,12 @@ the request path (same rule as `live-positions/`). Full response shapes: `refere
 `ShipmentTruckLocationCard` (`frontend/src/components/shipment/ShipmentTruckLocationCard.tsx`)
 sits on `ShipmentDetail` right after the customs-expenses card. Backed by
 `useShipmentTruckPosition` (30s `refetchInterval`, same cadence as the fleet map) /
-`useSetShipmentDevice` / `useTransportDevices`. Shows a mini `react-leaflet` map + address +
+`useSetShipmentDevice` / `useTransportDevices`. The mini map's `MapContainer` reads
+`center`/`zoom` only once at mount (react-leaflet v4 behavior), so a module-scope `Recenter`
+child (`useMap()` + a `useEffect` keyed on `[lat, lon]`) calls `map.setView(...)` on every
+resolved-position change — this is what keeps the viewport following the truck across the 30s
+poll drift and across an editor switching the shipment to a different device (the pin alone
+would otherwise move off-screen). Shows a mini `react-leaflet` map + address +
 speed/online/stale line when a position exists, a `resolved_by` tag (manual vs auto), an
 `Empty` "No GPS device linked" state with a picker when `resolved_by='none'`, and (for
 editors) a searchable device picker plus a "reset to auto" button that clears the manual

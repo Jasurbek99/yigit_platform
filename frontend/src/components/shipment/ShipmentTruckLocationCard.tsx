@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
+import { useEffect, useMemo, useState } from 'react';
+import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet';
 import { Card, Select, Button, Space, Tag, Typography, Spin, Empty, Alert } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -9,6 +9,17 @@ import { useTransportDevices } from '@/hooks/useTransportDevices';
 
 const TILE_URL =
   import.meta.env.VITE_MAP_TILE_URL || 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+
+// react-leaflet v4 reads MapContainer's `center`/`zoom` only at mount; this child
+// re-centers the already-mounted map whenever the resolved position changes
+// (30s poll drift, or an editor switching the shipment to a different device).
+function Recenter({ lat, lon }: { lat: number; lon: number }) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView([lat, lon]);
+  }, [lat, lon, map]);
+  return null;
+}
 
 export function ShipmentTruckLocationCard({
   shipmentId,
@@ -67,6 +78,7 @@ export function ShipmentTruckLocationCard({
             <div style={{ height: 220, marginBottom: 8 }}>
               <MapContainer center={[pos.lat, pos.lon]} zoom={9} style={{ height: '100%' }}>
                 <TileLayer url={TILE_URL} attribution="&copy; OpenStreetMap" />
+                <Recenter lat={pos.lat} lon={pos.lon} />
                 <CircleMarker
                   center={[pos.lat, pos.lon]}
                   radius={8}

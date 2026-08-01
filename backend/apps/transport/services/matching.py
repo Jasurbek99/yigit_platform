@@ -4,6 +4,7 @@ from apps.transport.models import Truck, TraccarDevice, DevicePosition, Shipment
 
 _NON_ALNUM = re.compile(r'[^A-Z0-9]')
 _SPLIT = re.compile(r'[/\s]')
+_CYRILLIC = re.compile(r'[А-Яа-яЁёІіЇїЄєҐґ]')
 
 
 def normalize_plate(value: str) -> str:
@@ -47,13 +48,21 @@ def resolve_device_for_shipment(shipment) -> tuple[TraccarDevice | None, str]:
     if link:
         return link.device, 'manual'
 
-    plate_norm = normalize_plate(_tractor_token(shipment.truck_plate))
+    token = _tractor_token(shipment.truck_plate)
+    if _CYRILLIC.search(token):
+        # normalize_plate() strips Cyrillic letters, which can shrink a homoglyph
+        # plate (e.g. a Cyrillic 'А' in '4378АHF') into a token that collides with
+        # a DIFFERENT Latin Truck.plate. The fleet's plates are all Latin, so a
+        # Cyrillic-containing shipment plate cannot be reliably matched — bail out.
+        return None, 'none'
+
+    plate_norm = normalize_plate(token)
     if not plate_norm:
         return None, 'none'
 
     norm_to_truck = {
         normalize_plate(plate): tid
-        for tid, plate in Truck.objects.values_list('id', 'plate')
+        for tid, plate in Truck.objects.filter(is_active=True).values_list('id', 'plate')
     }
     truck_id = norm_to_truck.get(plate_norm)
     if truck_id is None:

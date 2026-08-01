@@ -4,6 +4,9 @@ All notable changes to the YGT Platform.
 
 ## [Unreleased]
 
+### Fixed
+- **Shipment↔truck GPS link: map viewport stuck on device switch + resolver false-match risks (fix(transport)).** `ShipmentTruckLocationCard`'s `MapContainer` only reads `center`/`zoom` at mount (react-leaflet v4) — overriding a shipment to a different device moved the pin but left the viewport on the old truck's location. Added a `Recenter` child using `useMap()` that pans the live map on every position/device change. `resolve_device_for_shipment()` also now (1) rejects any shipment plate containing a Cyrillic letter before normalizing — `normalize_plate()` strips Cyrillic, which could shrink a homoglyph plate into a token that collides with an unrelated Latin `Truck.plate` — and (2) matches only `Truck.objects.filter(is_active=True)`, so a retired truck's GPS can no longer surface. 3 new backend tests, all `apps.transport` tests green.
+
 ### Added
 - **Shipment↔truck GPS link (feat(transport)).** `ShipmentDetail` shows the truck's live
   position — `ShipmentDeviceLink` (manual override, transport-owned, `export.Shipment`

@@ -78,6 +78,31 @@ class ResolveTests(TestCase):
         self.assertIsNone(device)
         self.assertEqual(how, 'none')
 
+    def test_cyrillic_plate_returns_none(self):
+        # 'А' here is Cyrillic (U+0410), not Latin 'A'. normalize_plate() would
+        # silently strip it, so this must be rejected before normalization runs.
+        device, how = resolve_device_for_shipment(_shipment('4378АHF/2602TAH'))
+        self.assertIsNone(device)
+        self.assertEqual(how, 'none')
+
+    def test_cyrillic_homoglyph_does_not_collide_with_shrunken_latin_plate(self):
+        # normalize_plate() drops the Cyrillic 'А', shrinking '4378АHF' -> '4378HF',
+        # which would otherwise match this DIFFERENT truck's GPS if the guard didn't
+        # run before normalization.
+        other = Truck.objects.create(plate='4378HF', fleet_no='TR077')
+        dev = TraccarDevice.objects.create(traccar_id=401, name='4378HF TR077', truck=other)
+        DevicePosition.objects.create(device=dev, latitude='40.0', longitude='60.0')
+        device, how = resolve_device_for_shipment(_shipment('4378АHF/2602TAH'))  # Cyrillic А
+        self.assertIsNone(device)
+        self.assertEqual(how, 'none')
+
+    def test_inactive_truck_not_matched(self):
+        inactive = Truck.objects.create(plate='9001ZZZ', fleet_no='TR900', is_active=False)
+        TraccarDevice.objects.create(traccar_id=402, name='9001ZZZ TR900', truck=inactive)
+        device, how = resolve_device_for_shipment(_shipment('9001ZZZ'))
+        self.assertIsNone(device)
+        self.assertEqual(how, 'none')
+
 
 class DevicePreferenceTests(TestCase):
     """_pick_device() tier coverage: position > category='truck' > first-by-name."""
