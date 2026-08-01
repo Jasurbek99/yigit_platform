@@ -16,12 +16,14 @@ endpoint and the `/transport/map` page **never** call Traccar in the request pat
 only ever read our DB, so a slow or down Traccar server cannot slow down or break the app
 for users looking at the map.
 
-`apps.transport` depends **only on `apps.core`** (for the shared `schema_table` /
-`cyrillic_collation` DB helpers) — it does not touch `greenhouse`/`export`/`contracts`/
-`finance`, and nothing in those apps depends on it. It hangs off `core` as its own leaf,
-a sibling of `greenhouse` in the `core ← greenhouse ← export ← contracts ← finance` chain.
-`Truck` is a new, separate registry; it is **not** linked to `Shipment` in this slice (see
-Out of Scope).
+`apps.transport` depends on `apps.core` (for the shared `schema_table` /
+`cyrillic_collation` DB helpers) and, as of the Shipment↔Truck link below, on
+`apps.export` (a lazy `'export.Shipment'` FK from `ShipmentDeviceLink`, and
+`views.py` imports `apps.export.models.Shipment`). The dependency is one-way —
+`export`/`greenhouse`/`contracts`/`finance` still import nothing from `transport`,
+so the `core ← greenhouse ← export ← contracts ← finance` chain is unbroken;
+`transport` just also sits downstream of `export` now instead of being a pure
+`core` leaf.
 
 ## How It Works (Business Flow)
 
@@ -298,14 +300,97 @@ sidebar (plate / fleet_no / address) list next to the `MapContainer`; each truck
 | Green | `is_online` and not stale |
 | Amber | known but offline, not stale |
 
+## Shipment ↔ Truck link
+
+Links a `Shipment` to the `TraccarDevice` carrying its GPS, so `ShipmentDetail` can show
+the truck's live position without duplicating the position pipeline above. Lives entirely
+in `apps.transport` (models, resolver, endpoints); this is the one place `apps.transport`
+depends on `apps.export` (see Architecture note above) — `export` still imports nothing
+from `transport`.
+
+### `ShipmentDeviceLink` (model)
+
+`backend/apps/transport/models/link.py`, table `transport.shipment_device_links`. Stores
+**only manual overrides** — an auto-match is never written here, it's computed live by the
+resolver on every read.
+
+| Field | Type | Notes |
+|---|---|---|
+| `shipment` | OneToOne → `export.Shipment`, CASCADE, `related_name='device_link'` | lazy `'export.Shipment'` string FK |
+| `device` | FK → `TraccarDevice`, PROTECT | |
+| `created_by` | FK → `core.User`, SET_NULL, null | who set the override |
+| `created_at` | DateTimeField, `auto_now_add` | |
+
+### Resolver: `resolve_device_for_shipment(shipment)`
+
+`backend/apps/transport/services/matching.py` — `resolve_device_for_shipment(shipment) ->
+(device: TraccarDevice | None, resolved_by: 'manual' | 'auto' | 'none')`. Order:
+
+1. **Manual** — a `ShipmentDeviceLink` row for the shipment, if one exists.
+2. **Auto** — extract the tractor plate from `Shipment.truck_plate` via `_tractor_token`
+   (the token before the first `/` or whitespace — a combined tractor+trailer plate like
+   `"4378AHF/2602TAH"` yields `"4378AHF"`), normalize both sides with `normalize_plate`
+   (uppercase, strip everything but `[A-Z0-9]`), and match against `Truck.plate`. If the
+   truck has ≥1 `TraccarDevice`, `_pick_device` prefers (a) a device that already has a
+   stored `DevicePosition` row (**not** filtered to `valid=True` — any stored fix counts),
+   then (b) a device with `category='truck'`, then (c) the first device found (by
+   `TraccarDevice.Meta.ordering = ['name']`).
+3. **None** — no manual link and no plate match (or the matched truck has no device).
+
+`resolved_by='auto'` or `'manual'` with `position: null` is a real, distinct state — the
+device resolved but has no stored `DevicePosition` (e.g. never polled yet, or its rows are
+all `valid=False`). The frontend card renders this differently from `resolved_by='none'`.
+
+### REST endpoints
+
+All under `/api/v1/transport/`, `IsAuthenticated`, read our DB only — never call Traccar in
+the request path (same rule as `live-positions/`). Full response shapes: `reference/api-endpoint-map.md`.
+
+- `GET shipments/<id>/position/` — resolves the shipment's device and returns
+  `{resolved_by, device, position}`; `position` is the same row shape as
+  `live-positions/`'s `LivePositionSerializer` (filtered `valid=True`), or `null`.
+- `PUT|DELETE shipments/<id>/device/` — set or clear the manual `ShipmentDeviceLink`.
+  Gated by `CanEditShipment` (`backend/apps/transport/permissions.py`) to
+  `SHIPMENT_EDITOR_ROLES = PRIVILEGED_ROLES` (`admin`/`export_manager`/`director`) `|
+  {warehouse_chief, loading_dept_head, loading_dept_head_deputy}`, or superuser — the same
+  set `ShipmentDetail`'s variety-override uses.
+- `GET devices/` — every registry `TraccarDevice` (not just positioned ones), for the
+  override picker: `{traccar_id, plate, fleet_no, name}`.
+
+### ShipmentDetail card
+
+`ShipmentTruckLocationCard` (`frontend/src/components/shipment/ShipmentTruckLocationCard.tsx`)
+sits on `ShipmentDetail` right after the customs-expenses card. Backed by
+`useShipmentTruckPosition` (30s `refetchInterval`, same cadence as the fleet map) /
+`useSetShipmentDevice` / `useTransportDevices`. Shows a mini `react-leaflet` map + address +
+speed/online/stale line when a position exists, a `resolved_by` tag (manual vs auto), an
+`Empty` "No GPS device linked" state with a picker when `resolved_by='none'`, and (for
+editors) a searchable device picker plus a "reset to auto" button that clears the manual
+override. Non-editors see the position read-only, no picker. On a query error the card shows
+an inline `Alert`; mutation errors surface as a `sonner` toast. The frontend edit-gate
+(`TRANSPORT_EDIT_ROLES` in `ShipmentDetail.tsx`) is a literal mirror of the backend
+`SHIPMENT_EDITOR_ROLES` set above — kept in sync by comment, not by importing shared code
+(frontend/backend can't share a Python set).
+
+### Coverage note
+
+Auto-match only lights up for shipments whose tractor plate matches a `Truck` that has a
+`TraccarDevice` — as of 2026-08-01 that was roughly 30 of 79 shipments' trucks (a
+point-in-time measurement against live data, not a guarantee). Foreign/hired trucks with no
+Traccar unit show the "No GPS device linked" empty state and the manual picker; an editor
+can still link any registry device by hand even if plate-matching would never have found it
+(e.g. the plate on the shipment is stale/mistyped).
+
 ## Code Map
 
 | Concern | File |
 |---|---|
-| Models | [`backend/apps/transport/models/registry.py`](../../../backend/apps/transport/models/registry.py) |
-| Migration | [`backend/apps/transport/migrations/0001_initial.py`](../../../backend/apps/transport/migrations/0001_initial.py) |
+| Models | [`backend/apps/transport/models/registry.py`](../../../backend/apps/transport/models/registry.py), [`backend/apps/transport/models/link.py`](../../../backend/apps/transport/models/link.py) (`ShipmentDeviceLink`) |
+| Migrations | [`backend/apps/transport/migrations/0001_initial.py`](../../../backend/apps/transport/migrations/0001_initial.py), [`0002_shipmentdevicelink.py`](../../../backend/apps/transport/migrations/0002_shipmentdevicelink.py) |
 | Traccar client | [`backend/apps/transport/services/traccar_client.py`](../../../backend/apps/transport/services/traccar_client.py) |
 | Sync service | [`backend/apps/transport/services/sync.py`](../../../backend/apps/transport/services/sync.py) |
+| Shipment↔device resolver | [`backend/apps/transport/services/matching.py`](../../../backend/apps/transport/services/matching.py) — `resolve_device_for_shipment` |
+| Permissions | [`backend/apps/transport/permissions.py`](../../../backend/apps/transport/permissions.py) — `CanEditShipment` |
 | Seed command | [`backend/apps/transport/management/commands/seed_traccar_devices.py`](../../../backend/apps/transport/management/commands/seed_traccar_devices.py) |
 | Poll command (manual one-shot) | [`backend/apps/transport/management/commands/poll_traccar_positions.py`](../../../backend/apps/transport/management/commands/poll_traccar_positions.py) |
 | Celery task (beat-scheduled, live) | [`backend/apps/transport/tasks.py`](../../../backend/apps/transport/tasks.py) |
@@ -313,15 +398,15 @@ sidebar (plate / fleet_no / address) list next to the `MapContainer`; each truck
 | Serializer | [`backend/apps/transport/serializers.py`](../../../backend/apps/transport/serializers.py) |
 | ViewSet | [`backend/apps/transport/views.py`](../../../backend/apps/transport/views.py) |
 | URLs | [`backend/apps/transport/urls.py`](../../../backend/apps/transport/urls.py) (mounted at `api/v1/transport/`) |
-| Tests | `backend/apps/transport/tests/` (`test_models.py`, `test_traccar_client.py`, `test_sync.py`, `test_commands.py`, `test_api.py`, `test_tasks.py` — 27 cases) |
-| Query hook | [`frontend/src/hooks/useLivePositions.ts`](../../../frontend/src/hooks/useLivePositions.ts) — `ILivePosition`, 30s `refetchInterval` |
+| Tests | `backend/apps/transport/tests/` (`test_models.py`, `test_traccar_client.py`, `test_sync.py`, `test_commands.py`, `test_api.py`, `test_tasks.py`, `test_matching.py`, `test_shipment_api.py` — 44 cases across 8 files) |
+| Query hook (live map) | [`frontend/src/hooks/useLivePositions.ts`](../../../frontend/src/hooks/useLivePositions.ts) — `ILivePosition`, 30s `refetchInterval` |
+| Query hooks (shipment link) | [`frontend/src/hooks/useShipmentTruckPosition.ts`](../../../frontend/src/hooks/useShipmentTruckPosition.ts) — `useShipmentTruckPosition` (30s refetch), `useSetShipmentDevice`; [`frontend/src/hooks/useTransportDevices.ts`](../../../frontend/src/hooks/useTransportDevices.ts) |
 | Page | [`frontend/src/pages/transport/FleetMap.tsx`](../../../frontend/src/pages/transport/FleetMap.tsx) |
+| ShipmentDetail card | [`frontend/src/components/shipment/ShipmentTruckLocationCard.tsx`](../../../frontend/src/components/shipment/ShipmentTruckLocationCard.tsx) |
 | Route + nav | `frontend/src/App.tsx` (`transport/map`), `frontend/src/components/AppLayout.tsx` (`nav.fleet_map`) |
 
 ## Out of Scope (this slice)
 
-- **No `Shipment` ↔ `Truck` link** — the transport registry is standalone; a truck on the
-  map is not (yet) tied to a shipment/trip.
 - **No position history** — `DevicePosition` is upsert-latest-only, one row per device.
   A trail/history table would be a separate model + endpoint.
 - **No geofence-driven timestamps** — AD-1's shipment lifecycle timestamps are still

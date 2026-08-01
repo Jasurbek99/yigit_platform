@@ -265,6 +265,9 @@ a ranking bar chart + per-card trend sparklines (was a plain table) — see
 | Method | Endpoint | ViewSet | Hook | Page |
 |--------|----------|---------|------|------|
 | GET | `/api/v1/transport/live-positions/` | LivePositionViewSet (list) | `useLivePositions` | FleetMap (`/transport/map`) |
+| GET | `/api/v1/transport/shipments/{id}/position/` | ShipmentTruckPositionView | `useShipmentTruckPosition` | ShipmentDetail (`ShipmentTruckLocationCard`) |
+| PUT/DELETE | `/api/v1/transport/shipments/{id}/device/` | ShipmentDeviceLinkView | `useSetShipmentDevice` | ShipmentDetail (`ShipmentTruckLocationCard`) |
+| GET | `/api/v1/transport/devices/` | TransportDeviceViewSet (list) | `useTransportDevices` | ShipmentDetail (`ShipmentTruckLocationCard`, device picker) |
 
 `IsAuthenticated` only, no role gate (no `transport.map` page_code registered yet — same
 open-to-all-authenticated pattern as Team KPI / Worklog). No pagination — a bare list,
@@ -274,9 +277,25 @@ request path. One row per device:
 `{device_id, plate, fleet_no, status, lat, lon, speed, course, address, fix_time, is_online, is_stale}`
 — `plate`/`fleet_no` are `null` when the device isn't matched to a `Truck`; `is_online`
 mirrors Traccar's own `device.status`; `is_stale` is `now - fix_time > TRACCAR_STALE_MINUTES`
-(setting, default 15 min). Positions are kept fresh by a 1-minute cron
-(`poll_traccar_positions`), not by this endpoint. Full model/service/page detail:
+(setting, default 15 min). Positions are kept fresh by Celery beat polling every 120s
+(`apps.transport.tasks.poll_traccar`), not by this endpoint. Full model/service/page detail:
 `processes/fleet-map.md`.
+
+**Shipment position** (`GET shipments/{id}/position/`) — resolves the shipment's truck via
+`resolve_device_for_shipment` (manual override > auto plate-match > none) and returns
+`{resolved_by: "manual"|"auto"|"none", device: {traccar_id, plate, fleet_no}|null, position:
+{...}|null}`. `position`, when present, is the same row shape as `live-positions/` above
+(filtered `valid=True`). `resolved_by` can be `"auto"`/`"manual"` with `position: null` — the
+device resolved but has no stored fix yet.
+
+**Shipment device override** (`PUT|DELETE shipments/{id}/device/`) — sets or clears a manual
+`ShipmentDeviceLink`. `PUT` body `{"traccar_id": <int>}`; `DELETE` reverts to auto-match, no
+body. Gated to `SHIPMENT_EDITOR_ROLES` (`admin`/`export_manager`/`director`/`warehouse_chief`/
+`loading_dept_head`/`loading_dept_head_deputy`) or superuser — `apps/transport/permissions.py`
+`CanEditShipment`, the same editor set as `ShipmentDetail`'s variety-override.
+
+**Devices list** (`GET devices/`) — every registry `TraccarDevice` (not filtered to
+positioned ones), for the override picker: `{traccar_id, plate, fleet_no, name}`.
 
 ## Core Reference Endpoints
 
