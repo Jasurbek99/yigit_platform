@@ -84,11 +84,14 @@ class DevicePreferenceTests(TestCase):
 
     def test_tier2_prefers_category_truck_without_position(self):
         # Neither device has a DevicePosition, so tier 1 (position) is skipped.
-        # Tier 2 must pick the category='truck' device regardless of name order.
+        # The category='truck' device is named to sort AFTER the non-truck device
+        # ('Z TruckDev' > 'A Other'), so tier-3's devices[0] fallback would return
+        # the WRONG device ('A Other') if the tier-2 branch were removed. Asserting
+        # the resolver returns 'Z TruckDev' proves tier 2 (not name order) selected it.
         truck = Truck.objects.create(plate='TIER2AAA', fleet_no='TR200')
-        TraccarDevice.objects.create(traccar_id=201, name='Z Other', truck=truck, category='unknown')
+        TraccarDevice.objects.create(traccar_id=201, name='A Other', truck=truck, category='unknown')
         truck_device = TraccarDevice.objects.create(
-            traccar_id=202, name='A TruckDev', truck=truck, category='truck',
+            traccar_id=202, name='Z TruckDev', truck=truck, category='truck',
         )
         device, how = resolve_device_for_shipment(_shipment('TIER2AAA'))
         self.assertEqual(device, truck_device)
