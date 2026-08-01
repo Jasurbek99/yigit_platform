@@ -198,11 +198,44 @@ any management command all import Celery at startup now. On the beta server's
 before** restarting Django/gunicorn, or the process fails to boot entirely — this breaks
 the whole app, not just Fleet Map.
 
-**Env vars:** both containers load `TRACCAR_BASE_URL` / `TRACCAR_TOKEN` /
-`TRACCAR_STALE_MINUTES` the same way `backend` does (`backend/.env`, via
-`load_dotenv()` in `settings.py`) — no separate config. If they're unset or wrong, the
-poll still runs on schedule but logs "Traccar unavailable" every cycle and
-`DevicePosition` rows go stale.
+**Env vars:** the worker/beat containers get `TRACCAR_BASE_URL` / `TRACCAR_TOKEN` /
+`TRACCAR_STALE_MINUTES` from the **compose-project-root `.env`** (interpolated into
+their `environment:` blocks in `docker-compose.prod.yml`). They are **not** on the
+`backend` service — so `manage.py poll_traccar_positions` must be run inside the
+`celery-worker` container, not `backend`. In local dev they come from `backend/.env`
+via `load_dotenv()`. If unset/wrong: the poll still runs on schedule but logs
+`Traccar unavailable` (or `MissingSchema '/api/devices'` when the URL is empty) every
+cycle, and `DevicePosition` rows go stale.
+
+### Verifying the schedule (poll history)
+
+Confirm beat is firing every 120s and the worker is polling. **Note:** the scheduled
+Celery task does *not* print `"Synced N devices…"` (that line is only from the manual
+`poll_traccar_positions` command) — look for `received` / `succeeded` (worker) and
+`Sending due task` (beat) instead.
+
+```bash
+CO="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
+
+# History of scheduled runs (worker) — pairs ~120s apart, with the result dict:
+$CO logs --since=30m celery-worker | grep -E "poll_traccar.*(received|succeeded)"
+#   ... Task apps.transport.tasks.poll_traccar[..] succeeded in 1.2s: {'devices': 95, 'positions': 93, 'ok': True}
+
+# Proof beat emits every 120s:
+$CO logs --since=30m celery-beat | grep "Sending due task"
+#   ... Scheduler: Sending due task poll-traccar-positions (apps.transport.tasks.poll_traccar)
+
+# Watch it tick live (Ctrl+C to stop):
+$CO logs -f --tail=0 celery-beat celery-worker | grep --line-buffered -E "Sending due task|poll_traccar.*succeeded"
+
+# One-shot manual poll (runs in the worker, which has TRACCAR_* env):
+$CO exec celery-worker python manage.py poll_traccar_positions   # -> "Synced 95 devices, updated N positions."
+```
+
+Read it: interval between consecutive `received` / `Sending due task` ≈ **120s** → schedule
+healthy. `{'ok': True}` → poll succeeded. `{'ok': False}` / `Traccar unavailable` → firing on
+schedule but can't reach Traccar (token/network/env). No `Sending due task` at all → beat not
+running (`$CO ps` — is `celery-beat` Up?).
 
 ## Management Commands
 
