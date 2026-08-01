@@ -2,7 +2,7 @@ from django.conf import settings
 from django.utils import timezone
 from rest_framework import serializers
 
-from apps.transport.models import DevicePosition
+from apps.transport.models import DevicePosition, TraccarDevice
 
 
 class LivePositionSerializer(serializers.ModelSerializer):
@@ -35,3 +35,14 @@ class LivePositionSerializer(serializers.ModelSerializer):
             return True
         age = timezone.now() - obj.fix_time
         return age.total_seconds() > settings.TRACCAR_STALE_MINUTES * 60
+
+
+class TransportDeviceSerializer(serializers.ModelSerializer):
+    """Registry device for the override picker (all devices, not just positioned)."""
+
+    plate = serializers.CharField(source='truck.plate', default=None)
+    fleet_no = serializers.CharField(source='truck.fleet_no', default=None)
+
+    class Meta:
+        model = TraccarDevice
+        fields = ['traccar_id', 'plate', 'fleet_no', 'name']
