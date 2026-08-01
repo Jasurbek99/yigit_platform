@@ -14,5 +14,6 @@ urlpatterns = [
     path('api/v1/greenhouse/', include('apps.greenhouse.urls')),
     path('api/v1/export/', include('apps.export.urls')),
     path('api/v1/contracts/', include('apps.contracts.urls')),
+    path('api/v1/transport/', include('apps.transport.urls')),
     path('api/v1/feedback/', include('apps.feedback.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

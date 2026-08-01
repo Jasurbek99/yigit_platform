@@ -260,6 +260,24 @@ a ranking bar chart + per-card trend sparklines (was a plain table) — see
 
 **`Shipment.status_changed_at`:** New indexed DateTimeField set by `transition_to()` on every status change and by `create_shipment()` on creation. Backfilled from `ShipmentStatusLog` by migration 0011. Used by KPI helpers and replaces `Max(status_log__changed_at)` annotation in the board view's sort key.
 
+## Transport Endpoints
+
+| Method | Endpoint | ViewSet | Hook | Page |
+|--------|----------|---------|------|------|
+| GET | `/api/v1/transport/live-positions/` | LivePositionViewSet (list) | `useLivePositions` | FleetMap (`/transport/map`) |
+
+`IsAuthenticated` only, no role gate (no `transport.map` page_code registered yet — same
+open-to-all-authenticated pattern as Team KPI / Worklog). No pagination — a bare list,
+bounded to one row per device. Reads only `DevicePosition.objects.filter(valid=True)` from
+our own DB (`select_related('device', 'device__truck')`); never calls Traccar in the
+request path. One row per device:
+`{device_id, plate, fleet_no, status, lat, lon, speed, course, address, fix_time, is_online, is_stale}`
+— `plate`/`fleet_no` are `null` when the device isn't matched to a `Truck`; `is_online`
+mirrors Traccar's own `device.status`; `is_stale` is `now - fix_time > TRACCAR_STALE_MINUTES`
+(setting, default 15 min). Positions are kept fresh by a 1-minute cron
+(`poll_traccar_positions`), not by this endpoint. Full model/service/page detail:
+`processes/fleet-map.md`.
+
 ## Core Reference Endpoints
 
 | Method | Endpoint | Hook | Used By |

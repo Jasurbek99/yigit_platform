@@ -67,6 +67,7 @@ const SalesReportPage = lazy(() => import('@/pages/export/SalesReportPage'));
 const SalesRepCoveragePage = lazy(() => import('@/pages/admin/SalesRepCoveragePage'));
 const ExpenseTemplatePage = lazy(() => import('@/pages/admin/ExpenseTemplatePage'));
 const PackingTemplatePage = lazy(() => import('@/pages/admin/PackingTemplatePage'));
+const FleetMap = lazy(() => import('@/pages/transport/FleetMap'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -288,6 +289,11 @@ export default function App() {
                     <ProtectedRoute pageCode="export.packing_presets">
                       <PackingTemplatePage />
                     </ProtectedRoute>
+                  } />
+                  {/* Fleet map (Traccar live positions) — no page_code registered yet,
+                      open to every authenticated user (same bypass as worklog / team/kpi). */}
+                  <Route path="transport/map" element={
+                    <ProtectedRoute><FleetMap /></ProtectedRoute>
                   } />
                 </Route>
                 <Route path="/unauthorized" element={<UnauthorizedPage />} />

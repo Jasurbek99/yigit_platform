@@ -25,6 +25,11 @@ ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,backend').s
 #   LIBREOFFICE_BIN=C:\Program Files\LibreOffice\program\soffice.exe
 LIBREOFFICE_BIN = os.environ.get('LIBREOFFICE_BIN', '')
 
+# Traccar GPS integration (read-only)
+TRACCAR_BASE_URL = os.environ.get('TRACCAR_BASE_URL', '')
+TRACCAR_TOKEN = os.environ.get('TRACCAR_TOKEN', '')
+TRACCAR_STALE_MINUTES = int(os.environ.get('TRACCAR_STALE_MINUTES') or '15')
+
 # ════════════════════════════════════════════════
 # Error tracking (Sentry)
 #
@@ -80,6 +85,7 @@ INSTALLED_APPS = [
     'apps.greenhouse',
     'apps.export',
     'apps.contracts',
+    'apps.transport',
     'apps.feedback',
 ]
 
@@ -394,6 +400,41 @@ LOGGING = {
             'level': 'DEBUG' if DEBUG else 'WARNING',
             'propagate': False,
         },
+    },
+}
+
+# ════════════════════════════════════════════════
+# Celery (Traccar Fleet Map live polling)
+#
+# Fire-and-forget: no result backend, nothing reads task results.
+# Beat owns the schedule (static dict below) — no django-celery-beat.
+# Under tests, CELERY_TASK_ALWAYS_EAGER runs poll_traccar() inline with no
+# broker, so the Redis dependency never needs to be up in CI.
+#
+# poll_traccar's time_limit/soft_time_limit are set on the task itself
+# (apps/transport/tasks.py), not here — scoping them to the task (not a
+# project-global CELERY_TASK_TIME_LIMIT) avoids trapping some future,
+# legitimately long-running task (e.g. offloaded PDF generation) under a
+# 110s hard kill. The beat entry's `expires` below mirrors that task's
+# 110s hard limit: a task that's still queued (not yet started) after
+# 110s is dropped rather than run late with a stale window.
+# ════════════════════════════════════════════════
+# NOTE: the Celery broker shares Redis logical DB 0 with the channel layer
+# (CHANNEL_LAYERS above) and the prod cache (CACHES above) — their keyspaces
+# don't collide today, but a future `cache.clear()` (Django's RedisCache
+# issues `FLUSHDB`) would also wipe the Celery queue and channels state. If a
+# cache-clear path is ever added, move the Celery broker to a dedicated DB
+# index instead (e.g. `redis://.../1`).
+CELERY_BROKER_URL = REDIS_URL
+CELERY_RESULT_BACKEND = None
+CELERY_TASK_ALWAYS_EAGER = RUNNING_TESTS
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_BEAT_SCHEDULE = {
+    'poll-traccar-positions': {
+        'task': 'apps.transport.tasks.poll_traccar',
+        'schedule': 120.0,
+        'options': {'expires': 110},
     },
 }
 
