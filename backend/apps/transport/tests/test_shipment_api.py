@@ -63,6 +63,35 @@ class ShipmentPositionApiTests(TestCase):
         )
         self.assertEqual(r.status_code, 403)
 
+    def test_put_override_allows_admin_role_without_superuser(self):
+        admin_user = User.objects.create_user(
+            username='adm', password='x', role='admin', is_superuser=False,
+        )
+        self.client.force_authenticate(admin_user)
+        r = self.client.put(
+            f'/api/v1/transport/shipments/{self.shipment.id}/device/',
+            {'traccar_id': 67}, format='json',
+        )
+        self.assertEqual(r.status_code, 200)
+
+    def test_put_override_allows_loading_dept_head(self):
+        head = User.objects.create_user(username='ldh', password='x', role='loading_dept_head')
+        self.client.force_authenticate(head)
+        r = self.client.put(
+            f'/api/v1/transport/shipments/{self.shipment.id}/device/',
+            {'traccar_id': 67}, format='json',
+        )
+        self.assertEqual(r.status_code, 200)
+
+    def test_position_omits_invalid_gps_fix(self):
+        self.device.position.valid = False
+        self.device.position.save()
+        self.client.force_authenticate(self.viewer)
+        body = self.client.get(f'/api/v1/transport/shipments/{self.shipment.id}/position/').json()
+        self.assertEqual(body['resolved_by'], 'auto')
+        self.assertIsNotNone(body['device'])
+        self.assertIsNone(body['position'])
+
     def test_put_and_delete_override(self):
         other_truck = Truck.objects.create(plate='9999XYZ', fleet_no='TR099')
         other = TraccarDevice.objects.create(traccar_id=99, name='9999XYZ TR099', truck=other_truck)

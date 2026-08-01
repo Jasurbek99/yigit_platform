@@ -43,7 +43,7 @@ class ShipmentTruckPositionView(APIView):
                 'fleet_no': device.truck.fleet_no if device.truck else None,
             }
             pos = (
-                DevicePosition.objects.filter(device=device)
+                DevicePosition.objects.filter(device=device, valid=True)
                 .select_related('device', 'device__truck').first()
             )
             if pos is not None:
