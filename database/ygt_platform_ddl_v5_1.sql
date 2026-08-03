@@ -41,6 +41,16 @@ CREATE TABLE core.seasons (
     is_active BIT DEFAULT 0
 );
 
+-- Season lifecycle (AD-16). closed_at is authoritative for CLOSED state.
+ALTER TABLE core.seasons ADD closed_at DATETIMEOFFSET NULL;
+ALTER TABLE core.seasons ADD closed_by_id BIGINT NULL
+    CONSTRAINT fk_seasons_closed_by REFERENCES sys_users(id);
+
+-- At most one active season. Filtered unique index.
+CREATE UNIQUE INDEX uq_season_single_active
+    ON core.seasons (is_active)
+    WHERE is_active = 1;
+
 CREATE TABLE core.countries (
     id INT IDENTITY(1,1) PRIMARY KEY,
     name_tk NVARCHAR(100) NOT NULL,
