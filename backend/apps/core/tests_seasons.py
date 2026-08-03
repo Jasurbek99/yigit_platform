@@ -118,6 +118,12 @@ class SeasonResolutionTests(TestCase):
         with self.assertRaises(NotFound):
             resolve_season(_request(self.viewer, season='999999'))
 
+    def test_resolve_non_ascii_digit_raises_not_found_not_500(self):
+        """str.isdigit() is True for U+00B2 ('²') but int('²') raises ValueError —
+        this must degrade to NotFound, not an unhandled 500."""
+        with self.assertRaises(NotFound):
+            resolve_season(_request(self.viewer, season='²'))
+
     def test_resolve_ignores_blank_param(self):
         self.assertEqual(resolve_season(_request(self.operator, season='')), self.active)
 

@@ -72,7 +72,13 @@ def resolve_season(request) -> Season | None:
     if not raw:
         return get_active_season()
 
-    season = Season.objects.filter(pk=raw).first() if raw.isdigit() else None
+    # int(), not raw.isdigit(): str.isdigit() is True for non-ASCII digit
+    # characters like U+00B2 that int() rejects, so an isdigit() guard lets a
+    # malformed id through to an unhandled ValueError — a 500, not a 404.
+    try:
+        season = Season.objects.filter(pk=int(raw)).first()
+    except ValueError:
+        season = None
     if season is None:
         raise NotFound(f'Season {raw} not found.')
 
