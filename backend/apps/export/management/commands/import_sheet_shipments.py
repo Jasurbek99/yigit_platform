@@ -71,6 +71,7 @@ from apps.core.models import (
     TomatoVariety,
     User,
 )
+from apps.core.seasons import get_active_season
 from apps.export.models import (
     Shipment,
     ShipmentBlockSource,
@@ -363,10 +364,7 @@ class _ReferenceCache:
         for city in City.objects.select_related('country').all():
             self._cities[(city.country.code, city.name.upper())] = city
 
-        self._season = (
-            Season.objects.filter(is_active=True).first()
-            or Season.objects.order_by('-start_date').first()
-        )
+        self._season = get_active_season() or Season.objects.order_by('-start_date').first()
         for s in ShipmentStatusType.objects.all():
             self._statuses[s.code] = s
         self._admin_user = (

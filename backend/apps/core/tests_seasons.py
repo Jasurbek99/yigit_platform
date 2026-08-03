@@ -3,7 +3,9 @@
 Run with:
     python manage.py test apps.core.tests_seasons --verbosity=2
 """
+import re
 from datetime import date
+from pathlib import Path
 from types import SimpleNamespace
 
 from django.db import IntegrityError, transaction
@@ -157,3 +159,64 @@ class AssertSeasonOpenTests(TestCase):
         with self.assertRaises(SeasonClosedError) as ctx:
             assert_season_open(season)
         self.assertEqual(ctx.exception.season, season)
+
+
+class NoAdHocActiveSeasonLookupTests(TestCase):
+    """Regression guard: the write-target lookup lives in one place.
+
+    Nine call sites used `Season.objects.filter(is_active=True)` directly, with
+    inconsistent tie-breaks. New ones must not reappear — a stray lookup silently
+    reintroduces the read-scope/write-target conflation this feature untangles.
+    """
+
+    ALLOWED = {
+        Path('apps/core/seasons.py'),           # the one legitimate home
+        Path('apps/core/tests_seasons.py'),     # this file
+    }
+
+    # Matches both the write-target form (`Season.objects.filter(is_active=True)`,
+    # possibly split across lines) and the read-scope form
+    # (`filter(season__is_active=True)`) that Task 5 replaces. DOTALL so the
+    # multi-line call style does not slip through.
+    WRITE_TARGET = re.compile(r'Season\.objects[^\n]*?\.\s*filter\s*\(.*?is_active\s*=\s*True', re.DOTALL)
+    READ_SCOPE = re.compile(r'season__is_active\s*=\s*True')
+
+    # A READ_SCOPE hit is tolerated only when it carries this exact marker
+    # within a few lines above it — Task 5 converts these to resolve_season()
+    # and the marker (hence the tolerance) disappears with it. This is
+    # per-line, not a whole-file exemption, so WRITE_TARGET stays fully
+    # enforced on these files: a *new* ad-hoc lookup elsewhere in
+    # export/views.py or contracts/views.py still fails the guard.
+    DEFERRED_MARKER = '# TODO(season-scope): replaced by resolve_season() in Task 5'
+    _MARKER_LOOKBACK = 5
+
+    def _has_nearby_marker(self, lines: list[str], line_index: int) -> bool:
+        window = lines[max(0, line_index - self._MARKER_LOOKBACK):line_index + 1]
+        return any(self.DEFERRED_MARKER in line for line in window)
+
+    def test_no_direct_is_active_lookups_outside_core_seasons(self):
+        backend = Path(__file__).resolve().parents[2]
+        offenders = []
+        for path in backend.glob('apps/**/*.py'):
+            rel = path.relative_to(backend)
+            if rel in self.ALLOWED or 'migrations' in rel.parts:
+                continue
+            if rel.name.startswith('tests') or rel.parts[-2:-1] == ('tests',):
+                continue
+            text = path.read_text(encoding='utf-8')
+            if self.WRITE_TARGET.search(text):
+                offenders.append(str(rel))
+                continue
+            lines = text.splitlines()
+            unmarked_read_scope = any(
+                self.READ_SCOPE.search(line) and not self._has_nearby_marker(lines, i)
+                for i, line in enumerate(lines)
+            )
+            if unmarked_read_scope:
+                offenders.append(str(rel))
+        self.assertEqual(
+            offenders, [],
+            'Use apps.core.seasons.get_active_season() (write target) or '
+            'resolve_season(request) (read scope) instead — or mark a deferred '
+            f'Task-5 read-scope site with {self.DEFERRED_MARKER!r}: {offenders}',
+        )

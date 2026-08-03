@@ -557,6 +557,7 @@ class DocumentPacketListView(ListAPIView):
             if params.get('date_to'):
                 qs = qs.filter(date__lte=params['date_to'])
             if not (params.get('date_from') or params.get('date_to')):
+                # TODO(season-scope): replaced by resolve_season() in Task 5
                 qs = qs.filter(season__is_active=True)
         if params.get('status'):
             qs = qs.filter(status__code=params['status'])

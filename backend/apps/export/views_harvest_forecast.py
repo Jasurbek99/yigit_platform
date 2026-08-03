@@ -182,12 +182,13 @@ class HarvestForecastView(APIView):
         entries: list[dict] = data['entries']
 
         # Lazy-import greenhouse models/services.
-        from apps.core.models import GreenhouseBlock, Season
+        from apps.core.models import GreenhouseBlock
+        from apps.core.seasons import get_active_season
         from apps.greenhouse.models import HarvestDayEntry, WeeklyHarvestPlan
         from apps.greenhouse.services.harvest_day_service import set_forecast_value
 
         # Resolve the active season once.
-        season = Season.objects.filter(is_active=True).first()
+        season = get_active_season()
         if season is None:
             return Response(
                 {'error': 'No active season found. Cannot upsert forecast.'},

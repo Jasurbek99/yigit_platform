@@ -1026,6 +1026,7 @@ class ShipmentViewSet(ModelViewSet):
         elif season_id:
             season_filter['season_id'] = season_id
         else:
+            # TODO(season-scope): replaced by resolve_season() in Task 5
             season_filter['season__is_active'] = True
 
         qs = (
@@ -1754,12 +1755,13 @@ class ShipmentViewSet(ModelViewSet):
         Raises:
             ValueError: If no active season is found or draft status is not configured.
         """
-        from apps.core.models import Season, ShipmentStatusType
+        from apps.core.models import ShipmentStatusType
+        from apps.core.seasons import get_active_season
         from apps.export.models import ShipmentStatusLog
 
         season = data.get('season')
         if season is None:
-            season = Season.objects.filter(is_active=True).first()
+            season = get_active_season()
             if season is None:
                 raise ValueError('No active season found. Provide a season in the request.')
 
@@ -3079,6 +3081,7 @@ class ShipmentViewSet(ModelViewSet):
         # conditions mirror the intent of the Kanban: show live operational work
         # only. Soft-deleted rows are hidden from every list-style view.
         qs = (
+            # TODO(season-scope): replaced by resolve_season() in Task 5
             Shipment.objects.filter(
                 season__is_active=True,
                 is_archived=False,
@@ -3204,11 +3207,10 @@ class ShipmentViewSet(ModelViewSet):
         #   DEST    = avg(sale_ended_at    - arrived_at)
         # PLAN, PREP, CLOSE: no AD-1 pair available → null.
         # Values are cached per active season for 5 minutes.
-        active_season_id = (
-            Shipment.objects.filter(season__is_active=True)
-            .values_list('season_id', flat=True)
-            .first()
-        )
+        from apps.core.seasons import get_active_season
+
+        active_season = get_active_season()
+        active_season_id = active_season.id if active_season else None
         cache_key = f'board:phase_avgs:{active_season_id}'
         phase_avg_seconds = cache.get(cache_key)
         if phase_avg_seconds is None:

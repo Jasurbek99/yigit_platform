@@ -57,9 +57,9 @@ def period_to_range(period: str, today: date | None = None) -> tuple[date, date]
         return from_date, to_date
 
     if period == 'season':
-        from apps.core.models import Season  # lazy import — avoids circular risk
+        from apps.core.seasons import get_active_season  # lazy import — avoids circular risk
         try:
-            season = Season.objects.filter(is_active=True).order_by('-start_date').first()
+            season = get_active_season()
             if season:
                 return season.start_date, season.end_date
         except Exception:

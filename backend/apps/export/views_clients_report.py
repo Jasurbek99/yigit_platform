@@ -14,7 +14,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 
-from apps.core.models import Season
+from apps.core.seasons import get_active_season
 from apps.export.services.clients_report import build_clients_report
 
 logger = logging.getLogger(__name__)
@@ -32,7 +32,7 @@ class ClientsReportViewSet(viewsets.ViewSet):
 
         GET /api/v1/export/clients-report/
         """
-        season = Season.objects.filter(is_active=True).order_by('-start_date').first()
+        season = get_active_season()
         cache_key = f'clients_report:{season.id if season else "none"}'
 
         data = cache.get(cache_key)

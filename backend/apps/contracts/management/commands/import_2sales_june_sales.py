@@ -31,7 +31,8 @@ from django.db import transaction
 
 from apps.contracts.models import Contract, ContractSale
 from apps.contracts.services.contract_number import parse_contract_number
-from apps.core.models import ExportFirm, ImportFirm, Season
+from apps.core.models import ExportFirm, ImportFirm
+from apps.core.seasons import get_active_season
 from apps.export.models import Shipment, ShipmentFirmSplit
 from apps.contracts.management.commands.import_invoices_from_2sales import (
     _clean,
@@ -91,7 +92,7 @@ class Command(BaseCommand):
             ship_by_plate.setdefault(_norm_plate(s.truck_plate), []).append((s.date, s))
         self.stdout.write(f'Indexed {len(ship_by_plate)} distinct plates across all shipments.')
 
-        season = Season.objects.filter(is_active=True).order_by('-start_date').first()
+        season = get_active_season()
 
         stats = dict(june=0, skipped_nonstd=0, skipped_no_firm=0, skipped_no_buyer=0,
                      skipped_unmatched=0, splits_created=0, contracts_linked=0,

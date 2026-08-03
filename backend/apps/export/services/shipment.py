@@ -568,12 +568,13 @@ def create_shipment(
         ValueError: If no active season exists and none was provided, or if
                     the draft status is not configured in the DB.
     """
-    from apps.core.models import Season, ShipmentStatusType
+    from apps.core.models import ShipmentStatusType
+    from apps.core.seasons import get_active_season
 
     # Resolve season from the active season when the caller did not supply one.
     resolved_season: Optional[object] = season
     if resolved_season is None:
-        resolved_season = Season.objects.filter(is_active=True).first()
+        resolved_season = get_active_season()
         if resolved_season is None:
             raise ValueError('No active season found. Provide a season in the request.')
 

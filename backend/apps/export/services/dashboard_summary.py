@@ -28,10 +28,10 @@ def _resolve_season():
 
     Fetches the active season. Falls back to current-month range if none found.
     """
-    from apps.core.models import Season
+    from apps.core.seasons import get_active_season
     from apps.export.services.boss_analytics import period_to_range
 
-    season = Season.objects.filter(is_active=True).order_by('-start_date').first()
+    season = get_active_season()
     if season:
         return season, season.start_date, season.end_date
     start, end = period_to_range('month')

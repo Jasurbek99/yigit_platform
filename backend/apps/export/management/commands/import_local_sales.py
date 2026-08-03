@@ -34,7 +34,7 @@ import openpyxl
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from apps.core.models import Season
+from apps.core.seasons import get_active_season
 from apps.export.models import WeeklyLocalSellPlan
 
 from ._quota_import_utils import resolve_firm
@@ -70,7 +70,7 @@ class Command(BaseCommand):
             self.stderr.write(f'File not found: {path}')
             return
 
-        season = Season.objects.filter(is_active=True).first()
+        season = get_active_season()
         self.stdout.write(f'Loading {path} ...')
         self.stdout.write(f'  Active season: {season.name if season else "(none)"}')
         wb = openpyxl.load_workbook(path, data_only=True)

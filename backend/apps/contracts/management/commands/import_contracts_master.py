@@ -28,6 +28,7 @@ from openpyxl import load_workbook
 
 from apps.contracts.models import Contract
 from apps.core.models import ExportFirm, ImportFirm, Season
+from apps.core.seasons import get_active_season
 
 
 # Regex to extract DD.MM.YYYY from the trailing portion of a contract_number string.
@@ -148,10 +149,7 @@ class Command(BaseCommand):
             for f in ImportFirm.objects.all()
             if f.name_company
         }
-        season: Season | None = (
-            Season.objects.filter(is_active=True).first()
-            or Season.objects.order_by('-start_date').first()
-        )
+        season: Season | None = get_active_season() or Season.objects.order_by('-start_date').first()
 
         if season is None:
             raise CommandError(

@@ -51,8 +51,8 @@ def period_window(period: str) -> tuple[datetime | None, date | None]:
     elif period == 'month':
         start = today.replace(day=1)
     else:  # season
-        from apps.core.models import Season
-        season = Season.objects.filter(is_active=True).order_by('-start_date').first()
+        from apps.core.seasons import get_active_season
+        season = get_active_season()
         if season is None:
             return None, None
         start = season.start_date

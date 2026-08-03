@@ -408,9 +408,9 @@ def compute_firm_quota_balances(product_type: str) -> dict[int, dict]:
         Dict mapping export_firm_id → {issued_kg, used_kg, remaining_kg}.
         Empty dict when no active season exists.
     """
-    from apps.core.models import Season
+    from apps.core.seasons import get_active_season
 
-    season = Season.objects.filter(is_active=True).order_by('-start_date').first()
+    season = get_active_season()
     if not season:
         return {}
 
