@@ -7,20 +7,22 @@ Run with:
     python manage.py test apps.export.tests_season_scoping --verbosity=2
 """
 from datetime import date, timedelta
+from decimal import Decimal
 
 from django.core.management import call_command
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps.contracts.models import Contract
+from apps.contracts.models import Contract, ContractSale
 from apps.core.models import (
     Country, ExportFirm, GreenhouseBlock, ImportFirm, RoleResourcePermission,
     Season, ShipmentStatusType, TruckDestination, User,
 )
 from apps.export.models import (
-    Shipment, ShipmentFirmSplit, WeeklyDestinationSelection, WeeklyLocalSellPlan,
-    WeeklyTruckAllocation,
+    CustomsExpense, FinansistAdvance, FinansistAdvanceShipment, QuotaUsageRecord,
+    Shipment, ShipmentComment, ShipmentFirmSplit, Task, TaskKind,
+    WeeklyDestinationSelection, WeeklyLocalSellPlan, WeeklyTruckAllocation,
 )
 from apps.greenhouse.models import HarvestDayEntry, WeeklyHarvestPlan
 
@@ -37,6 +39,18 @@ ENDPOINTS = [
     ('/api/v1/contracts/contracts/', 'make_contract'),
     ('/api/v1/contracts/document-packets/', 'make_document_packet'),
 ]
+
+# Task 6's six join-scoped endpoints (comments, tasks, quota-usage, advances,
+# customs-expenses, contract sales) are intentionally NOT added to ENDPOINTS
+# above: ScopedEndpointCoverageTests' `blocked` role needs the *unscoped*
+# request to return 200 so a 403 on the closed-season request can only mean
+# the season gate fired — but `blocked` (role='director') has no view
+# permission on 'sale'/'advance'/'quota_usage' at all, so that precondition
+# fails before the season check is ever exercised. Each gets its own dedicated
+# test class below instead (JoinScopedEndpointTests, TaskJoinScopedEndpointTests,
+# QuotaUsageJoinScopedEndpointTests, CustomsExpenseJoinScopedEndpointTests,
+# ContractSaleJoinScopedEndpointTests, FinansistAdvanceJoinScopedEndpointTests) —
+# still fully covered, just not through this generic harness.
 
 
 def _make_status() -> ShipmentStatusType:
@@ -600,3 +614,450 @@ class ExtraShipmentActionScopingTests(TestCase):
             .json()['count'],
             0,
         )
+
+
+# ---------------------------------------------------------------------------
+# Task 6 — join-scoped endpoints (no season FK of their own; reach Season only
+# through `shipment`). See task-6-brief.md and task-6-report.md.
+# ---------------------------------------------------------------------------
+
+class JoinScopedEndpointTests(SeasonScopingTests):
+    """Child endpoints must inherit their shipment's season scope.
+
+    ShipmentComment.shipment is required (never NULL), unlike the other five
+    Task 6 viewsets — this is the "plain equality filter" case with no
+    unlinked-row behaviour to prove.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.active_comment = ShipmentComment.objects.create(
+            shipment=cls.active_shipment, user=cls.manager, content='active-note',
+        )
+        cls.closed_comment = ShipmentComment.objects.create(
+            shipment=cls.closed_shipment, user=cls.manager, content='closed-note',
+        )
+
+    def _bodies(self, response) -> set[str]:
+        payload = response.json()
+        rows = payload['results'] if isinstance(payload, dict) else payload
+        return {r['content'] for r in rows}
+
+    def test_comments_exclude_closed_season_by_default(self):
+        response = self._login(self.manager).get('/api/v1/export/comments/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('active-note', self._bodies(response))
+        self.assertNotIn('closed-note', self._bodies(response))
+
+    def test_comments_visible_when_closed_season_selected(self):
+        response = self._login(self.manager).get(
+            f'/api/v1/export/comments/?season={self.closed.pk}'
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('closed-note', self._bodies(response))
+
+    def test_shipment_pinned_comments_bypass_season_scope(self):
+        """?shipment=<id> is the per-shipment comment drawer opened from a
+        shipment's own detail page. A direct link to a closed-season shipment
+        resolves under Rule A (detail routes bypass scoping) — but the drawer
+        itself reads through the *list* action with no ?season= param, so
+        without this exemption the active season's scope would silently empty
+        it out from underneath a page the user is legitimately looking at.
+        A single pinned shipment has no cross-season surface to leak: the
+        detail route already grants it to every user regardless of season.
+        """
+        response = self._login(self.manager).get(
+            f'/api/v1/export/comments/?shipment={self.closed_shipment.pk}'
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('closed-note', self._bodies(response))
+
+
+def _make_scoped_shipment(
+    season: Season, code: str, country: Country, status: ShipmentStatusType,
+) -> Shipment:
+    """One shipment in `season`, for the nullable-anchor test classes below.
+
+    Each class below creates its own season pair (not a shared TestCase base)
+    so its fixtures stay readable in isolation and adding one doesn't inflate
+    another's test count — see task-6-report.md for why these don't subclass
+    SeasonScopingTests the way JoinScopedEndpointTests does.
+
+    Takes `status` rather than calling `_make_status()` itself: ShipmentStatusType
+    .code is unique, so a class needing 2+ shipments must create the status once
+    and share it, not create-per-shipment.
+    """
+    return Shipment.objects.create(
+        shipment_code=code, date=season.start_date, season=season,
+        status=status, country=country,
+    )
+
+
+class TaskJoinScopedEndpointTests(TestCase):
+    """Task.shipment is nullable — weekly_plan/local_sell_plan tasks carry none.
+
+    A plain `shipment__season` equality filter is an inner join and would drop
+    those rows from every season's list. `include_null_link` must keep them
+    visible under the (open) active season and hide them the moment a closed
+    season is explicitly selected.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.active = Season.objects.create(
+            name='2026/2027', start_date=date(2026, 9, 1), end_date=date(2027, 8, 31),
+            is_active=True,
+        )
+        cls.closed = Season.objects.create(
+            name='2025/2026', start_date=date(2025, 9, 1), end_date=date(2026, 8, 31),
+            closed_at=timezone.now(),
+        )
+        country = Country.objects.create(name_en='Kazakhstan', name_tk='Gazagystan')
+        status = _make_status()
+        cls.manager = User.objects.create(
+            username='taskjoin_mgr', role='export_manager', is_superuser=True,
+        )
+
+        active_shipment = _make_scoped_shipment(cls.active, 'TJ-ACT', country, status)
+        closed_shipment = _make_scoped_shipment(cls.closed, 'TJ-CLS', country, status)
+
+        cls.active_task = Task.objects.create(
+            shipment=active_shipment, title_key='t.active', assignee_role='export_manager',
+        )
+        cls.closed_task = Task.objects.create(
+            shipment=closed_shipment, title_key='t.closed', assignee_role='export_manager',
+        )
+        cls.null_task = Task.objects.create(
+            kind=TaskKind.WEEKLY_PLAN, title_key='t.weekly', assignee_role='export_manager',
+        )
+
+    def _login(self, user) -> APIClient:
+        client = APIClient()
+        client.force_authenticate(user=user)
+        return client
+
+    def _title_keys(self, response) -> set[str]:
+        payload = response.json()
+        rows = payload['results'] if isinstance(payload, dict) else payload
+        return {r['title_key'] for r in rows}
+
+    def test_default_view_includes_null_shipment_task_excludes_closed(self):
+        titles = self._title_keys(self._login(self.manager).get('/api/v1/export/tasks/'))
+        self.assertIn('t.active', titles)
+        self.assertIn('t.weekly', titles)
+        self.assertNotIn('t.closed', titles)
+
+    def test_closed_season_selected_hides_null_shipment_task(self):
+        titles = self._title_keys(
+            self._login(self.manager).get(f'/api/v1/export/tasks/?season={self.closed.pk}')
+        )
+        self.assertIn('t.closed', titles)
+        self.assertNotIn('t.active', titles)
+        self.assertNotIn('t.weekly', titles)
+
+    def test_shipment_pinned_tasks_bypass_season_scope(self):
+        """?shipment=<id> is that shipment's own tasks panel, same
+        drawer-emptying risk (and same exemption) as CommentViewSet.
+        """
+        closed_shipment_id = self.closed_task.shipment_id
+        titles = self._title_keys(
+            self._login(self.manager).get(f'/api/v1/export/tasks/?shipment={closed_shipment_id}')
+        )
+        self.assertIn('t.closed', titles)
+
+
+class QuotaUsageJoinScopedEndpointTests(TestCase):
+    """QuotaUsageRecord.shipment is nullable ("null for imported historical
+    records"). Same include_null_link rule as Task.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command('seed_permissions')
+        cls.active = Season.objects.create(
+            name='2026/2027', start_date=date(2026, 9, 1), end_date=date(2027, 8, 31),
+            is_active=True,
+        )
+        cls.closed = Season.objects.create(
+            name='2025/2026', start_date=date(2025, 9, 1), end_date=date(2026, 8, 31),
+            closed_at=timezone.now(),
+        )
+        country = Country.objects.create(name_en='Kazakhstan', name_tk='Gazagystan')
+        status = _make_status()
+        cls.export_firm = ExportFirm.objects.create(code='QUJ1', name_tk='Firma')
+        cls.admin = User.objects.create(
+            username='quotajoin_admin', role='admin', is_superuser=True,
+        )
+
+        active_shipment = _make_scoped_shipment(cls.active, 'QUJ-ACT', country, status)
+        closed_shipment = _make_scoped_shipment(cls.closed, 'QUJ-CLS', country, status)
+
+        cls.active_row = QuotaUsageRecord.objects.create(
+            usage_date=cls.active.start_date, export_firm=cls.export_firm,
+            kg_used=Decimal('1000'), shipment=active_shipment, notes='active-row',
+        )
+        cls.closed_row = QuotaUsageRecord.objects.create(
+            usage_date=cls.closed.start_date, export_firm=cls.export_firm,
+            kg_used=Decimal('2000'), shipment=closed_shipment, notes='closed-row',
+        )
+        cls.historical_row = QuotaUsageRecord.objects.create(
+            usage_date=cls.closed.start_date, export_firm=cls.export_firm,
+            kg_used=Decimal('3000'), shipment=None, notes='historical-row',
+        )
+
+    def _login(self, user) -> APIClient:
+        client = APIClient()
+        client.force_authenticate(user=user)
+        return client
+
+    def _notes(self, response) -> set[str]:
+        # pagination_class = None on this viewset — a bare list, not a page dict.
+        payload = response.json()
+        rows = payload['results'] if isinstance(payload, dict) else payload
+        return {r['notes'] for r in rows}
+
+    def test_default_view_includes_historical_excludes_closed(self):
+        notes = self._notes(self._login(self.admin).get('/api/v1/export/quota-usage/'))
+        self.assertIn('active-row', notes)
+        self.assertIn('historical-row', notes)
+        self.assertNotIn('closed-row', notes)
+
+    def test_closed_season_selected_hides_historical_row(self):
+        notes = self._notes(
+            self._login(self.admin).get(f'/api/v1/export/quota-usage/?season={self.closed.pk}')
+        )
+        self.assertIn('closed-row', notes)
+        self.assertNotIn('active-row', notes)
+        self.assertNotIn('historical-row', notes)
+
+
+class CustomsExpenseJoinScopedEndpointTests(TestCase):
+    """CustomsExpense.shipment is nullable ("null for batch fees"). Same
+    include_null_link rule as Task/QuotaUsageRecord.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.active = Season.objects.create(
+            name='2026/2027', start_date=date(2026, 9, 1), end_date=date(2027, 8, 31),
+            is_active=True,
+        )
+        cls.closed = Season.objects.create(
+            name='2025/2026', start_date=date(2025, 9, 1), end_date=date(2026, 8, 31),
+            closed_at=timezone.now(),
+        )
+        country = Country.objects.create(name_en='Kazakhstan', name_tk='Gazagystan')
+        status = _make_status()
+        cls.creator = User.objects.create(
+            username='cej_creator', role='export_manager', is_superuser=True,
+        )
+
+        active_shipment = _make_scoped_shipment(cls.active, 'CEJ-ACT', country, status)
+        closed_shipment = _make_scoped_shipment(cls.closed, 'CEJ-CLS', country, status)
+
+        cls.active_row = CustomsExpense.objects.create(
+            expense_date=cls.active.start_date, category='OTHER', amount=Decimal('10'),
+            shipment=active_shipment, created_by=cls.creator, label_raw='active-row',
+        )
+        cls.closed_row = CustomsExpense.objects.create(
+            expense_date=cls.closed.start_date, category='OTHER', amount=Decimal('20'),
+            shipment=closed_shipment, created_by=cls.creator, label_raw='closed-row',
+        )
+        cls.batch_row = CustomsExpense.objects.create(
+            expense_date=cls.closed.start_date, category='KARANTIN', amount=Decimal('30'),
+            shipment=None, quantity=19, created_by=cls.creator, label_raw='batch-row',
+        )
+
+    def _login(self, user) -> APIClient:
+        client = APIClient()
+        client.force_authenticate(user=user)
+        return client
+
+    def _labels(self, response) -> set[str]:
+        payload = response.json()
+        rows = payload['results'] if isinstance(payload, dict) else payload
+        return {r['label_raw'] for r in rows}
+
+    def test_default_view_includes_batch_row_excludes_closed(self):
+        labels = self._labels(self._login(self.creator).get('/api/v1/export/customs-expenses/'))
+        self.assertIn('active-row', labels)
+        self.assertIn('batch-row', labels)
+        self.assertNotIn('closed-row', labels)
+
+    def test_closed_season_selected_hides_batch_row(self):
+        labels = self._labels(
+            self._login(self.creator).get(
+                f'/api/v1/export/customs-expenses/?season={self.closed.pk}'
+            )
+        )
+        self.assertIn('closed-row', labels)
+        self.assertNotIn('active-row', labels)
+        self.assertNotIn('batch-row', labels)
+
+    def test_shipment_pinned_expenses_bypass_season_scope(self):
+        """?shipment=<id> is that shipment's own expenses panel, same
+        drawer-emptying risk (and same exemption) as CommentViewSet.
+        """
+        closed_shipment_id = self.closed_row.shipment_id
+        labels = self._labels(
+            self._login(self.creator).get(
+                f'/api/v1/export/customs-expenses/?shipment={closed_shipment_id}'
+            )
+        )
+        self.assertIn('closed-row', labels)
+
+
+class ContractSaleJoinScopedEndpointTests(TestCase):
+    """ContractSale.shipment is nullable — legacy 2-Sales rows imported before
+    the shipment bridge was populated (ADR-023). Same include_null_link rule.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command('seed_permissions')
+        cls.active = Season.objects.create(
+            name='2026/2027', start_date=date(2026, 9, 1), end_date=date(2027, 8, 31),
+            is_active=True,
+        )
+        cls.closed = Season.objects.create(
+            name='2025/2026', start_date=date(2025, 9, 1), end_date=date(2026, 8, 31),
+            closed_at=timezone.now(),
+        )
+        country = Country.objects.create(name_en='Kazakhstan', name_tk='Gazagystan')
+        status = _make_status()
+        export_firm = ExportFirm.objects.create(code='CSJ1', name_tk='Firma')
+        import_firm = ImportFirm.objects.create(name_company='Buyer CSJ')
+        cls.admin = User.objects.create(
+            username='csjoin_admin', role='admin', is_superuser=True,
+        )
+
+        active_shipment = _make_scoped_shipment(cls.active, 'CSJ-ACT', country, status)
+        closed_shipment = _make_scoped_shipment(cls.closed, 'CSJ-CLS', country, status)
+        contract = Contract.objects.create(
+            contract_number='CSJ-0001', export_firm=export_firm, import_firm=import_firm,
+        )
+
+        cls.active_row = ContractSale.objects.create(
+            contract=contract, shipment=active_shipment, invoice_number=1,
+        )
+        cls.closed_row = ContractSale.objects.create(
+            contract=contract, shipment=closed_shipment, invoice_number=2,
+        )
+        cls.legacy_row = ContractSale.objects.create(
+            contract=contract, shipment=None, invoice_number=3,
+        )
+
+    def _login(self, user) -> APIClient:
+        client = APIClient()
+        client.force_authenticate(user=user)
+        return client
+
+    def _invoice_numbers(self, response) -> set[int]:
+        payload = response.json()
+        rows = payload['results'] if isinstance(payload, dict) else payload
+        return {r['invoice_number'] for r in rows}
+
+    def test_default_view_includes_legacy_row_excludes_closed(self):
+        numbers = self._invoice_numbers(self._login(self.admin).get('/api/v1/contracts/sales/'))
+        self.assertIn(1, numbers)
+        self.assertIn(3, numbers)
+        self.assertNotIn(2, numbers)
+
+    def test_closed_season_selected_hides_legacy_row(self):
+        numbers = self._invoice_numbers(
+            self._login(self.admin).get(f'/api/v1/contracts/sales/?season={self.closed.pk}')
+        )
+        self.assertIn(2, numbers)
+        self.assertNotIn(1, numbers)
+        self.assertNotIn(3, numbers)
+
+
+class FinansistAdvanceJoinScopedEndpointTests(TestCase):
+    """FinansistAdvance has no `shipment` FK of its own — only via the
+    FinansistAdvanceShipment junction (zero to many). Proves:
+      1. the season filter (Exists-based, not a join) still excludes closed;
+      2. a zero-link advance plays "unlinked" and surfaces under an open season;
+      3. scoping does NOT corrupt the shipment_count_ann/allocated_total_ann
+         aggregates already on the queryset (the exact risk Exists avoids).
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command('seed_permissions')
+        cls.active = Season.objects.create(
+            name='2026/2027', start_date=date(2026, 9, 1), end_date=date(2027, 8, 31),
+            is_active=True,
+        )
+        cls.closed = Season.objects.create(
+            name='2025/2026', start_date=date(2025, 9, 1), end_date=date(2026, 8, 31),
+            closed_at=timezone.now(),
+        )
+        country = Country.objects.create(name_en='Kazakhstan', name_tk='Gazagystan')
+        status = _make_status()
+        cls.admin = User.objects.create(
+            username='finjoin_admin', role='admin', is_superuser=True,
+        )
+
+        active_shipment_1 = _make_scoped_shipment(cls.active, 'FAJ-ACT1', country, status)
+        active_shipment_2 = _make_scoped_shipment(cls.active, 'FAJ-ACT2', country, status)
+        closed_shipment = _make_scoped_shipment(cls.closed, 'FAJ-CLS', country, status)
+
+        # Two links, both in the active season — proves shipment_count_ann
+        # survives the season filter.
+        cls.active_advance = FinansistAdvance.objects.create(
+            batch_code='ADV-ACT', advance_date=cls.active.start_date,
+            total_amount=Decimal('500'), issued_by=cls.admin,
+        )
+        FinansistAdvanceShipment.objects.create(
+            advance=cls.active_advance, shipment=active_shipment_1,
+        )
+        FinansistAdvanceShipment.objects.create(
+            advance=cls.active_advance, shipment=active_shipment_2,
+        )
+
+        cls.closed_advance = FinansistAdvance.objects.create(
+            batch_code='ADV-CLS', advance_date=cls.closed.start_date,
+            total_amount=Decimal('700'), issued_by=cls.admin,
+        )
+        FinansistAdvanceShipment.objects.create(
+            advance=cls.closed_advance, shipment=closed_shipment,
+        )
+
+        # Zero links at all — plays the role of "unlinked".
+        cls.unlinked_advance = FinansistAdvance.objects.create(
+            batch_code='ADV-NOLINK', advance_date=cls.active.start_date,
+            total_amount=Decimal('900'), issued_by=cls.admin,
+        )
+
+    def _login(self, user) -> APIClient:
+        client = APIClient()
+        client.force_authenticate(user=user)
+        return client
+
+    def _rows_by_code(self, response) -> dict[str, dict]:
+        payload = response.json()
+        rows = payload['results'] if isinstance(payload, dict) else payload
+        return {r['batch_code']: r for r in rows}
+
+    def test_default_view_includes_unlinked_excludes_closed(self):
+        rows = self._rows_by_code(self._login(self.admin).get('/api/v1/export/advances/'))
+        self.assertIn('ADV-ACT', rows)
+        self.assertIn('ADV-NOLINK', rows)
+        self.assertNotIn('ADV-CLS', rows)
+
+    def test_closed_season_selected_hides_unlinked(self):
+        rows = self._rows_by_code(
+            self._login(self.admin).get(f'/api/v1/export/advances/?season={self.closed.pk}')
+        )
+        self.assertIn('ADV-CLS', rows)
+        self.assertNotIn('ADV-ACT', rows)
+        self.assertNotIn('ADV-NOLINK', rows)
+
+    def test_shipment_count_annotation_survives_season_scoping(self):
+        """The exact regression Exists() is meant to prevent: a join-based
+        `shipment_links__shipment__season` filter would multiply rows and
+        corrupt this Count annotation.
+        """
+        rows = self._rows_by_code(self._login(self.admin).get('/api/v1/export/advances/'))
+        self.assertEqual(rows['ADV-ACT']['shipment_count'], 2)

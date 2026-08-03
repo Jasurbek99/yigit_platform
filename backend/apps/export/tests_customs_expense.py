@@ -62,8 +62,11 @@ class CustomsExpenseSetUpMixin(TestCase):
 
     def setUp(self):
         _create_all_statuses()
+        # is_active=True: CustomsExpenseViewSet.get_queryset() now fails closed
+        # (Task 6 season scoping) when resolve_season() finds no active season.
         self.season = Season.objects.create(
-            name='2025-2026', start_date='2025-09-01', end_date='2026-06-30'
+            name='2025-2026', start_date='2025-09-01', end_date='2026-06-30',
+            is_active=True,
         )
         self.country = Country.objects.create(
             name_tk='TM', name_en='Turkmenistan', name_ru='TM', code='TM'

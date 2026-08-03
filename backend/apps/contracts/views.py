@@ -257,7 +257,7 @@ class ContractViewSet(SeasonScopedMixin, ModelViewSet):
         return response
 
 
-class ContractSaleViewSet(ModelViewSet):
+class ContractSaleViewSet(SeasonScopedMixin, ModelViewSet):
     """CRUD ViewSet for contract sales.
 
     Access is gated by the dynamic permission matrix via ``resource_code =
@@ -277,10 +277,20 @@ class ContractSaleViewSet(ModelViewSet):
       ?date_to=YYYY-MM-DD        — invoice_date <= this
       ?search=<text>             — icontains match on passport_sdelka and
                                    parent contract_number
+
+    List is scoped to the resolved season via `shipment`. ContractSale.shipment
+    is nullable — legacy 2-Sales rows imported before the shipment↔sale bridge
+    was populated (see ADR-023) have no shipment, hence no season. `include_null_link`
+    keeps those visible whenever the resolved season is open, and hides them the
+    moment a closed season is explicitly browsed — browsing a closed season is
+    browsing that season's archive, and an unlinked row belongs to no season, so
+    it has no place there. Detail routes bypass scoping — Rule A.
     """
 
     permission_classes = [IsAuthenticated, DynamicResourcePermission]
     resource_code = 'sale'
+    season_field = 'shipment__season'
+    include_null_link = True
 
     queryset = ContractSale.objects.select_related(
         'contract',
@@ -326,6 +336,9 @@ class ContractSaleViewSet(ModelViewSet):
                 Q(passport_sdelka__icontains=search)
                 | Q(contract__contract_number__icontains=search)
             )
+
+        if self.action == 'list':
+            qs = self.apply_season_scope(qs)
 
         return qs
 

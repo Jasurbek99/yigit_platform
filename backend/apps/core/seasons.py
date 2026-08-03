@@ -10,7 +10,7 @@ the write target moves, but a user may still choose to read a past season.
 
 `core/` is upstream of every other app, so this is the only legal home for it.
 """
-from django.db.models import QuerySet
+from django.db.models import Q, QuerySet
 from rest_framework.exceptions import NotFound, PermissionDenied
 
 from apps.core.models import RoleResourcePermission, Season
@@ -106,9 +106,20 @@ class SeasonScopedMixin:
 
         class TaskViewSet(SeasonScopedMixin, ModelViewSet):
             season_field = 'shipment__season'
+
+    Set `include_null_link = True` when that join's anchor FK is nullable
+    (e.g. `ContractSale.shipment`, `Task.shipment`, `QuotaUsageRecord.shipment`,
+    `CustomsExpense.shipment`). A plain equality filter on `shipment__season`
+    is an inner join and silently drops every row where the anchor is NULL —
+    legacy/unlinked rows would vanish from every season's list, not just the
+    "wrong" one. Those rows surface alongside an *open* resolved season and are
+    hidden the moment a *closed* season is explicitly selected: browsing a
+    closed season is browsing that season's archive, and an unlinked row
+    belongs to no season, so it has no place there.
     """
 
     season_field: str = 'season'
+    include_null_link: bool = False
 
     def apply_season_scope(self, qs: QuerySet) -> QuerySet:
         """Scope `qs` to the resolved season, failing CLOSED (D7, spec §3.1).
@@ -125,4 +136,8 @@ class SeasonScopedMixin:
         season = resolve_season(self.request)
         if season is None:
             return qs.none()
-        return qs.filter(**{self.season_field: season})
+        season_q = Q(**{self.season_field: season})
+        if self.include_null_link and not season.is_closed:
+            anchor_field, _, _ = self.season_field.rpartition('__')
+            season_q |= Q(**{f'{anchor_field}__isnull': True})
+        return qs.filter(season_q)

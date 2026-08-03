@@ -33,7 +33,7 @@ from apps.core.permissions import (
 # ShipmentViewSet takes the resolved Season object (not just a filter) so it can
 # see is_closed and bypass the archive split, so it calls resolve_season()
 # directly instead of using SeasonScopedMixin.
-from apps.core.seasons import resolve_season
+from apps.core.seasons import SeasonScopedMixin, resolve_season
 from apps.export.models import (
     AuditLog,
     ExpenseCategory,
@@ -3365,7 +3365,7 @@ class ShipmentViewSet(ModelViewSet):
         return result
 
 
-class CommentViewSet(ModelViewSet):
+class CommentViewSet(SeasonScopedMixin, ModelViewSet):
     """CRUD for shipment comments.
 
     GET    /api/v1/export/comments/?shipment=&field_key=&assignee=me&is_done=&parent_comment=null
@@ -3374,11 +3374,16 @@ class CommentViewSet(ModelViewSet):
     DELETE /api/v1/export/comments/{id}/       — soft-delete
     POST   /api/v1/export/comments/{id}/done/  — mark task done
     POST   /api/v1/export/comments/{id}/reopen/ — reopen task
+
+    List is scoped to the resolved season via `shipment` (ShipmentComment.shipment
+    is required, never NULL — no unlinked-row case to handle). Detail routes
+    (retrieve/patch/delete/done/reopen) bypass scoping — Rule A.
     """
 
     resource_code = 'shipment_comment'
     permission_classes = [IsAuthenticated, DynamicResourcePermission]
     http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
+    season_field = 'shipment__season'
 
     def get_queryset(self) -> QuerySet:
         from django.db.models import Prefetch
@@ -3421,6 +3426,15 @@ class CommentViewSet(ModelViewSet):
             qs = qs.filter(parent_comment__isnull=True)
         elif parent_param:
             qs = qs.filter(parent_comment_id=parent_param)
+
+        # ?shipment=<id> is the per-shipment comment drawer, opened from that
+        # shipment's own detail page — which resolves regardless of season
+        # (Rule A). Scoping this request too would silently empty the drawer
+        # for a closed-season shipment the user is legitimately viewing. A
+        # single pinned shipment has no cross-season surface to leak: the
+        # detail route already grants it to every user, season or no season.
+        if self.action == 'list' and not shipment_id:
+            qs = self.apply_season_scope(qs)
 
         return qs
 
@@ -3569,7 +3583,7 @@ class CommentViewSet(ModelViewSet):
         return Response(CommentSerializer(comment).data)
 
 
-class TaskViewSet(viewsets.ReadOnlyModelViewSet):
+class TaskViewSet(SeasonScopedMixin, viewsets.ReadOnlyModelViewSet):
     """Read-only listing/retrieval of Tasks plus action endpoints for state changes.
 
     Tasks are NOT created via POST — generation is owned by the rule engine
@@ -3583,10 +3597,18 @@ class TaskViewSet(viewsets.ReadOnlyModelViewSet):
     POST   /api/v1/export/tasks/{id}/unblock/   — BLOCKED → IN_PROGRESS
     POST   /api/v1/export/tasks/{id}/complete/  — → DONE (manual_done only)
     POST   /api/v1/export/tasks/{id}/cancel/    — → CANCELLED (admin/director only)
+
+    List is scoped to the resolved season via `shipment`. Task.shipment is
+    nullable (weekly_plan / local_sell_plan tasks carry no shipment at all) —
+    `include_null_link` keeps those visible whenever the resolved season is
+    open, and hides them when a closed season is explicitly browsed. Detail
+    routes and the state-change actions bypass scoping — Rule A.
     """
 
     permission_classes = [IsAuthenticated]
     filterset_fields = ['assignee_role', 'assignee_user', 'state', 'shipment', 'step']
+    season_field = 'shipment__season'
+    include_null_link = True
 
     def get_queryset(self):
         from apps.export.models import Task, TaskState
@@ -3605,6 +3627,12 @@ class TaskViewSet(viewsets.ReadOnlyModelViewSet):
             qs = qs.filter(
                 deadline__lt=timezone.now(),
             ).exclude(state__in=[TaskState.DONE, TaskState.CANCELLED])
+
+        # ?shipment=<id> (applied later by DjangoFilterBackend via
+        # filterset_fields) pins the request to one shipment's own tasks list
+        # — same drawer-emptying risk as CommentViewSet, same exemption.
+        if self.action == 'list' and not self.request.query_params.get('shipment'):
+            qs = self.apply_season_scope(qs)
 
         return qs.order_by('deadline', 'created_at')
 

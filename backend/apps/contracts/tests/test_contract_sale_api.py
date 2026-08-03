@@ -68,10 +68,17 @@ class _SeededPermsMixin:
 # ─── Fixture helpers ─────────────────────────────────────────────────────────
 
 def _make_season(name: str = 'inv-2025') -> Season:
-    """Create or get a season. Name max_length is 10 chars on MSSQL."""
+    """Create or get a season. Name max_length is 10 chars on MSSQL.
+
+    is_active=True: resolve_season() falls back to get_active_season() when no
+    ?season= is given, and ContractSaleViewSet now fails closed (returns
+    qs.none()) when that resolves to None (Task 6 season scoping). Without an
+    active season here, every list assertion in this file would silently see
+    zero rows regardless of what was created.
+    """
     season, _ = Season.objects.get_or_create(
         name=name,
-        defaults={'start_date': '2025-09-01', 'end_date': '2026-06-30'},
+        defaults={'start_date': '2025-09-01', 'end_date': '2026-06-30', 'is_active': True},
     )
     return season
 

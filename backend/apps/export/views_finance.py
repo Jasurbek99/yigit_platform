@@ -2,7 +2,7 @@ import logging
 from datetime import date as _date
 from decimal import Decimal
 
-from django.db.models import Count, DecimalField, Sum
+from django.db.models import Count, DecimalField, Exists, OuterRef, Q, Sum
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from rest_framework import status
@@ -14,6 +14,7 @@ from rest_framework.viewsets import ModelViewSet
 
 from apps.core.permissions import DynamicResourcePermission
 from apps.core.roles import ADVANCE_WRITE
+from apps.core.seasons import SeasonScopedMixin, resolve_season
 from apps.export.models import (
     CustomsExpense,
     CustomsExpenseCategory,
@@ -42,6 +43,18 @@ class FinansistAdvanceViewSet(ModelViewSet):
     PATCH  /api/v1/export/advances/{id}/reconcile/                — mark as reconciled
     POST   /api/v1/export/advances/{id}/link-shipment/            — link a shipment to this advance
     DELETE /api/v1/export/advances/{id}/unlink-shipment/{sid}/    — remove a shipment link
+
+    FinansistAdvance has no `shipment` FK of its own — it reaches shipments
+    (zero to many) only through the FinansistAdvanceShipment junction, and the
+    queryset already carries `Count('shipment_links')` /
+    `Sum('shipment_links__allocated_amount')` annotations. A plain
+    `shipment_links__shipment__season=season` filter would add a second join on
+    that same multi-valued relation and corrupt those aggregates (rows
+    multiplied per matching link). `Exists()` avoids the join entirely, so list
+    scoping is hand-rolled here instead of via SeasonScopedMixin. An advance
+    with no shipment links at all plays the role of "unlinked" and surfaces
+    alongside an open season, same rule as the nullable-shipment models.
+    Detail routes and the link/reconcile actions bypass scoping — Rule A.
     """
 
     resource_code = 'advance'
@@ -70,6 +83,24 @@ class FinansistAdvanceViewSet(ModelViewSet):
         # Prefetch shipment links only for detail/action views (not needed for list).
         if self.action in ('retrieve', 'link_shipment', 'unlink_shipment', 'reconcile'):
             qs = qs.prefetch_related('shipment_links__shipment')
+
+        if self.action == 'list':
+            season = resolve_season(self.request)
+            if season is None:
+                return qs.none()
+            in_season = Exists(
+                FinansistAdvanceShipment.objects.filter(
+                    advance_id=OuterRef('pk'), shipment__season=season,
+                )
+            )
+            if season.is_closed:
+                qs = qs.filter(in_season)
+            else:
+                no_links = ~Exists(
+                    FinansistAdvanceShipment.objects.filter(advance_id=OuterRef('pk'))
+                )
+                qs = qs.filter(Q(in_season) | Q(no_links))
+
         return qs
 
     def get_serializer_class(self):
@@ -239,7 +270,7 @@ class FinansistAdvanceViewSet(ModelViewSet):
 CUSTOMS_EXPENSE_WRITE: frozenset[str] = ADVANCE_WRITE | frozenset({'document_team', 'export_manager'})
 
 
-class CustomsExpenseViewSet(ModelViewSet):
+class CustomsExpenseViewSet(SeasonScopedMixin, ModelViewSet):
     """CRUD + ledger summary for the customs/document cash-advance ledger.
 
     Money-OUT side of the float ledger Hangeldi maintains.  Money-IN is tracked
@@ -251,11 +282,21 @@ class CustomsExpenseViewSet(ModelViewSet):
     PATCH  /api/v1/export/customs-expenses/{id}/              — partial update
     DELETE /api/v1/export/customs-expenses/{id}/              — delete
     GET    /api/v1/export/customs-expenses/ledger/            — cash-float summary
+             (NOT season-scoped — builds its own querysets directly from the
+             model, bypassing get_queryset(); out of this task's scope, see
+             task-6-report.md)
+
+    List is scoped to the resolved season via `shipment`. CustomsExpense.shipment
+    is nullable ("null for batch fees") — `include_null_link` keeps those
+    visible whenever the resolved season is open, and hides them the moment a
+    closed season is explicitly browsed. Detail routes bypass scoping — Rule A.
     """
 
     permission_classes = [IsAuthenticated]
     serializer_class = CustomsExpenseSerializer
     http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
+    season_field = 'shipment__season'
+    include_null_link = True
 
     # Filtering — rely on DEFAULT_FILTER_BACKENDS (DjangoFilterBackend + SearchFilter)
     # so both filterset_fields and search_fields work together (matching the sibling
@@ -291,6 +332,14 @@ class CustomsExpenseViewSet(ModelViewSet):
                 qs = qs.filter(expense_date__lte=_date.fromisoformat(date_to_str))
             except ValueError:
                 pass
+
+        # ?shipment=<id> (applied later by DjangoFilterBackend via
+        # filterset_fields) pins the request to one shipment's own expenses —
+        # same drawer-emptying risk as CommentViewSet/TaskViewSet, same
+        # exemption: a single pinned shipment has no cross-season surface the
+        # detail route doesn't already grant.
+        if self.action == 'list' and not params.get('shipment'):
+            qs = self.apply_season_scope(qs)
 
         return qs
 

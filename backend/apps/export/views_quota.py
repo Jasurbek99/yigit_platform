@@ -20,6 +20,7 @@ from rest_framework.decorators import action
 from apps.core.models import Season
 from apps.core.permissions import write_permission, DynamicResourcePermission
 from apps.core.roles import QUOTA_WRITE
+from apps.core.seasons import SeasonScopedMixin
 
 from apps.export.models import QuotaIssuance, QuotaUsageRecord
 from apps.export.models.audit import AuditLog
@@ -140,13 +141,19 @@ class QuotaIssuanceViewSet(ModelViewSet):
 # QuotaUsageViewSet
 # ---------------------------------------------------------------------------
 
-class QuotaUsageViewSet(ModelViewSet):
+class QuotaUsageViewSet(SeasonScopedMixin, ModelViewSet):
     """
     GET    /api/v1/export/quota-usage/              — list (filterable)
     GET    /api/v1/export/quota-usage/{id}/         — detail
     PATCH  /api/v1/export/quota-usage/{id}/         — partial edit (draft only)
     DELETE /api/v1/export/quota-usage/{id}/         — delete (draft only)
     POST   /api/v1/export/quota-usage/approve/      — bulk approve
+
+    List is scoped to the resolved season via `shipment`. QuotaUsageRecord.shipment
+    is nullable ("null for imported historical records" — pre-dates this table's
+    shipment link) — `include_null_link` keeps those visible whenever the resolved
+    season is open, and hides them the moment a closed season is explicitly
+    browsed. Detail routes bypass scoping — Rule A.
     """
 
     resource_code = 'quota_usage'
@@ -154,6 +161,8 @@ class QuotaUsageViewSet(ModelViewSet):
     serializer_class = QuotaUsageRecordSerializer
     pagination_class = None  # Grid view needs all records; volume is bounded by season
     http_method_names = ['get', 'patch', 'delete', 'post', 'head', 'options']
+    season_field = 'shipment__season'
+    include_null_link = True
 
     queryset = QuotaUsageRecord.objects.select_related(
         'export_firm', 'shipment', 'approved_by', 'created_by',
@@ -170,6 +179,8 @@ class QuotaUsageViewSet(ModelViewSet):
             qs = qs.filter(usage_date__gte=date_from)
         if date_to := params.get('date_to'):
             qs = qs.filter(usage_date__lte=date_to)
+        if self.action == 'list':
+            qs = self.apply_season_scope(qs)
         return qs
 
     def perform_create(self, serializer) -> None:
