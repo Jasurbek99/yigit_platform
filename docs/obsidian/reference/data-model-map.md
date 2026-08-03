@@ -69,7 +69,7 @@ erDiagram
 | **Country** | code, name_tk/ru/en | Destination countries (TM, KZ, RU) |
 | **City** | name, country (FK) | Cities within countries |
 | **BorderPoint** | name, country (FK) | Border crossing points |
-| **Season** | code, name, start_date, end_date, is_active | Growing seasons |
+| **Season** | code, name, start_date, end_date, is_active, closed_at, closed_by, status (derived: UPCOMING/ACTIVE/CLOSED) | Growing seasons. `status` is a Python property, not a stored column — `closed_at` wins over `is_active`. DB constraint `uq_season_single_active` enforces at most one `is_active=True` row. |
 | **ExportFirm** | code, name_tk/ru/en, tax_code, is_active, is_gapy_satys | YGT's export legal entities (~24) |
 | **ImportFirm** | code, name_company, country, city, director_signature (file), is_active | Buyer companies (~111) |
 | **Customer** | name (unique), phone, default_country, import_firms (M2M) | Individual buyers |
