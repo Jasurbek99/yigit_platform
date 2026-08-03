@@ -12,6 +12,7 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
 from apps.core.permissions import DynamicResourcePermission, write_permission
+from apps.core.seasons import SeasonScopedMixin, resolve_season
 from apps.contracts.document_templates.registry import SCOPE_INVOICE, get_spec
 from apps.contracts.models import Contract, ContractAttachment, ContractSale
 from apps.contracts.serializers import (
@@ -44,7 +45,7 @@ from apps.contracts.services.files import (
 logger = logging.getLogger(__name__)
 
 
-class ContractViewSet(ModelViewSet):
+class ContractViewSet(SeasonScopedMixin, ModelViewSet):
     """CRUD ViewSet for contracts.
 
     Access is gated by the dynamic permission matrix via ``resource_code =
@@ -72,10 +73,10 @@ class ContractViewSet(ModelViewSet):
 
         'cancelled' is NEVER returned by the list endpoint regardless of params.
 
-        Status / FK filtering applies to the **list** action only. Detail and the
-        attachment actions (retrieve, upload/download/delete) resolve by pk across
-        every status — contract documents are legal records still needed after the
-        contract is completed or closed.
+        Status / FK / season filtering applies to the **list** action only. Detail
+        and the attachment actions (retrieve, upload/download/delete) resolve by pk
+        across every status and every season — contract documents are legal records
+        still needed after the contract is completed, closed, or its season ends.
         """
         qs = Contract.objects.select_related(
             'export_firm', 'import_firm', 'import_firm__country', 'season', 'customer',
@@ -86,6 +87,8 @@ class ContractViewSet(ModelViewSet):
 
         if self.action != 'list':
             return qs
+
+        qs = self.apply_season_scope(qs)
 
         status_param = self.request.query_params.get('status')
         include_ended = self.request.query_params.get('include_ended', '').lower() == 'true'
@@ -106,11 +109,9 @@ class ContractViewSet(ModelViewSet):
         else:
             qs = qs.filter(status=Contract.STATUS_ACTIVE)
 
-        # Optional FK filters
-        season_id = self.request.query_params.get('season')
-        if season_id:
-            qs = qs.filter(season_id=season_id)
-
+        # Optional FK filters (?season= is applied by apply_season_scope above,
+        # which — unlike the hand-written filter it replaces — rejects a closed
+        # season the caller may not view.)
         export_firm_id = self.request.query_params.get('export_firm')
         if export_firm_id:
             qs = qs.filter(export_firm_id=export_firm_id)
@@ -522,9 +523,10 @@ class DocumentPacketListView(ListAPIView):
     silently vanishing. Trucks still missing buyer / country / driver / plate /
     packing appear with ``is_ready=false`` + ``missing_setup[]`` so the team sees
     *what to fill* instead of wondering why it isn't listed. Per truck: its firms
-    + per-firm ``sale_id`` and the packing-complete flag. Defaults to the active
-    season; filters: ``?date=`` (exact), ``?date_from=`` / ``?date_to=`` (range),
-    ``?status=`` (status code), ``?firm=`` (export firm id). Gated by 'sale'.
+    + per-firm ``sale_id`` and the packing-complete flag. Always scoped to the
+    resolved season (``?season=``, default active); filters: ``?date=`` (exact),
+    ``?date_from=`` / ``?date_to=`` (range), ``?status=`` (status code),
+    ``?firm=`` (export firm id). Gated by 'sale'.
     """
 
     permission_classes = [IsAuthenticated, DynamicResourcePermission]
@@ -548,6 +550,12 @@ class DocumentPacketListView(ListAPIView):
             .distinct()
             .order_by('-date', '-id')
         )
+        # Season scope is unconditional, not a fallback for "no date filter":
+        # otherwise picking a closed season in the switcher *and* a date range
+        # would silently return active-season rows.
+        season = resolve_season(self.request)
+        if season is not None:
+            qs = qs.filter(season=season)
         params = self.request.query_params
         if params.get('date'):
             qs = qs.filter(date=params['date'])
@@ -556,9 +564,6 @@ class DocumentPacketListView(ListAPIView):
                 qs = qs.filter(date__gte=params['date_from'])
             if params.get('date_to'):
                 qs = qs.filter(date__lte=params['date_to'])
-            if not (params.get('date_from') or params.get('date_to')):
-                # TODO(season-scope): replaced by resolve_season() in Task 5
-                qs = qs.filter(season__is_active=True)
         if params.get('status'):
             qs = qs.filter(status__code=params['status'])
         if params.get('firm'):

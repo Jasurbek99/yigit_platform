@@ -12,6 +12,7 @@ from rest_framework.viewsets import ModelViewSet
 
 from apps.core.permissions import write_permission
 from apps.core.roles import DOMESTIC_WRITE, HARVEST_DAY_WRITE, HARVEST_DAY_OVERRIDE
+from apps.core.seasons import SeasonScopedMixin
 from apps.greenhouse.models import (
     BlockManagerAssignment,
     DomesticSale,
@@ -37,7 +38,7 @@ logger = logging.getLogger(__name__)
 _DOMESTIC_WRITE_ROLES = DOMESTIC_WRITE
 
 
-class WeeklyHarvestPlanViewSet(ModelViewSet):
+class WeeklyHarvestPlanViewSet(SeasonScopedMixin, ModelViewSet):
     """
     GET    /api/v1/greenhouse/harvest-plans/            — list (filter by ?season=&block=&year=&week=)
     GET    /api/v1/greenhouse/harvest-plans/{id}/       — detail
@@ -68,9 +69,13 @@ class WeeklyHarvestPlanViewSet(ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
+        # ?season= is handled by apply_season_scope (list only) — the previous
+        # hand-written `filter(season_id=...)` accepted any season id with no
+        # closed-season permission check. Detail routes stay unscoped so a
+        # direct link resolves.
+        if getattr(self, 'action', None) == 'list':
+            qs = self.apply_season_scope(qs)
         params = self.request.query_params
-        if season := params.get('season'):
-            qs = qs.filter(season_id=season)
         if block := params.get('block'):
             qs = qs.filter(block_id=block)
         if year := params.get('year'):
@@ -376,7 +381,7 @@ class WeeklyHarvestPlanViewSet(ModelViewSet):
         return Response({'updated': count, 'results': serializer.data})
 
 
-class HarvestDayEntryViewSet(ModelViewSet):
+class HarvestDayEntryViewSet(SeasonScopedMixin, ModelViewSet):
     """
     GET    /api/v1/greenhouse/day-entries/              — list (filter ?season=&block=&date_from=&date_to=&weekly_plan=)
     GET    /api/v1/greenhouse/day-entries/{id}/         — detail
@@ -402,9 +407,11 @@ class HarvestDayEntryViewSet(ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
+        # ?season= is handled by apply_season_scope (list only) — see
+        # WeeklyHarvestPlanViewSet.
+        if getattr(self, 'action', None) == 'list':
+            qs = self.apply_season_scope(qs)
         params = self.request.query_params
-        if season := params.get('season'):
-            qs = qs.filter(season_id=season)
         if block := params.get('block'):
             qs = qs.filter(block_id=block)
         if date_from := params.get('date_from'):

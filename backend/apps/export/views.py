@@ -30,6 +30,10 @@ from apps.core.permissions import (
     get_sheet_edit_map,
     write_permission,
 )
+# ShipmentViewSet takes the resolved Season object (not just a filter) so it can
+# see is_closed and bypass the archive split, so it calls resolve_season()
+# directly instead of using SeasonScopedMixin.
+from apps.core.seasons import resolve_season
 from apps.export.models import (
     AuditLog,
     ExpenseCategory,
@@ -163,7 +167,12 @@ class ShipmentViewSet(ModelViewSet):
         'deleted_by',
     ).order_by('-date', '-id')
 
-    filterset_fields = ['status', 'country', 'season', 'is_gapy_satys', 'customer']
+    # `season` is deliberately NOT a filterset field: DRF applies the filter
+    # backends inside get_object() too, so a detail request carrying ?season=
+    # would 404 a shipment from another season — breaking the direct-link rule
+    # below. Season scoping is handled once, in get_queryset(), via
+    # resolve_season() which also enforces the closed-season permission.
+    filterset_fields = ['status', 'country', 'is_gapy_satys', 'customer']
     search_fields = [
         'shipment_code',
         'export_code',
@@ -264,21 +273,40 @@ class ShipmentViewSet(ModelViewSet):
             else:
                 qs = qs.filter(deleted_at__isnull=True)
 
+        # ── Season scope ─────────────────────────────────────────────────────
+        # List action only. Detail routes resolve by ID across every season so a
+        # direct link works (spec §4.5) and so the write freeze can answer 409
+        # instead of a misleading 404 — get_object() must be able to FIND a
+        # closed-season row before has_object_permission can reject the write.
+        skip_archive_split = False
+        if action_name == 'list':  # `action_name` is the getattr-guarded read above
+            season = resolve_season(self.request)
+            if season is not None:
+                qs = qs.filter(season=season)
+                # "Operational" is meaningless in a frozen season — nothing is in
+                # flight, and every row is by definition historical. A second
+                # hide-filter here would produce "the row exists but nothing shows
+                # it" (spec §9). This also bypasses the ?archived=true role gate
+                # below; that is intentional — reading a closed season already
+                # required the closed_season.can_view permission.
+                skip_archive_split = season.is_closed
+
         # ── Operational vs Archive split (Phase 3, ADR-0005) ─────────────────
         # Default: is_archived=False (operational). ?archived=true opens the
         # archive view, gated to a subset of management roles.
-        archived_param = self.request.query_params.get('archived')
-        if archived_param == 'true':
-            role = getattr(self.request.user, 'role', None)
-            is_super = getattr(self.request.user, 'is_superuser', False)
-            if not (is_super or role in self._ARCHIVE_VIEW_ROLES):
-                # Return an empty queryset; the viewset will paginate as 0 results.
-                # Rejecting at queryset level (rather than 403) keeps the error
-                # path uniform with other implicit role-based filters here.
-                return qs.none()
-            qs = qs.filter(is_archived=True)
-        else:
-            qs = qs.filter(is_archived=False)
+        if not skip_archive_split:
+            archived_param = self.request.query_params.get('archived')
+            if archived_param == 'true':
+                role = getattr(self.request.user, 'role', None)
+                is_super = getattr(self.request.user, 'is_superuser', False)
+                if not (is_super or role in self._ARCHIVE_VIEW_ROLES):
+                    # Return an empty queryset; the viewset will paginate as 0 results.
+                    # Rejecting at queryset level (rather than 403) keeps the error
+                    # path uniform with other implicit role-based filters here.
+                    return qs.none()
+                qs = qs.filter(is_archived=True)
+            else:
+                qs = qs.filter(is_archived=False)
 
         # ── Stuck dashboard (Phase 4a, ADR-0005) ─────────────────────────────
         # ?stuck=true returns operational, not-yet-closed shipments untouched
@@ -1017,17 +1045,15 @@ class ShipmentViewSet(ModelViewSet):
         """
         season_filter = {}
         single_shipment_id = request.query_params.get('shipment')
-        season_id = request.query_params.get('season')
         if single_shipment_id:
             # Single-shipment fetch — bypass season scoping (the archived /
             # deleted guards below still apply). Config is unchanged; only the
             # results list shrinks to one row.
             pass
-        elif season_id:
-            season_filter['season_id'] = season_id
         else:
-            # TODO(season-scope): replaced by resolve_season() in Task 5
-            season_filter['season__is_active'] = True
+            season = resolve_season(request)
+            if season is not None:
+                season_filter['season'] = season
 
         qs = (
             Shipment.objects.select_related(
@@ -3077,18 +3103,19 @@ class ShipmentViewSet(ModelViewSet):
         from apps.export.services.phases import PHASE_ORDER, get_phase
 
         # ── Build the base queryset ────────────────────────────────────────────
-        # Always scope to active season, non-archived, non-soft-deleted. These
-        # conditions mirror the intent of the Kanban: show live operational work
-        # only. Soft-deleted rows are hidden from every list-style view.
+        # Always scope to the resolved season, non-archived, non-soft-deleted.
+        # These conditions mirror the intent of the Kanban: show live operational
+        # work only. Soft-deleted rows are hidden from every list-style view.
         qs = (
-            # TODO(season-scope): replaced by resolve_season() in Task 5
             Shipment.objects.filter(
-                season__is_active=True,
                 is_archived=False,
                 deleted_at__isnull=True,
             )
             .select_related('status', 'country', 'customer')
         )
+        season = resolve_season(request)
+        if season is not None:
+            qs = qs.filter(season=season)
 
         # ── Apply request filters ─────────────────────────────────────────────
         country_id = request.query_params.get('country')
@@ -3206,15 +3233,14 @@ class ShipmentViewSet(ModelViewSet):
         #   TRANSIT = avg(arrived_at       - departed_at)
         #   DEST    = avg(sale_ended_at    - arrived_at)
         # PLAN, PREP, CLOSE: no AD-1 pair available → null.
-        # Values are cached per active season for 5 minutes.
-        from apps.core.seasons import get_active_season
-
-        active_season = get_active_season()
-        active_season_id = active_season.id if active_season else None
-        cache_key = f'board:phase_avgs:{active_season_id}'
+        # Averages are for the SAME season as the cards above (not the active
+        # one) — a closed-season board benchmarked against live-season durations
+        # would be comparing two different datasets. Cached per season, 5 min.
+        season_id = season.id if season is not None else None
+        cache_key = f'board:phase_avgs:{season_id}'
         phase_avg_seconds = cache.get(cache_key)
         if phase_avg_seconds is None:
-            phase_avg_seconds = self._compute_phase_avg_seconds(active_season_id)
+            phase_avg_seconds = self._compute_phase_avg_seconds(season_id)
             cache.set(cache_key, phase_avg_seconds, 300)
 
         return Response({

@@ -1,8 +1,9 @@
 """Daily harvest board endpoint — backs the *Ýük plan we galyndy* page.
 
-GET  /api/v1/greenhouse/daily-plan/?date=YYYY-MM-DD
+GET  /api/v1/greenhouse/daily-plan/?date=YYYY-MM-DD[&season=<id>]
     One row per active block for the given date (default: today). Blocks with
     no entry yet return null values so the whole block list always renders.
+    Scoped to the resolved season (default: active).
 
 POST /api/v1/greenhouse/daily-plan/
     Upsert one block/date cell. Body: {block, date, today_plan?, yesterday_rest?, note?}.
@@ -19,10 +20,10 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ViewSet
 
 from apps.core.models import GreenhouseBlock
+from apps.core.seasons import resolve_season
 from apps.greenhouse.models import HarvestDayEntry
 from apps.greenhouse.services.daily_board import (
     UNSET,
-    get_active_season,
     upsert_daily_board,
 )
 
@@ -78,7 +79,10 @@ class DailyHarvestBoardViewSet(ViewSet):
                 status=http_status.HTTP_400_BAD_REQUEST,
             )
 
-        season = get_active_season()
+        # Read scope: defaults to the active season, ?season= browses another.
+        # The write path (create → upsert_daily_board) keeps using the active
+        # season as its target — a closed season must not gain new rows.
+        season = resolve_season(request)
         # Only top-level blocks — inner sub-blocks (e.g. OD/OG under O) carry a
         # parent and are excluded so the board matches the operational sheet.
         blocks = list(

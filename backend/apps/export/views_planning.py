@@ -12,6 +12,7 @@ from rest_framework.viewsets import ModelViewSet
 
 from apps.core.permissions import write_permission, DynamicResourcePermission
 from apps.core.roles import LOCAL_SELL_APPROVE, LOCAL_SELL_WRITE, PRICE_WRITE, TRUCK_WRITE
+from apps.core.seasons import SeasonScopedMixin, get_active_season
 from apps.export.models import (
     WeeklyLocalSellPlan,
     WeeklyTruckAllocation,
@@ -68,7 +69,7 @@ class PriceEntryViewSet(ModelViewSet):
         serializer.save(entered_by=self.request.user)
 
 
-class WeeklyTruckAllocationViewSet(ModelViewSet):
+class WeeklyTruckAllocationViewSet(SeasonScopedMixin, ModelViewSet):
     """
     GET    /api/v1/export/truck-allocations/        — list (filter ?season=&year=&week_number=)
     POST   /api/v1/export/truck-allocations/        — create; auto-computes total_trucks_calc
@@ -80,7 +81,11 @@ class WeeklyTruckAllocationViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated, DynamicResourcePermission]
     serializer_class = WeeklyTruckAllocationSerializer
     http_method_names = ['get', 'post', 'put', 'patch', 'head', 'options']
-    filterset_fields = ['season', 'year', 'week_number']
+    # `season` is not a filterset field — DRF runs the filter backends inside
+    # get_object() too, so a detail request carrying ?season= would 404 a row
+    # from another season. Season scoping lives in get_queryset() below, where
+    # resolve_season() also enforces the closed-season permission.
+    filterset_fields = ['year', 'week_number']
 
     queryset = WeeklyTruckAllocation.objects.select_related(
         'season', 'decided_by',
@@ -89,6 +94,12 @@ class WeeklyTruckAllocationViewSet(ModelViewSet):
     ).order_by('year', 'week_number', 'day_of_week')
 
     _TRUCK_CAPACITY_KG = Decimal('18500')
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if getattr(self, 'action', None) == 'list':
+            qs = self.apply_season_scope(qs)
+        return qs
 
     def _compute_trucks_calc(self, total_planned_kg) -> Decimal | None:
         """Compute total_trucks_calc = total_planned_kg / 18500, rounded to 2 dp."""
@@ -147,7 +158,7 @@ class WeeklyTruckAllocationViewSet(ModelViewSet):
         return Response(serializer.data)
 
 
-class WeeklyDestinationSelectionViewSet(ModelViewSet):
+class WeeklyDestinationSelectionViewSet(SeasonScopedMixin, ModelViewSet):
     """
     GET   /api/v1/export/truck-destination-selections/       — list (filter ?season=&year=&week_number=)
     POST  /api/v1/export/truck-destination-selections/set/   — replace a week's selected destinations
@@ -160,11 +171,19 @@ class WeeklyDestinationSelectionViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated, DynamicResourcePermission]
     serializer_class = WeeklyDestinationSelectionSerializer
     http_method_names = ['get', 'post', 'head', 'options']
-    filterset_fields = ['season', 'year', 'week_number']
+    # See WeeklyTruckAllocationViewSet: season scoping lives in get_queryset(),
+    # not in the filterset, so detail routes stay resolvable.
+    filterset_fields = ['year', 'week_number']
 
     queryset = WeeklyDestinationSelection.objects.select_related(
         'destination',
     ).order_by('destination__sort_order')
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if getattr(self, 'action', None) == 'list':
+            qs = self.apply_season_scope(qs)
+        return qs
 
     @action(detail=False, methods=['post'], url_path='set')
     def set_selection(self, request):
@@ -212,7 +231,7 @@ _LOCAL_SELL_APPROVE_ROLES = LOCAL_SELL_APPROVE
 _SELL_PLAN_DAYS = ('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday')
 
 
-class WeeklyLocalSellPlanViewSet(ModelViewSet):
+class WeeklyLocalSellPlanViewSet(SeasonScopedMixin, ModelViewSet):
     """
     GET    /api/v1/export/local-sell-plans/             — list (filter ?export_firm=&year=&week=)
     POST   /api/v1/export/local-sell-plans/             — create
@@ -233,6 +252,8 @@ class WeeklyLocalSellPlanViewSet(ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
+        if getattr(self, 'action', None) == 'list':
+            qs = self.apply_season_scope(qs)
         params = self.request.query_params
         if firm := params.get('export_firm'):
             qs = qs.filter(export_firm_id=firm)
@@ -246,7 +267,12 @@ class WeeklyLocalSellPlanViewSet(ModelViewSet):
         role = getattr(self.request.user, 'role', None)
         if role not in _LOCAL_SELL_WRITE_ROLES:
             raise PermissionDenied('Only export_manager/director/seller can create local sell plans.')
-        serializer.save(entered_by=self.request.user)
+        # WeeklyLocalSellPlan.season is nullable and the serializer does not
+        # require it. Now that the list is season-scoped, a NULL-season row
+        # would be invisible the moment it is created, so stamp the write
+        # target — the same default ContractCreateSerializer already applies.
+        season = serializer.validated_data.get('season') or get_active_season()
+        serializer.save(entered_by=self.request.user, season=season)
 
     def perform_update(self, serializer):
         instance = serializer.instance
@@ -362,7 +388,14 @@ class WeeklyLocalSellPlanViewSet(ModelViewSet):
 
         week_number = request.data.get('week_number')
         year = request.data.get('year')
+        # `season` is optional in the request body (the frontend sends
+        # activeSeason?.id, which can be undefined). Fall back to the write
+        # target rather than inserting NULL-season rows that the season-scoped
+        # list would immediately hide.
         season_id = request.data.get('season')
+        if not season_id:
+            active_season = get_active_season()
+            season_id = active_season.id if active_season else None
 
         if not all([week_number, year]):
             return Response(

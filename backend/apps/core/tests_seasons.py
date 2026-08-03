@@ -176,23 +176,14 @@ class NoAdHocActiveSeasonLookupTests(TestCase):
 
     # Matches both the write-target form (`Season.objects.filter(is_active=True)`,
     # possibly split across lines) and the read-scope form
-    # (`filter(season__is_active=True)`) that Task 5 replaces. DOTALL so the
-    # multi-line call style does not slip through.
+    # (`filter(season__is_active=True)`), now fully replaced by resolve_season().
+    # DOTALL so the multi-line call style does not slip through.
+    #
+    # Task 5 removed the marker-comment tolerance that briefly exempted three
+    # deferred sites: it was a bare text match, so pasting the comment beside a
+    # brand-new ad-hoc lookup would have silenced the guard.
     WRITE_TARGET = re.compile(r'Season\.objects[^\n]*?\.\s*filter\s*\(.*?is_active\s*=\s*True', re.DOTALL)
     READ_SCOPE = re.compile(r'season__is_active\s*=\s*True')
-
-    # A READ_SCOPE hit is tolerated only when it carries this exact marker
-    # within a few lines above it — Task 5 converts these to resolve_season()
-    # and the marker (hence the tolerance) disappears with it. This is
-    # per-line, not a whole-file exemption, so WRITE_TARGET stays fully
-    # enforced on these files: a *new* ad-hoc lookup elsewhere in
-    # export/views.py or contracts/views.py still fails the guard.
-    DEFERRED_MARKER = '# TODO(season-scope): replaced by resolve_season() in Task 5'
-    _MARKER_LOOKBACK = 5
-
-    def _has_nearby_marker(self, lines: list[str], line_index: int) -> bool:
-        window = lines[max(0, line_index - self._MARKER_LOOKBACK):line_index + 1]
-        return any(self.DEFERRED_MARKER in line for line in window)
 
     def test_no_direct_is_active_lookups_outside_core_seasons(self):
         backend = Path(__file__).resolve().parents[2]
@@ -204,19 +195,10 @@ class NoAdHocActiveSeasonLookupTests(TestCase):
             if rel.name.startswith('tests') or rel.parts[-2:-1] == ('tests',):
                 continue
             text = path.read_text(encoding='utf-8')
-            if self.WRITE_TARGET.search(text):
-                offenders.append(str(rel))
-                continue
-            lines = text.splitlines()
-            unmarked_read_scope = any(
-                self.READ_SCOPE.search(line) and not self._has_nearby_marker(lines, i)
-                for i, line in enumerate(lines)
-            )
-            if unmarked_read_scope:
+            if self.WRITE_TARGET.search(text) or self.READ_SCOPE.search(text):
                 offenders.append(str(rel))
         self.assertEqual(
             offenders, [],
             'Use apps.core.seasons.get_active_season() (write target) or '
-            'resolve_season(request) (read scope) instead — or mark a deferred '
-            f'Task-5 read-scope site with {self.DEFERRED_MARKER!r}: {offenders}',
+            f'resolve_season(request) (read scope) instead: {offenders}',
         )
