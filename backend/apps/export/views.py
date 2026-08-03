@@ -198,6 +198,26 @@ class ShipmentViewSet(ModelViewSet):
     # prices and other data only management should browse.
     _ARCHIVE_VIEW_ROLES = ('admin', 'director', 'export_manager', 'finansist', 'boss')
 
+    def _can_view_archive(self) -> bool:
+        """True when the requester may see archived rows."""
+        user = self.request.user
+        return (
+            getattr(user, 'is_superuser', False)
+            or getattr(user, 'role', None) in self._ARCHIVE_VIEW_ROLES
+        )
+
+    def _season_scoped(self, qs: QuerySet) -> QuerySet:
+        """Scope `qs` to the resolved season, failing closed (D7, spec §3.1).
+
+        For the list-style actions that build their own queryset from
+        `super().get_queryset()` and therefore bypass the scoping block in
+        `get_queryset()` (overdue, my-sales-reports, my-pending-count).
+        """
+        season = resolve_season(self.request)
+        if season is None:
+            return qs.none()
+        return qs.filter(season=season)
+
     # Roles allowed to view the Stuck dashboard (?stuck=true). Tighter than
     # archive — stuck reveals which roles are dragging on what, which is a
     # management-only signal. Mirrored by ARCHIVE_VIEW_ROLES on the frontend.
@@ -281,15 +301,20 @@ class ShipmentViewSet(ModelViewSet):
         skip_archive_split = False
         if action_name == 'list':  # `action_name` is the getattr-guarded read above
             season = resolve_season(self.request)
-            if season is not None:
-                qs = qs.filter(season=season)
-                # "Operational" is meaningless in a frozen season — nothing is in
-                # flight, and every row is by definition historical. A second
-                # hide-filter here would produce "the row exists but nothing shows
-                # it" (spec §9). This also bypasses the ?archived=true role gate
-                # below; that is intentional — reading a closed season already
-                # required the closed_season.can_view permission.
-                skip_archive_split = season.is_closed
+            if season is None:
+                # Fail closed (D7, spec §3.1) — no active season and no ?season=
+                # means we cannot say which season the caller is entitled to.
+                # Terminal, so nothing below can add rows back.
+                return qs.none()
+            qs = qs.filter(season=season)
+            # "Operational" is meaningless in a frozen season — nothing is in
+            # flight, and every row is by definition historical. A second
+            # hide-filter would produce "the row exists but nothing shows it"
+            # (spec §9). But bypassing the block also drops the default
+            # is_archived=False filter, so it may only be done for users who
+            # ALSO hold archive-view access — otherwise closed_season.can_view
+            # would silently become a superset of it (D8, spec §9.1).
+            skip_archive_split = season.is_closed and self._can_view_archive()
 
         # ── Operational vs Archive split (Phase 3, ADR-0005) ─────────────────
         # Default: is_archived=False (operational). ?archived=true opens the
@@ -297,9 +322,7 @@ class ShipmentViewSet(ModelViewSet):
         if not skip_archive_split:
             archived_param = self.request.query_params.get('archived')
             if archived_param == 'true':
-                role = getattr(self.request.user, 'role', None)
-                is_super = getattr(self.request.user, 'is_superuser', False)
-                if not (is_super or role in self._ARCHIVE_VIEW_ROLES):
+                if not self._can_view_archive():
                     # Return an empty queryset; the viewset will paginate as 0 results.
                     # Rejecting at queryset level (rather than 403) keeps the error
                     # path uniform with other implicit role-based filters here.
@@ -420,7 +443,11 @@ class ShipmentViewSet(ModelViewSet):
         has required fields still unfilled. Used by the frontend for badge counts.
         """
         # Hide soft-deleted shipments — pending-count drives a UI badge.
-        base_qs = super().get_queryset().filter(deleted_at__isnull=True)
+        # super().get_queryset() bypasses the scoping block in get_queryset(),
+        # so the season scope is applied explicitly here (D9).
+        base_qs = self._season_scoped(
+            super().get_queryset().filter(deleted_at__isnull=True)
+        )
         qs = self._filter_pending_fields(base_qs)
         return Response({'count': qs.count()})
 
@@ -945,9 +972,12 @@ class ShipmentViewSet(ModelViewSet):
 
         # Use the base queryset (not self.get_queryset()) to avoid
         # my_work / pending_my_fields filters leaking into the overdue endpoint.
+        # That also bypasses the season scope, so it is re-applied explicitly —
+        # otherwise an operator's overdue list keeps showing closed-season
+        # trucks forever (D9).
         # Hide soft-deleted shipments — overdue is a list-style view.
         qs = (
-            super().get_queryset()
+            self._season_scoped(super().get_queryset())
             .filter(status__code__in=SALES_PHASE_CODES, deleted_at__isnull=True)
             .annotate(has_sales_report=has_report_expr)
             # export_firms_display column joins firm_splits — prefetch to stay N+1-safe.
@@ -1000,8 +1030,10 @@ class ShipmentViewSet(ModelViewSet):
 
         has_report_expr = Exists(SalesReport.objects.filter(shipment=OuterRef('pk')))
 
+        # super().get_queryset() bypasses the scoping block in get_queryset(),
+        # so the season scope is applied explicitly here (D9).
         qs = (
-            super().get_queryset()
+            self._season_scoped(super().get_queryset())
             .filter(deleted_at__isnull=True, status__step_order__gte=4)
             .annotate(has_sales_report=has_report_expr)
             .select_related('customer')
@@ -1044,6 +1076,7 @@ class ShipmentViewSet(ModelViewSet):
         on it costs a tiny payload instead of the full-season sheet.
         """
         season_filter = {}
+        scope_is_empty = False
         single_shipment_id = request.query_params.get('shipment')
         if single_shipment_id:
             # Single-shipment fetch — bypass season scoping (the archived /
@@ -1052,7 +1085,9 @@ class ShipmentViewSet(ModelViewSet):
             pass
         else:
             season = resolve_season(request)
-            if season is not None:
+            if season is None:
+                scope_is_empty = True  # fail closed (D7, spec §3.1)
+            else:
                 season_filter['season'] = season
 
         qs = (
@@ -1093,6 +1128,10 @@ class ShipmentViewSet(ModelViewSet):
 
         if single_shipment_id:
             qs = qs.filter(id=single_shipment_id)
+        elif scope_is_empty:
+            # No resolvable season — return the Sheet config with no rows
+            # rather than every season's rows (D7, spec §3.1).
+            qs = qs.none()
 
         # Customer-based ownership: a sales_rep only sees shipments whose
         # customer is assigned to them (Customer.sales_rep). Shipments with a
@@ -3107,15 +3146,19 @@ class ShipmentViewSet(ModelViewSet):
         # These conditions mirror the intent of the Kanban: show live operational
         # work only. Soft-deleted rows are hidden from every list-style view.
         qs = (
-            Shipment.objects.filter(
-                is_archived=False,
-                deleted_at__isnull=True,
-            )
+            Shipment.objects.filter(deleted_at__isnull=True)
             .select_related('status', 'country', 'customer')
         )
         season = resolve_season(request)
-        if season is not None:
+        if season is None:
+            qs = qs.none()  # fail closed (D7, spec §3.1)
+        else:
             qs = qs.filter(season=season)
+            # A closed season whose rows were archived would render a blank
+            # board, so the archive split is bypassed here too — but only for
+            # users who also hold archive-view access (D8, spec §9.1).
+            if not (season.is_closed and self._can_view_archive()):
+                qs = qs.filter(is_archived=False)
 
         # ── Apply request filters ─────────────────────────────────────────────
         country_id = request.query_params.get('country')
@@ -3269,9 +3312,17 @@ class ShipmentViewSet(ModelViewSet):
 
         thirty_days_ago = _tz.now() - dt.timedelta(days=30)
 
-        filter_kwargs: dict = {'is_archived': False}
-        if season_id:
-            filter_kwargs['season_id'] = season_id
+        empty_result: dict[str, int | None] = {
+            phase: None
+            for phase in ['PLAN', 'PREP', 'DOCS', 'LOAD', 'TRANSIT', 'DEST', 'CLOSE']
+        }
+        if not season_id:
+            # Fail closed (D7, spec §3.1) — averaging across every season would
+            # leak closed-season timings whenever no season is active. Same
+            # shape as the normal return, just with no data.
+            return empty_result
+
+        filter_kwargs: dict = {'is_archived': False, 'season_id': season_id}
 
         # Fetch the timestamp columns for closed or late-stage shipments.
         # We pull only the 4 pairs we need to avoid over-fetching.
@@ -3306,7 +3357,7 @@ class ShipmentViewSet(ModelViewSet):
                 if t_start and t_end and t_end > t_start:
                     phase_durations[phase_key].append((t_end - t_start).total_seconds())
 
-        result: dict[str, int | None] = {phase: None for phase in ['PLAN', 'PREP', 'DOCS', 'LOAD', 'TRANSIT', 'DEST', 'CLOSE']}
+        result = empty_result
         for phase_key, durations in phase_durations.items():
             if durations:
                 result[phase_key] = int(sum(durations) / len(durations))

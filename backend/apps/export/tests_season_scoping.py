@@ -6,7 +6,7 @@ but is absent from ENDPOINTS is a leak; add it here when you add the mixin.
 Run with:
     python manage.py test apps.export.tests_season_scoping --verbosity=2
 """
-from datetime import date
+from datetime import date, timedelta
 
 from django.core.management import call_command
 from django.test import TestCase
@@ -66,11 +66,17 @@ class SeasonScopingTests(TestCase):
         cls.operator = User.objects.create(username='op', role='warehouse_chief')
         cls.operator.set_password('pass')
         cls.operator.save()
+        # Holds closed_season.can_view but is NOT in _ARCHIVE_VIEW_ROLES — the
+        # role that proves the two permissions stayed distinct (D8).
+        cls.no_archive = User.objects.create(username='docs', role='document_team')
+        cls.no_archive.set_password('pass')
+        cls.no_archive.save()
 
-        RoleResourcePermission.objects.update_or_create(
-            role='export_manager', resource_code='closed_season',
-            defaults={'can_view': True},
-        )
+        for role in ('export_manager', 'document_team'):
+            RoleResourcePermission.objects.update_or_create(
+                role=role, resource_code='closed_season',
+                defaults={'can_view': True},
+            )
 
         cls.active_shipment = cls.make_shipment(cls.active, 'ACT-001')
         cls.closed_shipment = cls.make_shipment(cls.closed, 'CLS-001')
@@ -117,14 +123,17 @@ class SeasonScopingTests(TestCase):
         response = self._login(self.manager).get('/api/v1/export/shipments/?season=999999')
         self.assertEqual(response.status_code, 404)
 
-    def test_archived_row_is_visible_inside_a_closed_season(self):
-        """Rule B: the operational/archive split is meaningless in a frozen
-        season — every row there is historical by definition. An archived
-        shipment must show under ?season=<closed> yet stay hidden from the
-        default (active-season) operational list.
-        """
+    def _make_archived_closed_shipment(self) -> Shipment:
         archived = self.make_shipment(self.closed, 'CLS-ARCH')
         Shipment.objects.filter(pk=archived.pk).update(is_archived=True)
+        return archived
+
+    def test_closed_season_archive_bypass_for_archive_role(self):
+        """Rule B / D8: inside a frozen season the operational-vs-archive split
+        is meaningless, so it is bypassed — for a user who ALSO holds
+        archive-view access. export_manager is in _ARCHIVE_VIEW_ROLES.
+        """
+        self._make_archived_closed_shipment()
         client = self._login(self.manager)
 
         self.assertNotIn('CLS-ARCH', self._codes(client.get('/api/v1/export/shipments/')))
@@ -132,6 +141,49 @@ class SeasonScopingTests(TestCase):
             'CLS-ARCH',
             self._codes(client.get(f'/api/v1/export/shipments/?season={self.closed.pk}')),
         )
+
+    def test_closed_season_archive_bypass_needs_archive_permission(self):
+        """D8 (spec §9.1): the bypass drops the default is_archived=False filter
+        too, so granting closed_season.can_view must NOT silently confer
+        archive-view. document_team holds closed_season but is not an archive
+        role: it sees the closed season's non-archived rows and nothing more.
+        """
+        self._make_archived_closed_shipment()
+        codes = self._codes(
+            self._login(self.no_archive).get(
+                f'/api/v1/export/shipments/?season={self.closed.pk}'
+            )
+        )
+        self.assertNotIn('CLS-ARCH', codes)
+        # Partial view, not an empty one — the season itself is still readable.
+        self.assertIn('CLS-001', codes)
+
+    def test_no_active_season_returns_nothing(self):
+        """D7 (spec §3.1): during the close→open gap a scoped list returns
+        nothing, not everything. Failing open here would expose every closed
+        season to every user, ignoring closed_season.can_view entirely.
+        """
+        Season.objects.filter(pk=self.active.pk).update(is_active=False)
+        response = self._login(self.manager).get('/api/v1/export/shipments/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self._codes(response), set())
+
+    def test_no_active_season_still_resolves_a_detail_route(self):
+        """D7: detail routes bypass scoping, so direct links survive the gap."""
+        Season.objects.filter(pk=self.active.pk).update(is_active=False)
+        response = self._login(self.manager).get(
+            f'/api/v1/export/shipments/{self.active_shipment.pk}/'
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_no_active_season_still_allows_explicit_season_select(self):
+        """D7: the switcher keeps working — an explicit ?season= resolves."""
+        Season.objects.filter(pk=self.active.pk).update(is_active=False)
+        response = self._login(self.manager).get(
+            f'/api/v1/export/shipments/?season={self.closed.pk}'
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('CLS-001', self._codes(response))
 
     def test_detail_route_resolves_across_seasons(self):
         """Rule A: a direct link must resolve whichever season is selected.
@@ -306,6 +358,18 @@ class ScopedEndpointCoverageTests(TestCase):
             with self.subTest(url=url):
                 self.assertEqual(client.get(f'{url}?season=999999').status_code, 404)
 
+    def test_no_active_season_returns_nothing_anywhere(self):
+        """D7 (spec §3.1): fail closed on every scoped endpoint, not just
+        shipments. An endpoint that still returns rows here is unfiltered.
+        """
+        Season.objects.filter(pk=self.active.pk).update(is_active=False)
+        client = self._login(self.viewer)
+        for url, _ in ENDPOINTS:
+            with self.subTest(url=url):
+                response = client.get(url)
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(self._ids(response), set())
+
     def test_kanban_board_is_scoped(self):
         """The board groups by phase, so it has no flat `results` list."""
         client = self._login(self.viewer)
@@ -404,3 +468,135 @@ class ScopedEndpointCoverageTests(TestCase):
             f'/api/v1/export/clients-report/?season={self.closed.pk}'
         )
         self.assertEqual(denied.status_code, 403)
+
+
+class ExtraShipmentActionScopingTests(TestCase):
+    """D9 — the three Shipment list-style actions that were absent from the plan.
+
+    `overdue`, `my-sales-reports` and `my-pending-count` all build their
+    queryset from `super().get_queryset()`, deliberately skipping the filters in
+    `get_queryset()` — which means they skipped the season scope too. An
+    operator's "overdue" list would otherwise show closed-season trucks forever.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command('seed_permissions')
+        cls.active = Season.objects.create(
+            name='2026/2027', start_date=date(2026, 9, 1), end_date=date(2027, 8, 31),
+            is_active=True,
+        )
+        cls.closed = Season.objects.create(
+            name='2025/2026', start_date=date(2025, 9, 1), end_date=date(2026, 8, 31),
+            closed_at=timezone.now(),
+        )
+        cls.country = Country.objects.create(name_en='Kazakhstan', name_tk='Gazagystan')
+        # 'bardy' is a SALES_PHASE_CODES status at step 9 — satisfies both the
+        # overdue filter and my-sales-reports' step_order >= 4.
+        cls.sales_status = ShipmentStatusType.objects.create(
+            code='bardy', name_tk='Bardy', phase='SALES', step_order=9,
+        )
+        # document_team's pending window is LOADING/CUSTOMS.
+        cls.loading_status = ShipmentStatusType.objects.create(
+            code='yuklenme', name_tk='Yuklenme', phase='LOADING', step_order=1,
+        )
+
+        cls.manager = User.objects.create(username='mgr9', role='export_manager')
+        cls.doc_team = User.objects.create(username='docs9', role='document_team')
+        for role in ('export_manager', 'document_team'):
+            RoleResourcePermission.objects.update_or_create(
+                role=role, resource_code='closed_season', defaults={'can_view': True},
+            )
+
+        long_ago = timezone.now() - timedelta(days=60)
+        cls.sales_rows = {}
+        cls.pending_rows = {}
+        for tag, season in (('ACT', cls.active), ('CLS', cls.closed)):
+            sale = Shipment.objects.create(
+                shipment_code=f'{tag}-SALE', date=season.start_date, season=season,
+                status=cls.sales_status, country=cls.country,
+            )
+            # arrived_at drives days_overdue; set past the default 7-day threshold.
+            Shipment.objects.filter(pk=sale.pk).update(arrived_at=long_ago)
+            cls.sales_rows[season] = sale
+            # documents_status left NULL → counts as pending for document_team.
+            cls.pending_rows[season] = Shipment.objects.create(
+                shipment_code=f'{tag}-PEND', date=season.start_date, season=season,
+                status=cls.loading_status, country=cls.country,
+            )
+
+    def _login(self, user) -> APIClient:
+        client = APIClient()
+        client.force_authenticate(user=user)
+        return client
+
+    def _codes(self, response) -> set[str]:
+        payload = response.json()
+        rows = payload['results'] if isinstance(payload, dict) else payload
+        return {row['shipment_code'] for row in rows}
+
+    def _assert_scoped(self, client, url: str) -> None:
+        joiner = '&' if '?' in url else '?'
+        default = client.get(url)
+        self.assertEqual(default.status_code, 200, default.content)
+        codes = self._codes(default)
+        self.assertTrue(codes, f'{url} returned nothing for the active season')
+        self.assertFalse(
+            {c for c in codes if c.startswith('CLS-')},
+            f'{url} leaked closed-season rows into the default view',
+        )
+
+        switched = client.get(f'{url}{joiner}season={self.closed.pk}')
+        self.assertEqual(switched.status_code, 200)
+        switched_codes = self._codes(switched)
+        self.assertTrue({c for c in switched_codes if c.startswith('CLS-')})
+        self.assertFalse({c for c in switched_codes if c.startswith('ACT-')})
+
+    def test_overdue_is_scoped(self):
+        self._assert_scoped(self._login(self.manager), '/api/v1/export/shipments/overdue/')
+
+    def test_my_sales_reports_is_scoped(self):
+        self._assert_scoped(
+            self._login(self.manager), '/api/v1/export/shipments/my-sales-reports/',
+        )
+
+    def test_my_pending_count_is_scoped(self):
+        client = self._login(self.doc_team)
+        self.assertEqual(
+            client.get('/api/v1/export/shipments/my-pending-count/').json()['count'], 1,
+        )
+        self.assertEqual(
+            client.get(
+                f'/api/v1/export/shipments/my-pending-count/?season={self.closed.pk}'
+            ).json()['count'],
+            1,
+        )
+        # Prove the two counts are not the same row: only the active-season row
+        # may be reachable by default.
+        Shipment.objects.filter(pk=self.pending_rows[self.closed].pk).delete()
+        self.assertEqual(
+            client.get('/api/v1/export/shipments/my-pending-count/').json()['count'], 1,
+        )
+        self.assertEqual(
+            client.get(
+                f'/api/v1/export/shipments/my-pending-count/?season={self.closed.pk}'
+            ).json()['count'],
+            0,
+        )
+
+    def test_no_active_season_returns_nothing(self):
+        """D7 on these three actions too."""
+        Season.objects.filter(pk=self.active.pk).update(is_active=False)
+        client = self._login(self.manager)
+        self.assertEqual(
+            self._codes(client.get('/api/v1/export/shipments/overdue/')), set(),
+        )
+        self.assertEqual(
+            self._codes(client.get('/api/v1/export/shipments/my-sales-reports/')), set(),
+        )
+        self.assertEqual(
+            self._login(self.doc_team)
+            .get('/api/v1/export/shipments/my-pending-count/')
+            .json()['count'],
+            0,
+        )

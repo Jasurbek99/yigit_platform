@@ -111,7 +111,18 @@ class SeasonScopedMixin:
     season_field: str = 'season'
 
     def apply_season_scope(self, qs: QuerySet) -> QuerySet:
+        """Scope `qs` to the resolved season, failing CLOSED (D7, spec §3.1).
+
+        No active season and no ?season= means we cannot say which season the
+        caller is entitled to, so we return nothing rather than everything.
+        Returning `qs` unfiltered would make every closed season readable by
+        every user during the close→open gap — the feature's promise inverted,
+        in exactly the state an admin creates deliberately at end of season.
+
+        Detail routes are unaffected: they bypass scoping entirely, so a direct
+        link still resolves during the gap.
+        """
         season = resolve_season(self.request)
         if season is None:
-            return qs
+            return qs.none()
         return qs.filter(**{self.season_field: season})

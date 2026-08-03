@@ -554,8 +554,9 @@ class DocumentPacketListView(ListAPIView):
         # otherwise picking a closed season in the switcher *and* a date range
         # would silently return active-season rows.
         season = resolve_season(self.request)
-        if season is not None:
-            qs = qs.filter(season=season)
+        if season is None:
+            return qs.none()  # fail closed (D7, spec §3.1)
+        qs = qs.filter(season=season)
         params = self.request.query_params
         if params.get('date'):
             qs = qs.filter(date=params['date'])

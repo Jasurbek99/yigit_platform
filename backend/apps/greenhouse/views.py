@@ -160,10 +160,15 @@ class WeeklyHarvestPlanViewSet(SeasonScopedMixin, ModelViewSet):
                 status=http_status.HTTP_400_BAD_REQUEST,
             )
         season = resolve_season(request)
+        if season is None:
+            # Fail closed (D7, spec §3.1). Passing season_id=None would drop
+            # get_block_summary back to its bare (year, week) date window,
+            # which is the exact leak this scoping closes.
+            return Response([])
         results = get_block_summary(
             year=int(params['year']),
             week=int(params['week']),
-            season_id=season.id if season else None,
+            season_id=season.id,
         )
         return Response(results)
 
