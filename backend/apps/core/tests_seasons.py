@@ -4,12 +4,21 @@ Run with:
     python manage.py test apps.core.tests_seasons --verbosity=2
 """
 from datetime import date
+from types import SimpleNamespace
 
 from django.db import IntegrityError, transaction
 from django.test import TestCase
 from django.utils import timezone
+from rest_framework.exceptions import NotFound, PermissionDenied
 
-from apps.core.models import Season
+from apps.core.models import RoleResourcePermission, Season, User
+from apps.core.seasons import (
+    SeasonClosedError,
+    assert_season_open,
+    can_view_closed,
+    get_active_season,
+    resolve_season,
+)
 
 
 class SeasonStatusTests(TestCase):
@@ -59,3 +68,86 @@ class SingleActiveSeasonTests(TestCase):
             is_active=False,
         )
         self.assertEqual(Season.objects.filter(is_active=False).count(), 2)
+
+
+def _request(user, **params):
+    """Minimal stand-in for a DRF request — resolve_season only reads these two."""
+    return SimpleNamespace(user=user, query_params=params)
+
+
+class SeasonResolutionTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.active = Season.objects.create(
+            name='2026/2027', start_date=date(2026, 9, 1), end_date=date(2027, 8, 31),
+            is_active=True,
+        )
+        cls.closed = Season.objects.create(
+            name='2025/2026', start_date=date(2025, 9, 1), end_date=date(2026, 8, 31),
+            is_active=False, closed_at=timezone.now(),
+        )
+        cls.viewer = User.objects.create(username='viewer', role='export_manager')
+        cls.operator = User.objects.create(username='operator', role='warehouse_chief')
+        RoleResourcePermission.objects.create(
+            role='export_manager', resource_code='closed_season', can_view=True,
+        )
+
+    def test_get_active_season_returns_the_active_row(self):
+        self.assertEqual(get_active_season(), self.active)
+
+    def test_get_active_season_returns_none_when_none_active(self):
+        Season.objects.filter(pk=self.active.pk).update(is_active=False)
+        self.assertIsNone(get_active_season())
+
+    def test_resolve_defaults_to_active_when_no_param(self):
+        self.assertEqual(resolve_season(_request(self.operator)), self.active)
+
+    def test_resolve_honours_explicit_season_param(self):
+        resolved = resolve_season(_request(self.viewer, season=str(self.active.pk)))
+        self.assertEqual(resolved, self.active)
+
+    def test_resolve_closed_season_allowed_with_permission(self):
+        resolved = resolve_season(_request(self.viewer, season=str(self.closed.pk)))
+        self.assertEqual(resolved, self.closed)
+
+    def test_resolve_closed_season_denied_without_permission(self):
+        with self.assertRaises(PermissionDenied):
+            resolve_season(_request(self.operator, season=str(self.closed.pk)))
+
+    def test_resolve_unknown_season_raises_not_found(self):
+        with self.assertRaises(NotFound):
+            resolve_season(_request(self.viewer, season='999999'))
+
+    def test_resolve_ignores_blank_param(self):
+        self.assertEqual(resolve_season(_request(self.operator, season='')), self.active)
+
+    def test_can_view_closed_true_for_granted_role(self):
+        self.assertTrue(can_view_closed(self.viewer))
+
+    def test_can_view_closed_false_for_ungranted_role(self):
+        self.assertFalse(can_view_closed(self.operator))
+
+    def test_can_view_closed_true_for_superuser(self):
+        su = User.objects.create(username='su', role='warehouse_chief', is_superuser=True)
+        self.assertTrue(can_view_closed(su))
+
+
+class AssertSeasonOpenTests(TestCase):
+    def test_open_season_passes(self):
+        season = Season.objects.create(
+            name='2026/2027', start_date=date(2026, 9, 1), end_date=date(2027, 8, 31),
+            is_active=True,
+        )
+        assert_season_open(season)  # must not raise
+
+    def test_none_passes(self):
+        assert_season_open(None)  # must not raise
+
+    def test_closed_season_raises(self):
+        season = Season.objects.create(
+            name='2025/2026', start_date=date(2025, 9, 1), end_date=date(2026, 8, 31),
+            closed_at=timezone.now(),
+        )
+        with self.assertRaises(SeasonClosedError) as ctx:
+            assert_season_open(season)
+        self.assertEqual(ctx.exception.season, season)
