@@ -117,6 +117,22 @@ class SeasonScopingTests(TestCase):
         response = self._login(self.manager).get('/api/v1/export/shipments/?season=999999')
         self.assertEqual(response.status_code, 404)
 
+    def test_archived_row_is_visible_inside_a_closed_season(self):
+        """Rule B: the operational/archive split is meaningless in a frozen
+        season — every row there is historical by definition. An archived
+        shipment must show under ?season=<closed> yet stay hidden from the
+        default (active-season) operational list.
+        """
+        archived = self.make_shipment(self.closed, 'CLS-ARCH')
+        Shipment.objects.filter(pk=archived.pk).update(is_archived=True)
+        client = self._login(self.manager)
+
+        self.assertNotIn('CLS-ARCH', self._codes(client.get('/api/v1/export/shipments/')))
+        self.assertIn(
+            'CLS-ARCH',
+            self._codes(client.get(f'/api/v1/export/shipments/?season={self.closed.pk}')),
+        )
+
     def test_detail_route_resolves_across_seasons(self):
         """Rule A: a direct link must resolve whichever season is selected.
 
@@ -347,6 +363,35 @@ class ScopedEndpointCoverageTests(TestCase):
         self.assertEqual(created.status_code, 201, created.content)
         self.assertEqual(created.json()['season'], self.active.pk)
         self.assertIn(created.json()['id'], self._ids(client.get('/api/v1/export/local-sell-plans/')))
+
+    def test_block_summary_is_scoped(self):
+        """A sibling @action on a scoped viewset is part of that viewset.
+
+        block-summary is the sharpest case: get_block_summary() falls back to a
+        bare (year, week) date window when it gets no season, and seasons run
+        Sept→Aug, so a past week IS the closed season — no ?season= needed. The
+        endpoint carries only IsAuthenticated, so every operator could read
+        closed-season per-block totals through it.
+        """
+        entry = self.rows['make_day_entry'][self.closed]
+        iso_year, iso_week, _ = entry.entry_date.isocalendar()
+        url = f'/api/v1/greenhouse/harvest-plans/block-summary/?year={iso_year}&week={iso_week}'
+
+        def block_ids(response) -> set[int]:
+            return {row['block_id'] for row in response.json()}
+
+        # Default (active season) must not leak the closed season's week, even
+        # though the requested week falls entirely inside that closed season.
+        default = self._login(self.viewer).get(url)
+        self.assertEqual(default.status_code, 200)
+        self.assertNotIn(self.block.pk, block_ids(default))
+
+        switched = self._login(self.viewer).get(f'{url}&season={self.closed.pk}')
+        self.assertEqual(switched.status_code, 200)
+        self.assertIn(self.block.pk, block_ids(switched))
+
+        denied = self._login(self.blocked).get(f'{url}&season={self.closed.pk}')
+        self.assertEqual(denied.status_code, 403)
 
     def test_clients_report_is_scoped(self):
         client = self._login(self.viewer)

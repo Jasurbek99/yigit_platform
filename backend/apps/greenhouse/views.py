@@ -12,7 +12,7 @@ from rest_framework.viewsets import ModelViewSet
 
 from apps.core.permissions import write_permission
 from apps.core.roles import DOMESTIC_WRITE, HARVEST_DAY_WRITE, HARVEST_DAY_OVERRIDE
-from apps.core.seasons import SeasonScopedMixin
+from apps.core.seasons import SeasonScopedMixin, resolve_season
 from apps.greenhouse.models import (
     BlockManagerAssignment,
     DomesticSale,
@@ -143,17 +143,27 @@ class WeeklyHarvestPlanViewSet(SeasonScopedMixin, ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='block-summary')
     def block_summary(self, request):
-        """GET /api/v1/greenhouse/harvest-plans/block-summary/?season=&year=&week="""
+        """GET /api/v1/greenhouse/harvest-plans/block-summary/?season=&year=&week=
+
+        Season-scoped like the list action — a sibling @action on a scoped
+        viewset is part of that viewset. It matters more here than elsewhere:
+        `get_block_summary` falls back to a bare (year, week) date window when
+        it gets no season, and seasons run Sept→Aug, so a past week *is* a
+        closed season — reachable with no ?season= param at all, and therefore
+        with nothing for a permission check to hang off. Resolving the season
+        (default: active) closes that in both directions.
+        """
         params = request.query_params
         if not params.get('year') or not params.get('week'):
             return Response(
                 {'error': 'year and week query params are required.'},
                 status=http_status.HTTP_400_BAD_REQUEST,
             )
+        season = resolve_season(request)
         results = get_block_summary(
             year=int(params['year']),
             week=int(params['week']),
-            season_id=params.get('season'),
+            season_id=season.id if season else None,
         )
         return Response(results)
 
