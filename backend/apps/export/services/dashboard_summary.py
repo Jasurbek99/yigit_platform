@@ -20,18 +20,36 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Season resolver
+# Season date-range resolver
 # ---------------------------------------------------------------------------
 
-def _resolve_season():
-    """Return (season_or_None, start_date, end_date).
+def _season_date_range(season) -> 'tuple':
+    """Return (season, start_date, end_date) for an already-resolved season.
 
-    Fetches the active season. Falls back to current-month range if none found.
+    Spec §4.3: dashboard is a date-range endpoint — it takes the RESOLVED
+    season's date range as its default, the same way `boss` does (see
+    `weekly_revenue_comparison` in boss_analytics.py, which takes a `Season`
+    object rather than a request for the same reason: the caller already
+    resolved it once via `apps.core.seasons.resolve_season(request)`, and
+    resolving again here would be a second DB query plus a second chance to
+    raise `resolve_season`'s `NotFound`/`PermissionDenied` redundantly).
+
+    This does NOT apply `SeasonScopedMixin`: `stats`/`routes` stay date-range
+    filters, never `filter(season=...)`, so there is nothing here for the
+    mixin's fail-closed behaviour to blank.
+
+    Falls back to a current-month range (never blanks the page) when `season`
+    is None — the close→open gap, a legitimate state the caller may also hit.
+
+    Args:
+        season: The resolved season, or None (close→open gap).
+
+    Returns:
+        Tuple (season, start_date, end_date) — `season` is just echoed back
+        for the caller's `season_payload` convenience.
     """
-    from apps.core.seasons import get_active_season
     from apps.export.services.boss_analytics import period_to_range
 
-    season = get_active_season()
     if season:
         return season, season.start_date, season.end_date
     start, end = period_to_range('month')
@@ -371,16 +389,22 @@ def _build_active_shipments() -> list:
 # Main public function
 # ---------------------------------------------------------------------------
 
-def build_dashboard_summary() -> dict:
+def build_dashboard_summary(season=None) -> dict:
     """Aggregate all data for the main dashboard landing page.
 
     Returns a plain dict ready for JSON serialisation. All Decimal values
     are cast to float/int at the boundary here, not inside helpers.
 
+    Args:
+        season: The already-resolved season (via
+            `apps.core.seasons.resolve_season(request)` at the view layer),
+            or None. Parameterises `stats`/`routes`' date range (spec §4.3).
+            Never used to filter by `season=` FK — see `_season_date_range`.
+
     Returns:
         Dict with keys: season, stats, alerts, routes, active_shipments.
     """
-    season, start, end = _resolve_season()
+    season, start, end = _season_date_range(season)
 
     season_payload = (
         {'id': season.id, 'name': season.name}

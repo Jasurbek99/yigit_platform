@@ -531,14 +531,20 @@ class ExtraShipmentActionScopingTests(TestCase):
         # overdue filter and my-sales-reports' step_order >= 4.
         cls.sales_status, _ = ShipmentStatusType.objects.get_or_create(
             code='bardy',
-            defaults={'name_tk': 'Bardy', 'name_en': 'Bardy', 'phase': 'SALES', 'step_order': 9},
+            defaults={
+                'name_tk': 'Bardy', 'name_en': 'Arrived', 'name_ru': 'Прибыл',
+                'required_role': 'sales_rep', 'phase': 'SALES', 'step_order': 9,
+            },
         )
         # document_team's pending window is LOADING/CUSTOMS (phase-filtered, not
         # step_order-filtered — see _filter_pending_fields — so the exact step_order
         # value doesn't drive any assertion here).
         cls.loading_status, _ = ShipmentStatusType.objects.get_or_create(
             code='yuklenme',
-            defaults={'name_tk': 'Yuklenme', 'name_en': 'Loading', 'phase': 'LOADING', 'step_order': 3},
+            defaults={
+                'name_tk': 'Ýüklenme', 'name_en': 'Loading', 'name_ru': 'Погрузка',
+                'required_role': 'warehouse_chief', 'phase': 'LOADING', 'step_order': 3,
+            },
         )
 
         cls.manager = User.objects.create(username='mgr9', role='export_manager')

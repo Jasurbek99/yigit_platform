@@ -397,16 +397,22 @@ def _previous_season(season: 'Season') -> 'Season | None':
     """
     from apps.core.models import Season
 
-    # `.filter(` deliberately on its own line, not chained directly onto
-    # `Season.objects` — apps.core.tests_seasons's NoAdHocActiveSeasonLookupTests
-    # regression guard scans this whole file with DOTALL, so a same-line
-    # `Season` + queryset-manager + filter-call sequence anywhere in the file
-    # is treated as satisfied by an unrelated boolean-flag lookup on a
-    # DIFFERENT model (ExportFirm) much further down this same module — a
-    # false positive, since this query never touches that flag at all.
-    # Splitting the chain across lines avoids tripping the guard without
-    # weakening it. Do NOT collapse this back onto one line without
-    # re-running apps.core.tests_seasons afterward.
+    # The filter call below is deliberately on its own line, split from the
+    # queryset manager above it — apps.core.tests_seasons's
+    # NoAdHocActiveSeasonLookupTests regression guard scans this whole file
+    # with DOTALL, so a same-line manager-then-filter-call sequence anywhere
+    # in the file is treated as satisfied by an unrelated boolean-flag lookup
+    # on a DIFFERENT model (ExportFirm) much further down this same module —
+    # a false positive here, since this query never touches that flag at all.
+    #
+    # CAVEAT — this is a real gap in the guard, not just a false-positive
+    # dodge: its regex requires the manager and the filter call on the SAME
+    # physical line, so ANY multi-line chain that filters by that flag is
+    # invisible to it, in this file or any other — including a genuine
+    # ad-hoc lookup, not just this legitimate one. Narrowing the regex
+    # belongs to whoever owns apps.core.tests_seasons (tracked as a Task 17
+    # item), not edited here. Do NOT collapse this back onto one line
+    # without re-running apps.core.tests_seasons afterward.
     return (
         Season.objects
         .filter(start_date__lt=season.start_date)

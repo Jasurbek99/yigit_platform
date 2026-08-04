@@ -7,15 +7,19 @@ Coverage:
      - Two in-season non-draft shipments → stats.total = 2
      - One out-of-season shipment excluded
      - One draft shipment excluded
-  4. Cache hit: second request does not re-run DB queries (assertNumQueries == 0)
+  4. Cache hit: second request re-runs only the season-resolution query
+  5. Spec §4.3 — `?season=` parameterises stats/routes' date range (not
+     SeasonScopedMixin-scoped) and is gated by closed_season.can_view like
+     every other scoped endpoint
 """
 from datetime import date, timedelta
 
 from django.core.cache import cache
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps.core.models import Season, ShipmentStatusType, User
+from apps.core.models import RoleResourcePermission, Season, ShipmentStatusType, User
 
 
 # ---------------------------------------------------------------------------
@@ -240,14 +244,93 @@ class DashboardCacheTests(TestCase):
         self.client.force_authenticate(user=self.user)
 
     def test_second_request_is_cache_hit(self):
-        """Second request within TTL must be served from cache with zero DB queries."""
+        """Second request within TTL must be served from cache, minus the
+        unavoidable season-resolution query.
+
+        The cache key is now `dashboard:summary:<season_id>` (spec §4.3 —
+        stats/routes are parameterised by the resolved season, so a season
+        switch must not serve another season's stale cached numbers). That
+        means `resolve_season(request)` has to run BEFORE the cache lookup
+        on every request, cache hit or not, to know which key to check —
+        so a cache hit is 1 query (season resolution), not 0.
+        """
         _make_season()
         _make_status('draft', step_order=0, phase='PREP')
 
         # Warm cache
         self.client.get('/api/v1/export/dashboard/summary/')
 
-        # Second call: no DB queries
-        with self.assertNumQueries(0):
+        # Second call: only the season-resolution query, no aggregation queries
+        with self.assertNumQueries(1):
             resp = self.client.get('/api/v1/export/dashboard/summary/')
         self.assertEqual(resp.status_code, 200)
+
+
+# ---------------------------------------------------------------------------
+# Test: ?season= parameterises the date range (spec §4.3)
+# ---------------------------------------------------------------------------
+
+class DashboardSeasonParamTests(TestCase):
+    """`dashboard` is a date-range endpoint per spec §4.3: it takes the
+    RESOLVED season's date range, not just the active one, and does not
+    apply SeasonScopedMixin. These tests prove both halves: the range
+    actually moves when `?season=` selects a closed season, and the
+    `closed_season.can_view` gate — shared with every other scoped
+    endpoint's `?season=` handling — still applies here too.
+    """
+
+    def setUp(self):
+        cache.clear()
+        self.client = APIClient()
+
+    def test_closed_season_param_moves_the_range(self):
+        closed_season = _make_season(
+            name='dspclose1', start='2024-09-01', end='2025-06-30', is_active=False,
+        )
+        Season.objects.filter(pk=closed_season.pk).update(closed_at=timezone.now())
+        active_season = _make_season(
+            name='dspact1', start='2025-09-01', end='2026-06-30', is_active=True,
+        )
+        load_status = _make_status('yuklenme', step_order=1, phase='LOAD')
+        # One shipment in each season's range — only the resolved season's
+        # shipment should be counted.
+        _make_shipment('DSP-OLD', closed_season, load_status, shipment_date='2024-12-01')
+        _make_shipment('DSP-NEW', active_season, load_status, shipment_date='2026-01-10')
+
+        privileged = _make_user('dsp_privileged', role='export_manager')
+        RoleResourcePermission.objects.update_or_create(
+            role='export_manager', resource_code='closed_season',
+            defaults={'can_view': True},
+        )
+        self.client.force_authenticate(user=privileged)
+
+        default_resp = self.client.get('/api/v1/export/dashboard/summary/')
+        self.assertEqual(default_resp.status_code, 200)
+        self.assertEqual(default_resp.json()['stats']['total']['value'], 1)
+        self.assertEqual(default_resp.json()['season']['id'], active_season.id)
+
+        closed_resp = self.client.get(
+            f'/api/v1/export/dashboard/summary/?season={closed_season.pk}'
+        )
+        self.assertEqual(closed_resp.status_code, 200)
+        self.assertEqual(closed_resp.json()['stats']['total']['value'], 1)
+        self.assertEqual(closed_resp.json()['season']['id'], closed_season.id)
+        # The range genuinely moved — the two responses' stats differ in
+        # WHICH shipment was counted, not just that both happen to be 1.
+        self.assertNotEqual(default_resp.json()['season'], closed_resp.json()['season'])
+
+    def test_unpermitted_user_closed_season_gets_403(self):
+        closed_season = _make_season(
+            name='dspclose2', start='2024-09-01', end='2025-06-30', is_active=False,
+        )
+        Season.objects.filter(pk=closed_season.pk).update(closed_at=timezone.now())
+        _make_season(name='dspact2', start='2025-09-01', end='2026-06-30', is_active=True)
+
+        # No closed_season.can_view grant for this role.
+        unprivileged = _make_user('dsp_unprivileged', role='sales_rep')
+        self.client.force_authenticate(user=unprivileged)
+
+        resp = self.client.get(
+            f'/api/v1/export/dashboard/summary/?season={closed_season.pk}'
+        )
+        self.assertEqual(resp.status_code, 403)
