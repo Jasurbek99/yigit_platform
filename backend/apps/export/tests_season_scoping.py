@@ -657,21 +657,77 @@ class JoinScopedEndpointTests(SeasonScopingTests):
         self.assertEqual(response.status_code, 200)
         self.assertIn('closed-note', self._bodies(response))
 
+    def test_comments_closed_season_denied_without_permission(self):
+        """CommentViewSet is gated by DynamicResourcePermission
+        (resource_code='shipment_comment'), unlike Task/CustomsExpense — so a
+        403 here could be the missing *resource* permission instead of the
+        missing closed_season grant. `self.operator` (warehouse_chief) has
+        view rights on comments (RESOURCE_DEFAULTS) but no closed_season
+        grant; asserting the unscoped request is 200 first rules out the
+        wrong-reason 403.
+        """
+        client = self._login(self.operator)
+        unscoped = client.get('/api/v1/export/comments/')
+        self.assertEqual(
+            unscoped.status_code, 200,
+            'unscoped request must succeed — otherwise the 403 below would be '
+            'a resource-permission failure, not a season one',
+        )
+        response = client.get(f'/api/v1/export/comments/?season={self.closed.pk}')
+        self.assertEqual(response.status_code, 403)
+
     def test_shipment_pinned_comments_bypass_season_scope(self):
         """?shipment=<id> is the per-shipment comment drawer opened from a
-        shipment's own detail page. A direct link to a closed-season shipment
-        resolves under Rule A (detail routes bypass scoping) — but the drawer
-        itself reads through the *list* action with no ?season= param, so
-        without this exemption the active season's scope would silently empty
-        it out from underneath a page the user is legitimately looking at.
-        A single pinned shipment has no cross-season surface to leak: the
-        detail route already grants it to every user regardless of season.
+        shipment's own detail page. `self.manager` holds closed_season.can_view
+        (granted in SeasonScopingTests.setUpTestData), so this exercises the
+        PRIVILEGED-pin branch: the drawer must not go silently empty for a
+        user who could reach the same rows by selecting the season explicitly.
+        See test_shipment_pinned_comments_denied_without_permission /
+        test_shipment_pinned_comments_visible_for_active_season_without_permission
+        for the non-privileged branch this does NOT exercise.
         """
         response = self._login(self.manager).get(
             f'/api/v1/export/comments/?shipment={self.closed_shipment.pk}'
         )
         self.assertEqual(response.status_code, 200)
         self.assertIn('closed-note', self._bodies(response))
+
+    def test_shipment_pinned_comments_denied_without_permission(self):
+        """?season=<closed>&shipment=<id>: a non-privileged pin must still
+        403, not silently fall through to 200 — resolve_season() has to run
+        on the pin path, not just the season filter. `self.operator`
+        (warehouse_chief) has view rights on comments but no closed_season
+        grant.
+        """
+        response = self._login(self.operator).get(
+            f'/api/v1/export/comments/?shipment={self.closed_shipment.pk}&season={self.closed.pk}'
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_shipment_pinned_comments_visible_for_active_season_without_permission(self):
+        """The ordinary case: a non-privileged user pinning an ACTIVE-season
+        shipment must still see its comments — the scoping branch (not the
+        exemption) has to resolve to "visible" here, since the pinned
+        shipment's season matches the resolved (default/active) season.
+        """
+        response = self._login(self.operator).get(
+            f'/api/v1/export/comments/?shipment={self.active_shipment.pk}'
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('active-note', self._bodies(response))
+
+    def test_shipment_pinned_comments_gap_returns_nothing(self):
+        """D7 on the pin path too: during the close→open gap, a pinned
+        request must return nothing — even for a user who holds
+        closed_season.can_view. The gap has no season to attribute the pin
+        to, privileged or not.
+        """
+        Season.objects.filter(pk=self.active.pk).update(is_active=False)
+        response = self._login(self.manager).get(
+            f'/api/v1/export/comments/?shipment={self.active_shipment.pk}'
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self._bodies(response), set())
 
 
 def _make_scoped_shipment(
@@ -761,14 +817,48 @@ class TaskJoinScopedEndpointTests(TestCase):
         self.assertNotIn('t.weekly', titles)
 
     def test_shipment_pinned_tasks_bypass_season_scope(self):
-        """?shipment=<id> is that shipment's own tasks panel, same
-        drawer-emptying risk (and same exemption) as CommentViewSet.
+        """?shipment=<id> is that shipment's own tasks panel. `self.manager`
+        holds closed_season.can_view (granted above), so this exercises the
+        PRIVILEGED-pin branch only — see the _denied_/_visible_for_active_
+        /_gap_ tests below for the non-privileged and gap branches.
         """
         closed_shipment_id = self.closed_task.shipment_id
         titles = self._title_keys(
             self._login(self.manager).get(f'/api/v1/export/tasks/?shipment={closed_shipment_id}')
         )
         self.assertIn('t.closed', titles)
+
+    def test_shipment_pinned_tasks_denied_without_permission(self):
+        """?season=<closed>&shipment=<id>: a non-privileged pin must still
+        403 — resolve_season() has to run on the pin path, not just the
+        season filter.
+        """
+        closed_shipment_id = self.closed_task.shipment_id
+        response = self._login(self.blocked).get(
+            f'/api/v1/export/tasks/?shipment={closed_shipment_id}&season={self.closed.pk}'
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_shipment_pinned_tasks_visible_for_active_season_without_permission(self):
+        """Ordinary case: a non-privileged user pinning an ACTIVE-season
+        shipment must still see its tasks.
+        """
+        active_shipment_id = self.active_task.shipment_id
+        titles = self._title_keys(
+            self._login(self.blocked).get(f'/api/v1/export/tasks/?shipment={active_shipment_id}')
+        )
+        self.assertIn('t.active', titles)
+
+    def test_shipment_pinned_tasks_gap_returns_nothing(self):
+        """D7 on the pin path: during the close→open gap a pinned request
+        must return nothing, even for a privileged user.
+        """
+        Season.objects.filter(pk=self.active.pk).update(is_active=False)
+        active_shipment_id = self.active_task.shipment_id
+        titles = self._title_keys(
+            self._login(self.manager).get(f'/api/v1/export/tasks/?shipment={active_shipment_id}')
+        )
+        self.assertEqual(titles, set())
 
     def test_closed_season_denied_without_permission(self):
         client = self._login(self.blocked)
@@ -932,8 +1022,10 @@ class CustomsExpenseJoinScopedEndpointTests(TestCase):
         self.assertNotIn('batch-row', labels)
 
     def test_shipment_pinned_expenses_bypass_season_scope(self):
-        """?shipment=<id> is that shipment's own expenses panel, same
-        drawer-emptying risk (and same exemption) as CommentViewSet.
+        """?shipment=<id> is that shipment's own expenses panel. `self.creator`
+        holds closed_season.can_view (granted above), so this exercises the
+        PRIVILEGED-pin branch only — see the _denied_/_visible_for_active_
+        /_gap_ tests below for the non-privileged and gap branches.
         """
         closed_shipment_id = self.closed_row.shipment_id
         labels = self._labels(
@@ -942,6 +1034,42 @@ class CustomsExpenseJoinScopedEndpointTests(TestCase):
             )
         )
         self.assertIn('closed-row', labels)
+
+    def test_shipment_pinned_expenses_denied_without_permission(self):
+        """?season=<closed>&shipment=<id>: a non-privileged pin must still
+        403 — resolve_season() has to run on the pin path, not just the
+        season filter.
+        """
+        closed_shipment_id = self.closed_row.shipment_id
+        response = self._login(self.blocked).get(
+            f'/api/v1/export/customs-expenses/?shipment={closed_shipment_id}&season={self.closed.pk}'
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_shipment_pinned_expenses_visible_for_active_season_without_permission(self):
+        """Ordinary case: a non-privileged user pinning an ACTIVE-season
+        shipment must still see its expenses.
+        """
+        active_shipment_id = self.active_row.shipment_id
+        labels = self._labels(
+            self._login(self.blocked).get(
+                f'/api/v1/export/customs-expenses/?shipment={active_shipment_id}'
+            )
+        )
+        self.assertIn('active-row', labels)
+
+    def test_shipment_pinned_expenses_gap_returns_nothing(self):
+        """D7 on the pin path: during the close→open gap a pinned request
+        must return nothing, even for a privileged user.
+        """
+        Season.objects.filter(pk=self.active.pk).update(is_active=False)
+        active_shipment_id = self.active_row.shipment_id
+        labels = self._labels(
+            self._login(self.creator).get(
+                f'/api/v1/export/customs-expenses/?shipment={active_shipment_id}'
+            )
+        )
+        self.assertEqual(labels, set())
 
     def test_closed_season_denied_without_permission(self):
         client = self._login(self.blocked)

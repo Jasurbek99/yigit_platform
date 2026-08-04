@@ -307,9 +307,10 @@ class CustomsExpenseViewSet(SeasonScopedMixin, ModelViewSet):
     PATCH  /api/v1/export/customs-expenses/{id}/              — partial update
     DELETE /api/v1/export/customs-expenses/{id}/              — delete
     GET    /api/v1/export/customs-expenses/ledger/            — cash-float summary
-             (NOT season-scoped — builds its own querysets directly from the
-             model, bypassing get_queryset(); out of this task's scope, see
-             task-6-report.md)
+             (season-scoped independently of get_queryset() — it builds its
+             own querysets, so it resolves the season itself and scopes both
+             sides via the module-level `_customs_expense_season_q()` /
+             `_scope_advances_to_season()` helpers; see `ledger()`)
 
     List is scoped to the resolved season via `shipment`. CustomsExpense.shipment
     is nullable ("null for batch fees") — `include_null_link` keeps those
