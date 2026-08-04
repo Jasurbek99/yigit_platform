@@ -10,9 +10,14 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
-from apps.core.permissions import write_permission, DynamicResourcePermission
+from apps.core.permissions import write_permission, DynamicResourcePermission, SeasonNotClosed
 from apps.core.roles import LOCAL_SELL_APPROVE, LOCAL_SELL_WRITE, PRICE_WRITE, TRUCK_WRITE
-from apps.core.seasons import SeasonScopedMixin, get_active_season
+from apps.core.seasons import (
+    SeasonScopedMixin,
+    assert_bulk_seasons_open,
+    assert_season_id_open,
+    get_active_season,
+)
 from apps.export.models import (
     WeeklyLocalSellPlan,
     WeeklyTruckAllocation,
@@ -78,7 +83,7 @@ class WeeklyTruckAllocationViewSet(SeasonScopedMixin, ModelViewSet):
     """
 
     resource_code = 'truck_allocation'
-    permission_classes = [IsAuthenticated, DynamicResourcePermission]
+    permission_classes = [IsAuthenticated, DynamicResourcePermission, SeasonNotClosed]
     serializer_class = WeeklyTruckAllocationSerializer
     http_method_names = ['get', 'post', 'put', 'patch', 'head', 'options']
     # `season` is not a filterset field — DRF runs the filter backends inside
@@ -168,7 +173,7 @@ class WeeklyDestinationSelectionViewSet(SeasonScopedMixin, ModelViewSet):
     """
 
     resource_code = 'truck_allocation'
-    permission_classes = [IsAuthenticated, DynamicResourcePermission]
+    permission_classes = [IsAuthenticated, DynamicResourcePermission, SeasonNotClosed]
     serializer_class = WeeklyDestinationSelectionSerializer
     http_method_names = ['get', 'post', 'head', 'options']
     # See WeeklyTruckAllocationViewSet: season scoping lives in get_queryset(),
@@ -208,6 +213,10 @@ class WeeklyDestinationSelectionViewSet(SeasonScopedMixin, ModelViewSet):
                 status=http_status.HTTP_400_BAD_REQUEST,
             )
 
+        # Write freeze (D1). The season arrives in the BODY here, so neither
+        # layer 1 (no get_object()) nor a queryset check can see it.
+        assert_season_id_open(season)
+
         scope = {'season_id': season, 'year': year, 'week_number': week_number}
         WeeklyDestinationSelection.objects.filter(**scope).delete()
         WeeklyDestinationSelection.objects.bulk_create(
@@ -241,7 +250,7 @@ class WeeklyLocalSellPlanViewSet(SeasonScopedMixin, ModelViewSet):
     """
 
     resource_code = 'local_sell_plan'
-    permission_classes = [IsAuthenticated, DynamicResourcePermission]
+    permission_classes = [IsAuthenticated, DynamicResourcePermission, SeasonNotClosed]
     serializer_class = WeeklyLocalSellPlanSerializer
     http_method_names = ['get', 'post', 'put', 'patch', 'head', 'options']
 
@@ -354,6 +363,8 @@ class WeeklyLocalSellPlanViewSet(SeasonScopedMixin, ModelViewSet):
         if not ids:
             return Response({'error': 'ids list is required.'}, status=http_status.HTTP_400_BAD_REQUEST)
         plans = WeeklyLocalSellPlan.objects.filter(id__in=ids, status__in=['draft', 'rejected'])
+        # Write freeze (D1) — bulk by raw id list, no get_object().
+        assert_bulk_seasons_open(plans)
         submitted_ids, errors = [], []
         for plan in plans:
             try:
@@ -372,6 +383,8 @@ class WeeklyLocalSellPlanViewSet(SeasonScopedMixin, ModelViewSet):
         if not ids:
             return Response({'error': 'ids list is required.'}, status=http_status.HTTP_400_BAD_REQUEST)
         plans = WeeklyLocalSellPlan.objects.filter(id__in=ids, status='submitted')
+        # Write freeze (D1) — bulk by raw id list, no get_object().
+        assert_bulk_seasons_open(plans)
         approved_ids, errors = [], []
         for plan in plans:
             try:
@@ -406,6 +419,10 @@ class WeeklyLocalSellPlanViewSet(SeasonScopedMixin, ModelViewSet):
         role = getattr(request.user, 'role', None)
         if role not in _LOCAL_SELL_APPROVE_ROLES:
             raise PermissionDenied('Only export_manager/director can initialize a week.')
+
+        # Write freeze (D1). Only the explicit-body branch can be closed —
+        # get_active_season() never returns a closed season.
+        assert_season_id_open(season_id)
 
         active_firms = ExportFirm.objects.filter(is_active=True)
         existing_firm_ids = set(

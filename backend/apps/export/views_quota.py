@@ -18,9 +18,9 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework.decorators import action
 
 from apps.core.models import Season
-from apps.core.permissions import write_permission, DynamicResourcePermission
+from apps.core.permissions import write_permission, DynamicResourcePermission, SeasonNotClosed
 from apps.core.roles import QUOTA_WRITE
-from apps.core.seasons import SeasonScopedMixin
+from apps.core.seasons import SeasonScopedMixin, assert_bulk_seasons_open
 
 from apps.export.models import QuotaIssuance, QuotaUsageRecord
 from apps.export.models.audit import AuditLog
@@ -157,7 +157,7 @@ class QuotaUsageViewSet(SeasonScopedMixin, ModelViewSet):
     """
 
     resource_code = 'quota_usage'
-    permission_classes = [IsAuthenticated, DynamicResourcePermission]
+    permission_classes = [IsAuthenticated, DynamicResourcePermission, SeasonNotClosed]
     serializer_class = QuotaUsageRecordSerializer
     pagination_class = None  # Grid view needs all records; volume is bounded by season
     http_method_names = ['get', 'patch', 'delete', 'post', 'head', 'options']
@@ -235,6 +235,11 @@ class QuotaUsageViewSet(SeasonScopedMixin, ModelViewSet):
 
         with transaction.atomic():
             approved_qs = QuotaUsageRecord.objects.filter(id__in=ids, status='draft')
+            # Write freeze (D1). Bulk approve selects by a raw id list, so
+            # layer 1 never sees these rows; the season is reached through
+            # `shipment` (nullable — a NULL-shipment historical import belongs
+            # to no season and is therefore never frozen).
+            assert_bulk_seasons_open(approved_qs, 'shipment__season')
             approved_ids = list(approved_qs.values_list('id', flat=True))
             updated = approved_qs.update(
                 status='approved',

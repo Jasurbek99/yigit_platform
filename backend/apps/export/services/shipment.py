@@ -184,12 +184,21 @@ def transition_to(
                 fires the final-step notification once after the cascade ends.
 
     Raises:
+        SeasonClosedError: If this shipment belongs to a closed season (D1).
         ValueError: If the transition is not allowed from the current status,
                     or if new_status_code does not exist in ShipmentStatusType.
         PermissionError: If the user's role is not allowed to trigger this
                          transition AND is_auto=False.
     """
     from apps.core.models import ShipmentStatusType
+    from apps.core.seasons import assert_season_open
+
+    # Write freeze (D1). This is the mandated path for every status change in
+    # the system, so guarding it here covers /transition/, /cancel/, /assign/
+    # and auto-advance in one place. Note auto_advance_if_ready() catches only
+    # ValueError, so SeasonClosedError propagates out of a save() on a
+    # closed-season row — intended.
+    assert_season_open(shipment.season)
 
     current_code = shipment.status.code if shipment.status_id else None
     edges = TRANSITIONS.get(current_code, [])
@@ -565,11 +574,12 @@ def create_shipment(
         The newly created Shipment instance in `draft` status.
 
     Raises:
+        SeasonClosedError: If an explicit closed `season` was supplied (D1).
         ValueError: If no active season exists and none was provided, or if
                     the draft status is not configured in the DB.
     """
     from apps.core.models import ShipmentStatusType
-    from apps.core.seasons import get_active_season
+    from apps.core.seasons import assert_season_open, get_active_season
 
     # Resolve season from the active season when the caller did not supply one.
     resolved_season: Optional[object] = season
@@ -577,6 +587,10 @@ def create_shipment(
         resolved_season = get_active_season()
         if resolved_season is None:
             raise ValueError('No active season found. Provide a season in the request.')
+
+    # Write freeze (D1). get_active_season() can never return a closed season,
+    # so this only ever bites a POST body carrying an explicit closed `season`.
+    assert_season_open(resolved_season)
 
     try:
         draft_status = ShipmentStatusType.objects.get(code='draft')

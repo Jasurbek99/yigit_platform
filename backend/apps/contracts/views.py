@@ -11,7 +11,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
-from apps.core.permissions import DynamicResourcePermission, write_permission
+from apps.core.permissions import (
+    DynamicResourcePermission, SeasonNotClosed, write_permission,
+)
 from apps.core.seasons import SeasonScopedMixin, resolve_season
 from apps.contracts.document_templates.registry import SCOPE_INVOICE, get_spec
 from apps.contracts.models import Contract, ContractAttachment, ContractSale
@@ -60,7 +62,7 @@ class ContractViewSet(SeasonScopedMixin, ModelViewSet):
     'active' contracts.
     """
 
-    permission_classes = [IsAuthenticated, DynamicResourcePermission]
+    permission_classes = [IsAuthenticated, DynamicResourcePermission, SeasonNotClosed]
     resource_code = 'contract'
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
@@ -287,7 +289,7 @@ class ContractSaleViewSet(SeasonScopedMixin, ModelViewSet):
     it has no place there. Detail routes bypass scoping — Rule A.
     """
 
-    permission_classes = [IsAuthenticated, DynamicResourcePermission]
+    permission_classes = [IsAuthenticated, DynamicResourcePermission, SeasonNotClosed]
     resource_code = 'sale'
     season_field = 'shipment__season'
     include_null_link = True

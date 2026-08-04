@@ -26,6 +26,7 @@ from apps.core.permission_registry import ROLE_REQUIRED_FIELDS
 from apps.core.permissions import (
     PRIVILEGED_ROLES,
     DynamicResourcePermission,
+    SeasonNotClosed,
     can_edit_sheet_field,
     get_sheet_edit_map,
     write_permission,
@@ -33,7 +34,13 @@ from apps.core.permissions import (
 # ShipmentViewSet takes the resolved Season object (not just a filter) so it can
 # see is_closed and bypass the archive split, so it calls resolve_season()
 # directly instead of using SeasonScopedMixin.
-from apps.core.seasons import SeasonScopedMixin, can_view_closed, resolve_season
+from apps.core.seasons import (
+    SeasonScopedMixin,
+    assert_bulk_seasons_open,
+    assert_season_open,
+    can_view_closed,
+    resolve_season,
+)
 from apps.export.models import (
     AuditLog,
     ExpenseCategory,
@@ -119,7 +126,7 @@ class ShipmentViewSet(ModelViewSet):
     """
 
     resource_code = 'shipment'
-    permission_classes = [IsAuthenticated, DynamicResourcePermission]
+    permission_classes = [IsAuthenticated, DynamicResourcePermission, SeasonNotClosed]
     http_method_names = ['get', 'post', 'patch', 'head', 'options']  # no PUT/DELETE via API
 
     # Sheet-level convenience actions (column tint, soft-delete, restore) are
@@ -131,9 +138,13 @@ class ShipmentViewSet(ModelViewSet):
     _OPEN_ACTIONS = {'soft_delete', 'restore', 'set_column_color'}
 
     def get_permissions(self):
+        # SeasonNotClosed is repeated in every branch below: these branches
+        # REPLACE the class-level permission_classes, so the write freeze would
+        # silently not apply to the actions they cover (all of which are
+        # writes) if it were only declared on the class.
         action = getattr(self, 'action', None)
         if action in self._OPEN_ACTIONS:
-            return [IsAuthenticated()]
+            return [IsAuthenticated(), SeasonNotClosed()]
         # The pallet-manifest WRITE flow (fill / upload / close) is gated by the
         # PALLET_WRITE_ROLES allowlist inside each method body — the same pattern
         # as set_sales_report below. DynamicResourcePermission maps POST to
@@ -146,7 +157,7 @@ class ShipmentViewSet(ModelViewSet):
             or (action == 'pallets' and self.request.method == 'POST')
         )
         if is_pallet_write:
-            return [IsAuthenticated()]
+            return [IsAuthenticated(), SeasonNotClosed()]
         if action == 'set_sales_report':
             # This action writes the `sales_report` resource (where sales_rep
             # HAS create rights), not `shipment`. The frontend always POSTs, so
@@ -154,7 +165,7 @@ class ShipmentViewSet(ModelViewSet):
             # shipment.can_create — False for sales_rep (_VE) — and 403s before
             # the body runs. The method body enforces its own role gate
             # (PRIVILEGED_ROLES | {'sales_rep'}), so that is the sole authority.
-            return [IsAuthenticated()]
+            return [IsAuthenticated(), SeasonNotClosed()]
         return super().get_permissions()
 
     queryset = Shipment.objects.select_related(
@@ -692,6 +703,9 @@ class ShipmentViewSet(ModelViewSet):
                 {'error': f'At most {self._BULK_DELETE_MAX} shipments per request.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        # Write freeze (D1) — no get_object(), so layer 1 never sees these ids.
+        assert_bulk_seasons_open(Shipment.objects.filter(id__in=ids))
 
         # Bypass operational/archive filters — admin tool deletes by ID
         # regardless of which list the shipment lives in.
@@ -1612,6 +1626,9 @@ class ShipmentViewSet(ModelViewSet):
         if not shipment_ids:
             return Response({'updated': 0})
 
+        # Write freeze (D1) — no get_object(), so layer 1 never sees these ids.
+        assert_bulk_seasons_open(Shipment.objects.filter(id__in=shipment_ids))
+
         with transaction.atomic():
             existing: dict[int, Shipment] = {
                 s.id: s
@@ -1830,6 +1847,10 @@ class ShipmentViewSet(ModelViewSet):
             if season is None:
                 raise ValueError('No active season found. Provide a season in the request.')
 
+        # Write freeze (D1) — mirrors create_shipment(); only bites a POST body
+        # carrying an explicit closed `season`.
+        assert_season_open(season)
+
         try:
             draft_status = ShipmentStatusType.objects.get(code='draft')
         except ShipmentStatusType.DoesNotExist:
@@ -2039,6 +2060,11 @@ class ShipmentViewSet(ModelViewSet):
             source = Shipment.objects.select_related('status', 'created_by').get(pk=source_id)
         except Shipment.DoesNotExist:
             return Response({'error': 'Source shipment not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Write freeze (D1). The target came through get_object() so layer 1
+        # already cleared it; the source comes from the body and is deleted by
+        # the merge, so it needs its own guard.
+        assert_season_open(source.season)
 
         # --- Business rule gates (cheap pre-checks on unlocked rows) ---
         error = self._validate_join(target, source)
@@ -2276,6 +2302,10 @@ class ShipmentViewSet(ModelViewSet):
                 {'error': f'Shipment with id={other_id} not found'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        # Write freeze (D1). A swap mutates BOTH rows; only shipment_a came
+        # through get_object(), so shipment_b needs its own guard.
+        assert_season_open(shipment_b.season)
 
         # --- Whitelist + permission gate (cheap pre-checks on unlocked rows) ---
         for field in requested_fields:
@@ -3381,7 +3411,7 @@ class CommentViewSet(SeasonScopedMixin, ModelViewSet):
     """
 
     resource_code = 'shipment_comment'
-    permission_classes = [IsAuthenticated, DynamicResourcePermission]
+    permission_classes = [IsAuthenticated, DynamicResourcePermission, SeasonNotClosed]
     http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
     season_field = 'shipment__season'
 
@@ -3612,7 +3642,7 @@ class TaskViewSet(SeasonScopedMixin, viewsets.ReadOnlyModelViewSet):
     routes and the state-change actions bypass scoping — Rule A.
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, SeasonNotClosed]
     filterset_fields = ['assignee_role', 'assignee_user', 'state', 'shipment', 'step']
     season_field = 'shipment__season'
     include_null_link = True

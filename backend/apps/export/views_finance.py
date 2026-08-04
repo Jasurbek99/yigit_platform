@@ -12,9 +12,11 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
-from apps.core.permissions import DynamicResourcePermission
+from apps.core.permissions import DynamicResourcePermission, SeasonNotClosed
 from apps.core.roles import ADVANCE_WRITE
-from apps.core.seasons import SeasonScopedMixin, can_view_closed, resolve_season
+from apps.core.seasons import (
+    SeasonScopedMixin, assert_season_open, can_view_closed, resolve_season,
+)
 from apps.export.models import (
     CustomsExpense,
     CustomsExpenseCategory,
@@ -226,11 +228,17 @@ class FinansistAdvanceViewSet(ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if not Shipment.objects.filter(id=shipment_id).exists():
+        target = Shipment.objects.filter(id=shipment_id).select_related('season').first()
+        if target is None:
             return Response(
                 {'error': f'Shipment {shipment_id} not found.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        # Write freeze (D1). FinansistAdvance itself carries no season, so
+        # layer 1 is a no-op on this viewset — the season lives on the
+        # shipment named in the body.
+        assert_season_open(target.season)
 
         if FinansistAdvanceShipment.objects.filter(
             advance=advance, shipment_id=shipment_id
@@ -269,6 +277,13 @@ class FinansistAdvanceViewSet(ModelViewSet):
             )
 
         advance: FinansistAdvance = self.get_object()
+
+        # Write freeze (D1) — see link_shipment.
+        link = FinansistAdvanceShipment.objects.filter(
+            advance=advance, shipment_id=shipment_id,
+        ).select_related('shipment__season').first()
+        if link is not None:
+            assert_season_open(link.shipment.season)
 
         deleted_count, _ = FinansistAdvanceShipment.objects.filter(
             advance=advance, shipment_id=shipment_id
@@ -318,7 +333,7 @@ class CustomsExpenseViewSet(SeasonScopedMixin, ModelViewSet):
     closed season is explicitly browsed. Detail routes bypass scoping — Rule A.
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, SeasonNotClosed]
     serializer_class = CustomsExpenseSerializer
     http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
     season_field = 'shipment__season'

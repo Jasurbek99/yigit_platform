@@ -94,6 +94,51 @@ def assert_season_open(season: Season | None) -> None:
         raise SeasonClosedError(season)
 
 
+def assert_bulk_seasons_open(queryset: QuerySet, season_path: str = 'season') -> None:
+    """Guard for a bulk write that selects rows by a raw id list.
+
+    Layer-1 object permissions never fire on those paths — there is no
+    `get_object()` — so the season has to be checked against the rows
+    themselves. One query regardless of how many ids were submitted, and it
+    rejects the whole batch: a partially-applied bulk write against a frozen
+    season is worse than a rejected one.
+
+    Args:
+        queryset: The rows about to be mutated.
+        season_path: ORM path from the model to Season. Use
+            ``'shipment__season'`` for join-scoped children.
+
+    Raises:
+        SeasonClosedError: If any row in `queryset` belongs to a closed season.
+    """
+    closed = Season.objects.filter(
+        # .order_by() strips Meta.ordering — MSSQL rejects ORDER BY inside a
+        # subquery without TOP/OFFSET (see .claude/rules/mssql-compat.md).
+        pk__in=queryset.order_by().values(season_path),
+        closed_at__isnull=False,
+    ).first()
+    if closed is not None:
+        raise SeasonClosedError(closed)
+
+
+def assert_season_id_open(season_id) -> None:
+    """Guard for a write whose season arrives in the request BODY.
+
+    `set_selection` and the two `initialize_week` actions take a season id from
+    the payload and create rows under it, so neither layer-1 nor a queryset
+    check can see it.
+
+    Args:
+        season_id: Raw season id from the request body; falsy is a no-op.
+
+    Raises:
+        SeasonClosedError: If that season exists and is closed.
+    """
+    if not season_id:
+        return
+    assert_season_open(Season.objects.filter(pk=season_id).first())
+
+
 class SeasonScopedMixin:
     """Applies the resolved read scope to a viewset queryset.
 

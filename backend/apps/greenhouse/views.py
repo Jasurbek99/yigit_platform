@@ -10,9 +10,11 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
-from apps.core.permissions import write_permission
+from apps.core.permissions import SeasonNotClosed, write_permission
 from apps.core.roles import DOMESTIC_WRITE, HARVEST_DAY_WRITE, HARVEST_DAY_OVERRIDE
-from apps.core.seasons import SeasonScopedMixin, resolve_season
+from apps.core.seasons import (
+    SeasonScopedMixin, assert_bulk_seasons_open, assert_season_id_open, resolve_season,
+)
 from apps.greenhouse.models import (
     BlockManagerAssignment,
     DomesticSale,
@@ -51,7 +53,7 @@ class WeeklyHarvestPlanViewSet(SeasonScopedMixin, ModelViewSet):
       - All other roles: denied on write.
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, SeasonNotClosed]
     serializer_class = WeeklyHarvestPlanSerializer
     http_method_names = ['get', 'post', 'put', 'patch', 'head', 'options']
 
@@ -136,6 +138,9 @@ class WeeklyHarvestPlanViewSet(SeasonScopedMixin, ModelViewSet):
         role = getattr(request.user, 'role', None)
         if role not in ('admin', 'director'):
             raise PermissionDenied('Only admin or director can initialize a week plan.')
+
+        # Write freeze (D1) — the season arrives in the request BODY.
+        assert_season_id_open(season_id)
 
         plans = initialize_harvest_week(season_id, week_number, year, request.user)
         serializer = self.get_serializer(plans, many=True)
@@ -311,6 +316,9 @@ class WeeklyHarvestPlanViewSet(SeasonScopedMixin, ModelViewSet):
         if errors:
             return Response(errors, status=http_status.HTTP_400_BAD_REQUEST)
 
+        # Write freeze (D1) — bulk by raw id list, no get_object().
+        assert_bulk_seasons_open(WeeklyHarvestPlan.objects.filter(id__in=plan_ids))
+
         now = timezone.now()
         with transaction.atomic():
             plans = list(WeeklyHarvestPlan.objects.filter(id__in=plan_ids).select_related(
@@ -366,6 +374,9 @@ class WeeklyHarvestPlanViewSet(SeasonScopedMixin, ModelViewSet):
                 status=http_status.HTTP_400_BAD_REQUEST,
             )
 
+        # Write freeze (D1) — bulk by raw id list, no get_object().
+        assert_bulk_seasons_open(WeeklyHarvestPlan.objects.filter(id__in=plan_ids))
+
         now = timezone.now()
         with transaction.atomic():
             plans = list(WeeklyHarvestPlan.objects.filter(id__in=plan_ids).select_related(
@@ -411,7 +422,7 @@ class HarvestDayEntryViewSet(SeasonScopedMixin, ModelViewSet):
     POST and DELETE are disabled — rows are created by initialize_harvest_week.
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, SeasonNotClosed]
     serializer_class = HarvestDayEntrySerializer
     http_method_names = ['get', 'patch', 'head', 'options']
 
