@@ -44,10 +44,10 @@ ENDPOINTS = [
 # customs-expenses, contract sales) are intentionally NOT added to ENDPOINTS
 # above: ScopedEndpointCoverageTests' `blocked` role needs the *unscoped*
 # request to return 200 so a 403 on the closed-season request can only mean
-# the season gate fired — but `blocked` (role='director') has no view
-# permission on 'sale'/'advance'/'quota_usage' at all, so that precondition
-# fails before the season check is ever exercised. Each gets its own dedicated
-# test class below instead (JoinScopedEndpointTests, TaskJoinScopedEndpointTests,
+# the season gate fired, and each join-scoped resource ('sale'/'advance'/
+# 'quota_usage') would need its own explicit grant added there for no reason
+# other than ENDPOINTS coverage. Each gets its own dedicated test class below
+# instead (JoinScopedEndpointTests, TaskJoinScopedEndpointTests,
 # QuotaUsageJoinScopedEndpointTests, CustomsExpenseJoinScopedEndpointTests,
 # ContractSaleJoinScopedEndpointTests, FinansistAdvanceJoinScopedEndpointTests) —
 # still fully covered, just not through this generic harness.
@@ -257,10 +257,23 @@ class ScopedEndpointCoverageTests(TestCase):
         cls.destination = TruckDestination.objects.create(name='Almaty')
 
         cls.viewer = User.objects.create(username='viewer', role='admin')
-        cls.blocked = User.objects.create(username='blocked', role='director')
+        # warehouse_chief is not in _ARCHIVE_VIEW_ROLES, so seed_permissions
+        # grants it no closed_season row — unlike director/export_manager/
+        # admin/finansist/boss, which Task 8 seeds with closed_season.can_view
+        # by design. warehouse_chief's own RESOURCE_DEFAULTS only cover
+        # shipment/shipment_block_source/shipment_comment/domestic_sale/
+        # pallet/manifest_close, so the four resources below are granted
+        # explicitly here to keep the "unscoped request must be 200"
+        # precondition true for every endpoint in ENDPOINTS.
+        cls.blocked = User.objects.create(username='blocked', role='warehouse_chief')
         RoleResourcePermission.objects.update_or_create(
             role='admin', resource_code='closed_season', defaults={'can_view': True},
         )
+        for resource in ('truck_allocation', 'local_sell_plan', 'contract', 'sale'):
+            RoleResourcePermission.objects.update_or_create(
+                role='warehouse_chief', resource_code=resource,
+                defaults={'can_view': True},
+            )
 
         # dict.fromkeys de-dups while keeping order: two endpoints share
         # make_shipment, and calling it twice would collide on shipment_code.
@@ -928,10 +941,16 @@ class QuotaUsageJoinScopedEndpointTests(TestCase):
         RoleResourcePermission.objects.update_or_create(
             role='admin', resource_code='closed_season', defaults={'can_view': True},
         )
-        # director has full CRUD on quota_usage by default (seed_permissions)
-        # but no closed_season grant — proves the 403 below is the season
-        # gate, not the quota_usage resource gate.
-        cls.blocked = User.objects.create(username='quotajoin_blocked', role='director')
+        # warehouse_chief lacks 'quota_usage' in its RESOURCE_DEFAULTS — grant
+        # it explicitly so the unscoped request is 200. warehouse_chief is
+        # not in _ARCHIVE_VIEW_ROLES, so seed_permissions grants it no
+        # closed_season row, proving the 403 below is the season gate, not
+        # the quota_usage resource gate.
+        cls.blocked = User.objects.create(username='quotajoin_blocked', role='warehouse_chief')
+        RoleResourcePermission.objects.update_or_create(
+            role='warehouse_chief', resource_code='quota_usage',
+            defaults={'can_view': True},
+        )
 
         active_shipment = _make_scoped_shipment(cls.active, 'QUJ-ACT', country, status)
         closed_shipment = _make_scoped_shipment(cls.closed, 'QUJ-CLS', country, status)
@@ -1140,9 +1159,16 @@ class ContractSaleJoinScopedEndpointTests(TestCase):
         RoleResourcePermission.objects.update_or_create(
             role='admin', resource_code='closed_season', defaults={'can_view': True},
         )
-        # director has full view+create+edit on 'sale' by default (seed_permissions)
-        # but no closed_season grant — proves the 403 below is the season gate.
-        cls.blocked = User.objects.create(username='csjoin_blocked', role='director')
+        # warehouse_chief lacks 'sale' in its RESOURCE_DEFAULTS — grant it
+        # explicitly so the unscoped request is 200. warehouse_chief is not
+        # in _ARCHIVE_VIEW_ROLES, so seed_permissions grants it no
+        # closed_season row, proving the 403 below is the season gate, not
+        # the sale resource gate.
+        cls.blocked = User.objects.create(username='csjoin_blocked', role='warehouse_chief')
+        RoleResourcePermission.objects.update_or_create(
+            role='warehouse_chief', resource_code='sale',
+            defaults={'can_view': True},
+        )
 
         active_shipment = _make_scoped_shipment(cls.active, 'CSJ-ACT', country, status)
         closed_shipment = _make_scoped_shipment(cls.closed, 'CSJ-CLS', country, status)
@@ -1222,9 +1248,16 @@ class FinansistAdvanceJoinScopedEndpointTests(TestCase):
         RoleResourcePermission.objects.update_or_create(
             role='admin', resource_code='closed_season', defaults={'can_view': True},
         )
-        # director has full CRUD on 'advance' by default (seed_permissions)
-        # but no closed_season grant — proves the 403 below is the season gate.
-        cls.blocked = User.objects.create(username='finjoin_blocked', role='director')
+        # warehouse_chief lacks 'advance' in its RESOURCE_DEFAULTS — grant it
+        # explicitly so the unscoped request is 200. warehouse_chief is not
+        # in _ARCHIVE_VIEW_ROLES, so seed_permissions grants it no
+        # closed_season row, proving the 403 below is the season gate, not
+        # the advance resource gate.
+        cls.blocked = User.objects.create(username='finjoin_blocked', role='warehouse_chief')
+        RoleResourcePermission.objects.update_or_create(
+            role='warehouse_chief', resource_code='advance',
+            defaults={'can_view': True},
+        )
 
         active_shipment_1 = _make_scoped_shipment(cls.active, 'FAJ-ACT1', country, status)
         active_shipment_2 = _make_scoped_shipment(cls.active, 'FAJ-ACT2', country, status)
