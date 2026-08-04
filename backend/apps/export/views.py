@@ -33,7 +33,7 @@ from apps.core.permissions import (
 # ShipmentViewSet takes the resolved Season object (not just a filter) so it can
 # see is_closed and bypass the archive split, so it calls resolve_season()
 # directly instead of using SeasonScopedMixin.
-from apps.core.seasons import SeasonScopedMixin, resolve_season
+from apps.core.seasons import SeasonScopedMixin, can_view_closed, resolve_season
 from apps.export.models import (
     AuditLog,
     ExpenseCategory,
@@ -3427,14 +3427,21 @@ class CommentViewSet(SeasonScopedMixin, ModelViewSet):
         elif parent_param:
             qs = qs.filter(parent_comment_id=parent_param)
 
-        # ?shipment=<id> is the per-shipment comment drawer, opened from that
-        # shipment's own detail page — which resolves regardless of season
-        # (Rule A). Scoping this request too would silently empty the drawer
-        # for a closed-season shipment the user is legitimately viewing. A
-        # single pinned shipment has no cross-season surface to leak: the
-        # detail route already grants it to every user, season or no season.
-        if self.action == 'list' and not shipment_id:
-            qs = self.apply_season_scope(qs)
+        if self.action == 'list':
+            # resolve_season() runs unconditionally — even when ?shipment= pins
+            # a single parent — so an unknown/closed ?season= still 404s/403s
+            # and the close→open gap still fails closed. §4.5's opt-out is
+            # shipment detail-by-ID; a comment/task/expense LIST filtered by
+            # ?shipment= is a strictly wider payload (bodies, amounts, rows),
+            # not a shipment-detail read, so it does not inherit that opt-out.
+            season = resolve_season(self.request)
+            if shipment_id and season is not None and can_view_closed(self.request.user):
+                # Privileged pin: this user could already reach the same rows
+                # by selecting the closed season explicitly, so scoping here
+                # would only cost them an extra click, not close a hole.
+                pass
+            else:
+                qs = self.apply_season_scope(qs, season=season)
 
         return qs
 
@@ -3628,11 +3635,18 @@ class TaskViewSet(SeasonScopedMixin, viewsets.ReadOnlyModelViewSet):
                 deadline__lt=timezone.now(),
             ).exclude(state__in=[TaskState.DONE, TaskState.CANCELLED])
 
-        # ?shipment=<id> (applied later by DjangoFilterBackend via
-        # filterset_fields) pins the request to one shipment's own tasks list
-        # — same drawer-emptying risk as CommentViewSet, same exemption.
-        if self.action == 'list' and not self.request.query_params.get('shipment'):
-            qs = self.apply_season_scope(qs)
+        if self.action == 'list':
+            # ?shipment=<id> (applied later by DjangoFilterBackend via
+            # filterset_fields) pins the request to one shipment's own tasks
+            # panel. resolve_season() still runs unconditionally so the gap
+            # fails closed and a bad/closed ?season= still 404s/403s — see
+            # CommentViewSet.get_queryset() for the full rationale.
+            season = resolve_season(self.request)
+            shipment_id = self.request.query_params.get('shipment')
+            if shipment_id and season is not None and can_view_closed(self.request.user):
+                pass
+            else:
+                qs = self.apply_season_scope(qs, season=season)
 
         return qs.order_by('deadline', 'created_at')
 

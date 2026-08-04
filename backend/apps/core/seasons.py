@@ -121,7 +121,12 @@ class SeasonScopedMixin:
     season_field: str = 'season'
     include_null_link: bool = False
 
-    def apply_season_scope(self, qs: QuerySet) -> QuerySet:
+    # Sentinel distinguishing "caller didn't pass a season" from "caller
+    # passed season=None" (which is the legitimate close→open-gap value and
+    # must still fail closed, not fall back to resolving one).
+    _SEASON_NOT_GIVEN = object()
+
+    def apply_season_scope(self, qs: QuerySet, season=_SEASON_NOT_GIVEN) -> QuerySet:
         """Scope `qs` to the resolved season, failing CLOSED (D7, spec §3.1).
 
         No active season and no ?season= means we cannot say which season the
@@ -132,8 +137,16 @@ class SeasonScopedMixin:
 
         Detail routes are unaffected: they bypass scoping entirely, so a direct
         link still resolves during the gap.
+
+        Pass `season` when the caller already resolved it for another reason
+        (e.g. a `?shipment=<id>` pin exemption that needs to inspect the
+        resolved season before deciding whether to scope at all) — this avoids
+        calling `resolve_season()` twice, which would otherwise raise its
+        `NotFound`/`PermissionDenied` side effects redundantly (harmless, but
+        wasteful). Defaults to resolving it here.
         """
-        season = resolve_season(self.request)
+        if season is self._SEASON_NOT_GIVEN:
+            season = resolve_season(self.request)
         if season is None:
             return qs.none()
         season_q = Q(**{self.season_field: season})

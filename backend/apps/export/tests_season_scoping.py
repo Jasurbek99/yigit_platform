@@ -715,9 +715,13 @@ class TaskJoinScopedEndpointTests(TestCase):
         )
         country = Country.objects.create(name_en='Kazakhstan', name_tk='Gazagystan')
         status = _make_status()
-        cls.manager = User.objects.create(
-            username='taskjoin_mgr', role='export_manager', is_superuser=True,
+        cls.manager = User.objects.create(username='taskjoin_mgr', role='export_manager')
+        RoleResourcePermission.objects.update_or_create(
+            role='export_manager', resource_code='closed_season', defaults={'can_view': True},
         )
+        # No closed_season grant — proves the 403 below is the season gate,
+        # not TaskViewSet's own (nonexistent) resource permission.
+        cls.blocked = User.objects.create(username='taskjoin_blocked', role='sales_rep')
 
         active_shipment = _make_scoped_shipment(cls.active, 'TJ-ACT', country, status)
         closed_shipment = _make_scoped_shipment(cls.closed, 'TJ-CLS', country, status)
@@ -766,6 +770,18 @@ class TaskJoinScopedEndpointTests(TestCase):
         )
         self.assertIn('t.closed', titles)
 
+    def test_closed_season_denied_without_permission(self):
+        client = self._login(self.blocked)
+        unscoped = client.get('/api/v1/export/tasks/')
+        self.assertEqual(
+            unscoped.status_code, 200,
+            'unscoped request must succeed — otherwise the 403 below would be '
+            'a resource-permission failure, not a season one (TaskViewSet has '
+            'no resource_code gate, so this should always be 200)',
+        )
+        response = client.get(f'/api/v1/export/tasks/?season={self.closed.pk}')
+        self.assertEqual(response.status_code, 403)
+
 
 class QuotaUsageJoinScopedEndpointTests(TestCase):
     """QuotaUsageRecord.shipment is nullable ("null for imported historical
@@ -786,9 +802,14 @@ class QuotaUsageJoinScopedEndpointTests(TestCase):
         country = Country.objects.create(name_en='Kazakhstan', name_tk='Gazagystan')
         status = _make_status()
         cls.export_firm = ExportFirm.objects.create(code='QUJ1', name_tk='Firma')
-        cls.admin = User.objects.create(
-            username='quotajoin_admin', role='admin', is_superuser=True,
+        cls.admin = User.objects.create(username='quotajoin_admin', role='admin')
+        RoleResourcePermission.objects.update_or_create(
+            role='admin', resource_code='closed_season', defaults={'can_view': True},
         )
+        # director has full CRUD on quota_usage by default (seed_permissions)
+        # but no closed_season grant — proves the 403 below is the season
+        # gate, not the quota_usage resource gate.
+        cls.blocked = User.objects.create(username='quotajoin_blocked', role='director')
 
         active_shipment = _make_scoped_shipment(cls.active, 'QUJ-ACT', country, status)
         closed_shipment = _make_scoped_shipment(cls.closed, 'QUJ-CLS', country, status)
@@ -831,6 +852,17 @@ class QuotaUsageJoinScopedEndpointTests(TestCase):
         self.assertNotIn('active-row', notes)
         self.assertNotIn('historical-row', notes)
 
+    def test_closed_season_denied_without_permission(self):
+        client = self._login(self.blocked)
+        unscoped = client.get('/api/v1/export/quota-usage/')
+        self.assertEqual(
+            unscoped.status_code, 200,
+            'unscoped request must succeed — otherwise the 403 below would be '
+            'a resource-permission failure, not a season one',
+        )
+        response = client.get(f'/api/v1/export/quota-usage/?season={self.closed.pk}')
+        self.assertEqual(response.status_code, 403)
+
 
 class CustomsExpenseJoinScopedEndpointTests(TestCase):
     """CustomsExpense.shipment is nullable ("null for batch fees"). Same
@@ -849,9 +881,13 @@ class CustomsExpenseJoinScopedEndpointTests(TestCase):
         )
         country = Country.objects.create(name_en='Kazakhstan', name_tk='Gazagystan')
         status = _make_status()
-        cls.creator = User.objects.create(
-            username='cej_creator', role='export_manager', is_superuser=True,
+        cls.creator = User.objects.create(username='cej_creator', role='export_manager')
+        RoleResourcePermission.objects.update_or_create(
+            role='export_manager', resource_code='closed_season', defaults={'can_view': True},
         )
+        # No closed_season grant — CustomsExpenseViewSet has no resource_code
+        # gate, so this proves the 403 below is the season gate.
+        cls.blocked = User.objects.create(username='cej_blocked', role='sales_rep')
 
         active_shipment = _make_scoped_shipment(cls.active, 'CEJ-ACT', country, status)
         closed_shipment = _make_scoped_shipment(cls.closed, 'CEJ-CLS', country, status)
@@ -907,6 +943,18 @@ class CustomsExpenseJoinScopedEndpointTests(TestCase):
         )
         self.assertIn('closed-row', labels)
 
+    def test_closed_season_denied_without_permission(self):
+        client = self._login(self.blocked)
+        unscoped = client.get('/api/v1/export/customs-expenses/')
+        self.assertEqual(
+            unscoped.status_code, 200,
+            'unscoped request must succeed — otherwise the 403 below would be '
+            'a resource-permission failure, not a season one (CustomsExpenseViewSet '
+            'has no resource_code gate, so this should always be 200)',
+        )
+        response = client.get(f'/api/v1/export/customs-expenses/?season={self.closed.pk}')
+        self.assertEqual(response.status_code, 403)
+
 
 class ContractSaleJoinScopedEndpointTests(TestCase):
     """ContractSale.shipment is nullable — legacy 2-Sales rows imported before
@@ -928,9 +976,13 @@ class ContractSaleJoinScopedEndpointTests(TestCase):
         status = _make_status()
         export_firm = ExportFirm.objects.create(code='CSJ1', name_tk='Firma')
         import_firm = ImportFirm.objects.create(name_company='Buyer CSJ')
-        cls.admin = User.objects.create(
-            username='csjoin_admin', role='admin', is_superuser=True,
+        cls.admin = User.objects.create(username='csjoin_admin', role='admin')
+        RoleResourcePermission.objects.update_or_create(
+            role='admin', resource_code='closed_season', defaults={'can_view': True},
         )
+        # director has full view+create+edit on 'sale' by default (seed_permissions)
+        # but no closed_season grant — proves the 403 below is the season gate.
+        cls.blocked = User.objects.create(username='csjoin_blocked', role='director')
 
         active_shipment = _make_scoped_shipment(cls.active, 'CSJ-ACT', country, status)
         closed_shipment = _make_scoped_shipment(cls.closed, 'CSJ-CLS', country, status)
@@ -972,6 +1024,17 @@ class ContractSaleJoinScopedEndpointTests(TestCase):
         self.assertNotIn(1, numbers)
         self.assertNotIn(3, numbers)
 
+    def test_closed_season_denied_without_permission(self):
+        client = self._login(self.blocked)
+        unscoped = client.get('/api/v1/contracts/sales/')
+        self.assertEqual(
+            unscoped.status_code, 200,
+            'unscoped request must succeed — otherwise the 403 below would be '
+            'a resource-permission failure, not a season one',
+        )
+        response = client.get(f'/api/v1/contracts/sales/?season={self.closed.pk}')
+        self.assertEqual(response.status_code, 403)
+
 
 class FinansistAdvanceJoinScopedEndpointTests(TestCase):
     """FinansistAdvance has no `shipment` FK of its own — only via the
@@ -995,9 +1058,13 @@ class FinansistAdvanceJoinScopedEndpointTests(TestCase):
         )
         country = Country.objects.create(name_en='Kazakhstan', name_tk='Gazagystan')
         status = _make_status()
-        cls.admin = User.objects.create(
-            username='finjoin_admin', role='admin', is_superuser=True,
+        cls.admin = User.objects.create(username='finjoin_admin', role='admin')
+        RoleResourcePermission.objects.update_or_create(
+            role='admin', resource_code='closed_season', defaults={'can_view': True},
         )
+        # director has full CRUD on 'advance' by default (seed_permissions)
+        # but no closed_season grant — proves the 403 below is the season gate.
+        cls.blocked = User.objects.create(username='finjoin_blocked', role='director')
 
         active_shipment_1 = _make_scoped_shipment(cls.active, 'FAJ-ACT1', country, status)
         active_shipment_2 = _make_scoped_shipment(cls.active, 'FAJ-ACT2', country, status)
@@ -1061,3 +1128,14 @@ class FinansistAdvanceJoinScopedEndpointTests(TestCase):
         """
         rows = self._rows_by_code(self._login(self.admin).get('/api/v1/export/advances/'))
         self.assertEqual(rows['ADV-ACT']['shipment_count'], 2)
+
+    def test_closed_season_denied_without_permission(self):
+        client = self._login(self.blocked)
+        unscoped = client.get('/api/v1/export/advances/')
+        self.assertEqual(
+            unscoped.status_code, 200,
+            'unscoped request must succeed — otherwise the 403 below would be '
+            'a resource-permission failure, not a season one',
+        )
+        response = client.get(f'/api/v1/export/advances/?season={self.closed.pk}')
+        self.assertEqual(response.status_code, 403)
