@@ -16,6 +16,7 @@ from apps.core.seasons import (
     SeasonScopedMixin,
     assert_bulk_seasons_open,
     assert_season_id_open,
+    assert_season_open,
     get_active_season,
 )
 from apps.export.models import (
@@ -113,6 +114,9 @@ class WeeklyTruckAllocationViewSet(SeasonScopedMixin, ModelViewSet):
         return (Decimal(str(total_planned_kg)) / self._TRUCK_CAPACITY_KG).quantize(Decimal('0.01'))
 
     def perform_create(self, serializer):
+        # Write freeze (D1): CreateModelMixin never calls get_object(), so
+        # the SeasonNotClosed object permission cannot fire on a create.
+        self.assert_create_target_open(serializer)
         planned_kg = serializer.validated_data.get('total_planned_kg')
         serializer.save(
             decided_by=self.request.user,
@@ -183,6 +187,12 @@ class WeeklyDestinationSelectionViewSet(SeasonScopedMixin, ModelViewSet):
     queryset = WeeklyDestinationSelection.objects.select_related(
         'destination',
     ).order_by('destination__sort_order')
+
+    def perform_create(self, serializer):
+        # Write freeze (D1): CreateModelMixin never calls get_object(), so
+        # the SeasonNotClosed object permission cannot fire on a create.
+        self.assert_create_target_open(serializer)
+        serializer.save()
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -281,6 +291,9 @@ class WeeklyLocalSellPlanViewSet(SeasonScopedMixin, ModelViewSet):
         # would be invisible the moment it is created, so stamp the write
         # target — the same default ContractCreateSerializer already applies.
         season = serializer.validated_data.get('season') or get_active_season()
+        # Write freeze (D1) — the body may name a closed season;
+        # get_active_season() never can.
+        assert_season_open(season)
         serializer.save(entered_by=self.request.user, season=season)
 
     def perform_update(self, serializer):

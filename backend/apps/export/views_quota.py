@@ -184,6 +184,9 @@ class QuotaUsageViewSet(SeasonScopedMixin, ModelViewSet):
         return qs
 
     def perform_create(self, serializer) -> None:
+        # Write freeze (D1): CreateModelMixin never calls get_object(), so
+        # the SeasonNotClosed object permission cannot fire on a create.
+        self.assert_create_target_open(serializer)
         instance = serializer.save(created_by=self.request.user)
         AuditLog.objects.create(
             user=self.request.user,

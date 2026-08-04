@@ -3520,6 +3520,9 @@ class CommentViewSet(SeasonScopedMixin, ModelViewSet):
         return ctx
 
     def perform_create(self, serializer):
+        # Write freeze (D1): CreateModelMixin never calls get_object(), so
+        # the SeasonNotClosed object permission cannot fire on a create.
+        self.assert_create_target_open(serializer)
         """Delegate to service via CommentCreateSerializer.create()."""
         serializer.save()
 

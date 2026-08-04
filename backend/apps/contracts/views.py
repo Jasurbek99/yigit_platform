@@ -14,7 +14,7 @@ from rest_framework.viewsets import ModelViewSet
 from apps.core.permissions import (
     DynamicResourcePermission, SeasonNotClosed, write_permission,
 )
-from apps.core.seasons import SeasonScopedMixin, resolve_season
+from apps.core.seasons import SeasonScopedMixin, assert_season_open, resolve_season
 from apps.contracts.document_templates.registry import SCOPE_INVOICE, get_spec
 from apps.contracts.models import Contract, ContractAttachment, ContractSale
 from apps.contracts.serializers import (
@@ -65,6 +65,12 @@ class ContractViewSet(SeasonScopedMixin, ModelViewSet):
     permission_classes = [IsAuthenticated, DynamicResourcePermission, SeasonNotClosed]
     resource_code = 'contract'
     parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def perform_create(self, serializer):
+        # Write freeze (D1): CreateModelMixin never calls get_object(), so
+        # the SeasonNotClosed object permission cannot fire on a create.
+        self.assert_create_target_open(serializer)
+        serializer.save()
 
     def get_queryset(self):
         """Return contracts queryset filtered by status.
@@ -293,6 +299,12 @@ class ContractSaleViewSet(SeasonScopedMixin, ModelViewSet):
     resource_code = 'sale'
     season_field = 'shipment__season'
     include_null_link = True
+
+    def perform_create(self, serializer):
+        # Write freeze (D1): CreateModelMixin never calls get_object(), so
+        # the SeasonNotClosed object permission cannot fire on a create.
+        self.assert_create_target_open(serializer)
+        serializer.save()
 
     queryset = ContractSale.objects.select_related(
         'contract',
@@ -677,9 +689,15 @@ class ShipmentFirmContractsView(APIView):
         )
 
         data = request.data
-        shipment = Shipment.objects.filter(pk=data.get('shipment')).first()
+        shipment = Shipment.objects.filter(pk=data.get('shipment')).select_related(
+            'season',
+        ).first()
         if shipment is None:
             return Response({'error': 'Shipment not found.'}, status=404)
+
+        # Write freeze (D1). An APIView taking the shipment from the request
+        # body — there is no get_object(), so layer 1 never sees it.
+        assert_season_open(shipment.season)
 
         try:
             sale = link_split_to_contract(
@@ -817,10 +835,15 @@ class ShipmentPackingView(APIView):
         data = request.data
         shipment = (
             Shipment.objects.filter(pk=data.get('shipment'))
+            .select_related('season')
             .prefetch_related('firm_splits', 'sales').first()
         )
         if shipment is None:
             return Response({'error': 'Shipment not found.'}, status=404)
+
+        # Write freeze (D1) — see ShipmentFirmContractsView.post.
+        assert_season_open(shipment.season)
+
         scope = data.get('scope')
 
         if scope == 'template':

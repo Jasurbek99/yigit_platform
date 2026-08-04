@@ -171,6 +171,34 @@ class SeasonScopedMixin:
     # must still fail closed, not fall back to resolving one).
     _SEASON_NOT_GIVEN = object()
 
+    def assert_create_target_open(self, serializer) -> None:
+        """Reject a POST-to-collection that targets a closed season (D1).
+
+        DRF's `CreateModelMixin` never calls `get_object()`, so the
+        `SeasonNotClosed` object permission structurally cannot fire on a
+        create — every scoped viewset must call this from its
+        `perform_create()`. It is deliberately NOT a mixin-level
+        `perform_create()`: most of these viewsets override `perform_create`
+        and call `serializer.save(...)` directly instead of `super()`, so a
+        mixin-level hook would be silently skipped on exactly the viewsets
+        that need it (the same trap Task 5 documented for `get_queryset`).
+
+        Reads whichever anchor `season_field` names — `season` directly, or
+        `season` through the join FK (e.g. `shipment`).
+
+        Args:
+            serializer: The validated create serializer.
+
+        Raises:
+            SeasonClosedError: If the create targets a closed season.
+        """
+        anchor, _, _ = self.season_field.rpartition('__')
+        data = serializer.validated_data
+        if not anchor:
+            assert_season_open(data.get(self.season_field))
+            return
+        assert_season_open(getattr(data.get(anchor), 'season', None))
+
     def apply_season_scope(self, qs: QuerySet, season=_SEASON_NOT_GIVEN) -> QuerySet:
         """Scope `qs` to the resolved season, failing CLOSED (D7, spec §3.1).
 

@@ -437,6 +437,9 @@ class CustomsExpenseViewSet(SeasonScopedMixin, ModelViewSet):
 
     def perform_create(self, serializer) -> None:
         """Inject created_by from the authenticated user on every create."""
+        # Write freeze (D1): CreateModelMixin never calls get_object(), so
+        # the SeasonNotClosed object permission cannot fire on a create.
+        self.assert_create_target_open(serializer)
         serializer.save(created_by=self.request.user)
 
     @action(detail=False, methods=['get'], url_path='ledger')

@@ -336,6 +336,24 @@ class ShipmentBulkFreezeTests(SeasonFreezeFixture):
         )
         self.assert_season_closed_409(response)
 
+    def test_shipment_firm_contracts_post_on_closed_season_returns_409(self):
+        """Plain APIView taking the shipment id from the body — not in the
+        brief, found during the write-path sweep."""
+        response = self.client_as().post(
+            '/api/v1/contracts/shipment-firm-contracts/',
+            {'shipment': self.frozen.pk, 'export_firm': self.export_firm.pk,
+             'mode': 'new'},
+            format='json',
+        )
+        self.assert_season_closed_409(response)
+
+    def test_shipment_packing_post_on_closed_season_returns_409(self):
+        response = self.client_as().post(
+            '/api/v1/contracts/shipment-packing/',
+            {'shipment': self.frozen.pk, 'scope': 'whole_truck'}, format='json',
+        )
+        self.assert_season_closed_409(response)
+
 
 # ── Layer 1 across every viewset scoped in Tasks 5 and 6 ────────────────────
 
@@ -465,6 +483,102 @@ class ScopedViewSetFreezeTests(SeasonFreezeFixture):
             with self.subTest(resource=key):
                 url = template.format(pk=self.rows[self.closed][key].pk)
                 self.assertEqual(self.client_as().get(url).status_code, 200)
+
+
+class ScopedViewSetCreateFreezeTests(SeasonFreezeFixture):
+    """POST-to-collection on every scoped viewset that allows creates.
+
+    `CreateModelMixin.create` never calls `get_object()`, so layer 1
+    structurally cannot fire here — each of these is covered by an explicit
+    `assert_create_target_open()` in `perform_create`. The brief's "creates
+    need no check, new rows are stamped with get_active_season()" holds only
+    for Shipment; every viewset below takes its `season` (or its
+    `shipment`) straight from the request body.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.shipments = {
+            season: cls.make_shipment(season, f'CR-{season.pk}')
+            for season in (cls.active, cls.closed)
+        }
+        cls.contracts = {
+            season: Contract.objects.create(
+                contract_number=f'CRC-{season.pk}', season=season,
+                export_firm=cls.export_firm, import_firm=cls.import_firm,
+                status=Contract.STATUS_ACTIVE,
+            )
+            for season in (cls.active, cls.closed)
+        }
+        cls.weekly_plans = {
+            season: WeeklyHarvestPlan.objects.create(
+                season=season, block=cls.block, week_number=9,
+                year=season.start_date.year,
+            )
+            for season in (cls.active, cls.closed)
+        }
+
+    def _payloads(self, season: Season) -> list[tuple]:
+        """(label, url, body) triples — one create per scoped collection."""
+        year = season.start_date.year
+        return [
+            ('truck_allocation', '/api/v1/export/truck-allocations/', {
+                'season': season.pk, 'year': year, 'week_number': 7,
+                'day_of_week': 1,
+            }),
+            ('destination_selection', '/api/v1/export/truck-destination-selections/', {
+                'season': season.pk, 'year': year, 'week_number': 7,
+                'destination': self.destination.pk,
+            }),
+            ('local_sell_plan', '/api/v1/export/local-sell-plans/', {
+                'season': season.pk, 'year': year, 'week_number': 7,
+                'export_firm': self.export_firm.pk,
+            }),
+            ('harvest_plan', '/api/v1/greenhouse/harvest-plans/', {
+                'season': season.pk, 'year': year, 'week_number': 7,
+                'block': self.block.pk,
+            }),
+            ('comment', '/api/v1/export/comments/', {
+                'shipment': self.shipments[season].pk, 'content': 'new note',
+            }),
+            ('quota_usage', '/api/v1/export/quota-usage/', {
+                'shipment': self.shipments[season].pk,
+                'export_firm': self.export_firm.pk,
+                'usage_date': season.start_date.isoformat(), 'kg_used': '100.00',
+            }),
+            ('customs_expense', '/api/v1/export/customs-expenses/', {
+                'shipment': self.shipments[season].pk, 'category': 'OTHER',
+                'amount': '10.00', 'expense_date': season.start_date.isoformat(),
+            }),
+            ('contract', '/api/v1/contracts/contracts/', {
+                'season': season.pk, 'contract_number': f'NEW-{season.pk}',
+                'export_firm': self.export_firm.pk,
+                'import_firm': self.import_firm.pk,
+            }),
+            ('contract_sale', '/api/v1/contracts/sales/', {
+                'contract': self.contracts[season].pk,
+                'shipment': self.shipments[season].pk,
+                'invoice_number': 900 + season.pk,
+                'total_usd': '100.00',
+            }),
+        ]
+
+    def test_creating_into_a_closed_season_returns_409(self):
+        for label, url, body in self._payloads(self.closed):
+            with self.subTest(resource=label):
+                self.assert_season_closed_409(
+                    self.client_as().post(url, body, format='json')
+                )
+
+    def test_creating_into_the_active_season_is_not_frozen(self):
+        for label, url, body in self._payloads(self.active):
+            with self.subTest(resource=label):
+                response = self.client_as().post(url, body, format='json')
+                self.assertNotEqual(
+                    response.status_code, 409,
+                    f'{label}: the create guard fired on an OPEN season',
+                )
 
 
 # ── Carried-forward: bulk / body-season write actions ──────────────────────

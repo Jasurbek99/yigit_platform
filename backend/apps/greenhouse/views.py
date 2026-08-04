@@ -110,6 +110,9 @@ class WeeklyHarvestPlanViewSet(SeasonScopedMixin, ModelViewSet):
         )
 
     def perform_create(self, serializer):
+        # Write freeze (D1): CreateModelMixin never calls get_object(), so
+        # the SeasonNotClosed object permission cannot fire on a create.
+        self.assert_create_target_open(serializer)
         block_id = serializer.validated_data['block'].id
         self._check_plan_permission(self.request.user, block_id, is_create=True)
         serializer.save(entered_by=self.request.user)
