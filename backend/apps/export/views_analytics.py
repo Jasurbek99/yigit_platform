@@ -17,11 +17,12 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 
 from apps.core.permissions import IsBossOrDirector
+from apps.core.seasons import resolve_season
 from apps.export.exports import build_excel, build_pdf
 from apps.export.services.boss_analytics import (
     period_to_range,
     _aggregate_summary,
-    _aggregate_revenue,
+    weekly_revenue_comparison,
     _aggregate_route_pnl,
     _aggregate_quota_grid,
     _aggregate_blocks_heatmap,
@@ -124,23 +125,34 @@ class BossAnalyticsViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=['get'], url_path='revenue')
     def revenue(self, request: Request) -> Response:
-        """Return two weekly revenue arrays for the overlay chart.
+        """Return two weekly revenue arrays for the season-over-season overlay chart.
 
-        GET /api/v1/export/boss/revenue/?period=month
+        GET /api/v1/export/boss/revenue/?season=<id>  (optional; defaults to the
+                                                         active season)
+
+        The resolved season PARAMETERISES this comparison — it is never used to
+        filter it (spec §4.3/§4.5). `current_season` is the resolved season's
+        weekly revenue; `previous_season` is the season immediately preceding it
+        by start_date, regardless of whether either is closed. Selecting a closed
+        season as `?season=` makes it "current" and the season before it
+        "previous" — that is the intended behaviour, not a leak: `boss` is
+        already gated to management (IsBossOrDirector) and cross-season
+        comparison is the whole point of this chart.
 
         Response shape:
           {current_season: [{week_start, total_usd}, ...],
            previous_season: [{week_start, total_usd}, ...]}
         """
         period, from_date, to_date = _parse_period_params(request)
-        cache_key = _cache_key('revenue', period, from_date, to_date)
+        season = resolve_season(request)
+        cache_key = _cache_key('revenue', period, from_date, to_date, str(season.pk if season else 'none'))
 
         def _build():
             return {
                 'period': period,
                 'from': from_date.isoformat(),
                 'to': to_date.isoformat(),
-                **_aggregate_revenue(from_date, to_date),
+                **weekly_revenue_comparison(season),
             }
 
         data = cache.get(cache_key)
