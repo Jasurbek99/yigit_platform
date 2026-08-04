@@ -54,9 +54,26 @@ ENDPOINTS = [
 
 
 def _make_status() -> ShipmentStatusType:
-    return ShipmentStatusType.objects.create(
-        code='draft', name_tk='Draft', phase='DRAFT', step_order=1,
+    """Fetch or create the 'draft' status row.
+
+    core.migrations.0006_seed_shipment_draft_status seeds this row with
+    code='draft', step_order=0 — but only when DJANGO_TESTING != 'true'
+    (see that migration's docstring). Under the documented test invocation
+    (DJANGO_TESTING=true) the migration skips seeding and this creates the
+    row instead. Either way `code` is the unique key, so get_or_create keyed
+    on it is required — an unconditional create() collides with the seeded
+    row whenever a test runs without the env var. step_order=0 (not some
+    other value) is used deliberately so the fixture is identical whichever
+    branch fires, matching migration 0006's and 0010's canonical 'draft' row.
+    """
+    status, _ = ShipmentStatusType.objects.get_or_create(
+        code='draft',
+        defaults={
+            'name_tk': 'Garalama', 'name_en': 'Draft', 'name_ru': 'Черновик',
+            'phase': 'DRAFT', 'step_order': 0, 'required_role': 'warehouse_chief',
+        },
     )
+    return status
 
 
 class SeasonScopingTests(TestCase):
@@ -505,14 +522,23 @@ class ExtraShipmentActionScopingTests(TestCase):
             closed_at=timezone.now(),
         )
         cls.country = Country.objects.create(name_en='Kazakhstan', name_tk='Gazagystan')
+        # 'bardy' and 'yuklenme' are also seeded by core.migrations.0010_state_machine_v2
+        # whenever DJANGO_TESTING != 'true' (same conditional-seed pattern as 'draft' in
+        # _make_status() above) — get_or_create avoids the same UNIQUE collision.
+        # step_order values match migration 0010's canonical rows so the fixture is
+        # identical whichever branch fires.
         # 'bardy' is a SALES_PHASE_CODES status at step 9 — satisfies both the
         # overdue filter and my-sales-reports' step_order >= 4.
-        cls.sales_status = ShipmentStatusType.objects.create(
-            code='bardy', name_tk='Bardy', phase='SALES', step_order=9,
+        cls.sales_status, _ = ShipmentStatusType.objects.get_or_create(
+            code='bardy',
+            defaults={'name_tk': 'Bardy', 'name_en': 'Bardy', 'phase': 'SALES', 'step_order': 9},
         )
-        # document_team's pending window is LOADING/CUSTOMS.
-        cls.loading_status = ShipmentStatusType.objects.create(
-            code='yuklenme', name_tk='Yuklenme', phase='LOADING', step_order=1,
+        # document_team's pending window is LOADING/CUSTOMS (phase-filtered, not
+        # step_order-filtered — see _filter_pending_fields — so the exact step_order
+        # value doesn't drive any assertion here).
+        cls.loading_status, _ = ShipmentStatusType.objects.get_or_create(
+            code='yuklenme',
+            defaults={'name_tk': 'Yuklenme', 'name_en': 'Loading', 'phase': 'LOADING', 'step_order': 3},
         )
 
         cls.manager = User.objects.create(username='mgr9', role='export_manager')
