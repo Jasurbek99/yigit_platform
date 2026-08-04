@@ -34,12 +34,24 @@ def _local_midnight(d: date) -> datetime:
     return datetime.combine(d, time.min, tzinfo=_TM_TZ)
 
 
-def period_window(period: str) -> tuple[datetime | None, date | None]:
+def period_window(period: str, season=None) -> tuple[datetime | None, date | None]:
     """Return (since_dt, since_date) for the given period in Asia/Ashgabat.
 
     since_dt gates Task.completed_at (a datetime); since_date gates
     WorkSessionDaily.work_date (a date). (None, None) means no lower bound
-    (season with no active Season row).
+    (period == 'season' with no season resolved — no active Season row and
+    no explicit ?season= either).
+
+    Args:
+        period: One of 'today' | 'week' | 'month' | 'season'.
+        season: The already-resolved season (via
+            `apps.core.seasons.resolve_season(request)` at the view layer) —
+            only consulted when period == 'season'. The caller resolves it,
+            not this function, matching the `dashboard`/`boss` pattern:
+            resolve once at the view, pass the object down. Spec §4.3 — this
+            parameterises the window by the resolved season; it never scopes
+            a queryset by a `season=` FK, so there is no SeasonScopedMixin
+            fail-closed behaviour to worry about here.
     """
     now_local = timezone.now().astimezone(_TM_TZ)
     today = now_local.date()
@@ -51,8 +63,6 @@ def period_window(period: str) -> tuple[datetime | None, date | None]:
     elif period == 'month':
         start = today.replace(day=1)
     else:  # season
-        from apps.core.seasons import get_active_season
-        season = get_active_season()
         if season is None:
             return None, None
         start = season.start_date
@@ -60,15 +70,20 @@ def period_window(period: str) -> tuple[datetime | None, date | None]:
     return _local_midnight(start), start
 
 
-def compute_team_kpi(period: str) -> list[dict]:
+def compute_team_kpi(period: str, season=None) -> list[dict]:
     """Aggregate per-user KPI rows for the leaderboard.
 
     Three grouped queries (completions/on-time by completed_by, overdue by
     role, active-seconds by user) merged over the full active-user roster.
+
+    Args:
+        period: One of 'today' | 'week' | 'month' | 'season'.
+        season: The already-resolved season — only relevant when
+            period == 'season'; see `period_window`.
     """
     from apps.export.models import Task, TaskState
 
-    since_dt, since_date = period_window(period)
+    since_dt, since_date = period_window(period, season)
 
     # 1. Completions + on-time, grouped by the crediting user.
     comp_filter = Q(state=TaskState.DONE, completed_by__isnull=False)
