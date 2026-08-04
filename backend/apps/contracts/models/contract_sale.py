@@ -158,6 +158,30 @@ class ContractSale(models.Model):
     def __str__(self) -> str:
         return f'{self.contract_id}/{self.invoice_number}'
 
+    @property
+    def freeze_season(self) -> 'Season | None':
+        """Authoritative Season for the write freeze (D1).
+
+        Read by `apps.core.seasons.freeze_season_of()`, which both layers of
+        the freeze use — so this one definition covers create, PATCH and
+        DELETE alike.
+
+        `shipment` is nullable (legacy 2-Sales imports carry none, ADR-023) but
+        `contract` is NOT, and `contract.season` names the season the sale
+        belongs to. Anchoring on `shipment` alone would leave every
+        null-shipment sale under a closed season's contract creatable,
+        editable and deletable — and `save()` calls `rollup_contract_totals()`,
+        the sole writer of `Contract.exported_*` / `remaining_usd`, so such a
+        write would additionally rewrite the frozen `Contract` row that
+        `ContractViewSet` correctly 409s on directly.
+
+        Read scoping is deliberately NOT changed to match: that stays on
+        `shipment__season` with `include_null_link` per Task 6.
+        """
+        if self.shipment_id:
+            return self.shipment.season
+        return self.contract.season if self.contract_id else None
+
     @classmethod
     def from_db(cls, db, field_names, values):
         """Snapshot the contract_id at load time for reassignment detection in save()."""

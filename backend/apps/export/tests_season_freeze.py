@@ -476,6 +476,41 @@ class ScopedViewSetFreezeTests(SeasonFreezeFixture):
                     f'{key}: the guard fired on an OPEN season',
                 )
 
+    def test_patch_a_null_shipment_sale_under_a_closed_contract_returns_409(self):
+        """Layer 1 must use the same anchor as the create guard.
+
+        These rows are legacy-by-design (2-Sales imports, ADR-023), not
+        hypothetical — patching only `perform_create` would have left the whole
+        existing null-shipment population editable.
+        """
+        sale = ContractSale.objects.create(
+            contract=self.rows[self.closed]['contract_sale'].contract,
+            shipment=None, invoice_number=970, total_usd=Decimal('100'),
+        )
+        response = self.client_as().patch(
+            f'/api/v1/contracts/sales/{sale.pk}/', {'notes': 'x'}, format='json',
+        )
+        self.assert_season_closed_409(response)
+
+    def test_delete_a_null_shipment_sale_under_a_closed_contract_returns_409(self):
+        sale = ContractSale.objects.create(
+            contract=self.rows[self.closed]['contract_sale'].contract,
+            shipment=None, invoice_number=971, total_usd=Decimal('100'),
+        )
+        response = self.client_as().delete(f'/api/v1/contracts/sales/{sale.pk}/')
+        self.assert_season_closed_409(response)
+        self.assertTrue(ContractSale.objects.filter(pk=sale.pk).exists())
+
+    def test_patch_a_null_shipment_sale_under_an_open_contract_still_works(self):
+        sale = ContractSale.objects.create(
+            contract=self.rows[self.active]['contract_sale'].contract,
+            shipment=None, invoice_number=972, total_usd=Decimal('100'),
+        )
+        response = self.client_as().patch(
+            f'/api/v1/contracts/sales/{sale.pk}/', {'notes': 'x'}, format='json',
+        )
+        self.assertNotEqual(response.status_code, 409, response.content[:400])
+
     def test_closed_season_object_reads_still_work(self):
         for key, template, _method, _payload in self.CASES:
             if key == 'task':
@@ -563,6 +598,37 @@ class ScopedViewSetCreateFreezeTests(SeasonFreezeFixture):
                 'total_usd': '100.00',
             }),
         ]
+
+    def test_creating_a_null_shipment_sale_under_a_closed_contract_returns_409(self):
+        """`ContractSale.shipment` is nullable but `contract` is NOT.
+
+        Anchoring on `shipment` alone (the first implementation) let this
+        through: the row is created under a frozen season's contract, and
+        `ContractSale.save()` calls `rollup_contract_totals()` — the sole
+        writer of `Contract.exported_*`/`remaining_usd` — so it also rewrites
+        the very Contract row `ContractViewSet` 409s on directly.
+        """
+        response = self.client_as().post(
+            '/api/v1/contracts/sales/',
+            {
+                'contract': self.contracts[self.closed].pk,
+                'invoice_number': 950, 'total_usd': '100.00',
+            },
+            format='json',
+        )
+        self.assert_season_closed_409(response)
+        self.assertFalse(ContractSale.objects.filter(invoice_number=950).exists())
+
+    def test_creating_a_null_shipment_sale_under_an_open_contract_still_works(self):
+        response = self.client_as().post(
+            '/api/v1/contracts/sales/',
+            {
+                'contract': self.contracts[self.active].pk,
+                'invoice_number': 951, 'total_usd': '100.00',
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, 201, response.content[:400])
 
     def test_creating_into_a_closed_season_returns_409(self):
         for label, url, body in self._payloads(self.closed):

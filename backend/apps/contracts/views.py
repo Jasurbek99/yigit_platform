@@ -300,12 +300,6 @@ class ContractSaleViewSet(SeasonScopedMixin, ModelViewSet):
     season_field = 'shipment__season'
     include_null_link = True
 
-    def perform_create(self, serializer):
-        # Write freeze (D1): CreateModelMixin never calls get_object(), so
-        # the SeasonNotClosed object permission cannot fire on a create.
-        self.assert_create_target_open(serializer)
-        serializer.save()
-
     queryset = ContractSale.objects.select_related(
         'contract',
         'shipment',
@@ -313,6 +307,18 @@ class ContractSaleViewSet(SeasonScopedMixin, ModelViewSet):
         'export_firm',
         'import_firm',
     ).order_by('-invoice_date', 'contract_id', 'invoice_number')
+
+    def perform_create(self, serializer):
+        """Create a sale, refusing a closed-season target.
+
+        `ContractSale.freeze_season` resolves through `contract` when
+        `shipment` is NULL, so an unlinked sale under a closed season's
+        contract is refused too.
+        """
+        # Write freeze (D1): CreateModelMixin never calls get_object(), so
+        # the SeasonNotClosed object permission cannot fire on a create.
+        self.assert_create_target_open(serializer)
+        serializer.save()
 
     def get_queryset(self):
         """Apply server-side filters."""

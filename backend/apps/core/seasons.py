@@ -10,6 +10,7 @@ the write target moves, but a user may still choose to read a past season.
 
 `core/` is upstream of every other app, so this is the only legal home for it.
 """
+from django.core.exceptions import ImproperlyConfigured
 from django.db.models import Q, QuerySet
 from rest_framework.exceptions import NotFound, PermissionDenied
 
@@ -92,6 +93,49 @@ def assert_season_open(season: Season | None) -> None:
     """Guard for every write path. No-op when `season` is None or open."""
     if season is not None and season.is_closed:
         raise SeasonClosedError(season)
+
+
+def freeze_season_of(obj) -> Season | None:
+    """The Season a row belongs to, for the write freeze (D1).
+
+    The single anchor definition, read by BOTH layers — `SeasonNotClosed`
+    on a saved row and `assert_create_target_open` on an unsaved one — so a
+    create and a later edit of the same row can never disagree.
+
+    Order of authority:
+      1. `type(obj).freeze_season` — an explicit model hook, for models whose
+         anchor is not a plain `season`/`shipment` FK. `ContractSale` defines
+         it: its `shipment` is nullable but its `contract` is not, and
+         `contract.season` is authoritative.
+      2. `obj.season`.
+      3. `obj.shipment.season` — join-scoped children.
+
+    Args:
+        obj: A model instance, saved or unsaved.
+
+    Returns:
+        The Season, or None when the row genuinely belongs to none — an
+        unlinked legacy `Task` / `QuotaUsageRecord` / `CustomsExpense`, none of
+        which has an alternate anchor. `assert_season_open` treats None as open.
+    """
+    if hasattr(type(obj), 'freeze_season'):
+        return obj.freeze_season
+    season = getattr(obj, 'season', None)
+    if season is not None:
+        return season
+    return getattr(getattr(obj, 'shipment', None), 'season', None)
+
+
+def _model_kwargs(model, validated_data: dict) -> dict:
+    """The subset of `validated_data` that `model(**kwargs)` accepts.
+
+    Drops m2m and write-only non-model keys, which would raise TypeError.
+    """
+    names = set()
+    for field in model._meta.concrete_fields:
+        names.add(field.name)
+        names.add(field.attname)
+    return {key: value for key, value in validated_data.items() if key in names}
 
 
 def assert_bulk_seasons_open(queryset: QuerySet, season_path: str = 'season') -> None:
@@ -183,21 +227,41 @@ class SeasonScopedMixin:
         mixin-level hook would be silently skipped on exactly the viewsets
         that need it (the same trap Task 5 documented for `get_queryset`).
 
-        Reads whichever anchor `season_field` names — `season` directly, or
-        `season` through the join FK (e.g. `shipment`).
+        Resolves through `freeze_season_of()` on an UNSAVED instance built
+        from the validated data, so a create and a later PATCH on the same row
+        answer through exactly one anchor definition. Deriving the anchor from
+        `season_field` instead (the first implementation) anchored
+        `ContractSale` on its nullable `shipment` alone and silently missed its
+        authoritative non-nullable `contract.season`.
+
+        Requires a ModelSerializer. A plain `Serializer` has no `Meta.model`
+        and may carry bare ids rather than instances (`CommentCreateSerializer`
+        does both), so those viewsets must guard their create explicitly — and
+        this raises rather than passing, so the gap is loud instead of silent.
+
+        Residual limitation, deliberately not defended against: a key in
+        `validated_data` that matches no concrete model field is dropped by
+        `_model_kwargs`. For a ModelSerializer the keys are model field
+        sources, so they line up; a hand-rolled `source=` mapping onto a
+        non-field name would leave the anchor unset, and an unset anchor is
+        legitimately a no-op (it is how a NULL-anchor legacy row passes).
 
         Args:
             serializer: The validated create serializer.
 
         Raises:
             SeasonClosedError: If the create targets a closed season.
+            ImproperlyConfigured: If `serializer` is not a ModelSerializer.
         """
-        anchor, _, _ = self.season_field.rpartition('__')
-        data = serializer.validated_data
-        if not anchor:
-            assert_season_open(data.get(self.season_field))
-            return
-        assert_season_open(getattr(data.get(anchor), 'season', None))
+        model = getattr(getattr(serializer, 'Meta', None), 'model', None)
+        if model is None:
+            raise ImproperlyConfigured(
+                f'{type(self).__name__}.assert_create_target_open() needs a '
+                f'ModelSerializer; {type(serializer).__name__} has no Meta.model. '
+                'Guard this create explicitly rather than letting it pass.'
+            )
+        unsaved = model(**_model_kwargs(model, serializer.validated_data))
+        assert_season_open(freeze_season_of(unsaved))
 
     def apply_season_scope(self, qs: QuerySet, season=_SEASON_NOT_GIVEN) -> QuerySet:
         """Scope `qs` to the resolved season, failing CLOSED (D7, spec §3.1).

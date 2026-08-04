@@ -39,6 +39,7 @@ from apps.core.seasons import (
     assert_bulk_seasons_open,
     assert_season_open,
     can_view_closed,
+    freeze_season_of,
     resolve_season,
 )
 from apps.export.models import (
@@ -3520,10 +3521,16 @@ class CommentViewSet(SeasonScopedMixin, ModelViewSet):
         return ctx
 
     def perform_create(self, serializer):
-        # Write freeze (D1): CreateModelMixin never calls get_object(), so
-        # the SeasonNotClosed object permission cannot fire on a create.
-        self.assert_create_target_open(serializer)
         """Delegate to service via CommentCreateSerializer.create()."""
+        # Write freeze (D1): CreateModelMixin never calls get_object(), so the
+        # SeasonNotClosed object permission cannot fire on a create.
+        # assert_create_target_open() is not usable here — CommentCreateSerializer
+        # is a plain Serializer with no Meta.model. It does resolve `shipment` to
+        # an instance in validate(), so routing that instance through the shared
+        # freeze_season_of() gives exactly the anchor layer 1 uses on the saved
+        # comment (ShipmentComment.shipment is non-nullable and is its only route
+        # to a Season).
+        assert_season_open(freeze_season_of(serializer.validated_data['shipment']))
         serializer.save()
 
     def partial_update(self, request, *args, **kwargs):

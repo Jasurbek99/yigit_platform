@@ -442,15 +442,14 @@ class SeasonNotClosed(BasePermission):
     def has_object_permission(self, request, view, obj) -> bool:
         if request.method in self.SAFE:
             return True
-        from apps.core.seasons import assert_season_open
+        from apps.core.seasons import assert_season_open, freeze_season_of
 
-        season = getattr(obj, 'season', None)
-        if season is None:
-            # Join-scoped children (comments, tasks, quota usage, customs
-            # expenses, contract sales) reach Season through shipment.
-            shipment = getattr(obj, 'shipment', None)
-            season = getattr(shipment, 'season', None)
-        assert_season_open(season)
+        # freeze_season_of() is the single anchor definition, shared with
+        # SeasonScopedMixin.assert_create_target_open(). It handles the plain
+        # `season` FK, the join through `shipment`, and per-model overrides
+        # (ContractSale reaches a Season through its non-nullable `contract`
+        # when `shipment` is NULL).
+        assert_season_open(freeze_season_of(obj))
         return True
 
 
