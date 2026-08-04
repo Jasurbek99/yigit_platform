@@ -8,12 +8,15 @@ from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
 
+from django.core.management import call_command
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.exceptions import NotFound, PermissionDenied
 
 from apps.core.models import RoleResourcePermission, Season, User
+from apps.core.permission_registry import RESOURCE_REGISTRY
 from apps.core.seasons import (
     SeasonClosedError,
     assert_season_open,
@@ -202,3 +205,34 @@ class NoAdHocActiveSeasonLookupTests(TestCase):
             'Use apps.core.seasons.get_active_season() (write target) or '
             f'resolve_season(request) (read scope) instead: {offenders}',
         )
+
+
+class ClosedSeasonResourceTests(TestCase):
+    """`closed_season` is a RESOURCE_REGISTRY entry, not a custom action (D3).
+
+    Note: per spec §9.1 (D8), `closed_season.can_view` no longer implies
+    archive-level read — the label must not claim otherwise. See
+    docs/superpowers/specs/2026-08-03-season-lifecycle-design.md §9.1.
+    """
+
+    def test_resource_is_registered(self):
+        self.assertIn('closed_season', RESOURCE_REGISTRY)
+
+    def test_seed_grants_management_roles(self):
+        call_command('seed_permissions')
+        granted = set(
+            RoleResourcePermission.objects.filter(
+                resource_code='closed_season', can_view=True,
+            ).values_list('role', flat=True)
+        )
+        self.assertEqual(
+            granted, {'admin', 'director', 'boss', 'export_manager', 'finansist'},
+        )
+
+    def test_seed_grants_no_write_actions(self):
+        """Closed seasons are read-only (D1) — write flags are meaningless here."""
+        call_command('seed_permissions')
+        writes = RoleResourcePermission.objects.filter(
+            resource_code='closed_season',
+        ).filter(Q(can_create=True) | Q(can_edit=True) | Q(can_delete=True))
+        self.assertFalse(writes.exists())

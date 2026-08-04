@@ -151,13 +151,19 @@ _VE = (True, False, True, False)     # view + edit only
 _ALL_RESOURCES = set(RESOURCE_REGISTRY.keys())
 
 RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
-    # admin: full CRUD on every resource (including truck_split_default).
-    'admin': {r: _VCRUD for r in _ALL_RESOURCES},
+    # admin: full CRUD on every resource (including truck_split_default),
+    # EXCEPT closed_season — read-only by design (D1), overridden below.
+    'admin': {
+        **{r: _VCRUD for r in _ALL_RESOURCES},
+        'closed_season': _VIEW,
+    },
     'director': {
         **{r: _VCRUD for r in _ALL_RESOURCES},
         # sale: director may create/edit but NOT delete — sale deletion is
         # admin-only (rollback is too easy to mess up). See ContractSaleViewSet.
         'sale': _VCE,
+        # closed_season: read-only by design (D1) — overrides the blanket _VCRUD.
+        'closed_season': _VIEW,
     },
     'export_manager': {
         **{r: _VCRUD for r in _ALL_RESOURCES},
@@ -168,6 +174,8 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
         'truck_split_default': _VIEW,
         # sale: create/edit but NOT delete — sale deletion is admin-only.
         'sale': _VCE,
+        # closed_season: read-only by design (D1) — overrides the blanket _VCRUD.
+        'closed_season': _VIEW,
     },
     'weight_master': {
         'shipment': _VIEW,                              # can view but not edit shipment proper
@@ -224,6 +232,8 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
         'shipment_comment': _VCE,
         'price_entry': _VCE,
         'advance': _VCRUD,
+        # closed_season: read-only, matches _ARCHIVE_VIEW_ROLES (export/views.py).
+        'closed_season': _VIEW,
     },
     'accountant': {
         'shipment': _VIEW,
@@ -236,7 +246,8 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
     'seller': {
         'local_sell_plan': _VCE,
     },
-    # Boss is strictly read-only across every resource — never edits.
+    # Boss is strictly read-only across every resource — never edits. This
+    # already gives closed_season the correct read-only grant with no override.
     'boss': {r: _VIEW for r in _ALL_RESOURCES},
 }
 
