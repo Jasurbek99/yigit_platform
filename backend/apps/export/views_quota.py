@@ -20,7 +20,7 @@ from rest_framework.decorators import action
 from apps.core.models import Season
 from apps.core.permissions import write_permission, DynamicResourcePermission, SeasonNotClosed
 from apps.core.roles import QUOTA_WRITE
-from apps.core.seasons import SeasonScopedMixin, assert_bulk_seasons_open
+from apps.core.seasons import SeasonScopedMixin, assert_bulk_seasons_open, get_active_season
 
 from apps.export.models import QuotaIssuance, QuotaUsageRecord
 from apps.export.models.audit import AuditLog
@@ -54,7 +54,14 @@ class QuotaIssuanceViewSet(ModelViewSet):
     """
 
     resource_code = 'quota_issuance'
-    permission_classes = [IsAuthenticated, DynamicResourcePermission]
+    # SeasonNotClosed (D10): write-freeze only — this viewset deliberately
+    # does NOT use SeasonScopedMixin/apply_season_scope; quota-issuances stays
+    # off the read-scope list (spec §4.5) because issuances are consumed FIFO
+    # across seasons. has_object_permission covers PUT/PATCH/DELETE on the
+    # detail route via get_object(); create is exempt by construction (see
+    # perform_create — the target is always get_active_season(), which can
+    # never be closed).
+    permission_classes = [IsAuthenticated, DynamicResourcePermission, SeasonNotClosed]
     http_method_names = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options']
 
     queryset = QuotaIssuance.objects.prefetch_related(
@@ -85,7 +92,11 @@ class QuotaIssuanceViewSet(ModelViewSet):
         return ctx
 
     def perform_create(self, serializer) -> None:
-        serializer.save(created_by=self.request.user)
+        # D10: stamp the write-freeze anchor server-side, mirroring the
+        # Shipment precedent — get_active_season() can never be closed, so no
+        # request-level season guard is needed here (unlike perform_update /
+        # the reassign action, which reach an EXISTING, possibly-closed row).
+        serializer.save(created_by=self.request.user, season=get_active_season())
         # New allocations change issued_kg → remaining_kg; bust the caches the
         # Sheet firm-split editor reads or a firm stays "no quota"/unselectable.
         invalidate_quota_caches()
@@ -102,7 +113,11 @@ class QuotaIssuanceViewSet(ModelViewSet):
         detail=True,
         methods=['patch'],
         url_path='reassign',
-        permission_classes=[IsAuthenticated, DynamicResourcePermission],
+        # @action's own permission_classes kwarg REPLACES the class-level list
+        # for this route entirely (DRF routes it through a separate as_view()
+        # call) — SeasonNotClosed must be repeated here or a closed-season
+        # issuance stays reassignable through this one action.
+        permission_classes=[IsAuthenticated, DynamicResourcePermission, SeasonNotClosed],
         http_method_names=['patch', 'head', 'options'],
     )
     def reassign(self, request: Request, pk=None) -> Response:

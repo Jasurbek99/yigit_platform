@@ -1,9 +1,12 @@
 """Assign Season to rows whose season FK is nullable and NULL.
 
-Contract.season and WeeklyLocalSellPlan.season are null=True. `filter(season=X)`
-silently drops NULLs, so an unassigned row would disappear from every view once
-season scoping lands. This assigns them by date and *reports* — never silently
-drops — the rows it cannot match.
+Contract.season, WeeklyLocalSellPlan.season, and QuotaIssuance.season are
+null=True. `filter(season=X)` silently drops NULLs, so an unassigned row would
+disappear from every view once season scoping lands (Contract,
+WeeklyLocalSellPlan) or stay unfrozen after a close (QuotaIssuance — D10; its
+FK is write-freeze-only, never a read-scope filter, but the freeze needs it
+populated the same way). This assigns them by date and *reports* — never
+silently drops — the rows it cannot match.
 
     python manage.py backfill_season_fks --dry-run
     python manage.py backfill_season_fks
@@ -24,7 +27,7 @@ def _iso_week_monday(year: int, week: int) -> datetime.date:
 
 
 class Command(BaseCommand):
-    help = 'Backfill NULL season FKs on Contract and WeeklyLocalSellPlan.'
+    help = 'Backfill NULL season FKs on Contract, WeeklyLocalSellPlan, and QuotaIssuance.'
 
     def add_arguments(self, parser) -> None:
         parser.add_argument('--dry-run', action='store_true')
@@ -38,6 +41,7 @@ class Command(BaseCommand):
 
         total_updated += self._backfill_local_sell_plans(seasons, dry_run, unmatched)
         total_updated += self._backfill_contracts(seasons, dry_run, unmatched)
+        total_updated += self._backfill_quota_issuances(seasons, dry_run, unmatched)
 
         prefix = '[dry-run] ' if dry_run else ''
         self.stdout.write(f'{prefix}{total_updated} updated')
@@ -110,6 +114,29 @@ class Command(BaseCommand):
         if to_update and not dry_run:
             with transaction.atomic():
                 Contract.objects.bulk_update(
+                    to_update, ['season'], batch_size=BATCH_SIZE
+                )
+        return len(to_update)
+
+    def _backfill_quota_issuances(
+        self, seasons: list[Season], dry_run: bool, unmatched: list[str]
+    ) -> int:
+        """Backfill QuotaIssuance.season by issue_date (D10 — freeze anchor only)."""
+        from apps.export.models import QuotaIssuance
+
+        rows = list(QuotaIssuance.objects.filter(season__isnull=True))
+        to_update = []
+        for row in rows:
+            season = self._season_for(seasons, row.issue_date)
+            if season is None:
+                unmatched.append(f'QuotaIssuance#{row.pk}')
+                continue
+            row.season = season
+            to_update.append(row)
+
+        if to_update and not dry_run:
+            with transaction.atomic():
+                QuotaIssuance.objects.bulk_update(
                     to_update, ['season'], batch_size=BATCH_SIZE
                 )
         return len(to_update)

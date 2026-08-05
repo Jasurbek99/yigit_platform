@@ -31,11 +31,11 @@ from apps.core.models import (
     Country, Customer, ExportFirm, GreenhouseBlock, ImportFirm,
     RoleResourcePermission, Season, ShipmentStatusType, TruckDestination, User,
 )
-from apps.core.seasons import SeasonClosedError
+from apps.core.seasons import SeasonClosedError, freeze_season_of
 from apps.export.models import (
-    CustomsExpense, QuotaUsageRecord, Shipment, ShipmentBlockSource,
-    ShipmentComment, Task, WeeklyDestinationSelection, WeeklyLocalSellPlan,
-    WeeklyTruckAllocation,
+    CustomsExpense, QuotaIssuance, QuotaUsageRecord, Shipment,
+    ShipmentBlockSource, ShipmentComment, Task, WeeklyDestinationSelection,
+    WeeklyLocalSellPlan, WeeklyTruckAllocation,
 )
 from apps.export.services.shipment import create_shipment, transition_to
 from apps.greenhouse.models import HarvestDayEntry, WeeklyHarvestPlan
@@ -419,6 +419,10 @@ class ScopedViewSetFreezeTests(SeasonFreezeFixture):
                     ),
                     shipment=cls.shipments[season], invoice_number=season.pk,
                 ),
+                'quota_issuance': QuotaIssuance.objects.create(
+                    issue_date=season.start_date, season=season,
+                    product_type='tomato',
+                ),
             }
             for season in (cls.active, cls.closed)
         }
@@ -454,6 +458,8 @@ class ScopedViewSetFreezeTests(SeasonFreezeFixture):
         ('customs_expense', '/api/v1/export/customs-expenses/{pk}/', 'patch',
          {'amount': '11.00'}),
         ('contract_sale', '/api/v1/contracts/sales/{pk}/', 'patch',
+         {'notes': 'x'}),
+        ('quota_issuance', '/api/v1/export/quota-issuances/{pk}/', 'patch',
          {'notes': 'x'}),
     ]
 
@@ -595,6 +601,126 @@ class ScopedViewSetFreezeTests(SeasonFreezeFixture):
             with self.subTest(resource=key):
                 url = template.format(pk=self.rows[self.closed][key].pk)
                 self.assertEqual(self.client_as().get(url).status_code, 200)
+
+
+class QuotaIssuanceSeasonAnchorTests(SeasonFreezeFixture):
+    """D10: `QuotaIssuance.season` is the freeze anchor, resolved through
+    `freeze_season_of()`'s plain-`obj.season` rule (rule 2) with no override.
+    """
+
+    def test_freeze_season_of_resolves_the_plain_season_fk(self):
+        issuance = QuotaIssuance.objects.create(
+            issue_date=self.closed.start_date, season=self.closed,
+            product_type='tomato',
+        )
+        self.assertEqual(freeze_season_of(issuance), self.closed)
+
+    def test_freeze_season_of_returns_none_for_a_null_season(self):
+        """Historical rows the backfill could not match stay anchor-less —
+        `assert_season_open(None)` is a no-op, so they remain editable."""
+        issuance = QuotaIssuance.objects.create(
+            issue_date=self.closed.start_date, season=None, product_type='tomato',
+        )
+        self.assertIsNone(freeze_season_of(issuance))
+
+
+class QuotaIssuanceReassignFreezeTests(SeasonFreezeFixture):
+    """`reassign` is a detail=True @action that declares its OWN
+    `permission_classes` kwarg, which replaces the class-level list for that
+    route entirely (the same trap `test_soft_delete_on_closed_season_returns_409`
+    documents for ShipmentViewSet's `_OPEN_ACTIONS` branch). Adding
+    `SeasonNotClosed` to `QuotaIssuanceViewSet.permission_classes` alone does
+    NOT cover it — the action's own list must carry it too.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.frozen = QuotaIssuance.objects.create(
+            issue_date=cls.closed.start_date, season=cls.closed, product_type='tomato',
+        )
+        cls.live = QuotaIssuance.objects.create(
+            issue_date=cls.active.start_date, season=cls.active, product_type='tomato',
+        )
+
+    def test_reassign_on_closed_season_issuance_returns_409(self):
+        response = self.client_as().patch(
+            f'/api/v1/export/quota-issuances/{self.frozen.pk}/reassign/',
+            {'matched_week': 5, 'matched_year': 2025}, format='json',
+        )
+        self.assert_season_closed_409(response)
+        self.frozen.refresh_from_db()
+        self.assertFalse(self.frozen.is_manually_reassigned)
+
+    def test_reassign_on_active_season_issuance_still_works(self):
+        response = self.client_as().patch(
+            f'/api/v1/export/quota-issuances/{self.live.pk}/reassign/',
+            {'matched_week': 6, 'matched_year': 2026}, format='json',
+        )
+        self.assertEqual(response.status_code, 200, response.content[:400])
+        self.live.refresh_from_db()
+        self.assertTrue(self.live.is_manually_reassigned)
+
+
+class QuotaIssuanceCreateStampingTests(SeasonFreezeFixture):
+    """New issuances are server-stamped with `get_active_season()` (D10 §5),
+    mirroring the Shipment precedent: a create target derived from
+    `get_active_season()` can never be closed, so no request-level guard is
+    needed on POST — only on writes to an EXISTING row (covered above).
+    """
+
+    def test_create_stamps_the_active_season(self):
+        response = self.client_as().post(
+            '/api/v1/export/quota-issuances/',
+            {'issue_date': str(self.active.start_date), 'product_type': 'tomato'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 201, response.content[:400])
+        issuance = QuotaIssuance.objects.get(pk=response.json()['id'])
+        self.assertEqual(issuance.season, self.active)
+
+    def test_season_in_the_create_body_is_ignored_not_written(self):
+        """`season` is read-only on the create serializer — a client-supplied
+        value must not leak through and must not error either."""
+        response = self.client_as().post(
+            '/api/v1/export/quota-issuances/',
+            {
+                'issue_date': str(self.active.start_date), 'product_type': 'tomato',
+                'season': self.closed.pk,
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, 201, response.content[:400])
+        issuance = QuotaIssuance.objects.get(pk=response.json()['id'])
+        self.assertEqual(issuance.season, self.active)
+
+
+class QuotaIssuanceSeasonReadOnlyTests(SeasonFreezeFixture):
+    """`season` is read-only on `QuotaIssuanceSerializer` (used for PUT/PATCH).
+
+    This is the update-side half of D10 §6: the viewset deliberately has no
+    `assert_update_target_open()` (that method belongs to `SeasonScopedMixin`,
+    which this viewset must not use — see the class docstring). Layer 1's
+    `has_object_permission` only checks the row's season BEFORE the write; if
+    `season` were writable, a PATCH on an OPEN-season issuance could move it
+    INTO a closed one undetected — the same anchor-target gap
+    `test_patch_moving_a_truck_allocation_into_a_closed_season_returns_409`
+    guards against via `assert_update_target_open`. Read-only closes the same
+    gap here by construction: there is no request path that can move the
+    anchor at all.
+    """
+
+    def test_patching_season_on_an_open_issuance_is_a_silent_no_op(self):
+        issuance = QuotaIssuance.objects.create(
+            issue_date=self.active.start_date, season=self.active, product_type='tomato',
+        )
+        response = self.client_as().patch(
+            f'/api/v1/export/quota-issuances/{issuance.pk}/',
+            {'season': self.closed.pk}, format='json',
+        )
+        self.assertEqual(response.status_code, 200, response.content[:400])
+        issuance.refresh_from_db()
+        self.assertEqual(issuance.season, self.active)
 
 
 class ScopedViewSetCreateFreezeTests(SeasonFreezeFixture):

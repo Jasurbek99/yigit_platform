@@ -10,7 +10,7 @@ from django.core.management import call_command
 from django.test import TestCase
 
 from apps.core.models import ExportFirm, ImportFirm, Season
-from apps.export.models import WeeklyLocalSellPlan
+from apps.export.models import QuotaIssuance, WeeklyLocalSellPlan
 
 
 class BackfillSeasonFksTests(TestCase):
@@ -75,3 +75,30 @@ class BackfillSeasonFksTests(TestCase):
         out = StringIO()
         call_command('backfill_season_fks', stdout=out)
         self.assertIn('0 updated', out.getvalue())
+
+    def test_assigns_quota_issuance_season_by_issue_date(self):
+        issuance = QuotaIssuance.objects.create(
+            issue_date=date(2026, 1, 15), season=None, product_type='tomato',
+        )
+        call_command('backfill_season_fks', stdout=StringIO())
+        issuance.refresh_from_db()
+        self.assertEqual(issuance.season, self.s2025)
+
+    def test_quota_issuance_dry_run_writes_nothing(self):
+        issuance = QuotaIssuance.objects.create(
+            issue_date=date(2026, 1, 15), season=None, product_type='tomato',
+        )
+        call_command('backfill_season_fks', '--dry-run', stdout=StringIO())
+        issuance.refresh_from_db()
+        self.assertIsNone(issuance.season)
+
+    def test_quota_issuance_unmatched_rows_are_reported_not_dropped(self):
+        issuance = QuotaIssuance.objects.create(
+            issue_date=date(2019, 1, 15), season=None, product_type='tomato',
+        )
+        out = StringIO()
+        call_command('backfill_season_fks', stdout=out)
+        issuance.refresh_from_db()
+        self.assertIsNone(issuance.season)
+        self.assertIn('unmatched', out.getvalue().lower())
+        self.assertIn(str(issuance.pk), out.getvalue())

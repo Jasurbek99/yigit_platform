@@ -418,6 +418,16 @@ CREATE TABLE export.quota_issuances (
     created_by BIGINT NULL REFERENCES sys_users(id)
 );
 
+-- D10 (season lifecycle, 2026-08-05): write-freeze anchor only — quota_issuances
+-- stays OFF the read-scope list (spec §4.5): issuances are consumed FIFO
+-- across seasons, so hiding a prior season's issuances would break the
+-- balance the current season's usage records are matched against. Nullable —
+-- historical issuances may not map cleanly to a season. core.seasons already
+-- exists (line 36), so no ordering fix is needed here (contrast the closed_at
+-- patch above, which had to follow sys_users).
+ALTER TABLE export.quota_issuances ADD season_id INT NULL
+    CONSTRAINT fk_quota_issuances_season REFERENCES core.seasons(id);
+
 CREATE TABLE export.quota_issuance_firm_allocations (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     issuance_id BIGINT NOT NULL REFERENCES export.quota_issuances(id) ON DELETE CASCADE,

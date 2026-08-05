@@ -59,6 +59,16 @@ class QuotaIssuance(models.Model):
         db_column='created_by', related_name='quota_issuances_created',
     )
 
+    # Write-freeze anchor only (D10) — NOT a read-scope filter. Nullable:
+    # historical rows may not map cleanly to a season. Issuances are consumed
+    # FIFO across seasons (see services_quota.compute_fifo_usage), so the
+    # quota-issuances list stays unscoped (spec §4.5) even though this FK
+    # exists for `freeze_season_of()` to anchor on.
+    season = models.ForeignKey(
+        'core.Season', on_delete=models.PROTECT,
+        null=True, blank=True, related_name='quota_issuances',
+    )
+
     class Meta:
         db_table = schema_table('export', 'quota_issuances')
         ordering = ['issue_date']
