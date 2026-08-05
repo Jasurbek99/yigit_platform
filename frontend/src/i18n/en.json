@@ -36,6 +36,14 @@
     "loading_dept_head_deputy": "Loading Dept Deputy",
     "boss": "Boss"
   },
+  "boss_mode": {
+    "view": "View",
+    "edit": "Edit",
+    "active": "Edit mode",
+    "confirm_title": "Switch to edit mode",
+    "confirm_body": "You will make changes under your own account. Every edit is recorded in the audit log as \"boss\".",
+    "confirm_ok": "Continue"
+  },
   "nav": {
     "brand_name": "YGT Platform",
     "dashboard": "Dashboard",

@@ -36,6 +36,14 @@
     "loading_dept_head_deputy": "Ýükleme gaplama bölüminiň orunbassary",
     "boss": "Başlyk"
   },
+  "boss_mode": {
+    "view": "Görmek",
+    "edit": "Üýtgetmek",
+    "active": "Üýtgetmek režimi",
+    "confirm_title": "Üýtgetmek režimine geçmek",
+    "confirm_body": "Siz öz adyňyzdan üýtgetme girizersiňiz. Ähli üýtgetmeler audit žurnalynda \"boss\" hökmünde ýazylýar.",
+    "confirm_ok": "Dowam et"
+  },
   "nav": {
     "brand_name": "YGT Platform",
     "dashboard": "Baş sahypa",

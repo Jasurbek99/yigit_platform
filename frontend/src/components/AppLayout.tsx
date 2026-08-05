@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Layout, Menu, Button, Badge, Typography, Segmented, Flex, Tooltip } from 'antd';
+import { Layout, Menu, Button, Badge, Typography, Segmented, Flex, Tooltip, Modal, Tag } from 'antd';
 import {
   IconLayoutDashboard,
   IconTruck,
@@ -39,6 +39,7 @@ import { useMyTasks } from '@/hooks/useMyTasks';
 import { useRealtime } from '@/hooks/useRealtime';
 import { realtime } from '@/services/realtime';
 import { useRealtimeStore } from '@/stores/realtimeStore';
+import { useUiStore } from '@/stores/uiStore';
 import { useWorklogHeartbeat } from '@/hooks/useWorklogHeartbeat';
 import { canSeePage } from '@/utils/permissions';
 import { clearCachedPrefs } from '@/cache/userPrefsCache';
@@ -60,6 +61,9 @@ export default function AppLayout() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
+  const bossEditMode = useUiStore((s) => s.bossEditMode);
+  const setBossEditMode = useUiStore((s) => s.setBossEditMode);
+  const isBoss = user?.role === 'boss';
   useRealtime({ enabled: !!user });
   useWorklogHeartbeat({ enabled: !!user });
   const { data: feedbackUnreadCount = 0 } = useFeedbackAdminUnreadCount();
@@ -98,6 +102,20 @@ export default function AppLayout() {
       navigate('/login');
     },
   });
+
+  const handleBossModeChange = (value: string | number) => {
+    if (value === 'view') {
+      setBossEditMode(false);
+      return;
+    }
+    Modal.confirm({
+      title: t('boss_mode.confirm_title'),
+      content: t('boss_mode.confirm_body'),
+      okText: t('boss_mode.confirm_ok'),
+      cancelText: t('common.cancel'),
+      onOk: () => setBossEditMode(true),
+    });
+  };
 
   const ROUTE_LABELS: Record<string, string> = {
     '/': t('nav.dashboard'),
@@ -478,6 +496,24 @@ export default function AppLayout() {
 
           {/* Right: connection dot + worklog chip + lang switcher + notifications */}
           <Flex align="center" gap={12}>
+            {isBoss && (
+              <Flex align="center" gap={8}>
+                <Segmented
+                  size="small"
+                  value={bossEditMode ? 'edit' : 'view'}
+                  options={[
+                    { label: t('boss_mode.view'), value: 'view' },
+                    { label: t('boss_mode.edit'), value: 'edit' },
+                  ]}
+                  onChange={handleBossModeChange}
+                />
+                {bossEditMode && (
+                  <Tag color="orange" style={{ margin: 0 }}>
+                    {t('boss_mode.active')}
+                  </Tag>
+                )}
+              </Flex>
+            )}
             <ConnectionStatus />
             <WorklogChip />
             <Segmented
