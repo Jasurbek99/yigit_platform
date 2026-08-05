@@ -48,10 +48,15 @@ interface MutationOptions {
   onError?: (err: unknown) => void;
 }
 
+// `status`, `closed_at`, `closed_by`, `closed_by_name` are `read_only_fields`
+// on the backend `SeasonSerializer` — derived from `closed_at`/`is_active`,
+// never accepted on write.
+type ISeasonWritable = Omit<ISeason, 'id' | 'status' | 'closed_at' | 'closed_by' | 'closed_by_name'>;
+
 export function useCreateSeason(options: MutationOptions = {}) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (payload: Omit<ISeason, 'id'>) =>
+    mutationFn: (payload: ISeasonWritable) =>
       api.post<ISeason>('/export/admin/seasons/', payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-seasons'] });
@@ -64,7 +69,7 @@ export function useCreateSeason(options: MutationOptions = {}) {
 export function useUpdateSeason(options: MutationOptions = {}) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...payload }: Partial<ISeason> & { id: number }) =>
+    mutationFn: ({ id, ...payload }: Partial<ISeasonWritable> & { id: number }) =>
       api.patch<ISeason>(`/export/admin/seasons/${id}/`, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-seasons'] });

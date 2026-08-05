@@ -43,6 +43,10 @@ export interface ICurrentUser {
   page_permissions: Record<string, boolean>;
   resource_permissions: Record<string, IResourcePermission>;
   field_permissions: Record<string, string[]>;
+  /** The write-target season, or null during the legitimate close→open gap. */
+  active_season: { id: number; name: string; status: SeasonStatus } | null;
+  /** Whether this user may select a closed season in the switcher. */
+  can_view_closed_seasons: boolean;
 }
 
 // â”€â”€â”€ Reference â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1411,12 +1415,26 @@ export interface IBlockAssignment {
   is_active: boolean;
 }
 
+export type SeasonStatus = 'UPCOMING' | 'ACTIVE' | 'CLOSED';
+
 export interface ISeason {
   id: number;
   name: string;
   start_date: string;
   end_date: string;
   is_active: boolean;
+  status: SeasonStatus;
+  closed_at: string | null;
+  closed_by: number | null;
+  closed_by_name: string | null;
+}
+
+/** Counters shown in the close-season confirm dialog (`GET .../close-preview/`). */
+export interface ISeasonClosePreview {
+  drafts: number;
+  in_transit: number;
+  open_tasks: number;
+  unfinished_plans: number;
 }
 
 export interface IAdminUser {
