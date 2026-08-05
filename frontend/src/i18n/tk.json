@@ -1135,7 +1135,8 @@
     "readonly_banner": "Ýapyk möwsüm {{name}} görülýär — diňe okamak",
     "back_to_active": "Işjeň möwsüme dolan",
     "closed_error": "Bu möwsüm ýapyk, üýtgedip bolmaýar",
-    "partial_view_notice": "Arhiwlenen ýazgylar bu görnüşde görkezilmeýär"
+    "partial_view_notice": "Arhiwlenen ýazgylar bu görnüşde görkezilmeýär",
+    "no_active_season_banner": "Işjeň möwsüm ýok — admin Admin → Möwsümler bölüminde möwsümi açýança hiç zady üýtgedip bolmaýar"
   },
   "seasons": {
     "title": "Möwsümler",

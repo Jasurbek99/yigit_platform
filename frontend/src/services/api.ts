@@ -32,11 +32,7 @@ interface ISeasonClosedError {
 }
 
 function isSeasonClosedError(data: unknown): data is ISeasonClosedError {
-  return (
-    typeof data === 'object' &&
-    data !== null &&
-    (data as Record<string, unknown>).error === 'season_closed'
-  );
+  return typeof data === 'object' && data !== null && 'error' in data && data.error === 'season_closed';
 }
 
 // Redirect to login on 401 — but NOT for the login endpoint itself,

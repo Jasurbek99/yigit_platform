@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import api from '@/services/api';
 import { getShipmentDetailKey } from '@/hooks/useShipmentDetail';
+import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
 
 const STATUS_DISPLAY: Record<string, string> = {
   yuklenme: 'Loading',
@@ -32,6 +33,7 @@ interface ITransitionButtonProps {
 export function TransitionButton({ shipmentId, allowedTransitions, onSuccess }: ITransitionButtonProps) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const isReadOnly = useSeasonReadOnly();
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [form] = Form.useForm<{ new_status: string; comment?: string }>();
@@ -76,6 +78,7 @@ export function TransitionButton({ shipmentId, allowedTransitions, onSuccess }: 
       <Button
         type="primary"
         icon={<IconArrowsExchange size={14} />}
+        disabled={isReadOnly}
         onClick={handleOpen}
       >
         {t('transition.button')}
