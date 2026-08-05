@@ -112,21 +112,19 @@ export function useSeasonClosePreview(seasonId: number | null) {
 
 // Both close and open change `active_season` on `/auth/me/` (close clears it
 // until the next open; open moves it to the target and demotes the
-// incumbent back to UPCOMING) — every read of that field (SeasonSwitcher,
-// useSeasonReadOnly, ClosedSeasonBanner, the header) is stale until
-// ['auth', 'me'] is invalidated alongside ['admin-seasons'].
-//
-// Also invalidates EVERY cached query, not just those two keys. The ~26
-// season-scoped query hooks threaded through `seasonId` in Task 14 all key
-// on whatever `useSelectedSeason()` currently resolves — which, after a
-// close, is very often UNCHANGED (the store already holds the season's id,
-// seeded on mount by `useSeasonParam()`'s URL->store effect; `useSelectedSeason()`
-// resolves `URL ?? store ?? active`, and the store wins over the
-// now-stale `active` value this mutation just invalidated). So the boards
-// keep serving cached rows from the just-hidden season until `staleTime`
-// expires unless every query is forced to refetch here, not just the two
-// this mutation directly touches — a blanket invalidate is deliberately
-// broader than "only what this mutation wrote" for that reason.
+// incumbent back to UPCOMING), AND every one of the ~26 season-scoped query
+// hooks threaded through `seasonId` in Task 14 (`useShipments`,
+// `useShipmentSheet`, etc.) — those key on whatever `useSelectedSeason()`
+// currently resolves (`URL ?? store ?? active`), which after a close is very
+// often UNCHANGED: the store already holds the season's id, seeded on mount
+// by `useSeasonParam()`'s URL->store effect, and the store wins over the
+// `active` value this mutation invalidates. So a targeted invalidate of just
+// `['admin-seasons']`/`['auth','me']` would leave the boards serving cached
+// rows from the just-hidden season until `staleTime` expires. A single
+// blanket `invalidateQueries()` (no key filter) covers both those two keys
+// AND the ~26 season-scoped ones in one call — deliberately broader than
+// "only what this mutation wrote," justified since this fires at most a
+// couple of times a season, not on a hot path.
 export function useCloseSeason(options: MutationOptions = {}) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -135,8 +133,6 @@ export function useCloseSeason(options: MutationOptions = {}) {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-seasons'] });
-      queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
       queryClient.invalidateQueries();
       options.onSuccess?.();
     },
@@ -152,8 +148,6 @@ export function useOpenSeason(options: MutationOptions = {}) {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-seasons'] });
-      queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
       queryClient.invalidateQueries();
       options.onSuccess?.();
     },

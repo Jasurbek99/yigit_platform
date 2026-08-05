@@ -215,7 +215,7 @@ export default function SeasonsPage() {
                     {t('seasons.open_button')}
                   </Button>
                 )}
-                {canEditSeason && (
+                {canEditSeason && record.status !== 'CLOSED' && (
                   <Button
                     type="link"
                     size="small"
@@ -224,7 +224,7 @@ export default function SeasonsPage() {
                     {t('common.edit')}
                   </Button>
                 )}
-                {canDeleteSeason && (
+                {canDeleteSeason && record.status !== 'CLOSED' && (
                   <Button
                     type="link"
                     size="small"
