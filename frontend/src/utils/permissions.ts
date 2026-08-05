@@ -4,6 +4,7 @@
  * Read from the page_permissions / resource_permissions / field_permissions
  * returned by /auth/me/ and cached in the useAuth() hook.
  */
+import { useUiStore } from '@/stores/uiStore';
 import type { ICurrentUser } from '@/types';
 
 // ── Route → page_code mapping ────────────────────────────────────────────
@@ -100,6 +101,11 @@ export function canDo(
   action: 'view' | 'create' | 'edit' | 'delete',
 ): boolean {
   if (!user) return false;
+  // Boss view/edit toggle. MUST precede the is_superuser check below.
+  // 'view' is exempt — locking reads would blank the process for him.
+  if (user.role === 'boss' && action !== 'view' && !useUiStore.getState().bossEditMode) {
+    return false;
+  }
   if (user.is_superuser) return true;
 
   const perm = user.resource_permissions?.[resource];
@@ -117,6 +123,8 @@ export function canEditField(
   fieldName: string,
 ): boolean {
   if (!user) return false;
+  // Boss view/edit toggle. MUST precede the is_superuser check below.
+  if (user.role === 'boss' && !useUiStore.getState().bossEditMode) return false;
   if (user.is_superuser) return true;
 
   const fields = user.field_permissions?.[resource];
