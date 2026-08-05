@@ -164,23 +164,12 @@ export default function AppLayout() {
   };
 
   const allMenuGroups: { label: string; items: MenuItem[] }[] = [
-    { label: t('nav.group_main'), items: [
+    // Groups 1..6 are the export process in order. Unnumbered groups support it.
+    // One global order for every role; the filter below hides items a role
+    // cannot see, and a group with no visible children collapses (see line ~313).
+    { label: t('nav.group_overview'), items: [
       { key: '/', icon: <IconLayoutDashboard size={15} />, label: t('nav.dashboard') },
       { key: '/boss/dashboard', icon: <IconChartPie size={15} />, label: t('nav.boss_dashboard') },
-      {
-        key: '/director/stuck-shipments',
-        icon: <IconAlertTriangle size={15} />,
-        label: t('nav.stuck_shipments'),
-      },
-    ]},
-    { label: t('nav.group_analytics'), items: [
-      { key: '/analytics/clients-report', icon: <IconUsers size={15} />, label: t('nav.clients_report') },
-      { key: '/export/blocks', icon: <IconChartBar size={15} />, label: t('nav.block_summary') },
-    ]},
-    { label: t('nav.group_export'), items: [
-      { key: '/export/shipments/dashboard', icon: <IconLayoutDashboard size={15} />, label: t('nav.shipment_dashboard') },
-      { key: '/export/shipments', icon: <IconTruck size={15} />, label: t('nav.shipments') },
-      { key: '/export/shipments/sheet', icon: <IconLayoutGrid size={15} />, label: t('nav.shipment_sheet') },
       {
         key: '/me/board',
         icon: (
@@ -189,75 +178,49 @@ export default function AppLayout() {
           </Badge>
         ),
         label: t('me.nav.board'),
-        // Matrix-driven via page_code 'me.board' (seeded visible for every role).
-      },
-      { key: '/export/shipments/board', icon: <IconLayoutKanban size={15} />, label: t('nav.shipment_board') },
-      { key: '/export/harvest-board', icon: <IconPlant2 size={15} />, label: t('nav.harvest_board') },
-      { key: '/export/weightmaster', icon: <IconScale size={15} />, label: t('nav.weightmaster') },
-      { key: '/export/overdue', icon: <IconAlertTriangle size={15} />, label: t('nav.overdue') },
-      { key: '/export/my-reports', icon: <IconReportAnalytics size={15} />, label: t('nav.sales_reports') },
-      { key: '/export/advances', icon: <IconBuildingBank size={15} />, label: t('nav.advances') },
-    ]},
-    { label: t('nav.group_contracts'), items: [
-      {
-        // Matrix-driven via page_code 'contracts.list' (see ROUTE_PAGE_MAP).
-        // Defaults visible to admin / director / export_manager only.
-        key: '/contracts',
-        icon: <IconFileText size={15} />,
-        label: t('nav.contracts.list'),
       },
       {
-        // Matrix-driven via page_code 'contracts.sales' (see ROUTE_PAGE_MAP).
-        key: '/sales',
-        icon: <IconFileText size={15} />,
-        label: t('nav.sales.list'),
-      },
-      {
-        // Matrix-driven via page_code 'contracts.documents' (see ROUTE_PAGE_MAP).
-        // The document team's home screen — truck packets to generate documents.
-        key: '/documents',
-        icon: <IconFileText size={15} />,
-        label: t('nav.documents'),
+        key: '/director/stuck-shipments',
+        icon: <IconAlertTriangle size={15} />,
+        label: t('nav.stuck_shipments'),
       },
     ]},
-    { label: t('nav.group_management'), items: [
+    { label: t('nav.group_planning'), items: [
       { key: '/export/plan', icon: <IconCalendar size={15} />, label: t('nav.plan') },
+      { key: '/export/harvest-board', icon: <IconPlant2 size={15} />, label: t('nav.harvest_board') },
+      { key: '/export/trucks', icon: <IconTruck size={15} />, label: t('nav.trucks') },          // NEW
       { key: '/export/quota', icon: <IconChartPie size={15} />, label: t('nav.quota') },
-      { key: '/admin/seasons', icon: <IconCalendar size={15} />, label: t('nav.admin_seasons') },
-      { key: '/admin/firms', icon: <IconBuildingBank size={15} />, label: t('nav.admin_firms') },
-      { key: '/admin/import-firms', icon: <IconBuildingBank size={15} />, label: t('nav.admin_import_firms') },
-      { key: '/admin/customers', icon: <IconUser size={15} />, label: t('nav.admin_customers') },
-      { key: '/admin/blocks', icon: <IconBuildingWarehouse size={15} />, label: t('nav.admin_blocks') },
+      { key: '/export/blocks', icon: <IconChartBar size={15} />, label: t('nav.block_summary') },
     ]},
-    { label: t('nav.group_system'), items: [
-      { key: '/admin/users', icon: <IconUsers size={15} />, label: t('nav.admin_users') },
-      { key: '/admin/truck-destinations', icon: <IconTruck size={15} />, label: t('nav.admin_truck_dest') },
-      { key: '/admin/shipment-settings', icon: <IconLayoutGrid size={15} />, label: t('nav.admin_shipment_settings') },
-      { key: '/admin/permissions', icon: <IconShield size={15} />, label: t('nav.admin_permissions') },
-      { key: '/admin/staff-access', icon: <IconUsers size={15} />, label: t('nav.admin_staff_access') },
-      { key: '/admin/sales-rep-coverage', icon: <IconMapPin size={15} />, label: t('nav.sales_rep_coverage') },
-      { key: '/admin/expense-template', icon: <IconFileText size={15} />, label: t('nav.admin_expense_template') },
+    { label: t('nav.group_prep'), items: [
+      { key: '/export/drafts', icon: <IconLayoutGrid size={15} />, label: t('nav.drafts') },     // NEW
+      { key: '/export/assign', icon: <IconLayoutKanban size={15} />, label: t('nav.assign') },   // NEW
+      { key: '/export/weightmaster', icon: <IconScale size={15} />, label: t('nav.weightmaster') },
+    ]},
+    { label: t('nav.group_shipping'), items: [
+      { key: '/export/shipments', icon: <IconTruck size={15} />, label: t('nav.shipments') },
+      { key: '/export/shipments/sheet', icon: <IconLayoutGrid size={15} />, label: t('nav.shipment_sheet') },
+      { key: '/export/shipments/board', icon: <IconLayoutKanban size={15} />, label: t('nav.shipment_board') },
+      { key: '/export/shipments/dashboard', icon: <IconLayoutDashboard size={15} />, label: t('nav.shipment_dashboard') },
+    ]},
+    { label: t('nav.group_docs'), items: [
+      { key: '/documents', icon: <IconFileText size={15} />, label: t('nav.documents') },
       { key: '/admin/packing-templates', icon: <IconFileText size={15} />, label: t('nav.admin_packing_templates') },
-      {
-        key: '/admin/audit-log',
-        icon: <IconClipboardList size={15} />,
-        label: t('nav.admin_audit_log'),
-      },
     ]},
-    { label: t('nav.group_team'), items: [
-      {
-        key: '/worklog',
-        icon: <IconClock size={15} />,
-        label: t('nav.worklog'),
-        // Radical transparency: every authenticated user sees this page. No
-        // page_code is registered for it, so we surface it via the same
-        // roles: ALL_ROLES bypass the Contracts / Invoices entries use.
-        roles: [
-          'admin', 'export_manager', 'loading_dept_head', 'loading_dept_head_deputy', 'warehouse_chief',
-          'weight_master', 'document_team', 'transport', 'sales_rep', 'finansist',
-          'director', 'accountant', 'greenhouse_manager', 'seller', 'boss',
-        ] as import('@/types').UserRole[],
-      },
+    { label: t('nav.group_sales'), items: [
+      { key: '/contracts', icon: <IconFileText size={15} />, label: t('nav.contracts.list') },
+      { key: '/sales', icon: <IconFileText size={15} />, label: t('nav.sales.list') },
+      { key: '/export/my-reports', icon: <IconReportAnalytics size={15} />, label: t('nav.sales_reports') },
+      { key: '/export/domestic-sales', icon: <IconBuildingWarehouse size={15} />, label: t('nav.domestic_sales') },  // NEW
+      { key: '/export/prices', icon: <IconChartBar size={15} />, label: t('nav.prices') },       // NEW
+    ]},
+    { label: t('nav.group_finance'), items: [
+      { key: '/export/advances', icon: <IconBuildingBank size={15} />, label: t('nav.advances') },
+      { key: '/export/overdue', icon: <IconAlertTriangle size={15} />, label: t('nav.overdue') },
+      { key: '/admin/expense-template', icon: <IconFileText size={15} />, label: t('nav.admin_expense_template') },
+    ]},
+    { label: t('nav.group_analytics'), items: [
+      { key: '/analytics/clients-report', icon: <IconUsers size={15} />, label: t('nav.clients_report') },
       {
         key: '/team/kpi',
         icon: <IconTrophy size={15} />,
@@ -268,23 +231,44 @@ export default function AppLayout() {
           'director', 'accountant', 'greenhouse_manager', 'seller', 'boss',
         ] as import('@/types').UserRole[],
       },
+      {
+        key: '/worklog',
+        icon: <IconClock size={15} />,
+        label: t('nav.worklog'),
+        // Radical transparency: every authenticated user sees this page. No
+        // page_code is registered for it, so it is surfaced via an explicit
+        // roles list that bypasses canSeePage.
+        roles: [
+          'admin', 'export_manager', 'loading_dept_head', 'loading_dept_head_deputy', 'warehouse_chief',
+          'weight_master', 'document_team', 'transport', 'sales_rep', 'finansist',
+          'director', 'accountant', 'greenhouse_manager', 'seller', 'boss',
+        ] as import('@/types').UserRole[],
+      },
+    ]},
+    { label: t('nav.group_reference'), items: [
+      { key: '/admin/seasons', icon: <IconCalendar size={15} />, label: t('nav.admin_seasons') },
+      { key: '/admin/firms', icon: <IconBuildingBank size={15} />, label: t('nav.admin_firms') },
+      { key: '/admin/import-firms', icon: <IconBuildingBank size={15} />, label: t('nav.admin_import_firms') },
+      { key: '/admin/customers', icon: <IconUser size={15} />, label: t('nav.admin_customers') },
+      { key: '/admin/blocks', icon: <IconBuildingWarehouse size={15} />, label: t('nav.admin_blocks') },
+      { key: '/admin/truck-destinations', icon: <IconTruck size={15} />, label: t('nav.admin_truck_dest') },
+    ]},
+    { label: t('nav.group_system'), items: [
+      { key: '/admin/users', icon: <IconUsers size={15} />, label: t('nav.admin_users') },
+      { key: '/admin/permissions', icon: <IconShield size={15} />, label: t('nav.admin_permissions') },
+      { key: '/admin/staff-access', icon: <IconUsers size={15} />, label: t('nav.admin_staff_access') },
+      { key: '/admin/shipment-settings', icon: <IconLayoutGrid size={15} />, label: t('nav.admin_shipment_settings') },
+      { key: '/admin/sales-rep-coverage', icon: <IconMapPin size={15} />, label: t('nav.sales_rep_coverage') },
+      {
+        key: '/admin/audit-log',
+        icon: <IconClipboardList size={15} />,
+        label: t('nav.admin_audit_log'),
+      },
     ]},
     { label: t('nav.group_feedback'), items: [
-      {
-        key: '/feedback/submit',
-        icon: <IconMessageCircle size={15} />,
-        label: t('nav.feedback_submit'),
-      },
-      {
-        key: '/feedback/my-tickets',
-        icon: <IconFileText size={15} />,
-        label: t('nav.feedback_my_tickets'),
-      },
-      {
-        key: '/feedback/public',
-        icon: <IconChartPie size={15} />,
-        label: t('nav.feedback_public'),
-      },
+      { key: '/feedback/submit', icon: <IconMessageCircle size={15} />, label: t('nav.feedback_submit') },
+      { key: '/feedback/my-tickets', icon: <IconFileText size={15} />, label: t('nav.feedback_my_tickets') },
+      { key: '/feedback/public', icon: <IconChartPie size={15} />, label: t('nav.feedback_public') },
       {
         key: '/admin/feedback',
         icon: (
