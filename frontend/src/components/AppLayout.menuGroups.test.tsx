@@ -73,23 +73,15 @@ function renderedMenuItemKeys(): string[] {
   });
 }
 
+// The "does a boss get the boss composition / a non-boss get the staff
+// composition" question is tested directly against the pure selector in
+// utils/menuComposition.test.ts — that test exercises the exact mechanism
+// AppLayout calls (pickMenuComposition) and would fail if the branches were
+// ever swapped. This file is left to verify what a full render actually
+// produces: a non-empty menu with no duplicate route keys, for either role.
 describe('AppLayout menu composition', () => {
   beforeAll(async () => {
     await i18n.changeLanguage('en');
-  });
-
-  it('selects the boss composition for a boss user', () => {
-    const { container } = renderLayout(fakeUser({ role: 'boss' as UserRole }));
-    const navMenuHost = container.querySelector('[data-menu-source]');
-    expect(navMenuHost).not.toBeNull();
-    expect(navMenuHost?.getAttribute('data-menu-source')).toBe('boss');
-  });
-
-  it('selects the staff composition for a non-boss user', () => {
-    const { container } = renderLayout(fakeUser({ role: 'export_manager' as UserRole }));
-    const navMenuHost = container.querySelector('[data-menu-source]');
-    expect(navMenuHost).not.toBeNull();
-    expect(navMenuHost?.getAttribute('data-menu-source')).toBe('staff');
   });
 
   it('renders a non-empty boss menu with no duplicate route keys', () => {

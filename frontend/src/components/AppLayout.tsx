@@ -42,6 +42,7 @@ import { useRealtimeStore } from '@/stores/realtimeStore';
 import { useUiStore } from '@/stores/uiStore';
 import { useWorklogHeartbeat } from '@/hooks/useWorklogHeartbeat';
 import { canSeePage } from '@/utils/permissions';
+import { pickMenuComposition } from '@/utils/menuComposition';
 import { clearCachedPrefs } from '@/cache/userPrefsCache';
 import { useProcessTour } from '@/hooks/useProcessTour';
 import { FeedbackFAB } from '@/components/feedback/FeedbackFAB';
@@ -307,7 +308,11 @@ export default function AppLayout() {
     OVERVIEW, PLANNING, PREP, SHIPPING, DOCS, SALES, FINANCE, ANALYTICS, REFERENCE, SYSTEM, FEEDBACK,
   ];
 
-  const allMenuGroups: { label: string; items: MenuItem[] }[] = isBoss ? BOSS_MENU_GROUPS : STAFF_MENU_GROUPS;
+  const allMenuGroups: { label: string; items: MenuItem[] }[] = pickMenuComposition(
+    isBoss,
+    BOSS_MENU_GROUPS,
+    STAFF_MENU_GROUPS,
+  );
 
   // Filter: keep only items the user has permission to see
   const menuItems: MenuProps['items'] = allMenuGroups
@@ -399,13 +404,7 @@ export default function AppLayout() {
         </div>
 
         {/* Nav menu */}
-        {/* data-menu-source records which composition (BOSS_MENU_GROUPS vs
-            STAFF_MENU_GROUPS) fed this render — a test seam only, no
-            user-visible text, see AppLayout.menuGroups.test.tsx. */}
-        <div
-          style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', scrollbarWidth: 'thin' }}
-          data-menu-source={isBoss ? 'boss' : 'staff'}
-        >
+        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', scrollbarWidth: 'thin' }}>
           <Menu
             theme="dark"
             mode="inline"
