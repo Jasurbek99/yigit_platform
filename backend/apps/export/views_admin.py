@@ -347,9 +347,15 @@ def _require_season_edit(user) -> None:
 class SeasonViewSet(ModelViewSet):
     """Season CRUD + lifecycle actions (close / open / close-preview).
 
-    All authenticated users may list/retrieve.
-    Writes gated dynamically on resource_code='season' (RoleResourcePermission).
-    Per default seed: admin / director / export_manager have full CRUD.
+    List/retrieve/writes are ALL gated dynamically on resource_code='season'
+    (RoleResourcePermission), via DynamicResourcePermission — GET requires
+    can_view, same as every other action. Not every authenticated role holds
+    it: per default seed, admin / director / export_manager / boss have
+    season.can_view (blanket, alongside full or read-only CRUD); finansist
+    holds season.can_view only, so it can list seasons to drive the header
+    season switcher without gaining season write access (Task 15b — finansist
+    holds closed_season.can_view but was missing the season.can_view needed to
+    populate that switcher's options). Every other role has neither.
 
     `SeasonNotClosed` is deliberately NOT added here. That permission blocks
     writes to rows *scoped by* a season (via `freeze_season_of()` reaching a

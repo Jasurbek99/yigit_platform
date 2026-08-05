@@ -216,6 +216,7 @@ class SeasonEndpointTests(TestCase):
             username='adm', role='admin', is_superuser=True,
         )
         cls.transport = User.objects.create(username='trn', role='transport')
+        cls.finansist = User.objects.create(username='fin', role='finansist')
         cls.season = Season.objects.create(
             name='2025/2026', start_date=date(2025, 9, 1), end_date=date(2026, 8, 31),
             is_active=True,
@@ -272,3 +273,29 @@ class SeasonEndpointTests(TestCase):
             f'/api/v1/export/admin/seasons/{self.season.pk}/close-preview/'
         )
         self.assertEqual(response.status_code, 403)
+
+    def test_finansist_can_list_seasons(self):
+        """Task 15b: finansist holds closed_season.can_view (may browse a closed
+        season's data) but was missing season.can_view (may list seasons to
+        populate the switcher). Without the seeded grant, this 403s."""
+        response = self._client(self.finansist).get('/api/v1/export/admin/seasons/')
+        self.assertEqual(response.status_code, 200)
+
+    def test_finansist_still_cannot_create_edit_or_delete_seasons(self):
+        """The fix must grant view only — create/edit/delete stay denied."""
+        client = self._client(self.finansist)
+        create_resp = client.post('/api/v1/export/admin/seasons/', {
+            'name': '2027/2028', 'start_date': '2027-09-01', 'end_date': '2028-08-31',
+        })
+        self.assertEqual(create_resp.status_code, 403)
+
+        edit_resp = client.patch(
+            f'/api/v1/export/admin/seasons/{self.season.pk}/',
+            {'name': 'renamed'},
+        )
+        self.assertEqual(edit_resp.status_code, 403)
+
+        close_resp = client.post(
+            f'/api/v1/export/admin/seasons/{self.season.pk}/close/'
+        )
+        self.assertEqual(close_resp.status_code, 403)
