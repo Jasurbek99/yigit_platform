@@ -18,7 +18,7 @@ via `apps.core.exceptions.custom_exception_handler`.
 Run with:
     DJANGO_TESTING=true python manage.py test apps.export.tests_season_freeze
 """
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 from django.core.management import call_command
@@ -33,9 +33,9 @@ from apps.core.models import (
 )
 from apps.core.seasons import SeasonClosedError, freeze_season_of
 from apps.export.models import (
-    CustomsExpense, QuotaIssuance, QuotaUsageRecord, Shipment,
-    ShipmentBlockSource, ShipmentComment, Task, WeeklyDestinationSelection,
-    WeeklyLocalSellPlan, WeeklyTruckAllocation,
+    CustomsExpense, Notification, QuotaIssuance, QuotaUsageRecord, Shipment,
+    ShipmentBlockSource, ShipmentComment, Task, TaskCompletionRule, TaskRule,
+    WeeklyDestinationSelection, WeeklyLocalSellPlan, WeeklyTruckAllocation,
 )
 from apps.export.services.shipment import create_shipment, transition_to
 from apps.greenhouse.models import HarvestDayEntry, WeeklyHarvestPlan
@@ -1046,3 +1046,144 @@ class BulkActionFreezeTests(SeasonFreezeFixture):
             {'plan_ids': [self.harvest_plans[self.closed].pk]}, format='json',
         )
         self.assert_season_closed_409(response)
+
+
+# ── Task 11: generators (management commands / cron) must skip closed seasons ─
+
+class GeneratorsSkipClosedSeasonsTests(SeasonFreezeFixture):
+    """Task/notification generators run outside DRF (management commands), so
+    no permission layer touches them — Task 9's write freeze does not reach
+    here by construction. Each generator below is verified independently:
+    `reconcile_tasks` mutates existing Task rows (no Task.objects.create
+    anywhere in it — verified by reading services/task_rules.py and
+    tests_task_reconcile.py, every fixture there pre-seeds the Task); the
+    others (`backfill_tasks`, `notify_stuck_shipments`,
+    `backfill_sales_report_tasks`) create fresh Task/Notification rows.
+    """
+
+    def test_reconcile_tasks_syncs_active_but_leaves_closed_season_stale(self):
+        """`reconcile_tasks` is a mutator, not an emitter — it never creates a
+        new Task, only re-syncs an existing one's snapshot fields to match its
+        live TaskRule (see services/task_rules.reconcile_open_tasks_with_rules).
+        The guard must still apply: D1 freezes writes to closed-season rows,
+        and a resync can flip a task to DONE via resolve_for_shipment.
+        """
+        rule = TaskRule.objects.create(
+            step=self.draft.code,
+            title_key='tasks.reconcile_test',
+            assignee_role='warehouse_chief',
+            target_fields='notes',
+            completion_rule=TaskCompletionRule.ALL_FIELDS_FILLED,
+        )
+        closed_ship = self.make_shipment(self.closed, 'GEN-CLS01')
+        active_ship = self.make_shipment(self.active, 'GEN-ACT01')
+        closed_task = Task.objects.create(
+            shipment=closed_ship, step=self.draft.code, rule=rule,
+            title_key='tasks.reconcile_test', assignee_role='warehouse_chief',
+            target_fields='old_field',  # stale — rule now says 'notes'
+            completion_rule=TaskCompletionRule.ALL_FIELDS_FILLED,
+        )
+        active_task = Task.objects.create(
+            shipment=active_ship, step=self.draft.code, rule=rule,
+            title_key='tasks.reconcile_test', assignee_role='warehouse_chief',
+            target_fields='old_field',
+            completion_rule=TaskCompletionRule.ALL_FIELDS_FILLED,
+        )
+
+        call_command('reconcile_tasks')
+
+        closed_task.refresh_from_db()
+        active_task.refresh_from_db()
+        self.assertEqual(closed_task.target_fields, 'old_field')  # untouched
+        self.assertEqual(active_task.target_fields, 'notes')      # synced
+
+    def test_backfill_tasks_creates_for_active_not_closed_season(self):
+        """`backfill_tasks` walks every Shipment matching a rule's step and
+        calls Task.objects.create() directly — it does not go through
+        transition_to(), so Task 9's assert_season_open never fires.
+        """
+        TaskRule.objects.create(
+            step=self.draft.code,
+            title_key='tasks.backfill_test',
+            assignee_role='warehouse_chief',
+        )
+        closed_ship = self.make_shipment(self.closed, 'GEN-CLS02')
+        active_ship = self.make_shipment(self.active, 'GEN-ACT02')
+
+        call_command('backfill_tasks')
+
+        self.assertEqual(Task.objects.filter(shipment=active_ship).count(), 1)
+        self.assertEqual(Task.objects.filter(shipment=closed_ship).count(), 0)
+
+    def test_notify_stuck_shipments_skips_closed_season(self):
+        """`notify_stuck_shipments` is an hourly cron sweep over every
+        non-complete, non-archived Shipment past a staleness threshold —
+        exactly the kind of poller D2 warns keeps emitting into hidden data.
+        """
+        closed_ship = self.make_shipment(self.closed, 'GEN-CLS03')
+        active_ship = self.make_shipment(self.active, 'GEN-ACT03')
+        stale = timezone.now() - timedelta(days=10)
+        Shipment.objects.filter(
+            pk__in=[closed_ship.pk, active_ship.pk],
+        ).update(updated_at=stale)
+
+        call_command('notify_stuck_shipments')
+
+        self.assertTrue(
+            Notification.objects.filter(
+                kind='stuck_8d', link=f'/shipments/{active_ship.pk}',
+            ).exists()
+        )
+        self.assertFalse(
+            Notification.objects.filter(
+                kind='stuck_8d', link=f'/shipments/{closed_ship.pk}',
+            ).exists()
+        )
+
+    def test_backfill_sales_report_tasks_skips_closed_season(self):
+        """Phase 1 (`_backfill_reminders`) calls Task.objects.create() directly,
+        bypassing transition_to(). Phase 2 (`_advance_satyldy`) does call
+        transition_to(), which already raises SeasonClosedError for a closed
+        season — but SeasonClosedError does not subclass ValueError, so the
+        command's `except ValueError` would NOT catch it and the whole run
+        would crash on the first closed-season satyldy shipment. Both phases
+        need the guard: phase 1 to stop creating, phase 2 to keep the command
+        from blowing up on real end-of-season backlog.
+        """
+        yola, _ = ShipmentStatusType.objects.get_or_create(
+            code='yola_chykdy',
+            defaults={
+                'name_tk': 'x', 'name_en': 'x', 'name_ru': 'x',
+                'required_role': 'sales_rep', 'phase': 'TRANSIT', 'step_order': 4,
+            },
+        )
+        TaskRule.objects.create(
+            step='yola_chykdy',
+            title_key='tasks.submit_sales_report',
+            assignee_role='sales_rep',
+        )
+        closed_ship = Shipment.objects.create(
+            shipment_code='GEN-CLS04', date=self.closed.start_date,
+            season=self.closed, status=yola,
+            country=self.country, customer=self.customer,
+        )
+        active_ship = Shipment.objects.create(
+            shipment_code='GEN-ACT04', date=self.active.start_date,
+            season=self.active, status=yola,
+            country=self.country, customer=self.customer,
+        )
+
+        call_command('backfill_sales_report_tasks', '--skip-advance')
+
+        self.assertEqual(
+            Task.objects.filter(
+                shipment=active_ship, title_key='tasks.submit_sales_report',
+            ).count(),
+            1,
+        )
+        self.assertEqual(
+            Task.objects.filter(
+                shipment=closed_ship, title_key='tasks.submit_sales_report',
+            ).count(),
+            0,
+        )

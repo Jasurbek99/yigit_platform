@@ -43,6 +43,12 @@ class Command(BaseCommand):
             Shipment.objects
             .select_related('status')
             .filter(status__isnull=False)
+            # Closed seasons are frozen (D1). This command calls
+            # Task.objects.create() directly rather than going through
+            # transition_to(), so Task 9's assert_season_open never fires —
+            # without this filter every closed-season shipment matching an
+            # active rule would get a fresh Task on every re-run.
+            .filter(season__closed_at__isnull=True)
             .order_by('id')
         )
         if limit is not None:
