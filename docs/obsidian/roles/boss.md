@@ -12,7 +12,7 @@ An executive role that reaches the **entire export process from his own login**,
 
 ## Page visibility
 
-Every registered page — `_ALL_PAGES`, 42 pages as of 2026-08-05, was 3 pages (view-only) before this feature. See [[../processes/permissions-system]] for the registry and the AD-15 tension this creates (boss now holds all ten `admin.*` pages, a deliberate but under-review decision).
+Every registered page **except `admin.permissions`** — 41 of the 42 `_ALL_PAGES` codes as of 2026-08-05, was 3 pages (view-only) before this feature. `admin.permissions` is excluded because `_AdminOnlyPermission` rejects every method including GET for non-admins (AD-15), so the entry would open a page whose every API call 403s. See [[../processes/permissions-system]] for the registry and the AD-15 tension the remaining nine `admin.*` pages create.
 
 The sidebar itself is grouped by **export process phase** and its order is global — the same sequence every role sees (Overview → Planning → Prep → Shipping → Docs → Sales, then support groups). `boss` gets no special ordering; he simply sees more of the sequence than most roles because almost nothing is hidden from him. Per-role configurable ordering was explicitly deferred — see [[../processes/permissions-system#Sidebar Navigation (2026-08-05)]].
 
@@ -20,7 +20,15 @@ The sidebar itself is grouped by **export process phase** and its order is globa
 
 ## Resource permissions
 
-Full CRUD (view/create/edit/delete) on every resource **except** `closed_season`, which stays view-only under the D1 write-freeze rule — the same carve-out `admin` has. This replaces the previous strictly-read-only default; write access is protected only by `closed_season`'s carve-out and by the view/edit toggle below, not by a blanket read-only grant anymore.
+Full CRUD (view/create/edit/delete) on every resource **except three carve-outs**:
+
+- `closed_season` — view-only under the D1 write-freeze rule, the same carve-out `admin` has.
+- `truck_split_default` — view-only. Only the director may change the official kg-per-firm constants (Gap 7 / ADR-016); `export_manager` is read-only here, so `boss` must not exceed him.
+- `sale` — view + create + edit, **no delete**. Sale deletion is `admin`-only for `director` and `export_manager` too, and deleting a `ContractSale` re-rolls the parent `Contract`'s totals.
+
+This replaces the previous strictly-read-only default; write access is protected by those carve-outs and by the view/edit toggle below, not by a blanket read-only grant anymore.
+
+> **Applying this to an existing database needs `core/0033_boss_process_visibility_perms`, not `seed_permissions`.** The seed command's `get_or_create(..., defaults={...})` only writes `defaults` on INSERT, and every pre-2026-08-05 database already holds the boss's rows.
 
 ## View/edit mode
 
@@ -28,20 +36,20 @@ A `Segmented` control in the app header (boss-only) switches between **Прос�
 
 - Every `boss` session **starts in Просмотр (view)** — the `bossEditMode` flag defaults to `false` and is deliberately not persisted, so a page reload always returns him to view mode. He opts into editing per session, every session.
 - Switching into edit mode shows a confirm dialog ("Вы будете вносить изменения от своего имени..."); switching back to view is immediate, no confirm.
-- While in view mode, `canDo()` and `canEditField()` force every write check to `false` for `boss`, regardless of what the underlying DB permission rows allow.
+- While in view mode, `canDo()`, `canEditField()` and `isCellEditable()` (the Sheet grid's own gate) force every write check to `false` for `boss`, regardless of what the underlying DB permission rows allow. The Sheet needed its own copy: its payload carries a backend-computed `can_current_user_edit` flag per row that the helper trusts instead of calling the other two.
 
-**This toggle is a UI guard, not a security boundary.** The backend does not know about it — `boss` writes succeed at the API in either toggle position. Only the pages that call `canDo`/`canEditField` (roughly 17 files) actually hide their edit controls in view mode; a screen that renders a form without consulting either helper stays editable for `boss` regardless of the toggle. Full mechanism: [[../processes/permissions-system#Boss view/edit toggle (UI guard only) — 2026-08-05]].
+**This toggle is a UI guard, not a security boundary.** The backend does not know about it — `boss` writes succeed at the API in either toggle position. Only the pages that call `canDo`/`canEditField`/`isCellEditable` actually hide their edit controls in view mode; a screen that renders a form without consulting one of those helpers stays editable for `boss` regardless of the toggle. Coverage must be checked per screen, not inferred from the helper list. Full mechanism: [[../processes/permissions-system#Boss view/edit toggle (UI guard only) — 2026-08-05]].
 
 ## Lifecycle scope
 
 `boss` is in `PRIVILEGED_ROLES` (`apps/export/services/shipment.py`), so `transition_to()` accepts him on any valid status edge — he can walk a shipment through the 13-step chain the same as `export_manager` or `director`, via `POST /shipments/{id}/transition/`, subject to the view/edit gate above.
 
-**Known gap:** two endpoints don't route through that check — they gate independently on a different, unchanged constant (`apps.core.permissions.PRIVILEGED_ROLES = {admin, export_manager, director}`), which does not include `boss`:
+Two endpoints don't route through that check — they gate independently on a different, unchanged constant (`apps.core.permissions.PRIVILEGED_ROLES = {admin, export_manager, director}`):
 
-- `POST /shipments/{id}/cancel/`
-- `POST /shipments/{id}/assign/`
+- `POST /shipments/{id}/assign/` — **now accepts `boss`** (widened at the call site, 2026-08-05). `/export/assign` is in his process sidebar and assigning a draft is a real process step, so its only action had to work.
+- `POST /shipments/{id}/cancel/` — **still 403s for `boss`**, deliberately. `ShipmentDetailHero` hardcodes `CANCEL_ROLES` without him, so the button never renders: no error, no surprise. Known, deferred.
 
-Both 403 for `boss`, even in edit mode. This is a known, deferred limitation — see [[../processes/permissions-system#Boss transition authority (2026-08-05)]].
+See [[../processes/permissions-system#Boss transition authority (2026-08-05)]].
 
 ## Audit trail
 
