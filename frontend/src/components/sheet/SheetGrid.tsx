@@ -450,7 +450,10 @@ export function SheetGrid({
 
       // ─── Undo (Ctrl/⌘+Z) ──────────────────────────────────────────────────
       // Grid-global (no active cell needed). Reserves Ctrl+Shift+Z for a future
-      // redo. Skipped while editing (native input undo wins) or in join/swap.
+      // redo. Skipped while editing (native input undo wins), in join/swap, or
+      // browsing a closed season — the undo stack can hold an edit from a
+      // then-open season; applying it now would replay a write into a season
+      // that's since closed.
       if (
         (e.ctrlKey || e.metaKey) &&
         !e.altKey &&
@@ -458,7 +461,8 @@ export function SheetGrid({
         e.code === 'KeyZ' &&
         !state.editingCell &&
         !state.joinMode &&
-        !state.swapMode
+        !state.swapMode &&
+        !isSeasonReadOnly
       ) {
         void applyUndo();
         e.preventDefault();
