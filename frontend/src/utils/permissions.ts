@@ -56,6 +56,9 @@ const ROUTE_PAGE_MAP: Record<string, string> = {
   '/admin/packing-templates':   'export.packing_presets',
 };
 
+/** Mirrors REFERENCE_DATA_WRITE in backend/apps/core/roles.py. */
+const REFERENCE_DATA_WRITE_ROLES = new Set(['admin', 'director', 'export_manager']);
+
 /**
  * Check if a user can see a page/route.
  *
@@ -131,6 +134,38 @@ export function canEditField(
   if (!fields || fields.length === 0) return false;
 
   return fields.includes('*') || fields.includes(fieldName);
+}
+
+/**
+ * `canDo`, forced to `false` for the boss.
+ *
+ * Several write endpoints hard-code a role allowlist and never consult the
+ * permission matrix — `PRIVILEGED_ROLES` on shipment create (export/views.py),
+ * `LOCAL_SELL_WRITE` on the local sell plan, `REFERENCE_DATA_WRITE` on
+ * reference data. The boss's 2026-08-05 matrix CRUD grant satisfies none of
+ * them, so a control guarded by `canDo` alone renders for him and then 403s.
+ * Use this wherever that is the case, so the UI never promises what the API
+ * refuses. No other role's decision changes.
+ */
+export function canDoBackendGated(
+  user: ICurrentUser | null,
+  resource: string,
+  action: 'view' | 'create' | 'edit' | 'delete',
+): boolean {
+  if (user?.role === 'boss') return false;
+  return canDo(user, resource, action);
+}
+
+/**
+ * Whether the backend's `REFERENCE_DATA_WRITE` gate (backend/apps/core/roles.py)
+ * accepts this user. Countries, cities, customers and shipment status types are
+ * gated by that role list alone — they have no permission-matrix resource — so
+ * pages editing them cannot use `canDo` at all.
+ */
+export function canWriteReferenceData(user: ICurrentUser | null): boolean {
+  if (!user) return false;
+  if (user.is_superuser) return true;
+  return REFERENCE_DATA_WRITE_ROLES.has(user.role);
 }
 
 /**

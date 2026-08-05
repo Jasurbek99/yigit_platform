@@ -19,6 +19,7 @@ import { ContractAgreementButton } from '@/components/ContractAgreementButton';
 import { ContractSalesTab } from './ContractSalesTab';
 import { DocumentsTab } from './DocumentsTab';
 import type { ContractStatus } from '@/types/contract';
+import { canDo } from '@/utils/permissions';
 import { COLORS } from '@/constants/styles';
 
 const { Title } = Typography;
@@ -65,7 +66,11 @@ export default function ContractDetail() {
 
   const { data: contract, isLoading, isError } = useContract(contractId);
   const { user } = useAuth();
-  const contractPerm = user?.resource_permissions?.contract;
+  // Routed through canDo rather than reading resource_permissions directly, so
+  // the boss's view/edit toggle covers document upload and delete too. Reading
+  // the raw matrix here bypassed every frontend permission gate (2026-08-05).
+  const canUploadDocument = canDo(user, 'contract', 'create');
+  const canDeleteDocument = canDo(user, 'contract', 'delete');
 
   if (isLoading) {
     return (
@@ -105,8 +110,8 @@ export default function ContractDetail() {
         <DocumentsTab
           contractId={contractId}
           attachments={contract.attachments ?? []}
-          canUpload={!!user?.is_superuser || !!contractPerm?.create}
-          canDelete={!!user?.is_superuser || !!contractPerm?.delete}
+          canUpload={canUploadDocument}
+          canDelete={canDeleteDocument}
         />
       ),
     },

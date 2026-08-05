@@ -9,6 +9,8 @@ import { SupplyCard } from './assignment/SupplyCard';
 import { DemandCard } from './assignment/DemandCard';
 import { MatchPanel } from './assignment/MatchPanel';
 import { getDemandGroups } from './assignment/assignmentHelpers';
+import { useAuth } from '@/hooks/useAuth';
+import { canDo } from '@/utils/permissions';
 import { COLORS } from '@/constants/styles';
 
 const { Text, Title } = Typography;
@@ -18,8 +20,14 @@ export default function AssignmentBoard() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
+  const { user } = useAuth();
   const { data: drafts = [], isLoading: draftsLoading } = useDrafts();
   const assignDraft = useAssignDraft();
+
+  // Assigning a draft promotes it to `yuklenme` through the state machine, so
+  // the boss's view/edit toggle must cover it. The backend accepts boss on
+  // /assign/ (2026-08-05) — this only decides whether the button is offered.
+  const canAssign = canDo(user, 'shipment_assign', 'edit');
 
   const [selectedDraftId, setSelectedDraftId] = useState<number | null>(null);
   const [selectedDemandId, setSelectedDemandId] = useState<number | null>(null);
@@ -208,6 +216,7 @@ export default function AssignmentBoard() {
               setSelectedDemandId(null);
             }}
             isLoading={assignDraft.isPending}
+            canConfirm={canAssign}
           />
         </div>
 

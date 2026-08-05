@@ -12,9 +12,11 @@ interface IMatchPanelProps {
   onConfirm: () => void;
   onClear: () => void;
   isLoading: boolean;
+  /** Hides the confirm button when the viewer may not assign (e.g. boss in view mode). */
+  canConfirm: boolean;
 }
 
-export function MatchPanel({ draft, demand, onConfirm, onClear, isLoading }: IMatchPanelProps) {
+export function MatchPanel({ draft, demand, onConfirm, onClear, isLoading, canConfirm }: IMatchPanelProps) {
   const { t } = useTranslation();
 
   if (!draft && !demand) {
@@ -275,9 +277,11 @@ export function MatchPanel({ draft, demand, onConfirm, onClear, isLoading }: IMa
           <Button style={{ flex: 1 }} onClick={onClear}>
             {t('assign.btn_clear')}
           </Button>
-          <Button type="primary" style={{ flex: 2 }} loading={isLoading} onClick={onConfirm}>
-            {t('assign.btn_confirm')}
-          </Button>
+          {canConfirm && (
+            <Button type="primary" style={{ flex: 2 }} loading={isLoading} onClick={onConfirm}>
+              {t('assign.btn_confirm')}
+            </Button>
+          )}
         </div>
       ) : (
         <div style={{ fontSize: 11, color: COLORS.textSecondary, marginTop: 8, textAlign: 'center' }}>

@@ -18,6 +18,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { usePromoteFromDraft } from '@/hooks/useDrafts';
 import { useCancelShipment, useHardDeleteDraftShipment } from '@/hooks/useShipments';
 import { extractPatchError } from '@/hooks/useShipmentPatch';
+import { canDo } from '@/utils/permissions';
 import type { IShipmentDetail } from '@/types';
 import { COLORS, FONT } from '@/constants/styles';
 
@@ -107,6 +108,12 @@ export function ShipmentDetailHero({ shipment, onOpenComments }: IShipmentDetail
       user?.is_superuser === true);
 
   const promote = usePromoteFromDraft();
+
+  // Moving a truck through the state machine is the most consequential action
+  // on this screen. Gate it on the same check ShipmentDetail uses for field
+  // edits, so the boss's view/edit toggle covers it — without this he can drive
+  // the whole lifecycle while the header reads "Просмотр".
+  const canTransition = canDo(user, 'shipment', 'edit');
 
   // Admin-only permanent delete of a DRAFT scratch row. Distinct from cancel
   // (lifecycle) and soft-delete (restorable trash). The backend enforces both
@@ -205,7 +212,7 @@ export function ShipmentDetailHero({ shipment, onOpenComments }: IShipmentDetail
               {t('shipment.detail.promote_button')}
             </Button>
           )}
-          {shipment.allowed_transitions?.length > 0 && (
+          {canTransition && shipment.allowed_transitions?.length > 0 && (
             <TransitionButton
               shipmentId={shipment.id}
               allowedTransitions={shipment.allowed_transitions}

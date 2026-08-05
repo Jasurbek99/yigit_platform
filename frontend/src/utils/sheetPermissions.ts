@@ -1,4 +1,5 @@
 import type { ICurrentUser, IRowConfig, ISheetRowSettingForUser } from '@/types';
+import { useUiStore } from '@/stores/uiStore';
 import { canDo, canEditField } from './permissions';
 
 // Sheet field keys that map to junction-table resources rather than direct
@@ -36,6 +37,13 @@ export function isCellEditable(
   user: ICurrentUser | null,
 ): boolean {
   if (rowConfig.input_type === 'readonly') return false;
+  // Boss view/edit toggle. MUST sit ABOVE the v2EditDecision read: the backend
+  // emits can_current_user_edit as a bool for EVERY row (export/views.py:1418
+  // and :1440) and knows nothing about bossEditMode, so the `??` fallback below
+  // never fires for the boss and canEditCell's own guard would never be reached.
+  // Without this the whole Sheet — inline edit plus Ctrl+C/X/V/Delete — stays
+  // live while the header reads "Просмотр".
+  if (user?.role === 'boss' && !useUiStore.getState().bossEditMode) return false;
   const v2EditDecision = rowSettings[rowConfig.field_key]?.can_current_user_edit;
   return v2EditDecision ?? canEditCell(user, rowConfig.field_key);
 }
