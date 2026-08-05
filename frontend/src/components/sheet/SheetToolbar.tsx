@@ -18,7 +18,7 @@ import { toast } from 'sonner';
 import { useSheetStore, SHEET_ZOOM_MIN, SHEET_ZOOM_MAX } from '@/stores/sheetStore';
 import { useAuth } from '@/hooks/useAuth';
 import { useCreateEmptyColumn } from '@/hooks/useDrafts';
-import { canDo } from '@/utils/permissions';
+import { canDoBackendGated } from '@/utils/permissions';
 import type { IRowConfig, ISheetTaskCounts, IShipmentSheetItem } from '@/types';
 import { COLORS } from '@/constants/styles';
 import { JoinActionBar } from './JoinActionBar';
@@ -120,7 +120,10 @@ export function SheetToolbar({
 
   const createEmptyColumn = useCreateEmptyColumn();
 
-  const canCreate = canDo(user, 'shipment', 'create');
+  // canDoBackendGated, not canDo: shipment create is gated server-side on the
+  // core PRIVILEGED_ROLES list (export/views.py), which excludes boss whatever
+  // the permission matrix says — the button would render and then 403.
+  const canCreate = canDoBackendGated(user, 'shipment', 'create');
 
   // Join flow: join is restricted to export_manager / director.
   // (canCreateSupply removed when the "Ýük goş" button was commented out — the

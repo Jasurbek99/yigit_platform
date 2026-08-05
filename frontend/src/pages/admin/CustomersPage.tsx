@@ -27,6 +27,8 @@ import {
   useAdminUsers,
 } from '@/hooks/useAdmin';
 import type { ICustomer } from '@/types';
+import { useAuth } from '@/hooks/useAuth';
+import { canWriteReferenceData } from '@/utils/permissions';
 
 const { Title, Text } = Typography;
 
@@ -42,6 +44,7 @@ interface CustomerFormValues {
 
 export default function CustomersPage() {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const { data: customers = [], isLoading, isError } = useAdminCustomers();
   const { data: countries = [] } = useCountries();
   const { data: importFirms = [] } = useAdminImportFirms();
@@ -151,6 +154,12 @@ export default function CustomersPage() {
       })
     : customers;
 
+  // Reference data (customers, cities, countries, status types) is gated
+  // server-side by REFERENCE_DATA_WRITE alone — it has no permission-matrix
+  // resource, so canDo cannot express it. The boss's 2026-08-05 CRUD grant does
+  // not satisfy that gate, so these controls would render and then 403.
+  const canWrite = canWriteReferenceData(user);
+
   const columns: ProColumns<ICustomer>[] = [
     {
       title: t('customers_admin.name'),
@@ -217,18 +226,22 @@ export default function CustomersPage() {
         </Tag>
       ),
     },
-    {
-      title: '',
-      key: 'actions',
-      width: 100,
-      search: false,
-      render: (_, record) => (
-        <Space size={4}>
-          <Button size="small" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
-          <Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)} />
-        </Space>
-      ),
-    },
+    ...(canWrite
+      ? [
+          {
+            title: '',
+            key: 'actions',
+            width: 100,
+            search: false,
+            render: (_, record) => (
+              <Space size={4}>
+                <Button size="small" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
+                <Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)} />
+              </Space>
+            ),
+          } as ProColumns<ICustomer>,
+        ]
+      : []),
   ];
 
   if (isError) return <Alert message={t('customers_admin.error_load')} type="error" style={{ marginTop: 40 }} />;
@@ -252,11 +265,15 @@ export default function CustomersPage() {
         size="small"
         scroll={{ x: 'max-content' }}
         toolbar={{ search: { onSearch: (v) => setSearchText(v), placeholder: t('common.search') } }}
-        toolBarRender={() => [
-          <Button key="add" type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
-            {t('customers_admin.add')}
-          </Button>,
-        ]}
+        toolBarRender={() =>
+          canWrite
+            ? [
+                <Button key="add" type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
+                  {t('customers_admin.add')}
+                </Button>,
+              ]
+            : []
+        }
       />
 
       <Modal

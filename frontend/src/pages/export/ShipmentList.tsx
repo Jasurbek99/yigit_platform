@@ -16,7 +16,7 @@ import { ShipmentBulkTransitionModal } from '@/components/ShipmentBulkTransition
 import { ShipmentFilterDrawer } from '@/components/ShipmentFilterDrawer';
 import { useShipments, useSoftDeleteShipment, useRestoreShipment } from '@/hooks/useShipments';
 import { useAuth } from '@/hooks/useAuth';
-import { canDo, canEditField } from '@/utils/permissions';
+import { canDo, canDoBackendGated, canEditField } from '@/utils/permissions';
 import { COLORS, FONT } from '@/constants/styles';
 import type { IShipmentListItem } from '@/types';
 import { ListEditableCell } from './ListEditableCell';
@@ -207,7 +207,10 @@ export default function ShipmentList() {
   function setSearch(s: string) { updateParams({ search: s || undefined, page: undefined }); }
   function setPhaseFilter(v: string | undefined) { updateParams({ phase: v, page: undefined }); }
 
-  const canCreate = canDo(user, 'shipment', 'create');
+  // canDoBackendGated, not canDo: shipment create is gated server-side on the
+  // core PRIVILEGED_ROLES list (export/views.py), which excludes boss whatever
+  // the permission matrix says — the button would render and then 403.
+  const canCreate = canDoBackendGated(user, 'shipment', 'create');
   const canEditWeightNet = canEditField(user, 'shipment', 'weight_net');
   const canEditAnyField = canDo(user, 'shipment', 'edit');
   // Hard-delete is an admin-only escape hatch. Mirrors the backend gate in
