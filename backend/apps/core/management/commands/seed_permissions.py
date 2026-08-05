@@ -128,9 +128,11 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
     # boss: every registered page. He owns the process end-to-end and must not
     # need to log in as another role to see a step (2026-08-05 design).
     # _UNIVERSAL is a subset of _ALL_PAGES, so nothing he had before is lost.
-    # This deliberately includes admin.permissions — the boss can widen access
-    # for himself and others. Approved 2026-08-05.
-    'boss': set(_ALL_PAGES),
+    # admin.permissions is the one exclusion: _AdminOnlyPermission
+    # (core/views_permissions.py:31-44) rejects every method including GET for
+    # non-admins per AD-15, so granting the page only produces a nav entry whose
+    # every API call 403s. Keep in sync with core migration 0033.
+    'boss': _ALL_PAGES - {'admin.permissions'},
 }
 
 # loading_dept_head_deputy: identical page access to the head (June 2026 request).
@@ -248,10 +250,19 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
     },
     # boss: full CRUD on every resource. The read-only guard now lives in the
     # frontend view/edit toggle, not in the permission matrix (2026-08-05).
-    # EXCEPT closed_season — read-only by design (D1), same carve-out admin has.
+    # Three carve-outs, all mirrored in core migration 0033:
     'boss': {
         **{r: _VCRUD for r in _ALL_RESOURCES},
+        # closed_season: read-only by design (D1), same carve-out admin has.
         'closed_season': _VIEW,
+        # truck_split_default: read-only — only the director may change the
+        # official kg-per-firm constants (Gap 7 / ADR-016). export_manager is
+        # read-only here, so the boss must not exceed him.
+        'truck_split_default': _VIEW,
+        # sale: create/edit but NOT delete — sale deletion is admin-only for
+        # director and export_manager too, and deleting a ContractSale re-rolls
+        # the parent Contract's totals.
+        'sale': _VCE,
     },
 }
 
