@@ -16,11 +16,18 @@ import { IconCalendar, IconPlus } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import dayjs, { type Dayjs } from 'dayjs';
 import { toast } from 'sonner';
-import { useSeasons, useCreateSeason, useUpdateSeason, useDeleteSeason } from '@/hooks/useAdmin';
+import {
+  useSeasons,
+  useCreateSeason,
+  useUpdateSeason,
+  useDeleteSeason,
+  useOpenSeason,
+} from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
 import { canDo } from '@/utils/permissions';
 import type { ISeason } from '@/types';
 import { COLORS } from '@/constants/styles';
+import { SeasonCloseModal } from './SeasonCloseModal';
 
 const { Text } = Typography;
 
@@ -41,6 +48,7 @@ export default function SeasonsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<ISeason | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ISeason | null>(null);
+  const [closeTarget, setCloseTarget] = useState<ISeason | null>(null);
   const [form] = Form.useForm<ISeasonFormValues>();
 
   const { data, isLoading, isError } = useSeasons();
@@ -72,6 +80,11 @@ export default function SeasonsPage() {
     onError: () => toast.error(t('seasons.toast_error')),
   });
 
+  const openMutation = useOpenSeason({
+    onSuccess: () => toast.success(t('seasons.toast_opened')),
+    onError: () => toast.error(t('seasons.toast_error')),
+  });
+
   function handleOpenCreate() {
     setEditTarget(null);
     form.resetFields();
@@ -88,6 +101,18 @@ export default function SeasonsPage() {
       is_active: record.is_active,
     });
     setModalOpen(true);
+  }
+
+  function handleOpenSeason(record: ISeason) {
+    Modal.confirm({
+      title: t('seasons.open_confirm_title', { name: record.name }),
+      content: t('seasons.open_confirm_body', { name: record.name }),
+      okText: t('seasons.open_button'),
+      cancelText: t('common.cancel'),
+      onOk: async () => {
+        await openMutation.mutateAsync(record.id);
+      },
+    });
   }
 
   function handleSubmit(values: ISeasonFormValues) {
@@ -151,15 +176,45 @@ export default function SeasonsPage() {
           <Tag color="default">{t('common.no')}</Tag>
         ),
     },
+    {
+      title: t('seasons.status_column'),
+      dataIndex: 'status',
+      width: 110,
+      search: false,
+      sorter: (a, b) => a.status.localeCompare(b.status),
+      render: (_, record) => {
+        const color =
+          record.status === 'ACTIVE' ? 'green' : record.status === 'CLOSED' ? 'default' : 'blue';
+        return <Tag color={color}>{t(`season.status_${record.status.toLowerCase()}`)}</Tag>;
+      },
+    },
     ...((canEditSeason || canDeleteSeason)
       ? [
           {
             title: '',
             key: 'actions',
-            width: 160,
+            width: 220,
             search: false,
             render: (_: unknown, record: ISeason) => (
               <Space size={4}>
+                {canEditSeason && record.status === 'ACTIVE' && (
+                  <Button
+                    type="link"
+                    size="small"
+                    onClick={(e) => { e.stopPropagation(); setCloseTarget(record); }}
+                  >
+                    {t('seasons.close_button')}
+                  </Button>
+                )}
+                {canEditSeason && record.status === 'UPCOMING' && (
+                  <Button
+                    type="link"
+                    size="small"
+                    onClick={(e) => { e.stopPropagation(); handleOpenSeason(record); }}
+                  >
+                    {t('seasons.open_button')}
+                  </Button>
+                )}
                 {canEditSeason && (
                   <Button
                     type="link"
@@ -295,6 +350,8 @@ export default function SeasonsPage() {
           </Button>
         </Space>
       </Modal>
+
+      <SeasonCloseModal season={closeTarget} onClose={() => setCloseTarget(null)} />
     </div>
   );
 }

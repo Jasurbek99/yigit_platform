@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import type {
   ISeason,
+  ISeasonClosePreview,
   ICity,
   ICountry,
   IExportFirm,
@@ -85,6 +86,61 @@ export function useDeleteSeason(options: MutationOptions = {}) {
     mutationFn: (id: number) => api.delete(`/export/admin/seasons/${id}/`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-seasons'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+/**
+ * Counts of rows the close-confirm dialog shows (`GET .../close-preview/`).
+ * `seasonId: null` (no target selected yet) disables the query rather than
+ * firing it — the caller passes `closeTarget?.id ?? null`.
+ */
+export function useSeasonClosePreview(seasonId: number | null) {
+  return useQuery({
+    queryKey: ['season-close-preview', seasonId],
+    queryFn: async (): Promise<ISeasonClosePreview> => {
+      const { data } = await api.get<ISeasonClosePreview>(
+        `/export/admin/seasons/${seasonId}/close-preview/`,
+      );
+      return data;
+    },
+    enabled: seasonId !== null,
+  });
+}
+
+// Both close and open change `active_season` on `/auth/me/` (close clears it
+// until the next open; open moves it to the target and demotes the
+// incumbent back to UPCOMING) — every read of that field (SeasonSwitcher,
+// useSeasonReadOnly, ClosedSeasonBanner, the header) is stale until
+// ['auth', 'me'] is invalidated alongside ['admin-seasons'].
+export function useCloseSeason(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number): Promise<ISeason> => {
+      const { data } = await api.post<ISeason>(`/export/admin/seasons/${id}/close/`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-seasons'] });
+      queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+export function useOpenSeason(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number): Promise<ISeason> => {
+      const { data } = await api.post<ISeason>(`/export/admin/seasons/${id}/open/`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-seasons'] });
+      queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
       options.onSuccess?.();
     },
     onError: options.onError,
