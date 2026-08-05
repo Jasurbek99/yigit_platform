@@ -25,15 +25,26 @@ import {
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
 
-export function useHarvestPlans(filters: { season?: number; year?: number; week?: number } = {}) {
+/**
+ * No `season` filter here — the hook always reads the globally selected
+ * season (`useSelectedSeason()`), never a caller-supplied override. This
+ * page's list of blocks/weeks reads intuitively as "what does the calendar
+ * grid say", but a `filters.season` field previously let a caller override
+ * that with `filters.season ?? seasonId` losing to the CALLER, not the
+ * store — every real caller (WeeklyPlanGrid) passed its own
+ * `useSeasons().find(is_active)` lookup, so switching the browsed season
+ * via the store had zero effect on this hook. Removed the override
+ * entirely rather than inverting precedence: nothing legitimately needs
+ * to read one season's plans while the rest of the app browses another.
+ */
+export function useHarvestPlans(filters: { year?: number; week?: number } = {}) {
   const { seasonId, isReady } = useSelectedSeason();
-  const effectiveSeason = filters.season ?? seasonId;
   return useQuery({
-    queryKey: ['harvest-plans', effectiveSeason, filters],
+    queryKey: ['harvest-plans', seasonId, filters],
     queryFn: async (): Promise<IApiListResponse<IWeeklyHarvestPlan>> => {
       if (USE_MOCK) return { count: MOCK_HARVEST_PLANS.length, next: null, previous: null, results: MOCK_HARVEST_PLANS };
       const params = new URLSearchParams();
-      if (effectiveSeason) params.set('season', String(effectiveSeason));
+      if (seasonId) params.set('season', String(seasonId));
       if (filters.year) params.set('year', String(filters.year));
       if (filters.week) params.set('week', String(filters.week));
       params.set('page_size', '200');
@@ -86,14 +97,13 @@ export function useInitializeWeek() {
 // Weekly Local Sell Plans
 // ---------------------------------------------------------------------------
 
-export function useLocalSellPlans(filters: { season?: number; year?: number; week?: number } = {}) {
+export function useLocalSellPlans(filters: { year?: number; week?: number } = {}) {
   const { seasonId, isReady } = useSelectedSeason();
-  const effectiveSeason = filters.season ?? seasonId;
   return useQuery({
-    queryKey: ['local-sell-plans', effectiveSeason, filters],
+    queryKey: ['local-sell-plans', seasonId, filters],
     queryFn: async (): Promise<IApiListResponse<IWeeklyLocalSellPlan>> => {
       const params = new URLSearchParams();
-      if (effectiveSeason) params.set('season', String(effectiveSeason));
+      if (seasonId) params.set('season', String(seasonId));
       if (filters.year) params.set('year', String(filters.year));
       if (filters.week) params.set('week', String(filters.week));
       params.set('page_size', '200');
@@ -216,12 +226,11 @@ export function usePriceEntries(days = 7) {
 }
 
 export function useTruckAllocations(
-  filters: { season?: number; year?: number; week_number?: number } = {},
+  filters: { year?: number; week_number?: number } = {},
 ) {
   const { seasonId, isReady } = useSelectedSeason();
-  const effectiveSeason = filters.season ?? seasonId;
   return useQuery({
-    queryKey: ['truck-allocations', effectiveSeason, filters],
+    queryKey: ['truck-allocations', seasonId, filters],
     queryFn: async (): Promise<IApiListResponse<IWeeklyTruckAllocation>> => {
       if (USE_MOCK) {
         return {
@@ -232,7 +241,7 @@ export function useTruckAllocations(
         };
       }
       const params = new URLSearchParams();
-      if (effectiveSeason) params.set('season', String(effectiveSeason));
+      if (seasonId) params.set('season', String(seasonId));
       if (filters.year) params.set('year', String(filters.year));
       if (filters.week_number) params.set('week_number', String(filters.week_number));
       params.set('page_size', '200');
@@ -260,16 +269,15 @@ export function useTruckDestinations() {
 }
 
 export function useTruckDestinationSelection(
-  filters: { season?: number; year?: number; week_number?: number } = {},
+  filters: { year?: number; week_number?: number } = {},
 ) {
   const { seasonId, isReady } = useSelectedSeason();
-  const effectiveSeason = filters.season ?? seasonId;
   return useQuery({
-    queryKey: ['truck-destination-selections', effectiveSeason, filters],
-    enabled: !!effectiveSeason && !!filters.year && !!filters.week_number && isReady,
+    queryKey: ['truck-destination-selections', seasonId, filters],
+    enabled: !!seasonId && !!filters.year && !!filters.week_number && isReady,
     queryFn: async (): Promise<IWeeklyDestinationSelection[]> => {
       const params = new URLSearchParams();
-      if (effectiveSeason) params.set('season', String(effectiveSeason));
+      if (seasonId) params.set('season', String(seasonId));
       if (filters.year) params.set('year', String(filters.year));
       if (filters.week_number) params.set('week_number', String(filters.week_number));
       params.set('page_size', '200');
@@ -340,16 +348,15 @@ export function useSetTruckSplits() {
 }
 
 export function useBlockSummary(
-  filters: { season?: number; year?: number; week_number?: number } = {},
+  filters: { year?: number; week_number?: number } = {},
 ) {
   const { seasonId, isReady } = useSelectedSeason();
-  const effectiveSeason = filters.season ?? seasonId;
   return useQuery({
-    queryKey: ['block-summary', effectiveSeason, filters],
+    queryKey: ['block-summary', seasonId, filters],
     queryFn: async (): Promise<IBlockSummary[]> => {
       if (USE_MOCK) return MOCK_BLOCK_SUMMARY;
       const params = new URLSearchParams();
-      if (effectiveSeason) params.set('season', String(effectiveSeason));
+      if (seasonId) params.set('season', String(seasonId));
       if (filters.year) params.set('year', String(filters.year));
       if (filters.week_number) params.set('week', String(filters.week_number));
       const { data } = await api.get<IBlockSummary[]>(
@@ -367,17 +374,16 @@ export function useBlockSummary(
 // ---------------------------------------------------------------------------
 
 export function useDayEntries(
-  filters: { weekly_plan?: number; block?: number; season?: number; date_from?: string; date_to?: string } = {},
+  filters: { weekly_plan?: number; block?: number; date_from?: string; date_to?: string } = {},
 ) {
   const { seasonId, isReady } = useSelectedSeason();
-  const effectiveSeason = filters.season ?? seasonId;
   return useQuery({
-    queryKey: ['day-entries', effectiveSeason, filters],
+    queryKey: ['day-entries', seasonId, filters],
     queryFn: async (): Promise<IHarvestDayEntry[]> => {
       if (USE_MOCK) {
         // Filter mock data to match the requested filters
         return MOCK_DAY_ENTRIES.filter((e) => {
-          if (effectiveSeason !== undefined && effectiveSeason !== null && e.season !== effectiveSeason) return false;
+          if (seasonId !== null && e.season !== seasonId) return false;
           if (filters.block !== undefined && e.block !== filters.block) return false;
           if (filters.weekly_plan !== undefined && e.weekly_plan !== filters.weekly_plan) return false;
           if (filters.date_from !== undefined && e.entry_date < filters.date_from) return false;
@@ -388,7 +394,7 @@ export function useDayEntries(
       const params = new URLSearchParams();
       if (filters.weekly_plan) params.set('weekly_plan', String(filters.weekly_plan));
       if (filters.block) params.set('block', String(filters.block));
-      if (effectiveSeason) params.set('season', String(effectiveSeason));
+      if (seasonId) params.set('season', String(seasonId));
       if (filters.date_from) params.set('date_from', filters.date_from);
       if (filters.date_to) params.set('date_to', filters.date_to);
       // 15 blocks × 7 days = 105 cells per week; default DRF page is 50, which

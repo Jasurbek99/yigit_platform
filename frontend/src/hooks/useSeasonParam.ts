@@ -17,27 +17,49 @@ interface IUseSeasonParamResult {
   isReady: boolean;
 }
 
+/** Parse `?season=` into a number, or `null` if absent/malformed. Pure. */
+function parseUrlSeason(raw: string | null): number | null {
+  if (raw === null) return null;
+  const n = Number(raw);
+  return Number.isNaN(n) ? null : n;
+}
+
 /**
- * Read-only `{ seasonId, isReady }` — no `useSearchParams()`, no `useEffect`,
- * no URL writes. This is what every season-scoped query hook calls.
+ * Read-only `{ seasonId, isReady }` — no URL *writes*, no `useEffect`. This is
+ * what every season-scoped query hook calls.
  *
  * Deliberately NOT `useSeasonParam()` itself: that hook owns two side-effecting
  * `useEffect`s (URL<->store sync) and must be mounted exactly once (in
  * `AppLayout`) — calling it from every one of the ~20 data-fetching hooks
  * instead would mount that many independent copies of the sync effects,
- * each an extra `useSearchParams()` subscription and an extra writer racing
- * to the same `?season=` param on every render. The effects are individually
- * idempotent (same shared inputs -> same computed output), so duplicate
- * mounts would not have diverged into different values — but "safe by
- * coincidence" is not the same as "correct by design", and the brief is
- * explicit that two mounts is the failure mode to avoid. This hook reads the
- * same two shared sources of truth (`useSeasonStore`, `useAuth().isLoading`)
- * with zero side effects, so any number of call sites is free.
+ * each an extra writer racing to the same `?season=` param on every render.
+ *
+ * **Resolves the season SYNCHRONOUSLY at read time**, with the identical
+ * precedence `useSeasonParam()`'s effects converge to (URL wins, then the
+ * store, then the resolved active season) — it does NOT wait for
+ * `useSeasonParam()`'s effects to run and seed the store first. This matters
+ * because `AppLayout` (where `useSeasonParam()` mounts) sits ABOVE every page,
+ * and React runs a CHILD's effects before its PARENT's — so on first mount, a
+ * page's `useShipments()` (etc.) would otherwise fire its query before
+ * `AppLayout`'s effect had a chance to write `selectedSeasonId` into the
+ * store, sending an unscoped request (defaults to active season server-side),
+ * followed a tick later by a second, now-scoped request once the store
+ * catches up — double-fetching the full Sheet payload on every page load, and
+ * flashing active-season data for one frame on a pasted `?season=99` link
+ * (exactly what the URL mirroring exists to prevent). Reading the URL/store/
+ * user directly on every render removes the ordering dependency entirely
+ * instead of racing it.
  */
 export function useSelectedSeason(): IUseSeasonParamResult {
-  const { isLoading } = useAuth();
-  const selectedSeasonId = useSeasonStore((s) => s.selectedSeasonId);
-  return { seasonId: selectedSeasonId, isReady: !isLoading };
+  const [searchParams] = useSearchParams();
+  const { user, isLoading } = useAuth();
+  const storeSeasonId = useSeasonStore((s) => s.selectedSeasonId);
+
+  const fromUrl = parseUrlSeason(searchParams.get('season'));
+  const activeSeasonId = user?.active_season?.id ?? null;
+  const seasonId = fromUrl ?? storeSeasonId ?? activeSeasonId;
+
+  return { seasonId, isReady: !isLoading };
 }
 
 /**
@@ -94,8 +116,8 @@ export function useSeasonParam(): IUseSeasonParamResult {
     if (urlSeason === lastUrlSeasonRef.current) return;
     lastUrlSeasonRef.current = urlSeason;
 
-    const fromUrl = urlSeason === null ? null : Number(urlSeason);
-    if (fromUrl !== null && !Number.isNaN(fromUrl)) {
+    const fromUrl = parseUrlSeason(urlSeason);
+    if (fromUrl !== null) {
       if (fromUrl !== selectedSeasonId) setSelectedSeasonId(fromUrl);
       return;
     }

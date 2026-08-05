@@ -3,7 +3,7 @@ import { act, renderHook } from '@testing-library/react';
 import { MemoryRouter, useSearchParams } from 'react-router-dom';
 import { useRef } from 'react';
 import type { ReactNode } from 'react';
-import { useSeasonParam } from './useSeasonParam';
+import { useSeasonParam, useSelectedSeason } from './useSeasonParam';
 import { useSeasonStore } from '@/stores/seasonStore';
 import { useAuth } from '@/hooks/useAuth';
 import type { ICurrentUser, UserRole } from '@/types';
@@ -169,5 +169,95 @@ describe('useSeasonParam — mount safety (first real caller of Task 13s hook)',
     expect(result.current.seasonId).toBe(1);
     expect(result.current.search).toBe('');
     expect(result.current.renderCount).toBeLessThan(20);
+  });
+});
+
+describe('useSelectedSeason — resolves synchronously, independent of useSeasonParam()', () => {
+  beforeEach(() => {
+    vi.mocked(useAuth).mockReset();
+    useSeasonStore.setState({ selectedSeasonId: null });
+  });
+
+  // Every test here deliberately does NOT mount useSeasonParam() — the store
+  // is left exactly as AppLayout's effect would find it BEFORE it has run
+  // (selectedSeasonId: null, per the beforeEach reset). If useSelectedSeason()
+  // depended on that effect having already seeded the store, these would see
+  // seasonId: null and fail — proving the double-fetch/flash-of-wrong-season
+  // bug (a page's query hook mounts and reads a season before AppLayout's
+  // child-before-parent effect ordering lets the sync effect run) is fixed.
+
+  it('resolves the active season from `user` directly on first render, no store seed needed', () => {
+    vi.mocked(useAuth).mockReturnValue({
+      user: fakeUser(3),
+      isLoading: false,
+      isError: false,
+    });
+
+    const { result } = renderHook(() => useSelectedSeason(), {
+      wrapper: wrapperWithEntry('/export/shipments'),
+    });
+
+    expect(useSeasonStore.getState().selectedSeasonId).toBeNull(); // store still unseeded
+    expect(result.current.seasonId).toBe(3); // but the hook already resolved it
+    expect(result.current.isReady).toBe(true);
+  });
+
+  it('resolves a pasted ?season= link from the URL directly, no store seed needed', () => {
+    vi.mocked(useAuth).mockReturnValue({
+      user: fakeUser(1),
+      isLoading: false,
+      isError: false,
+    });
+
+    const { result } = renderHook(() => useSelectedSeason(), {
+      wrapper: wrapperWithEntry('/export/shipments?season=99'),
+    });
+
+    expect(useSeasonStore.getState().selectedSeasonId).toBeNull(); // store still unseeded
+    expect(result.current.seasonId).toBe(99); // URL wins over the (unseeded) store and over `user`
+  });
+
+  it('the URL wins over an already-seeded store value', () => {
+    useSeasonStore.setState({ selectedSeasonId: 5 });
+    vi.mocked(useAuth).mockReturnValue({
+      user: fakeUser(1),
+      isLoading: false,
+      isError: false,
+    });
+
+    const { result } = renderHook(() => useSelectedSeason(), {
+      wrapper: wrapperWithEntry('/export/shipments?season=99'),
+    });
+
+    expect(result.current.seasonId).toBe(99);
+  });
+
+  it('an already-seeded store value wins over the active season when the URL is bare', () => {
+    useSeasonStore.setState({ selectedSeasonId: 5 });
+    vi.mocked(useAuth).mockReturnValue({
+      user: fakeUser(1),
+      isLoading: false,
+      isError: false,
+    });
+
+    const { result } = renderHook(() => useSelectedSeason(), {
+      wrapper: wrapperWithEntry('/export/shipments'),
+    });
+
+    expect(result.current.seasonId).toBe(5);
+  });
+
+  it('returns null with isReady false while auth is unresolved, even with a store value seeded', () => {
+    useSeasonStore.setState({ selectedSeasonId: 5 });
+    vi.mocked(useAuth).mockReturnValue({ user: null, isLoading: true, isError: false });
+
+    const { result } = renderHook(() => useSelectedSeason(), {
+      wrapper: wrapperWithEntry('/export/shipments'),
+    });
+
+    // seasonId still resolves from the store (isReady, not seasonId, is the
+    // gate a query's `enabled` should read) — but isReady is false.
+    expect(result.current.seasonId).toBe(5);
+    expect(result.current.isReady).toBe(false);
   });
 });

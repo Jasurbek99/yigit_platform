@@ -104,6 +104,13 @@ export default function WeeklyPlanGrid() {
   const weekNumber = selectedWeek?.isoWeek();
   const year = selectedWeek?.isoWeekYear();
 
+  // `activeSeason` (the TRUE active/write-target season, never the browsed
+  // one) is kept ONLY for the initialize-week mutation and its availability
+  // gate below — both create rows, which always target the active season
+  // regardless of what's being browsed. It is deliberately NOT passed into
+  // useHarvestPlans/useDayEntries: those are reads, and the hooks now own
+  // season selection internally via the global store (useSelectedSeason()),
+  // so the switcher (Task 15/16) actually has an effect on this page.
   const { data: seasonsData } = useSeasons();
   const activeSeason = seasonsData?.find((s) => s.is_active);
   const { data: config } = useGreenhouseConfig();
@@ -119,7 +126,6 @@ export default function WeeklyPlanGrid() {
 
   const { data: plansData, isLoading: plansLoading, isError } = useHarvestPlans({ year, week: weekNumber });
   const { data: dayEntries = [], isLoading: entriesLoading } = useDayEntries({
-    season: activeSeason?.id,
     date_from: dateFrom,
     date_to: dateTo,
   });
