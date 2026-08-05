@@ -6,7 +6,7 @@ related: [[../roles/boss]], [[../roles/roles-matrix]], [[../api-endpoint-map]]
 
 # Boss Dashboard
 
-Executive analytics view at `/boss/dashboard`. Available to `boss` (read-only, only page they see) and `director` (full nav + this dashboard).
+Executive analytics view at `/boss/dashboard`. Available to `boss` and `director`. Before the 2026-08-05 boss-process-visibility widening this was `boss`'s only visible page (read-only, dashboard-only); `boss` now has full page/resource access across the app (see [[../roles/boss]]) but this dashboard remains his default landing page and daily habit — a 30-second check, mostly mobile.
 
 Backend: `BossAnalyticsViewSet` at `/api/v1/export/boss/<action>/` — 15 endpoints, all gated by `IsBossOrDirector`, all cached for 60s.
 

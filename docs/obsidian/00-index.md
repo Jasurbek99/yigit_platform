@@ -91,7 +91,7 @@ flowchart LR
 | [[finansist]] | Advances, reconciliation | 1-13 |
 | [[greenhouse-manager]] | Harvest planning, domestic sales | Plan grid only |
 | [[support-roles]] | Read-only or limited scope | Varies |
-| [[boss]] | Executive analytics dashboard (read-only) | All steps (read-only) |
+| [[boss]] | Executive dashboard + full process reach (2026-08-05) | 1-13 |
 
 See [[roles-matrix]] for the full capability matrix.
 
