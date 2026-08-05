@@ -171,18 +171,16 @@ class NoAdHocActiveSeasonLookupTests(TestCase):
     inconsistent tie-breaks. New ones must not reappear — a stray lookup silently
     reintroduces the read-scope/write-target conflation this feature untangles.
 
-    `apps/core/services/season.py` (Task 10) is a second, deliberate
-    exception: it does not *look up* the active season by an ad-hoc filter
-    (it goes through `get_active_season()` for that, same as everywhere
-    else) — it is the one place that *writes* `is_active` as part of
-    close/open. Before Task 10 nothing could flip that column at all, so the
-    guard's original ALLOWED set could not have anticipated it.
+    `apps/core/services/season.py` (Task 10's close/open) writes `is_active`
+    via instance `.save(update_fields=[...])`, not a queryset `.filter(...)`,
+    so it needs no exemption here — it never matches this guard's pattern in
+    the first place, and a genuine future ad-hoc lookup added to that file
+    would still be caught.
     """
 
     ALLOWED = {
-        Path('apps/core/seasons.py'),               # the one legitimate read-lookup home
-        Path('apps/core/services/season.py'),        # the one legitimate is_active writer (Task 10)
-        Path('apps/core/tests_seasons.py'),          # this file
+        Path('apps/core/seasons.py'),           # the one legitimate home
+        Path('apps/core/tests_seasons.py'),     # this file
     }
 
     # Matches both the write-target form (`Season.objects.filter(is_active=True)`,

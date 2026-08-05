@@ -6,11 +6,11 @@ columns on the Season and lets the read scope hide the rest.
 from django.db import transaction
 from django.utils import timezone
 
-from apps.core.models import Season
+from apps.core.models import Season, User
 from apps.core.seasons import get_active_season
 
 
-def close_season(season: Season, user) -> None:
+def close_season(season: Season, user: User) -> None:
     """Freeze and hide `season`.
 
     Atomic: sets closed_at/closed_by and clears is_active. Does NOT touch any
@@ -18,11 +18,12 @@ def close_season(season: Season, user) -> None:
     becomes visible again only when the season is explicitly selected.
 
     Confirmed not self-blocking: `Season` writes happen at the model layer
-    (`.update()`), and neither write-freeze layer applies to `Season` itself —
-    `freeze_season_of(a_season_instance)` returns None because `Season` has no
-    `season`/`shipment` attribute and defines no `freeze_season` hook, so
-    `assert_season_open()` is a no-op for it. If `Season` ever anchored to
-    itself, closing one season would make it impossible to ever act on again.
+    (an instance `.save()`, not a queryset `.update()`), and neither
+    write-freeze layer applies to `Season` itself — `freeze_season_of(a_
+    season_instance)` returns None because `Season` has no `season`/`shipment`
+    attribute and defines no `freeze_season` hook, so `assert_season_open()`
+    is a no-op for it. If `Season` ever anchored to itself, closing one season
+    would make it impossible to ever act on again.
 
     Args:
         season: The Season to close.
@@ -36,18 +37,20 @@ def close_season(season: Season, user) -> None:
         raise ValueError(f'Season {season.name} is already closed.')
 
     with transaction.atomic():
-        Season.objects.filter(pk=season.pk).update(
-            closed_at=timezone.now(), closed_by=user, is_active=False,
-        )
+        season.closed_at = timezone.now()
+        season.closed_by = user
+        season.is_active = False
+        season.save(update_fields=['closed_at', 'closed_by', 'is_active'])
         _audit(season, user, 'closed')
-    season.refresh_from_db()
 
 
-def open_season(season: Season, user) -> None:
+def open_season(season: Season, user: User) -> None:
     """Make `season` the write target.
 
     Atomic: deactivates the incumbent and activates `season` in one transaction,
-    so `uq_season_single_active` is never transiently violated.
+    so `uq_season_single_active` is never transiently violated. The incumbent
+    is always deactivated before `season` is activated, preserving that
+    invariant.
 
     Args:
         season: The Season to activate.
@@ -67,17 +70,16 @@ def open_season(season: Season, user) -> None:
         # Find the incumbent through get_active_season() (apps.core.seasons),
         # the one legitimate lookup for "which season is active" — never an
         # ad-hoc filter here (see tests_seasons.NoAdHocActiveSeasonLookupTests).
-        # This module writes is_active as part of close/open; it does not
-        # look it up.
         incumbent = get_active_season()
         if incumbent is not None and incumbent.pk != season.pk:
-            Season.objects.filter(pk=incumbent.pk).update(is_active=False)
-        Season.objects.filter(pk=season.pk).update(is_active=True)
+            incumbent.is_active = False
+            incumbent.save(update_fields=['is_active'])
+        season.is_active = True
+        season.save(update_fields=['is_active'])
         _audit(season, user, 'opened')
-    season.refresh_from_db()
 
 
-def close_preview(season: Season) -> dict:
+def close_preview(season: Season) -> dict[str, int]:
     """Counts of rows that closing `season` will hide.
 
     Advisory only — never blocks the close (D2). The confirmation dialog's copy
@@ -134,7 +136,7 @@ def close_preview(season: Season) -> dict:
     }
 
 
-def _audit(season: Season, user, action: str) -> None:
+def _audit(season: Season, user: User, action: str) -> None:
     """Write an AuditLog row for the lifecycle change.
 
     AuditLog currently lives in `export/` (root CLAUDE.md notes it is slated to
