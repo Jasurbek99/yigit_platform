@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { canDo, canEditField } from './permissions';
 import { useUiStore } from '@/stores/uiStore';
 import type { ICurrentUser } from '@/types';
@@ -58,8 +58,15 @@ describe('boss edit mode gate', () => {
     expect(canDo(managerUser, 'shipment', 'edit')).toBe(true);
   });
 
-  it('defaults to view mode', () => {
-    useUiStore.setState({ bossEditMode: undefined as unknown as boolean });
-    expect(useUiStore.getState().bossEditMode).toBeFalsy();
+  it('defaults to view mode', async () => {
+    // Reset the module registry and re-import the store fresh so we observe
+    // the value produced by create<IUiState>(...)'s initializer itself,
+    // not a value this test (or beforeEach) just wrote via setState. The
+    // statically-imported `useUiStore` above is a shared singleton mutated
+    // by every other test in this file, so reading it here would only prove
+    // beforeEach ran, not that the initializer defaults to false.
+    vi.resetModules();
+    const { useUiStore: freshUiStore } = await import('@/stores/uiStore');
+    expect(freshUiStore.getState().bossEditMode).toBe(false);
   });
 });
