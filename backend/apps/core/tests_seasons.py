@@ -242,3 +242,35 @@ class ClosedSeasonResourceTests(TestCase):
             resource_code='closed_season',
         ).filter(Q(can_create=True) | Q(can_edit=True) | Q(can_delete=True))
         self.assertFalse(writes.exists())
+
+
+class AuthMeSeasonFieldsTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        call_command('seed_permissions')
+        cls.season = Season.objects.create(
+            name='2026/2027', start_date=date(2026, 9, 1), end_date=date(2027, 8, 31),
+            is_active=True,
+        )
+        cls.manager = User.objects.create(username='mgr', role='export_manager')
+        cls.operator = User.objects.create(username='op', role='warehouse_chief')
+
+    def _get_me(self, user):
+        from rest_framework.test import APIClient
+        client = APIClient()
+        client.force_authenticate(user=user)
+        return client.get('/api/v1/auth/me/')
+
+    def test_me_returns_active_season(self):
+        payload = self._get_me(self.manager).json()
+        self.assertEqual(payload['active_season']['name'], '2026/2027')
+        self.assertEqual(payload['active_season']['status'], 'ACTIVE')
+
+    def test_me_returns_null_active_season_when_none_open(self):
+        Season.objects.filter(pk=self.season.pk).update(is_active=False)
+        payload = self._get_me(self.manager).json()
+        self.assertIsNone(payload['active_season'])
+
+    def test_me_reports_closed_season_permission(self):
+        self.assertTrue(self._get_me(self.manager).json()['can_view_closed_seasons'])
+        self.assertFalse(self._get_me(self.operator).json()['can_view_closed_seasons'])
