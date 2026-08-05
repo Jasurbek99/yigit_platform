@@ -37,8 +37,11 @@ logger = logging.getLogger(__name__)
 # kept as a hook in case a future status wants a dedicated auto-set timestamp.
 STATUS_TIMESTAMP_MAP: dict[str, str] = {}
 
-# Roles that may override role restrictions and trigger any valid transition.
-PRIVILEGED_ROLES = {'export_manager', 'director'}
+# Roles that bypass the per-edge role check. boss joined 2026-08-05 so he can
+# unstick any step from his own login instead of logging in as each role.
+# NOTE: apps/core/roles.py has a same-named constant with different members.
+# They are already divergent — do not "fix" that here.
+PRIVILEGED_ROLES = {'export_manager', 'director', 'boss'}
 
 # Roles allowed to CANCEL a shipment. Superset of PRIVILEGED_ROLES + the
 # system admin. (admin is the top-tier system role per ADR-15; it isn't in the
