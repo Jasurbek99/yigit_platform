@@ -33,9 +33,10 @@ from apps.core.models import (
 )
 from apps.core.seasons import SeasonClosedError, freeze_season_of
 from apps.export.models import (
-    CustomsExpense, Notification, QuotaIssuance, QuotaUsageRecord, Shipment,
-    ShipmentBlockSource, ShipmentComment, Task, TaskCompletionRule, TaskRule,
-    WeeklyDestinationSelection, WeeklyLocalSellPlan, WeeklyTruckAllocation,
+    CustomsExpense, Notification, QuotaIssuance, QuotaUsageRecord, SalesReport,
+    Shipment, ShipmentBlockSource, ShipmentComment, Task, TaskCompletionRule,
+    TaskRule, WeeklyDestinationSelection, WeeklyLocalSellPlan,
+    WeeklyTruckAllocation,
 )
 from apps.export.services.shipment import create_shipment, transition_to
 from apps.greenhouse.models import HarvestDayEntry, WeeklyHarvestPlan
@@ -1140,15 +1141,13 @@ class GeneratorsSkipClosedSeasonsTests(SeasonFreezeFixture):
             ).exists()
         )
 
-    def test_backfill_sales_report_tasks_skips_closed_season(self):
+    def test_backfill_sales_report_tasks_phase1_skips_closed_season(self):
         """Phase 1 (`_backfill_reminders`) calls Task.objects.create() directly,
-        bypassing transition_to(). Phase 2 (`_advance_satyldy`) does call
-        transition_to(), which already raises SeasonClosedError for a closed
-        season — but SeasonClosedError does not subclass ValueError, so the
-        command's `except ValueError` would NOT catch it and the whole run
-        would crash on the first closed-season satyldy shipment. Both phases
-        need the guard: phase 1 to stop creating, phase 2 to keep the command
-        from blowing up on real end-of-season backlog.
+        bypassing transition_to() — this test covers phase 1 only (run with
+        --skip-advance). See
+        test_backfill_sales_report_tasks_phase2_skips_closed_season below for
+        phase 2 (`_advance_satyldy`), which is a distinct guard on a distinct
+        codepath and needs its own coverage.
         """
         yola, _ = ShipmentStatusType.objects.get_or_create(
             code='yola_chykdy',
@@ -1187,3 +1186,49 @@ class GeneratorsSkipClosedSeasonsTests(SeasonFreezeFixture):
             ).count(),
             0,
         )
+
+    def test_backfill_sales_report_tasks_phase2_skips_closed_season(self):
+        """Phase 2 (`_advance_satyldy`) calls transition_to(), which already
+        raises SeasonClosedError for a closed season (D1) — but
+        SeasonClosedError does not subclass ValueError, while the command's
+        handler is `except ValueError`. Without the guard, this call itself
+        raises SeasonClosedError (uncaught) and the command crashes instead
+        of skipping — a stronger failure than a wrong count. With the guard,
+        the closed-season shipment stays at satyldy and the active one still
+        advances to tamamlandy.
+        """
+        satyldy, _ = ShipmentStatusType.objects.get_or_create(
+            code='satyldy',
+            defaults={
+                'name_tk': 'x', 'name_en': 'x', 'name_ru': 'x',
+                'required_role': 'sales_rep', 'phase': 'SALES', 'step_order': 11,
+            },
+        )
+        ShipmentStatusType.objects.get_or_create(
+            code='tamamlandy',
+            defaults={
+                'name_tk': 'x', 'name_en': 'x', 'name_ru': 'x',
+                'required_role': 'finansist', 'phase': 'CLOSE', 'step_order': 13,
+            },
+        )
+        closed_ship = Shipment.objects.create(
+            shipment_code='GEN-CLS05', date=self.closed.start_date,
+            season=self.closed, status=satyldy,
+            country=self.country, customer=self.customer,
+        )
+        active_ship = Shipment.objects.create(
+            shipment_code='GEN-ACT05', date=self.active.start_date,
+            season=self.active, status=satyldy,
+            country=self.country, customer=self.customer,
+        )
+        SalesReport.objects.create(shipment=closed_ship, created_by=self.admin)
+        SalesReport.objects.create(shipment=active_ship, created_by=self.admin)
+
+        # A superuser must exist for _advance_satyldy to credit the
+        # transition — the shared fixture's cls.admin already qualifies.
+        call_command('backfill_sales_report_tasks')
+
+        closed_ship.refresh_from_db()
+        active_ship.refresh_from_db()
+        self.assertEqual(closed_ship.status.code, 'satyldy')      # untouched
+        self.assertEqual(active_ship.status.code, 'tamamlandy')   # advanced
