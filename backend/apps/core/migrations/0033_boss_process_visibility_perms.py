@@ -65,6 +65,20 @@ PREVIOUS_PAGES = [
 
 
 def widen_boss_permissions(apps, schema_editor):
+    # DEPLOYMENT TRAP — read before running this on a live database.
+    # This early return is the repo convention (migrations 0018 / 0020 / 0026),
+    # but Django still records 0033 as APPLIED when it fires. So a `migrate` run
+    # with DJANGO_TESTING=true in the shell no-ops PERMANENTLY: the row lands in
+    # django_migrations and a later run in the right environment will not
+    # re-execute it. That matters more here than for the migrations this is
+    # patterned on, because landing on a live database is this migration's whole
+    # purpose, and every documented backend test command in this repo exports
+    # DJANGO_TESTING=true — so the variable is routinely already set.
+    # Unset it before deploying, then verify:
+    #   RolePagePermission.objects.filter(role='boss', is_visible=True).count()  # -> 41
+    # If it comes back 3 (or anything but 41), this ran as a no-op: delete the
+    # ('core', '0033_boss_process_visibility_perms') row from django_migrations
+    # and re-run `migrate core` with DJANGO_TESTING unset.
     if os.environ.get('DJANGO_TESTING') == 'true':
         return
     apply_boss_permissions(

@@ -22,6 +22,21 @@ YGT uses a dynamic, database-driven RBAC (Role-Based Access Control) system. Ins
 
 > **Deploying the widening needs the migration, not the seed command.** `seed_permissions` uses `get_or_create(..., defaults={...})` and `defaults` applies **only on INSERT** — on any database seeded before 2026-08-05 the boss's 42 page rows and 25 resource rows already exist, so re-running the command finds them and changes nothing. `core/migrations/0033_boss_process_visibility_perms.py` does the `.update()` (plus a reverse function that restores the pre-widening 7-page, view-only state). The seed dicts and that migration must stay in sync — both carry a comment saying so, and the same three resource carve-outs and the `admin.permissions` exclusion are encoded in both.
 
+> **⚠ `DJANGO_TESTING` must be unset when you run `manage.py migrate`.** `0033`'s forward function returns early when `DJANGO_TESTING=true` (the convention migrations 0018 / 0020 / 0026 established), **but Django still records the migration as applied**. A `migrate` run with that variable set therefore no-ops *permanently*: the row lands in `django_migrations` and a later run in the correct environment will not re-execute it. Every documented backend test command in this repo exports `DJANGO_TESTING=true`, so it is routinely already present in a developer's shell — and this project has already sent a migration to the wrong database through exactly this mechanism (`export.0058`, 2026-08-05). Check the shell before you migrate:
+> ```bash
+> echo "$DJANGO_TESTING"        # must be empty, not 'true'
+> unset DJANGO_TESTING
+> python manage.py migrate core
+> ```
+> Then **verify it actually landed** — do not trust the "applied" line:
+> ```python
+> # manage.py shell
+> from apps.core.models import RolePagePermission, RoleResourcePermission
+> RolePagePermission.objects.filter(role='boss', is_visible=True).count()      # -> 41
+> RoleResourcePermission.objects.filter(role='boss', can_edit=True).count()    # -> 23
+> ```
+> 41 = the 42 registered pages minus `admin.permissions`; 23 = the 25 registered resources minus `closed_season` and `truck_split_default`. If you get **3** visible pages and **0** editable resources, the migration ran as a no-op. Recovery: delete the `('core', '0033_boss_process_visibility_perms')` row from `django_migrations`, then re-run `migrate core` with `DJANGO_TESTING` unset.
+
 ## How It Works (Business Flow)
 
 ```mermaid
