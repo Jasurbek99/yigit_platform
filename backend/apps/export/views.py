@@ -970,7 +970,11 @@ class ShipmentViewSet(ModelViewSet):
         Query params:
             threshold (int, default 7): minimum days overdue to include.
         """
-        allowed_roles = PRIVILEGED_ROLES | {'sales_rep', 'finansist'}
+        # 'boss' is added at the call site rather than widening the shared
+        # core PRIVILEGED_ROLES constant — this is a read-only oversight
+        # endpoint and the boss's whole feature is seeing the process
+        # (2026-08-05 boss-process-visibility).
+        allowed_roles = PRIVILEGED_ROLES | {'sales_rep', 'finansist', 'boss'}
         if getattr(request.user, 'role', None) not in allowed_roles:
             return Response({'error': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
 
@@ -1041,7 +1045,10 @@ class ShipmentViewSet(ModelViewSet):
         """
         role = getattr(request.user, 'role', None)
         is_superuser = getattr(request.user, 'is_superuser', False)
-        is_management = is_superuser or role in PRIVILEGED_ROLES
+        # 'boss' counts as management here. Without him the queryset scopes to
+        # customer.sales_rep == boss, which is nobody, so the page rendered an
+        # empty list that read as "there are no reports" (2026-08-05).
+        is_management = is_superuser or role in PRIVILEGED_ROLES or role == 'boss'
 
         has_report_expr = Exists(SalesReport.objects.filter(shipment=OuterRef('pk')))
 
@@ -1972,12 +1979,15 @@ class ShipmentViewSet(ModelViewSet):
         Returns:
             200 with full ShipmentDetailSerializer payload on success.
             400 if the shipment is not in draft status, or transition fails.
-            403 if the caller's role is not export_manager / director.
+            403 if the caller's role is not export_manager / director / boss.
         """
         user_role = getattr(request.user, 'role', None)
-        if user_role not in PRIVILEGED_ROLES:
+        # 'boss' widened at the call site (not in core PRIVILEGED_ROLES):
+        # /export/assign is on his process sidebar since 2026-08-05 and assigning
+        # a draft is a genuine process step, so its only action must work.
+        if user_role not in PRIVILEGED_ROLES | {'boss'}:
             return Response(
-                {'error': 'Only export_manager or director can assign draft shipments'},
+                {'error': 'Only export_manager, director or boss can assign draft shipments'},
                 status=status.HTTP_403_FORBIDDEN,
             )
 

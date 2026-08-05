@@ -263,7 +263,8 @@ class NotificationViewSet(ReadOnlyModelViewSet):
 class AuditLogViewSet(ReadOnlyModelViewSet):
     """Read-only audit trail.
 
-    Accessible to admin, director, and export_manager (AUDIT_VIEWERS — AD-15).
+    Accessible to admin, director, and export_manager (AUDIT_VIEWERS — AD-15),
+    plus boss (read-only oversight, 2026-08-05).
 
     GET /api/v1/export/audit-log/          — list (filter ?model_name=&action=&object_id=&user=)
     GET /api/v1/export/audit-log/{id}/     — detail
@@ -276,7 +277,10 @@ class AuditLogViewSet(ReadOnlyModelViewSet):
 
     def check_permissions(self, request):
         super().check_permissions(request)
-        _require_role(request.user, AUDIT_VIEWERS, 'view audit logs')
+        # 'boss' widened at the call site, not in AUDIT_VIEWERS itself — the
+        # audit log is read-only oversight and the boss's process sidebar links
+        # to it (2026-08-05 boss-process-visibility).
+        _require_role(request.user, AUDIT_VIEWERS | {'boss'}, 'view audit logs')
 
     def get_queryset(self):
         qs = AuditLog.objects.select_related('user').order_by('-created_at')
