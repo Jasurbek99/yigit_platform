@@ -125,12 +125,12 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
     'seller': {
         'dashboard', 'export.quota.local_sell',
     } | _UNIVERSAL,
-    # Boss is strictly executive: the analytics dashboard plus the stuck-shipments
-    # oversight page. My Tasks + Feedback pages come from _UNIVERSAL (boss was in
-    # every prior all-roles list). No other operational navigation.
-    'boss': {
-        'analytics.boss', 'analytics.clients', 'director.stuck_shipments',
-    } | _UNIVERSAL,
+    # boss: every registered page. He owns the process end-to-end and must not
+    # need to log in as another role to see a step (2026-08-05 design).
+    # _UNIVERSAL is a subset of _ALL_PAGES, so nothing he had before is lost.
+    # This deliberately includes admin.permissions — the boss can widen access
+    # for himself and others. Approved 2026-08-05.
+    'boss': set(_ALL_PAGES),
 }
 
 # loading_dept_head_deputy: identical page access to the head (June 2026 request).
@@ -246,9 +246,13 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
     'seller': {
         'local_sell_plan': _VCE,
     },
-    # Boss is strictly read-only across every resource — never edits. This
-    # already gives closed_season the correct read-only grant with no override.
-    'boss': {r: _VIEW for r in _ALL_RESOURCES},
+    # boss: full CRUD on every resource. The read-only guard now lives in the
+    # frontend view/edit toggle, not in the permission matrix (2026-08-05).
+    # EXCEPT closed_season — read-only by design (D1), same carve-out admin has.
+    'boss': {
+        **{r: _VCRUD for r in _ALL_RESOURCES},
+        'closed_season': _VIEW,
+    },
 }
 
 # loading_dept_head_deputy: identical resource permissions to the head (copied, not shared).
@@ -436,6 +440,10 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
 FIELD_DEFAULTS['loading_dept_head_deputy'] = {
     resource: list(fields) for resource, fields in FIELD_DEFAULTS['loading_dept_head'].items()
 }
+
+# boss: wildcard on every resource. Uses a comprehension rather than admin's
+# hand-enumerated list so a newly registered resource is covered automatically.
+FIELD_DEFAULTS['boss'] = {r: ['*'] for r in _ALL_RESOURCES}
 
 
 class Command(BaseCommand):
