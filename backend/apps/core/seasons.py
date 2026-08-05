@@ -215,6 +215,38 @@ class SeasonScopedMixin:
     # must still fail closed, not fall back to resolving one).
     _SEASON_NOT_GIVEN = object()
 
+    def assert_update_target_open(self, serializer) -> None:
+        """Reject an update that MOVES a row into a closed season (D1).
+
+        `SeasonNotClosed` runs inside `get_object()`, so it sees the anchor the
+        row has BEFORE the write. A PATCH that reassigns the anchor FK itself
+        (`ContractSale.contract`, `WeeklyTruckAllocation.season`, …) therefore
+        clears the object permission and then writes into the frozen season.
+        This checks the anchor the row will have AFTER the write, so the origin
+        and the destination both have to be open.
+
+        Args:
+            serializer: The validated update serializer.
+
+        Raises:
+            SeasonClosedError: If the update would move the row into a closed
+                season.
+        """
+        instance = serializer.instance
+        model = type(instance)
+        # A fresh instance, not copy.copy(instance): a shallow copy shares
+        # `_state` (and its related-object cache) with the real row, so
+        # applying the incoming FKs would pollute the row the caller still
+        # holds. Seeded by attname only — Model.__init__ rejects a mix of
+        # `contract` and `contract_id` for the same field.
+        merged = model(**{
+            field.attname: getattr(instance, field.attname)
+            for field in model._meta.concrete_fields
+        })
+        for key, value in _model_kwargs(model, serializer.validated_data).items():
+            setattr(merged, key, value)
+        assert_season_open(freeze_season_of(merged))
+
     def assert_create_target_open(self, serializer) -> None:
         """Reject a POST-to-collection that targets a closed season (D1).
 

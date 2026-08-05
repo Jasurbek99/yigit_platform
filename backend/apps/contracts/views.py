@@ -72,6 +72,14 @@ class ContractViewSet(SeasonScopedMixin, ModelViewSet):
         self.assert_create_target_open(serializer)
         serializer.save()
 
+    def perform_update(self, serializer):
+        """Save an edit, refusing one that moves the contract into a closed season."""
+        # Write freeze (D1): layer 1 checked the anchor the row has BEFORE
+        # the write; this checks the one it would have AFTER, so a PATCH
+        # cannot move the row into a closed season.
+        self.assert_update_target_open(serializer)
+        serializer.save()
+
     def get_queryset(self):
         """Return contracts queryset filtered by status.
 
@@ -318,6 +326,18 @@ class ContractSaleViewSet(SeasonScopedMixin, ModelViewSet):
         # Write freeze (D1): CreateModelMixin never calls get_object(), so
         # the SeasonNotClosed object permission cannot fire on a create.
         self.assert_create_target_open(serializer)
+        serializer.save()
+
+    def perform_update(self, serializer):
+        """Save an edit, refusing one that moves the sale into a closed season.
+
+        Covers reassigning EITHER anchor: `contract` (whose rollup totals the
+        write would rewrite) and `shipment`.
+        """
+        # Write freeze (D1): layer 1 checked the anchor the row has BEFORE
+        # the write; this checks the one it would have AFTER, so a PATCH
+        # cannot move the row into a closed season.
+        self.assert_update_target_open(serializer)
         serializer.save()
 
     def get_queryset(self):

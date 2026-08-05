@@ -118,6 +118,10 @@ class WeeklyHarvestPlanViewSet(SeasonScopedMixin, ModelViewSet):
         serializer.save(entered_by=self.request.user)
 
     def perform_update(self, serializer):
+        # Write freeze (D1): layer 1 checked the anchor the row has BEFORE
+        # the write; this checks the one it would have AFTER, so a PATCH
+        # cannot move the row into a closed season.
+        self.assert_update_target_open(serializer)
         instance = serializer.instance
         block_id = instance.block_id
         self._check_plan_permission(self.request.user, block_id, is_create=False)

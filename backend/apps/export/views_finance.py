@@ -435,6 +435,14 @@ class CustomsExpenseViewSet(SeasonScopedMixin, ModelViewSet):
             )
         return super().destroy(request, *args, **kwargs)
 
+    def perform_update(self, serializer) -> None:
+        """Save an edit, refusing one that moves the row into a closed season."""
+        # Write freeze (D1): layer 1 checked the anchor the row has BEFORE
+        # the write; this checks the one it would have AFTER, so a PATCH
+        # cannot move the row into a closed season.
+        self.assert_update_target_open(serializer)
+        serializer.save()
+
     def perform_create(self, serializer) -> None:
         """Inject created_by from the authenticated user on every create."""
         # Write freeze (D1): CreateModelMixin never calls get_object(), so

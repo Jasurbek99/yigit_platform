@@ -124,6 +124,10 @@ class WeeklyTruckAllocationViewSet(SeasonScopedMixin, ModelViewSet):
         )
 
     def perform_update(self, serializer):
+        # Write freeze (D1): layer 1 checked the anchor the row has BEFORE
+        # the write; this checks the one it would have AFTER, so a PATCH
+        # cannot move the row into a closed season.
+        self.assert_update_target_open(serializer)
         planned_kg = serializer.validated_data.get(
             'total_planned_kg',
             serializer.instance.total_planned_kg,
@@ -297,6 +301,10 @@ class WeeklyLocalSellPlanViewSet(SeasonScopedMixin, ModelViewSet):
         serializer.save(entered_by=self.request.user, season=season)
 
     def perform_update(self, serializer):
+        # Write freeze (D1): layer 1 checked the anchor the row has BEFORE
+        # the write; this checks the one it would have AFTER, so a PATCH
+        # cannot move the row into a closed season.
+        self.assert_update_target_open(serializer)
         instance = serializer.instance
         role = getattr(self.request.user, 'role', None)
         is_admin = role in _LOCAL_SELL_APPROVE_ROLES

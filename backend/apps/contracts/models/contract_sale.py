@@ -175,12 +175,25 @@ class ContractSale(models.Model):
         write would additionally rewrite the frozen `Contract` row that
         `ContractViewSet` correctly 409s on directly.
 
+        A sale straddles two seasons, so the rule is **frozen if EITHER side
+        is frozen** rather than "shipment wins". Preferring `shipment.season`
+        would leave a sale on an open-season shipment under a closed-season
+        contract fully writable — and it still re-rolls that frozen contract's
+        totals.
+
         Read scoping is deliberately NOT changed to match: that stays on
         `shipment__season` with `include_null_link` per Task 6.
+
+        Returns:
+            The closed season when either side is closed (shipment's first, so
+            the 409 body is deterministic), otherwise whichever side is set.
         """
-        if self.shipment_id:
-            return self.shipment.season
-        return self.contract.season if self.contract_id else None
+        shipment_season = self.shipment.season if self.shipment_id else None
+        contract_season = self.contract.season if self.contract_id else None
+        for season in (shipment_season, contract_season):
+            if season is not None and season.is_closed:
+                return season
+        return shipment_season or contract_season
 
     @classmethod
     def from_db(cls, db, field_names, values):

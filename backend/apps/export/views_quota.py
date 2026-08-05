@@ -198,6 +198,10 @@ class QuotaUsageViewSet(SeasonScopedMixin, ModelViewSet):
         )
 
     def perform_update(self, serializer):
+        # Write freeze (D1): layer 1 checked the anchor the row has BEFORE
+        # the write; this checks the one it would have AFTER, so a PATCH
+        # cannot move the row into a closed season.
+        self.assert_update_target_open(serializer)
         if serializer.instance.status != 'draft':
             raise ValidationError({'detail': 'Only draft records can be edited.'})
         instance = serializer.save()
