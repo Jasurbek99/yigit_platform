@@ -115,6 +115,18 @@ export function useSeasonClosePreview(seasonId: number | null) {
 // incumbent back to UPCOMING) — every read of that field (SeasonSwitcher,
 // useSeasonReadOnly, ClosedSeasonBanner, the header) is stale until
 // ['auth', 'me'] is invalidated alongside ['admin-seasons'].
+//
+// Also invalidates EVERY cached query, not just those two keys. The ~26
+// season-scoped query hooks threaded through `seasonId` in Task 14 all key
+// on whatever `useSelectedSeason()` currently resolves — which, after a
+// close, is very often UNCHANGED (the store already holds the season's id,
+// seeded on mount by `useSeasonParam()`'s URL->store effect; `useSelectedSeason()`
+// resolves `URL ?? store ?? active`, and the store wins over the
+// now-stale `active` value this mutation just invalidated). So the boards
+// keep serving cached rows from the just-hidden season until `staleTime`
+// expires unless every query is forced to refetch here, not just the two
+// this mutation directly touches — a blanket invalidate is deliberately
+// broader than "only what this mutation wrote" for that reason.
 export function useCloseSeason(options: MutationOptions = {}) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -125,6 +137,7 @@ export function useCloseSeason(options: MutationOptions = {}) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-seasons'] });
       queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
+      queryClient.invalidateQueries();
       options.onSuccess?.();
     },
     onError: options.onError,
@@ -141,6 +154,7 @@ export function useOpenSeason(options: MutationOptions = {}) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-seasons'] });
       queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
+      queryClient.invalidateQueries();
       options.onSuccess?.();
     },
     onError: options.onError,
