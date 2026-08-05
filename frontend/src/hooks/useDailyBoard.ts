@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
+import { useSelectedSeason } from '@/hooks/useSeasonParam';
 import type { IDailyBoardResponse, IDailyBoardRow } from '@/types';
 import { MOCK_DAILY_BOARD } from '@/mock/dailyBoard';
 
@@ -8,15 +9,18 @@ const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
 
 /** Fetch the daily harvest board for a given date (one row per active block). */
 export function useDailyBoard(date: string) {
+  const { seasonId, isReady } = useSelectedSeason();
   return useQuery({
-    queryKey: [QUERY_KEY, date],
+    queryKey: [QUERY_KEY, date, seasonId],
     queryFn: async (): Promise<IDailyBoardResponse> => {
       if (USE_MOCK) return { ...MOCK_DAILY_BOARD, date };
+      const seasonParam = seasonId != null ? `&season=${seasonId}` : '';
       const { data } = await api.get<IDailyBoardResponse>(
-        `/greenhouse/daily-plan/?date=${date}`,
+        `/greenhouse/daily-plan/?date=${date}${seasonParam}`,
       );
       return data;
     },
+    enabled: USE_MOCK || isReady,
     staleTime: 30_000,
   });
 }

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
+import { useSelectedSeason } from '@/hooks/useSeasonParam';
 import type { IApiListResponse } from '@/types';
 import type {
   IContractSale,
@@ -34,8 +35,9 @@ interface IContractSaleListResult {
 // ─── List ─────────────────────────────────────────────────────────────────────
 
 export function useContractSales(params: IContractSaleFilters = {}) {
+  const { seasonId, isReady } = useSelectedSeason();
   return useQuery({
-    queryKey: ['sales', 'list', params] as const,
+    queryKey: ['sales', 'list', seasonId, params] as const,
     queryFn: async (): Promise<IContractSaleListResult> => {
       const p = new URLSearchParams();
 
@@ -48,6 +50,7 @@ export function useContractSales(params: IContractSaleFilters = {}) {
       if (params.search) p.set('search', params.search);
       if (params.page) p.set('page', String(params.page));
       if (params.pageSize) p.set('page_size', String(params.pageSize));
+      if (seasonId != null) p.set('season', String(seasonId));
 
       const { data } = await api.get<IApiListResponse<IContractSale>>(
         `/contracts/sales/?${p.toString()}`,
@@ -55,7 +58,7 @@ export function useContractSales(params: IContractSaleFilters = {}) {
       return { results: data.results, count: data.count };
     },
     staleTime: 30_000,
-    enabled: params.contractId !== undefined ? params.contractId > 0 : true,
+    enabled: (params.contractId !== undefined ? params.contractId > 0 : true) && isReady,
   });
 }
 

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
 import i18n from '@/i18n';
 import { ShipmentCompletenessBar } from './ShipmentCompletenessBar';
 import { ShipmentSaleSection } from './ShipmentSaleSection';
@@ -160,15 +161,17 @@ describe('ShipmentCompletenessBar', () => {
     };
 
     render(
-      <QueryClientProvider client={queryClient}>
-        <ShipmentSaleSection
-          shipment={MOCK_SHIPMENT_DETAIL}
-          missingKeys={new Set()}
-          readOnly
-          canEditSalesReport={false}
-        />
-        <ShipmentCompletenessBar completeness={completeness} onJumpToField={onJumpToField} />
-      </QueryClientProvider>,
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <ShipmentSaleSection
+            shipment={MOCK_SHIPMENT_DETAIL}
+            missingKeys={new Set()}
+            readOnly
+            canEditSalesReport={false}
+          />
+          <ShipmentCompletenessBar completeness={completeness} onJumpToField={onJumpToField} />
+        </QueryClientProvider>
+      </MemoryRouter>,
     );
 
     const sectionEl = document.getElementById('section-sale');

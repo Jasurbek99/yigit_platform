@@ -121,31 +121,36 @@ describe('drawer single-shipment cache (task modal field edits)', () => {
     return data?.shipments.find((s) => s.id === 5);
   }
 
+  // seasonId (4th arg) only affects the full-season sheet cache key, which
+  // these tests never seed — passing a fixed value keeps them focused on the
+  // drawer-row-cache path (unaffected by which season is selected).
+  const SEASON_ID = 1;
+
   it('applyOptimistic writes the edited field into the drawer row cache', () => {
     const qc = seed();
-    applyOptimistic(qc, 5, { driver_name: 'Ali' });
+    applyOptimistic(qc, 5, { driver_name: 'Ali' }, SEASON_ID);
     expect(row(qc)?.driver_name).toBe('Ali');
   });
 
   it('a second field edit does not wipe the first (the reported bug)', () => {
     const qc = seed();
-    applyOptimistic(qc, 5, { driver_name: 'Ali' });
-    applyOptimistic(qc, 5, { driver_phone: '+99312' });
+    applyOptimistic(qc, 5, { driver_name: 'Ali' }, SEASON_ID);
+    applyOptimistic(qc, 5, { driver_phone: '+99312' }, SEASON_ID);
     expect(row(qc)?.driver_name).toBe('Ali'); // still there
     expect(row(qc)?.driver_phone).toBe('+99312');
   });
 
   it('reconcileFromServer folds server scalars into the drawer row cache', () => {
     const qc = seed();
-    applyOptimistic(qc, 5, { truck_plate: '29 AT 580' });
-    reconcileFromServer(qc, 5, { id: 5, truck_plate: '29 AT 580', driver_name: 'Ali' });
+    applyOptimistic(qc, 5, { truck_plate: '29 AT 580' }, SEASON_ID);
+    reconcileFromServer(qc, 5, { id: 5, truck_plate: '29 AT 580', driver_name: 'Ali' }, SEASON_ID);
     expect(row(qc)?.truck_plate).toBe('29 AT 580');
     expect(row(qc)?.driver_name).toBe('Ali');
   });
 
   it('does not create a phantom row cache entry when none exists', () => {
     const qc = new QueryClient(); // nothing seeded
-    applyOptimistic(qc, 5, { driver_name: 'Ali' });
+    applyOptimistic(qc, 5, { driver_name: 'Ali' }, SEASON_ID);
     expect(qc.getQueryData(ROW_KEY)).toBeUndefined();
   });
 });

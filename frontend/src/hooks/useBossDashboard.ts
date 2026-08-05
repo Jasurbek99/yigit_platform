@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import api from '@/services/api';
+import { useSelectedSeason } from '@/hooks/useSeasonParam';
 
 // ─── Period type ─────────────────────────────────────────────────────────────
 
@@ -220,12 +221,26 @@ export const useBossSummary = (period: BossPeriod) =>
     staleTime: 60_000,
   });
 
-export const useBossRevenue = (period: BossPeriod) =>
-  useQuery<IBossRevenue>({
-    queryKey: ['boss', 'revenue', period],
-    queryFn: () => fetcher<IBossRevenue>('revenue', { period }),
+// revenue is the ONLY boss/* action that reads `?season=` on the backend
+// (views_analytics.py `revenue()` calls `resolve_season(request)` directly).
+// Every sibling action below derives its date range from `?period=` alone
+// via `period_to_range()`, which for period='season' hardcodes
+// `get_active_season()` — NOT `resolve_season()` — so `?season=` would be
+// silently ignored there. Threading seasonId through those keys would only
+// cause a no-op refetch on every season switch; left unchanged.
+export const useBossRevenue = (period: BossPeriod) => {
+  const { seasonId, isReady } = useSelectedSeason();
+  return useQuery<IBossRevenue>({
+    queryKey: ['boss', 'revenue', period, seasonId],
+    queryFn: () =>
+      fetcher<IBossRevenue>('revenue', {
+        period,
+        ...(seasonId != null ? { season: String(seasonId) } : {}),
+      }),
+    enabled: isReady,
     staleTime: 60_000,
   });
+};
 
 export const useBossDebt = (period: BossPeriod) =>
   useQuery<IBossDebt>({

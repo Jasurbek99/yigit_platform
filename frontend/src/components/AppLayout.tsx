@@ -34,6 +34,7 @@ import { useTranslation } from 'react-i18next';
 import type { MenuProps } from 'antd';
 import api from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
+import { useSeasonParam } from '@/hooks/useSeasonParam';
 import { useFeedbackAdminUnreadCount } from '@/hooks/useFeedback';
 import { useMyTasks } from '@/hooks/useMyTasks';
 import { useRealtime } from '@/hooks/useRealtime';
@@ -59,6 +60,10 @@ export default function AppLayout() {
   const location = useLocation();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  // Mounted exactly once, here — every routed page is a descendant of this
+  // layout, so the URL <-> selectedSeasonId sync runs app-wide without a
+  // second writer competing for the `?season=` search param.
+  useSeasonParam();
   const [collapsed, setCollapsed] = useState(false);
   useRealtime({ enabled: !!user });
   useWorklogHeartbeat({ enabled: !!user });
