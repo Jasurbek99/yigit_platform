@@ -1127,6 +1127,16 @@
     "error_load": "Failed to load domestic sales",
     "subtitle": "Domestic market sales report"
   },
+  "season": {
+    "switcher_label": "Season",
+    "status_active": "Active",
+    "status_closed": "Closed",
+    "status_upcoming": "Upcoming",
+    "readonly_banner": "Viewing closed season {{name}} — read-only",
+    "back_to_active": "Back to active season",
+    "closed_error": "This season is closed and cannot be edited",
+    "partial_view_notice": "Archived records are not shown in this view"
+  },
   "seasons": {
     "title": "Seasons",
     "add": "Add Season",

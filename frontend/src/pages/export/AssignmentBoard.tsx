@@ -4,6 +4,7 @@ import { Alert, Modal, Spin, Tag, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { useDrafts, useAssignDraft } from '@/hooks/useDrafts';
+import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
 import { MOCK_DEMAND } from '@/mock/demand';
 import { SupplyCard } from './assignment/SupplyCard';
 import { DemandCard } from './assignment/DemandCard';
@@ -20,6 +21,10 @@ export default function AssignmentBoard() {
 
   const { data: drafts = [], isLoading: draftsLoading } = useDrafts();
   const assignDraft = useAssignDraft();
+  // `useDrafts()` reads whatever season is browsed (Task 14); the assign
+  // mutation targets `selectedDraft.id`, a real shipment in that same
+  // browsed season — unlike Initialize Week / Add Shipment, this CAN 409.
+  const isReadOnly = useSeasonReadOnly();
 
   const [selectedDraftId, setSelectedDraftId] = useState<number | null>(null);
   const [selectedDemandId, setSelectedDemandId] = useState<number | null>(null);
@@ -203,6 +208,7 @@ export default function AssignmentBoard() {
             draft={selectedDraft}
             demand={selectedDemand}
             onConfirm={handleConfirm}
+            isReadOnly={isReadOnly}
             onClear={() => {
               setSelectedDraftId(null);
               setSelectedDemandId(null);

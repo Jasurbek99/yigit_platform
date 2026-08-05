@@ -3,7 +3,7 @@ import { act, renderHook } from '@testing-library/react';
 import { MemoryRouter, useSearchParams } from 'react-router-dom';
 import { useRef } from 'react';
 import type { ReactNode } from 'react';
-import { useSeasonParam, useSelectedSeason } from './useSeasonParam';
+import { useSeasonParam, useSelectedSeason, useSwitchSeason } from './useSeasonParam';
 import { useSeasonStore } from '@/stores/seasonStore';
 import { useAuth } from '@/hooks/useAuth';
 import type { ICurrentUser, UserRole } from '@/types';
@@ -259,5 +259,70 @@ describe('useSelectedSeason — resolves synchronously, independent of useSeason
     // gate a query's `enabled` should read) — but isReady is false.
     expect(result.current.seasonId).toBe(5);
     expect(result.current.isReady).toBe(false);
+  });
+});
+
+/** Mounts useSwitchSeason() alongside a live useSearchParams() read, mirroring
+ * useHarness() above — the test asserts on the URL the switch actually wrote. */
+function useSwitchHarness() {
+  const switchSeason = useSwitchSeason();
+  const [searchParams] = useSearchParams();
+  return { switchSeason, search: searchParams.toString() };
+}
+
+describe('useSwitchSeason — Task 15: updates the store and the URL together, in one commit', () => {
+  beforeEach(() => {
+    vi.mocked(useAuth).mockReset();
+    useSeasonStore.setState({ selectedSeasonId: null });
+  });
+
+  it('switching to a non-active season sets both the store and ?season=', () => {
+    vi.mocked(useAuth).mockReturnValue({ user: fakeUser(1), isLoading: false, isError: false });
+    const { result } = renderHook(() => useSwitchHarness(), {
+      wrapper: wrapperWithEntry('/export/shipments'),
+    });
+
+    act(() => {
+      result.current.switchSeason(7);
+    });
+
+    expect(useSeasonStore.getState().selectedSeasonId).toBe(7);
+    expect(result.current.search).toBe('season=7');
+  });
+
+  it('switching back to the active season clears the store AND the URL together — no stale ?season= for a render', () => {
+    // This is the carried-forward item #2 case: a switch back to the active
+    // season implemented as a bare `setSelectedSeasonId(activeId)` (the
+    // brief's original ClosedSeasonBanner sample) would leave `?season=7` in
+    // the URL for one render, and `useSelectedSeason()` resolves URL-first —
+    // so the closed season would keep rendering for that render.
+    // `useSwitchSeason()` clears the param in the same handler instead of
+    // waiting for `useSeasonParam()`'s store->URL effect to catch up a tick
+    // later.
+    vi.mocked(useAuth).mockReturnValue({ user: fakeUser(1), isLoading: false, isError: false });
+    const { result } = renderHook(() => useSwitchHarness(), {
+      wrapper: wrapperWithEntry('/export/shipments?season=7'),
+    });
+    expect(result.current.search).toBe('season=7');
+
+    act(() => {
+      result.current.switchSeason(1);
+    });
+
+    expect(useSeasonStore.getState().selectedSeasonId).toBe(1);
+    expect(result.current.search).toBe('');
+  });
+
+  it('switching to a different non-active season overwrites an existing ?season=, does not append', () => {
+    vi.mocked(useAuth).mockReturnValue({ user: fakeUser(1), isLoading: false, isError: false });
+    const { result } = renderHook(() => useSwitchHarness(), {
+      wrapper: wrapperWithEntry('/export/shipments?season=7'),
+    });
+
+    act(() => {
+      result.current.switchSeason(9);
+    });
+
+    expect(result.current.search).toBe('season=9');
   });
 });

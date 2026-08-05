@@ -48,6 +48,8 @@ import { FeedbackFAB } from '@/components/feedback/FeedbackFAB';
 import { NotificationBell } from '@/components/NotificationBell';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
 import { WorklogChip } from '@/components/WorklogChip';
+import { SeasonSwitcher } from '@/components/SeasonSwitcher';
+import { ClosedSeasonBanner } from '@/components/ClosedSeasonBanner';
 import { COLORS } from '@/constants/styles';
 
 const { Sider, Header, Content } = Layout;
@@ -497,10 +499,11 @@ export default function AppLayout() {
             </Flex>
           </Flex>
 
-          {/* Right: connection dot + worklog chip + lang switcher + notifications */}
+          {/* Right: connection dot + worklog chip + season switcher + lang switcher + notifications */}
           <Flex align="center" gap={12}>
             <ConnectionStatus />
             <WorklogChip />
+            <SeasonSwitcher />
             <Segmented
               size="small"
               value={currentLang}
@@ -539,6 +542,7 @@ export default function AppLayout() {
             overflowX: 'hidden',
           }}
         >
+          <ClosedSeasonBanner />
           <Outlet />
         </Content>
       </Layout>

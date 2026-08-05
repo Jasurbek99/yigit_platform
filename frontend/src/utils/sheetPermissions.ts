@@ -29,12 +29,19 @@ export function canEditCell(user: ICurrentUser | null, fieldKey: string): boolea
  * present, falling back to the legacy field-level check for rows without a
  * row_settings entry. Shared by SheetGrid's renderRow and the clipboard hook so
  * cut / paste / delete obey the exact same gate as inline editing.
+ *
+ * `isSeasonReadOnly` (Task 15's `useSeasonReadOnly()`) short-circuits this to
+ * `false` before any other check — browsing a closed season, no cell accepts
+ * focus regardless of role/field/row-trigger permissions. The backend's 409
+ * `season_closed` is the safety net, not the mechanism; this is the mechanism.
  */
 export function isCellEditable(
   rowConfig: IRowConfig,
   rowSettings: Record<string, ISheetRowSettingForUser>,
   user: ICurrentUser | null,
+  isSeasonReadOnly: boolean,
 ): boolean {
+  if (isSeasonReadOnly) return false;
   if (rowConfig.input_type === 'readonly') return false;
   const v2EditDecision = rowSettings[rowConfig.field_key]?.can_current_user_edit;
   return v2EditDecision ?? canEditCell(user, rowConfig.field_key);

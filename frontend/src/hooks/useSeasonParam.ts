@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { useSeasonStore } from '@/stores/seasonStore';
@@ -147,4 +147,40 @@ export function useSeasonParam(): IUseSeasonParamResult {
   }, [selectedSeasonId, activeSeasonId, searchParams, setSearchParams]);
 
   return { seasonId: selectedSeasonId, isReady: !isLoading };
+}
+
+/**
+ * Programmatic season switch (Task 15: `SeasonSwitcher`, `ClosedSeasonBanner`'s
+ * "back to active" action) that updates the store AND the URL in the same
+ * event handler, not the store alone.
+ *
+ * Why not just `setSelectedSeasonId`: `useSelectedSeason()` resolves
+ * `URL ?? store ?? active` — the URL wins. If a stale `?season=<closed>` is
+ * still in the address bar and a caller only flips the store back to the
+ * active season, `useSelectedSeason()` keeps resolving the OLD season from
+ * the URL for a render (the store->URL effect in `useSeasonParam()` is a
+ * separate `useEffect` that fires a tick later). Calling
+ * `setSelectedSeasonId` and `setSearchParams` together, synchronously, in one
+ * handler lets React 18 batch them into a single commit, so the URL is never
+ * stale for even one render. Mirrors the store->URL effect's own
+ * default-omits-the-param logic so both paths agree on what "clean" looks
+ * like.
+ */
+export function useSwitchSeason(): (seasonId: number) => void {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { user } = useAuth();
+  const setSelectedSeasonId = useSeasonStore((s) => s.setSelectedSeasonId);
+  const activeSeasonId = user?.active_season?.id ?? null;
+
+  return useCallback(
+    (seasonId: number) => {
+      setSelectedSeasonId(seasonId);
+      const isDefault = seasonId === activeSeasonId;
+      const next = new URLSearchParams(searchParams);
+      if (isDefault) next.delete('season');
+      else next.set('season', String(seasonId));
+      setSearchParams(next, { replace: true });
+    },
+    [searchParams, setSearchParams, activeSeasonId, setSelectedSeasonId],
+  );
 }

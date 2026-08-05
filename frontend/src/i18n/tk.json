@@ -1127,6 +1127,16 @@
     "error_load": "Içerki satuw maglumatlaryny ýükläp bolmady",
     "subtitle": "Içerki bazar satyw hasabaty"
   },
+  "season": {
+    "switcher_label": "Möwsüm",
+    "status_active": "Işjeň",
+    "status_closed": "Ýapyk",
+    "status_upcoming": "Öňümizdäki",
+    "readonly_banner": "Ýapyk möwsüm {{name}} görülýär — diňe okamak",
+    "back_to_active": "Işjeň möwsüme dolan",
+    "closed_error": "Bu möwsüm ýapyk, üýtgedip bolmaýar",
+    "partial_view_notice": "Arhiwlenen ýazgylar bu görnüşde görkezilmeýär"
+  },
   "seasons": {
     "title": "Möwsümler",
     "add": "Möwsüm goş",

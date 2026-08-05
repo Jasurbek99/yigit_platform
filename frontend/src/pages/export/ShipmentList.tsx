@@ -16,6 +16,7 @@ import { ShipmentBulkTransitionModal } from '@/components/ShipmentBulkTransition
 import { ShipmentFilterDrawer } from '@/components/ShipmentFilterDrawer';
 import { useShipments, useSoftDeleteShipment, useRestoreShipment } from '@/hooks/useShipments';
 import { useAuth } from '@/hooks/useAuth';
+import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
 import { canDo, canEditField } from '@/utils/permissions';
 import { COLORS, FONT } from '@/constants/styles';
 import type { IShipmentListItem } from '@/types';
@@ -207,13 +208,18 @@ export default function ShipmentList() {
   function setSearch(s: string) { updateParams({ search: s || undefined, page: undefined }); }
   function setPhaseFilter(v: string | undefined) { updateParams({ phase: v, page: undefined }); }
 
-  const canCreate = canDo(user, 'shipment', 'create');
-  const canEditWeightNet = canEditField(user, 'shipment', 'weight_net');
-  const canEditAnyField = canDo(user, 'shipment', 'edit');
+  // Browsing a closed season (Task 15): every create/edit/delete/restore
+  // control on this page funnels through these 4 flags, so folding
+  // `!isReadOnly` in here is the single choke point — no per-button gating
+  // needed below.
+  const isReadOnly = useSeasonReadOnly();
+  const canCreate = canDo(user, 'shipment', 'create') && !isReadOnly;
+  const canEditWeightNet = canEditField(user, 'shipment', 'weight_net') && !isReadOnly;
+  const canEditAnyField = canDo(user, 'shipment', 'edit') && !isReadOnly;
   // Hard-delete is an admin-only escape hatch. Mirrors the backend gate in
   // ShipmentViewSet.bulk_delete — keep these two checks in sync. Destructive,
   // cascade-removes comments/status_log/firm_splits/block_sources/pallets.
-  const canHardDelete = !!user && (user.is_superuser || user.role === 'admin');
+  const canHardDelete = !!user && (user.is_superuser || user.role === 'admin') && !isReadOnly;
 
   const { data, isLoading } = useShipments({
     page,

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { ICurrentUser, IRowConfig, IShipmentSheetItem, ISheetRowSettingForUser } from '@/types';
 import { useSheetStore, type ISheetClipboardEntry } from '@/stores/sheetStore';
 import { useShipmentOptions } from '@/hooks/useAdmin';
+import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
 import { isCellEditable } from '@/utils/sheetPermissions';
 import { getCellValue } from '@/components/sheet/getCellValue';
 import {
@@ -67,6 +68,7 @@ export function useSheetClipboard(
   const { writeCell, clearCell } = useSheetCellWrite();
   const setClipboard = useSheetStore((s) => s.setClipboard);
   const setEditingCell = useSheetStore((s) => s.setEditingCell);
+  const isSeasonReadOnly = useSeasonReadOnly();
 
   const resolveActiveCell = useCallback((): IResolvedCell | null => {
     const { activeCell } = useSheetStore.getState();
@@ -121,27 +123,27 @@ export function useSheetClipboard(
     writeClipboard(shipment, rowConfig);
     toast.success(t('sheet.cell_cut'));
     // Clear only when the cell is editable and clearable and not already empty.
-    if (!isCellEditable(rowConfig, rowSettings, user) || !isClearableField(rowConfig)) return;
+    if (!isCellEditable(rowConfig, rowSettings, user, isSeasonReadOnly) || !isClearableField(rowConfig)) return;
     const value = getCellValue(shipment, rowConfig, options);
     if (value && value !== '—') clearCell(shipment, rowConfig);
-  }, [resolveActiveCell, writeClipboard, t, rowSettings, user, options, clearCell]);
+  }, [resolveActiveCell, writeClipboard, t, rowSettings, user, isSeasonReadOnly, options, clearCell]);
 
   const deleteActiveCell = useCallback(() => {
     const ctx = resolveActiveCell();
     if (!ctx) return;
     const { shipment, rowConfig } = ctx;
-    if (!isCellEditable(rowConfig, rowSettings, user) || !isClearableField(rowConfig)) return;
+    if (!isCellEditable(rowConfig, rowSettings, user, isSeasonReadOnly) || !isClearableField(rowConfig)) return;
     const value = getCellValue(shipment, rowConfig, options);
     if (!value || value === '—') return;
     clearCell(shipment, rowConfig);
-  }, [resolveActiveCell, rowSettings, user, options, clearCell]);
+  }, [resolveActiveCell, rowSettings, user, isSeasonReadOnly, options, clearCell]);
 
   const pasteActiveCell = useCallback(async () => {
     const ctx = resolveActiveCell();
     if (!ctx) return;
     const { shipment, rowConfig } = ctx;
 
-    if (!isCellEditable(rowConfig, rowSettings, user)) {
+    if (!isCellEditable(rowConfig, rowSettings, user, isSeasonReadOnly)) {
       toast.warning(t('sheet.paste_readonly'));
       return;
     }
@@ -185,7 +187,7 @@ export function useSheetClipboard(
       return;
     }
     toast.warning(t('sheet.paste_nothing'));
-  }, [resolveActiveCell, rowSettings, user, t, writeCell, setEditingCell]);
+  }, [resolveActiveCell, rowSettings, user, isSeasonReadOnly, t, writeCell, setEditingCell]);
 
   return { copyActiveCell, cutActiveCell, pasteActiveCell, deleteActiveCell };
 }
