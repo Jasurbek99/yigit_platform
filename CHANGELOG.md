@@ -5,6 +5,15 @@ All notable changes to the YGT Platform.
 ## [Unreleased]
 
 ### Added
+- Boss view/edit mode toggle in the app header — read-only by default, opt-in editing (feat)
+- Five previously URL-only pages surfaced in the sidebar: truck forecast, drafts, assignment, domestic sales, prices (feat)
+
+### Changed
+- Sidebar reordered by export process phase instead of by module (feat)
+- Boss role widened from 3 read-only pages to full access on every page and resource (feat)
+- `boss` added to `PRIVILEGED_ROLES` so he can trigger any valid status transition (feat)
+
+### Added
 - **Brute-force login lockout — escalating ladder (feat(core) + feat(frontend)).** The login endpoint had *no* rate limiting or lockout: `/api/v1/auth/login/` accepted password guesses at any rate. Added **django-axes** with a custom escalating cool-off keyed on the `(username, IP)` pair: 3 failed logins → **30 min** block, 3 more → **5 h**, then **1 day**, with a fresh 3 attempts per tier. The ladder tier is tracked in a Redis counter (`apps/core/security_axes.py`), the block length is computed by `escalating_cooloff` (wired to `AXES_COOLOFF_TIME`), and the tier is bumped once per episode via axes' `user_locked_out` signal and cleared on successful login (done explicitly in `LoginView` — JWT login never calls Django `login()`). Real client IP is read from nginx's `X-Real-IP` (`AXES_CLIENT_IP_CALLABLE`). Locked requests return **429** `{error, detail:"locked_out", retry_after}` + `Retry-After`; the login page shows a localized countdown (`login.locked_*` in tk/ru/en). Per-attempt audit trail kept (`AccessAttempt`/`AccessFailureLog`, admin-visible). Disabled under tests by default (`AXES_ENABLED = not RUNNING_TESTS`); 10 lockout tests green (escalation, fresh-3-per-tier, reset-on-success, username+IP isolation), 48 existing cache/auth tests still green. (`processes/authentication.md`, `api-contract.md` updated.)
 - `completeness` block on the shipment detail endpoint — required/missing fields derived live from `TaskRule.target_fields`, not a stored field or a new rule table (feat(p3))
 - `driver_name` / `driver_phone` / `truck_plate` inputs on Shipment Detail's transport group — previously required by the task system but had no inputs on the page (feat(p3))

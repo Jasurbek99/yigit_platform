@@ -8,23 +8,44 @@ related: [[roles-matrix]], [[../screens/boss-dashboard]]
 
 **Role code**: `boss`
 
-A strictly read-only executive role that lands on the Boss Dashboard. Used by holding directors who want a 30-second daily answer to "Is everything OK? Where is it burning? How much money?" — viewed 2–3 minutes/day, mostly mobile.
+An executive role that reaches the **entire export process from his own login**, without impersonating any other role — extended from a read-only, dashboard-only account by the **boss process visibility** feature (2026-08-05). Still used the same way day to day: a 30-second daily "Is everything OK? Where is it burning? How much money?" check, viewed 2–3 minutes/day, mostly mobile. The widening adds capability (he can now walk into any screen and act on it), it does not change the primary habit of starting on the dashboard.
 
 ## Page visibility
 
-Only one page is visible: `analytics.boss` → `/boss/dashboard`.
+Every registered page — `_ALL_PAGES`, 42 pages as of 2026-08-05, was 3 pages (view-only) before this feature. See [[../processes/permissions-system]] for the registry and the AD-15 tension this creates (boss now holds all ten `admin.*` pages, a deliberate but under-review decision).
 
-All other pages (shipment list, kanban, quota, admin, etc.) are hidden in the sidebar. The boss user sees a single nav entry that takes them straight to analytics.
+The sidebar itself is grouped by **export process phase** and its order is global — the same sequence every role sees (Overview → Planning → Prep → Shipping → Docs → Sales, then support groups). `boss` gets no special ordering; he simply sees more of the sequence than most roles because almost nothing is hidden from him. Per-role configurable ordering was explicitly deferred — see [[../processes/permissions-system#Sidebar Navigation (2026-08-05)]].
 
-> **Director vs boss.** The existing `director` role keeps full access to every page (operations + admin + analytics) and is also granted `analytics.boss` so directors can navigate to the same dashboard via their menu. `boss` is the simpler, executive-only variant.
+> **Director vs boss.** `director` has always had full access to every page (operations + admin + analytics) and is also granted `analytics.boss` to reach the same dashboard. Before 2026-08-05, `boss` was the deliberately narrower, dashboard-only variant; that distinction is now much thinner since `boss` holds nearly the same page set.
 
 ## Resource permissions
 
-Read-only across **every** resource — `boss` cannot create, edit, or delete anything. Write-protected at the dynamic permission layer (`RoleResourcePermission` rows seeded by `seed_permissions`).
+Full CRUD (view/create/edit/delete) on every resource **except** `closed_season`, which stays view-only under the D1 write-freeze rule — the same carve-out `admin` has. This replaces the previous strictly-read-only default; write access is protected only by `closed_season`'s carve-out and by the view/edit toggle below, not by a blanket read-only grant anymore.
+
+## View/edit mode
+
+A `Segmented` control in the app header (boss-only) switches between **Просмотр** (view) and **Редактирование** (edit):
+
+- Every `boss` session **starts in Просмотр (view)** — the `bossEditMode` flag defaults to `false` and is deliberately not persisted, so a page reload always returns him to view mode. He opts into editing per session, every session.
+- Switching into edit mode shows a confirm dialog ("Вы будете вносить изменения от своего имени..."); switching back to view is immediate, no confirm.
+- While in view mode, `canDo()` and `canEditField()` force every write check to `false` for `boss`, regardless of what the underlying DB permission rows allow.
+
+**This toggle is a UI guard, not a security boundary.** The backend does not know about it — `boss` writes succeed at the API in either toggle position. Only the pages that call `canDo`/`canEditField` (roughly 17 files) actually hide their edit controls in view mode; a screen that renders a form without consulting either helper stays editable for `boss` regardless of the toggle. Full mechanism: [[../processes/permissions-system#Boss view/edit toggle (UI guard only) — 2026-08-05]].
 
 ## Lifecycle scope
 
-Read-only across all 13 steps. The boss does **not** trigger transitions, sign documents, or edit shipments — they consume aggregated KPIs only.
+`boss` is in `PRIVILEGED_ROLES` (`apps/export/services/shipment.py`), so `transition_to()` accepts him on any valid status edge — he can walk a shipment through the 13-step chain the same as `export_manager` or `director`, via `POST /shipments/{id}/transition/`, subject to the view/edit gate above.
+
+**Known gap:** two endpoints don't route through that check — they gate independently on a different, unchanged constant (`apps.core.permissions.PRIVILEGED_ROLES = {admin, export_manager, director}`), which does not include `boss`:
+
+- `POST /shipments/{id}/cancel/`
+- `POST /shipments/{id}/assign/`
+
+Both 403 for `boss`, even in edit mode. This is a known, deferred limitation — see [[../processes/permissions-system#Boss transition authority (2026-08-05)]].
+
+## Audit trail
+
+Writes made by `boss` are attributed to him like any other user's — status changes and field edits carry `boss` in the audit log the same way an `export_manager` edit would. There is no separate "read-only session" marker; anything he does while in edit mode is indistinguishable in the log from an equivalent edit by a fully operational role.
 
 ## What the dashboard shows
 
