@@ -1144,6 +1144,17 @@
     "error_load": "Failed to load domestic sales",
     "subtitle": "Domestic market sales report"
   },
+  "season": {
+    "switcher_label": "Season",
+    "status_active": "Active",
+    "status_closed": "Closed",
+    "status_upcoming": "Upcoming",
+    "readonly_banner": "Viewing closed season {{name}} — read-only",
+    "back_to_active": "Back to active season",
+    "closed_error": "This season is closed and cannot be edited",
+    "partial_view_notice": "Archived records are not shown in this view",
+    "no_active_season_banner": "No active season — nothing can be edited until an admin opens one in Admin → Seasons"
+  },
   "seasons": {
     "title": "Seasons",
     "add": "Add Season",
@@ -1159,7 +1170,18 @@
     "toast_updated": "Season updated",
     "toast_deleted": "Season deleted",
     "toast_error": "Operation failed",
-    "subtitle": "Manage export seasons"
+    "subtitle": "Manage export seasons",
+    "status_column": "Status",
+    "close_button": "Close season",
+    "open_button": "Open season",
+    "close_confirm_title": "Close {{name}}?",
+    "close_confirm_body": "Closing {{name}} will hide {{drafts}} draft shipments, {{in_transit}} shipments in transit, {{open_tasks}} open tasks, and {{unfinished_plans}} weekly plans still missing reported actuals. Nothing is deleted — every record stays exactly as it is and reappears, read-only, whenever {{name}} is selected in the season switcher.",
+    "close_preview_error": "Failed to load the close preview counts",
+    "retry": "Retry",
+    "toast_closed": "Season closed",
+    "open_confirm_title": "Open {{name}}?",
+    "open_confirm_body": "New shipments will be created in {{name}} from now on. The current active season stops being the write target but is not closed.",
+    "toast_opened": "Season opened"
   },
   "firms_admin": {
     "title": "Export Firms",

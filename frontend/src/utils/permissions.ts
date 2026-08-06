@@ -5,7 +5,32 @@
  * returned by /auth/me/ and cached in the useAuth() hook.
  */
 import { useUiStore } from '@/stores/uiStore';
-import type { ICurrentUser } from '@/types';
+import type { ICurrentUser, UserRole } from '@/types';
+
+// Roles allowed to view archived (soft-deleted) shipment rows, and — per the
+// season lifecycle design's §9.1 ruling — archived rows inside a CLOSED
+// season a user is browsing read-only. Mirrors
+// `ShipmentViewSet._ARCHIVE_VIEW_ROLES` on the backend; keep the two lists in
+// sync. Duplicated (not imported) from `pages/export/ShipmentList.tsx`'s own
+// copy — `utils/` must not import from `pages/` (module boundary).
+const ARCHIVE_VIEW_ROLES: ReadonlyArray<UserRole> = [
+  'admin',
+  'director',
+  'export_manager',
+  'finansist',
+  'boss',
+];
+
+/**
+ * Whether this user can see archived rows — used by `ClosedSeasonBanner` to
+ * warn that browsing a closed season may show a partial view (D8/§9.1: a
+ * closed season bypasses the archive split only for users who ALSO hold this
+ * access; everyone else still has archived rows filtered out).
+ */
+export function hasArchiveAccess(user: ICurrentUser | null): boolean {
+  if (!user) return false;
+  return user.is_superuser || ARCHIVE_VIEW_ROLES.includes(user.role);
+}
 
 // ── Route → page_code mapping ────────────────────────────────────────────
 

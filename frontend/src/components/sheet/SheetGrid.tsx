@@ -28,6 +28,7 @@ import type {
 } from '@/types';
 import { useSheetStore } from '@/stores/sheetStore';
 import { useAuth } from '@/hooks/useAuth';
+import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
 import { isCellEditable } from '@/utils/sheetPermissions';
 import { useSheetClipboard } from '@/hooks/useSheetClipboard';
 import { useApplyUndo } from '@/hooks/useApplyUndo';
@@ -158,6 +159,7 @@ export function SheetGrid({
 }: ISheetGridProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const isSeasonReadOnly = useSeasonReadOnly();
   // Granular selectors — a bare useSheetStore() re-renders the whole grid on
   // every unrelated store change (activeCell on each cell click, searchText on
   // each keystroke, comments drawer toggles). Subscribe only to what the grid
@@ -448,7 +450,10 @@ export function SheetGrid({
 
       // ─── Undo (Ctrl/⌘+Z) ──────────────────────────────────────────────────
       // Grid-global (no active cell needed). Reserves Ctrl+Shift+Z for a future
-      // redo. Skipped while editing (native input undo wins) or in join/swap.
+      // redo. Skipped while editing (native input undo wins), in join/swap, or
+      // browsing a closed season — the undo stack can hold an edit from a
+      // then-open season; applying it now would replay a write into a season
+      // that's since closed.
       if (
         (e.ctrlKey || e.metaKey) &&
         !e.altKey &&
@@ -456,7 +461,8 @@ export function SheetGrid({
         e.code === 'KeyZ' &&
         !state.editingCell &&
         !state.joinMode &&
-        !state.swapMode
+        !state.swapMode &&
+        !isSeasonReadOnly
       ) {
         void applyUndo();
         e.preventDefault();
@@ -519,7 +525,12 @@ export function SheetGrid({
 
       if (e.key === 'Enter') {
         const rowConfig = rows[rowIdx];
-        if (rowConfig?.input_type !== 'readonly') {
+        // `isSeasonReadOnly` blocks this path the same way `isCellEditable`
+        // blocks the click-to-edit path (SheetCell/renderRow) — a season
+        // switch to a closed one must stop Enter/type-to-edit from opening
+        // the editor on a cell that was already selected before the switch,
+        // not just new clicks.
+        if (rowConfig?.input_type !== 'readonly' && !isSeasonReadOnly) {
           state.setEditingCell({
             shipmentId: active.shipmentId,
             rowKey: active.rowKey,
@@ -534,7 +545,7 @@ export function SheetGrid({
       // dropdown/date editors ignore it and just open (first char dropped).
       if (isPrintable) {
         const rowConfig = rows[rowIdx];
-        if (rowConfig?.input_type !== 'readonly') {
+        if (rowConfig?.input_type !== 'readonly' && !isSeasonReadOnly) {
           state.setEditingCell(
             { shipmentId: active.shipmentId, rowKey: active.rowKey },
             e.key,
@@ -560,6 +571,7 @@ export function SheetGrid({
     pasteActiveCell,
     deleteActiveCell,
     applyUndo,
+    isSeasonReadOnly,
   ]);
 
   // ─── Reorder helpers ───────────────────────────────────────────────────────
@@ -651,7 +663,7 @@ export function SheetGrid({
 
       // Shared with the clipboard hook so cut / paste / Delete obey the same
       // gate as inline editing (backend v2 decision, else legacy field check).
-      const isEditable = isCellEditable(rowConfig, rowSettings, user);
+      const isEditable = isCellEditable(rowConfig, rowSettings, user, isSeasonReadOnly);
 
       // Comment / task badge for this specific cell
       const cellCounts = commentCounts[shipment.id] ?? {};
@@ -686,7 +698,7 @@ export function SheetGrid({
         />
       );
     },
-    [editingCell, user, commentCounts, taskCounts, rowSettings],
+    [editingCell, user, commentCounts, taskCounts, rowSettings, isSeasonReadOnly],
   );
 
   const virtualColumns = columnVirtualizer.getVirtualItems();

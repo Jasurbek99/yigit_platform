@@ -466,6 +466,12 @@ def reconcile_open_tasks_with_rules(
     candidate_qs = (
         Task.objects
         .filter(state__in=active_states, rule__isnull=False)
+        # Closed seasons are frozen (D1). This is a mutator, not an emitter —
+        # it never creates a Task, only re-syncs an existing one's snapshot
+        # fields to its live TaskRule — but that resync can also flip the task
+        # to DONE via resolve_for_shipment() below, which is still a write to
+        # a closed-season row.
+        .filter(shipment__season__closed_at__isnull=True)
         .select_related('rule', 'shipment')
     )
     if shipments is not None:

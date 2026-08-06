@@ -236,6 +236,13 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
         'advance': _VCRUD,
         # closed_season: read-only, matches _ARCHIVE_VIEW_ROLES (export/views.py).
         'closed_season': _VIEW,
+        # season: view-only, so the header season switcher (GET .../admin/seasons/,
+        # gated on season.can_view via SeasonViewSet) can list seasons for
+        # finansist to select — otherwise closed_season.can_view above is granted
+        # but unusable (Task 15b gap). create/edit/delete stay False: season
+        # close/open stays gated on season.can_edit (Task 10), which finansist
+        # does not hold.
+        'season': _VIEW,
     },
     'accountant': {
         'shipment': _VIEW,

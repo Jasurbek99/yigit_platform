@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
+import { useSelectedSeason } from '@/hooks/useSeasonParam';
 import type { IApiListResponse } from '@/types';
 import type {
   IContract,
@@ -24,15 +25,21 @@ export interface IContractFilters {
 // ─── List ─────────────────────────────────────────────────────────────────────
 
 export function useContracts(params: IContractFilters = {}) {
+  const { seasonId, isReady } = useSelectedSeason();
+  // `params.season` (an explicit caller override, unused by any current call
+  // site) wins over the global switcher; otherwise default to it — the same
+  // `?season=` param resolve_season() reads for scoping (Contract.season is
+  // the SeasonScopedMixin-managed FK, not a plain filterset field).
+  const effectiveSeason = params.season ?? seasonId;
   return useQuery({
-    queryKey: ['contracts', 'list', params] as const,
+    queryKey: ['contracts', 'list', effectiveSeason, params] as const,
     queryFn: async (): Promise<IApiListResponse<IContract>> => {
       const p = new URLSearchParams();
 
       if (params.includeEnded) p.set('include_ended', 'true');
       if (params.exportFirm) p.set('export_firm', String(params.exportFirm));
       if (params.importFirm) p.set('import_firm', String(params.importFirm));
-      if (params.season) p.set('season', String(params.season));
+      if (effectiveSeason != null) p.set('season', String(effectiveSeason));
       if (params.status) p.set('status', params.status);
       if (params.page) p.set('page', String(params.page));
       if (params.pageSize) p.set('page_size', String(params.pageSize));
@@ -43,6 +50,7 @@ export function useContracts(params: IContractFilters = {}) {
       return data;
     },
     staleTime: 30_000,
+    enabled: isReady,
   });
 }
 

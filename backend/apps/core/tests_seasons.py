@@ -8,6 +8,7 @@ from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.management import call_command
 from django.db import IntegrityError, transaction
 from django.db.models import Q
@@ -73,6 +74,30 @@ class SingleActiveSeasonTests(TestCase):
             is_active=False,
         )
         self.assertEqual(Season.objects.filter(is_active=False).count(), 2)
+
+
+class SeasonActivationGuardTests(TestCase):
+    """Task 16b: `is_active=True` on a closed season must never persist,
+    regardless of caller (ORM, admin, management command)."""
+
+    def test_activating_closed_season_via_save_raises(self):
+        season = Season.objects.create(
+            name='2024/2025', start_date=date(2024, 9, 1), end_date=date(2025, 8, 31),
+            closed_at=timezone.now(),
+        )
+        season.is_active = True
+        with self.assertRaises(DjangoValidationError):
+            season.save()
+
+    def test_activating_open_season_is_unaffected(self):
+        """Sanity check the guard is scoped to closed seasons only."""
+        season = Season.objects.create(
+            name='2027/2028', start_date=date(2027, 9, 1), end_date=date(2028, 8, 31),
+        )
+        season.is_active = True
+        season.save()
+        season.refresh_from_db()
+        self.assertTrue(season.is_active)
 
 
 def _request(user, **params):
@@ -170,6 +195,12 @@ class NoAdHocActiveSeasonLookupTests(TestCase):
     Nine call sites used `Season.objects.filter(is_active=True)` directly, with
     inconsistent tie-breaks. New ones must not reappear — a stray lookup silently
     reintroduces the read-scope/write-target conflation this feature untangles.
+
+    `apps/core/services/season.py` (Task 10's close/open) writes `is_active`
+    via instance `.save(update_fields=[...])`, not a queryset `.filter(...)`,
+    so it needs no exemption here — it never matches this guard's pattern in
+    the first place, and a genuine future ad-hoc lookup added to that file
+    would still be caught.
     """
 
     ALLOWED = {
@@ -236,3 +267,35 @@ class ClosedSeasonResourceTests(TestCase):
             resource_code='closed_season',
         ).filter(Q(can_create=True) | Q(can_edit=True) | Q(can_delete=True))
         self.assertFalse(writes.exists())
+
+
+class AuthMeSeasonFieldsTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        call_command('seed_permissions')
+        cls.season = Season.objects.create(
+            name='2026/2027', start_date=date(2026, 9, 1), end_date=date(2027, 8, 31),
+            is_active=True,
+        )
+        cls.manager = User.objects.create(username='mgr', role='export_manager')
+        cls.operator = User.objects.create(username='op', role='warehouse_chief')
+
+    def _get_me(self, user):
+        from rest_framework.test import APIClient
+        client = APIClient()
+        client.force_authenticate(user=user)
+        return client.get('/api/v1/auth/me/')
+
+    def test_me_returns_active_season(self):
+        payload = self._get_me(self.manager).json()
+        self.assertEqual(payload['active_season']['name'], '2026/2027')
+        self.assertEqual(payload['active_season']['status'], 'ACTIVE')
+
+    def test_me_returns_null_active_season_when_none_open(self):
+        Season.objects.filter(pk=self.season.pk).update(is_active=False)
+        payload = self._get_me(self.manager).json()
+        self.assertIsNone(payload['active_season'])
+
+    def test_me_reports_closed_season_permission(self):
+        self.assertTrue(self._get_me(self.manager).json()['can_view_closed_seasons'])
+        self.assertFalse(self._get_me(self.operator).json()['can_view_closed_seasons'])

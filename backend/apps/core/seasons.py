@@ -165,6 +165,41 @@ def assert_bulk_seasons_open(queryset: QuerySet, season_path: str = 'season') ->
         raise SeasonClosedError(closed)
 
 
+def season_scope_q(
+    season: Season, season_field: str = 'season', include_null_link: bool = False,
+) -> Q:
+    """The read-scope predicate for one resolved season.
+
+    Extracted from `SeasonScopedMixin.apply_season_scope` so a plain `APIView`
+    can apply the identical rule. `MeTaskListView` (`/me/tasks/`) is the case
+    that forced it out: it is not a viewset, so it cannot inherit the mixin,
+    and a hand-rolled `.filter(shipment__season=...)` there would silently
+    diverge from `TaskViewSet` on the nullable-anchor branch — the two list the
+    same rows and must agree.
+
+    Args:
+        season: The resolved season. Never None — callers fail closed (D7)
+            before reaching here.
+        season_field: ORM path from the model to Season.
+        include_null_link: Keep rows whose join anchor is NULL. Only meaningful
+            for a joined `season_field`; a direct `'season'` FK has no separate
+            anchor to test, so it must stay False there.
+
+    Returns:
+        A Q suitable for `.filter()`.
+    """
+    season_q = Q(**{season_field: season})
+    if include_null_link and not season.is_closed:
+        anchor_field, _, _ = season_field.rpartition('__')
+        if not anchor_field:
+            raise ImproperlyConfigured(
+                "include_null_link needs a joined season_field (e.g. "
+                f"'shipment__season'); {season_field!r} has no anchor to test."
+            )
+        season_q |= Q(**{f'{anchor_field}__isnull': True})
+    return season_q
+
+
 def assert_season_id_open(season_id) -> None:
     """Guard for a write whose season arrives in the request BODY.
 
@@ -318,8 +353,6 @@ class SeasonScopedMixin:
             season = resolve_season(self.request)
         if season is None:
             return qs.none()
-        season_q = Q(**{self.season_field: season})
-        if self.include_null_link and not season.is_closed:
-            anchor_field, _, _ = self.season_field.rpartition('__')
-            season_q |= Q(**{f'{anchor_field}__isnull': True})
-        return qs.filter(season_q)
+        return qs.filter(
+            season_scope_q(season, self.season_field, self.include_null_link)
+        )

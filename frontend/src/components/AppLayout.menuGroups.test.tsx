@@ -45,6 +45,10 @@ function fakeUser(overrides: Partial<ICurrentUser> = {}): ICurrentUser {
     page_permissions: {},
     resource_permissions: {},
     field_permissions: {},
+    // Required on ICurrentUser since the season-lifecycle work. Neither
+    // affects which menu composition is selected — that turns on role alone.
+    active_season: null,
+    can_view_closed_seasons: false,
     ...overrides,
   };
 }

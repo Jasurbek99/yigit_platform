@@ -18,7 +18,7 @@ via `apps.core.exceptions.custom_exception_handler`.
 Run with:
     DJANGO_TESTING=true python manage.py test apps.export.tests_season_freeze
 """
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 from django.core.management import call_command
@@ -33,9 +33,10 @@ from apps.core.models import (
 )
 from apps.core.seasons import SeasonClosedError, freeze_season_of
 from apps.export.models import (
-    CustomsExpense, QuotaIssuance, QuotaUsageRecord, Shipment,
-    ShipmentBlockSource, ShipmentComment, Task, WeeklyDestinationSelection,
-    WeeklyLocalSellPlan, WeeklyTruckAllocation,
+    CustomsExpense, FinansistAdvance, FinansistAdvanceShipment, Notification,
+    QuotaIssuance, QuotaUsageRecord, SalesReport, Shipment, ShipmentBlockSource,
+    ShipmentComment, Task, TaskCompletionRule, TaskRule,
+    WeeklyDestinationSelection, WeeklyLocalSellPlan, WeeklyTruckAllocation,
 )
 from apps.export.services.shipment import create_shipment, transition_to
 from apps.greenhouse.models import HarvestDayEntry, WeeklyHarvestPlan
@@ -1046,3 +1047,412 @@ class BulkActionFreezeTests(SeasonFreezeFixture):
             {'plan_ids': [self.harvest_plans[self.closed].pk]}, format='json',
         )
         self.assert_season_closed_409(response)
+
+
+# ── Task 11: generators (management commands / cron) must skip closed seasons ─
+
+class GeneratorsSkipClosedSeasonsTests(SeasonFreezeFixture):
+    """Task/notification generators run outside DRF (management commands), so
+    no permission layer touches them — Task 9's write freeze does not reach
+    here by construction. Each generator below is verified independently:
+    `reconcile_tasks` mutates existing Task rows (no Task.objects.create
+    anywhere in it — verified by reading services/task_rules.py and
+    tests_task_reconcile.py, every fixture there pre-seeds the Task); the
+    others (`backfill_tasks`, `notify_stuck_shipments`,
+    `backfill_sales_report_tasks`) create fresh Task/Notification rows.
+    """
+
+    def test_reconcile_tasks_syncs_active_but_leaves_closed_season_stale(self):
+        """`reconcile_tasks` is a mutator, not an emitter — it never creates a
+        new Task, only re-syncs an existing one's snapshot fields to match its
+        live TaskRule (see services/task_rules.reconcile_open_tasks_with_rules).
+        The guard must still apply: D1 freezes writes to closed-season rows,
+        and a resync can flip a task to DONE via resolve_for_shipment.
+        """
+        rule = TaskRule.objects.create(
+            step=self.draft.code,
+            title_key='tasks.reconcile_test',
+            assignee_role='warehouse_chief',
+            target_fields='notes',
+            completion_rule=TaskCompletionRule.ALL_FIELDS_FILLED,
+        )
+        closed_ship = self.make_shipment(self.closed, 'GEN-CLS01')
+        active_ship = self.make_shipment(self.active, 'GEN-ACT01')
+        closed_task = Task.objects.create(
+            shipment=closed_ship, step=self.draft.code, rule=rule,
+            title_key='tasks.reconcile_test', assignee_role='warehouse_chief',
+            target_fields='old_field',  # stale — rule now says 'notes'
+            completion_rule=TaskCompletionRule.ALL_FIELDS_FILLED,
+        )
+        active_task = Task.objects.create(
+            shipment=active_ship, step=self.draft.code, rule=rule,
+            title_key='tasks.reconcile_test', assignee_role='warehouse_chief',
+            target_fields='old_field',
+            completion_rule=TaskCompletionRule.ALL_FIELDS_FILLED,
+        )
+
+        call_command('reconcile_tasks')
+
+        closed_task.refresh_from_db()
+        active_task.refresh_from_db()
+        self.assertEqual(closed_task.target_fields, 'old_field')  # untouched
+        self.assertEqual(active_task.target_fields, 'notes')      # synced
+
+    def test_backfill_tasks_creates_for_active_not_closed_season(self):
+        """`backfill_tasks` walks every Shipment matching a rule's step and
+        calls Task.objects.create() directly — it does not go through
+        transition_to(), so Task 9's assert_season_open never fires.
+        """
+        TaskRule.objects.create(
+            step=self.draft.code,
+            title_key='tasks.backfill_test',
+            assignee_role='warehouse_chief',
+        )
+        closed_ship = self.make_shipment(self.closed, 'GEN-CLS02')
+        active_ship = self.make_shipment(self.active, 'GEN-ACT02')
+
+        call_command('backfill_tasks')
+
+        self.assertEqual(Task.objects.filter(shipment=active_ship).count(), 1)
+        self.assertEqual(Task.objects.filter(shipment=closed_ship).count(), 0)
+
+    def test_notify_stuck_shipments_skips_closed_season(self):
+        """`notify_stuck_shipments` is an hourly cron sweep over every
+        non-complete, non-archived Shipment past a staleness threshold —
+        exactly the kind of poller D2 warns keeps emitting into hidden data.
+        """
+        closed_ship = self.make_shipment(self.closed, 'GEN-CLS03')
+        active_ship = self.make_shipment(self.active, 'GEN-ACT03')
+        stale = timezone.now() - timedelta(days=10)
+        Shipment.objects.filter(
+            pk__in=[closed_ship.pk, active_ship.pk],
+        ).update(updated_at=stale)
+
+        call_command('notify_stuck_shipments')
+
+        self.assertTrue(
+            Notification.objects.filter(
+                kind='stuck_8d', link=f'/shipments/{active_ship.pk}',
+            ).exists()
+        )
+        self.assertFalse(
+            Notification.objects.filter(
+                kind='stuck_8d', link=f'/shipments/{closed_ship.pk}',
+            ).exists()
+        )
+
+    def test_backfill_sales_report_tasks_phase1_skips_closed_season(self):
+        """Phase 1 (`_backfill_reminders`) calls Task.objects.create() directly,
+        bypassing transition_to() — this test covers phase 1 only (run with
+        --skip-advance). See
+        test_backfill_sales_report_tasks_phase2_skips_closed_season below for
+        phase 2 (`_advance_satyldy`), which is a distinct guard on a distinct
+        codepath and needs its own coverage.
+        """
+        yola, _ = ShipmentStatusType.objects.get_or_create(
+            code='yola_chykdy',
+            defaults={
+                'name_tk': 'x', 'name_en': 'x', 'name_ru': 'x',
+                'required_role': 'sales_rep', 'phase': 'TRANSIT', 'step_order': 4,
+            },
+        )
+        TaskRule.objects.create(
+            step='yola_chykdy',
+            title_key='tasks.submit_sales_report',
+            assignee_role='sales_rep',
+        )
+        closed_ship = Shipment.objects.create(
+            shipment_code='GEN-CLS04', date=self.closed.start_date,
+            season=self.closed, status=yola,
+            country=self.country, customer=self.customer,
+        )
+        active_ship = Shipment.objects.create(
+            shipment_code='GEN-ACT04', date=self.active.start_date,
+            season=self.active, status=yola,
+            country=self.country, customer=self.customer,
+        )
+
+        call_command('backfill_sales_report_tasks', '--skip-advance')
+
+        self.assertEqual(
+            Task.objects.filter(
+                shipment=active_ship, title_key='tasks.submit_sales_report',
+            ).count(),
+            1,
+        )
+        self.assertEqual(
+            Task.objects.filter(
+                shipment=closed_ship, title_key='tasks.submit_sales_report',
+            ).count(),
+            0,
+        )
+
+    def test_backfill_sales_report_tasks_phase2_skips_closed_season(self):
+        """Phase 2 (`_advance_satyldy`) calls transition_to(), which already
+        raises SeasonClosedError for a closed season (D1) — but
+        SeasonClosedError does not subclass ValueError, while the command's
+        handler is `except ValueError`. Without the guard, this call itself
+        raises SeasonClosedError (uncaught) and the command crashes instead
+        of skipping — a stronger failure than a wrong count. With the guard,
+        the closed-season shipment stays at satyldy and the active one still
+        advances to tamamlandy.
+        """
+        satyldy, _ = ShipmentStatusType.objects.get_or_create(
+            code='satyldy',
+            defaults={
+                'name_tk': 'x', 'name_en': 'x', 'name_ru': 'x',
+                'required_role': 'sales_rep', 'phase': 'SALES', 'step_order': 11,
+            },
+        )
+        ShipmentStatusType.objects.get_or_create(
+            code='tamamlandy',
+            defaults={
+                'name_tk': 'x', 'name_en': 'x', 'name_ru': 'x',
+                'required_role': 'finansist', 'phase': 'CLOSE', 'step_order': 13,
+            },
+        )
+        closed_ship = Shipment.objects.create(
+            shipment_code='GEN-CLS05', date=self.closed.start_date,
+            season=self.closed, status=satyldy,
+            country=self.country, customer=self.customer,
+        )
+        active_ship = Shipment.objects.create(
+            shipment_code='GEN-ACT05', date=self.active.start_date,
+            season=self.active, status=satyldy,
+            country=self.country, customer=self.customer,
+        )
+        SalesReport.objects.create(shipment=closed_ship, created_by=self.admin)
+        SalesReport.objects.create(shipment=active_ship, created_by=self.admin)
+
+        # A superuser must exist for _advance_satyldy to credit the
+        # transition — the shared fixture's cls.admin already qualifies.
+        call_command('backfill_sales_report_tasks')
+
+        closed_ship.refresh_from_db()
+        active_ship.refresh_from_db()
+        self.assertEqual(closed_ship.status.code, 'satyldy')      # untouched
+        self.assertEqual(active_ship.status.code, 'tamamlandy')   # advanced
+
+
+# ── FinansistAdvance — the junction-anchored freeze (F1 / F2) ────────────────
+
+class AdvanceCreateFreezeTests(SeasonFreezeFixture):
+    """F1 — `POST /export/advances/` links shipments by a raw id list.
+
+    `create()` is fully overridden: it never calls `get_object()` and never
+    calls `perform_create()`, so NEITHER layer 1 (`SeasonNotClosed`) nor
+    `assert_create_target_open()` can fire on it. The season lives on the
+    shipments named in the body, so only an explicit
+    `assert_bulk_seasons_open()` can see it — the same shape `link_shipment`
+    already guards one action below.
+    """
+
+    def _payload(self, shipment_ids: list) -> dict:
+        return {
+            'advance_date': '2026-01-15',
+            'total_amount': '1500.00',
+            'currency': 'USD',
+            'shipment_ids': shipment_ids,
+        }
+
+    def test_create_linking_a_closed_season_shipment_returns_409(self):
+        frozen = self.make_shipment(self.closed, 'ADV-CLS01')
+        response = self.client_as().post(
+            '/api/v1/export/advances/', self._payload([frozen.pk]), format='json',
+        )
+        self.assert_season_closed_409(response)
+
+    def test_create_linking_an_active_season_shipment_still_works(self):
+        live = self.make_shipment(self.active, 'ADV-ACT01')
+        response = self.client_as().post(
+            '/api/v1/export/advances/', self._payload([live.pk]), format='json',
+        )
+        self.assertEqual(response.status_code, 201, response.content[:400])
+        self.assertEqual(len(response.json()['shipment_links']), 1)
+
+    def test_create_rejects_a_mixed_batch_wholesale(self):
+        """A partially-applied batch against a frozen season is worse than a
+        rejected one — `assert_bulk_seasons_open`'s documented contract."""
+        frozen = self.make_shipment(self.closed, 'ADV-CLS02')
+        live = self.make_shipment(self.active, 'ADV-ACT02')
+        response = self.client_as().post(
+            '/api/v1/export/advances/',
+            self._payload([live.pk, frozen.pk]),
+            format='json',
+        )
+        self.assert_season_closed_409(response)
+
+    def test_rejected_create_leaves_no_orphan_advance(self):
+        """The guard must run BEFORE `FinansistAdvance.objects.create()`.
+
+        ATOMIC_REQUESTS is not set on this project (it defaults to False), so
+        a 409 raised between the advance INSERT and the junction bulk_create
+        would leave a parent advance with zero links — which
+        `_scope_advances_to_season()` treats as "unlinked" and therefore
+        surfaces in the season list AND in `/ledger/`'s `advances_total`.
+        That is the very harm F1 describes, reached by a different route.
+        """
+        frozen = self.make_shipment(self.closed, 'ADV-CLS03')
+        before = FinansistAdvance.objects.count()
+        self.client_as().post(
+            '/api/v1/export/advances/', self._payload([frozen.pk]), format='json',
+        )
+        self.assertEqual(FinansistAdvance.objects.count(), before)
+
+    def test_create_with_no_links_still_works(self):
+        """A zero-link advance is legal — `link_shipment` exists separately."""
+        response = self.client_as().post(
+            '/api/v1/export/advances/', self._payload([]), format='json',
+        )
+        self.assertEqual(response.status_code, 201, response.content[:400])
+
+
+class AdvanceFreezeSeasonAnchorTests(SeasonFreezeFixture):
+    """F2 — `FinansistAdvance.freeze_season`, the junction-derived anchor.
+
+    `freeze_season_of()` returned None for this model (no `season` attr, no
+    `shipment` attr — the links live in a junction table), so adding
+    `SeasonNotClosed` to the viewset alone would have been a no-op. The
+    property makes BOTH layers resolve the same anchor.
+    """
+
+    def _advance(self, *shipments) -> FinansistAdvance:
+        advance = FinansistAdvance.objects.create(
+            advance_date=date(2026, 1, 15), total_amount=Decimal('1000'),
+            currency='USD', issued_by=self.admin,
+        )
+        for shipment in shipments:
+            FinansistAdvanceShipment.objects.create(
+                advance=advance, shipment=shipment,
+            )
+        return advance
+
+    def test_anchor_is_none_for_an_unlinked_advance(self):
+        """No links = belongs to no season = not frozen (assert_season_open
+        treats None as open), the same rule as an unlinked legacy Task."""
+        self.assertIsNone(freeze_season_of(self._advance()))
+
+    def test_anchor_is_none_for_an_unsaved_advance(self):
+        """`assert_create_target_open()` builds an UNSAVED instance, and a
+        reverse manager on a pk-less row raises rather than returning empty."""
+        self.assertIsNone(freeze_season_of(FinansistAdvance(
+            advance_date=date(2026, 1, 15), total_amount=Decimal('1000'),
+        )))
+
+    def test_anchor_is_the_open_season_of_a_single_open_link(self):
+        advance = self._advance(self.make_shipment(self.active, 'ANC-ACT01'))
+        self.assertEqual(freeze_season_of(advance), self.active)
+
+    def test_anchor_is_the_closed_season_of_a_single_closed_link(self):
+        advance = self._advance(self.make_shipment(self.closed, 'ANC-CLS01'))
+        self.assertEqual(freeze_season_of(advance), self.closed)
+
+    def test_a_closed_link_wins_over_an_open_one(self):
+        """Multi-season: frozen if ANY linked shipment is in a closed season —
+        the same "either side frozen" rule ContractSale sets."""
+        advance = self._advance(
+            self.make_shipment(self.active, 'ANC-ACT02'),
+            self.make_shipment(self.closed, 'ANC-CLS02'),
+        )
+        self.assertEqual(freeze_season_of(advance), self.closed)
+
+
+class AdvanceApiFreezeTests(SeasonFreezeFixture):
+    """F2 — layer 1 on `FinansistAdvanceViewSet`'s generic and custom writes."""
+
+    def _advance(self, *shipments) -> FinansistAdvance:
+        advance = FinansistAdvance.objects.create(
+            advance_date=date(2026, 1, 15), total_amount=Decimal('1000'),
+            currency='USD', issued_by=self.admin,
+        )
+        for shipment in shipments:
+            FinansistAdvanceShipment.objects.create(
+                advance=advance, shipment=shipment,
+            )
+        return advance
+
+    def test_patch_amount_on_a_closed_season_advance_returns_409(self):
+        """A generic PATCH on the amount moves a frozen season's ledger total."""
+        advance = self._advance(self.make_shipment(self.closed, 'API-CLS01'))
+        self.assert_season_closed_409(self.client_as().patch(
+            f'/api/v1/export/advances/{advance.pk}/',
+            {'total_amount': '9999.00'}, format='json',
+        ))
+
+    def test_delete_of_a_closed_season_advance_returns_409(self):
+        advance = self._advance(self.make_shipment(self.closed, 'API-CLS02'))
+        self.assert_season_closed_409(
+            self.client_as().delete(f'/api/v1/export/advances/{advance.pk}/')
+        )
+
+    def test_reconcile_of_a_closed_season_advance_returns_409(self):
+        advance = self._advance(self.make_shipment(self.closed, 'API-CLS03'))
+        self.assert_season_closed_409(self.client_as().patch(
+            f'/api/v1/export/advances/{advance.pk}/reconcile/', {}, format='json',
+        ))
+        advance.refresh_from_db()
+        self.assertFalse(advance.reconciled)
+
+    def test_link_shipment_onto_a_closed_season_advance_returns_409(self):
+        """The advance itself is frozen, so even linking an OPEN shipment to
+        it is refused — the accepted cost of "any closed link freezes it"."""
+        advance = self._advance(self.make_shipment(self.closed, 'API-CLS04'))
+        live = self.make_shipment(self.active, 'API-ACT04')
+        self.assert_season_closed_409(self.client_as().post(
+            f'/api/v1/export/advances/{advance.pk}/link-shipment/',
+            {'shipment_id': live.pk}, format='json',
+        ))
+
+    def test_unlink_the_open_shipment_of_a_straddling_advance_returns_409(self):
+        """The repair path is closed too — this is the sharp edge of "any
+        closed link freezes it", pinned rather than left to a docstring.
+
+        An advance linked to BOTH a closed-season and an open-season shipment
+        is wholly immutable: `unlink_shipment` calls `get_object()`, which
+        409s on the advance's own anchor before its body ever inspects the
+        link being removed. So an operator cannot detach the closed side to
+        make the advance editable again — splitting the advance is the manual
+        remedy. Before F2 this returned 200: the body's own
+        `assert_season_open(link.shipment.season)` only looked at the TARGET
+        link, which is open.
+        """
+        frozen = self.make_shipment(self.closed, 'API-CLS06')
+        live = self.make_shipment(self.active, 'API-ACT06')
+        advance = self._advance(frozen, live)
+
+        self.assert_season_closed_409(self.client_as().delete(
+            f'/api/v1/export/advances/{advance.pk}/unlink-shipment/{live.pk}/'
+        ))
+        self.assertEqual(advance.shipment_links.count(), 2)
+
+    def test_patch_on_an_active_season_advance_still_works(self):
+        advance = self._advance(self.make_shipment(self.active, 'API-ACT01'))
+        response = self.client_as().patch(
+            f'/api/v1/export/advances/{advance.pk}/',
+            {'total_amount': '2500.00'}, format='json',
+        )
+        self.assertEqual(response.status_code, 200, response.content[:400])
+
+    def test_reconcile_on_an_active_season_advance_still_works(self):
+        advance = self._advance(self.make_shipment(self.active, 'API-ACT02'))
+        response = self.client_as().patch(
+            f'/api/v1/export/advances/{advance.pk}/reconcile/', {}, format='json',
+        )
+        self.assertEqual(response.status_code, 200, response.content[:400])
+        advance.refresh_from_db()
+        self.assertTrue(advance.reconciled)
+
+    def test_patch_on_an_unlinked_advance_still_works(self):
+        """A zero-link advance anchors to no season and must stay editable —
+        otherwise the freeze would make it permanently unsaveable."""
+        advance = self._advance()
+        response = self.client_as().patch(
+            f'/api/v1/export/advances/{advance.pk}/',
+            {'total_amount': '2500.00'}, format='json',
+        )
+        self.assertEqual(response.status_code, 200, response.content[:400])
+
+    def test_reading_a_closed_season_advance_is_still_allowed(self):
+        advance = self._advance(self.make_shipment(self.closed, 'API-CLS05'))
+        response = self.client_as().get(f'/api/v1/export/advances/{advance.pk}/')
+        self.assertEqual(response.status_code, 200)

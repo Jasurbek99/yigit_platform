@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import api from '@/services/api';
+import { useSelectedSeason } from '@/hooks/useSeasonParam';
 import { MOCK_SHEET_DATA, MOCK_ROW_SETTINGS, MOCK_USERS_INDEX } from '@/mock/shipmentSheet';
 import type {
   IShipmentSheetItem,
@@ -69,10 +70,20 @@ export function useSaveSheetColumnOrder() {
  * The single-shipment query key (`['shipments','sheet','row',id]`) is still a
  * descendant of `SHEET_QUERY_KEY`, so existing `invalidateQueries(['shipments',
  * 'sheet'])` calls refresh it too.
+ *
+ * `?shipment=<id>` (single-row) bypasses season scoping entirely on the
+ * backend (views.py `sheet()` — `pass`, no `resolve_season()` call at all),
+ * so seasonId is deliberately NOT part of that branch's key or request —
+ * unlike comments/customs-expenses, which still resolve the season even when
+ * pinned. Only the full-sheet branch carries it.
  */
 export function useShipmentSheet(shipmentId?: number) {
+  const { seasonId, isReady } = useSelectedSeason();
   return useQuery({
-    queryKey: shipmentId != null ? ['shipments', 'sheet', 'row', shipmentId] : SHEET_QUERY_KEY,
+    queryKey:
+      shipmentId != null
+        ? ['shipments', 'sheet', 'row', shipmentId]
+        : [...SHEET_QUERY_KEY, seasonId],
     queryFn: async (): Promise<IShipmentSheetResult> => {
       if (USE_MOCK) {
         return {
@@ -91,7 +102,9 @@ export function useShipmentSheet(shipmentId?: number) {
       const url =
         shipmentId != null
           ? `/export/shipments/sheet/?shipment=${shipmentId}`
-          : '/export/shipments/sheet/';
+          : seasonId != null
+            ? `/export/shipments/sheet/?season=${seasonId}`
+            : '/export/shipments/sheet/';
       const { data } = await api.get<IShipmentSheetResponse>(url);
       return {
         shipments: data.results,
@@ -105,6 +118,7 @@ export function useShipmentSheet(shipmentId?: number) {
         current_user_lang: data.current_user_lang ?? 'tk',
       };
     },
+    enabled: USE_MOCK || shipmentId != null || isReady,
     staleTime: 30_000,
   });
 }

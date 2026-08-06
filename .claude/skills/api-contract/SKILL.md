@@ -221,6 +221,24 @@ for 30 min, 3 more → 5 h, then 1 day (fresh 3 attempts per tier). A successful
 lockout resets the counter. `retry_after` is the block's remaining seconds. See
 `docs/obsidian/processes/authentication.md`.
 
+### Me: `GET /api/v1/auth/me/` — season fields (AD-16)
+
+The live route is `apps.export.views_auth.MeView` + `ExtendedUserMeSerializer` (shadows
+`apps.core.urls.auth`'s own `me/` route — `config/urls.py` includes the export urls first).
+It gains two fields on top of the existing `role`/`editable_fields`/`permissions`/etc.:
+
+```json
+{
+  "active_season": { "id": 13, "name": "2026/2027", "status": "ACTIVE" },
+  "can_view_closed_seasons": true
+}
+```
+
+`active_season` is `null` during the close→open gap (no season currently active) — this is
+what seeds the frontend season store on load; there is no separate endpoint for it.
+`can_view_closed_seasons` mirrors `RoleResourcePermission(resource_code='closed_season').can_view`
+(or `is_superuser`) — whether this user may select a closed season in the header switcher.
+
 ### My work filter: `GET /api/v1/export/shipments/?my_work=true`
 Same response shape as list, filtered by role's active window server-side.
 
@@ -236,6 +254,18 @@ them). Supervisors — `export_manager`, `boss`, `admin`, `director`, superusers
 Optional `?assignee_role=<role>` narrows to one role. **Supervisors only** — silently
 ignored for every other role, whose own-role lock is unconditional. Unknown role → 400
 on `/me/tasks/`. Other filters: `?state=`, `?step=`, `?overdue=true`.
+
+`/me/tasks/` is **season-scoped** (`?season=<id>`, defaults to the active season, 403 on a
+closed season without `closed_season.can_view`, 404 on an unknown id) — same contract as
+every other scoped list. The anchor is `shipment__season` with `include_null_link`, so
+weekly-plan / local-sell-plan tasks (no shipment) stay on the board under an open season and
+drop out when a closed season is explicitly selected. It fails closed during the close→open
+gap. `useMyTasks`' query key carries `seasonId` for the same reason every other scoped hook
+does.
+
+`/me/kpi-today/` is deliberately **not** season-scoped — it is a "what did this role finish
+today" tile, and a closed season's tasks cannot be completed at all (the write freeze blocks
+the transition), so a season filter would only blank the tile while browsing a closed season.
 
 `/me/kpi-today/` accepts the same param under the same gate, so the KPI tiles describe the
 role being viewed. Its 60s cache key includes the effective role
@@ -255,7 +285,20 @@ single role is ~550.
 Backs the **Team KPI** page (`/team/kpi`, `TeamKpi.tsx`) — a Bitrix-style leaderboard, one
 row per active user, ranked by tasks completed in the selected window. **Public**:
 `IsAuthenticated` only, no role gate — every authenticated user sees everyone's numbers
-(same radical-transparency rule as `/worklog`). Default period is `week`; unknown period →
+(same radical-transparency rule as `/worklog`). When `period=season`, an optional
+`&season=<id>` (AD-16) moves the window's start date to that season instead of the active
+one (same closed-season permission rules as any other `?season=`); ignored for every other
+`period` value. **Incomplete even when wired:** `overdue_now` and `trend` are
+**window-independent** regardless of `?season=` — `overdue_now` reads `timezone.now()` and
+`trend` is a fixed rolling 14 days from today (see this file's own caveats on those two
+fields, below). Browsing a closed season therefore returns one row blending that season's
+`completed`/`on_time_rate` with **today's** overdue count and a **current** 14-day trend —
+two epochs in one row. This was flagged as a decision for whoever wires the switcher onto
+this endpoint (AD-16) and was never made: blank those two fields for a non-active season,
+relabel them, or accept and document further. Currently unresolved. During the close→open
+gap `period=season` returns `results: []` — D7 fail-closed; it previously fell through to an
+unbounded ALL-TIME window that blended every closed season's completions. Default period is
+`week`; unknown period →
 400. 60 s server-side cache keyed by period (`team-kpi:{period}`).
 
 ```json
@@ -400,12 +443,70 @@ Main landing page for ALL authenticated users. 60 s server-side cache. No role g
 ```
 
 Notes:
-- `season` is `null` when no active season exists.
+- `season` is `null` when no active season exists, and the whole payload is then **empty**
+  — every `stats`/`alerts` value `0`, `weekly_plan` `null`, `routes` and `active_shipments`
+  `[]`. D7 fail-closed (see *Season scoping* below): the endpoint used to substitute a
+  current-month range, which during the close→open gap aggregated the just-closed season's
+  rows for any authenticated user. The response *shape* is unchanged, so the page renders
+  its normal empty states. Note this also zeroes the LIVE counts below.
 - `alerts.weekly_plan` is `null` when no `HarvestDayEntry` rows exist for the current ISO week.
 - `stats.in_transit` and `stats.selling` are LIVE (not season-scoped).
 - `active_shipments`: max 5, ordered by `-status_changed_at`. `location` = `Shipment.vehicle_live_status` or `""`.
 - `routes.percent` = integer percentage of season total trucks, rounded. Top 4 cities per country, null/empty city names omitted.
 - Implementation: `apps/export/views_dashboard.py`, service: `apps/export/services/dashboard_summary.py`.
+
+## Season scoping (AD-16)
+
+Every season-bearing list endpoint (shipments, Sheet, Kanban board, harvest plans, day
+entries, truck allocations/destinations, local-sell plans, contracts, contract-sales,
+comments, tasks, quota-usage, advances, customs-expenses, document-packets, clients-report)
+accepts an optional `?season=<id>`:
+
+- Omitted → the active (write-target) season.
+- Unknown id → `404`.
+- A **closed** season's id, without the `closed_season` resource permission (`can_view`) →
+  `403`.
+- No active season at all (the close→open gap, before an admin opens the next one) → the
+  list returns **empty**, not unfiltered — a deliberate fail-closed choice (design spec D7):
+  the alternative would make every closed season's data visible to everyone during that gap.
+
+Detail-by-id routes (`GET /shipments/{id}/`, etc.) are **not** season-scoped — a direct link
+always resolves regardless of the row's season. Explicit opt-outs that ignore `?season=`
+entirely: `quota-issuances` (issuances are consumed FIFO across season boundaries — hiding a
+prior season's would break the balance calculation), every `admin/*` reference-data endpoint,
+and `sales-rep-coverage`.
+
+`boss` analytics is mixed, not uniformly parameterised — check the specific action before
+assuming `?season=` moves it:
+- `GET /export/boss/revenue/` **does** take `?season=<id>` and parameterises the comparison
+  (`current_season` vs the season immediately before it by `start_date`, regardless of
+  open/closed) rather than filtering by it — the one endpoint in the whole feature that must
+  never get `SeasonScopedMixin`, since scoping it would empty `previous_season`.
+- Every **other** `boss/*` action derives its date range from `?period=` alone via
+  `period_to_range()`, which for `period=season` hardcodes `get_active_season()` — passing
+  `?season=` to any of them is a silent no-op.
+- `GET /export/dashboard/summary/` and `GET /core/team-kpi/?period=season` **do** accept
+  `?season=<id>` (added after the initial pass, per AD-16) — both move with the switcher,
+  and both **fail closed** during the gap like every scoped list: the dashboard returns an
+  all-zero/empty payload (shape preserved) instead of a current-month range, and team-kpi
+  returns `results: []` instead of an unbounded all-time window. `team-kpi`'s other three
+  periods never consult a season and are unaffected.
+
+### Write freeze: `409 season_closed`
+
+Any write against a row anchored (directly or by join) to a **closed** season is rejected
+before the normal validation/save path:
+
+```json
+409 Conflict
+{ "error": "season_closed", "season": "2025/2026", "closed_at": "2026-08-03T10:00:00Z" }
+```
+
+409, not 403 — the request is well-formed and the user is authorised in principle; it
+conflicts with the resource's *state*. The frontend's global Axios interceptor shows a toast
+on this shape app-wide; it is the safety net, not the mechanism — every control that could
+trigger it should already be `disabled` via `useSeasonReadOnly()` before the request is sent.
+See `docs/ADR.md` (AD-16) for the full design.
 
 ## Pagination
 

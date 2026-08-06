@@ -19,6 +19,7 @@ import { usePromoteFromDraft } from '@/hooks/useDrafts';
 import { useCancelShipment, useHardDeleteDraftShipment } from '@/hooks/useShipments';
 import { extractPatchError } from '@/hooks/useShipmentPatch';
 import { canDo } from '@/utils/permissions';
+import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
 import type { IShipmentDetail } from '@/types';
 import { COLORS, FONT } from '@/constants/styles';
 
@@ -37,6 +38,7 @@ export function ShipmentDetailHero({ shipment, onOpenComments }: IShipmentDetail
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isReadOnly = useSeasonReadOnly();
 
   // Cancel modal state
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
@@ -69,7 +71,8 @@ export function ShipmentDetailHero({ shipment, onOpenComments }: IShipmentDetail
     !!user &&
     (CANCEL_ROLES.includes(user.role) || user.is_superuser === true) &&
     shipment.status_code !== 'cancelled' &&
-    shipment.status_code !== 'tamamlandy';
+    shipment.status_code !== 'tamamlandy' &&
+    !isReadOnly;
 
   function handleCancelOpen() {
     setCancelReason('');
@@ -105,7 +108,8 @@ export function ShipmentDetailHero({ shipment, onOpenComments }: IShipmentDetail
     (user?.role === 'export_manager' ||
       user?.role === 'director' ||
       user?.role === 'admin' ||
-      user?.is_superuser === true);
+      user?.is_superuser === true) &&
+    !isReadOnly;
 
   const promote = usePromoteFromDraft();
 
@@ -121,7 +125,8 @@ export function ShipmentDetailHero({ shipment, onOpenComments }: IShipmentDetail
   const hardDelete = useHardDeleteDraftShipment();
   const canHardDeleteDraft =
     shipment.status_code === 'draft' &&
-    (user?.role === 'admin' || user?.is_superuser === true);
+    (user?.role === 'admin' || user?.is_superuser === true) &&
+    !isReadOnly;
 
   function handleHardDelete() {
     Modal.confirm({

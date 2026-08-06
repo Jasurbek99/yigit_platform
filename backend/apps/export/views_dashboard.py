@@ -52,6 +52,12 @@ class DashboardViewSet(viewsets.ViewSet):
         endpoint — this page is not exempt from that gate the way `boss` is
         exempt from the *scoping* mixin.
 
+        During the close→open gap (no active season, no `?season=`) this
+        returns the all-zero/empty payload rather than a substitute date
+        range — D7, spec §3.1. The response shape is unchanged, so the
+        frontend renders its normal empty states plus the "no active season"
+        banner.
+
         Response shape follows the contract in .claude/rules/api-contract.md
         under '### Dashboard summary'.
         """

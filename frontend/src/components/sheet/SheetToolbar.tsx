@@ -17,6 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { useSheetStore, SHEET_ZOOM_MIN, SHEET_ZOOM_MAX } from '@/stores/sheetStore';
 import { useAuth } from '@/hooks/useAuth';
+import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
 import { useCreateEmptyColumn } from '@/hooks/useDrafts';
 import { canDoBackendGated } from '@/utils/permissions';
 import type { IRowConfig, ISheetTaskCounts, IShipmentSheetItem } from '@/types';
@@ -119,18 +120,24 @@ export function SheetToolbar({
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const createEmptyColumn = useCreateEmptyColumn();
+  const isReadOnly = useSeasonReadOnly();
 
-  // canDoBackendGated, not canDo: shipment create is gated server-side on the
-  // core PRIVILEGED_ROLES list (export/views.py), which excludes boss whatever
-  // the permission matrix says — the button would render and then 403.
-  const canCreate = canDoBackendGated(user, 'shipment', 'create');
+  // `createEmptyColumn` always creates against the TRUE active season (drafts
+  // are always active-season by construction — no `?season=` override exists
+  // on the backend), so this can't 409. Gated on `isReadOnly` anyway: without
+  // it, "New Shipment" would sit live above a closed season's read-only grid
+  // and silently create a row nobody in this view will ever see.
+  // canDoBackendGated, not canDo: shipment create is also gated server-side on
+  // the core PRIVILEGED_ROLES list (export/views.py), which excludes boss
+  // whatever the permission matrix says — the button would render and 403.
+  const canCreate = canDoBackendGated(user, 'shipment', 'create') && !isReadOnly;
 
   // Join flow: join is restricted to export_manager / director.
   // (canCreateSupply removed when the "Ýük goş" button was commented out — the
   // primary "New Shipment" button now covers supply create via canDo('shipment','create').)
   const userRole = user?.role ?? '';
   const canJoin =
-    user?.is_superuser || ['export_manager', 'director'].includes(userRole);
+    (user?.is_superuser || ['export_manager', 'director'].includes(userRole)) && !isReadOnly;
   const shipmentCount = shipments.length;
 
   // ─── Column filters ─────────────────────────────────────────────────────
@@ -436,6 +443,7 @@ export function SheetToolbar({
               size="small"
               type={swapMode ? 'primary' : 'default'}
               icon={<SwapOutlined />}
+              disabled={isReadOnly}
               onClick={() => setSwapMode(!swapMode)}
             >
               {t('sheet.swap.btn')}

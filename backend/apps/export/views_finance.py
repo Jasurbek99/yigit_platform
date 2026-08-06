@@ -15,7 +15,8 @@ from rest_framework.viewsets import ModelViewSet
 from apps.core.permissions import DynamicResourcePermission, SeasonNotClosed
 from apps.core.roles import ADVANCE_WRITE
 from apps.core.seasons import (
-    SeasonScopedMixin, assert_season_open, can_view_closed, resolve_season,
+    SeasonScopedMixin, assert_bulk_seasons_open, assert_season_open,
+    can_view_closed, resolve_season,
 )
 from apps.export.models import (
     CustomsExpense,
@@ -93,10 +94,17 @@ class FinansistAdvanceViewSet(ModelViewSet):
     with no shipment links at all plays the role of "unlinked" and surfaces
     alongside an open season, same rule as the nullable-shipment models.
     Detail routes and the link/reconcile actions bypass scoping — Rule A.
+
+    Write freeze (D1): `SeasonNotClosed` covers every write that reaches
+    `get_object()` — the generic PATCH/DELETE, `reconcile`, and both link
+    actions — because `FinansistAdvance.freeze_season` derives the same
+    junction anchor for the freeze that `_scope_advances_to_season()` derives
+    for reads. `create()` cannot reach layer 1 at all and carries its own
+    `assert_bulk_seasons_open()` over the shipments named in the body.
     """
 
     resource_code = 'advance'
-    permission_classes = [IsAuthenticated, DynamicResourcePermission]
+    permission_classes = [IsAuthenticated, DynamicResourcePermission, SeasonNotClosed]
     http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
 
     queryset = (
@@ -154,6 +162,22 @@ class FinansistAdvanceViewSet(ModelViewSet):
         data = serializer.validated_data
 
         shipment_ids: list[int] = data.pop('shipment_ids', [])
+
+        # Write freeze (D1). `create()` is fully overridden — it never calls
+        # get_object() and never calls perform_create() — so neither layer 1
+        # (SeasonNotClosed) nor assert_create_target_open() can fire here.
+        # The season lives on the shipments named in the body, exactly the
+        # shape `link_shipment` guards below, so this is the only check that
+        # can see it.
+        #
+        # Guarded BEFORE the advance row is written, not just before
+        # bulk_create: ATOMIC_REQUESTS is not enabled on this project, so a
+        # 409 raised after FinansistAdvance.objects.create() would leave a
+        # link-less advance behind — which `_scope_advances_to_season()`
+        # treats as "unlinked" and therefore surfaces in the season list and
+        # in /ledger/'s advances_total. Same harm, different route.
+        if shipment_ids:
+            assert_bulk_seasons_open(Shipment.objects.filter(id__in=shipment_ids))
 
         # Map empty strings to None so optional Cyrillic fields aren't stored as ''
         cleaned = {
@@ -235,9 +259,10 @@ class FinansistAdvanceViewSet(ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Write freeze (D1). FinansistAdvance itself carries no season, so
-        # layer 1 is a no-op on this viewset — the season lives on the
-        # shipment named in the body.
+        # Write freeze (D1), layer 2. `get_object()` above already refused if
+        # the ADVANCE is frozen (any existing link in a closed season); this
+        # covers the other direction — the season of the shipment named in
+        # the body, which no object permission can see.
         assert_season_open(target.season)
 
         if FinansistAdvanceShipment.objects.filter(
@@ -278,7 +303,13 @@ class FinansistAdvanceViewSet(ModelViewSet):
 
         advance: FinansistAdvance = self.get_object()
 
-        # Write freeze (D1) — see link_shipment.
+        # Write freeze (D1), layer 2 — now SUBSUMED by layer 1, kept
+        # deliberately. `get_object()` above 409s whenever ANY of the
+        # advance's links is in a closed season, which includes this one, so
+        # this assert can no longer fire. It stays because layer 2 is
+        # specified to hold the invariant independently of layer 1 (spec §5)
+        # and this is a finance surface — but read it as belt-and-braces, not
+        # as the guard that makes unlink safe.
         link = FinansistAdvanceShipment.objects.filter(
             advance=advance, shipment_id=shipment_id,
         ).select_related('shipment__season').first()

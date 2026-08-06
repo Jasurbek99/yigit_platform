@@ -8,6 +8,7 @@ from apps.core.models import (
     TruckDestination, CrateType, GreenhouseConfig, OperatingDayException,
 )
 from apps.core.permissions import get_editable_fields
+from apps.core.seasons import can_view_closed, get_active_season
 
 
 class UserMeSerializer(serializers.ModelSerializer):
@@ -15,12 +16,15 @@ class UserMeSerializer(serializers.ModelSerializer):
 
     editable_fields = serializers.SerializerMethodField()
     permissions = serializers.SerializerMethodField()
+    active_season = serializers.SerializerMethodField()
+    can_view_closed_seasons = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name',
             'role', 'is_superuser', 'editable_fields', 'permissions',
+            'active_season', 'can_view_closed_seasons',
         ]
         read_only_fields = fields
 
@@ -36,6 +40,21 @@ class UserMeSerializer(serializers.ModelSerializer):
         if obj.is_superuser:
             return ['*']
         return list(obj.user_permissions.values_list('codename', flat=True))
+
+    def get_active_season(self, obj: User) -> dict | None:
+        """The write-target season, or None during the close→open gap.
+
+        Seeds the frontend season store on page load (Task 13) — must arrive
+        with the identity payload, not a second round-trip.
+        """
+        active = get_active_season()
+        if active is None:
+            return None
+        return {'id': active.id, 'name': active.name, 'status': active.status}
+
+    def get_can_view_closed_seasons(self, obj: User) -> bool:
+        """Whether `obj` may select a closed season in the switcher."""
+        return can_view_closed(obj)
 
 
 class LoginSerializer(serializers.Serializer):

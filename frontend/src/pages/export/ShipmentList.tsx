@@ -16,6 +16,7 @@ import { ShipmentBulkTransitionModal } from '@/components/ShipmentBulkTransition
 import { ShipmentFilterDrawer } from '@/components/ShipmentFilterDrawer';
 import { useShipments, useSoftDeleteShipment, useRestoreShipment } from '@/hooks/useShipments';
 import { useAuth } from '@/hooks/useAuth';
+import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
 import { canDo, canDoBackendGated, canEditField } from '@/utils/permissions';
 import { COLORS, FONT } from '@/constants/styles';
 import type { IShipmentListItem } from '@/types';
@@ -207,16 +208,21 @@ export default function ShipmentList() {
   function setSearch(s: string) { updateParams({ search: s || undefined, page: undefined }); }
   function setPhaseFilter(v: string | undefined) { updateParams({ phase: v, page: undefined }); }
 
+  // Browsing a closed season (Task 15): every create/edit/delete/restore
+  // control on this page funnels through these 4 flags, so folding
+  // `!isReadOnly` in here is the single choke point — no per-button gating
+  // needed below.
+  const isReadOnly = useSeasonReadOnly();
   // canDoBackendGated, not canDo: shipment create is gated server-side on the
   // core PRIVILEGED_ROLES list (export/views.py), which excludes boss whatever
   // the permission matrix says — the button would render and then 403.
-  const canCreate = canDoBackendGated(user, 'shipment', 'create');
-  const canEditWeightNet = canEditField(user, 'shipment', 'weight_net');
-  const canEditAnyField = canDo(user, 'shipment', 'edit');
+  const canCreate = canDoBackendGated(user, 'shipment', 'create') && !isReadOnly;
+  const canEditWeightNet = canEditField(user, 'shipment', 'weight_net') && !isReadOnly;
+  const canEditAnyField = canDo(user, 'shipment', 'edit') && !isReadOnly;
   // Hard-delete is an admin-only escape hatch. Mirrors the backend gate in
   // ShipmentViewSet.bulk_delete — keep these two checks in sync. Destructive,
   // cascade-removes comments/status_log/firm_splits/block_sources/pallets.
-  const canHardDelete = !!user && (user.is_superuser || user.role === 'admin');
+  const canHardDelete = !!user && (user.is_superuser || user.role === 'admin') && !isReadOnly;
 
   const { data, isLoading } = useShipments({
     page,

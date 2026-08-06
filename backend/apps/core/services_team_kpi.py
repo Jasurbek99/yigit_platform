@@ -40,7 +40,9 @@ def period_window(period: str, season=None) -> tuple[datetime | None, date | Non
     since_dt gates Task.completed_at (a datetime); since_date gates
     WorkSessionDaily.work_date (a date). (None, None) means no lower bound
     (period == 'season' with no season resolved — no active Season row and
-    no explicit ?season= either).
+    no explicit ?season= either). `compute_team_kpi` short-circuits that case
+    before ever calling this, per D7 — an unbounded window is not a legal
+    answer to "this season" (spec §3.1).
 
     Args:
         period: One of 'today' | 'week' | 'month' | 'season'.
@@ -76,12 +78,29 @@ def compute_team_kpi(period: str, season=None) -> list[dict]:
     Three grouped queries (completions/on-time by completed_by, overdue by
     role, active-seconds by user) merged over the full active-user roster.
 
+    Fails CLOSED when `period == 'season'` and no season resolved (D7, spec
+    §3.1): `period_window` answers `(None, None)` there, which means "no lower
+    bound" and so silently turned the leaderboard into an ALL-TIME window —
+    every closed season's completions blended into one row for every
+    authenticated user, with no `?season=` and no `closed_season.can_view`
+    grant. The gate lives here rather than in `period_window` because
+    `(None, None)` is a legitimate answer for that function; this is the only
+    caller that can tell the close→open gap from a deliberate unbounded
+    window. `boss` and `clients-report` already returned empty for this state.
+
     Args:
         period: One of 'today' | 'week' | 'month' | 'season'.
         season: The already-resolved season — only relevant when
             period == 'season'; see `period_window`.
+
+    Returns:
+        One dict per active user, or `[]` when `period == 'season'` and no
+        season resolved.
     """
     from apps.export.models import Task, TaskState
+
+    if period == 'season' and season is None:
+        return []
 
     since_dt, since_date = period_window(period, season)
 

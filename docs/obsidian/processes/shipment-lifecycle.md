@@ -338,7 +338,7 @@ The shipment lifecycle is displayed across **5 different views**, each optimized
 #### 3. ShipmentSheet (`frontend/src/pages/export/ShipmentSheet.tsx`)
 
 **Purpose**: Excel-like spreadsheet view for bulk data entry.
-- Fetches ALL active-season shipments via `useShipmentSheet()` (no pagination)
+- Fetches active-season shipments via `useShipmentSheet()` (no pagination); `?season=<id>` browses a different (permitted) season instead — see [[../screens/season-switcher]] (AD-16)
 - `SheetGrid` component with inline cell editing
 - Zustand `SheetStore` manages: searchText, showGapyOnly
 - Filters in memory by shipment_code and customer_name

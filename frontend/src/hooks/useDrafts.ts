@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import api from '@/services/api';
 import { getShipmentDetailKey } from './useShipmentDetail';
+import { useSelectedSeason } from '@/hooks/useSeasonParam';
 import { MOCK_DRAFTS } from '@/mock/drafts';
 import type {
   IShipmentDraft,
@@ -31,16 +32,19 @@ function sortOldestFirst(drafts: IShipmentDraft[]): IShipmentDraft[] {
  * In mock mode returns MOCK_DRAFTS without any API call.
  */
 export function useDrafts() {
+  const { seasonId, isReady } = useSelectedSeason();
   return useQuery({
-    queryKey: ['drafts'],
+    queryKey: ['drafts', seasonId],
     queryFn: async (): Promise<IShipmentDraft[]> => {
       if (USE_MOCK) return sortOldestFirst(MOCK_DRAFTS);
 
+      const seasonParam = seasonId != null ? `&season=${seasonId}` : '';
       const { data } = await api.get<{ results: IShipmentDraft[] }>(
-        '/export/shipments/?status_code=draft&page_size=200&ordering=harvest_age_desc',
+        `/export/shipments/?status_code=draft&page_size=200&ordering=harvest_age_desc${seasonParam}`,
       );
       return data.results ?? [];
     },
+    enabled: USE_MOCK || isReady,
     staleTime: 30_000,
   });
 }

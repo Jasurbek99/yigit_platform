@@ -19,7 +19,7 @@ Operational overview for the current export season. Shows six stat cards, an ale
 `GET /api/v1/export/dashboard/summary/`
 
 Response sections:
-- `season` — active season id + name (nullable when no active season)
+- `season` — resolved season id + name (nullable when no season resolves). When it is `null` — the close→open gap — the **whole payload is empty**: every `stats`/`alerts` value `0`, `weekly_plan` `null`, `routes` and `active_shipments` `[]`. D7 fail-closed (AD-16): the endpoint previously substituted a current-month range, which during the gap aggregated the just-closed season's rows for any authenticated user. The response shape is unchanged, so the page renders its normal empty states alongside the "no active season" banner — but note this also zeroes the LIVE counters below.
 - `stats` — six counters: total, in_transit, selling, completed, no_report, quota_firms. `total` and `completed` carry an optional `delta_7d` field used in the trend chip. `in_transit` and `selling` are LIVE (not season-scoped).
 - `alerts` — counts for missing reports, quota overages, pending docs, and an optional weekly plan object (`null` if no `HarvestDayEntry` rows for current ISO week)
 - `routes[]` — per-country truck count, percent share, and top-4 city breakdown (null/empty city names excluded)

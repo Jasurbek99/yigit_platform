@@ -90,6 +90,10 @@ class Command(BaseCommand):
             .exclude(status__code__in=TERMINAL_CODES)
             .filter(sales_report__isnull=True)
             .exclude(tasks__title_key=REMINDER_TITLE_KEY)
+            # Closed seasons are frozen (D1). This calls Task.objects.create()
+            # directly, not transition_to(), so Task 9's write freeze never
+            # fires on it.
+            .filter(season__closed_at__isnull=True)
             .order_by('id')
         )
         if limit is not None:
@@ -133,6 +137,12 @@ class Command(BaseCommand):
                 deleted_at__isnull=True, is_archived=False,
                 status__code='satyldy', sales_report__isnull=False,
             )
+            # transition_to() below already raises SeasonClosedError for a
+            # closed-season shipment (D1) — but SeasonClosedError does not
+            # subclass ValueError, so the `except ValueError` a few lines down
+            # would NOT catch it and the whole run would crash on the first
+            # closed-season satyldy shipment. Filter here instead.
+            .filter(season__closed_at__isnull=True)
             .order_by('id')
         )
         if limit is not None:

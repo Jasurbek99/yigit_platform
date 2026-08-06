@@ -34,12 +34,14 @@ import { useTranslation } from 'react-i18next';
 import type { MenuProps } from 'antd';
 import api from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
+import { useSeasonParam } from '@/hooks/useSeasonParam';
 import { useFeedbackAdminUnreadCount } from '@/hooks/useFeedback';
 import { useMyTasks } from '@/hooks/useMyTasks';
 import { useRealtime } from '@/hooks/useRealtime';
 import { realtime } from '@/services/realtime';
 import { useRealtimeStore } from '@/stores/realtimeStore';
 import { useUiStore } from '@/stores/uiStore';
+import { useSeasonStore } from '@/stores/seasonStore';
 import { useWorklogHeartbeat } from '@/hooks/useWorklogHeartbeat';
 import { canSeePage } from '@/utils/permissions';
 import { pickMenuComposition } from '@/utils/menuComposition';
@@ -49,6 +51,8 @@ import { FeedbackFAB } from '@/components/feedback/FeedbackFAB';
 import { NotificationBell } from '@/components/NotificationBell';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
 import { WorklogChip } from '@/components/WorklogChip';
+import { SeasonSwitcher } from '@/components/SeasonSwitcher';
+import { ClosedSeasonBanner } from '@/components/ClosedSeasonBanner';
 import { COLORS } from '@/constants/styles';
 
 const { Sider, Header, Content } = Layout;
@@ -61,6 +65,10 @@ export default function AppLayout() {
   const location = useLocation();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  // Mounted exactly once, here — every routed page is a descendant of this
+  // layout, so the URL <-> selectedSeasonId sync runs app-wide without a
+  // second writer competing for the `?season=` search param.
+  useSeasonParam();
   const [collapsed, setCollapsed] = useState(false);
   const bossEditMode = useUiStore((s) => s.bossEditMode);
   const setBossEditMode = useUiStore((s) => s.setBossEditMode);
@@ -98,6 +106,14 @@ export default function AppLayout() {
       // manual page refresh fires beforeunload → close().
       realtime.close();
       useRealtimeStore.setState({ sheetRoster: [], status: 'closed' });
+      // Shared-terminal hygiene: navigate('/login') is an SPA transition, so
+      // the season selection would otherwise survive into the next user's
+      // session — 403s app-wide if they lack `closed_season.can_view`, or a
+      // silent archive read if they hold it. Safe to reset here: the URL->store
+      // effect in useSeasonParam() is gated on `urlSeason` having changed, so
+      // it will not write the stale `?season=` back, and the store->URL effect
+      // early-returns on null.
+      useSeasonStore.setState({ selectedSeasonId: null });
       queryClient.removeQueries({ queryKey: ['auth', 'me'] });
       queryClient.clear();
       navigate('/login');
@@ -545,7 +561,7 @@ export default function AppLayout() {
             </Flex>
           </Flex>
 
-          {/* Right: connection dot + worklog chip + lang switcher + notifications */}
+          {/* Right: connection dot + worklog chip + season switcher + lang switcher + notifications */}
           <Flex align="center" gap={12}>
             {isBoss && (
               <Flex align="center" gap={8}>
@@ -567,6 +583,7 @@ export default function AppLayout() {
             )}
             <ConnectionStatus />
             <WorklogChip />
+            <SeasonSwitcher />
             <Segmented
               size="small"
               value={currentLang}
@@ -605,6 +622,7 @@ export default function AppLayout() {
             overflowX: 'hidden',
           }}
         >
+          <ClosedSeasonBanner />
           <Outlet />
         </Content>
       </Layout>

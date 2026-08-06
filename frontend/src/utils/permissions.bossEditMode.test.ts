@@ -116,28 +116,28 @@ describe('isCellEditable — boss edit mode gate', () => {
     // ABOVE the `v2EditDecision ?? ...` read. Below it, the `??` fallback never
     // fires (the value is a bool, never undefined) and the whole Sheet — inline
     // edit plus Ctrl+C/X/V/Delete — stays live while the header reads Просмотр.
-    expect(isCellEditable(rowConfig, backendSaysEditable, bossUser)).toBe(false);
+    expect(isCellEditable(rowConfig, backendSaysEditable, bossUser, false)).toBe(false);
   });
 
   it('unlocks the cell once the boss switches to edit mode', () => {
     useUiStore.setState({ bossEditMode: true });
-    expect(isCellEditable(rowConfig, backendSaysEditable, bossUser)).toBe(true);
+    expect(isCellEditable(rowConfig, backendSaysEditable, bossUser, false)).toBe(true);
   });
 
   it('gates a boss who is also a superuser', () => {
-    expect(isCellEditable(rowConfig, backendSaysEditable, bossSuperuser)).toBe(false);
+    expect(isCellEditable(rowConfig, backendSaysEditable, bossSuperuser, false)).toBe(false);
   });
 
   it('still honours the backend decision for other roles', () => {
-    expect(isCellEditable(rowConfig, backendSaysEditable, managerUser)).toBe(true);
+    expect(isCellEditable(rowConfig, backendSaysEditable, managerUser, false)).toBe(true);
     const backendSaysLocked: Record<string, ISheetRowSettingForUser> = {
       weight_net: { can_current_user_edit: false } as unknown as ISheetRowSettingForUser,
     };
-    expect(isCellEditable(rowConfig, backendSaysLocked, managerUser)).toBe(false);
+    expect(isCellEditable(rowConfig, backendSaysLocked, managerUser, false)).toBe(false);
   });
 
   it('still refuses readonly rows regardless of role', () => {
     const readonlyRow = { ...rowConfig, input_type: 'readonly' } as unknown as IRowConfig;
-    expect(isCellEditable(readonlyRow, backendSaysEditable, managerUser)).toBe(false);
+    expect(isCellEditable(readonlyRow, backendSaysEditable, managerUser, false)).toBe(false);
   });
 });

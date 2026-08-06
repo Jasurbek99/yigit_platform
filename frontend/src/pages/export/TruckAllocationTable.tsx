@@ -103,13 +103,15 @@ export function TruckAllocationTable({
   // Sunday is the last day, so slicing it off keeps every di index aligned
   // with day_of_week (di + 1) and the date offset.
   const days: (typeof DAYS)[number][] = showSunday ? [...DAYS] : DAYS.slice(0, 6);
-  const { data: truckData } = useTruckAllocations({
-    season: seasonId, year, week_number: weekNumber,
-  });
+  // `seasonId` prop (the true ACTIVE season, passed by WeeklyPlanGrid) is used
+  // below ONLY for the write mutations (set-splits / set-selection / upsert),
+  // which always target the active season. The two reads below deliberately
+  // do NOT pass it — useTruckAllocations/useTruckDestinationSelection now own
+  // season selection internally via the global store, so browsing a season
+  // via the switcher (Task 15/16) actually changes what this table shows.
+  const { data: truckData } = useTruckAllocations({ year, week_number: weekNumber });
   const { data: allDestinations = [] } = useTruckDestinations();
-  const { data: savedSelection = [] } = useTruckDestinationSelection({
-    season: seasonId, year, week_number: weekNumber,
-  });
+  const { data: savedSelection = [] } = useTruckDestinationSelection({ year, week_number: weekNumber });
   const upsertTruck = useUpsertTruckAllocation();
   const setTruckSplits = useSetTruckSplits();
   const setSelection = useSetTruckDestinationSelection();

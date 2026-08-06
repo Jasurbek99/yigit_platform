@@ -14,9 +14,19 @@ interface IMatchPanelProps {
   isLoading: boolean;
   /** Hides the confirm button when the viewer may not assign (e.g. boss in view mode). */
   canConfirm: boolean;
+  /** True while browsing a closed season — disables Confirm (Task 15). */
+  isReadOnly?: boolean;
 }
 
-export function MatchPanel({ draft, demand, onConfirm, onClear, isLoading, canConfirm }: IMatchPanelProps) {
+export function MatchPanel({
+  draft,
+  demand,
+  onConfirm,
+  onClear,
+  isLoading,
+  canConfirm,
+  isReadOnly = false,
+}: IMatchPanelProps) {
   const { t } = useTranslation();
 
   if (!draft && !demand) {
@@ -278,7 +288,13 @@ export function MatchPanel({ draft, demand, onConfirm, onClear, isLoading, canCo
             {t('assign.btn_clear')}
           </Button>
           {canConfirm && (
-            <Button type="primary" style={{ flex: 2 }} loading={isLoading} onClick={onConfirm}>
+            <Button
+              type="primary"
+              style={{ flex: 2 }}
+              loading={isLoading}
+              disabled={isReadOnly}
+              onClick={onConfirm}
+            >
               {t('assign.btn_confirm')}
             </Button>
           )}

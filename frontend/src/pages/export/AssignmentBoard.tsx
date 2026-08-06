@@ -4,6 +4,7 @@ import { Alert, Modal, Spin, Tag, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { useDrafts, useAssignDraft } from '@/hooks/useDrafts';
+import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
 import { MOCK_DEMAND } from '@/mock/demand';
 import { SupplyCard } from './assignment/SupplyCard';
 import { DemandCard } from './assignment/DemandCard';
@@ -23,6 +24,10 @@ export default function AssignmentBoard() {
   const { user } = useAuth();
   const { data: drafts = [], isLoading: draftsLoading } = useDrafts();
   const assignDraft = useAssignDraft();
+  // `useDrafts()` reads whatever season is browsed (Task 14); the assign
+  // mutation targets `selectedDraft.id`, a real shipment in that same
+  // browsed season — unlike Initialize Week / Add Shipment, this CAN 409.
+  const isReadOnly = useSeasonReadOnly();
 
   // Assigning a draft promotes it to `yuklenme` through the state machine, so
   // the boss's view/edit toggle must cover it. The backend accepts boss on
@@ -211,6 +216,7 @@ export default function AssignmentBoard() {
             draft={selectedDraft}
             demand={selectedDemand}
             onConfirm={handleConfirm}
+            isReadOnly={isReadOnly}
             onClear={() => {
               setSelectedDraftId(null);
               setSelectedDemandId(null);

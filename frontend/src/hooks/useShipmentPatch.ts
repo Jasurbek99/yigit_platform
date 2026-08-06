@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 import type { AxiosError } from 'axios';
 import api from '@/services/api';
 import { getShipmentDetailKey } from './useShipmentDetail';
+import { SHEET_QUERY_KEY } from './useShipmentSheet';
+import { useSelectedSeason } from '@/hooks/useSeasonParam';
 import type { IApiListResponse, IShipmentListItem, IShipmentSheetItem } from '@/types';
 
 /**
@@ -49,8 +51,9 @@ interface IPatchMultiVariables {
 }
 
 /**
- * Shape of the cached `['shipments', 'sheet']` value. Mirrors the return type
- * of useShipmentSheet — wrapped object whose `.shipments` field carries the
+ * Shape of the cached full-sheet value (`sheetKeyFor(seasonId)`, i.e.
+ * `['shipments', 'sheet', seasonId]`). Mirrors the return type of
+ * useShipmentSheet — wrapped object whose `.shipments` field carries the
  * row data. The cache is NOT a flat IShipmentSheetItem[]; the optimistic
  * update has to navigate into `.shipments`. (Pre-Sheet-Control-v2 the cache
  * was a flat array; the wrapper landed in commit 258326f and the optimistic
@@ -70,17 +73,40 @@ export interface IPatchContext {
   previousLists: [readonly unknown[], IApiListResponse<IShipmentListItem> | undefined][];
   // The drawer field editors (Self board + Shipment board task modals) read the
   // single-shipment sheet cache `['shipments','sheet','row',id]`, NOT the
-  // full-season `['shipments','sheet']`. We mirror every optimistic / reconcile /
-  // rollback into that row cache too, else a saved cell reverts to its stale
-  // cached value the moment its editor closes (the "first field disappears" bug).
+  // full-season `['shipments','sheet',seasonId]`. We mirror every optimistic /
+  // reconcile / rollback into that row cache too, else a saved cell reverts to
+  // its stale cached value the moment its editor closes (the "first field
+  // disappears" bug).
   drawerRowKey: readonly unknown[];
   previousDrawerRow: ICachedSheet | undefined;
+  // The exact full-sheet cache key this optimistic update wrote to — carried
+  // through the context so `rollback()` restores the SAME entry (Task 14
+  // added `seasonId` as a 3rd key segment; a hardcoded `['shipments','sheet']`
+  // here would silently miss the real, season-suffixed cache entry).
+  sheetKey: readonly unknown[];
 }
 
+/** `useShipments()`'s list key is `['shipments', seasonId, filters]` — seasonId
+ * is `number | null` (never a string), filters is always a plain object. That
+ * shape is what distinguishes it from the sheet (`['shipments','sheet',id]`),
+ * board (`['shipments','board',id,filters]`), and other `'shipments'`-prefixed
+ * sub-queries, whose 2nd segment is always a string literal. */
 const isListQueryKey = (key: readonly unknown[]): boolean =>
-  key[0] === 'shipments' && typeof key[1] === 'object' && key[1] !== null;
+  key[0] === 'shipments' &&
+  (typeof key[1] === 'number' || key[1] === null) &&
+  typeof key[2] === 'object' &&
+  key[2] !== null;
 
 const drawerRowKeyFor = (id: number): readonly unknown[] => ['shipments', 'sheet', 'row', id];
+
+/** The full-sheet cache key for a given resolved season — mirrors
+ * `useShipmentSheet()`'s own `[...SHEET_QUERY_KEY, seasonId]` exactly.
+ * Exported so other optimistic-update sites (useSheetCellWrite) reference
+ * the same cache entry instead of re-deriving a key that could drift. */
+export const sheetKeyFor = (seasonId: number | null): readonly unknown[] => [
+  ...SHEET_QUERY_KEY,
+  seasonId,
+];
 
 /** Apply a row transform to a sheet-shaped cache entry, only if it is cached. */
 function updateSheetRowCache(
@@ -100,9 +126,11 @@ export function applyOptimistic(
   queryClient: ReturnType<typeof useQueryClient>,
   id: number,
   fields: Record<string, unknown>,
+  seasonId: number | null,
 ): IPatchContext {
-  const previousSheet = queryClient.getQueryData<ICachedSheet>(['shipments', 'sheet']);
-  queryClient.setQueryData<ICachedSheet>(['shipments', 'sheet'], (old) => {
+  const sheetKey = sheetKeyFor(seasonId);
+  const previousSheet = queryClient.getQueryData<ICachedSheet>(sheetKey);
+  queryClient.setQueryData<ICachedSheet>(sheetKey, (old) => {
     if (!old || !Array.isArray(old.shipments)) return old;
     return {
       ...old,
@@ -129,7 +157,7 @@ export function applyOptimistic(
   const previousDrawerRow = queryClient.getQueryData<ICachedSheet>(drawerRowKey);
   updateSheetRowCache(queryClient, drawerRowKey, id, (s) => ({ ...s, ...fields }));
 
-  return { previousSheet, previousLists, drawerRowKey, previousDrawerRow };
+  return { previousSheet, previousLists, drawerRowKey, previousDrawerRow, sheetKey };
 }
 
 export function rollback(
@@ -138,7 +166,7 @@ export function rollback(
 ): void {
   if (!context) return;
   if (context.previousSheet !== undefined) {
-    queryClient.setQueryData(['shipments', 'sheet'], context.previousSheet);
+    queryClient.setQueryData(context.sheetKey, context.previousSheet);
   }
   if (context.previousDrawerRow !== undefined) {
     queryClient.setQueryData(context.drawerRowKey, context.previousDrawerRow);
@@ -180,11 +208,12 @@ export function reconcileFromServer(
   queryClient: ReturnType<typeof useQueryClient>,
   id: number,
   server: unknown,
+  seasonId: number | null,
 ): void {
   if (!server || typeof server !== 'object') return;
   const serverObj = server as Record<string, unknown>;
 
-  queryClient.setQueryData<ICachedSheet>(['shipments', 'sheet'], (old) => {
+  queryClient.setQueryData<ICachedSheet>(sheetKeyFor(seasonId), (old) => {
     if (!old || !Array.isArray(old.shipments)) return old;
     return {
       ...old,
@@ -223,6 +252,7 @@ export function invalidateExceptSheet(queryClient: ReturnType<typeof useQueryCli
 export function useShipmentPatch() {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
+  const { seasonId } = useSelectedSeason();
 
   return useMutation<unknown, unknown, IPatchVariables, IPatchContext>({
     mutationFn: async ({ id, field, value }) => {
@@ -231,12 +261,12 @@ export function useShipmentPatch() {
     },
     onMutate: async ({ id, field, value }) => {
       await queryClient.cancelQueries({ queryKey: ['shipments'] });
-      return applyOptimistic(queryClient, id, { [field]: value });
+      return applyOptimistic(queryClient, id, { [field]: value }, seasonId);
     },
     onSuccess: (data, { id }) => {
       // Fold server-computed scalars (auto-advanced status, AD-1 timestamps,
       // recomputed totals) into the cached row instead of refetching the sheet.
-      reconcileFromServer(queryClient, id, data);
+      reconcileFromServer(queryClient, id, data, seasonId);
     },
     onError: (err, _vars, context) => {
       rollback(queryClient, context);
@@ -259,6 +289,7 @@ export function useShipmentPatch() {
 export function useShipmentPatchMulti() {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
+  const { seasonId } = useSelectedSeason();
 
   return useMutation<unknown, unknown, IPatchMultiVariables, IPatchContext>({
     mutationFn: async ({ id, fields }) => {
@@ -267,10 +298,10 @@ export function useShipmentPatchMulti() {
     },
     onMutate: async ({ id, fields }) => {
       await queryClient.cancelQueries({ queryKey: ['shipments'] });
-      return applyOptimistic(queryClient, id, fields);
+      return applyOptimistic(queryClient, id, fields, seasonId);
     },
     onSuccess: (data, { id }) => {
-      reconcileFromServer(queryClient, id, data);
+      reconcileFromServer(queryClient, id, data, seasonId);
     },
     onError: (err, _vars, context) => {
       rollback(queryClient, context);

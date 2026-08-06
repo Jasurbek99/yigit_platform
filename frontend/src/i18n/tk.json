@@ -1144,6 +1144,17 @@
     "error_load": "Içerki satuw maglumatlaryny ýükläp bolmady",
     "subtitle": "Içerki bazar satyw hasabaty"
   },
+  "season": {
+    "switcher_label": "Möwsüm",
+    "status_active": "Işjeň",
+    "status_closed": "Ýapyk",
+    "status_upcoming": "Öňümizdäki",
+    "readonly_banner": "Ýapyk möwsüm {{name}} görülýär — diňe okamak",
+    "back_to_active": "Işjeň möwsüme dolan",
+    "closed_error": "Bu möwsüm ýapyk, üýtgedip bolmaýar",
+    "partial_view_notice": "Arhiwlenen ýazgylar bu görnüşde görkezilmeýär",
+    "no_active_season_banner": "Işjeň möwsüm ýok — admin Admin → Möwsümler bölüminde möwsümi açýança hiç zady üýtgedip bolmaýar"
+  },
   "seasons": {
     "title": "Möwsümler",
     "add": "Möwsüm goş",
@@ -1159,7 +1170,18 @@
     "toast_updated": "Möwsüm täzelendi",
     "toast_deleted": "Möwsüm pozuldy",
     "toast_error": "Amal başa barmady",
-    "subtitle": "Eksport möwsümlerini dolandyrmak"
+    "subtitle": "Eksport möwsümlerini dolandyrmak",
+    "status_column": "Ýagdaýy",
+    "close_button": "Möwsümi ýap",
+    "open_button": "Möwsümi aç",
+    "close_confirm_title": "{{name}} möwsümi ýapylsynmy?",
+    "close_confirm_body": "{{name}} möwsümini ýapmak {{drafts}} garalama ýügi, {{in_transit}} ýolda barýan ýügi we {{open_tasks}} açyk wezipäni gizlär, şeýle-de heniz faktiki netijesi girizilmedik {{unfinished_plans}} hepdelik meýilnamany gizlär. Hiç zat pozulmaýar — ähli ýazgylar bolşy ýaly galýar we {{name}} möwsüm saýlanjy sanawynda saýlananda diňe okamak üçin ýene görünýär.",
+    "close_preview_error": "Ýapmak barada maglumaty ýüklemek başartmady",
+    "retry": "Gaýtadan synanyş",
+    "toast_closed": "Möwsüm ýapyldy",
+    "open_confirm_title": "{{name}} möwsümi açylsynmy?",
+    "open_confirm_body": "Mundan beýläk täze ýükler {{name}} möwsüminde dörediler. Häzirki işjeň möwsüm ýazgy nyşany bolmakdan galýar, ýöne ýapylmaýar.",
+    "toast_opened": "Möwsüm açyldy"
   },
   "firms_admin": {
     "title": "Eksport firmalary",
