@@ -8,8 +8,9 @@ URL prefix: /api/v1/export/boss/<action>/
 import logging
 from datetime import date
 
+from django.conf import settings
 from django.core.cache import cache
-from django.http import HttpResponse
+from django.http import HttpResponse, Http404
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -40,6 +41,16 @@ from apps.export.services.boss_analytics import (
 logger = logging.getLogger(__name__)
 
 _CACHE_TTL = 60  # seconds — matches frontend staleTime of 60_000 ms
+
+# Whitelist: ?doc= slug -> filename under docs/how_works/. The dict is the
+# ONLY path resolution mechanism for process-doc — never build a filesystem
+# path from the request value (no os.path.join, no suffix/regex checks). A
+# slug not in this dict 404s before any filesystem access happens.
+_PROCESS_DOCS = {
+    'shipment-process-boss': 'shipment-process-boss.html',
+    'shipment-bpmn': 'shipment-bpmn.html',
+}
+_PROCESS_DOCS_DIR = settings.BASE_DIR.parent / 'docs' / 'how_works'
 
 
 def _parse_period_params(request: Request) -> tuple[str, date, date]:
@@ -562,3 +573,25 @@ class BossAnalyticsViewSet(viewsets.ViewSet):
         resp = HttpResponse(payload, content_type='application/pdf')
         resp['Content-Disposition'] = f'attachment; filename="{filename}"'
         return resp
+
+    # ------------------------------------------------------------------
+    # process-doc — serve a static process-explainer HTML page as-is
+    # ------------------------------------------------------------------
+
+    @action(detail=False, methods=['get'], url_path='process-doc')
+    def process_doc(self, request: Request) -> HttpResponse:
+        """Serve a whitelisted static HTML doc from docs/how_works/ byte for byte.
+
+        GET /api/v1/export/boss/process-doc/?doc=shipment-process-boss
+        GET /api/v1/export/boss/process-doc/?doc=shipment-bpmn
+
+        ?doc= is resolved ONLY through the _PROCESS_DOCS whitelist dict — an
+        unknown or missing slug 404s before any filesystem path is built.
+        """
+        slug = request.query_params.get('doc')
+        filename = _PROCESS_DOCS.get(slug) if slug else None
+        if filename is None:
+            raise Http404('Unknown process doc')
+
+        content = (_PROCESS_DOCS_DIR / filename).read_bytes()
+        return HttpResponse(content, content_type='text/html; charset=utf-8')
