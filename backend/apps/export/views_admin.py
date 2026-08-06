@@ -39,7 +39,9 @@ from apps.core.roles import (
     can_manage_users,
     manageable_roles,
 )
-from apps.export.models import AuditLog, Notification, TruckSplitDefault, invalidate_truck_split_cache
+from apps.export.models import (
+    AuditLog, Notification, ProcessNodeLink, TruckSplitDefault, invalidate_truck_split_cache,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -173,6 +175,20 @@ class TruckSplitDefaultSerializer(serializers.ModelSerializer):
         if value <= 0:
             raise serializers.ValidationError('kg_per_firm must be > 0')
         return value
+
+
+class ProcessNodeLinkSerializer(serializers.ModelSerializer):
+    """Admin CRUD shape for BPMN node -> screen route mappings.
+
+    ``node_id`` is the join key to the diagram's node array and MUST stay
+    read-only: a PATCH that could change it would silently orphan the row
+    (the diagram would stop resolving a mapping for its old id).
+    """
+
+    class Meta:
+        model = ProcessNodeLink
+        fields = ['id', 'node_id', 'label', 'route', 'is_active']
+        read_only_fields = ['id', 'node_id']
 
 
 class ImportFirmSerializer(serializers.ModelSerializer):
@@ -378,6 +394,40 @@ class ExportFirmViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated, DynamicResourcePermission]
     serializer_class = ExportFirmSerializer
     queryset = ExportFirm.objects.all().order_by('name_en')
+
+
+class ProcessNodeLinkViewSet(ModelViewSet):
+    """Admin-only list + edit for the boss process diagram's node -> screen mapping.
+
+    No create/delete: the 20 node_ids are fixed by the diagram's data array
+    and seeded via migration 0060 — a new node requires a diagram change plus
+    a migration, not an admin-panel action.
+
+    Gated inline (admin role or superuser) rather than through
+    DynamicResourcePermission. Adding a 'process_node_link' resource_code to
+    the matrix would be picked up by the blanket
+    ``**{r: _VCRUD for r in _ALL_RESOURCES}`` spreads that RESOURCE_DEFAULTS
+    already uses for director / export_manager / boss in seed_permissions.py
+    (and core migration 0033 re-applies for boss on every RESOURCE_REGISTRY
+    entry), silently granting those roles access this task explicitly
+    withholds ("admin full CRUD, everyone else nothing"). An inline check is
+    simpler and does not depend on per-role override rows to deny it.
+    See UserManagementViewSet above for the same inline-gating pattern.
+
+    GET   /api/v1/export/admin/process-node-links/       — list
+    GET   /api/v1/export/admin/process-node-links/{id}/  — detail
+    PATCH /api/v1/export/admin/process-node-links/{id}/  — update label/route/is_active
+    """
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = ProcessNodeLinkSerializer
+    queryset = ProcessNodeLink.objects.all().order_by('node_id')
+    http_method_names = ['get', 'patch', 'head', 'options']
+
+    def check_permissions(self, request):
+        super().check_permissions(request)
+        if not _is_full_admin(request.user):
+            raise PermissionDenied('Admin privileges are required to manage process node links.')
 
 
 class ImportFirmViewSet(ModelViewSet):

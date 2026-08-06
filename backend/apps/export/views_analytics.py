@@ -20,6 +20,7 @@ from rest_framework.response import Response
 from apps.core.permissions import IsBossOrDirector
 from apps.core.seasons import resolve_season
 from apps.export.exports import build_excel, build_pdf
+from apps.export.models import ProcessNodeLink
 from apps.export.services.boss_analytics import (
     period_to_range,
     _aggregate_summary,
@@ -600,3 +601,25 @@ class BossAnalyticsViewSet(viewsets.ViewSet):
             # actual file on disk) should 404, not 500.
             raise Http404('Process doc file missing on disk')
         return HttpResponse(content, content_type='text/html; charset=utf-8')
+
+    # ------------------------------------------------------------------
+    # process-doc-links — node_id -> route mapping for the diagram
+    # ------------------------------------------------------------------
+
+    @action(detail=False, methods=['get'], url_path='process-doc-links')
+    def process_doc_links(self, request: Request) -> Response:
+        """Return the active BPMN node -> frontend route mapping.
+
+        GET /api/v1/export/boss/process-doc-links/
+
+        Flat {node_id: route} object of active ProcessNodeLink rows with a
+        non-blank route. shipment-bpmn.html uses this to make diagram blocks
+        clickable, opening the mapped screen in a new tab.
+        """
+        rows = (
+            ProcessNodeLink.objects
+            .filter(is_active=True)
+            .exclude(route='')
+            .values('node_id', 'route')
+        )
+        return Response({row['node_id']: row['route'] for row in rows})
