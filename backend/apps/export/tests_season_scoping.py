@@ -1332,3 +1332,97 @@ class FinansistAdvanceJoinScopedEndpointTests(TestCase):
         )
         response = client.get(f'/api/v1/export/advances/?season={self.closed.pk}')
         self.assertEqual(response.status_code, 403)
+
+
+class MeTasksScopedEndpointTests(TestCase):
+    """`/me/tasks/` is season-scoped exactly like `TaskViewSet` (spec §4.8).
+
+    The My Tasks screen lists from this endpoint, NOT from `/export/tasks/`, so
+    scoping only the viewset left the screen unchanged when a season was
+    switched. `MeTaskListView` is a plain APIView, so it cannot use
+    `SeasonScopedMixin` — it applies the same `season_scope_q()` predicate the
+    mixin builds, including `include_null_link` for weekly-plan tasks.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.active = Season.objects.create(
+            name='2026/2027', start_date=date(2026, 9, 1), end_date=date(2027, 8, 31),
+            is_active=True,
+        )
+        cls.closed = Season.objects.create(
+            name='2025/2026', start_date=date(2025, 9, 1), end_date=date(2026, 8, 31),
+            closed_at=timezone.now(),
+        )
+        country = Country.objects.create(name_en='Kazakhstan', name_tk='Gazagystan')
+        status = _make_status()
+        cls.manager = User.objects.create(username='metasks_mgr', role='export_manager')
+        RoleResourcePermission.objects.update_or_create(
+            role='export_manager', resource_code='closed_season', defaults={'can_view': True},
+        )
+        # document_team is NOT a supervisor role, so this user exercises the
+        # role-filtered branch of the view as well as the season one.
+        cls.blocked = User.objects.create(username='metasks_blocked', role='document_team')
+
+        active_shipment = _make_scoped_shipment(cls.active, 'MT-ACT', country, status)
+        closed_shipment = _make_scoped_shipment(cls.closed, 'MT-CLS', country, status)
+
+        Task.objects.create(
+            shipment=active_shipment, title_key='mt.active', assignee_role='export_manager',
+        )
+        Task.objects.create(
+            shipment=closed_shipment, title_key='mt.closed', assignee_role='export_manager',
+        )
+        Task.objects.create(
+            kind=TaskKind.WEEKLY_PLAN, title_key='mt.weekly', assignee_role='export_manager',
+        )
+
+    def _login(self, user) -> APIClient:
+        client = APIClient()
+        client.force_authenticate(user=user)
+        return client
+
+    def _title_keys(self, response) -> set[str]:
+        payload = response.json()
+        rows = payload['results'] if isinstance(payload, dict) else payload
+        return {r['title_key'] for r in rows}
+
+    def test_default_view_excludes_closed_season(self):
+        titles = self._title_keys(self._login(self.manager).get('/api/v1/me/tasks/'))
+        self.assertIn('mt.active', titles)
+        self.assertNotIn('mt.closed', titles)
+
+    def test_null_shipment_task_visible_under_open_season(self):
+        """`include_null_link` parity with TaskViewSet: a weekly-plan task has
+        no shipment and so no season, and must stay on the board."""
+        titles = self._title_keys(self._login(self.manager).get('/api/v1/me/tasks/'))
+        self.assertIn('mt.weekly', titles)
+
+    def test_closed_season_selected_swaps_the_scope(self):
+        titles = self._title_keys(
+            self._login(self.manager).get(f'/api/v1/me/tasks/?season={self.closed.pk}')
+        )
+        self.assertIn('mt.closed', titles)
+        self.assertNotIn('mt.active', titles)
+        self.assertNotIn('mt.weekly', titles)
+
+    def test_closed_season_denied_without_permission(self):
+        client = self._login(self.blocked)
+        self.assertEqual(
+            client.get('/api/v1/me/tasks/').status_code, 200,
+            'unscoped request must succeed — otherwise the 403 below would not '
+            'be attributable to the season gate',
+        )
+        response = client.get(f'/api/v1/me/tasks/?season={self.closed.pk}')
+        self.assertEqual(response.status_code, 403)
+
+    def test_unknown_season_returns_404(self):
+        response = self._login(self.manager).get('/api/v1/me/tasks/?season=999999')
+        self.assertEqual(response.status_code, 404)
+
+    def test_no_active_season_returns_nothing(self):
+        """D7 fail-closed: during the close→open gap the board is empty, not
+        every season's tasks at once."""
+        Season.objects.filter(pk=self.active.pk).update(is_active=False)
+        titles = self._title_keys(self._login(self.manager).get('/api/v1/me/tasks/'))
+        self.assertEqual(titles, set())

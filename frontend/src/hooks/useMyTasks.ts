@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import api from '@/services/api';
+import { useSelectedSeason } from '@/hooks/useSeasonParam';
 import type { ITaskListItem } from '@/types';
 
 export interface IMyTasksResponse {
@@ -13,11 +14,15 @@ export function useMyTasks(
   options: { enabled?: boolean; role?: string | null } = {},
 ) {
   const { enabled, role = null } = options;
+  const { seasonId, isReady } = useSelectedSeason();
   return useQuery<IMyTasksResponse>({
-    enabled: enabled ?? true,
+    enabled: (enabled ?? true) && isReady,
     // role is part of the key: without it, switching roles would render the
-    // previous role's cached tasks under the new role's name.
-    queryKey: ['my-tasks', role],
+    // previous role's cached tasks under the new role's name. seasonId is in
+    // the key for the same reason — /me/tasks/ is season-scoped (spec §4.8),
+    // and without it a season switch renders the previous season's cached
+    // rows, which looks exactly like the feature not working.
+    queryKey: ['my-tasks', seasonId, role],
     queryFn: async () => {
       // page_size=1000: the My tasks page renders ALL tasks (active +
       // done-today + history) from this single fetch, so the cap must clear a
@@ -30,6 +35,7 @@ export function useMyTasks(
       // role is ~574.
       const params = new URLSearchParams({ page_size: '1000' });
       if (role) params.set('assignee_role', role);
+      if (seasonId != null) params.set('season', String(seasonId));
       const { data } = await api.get(`/me/tasks/?${params.toString()}`);
       return data;
     },

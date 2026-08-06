@@ -255,6 +255,18 @@ Optional `?assignee_role=<role>` narrows to one role. **Supervisors only** — s
 ignored for every other role, whose own-role lock is unconditional. Unknown role → 400
 on `/me/tasks/`. Other filters: `?state=`, `?step=`, `?overdue=true`.
 
+`/me/tasks/` is **season-scoped** (`?season=<id>`, defaults to the active season, 403 on a
+closed season without `closed_season.can_view`, 404 on an unknown id) — same contract as
+every other scoped list. The anchor is `shipment__season` with `include_null_link`, so
+weekly-plan / local-sell-plan tasks (no shipment) stay on the board under an open season and
+drop out when a closed season is explicitly selected. It fails closed during the close→open
+gap. `useMyTasks`' query key carries `seasonId` for the same reason every other scoped hook
+does.
+
+`/me/kpi-today/` is deliberately **not** season-scoped — it is a "what did this role finish
+today" tile, and a closed season's tasks cannot be completed at all (the write freeze blocks
+the transition), so a season filter would only blank the tile while browsing a closed season.
+
 `/me/kpi-today/` accepts the same param under the same gate, so the KPI tiles describe the
 role being viewed. Its 60s cache key includes the effective role
 (`me:kpi-today:{user_id}:{role}`) — tests that clear this key must include the role or they

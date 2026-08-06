@@ -217,6 +217,8 @@ PATCH body (partial): `{ row_order?: [id, ...], hidden_rows?: [id, ...] }` — a
 
 **`/me/tasks/` filters:** `?state=open&step=yuklenme&overdue=true`. Supervisors (`export_manager`, `boss`, `admin`, `director`) see all tasks; other roles see only tasks for their own `assignee_role`. Paginated (`page_size=50`).
 
+**`/me/tasks/` is season-scoped** (`?season=<id>`, spec §4.8) with the same anchor as `TaskViewSet` — `shipment__season` plus `include_null_link`, so weekly-plan/local-sell-plan tasks (no shipment) stay visible under an open season and drop out when a closed season is explicitly selected. Fails closed during the close→open gap. `/me/kpi-today/` is deliberately **not** scoped — see the note in the `api-contract` skill.
+
 **`/me/kpi-today/` response:**
 ```json
 { "done_count": 3, "avg_duration_seconds": 1800, "on_time_rate": 0.6667 }
