@@ -1403,6 +1403,28 @@ class AdvanceApiFreezeTests(SeasonFreezeFixture):
             {'shipment_id': live.pk}, format='json',
         ))
 
+    def test_unlink_the_open_shipment_of_a_straddling_advance_returns_409(self):
+        """The repair path is closed too — this is the sharp edge of "any
+        closed link freezes it", pinned rather than left to a docstring.
+
+        An advance linked to BOTH a closed-season and an open-season shipment
+        is wholly immutable: `unlink_shipment` calls `get_object()`, which
+        409s on the advance's own anchor before its body ever inspects the
+        link being removed. So an operator cannot detach the closed side to
+        make the advance editable again — splitting the advance is the manual
+        remedy. Before F2 this returned 200: the body's own
+        `assert_season_open(link.shipment.season)` only looked at the TARGET
+        link, which is open.
+        """
+        frozen = self.make_shipment(self.closed, 'API-CLS06')
+        live = self.make_shipment(self.active, 'API-ACT06')
+        advance = self._advance(frozen, live)
+
+        self.assert_season_closed_409(self.client_as().delete(
+            f'/api/v1/export/advances/{advance.pk}/unlink-shipment/{live.pk}/'
+        ))
+        self.assertEqual(advance.shipment_links.count(), 2)
+
     def test_patch_on_an_active_season_advance_still_works(self):
         advance = self._advance(self.make_shipment(self.active, 'API-ACT01'))
         response = self.client_as().patch(

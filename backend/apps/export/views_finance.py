@@ -303,7 +303,13 @@ class FinansistAdvanceViewSet(ModelViewSet):
 
         advance: FinansistAdvance = self.get_object()
 
-        # Write freeze (D1) — see link_shipment.
+        # Write freeze (D1), layer 2 — now SUBSUMED by layer 1, kept
+        # deliberately. `get_object()` above 409s whenever ANY of the
+        # advance's links is in a closed season, which includes this one, so
+        # this assert can no longer fire. It stays because layer 2 is
+        # specified to hold the invariant independently of layer 1 (spec §5)
+        # and this is a finance surface — but read it as belt-and-braces, not
+        # as the guard that makes unlink safe.
         link = FinansistAdvanceShipment.objects.filter(
             advance=advance, shipment_id=shipment_id,
         ).select_related('shipment__season').first()
