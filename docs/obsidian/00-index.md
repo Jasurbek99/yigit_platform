@@ -112,6 +112,7 @@ See [[roles-matrix]] for the full capability matrix.
 - [[screens/sales-report-page]] — Full-page Excel-like sales report at `/export/sales-reports/:shipmentId` — Sale + Processing tabs over one SalesReport
 - [[screens/expense-template-admin]] — Expense-template CRUD at `/admin/expense-template` — categories, tk/ru/en names, logo_code, is_active
 - [[screens/team-kpi]] — Team KPI leaderboard at `/team/kpi` — per-user tasks-completed ranking with on-time %, overdue-now, active hours, period switcher; visible to every role, wired to `GET /api/v1/core/team-kpi/`
+- [[screens/season-switcher]] — Header season switcher, read-only mode, and admin Close/Open on `/admin/seasons` (AD-16) — close a season (frozen + hidden), open the next one, browse a closed season read-only
 
 ## Reference
 
@@ -133,7 +134,7 @@ See [[roles-matrix]] for the full capability matrix.
 ## External Docs (canonical sources, not duplicated)
 
 - [DOMAIN.md](../DOMAIN.md) — Full domain context (roles, lifecycle, firms)
-- [ADR.md](../ADR.md) — Architecture Decision Records (AD-1 through AD-13)
+- [ADR.md](../ADR.md) — Architecture Decision Records (AD-1 through AD-16)
 - [SPRINT_PLAN.md](../SPRINT_PLAN.md) — Sprint roadmap
 - [TECH_STACK.md](../TECH_STACK.md) — Technology choices
 - [QUOTA_SYSTEM.md](../QUOTA_SYSTEM.md) — Quota code flow details

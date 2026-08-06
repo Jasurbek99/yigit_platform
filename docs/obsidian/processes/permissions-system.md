@@ -12,6 +12,8 @@ YGT uses a dynamic, database-driven RBAC (Role-Based Access Control) system. Ins
 
 > **AD-15 (Apr 2026):** Permission-matrix and user-management endpoints are now restricted to `role='admin'` (or `is_superuser`). `director` and `export_manager` keep all operational power but cannot edit who-can-do-what. Reference-data writes (countries, cities, customers, blocks, etc.) remain available to admin / director / export_manager.
 
+> **AD-16 (Aug 2026) — Season lifecycle:** New `closed_season` resource (view-only) gates which roles may browse a closed season read-only via the header switcher; separate from the pre-existing `season` resource, which gates the admin Seasons page (list/CRUD + close/open). See [[#Browsing closed seasons (AD-16)]] below and `docs/ADR.md` (AD-16).
+
 > **ADR-022 (Jun 2026) — Delegated user management:** A bounded exception to AD-15. The `loading_dept_head` role may **create / edit / delete / reset-password** users of the `loading_dept_head_deputy` and `weight_master` roles ONLY, and may grant those two roles a **subset of his own visible (non-`admin.*`) pages** via a dedicated scoped endpoint. The full permission-matrix CRUD stays admin-only. Who-may-manage-whom lives in `MANAGEABLE_BY_ROLE` (`apps/core/roles.py`); enforcement is entirely server-side in `UserManagementViewSet` + `ManagedPagePermissionsView`. The head's deputy does **not** inherit this power. See the [[#Delegated user management (ADR-022)]] section below.
 
 ## How It Works (Business Flow)
@@ -67,7 +69,7 @@ flowchart LR
 > **Adding a new page — both sides must change.** A page is gated by `canSeePage(user, route)` only when its menu item / route has **no** hardcoded `roles` array. For that to resolve, you must (1) add the `page_code` to `PAGE_REGISTRY` here, (2) add the `route → page_code` entry to `ROUTE_PAGE_MAP` in `frontend/src/utils/permissions.ts`, (3) seed defaults in `seed_permissions.py`, and (4) **run `python manage.py seed_permissions` on the deployment** (no `--reset` needed — `get_or_create` inserts only the missing rows). Skipping step 4 makes the page fail-closed (invisible to every non-superuser). A route in `ROUTE_PAGE_MAP` but missing from `PAGE_REGISTRY` (or unseeded) is the classic "page invisible for everyone" bug.
 
 **RESOURCE_REGISTRY**:
-- `shipment`, `shipment_firm_split`, `shipment_block_source`, `shipment_assign`, `quality_document`, `sales_report`, `shipment_comment`, `quota_issuance`, `quota_usage`, `local_sell_plan`, `weekly_plan`, `price_entry`, `advance`, `truck_allocation`, `domestic_sale`, `export_firm`, `import_firm`, `season`, `greenhouse_block`, `truck_split_default`, `pallet`, `manifest_close`
+- `shipment`, `shipment_firm_split`, `shipment_block_source`, `shipment_assign`, `quality_document`, `sales_report`, `shipment_comment`, `quota_issuance`, `quota_usage`, `local_sell_plan`, `weekly_plan`, `price_entry`, `advance`, `truck_allocation`, `domestic_sale`, `export_firm`, `import_firm`, `season`, `closed_season`, `greenhouse_block`, `truck_split_default`, `pallet`, `manifest_close`
 - `contract`, `sale` — P4 module, all-or-nothing (no `RESOURCE_FIELDS` entry). `ContractViewSet` / `ContractSaleViewSet` gate on these via `DynamicResourcePermission` (replaced the old hardcoded `_CONTRACT_WRITE_ROLES`). Defaults: full CRUD for `admin` / `director` / `export_manager` on `contract`; on `sale` the same three create/edit but **delete is `admin`-only** (`director` / `export_manager` get view+create+edit); `boss` view-only on both; all other roles no access. Matches the management-only page visibility of `contracts.list` / `contracts.sales`.
 
 **RESOURCE_FIELDS** (granular editable fields):
@@ -193,6 +195,15 @@ The `loading_dept_head` (head of packaging + loading) runs his own corner of the
 - The head's **deputy does not** get this management power — only the head manages staff.
 
 Reachability is seeded by data migration `core.0020` (sets `admin.users` + `admin.staff_access` visible for `loading_dept_head`). Tests: `apps/export/tests_delegated_user_mgmt.py` (18).
+
+### Browsing closed seasons (AD-16)
+
+`closed_season` is a resource with only `can_view` ever seeded — create/edit/delete are meaningless for it (closed seasons are read-only). It answers one question: **may this role select a closed season in the header switcher and read it?** It is intentionally a separate resource from `season` (which governs the season CRUD/close/open admin page), because `RoleResourcePermission`'s fixed action vocabulary (`can_view`/`can_create`/`can_edit`/`can_delete`) has no room for a custom "view only when closed" action on an existing resource without a schema change.
+
+- Seeded to `admin`, `director`, `boss`, `export_manager`, `finansist` — the same set as `_ARCHIVE_VIEW_ROLES` (`apps/export/views.py`) — but admin-editable afterwards with no code change, which is the point.
+- **Does NOT imply archive-level read.** The original design (spec §9) said browsing a closed season bypasses the `is_archived` operational/archive split unconditionally for anyone holding `closed_season.can_view`. Implementation review found this makes the permission a silent superset of archive-view access — granting `closed_season` to a sixth role would hand it archived rows (including historical buyer prices) nobody decided it should see. **Reversed (D8):** inside a closed season, archived rows are visible only to users who are ALSO in `_ARCHIVE_VIEW_ROLES`. Everyone else sees a partial view (non-archived rows only) of that season — a UI problem, disclosed in the frontend's `ClosedSeasonBanner`, not a permission escalation.
+- A user holding `closed_season.can_view` but not `season.can_view` cannot populate the switcher's own option list (`GET /admin/seasons/` needs `season.can_view`) — `finansist` hit exactly this gap and was seeded `season: view-only` alongside its existing `closed_season.can_view` (Task 15b) so the switcher works for it without granting any season write access.
+- **Known live-DB drift, not caused by this feature but newly consequential:** `seed_permissions` only `get_or_create`s, never overwrites. On the current dev database, `boss`'s `season` row shows full CRUD where the seeder's blanket `_VIEW` intends read-only — so `boss` can currently close/open seasons, a capability the design never intended for that role.
 
 ## Connections to Other Processes
 

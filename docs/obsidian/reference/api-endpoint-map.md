@@ -15,13 +15,15 @@ tags: [reference, api, backend, frontend]
 | POST | `/api/v1/auth/logout/` | AuthView | `useAuth().logout` | - |
 | GET | `/api/v1/auth/me/` | AuthView | `useAuth()` | - (loaded on app init) |
 
+`/auth/me/` also returns `active_season: {id,name,status}|null` and `can_view_closed_seasons: boolean` (AD-16) — the two facts that seed the frontend season store (`useSeasonStore`) on page load, added to `core.UserMeSerializer` and inherited by the actually-mounted `export.ExtendedUserMeSerializer` (`config/urls.py` includes `apps.export.urls_auth` before `apps.core.urls.auth`, so the export-side view wins the identical `me/` path).
+
 ## Export Endpoints
 
 ### Shipments
 
 | Method | Endpoint | ViewSet | Hook | Page |
 |--------|----------|---------|------|------|
-| GET | `/api/v1/export/shipments/` | ShipmentViewSet (list) | `useShipments` | ShipmentList |
+| GET | `/api/v1/export/shipments/` | ShipmentViewSet (list) | `useShipments` | ShipmentList — accepts `?season=<id>` (AD-16); default = active season; no active season = empty list (D7 fail-closed); a closed season requires `closed_season.can_view` else `403` |
 | GET | `/api/v1/export/shipments/{id}/` | ShipmentViewSet (detail) | `useShipmentDetail` | ShipmentDetail |
 | POST | `/api/v1/export/shipments/` | ShipmentViewSet (create) | `useShipments` (mutation) | ShipmentCreateModal |
 | PATCH | `/api/v1/export/shipments/{id}/` | ShipmentViewSet (partial_update) | `useShipmentPatch` | ShipmentDetail, ShipmentSheet |
@@ -45,6 +47,10 @@ tags: [reference, api, backend, frontend]
 | POST | `/api/v1/export/shipments/{id}/block-sources/` | ShipmentViewSet.set_block_sources | `useShipmentDetail` (mutation) | ShipmentDetail |
 | POST | `/api/v1/export/shipments/{id}/firm-splits/` | ShipmentViewSet.set_firm_splits | `useShipmentDetail` (mutation) | ShipmentDetail |
 | GET | `/api/v1/export/shipments/{id}/tasks/` | ShipmentViewSet.tasks_list | `useShipmentTasks` | ShipmentDetail (Tasks tab) |
+
+**Season scoping (AD-16):** `?season=<id>` works the same way on every list endpoint marked "season-scoped" in this map — shipments, Sheet, Kanban board, harvest plans, day entries, truck allocations/destinations, local-sell plans, contracts, contract-sales, comments, tasks, quota-usage, advances, customs-expenses, document-packets, clients-report. Omitted → the active season. An unknown id → `404`. A closed id without the `closed_season.can_view` resource permission → `403`. No active season at all (the close→open gap) → the list returns empty, not unfiltered (D7 — fail closed). Detail-by-id routes (e.g. `GET /shipments/{id}/`) are NOT season-scoped by design — a direct link always resolves, closed season or not; mutating that row still 409s per the write freeze below. `quota-issuances`, `admin/*` reference-data endpoints, and `sales-rep-coverage` are explicit opt-outs (see AD-16 / design spec §4.5) — passing `?season=` to them is a no-op.
+
+**Write freeze (AD-16):** any mutation against a row anchored to a **closed** season — directly (`Shipment.season`) or by join (e.g. `Comment.shipment.season`) — returns `409 {"error":"season_closed","season":"<name>","closed_at":"<iso>"}` instead of applying. This includes status transitions, the Sheet bulk-edit, the two-row Join, and creates that target a closed season via the request body.
 
 **Draft create** (`POST /shipments/` with `is_draft=true`) now also accepts optional `varieties`, `import_firm`, `firm_splits[]`, and `skip_forecast_check`. This supports the two-column Join flow's supply-only and destination-only drafts — see [[../processes/draft-shipments#Two-column Join flow (coexisting alternative)]]. `skip_forecast_check=true` (sent by the supply-column modal) skips **both** weight caps for that draft: the forecast-pool remaining check **and** the 18,500 kg one-truck cap — a supply column aggregates a day's harvest and may span more than one truck. The forecast-first one-truck DraftComposer path (no `skip_forecast_check`) keeps both caps.
 
@@ -158,7 +164,10 @@ See [[screens/main-dashboard]] for the full response contract.
 
 | Method | Endpoint | ViewSet | Hook | Page |
 |--------|----------|---------|------|------|
-| GET/POST/PATCH | `/api/v1/export/admin/seasons/` | SeasonViewSet | `useSeasons` | SeasonsPage |
+| GET/POST/PATCH/DELETE | `/api/v1/export/admin/seasons/` | SeasonViewSet | `useSeasons` | SeasonsPage — read gated on `season.can_view` (admin/director/export_manager/boss full or read CRUD; `finansist` view-only, so it can populate the header switcher without season write access) |
+| GET | `/api/v1/export/admin/seasons/{id}/close-preview/` | SeasonViewSet.close_preview_action | `useSeasonClosePreview` | SeasonCloseModal — counts (`drafts`/`in_transit`/`open_tasks`/`unfinished_plans`) for the confirm dialog; gated on `season.can_edit`, not `can_view` |
+| POST | `/api/v1/export/admin/seasons/{id}/close/` | SeasonViewSet.close | `useCloseSeason` | SeasonsPage — freezes + hides the season (AD-16, D2); `409` if already closed |
+| POST | `/api/v1/export/admin/seasons/{id}/open/` | SeasonViewSet.open | `useOpenSeason` | SeasonsPage — makes the season the write target; `409` if the target is closed (reopening is unsupported) |
 | GET/POST/PATCH | `/api/v1/export/admin/firms/` | ExportFirmViewSet | `useAdmin` | ExportFirmsPage |
 | GET/POST/PATCH | `/api/v1/export/admin/import-firms/` | ImportFirmViewSet | `useAdmin` | ImportFirmsPage |
 | GET/POST/PATCH | `/api/v1/export/admin/users/` | UserManagementViewSet | `useAdmin` | UsersPage |
