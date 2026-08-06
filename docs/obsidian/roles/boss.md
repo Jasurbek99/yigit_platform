@@ -75,8 +75,29 @@ Writes made by `boss` are attributed to him like any other user's — status cha
 | **Production results** (daily + seasonal, plan vs actual per block) | `WeeklyHarvestPlan` summed per block over scope |
 | **Export-market by block** (Daşarky Bazar only) | `ShipmentBlockSource.weight_kg` summed per block |
 | Reports grid | Triggers `/export/boss/export_excel/?section=...` and `/export/boss/export_pdf/?section=...` |
+| Process guides (2 tiles) | Static `docs/how_works/*.html` served byte-for-byte via a whitelisted endpoint — not live data |
 
 > **Out of v1**: Içerki Bazar (domestic per block) and Sowgatlyk (gift per block) are explicitly excluded. They will be added together with the wider domestic-sales analytics phase.
+
+## Process guides (2026-08-06)
+
+The last widget on the dashboard is a "How the process works" card (`ProcessGuides.tsx`) with two tiles — "A shipment's journey" and "BPMN diagram." Each opens a process-explainer document from `docs/how_works/` in a new tab via `GET /api/v1/export/boss/process-doc/?doc=<slug>` on `BossAnalyticsViewSet`, so it inherits the viewset's `IsBossOrDirector` gate.
+
+> **Known limitation, not a decision anyone argued for.** Both documents describe *every* role's job in the shipment process, not just the boss's — but because the endpoint hangs off the boss analytics viewset, only `boss`, `director` and `admin` can open them. Nobody chose to restrict the explainers to those three roles; it fell out of where the action was added.
+
+**The whitelist is the security control, not a convenience — do not "simplify" it away.** `?doc=` is user input naming a file, but it never becomes a filesystem path: `_PROCESS_DOCS` in `views_analytics.py` is a hardcoded `{slug: filename}` dict, and a slug that isn't a key in it 404s before any disk access happens. Adding one of the other documents already sitting in `docs/how_works/` is a one-line dict edit — never `os.path.join` / string formatting from `?doc=`. `tests_process_docs.py` exists specifically to catch a regression to path-joining: four traversal payloads, a case-variant slug, and — the sharpest case, added on review because the other three would still pass under naive path-joining — a request for a real, unlisted file sitting in the same directory (`?doc=walkthrough`), which a naive `Path(dir) / f'{slug}.html'` would happily serve but the whitelist correctly 404s.
+
+### BPMN diagram click-through
+
+The second document, `shipment-bpmn.html`, draws a BPMN diagram of the 20-step process. Its task blocks are clickable: once the SVG has rendered, the page fetches `GET /api/v1/export/boss/process-doc-links/` (same viewset, same `IsBossOrDirector` gate) and upgrades any `<div id="task-{node_id}">` whose id is in the response into a real `<a target="_blank">`. If the fetch fails, 404s, or returns garbage, the diagram is left exactly as it rendered without the fetch — no error, no partial state — so it still works offline or with an expired session.
+
+The mapping lives in `export.ProcessNodeLink` (table `export_process_node_links`): `node_id` (unique), `label` (Turkmen, transcribed verbatim from the diagram's node array, `Cyrillic_General_CI_AS` collation per project convention regardless of script), `route`, `is_active`. Seeded with its 20 rows by data migration `0060_seed_process_node_links`, verified against the diagram's own node array and against `frontend/src/utils/permissions.ts`'s `ROUTE_PAGE_MAP`.
+
+**`node_id` is the join key to the diagram's own data array and is read-only via the API.** Change it and the row silently orphans — the block simply stops linking, with no error anywhere to notice by. There is no create or delete on the admin endpoint either: the 20 ids are fixed by the diagram's data array, so a new node needs a diagram change plus a migration, not an admin action.
+
+Editable at **`/admin/process-links`**, admin role only (route guard `roles={['admin']}`, not a `pageCode`) — see [[../processes/permissions-system#Process node links — inline admin gate, not the resource matrix (2026-08-06)]] for why it deliberately bypasses the resource-permission matrix. `node_id` and `label` are read-only in that UI even though the API technically permits editing `label`.
+
+**Stored-XSS fix (2026-08-06).** `route` is written into the diagram's `<a href>` via `setAttribute()`, and the boss clicks it. Before migration `0061`, `route` was unconstrained free text — a `javascript:` value saved through the admin PATCH would have executed in the boss's session. Admin-only gating on the field does not contain that: AD-15 keeps `admin` and `boss` as separate principals, and the payload would run in the boss's browser, not the admin's. Fixed in two layers: a server-side `RegexValidator` on the model field (blank, or an in-app absolute path only — no scheme, no protocol-relative `//`) is the real boundary, since it rejects the value before it is ever stored and DRF copies model-field validators onto every write path through the serializer; a client-side `isSafeInAppRoute()` guard in `shipment-bpmn.html` is defence-in-depth only, covering rows written before the validator existed (or through any future write path that bypasses the serializer) — the client check alone would not have been sufficient, since the API can always be reached directly.
 
 ## Drill-down map
 

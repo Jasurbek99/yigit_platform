@@ -131,6 +131,14 @@ Two dedicated endpoints gate independently on a **different, same-named constant
 
 Reconciling the two divergent `PRIVILEGED_ROLES` constants is still out of scope.
 
+### Process node links — inline admin gate, not the resource matrix (2026-08-06)
+
+`ProcessNodeLinkViewSet` (`/api/v1/export/admin/process-node-links/`, list + PATCH only, backs the [[../roles/boss#BPMN diagram click-through|boss BPMN diagram's]] node→route mapping) is gated the same way `UserManagementViewSet` is — an inline `if not _is_full_admin(request.user): raise PermissionDenied(...)` in `check_permissions`, not `DynamicResourcePermission` against a registered `resource_code`.
+
+This is deliberate, not an oversight to "clean up" later. `seed_permissions.py`'s `RESOURCE_DEFAULTS` gives `director`, `export_manager` and `boss` `**{r: _VCRUD for r in _ALL_RESOURCES}` — full CRUD on every resource — where `_ALL_RESOURCES = set(RESOURCE_REGISTRY.keys())` is computed **dynamically from whatever is currently registered**. Registering a `process_node_link` resource_code would land inside that set the moment it's added, and the next `seed_permissions` run would `get_or_create` full-CRUD rows for those three roles automatically (its `defaults=` only skips existing rows — a brand-new resource_code has none yet). That would silently turn "admin full CRUD, everyone else nothing" into "admin, director, export_manager and boss all get full CRUD" — none of which anyone decided for this feature. An inline check sidesteps the matrix entirely, so there is no per-role override row for a future registry entry to accidentally create.
+
+Same pattern, same reasoning, on the frontend: `/admin/process-links` is gated with `roles={['admin']}` on `ProtectedRoute`, not a `pageCode` — a `pageCode` would go through the same page-permission matrix and could be independently granted to a non-admin role.
+
 ### Endpoints
 
 | Method | Endpoint | Action | Auth |
@@ -144,6 +152,7 @@ Reconciling the two divergent `PRIVILEGED_ROLES` constants is still out of scope
 | POST / DELETE / set-password | `/api/v1/export/admin/users/` (+ `{id}/`, `{id}/set-password/`) | Create / delete / reset-password | **superuser**; **loading_dept_head** for deputy + weight_master only (ADR-022) |
 | GET | `/api/v1/export/admin/users/` | List users | admin or export_manager (full); **loading_dept_head** sees only deputy + weight_master |
 | GET / PUT | `/api/v1/export/admin/managed-page-permissions/` | Delegated staff page-access editor — grant a subset of own pages to managed roles | **loading_dept_head** (any delegated manager); admin/superuser too (ADR-022) |
+| GET / PATCH | `/api/v1/export/admin/process-node-links/` (+ `{id}/`) | List / edit BPMN node→route mapping — no create/delete, `node_id` read-only | **admin** (inline `_is_full_admin`, not the resource matrix — see above) |
 | GET | `/api/v1/export/audit-log/` | Audit log | admin / director / export_manager |
 
 The permissions endpoint returns/accepts all 3 levels for a given user's role. Backend gate is `_AdminOnlyPermission` (predicate: `is_superuser OR role=='admin'`).
