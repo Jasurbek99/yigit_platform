@@ -132,6 +132,9 @@ an exhaustive key list by hand.
 - Comment creation on Shipment Detail is not season-gated on the frontend (see above).
 - Live dev-DB permission drift (not caused by this feature): `boss`'s `season` row has full
   CRUD where the seeder intends read-only, so `boss` can currently close/open seasons.
+  Separately, `loading_dept_head`/`loading_dept_head_deputy` carry stray all-False `season`
+  rows the seeder's defaults for those roles would not create — low consequence (all-False
+  grants nothing), disclosed because neither drift self-heals on a re-seed.
 - `seed_data.py`'s `update_or_create` on the seed season will raise if ever re-run after that
   season has been closed (fail-loud, state-dependent — not "structurally impossible").
 

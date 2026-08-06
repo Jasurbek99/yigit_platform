@@ -276,7 +276,15 @@ row per active user, ranked by tasks completed in the selected window. **Public*
 (same radical-transparency rule as `/worklog`). When `period=season`, an optional
 `&season=<id>` (AD-16) moves the window's start date to that season instead of the active
 one (same closed-season permission rules as any other `?season=`); ignored for every other
-`period` value. Default period is `week`; unknown period →
+`period` value. **Incomplete even when wired:** `overdue_now` and `trend` are
+**window-independent** regardless of `?season=` — `overdue_now` reads `timezone.now()` and
+`trend` is a fixed rolling 14 days from today (see this file's own caveats on those two
+fields, below). Browsing a closed season therefore returns one row blending that season's
+`completed`/`on_time_rate` with **today's** overdue count and a **current** 14-day trend —
+two epochs in one row. This was flagged as a decision for whoever wires the switcher onto
+this endpoint (AD-16) and was never made: blank those two fields for a non-active season,
+relabel them, or accept and document further. Currently unresolved. Default period is
+`week`; unknown period →
 400. 60 s server-side cache keyed by period (`team-kpi:{period}`).
 
 ```json
