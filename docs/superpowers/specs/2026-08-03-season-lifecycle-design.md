@@ -45,7 +45,8 @@ We need:
 | D6 | Is the selected season in the URL? | **Yes.** Zustand holds it, `useSearchParams` mirrors it, so deep links are honest. |
 | D7 | What do lists return when NO season is active? | **Fail closed** — empty, with a "no active season" state. Added 2026-08-03 after implementation review; see §3.1. |
 | D8 | Does browsing a closed season bypass `is_archived`? | **No — both permissions required.** Reverses the original §9 rule 3; see §9.1. |
-| D10 | Should `QuotaIssuance` be covered by the freeze? | **Yes — add a `season` FK.** Added 2026-08-05 after Task 9's review found issuances stay editable after a close. **Freeze only: read-scoping stays off** (§4.5) because issuances are consumed FIFO across seasons. |
+| D10 | Should `QuotaIssuance` be covered by the freeze? | **Yes — add a `season` FK.** Added 2026-08-05 after Task 9's review found issuances stay editable after a close. ~~Freeze only: read-scoping stays off.~~ **Superseded by D11.** |
+| D11 | Do quotas cross season boundaries at all? | **No — never.** Ruled 2026-08-06 during user testing, reversing D10's read-scoping exemption. Applies to **both** display and consumption: quota screens show only the selected season's issuances, **and** FIFO consumption stops at the season boundary — a shipment can only draw on its own season's quota. Leftover issuances simply expire with the season. See §4.7. |
 
 ### D3 implementation note
 
@@ -292,7 +293,7 @@ Scoping any of these breaks a working feature:
 | `admin/seasons` | The switcher's own data source. |
 | `admin/firms`, `admin/import-firms`, `admin/users`, `admin/blocks`, `admin/truck-splits`, `admin/sheet-rows`, `admin/block-assignments` | Reference data. Season-independent. |
 | `expense-categories`, `packing-templates`, `prices` | Reference data. `PriceEntry` is keyed `(date, city)` with no season. |
-| `quota-issuances` | Keyed by period, not season. Government quotas do not follow the export season boundary, and issuances are consumed **FIFO across seasons** — hiding a prior season's issuances would break the balance the current season's usage records are matched against. **Read-scoping stays off even though `QuotaIssuance` gained a `season` FK (D10); that FK exists for the write freeze only.** |
+| ~~`quota-issuances`~~ | **Removed from the opt-out list by D11 (2026-08-06).** It is now season-scoped like any other direct-FK endpoint — see §4.7. |
 | `domestic-sales` | No season FK; keyed by block/buyer/date. |
 | Shipment detail-by-ID | Already bypasses season scoping at `views.py:1022`. A direct link must resolve. |
 
@@ -584,3 +585,71 @@ opting out the explicit act, which is the correct direction for a safety propert
 consequence honestly: closing a season with 14 trucks in transit makes them vanish from every
 board at once. The `close-preview` dialog is the entire mitigation, so its copy matters more
 than usual.
+
+---
+
+## 4.7 Quotas never cross seasons (D11)
+
+**Ruled 2026-08-06 during user testing. Supersedes D10's read-scoping exemption and the
+`quota-issuances` row in §4.5.**
+
+The original reasoning was that government quota issuances are consumed FIFO by date, so a
+current-season shipment could legitimately draw down a prior-season issuance — and hiding
+prior-season issuances would therefore break the balance the current season's usage records
+were matched against.
+
+The domain owner ruled otherwise: **quota never crosses a season boundary, in either
+direction.** This applies to both halves:
+
+1. **Display** — `quota-issuances` is season-scoped like any other direct-FK endpoint. The
+   `season` FK added by D10 for the write freeze now also drives the read scope.
+2. **Consumption** — FIFO matching stops at the season boundary. A shipment can only draw on
+   an issuance belonging to its own season. Leftover issuance simply expires with the season
+   rather than carrying forward.
+
+**This changes numbers, not just visibility.** `compute_fifo_usage` and
+`compute_firm_quota_balances` currently order by date with no season predicate; adding one
+will shift existing balance figures wherever a shipment was previously matched against a
+prior season's issuance. That is the intended correction, not a regression — but it means
+quota balances computed before this change are not comparable with those computed after.
+
+**Unlinked rows.** `QuotaUsageRecord.shipment` is nullable and 575 of 711 rows currently have
+no shipment (they reach a season only through that link). Those rows need a season anchor of
+their own under this rule.
+
+**Correction (2026-08-06, during implementation): `QuotaUsageRecord` has no `issuance` FK.**
+The paragraph above originally proposed backfilling from `issuance.issue_date`; there is no
+such link. The model carries `usage_date` (non-null), `export_firm`, `kg_used`,
+`product_type`, `notes`, a nullable `shipment`, and the approval/audit columns — nothing
+else. The available signals are therefore `shipment.season` and `usage_date`, and the
+implemented anchor (`services_quota.usage_season_q()`) uses them in that order of authority:
+the shipment when linked — authoritative even when `usage_date` falls outside that season's
+calendar range, which is real for 7 rows — and the date range otherwise. All 711 rows resolve
+to the 2025-2026 season; none is left unassigned.
+
+It is derived, not stored. A `season` column was considered and rejected: `freeze_season_of()`
+reads `obj.season` **before** `obj.shipment.season`, so any creation site that failed to stamp
+the new column would silently read a closed-season row as open, loosening the write freeze
+D10 exists to provide. Deriving it leaves the freeze anchor exactly where it is.
+
+**Issuance rows that match no season are reported, not guessed** — the Task 4 precedent.
+`QuotaIssuance#34` (25,000 kg, `issue_date` 2026-07-06, firm *Eziz Doganlar*) falls in the gap
+between 2025-2026 (ends 2026-06-30) and 2026-2027 (starts **2026-08-01**, not 2026-09-01) and
+keeps `season = NULL`. Under display scoping it is reachable by direct link only. Open
+question for the owner: assign it to a season, or let it expire unassigned?
+
+**Measured impact (live dev DB, 2026-08-06).** Consumption totals for the season that holds
+the data are unchanged — 19,771,100 kg tomato and 144,000 kg pepper before and after — and no
+firm's balance moves. The only ledger difference is that issuance #34's allocation leaves the
+map, and it was already consuming 0 kg. The visible change is display: the active 2026-2027
+season shows 0 issuances rather than all 25. `compute_firm_quota_balances` already returned
+`{}` before this change (it date-ranged on the active season, which holds no quota yet), so
+the "before" side of the balance comparison was already empty.
+
+## 4.8 `/me/tasks/` is season-scoped (2026-08-06)
+
+`TaskViewSet` was season-scoped during the original build, but the frontend never lists from
+it — the My Tasks screen calls `/me/tasks/` (`frontend/src/hooks/useMyTasks.ts:20`, query key
+`['my-tasks', role]`), which had no season filter and no `seasonId` in its key. Switching
+seasons therefore left that screen unchanged. It is now scoped like every other
+shipment-anchored list, and its query key carries `seasonId`.

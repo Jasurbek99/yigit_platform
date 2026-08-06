@@ -920,7 +920,14 @@ class TaskJoinScopedEndpointTests(TestCase):
 
 class QuotaUsageJoinScopedEndpointTests(TestCase):
     """QuotaUsageRecord.shipment is nullable ("null for imported historical
-    records"). Same include_null_link rule as Task.
+    records") — but NOT the same include_null_link rule as Task any more.
+
+    D11 (2026-08-06): quota never crosses a season boundary, so an unlinked
+    usage row belongs to exactly ONE season rather than surfacing under every
+    open one. `QuotaUsageViewSet.apply_season_scope()` anchors it on
+    `usage_date` instead, via the same `usage_season_q()` predicate FIFO and the
+    firm balances use — so the grid and the ledger can never disagree about
+    which rows belong to the season on screen. See tests_quota_season_d11.
     """
 
     @classmethod
@@ -963,9 +970,17 @@ class QuotaUsageJoinScopedEndpointTests(TestCase):
             usage_date=cls.closed.start_date, export_firm=cls.export_firm,
             kg_used=Decimal('2000'), shipment=closed_shipment, notes='closed-row',
         )
+        # Unlinked, dated inside the CLOSED season -> belongs to it (D11).
         cls.historical_row = QuotaUsageRecord.objects.create(
             usage_date=cls.closed.start_date, export_firm=cls.export_firm,
             kg_used=Decimal('3000'), shipment=None, notes='historical-row',
+        )
+        # Unlinked, dated inside the ACTIVE season -> belongs to it. Without
+        # this row the two tests below could both pass by dropping every
+        # unlinked row everywhere, which is the other way to get D11 wrong.
+        cls.historical_active_row = QuotaUsageRecord.objects.create(
+            usage_date=cls.active.start_date, export_firm=cls.export_firm,
+            kg_used=Decimal('4000'), shipment=None, notes='historical-active-row',
         )
 
     def _login(self, user) -> APIClient:
@@ -979,19 +994,26 @@ class QuotaUsageJoinScopedEndpointTests(TestCase):
         rows = payload['results'] if isinstance(payload, dict) else payload
         return {r['notes'] for r in rows}
 
-    def test_default_view_includes_historical_excludes_closed(self):
+    def test_default_view_shows_only_this_seasons_unlinked_rows(self):
+        """Reversed by D11 (was test_default_view_includes_historical_excludes_closed,
+        which asserted EVERY unlinked row shows under the active season)."""
         notes = self._notes(self._login(self.admin).get('/api/v1/export/quota-usage/'))
         self.assertIn('active-row', notes)
-        self.assertIn('historical-row', notes)
+        self.assertIn('historical-active-row', notes)
         self.assertNotIn('closed-row', notes)
+        self.assertNotIn('historical-row', notes)
 
-    def test_closed_season_selected_hides_historical_row(self):
+    def test_closed_season_selected_shows_its_own_unlinked_row(self):
+        """Reversed by D11 (was test_closed_season_selected_hides_historical_row).
+        An unlinked row dated inside a closed season is part of that season's
+        archive, not homeless."""
         notes = self._notes(
             self._login(self.admin).get(f'/api/v1/export/quota-usage/?season={self.closed.pk}')
         )
         self.assertIn('closed-row', notes)
+        self.assertIn('historical-row', notes)
         self.assertNotIn('active-row', notes)
-        self.assertNotIn('historical-row', notes)
+        self.assertNotIn('historical-active-row', notes)
 
     def test_closed_season_denied_without_permission(self):
         client = self._login(self.blocked)

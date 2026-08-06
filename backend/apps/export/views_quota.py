@@ -20,7 +20,9 @@ from rest_framework.decorators import action
 from apps.core.models import Season
 from apps.core.permissions import write_permission, DynamicResourcePermission, SeasonNotClosed
 from apps.core.roles import QUOTA_WRITE
-from apps.core.seasons import SeasonScopedMixin, assert_bulk_seasons_open, get_active_season
+from apps.core.seasons import (
+    SeasonScopedMixin, assert_bulk_seasons_open, get_active_season, resolve_season,
+)
 
 from apps.export.models import QuotaIssuance, QuotaUsageRecord
 from apps.export.models.audit import AuditLog
@@ -33,6 +35,7 @@ from apps.export.services_quota import (
     build_quota_dashboard,
     compute_fifo_usage,
     compute_firm_quota_balances,
+    usage_season_q,
 )
 from apps.export.services.quota_sync import invalidate_quota_caches
 
@@ -43,7 +46,7 @@ logger = logging.getLogger(__name__)
 # QuotaIssuanceViewSet
 # ---------------------------------------------------------------------------
 
-class QuotaIssuanceViewSet(ModelViewSet):
+class QuotaIssuanceViewSet(SeasonScopedMixin, ModelViewSet):
     """
     GET    /api/v1/export/quota-issuances/           — list
     GET    /api/v1/export/quota-issuances/{id}/      — detail
@@ -54,15 +57,21 @@ class QuotaIssuanceViewSet(ModelViewSet):
     """
 
     resource_code = 'quota_issuance'
-    # SeasonNotClosed (D10): write-freeze only — this viewset deliberately
-    # does NOT use SeasonScopedMixin/apply_season_scope; quota-issuances stays
-    # off the read-scope list (spec §4.5) because issuances are consumed FIFO
-    # across seasons. has_object_permission covers PUT/PATCH/DELETE on the
-    # detail route via get_object(); create is exempt by construction (see
-    # perform_create — the target is always get_active_season(), which can
-    # never be closed).
+    # D11 (spec §4.7): season-scoped for READS as well as the write freeze,
+    # reversing D10's opt-out. Quota never crosses a season boundary in either
+    # direction, so the `season` FK added for `freeze_season_of()` now also
+    # drives the read scope. `include_null_link` stays False and cannot be
+    # turned on here: a direct `season` FK has no separate anchor column to
+    # test for NULL. Consequence, deliberate and reported rather than papered
+    # over — an issuance whose `issue_date` falls in the gap between two
+    # seasons carries `season = NULL` and is reachable by direct link only
+    # (QuotaIssuance#34 on the dev database, 25,000 kg, 2026-07-06).
+    #
+    # SeasonNotClosed covers PUT/PATCH/DELETE on the detail route via
+    # get_object(); create is guarded in perform_create below.
     permission_classes = [IsAuthenticated, DynamicResourcePermission, SeasonNotClosed]
     http_method_names = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options']
+    season_field = 'season'
 
     queryset = QuotaIssuance.objects.prefetch_related(
         'allocations__export_firm'
@@ -77,6 +86,11 @@ class QuotaIssuanceViewSet(ModelViewSet):
             qs = qs.filter(issue_date__gte=date_from)
         if date_to := params.get('date_to'):
             qs = qs.filter(issue_date__lte=date_to)
+        # Gated on `list` so detail routes still resolve across seasons — that
+        # is what lets a write to a closed-season issuance return 409 rather
+        # than 404 (Rule A).
+        if self.action == 'list':
+            qs = self.apply_season_scope(qs)
         return qs
 
     def get_serializer_class(self):
@@ -88,7 +102,10 @@ class QuotaIssuanceViewSet(ModelViewSet):
         ctx = super().get_serializer_context()
         if self.request.method == 'GET':
             product_type = self.request.query_params.get('product_type', 'tomato')
-            ctx['usage_map'] = compute_fifo_usage(product_type)
+            # The FIFO ledger is per-season under D11, so it must be computed
+            # for the SAME season the rows were listed under — otherwise the
+            # consumed_kg column would describe a different season's ledger.
+            ctx['usage_map'] = compute_fifo_usage(product_type, resolve_season(self.request))
         return ctx
 
     def perform_create(self, serializer) -> None:
@@ -96,7 +113,17 @@ class QuotaIssuanceViewSet(ModelViewSet):
         # Shipment precedent — get_active_season() can never be closed, so no
         # request-level season guard is needed here (unlike perform_update /
         # the reassign action, which reach an EXISTING, possibly-closed row).
-        serializer.save(created_by=self.request.user, season=get_active_season())
+        season = get_active_season()
+        if season is None:
+            # D11 turned a harmless NULL into an invisible row: with reads now
+            # scoped, an issuance created during the close→open gap would be
+            # stamped with no season and disappear from every screen the moment
+            # it was saved. Refusing is the only honest answer — we cannot
+            # guess which season a gap-dated issuance belongs to.
+            raise ValidationError({
+                'detail': 'No active season. Open a season before recording a quota issuance.',
+            })
+        serializer.save(created_by=self.request.user, season=season)
         # New allocations change issued_kg → remaining_kg; bust the caches the
         # Sheet firm-split editor reads or a firm stays "no quota"/unselectable.
         invalidate_quota_caches()
@@ -164,11 +191,18 @@ class QuotaUsageViewSet(SeasonScopedMixin, ModelViewSet):
     DELETE /api/v1/export/quota-usage/{id}/         — delete (draft only)
     POST   /api/v1/export/quota-usage/approve/      — bulk approve
 
-    List is scoped to the resolved season via `shipment`. QuotaUsageRecord.shipment
+    List is scoped to the resolved season via `usage_season_q()` (D11), which
+    anchors a linked row on `shipment.season` and an unlinked one on its
+    `usage_date` falling inside the season's range. `QuotaUsageRecord.shipment`
     is nullable ("null for imported historical records" — pre-dates this table's
-    shipment link) — `include_null_link` keeps those visible whenever the resolved
-    season is open, and hides them the moment a closed season is explicitly
-    browsed. Detail routes bypass scoping — Rule A.
+    shipment link) and 575 of 711 rows on the dev database have no shipment at
+    all. The pre-D11 `include_null_link` treatment surfaced every one of those
+    under *every* open season; under "quota never crosses a season boundary"
+    each belongs to exactly one, so the date is used as the anchor of last
+    resort instead. Display and consumption share the one predicate on purpose:
+    a row the grid shows must be a row FIFO counts.
+
+    Detail routes bypass scoping — Rule A.
     """
 
     resource_code = 'quota_usage'
@@ -176,12 +210,30 @@ class QuotaUsageViewSet(SeasonScopedMixin, ModelViewSet):
     serializer_class = QuotaUsageRecordSerializer
     pagination_class = None  # Grid view needs all records; volume is bounded by season
     http_method_names = ['get', 'patch', 'delete', 'post', 'head', 'options']
+    # `season_field` is still what the write-freeze helpers on the mixin read;
+    # only the READ scope is overridden below, because the mixin's Q builder
+    # cannot express the date-based fallback an unlinked row needs.
     season_field = 'shipment__season'
     include_null_link = True
 
     queryset = QuotaUsageRecord.objects.select_related(
         'export_firm', 'shipment', 'approved_by', 'created_by',
     ).order_by('-usage_date', 'export_firm')
+
+    def apply_season_scope(self, qs, season=SeasonScopedMixin._SEASON_NOT_GIVEN):
+        """Override: anchor unlinked rows on `usage_date`, not on "every season".
+
+        `SeasonScopedMixin` can only build `Q(season_field=season)` plus an
+        optional `anchor IS NULL`, and "IS NULL" means *every* open season —
+        which D11 forbids. `usage_season_q()` is the same predicate FIFO and the
+        firm balances use, so the grid and the ledger can never disagree about
+        which rows belong to the season on screen.
+        """
+        if season is SeasonScopedMixin._SEASON_NOT_GIVEN:
+            season = resolve_season(self.request)
+        if season is None:
+            return qs.none()  # D7 fail closed
+        return qs.filter(usage_season_q(season))
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -351,10 +403,13 @@ class QuotaDashboardView(APIView):
 # ---------------------------------------------------------------------------
 
 class QuotaFirmBalancesView(APIView):
-    """GET /api/v1/export/quota-firm-balances/?product_type=tomato
+    """GET /api/v1/export/quota-firm-balances/?product_type=tomato&season=<id>
 
-    Per-firm remaining quota for the active season, consumed by the firm-split
-    editor to softly warn when a chosen firm has no quota left to assign.
+    Per-firm remaining quota for the RESOLVED season (D11 — quota never crosses
+    a season boundary, so the balance follows the season being browsed rather
+    than the write target), consumed by the firm-split editor to softly warn
+    when a chosen firm has no quota left to assign. Empty during the close→open
+    gap, per D7.
 
     Gated by the same resource as the dashboard ('quota_issuance' view) — which
     is exactly the set of roles that may edit shipment firm splits
@@ -369,13 +424,19 @@ class QuotaFirmBalancesView(APIView):
 
     def get(self, request: Request) -> Response:
         product_type = request.query_params.get('product_type', 'tomato').lower()
+        season = resolve_season(request)
+        if season is None:
+            return Response({})
 
-        cache_key = f'quota_firm_balances:{product_type}'
+        # Season in the key, or switching seasons serves the previous season's
+        # balances for up to the 60s TTL. `invalidate_quota_caches()` busts
+        # every season's key.
+        cache_key = f'quota_firm_balances:{product_type}:{season.pk}'
         cached = cache.get(cache_key)
         if cached is not None:
             return Response(cached)
 
-        balances = compute_firm_quota_balances(product_type)
+        balances = compute_firm_quota_balances(product_type, season)
         data = {str(firm_id): vals for firm_id, vals in balances.items()}
         cache.set(cache_key, data, 60)
         return Response(data)

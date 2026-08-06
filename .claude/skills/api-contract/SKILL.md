@@ -459,8 +459,8 @@ Notes:
 
 Every season-bearing list endpoint (shipments, Sheet, Kanban board, harvest plans, day
 entries, truck allocations/destinations, local-sell plans, contracts, contract-sales,
-comments, tasks, quota-usage, advances, customs-expenses, document-packets, clients-report)
-accepts an optional `?season=<id>`:
+comments, tasks, quota-usage, quota-issuances, quota-firm-balances, advances,
+customs-expenses, document-packets, clients-report) accepts an optional `?season=<id>`:
 
 - Omitted → the active (write-target) season.
 - Unknown id → `404`.
@@ -472,9 +472,25 @@ accepts an optional `?season=<id>`:
 
 Detail-by-id routes (`GET /shipments/{id}/`, etc.) are **not** season-scoped — a direct link
 always resolves regardless of the row's season. Explicit opt-outs that ignore `?season=`
-entirely: `quota-issuances` (issuances are consumed FIFO across season boundaries — hiding a
-prior season's would break the balance calculation), every `admin/*` reference-data endpoint,
-and `sales-rep-coverage`.
+entirely: every `admin/*` reference-data endpoint, and `sales-rep-coverage`.
+
+**Quota is season-scoped in BOTH directions (D11, 2026-08-06).** `quota-issuances` was on the
+opt-out list until then, on the reasoning that issuances are consumed FIFO *across* season
+boundaries. The domain owner reversed that: quota never crosses a season boundary, so
+`quota-issuances` is scoped on its `season` FK, and `compute_fifo_usage(product_type, season)`
+/ `compute_firm_quota_balances(product_type, season)` take the season explicitly and stop the
+FIFO walk at it — leftover issuance expires with its season rather than carrying forward.
+Consequences worth knowing before you touch this code:
+
+- An issuance whose `issue_date` falls in the gap between two seasons has `season = NULL` and
+  is **invisible on every list** (reachable by direct link only). `POST /quota-issuances/`
+  now 400s during the close→open gap rather than creating another one.
+- `QuotaUsageRecord` has **no** `season` FK and **no** `issuance` FK — only `usage_date` and a
+  nullable `shipment`. Its season is derived by `services_quota.usage_season_q(season)`:
+  `shipment.season` when linked, else `usage_date` inside the season's range. Use that helper;
+  do not hand-roll the predicate, and do not assume an `issuance` link exists.
+- `quota-firm-balances` follows the **resolved** season, not the active one, and returns `{}`
+  during the gap. Its cache key and the FIFO cache key both carry the season id.
 
 `boss` analytics is mixed, not uniformly parameterised — check the specific action before
 assuming `?season=` moves it:

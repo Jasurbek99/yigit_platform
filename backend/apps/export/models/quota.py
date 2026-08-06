@@ -59,11 +59,19 @@ class QuotaIssuance(models.Model):
         db_column='created_by', related_name='quota_issuances_created',
     )
 
-    # Write-freeze anchor only (D10) — NOT a read-scope filter. Nullable:
-    # historical rows may not map cleanly to a season. Issuances are consumed
-    # FIFO across seasons (see services_quota.compute_fifo_usage), so the
-    # quota-issuances list stays unscoped (spec §4.5) even though this FK
-    # exists for `freeze_season_of()` to anchor on.
+    # Write-freeze anchor (D10) AND read scope (D11, spec §4.7). Quota never
+    # crosses a season boundary in either direction, so this FK both anchors
+    # `freeze_season_of()` for the 409 write guard and drives
+    # `QuotaIssuanceViewSet`'s season scoping and the FIFO walk in
+    # `services_quota.compute_fifo_usage`. (Until 2026-08-06 it was the anchor
+    # only, on the since-reversed assumption that issuances are consumed FIFO
+    # across seasons.)
+    #
+    # Still nullable: an issuance whose `issue_date` falls in the gap between
+    # two seasons maps to none, and guessing one would corrupt a balance.
+    # Such a row is invisible on every list and reachable by direct link only —
+    # `QuotaIssuance#34` on the dev database is the one instance. `perform_create`
+    # now refuses to make more (400 when no season is active).
     season = models.ForeignKey(
         'core.Season', on_delete=models.PROTECT,
         null=True, blank=True, related_name='quota_issuances',

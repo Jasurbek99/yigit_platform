@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
+import { useSelectedSeason } from '@/hooks/useSeasonParam';
 import type { IQuotaDashboardResponse, IQuotaIssuance, IApiListResponse } from '@/types';
 
 export interface IQuotaDashboardFilters {
@@ -33,22 +34,30 @@ export function useQuotaDashboard(
   });
 }
 
+/**
+ * Quota issuances for the selected season. Season-scoped since D11 — quota
+ * never crosses a season boundary, so `seasonId` is in the key or a switch
+ * renders the previous season's cached issuances.
+ */
 export function useQuotaIssuances(
   filters: { product_type?: string; date_from?: string; date_to?: string } = {},
 ) {
+  const { seasonId, isReady } = useSelectedSeason();
   return useQuery({
-    queryKey: ['quota-issuances', filters],
+    queryKey: ['quota-issuances', seasonId, filters],
     queryFn: async (): Promise<IQuotaIssuance[]> => {
       const params = new URLSearchParams();
       if (filters.product_type) params.set('product_type', filters.product_type);
       if (filters.date_from) params.set('date_from', filters.date_from);
       if (filters.date_to) params.set('date_to', filters.date_to);
+      if (seasonId != null) params.set('season', String(seasonId));
       const qs = params.toString() ? `?${params}` : '';
       const { data } = await api.get<IApiListResponse<IQuotaIssuance> | IQuotaIssuance[]>(
         `/export/quota-issuances/${qs}`,
       );
       return Array.isArray(data) ? data : data.results;
     },
+    enabled: isReady,
     staleTime: 60_000,
   });
 }
@@ -60,26 +69,32 @@ export interface IFirmQuotaBalance {
 }
 
 /**
- * Per-firm remaining quota (issued − approved-used) for the active season,
- * keyed by export_firm id (as a string). Firms absent from the map have no
- * allocation → treat as zero remaining. Powers the firm-split editor's soft
- * "no quota" warning. Gated by quota_issuance view on the backend, so only
- * the roles that can edit firm splits fetch it (others pass enabled=false).
+ * Per-firm remaining quota (issued − committed) for the SELECTED season, keyed
+ * by export_firm id (as a string). Firms absent from the map have no allocation
+ * → treat as zero remaining. Powers the firm-split editor's soft "no quota"
+ * warning. Gated by quota_issuance view on the backend, so only the roles that
+ * can edit firm splits fetch it (others pass enabled=false).
+ *
+ * Season-scoped since D11: a season's leftover quota expires with it rather
+ * than carrying forward, so the balance shown must be the selected season's.
  */
 export function useQuotaFirmBalances(
   productType: string,
   options: { enabled?: boolean } = {},
 ) {
   const { enabled = true } = options;
+  const { seasonId, isReady } = useSelectedSeason();
   return useQuery({
-    queryKey: ['quota-firm-balances', productType],
+    queryKey: ['quota-firm-balances', seasonId, productType],
     queryFn: async (): Promise<Record<string, IFirmQuotaBalance>> => {
+      const params = new URLSearchParams({ product_type: productType });
+      if (seasonId != null) params.set('season', String(seasonId));
       const { data } = await api.get<Record<string, IFirmQuotaBalance>>(
-        `/export/quota-firm-balances/?product_type=${encodeURIComponent(productType)}`,
+        `/export/quota-firm-balances/?${params.toString()}`,
       );
       return data;
     },
-    enabled,
+    enabled: enabled && isReady,
     staleTime: 60_000,
   });
 }
