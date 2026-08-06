@@ -103,6 +103,24 @@ class OpenSeasonTests(TestCase):
         season.refresh_from_db()
         self.assertTrue(season.is_active)
 
+    def test_close_then_open_successor_round_trip(self):
+        """Task 16b: the activation guard must not trip either service — close
+        always writes is_active=False, and open refuses a closed target before
+        ever writing is_active=True on it."""
+        incumbent = Season.objects.create(
+            name='2025/2026', start_date=date(2025, 9, 1), end_date=date(2026, 8, 31),
+            is_active=True,
+        )
+        successor = Season.objects.create(
+            name='2026/2027', start_date=date(2026, 9, 1), end_date=date(2027, 8, 31),
+        )
+        close_season(incumbent, self.user)
+        open_season(successor, self.user)
+        incumbent.refresh_from_db()
+        successor.refresh_from_db()
+        self.assertEqual(incumbent.status, 'CLOSED')
+        self.assertEqual(successor.status, 'ACTIVE')
+
 
 class ClosePreviewTests(TestCase):
     def setUp(self):
@@ -280,6 +298,32 @@ class SeasonEndpointTests(TestCase):
         populate the switcher). Without the seeded grant, this 403s."""
         response = self._client(self.finansist).get('/api/v1/export/admin/seasons/')
         self.assertEqual(response.status_code, 200)
+
+    def test_patch_is_active_true_on_closed_season_returns_400(self):
+        """Task 16b: PATCH is_active=true must not reopen a closed season —
+        that bypasses open_season()'s atomic incumbent-swap + audit log.
+
+        Deactivates the class-level incumbent (`self.season`) first: with an
+        incumbent present, DRF's auto-generated conditional-UniqueConstraint
+        validator on `is_active` already 400s the request for an unrelated
+        reason (two rows can't both be active) and the test would pass
+        without ever exercising the closed-season guard. The real hole is in
+        exactly the close->open gap this reproduces: no incumbent, so nothing
+        but the guard stands between the request and `uq_season_single_active`
+        never even being touched.
+        """
+        Season.objects.filter(pk=self.season.pk).update(is_active=False)
+        closed = Season.objects.create(
+            name='2024/2025', start_date=date(2024, 9, 1), end_date=date(2025, 8, 31),
+            closed_at=timezone.now(),
+        )
+        response = self._client().patch(
+            f'/api/v1/export/admin/seasons/{closed.pk}/',
+            {'is_active': True},
+        )
+        self.assertEqual(response.status_code, 400)
+        closed.refresh_from_db()
+        self.assertFalse(closed.is_active)
 
     def test_finansist_still_cannot_create_edit_or_delete_seasons(self):
         """The fix must grant view only — create/edit/delete stay denied."""

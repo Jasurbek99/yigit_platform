@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from apps.core.db_utils import schema_table
@@ -64,6 +65,33 @@ class Season(models.Model):
     @property
     def is_closed(self) -> bool:
         return self.closed_at is not None
+
+    def assert_activation_allowed(self) -> None:
+        """Refuse an `is_active=True` write on a closed season.
+
+        Reopening a closed season is unsupported by design (`open_season()`
+        in `apps.core.services.season` already refuses it) — this is the
+        single predicate both that service's callers and every other write
+        path (Django admin, a raw ORM `.save()`, a management command) must
+        satisfy, called from `save()` below and reused by
+        `SeasonSerializer.validate_is_active` at the API boundary.
+
+        `close_season()`/`open_season()` never trip this: `close_season()`
+        always writes `is_active=False`, and `open_season()` raises before
+        ever setting `is_active=True` on a season that is already closed.
+
+        Raises:
+            ValidationError: If `is_active` is True and `closed_at` is set.
+        """
+        if self.is_active and self.closed_at is not None:
+            raise ValidationError(
+                f'Season {self.name!r} is closed and cannot be reactivated.'
+            )
+
+    def save(self, *args, **kwargs) -> None:
+        """Persist the row, enforcing `assert_activation_allowed()` first."""
+        self.assert_activation_allowed()
+        super().save(*args, **kwargs)
 
 
 class TomatoVariety(models.Model):

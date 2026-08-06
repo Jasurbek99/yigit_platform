@@ -8,6 +8,7 @@ from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.management import call_command
 from django.db import IntegrityError, transaction
 from django.db.models import Q
@@ -73,6 +74,30 @@ class SingleActiveSeasonTests(TestCase):
             is_active=False,
         )
         self.assertEqual(Season.objects.filter(is_active=False).count(), 2)
+
+
+class SeasonActivationGuardTests(TestCase):
+    """Task 16b: `is_active=True` on a closed season must never persist,
+    regardless of caller (ORM, admin, management command)."""
+
+    def test_activating_closed_season_via_save_raises(self):
+        season = Season.objects.create(
+            name='2024/2025', start_date=date(2024, 9, 1), end_date=date(2025, 8, 31),
+            closed_at=timezone.now(),
+        )
+        season.is_active = True
+        with self.assertRaises(DjangoValidationError):
+            season.save()
+
+    def test_activating_open_season_is_unaffected(self):
+        """Sanity check the guard is scoped to closed seasons only."""
+        season = Season.objects.create(
+            name='2027/2028', start_date=date(2027, 9, 1), end_date=date(2028, 8, 31),
+        )
+        season.is_active = True
+        season.save()
+        season.refresh_from_db()
+        self.assertTrue(season.is_active)
 
 
 def _request(user, **params):
