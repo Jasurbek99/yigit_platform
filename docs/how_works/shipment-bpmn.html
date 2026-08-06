@@ -191,6 +191,22 @@ N.forEach(([id])=>{
 svg+='</svg>';
 document.getElementById('canvas').innerHTML=svg;
 
+// Defence-in-depth guard, independent of the server-side validation on
+// ProcessNodeLink.route (backend/apps/export/models/process_node_link.py):
+// a row written before that validator existed, or through some future path
+// that bypasses the serializer, must still not become an executable
+// `javascript:`/`data:`/`vbscript:` link, or a protocol-relative
+// `//evil.example` one that browsers resolve as external. The second
+// character is also checked against `\` — browsers normalize a leading
+// `/\` to `//` during URL resolution, so `/\evil.example` is the same
+// off-site vector spelled differently. Not a URL parser — just the two
+// checks this call site needs.
+function isSafeInAppRoute(route){
+  if(typeof route !== 'string' || route.charAt(0) !== '/') return false;
+  const second = route.charAt(1);
+  return second !== '/' && second !== '\\';
+}
+
 // Upgrade linked task nodes to real anchors once the node→route map arrives.
 // The diagram above is already fully rendered without this — if the fetch
 // fails, 404s, or returns garbage, the page is left exactly as-is (no links,
@@ -204,6 +220,10 @@ fetch('/api/v1/export/boss/process-doc-links/')
       const route = linkMap[id];
       const div = document.getElementById('task-'+id);
       if(!route || !div) return;
+      // Row's route isn't a safe in-app path (e.g. pre-dates the server
+      // validator) — leave this block unlinked rather than risk an
+      // executable href. Other nodes still get their links.
+      if(!isSafeInAppRoute(route)) return;
       const a = document.createElementNS('http://www.w3.org/1999/xhtml','a');
       a.setAttribute('href', route);
       a.setAttribute('target', '_blank');

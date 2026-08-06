@@ -10,9 +10,28 @@ Deliberately minimal — no version field, no soft-delete, no permission
 triggers. `node_id` is the join key and is read-only via the API (see
 ProcessNodeLinkSerializer in apps.export.views_admin).
 """
+from django.core.validators import RegexValidator
 from django.db import models
 
 from apps.core.db_utils import cyrillic_collation, schema_table
+
+# `route` is written into a diagram <a href> that the boss clicks
+# (docs/how_works/shipment-bpmn.html) — see the module-level security note
+# below `route`. Must be blank, exactly "/", or "/segment(/segment)*" with an
+# optional trailing slash, where each segment is [A-Za-z0-9_-]+. This rejects
+# by construction: any scheme (`javascript:`, `data:`, `vbscript:` — no `/`
+# prefix, and `:` isn't in the whitelist), protocol-relative URLs (`//evil...`
+# — the char after the leading `/` must belong to a segment, never another
+# `/`), and any control or whitespace character (not in the whitelist).
+# DRF's ModelSerializer copies model-field validators onto the generated
+# serializer field (rest_framework.utils.field_mapping.get_field_kwargs), so
+# this single validator is enforced on every PATCH through
+# ProcessNodeLinkSerializer without a separate serializer-level check —
+# see tests_process_node_links.py::ProcessNodeLinkRouteValidationTests.
+ROUTE_VALIDATOR = RegexValidator(
+    regex=r'^/([A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)*/?)?$',
+    message='route must be blank or an in-app absolute path (e.g. "/export/plan").',
+)
 
 
 class ProcessNodeLink(models.Model):
@@ -32,7 +51,13 @@ class ProcessNodeLink(models.Model):
     # ExpenseCategory.name_tk elsewhere in this app.
     label = models.CharField(max_length=120, **cyrillic_collation())
     # Frontend path, e.g. '/export/plan'. Blank = "not linked" (no click-through).
-    route = models.CharField(max_length=120, blank=True, default='')
+    # SECURITY: this value is written into a diagram <a href> via
+    # `setAttribute('href', route)` and the boss clicks it (stored-XSS if
+    # unconstrained — a `javascript:` value would execute in the boss's
+    # session). ROUTE_VALIDATOR is the server-side boundary; the diagram HTML
+    # also guards defensively before using the value. Do not relax this
+    # without re-reading that guard.
+    route = models.CharField(max_length=120, blank=True, default='', validators=[ROUTE_VALIDATOR])
     is_active = models.BooleanField(default=True)
 
     class Meta:

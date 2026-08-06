@@ -3037,8 +3037,8 @@
     "col_status": "Status",
     "edit_title": "Edit link — {{node}}",
     "route_placeholder": "/export/plan",
-    "route_hint": "Must start with \"/\", or leave empty to unlink the block.",
-    "route_invalid": "Route must start with \"/\"",
+    "route_hint": "Must start with \"/\" and use only letters, numbers, \"-\", \"_\", \"/\" — or leave empty to unlink the block.",
+    "route_invalid": "Route must start with \"/\" (not \"//\") and use only letters, numbers, \"-\", \"_\", \"/\"",
     "toast_updated": "Link updated"
   },
   "clients_report": {

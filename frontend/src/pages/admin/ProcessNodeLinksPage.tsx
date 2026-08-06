@@ -14,6 +14,14 @@ interface IEditFormValues {
   is_active: boolean;
 }
 
+// Mirrors the server-side RegexValidator on ProcessNodeLink.route
+// (backend/apps/export/models/process_node_link.py) so a value the client
+// accepts is never rejected by the API with a confusing 400. `route` is
+// written into a diagram <a href> the boss clicks — kept to an in-app
+// absolute path only (no scheme, no protocol-relative `//`) to close a
+// stored-XSS vector.
+const ROUTE_PATTERN = /^\/([A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*\/?)?$/;
+
 export default function ProcessNodeLinksPage() {
   const { t } = useTranslation();
   const { data: links = [], isLoading } = useProcessNodeLinks();
@@ -41,7 +49,7 @@ export default function ProcessNodeLinksPage() {
   }
 
   function handleValidateRoute(_: unknown, value: string): Promise<void> {
-    if (!value || value.startsWith('/')) return Promise.resolve();
+    if (!value || ROUTE_PATTERN.test(value)) return Promise.resolve();
     return Promise.reject(new Error(t('process_node_links_admin.route_invalid')));
   }
 

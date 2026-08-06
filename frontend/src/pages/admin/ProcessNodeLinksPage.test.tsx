@@ -103,7 +103,34 @@ describe('ProcessNodeLinksPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'OK' }));
 
     await waitFor(() => {
-      expect(screen.getByText('Route must start with "/"')).toBeInTheDocument();
+      expect(
+        screen.getByText('Route must start with "/" (not "//") and use only letters, numbers, "-", "_", "/"'),
+      ).toBeInTheDocument();
+    });
+    expect(api.patch).not.toHaveBeenCalled();
+  });
+
+  it('rejects a protocol-relative route ("//...") and does not send a PATCH', async () => {
+    // Same server-side boundary this closes: a `//host` value is left
+    // untouched by `startsWith('/')` but browsers resolve it as external —
+    // the client rule must match the server's RegexValidator, not just the
+    // old "starts with /" check.
+    vi.mocked(api.get).mockResolvedValueOnce({ data: MOCK_LINKS });
+    renderPage();
+
+    await screen.findByText('plan');
+    await openEditModal('plan');
+
+    const routeInput = screen.getByRole('combobox');
+    await userEvent.clear(routeInput);
+    await userEvent.type(routeInput, '//evil.example');
+
+    await userEvent.click(screen.getByRole('button', { name: 'OK' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Route must start with "/" (not "//") and use only letters, numbers, "-", "_", "/"'),
+      ).toBeInTheDocument();
     });
     expect(api.patch).not.toHaveBeenCalled();
   });

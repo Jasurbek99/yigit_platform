@@ -141,3 +141,74 @@ class ProcessNodeLinkAdminViewSetTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.row.refresh_from_db()
         self.assertEqual(self.row.node_id, original_node_id)
+
+
+class ProcessNodeLinkRouteValidationTests(TestCase):
+    """Stored-XSS guard: `route` is written into a diagram <a href> the boss
+    clicks (docs/how_works/shipment-bpmn.html), so it must be constrained to
+    an in-app absolute path server-side — the frontend's client-side check is
+    bypassed by calling the API directly.
+
+    These tests assert against the DATABASE ROW, not just the response
+    status: a 400 with the value written anyway would still be a stored-XSS
+    hole. They are designed to fail if ProcessNodeLink.route's RegexValidator
+    is ever removed (verified manually — see task-14-report.md).
+    """
+
+    LIST_URL = '/api/v1/export/admin/process-node-links/'
+
+    def setUp(self):
+        self.client = APIClient()
+        self.admin = _create_user('admin_pnl_route', 'admin')
+        self.row = ProcessNodeLink.objects.get(node_id='onetime')
+        self.original_route = self.row.route
+        self.client.force_authenticate(user=self.admin)
+
+    def _detail_url(self, pk: int) -> str:
+        return f'{self.LIST_URL}{pk}/'
+
+    def _patch(self, route: str):
+        return self.client.patch(self._detail_url(self.row.pk), {'route': route}, format='json')
+
+    def test_javascript_scheme_rejected_and_row_unchanged(self):
+        resp = self._patch('javascript:alert(1)')
+        self.assertEqual(resp.status_code, 400)
+        self.row.refresh_from_db()
+        self.assertEqual(self.row.route, self.original_route)
+
+    def test_protocol_relative_url_rejected_and_row_unchanged(self):
+        resp = self._patch('//evil.example')
+        self.assertEqual(resp.status_code, 400)
+        self.row.refresh_from_db()
+        self.assertEqual(self.row.route, self.original_route)
+
+    def test_value_with_scheme_rejected_and_row_unchanged(self):
+        resp = self._patch('https://evil.example/phish')
+        self.assertEqual(resp.status_code, 400)
+        self.row.refresh_from_db()
+        self.assertEqual(self.row.route, self.original_route)
+
+    def test_value_not_starting_with_slash_rejected_and_row_unchanged(self):
+        resp = self._patch('evil.example')
+        self.assertEqual(resp.status_code, 400)
+        self.row.refresh_from_db()
+        self.assertEqual(self.row.route, self.original_route)
+
+    def test_data_scheme_rejected_and_row_unchanged(self):
+        resp = self._patch('data:text/html,<script>alert(1)</script>')
+        self.assertEqual(resp.status_code, 400)
+        self.row.refresh_from_db()
+        self.assertEqual(self.row.route, self.original_route)
+
+    def test_legitimate_route_still_saves(self):
+        resp = self._patch('/export/plan')
+        self.assertEqual(resp.status_code, 200)
+        self.row.refresh_from_db()
+        self.assertEqual(self.row.route, '/export/plan')
+
+    def test_empty_route_still_saves(self):
+        """Blank route is a supported state — 'not linked'."""
+        resp = self._patch('')
+        self.assertEqual(resp.status_code, 200)
+        self.row.refresh_from_db()
+        self.assertEqual(self.row.route, '')

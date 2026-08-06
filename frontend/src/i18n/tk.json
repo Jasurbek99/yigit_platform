@@ -3041,8 +3041,8 @@
     "col_status": "Ýagdaýy",
     "edit_title": "Baglanyşygy üýtget — {{node}}",
     "route_placeholder": "/export/plan",
-    "route_hint": "\"/\" bilen başlamaly, ýa-da blogy aýyrmak üçin boş goýuň.",
-    "route_invalid": "Marşrut \"/\" bilen başlamaly",
+    "route_hint": "\"/\" bilen başlamaly we diňe harplar, sanlar, \"-\", \"_\", \"/\" bolmaly — ýa-da blogy aýyrmak üçin boş goýuň.",
+    "route_invalid": "Marşrut \"/\" bilen başlamaly (\"//\" däl) we diňe harplar, sanlar, \"-\", \"_\", \"/\" bolmaly",
     "toast_updated": "Baglanyşyk üýtgedildi"
   },
   "clients_report": {
