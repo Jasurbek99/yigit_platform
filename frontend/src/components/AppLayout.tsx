@@ -181,15 +181,27 @@ export default function AppLayout() {
     label: string;
     roles?: import('@/types').UserRole[];
   };
+  interface IMenuGroup {
+    label: string;
+    items: MenuItem[];
+  }
 
-  // Groups are named once and composed below into per-role menu arrays
-  // (BOSS_MENU_GROUPS / STAFF_MENU_GROUPS) so the two can diverge later
-  // without duplicating item definitions. They stay inside the component
-  // body because they close over t, myOpenCount, and feedbackUnreadCount.
-  const OVERVIEW: { label: string; items: MenuItem[] } = { label: t('nav.group_overview'), items: [
-    { key: '/', icon: <IconLayoutDashboard size={15} />, label: t('nav.dashboard') },
-    { key: '/boss/dashboard', icon: <IconChartPie size={15} />, label: t('nav.boss_dashboard') },
-    {
+  // Every route's menu item is defined exactly once here, keyed by its route
+  // path. BOSS_MENU_GROUPS and STAFF_MENU_GROUPS below only choose *which*
+  // keys go in *which* group and in *what order* — they never redefine an
+  // item. This lives inside the component body because items close over t,
+  // myOpenCount, and feedbackUnreadCount.
+  //
+  // `satisfies Record<string, MenuItem>` (rather than an explicit type
+  // annotation) is deliberate: it checks every value against MenuItem while
+  // preserving the literal string-union type of the keys, so `keyof typeof
+  // ITEMS` below is the exact set of 45 route keys rather than plain
+  // `string`. That makes a typo'd/missing key in a group's key list a
+  // compile-time error instead of a silent `undefined` in the rendered menu.
+  const ITEMS = {
+    '/': { key: '/', icon: <IconLayoutDashboard size={15} />, label: t('nav.dashboard') },
+    '/boss/dashboard': { key: '/boss/dashboard', icon: <IconChartPie size={15} />, label: t('nav.boss_dashboard') },
+    '/me/board': {
       key: '/me/board',
       icon: (
         <Badge count={myOpenCount} size="small" offset={[8, -2]}>
@@ -198,49 +210,35 @@ export default function AppLayout() {
       ),
       label: t('me.nav.board'),
     },
-    {
+    '/director/stuck-shipments': {
       key: '/director/stuck-shipments',
       icon: <IconAlertTriangle size={15} />,
       label: t('nav.stuck_shipments'),
     },
-  ]};
-  const PLANNING: { label: string; items: MenuItem[] } = { label: t('nav.group_planning'), items: [
-    { key: '/export/plan', icon: <IconCalendar size={15} />, label: t('nav.plan') },
-    { key: '/export/harvest-board', icon: <IconPlant2 size={15} />, label: t('nav.harvest_board') },
-    { key: '/export/trucks', icon: <IconTruck size={15} />, label: t('nav.trucks') },          // NEW
-    { key: '/export/quota', icon: <IconChartPie size={15} />, label: t('nav.quota') },
-    { key: '/export/blocks', icon: <IconChartBar size={15} />, label: t('nav.block_summary') },
-  ]};
-  const PREP: { label: string; items: MenuItem[] } = { label: t('nav.group_prep'), items: [
-    { key: '/export/drafts', icon: <IconLayoutGrid size={15} />, label: t('nav.drafts') },     // NEW
-    { key: '/export/assign', icon: <IconLayoutKanban size={15} />, label: t('nav.assign') },   // NEW
-    { key: '/export/weightmaster', icon: <IconScale size={15} />, label: t('nav.weightmaster') },
-  ]};
-  const SHIPPING: { label: string; items: MenuItem[] } = { label: t('nav.group_shipping'), items: [
-    { key: '/export/shipments', icon: <IconTruck size={15} />, label: t('nav.shipments') },
-    { key: '/export/shipments/sheet', icon: <IconLayoutGrid size={15} />, label: t('nav.shipment_sheet') },
-    { key: '/export/shipments/board', icon: <IconLayoutKanban size={15} />, label: t('nav.shipment_board') },
-    { key: '/export/shipments/dashboard', icon: <IconLayoutDashboard size={15} />, label: t('nav.shipment_dashboard') },
-  ]};
-  const DOCS: { label: string; items: MenuItem[] } = { label: t('nav.group_docs'), items: [
-    { key: '/documents', icon: <IconFileText size={15} />, label: t('nav.documents') },
-    { key: '/admin/packing-templates', icon: <IconFileText size={15} />, label: t('nav.admin_packing_templates') },
-  ]};
-  const SALES: { label: string; items: MenuItem[] } = { label: t('nav.group_sales'), items: [
-    { key: '/contracts', icon: <IconFileText size={15} />, label: t('nav.contracts.list') },
-    { key: '/sales', icon: <IconFileText size={15} />, label: t('nav.sales.list') },
-    { key: '/export/my-reports', icon: <IconReportAnalytics size={15} />, label: t('nav.sales_reports') },
-    { key: '/export/domestic-sales', icon: <IconBuildingWarehouse size={15} />, label: t('nav.domestic_sales') },  // NEW
-    { key: '/export/prices', icon: <IconChartBar size={15} />, label: t('nav.prices') },       // NEW
-  ]};
-  const FINANCE: { label: string; items: MenuItem[] } = { label: t('nav.group_finance'), items: [
-    { key: '/export/advances', icon: <IconBuildingBank size={15} />, label: t('nav.advances') },
-    { key: '/export/overdue', icon: <IconAlertTriangle size={15} />, label: t('nav.overdue') },
-    { key: '/admin/expense-template', icon: <IconFileText size={15} />, label: t('nav.admin_expense_template') },
-  ]};
-  const ANALYTICS: { label: string; items: MenuItem[] } = { label: t('nav.group_analytics'), items: [
-    { key: '/analytics/clients-report', icon: <IconUsers size={15} />, label: t('nav.clients_report') },
-    {
+    '/export/plan': { key: '/export/plan', icon: <IconCalendar size={15} />, label: t('nav.plan') },
+    '/export/harvest-board': { key: '/export/harvest-board', icon: <IconPlant2 size={15} />, label: t('nav.harvest_board') },
+    '/export/trucks': { key: '/export/trucks', icon: <IconTruck size={15} />, label: t('nav.trucks') },
+    '/export/quota': { key: '/export/quota', icon: <IconChartPie size={15} />, label: t('nav.quota') },
+    '/export/blocks': { key: '/export/blocks', icon: <IconChartBar size={15} />, label: t('nav.block_summary') },
+    '/export/drafts': { key: '/export/drafts', icon: <IconLayoutGrid size={15} />, label: t('nav.drafts') },
+    '/export/assign': { key: '/export/assign', icon: <IconLayoutKanban size={15} />, label: t('nav.assign') },
+    '/export/weightmaster': { key: '/export/weightmaster', icon: <IconScale size={15} />, label: t('nav.weightmaster') },
+    '/export/shipments': { key: '/export/shipments', icon: <IconTruck size={15} />, label: t('nav.shipments') },
+    '/export/shipments/sheet': { key: '/export/shipments/sheet', icon: <IconLayoutGrid size={15} />, label: t('nav.shipment_sheet') },
+    '/export/shipments/board': { key: '/export/shipments/board', icon: <IconLayoutKanban size={15} />, label: t('nav.shipment_board') },
+    '/export/shipments/dashboard': { key: '/export/shipments/dashboard', icon: <IconLayoutDashboard size={15} />, label: t('nav.shipment_dashboard') },
+    '/documents': { key: '/documents', icon: <IconFileText size={15} />, label: t('nav.documents') },
+    '/admin/packing-templates': { key: '/admin/packing-templates', icon: <IconFileText size={15} />, label: t('nav.admin_packing_templates') },
+    '/contracts': { key: '/contracts', icon: <IconFileText size={15} />, label: t('nav.contracts.list') },
+    '/sales': { key: '/sales', icon: <IconFileText size={15} />, label: t('nav.sales.list') },
+    '/export/my-reports': { key: '/export/my-reports', icon: <IconReportAnalytics size={15} />, label: t('nav.sales_reports') },
+    '/export/domestic-sales': { key: '/export/domestic-sales', icon: <IconBuildingWarehouse size={15} />, label: t('nav.domestic_sales') },
+    '/export/prices': { key: '/export/prices', icon: <IconChartBar size={15} />, label: t('nav.prices') },
+    '/export/advances': { key: '/export/advances', icon: <IconBuildingBank size={15} />, label: t('nav.advances') },
+    '/export/overdue': { key: '/export/overdue', icon: <IconAlertTriangle size={15} />, label: t('nav.overdue') },
+    '/admin/expense-template': { key: '/admin/expense-template', icon: <IconFileText size={15} />, label: t('nav.admin_expense_template') },
+    '/analytics/clients-report': { key: '/analytics/clients-report', icon: <IconUsers size={15} />, label: t('nav.clients_report') },
+    '/team/kpi': {
       key: '/team/kpi',
       icon: <IconTrophy size={15} />,
       label: t('nav.team_kpi'),
@@ -250,7 +248,7 @@ export default function AppLayout() {
         'director', 'accountant', 'greenhouse_manager', 'seller', 'boss',
       ] as import('@/types').UserRole[],
     },
-    {
+    '/worklog': {
       key: '/worklog',
       icon: <IconClock size={15} />,
       label: t('nav.worklog'),
@@ -263,32 +261,26 @@ export default function AppLayout() {
         'director', 'accountant', 'greenhouse_manager', 'seller', 'boss',
       ] as import('@/types').UserRole[],
     },
-  ]};
-  const REFERENCE: { label: string; items: MenuItem[] } = { label: t('nav.group_reference'), items: [
-    { key: '/admin/seasons', icon: <IconCalendar size={15} />, label: t('nav.admin_seasons') },
-    { key: '/admin/firms', icon: <IconBuildingBank size={15} />, label: t('nav.admin_firms') },
-    { key: '/admin/import-firms', icon: <IconBuildingBank size={15} />, label: t('nav.admin_import_firms') },
-    { key: '/admin/customers', icon: <IconUser size={15} />, label: t('nav.admin_customers') },
-    { key: '/admin/blocks', icon: <IconBuildingWarehouse size={15} />, label: t('nav.admin_blocks') },
-    { key: '/admin/truck-destinations', icon: <IconTruck size={15} />, label: t('nav.admin_truck_dest') },
-  ]};
-  const SYSTEM: { label: string; items: MenuItem[] } = { label: t('nav.group_system'), items: [
-    { key: '/admin/users', icon: <IconUsers size={15} />, label: t('nav.admin_users') },
-    { key: '/admin/permissions', icon: <IconShield size={15} />, label: t('nav.admin_permissions') },
-    { key: '/admin/staff-access', icon: <IconUsers size={15} />, label: t('nav.admin_staff_access') },
-    { key: '/admin/shipment-settings', icon: <IconLayoutGrid size={15} />, label: t('nav.admin_shipment_settings') },
-    { key: '/admin/sales-rep-coverage', icon: <IconMapPin size={15} />, label: t('nav.sales_rep_coverage') },
-    {
+    '/admin/seasons': { key: '/admin/seasons', icon: <IconCalendar size={15} />, label: t('nav.admin_seasons') },
+    '/admin/firms': { key: '/admin/firms', icon: <IconBuildingBank size={15} />, label: t('nav.admin_firms') },
+    '/admin/import-firms': { key: '/admin/import-firms', icon: <IconBuildingBank size={15} />, label: t('nav.admin_import_firms') },
+    '/admin/customers': { key: '/admin/customers', icon: <IconUser size={15} />, label: t('nav.admin_customers') },
+    '/admin/blocks': { key: '/admin/blocks', icon: <IconBuildingWarehouse size={15} />, label: t('nav.admin_blocks') },
+    '/admin/truck-destinations': { key: '/admin/truck-destinations', icon: <IconTruck size={15} />, label: t('nav.admin_truck_dest') },
+    '/admin/users': { key: '/admin/users', icon: <IconUsers size={15} />, label: t('nav.admin_users') },
+    '/admin/permissions': { key: '/admin/permissions', icon: <IconShield size={15} />, label: t('nav.admin_permissions') },
+    '/admin/staff-access': { key: '/admin/staff-access', icon: <IconUsers size={15} />, label: t('nav.admin_staff_access') },
+    '/admin/shipment-settings': { key: '/admin/shipment-settings', icon: <IconLayoutGrid size={15} />, label: t('nav.admin_shipment_settings') },
+    '/admin/sales-rep-coverage': { key: '/admin/sales-rep-coverage', icon: <IconMapPin size={15} />, label: t('nav.sales_rep_coverage') },
+    '/admin/audit-log': {
       key: '/admin/audit-log',
       icon: <IconClipboardList size={15} />,
       label: t('nav.admin_audit_log'),
     },
-  ]};
-  const FEEDBACK: { label: string; items: MenuItem[] } = { label: t('nav.group_feedback'), items: [
-    { key: '/feedback/submit', icon: <IconMessageCircle size={15} />, label: t('nav.feedback_submit') },
-    { key: '/feedback/my-tickets', icon: <IconFileText size={15} />, label: t('nav.feedback_my_tickets') },
-    { key: '/feedback/public', icon: <IconChartPie size={15} />, label: t('nav.feedback_public') },
-    {
+    '/feedback/submit': { key: '/feedback/submit', icon: <IconMessageCircle size={15} />, label: t('nav.feedback_submit') },
+    '/feedback/my-tickets': { key: '/feedback/my-tickets', icon: <IconFileText size={15} />, label: t('nav.feedback_my_tickets') },
+    '/feedback/public': { key: '/feedback/public', icon: <IconChartPie size={15} />, label: t('nav.feedback_public') },
+    '/admin/feedback': {
       key: '/admin/feedback',
       icon: (
         <Badge count={feedbackUnreadCount} size="small" offset={[6, 0]}>
@@ -297,18 +289,52 @@ export default function AppLayout() {
       ),
       label: t('nav.feedback_admin_inbox'),
     },
-  ]};
+  } satisfies Record<string, MenuItem>;
 
-  // The boss's menu. Edit this list to change what the boss sees — it affects nobody else.
-  const BOSS_MENU_GROUPS: { label: string; items: MenuItem[] }[] = [
-    OVERVIEW, PLANNING, PREP, SHIPPING, DOCS, SALES, FINANCE, ANALYTICS, REFERENCE, SYSTEM, FEEDBACK,
+  // Builds one menu group from a label key and an ordered list of ITEMS
+  // keys. Typing `keys` against `keyof typeof ITEMS` makes referencing a
+  // route that isn't in ITEMS a compile error, not a rendered `undefined`.
+  const group = (labelKey: string, keys: (keyof typeof ITEMS)[]): IMenuGroup => ({
+    label: t(labelKey),
+    items: keys.map((key) => ITEMS[key]),
+  });
+
+  // The boss's menu — process-lifecycle order. Edit this list to change what
+  // the boss sees — it affects nobody else.
+  const BOSS_MENU_GROUPS: IMenuGroup[] = [
+    group('nav.group_overview', ['/', '/boss/dashboard', '/me/board', '/director/stuck-shipments']),
+    group('nav.group_planning', ['/export/plan', '/export/harvest-board', '/export/trucks', '/export/quota', '/export/blocks']),
+    group('nav.group_prep', ['/export/drafts', '/export/assign', '/export/weightmaster']),
+    group('nav.group_shipping', ['/export/shipments', '/export/shipments/sheet', '/export/shipments/board', '/export/shipments/dashboard']),
+    group('nav.group_docs', ['/documents', '/admin/packing-templates']),
+    group('nav.group_sales', ['/contracts', '/sales', '/export/my-reports', '/export/domestic-sales', '/export/prices']),
+    group('nav.group_finance', ['/export/advances', '/export/overdue', '/admin/expense-template']),
+    group('nav.group_analytics', ['/analytics/clients-report', '/team/kpi', '/worklog']),
+    group('nav.group_reference', ['/admin/seasons', '/admin/firms', '/admin/import-firms', '/admin/customers', '/admin/blocks', '/admin/truck-destinations']),
+    group('nav.group_system', ['/admin/users', '/admin/permissions', '/admin/staff-access', '/admin/shipment-settings', '/admin/sales-rep-coverage', '/admin/audit-log']),
+    group('nav.group_feedback', ['/feedback/submit', '/feedback/my-tickets', '/feedback/public', '/admin/feedback']),
   ];
-  // Every other role's menu.
-  const STAFF_MENU_GROUPS: { label: string; items: MenuItem[] }[] = [
-    OVERVIEW, PLANNING, PREP, SHIPPING, DOCS, SALES, FINANCE, ANALYTICS, REFERENCE, SYSTEM, FEEDBACK,
+  // Every other role's menu — the original module grouping (restored
+  // verbatim from commit d6f1a02, plus 5 previously orphaned routes appended
+  // to nav.group_export: /export/trucks, /export/drafts, /export/assign,
+  // /export/domestic-sales, /export/prices).
+  const STAFF_MENU_GROUPS: IMenuGroup[] = [
+    group('nav.group_main', ['/', '/boss/dashboard', '/director/stuck-shipments']),
+    group('nav.group_analytics', ['/analytics/clients-report', '/export/blocks']),
+    group('nav.group_export', [
+      '/export/shipments/dashboard', '/export/shipments', '/export/shipments/sheet', '/me/board',
+      '/export/shipments/board', '/export/harvest-board', '/export/weightmaster', '/export/overdue',
+      '/export/my-reports', '/export/advances',
+      '/export/trucks', '/export/drafts', '/export/assign', '/export/domestic-sales', '/export/prices',
+    ]),
+    group('nav.group_contracts', ['/contracts', '/sales', '/documents']),
+    group('nav.group_management', ['/export/plan', '/export/quota', '/admin/seasons', '/admin/firms', '/admin/import-firms', '/admin/customers', '/admin/blocks']),
+    group('nav.group_system', ['/admin/users', '/admin/truck-destinations', '/admin/shipment-settings', '/admin/permissions', '/admin/staff-access', '/admin/sales-rep-coverage', '/admin/expense-template', '/admin/packing-templates', '/admin/audit-log']),
+    group('nav.group_team', ['/worklog', '/team/kpi']),
+    group('nav.group_feedback', ['/feedback/submit', '/feedback/my-tickets', '/feedback/public', '/admin/feedback']),
   ];
 
-  const allMenuGroups: { label: string; items: MenuItem[] }[] = pickMenuComposition(
+  const allMenuGroups: IMenuGroup[] = pickMenuComposition(
     isBoss,
     BOSS_MENU_GROUPS,
     STAFF_MENU_GROUPS,
@@ -316,8 +342,8 @@ export default function AppLayout() {
 
   // Filter: keep only items the user has permission to see
   const menuItems: MenuProps['items'] = allMenuGroups
-    .map((group) => {
-      const visibleChildren = group.items.filter((item) => {
+    .map((menuGroup) => {
+      const visibleChildren = menuGroup.items.filter((item) => {
         // Role-gated items (no page_permissions entry) — use the inline list.
         if (item.roles) {
           if (!user) return false;
@@ -330,7 +356,7 @@ export default function AppLayout() {
       if (visibleChildren.length === 0) return null;
       return {
         type: 'group' as const,
-        label: group.label,
+        label: menuGroup.label,
         children: visibleChildren,
       };
     })
