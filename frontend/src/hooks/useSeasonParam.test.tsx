@@ -138,6 +138,33 @@ describe('useSeasonParam — mount safety (first real caller of Task 13s hook)',
     expect(result.current.search).toBe('');
   });
 
+  it('(e) a logout-style reset to null is NOT written back from a stale ?season=', () => {
+    // AppLayout's logout handler resets useSeasonStore so the next user on a
+    // shared terminal does not inherit the previous user's season. It runs
+    // while AppLayout — and therefore this hook — is still mounted, with the
+    // old `?season=` still in the address bar, because navigate('/login') is
+    // an SPA transition. If the URL->store effect re-seeded from that stale
+    // param, the reset would be silently undone.
+    vi.mocked(useAuth).mockReturnValue({
+      user: fakeUser(1),
+      isLoading: false,
+      isError: false,
+    });
+
+    const { result } = renderHook(() => useHarness(), {
+      wrapper: wrapperWithEntry('/export/shipments?season=7'),
+    });
+
+    expect(result.current.seasonId).toBe(7);
+
+    act(() => {
+      useSeasonStore.setState({ selectedSeasonId: null });
+    });
+
+    expect(result.current.seasonId).toBeNull();
+    expect(useSeasonStore.getState().selectedSeasonId).toBeNull();
+  });
+
   it('settles within a bounded number of renders instead of oscillating forever', () => {
     // Regression guard for the exact bug (d) above caught: effect 1 (URL ->
     // store) re-firing on every selectedSeasonId change and stomping a

@@ -40,6 +40,7 @@ import { useMyTasks } from '@/hooks/useMyTasks';
 import { useRealtime } from '@/hooks/useRealtime';
 import { realtime } from '@/services/realtime';
 import { useRealtimeStore } from '@/stores/realtimeStore';
+import { useSeasonStore } from '@/stores/seasonStore';
 import { useWorklogHeartbeat } from '@/hooks/useWorklogHeartbeat';
 import { canSeePage } from '@/utils/permissions';
 import { clearCachedPrefs } from '@/cache/userPrefsCache';
@@ -100,6 +101,14 @@ export default function AppLayout() {
       // manual page refresh fires beforeunload → close().
       realtime.close();
       useRealtimeStore.setState({ sheetRoster: [], status: 'closed' });
+      // Shared-terminal hygiene: navigate('/login') is an SPA transition, so
+      // the season selection would otherwise survive into the next user's
+      // session — 403s app-wide if they lack `closed_season.can_view`, or a
+      // silent archive read if they hold it. Safe to reset here: the URL->store
+      // effect in useSeasonParam() is gated on `urlSeason` having changed, so
+      // it will not write the stale `?season=` back, and the store->URL effect
+      // early-returns on null.
+      useSeasonStore.setState({ selectedSeasonId: null });
       queryClient.removeQueries({ queryKey: ['auth', 'me'] });
       queryClient.clear();
       navigate('/login');
