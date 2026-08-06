@@ -13,6 +13,7 @@ Coverage:
      every other scoped endpoint
 """
 from datetime import date, timedelta
+from decimal import Decimal
 
 from django.core.cache import cache
 from django.test import TestCase
@@ -334,3 +335,141 @@ class DashboardSeasonParamTests(TestCase):
             f'/api/v1/export/dashboard/summary/?season={closed_season.pk}'
         )
         self.assertEqual(resp.status_code, 403)
+
+
+# ---------------------------------------------------------------------------
+# Test: D7 fail closed — the close→open gap (spec §3.1)
+# ---------------------------------------------------------------------------
+
+class DashboardNoActiveSeasonFailsClosedTests(TestCase):
+    """D7 — with no season resolved, the dashboard returns an EMPTY payload.
+
+    This path predates D7: it substituted a CURRENT-MONTH range when no season
+    resolved. Seasons run Sept→Aug, so during the close→open gap the
+    just-closed season's range still covers today, and any authenticated user
+    with dashboard access could read aggregates over frozen rows — no
+    `?season=`, no `closed_season.can_view` grant. `boss` and `clients-report`
+    already returned empty for the same state.
+
+    The fixture is built around `date.today()` precisely so the closed
+    season's range and the old current-month fallback OVERLAP: every
+    assertion below fails against the substitute range.
+
+    The response SHAPE is preserved (all five top-level keys, all six stats
+    keys, all four alert keys) — the frontend's `IDashboardSummary` requires
+    them and already renders zero/empty/null for each.
+    """
+
+    def setUp(self):
+        cache.clear()
+        self.client = APIClient()
+        self.user = _make_user('dash_gap_user', role='export_manager')
+        self.client.force_authenticate(user=self.user)
+        self.today = date.today()
+
+    def _seed_gap(self) -> Season:
+        """A closed season whose range covers TODAY, and no active season."""
+        from apps.core.models import Country, GreenhouseBlock
+        from apps.export.models import QualityDocument, Shipment
+        from apps.greenhouse.models import HarvestDayEntry, WeeklyHarvestPlan
+
+        closed = Season.objects.create(
+            name='dsgapC',
+            start_date=self.today - timedelta(days=300),
+            end_date=self.today + timedelta(days=30),
+            is_active=False,
+            closed_at=timezone.now(),
+        )
+        Season.objects.filter(is_active=True).update(is_active=False)
+
+        country = Country.objects.create(name_en='Kazakhstan', name_tk='Gazagystan')
+        load_status = _make_status('yuklenme', step_order=1, phase='LOAD')
+        shipment = Shipment.objects.create(
+            shipment_code='DSGAP-1', date=self.today, season=closed,
+            status=load_status, country=country,
+        )
+        # alerts.docs_pending_count — every flag False, so 1 pending.
+        QualityDocument.objects.create(shipment=shipment)
+
+        # alerts.weekly_plan — current ISO week, so it is populated whenever
+        # the aggregation runs at all.
+        iso_year, iso_week, iso_weekday = self.today.isocalendar()
+        block = GreenhouseBlock.objects.create(code='G1', name='Gap block')
+        plan = WeeklyHarvestPlan.objects.create(
+            season=closed, block=block, week_number=iso_week, year=iso_year,
+        )
+        HarvestDayEntry.objects.create(
+            weekly_plan=plan, season=closed, block=block,
+            entry_date=self.today, weekday=iso_weekday - 1,
+            plan_value=Decimal('5000.00'),
+        )
+        cache.clear()
+        return closed
+
+    def _gap_response(self):
+        self._seed_gap()
+        return self.client.get('/api/v1/export/dashboard/summary/')
+
+    def test_the_fixture_really_is_visible_through_a_resolved_season(self):
+        """Control: the same rows DO aggregate when a season resolves, so the
+        empty assertions below measure the gap and not an empty database."""
+        closed = self._seed_gap()
+        RoleResourcePermission.objects.update_or_create(
+            role='export_manager', resource_code='closed_season',
+            defaults={'can_view': True},
+        )
+        data = self.client.get(
+            f'/api/v1/export/dashboard/summary/?season={closed.pk}'
+        ).json()
+        self.assertEqual(data['stats']['total']['value'], 1)
+        self.assertEqual(len(data['routes']), 1)
+        self.assertEqual(len(data['active_shipments']), 1)
+        self.assertEqual(data['alerts']['docs_pending_count'], 1)
+        self.assertIsNotNone(data['alerts']['weekly_plan'])
+
+    def test_gap_returns_zeroed_stats_not_a_substitute_range(self):
+        stats = self._gap_response().json()['stats']
+        self.assertEqual(stats['total']['value'], 0)
+        for key, item in stats.items():
+            self.assertEqual(item['value'], 0, f'stats.{key}.value leaked data')
+
+    def test_gap_returns_empty_routes_and_active_shipments(self):
+        data = self._gap_response().json()
+        self.assertEqual(data['routes'], [])
+        self.assertEqual(data['active_shipments'], [])
+
+    def test_gap_returns_zeroed_alerts(self):
+        alerts = self._gap_response().json()['alerts']
+        self.assertEqual(alerts['no_report_count'], 0)
+        self.assertEqual(alerts['quota_exceeded_count'], 0)
+        self.assertEqual(alerts['docs_pending_count'], 0)
+        self.assertIsNone(alerts['weekly_plan'])
+
+    def test_gap_preserves_the_response_shape(self):
+        """An empty payload must still satisfy the frontend's contract."""
+        data = self._gap_response().json()
+        for key in ('season', 'stats', 'alerts', 'routes', 'active_shipments'):
+            self.assertIn(key, data, f'Missing key: {key!r}')
+        for key in ('total', 'in_transit', 'selling', 'completed', 'no_report',
+                    'quota_firms'):
+            self.assertIn(key, data['stats'], f'Missing stats key: {key!r}')
+        for key in ('no_report_count', 'quota_exceeded_count',
+                    'docs_pending_count', 'weekly_plan'):
+            self.assertIn(key, data['alerts'], f'Missing alerts key: {key!r}')
+        self.assertIsNone(data['season'])
+        self.assertIn('delta_7d', data['stats']['total'])
+        self.assertIn('delta_7d', data['stats']['completed'])
+
+    def test_explicit_closed_season_still_resolves_for_a_permitted_user(self):
+        """Failing closed on the GAP must not break the switcher: an explicit
+        `?season=` from a user holding `closed_season.can_view` still reads."""
+        closed = self._seed_gap()
+        RoleResourcePermission.objects.update_or_create(
+            role='export_manager', resource_code='closed_season',
+            defaults={'can_view': True},
+        )
+        resp = self.client.get(
+            f'/api/v1/export/dashboard/summary/?season={closed.pk}'
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()['season']['id'], closed.pk)

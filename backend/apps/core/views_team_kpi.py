@@ -28,6 +28,10 @@ class TeamKpiView(APIView):
     same CURRENT leaderboard, not that the closed-season archive is exempt
     from the archive permission the rest of the feature enforces. Browsing
     the default (current) window is completely unaffected either way.
+
+    `period=season` during the close→open gap (no active season, no
+    `?season=`) returns an EMPTY `results` list — D7, spec §3.1. The other
+    three periods never consult a season and are unaffected.
     """
 
     permission_classes = [IsAuthenticated]

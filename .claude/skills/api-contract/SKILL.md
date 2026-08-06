@@ -283,7 +283,9 @@ fields, below). Browsing a closed season therefore returns one row blending that
 `completed`/`on_time_rate` with **today's** overdue count and a **current** 14-day trend —
 two epochs in one row. This was flagged as a decision for whoever wires the switcher onto
 this endpoint (AD-16) and was never made: blank those two fields for a non-active season,
-relabel them, or accept and document further. Currently unresolved. Default period is
+relabel them, or accept and document further. Currently unresolved. During the close→open
+gap `period=season` returns `results: []` — D7 fail-closed; it previously fell through to an
+unbounded ALL-TIME window that blended every closed season's completions. Default period is
 `week`; unknown period →
 400. 60 s server-side cache keyed by period (`team-kpi:{period}`).
 
@@ -429,7 +431,12 @@ Main landing page for ALL authenticated users. 60 s server-side cache. No role g
 ```
 
 Notes:
-- `season` is `null` when no active season exists.
+- `season` is `null` when no active season exists, and the whole payload is then **empty**
+  — every `stats`/`alerts` value `0`, `weekly_plan` `null`, `routes` and `active_shipments`
+  `[]`. D7 fail-closed (see *Season scoping* below): the endpoint used to substitute a
+  current-month range, which during the close→open gap aggregated the just-closed season's
+  rows for any authenticated user. The response *shape* is unchanged, so the page renders
+  its normal empty states. Note this also zeroes the LIVE counts below.
 - `alerts.weekly_plan` is `null` when no `HarvestDayEntry` rows exist for the current ISO week.
 - `stats.in_transit` and `stats.selling` are LIVE (not season-scoped).
 - `active_shipments`: max 5, ordered by `-status_changed_at`. `location` = `Shipment.vehicle_live_status` or `""`.
@@ -467,7 +474,11 @@ assuming `?season=` moves it:
   `period_to_range()`, which for `period=season` hardcodes `get_active_season()` — passing
   `?season=` to any of them is a silent no-op.
 - `GET /export/dashboard/summary/` and `GET /core/team-kpi/?period=season` **do** accept
-  `?season=<id>` (added after the initial pass, per AD-16) — both move with the switcher.
+  `?season=<id>` (added after the initial pass, per AD-16) — both move with the switcher,
+  and both **fail closed** during the gap like every scoped list: the dashboard returns an
+  all-zero/empty payload (shape preserved) instead of a current-month range, and team-kpi
+  returns `results: []` instead of an unbounded all-time window. `team-kpi`'s other three
+  periods never consult a season and are unaffected.
 
 ### Write freeze: `409 season_closed`
 

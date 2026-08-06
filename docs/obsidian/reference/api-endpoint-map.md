@@ -262,7 +262,10 @@ keyed by period (`team-kpi:{period}`). One row per active user:
 `Task.completed_by`; `overdue_now` is current-state and **window-independent**, attributed
 by `assignee_role` instead. `trend` is a 14-int daily completed-task series (oldest→newest,
 Asia/Ashgabat days) attributed the same way as `completed`, but on a **FIXED 14-day window
-independent of `period`**. Service: `apps/core/services_team_kpi.py`. Page rebuilt as cards +
+independent of `period`**. `period=season` **fails closed** (D7 / AD-16): during the
+close→open gap, with no active season and no `?season=`, it returns `results: []` rather
+than falling through to an unbounded all-time window; the other three periods never consult
+a season. Service: `apps/core/services_team_kpi.py`. Page rebuilt as cards +
 a ranking bar chart + per-card trend sparklines (was a plain table) — see
 `screens/team-kpi.md`. Full response shape and caveats: `.claude/rules/api-contract.md`
 ("Team KPI leaderboard").

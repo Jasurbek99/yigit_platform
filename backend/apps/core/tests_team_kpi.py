@@ -254,3 +254,66 @@ class TeamKpiSeasonParamApiTest(TestCase):
 
         resp = client.get(f'/api/v1/core/team-kpi/?period=week&season={self.older.pk}')
         self.assertEqual(resp.status_code, 200)
+
+
+class TeamKpiNoActiveSeasonFailsClosedTest(TestCase):
+    """D7 — `period=season` with no season resolved returns NOTHING.
+
+    `period_window('season', None)` returns `(None, None)`, i.e. no lower
+    bound, which silently turned the leaderboard into an ALL-TIME window
+    during the close→open gap — every closed season's completions blended
+    into one row for every authenticated user. `period_window` keeps that
+    return (its `(None, None)` legitimately means "unbounded"); the D7 gate
+    lives in `compute_team_kpi`, the only caller that can distinguish the
+    gap from a deliberate unbounded window.
+    """
+
+    def setUp(self):
+        cache.clear()
+        self.alice = User.objects.create(
+            username='tkgap_alice', role='loading_dept_head', is_active=True,
+        )
+        self.closed = Season.objects.create(
+            name='tkgapC', start_date=date(2024, 9, 1),
+            end_date=date(2025, 8, 31), closed_at=timezone.now(),
+        )
+        Task.objects.create(
+            title_key='t', assignee_role=self.alice.role,
+            completion_rule=TaskCompletionRule.MANUAL_DONE,
+            state=TaskState.DONE, completed_by=self.alice,
+            completed_at=timezone.make_aware(timezone.datetime(2024, 10, 1, 12, 0)),
+        )
+
+    def test_service_returns_empty_when_no_season_resolves(self):
+        self.assertEqual(compute_team_kpi('season', season=None), [])
+
+    def test_api_returns_empty_results_during_the_gap(self):
+        client = APIClient()
+        client.force_authenticate(user=self.alice)
+        resp = client.get('/api/v1/core/team-kpi/?period=season')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['results'], [])
+
+    def test_other_periods_are_unaffected_by_the_gap(self):
+        """Only `period=season` consults a season — week/month/today must
+        keep returning the full roster during the gap."""
+        client = APIClient()
+        client.force_authenticate(user=self.alice)
+        resp = client.get('/api/v1/core/team-kpi/?period=week')
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.data['results'])
+
+    def test_explicit_closed_season_still_resolves_for_a_permitted_user(self):
+        """Failing closed on the GAP must not break the switcher."""
+        RoleResourcePermission.objects.update_or_create(
+            role='loading_dept_head', resource_code='closed_season',
+            defaults={'can_view': True},
+        )
+        client = APIClient()
+        client.force_authenticate(user=self.alice)
+        resp = client.get(
+            f'/api/v1/core/team-kpi/?period=season&season={self.closed.pk}'
+        )
+        self.assertEqual(resp.status_code, 200)
+        row = next(r for r in resp.data['results'] if r['user_id'] == self.alice.id)
+        self.assertEqual(row['completed'], 1)
