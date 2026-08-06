@@ -489,8 +489,23 @@ Consequences worth knowing before you touch this code:
   nullable `shipment`. Its season is derived by `services_quota.usage_season_q(season)`:
   `shipment.season` when linked, else `usage_date` inside the season's range. Use that helper;
   do not hand-roll the predicate, and do not assume an `issuance` link exists.
+- Because of that derivation, **`POST`/`PATCH` on `/quota-usage/` 400 when the resulting row would
+  belong to no season** — an unlinked row dated outside every season is invisible everywhere and
+  counted in no ledger. `services_quota.season_of_usage(shipment, usage_date)` is the row-level
+  inverse of `usage_season_q()`; the two must stay in step, or a write can be accepted into a
+  season whose list then refuses to show it. A *linked* row is always accepted, whatever its date —
+  its shipment anchors it.
 - `quota-firm-balances` follows the **resolved** season, not the active one, and returns `{}`
   during the gap. Its cache key and the FIFO cache key both carry the season id.
+- On `GET /quota-issuances/`, the `used_kg` in each allocation comes from the **list's resolved
+  season**; on `GET /quota-issuances/{id}/` it comes from **that row's own `season`**. Detail routes
+  bypass season scoping (Rule A), so keying the ledger off the request's season there reported
+  `used_kg: 0.00` for any issuance outside the active season.
+- `GET /quota-dashboard/` reads `?season=` directly and **does not call `resolve_season()`**, so
+  `closed_season.can_view` is not enforced on it — a role holding `quota_issuance` but not
+  `closed_season` (`document_team`, `loading_dept_head`(+deputy) as seeded) is 403'd by
+  `/quota-issuances/?season=<closed>` yet can still read that season's aggregates here.
+  Pre-existing; flagged, not yet fixed.
 
 `boss` analytics is mixed, not uniformly parameterised — check the specific action before
 assuming `?season=` moves it:

@@ -168,6 +168,37 @@ def usage_season_q(season) -> Q:
     )
 
 
+def season_of_usage(shipment, usage_date):
+    """The single season a usage row belongs to — the row-level inverse of
+    `usage_season_q()`.
+
+    The two MUST stay in step: `usage_season_q()` decides which rows a season's
+    queries return, and this decides which season a row is about to be written
+    into. If they disagree, a write can be accepted into a season whose list
+    then refuses to show it.
+
+    Args:
+        shipment: The row's `Shipment`, or None for an unlinked row.
+        usage_date: The row's `usage_date`.
+
+    Returns:
+        The Season, or None when the row would belong to none — which is only
+        reachable for an unlinked row whose date falls outside every season
+        (`Shipment.season` is non-null, so a linked row always resolves).
+        Callers must reject a None: such a row is invisible on every list and
+        counted in no ledger.
+    """
+    from apps.core.models import Season
+
+    if shipment is not None:
+        return shipment.season
+    if usage_date is None:
+        return None
+    return Season.objects.filter(
+        start_date__lte=usage_date, end_date__gte=usage_date,
+    ).order_by('start_date').first()
+
+
 def aggregate_quota_issued_for_season(season, product_type: str) -> dict[int, Decimal]:
     """Sum kg_quota per firm from allocations whose issuance belongs to `season`.
 

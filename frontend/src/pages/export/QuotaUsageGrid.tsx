@@ -24,7 +24,7 @@ import { useTranslation } from 'react-i18next';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useAuth } from '@/hooks/useAuth';
 import { canDo } from '@/utils/permissions';
-import { useAdminFirms } from '@/hooks/useAdmin';
+import { useAdminFirms, useSeasons } from '@/hooks/useAdmin';
 import {
   useQuotaUsageRecords,
   useUpdateQuotaUsage,
@@ -88,6 +88,33 @@ export function QuotaUsageGrid({ weightUnit, productType }: IQuotaUsageGridProps
     product_type: productType,
   });
   const { data: firms = [] } = useAdminFirms();
+  // Seasons drive the month picker's disabled range. Under D11 a usage record
+  // with no shipment belongs to the season its `usage_date` falls in, so a date
+  // outside every season belongs to none — the backend rejects such a write
+  // (400), and disabling the month stops the user reaching that dead end at all.
+  const { data: seasons = [] } = useSeasons();
+
+  /**
+   * True when NO day of `month` falls inside any season, i.e. picking it could
+   * only ever produce a record that belongs to nowhere.
+   *
+   * Deliberately month-granular and fail-OPEN: a month that merely *straddles*
+   * a boundary stays enabled (most of its days are writable), and an empty
+   * `seasons` list — which is what a role without `season.can_view` sees, since
+   * `useSeasons` hits an admin endpoint — disables nothing. The backend guard in
+   * `QuotaUsageViewSet.perform_create` is the authority; this only removes the
+   * obvious path to it.
+   */
+  function isMonthOutsideEverySeason(month: Dayjs): boolean {
+    if (!seasons.length) return false;
+    const monthStart = month.startOf('month');
+    const monthEnd = month.endOf('month');
+    return !seasons.some(
+      (season) =>
+        !dayjs(season.start_date).isAfter(monthEnd, 'day') &&
+        !dayjs(season.end_date).isBefore(monthStart, 'day'),
+    );
+  }
   const updateMutation = useUpdateQuotaUsage();
   const createMutation = useCreateQuotaUsage();
   const approveMutation = useBulkApproveQuotaUsage();
@@ -362,6 +389,7 @@ export function QuotaUsageGrid({ weightUnit, productType }: IQuotaUsageGridProps
             picker="month"
             value={selectedMonth}
             onChange={(d) => { if (d) { setSelectedMonth(d); setAddedDates(new Set()); } }}
+            disabledDate={isMonthOutsideEverySeason}
             allowClear={false}
             style={{ width: 160 }}
           />

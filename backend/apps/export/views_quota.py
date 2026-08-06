@@ -35,6 +35,7 @@ from apps.export.services_quota import (
     build_quota_dashboard,
     compute_fifo_usage,
     compute_firm_quota_balances,
+    season_of_usage,
     usage_season_q,
 )
 from apps.export.services.quota_sync import invalidate_quota_caches
@@ -103,9 +104,22 @@ class QuotaIssuanceViewSet(SeasonScopedMixin, ModelViewSet):
         if self.request.method == 'GET':
             product_type = self.request.query_params.get('product_type', 'tomato')
             # The FIFO ledger is per-season under D11, so it must be computed
-            # for the SAME season the rows were listed under — otherwise the
-            # consumed_kg column would describe a different season's ledger.
-            ctx['usage_map'] = compute_fifo_usage(product_type, resolve_season(self.request))
+            # for the SAME season the row belongs to — otherwise `used_kg`
+            # describes a different season's ledger.
+            #
+            # List and detail need DIFFERENT seasons, and using the resolved one
+            # for both is wrong on the detail route: detail bypasses season
+            # scoping by design (Rule A), so a direct link to a prior season's
+            # issuance resolves — but `resolve_season()` on an un-parameterised
+            # GET returns the ACTIVE season, whose ledger does not contain this
+            # allocation. The row came back reporting `used_kg: 0.00` where the
+            # truth was its full consumption. The row's own `season` is the only
+            # correct answer for a route that ignores the request's.
+            if self.action == 'list':
+                season = resolve_season(self.request)
+            else:
+                season = getattr(self.get_object(), 'season', None)
+            ctx['usage_map'] = compute_fifo_usage(product_type, season)
         return ctx
 
     def perform_create(self, serializer) -> None:
@@ -210,11 +224,15 @@ class QuotaUsageViewSet(SeasonScopedMixin, ModelViewSet):
     serializer_class = QuotaUsageRecordSerializer
     pagination_class = None  # Grid view needs all records; volume is bounded by season
     http_method_names = ['get', 'patch', 'delete', 'post', 'head', 'options']
-    # `season_field` is still what the write-freeze helpers on the mixin read;
-    # only the READ scope is overridden below, because the mixin's Q builder
-    # cannot express the date-based fallback an unlinked row needs.
-    season_field = 'shipment__season'
-    include_null_link = True
+    # NO `season_field` / `include_null_link` here, deliberately. Both are read
+    # by `SeasonScopedMixin.apply_season_scope()` and by nothing else — the
+    # write-freeze helpers (`assert_create_target_open` /
+    # `assert_update_target_open`) resolve through `freeze_season_of()` instead
+    # — and this viewset overrides `apply_season_scope()` outright, so they
+    # would be dead attributes. Leaving `include_null_link = True` visible here
+    # was worse than dead: it advertises "this row shows under every open
+    # season", which is precisely what D11 forbids. The read scope is owned
+    # entirely by the override below.
 
     queryset = QuotaUsageRecord.objects.select_related(
         'export_firm', 'shipment', 'approved_by', 'created_by',
@@ -250,10 +268,38 @@ class QuotaUsageViewSet(SeasonScopedMixin, ModelViewSet):
             qs = self.apply_season_scope(qs)
         return qs
 
+    def _assert_usage_resolves_to_a_season(self, serializer) -> None:
+        """Reject a write that would leave the row belonging to NO season (D11).
+
+        Before D11, `include_null_link` surfaced every unlinked row under the
+        active season, so an out-of-range `usage_date` was survivable. Now
+        `usage_season_q()` matches such a row for no season at all: it vanishes
+        the instant it saves and is counted in no ledger. Both `usage_date` and
+        `shipment` are writable on this serializer, and the quota-usage grid
+        POSTs no shipment, so the gap is reachable straight from the UI.
+
+        Mirrors the identical guard on `QuotaIssuanceViewSet.perform_create`.
+        Checks the values the row will have AFTER the write, so a PATCH that
+        moves `usage_date` into the gap is caught too.
+        """
+        data = serializer.validated_data
+        instance = serializer.instance
+        shipment = data.get('shipment', getattr(instance, 'shipment', None))
+        usage_date = data.get('usage_date', getattr(instance, 'usage_date', None))
+        if season_of_usage(shipment, usage_date) is None:
+            raise ValidationError({
+                'usage_date': (
+                    f'{usage_date} falls outside every season. A usage record with '
+                    'no shipment must be dated inside a season, or it belongs to '
+                    'none and is counted in no quota balance.'
+                ),
+            })
+
     def perform_create(self, serializer) -> None:
         # Write freeze (D1): CreateModelMixin never calls get_object(), so
         # the SeasonNotClosed object permission cannot fire on a create.
         self.assert_create_target_open(serializer)
+        self._assert_usage_resolves_to_a_season(serializer)
         instance = serializer.save(created_by=self.request.user)
         AuditLog.objects.create(
             user=self.request.user,
@@ -269,6 +315,7 @@ class QuotaUsageViewSet(SeasonScopedMixin, ModelViewSet):
         # the write; this checks the one it would have AFTER, so a PATCH
         # cannot move the row into a closed season.
         self.assert_update_target_open(serializer)
+        self._assert_usage_resolves_to_a_season(serializer)
         if serializer.instance.status != 'draft':
             raise ValidationError({'detail': 'Only draft records can be edited.'})
         instance = serializer.save()

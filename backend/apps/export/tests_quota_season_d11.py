@@ -338,3 +338,143 @@ class QuotaUsageUnlinkedRowScopingTests(QuotaSeasonFixture):
     def test_no_active_season_returns_nothing(self):
         Season.objects.filter(pk=self.newer.pk).update(is_active=False)
         self.assertEqual(self._list(), set())
+
+
+class GapSeasonFixture(TestCase):
+    """Two seasons with a REAL calendar gap between them, mirroring the dev DB:
+    2025-2026 ends 2026-06-30, 2026-2027 starts 2026-08-01, so July 2026 belongs
+    to no season. That gap is what makes a row unreachable.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.past = Season.objects.create(
+            name='2025/2026', start_date=date(2025, 9, 1), end_date=date(2026, 6, 30),
+        )
+        cls.current = Season.objects.create(
+            name='2026/2027', start_date=date(2026, 8, 1), end_date=date(2027, 6, 30),
+            is_active=True,
+        )
+        cls.firm = ExportFirm.objects.create(code='GAPF', name_tk='Firma GAP')
+        cls.admin = User.objects.create(
+            username='gap-admin', role='admin', is_superuser=True,
+        )
+        RoleResourcePermission.objects.update_or_create(
+            role='admin', resource_code='quota_usage',
+            defaults={'can_view': True, 'can_create': True, 'can_edit': True},
+        )
+
+    def setUp(self):
+        cache.clear()
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.admin)
+
+
+class QuotaUsageMustResolveToASeasonTests(GapSeasonFixture):
+    """Regression: D11 made it possible to write a usage row that belongs to no
+    season and is therefore invisible everywhere and counted in no ledger.
+
+    `QuotaUsageRecord.usage_date` and `.shipment` are BOTH writable
+    (`QuotaUsageRecordSerializer.read_only_fields` excludes them), and the quota
+    usage grid POSTs `{usage_date, export_firm, kg_used, product_type}` with no
+    shipment at all. Before D11 an unlinked row surfaced under the active season
+    via `include_null_link`, so a gap date was survivable; now it matches
+    `usage_season_q()` for no season at all. Mirrors the guard already on
+    `QuotaIssuanceViewSet.perform_create`.
+    """
+
+    URL = '/api/v1/export/quota-usage/'
+
+    def _post(self, usage_date: str, shipment=None):
+        payload = {
+            'usage_date': usage_date, 'export_firm': self.firm.pk,
+            'kg_used': '100', 'product_type': 'tomato',
+        }
+        if shipment is not None:
+            payload['shipment'] = shipment.pk
+        return self.client.post(self.URL, payload, format='json')
+
+    def test_unlinked_row_dated_in_the_gap_is_rejected(self):
+        response = self._post('2026-07-15')
+        self.assertEqual(response.status_code, 400, response.content[:400])
+        self.assertEqual(
+            QuotaUsageRecord.objects.count(), 0,
+            'no invisible row may be left behind by the rejected create',
+        )
+
+    def test_unlinked_row_inside_a_season_is_accepted(self):
+        """Control — the guard must not reject legitimate writes."""
+        self.assertEqual(self._post('2026-09-15').status_code, 201)
+        self.assertEqual(self._post('2026-01-15').status_code, 201)
+
+    def test_linked_row_dated_in_the_gap_is_accepted(self):
+        """A shipment anchors the row regardless of its date, so a July-2026
+        usage row against a season that ended 2026-06-30 is legitimate — 7 such
+        rows exist on the dev DB. The guard must not reject them.
+        """
+        country = Country.objects.create(name_en='Kazakhstan', name_tk='Gazagystan')
+        shipment = Shipment.objects.create(
+            shipment_code='GAP-SHIP', date=self.past.start_date, season=self.past,
+            status=_make_status(), country=country,
+        )
+        response = self._post('2026-07-15', shipment=shipment)
+        self.assertEqual(response.status_code, 201, response.content[:400])
+
+    def test_patch_moving_an_unlinked_row_into_the_gap_is_rejected(self):
+        created = self._post('2026-09-15')
+        self.assertEqual(created.status_code, 201, created.content[:400])
+        record_id = created.json()['id']
+        response = self.client.patch(
+            f'{self.URL}{record_id}/', {'usage_date': '2026-07-15'}, format='json',
+        )
+        self.assertEqual(response.status_code, 400, response.content[:400])
+        self.assertEqual(
+            QuotaUsageRecord.objects.get(pk=record_id).usage_date, date(2026, 9, 15),
+            'the rejected PATCH must not have been applied',
+        )
+
+
+class IssuanceDetailUsesItsOwnSeasonsLedgerTests(GapSeasonFixture):
+    """Detail routes deliberately bypass season scoping (Rule A), so a direct
+    link to a prior season's issuance resolves — but `get_serializer_context`
+    built `usage_map` from `resolve_season(request)`, which for an un-parameterised
+    detail GET is the ACTIVE season. The row came back annotated with a different
+    season's (empty) ledger: `used_kg: 0.00` where the truth is the full
+    consumption.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        RoleResourcePermission.objects.update_or_create(
+            role='admin', resource_code='quota_issuance', defaults={'can_view': True},
+        )
+        cls.past_issuance = QuotaIssuance.objects.create(
+            issue_date=cls.past.start_date, season=cls.past, product_type='tomato',
+        )
+        cls.past_alloc = QuotaIssuanceFirmAllocation.objects.create(
+            issuance=cls.past_issuance, export_firm=cls.firm, kg_quota=Decimal('1000'),
+        )
+        QuotaUsageRecord.objects.create(
+            usage_date=cls.past.start_date, export_firm=cls.firm,
+            kg_used=Decimal('600'), product_type='tomato', status='approved',
+        )
+
+    def test_detail_route_reports_its_own_seasons_consumption(self):
+        response = self.client.get(f'/api/v1/export/quota-issuances/{self.past_issuance.pk}/')
+        self.assertEqual(response.status_code, 200, response.content[:400])
+        allocation = response.json()['allocations'][0]
+        self.assertEqual(
+            Decimal(str(allocation['used_kg'])), Decimal('600'),
+            'used_kg must come from the ROW\'s season, not the resolved one — the '
+            'active season has no quota at all, so resolving there reports 0',
+        )
+
+    def test_list_still_uses_the_resolved_season(self):
+        """Control — the list must keep using the resolved season, or the
+        consumed column would describe rows it is not showing."""
+        response = self.client.get(f'/api/v1/export/quota-issuances/?season={self.past.pk}')
+        self.assertEqual(response.status_code, 200, response.content[:400])
+        body = response.json()
+        rows = body['results'] if isinstance(body, dict) and 'results' in body else body
+        self.assertEqual(Decimal(str(rows[0]['allocations'][0]['used_kg'])), Decimal('600'))
