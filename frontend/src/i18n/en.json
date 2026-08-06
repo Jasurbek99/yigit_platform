@@ -2138,6 +2138,7 @@
       "risk_matrix": "Risk Matrix",
       "alerts": "Alerts",
       "reports": "Reports",
+      "process_guides": "How the process works",
       "production_daily": "Daily Production Results",
       "production_seasonal": "Seasonal Production Results",
       "export_market": "Export Market Distribution"
@@ -2172,6 +2173,12 @@
       "audit": "Audit",
       "excel": "Excel",
       "pdf": "PDF"
+    },
+    "process": {
+      "journey": "A shipment's journey",
+      "journey_desc": "Plan to sale: 3 stages, 12 steps, an owner for each",
+      "bpmn": "BPMN diagram",
+      "bpmn_desc": "The formal process diagram"
     },
     "production": {
       "header_block": "Greenhouse",

@@ -2142,6 +2142,7 @@
       "risk_matrix": "Töwekgelçilik matrisi",
       "alerts": "Üns beriň",
       "reports": "Hasabatlar",
+      "process_guides": "Proses nähili işleýär",
       "production_daily": "Günlük önümçilik netijeleri",
       "production_seasonal": "Möwsümleýin önümçilik netijeleri",
       "export_market": "Daşarky bazar paýlanyşy"
@@ -2176,6 +2177,12 @@
       "audit": "Audit",
       "excel": "Excel",
       "pdf": "PDF"
+    },
+    "process": {
+      "journey": "Ýük daşamanyň ýoly",
+      "journey_desc": "Meýilnamadan satuwa çenli: 3 tapgyr, 12 ädim, her ädimiň eýesi",
+      "bpmn": "BPMN shemasy",
+      "bpmn_desc": "Prosesiň resmi shemasy"
     },
     "production": {
       "header_block": "Ýyladyşhana",

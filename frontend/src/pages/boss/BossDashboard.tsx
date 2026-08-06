@@ -16,6 +16,7 @@ import { AlertsPanel } from './AlertsPanel';
 import { ProductionResults } from './ProductionResults';
 import { ExportMarketByBlock } from './ExportMarketByBlock';
 import { ReportsGrid } from './ReportsGrid';
+import { ProcessGuides } from './ProcessGuides';
 
 const { Title, Text } = Typography;
 
@@ -176,6 +177,9 @@ export default function BossDashboard() {
 
       {/* ── Reports Grid ─────────────────────────────────────── */}
       <ReportsGrid />
+
+      {/* ── Process Guides ───────────────────────────────────── */}
+      <ProcessGuides />
     </div>
   );
 }
