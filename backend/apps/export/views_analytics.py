@@ -593,5 +593,10 @@ class BossAnalyticsViewSet(viewsets.ViewSet):
         if filename is None:
             raise Http404('Unknown process doc')
 
-        content = (_PROCESS_DOCS_DIR / filename).read_bytes()
+        try:
+            content = (_PROCESS_DOCS_DIR / filename).read_bytes()
+        except FileNotFoundError:
+            # A curator typo in _PROCESS_DOCS (filename doesn't match the
+            # actual file on disk) should 404, not 500.
+            raise Http404('Process doc file missing on disk')
         return HttpResponse(content, content_type='text/html; charset=utf-8')
