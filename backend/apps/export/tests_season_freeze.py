@@ -1305,3 +1305,132 @@ class AdvanceCreateFreezeTests(SeasonFreezeFixture):
             '/api/v1/export/advances/', self._payload([]), format='json',
         )
         self.assertEqual(response.status_code, 201, response.content[:400])
+
+
+class AdvanceFreezeSeasonAnchorTests(SeasonFreezeFixture):
+    """F2 — `FinansistAdvance.freeze_season`, the junction-derived anchor.
+
+    `freeze_season_of()` returned None for this model (no `season` attr, no
+    `shipment` attr — the links live in a junction table), so adding
+    `SeasonNotClosed` to the viewset alone would have been a no-op. The
+    property makes BOTH layers resolve the same anchor.
+    """
+
+    def _advance(self, *shipments) -> FinansistAdvance:
+        advance = FinansistAdvance.objects.create(
+            advance_date=date(2026, 1, 15), total_amount=Decimal('1000'),
+            currency='USD', issued_by=self.admin,
+        )
+        for shipment in shipments:
+            FinansistAdvanceShipment.objects.create(
+                advance=advance, shipment=shipment,
+            )
+        return advance
+
+    def test_anchor_is_none_for_an_unlinked_advance(self):
+        """No links = belongs to no season = not frozen (assert_season_open
+        treats None as open), the same rule as an unlinked legacy Task."""
+        self.assertIsNone(freeze_season_of(self._advance()))
+
+    def test_anchor_is_none_for_an_unsaved_advance(self):
+        """`assert_create_target_open()` builds an UNSAVED instance, and a
+        reverse manager on a pk-less row raises rather than returning empty."""
+        self.assertIsNone(freeze_season_of(FinansistAdvance(
+            advance_date=date(2026, 1, 15), total_amount=Decimal('1000'),
+        )))
+
+    def test_anchor_is_the_open_season_of_a_single_open_link(self):
+        advance = self._advance(self.make_shipment(self.active, 'ANC-ACT01'))
+        self.assertEqual(freeze_season_of(advance), self.active)
+
+    def test_anchor_is_the_closed_season_of_a_single_closed_link(self):
+        advance = self._advance(self.make_shipment(self.closed, 'ANC-CLS01'))
+        self.assertEqual(freeze_season_of(advance), self.closed)
+
+    def test_a_closed_link_wins_over_an_open_one(self):
+        """Multi-season: frozen if ANY linked shipment is in a closed season —
+        the same "either side frozen" rule ContractSale sets."""
+        advance = self._advance(
+            self.make_shipment(self.active, 'ANC-ACT02'),
+            self.make_shipment(self.closed, 'ANC-CLS02'),
+        )
+        self.assertEqual(freeze_season_of(advance), self.closed)
+
+
+class AdvanceApiFreezeTests(SeasonFreezeFixture):
+    """F2 — layer 1 on `FinansistAdvanceViewSet`'s generic and custom writes."""
+
+    def _advance(self, *shipments) -> FinansistAdvance:
+        advance = FinansistAdvance.objects.create(
+            advance_date=date(2026, 1, 15), total_amount=Decimal('1000'),
+            currency='USD', issued_by=self.admin,
+        )
+        for shipment in shipments:
+            FinansistAdvanceShipment.objects.create(
+                advance=advance, shipment=shipment,
+            )
+        return advance
+
+    def test_patch_amount_on_a_closed_season_advance_returns_409(self):
+        """A generic PATCH on the amount moves a frozen season's ledger total."""
+        advance = self._advance(self.make_shipment(self.closed, 'API-CLS01'))
+        self.assert_season_closed_409(self.client_as().patch(
+            f'/api/v1/export/advances/{advance.pk}/',
+            {'total_amount': '9999.00'}, format='json',
+        ))
+
+    def test_delete_of_a_closed_season_advance_returns_409(self):
+        advance = self._advance(self.make_shipment(self.closed, 'API-CLS02'))
+        self.assert_season_closed_409(
+            self.client_as().delete(f'/api/v1/export/advances/{advance.pk}/')
+        )
+
+    def test_reconcile_of_a_closed_season_advance_returns_409(self):
+        advance = self._advance(self.make_shipment(self.closed, 'API-CLS03'))
+        self.assert_season_closed_409(self.client_as().patch(
+            f'/api/v1/export/advances/{advance.pk}/reconcile/', {}, format='json',
+        ))
+        advance.refresh_from_db()
+        self.assertFalse(advance.reconciled)
+
+    def test_link_shipment_onto_a_closed_season_advance_returns_409(self):
+        """The advance itself is frozen, so even linking an OPEN shipment to
+        it is refused — the accepted cost of "any closed link freezes it"."""
+        advance = self._advance(self.make_shipment(self.closed, 'API-CLS04'))
+        live = self.make_shipment(self.active, 'API-ACT04')
+        self.assert_season_closed_409(self.client_as().post(
+            f'/api/v1/export/advances/{advance.pk}/link-shipment/',
+            {'shipment_id': live.pk}, format='json',
+        ))
+
+    def test_patch_on_an_active_season_advance_still_works(self):
+        advance = self._advance(self.make_shipment(self.active, 'API-ACT01'))
+        response = self.client_as().patch(
+            f'/api/v1/export/advances/{advance.pk}/',
+            {'total_amount': '2500.00'}, format='json',
+        )
+        self.assertEqual(response.status_code, 200, response.content[:400])
+
+    def test_reconcile_on_an_active_season_advance_still_works(self):
+        advance = self._advance(self.make_shipment(self.active, 'API-ACT02'))
+        response = self.client_as().patch(
+            f'/api/v1/export/advances/{advance.pk}/reconcile/', {}, format='json',
+        )
+        self.assertEqual(response.status_code, 200, response.content[:400])
+        advance.refresh_from_db()
+        self.assertTrue(advance.reconciled)
+
+    def test_patch_on_an_unlinked_advance_still_works(self):
+        """A zero-link advance anchors to no season and must stay editable —
+        otherwise the freeze would make it permanently unsaveable."""
+        advance = self._advance()
+        response = self.client_as().patch(
+            f'/api/v1/export/advances/{advance.pk}/',
+            {'total_amount': '2500.00'}, format='json',
+        )
+        self.assertEqual(response.status_code, 200, response.content[:400])
+
+    def test_reading_a_closed_season_advance_is_still_allowed(self):
+        advance = self._advance(self.make_shipment(self.closed, 'API-CLS05'))
+        response = self.client_as().get(f'/api/v1/export/advances/{advance.pk}/')
+        self.assertEqual(response.status_code, 200)

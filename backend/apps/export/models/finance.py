@@ -49,6 +49,57 @@ class FinansistAdvance(models.Model):
         code = self.batch_code or f'ADV-{self.id}'
         return f'{code} ({self.advance_date}) {self.total_amount} {self.currency}'
 
+    @property
+    def freeze_season(self) -> 'Season | None':
+        """Authoritative Season for the write freeze (D1).
+
+        Read by `apps.core.seasons.freeze_season_of()`, which BOTH layers of
+        the freeze consult — so this one definition covers the generic
+        PATCH/DELETE, `reconcile`, and the two link actions alike.
+
+        This model reaches a Season through neither a `season` FK nor a
+        `shipment` FK: its shipments hang off the `FinansistAdvanceShipment`
+        junction, zero to many. Without this hook `freeze_season_of()`
+        returned None, so adding `SeasonNotClosed` to the viewset would have
+        been a silent no-op and a frozen season's ledger stayed mutable.
+
+        The rule is **frozen if ANY linked shipment is in a closed season**,
+        the same "either side frozen" reading `ContractSale.freeze_season`
+        sets for its two anchors. It also matches what the READ side already
+        does: `views_finance._scope_advances_to_season()` surfaces a
+        multi-season advance in every linked season's list, so an advance
+        visible inside a closed season's archive must not be editable from
+        there.
+
+        An advance with NO links returns None — it belongs to no season, so
+        `assert_season_open()` treats it as open and it stays fully editable.
+        That is deliberate: a link-less advance is legal (`link_shipment` is a
+        separate action), and freezing it would make it permanently
+        unsaveable. Unsaved instances return None for the same reason plus a
+        mechanical one: `assert_create_target_open()` builds a pk-less
+        instance, and a reverse manager on one raises rather than returning
+        empty.
+
+        Accepted consequence: an advance spanning an open AND a closed season
+        becomes wholly immutable — the closed link cannot even be unlinked to
+        repair it. Splitting the advance is the manual remedy.
+
+        Returns:
+            The closed Season when any link is frozen (lowest season id first,
+            so the 409 body is deterministic across multiple closed seasons),
+            otherwise the first link's Season, otherwise None.
+        """
+        if self.pk is None:
+            return None
+        links = self.shipment_links.select_related('shipment__season')
+        frozen = links.filter(
+            shipment__season__closed_at__isnull=False,
+        ).order_by('shipment__season_id', 'pk').first()
+        if frozen is not None:
+            return frozen.shipment.season
+        first = links.order_by('pk').first()
+        return first.shipment.season if first is not None else None
+
 
 class FinansistAdvanceShipment(models.Model):
     """Junction table: which shipments a batch advance covers.

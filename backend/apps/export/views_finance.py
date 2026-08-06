@@ -94,10 +94,17 @@ class FinansistAdvanceViewSet(ModelViewSet):
     with no shipment links at all plays the role of "unlinked" and surfaces
     alongside an open season, same rule as the nullable-shipment models.
     Detail routes and the link/reconcile actions bypass scoping — Rule A.
+
+    Write freeze (D1): `SeasonNotClosed` covers every write that reaches
+    `get_object()` — the generic PATCH/DELETE, `reconcile`, and both link
+    actions — because `FinansistAdvance.freeze_season` derives the same
+    junction anchor for the freeze that `_scope_advances_to_season()` derives
+    for reads. `create()` cannot reach layer 1 at all and carries its own
+    `assert_bulk_seasons_open()` over the shipments named in the body.
     """
 
     resource_code = 'advance'
-    permission_classes = [IsAuthenticated, DynamicResourcePermission]
+    permission_classes = [IsAuthenticated, DynamicResourcePermission, SeasonNotClosed]
     http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
 
     queryset = (
@@ -252,9 +259,10 @@ class FinansistAdvanceViewSet(ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Write freeze (D1). FinansistAdvance itself carries no season, so
-        # layer 1 is a no-op on this viewset — the season lives on the
-        # shipment named in the body.
+        # Write freeze (D1), layer 2. `get_object()` above already refused if
+        # the ADVANCE is frozen (any existing link in a closed season); this
+        # covers the other direction — the season of the shipment named in
+        # the body, which no object permission can see.
         assert_season_open(target.season)
 
         if FinansistAdvanceShipment.objects.filter(
