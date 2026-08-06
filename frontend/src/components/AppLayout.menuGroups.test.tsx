@@ -98,6 +98,27 @@ const EXPECTED_BOSS_ORDERED_KEYS = [
   '/feedback/submit', '/feedback/my-tickets', '/feedback/public', '/admin/feedback',
 ];
 
+// The exact 45 route keys STAFF_MENU_GROUPS produces, in group + item order,
+// transcribed directly from STAFF_MENU_GROUPS in AppLayout.tsx (not from the
+// task brief). Symmetric to EXPECTED_BOSS_ORDERED_KEYS above: an ordered
+// per-composition check is the only guard that catches an item landing in
+// the wrong group while the overall label list and the unordered 45-key set
+// both stay correct (e.g. moving /me/board into nav.group_main while moving
+// something else out of it to keep group_export's count at 15).
+const EXPECTED_STAFF_ORDERED_KEYS = [
+  '/', '/boss/dashboard', '/director/stuck-shipments',
+  '/analytics/clients-report', '/export/blocks',
+  '/export/shipments/dashboard', '/export/shipments', '/export/shipments/sheet', '/me/board',
+  '/export/shipments/board', '/export/harvest-board', '/export/weightmaster', '/export/overdue',
+  '/export/my-reports', '/export/advances',
+  '/export/trucks', '/export/drafts', '/export/assign', '/export/domestic-sales', '/export/prices',
+  '/contracts', '/sales', '/documents',
+  '/export/plan', '/export/quota', '/admin/seasons', '/admin/firms', '/admin/import-firms', '/admin/customers', '/admin/blocks',
+  '/admin/users', '/admin/truck-destinations', '/admin/shipment-settings', '/admin/permissions', '/admin/staff-access', '/admin/sales-rep-coverage', '/admin/expense-template', '/admin/packing-templates', '/admin/audit-log',
+  '/worklog', '/team/kpi',
+  '/feedback/submit', '/feedback/my-tickets', '/feedback/public', '/admin/feedback',
+];
+
 // All 11 boss group labels / all 8 staff group labels, in render order —
 // three keys (group_analytics, group_system, group_feedback) are shared by
 // both compositions with different membership, so they appear in both lists.
@@ -185,6 +206,11 @@ describe('AppLayout menu composition', () => {
   it('boss menu renders exactly the expected 45 route keys, in order', () => {
     renderLayout(fakeUser({ role: 'boss' as UserRole }));
     expect(renderedMenuItemKeys()).toEqual(EXPECTED_BOSS_ORDERED_KEYS);
+  });
+
+  it('staff menu renders exactly the expected 45 route keys, in order', () => {
+    renderLayout(fakeUser({ role: 'export_manager' as UserRole }));
+    expect(renderedMenuItemKeys()).toEqual(EXPECTED_STAFF_ORDERED_KEYS);
   });
 
   it('every route key rendered by either composition is a real ITEMS-backed menu item (no stray "undefined" labels)', () => {
