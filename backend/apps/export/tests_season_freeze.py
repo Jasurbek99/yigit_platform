@@ -33,10 +33,10 @@ from apps.core.models import (
 )
 from apps.core.seasons import SeasonClosedError, freeze_season_of
 from apps.export.models import (
-    CustomsExpense, Notification, QuotaIssuance, QuotaUsageRecord, SalesReport,
-    Shipment, ShipmentBlockSource, ShipmentComment, Task, TaskCompletionRule,
-    TaskRule, WeeklyDestinationSelection, WeeklyLocalSellPlan,
-    WeeklyTruckAllocation,
+    CustomsExpense, FinansistAdvance, FinansistAdvanceShipment, Notification,
+    QuotaIssuance, QuotaUsageRecord, SalesReport, Shipment, ShipmentBlockSource,
+    ShipmentComment, Task, TaskCompletionRule, TaskRule,
+    WeeklyDestinationSelection, WeeklyLocalSellPlan, WeeklyTruckAllocation,
 )
 from apps.export.services.shipment import create_shipment, transition_to
 from apps.greenhouse.models import HarvestDayEntry, WeeklyHarvestPlan
@@ -1232,3 +1232,76 @@ class GeneratorsSkipClosedSeasonsTests(SeasonFreezeFixture):
         active_ship.refresh_from_db()
         self.assertEqual(closed_ship.status.code, 'satyldy')      # untouched
         self.assertEqual(active_ship.status.code, 'tamamlandy')   # advanced
+
+
+# ── FinansistAdvance — the junction-anchored freeze (F1 / F2) ────────────────
+
+class AdvanceCreateFreezeTests(SeasonFreezeFixture):
+    """F1 — `POST /export/advances/` links shipments by a raw id list.
+
+    `create()` is fully overridden: it never calls `get_object()` and never
+    calls `perform_create()`, so NEITHER layer 1 (`SeasonNotClosed`) nor
+    `assert_create_target_open()` can fire on it. The season lives on the
+    shipments named in the body, so only an explicit
+    `assert_bulk_seasons_open()` can see it — the same shape `link_shipment`
+    already guards one action below.
+    """
+
+    def _payload(self, shipment_ids: list) -> dict:
+        return {
+            'advance_date': '2026-01-15',
+            'total_amount': '1500.00',
+            'currency': 'USD',
+            'shipment_ids': shipment_ids,
+        }
+
+    def test_create_linking_a_closed_season_shipment_returns_409(self):
+        frozen = self.make_shipment(self.closed, 'ADV-CLS01')
+        response = self.client_as().post(
+            '/api/v1/export/advances/', self._payload([frozen.pk]), format='json',
+        )
+        self.assert_season_closed_409(response)
+
+    def test_create_linking_an_active_season_shipment_still_works(self):
+        live = self.make_shipment(self.active, 'ADV-ACT01')
+        response = self.client_as().post(
+            '/api/v1/export/advances/', self._payload([live.pk]), format='json',
+        )
+        self.assertEqual(response.status_code, 201, response.content[:400])
+        self.assertEqual(len(response.json()['shipment_links']), 1)
+
+    def test_create_rejects_a_mixed_batch_wholesale(self):
+        """A partially-applied batch against a frozen season is worse than a
+        rejected one — `assert_bulk_seasons_open`'s documented contract."""
+        frozen = self.make_shipment(self.closed, 'ADV-CLS02')
+        live = self.make_shipment(self.active, 'ADV-ACT02')
+        response = self.client_as().post(
+            '/api/v1/export/advances/',
+            self._payload([live.pk, frozen.pk]),
+            format='json',
+        )
+        self.assert_season_closed_409(response)
+
+    def test_rejected_create_leaves_no_orphan_advance(self):
+        """The guard must run BEFORE `FinansistAdvance.objects.create()`.
+
+        ATOMIC_REQUESTS is not set on this project (it defaults to False), so
+        a 409 raised between the advance INSERT and the junction bulk_create
+        would leave a parent advance with zero links — which
+        `_scope_advances_to_season()` treats as "unlinked" and therefore
+        surfaces in the season list AND in `/ledger/`'s `advances_total`.
+        That is the very harm F1 describes, reached by a different route.
+        """
+        frozen = self.make_shipment(self.closed, 'ADV-CLS03')
+        before = FinansistAdvance.objects.count()
+        self.client_as().post(
+            '/api/v1/export/advances/', self._payload([frozen.pk]), format='json',
+        )
+        self.assertEqual(FinansistAdvance.objects.count(), before)
+
+    def test_create_with_no_links_still_works(self):
+        """A zero-link advance is legal — `link_shipment` exists separately."""
+        response = self.client_as().post(
+            '/api/v1/export/advances/', self._payload([]), format='json',
+        )
+        self.assertEqual(response.status_code, 201, response.content[:400])
