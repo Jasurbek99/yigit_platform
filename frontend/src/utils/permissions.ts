@@ -175,3 +175,14 @@ export function canWriteReferenceData(user: ICurrentUser | null): boolean {
 export function getPageCode(routePath: string): string | undefined {
   return ROUTE_PAGE_MAP[routePath];
 }
+
+/**
+ * Every real app route path, for use as autocomplete suggestions in free-text
+ * route pickers (e.g. the process-node-link admin page) — NOT for gating.
+ * Deliberately does not add an entry to ROUTE_PAGE_MAP itself: that map drives
+ * canSeePage()'s permission-matrix resolution, and this route is intentionally
+ * role-gated instead (see ProcessNodeLinksPage).
+ */
+export function getKnownAppRoutes(): string[] {
+  return Object.keys(ROUTE_PAGE_MAP);
+}

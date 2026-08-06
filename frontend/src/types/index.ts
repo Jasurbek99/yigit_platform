@@ -1935,3 +1935,13 @@ export interface IDocumentPacketFilters {
   page?: number;
   pageSize?: number;
 }
+
+// ─── Process node links (boss BPMN diagram -> screen mapping) ──────────────
+
+export interface IProcessNodeLink {
+  id: number;
+  node_id: string;
+  label: string;
+  route: string;
+  is_active: boolean;
+}

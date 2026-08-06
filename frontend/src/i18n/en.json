@@ -71,6 +71,7 @@
     "admin_shipment_settings": "Shipment Settings",
     "admin_audit_log": "Audit Log",
     "admin_staff_access": "Staff Page Access",
+    "admin_process_links": "Process Diagram Links",
     "group_main": "Main",
     "group_export": "Export",
     "group_management": "Management",
@@ -3026,6 +3027,19 @@
     "toast_error": "Failed to save page access",
     "error_load": "Failed to load page access settings",
     "empty": "You have no staff roles to manage."
+  },
+  "process_node_links_admin": {
+    "title": "Process Diagram Links",
+    "subtitle": "Map each block in the boss's BPMN process diagram to the screen it opens.",
+    "col_node_id": "Node ID",
+    "col_label": "Label",
+    "col_route": "Route",
+    "col_status": "Status",
+    "edit_title": "Edit link — {{node}}",
+    "route_placeholder": "/export/plan",
+    "route_hint": "Must start with \"/\", or leave empty to unlink the block.",
+    "route_invalid": "Route must start with \"/\"",
+    "toast_updated": "Link updated"
   },
   "clients_report": {
     "title": "Clients Report",

@@ -148,6 +148,7 @@ export default function AppLayout() {
     '/admin/shipment-settings': t('nav.admin_shipment_settings'),
     '/admin/audit-log': t('nav.admin_audit_log'),
     '/admin/staff-access': t('nav.admin_staff_access'),
+    '/admin/process-links': t('nav.admin_process_links'),
     '/me/board': t('me.nav.board'),
     '/contracts': t('nav.contracts.list'),
     '/sales': t('nav.sales.list'),
@@ -270,6 +271,15 @@ export default function AppLayout() {
     '/admin/users': { key: '/admin/users', icon: <IconUsers size={15} />, label: t('nav.admin_users') },
     '/admin/permissions': { key: '/admin/permissions', icon: <IconShield size={15} />, label: t('nav.admin_permissions') },
     '/admin/staff-access': { key: '/admin/staff-access', icon: <IconUsers size={15} />, label: t('nav.admin_staff_access') },
+    '/admin/process-links': {
+      key: '/admin/process-links',
+      icon: <IconRoute size={15} />,
+      label: t('nav.admin_process_links'),
+      // Role-gated, not page_code-gated — mirrors the backend's inline
+      // _is_full_admin check (admin role or superuser), which deliberately
+      // bypasses the page_permissions matrix. See ProtectedRoute below.
+      roles: ['admin'] as import('@/types').UserRole[],
+    },
     '/admin/shipment-settings': { key: '/admin/shipment-settings', icon: <IconLayoutGrid size={15} />, label: t('nav.admin_shipment_settings') },
     '/admin/sales-rep-coverage': { key: '/admin/sales-rep-coverage', icon: <IconMapPin size={15} />, label: t('nav.sales_rep_coverage') },
     '/admin/audit-log': {
@@ -311,7 +321,7 @@ export default function AppLayout() {
     group('nav.group_finance', ['/export/advances', '/export/overdue', '/admin/expense-template']),
     group('nav.group_analytics', ['/analytics/clients-report', '/team/kpi', '/worklog']),
     group('nav.group_reference', ['/admin/seasons', '/admin/firms', '/admin/import-firms', '/admin/customers', '/admin/blocks', '/admin/truck-destinations']),
-    group('nav.group_system', ['/admin/users', '/admin/permissions', '/admin/staff-access', '/admin/shipment-settings', '/admin/sales-rep-coverage', '/admin/audit-log']),
+    group('nav.group_system', ['/admin/users', '/admin/permissions', '/admin/staff-access', '/admin/shipment-settings', '/admin/sales-rep-coverage', '/admin/audit-log', '/admin/process-links']),
     group('nav.group_feedback', ['/feedback/submit', '/feedback/my-tickets', '/feedback/public', '/admin/feedback']),
   ];
   // Every other role's menu — the original module grouping (restored
@@ -329,7 +339,7 @@ export default function AppLayout() {
     ]),
     group('nav.group_contracts', ['/contracts', '/sales', '/documents']),
     group('nav.group_management', ['/export/plan', '/export/quota', '/admin/seasons', '/admin/firms', '/admin/import-firms', '/admin/customers', '/admin/blocks']),
-    group('nav.group_system', ['/admin/users', '/admin/truck-destinations', '/admin/shipment-settings', '/admin/permissions', '/admin/staff-access', '/admin/sales-rep-coverage', '/admin/expense-template', '/admin/packing-templates', '/admin/audit-log']),
+    group('nav.group_system', ['/admin/users', '/admin/truck-destinations', '/admin/shipment-settings', '/admin/permissions', '/admin/staff-access', '/admin/sales-rep-coverage', '/admin/expense-template', '/admin/packing-templates', '/admin/audit-log', '/admin/process-links']),
     group('nav.group_team', ['/worklog', '/team/kpi']),
     group('nav.group_feedback', ['/feedback/submit', '/feedback/my-tickets', '/feedback/public', '/admin/feedback']),
   ];

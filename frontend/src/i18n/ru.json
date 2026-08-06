@@ -71,6 +71,7 @@
     "admin_shipment_settings": "Настройки Отгрузок",
     "admin_audit_log": "Журнал аудита",
     "admin_staff_access": "Доступ сотрудников к страницам",
+    "admin_process_links": "Ссылки диаграммы процесса",
     "group_main": "Главное",
     "group_export": "Экспорт",
     "group_management": "Управление",
@@ -3028,6 +3029,19 @@
     "toast_error": "Не удалось сохранить доступ к страницам",
     "error_load": "Не удалось загрузить настройки доступа",
     "empty": "У вас нет подчинённых ролей для управления."
+  },
+  "process_node_links_admin": {
+    "title": "Ссылки диаграммы процесса",
+    "subtitle": "Свяжите каждый блок BPMN-диаграммы босса с экраном, который он открывает.",
+    "col_node_id": "ID блока",
+    "col_label": "Метка",
+    "col_route": "Маршрут",
+    "col_status": "Статус",
+    "edit_title": "Изменить ссылку — {{node}}",
+    "route_placeholder": "/export/plan",
+    "route_hint": "Должен начинаться с «/», либо оставьте пустым, чтобы отвязать блок.",
+    "route_invalid": "Маршрут должен начинаться с «/»",
+    "toast_updated": "Ссылка обновлена"
   },
   "clients_report": {
     "title": "Отчёт по клиентам",

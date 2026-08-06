@@ -23,6 +23,7 @@ import type {
   AuditAction,
   UserRole,
   IManagedPagePermissions,
+  IProcessNodeLink,
 } from '@/types';
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
@@ -1220,6 +1221,37 @@ export function useDeleteTruckSplit(options: MutationOptions = {}) {
     mutationFn: (id: number) => api.delete(`/export/admin/truck-splits/${id}/`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-truck-splits'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+// ─── Process node links (boss BPMN diagram -> screen mapping) ─────────────
+// Get + patch only — the 20 rows are fixed by the diagram's own node array
+// (seeded via migration), so there is no create/delete here on purpose.
+
+export function useProcessNodeLinks() {
+  return useQuery({
+    queryKey: ['admin-process-node-links'],
+    queryFn: async (): Promise<IProcessNodeLink[]> => {
+      if (USE_MOCK) return [];
+      const { data } = await api.get<IProcessNodeLink[] | IApiListResponse<IProcessNodeLink>>(
+        '/export/admin/process-node-links/?page_size=200',
+      );
+      return Array.isArray(data) ? data : data.results;
+    },
+    staleTime: 60_000,
+  });
+}
+
+export function useUpdateProcessNodeLink(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...payload }: { id: number; route?: string; is_active?: boolean }) =>
+      api.patch<IProcessNodeLink>(`/export/admin/process-node-links/${id}/`, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-process-node-links'] });
       options.onSuccess?.();
     },
     onError: options.onError,
