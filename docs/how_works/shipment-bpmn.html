@@ -22,6 +22,8 @@
   .task.st-planned{border-style:dashed;background:repeating-linear-gradient(45deg,#fff,#fff 6px,#eef0ff 6px,#eef0ff 12px)}
   .badge{font-size:9px;font-weight:800;padding:1px 6px;border-radius:6px;letter-spacing:.3px;white-space:nowrap}
   .bd-planned{background:#e0e7ff;color:#3730a3} .bd-partial{background:#fde68a;color:#92400e}
+  a.task-link{color:inherit;text-decoration:none;cursor:pointer}
+  a.task-link:hover{box-shadow:0 3px 8px #00000042;filter:brightness(0.97)}
   .note{padding:8px 26px 0;color:#5b6675;font-size:12px;max-width:1100px}
   @media print{body{background:#fff;padding:0}.head button,.note{display:none}.scroll{overflow:visible}}
 </style>
@@ -169,7 +171,7 @@ N.forEach(([id])=>{
     if(m.status==='planned') inner+='<span class="badge bd-planned">◷ PLANLANÝAR</span>';
     if(m.status==='partial') inner+='<span class="badge bd-partial">🚧 ÝARYM</span>';
     svg+=`<foreignObject x="${m.x}" y="${m.y}" width="${m.w}" height="${m.h}">
-      <div xmlns="http://www.w3.org/1999/xhtml" class="task${m.status?' st-'+m.status:''}"
+      <div xmlns="http://www.w3.org/1999/xhtml" id="task-${id}" class="task${m.status?' st-'+m.status:''}"
         style="border-left-color:${m.lc}">${inner}</div></foreignObject>`;
   } else if(m.type==='start' || m.type==='end'){
     const r=EV/2, isEnd=m.type==='end';
@@ -188,6 +190,31 @@ N.forEach(([id])=>{
 
 svg+='</svg>';
 document.getElementById('canvas').innerHTML=svg;
+
+// Upgrade linked task nodes to real anchors once the node→route map arrives.
+// The diagram above is already fully rendered without this — if the fetch
+// fails, 404s, or returns garbage, the page is left exactly as-is (no links,
+// no error), which is required for offline viewing / expired sessions.
+fetch('/api/v1/export/boss/process-doc-links/')
+  .then(r => r.ok ? r.json() : {})
+  .catch(() => ({}))
+  .then(linkMap => {
+    if(!linkMap || typeof linkMap !== 'object') return;
+    Object.keys(linkMap).forEach(id=>{
+      const route = linkMap[id];
+      const div = document.getElementById('task-'+id);
+      if(!route || !div) return;
+      const a = document.createElementNS('http://www.w3.org/1999/xhtml','a');
+      a.setAttribute('href', route);
+      a.setAttribute('target', '_blank');
+      a.setAttribute('rel', 'noopener noreferrer');
+      a.className = div.className + ' task-link';
+      const style = div.getAttribute('style');
+      if(style) a.setAttribute('style', style);
+      a.innerHTML = div.innerHTML;
+      div.parentNode.replaceChild(a, div);
+    });
+  });
 </script>
 </body>
 </html>
