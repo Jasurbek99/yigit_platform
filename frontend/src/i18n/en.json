@@ -3061,7 +3061,8 @@
     "route_placeholder": "/export/plan",
     "route_hint": "Must start with \"/\" and use only letters, numbers, \"-\", \"_\", \"/\" — or leave empty to unlink the block.",
     "route_invalid": "Route must start with \"/\" (not \"//\") and use only letters, numbers, \"-\", \"_\", \"/\"",
-    "toast_updated": "Link updated"
+    "toast_updated": "Link updated",
+    "error_load": "Failed to load process links"
   },
   "clients_report": {
     "title": "Clients Report",

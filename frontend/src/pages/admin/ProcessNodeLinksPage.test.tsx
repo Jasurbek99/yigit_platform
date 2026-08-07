@@ -2,6 +2,8 @@ import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 import { render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ConfigProvider } from 'antd';
+import enUS from 'antd/locale/en_US';
 import i18n from '@/i18n';
 import ProcessNodeLinksPage from './ProcessNodeLinksPage';
 import api from '@/services/api';
@@ -20,10 +22,16 @@ function renderPage() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
+  // ConfigProvider mirrors App.tsx, which wraps the whole app in one. Required
+  // here because the page renders a ProTable: importing @ant-design/pro-components
+  // installs its own default antd locale (zh-CN), so without an explicit locale
+  // the Modal footer renders 确 定 / 取 消 and the "OK" queries below miss.
   return render(
-    <QueryClientProvider client={queryClient}>
-      <ProcessNodeLinksPage />
-    </QueryClientProvider>,
+    <ConfigProvider locale={enUS}>
+      <QueryClientProvider client={queryClient}>
+        <ProcessNodeLinksPage />
+      </QueryClientProvider>
+    </ConfigProvider>,
   );
 }
 
@@ -52,6 +60,17 @@ describe('ProcessNodeLinksPage', () => {
     expect(screen.getByText('quota')).toBeInTheDocument();
     expect(screen.getByText('Meýilnama')).toBeInTheDocument();
     expect(screen.getByText('/export/plan')).toBeInTheDocument();
+  });
+
+  it('shows an error alert when the fetch fails, not an empty table', async () => {
+    // Without the isError branch a failed fetch renders an empty table, which
+    // is indistinguishable from "the mapping has no rows" — the operator would
+    // read a backend outage as configuration that vanished.
+    vi.mocked(api.get).mockRejectedValueOnce(new Error('boom'));
+    renderPage();
+
+    expect(await screen.findByText('Failed to load process links')).toBeInTheDocument();
+    expect(screen.queryByText('plan')).not.toBeInTheDocument();
   });
 
   it('editing a route and saving issues a PATCH to the right URL with the right body', async () => {

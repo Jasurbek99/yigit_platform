@@ -1309,7 +1309,10 @@ export function useProcessNodeLinks() {
   return useQuery({
     queryKey: ['admin-process-node-links'],
     queryFn: async (): Promise<IProcessNodeLink[]> => {
-      if (USE_MOCK) return [];
+      if (USE_MOCK) {
+        const { MOCK_PROCESS_NODE_LINKS } = await import('@/mock/processNodeLinks');
+        return MOCK_PROCESS_NODE_LINKS;
+      }
       const { data } = await api.get<IProcessNodeLink[] | IApiListResponse<IProcessNodeLink>>(
         '/export/admin/process-node-links/?page_size=200',
       );

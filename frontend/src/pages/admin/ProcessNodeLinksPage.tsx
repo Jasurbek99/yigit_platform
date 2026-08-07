@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { Table, Button, Modal, Form, AutoComplete, Switch, Tag, Typography } from 'antd';
+import { Alert, Button, Modal, Form, AutoComplete, Switch, Tag, Typography } from 'antd';
 import { EditOutlined } from '@ant-design/icons';
+import { ProTable } from '@ant-design/pro-components';
+import type { ProColumns } from '@ant-design/pro-components';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { useProcessNodeLinks, useUpdateProcessNodeLink } from '@/hooks/useAdmin';
@@ -24,7 +26,7 @@ const ROUTE_PATTERN = /^\/([A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*\/?)?$/;
 
 export default function ProcessNodeLinksPage() {
   const { t } = useTranslation();
-  const { data: links = [], isLoading } = useProcessNodeLinks();
+  const { data: links = [], isLoading, isError } = useProcessNodeLinks();
   const updateLink = useUpdateProcessNodeLink({
     onSuccess: () => {
       toast.success(t('process_node_links_admin.toast_updated'));
@@ -53,12 +55,12 @@ export default function ProcessNodeLinksPage() {
     return Promise.reject(new Error(t('process_node_links_admin.route_invalid')));
   }
 
-  const columns = [
+  const columns: ProColumns<IProcessNodeLink>[] = [
     {
       title: t('process_node_links_admin.col_node_id'),
       dataIndex: 'node_id',
       key: 'node_id',
-      render: (value: string) => <Text code>{value}</Text>,
+      render: (_: unknown, record: IProcessNodeLink) => <Text code>{record.node_id}</Text>,
       sorter: (a: IProcessNodeLink, b: IProcessNodeLink) => a.node_id.localeCompare(b.node_id),
       defaultSortOrder: 'ascend' as const,
     },
@@ -71,16 +73,17 @@ export default function ProcessNodeLinksPage() {
       title: t('process_node_links_admin.col_route'),
       dataIndex: 'route',
       key: 'route',
-      render: (value: string) => value || <Text type="secondary">{t('common.empty')}</Text>,
+      render: (_: unknown, record: IProcessNodeLink) =>
+        record.route || <Text type="secondary">{t('common.empty')}</Text>,
     },
     {
       title: t('process_node_links_admin.col_status'),
       dataIndex: 'is_active',
       key: 'is_active',
       width: 110,
-      render: (active: boolean) => (
-        <Tag color={active ? 'green' : 'default'}>
-          {active ? t('common.active') : t('common.inactive')}
+      render: (_: unknown, record: IProcessNodeLink) => (
+        <Tag color={record.is_active ? 'green' : 'default'}>
+          {record.is_active ? t('common.active') : t('common.inactive')}
         </Tag>
       ),
     },
@@ -94,6 +97,16 @@ export default function ProcessNodeLinksPage() {
     },
   ];
 
+  if (isError) {
+    return (
+      <Alert
+        message={t('process_node_links_admin.error_load')}
+        type="error"
+        style={{ marginTop: 40 }}
+      />
+    );
+  }
+
   return (
     <div>
       <div style={{ marginBottom: 16 }}>
@@ -101,14 +114,16 @@ export default function ProcessNodeLinksPage() {
         <Text type="secondary">{t('process_node_links_admin.subtitle')}</Text>
       </div>
 
-      <Table
+      <ProTable<IProcessNodeLink>
+        rowKey="id"
         columns={columns}
         dataSource={links}
-        rowKey="id"
         loading={isLoading}
+        search={false}
+        options={{ search: false }}
+        onRequestError={() => {}}
         pagination={false}
         size="small"
-        bordered
         scroll={{ x: 'max-content' }}
       />
 

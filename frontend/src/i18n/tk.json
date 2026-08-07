@@ -3065,7 +3065,8 @@
     "route_placeholder": "/export/plan",
     "route_hint": "\"/\" bilen başlamaly we diňe harplar, sanlar, \"-\", \"_\", \"/\" bolmaly — ýa-da blogy aýyrmak üçin boş goýuň.",
     "route_invalid": "Marşrut \"/\" bilen başlamaly (\"//\" däl) we diňe harplar, sanlar, \"-\", \"_\", \"/\" bolmaly",
-    "toast_updated": "Baglanyşyk üýtgedildi"
+    "toast_updated": "Baglanyşyk üýtgedildi",
+    "error_load": "Prosesiň baglanyşyklaryny ýükläp bolmady"
   },
   "clients_report": {
     "title": "Müşderiler hasabaty",
