@@ -474,6 +474,16 @@ Detail-by-id routes (`GET /shipments/{id}/`, etc.) are **not** season-scoped —
 always resolves regardless of the row's season. Explicit opt-outs that ignore `?season=`
 entirely: every `admin/*` reference-data endpoint, and `sales-rep-coverage`.
 
+**`is_active` on `/admin/seasons/` is server-set — read-only on the serializer.** `POST` and
+`PATCH` accept `name`, `start_date`, `end_date` only; an `is_active` key in the body is
+silently discarded, so a create always lands `UPCOMING` and a `PATCH {"is_active": ...}`
+returns `200` having changed nothing (it used to return `400` on a closed season). The write
+target moves only through `POST /admin/seasons/{id}/open/` and `POST .../close/`, which swap
+the incumbent atomically and write an `AuditLog` row. Do not re-add the field to
+`SeasonSerializer`'s writable set: DRF derives a `UniqueTogetherValidator` from the
+`uq_season_single_active` filtered constraint, so a writable `is_active=True` 400s every
+create made while a season is already active.
+
 **Quota is season-scoped in BOTH directions (D11, 2026-08-06).** `quota-issuances` was on the
 opt-out list until then, on the reasoning that issuances are consumed FIFO *across* season
 boundaries. The domain owner reversed that: quota never crosses a season boundary, so

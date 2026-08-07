@@ -105,10 +105,15 @@ Renders `null` when `useSeasonReadOnly()` is `false`. Otherwise branches on
 | `UPCOMING` | — | `Modal.confirm` → `POST .../open/` | yes | yes |
 | `CLOSED` | — | — | **hidden** | **hidden** |
 
-Edit/Delete are hidden on `CLOSED` rows specifically because the generic Edit modal's
-`is_active` `Switch` was a live reopen vector before this branch (`SeasonSerializer` marks
-only `status`/`closed_at`/`closed_by`/`closed_by_name` read-only, not `is_active` itself) —
-see `Season.assert_activation_allowed()` (backend guard, both layers) in AD-16.
+Edit/Delete are hidden on `CLOSED` rows specifically because the generic Edit modal used to
+carry an `is_active` `Switch`, which was a live reopen vector. That switch is **gone**:
+`is_active` is now a `read_only_field` on `SeasonSerializer`, so no request body can set it,
+and the create/edit modal has no Active control at all. A new season is therefore always
+created `UPCOMING`, and **Open and Close are the only routes** to changing the write target —
+both atomic, both audited, both invalidating every cached query. `Season.save()` still calls
+`Season.assert_activation_allowed()`, which is what now covers the ORM, Django admin and
+management commands (see AD-16). `seasons.is_active` stays in i18n — it is the table's
+Active column title.
 
 `SeasonCloseModal` fetches `GET .../{id}/close-preview/` (`useSeasonClosePreview`) and shows
 the counts in the confirm body: *"Closing 2025/2026 will hide N drafts, N shipments in
@@ -125,10 +130,6 @@ an exhaustive key list by hand.
 
 ## Known open items (not fixed on this branch)
 
-- A bare `PATCH {"is_active": true}` on an **UPCOMING** (not yet closed) season still
-  bypasses `open_season()`'s atomic incumbent-swap and its `AuditLog` entry — only the
-  *reopen-a-closed-season* path is guarded. Same sibling gap on `PATCH {"is_active": false}`
-  against the active season, bypassing `close_season()`'s audit trail.
 - Comment creation on Shipment Detail is not season-gated on the frontend (see above).
 - Live dev-DB permission drift (not caused by this feature): `boss`'s `season` row has full
   CRUD where the seeder intends read-only, so `boss` can currently close/open seasons.

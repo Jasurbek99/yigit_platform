@@ -49,10 +49,15 @@ interface MutationOptions {
   onError?: (err: unknown) => void;
 }
 
-// `status`, `closed_at`, `closed_by`, `closed_by_name` are `read_only_fields`
-// on the backend `SeasonSerializer` — derived from `closed_at`/`is_active`,
-// never accepted on write.
-type ISeasonWritable = Omit<ISeason, 'id' | 'status' | 'closed_at' | 'closed_by' | 'closed_by_name'>;
+// `is_active`, `status`, `closed_at`, `closed_by`, `closed_by_name` are
+// `read_only_fields` on the backend `SeasonSerializer` — never accepted on
+// write. `is_active` in particular is SERVER-SET: which season is the write
+// target changes only through `useOpenSeason`/`useCloseSeason` below, which
+// hit `POST .../open/` and `POST .../close/` (atomic incumbent swap + audit
+// log) and invalidate every cached query. A generic PATCH did neither.
+type ISeasonWritable = Omit<
+  ISeason, 'id' | 'is_active' | 'status' | 'closed_at' | 'closed_by' | 'closed_by_name'
+>;
 
 export function useCreateSeason(options: MutationOptions = {}) {
   const queryClient = useQueryClient();
