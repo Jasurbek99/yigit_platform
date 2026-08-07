@@ -31,8 +31,6 @@ Carve-outs — keep in sync with ``PAGE_DEFAULTS['boss']`` /
   totals, and sale deletion is deliberately admin-only for both ``director`` and
   ``export_manager``.
 """
-import os
-
 from django.db import migrations
 
 ROLE = 'boss'
@@ -65,21 +63,28 @@ PREVIOUS_PAGES = [
 
 
 def widen_boss_permissions(apps, schema_editor):
-    # DEPLOYMENT TRAP — read before running this on a live database.
-    # This early return is the repo convention (migrations 0018 / 0020 / 0026),
-    # but Django still records 0033 as APPLIED when it fires. So a `migrate` run
-    # with DJANGO_TESTING=true in the shell no-ops PERMANENTLY: the row lands in
-    # django_migrations and a later run in the right environment will not
-    # re-execute it. That matters more here than for the migrations this is
-    # patterned on, because landing on a live database is this migration's whole
-    # purpose, and every documented backend test command in this repo exports
-    # DJANGO_TESTING=true — so the variable is routinely already set.
-    # Unset it before deploying, then verify:
-    #   RolePagePermission.objects.filter(role='boss', is_visible=True).count()  # -> 41
-    # If it comes back 3 (or anything but 41), this ran as a no-op: delete the
+    # Skip on a TEST database only. Gated on the connection, NOT on
+    # os.environ['DJANGO_TESTING'] as migrations 0018 / 0020 / 0026 do: Django
+    # records a migration as APPLIED whether or not the body did anything, so a
+    # `migrate` run with that variable left set in the shell would no-op this
+    # migration PERMANENTLY — the row lands in django_migrations and no later
+    # run re-executes it. Every documented backend test command in this repo
+    # exports DJANGO_TESTING=true, so the variable is routinely already set,
+    # and this exact mechanism has already misrouted export.0058 on this
+    # project. Reaching a live database is this migration's entire purpose.
+    #
+    # The test database name is settings.DATABASES['default']['TEST']['NAME']
+    # (config/settings.py: `test_YIGIT_PLATFROM`, or TEST_DB_NAME) — always
+    # `test_`-prefixed, and no shell variable can spoof it or leave it set by
+    # accident. Real dev/prod databases are YIGIT_PLATFROM / YIGIT_PLATFROM_NEW.
+    #
+    # Post-deploy verification (unchanged):
+    #   RolePagePermission.objects.filter(role='boss', is_visible=True).count()
+    # must equal len(PAGE_REGISTRY) - len(EXCLUDED_PAGES), i.e. 41 today. If it
+    # comes back 3, this ran as a no-op: delete the
     # ('core', '0033_boss_process_visibility_perms') row from django_migrations
-    # and re-run `migrate core` with DJANGO_TESTING unset.
-    if os.environ.get('DJANGO_TESTING') == 'true':
+    # and re-run `migrate core` against the real database.
+    if schema_editor.connection.settings_dict['NAME'].startswith('test_'):
         return
     apply_boss_permissions(
         apps.get_model('core', 'RolePagePermission'),
@@ -93,8 +98,8 @@ def apply_boss_permissions(RolePagePermission, RoleResourcePermission, RoleField
     """Force every boss permission row to the 2026-08-05 target state.
 
     Split out of the ``RunPython`` callable so the test suite can drive it
-    against a hand-built pre-state — the migration itself is a no-op under
-    ``DJANGO_TESTING`` (repo convention, see migrations 0018 / 0020 / 0026).
+    against a hand-built pre-state — the migration itself returns early on a
+    ``test_``-prefixed database (see ``widen_boss_permissions``).
 
     Args:
         RolePagePermission: the RolePagePermission model (historical or live).

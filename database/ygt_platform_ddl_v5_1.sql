@@ -594,6 +594,25 @@ CREATE TABLE export.truck_split_defaults (
     updated_by_id BIGINT REFERENCES core.users(id)
 );
 
+-- Admin-configurable mapping from a BPMN diagram node to an application
+-- screen. node_id is the join key to the `N` array in
+-- docs/how_works/shipment-bpmn.html: clicking a block resolves `route` and
+-- opens it, so a route change never means editing the diagram HTML. Rows are
+-- fixed by the diagram (20 seeded, migration export.0060) — the admin API
+-- offers GET + PATCH only, never create/delete, and node_id is read-only.
+-- SECURITY: `route` is written into an <a href> the boss clicks, so it is
+-- constrained server-side to an in-app absolute path
+-- (^/([A-Za-z0-9_-]+(/[A-Za-z0-9_-]+)*/?)?$ — no scheme, no protocol-relative
+-- `//`). See ProcessNodeLink.ROUTE_VALIDATOR. Django db_table:
+-- export_process_node_links (migration export.0059).
+CREATE TABLE export.process_node_links (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    node_id NVARCHAR(40) NOT NULL UNIQUE,
+    label NVARCHAR(120) COLLATE Cyrillic_General_CI_AS NOT NULL,
+    route NVARCHAR(120) NOT NULL DEFAULT '',
+    is_active BIT NOT NULL DEFAULT 1
+);
+
 
 -- ████████ CONTRACTS MODULE ████████
 

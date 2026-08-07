@@ -28,7 +28,7 @@ Full CRUD (view/create/edit/delete) on every resource **except three carve-outs*
 
 This replaces the previous strictly-read-only default; write access is protected by those carve-outs and by the view/edit toggle below, not by a blanket read-only grant anymore.
 
-> **Applying this to an existing database needs `core/0033_boss_process_visibility_perms`, not `seed_permissions`.** The seed command's `get_or_create(..., defaults={...})` only writes `defaults` on INSERT, and every pre-2026-08-05 database already holds the boss's rows. **`DJANGO_TESTING` must be unset when you run `migrate`** — with it set, `0033` skips its work but is still recorded as applied, and will never re-run. Verification query and recovery steps: [[../processes/permissions-system#Permission Defaults]].
+> **Applying this to an existing database needs `core/0033_boss_process_visibility_perms`, not `seed_permissions`.** The seed command's `get_or_create(..., defaults={...})` only writes `defaults` on INSERT, and every pre-2026-08-05 database already holds the boss's rows. `0033` skips only when the connection's database name starts with `test_`, so it is safe to run with `DJANGO_TESTING` set (it used to skip on that variable and still be recorded as applied — corrected 2026-08-07). Verification query and recovery steps: [[../processes/permissions-system#Permission Defaults]].
 
 ## View/edit mode
 
