@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 MAX_TRUCK_WEIGHT_KG = Decimal('18500')
 
 
-def get_remaining_for_date(target_date) -> list[dict]:
+def get_remaining_for_date(target_date, season=None) -> list[dict]:
     """Compute remaining harvest pool per block for a given date.
 
     The pool for a block is:
@@ -30,6 +30,24 @@ def get_remaining_for_date(target_date) -> list[dict]:
 
     Args:
         target_date: datetime.date — the date to query.
+        season: Season to scope both sides to, or None for no season predicate.
+
+            **Read callers must always pass a resolved season.**
+            `HarvestDayEntry.season` is non-null, and seasons run Sept→Aug
+            without overlapping, so a `target_date` inside a closed season *is*
+            a closed-season request — reachable with no `?season=` parameter at
+            all, and therefore with nothing for `closed_season.can_view` to hang
+            off. That is the same hole `harvest-plans/block-summary` had. The
+            HTTP read (`HarvestForecastView.get`) resolves the season through
+            `resolve_season()` and returns `[]` when it is None (D7).
+
+            `None` is correct for the two **write validators** only —
+            draft-create `validate()` and `assert_draw_within_pool` below. Both
+            check a draw against the pool for the shipment's own date, on a path
+            the write freeze already restricts to an open season, and neither
+            has a request to resolve a season from. Adding a predicate there
+            would change what a create is validated against, which is a
+            behaviour change rather than a permission gate.
 
     Returns:
         List of dicts, one per block that has a forecast entry:
@@ -54,6 +72,8 @@ def get_remaining_for_date(target_date) -> list[dict]:
         .select_related('block')
         .values('block_id', 'block__code', 'forecast_value')
     )
+    if season is not None:
+        entries = entries.filter(season=season)
 
     if not entries:
         return []
@@ -62,12 +82,19 @@ def get_remaining_for_date(target_date) -> list[dict]:
 
     # Single grouped query for allocated kg — avoids N+1.
     # Exclude cancelled shipments so they don't count against the pool.
+    allocated_qs = ShipmentBlockSource.objects.filter(
+        block_id__in=block_ids,
+        shipment__date=target_date,
+    )
+    if season is not None:
+        # Redundant while seasons never overlap by date (`shipment__date` already
+        # implies the season), but it keeps both halves of the subtraction under
+        # the same predicate so the arithmetic can't straddle a boundary.
+        # Applied BEFORE .values()/.annotate() so it lands in WHERE and cannot
+        # perturb the GROUP BY.
+        allocated_qs = allocated_qs.filter(shipment__season=season)
     allocated_rows = (
-        ShipmentBlockSource.objects
-        .filter(
-            block_id__in=block_ids,
-            shipment__date=target_date,
-        )
+        allocated_qs
         .exclude(shipment__status__code='cancelled')
         .values('block_id')
         .annotate(total_allocated=Sum('weight_kg'))

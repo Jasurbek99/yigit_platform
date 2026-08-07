@@ -474,6 +474,19 @@ Detail-by-id routes (`GET /shipments/{id}/`, etc.) are **not** season-scoped —
 always resolves regardless of the row's season. Explicit opt-outs that ignore `?season=`
 entirely: every `admin/*` reference-data endpoint, and `sales-rep-coverage`.
 
+`GET /export/harvest-forecast/remaining/?date=` is season-scoped too (**fixed 2026-08-07**,
+the seventh instance of the "builds its own queryset" shape). It filtered `HarvestDayEntry` on
+`entry_date` alone; `HarvestDayEntry.season` is non-null and seasons never overlap, so a date
+inside a closed season *was* a closed-season read available to any authenticated user with no
+`?season=` to gate on — the same hole `block-summary` had. It now takes the resolved season
+(`?season=` optional, default active; `404` unknown id; `403` closed without permission; `[]`
+during the gap). The two **write** validators that share `get_remaining_for_date()` —
+draft-create `validate()` and `assert_draw_within_pool()` — deliberately keep passing
+`season=None`: they check a draw against the shipment's own date on a path the write freeze
+already restricts to an open season, and scoping them would change what a create is validated
+against rather than gate a read. The frontend sends no `?season=` here on purpose (the draft
+composer always draws on the write target's pool).
+
 **`is_active` on `/admin/seasons/` is server-set — read-only on the serializer.** `POST` and
 `PATCH` accept `name`, `start_date`, `end_date` only; an `is_active` key in the body is
 silently discarded, so a create always lands `UPCOMING` and a `PATCH {"is_active": ...}`

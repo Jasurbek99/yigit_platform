@@ -111,9 +111,23 @@ class HarvestForecastView(APIView):
                 status=400,
             )
 
+        from apps.core.seasons import resolve_season
         from apps.export.services.harvest_forecast import get_remaining_for_date
 
-        rows = get_remaining_for_date(target_date)
+        # Season scope (AD-16). `HarvestDayEntry.season` is non-null and seasons
+        # never overlap, so filtering on `entry_date` alone made a date inside a
+        # closed season readable by any authenticated user with no `?season=`
+        # parameter to hang a permission check off — the same shape
+        # `harvest-plans/block-summary` was fixed for. `resolve_season()` raises
+        # the 404 (unknown id) and the 403 (closed season without
+        # `closed_season.can_view`).
+        season = resolve_season(request)
+        if season is None:
+            # Fail closed (D7, spec §3.1). Passing None would drop the service
+            # back to its bare date window, which is the leak this closes.
+            return Response([])
+
+        rows = get_remaining_for_date(target_date, season)
 
         # Serialise Decimal to str with 2 decimal places for consistent JSON output.
         two = Decimal('0.01')
