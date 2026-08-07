@@ -51,7 +51,11 @@ _PROCESS_DOCS = {
     'shipment-process-boss': 'shipment-process-boss.html',
     'shipment-bpmn': 'shipment-bpmn.html',
 }
-_PROCESS_DOCS_DIR = settings.BASE_DIR.parent / 'docs' / 'how_works'
+# Resolved in settings (PROCESS_DOCS_DIR): the checkout path differs from the
+# Docker image path, because only `backend/` lands at /app. Never rebuild this
+# from BASE_DIR here — that assumption is what made every request 404 inside
+# the container while passing every test from a repo checkout.
+_PROCESS_DOCS_DIR = settings.PROCESS_DOCS_DIR
 
 
 def _parse_period_params(request: Request) -> tuple[str, date, date]:

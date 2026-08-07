@@ -20,6 +20,42 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from apps.core.models import User
+from apps.export.views_analytics import _PROCESS_DOCS, _PROCESS_DOCS_DIR
+
+
+class ProcessDocsPackagingTests(TestCase):
+    """The whitelisted documents must exist where the app looks for them.
+
+    Guards the packaging seam. `_PROCESS_DOCS_DIR` used to be derived as
+    ``BASE_DIR.parent / 'docs' / 'how_works'``, which resolves correctly in a
+    repo checkout and to a nonexistent ``/docs/how_works`` inside the Docker
+    image (only ``backend/`` lands at ``/app``, so ``BASE_DIR.parent`` is
+    ``/``). Every endpoint test above passed while both documents 404'd in the
+    deployed container.
+
+    This asserts the directory and each whitelisted filename resolve to a real
+    file. It cannot inspect the built image, so it catches a wrong
+    ``PROCESS_DOCS_DIR`` / a renamed-or-deleted source document, not a
+    Dockerfile that forgets the COPY. Only a container smoke test closes that.
+    """
+
+    def test_process_docs_dir_exists(self) -> None:
+        """The configured directory resolves to a real directory."""
+        self.assertTrue(
+            _PROCESS_DOCS_DIR.is_dir(),
+            f'PROCESS_DOCS_DIR does not exist: {_PROCESS_DOCS_DIR}',
+        )
+
+    def test_every_whitelisted_document_is_present_on_disk(self) -> None:
+        """Each ?doc= slug maps to a file that is actually there."""
+        for slug, filename in _PROCESS_DOCS.items():
+            with self.subTest(slug=slug):
+                path = _PROCESS_DOCS_DIR / filename
+                self.assertTrue(
+                    path.is_file(),
+                    f'?doc={slug} points at a missing file: {path}',
+                )
+                self.assertGreater(path.stat().st_size, 0, f'{path} is empty')
 
 
 def _create_user(username: str, role: str) -> User:

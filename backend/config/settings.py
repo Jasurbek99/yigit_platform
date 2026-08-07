@@ -25,6 +25,20 @@ ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,backend').s
 #   LIBREOFFICE_BIN=C:\Program Files\LibreOffice\program\soffice.exe
 LIBREOFFICE_BIN = os.environ.get('LIBREOFFICE_BIN', '')
 
+# Directory holding the process-explainer HTML documents served by the boss
+# process-doc endpoint (apps/export/views_analytics.py). `docs/how_works/` is
+# the single editable source of truth — the files are NEVER copied into the
+# repo a second time.
+#
+# In a checkout the folder sits one level above BASE_DIR (= backend/), which is
+# the default below. The Docker image cannot use that path: only the repo's
+# `docs/how_works` is COPYd in (backend/Dockerfile), and it lands OUTSIDE /app
+# so the dev bind mount `./backend:/app` cannot shadow it. The Dockerfile sets
+# PROCESS_DOCS_DIR to that location — same override pattern as LIBREOFFICE_BIN.
+PROCESS_DOCS_DIR = Path(
+    os.environ.get('PROCESS_DOCS_DIR') or BASE_DIR.parent / 'docs' / 'how_works'
+)
+
 # ════════════════════════════════════════════════
 # Error tracking (Sentry)
 #
