@@ -1,6 +1,5 @@
 import type { ICurrentUser, IRowConfig, ISheetRowSettingForUser } from '@/types';
-import { useUiStore } from '@/stores/uiStore';
-import { canDo, canEditField } from './permissions';
+import { canDo, canEditField, isBossInViewMode } from './permissions';
 
 // Sheet field keys that map to junction-table resources rather than direct
 // columns on Shipment. Editing these calls a dedicated action endpoint and
@@ -50,7 +49,7 @@ export function isCellEditable(
   // never fires for the boss and canEditCell's own guard would never be reached.
   // Without this the whole Sheet — inline edit plus Ctrl+C/X/V/Delete — stays
   // live while the header reads "Просмотр".
-  if (user?.role === 'boss' && !useUiStore.getState().bossEditMode) return false;
+  if (isBossInViewMode(user)) return false;
   const v2EditDecision = rowSettings[rowConfig.field_key]?.can_current_user_edit;
   return v2EditDecision ?? canEditCell(user, rowConfig.field_key);
 }

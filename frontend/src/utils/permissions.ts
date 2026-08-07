@@ -121,7 +121,28 @@ export function canSeePage(user: ICurrentUser | null, pageCodeOrRoute: string): 
 }
 
 /**
+ * Whether the boss's header toggle is currently blocking writes.
+ *
+ * `true` only for role `boss` while `bossEditMode` is off (view mode). The
+ * single source of the predicate for the three call sites that need it — this
+ * file's `canDo` / `canEditField` and `isCellEditable` in `sheetPermissions.ts`
+ * — which cannot share more than this, because each has its own ordering
+ * constraint documented at the call site.
+ *
+ * NOTE: reads `useUiStore.getState()` outside React, so it is NOT reactive.
+ * Safe today because `AppLayout` subscribes to the store and re-renders the
+ * whole subtree when the toggle flips. A future `React.memo` boundary, or a
+ * `useMemo` over columns whose dependency array omits `bossEditMode`, would
+ * leave stale controls on screen. Recorded, not restructured.
+ */
+export function isBossInViewMode(user: ICurrentUser | null): boolean {
+  return user?.role === 'boss' && !useUiStore.getState().bossEditMode;
+}
+
+/**
  * Check if a user can perform an action on a resource.
+ *
+ * Non-reactive with respect to the boss toggle — see `isBossInViewMode`.
  */
 export function canDo(
   user: ICurrentUser | null,
@@ -131,7 +152,7 @@ export function canDo(
   if (!user) return false;
   // Boss view/edit toggle. MUST precede the is_superuser check below.
   // 'view' is exempt — locking reads would blank the process for him.
-  if (user.role === 'boss' && action !== 'view' && !useUiStore.getState().bossEditMode) {
+  if (action !== 'view' && isBossInViewMode(user)) {
     return false;
   }
   if (user.is_superuser) return true;
@@ -144,6 +165,8 @@ export function canDo(
 
 /**
  * Check if a user can edit a specific field on a resource.
+ *
+ * Non-reactive with respect to the boss toggle — see `isBossInViewMode`.
  */
 export function canEditField(
   user: ICurrentUser | null,
@@ -152,7 +175,8 @@ export function canEditField(
 ): boolean {
   if (!user) return false;
   // Boss view/edit toggle. MUST precede the is_superuser check below.
-  if (user.role === 'boss' && !useUiStore.getState().bossEditMode) return false;
+  // No `view` exemption here: there is no action parameter to exempt.
+  if (isBossInViewMode(user)) return false;
   if (user.is_superuser) return true;
 
   const fields = user.field_permissions?.[resource];
