@@ -31,30 +31,34 @@ def _grant_shipment_crud(*roles: str) -> None:
     they exist to exercise (i.e. pass, or fail, for the wrong reason). Mirrors
     the post-0033 production matrix, where boss holds shipment VCRUD.
 
-    Invalidates ONLY the two cache keys it writes, never ``cache.clear()``:
-    ``get_resource_perm`` memoises per (role, resource) with no per-test reset,
-    so the cache outlives the transaction rollback and is shared with every
-    later test in the process. A blanket clear here evicted entries that
-    apps.export.tests_cancel (which runs after this module and seeds no
-    permission rows of its own) depends on, turning 24 of its tests into 403s
-    in a full-suite run while they passed when run alone.
+    Writes the matching cache entry directly instead of clearing or deleting
+    anything. ``get_resource_perm`` memoises per (role, resource) in a
+    process-wide cache with no per-test reset, so entries outlive the
+    transaction rollback and are shared with every later test in the run:
+
+    - ``cache.clear()`` here evicted entries that apps.export.tests_cancel
+      (which runs after this module and seeds no permission rows of its own)
+      silently depends on -> 24 of its tests turned into 403s in a full-suite
+      run while still passing when run alone;
+    - deleting just this key was no better: the last test in this module is a
+      boss request, so the export_manager entry stayed evicted afterwards ->
+      23 of the same failures.
+
+    Setting the value keeps the cache consistent with the rows created here at
+    every point in time, and leaves behind exactly the permissive entry that a
+    full-suite run had before this module existed.
     """
     from django.core.cache import cache
 
     from apps.core.models import RoleResourcePermission
-    from apps.core.permissions import PERM_CACHE_PREFIX
+    from apps.core.permissions import PERM_CACHE_PREFIX, PERM_CACHE_TTL
 
+    crud = {'can_view': True, 'can_create': True, 'can_edit': True, 'can_delete': True}
     for role in roles:
         RoleResourcePermission.objects.update_or_create(
-            role=role,
-            resource_code='shipment',
-            defaults={
-                'can_view': True, 'can_create': True,
-                'can_edit': True, 'can_delete': True,
-            },
+            role=role, resource_code='shipment', defaults=crud,
         )
-        cache.delete(f'{PERM_CACHE_PREFIX}:resource:{role}:shipment')
-        cache.delete(f'{PERM_CACHE_PREFIX}:resources:{role}')
+        cache.set(f'{PERM_CACHE_PREFIX}:resource:{role}:shipment', dict(crud), PERM_CACHE_TTL)
 
 
 def _create_all_statuses():
