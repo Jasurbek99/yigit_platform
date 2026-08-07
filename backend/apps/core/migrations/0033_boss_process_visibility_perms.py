@@ -18,10 +18,20 @@ up without a restart.
 Carve-outs — keep in sync with ``PAGE_DEFAULTS['boss']`` /
 ``RESOURCE_DEFAULTS['boss']`` in ``seed_permissions.py``:
 
-- ``admin.permissions`` stays hidden. ``_AdminOnlyPermission``
-  (core/views_permissions.py:31-44) rejects every method including GET for
-  non-admins per AD-15, so the nav entry would open a page whose every API call
-  403s.
+- Four pages stay hidden, because a gate that does NOT consult the permission
+  matrix refuses every call behind them — granting the page would only add a
+  nav entry that fails:
+  - ``admin.permissions`` — ``_AdminOnlyPermission``
+    (core/views_permissions.py) rejects every method including GET for
+    non-admins per AD-15.
+  - ``admin.users`` — ``UserManagementViewSet.get_queryset``
+    (export/views_admin.py) raises for a role that manages nobody, and ``boss``
+    is not in ``MANAGEABLE_BY_ROLE``.
+  - ``admin.staff_access`` — ``ManagedPagePermissionsView``
+    (export/views_admin.py) admits full admins and delegated managers only.
+  - ``feedback.admin_inbox`` — worse than a 403: the inbox is scoped on
+    ``role == 'admin'`` (feedback/views.py), so ``boss`` silently sees only his
+    own tickets and the page reads as "there is no feedback".
 - ``closed_season`` stays read-only (D1) — a closed season stays closed for
   everyone, admin included.
 - ``truck_split_default`` stays read-only — only the director may change the
@@ -35,8 +45,15 @@ from django.db import migrations
 
 ROLE = 'boss'
 
-# Pages the boss must NOT get despite the "every registered page" grant.
-EXCLUDED_PAGES = ['admin.permissions']
+# Pages the boss must NOT get despite the "every registered page" grant —
+# every one is dead or misleading for him (see the docstring above).
+# MUST stay identical to _BOSS_DEAD_PAGES in seed_permissions.py.
+EXCLUDED_PAGES = [
+    'admin.permissions',
+    'admin.users',
+    'admin.staff_access',
+    'feedback.admin_inbox',
+]
 
 _VCRUD = {'can_view': True, 'can_create': True, 'can_edit': True, 'can_delete': True}
 _VIEW = {'can_view': True, 'can_create': False, 'can_edit': False, 'can_delete': False}

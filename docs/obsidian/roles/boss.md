@@ -12,9 +12,16 @@ An executive role that reaches the **entire export process from his own login**,
 
 ## Page visibility
 
-Every registered page **except `admin.permissions`** — 41 of the 42 `_ALL_PAGES` codes as of 2026-08-05, was 3 pages (view-only) before this feature. `admin.permissions` is excluded because `_AdminOnlyPermission` rejects every method including GET for non-admins (AD-15), so the entry would open a page whose every API call 403s. See [[../processes/permissions-system]] for the registry and the AD-15 tension the remaining nine `admin.*` pages create.
+Every registered page **except four** — 38 of the 42 `_ALL_PAGES` codes (2026-08-07), was 3 pages (view-only) before this feature. Each exclusion is a page whose every call is refused by a gate that does **not** consult the permission matrix, so granting it would only add a nav entry that fails:
 
-The sidebar itself is grouped by **export process phase** and its order is global — the same sequence every role sees (Overview → Planning → Prep → Shipping → Docs → Sales, then support groups). `boss` gets no special ordering; he simply sees more of the sequence than most roles because almost nothing is hidden from him. Per-role configurable ordering was explicitly deferred — see [[../processes/permissions-system#Sidebar Navigation (2026-08-05)]].
+- `admin.permissions` — `_AdminOnlyPermission` rejects every method including GET for non-admins (AD-15).
+- `admin.users` — `UserManagementViewSet.get_queryset` raises for a role that manages nobody, and `boss` is not in `MANAGEABLE_BY_ROLE`.
+- `admin.staff_access` — `ManagedPagePermissionsView` admits full admins and delegated managers only.
+- `feedback.admin_inbox` — **worse than a 403**: the inbox is scoped on `role == 'admin'`, so `boss` silently sees only his own tickets and the page reads as "there is no feedback".
+
+The set lives in `_BOSS_DEAD_PAGES` (`seed_permissions.py`) and is duplicated in `EXCLUDED_PAGES` (`core/0033`); a test asserts the two are identical. See [[../processes/permissions-system]] for the registry and the AD-15 tension the remaining `admin.*` pages create.
+
+The sidebar `boss` sees is **his own composition**, not the one every other role gets: `BOSS_MENU_GROUPS` is ordered by export process phase while `STAFF_MENU_GROUPS` keeps the original module grouping, and `pickMenuComposition()` selects between them by role. They are disjoint compositions over the same 45 routes, not one global order — full mechanism and the drift hazards in [[../processes/permissions-system#Sidebar Navigation (2026-08-05)]]. (This paragraph previously said the order was global and that `boss` got no special ordering; true when written, false since the owner asked for boss-only process ordering.) Per-role *configurable* ordering — a table plus a drag-drop admin UI — remains deferred.
 
 > **Director vs boss.** `director` has always had full access to every page (operations + admin + analytics) and is also granted `analytics.boss` to reach the same dashboard. Before 2026-08-05, `boss` was the deliberately narrower, dashboard-only variant; that distinction is now much thinner since `boss` holds nearly the same page set.
 

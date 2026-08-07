@@ -4,8 +4,11 @@ The boss must see every registered page and hold full CRUD on every resource
 so he can follow and act on the whole process from his own login. Before this
 change he had 3 pages and view-only on everything.
 
-Three carve-outs survive: `admin.permissions` (AD-15, the matrix API rejects
-even GET for non-admins), `closed_season` (D1), `truck_split_default`
+Carve-outs survive. Four PAGES are withheld because a gate outside the
+permission matrix refuses every call behind them, so the entry would be dead
+(`admin.permissions`, `admin.users`, `admin.staff_access`) or misleading
+(`feedback.admin_inbox`, which silently shows him only his own tickets). Three
+RESOURCES are narrowed: `closed_season` (D1), `truck_split_default`
 (Gap 7 / ADR-016) and `sale.delete` (admin-only, re-rolls Contract totals).
 """
 from importlib import import_module
@@ -18,6 +21,7 @@ from apps.core.models import (
     RolePagePermission,
     RoleResourcePermission,
 )
+from apps.core.management.commands.seed_permissions import _BOSS_DEAD_PAGES
 from apps.core.permission_registry import PAGE_REGISTRY, RESOURCE_REGISTRY
 
 _MIGRATION = import_module('apps.core.migrations.0033_boss_process_visibility_perms')
@@ -33,18 +37,29 @@ class BossPermissionDefaultsTests(TestCase):
     def setUpTestData(cls):
         call_command('seed_permissions')
 
-    def test_boss_sees_every_registered_page_except_the_permission_matrix(self):
+    def test_boss_sees_every_registered_page_except_the_dead_ones(self):
+        """38 today: 42 registered pages minus the four dead/misleading ones."""
         visible = set(
             RolePagePermission.objects
             .filter(role='boss', is_visible=True)
             .values_list('page_code', flat=True)
         )
-        self.assertEqual(visible, set(PAGE_REGISTRY.keys()) - {'admin.permissions'})
+        self.assertEqual(visible, set(PAGE_REGISTRY.keys()) - _BOSS_DEAD_PAGES)
+        self.assertEqual(len(visible), len(PAGE_REGISTRY) - 4)
 
-    def test_admin_permissions_page_is_hidden_from_boss(self):
-        """AD-15: _AdminOnlyPermission 403s even GET, so the entry would be dead."""
-        row = RolePagePermission.objects.get(role='boss', page_code='admin.permissions')
-        self.assertFalse(row.is_visible)
+    def test_pages_gated_outside_the_matrix_are_hidden_from_boss(self):
+        """Each of the four is refused by a gate the matrix cannot reach:
+        the matrix API (AD-15), the user list, staff page access, and the
+        feedback inbox — the last one silently, which is worse than a 403."""
+        for page_code in _BOSS_DEAD_PAGES:
+            with self.subTest(page=page_code):
+                row = RolePagePermission.objects.get(role='boss', page_code=page_code)
+                self.assertFalse(row.is_visible)
+
+    def test_seed_and_migration_exclusions_are_identical(self):
+        """Two hand-maintained copies; a drift silently half-applies a deploy."""
+        self.assertEqual(_BOSS_DEAD_PAGES, set(_MIGRATION.EXCLUDED_PAGES))
+        self.assertEqual(len(_MIGRATION.EXCLUDED_PAGES), len(_BOSS_DEAD_PAGES))
 
     def test_boss_has_full_crud_on_every_unnarrowed_resource(self):
         rows = RoleResourcePermission.objects.filter(role='boss')
@@ -227,7 +242,7 @@ class BossPermissionMigrationTests(TestCase):
         )
         self.assertEqual(
             RolePagePermission.objects.filter(role='boss', is_visible=True).count(),
-            len(PAGE_REGISTRY) - 1,
+            len(PAGE_REGISTRY) - len(_MIGRATION.EXCLUDED_PAGES),
         )
 
     def test_migration_leaves_other_roles_alone(self):

@@ -51,6 +51,27 @@ _UNIVERSAL = {'me.board'} | _FEEDBACK_COMMON
 # No other role is granted them here — they stay hidden until an admin toggles
 # them on via the permission matrix. This mirrors _CONTRACT_WRITE_ROLES.
 
+# Pages withheld from `boss` despite the "every registered page" grant, because
+# each one is DEAD or MISLEADING for him — every call behind it is refused by a
+# gate that does not consult the permission matrix, so granting the page only
+# produces a nav entry that fails. MUST stay identical to EXCLUDED_PAGES in
+# core migration 0033_boss_process_visibility_perms.
+_BOSS_DEAD_PAGES = {
+    # _AdminOnlyPermission (core/views_permissions.py) rejects every method
+    # including GET for non-admins per AD-15 — the whole matrix API 403s.
+    'admin.permissions',
+    # UserManagementViewSet.get_queryset (export/views_admin.py) raises for a
+    # role that manages nobody; boss is not in MANAGEABLE_BY_ROLE.
+    'admin.users',
+    # ManagedPagePermissionsView (export/views_admin.py) admits full admins and
+    # delegated managers only — can_manage_users(boss) is False, so GET raises.
+    'admin.staff_access',
+    # WORSE than a 403: FeedbackTicketViewSet.get_queryset (feedback/views.py)
+    # scopes the inbox on `role == 'admin'`, so boss silently sees only his own
+    # tickets. The page reads as "there is no feedback" rather than as an error.
+    'feedback.admin_inbox',
+}
+
 PAGE_DEFAULTS: dict[str, set[str]] = {
     # admin: sole top-tier system administrator. Sees every page including
     # the permission matrix and admin pages. See AD-15.
@@ -125,14 +146,11 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
     'seller': {
         'dashboard', 'export.quota.local_sell',
     } | _UNIVERSAL,
-    # boss: every registered page. He owns the process end-to-end and must not
-    # need to log in as another role to see a step (2026-08-05 design).
-    # _UNIVERSAL is a subset of _ALL_PAGES, so nothing he had before is lost.
-    # admin.permissions is the one exclusion: _AdminOnlyPermission
-    # (core/views_permissions.py:31-44) rejects every method including GET for
-    # non-admins per AD-15, so granting the page only produces a nav entry whose
-    # every API call 403s. Keep in sync with core migration 0033.
-    'boss': _ALL_PAGES - {'admin.permissions'},
+    # boss: every registered page except the four listed in
+    # _BOSS_DEAD_PAGES. He owns the process end-to-end and must not need to log
+    # in as another role to see a step (2026-08-05 design). _UNIVERSAL is a
+    # subset of _ALL_PAGES, so nothing he had before is lost.
+    'boss': _ALL_PAGES - _BOSS_DEAD_PAGES,
 }
 
 # loading_dept_head_deputy: identical page access to the head (June 2026 request).
