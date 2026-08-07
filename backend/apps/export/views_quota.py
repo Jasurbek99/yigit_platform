@@ -17,7 +17,6 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.decorators import action
 
-from apps.core.models import Season
 from apps.core.permissions import write_permission, DynamicResourcePermission, SeasonNotClosed
 from apps.core.roles import QUOTA_WRITE
 from apps.core.seasons import (
@@ -35,6 +34,7 @@ from apps.export.services_quota import (
     build_quota_dashboard,
     compute_fifo_usage,
     compute_firm_quota_balances,
+    empty_quota_dashboard,
     season_of_usage,
     usage_season_q,
 )
@@ -396,10 +396,18 @@ class QuotaDashboardView(APIView):
     """GET /api/v1/export/quota-dashboard/
 
     Query params:
-        season       (int, required)
-        date_from    (YYYY-MM-DD, optional)
-        date_to      (YYYY-MM-DD, optional)
+        season       (int, optional — defaults to the active season)
+        date_from    (YYYY-MM-DD, optional — defaults to the season's start)
+        date_to      (YYYY-MM-DD, optional — defaults to the season's end)
         product_type (str, default 'tomato')
+
+    The season goes through `resolve_season()` like every other read path
+    (AD-16). This view used to read `?season=` directly and look the row up
+    itself, which meant `closed_season.can_view` was never consulted:
+    `document_team` / `loading_dept_head` (+deputy) hold `quota_issuance` but
+    not `closed_season`, so they were correctly 403'd on
+    `/quota-issuances/?season=<closed>` yet could still read that season's
+    aggregates here.
     """
 
     permission_classes = [IsAuthenticated, DynamicResourcePermission]
@@ -415,14 +423,19 @@ class QuotaDashboardView(APIView):
         """Parse query params and delegate to service layer."""
         params = request.query_params
 
-        season_id = params.get('season')
-        if not season_id:
-            raise ValidationError({'detail': 'season query parameter is required.'})
-
-        try:
-            season = Season.objects.get(pk=season_id)
-        except Season.DoesNotExist:
-            raise ValidationError({'detail': f'Season {season_id} not found.'})
+        # Resolve BEFORE the cache lookup: this is where the 404 (unknown id)
+        # and the 403 (closed season without `closed_season.can_view`) come
+        # from, and a cached payload must never be served past them.
+        season = resolve_season(request)
+        if season is None:
+            # D7 fail-closed. During the close→open gap there is no season to
+            # report on, so return the empty payload with its shape intact
+            # rather than the just-closed season's numbers (which the old
+            # `?season=` requirement would still have served on request) or an
+            # error the page renders as a red banner. Same call
+            # `dashboard/summary` makes. Nothing is queried, so nothing is
+            # cached either.
+            return Response(empty_quota_dashboard())
 
         # Normalize so ?product_type=Tomato and =tomato don't cache twice (and
         # the service gets a consistent value).
@@ -435,7 +448,12 @@ class QuotaDashboardView(APIView):
         # for 60s keyed by every param that changes the result. Quota approvals
         # are infrequent and analytics tolerate ≤60s staleness — same tradeoff as
         # the other dashboards.
-        cache_key = f'quota_dashboard:{season_id}:{product_type}:{date_from}:{date_to}'
+        #
+        # `season.pk`, not the raw `?season=` string: with the parameter now
+        # optional, the raw value is None on every default request, so two
+        # seasons sharing a date window would collide on one key. Same shape as
+        # `QuotaFirmBalancesView`'s key below.
+        cache_key = f'quota_dashboard:{season.pk}:{product_type}:{date_from}:{date_to}'
         cached = cache.get(cache_key)
         if cached is not None:
             return Response(cached)

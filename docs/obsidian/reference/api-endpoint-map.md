@@ -134,7 +134,7 @@ Per-pallet weighing data filled during loading (`Pallet` model: gross, crate_typ
 | PUT | `/api/v1/export/quota-usage/{id}/` | QuotaUsageViewSet (update) | `useQuotaUsageRecords` (mutation) | QuotaUsageTab |
 | DELETE | `/api/v1/export/quota-usage/{id}/` | QuotaUsageViewSet (destroy) | `useQuotaUsageRecords` (mutation) | QuotaUsageTab |
 | POST | `/api/v1/export/quota-usage/approve/` | QuotaUsageViewSet.approve | `useBulkApproveQuotaUsage` | QuotaUsageTab |
-| GET | `/api/v1/export/quota-dashboard/` | QuotaDashboardView | `useQuotaDashboard` | QuotaDashboard |
+| GET | `/api/v1/export/quota-dashboard/` | QuotaDashboardView | `useQuotaDashboard` | QuotaDashboard — `?season=` optional (defaults to active) and resolved through `resolve_season()`: `404` unknown id, `403` closed season without `closed_season.can_view`, empty-but-shaped payload during the close→open gap (D7) |
 
 ### Dashboard (main landing page)
 

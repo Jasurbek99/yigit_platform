@@ -240,7 +240,11 @@ erDiagram
 | GET | `/api/v1/export/quota-dashboard/` | Dashboard analytics | `quota_issuance` view |
 | GET | `/api/v1/export/quota-firm-balances/` | Per-firm remaining quota (firm-split soft warning) | `quota_issuance` view |
 
-**Dashboard query params**: `season` (required), `product_type` (default='tomato'), `date_from`, `date_to`
+**Dashboard query params**: `season` (**optional** — defaults to the active season), `product_type` (default='tomato'), `date_from`, `date_to` (default: the resolved season's `start_date`/`end_date`)
+
+> **Season resolution (fixed 2026-08-07)**: `?season=` goes through `resolve_season()` like every other read path (AD-16). It used to be read directly off the query string, so `closed_season.can_view` was never enforced — `document_team` and `loading_dept_head`(+deputy) hold `quota_issuance` but not `closed_season`, so they were 403'd on `/quota-issuances/?season=<closed>` yet could still read that season's aggregates here. Unknown id → **404** (was 400); closed season without `closed_season.can_view` → **403**; no season at all (the close→open gap) → the empty payload with its shape preserved (D7 fail-closed), not the just-closed season's numbers. Resolution runs **before** the 60s cache read, and the cache key carries `season.pk`. The page's own season filter (`QuotaDashboard.tsx`) hides closed seasons from anyone without the permission — see `seasonsVisibleTo()` in `QuotaDashboard.helpers.ts` — so the option that would 403 is never offered.
+>
+> `build_quota_dashboard()` itself stays **date-driven**: the resolved season supplies the default window and the permission gate, not a `season` predicate on the aggregates. Pushing the FK in would change published numbers rather than just visibility and needs its own ruling. This is the one remaining cross-season quota read.
 
 > **Permission note**: the read-only dashboard is gated by `DynamicResourcePermission` with `resource_code = 'quota_issuance'` (the resource it aggregates) — NOT a `'quota'` resource, which does not exist in `RESOURCE_REGISTRY`. Pointing it at the non-existent `'quota'` resource makes `get_resource_perm()` return `None` and 403s every non-superuser role; this was a real regression. The roles that hold `quota_issuance` view (export_manager, director, document_team, admin) are exactly those granted the `export.quota` page.
 
@@ -352,7 +356,7 @@ Flattens nested allocations into individual rows.
 
 | Hook | Endpoint | Params | Returns | Stale Time |
 |------|----------|--------|---------|------------|
-| `useQuotaDashboard` | `GET /export/quota-dashboard/` | season, date_from, date_to, product_type | `IQuotaDashboardResponse` | 60s |
+| `useQuotaDashboard` | `GET /export/quota-dashboard/` | season (from the page's own picker, which hides closed seasons the user may not view), date_from, date_to, product_type | `IQuotaDashboardResponse` | 60s |
 | `useQuotaIssuances` | `GET /export/quota-issuances/` | product_type, date_from, date_to | `IQuotaIssuance[]` | 60s |
 | `useQuotaUsageRecords` | `GET /export/quota-usage/?page_size=2000` | status, product_type, date_from, date_to | `IQuotaUsageRecord[]` | 30s |
 | `useBulkApproveQuotaUsage` | `POST /export/quota-usage/approve/` | `{ids: []}` | `{approved: number}` | mutation |

@@ -465,6 +465,25 @@ def build_quota_dashboard(
     }
 
 
+def empty_quota_dashboard() -> dict:
+    """The dashboard payload for "no season resolved" (D7 fail-closed).
+
+    Returned during the close→open gap, when there is no season to report on
+    and returning the last one's numbers would hand every authenticated user
+    the aggregates the close just hid. The response *shape* is identical to
+    `build_quota_dashboard()`'s so the page renders its normal empty states
+    rather than an error banner — the same call `dashboard_summary` makes with
+    `_empty_summary()`.
+
+    Touches no table: `_compute_kpis` is pure arithmetic over three empty maps.
+    """
+    return {
+        'kpis': _compute_kpis({}, {}, {}),
+        'per_firm': [],
+        'weekly_flow': [],
+    }
+
+
 # ---------------------------------------------------------------------------
 # Per-firm balance (firm-split editor soft warning)
 # ---------------------------------------------------------------------------

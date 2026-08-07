@@ -511,11 +511,22 @@ Consequences worth knowing before you touch this code:
   season**; on `GET /quota-issuances/{id}/` it comes from **that row's own `season`**. Detail routes
   bypass season scoping (Rule A), so keying the ledger off the request's season there reported
   `used_kg: 0.00` for any issuance outside the active season.
-- `GET /quota-dashboard/` reads `?season=` directly and **does not call `resolve_season()`**, so
-  `closed_season.can_view` is not enforced on it — a role holding `quota_issuance` but not
-  `closed_season` (`document_team`, `loading_dept_head`(+deputy) as seeded) is 403'd by
-  `/quota-issuances/?season=<closed>` yet can still read that season's aggregates here.
-  Pre-existing; flagged, not yet fixed.
+- `GET /quota-dashboard/` goes through `resolve_season()` like every other read path
+  (**fixed 2026-08-07** — it used to read `?season=` directly, so `closed_season.can_view` was
+  never enforced and a role holding `quota_issuance` but not `closed_season` could read a
+  closed season's aggregates it was 403'd from on `/quota-issuances/`). Contract now:
+  `?season=` is **optional** and defaults to the active season (it used to be required, and
+  omitting it 400'd — this endpoint was the only scoped read where that was true); an unknown
+  id returns **404** (was 400); a closed season without `closed_season.can_view` returns
+  **403**; and during the close→open gap it returns the empty payload with its shape intact
+  (`kpis` all zero, `per_firm` / `weekly_flow` `[]`), per D7, so the page renders its normal
+  empty states. Season resolution happens **before** the 60s cache read, and the cache key
+  carries `season.pk` rather than the raw parameter.
+- **Still date-driven, deliberately:** `build_quota_dashboard()` itself takes only
+  `(date_from, date_to, product_type)`. The resolved season supplies the default date window
+  and the permission gate; it is **not** pushed into the aggregates as a `season` predicate.
+  Re-scoping those aggregates would change published numbers, not just visibility, and needs
+  its own ruling (§4.7's own standard). This is the one remaining cross-season quota read.
 
 `boss` analytics is mixed, not uniformly parameterised — check the specific action before
 assuming `?season=` moves it:

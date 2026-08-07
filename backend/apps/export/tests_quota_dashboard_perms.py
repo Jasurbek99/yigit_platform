@@ -12,6 +12,7 @@ matches the roles that can see the export.quota page.
 from django.core.cache import cache
 from django.core.management import call_command
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.core.models import Season, User
@@ -60,3 +61,105 @@ class QuotaDashboardPermissionTests(TestCase):
     def test_anonymous_is_unauthorized(self):
         resp = self.client.get(URL, {'season': self.season.id})
         self.assertEqual(resp.status_code, 401, resp.content)
+
+
+class QuotaDashboardSeasonResolutionTests(TestCase):
+    """`?season=` on the dashboard goes through `resolve_season()` like every
+    other read path (AD-16).
+
+    It used to read the parameter directly, look the row up itself, and 400 if
+    it was absent — so `closed_season.can_view` was never consulted. Verified
+    on the live database: `document_team`, `loading_dept_head` and
+    `loading_dept_head_deputy` hold `quota_issuance` but NOT `closed_season`,
+    so they are correctly 403'd on `/quota-issuances/?season=<closed>` yet
+    could still read that same season's aggregates here.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command('seed_permissions')
+        cls.active = Season.objects.create(
+            name='qd26', start_date='2026-08-01', end_date='2027-06-30', is_active=True,
+        )
+        cls.closed = Season.objects.create(
+            name='qd25', start_date='2025-09-01', end_date='2026-06-30',
+            closed_at=timezone.now(),
+        )
+        # export_manager holds closed_season.can_view per the AD-16 seed;
+        # document_team does not. Both hold quota_issuance.can_view, so the
+        # pair isolates the closed-season permission from page access.
+        cls.permitted = _make_user('gadam', 'export_manager')
+        cls.unpermitted = _make_user('sulgun', 'document_team')
+
+    def setUp(self):
+        cache.clear()
+        self.client = APIClient()
+
+    def test_closed_season_denied_without_closed_season_permission(self):
+        self.client.force_authenticate(user=self.unpermitted)
+        resp = self.client.get(URL, {'season': self.closed.id})
+        self.assertEqual(resp.status_code, 403, resp.content)
+
+    def test_closed_season_allowed_with_closed_season_permission(self):
+        self.client.force_authenticate(user=self.permitted)
+        resp = self.client.get(URL, {'season': self.closed.id})
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertIn('kpis', resp.data)
+
+    def test_unknown_season_returns_404(self):
+        """`resolve_season()` raises NotFound; the endpoint used to 400."""
+        self.client.force_authenticate(user=self.permitted)
+        resp = self.client.get(URL, {'season': 999999})
+        self.assertEqual(resp.status_code, 404, resp.content)
+
+    def test_season_param_omitted_falls_back_to_the_active_season(self):
+        """`?season=` was `required` here and nowhere else. Every other scoped
+        read defaults to the active season; this one 400'd."""
+        self.client.force_authenticate(user=self.permitted)
+        resp = self.client.get(URL)
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertIn('kpis', resp.data)
+
+    def test_denied_response_is_not_served_from_another_users_cache(self):
+        """The 403 must precede the cache read, or a permitted user's payload
+        leaks to an unpermitted one for the 60s TTL."""
+        self.client.force_authenticate(user=self.permitted)
+        self.assertEqual(
+            self.client.get(URL, {'season': self.closed.id}).status_code, 200,
+        )
+        self.client.force_authenticate(user=self.unpermitted)
+        resp = self.client.get(URL, {'season': self.closed.id})
+        self.assertEqual(resp.status_code, 403, resp.content)
+
+
+class QuotaDashboardNoActiveSeasonTests(TestCase):
+    """D7 fail-closed: during the close→open gap the dashboard returns an
+    empty payload with its shape preserved, not the just-closed season's
+    aggregates and not a 400.
+
+    Same treatment `dashboard/summary` got in the final review (finding F3):
+    the page renders its normal empty states rather than an error banner.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command('seed_permissions')
+        Season.objects.create(
+            name='qd25', start_date='2025-09-01', end_date='2026-06-30',
+            closed_at=timezone.now(),
+        )
+        cls.user = _make_user('gadam', 'export_manager')
+
+    def setUp(self):
+        cache.clear()
+        self.client = APIClient()
+
+    def test_no_active_season_returns_empty_shaped_payload(self):
+        self.client.force_authenticate(user=self.user)
+        resp = self.client.get(URL)
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertEqual(set(resp.data), {'kpis', 'per_firm', 'weekly_flow'})
+        self.assertEqual(resp.data['per_firm'], [])
+        self.assertEqual(resp.data['weekly_flow'], [])
+        self.assertEqual(resp.data['kpis']['issued_kg'], 0)
+        self.assertEqual(resp.data['kpis']['local_sales_kg'], 0)
