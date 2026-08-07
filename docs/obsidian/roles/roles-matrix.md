@@ -87,7 +87,9 @@ related: [[permissions-system]]
 | 12. Report | `hasabat` | sales_rep | export_manager, director, boss |
 | 13. Completed | `tamamlandy` | finansist | export_manager, director, boss |
 
-> **`boss` in Privileged Override (2026-08-05):** `boss` joined `PRIVILEGED_ROLES` in `apps/export/services/shipment.py`, so `transition_to()` — and therefore `POST /shipments/{id}/transition/` — accepts him on every edge above, same as `export_manager`/`director`. This does **not** extend to the dedicated `POST /shipments/{id}/cancel/` or `POST /shipments/{id}/assign/` endpoints, which check a separate, unchanged `PRIVILEGED_ROLES` in `apps/core/roles.py` (`{admin, export_manager, director}`, no `boss`) and 403 him. See [[boss]] for the full gap.
+> **`boss` in Privileged Override (2026-08-05):** `boss` joined `PRIVILEGED_ROLES` in `apps/export/services/shipment.py`, so `transition_to()` — and therefore `POST /shipments/{id}/transition/` — accepts him on every **forward** edge above, same as `export_manager`/`director`. This does **not** extend to the dedicated `POST /shipments/{id}/cancel/` or `POST /shipments/{id}/assign/` endpoints, which check a separate, unchanged `PRIVILEGED_ROLES` in `apps/core/roles.py` (`{admin, export_manager, director}`, no `boss`) and 403 him. See [[boss]] for the full gap.
+>
+> **Cancellation is not a transition (2026-08-07):** every status also has a `cancelled` edge, which is NOT reachable through `POST /shipments/{id}/transition/` — that action returns **400** for `new_status=cancelled` for every role, pointing the caller at `/cancel/`. The generic path skips what `/cancel/` does (cancel open Tasks, delete draft `QuotaUsageRecord`s, demand a `reason`), so it would leave the shipment `cancelled` with dangling work items. `CANCEL_ROLES` (`services/shipment.py`) is a literal `{admin, export_manager, director}` — deliberately not derived from `PRIVILEGED_ROLES`, which is what silently added `boss` to every cancel edge when he was granted the step-privilege.
 
 ## "My Work" Filter by Role
 

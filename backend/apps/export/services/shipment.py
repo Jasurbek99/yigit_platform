@@ -43,11 +43,17 @@ STATUS_TIMESTAMP_MAP: dict[str, str] = {}
 # They are already divergent — do not "fix" that here.
 PRIVILEGED_ROLES = {'export_manager', 'director', 'boss'}
 
-# Roles allowed to CANCEL a shipment. Superset of PRIVILEGED_ROLES + the
-# system admin. (admin is the top-tier system role per ADR-15; it isn't in the
-# narrow operational PRIVILEGED_ROLES above, so it's listed explicitly here.)
+# Roles allowed to CANCEL a shipment. A LITERAL set, deliberately NOT derived
+# from PRIVILEGED_ROLES: it was `PRIVILEGED_ROLES | {'admin'}`, so adding boss
+# above silently rewrote every ('cancelled', ...) edge below and made boss an
+# allowed actor on the cancel edges. Cancelling is not "one more step in the
+# chain" — it must go through the /cancel/ endpoint (views.py), which also
+# cancels open Tasks, cleans up draft QuotaUsageRecords and demands a reason.
+# Keep this list in step with that endpoint's own role gate
+# (apps.core.roles.PRIVILEGED_ROLES, which already means admin/export_manager/
+# director), and let privilege-widening on the STEP edges move independently.
 # Superusers bypass the role gate entirely — see transition_to().
-CANCEL_ROLES = PRIVILEGED_ROLES | {'admin'}
+CANCEL_ROLES = {'admin', 'export_manager', 'director'}
 
 # Allowed transitions: from_code → list of edge tuples.
 # Edge tuple shape: (to_code, allowed_roles) OR (to_code, allowed_roles, predicate)

@@ -553,6 +553,7 @@ class ShipmentViewSet(ModelViewSet):
 
         Returns updated shipment detail on success.
         Returns 400 on invalid transition, 403 on permission denied.
+        'cancelled' is rejected with 400 — use the dedicated /cancel/ action.
         """
         shipment = self.get_object()
         new_status_code = request.data.get('new_status')
@@ -561,6 +562,20 @@ class ShipmentViewSet(ModelViewSet):
         if not new_status_code:
             return Response(
                 {'error': 'new_status is required'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Cancellation has side effects this generic path does not perform:
+        # open Tasks stay OPEN, draft QuotaUsageRecords are never cleaned up,
+        # and the mandatory reason is never supplied — the shipment lands in
+        # 'cancelled' with dangling work items. Route every caller to /cancel/.
+        # No UI reaches here with 'cancelled' (ShipmentDetailSerializer's
+        # get_allowed_transitions already filters the cancel edge out, and
+        # ShipmentBulkTransitionModal's STATUS_DISPLAY has no cancelled entry),
+        # so this closes a direct-API path rather than breaking a screen.
+        if new_status_code == 'cancelled':
+            return Response(
+                {'error': 'Use POST /shipments/{id}/cancel/ to cancel a shipment.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
