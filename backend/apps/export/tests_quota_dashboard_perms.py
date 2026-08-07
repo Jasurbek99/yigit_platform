@@ -9,13 +9,16 @@ non-superuser role (export_manager, document_team, director), surfacing as
 The dashboard is now gated by ``quota_issuance`` view access, which exactly
 matches the roles that can see the export.quota page.
 """
+from datetime import date
+
 from django.core.cache import cache
 from django.core.management import call_command
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps.core.models import Season, User
+from apps.core.models import ExportFirm, Season, User
+from apps.export.models import QuotaIssuance, QuotaIssuanceFirmAllocation
 
 URL = '/api/v1/export/quota-dashboard/'
 
@@ -91,6 +94,19 @@ class QuotaDashboardSeasonResolutionTests(TestCase):
         cls.permitted = _make_user('gadam', 'export_manager')
         cls.unpermitted = _make_user('sulgun', 'document_team')
 
+        # A real allocation INSIDE the closed season, so "did the closed
+        # season's data reach this response" is an observable number rather
+        # than an assertion about an empty payload that would pass either way.
+        cls.ISSUED_KG = 25000
+        firm = ExportFirm.objects.create(code='QDF', name_en='QD Firm')
+        issuance = QuotaIssuance.objects.create(
+            issue_date=date(2025, 10, 6), product_type='tomato',
+            matched_week=41, matched_year=2025, season=cls.closed,
+        )
+        QuotaIssuanceFirmAllocation.objects.create(
+            issuance=issuance, export_firm=firm, kg_quota=cls.ISSUED_KG,
+        )
+
     def setUp(self):
         cache.clear()
         self.client = APIClient()
@@ -119,6 +135,56 @@ class QuotaDashboardSeasonResolutionTests(TestCase):
         resp = self.client.get(URL)
         self.assertEqual(resp.status_code, 200, resp.content)
         self.assertIn('kpis', resp.data)
+
+    def test_out_of_season_date_window_cannot_reach_a_closed_season(self):
+        """The gate is bypassable unless the window is CLAMPED to the season.
+
+        `resolve_season()` only supplied the *default* date window;
+        `?date_from=`/`?date_to=` were taken verbatim and `build_quota_dashboard`
+        aggregates on dates alone. So an unpermitted user needed no `?season=`
+        at all — send the closed season's own date range, the gate passes on the
+        ACTIVE season, and the response carries the closed season's numbers.
+        That is exactly the payload
+        `test_closed_season_denied_without_closed_season_permission` asserts must
+        be a 403.
+
+        Clamping (`max(from, season.start_date)` / `min(to, season.end_date)`)
+        is monotonically restrictive: it changes no in-season number and needs
+        no ruling on whether the aggregates should carry a season FK.
+        """
+        self.client.force_authenticate(user=self.unpermitted)
+        resp = self.client.get(URL, {
+            'date_from': self.closed.start_date,
+            'date_to': self.closed.end_date,
+        })
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertEqual(
+            resp.data['kpis']['issued_kg'], 0,
+            'Closed-season issuances leaked through an unbounded date window.',
+        )
+        self.assertEqual(resp.data['per_firm'], [])
+
+    def test_permitted_user_still_sees_the_closed_season_with_its_own_window(self):
+        """Control — the clamp must not close the legitimate door as well."""
+        self.client.force_authenticate(user=self.permitted)
+        resp = self.client.get(URL, {
+            'season': self.closed.id,
+            'date_from': self.closed.start_date,
+            'date_to': self.closed.end_date,
+        })
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertEqual(resp.data['kpis']['issued_kg'], self.ISSUED_KG)
+
+    def test_in_season_window_is_untouched_by_the_clamp(self):
+        """Control — a window inside the season passes through unchanged."""
+        self.client.force_authenticate(user=self.permitted)
+        resp = self.client.get(URL, {
+            'season': self.closed.id,
+            'date_from': '2025-10-01',
+            'date_to': '2025-10-31',
+        })
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertEqual(resp.data['kpis']['issued_kg'], self.ISSUED_KG)
 
     def test_denied_response_is_not_served_from_another_users_cache(self):
         """The 403 must precede the cache read, or a permitted user's payload

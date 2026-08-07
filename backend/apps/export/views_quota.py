@@ -440,8 +440,32 @@ class QuotaDashboardView(APIView):
         # Normalize so ?product_type=Tomato and =tomato don't cache twice (and
         # the service gets a consistent value).
         product_type = params.get('product_type', 'tomato').lower()
-        date_from = _parse_date(params.get('date_from'), season.start_date, 'date_from')
-        date_to = _parse_date(params.get('date_to'), season.end_date, 'date_to')
+
+        # CLAMP the window to the resolved season — do not merely default to it.
+        # `build_quota_dashboard()` aggregates on dates alone, so an unclamped
+        # `?date_from=`/`?date_to=` walks straight past the permission gate:
+        # `document_team` (holds `quota_issuance`, not `closed_season`) sends the
+        # closed season's own range with NO `?season=`, `resolve_season()`
+        # returns the ACTIVE season, the gate passes, and the response carries
+        # the closed season's aggregates — the very payload the 403 above
+        # exists to withhold.
+        #
+        # A clamp, not a season predicate on the aggregates: it is monotonically
+        # restrictive, so it changes no number for any window already inside the
+        # season, and it needs no ruling on whether `build_quota_dashboard()`
+        # should take a season FK (that question stays open — see AD-16). When
+        # the requested window lies wholly outside the season the clamp inverts
+        # it (`date_from > date_to`), which every aggregate reads as an empty
+        # range — fail closed, the right answer for a window the caller may not
+        # see.
+        date_from = max(
+            _parse_date(params.get('date_from'), season.start_date, 'date_from'),
+            season.start_date,
+        )
+        date_to = min(
+            _parse_date(params.get('date_to'), season.end_date, 'date_to'),
+            season.end_date,
+        )
 
         # build_quota_dashboard() runs several aggregation passes per request and
         # was uncached (unlike dashboard_summary / boss / KPI endpoints). Cache it

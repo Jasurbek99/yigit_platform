@@ -535,11 +535,18 @@ Consequences worth knowing before you touch this code:
   (`kpis` all zero, `per_firm` / `weekly_flow` `[]`), per D7, so the page renders its normal
   empty states. Season resolution happens **before** the 60s cache read, and the cache key
   carries `season.pk` rather than the raw parameter.
+- **`?date_from=`/`?date_to=` are CLAMPED to the resolved season, not merely defaulted to it**
+  (`max(from, season.start_date)` / `min(to, season.end_date)`). A default alone left the gate
+  bypassable: `build_quota_dashboard()` aggregates on dates alone, so sending the closed
+  season's own range with **no** `?season=` passed the check on the active season and returned
+  the closed season's numbers anyway. A window wholly outside the season inverts and every
+  aggregate reads it as empty — fail closed. **If you add another date-windowed endpoint, clamp
+  it; a default window is not a bound.**
 - **Still date-driven, deliberately:** `build_quota_dashboard()` itself takes only
-  `(date_from, date_to, product_type)`. The resolved season supplies the default date window
-  and the permission gate; it is **not** pushed into the aggregates as a `season` predicate.
-  Re-scoping those aggregates would change published numbers, not just visibility, and needs
-  its own ruling (§4.7's own standard). This is the one remaining cross-season quota read.
+  `(date_from, date_to, product_type)`. The resolved season supplies the clamped window and the
+  permission gate; it is **not** pushed into the aggregates as a `season` predicate. Re-scoping
+  those aggregates would change published numbers, not just visibility, and needs its own
+  ruling (§4.7's own standard). The clamp is what makes deferring that safe.
 
 `boss` analytics is mixed, not uniformly parameterised — check the specific action before
 assuming `?season=` moves it:

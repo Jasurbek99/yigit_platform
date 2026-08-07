@@ -227,6 +227,7 @@ implementation checklist for Phase 2 — an endpoint absent from it is a bug.
 | `contracts` | `Contract` | **nullable FK** — see §4.4 |
 | `harvest-plans/block-summary` | `HarvestDayEntry` (aggregate) | added 2026-08-03 — a sibling `@action`, ungated in the first pass; seasons run Sept→Aug so a past `(year, week)` **is** a closed-season request with no `?season=` needed |
 | `shipments/overdue`, `shipments/my-sales-reports`, `shipments/my-pending-count` | `Shipment` | added 2026-08-03 per ruling — pre-existing, absent from the first pass; `overdue` calls `super().get_queryset()` and so bypasses the scoping block |
+| `harvest-forecast/remaining/` | `HarvestDayEntry` (aggregate) | added 2026-08-07 — an `APIView`, so absent from the router-derived first pass. Filtered on `entry_date` alone; seasons run Sept→Aug so a past date **is** a closed-season request with no `?season=` needed — `block-summary` verbatim. See §4.9 |
 
 `SalesRepCoverageViewSet` was listed here in the first draft and is **not** scopeable: its
 `list()` builds rep→customer ownership inline from `User.objects.filter(role='sales_rep')` and
@@ -257,6 +258,17 @@ data stays visible through the child list.
 `dashboard`, `kpi`, `boss` already filter by explicit date ranges. They take the resolved
 season's `start_date`/`end_date` as their default range instead of an ad-hoc
 `is_active=True` lookup, then filter as they do today. No mixin.
+
+`quota-dashboard` belongs to this bucket too (added 2026-08-07 — it was absent from the
+original table). **A default is not enough here, and the distinction generalises to every
+endpoint in this section:** where the client may also send `date_from`/`date_to`, the resolved
+season must **clamp** the window, not merely seed it. See §4.9.
+
+`kpi` (`KpiViewSet`, `views_kpi.py`) was never converted: its four actions use rolling
+7/30-day windows rather than a season range, and `kpi_blocked_age()` has no window at all, so
+a closed season's still-blocked tasks (D2 leaves them blocked) contribute to its aggregate. It
+exposes counts and durations only — no season-identifiable row — and has no frontend consumer.
+Left as-is pending the owner's own KPI testing; recorded here rather than silently omitted.
 
 **`boss` is the exception, and the rule is precise:** the resolved season **parameterises**
 the comparison rather than filtering it. `boss_analytics.py:325-355` returns `current_season`
@@ -653,3 +665,47 @@ it — the My Tasks screen calls `/me/tasks/` (`frontend/src/hooks/useMyTasks.ts
 `['my-tasks', role]`), which had no season filter and no `seasonId` in its key. Switching
 seasons therefore left that screen unchanged. It is now scoped like every other
 shipment-anchored list, and its query key carries `seasonId`.
+
+
+## 4.9 A default window is not a bound (2026-08-07)
+
+**Found by review of the `quota-dashboard` fix, and it is the general lesson of this
+section.**
+
+Routing `quota-dashboard` through `resolve_season()` gated *which season the caller names*.
+It did not gate *which dates the caller asks for*. `_parse_date()` returned the client's
+`?date_from=`/`?date_to=` verbatim — the resolved season supplied only the fallback — and
+`build_quota_dashboard()` aggregates on dates alone. So the gate was bypassable without ever
+touching `?season=`:
+
+```
+GET /quota-dashboard/?date_from=<closed season start>&date_to=<closed season end>
+```
+
+`resolve_season()` returns the ACTIVE season, the permission check passes, and the response
+carries the closed season's aggregates — the exact payload the 403 exists to withhold. A role
+holding `quota_issuance` but not `closed_season` (`document_team`) reaches it, and the page's
+own `RangePicker` has no season bounds, so it is reachable from the UI.
+
+**Rule:** on any endpoint in §4.3, the resolved season **clamps** the window:
+
+```python
+date_from = max(_parse_date(...), season.start_date)
+date_to   = min(_parse_date(...), season.end_date)
+```
+
+Clamping rather than pushing a `season` FK into the aggregates is deliberate. It is
+monotonically restrictive — no number changes for a window already inside the season — so it
+needs no ruling on whether `build_quota_dashboard()` should become season-aware. That question
+stays open. A window lying wholly outside the season inverts (`date_from > date_to`), which
+every aggregate reads as empty: fail closed, which is the right answer for data the caller may
+not see.
+
+**And the sibling case:** an endpoint that takes no `?season=` at all is not thereby safe.
+`harvest-forecast/remaining/` (§4.1) took only `?date=`, and since `HarvestDayEntry.season` is
+non-null and seasons never overlap, a date inside a closed season *was* a closed-season read
+with nothing for a permission check to attach to. The two write validators sharing that
+service (`assert_draw_within_pool`, draft-create `validate()`) deliberately stay unscoped:
+they check a draw against the shipment's own date on a path the write freeze already restricts
+to an open season, so scoping them would change what a create is validated against rather than
+gate a read.
