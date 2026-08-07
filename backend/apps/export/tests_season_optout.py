@@ -21,13 +21,10 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.core.models import (
-    Country, ExportFirm, RoleResourcePermission, Season, ShipmentStatusType, User,
+    Country, RoleResourcePermission, Season, ShipmentStatusType, User,
 )
-from apps.export.models import (
-    QuotaIssuance, QuotaIssuanceFirmAllocation, QuotaUsageRecord, Shipment,
-)
+from apps.export.models import Shipment
 from apps.export.services.boss_analytics import _previous_season, weekly_revenue_comparison
-from apps.export.services_quota import compute_fifo_usage
 
 
 def _make_draft_status() -> ShipmentStatusType:
@@ -171,66 +168,16 @@ class BossRevenueEndpointSurvivesCloseTests(TestCase):
         self.assertEqual(after.json(), before.json())
 
 
-class QuotaIssuanceOptOutTests(TestCase):
-    """quota-issuances stays unscoped even though `QuotaIssuance` gained a
-    `season` FK for the write freeze (D10) — spec §4.5. Issuances are consumed
-    FIFO across seasons, so both the list endpoint and the FIFO balance must
-    keep seeing every season's rows regardless of what is open or closed.
-    """
-
-    @classmethod
-    def setUpTestData(cls):
-        cls.older = Season.objects.create(
-            name='2024/2025', start_date=date(2024, 9, 1), end_date=date(2025, 8, 31),
-        )
-        cls.newer = Season.objects.create(
-            name='2025/2026', start_date=date(2025, 9, 1), end_date=date(2026, 8, 31),
-            is_active=True,
-        )
-        cls.firm = ExportFirm.objects.create(code='OPT1', name_tk='Firma OPT1')
-        cls.old_issuance = QuotaIssuance.objects.create(
-            issue_date=cls.older.start_date, season=cls.older, product_type='tomato',
-        )
-        cls.old_alloc = QuotaIssuanceFirmAllocation.objects.create(
-            issuance=cls.old_issuance, export_firm=cls.firm, kg_quota=Decimal('1000'),
-        )
-        cls.admin = User.objects.create(
-            username='optout-quota-adm', role='admin', is_superuser=True,
-        )
-
-    def _list(self) -> list[int]:
-        client = APIClient()
-        client.force_authenticate(user=self.admin)
-        response = client.get('/api/v1/export/quota-issuances/')
-        self.assertEqual(response.status_code, 200, response.content[:400])
-        body = response.json()
-        rows = body['results'] if isinstance(body, dict) and 'results' in body else body
-        return [row['id'] for row in rows]
-
-    def test_prior_season_issuance_is_listed_with_no_season_param(self):
-        """No `?season=` given — resolves to the active season, which is NOT
-        the issuance's own season. A scoped viewset would drop it; opting out
-        must not."""
-        self.assertIn(self.old_issuance.pk, self._list())
-
-    def test_closing_the_active_season_does_not_hide_the_prior_issuance(self):
-        before = self._list()
-        Season.objects.filter(pk=self.newer.pk).update(
-            closed_at=timezone.now(), is_active=False,
-        )
-        after = self._list()
-        self.assertEqual(before, after)
-        self.assertIn(self.old_issuance.pk, after)
-
-    def test_fifo_usage_still_consumes_a_prior_seasons_allocation(self):
-        """The system the D10 ruling exists to protect: a shipment in the
-        current season legitimately draws down an issuance made in a prior
-        one. If FIFO were season-filtered, this allocation would be invisible
-        and the firm would read as having unlimited balance instead."""
-        QuotaUsageRecord.objects.create(
-            usage_date=self.newer.start_date, export_firm=self.firm,
-            kg_used=Decimal('400'), product_type='tomato', status='approved',
-        )
-        cache.clear()
-        result = compute_fifo_usage('tomato')
-        self.assertEqual(result[self.old_alloc.pk], Decimal('400'))
+# `QuotaIssuanceOptOutTests` lived here until 2026-08-06. It asserted the exact
+# opposite of the current rule — that `quota-issuances` stays unscoped and that
+# FIFO consumes a prior season's allocation — which is what D10 decided and D11
+# reversed. Deleting it rather than adapting it is deliberate: the endpoint is
+# no longer an opt-out, so it does not belong in this module at all. Its three
+# assertions have direct counterparts in `tests_quota_season_d11.py`:
+#
+#   test_prior_season_issuance_is_listed_with_no_season_param
+#       -> QuotaIssuanceDisplayScopingTests.test_prior_season_issuance_is_hidden_by_default
+#   test_closing_the_active_season_does_not_hide_the_prior_issuance
+#       -> QuotaIssuanceDisplayScopingTests.test_prior_season_issuance_visible_when_that_season_is_selected
+#   test_fifo_usage_still_consumes_a_prior_seasons_allocation
+#       -> FifoStopsAtTheSeasonBoundaryTests.test_usage_does_not_consume_a_prior_seasons_allocation

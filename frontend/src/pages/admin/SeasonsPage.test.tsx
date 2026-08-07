@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import i18n from '@/i18n';
 import SeasonsPage from './SeasonsPage';
@@ -103,5 +104,39 @@ describe('SeasonsPage row actions by status', () => {
     expect(screen.queryByRole('button', { name: 'Open season' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument();
+  });
+});
+
+// `is_active` is server-set. The form used to carry an Active switch defaulted
+// to on, which (a) 400'd every create against `uq_season_single_active` while a
+// season was already active, and (b) let Edit move the write target through a
+// plain PATCH — which never runs `open_season()`/`close_season()`, so there was
+// no atomic incumbent swap, no audit row, and `useUpdateSeason` invalidates only
+// `['admin-seasons']` so `/auth/me/` and every season-scoped list stayed cached
+// on the old season. Open and Close are now the only routes.
+describe('SeasonsPage season form', () => {
+  beforeAll(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  beforeEach(() => {
+    vi.mocked(api.get).mockReset();
+    vi.mocked(useAuth).mockReturnValue({ user: fakeUser(), isLoading: false, isError: false });
+  });
+
+  it('create modal has no Active toggle', async () => {
+    const user = userEvent.setup();
+    renderPage([seasonRow('ACTIVE')]);
+    await user.click(await screen.findByRole('button', { name: /Add season/i }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).queryByRole('switch')).not.toBeInTheDocument();
+  });
+
+  it('edit modal has no Active toggle', async () => {
+    const user = userEvent.setup();
+    renderPage([seasonRow('ACTIVE')]);
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).queryByRole('switch')).not.toBeInTheDocument();
   });
 });

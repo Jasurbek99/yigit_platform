@@ -7,7 +7,6 @@ import {
   Input,
   Modal,
   Space,
-  Switch,
   Tag,
   Typography,
 } from 'antd';
@@ -31,11 +30,14 @@ import { SeasonCloseModal } from './SeasonCloseModal';
 
 const { Text } = Typography;
 
+// No `is_active`: it is server-set. A new season is always created UPCOMING
+// and becomes the write target only through the Open action, which swaps the
+// incumbent atomically, writes an audit row, and invalidates every cached
+// query (`useOpenSeason`). The generic PATCH behind Edit did none of that.
 interface ISeasonFormValues {
   name: string;
   start_date: Dayjs | null;
   end_date: Dayjs | null;
-  is_active: boolean;
 }
 
 export default function SeasonsPage() {
@@ -88,7 +90,6 @@ export default function SeasonsPage() {
   function handleOpenCreate() {
     setEditTarget(null);
     form.resetFields();
-    form.setFieldsValue({ is_active: true });
     setModalOpen(true);
   }
 
@@ -98,7 +99,6 @@ export default function SeasonsPage() {
       name: record.name,
       start_date: record.start_date ? dayjs(record.start_date) : null,
       end_date: record.end_date ? dayjs(record.end_date) : null,
-      is_active: record.is_active,
     });
     setModalOpen(true);
   }
@@ -120,7 +120,6 @@ export default function SeasonsPage() {
       name: values.name,
       start_date: values.start_date ? values.start_date.format('YYYY-MM-DD') : '',
       end_date: values.end_date ? values.end_date.format('YYYY-MM-DD') : '',
-      is_active: values.is_active,
     };
 
     if (editTarget) {
@@ -287,7 +286,6 @@ export default function SeasonsPage() {
           form={form}
           layout="vertical"
           onFinish={handleSubmit}
-          initialValues={{ is_active: true }}
         >
           <Form.Item
             name="name"
@@ -309,9 +307,6 @@ export default function SeasonsPage() {
             rules={[{ required: true, message: t('common.required') }]}
           >
             <DatePicker format="DD.MM.YYYY" style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item name="is_active" label={t('seasons.is_active')} valuePropName="checked">
-            <Switch />
           </Form.Item>
           <Space style={{ width: '100%', justifyContent: 'flex-end', marginTop: 8 }}>
             <Button onClick={() => { setModalOpen(false); form.resetFields(); }}>

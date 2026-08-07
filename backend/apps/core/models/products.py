@@ -73,8 +73,11 @@ class Season(models.Model):
         in `apps.core.services.season` already refuses it) — this is the
         single predicate both that service's callers and every other write
         path (Django admin, a raw ORM `.save()`, a management command) must
-        satisfy, called from `save()` below and reused by
-        `SeasonSerializer.validate_is_active` at the API boundary.
+        satisfy, called from `save()` below.
+
+        The API boundary no longer needs its own copy: `is_active` is a
+        `read_only_field` on `SeasonSerializer`, so no request body can set
+        it. This guard is what still covers every non-serializer writer.
 
         `close_season()`/`open_season()` never trip this: `close_season()`
         always writes `is_active=False`, and `open_season()` raises before

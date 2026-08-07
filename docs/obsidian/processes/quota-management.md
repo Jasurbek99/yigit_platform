@@ -10,6 +10,11 @@ related: [[local-sell-plan]], [[shipment-lifecycle]], [[domestic-sales]]
 
 The Turkmenistan government issues export quotas based on how much each firm sells domestically. The rule: for every 1 kg sold domestically, the firm gets ~10 kg of export quota. Quotas expire (~1 month). When a firm exports tomatoes (shipment), quota is consumed. The system tracks issuance, allocation per firm, usage per shipment, and remaining balance using FIFO (oldest quota consumed first).
 
+> [!important] Quota never crosses a season boundary (D11, ruled 2026-08-06)
+> Both **display** and **consumption** stop at the season line. `/quota-issuances/`, `/quota-usage/` and `/quota-firm-balances/` are season-scoped (`?season=<id>`), and the FIFO walk only matches a season's usage against that same season's allocations — leftover issuance **expires with its season** rather than carrying forward. This reverses D10, which had exempted quota from read-scoping on the assumption that FIFO ran across seasons.
+> 
+> Two things to know before touching this code. **`QuotaUsageRecord` has no `season` FK and no `issuance` FK** — only `usage_date` and a nullable `shipment` (575 of 711 rows have no shipment) — so its season is derived by `services_quota.usage_season_q()`; use that helper rather than hand-rolling the predicate. Because the anchor is derived, `POST`/`PATCH` on `/quota-usage/` **400 when the row would land outside every season** (`season_of_usage()` is the row-level inverse, and the two must stay in step); the usage grid's month picker disables such months so the dead end is unreachable from the UI. And **an issuance whose `issue_date` falls in the gap between two seasons has `season = NULL` and is invisible on every list** (direct link only); `POST /quota-issuances/` now 400s during the close→open gap so no more can be created. `QuotaIssuance#34` on the dev database (25,000 kg, 2026-07-06, *Eziz Doganlar*) is one such row, awaiting an owner ruling.
+
 ## How It Works (Business Flow)
 
 ```mermaid
@@ -106,7 +111,7 @@ When a shipment is removed from the operational pool, its approved kg should ret
 | `POST /shipments/{id}/hard-delete/` (admin, draft only) | **Row hard-deleted** (same cleanup as bulk-delete) | ❌ No | ❌ Permanent — draft is gone |
 | Historical Excel import (no `shipment_id`) | Row exists, `shipment` is NULL | ✅ Yes | — |
 
-Every action above busts **both** the `fifo_usage:*` and `quota_firm_balances:*` caches via the canonical `invalidate_quota_caches()` (in `services/quota_sync.py`) so the firm's balance updates immediately — FIFO backs the dashboard/issuance list, `quota_firm_balances` backs the Sheet firm-split "no quota" hard-block, and any change to consumption or issuance moves both. Issuance create/update/delete call the same helper; `QuotaUsageViewSet.approve` defers it via `transaction.on_commit(...)` so the cache is dropped *after* the approval commits (avoiding a stale-repopulation race). The quota dashboard cache (60s TTL, parametrised by season/date) is left to expire on its own.
+Every action above busts **both** the `fifo_usage:*` and `quota_firm_balances:*` caches (both now keyed `:<product_type>:<season_id>` — `invalidate_quota_caches()` enumerates the seasons, since Django's default cache backend has no pattern-delete) via the canonical `invalidate_quota_caches()` (in `services/quota_sync.py`) so the firm's balance updates immediately — FIFO backs the dashboard/issuance list, `quota_firm_balances` backs the Sheet firm-split "no quota" hard-block, and any change to consumption or issuance moves both. Issuance create/update/delete call the same helper; `QuotaUsageViewSet.approve` defers it via `transaction.on_commit(...)` so the cache is dropped *after* the approval commits (avoiding a stale-repopulation race). The quota dashboard cache (60s TTL, parametrised by season/date) is left to expire on its own.
 
 **Why hard-delete is different.** Soft-delete and cancel keep the row so restore / un-cancel can re-consume the kg automatically (including the approved status). Bulk-delete severs the shipment FK (`SET_NULL`), which `counted()` would treat as a historical import and re-include — so the action explicitly hard-deletes the usage rows before destroying the shipment.
 
@@ -174,7 +179,9 @@ erDiagram
 | `aggregate_local_sales(plan_rows)` | Sum Mon-Sat plan_kg per firm → `dict[firm_id, Decimal]` |
 | `aggregate_quota_issued(date_from, date_to, product_type)` | Sum kg_quota per firm → `dict[firm_id, Decimal]` |
 | `aggregate_quota_used(date_from, date_to)` | Sum approved kg_used per firm → `dict[firm_id, Decimal]` |
-| `compute_fifo_usage(product_type)` | Per firm FIFO: returns `dict[allocation_id, consumed_kg]` |
+| `compute_fifo_usage(product_type, season)` | Per firm FIFO **within one season** (D11): returns `dict[allocation_id, consumed_kg]` for that season's allocations only. `season=None` (the close→open gap) returns `{}` |
+| `season_of_usage(shipment, usage_date)` | Row-level inverse of `usage_season_q()` — the one season a row belongs to, or `None`. Write paths reject `None` |
+| `usage_season_q(season)` | The single definition of which `QuotaUsageRecord` rows belong to a season — `shipment.season` when linked, else `usage_date` inside the season's range. Used by FIFO, the firm balances, AND the `/quota-usage/` list, so the grid and the ledger can never disagree |
 | `_compute_kpis(local_sales, quota_issued, quota_used)` | Top-level KPIs: local_sales_kg, expected_kg, issued_kg, not_given_kg/%, used_kg, unused_kg/% |
 | `_build_per_firm(...)` | Per-firm breakdown rows with is_blocked flag |
 | `_build_week_entry(year, week, ...)` | Single week entry with coverage_pct, firm breakdown |
@@ -233,7 +240,13 @@ erDiagram
 | GET | `/api/v1/export/quota-dashboard/` | Dashboard analytics | `quota_issuance` view |
 | GET | `/api/v1/export/quota-firm-balances/` | Per-firm remaining quota (firm-split soft warning) | `quota_issuance` view |
 
-**Dashboard query params**: `season` (required), `product_type` (default='tomato'), `date_from`, `date_to`
+**Dashboard query params**: `season` (**optional** — defaults to the active season), `product_type` (default='tomato'), `date_from`, `date_to` (default: the resolved season's `start_date`/`end_date`)
+
+> **Season resolution (fixed 2026-08-07)**: `?season=` goes through `resolve_season()` like every other read path (AD-16). It used to be read directly off the query string, so `closed_season.can_view` was never enforced — `document_team` and `loading_dept_head`(+deputy) hold `quota_issuance` but not `closed_season`, so they were 403'd on `/quota-issuances/?season=<closed>` yet could still read that season's aggregates here. Unknown id → **404** (was 400); closed season without `closed_season.can_view` → **403**; no season at all (the close→open gap) → the empty payload with its shape preserved (D7 fail-closed), not the just-closed season's numbers. Resolution runs **before** the 60s cache read, and the cache key carries `season.pk`. The page's own season filter (`QuotaDashboard.tsx`) hides closed seasons from anyone without the permission — see `seasonsVisibleTo()` in `QuotaDashboard.helpers.ts` — so the option that would 403 is never offered.
+>
+> `?date_from=`/`?date_to=` are **clamped** to the resolved season (`max`/`min`), not merely defaulted to it. A default alone left the gate bypassable — `build_quota_dashboard()` aggregates on dates alone, so sending a closed season's own range with **no** `?season=` passed the check on the active season and returned the closed season's numbers anyway (`document_team` holds `quota_issuance` but not `closed_season`, and the page's `RangePicker` has no season bounds). A window wholly outside the season inverts and reads as empty — fail closed.
+>
+> `build_quota_dashboard()` itself stays **date-driven**: the resolved season supplies the clamped window and the permission gate, not a `season` predicate on the aggregates. Pushing the FK in would change published numbers rather than just visibility and needs its own ruling — the clamp is what makes deferring that safe.
 
 > **Permission note**: the read-only dashboard is gated by `DynamicResourcePermission` with `resource_code = 'quota_issuance'` (the resource it aggregates) — NOT a `'quota'` resource, which does not exist in `RESOURCE_REGISTRY`. Pointing it at the non-existent `'quota'` resource makes `get_resource_perm()` return `None` and 403s every non-superuser role; this was a real regression. The roles that hold `quota_issuance` view (export_manager, director, document_team, admin) are exactly those granted the `export.quota` page.
 
@@ -244,7 +257,7 @@ erDiagram
 
 When an operator assigns export firms to a shipment via the **Sheet `firm_splits` cell**, the editor flags any chosen firm that has **no remaining quota** — but never blocks the save (quota is *tracked*, not hard-enforced).
 
-- **Endpoint**: `GET /api/v1/export/quota-firm-balances/?product_type=tomato` → `{ "<firm_id>": {issued_kg, used_kg, remaining_kg} }`. Service: `compute_firm_quota_balances()` in `services_quota.py`. `remaining_kg = issued − committed` over the **active season** range, where **committed = draft + approved** usage (NOT approved-only like the dashboard). This is deliberate: assigning firm splits auto-creates *draft* usage rows that stay draft until document_team approves, so at assignment time drafts are the live commitment — counting approved-only would under-warn until after the decision is made. Firms with no allocation are absent (treated as zero). 60 s cache (`quota_firm_balances:<product_type>`), invalidated alongside the FIFO cache by the canonical `invalidate_quota_caches()` on **every** balance-moving action — issuance create/update/delete, firm-split assignment/edit, usage approval, and shipment cancel/restore/soft-delete.
+- **Endpoint**: `GET /api/v1/export/quota-firm-balances/?product_type=tomato` → `{ "<firm_id>": {issued_kg, used_kg, remaining_kg} }`. Service: `compute_firm_quota_balances(product_type, season)` in `services_quota.py`. `remaining_kg = issued − committed` for the **resolved** season (anchored on the `QuotaIssuance.season` FK and `usage_season_q()`, not a date range — D11), where **committed = draft + approved** usage (NOT approved-only like the dashboard). This is deliberate: assigning firm splits auto-creates *draft* usage rows that stay draft until document_team approves, so at assignment time drafts are the live commitment — counting approved-only would under-warn until after the decision is made. Firms with no allocation are absent (treated as zero). 60 s cache (`quota_firm_balances:<product_type>:<season_id>`), invalidated alongside the FIFO cache by the canonical `invalidate_quota_caches()` on **every** balance-moving action — issuance create/update/delete, firm-split assignment/edit, usage approval, and shipment cancel/restore/soft-delete.
 - A firm is "no quota" when it is absent from the map **or** `remaining_kg <= 0` (covers both never-allocated and fully-used firms).
 - **UI** (`SheetCellEditor.tsx`): firms with no quota are tagged `⚠ no quota` in the multi-select dropdown; committing a selection that *adds* such a firm shows a non-blocking `toast.warning` (`sheet.firm_no_quota_warning`). The split still saves.
 - **Known limits (v1, deliberate)**: product type defaults to `tomato` (not on the sheet payload; pepper is a rare separate quota domain), and per-issuance **expiry** (`validity` month window) is *not* applied — this is a coarse "has any balance" signal, not the authoritative FIFO/expiry ledger. Only the Sheet firm-split cell is covered; backend create/`set_firm_splits` still does not block or warn.
@@ -345,7 +358,7 @@ Flattens nested allocations into individual rows.
 
 | Hook | Endpoint | Params | Returns | Stale Time |
 |------|----------|--------|---------|------------|
-| `useQuotaDashboard` | `GET /export/quota-dashboard/` | season, date_from, date_to, product_type | `IQuotaDashboardResponse` | 60s |
+| `useQuotaDashboard` | `GET /export/quota-dashboard/` | season (from the page's own picker, which hides closed seasons the user may not view), date_from, date_to, product_type | `IQuotaDashboardResponse` | 60s |
 | `useQuotaIssuances` | `GET /export/quota-issuances/` | product_type, date_from, date_to | `IQuotaIssuance[]` | 60s |
 | `useQuotaUsageRecords` | `GET /export/quota-usage/?page_size=2000` | status, product_type, date_from, date_to | `IQuotaUsageRecord[]` | 30s |
 | `useBulkApproveQuotaUsage` | `POST /export/quota-usage/approve/` | `{ids: []}` | `{approved: number}` | mutation |

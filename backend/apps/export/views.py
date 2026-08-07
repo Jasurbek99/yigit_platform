@@ -2830,7 +2830,10 @@ class ShipmentViewSet(ModelViewSet):
             existing_firm_ids = set(
                 shipment.firm_splits.values_list('export_firm_id', flat=True)
             )
-            balances = compute_firm_quota_balances('tomato')
+            # The SHIPMENT's season, not the active or the resolved one: under
+            # D11 a shipment may only draw on its own season's quota, so the
+            # hard block must be evaluated against that season's balance.
+            balances = compute_firm_quota_balances('tomato', shipment.season)
             blocked_ids = [
                 e['export_firm_id']
                 for e in valid_entries

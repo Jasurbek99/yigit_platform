@@ -459,8 +459,8 @@ Notes:
 
 Every season-bearing list endpoint (shipments, Sheet, Kanban board, harvest plans, day
 entries, truck allocations/destinations, local-sell plans, contracts, contract-sales,
-comments, tasks, quota-usage, advances, customs-expenses, document-packets, clients-report)
-accepts an optional `?season=<id>`:
+comments, tasks, quota-usage, quota-issuances, quota-firm-balances, advances,
+customs-expenses, document-packets, clients-report) accepts an optional `?season=<id>`:
 
 - Omitted → the active (write-target) season.
 - Unknown id → `404`.
@@ -472,9 +472,81 @@ accepts an optional `?season=<id>`:
 
 Detail-by-id routes (`GET /shipments/{id}/`, etc.) are **not** season-scoped — a direct link
 always resolves regardless of the row's season. Explicit opt-outs that ignore `?season=`
-entirely: `quota-issuances` (issuances are consumed FIFO across season boundaries — hiding a
-prior season's would break the balance calculation), every `admin/*` reference-data endpoint,
-and `sales-rep-coverage`.
+entirely: every `admin/*` reference-data endpoint, and `sales-rep-coverage`.
+
+`GET /export/harvest-forecast/remaining/?date=` is season-scoped too (**fixed 2026-08-07**,
+the seventh instance of the "builds its own queryset" shape). It filtered `HarvestDayEntry` on
+`entry_date` alone; `HarvestDayEntry.season` is non-null and seasons never overlap, so a date
+inside a closed season *was* a closed-season read available to any authenticated user with no
+`?season=` to gate on — the same hole `block-summary` had. It now takes the resolved season
+(`?season=` optional, default active; `404` unknown id; `403` closed without permission; `[]`
+during the gap). The two **write** validators that share `get_remaining_for_date()` —
+draft-create `validate()` and `assert_draw_within_pool()` — deliberately keep passing
+`season=None`: they check a draw against the shipment's own date on a path the write freeze
+already restricts to an open season, and scoping them would change what a create is validated
+against rather than gate a read. The frontend sends no `?season=` here on purpose (the draft
+composer always draws on the write target's pool).
+
+**`is_active` on `/admin/seasons/` is server-set — read-only on the serializer.** `POST` and
+`PATCH` accept `name`, `start_date`, `end_date` only; an `is_active` key in the body is
+silently discarded, so a create always lands `UPCOMING` and a `PATCH {"is_active": ...}`
+returns `200` having changed nothing (it used to return `400` on a closed season). The write
+target moves only through `POST /admin/seasons/{id}/open/` and `POST .../close/`, which swap
+the incumbent atomically and write an `AuditLog` row. Do not re-add the field to
+`SeasonSerializer`'s writable set: DRF derives a `UniqueTogetherValidator` from the
+`uq_season_single_active` filtered constraint, so a writable `is_active=True` 400s every
+create made while a season is already active.
+
+**Quota is season-scoped in BOTH directions (D11, 2026-08-06).** `quota-issuances` was on the
+opt-out list until then, on the reasoning that issuances are consumed FIFO *across* season
+boundaries. The domain owner reversed that: quota never crosses a season boundary, so
+`quota-issuances` is scoped on its `season` FK, and `compute_fifo_usage(product_type, season)`
+/ `compute_firm_quota_balances(product_type, season)` take the season explicitly and stop the
+FIFO walk at it — leftover issuance expires with its season rather than carrying forward.
+Consequences worth knowing before you touch this code:
+
+- An issuance whose `issue_date` falls in the gap between two seasons has `season = NULL` and
+  is **invisible on every list** (reachable by direct link only). `POST /quota-issuances/`
+  now 400s during the close→open gap rather than creating another one.
+- `QuotaUsageRecord` has **no** `season` FK and **no** `issuance` FK — only `usage_date` and a
+  nullable `shipment`. Its season is derived by `services_quota.usage_season_q(season)`:
+  `shipment.season` when linked, else `usage_date` inside the season's range. Use that helper;
+  do not hand-roll the predicate, and do not assume an `issuance` link exists.
+- Because of that derivation, **`POST`/`PATCH` on `/quota-usage/` 400 when the resulting row would
+  belong to no season** — an unlinked row dated outside every season is invisible everywhere and
+  counted in no ledger. `services_quota.season_of_usage(shipment, usage_date)` is the row-level
+  inverse of `usage_season_q()`; the two must stay in step, or a write can be accepted into a
+  season whose list then refuses to show it. A *linked* row is always accepted, whatever its date —
+  its shipment anchors it.
+- `quota-firm-balances` follows the **resolved** season, not the active one, and returns `{}`
+  during the gap. Its cache key and the FIFO cache key both carry the season id.
+- On `GET /quota-issuances/`, the `used_kg` in each allocation comes from the **list's resolved
+  season**; on `GET /quota-issuances/{id}/` it comes from **that row's own `season`**. Detail routes
+  bypass season scoping (Rule A), so keying the ledger off the request's season there reported
+  `used_kg: 0.00` for any issuance outside the active season.
+- `GET /quota-dashboard/` goes through `resolve_season()` like every other read path
+  (**fixed 2026-08-07** — it used to read `?season=` directly, so `closed_season.can_view` was
+  never enforced and a role holding `quota_issuance` but not `closed_season` could read a
+  closed season's aggregates it was 403'd from on `/quota-issuances/`). Contract now:
+  `?season=` is **optional** and defaults to the active season (it used to be required, and
+  omitting it 400'd — this endpoint was the only scoped read where that was true); an unknown
+  id returns **404** (was 400); a closed season without `closed_season.can_view` returns
+  **403**; and during the close→open gap it returns the empty payload with its shape intact
+  (`kpis` all zero, `per_firm` / `weekly_flow` `[]`), per D7, so the page renders its normal
+  empty states. Season resolution happens **before** the 60s cache read, and the cache key
+  carries `season.pk` rather than the raw parameter.
+- **`?date_from=`/`?date_to=` are CLAMPED to the resolved season, not merely defaulted to it**
+  (`max(from, season.start_date)` / `min(to, season.end_date)`). A default alone left the gate
+  bypassable: `build_quota_dashboard()` aggregates on dates alone, so sending the closed
+  season's own range with **no** `?season=` passed the check on the active season and returned
+  the closed season's numbers anyway. A window wholly outside the season inverts and every
+  aggregate reads it as empty — fail closed. **If you add another date-windowed endpoint, clamp
+  it; a default window is not a bound.**
+- **Still date-driven, deliberately:** `build_quota_dashboard()` itself takes only
+  `(date_from, date_to, product_type)`. The resolved season supplies the clamped window and the
+  permission gate; it is **not** pushed into the aggregates as a `season` predicate. Re-scoping
+  those aggregates would change published numbers, not just visibility, and needs its own
+  ruling (§4.7's own standard). The clamp is what makes deferring that safe.
 
 `boss` analytics is mixed, not uniformly parameterised — check the specific action before
 assuming `?season=` moves it:

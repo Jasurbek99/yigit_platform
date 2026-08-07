@@ -17,10 +17,11 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.decorators import action
 
-from apps.core.models import Season
 from apps.core.permissions import write_permission, DynamicResourcePermission, SeasonNotClosed
 from apps.core.roles import QUOTA_WRITE
-from apps.core.seasons import SeasonScopedMixin, assert_bulk_seasons_open, get_active_season
+from apps.core.seasons import (
+    SeasonScopedMixin, assert_bulk_seasons_open, get_active_season, resolve_season,
+)
 
 from apps.export.models import QuotaIssuance, QuotaUsageRecord
 from apps.export.models.audit import AuditLog
@@ -33,6 +34,9 @@ from apps.export.services_quota import (
     build_quota_dashboard,
     compute_fifo_usage,
     compute_firm_quota_balances,
+    empty_quota_dashboard,
+    season_of_usage,
+    usage_season_q,
 )
 from apps.export.services.quota_sync import invalidate_quota_caches
 
@@ -43,7 +47,7 @@ logger = logging.getLogger(__name__)
 # QuotaIssuanceViewSet
 # ---------------------------------------------------------------------------
 
-class QuotaIssuanceViewSet(ModelViewSet):
+class QuotaIssuanceViewSet(SeasonScopedMixin, ModelViewSet):
     """
     GET    /api/v1/export/quota-issuances/           — list
     GET    /api/v1/export/quota-issuances/{id}/      — detail
@@ -54,15 +58,21 @@ class QuotaIssuanceViewSet(ModelViewSet):
     """
 
     resource_code = 'quota_issuance'
-    # SeasonNotClosed (D10): write-freeze only — this viewset deliberately
-    # does NOT use SeasonScopedMixin/apply_season_scope; quota-issuances stays
-    # off the read-scope list (spec §4.5) because issuances are consumed FIFO
-    # across seasons. has_object_permission covers PUT/PATCH/DELETE on the
-    # detail route via get_object(); create is exempt by construction (see
-    # perform_create — the target is always get_active_season(), which can
-    # never be closed).
+    # D11 (spec §4.7): season-scoped for READS as well as the write freeze,
+    # reversing D10's opt-out. Quota never crosses a season boundary in either
+    # direction, so the `season` FK added for `freeze_season_of()` now also
+    # drives the read scope. `include_null_link` stays False and cannot be
+    # turned on here: a direct `season` FK has no separate anchor column to
+    # test for NULL. Consequence, deliberate and reported rather than papered
+    # over — an issuance whose `issue_date` falls in the gap between two
+    # seasons carries `season = NULL` and is reachable by direct link only
+    # (QuotaIssuance#34 on the dev database, 25,000 kg, 2026-07-06).
+    #
+    # SeasonNotClosed covers PUT/PATCH/DELETE on the detail route via
+    # get_object(); create is guarded in perform_create below.
     permission_classes = [IsAuthenticated, DynamicResourcePermission, SeasonNotClosed]
     http_method_names = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options']
+    season_field = 'season'
 
     queryset = QuotaIssuance.objects.prefetch_related(
         'allocations__export_firm'
@@ -77,6 +87,11 @@ class QuotaIssuanceViewSet(ModelViewSet):
             qs = qs.filter(issue_date__gte=date_from)
         if date_to := params.get('date_to'):
             qs = qs.filter(issue_date__lte=date_to)
+        # Gated on `list` so detail routes still resolve across seasons — that
+        # is what lets a write to a closed-season issuance return 409 rather
+        # than 404 (Rule A).
+        if self.action == 'list':
+            qs = self.apply_season_scope(qs)
         return qs
 
     def get_serializer_class(self):
@@ -88,7 +103,23 @@ class QuotaIssuanceViewSet(ModelViewSet):
         ctx = super().get_serializer_context()
         if self.request.method == 'GET':
             product_type = self.request.query_params.get('product_type', 'tomato')
-            ctx['usage_map'] = compute_fifo_usage(product_type)
+            # The FIFO ledger is per-season under D11, so it must be computed
+            # for the SAME season the row belongs to — otherwise `used_kg`
+            # describes a different season's ledger.
+            #
+            # List and detail need DIFFERENT seasons, and using the resolved one
+            # for both is wrong on the detail route: detail bypasses season
+            # scoping by design (Rule A), so a direct link to a prior season's
+            # issuance resolves — but `resolve_season()` on an un-parameterised
+            # GET returns the ACTIVE season, whose ledger does not contain this
+            # allocation. The row came back reporting `used_kg: 0.00` where the
+            # truth was its full consumption. The row's own `season` is the only
+            # correct answer for a route that ignores the request's.
+            if self.action == 'list':
+                season = resolve_season(self.request)
+            else:
+                season = getattr(self.get_object(), 'season', None)
+            ctx['usage_map'] = compute_fifo_usage(product_type, season)
         return ctx
 
     def perform_create(self, serializer) -> None:
@@ -96,7 +127,17 @@ class QuotaIssuanceViewSet(ModelViewSet):
         # Shipment precedent — get_active_season() can never be closed, so no
         # request-level season guard is needed here (unlike perform_update /
         # the reassign action, which reach an EXISTING, possibly-closed row).
-        serializer.save(created_by=self.request.user, season=get_active_season())
+        season = get_active_season()
+        if season is None:
+            # D11 turned a harmless NULL into an invisible row: with reads now
+            # scoped, an issuance created during the close→open gap would be
+            # stamped with no season and disappear from every screen the moment
+            # it was saved. Refusing is the only honest answer — we cannot
+            # guess which season a gap-dated issuance belongs to.
+            raise ValidationError({
+                'detail': 'No active season. Open a season before recording a quota issuance.',
+            })
+        serializer.save(created_by=self.request.user, season=season)
         # New allocations change issued_kg → remaining_kg; bust the caches the
         # Sheet firm-split editor reads or a firm stays "no quota"/unselectable.
         invalidate_quota_caches()
@@ -164,11 +205,18 @@ class QuotaUsageViewSet(SeasonScopedMixin, ModelViewSet):
     DELETE /api/v1/export/quota-usage/{id}/         — delete (draft only)
     POST   /api/v1/export/quota-usage/approve/      — bulk approve
 
-    List is scoped to the resolved season via `shipment`. QuotaUsageRecord.shipment
+    List is scoped to the resolved season via `usage_season_q()` (D11), which
+    anchors a linked row on `shipment.season` and an unlinked one on its
+    `usage_date` falling inside the season's range. `QuotaUsageRecord.shipment`
     is nullable ("null for imported historical records" — pre-dates this table's
-    shipment link) — `include_null_link` keeps those visible whenever the resolved
-    season is open, and hides them the moment a closed season is explicitly
-    browsed. Detail routes bypass scoping — Rule A.
+    shipment link) and 575 of 711 rows on the dev database have no shipment at
+    all. The pre-D11 `include_null_link` treatment surfaced every one of those
+    under *every* open season; under "quota never crosses a season boundary"
+    each belongs to exactly one, so the date is used as the anchor of last
+    resort instead. Display and consumption share the one predicate on purpose:
+    a row the grid shows must be a row FIFO counts.
+
+    Detail routes bypass scoping — Rule A.
     """
 
     resource_code = 'quota_usage'
@@ -176,12 +224,34 @@ class QuotaUsageViewSet(SeasonScopedMixin, ModelViewSet):
     serializer_class = QuotaUsageRecordSerializer
     pagination_class = None  # Grid view needs all records; volume is bounded by season
     http_method_names = ['get', 'patch', 'delete', 'post', 'head', 'options']
-    season_field = 'shipment__season'
-    include_null_link = True
+    # NO `season_field` / `include_null_link` here, deliberately. Both are read
+    # by `SeasonScopedMixin.apply_season_scope()` and by nothing else — the
+    # write-freeze helpers (`assert_create_target_open` /
+    # `assert_update_target_open`) resolve through `freeze_season_of()` instead
+    # — and this viewset overrides `apply_season_scope()` outright, so they
+    # would be dead attributes. Leaving `include_null_link = True` visible here
+    # was worse than dead: it advertises "this row shows under every open
+    # season", which is precisely what D11 forbids. The read scope is owned
+    # entirely by the override below.
 
     queryset = QuotaUsageRecord.objects.select_related(
         'export_firm', 'shipment', 'approved_by', 'created_by',
     ).order_by('-usage_date', 'export_firm')
+
+    def apply_season_scope(self, qs, season=SeasonScopedMixin._SEASON_NOT_GIVEN):
+        """Override: anchor unlinked rows on `usage_date`, not on "every season".
+
+        `SeasonScopedMixin` can only build `Q(season_field=season)` plus an
+        optional `anchor IS NULL`, and "IS NULL" means *every* open season —
+        which D11 forbids. `usage_season_q()` is the same predicate FIFO and the
+        firm balances use, so the grid and the ledger can never disagree about
+        which rows belong to the season on screen.
+        """
+        if season is SeasonScopedMixin._SEASON_NOT_GIVEN:
+            season = resolve_season(self.request)
+        if season is None:
+            return qs.none()  # D7 fail closed
+        return qs.filter(usage_season_q(season))
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -198,10 +268,38 @@ class QuotaUsageViewSet(SeasonScopedMixin, ModelViewSet):
             qs = self.apply_season_scope(qs)
         return qs
 
+    def _assert_usage_resolves_to_a_season(self, serializer) -> None:
+        """Reject a write that would leave the row belonging to NO season (D11).
+
+        Before D11, `include_null_link` surfaced every unlinked row under the
+        active season, so an out-of-range `usage_date` was survivable. Now
+        `usage_season_q()` matches such a row for no season at all: it vanishes
+        the instant it saves and is counted in no ledger. Both `usage_date` and
+        `shipment` are writable on this serializer, and the quota-usage grid
+        POSTs no shipment, so the gap is reachable straight from the UI.
+
+        Mirrors the identical guard on `QuotaIssuanceViewSet.perform_create`.
+        Checks the values the row will have AFTER the write, so a PATCH that
+        moves `usage_date` into the gap is caught too.
+        """
+        data = serializer.validated_data
+        instance = serializer.instance
+        shipment = data.get('shipment', getattr(instance, 'shipment', None))
+        usage_date = data.get('usage_date', getattr(instance, 'usage_date', None))
+        if season_of_usage(shipment, usage_date) is None:
+            raise ValidationError({
+                'usage_date': (
+                    f'{usage_date} falls outside every season. A usage record with '
+                    'no shipment must be dated inside a season, or it belongs to '
+                    'none and is counted in no quota balance.'
+                ),
+            })
+
     def perform_create(self, serializer) -> None:
         # Write freeze (D1): CreateModelMixin never calls get_object(), so
         # the SeasonNotClosed object permission cannot fire on a create.
         self.assert_create_target_open(serializer)
+        self._assert_usage_resolves_to_a_season(serializer)
         instance = serializer.save(created_by=self.request.user)
         AuditLog.objects.create(
             user=self.request.user,
@@ -217,6 +315,7 @@ class QuotaUsageViewSet(SeasonScopedMixin, ModelViewSet):
         # the write; this checks the one it would have AFTER, so a PATCH
         # cannot move the row into a closed season.
         self.assert_update_target_open(serializer)
+        self._assert_usage_resolves_to_a_season(serializer)
         if serializer.instance.status != 'draft':
             raise ValidationError({'detail': 'Only draft records can be edited.'})
         instance = serializer.save()
@@ -297,10 +396,18 @@ class QuotaDashboardView(APIView):
     """GET /api/v1/export/quota-dashboard/
 
     Query params:
-        season       (int, required)
-        date_from    (YYYY-MM-DD, optional)
-        date_to      (YYYY-MM-DD, optional)
+        season       (int, optional — defaults to the active season)
+        date_from    (YYYY-MM-DD, optional — defaults to the season's start)
+        date_to      (YYYY-MM-DD, optional — defaults to the season's end)
         product_type (str, default 'tomato')
+
+    The season goes through `resolve_season()` like every other read path
+    (AD-16). This view used to read `?season=` directly and look the row up
+    itself, which meant `closed_season.can_view` was never consulted:
+    `document_team` / `loading_dept_head` (+deputy) hold `quota_issuance` but
+    not `closed_season`, so they were correctly 403'd on
+    `/quota-issuances/?season=<closed>` yet could still read that season's
+    aggregates here.
     """
 
     permission_classes = [IsAuthenticated, DynamicResourcePermission]
@@ -316,27 +423,61 @@ class QuotaDashboardView(APIView):
         """Parse query params and delegate to service layer."""
         params = request.query_params
 
-        season_id = params.get('season')
-        if not season_id:
-            raise ValidationError({'detail': 'season query parameter is required.'})
-
-        try:
-            season = Season.objects.get(pk=season_id)
-        except Season.DoesNotExist:
-            raise ValidationError({'detail': f'Season {season_id} not found.'})
+        # Resolve BEFORE the cache lookup: this is where the 404 (unknown id)
+        # and the 403 (closed season without `closed_season.can_view`) come
+        # from, and a cached payload must never be served past them.
+        season = resolve_season(request)
+        if season is None:
+            # D7 fail-closed. During the close→open gap there is no season to
+            # report on, so return the empty payload with its shape intact
+            # rather than the just-closed season's numbers (which the old
+            # `?season=` requirement would still have served on request) or an
+            # error the page renders as a red banner. Same call
+            # `dashboard/summary` makes. Nothing is queried, so nothing is
+            # cached either.
+            return Response(empty_quota_dashboard())
 
         # Normalize so ?product_type=Tomato and =tomato don't cache twice (and
         # the service gets a consistent value).
         product_type = params.get('product_type', 'tomato').lower()
-        date_from = _parse_date(params.get('date_from'), season.start_date, 'date_from')
-        date_to = _parse_date(params.get('date_to'), season.end_date, 'date_to')
+
+        # CLAMP the window to the resolved season — do not merely default to it.
+        # `build_quota_dashboard()` aggregates on dates alone, so an unclamped
+        # `?date_from=`/`?date_to=` walks straight past the permission gate:
+        # `document_team` (holds `quota_issuance`, not `closed_season`) sends the
+        # closed season's own range with NO `?season=`, `resolve_season()`
+        # returns the ACTIVE season, the gate passes, and the response carries
+        # the closed season's aggregates — the very payload the 403 above
+        # exists to withhold.
+        #
+        # A clamp, not a season predicate on the aggregates: it is monotonically
+        # restrictive, so it changes no number for any window already inside the
+        # season, and it needs no ruling on whether `build_quota_dashboard()`
+        # should take a season FK (that question stays open — see AD-16). When
+        # the requested window lies wholly outside the season the clamp inverts
+        # it (`date_from > date_to`), which every aggregate reads as an empty
+        # range — fail closed, the right answer for a window the caller may not
+        # see.
+        date_from = max(
+            _parse_date(params.get('date_from'), season.start_date, 'date_from'),
+            season.start_date,
+        )
+        date_to = min(
+            _parse_date(params.get('date_to'), season.end_date, 'date_to'),
+            season.end_date,
+        )
 
         # build_quota_dashboard() runs several aggregation passes per request and
         # was uncached (unlike dashboard_summary / boss / KPI endpoints). Cache it
         # for 60s keyed by every param that changes the result. Quota approvals
         # are infrequent and analytics tolerate ≤60s staleness — same tradeoff as
         # the other dashboards.
-        cache_key = f'quota_dashboard:{season_id}:{product_type}:{date_from}:{date_to}'
+        #
+        # `season.pk`, not the raw `?season=` string: with the parameter now
+        # optional, the raw value is None on every default request, so two
+        # seasons sharing a date window would collide on one key. Same shape as
+        # `QuotaFirmBalancesView`'s key below.
+        cache_key = f'quota_dashboard:{season.pk}:{product_type}:{date_from}:{date_to}'
         cached = cache.get(cache_key)
         if cached is not None:
             return Response(cached)
@@ -351,10 +492,13 @@ class QuotaDashboardView(APIView):
 # ---------------------------------------------------------------------------
 
 class QuotaFirmBalancesView(APIView):
-    """GET /api/v1/export/quota-firm-balances/?product_type=tomato
+    """GET /api/v1/export/quota-firm-balances/?product_type=tomato&season=<id>
 
-    Per-firm remaining quota for the active season, consumed by the firm-split
-    editor to softly warn when a chosen firm has no quota left to assign.
+    Per-firm remaining quota for the RESOLVED season (D11 — quota never crosses
+    a season boundary, so the balance follows the season being browsed rather
+    than the write target), consumed by the firm-split editor to softly warn
+    when a chosen firm has no quota left to assign. Empty during the close→open
+    gap, per D7.
 
     Gated by the same resource as the dashboard ('quota_issuance' view) — which
     is exactly the set of roles that may edit shipment firm splits
@@ -369,13 +513,19 @@ class QuotaFirmBalancesView(APIView):
 
     def get(self, request: Request) -> Response:
         product_type = request.query_params.get('product_type', 'tomato').lower()
+        season = resolve_season(request)
+        if season is None:
+            return Response({})
 
-        cache_key = f'quota_firm_balances:{product_type}'
+        # Season in the key, or switching seasons serves the previous season's
+        # balances for up to the 60s TTL. `invalidate_quota_caches()` busts
+        # every season's key.
+        cache_key = f'quota_firm_balances:{product_type}:{season.pk}'
         cached = cache.get(cache_key)
         if cached is not None:
             return Response(cached)
 
-        balances = compute_firm_quota_balances(product_type)
+        balances = compute_firm_quota_balances(product_type, season)
         data = {str(firm_id): vals for firm_id, vals in balances.items()}
         cache.set(cache_key, data, 60)
         return Response(data)

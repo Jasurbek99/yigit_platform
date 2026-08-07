@@ -19,7 +19,6 @@ import logging
 
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
-from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils import timezone
 from rest_framework import serializers, status
 from rest_framework.decorators import action
@@ -154,36 +153,35 @@ class SeasonSerializer(serializers.ModelSerializer):
             'id', 'name', 'start_date', 'end_date', 'is_active',
             'status', 'closed_at', 'closed_by', 'closed_by_name',
         ]
-        read_only_fields = ['status', 'closed_at', 'closed_by', 'closed_by_name']
-
-    def validate_is_active(self, value: bool) -> bool:
-        """Reject reopening a closed season via a plain PATCH.
-
-        A bare `PATCH {"is_active": true}` on this ModelViewSet's generic
-        `update()` never goes through `open_season()` — no atomic incumbent
-        swap, no `AuditLog` entry — so it has to be blocked here too. Reuses
-        `Season.assert_activation_allowed()` (the same predicate `save()`
-        enforces) so the two can't drift, and re-raises as a DRF
-        `ValidationError` for a clean 400 instead of letting the model's
-        `django.core.exceptions.ValidationError` reach `save()` unhandled
-        (the custom exception handler doesn't translate that to a response).
-
-        This is a field-level 400, not the `season_closed` 409 family: that
-        contract is reserved for writes to rows *scoped by* a season
-        (`SeasonClosedError` in `apps.core.seasons`); `Season` is the subject
-        of the freeze, not a row anchored to one — see `SeasonViewSet`'s
-        docstring, which already makes the same call for `open_season()`.
-        The client is sending an invalid value for this field, not acting on
-        frozen data.
-        """
-        instance = self.instance
-        if not value or instance is None:
-            return value
-        try:
-            Season(closed_at=instance.closed_at, is_active=value).assert_activation_allowed()
-        except DjangoValidationError as exc:
-            raise serializers.ValidationError(exc.messages[0]) from exc
-        return value
+        # `is_active` is SERVER-SET, never accepted on write. Which season is
+        # the write target changes only through `POST .../open/` and
+        # `POST .../close/`, so that the incumbent swap is atomic and audited
+        # (`apps.core.services.season`). Three concrete failures came from it
+        # being writable here:
+        #   1. Create 400'd. DRF derives a UniqueTogetherValidator from the
+        #      `uq_season_single_active` filtered constraint, so any create
+        #      carrying is_active=True collided with the incumbent. Read-only
+        #      without a default drops the field from `_writable_fields`, and
+        #      `get_unique_together_validators()` then skips that constraint
+        #      because its source is no longer in the serializer's source map.
+        #   2. Toggling Active through a generic PATCH left every client on
+        #      stale season state — `useUpdateSeason` invalidates only
+        #      `['admin-seasons']`, while `useOpenSeason`/`useCloseSeason`
+        #      invalidate everything including `/auth/me/`.
+        #   3. It bypassed `open_season()`/`close_season()` entirely: no
+        #      atomic swap, no AuditLog row.
+        # It stays in `fields` — clients read it (the admin table's Active
+        # column, the quota dashboard's active-season fallback).
+        #
+        # `validate_is_active()` lived here to reject reopening a closed
+        # season via PATCH; it is removed as unreachable (DRF never calls
+        # `validate_<field>` for a field absent from `to_internal_value`).
+        # The invariant is unchanged: `Season.save()` still calls
+        # `assert_activation_allowed()`, covering the ORM, Django admin and
+        # management commands, and `open_season()` refuses a closed target.
+        read_only_fields = [
+            'is_active', 'status', 'closed_at', 'closed_by', 'closed_by_name',
+        ]
 
 
 class ExportFirmSerializer(serializers.ModelSerializer):

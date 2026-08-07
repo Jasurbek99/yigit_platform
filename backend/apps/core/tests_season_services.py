@@ -299,18 +299,25 @@ class SeasonEndpointTests(TestCase):
         response = self._client(self.finansist).get('/api/v1/export/admin/seasons/')
         self.assertEqual(response.status_code, 200)
 
-    def test_patch_is_active_true_on_closed_season_returns_400(self):
-        """Task 16b: PATCH is_active=true must not reopen a closed season —
-        that bypasses open_season()'s atomic incumbent-swap + audit log.
+    def test_patch_is_active_true_on_closed_season_is_ignored(self):
+        """Task 16b's invariant, now held by a read-only field.
+
+        PATCH is_active=true must not reopen a closed season — that bypasses
+        open_season()'s atomic incumbent-swap + audit log. Until the final
+        cleanup this was a 400 from `SeasonSerializer.validate_is_active`;
+        `is_active` is now server-set (`read_only_fields`), so DRF discards
+        the key before validation and the request succeeds having changed
+        nothing. The outcome the guard existed for is unchanged and stronger:
+        no value of `is_active` is accepted through the serializer at all.
 
         Deactivates the class-level incumbent (`self.season`) first: with an
         incumbent present, DRF's auto-generated conditional-UniqueConstraint
-        validator on `is_active` already 400s the request for an unrelated
+        validator on `is_active` used to 400 the request for an unrelated
         reason (two rows can't both be active) and the test would pass
-        without ever exercising the closed-season guard. The real hole is in
+        without ever exercising the closed-season path. The real hole is in
         exactly the close->open gap this reproduces: no incumbent, so nothing
-        but the guard stands between the request and `uq_season_single_active`
-        never even being touched.
+        but the read-only field stands between the request and
+        `uq_season_single_active` never even being touched.
         """
         Season.objects.filter(pk=self.season.pk).update(is_active=False)
         closed = Season.objects.create(
@@ -321,9 +328,53 @@ class SeasonEndpointTests(TestCase):
             f'/api/v1/export/admin/seasons/{closed.pk}/',
             {'is_active': True},
         )
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['status'], 'CLOSED')
         closed.refresh_from_db()
         self.assertFalse(closed.is_active)
+
+    def test_create_season_ignores_is_active_and_lands_upcoming(self):
+        """`is_active` is server-set: creating a season never activates it.
+
+        The admin form used to default the Active switch on, which collided
+        with `uq_season_single_active` whenever a season was already active —
+        DRF derives a UniqueTogetherValidator from that filtered constraint,
+        so every create 400'd with a field error on `is_active`. With the
+        field read-only, DRF drops it from `_writable_fields` and skips that
+        validator entirely (`get_unique_together_validators` requires every
+        constraint source to be a writable field or a read-only one with a
+        default; `is_active` is now neither).
+
+        The new season lands UPCOMING and the incumbent is untouched — the
+        only route to ACTIVE is `POST .../open/`.
+        """
+        response = self._client().post('/api/v1/export/admin/seasons/', {
+            'name': '2027/2028',
+            'start_date': '2027-09-01',
+            'end_date': '2028-08-31',
+            'is_active': True,
+        })
+        self.assertEqual(response.status_code, 201)
+        body = response.json()
+        self.assertFalse(body['is_active'])
+        self.assertEqual(body['status'], 'UPCOMING')
+        self.season.refresh_from_db()
+        self.assertTrue(self.season.is_active)
+
+    def test_patch_cannot_deactivate_the_active_season(self):
+        """The other half: Edit must not be able to switch the write target.
+
+        A plain PATCH never runs `close_season()`, so it would leave the
+        platform with no active season and no AuditLog row recording who did
+        it. Closing is the only route out of ACTIVE.
+        """
+        response = self._client().patch(
+            f'/api/v1/export/admin/seasons/{self.season.pk}/',
+            {'is_active': False},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.season.refresh_from_db()
+        self.assertTrue(self.season.is_active)
 
     def test_finansist_still_cannot_create_edit_or_delete_seasons(self):
         """The fix must grant view only — create/edit/delete stay denied."""
