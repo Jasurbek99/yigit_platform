@@ -6,11 +6,13 @@ from apps.transport.views import (
     ShipmentTruckPositionView,
     ShipmentDeviceLinkView,
     TransportDeviceViewSet,
+    TruckHeadViewSet,
 )
 
 router = DefaultRouter()
 router.register('live-positions', LivePositionViewSet, basename='live-positions')
 router.register('devices', TransportDeviceViewSet, basename='transport-devices')
+router.register('truck-heads', TruckHeadViewSet, basename='truck-heads')
 
 urlpatterns = [
     path('shipments/<int:shipment_id>/position/', ShipmentTruckPositionView.as_view()),

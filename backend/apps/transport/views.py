@@ -1,13 +1,15 @@
 from django.shortcuts import get_object_or_404
-from rest_framework import mixins, viewsets
+from rest_framework import filters, mixins, viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.export.models import Shipment
-from apps.transport.models import DevicePosition, TraccarDevice, ShipmentDeviceLink
+from apps.transport.models import DevicePosition, TraccarDevice, ShipmentDeviceLink, TruckHead
 from apps.transport.permissions import CanEditShipment
-from apps.transport.serializers import LivePositionSerializer, TransportDeviceSerializer
+from apps.transport.serializers import (
+    LivePositionSerializer, TransportDeviceSerializer, TruckHeadSerializer,
+)
 from apps.transport.services.matching import resolve_device_for_shipment
 
 
@@ -78,3 +80,24 @@ class TransportDeviceViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
 
     def get_queryset(self):
         return TraccarDevice.objects.select_related('truck').order_by('name')
+
+
+class TruckHeadViewSet(mixins.ListModelMixin, mixins.CreateModelMixin,
+                       mixins.UpdateModelMixin, viewsets.GenericViewSet):
+    """Fleet tractors — list (active) for pickers, create (inline/admin), update/deactivate."""
+
+    serializer_class = TruckHeadSerializer
+    pagination_class = None
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['plate_number', 'owner_name']
+
+    def get_permissions(self):
+        if self.action in ('create', 'update', 'partial_update'):
+            return [IsAuthenticated(), CanEditShipment()]
+        return [IsAuthenticated()]
+
+    def get_queryset(self):
+        qs = TruckHead.objects.all().order_by('plate_number')
+        if self.action == 'list':
+            qs = qs.filter(is_active=True)   # pickers show active only
+        return qs

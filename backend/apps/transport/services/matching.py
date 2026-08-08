@@ -84,3 +84,21 @@ def resolve_device_for_shipment(shipment) -> tuple[TraccarDevice | None, str]:
         return None, 'none'
     device = _pick_device(Truck.objects.get(id=truck_id))
     return (device, 'auto') if device else (None, 'none')
+
+
+def device_for_plate(plate: str) -> "TraccarDevice | None":
+    """Best Traccar device for a plate (same choice the resolver would make).
+
+    Looks up the active Truck by normalized plate, then _pick_device().
+    """
+    plate_norm = normalize_plate(plate)
+    if not plate_norm:
+        return None
+    norm_to_truck = {
+        normalize_plate(p): tid
+        for tid, p in Truck.objects.filter(is_active=True).values_list('id', 'plate')
+    }
+    truck_id = norm_to_truck.get(plate_norm)
+    if truck_id is None:
+        return None
+    return _pick_device(Truck.objects.get(id=truck_id))

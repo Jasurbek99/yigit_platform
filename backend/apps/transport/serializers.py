@@ -2,7 +2,8 @@ from django.conf import settings
 from django.utils import timezone
 from rest_framework import serializers
 
-from apps.transport.models import DevicePosition, TraccarDevice
+from apps.transport.models import DevicePosition, TraccarDevice, TruckHead
+from apps.transport.services.matching import device_for_plate
 
 
 class LivePositionSerializer(serializers.ModelSerializer):
@@ -46,3 +47,21 @@ class TransportDeviceSerializer(serializers.ModelSerializer):
     class Meta:
         model = TraccarDevice
         fields = ['traccar_id', 'plate', 'fleet_no', 'name']
+
+
+class TruckHeadSerializer(serializers.ModelSerializer):
+    has_gps = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TruckHead
+        fields = ['id', 'plate_number', 'owner_type', 'owner_name', 'status',
+                  'capacity', 'is_active', 'has_gps']
+        read_only_fields = ['id', 'has_gps']
+
+    def get_has_gps(self, obj) -> bool:
+        return obj.traccar_device_id is not None
+
+    def create(self, validated_data):
+        # plate-match a Traccar device on create (like the import)
+        validated_data['traccar_device'] = device_for_plate(validated_data['plate_number'])
+        return super().create(validated_data)
