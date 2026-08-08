@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from apps.transport.models import TruckHead, TraccarDevice, Truck, DevicePosition
+from apps.transport.models import TruckHead, TraccarDevice, Truck, DevicePosition, Trailer
 
 User = get_user_model()
 
@@ -81,3 +81,37 @@ class TruckHeadApiTests(TestCase):
         self.assertEqual(r.status_code, 200)
         th = TruckHead.objects.get(id=13)
         self.assertEqual(th.traccar_device, other_device)
+
+
+class TrailerApiTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.editor = User.objects.create_user(username='mgr2', password='x', role='director')
+        self.viewer = User.objects.create_user(username='op2', password='x', role='sales_rep')
+        Trailer.objects.create(id=1, plate_number='2602TAH', owner_type='company')
+        Trailer.objects.create(id=2, plate_number='9000ZZZ', owner_type='company', is_active=False)
+
+    def test_list_active_only_and_search(self):
+        self.client.force_authenticate(self.viewer)
+        rows = self.client.get('/api/v1/transport/trailers/').json()
+        plates = {r['plate_number'] for r in rows}
+        self.assertIn('2602TAH', plates)
+        self.assertNotIn('9000ZZZ', plates)
+        rows2 = self.client.get('/api/v1/transport/trailers/?search=2602').json()
+        self.assertEqual([r['plate_number'] for r in rows2], ['2602TAH'])
+
+    def test_create_requires_editor_role(self):
+        self.client.force_authenticate(self.viewer)
+        self.assertEqual(
+            self.client.post('/api/v1/transport/trailers/', {'plate_number': '3TAH'}, format='json').status_code,
+            403,
+        )
+
+    def test_editor_creates_and_deactivates(self):
+        self.client.force_authenticate(self.editor)
+        r = self.client.post('/api/v1/transport/trailers/', {'plate_number': '5TAH'}, format='json')
+        self.assertEqual(r.status_code, 201)
+        tid = r.json()['id']
+        d = self.client.patch(f'/api/v1/transport/trailers/{tid}/', {'is_active': False}, format='json')
+        self.assertEqual(d.status_code, 200)
+        self.assertFalse(Trailer.objects.get(id=tid).is_active)

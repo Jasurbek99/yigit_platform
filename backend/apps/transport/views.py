@@ -5,10 +5,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.export.models import Shipment
-from apps.transport.models import DevicePosition, TraccarDevice, ShipmentDeviceLink, TruckHead
+from apps.transport.models import DevicePosition, TraccarDevice, ShipmentDeviceLink, Trailer, TruckHead
 from apps.transport.permissions import CanEditShipment
 from apps.transport.serializers import (
-    LivePositionSerializer, TransportDeviceSerializer, TruckHeadSerializer,
+    LivePositionSerializer, TrailerSerializer, TransportDeviceSerializer, TruckHeadSerializer,
 )
 from apps.transport.services.matching import resolve_device_for_shipment
 
@@ -100,4 +100,25 @@ class TruckHeadViewSet(mixins.ListModelMixin, mixins.CreateModelMixin,
         qs = TruckHead.objects.all().order_by('plate_number')
         if self.action == 'list':
             qs = qs.filter(is_active=True)   # pickers show active only
+        return qs
+
+
+class TrailerViewSet(mixins.ListModelMixin, mixins.CreateModelMixin,
+                     mixins.UpdateModelMixin, viewsets.GenericViewSet):
+    """Fleet trailers — list (active) for pickers, create (inline/admin), update/deactivate."""
+
+    serializer_class = TrailerSerializer
+    pagination_class = None
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['plate_number']
+
+    def get_permissions(self):
+        if self.action in ('create', 'update', 'partial_update'):
+            return [IsAuthenticated(), CanEditShipment()]
+        return [IsAuthenticated()]
+
+    def get_queryset(self):
+        qs = Trailer.objects.all().order_by('plate_number')
+        if self.action == 'list':
+            qs = qs.filter(is_active=True)
         return qs

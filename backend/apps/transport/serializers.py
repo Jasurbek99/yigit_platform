@@ -2,7 +2,7 @@ from django.conf import settings
 from django.utils import timezone
 from rest_framework import serializers
 
-from apps.transport.models import DevicePosition, TraccarDevice, TruckHead
+from apps.transport.models import DevicePosition, TraccarDevice, Trailer, TruckHead
 from apps.transport.services.matching import device_for_plate
 
 
@@ -75,3 +75,10 @@ class TruckHeadSerializer(serializers.ModelSerializer):
         if 'plate_number' in validated_data:
             validated_data['traccar_device'] = device_for_plate(validated_data['plate_number'])
         return super().update(instance, validated_data)
+
+
+class TrailerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Trailer
+        fields = ['id', 'plate_number', 'owner_type', 'status', 'is_active']
+        read_only_fields = ['id']
