@@ -1,4 +1,4 @@
-from django.db import connection, transaction
+from django.db import transaction
 
 from apps.transport.models import TruckHead, Trailer, TraccarDevice
 from apps.transport.services.matching import normalize_plate
@@ -14,16 +14,6 @@ def _device_by_plate(norm_index: dict, plate: str) -> TraccarDevice | None:
     return norm_index.get(normalize_plate(plate))
 
 
-def _reseed(table: str) -> None:
-    """Bump the MSSQL identity above the current max so app-created rows don't
-    collide with preserved TIR ids. No-op on empty table."""
-    with connection.cursor() as cur:
-        cur.execute(f"SELECT ISNULL(MAX(id), 0) FROM {table}")
-        max_id = cur.fetchone()[0]
-        if max_id:
-            cur.execute(f"DBCC CHECKIDENT ('{table}', RESEED, {max_id})")
-
-
 @transaction.atomic
 def import_fleet(client: TirClient | None = None) -> dict:
     """One-time (idempotent) import of TruckHead/Trailer from Z_TIRWEB.
@@ -31,6 +21,10 @@ def import_fleet(client: TirClient | None = None) -> dict:
     Preserves the source `id` so Shipment.truck_head_id/trailer_id stay valid.
     mssql-django auto-wraps explicit-`id=` inserts in SET IDENTITY_INSERT, so
     plain `update_or_create(id=...)` is sufficient — no manual cursor handling.
+    SQL Server also auto-advances the identity counter to the highest value
+    ever explicitly inserted via SET IDENTITY_INSERT, so subsequent
+    app-created rows already land above the imported max id with no manual
+    reseed needed (empirically confirmed — see task-2-report.md).
     """
     client = client or TirClient()
     norm_index = {
@@ -65,8 +59,5 @@ def import_fleet(client: TirClient | None = None) -> dict:
                 'status': row.get('status') or '',
             },
         )
-
-    _reseed('transport_truck_heads')
-    _reseed('transport_trailers')
 
     return {'truck_heads': len(heads), 'trailers': len(trailers)}
