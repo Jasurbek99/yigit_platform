@@ -269,6 +269,7 @@ a ranking bar chart + per-card trend sparklines (was a plain table) — see
 | PUT/DELETE | `/api/v1/transport/shipments/{id}/device/` | ShipmentDeviceLinkView | `useSetShipmentDevice` | ShipmentDetail (`ShipmentTruckLocationCard`) |
 | GET | `/api/v1/transport/devices/` | TransportDeviceViewSet (list) | `useTransportDevices` | ShipmentDetail (`ShipmentTruckLocationCard`, device picker) |
 | GET/POST/PATCH | `/api/v1/transport/truck-heads/` `/truck-heads/{id}/` | TruckHeadViewSet | — (not yet wired to a page) | Fleet tractor list/create/deactivate |
+| GET/POST/PATCH | `/api/v1/transport/trailers/` `/trailers/{id}/` | TrailerViewSet | — (not yet wired to a page) | Fleet trailer list/create/deactivate |
 
 `IsAuthenticated` only, no role gate (no `transport.map` page_code registered yet — same
 open-to-all-authenticated pattern as Team KPI / Worklog). No pagination — a bare list,
@@ -309,8 +310,17 @@ matching.py`) — same resolution `_pick_device()` uses (positioned > category=t
 `PATCH /truck-heads/{id}/` sees **all** rows including inactive ones (only `list` filters to
 active), so `{"is_active": false}` deactivates and `{"is_active": true}` re-activates. No
 `RetrieveModelMixin` registered — `GET /truck-heads/{id}/` is 405, not 404.
-Known limitation: `PATCH` does not re-run `device_for_plate()` if `plate_number` changes, so
-`traccar_device` can go stale after a plate correction (not required by the current brief).
+`PATCH` re-runs `device_for_plate()` if `plate_number` changes, so a plate correction
+re-matches (or clears) `traccar_device` instead of leaving it stale.
+
+**Trailers** (`GET/POST/PATCH trailers/`) — `Trailer` (fleet trailers, seeded once from TIR
+then platform-owned). Same shape as truck heads minus GPS: `GET` (any authenticated user)
+lists **active-only** (`is_active=True`), `SearchFilter` on `plate_number`, no pagination:
+`{id, plate_number, owner_type, status, is_active}`. `POST`/`PATCH` gated to
+`CanEditShipment`. No device matching — trailers have no `TraccarDevice` link. `PATCH
+/trailers/{id}/` sees all rows including inactive ones, so `{"is_active": false}`
+deactivates and `{"is_active": true}` re-activates. No `RetrieveModelMixin` registered —
+`GET /trailers/{id}/` is 405, not 404.
 
 ## Core Reference Endpoints
 

@@ -7,6 +7,8 @@ Running record of things Claude built that still need **manual testing by you**.
 - After **you** test it, check it off: change `- [ ]` to `- [x]` (or tell Claude "tested X" and it will check it off).
 - The Stop hook counts open `- [ ]` items and reminds you if any are pending.
 
+- [ ] 2026-08-08 — Trailer fleet endpoints: `GET/POST/PATCH /api/v1/transport/trailers/` — active-only list + search, role-gated create/update, PATCH can deactivate/re-activate (no GPS matching — trailers have no Traccar device) — NEEDS TEST
+
 - [ ] 2026-08-08 — TruckHead fleet endpoints: `GET/POST/PATCH /api/v1/transport/truck-heads/` — active-only list w/ `has_gps` + search, role-gated create/update, plate-matches a Traccar device on create, PATCH can deactivate/re-activate — NEEDS TEST
 
 - [ ] 2026-08-08 — One-time `import_tir_fleet` management command: pulls TruckHead/Trailer rows from the external Z_TIRWEB TIR DB (read-only pyodbc client), preserves source ids, auto-links each TruckHead to a TraccarDevice by normalized plate, idempotent (re-run = no dupes). Requires `TIR_DB_CONN_STR` to be set in `backend/.env` (no default baked into settings.py — command errors clearly if unset) before it can actually run against Z_TIRWEB; not yet run against the real TIR DB, only against a mocked client in tests — NEEDS TEST
