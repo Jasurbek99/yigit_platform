@@ -114,6 +114,13 @@ export default function AppLayout() {
       // it will not write the stale `?season=` back, and the store->URL effect
       // early-returns on null.
       useSeasonStore.setState({ selectedSeasonId: null });
+      // Same shared-terminal reasoning for the boss's view/edit toggle. It is
+      // deliberately not persisted so every session starts in view mode — but
+      // logout is an SPA transition, not a reload, so without this the store
+      // survives and the next boss to log in on this tab lands straight in
+      // Edit mode, past the confirmation dialog that is the whole point of the
+      // opt-in.
+      useUiStore.setState({ bossEditMode: false });
       queryClient.removeQueries({ queryKey: ['auth', 'me'] });
       queryClient.clear();
       navigate('/login');

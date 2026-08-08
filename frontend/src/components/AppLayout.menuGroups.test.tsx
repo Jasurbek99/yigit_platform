@@ -1,10 +1,12 @@
 import { describe, it, expect, beforeAll, vi } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import i18n from '@/i18n';
 import AppLayout from './AppLayout';
 import { useAuth } from '@/hooks/useAuth';
+import { useUiStore } from '@/stores/uiStore';
 import type { ICurrentUser, UserRole } from '@/types';
 
 // AppLayout pulls in a wide surface of unrelated hooks/components (worklog
@@ -244,5 +246,22 @@ describe('AppLayout menu composition', () => {
     expect(bossKeys).toHaveLength(47);
     expect(staffKeys).toHaveLength(47);
     expect(new Set(staffKeys)).toEqual(new Set(bossKeys));
+  });
+});
+
+// Logout teardown lives here rather than in its own file so it can reuse the
+// mock scaffolding above — AppLayout pulls in enough machinery that a second
+// copy would be worse than the slightly broader file name.
+describe('AppLayout logout teardown', () => {
+  it('resets the boss view/edit toggle, so the next login on this tab starts in view mode', async () => {
+    useUiStore.setState({ bossEditMode: true });
+    renderLayout(fakeUser({ role: 'boss' as UserRole }));
+
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('nav.sign_out') }));
+
+    // Logout is an SPA transition, not a reload: nothing clears the module-level
+    // store on its own. Without the explicit reset the next boss to sign in on
+    // this tab lands in Edit mode, past the confirmation dialog.
+    await waitFor(() => expect(useUiStore.getState().bossEditMode).toBe(false));
   });
 });
