@@ -525,12 +525,14 @@ export function SheetGrid({
 
       if (e.key === 'Enter') {
         const rowConfig = rows[rowIdx];
-        // `isSeasonReadOnly` blocks this path the same way `isCellEditable`
-        // blocks the click-to-edit path (SheetCell/renderRow) — a season
-        // switch to a closed one must stop Enter/type-to-edit from opening
-        // the editor on a cell that was already selected before the switch,
-        // not just new clicks.
-        if (rowConfig?.input_type !== 'readonly' && !isSeasonReadOnly) {
+        // Route through the SAME predicate the click-to-edit path uses
+        // (renderRow below), rather than re-deriving a subset of it. This
+        // path previously checked only `input_type` and `isSeasonReadOnly`,
+        // so it missed the boss's view-mode guard entirely: with a cell
+        // already selected, Enter mounted the editor while the header read
+        // "Просмотр". A season switch to a closed one is blocked here too —
+        // the cell may have been selected before the switch.
+        if (rowConfig && isCellEditable(rowConfig, rowSettings, user, isSeasonReadOnly)) {
           state.setEditingCell({
             shipmentId: active.shipmentId,
             rowKey: active.rowKey,
@@ -545,7 +547,8 @@ export function SheetGrid({
       // dropdown/date editors ignore it and just open (first char dropped).
       if (isPrintable) {
         const rowConfig = rows[rowIdx];
-        if (rowConfig?.input_type !== 'readonly' && !isSeasonReadOnly) {
+        // Same predicate as the Enter path above and the click path below.
+        if (rowConfig && isCellEditable(rowConfig, rowSettings, user, isSeasonReadOnly)) {
           state.setEditingCell(
             { shipmentId: active.shipmentId, rowKey: active.rowKey },
             e.key,
@@ -572,6 +575,8 @@ export function SheetGrid({
     deleteActiveCell,
     applyUndo,
     isSeasonReadOnly,
+    rowSettings,
+    user,
   ]);
 
   // ─── Reorder helpers ───────────────────────────────────────────────────────
