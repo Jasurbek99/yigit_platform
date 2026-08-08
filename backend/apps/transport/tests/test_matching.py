@@ -115,9 +115,14 @@ class ResolveTests(TestCase):
         self.assertEqual(how, 'auto')
 
     def test_truck_head_without_device_falls_through(self):
+        # Discriminating: truck_plate here WOULD auto-match self.device via the
+        # plate-match fallback (see test_auto_match_extracts_tractor_before_slash),
+        # so this only returns 'none' if the truck_head_id guard actually blocks
+        # fall-through. A mutant that removed the guard would return
+        # (self.device, 'auto') instead, failing this assertion.
         from apps.transport.models import TruckHead
         th = TruckHead.objects.create(id=501, plate_number='NOGPS1', traccar_device=None)
-        shp = _shipment('7463LBE/1779TLB')    # no plate match either
+        shp = _shipment('4378AHF/2602TAH')    # would plate-match self.device
         shp.truck_head_id = th.id
         shp.save(update_fields=['truck_head_id'])
         device, how = resolve_device_for_shipment(shp)
