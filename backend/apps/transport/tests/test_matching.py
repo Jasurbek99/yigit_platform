@@ -103,6 +103,27 @@ class ResolveTests(TestCase):
         self.assertIsNone(device)
         self.assertEqual(how, 'none')
 
+    def test_truck_head_id_resolves_device_first(self):
+        from apps.transport.models import TruckHead
+        dev = self.device  # from setUp: device linked to a Truck with a position
+        th = TruckHead.objects.create(id=500, plate_number='ZZZ999', traccar_device=dev)
+        shp = _shipment('somethingelse')      # plate would NOT auto-match
+        shp.truck_head_id = th.id
+        shp.save(update_fields=['truck_head_id'])
+        device, how = resolve_device_for_shipment(shp)
+        self.assertEqual(device, dev)
+        self.assertEqual(how, 'auto')
+
+    def test_truck_head_without_device_falls_through(self):
+        from apps.transport.models import TruckHead
+        th = TruckHead.objects.create(id=501, plate_number='NOGPS1', traccar_device=None)
+        shp = _shipment('7463LBE/1779TLB')    # no plate match either
+        shp.truck_head_id = th.id
+        shp.save(update_fields=['truck_head_id'])
+        device, how = resolve_device_for_shipment(shp)
+        self.assertIsNone(device)
+        self.assertEqual(how, 'none')
+
 
 class DevicePreferenceTests(TestCase):
     """_pick_device() tier coverage: position > category='truck' > first-by-name."""
