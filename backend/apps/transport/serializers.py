@@ -65,3 +65,13 @@ class TruckHeadSerializer(serializers.ModelSerializer):
         # plate-match a Traccar device on create (like the import)
         validated_data['traccar_device'] = device_for_plate(validated_data['plate_number'])
         return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        # A plate correction must re-match the device — the resolver returns
+        # TruckHead.traccar_device authoritatively (no fall-through) once a
+        # shipment has a truck_head_id, so a stale link would silently point
+        # at the wrong truck's GPS. Re-matching also clears it to None when
+        # the new plate has no match.
+        if 'plate_number' in validated_data:
+            validated_data['traccar_device'] = device_for_plate(validated_data['plate_number'])
+        return super().update(instance, validated_data)

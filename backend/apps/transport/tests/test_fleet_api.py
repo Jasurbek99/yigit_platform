@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from apps.transport.models import TruckHead, Trailer, TraccarDevice, Truck, DevicePosition
+from apps.transport.models import TruckHead, TraccarDevice, Truck, DevicePosition
 
 User = get_user_model()
 
@@ -51,3 +51,33 @@ class TruckHeadApiTests(TestCase):
         r = self.client.patch('/api/v1/transport/truck-heads/13/', {'is_active': False}, format='json')
         self.assertEqual(r.status_code, 200)
         self.assertFalse(TruckHead.objects.get(id=13).is_active)
+
+    def test_create_with_cyrillic_homoglyph_plate_does_not_match_device(self):
+        self.client.force_authenticate(self.editor)
+        # Distractor: a REAL Latin truck+device whose plate is what '4378АHF'
+        # (Cyrillic 'А') would shrink to if normalize_plate() ran without the
+        # Cyrillic guard first. Must NOT be matched.
+        latin_truck = Truck.objects.create(plate='4378HF', fleet_no='TR077')
+        collide_device = TraccarDevice.objects.create(
+            traccar_id=402, name='4378HF TR077', truck=latin_truck, status='online',
+        )
+        r = self.client.post(
+            '/api/v1/transport/truck-heads/', {'plate_number': '4378АHF'}, format='json',
+        )  # 'А' here is Cyrillic (U+0410), not Latin 'A'
+        self.assertEqual(r.status_code, 201)
+        th = TruckHead.objects.get(plate_number='4378АHF')
+        self.assertIsNone(th.traccar_device)
+        self.assertNotEqual(th.traccar_device, collide_device)
+
+    def test_patch_plate_change_rematches_device(self):
+        self.client.force_authenticate(self.editor)
+        other_truck = Truck.objects.create(plate='7777ZZZ', fleet_no='TR777')
+        other_device = TraccarDevice.objects.create(
+            traccar_id=777, name='7777ZZZ TR777', truck=other_truck, status='online',
+        )
+        r = self.client.patch(
+            '/api/v1/transport/truck-heads/13/', {'plate_number': '7777ZZZ'}, format='json',
+        )
+        self.assertEqual(r.status_code, 200)
+        th = TruckHead.objects.get(id=13)
+        self.assertEqual(th.traccar_device, other_device)

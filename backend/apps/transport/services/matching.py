@@ -35,6 +35,35 @@ def _pick_device(truck: Truck) -> TraccarDevice | None:
     return devices[0]
 
 
+def device_for_plate(plate: str) -> "TraccarDevice | None":
+    """Best Traccar device for a plate string (single source of truth).
+
+    Extracts the tractor token (first segment before '/' or whitespace — a
+    plate may carry a trailing '/trailer' token), rejects it if it contains a
+    Cyrillic character BEFORE normalizing — normalize_plate() strips Cyrillic
+    letters, which can shrink a homoglyph plate (e.g. a Cyrillic 'А' in
+    '4378АHF') into a token that collides with a DIFFERENT Latin Truck.plate.
+    The fleet's plates are all Latin, so a Cyrillic-containing plate cannot be
+    reliably matched — bail out. Otherwise normalizes, looks up the active
+    Truck by normalized plate, then _pick_device().
+    """
+    token = _tractor_token(plate)
+    if _CYRILLIC.search(token):
+        return None
+
+    plate_norm = normalize_plate(token)
+    if not plate_norm:
+        return None
+    norm_to_truck = {
+        normalize_plate(p): tid
+        for tid, p in Truck.objects.filter(is_active=True).values_list('id', 'plate')
+    }
+    truck_id = norm_to_truck.get(plate_norm)
+    if truck_id is None:
+        return None
+    return _pick_device(Truck.objects.get(id=truck_id))
+
+
 def resolve_device_for_shipment(shipment) -> tuple[TraccarDevice | None, str]:
     """Resolve the shipment's Traccar device.
 
@@ -63,42 +92,5 @@ def resolve_device_for_shipment(shipment) -> tuple[TraccarDevice | None, str]:
         # (an explicit selection with no GPS device means "no GPS", not "guess").
         return None, 'none'
 
-    token = _tractor_token(shipment.truck_plate)
-    if _CYRILLIC.search(token):
-        # normalize_plate() strips Cyrillic letters, which can shrink a homoglyph
-        # plate (e.g. a Cyrillic 'А' in '4378АHF') into a token that collides with
-        # a DIFFERENT Latin Truck.plate. The fleet's plates are all Latin, so a
-        # Cyrillic-containing shipment plate cannot be reliably matched — bail out.
-        return None, 'none'
-
-    plate_norm = normalize_plate(token)
-    if not plate_norm:
-        return None, 'none'
-
-    norm_to_truck = {
-        normalize_plate(plate): tid
-        for tid, plate in Truck.objects.filter(is_active=True).values_list('id', 'plate')
-    }
-    truck_id = norm_to_truck.get(plate_norm)
-    if truck_id is None:
-        return None, 'none'
-    device = _pick_device(Truck.objects.get(id=truck_id))
+    device = device_for_plate(shipment.truck_plate)
     return (device, 'auto') if device else (None, 'none')
-
-
-def device_for_plate(plate: str) -> "TraccarDevice | None":
-    """Best Traccar device for a plate (same choice the resolver would make).
-
-    Looks up the active Truck by normalized plate, then _pick_device().
-    """
-    plate_norm = normalize_plate(plate)
-    if not plate_norm:
-        return None
-    norm_to_truck = {
-        normalize_plate(p): tid
-        for tid, p in Truck.objects.filter(is_active=True).values_list('id', 'plate')
-    }
-    truck_id = norm_to_truck.get(plate_norm)
-    if truck_id is None:
-        return None
-    return _pick_device(Truck.objects.get(id=truck_id))
