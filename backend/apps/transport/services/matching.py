@@ -38,11 +38,19 @@ def _pick_device(truck: Truck) -> TraccarDevice | None:
 def resolve_device_for_shipment(shipment) -> tuple[TraccarDevice | None, str]:
     """Resolve the shipment's Traccar device.
 
-    Order: an explicit truck_head_id, then a manual ShipmentDeviceLink, then a
-    plate auto-match, else none.
+    Order: a manual ShipmentDeviceLink (authoritative operator override), then
+    an explicit truck_head_id, then a plate auto-match, else none.
     Returns (device_or_None, 'manual'|'auto'|'none').
     """
-    # 1. Explicit truck-head selection (authoritative).
+    # 1. Manual override (authoritative — always wins, even over truck_head_id).
+    link = (
+        ShipmentDeviceLink.objects.filter(shipment=shipment)
+        .select_related('device').first()
+    )
+    if link:
+        return link.device, 'manual'
+
+    # 2. Explicit truck-head selection.
     if getattr(shipment, 'truck_head_id', None):
         from apps.transport.models import TruckHead
         th = (
@@ -54,13 +62,6 @@ def resolve_device_for_shipment(shipment) -> tuple[TraccarDevice | None, str]:
         # truck-head set but no device → do NOT fall through to plate-match
         # (an explicit selection with no GPS device means "no GPS", not "guess").
         return None, 'none'
-
-    link = (
-        ShipmentDeviceLink.objects.filter(shipment=shipment)
-        .select_related('device').first()
-    )
-    if link:
-        return link.device, 'manual'
 
     token = _tractor_token(shipment.truck_plate)
     if _CYRILLIC.search(token):

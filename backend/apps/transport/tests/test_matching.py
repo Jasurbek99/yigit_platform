@@ -114,6 +114,25 @@ class ResolveTests(TestCase):
         self.assertEqual(device, dev)
         self.assertEqual(how, 'auto')
 
+    def test_manual_link_wins_over_truck_head_id(self):
+        # Both a manual ShipmentDeviceLink (-> device A) and a truck_head_id
+        # (-> a DIFFERENT device B) are set. The manual override must win: the
+        # operator's explicit device-picker choice is authoritative over the
+        # truck_head_id auto-resolution.
+        from apps.transport.models import TruckHead
+        truck_b = Truck.objects.create(plate='9998ABC', fleet_no='TR098')
+        device_b = TraccarDevice.objects.create(
+            traccar_id=98, name='9998ABC TR098', truck=truck_b,
+        )
+        th = TruckHead.objects.create(id=502, plate_number='ZZZ998', traccar_device=device_b)
+        shp = _shipment('somethingelse')
+        ShipmentDeviceLink.objects.create(shipment=shp, device=self.device)
+        shp.truck_head_id = th.id
+        shp.save(update_fields=['truck_head_id'])
+        device, how = resolve_device_for_shipment(shp)
+        self.assertEqual(device, self.device)
+        self.assertEqual(how, 'manual')
+
     def test_truck_head_without_device_falls_through(self):
         # Discriminating: truck_plate here WOULD auto-match self.device via the
         # plate-match fallback (see test_auto_match_extracts_tractor_before_slash),

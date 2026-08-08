@@ -1,17 +1,8 @@
 from django.db import transaction
 
-from apps.transport.models import TruckHead, Trailer, TraccarDevice
-from apps.transport.services.matching import normalize_plate
-from apps.transport.services.sync import parse_device_name
+from apps.transport.models import Truck, TruckHead, Trailer
+from apps.transport.services.matching import normalize_plate, _pick_device
 from apps.transport.services.tir_client import TirClient
-
-
-def _plate_from_name(name: str) -> str:
-    return parse_device_name(name)[0]
-
-
-def _device_by_plate(norm_index: dict, plate: str) -> TraccarDevice | None:
-    return norm_index.get(normalize_plate(plate))
 
 
 @transaction.atomic
@@ -27,16 +18,12 @@ def import_fleet(client: TirClient | None = None) -> dict:
     reseed needed (empirically confirmed — see task-2-report.md).
     """
     client = client or TirClient()
-    norm_index = {
-        normalize_plate(p): d
-        for d in TraccarDevice.objects.select_related('truck')
-        for p in [d.truck.plate if d.truck_id else _plate_from_name(d.name)]
-        if p
-    }
+    norm_to_truck = {normalize_plate(t.plate): t for t in Truck.objects.all()}
 
     heads = client.get_truck_heads()
     for row in heads:
-        dev = _device_by_plate(norm_index, row['plate_number'])
+        truck = norm_to_truck.get(normalize_plate(row['plate_number']))
+        dev = _pick_device(truck) if truck else None
         TruckHead.objects.update_or_create(
             id=row['id'],
             defaults={

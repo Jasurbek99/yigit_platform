@@ -17,7 +17,7 @@ class TruckHead(models.Model):
     owner_type = models.CharField(max_length=20, blank=True, default='')
     owner_name = models.CharField(max_length=200, blank=True, default='', **cyrillic_collation())
     status = models.CharField(max_length=20, blank=True, default='')
-    capacity = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    capacity = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     traccar_device = models.ForeignKey(
         'transport.TraccarDevice', on_delete=models.SET_NULL,
         null=True, blank=True, related_name='truck_heads',
