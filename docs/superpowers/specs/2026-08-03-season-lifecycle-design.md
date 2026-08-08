@@ -386,7 +386,8 @@ def close_season(season: Season, user: User) -> None:
 def close_preview(season: Season) -> dict:
     """Counts of rows that will be hidden, for the confirmation dialog.
 
-    Returns {drafts, in_transit, open_tasks, unfinished_plans}.
+    Returns {drafts, in_transit, open_tasks, unfinished_plans,
+    draft_quota_usage}.
     Advisory only — never blocks the close (D2).
     """
 ```
@@ -597,6 +598,19 @@ opting out the explicit act, which is the correct direction for a safety propert
 consequence honestly: closing a season with 14 trucks in transit makes them vanish from every
 board at once. The `close-preview` dialog is the entire mitigation, so its copy matters more
 than usual.
+
+**Addendum 2026-08-08.** That claim had a hole while the §4.7 write-freeze correction was
+being made: three of the four counters name work that is *hidden* and returns read-only, but a
+`QuotaUsageRecord` still in `draft` becomes **permanently unapprovable** when its season closes
+— approving is a write to frozen data and there is no unfreeze. The dialog said nothing about
+it, at the one moment the decision turns irreversible. `close_preview()` now returns a fifth
+key, `draft_quota_usage`, counted through `usage_season_q()` so no second "which season owns
+this row" rule enters the codebase, and the modal renders a separate warning (not folded into
+the body copy, which promises "nothing is deleted" — untrue of these rows). **The original four
+keys stay a contract**: adding is safe, renaming or removing is not. On the dev database the
+count is 151 for season 1 — 15 unlinked rows plus 136 linked to that season's shipments, the
+latter already frozen-on-close before the §4.7 correction. Cost measured on live data: 9.5 ms
+for the count, 41 ms for the whole preview.
 
 ---
 

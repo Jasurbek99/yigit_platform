@@ -28,6 +28,7 @@ const PREVIEW: ISeasonClosePreview = {
   in_transit: 14,
   open_tasks: 5,
   unfinished_plans: 2,
+  draft_quota_usage: 0,
 };
 
 function renderModal(season: ISeason | null, onClose: () => void = vi.fn()) {
@@ -80,6 +81,30 @@ describe('SeasonCloseModal', () => {
 
     const confirmButton = screen.getByRole('button', { name: 'Close season' });
     expect(confirmButton).not.toBeDisabled();
+  });
+
+  it('warns about draft quota-usage rows, which the body copy does NOT cover', async () => {
+    // The body paragraph promises "nothing is deleted, everything comes back
+    // read-only" — true of its four counters, false of these rows: a draft
+    // quota-usage row can never be approved once the season is frozen.
+    vi.mocked(api.get).mockResolvedValueOnce({ data: { ...PREVIEW, draft_quota_usage: 15 } });
+    renderModal(SEASON);
+
+    expect(
+      await screen.findByText(
+        '15 quota-usage records in 2026/2027 are still drafts. Closing the season ' +
+          'freezes them, and a frozen record can never be approved — approve or delete ' +
+          'them before you close.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('stays quiet when there are no draft quota-usage rows', async () => {
+    vi.mocked(api.get).mockResolvedValueOnce({ data: PREVIEW });
+    renderModal(SEASON);
+
+    await screen.findByText(/Closing 2026\/2027 will hide/);
+    expect(screen.queryByText(/quota-usage records/)).not.toBeInTheDocument();
   });
 
   it('disables confirm and offers retry when the preview fails to load', async () => {

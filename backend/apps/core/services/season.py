@@ -109,14 +109,27 @@ def close_preview(season: Season) -> dict[str, int]:
         `core.0011_add_cancelled_status`) for the same reason — a cancelled
         shipment is not "in transit".
 
+    `draft_quota_usage` (added 2026-08-08) is the odd one out and the reason it
+    is here: every other counter names work that is *hidden* and comes back
+    read-only, but a quota-usage row still in `draft` can never be approved
+    once its season closes — approving is a write to frozen data and there is
+    no unfreeze. That consequence is created by the close and is irreversible,
+    so the dialog is the only place it can be surfaced in time. It is counted
+    through `usage_season_q()`, the same predicate the read scope and the FIFO
+    ledger use, so no new "which season does this row belong to" rule enters
+    the codebase.
+
     Args:
         season: The Season being previewed for closing.
 
     Returns:
         Dict with int values for keys: drafts, in_transit, open_tasks,
-        unfinished_plans.
+        unfinished_plans, draft_quota_usage. The first four are a fixed
+        contract (frontend copy and tests interpolate them by name) — adding a
+        key is safe, renaming or removing one is not.
     """
-    from apps.export.models import Shipment, Task, TaskState
+    from apps.export.models import QuotaUsageRecord, Shipment, Task, TaskState
+    from apps.export.services_quota import usage_season_q
     from apps.greenhouse.models import WeeklyHarvestPlan
 
     shipments = Shipment.objects.filter(season=season, deleted_at__isnull=True, is_archived=False)
@@ -133,6 +146,9 @@ def close_preview(season: Season) -> dict[str, int]:
         .exclude(status__phase__in=['COMPLETE', 'CANCELLED']).count(),
         'open_tasks': open_tasks.count(),
         'unfinished_plans': unfinished_plans.count(),
+        'draft_quota_usage': QuotaUsageRecord.objects.filter(
+            usage_season_q(season), status='draft',
+        ).count(),
     }
 
 

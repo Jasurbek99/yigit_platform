@@ -9,7 +9,9 @@ from decimal import Decimal
 from django.test import TestCase
 from django.utils import timezone
 
-from apps.core.models import Country, GreenhouseBlock, Season, ShipmentStatusType, User
+from apps.core.models import (
+    Country, ExportFirm, GreenhouseBlock, Season, ShipmentStatusType, User,
+)
 from apps.core.services.season import close_preview, close_season, open_season
 
 
@@ -136,12 +138,25 @@ class ClosePreviewTests(TestCase):
             shipment_code=code, date=date(2025, 10, 1), season=self.season, status=status,
         )
 
-    def test_preview_returns_all_four_counters(self):
+    def test_preview_keeps_the_original_four_counters(self):
+        """Task 10 fixed these four as a contract — the frontend body copy and
+        its tests interpolate them by name. Adding a key is allowed; renaming
+        or removing one is not."""
         preview = close_preview(self.season)
-        self.assertEqual(
-            set(preview), {'drafts', 'in_transit', 'open_tasks', 'unfinished_plans'},
+        self.assertTrue(
+            {'drafts', 'in_transit', 'open_tasks', 'unfinished_plans'} <= set(preview),
         )
         self.assertTrue(all(isinstance(v, int) for v in preview.values()))
+
+    def test_preview_also_counts_draft_quota_usage(self):
+        preview = close_preview(self.season)
+        self.assertEqual(
+            set(preview),
+            {
+                'drafts', 'in_transit', 'open_tasks', 'unfinished_plans',
+                'draft_quota_usage',
+            },
+        )
 
     def test_drafts_counts_only_draft_status_shipments(self):
         draft = _status('draft', 'DRAFT')
@@ -223,6 +238,77 @@ class ClosePreviewTests(TestCase):
         )
         preview = close_preview(self.season)
         self.assertEqual(preview['unfinished_plans'], 0)
+
+
+class ClosePreviewDraftQuotaUsageTests(TestCase):
+    """The counter added 2026-08-08, and the reason it exists.
+
+    Closing a season freezes its quota-usage rows, so a row still in `draft`
+    can never be approved afterwards — there is no unfreeze. Unlike every other
+    counter here, this one is NOT "hidden and comes back read-only": it is work
+    that becomes permanently impossible. The dialog is the only place the admin
+    is told, at the moment the decision turns irreversible.
+
+    Counted through `usage_season_q()` — the same predicate the read scope and
+    the FIFO ledger use — so the dialog can never disagree with the grid about
+    which rows belong to the season being closed.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.season = Season.objects.create(
+            name='2025/2026', start_date=date(2025, 9, 1), end_date=date(2026, 8, 31),
+            is_active=True,
+        )
+        cls.other = Season.objects.create(
+            name='2026/2027', start_date=date(2026, 9, 1), end_date=date(2027, 8, 31),
+        )
+        cls.firm = ExportFirm.objects.create(code='CPF', name_tk='Firma CP')
+
+    def _usage(self, usage_date: date, *, status='draft', shipment=None):
+        from apps.export.models import QuotaUsageRecord
+
+        return QuotaUsageRecord.objects.create(
+            usage_date=usage_date, export_firm=self.firm, kg_used=Decimal('100'),
+            product_type='tomato', status=status, shipment=shipment,
+        )
+
+    def _shipment(self, code: str, season: Season):
+        from apps.export.models import Shipment
+
+        return Shipment.objects.create(
+            shipment_code=code, date=season.start_date, season=season,
+            status=_status('draft', 'DRAFT', 0),
+        )
+
+    def test_counts_an_unlinked_draft_dated_inside_the_season(self):
+        self._usage(date(2026, 1, 15))
+        self.assertEqual(close_preview(self.season)['draft_quota_usage'], 1)
+
+    def test_counts_a_draft_linked_to_one_of_the_seasons_shipments(self):
+        shipment = self._shipment('CP-1', self.season)
+        self._usage(date(2026, 1, 15), shipment=shipment)
+        self.assertEqual(close_preview(self.season)['draft_quota_usage'], 1)
+
+    def test_excludes_approved_rows(self):
+        self._usage(date(2026, 1, 15), status='approved')
+        self.assertEqual(close_preview(self.season)['draft_quota_usage'], 0)
+
+    def test_excludes_another_seasons_draft(self):
+        self._usage(date(2026, 10, 15))
+        self.assertEqual(close_preview(self.season)['draft_quota_usage'], 0)
+
+    def test_a_linked_draft_follows_its_shipment_not_its_date(self):
+        """Same order of authority as `usage_season_q()`: a row dated inside
+        this season but linked to another season's shipment belongs to that
+        other season and must not be counted here."""
+        shipment = self._shipment('CP-2', self.other)
+        self._usage(date(2026, 1, 15), shipment=shipment)
+        self.assertEqual(close_preview(self.season)['draft_quota_usage'], 0)
+        self.assertEqual(close_preview(self.other)['draft_quota_usage'], 1)
+
+    def test_zero_when_there_is_nothing_to_warn_about(self):
+        self.assertEqual(close_preview(self.season)['draft_quota_usage'], 0)
 
 
 class SeasonEndpointTests(TestCase):

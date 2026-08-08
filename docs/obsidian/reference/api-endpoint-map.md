@@ -167,7 +167,7 @@ See [[screens/main-dashboard]] for the full response contract.
 | Method | Endpoint | ViewSet | Hook | Page |
 |--------|----------|---------|------|------|
 | GET/POST/PATCH/DELETE | `/api/v1/export/admin/seasons/` | SeasonViewSet | `useSeasons` | SeasonsPage — read gated on `season.can_view` (admin/director/export_manager/boss full or read CRUD; `finansist` view-only, so it can populate the header switcher without season write access) |
-| GET | `/api/v1/export/admin/seasons/{id}/close-preview/` | SeasonViewSet.close_preview_action | `useSeasonClosePreview` | SeasonCloseModal — counts (`drafts`/`in_transit`/`open_tasks`/`unfinished_plans`) for the confirm dialog; gated on `season.can_edit`, not `can_view` |
+| GET | `/api/v1/export/admin/seasons/{id}/close-preview/` | SeasonViewSet.close_preview_action | `useSeasonClosePreview` | SeasonCloseModal — counts (`drafts`/`in_transit`/`open_tasks`/`unfinished_plans`/`draft_quota_usage`) for the confirm dialog; gated on `season.can_edit`, not `can_view`. The first four are a fixed contract — add keys, never rename or remove. `draft_quota_usage` (added 2026-08-08) drives a separate warning: unlike the others, those rows are not merely hidden, they can never be approved once the season freezes |
 | POST | `/api/v1/export/admin/seasons/{id}/close/` | SeasonViewSet.close | `useCloseSeason` | SeasonsPage — freezes + hides the season (AD-16, D2); `409` if already closed |
 | POST | `/api/v1/export/admin/seasons/{id}/open/` | SeasonViewSet.open | `useOpenSeason` | SeasonsPage — makes the season the write target; `409` if the target is closed (reopening is unsupported) |
 | GET/POST/PATCH | `/api/v1/export/admin/firms/` | ExportFirmViewSet | `useAdmin` | ExportFirmsPage |

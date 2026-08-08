@@ -26,7 +26,8 @@ from django.db.models.functions import Coalesce
 
 from collections import defaultdict
 
-from apps.core.models import ExportFirm
+from apps.core.models import ExportFirm, Season
+from apps.core.seasons import SeasonClosedError
 from apps.export.models import (
     QuotaIssuance,
     QuotaIssuanceFirmAllocation,
@@ -195,9 +196,6 @@ def assert_usage_batch_seasons_open(queryset: QuerySet) -> None:
             batch is rejected — a partially-applied bulk write against a frozen
             season is worse than a rejected one.
     """
-    from apps.core.models import Season
-    from apps.core.seasons import SeasonClosedError
-
     # Ordered by pk so the 409 body names the same season every time when more
     # than one closed season holds a row from the batch.
     for season in Season.objects.filter(closed_at__isnull=False).order_by('pk'):

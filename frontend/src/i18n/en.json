@@ -1177,6 +1177,7 @@
     "open_button": "Open season",
     "close_confirm_title": "Close {{name}}?",
     "close_confirm_body": "Closing {{name}} will hide {{drafts}} draft shipments, {{in_transit}} shipments in transit, {{open_tasks}} open tasks, and {{unfinished_plans}} weekly plans still missing reported actuals. Nothing is deleted — every record stays exactly as it is and reappears, read-only, whenever {{name}} is selected in the season switcher.",
+    "close_confirm_quota_warning": "{{quota_drafts}} quota-usage records in {{name}} are still drafts. Closing the season freezes them, and a frozen record can never be approved — approve or delete them before you close.",
     "close_preview_error": "Failed to load the close preview counts",
     "retry": "Retry",
     "toast_closed": "Season closed",
