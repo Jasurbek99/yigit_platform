@@ -644,6 +644,36 @@ reads `obj.season` **before** `obj.shipment.season`, so any creation site that f
 the new column would silently read a closed-season row as open, loosening the write freeze
 D10 exists to provide. Deriving it leaves the freeze anchor exactly where it is.
 
+**Correction (2026-08-08): deriving it for READS was not enough — the WRITE freeze had to be
+taught the same derivation, and until this date it was not.** Reported by an automated
+reviewer and reproduced: `freeze_season_of()` resolves `obj.season`, then `obj.shipment.season`,
+and an unlinked `QuotaUsageRecord` has neither — so it returned `None`, which
+`assert_season_open()` treats as *open*. Both layers of §5 were silent no-ops on the 575
+unlinked rows:
+
+```
+POST   unlinked usage dated inside a CLOSED season  -> 201   (should be 409)
+PATCH  moving an unlinked row into a CLOSED season  -> 200   (should be 409)
+DELETE an unlinked row inside a CLOSED season       -> 204   (should be 409)
+POST   /quota-usage/approve/ on such a row          -> 200   (should be 409)
+```
+
+Fixed by a `freeze_season` property on `QuotaUsageRecord` — the model hook `freeze_season_of()`
+already supports, and the third user of it after `ContractSale` and `FinansistAdvance` — which
+delegates to `season_of_usage()` rather than repeating the date-range lookup, keeping the
+matched pair a pair. `approve` is the one path the property cannot reach (a raw id list never
+calls `get_object()`); its generic `assert_bulk_seasons_open(qs, 'shipment__season')` resolved
+through a NULL FK and matched no season, and is replaced by
+`services_quota.assert_usage_batch_seasons_open(qs)`, which applies `usage_season_q()` once per
+closed season and subsumes it. **Status codes are split deliberately**: a row that resolves to
+**no** season stays a `400` on `usage_date` (a field problem — see the guard above), a row that
+resolves to a **closed** season is the §5 `409 season_closed` (a state problem). Both are
+reachable from the same POST, and the freeze guard runs first.
+
+Operational note for the first close: 15 of the 575 unlinked rows on the dev database are still
+`status='draft'`. Once their season closes they can never be approved — approve or delete them
+before the close, alongside the straddling-advance check.
+
 **Issuance rows that match no season are reported, not guessed** — the Task 4 precedent.
 `QuotaIssuance#34` (25,000 kg, `issue_date` 2026-07-06, firm *Eziz Doganlar*) falls in the gap
 between 2025-2026 (ends 2026-06-30) and 2026-2027 (starts **2026-08-01**, not 2026-09-01) and

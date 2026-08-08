@@ -20,7 +20,7 @@ from rest_framework.decorators import action
 from apps.core.permissions import write_permission, DynamicResourcePermission, SeasonNotClosed
 from apps.core.roles import QUOTA_WRITE
 from apps.core.seasons import (
-    SeasonScopedMixin, assert_bulk_seasons_open, get_active_season, resolve_season,
+    SeasonScopedMixin, get_active_season, resolve_season,
 )
 
 from apps.export.models import QuotaIssuance, QuotaUsageRecord
@@ -31,6 +31,7 @@ from apps.export.serializers_quota import (
     QuotaUsageRecordSerializer,
 )
 from apps.export.services_quota import (
+    assert_usage_batch_seasons_open,
     build_quota_dashboard,
     compute_fifo_usage,
     compute_firm_quota_balances,
@@ -233,6 +234,12 @@ class QuotaUsageViewSet(SeasonScopedMixin, ModelViewSet):
     # was worse than dead: it advertises "this row shows under every open
     # season", which is precisely what D11 forbids. The read scope is owned
     # entirely by the override below.
+    #
+    # The write freeze resolves through `QuotaUsageRecord.freeze_season`
+    # (added 2026-08-08), which anchors an unlinked row on `usage_date` exactly
+    # as `usage_season_q()` does. Before it, `freeze_season_of()` returned None
+    # for every unlinked row and BOTH layers were no-ops on them: POST into a
+    # closed season returned 201, PATCH into one 200, DELETE 204.
 
     queryset = QuotaUsageRecord.objects.select_related(
         'export_firm', 'shipment', 'approved_by', 'created_by',
@@ -281,6 +288,15 @@ class QuotaUsageViewSet(SeasonScopedMixin, ModelViewSet):
         Mirrors the identical guard on `QuotaIssuanceViewSet.perform_create`.
         Checks the values the row will have AFTER the write, so a PATCH that
         moves `usage_date` into the gap is caught too.
+
+        Scope, deliberately narrow: this is a 400 about the FIELD (`usage_date`
+        names no season). A row that resolves to a CLOSED season is a different
+        failure — a write against frozen data — and is rejected with the
+        branch's `409 season_closed` by `assert_create_target_open()` /
+        `assert_update_target_open()`, which run BEFORE this guard and now
+        resolve through `QuotaUsageRecord.freeze_season`. Folding the closed
+        case in here as a 400 would report frozen data as a bad field and would
+        duplicate the freeze rule in a second place.
         """
         data = serializer.validated_data
         instance = serializer.instance
@@ -357,10 +373,14 @@ class QuotaUsageViewSet(SeasonScopedMixin, ModelViewSet):
         with transaction.atomic():
             approved_qs = QuotaUsageRecord.objects.filter(id__in=ids, status='draft')
             # Write freeze (D1). Bulk approve selects by a raw id list, so
-            # layer 1 never sees these rows; the season is reached through
-            # `shipment` (nullable — a NULL-shipment historical import belongs
-            # to no season and is therefore never frozen).
-            assert_bulk_seasons_open(approved_qs, 'shipment__season')
+            # layer 1 never sees these rows. NOT the generic
+            # `assert_bulk_seasons_open(qs, 'shipment__season')` that stood here
+            # until 2026-08-08: `shipment` is NULL on 575 of 711 rows, so that
+            # subquery matched no Season and an unlinked row inside a CLOSED
+            # season was approvable — approving is a write to frozen data even
+            # though it touches neither `usage_date` nor `shipment`. The quota
+            # helper resolves the same anchor the read scope does.
+            assert_usage_batch_seasons_open(approved_qs)
             approved_ids = list(approved_qs.values_list('id', flat=True))
             updated = approved_qs.update(
                 status='approved',

@@ -1456,3 +1456,202 @@ class AdvanceApiFreezeTests(SeasonFreezeFixture):
         advance = self._advance(self.make_shipment(self.closed, 'API-CLS05'))
         response = self.client_as().get(f'/api/v1/export/advances/{advance.pk}/')
         self.assertEqual(response.status_code, 200)
+
+
+class UnlinkedQuotaUsageFreezeSeasonAnchorTests(SeasonFreezeFixture):
+    """P1 — `QuotaUsageRecord.freeze_season`, the date-derived anchor.
+
+    Reported by an automated reviewer 2026-08-08 and reproduced: a usage row
+    with NO shipment reached a Season through nothing, so `freeze_season_of()`
+    returned None and BOTH layers of the write freeze were no-ops on it. 575 of
+    711 rows on the dev database are exactly this shape.
+
+    The anchor is `season_of_usage()` — the same function
+    `_assert_usage_resolves_to_a_season` uses and the row-level inverse of the
+    `usage_season_q()` read scope — so the row a closed season *lists* is the
+    row that closed season *freezes*.
+    """
+
+    def _usage(self, usage_date: date, *, shipment=None, status='draft'):
+        return QuotaUsageRecord.objects.create(
+            usage_date=usage_date, export_firm=self.export_firm,
+            kg_used=Decimal('5000'), product_type='tomato',
+            shipment=shipment, status=status,
+        )
+
+    def test_anchor_of_an_unlinked_row_is_the_season_its_date_falls_in(self):
+        self.assertEqual(
+            freeze_season_of(self._usage(date(2026, 1, 15))), self.closed,
+        )
+
+    def test_anchor_of_an_unsaved_unlinked_row_is_resolved_too(self):
+        """`assert_create_target_open()` builds an UNSAVED instance, so the
+        property must answer without a pk — a create is the reported hole."""
+        self.assertEqual(
+            freeze_season_of(QuotaUsageRecord(
+                usage_date=date(2026, 1, 15), export_firm=self.export_firm,
+                kg_used=Decimal('5000'),
+            )),
+            self.closed,
+        )
+
+    def test_a_linked_row_still_anchors_on_its_shipments_season(self):
+        """Shipment beats date, matching `usage_season_q()`'s order of
+        authority — 7 rows on the dev DB are dated outside their shipment's
+        season and must follow the shipment."""
+        linked = self._usage(
+            date(2026, 1, 15), shipment=self.make_shipment(self.active, 'QU-ACT01'),
+        )
+        self.assertEqual(freeze_season_of(linked), self.active)
+
+    def test_anchor_is_none_when_the_date_falls_outside_every_season(self):
+        """The residual homeless row: no season to freeze against, so the
+        freeze is a no-op and `_assert_usage_resolves_to_a_season` rejects it
+        with a 400 instead."""
+        self.assertIsNone(freeze_season_of(self._usage(date(2020, 1, 1))))
+
+
+class UnlinkedQuotaUsageApiFreezeTests(SeasonFreezeFixture):
+    """P1 — create / update / delete / approve on an unlinked usage row.
+
+    Reproduced before the fix: POST into the closed season returned 201 and
+    PATCH moving a row into it returned 200. DELETE had the same shape
+    (`has_object_permission` → `freeze_season_of` → None → no-op) and is
+    covered here too.
+    """
+
+    URL = '/api/v1/export/quota-usage/'
+
+    def _usage(self, usage_date: date, *, status='draft') -> QuotaUsageRecord:
+        return QuotaUsageRecord.objects.create(
+            usage_date=usage_date, export_firm=self.export_firm,
+            kg_used=Decimal('5000'), product_type='tomato', status=status,
+        )
+
+    def _payload(self, usage_date: str) -> dict:
+        return {
+            'usage_date': usage_date, 'export_firm': self.export_firm.pk,
+            'product_type': 'tomato', 'kg_used': '5000.00',
+        }
+
+    def test_create_unlinked_usage_inside_the_closed_season_returns_409(self):
+        response = self.client_as().post(
+            self.URL, self._payload('2026-01-15'), format='json',
+        )
+        self.assert_season_closed_409(response)
+        self.assertFalse(
+            QuotaUsageRecord.objects.filter(usage_date=date(2026, 1, 15)).exists(),
+            'the rejected create must leave no row in the frozen season',
+        )
+
+    def test_create_unlinked_usage_inside_the_active_season_still_works(self):
+        response = self.client_as().post(
+            self.URL, self._payload('2026-10-15'), format='json',
+        )
+        self.assertEqual(response.status_code, 201, response.content[:400])
+
+    def test_patch_moving_an_unlinked_row_into_the_closed_season_returns_409(self):
+        row = self._usage(date(2026, 10, 15))
+        response = self.client_as().patch(
+            f'{self.URL}{row.pk}/', {'usage_date': '2026-01-15'}, format='json',
+        )
+        self.assert_season_closed_409(response)
+        row.refresh_from_db()
+        self.assertEqual(row.usage_date, date(2026, 10, 15))
+
+    def test_patch_an_unlinked_row_already_in_the_closed_season_returns_409(self):
+        """Layer 1: the row's CURRENT anchor, not the one the PATCH targets."""
+        row = self._usage(date(2026, 1, 15))
+        response = self.client_as().patch(
+            f'{self.URL}{row.pk}/', {'kg_used': '1.00'}, format='json',
+        )
+        self.assert_season_closed_409(response)
+        row.refresh_from_db()
+        self.assertEqual(row.kg_used, Decimal('5000.00'))
+
+    def test_patch_an_unlinked_row_in_the_active_season_still_works(self):
+        row = self._usage(date(2026, 10, 15))
+        response = self.client_as().patch(
+            f'{self.URL}{row.pk}/', {'kg_used': '1.00'}, format='json',
+        )
+        self.assertEqual(response.status_code, 200, response.content[:400])
+
+    def test_delete_an_unlinked_row_in_the_closed_season_returns_409(self):
+        """Worse than the report: DELETE has the identical shape and was also
+        reachable, so a frozen season's usage row could be erased outright."""
+        row = self._usage(date(2026, 1, 15))
+        self.assert_season_closed_409(self.client_as().delete(f'{self.URL}{row.pk}/'))
+        self.assertTrue(QuotaUsageRecord.objects.filter(pk=row.pk).exists())
+
+    def test_delete_an_unlinked_row_in_the_active_season_still_works(self):
+        row = self._usage(date(2026, 10, 15))
+        self.assertEqual(
+            self.client_as().delete(f'{self.URL}{row.pk}/').status_code, 204,
+        )
+
+    def test_patch_an_approved_unlinked_row_in_the_closed_season_returns_409(self):
+        """The DOMINANT row shape: 560 of the 575 unlinked rows are approved.
+
+        Wire-level change, intended: these used to return `400 Only draft
+        records can be edited` from `perform_update`'s body. Layer 1 now fires
+        first, so the answer is the state error, not the field one — the same
+        ordering rationale as the 400/409 split on a draft.
+        """
+        row = self._usage(date(2026, 1, 15), status='approved')
+        self.assert_season_closed_409(self.client_as().patch(
+            f'{self.URL}{row.pk}/', {'kg_used': '1.00'}, format='json',
+        ))
+        row.refresh_from_db()
+        self.assertEqual(row.kg_used, Decimal('5000.00'))
+
+    def test_delete_an_approved_unlinked_row_in_the_closed_season_returns_409(self):
+        row = self._usage(date(2026, 1, 15), status='approved')
+        self.assert_season_closed_409(self.client_as().delete(f'{self.URL}{row.pk}/'))
+        self.assertTrue(QuotaUsageRecord.objects.filter(pk=row.pk).exists())
+
+    def test_an_approved_unlinked_row_in_the_active_season_still_returns_400(self):
+        """Control for the pair above: outside a closed season the draft-only
+        rule is untouched — 400, not 409 and not a silent success."""
+        row = self._usage(date(2026, 10, 15), status='approved')
+        response = self.client_as().patch(
+            f'{self.URL}{row.pk}/', {'kg_used': '1.00'}, format='json',
+        )
+        self.assertEqual(response.status_code, 400, response.content[:400])
+
+    def test_approve_an_unlinked_row_in_the_closed_season_returns_409(self):
+        """`assert_bulk_seasons_open(qs, 'shipment__season')` could not see this
+        row: its `shipment` is NULL, so the subquery matched no Season."""
+        row = self._usage(date(2026, 1, 15))
+        response = self.client_as().post(
+            f'{self.URL}approve/', {'ids': [row.pk]}, format='json',
+        )
+        self.assert_season_closed_409(response)
+        row.refresh_from_db()
+        self.assertEqual(row.status, 'draft')
+
+    def test_approve_an_unlinked_row_in_the_active_season_still_works(self):
+        row = self._usage(date(2026, 10, 15))
+        response = self.client_as().post(
+            f'{self.URL}approve/', {'ids': [row.pk]}, format='json',
+        )
+        self.assertEqual(response.status_code, 200, response.content[:400])
+        self.assertEqual(response.json()['approved'], 1)
+
+    def test_approve_rejects_the_whole_batch_when_one_row_is_frozen(self):
+        """Same all-or-nothing rule `assert_bulk_seasons_open` sets: a
+        partially-applied bulk write against a frozen season is worse than a
+        rejected one."""
+        frozen = self._usage(date(2026, 1, 15))
+        live = self._usage(date(2026, 10, 15))
+        response = self.client_as().post(
+            f'{self.URL}approve/', {'ids': [frozen.pk, live.pk]}, format='json',
+        )
+        self.assert_season_closed_409(response)
+        live.refresh_from_db()
+        self.assertEqual(live.status, 'draft')
+
+    def test_reading_a_closed_season_usage_row_is_still_allowed(self):
+        row = self._usage(date(2026, 1, 15))
+        self.assertEqual(
+            self.client_as().get(f'{self.URL}{row.pk}/').status_code, 200,
+        )

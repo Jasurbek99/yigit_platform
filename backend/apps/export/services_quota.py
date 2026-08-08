@@ -13,13 +13,15 @@ __all__ = [
     'aggregate_quota_issued',
     'aggregate_quota_issued_for_season',
     'aggregate_quota_used',
+    'assert_usage_batch_seasons_open',
+    'season_of_usage',
     'usage_season_q',
 ]
 import datetime
 from decimal import Decimal
 
 from django.core.cache import cache
-from django.db.models import Q, Sum
+from django.db.models import Q, QuerySet, Sum
 from django.db.models.functions import Coalesce
 
 from collections import defaultdict
@@ -166,6 +168,43 @@ def usage_season_q(season) -> Q:
             usage_date__lte=season.end_date,
         )
     )
+
+
+def assert_usage_batch_seasons_open(queryset: QuerySet) -> None:
+    """Guard for a bulk usage write that selects rows by a raw id list (D1).
+
+    The generic `assert_bulk_seasons_open(qs, 'shipment__season')` cannot hold
+    here: `shipment` is NULL on 575 of 711 rows, so that subquery matches no
+    Season and every unlinked row — including one inside a closed season —
+    passed. This applies `usage_season_q()`, the same predicate the read scope
+    and the FIFO ledger use, so a row a closed season lists is a row it freezes.
+
+    It SUBSUMES the generic call rather than supplementing it: `usage_season_q()`
+    already contains `Q(shipment__season=season)`.
+
+    One query per closed season, not one overall. Closed seasons are a handful
+    (one per year) and the alternative — a correlated `Exists` over the date
+    range — would be a second expression of the anchor rule, which is the exact
+    drift `usage_season_q()`/`season_of_usage()` exist to prevent.
+
+    Args:
+        queryset: The usage rows about to be mutated.
+
+    Raises:
+        SeasonClosedError: If any row belongs to a closed season. The whole
+            batch is rejected — a partially-applied bulk write against a frozen
+            season is worse than a rejected one.
+    """
+    from apps.core.models import Season
+    from apps.core.seasons import SeasonClosedError
+
+    # Ordered by pk so the 409 body names the same season every time when more
+    # than one closed season holds a row from the batch.
+    for season in Season.objects.filter(closed_at__isnull=False).order_by('pk'):
+        # .order_by() strips Meta.ordering — MSSQL rejects ORDER BY inside the
+        # EXISTS subquery this compiles to (see .claude/rules/mssql-compat.md).
+        if queryset.order_by().filter(usage_season_q(season)).exists():
+            raise SeasonClosedError(season)
 
 
 def season_of_usage(shipment, usage_date):

@@ -518,6 +518,16 @@ Consequences worth knowing before you touch this code:
   inverse of `usage_season_q()`; the two must stay in step, or a write can be accepted into a
   season whose list then refuses to show it. A *linked* row is always accepted, whatever its date —
   its shipment anchors it.
+- **A `/quota-usage/` row whose season is CLOSED returns `409 season_closed`, not 400** — that is
+  a write against frozen data, not a bad field, and the two are distinct failures on the same POST
+  (**fixed 2026-08-08**). This applies to `POST`, `PATCH`, `DELETE` **and** `POST /quota-usage/approve/`,
+  including the 575 rows with **no shipment**: their anchor is `usage_date`, resolved by
+  `QuotaUsageRecord.freeze_season`. Until that hook existed `freeze_season_of()` returned `None`
+  for every unlinked row, so both freeze layers were no-ops and those four verbs returned
+  201/200/204/200 against a closed season. If you add a bulk action on this resource, guard it with
+  `services_quota.assert_usage_batch_seasons_open(qs)` — **not** the generic
+  `assert_bulk_seasons_open(qs, 'shipment__season')`, which resolves through a NULL FK and matches
+  no season for exactly those rows.
 - `quota-firm-balances` follows the **resolved** season, not the active one, and returns `{}`
   during the gap. Its cache key and the FIFO cache key both carry the season id.
 - On `GET /quota-issuances/`, the `used_kg` in each allocation comes from the **list's resolved
