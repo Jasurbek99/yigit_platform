@@ -55,6 +55,7 @@
     "prices": "Цены",
     "overdue": "Просрочено",
     "advances": "Авансы",
+    "fleet_map": "Карта автопарка",
     "trucks": "Грузовики",
     "blocks": "Блоки",
     "domestic_sales": "Внутр. продажи",
@@ -2055,6 +2056,10 @@
     "col_date": "Дата",
     "col_customer": "Клиент",
     "col_status": "Статус"
+  },
+  "fleet_map": {
+    "search_placeholder": "Поиск по номеру / автопарку / месту",
+    "load_error": "Не удалось загрузить местоположение фур"
   },
   "pallet": {
     "title": "Манифест паллет",

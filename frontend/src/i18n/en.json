@@ -55,6 +55,7 @@
     "prices": "Prices",
     "overdue": "Overdue",
     "advances": "Advances",
+    "fleet_map": "Fleet Map",
     "trucks": "Trucks",
     "blocks": "Blocks",
     "domestic_sales": "Domestic Sales",
@@ -2053,6 +2054,10 @@
     "col_date": "Date",
     "col_customer": "Customer",
     "col_status": "Status"
+  },
+  "fleet_map": {
+    "search_placeholder": "Search plate / fleet / place",
+    "load_error": "Could not load truck positions"
   },
   "pallet": {
     "title": "Pallet manifest",

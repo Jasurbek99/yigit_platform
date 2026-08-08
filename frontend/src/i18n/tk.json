@@ -55,6 +55,7 @@
     "prices": "Bahalar",
     "overdue": "Möhleti geçen",
     "advances": "Awanslar",
+    "fleet_map": "Ulaglaryň kartasy",
     "trucks": "Ulaglar",
     "blocks": "Bloklar",
     "domestic_sales": "Içerki satuw",
@@ -2057,6 +2058,10 @@
     "col_date": "Sene",
     "col_customer": "Müşderi",
     "col_status": "Ýagdaýy"
+  },
+  "fleet_map": {
+    "search_placeholder": "Belgi / flot / ýer boýunça gözle",
+    "load_error": "Ulaglaryň ýerleşişini ýüklemek başa barmady"
   },
   "pallet": {
     "title": "Palet manifest",

@@ -173,6 +173,7 @@ export default function AppLayout() {
     '/admin/sales-rep-coverage': t('nav.sales_rep_coverage'),
     '/admin/expense-template': t('nav.admin_expense_template'),
     '/admin/packing-templates': t('nav.admin_packing_templates'),
+    '/transport/map': t('nav.fleet_map'),
   };
 
   const currentPageLabel = location.pathname.startsWith('/shipments/')
@@ -303,6 +304,20 @@ export default function AppLayout() {
       icon: <IconClipboardList size={15} />,
       label: t('nav.admin_audit_log'),
     },
+    '/transport/map': {
+      key: '/transport/map',
+      icon: <IconMapPin size={15} />,
+      label: t('nav.fleet_map'),
+      // No page_code is registered for this page, so it is surfaced via an
+      // explicit roles list that bypasses canSeePage — the same bypass
+      // /worklog and /team/kpi use. Came in from main with the Fleet Map
+      // feature (PR #11).
+      roles: [
+        'admin', 'export_manager', 'loading_dept_head', 'loading_dept_head_deputy', 'warehouse_chief',
+        'weight_master', 'document_team', 'transport', 'sales_rep', 'finansist',
+        'director', 'accountant', 'greenhouse_manager', 'seller', 'boss',
+      ] as import('@/types').UserRole[],
+    },
     '/feedback/submit': { key: '/feedback/submit', icon: <IconMessageCircle size={15} />, label: t('nav.feedback_submit') },
     '/feedback/my-tickets': { key: '/feedback/my-tickets', icon: <IconFileText size={15} />, label: t('nav.feedback_my_tickets') },
     '/feedback/public': { key: '/feedback/public', icon: <IconChartPie size={15} />, label: t('nav.feedback_public') },
@@ -331,7 +346,10 @@ export default function AppLayout() {
     group('nav.group_overview', ['/', '/boss/dashboard', '/me/board', '/director/stuck-shipments']),
     group('nav.group_planning', ['/export/plan', '/export/harvest-board', '/export/trucks', '/export/quota', '/export/blocks']),
     group('nav.group_prep', ['/export/drafts', '/export/assign', '/export/weightmaster']),
-    group('nav.group_shipping', ['/export/shipments', '/export/shipments/sheet', '/export/shipments/board', '/export/shipments/dashboard']),
+    group('nav.group_shipping', [
+      '/export/shipments', '/export/shipments/sheet', '/export/shipments/board',
+      '/export/shipments/dashboard', '/transport/map',
+    ]),
     group('nav.group_docs', ['/documents', '/admin/packing-templates']),
     group('nav.group_sales', ['/contracts', '/sales', '/export/my-reports', '/export/domestic-sales', '/export/prices']),
     group('nav.group_finance', ['/export/advances', '/export/overdue', '/admin/expense-template']),
@@ -350,7 +368,7 @@ export default function AppLayout() {
     group('nav.group_export', [
       '/export/shipments/dashboard', '/export/shipments', '/export/shipments/sheet', '/me/board',
       '/export/shipments/board', '/export/harvest-board', '/export/weightmaster', '/export/overdue',
-      '/export/my-reports', '/export/advances',
+      '/export/my-reports', '/export/advances', '/transport/map',
       '/export/trucks', '/export/drafts', '/export/assign', '/export/domestic-sales', '/export/prices',
     ]),
     group('nav.group_contracts', ['/contracts', '/sales', '/documents']),

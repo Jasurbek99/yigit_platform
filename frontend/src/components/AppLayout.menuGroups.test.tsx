@@ -84,7 +84,7 @@ function renderedMenuGroupLabels(): string[] {
   );
 }
 
-// The exact 46 route keys BOSS_MENU_GROUPS produces, in group + item order,
+// The exact 47 route keys BOSS_MENU_GROUPS produces, in group + item order,
 // transcribed from AppLayout.tsx. Exists so a future edit to the boss
 // composition (its whole reason for staying untouched by this refactor) has
 // a hard failure to trip, not just "still non-empty".
@@ -93,6 +93,7 @@ const EXPECTED_BOSS_ORDERED_KEYS = [
   '/export/plan', '/export/harvest-board', '/export/trucks', '/export/quota', '/export/blocks',
   '/export/drafts', '/export/assign', '/export/weightmaster',
   '/export/shipments', '/export/shipments/sheet', '/export/shipments/board', '/export/shipments/dashboard',
+  '/transport/map',
   '/documents', '/admin/packing-templates',
   '/contracts', '/sales', '/export/my-reports', '/export/domestic-sales', '/export/prices',
   '/export/advances', '/export/overdue', '/admin/expense-template',
@@ -102,11 +103,11 @@ const EXPECTED_BOSS_ORDERED_KEYS = [
   '/feedback/submit', '/feedback/my-tickets', '/feedback/public', '/admin/feedback',
 ];
 
-// The exact 46 route keys STAFF_MENU_GROUPS produces, in group + item order,
+// The exact 47 route keys STAFF_MENU_GROUPS produces, in group + item order,
 // transcribed directly from STAFF_MENU_GROUPS in AppLayout.tsx (not from the
 // task brief). Symmetric to EXPECTED_BOSS_ORDERED_KEYS above: an ordered
 // per-composition check is the only guard that catches an item landing in
-// the wrong group while the overall label list and the unordered 46-key set
+// the wrong group while the overall label list and the unordered 47-key set
 // both stay correct (e.g. moving /me/board into nav.group_main while moving
 // something else out of it to keep group_export's count at 15).
 const EXPECTED_STAFF_ORDERED_KEYS = [
@@ -114,7 +115,7 @@ const EXPECTED_STAFF_ORDERED_KEYS = [
   '/analytics/clients-report', '/export/blocks',
   '/export/shipments/dashboard', '/export/shipments', '/export/shipments/sheet', '/me/board',
   '/export/shipments/board', '/export/harvest-board', '/export/weightmaster', '/export/overdue',
-  '/export/my-reports', '/export/advances',
+  '/export/my-reports', '/export/advances', '/transport/map',
   '/export/trucks', '/export/drafts', '/export/assign', '/export/domestic-sales', '/export/prices',
   '/contracts', '/sales', '/documents',
   '/export/plan', '/export/quota', '/admin/seasons', '/admin/firms', '/admin/import-firms', '/admin/customers', '/admin/blocks',
@@ -207,12 +208,12 @@ describe('AppLayout menu composition', () => {
     }
   });
 
-  it('boss menu renders exactly the expected 46 route keys, in order', () => {
+  it('boss menu renders exactly the expected 47 route keys, in order', () => {
     renderLayout(fakeUser({ role: 'boss' as UserRole }));
     expect(renderedMenuItemKeys()).toEqual(EXPECTED_BOSS_ORDERED_KEYS);
   });
 
-  it('staff menu renders exactly the expected 46 route keys, in order', () => {
+  it('staff menu renders exactly the expected 47 route keys, in order', () => {
     renderLayout(fakeUser({ role: 'export_manager' as UserRole }));
     expect(renderedMenuItemKeys()).toEqual(EXPECTED_STAFF_ORDERED_KEYS);
   });
@@ -232,7 +233,7 @@ describe('AppLayout menu composition', () => {
     }
   });
 
-  it('boss and staff compositions reach the same set of 46 route keys — grouping differs, reachable pages do not', () => {
+  it('boss and staff compositions reach the same set of 47 route keys — grouping differs, reachable pages do not', () => {
     renderLayout(fakeUser({ role: 'boss' as UserRole }));
     const bossKeys = renderedMenuItemKeys();
     cleanup();
@@ -240,8 +241,8 @@ describe('AppLayout menu composition', () => {
     renderLayout(fakeUser({ role: 'export_manager' as UserRole }));
     const staffKeys = renderedMenuItemKeys();
 
-    expect(bossKeys).toHaveLength(46);
-    expect(staffKeys).toHaveLength(46);
+    expect(bossKeys).toHaveLength(47);
+    expect(staffKeys).toHaveLength(47);
     expect(new Set(staffKeys)).toEqual(new Set(bossKeys));
   });
 });
