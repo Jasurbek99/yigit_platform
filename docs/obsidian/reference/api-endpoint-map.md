@@ -268,6 +268,7 @@ a ranking bar chart + per-card trend sparklines (was a plain table) — see
 | GET | `/api/v1/transport/shipments/{id}/position/` | ShipmentTruckPositionView | `useShipmentTruckPosition` | ShipmentDetail (`ShipmentTruckLocationCard`) |
 | PUT/DELETE | `/api/v1/transport/shipments/{id}/device/` | ShipmentDeviceLinkView | `useSetShipmentDevice` | ShipmentDetail (`ShipmentTruckLocationCard`) |
 | GET | `/api/v1/transport/devices/` | TransportDeviceViewSet (list) | `useTransportDevices` | ShipmentDetail (`ShipmentTruckLocationCard`, device picker) |
+| GET/POST/PATCH | `/api/v1/transport/truck-heads/` `/truck-heads/{id}/` | TruckHeadViewSet | — (not yet wired to a page) | Fleet tractor list/create/deactivate |
 
 `IsAuthenticated` only, no role gate (no `transport.map` page_code registered yet — same
 open-to-all-authenticated pattern as Team KPI / Worklog). No pagination — a bare list,
@@ -296,6 +297,20 @@ body. Gated to `SHIPMENT_EDITOR_ROLES` (`admin`/`export_manager`/`director`/`war
 
 **Devices list** (`GET devices/`) — every registry `TraccarDevice` (not filtered to
 positioned ones), for the override picker: `{traccar_id, plate, fleet_no, name}`.
+
+**Truck heads** (`GET/POST/PATCH truck-heads/`) — `TruckHead` (fleet tractors, seeded once
+from TIR then platform-owned). `GET` (any authenticated user) lists **active-only**
+(`is_active=True`), `SearchFilter` on `plate_number`/`owner_name`, no pagination:
+`{id, plate_number, owner_type, owner_name, status, capacity, is_active, has_gps}` —
+`has_gps` is `traccar_device_id is not None`. `POST`/`PATCH` gated to `CanEditShipment`
+(same `SHIPMENT_EDITOR_ROLES` as the device override above). `POST` auto-matches a
+`TraccarDevice` by normalized plate via `device_for_plate()` (`apps/transport/services/
+matching.py`) — same resolution `_pick_device()` uses (positioned > category=truck > first).
+`PATCH /truck-heads/{id}/` sees **all** rows including inactive ones (only `list` filters to
+active), so `{"is_active": false}` deactivates and `{"is_active": true}` re-activates. No
+`RetrieveModelMixin` registered — `GET /truck-heads/{id}/` is 405, not 404.
+Known limitation: `PATCH` does not re-run `device_for_plate()` if `plate_number` changes, so
+`traccar_device` can go stale after a plate correction (not required by the current brief).
 
 ## Core Reference Endpoints
 
