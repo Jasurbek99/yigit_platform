@@ -99,6 +99,11 @@ RESOURCE_REGISTRY: dict[str, str] = OrderedDict([
     ('export_firm',           'Export Firm'),
     ('import_firm',           'Import Firm'),
     ('season',                'Season'),
+    # Grants access to the closed-season switcher (D3, spec §9.1). Read-only —
+    # can_create/can_edit/can_delete are never seeded for it (D1). Does NOT
+    # imply archive-level read; is_archived rows still require _ARCHIVE_VIEW_ROLES
+    # membership even inside a closed season (D8).
+    ('closed_season',         'Browse closed seasons (read-only)'),
     ('greenhouse_block',      'Greenhouse Block'),
     ('truck_split_default',   'Truck Split Defaults (official kg per firm)'),
     # Pallet manifest resources (Finding #4 / Phase 2)

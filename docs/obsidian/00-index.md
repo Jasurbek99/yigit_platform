@@ -92,7 +92,7 @@ flowchart LR
 | [[finansist]] | Advances, reconciliation | 1-13 |
 | [[greenhouse-manager]] | Harvest planning, domestic sales | Plan grid only |
 | [[support-roles]] | Read-only or limited scope | Varies |
-| [[boss]] | Executive analytics dashboard (read-only) | All steps (read-only) |
+| [[boss]] | Executive dashboard + full process reach (2026-08-05) | 1-13 |
 
 See [[roles-matrix]] for the full capability matrix.
 
@@ -113,6 +113,7 @@ See [[roles-matrix]] for the full capability matrix.
 - [[screens/sales-report-page]] — Full-page Excel-like sales report at `/export/sales-reports/:shipmentId` — Sale + Processing tabs over one SalesReport
 - [[screens/expense-template-admin]] — Expense-template CRUD at `/admin/expense-template` — categories, tk/ru/en names, logo_code, is_active
 - [[screens/team-kpi]] — Team KPI leaderboard at `/team/kpi` — per-user tasks-completed ranking with on-time %, overdue-now, active hours, period switcher; visible to every role, wired to `GET /api/v1/core/team-kpi/`
+- [[screens/season-switcher]] — Header season switcher, read-only mode, and admin Close/Open on `/admin/seasons` (AD-16) — close a season (frozen + hidden), open the next one, browse a closed season read-only
 
 ## Reference
 
@@ -134,7 +135,7 @@ See [[roles-matrix]] for the full capability matrix.
 ## External Docs (canonical sources, not duplicated)
 
 - [DOMAIN.md](../DOMAIN.md) — Full domain context (roles, lifecycle, firms)
-- [ADR.md](../ADR.md) — Architecture Decision Records (AD-1 through AD-13)
+- [ADR.md](../ADR.md) — Architecture Decision Records (AD-1 through AD-16)
 - [SPRINT_PLAN.md](../SPRINT_PLAN.md) — Sprint roadmap
 - [TECH_STACK.md](../TECH_STACK.md) — Technology choices
 - [QUOTA_SYSTEM.md](../QUOTA_SYSTEM.md) — Quota code flow details

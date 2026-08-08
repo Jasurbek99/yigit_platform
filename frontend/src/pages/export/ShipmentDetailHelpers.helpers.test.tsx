@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
 import i18n from '@/i18n';
 import { DetailFieldRow } from '@/components/shipment/DetailFieldRow';
 import { MOCK_SHIPMENT_DETAIL } from '@/mock/shipmentDetail';
@@ -22,9 +23,11 @@ function renderRow(readOnly: boolean) {
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   return render(
-    <QueryClientProvider client={queryClient}>
-      <DetailFieldRow shipment={MOCK_SHIPMENT_DETAIL} config={TEXT_CONFIG} readOnly={readOnly} />
-    </QueryClientProvider>,
+    <MemoryRouter>
+      <QueryClientProvider client={queryClient}>
+        <DetailFieldRow shipment={MOCK_SHIPMENT_DETAIL} config={TEXT_CONFIG} readOnly={readOnly} />
+      </QueryClientProvider>
+    </MemoryRouter>,
   );
 }
 

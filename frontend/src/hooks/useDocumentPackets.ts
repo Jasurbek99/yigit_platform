@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import api from '@/services/api';
+import { useSelectedSeason } from '@/hooks/useSeasonParam';
 import type {
   IApiListResponse,
   IDocumentPacket,
@@ -18,8 +19,9 @@ interface IDocumentPacketResult {
  * GET /contracts/document-packets/ (paginated).
  */
 export function useDocumentPackets(params: IDocumentPacketFilters = {}) {
+  const { seasonId, isReady } = useSelectedSeason();
   return useQuery({
-    queryKey: ['document-packets', 'list', params] as const,
+    queryKey: ['document-packets', 'list', seasonId, params] as const,
     queryFn: async (): Promise<IDocumentPacketResult> => {
       const p = new URLSearchParams();
       if (params.date) p.set('date', params.date);
@@ -27,12 +29,14 @@ export function useDocumentPackets(params: IDocumentPacketFilters = {}) {
       if (params.firm) p.set('firm', String(params.firm));
       if (params.page) p.set('page', String(params.page));
       if (params.pageSize) p.set('page_size', String(params.pageSize));
+      if (seasonId != null) p.set('season', String(seasonId));
 
       const { data } = await api.get<IApiListResponse<IDocumentPacket>>(
         `/contracts/document-packets/?${p.toString()}`,
       );
       return { results: data.results, count: data.count };
     },
+    enabled: isReady,
     staleTime: 30_000,
   });
 }

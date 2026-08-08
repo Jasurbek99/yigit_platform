@@ -26,9 +26,21 @@ from apps.core.permission_registry import ROLE_REQUIRED_FIELDS
 from apps.core.permissions import (
     PRIVILEGED_ROLES,
     DynamicResourcePermission,
+    SeasonNotClosed,
     can_edit_sheet_field,
     get_sheet_edit_map,
     write_permission,
+)
+# ShipmentViewSet takes the resolved Season object (not just a filter) so it can
+# see is_closed and bypass the archive split, so it calls resolve_season()
+# directly instead of using SeasonScopedMixin.
+from apps.core.seasons import (
+    SeasonScopedMixin,
+    assert_bulk_seasons_open,
+    assert_season_open,
+    can_view_closed,
+    freeze_season_of,
+    resolve_season,
 )
 from apps.export.models import (
     AuditLog,
@@ -115,7 +127,7 @@ class ShipmentViewSet(ModelViewSet):
     """
 
     resource_code = 'shipment'
-    permission_classes = [IsAuthenticated, DynamicResourcePermission]
+    permission_classes = [IsAuthenticated, DynamicResourcePermission, SeasonNotClosed]
     http_method_names = ['get', 'post', 'patch', 'head', 'options']  # no PUT/DELETE via API
 
     # Sheet-level convenience actions (column tint, soft-delete, restore) are
@@ -127,9 +139,13 @@ class ShipmentViewSet(ModelViewSet):
     _OPEN_ACTIONS = {'soft_delete', 'restore', 'set_column_color'}
 
     def get_permissions(self):
+        # SeasonNotClosed is repeated in every branch below: these branches
+        # REPLACE the class-level permission_classes, so the write freeze would
+        # silently not apply to the actions they cover (all of which are
+        # writes) if it were only declared on the class.
         action = getattr(self, 'action', None)
         if action in self._OPEN_ACTIONS:
-            return [IsAuthenticated()]
+            return [IsAuthenticated(), SeasonNotClosed()]
         # The pallet-manifest WRITE flow (fill / upload / close) is gated by the
         # PALLET_WRITE_ROLES allowlist inside each method body — the same pattern
         # as set_sales_report below. DynamicResourcePermission maps POST to
@@ -142,7 +158,7 @@ class ShipmentViewSet(ModelViewSet):
             or (action == 'pallets' and self.request.method == 'POST')
         )
         if is_pallet_write:
-            return [IsAuthenticated()]
+            return [IsAuthenticated(), SeasonNotClosed()]
         if action == 'set_sales_report':
             # This action writes the `sales_report` resource (where sales_rep
             # HAS create rights), not `shipment`. The frontend always POSTs, so
@@ -150,7 +166,7 @@ class ShipmentViewSet(ModelViewSet):
             # shipment.can_create — False for sales_rep (_VE) — and 403s before
             # the body runs. The method body enforces its own role gate
             # (PRIVILEGED_ROLES | {'sales_rep'}), so that is the sole authority.
-            return [IsAuthenticated()]
+            return [IsAuthenticated(), SeasonNotClosed()]
         return super().get_permissions()
 
     queryset = Shipment.objects.select_related(
@@ -163,7 +179,12 @@ class ShipmentViewSet(ModelViewSet):
         'deleted_by',
     ).order_by('-date', '-id')
 
-    filterset_fields = ['status', 'country', 'season', 'is_gapy_satys', 'customer']
+    # `season` is deliberately NOT a filterset field: DRF applies the filter
+    # backends inside get_object() too, so a detail request carrying ?season=
+    # would 404 a shipment from another season — breaking the direct-link rule
+    # below. Season scoping is handled once, in get_queryset(), via
+    # resolve_season() which also enforces the closed-season permission.
+    filterset_fields = ['status', 'country', 'is_gapy_satys', 'customer']
     search_fields = [
         'shipment_code',
         'export_code',
@@ -188,6 +209,26 @@ class ShipmentViewSet(ModelViewSet):
     # is a more sensitive read — closed shipments may include historical buyer
     # prices and other data only management should browse.
     _ARCHIVE_VIEW_ROLES = ('admin', 'director', 'export_manager', 'finansist', 'boss')
+
+    def _can_view_archive(self) -> bool:
+        """True when the requester may see archived rows."""
+        user = self.request.user
+        return (
+            getattr(user, 'is_superuser', False)
+            or getattr(user, 'role', None) in self._ARCHIVE_VIEW_ROLES
+        )
+
+    def _season_scoped(self, qs: QuerySet) -> QuerySet:
+        """Scope `qs` to the resolved season, failing closed (D7, spec §3.1).
+
+        For the list-style actions that build their own queryset from
+        `super().get_queryset()` and therefore bypass the scoping block in
+        `get_queryset()` (overdue, my-sales-reports, my-pending-count).
+        """
+        season = resolve_season(self.request)
+        if season is None:
+            return qs.none()
+        return qs.filter(season=season)
 
     # Roles allowed to view the Stuck dashboard (?stuck=true). Tighter than
     # archive — stuck reveals which roles are dragging on what, which is a
@@ -264,21 +305,43 @@ class ShipmentViewSet(ModelViewSet):
             else:
                 qs = qs.filter(deleted_at__isnull=True)
 
+        # ── Season scope ─────────────────────────────────────────────────────
+        # List action only. Detail routes resolve by ID across every season so a
+        # direct link works (spec §4.5) and so the write freeze can answer 409
+        # instead of a misleading 404 — get_object() must be able to FIND a
+        # closed-season row before has_object_permission can reject the write.
+        skip_archive_split = False
+        if action_name == 'list':  # `action_name` is the getattr-guarded read above
+            season = resolve_season(self.request)
+            if season is None:
+                # Fail closed (D7, spec §3.1) — no active season and no ?season=
+                # means we cannot say which season the caller is entitled to.
+                # Terminal, so nothing below can add rows back.
+                return qs.none()
+            qs = qs.filter(season=season)
+            # "Operational" is meaningless in a frozen season — nothing is in
+            # flight, and every row is by definition historical. A second
+            # hide-filter would produce "the row exists but nothing shows it"
+            # (spec §9). But bypassing the block also drops the default
+            # is_archived=False filter, so it may only be done for users who
+            # ALSO hold archive-view access — otherwise closed_season.can_view
+            # would silently become a superset of it (D8, spec §9.1).
+            skip_archive_split = season.is_closed and self._can_view_archive()
+
         # ── Operational vs Archive split (Phase 3, ADR-0005) ─────────────────
         # Default: is_archived=False (operational). ?archived=true opens the
         # archive view, gated to a subset of management roles.
-        archived_param = self.request.query_params.get('archived')
-        if archived_param == 'true':
-            role = getattr(self.request.user, 'role', None)
-            is_super = getattr(self.request.user, 'is_superuser', False)
-            if not (is_super or role in self._ARCHIVE_VIEW_ROLES):
-                # Return an empty queryset; the viewset will paginate as 0 results.
-                # Rejecting at queryset level (rather than 403) keeps the error
-                # path uniform with other implicit role-based filters here.
-                return qs.none()
-            qs = qs.filter(is_archived=True)
-        else:
-            qs = qs.filter(is_archived=False)
+        if not skip_archive_split:
+            archived_param = self.request.query_params.get('archived')
+            if archived_param == 'true':
+                if not self._can_view_archive():
+                    # Return an empty queryset; the viewset will paginate as 0 results.
+                    # Rejecting at queryset level (rather than 403) keeps the error
+                    # path uniform with other implicit role-based filters here.
+                    return qs.none()
+                qs = qs.filter(is_archived=True)
+            else:
+                qs = qs.filter(is_archived=False)
 
         # ── Stuck dashboard (Phase 4a, ADR-0005) ─────────────────────────────
         # ?stuck=true returns operational, not-yet-closed shipments untouched
@@ -392,7 +455,11 @@ class ShipmentViewSet(ModelViewSet):
         has required fields still unfilled. Used by the frontend for badge counts.
         """
         # Hide soft-deleted shipments — pending-count drives a UI badge.
-        base_qs = super().get_queryset().filter(deleted_at__isnull=True)
+        # super().get_queryset() bypasses the scoping block in get_queryset(),
+        # so the season scope is applied explicitly here (D9).
+        base_qs = self._season_scoped(
+            super().get_queryset().filter(deleted_at__isnull=True)
+        )
         qs = self._filter_pending_fields(base_qs)
         return Response({'count': qs.count()})
 
@@ -486,6 +553,7 @@ class ShipmentViewSet(ModelViewSet):
 
         Returns updated shipment detail on success.
         Returns 400 on invalid transition, 403 on permission denied.
+        'cancelled' is rejected with 400 — use the dedicated /cancel/ action.
         """
         shipment = self.get_object()
         new_status_code = request.data.get('new_status')
@@ -494,6 +562,20 @@ class ShipmentViewSet(ModelViewSet):
         if not new_status_code:
             return Response(
                 {'error': 'new_status is required'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Cancellation has side effects this generic path does not perform:
+        # open Tasks stay OPEN, draft QuotaUsageRecords are never cleaned up,
+        # and the mandatory reason is never supplied — the shipment lands in
+        # 'cancelled' with dangling work items. Route every caller to /cancel/.
+        # No UI reaches here with 'cancelled' (ShipmentDetailSerializer's
+        # get_allowed_transitions already filters the cancel edge out, and
+        # ShipmentBulkTransitionModal's STATUS_DISPLAY has no cancelled entry),
+        # so this closes a direct-API path rather than breaking a screen.
+        if new_status_code == 'cancelled':
+            return Response(
+                {'error': 'Use POST /shipments/{id}/cancel/ to cancel a shipment.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -637,6 +719,9 @@ class ShipmentViewSet(ModelViewSet):
                 {'error': f'At most {self._BULK_DELETE_MAX} shipments per request.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        # Write freeze (D1) — no get_object(), so layer 1 never sees these ids.
+        assert_bulk_seasons_open(Shipment.objects.filter(id__in=ids))
 
         # Bypass operational/archive filters — admin tool deletes by ID
         # regardless of which list the shipment lives in.
@@ -900,7 +985,11 @@ class ShipmentViewSet(ModelViewSet):
         Query params:
             threshold (int, default 7): minimum days overdue to include.
         """
-        allowed_roles = PRIVILEGED_ROLES | {'sales_rep', 'finansist'}
+        # 'boss' is added at the call site rather than widening the shared
+        # core PRIVILEGED_ROLES constant — this is a read-only oversight
+        # endpoint and the boss's whole feature is seeing the process
+        # (2026-08-05 boss-process-visibility).
+        allowed_roles = PRIVILEGED_ROLES | {'sales_rep', 'finansist', 'boss'}
         if getattr(request.user, 'role', None) not in allowed_roles:
             return Response({'error': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
 
@@ -917,9 +1006,12 @@ class ShipmentViewSet(ModelViewSet):
 
         # Use the base queryset (not self.get_queryset()) to avoid
         # my_work / pending_my_fields filters leaking into the overdue endpoint.
+        # That also bypasses the season scope, so it is re-applied explicitly —
+        # otherwise an operator's overdue list keeps showing closed-season
+        # trucks forever (D9).
         # Hide soft-deleted shipments — overdue is a list-style view.
         qs = (
-            super().get_queryset()
+            self._season_scoped(super().get_queryset())
             .filter(status__code__in=SALES_PHASE_CODES, deleted_at__isnull=True)
             .annotate(has_sales_report=has_report_expr)
             # export_firms_display column joins firm_splits — prefetch to stay N+1-safe.
@@ -968,12 +1060,17 @@ class ShipmentViewSet(ModelViewSet):
         """
         role = getattr(request.user, 'role', None)
         is_superuser = getattr(request.user, 'is_superuser', False)
-        is_management = is_superuser or role in PRIVILEGED_ROLES
+        # 'boss' counts as management here. Without him the queryset scopes to
+        # customer.sales_rep == boss, which is nobody, so the page rendered an
+        # empty list that read as "there are no reports" (2026-08-05).
+        is_management = is_superuser or role in PRIVILEGED_ROLES or role == 'boss'
 
         has_report_expr = Exists(SalesReport.objects.filter(shipment=OuterRef('pk')))
 
+        # super().get_queryset() bypasses the scoping block in get_queryset(),
+        # so the season scope is applied explicitly here (D9).
         qs = (
-            super().get_queryset()
+            self._season_scoped(super().get_queryset())
             .filter(deleted_at__isnull=True, status__step_order__gte=4)
             .annotate(has_sales_report=has_report_expr)
             .select_related('customer')
@@ -1016,17 +1113,19 @@ class ShipmentViewSet(ModelViewSet):
         on it costs a tiny payload instead of the full-season sheet.
         """
         season_filter = {}
+        scope_is_empty = False
         single_shipment_id = request.query_params.get('shipment')
-        season_id = request.query_params.get('season')
         if single_shipment_id:
             # Single-shipment fetch — bypass season scoping (the archived /
             # deleted guards below still apply). Config is unchanged; only the
             # results list shrinks to one row.
             pass
-        elif season_id:
-            season_filter['season_id'] = season_id
         else:
-            season_filter['season__is_active'] = True
+            season = resolve_season(request)
+            if season is None:
+                scope_is_empty = True  # fail closed (D7, spec §3.1)
+            else:
+                season_filter['season'] = season
 
         qs = (
             Shipment.objects.select_related(
@@ -1066,6 +1165,10 @@ class ShipmentViewSet(ModelViewSet):
 
         if single_shipment_id:
             qs = qs.filter(id=single_shipment_id)
+        elif scope_is_empty:
+            # No resolvable season — return the Sheet config with no rows
+            # rather than every season's rows (D7, spec §3.1).
+            qs = qs.none()
 
         # Customer-based ownership: a sales_rep only sees shipments whose
         # customer is assigned to them (Customer.sales_rep). Shipments with a
@@ -1546,6 +1649,9 @@ class ShipmentViewSet(ModelViewSet):
         if not shipment_ids:
             return Response({'updated': 0})
 
+        # Write freeze (D1) — no get_object(), so layer 1 never sees these ids.
+        assert_bulk_seasons_open(Shipment.objects.filter(id__in=shipment_ids))
+
         with transaction.atomic():
             existing: dict[int, Shipment] = {
                 s.id: s
@@ -1754,14 +1860,19 @@ class ShipmentViewSet(ModelViewSet):
         Raises:
             ValueError: If no active season is found or draft status is not configured.
         """
-        from apps.core.models import Season, ShipmentStatusType
+        from apps.core.models import ShipmentStatusType
+        from apps.core.seasons import get_active_season
         from apps.export.models import ShipmentStatusLog
 
         season = data.get('season')
         if season is None:
-            season = Season.objects.filter(is_active=True).first()
+            season = get_active_season()
             if season is None:
                 raise ValueError('No active season found. Provide a season in the request.')
+
+        # Write freeze (D1) — mirrors create_shipment(); only bites a POST body
+        # carrying an explicit closed `season`.
+        assert_season_open(season)
 
         try:
             draft_status = ShipmentStatusType.objects.get(code='draft')
@@ -1883,12 +1994,15 @@ class ShipmentViewSet(ModelViewSet):
         Returns:
             200 with full ShipmentDetailSerializer payload on success.
             400 if the shipment is not in draft status, or transition fails.
-            403 if the caller's role is not export_manager / director.
+            403 if the caller's role is not export_manager / director / boss.
         """
         user_role = getattr(request.user, 'role', None)
-        if user_role not in PRIVILEGED_ROLES:
+        # 'boss' widened at the call site (not in core PRIVILEGED_ROLES):
+        # /export/assign is on his process sidebar since 2026-08-05 and assigning
+        # a draft is a genuine process step, so its only action must work.
+        if user_role not in PRIVILEGED_ROLES | {'boss'}:
             return Response(
-                {'error': 'Only export_manager or director can assign draft shipments'},
+                {'error': 'Only export_manager, director or boss can assign draft shipments'},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -1972,6 +2086,11 @@ class ShipmentViewSet(ModelViewSet):
             source = Shipment.objects.select_related('status', 'created_by').get(pk=source_id)
         except Shipment.DoesNotExist:
             return Response({'error': 'Source shipment not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Write freeze (D1). The target came through get_object() so layer 1
+        # already cleared it; the source comes from the body and is deleted by
+        # the merge, so it needs its own guard.
+        assert_season_open(source.season)
 
         # --- Business rule gates (cheap pre-checks on unlocked rows) ---
         error = self._validate_join(target, source)
@@ -2209,6 +2328,10 @@ class ShipmentViewSet(ModelViewSet):
                 {'error': f'Shipment with id={other_id} not found'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        # Write freeze (D1). A swap mutates BOTH rows; only shipment_a came
+        # through get_object(), so shipment_b needs its own guard.
+        assert_season_open(shipment_b.season)
 
         # --- Whitelist + permission gate (cheap pre-checks on unlocked rows) ---
         for field in requested_fields:
@@ -2722,7 +2845,10 @@ class ShipmentViewSet(ModelViewSet):
             existing_firm_ids = set(
                 shipment.firm_splits.values_list('export_firm_id', flat=True)
             )
-            balances = compute_firm_quota_balances('tomato')
+            # The SHIPMENT's season, not the active or the resolved one: under
+            # D11 a shipment may only draw on its own season's quota, so the
+            # hard block must be evaluated against that season's balance.
+            balances = compute_firm_quota_balances('tomato', shipment.season)
             blocked_ids = [
                 e['export_firm_id']
                 for e in valid_entries
@@ -3075,17 +3201,23 @@ class ShipmentViewSet(ModelViewSet):
         from apps.export.services.phases import PHASE_ORDER, get_phase
 
         # ── Build the base queryset ────────────────────────────────────────────
-        # Always scope to active season, non-archived, non-soft-deleted. These
-        # conditions mirror the intent of the Kanban: show live operational work
-        # only. Soft-deleted rows are hidden from every list-style view.
+        # Always scope to the resolved season, non-archived, non-soft-deleted.
+        # These conditions mirror the intent of the Kanban: show live operational
+        # work only. Soft-deleted rows are hidden from every list-style view.
         qs = (
-            Shipment.objects.filter(
-                season__is_active=True,
-                is_archived=False,
-                deleted_at__isnull=True,
-            )
+            Shipment.objects.filter(deleted_at__isnull=True)
             .select_related('status', 'country', 'customer')
         )
+        season = resolve_season(request)
+        if season is None:
+            qs = qs.none()  # fail closed (D7, spec §3.1)
+        else:
+            qs = qs.filter(season=season)
+            # A closed season whose rows were archived would render a blank
+            # board, so the archive split is bypassed here too — but only for
+            # users who also hold archive-view access (D8, spec §9.1).
+            if not (season.is_closed and self._can_view_archive()):
+                qs = qs.filter(is_archived=False)
 
         # ── Apply request filters ─────────────────────────────────────────────
         country_id = request.query_params.get('country')
@@ -3203,16 +3335,14 @@ class ShipmentViewSet(ModelViewSet):
         #   TRANSIT = avg(arrived_at       - departed_at)
         #   DEST    = avg(sale_ended_at    - arrived_at)
         # PLAN, PREP, CLOSE: no AD-1 pair available → null.
-        # Values are cached per active season for 5 minutes.
-        active_season_id = (
-            Shipment.objects.filter(season__is_active=True)
-            .values_list('season_id', flat=True)
-            .first()
-        )
-        cache_key = f'board:phase_avgs:{active_season_id}'
+        # Averages are for the SAME season as the cards above (not the active
+        # one) — a closed-season board benchmarked against live-season durations
+        # would be comparing two different datasets. Cached per season, 5 min.
+        season_id = season.id if season is not None else None
+        cache_key = f'board:phase_avgs:{season_id}'
         phase_avg_seconds = cache.get(cache_key)
         if phase_avg_seconds is None:
-            phase_avg_seconds = self._compute_phase_avg_seconds(active_season_id)
+            phase_avg_seconds = self._compute_phase_avg_seconds(season_id)
             cache.set(cache_key, phase_avg_seconds, 300)
 
         return Response({
@@ -3241,9 +3371,17 @@ class ShipmentViewSet(ModelViewSet):
 
         thirty_days_ago = _tz.now() - dt.timedelta(days=30)
 
-        filter_kwargs: dict = {'is_archived': False}
-        if season_id:
-            filter_kwargs['season_id'] = season_id
+        empty_result: dict[str, int | None] = {
+            phase: None
+            for phase in ['PLAN', 'PREP', 'DOCS', 'LOAD', 'TRANSIT', 'DEST', 'CLOSE']
+        }
+        if not season_id:
+            # Fail closed (D7, spec §3.1) — averaging across every season would
+            # leak closed-season timings whenever no season is active. Same
+            # shape as the normal return, just with no data.
+            return empty_result
+
+        filter_kwargs: dict = {'is_archived': False, 'season_id': season_id}
 
         # Fetch the timestamp columns for closed or late-stage shipments.
         # We pull only the 4 pairs we need to avoid over-fetching.
@@ -3278,7 +3416,7 @@ class ShipmentViewSet(ModelViewSet):
                 if t_start and t_end and t_end > t_start:
                     phase_durations[phase_key].append((t_end - t_start).total_seconds())
 
-        result: dict[str, int | None] = {phase: None for phase in ['PLAN', 'PREP', 'DOCS', 'LOAD', 'TRANSIT', 'DEST', 'CLOSE']}
+        result = empty_result
         for phase_key, durations in phase_durations.items():
             if durations:
                 result[phase_key] = int(sum(durations) / len(durations))
@@ -3286,7 +3424,7 @@ class ShipmentViewSet(ModelViewSet):
         return result
 
 
-class CommentViewSet(ModelViewSet):
+class CommentViewSet(SeasonScopedMixin, ModelViewSet):
     """CRUD for shipment comments.
 
     GET    /api/v1/export/comments/?shipment=&field_key=&assignee=me&is_done=&parent_comment=null
@@ -3295,11 +3433,16 @@ class CommentViewSet(ModelViewSet):
     DELETE /api/v1/export/comments/{id}/       — soft-delete
     POST   /api/v1/export/comments/{id}/done/  — mark task done
     POST   /api/v1/export/comments/{id}/reopen/ — reopen task
+
+    List is scoped to the resolved season via `shipment` (ShipmentComment.shipment
+    is required, never NULL — no unlinked-row case to handle). Detail routes
+    (retrieve/patch/delete/done/reopen) bypass scoping — Rule A.
     """
 
     resource_code = 'shipment_comment'
-    permission_classes = [IsAuthenticated, DynamicResourcePermission]
+    permission_classes = [IsAuthenticated, DynamicResourcePermission, SeasonNotClosed]
     http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
+    season_field = 'shipment__season'
 
     def get_queryset(self) -> QuerySet:
         from django.db.models import Prefetch
@@ -3342,6 +3485,22 @@ class CommentViewSet(ModelViewSet):
             qs = qs.filter(parent_comment__isnull=True)
         elif parent_param:
             qs = qs.filter(parent_comment_id=parent_param)
+
+        if self.action == 'list':
+            # resolve_season() runs unconditionally — even when ?shipment= pins
+            # a single parent — so an unknown/closed ?season= still 404s/403s
+            # and the close→open gap still fails closed. §4.5's opt-out is
+            # shipment detail-by-ID; a comment/task/expense LIST filtered by
+            # ?shipment= is a strictly wider payload (bodies, amounts, rows),
+            # not a shipment-detail read, so it does not inherit that opt-out.
+            season = resolve_season(self.request)
+            if shipment_id and season is not None and can_view_closed(self.request.user):
+                # Privileged pin: this user could already reach the same rows
+                # by selecting the closed season explicitly, so scoping here
+                # would only cost them an extra click, not close a hole.
+                pass
+            else:
+                qs = self.apply_season_scope(qs, season=season)
 
         return qs
 
@@ -3391,6 +3550,15 @@ class CommentViewSet(ModelViewSet):
 
     def perform_create(self, serializer):
         """Delegate to service via CommentCreateSerializer.create()."""
+        # Write freeze (D1): CreateModelMixin never calls get_object(), so the
+        # SeasonNotClosed object permission cannot fire on a create.
+        # assert_create_target_open() is not usable here — CommentCreateSerializer
+        # is a plain Serializer with no Meta.model. It does resolve `shipment` to
+        # an instance in validate(), so routing that instance through the shared
+        # freeze_season_of() gives exactly the anchor layer 1 uses on the saved
+        # comment (ShipmentComment.shipment is non-nullable and is its only route
+        # to a Season).
+        assert_season_open(freeze_season_of(serializer.validated_data['shipment']))
         serializer.save()
 
     def partial_update(self, request, *args, **kwargs):
@@ -3490,7 +3658,7 @@ class CommentViewSet(ModelViewSet):
         return Response(CommentSerializer(comment).data)
 
 
-class TaskViewSet(viewsets.ReadOnlyModelViewSet):
+class TaskViewSet(SeasonScopedMixin, viewsets.ReadOnlyModelViewSet):
     """Read-only listing/retrieval of Tasks plus action endpoints for state changes.
 
     Tasks are NOT created via POST — generation is owned by the rule engine
@@ -3504,10 +3672,18 @@ class TaskViewSet(viewsets.ReadOnlyModelViewSet):
     POST   /api/v1/export/tasks/{id}/unblock/   — BLOCKED → IN_PROGRESS
     POST   /api/v1/export/tasks/{id}/complete/  — → DONE (manual_done only)
     POST   /api/v1/export/tasks/{id}/cancel/    — → CANCELLED (admin/director only)
+
+    List is scoped to the resolved season via `shipment`. Task.shipment is
+    nullable (weekly_plan / local_sell_plan tasks carry no shipment at all) —
+    `include_null_link` keeps those visible whenever the resolved season is
+    open, and hides them when a closed season is explicitly browsed. Detail
+    routes and the state-change actions bypass scoping — Rule A.
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, SeasonNotClosed]
     filterset_fields = ['assignee_role', 'assignee_user', 'state', 'shipment', 'step']
+    season_field = 'shipment__season'
+    include_null_link = True
 
     def get_queryset(self):
         from apps.export.models import Task, TaskState
@@ -3526,6 +3702,19 @@ class TaskViewSet(viewsets.ReadOnlyModelViewSet):
             qs = qs.filter(
                 deadline__lt=timezone.now(),
             ).exclude(state__in=[TaskState.DONE, TaskState.CANCELLED])
+
+        if self.action == 'list':
+            # ?shipment=<id> (applied later by DjangoFilterBackend via
+            # filterset_fields) pins the request to one shipment's own tasks
+            # panel. resolve_season() still runs unconditionally so the gap
+            # fails closed and a bad/closed ?season= still 404s/403s — see
+            # CommentViewSet.get_queryset() for the full rationale.
+            season = resolve_season(self.request)
+            shipment_id = self.request.query_params.get('shipment')
+            if shipment_id and season is not None and can_view_closed(self.request.user):
+                pass
+            else:
+                qs = self.apply_season_scope(qs, season=season)
 
         return qs.order_by('deadline', 'created_at')
 

@@ -56,9 +56,16 @@ class _SeededPermsMixin:
 # ─── Fixture helpers ─────────────────────────────────────────────────────────
 
 def _make_season(name: str = '2025-2026') -> Season:
+    # is_active=True is required, not cosmetic: the contract list is season-scoped
+    # and fails closed when no season is active (D7, spec §3.1). A fixture season
+    # that never activates makes every list assertion here read 0 rows.
     season, _ = Season.objects.get_or_create(
         name=name,
-        defaults={'start_date': '2025-09-01', 'end_date': '2026-06-30'},
+        defaults={
+            'start_date': '2025-09-01',
+            'end_date': '2026-06-30',
+            'is_active': True,
+        },
     )
     return season
 

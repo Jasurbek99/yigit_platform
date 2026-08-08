@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import api from '@/services/api';
+import { useSelectedSeason } from '@/hooks/useSeasonParam';
 
 // ─── Response interfaces ──────────────────────────────────────────────────────
 
@@ -53,10 +54,17 @@ export interface IClientsReportResponse {
 
 // ─── Hook ───────────────────────────────────────────────────────────────────
 
-export const useClientsReport = () =>
-  useQuery<IClientsReportResponse>({
-    queryKey: ['clients-report'],
+export const useClientsReport = () => {
+  const { seasonId, isReady } = useSelectedSeason();
+  return useQuery<IClientsReportResponse>({
+    queryKey: ['clients-report', seasonId],
     queryFn: () =>
-      api.get<IClientsReportResponse>('/export/clients-report/').then((r) => r.data),
+      api
+        .get<IClientsReportResponse>('/export/clients-report/', {
+          params: seasonId != null ? { season: seasonId } : {},
+        })
+        .then((r) => r.data),
+    enabled: isReady,
     staleTime: 60_000,
   });
+};

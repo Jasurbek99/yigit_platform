@@ -51,6 +51,27 @@ _UNIVERSAL = {'me.board'} | _FEEDBACK_COMMON
 # No other role is granted them here — they stay hidden until an admin toggles
 # them on via the permission matrix. This mirrors _CONTRACT_WRITE_ROLES.
 
+# Pages withheld from `boss` despite the "every registered page" grant, because
+# each one is DEAD or MISLEADING for him — every call behind it is refused by a
+# gate that does not consult the permission matrix, so granting the page only
+# produces a nav entry that fails. MUST stay identical to EXCLUDED_PAGES in
+# core migration 0033_boss_process_visibility_perms.
+_BOSS_DEAD_PAGES = {
+    # _AdminOnlyPermission (core/views_permissions.py) rejects every method
+    # including GET for non-admins per AD-15 — the whole matrix API 403s.
+    'admin.permissions',
+    # UserManagementViewSet.get_queryset (export/views_admin.py) raises for a
+    # role that manages nobody; boss is not in MANAGEABLE_BY_ROLE.
+    'admin.users',
+    # ManagedPagePermissionsView (export/views_admin.py) admits full admins and
+    # delegated managers only — can_manage_users(boss) is False, so GET raises.
+    'admin.staff_access',
+    # WORSE than a 403: FeedbackTicketViewSet.get_queryset (feedback/views.py)
+    # scopes the inbox on `role == 'admin'`, so boss silently sees only his own
+    # tickets. The page reads as "there is no feedback" rather than as an error.
+    'feedback.admin_inbox',
+}
+
 PAGE_DEFAULTS: dict[str, set[str]] = {
     # admin: sole top-tier system administrator. Sees every page including
     # the permission matrix and admin pages. See AD-15.
@@ -125,12 +146,11 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
     'seller': {
         'dashboard', 'export.quota.local_sell',
     } | _UNIVERSAL,
-    # Boss is strictly executive: the analytics dashboard plus the stuck-shipments
-    # oversight page. My Tasks + Feedback pages come from _UNIVERSAL (boss was in
-    # every prior all-roles list). No other operational navigation.
-    'boss': {
-        'analytics.boss', 'analytics.clients', 'director.stuck_shipments',
-    } | _UNIVERSAL,
+    # boss: every registered page except the four listed in
+    # _BOSS_DEAD_PAGES. He owns the process end-to-end and must not need to log
+    # in as another role to see a step (2026-08-05 design). _UNIVERSAL is a
+    # subset of _ALL_PAGES, so nothing he had before is lost.
+    'boss': _ALL_PAGES - _BOSS_DEAD_PAGES,
 }
 
 # loading_dept_head_deputy: identical page access to the head (June 2026 request).
@@ -151,13 +171,19 @@ _VE = (True, False, True, False)     # view + edit only
 _ALL_RESOURCES = set(RESOURCE_REGISTRY.keys())
 
 RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
-    # admin: full CRUD on every resource (including truck_split_default).
-    'admin': {r: _VCRUD for r in _ALL_RESOURCES},
+    # admin: full CRUD on every resource (including truck_split_default),
+    # EXCEPT closed_season — read-only by design (D1), overridden below.
+    'admin': {
+        **{r: _VCRUD for r in _ALL_RESOURCES},
+        'closed_season': _VIEW,
+    },
     'director': {
         **{r: _VCRUD for r in _ALL_RESOURCES},
         # sale: director may create/edit but NOT delete — sale deletion is
         # admin-only (rollback is too easy to mess up). See ContractSaleViewSet.
         'sale': _VCE,
+        # closed_season: read-only by design (D1) — overrides the blanket _VCRUD.
+        'closed_season': _VIEW,
     },
     'export_manager': {
         **{r: _VCRUD for r in _ALL_RESOURCES},
@@ -168,6 +194,8 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
         'truck_split_default': _VIEW,
         # sale: create/edit but NOT delete — sale deletion is admin-only.
         'sale': _VCE,
+        # closed_season: read-only by design (D1) — overrides the blanket _VCRUD.
+        'closed_season': _VIEW,
     },
     'weight_master': {
         'shipment': _VIEW,                              # can view but not edit shipment proper
@@ -224,6 +252,15 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
         'shipment_comment': _VCE,
         'price_entry': _VCE,
         'advance': _VCRUD,
+        # closed_season: read-only, matches _ARCHIVE_VIEW_ROLES (export/views.py).
+        'closed_season': _VIEW,
+        # season: view-only, so the header season switcher (GET .../admin/seasons/,
+        # gated on season.can_view via SeasonViewSet) can list seasons for
+        # finansist to select — otherwise closed_season.can_view above is granted
+        # but unusable (Task 15b gap). create/edit/delete stay False: season
+        # close/open stays gated on season.can_edit (Task 10), which finansist
+        # does not hold.
+        'season': _VIEW,
     },
     'accountant': {
         'shipment': _VIEW,
@@ -236,8 +273,22 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
     'seller': {
         'local_sell_plan': _VCE,
     },
-    # Boss is strictly read-only across every resource — never edits.
-    'boss': {r: _VIEW for r in _ALL_RESOURCES},
+    # boss: full CRUD on every resource. The read-only guard now lives in the
+    # frontend view/edit toggle, not in the permission matrix (2026-08-05).
+    # Three carve-outs, all mirrored in core migration 0033:
+    'boss': {
+        **{r: _VCRUD for r in _ALL_RESOURCES},
+        # closed_season: read-only by design (D1), same carve-out admin has.
+        'closed_season': _VIEW,
+        # truck_split_default: read-only — only the director may change the
+        # official kg-per-firm constants (Gap 7 / ADR-016). export_manager is
+        # read-only here, so the boss must not exceed him.
+        'truck_split_default': _VIEW,
+        # sale: create/edit but NOT delete — sale deletion is admin-only for
+        # director and export_manager too, and deleting a ContractSale re-rolls
+        # the parent Contract's totals.
+        'sale': _VCE,
+    },
 }
 
 # loading_dept_head_deputy: identical resource permissions to the head (copied, not shared).
@@ -425,6 +476,10 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
 FIELD_DEFAULTS['loading_dept_head_deputy'] = {
     resource: list(fields) for resource, fields in FIELD_DEFAULTS['loading_dept_head'].items()
 }
+
+# boss: wildcard on every resource. Uses a comprehension rather than admin's
+# hand-enumerated list so a newly registered resource is covered automatically.
+FIELD_DEFAULTS['boss'] = {r: ['*'] for r in _ALL_RESOURCES}
 
 
 class Command(BaseCommand):

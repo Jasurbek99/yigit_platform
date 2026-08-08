@@ -413,6 +413,46 @@ class IsBossOrDirector(BasePermission):
         return getattr(request.user, 'role', None) in ('admin', 'boss', 'director')
 
 
+class SeasonNotClosed(BasePermission):
+    """Blocks mutating requests against a closed season (D1).
+
+    Layer 1 of the write freeze. Layer 2 (`assert_season_open` /
+    `assert_bulk_seasons_open` inside the service and action bodies) is what
+    actually holds the invariant, since the two-row Join, the bulk id-list
+    actions and `transition_to()` do not all pass through DRF object
+    permissions.
+
+    Deliberately implements ONLY has_object_permission. A request-level check
+    would have to guess the target row's season from `?season=`, and the
+    frontend omits that param whenever the selection equals the active season
+    — so a PATCH on a closed-season row would resolve to the *active* season
+    and pass. `obj.season` is the only authoritative source.
+
+    Creates need no request-level check either: new rows are stamped with
+    `get_active_season()`, which can never be closed. A POST body carrying an
+    explicit `season` is caught by layer 2 inside the create service.
+
+    Raises SeasonClosedError (→ 409) rather than returning False (→ 403): the
+    request is well-formed and the user is authorised in principle, it
+    conflicts with the resource's *state*.
+    """
+
+    SAFE = ('GET', 'HEAD', 'OPTIONS')
+
+    def has_object_permission(self, request, view, obj) -> bool:
+        if request.method in self.SAFE:
+            return True
+        from apps.core.seasons import assert_season_open, freeze_season_of
+
+        # freeze_season_of() is the single anchor definition, shared with
+        # SeasonScopedMixin.assert_create_target_open(). It handles the plain
+        # `season` FK, the join through `shipment`, and per-model overrides
+        # (ContractSale reaches a Season through its non-nullable `contract`
+        # when `shipment` is NULL).
+        assert_season_open(freeze_season_of(obj))
+        return True
+
+
 class DynamicResourcePermission(BasePermission):
     """DRF permission class that checks RoleResourcePermission from the database.
 

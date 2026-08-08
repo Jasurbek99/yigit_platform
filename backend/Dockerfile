@@ -28,12 +28,26 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fonts-dejavu fonts-liberation fonts-noto-core \
     && rm -rf /var/lib/apt/lists/*
 
+# BUILD CONTEXT IS THE REPO ROOT, not backend/ (docker-compose.yml sets
+# `context: .` + `dockerfile: backend/Dockerfile`). The context was widened so
+# `docs/how_works` — which lives outside backend/ — can be baked in; every COPY
+# below must therefore be written repo-relative.
 WORKDIR /app
 
-COPY requirements.txt .
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY backend/ .
+
+# Process-explainer documents for the boss dashboard + BPMN click-through
+# (apps/export/views_analytics.py). `docs/how_works/` is the single editable
+# source of truth in the repo; this is a build-time SNAPSHOT of it, so there is
+# no second tracked copy to drift.
+# Deliberately outside /app: the dev compose bind-mounts `./backend:/app`, which
+# would hide anything placed under /app that does not exist in backend/ on the
+# host. PROCESS_DOCS_DIR tells Django where the snapshot landed (config/settings.py).
+COPY docs/how_works /opt/ygt/docs/how_works
+ENV PROCESS_DOCS_DIR=/opt/ygt/docs/how_works
 
 RUN python manage.py collectstatic --noinput || true
 

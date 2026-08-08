@@ -15,8 +15,8 @@ from decimal import Decimal
 from django.db import transaction
 from rest_framework import serializers
 
-from apps.core.models import Season
 from apps.core.permissions import get_editable_fields
+from apps.core.seasons import get_active_season
 from apps.contracts.models import (
     Contract,
     ContractAttachment,
@@ -229,9 +229,7 @@ class ContractCreateSerializer(serializers.ModelSerializer):
         # A contract is always for the current season — default it server-side
         # so the create form need not ask.
         if not validated_data.get('season'):
-            validated_data['season'] = (
-                Season.objects.filter(is_active=True).order_by('-start_date').first()
-            )
+            validated_data['season'] = get_active_season()
 
         export_firm = validated_data['export_firm']
         contract_date = validated_data.get('start_date') or date.today()

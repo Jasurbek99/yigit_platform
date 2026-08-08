@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import { getShipmentDetailKey } from './useShipmentDetail';
+import { useSelectedSeason } from '@/hooks/useSeasonParam';
 import { MOCK_SHIPMENTS_RESPONSE } from '@/mock/shipments';
 import type { IApiListResponse, ICancelShipmentResponse, IShipmentListItem } from '@/types';
 import {
@@ -67,8 +68,9 @@ export interface IShipmentFilters {
 }
 
 export function useShipments(filters: IShipmentFilters = {}) {
+  const { seasonId, isReady } = useSelectedSeason();
   return useQuery({
-    queryKey: ['shipments', filters],
+    queryKey: ['shipments', seasonId, filters],
     queryFn: async (): Promise<IApiListResponse<IShipmentListItem>> => {
       if (USE_MOCK) return MOCK_SHIPMENTS_RESPONSE;
 
@@ -89,12 +91,14 @@ export function useShipments(filters: IShipmentFilters = {}) {
       if (filters.stuck) params.set('stuck', 'true');
       if (filters.show_cancelled) params.set('show_cancelled', 'true');
       if (filters.show_deleted) params.set('show_deleted', 'true');
+      if (seasonId != null) params.set('season', String(seasonId));
 
       const { data } = await api.get<IApiListResponse<IShipmentListItem>>(
         `/export/shipments/?${params.toString()}`,
       );
       return data;
     },
+    enabled: USE_MOCK || isReady,
     staleTime: 30_000,
   });
 }
@@ -163,6 +167,7 @@ export function useSoftDeleteShipment() {
  */
 export function useSetColumnColor() {
   const queryClient = useQueryClient();
+  const { seasonId } = useSelectedSeason();
   return useMutation<
     unknown,
     unknown,
@@ -175,10 +180,10 @@ export function useSetColumnColor() {
     },
     onMutate: async ({ id, color }) => {
       await queryClient.cancelQueries({ queryKey: ['shipments'] });
-      return applyOptimistic(queryClient, id, { column_color: color });
+      return applyOptimistic(queryClient, id, { column_color: color }, seasonId);
     },
     onSuccess: (data, { id }) => {
-      reconcileFromServer(queryClient, id, data);
+      reconcileFromServer(queryClient, id, data, seasonId);
     },
     onError: (_err, _vars, context) => {
       rollback(queryClient, context);
@@ -231,13 +236,18 @@ export function useRestoreShipment() {
 }
 
 export function useMyPendingCount() {
+  const { seasonId, isReady } = useSelectedSeason();
   return useQuery({
-    queryKey: ['shipments', 'my_pending_count'],
+    queryKey: ['shipments', 'my_pending_count', seasonId],
     queryFn: async (): Promise<number> => {
       if (USE_MOCK) return 0;
-      const { data } = await api.get<{ count: number }>('/export/shipments/my-pending-count/');
+      const params = seasonId != null ? `?season=${seasonId}` : '';
+      const { data } = await api.get<{ count: number }>(
+        `/export/shipments/my-pending-count/${params}`,
+      );
       return data.count;
     },
+    enabled: USE_MOCK || isReady,
     refetchInterval: 30_000,
     staleTime: 30_000,
   });

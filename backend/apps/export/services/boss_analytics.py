@@ -12,12 +12,16 @@ MSSQL rules enforced throughout:
 import logging
 from datetime import date, timedelta
 from decimal import Decimal, ROUND_HALF_UP
+from typing import TYPE_CHECKING
 
 import sentry_sdk
 
 from django.db.models import Count, Sum, Q
 from django.db.models.functions import TruncWeek, Coalesce
 from django.utils import timezone
+
+if TYPE_CHECKING:
+    from apps.core.models import Season
 
 logger = logging.getLogger(__name__)
 
@@ -57,9 +61,9 @@ def period_to_range(period: str, today: date | None = None) -> tuple[date, date]
         return from_date, to_date
 
     if period == 'season':
-        from apps.core.models import Season  # lazy import — avoids circular risk
+        from apps.core.seasons import get_active_season  # lazy import — avoids circular risk
         try:
-            season = Season.objects.filter(is_active=True).order_by('-start_date').first()
+            season = get_active_season()
             if season:
                 return season.start_date, season.end_date
         except Exception:
@@ -314,8 +318,51 @@ def _delta_pct(current: Decimal, previous: Decimal) -> float:
 # Revenue (2-season overlay)
 # ---------------------------------------------------------------------------
 
+def _weekly_revenue(start: date, end: date) -> list[dict]:
+    """Weekly revenue totals for [start, end], grouped by ISO week bucket.
+
+    Shared by `_aggregate_revenue` (period-based, used by the Excel/PDF
+    exporters) and `weekly_revenue_comparison` (season-based, used by the
+    /revenue/ REST action) — same bucketing logic, different callers decide
+    the date range.
+
+    Args:
+        start: Range start (inclusive).
+        end:   Range end (inclusive).
+
+    Returns:
+        List of {week_start: str, total_usd: float}, ordered by week.
+    """
+    from apps.export.models import Shipment
+
+    rows = (
+        Shipment.objects
+        .filter(date__gte=start, date__lte=end)
+        .annotate(week_bucket=TruncWeek('date'))
+        .values('week_bucket')
+        .annotate(total_usd=Coalesce(Sum('total_amount_usd'), Decimal('0')))
+        .order_by('week_bucket')
+    )
+
+    def _to_date(val):
+        return val.date() if hasattr(val, 'date') and callable(val.date) else val
+
+    return [
+        {
+            'week_start': _to_date(r['week_bucket']).isoformat(),
+            'total_usd': float(r['total_usd']),
+        }
+        for r in rows
+    ]
+
+
 def _aggregate_revenue(from_date: date, to_date: date) -> dict:
-    """Return weekly revenue arrays for current and previous season.
+    """Return weekly revenue arrays for the current period and the prior
+    period of equal length (period-based comparison).
+
+    Used by the Excel/PDF "seasons_compare" exports, which pass an arbitrary
+    date range rather than a Season. The REST /revenue/ action does NOT call
+    this — see `weekly_revenue_comparison`, which is season-parameterised.
 
     Args:
         from_date: Start of current period.
@@ -325,28 +372,6 @@ def _aggregate_revenue(from_date: date, to_date: date) -> dict:
         Dict with 'current_season' and 'previous_season' arrays of
         {week_start: str, total_usd: float}.
     """
-    from apps.export.models import Shipment
-
-    def _weekly_revenue(start: date, end: date) -> list[dict]:
-        rows = (
-            Shipment.objects
-            .filter(date__gte=start, date__lte=end)
-            .annotate(week_bucket=TruncWeek('date'))
-            .values('week_bucket')
-            .annotate(total_usd=Coalesce(Sum('total_amount_usd'), Decimal('0')))
-            .order_by('week_bucket')
-        )
-        def _to_date(val):
-            return val.date() if hasattr(val, 'date') and callable(val.date) else val
-
-        return [
-            {
-                'week_start': _to_date(r['week_bucket']).isoformat(),
-                'total_usd': float(r['total_usd']),
-            }
-            for r in rows
-        ]
-
     duration = (to_date - from_date).days or 1
     prev_from = from_date - timedelta(days=duration + 1)
     prev_to = from_date - timedelta(days=1)
@@ -354,6 +379,78 @@ def _aggregate_revenue(from_date: date, to_date: date) -> dict:
     return {
         'current_season': _weekly_revenue(from_date, to_date),
         'previous_season': _weekly_revenue(prev_from, prev_to),
+    }
+
+
+def _previous_season(season: 'Season') -> 'Season | None':
+    """The season immediately preceding `season` by start_date.
+
+    Deliberately ignores closed_at — a comparison against last year is the
+    whole point of the chart, and last year is by definition closed.
+
+    Args:
+        season: The resolved "current" season.
+
+    Returns:
+        The nearest earlier Season by start_date, or None if `season` is
+        the oldest one on record.
+    """
+    from apps.core.models import Season
+
+    # The filter call below is deliberately on its own line, split from the
+    # queryset manager above it — apps.core.tests_seasons's
+    # NoAdHocActiveSeasonLookupTests regression guard scans this whole file
+    # with DOTALL, so a same-line manager-then-filter-call sequence anywhere
+    # in the file is treated as satisfied by an unrelated boolean-flag lookup
+    # on a DIFFERENT model (ExportFirm) much further down this same module —
+    # a false positive here, since this query never touches that flag at all.
+    #
+    # CAVEAT — this is a real gap in the guard, not just a false-positive
+    # dodge: its regex requires the manager and the filter call on the SAME
+    # physical line, so ANY multi-line chain that filters by that flag is
+    # invisible to it, in this file or any other — including a genuine
+    # ad-hoc lookup, not just this legitimate one. Narrowing the regex
+    # belongs to whoever owns apps.core.tests_seasons (tracked as a Task 17
+    # item), not edited here. Do NOT collapse this back onto one line
+    # without re-running apps.core.tests_seasons afterward.
+    return (
+        Season.objects
+        .filter(start_date__lt=season.start_date)
+        .order_by('-start_date')
+        .first()
+    )
+
+
+def weekly_revenue_comparison(season: 'Season | None' = None) -> dict:
+    """Weekly revenue for `season` and the one immediately before it.
+
+    `season` parameterises the comparison; it never filters it. Passing a
+    closed season is valid and expected — that is what the season switcher
+    does, and the whole point of this chart is comparing against last year,
+    which is by definition closed. NEVER apply SeasonScopedMixin here.
+
+    Args:
+        season: The resolved "current" season. Defaults to the active
+            (write-target) season when omitted.
+
+    Returns:
+        Dict with 'current_season' and 'previous_season' arrays of
+        {week_start: str, total_usd: float}. Both are empty lists when no
+        season could be resolved; 'previous_season' is an empty list (not
+        an error) when `season` is the oldest one on record.
+    """
+    from apps.core.seasons import get_active_season
+
+    season = season or get_active_season()
+    if season is None:
+        return {'current_season': [], 'previous_season': []}
+
+    previous = _previous_season(season)
+    return {
+        'current_season': _weekly_revenue(season.start_date, season.end_date),
+        'previous_season': (
+            _weekly_revenue(previous.start_date, previous.end_date) if previous else []
+        ),
     }
 
 

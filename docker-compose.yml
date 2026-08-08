@@ -29,8 +29,14 @@ services:
 
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      # Context is the REPO ROOT, not ./backend: the image must also bake in
+      # docs/how_works/ (the boss process-explainer documents, served by
+      # apps/export/views_analytics.py), which sits outside backend/. A COPY
+      # cannot reach outside its build context. Root .dockerignore keeps the
+      # context small — without it the daemon would receive frontend/ and the
+      # multi-MB log/bundle files at the repo root.
+      context: .
+      dockerfile: backend/Dockerfile
     # --timeout 180 must stay above render_pdf's 120s LibreOffice budget, else
     # gunicorn's 30s default reaps the worker mid-PDF and the client hangs.
     command: gunicorn config.asgi:application -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --workers 3 --timeout 180

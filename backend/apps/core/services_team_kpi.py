@@ -34,12 +34,26 @@ def _local_midnight(d: date) -> datetime:
     return datetime.combine(d, time.min, tzinfo=_TM_TZ)
 
 
-def period_window(period: str) -> tuple[datetime | None, date | None]:
+def period_window(period: str, season=None) -> tuple[datetime | None, date | None]:
     """Return (since_dt, since_date) for the given period in Asia/Ashgabat.
 
     since_dt gates Task.completed_at (a datetime); since_date gates
     WorkSessionDaily.work_date (a date). (None, None) means no lower bound
-    (season with no active Season row).
+    (period == 'season' with no season resolved — no active Season row and
+    no explicit ?season= either). `compute_team_kpi` short-circuits that case
+    before ever calling this, per D7 — an unbounded window is not a legal
+    answer to "this season" (spec §3.1).
+
+    Args:
+        period: One of 'today' | 'week' | 'month' | 'season'.
+        season: The already-resolved season (via
+            `apps.core.seasons.resolve_season(request)` at the view layer) —
+            only consulted when period == 'season'. The caller resolves it,
+            not this function, matching the `dashboard`/`boss` pattern:
+            resolve once at the view, pass the object down. Spec §4.3 — this
+            parameterises the window by the resolved season; it never scopes
+            a queryset by a `season=` FK, so there is no SeasonScopedMixin
+            fail-closed behaviour to worry about here.
     """
     now_local = timezone.now().astimezone(_TM_TZ)
     today = now_local.date()
@@ -51,8 +65,6 @@ def period_window(period: str) -> tuple[datetime | None, date | None]:
     elif period == 'month':
         start = today.replace(day=1)
     else:  # season
-        from apps.core.models import Season
-        season = Season.objects.filter(is_active=True).order_by('-start_date').first()
         if season is None:
             return None, None
         start = season.start_date
@@ -60,15 +72,37 @@ def period_window(period: str) -> tuple[datetime | None, date | None]:
     return _local_midnight(start), start
 
 
-def compute_team_kpi(period: str) -> list[dict]:
+def compute_team_kpi(period: str, season=None) -> list[dict]:
     """Aggregate per-user KPI rows for the leaderboard.
 
     Three grouped queries (completions/on-time by completed_by, overdue by
     role, active-seconds by user) merged over the full active-user roster.
+
+    Fails CLOSED when `period == 'season'` and no season resolved (D7, spec
+    §3.1): `period_window` answers `(None, None)` there, which means "no lower
+    bound" and so silently turned the leaderboard into an ALL-TIME window —
+    every closed season's completions blended into one row for every
+    authenticated user, with no `?season=` and no `closed_season.can_view`
+    grant. The gate lives here rather than in `period_window` because
+    `(None, None)` is a legitimate answer for that function; this is the only
+    caller that can tell the close→open gap from a deliberate unbounded
+    window. `boss` and `clients-report` already returned empty for this state.
+
+    Args:
+        period: One of 'today' | 'week' | 'month' | 'season'.
+        season: The already-resolved season — only relevant when
+            period == 'season'; see `period_window`.
+
+    Returns:
+        One dict per active user, or `[]` when `period == 'season'` and no
+        season resolved.
     """
     from apps.export.models import Task, TaskState
 
-    since_dt, since_date = period_window(period)
+    if period == 'season' and season is None:
+        return []
+
+    since_dt, since_date = period_window(period, season)
 
     # 1. Completions + on-time, grouped by the crediting user.
     comp_filter = Q(state=TaskState.DONE, completed_by__isnull=False)

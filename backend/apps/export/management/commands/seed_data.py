@@ -17,6 +17,7 @@ from apps.core.models import (
     TomatoVariety, ProductType, BorderPoint, LoadingLocation,
     GreenhouseBlock, User, ExportFirm, Customer, City,
 )
+from apps.core.seasons import get_active_season
 from apps.export.models import Shipment, ShipmentFirmSplit
 
 
@@ -199,7 +200,7 @@ class Command(BaseCommand):
 
         kz = Country.objects.filter(code='KZ').first()
         ru = Country.objects.filter(code='RU').first()
-        season = Season.objects.filter(is_active=True).first()
+        season = get_active_season()
         ygt = ExportFirm.objects.filter(code='YGT').first()
         hms = ExportFirm.objects.filter(code='HMS').first()
         begjan = Customer.objects.filter(name='Begjan').first()

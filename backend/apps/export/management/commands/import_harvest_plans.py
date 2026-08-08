@@ -99,7 +99,8 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         from apps.greenhouse.models import HarvestDayEntry, WeeklyHarvestPlan
-        from apps.core.models import GreenhouseBlock, Season
+        from apps.core.models import GreenhouseBlock
+        from apps.core.seasons import get_active_season
 
         path = Path(options['file'])
         if not path.exists():
@@ -109,7 +110,7 @@ class Command(BaseCommand):
         dry_run = options['dry_run']
 
         # Get active season
-        season = Season.objects.filter(is_active=True).first()
+        season = get_active_season()
         if not season:
             self.stderr.write('No active season found — cannot import harvest plans.')
             return

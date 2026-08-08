@@ -31,7 +31,12 @@ from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 
 from apps.core.models import ExportFirm, ImportFirm, RolePagePermission, Season, User
 from apps.core.permission_registry import PAGE_REGISTRY
-from apps.core.permissions import firm_write_permission, write_permission, DynamicResourcePermission
+from apps.core.permissions import (
+    firm_write_permission,
+    get_resource_permissions,
+    write_permission,
+    DynamicResourcePermission,
+)
 from apps.core.roles import (
     ADMIN_ONLY,
     AUDIT_VIEWERS,
@@ -39,7 +44,10 @@ from apps.core.roles import (
     can_manage_users,
     manageable_roles,
 )
-from apps.export.models import AuditLog, Notification, TruckSplitDefault, invalidate_truck_split_cache
+from apps.core.services.season import close_preview, close_season, open_season
+from apps.export.models import (
+    AuditLog, Notification, ProcessNodeLink, TruckSplitDefault, invalidate_truck_split_cache,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -136,9 +144,44 @@ class AuditLogSerializer(serializers.ModelSerializer):
 
 
 class SeasonSerializer(serializers.ModelSerializer):
+    status = serializers.CharField(read_only=True)
+    closed_by_name = serializers.CharField(source='closed_by.username', read_only=True, default=None)
+
     class Meta:
         model = Season
-        fields = ['id', 'name', 'start_date', 'end_date', 'is_active']
+        fields = [
+            'id', 'name', 'start_date', 'end_date', 'is_active',
+            'status', 'closed_at', 'closed_by', 'closed_by_name',
+        ]
+        # `is_active` is SERVER-SET, never accepted on write. Which season is
+        # the write target changes only through `POST .../open/` and
+        # `POST .../close/`, so that the incumbent swap is atomic and audited
+        # (`apps.core.services.season`). Three concrete failures came from it
+        # being writable here:
+        #   1. Create 400'd. DRF derives a UniqueTogetherValidator from the
+        #      `uq_season_single_active` filtered constraint, so any create
+        #      carrying is_active=True collided with the incumbent. Read-only
+        #      without a default drops the field from `_writable_fields`, and
+        #      `get_unique_together_validators()` then skips that constraint
+        #      because its source is no longer in the serializer's source map.
+        #   2. Toggling Active through a generic PATCH left every client on
+        #      stale season state — `useUpdateSeason` invalidates only
+        #      `['admin-seasons']`, while `useOpenSeason`/`useCloseSeason`
+        #      invalidate everything including `/auth/me/`.
+        #   3. It bypassed `open_season()`/`close_season()` entirely: no
+        #      atomic swap, no AuditLog row.
+        # It stays in `fields` — clients read it (the admin table's Active
+        # column, the quota dashboard's active-season fallback).
+        #
+        # `validate_is_active()` lived here to reject reopening a closed
+        # season via PATCH; it is removed as unreachable (DRF never calls
+        # `validate_<field>` for a field absent from `to_internal_value`).
+        # The invariant is unchanged: `Season.save()` still calls
+        # `assert_activation_allowed()`, covering the ORM, Django admin and
+        # management commands, and `open_season()` refuses a closed target.
+        read_only_fields = [
+            'is_active', 'status', 'closed_at', 'closed_by', 'closed_by_name',
+        ]
 
 
 class ExportFirmSerializer(serializers.ModelSerializer):
@@ -173,6 +216,20 @@ class TruckSplitDefaultSerializer(serializers.ModelSerializer):
         if value <= 0:
             raise serializers.ValidationError('kg_per_firm must be > 0')
         return value
+
+
+class ProcessNodeLinkSerializer(serializers.ModelSerializer):
+    """Admin CRUD shape for BPMN node -> screen route mappings.
+
+    ``node_id`` is the join key to the diagram's node array and MUST stay
+    read-only: a PATCH that could change it would silently orphan the row
+    (the diagram would stop resolving a mapping for its old id).
+    """
+
+    class Meta:
+        model = ProcessNodeLink
+        fields = ['id', 'node_id', 'label', 'route', 'is_active']
+        read_only_fields = ['id', 'node_id']
 
 
 class ImportFirmSerializer(serializers.ModelSerializer):
@@ -263,7 +320,8 @@ class NotificationViewSet(ReadOnlyModelViewSet):
 class AuditLogViewSet(ReadOnlyModelViewSet):
     """Read-only audit trail.
 
-    Accessible to admin, director, and export_manager (AUDIT_VIEWERS — AD-15).
+    Accessible to admin, director, and export_manager (AUDIT_VIEWERS — AD-15),
+    plus boss (read-only oversight, 2026-08-05).
 
     GET /api/v1/export/audit-log/          — list (filter ?model_name=&action=&object_id=&user=)
     GET /api/v1/export/audit-log/{id}/     — detail
@@ -276,7 +334,10 @@ class AuditLogViewSet(ReadOnlyModelViewSet):
 
     def check_permissions(self, request):
         super().check_permissions(request)
-        _require_role(request.user, AUDIT_VIEWERS, 'view audit logs')
+        # 'boss' widened at the call site, not in AUDIT_VIEWERS itself — the
+        # audit log is read-only oversight and the boss's process sidebar links
+        # to it (2026-08-05 boss-process-visibility).
+        _require_role(request.user, AUDIT_VIEWERS | {'boss'}, 'view audit logs')
 
     def get_queryset(self):
         qs = AuditLog.objects.select_related('user').order_by('-created_at')
@@ -298,24 +359,109 @@ class AuditLogViewSet(ReadOnlyModelViewSet):
         return qs
 
 
+def _require_season_edit(user) -> None:
+    """Raise PermissionDenied unless `user` holds season.can_edit.
+
+    `close`/`open` are edits to an existing Season row, not creations, and
+    `close-preview` is advisory data for someone about to decide whether to
+    close (design spec §7) — none of the three is a plain read, so none can
+    rely on `DynamicResourcePermission`'s method->flag mapping alone (POST ->
+    can_create for close/open; GET -> can_view for close-preview, which is
+    weaker than intended). `SeasonViewSet.permission_classes` is left as-is
+    (so plain list/retrieve/create/update/delete keep the existing
+    can_view/can_create/can_edit/can_delete mapping); this is an additional
+    explicit check run at the top of all three actions instead, per
+    `get_resource_permissions()` (core/permissions.py) rather than a new
+    permission class.
+
+    Note: because `DynamicResourcePermission` still runs first as a
+    class-level permission, the effective gate is `can_create AND can_edit`
+    for close/open and `can_view AND can_edit` for close-preview. Every role
+    holding `season` resource permissions today (admin/director/
+    export_manager) gets the blanket `_VCRUD` tuple in
+    `seed_permissions.RESOURCE_DEFAULTS` — all four flags True — so this
+    never bites in practice. A role configured with edit=True but
+    create=False/view=False for 'season' would be wrongly denied by the
+    class-level check before reaching this one; no such role exists in the
+    seeder today.
+    """
+    if getattr(user, 'is_superuser', False):
+        return
+    role = getattr(user, 'role', None)
+    if not role or not get_resource_permissions(role).get('season', {}).get('edit'):
+        raise PermissionDenied('season.edit required.')
+
+
 class SeasonViewSet(ModelViewSet):
-    """Season CRUD.
+    """Season CRUD + lifecycle actions (close / open / close-preview).
 
-    All authenticated users may list/retrieve.
-    Writes gated dynamically on resource_code='season' (RoleResourcePermission).
-    Per default seed: admin / director / export_manager have full CRUD.
+    List/retrieve/writes are ALL gated dynamically on resource_code='season'
+    (RoleResourcePermission), via DynamicResourcePermission — GET requires
+    can_view, same as every other action. Not every authenticated role holds
+    it: per default seed, admin / director / export_manager / boss have
+    season.can_view (blanket, alongside full or read-only CRUD); finansist
+    holds season.can_view only, so it can list seasons to drive the header
+    season switcher without gaining season write access (Task 15b — finansist
+    holds closed_season.can_view but was missing the season.can_view needed to
+    populate that switcher's options). Every other role has neither.
 
-    GET    /api/v1/export/admin/seasons/       — list
-    GET    /api/v1/export/admin/seasons/{id}/  — detail
-    POST   /api/v1/export/admin/seasons/       — create
-    PATCH  /api/v1/export/admin/seasons/{id}/  — update
-    DELETE /api/v1/export/admin/seasons/{id}/  — delete
+    `SeasonNotClosed` is deliberately NOT added here. That permission blocks
+    writes to rows *scoped by* a season (via `freeze_season_of()` reaching a
+    `season`/`shipment` FK); `Season` is the subject of the freeze, not a row
+    scoped by one. If `Season` ever anchored to itself, `close_season()` would
+    become self-blocking and a closed season could never be acted on again
+    (not even to open its successor). Refusing to reopen a closed season is
+    instead domain logic inside `open_season()` (raises `ValueError` -> 409
+    with a specific message), which is more useful to the caller than the
+    generic `SeasonClosedError`.
+
+    GET    /api/v1/export/admin/seasons/               — list
+    GET    /api/v1/export/admin/seasons/{id}/          — detail
+    POST   /api/v1/export/admin/seasons/                — create
+    PATCH  /api/v1/export/admin/seasons/{id}/          — update
+    DELETE /api/v1/export/admin/seasons/{id}/          — delete
+    GET    /api/v1/export/admin/seasons/{id}/close-preview/ — counts for the confirm dialog
+    POST   /api/v1/export/admin/seasons/{id}/close/    — freeze and hide the season
+    POST   /api/v1/export/admin/seasons/{id}/open/     — make this the write target
     """
 
     resource_code = 'season'
     permission_classes = [IsAuthenticated, DynamicResourcePermission]
     serializer_class = SeasonSerializer
     queryset = Season.objects.all().order_by('-start_date')
+
+    @action(detail=True, methods=['get'], url_path='close-preview')
+    def close_preview_action(self, request, pk=None):
+        """GET .../{id}/close-preview/ — counts for the confirm dialog.
+
+        Gated on season.can_edit, not can_view (design spec §7): this is
+        advisory data for someone about to decide whether to close, not a
+        general-purpose read endpoint.
+        """
+        _require_season_edit(request.user)
+        return Response(close_preview(self.get_object()))
+
+    @action(detail=True, methods=['post'])
+    def close(self, request, pk=None):
+        """POST .../{id}/close/ — freeze and hide the season."""
+        _require_season_edit(request.user)
+        season = self.get_object()
+        try:
+            close_season(season, request.user)
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_409_CONFLICT)
+        return Response(self.get_serializer(season).data)
+
+    @action(detail=True, methods=['post'])
+    def open(self, request, pk=None):
+        """POST .../{id}/open/ — make this the write target."""
+        _require_season_edit(request.user)
+        season = self.get_object()
+        try:
+            open_season(season, request.user)
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_409_CONFLICT)
+        return Response(self.get_serializer(season).data)
 
 
 class TruckSplitDefaultViewSet(ModelViewSet):
@@ -374,6 +520,40 @@ class ExportFirmViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated, DynamicResourcePermission]
     serializer_class = ExportFirmSerializer
     queryset = ExportFirm.objects.all().order_by('name_en')
+
+
+class ProcessNodeLinkViewSet(ModelViewSet):
+    """Admin-only list + edit for the boss process diagram's node -> screen mapping.
+
+    No create/delete: the 20 node_ids are fixed by the diagram's data array
+    and seeded via migration 0060 — a new node requires a diagram change plus
+    a migration, not an admin-panel action.
+
+    Gated inline (admin role or superuser) rather than through
+    DynamicResourcePermission. Adding a 'process_node_link' resource_code to
+    the matrix would be picked up by the blanket
+    ``**{r: _VCRUD for r in _ALL_RESOURCES}`` spreads that RESOURCE_DEFAULTS
+    already uses for director / export_manager / boss in seed_permissions.py
+    (and core migration 0033 re-applies for boss on every RESOURCE_REGISTRY
+    entry), silently granting those roles access this task explicitly
+    withholds ("admin full CRUD, everyone else nothing"). An inline check is
+    simpler and does not depend on per-role override rows to deny it.
+    See UserManagementViewSet above for the same inline-gating pattern.
+
+    GET   /api/v1/export/admin/process-node-links/       — list
+    GET   /api/v1/export/admin/process-node-links/{id}/  — detail
+    PATCH /api/v1/export/admin/process-node-links/{id}/  — update label/route/is_active
+    """
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = ProcessNodeLinkSerializer
+    queryset = ProcessNodeLink.objects.all().order_by('node_id')
+    http_method_names = ['get', 'patch', 'head', 'options']
+
+    def check_permissions(self, request):
+        super().check_permissions(request)
+        if not _is_full_admin(request.user):
+            raise PermissionDenied('Admin privileges are required to manage process node links.')
 
 
 class ImportFirmViewSet(ModelViewSet):

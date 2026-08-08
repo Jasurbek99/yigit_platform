@@ -2,7 +2,7 @@ import logging
 from datetime import date as _date
 from decimal import Decimal
 
-from django.db.models import Count, DecimalField, Sum
+from django.db.models import Count, DecimalField, Exists, OuterRef, Q, QuerySet, Sum
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from rest_framework import status
@@ -12,8 +12,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
-from apps.core.permissions import DynamicResourcePermission
+from apps.core.permissions import DynamicResourcePermission, SeasonNotClosed
 from apps.core.roles import ADVANCE_WRITE
+from apps.core.seasons import (
+    SeasonScopedMixin, assert_bulk_seasons_open, assert_season_open,
+    can_view_closed, resolve_season,
+)
 from apps.export.models import (
     CustomsExpense,
     CustomsExpenseCategory,
@@ -34,6 +38,42 @@ logger = logging.getLogger(__name__)
 _ADVANCE_WRITE_ROLES: frozenset[str] = ADVANCE_WRITE
 
 
+def _customs_expense_season_q(season) -> Q:
+    """Season-scope Q for CustomsExpense, matching
+    `SeasonScopedMixin.apply_season_scope()`'s `include_null_link` semantics
+    for `season_field='shipment__season'`. A free function (not just the
+    mixin) because `CustomsExpenseViewSet.ledger()` builds its own queryset,
+    bypassing `get_queryset()` — see the module-level note on `ledger()`.
+    """
+    season_q = Q(shipment__season=season)
+    if not season.is_closed:
+        season_q |= Q(shipment__isnull=True)
+    return season_q
+
+
+def _scope_advances_to_season(qs, season) -> QuerySet:
+    """`Exists()`-based season scope for FinansistAdvance.
+
+    FinansistAdvance has no `shipment` FK of its own — only through the
+    FinansistAdvanceShipment junction (zero to many links) — and callers that
+    need this (`FinansistAdvanceViewSet.get_queryset()`'s `Count`/`Sum`
+    annotations, `CustomsExpenseViewSet.ledger()`'s money-in aggregation) both
+    need the join-avoiding `Exists()` approach, not a plain filter. An advance
+    with zero links plays "unlinked" and surfaces alongside an open season.
+    """
+    in_season = Exists(
+        FinansistAdvanceShipment.objects.filter(
+            advance_id=OuterRef('pk'), shipment__season=season,
+        )
+    )
+    if season.is_closed:
+        return qs.filter(in_season)
+    no_links = ~Exists(
+        FinansistAdvanceShipment.objects.filter(advance_id=OuterRef('pk'))
+    )
+    return qs.filter(Q(in_season) | Q(no_links))
+
+
 class FinansistAdvanceViewSet(ModelViewSet):
     """
     GET    /api/v1/export/advances/                               — list all advances
@@ -42,10 +82,29 @@ class FinansistAdvanceViewSet(ModelViewSet):
     PATCH  /api/v1/export/advances/{id}/reconcile/                — mark as reconciled
     POST   /api/v1/export/advances/{id}/link-shipment/            — link a shipment to this advance
     DELETE /api/v1/export/advances/{id}/unlink-shipment/{sid}/    — remove a shipment link
+
+    FinansistAdvance has no `shipment` FK of its own — it reaches shipments
+    (zero to many) only through the FinansistAdvanceShipment junction, and the
+    queryset already carries `Count('shipment_links')` /
+    `Sum('shipment_links__allocated_amount')` annotations. A plain
+    `shipment_links__shipment__season=season` filter would add a second join on
+    that same multi-valued relation and corrupt those aggregates (rows
+    multiplied per matching link). `Exists()` avoids the join entirely, so list
+    scoping is hand-rolled here instead of via SeasonScopedMixin. An advance
+    with no shipment links at all plays the role of "unlinked" and surfaces
+    alongside an open season, same rule as the nullable-shipment models.
+    Detail routes and the link/reconcile actions bypass scoping — Rule A.
+
+    Write freeze (D1): `SeasonNotClosed` covers every write that reaches
+    `get_object()` — the generic PATCH/DELETE, `reconcile`, and both link
+    actions — because `FinansistAdvance.freeze_season` derives the same
+    junction anchor for the freeze that `_scope_advances_to_season()` derives
+    for reads. `create()` cannot reach layer 1 at all and carries its own
+    `assert_bulk_seasons_open()` over the shipments named in the body.
     """
 
     resource_code = 'advance'
-    permission_classes = [IsAuthenticated, DynamicResourcePermission]
+    permission_classes = [IsAuthenticated, DynamicResourcePermission, SeasonNotClosed]
     http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
 
     queryset = (
@@ -70,6 +129,13 @@ class FinansistAdvanceViewSet(ModelViewSet):
         # Prefetch shipment links only for detail/action views (not needed for list).
         if self.action in ('retrieve', 'link_shipment', 'unlink_shipment', 'reconcile'):
             qs = qs.prefetch_related('shipment_links__shipment')
+
+        if self.action == 'list':
+            season = resolve_season(self.request)
+            if season is None:
+                return qs.none()
+            qs = _scope_advances_to_season(qs, season)
+
         return qs
 
     def get_serializer_class(self):
@@ -96,6 +162,22 @@ class FinansistAdvanceViewSet(ModelViewSet):
         data = serializer.validated_data
 
         shipment_ids: list[int] = data.pop('shipment_ids', [])
+
+        # Write freeze (D1). `create()` is fully overridden — it never calls
+        # get_object() and never calls perform_create() — so neither layer 1
+        # (SeasonNotClosed) nor assert_create_target_open() can fire here.
+        # The season lives on the shipments named in the body, exactly the
+        # shape `link_shipment` guards below, so this is the only check that
+        # can see it.
+        #
+        # Guarded BEFORE the advance row is written, not just before
+        # bulk_create: ATOMIC_REQUESTS is not enabled on this project, so a
+        # 409 raised after FinansistAdvance.objects.create() would leave a
+        # link-less advance behind — which `_scope_advances_to_season()`
+        # treats as "unlinked" and therefore surfaces in the season list and
+        # in /ledger/'s advances_total. Same harm, different route.
+        if shipment_ids:
+            assert_bulk_seasons_open(Shipment.objects.filter(id__in=shipment_ids))
 
         # Map empty strings to None so optional Cyrillic fields aren't stored as ''
         cleaned = {
@@ -170,11 +252,18 @@ class FinansistAdvanceViewSet(ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if not Shipment.objects.filter(id=shipment_id).exists():
+        target = Shipment.objects.filter(id=shipment_id).select_related('season').first()
+        if target is None:
             return Response(
                 {'error': f'Shipment {shipment_id} not found.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        # Write freeze (D1), layer 2. `get_object()` above already refused if
+        # the ADVANCE is frozen (any existing link in a closed season); this
+        # covers the other direction — the season of the shipment named in
+        # the body, which no object permission can see.
+        assert_season_open(target.season)
 
         if FinansistAdvanceShipment.objects.filter(
             advance=advance, shipment_id=shipment_id
@@ -214,6 +303,19 @@ class FinansistAdvanceViewSet(ModelViewSet):
 
         advance: FinansistAdvance = self.get_object()
 
+        # Write freeze (D1), layer 2 — now SUBSUMED by layer 1, kept
+        # deliberately. `get_object()` above 409s whenever ANY of the
+        # advance's links is in a closed season, which includes this one, so
+        # this assert can no longer fire. It stays because layer 2 is
+        # specified to hold the invariant independently of layer 1 (spec §5)
+        # and this is a finance surface — but read it as belt-and-braces, not
+        # as the guard that makes unlink safe.
+        link = FinansistAdvanceShipment.objects.filter(
+            advance=advance, shipment_id=shipment_id,
+        ).select_related('shipment__season').first()
+        if link is not None:
+            assert_season_open(link.shipment.season)
+
         deleted_count, _ = FinansistAdvanceShipment.objects.filter(
             advance=advance, shipment_id=shipment_id
         ).delete()
@@ -239,7 +341,7 @@ class FinansistAdvanceViewSet(ModelViewSet):
 CUSTOMS_EXPENSE_WRITE: frozenset[str] = ADVANCE_WRITE | frozenset({'document_team', 'export_manager'})
 
 
-class CustomsExpenseViewSet(ModelViewSet):
+class CustomsExpenseViewSet(SeasonScopedMixin, ModelViewSet):
     """CRUD + ledger summary for the customs/document cash-advance ledger.
 
     Money-OUT side of the float ledger Hangeldi maintains.  Money-IN is tracked
@@ -251,11 +353,22 @@ class CustomsExpenseViewSet(ModelViewSet):
     PATCH  /api/v1/export/customs-expenses/{id}/              — partial update
     DELETE /api/v1/export/customs-expenses/{id}/              — delete
     GET    /api/v1/export/customs-expenses/ledger/            — cash-float summary
+             (season-scoped independently of get_queryset() — it builds its
+             own querysets, so it resolves the season itself and scopes both
+             sides via the module-level `_customs_expense_season_q()` /
+             `_scope_advances_to_season()` helpers; see `ledger()`)
+
+    List is scoped to the resolved season via `shipment`. CustomsExpense.shipment
+    is nullable ("null for batch fees") — `include_null_link` keeps those
+    visible whenever the resolved season is open, and hides them the moment a
+    closed season is explicitly browsed. Detail routes bypass scoping — Rule A.
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, SeasonNotClosed]
     serializer_class = CustomsExpenseSerializer
     http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
+    season_field = 'shipment__season'
+    include_null_link = True
 
     # Filtering — rely on DEFAULT_FILTER_BACKENDS (DjangoFilterBackend + SearchFilter)
     # so both filterset_fields and search_fields work together (matching the sibling
@@ -291,6 +404,19 @@ class CustomsExpenseViewSet(ModelViewSet):
                 qs = qs.filter(expense_date__lte=_date.fromisoformat(date_to_str))
             except ValueError:
                 pass
+
+        if self.action == 'list':
+            # ?shipment=<id> (applied later by DjangoFilterBackend via
+            # filterset_fields) pins the request to one shipment's own
+            # expenses panel. resolve_season() still runs unconditionally so
+            # the gap fails closed and a bad/closed ?season= still 404s/403s
+            # — see CommentViewSet.get_queryset() for the full rationale.
+            season = resolve_season(self.request)
+            shipment_id = params.get('shipment')
+            if shipment_id and season is not None and can_view_closed(self.request.user):
+                pass
+            else:
+                qs = self.apply_season_scope(qs, season=season)
 
         return qs
 
@@ -340,8 +466,19 @@ class CustomsExpenseViewSet(ModelViewSet):
             )
         return super().destroy(request, *args, **kwargs)
 
+    def perform_update(self, serializer) -> None:
+        """Save an edit, refusing one that moves the row into a closed season."""
+        # Write freeze (D1): layer 1 checked the anchor the row has BEFORE
+        # the write; this checks the one it would have AFTER, so a PATCH
+        # cannot move the row into a closed season.
+        self.assert_update_target_open(serializer)
+        serializer.save()
+
     def perform_create(self, serializer) -> None:
         """Inject created_by from the authenticated user on every create."""
+        # Write freeze (D1): CreateModelMixin never calls get_object(), so
+        # the SeasonNotClosed object permission cannot fire on a create.
+        self.assert_create_target_open(serializer)
         serializer.save(created_by=self.request.user)
 
     @action(detail=False, methods=['get'], url_path='ledger')
@@ -367,6 +504,13 @@ class CustomsExpenseViewSet(ModelViewSet):
                 {"date": "2026-06-01", "advances": "2500.00", "expenses": "1200.00"}
             ]
         }
+
+        Season-scoped like every other list on this and the sibling
+        FinansistAdvanceViewSet — this action builds its own querysets
+        straight off the managers rather than through get_queryset(), so it
+        needs its own season resolution rather than inheriting one. Fails
+        closed (all-zero response) during the close→open gap; ?season=<id>
+        follows the same NotFound/PermissionDenied rules as every scoped list.
         """
         params = request.query_params
         date_from_str = params.get('date_from')
@@ -376,6 +520,18 @@ class CustomsExpenseViewSet(ModelViewSet):
         # to a single currency so the balance is a valid same-unit figure. Rows in
         # other currencies are excluded from this ledger window.
         currency = params.get('currency') or 'TMT'
+
+        # resolve_season() is called unconditionally, before the date-window
+        # parsing below, so a bad/closed ?season= still 404s/403s the same
+        # way it would on the plain list endpoint. During the close→open gap
+        # (season is None) there is no season to attribute this money to, so
+        # the ledger fails closed rather than mixing every season's cash.
+        season = resolve_season(request)
+        if season is None:
+            return Response({
+                'currency': currency, 'advances_total': '0', 'expenses_total': '0',
+                'balance': '0', 'by_category': [], 'by_date': [],
+            })
 
         # Parse date bounds defensively — return 400 on clearly invalid input.
         date_from: _date | None = None
@@ -398,7 +554,9 @@ class CustomsExpenseViewSet(ModelViewSet):
                 )
 
         # ── Expenses (money-out) ──────────────────────────────────────────────
-        expense_qs = CustomsExpense.objects.filter(currency=currency)
+        expense_qs = CustomsExpense.objects.filter(
+            _customs_expense_season_q(season), currency=currency,
+        )
         if date_from:
             expense_qs = expense_qs.filter(expense_date__gte=date_from)
         if date_to:
@@ -438,7 +596,9 @@ class CustomsExpenseViewSet(ModelViewSet):
         }
 
         # ── Advances (money-in) ───────────────────────────────────────────────
-        advance_qs = FinansistAdvance.objects.filter(currency=currency)
+        advance_qs = _scope_advances_to_season(
+            FinansistAdvance.objects.filter(currency=currency), season,
+        )
         if date_from:
             advance_qs = advance_qs.filter(advance_date__gte=date_from)
         if date_to:

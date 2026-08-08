@@ -36,6 +36,14 @@
     "loading_dept_head_deputy": "Ýükleme gaplama bölüminiň orunbassary",
     "boss": "Başlyk"
   },
+  "boss_mode": {
+    "view": "Görmek",
+    "edit": "Üýtgetmek",
+    "active": "Üýtgetmek režimi",
+    "confirm_title": "Üýtgetmek režimine geçmek",
+    "confirm_body": "Siz öz adyňyzdan üýtgetme girizersiňiz. Ähli üýtgetmeler audit žurnalynda \"boss\" hökmünde ýazylýar.",
+    "confirm_ok": "Dowam et"
+  },
   "nav": {
     "brand_name": "YGT Platform",
     "dashboard": "Baş sahypa",
@@ -64,10 +72,19 @@
     "admin_shipment_settings": "Ýük Sazlamalary",
     "admin_audit_log": "Audit Žurnaly",
     "admin_staff_access": "Işgärleriň Sahypalara Girişi",
+    "admin_process_links": "Proses diagrammasynyň baglanyşyklary",
     "group_main": "Esasy",
     "group_export": "Eksport",
     "group_management": "Dolandyryş",
     "group_system": "Ulgam",
+    "group_overview": "Syn",
+    "group_planning": "1. Meýilnama",
+    "group_prep": "2. Taýýarlyk",
+    "group_shipping": "3. Ýükleme",
+    "group_docs": "4. Resminamalar we gümrük",
+    "group_sales": "5. Satuw we şertnamalar",
+    "group_finance": "6. Maliýe",
+    "group_reference": "Sözlükler",
     "sidebar_tagline": "Operasiýalar",
     "toggle_menu": "Menýuny açmak/ýapmak",
     "shipment_sheet": "Sahypa",
@@ -1128,6 +1145,17 @@
     "error_load": "Içerki satuw maglumatlaryny ýükläp bolmady",
     "subtitle": "Içerki bazar satyw hasabaty"
   },
+  "season": {
+    "switcher_label": "Möwsüm",
+    "status_active": "Işjeň",
+    "status_closed": "Ýapyk",
+    "status_upcoming": "Öňümizdäki",
+    "readonly_banner": "Ýapyk möwsüm {{name}} görülýär — diňe okamak",
+    "back_to_active": "Işjeň möwsüme dolan",
+    "closed_error": "Bu möwsüm ýapyk, üýtgedip bolmaýar",
+    "partial_view_notice": "Arhiwlenen ýazgylar bu görnüşde görkezilmeýär",
+    "no_active_season_banner": "Işjeň möwsüm ýok — admin Admin → Möwsümler bölüminde möwsümi açýança hiç zady üýtgedip bolmaýar"
+  },
   "seasons": {
     "title": "Möwsümler",
     "add": "Möwsüm goş",
@@ -1143,7 +1171,18 @@
     "toast_updated": "Möwsüm täzelendi",
     "toast_deleted": "Möwsüm pozuldy",
     "toast_error": "Amal başa barmady",
-    "subtitle": "Eksport möwsümlerini dolandyrmak"
+    "subtitle": "Eksport möwsümlerini dolandyrmak",
+    "status_column": "Ýagdaýy",
+    "close_button": "Möwsümi ýap",
+    "open_button": "Möwsümi aç",
+    "close_confirm_title": "{{name}} möwsümi ýapylsynmy?",
+    "close_confirm_body": "{{name}} möwsümini ýapmak {{drafts}} garalama ýügi, {{in_transit}} ýolda barýan ýügi we {{open_tasks}} açyk wezipäni gizlär, şeýle-de heniz faktiki netijesi girizilmedik {{unfinished_plans}} hepdelik meýilnamany gizlär. Hiç zat pozulmaýar — ähli ýazgylar bolşy ýaly galýar we {{name}} möwsüm saýlanjy sanawynda saýlananda diňe okamak üçin ýene görünýär.",
+    "close_preview_error": "Ýapmak barada maglumaty ýüklemek başartmady",
+    "retry": "Gaýtadan synanyş",
+    "toast_closed": "Möwsüm ýapyldy",
+    "open_confirm_title": "{{name}} möwsümi açylsynmy?",
+    "open_confirm_body": "Mundan beýläk täze ýükler {{name}} möwsüminde dörediler. Häzirki işjeň möwsüm ýazgy nyşany bolmakdan galýar, ýöne ýapylmaýar.",
+    "toast_opened": "Möwsüm açyldy"
   },
   "firms_admin": {
     "title": "Eksport firmalary",
@@ -2131,6 +2170,7 @@
       "risk_matrix": "Töwekgelçilik matrisi",
       "alerts": "Üns beriň",
       "reports": "Hasabatlar",
+      "process_guides": "Proses nähili işleýär",
       "production_daily": "Günlük önümçilik netijeleri",
       "production_seasonal": "Möwsümleýin önümçilik netijeleri",
       "export_market": "Daşarky bazar paýlanyşy"
@@ -2165,6 +2205,12 @@
       "audit": "Audit",
       "excel": "Excel",
       "pdf": "PDF"
+    },
+    "process": {
+      "journey": "Ýük daşamanyň ýoly",
+      "journey_desc": "Meýilnamadan satuwa çenli: 3 tapgyr, 12 ädim, her ädimiň eýesi",
+      "bpmn": "BPMN shemasy",
+      "bpmn_desc": "Prosesiň resmi shemasy"
     },
     "production": {
       "header_block": "Ýyladyşhana",
@@ -3012,6 +3058,20 @@
     "toast_error": "Sahypa girişini saklamak başa barmady",
     "error_load": "Sahypa girişi sazlamalaryny ýükläp bolmady",
     "empty": "Dolandyrýan işgär wezipeleriňiz ýok."
+  },
+  "process_node_links_admin": {
+    "title": "Proses diagrammasynyň baglanyşyklary",
+    "subtitle": "Bossuň BPMN prosesiň diagrammasyndaky her blogy açylýan ekran bilen baglaň.",
+    "col_node_id": "Blok ID",
+    "col_label": "Bellik",
+    "col_route": "Marşrut",
+    "col_status": "Ýagdaýy",
+    "edit_title": "Baglanyşygy üýtget — {{node}}",
+    "route_placeholder": "/export/plan",
+    "route_hint": "\"/\" bilen başlamaly we diňe harplar, sanlar, \"-\", \"_\", \"/\" bolmaly — ýa-da blogy aýyrmak üçin boş goýuň.",
+    "route_invalid": "Marşrut \"/\" bilen başlamaly (\"//\" däl) we diňe harplar, sanlar, \"-\", \"_\", \"/\" bolmaly",
+    "toast_updated": "Baglanyşyk üýtgedildi",
+    "error_load": "Prosesiň baglanyşyklaryny ýükläp bolmady"
   },
   "clients_report": {
     "title": "Müşderiler hasabaty",

@@ -287,7 +287,7 @@ The `TaskViewSet` at `/api/v1/export/tasks/` exposes the structured task engine 
 
 `GET /api/v1/export/shipments/{id}/tasks/` — nested action on `ShipmentViewSet`; returns tasks for a single shipment grouped by `step` code as a dict `{step_code: [TaskListSerializer items]}`.
 
-`GET /api/v1/me/tasks/` — current-user scoped list (see [[../reference/api-endpoint-map]] Me Endpoints section).
+`GET /api/v1/me/tasks/` — current-user scoped list (see [[../reference/api-endpoint-map]] Me Endpoints section). **Season-scoped** on `shipment__season` with `include_null_link`, identical to `TaskViewSet` — this is the endpoint the My Tasks screen actually lists from, so scoping only the viewset left that screen unaffected by the season switcher until 2026-08-06.
 
 `GET /api/v1/me/kpi-today/` — today's KPI for the current user (see [[../reference/api-endpoint-map]] Me Endpoints section).
 

@@ -37,14 +37,23 @@ logger = logging.getLogger(__name__)
 # kept as a hook in case a future status wants a dedicated auto-set timestamp.
 STATUS_TIMESTAMP_MAP: dict[str, str] = {}
 
-# Roles that may override role restrictions and trigger any valid transition.
-PRIVILEGED_ROLES = {'export_manager', 'director'}
+# Roles that bypass the per-edge role check. boss joined 2026-08-05 so he can
+# unstick any step from his own login instead of logging in as each role.
+# NOTE: apps/core/roles.py has a same-named constant with different members.
+# They are already divergent — do not "fix" that here.
+PRIVILEGED_ROLES = {'export_manager', 'director', 'boss'}
 
-# Roles allowed to CANCEL a shipment. Superset of PRIVILEGED_ROLES + the
-# system admin. (admin is the top-tier system role per ADR-15; it isn't in the
-# narrow operational PRIVILEGED_ROLES above, so it's listed explicitly here.)
+# Roles allowed to CANCEL a shipment. A LITERAL set, deliberately NOT derived
+# from PRIVILEGED_ROLES: it was `PRIVILEGED_ROLES | {'admin'}`, so adding boss
+# above silently rewrote every ('cancelled', ...) edge below and made boss an
+# allowed actor on the cancel edges. Cancelling is not "one more step in the
+# chain" — it must go through the /cancel/ endpoint (views.py), which also
+# cancels open Tasks, cleans up draft QuotaUsageRecords and demands a reason.
+# Keep this list in step with that endpoint's own role gate
+# (apps.core.roles.PRIVILEGED_ROLES, which already means admin/export_manager/
+# director), and let privilege-widening on the STEP edges move independently.
 # Superusers bypass the role gate entirely — see transition_to().
-CANCEL_ROLES = PRIVILEGED_ROLES | {'admin'}
+CANCEL_ROLES = {'admin', 'export_manager', 'director'}
 
 # Allowed transitions: from_code → list of edge tuples.
 # Edge tuple shape: (to_code, allowed_roles) OR (to_code, allowed_roles, predicate)
@@ -184,12 +193,21 @@ def transition_to(
                 fires the final-step notification once after the cascade ends.
 
     Raises:
+        SeasonClosedError: If this shipment belongs to a closed season (D1).
         ValueError: If the transition is not allowed from the current status,
                     or if new_status_code does not exist in ShipmentStatusType.
         PermissionError: If the user's role is not allowed to trigger this
                          transition AND is_auto=False.
     """
     from apps.core.models import ShipmentStatusType
+    from apps.core.seasons import assert_season_open
+
+    # Write freeze (D1). This is the mandated path for every status change in
+    # the system, so guarding it here covers /transition/, /cancel/, /assign/
+    # and auto-advance in one place. Note auto_advance_if_ready() catches only
+    # ValueError, so SeasonClosedError propagates out of a save() on a
+    # closed-season row — intended.
+    assert_season_open(shipment.season)
 
     current_code = shipment.status.code if shipment.status_id else None
     edges = TRANSITIONS.get(current_code, [])
@@ -565,17 +583,23 @@ def create_shipment(
         The newly created Shipment instance in `draft` status.
 
     Raises:
+        SeasonClosedError: If an explicit closed `season` was supplied (D1).
         ValueError: If no active season exists and none was provided, or if
                     the draft status is not configured in the DB.
     """
-    from apps.core.models import Season, ShipmentStatusType
+    from apps.core.models import ShipmentStatusType
+    from apps.core.seasons import assert_season_open, get_active_season
 
     # Resolve season from the active season when the caller did not supply one.
     resolved_season: Optional[object] = season
     if resolved_season is None:
-        resolved_season = Season.objects.filter(is_active=True).first()
+        resolved_season = get_active_season()
         if resolved_season is None:
             raise ValueError('No active season found. Provide a season in the request.')
+
+    # Write freeze (D1). get_active_season() can never return a closed season,
+    # so this only ever bites a POST body carrying an explicit closed `season`.
+    assert_season_open(resolved_season)
 
     try:
         draft_status = ShipmentStatusType.objects.get(code='draft')

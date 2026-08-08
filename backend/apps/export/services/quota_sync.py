@@ -58,11 +58,22 @@ def invalidate_quota_caches() -> None:
     — Django's default backend has no pattern-delete and the keys are
     parameterised by season/date range. Acceptable lag for the dashboard,
     not for these (which other writes read back immediately).
+
+    Both key families are parameterised by season id since D11 — quota no
+    longer crosses a season boundary, so each season has its own ledger and its
+    own cache entry. Django's default backend has no pattern-delete, so this
+    enumerates the seasons rather than globbing; the table holds one row per
+    export year, so the id list is tiny and bounded.
     """
-    cache.delete('fifo_usage:tomato')
-    cache.delete('fifo_usage:pepper')
-    cache.delete('quota_firm_balances:tomato')
-    cache.delete('quota_firm_balances:pepper')
+    from apps.core.models import Season
+
+    season_ids = list(Season.objects.values_list('id', flat=True))
+    cache.delete_many([
+        f'{prefix}:{product}:{season_id}'
+        for prefix in ('fifo_usage', 'quota_firm_balances')
+        for product in ('tomato', 'pepper')
+        for season_id in season_ids
+    ])
 
 
 def sync_draft_quota_usage_for_shipment(

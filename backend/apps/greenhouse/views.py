@@ -10,8 +10,11 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
-from apps.core.permissions import write_permission
+from apps.core.permissions import SeasonNotClosed, write_permission
 from apps.core.roles import DOMESTIC_WRITE, HARVEST_DAY_WRITE, HARVEST_DAY_OVERRIDE
+from apps.core.seasons import (
+    SeasonScopedMixin, assert_bulk_seasons_open, assert_season_id_open, resolve_season,
+)
 from apps.greenhouse.models import (
     BlockManagerAssignment,
     DomesticSale,
@@ -37,7 +40,7 @@ logger = logging.getLogger(__name__)
 _DOMESTIC_WRITE_ROLES = DOMESTIC_WRITE
 
 
-class WeeklyHarvestPlanViewSet(ModelViewSet):
+class WeeklyHarvestPlanViewSet(SeasonScopedMixin, ModelViewSet):
     """
     GET    /api/v1/greenhouse/harvest-plans/            — list (filter by ?season=&block=&year=&week=)
     GET    /api/v1/greenhouse/harvest-plans/{id}/       — detail
@@ -50,7 +53,7 @@ class WeeklyHarvestPlanViewSet(ModelViewSet):
       - All other roles: denied on write.
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, SeasonNotClosed]
     serializer_class = WeeklyHarvestPlanSerializer
     http_method_names = ['get', 'post', 'put', 'patch', 'head', 'options']
 
@@ -68,9 +71,13 @@ class WeeklyHarvestPlanViewSet(ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
+        # ?season= is handled by apply_season_scope (list only) — the previous
+        # hand-written `filter(season_id=...)` accepted any season id with no
+        # closed-season permission check. Detail routes stay unscoped so a
+        # direct link resolves.
+        if getattr(self, 'action', None) == 'list':
+            qs = self.apply_season_scope(qs)
         params = self.request.query_params
-        if season := params.get('season'):
-            qs = qs.filter(season_id=season)
         if block := params.get('block'):
             qs = qs.filter(block_id=block)
         if year := params.get('year'):
@@ -103,11 +110,18 @@ class WeeklyHarvestPlanViewSet(ModelViewSet):
         )
 
     def perform_create(self, serializer):
+        # Write freeze (D1): CreateModelMixin never calls get_object(), so
+        # the SeasonNotClosed object permission cannot fire on a create.
+        self.assert_create_target_open(serializer)
         block_id = serializer.validated_data['block'].id
         self._check_plan_permission(self.request.user, block_id, is_create=True)
         serializer.save(entered_by=self.request.user)
 
     def perform_update(self, serializer):
+        # Write freeze (D1): layer 1 checked the anchor the row has BEFORE
+        # the write; this checks the one it would have AFTER, so a PATCH
+        # cannot move the row into a closed season.
+        self.assert_update_target_open(serializer)
         instance = serializer.instance
         block_id = instance.block_id
         self._check_plan_permission(self.request.user, block_id, is_create=False)
@@ -132,23 +146,41 @@ class WeeklyHarvestPlanViewSet(ModelViewSet):
         if role not in ('admin', 'director'):
             raise PermissionDenied('Only admin or director can initialize a week plan.')
 
+        # Write freeze (D1) — the season arrives in the request BODY.
+        assert_season_id_open(season_id)
+
         plans = initialize_harvest_week(season_id, week_number, year, request.user)
         serializer = self.get_serializer(plans, many=True)
         return Response({'count': len(serializer.data), 'results': serializer.data})
 
     @action(detail=False, methods=['get'], url_path='block-summary')
     def block_summary(self, request):
-        """GET /api/v1/greenhouse/harvest-plans/block-summary/?season=&year=&week="""
+        """GET /api/v1/greenhouse/harvest-plans/block-summary/?season=&year=&week=
+
+        Season-scoped like the list action — a sibling @action on a scoped
+        viewset is part of that viewset. It matters more here than elsewhere:
+        `get_block_summary` falls back to a bare (year, week) date window when
+        it gets no season, and seasons run Sept→Aug, so a past week *is* a
+        closed season — reachable with no ?season= param at all, and therefore
+        with nothing for a permission check to hang off. Resolving the season
+        (default: active) closes that in both directions.
+        """
         params = request.query_params
         if not params.get('year') or not params.get('week'):
             return Response(
                 {'error': 'year and week query params are required.'},
                 status=http_status.HTTP_400_BAD_REQUEST,
             )
+        season = resolve_season(request)
+        if season is None:
+            # Fail closed (D7, spec §3.1). Passing season_id=None would drop
+            # get_block_summary back to its bare (year, week) date window,
+            # which is the exact leak this scoping closes.
+            return Response([])
         results = get_block_summary(
             year=int(params['year']),
             week=int(params['week']),
-            season_id=params.get('season'),
+            season_id=season.id,
         )
         return Response(results)
 
@@ -291,6 +323,9 @@ class WeeklyHarvestPlanViewSet(ModelViewSet):
         if errors:
             return Response(errors, status=http_status.HTTP_400_BAD_REQUEST)
 
+        # Write freeze (D1) — bulk by raw id list, no get_object().
+        assert_bulk_seasons_open(WeeklyHarvestPlan.objects.filter(id__in=plan_ids))
+
         now = timezone.now()
         with transaction.atomic():
             plans = list(WeeklyHarvestPlan.objects.filter(id__in=plan_ids).select_related(
@@ -346,6 +381,9 @@ class WeeklyHarvestPlanViewSet(ModelViewSet):
                 status=http_status.HTTP_400_BAD_REQUEST,
             )
 
+        # Write freeze (D1) — bulk by raw id list, no get_object().
+        assert_bulk_seasons_open(WeeklyHarvestPlan.objects.filter(id__in=plan_ids))
+
         now = timezone.now()
         with transaction.atomic():
             plans = list(WeeklyHarvestPlan.objects.filter(id__in=plan_ids).select_related(
@@ -376,7 +414,7 @@ class WeeklyHarvestPlanViewSet(ModelViewSet):
         return Response({'updated': count, 'results': serializer.data})
 
 
-class HarvestDayEntryViewSet(ModelViewSet):
+class HarvestDayEntryViewSet(SeasonScopedMixin, ModelViewSet):
     """
     GET    /api/v1/greenhouse/day-entries/              — list (filter ?season=&block=&date_from=&date_to=&weekly_plan=)
     GET    /api/v1/greenhouse/day-entries/{id}/         — detail
@@ -391,7 +429,7 @@ class HarvestDayEntryViewSet(ModelViewSet):
     POST and DELETE are disabled — rows are created by initialize_harvest_week.
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, SeasonNotClosed]
     serializer_class = HarvestDayEntrySerializer
     http_method_names = ['get', 'patch', 'head', 'options']
 
@@ -402,9 +440,11 @@ class HarvestDayEntryViewSet(ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
+        # ?season= is handled by apply_season_scope (list only) — see
+        # WeeklyHarvestPlanViewSet.
+        if getattr(self, 'action', None) == 'list':
+            qs = self.apply_season_scope(qs)
         params = self.request.query_params
-        if season := params.get('season'):
-            qs = qs.filter(season_id=season)
         if block := params.get('block'):
             qs = qs.filter(block_id=block)
         if date_from := params.get('date_from'):

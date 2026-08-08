@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { FieldEditor } from '@/components/FieldEditor';
 import { useShipmentPatchMulti } from '@/hooks/useShipmentPatch';
 import { useAuth } from '@/hooks/useAuth';
+import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
 import { canEditField } from '@/utils/permissions';
 import { EDIT_FIELD_GROUPS } from '@/constants/shipmentEditConfig';
 import type { IEditFieldGroup, IEditFieldConfig } from '@/constants/shipmentEditConfig';
@@ -40,6 +41,12 @@ export function ShipmentEditDrawer({
   const { t } = useTranslation();
   const { user } = useAuth();
   const patch = useShipmentPatchMulti();
+  // Prevents both the Save click (409 -> rollback) AND the field editors
+  // themselves from accepting input while browsing a closed season — the
+  // local `values`/`dirty` draft here would be silently reset by the
+  // `useEffect` below the moment a rollback changes the `shipment` reference,
+  // same data-loss shape as DetailFieldRow's autosave.
+  const isReadOnly = useSeasonReadOnly();
 
   const [values, setValues] = useState<Record<string, FieldValue>>({});
   const [dirty, setDirty] = useState<Set<string>>(new Set());
@@ -134,7 +141,7 @@ export function ShipmentEditDrawer({
             type="primary"
             onClick={handleSave}
             loading={patch.isPending}
-            disabled={dirty.size === 0 || noEditableFields}
+            disabled={dirty.size === 0 || noEditableFields || isReadOnly}
           >
             {t('common.save')}
           </Button>
@@ -168,7 +175,7 @@ export function ShipmentEditDrawer({
                     value={values[field.key]}
                     onChange={(v) => handleChange(field, v)}
                     countryId={(values.country as number | null) ?? null}
-                    disabled={patch.isPending}
+                    disabled={patch.isPending || isReadOnly}
                   />
                 </Form.Item>
               ))}

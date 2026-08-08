@@ -29,6 +29,7 @@ import { QuotaWeeklyFlow } from './QuotaWeeklyFlow';
 import { LocalSellPlanGrid } from './LocalSellPlanGrid';
 import { QuotaIssuancesList } from './QuotaIssuancesList';
 import { computeExpiry } from './QuotaIssuancesList.helpers';
+import { seasonsVisibleTo } from './QuotaDashboard.helpers';
 import { QuotaUsageTab } from './QuotaUsageTab';
 import type { ISeason } from '@/types';
 import { COLORS } from '@/constants/styles';
@@ -120,12 +121,22 @@ export default function QuotaDashboard() {
   // Full analytics: comparison tabs (Firm Chart, Weekly Trend) — export_manager/director
   const canSeeAnalytics = canDo(user, 'local_sell_plan', 'view');
 
-  // Season selection
+  // Season selection. Closed seasons are hidden from anyone without
+  // `closed_season.can_view` — the backend resolves this filter's `?season=`
+  // through `resolve_season()`, so picking one would 403 and the page would
+  // show nothing but "Failed to load quota data". The DEFAULT comes from the
+  // same filtered list: during the close→open gap there is no ACTIVE season,
+  // and falling back to `seasons[0]` would silently default an unpermitted
+  // user onto the most recent closed one.
   const { data: seasons = [] } = useSeasons();
-  const activeSeason = seasons.find((s) => s.is_active) ?? seasons[0];
+  const selectableSeasons = useMemo(
+    () => seasonsVisibleTo(seasons, user?.can_view_closed_seasons ?? false),
+    [seasons, user?.can_view_closed_seasons],
+  );
+  const activeSeason = selectableSeasons.find((s) => s.is_active) ?? selectableSeasons[0];
   const [selectedSeasonId, setSelectedSeasonId] = useState<number | undefined>(undefined);
   const seasonId = selectedSeasonId ?? activeSeason?.id;
-  const currentSeason = seasons.find((s) => s.id === seasonId);
+  const currentSeason = selectableSeasons.find((s) => s.id === seasonId);
 
   // Period selection
   const [period, setPeriod] = useState<IPeriodState>(EMPTY_PERIOD);
@@ -222,7 +233,7 @@ export default function QuotaDashboard() {
     });
   }
 
-  const seasonOptions = seasons.map((s) => ({ value: s.id, label: s.name }));
+  const seasonOptions = selectableSeasons.map((s) => ({ value: s.id, label: s.name }));
 
   const statFmt = (v: number | string) =>
     Number(v).toLocaleString('ru-RU', { maximumFractionDigits: weightUnit === 'ton' ? 2 : 0 });

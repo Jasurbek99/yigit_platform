@@ -23,11 +23,14 @@ import {
   useCountries,
 } from '@/hooks/useAdmin';
 import type { ITruckDestination } from '@/types';
+import { useAuth } from '@/hooks/useAuth';
+import { canWriteReferenceData } from '@/utils/permissions';
 
 const { Title, Text } = Typography;
 
 export default function TruckDestinationsPage() {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const { data: destinations = [], isLoading } = useAdminTruckDestinations();
   const { data: countries = [] } = useCountries();
   const createDest = useCreateTruckDestination({
@@ -92,6 +95,12 @@ export default function TruckDestinationsPage() {
     label: c.name_en || c.name_tk,
   }));
 
+  // Reference data (customers, cities, countries, status types) is gated
+  // server-side by REFERENCE_DATA_WRITE alone — it has no permission-matrix
+  // resource, so canDo cannot express it. The boss's 2026-08-05 CRUD grant does
+  // not satisfy that gate, so these controls would render and then 403.
+  const canWrite = canWriteReferenceData(user);
+
   const columns = [
     {
       title: t('truck_dest_admin.name'),
@@ -130,17 +139,21 @@ export default function TruckDestinationsPage() {
         </Tag>
       ),
     },
-    {
-      title: '',
-      key: 'actions',
-      width: 100,
-      render: (_: unknown, record: ITruckDestination) => (
-        <Space size={4}>
-          <Button size="small" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
-          <Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)} />
-        </Space>
-      ),
-    },
+    ...(canWrite
+      ? [
+          {
+            title: '',
+            key: 'actions',
+            width: 100,
+            render: (_: unknown, record: ITruckDestination) => (
+              <Space size={4}>
+                <Button size="small" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
+                <Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)} />
+              </Space>
+            ),
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -150,9 +163,11 @@ export default function TruckDestinationsPage() {
           <Title level={4} style={{ margin: 0 }}>{t('truck_dest_admin.title')}</Title>
           <Text type="secondary">{t('truck_dest_admin.subtitle')}</Text>
         </div>
-        <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
-          {t('truck_dest_admin.add')}
-        </Button>
+        {canWrite && (
+          <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
+            {t('truck_dest_admin.add')}
+          </Button>
+        )}
       </div>
 
       <Table

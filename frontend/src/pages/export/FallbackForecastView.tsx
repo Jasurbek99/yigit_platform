@@ -16,7 +16,6 @@ import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import { useDayEntries, useUpsertDayEntry } from '@/hooks/usePlanning';
 import { useGreenhouseConfig } from '@/hooks/useGreenhouseConfig';
-import { useSeasons } from '@/hooks/useAdmin';
 import type { IHarvestDayEntry } from '@/types';
 import { COLORS } from '@/constants/styles';
 
@@ -30,12 +29,12 @@ export default function FallbackForecastView(): React.ReactElement {
   const todayStr = today.format('YYYY-MM-DD');
 
   const { data: configData } = useGreenhouseConfig();
-  const { data: seasonsData } = useSeasons();
-  const activeSeason = seasonsData?.find((s) => s.is_active);
 
-  // Load today's day entries for all blocks
+  // Load today's day entries for all blocks. No explicit season here —
+  // useDayEntries now owns season selection internally via the global
+  // store (useSelectedSeason()), so this follows whatever season is
+  // browsed rather than a page-local `is_active` lookup.
   const { data: entries = [], isLoading } = useDayEntries({
-    season: activeSeason?.id,
     date_from: todayStr,
     date_to: todayStr,
   });

@@ -44,6 +44,7 @@ from .sheet_settings import (
     ShipmentCustomFieldValue,
 )
 from .task import Task, TaskRule, TaskState, TaskCompletionRule, TaskKind
+from .process_node_link import ProcessNodeLink
 
 __all__ = [
     'Shipment',
@@ -95,4 +96,5 @@ __all__ = [
     'TaskState',
     'TaskCompletionRule',
     'TaskKind',
+    'ProcessNodeLink',
 ]

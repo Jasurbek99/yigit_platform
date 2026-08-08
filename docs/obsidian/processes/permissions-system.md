@@ -12,7 +12,39 @@ YGT uses a dynamic, database-driven RBAC (Role-Based Access Control) system. Ins
 
 > **AD-15 (Apr 2026):** Permission-matrix and user-management endpoints are now restricted to `role='admin'` (or `is_superuser`). `director` and `export_manager` keep all operational power but cannot edit who-can-do-what. Reference-data writes (countries, cities, customers, blocks, etc.) remain available to admin / director / export_manager.
 
+> **AD-16 (Aug 2026) — Season lifecycle:** New `closed_season` resource (view-only) gates which roles may browse a closed season read-only via the header switcher; separate from the pre-existing `season` resource, which gates the admin Seasons page (list/CRUD + close/open). See [[#Browsing closed seasons (AD-16)]] below and `docs/ADR.md` (AD-16).
+
 > **ADR-022 (Jun 2026) — Delegated user management:** A bounded exception to AD-15. The `loading_dept_head` role may **create / edit / delete / reset-password** users of the `loading_dept_head_deputy` and `weight_master` roles ONLY, and may grant those two roles a **subset of his own visible (non-`admin.*`) pages** via a dedicated scoped endpoint. The full permission-matrix CRUD stays admin-only. Who-may-manage-whom lives in `MANAGEABLE_BY_ROLE` (`apps/core/roles.py`); enforcement is entirely server-side in `UserManagementViewSet` + `ManagedPagePermissionsView`. The head's deputy does **not** inherit this power. See the [[#Delegated user management (ADR-022)]] section below.
+
+> **Boss widened to full access, gated in the UI instead (2026-08-05, boss process visibility feature).** `boss` moved from 3 read-only pages to `_ALL_PAGES - _BOSS_DEAD_PAGES` (38 of 42 pages, `seed_permissions.py`) and from strictly-read-only to full CRUD (`_VCRUD`) on every resource **except three carve-outs**: `closed_season` (view-only, D1 write-freeze, same carve-out `admin` has), `truck_split_default` (view-only — only the director changes the official kg-per-firm constants, Gap 7 / ADR-016; `export_manager` is read-only here too, so `boss` must not exceed him) and `sale` (view+create+edit, **no delete** — sale deletion is `admin`-only for `director` and `export_manager` as well, and deleting a `ContractSale` re-rolls the parent `Contract`'s totals). `FIELD_DEFAULTS['boss'] = {r: ['*'] for r in _ALL_RESOURCES}` was added alongside it — without a field-level wildcard, every field would render locked even though the resource grant allows the write. This runs against the grain of **AD-15**: `director` and `export_manager`, the other near-full-access roles, are explicitly denied every `admin.*` page because `admin` is meant to be the sole top-tier system administrator. Granting `boss` the remaining `admin.*` pages was nonetheless a deliberate, user-approved decision for this feature — treat it as a decision with a tension attached, not settled architecture. Four pages are excluded (`admin.permissions`, `admin.users`, `admin.staff_access`, `feedback.admin_inbox`) — see below.
+>
+> **Four pages are excluded from the grant — `_BOSS_DEAD_PAGES` (2026-08-05, extended 2026-08-07).** Each is refused by a gate that never consults the permission matrix, so granting the page ships a nav entry that opens something broken. `PAGE_DEFAULTS['boss'] = _ALL_PAGES - _BOSS_DEAD_PAGES`; the same list is duplicated as `EXCLUDED_PAGES` in `core/0033` and a test (`tests_boss_access`) asserts the two are identical.
+>
+> | Page | Gate | Symptom for `boss` |
+> |------|------|--------------------|
+> | `admin.permissions` | `_AdminOnlyPermission` (`core/views_permissions.py`), hardcoded to `role=='admin'`/superuser, rejects even GET | all four matrix endpoints 403 |
+> | `admin.users` | `UserManagementViewSet.get_queryset` (`export/views_admin.py`) raises for a role that manages nobody; `boss` is not in `MANAGEABLE_BY_ROLE` | 403 on the user list |
+> | `admin.staff_access` | `ManagedPagePermissionsView` (`export/views_admin.py`) admits full admins and delegated managers only | 403 on GET |
+> | `feedback.admin_inbox` | `FeedbackTicketViewSet.get_queryset` (`feedback/views.py`) scopes the inbox on `role == 'admin'` | **silently** shows only his own tickets — reads as "no feedback", not as an error |
+>
+> AD-15's enforcement was never weakened by the widening; the menu now matches it.
+>
+> The DB grant above is also only half the access story for `boss` — see "Boss view/edit toggle (UI guard only)" under Frontend Implementation. The backend accepts `boss` writes regardless of that toggle; only the frontend respects it.
+
+> **Deploying the widening needs the migration, not the seed command.** `seed_permissions` uses `get_or_create(..., defaults={...})` and `defaults` applies **only on INSERT** — on any database seeded before 2026-08-05 the boss's 42 page rows and 25 resource rows already exist, so re-running the command finds them and changes nothing. `core/migrations/0033_boss_process_visibility_perms.py` does the `.update()` (plus a reverse function that restores the pre-widening 7-page, view-only state). The seed dicts and that migration must stay in sync — both carry a comment saying so, and the same three resource carve-outs and the same four excluded pages are encoded in both (a test asserts the page lists match).
+
+> **`0033` skips on the test DATABASE, not on an environment variable (corrected 2026-08-07).** It originally returned early when `DJANGO_TESTING=true` — the convention migrations 0018 / 0020 / 0026 established — **but Django records a migration as applied whether or not its body did anything**. A `migrate` run with that variable left set in the shell therefore no-opped the migration *permanently*: the row lands in `django_migrations` and no later run re-executes it. Every documented backend test command in this repo exports `DJANGO_TESTING=true`, so it is routinely already present in a developer's shell, and this project has already sent a migration to the wrong database through exactly this mechanism (`export.0058`, 2026-08-05). The guard is now `schema_editor.connection.settings_dict['NAME'].startswith('test_')` — the Django test runner always names its database `test_…` (`TEST_DB_NAME`, default `test_YIGIT_PLATFROM`), and no shell variable can spoof that or leave it set by accident. `migrate` is safe to run with `DJANGO_TESTING` set. Migrations 0018 / 0020 / 0026 still use the old env-var guard; `export/0060` never had one.
+> ```bash
+> python manage.py migrate core
+> ```
+> Then **verify it actually landed** — do not trust the "applied" line:
+> ```python
+> # manage.py shell
+> from apps.core.models import RolePagePermission, RoleResourcePermission
+> RolePagePermission.objects.filter(role='boss', is_visible=True).count()      # -> 38
+> RoleResourcePermission.objects.filter(role='boss', can_edit=True).count()    # -> 23
+> ```
+> 38 = the 42 registered pages minus the four in `_BOSS_DEAD_PAGES`; 23 = the 25 registered resources minus `closed_season` and `truck_split_default`. If you get **3** visible pages and **0** editable resources, the migration ran as a no-op. Recovery: delete the `('core', '0033_boss_process_visibility_perms')` row from `django_migrations`, then re-run `migrate core` against the real database.
 
 ## How It Works (Business Flow)
 
@@ -67,8 +99,8 @@ flowchart LR
 > **Adding a new page — both sides must change.** A page is gated by `canSeePage(user, route)` only when its menu item / route has **no** hardcoded `roles` array. For that to resolve, you must (1) add the `page_code` to `PAGE_REGISTRY` here, (2) add the `route → page_code` entry to `ROUTE_PAGE_MAP` in `frontend/src/utils/permissions.ts`, (3) seed defaults in `seed_permissions.py`, and (4) **run `python manage.py seed_permissions` on the deployment** (no `--reset` needed — `get_or_create` inserts only the missing rows). Skipping step 4 makes the page fail-closed (invisible to every non-superuser). A route in `ROUTE_PAGE_MAP` but missing from `PAGE_REGISTRY` (or unseeded) is the classic "page invisible for everyone" bug.
 
 **RESOURCE_REGISTRY**:
-- `shipment`, `shipment_firm_split`, `shipment_block_source`, `shipment_assign`, `quality_document`, `sales_report`, `shipment_comment`, `quota_issuance`, `quota_usage`, `local_sell_plan`, `weekly_plan`, `price_entry`, `advance`, `truck_allocation`, `domestic_sale`, `export_firm`, `import_firm`, `season`, `greenhouse_block`, `truck_split_default`, `pallet`, `manifest_close`
-- `contract`, `sale` — P4 module, all-or-nothing (no `RESOURCE_FIELDS` entry). `ContractViewSet` / `ContractSaleViewSet` gate on these via `DynamicResourcePermission` (replaced the old hardcoded `_CONTRACT_WRITE_ROLES`). Defaults: full CRUD for `admin` / `director` / `export_manager` on `contract`; on `sale` the same three create/edit but **delete is `admin`-only** (`director` / `export_manager` get view+create+edit); `boss` view-only on both; all other roles no access. Matches the management-only page visibility of `contracts.list` / `contracts.sales`.
+- `shipment`, `shipment_firm_split`, `shipment_block_source`, `shipment_assign`, `quality_document`, `sales_report`, `shipment_comment`, `quota_issuance`, `quota_usage`, `local_sell_plan`, `weekly_plan`, `price_entry`, `advance`, `truck_allocation`, `domestic_sale`, `export_firm`, `import_firm`, `season`, `closed_season`, `greenhouse_block`, `truck_split_default`, `pallet`, `manifest_close`
+- `contract`, `sale` — P4 module, all-or-nothing (no `RESOURCE_FIELDS` entry). `ContractViewSet` / `ContractSaleViewSet` gate on these via `DynamicResourcePermission` (replaced the old hardcoded `_CONTRACT_WRITE_ROLES`). Defaults: full CRUD for `admin` / `director` / `export_manager` on `contract`; on `sale` the same three create/edit but **delete is `admin`-only** (`director` / `export_manager` get view+create+edit); `boss` gets full CRUD on `contract` and view+create+edit on `sale` since the 2026-08-05 widening (was view-only on both) — his `sale` delete was removed to match `director`/`export_manager`; all other roles no access. Matches the management-only page visibility of `contracts.list` / `contracts.sales`.
 
 **RESOURCE_FIELDS** (granular editable fields):
 - `shipment`: box_count, pallet_count, weight_net, weight_gross, price_per_kg, total_amount_usd, notes, vehicle_condition, vehicle_condition_note, route_note
@@ -97,6 +129,25 @@ A DRF permission class that:
 
 Creates default permission rows for all roles × pages × resources. The `--reset` flag deletes and recreates all rows (useful after adding new pages/resources to the registry).
 
+### Boss transition authority (2026-08-05)
+
+`PRIVILEGED_ROLES` in `apps/export/services/shipment.py` now includes `boss` — `{'export_manager', 'director', 'boss'}` — so the generic `POST /shipments/{id}/transition/` endpoint, which delegates fully to `transition_to()`, accepts `boss` on any valid status edge, the same as `export_manager`/`director`.
+
+Two dedicated endpoints gate independently on a **different, same-named constant** — `apps.core.permissions.PRIVILEGED_ROLES`, re-exported from `apps.core.roles.PRIVILEGED_ROLES = {admin, export_manager, director}` — which is deliberately left unchanged (widening it has unknown blast radius at `serializers.py:1513`). They were handled one at a time, at the call site:
+
+- `POST /shipments/{id}/assign/` (`apps/export/views.py:1978`) — **opened to `boss`** (2026-08-05 final review). `/export/assign` sits in his process sidebar, and assigning a draft is a genuine process step, so its only action had to work. The gate now reads `PRIVILEGED_ROLES | {'boss'}`.
+- `POST /shipments/{id}/cancel/` (`apps/export/views.py:603`) — **still 403s for `boss`**, deliberately. `ShipmentDetailHero.tsx` hardcodes `CANCEL_ROLES` without `boss`, so the button never renders for him: no error, no surprise, zero user-visible damage. Left as a known, deferred gap.
+
+Reconciling the two divergent `PRIVILEGED_ROLES` constants is still out of scope.
+
+### Process node links — inline admin gate, not the resource matrix (2026-08-06)
+
+`ProcessNodeLinkViewSet` (`/api/v1/export/admin/process-node-links/`, list + PATCH only, backs the [[../roles/boss#BPMN diagram click-through|boss BPMN diagram's]] node→route mapping) is gated the same way `UserManagementViewSet` is — an inline `if not _is_full_admin(request.user): raise PermissionDenied(...)` in `check_permissions`, not `DynamicResourcePermission` against a registered `resource_code`.
+
+This is deliberate, not an oversight to "clean up" later. `seed_permissions.py`'s `RESOURCE_DEFAULTS` gives `director`, `export_manager` and `boss` `**{r: _VCRUD for r in _ALL_RESOURCES}` — full CRUD on every resource — where `_ALL_RESOURCES = set(RESOURCE_REGISTRY.keys())` is computed **dynamically from whatever is currently registered**. Registering a `process_node_link` resource_code would land inside that set the moment it's added, and the next `seed_permissions` run would `get_or_create` full-CRUD rows for those three roles automatically (its `defaults=` only skips existing rows — a brand-new resource_code has none yet). That would silently turn "admin full CRUD, everyone else nothing" into "admin, director, export_manager and boss all get full CRUD" — none of which anyone decided for this feature. An inline check sidesteps the matrix entirely, so there is no per-role override row for a future registry entry to accidentally create.
+
+Same pattern, same reasoning, on the frontend: `/admin/process-links` is gated with `roles={['admin']}` on `ProtectedRoute`, not a `pageCode` — a `pageCode` would go through the same page-permission matrix and could be independently granted to a non-admin role.
+
 ### Endpoints
 
 | Method | Endpoint | Action | Auth |
@@ -110,6 +161,7 @@ Creates default permission rows for all roles × pages × resources. The `--rese
 | POST / DELETE / set-password | `/api/v1/export/admin/users/` (+ `{id}/`, `{id}/set-password/`) | Create / delete / reset-password | **superuser**; **loading_dept_head** for deputy + weight_master only (ADR-022) |
 | GET | `/api/v1/export/admin/users/` | List users | admin or export_manager (full); **loading_dept_head** sees only deputy + weight_master |
 | GET / PUT | `/api/v1/export/admin/managed-page-permissions/` | Delegated staff page-access editor — grant a subset of own pages to managed roles | **loading_dept_head** (any delegated manager); admin/superuser too (ADR-022) |
+| GET / PATCH | `/api/v1/export/admin/process-node-links/` (+ `{id}/`) | List / edit BPMN node→route mapping — no create/delete, `node_id` read-only | **admin** (inline `_is_full_admin`, not the resource matrix — see above) |
 | GET | `/api/v1/export/audit-log/` | Audit log | admin / director / export_manager |
 
 The permissions endpoint returns/accepts all 3 levels for a given user's role. Backend gate is `_AdminOnlyPermission` (predicate: `is_superuser OR role=='admin'`).
@@ -132,6 +184,18 @@ These read from the `ICurrentUser` object returned by `/api/v1/auth/me/`:
 - `page_permissions: Record<string, boolean>`
 - `resource_permissions: Record<string, IResourcePermission>`
 - `field_permissions: Record<string, Record<string, boolean>>`
+
+### Boss view/edit toggle (UI guard only) — 2026-08-05
+
+`boss` now has full CRUD at the DB permission layer (see the callout above), but the app still wants a `boss` session to start read-only. That gate lives entirely on the frontend, on top of the DB grant:
+
+- `bossEditMode` (`frontend/src/stores/uiStore.ts`) — boolean, defaults `false`, deliberately **not persisted** (no localStorage/sessionStorage entry). Every page reload puts `boss` back in view mode.
+- `canDo()` and `canEditField()` (`frontend/src/utils/permissions.ts`) both short-circuit to `false` for `role==='boss'` whenever `bossEditMode` is off, regardless of what the DB permission rows say.
+- `isCellEditable()` (`frontend/src/utils/sheetPermissions.ts`) carries a **third copy** of the same guard, and it is load-bearing. The Sheet payload ships a pre-computed `can_current_user_edit` boolean per row (`apps/export/views.py:1418` and `:1440`) which the helper trusts *instead of* calling `canDo`/`canEditField`; because that value is a bool in both branches for every row, the `?? canEditCell(...)` fallback never fires. Without its own guard the entire grid — inline editing plus Ctrl+C / Ctrl+X / Ctrl+V / Delete over a range — stayed live for `boss` while the header read **Просмотр**. The guard sits **above** the `can_current_user_edit` read.
+- Two backend-shaped exceptions are handled by hiding the control rather than widening the API: `canDoBackendGated()` (shipment create, local sell plan) and `canWriteReferenceData()` (customers, truck destinations) both return `false` for `boss` in *either* toggle position, because those endpoints gate on hardcoded role allowlists his matrix grant cannot satisfy.
+- A `Segmented` control in the app header (`AppLayout.tsx`, boss-only) flips the toggle. Switching **into** edit mode shows a `Modal.confirm` first; switching back to view is immediate, no confirm.
+
+**This is a UI guard, not a security boundary.** `DynamicResourcePermission` and `transition_to()` on the backend know nothing about `bossEditMode` — `boss` writes are accepted at the API in either toggle position. Only the files that call `canDo()`/`canEditField()`/`isCellEditable()` actually hide their edit controls in view mode; any screen that renders a form or an editable field without going through one of those helpers stays editable for `boss` even while the toggle shows Просмотр. **Do not infer coverage from the helper list** — the feature's design doc claimed "no component reads `resource_permissions` directly", which was false (`ContractDetail.tsx` did, and its document upload/delete stayed live in view mode until it was routed through `canDo`). Verify per screen. Closing that gap on every screen is a separate, larger sweep, not part of this feature.
 
 ### Page: PermissionsPage
 
@@ -193,6 +257,34 @@ The `loading_dept_head` (head of packaging + loading) runs his own corner of the
 - The head's **deputy does not** get this management power — only the head manages staff.
 
 Reachability is seeded by data migration `core.0020` (sets `admin.users` + `admin.staff_access` visible for `loading_dept_head`). Tests: `apps/export/tests_delegated_user_mgmt.py` (18).
+
+### Browsing closed seasons (AD-16)
+
+`closed_season` is a resource with only `can_view` ever seeded — create/edit/delete are meaningless for it (closed seasons are read-only). It answers one question: **may this role select a closed season in the header switcher and read it?** It is intentionally a separate resource from `season` (which governs the season CRUD/close/open admin page), because `RoleResourcePermission`'s fixed action vocabulary (`can_view`/`can_create`/`can_edit`/`can_delete`) has no room for a custom "view only when closed" action on an existing resource without a schema change.
+
+- Seeded to `admin`, `director`, `boss`, `export_manager`, `finansist` — the same set as `_ARCHIVE_VIEW_ROLES` (`apps/export/views.py`) — but admin-editable afterwards with no code change, which is the point.
+- **Does NOT imply archive-level read.** The original design (spec §9) said browsing a closed season bypasses the `is_archived` operational/archive split unconditionally for anyone holding `closed_season.can_view`. Implementation review found this makes the permission a silent superset of archive-view access — granting `closed_season` to a sixth role would hand it archived rows (including historical buyer prices) nobody decided it should see. **Reversed (D8):** inside a closed season, archived rows are visible only to users who are ALSO in `_ARCHIVE_VIEW_ROLES`. Everyone else sees a partial view (non-archived rows only) of that season — a UI problem, disclosed in the frontend's `ClosedSeasonBanner`, not a permission escalation.
+- A user holding `closed_season.can_view` but not `season.can_view` cannot populate the switcher's own option list (`GET /admin/seasons/` needs `season.can_view`) — `finansist` hit exactly this gap and was seeded `season: view-only` alongside its existing `closed_season.can_view` (Task 15b) so the switcher works for it without granting any season write access.
+- **Known live-DB drift, not caused by this feature but newly consequential:** `seed_permissions` only `get_or_create`s, never overwrites. On the current dev database, `boss`'s `season` row shows full CRUD where the seeder's blanket `_VIEW` intends read-only — so `boss` can currently close/open seasons, a capability the design never intended for that role. Separately, `loading_dept_head` and `loading_dept_head_deputy` carry stray all-False `season` rows that neither role's `RESOURCE_DEFAULTS` entry would create — low real-world consequence (all-False grants nothing), but neither drift self-heals on a re-seed, so both are disclosed rather than assumed harmless.
+
+## Sidebar Navigation (2026-08-05)
+
+`frontend/src/components/AppLayout.tsx` holds **two** menu definitions, selected by role via the pure `pickMenuComposition()` helper in `utils/menuComposition.ts`:
+
+- **`BOSS_MENU_GROUPS`** — eleven groups ordered by **export process phase**: Overview → 1. Planning → 2. Prep → 3. Shipping → 4. Docs & Customs → 5. Sales & Contracts → 6. Finance, then Analytics, Reference, System, Feedback.
+- **`STAFF_MENU_GROUPS`** — the original eight module groups (Main, Analytics, Export, Contracts, Management, System, Team, Feedback) that every non-boss role had before this work. An earlier revision briefly gave the process order to everyone; that was reverted on the owner's instruction so only `boss` sees it.
+
+Menu **items are declared once** in an `ITEMS` record keyed by route, and each composition is a list of route keys — so the two menus cannot drift on an item's icon or label, only on grouping and order. A missing key is a compile error: `ITEMS` is declared with `satisfies Record<string, MenuItem>`, which preserves the literal key union, and the group helper takes `(keyof typeof ITEMS)[]`.
+
+Both compositions cover the **same 45 routes**; only the grouping differs, and a test asserts that. Each role still sees only the pages `canSeePage` allows, and a group with zero visible children collapses entirely. This is documented alongside the visibility rules because visibility and ordering are driven by the same page registry and menu-build pass.
+
+Three group label keys (`nav.group_analytics`, `nav.group_system`, `nav.group_feedback`) are **shared between the two menus with different membership** — renaming one silently retitles the other. Comments in the component and its tests flag this.
+
+This work surfaced five pages that previously existed only as typed URLs with no menu entry: Truck Forecast (`/export/trucks`), Drafts (`/export/drafts`), Assignment (`/export/assign`), Domestic Sales (`/export/domestic-sales`), Prices (`/export/prices`). They are reachable from **both** menus — appended to the staff menu's Export group, and placed in the relevant process groups for the boss — so restoring the old grouping did not re-orphan them.
+
+Only `boss` sees the process order. Every other role keeps the menu it had before this work, so nobody outside the boss had to relearn where their screens live.
+
+**Deferred:** per-role configurable sidebar ordering (a `role × page_code × sort_order` table + drag-and-drop admin UI + fallback to the global default). Ship the single global order first; build the configurable version only if a role's workflow proves it wrong.
 
 ## Connections to Other Processes
 

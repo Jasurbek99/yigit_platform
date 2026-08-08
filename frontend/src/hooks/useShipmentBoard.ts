@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import api from '@/services/api';
+import { useSelectedSeason } from '@/hooks/useSeasonParam';
 import type { ITaskListItem, ShipmentPhase } from '@/types';
 
 export interface IBoardItem {
@@ -33,8 +34,9 @@ export interface IBoardFilters {
 }
 
 export function useShipmentBoard(filters: IBoardFilters = {}) {
+  const { seasonId, isReady } = useSelectedSeason();
   return useQuery<IBoardResponse>({
-    queryKey: ['shipments', 'board', filters],
+    queryKey: ['shipments', 'board', seasonId, filters],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (filters.country != null) params.set('country', String(filters.country));
@@ -42,11 +44,13 @@ export function useShipmentBoard(filters: IBoardFilters = {}) {
       if (filters.gapy_satys != null) params.set('gapy_satys', String(filters.gapy_satys));
       if (filters.owner_role) params.set('owner_role', filters.owner_role);
       if (filters.search) params.set('search', filters.search);
+      if (seasonId != null) params.set('season', String(seasonId));
       const { data } = await api.get<IBoardResponse>(
         `/export/shipments/board/?${params.toString()}`,
       );
       return data;
     },
+    enabled: isReady,
     staleTime: 60_000,
     refetchInterval: 60_000,
   });

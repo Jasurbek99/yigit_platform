@@ -38,6 +38,7 @@ const CustomersPage = lazy(() => import('@/pages/admin/CustomersPage'));
 const ShipmentSettingsPage = lazy(() => import('@/pages/admin/ShipmentSettingsPage'));
 const AuditLogPage = lazy(() => import('@/pages/admin/AuditLogPage'));
 const StaffPageAccessPage = lazy(() => import('@/pages/admin/StaffPageAccessPage'));
+const ProcessNodeLinksPage = lazy(() => import('@/pages/admin/ProcessNodeLinksPage'));
 const ShipmentSheet = lazy(() => import('@/pages/export/ShipmentSheet'));
 const ShipmentDashboard = lazy(() => import('@/pages/export/ShipmentDashboard'));
 const DraftPool = lazy(() => import('@/pages/export/DraftPool'));
@@ -235,6 +236,11 @@ export default function App() {
                   } />
                   <Route path="admin/staff-access" element={
                     <ProtectedRoute pageCode="admin.staff_access"><StaffPageAccessPage /></ProtectedRoute>
+                  } />
+                  {/* Process node links — admin/superuser only, matches the backend's
+                      inline _is_full_admin gate (not the page-permission matrix). */}
+                  <Route path="admin/process-links" element={
+                    <ProtectedRoute roles={['admin']}><ProcessNodeLinksPage /></ProtectedRoute>
                   } />
                   {/* Me / Self board */}
                   <Route path="me/board" element={

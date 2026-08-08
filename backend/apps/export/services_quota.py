@@ -11,13 +11,15 @@ __all__ = [
     'fetch_issuances',
     'aggregate_local_sales',
     'aggregate_quota_issued',
+    'aggregate_quota_issued_for_season',
     'aggregate_quota_used',
+    'usage_season_q',
 ]
 import datetime
 from decimal import Decimal
 
 from django.core.cache import cache
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from django.db.models.functions import Coalesce
 
 from collections import defaultdict
@@ -119,6 +121,96 @@ def aggregate_quota_issued(
             issuance__issue_date__lte=date_to,
             issuance__product_type=product_type,
         )
+        .values('export_firm_id')
+        .annotate(total=Coalesce(Sum('kg_quota'), Decimal('0')))
+    )
+    return {row['export_firm_id']: row['total'] for row in rows}
+
+
+def usage_season_q(season) -> Q:
+    """Which `QuotaUsageRecord` rows belong to `season` (D11, spec §4.7).
+
+    `QuotaUsageRecord` has **no** `season` FK and **no** `issuance` FK — the spec
+    text assumed the latter, but the model carries only `usage_date` (non-null)
+    and a nullable `shipment`. So the anchor is derived from the two signals that
+    do exist, in order of authority:
+
+      1. `shipment.season` when the row is linked. D11 says a shipment draws on
+         *its own* season's quota, so the shipment is authoritative even when the
+         row's `usage_date` falls outside that season's calendar range — which
+         happens for real: 7 rows on the dev DB are dated July 2026 against
+         shipments in a season that ended 2026-06-30.
+      2. `usage_date` inside `[season.start_date, season.end_date]` for the 575
+         unlinked rows (historical Excel imports), which reach a season through
+         nothing else.
+
+    Deliberately NOT a stored `season` FK. A column would be the more auditable
+    anchor and the backfill is 100% resolvable on today's data (711/711 → the
+    2025-2026 season), but it would require migrating and rewriting the live
+    database this ruling was raised against, and every one of the three creation
+    sites would have to stamp it or `freeze_season_of()` — which reads
+    `obj.season` *before* `obj.shipment.season` — would silently read an unstamped
+    closed-season row as open, loosening the write freeze. Deriving it keeps the
+    freeze anchor exactly where it is.
+
+    Known gap, accepted: an unlinked row whose `usage_date` falls in the gap
+    between two seasons belongs to no season and is invisible. Zero such rows
+    exist today (verified against the dev DB); the same gap is what makes
+    QuotaIssuance#34 invisible.
+    """
+    return (
+        Q(shipment__season=season)
+        | Q(
+            shipment__isnull=True,
+            usage_date__gte=season.start_date,
+            usage_date__lte=season.end_date,
+        )
+    )
+
+
+def season_of_usage(shipment, usage_date):
+    """The single season a usage row belongs to — the row-level inverse of
+    `usage_season_q()`.
+
+    The two MUST stay in step: `usage_season_q()` decides which rows a season's
+    queries return, and this decides which season a row is about to be written
+    into. If they disagree, a write can be accepted into a season whose list
+    then refuses to show it.
+
+    Args:
+        shipment: The row's `Shipment`, or None for an unlinked row.
+        usage_date: The row's `usage_date`.
+
+    Returns:
+        The Season, or None when the row would belong to none — which is only
+        reachable for an unlinked row whose date falls outside every season
+        (`Shipment.season` is non-null, so a linked row always resolves).
+        Callers must reject a None: such a row is invisible on every list and
+        counted in no ledger.
+    """
+    from apps.core.models import Season
+
+    if shipment is not None:
+        return shipment.season
+    if usage_date is None:
+        return None
+    return Season.objects.filter(
+        start_date__lte=usage_date, end_date__gte=usage_date,
+    ).order_by('start_date').first()
+
+
+def aggregate_quota_issued_for_season(season, product_type: str) -> dict[int, Decimal]:
+    """Sum kg_quota per firm from allocations whose issuance belongs to `season`.
+
+    The FK, not `issue_date`: an issuance is stamped with the season that was
+    active when it was recorded, and that stamp is authoritative even when the
+    date sits outside the season's calendar range. The date-range sibling
+    (`aggregate_quota_issued`) stays in use by the dashboard, which is an
+    explicitly date-windowed report.
+    """
+    rows = (
+        QuotaIssuanceFirmAllocation.objects
+        .filter(issuance__season=season, issuance__product_type=product_type)
         .values('export_firm_id')
         .annotate(total=Coalesce(Sum('kg_quota'), Decimal('0')))
     )
@@ -373,12 +465,31 @@ def build_quota_dashboard(
     }
 
 
+def empty_quota_dashboard() -> dict:
+    """The dashboard payload for "no season resolved" (D7 fail-closed).
+
+    Returned during the close→open gap, when there is no season to report on
+    and returning the last one's numbers would hand every authenticated user
+    the aggregates the close just hid. The response *shape* is identical to
+    `build_quota_dashboard()`'s so the page renders its normal empty states
+    rather than an error banner — the same call `dashboard_summary` makes with
+    `_empty_summary()`.
+
+    Touches no table: `_compute_kpis` is pure arithmetic over three empty maps.
+    """
+    return {
+        'kpis': _compute_kpis({}, {}, {}),
+        'per_firm': [],
+        'weekly_flow': [],
+    }
+
+
 # ---------------------------------------------------------------------------
 # Per-firm balance (firm-split editor soft warning)
 # ---------------------------------------------------------------------------
 
-def compute_firm_quota_balances(product_type: str) -> dict[int, dict]:
-    """Per-firm remaining quota (issued − committed) for the active season.
+def compute_firm_quota_balances(product_type: str, season) -> dict[int, dict]:
+    """Per-firm remaining quota (issued − committed) for one season.
 
     Powers the firm-split editor's soft warning: a firm whose ``remaining_kg``
     is <= 0 (including firms with no allocation at all, which are simply absent
@@ -394,8 +505,18 @@ def compute_firm_quota_balances(product_type: str) -> dict[int, dict]:
     approval — i.e. after the assignment decisions are already made. We still
     drop rows tied to soft-deleted / cancelled shipments via ``.counted()``.
 
-    Scope: the active season's [start_date, end_date]. Both issuance and usage
-    are date-bounded by this window so quota from other seasons is excluded.
+    Scope (D11): quota never crosses a season boundary. The issuance side
+    anchors on ``QuotaIssuance.season`` and the usage side on
+    ``usage_season_q()`` — both FK-driven where an FK exists, rather than the
+    date ranges this used before. The two differ in practice: an issuance dated
+    outside its own season's calendar range still counts for the season it was
+    stamped with, and a usage row whose ``usage_date`` sits outside its
+    shipment's season still counts for that shipment's season.
+
+    Callers pass the season explicitly rather than this reaching for
+    ``get_active_season()``: the read scope is per-request (``?season=``), so a
+    user browsing a prior season must see that season's balances, not the write
+    target's. ``None`` is the close→open gap and returns ``{}`` (fail closed).
 
     NOTE: per-issuance expiry (``QuotaIssuance.validity`` month window) is NOT
     applied here — this is a coarse "has any balance" signal, not the
@@ -403,28 +524,22 @@ def compute_firm_quota_balances(product_type: str) -> dict[int, dict]:
 
     Args:
         product_type: 'tomato' or 'pepper'.
+        season: The resolved season, or None.
 
     Returns:
         Dict mapping export_firm_id → {issued_kg, used_kg, remaining_kg}.
-        Empty dict when no active season exists.
+        Empty dict when `season` is None.
     """
-    from apps.core.models import Season
-
-    season = Season.objects.filter(is_active=True).order_by('-start_date').first()
     if not season:
         return {}
 
-    issued = aggregate_quota_issued(season.start_date, season.end_date, product_type)
+    issued = aggregate_quota_issued_for_season(season, product_type)
 
     # Committed = draft + approved (no status filter) — see docstring.
     used_rows = (
         QuotaUsageRecord.objects
         .counted()
-        .filter(
-            usage_date__gte=season.start_date,
-            usage_date__lte=season.end_date,
-            product_type=product_type,
-        )
+        .filter(usage_season_q(season), product_type=product_type)
         .values('export_firm_id')
         .annotate(total=Coalesce(Sum('kg_used'), Decimal('0')))
     )
@@ -448,31 +563,46 @@ def compute_firm_quota_balances(product_type: str) -> dict[int, dict]:
 
 FIFO_CACHE_TTL = 60  # seconds — short TTL to avoid stale reads after approvals
 
-def compute_fifo_usage(product_type: str) -> dict[int, Decimal]:
-    """Compute FIFO per-firm quota consumption per allocation.
+def compute_fifo_usage(product_type: str, season) -> dict[int, Decimal]:
+    """Compute FIFO per-firm quota consumption per allocation, within one season.
 
-    For each firm: sort allocations by issue_date ASC (oldest first),
-    then consume that firm's total usage starting from the oldest allocation.
-    Each firm's usage only consumes that firm's own allocations.
+    For each firm: sort that season's allocations by issue_date ASC (oldest
+    first), then consume that firm's total usage for the same season starting
+    from the oldest allocation. Each firm's usage only consumes that firm's own
+    allocations.
+
+    **FIFO stops at the season boundary (D11, spec §4.7).** Before this ruling
+    the walk had no season predicate at all, so a shipment could draw down an
+    issuance from any prior season. It now cannot: leftover issuance expires
+    with its season rather than carrying forward, and a season's ledger is
+    computed from that season's rows only. Balances computed before this change
+    are therefore not comparable with those computed after.
 
     Results are cached for FIFO_CACHE_TTL seconds to avoid recomputing on
-    every GET request in the QuotaIssuanceViewSet list view.
+    every GET request in the QuotaIssuanceViewSet list view. **The season is
+    part of the cache key** — without it, switching seasons serves the previous
+    season's ledger for up to the TTL, which looks exactly like the scoping not
+    working. `invalidate_quota_caches()` busts every season's key.
 
     Args:
         product_type: 'tomato' or 'pepper'.
+        season: The resolved season; None (the close→open gap) returns {}.
 
     Returns:
-        Dict mapping allocation_id → used_kg.
+        Dict mapping allocation_id → used_kg, covering `season`'s allocations only.
     """
-    cache_key = f'fifo_usage:{product_type}'
+    if not season:
+        return {}
+
+    cache_key = f'fifo_usage:{product_type}:{season.pk}'
     cached = cache.get(cache_key)
     if cached is not None:
         return cached
 
-    # 1. Get all allocations with issue_date, grouped by firm
+    # 1. Get this season's allocations with issue_date, grouped by firm
     allocs = list(
         QuotaIssuanceFirmAllocation.objects
-        .filter(issuance__product_type=product_type)
+        .filter(issuance__product_type=product_type, issuance__season=season)
         .select_related('issuance')
         .order_by('issuance__issue_date', 'id')
         .values_list('id', 'export_firm_id', 'kg_quota', 'issuance__issue_date')
@@ -482,12 +612,13 @@ def compute_fifo_usage(product_type: str) -> dict[int, Decimal]:
     for alloc_id, firm_id, kg_quota, _issue_date in allocs:
         firm_allocs[firm_id].append((alloc_id, kg_quota))
 
-    # 2. Get total usage per firm (approved records only; counted() drops
-    #    rows tied to soft-deleted / cancelled shipments — released back).
+    # 2. Get total usage per firm for the same season (approved records only;
+    #    counted() drops rows tied to soft-deleted / cancelled shipments —
+    #    released back).
     usage_rows = (
         QuotaUsageRecord.objects
         .counted()
-        .filter(product_type=product_type, status='approved')
+        .filter(usage_season_q(season), product_type=product_type, status='approved')
         .values('export_firm_id')
         .annotate(total=Coalesce(Sum('kg_used'), Decimal('0')))
     )

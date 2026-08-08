@@ -32,6 +32,12 @@ From the office server (NOT the dev machine):
 git fetch && git checkout beta-2026-05-15
 
 # Build the images (fresh frontend bundle picks up .dockerignore)
+# NOTE (2026-08-07): the BACKEND image now builds with the REPO ROOT as its
+# context (`dockerfile: backend/Dockerfile`), not `./backend` — it has to bake
+# in `docs/how_works/` for the boss process-explainer endpoint. Always build
+# through docker-compose from the repo root; a raw `docker build ./backend`
+# fails on `COPY backend/requirements.txt`. The root `.dockerignore` keeps the
+# context small. Frontend is unchanged (`context: ./frontend`).
 docker-compose -f docker-compose.yml -f docker-compose.prod.yml build backend frontend
 
 # Bring up only what beta needs (no local db, no outer nginx)

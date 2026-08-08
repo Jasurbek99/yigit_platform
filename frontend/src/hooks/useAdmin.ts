@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import type {
   ISeason,
+  ISeasonClosePreview,
   ICity,
   ICountry,
   IExportFirm,
@@ -23,6 +24,7 @@ import type {
   AuditAction,
   UserRole,
   IManagedPagePermissions,
+  IProcessNodeLink,
 } from '@/types';
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
@@ -48,10 +50,20 @@ interface MutationOptions {
   onError?: (err: unknown) => void;
 }
 
+// `is_active`, `status`, `closed_at`, `closed_by`, `closed_by_name` are
+// `read_only_fields` on the backend `SeasonSerializer` — never accepted on
+// write. `is_active` in particular is SERVER-SET: which season is the write
+// target changes only through `useOpenSeason`/`useCloseSeason` below, which
+// hit `POST .../open/` and `POST .../close/` (atomic incumbent swap + audit
+// log) and invalidate every cached query. A generic PATCH did neither.
+type ISeasonWritable = Omit<
+  ISeason, 'id' | 'is_active' | 'status' | 'closed_at' | 'closed_by' | 'closed_by_name'
+>;
+
 export function useCreateSeason(options: MutationOptions = {}) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (payload: Omit<ISeason, 'id'>) =>
+    mutationFn: (payload: ISeasonWritable) =>
       api.post<ISeason>('/export/admin/seasons/', payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-seasons'] });
@@ -64,7 +76,7 @@ export function useCreateSeason(options: MutationOptions = {}) {
 export function useUpdateSeason(options: MutationOptions = {}) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...payload }: Partial<ISeason> & { id: number }) =>
+    mutationFn: ({ id, ...payload }: Partial<ISeasonWritable> & { id: number }) =>
       api.patch<ISeason>(`/export/admin/seasons/${id}/`, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-seasons'] });
@@ -80,6 +92,69 @@ export function useDeleteSeason(options: MutationOptions = {}) {
     mutationFn: (id: number) => api.delete(`/export/admin/seasons/${id}/`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-seasons'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+/**
+ * Counts of rows the close-confirm dialog shows (`GET .../close-preview/`).
+ * `seasonId: null` (no target selected yet) disables the query rather than
+ * firing it — the caller passes `closeTarget?.id ?? null`.
+ */
+export function useSeasonClosePreview(seasonId: number | null) {
+  return useQuery({
+    queryKey: ['season-close-preview', seasonId],
+    queryFn: async (): Promise<ISeasonClosePreview> => {
+      const { data } = await api.get<ISeasonClosePreview>(
+        `/export/admin/seasons/${seasonId}/close-preview/`,
+      );
+      return data;
+    },
+    enabled: seasonId !== null,
+  });
+}
+
+// Both close and open change `active_season` on `/auth/me/` (close clears it
+// until the next open; open moves it to the target and demotes the
+// incumbent back to UPCOMING), AND every one of the ~26 season-scoped query
+// hooks threaded through `seasonId` in Task 14 (`useShipments`,
+// `useShipmentSheet`, etc.) — those key on whatever `useSelectedSeason()`
+// currently resolves (`URL ?? store ?? active`), which after a close is very
+// often UNCHANGED: the store already holds the season's id, seeded on mount
+// by `useSeasonParam()`'s URL->store effect, and the store wins over the
+// `active` value this mutation invalidates. So a targeted invalidate of just
+// `['admin-seasons']`/`['auth','me']` would leave the boards serving cached
+// rows from the just-hidden season until `staleTime` expires. A single
+// blanket `invalidateQueries()` (no key filter) covers both those two keys
+// AND the ~26 season-scoped ones in one call — deliberately broader than
+// "only what this mutation wrote," justified since this fires at most a
+// couple of times a season, not on a hot path.
+export function useCloseSeason(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number): Promise<ISeason> => {
+      const { data } = await api.post<ISeason>(`/export/admin/seasons/${id}/close/`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries();
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+export function useOpenSeason(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number): Promise<ISeason> => {
+      const { data } = await api.post<ISeason>(`/export/admin/seasons/${id}/open/`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries();
       options.onSuccess?.();
     },
     onError: options.onError,
@@ -1220,6 +1295,40 @@ export function useDeleteTruckSplit(options: MutationOptions = {}) {
     mutationFn: (id: number) => api.delete(`/export/admin/truck-splits/${id}/`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-truck-splits'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+// ─── Process node links (boss BPMN diagram -> screen mapping) ─────────────
+// Get + patch only — the 20 rows are fixed by the diagram's own node array
+// (seeded via migration), so there is no create/delete here on purpose.
+
+export function useProcessNodeLinks() {
+  return useQuery({
+    queryKey: ['admin-process-node-links'],
+    queryFn: async (): Promise<IProcessNodeLink[]> => {
+      if (USE_MOCK) {
+        const { MOCK_PROCESS_NODE_LINKS } = await import('@/mock/processNodeLinks');
+        return MOCK_PROCESS_NODE_LINKS;
+      }
+      const { data } = await api.get<IProcessNodeLink[] | IApiListResponse<IProcessNodeLink>>(
+        '/export/admin/process-node-links/?page_size=200',
+      );
+      return Array.isArray(data) ? data : data.results;
+    },
+    staleTime: 60_000,
+  });
+}
+
+export function useUpdateProcessNodeLink(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...payload }: { id: number; route?: string; is_active?: boolean }) =>
+      api.patch<IProcessNodeLink>(`/export/admin/process-node-links/${id}/`, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-process-node-links'] });
       options.onSuccess?.();
     },
     onError: options.onError,

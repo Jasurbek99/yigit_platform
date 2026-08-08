@@ -8,8 +8,9 @@ URL prefix: /api/v1/export/boss/<action>/
 import logging
 from datetime import date
 
+from django.conf import settings
 from django.core.cache import cache
-from django.http import HttpResponse
+from django.http import HttpResponse, Http404
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -17,11 +18,13 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 
 from apps.core.permissions import IsBossOrDirector
+from apps.core.seasons import resolve_season
 from apps.export.exports import build_excel, build_pdf
+from apps.export.models import ProcessNodeLink
 from apps.export.services.boss_analytics import (
     period_to_range,
     _aggregate_summary,
-    _aggregate_revenue,
+    weekly_revenue_comparison,
     _aggregate_route_pnl,
     _aggregate_quota_grid,
     _aggregate_blocks_heatmap,
@@ -39,6 +42,20 @@ from apps.export.services.boss_analytics import (
 logger = logging.getLogger(__name__)
 
 _CACHE_TTL = 60  # seconds — matches frontend staleTime of 60_000 ms
+
+# Whitelist: ?doc= slug -> filename under docs/how_works/. The dict is the
+# ONLY path resolution mechanism for process-doc — never build a filesystem
+# path from the request value (no os.path.join, no suffix/regex checks). A
+# slug not in this dict 404s before any filesystem access happens.
+_PROCESS_DOCS = {
+    'shipment-process-boss': 'shipment-process-boss.html',
+    'shipment-bpmn': 'shipment-bpmn.html',
+}
+# Resolved in settings (PROCESS_DOCS_DIR): the checkout path differs from the
+# Docker image path, because only `backend/` lands at /app. Never rebuild this
+# from BASE_DIR here — that assumption is what made every request 404 inside
+# the container while passing every test from a repo checkout.
+_PROCESS_DOCS_DIR = settings.PROCESS_DOCS_DIR
 
 
 def _parse_period_params(request: Request) -> tuple[str, date, date]:
@@ -124,23 +141,34 @@ class BossAnalyticsViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=['get'], url_path='revenue')
     def revenue(self, request: Request) -> Response:
-        """Return two weekly revenue arrays for the overlay chart.
+        """Return two weekly revenue arrays for the season-over-season overlay chart.
 
-        GET /api/v1/export/boss/revenue/?period=month
+        GET /api/v1/export/boss/revenue/?season=<id>  (optional; defaults to the
+                                                         active season)
+
+        The resolved season PARAMETERISES this comparison — it is never used to
+        filter it (spec §4.3/§4.5). `current_season` is the resolved season's
+        weekly revenue; `previous_season` is the season immediately preceding it
+        by start_date, regardless of whether either is closed. Selecting a closed
+        season as `?season=` makes it "current" and the season before it
+        "previous" — that is the intended behaviour, not a leak: `boss` is
+        already gated to management (IsBossOrDirector) and cross-season
+        comparison is the whole point of this chart.
 
         Response shape:
           {current_season: [{week_start, total_usd}, ...],
            previous_season: [{week_start, total_usd}, ...]}
         """
         period, from_date, to_date = _parse_period_params(request)
-        cache_key = _cache_key('revenue', period, from_date, to_date)
+        season = resolve_season(request)
+        cache_key = _cache_key('revenue', period, from_date, to_date, str(season.pk if season else 'none'))
 
         def _build():
             return {
                 'period': period,
                 'from': from_date.isoformat(),
                 'to': to_date.isoformat(),
-                **_aggregate_revenue(from_date, to_date),
+                **weekly_revenue_comparison(season),
             }
 
         data = cache.get(cache_key)
@@ -550,3 +578,52 @@ class BossAnalyticsViewSet(viewsets.ViewSet):
         resp = HttpResponse(payload, content_type='application/pdf')
         resp['Content-Disposition'] = f'attachment; filename="{filename}"'
         return resp
+
+    # ------------------------------------------------------------------
+    # process-doc — serve a static process-explainer HTML page as-is
+    # ------------------------------------------------------------------
+
+    @action(detail=False, methods=['get'], url_path='process-doc')
+    def process_doc(self, request: Request) -> HttpResponse:
+        """Serve a whitelisted static HTML doc from docs/how_works/ byte for byte.
+
+        GET /api/v1/export/boss/process-doc/?doc=shipment-process-boss
+        GET /api/v1/export/boss/process-doc/?doc=shipment-bpmn
+
+        ?doc= is resolved ONLY through the _PROCESS_DOCS whitelist dict — an
+        unknown or missing slug 404s before any filesystem path is built.
+        """
+        slug = request.query_params.get('doc')
+        filename = _PROCESS_DOCS.get(slug) if slug else None
+        if filename is None:
+            raise Http404('Unknown process doc')
+
+        try:
+            content = (_PROCESS_DOCS_DIR / filename).read_bytes()
+        except FileNotFoundError:
+            # A curator typo in _PROCESS_DOCS (filename doesn't match the
+            # actual file on disk) should 404, not 500.
+            raise Http404('Process doc file missing on disk')
+        return HttpResponse(content, content_type='text/html; charset=utf-8')
+
+    # ------------------------------------------------------------------
+    # process-doc-links — node_id -> route mapping for the diagram
+    # ------------------------------------------------------------------
+
+    @action(detail=False, methods=['get'], url_path='process-doc-links')
+    def process_doc_links(self, request: Request) -> Response:
+        """Return the active BPMN node -> frontend route mapping.
+
+        GET /api/v1/export/boss/process-doc-links/
+
+        Flat {node_id: route} object of active ProcessNodeLink rows with a
+        non-blank route. shipment-bpmn.html uses this to make diagram blocks
+        clickable, opening the mapped screen in a new tab.
+        """
+        rows = (
+            ProcessNodeLink.objects
+            .filter(is_active=True)
+            .exclude(route='')
+            .values('node_id', 'route')
+        )
+        return Response({row['node_id']: row['route'] for row in rows})

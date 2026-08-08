@@ -1,0 +1,37 @@
+# Build context for the BACKEND image (docker-compose.yml: `context: .`,
+# `dockerfile: backend/Dockerfile`). The context is the repo root so the image
+# can bake in `docs/how_works/` alongside `backend/` — see backend/Dockerfile.
+#
+# Scope rule for this file: exclude only paths that were NEVER in the old
+# `context: ./backend` build, plus local build artifacts. In particular do NOT
+# add `**/.env` — `backend/.env` is copied into the image today (there was no
+# backend/.dockerignore), and dropping it would silently change how a deployed
+# container resolves its settings.
+#
+# The frontend image is built from `context: ./frontend` and is governed by
+# frontend/.dockerignore, not this file.
+
+# Never needed by the backend image, and by far the largest directories.
+frontend/
+node_modules/
+.git/
+.gitignore
+
+# Local tooling / agent state.
+.claude/
+.agents/
+.superpowers/
+.vscode/
+.playwright-mcp/
+
+# Multi-MB local logs and bundles sitting at the repo root.
+*.bundle
+*.log
+ygt-logs.txt
+yigit_log.txt
+
+# Python build artifacts (a local venv would otherwise be shipped into the image).
+backend/venv/
+**/__pycache__/
+**/*.py[cod]
+.pytest_cache/

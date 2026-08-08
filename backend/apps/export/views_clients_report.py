@@ -14,7 +14,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 
-from apps.core.models import Season
+from apps.core.seasons import resolve_season
 from apps.export.services.clients_report import build_clients_report
 
 logger = logging.getLogger(__name__)
@@ -23,16 +23,20 @@ _CACHE_TTL = 60  # seconds — matches frontend staleTime of 60_000 ms
 
 
 class ClientsReportViewSet(viewsets.ViewSet):
-    """Read-only clients dispatch report for the active season."""
+    """Read-only clients dispatch report for the resolved season."""
 
     permission_classes = [IsAuthenticated]
 
     def list(self, request: Request) -> Response:
-        """Return the clients report for the active season.
+        """Return the clients report for the resolved season.
 
-        GET /api/v1/export/clients-report/
+        GET /api/v1/export/clients-report/[?season=<id>]
+
+        Defaults to the active season; ?season= selects another one (a closed
+        season needs the closed_season.can_view permission). The cache key is
+        already keyed on the season id, so no cross-season bleed.
         """
-        season = Season.objects.filter(is_active=True).order_by('-start_date').first()
+        season = resolve_season(request)
         cache_key = f'clients_report:{season.id if season else "none"}'
 
         data = cache.get(cache_key)

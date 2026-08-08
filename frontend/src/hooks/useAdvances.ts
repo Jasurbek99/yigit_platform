@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import { SHEET_QUERY_KEY } from '@/hooks/useShipmentSheet';
+import { useSelectedSeason } from '@/hooks/useSeasonParam';
 import {
   MOCK_ADVANCES_RESPONSE,
   MOCK_ADVANCE_DETAILS,
@@ -37,8 +38,9 @@ export interface IAdvanceFilters {
 }
 
 export function useAdvances(filters: IAdvanceFilters = {}) {
+  const { seasonId, isReady } = useSelectedSeason();
   return useQuery({
-    queryKey: ['advances', filters],
+    queryKey: ['advances', seasonId, filters],
     queryFn: async (): Promise<IApiListResponse<IFinansistAdvanceListItem>> => {
       if (USE_MOCK) {
         const results =
@@ -56,12 +58,14 @@ export function useAdvances(filters: IAdvanceFilters = {}) {
       if (filters.reconciled !== undefined)
         params.set('reconciled', String(filters.reconciled));
       if (filters.search) params.set('search', filters.search);
+      if (seasonId != null) params.set('season', String(seasonId));
 
       const { data } = await api.get<IApiListResponse<IFinansistAdvanceListItem>>(
         `/export/advances/?${params.toString()}`,
       );
       return { ...data, results: data.results.map(normalizeAdvance) };
     },
+    enabled: USE_MOCK || isReady,
     staleTime: 30_000,
   });
 }

@@ -18,7 +18,6 @@ interface IShipmentDetailStageCardsProps {
   readOnly: boolean;
   onOpenComments: (fieldKey: string) => void;
   commentCountsByField: Record<string, number>;
-  canEditAnyField: boolean;
   canOverrideVariety: boolean;
 }
 
@@ -47,7 +46,6 @@ export function ShipmentDetailStageCards({
   readOnly,
   onOpenComments,
   commentCountsByField,
-  canEditAnyField,
   canOverrideVariety,
 }: IShipmentDetailStageCardsProps) {
   const { t } = useTranslation();
@@ -105,7 +103,13 @@ export function ShipmentDetailStageCards({
       missingCount={0}
       isFutureStage={false}
     >
-      <ShipmentQualityBody shipment={shipment} canEditQuality={canEditAnyField} />
+      {/* `!readOnly`, not `canEditAnyField` directly — `readOnly` also folds in
+          the season gate (`ShipmentDetail.tsx`: `readOnly = !canEditAnyField
+          || isReadOnly`). Quality is the one stage card whose body isn't part
+          of `groupProps` (it doesn't extend ShipmentFieldGroup), so it would
+          otherwise have silently missed the season gate that reaches every
+          other card via the `{...groupProps}` spread. */}
+      <ShipmentQualityBody shipment={shipment} canEditQuality={!readOnly} />
     </ShipmentStageCard>,
   ];
 

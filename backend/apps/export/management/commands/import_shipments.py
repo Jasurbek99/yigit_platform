@@ -45,6 +45,7 @@ from apps.core.models import (
     ShipmentStatusType,
     User,
 )
+from apps.core.seasons import get_active_season
 from apps.export.models import Shipment, ShipmentComment, ShipmentFirmSplit
 
 logger = logging.getLogger(__name__)
@@ -507,9 +508,7 @@ class _ReferenceCache:
             key = (city.country.code, city.name.upper())
             self._cities[key] = city
 
-        self._season = Season.objects.filter(is_active=True).first()
-        if not self._season:
-            self._season = Season.objects.order_by('-start_date').first()
+        self._season = get_active_season() or Season.objects.order_by('-start_date').first()
 
         self._tamamlandy = ShipmentStatusType.objects.filter(code='tamamlandy').first()
 

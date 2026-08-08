@@ -1,13 +1,13 @@
 """Tests for the team-KPI aggregation service."""
-from datetime import timedelta
+from datetime import date, timedelta
 
 from django.core.cache import cache
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps.core.models import User
-from apps.core.services_team_kpi import parse_period, compute_team_kpi
+from apps.core.models import RoleResourcePermission, Season, User
+from apps.core.services_team_kpi import parse_period, compute_team_kpi, period_window
 from apps.export.models import Task, TaskState, TaskCompletionRule
 
 
@@ -153,3 +153,167 @@ class TeamKpiApiTest(TestCase):
         anon = APIClient()
         resp = anon.get('/api/v1/core/team-kpi/?period=week')
         self.assertIn(resp.status_code, (401, 403))
+
+
+# ---------------------------------------------------------------------------
+# ?season= parameterises period=season's window (spec §4.3)
+# ---------------------------------------------------------------------------
+
+class PeriodWindowSeasonParamTest(TestCase):
+    """`period_window('season', season)` — the resolved season parameterises
+    the window; it is never used to filter a queryset by season= FK, so
+    there's no SeasonScopedMixin fail-closed behaviour to worry about here.
+    """
+
+    def test_season_none_returns_no_lower_bound(self):
+        self.assertEqual(period_window('season', season=None), (None, None))
+
+    def test_season_start_date_drives_since_dt(self):
+        season = Season.objects.create(
+            name='pw1', start_date=date(2025, 9, 1), end_date=date(2026, 6, 30),
+        )
+        since_dt, since_date = period_window('season', season=season)
+        self.assertEqual(since_date, date(2025, 9, 1))
+        self.assertEqual(since_dt.date(), date(2025, 9, 1))
+
+
+class TeamKpiSeasonParamApiTest(TestCase):
+    """`period=season` is a window-since-date, not a bounded range — selecting
+    an OLDER season moves `since_dt` earlier and so includes MORE completions
+    (no upper bound), not exclusively that season's own data. These tests
+    assert on that basis: default (active season) counts fewer completions
+    than explicitly selecting the older season, which is the observable proof
+    the window actually moved.
+    """
+
+    def setUp(self):
+        cache.clear()
+        self.alice = User.objects.create(username='tk_alice', role='loading_dept_head', is_active=True)
+        self.older = Season.objects.create(
+            name='tks_old', start_date=date(2024, 9, 1), end_date=date(2025, 8, 31),
+            closed_at=timezone.now(),
+        )
+        self.newer = Season.objects.create(
+            name='tks_new', start_date=date(2025, 9, 1), end_date=date(2026, 6, 30),
+            is_active=True,
+        )
+        # One completion before the newer season starts, one after — the
+        # newer-season window (default) should see only the second; the
+        # older-season window (explicit ?season=) should see both.
+        Task.objects.create(
+            title_key='t', assignee_role=self.alice.role,
+            completion_rule=TaskCompletionRule.MANUAL_DONE,
+            state=TaskState.DONE, completed_by=self.alice,
+            completed_at=timezone.make_aware(timezone.datetime(2024, 10, 1, 12, 0)),
+        )
+        Task.objects.create(
+            title_key='t', assignee_role=self.alice.role,
+            completion_rule=TaskCompletionRule.MANUAL_DONE,
+            state=TaskState.DONE, completed_by=self.alice,
+            completed_at=timezone.make_aware(timezone.datetime(2025, 10, 1, 12, 0)),
+        )
+
+    def _alice_completed(self, resp) -> int:
+        row = next(r for r in resp.data['results'] if r['user_id'] == self.alice.id)
+        return row['completed']
+
+    def test_closed_season_param_moves_the_window(self):
+        RoleResourcePermission.objects.update_or_create(
+            role='loading_dept_head', resource_code='closed_season',
+            defaults={'can_view': True},
+        )
+        client = APIClient()
+        client.force_authenticate(user=self.alice)
+
+        default_resp = client.get('/api/v1/core/team-kpi/?period=season')
+        self.assertEqual(default_resp.status_code, 200)
+        self.assertEqual(self._alice_completed(default_resp), 1)
+
+        closed_resp = client.get(
+            f'/api/v1/core/team-kpi/?period=season&season={self.older.pk}'
+        )
+        self.assertEqual(closed_resp.status_code, 200)
+        self.assertEqual(self._alice_completed(closed_resp), 2)
+
+    def test_unpermitted_user_closed_season_gets_403(self):
+        # No closed_season.can_view grant for this role.
+        client = APIClient()
+        client.force_authenticate(user=self.alice)
+
+        resp = client.get(
+            f'/api/v1/core/team-kpi/?period=season&season={self.older.pk}'
+        )
+        self.assertEqual(resp.status_code, 403)
+
+    def test_non_season_period_ignores_season_param(self):
+        """?season= is only consulted when period=season — a stray ?season=
+        on period=week must not raise even if it names a closed season the
+        user can't view, since it's never resolved for that branch."""
+        client = APIClient()
+        client.force_authenticate(user=self.alice)
+
+        resp = client.get(f'/api/v1/core/team-kpi/?period=week&season={self.older.pk}')
+        self.assertEqual(resp.status_code, 200)
+
+
+class TeamKpiNoActiveSeasonFailsClosedTest(TestCase):
+    """D7 — `period=season` with no season resolved returns NOTHING.
+
+    `period_window('season', None)` returns `(None, None)`, i.e. no lower
+    bound, which silently turned the leaderboard into an ALL-TIME window
+    during the close→open gap — every closed season's completions blended
+    into one row for every authenticated user. `period_window` keeps that
+    return (its `(None, None)` legitimately means "unbounded"); the D7 gate
+    lives in `compute_team_kpi`, the only caller that can distinguish the
+    gap from a deliberate unbounded window.
+    """
+
+    def setUp(self):
+        cache.clear()
+        self.alice = User.objects.create(
+            username='tkgap_alice', role='loading_dept_head', is_active=True,
+        )
+        self.closed = Season.objects.create(
+            name='tkgapC', start_date=date(2024, 9, 1),
+            end_date=date(2025, 8, 31), closed_at=timezone.now(),
+        )
+        Task.objects.create(
+            title_key='t', assignee_role=self.alice.role,
+            completion_rule=TaskCompletionRule.MANUAL_DONE,
+            state=TaskState.DONE, completed_by=self.alice,
+            completed_at=timezone.make_aware(timezone.datetime(2024, 10, 1, 12, 0)),
+        )
+
+    def test_service_returns_empty_when_no_season_resolves(self):
+        self.assertEqual(compute_team_kpi('season', season=None), [])
+
+    def test_api_returns_empty_results_during_the_gap(self):
+        client = APIClient()
+        client.force_authenticate(user=self.alice)
+        resp = client.get('/api/v1/core/team-kpi/?period=season')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['results'], [])
+
+    def test_other_periods_are_unaffected_by_the_gap(self):
+        """Only `period=season` consults a season — week/month/today must
+        keep returning the full roster during the gap."""
+        client = APIClient()
+        client.force_authenticate(user=self.alice)
+        resp = client.get('/api/v1/core/team-kpi/?period=week')
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.data['results'])
+
+    def test_explicit_closed_season_still_resolves_for_a_permitted_user(self):
+        """Failing closed on the GAP must not break the switcher."""
+        RoleResourcePermission.objects.update_or_create(
+            role='loading_dept_head', resource_code='closed_season',
+            defaults={'can_view': True},
+        )
+        client = APIClient()
+        client.force_authenticate(user=self.alice)
+        resp = client.get(
+            f'/api/v1/core/team-kpi/?period=season&season={self.closed.pk}'
+        )
+        self.assertEqual(resp.status_code, 200)
+        row = next(r for r in resp.data['results'] if r['user_id'] == self.alice.id)
+        self.assertEqual(row['completed'], 1)

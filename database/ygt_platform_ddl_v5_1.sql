@@ -112,6 +112,17 @@ CREATE TABLE sys_users (
     created_at DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET()
 );
 
+-- Season lifecycle (AD-16). closed_at is authoritative for CLOSED state.
+-- Placed after sys_users so the closed_by_id FK target already exists.
+ALTER TABLE core.seasons ADD closed_at DATETIMEOFFSET NULL;
+ALTER TABLE core.seasons ADD closed_by_id BIGINT NULL
+    CONSTRAINT fk_seasons_closed_by REFERENCES sys_users(id);
+
+-- At most one active season. Filtered unique index.
+CREATE UNIQUE INDEX uq_season_single_active
+    ON core.seasons (is_active)
+    WHERE is_active = 1;
+
 CREATE TABLE core.greenhouse_blocks (
     id INT IDENTITY(1,1) PRIMARY KEY,
     code NVARCHAR(10) NOT NULL UNIQUE,
@@ -407,6 +418,16 @@ CREATE TABLE export.quota_issuances (
     created_by BIGINT NULL REFERENCES sys_users(id)
 );
 
+-- D10 (season lifecycle, 2026-08-05): write-freeze anchor only — quota_issuances
+-- stays OFF the read-scope list (spec §4.5): issuances are consumed FIFO
+-- across seasons, so hiding a prior season's issuances would break the
+-- balance the current season's usage records are matched against. Nullable —
+-- historical issuances may not map cleanly to a season. core.seasons already
+-- exists (line 36), so no ordering fix is needed here (contrast the closed_at
+-- patch above, which had to follow sys_users).
+ALTER TABLE export.quota_issuances ADD season_id INT NULL
+    CONSTRAINT fk_quota_issuances_season REFERENCES core.seasons(id);
+
 CREATE TABLE export.quota_issuance_firm_allocations (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     issuance_id BIGINT NOT NULL REFERENCES export.quota_issuances(id) ON DELETE CASCADE,
@@ -571,6 +592,25 @@ CREATE TABLE export.truck_split_defaults (
     notes NVARCHAR(200) COLLATE Cyrillic_General_CI_AS,
     updated_at DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET(),
     updated_by_id BIGINT REFERENCES core.users(id)
+);
+
+-- Admin-configurable mapping from a BPMN diagram node to an application
+-- screen. node_id is the join key to the `N` array in
+-- docs/how_works/shipment-bpmn.html: clicking a block resolves `route` and
+-- opens it, so a route change never means editing the diagram HTML. Rows are
+-- fixed by the diagram (20 seeded, migration export.0060) — the admin API
+-- offers GET + PATCH only, never create/delete, and node_id is read-only.
+-- SECURITY: `route` is written into an <a href> the boss clicks, so it is
+-- constrained server-side to an in-app absolute path
+-- (^/([A-Za-z0-9_-]+(/[A-Za-z0-9_-]+)*/?)?$ — no scheme, no protocol-relative
+-- `//`). See ProcessNodeLink.ROUTE_VALIDATOR. Django db_table:
+-- export_process_node_links (migration export.0059).
+CREATE TABLE export.process_node_links (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    node_id NVARCHAR(40) NOT NULL UNIQUE,
+    label NVARCHAR(120) COLLATE Cyrillic_General_CI_AS NOT NULL,
+    route NVARCHAR(120) NOT NULL DEFAULT '',
+    is_active BIT NOT NULL DEFAULT 1
 );
 
 
