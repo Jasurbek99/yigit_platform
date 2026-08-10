@@ -45,6 +45,14 @@ urlpatterns = [path('slow-probe/', _SlowProbeView.as_view())]
 
 @override_settings(ROOT_URLCONF=__name__)
 class IdempotencyConcurrencyTest(TransactionTestCase):
+    # TransactionTestCase FLUSHES every table on teardown, and that wipes rows
+    # created by data migrations — notably the ShipmentStatusType seed in
+    # core/migrations/0006_seed_shipment_draft_status.py. Dozens of other tests
+    # build a Shipment without an explicit status and rely on that seed, so
+    # without this flag they start failing with "Cannot insert NULL into
+    # status_id" — and under --keepdb the damage survives into later runs.
+    serialized_rollback = True
+
     def setUp(self):
         EXECUTIONS.clear()
         _START.reset()
