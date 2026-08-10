@@ -14,6 +14,7 @@ from rest_framework.viewsets import ModelViewSet
 from apps.core.permissions import (
     DynamicResourcePermission, SeasonNotClosed, write_permission,
 )
+from apps.core.idempotency import idempotent
 from apps.core.seasons import SeasonScopedMixin, assert_season_open, resolve_season
 from apps.contracts.document_templates.registry import SCOPE_INVOICE, get_spec
 from apps.contracts.models import Contract, ContractAttachment, ContractSale
@@ -65,6 +66,11 @@ class ContractViewSet(SeasonScopedMixin, ModelViewSet):
     permission_classes = [IsAuthenticated, DynamicResourcePermission, SeasonNotClosed]
     resource_code = 'contract'
     parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    @idempotent
+    def create(self, request, *args, **kwargs):
+        """Retry-safe create — body unchanged, see apps/core/idempotency.py."""
+        return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
         # Write freeze (D1): CreateModelMixin never calls get_object(), so

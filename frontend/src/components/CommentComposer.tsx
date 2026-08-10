@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import api from '@/services/api';
+import { IDEMPOTENCY_HEADER, useIdempotencyKey } from '@/hooks/useIdempotencyKey';
 import { getShipmentDetailKey } from '@/hooks/useShipmentDetail';
 
 interface ICommentComposerProps {
@@ -16,6 +17,7 @@ export function CommentComposer({ shipmentId }: ICommentComposerProps) {
   const queryClient = useQueryClient();
   const [content, setContent] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const idem = useIdempotencyKey();
 
   async function handleSubmit() {
     const trimmed = content.trim();
@@ -23,7 +25,12 @@ export function CommentComposer({ shipmentId }: ICommentComposerProps) {
 
     setIsLoading(true);
     try {
-      await api.post(`/export/shipments/${shipmentId}/comment/`, { content: trimmed });
+      await api.post(
+        `/export/shipments/${shipmentId}/comment/`,
+        { content: trimmed },
+        { headers: { [IDEMPOTENCY_HEADER]: idem.key } },
+      );
+      idem.reset();
       setContent('');
       toast.success(t('comments.toast_success'));
       await queryClient.invalidateQueries({ queryKey: getShipmentDetailKey(shipmentId) });

@@ -1332,7 +1332,8 @@
     "all": "All",
     "load_error": "Failed to load data",
     "select_season": "Select season",
-    "select": "Select..."
+    "select": "Select...",
+    "request_in_progress": "This request is already being processed — please wait"
   },
   "permissions_admin": {
     "subtitle": "Manage role permissions",

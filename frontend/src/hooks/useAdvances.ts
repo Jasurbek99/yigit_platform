@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
+import { IDEMPOTENCY_HEADER, useIdempotencyKey } from '@/hooks/useIdempotencyKey';
 import { SHEET_QUERY_KEY } from '@/hooks/useShipmentSheet';
 import { useSelectedSeason } from '@/hooks/useSeasonParam';
 import {
@@ -116,6 +117,7 @@ export interface ICreateAdvancePayload {
 
 export function useCreateAdvance() {
   const queryClient = useQueryClient();
+  const idem = useIdempotencyKey();
   return useMutation({
     mutationFn: async (
       payload: ICreateAdvancePayload,
@@ -123,10 +125,12 @@ export function useCreateAdvance() {
       const { data } = await api.post<IFinansistAdvanceDetail>(
         '/export/advances/',
         payload,
+        { headers: { [IDEMPOTENCY_HEADER]: idem.key } },
       );
       return data;
     },
     onSuccess: () => {
+      idem.reset();
       queryClient.invalidateQueries({ queryKey: ['advances'] });
       // Linked shipments flip the Sheet's R24 "Resminama pul berildi" cell.
       queryClient.invalidateQueries({ queryKey: SHEET_QUERY_KEY });

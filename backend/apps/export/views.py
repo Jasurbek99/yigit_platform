@@ -22,6 +22,7 @@ from rest_framework.response import Response
 from rest_framework import viewsets
 from rest_framework.viewsets import ModelViewSet
 
+from apps.core.idempotency import idempotent
 from apps.core.permission_registry import ROLE_REQUIRED_FIELDS
 from apps.core.permissions import (
     PRIVILEGED_ROLES,
@@ -1743,6 +1744,7 @@ class ShipmentViewSet(ModelViewSet):
 
         return Response({'results': results})
 
+    @idempotent
     def create(self, request, *args, **kwargs):
         """POST /api/v1/export/shipments/
 
@@ -2564,6 +2566,7 @@ class ShipmentViewSet(ModelViewSet):
         return Response(detail_serializer.data)
 
     @action(detail=True, methods=['post'], url_path='comment')
+    @idempotent
     def comment(self, request, pk=None):
         """POST /api/v1/export/shipments/{id}/comment/
 
@@ -3536,6 +3539,11 @@ class CommentViewSet(SeasonScopedMixin, ModelViewSet):
         if mention_map is not None:
             ctx['mention_users_map'] = mention_map
         return ctx
+
+    @idempotent
+    def create(self, request, *args, **kwargs):
+        """Retry-safe create — body unchanged, see apps/core/idempotency.py."""
+        return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
         """Delegate to service via CommentCreateSerializer.create()."""

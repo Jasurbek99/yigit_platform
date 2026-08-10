@@ -7,6 +7,13 @@ tags: [reference, api, backend, frontend]
 
 > Every API endpoint mapped to its backend ViewSet, frontend hook, and page.
 
+> [!info] Six create endpoints accept an `Idempotency-Key` header
+> `POST /export/shipments/`, `POST /export/shipments/{id}/comment/`, `POST /export/comments/`,
+> `POST /export/advances/`, `POST /export/customs-expenses/` and `POST /contracts/contracts/`
+> are retry-safe: send the header and a repeat replays the original response instead of creating a
+> duplicate. The header is **optional** — omitting it leaves behaviour unchanged. Full contract,
+> outcome table and the per-mutation frontend rule: [[api-idempotency]].
+
 ## Auth Endpoints
 
 | Method | Endpoint | ViewSet | Hook | Page |

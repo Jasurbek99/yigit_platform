@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
+import { IDEMPOTENCY_HEADER, useIdempotencyKey } from '@/hooks/useIdempotencyKey';
 import { MOCK_COMMENTS } from '@/mock/comments';
 import { getShipmentDetailKey } from '@/hooks/useShipmentDetail';
 import { useSelectedSeason } from '@/hooks/useSeasonParam';
@@ -78,13 +79,17 @@ interface ICreateCommentPayload {
 
 export function useCreateComment() {
   const queryClient = useQueryClient();
+  const idem = useIdempotencyKey();
 
   return useMutation({
     mutationFn: async (payload: ICreateCommentPayload) => {
-      const { data } = await api.post<IShipmentComment>('/export/comments/', payload);
+      const { data } = await api.post<IShipmentComment>('/export/comments/', payload, {
+        headers: { [IDEMPOTENCY_HEADER]: idem.key },
+      });
       return data;
     },
     onSuccess: (_data, variables) => {
+      idem.reset();
       queryClient.invalidateQueries({ queryKey: ['comments'] });
       queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
       // The Detail page's hero comment_count badge and per-field 💬 counts

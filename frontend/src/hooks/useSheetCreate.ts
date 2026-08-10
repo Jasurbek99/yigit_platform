@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import api from '@/services/api';
+import { IDEMPOTENCY_HEADER, useIdempotencyKey } from '@/hooks/useIdempotencyKey';
 
 /**
  * Sheet "+" button — creates a new shipment as a DRAFT.
@@ -17,16 +18,20 @@ import api from '@/services/api';
 export function useSheetCreate() {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
+  const idem = useIdempotencyKey();
 
   return useMutation({
     mutationFn: async () => {
       const { data } = await api.post('/export/shipments/', {
         is_draft: true,
         block_sources: [],
+      }, {
+        headers: { [IDEMPOTENCY_HEADER]: idem.key },
       });
       return data;
     },
     onSuccess: () => {
+      idem.reset();
       toast.success(t('sheet.create_success'));
       queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
       queryClient.invalidateQueries({ queryKey: ['shipments'] });

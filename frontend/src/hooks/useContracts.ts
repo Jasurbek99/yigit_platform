@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
+import { IDEMPOTENCY_HEADER, useIdempotencyKey } from '@/hooks/useIdempotencyKey';
 import { useSelectedSeason } from '@/hooks/useSeasonParam';
 import type { IApiListResponse } from '@/types';
 import type {
@@ -74,15 +75,18 @@ export function useContract(id: number) {
 
 export function useCreateContract() {
   const queryClient = useQueryClient();
+  const idem = useIdempotencyKey();
   return useMutation({
     mutationFn: async (payload: IContractCreatePayload): Promise<IContractDetail> => {
       const { data } = await api.post<IContractDetail>(
         '/contracts/contracts/',
         payload,
+        { headers: { [IDEMPOTENCY_HEADER]: idem.key } },
       );
       return data;
     },
     onSuccess: () => {
+      idem.reset();
       // Invalidate the entire contracts list family
       queryClient.invalidateQueries({ queryKey: ['contracts', 'list'] });
     },

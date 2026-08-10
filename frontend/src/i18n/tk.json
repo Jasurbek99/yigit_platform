@@ -1332,7 +1332,8 @@
     "all": "Ählisi",
     "load_error": "Maglumatlary ýükläp bolmady",
     "select_season": "Möwsüm saýla",
-    "select": "Saýla..."
+    "select": "Saýla...",
+    "request_in_progress": "Bu haýyş eýýäm işlenip barýar — birsalym garaşyň"
   },
   "permissions_admin": {
     "subtitle": "Rol rugsatlaryny dolandyrmak",
