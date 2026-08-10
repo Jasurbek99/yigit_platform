@@ -381,6 +381,24 @@ Records with **no shipment** — 575 of 711 on the dev database, historical Exce
 >
 > **Manual entry moved with it.** Typing into an empty matrix cell used to POST a row; the by-shipment view has no empty cells, so `QuotaUsageCreateModal` (date / firm / kg) is reached from an **Add manual row** button in the flat list view. It surfaces the backend's `usage_date`-outside-every-season 400 verbatim, since that is the likely failure.
 
+#### Invariant: one `usage_date` per truck
+
+The month picker filters on `usage_date`, so the obvious worry is a truck whose rows sit either side of a month boundary — showing up twice, each time with a partial firm set and a total that is not the truck's total. **It cannot happen.** `sync_draft_quota_usage_for_shipment` computes the date **once per shipment** and stamps every row in the same `bulk_create`:
+
+```python
+usage_date = parse_export_code_date(shipment.export_code) or shipment.date
+QuotaUsageRecord.objects.bulk_create([
+    QuotaUsageRecord(usage_date=usage_date, ...)   # identical for every firm
+    for firm_id, weight_kg in splits
+])
+```
+
+Measured on the dev database (2026-08-11): **86 shipments carry usage rows, all 86 have a single date across their rows — 0 with mixed dates, 0 crossing a month.** `fix_quota_usage_dates` preserves the invariant too, since it re-derives the date from the same shipment's export code. The only way to break it is a direct `PATCH /quota-usage/{id}/` moving one row of a multi-firm truck; neither usage view exposes the date for editing, so it is unreachable from the UI.
+
+What *is* real, and is correct behaviour rather than a defect: `usage_date` differs from `shipment.date` on **47 of the 86** shipments, because the export code carries the real loading day while `shipment.date` is only the day the record was created. A truck loaded on 31 July with export code `01AG…` therefore lands wholly in **August**. Whole truck, one month — not a split. Quota is spent on the day the truck actually went, so keying the filter off the export-code date is the honest choice.
+
+> This paragraph exists because the caveat was first written the other way round — commit `ac9bebc`'s message claims a straddling truck "appears in both months with a partial firm set", which the code and the data both contradict. The commit message stands as history; this is the correction.
+
 ### Section: ShipmentQuotaCard (the shipment side of the link)
 
 **File**: `frontend/src/components/shipment/ShipmentQuotaCard.tsx`, mounted on ShipmentDetail
