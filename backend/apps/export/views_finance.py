@@ -12,6 +12,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
+from apps.core.idempotency import idempotent
 from apps.core.permissions import DynamicResourcePermission, SeasonNotClosed
 from apps.core.roles import ADVANCE_WRITE
 from apps.core.seasons import (
@@ -145,6 +146,7 @@ class FinansistAdvanceViewSet(ModelViewSet):
             return FinansistAdvanceDetailSerializer
         return FinansistAdvanceListSerializer
 
+    @idempotent
     def create(self, request, *args, **kwargs):
         """Create a new advance and optionally link shipments in one transaction.
 
@@ -425,6 +427,7 @@ class CustomsExpenseViewSet(SeasonScopedMixin, ModelViewSet):
         role = getattr(request.user, 'role', None)
         return role in CUSTOMS_EXPENSE_WRITE or request.user.is_superuser
 
+    @idempotent
     def create(self, request, *args, **kwargs):
         """Create a new customs expense.  Role-gated: CUSTOMS_EXPENSE_WRITE only."""
         if not self._is_write_allowed(request):

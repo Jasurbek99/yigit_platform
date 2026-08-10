@@ -1435,6 +1435,12 @@ export interface ISeasonClosePreview {
   in_transit: number;
   open_tasks: number;
   unfinished_plans: number;
+  /**
+   * Draft quota-usage rows in the season. Unlike the four above — which are
+   * hidden and return read-only — these become permanently unapprovable once
+   * the season is closed, so the dialog warns separately when it is > 0.
+   */
+  draft_quota_usage: number;
 }
 
 export interface IAdminUser {

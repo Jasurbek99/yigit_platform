@@ -106,7 +106,9 @@ def freeze_season_of(obj) -> Season | None:
       1. `type(obj).freeze_season` — an explicit model hook, for models whose
          anchor is not a plain `season`/`shipment` FK. `ContractSale` defines
          it: its `shipment` is nullable but its `contract` is not, and
-         `contract.season` is authoritative.
+         `contract.season` is authoritative. `FinansistAdvance` derives it from
+         its shipment junction, and `QuotaUsageRecord` from `usage_date` when
+         it has no shipment.
       2. `obj.season`.
       3. `obj.shipment.season` — join-scoped children.
 
@@ -115,8 +117,14 @@ def freeze_season_of(obj) -> Season | None:
 
     Returns:
         The Season, or None when the row genuinely belongs to none — an
-        unlinked legacy `Task` / `QuotaUsageRecord` / `CustomsExpense`, none of
-        which has an alternate anchor. `assert_season_open` treats None as open.
+        unlinked legacy `Task` or `CustomsExpense`, neither of which has an
+        alternate anchor. `assert_season_open` treats None as open.
+
+        `QuotaUsageRecord` was in that list until 2026-08-08 and is NOT any
+        more: an unlinked usage row anchors on `usage_date` via its
+        `freeze_season` hook, so it returns None only for a date that falls
+        inside no season at all. Treating it as anchorless left every
+        create/PATCH/DELETE of a closed season's unlinked usage unguarded.
     """
     if hasattr(type(obj), 'freeze_season'):
         return obj.freeze_season

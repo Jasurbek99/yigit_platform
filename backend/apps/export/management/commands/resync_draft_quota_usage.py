@@ -39,7 +39,13 @@ class Command(BaseCommand):
         date_from = self._parse_date(options.get('date_from'))
         date_to = self._parse_date(options.get('date_to'))
 
-        drafts = QuotaUsageRecord.objects.filter(status='draft', shipment__isnull=False)
+        # No `status='draft'` clause. The approval step was removed 2026-08-10 and
+        # every shipment-linked row is now born 'approved', so filtering on draft
+        # would match nothing and this repair tool would report success having done
+        # nothing at all. Shipment-linked rows are machine-generated from the splits,
+        # which is exactly what makes them re-syncable; the `shipment__isnull=False`
+        # clause still protects manually-entered rows.
+        drafts = QuotaUsageRecord.objects.filter(shipment__isnull=False)
         if date_from:
             drafts = drafts.filter(usage_date__gte=date_from)
         if date_to:

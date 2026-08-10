@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import api from '@/services/api';
+import { IDEMPOTENCY_HEADER, useIdempotencyKey } from '@/hooks/useIdempotencyKey';
 import { CountrySelect } from '@/components/CountrySelect';
 import { CustomerSelect } from '@/components/CustomerSelect';
 import { COLORS } from '@/constants/styles';
@@ -67,11 +68,15 @@ export function ShipmentCreateModal({ open, onClose, onSuccess }: IShipmentCreat
     staleTime: 5 * 60_000,
   });
 
+  const idem = useIdempotencyKey();
   const createMutation = useMutation({
     mutationFn: async (payload: ICreateShipmentPayload) => {
-      await api.post('/export/shipments/', payload);
+      await api.post('/export/shipments/', payload, {
+        headers: { [IDEMPOTENCY_HEADER]: idem.key },
+      });
     },
     onSuccess: () => {
+      idem.reset();
       const messageKey = skipPrep
         ? 'shipment_create.toast_success_loading'
         : 'shipment_create.toast_success_draft';

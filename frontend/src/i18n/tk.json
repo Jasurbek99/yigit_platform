@@ -462,7 +462,6 @@
   "quota_usage": {
     "prev_month": "Öňki aý",
     "next_month": "Indiki aý",
-    "view_grid": "Tor görnüşi",
     "view_list": "Sanaw görnüşi",
     "date": "Sene",
     "firm": "Firma",
@@ -472,24 +471,20 @@
     "shipment_code": "Iberiş kody",
     "kg_used": "Agramy",
     "product_type": "Önüm",
-    "status": "Ýagdaý",
-    "status_draft": "Garaşylýar",
-    "status_approved": "Tassyklandy",
     "created_by": "Dörediji",
-    "approved_by": "Tassyklaýjy",
-    "approve": "Tassykla",
-    "approved_count": "{{count}} ýazgy tassyklandy",
-    "filter_status": "Ýagdaý süzgüç",
     "total_records": "{{count}} ýazgy",
-    "pending": "garaşylýar",
     "confirm_delete": "Bu ýazgyny pozmalymy?",
     "save_error": "Ýatda saklap bolmady",
     "load_error": "Maglumatlary ýükläp bolmady",
-    "grid_row_total": "Setir jemi",
-    "grid_truck_count": "Maşyn sany",
     "grid_total": "Jemi",
     "grid_empty": "Bu aý üçin ýazgy ýok",
-    "grid_add_row": "Setir goş"
+    "cell_detail_title": "{{firm}} — {{date}}",
+    "view_by_shipment": "Ýüklemeler boýunça",
+    "group_manual": "Ýüklemesiz (elde)",
+    "firm_count": "Firma",
+    "manual_add": "Elde goşmak",
+    "manual_save": "Goşmak",
+    "manual_created": "Sarp ediş setiri goşuldy"
   },
   "local_sell": {
     "double_click_hint": "Üýtgetmek üçin iki gezek basyň",
@@ -1177,6 +1172,7 @@
     "open_button": "Möwsümi aç",
     "close_confirm_title": "{{name}} möwsümi ýapylsynmy?",
     "close_confirm_body": "{{name}} möwsümini ýapmak {{drafts}} garalama ýügi, {{in_transit}} ýolda barýan ýügi we {{open_tasks}} açyk wezipäni gizlär, şeýle-de heniz faktiki netijesi girizilmedik {{unfinished_plans}} hepdelik meýilnamany gizlär. Hiç zat pozulmaýar — ähli ýazgylar bolşy ýaly galýar we {{name}} möwsüm saýlanjy sanawynda saýlananda diňe okamak üçin ýene görünýär.",
+    "close_confirm_quota_warning": "{{name}} möwsüminde kwota ulanylyşynyň {{quota_drafts}} garalama ýazgysy bar. Möwsüm ýapylanda olar doňdurylýar, doňdurylan ýazgyny bolsa tassyklap bolmaýar — ýapmazdan öň olary tassyklaň ýa-da pozuň.",
     "close_preview_error": "Ýapmak barada maglumaty ýüklemek başartmady",
     "retry": "Gaýtadan synanyş",
     "toast_closed": "Möwsüm ýapyldy",
@@ -1336,7 +1332,8 @@
     "all": "Ählisi",
     "load_error": "Maglumatlary ýükläp bolmady",
     "select_season": "Möwsüm saýla",
-    "select": "Saýla..."
+    "select": "Saýla...",
+    "request_in_progress": "Bu haýyş eýýäm işlenip barýar — birsalym garaşyň"
   },
   "permissions_admin": {
     "subtitle": "Rol rugsatlaryny dolandyrmak",
@@ -3274,5 +3271,13 @@
       "truck_plate": "ulag belgisi"
     },
     "download_packet": "Bukjany ýükle"
+  },
+  "shipment_quota": {
+    "section_title": "Ulanylan eksport kwotasy",
+    "no_records": "Bu ýüklemede entek kwota ulanylmady.",
+    "col_firm": "Firma",
+    "col_kg": "Ulanylan kwota",
+    "col_date": "Senesi",
+    "total_label": "Jemi"
   }
 }

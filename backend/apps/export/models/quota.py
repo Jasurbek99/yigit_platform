@@ -287,3 +287,39 @@ class QuotaUsageRecord(models.Model):
 
     def __str__(self) -> str:
         return f'{self.usage_date} — {self.export_firm_id}: {self.kg_used} kg ({self.status})'
+
+    @property
+    def freeze_season(self) -> 'Season | None':
+        """Authoritative Season for the write freeze (D1).
+
+        Read by `apps.core.seasons.freeze_season_of()`, which BOTH layers of
+        the freeze consult — so this one definition covers create, PATCH and
+        DELETE alike.
+
+        This model reaches a Season through neither a `season` FK nor a
+        non-null `shipment` FK: 575 of 711 rows are historical imports with no
+        shipment at all, and those anchor on `usage_date` alone (D11, spec
+        §4.7). Without this hook `freeze_season_of()` returned None for every
+        one of them, so `SeasonNotClosed` and `assert_create_target_open()`
+        were silent no-ops and a frozen season's usage stayed writable —
+        create, edit AND delete.
+
+        Delegates to `season_of_usage()` rather than repeating the date-range
+        lookup. That function is the row-level inverse of the `usage_season_q()`
+        read scope and the two are documented as a matched pair; a third copy
+        here would drift, and then the row a closed season LISTS would not be
+        the row it FREEZES. The import is deferred because
+        `services_quota` imports this module at load time — a module-level
+        import raises ImportError (verified).
+
+        Returns:
+            The linked shipment's Season when linked (authoritative even when
+            `usage_date` falls outside its calendar range — 7 such rows exist);
+            otherwise the Season whose date range contains `usage_date`;
+            otherwise None. None means the row belongs to no season, which
+            `assert_season_open()` treats as open — that row is rejected at
+            write time by `_assert_usage_resolves_to_a_season` (400) instead.
+        """
+        from apps.export.services_quota import season_of_usage
+
+        return season_of_usage(self.shipment, self.usage_date)

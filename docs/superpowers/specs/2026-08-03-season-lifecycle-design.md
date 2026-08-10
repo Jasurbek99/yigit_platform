@@ -386,7 +386,8 @@ def close_season(season: Season, user: User) -> None:
 def close_preview(season: Season) -> dict:
     """Counts of rows that will be hidden, for the confirmation dialog.
 
-    Returns {drafts, in_transit, open_tasks, unfinished_plans}.
+    Returns {drafts, in_transit, open_tasks, unfinished_plans,
+    draft_quota_usage}.
     Advisory only — never blocks the close (D2).
     """
 ```
@@ -443,7 +444,12 @@ exactly like the feature not working.
 
 **Switcher.** In the header next to the locale switcher. Lists:
 - the active season, always;
-- upcoming seasons, never (nothing to show);
+- upcoming seasons, always — `resolve_season()` only rejects a **closed** season for a user
+  lacking `can_view_closed_seasons`; an upcoming season (deactivated without being closed, e.g.
+  `is_active=False`/`closed_at=None`) is already readable AND writable by anyone, so hiding it
+  from the switcher only hides data, it grants nothing. (Revision 2026-08-10: the original "never
+  — nothing to show" assumption held only for a genuinely future, empty season, not for one
+  deactivated mid-lifecycle while still holding shipments.)
 - closed seasons, only if `can_view_closed_seasons`.
 
 **Read-only mode.** `useSeasonReadOnly()` returns true when the selected season is closed.
@@ -598,6 +604,19 @@ consequence honestly: closing a season with 14 trucks in transit makes them vani
 board at once. The `close-preview` dialog is the entire mitigation, so its copy matters more
 than usual.
 
+**Addendum 2026-08-08.** That claim had a hole while the §4.7 write-freeze correction was
+being made: three of the four counters name work that is *hidden* and returns read-only, but a
+`QuotaUsageRecord` still in `draft` becomes **permanently unapprovable** when its season closes
+— approving is a write to frozen data and there is no unfreeze. The dialog said nothing about
+it, at the one moment the decision turns irreversible. `close_preview()` now returns a fifth
+key, `draft_quota_usage`, counted through `usage_season_q()` so no second "which season owns
+this row" rule enters the codebase, and the modal renders a separate warning (not folded into
+the body copy, which promises "nothing is deleted" — untrue of these rows). **The original four
+keys stay a contract**: adding is safe, renaming or removing is not. On the dev database the
+count is 151 for season 1 — 15 unlinked rows plus 136 linked to that season's shipments, the
+latter already frozen-on-close before the §4.7 correction. Cost measured on live data: 9.5 ms
+for the count, 41 ms for the whole preview.
+
 ---
 
 ## 4.7 Quotas never cross seasons (D11)
@@ -643,6 +662,36 @@ It is derived, not stored. A `season` column was considered and rejected: `freez
 reads `obj.season` **before** `obj.shipment.season`, so any creation site that failed to stamp
 the new column would silently read a closed-season row as open, loosening the write freeze
 D10 exists to provide. Deriving it leaves the freeze anchor exactly where it is.
+
+**Correction (2026-08-08): deriving it for READS was not enough — the WRITE freeze had to be
+taught the same derivation, and until this date it was not.** Reported by an automated
+reviewer and reproduced: `freeze_season_of()` resolves `obj.season`, then `obj.shipment.season`,
+and an unlinked `QuotaUsageRecord` has neither — so it returned `None`, which
+`assert_season_open()` treats as *open*. Both layers of §5 were silent no-ops on the 575
+unlinked rows:
+
+```
+POST   unlinked usage dated inside a CLOSED season  -> 201   (should be 409)
+PATCH  moving an unlinked row into a CLOSED season  -> 200   (should be 409)
+DELETE an unlinked row inside a CLOSED season       -> 204   (should be 409)
+POST   /quota-usage/approve/ on such a row          -> 200   (should be 409)
+```
+
+Fixed by a `freeze_season` property on `QuotaUsageRecord` — the model hook `freeze_season_of()`
+already supports, and the third user of it after `ContractSale` and `FinansistAdvance` — which
+delegates to `season_of_usage()` rather than repeating the date-range lookup, keeping the
+matched pair a pair. `approve` is the one path the property cannot reach (a raw id list never
+calls `get_object()`); its generic `assert_bulk_seasons_open(qs, 'shipment__season')` resolved
+through a NULL FK and matched no season, and is replaced by
+`services_quota.assert_usage_batch_seasons_open(qs)`, which applies `usage_season_q()` once per
+closed season and subsumes it. **Status codes are split deliberately**: a row that resolves to
+**no** season stays a `400` on `usage_date` (a field problem — see the guard above), a row that
+resolves to a **closed** season is the §5 `409 season_closed` (a state problem). Both are
+reachable from the same POST, and the freeze guard runs first.
+
+Operational note for the first close: 15 of the 575 unlinked rows on the dev database are still
+`status='draft'`. Once their season closes they can never be approved — approve or delete them
+before the close, alongside the straddling-advance check.
 
 **Issuance rows that match no season are reported, not guessed** — the Task 4 precedent.
 `QuotaIssuance#34` (25,000 kg, `issue_date` 2026-07-06, firm *Eziz Doganlar*) falls in the gap

@@ -450,6 +450,14 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': 120.0,
         'options': {'expires': 110},
     },
+    # Idempotency keys have a 24h TTL (apps/core/tasks.py). Without this the
+    # table grows forever — it takes one row per create request that carries
+    # the header.
+    'purge-expired-idempotency-keys': {
+        'task': 'apps.core.tasks.purge_expired_idempotency_keys',
+        'schedule': 86400.0,
+        'options': {'expires': 3600},
+    },
 }
 
 # ════════════════════════════════════════════════

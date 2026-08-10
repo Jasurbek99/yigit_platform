@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
+import { IDEMPOTENCY_HEADER, useIdempotencyKey } from '@/hooks/useIdempotencyKey';
 import { getShipmentDetailKey } from './useShipmentDetail';
 import { useSelectedSeason } from '@/hooks/useSeasonParam';
 import type { IApiListResponse } from '@/types';
@@ -69,15 +70,18 @@ export function useCustomsLedger(dateRange: ILedgerFilters = {}): ReturnType<typ
 
 export function useCreateCustomsExpense(): ReturnType<typeof useMutation<ICustomsExpense, Error, ICustomsExpensePayload>> {
   const queryClient = useQueryClient();
+  const idem = useIdempotencyKey();
   return useMutation({
     mutationFn: async (payload: ICustomsExpensePayload): Promise<ICustomsExpense> => {
       const { data } = await api.post<ICustomsExpense>(
         '/export/customs-expenses/',
         payload,
+        { headers: { [IDEMPOTENCY_HEADER]: idem.key } },
       );
       return data;
     },
     onSuccess: (data) => {
+      idem.reset();
       void queryClient.invalidateQueries({ queryKey: ['customs-expenses'] });
       void queryClient.invalidateQueries({ queryKey: ['customs-ledger'] });
       if (data.shipment) {

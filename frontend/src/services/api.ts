@@ -35,6 +35,15 @@ function isSeasonClosedError(data: unknown): data is ISeasonClosedError {
   return typeof data === 'object' && data !== null && 'error' in data && data.error === 'season_closed';
 }
 
+interface IIdempotencyInProgressError {
+  error: 'idempotency_in_progress';
+}
+
+function isIdempotencyInProgress(data: unknown): data is IIdempotencyInProgressError {
+  return typeof data === 'object' && data !== null && 'error' in data
+    && data.error === 'idempotency_in_progress';
+}
+
 // Redirect to login on 401 — but NOT for the login endpoint itself,
 // otherwise bad-credential errors trigger a redirect and the page's
 // onError toast never renders.
@@ -48,17 +57,28 @@ function isSeasonClosedError(data: unknown): data is ISeasonClosedError {
 // always be missed — so if a 409 season_closed does land, the user sees an
 // intelligible message here instead of whatever generic "failed" toast (or
 // none at all) the calling mutation's own onError happens to show.
+// Exported so the branches can be unit-tested — an anonymous inline callback
+// is unreachable from a test without a full HTTP mock.
+export function handleApiResponseError(error: AxiosError): void {
+  const url = error.config?.url ?? '';
+  const isLoginRequest = url.includes('/auth/login');
+  if (error.response?.status === 401 && !isLoginRequest) {
+    window.location.href = '/login';
+  }
+  if (error.response?.status === 409 && isSeasonClosedError(error.response.data)) {
+    toast.error(i18n.t('season.closed_error'));
+  }
+  // A 409 here means the FIRST attempt is still running, so the operator must
+  // wait rather than press Save a third time.
+  if (error.response?.status === 409 && isIdempotencyInProgress(error.response.data)) {
+    toast.error(i18n.t('common.request_in_progress'));
+  }
+}
+
 api.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
-    const url = error.config?.url ?? '';
-    const isLoginRequest = url.includes('/auth/login');
-    if (error.response?.status === 401 && !isLoginRequest) {
-      window.location.href = '/login';
-    }
-    if (error.response?.status === 409 && isSeasonClosedError(error.response.data)) {
-      toast.error(i18n.t('season.closed_error'));
-    }
+    handleApiResponseError(error);
     return Promise.reject(error);
   },
 );

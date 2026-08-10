@@ -50,23 +50,27 @@ interface MutationOptions {
   onError?: (err: unknown) => void;
 }
 
-// `is_active`, `status`, `closed_at`, `closed_by`, `closed_by_name` are
-// `read_only_fields` on the backend `SeasonSerializer` — never accepted on
-// write. `is_active` in particular is SERVER-SET: which season is the write
-// target changes only through `useOpenSeason`/`useCloseSeason` below, which
-// hit `POST .../open/` and `POST .../close/` (atomic incumbent swap + audit
-// log) and invalidate every cached query. A generic PATCH did neither.
-type ISeasonWritable = Omit<
-  ISeason, 'id' | 'is_active' | 'status' | 'closed_at' | 'closed_by' | 'closed_by_name'
->;
+// `status`, `closed_at`, `closed_by`, `closed_by_name` are `read_only_fields`
+// on the backend `SeasonSerializer` — derived from `closed_at`/`is_active`,
+// never accepted on write. `is_active` IS writable (the form's Active switch):
+// the backend routes it through `open_season()`/`deactivate_season()` in
+// `SeasonViewSet.perform_create`/`perform_update`, so it gets the same atomic
+// incumbent swap and AuditLog row that `useOpenSeason`/`useCloseSeason` do.
+type ISeasonWritable = Omit<ISeason, 'id' | 'status' | 'closed_at' | 'closed_by' | 'closed_by_name'>;
 
+// Both create and update can now move the write target (`is_active`), so both
+// must invalidate as broadly as `useCloseSeason`/`useOpenSeason` do — see the
+// comment above `useCloseSeason` for why a targeted invalidate of
+// `['admin-seasons']`/`['auth','me']` is not enough. A narrower invalidate here
+// is exactly the bug that got the switch removed in the first place: the
+// database changed season and the screen did not.
 export function useCreateSeason(options: MutationOptions = {}) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: ISeasonWritable) =>
       api.post<ISeason>('/export/admin/seasons/', payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-seasons'] });
+      queryClient.invalidateQueries();
       options.onSuccess?.();
     },
     onError: options.onError,
@@ -79,7 +83,7 @@ export function useUpdateSeason(options: MutationOptions = {}) {
     mutationFn: ({ id, ...payload }: Partial<ISeasonWritable> & { id: number }) =>
       api.patch<ISeason>(`/export/admin/seasons/${id}/`, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-seasons'] });
+      queryClient.invalidateQueries();
       options.onSuccess?.();
     },
     onError: options.onError,

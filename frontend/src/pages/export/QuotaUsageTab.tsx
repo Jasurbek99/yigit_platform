@@ -1,20 +1,12 @@
 import { useState } from 'react';
-import {
-  Button,
-  InputNumber,
-  Modal,
-  Select,
-  Space,
-  Tag,
-  Typography,
-} from 'antd';
+import { Button, InputNumber, Modal, Space, Tag, Typography } from 'antd';
 import { toast } from 'sonner';
 import { ProTable, type ProColumns } from '@ant-design/pro-components';
 import {
   AppstoreOutlined,
-  CheckCircleOutlined,
   DeleteOutlined,
-  EditOutlined,
+  PlusOutlined,
+  ProfileOutlined,
   UnorderedListOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
@@ -24,15 +16,15 @@ import {
   useQuotaUsageRecords,
   useUpdateQuotaUsage,
   useDeleteQuotaUsage,
-  useBulkApproveQuotaUsage,
 } from '@/hooks/useQuotaUsage';
 import { fmtWeight, weightSuffix, type WeightUnit } from '@/utils/weight';
-import { QuotaUsageGrid } from './QuotaUsageGrid';
+import { QuotaUsageByShipment } from './QuotaUsageByShipment';
+import { QuotaUsageCreateModal } from './QuotaUsageCreateModal';
 import type { IQuotaUsageRecord } from '@/types';
 
 const { Text } = Typography;
 
-type ViewMode = 'list' | 'grid';
+type ViewMode = 'list' | 'shipment';
 
 interface IQuotaUsageTabProps {
   weightUnit: WeightUnit;
@@ -44,31 +36,20 @@ export function QuotaUsageTab({ weightUnit, productType }: IQuotaUsageTabProps) 
   const { user } = useAuth();
   const canEdit = canDo(user, 'quota_usage', 'edit');
   const canDelete = canDo(user, 'quota_usage', 'delete');
+  const canCreate = canDo(user, 'quota_usage', 'create');
 
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
-  const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  // Default is the by-shipment view: quota is spent per truck, so that is the
+  // unit an operator reconciles against. The flat list stays for hunting a single
+  // row and for hand-entering one.
+  const [viewMode, setViewMode] = useState<ViewMode>('shipment');
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   const { data: records = [], isLoading } = useQuotaUsageRecords(
-    { status: statusFilter },
+    {},
     { enabled: viewMode === 'list' },
   );
   const updateMutation = useUpdateQuotaUsage();
   const deleteMutation = useDeleteQuotaUsage();
-  const approveMutation = useBulkApproveQuotaUsage();
-
-  function handleApprove() {
-    const draftIds = selectedIds.filter(
-      (id) => records.find((r) => r.id === id)?.status === 'draft'
-    );
-    if (!draftIds.length) return;
-    approveMutation.mutate(draftIds, {
-      onSuccess: (data) => {
-        toast.success(t('quota_usage.approved_count', { count: data.approved }));
-        setSelectedIds([]);
-      },
-    });
-  }
 
   function handleInlineEdit(record: IQuotaUsageRecord, field: string, value: unknown) {
     updateMutation.mutate(
@@ -80,11 +61,11 @@ export function QuotaUsageTab({ weightUnit, productType }: IQuotaUsageTabProps) 
   const viewToggle = (
     <Space size={4}>
       <Button
-        type={viewMode === 'grid' ? 'primary' : 'default'}
-        icon={<AppstoreOutlined />}
+        type={viewMode === 'shipment' ? 'primary' : 'default'}
+        icon={<ProfileOutlined />}
         size="small"
-        onClick={() => setViewMode('grid')}
-        aria-label={t('quota_usage.view_grid')}
+        onClick={() => setViewMode('shipment')}
+        aria-label={t('quota_usage.view_by_shipment')}
       />
       <Button
         type={viewMode === 'list' ? 'primary' : 'default'}
@@ -96,25 +77,20 @@ export function QuotaUsageTab({ weightUnit, productType }: IQuotaUsageTabProps) 
     </Space>
   );
 
-  // ─── Grid view ─────────────────────────────────────────────────────────
+  // ─── By-shipment view ──────────────────────────────────────────────────
 
-  if (viewMode === 'grid') {
+  if (viewMode === 'shipment') {
     return (
       <div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
           {viewToggle}
         </div>
-        <QuotaUsageGrid weightUnit={weightUnit} productType={productType} />
+        <QuotaUsageByShipment weightUnit={weightUnit} productType={productType} />
       </div>
     );
   }
 
   // ─── List view ─────────────────────────────────────────────────────────
-
-  const draftCount = records.filter((r) => r.status === 'draft').length;
-  const selectedDraftCount = selectedIds.filter(
-    (id) => records.find((r) => r.id === id)?.status === 'draft'
-  ).length;
 
   const columns: ProColumns<IQuotaUsageRecord>[] = [
     {
@@ -155,7 +131,7 @@ export function QuotaUsageTab({ weightUnit, productType }: IQuotaUsageTabProps) 
       align: 'right' as const,
       sorter: (a: IQuotaUsageRecord, b: IQuotaUsageRecord) => a.kg_used - b.kg_used,
       render: (_: unknown, r: IQuotaUsageRecord) => {
-        if (canEdit && r.status === 'draft') {
+        if (canEdit) {
           return (
             <InputNumber
               defaultValue={r.kg_used}
@@ -183,29 +159,10 @@ export function QuotaUsageTab({ weightUnit, productType }: IQuotaUsageTabProps) 
         r.product_type === 'pepper' ? t('quota_dashboard.product_pepper') : t('quota_dashboard.product_tomato'),
     },
     {
-      title: t('quota_usage.status'),
-      dataIndex: 'status',
-      width: 110,
-      render: (_: unknown, r: IQuotaUsageRecord) => (
-        <Tag
-          color={r.status === 'approved' ? 'success' : 'default'}
-          icon={r.status === 'approved' ? <CheckCircleOutlined /> : <EditOutlined />}
-        >
-          {t(`quota_usage.status_${r.status}`)}
-        </Tag>
-      ),
-    },
-    {
       title: t('quota_usage.created_by'),
       dataIndex: 'created_by_name',
       width: 120,
       render: (_: unknown, r: IQuotaUsageRecord) => r.created_by_name ?? '—',
-    },
-    {
-      title: t('quota_usage.approved_by'),
-      dataIndex: 'approved_by_name',
-      width: 120,
-      render: (_: unknown, r: IQuotaUsageRecord) => r.approved_by_name ?? '—',
     },
     ...(canDelete
       ? [
@@ -213,22 +170,21 @@ export function QuotaUsageTab({ weightUnit, productType }: IQuotaUsageTabProps) 
             title: '',
             key: 'actions',
             width: 50,
-            render: (_: unknown, r: IQuotaUsageRecord) =>
-              r.status === 'draft' ? (
-                <Button
-                  size="small"
-                  danger
-                  type="link"
-                  icon={<DeleteOutlined />}
-                  onClick={() =>
-                    Modal.confirm({
-                      title: t('quota_usage.confirm_delete'),
-                      okType: 'danger',
-                      onOk: () => deleteMutation.mutate(r.id),
-                    })
-                  }
-                />
-              ) : null,
+            render: (_: unknown, r: IQuotaUsageRecord) => (
+              <Button
+                size="small"
+                danger
+                type="link"
+                icon={<DeleteOutlined />}
+                onClick={() =>
+                  Modal.confirm({
+                    title: t('quota_usage.confirm_delete'),
+                    okType: 'danger',
+                    onOk: () => deleteMutation.mutate(r.id),
+                  })
+                }
+              />
+            ),
           },
         ]
       : []),
@@ -238,33 +194,14 @@ export function QuotaUsageTab({ weightUnit, productType }: IQuotaUsageTabProps) 
     <div>
       {/* Toolbar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <Space>
-          <Select
-            value={statusFilter}
-            onChange={setStatusFilter}
-            allowClear
-            placeholder={t('quota_usage.filter_status')}
-            style={{ width: 150 }}
-            options={[
-              { label: t('quota_usage.status_draft'), value: 'draft' },
-              { label: t('quota_usage.status_approved'), value: 'approved' },
-            ]}
-          />
-          <Text type="secondary">
-            {t('quota_usage.total_records', { count: records.length })}
-            {draftCount > 0 && ` · ${draftCount} ${t('quota_usage.pending')}`}
-          </Text>
-        </Space>
+        <Text type="secondary">
+          {t('quota_usage.total_records', { count: records.length })}
+        </Text>
 
         <Space>
-          {canEdit && selectedDraftCount > 0 && (
-            <Button
-              type="primary"
-              icon={<CheckCircleOutlined />}
-              onClick={handleApprove}
-              loading={approveMutation.isPending}
-            >
-              {t('quota_usage.approve')} ({selectedDraftCount})
+          {canCreate && (
+            <Button size="small" icon={<PlusOutlined />} onClick={() => setIsCreateOpen(true)}>
+              {t('quota_usage.manual_add')}
             </Button>
           )}
           {viewToggle}
@@ -280,17 +217,13 @@ export function QuotaUsageTab({ weightUnit, productType }: IQuotaUsageTabProps) 
         search={false}
         options={false}
         pagination={false}
-        scroll={{ x: 1210 }}
-        rowSelection={
-          canEdit
-            ? {
-                selectedRowKeys: selectedIds,
-                onChange: (keys) => setSelectedIds(keys as number[]),
-                getCheckboxProps: (r) => ({ disabled: r.status !== 'draft' }),
-              }
-            : undefined
-        }
-        rowClassName={(r) => (r.status === 'draft' ? 'row-draft' : '')}
+        scroll={{ x: 970 }}
+      />
+
+      <QuotaUsageCreateModal
+        open={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        productType={productType}
       />
     </div>
   );

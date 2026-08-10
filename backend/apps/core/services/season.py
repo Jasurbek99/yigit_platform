@@ -79,6 +79,34 @@ def open_season(season: Season, user: User) -> None:
         _audit(season, user, 'opened')
 
 
+def deactivate_season(season: Season, user: User) -> None:
+    """Clear `season`'s write-target flag without closing it.
+
+    The counterpart to `open_season()` for the `True -> False` half of the
+    admin form's Active switch. It is NOT `close_season()`: nothing is frozen,
+    `closed_at` stays NULL, and the season falls back to UPCOMING rather than
+    CLOSED, so it can be opened again later.
+
+    The result is the legitimate no-active-season gap — `get_active_season()`
+    returns None and `apply_season_scope()` fails closed (D7). That is a
+    consequential state to leave the platform in, which is the whole reason
+    this is a service and not a bare `is_active = False` on the way past: it
+    is the only place the audit row gets written.
+
+    No "already inactive" guard, unlike `close_season()`: the single caller
+    (`SeasonViewSet.perform_update`) only reaches here on an actual
+    `True -> False` transition, and a redundant guard here would be dead code.
+
+    Args:
+        season: The Season to stand down.
+        user: The User performing the change; recorded in the audit log.
+    """
+    with transaction.atomic():
+        season.is_active = False
+        season.save(update_fields=['is_active'])
+        _audit(season, user, 'deactivated')
+
+
 def close_preview(season: Season) -> dict[str, int]:
     """Counts of rows that closing `season` will hide.
 
@@ -109,14 +137,27 @@ def close_preview(season: Season) -> dict[str, int]:
         `core.0011_add_cancelled_status`) for the same reason — a cancelled
         shipment is not "in transit".
 
+    `draft_quota_usage` (added 2026-08-08) is the odd one out and the reason it
+    is here: every other counter names work that is *hidden* and comes back
+    read-only, but a quota-usage row still in `draft` can never be approved
+    once its season closes — approving is a write to frozen data and there is
+    no unfreeze. That consequence is created by the close and is irreversible,
+    so the dialog is the only place it can be surfaced in time. It is counted
+    through `usage_season_q()`, the same predicate the read scope and the FIFO
+    ledger use, so no new "which season does this row belong to" rule enters
+    the codebase.
+
     Args:
         season: The Season being previewed for closing.
 
     Returns:
         Dict with int values for keys: drafts, in_transit, open_tasks,
-        unfinished_plans.
+        unfinished_plans, draft_quota_usage. The first four are a fixed
+        contract (frontend copy and tests interpolate them by name) — adding a
+        key is safe, renaming or removing one is not.
     """
-    from apps.export.models import Shipment, Task, TaskState
+    from apps.export.models import QuotaUsageRecord, Shipment, Task, TaskState
+    from apps.export.services_quota import usage_season_q
     from apps.greenhouse.models import WeeklyHarvestPlan
 
     shipments = Shipment.objects.filter(season=season, deleted_at__isnull=True, is_archived=False)
@@ -133,6 +174,16 @@ def close_preview(season: Season) -> dict[str, int]:
         .exclude(status__phase__in=['COMPLETE', 'CANCELLED']).count(),
         'open_tasks': open_tasks.count(),
         'unfinished_plans': unfinished_plans.count(),
+        # Structurally 0 since 2026-08-10: the approval step was removed and
+        # every row is born 'approved', so no new draft can appear and
+        # `approve_legacy_quota_usage` converts the pre-cutover ones. Kept —
+        # not deleted — because the counter is only harmless while it reads 0,
+        # and it must still fire if a stale draft survives the backfill on some
+        # environment. The four original keys are a frontend contract; this
+        # fifth one is rendered only when > 0.
+        'draft_quota_usage': QuotaUsageRecord.objects.filter(
+            usage_season_q(season), status='draft',
+        ).count(),
     }
 
 

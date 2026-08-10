@@ -462,7 +462,6 @@
   "quota_usage": {
     "prev_month": "Previous month",
     "next_month": "Next month",
-    "view_grid": "Grid view",
     "view_list": "List view",
     "date": "Date",
     "firm": "Firm",
@@ -472,24 +471,20 @@
     "shipment_code": "Shipment Code",
     "kg_used": "Weight",
     "product_type": "Product",
-    "status": "Status",
-    "status_draft": "Draft",
-    "status_approved": "Approved",
     "created_by": "Created By",
-    "approved_by": "Approved By",
-    "approve": "Approve",
-    "approved_count": "{{count}} records approved",
-    "filter_status": "Status filter",
     "total_records": "{{count}} records",
-    "pending": "pending",
     "confirm_delete": "Delete this usage record?",
     "save_error": "Failed to save",
     "load_error": "Failed to load usage data",
-    "grid_row_total": "Row Total",
-    "grid_truck_count": "Trucks",
     "grid_total": "Total",
     "grid_empty": "No usage records for this month",
-    "grid_add_row": "Add row"
+    "cell_detail_title": "{{firm}} — {{date}}",
+    "view_by_shipment": "By shipment",
+    "group_manual": "No shipment (manual)",
+    "firm_count": "Firms",
+    "manual_add": "Add manual row",
+    "manual_save": "Add",
+    "manual_created": "Usage row added"
   },
   "local_sell": {
     "double_click_hint": "Double-click to edit",
@@ -1177,6 +1172,7 @@
     "open_button": "Open season",
     "close_confirm_title": "Close {{name}}?",
     "close_confirm_body": "Closing {{name}} will hide {{drafts}} draft shipments, {{in_transit}} shipments in transit, {{open_tasks}} open tasks, and {{unfinished_plans}} weekly plans still missing reported actuals. Nothing is deleted — every record stays exactly as it is and reappears, read-only, whenever {{name}} is selected in the season switcher.",
+    "close_confirm_quota_warning": "{{quota_drafts}} quota-usage records in {{name}} are still drafts. Closing the season freezes them, and a frozen record can never be approved — approve or delete them before you close.",
     "close_preview_error": "Failed to load the close preview counts",
     "retry": "Retry",
     "toast_closed": "Season closed",
@@ -1336,7 +1332,8 @@
     "all": "All",
     "load_error": "Failed to load data",
     "select_season": "Select season",
-    "select": "Select..."
+    "select": "Select...",
+    "request_in_progress": "This request is already being processed — please wait"
   },
   "permissions_admin": {
     "subtitle": "Manage role permissions",
@@ -3270,5 +3267,13 @@
       "truck_plate": "truck plate"
     },
     "download_packet": "Download packet"
+  },
+  "shipment_quota": {
+    "section_title": "Export quota used",
+    "no_records": "This shipment has not consumed any quota yet.",
+    "col_firm": "Firm",
+    "col_kg": "Quota used",
+    "col_date": "Date",
+    "total_label": "Total"
   }
 }

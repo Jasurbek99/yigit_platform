@@ -80,6 +80,23 @@ export function SeasonCloseModal({ season, onClose }: ISeasonCloseModalProps): J
           })}
         </p>
       )}
+      {/*
+        Separate from the body copy on purpose: that paragraph promises
+        "nothing is deleted, everything comes back read-only", which is true of
+        its four counters and NOT true of these rows — a draft quota-usage row
+        can never be approved once the season freezes. Rendered only when there
+        is something to act on, so the dialog stays quiet in the normal case.
+      */}
+      {preview && season && preview.draft_quota_usage > 0 && (
+        <Alert
+          type="warning"
+          showIcon
+          message={t('seasons.close_confirm_quota_warning', {
+            name: season.name,
+            quota_drafts: preview.draft_quota_usage,
+          })}
+        />
+      )}
     </Modal>
   );
 }

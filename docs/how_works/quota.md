@@ -80,33 +80,31 @@ A **usage record** is one line: **"On this date, firm X spent Y kg of quota, for
 
 A usage record can also exist **without a shipment** — that's how historical Excel data is represented (firm spent the kg, but no live shipment row behind it).
 
-## The draft → approved lifecycle (the heart of it)
+## Usage is automatic — there is no approval step
 
-Usage records are **born as drafts, automatically**, and only **count once a human approves them**:
+(There used to be one. It was removed on 2026-08-10 because it never caught anything: the numbers come from the firm splits an operator has already entered, so "approving" them was a click that added no information — and until someone clicked it, real exported kg sat outside every total.)
 
-1. **Auto-creation.** The moment an operator sets the **firm splits** on a shipment (which firms share the truck), the system *automatically* creates a **draft** usage record for each firm. Nobody types the kg by hand at first.
-2. **Where the kg comes from.** A **default truck-weight table** (admin-configurable):
+1. **Auto-creation.** The moment an operator sets the **firm splits** on a shipment (which firms share the truck), the system creates a usage record for each firm. Nobody types the kg by hand.
+2. **Where the kg comes from.** Each firm's **actual split weight**. Only when a split carries no weight does it fall back to the admin-configurable **default truck-weight table**:
    - 1 firm → ~18,100 kg.
    - 2 firms → ~9,000 kg each.
    - 3+ firms → truck weight ÷ N.
-   These are estimates to get a starting number; they can be edited.
-3. **Drafts don't count yet.** A draft is a proposal — it does **not** consume quota in the official FIFO ledger or dashboard "used" totals.
-4. **Approval.** An **export_manager or director** reviews and **approves** drafts (often in bulk). The kg can be edited inline *while still a draft*. On approval, `approved_by` / `approved_at` get stamped.
-5. **Only approved usage is real.** FIFO, firm balances, and the dashboard "Used" KPI count **approved records only.** This is the deliberate split between operations moving fast (drafts auto-appear) and the books being correct (a human signs off).
+3. **It counts straight away.** FIFO, firm balances and the dashboard "Used" KPI include the row the instant it exists.
+4. **Change the splits, and the usage follows.** The records are regenerated from the current splits every time they change — the old ones are replaced, not preserved. Manually-entered records (the ones with no shipment behind them) are never touched by this.
+5. **Anyone with edit rights can correct a number** directly in the grid or the list. There is no "locked once approved" state any more.
 
-## Two different definitions of "committed" — an important nuance
+The `status` column still exists in the database and every row reads `approved`. It means **"counted"**, not "a human checked this" — `approved_by` and `approved_at` stay empty, because nobody signs anything. The column survives only so the pre-2026-08-10 history stays readable.
 
-- The **dashboard** counts **approved-only** usage (the authoritative, signed-off ledger).
-- The **firm-split warning** at assignment time counts **draft + approved** together.
+## "Committed" now means one thing
 
-Why? When an operator assigns a firm to a truck *right now*, the draft they just created **is** the live commitment. If the warning counted approved-only, it would under-warn and let firms over-commit until someone approved. So at the point of assignment, drafts count as "spoken for."
+It used to mean two: the dashboard counted approved-only, while the firm-split warning at assignment time counted drafts too, so the same firm could show two different consumption figures on two screens. With every row counting immediately, both read the same number.
 
 ## FIFO — how a firm's usage eats its stack of grants
 
 A firm has a **stack of separate grants**, each with its own issue date and expiry. To figure out which grants got consumed:
 
 1. Take all of that firm's grants, sorted **oldest issue date first**.
-2. Sum all the firm's approved usage.
+2. Sum all the firm's usage.
 3. Pour that usage into the grants **starting from the oldest** — fill grant #1, overflow into grant #2, and so on.
 
 **Oldest-first matters because of expiry** — spend the quota about to die before it's wasted. Whatever's left in a grant when it expires becomes **"unused/expired."**
@@ -116,14 +114,14 @@ A firm has a **stack of separate grants**, each with its own issue date and expi
 If a shipment is removed, its quota should return to the firm's balance. The system does this not by deleting the usage row, but by **no longer counting** rows attached to dead shipments:
 
 - **Soft-delete a shipment** → its usage stops counting; **restore it** → counts again automatically (same row, no re-typing).
-- **Cancel a shipment** → draft rows dropped, approved rows kept but not counted (until un-cancelled).
+- **Cancel a shipment** → its rows are kept but stop counting (until un-cancelled).
 - **Admin bulk-delete** → rows truly erased (permanent — the shipment is gone).
 
 Each instantly refreshes the firm's balance so the next assignment sees accurate remaining quota.
 
 ## Quota is tracked, not enforced
 
-The single most important operational fact: **the system never blocks an export for lack of quota.** Assign a firm with zero remaining quota and you get a soft ⚠ "no quota" warning — but the save **still goes through.** Trucks move; the books get reconciled afterward through the approval workflow. The system is a *ledger and a watchdog*, not a gate.
+The single most important operational fact: **the system never blocks an export for lack of quota.** Assign a firm with zero remaining quota and you get a soft ⚠ "no quota" warning — but the save **still goes through.** Trucks move; the books record what happened. The system is a *ledger and a watchdog*, not a gate.
 
 ---
 
@@ -133,10 +131,10 @@ The single most important operational fact: **the system never blocks an export 
 |---|---|---|
 | Direction | Quota coming **in** | Quota going **out** |
 | Triggered by | Government decision | A truck being loaded |
-| Created by | Manually, by manager/director | **Auto-created** as drafts on firm-split |
+| Created by | Manually, by manager/director | **Auto-created** from the firm splits |
 | Granularity | Per firm, per government act | Per firm, per shipment |
 | Has a date window | Yes — validity/expiry | No — just consumes |
-| Counts when | Always (it's the grant) | Only after **approval** |
+| Counts when | Always (it's the grant) | Immediately |
 
 **Issued − Used = what's still available** (per firm, oldest grants first, minus anything that expired unspent). That single comparison, run per firm and rolled up, is the entire quota dashboard.
 

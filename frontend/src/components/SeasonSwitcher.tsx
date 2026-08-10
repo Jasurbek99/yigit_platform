@@ -36,11 +36,24 @@ export function SeasonSwitcher(): JSX.Element | null {
 
   const canViewClosed = user?.can_view_closed_seasons ?? false;
 
-  // Upcoming seasons are never listed — there is nothing in them to show.
+  // ACTIVE is always listed; CLOSED only for roles holding
+  // `can_view_closed_seasons`; UPCOMING is always listed too — `resolve_season()`
+  // (backend/apps/core/seasons.py) only raises PermissionDenied for a CLOSED
+  // season, so any authenticated user can already read `?season=<upcoming id>`.
+  // An earlier version of this filter excluded UPCOMING outright on the
+  // assumption it always meant "future, empty season" — wrong for a season
+  // that was deactivated (is_active=False) without being closed
+  // (closed_at=None): that season can hold real, otherwise-unreachable data
+  // (see the bug this comment replaces), and hiding it from the switcher was
+  // the bug, not a feature.
   const selectable = seasons.filter(
-    (s: ISeason) => s.status === 'ACTIVE' || (s.status === 'CLOSED' && canViewClosed),
+    (s: ISeason) => s.status !== 'CLOSED' || canViewClosed,
   );
 
+  // Nothing to switch BETWEEN, not nothing to show: with 0 or 1 selectable
+  // seasons there is no second option a dropdown would offer, so a disabled
+  // control would carry no information a user could act on. Hiding it
+  // entirely (rather than rendering it disabled) is still correct post-fix.
   if (selectable.length <= 1) return null;
 
   return (
@@ -49,6 +62,10 @@ export function SeasonSwitcher(): JSX.Element | null {
       onChange={switchSeason}
       style={{ minWidth: 180 }}
       aria-label={t('season.switcher_label')}
+      // Never more than a handful of seasons — virtualizing the dropdown
+      // buys nothing here and rc-virtual-list's jsdom-unfriendly height
+      // measurement (real browsers unaffected) isn't worth the tradeoff.
+      virtual={false}
       options={selectable.map((s: ISeason) => ({
         value: s.id,
         label: (

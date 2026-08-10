@@ -7,6 +7,13 @@ tags: [reference, api, backend, frontend]
 
 > Every API endpoint mapped to its backend ViewSet, frontend hook, and page.
 
+> [!info] Six create endpoints accept an `Idempotency-Key` header
+> `POST /export/shipments/`, `POST /export/shipments/{id}/comment/`, `POST /export/comments/`,
+> `POST /export/advances/`, `POST /export/customs-expenses/` and `POST /contracts/contracts/`
+> are retry-safe: send the header and a repeat replays the original response instead of creating a
+> duplicate. The header is **optional** — omitting it leaves behaviour unchanged. Full contract,
+> outcome table and the per-mutation frontend rule: [[api-idempotency]].
+
 ## Auth Endpoints
 
 | Method | Endpoint | ViewSet | Hook | Page |
@@ -51,6 +58,8 @@ tags: [reference, api, backend, frontend]
 **Season scoping (AD-16):** `?season=<id>` works the same way on every list endpoint marked "season-scoped" in this map — shipments, Sheet, Kanban board, harvest plans, day entries, truck allocations/destinations, local-sell plans, contracts, contract-sales, comments, tasks, quota-usage, advances, customs-expenses, document-packets, clients-report. Omitted → the active season. An unknown id → `404`. A closed id without the `closed_season.can_view` resource permission → `403`. No active season at all (the close→open gap) → the list returns empty, not unfiltered (D7 — fail closed). Detail-by-id routes (e.g. `GET /shipments/{id}/`) are NOT season-scoped by design — a direct link always resolves, closed season or not; mutating that row still 409s per the write freeze below. `quota-issuances`, `admin/*` reference-data endpoints, and `sales-rep-coverage` are explicit opt-outs (see AD-16 / design spec §4.5) — passing `?season=` to them is a no-op.
 
 **Write freeze (AD-16):** any mutation against a row anchored to a **closed** season — directly (`Shipment.season`) or by join (e.g. `Comment.shipment.season`) — returns `409 {"error":"season_closed","season":"<name>","closed_at":"<iso>"}` instead of applying. This includes status transitions, the Sheet bulk-edit, the two-row Join, and creates that target a closed season via the request body.
+
+A few models reach their season through neither a `season` FK nor a `shipment` FK and declare a `freeze_season` property instead — `ContractSale` (via `contract`), `FinansistAdvance` (via its shipment junction), and `QuotaUsageRecord` (via `usage_date` when it has no shipment, added 2026-08-08 after all four verbs — `POST`, `PATCH`, `DELETE`, `POST /quota-usage/approve/` — were found to bypass the freeze entirely on the 575 shipment-less rows). Adding a model whose season is not a plain FK? Give it that property, or the freeze is a silent no-op on it.
 
 **Draft create** (`POST /shipments/` with `is_draft=true`) now also accepts optional `varieties`, `import_firm`, `firm_splits[]`, and `skip_forecast_check`. This supports the two-column Join flow's supply-only and destination-only drafts — see [[../processes/draft-shipments#Two-column Join flow (coexisting alternative)]]. `skip_forecast_check=true` (sent by the supply-column modal) skips **both** weight caps for that draft: the forecast-pool remaining check **and** the 18,500 kg one-truck cap — a supply column aggregates a day's harvest and may span more than one truck. The forecast-first one-truck DraftComposer path (no `skip_forecast_check`) keeps both caps.
 
@@ -165,7 +174,7 @@ See [[screens/main-dashboard]] for the full response contract.
 | Method | Endpoint | ViewSet | Hook | Page |
 |--------|----------|---------|------|------|
 | GET/POST/PATCH/DELETE | `/api/v1/export/admin/seasons/` | SeasonViewSet | `useSeasons` | SeasonsPage — read gated on `season.can_view` (admin/director/export_manager/boss full or read CRUD; `finansist` view-only, so it can populate the header switcher without season write access) |
-| GET | `/api/v1/export/admin/seasons/{id}/close-preview/` | SeasonViewSet.close_preview_action | `useSeasonClosePreview` | SeasonCloseModal — counts (`drafts`/`in_transit`/`open_tasks`/`unfinished_plans`) for the confirm dialog; gated on `season.can_edit`, not `can_view` |
+| GET | `/api/v1/export/admin/seasons/{id}/close-preview/` | SeasonViewSet.close_preview_action | `useSeasonClosePreview` | SeasonCloseModal — counts (`drafts`/`in_transit`/`open_tasks`/`unfinished_plans`/`draft_quota_usage`) for the confirm dialog; gated on `season.can_edit`, not `can_view`. The first four are a fixed contract — add keys, never rename or remove. `draft_quota_usage` (added 2026-08-08) drives a separate warning: unlike the others, those rows are not merely hidden, they can never be approved once the season freezes |
 | POST | `/api/v1/export/admin/seasons/{id}/close/` | SeasonViewSet.close | `useCloseSeason` | SeasonsPage — freezes + hides the season (AD-16, D2); `409` if already closed |
 | POST | `/api/v1/export/admin/seasons/{id}/open/` | SeasonViewSet.open | `useOpenSeason` | SeasonsPage — makes the season the write target; `409` if the target is closed (reopening is unsupported) |
 | GET/POST/PATCH | `/api/v1/export/admin/firms/` | ExportFirmViewSet | `useAdmin` | ExportFirmsPage |
