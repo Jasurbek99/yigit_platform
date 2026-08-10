@@ -464,7 +464,6 @@
   "quota_usage": {
     "prev_month": "Предыдущий месяц",
     "next_month": "Следующий месяц",
-    "view_grid": "Сетка",
     "view_list": "Список",
     "date": "Дата",
     "firm": "Фирма",
@@ -479,12 +478,15 @@
     "confirm_delete": "Удалить эту запись?",
     "save_error": "Не удалось сохранить",
     "load_error": "Не удалось загрузить данные",
-    "grid_row_total": "Итого по строке",
-    "grid_truck_count": "Машины",
     "grid_total": "Итого",
     "grid_empty": "Нет записей за этот месяц",
-    "grid_add_row": "Добавить строку",
-    "cell_detail_title": "{{firm}} — {{date}}"
+    "cell_detail_title": "{{firm}} — {{date}}",
+    "view_by_shipment": "По отгрузкам",
+    "group_manual": "Без отгрузки (вручную)",
+    "firm_count": "Фирм",
+    "manual_add": "Добавить вручную",
+    "manual_save": "Добавить",
+    "manual_created": "Строка расхода добавлена"
   },
   "local_sell": {
     "double_click_hint": "Двойной клик для редактирования",

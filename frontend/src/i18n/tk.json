@@ -462,7 +462,6 @@
   "quota_usage": {
     "prev_month": "Öňki aý",
     "next_month": "Indiki aý",
-    "view_grid": "Tor görnüşi",
     "view_list": "Sanaw görnüşi",
     "date": "Sene",
     "firm": "Firma",
@@ -477,12 +476,15 @@
     "confirm_delete": "Bu ýazgyny pozmalymy?",
     "save_error": "Ýatda saklap bolmady",
     "load_error": "Maglumatlary ýükläp bolmady",
-    "grid_row_total": "Setir jemi",
-    "grid_truck_count": "Maşyn sany",
     "grid_total": "Jemi",
     "grid_empty": "Bu aý üçin ýazgy ýok",
-    "grid_add_row": "Setir goş",
-    "cell_detail_title": "{{firm}} — {{date}}"
+    "cell_detail_title": "{{firm}} — {{date}}",
+    "view_by_shipment": "Ýüklemeler boýunça",
+    "group_manual": "Ýüklemesiz (elde)",
+    "firm_count": "Firma",
+    "manual_add": "Elde goşmak",
+    "manual_save": "Goşmak",
+    "manual_created": "Sarp ediş setiri goşuldy"
   },
   "local_sell": {
     "double_click_hint": "Üýtgetmek üçin iki gezek basyň",

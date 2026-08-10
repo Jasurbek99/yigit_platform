@@ -462,7 +462,6 @@
   "quota_usage": {
     "prev_month": "Previous month",
     "next_month": "Next month",
-    "view_grid": "Grid view",
     "view_list": "List view",
     "date": "Date",
     "firm": "Firm",
@@ -477,12 +476,15 @@
     "confirm_delete": "Delete this usage record?",
     "save_error": "Failed to save",
     "load_error": "Failed to load usage data",
-    "grid_row_total": "Row Total",
-    "grid_truck_count": "Trucks",
     "grid_total": "Total",
     "grid_empty": "No usage records for this month",
-    "grid_add_row": "Add row",
-    "cell_detail_title": "{{firm}} — {{date}}"
+    "cell_detail_title": "{{firm}} — {{date}}",
+    "view_by_shipment": "By shipment",
+    "group_manual": "No shipment (manual)",
+    "firm_count": "Firms",
+    "manual_add": "Add manual row",
+    "manual_save": "Add",
+    "manual_created": "Usage row added"
   },
   "local_sell": {
     "double_click_hint": "Double-click to edit",

@@ -2,7 +2,13 @@ import { useState } from 'react';
 import { Button, InputNumber, Modal, Space, Tag, Typography } from 'antd';
 import { toast } from 'sonner';
 import { ProTable, type ProColumns } from '@ant-design/pro-components';
-import { AppstoreOutlined, DeleteOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import {
+  AppstoreOutlined,
+  DeleteOutlined,
+  PlusOutlined,
+  ProfileOutlined,
+  UnorderedListOutlined,
+} from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
 import { canDo } from '@/utils/permissions';
@@ -12,12 +18,13 @@ import {
   useDeleteQuotaUsage,
 } from '@/hooks/useQuotaUsage';
 import { fmtWeight, weightSuffix, type WeightUnit } from '@/utils/weight';
-import { QuotaUsageGrid } from './QuotaUsageGrid';
+import { QuotaUsageByShipment } from './QuotaUsageByShipment';
+import { QuotaUsageCreateModal } from './QuotaUsageCreateModal';
 import type { IQuotaUsageRecord } from '@/types';
 
 const { Text } = Typography;
 
-type ViewMode = 'list' | 'grid';
+type ViewMode = 'list' | 'shipment';
 
 interface IQuotaUsageTabProps {
   weightUnit: WeightUnit;
@@ -29,8 +36,13 @@ export function QuotaUsageTab({ weightUnit, productType }: IQuotaUsageTabProps) 
   const { user } = useAuth();
   const canEdit = canDo(user, 'quota_usage', 'edit');
   const canDelete = canDo(user, 'quota_usage', 'delete');
+  const canCreate = canDo(user, 'quota_usage', 'create');
 
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  // Default is the by-shipment view: quota is spent per truck, so that is the
+  // unit an operator reconciles against. The flat list stays for hunting a single
+  // row and for hand-entering one.
+  const [viewMode, setViewMode] = useState<ViewMode>('shipment');
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   const { data: records = [], isLoading } = useQuotaUsageRecords(
     {},
@@ -49,11 +61,11 @@ export function QuotaUsageTab({ weightUnit, productType }: IQuotaUsageTabProps) 
   const viewToggle = (
     <Space size={4}>
       <Button
-        type={viewMode === 'grid' ? 'primary' : 'default'}
-        icon={<AppstoreOutlined />}
+        type={viewMode === 'shipment' ? 'primary' : 'default'}
+        icon={<ProfileOutlined />}
         size="small"
-        onClick={() => setViewMode('grid')}
-        aria-label={t('quota_usage.view_grid')}
+        onClick={() => setViewMode('shipment')}
+        aria-label={t('quota_usage.view_by_shipment')}
       />
       <Button
         type={viewMode === 'list' ? 'primary' : 'default'}
@@ -65,15 +77,15 @@ export function QuotaUsageTab({ weightUnit, productType }: IQuotaUsageTabProps) 
     </Space>
   );
 
-  // ─── Grid view ─────────────────────────────────────────────────────────
+  // ─── By-shipment view ──────────────────────────────────────────────────
 
-  if (viewMode === 'grid') {
+  if (viewMode === 'shipment') {
     return (
       <div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
           {viewToggle}
         </div>
-        <QuotaUsageGrid weightUnit={weightUnit} productType={productType} />
+        <QuotaUsageByShipment weightUnit={weightUnit} productType={productType} />
       </div>
     );
   }
@@ -186,7 +198,14 @@ export function QuotaUsageTab({ weightUnit, productType }: IQuotaUsageTabProps) 
           {t('quota_usage.total_records', { count: records.length })}
         </Text>
 
-        {viewToggle}
+        <Space>
+          {canCreate && (
+            <Button size="small" icon={<PlusOutlined />} onClick={() => setIsCreateOpen(true)}>
+              {t('quota_usage.manual_add')}
+            </Button>
+          )}
+          {viewToggle}
+        </Space>
       </div>
 
       <ProTable<IQuotaUsageRecord>
@@ -199,6 +218,12 @@ export function QuotaUsageTab({ weightUnit, productType }: IQuotaUsageTabProps) 
         options={false}
         pagination={false}
         scroll={{ x: 970 }}
+      />
+
+      <QuotaUsageCreateModal
+        open={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        productType={productType}
       />
     </div>
   );
