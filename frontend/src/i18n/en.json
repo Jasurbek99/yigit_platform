@@ -2353,6 +2353,8 @@
       "import_firm": "Import firm",
       "border_point": "Border point",
       "truck_plate": "Truck plate",
+      "truck_head": "Truck (tractor)",
+      "trailer": "Trailer",
       "driver_name": "Driver name",
       "driver_phone": "Driver phone",
       "vehicle_responsible": "Vehicle responsible",

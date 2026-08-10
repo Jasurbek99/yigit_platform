@@ -2355,6 +2355,8 @@
       "import_firm": "Импортёр",
       "border_point": "Пограничный пункт",
       "truck_plate": "Номер машины",
+      "truck_head": "Тягач",
+      "trailer": "Прицеп",
       "driver_name": "Имя водителя",
       "driver_phone": "Телефон водителя",
       "vehicle_responsible": "Ответственный за транспорт",

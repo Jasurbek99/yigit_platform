@@ -69,6 +69,19 @@ export const HARVEST_STATUS_FIELD: IEditFieldConfig = {
   optionsSource: 'harvestStatus',
 };
 
+/**
+ * `truck_plate` stays in the `transport` group's field list (so the card's
+ * completeness chip keeps counting it), but non-Gapy-Satys shipments render
+ * `ShipmentTruckSelector` (fleet head/trailer dropdowns) in its place instead
+ * of this plain-text row — see ShipmentTransportBody. Exported so that
+ * standalone render can reference the same config object as the group.
+ */
+export const TRUCK_PLATE_FIELD: IEditFieldConfig = {
+  key: 'truck_plate',
+  labelKey: 'shipment_edit_drawer.field.truck_plate',
+  inputType: 'text',
+};
+
 export const EDIT_FIELD_GROUPS: IEditFieldGroup[] = [
   {
     key: 'logistics',
@@ -85,7 +98,7 @@ export const EDIT_FIELD_GROUPS: IEditFieldGroup[] = [
     key: 'transport',
     titleKey: 'shipment_edit_drawer.section_transport',
     fields: [
-      { key: 'truck_plate', labelKey: 'shipment_edit_drawer.field.truck_plate', inputType: 'text' },
+      TRUCK_PLATE_FIELD,
       { key: 'driver_name', labelKey: 'shipment_edit_drawer.field.driver_name', inputType: 'text' },
       { key: 'driver_phone', labelKey: 'shipment_edit_drawer.field.driver_phone', inputType: 'text' },
       { key: 'vehicle_responsible', labelKey: 'shipment_edit_drawer.field.vehicle_responsible', inputType: 'option_select', optionsSource: 'transportUsers' },
