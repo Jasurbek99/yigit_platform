@@ -46,7 +46,11 @@ describe('ShipmentTruckSelector', () => {
     await i18n.changeLanguage('en');
   });
 
-  beforeEach(() => mutate.mockClear());
+  beforeEach(() => {
+    mutate.mockClear();
+    createHead.mockClear();
+    createTrailer.mockClear();
+  });
 
   it('shows the current head + trailer and derives truck_plate on change', async () => {
     wrap(<ShipmentTruckSelector shipment={shipment} readOnly={false} />);
@@ -127,5 +131,28 @@ describe('ShipmentTruckSelector', () => {
         fields: { truck_head_id: 13, trailer_id: 301, truck_plate: '3269AHF/TR999XX' },
       }),
     );
+  });
+
+  it('selecting an existing option after filtering clears the search — no stale "+ Add" button, no garbage create', async () => {
+    wrap(<ShipmentTruckSelector shipment={shipment} readOnly={false} />);
+    const heads = screen.getByLabelText('Truck (tractor)');
+    await userEvent.click(heads);
+    // "AHF" filters to two real options (3269AHF, 4378AHF) — a partial,
+    // non-exact search string, same as the everyday type-to-filter-then-pick
+    // flow.
+    await userEvent.type(heads, 'AHF');
+    await userEvent.click(await screen.findByText('4378AHF'));
+    await waitFor(() =>
+      expect(mutate).toHaveBeenCalledWith({
+        id: 7,
+        fields: { truck_head_id: 14, trailer_id: 1, truck_plate: '4378AHF/2602TAH' },
+      }),
+    );
+    // Reopen the dropdown — the search state must have been cleared on
+    // select, so the stale "+ Add "AHF"" button must NOT reappear, and
+    // nothing gets (garbage-)created just from reopening.
+    await userEvent.click(heads);
+    expect(screen.queryByText(/add/i)).not.toBeInTheDocument();
+    expect(createHead).not.toHaveBeenCalled();
   });
 });

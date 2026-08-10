@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Select, Space, Typography, Button, Divider } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import type { IShipmentDetail } from '@/types';
 import { useTruckHeads, useTrailers, useCreateTruckHead, useCreateTrailer } from '@/hooks/useFleet';
 import { useShipmentPatchMulti } from '@/hooks/useShipmentPatch';
@@ -82,18 +83,26 @@ export function ShipmentTruckSelector({
   async function addHead() {
     const plate = headSearch.trim();
     if (!plate) return;
-    const created = await createHead.mutateAsync(plate);
-    setHeadSearch('');
-    // link the new truck to the shipment; pass its plate directly since
-    // `heads` won't include it until the list refetch lands (see plateFor)
-    save(created.id, trailerId, { head: created.plate_number });
+    try {
+      const created = await createHead.mutateAsync(plate);
+      setHeadSearch('');
+      // link the new truck to the shipment; pass its plate directly since
+      // `heads` won't include it until the list refetch lands (see plateFor)
+      save(created.id, trailerId, { head: created.plate_number });
+    } catch {
+      toast.error(t('shipment_edit_drawer.save_error'));
+    }
   }
   async function addTrailer() {
     const plate = trailerSearch.trim();
     if (!plate) return;
-    const created = await createTrailer.mutateAsync(plate);
-    setTrailerSearch('');
-    save(headId, created.id, { trailer: created.plate_number });
+    try {
+      const created = await createTrailer.mutateAsync(plate);
+      setTrailerSearch('');
+      save(headId, created.id, { trailer: created.plate_number });
+    } catch {
+      toast.error(t('shipment_edit_drawer.save_error'));
+    }
   }
 
   return (
@@ -111,7 +120,11 @@ export function ShipmentTruckSelector({
           value={headId ?? undefined}
           options={headOpts}
           optionFilterProp="label"
-          onChange={(v) => save((v as number) ?? null, trailerId)}
+          onChange={(v) => {
+            setHeadSearch('');
+            save((v as number) ?? null, trailerId);
+          }}
+          searchValue={headSearch}
           onSearch={setHeadSearch}
           placeholder={headLabel}
           dropdownRender={(menu) => (
@@ -149,7 +162,11 @@ export function ShipmentTruckSelector({
           value={trailerId ?? undefined}
           options={trailerOpts}
           optionFilterProp="label"
-          onChange={(v) => save(headId, (v as number) ?? null)}
+          onChange={(v) => {
+            setTrailerSearch('');
+            save(headId, (v as number) ?? null);
+          }}
+          searchValue={trailerSearch}
           onSearch={setTrailerSearch}
           placeholder={trailerLabel}
           dropdownRender={(menu) => (
