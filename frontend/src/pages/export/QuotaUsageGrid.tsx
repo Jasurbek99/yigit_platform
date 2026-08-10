@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 // dates×firms cross-tab matrix with dynamic columns, not a standard data list.
 import {
   Alert,
+  Badge,
   Button,
   DatePicker,
   Flex,
@@ -14,12 +15,7 @@ import {
 } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { toast } from 'sonner';
-import {
-  CheckCircleOutlined,
-  LeftOutlined,
-  PlusOutlined,
-  RightOutlined,
-} from '@ant-design/icons';
+import { LeftOutlined, PlusOutlined, RightOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useAuth } from '@/hooks/useAuth';
@@ -29,10 +25,16 @@ import {
   useQuotaUsageRecords,
   useUpdateQuotaUsage,
   useCreateQuotaUsage,
-  useBulkApproveQuotaUsage,
 } from '@/hooks/useQuotaUsage';
 import { handleCellKeyDown } from '@/utils/tableNavigation';
 import { fmtWeight, type WeightUnit } from '@/utils/weight';
+import { QuotaUsageCellDetail } from './QuotaUsageCellDetail';
+import {
+  cellKey,
+  groupRecordsByCell,
+  isCellInlineEditable,
+  sumKg,
+} from './QuotaUsageGrid.helpers';
 import type { IQuotaUsageRecord, IExportFirm } from '@/types';
 import { COLORS } from '@/constants/styles';
 
@@ -54,9 +56,12 @@ function num(val: unknown): number {
   return Number.isNaN(n) ? 0 : n;
 }
 
-/** Build a lookup key for record by date+firm. */
-function recordKey(date: string, firmId: number): string {
-  return `${date}_${firmId}`;
+/** Which cell the drill-down modal is showing. */
+interface IOpenCell {
+  date: string;
+  dateDisplay: string;
+  firmId: number;
+  firmName: string;
 }
 
 interface IQuotaUsageGridProps {
@@ -117,16 +122,16 @@ export function QuotaUsageGrid({ weightUnit, productType }: IQuotaUsageGridProps
   }
   const updateMutation = useUpdateQuotaUsage();
   const createMutation = useCreateQuotaUsage();
-  const approveMutation = useBulkApproveQuotaUsage();
 
-  // Build a record lookup: date+firmId → record
-  const recordMap = useMemo(() => {
-    const map = new Map<string, IQuotaUsageRecord>();
-    for (const r of records) {
-      map.set(recordKey(r.usage_date, r.export_firm), r);
-    }
-    return map;
-  }, [records]);
+  // Cell drill-down: which (date, firm) cell is expanded, if any.
+  const [openCell, setOpenCell] = useState<IOpenCell | null>(null);
+
+  // Build a cell lookup: date+firmId → ALL records in that cell. A firm can ride
+  // several trucks in one day, so a cell is a list, never a single record.
+  const cellMap = useMemo(() => groupRecordsByCell(records), [records]);
+
+  const cellRecords = (date: string, firmId: number): IQuotaUsageRecord[] =>
+    cellMap.get(cellKey(date, firmId)) ?? [];
 
   // Show all active firms as columns (users can enter data for any firm)
   const gridFirms: IExportFirm[] = useMemo(() => {
@@ -189,8 +194,9 @@ export function QuotaUsageGrid({ weightUnit, productType }: IQuotaUsageGridProps
       };
       let rowTotal = 0;
       for (const firm of gridFirms) {
-        const rec = recordMap.get(recordKey(date, firm.id));
-        const val = rec ? num(rec.kg_used) : null;
+        const recs = cellMap.get(cellKey(date, firm.id)) ?? [];
+        // Sum, not "the one record" — see groupRecordsByCell's docstring.
+        const val = recs.length > 0 ? sumKg(recs) : null;
         row[`firm_${firm.id}`] = val;
         rowTotal += num(val);
       }
@@ -198,7 +204,7 @@ export function QuotaUsageGrid({ weightUnit, productType }: IQuotaUsageGridProps
       row._truckCount = rowTotal > 0 ? Math.round(rowTotal / TRUCK_CAPACITY_KG) : null;
       return row;
     });
-  }, [dates, gridFirms, recordMap]);
+  }, [dates, gridFirms, cellMap]);
 
   // Column totals (per firm)
   const columnTotals = useMemo(() => {
@@ -218,16 +224,15 @@ export function QuotaUsageGrid({ weightUnit, productType }: IQuotaUsageGridProps
     return totals;
   }, [gridData, gridFirms]);
 
-  // Draft record IDs for bulk approve
-  const draftIds = useMemo(
-    () => records.filter((r) => r.status === 'draft').map((r) => r.id),
-    [records],
-  );
-
   // ─── Handlers ────────────────────────────────────────────────────────────
 
   function handleCellSave(date: string, firmId: number, newValue: number) {
-    const rec = recordMap.get(recordKey(date, firmId));
+    const recs = cellRecords(date, firmId);
+    // A multi-record cell has no single row to write to. The cell is rendered
+    // read-only in that case, so this is a guard, not a live path — but it used
+    // to PATCH an arbitrary one of the group, so it stays explicit.
+    if (recs.length > 1) return;
+    const rec = recs[0];
     if (rec) {
       // Update existing record
       if (rec.status !== 'draft') return;
@@ -245,15 +250,6 @@ export function QuotaUsageGrid({ weightUnit, productType }: IQuotaUsageGridProps
     }
   }
 
-  function handleBulkApprove() {
-    if (!draftIds.length) return;
-    approveMutation.mutate(draftIds, {
-      onSuccess: (data) => {
-        toast.success(t('quota_usage.approved_count', { count: data.approved }));
-      },
-    });
-  }
-
   // ─── Columns ─────────────────────────────────────────────────────────────
 
   const firmColumns = gridFirms.map((firm) => ({
@@ -266,12 +262,10 @@ export function QuotaUsageGrid({ weightUnit, productType }: IQuotaUsageGridProps
     width: 100,
     align: 'right' as const,
     render: (_: unknown, row: IGridRow) => {
-      const rec = recordMap.get(recordKey(row.date, firm.id));
+      const recs = cellRecords(row.date, firm.id);
       const value = row[`firm_${firm.id}`] as number | null;
-      const isDraft = rec?.status === 'draft';
-      const isEditable = (isDraft && canEdit) || (!rec && canCreate);
 
-      if (isEditable) {
+      if (isCellInlineEditable(recs, canEdit, canCreate)) {
         return (
           <InputNumber
             key={`${row.date}_${firm.id}_${value}`}
@@ -297,14 +291,35 @@ export function QuotaUsageGrid({ weightUnit, productType }: IQuotaUsageGridProps
 
       if (!value) return <span style={{ color: COLORS.borderLight }}>—</span>;
 
-      return (
-        <span>
-          {fmtW(value)}
-          {rec?.status === 'approved' && (
-            <CheckCircleOutlined style={{ color: COLORS.success, fontSize: 10, marginLeft: 4 }} />
-          )}
-        </span>
-      );
+      // Several records behind one cell: show the sum and a count badge, and let
+      // the user drill into the individual shipments. Not inline-editable — there
+      // is no single row to write the typed number to.
+      if (recs.length > 1) {
+        return (
+          <Button
+            type="link"
+            size="small"
+            style={{ padding: 0, height: 'auto' }}
+            onClick={() =>
+              setOpenCell({
+                date: row.date,
+                dateDisplay: row.dateDisplay,
+                firmId: firm.id,
+                firmName: firmName(firm),
+              })
+            }
+          >
+            {fmtW(value)}
+            <Badge
+              count={recs.length}
+              size="small"
+              style={{ backgroundColor: COLORS.primary, marginLeft: 4 }}
+            />
+          </Button>
+        );
+      }
+
+      return <span>{fmtW(value)}</span>;
     },
   }));
 
@@ -405,20 +420,8 @@ export function QuotaUsageGrid({ weightUnit, productType }: IQuotaUsageGridProps
           )}
           <Text type="secondary">
             {t('quota_usage.total_records', { count: records.length })}
-            {draftIds.length > 0 && ` · ${draftIds.length} ${t('quota_usage.pending')}`}
           </Text>
         </Space>
-
-        {canEdit && draftIds.length > 0 && (
-          <Button
-            type="primary"
-            icon={<CheckCircleOutlined />}
-            onClick={handleBulkApprove}
-            loading={approveMutation.isPending}
-          >
-            {t('quota_usage.approve')} ({draftIds.length})
-          </Button>
-        )}
       </Flex>
 
       {isError && (
@@ -438,6 +441,17 @@ export function QuotaUsageGrid({ weightUnit, productType }: IQuotaUsageGridProps
           scroll={{ x: 'max-content' }}
           pagination={false}
           summary={gridData.length > 0 ? renderSummary : undefined}
+        />
+      )}
+
+      {openCell && (
+        <QuotaUsageCellDetail
+          open
+          onClose={() => setOpenCell(null)}
+          firmName={openCell.firmName}
+          dateDisplay={openCell.dateDisplay}
+          records={cellRecords(openCell.date, openCell.firmId)}
+          weightUnit={weightUnit}
         />
       )}
     </div>
