@@ -1,0 +1,42 @@
+import { useQuery } from '@tanstack/react-query';
+import api from '@/services/api';
+
+export interface ITruckHead {
+  id: number;
+  plate_number: string;
+  owner_type: string;
+  status: string;
+  has_gps: boolean;
+}
+
+export interface ITrailer {
+  id: number;
+  plate_number: string;
+  owner_type: string;
+  status: string;
+  is_active: boolean;
+}
+
+export function useTruckHeads(search?: string) {
+  return useQuery<ITruckHead[]>({
+    queryKey: ['transport', 'truck-heads', search ?? ''],
+    queryFn: async () => {
+      const params = search ? { search } : {};
+      const { data } = await api.get<ITruckHead[]>('/transport/truck-heads/', { params });
+      return data;
+    },
+    staleTime: 5 * 60_000,
+  });
+}
+
+export function useTrailers(search?: string) {
+  return useQuery<ITrailer[]>({
+    queryKey: ['transport', 'trailers', search ?? ''],
+    queryFn: async () => {
+      const params = search ? { search } : {};
+      const { data } = await api.get<ITrailer[]>('/transport/trailers/', { params });
+      return data;
+    },
+    staleTime: 5 * 60_000,
+  });
+}
