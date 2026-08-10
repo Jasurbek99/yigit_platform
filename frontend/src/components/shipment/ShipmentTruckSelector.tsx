@@ -81,7 +81,7 @@ export function ShipmentTruckSelector({
   const trailerExists = (trailers ?? []).some((r) => norm(r.plate_number) === norm(trailerSearch));
 
   async function addHead() {
-    const plate = headSearch.trim();
+    const plate = headSearch.trim().toUpperCase();
     if (!plate) return;
     try {
       const created = await createHead.mutateAsync(plate);
@@ -94,7 +94,7 @@ export function ShipmentTruckSelector({
     }
   }
   async function addTrailer() {
-    const plate = trailerSearch.trim();
+    const plate = trailerSearch.trim().toUpperCase();
     if (!plate) return;
     try {
       const created = await createTrailer.mutateAsync(plate);
