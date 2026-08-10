@@ -13,7 +13,7 @@ The Turkmenistan government issues export quotas based on how much each firm sel
 > [!important] Quota never crosses a season boundary (D11, ruled 2026-08-06)
 > Both **display** and **consumption** stop at the season line. `/quota-issuances/`, `/quota-usage/` and `/quota-firm-balances/` are season-scoped (`?season=<id>`), and the FIFO walk only matches a season's usage against that same season's allocations — leftover issuance **expires with its season** rather than carrying forward. This reverses D10, which had exempted quota from read-scoping on the assumption that FIFO ran across seasons.
 > 
-> Two things to know before touching this code. **`QuotaUsageRecord` has no `season` FK and no `issuance` FK** — only `usage_date` and a nullable `shipment` (575 of 711 rows have no shipment) — so its season is derived by `services_quota.usage_season_q()`; use that helper rather than hand-rolling the predicate. Because the anchor is derived, `POST`/`PATCH` on `/quota-usage/` **400 when the row would land outside every season** (`season_of_usage()` is the row-level inverse, and the two must stay in step); the usage grid's month picker disables such months so the dead end is unreachable from the UI. And **an issuance whose `issue_date` falls in the gap between two seasons has `season = NULL` and is invisible on every list** (direct link only); `POST /quota-issuances/` now 400s during the close→open gap so no more can be created. `QuotaIssuance#34` on the dev database (25,000 kg, 2026-07-06, *Eziz Doganlar*) is one such row, awaiting an owner ruling.
+> Two things to know before touching this code. **`QuotaUsageRecord` has no `season` FK and no `issuance` FK** — only `usage_date` and a nullable `shipment` (575 of 711 rows have no shipment) — so its season is derived by `services_quota.usage_season_q()`; use that helper rather than hand-rolling the predicate. Because the anchor is derived, `POST`/`PATCH` on `/quota-usage/` **400 when the row would land outside every season** (`season_of_usage()` is the row-level inverse, and the two must stay in step); the manual-entry modal surfaces that 400 verbatim. And **an issuance whose `issue_date` falls in the gap between two seasons has `season = NULL` and is invisible on every list** (direct link only); `POST /quota-issuances/` now 400s during the close→open gap so no more can be created. `QuotaIssuance#34` on the dev database (25,000 kg, 2026-07-06, *Eziz Doganlar*) is one such row, awaiting an owner ruling.
 
 ## How It Works (Business Flow)
 
@@ -85,7 +85,14 @@ Draft `QuotaUsageRecord` entries are auto-created any time a shipment's firm spl
 | Trigger | Behavior |
 |---------|----------|
 | `POST /shipments/` (draft path) with `firm_splits` in body | Drafts created in the same atomic transaction as the shipment + splits |
-| `POST /shipments/{id}/firm-splits/` | Existing drafts replaced; approved rows untouched (request rejected if any exist) |
+| `POST /shipments/{id}/firm-splits/` | Every existing row for the shipment is replaced |
+| `PATCH /contracts/sales/{id}/` changing `quantity_kg` | The firm's split weight is rewritten to the invoice NET, then quota re-runs |
+
+> **The split weight IS the invoice number (2026-08-11).** `ContractSale.quantity_kg` and `ShipmentFirmSplit.weight_kg` are documented as the same figure — the firm's official export weight (AD-016) — but were kept in step in only one direction: applying a `PackingTemplate` wrote the share net down onto the split, while editing `quantity_kg` on the sale did not. Two of the 18 linked sales on the dev database had drifted (`0807003/26`: split 7,000 / 11,000 against invoice 9,000 / 9,000 — same truck total, different per-firm split, and **quota is counted per firm**). `ContractSaleViewSet.perform_create/perform_update` now call `sync_split_weight_from_sale()`, which rewrites that one firm's split (others keep their weights) and re-runs quota.
+>
+> Direction is architectural: `export` may not import `contracts`, so quota cannot read the sale — `contracts` reaching down into `export` is the allowed direction, which is why the helper lives in `contracts/views.py` and not in `quota_sync`. A firm with no split on the truck is **skipped, not added**: putting a firm on a truck is a separate decision with its own no-remaining-quota hard block. `sync_split_weights_from_sales` (management command, `--dry-run`) repairs rows that drifted before this existed.
+>
+> Coverage caveat: only **9 of 90** shipments with firm splits have a contract sale carrying `quantity_kg`, so for the rest the split remains the only source.
 
 Per-firm `kg_used` mirrors each firm's **actual `ShipmentFirmSplit.weight_kg`** — so changing a firm's split weight reassigns that firm's quota usage to the new number. It falls back to the admin-configurable `TruckSplitDefault` only when a split carries no weight (the firm-splits input allows `weight_kg` to be omitted, in which case the split itself is auto-filled from the same defaults):
 - 1 firm: 18,100 kg
@@ -359,15 +366,17 @@ Flattens nested allocations into individual rows.
 
 > Status column, Approved-By column, status filter, row-selection checkboxes and the Bulk Approve button were all removed on 2026-08-10 with the approval step. Editing and deleting are no longer restricted to drafts — there are none.
 
-### Sub-Page: QuotaUsageGrid (the date × firm matrix)
+### Sub-Page: QuotaUsageByShipment (the default view)
 
-**Files**: `QuotaUsageGrid.tsx`, `QuotaUsageGrid.helpers.ts`, `QuotaUsageCellDetail.tsx`
+**Files**: `QuotaUsageByShipment.tsx`, `QuotaUsageByShipment.helpers.ts`, `QuotaUsageFirmRows.tsx`
 
-The default view inside QuotaUsageTab: one row per date, one column per active firm, month-picked.
+One row per **truck**, month-picked: shipment code (linked) · date · firm count · total kg. Expand → the per-firm rows, each with an inline-editable `kg_used` and a delete button. Total across all groups sits in the toolbar.
 
-> **A cell holds MANY records, not one.** A firm rides several trucks in a day, and each produces its own `QuotaUsageRecord`. The grid keyed them into a `Map<date_firmId, record>`, so the last one read won and the rest vanished — the firm column, the row total and the grand total all under-reported, and typing into such a cell PATCHed whichever record the Map happened to keep. The backend never deduped (`services_quota` sums `kg_used` over `counted()`), so this one view disagreed with every other number in the system. 37 cells on the 2025-2026 season were affected, the worst holding 8 records.
+Records with **no shipment** — 575 of 711 on the dev database, historical Excel imports plus hand-entered rows — collapse into one bucket keyed `MANUAL_GROUP_KEY`, pinned last regardless of its dates. Dropping them would hide 80% of the table by default.
+
+> **Replaced the date × firm matrix on 2026-08-11** (`QuotaUsageGrid.tsx`, `QuotaUsageGrid.helpers.ts`, `QuotaUsageCellDetail.tsx` — deleted). Quota is consumed per truck, so the truck is the unit an operator reconciles against; a firm's share only means anything next to the other firms on the same truck. The matrix could not show which shipment a number came from at all, and it had keyed records by `date + firm` into a `Map`, silently rendering one record of up to eight (fixed 2026-08-10, then removed outright).
 >
-> Now `groupRecordsByCell()` buckets into `Map<key, record[]>`, the cell renders `sumKg()`, and a cell with more than one record is **not inline-editable** — it shows the sum plus a count badge and opens `QuotaUsageCellDetail`, listing each record with its shipment code (linked). `isCellInlineEditable()` is the single rule for which cells accept typing; `handleCellSave` keeps an explicit guard for the multi-record case. Covered by `QuotaUsageGrid.helpers.test.ts`.
+> **Manual entry moved with it.** Typing into an empty matrix cell used to POST a row; the by-shipment view has no empty cells, so `QuotaUsageCreateModal` (date / firm / kg) is reached from an **Add manual row** button in the flat list view. It surfaces the backend's `usage_date`-outside-every-season 400 verbatim, since that is the likely failure.
 
 ### Section: ShipmentQuotaCard (the shipment side of the link)
 

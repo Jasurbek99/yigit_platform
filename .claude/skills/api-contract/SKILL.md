@@ -545,6 +545,13 @@ Consequences worth knowing before you touch this code:
   no season for exactly those rows.
 - `quota-firm-balances` follows the **resolved** season, not the active one, and returns `{}`
   during the gap. Its cache key and the FIFO cache key both carry the season id.
+- **`PATCH /contracts/sales/{id}/` changing `quantity_kg` rewrites the firm's
+  `ShipmentFirmSplit.weight_kg` and re-runs quota usage** (added 2026-08-11). The two are the
+  same number by design — the firm's official export weight (AD-016) — but only the
+  PackingTemplate path kept them in step, so an edited invoice and the quota ledger silently
+  disagreed. Other firms on the truck keep their weights; a firm with no split is skipped, not
+  added. `export` may not import `contracts`, so the sync necessarily lives on the contracts
+  side (`sync_split_weight_from_sale` in `contracts/views.py`); do not add a reverse read.
 - **There is no quota-usage approval step** (removed 2026-08-10). `POST /quota-usage/approve/`
   is **gone** (405). Rows are created `status='approved'` by both `perform_create` and
   `quota_sync.sync_draft_quota_usage_for_shipment`, and count in FIFO / firm balances / the
