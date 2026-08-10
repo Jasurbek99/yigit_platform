@@ -310,15 +310,18 @@ When an operator assigns export firms to a shipment via the **Sheet `firm_splits
 
 Coverage progress bar color: green >=80%, orange >=50%, red <50%.
 
-**5 Tabs**:
+**6 Tabs**, in render order:
 
-| Tab | Component | What It Shows |
-|-----|-----------|--------------|
-| 1. Firm Breakdown | QuotaPerFirmTable | Per-firm table: sales_kg, expected, issued, used, diff, is_blocked |
-| 2. Firm Chart | QuotaVisualBars | Bar chart visualization of firm allocations |
-| 3. Weekly Trend | QuotaWeeklyFlow | Week-by-week issuance trend with coverage % |
-| 4. Issuance Log | QuotaIssuancesList | Detailed allocation table (see below) |
-| 5. Quota Usage | QuotaUsageTab | Usage records with approval workflow (see below) |
+| Tab | Component | Gate | What It Shows |
+|-----|-----------|------|--------------|
+| 1. Quota Usage | QuotaUsageTab | `canSeeQuota` | What each truck spent — the default tab (see below) |
+| 2. Issuance Log | QuotaIssuancesList | `canSeeQuota` | Detailed allocation table (see below) |
+| 3. Local Sell | LocalSellPlanGrid | `canSeeLocalSell` | Weekly local-sale plan — what earns the quota |
+| 4. Firm Breakdown | QuotaPerFirmTable | `canSeeQuota` | Per-firm: sales_kg, expected, issued, used, diff, is_blocked |
+| 5. Firm Chart | QuotaVisualBars | `canSeeAnalytics` | Bar chart of firm allocations |
+| 6. Weekly Trend | QuotaWeeklyFlow | `canSeeAnalytics` | Week-by-week issuance trend with coverage % |
+
+> **Quota Usage leads and opens by default since 2026-08-11** — it is the day-to-day screen, while the issuance log is consulted occasionally. Two places must agree: `tabItems` (render order) and `tabOrder` (which supplies `defaultTab`). `tabOrder` deliberately lists only `quota_usage` and `local_sell`, the two gates that can differ per role, so the default can never land on a tab the user cannot see — a role with `canSeeLocalSell` alone opens on Local Sell.
 
 ### Sub-Page: QuotaIssuancesList
 

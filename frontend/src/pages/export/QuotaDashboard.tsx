@@ -149,9 +149,12 @@ export default function QuotaDashboard() {
 
   const navigate = useNavigate();
 
-  // Active tab — derive from the first visible tab to avoid pointing at a hidden one
+  // Active tab — derive from the first visible tab to avoid pointing at a hidden one.
+  // `quota_usage` leads: it is the day-to-day screen (what each truck spent),
+  // while the issuance log is consulted occasionally. Must stay in step with the
+  // order of `tabItems` below, or the first tab shown is not the one opened.
   const tabOrder = [
-    canSeeQuota && 'all_quotas',
+    canSeeQuota && 'quota_usage',
     canSeeLocalSell && 'local_sell',
   ].filter(Boolean) as string[];
   const defaultTab = tabOrder[0] ?? 'all_quotas';
@@ -245,17 +248,20 @@ export default function QuotaDashboard() {
 
   // Tabs — role-based visibility:
   // document_team: Firm Breakdown (read-only) + Issuance Log
-  // export_manager/director: all 4 tabs
+  // export_manager/director: every tab
+  // Order matters: `tabOrder` above picks the default from the first visible key,
+  // so moving an entry here without moving it there opens a different tab than
+  // the one sitting first.
   const tabItems = [
-    canSeeQuota && {
-      key: 'all_quotas',
-      label: t('quota_dashboard.tab_issuance_log'),
-      children: <QuotaIssuancesList weightUnit={weightUnit} />,
-    },
     canSeeQuota && {
       key: 'quota_usage',
       label: t('quota_dashboard.tab_quota_usage'),
       children: <QuotaUsageTab weightUnit={weightUnit} productType={productType} />,
+    },
+    canSeeQuota && {
+      key: 'all_quotas',
+      label: t('quota_dashboard.tab_issuance_log'),
+      children: <QuotaIssuancesList weightUnit={weightUnit} />,
     },
     canSeeLocalSell && {
       key: 'local_sell',
