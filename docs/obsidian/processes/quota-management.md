@@ -94,9 +94,15 @@ Per-firm `kg_used` mirrors each firm's **actual `ShipmentFirmSplit.weight_kg`** 
 
 **`usage_date`** = the real date encoded in the operator's **export code** (`DD` + 2-letter month + `NNN` + `/YY`, e.g. `12JN121/26` → 12 Jun 2026), parsed by `apps/export/services/export_code.py::parse_export_code_date`. `Shipment.date` is only the creation/import day, so it's the **fallback** when the export code is missing or unparseable. Operator month codes are English 2-letter (`JA FB MR AP MY JN JL AG SP OC NV DC` — note **November = NV**), distinct from the Turkmen scheme in the now-disabled `validators.py`. Manually-added usage records (no shipment) keep their user-picked date.
 
-The Quota Usage **list view** shows a **Source** badge per row — `Auto` (created from a shipment, has a shipment code) vs `Manual` (user-entered, no shipment).
+The Quota Usage **list view** shows a **Source** badge per row — `Auto` (created from a shipment, has a shipment code) vs `Manual` (user-entered, no shipment). Since the approval step was removed it has no status column, no status filter and no row selection; `kg_used` is inline-editable for anyone with `quota_usage.can_edit`.
 
-These drafts must be **approved** by export_manager/director before they count in FIFO calculations.
+> **No approval step since 2026-08-10.** Rows are created `status='approved'` and count in FIFO, the firm balances and the dashboard the instant they exist. `POST /quota-usage/approve/` is gone; `perform_update` / `perform_destroy` no longer gate on `status`; the bulk-approve UI, the status filter and the status columns are removed.
+>
+> **`status='approved'` now means "counted", not "signed".** `approved_by` / `approved_at` stay NULL on everything the system creates — stamping the operator would put a false signature in the audit trail. The column survives to carry pre-cutover history.
+>
+> **The guard that had to go with it.** `sync_draft_quota_usage_for_shipment` raised `ApprovedQuotaExistsError` (→ 400) when approved rows existed, because approved meant a signature automation must not overwrite. Once every row is born approved, that fires on *every* split edit after the first — it would have 400'd routine work platform-wide. Three call sites carried it (`ShipmentViewSet.set_firm_splits` plus two in `contracts.views`); all three removed. Resync now replaces every row on the shipment. Manually-entered rows carry no shipment and are never in that queryset.
+>
+> **Knock-on, documented not changed:** `POST /shipments/{id}/cancel/` still reports `draft_quota_deleted` and `approved_quota_to_reconcile`. The first is now structurally 0 and the second lists every row on the shipment. No kg is stranded — `counted()` already drops rows tied to a cancelled shipment, so the release stays automatic; only the response's field names now read oddly.
 
 ### Release-on-Delete Semantics
 
@@ -142,7 +148,7 @@ erDiagram
 - `(issuance, export_firm)` unique in allocations
 - `kg_quota > 0` check constraint on allocations
 - `kg_used > 0` check constraint on usage records
-- Usage `status` is 'draft' or 'approved' — only approved records count in FIFO
+- Usage `status` is always 'approved' since 2026-08-10 — it means "counted"; 'draft' only appears in pre-cutover rows, which `approve_legacy_quota_usage` converts
 
 ## Backend Implementation
 
@@ -234,9 +240,9 @@ erDiagram
 | DELETE | `/api/v1/export/quota-issuances/{id}/` | Delete issuance | export_manager, director |
 | PATCH | `/api/v1/export/quota-issuances/{id}/reassign/` | Manual week reassignment | export_manager, director |
 | GET | `/api/v1/export/quota-usage/` | List usage records | IsAuthenticated |
-| PUT | `/api/v1/export/quota-usage/{id}/` | Edit (draft only) | IsAuthenticated |
-| DELETE | `/api/v1/export/quota-usage/{id}/` | Delete (draft only) | IsAuthenticated |
-| POST | `/api/v1/export/quota-usage/approve/` | Bulk approve drafts | export_manager, director |
+| POST | `/api/v1/export/quota-usage/` | Create a manual row (born `approved`) | `quota_usage` create |
+| PUT | `/api/v1/export/quota-usage/{id}/` | Edit | `quota_usage` edit |
+| DELETE | `/api/v1/export/quota-usage/{id}/` | Delete | `quota_usage` delete |
 | GET | `/api/v1/export/quota-dashboard/` | Dashboard analytics | `quota_issuance` view |
 | GET | `/api/v1/export/quota-firm-balances/` | Per-firm remaining quota (firm-split soft warning) | `quota_issuance` view |
 
@@ -251,7 +257,11 @@ erDiagram
 > **Permission note**: the read-only dashboard is gated by `DynamicResourcePermission` with `resource_code = 'quota_issuance'` (the resource it aggregates) — NOT a `'quota'` resource, which does not exist in `RESOURCE_REGISTRY`. Pointing it at the non-existent `'quota'` resource makes `get_resource_perm()` return `None` and 403s every non-superuser role; this was a real regression. The roles that hold `quota_issuance` view (export_manager, director, document_team, admin) are exactly those granted the `export.quota` page.
 
 **Filters on issuances**: `?product_type=`, `?date_from=`, `?date_to=`
-**Filters on usage**: `?status=`, `?product_type=`, `?date_from=`, `?date_to=`
+**Filters on usage**: `?status=`, `?product_type=`, `?date_from=`, `?date_to=`, `?shipment=`
+
+> **`?shipment=` relaxes the season scope — but only for a role that may view closed seasons.** It backs the quota card on ShipmentDetail, and the logic is copied verbatim from `CustomsExpenseViewSet.get_queryset()`, which solved the same problem for the expenses panel on the same page. Rule A (§4.5) is the reason: a detail page resolves for any season, so a prior-season shipment opened by direct link must show its own quota rather than an empty card contradicting the rows that plainly exist.
+>
+> The relaxation is **gated on `can_view_closed()`**, not unconditional. A role holding `quota_usage` but not `closed_season` (e.g. `document_team`) stays season-scoped even with `?shipment=` — otherwise the param would route around the 403 that `/quota-usage/?season=<closed>` returns, which is the exact shape of the 2026-08-07 quota-dashboard date-window bypass. `resolve_season()` runs unconditionally either way, so the close→open gap still fails closed and a bad/closed `?season=` still 404s/403s. Pinned by `tests_quota_usage_by_shipment.py` (8 tests): the permitted role sees a closed season's truck, the unpermitted one gets nothing, the same unpermitted role's `?season=<closed>` 403 is asserted as the control, and the unfiltered list is checked for leakage.
 
 ### Firm-split "no quota" soft warning
 
@@ -338,21 +348,32 @@ Flattens nested allocations into individual rows.
 | 1 | Usage Date | 110px | |
 | 2 | Firm Name | 160px | Bold |
 | 3 | Shipment Code | 130px | Optional link |
-| 4 | Kg Used | 130px | **Inline-editable** InputNumber if draft + canEdit |
+| 4 | Kg Used | 130px | **Inline-editable** InputNumber when `canEdit` |
 | 5 | Product Type | 100px | tomato/pepper |
-| 6 | Status | 110px | draft (pencil icon) / approved (checkmark icon) |
-| 7 | Created By | 120px | |
-| 8 | Approved By | 120px | |
-| 9 | Delete | 50px | Only for draft records |
+| 6 | Created By | 120px | |
+| 7 | Delete | 50px | Any row, when `canDelete` |
 
-**Toolbar**:
-- Status filter dropdown: all / draft / approved
-- Record count + "X pending draft" note
-- **Bulk Approve** button (shows count, only if drafts selected and canEdit)
+**Toolbar**: record count + the grid/list view toggle.
 
 **Inline Edit**: Click kg_used cell → InputNumber → blur saves (PATCH)
 
-**Bulk Approve**: Select draft rows via checkboxes → click Approve → POST `/quota-usage/approve/` with ids
+> Status column, Approved-By column, status filter, row-selection checkboxes and the Bulk Approve button were all removed on 2026-08-10 with the approval step. Editing and deleting are no longer restricted to drafts — there are none.
+
+### Sub-Page: QuotaUsageGrid (the date × firm matrix)
+
+**Files**: `QuotaUsageGrid.tsx`, `QuotaUsageGrid.helpers.ts`, `QuotaUsageCellDetail.tsx`
+
+The default view inside QuotaUsageTab: one row per date, one column per active firm, month-picked.
+
+> **A cell holds MANY records, not one.** A firm rides several trucks in a day, and each produces its own `QuotaUsageRecord`. The grid keyed them into a `Map<date_firmId, record>`, so the last one read won and the rest vanished — the firm column, the row total and the grand total all under-reported, and typing into such a cell PATCHed whichever record the Map happened to keep. The backend never deduped (`services_quota` sums `kg_used` over `counted()`), so this one view disagreed with every other number in the system. 37 cells on the 2025-2026 season were affected, the worst holding 8 records.
+>
+> Now `groupRecordsByCell()` buckets into `Map<key, record[]>`, the cell renders `sumKg()`, and a cell with more than one record is **not inline-editable** — it shows the sum plus a count badge and opens `QuotaUsageCellDetail`, listing each record with its shipment code (linked). `isCellInlineEditable()` is the single rule for which cells accept typing; `handleCellSave` keeps an explicit guard for the multi-record case. Covered by `QuotaUsageGrid.helpers.test.ts`.
+
+### Section: ShipmentQuotaCard (the shipment side of the link)
+
+**File**: `frontend/src/components/shipment/ShipmentQuotaCard.tsx`, mounted on ShipmentDetail
+
+The mirror of the usage list's shipment column: quota is spent by trucks, so the shipment is where operators ask "did this cost quota, whose, and is it approved?". Reads `useQuotaUsageRecords({ shipment: id })`, renders firm / kg / status / date with a total in the footer, and an empty state when the truck consumed none. Read-only — approval still happens on the quota screen.
 
 ### Hooks
 
@@ -360,8 +381,7 @@ Flattens nested allocations into individual rows.
 |------|----------|--------|---------|------------|
 | `useQuotaDashboard` | `GET /export/quota-dashboard/` | season (from the page's own picker, which hides closed seasons the user may not view), date_from, date_to, product_type | `IQuotaDashboardResponse` | 60s |
 | `useQuotaIssuances` | `GET /export/quota-issuances/` | product_type, date_from, date_to | `IQuotaIssuance[]` | 60s |
-| `useQuotaUsageRecords` | `GET /export/quota-usage/?page_size=2000` | status, product_type, date_from, date_to | `IQuotaUsageRecord[]` | 30s |
-| `useBulkApproveQuotaUsage` | `POST /export/quota-usage/approve/` | `{ids: []}` | `{approved: number}` | mutation |
+| `useQuotaUsageRecords` | `GET /export/quota-usage/?page_size=2000` | status, product_type, date_from, date_to, **shipment** | `IQuotaUsageRecord[]` | 30s |
 
 ### TypeScript Types
 

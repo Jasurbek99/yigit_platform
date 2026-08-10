@@ -536,7 +536,8 @@ Consequences worth knowing before you touch this code:
   a write against frozen data, not a bad field, and the two are distinct failures on the same POST
   (**fixed 2026-08-08**). This applies to `POST`, `PATCH`, `DELETE` **and** `POST /quota-usage/approve/`,
   including the 575 rows with **no shipment**: their anchor is `usage_date`, resolved by
-  `QuotaUsageRecord.freeze_season`. Until that hook existed `freeze_season_of()` returned `None`
+  `QuotaUsageRecord.freeze_season`. (`POST /quota-usage/approve/` was in this list until
+  **2026-08-10**, when the approval step was removed — see below.) Until that hook existed `freeze_season_of()` returned `None`
   for every unlinked row, so both freeze layers were no-ops and those four verbs returned
   201/200/204/200 against a closed season. If you add a bulk action on this resource, guard it with
   `services_quota.assert_usage_batch_seasons_open(qs)` — **not** the generic
@@ -544,6 +545,16 @@ Consequences worth knowing before you touch this code:
   no season for exactly those rows.
 - `quota-firm-balances` follows the **resolved** season, not the active one, and returns `{}`
   during the gap. Its cache key and the FIFO cache key both carry the season id.
+- **There is no quota-usage approval step** (removed 2026-08-10). `POST /quota-usage/approve/`
+  is **gone** (405). Rows are created `status='approved'` by both `perform_create` and
+  `quota_sync.sync_draft_quota_usage_for_shipment`, and count in FIFO / firm balances / the
+  dashboard immediately. `status` is read-only on the serializer and server-set — a client
+  sending `"draft"` gets `"approved"` back. `approved_by` / `approved_at` stay **NULL**:
+  `'approved'` means "counted", not "signed". `PATCH` / `DELETE` no longer return
+  `400 Only draft records can be edited/deleted` — permissions and the season write freeze are
+  the only refusals left. `sync_draft_quota_usage_for_shipment` no longer raises
+  `ApprovedQuotaExistsError`; it replaces every row on the shipment, so
+  `POST /shipments/{id}/firm-splits/` no longer 400s with "approved quota usage records exist".
 - **`GET /quota-usage/?shipment=<id>` relaxes the season scope for callers who may view closed
   seasons** (added 2026-08-10), backing the quota card on ShipmentDetail. Same param, same meaning
   and the same implementation as `/customs-expenses/?shipment=`: Rule A says detail pages resolve
