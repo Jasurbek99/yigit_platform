@@ -39,3 +39,8 @@
 
 ## SDD ledgers (gitignored scratch, main dir)
 `.superpowers/sdd/2026-08-03-tir-fleet-subproject1/progress.md` and `…-subproject2/progress.md` — full task-by-task history if resuming in the same machine/session.
+
+---
+## UPDATE 2026-08-10 — SP3a DONE
+SP3a (edit-drawer selector) shipped + Opus-approved: `useFleet.ts` hooks, `ShipmentTruckSelector.tsx`, injected into `ShipmentTransportBody.tsx` (ShipmentDetail) AND `ShipmentEditDrawer.tsx` (list row-edit + dashboard slide), both gated on `is_gapy_satys` (→ text). Commits `e4fb50f..a8479d5`.
+STILL REMAINING: SP3b (Sheet cell — `SheetCellEditor.tsx` getOptions switch + custom grid editor for truck_head/trailer, still text when gapy), SP3c (inline "+ Add" via dropdownRender → POST), SP4 (admin CRUD page). Push still held pending tirweb cred rotation.
