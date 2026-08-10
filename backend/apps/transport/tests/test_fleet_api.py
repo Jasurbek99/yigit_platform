@@ -82,6 +82,15 @@ class TruckHeadApiTests(TestCase):
         th = TruckHead.objects.get(id=13)
         self.assertEqual(th.traccar_device, other_device)
 
+    def test_include_inactive_lists_inactive_rows(self):
+        self.client.force_authenticate(self.viewer)
+        # default: active only
+        default = self.client.get('/api/v1/transport/truck-heads/').json()
+        self.assertNotIn('9999XYZ', {r['plate_number'] for r in default})
+        # include_inactive=true: inactive shown
+        allrows = self.client.get('/api/v1/transport/truck-heads/?include_inactive=true').json()
+        self.assertIn('9999XYZ', {r['plate_number'] for r in allrows})
+
 
 class TrailerApiTests(TestCase):
     def setUp(self):
@@ -115,3 +124,12 @@ class TrailerApiTests(TestCase):
         d = self.client.patch(f'/api/v1/transport/trailers/{tid}/', {'is_active': False}, format='json')
         self.assertEqual(d.status_code, 200)
         self.assertFalse(Trailer.objects.get(id=tid).is_active)
+
+    def test_include_inactive_lists_inactive_rows(self):
+        self.client.force_authenticate(self.viewer)
+        # default: active only
+        default = self.client.get('/api/v1/transport/trailers/').json()
+        self.assertNotIn('9000ZZZ', {r['plate_number'] for r in default})
+        # include_inactive=true: inactive shown
+        allrows = self.client.get('/api/v1/transport/trailers/?include_inactive=true').json()
+        self.assertIn('9000ZZZ', {r['plate_number'] for r in allrows})

@@ -98,7 +98,8 @@ class TruckHeadViewSet(mixins.ListModelMixin, mixins.CreateModelMixin,
 
     def get_queryset(self):
         qs = TruckHead.objects.all().order_by('plate_number')
-        if self.action == 'list':
+        include_inactive = self.request.query_params.get('include_inactive') == 'true'
+        if self.action == 'list' and not include_inactive:
             qs = qs.filter(is_active=True)   # pickers show active only
         return qs
 
@@ -119,6 +120,7 @@ class TrailerViewSet(mixins.ListModelMixin, mixins.CreateModelMixin,
 
     def get_queryset(self):
         qs = Trailer.objects.all().order_by('plate_number')
-        if self.action == 'list':
+        include_inactive = self.request.query_params.get('include_inactive') == 'true'
+        if self.action == 'list' and not include_inactive:
             qs = qs.filter(is_active=True)
         return qs
