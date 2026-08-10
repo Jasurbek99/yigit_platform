@@ -45,7 +45,19 @@ export function ShipmentEditDrawer({
   const [values, setValues] = useState<Record<string, FieldValue>>({});
   const [dirty, setDirty] = useState<Set<string>>(new Set());
 
-  // Reset form state when shipment or open state changes
+  // Reset form state when the drawer opens for a DIFFERENT shipment.
+  //
+  // Deliberately keyed on `shipment.id`, not the `shipment` object itself.
+  // ShipmentTruckSelector (rendered inside this drawer, see below) PATCHes
+  // immediately on change via its own useShipmentPatchMulti() call, whose
+  // onSettled invalidates the shipment detail query — while the drawer is
+  // still open, `useShipmentDetail` refetches and the parent re-renders this
+  // component with a NEW `shipment` object of the SAME id. Depending on the
+  // object reference would re-run this reset on every such refetch and wipe
+  // every OTHER staged-but-unsaved field (dirty/values), silently discarding
+  // the user's in-progress edits and greying out Save. Depending on `.id`
+  // only resets when the drawer is actually pointed at a different shipment.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!open) return;
     const next: Record<string, FieldValue> = {};
@@ -56,7 +68,7 @@ export function ShipmentEditDrawer({
     });
     setValues(next);
     setDirty(new Set());
-  }, [open, shipment]);
+  }, [open, shipment.id]);
 
   const groups: IEditFieldGroup[] = groupKey
     ? EDIT_FIELD_GROUPS.filter((g) => g.key === groupKey)
