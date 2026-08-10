@@ -49,24 +49,25 @@ function seasonRow(status: SeasonStatus): ISeason {
   };
 }
 
-function renderPage(rows: ISeason[]) {
+function renderPage(rows: ISeason[]): { queryClient: QueryClient } {
   vi.mocked(api.get).mockResolvedValue({ data: rows });
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  return render(
+  render(
     <QueryClientProvider client={queryClient}>
       <SeasonsPage />
     </QueryClientProvider>,
   );
+  return { queryClient };
 }
 
 // Regression coverage for a reopen vector a reviewer found: `Edit` seeds a
-// writable `is_active` Switch, and the backend serializer only marks
-// `status`/`closed_at`/`closed_by`/`closed_by_name` read-only — so an
-// unguarded Edit button on a CLOSED row let an admin PATCH `is_active: true`
-// on a closed season, bypassing `open_season()`'s atomicity/audit-log
-// entirely and directly reversing the "reopening is unsupported" decision.
+// writable `is_active` Switch, so an unguarded Edit button on a CLOSED row
+// offered an admin a route to `PATCH {is_active: true}` on a closed season,
+// directly reversing the "reopening is unsupported" decision. The server now
+// refuses that with a 400 from `SeasonSerializer.validate_is_active()`, but
+// hiding Edit keeps the UI from offering an action it will reject.
 // `Delete` had the same gap (hard-deletes the row while the close dialog's
 // "nothing is deleted" copy is still on screen). Both gated on
 // `record.status !== 'CLOSED'` — this test is the one that would catch a
@@ -107,13 +108,15 @@ describe('SeasonsPage row actions by status', () => {
   });
 });
 
-// `is_active` is server-set. The form used to carry an Active switch defaulted
-// to on, which (a) 400'd every create against `uq_season_single_active` while a
-// season was already active, and (b) let Edit move the write target through a
-// plain PATCH — which never runs `open_season()`/`close_season()`, so there was
-// no atomic incumbent swap, no audit row, and `useUpdateSeason` invalidates only
-// `['admin-seasons']` so `/auth/me/` and every season-scoped list stayed cached
-// on the old season. Open and Close are now the only routes.
+// The Active switch is back on the form (2026-08-10) after being removed in
+// dbe9ad8. It is only safe because of two changes it must not regress past:
+// the backend routes an `is_active` transition through `open_season()` /
+// `deactivate_season()` instead of writing the column (atomic incumbent swap +
+// AuditLog row, pinned by `apps.core.tests_season_services`), and
+// `useCreateSeason`/`useUpdateSeason` now invalidate EVERY cached query the way
+// `useOpenSeason`/`useCloseSeason` do. A targeted `['admin-seasons']`
+// invalidate was defect 2: the write target moved in the database while
+// `/auth/me/` and every season-scoped list kept serving the old season.
 describe('SeasonsPage season form', () => {
   beforeAll(async () => {
     await i18n.changeLanguage('en');
@@ -121,22 +124,45 @@ describe('SeasonsPage season form', () => {
 
   beforeEach(() => {
     vi.mocked(api.get).mockReset();
+    vi.mocked(api.patch).mockReset();
+    vi.mocked(api.post).mockReset();
     vi.mocked(useAuth).mockReturnValue({ user: fakeUser(), isLoading: false, isError: false });
   });
 
-  it('create modal has no Active toggle', async () => {
+  it('create modal offers an Active toggle, defaulted off', async () => {
     const user = userEvent.setup();
     renderPage([seasonRow('ACTIVE')]);
     await user.click(await screen.findByRole('button', { name: /Add season/i }));
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).queryByRole('switch')).not.toBeInTheDocument();
+    const toggle = within(dialog).getByRole('switch');
+    expect(toggle).toBeInTheDocument();
+    // Creating next year's season must not silently steal the write target.
+    expect(toggle).not.toBeChecked();
   });
 
-  it('edit modal has no Active toggle', async () => {
+  it('edit modal seeds the Active toggle from the row', async () => {
     const user = userEvent.setup();
     renderPage([seasonRow('ACTIVE')]);
     await user.click(await screen.findByRole('button', { name: 'Edit' }));
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).queryByRole('switch')).not.toBeInTheDocument();
+    expect(within(dialog).getByRole('switch')).toBeChecked();
+  });
+
+  it('ticking Active sends is_active and invalidates every cached query', async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.patch).mockResolvedValue({ data: seasonRow('ACTIVE') });
+    const { queryClient } = renderPage([seasonRow('UPCOMING')]);
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('switch'));
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+    await vi.waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(vi.mocked(api.patch).mock.calls[0][1]).toMatchObject({ is_active: true });
+    // No key filter — a targeted invalidate leaves `/auth/me/` and every
+    // season-scoped list on the old season (defect 2).
+    await vi.waitFor(() => expect(invalidateSpy).toHaveBeenCalledWith());
   });
 });

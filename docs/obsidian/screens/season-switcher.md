@@ -105,15 +105,27 @@ Renders `null` when `useSeasonReadOnly()` is `false`. Otherwise branches on
 | `UPCOMING` | — | `Modal.confirm` → `POST .../open/` | yes | yes |
 | `CLOSED` | — | — | **hidden** | **hidden** |
 
-Edit/Delete are hidden on `CLOSED` rows specifically because the generic Edit modal used to
-carry an `is_active` `Switch`, which was a live reopen vector. That switch is **gone**:
-`is_active` is now a `read_only_field` on `SeasonSerializer`, so no request body can set it,
-and the create/edit modal has no Active control at all. A new season is therefore always
-created `UPCOMING`, and **Open and Close are the only routes** to changing the write target —
-both atomic, both audited, both invalidating every cached query. `Season.save()` still calls
-`Season.assert_activation_allowed()`, which is what now covers the ORM, Django admin and
-management commands (see AD-16). `seasons.is_active` stays in i18n — it is the table's
-Active column title.
+The create/edit modal carries an `is_active` `Switch` (removed 2026-08-07, **restored
+2026-08-10** at the domain owner's request). It is no longer a reopen vector or a stale-state
+vector, because the switch does not write the column — `SeasonViewSet.perform_create()` /
+`perform_update()` delegate to `open_season()` (`false -> true`, and on create the row is
+INSERTed inactive first) and `deactivate_season()` (`true -> false`), so ticking Active is
+exactly the Open action with the same atomic incumbent swap and `AuditLog` row, and
+`useCreateSeason`/`useUpdateSeason` now run the same blanket `queryClient.invalidateQueries()`
+as `useOpenSeason`/`useCloseSeason`. **The switch defaults OFF on create** — adding next year's
+row is bookkeeping and must not silently move the platform-wide write target; a new season
+still lands `UPCOMING` unless the switch is ticked. Un-ticking it on the active season is a
+deliberate, supported state: it stands the season down without closing it (`closed_at` stays
+NULL, status returns to `UPCOMING`) and leaves no active season at all, which D7 handles by
+failing closed.
+
+Edit/Delete stay hidden on `CLOSED` rows. Activating a closed season is refused server-side
+with a `400` from `SeasonSerializer.validate_is_active()` (which reuses
+`Season.assert_activation_allowed()`, the same predicate `Season.save()` enforces and the one
+that covers the ORM, Django admin and management commands — see AD-16), but the UI should not
+offer an action the server will reject, and Delete hard-deletes a row the close dialog's
+"nothing is deleted" copy promised to keep. `seasons.is_active` is used twice — the table's
+Active column title and the form's switch label.
 
 `SeasonCloseModal` fetches `GET .../{id}/close-preview/` (`useSeasonClosePreview`) and shows
 the counts in the confirm body: *"Closing 2025/2026 will hide N drafts, N shipments in

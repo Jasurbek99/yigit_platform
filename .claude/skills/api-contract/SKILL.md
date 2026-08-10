@@ -487,15 +487,29 @@ already restricts to an open season, and scoping them would change what a create
 against rather than gate a read. The frontend sends no `?season=` here on purpose (the draft
 composer always draws on the write target's pool).
 
-**`is_active` on `/admin/seasons/` is server-set — read-only on the serializer.** `POST` and
-`PATCH` accept `name`, `start_date`, `end_date` only; an `is_active` key in the body is
-silently discarded, so a create always lands `UPCOMING` and a `PATCH {"is_active": ...}`
-returns `200` having changed nothing (it used to return `400` on a closed season). The write
-target moves only through `POST /admin/seasons/{id}/open/` and `POST .../close/`, which swap
-the incumbent atomically and write an `AuditLog` row. Do not re-add the field to
-`SeasonSerializer`'s writable set: DRF derives a `UniqueTogetherValidator` from the
-`uq_season_single_active` filtered constraint, so a writable `is_active=True` 400s every
-create made while a season is already active.
+**`is_active` on `/admin/seasons/` is writable, but the viewset routes it through the lifecycle
+services — it is never written as a plain column** (restored 2026-08-10; read-only between
+2026-08-07 and then). `POST` and `PATCH` accept `name`, `start_date`, `end_date`, `is_active`.
+`SeasonViewSet.perform_create()` always INSERTs the row inactive and then calls `open_season()`
+when `is_active: true` was sent; `perform_update()` pops the flag out of `validated_data` and
+routes `false -> true` to `open_season()` and `true -> false` to `deactivate_season()`. So a
+body carrying `is_active` gets exactly what `POST .../open/` gives: an atomic incumbent swap
+and an `AuditLog` row. `true -> false` stands the season down **without** closing it —
+`closed_at` stays NULL, `status` returns to `UPCOMING`, and the platform is left with no active
+season (the legitimate gap D7 fails closed on). `PATCH {"is_active": true}` on a **CLOSED**
+season is a `400` keyed on `is_active` (`SeasonSerializer.validate_is_active()`, reusing
+`Season.assert_activation_allowed()`); reopening stays unsupported.
+
+Two things must not be undone or the field breaks again. (1) `is_active` is **declared
+explicitly** on `SeasonSerializer` (`serializers.BooleanField(required=False)`). Left to
+`ModelSerializer`, DRF 3.17 attaches a field-level `UniqueValidator` derived from the
+`uq_season_single_active` filtered constraint, whose queryset is already
+`Season.objects.filter(is_active=True)` — that 400s every `is_active=true` write made while any
+other season holds the flag, which is the normal case. (It is a field-level `UniqueValidator`,
+**not** a serializer-level `UniqueTogetherValidator`; `Meta.validators = []` does not remove
+it.) (2) The frontend hooks that hit these two verbs must invalidate the **whole** query cache,
+like `useOpenSeason`/`useCloseSeason` — a targeted `['admin-seasons']` invalidate leaves
+`/auth/me/` and every season-scoped list serving the previous season.
 
 **Quota is season-scoped in BOTH directions (D11, 2026-08-06).** `quota-issuances` was on the
 opt-out list until then, on the reasoning that issuances are consumed FIFO *across* season
@@ -530,6 +544,15 @@ Consequences worth knowing before you touch this code:
   no season for exactly those rows.
 - `quota-firm-balances` follows the **resolved** season, not the active one, and returns `{}`
   during the gap. Its cache key and the FIFO cache key both carry the season id.
+- **`GET /quota-usage/?shipment=<id>` relaxes the season scope for callers who may view closed
+  seasons** (added 2026-08-10), backing the quota card on ShipmentDetail. Same param, same meaning
+  and the same implementation as `/customs-expenses/?shipment=`: Rule A says detail pages resolve
+  for any season, so a prior-season shipment opened by direct link must show its own quota rather
+  than an empty card. **The relaxation is gated on `can_view_closed()`** — a role holding
+  `quota_usage` but not `closed_season` stays scoped even with `?shipment=`, or the param would
+  route around the 403 that `?season=<closed>` returns. `resolve_season()` still runs
+  unconditionally, so the gap fails closed and a bad/closed `?season=` still 404s/403s, and the
+  unfiltered list is still `usage_season_q()`-scoped.
 - On `GET /quota-issuances/`, the `used_kg` in each allocation comes from the **list's resolved
   season**; on `GET /quota-issuances/{id}/` it comes from **that row's own `season`**. Detail routes
   bypass season scoping (Rule A), so keying the ledger off the request's season there reported

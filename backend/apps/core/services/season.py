@@ -79,6 +79,34 @@ def open_season(season: Season, user: User) -> None:
         _audit(season, user, 'opened')
 
 
+def deactivate_season(season: Season, user: User) -> None:
+    """Clear `season`'s write-target flag without closing it.
+
+    The counterpart to `open_season()` for the `True -> False` half of the
+    admin form's Active switch. It is NOT `close_season()`: nothing is frozen,
+    `closed_at` stays NULL, and the season falls back to UPCOMING rather than
+    CLOSED, so it can be opened again later.
+
+    The result is the legitimate no-active-season gap — `get_active_season()`
+    returns None and `apply_season_scope()` fails closed (D7). That is a
+    consequential state to leave the platform in, which is the whole reason
+    this is a service and not a bare `is_active = False` on the way past: it
+    is the only place the audit row gets written.
+
+    No "already inactive" guard, unlike `close_season()`: the single caller
+    (`SeasonViewSet.perform_update`) only reaches here on an actual
+    `True -> False` transition, and a redundant guard here would be dead code.
+
+    Args:
+        season: The Season to stand down.
+        user: The User performing the change; recorded in the audit log.
+    """
+    with transaction.atomic():
+        season.is_active = False
+        season.save(update_fields=['is_active'])
+        _audit(season, user, 'deactivated')
+
+
 def close_preview(season: Season) -> dict[str, int]:
     """Counts of rows that closing `season` will hide.
 
