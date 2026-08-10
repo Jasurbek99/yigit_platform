@@ -54,11 +54,8 @@ export function ShipmentTruckSelector({
   const headId = (shipment.truck_head_id as number | null) ?? null;
   const trailerId = (shipment.trailer_id as number | null) ?? null;
 
-  // Default values feed react-i18next's no-instance fallback (used by tests
-  // that render this component without an i18n provider) — with a real
-  // instance loaded, the key's actual translation always wins.
-  const headLabel = t('shipment_edit_drawer.field.truck_head', 'Truck head');
-  const trailerLabel = t('shipment_edit_drawer.field.trailer', 'Trailer');
+  const headLabel = t('shipment_edit_drawer.field.truck_head');
+  const trailerLabel = t('shipment_edit_drawer.field.trailer');
 
   return (
     <Space direction="vertical" size={4} style={{ width: '100%' }}>

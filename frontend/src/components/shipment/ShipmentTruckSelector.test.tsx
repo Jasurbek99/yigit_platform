@@ -1,8 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
+import i18n from '@/i18n';
 import { ShipmentTruckSelector } from './ShipmentTruckSelector';
 
 const mutate = vi.fn();
@@ -22,15 +23,31 @@ function wrap(ui: React.ReactNode) {
   return render(<QueryClientProvider client={qc}>{ui}</QueryClientProvider>);
 }
 
+/** Find the antd clear ("x") icon scoped to one specific Select, by its aria-label. */
+function clearIconFor(ariaLabel: string): HTMLElement {
+  const input = screen.getByLabelText(ariaLabel);
+  const clear = input.closest('.ant-select')?.querySelector('.ant-select-clear');
+  if (!clear) throw new Error(`No clear icon found for "${ariaLabel}" — does it have a value?`);
+  return clear as HTMLElement;
+}
+
 const shipment = { id: 7, truck_head_id: 13, trailer_id: 1, is_gapy_satys: false } as any;
 
 describe('ShipmentTruckSelector', () => {
+  beforeAll(async () => {
+    // Pin language so label/aria-label assertions match the real en.json
+    // values regardless of what the language-detector picks up from
+    // happy-dom's navigator/cookie state (same reasoning as
+    // DetailFieldRow.test.tsx / LoginPage.test.tsx).
+    await i18n.changeLanguage('en');
+  });
+
   beforeEach(() => mutate.mockClear());
 
   it('shows the current head + trailer and derives truck_plate on change', async () => {
     wrap(<ShipmentTruckSelector shipment={shipment} readOnly={false} />);
     // change the truck head to 4378AHF
-    const heads = screen.getByLabelText(/truck head/i);
+    const heads = screen.getByLabelText('Truck (tractor)');
     await userEvent.click(heads);
     await userEvent.click(await screen.findByText('4378AHF'));
     await waitFor(() =>
@@ -43,6 +60,33 @@ describe('ShipmentTruckSelector', () => {
 
   it('is read-only when readOnly', () => {
     wrap(<ShipmentTruckSelector shipment={shipment} readOnly={true} />);
-    expect(screen.getByLabelText(/truck head/i)).toBeDisabled();
+    expect(screen.getByLabelText('Truck (tractor)')).toBeDisabled();
+  });
+
+  it('clearing the truck head composes a bare trailer plate (no leading "/") and PATCHes truck_head_id: null', async () => {
+    wrap(<ShipmentTruckSelector shipment={shipment} readOnly={false} />);
+    await userEvent.click(clearIconFor('Truck (tractor)'));
+    await waitFor(() =>
+      expect(mutate).toHaveBeenCalledWith({
+        id: 7,
+        fields: { truck_head_id: null, trailer_id: 1, truck_plate: '2602TAH' },
+      }),
+    );
+  });
+
+  it('clearing both head and trailer derives an empty truck_plate', async () => {
+    // Head already unset — isolates the "trailer is the last field cleared"
+    // case so the assertion doesn't depend on this controlled component
+    // reflecting a prior clear back into its own `shipment` prop (it doesn't;
+    // the prop is the single source of truth and this test double is static).
+    const headAlreadyClear = { ...shipment, truck_head_id: null };
+    wrap(<ShipmentTruckSelector shipment={headAlreadyClear} readOnly={false} />);
+    await userEvent.click(clearIconFor('Trailer'));
+    await waitFor(() =>
+      expect(mutate).toHaveBeenCalledWith({
+        id: 7,
+        fields: { truck_head_id: null, trailer_id: null, truck_plate: '' },
+      }),
+    );
   });
 });

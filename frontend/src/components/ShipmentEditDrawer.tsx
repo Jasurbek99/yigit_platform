@@ -3,10 +3,11 @@ import { Drawer, Form, Button, Space, Divider, Typography } from 'antd';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { FieldEditor } from '@/components/FieldEditor';
+import { ShipmentTruckSelector } from '@/components/shipment/ShipmentTruckSelector';
 import { useShipmentPatchMulti } from '@/hooks/useShipmentPatch';
 import { useAuth } from '@/hooks/useAuth';
 import { canEditField } from '@/utils/permissions';
-import { EDIT_FIELD_GROUPS } from '@/constants/shipmentEditConfig';
+import { EDIT_FIELD_GROUPS, TRUCK_PLATE_FIELD } from '@/constants/shipmentEditConfig';
 import type { IEditFieldGroup, IEditFieldConfig } from '@/constants/shipmentEditConfig';
 import type { IShipmentDetail } from '@/types';
 import { COLORS } from '@/constants/styles';
@@ -157,21 +158,38 @@ export function ShipmentEditDrawer({
                   {t(group.titleKey)}
                 </Title>
               )}
-              {group.fields.map((field) => (
-                <Form.Item
-                  key={field.key}
-                  label={t(field.labelKey)}
-                  style={{ marginBottom: 12 }}
-                >
-                  <FieldEditor
-                    config={field}
-                    value={values[field.key]}
-                    onChange={(v) => handleChange(field, v)}
-                    countryId={(values.country as number | null) ?? null}
-                    disabled={patch.isPending}
-                  />
-                </Form.Item>
-              ))}
+              {group.fields.map((field) => {
+                // Fleet-linked shipments (not Gapy-Satys) edit truck_plate via
+                // the head/trailer selector instead of the plain-text field —
+                // same is_gapy_satys branch as ShipmentTransportBody, so this
+                // drawer can't PATCH a stale truck_plate against a changed
+                // truck_head_id/trailer_id (or vice versa). The user already
+                // passed canEditField('truck_plate') to reach this row (see
+                // visibleGroups above) — no separate permission exists for
+                // truck_head_id/trailer_id, so that's the gate reused here too.
+                if (field.key === TRUCK_PLATE_FIELD.key && !shipment.is_gapy_satys) {
+                  return (
+                    <div key={field.key} style={{ marginBottom: 12 }}>
+                      <ShipmentTruckSelector shipment={shipment} readOnly={patch.isPending} />
+                    </div>
+                  );
+                }
+                return (
+                  <Form.Item
+                    key={field.key}
+                    label={t(field.labelKey)}
+                    style={{ marginBottom: 12 }}
+                  >
+                    <FieldEditor
+                      config={field}
+                      value={values[field.key]}
+                      onChange={(v) => handleChange(field, v)}
+                      countryId={(values.country as number | null) ?? null}
+                      disabled={patch.isPending}
+                    />
+                  </Form.Item>
+                );
+              })}
             </div>
           ))}
         </Form>
