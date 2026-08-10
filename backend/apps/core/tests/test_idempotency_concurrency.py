@@ -45,13 +45,17 @@ urlpatterns = [path('slow-probe/', _SlowProbeView.as_view())]
 
 @override_settings(ROOT_URLCONF=__name__)
 class IdempotencyConcurrencyTest(TransactionTestCase):
-    # TransactionTestCase FLUSHES every table on teardown, and that wipes rows
-    # created by data migrations — notably the ShipmentStatusType seed in
-    # core/migrations/0006_seed_shipment_draft_status.py. Dozens of other tests
-    # build a Shipment without an explicit status and rely on that seed, so
-    # without this flag they start failing with "Cannot insert NULL into
-    # status_id" — and under --keepdb the damage survives into later runs.
-    serialized_rollback = True
+    # NOTE: serialized_rollback = True was tried here and REMOVED. It makes
+    # _fixture_setup replay the serialized snapshot, which re-inserts
+    # django_content_type rows that post_migrate has already recreated after
+    # the flush — the test then errors in _pre_setup with "Cannot insert
+    # duplicate key row in object 'dbo.django_content_type'" and its body never
+    # runs. Do not add it back without checking that error first.
+    #
+    # This class is one of only three TransactionTestCase subclasses in the
+    # repo (the others are core/tests/test_app_consumer.py and
+    # core/tests/test_worklog.py), so the flush-on-teardown behaviour is not
+    # new here.
 
     def setUp(self):
         EXECUTIONS.clear()
