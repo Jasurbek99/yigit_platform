@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 
 export interface ITruckHead {
@@ -38,5 +38,27 @@ export function useTrailers(search?: string) {
       return data;
     },
     staleTime: 5 * 60_000,
+  });
+}
+
+export function useCreateTruckHead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (plate_number: string) => {
+      const { data } = await api.post<ITruckHead>('/transport/truck-heads/', { plate_number });
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['transport', 'truck-heads'] }),
+  });
+}
+
+export function useCreateTrailer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (plate_number: string) => {
+      const { data } = await api.post<ITrailer>('/transport/trailers/', { plate_number });
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['transport', 'trailers'] }),
   });
 }
