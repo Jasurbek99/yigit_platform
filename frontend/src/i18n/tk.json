@@ -472,16 +472,8 @@
     "shipment_code": "Iberiş kody",
     "kg_used": "Agramy",
     "product_type": "Önüm",
-    "status": "Ýagdaý",
-    "status_draft": "Garaşylýar",
-    "status_approved": "Tassyklandy",
     "created_by": "Dörediji",
-    "approved_by": "Tassyklaýjy",
-    "approve": "Tassykla",
-    "approved_count": "{{count}} ýazgy tassyklandy",
-    "filter_status": "Ýagdaý süzgüç",
     "total_records": "{{count}} ýazgy",
-    "pending": "garaşylýar",
     "confirm_delete": "Bu ýazgyny pozmalymy?",
     "save_error": "Ýatda saklap bolmady",
     "load_error": "Maglumatlary ýükläp bolmady",
@@ -489,7 +481,8 @@
     "grid_truck_count": "Maşyn sany",
     "grid_total": "Jemi",
     "grid_empty": "Bu aý üçin ýazgy ýok",
-    "grid_add_row": "Setir goş"
+    "grid_add_row": "Setir goş",
+    "cell_detail_title": "{{firm}} — {{date}}"
   },
   "local_sell": {
     "double_click_hint": "Üýtgetmek üçin iki gezek basyň",
@@ -3275,5 +3268,13 @@
       "truck_plate": "ulag belgisi"
     },
     "download_packet": "Bukjany ýükle"
+  },
+  "shipment_quota": {
+    "section_title": "Ulanylan eksport kwotasy",
+    "no_records": "Bu ýüklemede entek kwota ulanylmady.",
+    "col_firm": "Firma",
+    "col_kg": "Ulanylan kwota",
+    "col_date": "Senesi",
+    "total_label": "Jemi"
   }
 }

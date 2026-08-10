@@ -474,16 +474,8 @@
     "shipment_code": "Код отгрузки",
     "kg_used": "Вес",
     "product_type": "Продукт",
-    "status": "Статус",
-    "status_draft": "Черновик",
-    "status_approved": "Утверждён",
     "created_by": "Создал",
-    "approved_by": "Утвердил",
-    "approve": "Утвердить",
-    "approved_count": "{{count}} записей утверждено",
-    "filter_status": "Фильтр статуса",
     "total_records": "{{count}} записей",
-    "pending": "ожидают",
     "confirm_delete": "Удалить эту запись?",
     "save_error": "Не удалось сохранить",
     "load_error": "Не удалось загрузить данные",
@@ -491,7 +483,8 @@
     "grid_truck_count": "Машины",
     "grid_total": "Итого",
     "grid_empty": "Нет записей за этот месяц",
-    "grid_add_row": "Добавить строку"
+    "grid_add_row": "Добавить строку",
+    "cell_detail_title": "{{firm}} — {{date}}"
   },
   "local_sell": {
     "double_click_hint": "Двойной клик для редактирования",
@@ -3273,5 +3266,13 @@
       "truck_plate": "номер машины"
     },
     "download_packet": "Скачать пакет"
+  },
+  "shipment_quota": {
+    "section_title": "Использованная экспортная квота",
+    "no_records": "По этой отгрузке квота ещё не списана.",
+    "col_firm": "Фирма",
+    "col_kg": "Списано квоты",
+    "col_date": "Дата",
+    "total_label": "Итого"
   }
 }

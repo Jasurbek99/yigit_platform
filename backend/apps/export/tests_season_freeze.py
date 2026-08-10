@@ -907,22 +907,10 @@ class BulkActionFreezeTests(SeasonFreezeFixture):
             for season in (cls.active, cls.closed)
         }
 
-    def test_quota_usage_approve_of_closed_season_row_returns_409(self):
-        response = self.client_as().post(
-            '/api/v1/export/quota-usage/approve/',
-            {'ids': [self.quota_rows[self.closed].pk]}, format='json',
-        )
-        self.assert_season_closed_409(response)
-        self.quota_rows[self.closed].refresh_from_db()
-        self.assertEqual(self.quota_rows[self.closed].status, 'draft')
-
-    def test_quota_usage_approve_of_active_season_row_still_works(self):
-        response = self.client_as().post(
-            '/api/v1/export/quota-usage/approve/',
-            {'ids': [self.quota_rows[self.active].pk]}, format='json',
-        )
-        self.assertEqual(response.status_code, 200, response.content[:400])
-        self.assertEqual(response.json()['approved'], 1)
+    # `POST /quota-usage/approve/` was removed on 2026-08-10 with the approval
+    # step itself, so its two freeze cases went with it. The freeze on these rows
+    # is not weakened — it now runs on the verbs that remain, covered by
+    # `UnlinkedQuotaUsageApiFreezeTests` (PATCH/DELETE, linked and unlinked).
 
     def test_local_sell_bulk_approve_of_closed_season_row_returns_409(self):
         response = self.client_as().post(
@@ -1609,46 +1597,22 @@ class UnlinkedQuotaUsageApiFreezeTests(SeasonFreezeFixture):
         self.assert_season_closed_409(self.client_as().delete(f'{self.URL}{row.pk}/'))
         self.assertTrue(QuotaUsageRecord.objects.filter(pk=row.pk).exists())
 
-    def test_an_approved_unlinked_row_in_the_active_season_still_returns_400(self):
-        """Control for the pair above: outside a closed season the draft-only
-        rule is untouched — 400, not 409 and not a silent success."""
+    def test_an_approved_unlinked_row_in_the_active_season_is_editable(self):
+        """Control for the pair above: the 409s are about the SEASON, not the row.
+
+        This used to assert `400 Only draft records can be edited`. That gate was
+        removed on 2026-08-10 along with the approval step — every row is born
+        approved now, so keeping it would have made the whole grid read-only and
+        left manually-entered rows uncorrectable. Outside a closed season the
+        edit simply succeeds; if this ever regresses to 400 the two 409 tests
+        above would still pass, which is why the success is asserted here."""
         row = self._usage(date(2026, 10, 15), status='approved')
         response = self.client_as().patch(
             f'{self.URL}{row.pk}/', {'kg_used': '1.00'}, format='json',
         )
-        self.assertEqual(response.status_code, 400, response.content[:400])
-
-    def test_approve_an_unlinked_row_in_the_closed_season_returns_409(self):
-        """`assert_bulk_seasons_open(qs, 'shipment__season')` could not see this
-        row: its `shipment` is NULL, so the subquery matched no Season."""
-        row = self._usage(date(2026, 1, 15))
-        response = self.client_as().post(
-            f'{self.URL}approve/', {'ids': [row.pk]}, format='json',
-        )
-        self.assert_season_closed_409(response)
-        row.refresh_from_db()
-        self.assertEqual(row.status, 'draft')
-
-    def test_approve_an_unlinked_row_in_the_active_season_still_works(self):
-        row = self._usage(date(2026, 10, 15))
-        response = self.client_as().post(
-            f'{self.URL}approve/', {'ids': [row.pk]}, format='json',
-        )
         self.assertEqual(response.status_code, 200, response.content[:400])
-        self.assertEqual(response.json()['approved'], 1)
-
-    def test_approve_rejects_the_whole_batch_when_one_row_is_frozen(self):
-        """Same all-or-nothing rule `assert_bulk_seasons_open` sets: a
-        partially-applied bulk write against a frozen season is worse than a
-        rejected one."""
-        frozen = self._usage(date(2026, 1, 15))
-        live = self._usage(date(2026, 10, 15))
-        response = self.client_as().post(
-            f'{self.URL}approve/', {'ids': [frozen.pk, live.pk]}, format='json',
-        )
-        self.assert_season_closed_409(response)
-        live.refresh_from_db()
-        self.assertEqual(live.status, 'draft')
+        row.refresh_from_db()
+        self.assertEqual(row.kg_used, Decimal('1.00'))
 
     def test_reading_a_closed_season_usage_row_is_still_allowed(self):
         row = self._usage(date(2026, 1, 15))

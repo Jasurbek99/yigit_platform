@@ -8,6 +8,7 @@ import { ShipmentDetailStageCards } from '@/components/shipment/ShipmentDetailSt
 import { ShipmentSaleSection } from '@/components/shipment/ShipmentSaleSection';
 import { RouteTimelineRail } from '@/components/shipment/RouteTimelineRail';
 import { ShipmentCustomsExpensesCard } from '@/components/customsExpense/ShipmentCustomsExpensesCard';
+import { ShipmentQuotaCard } from '@/components/shipment/ShipmentQuotaCard';
 import { CUSTOMS_EXPENSE_WRITE_ROLES } from '@/components/customsExpense/CustomsExpensesTab';
 import { MIN_SALES_REPORT_STEP } from '@/components/salesReport/salesReportUtils';
 import { CommentsDrawerOverlay } from '@/components/comments/CommentsDrawerOverlay';
@@ -96,6 +97,8 @@ export default function ShipmentDetail() {
       />
 
       <ShipmentSaleSection {...groupProps} canEditSalesReport={canEditSalesReport} />
+
+      <ShipmentQuotaCard shipment={shipment} />
 
       <ShipmentCustomsExpensesCard shipment={shipment} canWrite={canWriteExpense} />
 

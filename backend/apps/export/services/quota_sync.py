@@ -1,15 +1,15 @@
 """Quota usage auto-sync — keeps QuotaUsageRecord aligned with a shipment's firm splits.
 
 Single source of truth for the rule:
-    "draft QuotaUsageRecord rows mirror the shipment's current firm splits;
-     approved rows are owned by the document team and never touched here."
+    "a shipment's QuotaUsageRecord rows mirror its current firm splits, and
+     they count immediately."
 
 Called from:
 - ShipmentViewSet.create (draft path) — when firm_splits arrive at create time
 - ShipmentViewSet.set_firm_splits — when splits are replaced after creation
 
-The two call sites must not diverge — approved-record guard, per-firm kg
-(actual split weight, default-kg fallback), and audit/log shape all live here.
+The two call sites must not diverge — per-firm kg (actual split weight,
+default-kg fallback) and audit/log shape all live here.
 
 Soft-delete / cancel / restore do NOT touch rows here — the manager method
 QuotaUsageRecord.objects.counted() handles those by filtering at aggregation
@@ -30,10 +30,6 @@ from apps.export.services.export_code import parse_export_code_date
 if TYPE_CHECKING:
     from apps.core.models import User
     from apps.export.models import Shipment
-
-
-class ApprovedQuotaExistsError(Exception):
-    """Raised when caller tries to resync usage but approved rows already exist."""
 
 
 def invalidate_quota_caches() -> None:
@@ -81,19 +77,27 @@ def sync_draft_quota_usage_for_shipment(
     user: 'User',
     product_type: str = 'tomato',
 ) -> int:
-    """Replace this shipment's draft QuotaUsageRecord rows from its current firm splits.
+    """Replace this shipment's QuotaUsageRecord rows from its current firm splits.
 
-    Reads the live ShipmentFirmSplit rows on the shipment, deletes existing draft
-    usage records for the shipment, and bulk-creates one fresh draft per split.
-    kg_used mirrors each firm's actual split weight_kg, falling back to the
-    admin-configurable TruckSplitDefault (see ADR-016) only when a split has no
-    weight set.
+    Reads the live ShipmentFirmSplit rows on the shipment, deletes its existing
+    usage records, and bulk-creates one fresh row per split. kg_used mirrors each
+    firm's actual split weight_kg, falling back to the admin-configurable
+    TruckSplitDefault (see ADR-016) only when a split has no weight set.
 
-    Approved records are NEVER deleted — they represent quota the document team
-    already counted. If any exist for this shipment, the caller is asked to
-    delete them via /quota-usage/{id}/ first (raises ApprovedQuotaExistsError).
+    Rows are created `status='approved'` — they count the moment the truck has
+    firm splits, with no review step. `approved_by` / `approved_at` stay NULL,
+    which is the honest record: nothing was signed. Read `status='approved'` as
+    "counted", not "a human checked this".
 
-    Idempotent: calling twice with the same splits yields the same draft rows.
+    This function therefore replaces EVERY row it finds, approved ones included.
+    It used to refuse (`ApprovedQuotaExistsError`) when approved rows existed,
+    because approved meant a document-team signature that automation must not
+    overwrite. With the review step gone, every shipment-linked row is
+    machine-generated from the splits, so the guard would have fired on every
+    single split edit and 400'd it. Manually-entered rows are unaffected — they
+    carry no shipment and are never in this queryset.
+
+    Idempotent: calling twice with the same splits yields the same rows.
 
     Args:
         shipment: The Shipment whose firm_splits drive the usage records.
@@ -102,23 +106,13 @@ def sync_draft_quota_usage_for_shipment(
             — pepper support arrives when shipments carry product type.
 
     Returns:
-        Number of draft QuotaUsageRecord rows created.
-
-    Raises:
-        ApprovedQuotaExistsError: If approved usage rows exist for this shipment.
-            Caller should surface a 400 with the firm-splits message.
+        Number of QuotaUsageRecord rows created.
     """
-    if shipment.quota_usage_records.filter(status='approved').exists():
-        raise ApprovedQuotaExistsError(
-            'Cannot resync quota usage: approved records exist on this shipment. '
-            'Delete them first via /quota-usage/{id}/.'
-        )
-
     splits = list(shipment.firm_splits.values_list('export_firm_id', 'weight_kg'))
     num_firms = len(splits)
 
-    # Drop drafts FIRST — even when there are zero splits, stale drafts must go.
-    shipment.quota_usage_records.filter(status='draft').delete()
+    # Drop the old rows FIRST — even with zero splits, stale rows must go.
+    shipment.quota_usage_records.all().delete()
 
     if num_firms == 0:
         return 0
@@ -142,7 +136,7 @@ def sync_draft_quota_usage_for_shipment(
                 kg_used=weight_kg if weight_kg and weight_kg > 0 else default_kg,
                 product_type=product_type,
                 shipment=shipment,
-                status='draft',
+                status='approved',
                 created_by=user,
             )
             for firm_id, weight_kg in splits

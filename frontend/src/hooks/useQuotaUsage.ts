@@ -8,6 +8,8 @@ interface IUsageFilters {
   product_type?: string;
   date_from?: string;
   date_to?: string;
+  /** One shipment's usage rows. The backend bypasses season scope for this filter. */
+  shipment?: number;
 }
 
 export function useQuotaUsageRecords(filters: IUsageFilters = {}, options?: { enabled?: boolean }) {
@@ -21,6 +23,7 @@ export function useQuotaUsageRecords(filters: IUsageFilters = {}, options?: { en
       if (filters.product_type) params.set('product_type', filters.product_type);
       if (filters.date_from) params.set('date_from', filters.date_from);
       if (filters.date_to) params.set('date_to', filters.date_to);
+      if (filters.shipment != null) params.set('shipment', String(filters.shipment));
       if (seasonId != null) params.set('season', String(seasonId));
       const { data } = await api.get(`/export/quota-usage/?${params}`);
       return Array.isArray(data) ? data : data.results ?? [];
@@ -68,19 +71,5 @@ export function useDeleteQuotaUsage() {
       await api.delete(`/export/quota-usage/${id}/`);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['quota-usage'] }),
-  });
-}
-
-export function useBulkApproveQuotaUsage() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (ids: number[]) => {
-      const { data } = await api.post('/export/quota-usage/approve/', { ids });
-      return data as { approved: number };
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['quota-usage'] });
-      qc.invalidateQueries({ queryKey: ['quota-issuances'] });
-    },
   });
 }

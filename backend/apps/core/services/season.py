@@ -174,6 +174,13 @@ def close_preview(season: Season) -> dict[str, int]:
         .exclude(status__phase__in=['COMPLETE', 'CANCELLED']).count(),
         'open_tasks': open_tasks.count(),
         'unfinished_plans': unfinished_plans.count(),
+        # Structurally 0 since 2026-08-10: the approval step was removed and
+        # every row is born 'approved', so no new draft can appear and
+        # `approve_legacy_quota_usage` converts the pre-cutover ones. Kept —
+        # not deleted — because the counter is only harmless while it reads 0,
+        # and it must still fire if a stale draft survives the backfill on some
+        # environment. The four original keys are a frontend contract; this
+        # fifth one is rendered only when > 0.
         'draft_quota_usage': QuotaUsageRecord.objects.filter(
             usage_season_q(season), status='draft',
         ).count(),

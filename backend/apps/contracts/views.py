@@ -753,7 +753,7 @@ def _set_firm_weights(shipment, weight_by_firm, user):
     """Replace firm-split weights (quota-safe) — mirrors ShipmentViewSet.set_firm_splits.
 
     Deletes and recreates ShipmentFirmSplit with the given weights, then re-syncs
-    draft quota usage. Raises ApprovedQuotaExistsError (→ 400) if approved usage exists.
+    the shipment's quota usage, which now counts immediately (no review step).
     """
     from django.db import transaction
     from apps.export.models import ShipmentFirmSplit
@@ -855,7 +855,6 @@ class ShipmentPackingView(APIView):
     def post(self, request):
         from django.db import transaction
         from apps.export.models import PackingTemplate, Shipment
-        from apps.export.services.quota_sync import ApprovedQuotaExistsError
         from apps.contracts.models import ContractSale
 
         data = request.data
@@ -888,24 +887,21 @@ class ShipmentPackingView(APIView):
                               f'{len(firms)} firms. Pick a template that matches, or fix the firms.'},
                     status=400,
                 )
-            try:
-                with transaction.atomic():
-                    _set_firm_weights(
-                        shipment, {fid: shares[i].net_kg for i, fid in enumerate(firms)}, request.user,
-                    )
-                    # Copy each share's packing onto the firm's sale. A firm with no
-                    # linked ContractSale matches 0 rows — report it so the operator
-                    # knows to link a contract (weight/quota are still set above).
-                    no_sale_firms = []
-                    for i, fid in enumerate(firms):
-                        updated = ContractSale.objects.filter(
-                            shipment=shipment, export_firm_id=fid,
-                        ).update(**{f: getattr(shares[i], f) for f in _FIRM_PACKING_FIELDS})
-                        if updated == 0:
-                            no_sale_firms.append(fid)
-                    Shipment.objects.filter(pk=shipment.id).update(packing_template_id=template.id)
-            except ApprovedQuotaExistsError as exc:
-                return Response({'error': str(exc)}, status=400)
+            with transaction.atomic():
+                _set_firm_weights(
+                    shipment, {fid: shares[i].net_kg for i, fid in enumerate(firms)}, request.user,
+                )
+                # Copy each share's packing onto the firm's sale. A firm with no
+                # linked ContractSale matches 0 rows — report it so the operator
+                # knows to link a contract (weight/quota are still set above).
+                no_sale_firms = []
+                for i, fid in enumerate(firms):
+                    updated = ContractSale.objects.filter(
+                        shipment=shipment, export_firm_id=fid,
+                    ).update(**{f: getattr(shares[i], f) for f in _FIRM_PACKING_FIELDS})
+                    if updated == 0:
+                        no_sale_firms.append(fid)
+                Shipment.objects.filter(pk=shipment.id).update(packing_template_id=template.id)
             return Response({'scope': 'template', 'packing_template': template.id,
                              'no_sale_firms': no_sale_firms})
 
@@ -932,19 +928,16 @@ class ShipmentPackingView(APIView):
             # firms on a 3+ firm truck would be deleted by _set_firm_weights.
             new_weights = {fid: s.weight_kg for fid, s in splits.items()}
             new_weights[fa], new_weights[fb] = splits[fb].weight_kg, splits[fa].weight_kg
-            try:
-                with transaction.atomic():
-                    _set_firm_weights(shipment, new_weights, request.user)
-                    sales = {s.export_firm_id: s for s in ContractSale.objects.filter(
-                        shipment=shipment, export_firm_id__in=[fa, fb])}
-                    packing_swapped = fa in sales and fb in sales
-                    if packing_swapped:
-                        pa = {f: getattr(sales[fa], f) for f in _FIRM_PACKING_FIELDS}
-                        pb = {f: getattr(sales[fb], f) for f in _FIRM_PACKING_FIELDS}
-                        ContractSale.objects.filter(pk=sales[fa].id).update(**pb)
-                        ContractSale.objects.filter(pk=sales[fb].id).update(**pa)
-            except ApprovedQuotaExistsError as exc:
-                return Response({'error': str(exc)}, status=400)
+            with transaction.atomic():
+                _set_firm_weights(shipment, new_weights, request.user)
+                sales = {s.export_firm_id: s for s in ContractSale.objects.filter(
+                    shipment=shipment, export_firm_id__in=[fa, fb])}
+                packing_swapped = fa in sales and fb in sales
+                if packing_swapped:
+                    pa = {f: getattr(sales[fa], f) for f in _FIRM_PACKING_FIELDS}
+                    pb = {f: getattr(sales[fb], f) for f in _FIRM_PACKING_FIELDS}
+                    ContractSale.objects.filter(pk=sales[fa].id).update(**pb)
+                    ContractSale.objects.filter(pk=sales[fb].id).update(**pa)
             return Response({'scope': 'swap', 'export_firm_a': fa, 'export_firm_b': fb,
                              'packing_swapped': packing_swapped})
 

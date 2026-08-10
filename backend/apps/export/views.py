@@ -2819,21 +2819,14 @@ class ShipmentViewSet(ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        from apps.export.services.quota_sync import (
-            ApprovedQuotaExistsError,
-            sync_draft_quota_usage_for_shipment,
-        )
+        from apps.export.services.quota_sync import sync_draft_quota_usage_for_shipment
         from apps.export.services_quota import compute_firm_quota_balances
 
         with transaction.atomic():
-            # Guard moved into the sync helper — but we run it once up front so the
-            # split writes don't happen before the check fails.
-            if shipment.quota_usage_records.filter(status='approved').exists():
-                return Response(
-                    {'error': 'Cannot reassign firm splits: approved quota usage records exist. Delete them first.'},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
+            # No approved-rows guard any more. Quota usage counts the moment the
+            # truck has splits, so every shipment-linked row is machine-generated
+            # from those splits — this guard would have refused every split edit
+            # made after the first save.
             valid_entries = [e for e in firms_data if e.get('export_firm_id')]
 
             # Hard block: a NEWLY-added firm with no remaining quota may not be
@@ -2895,13 +2888,9 @@ class ShipmentViewSet(ModelViewSet):
             if split_rows:
                 ShipmentFirmSplit.objects.bulk_create(split_rows, batch_size=500)
 
-            # Replace draft quota usage from the new splits. Approved-guard above
-            # makes the helper's own raise unreachable here, but we still catch it
-            # to be defensive (race between guard read and helper read).
-            try:
-                usage_count = sync_draft_quota_usage_for_shipment(shipment, request.user)
-            except ApprovedQuotaExistsError as exc:
-                return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+            # Replace this shipment's quota usage from the new splits. The rows
+            # count immediately — no review step, nothing to refuse.
+            usage_count = sync_draft_quota_usage_for_shipment(shipment, request.user)
 
         logger.info(
             'Firm splits for %s updated by %s (%d firms, %d usage records)',

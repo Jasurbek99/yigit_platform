@@ -7,9 +7,7 @@ import datetime
 import logging
 
 from django.core.cache import cache
-from django.db import transaction
-from django.utils import timezone
-from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -17,10 +15,9 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.decorators import action
 
-from apps.core.permissions import write_permission, DynamicResourcePermission, SeasonNotClosed
-from apps.core.roles import QUOTA_WRITE
+from apps.core.permissions import DynamicResourcePermission, SeasonNotClosed
 from apps.core.seasons import (
-    SeasonScopedMixin, get_active_season, resolve_season,
+    SeasonScopedMixin, can_view_closed, get_active_season, resolve_season,
 )
 
 from apps.export.models import QuotaIssuance, QuotaUsageRecord
@@ -31,7 +28,6 @@ from apps.export.serializers_quota import (
     QuotaUsageRecordSerializer,
 )
 from apps.export.services_quota import (
-    assert_usage_batch_seasons_open,
     build_quota_dashboard,
     compute_fifo_usage,
     compute_firm_quota_balances,
@@ -202,9 +198,16 @@ class QuotaUsageViewSet(SeasonScopedMixin, ModelViewSet):
     """
     GET    /api/v1/export/quota-usage/              — list (filterable)
     GET    /api/v1/export/quota-usage/{id}/         — detail
-    PATCH  /api/v1/export/quota-usage/{id}/         — partial edit (draft only)
-    DELETE /api/v1/export/quota-usage/{id}/         — delete (draft only)
-    POST   /api/v1/export/quota-usage/approve/      — bulk approve
+    POST   /api/v1/export/quota-usage/              — create a manual row
+    PATCH  /api/v1/export/quota-usage/{id}/         — partial edit
+    DELETE /api/v1/export/quota-usage/{id}/         — delete
+
+    There is no approval step. Usage counts the moment it exists — rows are born
+    `status='approved'` (see `quota_sync.sync_draft_quota_usage_for_shipment`),
+    `POST /approve/` is gone, and edit/delete are no longer gated on `status`.
+    Read `status='approved'` as "counted", not "a human signed it": `approved_by`
+    and `approved_at` stay NULL on everything the system creates. The column
+    survives only to carry the pre-2026-08-10 history.
 
     List is scoped to the resolved season via `usage_season_q()` (D11), which
     anchors a linked row on `shipment.season` and an unlinked one on its
@@ -271,8 +274,32 @@ class QuotaUsageViewSet(SeasonScopedMixin, ModelViewSet):
             qs = qs.filter(usage_date__gte=date_from)
         if date_to := params.get('date_to'):
             qs = qs.filter(usage_date__lte=date_to)
+        # `?shipment=` backs the quota card on ShipmentDetail — "which firms
+        # burned quota on THIS truck". Same param name and meaning as
+        # `/customs-expenses/?shipment=`.
+        shipment_id = params.get('shipment')
+        if shipment_id:
+            qs = qs.filter(shipment_id=shipment_id)
         if self.action == 'list':
-            qs = self.apply_season_scope(qs)
+            # Copied verbatim from `CustomsExpenseViewSet.get_queryset()`, which
+            # solved the same problem for the expenses panel on the same page.
+            # `?shipment=` pins the request to one truck, so Rule A (§4.5) applies
+            # — a detail page resolves for any season, and a prior-season shipment
+            # opened by direct link must show its own quota rather than an empty
+            # card contradicting the rows that plainly exist.
+            #
+            # The bypass is NOT unconditional. `can_view_closed()` still gates it,
+            # so a role holding `quota_usage` but not `closed_season` stays scoped
+            # even with `?shipment=` — otherwise this param would be a way around
+            # the 403 that `/quota-usage/?season=<closed>` returns, which is the
+            # exact shape of the 2026-08-07 quota-dashboard date-window bypass.
+            # `resolve_season()` runs unconditionally either way, so the close→open
+            # gap still fails closed and a bad/closed `?season=` still 404s/403s.
+            season = resolve_season(self.request)
+            if shipment_id and season is not None and can_view_closed(self.request.user):
+                pass
+            else:
+                qs = self.apply_season_scope(qs, season=season)
         return qs
 
     def _assert_usage_resolves_to_a_season(self, serializer) -> None:
@@ -316,7 +343,11 @@ class QuotaUsageViewSet(SeasonScopedMixin, ModelViewSet):
         # the SeasonNotClosed object permission cannot fire on a create.
         self.assert_create_target_open(serializer)
         self._assert_usage_resolves_to_a_season(serializer)
-        instance = serializer.save(created_by=self.request.user)
+        # Server-set, never taken from the request: a manually-entered row counts
+        # the same instant an auto-generated one does. `approved_by` stays NULL —
+        # see the class docstring on what 'approved' means now.
+        instance = serializer.save(created_by=self.request.user, status='approved')
+        invalidate_quota_caches()
         AuditLog.objects.create(
             user=self.request.user,
             action='create',
@@ -332,8 +363,10 @@ class QuotaUsageViewSet(SeasonScopedMixin, ModelViewSet):
         # cannot move the row into a closed season.
         self.assert_update_target_open(serializer)
         self._assert_usage_resolves_to_a_season(serializer)
-        if serializer.instance.status != 'draft':
-            raise ValidationError({'detail': 'Only draft records can be edited.'})
+        # No draft-only gate. `status` no longer records a review — every row is
+        # 'approved' from birth, so gating edits on it would freeze the grid and
+        # make manually-entered rows uncorrectable. Permissions and the season
+        # write freeze are the only things that may refuse an edit now.
         instance = serializer.save()
         AuditLog.objects.create(
             user=self.request.user,
@@ -343,69 +376,14 @@ class QuotaUsageViewSet(SeasonScopedMixin, ModelViewSet):
             object_repr=str(instance),
             detail=f'{instance.usage_date} firm={instance.export_firm_id} {instance.kg_used} kg',
         )
+        # Every row counts now, so every edit moves a firm's balance. Under the
+        # old workflow only `/approve/` did, which is why this call was only
+        # there.
+        invalidate_quota_caches()
 
     def perform_destroy(self, instance):
-        if instance.status != 'draft':
-            raise ValidationError({'detail': 'Only draft records can be deleted.'})
         instance.delete()
-
-    @action(detail=False, methods=['post'], url_path='approve')
-    def approve(self, request: Request) -> Response:
-        """Bulk approve draft usage records.
-
-        Requires ``can_edit`` on the ``quota_usage`` resource (checked via
-        DynamicResourcePermission registry, not a hardcoded role list).
-
-        Body: { "ids": [1, 2, 3] }
-        """
-        from apps.core.permissions import get_resource_perm
-
-        if not request.user.is_superuser:
-            role = getattr(request.user, 'role', None)
-            perm = get_resource_perm(role, 'quota_usage') if role else None
-            if not perm or not perm.get('can_edit'):
-                raise PermissionDenied('You do not have permission to approve quota usage records.')
-
-        ids = request.data.get('ids', [])
-        if not ids:
-            raise ValidationError({'detail': 'ids list is required.'})
-
-        with transaction.atomic():
-            approved_qs = QuotaUsageRecord.objects.filter(id__in=ids, status='draft')
-            # Write freeze (D1). Bulk approve selects by a raw id list, so
-            # layer 1 never sees these rows. NOT the generic
-            # `assert_bulk_seasons_open(qs, 'shipment__season')` that stood here
-            # until 2026-08-08: `shipment` is NULL on 575 of 711 rows, so that
-            # subquery matched no Season and an unlinked row inside a CLOSED
-            # season was approvable — approving is a write to frozen data even
-            # though it touches neither `usage_date` nor `shipment`. The quota
-            # helper resolves the same anchor the read scope does.
-            assert_usage_batch_seasons_open(approved_qs)
-            approved_ids = list(approved_qs.values_list('id', flat=True))
-            updated = approved_qs.update(
-                status='approved',
-                approved_by_id=request.user.pk,
-                approved_at=timezone.now(),
-            )
-            if approved_ids:
-                AuditLog.objects.bulk_create([
-                    AuditLog(
-                        user=request.user,
-                        action='update',
-                        model_name='QuotaUsageRecord',
-                        object_id=pk,
-                        object_repr=f'QuotaUsageRecord#{pk}',
-                        detail=f'Bulk approved (draft → approved)',
-                    )
-                    for pk in approved_ids
-                ], batch_size=500)
-            # Bust FIFO + firm-balance caches once approved usage totals change.
-            # on_commit (not a bare call): we're inside transaction.atomic(), so a
-            # bare delete would drop the cache BEFORE this UPDATE commits — a
-            # concurrent read could then repopulate it with pre-approval numbers
-            # that stick for the full 60s TTL. Deferring to commit closes that race.
-            transaction.on_commit(invalidate_quota_caches)
-        return Response({'approved': updated})
+        invalidate_quota_caches()
 
 
 # ---------------------------------------------------------------------------
