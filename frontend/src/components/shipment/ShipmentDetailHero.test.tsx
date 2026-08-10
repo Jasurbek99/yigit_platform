@@ -1,13 +1,20 @@
 import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import i18n from '@/i18n';
 import { ShipmentDetailHero } from './ShipmentDetailHero';
 import { useAuth } from '@/hooks/useAuth';
+import { useSeasons } from '@/hooks/useAdmin';
 import { useUiStore } from '@/stores/uiStore';
-import type { ICurrentUser, IShipmentDetail, UserRole } from '@/types';
+import type { ICurrentUser, ISeason, IShipmentDetail, UserRole } from '@/types';
 
 vi.mock('@/hooks/useAuth', () => ({ useAuth: vi.fn() }));
+// ShipmentDetailHero now calls useSeasonReadOnly(), which calls useSeasons()
+// unconditionally (Rules of Hooks) — mocked here so this suite, which is
+// about the transition-button role gate and never about season status,
+// doesn't need a real QueryClient-backed network call.
+vi.mock('@/hooks/useAdmin', () => ({ useSeasons: vi.fn() }));
 
 // TransitionButton owns its own mutation + API client. Replaced with a marker so
 // this test asserts only whether the hero RENDERS it, which is the gate under test.
@@ -58,9 +65,12 @@ function fakeUser(overrides: Partial<ICurrentUser> = {}): ICurrentUser {
 }
 
 function renderHero() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <MemoryRouter>
-      <ShipmentDetailHero shipment={shipment} onOpenComments={() => {}} />
+      <QueryClientProvider client={queryClient}>
+        <ShipmentDetailHero shipment={shipment} onOpenComments={() => {}} />
+      </QueryClientProvider>
     </MemoryRouter>,
   );
 }
@@ -72,6 +82,7 @@ describe('ShipmentDetailHero — transition button gate', () => {
 
   beforeEach(() => {
     vi.mocked(useAuth).mockReset();
+    vi.mocked(useSeasons).mockReturnValue({ data: [] as ISeason[] } as ReturnType<typeof useSeasons>);
     useUiStore.setState({ bossEditMode: false });
   });
 

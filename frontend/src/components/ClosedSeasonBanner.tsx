@@ -8,9 +8,26 @@ import { hasArchiveAccess } from '@/utils/permissions';
 import type { ISeason } from '@/types';
 
 /**
- * Shown directly above routed content whenever nothing is currently writable
- * — either because the browsed season is closed, or because there is no
- * active season at all (the close→open gap).
+ * Shown directly above routed content whenever the browsed season is
+ * genuinely CLOSED, or when there is no active season at all (the
+ * close→open gap).
+ *
+ * Still couples to `useSeasonReadOnly()` — that hook was rewritten (not this
+ * component) so its boolean means exactly what this banner needs: post-fix,
+ * `useSeasonReadOnly() === true` iff `seasonId === null` (nothing explicitly
+ * selected during the gap) OR the selected season's `status === 'CLOSED'`.
+ * That is precisely "genuinely closed, or the no-selection gap default" — so
+ * `if (!isReadOnly) return null` already renders nothing for an UPCOMING
+ * season (readable AND writable — `assert_season_open()` keys on
+ * `closed_at`, not `is_active`) without this component needing to know
+ * anything about season status itself. An earlier revision of this file
+ * re-derived `status === 'CLOSED'` locally instead of trusting the hook;
+ * that duplicated the hook's CLOSED check but dropped its gap-first
+ * priority, so a CLOSED season explicitly pinned during the close→open gap
+ * showed a "closed season, back to active" banner pointing at a
+ * non-existent active season. Reverted — the hook's own priority order
+ * (`seasonId === null` short-circuits before the CLOSED lookup) already
+ * handles that case correctly.
  *
  * Per the design's §9.1 ruling (D8): inside a closed season, archived rows
  * are visible only to users who ALSO hold archive-view access — everyone
@@ -35,7 +52,10 @@ export function ClosedSeasonBanner(): JSX.Element | null {
   // writable — but nothing is CLOSED either. Distinct wording, no "back to
   // active" (there is nothing to switch back to) — showing the closed-season
   // message here would misreport a real, expected operational state as a
-  // permission restriction.
+  // permission restriction. Checked first and unconditionally within the
+  // read-only branch, so a CLOSED season explicitly pinned during the gap
+  // still gets this neutral message instead of a "back to active" button
+  // with no active season to point at.
   if (activeId === null) {
     return (
       <Alert
@@ -49,13 +69,15 @@ export function ClosedSeasonBanner(): JSX.Element | null {
   }
 
   const selected = seasons.find((s: ISeason) => s.id === selectedSeasonId);
-  // `useSeasons()` 403s for most operational roles (only admin/director/
-  // export_manager/boss hold the `season` resource permission — see
-  // useSeasonReadOnly.ts's docstring), so `selected` is reliably `undefined`
-  // for e.g. finansist even though they hold `closed_season.can_view` and
-  // this banner is their only way back on a pasted link (the switcher
-  // self-hides for them too). Falling back to the raw id keeps the message
-  // truthful instead of rendering a blank name.
+  // `closed_season.can_view` (required to browse a CLOSED season at all —
+  // `resolve_season()` in `apps/core/seasons.py`) is held by exactly the
+  // same five roles that also hold `season.can_view` (seed_permissions.py
+  // RESOURCE_DEFAULTS: admin/director/export_manager/boss via blanket
+  // grant, finansist explicitly) — so any role that can legitimately reach
+  // this branch already has a working `useSeasons()`. Falling back to the
+  // raw id rather than a blank name only matters for the residual gap of a
+  // hand-edited permission granting `closed_season.can_view` without
+  // `season.can_view` (see `useSeasonReadOnly`'s docstring).
   const displayName = selected?.name ?? (selectedSeasonId != null ? `#${selectedSeasonId}` : '');
   const canSeeArchive = hasArchiveAccess(user);
 

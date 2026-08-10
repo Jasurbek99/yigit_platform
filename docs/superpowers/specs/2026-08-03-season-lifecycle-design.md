@@ -444,7 +444,12 @@ exactly like the feature not working.
 
 **Switcher.** In the header next to the locale switcher. Lists:
 - the active season, always;
-- upcoming seasons, never (nothing to show);
+- upcoming seasons, always — `resolve_season()` only rejects a **closed** season for a user
+  lacking `can_view_closed_seasons`; an upcoming season (deactivated without being closed, e.g.
+  `is_active=False`/`closed_at=None`) is already readable AND writable by anyone, so hiding it
+  from the switcher only hides data, it grants nothing. (Revision 2026-08-10: the original "never
+  — nothing to show" assumption held only for a genuinely future, empty season, not for one
+  deactivated mid-lifecycle while still holding shipments.)
 - closed seasons, only if `can_view_closed_seasons`.
 
 **Read-only mode.** `useSeasonReadOnly()` returns true when the selected season is closed.

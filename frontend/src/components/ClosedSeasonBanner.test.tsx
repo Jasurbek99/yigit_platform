@@ -81,6 +81,22 @@ describe('ClosedSeasonBanner', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
+  it('renders nothing for an UPCOMING season — it is writable, not closed, so no message is true here', () => {
+    // Regression guard for the bug this component was rewritten to avoid: an
+    // UPCOMING season (deactivated without being closed) used to read as
+    // read-only via `useSeasonReadOnly()`, which this banner used to treat
+    // as synonymous with "closed" — rendering a false "Viewing closed
+    // season" message for a season the backend both reads AND writes.
+    vi.mocked(useAuth).mockReturnValue({ user: fakeUser(1), isLoading: false, isError: false });
+    vi.mocked(useSeasons).mockReturnValue({
+      data: [fakeSeason(1, 'ACTIVE'), fakeSeason(2, 'UPCOMING')],
+    } as ReturnType<typeof useSeasons>);
+
+    renderBanner('/export/shipments?season=2');
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
   it('shows a distinct, non-closed-season message during the close->open gap, with no "back to active" button', () => {
     vi.mocked(useAuth).mockReturnValue({ user: fakeUser(null), isLoading: false, isError: false });
     vi.mocked(useSeasons).mockReturnValue({ data: [] as ISeason[] } as ReturnType<typeof useSeasons>);
@@ -91,6 +107,35 @@ describe('ClosedSeasonBanner', () => {
     // Must NOT say "closed" — nothing is closed, there's simply no active season yet.
     expect(screen.queryByText(/Viewing closed season/i)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /back to active season/i })).not.toBeInTheDocument();
+  });
+
+  it('shows the neutral gap message, not the closed-season one, for a CLOSED season pinned during the gap (no "back to active" target exists)', () => {
+    vi.mocked(useAuth).mockReturnValue({ user: fakeUser(null), isLoading: false, isError: false });
+    vi.mocked(useSeasons).mockReturnValue({
+      data: [fakeSeason(2, 'CLOSED')],
+    } as ReturnType<typeof useSeasons>);
+
+    renderBanner('/export/shipments?season=2');
+
+    expect(screen.getByText(/No active season/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Viewing closed season/i)).not.toBeInTheDocument();
+  });
+
+  it('shows nothing for an UPCOMING season explicitly pinned during the gap — it is writable, no message is true here', () => {
+    // That specific season IS editable (assert_season_open() only checks
+    // closed_at) even though there is currently no OTHER active season —
+    // showing the generic "no active season, nothing can be edited" message
+    // here would contradict useSeasonReadOnly() (false for this case) and
+    // tell the user nothing is editable when the page they're looking at
+    // is.
+    vi.mocked(useAuth).mockReturnValue({ user: fakeUser(null), isLoading: false, isError: false });
+    vi.mocked(useSeasons).mockReturnValue({
+      data: [fakeSeason(2, 'UPCOMING')],
+    } as ReturnType<typeof useSeasons>);
+
+    renderBanner('/export/shipments?season=2');
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('shows the closed-season message with a real name when useSeasons() resolves it', () => {
@@ -105,23 +150,34 @@ describe('ClosedSeasonBanner', () => {
     expect(screen.getByRole('button', { name: /back to active season/i })).toBeInTheDocument();
   });
 
-  it('falls back to the raw season id, not a blank name, when useSeasons() 403s (finansist)', () => {
-    // Regression guard for the reviewer-found bug: `useSeasons()` is gated on
-    // the `season` resource permission, which `finansist` does not hold (only
-    // `closed_season`, a different resource code) — so `data` stays `[]` for
-    // them even though they ARE permitted to browse this closed season.
+  it('shows the closed-season message with the real name for finansist, now that `season.can_view` is seeded for them', () => {
+    // Premise update: an earlier version of this suite assumed `useSeasons()`
+    // 403s for finansist (they held `closed_season.can_view` but not
+    // `season.can_view`). `seed_permissions.py` RESOURCE_DEFAULTS now grants
+    // finansist an explicit `season: _VIEW`, specifically so this list
+    // resolves for them — so the display name is no longer a fallback.
     vi.mocked(useAuth).mockReturnValue({
       user: fakeUser(1, 'finansist'),
       isLoading: false,
       isError: false,
     });
-    vi.mocked(useSeasons).mockReturnValue({ data: [] as ISeason[] } as ReturnType<typeof useSeasons>);
+    vi.mocked(useSeasons).mockReturnValue({
+      data: [fakeSeason(1, 'ACTIVE'), fakeSeason(2, 'CLOSED')],
+    } as ReturnType<typeof useSeasons>);
 
     renderBanner('/export/shipments?season=2');
 
-    expect(screen.getByText(/Viewing closed season #2/i)).toBeInTheDocument();
-    // The button must still work even though the display name is missing.
+    expect(screen.getByText(/Viewing closed season Season 2/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /back to active season/i })).toBeInTheDocument();
+  });
+
+  it('renders nothing (never a false "closed" claim) while the seasons list has not resolved yet', () => {
+    vi.mocked(useAuth).mockReturnValue({ user: fakeUser(1), isLoading: false, isError: false });
+    vi.mocked(useSeasons).mockReturnValue({ data: undefined } as ReturnType<typeof useSeasons>);
+
+    renderBanner('/export/shipments?season=2');
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('shows the partial-view notice for a role without archive access', () => {
