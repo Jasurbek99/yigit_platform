@@ -10,12 +10,16 @@ const mutate = vi.fn();
 vi.mock('@/hooks/useShipmentPatch', () => ({
   useShipmentPatchMulti: () => ({ mutate }),
 }));
+const createHead = vi.fn().mockResolvedValue({ id: 300, plate_number: '5555AHF', has_gps: false });
+const createTrailer = vi.fn().mockResolvedValue({ id: 301, plate_number: 'TR999XX', is_active: true });
 vi.mock('@/hooks/useFleet', () => ({
   useTruckHeads: () => ({ data: [
     { id: 13, plate_number: '3269AHF', owner_type: 'company', status: 'idle', has_gps: true },
     { id: 14, plate_number: '4378AHF', owner_type: 'company', status: 'idle', has_gps: true },
   ] }),
   useTrailers: () => ({ data: [{ id: 1, plate_number: '2602TAH', owner_type: 'company', status: 'idle', is_active: true }] }),
+  useCreateTruckHead: () => ({ mutateAsync: createHead, isPending: false }),
+  useCreateTrailer: () => ({ mutateAsync: createTrailer, isPending: false }),
 }));
 
 function wrap(ui: React.ReactNode) {
@@ -86,6 +90,41 @@ describe('ShipmentTruckSelector', () => {
       expect(mutate).toHaveBeenCalledWith({
         id: 7,
         fields: { truck_head_id: null, trailer_id: null, truck_plate: '' },
+      }),
+    );
+  });
+
+  it('offers "+ Add" for an unknown plate and creates + selects it', async () => {
+    wrap(<ShipmentTruckSelector shipment={shipment} readOnly={false} />);
+    // aria-label is the translated field label ("Truck (tractor)"), same as
+    // the other tests in this file — not a literal "truck head" string.
+    const heads = screen.getByLabelText('Truck (tractor)');
+    await userEvent.click(heads);
+    await userEvent.type(heads, '5555AHF');
+    await userEvent.click(await screen.findByText(/add.*5555AHF/i));
+    await waitFor(() => expect(createHead).toHaveBeenCalledWith('5555AHF'));
+    // after create, the new id is saved onto the shipment, and truck_plate
+    // is composed with the JUST-CREATED head's plate — not the stale
+    // pre-refetch `heads` list (which doesn't contain id 300 yet).
+    await waitFor(() =>
+      expect(mutate).toHaveBeenCalledWith({
+        id: 7,
+        fields: { truck_head_id: 300, trailer_id: 1, truck_plate: '5555AHF/2602TAH' },
+      }),
+    );
+  });
+
+  it('offers "+ Add" for an unknown trailer plate and creates + selects it', async () => {
+    wrap(<ShipmentTruckSelector shipment={shipment} readOnly={false} />);
+    const trailer = screen.getByLabelText('Trailer');
+    await userEvent.click(trailer);
+    await userEvent.type(trailer, 'TR999XX');
+    await userEvent.click(await screen.findByText(/add.*TR999XX/i));
+    await waitFor(() => expect(createTrailer).toHaveBeenCalledWith('TR999XX'));
+    await waitFor(() =>
+      expect(mutate).toHaveBeenCalledWith({
+        id: 7,
+        fields: { truck_head_id: 13, trailer_id: 301, truck_plate: '3269AHF/TR999XX' },
       }),
     );
   });

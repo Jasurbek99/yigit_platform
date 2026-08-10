@@ -2346,6 +2346,8 @@
     "section_finance": "Finance",
     "section_status": "Operational status",
     "section_notes": "Notes",
+    "add_truck": "Add truck \"{{plate}}\"",
+    "add_trailer": "Add trailer \"{{plate}}\"",
     "field": {
       "country": "Country",
       "customer": "Customer",

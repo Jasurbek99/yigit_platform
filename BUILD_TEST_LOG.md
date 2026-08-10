@@ -7,6 +7,8 @@ Running record of things Claude built that still need **manual testing by you**.
 - After **you** test it, check it off: change `- [ ]` to `- [x]` (or tell Claude "tested X" and it will check it off).
 - The Stop hook counts open `- [ ]` items and reminds you if any are pending.
 
+- [ ] 2026-08-10 — Inline "+ Add" for unknown truck-head/trailer plates in `ShipmentTruckSelector` — typing a plate with no matching option shows an add button in the dropdown, creates it via `useCreateTruckHead`/`useCreateTrailer`, then links it onto the shipment (composing `truck_plate` from the just-created plate, not the stale pre-refetch list) — NEEDS TEST
+
 - [ ] 2026-08-08 — Trailer fleet endpoints: `GET/POST/PATCH /api/v1/transport/trailers/` — active-only list + search, role-gated create/update, PATCH can deactivate/re-activate (no GPS matching — trailers have no Traccar device) — NEEDS TEST
 
 - [ ] 2026-08-08 — TruckHead fleet endpoints: `GET/POST/PATCH /api/v1/transport/truck-heads/` — active-only list w/ `has_gps` + search, role-gated create/update, plate-matches a Traccar device on create, PATCH can deactivate/re-activate — NEEDS TEST

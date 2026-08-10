@@ -2350,6 +2350,8 @@
     "section_finance": "Maliýe",
     "section_status": "Operasion ýagdaý",
     "section_notes": "Bellikler",
+    "add_truck": "Çekiji goş \"{{plate}}\"",
+    "add_trailer": "Tirkeg goş \"{{plate}}\"",
     "field": {
       "country": "Ýurt",
       "customer": "Müşderi",

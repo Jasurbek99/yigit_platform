@@ -2348,6 +2348,8 @@
     "section_finance": "Финансы",
     "section_status": "Операционный статус",
     "section_notes": "Заметки",
+    "add_truck": "Добавить тягач \"{{plate}}\"",
+    "add_trailer": "Добавить прицеп \"{{plate}}\"",
     "field": {
       "country": "Страна",
       "customer": "Клиент",
