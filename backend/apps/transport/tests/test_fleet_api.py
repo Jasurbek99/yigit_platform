@@ -120,6 +120,13 @@ class TruckHeadApiTests(TestCase):
             )
         self.assertEqual(r.status_code, 200)
         mock_match.assert_called_once_with('7777ZZZ')
+        # The changed plate is saved and the device is re-matched to whatever
+        # device_for_plate returned — here None, so a stale link is cleared
+        # (truck 13 started linked to self.device). Asserting the effect, not
+        # just the call, guards against a regression that keeps the old device.
+        th = TruckHead.objects.get(id=13)
+        self.assertEqual(th.plate_number, '7777ZZZ')
+        self.assertIsNone(th.traccar_device)
 
 
 class TrailerApiTests(TestCase):
