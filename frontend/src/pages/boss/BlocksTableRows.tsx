@@ -88,7 +88,12 @@ export function BlockRow({ row, onHarvestClick, onExportClick }: IBlockRowProps)
         onClick={onHarvestClick}
         onHoverChange={(on) => setHovered(on ? 'harvest' : null)}
       >
-        <Text style={{ fontSize: 12, background: harvestBg }}>{row.block_name || row.block_code}</Text>
+        <Text
+          style={{ fontSize: 12, background: harvestBg, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+          title={row.block_name || row.block_code}
+        >
+          {row.block_name || row.block_code}
+        </Text>
         <Num value={row.daily_plan_kg} bg={harvestBg} />
         <Num value={row.daily_actual_kg} bg={harvestBg} />
         <Num value={row.monthly_plan_kg} bg={harvestBg} />

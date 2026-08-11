@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mergeBlockRows, sumTotals } from './BlocksTable.helpers';
+import { GRID_TEMPLATE, mergeBlockRows, sumTotals } from './BlocksTable.helpers';
 import type { IBossProductionRow, IBossExportMarketRow } from '@/hooks/useBossDashboard';
 
 function production(
@@ -22,6 +22,22 @@ function production(
 function exportRow(code: string, kg: number, pct: number): IBossExportMarketRow {
   return { block_code: code, export_kg: kg, export_pct: pct };
 }
+
+describe('GRID_TEMPLATE', () => {
+  it('declares ten columns', () => {
+    expect(GRID_TEMPLATE.match(/minmax/g)).toHaveLength(10);
+  });
+
+  it('gives every track a zero base size, never a bare fr', () => {
+    // A bare `Nfr` means `minmax(auto, Nfr)`, so a track floors at its own
+    // content's min-content width. The header, data and total rows are four
+    // SEPARATE grid containers — with `auto` bases each would size from its own
+    // content and the columns would drift apart. happy-dom computes no layout,
+    // so this property is the only thing standing between us and that bug.
+    const bareFr = GRID_TEMPLATE.split(' ').filter((token) => /^[\d.]+fr$/.test(token));
+    expect(bareFr).toEqual([]);
+  });
+});
 
 describe('mergeBlockRows', () => {
   it('aligns daily, monthly, seasonal and export figures onto one row per block', () => {

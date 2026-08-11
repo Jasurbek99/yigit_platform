@@ -21,8 +21,18 @@ export type IBlockTotals = Omit<IMergedBlockRow, 'block_code' | 'block_name'>;
  * Column widths, shared by the group-header, column-header, data and total rows
  * so all four stay in lockstep. Ten columns:
  * block | daily plan/actual | monthly plan/actual | seasonal plan/actual | export kg/% | bar
+ *
+ * `minmax(0, Nfr)` rather than a bare `Nfr` is load-bearing. A bare `Nfr` is
+ * `minmax(auto, Nfr)`, so each track floors at its own content's min-content
+ * width — and these are four SEPARATE grid containers, each sizing from its own
+ * content. One long block name (Turkmen `GreenhouseBlock.name` values are not
+ * short) would widen the first column in the data rows while the header and
+ * total rows kept theirs, and the table would stop lining up. A 0 base size
+ * makes every track resolve from container width alone, identically in all four.
  */
-export const GRID_TEMPLATE = '1.5fr 0.9fr 0.9fr 0.9fr 0.9fr 1fr 1fr 1.1fr 0.6fr 1.5fr';
+export const GRID_TEMPLATE = [1.5, 0.9, 0.9, 0.9, 0.9, 1, 1, 1.1, 0.6, 1.5]
+  .map((fr) => `minmax(0, ${fr}fr)`)
+  .join(' ');
 
 const ZERO_TOTALS: IBlockTotals = {
   daily_plan_kg: 0,
