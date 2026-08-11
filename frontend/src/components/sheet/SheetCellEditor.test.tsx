@@ -102,7 +102,15 @@ describe('SheetCellEditor — truck_plate cell', () => {
       },
       expect.anything(),
     );
-    expect(recordMultiEntry).toHaveBeenCalled();
+    expect(recordMultiEntry).toHaveBeenCalledWith(
+      shipment.id,
+      {
+        truck_head_id: shipment.truck_head_id,
+        trailer_id: shipment.trailer_id,
+        truck_plate: shipment.truck_plate,
+      },
+      { truck_head_id: 1, trailer_id: 10, truck_plate: '01ABC/T-100' },
+    );
   });
 
   it('gapy: renders a plain text input, NOT the fleet overlay', () => {

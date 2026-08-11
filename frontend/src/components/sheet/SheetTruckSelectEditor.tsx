@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Button, Select } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -37,6 +38,14 @@ export default function SheetTruckSelectEditor({
   const [headSearch, setHeadSearch] = useState('');
   const [trailerSearch, setTrailerSearch] = useState('');
 
+  // `.sheet-cell` has `contain: layout paint` and `.sheet-grid` scrolls with
+  // overflow — an in-flow-positioned panel gets clipped/mispositioned inside
+  // the editing cell. `anchorRef` stays in-flow (so it measures the cell's
+  // real on-screen position) while the actual panel is portaled to
+  // document.body and placed with `position: fixed` at the anchor's rect —
+  // same escape hatch AntD's own Select dropdowns already use below.
+  const anchorRef = useRef<HTMLSpanElement>(null);
+  const [coords, setCoords] = useState({ top: 0, left: 0 });
   const panelRef = useRef<HTMLDivElement>(null);
   const committedRef = useRef(false);
   // Just-created plates aren't in `truckHeads`/`trailers` yet (list refetch
@@ -66,6 +75,18 @@ export default function SheetTruckSelectEditor({
   // the listener (and without a stale closure) on every keystroke.
   const commitRef = useRef(commit);
   commitRef.current = commit;
+
+  // One-shot measurement at open time — the editor is transient (closes on
+  // commit/Escape), so no scroll/resize re-tracking is needed. In jsdom
+  // (tests) getBoundingClientRect() returns all zeros, which is fine: the
+  // panel still renders and is queryable via `screen` since it's portaled
+  // to document.body either way.
+  useLayoutEffect(() => {
+    const rect = anchorRef.current?.getBoundingClientRect();
+    if (rect) {
+      setCoords({ top: rect.bottom, left: rect.left });
+    }
+  }, []);
 
   useEffect(() => {
     function handleMouseDown(e: MouseEvent) {
@@ -115,108 +136,123 @@ export default function SheetTruckSelectEditor({
   }
 
   return (
-    <div
-      ref={panelRef}
-      data-testid="sheet-truck-select-editor"
-      onMouseDown={(e) => e.stopPropagation()}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') {
-          e.stopPropagation();
-          onClose();
-        }
-      }}
-      style={{
-        position: 'absolute',
-        zIndex: 1000,
-        minWidth: 220,
-        background: '#fff',
-        border: '1px solid #d9d9d9',
-        borderRadius: 4,
-        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
-        padding: 8,
-      }}
-    >
-      <Select
-        aria-label={t('shipment_edit_drawer.field.truck_head')}
-        showSearch
-        allowClear
-        style={{ width: '100%', marginBottom: 4 }}
-        value={headId ?? undefined}
-        options={(truckHeads ?? []).map((h) => ({ value: h.id, label: h.plate_number }))}
-        filterOption={(input, option) =>
-          ((option?.label as string) ?? '').toLowerCase().includes(input.toLowerCase())
-        }
-        popupMatchSelectWidth={false}
-        searchValue={headSearch}
-        onSearch={setHeadSearch}
-        onChange={(v) => {
-          // A manual pick/clear supersedes any earlier inline-add — the fleet
-          // list lookup below is authoritative again.
-          createdPlates.current.head = undefined;
-          setHeadId((v as number) ?? null);
-          setHeadSearch('');
-        }}
-        placeholder={t('shipment_edit_drawer.field.truck_head')}
-        dropdownRender={(menu) => (
-          <>
-            {menu}
-            {headSearch.trim() && !headExists && (
-              <Button
-                type="text"
-                loading={createHead.isPending}
-                style={{ width: '100%', textAlign: 'left' }}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={addHead}
-              >
-                {t('shipment_edit_drawer.add_truck', { plate: headSearch.trim() })}
-              </Button>
+    <>
+      <span ref={anchorRef} />
+      {createPortal(
+        <div
+          ref={panelRef}
+          data-testid="sheet-truck-select-editor"
+          onMouseDown={(e) => e.stopPropagation()}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              e.stopPropagation();
+              onClose();
+            }
+          }}
+          style={{
+            position: 'fixed',
+            top: coords.top,
+            left: coords.left,
+            zIndex: 1000,
+            minWidth: 220,
+            background: '#fff',
+            border: '1px solid #d9d9d9',
+            borderRadius: 4,
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+            padding: 8,
+          }}
+        >
+          <Select
+            aria-label={t('shipment_edit_drawer.field.truck_head')}
+            // SheetCellEditor's mount-time auto-focus finds the editor's
+            // first input via `containerRef.querySelector` — that only
+            // reaches DOM descendants of the cell, and the Select inputs are
+            // no longer descendants once portaled out. Focus it ourselves so
+            // opening the cell still drops the caret straight into the head
+            // picker.
+            autoFocus
+            showSearch
+            allowClear
+            style={{ width: '100%', marginBottom: 4 }}
+            value={headId ?? undefined}
+            options={(truckHeads ?? []).map((h) => ({ value: h.id, label: h.plate_number }))}
+            filterOption={(input, option) =>
+              ((option?.label as string) ?? '').toLowerCase().includes(input.toLowerCase())
+            }
+            popupMatchSelectWidth={false}
+            searchValue={headSearch}
+            onSearch={setHeadSearch}
+            onChange={(v) => {
+              // A manual pick/clear supersedes any earlier inline-add — the fleet
+              // list lookup below is authoritative again.
+              createdPlates.current.head = undefined;
+              setHeadId((v as number) ?? null);
+              setHeadSearch('');
+            }}
+            placeholder={t('shipment_edit_drawer.field.truck_head')}
+            dropdownRender={(menu) => (
+              <>
+                {menu}
+                {headSearch.trim() && !headExists && (
+                  <Button
+                    type="text"
+                    loading={createHead.isPending}
+                    style={{ width: '100%', textAlign: 'left' }}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={addHead}
+                  >
+                    {t('shipment_edit_drawer.add_truck', { plate: headSearch.trim() })}
+                  </Button>
+                )}
+              </>
             )}
-          </>
-        )}
-      />
-      <Select
-        aria-label={t('shipment_edit_drawer.field.trailer')}
-        showSearch
-        allowClear
-        style={{ width: '100%', marginBottom: 8 }}
-        value={trailerId ?? undefined}
-        options={(trailers ?? []).map((r) => ({ value: r.id, label: r.plate_number }))}
-        filterOption={(input, option) =>
-          ((option?.label as string) ?? '').toLowerCase().includes(input.toLowerCase())
-        }
-        popupMatchSelectWidth={false}
-        searchValue={trailerSearch}
-        onSearch={setTrailerSearch}
-        onChange={(v) => {
-          // A manual pick/clear supersedes any earlier inline-add — the fleet
-          // list lookup below is authoritative again.
-          createdPlates.current.trailer = undefined;
-          setTrailerId((v as number) ?? null);
-          setTrailerSearch('');
-        }}
-        placeholder={t('shipment_edit_drawer.field.trailer')}
-        dropdownRender={(menu) => (
-          <>
-            {menu}
-            {trailerSearch.trim() && !trailerExists && (
-              <Button
-                type="text"
-                loading={createTrailer.isPending}
-                style={{ width: '100%', textAlign: 'left' }}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={addTrailer}
-              >
-                {t('shipment_edit_drawer.add_trailer', { plate: trailerSearch.trim() })}
-              </Button>
+          />
+          <Select
+            aria-label={t('shipment_edit_drawer.field.trailer')}
+            showSearch
+            allowClear
+            style={{ width: '100%', marginBottom: 8 }}
+            value={trailerId ?? undefined}
+            options={(trailers ?? []).map((r) => ({ value: r.id, label: r.plate_number }))}
+            filterOption={(input, option) =>
+              ((option?.label as string) ?? '').toLowerCase().includes(input.toLowerCase())
+            }
+            popupMatchSelectWidth={false}
+            searchValue={trailerSearch}
+            onSearch={setTrailerSearch}
+            onChange={(v) => {
+              // A manual pick/clear supersedes any earlier inline-add — the fleet
+              // list lookup below is authoritative again.
+              createdPlates.current.trailer = undefined;
+              setTrailerId((v as number) ?? null);
+              setTrailerSearch('');
+            }}
+            placeholder={t('shipment_edit_drawer.field.trailer')}
+            dropdownRender={(menu) => (
+              <>
+                {menu}
+                {trailerSearch.trim() && !trailerExists && (
+                  <Button
+                    type="text"
+                    loading={createTrailer.isPending}
+                    style={{ width: '100%', textAlign: 'left' }}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={addTrailer}
+                  >
+                    {t('shipment_edit_drawer.add_trailer', { plate: trailerSearch.trim() })}
+                  </Button>
+                )}
+              </>
             )}
-          </>
-        )}
-      />
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <Button size="small" type="primary" onClick={commit}>
-          {t('sheet.multiselect_done')}
-        </Button>
-      </div>
-    </div>
+          />
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Button size="small" type="primary" onClick={commit}>
+              {t('sheet.multiselect_done')}
+            </Button>
+          </div>
+        </div>,
+        document.body,
+      )}
+    </>
   );
 }
