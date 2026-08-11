@@ -1,12 +1,22 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
-import type { ITruckHead, ITrailer } from './useFleet';
+import type { ITruckHead, ITrailer } from '@/hooks/useFleet';
+
+// The list endpoint (see backend TruckHeadSerializer) also returns
+// owner_name/capacity/is_active, which aren't on the shared ITruckHead type
+// (that type is scoped to what the shipment-truck selector needs). Extend
+// here rather than widening the shared hook's type.
+export interface IAdminTruckHead extends ITruckHead {
+  owner_name?: string | null;
+  capacity?: number | string | null;
+  is_active: boolean;
+}
 
 export function useAdminTruckHeads() {
-  return useQuery<ITruckHead[]>({
+  return useQuery<IAdminTruckHead[]>({
     queryKey: ['transport', 'admin-truck-heads'],
     queryFn: async () => {
-      const { data } = await api.get<ITruckHead[]>('/transport/truck-heads/', {
+      const { data } = await api.get<IAdminTruckHead[]>('/transport/truck-heads/', {
         params: { include_inactive: 'true' },
       });
       return data;

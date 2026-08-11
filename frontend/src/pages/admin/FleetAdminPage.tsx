@@ -23,19 +23,10 @@ import {
   useAdminCreateTruckHead,
   useAdminCreateTrailer,
 } from '@/hooks/useFleetAdmin';
-import type { ITruckHead, ITrailer } from '@/hooks/useFleet';
+import type { IAdminTruckHead } from '@/hooks/useFleetAdmin';
+import type { ITrailer } from '@/hooks/useFleet';
 
 const { Title, Text } = Typography;
-
-// The list endpoint (see backend TruckHeadSerializer) also returns
-// owner_name/capacity/is_active, which aren't on the shared ITruckHead type
-// (that type is scoped to what the shipment-truck selector needs). Extend
-// locally rather than widening the shared hook's type.
-interface IAdminTruckHead extends ITruckHead {
-  owner_name?: string | null;
-  capacity?: number | string | null;
-  is_active: boolean;
-}
 
 interface ITruckFormValues {
   plate_number: string;
@@ -55,8 +46,7 @@ export default function FleetAdminPage() {
   const { t } = useTranslation();
 
   // ── Trucks ──────────────────────────────────────────────────────────
-  const { data: trucksRaw = [], isLoading: trucksLoading } = useAdminTruckHeads();
-  const trucks = trucksRaw as IAdminTruckHead[];
+  const { data: trucks = [], isLoading: trucksLoading } = useAdminTruckHeads();
   const createTruck = useAdminCreateTruckHead();
   const updateTruck = useUpdateTruckHead();
 
