@@ -408,8 +408,8 @@ Turns the shipment's truck from a free-text `truck_plate` string into a pick fro
 **company fleet** — a registry of tractors (`TruckHead`) and trailers (`Trailer`) seeded from
 the office's existing TIR system. Picking a truck-head is also what feeds the GPS resolver's
 new step 2 above (so a selected truck resolves its Traccar device without needing a plate
-match). Built as SP3a (selectors), SP3c (inline add), SP4 (admin page — see
-[[../screens/fleet-admin|Fleet Admin]]).
+match). Built as SP3a (detail/drawer selectors), SP3c (inline add), SP3b (the same picker in
+the Sheet grid cell), SP4 (admin page — see [[../screens/fleet-admin|Fleet Admin]]).
 
 ### Registry models (`backend/apps/transport/models/fleet.py`)
 
@@ -459,7 +459,7 @@ resolver uses. The one-time run imported **91 truck heads (90 GPS-linked) and 74
 > activate/deactivate survives a re-run. Treat the import as one-time; use the admin page for
 > ongoing edits.
 
-### Shipment truck selectors (SP3a / SP3c)
+### Shipment truck selectors (SP3a / SP3c / SP3b)
 
 `Shipment.truck_head_id` / `trailer_id` are loose `BigIntegerField`s (**not** FKs — export
 must not import transport), so the selector is a frontend concern that writes ids by PATCH.
@@ -470,13 +470,25 @@ in `useFleet.ts`) is two AntD `Select`s (truck head + trailer) fed by `useTruckH
 downstream consumers (GPS resolver's plate fallback, sheet, PDFs) keep reading the same
 combined plate string.
 
-Rendered in two places, both behind the same `is_gapy_satys` branch:
+Rendered in three places, all behind the same `is_gapy_satys` branch (gapy → plain text, no
+selects, no GPS):
 - **ShipmentDetail** — `ShipmentTransportBody.tsx` (transport card).
 - **Shipment-list row edit / dashboard detail slide** — `ShipmentEditDrawer.tsx`.
+- **Sheet grid cell (SP3b)** — the `truck_plate` cell. `SheetCellEditor.tsx` special-cases
+  `field_key === 'truck_plate' && !is_gapy_satys` (mirroring the R26 `transit_days_temp`
+  virtual cell) and renders `SheetTruckSelectEditor.tsx` — a two-select overlay **portaled to
+  `document.body`** (the cell's `contain: layout paint` + grid scroll would otherwise clip it),
+  committed once on Done / click-outside. Saves the same three fields via `patchMultiMutation`
+  with Sheet **undo capture** (`recordMultiEntry` → `setEntryAfter`). Gapy cells fall through to
+  the ordinary `input_type: 'text'` `<Input>`.
 
-**Inline "+ Add" (SP3c):** typing a plate that isn't in the list surfaces a "+ Add {plate}"
-button in the dropdown; clicking it POSTs a new fleet row (`useCreateTruckHead` /
-`useCreateTrailer`, plate upper-cased) and immediately selects it (passing the returned plate
+The `"{head}/{trailer}"` composition is a shared helper, `composeTruckPlate()`
+(`frontend/src/utils/truckPlate.ts`), used by both the drawer selector and the Sheet editor so
+the two surfaces can't diverge on the string.
+
+**Inline "+ Add" (SP3c, on all three surfaces):** typing a plate that isn't in the list surfaces
+a "+ Add {plate}" button in the dropdown; clicking it POSTs a new fleet row (`useCreateTruckHead`
+/ `useCreateTrailer`, plate upper-cased) and immediately selects it (passing the returned plate
 directly, since the list refetch hasn't landed yet).
 
 ### HARD RULE — Gapy-Satys shipments keep free text

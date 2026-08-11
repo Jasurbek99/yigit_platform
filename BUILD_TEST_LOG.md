@@ -7,6 +7,8 @@ Running record of things Claude built that still need **manual testing by you**.
 - After **you** test it, check it off: change `- [ ]` to `- [x]` (or tell Claude "tested X" and it will check it off).
 - The Stop hook counts open `- [ ]` items and reminds you if any are pending.
 
+- [ ] 2026-08-11 — `SheetTruckSelectEditor` overlay panel now renders via `createPortal(..., document.body)` positioned `position: fixed` from an in-flow anchor's `getBoundingClientRect()` — fixes the panel being clipped/mispositioned by `.sheet-cell { contain: layout paint }` + `.sheet-grid` scroll overflow (jsdom can't catch this, needs a real browser check on the Sheet's truck_plate cell); also restores the head Select's mount-focus (lost when the input left `SheetCellEditor`'s `containerRef` subtree) via AntD's `autoFocus` prop — NEEDS TEST
+
 - [ ] 2026-08-11 — `FleetAdminPage` (`/admin/fleet`, role-gated: admin/director/export_manager/warehouse_chief/loading_dept_head/loading_dept_head_deputy) — Trucks + Trailers tabs, list incl. inactive via `useAdminTruckHeads`/`useAdminTrailers`, create (plate-only POST then follow-up PATCH for owner_type/capacity/is_active if set), edit, activate/deactivate — NEEDS TEST
 
 - [ ] 2026-08-10 — Inline "+ Add" for unknown truck-head/trailer plates in `ShipmentTruckSelector` — typing a plate with no matching option shows an add button in the dropdown, creates it via `useCreateTruckHead`/`useCreateTrailer`, then links it onto the shipment (composing `truck_plate` from the just-created plate, not the stale pre-refetch list) — NEEDS TEST
