@@ -118,6 +118,15 @@ describe('BlocksTable', () => {
     expect(navigate).toHaveBeenCalledWith('/export/plan?block=A1');
   });
 
+  it('opens the harvest plan when the season % bar is clicked', async () => {
+    renderTable();
+    await screen.findByText('Block A1');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Block A1 Season %' }));
+
+    expect(navigate).toHaveBeenCalledWith('/export/plan?block=A1');
+  });
+
   it('opens the shipment list when the export cell group on the same row is clicked', async () => {
     renderTable();
     await screen.findByText('Block A1');

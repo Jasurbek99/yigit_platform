@@ -111,9 +111,21 @@ export function BlockRow({ row, onHarvestClick, onExportClick }: IBlockRowProps)
           {row.export_pct.toFixed(1)}
         </Text>
       </CellGroup>
-      <div style={{ paddingLeft: 12 }}>
-        <SeasonBar pct={row.seasonal_pct} />
-      </div>
+      {/* Its own CellGroup rather than a member of the harvest one: the bar sits
+          after the export columns in grid order, so moving it inside that group
+          would reorder the row. `display: contents` keeps this div the grid item,
+          so wrapping changes nothing visually — it only adds the click target the
+          drill-down contract already promises (docs/obsidian/screens/boss-dashboard.md
+          lists the % bar among the harvest targets). */}
+      <CellGroup
+        label={`${row.block_name || row.block_code} ${t('boss_dashboard.blocks_table.col_season_pct')}`}
+        onClick={onHarvestClick}
+        onHoverChange={(on) => setHovered(on ? 'harvest' : null)}
+      >
+        <div style={{ paddingLeft: 12, background: harvestBg }}>
+          <SeasonBar pct={row.seasonal_pct} />
+        </div>
+      </CellGroup>
     </div>
   );
 }

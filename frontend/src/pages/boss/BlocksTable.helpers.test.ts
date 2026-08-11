@@ -122,6 +122,31 @@ describe('sumTotals', () => {
     });
   });
 
+  it('derives the total export share instead of summing the rounded per-block shares', () => {
+    // The backend rounds each block's share to one decimal
+    // (`_aggregate_export_market`). Fifteen equal blocks each carry 6.7, and
+    // 15 × 6.7 = 100.5 — which the footer rendered as 101. Every block's share
+    // of the total is by definition the whole of it.
+    const fifteen = Array.from({ length: 15 }, (_, i) => `B${i + 1}`);
+    const rows = mergeBlockRows(
+      fifteen.map((c) => production(c, { plan_kg: 100, actual_kg: 100 })),
+      fifteen.map((c) => production(c, { plan_kg: 100, actual_kg: 100, pct: 100 })),
+      fifteen.map((c) => exportRow(c, 1000, 6.7)),
+    );
+
+    expect(sumTotals(rows).export_pct).toBe(100);
+  });
+
+  it('reports a zero export share when no block exported anything', () => {
+    const rows = mergeBlockRows(
+      [production('A1', { plan_kg: 100, actual_kg: 90 })],
+      [production('A1', { plan_kg: 100, actual_kg: 90, pct: 90 })],
+      [exportRow('A1', 0, 0)],
+    );
+
+    expect(sumTotals(rows).export_pct).toBe(0);
+  });
+
   it('recomputes the seasonal % from the summed plan and actual, never by averaging the row percentages', () => {
     // Averaging 94.3 and 106.1 gives 100.2 — the weighted truth is 389000/390000.
     expect(sumTotals(ROWS).seasonal_pct).toBeCloseTo(99.7, 1);

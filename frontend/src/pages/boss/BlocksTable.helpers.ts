@@ -108,7 +108,7 @@ export function sumTotals(rows: IMergedBlockRow[]): IBlockTotals {
       seasonal_actual_kg: acc.seasonal_actual_kg + r.seasonal_actual_kg,
       seasonal_pct: 0,
       export_kg: acc.export_kg + r.export_kg,
-      export_pct: acc.export_pct + r.export_pct,
+      export_pct: 0,
     }),
     { ...ZERO_TOTALS },
   );
@@ -116,6 +116,13 @@ export function sumTotals(rows: IMergedBlockRow[]): IBlockTotals {
   totals.seasonal_pct = totals.seasonal_plan_kg > 0
     ? (totals.seasonal_actual_kg / totals.seasonal_plan_kg) * 100
     : 0;
+
+  // Derived, never summed. `export_pct` is each block's share of the period's
+  // total export, already rounded to one decimal by `_aggregate_export_market`
+  // (boss_analytics.py). Adding those rounded shares drifts: 15 equal blocks
+  // give 15 × 6.7 = 100.5, which the footer renders as 101. Every block's share
+  // of the total is by definition the whole of it.
+  totals.export_pct = totals.export_kg > 0 ? 100 : 0;
 
   return totals;
 }
