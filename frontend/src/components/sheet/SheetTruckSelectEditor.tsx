@@ -69,7 +69,14 @@ export default function SheetTruckSelectEditor({
 
   useEffect(() => {
     function handleMouseDown(e: MouseEvent) {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+      // The Select dropdowns render in an AntD portal on document.body (not
+      // as a DOM descendant of panelRef) — deliberately NOT overridden via
+      // getPopupContainer, since the sheet grid clips absolutely-positioned
+      // descendants with overflow. So a click on an option is "outside"
+      // panelRef by DOM containment; excluding `.ant-select-dropdown`
+      // prevents that from firing a premature commit() mid-pick.
+      const target = e.target as HTMLElement;
+      if (panelRef.current && !panelRef.current.contains(target) && !target.closest('.ant-select-dropdown')) {
         commitRef.current();
       }
     }
@@ -140,13 +147,12 @@ export default function SheetTruckSelectEditor({
           ((option?.label as string) ?? '').toLowerCase().includes(input.toLowerCase())
         }
         popupMatchSelectWidth={false}
-        // Rendering the popup inside the panel keeps option clicks INSIDE
-        // panelRef, so the outside-click listener above doesn't fire a
-        // premature commit() while the operator is still picking a value.
-        getPopupContainer={() => panelRef.current ?? document.body}
         searchValue={headSearch}
         onSearch={setHeadSearch}
         onChange={(v) => {
+          // A manual pick/clear supersedes any earlier inline-add — the fleet
+          // list lookup below is authoritative again.
+          createdPlates.current.head = undefined;
           setHeadId((v as number) ?? null);
           setHeadSearch('');
         }}
@@ -179,10 +185,12 @@ export default function SheetTruckSelectEditor({
           ((option?.label as string) ?? '').toLowerCase().includes(input.toLowerCase())
         }
         popupMatchSelectWidth={false}
-        getPopupContainer={() => panelRef.current ?? document.body}
         searchValue={trailerSearch}
         onSearch={setTrailerSearch}
         onChange={(v) => {
+          // A manual pick/clear supersedes any earlier inline-add — the fleet
+          // list lookup below is authoritative again.
+          createdPlates.current.trailer = undefined;
           setTrailerId((v as number) ?? null);
           setTrailerSearch('');
         }}

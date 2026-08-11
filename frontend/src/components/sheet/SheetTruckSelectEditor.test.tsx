@@ -95,7 +95,7 @@ describe('SheetTruckSelectEditor', () => {
   it('Escape closes without committing, even after a pending (unsaved) selection', async () => {
     const onCommit = vi.fn();
     const onClose = vi.fn();
-    const { container } = wrap(
+    wrap(
       <SheetTruckSelectEditor
         initialHeadId={1}
         initialTrailerId={10}
@@ -107,12 +107,37 @@ describe('SheetTruckSelectEditor', () => {
     await userEvent.click(headSelect);
     await userEvent.click(await screen.findByText('02DEF'));
 
-    const panel = container.querySelector('[data-testid="sheet-truck-select-editor"]');
-    expect(panel).toBeTruthy();
-    fireEvent.keyDown(panel as HTMLElement, { key: 'Escape' });
+    // Dispatch on the real focused element (the select's search input) to
+    // exercise the actual DOM bubbling path up to the panel's onKeyDown,
+    // not just a direct call on the container.
+    fireEvent.keyDown(headSelect, { key: 'Escape' });
 
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it('clicking outside the panel commits the pending selection', async () => {
+    const onCommit = vi.fn();
+    wrap(
+      <SheetTruckSelectEditor
+        initialHeadId={null}
+        initialTrailerId={null}
+        onCommit={onCommit}
+        onClose={vi.fn()}
+      />,
+    );
+    const headSelect = screen.getByLabelText('Truck (tractor)');
+    await userEvent.click(headSelect);
+    await userEvent.click(await screen.findByText('01ABC'));
+
+    fireEvent.mouseDown(document.body);
+
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit).toHaveBeenCalledWith({
+      truck_head_id: 1,
+      trailer_id: null,
+      truck_plate: '01ABC',
+    });
   });
 
   it('inline add creates a truck head then commits a plate starting with the new plate', async () => {
@@ -137,6 +162,40 @@ describe('SheetTruckSelectEditor', () => {
 
     expect(onCommit).toHaveBeenCalledTimes(1);
     expect(onCommit.mock.calls[0][0].truck_plate).toMatch(/^09NEW/);
+  });
+
+  it('a manual pick after an inline-add supersedes the earlier created plate', async () => {
+    createHead.mockResolvedValue({ id: 99, plate_number: '09NEW' });
+    const onCommit = vi.fn();
+    wrap(
+      <SheetTruckSelectEditor
+        initialHeadId={null}
+        initialTrailerId={null}
+        onCommit={onCommit}
+        onClose={vi.fn()}
+      />,
+    );
+    const headSelect = screen.getByLabelText('Truck (tractor)');
+    // Inline-add "09NEW" (a typo the operator then corrects)...
+    await userEvent.click(headSelect);
+    await userEvent.type(headSelect, '09new');
+    await userEvent.click(await screen.findByText(/add.*09new/i));
+    await waitFor(() => expect(createHead).toHaveBeenCalledWith('09NEW'));
+
+    // ...then reopens and picks a real fleet option instead.
+    await userEvent.click(headSelect);
+    await userEvent.click(await screen.findByText('02DEF'));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Done' }));
+
+    // The committed plate must reflect the LAST pick (02DEF), not the
+    // stale remembered "09NEW" from the earlier inline-add.
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit).toHaveBeenCalledWith({
+      truck_head_id: 2,
+      trailer_id: null,
+      truck_plate: '02DEF',
+    });
   });
 
   it('shows a toast error when inline add fails', async () => {
