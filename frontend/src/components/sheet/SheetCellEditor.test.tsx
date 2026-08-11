@@ -1,5 +1,118 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeAll } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import i18n from '@/i18n';
+import type { IRowConfig, IShipmentSheetItem } from '@/types';
+import { recordMultiEntry } from '@/hooks/undoCapture';
+import { SheetCellEditor } from './SheetCellEditor';
+import { MOCK_SHEET_DATA } from '@/mock/shipmentSheet';
 import { parseNumberInput } from './SheetCellEditor.helpers';
+
+// Isolate the wiring under test from SheetTruckSelectEditor's own internals
+// (covered by its own test file) — stub renders a single button whose click
+// simulates a completed pick + commit.
+vi.mock('./SheetTruckSelectEditor', () => ({
+  default: (props: { onCommit: (fields: { truck_head_id: number | null; trailer_id: number | null; truck_plate: string }) => void }) => (
+    <button onClick={() => props.onCommit({ truck_head_id: 1, trailer_id: 10, truck_plate: '01ABC/T-100' })}>
+      commit-stub
+    </button>
+  ),
+}));
+
+vi.mock('@/hooks/useFleet', () => ({
+  useTruckHeads: () => ({ data: [] }),
+  useTrailers: () => ({ data: [] }),
+}));
+
+// Shared spy so the test can assert on the same mock instance the component
+// calls (each fresh arrow-fn-per-render would otherwise be a different mock).
+const patchMultiMutate = vi.fn();
+vi.mock('@/hooks/useShipmentPatch', () => ({
+  useShipmentPatch: () => ({ mutate: vi.fn(), isPending: false }),
+  useShipmentPatchMulti: () => ({ mutate: patchMultiMutate, isPending: false }),
+  extractPatchError: (_err: unknown, fallback: string) => fallback,
+}));
+
+vi.mock('@/hooks/useAdmin', () => ({
+  useCountries: () => ({ data: [] }),
+  useCities: () => ({ data: [] }),
+  useCustomers: () => ({ data: [] }),
+  useAdminFirms: () => ({ data: [] }),
+  useAdminImportFirms: () => ({ data: [] }),
+  useGreenhouseBlocks: () => ({ data: [] }),
+  useTomatoVarieties: () => ({ data: [] }),
+  useBorderPoints: () => ({ data: [] }),
+  useShipmentOptions: () => ({ data: [] }),
+}));
+
+vi.mock('@/hooks/useQuotaDashboard', () => ({
+  useQuotaFirmBalances: () => ({ data: undefined }),
+}));
+
+vi.mock('@/hooks/undoCapture', () => ({
+  recordCellEntry: vi.fn(() => -1),
+  recordMultiEntry: vi.fn(() => 1),
+  recordJunctionEntry: vi.fn(() => -1),
+  recordVarietiesEntry: vi.fn(() => -1),
+  setEntryAfter: vi.fn(),
+  dropEntry: vi.fn(),
+  reconciledCellValue: vi.fn(() => null),
+  cascadeFrom: vi.fn(() => undefined),
+}));
+
+vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
+
+const TRUCK_PLATE_ROW: IRowConfig = {
+  row_number: 23,
+  field_key: 'truck_plate',
+  default_who_key: 'sheet.who.transport',
+  label_key: 'sheet.row.truck_plate',
+  input_type: 'text',
+  style: 'transport',
+};
+
+function wrap(shipment: IShipmentSheetItem, rowConfig: IRowConfig) {
+  const qc = new QueryClient();
+  return render(
+    <QueryClientProvider client={qc}>
+      <SheetCellEditor shipment={shipment} rowConfig={rowConfig} />
+    </QueryClientProvider>,
+  );
+}
+
+describe('SheetCellEditor — truck_plate cell', () => {
+  beforeAll(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('non-gapy: renders the fleet overlay; committing it multi-patches + records undo', async () => {
+    patchMultiMutate.mockClear();
+    const shipment: IShipmentSheetItem = { ...MOCK_SHEET_DATA[0], is_gapy_satys: false };
+    wrap(shipment, TRUCK_PLATE_ROW);
+
+    expect(screen.getByText('commit-stub')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByText('commit-stub'));
+
+    expect(patchMultiMutate).toHaveBeenCalledWith(
+      {
+        id: shipment.id,
+        fields: { truck_head_id: 1, trailer_id: 10, truck_plate: '01ABC/T-100' },
+      },
+      expect.anything(),
+    );
+    expect(recordMultiEntry).toHaveBeenCalled();
+  });
+
+  it('gapy: renders a plain text input, NOT the fleet overlay', () => {
+    const shipment: IShipmentSheetItem = { ...MOCK_SHEET_DATA[0], is_gapy_satys: true, truck_plate: '01ABC123' };
+    wrap(shipment, TRUCK_PLATE_ROW);
+
+    expect(screen.queryByText('commit-stub')).not.toBeInTheDocument();
+    expect(screen.getByDisplayValue('01ABC123')).toBeInTheDocument();
+  });
+});
 
 // Locks the B.1 fix: typing literal `0` in a number cell MUST persist as 0,
 // not get coerced to null. Previously `Number(value) || null` was treating
