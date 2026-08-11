@@ -31,7 +31,6 @@ import {
   useShipmentOptions,
 } from '@/hooks/useAdmin';
 import { useQuotaFirmBalances } from '@/hooks/useQuotaDashboard';
-import { useTruckHeads, useTrailers } from '@/hooks/useFleet';
 import { scaleSheetLayout } from '@/constants/sheetRowConfig';
 import { parseNumberInput } from './SheetCellEditor.helpers';
 import SheetTruckSelectEditor from './SheetTruckSelectEditor';
@@ -74,9 +73,6 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
   const { data: borderPoints } = useBorderPoints();
   // Fetch all shipment options at once (cached, 5 categories)
   const { data: allOptions } = useShipmentOptions();
-  // Fleet — backs the truck_plate virtual cell's overlay (non-Gapy-Satys only)
-  const { data: truckHeads } = useTruckHeads();
-  const { data: trailers } = useTrailers();
 
   // Per-firm remaining quota — only fetched when editing the firm_splits cell
   // (the only roles that can edit it also hold quota_issuance view). Drives the
@@ -276,14 +272,6 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
       case 'borderPoints':
       case 'border_point':
         return (borderPoints ?? []).filter((b) => b.is_active).map((b) => ({ value: b.id, label: b.name }));
-
-      case 'truckHeads':
-      case 'truck_head_id':
-        return (truckHeads ?? []).map((h) => ({ value: h.id, label: h.plate_number }));
-
-      case 'trailers':
-      case 'trailer_id':
-        return (trailers ?? []).map((tr) => ({ value: tr.id, label: tr.plate_number }));
 
       case 'transportUsers':
       case 'vehicle_responsible':
