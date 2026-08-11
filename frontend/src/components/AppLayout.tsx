@@ -126,6 +126,7 @@ export default function AppLayout() {
     '/admin/blocks': t('nav.admin_blocks'),
     '/admin/customers': t('nav.admin_customers'),
     '/admin/truck-destinations': t('nav.admin_truck_dest'),
+    '/admin/fleet': t('nav.admin_fleet'),
     '/admin/shipment-settings': t('nav.admin_shipment_settings'),
     '/admin/audit-log': t('nav.admin_audit_log'),
     '/admin/staff-access': t('nav.admin_staff_access'),
@@ -245,6 +246,14 @@ export default function AppLayout() {
     { label: t('nav.group_system'), items: [
       { key: '/admin/users', icon: <IconUsers size={15} />, label: t('nav.admin_users') },
       { key: '/admin/truck-destinations', icon: <IconTruck size={15} />, label: t('nav.admin_truck_dest') },
+      {
+        key: '/admin/fleet',
+        icon: <IconTruck size={15} />,
+        label: t('nav.admin_fleet'),
+        // No page_code registered yet — role-gated the same way the route
+        // itself is (see App.tsx's admin/fleet ProtectedRoute).
+        roles: ['admin', 'director', 'export_manager', 'warehouse_chief', 'loading_dept_head', 'loading_dept_head_deputy'] as import('@/types').UserRole[],
+      },
       { key: '/admin/shipment-settings', icon: <IconLayoutGrid size={15} />, label: t('nav.admin_shipment_settings') },
       { key: '/admin/permissions', icon: <IconShield size={15} />, label: t('nav.admin_permissions') },
       { key: '/admin/staff-access', icon: <IconUsers size={15} />, label: t('nav.admin_staff_access') },
