@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import type { IShipmentDetail } from '@/types';
 import { useTruckHeads, useTrailers, useCreateTruckHead, useCreateTrailer } from '@/hooks/useFleet';
 import { useShipmentPatchMulti } from '@/hooks/useShipmentPatch';
+import { composeTruckPlate } from '@/utils/truckPlate';
 
 /**
  * Truck-head / trailer selector for the ShipmentDetail transport card.
@@ -52,7 +53,7 @@ export function ShipmentTruckSelector({
     const head = knownPlates?.head ?? heads?.find((h) => h.id === headId)?.plate_number ?? '';
     const trailer =
       knownPlates?.trailer ?? trailers?.find((r) => r.id === trailerId)?.plate_number ?? '';
-    return [head, trailer].filter(Boolean).join('/');
+    return composeTruckPlate(head, trailer);
   }
 
   function save(
