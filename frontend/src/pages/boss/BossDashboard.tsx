@@ -5,7 +5,6 @@ import { IconDownload } from '@tabler/icons-react';
 import type { BossPeriod } from '@/hooks/useBossDashboard';
 import { HeroKpiStrip } from './HeroKpiStrip';
 import { RevenueChart } from './RevenueChart';
-import { DebtBreakdown } from './DebtBreakdown';
 import { RoutePnlTable } from './RoutePnlTable';
 import { ComplianceStrip } from './ComplianceStrip';
 import { QuotaGrid } from './QuotaGrid';
@@ -114,17 +113,9 @@ export default function BossDashboard() {
       {/* ── Hero KPIs ────────────────────────────────────────────── */}
       <HeroKpiStrip period={period} />
 
-      {/* ── Revenue + Debt (2-col) ────────────────────────────── */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
-          gap: 16,
-          marginBottom: 16,
-        }}
-      >
+      {/* ── Revenue (full-width) ──────────────────────────────── */}
+      <div style={{ marginBottom: 16 }}>
         <RevenueChart period={period} />
-        <DebtBreakdown period={period} />
       </div>
 
       {/* ── Route P&L + Compliance (2-col) ───────────────────── */}

@@ -2157,7 +2157,6 @@
     },
     "section": {
       "revenue": "Girdeji",
-      "debt": "Bergi",
       "route_pnl": "Marşrut P&L",
       "compliance": "Laýyklyk",
       "ops_pulse": "Operasiýalar",
@@ -2181,12 +2180,6 @@
       "low": "Pes",
       "med": "Orta",
       "high": "Ýokary"
-    },
-    "aging": {
-      "fresh": "0-30 gün",
-      "d30": "30-60 gün",
-      "d60": "60-90 gün",
-      "d90plus": "90+ gün"
     },
     "export": {
       "excel": "Excel",

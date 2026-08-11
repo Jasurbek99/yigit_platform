@@ -64,13 +64,12 @@ Writes made by `boss` are attributed to him like any other user's — status cha
 
 ## What the dashboard shows
 
-13 widget groups, all sourced from `/api/v1/export/boss/<action>/`:
+12 widget groups, all sourced from `/api/v1/export/boss/<action>/`:
 
 | Widget | Data source |
 |---|---|
 | 6 hero KPIs (revenue, margin, debt, today loaded, in transit, quota used) | `Shipment.total_amount_usd` + status counts + `QuotaUsageRecord` |
 | Revenue chart (current vs previous season, weekly) | `Shipment` × `season` × `TruncWeek('date')` |
-| Debt aging by firm (4 buckets) | **Placeholder** until P4 Contracts ships |
 | Route P&L | `Shipment` grouped by `country` + `city` + `SalesReport` cost aggregates |
 | Compliance strip (reports overdue, 1:10, docs by 13:00) | 1:10 from `DomesticSale` vs `QuotaUsageRecord`; reports overdue from `Shipment.sale_started_at` − `SalesReport.created_at`; docs from `QualityDocument` flags |
 | Operations pulse (ýolda, serhetde, satyşda, bu gün) | Live `Shipment.status__code` counts |

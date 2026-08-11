@@ -43,28 +43,6 @@ export interface IBossRevenue {
   previous_season: IBossRevenuePoint[];
 }
 
-export interface IBossDebtFirmAging {
-  fresh: number;
-  d30: number;
-  d60: number;
-  d90plus: number;
-}
-
-export interface IBossDebtFirm {
-  firm_name: string;
-  country: string;
-  contracts: number;
-  avg_days: number;
-  aging: IBossDebtFirmAging;
-  total_usd: number;
-}
-
-export interface IBossDebt {
-  rows: IBossDebtFirm[];
-  total_usd?: number;
-  is_placeholder: boolean;
-}
-
 export interface IBossRouteRow {
   country_id: number | null;
   country_name: string;
@@ -241,13 +219,6 @@ export const useBossRevenue = (period: BossPeriod) => {
     staleTime: 60_000,
   });
 };
-
-export const useBossDebt = (period: BossPeriod) =>
-  useQuery<IBossDebt>({
-    queryKey: ['boss', 'debt', period],
-    queryFn: () => fetcher<IBossDebt>('debt', { period }),
-    staleTime: 60_000,
-  });
 
 export const useBossRoutePnl = (period: BossPeriod) =>
   useQuery<IBossRoutePnl>({

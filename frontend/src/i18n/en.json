@@ -2153,7 +2153,6 @@
     },
     "section": {
       "revenue": "Revenue",
-      "debt": "Debt",
       "route_pnl": "Route P&L",
       "compliance": "Compliance",
       "ops_pulse": "Operations Pulse",
@@ -2177,12 +2176,6 @@
       "low": "Low",
       "med": "Medium",
       "high": "High"
-    },
-    "aging": {
-      "fresh": "0-30 days",
-      "d30": "30-60 days",
-      "d60": "60-90 days",
-      "d90plus": "90+ days"
     },
     "export": {
       "excel": "Excel",
