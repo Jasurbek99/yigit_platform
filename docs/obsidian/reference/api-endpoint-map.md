@@ -268,8 +268,8 @@ a ranking bar chart + per-card trend sparklines (was a plain table) — see
 | GET | `/api/v1/transport/shipments/{id}/position/` | ShipmentTruckPositionView | `useShipmentTruckPosition` | ShipmentDetail (`ShipmentTruckLocationCard`) |
 | PUT/DELETE | `/api/v1/transport/shipments/{id}/device/` | ShipmentDeviceLinkView | `useSetShipmentDevice` | ShipmentDetail (`ShipmentTruckLocationCard`) |
 | GET | `/api/v1/transport/devices/` | TransportDeviceViewSet (list) | `useTransportDevices` | ShipmentDetail (`ShipmentTruckLocationCard`, device picker) |
-| GET/POST/PATCH | `/api/v1/transport/truck-heads/` `/truck-heads/{id}/` | TruckHeadViewSet | — (not yet wired to a page) | Fleet tractor list/create/deactivate |
-| GET/POST/PATCH | `/api/v1/transport/trailers/` `/trailers/{id}/` | TrailerViewSet | — (not yet wired to a page) | Fleet trailer list/create/deactivate |
+| GET/POST/PATCH | `/api/v1/transport/truck-heads/` `/truck-heads/{id}/` | TruckHeadViewSet | `useTruckHeads`/`useCreateTruckHead` (`useFleet`); `useAdminTruckHeads`/`useAdminCreateTruckHead`/`useUpdateTruckHead` (`useFleetAdmin`) | `ShipmentTruckSelector` (ShipmentDetail + edit drawer), FleetAdminPage (`/admin/fleet`) |
+| GET/POST/PATCH | `/api/v1/transport/trailers/` `/trailers/{id}/` | TrailerViewSet | `useTrailers`/`useCreateTrailer` (`useFleet`); `useAdminTrailers`/`useAdminCreateTrailer`/`useUpdateTrailer` (`useFleetAdmin`) | `ShipmentTruckSelector` (ShipmentDetail + edit drawer), FleetAdminPage (`/admin/fleet`) |
 
 `IsAuthenticated` only, no role gate (no `transport.map` page_code registered yet — same
 open-to-all-authenticated pattern as Team KPI / Worklog). No pagination — a bare list,
@@ -310,8 +310,16 @@ matching.py`) — same resolution `_pick_device()` uses (positioned > category=t
 `PATCH /truck-heads/{id}/` sees **all** rows including inactive ones (only `list` filters to
 active), so `{"is_active": false}` deactivates and `{"is_active": true}` re-activates. No
 `RetrieveModelMixin` registered — `GET /truck-heads/{id}/` is 405, not 404.
-`PATCH` re-runs `device_for_plate()` if `plate_number` changes, so a plate correction
-re-matches (or clears) `traccar_device` instead of leaving it stale.
+`PATCH` re-runs `device_for_plate()` **only when `plate_number` actually changes** (a
+PATCH that omits the plate, or resends the unchanged plate, leaves `traccar_device` alone —
+this guards against silently wiping a working GPS link when another field is edited). A plate
+correction re-matches (or clears) `traccar_device` instead of leaving it stale.
+`?include_inactive=true` on the list makes `GET` return inactive rows too — used by the admin
+page (`useAdminTruckHeads`); the shipment-truck picker (`useTruckHeads`) omits it and so sees
+active rows only. Consumed by the [[../screens/fleet-admin|FleetAdminPage]] (`/admin/fleet`,
+CRUD) and `ShipmentTruckSelector` (ShipmentDetail + edit drawer — the selector filters the
+list client-side by label, it does not drive `?search=`). Full feature detail:
+`processes/fleet-map.md`.
 
 **Trailers** (`GET/POST/PATCH trailers/`) — `Trailer` (fleet trailers, seeded once from TIR
 then platform-owned). Same shape as truck heads minus GPS: `GET` (any authenticated user)
@@ -320,7 +328,9 @@ lists **active-only** (`is_active=True`), `SearchFilter` on `plate_number`, no p
 `CanEditShipment`. No device matching — trailers have no `TraccarDevice` link. `PATCH
 /trailers/{id}/` sees all rows including inactive ones, so `{"is_active": false}`
 deactivates and `{"is_active": true}` re-activates. No `RetrieveModelMixin` registered —
-`GET /trailers/{id}/` is 405, not 404.
+`GET /trailers/{id}/` is 405, not 404. `?include_inactive=true` on the list works the same
+as for truck heads (admin page uses it; the picker does not). Consumed by the
+[[../screens/fleet-admin|FleetAdminPage]] and `ShipmentTruckSelector`.
 
 ## Core Reference Endpoints
 

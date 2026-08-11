@@ -167,7 +167,7 @@ erDiagram
 | Customer | `customer` (FK), `import_firm` (FK) | Buyer and importing company |
 | Product | `product_type`, `variety` (FKs, nullable) | What's being shipped |
 | Weight | `weight_gross` (db_column='weight_gross_kg'), `weight_net` (db_column='weight_net_kg'), `packaging_kg`, `pallet_count`, `pallet_weight_kg`, `box_count`, `rejected_weight_kg` | All DecimalField, nullable |
-| Transport | `truck_head_id`, `trailer_id`, `driver_id`, `trip_id` (raw BigIntegerField — Trip Mgmt not Django-managed), `vehicle_responsible`, `transport_temp_c`, `transit_days`, `shelf_life_days`, `has_peregruz`, `peregruz_city`, `peregruz_date` | Transport details |
+| Transport | `truck_head_id`, `trailer_id`, `driver_id`, `trip_id` (raw BigIntegerField — Trip Mgmt not Django-managed), `vehicle_responsible`, `transport_temp_c`, `transit_days`, `shelf_life_days`, `has_peregruz`, `peregruz_city`, `peregruz_date` | Transport details. For non-Gapy-Satys shipments, `truck_head_id`/`trailer_id` are picked from the TIR fleet registry via `ShipmentTruckSelector` (also derives `truck_plate`); Gapy-Satys shipments keep the free-text `truck_plate` instead — see [[fleet-map#TIR Fleet Registry & Shipment Truck Selection]] |
 | Status | `status` (FK to ShipmentStatusType), `is_gapy_satys` (bool) | Current lifecycle step |
 | Operational | `customs_clearance`, `documents_status`, `harvest_status` (CharFields) | Sheet row status codes |
 | Finance | `price_per_kg`, `total_amount_usd` (DecimalField) | Pricing |

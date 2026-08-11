@@ -1,7 +1,7 @@
 ---
 title: Fleet Map (Traccar GPS)
-tags: [process, backend, frontend, transport, traccar, gps, fleet-map]
-related: [[worklog]], [[../screens/team-kpi]]
+tags: [process, backend, frontend, transport, traccar, gps, fleet-map, tir-fleet]
+related: [[worklog]], [[../screens/team-kpi]], [[../screens/fleet-admin]], [[shipment-lifecycle]]
 ---
 
 # Fleet Map (Traccar GPS)
@@ -327,7 +327,12 @@ resolver on every read.
 (device: TraccarDevice | None, resolved_by: 'manual' | 'auto' | 'none')`. Order:
 
 1. **Manual** — a `ShipmentDeviceLink` row for the shipment, if one exists.
-2. **Auto** — extract the tractor plate from `Shipment.truck_plate` via `_tractor_token`
+2. **Explicit truck-head** — if `Shipment.truck_head_id` is set, return that `TruckHead`'s
+   `traccar_device` (as `'auto'`). If the truck-head has **no** device, return `(None,
+   'none')` — an explicit fleet selection means "this is the truck", so the resolver does
+   **not** fall through to a plate guess; no device just means that truck has no GPS unit.
+   (Added with the TIR fleet registry below — this step sits ahead of plate-matching.)
+3. **Auto (plate-match)** — extract the tractor plate from `Shipment.truck_plate` via `_tractor_token`
    (the token before the first `/` or whitespace — a combined tractor+trailer plate like
    `"4378AHF/2602TAH"` yields `"4378AHF"`). If that token contains any Cyrillic letter, bail
    out to `(None, 'none')` immediately — `normalize_plate` (uppercase, strip everything but
@@ -341,8 +346,9 @@ resolver on every read.
    `DevicePosition` row (**not** filtered to `valid=True` — any stored fix counts), then (b) a
    device with `category='truck'`, then (c) the first device found (by
    `TraccarDevice.Meta.ordering = ['name']`).
-3. **None** — no manual link, a Cyrillic plate, an inactive-truck match, or no plate match at
-   all (or the matched truck has no device).
+4. **None** — no manual link, no truck-head (or a truck-head with no device), a Cyrillic
+   plate, an inactive-truck match, or no plate match at all (or the matched truck has no
+   device).
 
 `resolved_by='auto'` or `'manual'` with `position: null` is a real, distinct state — the
 device resolved but has no stored `DevicePosition` (e.g. never polled yet, or its rows are
@@ -386,12 +392,112 @@ an inline `Alert`; mutation errors surface as a `sonner` toast. The frontend edi
 
 ### Coverage note
 
-Auto-match only lights up for shipments whose tractor plate matches a `Truck` that has a
-`TraccarDevice` — as of 2026-08-01 that was roughly 30 of 79 shipments' trucks (a
+With the TIR fleet registry (below), the primary path to GPS is now an **explicit truck-head
+selection**: picking a `TruckHead` in `ShipmentTruckSelector` resolves GPS via that head's
+`traccar_device` (step 2), so it doesn't depend on the shipment's `truck_plate` string
+matching a `Truck`. Plate auto-match (step 3) remains the fallback for shipments with no
+truck-head set — as of 2026-08-01 that lit up for roughly 30 of 79 shipments' trucks (a
 point-in-time measurement against live data, not a guarantee). Foreign/hired trucks with no
 Traccar unit show the "No GPS device linked" empty state and the manual picker; an editor
 can still link any registry device by hand even if plate-matching would never have found it
 (e.g. the plate on the shipment is stale/mistyped).
+
+## TIR Fleet Registry & Shipment Truck Selection
+
+Turns the shipment's truck from a free-text `truck_plate` string into a pick from a real
+**company fleet** — a registry of tractors (`TruckHead`) and trailers (`Trailer`) seeded from
+the office's existing TIR system. Picking a truck-head is also what feeds the GPS resolver's
+new step 2 above (so a selected truck resolves its Traccar device without needing a plate
+match). Built as SP3a (selectors), SP3c (inline add), SP4 (admin page — see
+[[../screens/fleet-admin|Fleet Admin]]).
+
+### Registry models (`backend/apps/transport/models/fleet.py`)
+
+Platform-owned tables (`transport.truck_heads`, `transport.trailers`), separate from the
+Traccar registry models above.
+
+#### `TruckHead`
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | (preserved from source) | assigned explicitly on import to keep `Shipment.truck_head_id` valid — **not** auto-only |
+| `plate_number` | CharField(50), unique | |
+| `owner_type` | CharField(20), blank | |
+| `owner_name` | CharField(200), blank, Cyrillic collation | |
+| `status` | CharField(20), blank | free-text status carried from TIR |
+| `capacity` | Decimal(12,2), null | |
+| `traccar_device` | FK → `TraccarDevice`, SET_NULL, null | plate-matched at import/create; drives `has_gps` and the resolver's step 2 |
+| `is_active` | Boolean | default `True`; pickers show active-only |
+
+#### `Trailer`
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | (preserved from source) | keeps `Shipment.trailer_id` valid |
+| `plate_number` | CharField(50), unique | |
+| `owner_type` | CharField(20), blank | |
+| `status` | CharField(20), blank | |
+| `is_active` | Boolean | default `True` |
+
+Trailers have **no** `traccar_device` — trailers carry no GPS unit.
+
+### One-time import from Z_TIRWEB
+
+`python manage.py import_tir_fleet` → `import_fleet()` (`services/tir_import.py`) reads the
+external **`Z_TIRWEB`** TIR fleet DB **read-only** (`TirClient`, pyodbc) and upserts
+`TruckHead`/`Trailer` by preserved `id` (`update_or_create(id=...)`; mssql-django auto-wraps
+the explicit-`id` insert in `SET IDENTITY_INSERT`, and SQL Server then auto-advances the
+identity counter above the imported max, so later app-created rows never collide). Each head
+is plate-matched to a `TraccarDevice` at import via `_pick_device()` — the same matcher the
+resolver uses. The one-time run imported **91 truck heads (90 GPS-linked) and 74 trailers**
+(point-in-time — a re-run reflects whatever `Z_TIRWEB` holds then).
+
+> **"Idempotent" with a caveat.** Re-running is idempotent *with respect to `Z_TIRWEB`*, but
+> the upsert `defaults` include `plate_number, owner_type, owner_name, status, capacity,
+> traccar_device` — so a re-import **overwrites any admin edits to those fields** on existing
+> rows. It does **not** touch `is_active` (absent from `defaults`), so manual
+> activate/deactivate survives a re-run. Treat the import as one-time; use the admin page for
+> ongoing edits.
+
+### Shipment truck selectors (SP3a / SP3c)
+
+`Shipment.truck_head_id` / `trailer_id` are loose `BigIntegerField`s (**not** FKs — export
+must not import transport), so the selector is a frontend concern that writes ids by PATCH.
+`ShipmentTruckSelector` (`frontend/src/components/shipment/ShipmentTruckSelector.tsx`, hooks
+in `useFleet.ts`) is two AntD `Select`s (truck head + trailer) fed by `useTruckHeads()` /
+`useTrailers()`. On change it PATCHes **three** fields together via `useShipmentPatchMulti`:
+`truck_head_id`, `trailer_id`, and a derived `truck_plate = "{head}/{trailer}"` — so
+downstream consumers (GPS resolver's plate fallback, sheet, PDFs) keep reading the same
+combined plate string.
+
+Rendered in two places, both behind the same `is_gapy_satys` branch:
+- **ShipmentDetail** — `ShipmentTransportBody.tsx` (transport card).
+- **Shipment-list row edit / dashboard detail slide** — `ShipmentEditDrawer.tsx`.
+
+**Inline "+ Add" (SP3c):** typing a plate that isn't in the list surfaces a "+ Add {plate}"
+button in the dropdown; clicking it POSTs a new fleet row (`useCreateTruckHead` /
+`useCreateTrailer`, plate upper-cased) and immediately selects it (passing the returned plate
+directly, since the list refetch hasn't landed yet).
+
+### HARD RULE — Gapy-Satys shipments keep free text
+
+If `shipment.is_gapy_satys` is **true**, the truck field stays a plain **text input** — no
+truck-head/trailer dropdowns, no "+ Add", no GPS. These are local buyers' own trucks, not the
+company fleet, so they are never fleet-linked and never appear on the Fleet Map. Both
+`ShipmentTransportBody` and `ShipmentEditDrawer` gate on `is_gapy_satys` and fall back to the
+free-text `truck_plate` `DetailFieldRow`. Only **non-Gapy-Satys** shipments get the fleet
+selectors.
+
+### REST surface
+
+`GET/POST/PATCH /api/v1/transport/truck-heads/` and `/trailers/` — `list` is
+`IsAuthenticated` and **active-only** by default (`?include_inactive=true` returns inactive
+rows too, used by the admin page); `create`/`update` are gated to `CanEditShipment`
+(`SHIPMENT_EDITOR_ROLES`). `has_gps` is a read-only computed field; `traccar_device` is not
+client-writable. On **create**, and on a **PATCH that changes the plate**, the serializer
+plate-matches a Traccar device via `device_for_plate()`; a PATCH that leaves the plate
+unchanged does **not** re-match (guards against wiping a working GPS link when another field
+is edited). Full shapes: [[../reference/api-endpoint-map|API endpoint map]].
 
 ## Code Map
 
@@ -416,6 +522,13 @@ can still link any registry device by hand even if plate-matching would never ha
 | Page | [`frontend/src/pages/transport/FleetMap.tsx`](../../../frontend/src/pages/transport/FleetMap.tsx) |
 | ShipmentDetail card | [`frontend/src/components/shipment/ShipmentTruckLocationCard.tsx`](../../../frontend/src/components/shipment/ShipmentTruckLocationCard.tsx) |
 | Route + nav | `frontend/src/App.tsx` (`transport/map`), `frontend/src/components/AppLayout.tsx` (`nav.fleet_map`) |
+| TIR fleet models | [`backend/apps/transport/models/fleet.py`](../../../backend/apps/transport/models/fleet.py) — `TruckHead`, `Trailer` |
+| Z_TIRWEB import | [`backend/apps/transport/management/commands/import_tir_fleet.py`](../../../backend/apps/transport/management/commands/import_tir_fleet.py), [`services/tir_import.py`](../../../backend/apps/transport/services/tir_import.py) (`import_fleet`), [`services/tir_client.py`](../../../backend/apps/transport/services/tir_client.py) (`TirClient`, read-only pyodbc) |
+| Fleet serializers/views | `TruckHeadSerializer`/`TrailerSerializer` in [`serializers.py`](../../../backend/apps/transport/serializers.py), `TruckHeadViewSet`/`TrailerViewSet` in [`views.py`](../../../backend/apps/transport/views.py) |
+| Shipment truck selector | [`frontend/src/components/shipment/ShipmentTruckSelector.tsx`](../../../frontend/src/components/shipment/ShipmentTruckSelector.tsx); injected in `ShipmentTransportBody.tsx` + `ShipmentEditDrawer.tsx` |
+| Fleet hooks | [`frontend/src/hooks/useFleet.ts`](../../../frontend/src/hooks/useFleet.ts) (pickers + inline create), [`frontend/src/hooks/useFleetAdmin.ts`](../../../frontend/src/hooks/useFleetAdmin.ts) (admin CRUD, list incl. inactive) |
+| Fleet admin page | [`frontend/src/pages/admin/FleetAdminPage.tsx`](../../../frontend/src/pages/admin/FleetAdminPage.tsx) (route `admin/fleet`, `nav.admin_fleet`) — see [[../screens/fleet-admin]] |
+| Fleet tests | `backend/apps/transport/tests/test_fleet_models.py`, `test_fleet_api.py`, `test_tir_import.py`; `frontend/src/components/shipment/ShipmentTruckSelector.test.tsx`, `frontend/src/pages/admin/FleetAdminPage.test.tsx` |
 
 ## Out of Scope (this slice)
 
