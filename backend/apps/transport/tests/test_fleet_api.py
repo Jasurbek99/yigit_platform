@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from rest_framework.test import APIClient
@@ -90,6 +92,34 @@ class TruckHeadApiTests(TestCase):
         # include_inactive=true: inactive shown
         allrows = self.client.get('/api/v1/transport/truck-heads/?include_inactive=true').json()
         self.assertIn('9999XYZ', {r['plate_number'] for r in allrows})
+
+    def test_patch_with_unchanged_plate_does_not_rematch_device(self):
+        # Admin edit modal always sends plate_number, even when only editing
+        # another field. Sending the SAME plate must not re-run the matcher
+        # (and must not clear a working GPS link if the matcher would return
+        # None today).
+        self.client.force_authenticate(self.editor)
+        with patch('apps.transport.serializers.device_for_plate') as mock_match:
+            r = self.client.patch(
+                '/api/v1/transport/truck-heads/13/',
+                {'plate_number': '3269AHF', 'capacity': '20000.00'},
+                format='json',
+            )
+        self.assertEqual(r.status_code, 200)
+        mock_match.assert_not_called()
+        th = TruckHead.objects.get(id=13)
+        self.assertEqual(th.traccar_device, self.device)
+        self.assertEqual(str(th.capacity), '20000.00')
+
+    def test_patch_with_changed_plate_calls_device_for_plate_once(self):
+        self.client.force_authenticate(self.editor)
+        with patch('apps.transport.serializers.device_for_plate') as mock_match:
+            mock_match.return_value = None
+            r = self.client.patch(
+                '/api/v1/transport/truck-heads/13/', {'plate_number': '7777ZZZ'}, format='json',
+            )
+        self.assertEqual(r.status_code, 200)
+        mock_match.assert_called_once_with('7777ZZZ')
 
 
 class TrailerApiTests(TestCase):

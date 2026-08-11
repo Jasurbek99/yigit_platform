@@ -72,8 +72,15 @@ class TruckHeadSerializer(serializers.ModelSerializer):
         # shipment has a truck_head_id, so a stale link would silently point
         # at the wrong truck's GPS. Re-matching also clears it to None when
         # the new plate has no match.
-        if 'plate_number' in validated_data:
-            validated_data['traccar_device'] = device_for_plate(validated_data['plate_number'])
+        #
+        # Only re-match when the plate actually CHANGED. The edit modal
+        # always includes plate_number in the PATCH payload, even when only
+        # another field is being edited — re-matching on every such PATCH
+        # would silently wipe a working GPS link if device_for_plate() no
+        # longer resolves the (unchanged) plate.
+        new_plate = validated_data.get('plate_number')
+        if new_plate is not None and new_plate != instance.plate_number:
+            validated_data['traccar_device'] = device_for_plate(new_plate)
         return super().update(instance, validated_data)
 
 
