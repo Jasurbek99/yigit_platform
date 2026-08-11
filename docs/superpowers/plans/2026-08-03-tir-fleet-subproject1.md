@@ -17,7 +17,7 @@
 - `models/` package needs `__init__.py` re-exports.
 - Tests run on **MSSQL** — do NOT pass `USE_SQLITE`. Run `python manage.py test apps.transport … -v2` (`--keepdb` if a stale test DB blocks).
 - Commit only on `feat/transport-fleet-map`. Co-author tag = the running model (implementer subagents: `Claude Sonnet 5`).
-- Z_TIRWEB (read-only, one-time): `SERVER=10.10.11.233,62079;DATABASE=Z_TIRWEB;UID=tirweb;PWD=tirweb;TrustServerCertificate=yes`. Never written to. Live connection only in the real command run — tests mock the client.
+- Z_TIRWEB (read-only, one-time): `SERVER=10.10.11.233,62079;DATABASE=Z_TIRWEB;UID=<user>;PWD=<secret — set in .env, not committed>;TrustServerCertificate=yes`. Never written to. Live connection only in the real command run — tests mock the client.
 - Existing (already on branch): `TraccarDevice`, `DevicePosition`, `Truck`, `ShipmentDeviceLink`, `resolve_device_for_shipment(shipment) -> (device|None, str)`, `normalize_plate(str)`.
 
 ---
@@ -274,7 +274,7 @@ Add to `backend/config/settings.py` (near other env reads):
 TIR_DB_CONN_STR = os.environ.get(
     'TIR_DB_CONN_STR',
     'DRIVER={ODBC Driver 17 for SQL Server};SERVER=10.10.11.233,62079;'
-    'DATABASE=Z_TIRWEB;UID=tirweb;PWD=tirweb;TrustServerCertificate=yes',
+    'DATABASE=Z_TIRWEB;UID=<user>;PWD=<secret — set in .env, not committed>;TrustServerCertificate=yes',
 )
 ```
 Document it in `backend/.env.example`.

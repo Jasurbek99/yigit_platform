@@ -69,6 +69,7 @@ const SalesRepCoveragePage = lazy(() => import('@/pages/admin/SalesRepCoveragePa
 const ExpenseTemplatePage = lazy(() => import('@/pages/admin/ExpenseTemplatePage'));
 const PackingTemplatePage = lazy(() => import('@/pages/admin/PackingTemplatePage'));
 const FleetMap = lazy(() => import('@/pages/transport/FleetMap'));
+const FleetAdminPage = lazy(() => import('@/pages/admin/FleetAdminPage'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -300,6 +301,15 @@ export default function App() {
                       open to every authenticated user (same bypass as worklog / team/kpi). */}
                   <Route path="transport/map" element={
                     <ProtectedRoute><FleetMap /></ProtectedRoute>
+                  } />
+                  {/* Fleet admin (truck-head / trailer CRUD) — no page_code registered
+                      yet, so gated by the fleet-editor role set (mirrors the
+                      backend CanEditShipment roles — see ShipmentDetail.tsx's
+                      TRANSPORT_EDIT_ROLES) instead of pageCode. */}
+                  <Route path="admin/fleet" element={
+                    <ProtectedRoute roles={['admin', 'director', 'export_manager', 'warehouse_chief', 'loading_dept_head', 'loading_dept_head_deputy']}>
+                      <FleetAdminPage />
+                    </ProtectedRoute>
                   } />
                 </Route>
                 <Route path="/unauthorized" element={<UnauthorizedPage />} />

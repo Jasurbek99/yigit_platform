@@ -168,6 +168,7 @@ export default function AppLayout() {
     '/admin/blocks': t('nav.admin_blocks'),
     '/admin/customers': t('nav.admin_customers'),
     '/admin/truck-destinations': t('nav.admin_truck_dest'),
+    '/admin/fleet': t('nav.admin_fleet'),
     '/admin/shipment-settings': t('nav.admin_shipment_settings'),
     '/admin/audit-log': t('nav.admin_audit_log'),
     '/admin/staff-access': t('nav.admin_staff_access'),
@@ -292,6 +293,14 @@ export default function AppLayout() {
     '/admin/customers': { key: '/admin/customers', icon: <IconUser size={15} />, label: t('nav.admin_customers') },
     '/admin/blocks': { key: '/admin/blocks', icon: <IconBuildingWarehouse size={15} />, label: t('nav.admin_blocks') },
     '/admin/truck-destinations': { key: '/admin/truck-destinations', icon: <IconTruck size={15} />, label: t('nav.admin_truck_dest') },
+    '/admin/fleet': {
+      key: '/admin/fleet',
+      icon: <IconTruck size={15} />,
+      label: t('nav.admin_fleet'),
+      // No page_code registered yet — role-gated the same way the route
+      // itself is (see App.tsx's admin/fleet ProtectedRoute).
+      roles: ['admin', 'director', 'export_manager', 'warehouse_chief', 'loading_dept_head', 'loading_dept_head_deputy'] as import('@/types').UserRole[],
+    },
     '/admin/users': { key: '/admin/users', icon: <IconUsers size={15} />, label: t('nav.admin_users') },
     '/admin/permissions': { key: '/admin/permissions', icon: <IconShield size={15} />, label: t('nav.admin_permissions') },
     '/admin/staff-access': { key: '/admin/staff-access', icon: <IconUsers size={15} />, label: t('nav.admin_staff_access') },
@@ -361,7 +370,7 @@ export default function AppLayout() {
     group('nav.group_sales', ['/contracts', '/sales', '/export/my-reports', '/export/domestic-sales', '/export/prices']),
     group('nav.group_finance', ['/export/advances', '/export/overdue', '/admin/expense-template']),
     group('nav.group_analytics', ['/analytics/clients-report', '/team/kpi', '/worklog']),
-    group('nav.group_reference', ['/admin/seasons', '/admin/firms', '/admin/import-firms', '/admin/customers', '/admin/blocks', '/admin/truck-destinations']),
+    group('nav.group_reference', ['/admin/seasons', '/admin/firms', '/admin/import-firms', '/admin/customers', '/admin/blocks', '/admin/truck-destinations', '/admin/fleet']),
     group('nav.group_system', ['/admin/users', '/admin/permissions', '/admin/staff-access', '/admin/shipment-settings', '/admin/sales-rep-coverage', '/admin/audit-log', '/admin/process-links']),
     group('nav.group_feedback', ['/feedback/submit', '/feedback/my-tickets', '/feedback/public', '/admin/feedback']),
   ];
@@ -380,7 +389,7 @@ export default function AppLayout() {
     ]),
     group('nav.group_contracts', ['/contracts', '/sales', '/documents']),
     group('nav.group_management', ['/export/plan', '/export/quota', '/admin/seasons', '/admin/firms', '/admin/import-firms', '/admin/customers', '/admin/blocks']),
-    group('nav.group_system', ['/admin/users', '/admin/truck-destinations', '/admin/shipment-settings', '/admin/permissions', '/admin/staff-access', '/admin/sales-rep-coverage', '/admin/expense-template', '/admin/packing-templates', '/admin/audit-log', '/admin/process-links']),
+    group('nav.group_system', ['/admin/users', '/admin/truck-destinations', '/admin/fleet', '/admin/shipment-settings', '/admin/permissions', '/admin/staff-access', '/admin/sales-rep-coverage', '/admin/expense-template', '/admin/packing-templates', '/admin/audit-log', '/admin/process-links']),
     group('nav.group_team', ['/worklog', '/team/kpi']),
     group('nav.group_feedback', ['/feedback/submit', '/feedback/my-tickets', '/feedback/public', '/admin/feedback']),
   ];

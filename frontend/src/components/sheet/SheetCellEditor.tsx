@@ -33,6 +33,7 @@ import {
 import { useQuotaFirmBalances } from '@/hooks/useQuotaDashboard';
 import { scaleSheetLayout } from '@/constants/sheetRowConfig';
 import { parseNumberInput } from './SheetCellEditor.helpers';
+import SheetTruckSelectEditor from './SheetTruckSelectEditor';
 
 interface ISheetCellEditorProps {
   shipment: IShipmentSheetItem;
@@ -351,6 +352,43 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
     [patchMultiMutation, shipment, close],
   );
 
+  // Virtual combined cell: the truck_plate cell's overlay (SheetTruckSelectEditor)
+  // resolves a fleet head + trailer and the derived plate string, all committed
+  // in one PATCH — mirrors saveTransitTemp above. Gapy-Satys shipments never
+  // reach this (renderEditor's gapy branch keeps the plain text input instead).
+  const saveTruck = useCallback(
+    (fields: { truck_head_id: number | null; trailer_id: number | null; truck_plate: string }) => {
+      const before = {
+        truck_head_id: shipment.truck_head_id,
+        trailer_id: shipment.trailer_id,
+        truck_plate: shipment.truck_plate,
+      };
+      const undoId = recordMultiEntry(shipment.id, before, fields);
+      patchMultiMutation.mutate(
+        { id: shipment.id, fields },
+        undoId === -1
+          ? undefined
+          : {
+              onError: () => dropEntry(undoId),
+              onSuccess: (data) => {
+                const d = data as Record<string, unknown>;
+                setEntryAfter(
+                  undoId,
+                  {
+                    truck_head_id: d.truck_head_id !== undefined ? d.truck_head_id : fields.truck_head_id,
+                    trailer_id: d.trailer_id !== undefined ? d.trailer_id : fields.trailer_id,
+                    truck_plate: d.truck_plate !== undefined ? d.truck_plate : fields.truck_plate,
+                  },
+                  cascadeFrom(shipment, d),
+                );
+              },
+            },
+      );
+      close();
+    },
+    [patchMultiMutation, shipment, close],
+  );
+
   // Type-to-edit commit-and-hop for text-like inputs (text / phone / number /
   // the R26 combined cell). While seeded, an arrow key commits the current
   // value and moves the selection one cell over (via setPendingNav, consumed by
@@ -390,6 +428,21 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
   );
 
   const renderEditor = () => {
+    // Virtual combined cell: truck_plate picks a fleet head + trailer for
+    // non-Gapy-Satys shipments (auto-GPS). Gapy shipments have no fleet
+    // linkage — HARD RULE — and fall through to the plain input_type='text'
+    // path below (no selects, no GPS).
+    if (rowConfig.field_key === 'truck_plate' && !shipment.is_gapy_satys) {
+      return (
+        <SheetTruckSelectEditor
+          initialHeadId={shipment.truck_head_id}
+          initialTrailerId={shipment.trailer_id}
+          onCommit={saveTruck}
+          onClose={close}
+        />
+      );
+    }
+
     if (rowConfig.field_key === 'transit_days_temp') {
       const days = shipment.transit_days;
       const temp = shipment.transport_temp_c;

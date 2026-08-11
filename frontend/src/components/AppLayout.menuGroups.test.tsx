@@ -86,7 +86,7 @@ function renderedMenuGroupLabels(): string[] {
   );
 }
 
-// The exact 47 route keys BOSS_MENU_GROUPS produces, in group + item order,
+// The exact 48 route keys BOSS_MENU_GROUPS produces, in group + item order,
 // transcribed from AppLayout.tsx. Exists so a future edit to the boss
 // composition (its whole reason for staying untouched by this refactor) has
 // a hard failure to trip, not just "still non-empty".
@@ -100,12 +100,12 @@ const EXPECTED_BOSS_ORDERED_KEYS = [
   '/contracts', '/sales', '/export/my-reports', '/export/domestic-sales', '/export/prices',
   '/export/advances', '/export/overdue', '/admin/expense-template',
   '/analytics/clients-report', '/team/kpi', '/worklog',
-  '/admin/seasons', '/admin/firms', '/admin/import-firms', '/admin/customers', '/admin/blocks', '/admin/truck-destinations',
+  '/admin/seasons', '/admin/firms', '/admin/import-firms', '/admin/customers', '/admin/blocks', '/admin/truck-destinations', '/admin/fleet',
   '/admin/users', '/admin/permissions', '/admin/staff-access', '/admin/shipment-settings', '/admin/sales-rep-coverage', '/admin/audit-log', '/admin/process-links',
   '/feedback/submit', '/feedback/my-tickets', '/feedback/public', '/admin/feedback',
 ];
 
-// The exact 47 route keys STAFF_MENU_GROUPS produces, in group + item order,
+// The exact 48 route keys STAFF_MENU_GROUPS produces, in group + item order,
 // transcribed directly from STAFF_MENU_GROUPS in AppLayout.tsx (not from the
 // task brief). Symmetric to EXPECTED_BOSS_ORDERED_KEYS above: an ordered
 // per-composition check is the only guard that catches an item landing in
@@ -121,7 +121,7 @@ const EXPECTED_STAFF_ORDERED_KEYS = [
   '/export/trucks', '/export/drafts', '/export/assign', '/export/domestic-sales', '/export/prices',
   '/contracts', '/sales', '/documents',
   '/export/plan', '/export/quota', '/admin/seasons', '/admin/firms', '/admin/import-firms', '/admin/customers', '/admin/blocks',
-  '/admin/users', '/admin/truck-destinations', '/admin/shipment-settings', '/admin/permissions', '/admin/staff-access', '/admin/sales-rep-coverage', '/admin/expense-template', '/admin/packing-templates', '/admin/audit-log', '/admin/process-links',
+  '/admin/users', '/admin/truck-destinations', '/admin/fleet', '/admin/shipment-settings', '/admin/permissions', '/admin/staff-access', '/admin/sales-rep-coverage', '/admin/expense-template', '/admin/packing-templates', '/admin/audit-log', '/admin/process-links',
   '/worklog', '/team/kpi',
   '/feedback/submit', '/feedback/my-tickets', '/feedback/public', '/admin/feedback',
 ];
@@ -210,12 +210,12 @@ describe('AppLayout menu composition', () => {
     }
   });
 
-  it('boss menu renders exactly the expected 47 route keys, in order', () => {
+  it('boss menu renders exactly the expected 48 route keys, in order', () => {
     renderLayout(fakeUser({ role: 'boss' as UserRole }));
     expect(renderedMenuItemKeys()).toEqual(EXPECTED_BOSS_ORDERED_KEYS);
   });
 
-  it('staff menu renders exactly the expected 47 route keys, in order', () => {
+  it('staff menu renders exactly the expected 48 route keys, in order', () => {
     renderLayout(fakeUser({ role: 'export_manager' as UserRole }));
     expect(renderedMenuItemKeys()).toEqual(EXPECTED_STAFF_ORDERED_KEYS);
   });
@@ -235,7 +235,7 @@ describe('AppLayout menu composition', () => {
     }
   });
 
-  it('boss and staff compositions reach the same set of 47 route keys — grouping differs, reachable pages do not', () => {
+  it('boss and staff compositions reach the same set of 48 route keys — grouping differs, reachable pages do not', () => {
     renderLayout(fakeUser({ role: 'boss' as UserRole }));
     const bossKeys = renderedMenuItemKeys();
     cleanup();
@@ -243,8 +243,8 @@ describe('AppLayout menu composition', () => {
     renderLayout(fakeUser({ role: 'export_manager' as UserRole }));
     const staffKeys = renderedMenuItemKeys();
 
-    expect(bossKeys).toHaveLength(47);
-    expect(staffKeys).toHaveLength(47);
+    expect(bossKeys).toHaveLength(48);
+    expect(staffKeys).toHaveLength(48);
     expect(new Set(staffKeys)).toEqual(new Set(bossKeys));
   });
 });

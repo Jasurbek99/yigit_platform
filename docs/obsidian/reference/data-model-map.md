@@ -127,6 +127,22 @@ erDiagram
 | **BlockManagerAssignment** | user (FK), block (FK), is_active | Who manages which block |
 | **DomesticSale** | date, buyer (FK), block (FK), export_firm (FK nullable), weight_kg, variety, price_per_kg | Local sale record |
 
+## Transport App Models
+
+**File**: `backend/apps/transport/models/`
+
+`TruckHead`/`Trailer` are seeded **once** from the external `Z_TIRWEB` TIR fleet DB (read-only
+pyodbc import, id-preserving), platform-owned thereafter. `Shipment.truck_head_id` /
+`trailer_id` are loose `BigIntegerField`s (**not** FKs — keeps `export ↛ transport`), so
+preserving the source `id` on import is what makes them line up. The GPS registry models
+(`Truck`, `TraccarDevice`, `DevicePosition`, `ShipmentDeviceLink`) live in the same app —
+see [[../processes/fleet-map|Fleet Map]].
+
+| Model | Key Fields | Purpose |
+|-------|-----------|---------|
+| **TruckHead** | plate_number (unique), owner_type, owner_name (Cyrillic collation), status, capacity (Decimal 12,2, nullable), traccar_device (FK→TraccarDevice, SET_NULL, nullable), is_active | Company tractor — the shipment's selectable truck; plate-matched to a Traccar device for GPS at import/create. `id` preserved from `Z_TIRWEB`. |
+| **Trailer** | plate_number (unique), owner_type, status, is_active | Fleet trailer — **no** GPS / `traccar_device` link. `id` preserved from `Z_TIRWEB`. |
+
 ## Key Patterns
 
 - **All FKs to core models**: `on_delete=PROTECT` (can't delete referenced data)

@@ -10,7 +10,7 @@ Let a shipment record its truck by **selecting a tractor + trailer from the comp
 
 ## Context (verified against live data)
 
-- **`Z_TIRWEB`** is the TIR fleet-management DB — MSSQL, host `10.10.11.233`, **AW instance = TCP port 62079**, DB `Z_TIRWEB`, user `tirweb`/`tirweb`. Tables include `truck_heads`, `trailers`, `drivers`, `trips`, earnings/expenses.
+- **`Z_TIRWEB`** is the TIR fleet-management DB — MSSQL, host `10.10.11.233`, **AW instance = TCP port 62079**, DB `Z_TIRWEB`, user credentials (kept in `.env` / `TIR_DB_CONN_STR`, not committed). Tables include `truck_heads`, `trailers`, `drivers`, `trips`, earnings/expenses.
 - **`truck_heads`** (91 rows): `id bigint`, `plate_number nvarchar(50)`, `owner_type`, `owner_name`, `status`, `capacity`, timestamps. All `owner_type='company'`, `status='idle'`. Clean single tractor plates (`3269AHF`, `4470AHF`) — Traccar format.
 - **`trailers`** (74 rows, cleaned by the user): `id`, `plate_number`, `owner_type`, `status`, timestamps. Real trailer plates (`2602TAH`, `2607TAH`).
 - **GPS coverage: 90 of 91 truck_heads** match a Traccar device by normalized plate (the 1 miss is a `2613AHF`↔`2613AHG` data diff).
@@ -53,7 +53,7 @@ Cyrillic: plate/owner fields are Latin/Turkmen-Latin — no `db_collation` unles
 ### One-time import
 
 `management/commands/import_tir_fleet.py`:
-- Connects to Z_TIRWEB read-only via **pyodbc** (`SERVER=10.10.11.233,62079;DATABASE=Z_TIRWEB;UID=tirweb;PWD=tirweb;TrustServerCertificate=yes`), from a small `services/tir_client.py` helper. Read-only — never writes to Z_TIRWEB.
+- Connects to Z_TIRWEB read-only via **pyodbc** (`SERVER=10.10.11.233,62079;DATABASE=Z_TIRWEB;UID=<user>;PWD=<secret — set in .env, not committed>;TrustServerCertificate=yes`), from a small `services/tir_client.py` helper. Read-only — never writes to Z_TIRWEB.
 - Upserts `TruckHead`/`Trailer` (`update_or_create` on `id`), **preserving the Z_TIRWEB ids**. Because `id` is an MSSQL identity column, inserting explicit ids requires wrapping the load in `SET IDENTITY_INSERT transport_truck_heads ON … OFF` (and likewise for trailers) — done inside the command via a raw cursor. (Alternative if IDENTITY_INSERT proves troublesome: make `id` a non-identity `BigIntegerField` PK managed by the app; decide at plan time.)
 - Matches each `TruckHead.traccar_device` by normalized plate against `TraccarDevice`/`Truck.plate` (reuse `normalize_plate`).
 - After load, reseeds the MSSQL identity so future inserts start above the max imported id (`DBCC CHECKIDENT('transport_truck_heads', RESEED, <max>)` etc., guarded and idempotent).

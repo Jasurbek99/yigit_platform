@@ -16,8 +16,20 @@ For full setup instructions see [GETTING_STARTED.md](../GETTING_STARTED.md).
 | django | Custom (Dockerfile) | 8000 | Django backend API |
 | react | Custom (Dockerfile) | 3000 (dev) / 80 (prod) | React frontend |
 | mssql | mcr.microsoft.com/mssql/server:2022-latest | 1433 | MSSQL database |
-| redis | redis:7-alpine | 6379 | Cache (permission cache, sessions) |
+| redis | redis:7-alpine | 6379 | Cache (permission cache, sessions) + Celery broker |
 | nginx | nginx:alpine | 80/443 | Reverse proxy (production) |
+| celery-worker | Custom (backend image) | — | Runs background tasks (Traccar fleet poll) |
+| celery-beat | Custom (backend image) | — | Scheduler — fires `poll_traccar` every 120s |
+
+> **Scheduler services must be started explicitly.** The deploy service list
+> must include `celery-worker celery-beat`, or the fleet map never receives
+> fresh GPS data (the poller simply doesn't run). On the beta host `update.sh`,
+> that means `SERVICES="backend frontend redis celery-worker celery-beat"`.
+> On a fresh bring-up:
+> `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d celery-worker celery-beat`.
+> Note: `celery` must be pip-installed before restarting Django —
+> `config/__init__.py` imports it at boot, so `--build` (or `pip install -r
+> requirements.txt`) must precede the restart.
 
 ## MSSQL Connection
 
@@ -51,9 +63,20 @@ DATABASES = {
 | `DB_NAME` | Database name | `YIGIT_PLATFROM` |
 | `DB_USER` | Database user | `YigitUser` |
 | `DB_PASSWORD` | Database password | _(secret)_ |
-| `REDIS_URL` | Redis connection | `redis://redis:6379/0` |
+| `REDIS_URL` | Redis connection (cache + Celery broker) | `redis://redis:6379/0` |
+| `TRACCAR_BASE_URL` | Traccar GPS server (fleet map) | `http://10.10.11.79:8082` |
+| `TRACCAR_TOKEN` | Traccar API Bearer token _(secret)_ | _(minted, exp 2027-07-31)_ |
+| `TRACCAR_STALE_MINUTES` | Position staleness threshold | `15` |
 | `VITE_USE_MOCK` | Frontend mock mode | `true` / `false` |
 | `VITE_API_URL` | Backend API URL | `http://localhost:8000` |
+| `VITE_MAP_TILE_URL` | Fleet-map tile source | OSM default |
+
+> **`TRACCAR_*` live in the compose-project-root `.env`** (interpolated into
+> the `celery-worker`/`celery-beat` `environment:` blocks). They are **not** on
+> the `backend` service — backend reads positions from the DB, so
+> `manage.py poll_traccar_positions` only works inside the `celery-worker`
+> container. Empty `TRACCAR_BASE_URL` → `MissingSchema '/api/devices'` in the
+> logs and the map stops updating.
 
 ## Seed Commands (run in order)
 
@@ -75,6 +98,12 @@ python manage.py import_shipments
 python manage.py import_prices
 python manage.py import_weekly_plan
 python manage.py import_quotas
+
+# 6. Seed Traccar fleet devices (fleet map) — one-time, idempotent.
+#    Run inside the celery-worker container (it has the TRACCAR_* env).
+#    After this, celery-beat keeps positions fresh every 120s automatically;
+#    poll_traccar also auto-registers any trucks added later.
+python manage.py seed_traccar_devices
 ```
 
 ## MSSQL Compatibility Reminders
