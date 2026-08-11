@@ -2273,7 +2273,8 @@
       "col_customer": "Müşderi",
       "col_trucks": "Maşyn",
       "col_revenue": "Girdeji",
-      "col_yoy": "Geçen ýyl"
+      "col_yoy": "Geçen ýyl",
+      "rest": "Galanlary ({{n}})"
     },
     "risk_matrix": {
       "col_firm": "Firma",

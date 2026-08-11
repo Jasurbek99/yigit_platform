@@ -2271,7 +2271,8 @@
       "col_customer": "Клиент",
       "col_trucks": "Машины",
       "col_revenue": "Выручка",
-      "col_yoy": "Г/Г"
+      "col_yoy": "Г/Г",
+      "rest": "Остальные ({{n}})"
     },
     "risk_matrix": {
       "col_firm": "Фирма",

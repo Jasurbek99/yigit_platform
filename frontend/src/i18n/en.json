@@ -2269,7 +2269,8 @@
       "col_customer": "Customer",
       "col_trucks": "Trucks",
       "col_revenue": "Revenue",
-      "col_yoy": "YoY"
+      "col_yoy": "YoY",
+      "rest": "Others ({{n}})"
     },
     "risk_matrix": {
       "col_firm": "Firm",
