@@ -1,7 +1,7 @@
 # TIR Fleet Integration — SP3/SP4 Handoff
 
 **Date:** 2026-08-10
-**Branch:** `feat/transport-fleet-map` — **lives in the worktree** `D:/projects/yigit_platform-transport-fleet-map` (the main dir `D:/projects/yigit_platform` is on another session's `feat/season-lifecycle`). ~49 commits ahead of main. **NOT pushed** yet.
+**Branch:** `feat/transport-fleet-map` — **lives in the worktree** `D:/projects/yigit_platform-transport-fleet-map` (the main dir `D:/projects/yigit_platform` is on another session's `feat/season-lifecycle`). **Pushed** to `origin/feat/transport-fleet-map`, merged up to date with `origin/main` (PR open).
 **Design spec:** `docs/superpowers/specs/2026-08-03-tir-fleet-integration-design.md` (read this first).
 
 ## Done (backend complete, all reviewed + merge-approved)
@@ -31,8 +31,8 @@
 - List/create/edit/deactivate TruckHead + Trailer. Mirror an existing admin page (e.g. `pages/admin/TruckDestinationsPage.tsx`). Endpoints from SP2 already cover it.
 
 ## Outstanding / follow-ups (from reviews, tracked)
-- **Rotate the `tirweb`/`tirweb` Z_TIRWEB creds** before pushing — they're in earlier unpushed local history + on `feat/season-lifecycle`. Import is one-time + done, so nothing runtime depends on them.
-- **Push is held** until the whole feature is done + creds rotated.
+- **Rotate the Z_TIRWEB DB login (recommended, still open).** The weak dev credential was disclosed in plaintext in earlier commits on this branch and on `main` (now redacted in the working tree, but still in pushed history — a history rewrite or a password rotation is the only true fix). The user was informed and deferred rotation. Import is one-time + done, so nothing runtime depends on it. The live value belongs only in `backend/.env` (`TIR_DB_CONN_STR`), never committed.
+- **Branch is pushed** to `origin/feat/transport-fleet-map` and merged up to date with `origin/main` (PR open).
 - Import doesn't re-link devices registered *after* the import (only the create/PATCH endpoints do) — fine until a re-import.
 - `import` builds its plate→truck index without an `is_active` filter (resolver's plate path filters `is_active=True`) — minor inconsistency, ticket.
 - `owner_name` (Cyrillic collation) search has no test.

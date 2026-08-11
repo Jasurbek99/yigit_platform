@@ -502,7 +502,8 @@ selectors.
 
 ### REST surface
 
-`GET/POST/PATCH /api/v1/transport/truck-heads/` and `/trailers/` — `list` is
+`GET/POST /api/v1/transport/truck-heads/` (+ `/trailers/`) on the collection, `PATCH
+/api/v1/transport/truck-heads/<id>/` (+ `/trailers/<id>/`) on the detail — `list` is
 `IsAuthenticated` and **active-only** by default (`?include_inactive=true` returns inactive
 rows too, used by the admin page); `create`/`update` are gated to `CanEditShipment`
 (`SHIPMENT_EDITOR_ROLES`). `has_gps` is a read-only computed field; `traccar_device` is not
