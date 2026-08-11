@@ -35,7 +35,10 @@ class Command(BaseCommand):
 
         recs = (
             QuotaUsageRecord.objects
-            .filter(status='draft', shipment__isnull=False)
+            # `status='draft'` dropped 2026-08-10: with the approval step gone every
+            # shipment-linked row is 'approved', and this date-repair tool would
+            # silently match nothing. See resync_draft_quota_usage for the same note.
+            .filter(shipment__isnull=False)
             .select_related('shipment')
             .order_by('usage_date', 'shipment_id')
         )

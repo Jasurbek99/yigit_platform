@@ -11,7 +11,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
-from apps.core.permissions import DynamicResourcePermission, write_permission
+from apps.core.permissions import (
+    DynamicResourcePermission, SeasonNotClosed, write_permission,
+)
+from apps.core.idempotency import idempotent
+from apps.core.seasons import SeasonScopedMixin, assert_season_open, resolve_season
 from apps.contracts.document_templates.registry import SCOPE_INVOICE, get_spec
 from apps.contracts.models import Contract, ContractAttachment, ContractSale
 from apps.contracts.serializers import (
@@ -44,7 +48,7 @@ from apps.contracts.services.files import (
 logger = logging.getLogger(__name__)
 
 
-class ContractViewSet(ModelViewSet):
+class ContractViewSet(SeasonScopedMixin, ModelViewSet):
     """CRUD ViewSet for contracts.
 
     Access is gated by the dynamic permission matrix via ``resource_code =
@@ -59,9 +63,28 @@ class ContractViewSet(ModelViewSet):
     'active' contracts.
     """
 
-    permission_classes = [IsAuthenticated, DynamicResourcePermission]
+    permission_classes = [IsAuthenticated, DynamicResourcePermission, SeasonNotClosed]
     resource_code = 'contract'
     parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    @idempotent
+    def create(self, request, *args, **kwargs):
+        """Retry-safe create — body unchanged, see apps/core/idempotency.py."""
+        return super().create(request, *args, **kwargs)
+
+    def perform_create(self, serializer):
+        # Write freeze (D1): CreateModelMixin never calls get_object(), so
+        # the SeasonNotClosed object permission cannot fire on a create.
+        self.assert_create_target_open(serializer)
+        serializer.save()
+
+    def perform_update(self, serializer):
+        """Save an edit, refusing one that moves the contract into a closed season."""
+        # Write freeze (D1): layer 1 checked the anchor the row has BEFORE
+        # the write; this checks the one it would have AFTER, so a PATCH
+        # cannot move the row into a closed season.
+        self.assert_update_target_open(serializer)
+        serializer.save()
 
     def get_queryset(self):
         """Return contracts queryset filtered by status.
@@ -72,10 +95,10 @@ class ContractViewSet(ModelViewSet):
 
         'cancelled' is NEVER returned by the list endpoint regardless of params.
 
-        Status / FK filtering applies to the **list** action only. Detail and the
-        attachment actions (retrieve, upload/download/delete) resolve by pk across
-        every status — contract documents are legal records still needed after the
-        contract is completed or closed.
+        Status / FK / season filtering applies to the **list** action only. Detail
+        and the attachment actions (retrieve, upload/download/delete) resolve by pk
+        across every status and every season — contract documents are legal records
+        still needed after the contract is completed, closed, or its season ends.
         """
         qs = Contract.objects.select_related(
             'export_firm', 'import_firm', 'import_firm__country', 'season', 'customer',
@@ -86,6 +109,8 @@ class ContractViewSet(ModelViewSet):
 
         if self.action != 'list':
             return qs
+
+        qs = self.apply_season_scope(qs)
 
         status_param = self.request.query_params.get('status')
         include_ended = self.request.query_params.get('include_ended', '').lower() == 'true'
@@ -106,11 +131,9 @@ class ContractViewSet(ModelViewSet):
         else:
             qs = qs.filter(status=Contract.STATUS_ACTIVE)
 
-        # Optional FK filters
-        season_id = self.request.query_params.get('season')
-        if season_id:
-            qs = qs.filter(season_id=season_id)
-
+        # Optional FK filters (?season= is applied by apply_season_scope above,
+        # which — unlike the hand-written filter it replaces — rejects a closed
+        # season the caller may not view.)
         export_firm_id = self.request.query_params.get('export_firm')
         if export_firm_id:
             qs = qs.filter(export_firm_id=export_firm_id)
@@ -256,7 +279,7 @@ class ContractViewSet(ModelViewSet):
         return response
 
 
-class ContractSaleViewSet(ModelViewSet):
+class ContractSaleViewSet(SeasonScopedMixin, ModelViewSet):
     """CRUD ViewSet for contract sales.
 
     Access is gated by the dynamic permission matrix via ``resource_code =
@@ -276,10 +299,20 @@ class ContractSaleViewSet(ModelViewSet):
       ?date_to=YYYY-MM-DD        — invoice_date <= this
       ?search=<text>             — icontains match on passport_sdelka and
                                    parent contract_number
+
+    List is scoped to the resolved season via `shipment`. ContractSale.shipment
+    is nullable — legacy 2-Sales rows imported before the shipment↔sale bridge
+    was populated (see ADR-023) have no shipment, hence no season. `include_null_link`
+    keeps those visible whenever the resolved season is open, and hides them the
+    moment a closed season is explicitly browsed — browsing a closed season is
+    browsing that season's archive, and an unlinked row belongs to no season, so
+    it has no place there. Detail routes bypass scoping — Rule A.
     """
 
-    permission_classes = [IsAuthenticated, DynamicResourcePermission]
+    permission_classes = [IsAuthenticated, DynamicResourcePermission, SeasonNotClosed]
     resource_code = 'sale'
+    season_field = 'shipment__season'
+    include_null_link = True
 
     queryset = ContractSale.objects.select_related(
         'contract',
@@ -288,6 +321,35 @@ class ContractSaleViewSet(ModelViewSet):
         'export_firm',
         'import_firm',
     ).order_by('-invoice_date', 'contract_id', 'invoice_number')
+
+    def perform_create(self, serializer):
+        """Create a sale, refusing a closed-season target.
+
+        `ContractSale.freeze_season` resolves through `contract` when
+        `shipment` is NULL, so an unlinked sale under a closed season's
+        contract is refused too.
+        """
+        # Write freeze (D1): CreateModelMixin never calls get_object(), so
+        # the SeasonNotClosed object permission cannot fire on a create.
+        self.assert_create_target_open(serializer)
+        sale = serializer.save()
+        sync_split_weight_from_sale(sale, self.request.user)
+
+    def perform_update(self, serializer):
+        """Save an edit, refusing one that moves the sale into a closed season.
+
+        Covers reassigning EITHER anchor: `contract` (whose rollup totals the
+        write would rewrite) and `shipment`.
+        """
+        # Write freeze (D1): layer 1 checked the anchor the row has BEFORE
+        # the write; this checks the one it would have AFTER, so a PATCH
+        # cannot move the row into a closed season.
+        self.assert_update_target_open(serializer)
+        sale = serializer.save()
+        # The invoice NET is the official export weight, so moving it must move
+        # the firm's split — and therefore its quota. Runs on create too: a sale
+        # can be created straight onto a truck that already has splits.
+        sync_split_weight_from_sale(sale, self.request.user)
 
     def get_queryset(self):
         """Apply server-side filters."""
@@ -325,6 +387,9 @@ class ContractSaleViewSet(ModelViewSet):
                 Q(passport_sdelka__icontains=search)
                 | Q(contract__contract_number__icontains=search)
             )
+
+        if self.action == 'list':
+            qs = self.apply_season_scope(qs)
 
         return qs
 
@@ -522,9 +587,10 @@ class DocumentPacketListView(ListAPIView):
     silently vanishing. Trucks still missing buyer / country / driver / plate /
     packing appear with ``is_ready=false`` + ``missing_setup[]`` so the team sees
     *what to fill* instead of wondering why it isn't listed. Per truck: its firms
-    + per-firm ``sale_id`` and the packing-complete flag. Defaults to the active
-    season; filters: ``?date=`` (exact), ``?date_from=`` / ``?date_to=`` (range),
-    ``?status=`` (status code), ``?firm=`` (export firm id). Gated by 'sale'.
+    + per-firm ``sale_id`` and the packing-complete flag. Always scoped to the
+    resolved season (``?season=``, default active); filters: ``?date=`` (exact),
+    ``?date_from=`` / ``?date_to=`` (range), ``?status=`` (status code),
+    ``?firm=`` (export firm id). Gated by 'sale'.
     """
 
     permission_classes = [IsAuthenticated, DynamicResourcePermission]
@@ -548,6 +614,13 @@ class DocumentPacketListView(ListAPIView):
             .distinct()
             .order_by('-date', '-id')
         )
+        # Season scope is unconditional, not a fallback for "no date filter":
+        # otherwise picking a closed season in the switcher *and* a date range
+        # would silently return active-season rows.
+        season = resolve_season(self.request)
+        if season is None:
+            return qs.none()  # fail closed (D7, spec §3.1)
+        qs = qs.filter(season=season)
         params = self.request.query_params
         if params.get('date'):
             qs = qs.filter(date=params['date'])
@@ -556,8 +629,6 @@ class DocumentPacketListView(ListAPIView):
                 qs = qs.filter(date__gte=params['date_from'])
             if params.get('date_to'):
                 qs = qs.filter(date__lte=params['date_to'])
-            if not (params.get('date_from') or params.get('date_to')):
-                qs = qs.filter(season__is_active=True)
         if params.get('status'):
             qs = qs.filter(status__code=params['status'])
         if params.get('firm'):
@@ -655,9 +726,15 @@ class ShipmentFirmContractsView(APIView):
         )
 
         data = request.data
-        shipment = Shipment.objects.filter(pk=data.get('shipment')).first()
+        shipment = Shipment.objects.filter(pk=data.get('shipment')).select_related(
+            'season',
+        ).first()
         if shipment is None:
             return Response({'error': 'Shipment not found.'}, status=404)
+
+        # Write freeze (D1). An APIView taking the shipment from the request
+        # body — there is no get_object(), so layer 1 never sees it.
+        assert_season_open(shipment.season)
 
         try:
             sale = link_split_to_contract(
@@ -687,11 +764,13 @@ def _set_firm_weights(shipment, weight_by_firm, user):
     """Replace firm-split weights (quota-safe) — mirrors ShipmentViewSet.set_firm_splits.
 
     Deletes and recreates ShipmentFirmSplit with the given weights, then re-syncs
-    draft quota usage. Raises ApprovedQuotaExistsError (→ 400) if approved usage exists.
+    the shipment's quota usage, which now counts immediately (no review step).
     """
     from django.db import transaction
     from apps.export.models import ShipmentFirmSplit
-    from apps.export.services.quota_sync import sync_draft_quota_usage_for_shipment
+    from apps.export.services.quota_sync import (
+        invalidate_quota_caches, sync_draft_quota_usage_for_shipment,
+    )
 
     with transaction.atomic():
         existing = list(shipment.firm_splits.values_list('export_firm_id', 'split_order'))
@@ -706,6 +785,61 @@ def _set_firm_weights(shipment, weight_by_firm, user):
         ]
         ShipmentFirmSplit.objects.bulk_create(rows, batch_size=500)
         sync_draft_quota_usage_for_shipment(shipment, user)
+        # Consumption just moved, so the cached FIFO snapshot and per-firm
+        # balances are stale — and the balances back the Sheet's "no quota"
+        # hard block, which would otherwise refuse (or admit) a firm on
+        # up-to-60s-old numbers.
+        transaction.on_commit(invalidate_quota_caches)
+
+
+def sync_split_weight_from_sale(sale, user) -> bool:
+    """Push an invoice's official NET onto the shipment's firm split, and re-run quota.
+
+    `ContractSale.quantity_kg` and `ShipmentFirmSplit.weight_kg` are documented as
+    the same number — the firm's official export weight (AD-016). They were only
+    kept in step in one direction: applying a PackingTemplate wrote the share net
+    down onto the split, but editing `quantity_kg` on the sale itself did not, so
+    the invoice and the quota ledger silently disagreed. Two of the 18 linked
+    sales on the dev database had drifted (shipment 664: split 11,000/7,000 vs
+    invoice 9,000/9,000 — same truck total, different per-firm split, and quota is
+    counted per firm).
+
+    Direction matters architecturally: `export` may not import `contracts`, so
+    quota cannot read the sale. `contracts` reaching down into `export` is the
+    allowed direction, which is why this lives here and not in `quota_sync`.
+
+    Other firms on the truck keep their weights — only this firm's is replaced
+    (the same shape the `swap` scope uses). A firm that is not on the truck at all
+    is skipped rather than added: putting a firm on a truck is a separate decision
+    and carries its own no-remaining-quota hard block.
+
+    Args:
+        sale: The ContractSale whose `quantity_kg` may have moved.
+        user: User performing the write (audit: `created_by` on the usage rows).
+
+    Returns:
+        True when a split weight was actually rewritten.
+    """
+    if not (sale.shipment_id and sale.export_firm_id and sale.quantity_kg):
+        return False
+
+    weights = {
+        fid: kg for fid, kg in sale.shipment.firm_splits.values_list(
+            'export_firm_id', 'weight_kg',
+        )
+    }
+    if sale.export_firm_id not in weights:
+        logger.info(
+            'Sale %s: firm %s is not on shipment %s — split weight not synced.',
+            sale.pk, sale.export_firm_id, sale.shipment_id,
+        )
+        return False
+    if weights[sale.export_firm_id] == sale.quantity_kg:
+        return False
+
+    weights[sale.export_firm_id] = sale.quantity_kg
+    _set_firm_weights(sale.shipment, weights, user)
+    return True
 
 
 class ShipmentPackingView(APIView):
@@ -789,16 +923,20 @@ class ShipmentPackingView(APIView):
     def post(self, request):
         from django.db import transaction
         from apps.export.models import PackingTemplate, Shipment
-        from apps.export.services.quota_sync import ApprovedQuotaExistsError
         from apps.contracts.models import ContractSale
 
         data = request.data
         shipment = (
             Shipment.objects.filter(pk=data.get('shipment'))
+            .select_related('season')
             .prefetch_related('firm_splits', 'sales').first()
         )
         if shipment is None:
             return Response({'error': 'Shipment not found.'}, status=404)
+
+        # Write freeze (D1) — see ShipmentFirmContractsView.post.
+        assert_season_open(shipment.season)
+
         scope = data.get('scope')
 
         if scope == 'template':
@@ -817,24 +955,21 @@ class ShipmentPackingView(APIView):
                               f'{len(firms)} firms. Pick a template that matches, or fix the firms.'},
                     status=400,
                 )
-            try:
-                with transaction.atomic():
-                    _set_firm_weights(
-                        shipment, {fid: shares[i].net_kg for i, fid in enumerate(firms)}, request.user,
-                    )
-                    # Copy each share's packing onto the firm's sale. A firm with no
-                    # linked ContractSale matches 0 rows — report it so the operator
-                    # knows to link a contract (weight/quota are still set above).
-                    no_sale_firms = []
-                    for i, fid in enumerate(firms):
-                        updated = ContractSale.objects.filter(
-                            shipment=shipment, export_firm_id=fid,
-                        ).update(**{f: getattr(shares[i], f) for f in _FIRM_PACKING_FIELDS})
-                        if updated == 0:
-                            no_sale_firms.append(fid)
-                    Shipment.objects.filter(pk=shipment.id).update(packing_template_id=template.id)
-            except ApprovedQuotaExistsError as exc:
-                return Response({'error': str(exc)}, status=400)
+            with transaction.atomic():
+                _set_firm_weights(
+                    shipment, {fid: shares[i].net_kg for i, fid in enumerate(firms)}, request.user,
+                )
+                # Copy each share's packing onto the firm's sale. A firm with no
+                # linked ContractSale matches 0 rows — report it so the operator
+                # knows to link a contract (weight/quota are still set above).
+                no_sale_firms = []
+                for i, fid in enumerate(firms):
+                    updated = ContractSale.objects.filter(
+                        shipment=shipment, export_firm_id=fid,
+                    ).update(**{f: getattr(shares[i], f) for f in _FIRM_PACKING_FIELDS})
+                    if updated == 0:
+                        no_sale_firms.append(fid)
+                Shipment.objects.filter(pk=shipment.id).update(packing_template_id=template.id)
             return Response({'scope': 'template', 'packing_template': template.id,
                              'no_sale_firms': no_sale_firms})
 
@@ -861,19 +996,16 @@ class ShipmentPackingView(APIView):
             # firms on a 3+ firm truck would be deleted by _set_firm_weights.
             new_weights = {fid: s.weight_kg for fid, s in splits.items()}
             new_weights[fa], new_weights[fb] = splits[fb].weight_kg, splits[fa].weight_kg
-            try:
-                with transaction.atomic():
-                    _set_firm_weights(shipment, new_weights, request.user)
-                    sales = {s.export_firm_id: s for s in ContractSale.objects.filter(
-                        shipment=shipment, export_firm_id__in=[fa, fb])}
-                    packing_swapped = fa in sales and fb in sales
-                    if packing_swapped:
-                        pa = {f: getattr(sales[fa], f) for f in _FIRM_PACKING_FIELDS}
-                        pb = {f: getattr(sales[fb], f) for f in _FIRM_PACKING_FIELDS}
-                        ContractSale.objects.filter(pk=sales[fa].id).update(**pb)
-                        ContractSale.objects.filter(pk=sales[fb].id).update(**pa)
-            except ApprovedQuotaExistsError as exc:
-                return Response({'error': str(exc)}, status=400)
+            with transaction.atomic():
+                _set_firm_weights(shipment, new_weights, request.user)
+                sales = {s.export_firm_id: s for s in ContractSale.objects.filter(
+                    shipment=shipment, export_firm_id__in=[fa, fb])}
+                packing_swapped = fa in sales and fb in sales
+                if packing_swapped:
+                    pa = {f: getattr(sales[fa], f) for f in _FIRM_PACKING_FIELDS}
+                    pb = {f: getattr(sales[fb], f) for f in _FIRM_PACKING_FIELDS}
+                    ContractSale.objects.filter(pk=sales[fa].id).update(**pb)
+                    ContractSale.objects.filter(pk=sales[fb].id).update(**pa)
             return Response({'scope': 'swap', 'export_firm_a': fa, 'export_firm_b': fb,
                              'packing_swapped': packing_swapped})
 

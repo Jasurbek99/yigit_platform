@@ -6,7 +6,10 @@ import {
   mergeServerScalars,
   applyOptimistic,
   reconcileFromServer,
+  rollback,
+  sheetKeyFor,
 } from './useShipmentPatch';
+import { SHEET_QUERY_KEY } from './useShipmentSheet';
 
 // Synthetic AxiosError builder — keeps tests focused on extractPatchError's
 // branching without pulling in a full axios mock.
@@ -121,31 +124,109 @@ describe('drawer single-shipment cache (task modal field edits)', () => {
     return data?.shipments.find((s) => s.id === 5);
   }
 
+  // seasonId (4th arg) only affects the full-season sheet cache key, which
+  // these tests never seed — passing a fixed value keeps them focused on the
+  // drawer-row-cache path (unaffected by which season is selected).
+  const SEASON_ID = 1;
+
   it('applyOptimistic writes the edited field into the drawer row cache', () => {
     const qc = seed();
-    applyOptimistic(qc, 5, { driver_name: 'Ali' });
+    applyOptimistic(qc, 5, { driver_name: 'Ali' }, SEASON_ID);
     expect(row(qc)?.driver_name).toBe('Ali');
   });
 
   it('a second field edit does not wipe the first (the reported bug)', () => {
     const qc = seed();
-    applyOptimistic(qc, 5, { driver_name: 'Ali' });
-    applyOptimistic(qc, 5, { driver_phone: '+99312' });
+    applyOptimistic(qc, 5, { driver_name: 'Ali' }, SEASON_ID);
+    applyOptimistic(qc, 5, { driver_phone: '+99312' }, SEASON_ID);
     expect(row(qc)?.driver_name).toBe('Ali'); // still there
     expect(row(qc)?.driver_phone).toBe('+99312');
   });
 
   it('reconcileFromServer folds server scalars into the drawer row cache', () => {
     const qc = seed();
-    applyOptimistic(qc, 5, { truck_plate: '29 AT 580' });
-    reconcileFromServer(qc, 5, { id: 5, truck_plate: '29 AT 580', driver_name: 'Ali' });
+    applyOptimistic(qc, 5, { truck_plate: '29 AT 580' }, SEASON_ID);
+    reconcileFromServer(qc, 5, { id: 5, truck_plate: '29 AT 580', driver_name: 'Ali' }, SEASON_ID);
     expect(row(qc)?.truck_plate).toBe('29 AT 580');
     expect(row(qc)?.driver_name).toBe('Ali');
   });
 
   it('does not create a phantom row cache entry when none exists', () => {
     const qc = new QueryClient(); // nothing seeded
-    applyOptimistic(qc, 5, { driver_name: 'Ali' });
+    applyOptimistic(qc, 5, { driver_name: 'Ali' }, SEASON_ID);
     expect(qc.getQueryData(ROW_KEY)).toBeUndefined();
+  });
+});
+
+// Regression guard: `sheetKeyFor()` (useShipmentPatch.ts) MUST stay pinned to
+// the literal key useShipmentSheet() actually caches under
+// (`[...SHEET_QUERY_KEY, seasonId]`, see useShipmentSheet.ts). This drifted
+// silently once already — Task 14 threaded seasonId into the sheet query key
+// but left applyOptimistic/rollback/reconcileFromServer writing to the old,
+// now-dead `['shipments','sheet']` key, so every optimistic Sheet edit still
+// PATCHed correctly on the network but the instant-repaint cache write landed
+// on an entry nothing reads, and a rollback-on-error restored nothing. The
+// four `drawer single-shipment cache` tests above never seed the full-season
+// key at all, so they would all still pass if this drifted again — these do.
+describe('full-season sheet cache (regression guard for the seasonId key drift)', () => {
+  const SEASON_ID = 1;
+  const SHEET_KEY = sheetKeyFor(SEASON_ID);
+
+  function seedSheet(driverName: string) {
+    const qc = new QueryClient();
+    qc.setQueryData(SHEET_KEY, {
+      shipments: [{ id: 5, driver_name: driverName, driver_phone: null, truck_plate: null }],
+      rows: [],
+      row_settings: {},
+    });
+    return qc;
+  }
+
+  function sheetRow(qc: QueryClient, key: readonly unknown[] = SHEET_KEY) {
+    const data = qc.getQueryData<{ shipments: Record<string, unknown>[] }>(key);
+    return data?.shipments.find((s) => s.id === 5);
+  }
+
+  it('sheetKeyFor(seasonId) is the exact key useShipmentSheet() constructs, not just a same-shaped one', () => {
+    // useShipmentSheet.ts builds its full-sheet queryKey as
+    // `[...SHEET_QUERY_KEY, seasonId]` — asserted here against the same
+    // imported SHEET_QUERY_KEY constant, so a future edit to either side that
+    // drifts the two apart fails this test, not a support ticket.
+    expect(sheetKeyFor(SEASON_ID)).toEqual([...SHEET_QUERY_KEY, SEASON_ID]);
+  });
+
+  it('applyOptimistic writes into the full-season sheet cache entry useShipmentSheet() reads', () => {
+    const qc = seedSheet('Before');
+    applyOptimistic(qc, 5, { driver_name: 'Ali' }, SEASON_ID);
+    expect(sheetRow(qc)?.driver_name).toBe('Ali');
+  });
+
+  it('rollback restores the full-season sheet cache entry to its pre-mutate snapshot', () => {
+    const qc = seedSheet('Before');
+    const ctx = applyOptimistic(qc, 5, { driver_name: 'Ali' }, SEASON_ID);
+    rollback(qc, ctx);
+    expect(sheetRow(qc)?.driver_name).toBe('Before');
+  });
+
+  it('reconcileFromServer folds server scalars into the full-season sheet cache entry', () => {
+    const qc = seedSheet('Before');
+    applyOptimistic(qc, 5, { truck_plate: '29 AT 580' }, SEASON_ID);
+    reconcileFromServer(qc, 5, { id: 5, truck_plate: '29 AT 580', driver_name: 'Ali' }, SEASON_ID);
+    expect(sheetRow(qc)?.truck_plate).toBe('29 AT 580');
+    expect(sheetRow(qc)?.driver_name).toBe('Ali');
+  });
+
+  it('a different season\'s cached sheet entry is left untouched', () => {
+    const qc = seedSheet('Before');
+    const otherSeasonKey = sheetKeyFor(2);
+    qc.setQueryData(otherSeasonKey, {
+      shipments: [{ id: 5, driver_name: 'OtherSeason' }],
+      rows: [],
+      row_settings: {},
+    });
+
+    applyOptimistic(qc, 5, { driver_name: 'Ali' }, SEASON_ID);
+
+    expect(sheetRow(qc, otherSeasonKey)?.driver_name).toBe('OtherSeason');
   });
 });

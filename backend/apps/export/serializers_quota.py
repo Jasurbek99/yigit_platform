@@ -64,8 +64,13 @@ class QuotaIssuanceSerializer(serializers.ModelSerializer):
             'created_at',
             'total_kg',
             'allocations',
+            'season',
         ]
-        read_only_fields = ['id', 'created_at', 'total_kg']
+        # `season` is server-stamped from get_active_season() on create (D10)
+        # and never reassigned afterwards — it is the write-freeze anchor, not
+        # a client-editable field. Read-only here so a client-supplied value
+        # is silently dropped rather than accepted and ignored inconsistently.
+        read_only_fields = ['id', 'created_at', 'total_kg', 'season']
 
     def get_total_kg(self, obj: QuotaIssuance) -> Decimal:
         return obj.total_kg

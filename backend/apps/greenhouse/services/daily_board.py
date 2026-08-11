@@ -19,6 +19,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.core.models import GreenhouseBlock, Season
+from apps.core.seasons import get_active_season
 from apps.core.services_workflow import create_audit_entry
 from apps.greenhouse.models import HarvestDayEntry, WeeklyHarvestPlan
 
@@ -28,10 +29,8 @@ logger = logging.getLogger(__name__)
 # explicit ``None`` (clear the value).
 UNSET = object()
 
-
-def get_active_season() -> Season | None:
-    """Return the currently active season, or None if none is configured."""
-    return Season.objects.filter(is_active=True).first()
+# Re-exported for existing callers (views_daily_board, services/__init__,
+# legacy.py) — the canonical implementation now lives in apps.core.seasons.
 
 
 def parse_kg(value) -> Decimal | None:

@@ -69,6 +69,11 @@ class Command(BaseCommand):
                 updated_at__lte=cutoff,
             )
             .exclude(status__phase='COMPLETE')
+            # Closed seasons are frozen (D1). Notification has no season FK
+            # (spec §4.6), so a notification generated here can never be
+            # scoped away afterwards — a closed-season shipment left stuck
+            # would otherwise notify management every hour indefinitely.
+            .filter(season__closed_at__isnull=True)
             .select_related('status')
             .only('id', 'shipment_code', 'updated_at', 'status_id', 'status__name_en', 'status__name_tk')
         )

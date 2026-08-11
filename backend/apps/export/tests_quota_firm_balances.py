@@ -6,8 +6,13 @@ Powers the firm-split editor's soft "no quota" warning:
 
 Coverage:
   - service: issued − approved-used = remaining; draft usage ignored;
-    firm with no allocation absent from the map; no active season → {}.
+    firm with no allocation absent from the map; no season → {}.
   - endpoint: export_manager 200 with expected shape; seller 403; anon 401.
+
+D11 (2026-08-06): the service now takes the season explicitly and anchors the
+issuance side on `QuotaIssuance.season` rather than an `issue_date` range, so
+every fixture issuance here has to be stamped with a season — an unstamped one
+belongs to no season and is correctly counted nowhere.
 """
 from datetime import date
 from decimal import Decimal
@@ -35,8 +40,12 @@ def _make_user(username: str, role: str) -> User:
     return user
 
 
-def _allocate(firm: ExportFirm, kg: str, issue_date=date(2026, 1, 10), product_type='tomato'):
-    issuance = QuotaIssuance.objects.create(issue_date=issue_date, product_type=product_type)
+def _allocate(firm: ExportFirm, kg: str, issue_date=date(2026, 1, 10), product_type='tomato',
+              season=None):
+    issuance = QuotaIssuance.objects.create(
+        issue_date=issue_date, product_type=product_type,
+        season=season or Season.objects.filter(is_active=True).first(),
+    )
     QuotaIssuanceFirmAllocation.objects.create(
         issuance=issuance, export_firm=firm, kg_quota=Decimal(kg),
     )
@@ -66,7 +75,7 @@ class FirmQuotaBalanceServiceTests(TestCase):
     def test_remaining_is_issued_minus_committed_used(self):
         _allocate(self.has_quota, '10000')
         _use(self.has_quota, '3000')  # approved
-        balances = compute_firm_quota_balances('tomato')
+        balances = compute_firm_quota_balances('tomato', self.season)
         row = balances[self.has_quota.id]
         self.assertEqual(row['issued_kg'], Decimal('10000'))
         self.assertEqual(row['used_kg'], Decimal('3000'))
@@ -77,7 +86,7 @@ class FirmQuotaBalanceServiceTests(TestCase):
         # assignment time, not wait for approval — otherwise it under-warns.
         _allocate(self.has_quota, '5000')
         _use(self.has_quota, '4000', status='draft')
-        row = compute_firm_quota_balances('tomato')[self.has_quota.id]
+        row = compute_firm_quota_balances('tomato', self.season)[self.has_quota.id]
         self.assertEqual(row['used_kg'], Decimal('4000'))
         self.assertEqual(row['remaining_kg'], Decimal('1000'))
 
@@ -85,23 +94,24 @@ class FirmQuotaBalanceServiceTests(TestCase):
         _allocate(self.has_quota, '10000')
         _use(self.has_quota, '3000', status='approved')
         _use(self.has_quota, '2000', status='draft')
-        row = compute_firm_quota_balances('tomato')[self.has_quota.id]
+        row = compute_firm_quota_balances('tomato', self.season)[self.has_quota.id]
         self.assertEqual(row['remaining_kg'], Decimal('5000'))
 
     def test_firm_used_to_zero_has_nonpositive_remaining(self):
         _allocate(self.used_up, '2000')
         _use(self.used_up, '2000')
-        row = compute_firm_quota_balances('tomato')[self.used_up.id]
+        row = compute_firm_quota_balances('tomato', self.season)[self.used_up.id]
         self.assertEqual(row['remaining_kg'], Decimal('0'))
 
     def test_firm_without_allocation_is_absent(self):
         _allocate(self.has_quota, '1000')
-        balances = compute_firm_quota_balances('tomato')
+        balances = compute_firm_quota_balances('tomato', self.season)
         self.assertNotIn(self.no_alloc.id, balances)
 
-    def test_no_active_season_returns_empty(self):
-        Season.objects.update(is_active=False)
-        self.assertEqual(compute_firm_quota_balances('tomato'), {})
+    def test_no_season_returns_empty(self):
+        """D7 fail-closed, now expressed at the service boundary: the caller
+        resolves the season and passes None during the close→open gap."""
+        self.assertEqual(compute_firm_quota_balances('tomato', None), {})
 
 
 class FirmQuotaBalanceEndpointTests(TestCase):

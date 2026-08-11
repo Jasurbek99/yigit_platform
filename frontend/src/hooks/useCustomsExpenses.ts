@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
+import { IDEMPOTENCY_HEADER, useIdempotencyKey } from '@/hooks/useIdempotencyKey';
 import { getShipmentDetailKey } from './useShipmentDetail';
+import { useSelectedSeason } from '@/hooks/useSeasonParam';
 import type { IApiListResponse } from '@/types';
 import type {
   ICustomsExpense,
@@ -12,8 +14,9 @@ import type {
 // ─── List ─────────────────────────────────────────────────────────────────────
 
 export function useCustomsExpenses(filters: ICustomsExpenseFilters = {}): ReturnType<typeof useQuery<IApiListResponse<ICustomsExpense>>> {
+  const { seasonId, isReady } = useSelectedSeason();
   return useQuery({
-    queryKey: ['customs-expenses', filters],
+    queryKey: ['customs-expenses', seasonId, filters],
     queryFn: async (): Promise<IApiListResponse<ICustomsExpense>> => {
       const params = new URLSearchParams();
       if (filters.page) params.set('page', String(filters.page));
@@ -24,12 +27,14 @@ export function useCustomsExpenses(filters: ICustomsExpenseFilters = {}): Return
       if (filters.date_from) params.set('date_from', filters.date_from);
       if (filters.date_to) params.set('date_to', filters.date_to);
       if (filters.search) params.set('search', filters.search);
+      if (seasonId != null) params.set('season', String(seasonId));
 
       const { data } = await api.get<IApiListResponse<ICustomsExpense>>(
         `/export/customs-expenses/?${params.toString()}`,
       );
       return data;
     },
+    enabled: isReady,
     staleTime: 30_000,
   });
 }
@@ -42,18 +47,21 @@ interface ILedgerFilters {
 }
 
 export function useCustomsLedger(dateRange: ILedgerFilters = {}): ReturnType<typeof useQuery<ICustomsLedger>> {
+  const { seasonId, isReady } = useSelectedSeason();
   return useQuery({
-    queryKey: ['customs-ledger', dateRange],
+    queryKey: ['customs-ledger', seasonId, dateRange],
     queryFn: async (): Promise<ICustomsLedger> => {
       const params = new URLSearchParams();
       if (dateRange.date_from) params.set('date_from', dateRange.date_from);
       if (dateRange.date_to) params.set('date_to', dateRange.date_to);
+      if (seasonId != null) params.set('season', String(seasonId));
 
       const { data } = await api.get<ICustomsLedger>(
         `/export/customs-expenses/ledger/?${params.toString()}`,
       );
       return data;
     },
+    enabled: isReady,
     staleTime: 30_000,
   });
 }
@@ -62,15 +70,18 @@ export function useCustomsLedger(dateRange: ILedgerFilters = {}): ReturnType<typ
 
 export function useCreateCustomsExpense(): ReturnType<typeof useMutation<ICustomsExpense, Error, ICustomsExpensePayload>> {
   const queryClient = useQueryClient();
+  const idem = useIdempotencyKey();
   return useMutation({
     mutationFn: async (payload: ICustomsExpensePayload): Promise<ICustomsExpense> => {
       const { data } = await api.post<ICustomsExpense>(
         '/export/customs-expenses/',
         payload,
+        { headers: { [IDEMPOTENCY_HEADER]: idem.key } },
       );
       return data;
     },
     onSuccess: (data) => {
+      idem.reset();
       void queryClient.invalidateQueries({ queryKey: ['customs-expenses'] });
       void queryClient.invalidateQueries({ queryKey: ['customs-ledger'] });
       if (data.shipment) {

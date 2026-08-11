@@ -6,9 +6,9 @@ related: [[../roles/boss]], [[../roles/roles-matrix]], [[../api-endpoint-map]]
 
 # Boss Dashboard
 
-Executive analytics view at `/boss/dashboard`. Available to `boss` (read-only, only page they see) and `director` (full nav + this dashboard).
+Executive analytics view at `/boss/dashboard`. Available to `boss` and `director`. Before the 2026-08-05 boss-process-visibility widening this was `boss`'s only visible page (read-only, dashboard-only); `boss` now has full page/resource access across the app (see [[../roles/boss]]) but this dashboard remains his default landing page and daily habit — a 30-second check, mostly mobile.
 
-Backend: `BossAnalyticsViewSet` at `/api/v1/export/boss/<action>/` — 15 endpoints, all gated by `IsBossOrDirector`, all cached for 60s.
+Backend: `BossAnalyticsViewSet` at `/api/v1/export/boss/<action>/` — 17 endpoints (added `process-doc` + `process-doc-links`, 2026-08-06), all gated by `IsBossOrDirector`. Most are cached for 60s; `process-doc` (serves a static file) and `process-doc-links` (a small always-fresh mapping table) are not.
 
 ## Page layout
 
@@ -17,7 +17,7 @@ Top toolbar:
 - **Period switcher** (URL-backed via `useSearchParams`): Şu gün · Hepde · Aý (default) · Möwsüm · 5 ýyl
 - **Export dropdown** (Excel / PDF) — opens a section sub-menu
 
-Body — 13 widget groups, in this order:
+Body — 14 widget groups, in this order:
 
 | # | Component | Endpoint | Notes |
 |---|---|---|---|
@@ -34,6 +34,7 @@ Body — 13 widget groups, in this order:
 | 11 | `ProductionResults.tsx` | `GET /production/?scope=daily\|seasonal` | Two stacked tables (daily + seasonal) |
 | 12 | `ExportMarketByBlock.tsx` | `GET /export_market/` | Daşarky Bazar only — Içerki/Sowgatlyk excluded |
 | 13 | `ReportsGrid.tsx` | triggers `/export_excel/` and `/export_pdf/` | 6 download tiles |
+| 14 | `ProcessGuides.tsx` | `GET /process-doc/?doc=<slug>`, `GET /process-doc-links/` (BPMN diagram fetches this one directly, not through the React app) | Two tiles opening process-explainer docs from `docs/how_works/` in a new tab; full mechanism + security notes in [[../roles/boss#Process guides (2026-08-06)]] |
 
 ## KPI definitions
 

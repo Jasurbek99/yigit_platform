@@ -17,9 +17,20 @@ vi.mock('@/hooks/useShipmentPatch', () => ({
   useShipmentPatchMulti: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
+// useSeasonReadOnly() reads the URL (?season=) via useSearchParams, which needs
+// a Router this drawer test intentionally doesn't provide. It returns a plain
+// boolean; stub it to false (not read-only) so the injection logic under test
+// is unchanged.
+vi.mock('@/hooks/useSeasonReadOnly', () => ({
+  useSeasonReadOnly: () => false,
+}));
+
 vi.mock('@/hooks/useFleet', () => ({
   useTruckHeads: () => ({ data: [{ id: 101, plate_number: '01ABC123', owner_type: 'company', status: 'idle', has_gps: true }] }),
   useTrailers: () => ({ data: [] }),
+  // ShipmentTruckSelector's inline "+ Add" (SP3c) also pulls the create hooks.
+  useCreateTruckHead: () => ({ mutateAsync: vi.fn() }),
+  useCreateTrailer: () => ({ mutateAsync: vi.fn() }),
 }));
 
 // FieldEditor unconditionally calls every reference-data hook it might need

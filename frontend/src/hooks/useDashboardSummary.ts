@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import api from '@/services/api';
+import { useSelectedSeason } from '@/hooks/useSeasonParam';
 
 // ─── Response interfaces ──────────────────────────────────────────────────────
 
@@ -72,10 +73,16 @@ export interface IDashboardSummary {
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useDashboardSummary() {
+  const { seasonId, isReady } = useSelectedSeason();
   return useQuery<IDashboardSummary>({
-    queryKey: ['dashboard', 'summary'],
+    queryKey: ['dashboard', 'summary', seasonId],
     queryFn: () =>
-      api.get<IDashboardSummary>('/export/dashboard/summary/').then((r) => r.data),
+      api
+        .get<IDashboardSummary>('/export/dashboard/summary/', {
+          params: seasonId != null ? { season: seasonId } : {},
+        })
+        .then((r) => r.data),
+    enabled: isReady,
     staleTime: 60_000,
   });
 }

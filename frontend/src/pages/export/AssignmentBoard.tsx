@@ -4,11 +4,14 @@ import { Alert, Modal, Spin, Tag, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { useDrafts, useAssignDraft } from '@/hooks/useDrafts';
+import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
 import { MOCK_DEMAND } from '@/mock/demand';
 import { SupplyCard } from './assignment/SupplyCard';
 import { DemandCard } from './assignment/DemandCard';
 import { MatchPanel } from './assignment/MatchPanel';
 import { getDemandGroups } from './assignment/assignmentHelpers';
+import { useAuth } from '@/hooks/useAuth';
+import { canDo } from '@/utils/permissions';
 import { COLORS } from '@/constants/styles';
 
 const { Text, Title } = Typography;
@@ -18,8 +21,18 @@ export default function AssignmentBoard() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
+  const { user } = useAuth();
   const { data: drafts = [], isLoading: draftsLoading } = useDrafts();
   const assignDraft = useAssignDraft();
+  // `useDrafts()` reads whatever season is browsed (Task 14); the assign
+  // mutation targets `selectedDraft.id`, a real shipment in that same
+  // browsed season — unlike Initialize Week / Add Shipment, this CAN 409.
+  const isReadOnly = useSeasonReadOnly();
+
+  // Assigning a draft promotes it to `yuklenme` through the state machine, so
+  // the boss's view/edit toggle must cover it. The backend accepts boss on
+  // /assign/ (2026-08-05) — this only decides whether the button is offered.
+  const canAssign = canDo(user, 'shipment_assign', 'edit');
 
   const [selectedDraftId, setSelectedDraftId] = useState<number | null>(null);
   const [selectedDemandId, setSelectedDemandId] = useState<number | null>(null);
@@ -203,11 +216,13 @@ export default function AssignmentBoard() {
             draft={selectedDraft}
             demand={selectedDemand}
             onConfirm={handleConfirm}
+            isReadOnly={isReadOnly}
             onClear={() => {
               setSelectedDraftId(null);
               setSelectedDemandId(null);
             }}
             isLoading={assignDraft.isPending}
+            canConfirm={canAssign}
           />
         </div>
 

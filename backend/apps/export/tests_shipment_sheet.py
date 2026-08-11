@@ -392,13 +392,14 @@ class SheetJunctionEndpointTests(TestCase):
         )
         self.assertEqual(resp.status_code, 200, resp.data)
         self.assertEqual(self.shipment.firm_splits.count(), 2)
-        # Draft QuotaUsageRecord must be auto-created — one per firm
-        draft_records = QuotaUsageRecord.objects.filter(
-            shipment=self.shipment, status='draft',
+        # QuotaUsageRecord must be auto-created — one per firm, counting
+        # immediately (`approved`; the review step was removed 2026-08-10).
+        usage_records = QuotaUsageRecord.objects.filter(
+            shipment=self.shipment, status='approved',
         )
-        self.assertEqual(draft_records.count(), 2)
+        self.assertEqual(usage_records.count(), 2)
         # kg_used mirrors each firm's actual split weight, not the flat default
-        kg_by_firm = dict(draft_records.values_list('export_firm_id', 'kg_used'))
+        kg_by_firm = dict(usage_records.values_list('export_firm_id', 'kg_used'))
         self.assertEqual(kg_by_firm[self.firm_a.id], Decimal('9000.00'))
         self.assertEqual(kg_by_firm[self.firm_b.id], Decimal('9500.00'))
 
@@ -415,7 +416,7 @@ class SheetJunctionEndpointTests(TestCase):
         self.assertEqual(resp.status_code, 200, resp.data)
         split_kg = dict(self.shipment.firm_splits.values_list('export_firm_id', 'weight_kg'))
         usage_kg = dict(
-            QuotaUsageRecord.objects.filter(shipment=self.shipment, status='draft')
+            QuotaUsageRecord.objects.filter(shipment=self.shipment, status='approved')
             .values_list('export_firm_id', 'kg_used')
         )
         self.assertEqual(usage_kg, split_kg)
@@ -521,7 +522,7 @@ class SheetJunctionEndpointTests(TestCase):
         # 18100 / 2 = 9050; weight_kg has 2 decimal places
         self.assertTrue(all(w.startswith('9050') for w in weights), weights)
 
-    def test_firm_splits_blocked_when_approved_quota_usage_exists(self):
+    def test_firm_splits_replace_existing_approved_quota_usage(self):
         ShipmentFirmSplit.objects.create(
             shipment=self.shipment, export_firm=self.firm_a,
             weight_kg='18500', split_order=1,
@@ -535,16 +536,35 @@ class SheetJunctionEndpointTests(TestCase):
             status='approved',
             created_by=self.user,
         )
+        # firm_b is NEW on this split, so the "no remaining quota" hard block
+        # would refuse it before the approved-rows question is even reached.
+        # Give it real quota so this test measures what it claims to.
+        from django.core.cache import cache
+        from apps.export.models import QuotaIssuance, QuotaIssuanceFirmAllocation
+        issuance = QuotaIssuance.objects.create(
+            issue_date=date(2026, 2, 1), product_type='tomato',
+            season=self.shipment.season,
+        )
+        QuotaIssuanceFirmAllocation.objects.create(
+            issuance=issuance, export_firm=self.firm_b, kg_quota=Decimal('100000'),
+        )
+        cache.clear()
+
         resp = self.client.post(
             f'/api/v1/export/shipments/{self.shipment.id}/firm-splits/',
             {'firms': [{'export_firm_id': self.firm_b.id, 'weight_kg': 18000}]},
             format='json',
         )
-        self.assertEqual(resp.status_code, 400, resp.data)
-        self.assertIn('approved quota usage', resp.data['error'])
-        # Splits unchanged
+        # Used to be a 400 ("approved quota usage records exist. Delete them
+        # first."). With the approval step gone every shipment-linked row is
+        # born approved, so that guard would have refused EVERY split edit made
+        # after the first save. The old rows are replaced, not defended.
+        self.assertEqual(resp.status_code, 200, resp.data)
         self.assertEqual(self.shipment.firm_splits.count(), 1)
-        self.assertEqual(self.shipment.firm_splits.first().export_firm_id, self.firm_a.id)
+        self.assertEqual(self.shipment.firm_splits.first().export_firm_id, self.firm_b.id)
+        usage = QuotaUsageRecord.objects.filter(shipment=self.shipment)
+        self.assertEqual([u.export_firm_id for u in usage], [self.firm_b.id])
+        self.assertEqual(usage.first().status, 'approved')
 
 
 # ============================================================================

@@ -16,12 +16,14 @@ from decimal import Decimal
 from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.core.models import (
     Country,
     Customer,
     GreenhouseBlock,
+    RoleResourcePermission,
     Season,
     ShipmentStatusType,
     User,
@@ -30,6 +32,7 @@ from apps.export.models import (
     CustomsExpense,
     CustomsExpenseCategory,
     FinansistAdvance,
+    FinansistAdvanceShipment,
     Shipment,
     ShipmentBlockSource,
 )
@@ -62,8 +65,11 @@ class CustomsExpenseSetUpMixin(TestCase):
 
     def setUp(self):
         _create_all_statuses()
+        # is_active=True: CustomsExpenseViewSet.get_queryset() now fails closed
+        # (Task 6 season scoping) when resolve_season() finds no active season.
         self.season = Season.objects.create(
-            name='2025-2026', start_date='2025-09-01', end_date='2026-06-30'
+            name='2025-2026', start_date='2025-09-01', end_date='2026-06-30',
+            is_active=True,
         )
         self.country = Country.objects.create(
             name_tk='TM', name_en='Turkmenistan', name_ru='TM', code='TM'
@@ -297,8 +303,29 @@ class TestCustomsExpenseValidation(CustomsExpenseSetUpMixin):
 class TestCustomsExpenseLedger(CustomsExpenseSetUpMixin):
     """Test /ledger/ aggregation endpoint."""
 
-    def _create_advance(self, amount: str, advance_date: str = '2026-06-10') -> FinansistAdvance:
-        return FinansistAdvance.objects.create(
+    def setUp(self):
+        super().setUp()
+        # A second, closed, season + a shipment inside it — for the
+        # season-scoping cases below. Kept out of CustomsExpenseSetUpMixin
+        # since the other test classes in this file don't need it.
+        self.closed_season = Season.objects.create(
+            name='2024-2025', start_date='2024-09-01', end_date='2025-06-30',
+            closed_at=timezone.now(),
+        )
+        self.closed_shipment = Shipment.objects.create(
+            shipment_code='TEST-CE-CLS',
+            date='2025-06-01',
+            season=self.closed_season,
+            status=self.draft_status,
+            country=self.country,
+            customer=self.customer,
+            has_peregruz=False,
+        )
+
+    def _create_advance(
+        self, amount: str, advance_date: str = '2026-06-10', shipment=None,
+    ) -> FinansistAdvance:
+        advance = FinansistAdvance.objects.create(
             advance_date=advance_date,
             total_amount=Decimal(amount),
             # Manat: the ledger scopes both sides to one currency (default TMT),
@@ -306,9 +333,12 @@ class TestCustomsExpenseLedger(CustomsExpenseSetUpMixin):
             currency='TMT',
             issued_by=self.writer,
         )
+        if shipment is not None:
+            FinansistAdvanceShipment.objects.create(advance=advance, shipment=shipment)
+        return advance
 
     def _create_expense(
-        self, amount: str, category: str, expense_date: str = '2026-06-15'
+        self, amount: str, category: str, expense_date: str = '2026-06-15', shipment=None,
     ) -> CustomsExpense:
         return CustomsExpense.objects.create(
             expense_date=expense_date,
@@ -316,6 +346,7 @@ class TestCustomsExpenseLedger(CustomsExpenseSetUpMixin):
             amount=Decimal(amount),
             currency='TMT',
             created_by=self.writer,
+            shipment=shipment,
         )
 
     def test_ledger_totals_and_balance(self):
@@ -439,6 +470,86 @@ class TestCustomsExpenseLedger(CustomsExpenseSetUpMixin):
         usd = self.client.get(self._ledger_url(), {'currency': 'USD'})
         self.assertEqual(Decimal(usd.data['advances_total']), Decimal('9999.00'))
         self.assertEqual(Decimal(usd.data['expenses_total']), Decimal('0'))
+
+    def test_ledger_excludes_closed_season_money(self):
+        """Closed-season expenses/advances must not leak into the default
+        (active-season) ledger — balance, by_category, and by_date must all
+        agree.
+        """
+        self._create_expense(
+            '999.00', CustomsExpenseCategory.GUMRUKLEME, expense_date='2025-01-10',
+            shipment=self.closed_shipment,
+        )
+        self._create_advance('888.00', advance_date='2025-01-10', shipment=self.closed_shipment)
+        # Active-season money — must still show up.
+        self._create_expense('100.00', CustomsExpenseCategory.FITO)
+        self._create_advance('50.00')
+
+        self._login(self.writer)
+        response = self.client.get(self._ledger_url())
+        self.assertEqual(response.status_code, 200, response.data)
+
+        self.assertEqual(Decimal(response.data['expenses_total']), Decimal('100.00'))
+        self.assertEqual(Decimal(response.data['advances_total']), Decimal('50.00'))
+        self.assertEqual(Decimal(response.data['balance']), Decimal('-50.00'))
+
+        categories = {row['category'] for row in response.data['by_category']}
+        self.assertNotIn('GUMRUKLEME', categories)
+        self.assertIn('FITO', categories)
+
+        dates = {row['date'] for row in response.data['by_date']}
+        self.assertNotIn('2025-01-10', dates)
+
+    def test_ledger_denied_without_permission_for_closed_season(self):
+        """?season=<closed> without closed_season.can_view must 403, not
+        silently return an empty (or worse, unscoped) ledger.
+        """
+        self._create_expense(
+            '50.00', CustomsExpenseCategory.FITO, expense_date='2025-01-10',
+            shipment=self.closed_shipment,
+        )
+        self._login(self.writer)
+        response = self.client.get(self._ledger_url(), {'season': self.closed_season.pk})
+        self.assertEqual(response.status_code, 403)
+
+    def test_ledger_visible_with_permission_for_closed_season(self):
+        """With the grant, ?season=<closed> surfaces that season's money —
+        proving the exclusion above is season-scoping, not a permanent hole.
+        """
+        RoleResourcePermission.objects.update_or_create(
+            role='export_manager', resource_code='closed_season', defaults={'can_view': True},
+        )
+        self._create_expense(
+            '50.00', CustomsExpenseCategory.FITO, expense_date='2025-01-10',
+            shipment=self.closed_shipment,
+        )
+        self._create_advance('75.00', advance_date='2025-01-10', shipment=self.closed_shipment)
+        # Active-season money must NOT leak into the closed-season view either.
+        self._create_expense('999.00', CustomsExpenseCategory.GUMRUKLEME)
+
+        self._login(self.writer)
+        response = self.client.get(self._ledger_url(), {'season': self.closed_season.pk})
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(Decimal(response.data['expenses_total']), Decimal('50.00'))
+        self.assertEqual(Decimal(response.data['advances_total']), Decimal('75.00'))
+
+    def test_ledger_no_active_season_returns_all_zero(self):
+        """D7 on the ledger too: during the close→open gap, the ledger must
+        fail closed (all zeros / empty breakdowns) rather than mixing every
+        season's cash together.
+        """
+        Season.objects.filter(pk=self.season.pk).update(is_active=False)
+        self._create_expense('50.00', CustomsExpenseCategory.FITO)
+        self._create_advance('75.00')
+
+        self._login(self.writer)
+        response = self.client.get(self._ledger_url())
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data['advances_total'], '0')
+        self.assertEqual(response.data['expenses_total'], '0')
+        self.assertEqual(response.data['balance'], '0')
+        self.assertEqual(response.data['by_category'], [])
+        self.assertEqual(response.data['by_date'], [])
 
 
 class TestCustomsExpenseOnShipmentDetail(CustomsExpenseSetUpMixin):

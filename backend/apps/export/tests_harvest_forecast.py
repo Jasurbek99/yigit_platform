@@ -583,3 +583,121 @@ class DraftCreateDrawdownTests(TestCase):
         )
         # 201 Created expected (non-draft, no pool check).
         self.assertEqual(resp.status_code, 201, resp.data)
+
+
+# ---------------------------------------------------------------------------
+# Tests: season scoping on GET .../harvest-forecast/remaining/
+# ---------------------------------------------------------------------------
+
+class RemainingPoolSeasonScopeTests(TestCase):
+    """The remaining-pool read is season-scoped (AD-16), like `block-summary`.
+
+    `get_remaining_for_date()` filtered `HarvestDayEntry` on `entry_date`
+    alone over a model with a non-null `season` FK — the same shape as
+    `harvest-plans/block-summary`, which was fixed for exactly this reason.
+    Seasons run Sept→Aug and never overlap, so a date inside a closed season
+    *is* a closed-season request with no `?season=` parameter at all, and
+    therefore with nothing for a permission check to hang off. Any
+    authenticated user could read a closed season's per-block forecast and
+    allocated kg.
+
+    The write validators (draft-create `validate()` and the race-safe
+    `assert_draw_within_pool`) deliberately keep calling the service with no
+    season — see its docstring.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        from django.core.management import call_command
+        from django.utils import timezone
+
+        GreenhouseConfig.get_solo()
+        call_command('seed_permissions')
+
+        cls.active = Season.objects.create(
+            name='FS-ACT', start_date='2026-08-01', end_date='2027-06-30', is_active=True,
+        )
+        cls.closed = Season.objects.create(
+            name='FS-CLS', start_date='2025-09-01', end_date='2026-06-30',
+            closed_at=timezone.now(),
+        )
+        cls.block, _ = GreenhouseBlock.objects.get_or_create(
+            code='FS-A', defaults={'name': 'FS Block A', 'is_active': True},
+        )
+        # A forecast inside the CLOSED season only.
+        cls.closed_date = datetime.date(2026, 3, 2)  # Monday, inside FS-CLS
+        _make_plan_and_entry(cls.closed, cls.block, cls.closed_date, Decimal('40000.00'))
+
+        # export_manager holds closed_season.can_view per the AD-16 seed;
+        # document_team does not.
+        cls.permitted = _make_user('fs_em', 'export_manager')
+        cls.unpermitted = _make_user('fs_dt', 'document_team')
+
+    def setUp(self):
+        self.client = APIClient()
+
+    def _get(self, user, **params):
+        self.client.force_authenticate(user=user)
+        query = '&'.join(f'{k}={v}' for k, v in params.items())
+        return self.client.get(f'/api/v1/export/harvest-forecast/remaining/?{query}')
+
+    def test_closed_season_date_is_not_readable_by_default(self):
+        """The leak: a date inside a closed season, no `?season=` at all."""
+        resp = self._get(self.unpermitted, date=self.closed_date)
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertEqual(resp.data, [])
+
+    def test_closed_season_readable_with_permission_and_explicit_season(self):
+        resp = self._get(self.permitted, date=self.closed_date, season=self.closed.id)
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertEqual(len(resp.data), 1)
+        self.assertEqual(resp.data[0]['forecast_kg'], '40000.00')
+
+    def test_closed_season_denied_without_permission(self):
+        resp = self._get(self.unpermitted, date=self.closed_date, season=self.closed.id)
+        self.assertEqual(resp.status_code, 403, resp.content)
+
+    def test_unknown_season_returns_404(self):
+        resp = self._get(self.permitted, date=self.closed_date, season=999999)
+        self.assertEqual(resp.status_code, 404, resp.content)
+
+    def test_active_season_date_still_resolves(self):
+        """Control — the only shape the UI actually sends must be unchanged."""
+        active_date = datetime.date(2026, 9, 7)  # Monday, inside FS-ACT
+        _make_plan_and_entry(self.active, self.block, active_date, Decimal('12000.00'))
+        resp = self._get(self.permitted, date=active_date)
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertEqual(len(resp.data), 1)
+        self.assertEqual(resp.data[0]['remaining_kg'], '12000.00')
+
+
+class RemainingPoolNoActiveSeasonTests(TestCase):
+    """D7 fail-closed: during the close→open gap the pool is empty, not the
+    just-closed season's."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from django.core.management import call_command
+        from django.utils import timezone
+
+        GreenhouseConfig.get_solo()
+        call_command('seed_permissions')
+        cls.closed = Season.objects.create(
+            name='FG-CLS', start_date='2025-09-01', end_date='2026-06-30',
+            closed_at=timezone.now(),
+        )
+        cls.block, _ = GreenhouseBlock.objects.get_or_create(
+            code='FG-A', defaults={'name': 'FG Block A', 'is_active': True},
+        )
+        cls.closed_date = datetime.date(2026, 3, 2)
+        _make_plan_and_entry(cls.closed, cls.block, cls.closed_date, Decimal('40000.00'))
+        cls.user = _make_user('fg_em', 'export_manager')
+
+    def test_no_active_season_returns_empty_pool(self):
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+        resp = client.get(
+            f'/api/v1/export/harvest-forecast/remaining/?date={self.closed_date}'
+        )
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertEqual(resp.data, [])

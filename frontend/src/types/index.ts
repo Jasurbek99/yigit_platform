@@ -43,6 +43,10 @@ export interface ICurrentUser {
   page_permissions: Record<string, boolean>;
   resource_permissions: Record<string, IResourcePermission>;
   field_permissions: Record<string, string[]>;
+  /** The write-target season, or null during the legitimate close→open gap. */
+  active_season: { id: number; name: string; status: SeasonStatus } | null;
+  /** Whether this user may select a closed season in the switcher. */
+  can_view_closed_seasons: boolean;
 }
 
 // â”€â”€â”€ Reference â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1411,12 +1415,32 @@ export interface IBlockAssignment {
   is_active: boolean;
 }
 
+export type SeasonStatus = 'UPCOMING' | 'ACTIVE' | 'CLOSED';
+
 export interface ISeason {
   id: number;
   name: string;
   start_date: string;
   end_date: string;
   is_active: boolean;
+  status: SeasonStatus;
+  closed_at: string | null;
+  closed_by: number | null;
+  closed_by_name: string | null;
+}
+
+/** Counters shown in the close-season confirm dialog (`GET .../close-preview/`). */
+export interface ISeasonClosePreview {
+  drafts: number;
+  in_transit: number;
+  open_tasks: number;
+  unfinished_plans: number;
+  /**
+   * Draft quota-usage rows in the season. Unlike the four above — which are
+   * hidden and return read-only — these become permanently unapprovable once
+   * the season is closed, so the dialog warns separately when it is > 0.
+   */
+  draft_quota_usage: number;
 }
 
 export interface IAdminUser {
@@ -1934,4 +1958,14 @@ export interface IDocumentPacketFilters {
   firm?: number;
   page?: number;
   pageSize?: number;
+}
+
+// ─── Process node links (boss BPMN diagram -> screen mapping) ──────────────
+
+export interface IProcessNodeLink {
+  id: number;
+  node_id: string;
+  label: string;
+  route: string;
+  is_active: boolean;
 }

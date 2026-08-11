@@ -1,4 +1,6 @@
-import axios, { type AxiosInstance } from 'axios';
+import axios, { type AxiosError, type AxiosInstance } from 'axios';
+import { toast } from 'sonner';
+import i18n from '@/i18n';
 
 const api: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
@@ -23,17 +25,60 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+interface ISeasonClosedError {
+  error: 'season_closed';
+  season: string;
+  closed_at: string;
+}
+
+function isSeasonClosedError(data: unknown): data is ISeasonClosedError {
+  return typeof data === 'object' && data !== null && 'error' in data && data.error === 'season_closed';
+}
+
+interface IIdempotencyInProgressError {
+  error: 'idempotency_in_progress';
+}
+
+function isIdempotencyInProgress(data: unknown): data is IIdempotencyInProgressError {
+  return typeof data === 'object' && data !== null && 'error' in data
+    && data.error === 'idempotency_in_progress';
+}
+
 // Redirect to login on 401 — but NOT for the login endpoint itself,
 // otherwise bad-credential errors trigger a redirect and the page's
 // onError toast never renders.
+//
+// Also: any write rejected with 409 `{"error": "season_closed", ...}` gets a
+// toast here, app-wide, regardless of which page or mutation hook fired it.
+// This is the safety NET, not the mechanism — every create/edit/delete
+// control that can target a closed season is meant to be disabled by
+// `useSeasonReadOnly()` before the request ever fires. But disabling is a
+// per-page effort and this task didn't reach every page, and a control could
+// always be missed — so if a 409 season_closed does land, the user sees an
+// intelligible message here instead of whatever generic "failed" toast (or
+// none at all) the calling mutation's own onError happens to show.
+// Exported so the branches can be unit-tested — an anonymous inline callback
+// is unreachable from a test without a full HTTP mock.
+export function handleApiResponseError(error: AxiosError): void {
+  const url = error.config?.url ?? '';
+  const isLoginRequest = url.includes('/auth/login');
+  if (error.response?.status === 401 && !isLoginRequest) {
+    window.location.href = '/login';
+  }
+  if (error.response?.status === 409 && isSeasonClosedError(error.response.data)) {
+    toast.error(i18n.t('season.closed_error'));
+  }
+  // A 409 here means the FIRST attempt is still running, so the operator must
+  // wait rather than press Save a third time.
+  if (error.response?.status === 409 && isIdempotencyInProgress(error.response.data)) {
+    toast.error(i18n.t('common.request_in_progress'));
+  }
+}
+
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    const url = error.config?.url ?? '';
-    const isLoginRequest = url.includes('/auth/login');
-    if (error.response?.status === 401 && !isLoginRequest) {
-      window.location.href = '/login';
-    }
+  (error: AxiosError) => {
+    handleApiResponseError(error);
     return Promise.reject(error);
   },
 );

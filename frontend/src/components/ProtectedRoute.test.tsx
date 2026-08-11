@@ -23,6 +23,8 @@ function fakeUser(overrides: Partial<ICurrentUser> = {}): ICurrentUser {
     page_permissions: {},
     resource_permissions: {},
     field_permissions: {},
+    active_season: { id: 1, name: '2026/2027', status: 'ACTIVE' },
+    can_view_closed_seasons: false,
     ...overrides,
   };
 }

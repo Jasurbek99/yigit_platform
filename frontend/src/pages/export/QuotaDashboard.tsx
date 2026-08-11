@@ -29,6 +29,7 @@ import { QuotaWeeklyFlow } from './QuotaWeeklyFlow';
 import { LocalSellPlanGrid } from './LocalSellPlanGrid';
 import { QuotaIssuancesList } from './QuotaIssuancesList';
 import { computeExpiry } from './QuotaIssuancesList.helpers';
+import { seasonsVisibleTo } from './QuotaDashboard.helpers';
 import { QuotaUsageTab } from './QuotaUsageTab';
 import type { ISeason } from '@/types';
 import { COLORS } from '@/constants/styles';
@@ -120,12 +121,22 @@ export default function QuotaDashboard() {
   // Full analytics: comparison tabs (Firm Chart, Weekly Trend) — export_manager/director
   const canSeeAnalytics = canDo(user, 'local_sell_plan', 'view');
 
-  // Season selection
+  // Season selection. Closed seasons are hidden from anyone without
+  // `closed_season.can_view` — the backend resolves this filter's `?season=`
+  // through `resolve_season()`, so picking one would 403 and the page would
+  // show nothing but "Failed to load quota data". The DEFAULT comes from the
+  // same filtered list: during the close→open gap there is no ACTIVE season,
+  // and falling back to `seasons[0]` would silently default an unpermitted
+  // user onto the most recent closed one.
   const { data: seasons = [] } = useSeasons();
-  const activeSeason = seasons.find((s) => s.is_active) ?? seasons[0];
+  const selectableSeasons = useMemo(
+    () => seasonsVisibleTo(seasons, user?.can_view_closed_seasons ?? false),
+    [seasons, user?.can_view_closed_seasons],
+  );
+  const activeSeason = selectableSeasons.find((s) => s.is_active) ?? selectableSeasons[0];
   const [selectedSeasonId, setSelectedSeasonId] = useState<number | undefined>(undefined);
   const seasonId = selectedSeasonId ?? activeSeason?.id;
-  const currentSeason = seasons.find((s) => s.id === seasonId);
+  const currentSeason = selectableSeasons.find((s) => s.id === seasonId);
 
   // Period selection
   const [period, setPeriod] = useState<IPeriodState>(EMPTY_PERIOD);
@@ -138,9 +149,12 @@ export default function QuotaDashboard() {
 
   const navigate = useNavigate();
 
-  // Active tab — derive from the first visible tab to avoid pointing at a hidden one
+  // Active tab — derive from the first visible tab to avoid pointing at a hidden one.
+  // `quota_usage` leads: it is the day-to-day screen (what each truck spent),
+  // while the issuance log is consulted occasionally. Must stay in step with the
+  // order of `tabItems` below, or the first tab shown is not the one opened.
   const tabOrder = [
-    canSeeQuota && 'all_quotas',
+    canSeeQuota && 'quota_usage',
     canSeeLocalSell && 'local_sell',
   ].filter(Boolean) as string[];
   const defaultTab = tabOrder[0] ?? 'all_quotas';
@@ -222,7 +236,7 @@ export default function QuotaDashboard() {
     });
   }
 
-  const seasonOptions = seasons.map((s) => ({ value: s.id, label: s.name }));
+  const seasonOptions = selectableSeasons.map((s) => ({ value: s.id, label: s.name }));
 
   const statFmt = (v: number | string) =>
     Number(v).toLocaleString('ru-RU', { maximumFractionDigits: weightUnit === 'ton' ? 2 : 0 });
@@ -234,17 +248,20 @@ export default function QuotaDashboard() {
 
   // Tabs — role-based visibility:
   // document_team: Firm Breakdown (read-only) + Issuance Log
-  // export_manager/director: all 4 tabs
+  // export_manager/director: every tab
+  // Order matters: `tabOrder` above picks the default from the first visible key,
+  // so moving an entry here without moving it there opens a different tab than
+  // the one sitting first.
   const tabItems = [
-    canSeeQuota && {
-      key: 'all_quotas',
-      label: t('quota_dashboard.tab_issuance_log'),
-      children: <QuotaIssuancesList weightUnit={weightUnit} />,
-    },
     canSeeQuota && {
       key: 'quota_usage',
       label: t('quota_dashboard.tab_quota_usage'),
       children: <QuotaUsageTab weightUnit={weightUnit} productType={productType} />,
+    },
+    canSeeQuota && {
+      key: 'all_quotas',
+      label: t('quota_dashboard.tab_issuance_log'),
+      children: <QuotaIssuancesList weightUnit={weightUnit} />,
     },
     canSeeLocalSell && {
       key: 'local_sell',

@@ -18,6 +18,7 @@ from apps.export.views_admin import (
     SeasonViewSet,
     ExportFirmViewSet,
     ImportFirmViewSet,
+    ProcessNodeLinkViewSet,
     TruckSplitDefaultViewSet,
     UserManagementViewSet,
     UserPermissionsView,
@@ -79,6 +80,7 @@ router.register('admin/import-firms', ImportFirmViewSet, basename='admin-import-
 router.register('admin/users', UserManagementViewSet, basename='admin-user')
 router.register('admin/truck-splits', TruckSplitDefaultViewSet, basename='admin-truck-split')
 router.register('admin/sheet-rows', SheetRowSettingViewSet, basename='admin-sheet-row')
+router.register('admin/process-node-links', ProcessNodeLinkViewSet, basename='admin-process-node-link')
 
 urlpatterns = router.urls + [
     path(

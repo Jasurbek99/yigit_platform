@@ -2,6 +2,7 @@ import { Form, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { FieldEditor } from '@/components/FieldEditor';
 import { useShipmentPatchMulti } from '@/hooks/useShipmentPatch';
+import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
 import type { IShipmentDetail } from '@/types';
 import { fieldKeyToConfig, getFieldValue } from './TaskCardEditor.helpers';
 
@@ -22,6 +23,11 @@ interface ITaskCardEditorProps {
 export function TaskCardEditor({ shipment, targetFields, disabled = false }: ITaskCardEditorProps) {
   const { t } = useTranslation();
   const patch = useShipmentPatchMulti();
+  // Self-contained (like SheetGrid/SheetToolbar) rather than relying on every
+  // caller to remember to pass `disabled` — this editor PATCHes the same
+  // shipment endpoint DetailFieldRow does, with the identical rollback data
+  // loss risk on a closed-season 409.
+  const isSeasonReadOnly = useSeasonReadOnly();
 
   const countryId = (shipment as unknown as Record<string, unknown>).country as number | null;
 
@@ -73,7 +79,7 @@ export function TaskCardEditor({ shipment, targetFields, disabled = false }: ITa
               value={value}
               onChange={(v) => handleChange(fieldKey, v)}
               countryId={countryId}
-              disabled={disabled || patch.isPending}
+              disabled={disabled || patch.isPending || isSeasonReadOnly}
             />
           </Form.Item>
         );

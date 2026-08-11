@@ -36,6 +36,14 @@
     "loading_dept_head_deputy": "Loading Dept Deputy",
     "boss": "Boss"
   },
+  "boss_mode": {
+    "view": "View",
+    "edit": "Edit",
+    "active": "Edit mode",
+    "confirm_title": "Switch to edit mode",
+    "confirm_body": "You will make changes under your own account. Every edit is recorded in the audit log as \"boss\".",
+    "confirm_ok": "Continue"
+  },
   "nav": {
     "brand_name": "YGT Platform",
     "dashboard": "Dashboard",
@@ -65,10 +73,19 @@
     "admin_shipment_settings": "Shipment Settings",
     "admin_audit_log": "Audit Log",
     "admin_staff_access": "Staff Page Access",
+    "admin_process_links": "Process Diagram Links",
     "group_main": "Main",
     "group_export": "Export",
     "group_management": "Management",
     "group_system": "System",
+    "group_overview": "Overview",
+    "group_planning": "1. Planning",
+    "group_prep": "2. Preparation",
+    "group_shipping": "3. Shipping",
+    "group_docs": "4. Documents & Customs",
+    "group_sales": "5. Sales & Contracts",
+    "group_finance": "6. Finance",
+    "group_reference": "Reference data",
     "sidebar_tagline": "Operations",
     "toggle_menu": "Toggle navigation",
     "shipment_sheet": "Sheet",
@@ -446,7 +463,6 @@
   "quota_usage": {
     "prev_month": "Previous month",
     "next_month": "Next month",
-    "view_grid": "Grid view",
     "view_list": "List view",
     "date": "Date",
     "firm": "Firm",
@@ -456,24 +472,20 @@
     "shipment_code": "Shipment Code",
     "kg_used": "Weight",
     "product_type": "Product",
-    "status": "Status",
-    "status_draft": "Draft",
-    "status_approved": "Approved",
     "created_by": "Created By",
-    "approved_by": "Approved By",
-    "approve": "Approve",
-    "approved_count": "{{count}} records approved",
-    "filter_status": "Status filter",
     "total_records": "{{count}} records",
-    "pending": "pending",
     "confirm_delete": "Delete this usage record?",
     "save_error": "Failed to save",
     "load_error": "Failed to load usage data",
-    "grid_row_total": "Row Total",
-    "grid_truck_count": "Trucks",
     "grid_total": "Total",
     "grid_empty": "No usage records for this month",
-    "grid_add_row": "Add row"
+    "cell_detail_title": "{{firm}} — {{date}}",
+    "view_by_shipment": "By shipment",
+    "group_manual": "No shipment (manual)",
+    "firm_count": "Firms",
+    "manual_add": "Add manual row",
+    "manual_save": "Add",
+    "manual_created": "Usage row added"
   },
   "local_sell": {
     "double_click_hint": "Double-click to edit",
@@ -1155,6 +1167,17 @@
     "error_load": "Failed to load domestic sales",
     "subtitle": "Domestic market sales report"
   },
+  "season": {
+    "switcher_label": "Season",
+    "status_active": "Active",
+    "status_closed": "Closed",
+    "status_upcoming": "Upcoming",
+    "readonly_banner": "Viewing closed season {{name}} — read-only",
+    "back_to_active": "Back to active season",
+    "closed_error": "This season is closed and cannot be edited",
+    "partial_view_notice": "Archived records are not shown in this view",
+    "no_active_season_banner": "No active season — nothing can be edited until an admin opens one in Admin → Seasons"
+  },
   "seasons": {
     "title": "Seasons",
     "add": "Add Season",
@@ -1170,7 +1193,19 @@
     "toast_updated": "Season updated",
     "toast_deleted": "Season deleted",
     "toast_error": "Operation failed",
-    "subtitle": "Manage export seasons"
+    "subtitle": "Manage export seasons",
+    "status_column": "Status",
+    "close_button": "Close season",
+    "open_button": "Open season",
+    "close_confirm_title": "Close {{name}}?",
+    "close_confirm_body": "Closing {{name}} will hide {{drafts}} draft shipments, {{in_transit}} shipments in transit, {{open_tasks}} open tasks, and {{unfinished_plans}} weekly plans still missing reported actuals. Nothing is deleted — every record stays exactly as it is and reappears, read-only, whenever {{name}} is selected in the season switcher.",
+    "close_confirm_quota_warning": "{{quota_drafts}} quota-usage records in {{name}} are still drafts. Closing the season freezes them, and a frozen record can never be approved — approve or delete them before you close.",
+    "close_preview_error": "Failed to load the close preview counts",
+    "retry": "Retry",
+    "toast_closed": "Season closed",
+    "open_confirm_title": "Open {{name}}?",
+    "open_confirm_body": "New shipments will be created in {{name}} from now on. The current active season stops being the write target but is not closed.",
+    "toast_opened": "Season opened"
   },
   "firms_admin": {
     "title": "Export Firms",
@@ -1324,7 +1359,8 @@
     "all": "All",
     "load_error": "Failed to load data",
     "select_season": "Select season",
-    "select": "Select..."
+    "select": "Select...",
+    "request_in_progress": "This request is already being processed — please wait"
   },
   "permissions_admin": {
     "subtitle": "Manage role permissions",
@@ -2165,6 +2201,7 @@
       "risk_matrix": "Risk Matrix",
       "alerts": "Alerts",
       "reports": "Reports",
+      "process_guides": "How the process works",
       "production_daily": "Daily Production Results",
       "production_seasonal": "Seasonal Production Results",
       "export_market": "Export Market Distribution"
@@ -2199,6 +2236,12 @@
       "audit": "Audit",
       "excel": "Excel",
       "pdf": "PDF"
+    },
+    "process": {
+      "journey": "A shipment's journey",
+      "journey_desc": "Plan to sale: 3 stages, 12 steps, an owner for each",
+      "bpmn": "BPMN diagram",
+      "bpmn_desc": "The formal process diagram"
     },
     "production": {
       "header_block": "Greenhouse",
@@ -3051,6 +3094,20 @@
     "error_load": "Failed to load page access settings",
     "empty": "You have no staff roles to manage."
   },
+  "process_node_links_admin": {
+    "title": "Process Diagram Links",
+    "subtitle": "Map each block in the boss's BPMN process diagram to the screen it opens.",
+    "col_node_id": "Node ID",
+    "col_label": "Label",
+    "col_route": "Route",
+    "col_status": "Status",
+    "edit_title": "Edit link — {{node}}",
+    "route_placeholder": "/export/plan",
+    "route_hint": "Must start with \"/\" and use only letters, numbers, \"-\", \"_\", \"/\" — or leave empty to unlink the block.",
+    "route_invalid": "Route must start with \"/\" (not \"//\") and use only letters, numbers, \"-\", \"_\", \"/\"",
+    "toast_updated": "Link updated",
+    "error_load": "Failed to load process links"
+  },
   "clients_report": {
     "title": "Clients Report",
     "subtitle": "Truck dispatch and tonnage by customer for the season",
@@ -3252,5 +3309,13 @@
       "truck_plate": "truck plate"
     },
     "download_packet": "Download packet"
+  },
+  "shipment_quota": {
+    "section_title": "Export quota used",
+    "no_records": "This shipment has not consumed any quota yet.",
+    "col_firm": "Firm",
+    "col_kg": "Quota used",
+    "col_date": "Date",
+    "total_label": "Total"
   }
 }

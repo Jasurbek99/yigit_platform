@@ -9,12 +9,14 @@ import { ShipmentSaleSection } from '@/components/shipment/ShipmentSaleSection';
 import { RouteTimelineRail } from '@/components/shipment/RouteTimelineRail';
 import { ShipmentCustomsExpensesCard } from '@/components/customsExpense/ShipmentCustomsExpensesCard';
 import { ShipmentTruckLocationCard } from '@/components/shipment/ShipmentTruckLocationCard';
+import { ShipmentQuotaCard } from '@/components/shipment/ShipmentQuotaCard';
 import { CUSTOMS_EXPENSE_WRITE_ROLES } from '@/components/customsExpense/CustomsExpensesTab';
 import { MIN_SALES_REPORT_STEP } from '@/components/salesReport/salesReportUtils';
 import { CommentsDrawerOverlay } from '@/components/comments/CommentsDrawerOverlay';
 import { useShipmentDetail } from '@/hooks/useShipmentDetail';
 import { useShipmentComments } from '@/hooks/useShipmentComments';
 import { useAuth } from '@/hooks/useAuth';
+import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
 import { canDo } from '@/utils/permissions';
 import { COLORS } from '@/constants/styles';
 import { jumpToField } from './ShipmentDetailHelpers.helpers';
@@ -39,6 +41,17 @@ export default function ShipmentDetail() {
   const { t } = useTranslation();
   // Must run every render (Rules of Hooks) — harmless fallback pre-load.
   const comments = useShipmentComments(shipment?.id ?? 0, shipment?.comments ?? []);
+  // Detail routes deliberately bypass season SCOPING (a direct link to any
+  // shipment, in any season, always resolves — §4.5/Rule A), but they do NOT
+  // bypass the read-only DECISION: `useSeasonReadOnly()` reflects which
+  // season is currently being BROWSED app-wide (URL ?? store ?? active), not
+  // which season this particular shipment belongs to — the same global
+  // browsing-mode concept the Sheet/List/WeeklyPlanGrid gates already use.
+  // Without this, autosave (`useDetailFieldAutosave`) would PATCH, 409, and
+  // roll back — silently discarding whatever the user just typed, since the
+  // rollback's `setDraft(persisted)` effect overwrites the local draft with
+  // no way to recover it. Gating prevents the PATCH from firing at all.
+  const isReadOnly = useSeasonReadOnly();
 
   if (isLoading) {
     return (
@@ -53,9 +66,10 @@ export default function ShipmentDetail() {
   }
 
   const canEditAnyField = canDo(user, 'shipment', 'edit');
-  const readOnly = !canEditAnyField;
+  const readOnly = !canEditAnyField || isReadOnly;
   const canWriteExpense =
-    (user ? CUSTOMS_EXPENSE_WRITE_ROLES.has(user.role) : false) || user?.is_superuser === true;
+    ((user ? CUSTOMS_EXPENSE_WRITE_ROLES.has(user.role) : false) || user?.is_superuser === true) &&
+    !isReadOnly;
   // Sales report: sales_rep / export_manager / director / admin (or superuser)
   // once the shipment has departed — system status lags the real sale, so
   // gating on "sold" would block reports for trucks that have already sold.
@@ -64,14 +78,17 @@ export default function ShipmentDetail() {
       user?.role === 'export_manager' ||
       user?.role === 'director' ||
       user?.role === 'admin' ||
-      user?.is_superuser === true) && shipment.status_step >= MIN_SALES_REPORT_STEP;
+      user?.is_superuser === true) && shipment.status_step >= MIN_SALES_REPORT_STEP &&
+    !isReadOnly;
   const canOverrideVariety =
-    user?.role === 'warehouse_chief' ||
+    (user?.role === 'warehouse_chief' ||
     user?.role === 'export_manager' ||
     user?.role === 'director' ||
-    user?.is_superuser === true;
+    user?.is_superuser === true) &&
+    !isReadOnly;
   const canEditTruckLink =
-    user?.is_superuser === true || (user?.role != null && TRANSPORT_EDIT_ROLES.includes(user.role));
+    (user?.is_superuser === true || (user?.role != null && TRANSPORT_EDIT_ROLES.includes(user.role))) &&
+    !isReadOnly;
 
   const missingKeys = new Set(shipment.completeness.missing_fields.map((f) => f.key));
   const groupProps = {
@@ -92,11 +109,12 @@ export default function ShipmentDetail() {
         readOnly={readOnly}
         onOpenComments={comments.open}
         commentCountsByField={comments.countsByField}
-        canEditAnyField={canEditAnyField}
         canOverrideVariety={canOverrideVariety}
       />
 
       <ShipmentSaleSection {...groupProps} canEditSalesReport={canEditSalesReport} />
+
+      <ShipmentQuotaCard shipment={shipment} />
 
       <ShipmentCustomsExpensesCard shipment={shipment} canWrite={canWriteExpense} />
 

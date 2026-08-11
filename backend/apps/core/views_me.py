@@ -15,6 +15,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.roles import task_roles_for
+from apps.core.seasons import resolve_season, season_scope_q
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +51,14 @@ class MeTaskListView(APIView):
         ?overdue=true
         ?assignee_role=warehouse_chief — supervisors only; silently ignored for
             every other role, which stays locked to its own. Unknown role → 400.
+        ?season=<id> — the read scope, same contract as every scoped list.
+
+    Season scoping (spec §4.8) mirrors `TaskViewSet` exactly: the anchor is
+    `shipment__season` and `include_null_link` keeps weekly-plan /
+    local-sell-plan tasks (which carry no shipment) on the board under an open
+    season. This is the endpoint the My Tasks screen actually lists from — the
+    viewset was scoped during the original build but is never called by the UI,
+    so switching seasons left this screen unchanged until now.
     """
 
     permission_classes = [IsAuthenticated]
@@ -86,6 +95,19 @@ class MeTaskListView(APIView):
         qs = qs.filter(
             Q(shipment__isnull=True) | Q(shipment__deleted_at__isnull=True)
         )
+
+        # Season read scope (§4.8). Kept as its own .filter() rather than folded
+        # into the soft-delete clause above: OR-ing the two would let a
+        # soft-deleted row back in through the null-anchor branch.
+        # resolve_season() raises NotFound/PermissionDenied for a bad or
+        # forbidden ?season=, matching every other scoped list.
+        season = resolve_season(request)
+        if season is None:
+            # D7 fail closed — during the close→open gap show nothing, never
+            # every season's tasks at once.
+            qs = qs.none()
+        else:
+            qs = qs.filter(season_scope_q(season, 'shipment__season', include_null_link=True))
 
         if not is_supervisor:
             # Regular users: their role's shipment tasks (assignee_user null) plus
@@ -158,6 +180,14 @@ class MeKpiTodayView(APIView):
         }
 
     `on_time_rate` is null when no tasks with a deadline were completed today.
+
+    Deliberately NOT season-scoped, unlike the task list above (§4.8). This is a
+    "what did this role get done today" productivity tile, not a view onto a
+    season's archive. A closed season's tasks cannot be completed at all — the
+    write freeze (D1) blocks the transition — so every task counted here was
+    necessarily completed under the open season, and adding a season filter
+    would only blank the tile while a user browses a closed season, hiding work
+    they really did do today. The cache key is therefore left season-free too.
     """
 
     permission_classes = [IsAuthenticated]

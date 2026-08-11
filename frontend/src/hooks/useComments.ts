@@ -1,7 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
+import { IDEMPOTENCY_HEADER, useIdempotencyKey } from '@/hooks/useIdempotencyKey';
 import { MOCK_COMMENTS } from '@/mock/comments';
 import { getShipmentDetailKey } from '@/hooks/useShipmentDetail';
+import { useSelectedSeason } from '@/hooks/useSeasonParam';
 import type { IShipmentComment } from '@/types';
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
@@ -21,8 +23,9 @@ interface ICommentListFilters {
 // ─── List ──────────────────────────────────────────────────────────────────
 
 export function useComments(filters: ICommentListFilters = {}) {
+  const { seasonId, isReady } = useSelectedSeason();
   return useQuery({
-    queryKey: ['comments', filters],
+    queryKey: ['comments', seasonId, filters],
     queryFn: async (): Promise<IShipmentComment[]> => {
       if (USE_MOCK) {
         let data = MOCK_COMMENTS;
@@ -49,11 +52,15 @@ export function useComments(filters: ICommentListFilters = {}) {
       if (filters.assignee != null) params.assignee = filters.assignee;
       if (filters.is_done !== undefined) params.is_done = filters.is_done;
       if (filters.parent_comment != null) params.parent_comment = filters.parent_comment;
+      if (seasonId != null) params.season = seasonId;
 
       const { data } = await api.get<{ results: IShipmentComment[] }>('/export/comments/', { params });
       return data.results;
     },
-    enabled: USE_MOCK || filters.shipment != null,
+    // resolve_season() runs unconditionally on the backend even when
+    // ?shipment= pins a single parent (see CommentViewSet.get_queryset), so
+    // this still needs auth resolved — not just the shipment filter.
+    enabled: USE_MOCK || (filters.shipment != null && isReady),
     staleTime: 30_000,
   });
 }
@@ -72,13 +79,17 @@ interface ICreateCommentPayload {
 
 export function useCreateComment() {
   const queryClient = useQueryClient();
+  const idem = useIdempotencyKey();
 
   return useMutation({
     mutationFn: async (payload: ICreateCommentPayload) => {
-      const { data } = await api.post<IShipmentComment>('/export/comments/', payload);
+      const { data } = await api.post<IShipmentComment>('/export/comments/', payload, {
+        headers: { [IDEMPOTENCY_HEADER]: idem.key },
+      });
       return data;
     },
     onSuccess: (_data, variables) => {
+      idem.reset();
       queryClient.invalidateQueries({ queryKey: ['comments'] });
       queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
       // The Detail page's hero comment_count badge and per-field 💬 counts

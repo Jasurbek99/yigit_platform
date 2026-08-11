@@ -46,6 +46,8 @@ import {
 import { useGreenhouseConfig } from '@/hooks/useGreenhouseConfig';
 import { useSeasons } from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
+import { useSelectedSeason } from '@/hooks/useSeasonParam';
+import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
 import { useUiStore } from '@/stores/uiStore';
 import api from '@/services/api';
 import { HarvestCell } from '@/components/HarvestCell';
@@ -104,8 +106,22 @@ export default function WeeklyPlanGrid() {
   const weekNumber = selectedWeek?.isoWeek();
   const year = selectedWeek?.isoWeekYear();
 
+  // `activeSeason` (the TRUE active/write-target season, never the browsed
+  // one) is kept ONLY for the initialize-week mutation and its availability
+  // gate below — both create rows, which always target the active season
+  // regardless of what's being browsed. It is deliberately NOT passed into
+  // useHarvestPlans/useDayEntries: those are reads, and the hooks now own
+  // season selection internally via the global store (useSelectedSeason()),
+  // so the switcher (Task 15/16) actually has an effect on this page.
   const { data: seasonsData } = useSeasons();
   const activeSeason = seasonsData?.find((s) => s.is_active);
+  // The season the grid's DATA actually belongs to (`useHarvestPlans` /
+  // `useDayEntries` read via the global switcher) — used only for the header
+  // label. Was `activeSeason.name` before Task 15; once a switcher exists
+  // that shows the wrong season's name beside browsed-season figures.
+  const { seasonId: browsedSeasonId } = useSelectedSeason();
+  const browsedSeason = seasonsData?.find((s) => s.id === browsedSeasonId);
+  const isReadOnly = useSeasonReadOnly();
   const { data: config } = useGreenhouseConfig();
 
   // ─── Week date range for day-entry queries ─────────────────────────────────
@@ -119,7 +135,6 @@ export default function WeeklyPlanGrid() {
 
   const { data: plansData, isLoading: plansLoading, isError } = useHarvestPlans({ year, week: weekNumber });
   const { data: dayEntries = [], isLoading: entriesLoading } = useDayEntries({
-    season: activeSeason?.id,
     date_from: dateFrom,
     date_to: dateTo,
   });
@@ -142,8 +157,12 @@ export default function WeeklyPlanGrid() {
   const isManager = isAdmin;
   // Truck allocation is editable by the export_manager too (backend TRUCK_WRITE
   // grants it write access), unlike the harvest grid / Initialize Week which stay
-  // admin+director only.
-  const canEditTrucks = isAdmin || user?.role === 'export_manager';
+  // admin+director only. `useSetTruckDestinationSelection`/`useUpsertTruckAllocation`/
+  // `useSetTruckSplits` all write to the TRUE active season regardless of what's
+  // browsed (mirrors Initialize Week), so a click here can't 409 either — gated
+  // on `isReadOnly` anyway so editing doesn't appear live over a closed season's
+  // read-only grid.
+  const canEditTrucks = (isAdmin || user?.role === 'export_manager') && !isReadOnly;
   // Generate plan tasks is a supervisor action: admin, export_manager, director.
   const canGenerateTasks =
     user?.role === 'admin' ||
@@ -253,6 +272,7 @@ export default function WeeklyPlanGrid() {
   }
 
   function canEditPlanForEntry(entry: IHarvestDayEntry): boolean {
+    if (isReadOnly) return false;
     if (!hasBlockPermission(entry.block)) return false;
     // Both admin and greenhouse_manager can edit any plan cell at any time.
     // Lateness is tracked via entry.plan_state and surfaces as a cell badge;
@@ -261,6 +281,7 @@ export default function WeeklyPlanGrid() {
   }
 
   function canEditActualForEntry(entry: IHarvestDayEntry): boolean {
+    if (isReadOnly) return false;
     // Actuals are computed daily by the rollup_actuals job from shipment loading
     // data. Only admin can override a computed value. _entry parameter retained
     // for symmetry with the other can-edit helpers and future block-level rules.
@@ -589,7 +610,7 @@ export default function WeeklyPlanGrid() {
           <Title level={4} style={{ margin: 0 }}>{t('plan.title')}</Title>
           <Text type="secondary" style={{ fontSize: 13 }}>
             {t('plan.week')} {weekNumber} · {year} · {plans.length} {t('plan.blocks')}
-            {activeSeason && <span> · {activeSeason.name}</span>}
+            {browsedSeason && <span> · {browsedSeason.name}</span>}
           </Text>
         </div>
         <Space wrap>
@@ -632,6 +653,7 @@ export default function WeeklyPlanGrid() {
             <Button
               icon={<ClockCircleOutlined />}
               size="small"
+              disabled={isReadOnly}
               onClick={() => setExtensionModalOpen(true)}
             >
               {t('plan.bulk_grant_button')}
@@ -643,6 +665,7 @@ export default function WeeklyPlanGrid() {
               size="small"
               icon={<UndoOutlined />}
               loading={bulkRevoke.isPending}
+              disabled={isReadOnly}
               onClick={handleBulkRevoke}
             >
               {t('plan.bulk_revoke_button')}
@@ -653,13 +676,25 @@ export default function WeeklyPlanGrid() {
               icon={<BulbOutlined />}
               loading={generateTasksMutation.isPending}
               onClick={handleGenerateTasks}
-              disabled={!weekNumber || !year}
+              disabled={!weekNumber || !year || isReadOnly}
             >
               {t('plan.generate_tasks')}
             </Button>
           )}
           {showInitialize && (
-            <Button type="primary" loading={initWeek.isPending} onClick={handleInitializeWeek}>
+            <Button
+              type="primary"
+              loading={initWeek.isPending}
+              // Initialize Week always creates rows in the TRUE active season
+              // (see the `activeSeason` comment above), never the browsed one,
+              // so a click here can't 409. Disabled anyway while browsing a
+              // closed season: the button reacts to the BROWSED season's empty
+              // grid (plans.length === 0), so leaving it live would let someone
+              // "initialize" what looks like the season they're looking at
+              // while it silently writes into a different one.
+              disabled={isReadOnly}
+              onClick={handleInitializeWeek}
+            >
               {t('plan.initialize_week')}
             </Button>
           )}

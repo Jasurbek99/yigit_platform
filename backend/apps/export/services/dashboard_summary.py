@@ -20,22 +20,53 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Season resolver
+# D7 fail-closed payload
 # ---------------------------------------------------------------------------
 
-def _resolve_season():
-    """Return (season_or_None, start_date, end_date).
+def _empty_summary() -> dict:
+    """The payload returned when no season resolves (D7, spec §3.1).
 
-    Fetches the active season. Falls back to current-month range if none found.
+    An earlier version substituted a CURRENT-MONTH range here instead. That
+    fails OPEN: seasons run Sept→Aug, so during the close→open gap the
+    just-closed season's date range still covers today, and every
+    authenticated user with dashboard access read aggregates over frozen rows
+    with no `?season=` and no `closed_season.can_view` grant. `boss` and
+    `clients-report` already returned empty for the same state; this makes the
+    dashboard consistent with them.
+
+    The response SHAPE is preserved exactly — all five top-level keys, all six
+    stats keys, all four alert keys — because the frontend's
+    `IDashboardSummary` requires them; it already renders zero, `[]` and
+    `null` for each, so a blank dashboard during the gap is an intelligible
+    state rather than a broken one.
+
+    Consequence worth naming: `in_transit`, `selling` and `active_shipments`
+    are LIVE counts, deliberately un-scoped even when a season DOES resolve.
+    Blanking the whole payload zeroes them too, so during the gap the
+    dashboard reports no trucks in transit while trucks may physically be in
+    transit. That is the cost of "return empty rather than a substitute
+    range"; the gap is a state an admin creates deliberately and briefly, and
+    the frontend shows its "no active season" banner throughout.
     """
-    from apps.core.models import Season
-    from apps.export.services.boss_analytics import period_to_range
-
-    season = Season.objects.filter(is_active=True).order_by('-start_date').first()
-    if season:
-        return season, season.start_date, season.end_date
-    start, end = period_to_range('month')
-    return None, start, end
+    return {
+        'season': None,
+        'stats': {
+            'total': {'value': 0, 'delta_7d': 0},
+            'in_transit': {'value': 0},
+            'selling': {'value': 0},
+            'completed': {'value': 0, 'delta_7d': 0},
+            'no_report': {'value': 0},
+            'quota_firms': {'value': 0},
+        },
+        'alerts': {
+            'no_report_count': 0,
+            'quota_exceeded_count': 0,
+            'docs_pending_count': 0,
+            'weekly_plan': None,
+        },
+        'routes': [],
+        'active_shipments': [],
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -371,22 +402,38 @@ def _build_active_shipments() -> list:
 # Main public function
 # ---------------------------------------------------------------------------
 
-def build_dashboard_summary() -> dict:
+def build_dashboard_summary(season=None) -> dict:
     """Aggregate all data for the main dashboard landing page.
 
     Returns a plain dict ready for JSON serialisation. All Decimal values
     are cast to float/int at the boundary here, not inside helpers.
 
+    Spec §4.3: the dashboard is a date-range endpoint — it takes the RESOLVED
+    season's date range, the same way `boss` does. It does NOT apply
+    `SeasonScopedMixin`: `stats`/`routes` stay date-range filters, never
+    `filter(season=...)`.
+
+    The caller resolved the season once via
+    `apps.core.seasons.resolve_season(request)`; resolving again here would be
+    a second DB query plus a second chance to raise that function's
+    `NotFound`/`PermissionDenied` redundantly.
+
+    Args:
+        season: The already-resolved season (via
+            `apps.core.seasons.resolve_season(request)` at the view layer),
+            or None during the close→open gap. Parameterises
+            `stats`/`routes`' date range (spec §4.3); never used to filter by
+            `season=` FK.
+
     Returns:
         Dict with keys: season, stats, alerts, routes, active_shipments.
+        `_empty_summary()` when `season` is None — D7, fail closed.
     """
-    season, start, end = _resolve_season()
+    if season is None:
+        return _empty_summary()
 
-    season_payload = (
-        {'id': season.id, 'name': season.name}
-        if season is not None
-        else None
-    )
+    start, end = season.start_date, season.end_date
+    season_payload = {'id': season.id, 'name': season.name}
 
     stats = _build_stats(start, end)
     no_report_count = stats['no_report']['value']

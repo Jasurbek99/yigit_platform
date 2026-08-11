@@ -148,7 +148,8 @@ class Command(BaseCommand):
         parser.add_argument('--dry-run', action='store_true')
 
     def handle(self, *args, **options):
-        from apps.core.models import GreenhouseBlock, Season, TruckDestination
+        from apps.core.models import GreenhouseBlock, TruckDestination
+        from apps.core.seasons import get_active_season
         from apps.export.models import WeeklyTruckAllocation, TruckDestinationSplit
         from apps.greenhouse.models import HarvestDayEntry, WeeklyHarvestPlan
 
@@ -159,7 +160,7 @@ class Command(BaseCommand):
 
         dry_run = options['dry_run']
 
-        season = Season.objects.filter(is_active=True).first()
+        season = get_active_season()
         if not season:
             self.stderr.write('No active season found.')
             return

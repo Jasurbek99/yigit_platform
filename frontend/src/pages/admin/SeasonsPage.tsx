@@ -16,20 +16,41 @@ import { IconCalendar, IconPlus } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import dayjs, { type Dayjs } from 'dayjs';
 import { toast } from 'sonner';
-import { useSeasons, useCreateSeason, useUpdateSeason, useDeleteSeason } from '@/hooks/useAdmin';
+import {
+  useSeasons,
+  useCreateSeason,
+  useUpdateSeason,
+  useDeleteSeason,
+  useOpenSeason,
+} from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
 import { canDo } from '@/utils/permissions';
 import type { ISeason } from '@/types';
 import { COLORS } from '@/constants/styles';
+import { SeasonCloseModal } from './SeasonCloseModal';
 
 const { Text } = Typography;
 
+// `is_active` is back on the form (2026-08-10). It is safe now because the
+// backend no longer treats it as a plain column write: `SeasonViewSet`
+// delegates a false->true transition to `open_season()` and true->false to
+// `deactivate_season()`, so the switch gets the same atomic incumbent swap and
+// AuditLog row as the Open/Close buttons, and `useCreateSeason`/
+// `useUpdateSeason` invalidate every cached query the way the lifecycle
+// mutations do.
 interface ISeasonFormValues {
   name: string;
   start_date: Dayjs | null;
   end_date: Dayjs | null;
   is_active: boolean;
 }
+
+// Deliberately OFF for a new season, and NOT merely because defaulting it on
+// used to 400. Adding next year's row is a bookkeeping action; silently moving
+// the platform-wide write target off it would be a side effect nobody asked
+// for. A new season lands UPCOMING and is promoted explicitly — either by
+// ticking the switch or by the Open button.
+const CREATE_DEFAULTS: Pick<ISeasonFormValues, 'is_active'> = { is_active: false };
 
 export default function SeasonsPage() {
   const { t } = useTranslation();
@@ -41,6 +62,7 @@ export default function SeasonsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<ISeason | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ISeason | null>(null);
+  const [closeTarget, setCloseTarget] = useState<ISeason | null>(null);
   const [form] = Form.useForm<ISeasonFormValues>();
 
   const { data, isLoading, isError } = useSeasons();
@@ -72,10 +94,15 @@ export default function SeasonsPage() {
     onError: () => toast.error(t('seasons.toast_error')),
   });
 
+  const openMutation = useOpenSeason({
+    onSuccess: () => toast.success(t('seasons.toast_opened')),
+    onError: () => toast.error(t('seasons.toast_error')),
+  });
+
   function handleOpenCreate() {
     setEditTarget(null);
     form.resetFields();
-    form.setFieldsValue({ is_active: true });
+    form.setFieldsValue(CREATE_DEFAULTS);
     setModalOpen(true);
   }
 
@@ -90,12 +117,24 @@ export default function SeasonsPage() {
     setModalOpen(true);
   }
 
+  function handleOpenSeason(record: ISeason) {
+    Modal.confirm({
+      title: t('seasons.open_confirm_title', { name: record.name }),
+      content: t('seasons.open_confirm_body', { name: record.name }),
+      okText: t('seasons.open_button'),
+      cancelText: t('common.cancel'),
+      onOk: async () => {
+        await openMutation.mutateAsync(record.id);
+      },
+    });
+  }
+
   function handleSubmit(values: ISeasonFormValues) {
     const payload = {
       name: values.name,
       start_date: values.start_date ? values.start_date.format('YYYY-MM-DD') : '',
       end_date: values.end_date ? values.end_date.format('YYYY-MM-DD') : '',
-      is_active: values.is_active,
+      is_active: values.is_active ?? false,
     };
 
     if (editTarget) {
@@ -151,16 +190,46 @@ export default function SeasonsPage() {
           <Tag color="default">{t('common.no')}</Tag>
         ),
     },
+    {
+      title: t('seasons.status_column'),
+      dataIndex: 'status',
+      width: 110,
+      search: false,
+      sorter: (a, b) => a.status.localeCompare(b.status),
+      render: (_, record) => {
+        const color =
+          record.status === 'ACTIVE' ? 'green' : record.status === 'CLOSED' ? 'default' : 'blue';
+        return <Tag color={color}>{t(`season.status_${record.status.toLowerCase()}`)}</Tag>;
+      },
+    },
     ...((canEditSeason || canDeleteSeason)
       ? [
           {
             title: '',
             key: 'actions',
-            width: 160,
+            width: 220,
             search: false,
             render: (_: unknown, record: ISeason) => (
               <Space size={4}>
-                {canEditSeason && (
+                {canEditSeason && record.status === 'ACTIVE' && (
+                  <Button
+                    type="link"
+                    size="small"
+                    onClick={(e) => { e.stopPropagation(); setCloseTarget(record); }}
+                  >
+                    {t('seasons.close_button')}
+                  </Button>
+                )}
+                {canEditSeason && record.status === 'UPCOMING' && (
+                  <Button
+                    type="link"
+                    size="small"
+                    onClick={(e) => { e.stopPropagation(); handleOpenSeason(record); }}
+                  >
+                    {t('seasons.open_button')}
+                  </Button>
+                )}
+                {canEditSeason && record.status !== 'CLOSED' && (
                   <Button
                     type="link"
                     size="small"
@@ -169,7 +238,7 @@ export default function SeasonsPage() {
                     {t('common.edit')}
                   </Button>
                 )}
-                {canDeleteSeason && (
+                {canDeleteSeason && record.status !== 'CLOSED' && (
                   <Button
                     type="link"
                     size="small"
@@ -232,7 +301,6 @@ export default function SeasonsPage() {
           form={form}
           layout="vertical"
           onFinish={handleSubmit}
-          initialValues={{ is_active: true }}
         >
           <Form.Item
             name="name"
@@ -295,6 +363,8 @@ export default function SeasonsPage() {
           </Button>
         </Space>
       </Modal>
+
+      <SeasonCloseModal season={closeTarget} onClose={() => setCloseTarget(null)} />
     </div>
   );
 }

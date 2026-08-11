@@ -4,7 +4,8 @@ import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import type { IShipmentSheetItem, IRowConfig } from '@/types';
 import api from '@/services/api';
-import { useShipmentPatch, extractPatchError, applyOptimistic } from './useShipmentPatch';
+import { useShipmentPatch, extractPatchError, applyOptimistic, sheetKeyFor } from './useShipmentPatch';
+import { useSelectedSeason } from '@/hooks/useSeasonParam';
 import {
   recordCellEntry,
   recordJunctionEntry,
@@ -83,6 +84,8 @@ export function useSheetCellWrite(): IUseSheetCellWrite {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
   const patchMutation = useShipmentPatch();
+  const { seasonId } = useSelectedSeason();
+  const sheetKey = sheetKeyFor(seasonId);
 
   // Custom rows (Phase 5c) live outside the Shipment model. One mutation handles
   // both set (paste) and clear (value=''). Optimistic so the cell updates before
@@ -93,9 +96,9 @@ export function useSheetCellWrite(): IUseSheetCellWrite {
       await api.patch(`/export/shipments/${shipmentId}/custom-fields/`, { field_key: fieldKey, value });
     },
     onMutate: async ({ shipmentId, fieldKey, value }) => {
-      await queryClient.cancelQueries({ queryKey: ['shipments', 'sheet'] });
-      const previous = queryClient.getQueryData(['shipments', 'sheet']);
-      queryClient.setQueryData(['shipments', 'sheet'], (old: unknown) => {
+      await queryClient.cancelQueries({ queryKey: sheetKey });
+      const previous = queryClient.getQueryData(sheetKey);
+      queryClient.setQueryData(sheetKey, (old: unknown) => {
         const cache = old as { shipments?: IShipmentSheetItem[] } | undefined;
         if (!cache || !Array.isArray(cache.shipments)) return old;
         return {
@@ -111,7 +114,7 @@ export function useSheetCellWrite(): IUseSheetCellWrite {
     },
     onError: (err, _vars, ctx) => {
       if (ctx?.previous !== undefined) {
-        queryClient.setQueryData(['shipments', 'sheet'], ctx.previous);
+        queryClient.setQueryData(sheetKey, ctx.previous);
       }
       toast.error(extractPatchError(err, t('sheet.save_error')));
       console.error('[useSheetCellWrite] custom-field PATCH failed', err);
@@ -126,9 +129,9 @@ export function useSheetCellWrite(): IUseSheetCellWrite {
       await api.post(`/export/shipments/${shipmentId}/${endpoint}/`, { [key]: [] });
     },
     onMutate: async ({ shipmentId, field }) => {
-      await queryClient.cancelQueries({ queryKey: ['shipments', 'sheet'] });
-      const previous = queryClient.getQueryData(['shipments', 'sheet']);
-      queryClient.setQueryData(['shipments', 'sheet'], (old: unknown) => {
+      await queryClient.cancelQueries({ queryKey: sheetKey });
+      const previous = queryClient.getQueryData(sheetKey);
+      queryClient.setQueryData(sheetKey, (old: unknown) => {
         const cache = old as { shipments?: IShipmentSheetItem[] } | undefined;
         if (!cache || !Array.isArray(cache.shipments)) return old;
         return {
@@ -142,7 +145,7 @@ export function useSheetCellWrite(): IUseSheetCellWrite {
     },
     onError: (err, _vars, ctx) => {
       if (ctx?.previous !== undefined) {
-        queryClient.setQueryData(['shipments', 'sheet'], ctx.previous);
+        queryClient.setQueryData(sheetKey, ctx.previous);
       }
       toast.error(extractPatchError(err, t('sheet.save_error')));
       console.error('[useSheetCellWrite] clear junction failed', err);
@@ -176,6 +179,7 @@ export function useSheetCellWrite(): IUseSheetCellWrite {
           queryClient,
           shipment.id,
           Object.fromEntries(companions.map((k) => [k, null])),
+          seasonId,
         );
       }
       // Text/phone columns are NOT NULL CharFields (default ''); never PATCH
@@ -201,8 +205,11 @@ export function useSheetCellWrite(): IUseSheetCellWrite {
     // Depend on the stable `.mutate` refs (React Query guarantees them) rather
     // than the mutation objects, whose identity changes every render — that
     // churn would re-bind SheetGrid's window keydown listener on each render.
+    // `seasonId` IS included — it's a plain value read inside applyOptimistic's
+    // FK-companion pre-null, and a stale closure here would write the optimistic
+    // patch into last season's sheet cache entry after a switch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [patchMutation.mutate, customFieldMutation.mutate, queryClient],
+    [patchMutation.mutate, customFieldMutation.mutate, queryClient, seasonId],
   );
 
   /** Clear a cell's value, routing by field type (custom / junction / FK / scalar). */
@@ -243,6 +250,7 @@ export function useSheetCellWrite(): IUseSheetCellWrite {
           queryClient,
           shipment.id,
           Object.fromEntries(companions.map((k) => [k, null])),
+          seasonId,
         );
       }
       // Text/phone columns are NOT NULL CharFields (default ''), so clearing
@@ -267,7 +275,7 @@ export function useSheetCellWrite(): IUseSheetCellWrite {
     },
     // Stable `.mutate` refs — see the writeCell note above.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [patchMutation.mutate, customFieldMutation.mutate, clearJunctionMutation.mutate, queryClient],
+    [patchMutation.mutate, customFieldMutation.mutate, clearJunctionMutation.mutate, queryClient, seasonId],
   );
 
   return { writeCell, clearCell };
