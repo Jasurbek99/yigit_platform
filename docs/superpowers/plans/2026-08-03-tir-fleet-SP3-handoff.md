@@ -36,6 +36,8 @@
 - Import doesn't re-link devices registered *after* the import (only the create/PATCH endpoints do) — fine until a re-import.
 - `import` builds its plate→truck index without an `is_active` filter (resolver's plate path filters `is_active=True`) — minor inconsistency, ticket.
 - `owner_name` (Cyrillic collation) search has no test.
+- **TICKET (SP4 review):** renaming a fleet plate on `/admin/fleet` leaves `Shipment.truck_plate` stale on shipments already carrying the old `"{head}/{trailer}"` string. The id link (`truck_head_id`) stays correct so GPS still resolves — only the denormalized display text goes stale. Back-propagate on rename, or recompute `truck_plate` on read. Non-blocking.
+- **TICKET (SP3c review):** backport the `searchValue`-clear-on-select fix (stale "+ Add" → garbage create) to `CitySelect.tsx`/`CountrySelect.tsx` (superuser/director-gated, so lower blast radius).
 
 ## SDD ledgers (gitignored scratch, main dir)
 `.superpowers/sdd/2026-08-03-tir-fleet-subproject1/progress.md` and `…-subproject2/progress.md` — full task-by-task history if resuming in the same machine/session.
@@ -44,3 +46,10 @@
 ## UPDATE 2026-08-10 — SP3a DONE
 SP3a (edit-drawer selector) shipped + Opus-approved: `useFleet.ts` hooks, `ShipmentTruckSelector.tsx`, injected into `ShipmentTransportBody.tsx` (ShipmentDetail) AND `ShipmentEditDrawer.tsx` (list row-edit + dashboard slide), both gated on `is_gapy_satys` (→ text). Commits `e4fb50f..a8479d5`.
 STILL REMAINING: SP3b (Sheet cell — `SheetCellEditor.tsx` getOptions switch + custom grid editor for truck_head/trailer, still text when gapy), SP3c (inline "+ Add" via dropdownRender → POST), SP4 (admin CRUD page). Push still held pending tirweb cred rotation.
+
+---
+## UPDATE 2026-08-11 — SP3c + SP4 DONE
+- **SP3c DONE** (Opus-approved): inline "+ Add" in `ShipmentTruckSelector` (`dropdownRender` → POST → select), plate uppercased, stale-search-clear fix. Commits `…7795fcb`.
+- **SP4 DONE** (reviewed, CRITICAL fixed + test-proven): admin page `/admin/fleet` (`FleetAdminPage.tsx`, Trucks/Trailers tabs — list incl. inactive, create/edit/activate-deactivate), `?include_inactive=true` list param, `useFleetAdmin.ts` hooks (incl. single-call admin create), `owner_name` field+column. Plan: `docs/superpowers/plans/2026-08-10-tir-fleet-sp4-admin-page.md`. Commits `44a2666..bdc725a` (incl. `d7bac43` = CRITICAL GPS-device-wipe-on-edit fix, `ce61029` = owner_name-preservation regression test). Obsidian vault updated (`af1b5aa`).
+- **STILL REMAINING: only SP3b** (Sheet-cell truck/trailer picker — needs a grid-cell design decision; text when `is_gapy_satys`).
+- Branch state: `feat/transport-fleet-map`, ~66 commits ahead of main; remote at `1599777` (SP3c + SP4 = 11 commits UNPUSHED). Push still held pending user go-ahead.
