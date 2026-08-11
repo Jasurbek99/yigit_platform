@@ -12,8 +12,7 @@ import { BlocksHeatmap } from './BlocksHeatmap';
 import { TopCustomers } from './TopCustomers';
 import { FirmRiskMatrix } from './FirmRiskMatrix';
 import { AlertsPanel } from './AlertsPanel';
-import { ProductionResults } from './ProductionResults';
-import { ExportMarketByBlock } from './ExportMarketByBlock';
+import { BlocksTable } from './BlocksTable';
 import { ReportsGrid } from './ReportsGrid';
 import { ProcessGuides } from './ProcessGuides';
 
@@ -160,11 +159,8 @@ export default function BossDashboard() {
         <AlertsPanel />
       </div>
 
-      {/* ── Production Results (full-width) ──────────────────── */}
-      <ProductionResults period={period} />
-
-      {/* ── Export Market by Block (full-width) ──────────────── */}
-      <ExportMarketByBlock period={period} />
+      {/* ── Per-block results: harvest + export in one table ──── */}
+      <BlocksTable period={period} />
 
       {/* ── Reports Grid ─────────────────────────────────────── */}
       <ReportsGrid />
