@@ -64,13 +64,12 @@ Writes made by `boss` are attributed to him like any other user's — status cha
 
 ## What the dashboard shows
 
-13 widget groups, all sourced from `/api/v1/export/boss/<action>/`:
+11 widget groups, all sourced from `/api/v1/export/boss/<action>/`:
 
 | Widget | Data source |
 |---|---|
 | 6 hero KPIs (revenue, margin, debt, today loaded, in transit, quota used) | `Shipment.total_amount_usd` + status counts + `QuotaUsageRecord` |
 | Revenue chart (current vs previous season, weekly) | `Shipment` × `season` × `TruncWeek('date')` |
-| Debt aging by firm (4 buckets) | **Placeholder** until P4 Contracts ships |
 | Route P&L | `Shipment` grouped by `country` + `city` + `SalesReport` cost aggregates |
 | Compliance strip (reports overdue, 1:10, docs by 13:00) | 1:10 from `DomesticSale` vs `QuotaUsageRecord`; reports overdue from `Shipment.sale_started_at` − `SalesReport.created_at`; docs from `QualityDocument` flags |
 | Operations pulse (ýolda, serhetde, satyşda, bu gün) | Live `Shipment.status__code` counts |
@@ -79,8 +78,7 @@ Writes made by `boss` are attributed to him like any other user's — status cha
 | Top customers table | `Shipment` grouped by `customer` |
 | Firm risk matrix | Quota = real, debt + bank credit = placeholder |
 | Alerts panel ("Üns beriň") | Recent unread `Notification` rows |
-| **Production results** (daily + seasonal, plan vs actual per block) | `WeeklyHarvestPlan` summed per block over scope |
-| **Export-market by block** (Daşarky Bazar only) | `ShipmentBlockSource.weight_kg` summed per block |
+| **Blocks table** — one row per block: Günlük / Aýlyk / Möwsümleýin plan vs actual, plus Daşarky Bazar kg & share (merged 2026-08-11) | `WeeklyHarvestPlan` summed per block over scope + `ShipmentBlockSource.weight_kg` summed per block |
 | Reports grid | Triggers `/export/boss/export_excel/?section=...` and `/export/boss/export_pdf/?section=...` |
 | Process guides (2 tiles) | Static `docs/how_works/*.html` served byte-for-byte via a whitelisted endpoint — not live data |
 
@@ -120,8 +118,8 @@ Every chart click navigates to a filtered list page (using the existing `useSear
 | Quota grid cell | `/export/quota?firm={id}` |
 | Block heatmap cell | `/export/plan?block={code}` |
 | Top customer row | `/export/shipments?customer={id}` |
-| Production results row | `/export/plan?block={code}` |
-| Export-market row | `/export/shipments?block_source={code}` |
+| Blocks table — harvest cells | `/export/plan?block={code}` |
+| Blocks table — Daşarky Bazar cells | `/export/shipments?block_source={code}` |
 | Alert | uses `Notification.link` |
 
 ## Caching

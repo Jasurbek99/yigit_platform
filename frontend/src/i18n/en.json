@@ -2191,7 +2191,6 @@
     },
     "section": {
       "revenue": "Revenue",
-      "debt": "Debt",
       "route_pnl": "Route P&L",
       "compliance": "Compliance",
       "ops_pulse": "Operations Pulse",
@@ -2202,9 +2201,7 @@
       "alerts": "Alerts",
       "reports": "Reports",
       "process_guides": "How the process works",
-      "production_daily": "Daily Production Results",
-      "production_seasonal": "Seasonal Production Results",
-      "export_market": "Export Market Distribution"
+      "blocks_table": "Results by Block"
     },
     "compliance": {
       "reports_overdue": "Reports Overdue",
@@ -2215,12 +2212,6 @@
       "low": "Low",
       "med": "Medium",
       "high": "High"
-    },
-    "aging": {
-      "fresh": "0-30 days",
-      "d30": "30-60 days",
-      "d60": "60-90 days",
-      "d90plus": "90+ days"
     },
     "export": {
       "excel": "Excel",
@@ -2245,19 +2236,19 @@
     },
     "production": {
       "header_block": "Greenhouse",
-      "header_planned": "Planned (KG)",
-      "header_actual": "Actual (KG)",
-      "header_graph": "Graph %",
       "total_row": "Total",
       "scope_daily": "Daily",
       "scope_seasonal": "Seasonal",
       "scope_monthly": "Monthly"
     },
+    "blocks_table": {
+      "group_export": "Export Market",
+      "col_plan": "Plan",
+      "col_actual": "Actual",
+      "col_kg": "KG",
+      "col_season_pct": "Season %"
+    },
     "export_market": {
-      "header_block": "Greenhouse",
-      "header_kg": "Export Market (KG)",
-      "header_pct": "Export Market (%)",
-      "total_row": "Total",
       "note_excluded": "Domestic market and gift volumes will be added later"
     },
     "ops_pulse": {

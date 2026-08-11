@@ -5,7 +5,6 @@ import { IconDownload } from '@tabler/icons-react';
 import type { BossPeriod } from '@/hooks/useBossDashboard';
 import { HeroKpiStrip } from './HeroKpiStrip';
 import { RevenueChart } from './RevenueChart';
-import { DebtBreakdown } from './DebtBreakdown';
 import { RoutePnlTable } from './RoutePnlTable';
 import { ComplianceStrip } from './ComplianceStrip';
 import { QuotaGrid } from './QuotaGrid';
@@ -13,8 +12,7 @@ import { BlocksHeatmap } from './BlocksHeatmap';
 import { TopCustomers } from './TopCustomers';
 import { FirmRiskMatrix } from './FirmRiskMatrix';
 import { AlertsPanel } from './AlertsPanel';
-import { ProductionResults } from './ProductionResults';
-import { ExportMarketByBlock } from './ExportMarketByBlock';
+import { BlocksTable } from './BlocksTable';
 import { ReportsGrid } from './ReportsGrid';
 import { ProcessGuides } from './ProcessGuides';
 
@@ -114,17 +112,9 @@ export default function BossDashboard() {
       {/* ── Hero KPIs ────────────────────────────────────────────── */}
       <HeroKpiStrip period={period} />
 
-      {/* ── Revenue + Debt (2-col) ────────────────────────────── */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
-          gap: 16,
-          marginBottom: 16,
-        }}
-      >
+      {/* ── Revenue (full-width) ──────────────────────────────── */}
+      <div style={{ marginBottom: 16 }}>
         <RevenueChart period={period} />
-        <DebtBreakdown period={period} />
       </div>
 
       {/* ── Route P&L + Compliance (2-col) ───────────────────── */}
@@ -169,11 +159,8 @@ export default function BossDashboard() {
         <AlertsPanel />
       </div>
 
-      {/* ── Production Results (full-width) ──────────────────── */}
-      <ProductionResults period={period} />
-
-      {/* ── Export Market by Block (full-width) ──────────────── */}
-      <ExportMarketByBlock period={period} />
+      {/* ── Per-block results: harvest + export in one table ──── */}
+      <BlocksTable period={period} />
 
       {/* ── Reports Grid ─────────────────────────────────────── */}
       <ReportsGrid />

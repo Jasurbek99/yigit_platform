@@ -2193,7 +2193,6 @@
     },
     "section": {
       "revenue": "Выручка",
-      "debt": "Долг",
       "route_pnl": "P&L по маршрутам",
       "compliance": "Соответствие",
       "ops_pulse": "Операционный пульс",
@@ -2204,9 +2203,7 @@
       "alerts": "Внимание",
       "reports": "Отчёты",
       "process_guides": "Как работает процесс",
-      "production_daily": "Суточные результаты производства",
-      "production_seasonal": "Сезонные результаты производства",
-      "export_market": "Распределение по экспортному рынку"
+      "blocks_table": "Результаты по блокам"
     },
     "compliance": {
       "reports_overdue": "Просроченные отчёты",
@@ -2217,12 +2214,6 @@
       "low": "Низкий",
       "med": "Средний",
       "high": "Высокий"
-    },
-    "aging": {
-      "fresh": "0-30 дней",
-      "d30": "30-60 дней",
-      "d60": "60-90 дней",
-      "d90plus": "90+ дней"
     },
     "export": {
       "excel": "Excel",
@@ -2247,19 +2238,19 @@
     },
     "production": {
       "header_block": "Теплица",
-      "header_planned": "Плановый (КГ)",
-      "header_actual": "Фактический (КГ)",
-      "header_graph": "% от графика",
       "total_row": "Итого",
       "scope_daily": "Суточный",
       "scope_seasonal": "Сезонный",
       "scope_monthly": "Месячный"
     },
+    "blocks_table": {
+      "group_export": "Внешний рынок",
+      "col_plan": "План",
+      "col_actual": "Факт",
+      "col_kg": "КГ",
+      "col_season_pct": "Сезон %"
+    },
     "export_market": {
-      "header_block": "Теплица",
-      "header_kg": "Внешний рынок (КГ)",
-      "header_pct": "Внешний рынок (%)",
-      "total_row": "Итого",
       "note_excluded": "Внутренний рынок и подарочные объёмы будут добавлены позже"
     },
     "ops_pulse": {

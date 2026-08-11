@@ -2195,7 +2195,6 @@
     },
     "section": {
       "revenue": "Girdeji",
-      "debt": "Bergi",
       "route_pnl": "Marşrut P&L",
       "compliance": "Laýyklyk",
       "ops_pulse": "Operasiýalar",
@@ -2206,9 +2205,7 @@
       "alerts": "Üns beriň",
       "reports": "Hasabatlar",
       "process_guides": "Proses nähili işleýär",
-      "production_daily": "Günlük önümçilik netijeleri",
-      "production_seasonal": "Möwsümleýin önümçilik netijeleri",
-      "export_market": "Daşarky bazar paýlanyşy"
+      "blocks_table": "Bloklar boýunça netijeler"
     },
     "compliance": {
       "reports_overdue": "Möhleti geçen hasabatlar",
@@ -2219,12 +2216,6 @@
       "low": "Pes",
       "med": "Orta",
       "high": "Ýokary"
-    },
-    "aging": {
-      "fresh": "0-30 gün",
-      "d30": "30-60 gün",
-      "d60": "60-90 gün",
-      "d90plus": "90+ gün"
     },
     "export": {
       "excel": "Excel",
@@ -2249,19 +2240,19 @@
     },
     "production": {
       "header_block": "Ýyladyşhana",
-      "header_planned": "Meýilleşdirilen (KG)",
-      "header_actual": "Yerine Yetirilen (KG)",
-      "header_graph": "Grafik babatynda %",
       "total_row": "Jemi",
       "scope_daily": "Günlük",
       "scope_seasonal": "Möwsümleýin",
       "scope_monthly": "Aýlyk"
     },
+    "blocks_table": {
+      "group_export": "Daşarky Bazar",
+      "col_plan": "Plan",
+      "col_actual": "Fakt",
+      "col_kg": "KG",
+      "col_season_pct": "Möwsüm %"
+    },
     "export_market": {
-      "header_block": "Ýyladyşhana",
-      "header_kg": "Daşarky Bazar (KG)",
-      "header_pct": "Daşarky Bazar (%)",
-      "total_row": "Jemi",
       "note_excluded": "Içerki Bazar we Sowgatlyk soň goşulýar"
     },
     "ops_pulse": {
