@@ -29,6 +29,43 @@ export function useAdminTrailers() {
 interface ITruckHeadPatch { id: number; plate_number?: string; owner_type?: string; owner_name?: string; status?: string; capacity?: number | null; is_active?: boolean; }
 interface ITrailerPatch { id: number; plate_number?: string; owner_type?: string; status?: string; is_active?: boolean; }
 
+interface ITruckHeadCreate {
+  plate_number: string;
+  owner_type?: string;
+  owner_name?: string;
+  capacity?: number | string | null;
+  is_active?: boolean;
+}
+interface ITrailerCreate { plate_number: string; owner_type?: string; is_active?: boolean; }
+
+export function useAdminCreateTruckHead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: ITruckHeadCreate) => {
+      const { data } = await api.post<ITruckHead>('/transport/truck-heads/', payload);
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['transport', 'admin-truck-heads'] });
+      qc.invalidateQueries({ queryKey: ['transport', 'truck-heads'] });
+    },
+  });
+}
+
+export function useAdminCreateTrailer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: ITrailerCreate) => {
+      const { data } = await api.post<ITrailer>('/transport/trailers/', payload);
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['transport', 'admin-trailers'] });
+      qc.invalidateQueries({ queryKey: ['transport', 'trailers'] });
+    },
+  });
+}
+
 export function useUpdateTruckHead() {
   const qc = useQueryClient();
   return useMutation({

@@ -933,6 +933,7 @@
     "tab_trailers": "Trailers",
     "plate_number": "Plate Number",
     "owner_type": "Owner Type",
+    "field_owner_name": "Owner",
     "capacity": "Capacity",
     "gps": "GPS",
     "gps_yes": "GPS",

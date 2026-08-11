@@ -1,26 +1,38 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
+import { toast } from 'sonner';
 import i18n from '@/i18n';
 import FleetAdminPage from './FleetAdminPage';
-import { useAdminTruckHeads, useAdminTrailers, useUpdateTruckHead, useUpdateTrailer } from '@/hooks/useFleetAdmin';
-import { useCreateTruckHead, useCreateTrailer } from '@/hooks/useFleet';
+import {
+  useAdminTruckHeads,
+  useAdminTrailers,
+  useUpdateTruckHead,
+  useUpdateTrailer,
+  useAdminCreateTruckHead,
+  useAdminCreateTrailer,
+} from '@/hooks/useFleetAdmin';
 
 vi.mock('@/hooks/useFleetAdmin', () => ({
   useAdminTruckHeads: vi.fn(),
   useAdminTrailers: vi.fn(),
   useUpdateTruckHead: vi.fn(),
   useUpdateTrailer: vi.fn(),
+  useAdminCreateTruckHead: vi.fn(),
+  useAdminCreateTrailer: vi.fn(),
 }));
 
-vi.mock('@/hooks/useFleet', () => ({
-  useCreateTruckHead: vi.fn(),
-  useCreateTrailer: vi.fn(),
+vi.mock('sonner', () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
 }));
 
 const mutateTruck = vi.fn();
 const mutateTrailer = vi.fn();
+const updateTruckMutateAsync = vi.fn();
+const updateTrailerMutateAsync = vi.fn();
+const createTruckMutateAsync = vi.fn();
+const createTrailerMutateAsync = vi.fn();
 
 function renderPage() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -40,10 +52,12 @@ describe('FleetAdminPage', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    createTruckMutateAsync.mockResolvedValue({ id: 99, plate_number: '09NEW999' });
+    createTrailerMutateAsync.mockResolvedValue({ id: 98, plate_number: '09TRL998' });
     vi.mocked(useAdminTruckHeads).mockReturnValue({
       data: [
-        { id: 1, plate_number: '01ABC123', owner_type: 'company', status: 'idle', has_gps: true, is_active: true },
-        { id: 2, plate_number: '02XYZ456', owner_type: '', status: '', has_gps: false, is_active: false },
+        { id: 1, plate_number: '01ABC123', owner_type: 'company', owner_name: '', status: 'idle', has_gps: true, is_active: true },
+        { id: 2, plate_number: '02XYZ456', owner_type: '', owner_name: '', status: '', has_gps: false, is_active: false },
       ],
       isLoading: false,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -55,23 +69,23 @@ describe('FleetAdminPage', () => {
     } as any);
     vi.mocked(useUpdateTruckHead).mockReturnValue({
       mutate: mutateTruck,
-      mutateAsync: vi.fn(),
+      mutateAsync: updateTruckMutateAsync,
       isPending: false,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
     vi.mocked(useUpdateTrailer).mockReturnValue({
       mutate: mutateTrailer,
-      mutateAsync: vi.fn(),
+      mutateAsync: updateTrailerMutateAsync,
       isPending: false,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
-    vi.mocked(useCreateTruckHead).mockReturnValue({
-      mutateAsync: vi.fn().mockResolvedValue({ id: 99, plate_number: '09NEW999', owner_type: '', status: '', has_gps: false, is_active: true }),
+    vi.mocked(useAdminCreateTruckHead).mockReturnValue({
+      mutateAsync: createTruckMutateAsync,
       isPending: false,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
-    vi.mocked(useCreateTrailer).mockReturnValue({
-      mutateAsync: vi.fn().mockResolvedValue({ id: 98, plate_number: '09TRL998', owner_type: '', status: '', is_active: true }),
+    vi.mocked(useAdminCreateTrailer).mockReturnValue({
+      mutateAsync: createTrailerMutateAsync,
       isPending: false,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
@@ -90,9 +104,41 @@ describe('FleetAdminPage', () => {
     expect(screen.getByLabelText('Plate Number')).toBeInTheDocument();
   });
 
-  it('calls useUpdateTruckHead().mutate with {id, is_active} when Deactivate is clicked', () => {
+  it('calls useUpdateTruckHead().mutate with {id, is_active} when Deactivate is clicked, and shows a success toast', () => {
     renderPage();
     fireEvent.click(screen.getAllByRole('button', { name: 'Deactivate' })[0]);
     expect(mutateTruck.mock.calls[0][0]).toEqual({ id: 1, is_active: false });
+
+    // Simulate the mutation resolving, the way the real react-query mutate() would.
+    const options = mutateTruck.mock.calls[0][1];
+    options.onSuccess();
+    expect(toast.success).toHaveBeenCalledWith('Vehicle deactivated');
+  });
+
+  it('submits a single admin-create call with all fields when adding a truck (no two-step create+patch)', async () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: /Add Truck/i }));
+
+    fireEvent.change(screen.getByLabelText('Plate Number'), { target: { value: '07test999' } });
+    fireEvent.change(screen.getByLabelText('Owner Type'), { target: { value: 'company' } });
+    fireEvent.change(screen.getByLabelText('Owner'), { target: { value: 'YGT Holding' } });
+    fireEvent.change(screen.getByLabelText('Capacity'), { target: { value: '20' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+
+    await waitFor(() => expect(createTruckMutateAsync).toHaveBeenCalledTimes(1));
+    expect(createTruckMutateAsync).toHaveBeenCalledWith({
+      plate_number: '07TEST999',
+      owner_type: 'company',
+      owner_name: 'YGT Holding',
+      capacity: 20,
+      is_active: true,
+    });
+    // Proves the two-step create-then-patch window is gone: no follow-up
+    // update call of any kind (mutate or mutateAsync) after the single create.
+    expect(mutateTruck).not.toHaveBeenCalled();
+    expect(updateTruckMutateAsync).not.toHaveBeenCalled();
+    expect(mutateTrailer).not.toHaveBeenCalled();
+    expect(updateTrailerMutateAsync).not.toHaveBeenCalled();
   });
 });

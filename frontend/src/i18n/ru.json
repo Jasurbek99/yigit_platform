@@ -935,6 +935,7 @@
     "tab_trailers": "Прицепы",
     "plate_number": "Гос. номер",
     "owner_type": "Тип владения",
+    "field_owner_name": "Владелец",
     "capacity": "Грузоподъёмность",
     "gps": "GPS",
     "gps_yes": "GPS",

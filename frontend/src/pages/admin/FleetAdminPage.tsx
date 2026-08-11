@@ -15,14 +15,14 @@ import {
 import { PlusOutlined, EditOutlined } from '@ant-design/icons';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
-import { useQueryClient } from '@tanstack/react-query';
 import {
   useAdminTruckHeads,
   useAdminTrailers,
   useUpdateTruckHead,
   useUpdateTrailer,
+  useAdminCreateTruckHead,
+  useAdminCreateTrailer,
 } from '@/hooks/useFleetAdmin';
-import { useCreateTruckHead, useCreateTrailer } from '@/hooks/useFleet';
 import type { ITruckHead, ITrailer } from '@/hooks/useFleet';
 
 const { Title, Text } = Typography;
@@ -40,6 +40,7 @@ interface IAdminTruckHead extends ITruckHead {
 interface ITruckFormValues {
   plate_number: string;
   owner_type?: string;
+  owner_name?: string;
   capacity?: number | null;
   is_active?: boolean;
 }
@@ -52,12 +53,11 @@ interface ITrailerFormValues {
 
 export default function FleetAdminPage() {
   const { t } = useTranslation();
-  const qc = useQueryClient();
 
   // ── Trucks ──────────────────────────────────────────────────────────
   const { data: trucksRaw = [], isLoading: trucksLoading } = useAdminTruckHeads();
   const trucks = trucksRaw as IAdminTruckHead[];
-  const createTruck = useCreateTruckHead();
+  const createTruck = useAdminCreateTruckHead();
   const updateTruck = useUpdateTruckHead();
 
   const [truckModalOpen, setTruckModalOpen] = useState(false);
@@ -76,6 +76,7 @@ export default function FleetAdminPage() {
     truckForm.setFieldsValue({
       plate_number: record.plate_number,
       owner_type: record.owner_type,
+      owner_name: record.owner_name ?? undefined,
       capacity: record.capacity != null && record.capacity !== '' ? Number(record.capacity) : undefined,
       is_active: record.is_active,
     });
@@ -95,24 +96,19 @@ export default function FleetAdminPage() {
           id: editTruck.id,
           plate_number: values.plate_number.toUpperCase(),
           owner_type: values.owner_type ?? '',
+          owner_name: values.owner_name ?? '',
           capacity: values.capacity ?? null,
           is_active: values.is_active ?? true,
         });
         toast.success(t('fleet_admin.toast_updated'));
       } else {
-        const created = await createTruck.mutateAsync(values.plate_number.toUpperCase());
-        const hasExtra = Boolean(values.owner_type) || values.capacity != null || values.is_active === false;
-        if (hasExtra) {
-          await updateTruck.mutateAsync({
-            id: created.id,
-            owner_type: values.owner_type,
-            capacity: values.capacity ?? null,
-            is_active: values.is_active ?? true,
-          });
-        }
-        // The plate-only create hook only invalidates ['transport','truck-heads'],
-        // not this admin list's ['transport','admin-truck-heads'] query key.
-        qc.invalidateQueries({ queryKey: ['transport', 'admin-truck-heads'] });
+        await createTruck.mutateAsync({
+          plate_number: values.plate_number.toUpperCase(),
+          owner_type: values.owner_type ?? '',
+          owner_name: values.owner_name ?? '',
+          capacity: values.capacity ?? null,
+          is_active: values.is_active ?? true,
+        });
         toast.success(t('fleet_admin.toast_created'));
       }
       closeTruckModal();
@@ -139,6 +135,12 @@ export default function FleetAdminPage() {
       dataIndex: 'owner_type',
       key: 'owner_type',
       render: (v?: string) => v || <Text type="secondary">—</Text>,
+    },
+    {
+      title: t('fleet_admin.field_owner_name'),
+      dataIndex: 'owner_name',
+      key: 'owner_name',
+      render: (v?: string | null) => v || <Text type="secondary">—</Text>,
     },
     {
       title: t('fleet_admin.capacity'),
@@ -214,6 +216,9 @@ export default function FleetAdminPage() {
           <Form.Item name="owner_type" label={t('fleet_admin.owner_type')}>
             <Input />
           </Form.Item>
+          <Form.Item name="owner_name" label={t('fleet_admin.field_owner_name')}>
+            <Input />
+          </Form.Item>
           <Form.Item name="capacity" label={t('fleet_admin.capacity')}>
             <InputNumber min={0} style={{ width: '100%' }} />
           </Form.Item>
@@ -227,7 +232,7 @@ export default function FleetAdminPage() {
 
   // ── Trailers ────────────────────────────────────────────────────────
   const { data: trailers = [], isLoading: trailersLoading } = useAdminTrailers();
-  const createTrailer = useCreateTrailer();
+  const createTrailer = useAdminCreateTrailer();
   const updateTrailer = useUpdateTrailer();
 
   const [trailerModalOpen, setTrailerModalOpen] = useState(false);
@@ -268,16 +273,11 @@ export default function FleetAdminPage() {
         });
         toast.success(t('fleet_admin.toast_updated'));
       } else {
-        const created = await createTrailer.mutateAsync(values.plate_number.toUpperCase());
-        const hasExtra = Boolean(values.owner_type) || values.is_active === false;
-        if (hasExtra) {
-          await updateTrailer.mutateAsync({
-            id: created.id,
-            owner_type: values.owner_type,
-            is_active: values.is_active ?? true,
-          });
-        }
-        qc.invalidateQueries({ queryKey: ['transport', 'admin-trailers'] });
+        await createTrailer.mutateAsync({
+          plate_number: values.plate_number.toUpperCase(),
+          owner_type: values.owner_type ?? '',
+          is_active: values.is_active ?? true,
+        });
         toast.success(t('fleet_admin.toast_created'));
       }
       closeTrailerModal();
