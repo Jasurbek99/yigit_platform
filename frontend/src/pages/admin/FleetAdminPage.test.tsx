@@ -141,4 +141,31 @@ describe('FleetAdminPage', () => {
     expect(mutateTrailer).not.toHaveBeenCalled();
     expect(updateTrailerMutateAsync).not.toHaveBeenCalled();
   });
+
+  it('preserves an imported Cyrillic owner_name when editing only the capacity (no silent blanking)', async () => {
+    // A single imported truck carrying a non-empty Cyrillic owner name.
+    vi.mocked(useAdminTruckHeads).mockReturnValue({
+      data: [
+        { id: 5, plate_number: '05CYR555', owner_type: 'leased', owner_name: 'Иванов Пётр', capacity: '20.00', status: 'idle', has_gps: true, is_active: true },
+      ],
+      isLoading: false,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    renderPage();
+
+    // Open Edit and change ONLY the capacity — owner_name is left untouched (relies on prefill).
+    // The Edit button carries an EditOutlined icon (aria-label "edit") + text,
+    // so its accessible name is "edit Edit" — match by regex, not exact string.
+    fireEvent.click(screen.getByRole('button', { name: /edit/i }));
+    fireEvent.change(screen.getByLabelText('Capacity'), { target: { value: '25' } });
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+
+    await waitFor(() => expect(updateTruckMutateAsync).toHaveBeenCalledTimes(1));
+    const payload = updateTruckMutateAsync.mock.calls[0][0];
+    expect(payload.id).toBe(5);
+    expect(payload.capacity).toBe(25);
+    // The Cyrillic owner name must survive a capacity-only edit, not be wiped to ''.
+    expect(payload.owner_name).toBe('Иванов Пётр');
+    expect(payload.owner_type).toBe('leased');
+  });
 });
