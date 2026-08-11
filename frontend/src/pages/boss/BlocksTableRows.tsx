@@ -1,16 +1,12 @@
 import { useState } from 'react';
-import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Typography } from 'antd';
 import type { IBlockTotals, IMergedBlockRow } from './BlocksTable.helpers';
-import { GRID_TEMPLATE } from './BlocksTable.helpers';
+import { HEADER_STYLE, NUM_STYLE, ROW_GRID } from './BlocksTable.helpers';
+import { CellGroup, Num, SeasonBar } from './BlocksTableCells';
 import { COLORS, FONT } from '@/constants/styles';
 
 const { Text } = Typography;
-
-const HEADER_STYLE = { fontSize: 11, color: COLORS.textTertiary, fontWeight: 600 } as const;
-const NUM_STYLE = { fontSize: 12, textAlign: 'right', fontFamily: FONT.mono } as const;
-const ROW_GRID = { display: 'grid', gridTemplateColumns: GRID_TEMPLATE } as const;
 
 /** Spans the four column groups, naming the time window each one covers. */
 export function GroupHeaderRow() {
@@ -56,7 +52,7 @@ export function ColumnHeaderRow() {
         <Text key={`${group}_actual`} style={right}>{actual}</Text>,
       ])}
       <Text style={right}>{t('boss_dashboard.blocks_table.col_kg')}</Text>
-      <Text style={right}>%</Text>
+      <Text style={right}>{t('boss_dashboard.blocks_table.col_pct')}</Text>
       <Text style={{ ...HEADER_STYLE, paddingLeft: 12 }}>
         {t('boss_dashboard.blocks_table.col_season_pct')}
       </Text>
@@ -130,62 +126,11 @@ export function BlockRow({ row, onHarvestClick, onExportClick }: IBlockRowProps)
   );
 }
 
-/**
- * A clickable run of cells. `display: contents` keeps the children as direct grid
- * items of the row, so the wrapper can own the click target and hover state
- * without breaking the column template shared with the header and total rows.
- */
-function CellGroup({
-  label,
-  onClick,
-  onHoverChange,
-  children,
-}: {
-  label: string;
-  onClick: () => void;
-  onHoverChange: (isHovered: boolean) => void;
-  children: ReactNode;
-}) {
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      aria-label={label}
-      onClick={onClick}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onClick();
-        }
-      }}
-      onMouseEnter={() => onHoverChange(true)}
-      onMouseLeave={() => onHoverChange(false)}
-      style={{ display: 'contents', cursor: 'pointer' }}
-    >
-      {children}
-    </div>
-  );
+interface ITotalRowProps {
+  totals: IBlockTotals;
 }
 
-function Num({ value, bg }: { value: number; bg?: string }) {
-  return <Text style={{ ...NUM_STYLE, background: bg }}>{value.toLocaleString()}</Text>;
-}
-
-function SeasonBar({ pct }: { pct: number }) {
-  const color = pct >= 90 ? COLORS.success : pct >= 70 ? COLORS.orange : COLORS.danger;
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-      <div style={{ flex: 1, background: '#e8e8e8', borderRadius: 2, height: 6 }}>
-        <div style={{ width: `${Math.min(pct, 100)}%`, background: color, height: 6, borderRadius: 2 }} />
-      </div>
-      <Text style={{ fontSize: 10, color: COLORS.textTertiary, minWidth: 30, textAlign: 'right' }}>
-        {pct.toFixed(0)}%
-      </Text>
-    </div>
-  );
-}
-
-export function TotalRow({ totals }: { totals: IBlockTotals }) {
+export function TotalRow({ totals }: ITotalRowProps) {
   const { t } = useTranslation();
   const bold = { fontSize: 12, fontWeight: 600, textAlign: 'right', fontFamily: FONT.mono } as const;
   const cells: number[] = [

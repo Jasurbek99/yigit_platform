@@ -2250,6 +2250,7 @@
       "col_plan": "Plan",
       "col_actual": "Fakt",
       "col_kg": "KG",
+      "col_pct": "%",
       "col_season_pct": "Möwsüm %"
     },
     "export_market": {

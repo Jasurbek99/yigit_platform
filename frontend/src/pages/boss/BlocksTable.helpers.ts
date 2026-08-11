@@ -1,4 +1,6 @@
+import type { CSSProperties } from 'react';
 import type { IBossProductionRow, IBossExportMarketRow } from '@/hooks/useBossDashboard';
+import { COLORS, FONT } from '@/constants/styles';
 
 /** One greenhouse block's figures across all four time windows. */
 export interface IMergedBlockRow {
@@ -33,6 +35,13 @@ export type IBlockTotals = Omit<IMergedBlockRow, 'block_code' | 'block_name'>;
 export const GRID_TEMPLATE = [1.5, 0.9, 0.9, 0.9, 0.9, 1, 1, 1.1, 0.6, 1.5]
   .map((fr) => `minmax(0, ${fr}fr)`)
   .join(' ');
+
+/** Every row of the table — headers, data and total — is this same grid. */
+export const ROW_GRID: CSSProperties = { display: 'grid', gridTemplateColumns: GRID_TEMPLATE };
+
+export const HEADER_STYLE: CSSProperties = { fontSize: 11, color: COLORS.textTertiary, fontWeight: 600 };
+
+export const NUM_STYLE: CSSProperties = { fontSize: 12, textAlign: 'right', fontFamily: FONT.mono };
 
 const ZERO_TOTALS: IBlockTotals = {
   daily_plan_kg: 0,
