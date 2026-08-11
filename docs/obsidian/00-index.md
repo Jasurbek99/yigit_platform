@@ -76,7 +76,7 @@ flowchart LR
 | [[comments-tasks]] | Cell-anchored threaded comments with @user/@role mentions and single-assignee tasks | ShipmentSheet (Comments Drawer), ShipmentDetail (Changes tab) |
 | [[realtime-presence]] | WebSocket presence avatars showing who is on the Sheet right now (Channels + Redis + uvicorn workers) | ShipmentSheet (toolbar) |
 | [[worklog]] | Per-user work-time logging over the same WS (heartbeat → core.work_sessions + reaper cron); visible to everyone | WorklogPage, header chip |
-| [[fleet-map]] | Live truck GPS positions from Traccar — standalone transport registry, 1-min poller, read-only API | FleetMap (`/transport/map`) |
+| [[fleet-map]] | Live truck GPS positions from Traccar + TIR fleet registry (TruckHead/Trailer) driving shipment truck selection — standalone transport app, 2-min poller, read-only API | FleetMap (`/transport/map`), ShipmentTruckSelector, FleetAdminPage (`/admin/fleet`) |
 | [[detail-vs-sheet]] | Process flow on Detail page vs the Sheet — what each surface optimises for, decision matrix | ShipmentDetail, ShipmentSheet |
 | [[permissions-system]] | Dynamic RBAC: page/resource/field-level | PermissionsPage |
 | [[authentication]] | JWT httpOnly cookie auth with CSRF | LoginPage |
@@ -112,6 +112,7 @@ See [[roles-matrix]] for the full capability matrix.
 - [[screens/contract-sale-list]] — All-sales list page at `/sales` — cross-contract ProTable with search, status filter, full CRUD (P4 Slice C)
 - [[screens/sales-report-page]] — Full-page Excel-like sales report at `/export/sales-reports/:shipmentId` — Sale + Processing tabs over one SalesReport
 - [[screens/expense-template-admin]] — Expense-template CRUD at `/admin/expense-template` — categories, tk/ru/en names, logo_code, is_active
+- [[screens/fleet-admin]] — TIR fleet CRUD at `/admin/fleet` — TruckHead + Trailer tabs (incl. inactive), create/edit/activate-deactivate; role-gated (no page_code); backs ShipmentTruckSelector
 - [[screens/team-kpi]] — Team KPI leaderboard at `/team/kpi` — per-user tasks-completed ranking with on-time %, overdue-now, active hours, period switcher; visible to every role, wired to `GET /api/v1/core/team-kpi/`
 - [[screens/season-switcher]] — Header season switcher, read-only mode, and admin Close/Open on `/admin/seasons` (AD-16) — close a season (frozen + hidden), open the next one, browse a closed season read-only
 
