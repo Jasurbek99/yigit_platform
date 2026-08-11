@@ -140,6 +140,34 @@ describe('SheetTruckSelectEditor', () => {
     });
   });
 
+  it('scrolling the grid commits the pending selection (panel would otherwise be stranded)', async () => {
+    const onCommit = vi.fn();
+    wrap(
+      <SheetTruckSelectEditor
+        initialHeadId={null}
+        initialTrailerId={null}
+        onCommit={onCommit}
+        onClose={vi.fn()}
+      />,
+    );
+    const headSelect = screen.getByLabelText('Truck (tractor)');
+    await userEvent.click(headSelect);
+    await userEvent.click(await screen.findByText('01ABC'));
+
+    fireEvent.scroll(window);
+
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit).toHaveBeenCalledWith({
+      truck_head_id: 1,
+      trailer_id: null,
+      truck_plate: '01ABC',
+    });
+
+    // Commit-once guard: a second scroll must not fire onCommit again.
+    fireEvent.scroll(window);
+    expect(onCommit).toHaveBeenCalledTimes(1);
+  });
+
   it('inline add creates a truck head then commits a plate starting with the new plate', async () => {
     createHead.mockResolvedValue({ id: 99, plate_number: '09NEW' });
     const onCommit = vi.fn();

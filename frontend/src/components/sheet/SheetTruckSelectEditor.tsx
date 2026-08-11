@@ -105,6 +105,21 @@ export default function SheetTruckSelectEditor({
     return () => document.removeEventListener('mousedown', handleMouseDown);
   }, []);
 
+  // The panel is `position: fixed`, measured once at open time (see the
+  // one-shot useLayoutEffect above) — it doesn't track the sheet grid's
+  // scroll container, so scrolling would leave it visually stranded over
+  // the wrong cell. Rather than re-anchoring on every scroll tick, commit
+  // and close on the first scroll (matches this editor's transient model).
+  // capture=true so this also catches the grid's inner scroll container,
+  // not just window-level scroll.
+  useEffect(() => {
+    function handleScroll() {
+      commitRef.current();
+    }
+    window.addEventListener('scroll', handleScroll, true);
+    return () => window.removeEventListener('scroll', handleScroll, true);
+  }, []);
+
   const norm = (s: string) => s.trim().toUpperCase();
   const headExists = (truckHeads ?? []).some((h) => norm(h.plate_number) === norm(headSearch));
   const trailerExists = (trailers ?? []).some((r) => norm(r.plate_number) === norm(trailerSearch));
@@ -146,6 +161,9 @@ export default function SheetTruckSelectEditor({
           onKeyDown={(e) => {
             if (e.key === 'Escape') {
               e.stopPropagation();
+              // Guard against a late outside-click/scroll committing a
+              // cancelled selection after Escape has already closed the panel.
+              committedRef.current = true;
               onClose();
             }
           }}
