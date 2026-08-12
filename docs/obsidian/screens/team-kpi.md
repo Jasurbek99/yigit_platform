@@ -44,7 +44,7 @@ there is nothing meaningful to rank.
 | Role tag | `role` | Translated via `roles.{role}` |
 | Completed (headline number) | `completed` | Large number, `fontSize 28` |
 | On-time meter | `on_time_rate` | `Progress` line + **always-visible `%` label** (never color-alone); green ≥80%, orange below; `—` when `null` (no deadline-bearing completions in window) |
-| Overdue now | `overdue_now` | **Not** period-scoped — current overdue count by role; orange when >0, `—` when 0 |
+| Overdue now | `overdue_now` | **Not** period-scoped — current overdue count by role (excludes draft & soft-deleted shipment tasks); orange when >0, `—` when 0 |
 | Active | `active_seconds` | Formatted `Nh Nm`; sums `WorkSessionDaily` over the same window; `—` when 0 |
 | Trend sparkline | `trend` | Single-hue line+area sparkline, `decorative` (aria-hidden), no axes; only rendered when at least one of the 14 days is nonzero |
 

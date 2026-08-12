@@ -122,14 +122,20 @@ def compute_team_kpi(period: str, season=None) -> list[dict]:
     comp_by_user = {r['completed_by']: r for r in comp_rows}
 
     # 2. Overdue NOW — current-state, window-independent, grouped by role.
-    # Exclude tasks on soft-deleted shipments (they are no longer real work) —
-    # matches MeTaskListView's filter so the KPI and the task board agree.
+    # Excluded, because neither is real actionable overdue work:
+    #   - tasks on soft-deleted shipments (no longer exist), and
+    #   - tasks on DRAFT shipments. A draft is a parked, supply-only shipment
+    #     with no destination yet; its downstream tasks (set_destination,
+    #     assign_driver, document prep, firm-split) cannot be done until a
+    #     destination is assigned, so their deadlines are not yet meaningful.
+    #     Treat a draft as "not on the clock" rather than perpetually overdue.
     # Non-shipment tasks (weekly/local plans) have no shipment and are kept.
     now = timezone.now()
     overdue_rows = (
         Task.objects.filter(deadline__lt=now)
         .exclude(state__in=[TaskState.DONE, TaskState.CANCELLED])
         .filter(Q(shipment__isnull=True) | Q(shipment__deleted_at__isnull=True))
+        .exclude(shipment__status__code='draft')
         .values('assignee_role')
         .annotate(c=Count('id'))
     )

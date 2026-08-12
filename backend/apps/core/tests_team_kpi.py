@@ -76,20 +76,44 @@ class ComputeTeamKpiTest(TestCase):
         self.assertEqual(rows[self.alice.id]['overdue_now'], 1)
         self.assertEqual(rows[self.bob.id]['overdue_now'], 0)
 
-    def test_overdue_excludes_soft_deleted_shipment_tasks(self):
-        # An overdue open task on a soft-deleted shipment must NOT count —
-        # matches the task board's filter.
+    def test_overdue_only_counts_live_shipment_tasks(self):
+        # Overdue-now counts a task on a live shipment, but NOT tasks on draft
+        # (parked, no destination yet) or soft-deleted shipments. All three
+        # tasks are identical except for their shipment's state, so this proves
+        # the two exclusions are what drops them — not some other filter.
+        from apps.core.models import ShipmentStatusType
         from apps.export.tests_task_attribution_helpers import make_basic_shipment
-        shipment = make_basic_shipment(created_by=self.alice)
-        shipment.deleted_at = timezone.now()
-        shipment.save(update_fields=['deleted_at'])
-        Task.objects.create(
-            shipment=shipment, title_key='t', assignee_role='loading_dept_head',
-            completion_rule=TaskCompletionRule.MANUAL_DONE,
-            state=TaskState.OPEN, deadline=timezone.now() - timedelta(hours=2),
+
+        live_status, _ = ShipmentStatusType.objects.get_or_create(
+            code='yola_chykdy',
+            defaults={'name_tk': 'x', 'name_en': 'x', 'name_ru': 'x',
+                      'step_order': 5, 'phase': 'TRANSIT'},
         )
+        past = timezone.now() - timedelta(hours=2)
+
+        def overdue_task_on(shipment):
+            Task.objects.create(
+                shipment=shipment, title_key='t', assignee_role='loading_dept_head',
+                completion_rule=TaskCompletionRule.MANUAL_DONE,
+                state=TaskState.OPEN, deadline=past,
+            )
+
+        live = make_basic_shipment(created_by=self.alice)
+        live.status = live_status
+        live.save(update_fields=['status'])
+        overdue_task_on(live)                        # counts
+
+        draft = make_basic_shipment(created_by=self.alice)  # helper => code='draft'
+        overdue_task_on(draft)                       # excluded (draft)
+
+        deleted = make_basic_shipment(created_by=self.alice)
+        deleted.status = live_status
+        deleted.deleted_at = timezone.now()
+        deleted.save(update_fields=['status', 'deleted_at'])
+        overdue_task_on(deleted)                     # excluded (soft-deleted)
+
         rows = {r['user_id']: r for r in compute_team_kpi('today')}
-        self.assertEqual(rows[self.alice.id]['overdue_now'], 0)
+        self.assertEqual(rows[self.alice.id]['overdue_now'], 1)
 
     def test_zero_completion_users_present_and_sorted_last(self):
         self._done_task(self.alice)

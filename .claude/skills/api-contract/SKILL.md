@@ -333,7 +333,9 @@ unbounded ALL-TIME window that blended every closed season's completions. Defaul
   are overdue **right now**, regardless of the `period` selector, and is attributed by
   **role** (`assignee_role`, expanded through `task_roles_for()` for deputy equivalence) —
   not by `completed_by`. It does not change when you switch periods; only the other three
-  metrics do.
+  metrics do. **Excludes** tasks on soft-deleted shipments and on **draft** shipments (a
+  draft is parked/supply-only with no destination, so its downstream tasks aren't yet
+  actionable overdue work); non-shipment plan tasks are kept.
 - Roster is every `User.is_active=True` row, so a user with zero activity in the window
   still appears with `completed=0`, `on_time_rate=null`, `active_seconds=0`.
 
