@@ -62,8 +62,11 @@ services:
 
   celery-worker:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      # Must match `backend` above: repo root context + backend/Dockerfile. The
+      # Dockerfile's COPYs are repo-relative (`COPY backend/ .`, `COPY
+      # docs/how_works …`) and cannot resolve from a ./backend context.
+      context: .
+      dockerfile: backend/Dockerfile
     # Live Traccar poller (apps.transport.tasks.poll_traccar), scheduled by
     # celery-beat every 120s — see docs/obsidian/processes/fleet-map.md.
     command: celery -A config worker -l info
@@ -87,8 +90,10 @@ services:
 
   celery-beat:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      # Same repo-root context as `backend` / `celery-worker` — see the note
+      # on celery-worker.build above.
+      context: .
+      dockerfile: backend/Dockerfile
     # --schedule /tmp/celerybeat-schedule: /app is a source bind mount owned by
     # the host user, not writable by the container's runtime user — writing the
     # schedule file there fails with a permission error. /tmp is always writable.

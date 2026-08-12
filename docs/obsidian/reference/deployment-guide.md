@@ -31,6 +31,16 @@ For full setup instructions see [GETTING_STARTED.md](../GETTING_STARTED.md).
 > `config/__init__.py` imports it at boot, so `--build` (or `pip install -r
 > requirements.txt`) must precede the restart.
 
+> **`backend`, `celery-worker` and `celery-beat` must all build with
+> `context: .` + `dockerfile: backend/Dockerfile`.** The Dockerfile's `COPY`s
+> are repo-root-relative (`COPY backend/ .`, `COPY docs/how_works
+> /opt/ygt/docs/how_works`) because `docs/how_works/` lives outside `backend/`.
+> A narrower `context: ./backend` on any one of them fails the build with
+> `failed to compute cache key: "/docs/how_works": not found` — and since
+> Compose builds all images in a single bake, **the whole bake aborts and
+> `backend`/`frontend` never finish either**, so the deploy fails outright. This
+> bit the 2026-08-12 production rebuild. Frontend stays on `./frontend`.
+
 ## MSSQL Connection
 
 | Setting | Value |
