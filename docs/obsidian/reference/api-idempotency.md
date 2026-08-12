@@ -29,6 +29,18 @@ Send an `Idempotency-Key` header on the create request.
 | Uniqueness | scoped to `(user, request.path, key)` — the same key on a different endpoint or from a different user does not collide |
 | Optional | **Absent header = old behaviour, unchanged.** Existing clients and the future mobile CRM are never broken by omitting it |
 | Retention | 24 hours, purged by a daily Celery beat task |
+| CORS | `idempotency-key` must stay in `CORS_ALLOW_HEADERS` (`settings.py`) — see below |
+
+> [!warning] Cross-origin callers need `idempotency-key` in `CORS_ALLOW_HEADERS`
+> `Idempotency-Key` is not a CORS-safelisted request header, so a cross-origin browser call
+> carrying it triggers a preflight. django-cors-headers' default allow-list does **not** include
+> it, so without the explicit `CORS_ALLOW_HEADERS` entry in `settings.py` the preflight fails and
+> the POST never reaches Django — the browser reports `net::ERR_FAILED` and the server log shows
+> nothing at all. Production serves the SPA and `/api` from one origin through nginx, so no
+> preflight happens and this stays invisible there; it breaks local dev with `VITE_API_BASE_URL`
+> pointed at another origin, and it would break the planned mobile CRM. Neither the unit tests
+> (Django's test client does no CORS) nor `curl` (no `Origin` header) can catch this — it was
+> found by driving a real browser.
 
 ### Outcomes
 

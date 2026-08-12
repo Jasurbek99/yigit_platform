@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 from datetime import timedelta
 
+from corsheaders.defaults import default_headers as cors_default_headers
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -377,6 +378,17 @@ CORS_ALLOWED_ORIGINS = os.environ.get(
     'http://localhost:3000,http://127.0.0.1:3000'
 ).split(',')
 CORS_ALLOW_CREDENTIALS = True
+
+# `Idempotency-Key` is not a CORS-safelisted request header, so a cross-origin
+# browser call carrying it triggers a preflight — and django-cors-headers'
+# default allow-list does not include it, so the preflight fails and the POST
+# never reaches Django (net::ERR_FAILED in the browser, nothing in the server
+# log). Production serves the SPA and /api from one origin through nginx, so no
+# preflight happens there and this went unnoticed; it bites local dev with
+# VITE_API_BASE_URL pointed at another origin, and it would bite the planned
+# mobile CRM. Verified in a real browser, not just the Django test client —
+# neither unit tests nor curl send an Origin header.
+CORS_ALLOW_HEADERS = list(cors_default_headers) + ['idempotency-key']
 
 CSRF_TRUSTED_ORIGINS = os.environ.get(
     'CSRF_TRUSTED_ORIGINS',
