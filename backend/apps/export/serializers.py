@@ -64,18 +64,31 @@ class SalesReportLineItemSerializer(serializers.ModelSerializer):
         fields = ['line_number', 'product_name', 'quantity_kg', 'price_local', 'amount_local']
 
     def validate(self, attrs: dict) -> dict:
-        """Always derive amount_local = qty * price server-side.
+        """Require qty + price, then derive amount_local = qty * price server-side.
 
         The line amount is never trusted from the client: it is recomputed
         from quantity and price so the stored total can never diverge from
         the sum of qty x price (guards the direct-API surface).
+
+        The explicit presence check is required because the parent serializer
+        runs with ``partial=True`` and DRF propagates that to every descendant
+        via ``self.root.partial`` — so ``required=True`` on these fields is
+        silently skipped. Without this, a row missing qty/price passed
+        validation and then hit a NOT NULL violation in bulk_create (500).
         """
         qty = attrs.get('quantity_kg')
         price = attrs.get('price_local')
-        if qty is not None and price is not None:
-            attrs['amount_local'] = (Decimal(str(qty)) * Decimal(str(price))).quantize(
-                Decimal('0.01')
-            )
+        missing = {
+            name: 'This field is required.'
+            for name, value in (('quantity_kg', qty), ('price_local', price))
+            if value is None
+        }
+        if missing:
+            raise serializers.ValidationError(missing)
+
+        attrs['amount_local'] = (Decimal(str(qty)) * Decimal(str(price))).quantize(
+            Decimal('0.01')
+        )
         return attrs
 
 
@@ -115,6 +128,23 @@ class SalesReportExpenseSerializer(serializers.ModelSerializer):
         if cat is None:
             return None
         return cat.name_en or cat.name_tk or cat.code
+
+    def validate(self, attrs: dict) -> dict:
+        """Require category + amount_local on every expense row.
+
+        Same reason as the line-item serializer: the parent runs with
+        ``partial=True``, which DRF propagates to nested children, so the
+        field-level ``required`` flags never fire. A row missing either value
+        would otherwise reach bulk_create and raise a NOT NULL IntegrityError.
+        """
+        missing = {
+            name: 'This field is required.'
+            for name in ('category', 'amount_local')
+            if attrs.get(name) is None
+        }
+        if missing:
+            raise serializers.ValidationError(missing)
+        return attrs
 
     class Meta:
         model = SalesReportExpense

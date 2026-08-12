@@ -1,11 +1,11 @@
-import { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Button, Divider, Form, Input, InputNumber, Space, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { useSaveSalesReport } from '@/hooks/useSalesReport';
 import { LineItemsTable } from './salesReport/LineItemsTable';
 import { ExpensesTable } from './salesReport/ExpensesTable';
-import { fmtLocal, fmtUsd } from './salesReport/salesReportUtils';
+import { fmtLocal, fmtUsd, roundMoney, sumLineAmounts } from './salesReport/salesReportUtils';
 import type { ILineRow, IExpenseRow } from './salesReport/salesReportUtils';
 import type {
   ISalesReport,
@@ -63,7 +63,12 @@ function buildPayload(
   };
 }
 
-export function SalesReportPanel({ shipmentId, report, canEdit, onSaved }: ISalesReportPanelProps) {
+export function SalesReportPanel({
+  shipmentId,
+  report,
+  canEdit,
+  onSaved,
+}: ISalesReportPanelProps): React.ReactElement {
   const { t } = useTranslation();
   const [form] = Form.useForm();
   const mutation = useSaveSalesReport(shipmentId);
@@ -91,9 +96,12 @@ export function SalesReportPanel({ shipmentId, report, canEdit, onSaved }: ISale
 
   const kurs = Form.useWatch('exchange_rate', form) as number | null | undefined;
   const exchangeRate = kurs && kurs > 0 ? kurs : null;
-  const grossSalesLocal = useMemo(() => lines.reduce((a, r) => a + (r.quantity_kg ?? 0) * (r.price_local ?? 0), 0), [lines]);
-  const totalExpensesLocal = useMemo(() => expenses.reduce((a, r) => a + (r.amount_local ?? 0), 0), [expenses]);
-  const netLocal = grossSalesLocal - totalExpensesLocal;
+  const grossSalesLocal = useMemo(() => sumLineAmounts(lines), [lines]);
+  const totalExpensesLocal = useMemo(
+    () => roundMoney(expenses.reduce((a, r) => a + (r.amount_local ?? 0), 0)),
+    [expenses],
+  );
+  const netLocal = roundMoney(grossSalesLocal - totalExpensesLocal);
 
   const bumpKey = () => setNextKey((k) => k + 1);
   const updateLine = (key: number, field: keyof Omit<ILineRow, '_key'>, v: unknown) =>

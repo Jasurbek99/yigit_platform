@@ -314,8 +314,9 @@ class SalesReportTest(TestCase):
             format='json',
         )
         self.assertEqual(response.status_code, 400)
-        # In v2 the gate is "satyldy or later"; old "hasabat" wording is retired.
-        self.assertIn('satyldy', response.data['error'])
+        # The gate moved to "departed" (yola_chykdy, step 4) — the system status
+        # lags the real sale, so gating on satyldy (step 11) blocked real reports.
+        self.assertIn('departed', response.data['error'])
 
     def test_sales_report_wrong_role(self):
         """POST as warehouse_chief must return 403."""
@@ -534,6 +535,78 @@ class SalesReportTest(TestCase):
         expense = report.expenses.get()
         self.assertEqual(expense.category_id, custom_cat.id)
         self.assertEqual(expense.category.code, 'CUSTOM_TEST')
+
+    # ------------------------------------------------------------------
+    # Malformed nested rows: 400, not 500 — and no partial persistence
+    # ------------------------------------------------------------------
+
+    def test_incomplete_line_item_returns_400(self):
+        """A line item missing quantity_kg/price_local must 400, not 500.
+
+        partial=True on the parent propagates to nested children via
+        DRF's root-partial check, so `required` never fires on its own.
+        """
+        self.client.force_authenticate(user=self.sales_user)
+        response = self.client.patch(
+            self._url(self.shipment_at_hasabat.id),
+            {'line_items': [{'line_number': 1}]},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertIn('line_items', response.data)
+
+    def test_incomplete_expense_returns_400(self):
+        """An expense row missing amount_local must 400, not 500."""
+        self.client.force_authenticate(user=self.sales_user)
+        response = self.client.patch(
+            self._url(self.shipment_at_hasabat.id),
+            {'expenses': [{'category': self.cat_nds}]},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertIn('expenses', response.data)
+
+    def test_rejected_payload_leaves_no_sales_report_row(self):
+        """A 400 must not leave an empty SalesReport behind.
+
+        Bare row existence satisfies the satyldy -> tamamlandy trigger, so a
+        phantom row from a failed save could auto-complete the shipment with
+        no financial data. get_or_create + validate + save share a transaction.
+        """
+        self.client.force_authenticate(user=self.sales_user)
+        self.assertFalse(
+            SalesReport.objects.filter(shipment=self.shipment_at_hasabat).exists()
+        )
+
+        response = self.client.patch(
+            self._url(self.shipment_at_hasabat.id),
+            {'line_items': [{'line_number': 1}]},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertFalse(
+            SalesReport.objects.filter(shipment=self.shipment_at_hasabat).exists(),
+            msg='A rejected payload left a phantom SalesReport row behind.',
+        )
+
+    def test_soft_deleted_shipment_returns_403(self):
+        """Detail actions bypass the soft-delete filter — the action must re-check."""
+        from django.utils import timezone as dj_timezone
+
+        self.shipment_at_hasabat.deleted_at = dj_timezone.now()
+        self.shipment_at_hasabat.save(update_fields=['deleted_at'])
+
+        self.client.force_authenticate(user=self.sales_user)
+        response = self.client.post(
+            self._url(self.shipment_at_hasabat.id),
+            {'price_per_kg': '0.85'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 403, response.data)
+        self.assertFalse(
+            SalesReport.objects.filter(shipment=self.shipment_at_hasabat).exists()
+        )
 
 
 class ExpenseCategoryViewSetTest(TestCase):

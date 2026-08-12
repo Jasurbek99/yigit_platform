@@ -33,11 +33,16 @@ import { useCountries } from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
 import { useSaveSalesReport } from '@/hooks/useSalesReport';
 import { StatusTag } from '@/components/StatusTag';
-import { MIN_SALES_REPORT_STEP } from '@/components/salesReport/salesReportUtils';
+import {
+  MIN_SALES_REPORT_STEP,
+  roundMoney,
+  sumLineAmounts,
+} from '@/components/salesReport/salesReportUtils';
 import type { ILineRow, IExpenseRow } from '@/components/salesReport/salesReportUtils';
 import { SaleTab } from '@/components/salesReport/SaleTab';
 import { ProcessingTab } from '@/components/salesReport/ProcessingTab';
 import type {
+  ISalesReportExpense,
   ISalesReportExpenseInput,
   ISalesReportLineItemInput,
   ISalesReportPayload,
@@ -62,8 +67,11 @@ function buildPayload(
       price_local: r.price_local!,
     }));
 
+  // Rows the user never filled in have amount_local === null and are skipped.
+  // An explicitly entered 0 IS sent — dropping it would silently delete a saved
+  // zero-amount expense (SalesReportPanel saves them, so both editors must keep them).
   const expenseItems: ISalesReportExpenseInput[] = expenses
-    .filter((r) => r.category !== null && r.amount_local !== null && r.amount_local > 0)
+    .filter((r) => r.category !== null && r.amount_local !== null)
     .map((r) => ({
       category: r.category as number,
       label_raw: r.label_raw || null,
@@ -102,7 +110,11 @@ export default function SalesReportPage(): React.ReactElement {
   const { user } = useAuth();
 
   const { data: detail, isLoading, isError } = useShipmentDetail(shipmentId);
-  const { data: categories = [] } = useExpenseCategories();
+  const {
+    data: categories = [],
+    isLoading: categoriesLoading,
+    isError: categoriesError,
+  } = useExpenseCategories();
   const { data: countries = [], isLoading: countriesLoading } = useCountries();
   const mutation = useSaveSalesReport(shipmentId ?? '');
 
@@ -156,23 +168,50 @@ export default function SalesReportPage(): React.ReactElement {
       setNextLineKey(0);
     }
 
-    // Map saved expense amounts by category PK
-    const savedMap = new Map<number, { amount_local: number; label_raw: string }>();
+    // Group saved expenses by category PK. A report may legitimately hold more
+    // than one row per category (label_raw distinguishes them — e.g. per-city
+    // NAKLIYE), and a saved row's category may since have been deactivated and
+    // dropped out of `categories`. Both must survive: the save is replace-all,
+    // so any row missing from state is deleted server-side.
+    const savedByCategory = new Map<number, ISalesReportExpense[]>();
     for (const ex of detail.sales_report?.expenses ?? []) {
-      savedMap.set(ex.category, {
-        amount_local: ex.amount_local ? Number(ex.amount_local) : 0,
-        label_raw: ex.label_raw ?? '',
-      });
+      const group = savedByCategory.get(ex.category);
+      if (group) group.push(ex);
+      else savedByCategory.set(ex.category, [ex]);
     }
 
-    // One row per active template category; populate saved amounts
-    const seededRows: IExpenseRow[] = categories.map((cat, i) => ({
-      _key: i,
-      category: cat.id,
-      category_code: cat.code,
-      label_raw: savedMap.get(cat.id)?.label_raw ?? '',
-      amount_local: savedMap.get(cat.id)?.amount_local ?? null,
-    }));
+    let nextKey = 0;
+    const toSavedRow = (ex: ISalesReportExpense, code: string): IExpenseRow => ({
+      _key: nextKey++,
+      category: ex.category,
+      category_code: ex.category_code || code,
+      label_raw: ex.label_raw ?? '',
+      amount_local: ex.amount_local != null ? Number(ex.amount_local) : null,
+    });
+
+    // Template order drives the layout: saved rows sit under their own
+    // category, categories with nothing saved get one blank row.
+    const seededRows: IExpenseRow[] = [];
+    for (const cat of categories) {
+      const saved = savedByCategory.get(cat.id);
+      if (saved?.length) {
+        for (const ex of saved) seededRows.push(toSavedRow(ex, cat.code));
+        savedByCategory.delete(cat.id);
+      } else {
+        seededRows.push({
+          _key: nextKey++,
+          category: cat.id,
+          category_code: cat.code,
+          label_raw: '',
+          amount_local: null,
+        });
+      }
+    }
+    // Leftovers = saved rows whose category is no longer active. Appended so
+    // saving preserves them (the API accepts inactive category PKs on write).
+    for (const group of savedByCategory.values()) {
+      for (const ex of group) seededRows.push(toSavedRow(ex, ''));
+    }
     setExpenses(seededRows);
 
     // Seed form fields
@@ -198,12 +237,9 @@ export default function SalesReportPage(): React.ReactElement {
   }, [detail?.id, categories.length, countriesLoading]);
 
   // ─── Derived totals passed to both tabs ───────────────────────────────────
-  const grossSalesLocal = useMemo(
-    () => lines.reduce((a, r) => a + (r.quantity_kg ?? 0) * (r.price_local ?? 0), 0),
-    [lines],
-  );
+  const grossSalesLocal = useMemo(() => sumLineAmounts(lines), [lines]);
   const totalExpensesLocal = useMemo(
-    () => expenses.reduce((a, r) => a + (r.amount_local ?? 0), 0),
+    () => roundMoney(expenses.reduce((a, r) => a + (r.amount_local ?? 0), 0)),
     [expenses],
   );
 
@@ -245,11 +281,25 @@ export default function SalesReportPage(): React.ReactElement {
 
   // ─── Loading / error ──────────────────────────────────────────────────────
 
-  if (isLoading) {
+  // Hold the whole page until the expense-category template has resolved. The
+  // save is replace-all, and rows are only seeded once categories arrive — so
+  // a Save clicked before then would post empty lists and wipe the report.
+  if (isLoading || categoriesLoading || countriesLoading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', padding: 64 }}>
         <Spin size="large" />
       </div>
+    );
+  }
+
+  if (categoriesError) {
+    return (
+      <Alert
+        type="error"
+        message={t('sales_report.error_categories')}
+        style={{ margin: 24 }}
+        showIcon
+      />
     );
   }
 

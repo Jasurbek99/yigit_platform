@@ -5,7 +5,7 @@ import { useExpenseCategories } from '@/hooks/useExpenseCategories';
 import { LineItemsTable } from './LineItemsTable';
 import { FixedExpensesTable } from './FixedExpensesTable';
 import { SummaryRow } from './SummaryRow';
-import { fmtLocal, fmtUsd } from './salesReportUtils';
+import { fmtLocal, fmtUsd, roundMoney, sumLineAmounts } from './salesReportUtils';
 import type { ILineRow, IExpenseRow } from './salesReportUtils';
 
 interface ISaleTabProps {
@@ -32,12 +32,11 @@ export function SaleTab({
   const { t, i18n } = useTranslation();
   const { data: categories = [] } = useExpenseCategories();
 
-  const grossSalesLocal = lines.reduce(
-    (a, r) => a + (r.quantity_kg ?? 0) * (r.price_local ?? 0),
-    0,
+  const grossSalesLocal = sumLineAmounts(lines);
+  const totalExpensesLocal = roundMoney(
+    expenses.reduce((a, r) => a + (r.amount_local ?? 0), 0),
   );
-  const totalExpensesLocal = expenses.reduce((a, r) => a + (r.amount_local ?? 0), 0);
-  const netLocal = grossSalesLocal - totalExpensesLocal;
+  const netLocal = roundMoney(grossSalesLocal - totalExpensesLocal);
 
   return (
     <div style={{ paddingTop: 8 }}>

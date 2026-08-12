@@ -54,16 +54,25 @@ DB table: `export_sales_report_line_items`. Meta.ordering: `['line_number']`.
 
 ### `SalesReportExpense` — `apps/export/models/sales.py`
 
-One itemized expense row. Uses `ExpenseCategory` TextChoices enum (21 codes).
+One itemized expense row.
 
 | Field | Type | Notes |
 |-------|------|-------|
 | `report` | FK → SalesReport CASCADE | `related_name='expenses'` |
-| `category` | CharField(32) | `ExpenseCategory` choices |
+| `category` | FK → `export.ExpenseCategory` PROTECT | `related_name='expense_rows'`. **Integer PK on the wire**, not a string code |
 | `label_raw` | CharField(120, nullable) | Exact sheet label (city-specific variants); Cyrillic collation |
 | `amount_local` | Decimal(14,2) | Amount in local currency |
 
 DB table: `export_sales_report_expenses`. Meta.ordering: `['id']`.
+
+**No unique constraint on `(report, category)`** — a report may legitimately hold
+several rows of the same category, distinguished by `label_raw` (e.g. NAKLIYE for two
+different cities). Any editor must preserve them: the nested write is replace-all, so a
+row missing from the payload is deleted.
+
+The `ExpenseCategoryEnum` below is now the **seed list only** for the
+`export.ExpenseCategory` table — it is no longer a model `choices` field, so admin-added
+categories work without a code release.
 
 ### `ExpenseCategory` codes
 
@@ -95,11 +104,20 @@ DB table: `export_sales_report_expenses`. Meta.ordering: `['id']`.
 
 ### `SalesReportLineItemSerializer`
 Fields: `line_number`, `product_name`, `quantity_kg`, `price_local`, `amount_local`.
-- `amount_local` is **always recomputed server-side** as `qty × price` whenever both are present
-  — any client-supplied value is ignored, so the stored total can never diverge from `Σ(qty × price)`.
+- `amount_local` is **always recomputed server-side** as `qty × price` — any client-supplied
+  value is ignored, so the stored total can never diverge from `Σ(qty × price)`.
+- `quantity_kg` and `price_local` are **required, checked explicitly in `validate()`**. The
+  endpoint runs the parent with `partial=True` and DRF propagates that to every descendant via
+  `self.root.partial`, so the field-level `required` flags never fire — without the explicit
+  check an incomplete row passed validation and hit a NOT NULL violation in `bulk_create` (500).
 
 ### `SalesReportExpenseSerializer`
-Fields: `category`, `category_display` (read-only), `label_raw`, `amount_local`.
+Fields: `category` (int PK, writable), `category_code` / `category_display` / `logo_code`
+(read-only), `label_raw`, `amount_local`.
+- `category` and `amount_local` are required, checked explicitly in `validate()` for the same
+  root-partial reason as above.
+- The write queryset is `ExpenseCategory.objects.all()` (not active-only) so a report
+  referencing a since-deactivated category can still be re-saved.
 
 ### `SalesReportSerializer` (extended)
 Added fields:
@@ -124,12 +142,23 @@ All nested writes happen inside `transaction.atomic()`.
 
 `POST/PATCH /api/v1/export/shipments/{id}/sales-report/`
 
-Existing endpoint `set_sales_report` (views.py). No structural change — the endpoint
-`get_or_create`s the SalesReport then calls `SalesReportSerializer(partial=True).update()`.
+Existing endpoint `set_sales_report` (views.py). The endpoint `get_or_create`s the SalesReport
+then calls `SalesReportSerializer(partial=True).update()`.
 Allowed when `request.user.is_superuser` OR role ∈ {`sales_rep`, `export_manager`, `director`}
 (the superuser bypass keeps the server gate aligned with the UI's edit gate).
+Returns 403 on a soft-deleted or archived shipment — detail actions bypass the soft-delete
+filter in `get_queryset()`, so the action re-checks explicitly.
+
+**`get_or_create` + `is_valid` + `save` share one `transaction.atomic()`.** `ATOMIC_REQUESTS`
+is off on this project, so without it a rejected payload committed an empty `SalesReport` —
+and bare row existence already satisfies the `satyldy → tamamlandy` trigger below, so the
+shipment could auto-complete with no financial data. Such a row also hides the shipment from
+`overdue`, `my-sales-reports?needs_report=true` and the compliance backlog, all of which test
+row existence via `Exists()`.
 
 ### Example request (Karaganda canonical test case)
+`expenses[].category` is the integer PK of an `ExpenseCategory` row (fetch the template from
+`GET /export/expense-categories/`); the codes below are shown only for readability.
 ```json
 {
   "currency": "KZT",
@@ -139,12 +168,12 @@ Allowed when `request.user.is_superuser` OR role ∈ {`sales_rep`, `export_manag
     { "line_number": 1, "product_name": "Pomidor", "quantity_kg": "18371.00", "price_local": "680.00" }
   ],
   "expenses": [
-    { "category": "NDS",          "amount_local": "1476000.00" },
-    { "category": "TOM_ROSHOD",   "amount_local": "227250.00" },
-    { "category": "ANALIZ",       "amount_local": "59745.00" },
-    { "category": "BAZAR_ROSHOD", "amount_local": "103000.00" },
-    { "category": "NAKLIYE",      "amount_local": "800000.00" },
-    { "category": "INTERES",      "amount_local": "500000.00" }
+    { "category": 13, "amount_local": "1476000.00" },
+    { "category": 1,  "amount_local": "227250.00" },
+    { "category": 7,  "amount_local": "59745.00" },
+    { "category": 3,  "amount_local": "103000.00" },
+    { "category": 2,  "amount_local": "800000.00" },
+    { "category": 4,  "amount_local": "500000.00" }
   ]
 }
 ```
@@ -163,11 +192,22 @@ adds 6 columns to `export_sales_reports`.
 
 ## Tests
 
-`apps/export/tests.SalesReportTest` — 8 tests total:
-- 5 pre-existing (3 pass, 2 pre-existing failures unrelated to this feature)
-- 3 new: `test_nested_create_persists_children_and_computes_totals`,
-  `test_usd_derived_fields_correct_when_exchange_rate_set`,
-  `test_replace_all_removes_old_children`
+`apps/export/tests.SalesReportTest` — 12 tests, all green. Nested write + totals:
+`test_nested_create_persists_children_and_computes_totals`,
+`test_usd_derived_fields_correct_when_exchange_rate_set`,
+`test_replace_all_removes_old_children`, `test_admin_added_category_accepted`.
+Endpoint hardening: `test_incomplete_line_item_returns_400`,
+`test_incomplete_expense_returns_400`, `test_rejected_payload_leaves_no_sales_report_row`,
+`test_soft_deleted_shipment_returns_403`.
+
+`apps/export/tests_boss_analytics.SalesReportCostAggregationTests` — 4 tests covering
+`report_cost_usd()`: rich local total wins, legacy USD columns still counted, missing Kurs
+falls back, mixed rows sum per route.
+
+Run with `--noinput` — a leftover `test_YIGIT_PLATFROM` otherwise aborts the run on Windows.
+
+No frontend test file exists for the `salesReport/` components — the client-side money math
+is currently uncovered.
 
 ## Frontend
 
@@ -180,7 +220,17 @@ expenses / **net** + USD equivalents) that mirrors the server computation. Share
 formatters live in `salesReport/salesReportUtils.ts`.
 
 - **Save**: `useSaveSalesReport(shipmentId)` (`hooks/useSalesReport.ts`) POST/PATCHes the endpoint
-  and invalidates the `['shipment', shipmentId]` query so the detail view refreshes.
+  and invalidates the shipment-detail query plus `['shipments','my-sales-reports']` and
+  `['shipments','overdue']` by prefix, so both worklists move the row between tabs.
+- **Totals**: `sumLineAmounts()` / `roundMoney()` in `salesReport/salesReportUtils.ts` are the
+  only way to total line items. They round **each** line to 0.01 before summing, mirroring
+  `SalesReportLineItemSerializer.validate()` → `_recompute_totals`; a plain `reduce` over
+  `qty × price` drifts by cents against the stored `total_sales_local`.
+- **Replace-all trap**: the nested write deletes every child not present in the payload, so any
+  editor MUST seed state with every saved row — including duplicates of the same category and
+  rows whose category has since been deactivated (those fall out of the active-only
+  `useExpenseCategories` template). `SalesReportPage` seeds saved rows first, then one blank row
+  per unused active category. Its Save must also stay unavailable until that template resolves.
 - **Edit gate**: editable only for superuser OR role ∈ {`sales_rep`, `export_manager`, `director`}
   AND step ≥ 4 (departed); otherwise the panel renders read-only (inputs `disabled`). The shared
   threshold constant is `MIN_SALES_REPORT_STEP` in `components/salesReport/salesReportUtils.ts`.
@@ -257,10 +307,18 @@ Filling the report is surfaced as a **task for the sales rep**, wired to the Tas
 
 See `reference/task-rules.md` → *Sales-report task wiring* for the full rule detail.
 
-> **Doc drift note:** the wire format for `expenses[].category` is now an **integer FK PK** to
-> `ExpenseCategory` (not the string enum listed above), and the editor is the two-tab
-> `SalesReportPage` (Sale / Processing), not only the single `SalesReportPanel`. See
-> `.claude/rules/api-contract.md` and `screens/sales-report-page.md` for the current shape.
+## Boss Dashboard cost
+
+`boss_analytics.report_cost_usd()` is the single source of per-report cost for the margin KPI
+and Route P&L. It resolves `total_expenses_local / exchange_rate` when the Kurs is set, and
+falls back to the legacy `transport_cost_usd + market_fee_usd + other_expenses_usd` columns for
+historical rows. **The rich report path never writes those legacy columns**, so anything that
+aggregates them alone reports zero cost and ~100% margin. A rich report saved without a Kurs
+still contributes 0 cost — that residual is accepted rather than guessing a rate.
+
+> **Known divergence (needs a decision):** the two editors disagree on `weight_rejected_kg` —
+> `ProcessingTab` derives it as `loaded − sold` and disables the input, `SalesReportPanel` lets
+> the user type it freely. Same column, two write semantics.
 
 ## Historical import
 

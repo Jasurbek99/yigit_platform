@@ -1,3 +1,4 @@
+import React from 'react';
 import { Drawer, Spin, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { useShipmentDetail } from '@/hooks/useShipmentDetail';
@@ -21,7 +22,7 @@ export function SalesReportDrawer({
   open,
   onClose,
   onSaved,
-}: ISalesReportDrawerProps) {
+}: ISalesReportDrawerProps): React.ReactElement {
   const { t } = useTranslation();
   const { user } = useAuth();
 

@@ -26,6 +26,10 @@ export function useSaveSalesReport(shipmentId: string) {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: getShipmentDetailKey(shipmentId) });
+      // Both worklists key off report existence, so a save moves rows between
+      // tabs. Invalidate by prefix — the season/threshold suffixes vary.
+      void queryClient.invalidateQueries({ queryKey: ['shipments', 'my-sales-reports'] });
+      void queryClient.invalidateQueries({ queryKey: ['shipments', 'overdue'] });
     },
   });
 }

@@ -25,9 +25,9 @@ from apps.core.models import (
 )
 from apps.export.models import (
     Shipment, QuotaIssuance, QuotaIssuanceFirmAllocation, QuotaUsageRecord,
-    Notification,
+    Notification, SalesReport,
 )
-from apps.export.services.boss_analytics import period_to_range
+from apps.export.services.boss_analytics import _aggregate_route_pnl, period_to_range
 from apps.greenhouse.models import WeeklyHarvestPlan
 
 
@@ -667,3 +667,99 @@ class TaskThroughputTests(TestCase):
         if rate is not None:
             self.assertGreaterEqual(rate, 0.0)
             self.assertLessEqual(rate, 1.0)
+
+
+# ---------------------------------------------------------------------------
+# route_pnl / summary cost — rich local totals vs legacy USD columns
+# ---------------------------------------------------------------------------
+
+class SalesReportCostAggregationTests(TestCase):
+    """Cost must come from the rich report's total_expenses_local when present.
+
+    The rich sales-report path never populates transport_cost_usd /
+    market_fee_usd / other_expenses_usd, so aggregating only those columns
+    reported zero cost — and therefore ~100% margin — for every report filed
+    through the UI.
+    """
+
+    def setUp(self):
+        self.season = _create_season()
+        self.status = _create_status('yola_chykdy', 4)
+        self.user = _create_user('cost_agg_user', 'admin')
+        self.country = Country.objects.create(code='KZ', name_tk='Gazagystan', name_en='Kazakhstan')
+        self.city = City.objects.create(country=self.country, name='Almaty')
+        self.today = date.today()
+
+    def _shipment(self, code: str, revenue: str) -> Shipment:
+        return Shipment.objects.create(
+            shipment_code=code,
+            date=self.today,
+            season=self.season,
+            status=self.status,
+            country=self.country,
+            city=self.city,
+            total_amount_usd=Decimal(revenue),
+        )
+
+    def _cost_for_period(self) -> Decimal:
+        rows = _aggregate_route_pnl(self.today, self.today)
+        self.assertEqual(len(rows), 1, msg=f'expected one route row, got {rows}')
+        return Decimal(str(rows[0]['cost_usd']))
+
+    def test_rich_report_cost_uses_local_total_over_exchange_rate(self):
+        """total_expenses_local / exchange_rate is the cost, not the null legacy columns."""
+        shipment = self._shipment('0101101/25', '5000.00')
+        SalesReport.objects.create(
+            shipment=shipment,
+            created_by=self.user,
+            currency='KZT',
+            exchange_rate=Decimal('470.0000'),
+            total_sales_local=Decimal('1410000.00'),
+            total_expenses_local=Decimal('470000.00'),
+            net_income_local=Decimal('940000.00'),
+        )
+        # 470,000 KZT / 470 = 1,000 USD — legacy columns are all NULL here.
+        self.assertEqual(self._cost_for_period(), Decimal('1000.00'))
+
+    def test_legacy_report_cost_still_uses_usd_columns(self):
+        """Historical rows with only the legacy USD expense columns still count."""
+        shipment = self._shipment('0101102/25', '5000.00')
+        SalesReport.objects.create(
+            shipment=shipment,
+            created_by=self.user,
+            transport_cost_usd=Decimal('300.00'),
+            market_fee_usd=Decimal('50.00'),
+            other_expenses_usd=Decimal('25.00'),
+        )
+        self.assertEqual(self._cost_for_period(), Decimal('375.00'))
+
+    def test_rich_report_without_kurs_falls_back_to_legacy(self):
+        """exchange_rate 0/null cannot be divided by — row falls back to legacy (0 here)."""
+        shipment = self._shipment('0101103/25', '5000.00')
+        SalesReport.objects.create(
+            shipment=shipment,
+            created_by=self.user,
+            currency='KZT',
+            exchange_rate=None,
+            total_expenses_local=Decimal('470000.00'),
+        )
+        self.assertEqual(self._cost_for_period(), Decimal('0.00'))
+
+    def test_mixed_reports_sum_per_route(self):
+        """Rich and legacy reports on the same route add up."""
+        rich = self._shipment('0101104/25', '5000.00')
+        SalesReport.objects.create(
+            shipment=rich,
+            created_by=self.user,
+            exchange_rate=Decimal('470.0000'),
+            total_expenses_local=Decimal('470000.00'),
+        )
+        legacy = self._shipment('0101105/25', '5000.00')
+        SalesReport.objects.create(
+            shipment=legacy,
+            created_by=self.user,
+            transport_cost_usd=Decimal('300.00'),
+            market_fee_usd=Decimal('50.00'),
+            other_expenses_usd=Decimal('25.00'),
+        )
+        self.assertEqual(self._cost_for_period(), Decimal('1375.00'))

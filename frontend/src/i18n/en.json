@@ -776,6 +776,7 @@
     "empty": "No sales report yet.",
     "toast_success": "Sales report saved",
     "toast_error": "Failed to save sales report",
+    "error_categories": "Could not load the expense categories. Reload the page before editing — saving now would delete the saved expenses.",
     "only_at_hasabat": "Available once the shipment has departed.",
     "currency": "Currency",
     "exchange_rate": "Exchange Rate (local/USD)",

@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 
 import sentry_sdk
 
-from django.db.models import Count, Sum, Q
+from django.db.models import Case, Count, DecimalField, F, Sum, Q, When
 from django.db.models.functions import TruncWeek, Coalesce
 from django.utils import timezone
 
@@ -24,6 +24,46 @@ if TYPE_CHECKING:
     from apps.core.models import Season
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Sales-report cost expression
+# ---------------------------------------------------------------------------
+
+def report_cost_usd() -> Case:
+    """Per-SalesReport cost in USD, preferring the itemized local-currency total.
+
+    The rich report path (line items + itemized expenses) stores the expense
+    total in ``total_expenses_local`` and never populates the three legacy
+    ``*_usd`` expense columns, so summing only the legacy columns reported zero
+    cost — and therefore ~100% margin — for every report filed through the UI.
+
+    Resolution order per row:
+      1. ``total_expenses_local / exchange_rate`` when both are usable.
+      2. Otherwise the legacy ``transport + market_fee + other`` USD columns
+         (historical rows imported before the rich report existed).
+
+    Known residual: a rich report saved without a Kurs (``exchange_rate`` null
+    or 0) falls through to the legacy branch and contributes 0 cost. Converting
+    it would require inventing an exchange rate, so those rows stay understated
+    until the Kurs is entered.
+
+    Returns:
+        A ``Case`` expression usable inside ``Sum()`` on a SalesReport queryset.
+    """
+    return Case(
+        When(
+            exchange_rate__gt=0,
+            total_expenses_local__isnull=False,
+            then=F('total_expenses_local') / F('exchange_rate'),
+        ),
+        default=(
+            Coalesce(F('transport_cost_usd'), Decimal('0'))
+            + Coalesce(F('market_fee_usd'), Decimal('0'))
+            + Coalesce(F('other_expenses_usd'), Decimal('0'))
+        ),
+        output_field=DecimalField(max_digits=18, decimal_places=2),
+    )
 
 # ---------------------------------------------------------------------------
 # Period helper
@@ -174,30 +214,22 @@ def _aggregate_summary(from_date: date, to_date: date) -> dict:
     # Revenue sparkline
     rev_sparkline = _build_sparkline(from_date, to_date, 'total_amount_usd', None)
 
-    # --- Margin (approximate: revenue - transport - market_fee - other) ---
+    # --- Margin (revenue - reported expenses; see report_cost_usd) ---
     cost_agg = (
         SalesReport.objects
         .filter(shipment__date__gte=from_date, shipment__date__lte=to_date)
-        .aggregate(
-            transport=Coalesce(Sum('transport_cost_usd'), Decimal('0')),
-            market=Coalesce(Sum('market_fee_usd'), Decimal('0')),
-            other=Coalesce(Sum('other_expenses_usd'), Decimal('0')),
-        )
+        .aggregate(cost=Coalesce(Sum(report_cost_usd()), Decimal('0')))
     )
-    total_cost = cost_agg['transport'] + cost_agg['market'] + cost_agg['other']
+    total_cost = cost_agg['cost']
     margin = revenue - total_cost
     margin_pct = float((margin / revenue * 100).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)) if revenue else 0.0
 
     prev_cost_agg = (
         SalesReport.objects
         .filter(shipment__date__gte=prev_from, shipment__date__lte=prev_to)
-        .aggregate(
-            transport=Coalesce(Sum('transport_cost_usd'), Decimal('0')),
-            market=Coalesce(Sum('market_fee_usd'), Decimal('0')),
-            other=Coalesce(Sum('other_expenses_usd'), Decimal('0')),
-        )
+        .aggregate(cost=Coalesce(Sum(report_cost_usd()), Decimal('0')))
     )
-    prev_total_cost = prev_cost_agg['transport'] + prev_cost_agg['market'] + prev_cost_agg['other']
+    prev_total_cost = prev_cost_agg['cost']
     prev_margin_pct = float(
         ((prev_revenue - prev_total_cost) / prev_revenue * 100).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
     ) if prev_revenue else 0.0
@@ -525,16 +557,10 @@ def _aggregate_route_pnl(from_date: date, to_date: date) -> list[dict]:
         SalesReport.objects
         .filter(shipment__date__gte=from_date, shipment__date__lte=to_date)
         .values('shipment__country_id', 'shipment__city_id')
-        .annotate(
-            transport=Coalesce(Sum('transport_cost_usd'), Decimal('0')),
-            market=Coalesce(Sum('market_fee_usd'), Decimal('0')),
-            other=Coalesce(Sum('other_expenses_usd'), Decimal('0')),
-        )
+        .annotate(cost=Coalesce(Sum(report_cost_usd()), Decimal('0')))
     )
     cost_map = {
-        (r['shipment__country_id'], r['shipment__city_id']): (
-            r['transport'] + r['market'] + r['other']
-        )
+        (r['shipment__country_id'], r['shipment__city_id']): r['cost']
         for r in cost_rows
     }
 

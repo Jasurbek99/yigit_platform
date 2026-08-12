@@ -776,6 +776,7 @@
     "empty": "Satyş hasabaty ýok.",
     "toast_success": "Hasabat ýatda saklandy",
     "toast_error": "Hasabaty ýatda saklamak başa barmady",
+    "error_categories": "Çykdajy kategoriýalary ýüklenmedi. Redaktirlemezden öň sahypany täzeläň — häzir ýatda saklasaňyz, saklanan çykdajylar pozular.",
     "only_at_hasabat": "Ýük ýola çykandan soň elýeterli.",
     "currency": "Walýuta",
     "exchange_rate": "Kurs (ýerli/USD)",

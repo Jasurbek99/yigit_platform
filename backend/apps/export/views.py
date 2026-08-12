@@ -2692,6 +2692,14 @@ class ShipmentViewSet(ModelViewSet):
 
         shipment = self.get_object()
 
+        # Detail actions bypass the soft-delete filter in get_queryset(), so
+        # mutating ones must re-check explicitly (same guard as set_column_color).
+        if shipment.deleted_at is not None or shipment.is_archived:
+            return Response(
+                {'error': 'Cannot edit a deleted or archived shipment.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         # The sales report becomes fillable once the truck has departed
         # (step 4, yola_chykdy) — system status often lags the real sale, so
         # gating on "sold" (step 11) would block reports for trucks that have
@@ -2708,13 +2716,19 @@ class ShipmentViewSet(ModelViewSet):
         default_currency = (
             shipment.country.currency if shipment.country and shipment.country.currency else 'KZT'
         )
-        report, _ = SalesReport.objects.get_or_create(
-            shipment=shipment,
-            defaults={'created_by': request.user, 'currency': default_currency},
-        )
-        serializer = SalesReportSerializer(report, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
+        # get_or_create + validate + save must share one transaction. Without it
+        # (ATOMIC_REQUESTS is off on this project) a rejected payload leaves an
+        # empty SalesReport row committed — and bare row existence already
+        # satisfies the satyldy → tamamlandy trigger, so the shipment could
+        # auto-complete with no financial data ever entered.
+        with transaction.atomic():
+            report, _ = SalesReport.objects.get_or_create(
+                shipment=shipment,
+                defaults={'created_by': request.user, 'currency': default_currency},
+            )
+            serializer = SalesReportSerializer(report, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
 
         logger.info(
             'SalesReport for %s saved by %s',
