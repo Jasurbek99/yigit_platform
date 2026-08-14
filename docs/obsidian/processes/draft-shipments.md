@@ -30,7 +30,7 @@ flowchart LR
 **Key facts**:
 - Standard truck target: 18,500 kg. Composer supports ±5% variance with colour-coded warnings.
 - Historical precedent: one real shipment was composed from 11 source blocks.
-- **Variety is not captured at draft creation** (Finding #3 — block managers cannot give morning variety breakdown). Demand cards with `strict: true` show an amber "variety confirmed at packaging" warning.
+- **Variety is not captured at draft creation on the morning-supply paths** (Finding #3 — block managers cannot give morning variety breakdown). Demand cards with `strict: true` show an amber "variety confirmed at packaging" warning. **Update (2026-08-14, per product owner):** this no longer holds platform-wide — the separate **"Create supply draft" modal** (outside the Sheet, on the Shipment List) DOES capture variety at creation. Both morning-supply paths (the forecast composer and Ýük goş → Sheet-cell entry) are unchanged. See *Create supply draft (outside the Sheet)* below.
 - Freshness: draft cards show age (🟢 today / 🟡 yesterday / 🔴 2+ days). Assignment Board sorts oldest first — tomato has an expiration clock.
 
 ## Database
@@ -146,6 +146,28 @@ flowchart LR
 The target stays `draft` and is then assigned via the existing assign action (Step 3 of the forecast-first flow). Returns the updated target detail (200); errors as `{error}` with 400/403/404.
 
 **Sheet tint**: supply columns are visually tinted in the Sheet by `created_by_role ∈ {loading_dept_head, warehouse_chief}`. A manual `column_color` still takes precedence over the tint. See [[../screens/shipment-sheet#Supply-column tint|Shipment Sheet]] for the toolbar buttons and tint rendering.
+
+### Create supply draft (outside the Sheet)
+
+A **third way** to start a supply draft (Phase C, 2026-08-14) — a modal-based create on the Shipment List, independent of both the Sheet (Two-column Join flow above) and the forecast-pool composer (Forecast-first flow above). Unlike those two paths, **this one captures variety at creation** — see the Key Facts note above.
+
+**Trigger**: a **"Create supply draft"** button on the Shipment List (`frontend/src/pages/export/ShipmentList.tsx`), next to "New Shipment", gated by the same `canCreate` check (`canDoBackendGated(user, 'shipment', 'create') && !isReadOnly`).
+
+**Modal**: `SupplyDraftModal` (`frontend/src/components/shipment/SupplyDraftModal.tsx`) — a new component; not to be confused with the earlier, unrelated `SupplyDraftModal` (forecast-pool block picker) named in the Two-column Join flow note above, which was removed. Collects:
+- **Total weight** → `weight_net` (required).
+- **Blocks**, multi-select (`BlockSelect mode="multiple"`) → `block_ids` (required) — **no per-block weight is entered here**.
+- **Variety** (optional, `VarietySelect`) → sent as `varieties: [id]`.
+- **Harvest status** (optional, from `ShipmentOptionType('harvest_status')`).
+- **Export code** (optional, via `OfficialCodeEditor`).
+- **Notes** (optional).
+
+Submits via `useCreateSupplyDraft()` → `POST /api/v1/export/shipments/` with `{is_draft: true, skip_forecast_check: true, weight_net, block_ids, ...}`. `shipment_code`/`date` are server-assigned, same as the empty-column path above.
+
+**Backend**: `ShipmentCreateSerializer` gained `weight_net`, `block_ids`, `harvest_status`; `block_ids` are deduped in `validate()` (a repeated id is now a clean 400, not an unhandled `IntegrityError`). `_create_draft_shipment`'s new `block_ids` branch `bulk_create`s `ShipmentBlockSource` rows directly with `weight_kg=None` — bypassing `write_block_sources()`, which assumes a weight per block — and persists `weight_net` + `harvest_status` on the shipment.
+
+**Nullable weight**: `ShipmentBlockSource.weight_kg` is now nullable (migration `0062_alter_shipmentblocksource_weight_kg`) — a block can be recorded before it's weighed. Per-block weights are filled in later, by the pallet-manifest close or a future Detail editor (not built yet).
+
+**Joinable immediately**: because `block_sources` exist on the draft the moment it's created (even with null weights), it can be joined into a destination draft via the existing Sheet Join right away — no per-block weighing needed first. `_execute_join` now **preserves the supply draft's declared `weight_net`** when any of its moved blocks are still unweighed (captured before the source row is deleted), instead of recomputing from `Sum(block_sources.weight_kg)`, which would null or understate the total.
 
 ### Permissions
 
