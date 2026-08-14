@@ -413,7 +413,7 @@ class ShipmentBlockSource(models.Model):
 
     shipment = models.ForeignKey(Shipment, on_delete=models.CASCADE, related_name='block_sources')
     block = models.ForeignKey('core.GreenhouseBlock', on_delete=models.PROTECT)
-    weight_kg = models.DecimalField(max_digits=10, decimal_places=2)
+    weight_kg = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     # Operator-entered date the tomatoes from THIS block were harvested.
     # Multi-block trucks can have different per-block harvest days, so this is
     # the primary source for Sheet R39; Shipment.harvest_date is the fallback
