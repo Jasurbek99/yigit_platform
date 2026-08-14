@@ -120,7 +120,9 @@ export function DetailFieldRow({
       style={{
         display: 'flex',
         alignItems: 'center',
-        padding: '6px 0',
+        // Missing rows carry a 3px inset amber bar on the left; add left
+        // padding so the label text doesn't sit flush against that bar.
+        padding: isMissing ? '6px 0 6px 10px' : '6px 0',
         borderBottom: '1px solid #f5f5f5',
         gap: 12,
         background: isMissing ? COLORS.bgGold : undefined,
