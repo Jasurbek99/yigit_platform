@@ -216,7 +216,7 @@ export default function SalesReportPage(): React.ReactElement {
 
     // Seed form fields
     const report = detail.sales_report;
-    const blockTotal = (detail.block_sources ?? []).reduce((s, b) => s + b.weight_kg, 0);
+    const blockTotal = (detail.block_sources ?? []).reduce((s, b) => s + Number(b.weight_kg ?? 0), 0);
 
     form.setFieldsValue({
       currency: report?.currency ?? countryCurrency ?? 'KZT',

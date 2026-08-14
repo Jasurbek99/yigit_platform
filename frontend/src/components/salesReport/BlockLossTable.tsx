@@ -23,12 +23,15 @@ export function BlockLossTable({
   const { t } = useTranslation();
 
   const rows: IBlockLossRow[] = useMemo(() => {
-    const total = blockSources.reduce((s, b) => s + b.weight_kg, 0);
-    return blockSources.map((b) => ({
-      block_code: b.block_code,
-      weight_kg: b.weight_kg,
-      loss_kg: total > 0 ? (b.weight_kg / total) * Math.max(rejectedKg, 0) : 0,
-    }));
+    const total = blockSources.reduce((s, b) => s + Number(b.weight_kg ?? 0), 0);
+    return blockSources.map((b) => {
+      const weightKg = Number(b.weight_kg ?? 0);
+      return {
+        block_code: b.block_code,
+        weight_kg: weightKg,
+        loss_kg: total > 0 ? (weightKg / total) * Math.max(rejectedKg, 0) : 0,
+      };
+    });
   }, [blockSources, rejectedKg]);
 
   const columns: ColumnsType<IBlockLossRow> = [

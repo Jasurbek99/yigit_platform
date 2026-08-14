@@ -315,7 +315,7 @@ export interface ISheetBlockSource {
   block_code: string;
   /** Per-block cell color (hex) — paints the block chip in the block_sources cell. */
   block_color?: string | null;
-  weight_kg: number;
+  weight_kg: number | null;
   // Per-block harvest date (R39 source) — null when never set; falls back
   // to shipment.harvest_date for display.
   harvest_date?: string | null;
@@ -673,7 +673,7 @@ export interface IBlockSource {
   block_id?: number;
   block_code: string;
   block_name?: string | null;
-  weight_kg: number;
+  weight_kg: number | null;
   // Per-block harvest day. Multi-block trucks can have different dates;
   // the Sheet R39 cell renders the min-max range across all block sources.
   harvest_date?: string | null;
@@ -1651,7 +1651,7 @@ export interface ITaskDetail extends ITaskListItem {
 export interface IDraftBlockSource {
   block_id: number;
   block_code: string;
-  weight_kg: number;
+  weight_kg: number | null;
 }
 
 export interface IShipmentDraft {
@@ -1680,7 +1680,11 @@ export interface IDraftCreatePayload {
   shipment_code: string;
   date: string;
   is_draft: true;
-  block_sources: { block_id: number; weight_kg: number }[];
+  block_sources?: { block_id: number; weight_kg: number }[];
+  // Supply draft: block IDs + total weight in place of per-block `block_sources`
+  block_ids?: number[];
+  weight_net?: number;
+  harvest_status?: string;
   notes?: string;
   export_code?: string;
   // Join flow — supply draft: skip the forecast pool check

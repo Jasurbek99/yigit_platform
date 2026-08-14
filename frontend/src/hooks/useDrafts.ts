@@ -71,13 +71,13 @@ export function useCreateDraft() {
           date: payload.date,
           created_at: new Date().toISOString(),
           created_by_name: 'Mock User',
-          weight_net: payload.block_sources.reduce((s, r) => s + r.weight_kg, 0),
+          weight_net: (payload.block_sources ?? []).reduce((s, r) => s + r.weight_kg, 0),
           export_code: payload.export_code ?? null,
           previous_platform_id: null,
           harvest_age_days: 0,
           freshness: 'today',
           variety_confidence: 'none',
-          block_sources: payload.block_sources.map((s) => ({
+          block_sources: (payload.block_sources ?? []).map((s) => ({
             block_id: s.block_id,
             block_code: `Block-${s.block_id}`,
             weight_kg: s.weight_kg,
@@ -223,13 +223,13 @@ export function useCreateSupplyDraft() {
           date: payload.date,
           created_at: new Date().toISOString(),
           created_by_name: 'Soltanmyrat (mock)',
-          weight_net: payload.block_sources.reduce((s, r) => s + r.weight_kg, 0),
+          weight_net: (payload.block_sources ?? []).reduce((s, r) => s + r.weight_kg, 0),
           export_code: null,
           previous_platform_id: null,
           harvest_age_days: 0,
           freshness: 'today',
           variety_confidence: 'none',
-          block_sources: payload.block_sources.map((s) => ({
+          block_sources: (payload.block_sources ?? []).map((s) => ({
             block_id: s.block_id,
             block_code: `Block-${s.block_id}`,
             weight_kg: s.weight_kg,
