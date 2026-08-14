@@ -8,6 +8,7 @@ import { MOCK_DRAFTS } from '@/mock/drafts';
 import type {
   IShipmentDraft,
   IDraftCreatePayload,
+  ISupplyDraftPayload,
   IDraftAssignPayload,
   IForecastRemaining,
   IForecastSubmitPayload,
@@ -206,33 +207,36 @@ export function useSubmitForecast() {
 // ─── useCreateSupplyDraft ─────────────────────────────────────────────────
 
 /**
- * Creates a SUPPLY draft (blocks + optional variety, NO destination).
- * Passes skip_forecast_check: true so the forecast-pool check is bypassed.
- * Invalidates sheet, drafts and shipments queries on success.
+ * Creates a SUPPLY draft (blocks + total weight, NO per-block split, NO
+ * destination). shipment_code/date are server-assigned, same as
+ * `useCreateEmptyColumn`. Always sends skip_forecast_check: true — supply
+ * drafts aggregate a day's harvest and don't draw down the forecast pool,
+ * so (unlike `useCreateDraft`) there's no forecast-remaining cache to
+ * invalidate here.
  */
 export function useCreateSupplyDraft() {
   const queryClient = useQueryClient();
   const idem = useIdempotencyKey();
 
   return useMutation({
-    mutationFn: async (payload: IDraftCreatePayload): Promise<IShipmentDraft> => {
+    mutationFn: async (payload: ISupplyDraftPayload): Promise<IShipmentDraft> => {
       if (USE_MOCK) {
         const stub: IShipmentDraft = {
           id: Date.now(),
-          shipment_code: payload.shipment_code,
-          date: payload.date,
+          shipment_code: dayjs().format('DDMMHHmm') + '/' + dayjs().format('YY'),
+          date: dayjs().format('YYYY-MM-DD'),
           created_at: new Date().toISOString(),
           created_by_name: 'Soltanmyrat (mock)',
-          weight_net: (payload.block_sources ?? []).reduce((s, r) => s + r.weight_kg, 0),
-          export_code: null,
+          weight_net: payload.weight_net,
+          export_code: payload.export_code ?? null,
           previous_platform_id: null,
           harvest_age_days: 0,
           freshness: 'today',
           variety_confidence: 'none',
-          block_sources: (payload.block_sources ?? []).map((s) => ({
-            block_id: s.block_id,
-            block_code: `Block-${s.block_id}`,
-            weight_kg: s.weight_kg,
+          block_sources: payload.block_ids.map((blockId) => ({
+            block_id: blockId,
+            block_code: `Block-${blockId}`,
+            weight_kg: null,
           })),
         };
         return stub;
@@ -252,9 +256,6 @@ export function useCreateSupplyDraft() {
       queryClient.invalidateQueries({ queryKey: ['drafts'] });
       queryClient.invalidateQueries({ queryKey: ['shipments'] });
       queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
-      queryClient.invalidateQueries({
-        predicate: (q) => q.queryKey[0] === 'harvest-forecast-remaining',
-      });
     },
   });
 }

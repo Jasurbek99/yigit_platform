@@ -1700,6 +1700,22 @@ export interface IDraftCreatePayload {
   firm_splits?: IDraftFirmSplitInput[];
 }
 
+/**
+ * Payload for creating a SUPPLY draft (blocks + total weight, NO
+ * per-block split, NO destination). Distinct from `IDraftCreatePayload`
+ * because `shipment_code`/`date`/`is_draft` are server-assigned on this
+ * path, not caller-supplied — see `useCreateSupplyDraft`.
+ */
+export interface ISupplyDraftPayload {
+  weight_net: number;
+  block_ids: number[];
+  /** Multiple variety IDs (1–4). First = primary/dominant. */
+  varieties?: number[];
+  harvest_status?: string;
+  export_code?: string;
+  notes?: string;
+}
+
 export interface IDraftAssignPayload {
   country: number | null;
   city: number | null;
