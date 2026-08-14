@@ -12,6 +12,7 @@ All tests run against the SQLite test DB so no MSSQL instance is needed.
 import datetime
 from decimal import Decimal
 
+from django.core.management import call_command
 from django.test import TestCase
 from rest_framework.test import APIClient
 
@@ -110,12 +111,27 @@ def _auth(client: APIClient, user: User) -> None:
     client.force_authenticate(user=user)
 
 
+def _seed_permissions() -> None:
+    """Seed RoleResourcePermission/RolePagePermission rows.
+
+    DynamicResourcePermission reads these from the DB; the test DB starts
+    empty, so every non-superuser API call 403s before the view runs unless
+    a test class calls this first (same pattern as tests_shipment_sheet.py
+    / tests_supply_draft.py).
+    """
+    call_command('seed_permissions')
+
+
 # ---------------------------------------------------------------------------
 # (a) loading_dept_head can create a supply draft with skip_forecast_check
 # ---------------------------------------------------------------------------
 
 class LoadingDeptHeadDraftCreateTests(TestCase):
     """loading_dept_head is now in allowed_draft_roles and can bypass forecast check."""
+
+    @classmethod
+    def setUpTestData(cls):
+        _seed_permissions()
 
     def setUp(self):
         self.client = APIClient()
@@ -216,6 +232,10 @@ class SupplyDraftWeightCapTests(TestCase):
     drafts (skip_forecast_check=False / omitted).
     """
 
+    @classmethod
+    def setUpTestData(cls):
+        _seed_permissions()
+
     def setUp(self):
         self.client = APIClient()
         self.user = _make_user('soltanmyrat_wc', 'loading_dept_head')
@@ -271,6 +291,10 @@ class SupplyDraftWeightCapTests(TestCase):
 
 class JoinSuccessTests(TestCase):
     """Happy-path join merges supply draft into destination draft."""
+
+    @classmethod
+    def setUpTestData(cls):
+        _seed_permissions()
 
     def setUp(self):
         self.client = APIClient()
@@ -432,6 +456,10 @@ class JoinSuccessTests(TestCase):
 class JoinTargetNoDestinationTests(TestCase):
     """Join fails with 400 when target has no country/customer."""
 
+    @classmethod
+    def setUpTestData(cls):
+        _seed_permissions()
+
     def setUp(self):
         self.client = APIClient()
         self.manager = _make_user('gadam_nd', 'export_manager')
@@ -482,6 +510,10 @@ class JoinTargetNoDestinationTests(TestCase):
 class JoinSourceNoBlocksTests(TestCase):
     """Join fails with 400 when source has no block_sources rows."""
 
+    @classmethod
+    def setUpTestData(cls):
+        _seed_permissions()
+
     def setUp(self):
         self.client = APIClient()
         self.manager = _make_user('gadam_nb', 'export_manager')
@@ -511,7 +543,11 @@ class JoinSourceNoBlocksTests(TestCase):
 # ---------------------------------------------------------------------------
 
 class JoinPermissionTests(TestCase):
-    """Join endpoint requires PRIVILEGED_ROLES (export_manager/director/admin)."""
+    """Join endpoint requires PRIVILEGED_ROLES (export_manager/director/boss)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        _seed_permissions()
 
     def setUp(self):
         self.client = APIClient()
@@ -588,6 +624,10 @@ class JoinPermissionTests(TestCase):
 class SheetCreatedByRoleTests(TestCase):
     """created_by_role is included in the sheet endpoint response."""
 
+    @classmethod
+    def setUpTestData(cls):
+        _seed_permissions()
+
     def setUp(self):
         self.client = APIClient()
         self.manager = _make_user('gadam_shr', 'export_manager')
@@ -625,6 +665,10 @@ def _make_variety(code: str, name: str = None) -> 'TomatoVariety':
 
 class DraftCreateMultiVarietyTests(TestCase):
     """(a) Draft create with varieties=[v1,v2,v3] populates M2M + back-compat FK."""
+
+    @classmethod
+    def setUpTestData(cls):
+        _seed_permissions()
 
     def setUp(self):
         self.client = APIClient()
@@ -732,6 +776,10 @@ class JoinMultiVarietyTests(TestCase):
     """(b/c) Join copies source.varieties_dominant → target when target has none;
     does NOT overwrite when target already has varieties.
     """
+
+    @classmethod
+    def setUpTestData(cls):
+        _seed_permissions()
 
     def setUp(self):
         self.client = APIClient()

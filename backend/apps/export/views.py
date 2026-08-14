@@ -2090,7 +2090,7 @@ class ShipmentViewSet(ModelViewSet):
         # --- Permission gate ---
         if getattr(request.user, 'role', None) not in PRIVILEGED_ROLES:
             return Response(
-                {'error': 'Only export_manager or director can join draft shipments'},
+                {'error': 'Only export_manager, director or boss can join draft shipments'},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
