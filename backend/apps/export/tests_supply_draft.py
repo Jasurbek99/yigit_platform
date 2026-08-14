@@ -53,7 +53,7 @@ class NormalizeBlockSourcesNullTests(TestCase):
             shipment_code='0101002/26', status=cls.draft, season=cls.season,
             date='2026-01-01',
         )
-        ShipmentBlockSource.objects.create(
+        cls.source = ShipmentBlockSource.objects.create(
             shipment=cls.shipment, block=cls.block, weight_kg=None,
         )
 
@@ -61,3 +61,13 @@ class NormalizeBlockSourcesNullTests(TestCase):
         out = StringIO()
         # Must not raise decimal.InvalidOperation.
         call_command('normalize_block_sources', stdout=out)
+
+    def test_apply_does_not_delete_unweighed_block_source(self):
+        # write_block_sources(replace=True) deletes all existing rows then
+        # rewrites from `entries`. A null-weight row must never be silently
+        # erased just because it has nothing to normalize yet.
+        out = StringIO()
+        call_command('normalize_block_sources', '--apply', stdout=out)
+        self.assertTrue(
+            ShipmentBlockSource.objects.filter(pk=self.source.pk).exists()
+        )

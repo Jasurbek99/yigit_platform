@@ -52,18 +52,23 @@ class Command(BaseCommand):
         for shipment in shipments:
             sid = shipment.id
             existing = list(shipment.block_sources.all())
-            entries = []
-            for bs in existing:
-                # A null weight means the block was recorded but not yet weighed
-                # (supply draft). There is nothing to normalize; skip it.
-                if bs.weight_kg is None:
-                    continue
-                entries.append(
-                    {'block': bs.block_id, 'weight_kg': bs.weight_kg, 'harvest_date': bs.harvest_date}
-                )
             before = ', '.join(
                 f'{code_map.get(bs.block_id, bs.block_id)}={bs.weight_kg}' for bs in existing
             )
+
+            # An unweighed block source (supply draft, not yet weighed) has no
+            # weight to normalize. write_block_sources(replace=True) deletes ALL
+            # existing rows then rewrites only from `entries` — dropping the null
+            # row from `entries` would delete it with nothing written back. Skip
+            # the whole shipment instead of touching it.
+            if any(bs.weight_kg is None for bs in existing):
+                self.stdout.write(f'  #{sid} {shipment.shipment_code}: [{before}] -> skipped (unweighed block source)')
+                continue
+
+            entries = [
+                {'block': bs.block_id, 'weight_kg': bs.weight_kg, 'harvest_date': bs.harvest_date}
+                for bs in existing
+            ]
             merged = merge_to_parent(entries, parent_map)
             after = ', '.join(
                 f'{code_map.get(top_id, top_id)}={data["weight_kg"]}'
