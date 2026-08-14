@@ -1951,6 +1951,25 @@
     "composer_need_more": "need {{kg}} kg more for a full truck",
     "composer_min_truck": "A draft must be a full truck — at least {{kg}} kg."
   },
+  "supply_draft": {
+    "title": "New Supply Draft",
+    "field_weight": "Total Weight (kg)",
+    "field_blocks": "Blocks",
+    "field_variety": "Variety",
+    "field_harvest_status": "Harvest Status",
+    "field_export_code": "Export Code",
+    "field_notes": "Notes",
+    "weight_ph": "Enter total weight",
+    "blocks_ph": "Select blocks...",
+    "variety_ph": "Select variety...",
+    "harvest_status_ph": "Select harvest status...",
+    "notes_ph": "Optional notes",
+    "submit": "Create Supply Draft",
+    "error_weight_positive": "Enter a weight greater than 0",
+    "error_blocks": "Select at least one block",
+    "toast_success": "Supply draft created: {{code}}",
+    "toast_error": "Failed to create supply draft"
+  },
   "forecast": {
     "modal_title": "Enter Harvest Forecast",
     "date_label": "Date:",

@@ -1951,6 +1951,25 @@
     "composer_need_more": "doly tirkeg üçin ýene {{kg}} kg gerek",
     "composer_min_truck": "Garalama doly tirkeg bolmaly — azyndan {{kg}} kg."
   },
+  "supply_draft": {
+    "title": "Täze üpjünçilik garalamasy",
+    "field_weight": "Jemi agram (kg)",
+    "field_blocks": "Bloklar",
+    "field_variety": "Sort",
+    "field_harvest_status": "Hasyl ýagdaýy",
+    "field_export_code": "Eksport kody",
+    "field_notes": "Bellik",
+    "weight_ph": "Jemi agramy giriziň",
+    "blocks_ph": "Blok saýlaň...",
+    "variety_ph": "Sort saýlaň...",
+    "harvest_status_ph": "Hasyl ýagdaýyny saýlaň...",
+    "notes_ph": "Hökman däl bellik",
+    "submit": "Garalama döret",
+    "error_weight_positive": "0-dan uly agram giriziň",
+    "error_blocks": "Azyndan bir blok saýlaň",
+    "toast_success": "Üpjünçilik garalamasy döredildi: {{code}}",
+    "toast_error": "Üpjünçilik garalamasyny döredip bolmady"
+  },
   "forecast": {
     "modal_title": "Hasyl çaklamasyny giriziň",
     "date_label": "Senesi:",

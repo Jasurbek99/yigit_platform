@@ -1953,6 +1953,25 @@
     "composer_need_more": "ещё {{kg}} кг до полного грузовика",
     "composer_min_truck": "Черновик должен быть полным грузовиком — не менее {{kg}} кг."
   },
+  "supply_draft": {
+    "title": "Новый черновик поставки",
+    "field_weight": "Общий вес (кг)",
+    "field_blocks": "Блоки",
+    "field_variety": "Сорт",
+    "field_harvest_status": "Статус урожая",
+    "field_export_code": "Экспортный код",
+    "field_notes": "Заметки",
+    "weight_ph": "Введите общий вес",
+    "blocks_ph": "Выберите блоки...",
+    "variety_ph": "Выберите сорт...",
+    "harvest_status_ph": "Выберите статус урожая...",
+    "notes_ph": "Необязательные заметки",
+    "submit": "Создать черновик",
+    "error_weight_positive": "Введите вес больше 0",
+    "error_blocks": "Выберите хотя бы один блок",
+    "toast_success": "Черновик поставки создан: {{code}}",
+    "toast_error": "Не удалось создать черновик поставки"
+  },
   "forecast": {
     "modal_title": "Ввод прогноза урожая",
     "date_label": "Дата:",
