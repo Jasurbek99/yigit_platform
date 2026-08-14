@@ -1704,6 +1704,7 @@ class ShipmentCreateSerializer(serializers.Serializer):
 
         block_sources = attrs.get('block_sources', [])
         firm_splits = attrs.get('firm_splits', [])
+        block_ids = attrs.get('block_ids', [])
 
         # Stream F: drafts no longer REQUIRE block sources at creation time. The
         # supply-side DraftPool flow still includes them voluntarily; the
@@ -1726,6 +1727,17 @@ class ShipmentCreateSerializer(serializers.Serializer):
             if len(firm_ids) != len(set(firm_ids)):
                 raise serializers.ValidationError(
                     {'firm_splits': 'Duplicate export firms are not allowed in a single shipment.'}
+                )
+
+        # Validate block_ids uniqueness within the submitted list. Without this,
+        # a repeated id reaches ShipmentBlockSource.unique_together=('shipment',
+        # 'block') inside the view's bulk_create and raises an unhandled
+        # IntegrityError (500) instead of a clean 400.
+        if block_ids:
+            ids = [block.id for block in block_ids]
+            if len(ids) != len(set(ids)):
+                raise serializers.ValidationError(
+                    {'block_ids': 'Duplicate blocks are not allowed in a single shipment.'}
                 )
 
         # Block weight validation (draft path only, when block_sources provided).

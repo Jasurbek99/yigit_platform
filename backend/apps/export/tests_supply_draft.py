@@ -143,10 +143,33 @@ class SupplyDraftCreateTests(TestCase):
         self.assertEqual(s.block_sources.count(), 2)
         self.assertTrue(all(bs.weight_kg is None for bs in s.block_sources.all()))
 
-    def test_skip_forecast_check_bypasses_truck_cap(self):
-        # 22,000 kg total exceeds the 18,500 one-truck cap; supply drafts skip it.
-        resp = self.client.post('/api/v1/export/shipments/', self._payload(), format='json')
+    def test_block_ids_supply_draft_not_capped(self):
+        # The 18,500 kg one-truck cap in ShipmentCreateSerializer.validate() is
+        # gated on `enforce_caps = is_draft and block_sources and not
+        # skip_forecast_check` — it only ever looks at the weighted
+        # `block_sources` field. A `block_ids` payload never populates
+        # `block_sources`, so the cap is never reached for this path at all
+        # (not "bypassed" — simply not applicable). This asserts what's
+        # actually true: a block_ids supply draft with weight_net above the
+        # cap (25,000 kg) is accepted.
+        resp = self.client.post(
+            '/api/v1/export/shipments/',
+            self._payload(weight_net='25000.00'),
+            format='json',
+        )
         self.assertEqual(resp.status_code, 201, resp.data)
+
+    def test_duplicate_block_ids_rejected_with_400(self):
+        # A repeated block id must be caught by serializer validation, not
+        # surface as an unhandled IntegrityError (unique_together=('shipment',
+        # 'block')) from the view's bulk_create.
+        resp = self.client.post(
+            '/api/v1/export/shipments/',
+            self._payload(block_ids=[self.block_a.pk, self.block_a.pk]),
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertIn('block_ids', resp.data)
 
     def test_role_gate_blocks_disallowed_role(self):
         sales = User.objects.create_user(username='srep', password='pw', role='sales_rep')
