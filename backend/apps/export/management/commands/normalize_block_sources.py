@@ -52,10 +52,15 @@ class Command(BaseCommand):
         for shipment in shipments:
             sid = shipment.id
             existing = list(shipment.block_sources.all())
-            entries = [
-                {'block': bs.block_id, 'weight_kg': bs.weight_kg, 'harvest_date': bs.harvest_date}
-                for bs in existing
-            ]
+            entries = []
+            for bs in existing:
+                # A null weight means the block was recorded but not yet weighed
+                # (supply draft). There is nothing to normalize; skip it.
+                if bs.weight_kg is None:
+                    continue
+                entries.append(
+                    {'block': bs.block_id, 'weight_kg': bs.weight_kg, 'harvest_date': bs.harvest_date}
+                )
             before = ', '.join(
                 f'{code_map.get(bs.block_id, bs.block_id)}={bs.weight_kg}' for bs in existing
             )
