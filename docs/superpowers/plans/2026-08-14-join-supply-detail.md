@@ -214,7 +214,9 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 - Consumes: `useDrafts()` (`@/hooks/useDrafts`) → `IShipmentDraft[]`; `useJoinShipments()` (`@/hooks/useDrafts`) → `.mutate({ targetId, sourceId }, { onSuccess, onError })`; `IShipmentDraft` fields (Task 2).
 - Produces: `<JoinSupplyModal open targetId onClose onSuccess? />`.
 
-**Candidate filter (from the spec):** `d.id !== targetId && d.block_sources.length > 0 && !(d.country != null && d.customer != null)`.
+**Candidate filter:** `d.id !== targetId && d.block_sources.length > 0 && !(d.country_name != null && d.customer_name != null)`.
+
+> **Correction (found in Task 2):** the draft-list endpoint (`ShipmentDraftListSerializer`) does NOT send raw `country`/`customer` FK ids — only `country_name`/`customer_name` strings. So the "not a complete destination" clause MUST key off `country_name`/`customer_name` (which are present), not `country`/`customer` (which are `undefined` on the draft payload, making the check silently never fire). `isDestinationDraft`/`isSupplyDraft` are NOT usable directly on a raw `IShipmentDraft` (it lacks `status_code`; `country`/`customer` are optional) — do the filtering with inline field checks in the modal, not by calling the classifiers on the draft.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -231,12 +233,18 @@ const mutate = vi.fn();
 vi.mock('@/hooks/useDrafts', () => ({
   useDrafts: () => ({
     data: [
-      { id: 10, shipment_code: '0101010/26', weight_net: 22000, country: null, customer: null,
+      // supply candidate — has blocks, no destination name → included
+      { id: 10, shipment_code: '0101010/26', weight_net: 22000, country_name: null, customer_name: null,
         block_sources: [{ block_id: 1, block_code: 'JA', weight_kg: null }] },
-      { id: 20, shipment_code: '0202020/26', weight_net: null, country: 5, customer: 6,
-        block_sources: [] }, // destination — excluded
-      { id: 99, shipment_code: 'SELF/26', weight_net: null, country: null, customer: null,
-        block_sources: [{ block_id: 2, block_code: 'JB', weight_kg: null }] }, // is the target — excluded
+      // has blocks BUT a complete destination (both names set) → excluded
+      { id: 20, shipment_code: '0202020/26', weight_net: 5000, country_name: 'KZ', customer_name: 'Begjan',
+        block_sources: [{ block_id: 3, block_code: 'JC', weight_kg: null }] },
+      // no blocks (destination-shaped) → excluded
+      { id: 30, shipment_code: '0303030/26', weight_net: null, country_name: 'KZ', customer_name: 'Begjan',
+        block_sources: [] },
+      // is the target → excluded
+      { id: 99, shipment_code: 'SELF/26', weight_net: null, country_name: null, customer_name: null,
+        block_sources: [{ block_id: 2, block_code: 'JB', weight_kg: null }] },
     ],
     isLoading: false,
   }),
@@ -253,9 +261,10 @@ describe('JoinSupplyModal', () => {
 
   it('lists only supply candidates (has blocks, not a destination, not the target)', () => {
     wrap(<JoinSupplyModal open targetId={99} onClose={() => {}} />);
-    expect(screen.getByText(/0101010\/26/)).toBeInTheDocument();
-    expect(screen.queryByText(/0202020\/26/)).not.toBeInTheDocument(); // destination excluded
-    expect(screen.queryByText(/SELF\/26/)).not.toBeInTheDocument();    // target excluded
+    expect(screen.getByText(/0101010\/26/)).toBeInTheDocument();       // supply — included
+    expect(screen.queryByText(/0202020\/26/)).not.toBeInTheDocument(); // blocks+destination → excluded
+    expect(screen.queryByText(/0303030\/26/)).not.toBeInTheDocument(); // no blocks → excluded
+    expect(screen.queryByText(/SELF\/26/)).not.toBeInTheDocument();    // target → excluded
   });
 
   it('joins the picked supply into the target', async () => {
