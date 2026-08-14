@@ -11,6 +11,7 @@ import dayjs from 'dayjs';
 import api from '@/services/api';
 import { StatusTag } from '@/components/StatusTag';
 import { ShipmentCreateModal } from '@/components/ShipmentCreateModal';
+import { SupplyDraftModal } from '@/components/shipment/SupplyDraftModal';
 import { ShipmentEditDrawerForId } from '@/components/ShipmentEditDrawerForId';
 import { ShipmentBulkTransitionModal } from '@/components/ShipmentBulkTransitionModal';
 import { ShipmentFilterDrawer } from '@/components/ShipmentFilterDrawer';
@@ -161,6 +162,7 @@ export default function ShipmentList() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isSupplyModalOpen, setIsSupplyModalOpen] = useState(false);
   const [editShipmentId, setEditShipmentId] = useState<number | null>(null);
   const [selectedRowKeys, setSelectedRowKeys] = useState<number[]>([]);
   const [bulkTransitionOpen, setBulkTransitionOpen] = useState(false);
@@ -730,13 +732,21 @@ export default function ShipmentList() {
           </Text>
         </div>
         {canCreate && (
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => setIsCreateModalOpen(true)}
-          >
-            {t('shipment_create.title')}
-          </Button>
+          <Space>
+            <Button
+              icon={<PlusOutlined />}
+              onClick={() => setIsSupplyModalOpen(true)}
+            >
+              {t('supply_draft.open_button')}
+            </Button>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => setIsCreateModalOpen(true)}
+            >
+              {t('shipment_create.title')}
+            </Button>
+          </Space>
         )}
       </Flex>
 
@@ -974,6 +984,12 @@ export default function ShipmentList() {
       <ShipmentCreateModal
         open={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={handleCreateSuccess}
+      />
+
+      <SupplyDraftModal
+        open={isSupplyModalOpen}
+        onClose={() => setIsSupplyModalOpen(false)}
         onSuccess={handleCreateSuccess}
       />
 

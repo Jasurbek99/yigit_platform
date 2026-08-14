@@ -1953,6 +1953,7 @@
   },
   "supply_draft": {
     "title": "New Supply Draft",
+    "open_button": "Supply Draft",
     "field_weight": "Total Weight (kg)",
     "field_blocks": "Blocks",
     "field_variety": "Variety",

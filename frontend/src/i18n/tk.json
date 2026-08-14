@@ -1953,6 +1953,7 @@
   },
   "supply_draft": {
     "title": "Täze üpjünçilik garalamasy",
+    "open_button": "Üpjünçilik garalamasy",
     "field_weight": "Jemi agram (kg)",
     "field_blocks": "Bloklar",
     "field_variety": "Sort",

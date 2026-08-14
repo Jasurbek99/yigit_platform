@@ -1955,6 +1955,7 @@
   },
   "supply_draft": {
     "title": "Новый черновик поставки",
+    "open_button": "Черновик поставки",
     "field_weight": "Общий вес (кг)",
     "field_blocks": "Блоки",
     "field_variety": "Сорт",
