@@ -201,4 +201,34 @@ describe('ShipmentDetailHero — join supply gate', () => {
     renderHero(destinationDraftShipment);
     expect(screen.queryByText('Join supply')).not.toBeInTheDocument();
   });
+
+  it('shows the Join supply button for a boss on a destination draft', () => {
+    // canJoinSupply mirrors the backend's PRIVILEGED_ROLES (includes boss) and
+    // deliberately does NOT route through canDo/bossEditMode the way canTransition
+    // does — so the button must appear even though beforeEach leaves bossEditMode
+    // false. Flipping bossEditMode on here would defeat the point of this test.
+    vi.mocked(useAuth).mockReturnValue({
+      user: fakeUser({
+        role: 'boss' as UserRole,
+        active_season: { id: 1, name: 'Season 1', status: 'ACTIVE' },
+      }),
+      isLoading: false,
+      isError: false,
+    });
+    renderHero(destinationDraftShipment);
+    expect(screen.getByText('Join supply')).toBeInTheDocument();
+  });
+
+  it('hides the Join supply button for a non-draft shipment', () => {
+    vi.mocked(useAuth).mockReturnValue({
+      user: fakeUser({
+        role: 'export_manager' as UserRole,
+        active_season: { id: 1, name: 'Season 1', status: 'ACTIVE' },
+      }),
+      isLoading: false,
+      isError: false,
+    });
+    renderHero(shipment);
+    expect(screen.queryByText('Join supply')).not.toBeInTheDocument();
+  });
 });

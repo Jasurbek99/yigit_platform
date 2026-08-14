@@ -1661,16 +1661,14 @@ export interface IShipmentDraft {
   harvest_age_days: number;
   freshness: 'today' | 'yesterday' | 'aged';
   variety_confidence: 'high' | 'low' | 'none';
-  // Join-supply candidate fields (Phase A, 2026-08-14). Optional because:
-  // (a) existing object literals (mock/drafts.ts, useDrafts.ts mock stubs) don't
-  //     set them, and (b) `country`/`customer` (raw FK ids) are NOT actually
-  //     emitted by the backend's ShipmentDraftListSerializer today — only
-  //     `country_name`/`customer_name` are (inherited from
-  //     ShipmentListSerializer.Meta.fields; verified against
-  //     backend/apps/export/serializers.py). A destination-vs-supply filter
-  //     should key off *_name until/unless the backend adds the raw ids.
-  country?: number | null;
-  customer?: number | null;
+  // Join-supply candidate fields (Phase A, 2026-08-14). The backend's
+  // ShipmentDraftListSerializer never emits raw `country`/`customer` FK ids —
+  // only `country_name`/`customer_name` (inherited from
+  // ShipmentListSerializer.Meta.fields; verified against
+  // backend/apps/export/serializers.py). Optional because existing object
+  // literals (mock/drafts.ts, useDrafts.ts mock stubs) don't set them. A
+  // destination-vs-supply filter must key off *_name — there are no raw ids
+  // to key off of here.
   country_name?: string | null;
   customer_name?: string | null;
 }

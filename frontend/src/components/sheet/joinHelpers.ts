@@ -6,10 +6,11 @@ export const SUPPLY_ROLES = new Set(['loading_dept_head', 'loading_dept_head_dep
 // status_code plus required (non-optional) country/customer, so the Sheet and
 // the Detail page can pass their shipment objects straight through.
 // IShipmentDraft does NOT satisfy it: it has no status_code field at all, and
-// its country/customer are optional (`?`) where this interface requires them
-// (`number | null`, not `number | null | undefined`). A caller working from a
-// raw IShipmentDraft must build a compatible object first, e.g.
-// `{ ...draft, status_code: 'draft', country: draft.country ?? null, customer: draft.customer ?? null }`.
+// it carries no raw country/customer FK ids whatsoever — only
+// country_name/customer_name (the backend's ShipmentDraftListSerializer never
+// sends the ids). A caller working from a raw IShipmentDraft must supply
+// status_code itself and derive country/customer some other way; *_name
+// alone isn't enough to build an IJoinClassifiable.
 export interface IJoinClassifiable {
   status_code: string;
   country: number | null;
