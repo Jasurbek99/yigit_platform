@@ -1971,6 +1971,16 @@
     "toast_success": "Supply draft created: {{code}}",
     "toast_error": "Failed to create supply draft"
   },
+  "join_supply": {
+    "title": "Join Supply Draft",
+    "join_button": "Join",
+    "cancel": "Cancel",
+    "empty": "No supply drafts available to join",
+    "col_blocks": "Blocks",
+    "col_weight": "Weight",
+    "toast_success": "Supply draft merged successfully",
+    "toast_error": "Failed to join supply draft"
+  },
   "forecast": {
     "modal_title": "Enter Harvest Forecast",
     "date_label": "Date:",

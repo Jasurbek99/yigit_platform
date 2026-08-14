@@ -1971,6 +1971,16 @@
     "toast_success": "Üpjünçilik garalamasy döredildi: {{code}}",
     "toast_error": "Üpjünçilik garalamasyny döredip bolmady"
   },
+  "join_supply": {
+    "title": "Üpjünçilik garalamasyny birleşdir",
+    "join_button": "Birleşdir",
+    "cancel": "Ýatyr",
+    "empty": "Birleşdirmek üçin elýeterli üpjünçilik garalamasy ýok",
+    "col_blocks": "Bloklar",
+    "col_weight": "Agram",
+    "toast_success": "Üpjünçilik garalamasy üstünlikli birleşdirildi",
+    "toast_error": "Üpjünçilik garalamasyny birleşdirip bolmady"
+  },
   "forecast": {
     "modal_title": "Hasyl çaklamasyny giriziň",
     "date_label": "Senesi:",
