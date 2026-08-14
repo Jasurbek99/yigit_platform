@@ -171,6 +171,25 @@ class SupplyDraftCreateTests(TestCase):
         self.assertEqual(resp.status_code, 400, resp.data)
         self.assertIn('block_ids', resp.data)
 
+    def test_weighted_block_sources_path_still_works(self):
+        # Regression guard (fix round 2): the block_ids dedup check in
+        # validate() must not shadow the pre-existing loop-local `block_ids`
+        # name used by the weighted block_sources dedup check just above it.
+        # A request carrying block_sources (the normal forecast-composer /
+        # weighted-draft path used across the app) must not 500.
+        resp = self.client.post(
+            '/api/v1/export/shipments/',
+            {
+                'is_draft': True,
+                'skip_forecast_check': True,
+                'block_sources': [
+                    {'block_id': self.block_a.pk, 'weight_kg': '5000.00'},
+                ],
+            },
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 201, resp.data)
+
     def test_role_gate_blocks_disallowed_role(self):
         sales = User.objects.create_user(username='srep', password='pw', role='sales_rep')
         self.client.force_authenticate(user=sales)

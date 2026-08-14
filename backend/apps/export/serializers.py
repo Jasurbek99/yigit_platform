@@ -1704,7 +1704,11 @@ class ShipmentCreateSerializer(serializers.Serializer):
 
         block_sources = attrs.get('block_sources', [])
         firm_splits = attrs.get('firm_splits', [])
-        block_ids = attrs.get('block_ids', [])
+        # Named distinctly from the `block_ids` local bound inside the
+        # `if block_sources:` branch below (derived from the weighted rows) —
+        # reusing that name here shadowed it for any request carrying both,
+        # crashing the weighted-draft path with AttributeError (int has no .id).
+        supply_block_ids = attrs.get('block_ids', [])
 
         # Stream F: drafts no longer REQUIRE block sources at creation time. The
         # supply-side DraftPool flow still includes them voluntarily; the
@@ -1733,8 +1737,8 @@ class ShipmentCreateSerializer(serializers.Serializer):
         # a repeated id reaches ShipmentBlockSource.unique_together=('shipment',
         # 'block') inside the view's bulk_create and raises an unhandled
         # IntegrityError (500) instead of a clean 400.
-        if block_ids:
-            ids = [block.id for block in block_ids]
+        if supply_block_ids:
+            ids = [block.id for block in supply_block_ids]
             if len(ids) != len(set(ids)):
                 raise serializers.ValidationError(
                     {'block_ids': 'Duplicate blocks are not allowed in a single shipment.'}
