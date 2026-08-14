@@ -2209,6 +2209,11 @@ class ShipmentViewSet(ModelViewSet):
             n_tasks = source.tasks.count()
             n_open_tasks = source.tasks.filter(state='open').count()
 
+            # Capture the supply draft's declared total before source.delete()
+            # below removes the row — the weight_net recompute needs it as a
+            # fallback when the moved blocks aren't fully weighed yet.
+            source_weight_net = source.weight_net
+
             # Move block sources from source → target.
             source.block_sources.update(shipment=target)
 
@@ -2235,8 +2240,16 @@ class ShipmentViewSet(ModelViewSet):
                 update_fields['export_code'] = source.export_code
 
             # Recompute weight_net from all block_sources now on target.
-            agg = target.block_sources.aggregate(total=Sum('weight_kg'))
-            update_fields['weight_net'] = agg['total'] or Decimal('0')
+            # If any moved block is still unweighed (supply draft not yet
+            # detailed), the block Sum understates the truck — fall back to
+            # the supply draft's declared total (source_weight_net, captured
+            # above before the source was deleted).
+            has_null_weight = target.block_sources.filter(weight_kg__isnull=True).exists()
+            if has_null_weight and source_weight_net is not None:
+                update_fields['weight_net'] = source_weight_net
+            else:
+                agg = target.block_sources.aggregate(total=Sum('weight_kg'))
+                update_fields['weight_net'] = agg['total'] or Decimal('0')
             update_fields['updated_by_id'] = user.pk
 
             # Use .update() to bypass the task engine (save() runs auto_advance_if_ready

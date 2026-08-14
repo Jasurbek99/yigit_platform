@@ -6,7 +6,15 @@ from django.core.management import call_command
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from apps.core.models import GreenhouseBlock, Season, ShipmentStatusType, TomatoVariety, User
+from apps.core.models import (
+    Country,
+    Customer,
+    GreenhouseBlock,
+    Season,
+    ShipmentStatusType,
+    TomatoVariety,
+    User,
+)
 from apps.export.models import Shipment, ShipmentBlockSource
 from apps.export.serializers import ShipmentCreateSerializer
 
@@ -195,3 +203,86 @@ class SupplyDraftCreateTests(TestCase):
         self.client.force_authenticate(user=sales)
         resp = self.client.post('/api/v1/export/shipments/', self._payload(), format='json')
         self.assertEqual(resp.status_code, 403, resp.data)
+
+
+class JoinNullWeightTests(TestCase):
+    """_execute_join's weight_net recompute must not lose the declared total.
+
+    A supply draft (Task 4) carries weight_net (the operator's declared
+    truck total) plus block_sources whose weight_kg may be null until the
+    weighmaster fills them in. Joining that draft into a destination must
+    not silently zero/understate weight_net just because the block Sum is
+    incomplete — it should fall back to the source's declared total.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        # DynamicResourcePermission reads RoleResourcePermission from the DB;
+        # force_authenticate does not bypass it (same pattern as
+        # SupplyDraftCreateTests above / tests_shipment_join.py).
+        call_command('seed_permissions')
+        cls.season = Season.objects.create(
+            name='2025-2026', is_active=True,
+            start_date='2025-09-01', end_date='2026-06-30',
+        )
+        cls.draft = ShipmentStatusType.objects.create(
+            code='draft', name_tk='Garalama', step_order=0,
+        )
+        cls.country = Country.objects.create(code='JQ', name_tk='Gazagystan', name_en='KZ')
+        cls.customer = Customer.objects.create(name='Begjan')
+        cls.block_a = GreenhouseBlock.objects.create(code='JF', name='JF')
+        cls.block_b = GreenhouseBlock.objects.create(code='JG', name='JG')
+        cls.mgr = User.objects.create_user(username='gadam', password='pw', role='export_manager')
+
+    def setUp(self):
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.mgr)
+
+    def _supply(self, weights):
+        s = Shipment.objects.create(
+            shipment_code='0201001/26', status=self.draft, season=self.season,
+            date='2026-01-01', weight_net=Decimal('22000.00'),
+        )
+        blocks = [self.block_a, self.block_b]
+        # Per-row .create() rather than bulk_create: a mixed None/Decimal
+        # batch in one parameterized INSERT trips a pyodbc/MSSQL type-
+        # inference quirk ("Arithmetic overflow error converting nvarchar
+        # to data type numeric"). It also matches production reality — a
+        # supply draft's blocks start all-null (bulk_create, views.py) and
+        # get individually weighed later, one row at a time.
+        for block, weight in zip(blocks, weights):
+            ShipmentBlockSource.objects.create(shipment=s, block=block, weight_kg=weight)
+        return s
+
+    def _dest(self):
+        return Shipment.objects.create(
+            shipment_code='0201002/26', status=self.draft, season=self.season,
+            date='2026-01-01', country=self.country, customer=self.customer,
+        )
+
+    def test_all_null_blocks_use_source_declared_total(self):
+        supply = self._supply([None, None])
+        dest = self._dest()
+        resp = self.client.post(f'/api/v1/export/shipments/{dest.pk}/join/',
+                                {'source_id': supply.pk}, format='json')
+        self.assertEqual(resp.status_code, 200, resp.data)
+        dest.refresh_from_db()
+        self.assertEqual(dest.weight_net, Decimal('22000.00'))
+
+    def test_mixed_null_blocks_use_source_declared_total(self):
+        supply = self._supply([Decimal('5000.00'), None])
+        dest = self._dest()
+        resp = self.client.post(f'/api/v1/export/shipments/{dest.pk}/join/',
+                                {'source_id': supply.pk}, format='json')
+        self.assertEqual(resp.status_code, 200, resp.data)
+        dest.refresh_from_db()
+        self.assertEqual(dest.weight_net, Decimal('22000.00'))
+
+    def test_all_weighted_blocks_recompute_from_sum(self):
+        supply = self._supply([Decimal('9000.00'), Decimal('9500.00')])
+        dest = self._dest()
+        resp = self.client.post(f'/api/v1/export/shipments/{dest.pk}/join/',
+                                {'source_id': supply.pk}, format='json')
+        self.assertEqual(resp.status_code, 200, resp.data)
+        dest.refresh_from_db()
+        self.assertEqual(dest.weight_net, Decimal('18500.00'))
