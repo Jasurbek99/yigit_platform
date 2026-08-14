@@ -1648,12 +1648,6 @@ export interface ITaskDetail extends ITaskListItem {
 
 // â”€â”€â”€ Draft Shipments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-export interface IDraftBlockSource {
-  block_id: number;
-  block_code: string;
-  weight_kg: number | null;
-}
-
 export interface IShipmentDraft {
   id: number;
   shipment_code: string;

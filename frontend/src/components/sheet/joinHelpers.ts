@@ -2,9 +2,14 @@
 export const SUPPLY_ROLES = new Set(['loading_dept_head', 'loading_dept_head_deputy', 'warehouse_chief']);
 
 // ─── Structural shape the classifiers need ───────────────────────────────────
-// Minimal enough that IShipmentSheetItem, IShipmentDetail and IShipmentDraft
-// (with its FK ids present) all structurally satisfy it — lets the Sheet, the
-// Detail page, and the join modal share one classification rule.
+// IShipmentSheetItem and IShipmentDetail satisfy this directly — both declare
+// status_code plus required (non-optional) country/customer, so the Sheet and
+// the Detail page can pass their shipment objects straight through.
+// IShipmentDraft does NOT satisfy it: it has no status_code field at all, and
+// its country/customer are optional (`?`) where this interface requires them
+// (`number | null`, not `number | null | undefined`). A caller working from a
+// raw IShipmentDraft must build a compatible object first, e.g.
+// `{ ...draft, status_code: 'draft', country: draft.country ?? null, customer: draft.customer ?? null }`.
 export interface IJoinClassifiable {
   status_code: string;
   country: number | null;
