@@ -134,7 +134,7 @@ flowchart LR
 
 **Step 3 — Join** (Gadam): "Join" toolbar button arms a **column-selection mode** — Gadam clicks two draft columns directly in the Sheet (they highlight). The `JoinActionBar` auto-detects which selected column is the destination (target) vs the supply (source), shows a supply→destination preview, and confirms via a Popconfirm (the source is hard-deleted). No modal.
 
-**Endpoint**: `POST /api/v1/export/shipments/{target_id}/join/` body `{"source_id": <int>}`. Caller must be `export_manager`/`director`. Gates: both must be `draft`; target ≠ source; target must have country + customer; target must **not** already have blocks; source must have ≥1 block. Effect:
+**Endpoint**: `POST /api/v1/export/shipments/{target_id}/join/` body `{"source_id": <int>}`. Caller must be `export_manager`/`director`/`boss`. Gates: both must be `draft`; target ≠ source; target must have country + customer; target must **not** already have blocks; source must have ≥1 block. Effect:
 - `source.block_sources` (and `firm_splits` if the target has none) move to the target.
 - `variety` + `export_code` are copied to the target if the target's are empty.
 - The source's full set of sorts (`varieties_dominant`) is copied onto the target when the target has none.
@@ -144,6 +144,8 @@ flowchart LR
 - The **source is hard-deleted**.
 
 The target stays `draft` and is then assigned via the existing assign action (Step 3 of the forecast-first flow). Returns the updated target detail (200); errors as `{error}` with 400/403/404.
+
+**Join supply outside the Sheet (Phase A, 2026-08-14)**: The join endpoint is now also reachable from a **destination draft's Detail page** (a "Join supply" button opens a modal listing all draft supply candidates, where Gadam picks one and confirms — same merge semantics). This is **distinct from** the Sheet join flow above (which requires selecting two columns directly in the spreadsheet); both paths reuse the same `/join/` endpoint and coexist. Visible to `export_manager`/`director`/`boss` (same roles as the Sheet join); absent on a non-draft, a draft that already has blocks, or a supply draft itself.
 
 **Sheet tint**: supply columns are visually tinted in the Sheet by `created_by_role ∈ {loading_dept_head, warehouse_chief}`. A manual `column_color` still takes precedence over the tint. See [[../screens/shipment-sheet#Supply-column tint|Shipment Sheet]] for the toolbar buttons and tint rendering.
 
