@@ -155,4 +155,33 @@ describe('SupplyDraftModal', () => {
     await userEvent.click(submitBtn());
     expect(mutate).toHaveBeenCalledTimes(1);
   });
+
+  it('includes a typed export code in the payload as export_code', async () => {
+    wrap();
+
+    await userEvent.click(fieldControl('Blocks'));
+    await userEvent.click(await screen.findByText('A'));
+    const weightField = fieldControl('Total Weight (kg)');
+    await userEvent.clear(weightField);
+    await userEvent.type(weightField, '22000');
+
+    // export_code is NOT a Form.Item name= field (OfficialCodeEditor is a
+    // controlled component driven by SupplyDraftModal's own useState — see
+    // its dead-props fix). Drive it via its own "Seq" sub-field, which is a
+    // real <Input> the test harness can type into (the "Month" sub-field is
+    // a Select, harder to drive here). "Seq" as label text is ambiguous —
+    // OfficialCodeEditor also renders "Seq" as a preview-strip caption — so
+    // target the input by its unique placeholder instead of fieldControl().
+    // buildJoined() only needs ONE non-empty field to produce a non-empty
+    // code (day/month/year are pre-filled to today's date by default).
+    const seqField = screen.getByPlaceholderText('NNN');
+    await userEvent.type(seqField, '5');
+
+    await userEvent.click(submitBtn());
+
+    expect(mutate).toHaveBeenCalledTimes(1);
+    const payload = mutate.mock.calls[0][0];
+    // day|month|seq|block|year|variety — block and variety stay empty here.
+    expect(payload.export_code).toMatch(/^\d{2}\|[A-Z]{2}\|5\|\|\d{2}\|$/);
+  });
 });

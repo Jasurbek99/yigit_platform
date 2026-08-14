@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Modal, Form, InputNumber, Select, Input } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -21,20 +22,22 @@ interface IFormValues {
   block_ids: number[];
   variety: number | null | undefined;
   harvest_status: string | undefined;
-  export_code: string | undefined;
   notes: string | undefined;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
-function buildPayload(values: IFormValues): ISupplyDraftPayload {
+// export_code is NOT an antd Form field: OfficialCodeEditor requires
+// controlled `value`/`onChange` props, so — like DraftComposerModal — it's
+// driven by its own useState, kept outside form.validateFields().
+function buildPayload(values: IFormValues, exportCode: string): ISupplyDraftPayload {
   const payload: ISupplyDraftPayload = {
     weight_net: values.weight_net,
     block_ids: values.block_ids,
   };
   if (values.variety != null) payload.varieties = [values.variety];
   if (values.harvest_status) payload.harvest_status = values.harvest_status;
-  if (values.export_code) payload.export_code = values.export_code;
+  if (exportCode) payload.export_code = exportCode;
   if (values.notes?.trim()) payload.notes = values.notes.trim();
   return payload;
 }
@@ -53,8 +56,13 @@ function HarvestStatusSelect() {
   return <Select options={items} allowClear placeholder={t('supply_draft.harvest_status_ph')} />;
 }
 
+interface ISupplyDraftOptionalFieldsProps {
+  readonly exportCode: string;
+  readonly onExportCodeChange: (value: string) => void;
+}
+
 /** Optional fields — variety, harvest status, export code, notes. Extracted to keep the modal under 150 lines. */
-function SupplyDraftOptionalFields() {
+function SupplyDraftOptionalFields({ exportCode, onExportCodeChange }: ISupplyDraftOptionalFieldsProps) {
   const { t } = useTranslation();
   return (
     <>
@@ -64,8 +72,11 @@ function SupplyDraftOptionalFields() {
       <Form.Item name="harvest_status" label={t('supply_draft.field_harvest_status')}>
         <HarvestStatusSelect />
       </Form.Item>
-      <Form.Item name="export_code" label={t('supply_draft.field_export_code')}>
-        <OfficialCodeEditor value="" onChange={() => {}} />
+      {/* Not a Form.Item name= field — OfficialCodeEditor is a genuinely
+          controlled component (required value/onChange), driven by the
+          parent's exportCode state, same pattern as DraftComposerModal. */}
+      <Form.Item label={t('supply_draft.field_export_code')}>
+        <OfficialCodeEditor value={exportCode} onChange={onExportCodeChange} />
       </Form.Item>
       <Form.Item name="notes" label={t('supply_draft.field_notes')}>
         <Input.TextArea rows={2} placeholder={t('supply_draft.notes_ph')} />
@@ -80,6 +91,7 @@ function SupplyDraftOptionalFields() {
 export function SupplyDraftModal({ open, onClose, onSuccess }: ISupplyDraftModalProps) {
   const { t } = useTranslation();
   const [form] = Form.useForm<IFormValues>();
+  const [exportCode, setExportCode] = useState('');
   const createSupplyDraft = useCreateSupplyDraft();
 
   async function handleOk() {
@@ -89,11 +101,12 @@ export function SupplyDraftModal({ open, onClose, onSuccess }: ISupplyDraftModal
     } catch {
       return; // antd already renders the inline field errors
     }
-    const payload = buildPayload(values);
+    const payload = buildPayload(values, exportCode);
     createSupplyDraft.mutate(payload, {
       onSuccess: (draft) => {
         toast.success(t('supply_draft.toast_success', { code: draft.shipment_code }));
         form.resetFields();
+        setExportCode('');
         onSuccess();
         onClose();
       },
@@ -103,6 +116,7 @@ export function SupplyDraftModal({ open, onClose, onSuccess }: ISupplyDraftModal
 
   function handleCancel() {
     form.resetFields();
+    setExportCode('');
     onClose();
   }
 
@@ -137,7 +151,7 @@ export function SupplyDraftModal({ open, onClose, onSuccess }: ISupplyDraftModal
           <BlockSelect mode="multiple" placeholder={t('supply_draft.blocks_ph')} />
         </Form.Item>
 
-        <SupplyDraftOptionalFields />
+        <SupplyDraftOptionalFields exportCode={exportCode} onExportCodeChange={setExportCode} />
       </Form>
     </Modal>
   );

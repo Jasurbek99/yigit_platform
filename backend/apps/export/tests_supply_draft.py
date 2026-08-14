@@ -71,6 +71,9 @@ class NormalizeBlockSourcesNullTests(TestCase):
         out = StringIO()
         # Must not raise decimal.InvalidOperation.
         call_command('normalize_block_sources', stdout=out)
+        # And must skip for the RIGHT reason — an unweighed block source —
+        # not silently no-op for some other reason (e.g. parent_map miss).
+        self.assertIn('skipped (unweighed block source)', out.getvalue())
 
     def test_apply_does_not_delete_unweighed_block_source(self):
         # write_block_sources(replace=True) deletes all existing rows then
