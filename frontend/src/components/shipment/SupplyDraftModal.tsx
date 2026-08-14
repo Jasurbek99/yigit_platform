@@ -91,8 +91,8 @@ export function SupplyDraftModal({ open, onClose, onSuccess }: ISupplyDraftModal
     }
     const payload = buildPayload(values);
     createSupplyDraft.mutate(payload, {
-      onSuccess: () => {
-        toast.success(t('supply_draft.toast_success'));
+      onSuccess: (draft) => {
+        toast.success(t('supply_draft.toast_success', { code: draft.shipment_code }));
         form.resetFields();
         onSuccess();
         onClose();

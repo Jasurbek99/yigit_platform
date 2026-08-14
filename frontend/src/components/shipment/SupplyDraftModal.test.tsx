@@ -2,10 +2,22 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import i18n from '@/i18n';
+import type { ISupplyDraftPayload } from '@/types';
 import { SupplyDraftModal } from './SupplyDraftModal';
 
-const mutate = vi.fn();
+// Real mutations pass the created record (which has shipment_code) to the
+// per-call onSuccess — the mock must do the same, or the toast-interpolation
+// bug (literal "{{code}}" shown to the user) can't be caught by a test.
+const FAKE_DRAFT = { shipment_code: '0101001/26' };
+const mutate = vi.fn((_payload: ISupplyDraftPayload, opts?: { onSuccess?: (draft: typeof FAKE_DRAFT) => void }) => {
+  opts?.onSuccess?.(FAKE_DRAFT);
+});
+
+vi.mock('sonner', () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
+}));
 
 vi.mock('@/hooks/useAdmin', () => ({
   useGreenhouseBlocks: () => ({
@@ -52,6 +64,8 @@ function wrap() {
 describe('SupplyDraftModal', () => {
   beforeEach(async () => {
     mutate.mockClear();
+    vi.mocked(toast.success).mockClear();
+    vi.mocked(toast.error).mockClear();
     await i18n.changeLanguage('en');
   });
 
@@ -106,5 +120,39 @@ describe('SupplyDraftModal', () => {
 
     expect(mutate).toHaveBeenCalledTimes(1);
     expect(mutate.mock.calls[0][0].varieties).toEqual([3]);
+  });
+
+  it('shows the success toast with the real shipment_code, not the literal {{code}} token', async () => {
+    wrap();
+
+    await userEvent.click(fieldControl('Blocks'));
+    await userEvent.click(await screen.findByText('A'));
+    const weightField = fieldControl('Total Weight (kg)');
+    await userEvent.clear(weightField);
+    await userEvent.type(weightField, '22000');
+    await userEvent.click(submitBtn());
+
+    expect(toast.success).toHaveBeenCalledTimes(1);
+    const toastMessage = vi.mocked(toast.success).mock.calls[0][0];
+    expect(toastMessage).toContain('0101001/26');
+    expect(toastMessage).not.toContain('{{code}}');
+  });
+
+  it('blocks submit when weight is exactly zero, even with a block already selected', async () => {
+    wrap();
+
+    await userEvent.click(fieldControl('Blocks'));
+    await userEvent.click(await screen.findByText('A'));
+
+    const weightField = fieldControl('Total Weight (kg)');
+    await userEvent.clear(weightField);
+    await userEvent.type(weightField, '0');
+    await userEvent.click(submitBtn());
+    expect(mutate).not.toHaveBeenCalled();
+
+    await userEvent.clear(weightField);
+    await userEvent.type(weightField, '22000');
+    await userEvent.click(submitBtn());
+    expect(mutate).toHaveBeenCalledTimes(1);
   });
 });
