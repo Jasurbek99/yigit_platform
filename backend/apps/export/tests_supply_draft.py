@@ -7,6 +7,7 @@ from django.test import TestCase
 
 from apps.core.models import GreenhouseBlock, Season, ShipmentStatusType
 from apps.export.models import Shipment, ShipmentBlockSource
+from apps.export.serializers import ShipmentCreateSerializer
 
 
 class BlockSourceNullableWeightTests(TestCase):
@@ -71,3 +72,22 @@ class NormalizeBlockSourcesNullTests(TestCase):
         self.assertTrue(
             ShipmentBlockSource.objects.filter(pk=self.source.pk).exists()
         )
+
+
+class SupplySerializerFieldTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.block = GreenhouseBlock.objects.create(code='JC', name='JC')
+
+    def test_accepts_block_ids_weight_net_harvest_status(self):
+        ser = ShipmentCreateSerializer(data={
+            'is_draft': True,
+            'skip_forecast_check': True,
+            'weight_net': '22000.00',
+            'block_ids': [self.block.pk],
+            'harvest_status': 'ok',
+        })
+        self.assertTrue(ser.is_valid(), ser.errors)
+        self.assertEqual(ser.validated_data['weight_net'], Decimal('22000.00'))
+        self.assertEqual(ser.validated_data['harvest_status'], 'ok')
+        self.assertEqual(list(ser.validated_data['block_ids']), [self.block])

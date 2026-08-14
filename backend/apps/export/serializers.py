@@ -1645,6 +1645,20 @@ class ShipmentCreateSerializer(serializers.Serializer):
     # supply drafts that have no prior HarvestDayEntry forecast. The block
     # sources still count toward allocated_kg for future checks.
     skip_forecast_check = serializers.BooleanField(default=False)
+    # Supply-draft fields (Phase C): a no-weight block list distinct from the
+    # weighted `block_sources` above — the Sheet's supply column records which
+    # blocks fed a draft before weights are known. weight_net/harvest_status
+    # mirror the Shipment model fields the operator fills in on the same draft.
+    weight_net = serializers.DecimalField(
+        max_digits=10, decimal_places=2, min_value=Decimal('0'),
+        required=False, allow_null=True,
+    )
+    block_ids = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=GreenhouseBlock.objects.all(), required=False,
+    )
+    harvest_status = serializers.CharField(
+        max_length=20, required=False, allow_blank=True, allow_null=True,
+    )
     notes = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     def validate_varieties(self, value: list) -> list:
