@@ -14,6 +14,8 @@ import { toast } from 'sonner';
 import { StatusTag } from '@/components/StatusTag';
 import { FreshnessPill } from '@/components/FreshnessPill';
 import { TransitionButton } from '@/components/TransitionButton';
+import { JoinSupplyModal } from '@/components/shipment/JoinSupplyModal';
+import { isDestinationDraft } from '@/components/sheet/joinHelpers';
 import { useAuth } from '@/hooks/useAuth';
 import { usePromoteFromDraft } from '@/hooks/useDrafts';
 import { useCancelShipment, useHardDeleteDraftShipment } from '@/hooks/useShipments';
@@ -112,6 +114,18 @@ export function ShipmentDetailHero({ shipment, onOpenComments }: IShipmentDetail
     !isReadOnly;
 
   const promote = usePromoteFromDraft();
+
+  // Join supply: only on a destination draft (has destination, no blocks yet),
+  // gated to the backend's PRIVILEGED_ROLES (apps/export/services/shipment.py:44 —
+  // includes boss, unlike canPromote).
+  const JOIN_ROLES: ReadonlyArray<string> = ['export_manager', 'director', 'boss'];
+  const canJoinSupply =
+    isDestinationDraft(shipment) &&
+    !!user &&
+    (JOIN_ROLES.includes(user.role) || user.is_superuser === true) &&
+    !isReadOnly;
+
+  const [joinOpen, setJoinOpen] = useState(false);
 
   // Moving a truck through the state machine is the most consequential action
   // on this screen. Gate it on the same check ShipmentDetail uses for field
@@ -217,6 +231,9 @@ export function ShipmentDetailHero({ shipment, onOpenComments }: IShipmentDetail
               {t('shipment.detail.promote_button')}
             </Button>
           )}
+          {canJoinSupply && (
+            <Button onClick={() => setJoinOpen(true)}>{t('join_supply.open_button')}</Button>
+          )}
           {canTransition && shipment.allowed_transitions?.length > 0 && (
             <TransitionButton
               shipmentId={shipment.id}
@@ -278,6 +295,14 @@ export function ShipmentDetailHero({ shipment, onOpenComments }: IShipmentDetail
           showCount
         />
       </Modal>
+
+      {/* Join supply modal — only mounted for callers who can actually see the
+          button. JoinSupplyModal's useDrafts() call sits above its `open` check,
+          so mounting it unconditionally would fire the drafts list query for
+          every role viewing every shipment, not just when the modal opens. */}
+      {canJoinSupply && (
+        <JoinSupplyModal open={joinOpen} targetId={shipment.id} onClose={() => setJoinOpen(false)} />
+      )}
     </div>
   );
 }

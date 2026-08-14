@@ -1972,6 +1972,7 @@
     "toast_error": "Üpjünçilik garalamasyny döredip bolmady"
   },
   "join_supply": {
+    "open_button": "Üpjünçiligi birleşdir",
     "title": "Üpjünçilik garalamasyny birleşdir",
     "join_button": "Birleşdir",
     "cancel": "Ýatyr",

@@ -22,8 +22,13 @@ vi.mock('@/components/TransitionButton', () => ({
   TransitionButton: () => <div>TRANSITION_BUTTON</div>,
 }));
 
+// JoinSupplyModal (rendered unconditionally by the hero, gated open by
+// `open`) also pulls useDrafts/useJoinShipments from this module — mocked
+// here too so mounting the hero doesn't hit the network.
 vi.mock('@/hooks/useDrafts', () => ({
   usePromoteFromDraft: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useDrafts: () => ({ data: [], isLoading: false }),
+  useJoinShipments: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 vi.mock('@/hooks/useShipments', () => ({
   useCancelShipment: () => ({ mutateAsync: vi.fn(), isPending: false }),
@@ -64,16 +69,28 @@ function fakeUser(overrides: Partial<ICurrentUser> = {}): ICurrentUser {
   } as ICurrentUser;
 }
 
-function renderHero() {
+function renderHero(shipmentOverride: IShipmentDetail = shipment) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <MemoryRouter>
       <QueryClientProvider client={queryClient}>
-        <ShipmentDetailHero shipment={shipment} onOpenComments={() => {}} />
+        <ShipmentDetailHero shipment={shipmentOverride} onOpenComments={() => {}} />
       </QueryClientProvider>
     </MemoryRouter>,
   );
 }
+
+// Destination draft: has country/customer, no block_sources yet — the shape
+// isDestinationDraft() (joinHelpers) looks for.
+const destinationDraftShipment = {
+  ...shipment,
+  status_code: 'draft',
+  status_display: 'Draft',
+  country: 1,
+  customer: 1,
+  block_sources: [],
+  allowed_transitions: [],
+} as unknown as IShipmentDetail;
 
 describe('ShipmentDetailHero — transition button gate', () => {
   beforeAll(async () => {
@@ -125,5 +142,63 @@ describe('ShipmentDetailHero — transition button gate', () => {
     });
     renderHero();
     expect(screen.queryByText('TRANSITION_BUTTON')).not.toBeInTheDocument();
+  });
+});
+
+describe('ShipmentDetailHero — join supply gate', () => {
+  beforeAll(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  beforeEach(() => {
+    vi.mocked(useAuth).mockReset();
+    vi.mocked(useSeasons).mockReturnValue({ data: [] as ISeason[] } as ReturnType<typeof useSeasons>);
+    useUiStore.setState({ bossEditMode: false });
+  });
+
+  it('shows the Join supply button for a destination draft + export_manager', () => {
+    // active_season must resolve so useSeasonReadOnly() sees seasonId ===
+    // activeSeasonId (both null otherwise falls through to the "no season
+    // selected" read-only branch) — this test is about the join gate, not
+    // season read-only, so pin an active season to isolate it.
+    vi.mocked(useAuth).mockReturnValue({
+      user: fakeUser({
+        role: 'export_manager' as UserRole,
+        active_season: { id: 1, name: 'Season 1', status: 'ACTIVE' },
+      }),
+      isLoading: false,
+      isError: false,
+    });
+    renderHero(destinationDraftShipment);
+    expect(screen.getByText('Join supply')).toBeInTheDocument();
+  });
+
+  it('hides the Join supply button once the shipment has block_sources', () => {
+    vi.mocked(useAuth).mockReturnValue({
+      user: fakeUser({
+        role: 'export_manager' as UserRole,
+        active_season: { id: 1, name: 'Season 1', status: 'ACTIVE' },
+      }),
+      isLoading: false,
+      isError: false,
+    });
+    renderHero({
+      ...destinationDraftShipment,
+      block_sources: [{ block_id: 1, block_code: 'B1', weight_kg: 100 }],
+    } as unknown as IShipmentDetail);
+    expect(screen.queryByText('Join supply')).not.toBeInTheDocument();
+  });
+
+  it('hides the Join supply button for a non-privileged role', () => {
+    vi.mocked(useAuth).mockReturnValue({
+      user: fakeUser({
+        role: 'accountant' as UserRole,
+        active_season: { id: 1, name: 'Season 1', status: 'ACTIVE' },
+      }),
+      isLoading: false,
+      isError: false,
+    });
+    renderHero(destinationDraftShipment);
+    expect(screen.queryByText('Join supply')).not.toBeInTheDocument();
   });
 });

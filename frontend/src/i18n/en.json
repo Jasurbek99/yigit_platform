@@ -1972,6 +1972,7 @@
     "toast_error": "Failed to create supply draft"
   },
   "join_supply": {
+    "open_button": "Join supply",
     "title": "Join Supply Draft",
     "join_button": "Join",
     "cancel": "Cancel",
