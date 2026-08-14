@@ -1661,12 +1661,24 @@ export interface IShipmentDraft {
   created_at: string;
   created_by_name: string | null;
   weight_net: number | null;
-  block_sources: IDraftBlockSource[];
+  block_sources: IBlockSource[];
   export_code: string | null;
   previous_platform_id: number | null;
   harvest_age_days: number;
   freshness: 'today' | 'yesterday' | 'aged';
   variety_confidence: 'high' | 'low' | 'none';
+  // Join-supply candidate fields (Phase A, 2026-08-14). Optional because:
+  // (a) existing object literals (mock/drafts.ts, useDrafts.ts mock stubs) don't
+  //     set them, and (b) `country`/`customer` (raw FK ids) are NOT actually
+  //     emitted by the backend's ShipmentDraftListSerializer today — only
+  //     `country_name`/`customer_name` are (inherited from
+  //     ShipmentListSerializer.Meta.fields; verified against
+  //     backend/apps/export/serializers.py). A destination-vs-supply filter
+  //     should key off *_name until/unless the backend adds the raw ids.
+  country?: number | null;
+  customer?: number | null;
+  country_name?: string | null;
+  customer_name?: string | null;
 }
 
 export interface IDraftFirmSplitInput {
