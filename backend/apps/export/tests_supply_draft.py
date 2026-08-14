@@ -4,8 +4,9 @@ from io import StringIO
 
 from django.core.management import call_command
 from django.test import TestCase
+from rest_framework.test import APIClient
 
-from apps.core.models import GreenhouseBlock, Season, ShipmentStatusType
+from apps.core.models import GreenhouseBlock, Season, ShipmentStatusType, TomatoVariety, User
 from apps.export.models import Shipment, ShipmentBlockSource
 from apps.export.serializers import ShipmentCreateSerializer
 
@@ -91,3 +92,64 @@ class SupplySerializerFieldTests(TestCase):
         self.assertEqual(ser.validated_data['weight_net'], Decimal('22000.00'))
         self.assertEqual(ser.validated_data['harvest_status'], 'ok')
         self.assertEqual(list(ser.validated_data['block_ids']), [self.block])
+
+
+class SupplyDraftCreateTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        # DynamicResourcePermission reads RoleResourcePermission from the DB;
+        # the test DB starts empty, so every API call 403s without this
+        # (same pattern as tests_shipment_sheet.py / tests_shipment_join.py).
+        call_command('seed_permissions')
+        cls.season = Season.objects.create(
+            name='2025-2026', is_active=True,
+            start_date='2025-09-01', end_date='2026-06-30',
+        )
+        cls.draft = ShipmentStatusType.objects.create(
+            code='draft', name_tk='Garalama', step_order=0,
+        )
+        cls.block_a = GreenhouseBlock.objects.create(code='JD', name='JD')
+        cls.block_b = GreenhouseBlock.objects.create(code='JE', name='JE')
+        cls.variety = TomatoVariety.objects.create(name='Pink', code='PK')
+        cls.loader = User.objects.create_user(
+            username='solt', password='pw', role='loading_dept_head',
+        )
+
+    def setUp(self):
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.loader)
+
+    def _payload(self, **over):
+        base = {
+            'is_draft': True,
+            'skip_forecast_check': True,
+            'weight_net': '22000.00',
+            'block_ids': [self.block_a.pk, self.block_b.pk],
+            'varieties': [self.variety.pk],
+            'harvest_status': 'ok',
+        }
+        base.update(over)
+        return base
+
+    def test_creates_supply_draft_with_null_weight_blocks(self):
+        resp = self.client.post('/api/v1/export/shipments/', self._payload(), format='json')
+        self.assertEqual(resp.status_code, 201, resp.data)
+        s = Shipment.objects.get(pk=resp.data['id'])
+        self.assertEqual(s.status.code, 'draft')
+        self.assertEqual(s.weight_net, Decimal('22000.00'))
+        self.assertEqual(s.harvest_status, 'ok')
+        self.assertEqual(s.variety_id, self.variety.pk)
+        self.assertEqual(set(s.varieties_dominant.values_list('pk', flat=True)), {self.variety.pk})
+        self.assertEqual(s.block_sources.count(), 2)
+        self.assertTrue(all(bs.weight_kg is None for bs in s.block_sources.all()))
+
+    def test_skip_forecast_check_bypasses_truck_cap(self):
+        # 22,000 kg total exceeds the 18,500 one-truck cap; supply drafts skip it.
+        resp = self.client.post('/api/v1/export/shipments/', self._payload(), format='json')
+        self.assertEqual(resp.status_code, 201, resp.data)
+
+    def test_role_gate_blocks_disallowed_role(self):
+        sales = User.objects.create_user(username='srep', password='pw', role='sales_rep')
+        self.client.force_authenticate(user=sales)
+        resp = self.client.post('/api/v1/export/shipments/', self._payload(), format='json')
+        self.assertEqual(resp.status_code, 403, resp.data)

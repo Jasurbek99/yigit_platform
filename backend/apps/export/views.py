@@ -1909,6 +1909,8 @@ class ShipmentViewSet(ModelViewSet):
                 status=draft_status,
                 created_by=user,
                 notes=data.get('notes') or None,
+                weight_net=data.get('weight_net'),
+                harvest_status=data.get('harvest_status') or '',
             )
 
             ShipmentStatusLog.objects.create(
@@ -1924,6 +1926,21 @@ class ShipmentViewSet(ModelViewSet):
             varieties = data.get('varieties') or []
             if varieties:
                 self._apply_draft_varieties(shipment, varieties)
+
+            # Supply-first path (block_ids): blocks are known but not yet
+            # individually weighed — only the shipment total (weight_net) is
+            # known at this stage. Written directly, NOT via write_block_sources,
+            # whose merge_to_parent does Decimal(str(weight_kg)) and crashes on
+            # None. Mutually exclusive with bs_rows in practice (different UIs).
+            block_ids = data.get('block_ids') or []
+            if block_ids:
+                ShipmentBlockSource.objects.bulk_create(
+                    [
+                        ShipmentBlockSource(shipment=shipment, block=block, weight_kg=None)
+                        for block in block_ids
+                    ],
+                    batch_size=500,
+                )
 
             # Normalize sub-blocks (F1/F2) to their parent (F) and merge — the
             # weekly plan is keyed on parent blocks, so block_sources must be too.
