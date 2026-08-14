@@ -2,9 +2,9 @@ import { Select } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { useGreenhouseBlocks } from '@/hooks/useAdmin';
 
-interface IBlockSelectProps {
-  value?: number | null;
-  onChange?: (value: number | null) => void;
+// ─── Shared props ─────────────────────────────────────────────────────────
+
+interface IBlockSelectBaseProps {
   disabled?: boolean;
   allowClear?: boolean;
   placeholder?: string;
@@ -17,21 +17,33 @@ interface IBlockSelectProps {
   allowedIds?: number[];
 }
 
+// ─── Single-select overload ───────────────────────────────────────────────
+
+interface IBlockSelectSingleProps extends IBlockSelectBaseProps {
+  mode?: undefined;
+  value?: number | null;
+  onChange?: (value: number | null) => void;
+}
+
+// ─── Multi-select overload ────────────────────────────────────────────────
+
+interface IBlockSelectMultipleProps extends IBlockSelectBaseProps {
+  mode: 'multiple';
+  value?: number[];
+  onChange?: (value: number[]) => void;
+}
+
+export type IBlockSelectProps = IBlockSelectSingleProps | IBlockSelectMultipleProps;
+
+// ─── Component ────────────────────────────────────────────────────────────
+
 /**
  * Self-fetching Select for GreenhouseBlock reference data.
- * Emits the primitive block id (number | null) via onChange.
+ * Supports single-select (default) and mode="multiple".
+ * Single: emits number | null. Multiple: emits number[].
  */
-export function BlockSelect({
-  value,
-  onChange,
-  disabled,
-  allowClear = true,
-  placeholder,
-  size,
-  style,
-  excludeIds = [],
-  allowedIds,
-}: IBlockSelectProps) {
+export function BlockSelect(props: IBlockSelectProps) {
+  const { disabled, allowClear = true, placeholder, size, style, excludeIds = [], allowedIds } = props;
   const { t } = useTranslation();
   const { data: blocks = [] } = useGreenhouseBlocks();
 
@@ -53,10 +65,31 @@ export function BlockSelect({
           : b.name || b.code,
     }));
 
+  const filterOption = (input: string, option: { label?: string } | undefined) =>
+    (option?.label ?? '').toLowerCase().includes(input.toLowerCase());
+
+  if (props.mode === 'multiple') {
+    return (
+      <Select
+        mode="multiple"
+        value={props.value ?? []}
+        onChange={(v) => props.onChange?.(v)}
+        options={options}
+        showSearch
+        allowClear={allowClear}
+        disabled={disabled}
+        placeholder={placeholder ?? t('draft.composer_block_ph')}
+        size={size}
+        style={style}
+        filterOption={filterOption}
+      />
+    );
+  }
+
   return (
     <Select
-      value={value ?? undefined}
-      onChange={(v) => onChange?.(v ?? null)}
+      value={props.value ?? undefined}
+      onChange={(v: number | undefined) => props.onChange?.(v ?? null)}
       options={options}
       showSearch
       allowClear={allowClear}
@@ -64,9 +97,7 @@ export function BlockSelect({
       placeholder={placeholder ?? t('draft.composer_block_ph')}
       size={size}
       style={style}
-      filterOption={(input, option) =>
-        (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())
-      }
+      filterOption={filterOption}
     />
   );
 }
