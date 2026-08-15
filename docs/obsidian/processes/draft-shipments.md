@@ -147,6 +147,8 @@ The target stays `draft` and is then assigned via the existing assign action (St
 
 **Join supply outside the Sheet (Phase A, 2026-08-14)**: The join endpoint is now also reachable from a **destination draft's Detail page** (a "Join supply" button opens a modal listing all draft supply candidates, where Gadam picks one and confirms — same merge semantics). This is **distinct from** the Sheet join flow above (which requires selecting two columns directly in the spreadsheet); both paths reuse the same `/join/` endpoint and coexist. Visible to `export_manager`/`director`/`boss` (same roles as the Sheet join); absent on a non-draft, a draft that already has blocks, or a supply draft itself.
 
+**Join two drafts on the List page (Phase B, 2026-08-15)**: A third entry point to the same join endpoint. On the **Shipment List**, tick exactly two draft rows; a **"Join drafts"** button appears in the blue bulk-action bar (same role gate: `export_manager`/`director`/`boss`). Clicking opens a modal that auto-detects which draft is the destination (kept) vs the supply (source, deleted) and shows a preview; confirming merges via the existing `/join/` endpoint. Ambiguous pairs (supply with supply, where the system cannot tell which to keep) show an error instead. Reuses the same merge semantics and permissions as the Sheet join and the Detail-page join above.
+
 **Sheet tint**: supply columns are visually tinted in the Sheet by `created_by_role ∈ {loading_dept_head, warehouse_chief}`. A manual `column_color` still takes precedence over the tint. See [[../screens/shipment-sheet#Supply-column tint|Shipment Sheet]] for the toolbar buttons and tint rendering.
 
 ### Create supply draft (outside the Sheet)
