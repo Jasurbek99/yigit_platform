@@ -1982,6 +1982,16 @@
     "toast_success": "Üpjünçilik garalamasy üstünlikli birleşdirildi",
     "toast_error": "Üpjünçilik garalamasyny birleşdirip bolmady"
   },
+  "join_drafts": {
+    "title": "Iki taslamany birleşdir",
+    "confirm": "Birleşdir",
+    "destination_label": "Barmaly ýer (galýar)",
+    "supply_label": "Üpjünçilik (pozulýar)",
+    "ambiguous": "Haýsy taslamanyň barmaly ýerdigini kesgitläp bolmady. Bir barmaly ýer taslamasyny (ýurt + müşderi, bloklar ýok) we bir üpjünçilik taslamasyny (bloklar bilen) saýlaň.",
+    "fetch_error": "Saýlanan taslamalary ýükläp bolmady.",
+    "toast_success": "Taslamalar birleşdirildi.",
+    "toast_error": "Taslamalary birleşdirip bolmady."
+  },
   "forecast": {
     "modal_title": "Hasyl çaklamasyny giriziň",
     "date_label": "Senesi:",
