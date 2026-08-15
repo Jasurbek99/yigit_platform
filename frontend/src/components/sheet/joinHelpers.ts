@@ -38,3 +38,22 @@ export function isSupplyDraft(s: IJoinClassifiable): boolean {
     (s.country === null || SUPPLY_ROLES.has(s.created_by_role ?? ''))
   );
 }
+
+// ─── Two-draft join direction ────────────────────────────────────────────────
+
+export type JoinDirection<T extends IJoinClassifiable> =
+  | { target: T; source: T }
+  | { error: 'ambiguous' };
+
+/**
+ * Decide which of two drafts is the destination (target, survives) and which is
+ * the supply (source, hard-deleted). A clean pair has exactly one destination
+ * (country+customer, no blocks) and one supply (has blocks); anything else is
+ * ambiguous. Argument order is irrelevant. A single draft can never be both
+ * (blocks length can't be 0 and >0 at once), so no over-match is possible.
+ */
+export function detectJoinDirection<T extends IJoinClassifiable>(a: T, b: T): JoinDirection<T> {
+  if (isDestinationDraft(a) && isSupplyDraft(b)) return { target: a, source: b };
+  if (isDestinationDraft(b) && isSupplyDraft(a)) return { target: b, source: a };
+  return { error: 'ambiguous' };
+}
