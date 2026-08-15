@@ -1990,7 +1990,8 @@
     "ambiguous": "Can't tell which draft is the destination. Pick one destination draft (country + customer, no blocks) and one supply draft (with blocks).",
     "fetch_error": "Couldn't load the selected drafts.",
     "toast_success": "Drafts joined.",
-    "toast_error": "Couldn't join the drafts."
+    "toast_error": "Couldn't join the drafts.",
+    "button": "Join drafts"
   },
   "forecast": {
     "modal_title": "Enter Harvest Forecast",

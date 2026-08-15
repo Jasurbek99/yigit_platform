@@ -1990,7 +1990,8 @@
     "ambiguous": "Haýsy taslamanyň barmaly ýerdigini kesgitläp bolmady. Bir barmaly ýer taslamasyny (ýurt + müşderi, bloklar ýok) we bir üpjünçilik taslamasyny (bloklar bilen) saýlaň.",
     "fetch_error": "Saýlanan taslamalary ýükläp bolmady.",
     "toast_success": "Taslamalar birleşdirildi.",
-    "toast_error": "Taslamalary birleşdirip bolmady."
+    "toast_error": "Taslamalary birleşdirip bolmady.",
+    "button": "Taslamalary birleşdir"
   },
   "forecast": {
     "modal_title": "Hasyl çaklamasyny giriziň",

@@ -15,6 +15,8 @@ import { SupplyDraftModal } from '@/components/shipment/SupplyDraftModal';
 import { ShipmentEditDrawerForId } from '@/components/ShipmentEditDrawerForId';
 import { ShipmentBulkTransitionModal } from '@/components/ShipmentBulkTransitionModal';
 import { ShipmentFilterDrawer } from '@/components/ShipmentFilterDrawer';
+import { JoinDraftsModal } from '@/components/shipment/JoinDraftsModal';
+import { canJoinDrafts } from './joinDraftsGate';
 import { useShipments, useSoftDeleteShipment, useRestoreShipment } from '@/hooks/useShipments';
 import { useAuth } from '@/hooks/useAuth';
 import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
@@ -167,6 +169,7 @@ export default function ShipmentList() {
   const [selectedRowKeys, setSelectedRowKeys] = useState<number[]>([]);
   const [bulkTransitionOpen, setBulkTransitionOpen] = useState(false);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [joinDraftsOpen, setJoinDraftsOpen] = useState(false);
 
   const _viewParam = searchParams.get('view');
   const viewMode: ViewMode =
@@ -242,6 +245,9 @@ export default function ShipmentList() {
     show_cancelled: showCancelled || undefined,
     show_deleted: showDeleted || undefined,
   });
+
+  const selectedRows = (data?.results ?? []).filter((r) => selectedRowKeys.includes(r.id));
+  const showJoinDrafts = canJoinDrafts(selectedRows, user, isReadOnly);
 
   const advancedFilterCount = [
     countryFilter,
@@ -927,6 +933,14 @@ export default function ShipmentList() {
               {t('shipment_bulk.delete_btn')}
             </Button>
           )}
+          {showJoinDrafts && (
+            <Button
+              size="small"
+              onClick={() => setJoinDraftsOpen(true)}
+            >
+              {t('join_drafts.button')}
+            </Button>
+          )}
           <Button
             size="small"
             onClick={() => setSelectedRowKeys([])}
@@ -1004,6 +1018,15 @@ export default function ShipmentList() {
         shipmentIds={selectedRowKeys}
         onFinished={() => setSelectedRowKeys([])}
       />
+
+      {showJoinDrafts && (
+        <JoinDraftsModal
+          open={joinDraftsOpen}
+          draftIds={[selectedRows[0].id, selectedRows[1].id]}
+          onClose={() => setJoinDraftsOpen(false)}
+          onSuccess={() => setSelectedRowKeys([])}
+        />
+      )}
 
       <ShipmentFilterDrawer
         open={filterDrawerOpen}
