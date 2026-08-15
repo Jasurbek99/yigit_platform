@@ -543,7 +543,8 @@ class JoinSourceNoBlocksTests(TestCase):
 # ---------------------------------------------------------------------------
 
 class JoinPermissionTests(TestCase):
-    """Join endpoint requires PRIVILEGED_ROLES (export_manager/director/boss)."""
+    """Join endpoint allows admin/export_manager/director/boss (+ superuser);
+    warehouse_chief/loading_dept_head/sales_rep/document_team stay forbidden."""
 
     @classmethod
     def setUpTestData(cls):
@@ -604,6 +605,34 @@ class JoinPermissionTests(TestCase):
         self.assertEqual(
             resp.status_code, 200,
             f'export_manager should be allowed; got {resp.status_code}: {resp.data}',
+        )
+
+    def test_boss_can_join(self):
+        """'boss' is widened at the call site (not in core PRIVILEGED_ROLES) and may join."""
+        boss = _make_user('boss_perm_jn', 'boss')
+        _auth(self.client, boss)
+        resp = self.client.post(
+            self._join_url(self.target.pk),
+            {'source_id': self.source.pk},
+            format='json',
+        )
+        self.assertEqual(
+            resp.status_code, 200,
+            f'boss should be allowed; got {resp.status_code}: {resp.data}',
+        )
+
+    def test_admin_can_join(self):
+        """admin IS in PRIVILEGED_ROLES and may join."""
+        admin = _make_user('admin_perm_jn', 'admin')
+        _auth(self.client, admin)
+        resp = self.client.post(
+            self._join_url(self.target.pk),
+            {'source_id': self.source.pk},
+            format='json',
+        )
+        self.assertEqual(
+            resp.status_code, 200,
+            f'admin should be allowed; got {resp.status_code}: {resp.data}',
         )
 
     def test_anonymous_cannot_join(self):

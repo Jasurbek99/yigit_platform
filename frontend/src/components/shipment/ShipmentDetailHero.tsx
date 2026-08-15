@@ -115,10 +115,11 @@ export function ShipmentDetailHero({ shipment, onOpenComments }: IShipmentDetail
 
   const promote = usePromoteFromDraft();
 
-  // Join supply: only on a destination draft (has destination, no blocks yet),
-  // gated to the backend's PRIVILEGED_ROLES (apps/export/services/shipment.py:44 —
-  // includes boss, unlike canPromote).
-  const JOIN_ROLES: ReadonlyArray<string> = ['export_manager', 'director', 'boss'];
+  // Join supply: only on a destination draft (has destination, no blocks yet).
+  // Mirrors the join endpoint's gate (apps/export/views.py join action):
+  // apps.core.roles.PRIVILEGED_ROLES = {admin, export_manager, director}, widened
+  // with 'boss' at the call site (like /assign), plus a superuser bypass (like /cancel).
+  const JOIN_ROLES: ReadonlyArray<string> = ['admin', 'export_manager', 'director', 'boss'];
   const canJoinSupply =
     isDestinationDraft(shipment) &&
     !!user &&

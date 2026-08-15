@@ -61,9 +61,9 @@ export function JoinDraftsModal({ open, draftIds, onClose, onSuccess }: IJoinDra
       {loading ? (
         <Spin style={{ display: 'block', margin: '24px auto' }} />
       ) : fetchError ? (
-        <Alert type="error" showIcon message={t('join_drafts.fetch_error')} />
+        <Alert type="error" showIcon title={t('join_drafts.fetch_error')} />
       ) : resolved == null ? (
-        <Alert type="warning" showIcon message={t('join_drafts.ambiguous')} />
+        <Alert type="warning" showIcon title={t('join_drafts.ambiguous')} />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div>

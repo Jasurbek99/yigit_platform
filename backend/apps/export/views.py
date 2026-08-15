@@ -2084,13 +2084,16 @@ class ShipmentViewSet(ModelViewSet):
         Returns:
             200 with full ShipmentDetailSerializer payload on success.
             400 if validation fails (same draft, wrong status, missing blocks, etc.)
-            403 if caller's role is not in PRIVILEGED_ROLES.
+            403 if caller is not a superuser and role not in PRIVILEGED_ROLES | {boss}.
             404 if target or source not found.
         """
         # --- Permission gate ---
-        if getattr(request.user, 'role', None) not in PRIVILEGED_ROLES:
+        # 'boss' widened at the call site (not in core PRIVILEGED_ROLES) so he can
+        # merge drafts from his own login, same as /assign. Superusers bypass, as in /cancel.
+        is_super = getattr(request.user, 'is_superuser', False)
+        if not is_super and getattr(request.user, 'role', None) not in PRIVILEGED_ROLES | {'boss'}:
             return Response(
-                {'error': 'Only export_manager, director or boss can join draft shipments'},
+                {'error': 'Only admin, export_manager, director or boss can join draft shipments'},
                 status=status.HTTP_403_FORBIDDEN,
             )
 

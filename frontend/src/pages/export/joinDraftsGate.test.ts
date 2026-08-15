@@ -7,6 +7,7 @@ const nonDraft = (id: number): IShipmentListItem => ({ id, status_code: 'yuklenm
 // Annotate so `role` stays a UserRole literal (an unannotated const widens it to
 // string, which won't assign to Pick<ICurrentUser,'role'>).
 const mgr: Pick<ICurrentUser, 'role' | 'is_superuser'> = { role: 'export_manager', is_superuser: false };
+const admin: Pick<ICurrentUser, 'role' | 'is_superuser'> = { role: 'admin', is_superuser: false };
 const boss: Pick<ICurrentUser, 'role' | 'is_superuser'> = { role: 'boss', is_superuser: false };
 const superuser: Pick<ICurrentUser, 'role' | 'is_superuser'> = { role: 'document_team', is_superuser: true };
 const clerk: Pick<ICurrentUser, 'role' | 'is_superuser'> = { role: 'document_team', is_superuser: false };
@@ -14,6 +15,7 @@ const clerk: Pick<ICurrentUser, 'role' | 'is_superuser'> = { role: 'document_tea
 describe('canJoinDrafts', () => {
   it('true for exactly two drafts + a privileged role (incl. boss) when writable', () => {
     expect(canJoinDrafts([draft(1), draft(2)], mgr, false)).toBe(true);
+    expect(canJoinDrafts([draft(1), draft(2)], admin, false)).toBe(true);
     expect(canJoinDrafts([draft(1), draft(2)], boss, false)).toBe(true);
     expect(canJoinDrafts([draft(1), draft(2)], superuser, false)).toBe(true);
   });

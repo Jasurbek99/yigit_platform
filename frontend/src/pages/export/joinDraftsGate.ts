@@ -1,8 +1,9 @@
 import type { IShipmentListItem, ICurrentUser } from '@/types';
 
-// Mirrors backend PRIVILEGED_ROLES (apps/export/services/shipment.py:44) — the
-// only roles the /join/ endpoint accepts. INCLUDES boss.
-const JOIN_ROLES: ReadonlyArray<string> = ['export_manager', 'director', 'boss'];
+// Mirrors the join endpoint's gate (apps/export/views.py join action):
+// apps.core.roles.PRIVILEGED_ROLES = {admin, export_manager, director}, widened
+// with 'boss' at the call site (like /assign), plus a superuser bypass (like /cancel).
+const JOIN_ROLES: ReadonlyArray<string> = ['admin', 'export_manager', 'director', 'boss'];
 
 /**
  * Whether the "Join drafts" bulk-bar button should show. True only when a

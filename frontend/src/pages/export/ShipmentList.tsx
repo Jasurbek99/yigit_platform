@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button, Checkbox, Flex, Input, Modal, Select, Segmented, Space, Tag, Tooltip, Typography } from 'antd';
 import { PlusOutlined, DownloadOutlined, EditOutlined, FilterOutlined, DeleteOutlined, ExclamationCircleFilled, UndoOutlined } from '@ant-design/icons';
@@ -248,6 +248,8 @@ export default function ShipmentList() {
 
   const selectedRows = (data?.results ?? []).filter((r) => selectedRowKeys.includes(r.id));
   const showJoinDrafts = canJoinDrafts(selectedRows, user, isReadOnly);
+
+  useEffect(() => { if (!showJoinDrafts) setJoinDraftsOpen(false); }, [showJoinDrafts]);
 
   const advancedFilterCount = [
     countryFilter,
