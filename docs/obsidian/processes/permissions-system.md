@@ -276,7 +276,7 @@ Reachability is seeded by data migration `core.0020` (sets `admin.users` + `admi
 
 Menu **items are declared once** in an `ITEMS` record keyed by route, and each composition is a list of route keys — so the two menus cannot drift on an item's icon or label, only on grouping and order. A missing key is a compile error: `ITEMS` is declared with `satisfies Record<string, MenuItem>`, which preserves the literal key union, and the group helper takes `(keyof typeof ITEMS)[]`.
 
-Both compositions cover the **same 45 routes**; only the grouping differs, and a test asserts that. Each role still sees only the pages `canSeePage` allows, and a group with zero visible children collapses entirely. This is documented alongside the visibility rules because visibility and ordering are driven by the same page registry and menu-build pass.
+Both compositions covered the **same route set** until 2026-08-20, when the owner asked for `/export/drafts` (Draft Shipments) and `/export/assign` (Assignment Board) to be dropped from the boss sidebar; the boss composition is now the staff set **minus those two**, and `AppLayout.menuGroups.test.tsx` asserts exactly that difference. Otherwise only the grouping differs. See [[../roles/boss#Page visibility]]. Each role still sees only the pages `canSeePage` allows, and a group with zero visible children collapses entirely. This is documented alongside the visibility rules because visibility and ordering are driven by the same page registry and menu-build pass.
 
 Three group label keys (`nav.group_analytics`, `nav.group_system`, `nav.group_feedback`) are **shared between the two menus with different membership** — renaming one silently retitles the other. Comments in the component and its tests flag this.
 

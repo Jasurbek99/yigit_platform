@@ -86,14 +86,14 @@ function renderedMenuGroupLabels(): string[] {
   );
 }
 
-// The exact 48 route keys BOSS_MENU_GROUPS produces, in group + item order,
+// The exact 46 route keys BOSS_MENU_GROUPS produces, in group + item order,
 // transcribed from AppLayout.tsx. Exists so a future edit to the boss
 // composition (its whole reason for staying untouched by this refactor) has
 // a hard failure to trip, not just "still non-empty".
 const EXPECTED_BOSS_ORDERED_KEYS = [
   '/', '/boss/dashboard', '/me/board', '/director/stuck-shipments',
   '/export/plan', '/export/harvest-board', '/export/trucks', '/export/quota', '/export/blocks',
-  '/export/drafts', '/export/assign', '/export/weightmaster',
+  '/export/weightmaster',
   '/export/shipments', '/export/shipments/sheet', '/export/shipments/board', '/export/shipments/dashboard',
   '/transport/map',
   '/documents', '/admin/packing-templates',
@@ -210,7 +210,7 @@ describe('AppLayout menu composition', () => {
     }
   });
 
-  it('boss menu renders exactly the expected 48 route keys, in order', () => {
+  it('boss menu renders exactly the expected 46 route keys, in order', () => {
     renderLayout(fakeUser({ role: 'boss' as UserRole }));
     expect(renderedMenuItemKeys()).toEqual(EXPECTED_BOSS_ORDERED_KEYS);
   });
@@ -235,7 +235,7 @@ describe('AppLayout menu composition', () => {
     }
   });
 
-  it('boss and staff compositions reach the same set of 48 route keys — grouping differs, reachable pages do not', () => {
+  it('staff reaches all 48 route keys; the boss reaches the same set minus the two pages withheld from his sidebar', () => {
     renderLayout(fakeUser({ role: 'boss' as UserRole }));
     const bossKeys = renderedMenuItemKeys();
     cleanup();
@@ -243,9 +243,22 @@ describe('AppLayout menu composition', () => {
     renderLayout(fakeUser({ role: 'export_manager' as UserRole }));
     const staffKeys = renderedMenuItemKeys();
 
-    expect(bossKeys).toHaveLength(48);
+    // The two compositions were key-for-key identical until 2026-08-20, when the
+    // owner asked for Draft Shipments and Assignment Board to be dropped from the
+    // boss sidebar. They stay in the staff menu — they are working pages for
+    // export_manager / loading_dept_head — so the sets now differ by exactly those
+    // two keys, and by nothing else.
+    const WITHHELD_FROM_BOSS = ['/export/drafts', '/export/assign'];
+
+    expect(bossKeys).toHaveLength(46);
     expect(staffKeys).toHaveLength(48);
-    expect(new Set(staffKeys)).toEqual(new Set(bossKeys));
+    for (const key of WITHHELD_FROM_BOSS) {
+      expect(staffKeys).toContain(key);
+      expect(bossKeys).not.toContain(key);
+    }
+    expect(new Set(staffKeys.filter((k) => !WITHHELD_FROM_BOSS.includes(k)))).toEqual(
+      new Set(bossKeys),
+    );
   });
 });
 

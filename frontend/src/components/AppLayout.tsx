@@ -361,7 +361,12 @@ export default function AppLayout() {
   const BOSS_MENU_GROUPS: IMenuGroup[] = [
     group('nav.group_overview', ['/', '/boss/dashboard', '/me/board', '/director/stuck-shipments']),
     group('nav.group_planning', ['/export/plan', '/export/harvest-board', '/export/trucks', '/export/quota', '/export/blocks']),
-    group('nav.group_prep', ['/export/drafts', '/export/assign', '/export/weightmaster']),
+    // `/export/drafts` and `/export/assign` are deliberately withheld from the
+    // boss sidebar (owner request, 2026-08-20). The pages still exist and the
+    // boss's page permissions are untouched — he is meant to reach them through
+    // the process page, not a top-level nav entry. Do NOT re-add them by
+    // sweeping for "orphaned routes" — that sweep (421068f) is how they got here.
+    group('nav.group_prep', ['/export/weightmaster']),
     group('nav.group_shipping', [
       '/export/shipments', '/export/shipments/sheet', '/export/shipments/board',
       '/export/shipments/dashboard', '/transport/map',
