@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Button, Dropdown, Form, Modal, Select } from 'antd';
+import { Button, Dropdown } from 'antd';
 import type { MenuProps } from 'antd';
 import { IconFileText } from '@tabler/icons-react';
-import { toast } from 'sonner';
 
-import { useLoadingLocations } from '@/hooks/useAdmin';
-import { downloadFile } from '@/utils/fileDownload';
+import {
+  DocumentOptionsModal,
+  applyDocumentOptions,
+  type IDocumentOptions,
+} from '@/components/DocumentOptionsModal';
+import { useDocumentDownload } from '@/hooks/useDocumentDownload';
 
 interface IInvoiceDocumentsButtonProps {
   readonly invoiceId: number;
@@ -42,29 +45,20 @@ const takesLoading = (type: string): boolean => type.startsWith('invoice');
 
 /**
  * Per-sale "Documents" dropdown — generates the per-firm Invoice / CT-1 / FITO /
- * Customs documents, hitting GET /contracts/sales/{id}/document/. Invoice first
- * opens a small modal to pick the loading point; the letters download immediately.
+ * Customs documents, hitting GET /contracts/sales/{id}/document/.
+ *
+ * Every type opens the options modal. The letters take no loading point, so
+ * theirs shows only the red-highlight toggle — they still need it, since these
+ * are the copies that go to the customs and phytosanitary authorities.
  */
 export function InvoiceDocumentsButton({
   invoiceId,
   size = 'small',
 }: IInvoiceDocumentsButtonProps) {
   const { t } = useTranslation();
-  const { data: loadingLocations = [] } = useLoadingLocations();
+  const { isGenerating, download } = useDocumentDownload();
 
   const [pending, setPending] = useState<{ type: string; fmt: string } | null>(null);
-  const [placeLoading, setPlaceLoading] = useState<string | undefined>(undefined);
-
-  const download = async (
-    type: string, fmt: string, overrides?: Record<string, string>,
-  ): Promise<void> => {
-    const params = new URLSearchParams({ type, fmt, ...overrides });
-    try {
-      await downloadFile(`/contracts/sales/${invoiceId}/document/?${params.toString()}`);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : t('documents.download_failed'));
-    }
-  };
 
   const items: MenuProps['items'] = DOC_FAMILIES.map((family) => ({
     type: 'group' as const,
@@ -79,20 +73,17 @@ export function InvoiceDocumentsButton({
 
   const handleClick: MenuProps['onClick'] = ({ key }) => {
     const [type, fmt] = key.split('|');
-    if (takesLoading(type)) {
-      setPlaceLoading(undefined);
-      setPending({ type, fmt });
-      return;
-    }
-    void download(type, fmt);
+    setPending({ type, fmt });
   };
 
-  const handleConfirm = (): void => {
+  const handleConfirm = async (options: IDocumentOptions): Promise<void> => {
     if (!pending) return;
-    const overrides: Record<string, string> = {};
-    if (placeLoading) overrides.place_loading = placeLoading;
-    void download(pending.type, pending.fmt, overrides);
-    setPending(null);
+    const params = new URLSearchParams({ type: pending.type, fmt: pending.fmt });
+    applyDocumentOptions(params, options);
+    const ok = await download(
+      `/contracts/sales/${invoiceId}/document/?${params.toString()}`,
+    );
+    if (ok) setPending(null);
   };
 
   return (
@@ -106,27 +97,14 @@ export function InvoiceDocumentsButton({
         />
       </Dropdown>
 
-      <Modal
+      <DocumentOptionsModal
         open={pending !== null}
-        title={t('documents.options_title')}
-        onOk={handleConfirm}
+        isGenerating={isGenerating}
+        withPlaceLoading={pending !== null && takesLoading(pending.type)}
+        documentKey={pending?.type}
+        onConfirm={handleConfirm}
         onCancel={() => setPending(null)}
-        okText={t('documents.download')}
-        destroyOnClose
-      >
-        <Form layout="vertical">
-          <Form.Item label={t('documents.place_loading')}>
-            <Select
-              value={placeLoading}
-              onChange={setPlaceLoading}
-              options={loadingLocations.map((loc) => ({ value: loc.name, label: loc.name }))}
-              placeholder={t('documents.place_loading_ph')}
-              allowClear
-              showSearch
-            />
-          </Form.Item>
-        </Form>
-      </Modal>
+      />
     </>
   );
 }

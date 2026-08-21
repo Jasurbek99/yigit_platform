@@ -3032,7 +3032,9 @@
     "place_loading_ph": "Ýükleme ýerini saýlaň",
     "tir_carnet": "TIR depderçe №",
     "tir_carnet_ph": "Diňe Özbegistan üstaşyry — beýleki halatda boş goýuň",
-    "download_failed": "Resminamany ýükläp bolmady"
+    "download_failed": "Resminamany ýükläp bolmady",
+    "highlight": "Doldurylan bahalary gyzyl reňkde çap et",
+    "highlight_extra": "Maglumat bazasyndan gelen bahalar gyzyl, hemişelik tekst gara bolar — boş öýjükleri çap etmezden öň görmek üçin. Müşderä iberilýän nusga üçin aýryň."
   },
   "sales": {
     "title": "Şertnama satyşlary",
@@ -3369,5 +3371,23 @@
     "col_kg": "Ulanylan kwota",
     "col_date": "Senesi",
     "total_label": "Jemi"
+  },
+  "document_layout": {
+    "title": "Sahypa görnüşi",
+    "font_scale": "Harp ölçegi",
+    "line_spacing": "Setir aralygy",
+    "line_spacing_template": "nusgadaky ýaly",
+    "margin_top": "Ýokarky boşluk",
+    "margin_bottom": "Aşakky boşluk",
+    "margin_left": "Çep boşluk",
+    "margin_right": "Sag boşluk",
+    "reset": "Başlangyç ýagdaýa",
+    "updated_by": "Üýtgeden: {{name}}",
+    "shared_hint": "Bu sazlamalar ähli ulanyjylar üçin umumydyr.",
+    "margins_weak": "Bu şertnamada boşluklar az täsir edýär — harp ölçegini we setir aralygyny ulanyň.",
+    "save_failed": "Sazlama ýatda saklanmady.",
+    "conflict_title": "Sazlama başga biri tarapyndan üýtgedildi",
+    "conflict_body": "Siz açanyňyzdan soň başga bir ulanyjy bu sazlamany üýtgetdi. Öz üýtgetmäňizi ýazmakçymy?",
+    "conflict_reload": "Hawa, ýaz"
   }
 }

@@ -27,11 +27,12 @@ from pathlib import Path
 import openpyxl
 from django.conf import settings
 from django.core.cache import cache
-from docx.shared import Mm
+from docx.shared import Emu, Mm
 from docxtpl import DocxTemplate, InlineImage
+from openpyxl.styles import Font
 
 from apps.contracts.document_templates import registry as tpl_registry
-from apps.contracts.services import document_context
+from apps.contracts.services import document_context, document_highlight
 from apps.contracts.services.document_context import StampImage
 
 logger = logging.getLogger(__name__)
@@ -134,32 +135,193 @@ def _resolve_stamp(tpl: DocxTemplate, value):
     return InlineImage(tpl, BytesIO(data), width=Mm(value.width_mm))
 
 
-def render_docx(template_path: Path, context: dict) -> bytes:
+def render_docx(
+    template_path: Path, context: dict, highlight: bool = True, layout=None,
+) -> bytes:
     """Fill a ``.docx`` template with a Jinja context and return OOXML bytes.
 
     ``StampImage`` markers in the context are resolved to ``InlineImage`` here
     (they need the ``DocxTemplate``); every other value passes through untouched.
+
+    Args:
+        template_path: The ``.docx`` template to fill.
+        context: The Jinja context from the registry's builder.
+        highlight: Render database-filled values in red (see
+            :mod:`~apps.contracts.services.document_highlight`). Stamps are
+            resolved BEFORE wrapping so the ``InlineImage`` objects are never
+            sentinel-wrapped.
+        layout: Optional ``DocumentLayoutSetting`` whose margin/font/spacing
+            adjustments are applied after rendering.
     """
     tpl = DocxTemplate(str(template_path))
     context = {key: _resolve_stamp(tpl, value) for key, value in context.items()}
+    if highlight:
+        context = document_highlight.wrap_context(context)
     tpl.render(context)
+    if highlight:
+        document_highlight.colorize(tpl.docx)
+    if layout is not None and not layout.is_default:
+        apply_layout(tpl.docx, layout)
     buf = BytesIO()
     tpl.save(buf)
     return buf.getvalue()
 
 
-def render_xlsx(template_path: Path, cell_values: dict) -> bytes:
+# ════════════════════════════════════════════════
+# Page layout adjustments (DocumentLayoutSetting)
+# ════════════════════════════════════════════════
+
+def layout_for(document_key: str):
+    """The saved layout adjustments for a document key, or ``None``.
+
+    Deliberately NOT cached. The read is one indexed row from a table with at most
+    six rows — negligible next to the render it precedes (a PDF shells out to
+    LibreOffice for 10-30s). Caching it would buy nothing measurable and would put
+    a staleness window in the middle of the one loop that matters: the operator
+    nudges a slider, re-downloads, and looks. A stale layout there reads as "the
+    setting didn't work" and sends them round again.
+
+    Imported lazily — ``services`` is imported from ``models`` in places, and a
+    module-level model import would close the cycle.
+    """
+    if not tpl_registry.supports_layout(document_key):
+        return None
+    from apps.contracts.models import DocumentLayoutSetting
+
+    return DocumentLayoutSetting.objects.filter(document_key=document_key).first()
+
+
+def apply_layout(doc, layout) -> None:
+    """Apply a document's saved layout adjustments to a rendered document.
+
+    Order matters: margins move first so the table rescale can measure the change
+    it has to compensate for.
+    """
+    _apply_margins(doc, layout)
+    _apply_font_scale(doc, layout.font_scale_pct)
+    if layout.line_spacing is not None:
+        # Every shipped template leaves line spacing to the Normal style — not one
+        # paragraph in any of them sets it explicitly — so this reaches all of them
+        # without a per-paragraph walk.
+        doc.styles['Normal'].paragraph_format.line_spacing = float(layout.line_spacing)
+
+
+def _apply_margins(doc, layout) -> None:
+    """Add the margin deltas to every section, then rescale pinned tables.
+
+    Deltas rather than absolutes because ``contract_kz.docx`` has two sections with
+    deliberately different top margins — an absolute value would flatten them.
+    """
+    deltas = layout.margin_deltas_mm
+    if not any(deltas.values()):
+        return
+
+    # The rescale must run exactly ONCE, outside the section loop: `doc.tables`
+    # spans the whole document, so rescaling per section would apply the ratio
+    # once per section — squaring it on contract_kz's two-section layout.
+    # Sections share a page width and take the same deltas, so section 0's ratio
+    # governs; the sections' own content widths differ by ~2mm, which moves the
+    # ratio by ~0.1%.
+    first = doc.sections[0]
+    before = first.page_width - first.left_margin - first.right_margin
+
+    for section in doc.sections:
+        for attribute, delta_mm in deltas.items():
+            current = getattr(section, attribute)
+            # Clamp at 0: a negative margin is not a thing Word can print.
+            setattr(section, attribute, max(Emu(0), current + Mm(delta_mm)))
+
+    after = first.page_width - first.left_margin - first.right_margin
+    if after != before and before:
+        _rescale_tables(doc, after / before)
+
+
+def _rescale_tables(doc, ratio: float) -> None:
+    """Scale every fixed-width table by ``ratio`` so it still fits the text area.
+
+    ``build_templates._col_widths`` pins ``autofit = False`` with hard widths sized
+    to exactly the current content width; widen a margin and those tables would run
+    off the page. Scaling is relative to each table's OWN current total, not an
+    assumed page width — ``contract_kz.docx``'s hand-authored tables legitimately
+    start wider than their section, and that relationship is not ours to "fix".
+
+    ``autofit = True`` tables are skipped: Word reflows those itself.
+
+    Top-level tables only — unlike ``document_highlight.colorize`` this does not
+    recurse into cells. No shipped template nests a table; revisit if one does.
+    """
+    for table in doc.tables:
+        if table.autofit:
+            continue
+        for column in table.columns:
+            if column.width:
+                column.width = Emu(int(column.width * ratio))
+        for row in table.rows:
+            for cell in row.cells:
+                if cell.width:
+                    cell.width = Emu(int(cell.width * ratio))
+
+
+# Word stores a font size as whole half-points (``<w:sz w:val>``), so a scaled
+# size has to land on that grid. Truncating would silently drop up to half a
+# point on every run — at the 8pt sizes these templates use, that is a visible
+# step. Round to the nearest half-point instead, and never scale a run away.
+_HALF_POINT_EMU = 6350
+
+
+def _scaled_font_size(size, ratio: float):
+    """``size * ratio`` snapped to the nearest half-point Word can store."""
+    half_points = max(1, round(size * ratio / _HALF_POINT_EMU))
+    return Emu(half_points * _HALF_POINT_EMU)
+
+
+def _apply_font_scale(doc, scale_pct: int) -> None:
+    """Multiply every run's font size by ``scale_pct``.
+
+    Setting ``styles['Normal']`` alone is close to a no-op: most runs carry an
+    explicit ``<w:sz>`` that overrides it (713 of 879 runs in ``contract_kz.docx``,
+    70 of 83 in ``invoice_ru.docx``). Normal is scaled too, for the minority of
+    runs that do inherit.
+    """
+    if scale_pct == 100:
+        return
+    ratio = scale_pct / 100
+
+    normal = doc.styles['Normal'].font
+    if normal.size:
+        normal.size = _scaled_font_size(normal.size, ratio)
+
+    for paragraph in document_highlight.all_paragraphs(doc):
+        for run in paragraph.runs:
+            if run.font.size:
+                run.font.size = _scaled_font_size(run.font.size, ratio)
+
+
+def render_xlsx(template_path: Path, cell_values: dict, highlight: bool = True) -> bytes:
     """Fill an ``.xlsx`` overlay template by cell coordinate and return OOXML bytes.
 
     The template's geometry (column widths, row heights, print scale, merges) is
     preserved untouched — the builder returns a ``{coordinate: value}`` map that is
     written into the single active sheet. Used by the CMR print-overlay, whose
     layout must register on the pre-printed official form.
+
+    Every cell written here is by definition a filled value, so ``highlight``
+    colours them directly — no sentinels needed as in the ``.docx`` path. The
+    template's own font attributes are carried onto the replacement ``Font``;
+    openpyxl style objects are shared between cells, so a new one is constructed
+    rather than mutated in place.
     """
     wb = openpyxl.load_workbook(template_path)
     ws = wb.active
     for coord, value in cell_values.items():
-        ws[coord] = value
+        cell = ws[coord]
+        cell.value = value
+        if highlight and value not in (None, ''):
+            old = cell.font
+            cell.font = Font(
+                name=old.name, size=old.size, bold=old.bold, italic=old.italic,
+                color=f'FF{document_highlight.HIGHLIGHT_RGB}',
+            )
     buf = BytesIO()
     wb.save(buf)
     return buf.getvalue()
@@ -218,6 +380,7 @@ def render_pdf(source_bytes: bytes, source_ext: str = 'docx') -> bytes:
 
 def generate(
     document_key: str, primary_obj, fmt: str = 'docx', overrides: dict | None = None,
+    highlight: bool = True,
 ) -> tuple[bytes, str, str]:
     """Render a registered document for a primary object.
 
@@ -227,6 +390,8 @@ def generate(
         fmt: ``'docx'`` or ``'pdf'``.
         overrides: Optional generate-time field values (e.g. ``place_loading``,
             ``tir_carnet``) passed through to the context builder.
+        highlight: Render database-filled values in red. This is a *render* flag,
+            not a context value — it never reaches the builders.
 
     Returns:
         ``(file_bytes, filename_with_extension, content_type)``.
@@ -254,10 +419,12 @@ def generate(
     context = builder(primary_obj, spec.language, overrides)
 
     if spec.engine == 'xlsx':
-        source_bytes = render_xlsx(spec.template_path, context)
+        source_bytes = render_xlsx(spec.template_path, context, highlight)
         native_ext, native_type = 'xlsx', XLSX_CONTENT_TYPE
     else:
-        source_bytes = render_docx(spec.template_path, context)
+        source_bytes = render_docx(
+            spec.template_path, context, highlight, layout_for(document_key),
+        )
         native_ext, native_type = 'docx', DOCX_CONTENT_TYPE
 
     fields = _FILENAME_FIELDS[spec.scope](primary_obj)
@@ -274,7 +441,9 @@ ZIP_CONTENT_TYPE = 'application/zip'
 _PACKET_LETTER_KEYS = ('ct1_ru', 'fito_ru', 'customs_tk')
 
 
-def generate_packet_zip(shipment, sales, lang='ru', fmt='docx', overrides=None) -> bytes:
+def generate_packet_zip(
+    shipment, sales, lang='ru', fmt='docx', overrides=None, highlight=True,
+) -> bytes:
     """Bundle a truck's whole document packet into a single zip.
 
     Contents: the truck-level CMR, then per firm (each ``ContractSale`` in
@@ -289,6 +458,7 @@ def generate_packet_zip(shipment, sales, lang='ru', fmt='docx', overrides=None) 
         lang: ``'ru'`` | ``'en'`` — CMR + invoice language (letters are fixed-lang).
         fmt: ``'docx'`` | ``'pdf'`` — applied to every document in the packet.
         overrides: generate-time values (``place_loading`` / ``tir_carnet``).
+        highlight: red-fill flag, applied to every document in the packet.
 
     Raises:
         ValueError / DocumentRenderError: propagated from ``generate`` (e.g. PDF
@@ -301,10 +471,10 @@ def generate_packet_zip(shipment, sales, lang='ru', fmt='docx', overrides=None) 
 
     buf = BytesIO()
     with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as archive:
-        data, filename, _ = generate(cmr_key, shipment, fmt, overrides)
+        data, filename, _ = generate(cmr_key, shipment, fmt, overrides, highlight)
         archive.writestr(filename, data)
         for sale in sales:
             for key in (invoice_key, *_PACKET_LETTER_KEYS):
-                data, filename, _ = generate(key, sale, fmt, overrides)
+                data, filename, _ = generate(key, sale, fmt, overrides, highlight)
                 archive.writestr(filename, data)
     return buf.getvalue()

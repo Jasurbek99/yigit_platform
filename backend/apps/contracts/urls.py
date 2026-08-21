@@ -5,6 +5,8 @@ from rest_framework.routers import DefaultRouter
 from apps.contracts.views import (
     ContractSaleViewSet,
     ContractViewSet,
+    DocumentLayoutDetailView,
+    DocumentLayoutListView,
     DocumentPacketListView,
     ShipmentCmrView,
     ShipmentFirmContractsView,
@@ -36,6 +38,16 @@ urlpatterns = [
         'shipments/<int:pk>/packet.zip',
         ShipmentPacketZipView.as_view(),
         name='shipment-packet-zip',
+    ),
+    path(
+        'document-layouts/',
+        DocumentLayoutListView.as_view(),
+        name='document-layouts',
+    ),
+    path(
+        'document-layouts/<str:document_key>/',
+        DocumentLayoutDetailView.as_view(),
+        name='document-layout-detail',
     ),
     path(
         'document-packets/',

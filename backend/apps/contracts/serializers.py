@@ -12,6 +12,7 @@ Three serializers per the API contract rules:
 from datetime import date
 from decimal import Decimal
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from rest_framework import serializers
 
@@ -22,6 +23,7 @@ from apps.contracts.models import (
     ContractAttachment,
     ContractSale,
     ContractSaleLineItem,
+    DocumentLayoutSetting,
 )
 from apps.contracts.services.contract_number import (
     next_contract_no,
@@ -613,3 +615,60 @@ class DocumentPacketSerializer(serializers.Serializer):
                 'invoice_number': sale.invoice_number if sale else None,
             })
         return firms
+
+
+class DocumentLayoutSettingSerializer(serializers.ModelSerializer):
+    """Read/write the page-layout adjustments for one document type.
+
+    Every value is an adjustment against the template, not an absolute: a margin
+    is a ±mm delta and the font is a percentage. See the model docstring for why
+    absolutes do not work on these templates.
+    """
+
+    updated_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = DocumentLayoutSetting
+        fields = [
+            'document_key',
+            'font_scale_pct',
+            'line_spacing',
+            'margin_top_delta_mm',
+            'margin_bottom_delta_mm',
+            'margin_left_delta_mm',
+            'margin_right_delta_mm',
+            'version',
+            'updated_at',
+            'updated_by_name',
+        ]
+        read_only_fields = ['document_key', 'version', 'updated_at']
+
+    def get_updated_by_name(self, obj) -> str:
+        user = obj.updated_by
+        return user.get_full_name() or user.username if user else ''
+
+    def validate(self, attrs: dict) -> dict:
+        """Run the model's range checks so the bounds live in exactly one place.
+
+        Validates the merged result (a PATCH may send one field), on a throwaway
+        instance so a rejected payload leaves ``self.instance`` untouched.
+        """
+        base = self.instance or DocumentLayoutSetting()
+        candidate = DocumentLayoutSetting(
+            document_key=base.document_key,
+            font_scale_pct=attrs.get('font_scale_pct', base.font_scale_pct),
+            line_spacing=attrs.get('line_spacing', base.line_spacing),
+            margin_top_delta_mm=attrs.get(
+                'margin_top_delta_mm', base.margin_top_delta_mm),
+            margin_bottom_delta_mm=attrs.get(
+                'margin_bottom_delta_mm', base.margin_bottom_delta_mm),
+            margin_left_delta_mm=attrs.get(
+                'margin_left_delta_mm', base.margin_left_delta_mm),
+            margin_right_delta_mm=attrs.get(
+                'margin_right_delta_mm', base.margin_right_delta_mm),
+        )
+        try:
+            candidate.clean()
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(exc.message_dict) from exc
+        return attrs

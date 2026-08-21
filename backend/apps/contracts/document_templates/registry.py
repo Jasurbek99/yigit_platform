@@ -165,6 +165,24 @@ REGISTRY: dict[str, TemplateSpec] = {
 }
 
 
+# Documents whose geometry registers onto a pre-printed official form. Page-layout
+# adjustments are refused for these: the xlsx overlay prints into the 24 boxes of
+# the physical CMR, and the Word CMR's geometry is derived from that same overlay
+# so both formats land every value in the same box. Nudging a margin here means
+# the print no longer lines up with the paper.
+LAYOUT_LOCKED_KEYS = frozenset({'cmr_ru', 'cmr_en', 'cmr_ru_docx', 'cmr_en_docx'})
+
+
+def supports_layout(document_key: str) -> bool:
+    """Whether a document key accepts saved page-layout adjustments."""
+    return document_key in REGISTRY and document_key not in LAYOUT_LOCKED_KEYS
+
+
+def layout_capable_keys() -> list[str]:
+    """Registry keys that accept layout adjustments, in registry order."""
+    return [key for key in REGISTRY if key not in LAYOUT_LOCKED_KEYS]
+
+
 def get_spec(document_key: str) -> TemplateSpec:
     """Return the TemplateSpec for a document key.
 

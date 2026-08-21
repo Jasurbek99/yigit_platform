@@ -16,8 +16,12 @@ from apps.core.permissions import (
 )
 from apps.core.idempotency import idempotent
 from apps.core.seasons import SeasonScopedMixin, assert_season_open, resolve_season
-from apps.contracts.document_templates.registry import SCOPE_INVOICE, get_spec
-from apps.contracts.models import Contract, ContractAttachment, ContractSale
+from apps.contracts.document_templates.registry import (
+    SCOPE_CONTRACT, SCOPE_INVOICE, get_spec, layout_capable_keys, supports_layout,
+)
+from apps.contracts.models import (
+    Contract, ContractAttachment, ContractSale, DocumentLayoutSetting,
+)
 from apps.contracts.serializers import (
     ContractAttachmentSerializer,
     ContractCreateSerializer,
@@ -26,6 +30,7 @@ from apps.contracts.serializers import (
     ContractSaleCreateSerializer,
     ContractSaleDetailSerializer,
     ContractSaleListSerializer,
+    DocumentLayoutSettingSerializer,
     DocumentPacketSerializer,
 )
 from apps.contracts.services.document_context import (
@@ -46,6 +51,16 @@ from apps.contracts.services.files import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _wants_highlight(request) -> bool:
+    """Whether to render database-filled values in red (``?highlight=0`` opts out).
+
+    Red by default: the office checks a document by eye before it is printed, and
+    the colour is what makes a blank field obvious. The opt-out exists for the
+    clean copy that goes to the customer or into a customs file.
+    """
+    return request.query_params.get('highlight', '1') != '0'
 
 
 class ContractViewSet(SeasonScopedMixin, ModelViewSet):
@@ -192,7 +207,9 @@ class ContractViewSet(SeasonScopedMixin, ModelViewSet):
         }
 
         try:
-            data, filename, content_type = generate('contract_kz', contract, fmt, overrides)
+            data, filename, content_type = generate(
+                'contract_kz', contract, fmt, overrides, _wants_highlight(request),
+            )
         except ValueError as exc:
             return Response({'error': str(exc)}, status=400)
         except DocumentRenderError as exc:
@@ -411,6 +428,8 @@ class ContractSaleViewSet(SeasonScopedMixin, ModelViewSet):
                   ``format`` is reserved by DRF content negotiation.)
             place_loading: generate-time loading point (invoice + CMR).
             tir_carnet:    generate-time TIR carnet № (CMR, Uzbekistan transit).
+            highlight: ``0`` for an all-black copy; default renders filled
+                  values in red.
 
         Returns the file as an attachment. PDF requires LibreOffice on the server;
         when absent it returns 503 with a clear message (the .docx path is fine).
@@ -448,7 +467,9 @@ class ContractSaleViewSet(SeasonScopedMixin, ModelViewSet):
             )
 
         try:
-            data, filename, content_type = generate(doc_type, invoice, fmt, overrides)
+            data, filename, content_type = generate(
+                doc_type, invoice, fmt, overrides, _wants_highlight(request),
+            )
         except ValueError as exc:
             return Response({'error': str(exc)}, status=400)
         except DocumentRenderError as exc:
@@ -510,7 +531,9 @@ class ShipmentCmrView(APIView):
             )
 
         try:
-            data, filename, content_type = generate(doc_type, shipment, fmt, overrides)
+            data, filename, content_type = generate(
+                doc_type, shipment, fmt, overrides, _wants_highlight(request),
+            )
         except ValueError as exc:
             return Response({'error': str(exc)}, status=400)
         except DocumentRenderError as exc:
@@ -566,7 +589,9 @@ class ShipmentPacketZipView(APIView):
         # Skip voided sales — no invoice/letters for a cancelled firm share.
         active_sales = [s for s in shipment.sales.all() if s.status != ContractSale.STATUS_VOID]
         try:
-            data = generate_packet_zip(shipment, active_sales, lang, fmt, overrides)
+            data = generate_packet_zip(
+                shipment, active_sales, lang, fmt, overrides, _wants_highlight(request),
+            )
         except ValueError as exc:
             return Response({'error': str(exc)}, status=400)
         except DocumentRenderError as exc:
@@ -1010,3 +1035,82 @@ class ShipmentPackingView(APIView):
                              'packing_swapped': packing_swapped})
 
         return Response({'error': "scope must be 'template', 'firm', or 'swap'."}, status=400)
+
+
+class DocumentLayoutListView(APIView):
+    """GET /api/v1/contracts/document-layouts/ — layout of every tunable document.
+
+    Returns one entry per layout-capable registry key, synthesising untouched
+    defaults for keys with no saved row, so the client always renders a full set
+    of controls without special-casing "not configured yet".
+
+    Read is open to any authenticated user: these are six rows of margin numbers,
+    and every download already applies them.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        saved = {
+            row.document_key: row
+            for row in DocumentLayoutSetting.objects.select_related('updated_by')
+        }
+        rows = [
+            saved.get(key) or DocumentLayoutSetting(document_key=key)
+            for key in layout_capable_keys()
+        ]
+        return Response(DocumentLayoutSettingSerializer(rows, many=True).data)
+
+
+class DocumentLayoutDetailView(APIView):
+    """PATCH /api/v1/contracts/document-layouts/{document_key}/ — tune one document.
+
+    Upserts: the first edit of a document creates its row. Concurrency follows
+    ADR-0006 — send the ``version`` you read and get a 409 if someone else saved
+    in between.
+    """
+
+    permission_classes = [IsAuthenticated, DynamicResourcePermission]
+
+    @property
+    def resource_code(self) -> str:
+        """Gate on whichever resource already governs generating this document.
+
+        Generation is split across two codes — the contract agreement is
+        'contract', the per-sale documents and CMR are 'sale'. A single fixed code
+        here would let someone retune a document they cannot generate, or block
+        someone who can, so it is derived from the target document's scope.
+        """
+        try:
+            spec = get_spec(self.kwargs.get('document_key', ''))
+        except KeyError:
+            return 'sale'  # unknown key — the handler returns 400 regardless
+        return 'contract' if spec.scope == SCOPE_CONTRACT else 'sale'
+
+    def patch(self, request, document_key: str):
+        if not supports_layout(document_key):
+            return Response(
+                {'error': f'Document {document_key!r} does not accept layout '
+                          f'adjustments (unknown, or it prints onto a pre-printed form).'},
+                status=400,
+            )
+
+        row = DocumentLayoutSetting.objects.filter(document_key=document_key).first()
+
+        # Optimistic locking: only meaningful once a row exists.
+        expected = request.data.get('version')
+        if row is not None and expected is not None and int(expected) != row.version:
+            return Response(
+                {
+                    'error': 'This layout was changed by someone else. Reload and retry.',
+                    'current_version': row.version,
+                },
+                status=409,
+            )
+
+        serializer = DocumentLayoutSettingSerializer(row, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        saved = serializer.save(
+            document_key=document_key, updated_by=request.user,
+        )
+        return Response(DocumentLayoutSettingSerializer(saved).data)

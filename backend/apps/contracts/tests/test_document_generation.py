@@ -7,6 +7,8 @@ Three layers:
 
 Reuses the fixture helpers from test_contract_sale_api.
 """
+import re
+import zipfile
 from datetime import date
 from decimal import Decimal
 from io import BytesIO
@@ -15,13 +17,19 @@ from unittest import mock
 
 import openpyxl
 from docx import Document
+from docx.shared import Cm, Emu, Mm
 from rest_framework.test import APIClient
 
+from django.core.exceptions import ValidationError
 from django.test import SimpleTestCase, TestCase
 
 from apps.core.models import Country, ShipmentStatusType
 from apps.export.models import Shipment, ShipmentFirmSplit
+from apps.contracts.document_templates import registry as tpl_registry
+from apps.contracts.document_templates.registry import get_spec
+from apps.contracts.models import DocumentLayoutSetting
 from apps.contracts.services import document_context as ctx
+from apps.contracts.services import document_highlight as highlight
 from apps.contracts.services import document_render as render
 from apps.contracts.tests.test_contract_sale_api import (
     _SeededPermsMixin,
@@ -414,8 +422,12 @@ class LetterContextBuilderTest(SimpleTestCase):
         self.assertEqual(c['country'], 'Узбекистан')
 
 
-class InvoiceRenderSmokeTest(SimpleTestCase):
-    """Fill the shipped templates and assert clean, value-bearing output."""
+class InvoiceRenderSmokeTest(TestCase):
+    """Fill the shipped templates and assert clean, value-bearing output.
+
+    ``TestCase``, not ``SimpleTestCase``: rendering reads the document's saved
+    ``DocumentLayoutSetting`` row. The mocks themselves still need no fixtures.
+    """
 
     def _text(self, data: bytes) -> str:
         doc = Document(BytesIO(data))
@@ -584,7 +596,7 @@ class ContractContextBuilderTest(SimpleTestCase):
         out = ctx.build_contract_context(c, 'ru')
         self.assertEqual(out['seller_director_tk'], 'Худайназаров Ы.')  # falls back to `director`
         # bank blob collapsed to one line
-        self.assertEqual(c['seller_bank_ru'], 'Банк: Туркменбаши; Вал/счет: 23202; SWIFT: INVATM2X')
+        self.assertEqual(out['seller_bank_ru'], 'Банк: Туркменбаши; Вал/счет: 23202; SWIFT: INVATM2X')
 
     def test_buyer_flat_fields(self):
         c = ctx.build_contract_context(_mock_contract(), 'ru')
@@ -664,7 +676,7 @@ class ContractContextBuilderTest(SimpleTestCase):
         )
 
 
-class ContractRenderSmokeTest(SimpleTestCase):
+class ContractRenderSmokeTest(TestCase):
     """Fill the shipped contract template and assert clean, value-bearing output."""
 
     def _text(self, data: bytes) -> str:
@@ -694,6 +706,418 @@ class ContractRenderSmokeTest(SimpleTestCase):
         self.assertNotIn('Ýigit', text)                      # no leftover hardcoded seller
         self.assertEqual(content_type, render.DOCX_CONTENT_TYPE)
         self.assertEqual(filename, 'Contract_108-26-YGT-EXP_KZ.docx')
+
+
+class HighlightRenderTest(TestCase):
+    """Red-fill of database-driven values (``document_highlight``).
+
+    These assertions deliberately go below ``paragraph.text``: that property
+    discards run properties, so the older smoke tests here cannot see colour at
+    all, and ``assertNotIn('{{', text)`` still passes on structurally corrupt
+    OOXML. The XML-level checks are what actually guard this feature.
+    """
+
+    def _runs(self, data: bytes) -> list:
+        """Every run in the rendered document, including table cells."""
+        doc = Document(BytesIO(data))
+        paragraphs = list(doc.paragraphs)
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    paragraphs.extend(cell.paragraphs)
+        return [run for p in paragraphs for run in p.runs]
+
+    def _red(self, data: bytes) -> list[str]:
+        return [
+            r.text for r in self._runs(data)
+            if r.font.color is not None and r.font.color.rgb == highlight.HIGHLIGHT_RGB
+        ]
+
+    def _black(self, data: bytes) -> list[str]:
+        return [
+            r.text for r in self._runs(data)
+            if r.text.strip()
+            and (r.font.color is None or r.font.color.rgb is None)
+        ]
+
+    def _xml_parts(self, data: bytes) -> dict[str, str]:
+        archive = zipfile.ZipFile(BytesIO(data))
+        return {
+            name: archive.read(name).decode('utf-8', 'ignore')
+            for name in archive.namelist() if name.endswith('.xml')
+        }
+
+    def test_no_nested_runs_in_any_part(self):
+        """A run spliced inside a <w:t> is invalid OOXML that python-docx still parses.
+
+        This is the failure mode of the docxtpl RichText approach, and the reason
+        the existing 'no leftover {{' assertion is not sufficient on its own.
+        """
+        for key, obj in (('invoice_ru', _mock_invoice()),
+                         ('contract_kz', _mock_contract())):
+            data, _f, _ct = render.generate(key, obj, 'docx')
+            for name, xml in self._xml_parts(data).items():
+                self.assertIsNone(
+                    re.search(r'<w:t[^>]*>[^<]*<w:r>', xml),
+                    f'{key}: nested run in {name} — corrupt OOXML',
+                )
+
+    def test_no_sentinel_leaks_in_any_part(self):
+        """A sentinel reaching the output prints as a tofu box on paper.
+
+        Checked across every XML part, not just word/document.xml — a leak into a
+        header would be invisible to a body-only assertion.
+        """
+        for key, obj in (('invoice_ru', _mock_invoice()),
+                         ('contract_kz', _mock_contract())):
+            data, _f, _ct = render.generate(key, obj, 'docx')
+            for name, xml in self._xml_parts(data).items():
+                self.assertNotIn(highlight.OPEN, xml, f'{key}: sentinel in {name}')
+                self.assertNotIn(highlight.CLOSE, xml, f'{key}: sentinel in {name}')
+
+    def test_dynamic_values_are_red(self):
+        data, _f, _ct = render.generate('invoice_ru', _mock_invoice(), 'docx')
+        red = self._red(data)
+        self.assertIn('118', red)          # box count, from the shipment
+        self.assertIn('7 830,00', red)     # computed total
+
+    def test_boilerplate_stays_black(self):
+        """The negative half — over-colouring is as wrong as under-colouring."""
+        data, _f, _ct = render.generate('invoice_ru', _mock_invoice(), 'docx')
+        black = self._black(data)
+        self.assertIn('ИНВОЙС (счет фактура)', black)
+        self.assertIn('ПРОДАВЕЦ:', black)
+        self.assertNotIn('ИНВОЙС (счет фактура)', self._red(data))
+
+    def test_template_run_formatting_survives_the_split(self):
+        """Splitting a run must inherit its rPr, not reset it.
+
+        This is what keeps the invoice's 8/9/10pt hierarchy and the CMR's print
+        registration intact.
+        """
+        data, _f, _ct = render.generate('invoice_ru', _mock_invoice(), 'docx')
+        red_runs = [
+            r for r in self._runs(data)
+            if r.font.color is not None and r.font.color.rgb == highlight.HIGHLIGHT_RGB
+        ]
+        self.assertTrue(any(r.bold for r in red_runs), 'no bold survived the split')
+        self.assertTrue(any(r.font.size is not None for r in red_runs),
+                        'no explicit font size survived the split')
+
+    def test_highlight_false_produces_no_colour_and_same_text(self):
+        on, _f, _ct = render.generate('invoice_ru', _mock_invoice(), 'docx')
+        off, _f2, _ct2 = render.generate(
+            'invoice_ru', _mock_invoice(), 'docx', highlight=False,
+        )
+        self.assertEqual(self._red(off), [])
+        self.assertEqual(
+            Document(BytesIO(on)).paragraphs[1].text,
+            Document(BytesIO(off)).paragraphs[1].text,
+            'highlighting must not change the text, only its colour',
+        )
+        for xml in self._xml_parts(off).values():
+            self.assertNotIn(highlight.OPEN, xml)
+
+    def test_blank_values_produce_no_red_run(self):
+        """Blank strings are left unwrapped on purpose.
+
+        A wrapped empty value would emit a stray red run, and an unwrapped blank
+        stays falsy so a ``{% if %}`` added to a template later still behaves.
+        """
+        self.assertEqual(highlight.wrap_context({'a': '', 'b': '   '}),
+                         {'a': '', 'b': '   '})
+        wrapped = highlight.wrap_context({'a': 'x', 'rows': [{'b': 'y', 'c': ''}]})
+        self.assertEqual(wrapped['a'], f'{highlight.OPEN}x{highlight.CLOSE}')
+        self.assertEqual(wrapped['rows'][0]['b'], f'{highlight.OPEN}y{highlight.CLOSE}')
+        self.assertEqual(wrapped['rows'][0]['c'], '')
+        self.assertNotIn('', self._red(
+            render.generate('invoice_ru', _mock_invoice(), 'docx')[0]))
+
+    def test_non_string_context_values_pass_through(self):
+        """Resolved stamps (InlineImage) must never be sentinel-wrapped."""
+        marker = object()
+        self.assertIs(highlight.wrap_context({'stamp': marker})['stamp'], marker)
+
+    def test_render_does_not_add_document_parts(self):
+        """Walking headers/footers must not materialise empty ones into the output."""
+        for key, obj in (('invoice_ru', _mock_invoice()),
+                         ('contract_kz', _mock_contract())):
+            spec = get_spec(key)
+            before = set(zipfile.ZipFile(spec.template_path).namelist())
+            data, _f, _ct = render.generate(key, obj, 'docx')
+            after = set(zipfile.ZipFile(BytesIO(data)).namelist())
+            self.assertEqual(after - before, set(), f'{key}: render added parts')
+
+    def test_xlsx_overlay_cells_are_red(self):
+        """The CMR overlay colours cells directly — every written cell is dynamic."""
+        data, _f, _ct = render.generate('cmr_ru', _mock_shipment(), 'docx')
+        ws = openpyxl.load_workbook(BytesIO(data)).active
+        filled = [
+            c for row in ws.iter_rows() for c in row
+            if c.value not in (None, '') and c.font.color is not None
+            and getattr(c.font.color, 'rgb', None) == 'FFC00000'
+        ]
+        self.assertTrue(filled, 'no red cells in the xlsx overlay')
+
+    def test_xlsx_overlay_uncoloured_when_highlight_off(self):
+        data, _f, _ct = render.generate(
+            'cmr_ru', _mock_shipment(), 'docx', highlight=False,
+        )
+        ws = openpyxl.load_workbook(BytesIO(data)).active
+        reds = [
+            c.coordinate for row in ws.iter_rows() for c in row
+            if c.font.color is not None
+            and getattr(c.font.color, 'rgb', None) == 'FFC00000'
+        ]
+        self.assertEqual(reds, [])
+
+
+# Word's storage grids: <w:pgMar> is in twips, <w:sz> in whole half-points.
+TWIP_EMU = 635
+HALF_POINT_EMU = 6350
+
+
+class DocumentLayoutRenderTest(TestCase):
+    """Saved page-layout adjustments (``DocumentLayoutSetting``) applied at render.
+
+    Deltas and scales, not absolutes — see the model docstring for why.
+    """
+
+    def _layout(self, key='invoice_ru', **fields):
+        return DocumentLayoutSetting.objects.create(document_key=key, **fields)
+
+    def _doc(self, key='invoice_ru', obj=None):
+        data, _f, _ct = render.generate(key, obj or _mock_invoice(), 'docx')
+        return Document(BytesIO(data))
+
+    def _runs(self, doc):
+        paragraphs = list(doc.paragraphs)
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    paragraphs.extend(cell.paragraphs)
+        return [r for p in paragraphs for r in p.runs]
+
+    def _template_section(self, key='invoice_ru', index=0):
+        return Document(str(get_spec(key).template_path)).sections[index]
+
+    def assertMarginEqual(self, actual, expected, msg=None):
+        """Compare margins to within one twip.
+
+        Word stores <w:pgMar> in twentieths of a point, so a margin round-trips
+        quantised to 635 EMU. Asserting exact EMU would fail on that rounding
+        alone, not on anything the code got wrong.
+        """
+        self.assertAlmostEqual(actual, expected, delta=TWIP_EMU, msg=msg)
+
+    def test_no_row_leaves_the_template_untouched(self):
+        self.assertMarginEqual(
+            self._doc().sections[0].left_margin, self._template_section().left_margin,
+        )
+
+    def test_default_row_is_a_no_op(self):
+        self._layout()
+        self.assertMarginEqual(
+            self._doc().sections[0].left_margin, self._template_section().left_margin,
+        )
+
+    def test_margin_deltas_move_every_section(self):
+        template = self._template_section()
+        self._layout(margin_left_delta_mm=5, margin_top_delta_mm=-3)
+        section = self._doc().sections[0]
+        self.assertMarginEqual(section.left_margin, template.left_margin + Mm(5))
+        self.assertMarginEqual(section.top_margin, template.top_margin + Mm(-3))
+
+    def test_margin_delta_never_goes_negative(self):
+        """contract_kz page 1 has a 0.51cm top margin — a -10mm delta must clamp."""
+        self._layout(key='contract_kz', margin_top_delta_mm=-10)
+        doc = self._doc('contract_kz', _mock_contract())
+        self.assertGreaterEqual(doc.sections[0].top_margin, 0)
+
+    def test_multi_section_margin_difference_is_preserved(self):
+        """contract_kz's two sections differ on purpose (letterhead on page 1)."""
+        before = Document(str(get_spec('contract_kz').template_path))
+        gap = before.sections[1].top_margin - before.sections[0].top_margin
+
+        self._layout(key='contract_kz', margin_top_delta_mm=4)
+        after = self._doc('contract_kz', _mock_contract())
+        self.assertEqual(after.sections[1].top_margin - after.sections[0].top_margin, gap)
+
+    def test_font_scale_scales_every_sized_run(self):
+        """Normal alone is nearly a no-op — most runs carry an explicit <w:sz>."""
+        before = {r.text: r.font.size for r in self._runs(self._doc()) if r.font.size}
+        self._layout(font_scale_pct=80)
+        after = {r.text: r.font.size for r in self._runs(self._doc()) if r.font.size}
+
+        shared = set(before) & set(after)
+        self.assertTrue(shared, 'no comparable runs')
+        for text in shared:
+            # Word stores <w:sz> in whole half-points, so the scaled size snaps to
+            # that grid — assert the snap, not a raw EMU product.
+            expected = round(before[text] * 0.8 / HALF_POINT_EMU) * HALF_POINT_EMU
+            self.assertEqual(after[text], expected, f'run {text!r}')
+
+    def test_line_spacing_reaches_the_document(self):
+        self._layout(line_spacing=Decimal('1.50'))
+        self.assertEqual(
+            self._doc().styles['Normal'].paragraph_format.line_spacing, 1.5,
+        )
+
+    def test_fixed_width_tables_track_the_content_width(self):
+        """Pinned widths sum to the text area; widen a margin and they must follow.
+
+        Asserts the *ratio*, not an absolute fit — contract_kz's hand-authored
+        tables legitimately start wider than their section, and squashing them to
+        fit would be us silently redesigning a legal document.
+        """
+        before = self._doc()
+        widths_before = [
+            sum(c.width for c in t.rows[0].cells if c.width)
+            for t in before.tables if not t.autofit
+        ]
+        section = before.sections[0]
+        content_before = section.page_width - section.left_margin - section.right_margin
+
+        self._layout(margin_left_delta_mm=5, margin_right_delta_mm=5)
+        after = self._doc()
+        widths_after = [
+            sum(c.width for c in t.rows[0].cells if c.width)
+            for t in after.tables if not t.autofit
+        ]
+        section = after.sections[0]
+        content_after = section.page_width - section.left_margin - section.right_margin
+
+        self.assertLess(content_after, content_before)   # margins widened
+        ratio = content_after / content_before
+        self.assertEqual(len(widths_before), len(widths_after))
+        for was, now in zip(widths_before, widths_after):
+            self.assertAlmostEqual(now / was, ratio, places=3)
+
+    def test_multi_section_document_scales_its_tables_only_once(self):
+        """Regression: the rescale used to run per section, squaring the ratio.
+
+        `doc.tables` spans the whole document, so calling it inside the section
+        loop applied the ratio twice on contract_kz's two sections (0.8849 where
+        0.9402 was correct — a 6% over-shrink). invoice_ru has one section, so
+        the single-section test above could never see it.
+        """
+        template = Document(str(get_spec('contract_kz').template_path))
+        widths_before = [
+            sum(c.width for c in t.rows[0].cells if c.width)
+            for t in template.tables if not t.autofit
+        ]
+        section = template.sections[0]
+        content_before = section.page_width - section.left_margin - section.right_margin
+
+        self._layout(
+            key='contract_kz', margin_left_delta_mm=5, margin_right_delta_mm=5,
+        )
+        after_doc = self._doc('contract_kz', _mock_contract())
+        widths_after = [
+            sum(c.width for c in t.rows[0].cells if c.width)
+            for t in after_doc.tables if not t.autofit
+        ]
+        section = after_doc.sections[0]
+        content_after = section.page_width - section.left_margin - section.right_margin
+
+        self.assertGreater(len(after_doc.sections), 1, 'fixture must be multi-section')
+        ratio = content_after / content_before
+        for was, now in zip(widths_before, widths_after):
+            self.assertAlmostEqual(now / was, ratio, places=3)
+
+    def test_reset_to_defaults_restores_the_pristine_template(self):
+        """The way out when an operator has made the layout worse."""
+        row = self._layout(font_scale_pct=85, margin_left_delta_mm=8,
+                           line_spacing=Decimal('1.40'))
+        tuned = self._doc()
+        self.assertNotEqual(tuned.sections[0].left_margin,
+                            self._template_section().left_margin)
+
+        row.font_scale_pct = 100
+        row.line_spacing = None
+        row.margin_left_delta_mm = 0
+        row.save()
+
+        self.assertTrue(row.is_default)
+        reset = self._doc()
+        self.assertMarginEqual(
+            reset.sections[0].left_margin, self._template_section().left_margin,
+        )
+        self.assertEqual(
+            reset.styles['Normal'].paragraph_format.line_spacing,
+            Document(str(get_spec('invoice_ru').template_path))
+            .styles['Normal'].paragraph_format.line_spacing,
+        )
+
+    def test_autofit_tables_are_left_alone(self):
+        """Word reflows autofit tables itself; rescaling them would double-count."""
+        before = [
+            [c.width for c in t.rows[0].cells]
+            for t in self._doc().tables if t.autofit
+        ]
+        self._layout(margin_left_delta_mm=5)
+        after = [
+            [c.width for c in t.rows[0].cells]
+            for t in self._doc().tables if t.autofit
+        ]
+        self.assertEqual(before, after)
+
+    def test_cmr_keys_refuse_layout(self):
+        """The CMR registers onto pre-printed paper — its geometry is not tunable."""
+        for key in ('cmr_ru', 'cmr_en', 'cmr_ru_docx', 'cmr_en_docx'):
+            self.assertFalse(tpl_registry.supports_layout(key), key)
+            DocumentLayoutSetting.objects.create(
+                document_key=key, margin_left_delta_mm=10,
+            )
+            self.assertIsNone(render.layout_for(key), f'{key} must ignore any row')
+
+    def test_layout_capable_keys_are_the_expected_six(self):
+        self.assertEqual(
+            set(tpl_registry.layout_capable_keys()),
+            {'invoice_ru', 'invoice_en', 'ct1_ru', 'fito_ru', 'customs_tk', 'contract_kz'},
+        )
+
+    def test_highlight_and_layout_compose(self):
+        """Both post-render passes run; neither undoes the other."""
+        self._layout(font_scale_pct=90, margin_left_delta_mm=4)
+        data, _f, _ct = render.generate('invoice_ru', _mock_invoice(), 'docx')
+        doc = Document(BytesIO(data))
+        self.assertMarginEqual(
+            doc.sections[0].left_margin, self._template_section().left_margin + Mm(4),
+        )
+        red = [
+            r.text for r in self._runs(doc)
+            if r.font.color is not None and r.font.color.rgb == highlight.HIGHLIGHT_RGB
+        ]
+        self.assertIn('118', red)
+
+
+class DocumentLayoutModelTest(TestCase):
+    """Range validation and the version counter."""
+
+    def test_out_of_range_values_are_rejected(self):
+        for field, value in (
+            ('font_scale_pct', 130),
+            ('line_spacing', Decimal('2.50')),
+            ('margin_left_delta_mm', 40),
+            ('margin_top_delta_mm', -20),
+        ):
+            row = DocumentLayoutSetting(document_key='invoice_ru', **{field: value})
+            with self.assertRaises(ValidationError, msg=field):
+                row.full_clean()
+
+    def test_version_increments_on_update_only(self):
+        row = DocumentLayoutSetting.objects.create(document_key='invoice_ru')
+        self.assertEqual(row.version, 1)
+        row.font_scale_pct = 95
+        row.save()
+        self.assertEqual(row.version, 2)
+
+    def test_is_default_detects_a_no_op_row(self):
+        row = DocumentLayoutSetting(document_key='invoice_ru')
+        self.assertTrue(row.is_default)
+        row.margin_top_delta_mm = 1
+        self.assertFalse(row.is_default)
 
 
 class InvoiceDocumentEndpointTest(_SeededPermsMixin, TestCase):
@@ -1127,3 +1551,144 @@ class DocumentPacketEndpointTest(_SeededPermsMixin, TestCase):
         other = _make_export_firm('PKTC')
         off = self.client.get(f'/api/v1/contracts/document-packets/?firm={other.id}')
         self.assertEqual(len(off.json()['results']), 0)
+
+
+class DocumentLayoutEndpointTest(_SeededPermsMixin, TestCase):
+    """API: /api/v1/contracts/document-layouts/."""
+
+    LIST_URL = '/api/v1/contracts/document-layouts/'
+
+    def setUp(self) -> None:
+        self.client = APIClient()
+        self.user = _make_user('layout_mgr', 'export_manager')
+        self.client.force_authenticate(user=self.user)
+
+    def _detail(self, key: str) -> str:
+        return f'{self.LIST_URL}{key}/'
+
+    def test_list_synthesises_defaults_for_untouched_documents(self):
+        resp = self.client.get(self.LIST_URL)
+        self.assertEqual(resp.status_code, 200, resp.content[:200])
+        by_key = {row['document_key']: row for row in resp.json()}
+        self.assertEqual(
+            set(by_key),
+            {'invoice_ru', 'invoice_en', 'ct1_ru', 'fito_ru', 'customs_tk', 'contract_kz'},
+        )
+        self.assertEqual(by_key['invoice_ru']['font_scale_pct'], 100)
+        self.assertEqual(by_key['invoice_ru']['margin_left_delta_mm'], 0)
+        self.assertIsNone(by_key['invoice_ru']['line_spacing'])
+
+    def test_list_excludes_the_cmr_keys(self):
+        keys = {row['document_key'] for row in self.client.get(self.LIST_URL).json()}
+        for locked in ('cmr_ru', 'cmr_en', 'cmr_ru_docx', 'cmr_en_docx'):
+            self.assertNotIn(locked, keys)
+
+    def test_patch_creates_the_row_on_first_edit(self):
+        resp = self.client.patch(
+            self._detail('invoice_ru'), {'font_scale_pct': 90}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.content[:200])
+        self.assertEqual(resp.json()['font_scale_pct'], 90)
+        row = DocumentLayoutSetting.objects.get(document_key='invoice_ru')
+        self.assertEqual(row.updated_by, self.user)
+
+    def test_patch_is_partial(self):
+        self.client.patch(
+            self._detail('invoice_ru'), {'font_scale_pct': 90}, format='json',
+        )
+        self.client.patch(
+            self._detail('invoice_ru'), {'margin_left_delta_mm': 4}, format='json',
+        )
+        row = DocumentLayoutSetting.objects.get(document_key='invoice_ru')
+        self.assertEqual(row.font_scale_pct, 90)     # not reset by the second PATCH
+        self.assertEqual(row.margin_left_delta_mm, 4)
+
+    def test_out_of_range_is_rejected(self):
+        resp = self.client.patch(
+            self._detail('invoice_ru'), {'font_scale_pct': 300}, format='json',
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('font_scale_pct', resp.json())
+
+    def test_stale_version_conflicts(self):
+        self.client.patch(
+            self._detail('invoice_ru'), {'font_scale_pct': 90}, format='json',
+        )
+        current = DocumentLayoutSetting.objects.get(document_key='invoice_ru').version
+        resp = self.client.patch(
+            self._detail('invoice_ru'),
+            {'font_scale_pct': 95, 'version': current - 1},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 409)
+        self.assertEqual(resp.json()['current_version'], current)
+        self.assertEqual(
+            DocumentLayoutSetting.objects.get(document_key='invoice_ru').font_scale_pct,
+            90,  # unchanged
+        )
+
+    def test_matching_version_succeeds(self):
+        self.client.patch(
+            self._detail('invoice_ru'), {'font_scale_pct': 90}, format='json',
+        )
+        current = DocumentLayoutSetting.objects.get(document_key='invoice_ru').version
+        resp = self.client.patch(
+            self._detail('invoice_ru'),
+            {'font_scale_pct': 95, 'version': current},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.content[:200])
+
+    def test_reset_clears_line_spacing_back_to_null(self):
+        """The popover's Reset PATCHes an explicit null — it must not be dropped.
+
+        `partial=True` ignores absent keys, so an explicit JSON ``null`` is the
+        only way back to "use the template's own spacing".
+        """
+        self.client.patch(
+            self._detail('invoice_ru'), {'line_spacing': '1.40'}, format='json',
+        )
+        resp = self.client.patch(
+            self._detail('invoice_ru'),
+            {'line_spacing': None, 'font_scale_pct': 100, 'margin_left_delta_mm': 0},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.content[:200])
+        self.assertIsNone(resp.json()['line_spacing'])
+        row = DocumentLayoutSetting.objects.get(document_key='invoice_ru')
+        self.assertIsNone(row.line_spacing)
+        self.assertTrue(row.is_default, 'a full reset must render as a no-op')
+
+    def test_cmr_key_is_refused(self):
+        resp = self.client.patch(
+            self._detail('cmr_ru_docx'), {'margin_left_delta_mm': 5}, format='json',
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertFalse(DocumentLayoutSetting.objects.exists())
+
+    def test_unknown_key_is_refused(self):
+        resp = self.client.patch(
+            self._detail('not_a_document'), {'font_scale_pct': 90}, format='json',
+        )
+        self.assertEqual(resp.status_code, 400)
+
+    def test_anonymous_cannot_read_or_write(self):
+        anon = APIClient()
+        self.assertEqual(anon.get(self.LIST_URL).status_code, 401)
+        self.assertEqual(
+            anon.patch(self._detail('invoice_ru'), {'font_scale_pct': 90},
+                       format='json').status_code,
+            401,
+        )
+
+    def test_saved_layout_reaches_a_generated_document(self):
+        """The end-to-end point of the feature: tune it, download it, see it."""
+        self.client.patch(
+            self._detail('invoice_ru'), {'margin_left_delta_mm': 6}, format='json',
+        )
+        template_margin = Document(
+            str(get_spec('invoice_ru').template_path)
+        ).sections[0].left_margin
+        data, _f, _ct = render.generate('invoice_ru', _mock_invoice(), 'docx')
+        rendered = Document(BytesIO(data)).sections[0].left_margin
+        self.assertAlmostEqual(rendered, template_margin + Mm(6), delta=TWIP_EMU)

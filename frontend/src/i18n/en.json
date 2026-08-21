@@ -3052,7 +3052,9 @@
     "place_loading_ph": "Select loading point",
     "tir_carnet": "TIR carnet №",
     "tir_carnet_ph": "Uzbekistan transit only — leave blank otherwise",
-    "download_failed": "Document download failed"
+    "download_failed": "Document download failed",
+    "highlight": "Print filled values in red",
+    "highlight_extra": "Values from the database print red, boilerplate stays black, so a blank field is obvious before printing. Uncheck for a clean copy for the customer."
   },
   "sales": {
     "title": "Contract Sales",
@@ -3365,5 +3367,23 @@
     "col_kg": "Quota used",
     "col_date": "Date",
     "total_label": "Total"
+  },
+  "document_layout": {
+    "title": "Page layout",
+    "font_scale": "Font size",
+    "line_spacing": "Line spacing",
+    "line_spacing_template": "as in template",
+    "margin_top": "Top margin",
+    "margin_bottom": "Bottom margin",
+    "margin_left": "Left margin",
+    "margin_right": "Right margin",
+    "reset": "Reset",
+    "updated_by": "Changed by {{name}}",
+    "shared_hint": "These settings are shared by every user.",
+    "margins_weak": "Margins barely move this contract — use font size and line spacing instead.",
+    "save_failed": "Could not save the layout setting.",
+    "conflict_title": "Someone else changed this layout",
+    "conflict_body": "Another user saved this layout after you opened the panel. Write your change over theirs?",
+    "conflict_reload": "Yes, overwrite"
   }
 }

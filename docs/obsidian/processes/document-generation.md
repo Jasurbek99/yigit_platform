@@ -45,6 +45,8 @@ context builder", never "wire a new endpoint stack".
 | Context builders | `apps/contracts/services/document_context.py` | Pure `(obj, lang) → dict`. docx builders return a Jinja context; the xlsx CMR builder (`build_cmr_overlay`) returns a `{cell: value}` map. Owns date/money/kg formatting, firm-language fallback, shipment-vs-invoice fallback. Unit-tested without rendering. |
 | Render service | `apps/contracts/services/document_render.py` | `render_docx` (docxtpl→bytes); `render_xlsx` (openpyxl cell-fill→bytes); `render_pdf` (LibreOffice headless→bytes, any source ext); `generate(key, obj, fmt)` branches on `spec.engine`. |
 | API views | `ContractSaleViewSet.document` (per-firm docs), `ShipmentCmrView` (truck CMR), `DocumentPacketListView` (page list) — all in `apps/contracts/views.py` | Thin; run the packing guard, then return the file as an attachment (or the packet list). |
+| Highlight pass | `apps/contracts/services/document_highlight.py` | Renders every database-filled value red, boilerplate black. `wrap_context` sentinel-wraps values before the docxtpl render, `colorize` splits the runs afterwards. Touches **no template and no context builder**. |
+| Layout adjustments | `apps/contracts/models/document_layout.py` + `document_render.apply_layout` | Per-document-type margin/font/line-spacing **adjustments** (deltas and a percentage, never absolutes), saved by the office instead of edited into the `.docx`. |
 | Audit model | *(deferred)* | `GeneratedDocument` for the 13:00 board — not needed to generate. |
 
 ## Endpoints
@@ -145,6 +147,114 @@ and only `.docx` works — which is fine for development. To test PDF locally,
 install LibreOffice and either add its `program/` dir to PATH or set
 `LIBREOFFICE_BIN` (e.g. `C:\Program Files\LibreOffice\program\soffice.exe`).
 
+## Red highlighting of filled values
+
+Every value that came from the database prints **dark red (`C00000`)**; static
+boilerplate stays black. A clerk checking a document before it is printed can see at a
+glance what the system filled in — and a blank field becomes obvious. Ported from
+sera-butce-web, whose print view marks the same values with a `.dyn` CSS class.
+
+**On by default; `?highlight=0` gives an all-black copy** for the version that goes to
+the customer or into a customs file. All four generating endpoints accept it, and the
+download modals carry a checkbox (`documents.highlight`).
+
+### How it works, and why not `RichText`
+
+The obvious route — docxtpl's `RichText` — was tried and rejected. It only works with
+the `{{r tag }}` prefix syntax, so every tag in all 8 templates would have to be
+rewritten; and because `{{r }}` replaces the **entire run**, it discards the template's
+bold/size/font, forcing the (currently pure) context builders to re-supply
+presentation. With plain `{{ }}` it silently emits invalid OOXML — a `<w:r>` nested
+inside a `<w:t>` — which python-docx parses without complaint, so the existing
+`assertNotIn('{{', text)` smoke test would not catch it.
+
+Instead:
+
+1. `wrap_context` wraps each non-blank context string in the private-use sentinels
+   `U+E000` / `U+E001`. Blank strings are left alone — a wrapped empty value would emit
+   a stray red run, and an unwrapped blank stays falsy for any future `{% if %}`.
+2. docxtpl renders as normal. Sentinels ride along inside the runs.
+3. `colorize` walks every paragraph — body, table cells (recursively), and each
+   section's header/footer — and replaces any sentinel-bearing run with black/red runs
+   that are **deep copies of the original `<w:r>`**, so all run properties carry over.
+   They are inserted in place via `addnext`; appending to the paragraph would move the
+   text to the end.
+
+The xlsx CMR overlay needs none of this: every cell the builder writes is a filled
+value, so `render_xlsx` colours them directly.
+
+**All 9 templates are covered, including the CMR** — colour moves nothing, and the run
+split preserves the `rPr` that positions each line on the pre-printed form.
+
+## Page-layout adjustments
+
+`DocumentLayoutSetting` — one row per document type, shared by every user (the printed
+form of a legal document should not differ between operators). Lets the office make a
+contract fit one page without a developer editing the `.docx` and redeploying.
+
+| Field | Range | Effect |
+|-------|-------|--------|
+| `font_scale_pct` | 80–120 | Multiplies **every run's** font size, snapped to the nearest half-point (Word's `<w:sz>` grid). |
+| `line_spacing` | 1.00–2.00, nullable | Sets `styles['Normal']`. Effective everywhere — no shipped template sets `line_spacing` on a single paragraph. |
+| `margin_*_delta_mm` | −10…+15 | Added to each section's existing margin, clamped at 0. |
+
+### Why adjustments and not absolutes
+
+* `contract_kz.docx` has **two sections with deliberately different top margins**
+  (0.51cm on page 1 for the letterhead, 2.5cm after). One absolute knob would flatten
+  that; a delta preserves the gap.
+* An absolute base font size is nearly a no-op — most runs carry an explicit `<w:sz>`
+  overriding the Normal style (713 of 879 runs in `contract_kz.docx`, 70 of 83 in
+  `invoice_ru.docx`). Only a scale applied run-by-run moves the text, and it keeps each
+  template's size hierarchy.
+
+### Table reflow
+
+`build_templates._col_widths` pins `autofit = False` with widths summing to exactly the
+17.5cm text area; widen a margin and those tables would run off the page. So a
+left/right delta also scales every fixed-width table — **by the table's own current
+total**, not an assumed page width. `contract_kz`'s hand-authored tables legitimately
+start *wider* than their section (18.89cm against 16.68cm), and squashing them to fit
+would silently redesign a legal document. `autofit = True` tables are skipped; Word
+reflows those itself.
+
+The rescale runs **once per document, not per section** — `doc.tables` spans the whole
+document, so doing it inside the section loop squared the ratio on `contract_kz`'s two
+sections (0.8849 where 0.9402 was right). Covered by
+`test_multi_section_document_scales_its_tables_only_once`; the single-section
+`invoice_ru` case could not see it.
+
+### Which levers actually work
+
+| Lever | `invoice_*` / letters | `contract_kz` |
+|-------|----------------------|---------------|
+| Font scale | strong | **strongest** |
+| Line spacing | strong | strong |
+| Margins | strong | **weak** — the body table already renders past the margin |
+
+The popover shows an inline note on the contract saying so, rather than letting staff
+drag a slider that does nothing.
+
+### Excluded: the four CMR keys
+
+`cmr_ru`, `cmr_en`, `cmr_ru_docx`, `cmr_en_docx` are refused by
+`registry.supports_layout()` and by the API (400). Their geometry registers onto the
+pre-printed official form — the Word CMR's page margins are all zeros on a
+non-standard 11918×16858 page, derived from the xlsx overlay so both formats land
+every value in the same box.
+
+### API
+
+| Method | Route | Permission |
+|--------|-------|-----------|
+| `GET` | `/api/v1/contracts/document-layouts/` | `IsAuthenticated` — synthesises defaults for untouched keys, so the client always gets all six. |
+| `PATCH` | `/api/v1/contracts/document-layouts/{document_key}/` | `DynamicResourcePermission`, **resource derived from the document's scope** — `contract_kz` → `contract`, everything else → `sale`. Upserts. Send the `version` you read; `409` if someone saved in between (ADR-0006). |
+
+`document_render.layout_for()` reads the row on every generate and is **deliberately
+uncached** — one indexed row from a six-row table is nothing next to a render that may
+shell out to LibreOffice for 10–30s, and a staleness window would land squarely in the
+one loop that matters (nudge a slider, re-download, look).
+
 ## Adding the next document (CMR, Pasport Sdelka, …)
 
 1. Author the `.docx` template (Jinja-tagged) under `document_templates/`.
@@ -159,14 +269,49 @@ install LibreOffice and either add its `program/` dir to PATH or set
 language / shipment fallback), RU+EN render smoke (asserts no leftover Jinja tags),
 and the API endpoint (docx download, EN variant, 400 unknown type, 503 PDF-without-LibreOffice).
 
+`HighlightRenderTest`, `DocumentLayoutRenderTest`, `DocumentLayoutModelTest` and
+`DocumentLayoutEndpointTest` cover the two features above. Note the render classes are
+`TestCase`, not `SimpleTestCase`: rendering now reads the document's saved layout row.
+
+**The pre-existing assertions cannot detect either feature's failure mode** — `p.text`
+/ `cell.text` discard every run property, and `assertNotIn('{{', text)` passes happily
+on structurally corrupt OOXML. So the new tests assert at the XML level: no `<w:r>`
+nested inside a `<w:t>` in **any** part of the zip, no sentinel survivors in any part,
+and colour checked in **both** directions (a known value is red, a known label is not —
+over-colouring is as wrong as under-colouring). Margin and font assertions allow for
+Word's storage grids: `<w:pgMar>` is in twips (635 EMU), `<w:sz>` in whole half-points.
+
 ## Frontend
 
 A per-sale **Documents** dropdown (`components/InvoiceDocumentsButton.tsx`) sits
 in the action column of the contract **Faktura tab** (`ContractSalesTab`) and the
 **all-sales list** (`ContractSaleList`). It offers Invoice / CMR in RU/EN as Word or
-PDF (8 entries) and downloads via `utils/fileDownload.ts::downloadUrl()` — a plain
-anchor click; the httpOnly auth cookie rides the same-origin GET (same mechanism as
-the Boss report exports). Labels are `documents.*` i18n keys (tk/ru/en).
+PDF (8 entries) and downloads via `utils/fileDownload.ts::downloadFile()`; the httpOnly
+auth cookie rides the same-origin GET (same mechanism as the Boss report exports).
+Labels are `documents.*` i18n keys (tk/ru/en).
+
+**Shared pieces** (`CmrDocumentsButton`, `PacketZipButton` and `InvoiceDocumentsButton`
+were ~90% identical before):
+
+* `hooks/useDocumentDownload.ts` — spinner + server-error toast + an `ok` result, so a
+  failed download leaves its modal open.
+* `components/DocumentOptionsModal.tsx` — loading point, TIR carnet, the red-highlight
+  checkbox, and (when the document is tunable) the layout gear. `applyDocumentOptions()`
+  writes them onto the query string; red being the server default, only the **opt-out**
+  travels, so every pre-existing URL renders exactly as before.
+* `components/DocumentLayoutPopover.tsx` + `hooks/useDocumentLayouts.ts` — the layout
+  sliders. Values mirror locally during a drag and save once on release
+  (`onChangeComplete`), following `sheet/SheetRowStyleControls`. A `409` opens a
+  `Modal.confirm` to overwrite.
+
+The layout gear is mounted from the options modal (per-sale documents) and from
+`ContractAgreementButton`'s own modal for `contract_kz`. It is **not** offered for the
+CMR or the packet zip — the CMR's geometry is fixed by the pre-printed form.
+
+**One deliberate UX change:** the CT-1 / FITO / customs letters used to download on a
+single click. They now open the options modal too, because those are precisely the
+copies that go to the customs and phytosanitary authorities and most need the
+clean-copy toggle. One extra click.
 
 ## CMR (road consignment note) — truck-level
 

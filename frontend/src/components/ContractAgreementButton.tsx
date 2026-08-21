@@ -3,9 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { Button, Checkbox, DatePicker, Form, Input, Modal, Segmented } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { IconFileText } from '@tabler/icons-react';
-import { toast } from 'sonner';
 
-import { downloadFile } from '@/utils/fileDownload';
+import { DocumentLayoutPopover } from '@/components/DocumentLayoutPopover';
+import { useDocumentDownload } from '@/hooks/useDocumentDownload';
 
 interface IContractAgreementButtonProps {
   readonly contractId: number;
@@ -38,13 +38,15 @@ export function ContractAgreementButton({
   const [deadline, setDeadline] = useState<Dayjs | null>(null);
   const [fmt, setFmt] = useState<'docx' | 'pdf'>('docx');
   const [withStamps, setWithStamps] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [highlight, setHighlight] = useState(true);
+  const { isGenerating, download } = useDocumentDownload();
 
   const handleOpen = (): void => {
     setBuyerDirector(defaultDirector);  // pre-fill from the firm's saved director
     setDeadline(null);
     setFmt('docx');
     setWithStamps(false);
+    setHighlight(true);
     setOpen(true);
   };
 
@@ -53,17 +55,14 @@ export function ContractAgreementButton({
     if (buyerDirector.trim()) params.set('buyer_director', buyerDirector.trim());
     if (deadline) params.set('delivery_deadline', deadline.format('YYYY-MM-DD'));
     if (withStamps) params.set('stamps', '1');
-    setIsGenerating(true);
-    try {
-      // The PDF variant shells out to LibreOffice (slow); keep the modal open with
-      // a spinner so the user can't fire duplicate downloads.
-      await downloadFile(`/contracts/contracts/${contractId}/agreement/?${params.toString()}`);
-      setOpen(false);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : t('documents.download_failed'));
-    } finally {
-      setIsGenerating(false);
-    }
+    // Red is the server default; only the opt-out needs to travel.
+    if (!highlight) params.set('highlight', '0');
+    // The PDF variant shells out to LibreOffice (slow); the hook keeps the modal
+    // open with a spinner so the user can't fire duplicate downloads.
+    const ok = await download(
+      `/contracts/contracts/${contractId}/agreement/?${params.toString()}`,
+    );
+    if (ok) setOpen(false);
   };
 
   return (
@@ -74,7 +73,12 @@ export function ContractAgreementButton({
 
       <Modal
         open={open}
-        title={t('contracts.generate.title')}
+        title={
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {t('contracts.generate.title')}
+            <DocumentLayoutPopover documentKey="contract_kz" />
+          </span>
+        }
         onOk={handleConfirm}
         onCancel={() => setOpen(false)}
         okText={t('documents.download')}
@@ -120,6 +124,11 @@ export function ContractAgreementButton({
           <Form.Item extra={t('contracts.generate.with_stamps_extra')}>
             <Checkbox checked={withStamps} onChange={(e) => setWithStamps(e.target.checked)}>
               {t('contracts.generate.with_stamps')}
+            </Checkbox>
+          </Form.Item>
+          <Form.Item extra={t('documents.highlight_extra')}>
+            <Checkbox checked={highlight} onChange={(e) => setHighlight(e.target.checked)}>
+              {t('documents.highlight')}
             </Checkbox>
           </Form.Item>
         </Form>

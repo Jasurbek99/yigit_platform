@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Button, Dropdown, Form, Input, Modal, Select } from 'antd';
+import { Button, Dropdown } from 'antd';
 import type { MenuProps } from 'antd';
 import { IconFileText } from '@tabler/icons-react';
-import { toast } from 'sonner';
 
-import { useLoadingLocations } from '@/hooks/useAdmin';
-import { downloadFile } from '@/utils/fileDownload';
+import {
+  DocumentOptionsModal,
+  applyDocumentOptions,
+  type IDocumentOptions,
+} from '@/components/DocumentOptionsModal';
+import { useDocumentDownload } from '@/hooks/useDocumentDownload';
 
 interface ICmrDocumentsButtonProps {
   readonly shipmentId: number;
@@ -40,12 +43,9 @@ export function CmrDocumentsButton({
   size = 'small',
 }: ICmrDocumentsButtonProps) {
   const { t } = useTranslation();
-  const { data: loadingLocations = [] } = useLoadingLocations();
+  const { isGenerating, download } = useDocumentDownload();
 
   const [pending, setPending] = useState<{ lang: string; fmt: string } | null>(null);
-  const [placeLoading, setPlaceLoading] = useState<string | undefined>(undefined);
-  const [tirCarnet, setTirCarnet] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
 
   const items: MenuProps['items'] = VARIANTS.flatMap((variant) =>
     FORMATS.map((fmt) => ({
@@ -56,27 +56,17 @@ export function CmrDocumentsButton({
 
   const handleClick: MenuProps['onClick'] = ({ key }) => {
     const [lang, fmt] = key.split('|');
-    setPlaceLoading(undefined);
-    setTirCarnet('');
     setPending({ lang, fmt });
   };
 
-  const handleConfirm = async (): Promise<void> => {
+  const handleConfirm = async (options: IDocumentOptions): Promise<void> => {
     if (!pending) return;
     const params = new URLSearchParams({ lang: pending.lang, fmt: pending.fmt });
-    if (placeLoading) params.set('place_loading', placeLoading);
-    if (tirCarnet.trim()) params.set('tir_carnet', tirCarnet.trim());
-    setIsGenerating(true);
-    try {
-      // Slow path: the PDF variant shells out to LibreOffice (10-30s). Keep the
-      // modal open with a spinner so the user can't fire duplicate downloads.
-      await downloadFile(`/contracts/shipments/${shipmentId}/cmr/?${params.toString()}`);
-      setPending(null);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : t('documents.download_failed'));
-    } finally {
-      setIsGenerating(false);
-    }
+    applyDocumentOptions(params, options);
+    const ok = await download(
+      `/contracts/shipments/${shipmentId}/cmr/?${params.toString()}`,
+    );
+    if (ok) setPending(null);
   };
 
   return (
@@ -87,37 +77,13 @@ export function CmrDocumentsButton({
         </Button>
       </Dropdown>
 
-      <Modal
+      <DocumentOptionsModal
         open={pending !== null}
-        title={t('documents.options_title')}
-        onOk={handleConfirm}
+        isGenerating={isGenerating}
+        withTirCarnet
+        onConfirm={handleConfirm}
         onCancel={() => setPending(null)}
-        okText={t('documents.download')}
-        confirmLoading={isGenerating}
-        maskClosable={!isGenerating}
-        destroyOnClose
-      >
-        <Form layout="vertical">
-          <Form.Item label={t('documents.place_loading')}>
-            <Select
-              value={placeLoading}
-              onChange={setPlaceLoading}
-              options={loadingLocations.map((loc) => ({ value: loc.name, label: loc.name }))}
-              placeholder={t('documents.place_loading_ph')}
-              allowClear
-              showSearch
-            />
-          </Form.Item>
-          <Form.Item label={t('documents.tir_carnet')}>
-            <Input
-              value={tirCarnet}
-              onChange={(e) => setTirCarnet(e.target.value)}
-              placeholder={t('documents.tir_carnet_ph')}
-              allowClear
-            />
-          </Form.Item>
-        </Form>
-      </Modal>
+      />
     </>
   );
 }
