@@ -38,3 +38,8 @@ class TirClient:
         return self._rows(
             'SELECT id, plate_number, owner_type, status FROM trailers'
         )
+
+    def get_drivers(self) -> list[dict]:
+        return self._rows(
+            'SELECT id, full_name, phone, is_active FROM drivers'
+        )

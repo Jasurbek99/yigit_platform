@@ -5,7 +5,7 @@ from apps.transport.services.tir_import import import_fleet
 
 
 class Command(BaseCommand):
-    help = 'ONE-TIME import of TruckHead/Trailer from the Z_TIRWEB TIR DB (read-only). Idempotent.'
+    help = 'ONE-TIME import of TruckHead/Trailer/Driver from the Z_TIRWEB TIR DB (read-only). Idempotent.'
 
     def handle(self, *args, **options):
         try:
@@ -14,5 +14,6 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(f'Z_TIRWEB unavailable: {exc}'))
             return
         self.stdout.write(self.style.SUCCESS(
-            f"Imported {result['truck_heads']} truck heads, {result['trailers']} trailers."
+            f"Imported {result['truck_heads']} truck heads, "
+            f"{result['trailers']} trailers, {result['drivers']} drivers."
         ))
