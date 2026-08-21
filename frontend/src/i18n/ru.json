@@ -120,7 +120,8 @@
     "sales_rep_coverage": "Клиенты продавцов",
     "admin_expense_template": "Шаблон расходов",
     "admin_packing_templates": "Шаблоны упаковки",
-    "documents": "Документы"
+    "documents": "Документы",
+    "pomidor_dukany": "Pomidor Dükany"
   },
   "expense_template": {
     "title": "Шаблон категорий расходов",
@@ -3387,5 +3388,32 @@
     "conflict_title": "Настройку изменил другой пользователь",
     "conflict_body": "После того как вы открыли эту панель, настройку изменил кто-то другой. Записать ваше изменение поверх?",
     "conflict_reload": "Да, записать"
+  },
+  "pomidor": {
+    "title": "Pomidor Dükany",
+    "subtitle": "Сравнение планового и фактического производства",
+    "total_achievement": "Общее выполнение",
+    "mode_weekly": "Неделя",
+    "mode_monthly": "Месяц",
+    "mode_seasonal": "Сезон",
+    "gran_period": "За период",
+    "gran_cumulative": "Накопительно",
+    "up_to": "По дату",
+    "all_blocks": "Все блоки",
+    "block": "Блок",
+    "planned": "План",
+    "achieved": "Факт",
+    "variance": "Разница",
+    "achievement_pct": "Выполнение %",
+    "area_m2": "Площадь (м²)",
+    "plan_per_m2": "План кг/м²",
+    "actual_per_m2": "Факт кг/м²",
+    "domestic": "Внутренний рынок",
+    "export": "Внешний рынок",
+    "total": "Итого",
+    "error_load": "Не удалось загрузить данные",
+    "rollup": "Rollup",
+    "rollup_never": "Ночной расчёт за эти дни не выполнялся",
+    "achieved_hint": "Факт = внешний + внутренний рынок"
   }
 }

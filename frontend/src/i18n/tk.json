@@ -120,7 +120,8 @@
     "sales_rep_coverage": "Satyjy müşderileri",
     "admin_expense_template": "Çykdajy şablony",
     "admin_packing_templates": "Gaplaýyş şablonlary",
-    "documents": "Resminamalar"
+    "documents": "Resminamalar",
+    "pomidor_dukany": "Pomidor Dükany"
   },
   "expense_template": {
     "title": "Çykdajy kategoriýalarynyň şablony",
@@ -3389,5 +3390,32 @@
     "conflict_title": "Sazlama başga biri tarapyndan üýtgedildi",
     "conflict_body": "Siz açanyňyzdan soň başga bir ulanyjy bu sazlamany üýtgetdi. Öz üýtgetmäňizi ýazmakçymy?",
     "conflict_reload": "Hawa, ýaz"
+  },
+  "pomidor": {
+    "title": "Pomidor Dükany",
+    "subtitle": "Meýilleşdirilen we ýerine ýetirilen önümçiligiň deňeşdirmesi",
+    "total_achievement": "Jemi ýerine ýetiriş",
+    "mode_weekly": "Hepdelik",
+    "mode_monthly": "Aýlyk",
+    "mode_seasonal": "Möwsümleýin",
+    "gran_period": "Döwür",
+    "gran_cumulative": "Jemleýji",
+    "up_to": "Şu güne çenli",
+    "all_blocks": "Ähli bloklar",
+    "block": "Blok",
+    "planned": "Meýilleşdirilen",
+    "achieved": "Ýerine ýetirilen",
+    "variance": "Tapawut",
+    "achievement_pct": "Ýerine ýetiriş %",
+    "area_m2": "Meýdan (m²)",
+    "plan_per_m2": "Meýil kg/m²",
+    "actual_per_m2": "Hakyky kg/m²",
+    "domestic": "Içerki bazar",
+    "export": "Daşarky bazar",
+    "total": "Jemi",
+    "error_load": "Maglumatlary ýükläp bolmady",
+    "rollup": "Rollup",
+    "rollup_never": "Bu günler üçin gijeki hasaplama işlemedi",
+    "achieved_hint": "Ýerine ýetirilen = daşarky + içerki bazar"
   }
 }

@@ -10,6 +10,7 @@ import {
   IconCalendar,
   IconChartPie,
   IconChartBar,
+  IconTrendingUp,
   IconUsers,
   IconLogout,
   IconMenu2,
@@ -159,6 +160,7 @@ export default function AppLayout() {
     '/export/prices': t('nav.prices'),
     '/export/trucks': t('nav.trucks'),
     '/export/blocks': t('nav.block_summary'),
+    '/export/pomidor-dukany': t('nav.pomidor_dukany'),
     '/export/domestic-sales': t('nav.domestic_sales'),
     '/admin/users': t('nav.admin_users'),
     '/admin/seasons': t('nav.admin_seasons'),
@@ -246,6 +248,7 @@ export default function AppLayout() {
     '/export/trucks': { key: '/export/trucks', icon: <IconTruck size={15} />, label: t('nav.trucks') },
     '/export/quota': { key: '/export/quota', icon: <IconChartPie size={15} />, label: t('nav.quota') },
     '/export/blocks': { key: '/export/blocks', icon: <IconChartBar size={15} />, label: t('nav.block_summary') },
+    '/export/pomidor-dukany': { key: '/export/pomidor-dukany', icon: <IconTrendingUp size={15} />, label: t('nav.pomidor_dukany') },
     '/export/drafts': { key: '/export/drafts', icon: <IconLayoutGrid size={15} />, label: t('nav.drafts') },
     '/export/assign': { key: '/export/assign', icon: <IconLayoutKanban size={15} />, label: t('nav.assign') },
     '/export/weightmaster': { key: '/export/weightmaster', icon: <IconScale size={15} />, label: t('nav.weightmaster') },
@@ -360,7 +363,7 @@ export default function AppLayout() {
   // the boss sees — it affects nobody else.
   const BOSS_MENU_GROUPS: IMenuGroup[] = [
     group('nav.group_overview', ['/', '/boss/dashboard', '/me/board', '/director/stuck-shipments']),
-    group('nav.group_planning', ['/export/plan', '/export/harvest-board', '/export/trucks', '/export/quota', '/export/blocks']),
+    group('nav.group_planning', ['/export/plan', '/export/pomidor-dukany', '/export/harvest-board', '/export/trucks', '/export/quota', '/export/blocks']),
     // `/export/drafts` and `/export/assign` are deliberately withheld from the
     // boss sidebar (owner request, 2026-08-20). The pages still exist and the
     // boss's page permissions are untouched — he is meant to reach them through
@@ -385,7 +388,7 @@ export default function AppLayout() {
   // /export/domestic-sales, /export/prices).
   const STAFF_MENU_GROUPS: IMenuGroup[] = [
     group('nav.group_main', ['/', '/boss/dashboard', '/director/stuck-shipments']),
-    group('nav.group_analytics', ['/analytics/clients-report', '/export/blocks']),
+    group('nav.group_analytics', ['/analytics/clients-report', '/export/blocks', '/export/pomidor-dukany']),
     group('nav.group_export', [
       '/export/shipments/dashboard', '/export/shipments', '/export/shipments/sheet', '/me/board',
       '/export/shipments/board', '/export/harvest-board', '/export/weightmaster', '/export/overdue',

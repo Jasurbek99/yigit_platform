@@ -23,6 +23,7 @@ const OverdueReports = lazy(() => import('@/pages/export/OverdueReports'));
 const AdvancesTracker = lazy(() => import('@/pages/export/AdvancesTracker'));
 const TruckForecast = lazy(() => import('@/pages/export/TruckForecast'));
 const BlockSummary = lazy(() => import('@/pages/export/BlockSummary'));
+const PomidorDukany = lazy(() => import('@/pages/export/PomidorDukany'));
 const DomesticSales = lazy(() => import('@/pages/export/DomesticSales'));
 const SeasonsPage = lazy(() => import('@/pages/admin/SeasonsPage'));
 const ExportFirmsPage = lazy(() => import('@/pages/admin/ExportFirmsPage'));
@@ -177,6 +178,9 @@ export default function App() {
                   } />
                   <Route path="export/blocks" element={
                     <ProtectedRoute pageCode="export.blocks"><BlockSummary /></ProtectedRoute>
+                  } />
+                  <Route path="export/pomidor-dukany" element={
+                    <ProtectedRoute pageCode="export.pomidor_dukany"><PomidorDukany /></ProtectedRoute>
                   } />
                   <Route path="export/domestic-sales" element={
                     <ProtectedRoute pageCode="export.domestic_sales"><DomesticSales /></ProtectedRoute>

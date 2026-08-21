@@ -31,6 +31,7 @@ from apps.export.views_quota import (
     QuotaFirmBalancesView,
 )
 from apps.export.views_harvest_forecast import HarvestForecastView
+from apps.export.views_pomidor_dukany import ProductionAnalysisView
 from apps.export.views_sheet_settings import SheetRowSettingViewSet
 from apps.export.views_user_preferences import UserSheetPreferencesView
 from apps.export.views_clients_report import ClientsReportViewSet
@@ -106,4 +107,8 @@ urlpatterns = router.urls + [
     # POST /api/v1/export/harvest-forecast/
     path('harvest-forecast/', HarvestForecastView.as_view(), name='harvest-forecast'),
     path('harvest-forecast/remaining/', HarvestForecastView.as_view(), name='harvest-forecast-remaining'),
+
+    # Pomidor Dükany — planned vs achieved production per block.
+    # GET /api/v1/export/production-analysis/?date_from=&date_to=&blocks=
+    path('production-analysis/', ProductionAnalysisView.as_view(), name='production-analysis'),
 ]

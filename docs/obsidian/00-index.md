@@ -63,6 +63,7 @@ flowchart LR
 | [[draft-shipments]] | Two-phase creation (DRAFT step 0) with multi-block composer | DraftPool, DraftComposerModal |
 | [[assignment-board]] | Match drafts to demand (contracts / quota gaps / waiting) | AssignmentBoard |
 | [[weekly-harvest-planning]] | Block managers plan Mon-Sat harvest per block | WeeklyPlanGrid |
+| [[pomidor-dukany]] | Planned vs achieved production per block (week/month/season, kg/m², domestic vs export) | PomidorDukany |
 | [[truck-allocation]] | Trucks allocated per day per destination | TruckForecast, TruckAllocationTable |
 | [[quota-management]] | Government quota issuance, allocation, FIFO usage | QuotaDashboard (5 tabs) |
 | [[local-sell-plan]] | Domestic sale basis for quota calculation | LocalSellPlanGrid |

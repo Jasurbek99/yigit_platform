@@ -120,7 +120,8 @@
     "sales_rep_coverage": "Sales Rep Coverage",
     "admin_expense_template": "Expense Template",
     "admin_packing_templates": "Packing Templates",
-    "documents": "Documents"
+    "documents": "Documents",
+    "pomidor_dukany": "Pomidor Dükany"
   },
   "expense_template": {
     "title": "Expense Category Template",
@@ -3385,5 +3386,32 @@
     "conflict_title": "Someone else changed this layout",
     "conflict_body": "Another user saved this layout after you opened the panel. Write your change over theirs?",
     "conflict_reload": "Yes, overwrite"
+  },
+  "pomidor": {
+    "title": "Pomidor Dükany",
+    "subtitle": "Planned vs achieved production",
+    "total_achievement": "Overall achievement",
+    "mode_weekly": "Weekly",
+    "mode_monthly": "Monthly",
+    "mode_seasonal": "Seasonal",
+    "gran_period": "Period",
+    "gran_cumulative": "Cumulative",
+    "up_to": "Up to",
+    "all_blocks": "All blocks",
+    "block": "Block",
+    "planned": "Planned",
+    "achieved": "Achieved",
+    "variance": "Variance",
+    "achievement_pct": "Achievement %",
+    "area_m2": "Area (m²)",
+    "plan_per_m2": "Plan kg/m²",
+    "actual_per_m2": "Actual kg/m²",
+    "domestic": "Domestic market",
+    "export": "Export market",
+    "total": "Total",
+    "error_load": "Could not load the analysis",
+    "rollup": "Rollup",
+    "rollup_never": "The nightly rollup never ran for these days",
+    "achieved_hint": "Achieved = export + domestic"
   }
 }

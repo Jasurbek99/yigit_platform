@@ -360,6 +360,8 @@ operational Google Sheet: one row per active block with **Düýnki galyndy**
   `WeeklyHarvestPlan` / `HarvestDayEntry` rows are created on demand, and each
   write logs an AuditLog `daily_board_set` entry.
 
+**The analysis of this plan lives on its own screen.** Planned vs achieved per block — week / month / season, cumulative-to-a-day, kg/m² by planted area, and the domestic vs export split — is [[pomidor-dukany]], the port of the office's `Pomidor Dükany` workbook. This page is where the numbers are *entered*; that one is where they are *judged*.
+
 ## Connections to Other Processes
 
 - **[[truck-allocation]]** — Est. Trucks tile uses the most-current value per cell / `truck_capacity_kg` from `GreenhouseConfig`. The TruckAllocationTable embeds in WeeklyPlanGrid as before.
