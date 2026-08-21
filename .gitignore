@@ -49,3 +49,14 @@ docker-compose.override.yml
 backend/walk_shipment.py
 # Superpowers brainstorm runtime state (pids, tokens, ports)
 .superpowers/
+
+# Root-level node_modules — only frontend/node_modules was covered before, so
+# vitest's cache (node_modules/.vite/.../results.json) was tracked and churned
+# on every test run.
+/node_modules/
+
+# Codex tooling config (mirrors .claude/). Left out of git rather than deleted —
+# say the word if these should be committed for the whole team instead.
+.codex/
+AGENTS.md
+.agents/
