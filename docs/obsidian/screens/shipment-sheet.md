@@ -458,6 +458,20 @@ Querystring `?season=<id>` overrides the active season; default scopes to `seaso
 
 **`truck_plate` — fleet head+trailer picker (SP3b).** Although its `input_type` is `'text'`, `SheetCellEditor` special-cases `field_key === 'truck_plate'`: for a **non-gapy** shipment it renders `SheetTruckSelectEditor` (a two-select overlay — truck head + trailer — from the company fleet, with inline "+ Add", portaled to `document.body` so the cell's `contain: layout paint` doesn't clip it) and saves `truck_head_id` + `trailer_id` + a derived `truck_plate = "{head}/{trailer}"` in **one** `patchMultiMutation` with Sheet undo capture. For a **gapy_satyş** shipment it stays the plain text `<Input>` — no selects, no GPS (local buyers' trucks aren't in the fleet). Picking a head auto-resolves the shipment's GPS device. See [[../processes/fleet-map#Shipment truck selectors (SP3a / SP3c / SP3b)]].
 
+**`driver_name` — driver registry picker (2026-08-20).** Same shape one row down. `input_type`
+stays `'text'`, and `SheetCellEditor` special-cases `field_key === 'driver_name'`: for a
+**non-gapy** shipment it renders `SheetDriverSelectEditor` (one select over the `Z_TIRWEB`
+driver registry, active-only, with inline "+ Add", portaled the same way) and saves
+`driver_id` + `driver_name` in **one** `patchMultiMutation` with Sheet undo capture. For a
+**gapy_satyş** shipment it stays the plain text `<Input>` — local buyers bring their own truck
+*and* their own driver, so picking from the company registry there would pollute it.
+
+**R28 `driver_phone` is never written by that picker.** It is its own cell with its own comment
+thread and edit history, and 80 of its 146 values were typed by operators; the registry has no
+phone for any driver, so writing it from R27 could only blank them. Operators keep filling R28
+by hand. Inline-added driver names are upper-cased to match how the registry stores all 152
+rows, so a re-type doesn't create a near-duplicate.
+
 **R39 `harvest_date` (Ýygylan senesi)** is a **free-text** cell (`input_type='text'`), not a date picker. `Shipment.harvest_date` is a `CharField` — operators type whatever form the operation uses (a single day, a range like `5–10 oktýabr`, or a note). The earlier multi-block per-`block_source` calendar editor was removed; the vestigial `ShipmentBlockSource.harvest_date` column is no longer read or written by the Sheet.
 
 ## Related

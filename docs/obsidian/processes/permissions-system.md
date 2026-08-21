@@ -29,6 +29,18 @@ YGT uses a dynamic, database-driven RBAC (Role-Based Access Control) system. Ins
 >
 > AD-15's enforcement was never weakened by the widening; the menu now matches it.
 >
+> **Routes with no `page_code` at all are a separate blind spot.** A handful of screens are
+> gated by an inline `roles` array in `App.tsx` + `AppLayout.tsx` rather than by a page_code,
+> so the matrix cannot reach them however wide the boss's grant is — and no `_BOSS_DEAD_PAGES`
+> entry catches them either, since they were never registered pages. `/admin/fleet` was one:
+> it sat in `BOSS_MENU_GROUPS` but its inline `roles` list omitted `boss`, so the link never
+> rendered for a real boss account, and `CanEditShipment` (`SHIPMENT_EDITOR_ROLES`, another
+> hardcoded set) would have 403'd every write. Both were widened on 2026-08-20 — see
+> [[../screens/fleet-admin#Access]]. `AppLayout.menuGroups.test.tsx` could not catch it,
+> because its fixture sets `is_superuser: true` and takes the bypass branch; the guard is now
+> a test that renders a **non-superuser** boss. When auditing boss access, grep for inline
+> `roles={[` / `roles: [` alongside the page_code registry.
+>
 > The DB grant above is also only half the access story for `boss` — see "Boss view/edit toggle (UI guard only)" under Frontend Implementation. The backend accepts `boss` writes regardless of that toggle; only the frontend respects it.
 
 > **Deploying the widening needs the migration, not the seed command.** `seed_permissions` uses `get_or_create(..., defaults={...})` and `defaults` applies **only on INSERT** — on any database seeded before 2026-08-05 the boss's 42 page rows and 25 resource rows already exist, so re-running the command finds them and changes nothing. `core/migrations/0033_boss_process_visibility_perms.py` does the `.update()` (plus a reverse function that restores the pre-widening 7-page, view-only state). The seed dicts and that migration must stay in sync — both carry a comment saying so, and the same three resource carve-outs and the same four excluded pages are encoded in both (a test asserts the page lists match).

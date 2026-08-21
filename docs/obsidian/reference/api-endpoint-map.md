@@ -294,6 +294,7 @@ a ranking bar chart + per-card trend sparklines (was a plain table) — see
 | GET | `/api/v1/transport/devices/` | TransportDeviceViewSet (list) | `useTransportDevices` | ShipmentDetail (`ShipmentTruckLocationCard`, device picker) |
 | GET/POST/PATCH | `/api/v1/transport/truck-heads/` `/truck-heads/{id}/` | TruckHeadViewSet | `useTruckHeads`/`useCreateTruckHead` (`useFleet`); `useAdminTruckHeads`/`useAdminCreateTruckHead`/`useUpdateTruckHead` (`useFleetAdmin`) | `ShipmentTruckSelector` (ShipmentDetail + edit drawer), FleetAdminPage (`/admin/fleet`) |
 | GET/POST/PATCH | `/api/v1/transport/trailers/` `/trailers/{id}/` | TrailerViewSet | `useTrailers`/`useCreateTrailer` (`useFleet`); `useAdminTrailers`/`useAdminCreateTrailer`/`useUpdateTrailer` (`useFleetAdmin`) | `ShipmentTruckSelector` (ShipmentDetail + edit drawer), FleetAdminPage (`/admin/fleet`) |
+| GET/POST/PATCH | `/api/v1/transport/drivers/` `/drivers/{id}/` | DriverViewSet | `useDrivers`/`useCreateDriver` (`useFleet`, active-only picker feed); `useAdminDrivers`/`useAdminCreateDriver`/`useUpdateDriver` (`useFleetAdmin`, incl. inactive) | `SheetDriverSelectEditor` (Sheet R27), FleetAdminPage Drivers tab (`/admin/fleet`) |
 
 `IsAuthenticated` only, no role gate (no `transport.map` page_code registered yet — same
 open-to-all-authenticated pattern as Team KPI / Worklog). No pagination — a bare list,

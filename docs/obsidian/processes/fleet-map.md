@@ -70,10 +70,15 @@ Four models in `backend/apps/transport/models/registry.py`, table prefix `transp
 
 | Field | Type | Notes |
 |---|---|---|
-| `name` | CharField(100), Cyrillic collation | |
-| `phone` | CharField(30), null | |
+| `name` | CharField(100), Cyrillic collation | `full_name` in `Z_TIRWEB`; longest actual value is 38 chars |
+| `phone` | CharField(30), null | **Always NULL today** — `Z_TIRWEB` stores no phone for any of the 152 drivers |
 | `is_active` | Boolean | default `True` |
 
+Seeded from `Z_TIRWEB.drivers` with the source `id` preserved — **152 rows, ids 5–158**, all
+active — because `Shipment.driver_id` is a raw integer pointing into that same id space.
+
+Managed from the **Drivers** tab of [[../screens/fleet-admin|Fleet Admin]]
+(`GET/POST /transport/drivers/`, `PATCH /transport/drivers/{id}/`).
 Not yet linked to `Truck`/`TraccarDevice` — see Out of Scope.
 
 ### `TraccarDevice`
@@ -443,20 +448,34 @@ Trailers have **no** `traccar_device` — trailers carry no GPS unit.
 
 ### One-time import from Z_TIRWEB
 
+> **Needs `TIR_DB_CONN_STR`.** The command raises `TirUnavailable` unless that env var is set,
+> and it is **not** in this checkout's `backend/.env` — the read-only `Z_TIRWEB` credentials
+> live outside the repo pending rotation. Set it in the environment for the run; see
+> `backend/.env.example` for the connection-string shape.
+
 `python manage.py import_tir_fleet` → `import_fleet()` (`services/tir_import.py`) reads the
 external **`Z_TIRWEB`** TIR fleet DB **read-only** (`TirClient`, pyodbc) and upserts
-`TruckHead`/`Trailer` by preserved `id` (`update_or_create(id=...)`; mssql-django auto-wraps
+`TruckHead`/`Trailer`/`Driver` by preserved `id` (`update_or_create(id=...)`; mssql-django auto-wraps
 the explicit-`id` insert in `SET IDENTITY_INSERT`, and SQL Server then auto-advances the
 identity counter above the imported max, so later app-created rows never collide). Each head
 is plate-matched to a `TraccarDevice` at import via `_pick_device()` — the same matcher the
 resolver uses. The one-time run imported **91 truck heads (90 GPS-linked) and 74 trailers**
 (point-in-time — a re-run reflects whatever `Z_TIRWEB` holds then).
 
+Drivers were added later (2026-08-20) as a third upsert, `_import_drivers()`, reading
+`SELECT id, full_name, phone, is_active FROM drivers` — **152 rows, ids 5–158**. Empty source
+phones are stored as `NULL`, never `''`, so a real value later is distinguishable from "known
+to have no phone". The driver load deliberately **did not backfill `Shipment.driver_id`** on
+the 146 existing shipments; `driver_name`/`driver_phone` stay the operator-entered text they
+have always been. See [[#Drivers vs Shipment.driver_id]].
+
 > **"Idempotent" with a caveat.** Re-running is idempotent *with respect to `Z_TIRWEB`*, but
-> the upsert `defaults` include `plate_number, owner_type, owner_name, status, capacity,
-> traccar_device` — so a re-import **overwrites any admin edits to those fields** on existing
-> rows. It does **not** touch `is_active` (absent from `defaults`), so manual
-> activate/deactivate survives a re-run. Treat the import as one-time; use the admin page for
+> for heads/trailers the upsert `defaults` include `plate_number, owner_type, owner_name,
+> status, capacity, traccar_device` — so a re-import **overwrites any admin edits to those
+> fields** on existing rows. For drivers the only default is `name`. None of the three touch
+> `is_active` (absent from every `defaults`), so manual activate/deactivate survives a re-run,
+> and a driver's `phone` survives too — the source has none to supply, so including it could
+> only ever null an operator's entry. Treat the import as one-time; use the admin page for
 > ongoing edits.
 
 ### Shipment truck selectors (SP3a / SP3c / SP3b)
@@ -500,13 +519,57 @@ company fleet, so they are never fleet-linked and never appear on the Fleet Map.
 free-text `truck_plate` `DetailFieldRow`. Only **non-Gapy-Satys** shipments get the fleet
 selectors.
 
+**The rule covers the driver cell too** (extended 2026-08-20). A local buyer's own truck comes
+with the buyer's own driver, so Sheet R27 `driver_name` falls through to the plain text input
+for a gapy shipment exactly as R23 does — otherwise operators would inline-add a `Driver` row
+per local buyer and bury the 152-row company registry.
+
+### Drivers vs `Shipment.driver_id`
+
+`Shipment` carries **four** raw-integer transport pointers into the `Z_TIRWEB` id space —
+`truck_head_id`, `trailer_id`, `driver_id`, `trip_id` (`apps/export/models/shipment.py`,
+"=== Transport ==="; they are `BigIntegerField`s, not FKs, because export must not import
+transport). `driver_id` therefore already *means* `Z_TIRWEB.drivers.id` — the 2026-08-20
+import made those values resolvable for the first time, without any schema change.
+
+`driver_id` is **NULL on all 146 existing shipments** and was deliberately left that way. The
+only driver identity in operational data is the free text `driver_name` (85/146) and
+`driver_phone` (80/146), written on Sheet rows 27/28.
+
+**`driver_id` is written from Sheet R27** (2026-08-20). `SheetDriverSelectEditor` commits it
+together with `driver_name` in one PATCH — see
+[[../screens/shipment-sheet]]. The 146 pre-existing shipments were **not** backfilled
+(owner's call): their `driver_id` stays NULL and `driver_name` stays the text it always was,
+so expect a long mixed period where some rows are registry-linked and some are not. Nothing
+reads `driver_id` yet — it is a link for later joins, not a display source.
+
+> **✅ Resolved — the old wrong-list defect.** `TaskCardEditor.helpers.ts` used to bind
+> `driver_id` to `optionsSource: 'transportUsers'`, which resolves not to platform users but to
+> `optionsByCategory('transport_responsible')` — the seeded 6-row transport-coordinator list
+> (Malik, Haltaç, Gapy Satyş, Serwi, Gadam, Aganazar,
+> `core/migrations/0002_seed_shipment_option_types.py`), correct for `vehicle_responsible`
+> (Sheet R22) and copy-pasted onto `driver_id`. Picking there wrote a `ShipmentOptionType` id of
+> **1–6** into a column that means `Z_TIRWEB.drivers.id`, ambiguous with real `Driver` ids 5 and
+> 6. It was harmless only while the column was NULL everywhere — making the Sheet write it would
+> have made it live. **The entry was dead config**: `TaskCardEditor`'s `FIELD_MAP` is keyed off
+> `TaskRule.target_fields`, and **no** TaskRule targets `driver_id` (they target
+> `driver_name,driver_phone,truck_plate`); its `labelKey`,
+> `shipment_edit_drawer.field.driver`, did not exist in any of the three locale files either.
+> The line was deleted rather than rewired. If you re-add a `driver_id` editor anywhere, point
+> it at `useDrivers()`, never at an option category.
+
 ### REST surface
 
-`GET/POST /api/v1/transport/truck-heads/` (+ `/trailers/`) on the collection, `PATCH
-/api/v1/transport/truck-heads/<id>/` (+ `/trailers/<id>/`) on the detail — `list` is
-`IsAuthenticated` and **active-only** by default (`?include_inactive=true` returns inactive
-rows too, used by the admin page); `create`/`update` are gated to `CanEditShipment`
-(`SHIPMENT_EDITOR_ROLES`). `has_gps` is a read-only computed field; `traccar_device` is not
+`GET/POST /api/v1/transport/truck-heads/` (+ `/trailers/`, `/drivers/`) on the collection,
+`PATCH /api/v1/transport/truck-heads/<id>/` (+ `/trailers/<id>/`, `/drivers/<id>/`) on the
+detail — `list` is `IsAuthenticated` and **active-only** by default (`?include_inactive=true`
+returns inactive rows too, used by the admin page); `create`/`update` are gated to
+`CanEditShipment` (`SHIPMENT_EDITOR_ROLES`). All three are unpaginated with `?search=`
+(`plate_number`, or `name`/`phone` for drivers). **None expose `destroy`** — the `Shipment.*_id`
+columns are loose integers with no FK to protect them, so rows are deactivated, never deleted.
+`DriverSerializer` exposes `id, name, phone, is_active` with `id` read-only: it is the
+`Z_TIRWEB.drivers.id` that `Shipment.driver_id` points at, so a client must not be able to move
+a row to another id. `has_gps` is a read-only computed field; `traccar_device` is not
 client-writable. On **create**, and on a **PATCH that changes the plate**, the serializer
 plate-matches a Traccar device via `device_for_plate()`; a PATCH that leaves the plate
 unchanged does **not** re-match (guards against wiping a working GPS link when another field
