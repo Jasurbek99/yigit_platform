@@ -943,7 +943,7 @@
   },
   "fleet_admin": {
     "title": "Управление автопарком",
-    "subtitle": "Управление тягачами и прицепами компании",
+    "subtitle": "Управление тягачами, прицепами и водителями компании",
     "tab_trucks": "Тягачи",
     "tab_trailers": "Прицепы",
     "plate_number": "Гос. номер",
@@ -965,7 +965,18 @@
     "toast_updated": "Транспорт обновлён",
     "toast_activated": "Транспорт активирован",
     "toast_deactivated": "Транспорт деактивирован",
-    "toast_error": "Произошла ошибка"
+    "toast_error": "Произошла ошибка",
+    "tab_drivers": "Водители",
+    "driver_name": "Ф. И. О.",
+    "driver_phone": "Телефон",
+    "add_driver": "Добавить водителя",
+    "edit_driver": "Изменить водителя",
+    "drivers_empty": "Водителей нет",
+    "driver_search_placeholder": "Поиск по имени или телефону",
+    "toast_driver_created": "Водитель создан",
+    "toast_driver_updated": "Водитель обновлён",
+    "toast_driver_activated": "Водитель активирован",
+    "toast_driver_deactivated": "Водитель деактивирован"
   },
   "shipment_settings": {
     "placeholder_status_role": "напр. document_team",

@@ -941,7 +941,7 @@
   },
   "fleet_admin": {
     "title": "Fleet Management",
-    "subtitle": "Manage company truck heads and trailers",
+    "subtitle": "Manage company truck heads, trailers and drivers",
     "tab_trucks": "Trucks",
     "tab_trailers": "Trailers",
     "plate_number": "Plate Number",
@@ -963,7 +963,18 @@
     "toast_updated": "Vehicle updated",
     "toast_activated": "Vehicle activated",
     "toast_deactivated": "Vehicle deactivated",
-    "toast_error": "Something went wrong"
+    "toast_error": "Something went wrong",
+    "tab_drivers": "Drivers",
+    "driver_name": "Full Name",
+    "driver_phone": "Phone",
+    "add_driver": "Add Driver",
+    "edit_driver": "Edit Driver",
+    "drivers_empty": "No drivers",
+    "driver_search_placeholder": "Search by name or phone",
+    "toast_driver_created": "Driver created",
+    "toast_driver_updated": "Driver updated",
+    "toast_driver_activated": "Driver activated",
+    "toast_driver_deactivated": "Driver deactivated"
   },
   "shipment_settings": {
     "placeholder_status_role": "e.g. document_team",

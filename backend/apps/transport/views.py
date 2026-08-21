@@ -5,10 +5,13 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.export.models import Shipment
-from apps.transport.models import DevicePosition, TraccarDevice, ShipmentDeviceLink, Trailer, TruckHead
+from apps.transport.models import (
+    DevicePosition, Driver, TraccarDevice, ShipmentDeviceLink, Trailer, TruckHead,
+)
 from apps.transport.permissions import CanEditShipment
 from apps.transport.serializers import (
-    LivePositionSerializer, TrailerSerializer, TransportDeviceSerializer, TruckHeadSerializer,
+    DriverSerializer, LivePositionSerializer, TrailerSerializer, TransportDeviceSerializer,
+    TruckHeadSerializer,
 )
 from apps.transport.services.matching import resolve_device_for_shipment
 
@@ -101,6 +104,33 @@ class TruckHeadViewSet(mixins.ListModelMixin, mixins.CreateModelMixin,
         include_inactive = self.request.query_params.get('include_inactive') == 'true'
         if self.action == 'list' and not include_inactive:
             qs = qs.filter(is_active=True)   # pickers show active only
+        return qs
+
+
+class DriverViewSet(mixins.ListModelMixin, mixins.CreateModelMixin,
+                    mixins.UpdateModelMixin, viewsets.GenericViewSet):
+    """Driver registry — list (active) for pickers, create/update/deactivate for admin.
+
+    Same shape as TrailerViewSet. No destroy: `Shipment.driver_id` is a loose
+    integer with no FK to protect it, so a deleted row would leave dangling
+    references — deactivate instead.
+    """
+
+    serializer_class = DriverSerializer
+    pagination_class = None
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['name', 'phone']
+
+    def get_permissions(self):
+        if self.action in ('create', 'update', 'partial_update'):
+            return [IsAuthenticated(), CanEditShipment()]
+        return [IsAuthenticated()]
+
+    def get_queryset(self):
+        qs = Driver.objects.all().order_by('name')
+        include_inactive = self.request.query_params.get('include_inactive') == 'true'
+        if self.action == 'list' and not include_inactive:
+            qs = qs.filter(is_active=True)
         return qs
 
 

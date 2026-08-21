@@ -2,7 +2,7 @@ from django.conf import settings
 from django.utils import timezone
 from rest_framework import serializers
 
-from apps.transport.models import DevicePosition, TraccarDevice, Trailer, TruckHead
+from apps.transport.models import DevicePosition, Driver, TraccarDevice, Trailer, TruckHead
 from apps.transport.services.matching import device_for_plate
 
 
@@ -88,4 +88,18 @@ class TrailerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Trailer
         fields = ['id', 'plate_number', 'owner_type', 'status', 'is_active']
+        read_only_fields = ['id']
+
+
+class DriverSerializer(serializers.ModelSerializer):
+    """Driver registry row.
+
+    `id` is read-only because it is the `Z_TIRWEB.drivers.id` that
+    `Shipment.driver_id` points at — reassigning it would silently repoint every
+    shipment referencing this driver.
+    """
+
+    class Meta:
+        model = Driver
+        fields = ['id', 'name', 'phone', 'is_active']
         read_only_fields = ['id']

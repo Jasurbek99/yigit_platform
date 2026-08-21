@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from apps.transport.models import TruckHead, TraccarDevice, Truck, DevicePosition, Trailer
+from apps.transport.models import TruckHead, TraccarDevice, Truck, DevicePosition, Trailer, Driver
 
 User = get_user_model()
 
@@ -170,3 +170,79 @@ class TrailerApiTests(TestCase):
         # include_inactive=true: inactive shown
         allrows = self.client.get('/api/v1/transport/trailers/?include_inactive=true').json()
         self.assertIn('9000ZZZ', {r['plate_number'] for r in allrows})
+
+
+class DriverApiTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.editor = User.objects.create_user(username='mgr3', password='x', role='export_manager')
+        self.viewer = User.objects.create_user(username='op3', password='x', role='sales_rep')
+        # ids mirror Z_TIRWEB's preserved-id space (real rows start at 5).
+        Driver.objects.create(id=5, name='ABRAY ANNAKULYYEW')
+        Driver.objects.create(id=6, name='ARSLAN BERDIYEW', is_active=False)
+
+    def test_list_requires_auth(self):
+        self.assertEqual(self.client.get('/api/v1/transport/drivers/').status_code, 401)
+
+    def test_list_active_only_and_search(self):
+        self.client.force_authenticate(self.viewer)
+        rows = self.client.get('/api/v1/transport/drivers/').json()
+        names = {r['name'] for r in rows}
+        self.assertIn('ABRAY ANNAKULYYEW', names)
+        self.assertNotIn('ARSLAN BERDIYEW', names)          # inactive omitted
+        rows2 = self.client.get('/api/v1/transport/drivers/?search=ANNAKUL').json()
+        self.assertEqual([r['name'] for r in rows2], ['ABRAY ANNAKULYYEW'])
+
+    def test_create_requires_editor_role(self):
+        self.client.force_authenticate(self.viewer)
+        self.assertEqual(
+            self.client.post('/api/v1/transport/drivers/', {'name': 'NOBODY'}, format='json').status_code,
+            403,
+        )
+
+    def test_editor_creates_with_phone_and_deactivates(self):
+        self.client.force_authenticate(self.editor)
+        r = self.client.post(
+            '/api/v1/transport/drivers/',
+            {'name': 'TEST SURUJI', 'phone': '+99365123456'},
+            format='json',
+        )
+        self.assertEqual(r.status_code, 201)
+        did = r.json()['id']
+        self.assertEqual(r.json()['phone'], '+99365123456')
+        # Must land ABOVE the IDENTITY_INSERT'd import ids. If the identity
+        # counter had not advanced, a new driver would get id 1-6 — exactly the
+        # range `transport_responsible` option ids occupy, which Shipment.driver_id
+        # is currently mis-bound to on the frontend.
+        self.assertGreater(did, 6)
+        d = self.client.patch(f'/api/v1/transport/drivers/{did}/', {'is_active': False}, format='json')
+        self.assertEqual(d.status_code, 200)
+        self.assertFalse(Driver.objects.get(id=did).is_active)
+
+    def test_id_is_read_only(self):
+        # Shipment.driver_id points into this id space with no FK to protect it,
+        # so a client must not be able to move a row to another id.
+        self.client.force_authenticate(self.editor)
+        r = self.client.patch('/api/v1/transport/drivers/5/', {'id': 999}, format='json')
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(Driver.objects.filter(id=5).exists())
+        self.assertFalse(Driver.objects.filter(id=999).exists())
+
+    def test_boss_may_write(self):
+        # boss holds ['*'] in the permission matrix, but CanEditShipment is a
+        # hardcoded set the matrix never consults — he was 403'd here until
+        # SHIPMENT_EDITOR_ROLES was widened (2026-08-20).
+        boss = User.objects.create_user(username='patron', password='x', role='boss')
+        self.client.force_authenticate(boss)
+        r = self.client.post('/api/v1/transport/drivers/', {'name': 'BOSS PICK'}, format='json')
+        self.assertEqual(r.status_code, 201)
+        p = self.client.patch(f"/api/v1/transport/drivers/{r.json()['id']}/",
+                              {'is_active': False}, format='json')
+        self.assertEqual(p.status_code, 200)
+
+    def test_include_inactive_lists_inactive_rows(self):
+        self.client.force_authenticate(self.viewer)
+        default = self.client.get('/api/v1/transport/drivers/').json()
+        self.assertNotIn('ARSLAN BERDIYEW', {r['name'] for r in default})
+        allrows = self.client.get('/api/v1/transport/drivers/?include_inactive=true').json()
+        self.assertIn('ARSLAN BERDIYEW', {r['name'] for r in allrows})

@@ -941,7 +941,7 @@
   },
   "fleet_admin": {
     "title": "Ulag parkyny dolandyrmak",
-    "subtitle": "Kompaniýanyň çekijilerini we tirkeglerini dolandyryň",
+    "subtitle": "Kompaniýanyň çekijilerini, tirkeglerini we sürüjilerini dolandyryň",
     "tab_trucks": "Çekijiler",
     "tab_trailers": "Tirkegler",
     "plate_number": "Belgi",
@@ -963,7 +963,18 @@
     "toast_updated": "Ulag üýtgedildi",
     "toast_activated": "Ulag işjeňleşdirildi",
     "toast_deactivated": "Ulag işjeňsizleşdirildi",
-    "toast_error": "Näsazlyk ýüze çykdy"
+    "toast_error": "Näsazlyk ýüze çykdy",
+    "tab_drivers": "Sürüjiler",
+    "driver_name": "Ady we familiýasy",
+    "driver_phone": "Telefon",
+    "add_driver": "Sürüji goş",
+    "edit_driver": "Sürüjini üýtget",
+    "drivers_empty": "Sürüji ýok",
+    "driver_search_placeholder": "Ady ýa-da telefony boýunça gözle",
+    "toast_driver_created": "Sürüji döredildi",
+    "toast_driver_updated": "Sürüji üýtgedildi",
+    "toast_driver_activated": "Sürüji işjeňleşdirildi",
+    "toast_driver_deactivated": "Sürüji işjeňsizleşdirildi"
   },
   "shipment_settings": {
     "placeholder_status_role": "myş. document_team",

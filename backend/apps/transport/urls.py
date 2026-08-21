@@ -2,6 +2,7 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from apps.transport.views import (
+    DriverViewSet,
     LivePositionViewSet,
     ShipmentTruckPositionView,
     ShipmentDeviceLinkView,
@@ -15,6 +16,7 @@ router.register('live-positions', LivePositionViewSet, basename='live-positions'
 router.register('devices', TransportDeviceViewSet, basename='transport-devices')
 router.register('truck-heads', TruckHeadViewSet, basename='truck-heads')
 router.register('trailers', TrailerViewSet, basename='trailers')
+router.register('drivers', DriverViewSet, basename='drivers')
 
 urlpatterns = [
     path('shipments/<int:shipment_id>/position/', ShipmentTruckPositionView.as_view()),

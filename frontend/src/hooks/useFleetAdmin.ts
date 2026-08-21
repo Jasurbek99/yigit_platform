@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
-import type { ITruckHead, ITrailer } from '@/hooks/useFleet';
+import type { ITruckHead, ITrailer, IDriver } from '@/hooks/useFleet';
+
+export type { IDriver };
 
 // The list endpoint (see backend TruckHeadSerializer) also returns
 // owner_name/capacity/is_active, which aren't on the shared ITruckHead type
@@ -100,6 +102,50 @@ export function useUpdateTrailer() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['transport', 'admin-trailers'] });
       qc.invalidateQueries({ queryKey: ['transport', 'trailers'] });
+    },
+  });
+}
+
+// ── Drivers ───────────────────────────────────────────────────────────
+interface IDriverCreate { name: string; phone?: string | null; is_active?: boolean; }
+interface IDriverPatch { id: number; name?: string; phone?: string | null; is_active?: boolean; }
+
+export function useAdminDrivers() {
+  return useQuery<IDriver[]>({
+    queryKey: ['transport', 'admin-drivers'],
+    queryFn: async () => {
+      const { data } = await api.get<IDriver[]>('/transport/drivers/', {
+        params: { include_inactive: 'true' },
+      });
+      return data;
+    },
+  });
+}
+
+export function useAdminCreateDriver() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: IDriverCreate) => {
+      const { data } = await api.post<IDriver>('/transport/drivers/', payload);
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['transport', 'admin-drivers'] });
+      qc.invalidateQueries({ queryKey: ['transport', 'drivers'] });
+    },
+  });
+}
+
+export function useUpdateDriver() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...payload }: IDriverPatch) => {
+      const { data } = await api.patch<IDriver>(`/transport/drivers/${id}/`, payload);
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['transport', 'admin-drivers'] });
+      qc.invalidateQueries({ queryKey: ['transport', 'drivers'] });
     },
   });
 }

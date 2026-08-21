@@ -25,6 +25,7 @@ import {
 } from '@/hooks/useFleetAdmin';
 import type { IAdminTruckHead } from '@/hooks/useFleetAdmin';
 import type { ITrailer } from '@/hooks/useFleet';
+import FleetDriversTab from './FleetDriversTab';
 
 const { Title, Text } = Typography;
 
@@ -373,6 +374,7 @@ export default function FleetAdminPage() {
         items={[
           { key: 'trucks', label: t('fleet_admin.tab_trucks'), children: trucksTab },
           { key: 'trailers', label: t('fleet_admin.tab_trailers'), children: trailersTab },
+          { key: 'drivers', label: t('fleet_admin.tab_drivers'), children: <FleetDriversTab /> },
         ]}
       />
     </div>

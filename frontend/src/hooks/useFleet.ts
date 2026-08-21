@@ -17,6 +17,15 @@ export interface ITrailer {
   is_active: boolean;
 }
 
+// Seeded from Z_TIRWEB with source ids preserved; `Shipment.driver_id` points
+// into that same id space (see apps/export/models/shipment.py "=== Transport ===").
+export interface IDriver {
+  id: number;
+  name: string;
+  phone: string | null;
+  is_active: boolean;
+}
+
 export function useTruckHeads(search?: string) {
   return useQuery<ITruckHead[]>({
     queryKey: ['transport', 'truck-heads', search ?? ''],

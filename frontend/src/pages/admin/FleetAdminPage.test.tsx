@@ -12,6 +12,9 @@ import {
   useUpdateTrailer,
   useAdminCreateTruckHead,
   useAdminCreateTrailer,
+  useAdminDrivers,
+  useAdminCreateDriver,
+  useUpdateDriver,
 } from '@/hooks/useFleetAdmin';
 
 vi.mock('@/hooks/useFleetAdmin', () => ({
@@ -21,6 +24,9 @@ vi.mock('@/hooks/useFleetAdmin', () => ({
   useUpdateTrailer: vi.fn(),
   useAdminCreateTruckHead: vi.fn(),
   useAdminCreateTrailer: vi.fn(),
+  useAdminDrivers: vi.fn(),
+  useAdminCreateDriver: vi.fn(),
+  useUpdateDriver: vi.fn(),
 }));
 
 vi.mock('sonner', () => ({
@@ -89,6 +95,30 @@ describe('FleetAdminPage', () => {
       isPending: false,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
+    // FleetDriversTab pulls these from the same mocked module — the Tabs pane is
+    // lazy, but a test that activates it would otherwise call undefined.
+    vi.mocked(useAdminDrivers).mockReturnValue({
+      data: [{ id: 5, name: 'ABRAY ANNAKULYYEW', phone: null, is_active: true }],
+      isLoading: false,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    vi.mocked(useAdminCreateDriver).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    vi.mocked(useUpdateDriver).mockReturnValue({
+      mutate: vi.fn(),
+      mutateAsync: vi.fn(),
+      isPending: false,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+  });
+
+  it('mounts the Drivers tab when its tab is clicked', async () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('tab', { name: 'Drivers' }));
+    await waitFor(() => expect(screen.getByText('ABRAY ANNAKULYYEW')).toBeInTheDocument());
   });
 
   it('renders the trucks table with rows, including an inactive one shown with a status tag', () => {
