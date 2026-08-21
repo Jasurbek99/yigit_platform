@@ -15,6 +15,8 @@ from django.utils import timezone
 
 from apps.core.services_workflow import create_audit_entry
 
+from apps.core.roles import is_admin_like
+
 logger = logging.getLogger(__name__)
 
 
@@ -214,6 +216,7 @@ def set_plan_value(entry, value, user, reason: str = '') -> None:
     - admin: always allowed; reason required only when overriding an existing
       plan_value (writes last_override_* snapshot in that case).
     - greenhouse_manager: own blocks only (checked via active BlockManagerAssignment).
+    - boss: identical to admin (ADMIN_LIKE, Aug 2026).
     - warehouse_chief: NOT allowed to set plan (only forecast/actual).
 
     Args:
@@ -234,7 +237,9 @@ def set_plan_value(entry, value, user, reason: str = '') -> None:
     now_l = now_local(config)
     now_utc = timezone.now()
 
-    if role == 'admin':
+    # boss holds operational admin authority (ADMIN_LIKE) — identical branch,
+    # including the mandatory override reason on an already-filled cell.
+    if is_admin_like(user):
         is_override = entry.plan_value is not None
         if is_override:
             if not reason or not reason.strip():
@@ -359,7 +364,7 @@ def set_forecast_value(entry, value, user, reason: str = '') -> None:
 
     window = compute_forecast_window(now_l, entry.entry_date, config)
 
-    if role == 'admin':
+    if is_admin_like(user):
         is_override = entry.forecast_value is not None
         if is_override:
             if not reason or not reason.strip():
@@ -435,16 +440,16 @@ def set_actual_value(entry, value, user, reason: str = '') -> None:
         reason: Required for admin overrides.
 
     Raises:
-        PermissionError: If user is not admin.
+        PermissionError: If user is not admin/boss.
         ValueError: If admin override has no reason.
     """
     role = getattr(user, 'role', None)
     now_utc = timezone.now()
 
-    if role != 'admin':
+    if not is_admin_like(user):
         raise PermissionError(
             f"Role '{role}' is not allowed to set actual values. "
-            f"Actuals are computed by the daily rollup; only admin may override."
+            f"Actuals are computed by the daily rollup; only admin or boss may override."
         )
 
     is_override = entry.actual_value is not None
@@ -484,11 +489,10 @@ def admin_override(entry, field: str, value, reason: str, user) -> None:
 
     Raises:
         ValueError: If field is invalid or reason is empty.
-        PermissionError: If user is not admin.
+        PermissionError: If user is not admin/boss.
     """
-    role = getattr(user, 'role', None)
-    if role != 'admin':
-        raise PermissionError("Only admin can perform overrides.")
+    if not is_admin_like(user):
+        raise PermissionError("Only admin or boss can perform overrides.")
     if not reason or not reason.strip():
         raise ValueError("Override reason is required.")
 

@@ -7,6 +7,36 @@ Single source of truth — all view/service files import from here.
 # permission matrix; director and export_manager are operational. See AD-15.
 ADMIN_ONLY = frozenset({'admin'})
 
+# Operational admin equivalence (Aug 2026, stakeholder decision).
+# 'boss' is the company owner: on every OPERATIONAL gate he holds the same
+# authority as 'admin'. seed_permissions already grants him '*' on every
+# resource and near-every page — the hardcoded `role == 'admin'` string
+# compares scattered through the views/services were the only thing denying
+# him, which is why he kept hitting 403s on surfaces his permission matrix
+# said he owned.
+#
+# NOT a full admin alias: user management and the permission matrix stay
+# admin-only per AD-15. Use ADMIN_ONLY there.
+ADMIN_LIKE = frozenset({'admin', 'boss'})
+
+
+def is_admin_like(user) -> bool:
+    """Whether ``user`` holds operational admin authority (admin, boss, superuser).
+
+    Single source of truth for the operational gates that used to hardcode
+    ``role == 'admin'``. Does NOT authorize user/permission administration —
+    check ``role == 'admin'`` or ADMIN_ONLY for that (AD-15).
+
+    Args:
+        user: The acting user (must expose ``role`` and ``is_superuser``).
+
+    Returns:
+        True if the user may act with admin authority on operational data.
+    """
+    if getattr(user, 'is_superuser', False):
+        return True
+    return getattr(user, 'role', None) in ADMIN_LIKE
+
 # ── Task ownership equivalence ────────────────────────────────────────────────
 # Task.assignee_role holds ONE role, but some roles are operationally the same
 # team: a deputy acts with identical authority to their head (stakeholder
@@ -63,8 +93,9 @@ DIRECTOR_ONLY = frozenset({'director'})
 # write gates on plan/forecast/actual values.
 # May 2026: warehouse_chief replaced by loading_dept_head (Soltanmyrat) for forecast
 # writes; actual values are now computed by the daily shipment-rollup job.
-HARVEST_DAY_WRITE = frozenset({'admin', 'greenhouse_manager', 'loading_dept_head', 'loading_dept_head_deputy'})
-HARVEST_DAY_OVERRIDE = frozenset({'admin'})  # admin-only, with required `reason`
+# 'boss' included via ADMIN_LIKE — he holds operational admin authority (Aug 2026).
+HARVEST_DAY_WRITE = ADMIN_LIKE | frozenset({'greenhouse_manager', 'loading_dept_head', 'loading_dept_head_deputy'})
+HARVEST_DAY_OVERRIDE = ADMIN_LIKE  # admin/boss only, with required `reason`
 
 # Domestic operations
 DOMESTIC_WRITE = frozenset({'admin', 'loading_dept_head', 'loading_dept_head_deputy', 'warehouse_chief', 'greenhouse_manager', 'export_manager', 'director'})

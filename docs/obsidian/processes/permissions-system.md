@@ -152,6 +152,39 @@ Two dedicated endpoints gate independently on a **different, same-named constant
 
 Reconciling the two divergent `PRIVILEGED_ROLES` constants is still out of scope.
 
+### `ADMIN_LIKE` — boss holds operational admin authority (2026-08-20)
+
+`boss` kept hitting 403s on screens his permission matrix said he owned. The matrix was never the blocker: `seed_permissions` gives him `FIELD_DEFAULTS['boss'] = {r: ['*']}` and full CRUD on 23 of 25 resources. The blocker was a **second, invisible permission layer** — hardcoded `role == 'admin'` string compares inside views and services that never consult the matrix at all. The weekly harvest plan was built entirely on those compares, so boss could open `/export/plan`, see the grid, and be denied on every write.
+
+`apps/core/roles.py` now carries the fix:
+
+```python
+ADMIN_LIKE = frozenset({'admin', 'boss'})
+
+def is_admin_like(user) -> bool:
+    if getattr(user, 'is_superuser', False):
+        return True
+    return getattr(user, 'role', None) in ADMIN_LIKE
+```
+
+**`is_admin_like()` authorizes operational data only.** User management and the permission matrix stay admin-only per **AD-15** — those gates keep `role == 'admin'` / `ADMIN_ONLY` and were deliberately not touched. The helper honours `is_superuser`, matching the boss+superuser shape of the earlier `/shipments/{id}/join/` fix.
+
+Converted on 2026-08-20 (the weekly-plan surface, in full):
+
+| Site | Was | Now |
+|------|-----|-----|
+| `WeeklyHarvestPlanViewSet._check_plan_permission` | `role == 'admin'` | `is_admin_like(user)` |
+| `initialize_week` | `role in ('admin', 'director')` | `is_admin_like(user) or role == 'director'` |
+| `grant` / `revoke` / `bulk-grant` / `bulk-revoke-late-edit` | `role != 'admin'` → 403 | `not is_admin_like(user)` → 403 |
+| `harvest_day_service.set_plan_value` / `set_forecast_value` | `role == 'admin'` branch | `is_admin_like(user)` branch |
+| `harvest_day_service.set_actual_value` / `admin_override` | `role != 'admin'` → `PermissionError` | `not is_admin_like(user)` |
+| `HARVEST_DAY_WRITE` (used by `POST /export/harvest-forecast/`) | literal set without boss | `ADMIN_LIKE | {greenhouse_manager, loading_dept_head, …}` |
+| `POST /export/tasks/generate-weekly-plan/` | `PRIVILEGED_ROLES` | `PRIVILEGED_ROLES | {'boss'}` (call-site widening, same pattern as `/assign`) |
+
+**Boss inherits the admin *override contract*, not just the grant.** He is folded into the same branch, so overwriting an already-filled plan/forecast/actual cell requires a non-empty `reason` and writes a `last_override_*` snapshot attributed to him. Frontend and backend must move together here: widening the backend without widening the reason prompt trades a 403 for a 400.
+
+**Scope stops at the weekly plan.** Roughly twenty other one-off `| {'boss'}` widenings remain scattered across `export/views.py`, and other surfaces still hold un-widened `role == 'admin'` compares. Sweeping them onto `is_admin_like()` is a separate, deliberate pass — not something to do opportunistically while touching a nearby file.
+
 ### Process node links — inline admin gate, not the resource matrix (2026-08-06)
 
 `ProcessNodeLinkViewSet` (`/api/v1/export/admin/process-node-links/`, list + PATCH only, backs the [[../roles/boss#BPMN diagram click-through|boss BPMN diagram's]] node→route mapping) is gated the same way `UserManagementViewSet` is — an inline `if not _is_full_admin(request.user): raise PermissionDenied(...)` in `check_permissions`, not `DynamicResourcePermission` against a registered `resource_code`.
@@ -208,6 +241,20 @@ These read from the `ICurrentUser` object returned by `/api/v1/auth/me/`:
 - A `Segmented` control in the app header (`AppLayout.tsx`, boss-only) flips the toggle. Switching **into** edit mode shows a `Modal.confirm` first; switching back to view is immediate, no confirm.
 
 **This is a UI guard, not a security boundary.** `DynamicResourcePermission` and `transition_to()` on the backend know nothing about `bossEditMode` — `boss` writes are accepted at the API in either toggle position. Only the files that call `canDo()`/`canEditField()`/`isCellEditable()` actually hide their edit controls in view mode; any screen that renders a form or an editable field without going through one of those helpers stays editable for `boss` even while the toggle shows Просмотр. **Do not infer coverage from the helper list** — the feature's design doc claimed "no component reads `resource_permissions` directly", which was false (`ContractDetail.tsx` did, and its document upload/delete stayed live in view mode until it was routed through `canDo`). Verify per screen. Closing that gap on every screen is a separate, larger sweep, not part of this feature.
+
+### Mirroring `ADMIN_LIKE` on the frontend (2026-08-20)
+
+`WeeklyPlanGrid.tsx` deliberately keeps **two** flags rather than widening one:
+
+- `isAdminLike` = `admin | boss` — mirrors the backend `ADMIN_LIKE`. Drives the harvest grid's override-with-reason flow (the `isAdmin` prop on `HarvestCell`), the actual-value override, and the late-edit extension controls.
+- `isAdmin` = `admin | director` — **left alone on purpose.** It feeds `canEditTrucks`, whose backend gate is `TRUCK_WRITE` (`admin`/`export_manager`/`director`, no boss). Widening it would render truck-editing UI for boss that 403s on save.
+- `canEditHarvest` = `isAdmin || isAdminLike` — the grid + Initialize Week gate.
+
+**`/export/plan` is outside the boss view/edit toggle (2026-08-20).** Verified by grep, not assumed: `WeeklyPlanGrid.tsx`, `HarvestCell.tsx` and `usePlanning.ts` contain **no** call to `canDo`, `canEditField`, `isCellEditable`, `canDoBackendGated` or `bossEditMode` — every gate on this screen is a raw `user?.role === '…'` compare. The toggle therefore does nothing here in either position. It was invisible until now because `boss` had no write access on this page at all; widening the flags to include him makes his edit controls live even while the header reads **Просмотр**. Left that way deliberately — the owner's complaint was the friction of not being able to enter the plan, and requiring a toggle flip first would reintroduce it — but this is the documented exception, and it is exactly the "do not infer coverage from the helper list" hazard the [[#Boss view/edit toggle (UI guard only) — 2026-08-05]] section warns about. Wiring the toggle in is a one-line change if the owner wants the guard to hold uniformly.
+
+**Not every "boss can't do X" is a permission bug.** When the widening above was tested, the owner reported boss could initialize a week but still could not enter data. That was **not** a gate — `useInitializeWeek` invalidated only `['harvest-plans']`, so `['day-entries']` kept its stale empty cache and every grid cell rendered as a dead `—` span with no click handler (`WeeklyPlanGrid.tsx`: `if (!entry) return <span>—</span>`). It hits `admin` and `director` the same way. Before chasing a role gate on this page, check whether the day-entry rows actually reached the client — a page reload that "fixes" it points at cache invalidation, not permissions.
+
+**Pre-existing mismatch, unresolved:** `director` passes `canEditHarvest` on the frontend but `_check_plan_permission` denies him, so a director sees plan cells as editable and gets a 403 on save. That predates this change and was left as-is rather than silently picking a side.
 
 ### Page: PermissionsPage
 

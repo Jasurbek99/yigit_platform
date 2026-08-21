@@ -152,9 +152,23 @@ export default function WeeklyPlanGrid() {
 
   const myBlockIds = useMemo(() => new Set(user?.managed_block_ids ?? []), [user?.managed_block_ids]);
   const isBlockManager = user?.role === 'greenhouse_manager' && myBlockIds.size > 0;
+  // `isAdmin` stays admin+director on purpose — it feeds `canEditTrucks`, whose
+  // backend gate is TRUCK_WRITE (admin/export_manager/director) and has no boss.
+  // Widening it would show boss truck-editing UI that 403s.
   const isAdmin = user?.role === 'admin' || user?.role === 'director';
-  const isAdminRole = user?.role === 'admin';
-  const isManager = isAdmin;
+  // Operational admin authority — mirrors backend ADMIN_LIKE (admin + boss).
+  // Drives the override-with-reason flow and the late-edit extension controls.
+  const isAdminLike = user?.role === 'admin' || user?.role === 'boss';
+  // Harvest grid + Initialize Week: admin, director (legacy) and boss.
+  const canEditHarvest = isAdmin || isAdminLike;
+  // Boss's cell shows ONE value — the plan. The admin cell carries a second,
+  // the auto-computed actual, and writing that by hand is an *override*: it
+  // makes `rollup_actuals` skip that block-day permanently. Boss is on this
+  // page to enter plans, so the actual is removed from his cell rather than
+  // left one click away. admin/director keep both — overriding a bad rollup
+  // value is genuinely their job.
+  const planOnlyCells = user?.role === 'boss';
+  const isManager = canEditHarvest;
   // Truck allocation is editable by the export_manager too (backend TRUCK_WRITE
   // grants it write access), unlike the harvest grid / Initialize Week which stay
   // admin+director only. `useSetTruckDestinationSelection`/`useUpsertTruckAllocation`/
@@ -163,11 +177,12 @@ export default function WeeklyPlanGrid() {
   // on `isReadOnly` anyway so editing doesn't appear live over a closed season's
   // read-only grid.
   const canEditTrucks = (isAdmin || user?.role === 'export_manager') && !isReadOnly;
-  // Generate plan tasks is a supervisor action: admin, export_manager, director.
+  // Generate plan tasks is a supervisor action: admin, export_manager, director, boss.
   const canGenerateTasks =
     user?.role === 'admin' ||
     user?.role === 'export_manager' ||
-    user?.role === 'director';
+    user?.role === 'director' ||
+    user?.role === 'boss';
 
   const generateTasksMutation = useMutation<
     IGenerateTasksResponse,
@@ -266,7 +281,7 @@ export default function WeeklyPlanGrid() {
 
   function hasBlockPermission(blockId: number): boolean {
     if (!user) return false;
-    if (isAdmin) return true;
+    if (canEditHarvest) return true;
     if (user.role === 'greenhouse_manager') return user.managed_block_ids.includes(blockId);
     return false;
   }
@@ -286,7 +301,9 @@ export default function WeeklyPlanGrid() {
     // data. Only admin can override a computed value. _entry parameter retained
     // for symmetry with the other can-edit helpers and future block-level rules.
     void entry;
-    return isAdminRole;
+    // Not `isAdminLike`: boss's cell is planOnly, so granting him actual-edit
+    // would leave the capability live with no UI path to reach it deliberately.
+    return isAdminLike && !planOnlyCells;
   }
 
   // ─── Handlers ─────────────────────────────────────────────────────────────
@@ -403,7 +420,8 @@ export default function WeeklyPlanGrid() {
               const found = dayEntries.find((e) => e.id === id);
               if (found) setHistoryEntry(found);
             }}
-            isAdmin={isAdmin}
+            isAdmin={isAdminLike}
+            planOnly={planOnlyCells}
             savingKey={savingKey}
           />
         );
@@ -509,7 +527,8 @@ export default function WeeklyPlanGrid() {
                 const found = dayEntries.find((e) => e.id === id);
                 if (found) setHistoryEntry(found);
               }}
-              isAdmin={isAdmin}
+              isAdmin={isAdminLike}
+              planOnly={planOnlyCells}
               savingKey={savingKey}
             />
           );
@@ -649,7 +668,7 @@ export default function WeeklyPlanGrid() {
               {showSunday ? t('plan.hide_sunday') : t('plan.show_sunday')}
             </Button>
           )}
-          {isAdminRole && plans.length > 0 && (
+          {isAdminLike && plans.length > 0 && (
             <Button
               icon={<ClockCircleOutlined />}
               size="small"
@@ -659,7 +678,7 @@ export default function WeeklyPlanGrid() {
               {t('plan.bulk_grant_button')}
             </Button>
           )}
-          {isAdminRole && activeExtensionIds.length > 0 && (
+          {isAdminLike && activeExtensionIds.length > 0 && (
             <Button
               danger
               size="small"

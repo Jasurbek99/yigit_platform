@@ -263,11 +263,26 @@ See `docs/operations/cron.md` for Linux + Windows Task Scheduler setup.
 | Tomorrow forecast submitted | Forecast value, yellow background, locked |
 | Today | Forecast value (yellow, locked) + editable Actual input next to it |
 | Past days (admin) | Actual value (green, em-dash if NULL) + a grey retroactive-edit "Plan: …" line. |
+| Every day (`boss`) | **Plan value only** (blue) — one value per cell, past and future alike. The actual is not rendered and not reachable; `canEditActualForEntry` returns `false` for him. See `planOnly` below. |
 | Past days (`greenhouse_manager`) | **Plan value only** (blue) — the planning grid is single-value for managers; they never see/edit the actual. Click-to-edit when the day is in the **current week** (lets them enter/fix past-day plans this week); older weeks are read-only (click → history). |
 
 **Empty-vs-zero**: `value === null` → em-dash; `value === 0 && *_submitted_at` → italic `0 ✓`.
 
 **Click any cell** → opens `<CellHistoryModal>` showing current values + AuditLog history + admin overrides with reason text.
+
+### `planOnly` — why boss's cell shows one value (2026-08-20)
+
+A manual `actual` is an **override, not an entry**: it stamps `actual_source='admin_override'`, and `rollup_actuals_for_date` then skips that row on every subsequent run unless someone passes `--force` ("admin manual edits win"). One click permanently detaches that block-day from the nightly rollup, and the reason modal never says so.
+
+The default admin cell puts that value under the **large** click target with the plan on a small line beneath. That ordering is right for `admin`/`director` — overriding a bad rollup value is genuinely their job. It is wrong for `boss`, who is on this page to set plans: the second value is both clutter and a trap.
+
+`HarvestCell` therefore takes a `planOnly` prop (`WeeklyPlanGrid` passes `user?.role === 'boss'`). When set, a single branch **above** the `past_actual` / `today_actual` / `future_plan` mode switch renders the plan value alone for every day of the week — the same rendering `future_plan` always used. `WeeklyPlanGrid.canEditActualForEntry` returns `false` for the same role, so the capability is not left live with no deliberate UI path to it.
+
+An intermediate `planFirst` variant (both values kept, click targets swapped) was built and rejected on testing — the owner wanted the second field gone, not relocated.
+
+**What boss gives up:** he can no longer override an actual from this page. The backend still authorises him (`is_admin_like` covers `set_actual_value` and `admin_override`), so the capability is reachable via the API or by an `admin` on the same screen; it simply has no button in his UI. **What he keeps:** overwriting an already-filled *plan* still opens `AdminOverrideReasonModal`, because the backend demands a reason from admin-like roles either way (`isAdmin` stays `true` for him).
+
+`admin`/`director` rendering is byte-identical to before — the new branch is behind the prop, and `HarvestCell.planOnly.test.tsx` pins both the collapse and that non-regression.
 
 ### Admin override flow
 
@@ -311,6 +326,7 @@ When `currentUser.role === 'admin'` edits any cell, `<AdminOverrideReasonModal>`
 | `greenhouse_manager` | Own blocks (highlighted) | Own blocks through that week's own Sunday 23:59:59 (incl. already-passed days of the current week; extendable by admin via `grant-late-edit` for past weeks) | Own blocks during primary window only | No | No |
 | `loading_dept_head` (Soltanmyrat) | All blocks | No | Any block, 00:00 day-before through 12:00 day-of (`LOADING_HEAD_FORECAST_DAY_OF_CLOSE`) | No (computed daily from shipments) | No |
 | `admin` | All blocks | Anytime, any block, with required reason | Anytime, any block, with required reason | Anytime, any block, with required reason | Yes (all paths) |
+| `boss` | All blocks | Anytime, any block, with required reason | Anytime, any block, with required reason | Authorised in the backend, but **no UI** — his cell is `planOnly` | Yes at the service layer (`is_admin_like`); plan overrides only, from this screen |
 | `export_manager` (Gadam) | All blocks | View only | View only | View only | No |
 | `director` | All blocks | View only | View only | View only | No |
 | `warehouse_chief` | View only | No | No | No | No |
@@ -320,7 +336,7 @@ Service-layer enforcement is not just role-based — it also gates by submission
 
 **Forecast window for `loading_dept_head`** (May 2026): from 00:00 local on day-before through `LOADING_HEAD_FORECAST_DAY_OF_CLOSE` (default 12:00 noon) on day-of. Past noon, only admin can override. Replaces the previous warehouse_chief fallback / same-day windows entirely.
 
-**Actuals are computed, not entered.** As of May 2026, `actual_value` is filled by the daily `rollup_actuals` management command — it sums `ShipmentBlockSource.weight_kg` joined to `Shipment.loading_started_at` (in the configured local timezone) per block per day, and writes the result with `actual_source='shipment_rollup'`. Admin manual edits stamp `actual_source='admin_override'`, which the rollup respects on subsequent runs.
+**Actuals are computed, not entered.** As of May 2026, `actual_value` is filled by the daily `rollup_actuals` management command — it sums `ShipmentBlockSource.weight_kg` joined to `Shipment.loading_started_at` (in the configured local timezone) per block per day, and writes the result with `actual_source='shipment_rollup'`. Admin manual edits stamp `actual_source='admin_override'`, which the rollup respects on subsequent runs — meaning the override is **sticky and per-cell**: once set, that block-day never auto-updates again, even if loading data arrives or is corrected afterwards. Recovering it takes `rollup_actuals --force`. This is why `boss`'s cell is `planOnly` (above).
 
 ## Daily Harvest Board (Ýük plan we galyndy)
 

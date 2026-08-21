@@ -89,6 +89,14 @@ export function useInitializeWeek() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['harvest-plans'] });
+      // `initialize_harvest_week` creates the seven Mon–Sun HarvestDayEntry rows
+      // alongside the plans — that is what makes the grid's cells editable at all.
+      // Invalidating only ['harvest-plans'] left ['day-entries'] on its stale
+      // (empty) cache, so the block rows appeared but every cell rendered as a
+      // dead `—` span with no click handler: "initialize works, can't enter data".
+      // It also kept the Initialize button visible, since `showInitialize` compares
+      // dayEntries.length against the expected count. Only a page reload cleared it.
+      queryClient.invalidateQueries({ queryKey: ['day-entries'] });
     },
   });
 }

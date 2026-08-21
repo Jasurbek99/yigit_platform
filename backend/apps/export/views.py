@@ -3994,7 +3994,12 @@ class TaskViewSet(SeasonScopedMixin, viewsets.ReadOnlyModelViewSet):
         from apps.export.services import generate_weekly_plan_tasks
 
         role = getattr(request.user, 'role', None)
-        is_supervisor = getattr(request.user, 'is_superuser', False) or role in PRIVILEGED_ROLES
+        # 'boss' widened at the call site (not in core PRIVILEGED_ROLES): the
+        # weekly plan is his process step, so every action on that page must work.
+        is_supervisor = (
+            getattr(request.user, 'is_superuser', False)
+            or role in PRIVILEGED_ROLES | {'boss'}
+        )
         if not is_supervisor:
             return Response(
                 {'error': f"Role '{role}' cannot generate weekly-plan tasks."},

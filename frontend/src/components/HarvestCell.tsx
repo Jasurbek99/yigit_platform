@@ -28,6 +28,23 @@ export interface IHarvestCellProps {
   ) => void;
   onCellClick: (entryId: number) => void;
   isAdmin: boolean;
+  /**
+   * Render ONE value per cell — the plan — on every day, past or future.
+   *
+   * The default admin cell shows two: the actual (auto-computed nightly by
+   * `rollup_actuals`) with the plan on a small line below. That second value is
+   * not just clutter, it is a trap — writing an actual by hand is an *override*,
+   * not an entry: it stamps `actual_source='admin_override'` and the rollup then
+   * skips that row permanently (`services/actual_rollup.py`, "admin manual edits
+   * win"). Someone whose job on this page is entering plans has no reason to be
+   * one click away from that. `planOnly` collapses the cell to the plan value —
+   * the same rendering `future_plan` always used — for every day of the week.
+   *
+   * Overriding an already-filled plan still routes through
+   * `AdminOverrideReasonModal` (see `isAdmin`), because the backend requires a
+   * reason from admin-like roles either way.
+   */
+  planOnly?: boolean;
   savingKey: string | null;
 }
 
@@ -118,6 +135,7 @@ export function HarvestCell({
   onSave,
   onCellClick,
   isAdmin,
+  planOnly = false,
   savingKey,
 }: IHarvestCellProps): React.ReactElement {
   const { t } = useTranslation();
@@ -176,6 +194,65 @@ export function HarvestCell({
     setPendingOverride(null);
     setEditingPlan(false);
     setEditingActual(false);
+  }
+
+  // ── planOnly ───────────────────────────────────────────────────────────────
+  // One value, every day: identical to the `future_plan` rendering below, but
+  // applied regardless of mode so a past or today cell never surfaces the
+  // actual. Sits above the mode switch precisely so those branches can't run.
+  if (planOnly) {
+    if (canEditPlan && editingPlan) {
+      const planNumOnly = entry.plan_value != null ? Number(entry.plan_value) : undefined;
+      return (
+        <>
+          <div style={{ minHeight: 24 }}>
+            <InputNumber
+              ref={planInputRef}
+              min={0}
+              step={100}
+              keyboard={false}
+              defaultValue={planNumOnly}
+              placeholder="—"
+              disabled={isSaving}
+              onBlur={(e) => {
+                const raw = e.target.value.replace(/,/g, '');
+                const v = raw === '' ? null : Number(raw) || 0;
+                handleValueBlur('plan_value', entry.plan_value, v, setEditingPlan);
+              }}
+              onKeyDown={handleCellKeyDown}
+              size="small"
+              style={{ width: 84 }}
+            />
+          </div>
+          <AdminOverrideReasonModal
+            open={pendingOverride !== null}
+            oldValue={pendingOverride?.oldValue ?? null}
+            newValue={pendingOverride?.value ?? null}
+            onConfirm={(reason) => {
+              if (pendingOverride) {
+                onSave(entry.id, pendingOverride.field, pendingOverride.value, reason);
+              }
+              closeOverride();
+            }}
+            onCancel={closeOverride}
+          />
+        </>
+      );
+    }
+    return (
+      <div
+        data-edit-cell={canEditPlan ? 'true' : undefined}
+        onClick={() => { if (canEditPlan) setEditingPlan(true); else onCellClick(entry.id); }}
+        style={{ cursor: canEditPlan ? 'text' : 'pointer', minHeight: 24, padding: '2px 0' }}
+        title={canEditPlan ? t('plan.admin_click_edit_plan') : t('plan.click_for_history')}
+      >
+        <ValueOrEmpty
+          valueStr={entry.plan_value}
+          submittedAt={entry.plan_submitted_at}
+          color={COLORS.primary}
+        />
+      </div>
+    );
   }
 
   // ── past_actual ────────────────────────────────────────────────────────────

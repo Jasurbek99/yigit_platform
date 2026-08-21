@@ -11,7 +11,9 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from apps.core.permissions import SeasonNotClosed, write_permission
-from apps.core.roles import DOMESTIC_WRITE, HARVEST_DAY_WRITE, HARVEST_DAY_OVERRIDE
+from apps.core.roles import (
+    DOMESTIC_WRITE, HARVEST_DAY_WRITE, is_admin_like,
+)
 from apps.core.seasons import (
     SeasonScopedMixin, assert_bulk_seasons_open, assert_season_id_open, resolve_season,
 )
@@ -48,7 +50,7 @@ class WeeklyHarvestPlanViewSet(SeasonScopedMixin, ModelViewSet):
     PATCH  /api/v1/greenhouse/harvest-plans/{id}/       — partial update
 
     Per-block authorization:
-      - admin: always allowed for any block.
+      - admin / boss / superuser: always allowed for any block.
       - greenhouse_manager: must have an active BlockManagerAssignment for the target block.
       - All other roles: denied on write.
     """
@@ -90,7 +92,8 @@ class WeeklyHarvestPlanViewSet(SeasonScopedMixin, ModelViewSet):
         """Raise PermissionDenied if the user may not write the given block's plan."""
         role = getattr(user, 'role', None)
 
-        if role == 'admin':
+        # boss holds operational admin authority (ADMIN_LIKE) — same as admin here.
+        if is_admin_like(user):
             return
 
         if role == 'greenhouse_manager':
@@ -143,8 +146,8 @@ class WeeklyHarvestPlanViewSet(SeasonScopedMixin, ModelViewSet):
             )
 
         role = getattr(request.user, 'role', None)
-        if role not in ('admin', 'director'):
-            raise PermissionDenied('Only admin or director can initialize a week plan.')
+        if not is_admin_like(request.user) and role != 'director':
+            raise PermissionDenied('Only admin, boss or director can initialize a week plan.')
 
         # Write freeze (D1) — the season arrives in the request BODY.
         assert_season_id_open(season_id)
@@ -195,11 +198,10 @@ class WeeklyHarvestPlanViewSet(SeasonScopedMixin, ModelViewSet):
             granted_until (ISO 8601 datetime with tz, required): expiry of the extension.
             reason (string, optional): justification for the extension (stored as-is).
 
-        Permission: admin only.
+        Permission: admin or boss.
         """
-        role = getattr(request.user, 'role', None)
-        if role != 'admin':
-            raise PermissionDenied('Only admin can grant a late-edit extension.')
+        if not is_admin_like(request.user):
+            raise PermissionDenied('Only admin or boss can grant a late-edit extension.')
 
         plan = self.get_object()
         granted_until_raw = request.data.get('granted_until')
@@ -253,11 +255,10 @@ class WeeklyHarvestPlanViewSet(SeasonScopedMixin, ModelViewSet):
         Revoke a previously granted late-edit extension, clearing all four
         late_edit_* fields back to null/empty.
 
-        Permission: admin only.
+        Permission: admin or boss.
         """
-        role = getattr(request.user, 'role', None)
-        if role != 'admin':
-            raise PermissionDenied('Only admin can revoke a late-edit extension.')
+        if not is_admin_like(request.user):
+            raise PermissionDenied('Only admin or boss can revoke a late-edit extension.')
 
         plan = self.get_object()
         plan.late_edit_granted_until = None
@@ -292,11 +293,10 @@ class WeeklyHarvestPlanViewSet(SeasonScopedMixin, ModelViewSet):
 
         Unknown IDs are silently skipped. Response reflects only rows that matched.
 
-        Permission: admin only.
+        Permission: admin or boss.
         """
-        role = getattr(request.user, 'role', None)
-        if role != 'admin':
-            raise PermissionDenied('Only admin can bulk-grant late-edit extensions.')
+        if not is_admin_like(request.user):
+            raise PermissionDenied('Only admin or boss can bulk-grant late-edit extensions.')
 
         plan_ids = request.data.get('plan_ids')
         granted_until_raw = request.data.get('granted_until')
@@ -367,11 +367,10 @@ class WeeklyHarvestPlanViewSet(SeasonScopedMixin, ModelViewSet):
 
         Unknown IDs are silently skipped. Response reflects only rows that matched.
 
-        Permission: admin only.
+        Permission: admin or boss.
         """
-        role = getattr(request.user, 'role', None)
-        if role != 'admin':
-            raise PermissionDenied('Only admin can bulk-revoke late-edit extensions.')
+        if not is_admin_like(request.user):
+            raise PermissionDenied('Only admin or boss can bulk-revoke late-edit extensions.')
 
         plan_ids = request.data.get('plan_ids')
 

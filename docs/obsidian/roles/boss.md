@@ -60,6 +60,20 @@ Two endpoints don't route through that check — they gate independently on a di
 
 See [[../processes/permissions-system#Boss transition authority (2026-08-05)]].
 
+## Operational admin authority (2026-08-20)
+
+The owner's standing instruction is that `boss` can do anything `admin` can do. The permission matrix already said so — `boss` holds `['*']` on every resource — but a **second permission layer the matrix never sees** was still denying him: hardcoded `role == 'admin'` string compares inside views and services.
+
+The **weekly harvest plan** (`/export/plan`) was built entirely on those compares, so `boss` could open the page, read the grid, and be refused on every write — enter a plan value, enter a forecast, override an actual, initialize a week, grant a late-edit extension, generate plan tasks. All of them now accept him, via the shared `is_admin_like()` helper in `apps/core/roles.py` (`ADMIN_LIKE = {admin, boss}`, plus any superuser).
+
+He inherits admin's **override contract** along with the grant: overwriting an already-filled plan/forecast/actual cell requires a non-empty reason and stamps a `last_override_*` snapshot with his name, exactly as it does for `admin`.
+
+**His plan cell is deliberately not the admin cell.** The admin cell carries two values — the auto-computed `actual` under the big click target, the plan on a small line below. Writing that actual by hand is an *override* that makes the nightly `rollup_actuals` skip that block-day permanently, so for someone whose job here is entering plans it is both clutter and a trap. `HarvestCell` takes a `planOnly` prop (set for `boss` only) collapsing the cell to the plan value on every day of the week, and `canEditActualForEntry` returns `false` for him so the capability isn't left live without a UI path. He can no longer override an actual from this screen — the backend still authorises it through `is_admin_like`, it just has no button. Overwriting a filled *plan* still asks for a reason. See [[../processes/weekly-harvest-planning#`planOnly` — why boss's cell shows one value (2026-08-20)]].
+
+**Still admin-only, deliberately:** user management and the permission matrix (**AD-15**). `is_admin_like()` authorizes operational data only.
+
+**Not yet swept:** other surfaces still carry un-widened `role == 'admin'` compares, and ~20 one-off `| {'boss'}` widenings remain scattered across `export/views.py`. If `boss` hits a 403 on a screen his matrix grant covers, this is the layer to look at — the fix is to route that gate through `is_admin_like()`. Full site list and rationale: [[../processes/permissions-system#`ADMIN_LIKE` — boss holds operational admin authority (2026-08-20)]].
+
 ## Audit trail
 
 Writes made by `boss` are attributed to him like any other user's — status changes and field edits carry `boss` in the audit log the same way an `export_manager` edit would. There is no separate "read-only session" marker; anything he does while in edit mode is indistinguishable in the log from an equivalent edit by a fully operational role.
