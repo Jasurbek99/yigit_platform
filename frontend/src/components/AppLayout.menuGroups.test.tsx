@@ -164,6 +164,16 @@ describe('AppLayout menu composition', () => {
     await i18n.changeLanguage('en');
   });
 
+  it('a NON-superuser boss reaches /admin/fleet — the inline role gate must list boss', () => {
+    // Every other test here uses the fixture's `is_superuser: true`, which takes
+    // the bypass branch in AppLayout's role filter and therefore cannot see this
+    // gate at all. /admin/fleet is one of the few items gated by an inline
+    // `roles` list instead of page_permissions, and boss was missing from it
+    // until 2026-08-20 — the link simply never rendered for a real boss account.
+    renderLayout(fakeUser({ role: 'boss' as UserRole, is_superuser: false }));
+    expect(renderedMenuItemKeys()).toContain('/admin/fleet');
+  });
+
   it('renders a non-empty boss menu with no duplicate route keys', () => {
     renderLayout(fakeUser({ role: 'boss' as UserRole }));
     const keys = renderedMenuItemKeys();

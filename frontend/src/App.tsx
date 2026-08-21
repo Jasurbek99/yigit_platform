@@ -307,7 +307,7 @@ export default function App() {
                       backend CanEditShipment roles — see ShipmentDetail.tsx's
                       TRANSPORT_EDIT_ROLES) instead of pageCode. */}
                   <Route path="admin/fleet" element={
-                    <ProtectedRoute roles={['admin', 'director', 'export_manager', 'warehouse_chief', 'loading_dept_head', 'loading_dept_head_deputy']}>
+                    <ProtectedRoute roles={['admin', 'director', 'export_manager', 'boss', 'warehouse_chief', 'loading_dept_head', 'loading_dept_head_deputy']}>
                       <FleetAdminPage />
                     </ProtectedRoute>
                   } />

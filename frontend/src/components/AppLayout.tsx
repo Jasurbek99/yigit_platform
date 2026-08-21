@@ -299,7 +299,7 @@ export default function AppLayout() {
       label: t('nav.admin_fleet'),
       // No page_code registered yet — role-gated the same way the route
       // itself is (see App.tsx's admin/fleet ProtectedRoute).
-      roles: ['admin', 'director', 'export_manager', 'warehouse_chief', 'loading_dept_head', 'loading_dept_head_deputy'] as import('@/types').UserRole[],
+      roles: ['admin', 'director', 'export_manager', 'boss', 'warehouse_chief', 'loading_dept_head', 'loading_dept_head_deputy'] as import('@/types').UserRole[],
     },
     '/admin/users': { key: '/admin/users', icon: <IconUsers size={15} />, label: t('nav.admin_users') },
     '/admin/permissions': { key: '/admin/permissions', icon: <IconShield size={15} />, label: t('nav.admin_permissions') },
