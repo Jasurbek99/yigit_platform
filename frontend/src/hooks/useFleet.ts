@@ -71,3 +71,32 @@ export function useCreateTrailer() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['transport', 'trailers'] }),
   });
 }
+
+// Picker feed — active-only on purpose. The admin tab passes
+// `include_inactive=true`; a deactivated driver must not be offerable on a
+// shipment.
+export function useDrivers(search?: string) {
+  return useQuery<IDriver[]>({
+    queryKey: ['transport', 'drivers', search ?? ''],
+    queryFn: async () => {
+      const params = search ? { search } : {};
+      const { data } = await api.get<IDriver[]>('/transport/drivers/', { params });
+      return data;
+    },
+    staleTime: 5 * 60_000,
+  });
+}
+
+export function useCreateDriver() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (name: string) => {
+      const { data } = await api.post<IDriver>('/transport/drivers/', { name });
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['transport', 'drivers'] });
+      qc.invalidateQueries({ queryKey: ['transport', 'admin-drivers'] });
+    },
+  });
+}

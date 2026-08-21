@@ -20,9 +20,19 @@ vi.mock('./SheetTruckSelectEditor', () => ({
   ),
 }));
 
+vi.mock('./SheetDriverSelectEditor', () => ({
+  default: (props: { onCommit: (fields: { driver_id: number | null; driver_name: string }) => void }) => (
+    <button onClick={() => props.onCommit({ driver_id: 7, driver_name: 'ARNAGELDIYEW ALLAYAR' })}>
+      driver-commit-stub
+    </button>
+  ),
+}));
+
 vi.mock('@/hooks/useFleet', () => ({
   useTruckHeads: () => ({ data: [] }),
   useTrailers: () => ({ data: [] }),
+  useDrivers: () => ({ data: [] }),
+  useCreateDriver: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
 // Shared spy so the test can assert on the same mock instance the component
@@ -68,6 +78,15 @@ const TRUCK_PLATE_ROW: IRowConfig = {
   field_key: 'truck_plate',
   default_who_key: 'sheet.who.transport',
   label_key: 'sheet.row.truck_plate',
+  input_type: 'text',
+  style: 'transport',
+};
+
+const DRIVER_NAME_ROW: IRowConfig = {
+  row_number: 27,
+  field_key: 'driver_name',
+  default_who_key: 'sheet.who.transport',
+  label_key: 'sheet.row.driver_name',
   input_type: 'text',
   style: 'transport',
 };
@@ -119,6 +138,50 @@ describe('SheetCellEditor — truck_plate cell', () => {
 
     expect(screen.queryByText('commit-stub')).not.toBeInTheDocument();
     expect(screen.getByDisplayValue('01ABC123')).toBeInTheDocument();
+  });
+});
+
+describe('SheetCellEditor — driver_name cell', () => {
+  beforeAll(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('non-gapy: renders the registry overlay; committing multi-patches id + name only', async () => {
+    patchMultiMutate.mockClear();
+    const shipment: IShipmentSheetItem = { ...MOCK_SHEET_DATA[0], is_gapy_satys: false };
+    wrap(shipment, DRIVER_NAME_ROW);
+
+    expect(screen.getByText('driver-commit-stub')).toBeInTheDocument();
+    await userEvent.click(screen.getByText('driver-commit-stub'));
+
+    // Exactly two fields — driver_phone (R28) is its own cell and must not be
+    // written from here.
+    expect(patchMultiMutate).toHaveBeenCalledWith(
+      {
+        id: shipment.id,
+        fields: { driver_id: 7, driver_name: 'ARNAGELDIYEW ALLAYAR' },
+      },
+      expect.anything(),
+    );
+    expect(recordMultiEntry).toHaveBeenCalledWith(
+      shipment.id,
+      { driver_id: shipment.driver_id, driver_name: shipment.driver_name },
+      { driver_id: 7, driver_name: 'ARNAGELDIYEW ALLAYAR' },
+    );
+  });
+
+  it('gapy: renders a plain text input, NOT the registry overlay', () => {
+    // Local buyers bring their own truck AND their own driver — same HARD RULE
+    // as truck_plate. Picking from the company registry here would pollute it.
+    const shipment: IShipmentSheetItem = {
+      ...MOCK_SHEET_DATA[0],
+      is_gapy_satys: true,
+      driver_name: 'Ashyr Ashyrow',
+    };
+    wrap(shipment, DRIVER_NAME_ROW);
+
+    expect(screen.queryByText('driver-commit-stub')).not.toBeInTheDocument();
+    expect(screen.getByDisplayValue('Ashyr Ashyrow')).toBeInTheDocument();
   });
 });
 

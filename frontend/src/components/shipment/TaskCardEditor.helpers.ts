@@ -15,7 +15,13 @@ export function fieldKeyToConfig(fieldKey: string): IEditFieldConfig | null {
     import_firm: { key: 'import_firm', labelKey: 'shipment_edit_drawer.field.import_firm', inputType: 'select', optionsSource: 'importFirms' },
     city: { key: 'city', labelKey: 'shipment_edit_drawer.field.city', inputType: 'select', optionsSource: 'cities', countryFiltered: true },
     border_point: { key: 'border_point', labelKey: 'shipment_edit_drawer.field.border_point', inputType: 'select', optionsSource: 'borderPoints' },
-    driver_id: { key: 'driver_id', labelKey: 'shipment_edit_drawer.field.driver', inputType: 'select', optionsSource: 'transportUsers' },
+    // `driver_id` deliberately has NO entry. It used to map to
+    // optionsSource 'transportUsers', which resolves to the 6-row
+    // `transport_responsible` coordinator list — picking there wrote a
+    // ShipmentOptionType id of 1-6 into a column that means
+    // Z_TIRWEB.drivers.id (now populated, ids 5-158). No TaskRule targets
+    // `driver_id` (they target driver_name/driver_phone/truck_plate), so the
+    // entry was unreachable dead config; the driver is picked on Sheet R27.
     weight_net: { key: 'weight_net', labelKey: 'shipment_edit_drawer.field.weight_net', inputType: 'number', min: 0, suffix: 'kg' },
     weight_gross: { key: 'weight_gross', labelKey: 'shipment_edit_drawer.field.weight_gross', inputType: 'number', min: 0, suffix: 'kg' },
     variety: { key: 'variety', labelKey: 'shipment_edit_drawer.field.variety', inputType: 'select', optionsSource: 'varieties' },

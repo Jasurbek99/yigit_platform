@@ -2467,6 +2467,7 @@
     "section_notes": "Заметки",
     "add_truck": "Добавить тягач \"{{plate}}\"",
     "add_trailer": "Добавить прицеп \"{{plate}}\"",
+    "add_driver": "Добавить водителя «{{name}}»",
     "field": {
       "country": "Страна",
       "customer": "Клиент",

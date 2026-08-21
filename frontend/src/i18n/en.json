@@ -2465,6 +2465,7 @@
     "section_notes": "Notes",
     "add_truck": "Add truck \"{{plate}}\"",
     "add_trailer": "Add trailer \"{{plate}}\"",
+    "add_driver": "Add driver \"{{name}}\"",
     "field": {
       "country": "Country",
       "customer": "Customer",

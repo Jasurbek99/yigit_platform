@@ -34,6 +34,7 @@ import { useQuotaFirmBalances } from '@/hooks/useQuotaDashboard';
 import { scaleSheetLayout } from '@/constants/sheetRowConfig';
 import { parseNumberInput } from './SheetCellEditor.helpers';
 import SheetTruckSelectEditor from './SheetTruckSelectEditor';
+import SheetDriverSelectEditor from './SheetDriverSelectEditor';
 
 interface ISheetCellEditorProps {
   shipment: IShipmentSheetItem;
@@ -389,6 +390,42 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
     [patchMultiMutation, shipment, close],
   );
 
+  // Virtual combined cell: the driver_name cell's overlay
+  // (SheetDriverSelectEditor) resolves a registry driver and commits the id and
+  // the display name in one PATCH — same shape as saveTruck. `driver_phone`
+  // (R28) is intentionally absent: it is its own cell with its own history and
+  // was typed by operators, so picking a driver must not overwrite it.
+  const saveDriver = useCallback(
+    (fields: { driver_id: number | null; driver_name: string }) => {
+      const before = {
+        driver_id: shipment.driver_id,
+        driver_name: shipment.driver_name,
+      };
+      const undoId = recordMultiEntry(shipment.id, before, fields);
+      patchMultiMutation.mutate(
+        { id: shipment.id, fields },
+        undoId === -1
+          ? undefined
+          : {
+              onError: () => dropEntry(undoId),
+              onSuccess: (data) => {
+                const d = data as Record<string, unknown>;
+                setEntryAfter(
+                  undoId,
+                  {
+                    driver_id: d.driver_id !== undefined ? d.driver_id : fields.driver_id,
+                    driver_name: d.driver_name !== undefined ? d.driver_name : fields.driver_name,
+                  },
+                  cascadeFrom(shipment, d),
+                );
+              },
+            },
+      );
+      close();
+    },
+    [patchMultiMutation, shipment, close],
+  );
+
   // Type-to-edit commit-and-hop for text-like inputs (text / phone / number /
   // the R26 combined cell). While seeded, an arrow key commits the current
   // value and moves the selection one cell over (via setPendingNav, consumed by
@@ -438,6 +475,20 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
           initialHeadId={shipment.truck_head_id}
           initialTrailerId={shipment.trailer_id}
           onCommit={saveTruck}
+          onClose={close}
+        />
+      );
+    }
+
+    // Same shape one row down: driver_name picks from the Z_TIRWEB driver
+    // registry, writing driver_id alongside the name. Gapy shipments are local
+    // buyers' own trucks and own drivers — same HARD RULE as truck_plate — and
+    // fall through to the plain text input below.
+    if (rowConfig.field_key === 'driver_name' && !shipment.is_gapy_satys) {
+      return (
+        <SheetDriverSelectEditor
+          initialDriverId={shipment.driver_id}
+          onCommit={saveDriver}
           onClose={close}
         />
       );

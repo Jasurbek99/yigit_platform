@@ -2469,6 +2469,7 @@
     "section_notes": "Bellikler",
     "add_truck": "Çekiji goş \"{{plate}}\"",
     "add_trailer": "Tirkeg goş \"{{plate}}\"",
+    "add_driver": "Sürüji goş \"{{name}}\"",
     "field": {
       "country": "Ýurt",
       "customer": "Müşderi",
