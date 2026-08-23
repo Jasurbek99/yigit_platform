@@ -23,6 +23,9 @@ vi.mock('@/hooks/useFleet', () => ({
   }),
   useCreateTruckHead: () => ({ mutateAsync: createHead, isPending: false }),
   useCreateTrailer: () => ({ mutateAsync: createTrailer, isPending: false }),
+  // ShipmentDriverSelector -> DriverSelect pulls the registry hooks.
+  useDrivers: () => ({ data: [{ id: 5, name: 'ABRAY ANNAKULYYEW', phone: null, is_active: true }] }),
+  useCreateDriver: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
 const toastError = vi.fn();

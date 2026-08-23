@@ -31,6 +31,9 @@ vi.mock('@/hooks/useFleet', () => ({
   // ShipmentTruckSelector's inline "+ Add" (SP3c) also pulls the create hooks.
   useCreateTruckHead: () => ({ mutateAsync: vi.fn() }),
   useCreateTrailer: () => ({ mutateAsync: vi.fn() }),
+  // ShipmentDriverSelector -> DriverSelect pulls the registry hooks.
+  useDrivers: () => ({ data: [{ id: 5, name: 'ABRAY ANNAKULYYEW', phone: null, is_active: true }] }),
+  useCreateDriver: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
 // FieldEditor unconditionally calls every reference-data hook it might need
@@ -79,6 +82,22 @@ describe('ShipmentEditDrawer — truck_plate injection', () => {
     expect(screen.getByDisplayValue('01ABC123')).toBeInTheDocument();
   });
 
+  it('renders ShipmentDriverSelector instead of the plain driver_name field for a non-Gapy shipment', () => {
+    // A free-text name here would leave driver_id pointing at a previous pick —
+    // a link that is wrong rather than absent. Same injection as truck_plate.
+    wrap({ ...MOCK_SHIPMENT_DETAIL, is_gapy_satys: false });
+
+    expect(screen.getByRole('combobox', { name: 'Driver name' })).toBeInTheDocument();
+    // The plain-text driver_name input (value 'Driver Test') must NOT also render.
+    expect(screen.queryByDisplayValue(MOCK_SHIPMENT_DETAIL.driver_name ?? '')).not.toBeInTheDocument();
+  });
+
+  it('keeps the plain driver_name text field for a Gapy-Satys shipment (buyer brings his own driver)', () => {
+    wrap({ ...MOCK_SHIPMENT_DETAIL, is_gapy_satys: true });
+
+    expect(screen.getByDisplayValue(MOCK_SHIPMENT_DETAIL.driver_name ?? '')).toBeInTheDocument();
+  });
+
   // Regression: ShipmentTruckSelector (rendered by this drawer for
   // non-Gapy-Satys shipments) PATCHes immediately and its onSettled
   // invalidates the shipment detail query. While the drawer is still open,
@@ -98,12 +117,17 @@ describe('ShipmentEditDrawer — truck_plate injection', () => {
       </QueryClientProvider>,
     );
 
-    const driverInput = screen
-      .getByText('Driver name')
+    // Staged on driver_phone rather than driver_name: since the registry
+    // picker landed, driver_name is a Select for a non-Gapy shipment (same as
+    // truck_plate), so it has no text input to stage into. Any plain text field
+    // in this group serves the purpose — the assertion is about staged state
+    // surviving a refetch, not about which field holds it.
+    const phoneInput = screen
+      .getByText('Driver phone')
       .closest('.ant-form-item')!
       .querySelector('input') as HTMLInputElement;
-    await userEvent.clear(driverInput);
-    await userEvent.type(driverInput, 'Amanov');
+    await userEvent.clear(phoneInput);
+    await userEvent.type(phoneInput, '+99365000111');
 
     expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
 
@@ -117,7 +141,7 @@ describe('ShipmentEditDrawer — truck_plate injection', () => {
       </QueryClientProvider>,
     );
 
-    expect(screen.getByDisplayValue('Amanov')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('+99365000111')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
   });
 });

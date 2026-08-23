@@ -2,7 +2,8 @@ import { useTranslation } from 'react-i18next';
 import { DetailFieldRow } from '@/components/shipment/DetailFieldRow';
 import { ShipmentFieldGroup } from '@/components/shipment/ShipmentFieldGroup';
 import { ShipmentTruckSelector } from '@/components/shipment/ShipmentTruckSelector';
-import { TRUCK_PLATE_FIELD } from '@/constants/shipmentEditConfig';
+import { ShipmentDriverSelector } from '@/components/shipment/ShipmentDriverSelector';
+import { TRUCK_PLATE_FIELD, DRIVER_NAME_FIELD } from '@/constants/shipmentEditConfig';
 import { InfoRow } from '@/pages/export/ShipmentDetailHelpers';
 import { fmt } from '@/pages/export/ShipmentDetailHelpers.helpers';
 import type { IShipmentDetail } from '@/types';
@@ -21,12 +22,16 @@ interface IShipmentTransportBodyProps {
  * the border/arrival timestamps, which are read-only because only
  * `transition_to()` writes them.
  *
- * `truck_plate` (the group's first field) renders standalone ahead of the
- * rest of the group — Gapy-Satys shipments (no fleet linkage) keep the plain
- * text `DetailFieldRow`, everyone else gets `ShipmentTruckSelector` (fleet
- * head/trailer dropdowns that derive `truck_plate`). Same pull-one-field-out
- * pattern as `harvest_status` in ShipmentGoodsBody — `excludeKeys` skips it
- * in the group loop so the completeness chip still counts it once.
+ * `truck_plate` and `driver_name` (the group's first two fields) render
+ * standalone ahead of the rest of the group — Gapy-Satys shipments (no fleet
+ * linkage, buyer's own truck and own driver) keep the plain text
+ * `DetailFieldRow`, everyone else gets `ShipmentTruckSelector` (fleet
+ * head/trailer dropdowns that derive `truck_plate`) and
+ * `ShipmentDriverSelector` (registry dropdown that writes `driver_id`
+ * alongside the name). Same pull-one-field-out pattern as `harvest_status` in
+ * ShipmentGoodsBody — `excludeKeys` skips them in the group loop so the
+ * completeness chip still counts each once. `driver_phone` deliberately stays
+ * inside the group as a plain text row.
  */
 export function ShipmentTransportBody({
   shipment,
@@ -63,6 +68,22 @@ export function ShipmentTransportBody({
           <ShipmentTruckSelector shipment={shipment} readOnly={readOnly} />
         </div>
       )}
+      {shipment.is_gapy_satys ? (
+        <DetailFieldRow
+          shipment={shipment}
+          config={DRIVER_NAME_FIELD}
+          readOnly={readOnly}
+          isMissing={missingKeys.has(DRIVER_NAME_FIELD.key)}
+          onOpenComments={onOpenComments ? () => onOpenComments(DRIVER_NAME_FIELD.key) : undefined}
+          commentCount={commentCountsByField?.[DRIVER_NAME_FIELD.key] ?? 0}
+        />
+      ) : (
+        // Same id-wrapper reason as truck_plate above — the selector has no
+        // built-in id, and jumpToField targets #detail-field-driver_name.
+        <div id="detail-field-driver_name">
+          <ShipmentDriverSelector shipment={shipment} readOnly={readOnly} />
+        </div>
+      )}
       <ShipmentFieldGroup
         shipment={shipment}
         groupKey="transport"
@@ -70,7 +91,7 @@ export function ShipmentTransportBody({
         readOnly={readOnly}
         onOpenComments={onOpenComments}
         commentCountsByField={commentCountsByField}
-        excludeKeys={[TRUCK_PLATE_FIELD.key]}
+        excludeKeys={[TRUCK_PLATE_FIELD.key, DRIVER_NAME_FIELD.key]}
       />
       <div style={{ marginTop: 12 }}>
         {timestamps.map(([labelKey, value]) => (

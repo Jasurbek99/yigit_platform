@@ -1,9 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Button, Select } from 'antd';
+import { Button } from 'antd';
 import { useTranslation } from 'react-i18next';
-import { toast } from 'sonner';
-import { useDrivers, useCreateDriver } from '@/hooks/useFleet';
+import { DriverSelect } from '@/components/DriverSelect';
 
 interface ISheetDriverSelectEditorProps {
   initialDriverId: number | null;
@@ -23,9 +22,11 @@ interface ISheetDriverSelectEditorProps {
  * with its own comment thread and edit history, and 80 of the values in it were
  * typed by operators. Picking a driver must not reach across and overwrite it.
  *
- * The portal / position:fixed / one-shot-measure / dropdown-exclusion /
- * scroll-commit machinery below is copied from SheetTruckSelectEditor rather
- * than shared — see that file for why each piece exists.
+ * The option list, filtering and inline-add live in the shared `DriverSelect`
+ * (frontend/CLAUDE.md's self-fetching-control rule); only the portal /
+ * position:fixed / one-shot-measure / dropdown-exclusion / scroll-commit
+ * machinery is local, copied from SheetTruckSelectEditor — see that file for
+ * why each piece exists.
  */
 export default function SheetDriverSelectEditor({
   initialDriverId,
@@ -33,19 +34,14 @@ export default function SheetDriverSelectEditor({
   onClose,
 }: ISheetDriverSelectEditorProps) {
   const { t } = useTranslation();
-  const { data: drivers } = useDrivers();
-  const createDriver = useCreateDriver();
 
   const [driverId, setDriverId] = useState<number | null>(initialDriverId);
-  const [search, setSearch] = useState('');
+  const [driverName, setDriverName] = useState('');
 
   const anchorRef = useRef<HTMLSpanElement>(null);
   const [coords, setCoords] = useState({ top: 0, left: 0 });
   const panelRef = useRef<HTMLDivElement>(null);
   const committedRef = useRef(false);
-  // A just-created driver isn't in `drivers` yet (list refetch is async) —
-  // remember the name so commit() sends the real one, not a lookup miss.
-  const createdName = useRef<string | undefined>(undefined);
 
   function commit() {
     if (committedRef.current) return;
@@ -54,8 +50,10 @@ export default function SheetDriverSelectEditor({
       onClose();
       return;
     }
-    const name = createdName.current ?? (drivers ?? []).find((d) => d.id === driverId)?.name ?? '';
-    onCommit({ driver_id: driverId, driver_name: name });
+    // DriverSelect hands back the name with the id (including for a row it just
+    // created, which the list refetch hasn't landed yet), so there is nothing
+    // to look up here.
+    onCommit({ driver_id: driverId, driver_name: driverName });
   }
 
   const commitRef = useRef(commit);
@@ -87,24 +85,6 @@ export default function SheetDriverSelectEditor({
     return () => window.removeEventListener('scroll', handleScroll, true);
   }, []);
 
-  const norm = (s: string) => s.trim().toUpperCase();
-  const nameExists = (drivers ?? []).some((d) => norm(d.name) === norm(search));
-
-  async function addDriver() {
-    // Registry names are stored upper-case (that is how Z_TIRWEB holds all 152),
-    // so an inline add matches rather than creating a near-duplicate.
-    const name = search.trim().toUpperCase();
-    if (!name) return;
-    try {
-      const created = await createDriver.mutateAsync(name);
-      createdName.current = created.name;
-      setDriverId(created.id);
-      setSearch('');
-    } catch {
-      toast.error(t('shipment_edit_drawer.save_error'));
-    }
-  }
-
   return (
     <>
       <span ref={anchorRef} />
@@ -133,44 +113,14 @@ export default function SheetDriverSelectEditor({
             padding: 8,
           }}
         >
-          <Select
-            aria-label={t('shipment_edit_drawer.field.driver_name')}
+          <DriverSelect
             autoFocus
-            showSearch
-            allowClear
+            value={driverId}
             style={{ width: '100%', marginBottom: 8 }}
-            value={driverId ?? undefined}
-            options={(drivers ?? []).map((d) => ({ value: d.id, label: d.name }))}
-            filterOption={(input, option) =>
-              ((option?.label as string) ?? '').toLowerCase().includes(input.toLowerCase())
-            }
-            popupMatchSelectWidth={false}
-            searchValue={search}
-            onSearch={setSearch}
-            onChange={(v) => {
-              // A manual pick/clear supersedes any earlier inline-add — the
-              // registry lookup in commit() is authoritative again.
-              createdName.current = undefined;
-              setDriverId((v as number) ?? null);
-              setSearch('');
+            onChange={(id, name) => {
+              setDriverId(id);
+              setDriverName(name);
             }}
-            placeholder={t('shipment_edit_drawer.field.driver_name')}
-            dropdownRender={(menu) => (
-              <>
-                {menu}
-                {search.trim() && !nameExists && (
-                  <Button
-                    type="text"
-                    loading={createDriver.isPending}
-                    style={{ width: '100%', textAlign: 'left' }}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={addDriver}
-                  >
-                    {t('shipment_edit_drawer.add_driver', { name: search.trim().toUpperCase() })}
-                  </Button>
-                )}
-              </>
-            )}
           />
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <Button size="small" type="primary" onClick={commit}>

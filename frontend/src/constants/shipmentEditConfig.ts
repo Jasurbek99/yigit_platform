@@ -82,6 +82,18 @@ export const TRUCK_PLATE_FIELD: IEditFieldConfig = {
   inputType: 'text',
 };
 
+/**
+ * Same pull-one-field-out arrangement as TRUCK_PLATE_FIELD, one row down:
+ * non-Gapy-Satys shipments pick the driver from the Z_TIRWEB registry via
+ * ShipmentDriverSelector (which writes driver_id alongside the name), Gapy ones
+ * keep this plain-text row. Exported so both renderers reference one config.
+ */
+export const DRIVER_NAME_FIELD: IEditFieldConfig = {
+  key: 'driver_name',
+  labelKey: 'shipment_edit_drawer.field.driver_name',
+  inputType: 'text',
+};
+
 export const EDIT_FIELD_GROUPS: IEditFieldGroup[] = [
   {
     key: 'logistics',
@@ -99,7 +111,7 @@ export const EDIT_FIELD_GROUPS: IEditFieldGroup[] = [
     titleKey: 'shipment_edit_drawer.section_transport',
     fields: [
       TRUCK_PLATE_FIELD,
-      { key: 'driver_name', labelKey: 'shipment_edit_drawer.field.driver_name', inputType: 'text' },
+      DRIVER_NAME_FIELD,
       { key: 'driver_phone', labelKey: 'shipment_edit_drawer.field.driver_phone', inputType: 'text' },
       { key: 'vehicle_responsible', labelKey: 'shipment_edit_drawer.field.vehicle_responsible', inputType: 'option_select', optionsSource: 'transportUsers' },
       { key: 'vehicle_condition', labelKey: 'shipment_edit_drawer.field.vehicle_condition', inputType: 'option_select', optionsSource: 'vehicleCondition' },

@@ -4,11 +4,12 @@ import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { FieldEditor } from '@/components/FieldEditor';
 import { ShipmentTruckSelector } from '@/components/shipment/ShipmentTruckSelector';
+import { ShipmentDriverSelector } from '@/components/shipment/ShipmentDriverSelector';
 import { useShipmentPatchMulti } from '@/hooks/useShipmentPatch';
 import { useAuth } from '@/hooks/useAuth';
 import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
 import { canEditField } from '@/utils/permissions';
-import { EDIT_FIELD_GROUPS, TRUCK_PLATE_FIELD } from '@/constants/shipmentEditConfig';
+import { EDIT_FIELD_GROUPS, TRUCK_PLATE_FIELD, DRIVER_NAME_FIELD } from '@/constants/shipmentEditConfig';
 import type { IEditFieldGroup, IEditFieldConfig } from '@/constants/shipmentEditConfig';
 import type { IShipmentDetail } from '@/types';
 import { COLORS } from '@/constants/styles';
@@ -190,6 +191,17 @@ export function ShipmentEditDrawer({
                   return (
                     <div key={field.key} style={{ marginBottom: 12 }}>
                       <ShipmentTruckSelector shipment={shipment} readOnly={patch.isPending || isReadOnly} />
+                    </div>
+                  );
+                }
+                // Same branch for the driver: a free-text name here would leave
+                // driver_id pointing at whoever was picked before, so the link
+                // would be wrong rather than merely absent. Gapy shipments fall
+                // through to the plain row (buyer's own driver).
+                if (field.key === DRIVER_NAME_FIELD.key && !shipment.is_gapy_satys) {
+                  return (
+                    <div key={field.key} style={{ marginBottom: 12 }}>
+                      <ShipmentDriverSelector shipment={shipment} readOnly={patch.isPending || isReadOnly} />
                     </div>
                   );
                 }

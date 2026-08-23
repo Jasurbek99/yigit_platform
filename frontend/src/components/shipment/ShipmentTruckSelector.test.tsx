@@ -20,6 +20,9 @@ vi.mock('@/hooks/useFleet', () => ({
   useTrailers: () => ({ data: [{ id: 1, plate_number: '2602TAH', owner_type: 'company', status: 'idle', is_active: true }] }),
   useCreateTruckHead: () => ({ mutateAsync: createHead, isPending: false }),
   useCreateTrailer: () => ({ mutateAsync: createTrailer, isPending: false }),
+  // ShipmentDriverSelector -> DriverSelect pulls the registry hooks.
+  useDrivers: () => ({ data: [{ id: 5, name: 'ABRAY ANNAKULYYEW', phone: null, is_active: true }] }),
+  useCreateDriver: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
 function wrap(ui: React.ReactNode) {
