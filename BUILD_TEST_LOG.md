@@ -1,13 +1,28 @@
 # Build / Test Log
 
+- [ ] 2026-08-23 — **`fix_quota_issuance_seasons` command + season-2026-2027 test data deleted.**
+  The command re-stamps a quota issuance to the season its `issue_date` falls in — run
+  `python manage.py fix_quota_issuance_seasons --dry-run` (it currently reports
+  "Nothing to re-stamp", which is correct: no issuance is mis-stamped any more). **Test after
+  the next quota arrives:** enter it on `/export/quota` while the switcher is on the OLD season,
+  then run the dry-run — it must name that issuance and the target season; run it for real and
+  the Sheet's firm cell must offer that firm within a minute (60 s cache). **Data half:** the 26
+  test quota-usage rows (ids 992-1017) are deleted, so `/export/quota` on 2026-2027 should now
+  show 0 issued / 0 used everywhere and the Firm breakdown should be empty. Backup of the deleted
+  rows: `scratchpad/deleted_quota_usage_992_1017.json`. — NEEDS TEST
+
+- [ ] 2026-08-23 — **Picking a driver now fills the phone (R28) — but only when the registry has one.** New `driverPatchFields()` in `DriverSelect.tsx` is the single place the rule lives: always `driver_id` + `driver_name`, plus `driver_phone` **only if the registry row holds a non-blank number**. Z_TIRWEB supplies no phones at all while 80 of the 146 shipments carry one typed by hand, so an unconditional write could only erase their work; a real phone entered in the Drivers tab is newer information and does replace what is there. Clearing the driver leaves R28 untouched. Applies to all three surfaces (Sheet R27, Detail card, edit drawer) since they all go through `DriverSelect`, whose `onChange` now emits `(id, name, phone)`. The Sheet's undo snapshot carries `driver_phone` only on patches that actually write it — otherwise undo would restore a field the PATCH never touched. **Workflow this unlocks:** fill a driver's phone once in Fleet Admin and it follows him onto every future shipment. **Tests:** frontend 445/445 across 62 files (4 new — phone rides along, blank never overwrites, clearing leaves it alone, and the sheet patch + undo snapshot). `tsc --noEmit` clean. Backend untouched. — NEEDS TEST
 - [ ] 2026-08-23 — **Quota expiry now applied to the Sheet's firm-split gate (`compute_firm_quota_balances`).**
   A lapsed issuance no longer counts as quota. **Read this before testing:** on the live DB the
   active season is now **2026-2027**, which holds usage but **zero issuances** (all 25, including
   yesterday's HG row #35, are stamped 2025-2026). So on the active season **no firm is selectable**
   in the `firm_splits` cell — every one tagged `⚠ no quota` and disabled. That is the season-stamp
   gap, NOT this change: the same screen blocked every firm before it too. The expiry fix is
-  observable on **2025-2026** (`?season=1`), where 21 firms with a balance drop to **1** — HG,
-  1,215,000 kg. **Test:** (1) on `?season=1`, only HG selectable; (2) a shipment that already has
+  observable on **2025-2026** (`?season=1`), where 21 firms with a balance dropped to **1** — HG.
+  **That last live firm is gone too**: the owner deleted issuances #33-35 as test data later the
+  same day, so BOTH seasons now show zero firms with quota and the gate blocks everyone until a
+  real issuance is entered. **Test once quota exists:** (1) only the firms on that issuance are
+  selectable, everyone else tagged `⚠ no quota`; (2) a shipment that already has
   e.g. MA on its split still saves when edited — existing firms are exempt from the block;
   (3) `POST /shipments/{id}/firm-splits/` with a new no-quota firm returns 400 "has no remaining
   quota"; (4) the Quota dashboard's *expired unused* column agrees about which firms have lapsed.
