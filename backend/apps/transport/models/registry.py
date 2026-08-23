@@ -26,10 +26,23 @@ class Truck(models.Model):
 
 
 class Driver(models.Model):
-    """Driver registry."""
+    """Driver registry, seeded from Z_TIRWEB with source ids preserved."""
 
     name = models.CharField(max_length=100, **cyrillic_collation())
     phone = models.CharField(max_length=30, null=True, blank=True)
+    # Accounting identity in the Logo system, carried over from Z_TIRWEB.
+    # `driver_logo_code` ('195.02.S008') is the reliable "same person" key —
+    # names are not: the source holds one person twice with the words swapped
+    # (SALAROW TOYLY / TOYLY SALAROW, both 195.02.S008) and two different people
+    # under one identical name (BATYROW BAYRAMMYRAT, ids 30/31, distinct codes).
+    # Deliberately NOT unique: the source itself violates that today, and a
+    # constraint would make the import fail instead of deduplicating.
+    logo_ref = models.CharField(max_length=100, blank=True, default='')
+    driver_logo_code = models.CharField(max_length=120, blank=True, default='')
+    # Absent from the import's upsert defaults on purpose, so a deactivate
+    # survives a re-run. That is what makes deactivation — not deletion — the
+    # right way to retire a duplicate: Z_TIRWEB still holds the row, so a delete
+    # would simply come back on the next import.
     is_active = models.BooleanField(default=True)
 
     class Meta:

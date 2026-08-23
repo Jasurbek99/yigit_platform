@@ -17,10 +17,17 @@ def _client():
     c.get_trailers.return_value = [
         {'id': 1, 'plate_number': '2602TAH', 'owner_type': 'company', 'status': 'idle'},
     ]
-    # Mirrors production: Z_TIRWEB stores no phone for any driver (NULL or '').
+    # Mirrors production: Z_TIRWEB stores no phone for any driver (NULL or ''),
+    # and ids 99/113 are one person under two spellings, sharing a Logo code.
     c.get_drivers.return_value = [
-        {'id': 5, 'full_name': 'ABRAY ANNAKULYYEW', 'phone': '', 'is_active': True},
-        {'id': 7, 'full_name': 'ARNAGELDIYEW ALLAYAR', 'phone': None, 'is_active': True},
+        {'id': 5, 'full_name': 'ABRAY ANNAKULYYEW', 'phone': '', 'is_active': True,
+         'logo_ref': '318', 'driver_logo_code': '195.02.A001'},
+        {'id': 7, 'full_name': 'ARNAGELDIYEW ALLAYAR', 'phone': None, 'is_active': True,
+         'logo_ref': '337', 'driver_logo_code': '195.02.A003'},
+        {'id': 99, 'full_name': 'SALAROW TOYLY', 'phone': None, 'is_active': True,
+         'logo_ref': '1664', 'driver_logo_code': '195.02.S008'},
+        {'id': 113, 'full_name': 'TOYLY SALAROW', 'phone': None, 'is_active': True,
+         'logo_ref': '1664', 'driver_logo_code': '195.02.S008'},
     ]
     return c
 
@@ -39,18 +46,21 @@ class ImportFleetTests(TestCase):
         self.assertIsNotNone(th.traccar_device)          # matched by plate
         self.assertIsNone(TruckHead.objects.get(id=124).traccar_device)  # no device
         self.assertEqual(Trailer.objects.get(id=1).plate_number, '2602TAH')
-        self.assertEqual(result['drivers'], 2)
+        self.assertEqual(result['drivers'], 4)
         self.assertEqual(Driver.objects.get(id=5).name, 'ABRAY ANNAKULYYEW')  # id preserved
         # phone/is_active are NOT in the upsert defaults — see _import_drivers.
         self.assertIsNone(Driver.objects.get(id=5).phone)
         self.assertTrue(Driver.objects.get(id=7).is_active)
+        # Logo accounting identifiers carried over.
+        self.assertEqual(Driver.objects.get(id=5).logo_ref, '318')
+        self.assertEqual(Driver.objects.get(id=5).driver_logo_code, '195.02.A001')
 
     def test_import_is_idempotent(self):
         import_fleet(client=_client())
         import_fleet(client=_client())
         self.assertEqual(TruckHead.objects.count(), 2)
         self.assertEqual(Trailer.objects.count(), 1)
-        self.assertEqual(Driver.objects.count(), 2)
+        self.assertEqual(Driver.objects.count(), 4)
 
     def test_reimport_preserves_platform_side_driver_edits(self):
         # Mirrors the TruckHead/Trailer contract documented in the fleet-map
@@ -82,3 +92,38 @@ class ImportFleetTests(TestCase):
         import_fleet(client=_client())
         th = TruckHead.objects.get(id=13)
         self.assertEqual(th.traccar_device_id, positioned.id)
+
+    def test_same_logo_code_duplicate_is_deactivated_keeping_lowest_id(self):
+        # 99 and 113 are one person spelled two ways, both on 195.02.S008.
+        import_fleet(client=_client())
+        self.assertTrue(Driver.objects.get(id=99).is_active)
+        self.assertFalse(Driver.objects.get(id=113).is_active)
+        # The row is retired, not removed — Z_TIRWEB still holds it, so a delete
+        # would come back on the next import.
+        self.assertTrue(Driver.objects.filter(id=113).exists())
+
+    def test_identical_names_with_different_logo_codes_both_stay_active(self):
+        # The inverse case: BATYROW BAYRAMMYRAT is two different people (ids
+        # 30/31 in production) and only the codes tell them apart.
+        client = _client()
+        client.get_drivers.return_value = [
+            {'id': 30, 'full_name': 'BATYROW BAYRAMMYRAT', 'phone': None, 'is_active': True,
+             'logo_ref': '1754', 'driver_logo_code': '195.02.B010'},
+            {'id': 31, 'full_name': 'BATYROW BAYRAMMYRAT', 'phone': None, 'is_active': True,
+             'logo_ref': '1841', 'driver_logo_code': '195.02.B011'},
+        ]
+        import_fleet(client=client)
+        self.assertTrue(Driver.objects.get(id=30).is_active)
+        self.assertTrue(Driver.objects.get(id=31).is_active)
+
+    def test_blank_logo_code_is_not_treated_as_sameness(self):
+        client = _client()
+        client.get_drivers.return_value = [
+            {'id': 60, 'full_name': 'A ONE', 'phone': None, 'is_active': True,
+             'logo_ref': '', 'driver_logo_code': ''},
+            {'id': 61, 'full_name': 'B TWO', 'phone': None, 'is_active': True,
+             'logo_ref': '', 'driver_logo_code': ''},
+        ]
+        import_fleet(client=client)
+        self.assertTrue(Driver.objects.get(id=60).is_active)
+        self.assertTrue(Driver.objects.get(id=61).is_active)

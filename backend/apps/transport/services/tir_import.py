@@ -40,18 +40,44 @@ def _import_trailers(client: TirClient) -> int:
     return len(rows)
 
 
-def _import_drivers(client: TirClient) -> int:
-    """Upsert Driver rows.
+def _deactivate_duplicate_drivers() -> int:
+    """Retire drivers that share a Logo account code, keeping the lowest id.
 
-    `name` is the ONLY field in `defaults`, matching the TruckHead/Trailer
-    convention that a re-import must not clobber platform-side edits.
-    Deliberately excluded:
+    `driver_logo_code` is the accounting identity, so two rows carrying the same
+    code are the same person however their name is spelled — Z_TIRWEB holds
+    `SALAROW TOYLY` (id 99) and `TOYLY SALAROW` (id 113) under 195.02.S008.
+    Names cannot decide this either way: the source also holds two *different*
+    people under one identical name (BATYROW BAYRAMMYRAT, ids 30/31), and they
+    are correctly kept apart by their distinct codes.
+
+    Deactivates rather than deletes: Z_TIRWEB still holds the row, so a delete
+    would return on the next import, whereas `is_active` is absent from the
+    upsert defaults and therefore survives. Rows with a blank code are skipped —
+    an empty string is not evidence of sameness.
+
+    Consequence worth knowing: this runs on every import, so a duplicate an
+    operator deliberately re-activated will be deactivated again.
+    """
+    seen: dict[str, int] = {}
+    retired = 0
+    for driver in Driver.objects.exclude(driver_logo_code='').order_by('id'):
+        keeper = seen.setdefault(driver.driver_logo_code, driver.id)
+        if keeper != driver.id and driver.is_active:
+            Driver.objects.filter(id=driver.id).update(is_active=False)
+            retired += 1
+    return retired
+
+
+def _import_drivers(client: TirClient) -> int:
+    """Upsert Driver rows, then retire same-Logo-code duplicates.
+
+    `defaults` carries only the fields Z_TIRWEB is authoritative for — `name`
+    and the two Logo accounting identifiers. Deliberately excluded:
       - `phone` — Z_TIRWEB holds no phone for any driver and never will, so
         including it would give a re-run exactly one possible effect: nulling
         whatever an operator typed here.
       - `is_active` — a manual deactivate must survive a re-run, same as heads
-        and trailers. All 152 source rows are active, so on create the model
-        default already matches the source.
+        and trailers, and the duplicate retirement below depends on it.
     This import never touches Shipment.driver_name/driver_phone — those stay the
     operator-entered text they are.
     """
@@ -59,8 +85,13 @@ def _import_drivers(client: TirClient) -> int:
     for row in rows:
         Driver.objects.update_or_create(
             id=row['id'],
-            defaults={'name': row['full_name']},
+            defaults={
+                'name': row['full_name'],
+                'logo_ref': row.get('logo_ref') or '',
+                'driver_logo_code': row.get('driver_logo_code') or '',
+            },
         )
+    _deactivate_duplicate_drivers()
     return len(rows)
 
 

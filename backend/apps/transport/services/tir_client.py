@@ -41,5 +41,5 @@ class TirClient:
 
     def get_drivers(self) -> list[dict]:
         return self._rows(
-            'SELECT id, full_name, phone, is_active FROM drivers'
+            'SELECT id, full_name, phone, is_active, logo_ref, driver_logo_code FROM drivers'
         )
