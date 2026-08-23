@@ -501,6 +501,33 @@ selects, no GPS):
   with Sheet **undo capture** (`recordMultiEntry` → `setEntryAfter`). Gapy cells fall through to
   the ordinary `input_type: 'text'` `<Input>`.
 
+### Shipment driver selector (2026-08-20)
+
+`driver_name` gets the identical treatment one field down, for the identical reason: edited as
+free text it left `driver_id` pointing at whoever was picked before, so the link became **wrong
+rather than merely absent**. Rendered in the same three places behind the same `is_gapy_satys`
+branch — `ShipmentTransportBody.tsx`, `ShipmentEditDrawer.tsx`, and the Sheet R27 cell — and
+each writes `driver_id` + `driver_name` in one PATCH.
+
+`DRIVER_NAME_FIELD` is exported from `shipmentEditConfig.ts` and listed in `excludeKeys`
+alongside `TRUCK_PLATE_FIELD`, so the field group renders it once, standalone, and the
+completeness chip still counts it. `driver_phone` deliberately stays an ordinary text row.
+
+The option list, filtering and inline "+ Add" live in one self-fetching control,
+`components/DriverSelect.tsx` (frontend/CLAUDE.md's STRICT rule for selects that own their
+query). It feeds on `useDrivers()` — **active-only**, unlike the admin tab's
+`include_inactive=true` — and its `onChange` emits `(id, name)` rather than the id alone,
+because every consumer must write both columns and they must never drift apart. Clearing emits
+`(null, '')`. `ShipmentDriverSelector` wraps it for the card/drawer (saves on change, with an
+early return when the pick is unchanged so a no-op costs no PATCH or audit row);
+`SheetDriverSelectEditor` wraps it in the portal/scroll-commit overlay and defers to Done.
+
+**Known limitation, shared by all three:** the "+ Add" guard compares names exactly (trim +
+uppercase), like the truck picker — correct for plates, which are codes, but driver names
+disagree on transliteration (`Abayev`/`Abayew`), so an operator can still create a duplicate of
+someone already in the registry. Fixing it means normalising the dropdown filter and the
+exists-check together.
+
 The `"{head}/{trailer}"` composition is a shared helper, `composeTruckPlate()`
 (`frontend/src/utils/truckPlate.ts`), used by both the drawer selector and the Sheet editor so
 the two surfaces can't diverge on the string.
@@ -536,8 +563,9 @@ import made those values resolvable for the first time, without any schema chang
 only driver identity in operational data is the free text `driver_name` (85/146) and
 `driver_phone` (80/146), written on Sheet rows 27/28.
 
-**`driver_id` is written from Sheet R27** (2026-08-20). `SheetDriverSelectEditor` commits it
-together with `driver_name` in one PATCH — see
+**`driver_id` is written from all three driver pickers** (2026-08-20) — Sheet R27, the
+ShipmentDetail transport card, and the edit drawer — each committing it together with
+`driver_name` in one PATCH. See *Shipment driver selector* below and
 [[../screens/shipment-sheet]]. The 146 pre-existing shipments were **not** backfilled
 (owner's call): their `driver_id` stays NULL and `driver_name` stays the text it always was,
 so expect a long mixed period where some rows are registry-linked and some are not. Nothing
