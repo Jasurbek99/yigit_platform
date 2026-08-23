@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeAll } from 'vitest';
+import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -44,11 +44,17 @@ vi.mock('@/hooks/useShipmentPatch', () => ({
   extractPatchError: (_err: unknown, fallback: string) => fallback,
 }));
 
+// Mutable so the firm_splits tests can vary the dropdown's firm list.
+const mockFirms: { id: number; code: string; name_tk: string; name_en: string | null; is_active: boolean }[] = [
+  { id: 1, code: 'YGT', name_tk: 'Yigit H.J.', name_en: null, is_active: true },
+  { id: 2, code: 'OY', name_tk: 'Oguz Yoly', name_en: null, is_active: true },
+];
+
 vi.mock('@/hooks/useAdmin', () => ({
   useCountries: () => ({ data: [] }),
   useCities: () => ({ data: [] }),
   useCustomers: () => ({ data: [] }),
-  useAdminFirms: () => ({ data: [] }),
+  useAdminFirms: () => ({ data: mockFirms }),
   useAdminImportFirms: () => ({ data: [] }),
   useGreenhouseBlocks: () => ({ data: [] }),
   useTomatoVarieties: () => ({ data: [] }),
@@ -56,8 +62,17 @@ vi.mock('@/hooks/useAdmin', () => ({
   useShipmentOptions: () => ({ data: [] }),
 }));
 
+// Mutable per test: undefined = still loading (no warnings, no link).
+let mockBalances: Record<string, { remaining_kg: number }> | undefined;
 vi.mock('@/hooks/useQuotaDashboard', () => ({
-  useQuotaFirmBalances: () => ({ data: undefined }),
+  useQuotaFirmBalances: () => ({ data: mockBalances }),
+}));
+
+// Drives the quota-page link's permission gate. Also keeps useAuth's internal
+// useNavigate out of these tests (they render without a Router).
+let mockUser: { is_superuser: boolean; page_permissions: Record<string, boolean> } | null = null;
+vi.mock('@/hooks/useAuth', () => ({
+  useAuth: () => ({ user: mockUser, isLoading: false, isError: false }),
 }));
 
 vi.mock('@/hooks/undoCapture', () => ({
@@ -182,6 +197,54 @@ describe('SheetCellEditor — driver_name cell', () => {
 
     expect(screen.queryByText('driver-commit-stub')).not.toBeInTheDocument();
     expect(screen.getByDisplayValue('Ashyr Ashyrow')).toBeInTheDocument();
+  });
+});
+
+const FIRM_SPLITS_ROW: IRowConfig = {
+  row_number: 9,
+  field_key: 'firm_splits',
+  default_who_key: 'sheet.who.export',
+  label_key: 'sheet.row.firm_splits',
+  input_type: 'multiselect',
+  style: 'key',
+};
+
+// A firm with no quota left is disabled in the dropdown — the only way out is
+// the quota page, so the footer offers a link to it.
+describe('SheetCellEditor — firm_splits quota link', () => {
+  beforeAll(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  beforeEach(() => {
+    mockUser = { is_superuser: false, page_permissions: { 'export.quota': true } };
+    mockBalances = undefined;
+  });
+
+  const LINK = 'Open quota page →';
+
+  it('renders the link when a listed firm has no remaining quota', () => {
+    mockBalances = { '1': { remaining_kg: 5000 }, '2': { remaining_kg: 0 } };
+    wrap(MOCK_SHEET_DATA[0], FIRM_SPLITS_ROW);
+
+    const link = screen.getByText(LINK).closest('a');
+    expect(link).toHaveAttribute('href', '/export/quota');
+    expect(link).toHaveAttribute('target', '_blank');
+  });
+
+  it('hides the link when every listed firm still has quota', () => {
+    mockBalances = { '1': { remaining_kg: 5000 }, '2': { remaining_kg: 1200 } };
+    wrap(MOCK_SHEET_DATA[0], FIRM_SPLITS_ROW);
+
+    expect(screen.queryByText(LINK)).not.toBeInTheDocument();
+  });
+
+  it('hides the link from a user without the quota page permission', () => {
+    mockUser = { is_superuser: false, page_permissions: { 'export.shipments': true } };
+    mockBalances = { '1': { remaining_kg: 5000 }, '2': { remaining_kg: 0 } };
+    wrap(MOCK_SHEET_DATA[0], FIRM_SPLITS_ROW);
+
+    expect(screen.queryByText(LINK)).not.toBeInTheDocument();
   });
 });
 

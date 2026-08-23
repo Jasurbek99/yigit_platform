@@ -1,5 +1,14 @@
 # Build / Test Log
 
+- [x] 2026-08-23 — **Quota-page link inside the Sheet's export-firm dropdown (R9 `firm_splits`).**
+  Check: open the Sheet, edit the **Firms** cell on a row whose firm list contains a firm with no
+  remaining quota (it shows `⚠ no quota` and is greyed out) — an **`Open quota page →`** link must
+  appear at the bottom-left of the dropdown, next to *Done*. Clicking it opens `/export/quota` in a
+  **new tab** and the cell editor + your in-progress selection must survive in the old tab. On a row
+  where every firm still has quota, no link. Log in as a role without the quota page (e.g.
+  `t_document_team`) and confirm the link is absent while the ⚠ tags still show. Also check tk/ru
+  labels. 3 new tests, 433 frontend tests pass, `tsc` clean. — NEEDS TEST
+
 - [ ] 2026-08-22 — **Quota dashboard: garbage number string in the Total row fixed.** `kg_quota`/`used_kg`
   arrive from DRF as decimal *strings*, so the expired-quota sums concatenated instead of adding.
   `useQuotaIssuances` now coerces both with `Number()`. Check on `/export/quota` → **Issuances** tab:

@@ -1670,6 +1670,7 @@
     "multiselect_done": "Taýýar",
     "firm_no_quota_tag": "kwota ýok",
     "firm_no_quota_error": "{{firms}} kwotasy galmady — bölünişige goşup bolmaýar.",
+    "firm_no_quota_link": "Kwota sahypasyny aç →",
     "firm_contracts": {
       "title": "Şertnamalar",
       "no_buyer": "Şertnamalar üçin ilki alyjyny saýlaň.",

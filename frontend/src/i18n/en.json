@@ -1670,6 +1670,7 @@
     "multiselect_done": "Done",
     "firm_no_quota_tag": "no quota",
     "firm_no_quota_error": "{{firms}} has no remaining quota and cannot be added to the split.",
+    "firm_no_quota_link": "Open quota page →",
     "firm_contracts": {
       "title": "Contracts",
       "no_buyer": "Set the buyer first to resolve contracts.",

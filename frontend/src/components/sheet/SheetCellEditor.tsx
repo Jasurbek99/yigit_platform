@@ -31,6 +31,8 @@ import {
   useShipmentOptions,
 } from '@/hooks/useAdmin';
 import { useQuotaFirmBalances } from '@/hooks/useQuotaDashboard';
+import { useAuth } from '@/hooks/useAuth';
+import { canSeePage } from '@/utils/permissions';
 import { scaleSheetLayout } from '@/constants/sheetRowConfig';
 import { parseNumberInput } from './SheetCellEditor.helpers';
 import SheetTruckSelectEditor from './SheetTruckSelectEditor';
@@ -92,6 +94,12 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
     },
     [firmBalances],
   );
+  // A blocked firm is only fixable on the quota page, so offer a jump to it
+  // from inside the dropdown. `canSeePage('export.quota')` also returns true
+  // for a user holding only the `export.quota.local_sell` child page — same OR
+  // logic the route itself uses (App.tsx `export/quota`).
+  const { user } = useAuth();
+  const canOpenQuotaPage = canSeePage(user, 'export.quota');
 
   const close = useCallback(() => {
     setEditingCell(null);
@@ -672,6 +680,12 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
           }
         };
 
+        // Firms with no quota left are disabled in the list — a dead end unless
+        // the operator can go top the quota up. Only shown when the dropdown
+        // actually holds such a firm.
+        const showQuotaLink =
+          isFirms && canOpenQuotaPage && options.some((o) => firmHasNoQuota(o.value as number));
+
         return (
           <Select
             size="small"
@@ -717,12 +731,28 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
                     borderTop: '1px solid #f0f0f0',
                     padding: '4px 8px',
                     display: 'flex',
-                    justifyContent: 'flex-end',
+                    alignItems: 'center',
+                    justifyContent: showQuotaLink ? 'space-between' : 'flex-end',
+                    gap: 8,
                   }}
                   // Prevent the mousedown from blurring the Select (which would
                   // fire onOpenChange before our click handler runs).
                   onMouseDown={(e) => e.preventDefault()}
                 >
+                  {showQuotaLink && (
+                    // Anchor, not navigate(): a same-tab route change unmounts
+                    // the sheet and drops the in-progress selection.
+                    <Button
+                      size="small"
+                      type="link"
+                      style={{ padding: 0 }}
+                      href="/export/quota"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {t('sheet.firm_no_quota_link')}
+                    </Button>
+                  )}
                   <Button size="small" type="primary" onClick={commitMulti}>
                     {t('sheet.multiselect_done')}
                   </Button>
