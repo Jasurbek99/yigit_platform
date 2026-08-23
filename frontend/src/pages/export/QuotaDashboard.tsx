@@ -19,7 +19,7 @@ import { useNavigate } from 'react-router-dom';
 import dayjs, { type Dayjs } from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek';
 import { useSeasons } from '@/hooks/useAdmin';
-import { useQuotaDashboard, useQuotaIssuances } from '@/hooks/useQuotaDashboard';
+import { useQuotaDashboard } from '@/hooks/useQuotaDashboard';
 import { useAuth } from '@/hooks/useAuth';
 import { canSeePage, canDo } from '@/utils/permissions';
 import { displayWeight, weightSuffix, type WeightUnit } from '@/utils/weight';
@@ -28,7 +28,6 @@ import { QuotaVisualBars } from './QuotaVisualBars';
 import { QuotaWeeklyFlow } from './QuotaWeeklyFlow';
 import { LocalSellPlanGrid } from './LocalSellPlanGrid';
 import { QuotaIssuancesList } from './QuotaIssuancesList';
-import { computeExpiry } from './QuotaIssuancesList.helpers';
 import { seasonsVisibleTo } from './QuotaDashboard.helpers';
 import { QuotaUsageTab } from './QuotaUsageTab';
 import type { ISeason } from '@/types';
@@ -174,29 +173,10 @@ export default function QuotaDashboard() {
     },
     { enabled: canSeeQuota },
   );
-  const { data: issuances = [] } = useQuotaIssuances({ product_type: productType });
 
   const kpis = data?.kpis;
   const perFirm = data?.per_firm ?? [];
   const weeklyFlow = useMemo(() => data?.weekly_flow ?? [], [data?.weekly_flow]);
-
-  // Compute expired unused quota from issuances
-  const todayStr = dayjs().format('YYYY-MM-DD');
-  const expiredStats = useMemo(() => {
-    const now = dayjs(todayStr);
-    let totalExpiredKg = 0;
-    const perFirmExpired: Record<number, number> = {};
-    for (const iss of issuances) {
-      const expiry = computeExpiry(iss.issue_date, iss.validity);
-      if (expiry.isBefore(now, 'day')) {
-        for (const a of iss.allocations) {
-          totalExpiredKg += a.kg_quota;
-          perFirmExpired[a.export_firm] = (perFirmExpired[a.export_firm] ?? 0) + a.kg_quota;
-        }
-      }
-    }
-    return { totalExpiredKg, perFirmExpired };
-  }, [issuances, todayStr]);
 
   // Build week options from weekly flow data
   const weekOptions = useMemo(
@@ -271,7 +251,7 @@ export default function QuotaDashboard() {
     canSeeQuota && {
       key: 'per_firm',
       label: t('quota_dashboard.tab_firm_breakdown'),
-      children: <QuotaPerFirmTable data={perFirm} expiredPerFirm={expiredStats.perFirmExpired} weightUnit={weightUnit} />,
+      children: <QuotaPerFirmTable data={perFirm} weightUnit={weightUnit} />,
     },
     canSeeAnalytics && {
       key: 'visual',
@@ -521,9 +501,9 @@ export default function QuotaDashboard() {
               <Col span={8}>
                 <Statistic
                   title={<KpiLabel label={t('quota_dashboard.kpi_expired_unused')} tip={t('quota_dashboard.kpi_expired_tip')} />}
-                  value={displayWeight(expiredStats.totalExpiredKg, weightUnit)}
+                  value={displayWeight(kpis?.expired_kg ?? 0, weightUnit)}
                   suffix={weightSuffix(weightUnit)}
-                  styles={{ content: { fontSize: 16, fontWeight: 600, color: expiredStats.totalExpiredKg > 0 ? COLORS.danger : undefined } }}
+                  styles={{ content: { fontSize: 16, fontWeight: 600, color: kpis && kpis.expired_kg > 0 ? COLORS.danger : undefined } }}
                   formatter={statFmt}
                 />
               </Col>

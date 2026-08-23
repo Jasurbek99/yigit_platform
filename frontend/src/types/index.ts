@@ -952,6 +952,7 @@ export interface IQuotaDashboardKPIs {
   used_kg: number;
   unused_kg: number;
   unused_pct: number;
+  expired_kg: number;
 }
 
 export interface IQuotaDashboardFirm {
@@ -964,6 +965,7 @@ export interface IQuotaDashboardFirm {
   not_given_kg: number;
   not_given_pct: number;
   unused_kg: number;
+  expired_kg: number;
   is_blocked: boolean;
 }
 

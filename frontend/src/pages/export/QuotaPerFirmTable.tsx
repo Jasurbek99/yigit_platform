@@ -6,7 +6,6 @@ import { COLORS } from '@/constants/styles';
 
 interface IProps {
   data: IQuotaDashboardFirm[];
-  expiredPerFirm?: Record<number, number>;
   weightUnit: WeightUnit;
 }
 
@@ -21,6 +20,7 @@ function buildTotals(data: IQuotaDashboardFirm[]): IQuotaDashboardFirm {
     not_given_kg: data.reduce((s, r) => s + r.not_given_kg, 0),
     not_given_pct: 0,
     unused_kg: data.reduce((s, r) => s + r.unused_kg, 0),
+    expired_kg: data.reduce((s, r) => s + r.expired_kg, 0),
     is_blocked: false,
   };
 }
@@ -31,7 +31,7 @@ function shortfallColor(pct: number): string {
   return COLORS.success;
 }
 
-export function QuotaPerFirmTable({ data, expiredPerFirm = {}, weightUnit }: IProps) {
+export function QuotaPerFirmTable({ data, weightUnit }: IProps) {
   const fw = (v: number) => fmtWeight(v, weightUnit);
   const { t } = useTranslation();
 
@@ -124,16 +124,14 @@ export function QuotaPerFirmTable({ data, expiredPerFirm = {}, weightUnit }: IPr
       key: 'expired_unused',
       align: 'right' as const,
       responsive: ['lg' as const],
-      render: (_: unknown, row: IQuotaDashboardFirm) => {
-        const v = expiredPerFirm[row.export_firm] ?? 0;
-        return <span style={{ color: v > 0 ? COLORS.danger : undefined }}>{fw(v)}</span>;
-      },
-      sorter: (a: IQuotaDashboardFirm, b: IQuotaDashboardFirm) =>
-        (expiredPerFirm[a.export_firm] ?? 0) - (expiredPerFirm[b.export_firm] ?? 0),
+      render: (_: unknown, row: IQuotaDashboardFirm) => (
+        <span style={{ color: row.expired_kg > 0 ? COLORS.danger : undefined }}>
+          {fw(row.expired_kg)}
+        </span>
+      ),
+      sorter: (a: IQuotaDashboardFirm, b: IQuotaDashboardFirm) => a.expired_kg - b.expired_kg,
     },
   ];
-
-  const totalExpired = Object.values(expiredPerFirm).reduce((s, v) => s + v, 0);
 
   const summaryRow = (
     <Table.Summary.Row style={{ background: COLORS.bgLayout, fontWeight: 600 }}>
@@ -154,8 +152,8 @@ export function QuotaPerFirmTable({ data, expiredPerFirm = {}, weightUnit }: IPr
         </span>
       </Table.Summary.Cell>
       <Table.Summary.Cell index={8} align="right">
-        <span style={{ color: totalExpired > 0 ? COLORS.danger : undefined }}>
-          {fw(totalExpired)}
+        <span style={{ color: totals.expired_kg > 0 ? COLORS.danger : undefined }}>
+          {fw(totals.expired_kg)}
         </span>
       </Table.Summary.Cell>
     </Table.Summary.Row>
