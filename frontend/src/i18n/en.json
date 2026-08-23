@@ -369,6 +369,8 @@
   "quota_dashboard": {
     "title": "Quota Dashboard",
     "subtitle": "Export quota analytics — local sales, issuance, usage",
+    "title_local_sell": "Sell Plan",
+    "subtitle_local_sell": "Weekly local sell plan per export firm",
     "season": "Season",
     "all_season": "All Season",
     "product_tomato": "Tomato",
@@ -500,6 +502,8 @@
     "status_rejected": "Rejected",
     "init_week": "Initialize Week",
     "init_success": "Week initialized — {{count}} firms",
+    "init_other_season": "This week already belongs to season {{season}} — it cannot be created again here. Ask an admin to move it.",
+    "init_error": "Could not initialize the week.",
     "submit_all": "Submit All",
     "approve_all": "Approve All",
     "submitted": "Plans submitted",
@@ -2005,6 +2009,10 @@
     "no_supply": "Neither column has supply blocks. One of them must be a supply draft with at least one block",
     "target_no_country": "{{code}}: fill in the Country",
     "target_no_customer": "{{code}}: fill in the Customer"
+  },
+  "firm_selector": {
+    "saved": "Export firms updated",
+    "save_error": "Couldn't update export firms"
   },
   "join_drafts": {
     "title": "Join two drafts",

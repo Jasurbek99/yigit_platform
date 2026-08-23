@@ -437,13 +437,42 @@ class WeeklyLocalSellPlanViewSet(SeasonScopedMixin, ModelViewSet):
                 status=http_status.HTTP_400_BAD_REQUEST,
             )
 
+        # WRITE, not APPROVE (2026-08-23, owner request): the seller owns the
+        # sell plan and must be able to open their own week without waiting for
+        # an export_manager. Seeding all-zero draft rows commits to nothing —
+        # submit and approve stay on _LOCAL_SELL_APPROVE_ROLES below.
         role = getattr(request.user, 'role', None)
-        if role not in _LOCAL_SELL_APPROVE_ROLES:
-            raise PermissionDenied('Only export_manager/director can initialize a week.')
+        if role not in _LOCAL_SELL_WRITE_ROLES:
+            raise PermissionDenied('Only export_manager/director/seller can initialize a week.')
 
         # Write freeze (D1). Only the explicit-body branch can be closed —
         # get_active_season() never returns a closed season.
         assert_season_id_open(season_id)
+
+        # The dedupe below is deliberately NOT season-scoped: the table is
+        # UNIQUE (export_firm_id, week_number, year) with no season in the key,
+        # so an ISO week can physically exist under exactly ONE season. Scoping
+        # it would build 25 rows that violate that constraint on bulk_create.
+        #
+        # Which makes the cross-season case a hard conflict, not a no-op. It
+        # used to be silent: `existing_firm_ids` matched rows belonging to
+        # ANOTHER season, so nothing was created, and the response (also
+        # unscoped) reported every one of those invisible rows back as a 200.
+        # The caller saw "initialized 25" and a still-empty, season-scoped
+        # grid — the 2026-08-23 report. Say so instead.
+        clashing = WeeklyLocalSellPlan.objects.filter(
+            week_number=week_number, year=year,
+        ).exclude(season_id=season_id)
+        if clashing.exists():
+            other = clashing.select_related('season').first().season
+            return Response(
+                {
+                    'error': 'week_exists_in_other_season',
+                    'season': other.name if other else None,
+                    'count': clashing.count(),
+                },
+                status=http_status.HTTP_409_CONFLICT,
+            )
 
         active_firms = ExportFirm.objects.filter(is_active=True)
         existing_firm_ids = set(
@@ -470,8 +499,10 @@ class WeeklyLocalSellPlanViewSet(SeasonScopedMixin, ModelViewSet):
         # Create the shared seller reminder task for this week (idempotent).
         generate_local_sell_plan_tasks(int(year), int(week_number), user=request.user)
 
+        # Scoped to the season written, so `count` describes what the caller's
+        # own season-scoped list will show — not a superset it cannot see.
         qs = WeeklyLocalSellPlan.objects.filter(
-            week_number=week_number, year=year,
+            week_number=week_number, year=year, season_id=season_id,
         ).select_related('season', 'export_firm', 'entered_by', 'submitted_by', 'approved_by', 'rejected_by')
         serializer = self.get_serializer(qs, many=True)
         return Response({'count': len(serializer.data), 'results': serializer.data})

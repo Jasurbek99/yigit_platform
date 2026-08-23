@@ -15,6 +15,7 @@ import {
 } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { toast } from 'sonner';
+import { isAxiosError } from 'axios';
 import {
   CheckCircleOutlined,
   ClockCircleOutlined,
@@ -36,8 +37,9 @@ import {
   useBulkSubmitLocalSellPlans,
   useBulkApproveLocalSellPlans,
 } from '@/hooks/usePlanning';
-import { useSeasons } from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
+import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
+import { useSelectedSeason } from '@/hooks/useSeasonParam';
 import { canDoBackendGated } from '@/utils/permissions';
 import { handleCellKeyDown } from '@/utils/tableNavigation';
 import type { IWeeklyLocalSellPlan, PlanStatus } from '@/types';
@@ -61,6 +63,13 @@ const STATUS_TAG: Record<PlanStatus, { color: string; icon: React.ReactNode }> =
   approved: { color: 'success', icon: <CheckCircleOutlined /> },
   rejected: { color: 'error', icon: <CloseCircleOutlined /> },
 };
+
+interface IWeekInOtherSeason { error: string; season: string | null; count: number }
+
+function isWeekInOtherSeason(data: unknown): data is IWeekInOtherSeason {
+  return typeof data === 'object' && data !== null && 'error' in data
+    && (data as { error: unknown }).error === 'week_exists_in_other_season';
+}
 
 function num(val: unknown): number {
   if (val == null) return 0;
@@ -122,11 +131,17 @@ export function LocalSellPlanGrid() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const role = user?.role;
+  // A closed season beats every role — same rule the Sheet, the Weekly Plan
+  // grid and the shipment screens apply. It matters more here since
+  // initialize-week started targeting the BROWSED season (below): without this
+  // the button would render enabled on a closed season and 409 on click.
+  const isSeasonReadOnly = useSeasonReadOnly();
   // canDoBackendGated, not canDo: views_planning.py gates create/update on
   // LOCAL_SELL_WRITE (core/roles.py), which excludes boss whatever the
   // permission matrix says.
-  const canEdit = canDoBackendGated(user, 'local_sell_plan', 'edit');
-  const isManager = role === 'admin' || role === 'export_manager' || role === 'director';
+  const canEdit = !isSeasonReadOnly && canDoBackendGated(user, 'local_sell_plan', 'edit');
+  const isManager = !isSeasonReadOnly
+    && (role === 'admin' || role === 'export_manager' || role === 'director');
 
   // Deep-link from a task card: ?week=&year= opens that ISO week (else current).
   const [searchParams] = useSearchParams();
@@ -144,8 +159,12 @@ export function LocalSellPlanGrid() {
   const weekNumber = selectedWeek?.isoWeek();
   const year = selectedWeek?.isoWeekYear();
 
-  const { data: seasonsData } = useSeasons();
-  const activeSeason = seasonsData?.find((s) => s.is_active);
+  // The BROWSED season, not the active one. `useLocalSellPlans` below lists by
+  // exactly this id, so initializing into `useSeasons().find(is_active)` (what
+  // this did) seeded rows the grid then refused to show whenever the header
+  // switcher pointed elsewhere. It also drops a `useSeasons()` call the seller
+  // has no `season.can_view` for — that request 403s for them.
+  const { seasonId } = useSelectedSeason();
 
   const { data, isLoading, isError } = useLocalSellPlans({ year, week: weekNumber });
   const upsert = useUpsertLocalSellPlan();
@@ -176,8 +195,22 @@ export function LocalSellPlanGrid() {
   function handleInitWeek() {
     if (!weekNumber || !year) return;
     initWeek.mutate(
-      { week_number: weekNumber, year, season: activeSeason?.id },
-      { onSuccess: (d) => toast.success(t('local_sell.init_success', { count: d.count })) },
+      { week_number: weekNumber, year, season: seasonId ?? undefined },
+      {
+        onSuccess: (d) => toast.success(t('local_sell.init_success', { count: d.count })),
+        // The one error worth naming: the table is UNIQUE (firm, week, year)
+        // with no season in the key, so a week already entered under another
+        // season cannot be re-created under this one. Without this the request
+        // failed silently and the grid just stayed empty.
+        onError: (err) => {
+          const data = isAxiosError(err) ? err.response?.data : undefined;
+          if (isWeekInOtherSeason(data)) {
+            toast.error(t('local_sell.init_other_season', { season: data.season ?? '?' }));
+            return;
+          }
+          toast.error(t('local_sell.init_error'));
+        },
+      },
     );
   }
 
@@ -264,7 +297,10 @@ export function LocalSellPlanGrid() {
         </Space>
 
         <Space>
-          {isCurrentOrFuture && isManager && plans.length === 0 && (
+          {/* canEdit, not isManager (2026-08-23, owner request): the seller owns
+              the sell plan and opens their own week. The backend's
+              initialize-week gate moved to LOCAL_SELL_WRITE to match. */}
+          {isCurrentOrFuture && canEdit && plans.length === 0 && (
             <Button type="primary" onClick={handleInitWeek} loading={initWeek.isPending}>
               {t('local_sell.init_week')}
             </Button>

@@ -21,14 +21,14 @@ import isoWeek from 'dayjs/plugin/isoWeek';
 import { useSeasons } from '@/hooks/useAdmin';
 import { useQuotaDashboard } from '@/hooks/useQuotaDashboard';
 import { useAuth } from '@/hooks/useAuth';
-import { canSeePage, canDo } from '@/utils/permissions';
+import { canDo } from '@/utils/permissions';
 import { displayWeight, weightSuffix, type WeightUnit } from '@/utils/weight';
 import { QuotaPerFirmTable } from './QuotaPerFirmTable';
 import { QuotaVisualBars } from './QuotaVisualBars';
 import { QuotaWeeklyFlow } from './QuotaWeeklyFlow';
 import { LocalSellPlanGrid } from './LocalSellPlanGrid';
 import { QuotaIssuancesList } from './QuotaIssuancesList';
-import { seasonsVisibleTo } from './QuotaDashboard.helpers';
+import { quotaPanelAccess, seasonsVisibleTo } from './QuotaDashboard.helpers';
 import { QuotaUsageTab } from './QuotaUsageTab';
 import type { ISeason } from '@/types';
 import { COLORS } from '@/constants/styles';
@@ -115,10 +115,9 @@ export default function QuotaDashboard() {
   const { user } = useAuth();
 
   const canAddIssuance = canDo(user, 'quota_issuance', 'create');
-  const canSeeQuota = canSeePage(user, 'export.quota');
-  const canSeeLocalSell = canSeePage(user, 'export.quota.local_sell');
-  // Full analytics: comparison tabs (Firm Chart, Weekly Trend) — export_manager/director
-  const canSeeAnalytics = canDo(user, 'local_sell_plan', 'view');
+  // Resource-gated, not page-gated — see `quotaPanelAccess`. A seller holds
+  // only `export.quota.local_sell` and must see the sell plan and nothing else.
+  const { canSeeQuota, canSeeLocalSell, canSeeAnalytics } = quotaPanelAccess(user);
 
   // Season selection. Closed seasons are hidden from anyone without
   // `closed_season.can_view` — the backend resolves this filter's `?season=`
@@ -271,23 +270,29 @@ export default function QuotaDashboard() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
         <div>
           <Title level={4} style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>
-            {t('quota_dashboard.title')}
+            {t(canSeeQuota ? 'quota_dashboard.title' : 'quota_dashboard.title_local_sell')}
           </Title>
           <Text type="secondary" style={{ fontSize: 13 }}>
-            {t('quota_dashboard.subtitle')}
+            {t(canSeeQuota ? 'quota_dashboard.subtitle' : 'quota_dashboard.subtitle_local_sell')}
           </Text>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Text type="secondary" style={{ fontSize: 12 }}>{t('quota_dashboard.unit_label')}:</Text>
-          <Segmented
-            value={weightUnit}
-            onChange={(v) => setWeightUnit(v as WeightUnit)}
-            options={[
-              { label: t('quota_dashboard.kg'), value: 'kg' },
-              { label: t('quota_dashboard.ton'), value: 'ton' },
-            ]}
-            size="small"
-          />
+          {/* kg/ton drives the quota widgets only — the sell plan grid is
+              always kg, so this reads as a dead control without them. */}
+          {canSeeQuota && (
+            <>
+              <Text type="secondary" style={{ fontSize: 12 }}>{t('quota_dashboard.unit_label')}:</Text>
+              <Segmented
+                value={weightUnit}
+                onChange={(v) => setWeightUnit(v as WeightUnit)}
+                options={[
+                  { label: t('quota_dashboard.kg'), value: 'kg' },
+                  { label: t('quota_dashboard.ton'), value: 'ton' },
+                ]}
+                size="small"
+              />
+            </>
+          )}
           {canAddIssuance && (
             <Button
               type="primary"
@@ -512,8 +517,16 @@ export default function QuotaDashboard() {
         </Col>
       </Row>}
 
-      {/* ── Dashboard Tabs ── */}
-      {(canSeeQuota || canSeeLocalSell) && (
+      {/* ── Dashboard Tabs ──
+          One visible tab (the seller: sell plan only) renders bare. A tab strip
+          with a single tab is chrome with no choice behind it, and `activeTab`
+          is seeded from `useState(defaultTab)` — captured on FIRST render, when
+          `user` may still be resolving — so a lone `<Tabs>` can end up pointing
+          at a key that is not in `items` and render nothing at all. */}
+      {tabItems.length === 1 && (
+        <Card styles={{ body: { padding: 16 } }}>{tabItems[0].children}</Card>
+      )}
+      {tabItems.length > 1 && (
         <Card styles={{ body: { padding: '0 16px 16px' } }}>
           <Tabs
             activeKey={activeTab}

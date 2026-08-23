@@ -369,6 +369,8 @@
   "quota_dashboard": {
     "title": "Kwota paneli",
     "subtitle": "Eksport kwota analitikasy — satuw, berilme, ulanylyş",
+    "title_local_sell": "Satuw meýilnamasy",
+    "subtitle_local_sell": "Firmalar boýunça hepdelik ýerli satuw meýilnamasy",
     "season": "Möwsüm",
     "all_season": "Tutuş möwsüm",
     "product_tomato": "Pomidor",
@@ -500,6 +502,8 @@
     "status_rejected": "Ret edildi",
     "init_week": "Hepdäni başla",
     "init_success": "Hepde başlandy — {{count}} firma",
+    "init_other_season": "Bu hepde eýýäm {{season}} möwsümine degişli — bu ýerde täzeden döredip bolmaýar. Geçirmek üçin administratora ýüz tutuň.",
+    "init_error": "Hepdäni döredip bolmady.",
     "submit_all": "Hemmesini iber",
     "approve_all": "Hemmesini tassykla",
     "submitted": "Meýilnamalar iberildi",

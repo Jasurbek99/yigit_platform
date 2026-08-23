@@ -57,6 +57,12 @@ class LocalSellPlanTaskTests(TestCase):
         # (role permissions aren't seeded in the test DB); the inner role gate
         # still requires an APPROVE role, which export_manager satisfies.
         cls.manager = _make_user('lsp_mgr', 'export_manager', is_superuser=True)
+        # Same superuser trick as `manager`: it clears the DB-seeded resource
+        # layer only. The inner `role not in LOCAL_SELL_WRITE` check is a plain
+        # role comparison with no superuser bypass, so these two still exercise
+        # the initialize-week gate itself.
+        cls.seller_su = _make_user('lsp_seller_su', 'seller', is_superuser=True)
+        cls.outsider_su = _make_user('lsp_wm_su', 'weight_master', is_superuser=True)
 
     def setUp(self):
         Task.objects.filter(kind=TaskKind.LOCAL_SELL_PLAN, scope_year=YEAR, scope_week=WEEK).delete()
@@ -124,6 +130,96 @@ class LocalSellPlanTaskTests(TestCase):
         # which must NOT count as a completed week.
         task = Task.objects.get(kind=TaskKind.LOCAL_SELL_PLAN, scope_year=YEAR, scope_week=WEEK)
         self.assertEqual(task.state, TaskState.OPEN)
+
+    def test_seller_may_initialize_their_own_week(self):
+        """2026-08-23: the gate moved APPROVE -> WRITE so the seller opens
+        their own week instead of waiting on an export_manager. Seeding
+        all-zero drafts commits to nothing; submit/approve stay APPROVE-only."""
+        client = APIClient()
+        client.force_authenticate(self.seller_su)
+        resp = client.post(
+            '/api/v1/export/local-sell-plans/initialize-week/',
+            {'week_number': WEEK, 'year': YEAR, 'season': self.season.id}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertTrue(
+            WeeklyLocalSellPlan.objects.filter(year=YEAR, week_number=WEEK).exists()
+        )
+
+    def test_role_outside_local_sell_write_still_cannot_initialize(self):
+        client = APIClient()
+        client.force_authenticate(self.outsider_su)
+        resp = client.post(
+            '/api/v1/export/local-sell-plans/initialize-week/',
+            {'week_number': WEEK, 'year': YEAR, 'season': self.season.id}, format='json',
+        )
+        self.assertEqual(resp.status_code, 403, resp.content)
+        self.assertFalse(
+            WeeklyLocalSellPlan.objects.filter(year=YEAR, week_number=WEEK).exists()
+        )
+
+    def test_initialize_week_conflicts_when_week_lives_in_another_season(self):
+        """The table is UNIQUE (firm, week, year) with no season in the key, so
+        a week entered under season A cannot be re-created under season B. This
+        used to return 200 with the OTHER season's rows in the payload while the
+        caller's season-scoped list stayed empty (2026-08-23 report)."""
+        other = Season.objects.create(
+            name='lsp-old', start_date='2099-09-01', end_date='2100-06-30',
+            is_active=False,
+        )
+        WeeklyLocalSellPlan.objects.create(
+            export_firm=self.firm_a, year=YEAR, week_number=WEEK, season=other,
+        )
+        client = APIClient()
+        client.force_authenticate(self.manager)
+        resp = client.post(
+            '/api/v1/export/local-sell-plans/initialize-week/',
+            {'week_number': WEEK, 'year': YEAR, 'season': self.season.id}, format='json',
+        )
+        self.assertEqual(resp.status_code, 409, resp.content)
+        self.assertEqual(resp.json()['error'], 'week_exists_in_other_season')
+        self.assertEqual(resp.json()['season'], 'lsp-old')
+        # Nothing partially created under the requested season.
+        self.assertFalse(
+            WeeklyLocalSellPlan.objects.filter(
+                year=YEAR, week_number=WEEK, season=self.season).exists()
+        )
+
+    def test_initialize_week_response_counts_only_the_target_season(self):
+        client = APIClient()
+        client.force_authenticate(self.manager)
+        resp = client.post(
+            '/api/v1/export/local-sell-plans/initialize-week/',
+            {'week_number': WEEK, 'year': YEAR, 'season': self.season.id}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.content)
+        expected = ExportFirm.objects.filter(is_active=True).count()
+        self.assertEqual(resp.json()['count'], expected)
+        rows = WeeklyLocalSellPlan.objects.filter(year=YEAR, week_number=WEEK)
+        self.assertEqual(rows.count(), expected)
+        self.assertEqual(rows.exclude(season=self.season).count(), 0)
+
+    def test_seller_may_bulk_submit(self):
+        """`bulk-submit` is LOCAL_SELL_WRITE and `submit_local_sell_plan`
+        carries no role check of its own, so the seller's Submit-all works."""
+        row = self._row(self.firm_a, status='draft', monday=50)
+        client = APIClient()
+        client.force_authenticate(self.seller_su)
+        resp = client.post(
+            '/api/v1/export/local-sell-plans/bulk-submit/',
+            {'ids': [row.id]}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertEqual(resp.json()['submitted'], [row.id])
+        row.refresh_from_db()
+        self.assertEqual(row.status, 'submitted')
+
+    def test_seller_still_cannot_approve(self):
+        row = self._row(self.firm_a, status='submitted', monday=50)
+        client = APIClient()
+        client.force_authenticate(self.seller_su)
+        resp = client.post(f'/api/v1/export/local-sell-plans/{row.id}/approve/')
+        self.assertEqual(resp.status_code, 403, resp.content)
 
     def test_me_tasks_read_resolves_complete_week(self):
         generate_local_sell_plan_tasks(YEAR, WEEK)

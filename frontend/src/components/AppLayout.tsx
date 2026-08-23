@@ -338,10 +338,17 @@ export default function AppLayout() {
       // explicit roles list that bypasses canSeePage — the same bypass
       // /worklog and /team/kpi use. Came in from main with the Fleet Map
       // feature (PR #11).
+      //
+      // `seller` is deliberately ABSENT (owner request, 2026-08-23): the seller
+      // works one screen, the sell plan, and has no shipments, no fleet and no
+      // reason to watch trucks move. Unlike /worklog and /team/kpi below, this
+      // is not an every-authenticated-user grant. The route itself is still
+      // only `<ProtectedRoute>` (App.tsx), so a typed URL still reaches it —
+      // narrowing that is a separate change to a page nothing role-gates today.
       roles: [
         'admin', 'export_manager', 'loading_dept_head', 'loading_dept_head_deputy', 'warehouse_chief',
         'weight_master', 'document_team', 'transport', 'sales_rep', 'finansist',
-        'director', 'accountant', 'greenhouse_manager', 'seller', 'boss',
+        'director', 'accountant', 'greenhouse_manager', 'boss',
       ] as import('@/types').UserRole[],
     },
     '/feedback/submit': { key: '/feedback/submit', icon: <IconMessageCircle size={15} />, label: t('nav.feedback_submit') },
