@@ -21,10 +21,23 @@ vi.mock('./SheetTruckSelectEditor', () => ({
 }));
 
 vi.mock('./SheetDriverSelectEditor', () => ({
-  default: (props: { onCommit: (fields: { driver_id: number | null; driver_name: string }) => void }) => (
-    <button onClick={() => props.onCommit({ driver_id: 7, driver_name: 'ARNAGELDIYEW ALLAYAR' })}>
-      driver-commit-stub
-    </button>
+  default: (props: {
+    onCommit: (fields: { driver_id: number | null; driver_name: string; driver_phone?: string }) => void;
+  }) => (
+    <>
+      <button onClick={() => props.onCommit({ driver_id: 7, driver_name: 'ARNAGELDIYEW ALLAYAR' })}>
+        driver-commit-stub
+      </button>
+      <button
+        onClick={() =>
+          props.onCommit({
+            driver_id: 7, driver_name: 'ARNAGELDIYEW ALLAYAR', driver_phone: '+99365777888',
+          })
+        }
+      >
+        driver-commit-with-phone-stub
+      </button>
+    </>
   ),
 }));
 
@@ -182,6 +195,35 @@ describe('SheetCellEditor — driver_name cell', () => {
       shipment.id,
       { driver_id: shipment.driver_id, driver_name: shipment.driver_name },
       { driver_id: 7, driver_name: 'ARNAGELDIYEW ALLAYAR' },
+    );
+  });
+
+  it('a registry phone rides along in the same patch, and undo snapshots it too', async () => {
+    patchMultiMutate.mockClear();
+    const shipment: IShipmentSheetItem = { ...MOCK_SHEET_DATA[0], is_gapy_satys: false };
+    wrap(shipment, DRIVER_NAME_ROW);
+
+    await userEvent.click(screen.getByText('driver-commit-with-phone-stub'));
+
+    expect(patchMultiMutate).toHaveBeenCalledWith(
+      {
+        id: shipment.id,
+        fields: {
+          driver_id: 7, driver_name: 'ARNAGELDIYEW ALLAYAR', driver_phone: '+99365777888',
+        },
+      },
+      expect.anything(),
+    );
+    // The before-snapshot must carry driver_phone only when the patch writes it,
+    // or undo would restore a field the PATCH never touched.
+    expect(recordMultiEntry).toHaveBeenCalledWith(
+      shipment.id,
+      {
+        driver_id: shipment.driver_id,
+        driver_name: shipment.driver_name,
+        driver_phone: shipment.driver_phone,
+      },
+      expect.objectContaining({ driver_phone: '+99365777888' }),
     );
   });
 

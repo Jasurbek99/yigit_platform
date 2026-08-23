@@ -1,7 +1,7 @@
 import { Space, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 import type { IShipmentDetail } from '@/types';
-import { DriverSelect } from '@/components/DriverSelect';
+import { DriverSelect, driverPatchFields } from '@/components/DriverSelect';
 import { useShipmentPatchMulti } from '@/hooks/useShipmentPatch';
 
 interface IShipmentDriverSelectorProps {
@@ -18,8 +18,8 @@ interface IShipmentDriverSelectorProps {
  * text here (the previous behaviour) left `driver_id` pointing at whoever was
  * picked before — a link that is wrong rather than merely absent.
  *
- * `driver_phone` stays a plain text row in the group: separate cell, separate
- * history, operator-typed, and the registry has no phone to supply.
+ * `driver_phone` stays a plain text row in the group, and the pick only writes
+ * it when the registry actually holds a number — see `driverPatchFields()`.
  *
  * Gapy-Satys shipments keep the plain text field — local buyers bring their own
  * truck and their own driver (see ShipmentTransportBody).
@@ -31,11 +31,11 @@ export function ShipmentDriverSelector({ shipment, readOnly }: IShipmentDriverSe
   const label = t('shipment_edit_drawer.field.driver_name');
   const driverId = shipment.driver_id ?? null;
 
-  function save(id: number | null, name: string) {
+  function save(id: number | null, name: string, phone: string | null) {
     // Re-picking the same driver is a no-op — don't spend a PATCH and an audit
     // row on it (same guard SheetDriverSelectEditor applies before committing).
     if (id === driverId) return;
-    mutate({ id: shipment.id, fields: { driver_id: id, driver_name: name } });
+    mutate({ id: shipment.id, fields: driverPatchFields(id, name, phone) });
   }
 
   return (

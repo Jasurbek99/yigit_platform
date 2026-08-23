@@ -178,8 +178,10 @@ class DriverApiTests(TestCase):
         self.editor = User.objects.create_user(username='mgr3', password='x', role='export_manager')
         self.viewer = User.objects.create_user(username='op3', password='x', role='sales_rep')
         # ids mirror Z_TIRWEB's preserved-id space (real rows start at 5).
-        Driver.objects.create(id=5, name='ABRAY ANNAKULYYEW')
-        Driver.objects.create(id=6, name='ARSLAN BERDIYEW', is_active=False)
+        Driver.objects.create(id=5, name='ABRAY ANNAKULYYEW', logo_ref='318',
+                              driver_logo_code='195.02.A001')
+        Driver.objects.create(id=6, name='ARSLAN BERDIYEW', is_active=False, logo_ref='334',
+                              driver_logo_code='195.02.A002')
 
     def test_list_requires_auth(self):
         self.assertEqual(self.client.get('/api/v1/transport/drivers/').status_code, 401)
@@ -246,3 +248,20 @@ class DriverApiTests(TestCase):
         self.assertNotIn('ARSLAN BERDIYEW', {r['name'] for r in default})
         allrows = self.client.get('/api/v1/transport/drivers/?include_inactive=true').json()
         self.assertIn('ARSLAN BERDIYEW', {r['name'] for r in allrows})
+
+    def test_logo_identifiers_are_exposed_but_read_only(self):
+        # Shown so an operator can tell apart two drivers who share a name
+        # (ids 30/31 are both BATYROW BAYRAMMYRAT). Read-only because the import
+        # refreshes them from Z_TIRWEB on every run — an edit here would be
+        # silently reverted — and because the duplicate retirement keys on them.
+        self.client.force_authenticate(self.editor)
+        row = next(r for r in self.client.get('/api/v1/transport/drivers/').json() if r['id'] == 5)
+        self.assertEqual(row['logo_ref'], '318')
+        self.assertEqual(row['driver_logo_code'], '195.02.A001')
+
+        r = self.client.patch('/api/v1/transport/drivers/5/',
+                              {'logo_ref': 'HACKED', 'driver_logo_code': 'HACKED'}, format='json')
+        self.assertEqual(r.status_code, 200)
+        driver = Driver.objects.get(id=5)
+        self.assertEqual(driver.logo_ref, '318')
+        self.assertEqual(driver.driver_logo_code, '195.02.A001')

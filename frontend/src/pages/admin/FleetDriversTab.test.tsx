@@ -37,8 +37,10 @@ describe('FleetDriversTab', () => {
     updateMutateAsync.mockResolvedValue({ id: 5 });
     vi.mocked(useAdminDrivers).mockReturnValue({
       data: [
-        { id: 5, name: 'ABRAY ANNAKULYYEW', phone: null, is_active: true },
-        { id: 6, name: 'ARSLAN BERDIYEW', phone: '+99365123456', is_active: false },
+        { id: 5, name: 'ABRAY ANNAKULYYEW', phone: null, logo_ref: '318',
+          driver_logo_code: '195.02.A001', is_active: true },
+        { id: 6, name: 'ARSLAN BERDIYEW', phone: '+99365123456', logo_ref: '334',
+          driver_logo_code: '195.02.A002', is_active: false },
       ],
       isLoading: false,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -102,5 +104,18 @@ describe('FleetDriversTab', () => {
       { id: 5, is_active: false },
       expect.anything(),
     );
+  });
+
+  it('shows the Logo code column and filters on it', async () => {
+    // Two drivers can share a name (ids 30/31 in production are both
+    // BATYROW BAYRAMMYRAT); the code is the only thing telling them apart.
+    renderTab();
+    expect(screen.getByText('195.02.A001')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText('Search by name or phone'), {
+      target: { value: '195.02.A002' },
+    });
+    await waitFor(() => expect(screen.queryByText('ABRAY ANNAKULYYEW')).not.toBeInTheDocument());
+    expect(screen.getByText('ARSLAN BERDIYEW')).toBeInTheDocument();
   });
 });

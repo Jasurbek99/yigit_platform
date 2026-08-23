@@ -16,8 +16,15 @@ const createDriver = vi.fn().mockResolvedValue({ id: 200, name: 'TEST SURUJI', p
 vi.mock('@/hooks/useFleet', () => ({
   useDrivers: () => ({
     data: [
-      { id: 5, name: 'ABRAY ANNAKULYYEW', phone: null, is_active: true },
-      { id: 7, name: 'ARNAGELDIYEW ALLAYAR', phone: null, is_active: true },
+      { id: 5, name: 'ABRAY ANNAKULYYEW', phone: null, logo_ref: '318',
+        driver_logo_code: '195.02.A001', is_active: true },
+      { id: 7, name: 'ARNAGELDIYEW ALLAYAR', phone: '+99365777888', logo_ref: '337',
+        driver_logo_code: '195.02.A003', is_active: true },
+      // Same name, different Logo codes — two real people (ids 30/31 in prod).
+      { id: 30, name: 'BATYROW BAYRAMMYRAT', phone: null, logo_ref: '1754',
+        driver_logo_code: '195.02.B010', is_active: true },
+      { id: 31, name: 'BATYROW BAYRAMMYRAT', phone: null, logo_ref: '1841',
+        driver_logo_code: '195.02.B011', is_active: true },
     ],
   }),
   useCreateDriver: () => ({ mutateAsync: createDriver, isPending: false }),
@@ -55,7 +62,7 @@ describe('ShipmentDriverSelector', () => {
     expect(mutate).toHaveBeenCalledTimes(1);
     expect(mutate).toHaveBeenCalledWith({
       id: 7,
-      fields: { driver_id: 7, driver_name: 'ARNAGELDIYEW ALLAYAR' },
+      fields: { driver_id: 7, driver_name: 'ARNAGELDIYEW ALLAYAR', driver_phone: '+99365777888' },
     });
   });
 
@@ -103,5 +110,41 @@ describe('ShipmentDriverSelector', () => {
   it('readOnly disables the select', () => {
     wrap(<ShipmentDriverSelector shipment={shipmentWith(5)} readOnly />);
     expect(screen.getByLabelText(LABEL)).toBeDisabled();
+  });
+
+  it('appends the Logo code only to names that repeat', async () => {
+    wrap(<ShipmentDriverSelector shipment={shipmentWith(null)} readOnly={false} />);
+    await userEvent.click(screen.getByLabelText(LABEL));
+
+    // Duplicated name -> disambiguated by code.
+    expect(await screen.findByRole('option', { name: 'BATYROW BAYRAMMYRAT · 195.02.B010' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'BATYROW BAYRAMMYRAT · 195.02.B011' })).toBeInTheDocument();
+    // Unique name -> plain, no noise on the other 150 rows.
+    expect(screen.getByRole('option', { name: 'ABRAY ANNAKULYYEW' })).toBeInTheDocument();
+  });
+
+  it('does NOT send driver_phone when the registry has none — an operator-typed number stands', async () => {
+    // Z_TIRWEB supplies no phones at all while 80 shipments carry a hand-typed
+    // one; writing a blank would only erase that work.
+    wrap(<ShipmentDriverSelector shipment={shipmentWith(null)} readOnly={false} />);
+
+    await userEvent.click(screen.getByLabelText(LABEL));
+    await userEvent.click(await screen.findByRole('option', { name: 'ABRAY ANNAKULYYEW' }));
+
+    expect(mutate).toHaveBeenCalledWith({
+      id: 7,
+      fields: { driver_id: 5, driver_name: 'ABRAY ANNAKULYYEW' },
+    });
+  });
+
+  it('clearing leaves driver_phone untouched', async () => {
+    wrap(<ShipmentDriverSelector shipment={shipmentWith(5)} readOnly={false} />);
+
+    const clear = screen.getByLabelText(LABEL).closest('.ant-select')?.querySelector('.ant-select-clear');
+    await userEvent.click(clear as HTMLElement);
+
+    await waitFor(() =>
+      expect(mutate).toHaveBeenCalledWith({ id: 7, fields: { driver_id: null, driver_name: '' } }),
+    );
   });
 });

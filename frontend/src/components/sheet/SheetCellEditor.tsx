@@ -31,8 +31,8 @@ import {
   useShipmentOptions,
 } from '@/hooks/useAdmin';
 import { useQuotaFirmBalances } from '@/hooks/useQuotaDashboard';
-import { useAuth } from '@/hooks/useAuth';
-import { canSeePage } from '@/utils/permissions';
+import { firmHasNoQuota as isFirmBlocked } from '@/utils/quotaFirms';
+import { QuotaPageLink } from '@/components/QuotaPageLink';
 import { scaleSheetLayout } from '@/constants/sheetRowConfig';
 import { parseNumberInput } from './SheetCellEditor.helpers';
 import SheetTruckSelectEditor from './SheetTruckSelectEditor';
@@ -81,25 +81,19 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
   // (the only roles that can edit it also hold quota_issuance view). Drives the
   // non-blocking "no quota" warning. Defaults to 'tomato' because product_type
   // isn't on the sheet payload; pepper is a rare separate quota domain.
+  // The hook reads the GLOBAL season switcher while the server blocks against
+  // `shipment.season` (D11) — safe only because every surface that renders this
+  // editor is scoped by that same switcher: the sheet list sends `?season=` and
+  // the task drawer's `/me/tasks/` is scoped on `shipment__season`. A surface
+  // that opens a shipment outside the selected season (the `?shipment=` sheet
+  // branch bypasses season scoping on its own) would make the ⚠ tags and the
+  // 400 from firm-splits disagree — thread the row's season in if that happens.
   const isFirmsCell = rowConfig.field_key === 'firm_splits';
   const { data: firmBalances } = useQuotaFirmBalances('tomato', { enabled: isFirmsCell });
   const firmHasNoQuota = useCallback(
-    (firmId: number): boolean => {
-      // Unknown while the balances query is still loading — don't warn (the
-      // dropdown is defaultOpen, so on first open data is briefly undefined;
-      // returning true here would flash a ⚠ tag on every firm + a spurious toast).
-      if (!firmBalances) return false;
-      const bal = firmBalances[String(firmId)];
-      return !bal || Number(bal.remaining_kg) <= 0;
-    },
+    (firmId: number): boolean => isFirmBlocked(firmBalances, firmId),
     [firmBalances],
   );
-  // A blocked firm is only fixable on the quota page, so offer a jump to it
-  // from inside the dropdown. `canSeePage('export.quota')` also returns true
-  // for a user holding only the `export.quota.local_sell` child page — same OR
-  // logic the route itself uses (App.tsx `export/quota`).
-  const { user } = useAuth();
-  const canOpenQuotaPage = canSeePage(user, 'export.quota');
 
   const close = useCallback(() => {
     setEditingCell(null);
@@ -404,11 +398,17 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
   // (R28) is intentionally absent: it is its own cell with its own history and
   // was typed by operators, so picking a driver must not overwrite it.
   const saveDriver = useCallback(
-    (fields: { driver_id: number | null; driver_name: string }) => {
-      const before = {
+    (fields: { driver_id: number | null; driver_name: string; driver_phone?: string }) => {
+      // Snapshot only what is actually being written — driver_phone rides along
+      // just when the registry supplied one, and undo must not restore a field
+      // the PATCH never touched.
+      const before: Record<string, unknown> = {
         driver_id: shipment.driver_id,
         driver_name: shipment.driver_name,
       };
+      if (fields.driver_phone !== undefined) {
+        before.driver_phone = shipment.driver_phone;
+      }
       const undoId = recordMultiEntry(shipment.id, before, fields);
       patchMultiMutation.mutate(
         { id: shipment.id, fields },
@@ -423,6 +423,12 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
                   {
                     driver_id: d.driver_id !== undefined ? d.driver_id : fields.driver_id,
                     driver_name: d.driver_name !== undefined ? d.driver_name : fields.driver_name,
+                    ...(fields.driver_phone !== undefined
+                      ? {
+                          driver_phone:
+                            d.driver_phone !== undefined ? d.driver_phone : fields.driver_phone,
+                        }
+                      : {}),
                   },
                   cascadeFrom(shipment, d),
                 );
@@ -684,7 +690,7 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
         // the operator can go top the quota up. Only shown when the dropdown
         // actually holds such a firm.
         const showQuotaLink =
-          isFirms && canOpenQuotaPage && options.some((o) => firmHasNoQuota(o.value as number));
+          isFirms && options.some((o) => firmHasNoQuota(o.value as number));
 
         return (
           <Select
@@ -732,27 +738,14 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
                     padding: '4px 8px',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: showQuotaLink ? 'space-between' : 'flex-end',
+                    justifyContent: 'flex-end',
                     gap: 8,
                   }}
                   // Prevent the mousedown from blurring the Select (which would
                   // fire onOpenChange before our click handler runs).
                   onMouseDown={(e) => e.preventDefault()}
                 >
-                  {showQuotaLink && (
-                    // Anchor, not navigate(): a same-tab route change unmounts
-                    // the sheet and drops the in-progress selection.
-                    <Button
-                      size="small"
-                      type="link"
-                      style={{ padding: 0 }}
-                      href="/export/quota"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      {t('sheet.firm_no_quota_link')}
-                    </Button>
-                  )}
+                  {showQuotaLink && <QuotaPageLink style={{ marginRight: 'auto' }} />}
                   <Button size="small" type="primary" onClick={commitMulti}>
                     {t('sheet.multiselect_done')}
                   </Button>

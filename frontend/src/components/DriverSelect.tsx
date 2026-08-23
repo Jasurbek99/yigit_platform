@@ -8,14 +8,16 @@ import { useDrivers, useCreateDriver } from '@/hooks/useFleet';
 interface IDriverSelectProps {
   value?: number | null;
   /**
-   * Emits the driver id AND its name, because every consumer writes both:
-   * `driver_id` is the link into Z_TIRWEB's id space and `driver_name` is what
-   * the Sheet, PDFs and every existing report read. Clearing emits
-   * `(null, '')` — the two must never drift apart. This is the one deviation
-   * from the "emit the primitive id only" rule in frontend/CLAUDE.md; the name
-   * is a second primitive, not the option object.
+   * Emits the driver id, its name AND its registry phone, because every
+   * consumer writes the first two and conditionally the third: `driver_id` is
+   * the link into Z_TIRWEB's id space, `driver_name` is what the Sheet, PDFs
+   * and every existing report read, and `phone` feeds R28 via
+   * `driverPatchFields()`. Clearing emits `(null, '', null)` — id and name must
+   * never drift apart. This is the one deviation from the "emit the primitive
+   * id only" rule in frontend/CLAUDE.md; these are further primitives, not the
+   * option object.
    */
-  onChange?: (id: number | null, name: string) => void;
+  onChange?: (id: number | null, name: string, phone: string | null) => void;
   disabled?: boolean;
   autoFocus?: boolean;
   style?: React.CSSProperties;
@@ -46,10 +48,24 @@ export function DriverSelect({
   const createDriver = useCreateDriver();
   const [search, setSearch] = useState('');
 
-  const options = useMemo(
-    () => (drivers ?? []).map((d) => ({ value: d.id, label: d.name })),
-    [drivers],
-  );
+  // Two drivers can carry the same name (ids 30/31 are both
+  // BATYROW BAYRAMMYRAT, kept apart only by their Logo code), so append the
+  // code to the label — but ONLY for names that actually repeat, or 150
+  // unambiguous rows would carry noise. The label stays a plain string because
+  // `optionFilterProp="label"` filters on it, which also makes the code
+  // searchable for the rows that show one.
+  const options = useMemo(() => {
+    const list = drivers ?? [];
+    const seen = new Map<string, number>();
+    for (const d of list) seen.set(d.name, (seen.get(d.name) ?? 0) + 1);
+    return list.map((d) => ({
+      value: d.id,
+      label:
+        (seen.get(d.name) ?? 0) > 1 && d.driver_logo_code
+          ? `${d.name} · ${d.driver_logo_code}`
+          : d.name,
+    }));
+  }, [drivers]);
 
   const norm = (s: string) => s.trim().toUpperCase();
   const exists = (drivers ?? []).some((d) => norm(d.name) === norm(search));
@@ -65,7 +81,7 @@ export function DriverSelect({
       setSearch('');
       // Emit the created name directly — `drivers` won't include it until the
       // list invalidation refetch lands, so a lookup here would miss.
-      onChange?.(created.id, created.name);
+      onChange?.(created.id, created.name, created.phone);
     } catch {
       toast.error(t('shipment_edit_drawer.save_error'));
     }
@@ -89,7 +105,8 @@ export function DriverSelect({
       onChange={(v) => {
         setSearch('');
         const id = (v as number | undefined) ?? null;
-        onChange?.(id, id === null ? '' : (drivers ?? []).find((d) => d.id === id)?.name ?? '');
+        const picked = id === null ? undefined : (drivers ?? []).find((d) => d.id === id);
+        onChange?.(id, picked?.name ?? '', picked?.phone ?? null);
       }}
       dropdownRender={(menu) => (
         <>
@@ -113,4 +130,27 @@ export function DriverSelect({
       )}
     />
   );
+}
+
+/**
+ * The fields a driver pick writes onto a shipment.
+ *
+ * `driver_phone` (Sheet R28) is included ONLY when the registry actually holds
+ * one. Z_TIRWEB supplies no phones at all, while 80 of the 146 shipments carry a
+ * number an operator typed by hand — so writing an empty registry value would
+ * do nothing but erase their work. A registry phone is newer information and
+ * does replace what is there; a blank one is not information at all.
+ *
+ * Clearing the driver deliberately leaves `driver_phone` alone for the same
+ * reason: R28 is its own cell with its own history, and the operator's number
+ * is not ours to wipe.
+ */
+export function driverPatchFields(
+  id: number | null,
+  name: string,
+  phone: string | null,
+): { driver_id: number | null; driver_name: string; driver_phone?: string } {
+  const fields = { driver_id: id, driver_name: name };
+  const trimmed = phone?.trim();
+  return trimmed ? { ...fields, driver_phone: trimmed } : fields;
 }

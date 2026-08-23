@@ -968,6 +968,7 @@
     "tab_drivers": "Drivers",
     "driver_name": "Full Name",
     "driver_phone": "Phone",
+    "driver_logo_code": "Logo Code",
     "add_driver": "Add Driver",
     "edit_driver": "Edit Driver",
     "drivers_empty": "No drivers",

@@ -2,11 +2,15 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from 'antd';
 import { useTranslation } from 'react-i18next';
-import { DriverSelect } from '@/components/DriverSelect';
+import { DriverSelect, driverPatchFields } from '@/components/DriverSelect';
 
 interface ISheetDriverSelectEditorProps {
   initialDriverId: number | null;
-  onCommit: (fields: { driver_id: number | null; driver_name: string }) => void;
+  onCommit: (fields: {
+    driver_id: number | null;
+    driver_name: string;
+    driver_phone?: string;
+  }) => void;
   onClose: () => void;
 }
 
@@ -18,9 +22,10 @@ interface ISheetDriverSelectEditorProps {
  * head/trailer/plate: `driver_id` is the machine link into Z_TIRWEB's id space,
  * `driver_name` is what the sheet, PDFs and every existing report read.
  *
- * `driver_phone` (R28) is deliberately NOT written here — it is its own cell
- * with its own comment thread and edit history, and 80 of the values in it were
- * typed by operators. Picking a driver must not reach across and overwrite it.
+ * `driver_phone` (R28) is written ONLY when the registry holds one — see
+ * `driverPatchFields()`. It is its own cell with its own comment thread and edit
+ * history, and 80 of the values in it were typed by operators, so a blank
+ * registry value must never reach across and erase one.
  *
  * The option list, filtering and inline-add live in the shared `DriverSelect`
  * (frontend/CLAUDE.md's self-fetching-control rule); only the portal /
@@ -37,6 +42,7 @@ export default function SheetDriverSelectEditor({
 
   const [driverId, setDriverId] = useState<number | null>(initialDriverId);
   const [driverName, setDriverName] = useState('');
+  const [driverPhone, setDriverPhone] = useState<string | null>(null);
 
   const anchorRef = useRef<HTMLSpanElement>(null);
   const [coords, setCoords] = useState({ top: 0, left: 0 });
@@ -53,7 +59,7 @@ export default function SheetDriverSelectEditor({
     // DriverSelect hands back the name with the id (including for a row it just
     // created, which the list refetch hasn't landed yet), so there is nothing
     // to look up here.
-    onCommit({ driver_id: driverId, driver_name: driverName });
+    onCommit(driverPatchFields(driverId, driverName, driverPhone));
   }
 
   const commitRef = useRef(commit);
@@ -117,9 +123,10 @@ export default function SheetDriverSelectEditor({
             autoFocus
             value={driverId}
             style={{ width: '100%', marginBottom: 8 }}
-            onChange={(id, name) => {
+            onChange={(id, name, phone) => {
               setDriverId(id);
               setDriverName(name);
+              setDriverPhone(phone);
             }}
           />
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>

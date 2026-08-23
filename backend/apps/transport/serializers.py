@@ -97,9 +97,16 @@ class DriverSerializer(serializers.ModelSerializer):
     `id` is read-only because it is the `Z_TIRWEB.drivers.id` that
     `Shipment.driver_id` points at — reassigning it would silently repoint every
     shipment referencing this driver.
+
+    `logo_ref` / `driver_logo_code` are read-only for a different reason: the
+    import owns them (they are refreshed from Z_TIRWEB on every run, so an edit
+    here would be silently reverted), and `driver_logo_code` decides which rows
+    the duplicate retirement treats as the same person. They are exposed so an
+    operator can tell apart two drivers who share a name — ids 30/31 are both
+    `BATYROW BAYRAMMYRAT` and only the code separates them.
     """
 
     class Meta:
         model = Driver
-        fields = ['id', 'name', 'phone', 'is_active']
-        read_only_fields = ['id']
+        fields = ['id', 'name', 'phone', 'logo_ref', 'driver_logo_code', 'is_active']
+        read_only_fields = ['id', 'logo_ref', 'driver_logo_code']

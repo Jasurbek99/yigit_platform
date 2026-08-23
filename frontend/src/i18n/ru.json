@@ -970,6 +970,7 @@
     "tab_drivers": "Водители",
     "driver_name": "Ф. И. О.",
     "driver_phone": "Телефон",
+    "driver_logo_code": "Код Logo",
     "add_driver": "Добавить водителя",
     "edit_driver": "Изменить водителя",
     "drivers_empty": "Водителей нет",

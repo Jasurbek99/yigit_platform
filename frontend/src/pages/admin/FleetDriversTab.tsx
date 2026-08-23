@@ -33,7 +33,10 @@ export default function FleetDriversTab() {
     const q = keyword.trim().toLowerCase();
     if (!q) return drivers;
     return drivers.filter(
-      (d) => d.name.toLowerCase().includes(q) || (d.phone ?? '').toLowerCase().includes(q),
+      (d) =>
+        d.name.toLowerCase().includes(q) ||
+        (d.phone ?? '').toLowerCase().includes(q) ||
+        d.driver_logo_code.toLowerCase().includes(q),
     );
   }, [drivers, keyword]);
 
@@ -109,6 +112,21 @@ export default function FleetDriversTab() {
       dataIndex: 'phone',
       key: 'phone',
       render: (_, record) => record.phone || <Text type="secondary">—</Text>,
+    },
+    {
+      // Read-only: the import owns it. Shown because two drivers can share a
+      // name (ids 30/31 are both BATYROW BAYRAMMYRAT) and only this tells them
+      // apart — it is also the key the duplicate retirement runs on.
+      title: t('fleet_admin.driver_logo_code'),
+      dataIndex: 'driver_logo_code',
+      key: 'driver_logo_code',
+      sorter: (a, b) => a.driver_logo_code.localeCompare(b.driver_logo_code),
+      render: (_, record) =>
+        record.driver_logo_code ? (
+          <Text code>{record.driver_logo_code}</Text>
+        ) : (
+          <Text type="secondary">—</Text>
+        ),
     },
     {
       title: t('fleet_admin.status'),

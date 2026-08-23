@@ -23,6 +23,9 @@ export interface IDriver {
   id: number;
   name: string;
   phone: string | null;
+  /** Logo accounting identity, owned by the import — read-only on the API. */
+  logo_ref: string;
+  driver_logo_code: string;
   is_active: boolean;
 }
 

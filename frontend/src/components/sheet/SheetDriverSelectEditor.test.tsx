@@ -10,8 +10,10 @@ const createDriver = vi.fn();
 vi.mock('@/hooks/useFleet', () => ({
   useDrivers: () => ({
     data: [
-      { id: 5, name: 'ABRAY ANNAKULYYEW', phone: null, is_active: true },
-      { id: 7, name: 'ARNAGELDIYEW ALLAYAR', phone: null, is_active: true },
+      { id: 5, name: 'ABRAY ANNAKULYYEW', phone: null, logo_ref: '318',
+        driver_logo_code: '195.02.A001', is_active: true },
+      { id: 7, name: 'ARNAGELDIYEW ALLAYAR', phone: '+99365777888', logo_ref: '337',
+        driver_logo_code: '195.02.A003', is_active: true },
     ],
   }),
   useCreateDriver: () => ({ mutateAsync: createDriver, isPending: false }),
@@ -41,7 +43,7 @@ describe('SheetDriverSelectEditor', () => {
     expect(screen.getByRole('button', { name: 'Done' })).toBeInTheDocument();
   });
 
-  it('picking a driver then Done commits driver_id + driver_name once, and NOT driver_phone', async () => {
+  it('picking a driver then Done commits id + name, and the registry phone when there is one', async () => {
     const onCommit = vi.fn();
     wrap(<SheetDriverSelectEditor initialDriverId={null} onCommit={onCommit} onClose={vi.fn()} />);
 
@@ -50,10 +52,9 @@ describe('SheetDriverSelectEditor', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Done' }));
 
     expect(onCommit).toHaveBeenCalledTimes(1);
-    // Exact-payload assertion: R28 driver_phone is its own cell with its own
-    // history and holds operator-typed values — picking a driver must never
-    // reach across and write it.
-    expect(onCommit).toHaveBeenCalledWith({ driver_id: 7, driver_name: 'ARNAGELDIYEW ALLAYAR' });
+    expect(onCommit).toHaveBeenCalledWith({
+      driver_id: 7, driver_name: 'ARNAGELDIYEW ALLAYAR', driver_phone: '+99365777888',
+    });
 
     // Commit-once guard.
     await userEvent.click(screen.getByRole('button', { name: 'Done' }));
@@ -94,6 +95,8 @@ describe('SheetDriverSelectEditor', () => {
     await userEvent.click(await screen.findByText('ABRAY ANNAKULYYEW'));
 
     fireEvent.mouseDown(document.body);
+    // Driver 5 has no registry phone, so driver_phone is absent — R28 keeps
+    // whatever the operator typed.
     expect(onCommit).toHaveBeenCalledWith({ driver_id: 5, driver_name: 'ABRAY ANNAKULYYEW' });
   });
 
