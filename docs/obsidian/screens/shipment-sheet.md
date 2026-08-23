@@ -470,10 +470,13 @@ The same picker (`components/DriverSelect.tsx`) also backs the ShipmentDetail tr
 the edit drawer via `ShipmentDriverSelector`, so the three surfaces cannot disagree about
 `driver_id` — see [[../processes/fleet-map#Shipment driver selector (2026-08-20)]].
 
-**R28 `driver_phone` is never written by that picker.** It is its own cell with its own comment
-thread and edit history, and 80 of its 146 values were typed by operators; the registry has no
-phone for any driver, so writing it from R27 could only blank them. Operators keep filling R28
-by hand. Inline-added driver names are upper-cased to match how the registry stores all 152
+**R28 `driver_phone` is written by that picker only when the registry actually holds a number**
+(`driverPatchFields()` in `components/DriverSelect.tsx`). Z_TIRWEB supplies no phones at all,
+while 80 of the 146 shipments carry one an operator typed by hand — so a blank registry value
+is omitted from the patch entirely rather than erasing their work. A real registry phone is
+newer information and does replace what is there. Clearing the driver leaves R28 alone for the
+same reason. Operators can fill a driver's phone once in the Fleet Admin Drivers tab and it
+then follows that driver onto every future shipment. Inline-added driver names are upper-cased to match how the registry stores all 152
 rows, so a re-type doesn't create a near-duplicate.
 
 **R39 `harvest_date` (Ýygylan senesi)** is a **free-text** cell (`input_type='text'`), not a date picker. `Shipment.harvest_date` is a `CharField` — operators type whatever form the operation uses (a single day, a range like `5–10 oktýabr`, or a note). The earlier multi-block per-`block_source` calendar editor was removed; the vestigial `ShipmentBlockSource.harvest_date` column is no longer read or written by the Sheet.

@@ -43,7 +43,12 @@ An Ant Design `Tabs` with three tabs:
   capacity, GPS (green/grey tag from `has_gps`), status (active/inactive tag), row actions.
 - **Trailers** — `useAdminTrailers()`. Columns: plate_number, owner_type, status, row actions.
 - **Drivers** — `useAdminDrivers()`, in its own component `FleetDriversTab.tsx`. Columns:
-  name, phone, status, row actions. Form fields: **name** (required), **phone**, **is_active**.
+  name, phone, **Logo code**, status, row actions. Form fields: **name** (required), **phone**,
+  **is_active**. `driver_logo_code` is displayed but **not editable** — the import refreshes it
+  from `Z_TIRWEB` on every run, so an edit would be silently reverted, and it is the key the
+  duplicate retirement runs on. It is shown because two drivers can share a name (ids 30/31 are
+  both `BATYROW BAYRAMMYRAT`) and the code is the only thing telling them apart; the tab's
+  client-side filter searches it too.
 
 Every tab lists **all** rows including inactive ones — the admin hooks call the list endpoint
 with `?include_inactive=true` (the shipment picker, by contrast, sees active-only).

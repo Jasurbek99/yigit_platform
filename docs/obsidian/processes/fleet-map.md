@@ -72,10 +72,28 @@ Four models in `backend/apps/transport/models/registry.py`, table prefix `transp
 |---|---|---|
 | `name` | CharField(100), Cyrillic collation | `full_name` in `Z_TIRWEB`; longest actual value is 38 chars |
 | `phone` | CharField(30), null | **Always NULL today** — `Z_TIRWEB` stores no phone for any of the 152 drivers |
-| `is_active` | Boolean | default `True` |
+| `logo_ref` | CharField(100), blank | Logo accounting reference (`318`, `1511`…). Filled on all 152 |
+| `driver_logo_code` | CharField(120), blank | Logo account code (`195.02.A001`). Filled on all 152; **151 distinct** |
+| `is_active` | Boolean | default `True`; `False` marks a retired duplicate — see below |
 
-Seeded from `Z_TIRWEB.drivers` with the source `id` preserved — **152 rows, ids 5–158**, all
-active — because `Shipment.driver_id` is a raw integer pointing into that same id space.
+Seeded from `Z_TIRWEB.drivers` with the source `id` preserved — **152 rows, ids 5–158** —
+because `Shipment.driver_id` is a raw integer pointing into that same id space.
+
+**`driver_logo_code` is the "same person" key, not the name.** The source proves names cannot
+decide it in either direction:
+
+| ids | name | Logo code | verdict |
+|---|---|---|---|
+| 99 / 113 | `SALAROW TOYLY` / `TOYLY SALAROW` | both `195.02.S008` | **one person**, words swapped |
+| 30 / 31 | `BATYROW BAYRAMMYRAT` (identical) | `195.02.B010` / `195.02.B011` | **two people** |
+
+`_deactivate_duplicate_drivers()` runs at the end of every import and deactivates any row whose
+code duplicates a lower-id one — so 113 is retired and 151 drivers stay active. Rows with a
+blank code are skipped; an empty string is not evidence of sameness. It **deactivates rather
+than deletes**, because `Z_TIRWEB` still holds the row and a delete would simply return on the
+next import, whereas `is_active` is absent from the upsert defaults and therefore survives.
+Consequence: a duplicate an operator deliberately re-activates will be retired again on the
+next run.
 
 Managed from the **Drivers** tab of [[../screens/fleet-admin|Fleet Admin]]
 (`GET/POST /transport/drivers/`, `PATCH /transport/drivers/{id}/`).
@@ -293,6 +311,14 @@ Route `/transport/map`, nav entry "Fleet Map" (`nav.fleet_map`, Turkmen/Russian/
 yet** — same bypass as `worklog`/`team/kpi`: `ProtectedRoute` with no `pageCode`, open to
 every authenticated role (see `frontend/src/App.tsx`, `AppLayout.tsx`).
 
+> **`seller` is excluded from the nav entry** (owner request, 2026-08-23). Unlike
+> `worklog` and `team/kpi`, this is not an every-authenticated-user grant: the seller
+> works one screen — the [[local-sell-plan]] grid — and has no shipments, no fleet and
+> no reason to watch trucks move. The exclusion lives in `AppLayout.tsx`'s inline
+> `roles` list for `/transport/map`; the ROUTE is still a bare `<ProtectedRoute>`, so a
+> typed URL reaches it. Narrowing the route means registering a `transport.map`
+> page_code (the follow-up already noted at the end of this file).
+
 `react-leaflet@4.2.1` + OpenStreetMap tiles (`VITE_MAP_TILE_URL` env override, default
 `{s}.tile.openstreetmap.org`), default view centred on Ashgabat
 (`[37.95, 58.39]`, zoom 5, matching the Traccar server's own coverage). A searchable
@@ -509,6 +535,13 @@ rather than merely absent**. Rendered in the same three places behind the same `
 branch — `ShipmentTransportBody.tsx`, `ShipmentEditDrawer.tsx`, and the Sheet R27 cell — and
 each writes `driver_id` + `driver_name` in one PATCH.
 
+**Phone auto-fill.** `driverPatchFields()` decides what a pick writes: always `driver_id` +
+`driver_name`, plus `driver_phone` **only when the registry row has one**. Z_TIRWEB supplies no
+phones, so an unconditional write could do nothing but erase the 80 operator-typed numbers
+already on shipments; a real phone entered in the Drivers tab is newer information and does
+replace what is there. Clearing the driver leaves the phone alone. The Sheet's undo snapshot
+carries `driver_phone` only on the patches that actually write it.
+
 `DRIVER_NAME_FIELD` is exported from `shipmentEditConfig.ts` and listed in `excludeKeys`
 alongside `TRUCK_PLATE_FIELD`, so the field group renders it once, standalone, and the
 completeness chip still counts it. `driver_phone` deliberately stays an ordinary text row.
@@ -521,6 +554,12 @@ because every consumer must write both columns and they must never drift apart. 
 `(null, '')`. `ShipmentDriverSelector` wraps it for the card/drawer (saves on change, with an
 early return when the pick is unchanged so a no-op costs no PATCH or audit row);
 `SheetDriverSelectEditor` wraps it in the portal/scroll-commit overlay and defers to Done.
+
+`DriverSelect` appends the Logo code to an option's label **only when that name repeats** in
+the list (`BATYROW BAYRAMMYRAT · 195.02.B010`), so the two same-name drivers are pickable apart
+without putting a code on the other 150 rows. The label stays a plain string because
+`optionFilterProp="label"` filters on it — which also makes the code searchable on the rows
+that show one.
 
 **Known limitation, shared by all three:** the "+ Add" guard compares names exactly (trim +
 uppercase), like the truck picker — correct for plates, which are codes, but driver names
@@ -595,9 +634,10 @@ returns inactive rows too, used by the admin page); `create`/`update` are gated 
 `CanEditShipment` (`SHIPMENT_EDITOR_ROLES`). All three are unpaginated with `?search=`
 (`plate_number`, or `name`/`phone` for drivers). **None expose `destroy`** — the `Shipment.*_id`
 columns are loose integers with no FK to protect them, so rows are deactivated, never deleted.
-`DriverSerializer` exposes `id, name, phone, is_active` with `id` read-only: it is the
-`Z_TIRWEB.drivers.id` that `Shipment.driver_id` points at, so a client must not be able to move
-a row to another id. `has_gps` is a read-only computed field; `traccar_device` is not
+`DriverSerializer` exposes `id, name, phone, logo_ref, driver_logo_code, is_active`.
+`id` is read-only because it is the `Z_TIRWEB.drivers.id` that `Shipment.driver_id` points at,
+so a client must not be able to move a row to another id; `logo_ref` / `driver_logo_code` are
+read-only because the import owns them and the duplicate retirement keys on them. `has_gps` is a read-only computed field; `traccar_device` is not
 client-writable. On **create**, and on a **PATCH that changes the plate**, the serializer
 plate-matches a Traccar device via `device_for_plate()`; a PATCH that leaves the plate
 unchanged does **not** re-match (guards against wiping a working GPS link when another field
