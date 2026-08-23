@@ -26,6 +26,7 @@ frontend/.cache/
 
 # Credentials (local dev only — never commit)
 CREDENTIALS.md
+docs/TEST_ACCOUNTS.md
 
 # IDE
 .vscode/settings.json
@@ -60,3 +61,6 @@ backend/walk_shipment.py
 .codex/
 AGENTS.md
 .agents/
+
+# Row-level DB backups taken before destructive data fixes. Production data — never commit.
+backups/
