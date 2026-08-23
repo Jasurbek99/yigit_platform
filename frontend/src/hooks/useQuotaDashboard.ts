@@ -55,7 +55,17 @@ export function useQuotaIssuances(
       const { data } = await api.get<IApiListResponse<IQuotaIssuance> | IQuotaIssuance[]>(
         `/export/quota-issuances/${qs}`,
       );
-      return Array.isArray(data) ? data : data.results;
+      const rows = Array.isArray(data) ? data : data.results;
+      // DRF serializes DecimalField as a string ("100000.00"), so summing the
+      // allocations concatenated instead of adding. Normalize at the boundary.
+      return rows.map((iss) => ({
+        ...iss,
+        allocations: iss.allocations.map((a) => ({
+          ...a,
+          kg_quota: Number(a.kg_quota) || 0,
+          used_kg: Number(a.used_kg) || 0,
+        })),
+      }));
     },
     enabled: isReady,
     staleTime: 60_000,

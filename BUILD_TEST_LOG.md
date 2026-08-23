@@ -1,5 +1,12 @@
 # Build / Test Log
 
+- [ ] 2026-08-22 — **Quota dashboard: garbage number string in the Total row fixed.** `kg_quota`/`used_kg`
+  arrive from DRF as decimal *strings*, so the expired-quota sums concatenated instead of adding.
+  `useQuotaIssuances` now coerces both with `Number()`. Check on `/export/quota` → **Issuances** tab:
+  the *Issued* and *Used* columns must read `100 000 kg`, not `100000.00 kg`, in **both** kg and ton
+  modes (in tons the old bug showed `не число`), and sorting by either column must order numerically.
+  The Firm-breakdown Expired column now comes from the backend — verify it in the season entry above. — NEEDS TEST
+
 - [x] 2026-08-23 — **Truck Forecast removed from both sidebars.** `/export/trucks` no longer
   appears in any menu — boss (Planning group) or staff (Export group). Check: log in as boss and
   as `export_manager`, confirm the **Грузовики / Maşyn** entry is gone from the sidebar, that
