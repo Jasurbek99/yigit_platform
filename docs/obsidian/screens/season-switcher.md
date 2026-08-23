@@ -136,11 +136,22 @@ Renders `null` when `useSeasonReadOnly()` is `false`. Otherwise branches on
 
 `/admin/seasons` gains a status column (`ACTIVE`/`CLOSED`/`UPCOMING` Tag) and row actions:
 
-| Row status | Close | Open | Edit | Delete |
+| Row status | Open | Close | Edit | Delete |
 |---|---|---|---|---|
-| `ACTIVE` | opens `SeasonCloseModal` | — | yes | yes |
-| `UPCOMING` | — | `Modal.confirm` → `POST .../open/` | yes | yes |
+| `ACTIVE` | — | opens `SeasonCloseModal` | yes | yes |
+| `UPCOMING` | `Modal.confirm` → `POST .../open/` | opens `SeasonCloseModal` | yes | yes |
 | `CLOSED` | — | — | **hidden** | **hidden** |
+
+**Close is gated on `status !== 'CLOSED'`, not `=== 'ACTIVE'`** (changed 2026-08-23). The
+ACTIVE-only gate made the normal end-of-season sequence impossible and closed two wrong
+seasons on 2026-08-22: opening next year's season demotes this year's to UPCOMING, which
+under that gate lost its Close button **permanently** — while the newly opened season gained
+one, in the row that had just jumped to the top (the grid default-sorts by `is_active`). The
+only Close button on screen belonged to the season that must not be closed. The backend never
+carried the restriction — `close_season()` refuses only an already-closed season and
+`SeasonViewSet.close` adds nothing beyond `season.can_edit` — so this was a UI-only trap.
+Open renders **before** Close so the benign action keeps the leftmost slot on the one row
+that shows both; `SeasonsPage.test.tsx` pins both the visibility and the order.
 
 The create/edit modal carries an `is_active` `Switch` (removed 2026-08-07, **restored
 2026-08-10** at the domain owner's request). It is no longer a reopen vector or a stale-state

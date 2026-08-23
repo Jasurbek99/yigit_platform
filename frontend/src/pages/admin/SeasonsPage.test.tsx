@@ -90,12 +90,30 @@ describe('SeasonsPage row actions by status', () => {
     expect(screen.queryByRole('button', { name: 'Open season' })).not.toBeInTheDocument();
   });
 
-  it('UPCOMING: shows Open + Edit + Delete, never Close', async () => {
+  // Close used to be gated on ACTIVE, and this test pinned that: it asserted
+  // UPCOMING shows "never Close". That was the defect, not a guarantee.
+  // Opening next year's season demotes this year's to UPCOMING, so under the
+  // old gate the season you actually meant to close lost its Close button
+  // permanently, while the new season gained one — two wrong seasons were
+  // closed that way on 2026-08-22. `close_season()` never required ACTIVE.
+  it('UPCOMING: shows Open + Close + Edit + Delete — a deactivated season stays closable', async () => {
     renderPage([seasonRow('UPCOMING')]);
     expect(await screen.findByRole('button', { name: 'Open season' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Close season' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Close season' })).not.toBeInTheDocument();
+  });
+
+  it('UPCOMING: Open is rendered before Close, so the benign action keeps the leftmost slot', async () => {
+    renderPage([seasonRow('UPCOMING')]);
+    await screen.findByRole('button', { name: 'Open season' });
+    const labels = screen
+      .getAllByRole('button')
+      .map((b) => b.textContent)
+      .filter((label): label is string =>
+        ['Open season', 'Close season', 'Edit', 'Delete'].includes(label ?? ''),
+      );
+    expect(labels).toEqual(['Open season', 'Close season', 'Edit', 'Delete']);
   });
 
   it('CLOSED: shows none of Close / Open / Edit / Delete', async () => {

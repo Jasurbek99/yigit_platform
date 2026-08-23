@@ -211,15 +211,6 @@ export default function SeasonsPage() {
             search: false,
             render: (_: unknown, record: ISeason) => (
               <Space size={4}>
-                {canEditSeason && record.status === 'ACTIVE' && (
-                  <Button
-                    type="link"
-                    size="small"
-                    onClick={(e) => { e.stopPropagation(); setCloseTarget(record); }}
-                  >
-                    {t('seasons.close_button')}
-                  </Button>
-                )}
                 {canEditSeason && record.status === 'UPCOMING' && (
                   <Button
                     type="link"
@@ -227,6 +218,30 @@ export default function SeasonsPage() {
                     onClick={(e) => { e.stopPropagation(); handleOpenSeason(record); }}
                   >
                     {t('seasons.open_button')}
+                  </Button>
+                )}
+                {/*
+                  `!== 'CLOSED'`, NOT `=== 'ACTIVE'`. Gating Close on ACTIVE
+                  made the normal end-of-season sequence impossible and caused
+                  two wrong seasons to be closed on 2026-08-22: opening next
+                  year's season demotes this year's to UPCOMING, which under
+                  the old gate lost its Close button for good — while the new
+                  season gained one, in the row that had just moved to the top
+                  (the grid default-sorts by is_active). The only Close button
+                  on screen belonged to the season that must not be closed.
+                  The backend never had this restriction: `close_season()`
+                  refuses only an already-closed season, and `SeasonViewSet.
+                  close` adds nothing beyond `season.can_edit`. Open is
+                  rendered FIRST so the benign action keeps the leftmost slot
+                  on the one row that shows both.
+                */}
+                {canEditSeason && record.status !== 'CLOSED' && (
+                  <Button
+                    type="link"
+                    size="small"
+                    onClick={(e) => { e.stopPropagation(); setCloseTarget(record); }}
+                  >
+                    {t('seasons.close_button')}
                   </Button>
                 )}
                 {canEditSeason && record.status !== 'CLOSED' && (

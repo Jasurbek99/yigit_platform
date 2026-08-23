@@ -1,5 +1,15 @@
 # Build / Test Log
 
+- [ ] 2026-08-23 — **Close button now shown on UPCOMING seasons too (`SeasonsPage`).**
+  Previously only an ACTIVE season could be closed, so opening the new season made the old
+  one permanently unclosable — the cause of two wrong seasons being closed on 2026-08-22.
+  Check on `/admin/seasons`: the UPCOMING row shows **Open, Close, Edit, Delete in that
+  order**, the ACTIVE row shows Close/Edit/Delete, a CLOSED row still shows none of them.
+  Then actually close 2025-2026 from its own row and confirm the dialog names **2025-2026**
+  and reports its real counts (77 in transit, 530 open tasks, 59 drafts, 509 unfinished
+  plans) — not zeros. **Closing cannot be undone from the UI**, so read the dialog before
+  confirming. 442 frontend tests pass, `tsc` clean. **NEEDS TEST**
+
 - [x] 2026-08-23 — **Quota-page link inside the Sheet's export-firm dropdown (R9 `firm_splits`).**
   Check: open the Sheet, edit the **Firms** cell on a row whose firm list contains a firm with no
   remaining quota (it shows `⚠ no quota` and is greyed out) — an **`Open quota page →`** link must
