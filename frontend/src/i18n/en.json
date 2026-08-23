@@ -1997,6 +1997,15 @@
     "toast_success": "Supply draft merged successfully",
     "toast_error": "Failed to join supply draft"
   },
+  "join_blockers": {
+    "need_two": "Select exactly 2 draft columns",
+    "same_shipment": "Select two different columns",
+    "not_draft": "{{code}} is not a draft — only drafts can be joined",
+    "both_supply": "Both columns have supply blocks. One of them must be a destination draft: country + customer filled, no blocks",
+    "no_supply": "Neither column has supply blocks. One of them must be a supply draft with at least one block",
+    "target_no_country": "{{code}}: fill in the Country",
+    "target_no_customer": "{{code}}: fill in the Customer"
+  },
   "join_drafts": {
     "title": "Join two drafts",
     "confirm": "Join",

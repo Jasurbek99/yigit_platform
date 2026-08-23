@@ -355,8 +355,11 @@ export const useSheetStore = create<ISheetState>((set) => ({
       if (current.length < 2) {
         return { joinSelection: [...current, id] };
       }
-      // Already 2 selected — ignore
-      return {};
+      // Already 2 selected — slide the window: drop the oldest, keep the newest
+      // pair. Ignoring the click instead (the old behaviour) made a mis-picked
+      // pair unrecoverable without leaving join mode — the third column simply
+      // never highlighted, which reads as "join is broken".
+      return { joinSelection: [current[1], id] };
     }),
   clearJoinSelection: () => set({ joinSelection: [] }),
 

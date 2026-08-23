@@ -1,9 +1,5 @@
 import type { IShipmentListItem, ICurrentUser } from '@/types';
-
-// Mirrors the join endpoint's gate (apps/export/views.py join action):
-// apps.core.roles.PRIVILEGED_ROLES = {admin, export_manager, director}, widened
-// with 'boss' at the call site (like /assign), plus a superuser bypass (like /cancel).
-const JOIN_ROLES: ReadonlyArray<string> = ['admin', 'export_manager', 'director', 'boss'];
+import { canUserJoin } from '@/components/sheet/joinHelpers';
 
 /**
  * Whether the "Join drafts" bulk-bar button should show. True only when a
@@ -18,7 +14,7 @@ export function canJoinDrafts(
   isReadOnly: boolean,
 ): boolean {
   if (isReadOnly || !user) return false;
-  if (!(JOIN_ROLES.includes(user.role) || user.is_superuser === true)) return false;
+  if (!canUserJoin(user)) return false;
   if (selectedRows.length !== 2) return false;
   return selectedRows.every((r) => r.status_code === 'draft');
 }

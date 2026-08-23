@@ -134,12 +134,27 @@ flowchart LR
 
 **Step 3 — Join** (Gadam): "Join" toolbar button arms a **column-selection mode** — Gadam clicks two draft columns directly in the Sheet (they highlight). The `JoinActionBar` auto-detects which selected column is the destination (target) vs the supply (source), shows a supply→destination preview, and confirms via a Popconfirm (the source is hard-deleted). No modal.
 
-**Endpoint**: `POST /api/v1/export/shipments/{target_id}/join/` body `{"source_id": <int>}`. Caller must be `export_manager`/`director`/`boss`. Gates: both must be `draft`; target ≠ source; target must have country + customer; target must **not** already have blocks; source must have ≥1 block. Effect:
+**Endpoint**: `POST /api/v1/export/shipments/{target_id}/join/` body `{"source_id": <int>}`. Caller must be `admin`/`export_manager`/`director`/`boss` (or superuser). Gates: both must be `draft`; target ≠ source; target must have country + customer; target must **not** already have blocks; source must have ≥1 block. Effect:
 - `source.block_sources` (and `firm_splits` if the target has none) move to the target.
 - `variety` + `export_code` are copied to the target if the target's are empty.
 - The source's full set of sorts (`varieties_dominant`) is copied onto the target when the target has none.
 - `target.weight_net` is recomputed.
 - One `ShipmentStatusLog` audit row is written on the target ("Joined supply from {source.shipment_code} …").
+
+**Client-side classification (corrected 2026-08-22)**: `isSupplyDraft()` used to additionally require
+`country === null || created_by_role ∈ SUPPLY_ROLES` — a **frontend-only rule the endpoint never had**.
+A supply draft with blocks that also had a country typed in (or was created by `export_manager`/`boss`
+rather than the loading dept) therefore classified as neither destination nor supply, the pair read as
+*ambiguous*, and the Join button stayed greyed out with no explanation — while the API would have accepted it.
+`isSupplyDraft()` is now exactly the backend rule: **a draft with ≥1 block**. Over-match is impossible,
+since a destination needs 0 blocks and a supply needs >0.
+
+**Unmet-requirement warnings (2026-08-22)**: `explainJoinBlockers(selected)` mirrors `_validate_join`'s gates
+in order and returns the list of things still missing — *need two* / *same shipment* / *not a draft* /
+*both have blocks* / *neither has blocks* / *target country empty* / *target customer empty*. The Sheet's
+`JoinActionBar` and the List's `JoinDraftsModal` render that list, so the operator is told **what to fill**
+rather than that the pair is invalid. The two gates a client cannot know — season open and caller role —
+are deliberately not in the list; they still surface as the 400 toast.
 - The source creator gets a `Notification`.
 - The **source is hard-deleted**.
 
@@ -149,7 +164,7 @@ The target stays `draft` and is then assigned via the existing assign action (St
 
 **Join two drafts on the List page (Phase B, 2026-08-15)**: A third entry point to the same join endpoint. On the **Shipment List**, tick exactly two draft rows; a **"Join drafts"** button appears in the blue bulk-action bar. Clicking opens a modal that auto-detects which draft is the destination (kept) vs the supply (source, deleted) and shows a preview; confirming merges via the existing `/join/` endpoint. Ambiguous pairs (supply with supply, where the system cannot tell which to keep) show an error instead. Reuses the same merge semantics and permissions as the Sheet join and the Detail-page join above.
 
-**Join permission (updated 2026-08-15)**: the `/join/` endpoint admits `admin` / `export_manager` / `director` / `boss`, plus superusers. `boss` was **widened at the call site** on 2026-08-15 (the same pattern `/assign` and `/cancel` already use) so he can merge drafts from his own login. Before that the endpoint used only `apps.core.roles.PRIVILEGED_ROLES` = {admin, export_manager, director}, so all three Join surfaces (Sheet, Detail, List) 403'd for `boss` despite showing him a button. The frontend gates (`canJoinSupply`, `canJoinDrafts`) mirror this same set. (Note: this is distinct from `apps/export/services/shipment.py`'s same-named `PRIVILEGED_ROLES` = {export_manager, director, boss}, which governs per-edge *transition* bypass, not this endpoint.)
+**Join permission (updated 2026-08-15)**: the `/join/` endpoint admits `admin` / `export_manager` / `director` / `boss`, plus superusers. `boss` was **widened at the call site** on 2026-08-15 (the same pattern `/assign` and `/cancel` already use) so he can merge drafts from his own login. Before that the endpoint used only `apps.core.roles.PRIVILEGED_ROLES` = {admin, export_manager, director}, so all three Join surfaces (Sheet, Detail, List) 403'd for `boss` despite showing him a button. The frontend gates all read one shared helper, `canUserJoin()` in `frontend/src/components/sheet/joinHelpers.ts` (`canJoinSupply` on the Detail hero, `canJoinDrafts` on the List, `canJoin` in `SheetToolbar`). **Fixed 2026-08-22**: the Sheet toolbar had kept its own `['export_manager','director']` literal and was never widened with the endpoint, so `admin` and `boss` saw no Join button in the Sheet at all while the same users could join from the List and the Detail page — the three lists are now one constant so they cannot drift again. (Note: this is distinct from `apps/export/services/shipment.py`'s same-named `PRIVILEGED_ROLES` = {export_manager, director, boss}, which governs per-edge *transition* bypass, not this endpoint.)
 
 **Sheet tint**: supply columns are visually tinted in the Sheet by `created_by_role ∈ {loading_dept_head, warehouse_chief}`. A manual `column_color` still takes precedence over the tint. See [[../screens/shipment-sheet#Supply-column tint|Shipment Sheet]] for the toolbar buttons and tint rendering.
 

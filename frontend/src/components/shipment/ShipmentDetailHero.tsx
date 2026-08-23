@@ -15,7 +15,7 @@ import { StatusTag } from '@/components/StatusTag';
 import { FreshnessPill } from '@/components/FreshnessPill';
 import { TransitionButton } from '@/components/TransitionButton';
 import { JoinSupplyModal } from '@/components/shipment/JoinSupplyModal';
-import { isDestinationDraft } from '@/components/sheet/joinHelpers';
+import { isDestinationDraft, canUserJoin } from '@/components/sheet/joinHelpers';
 import { useAuth } from '@/hooks/useAuth';
 import { usePromoteFromDraft } from '@/hooks/useDrafts';
 import { useCancelShipment, useHardDeleteDraftShipment } from '@/hooks/useShipments';
@@ -116,15 +116,9 @@ export function ShipmentDetailHero({ shipment, onOpenComments }: IShipmentDetail
   const promote = usePromoteFromDraft();
 
   // Join supply: only on a destination draft (has destination, no blocks yet).
-  // Mirrors the join endpoint's gate (apps/export/views.py join action):
-  // apps.core.roles.PRIVILEGED_ROLES = {admin, export_manager, director}, widened
-  // with 'boss' at the call site (like /assign), plus a superuser bypass (like /cancel).
-  const JOIN_ROLES: ReadonlyArray<string> = ['admin', 'export_manager', 'director', 'boss'];
-  const canJoinSupply =
-    isDestinationDraft(shipment) &&
-    !!user &&
-    (JOIN_ROLES.includes(user.role) || user.is_superuser === true) &&
-    !isReadOnly;
+  // Role gate comes from the shared canUserJoin() so the Sheet, the list bulk
+  // bar and this hero can never drift apart again.
+  const canJoinSupply = isDestinationDraft(shipment) && canUserJoin(user) && !isReadOnly;
 
   const [joinOpen, setJoinOpen] = useState(false);
 

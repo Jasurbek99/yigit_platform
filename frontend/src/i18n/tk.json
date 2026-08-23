@@ -1997,6 +1997,15 @@
     "toast_success": "Üpjünçilik garalamasy üstünlikli birleşdirildi",
     "toast_error": "Üpjünçilik garalamasyny birleşdirip bolmady"
   },
+  "join_blockers": {
+    "need_two": "Takyk 2 sany garalama sütünini saýlaň",
+    "same_shipment": "Iki dürli sütün saýlaň",
+    "not_draft": "{{code}} garalama däl — diňe garalamalar birleşdirilip bilner",
+    "both_supply": "Iki sütünde-de üpjünçilik bloklary bar. Olaryň biri barmaly ýer garalamasy bolmaly: ýurt + müşderi doldurylan, bloksuz",
+    "no_supply": "Hiç bir sütünde üpjünçilik bloky ýok. Olaryň biri azyndan bir bloky bolan üpjünçilik garalamasy bolmaly",
+    "target_no_country": "{{code}}: Ýurdy dolduryň",
+    "target_no_customer": "{{code}}: Müşderini dolduryň"
+  },
   "join_drafts": {
     "title": "Iki taslamany birleşdir",
     "confirm": "Birleşdir",

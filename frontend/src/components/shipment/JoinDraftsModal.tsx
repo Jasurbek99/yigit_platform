@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { useShipmentDetail } from '@/hooks/useShipmentDetail';
 import { useJoinShipments } from '@/hooks/useDrafts';
-import { detectJoinDirection } from '@/components/sheet/joinHelpers';
+import { detectJoinDirection, explainJoinBlockers } from '@/components/sheet/joinHelpers';
 import { FONT } from '@/constants/styles';
 
 interface IJoinDraftsModalProps {
@@ -61,9 +61,24 @@ export function JoinDraftsModal({ open, draftIds, onClose, onSuccess }: IJoinDra
       {loading ? (
         <Spin style={{ display: 'block', margin: '24px auto' }} />
       ) : fetchError ? (
-        <Alert type="error" showIcon title={t('join_drafts.fetch_error')} />
+        <Alert type="error" showIcon message={t('join_drafts.fetch_error')} />
       ) : resolved == null ? (
-        <Alert type="warning" showIcon title={t('join_drafts.ambiguous')} />
+        <Alert
+          type="warning"
+          showIcon
+          message={t('join_drafts.ambiguous')}
+          description={
+            <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+              {explainJoinBlockers(
+                [a.data, b.data].filter((d): d is NonNullable<typeof d> => d != null),
+              ).map((bl) => (
+                <li key={`${bl.key}:${bl.code ?? ''}`}>
+                  {t(`join_blockers.${bl.key}`, { code: bl.code })}
+                </li>
+              ))}
+            </ul>
+          }
+        />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div>

@@ -23,6 +23,7 @@ import { canDoBackendGated } from '@/utils/permissions';
 import type { IRowConfig, ISheetTaskCounts, IShipmentSheetItem } from '@/types';
 import { COLORS } from '@/constants/styles';
 import { JoinActionBar } from './JoinActionBar';
+import { canUserJoin } from './joinHelpers';
 import { SwapActionBar } from './SwapActionBar';
 import { PresenceAvatars } from '@/components/PresenceAvatars';
 
@@ -132,12 +133,13 @@ export function SheetToolbar({
   // whatever the permission matrix says — the button would render and 403.
   const canCreate = canDoBackendGated(user, 'shipment', 'create') && !isReadOnly;
 
-  // Join flow: join is restricted to export_manager / director.
+  // Join flow: gate mirrors the backend join endpoint via the shared JOIN_ROLES
+  // helper (admin / export_manager / director / boss + superuser). This list
+  // used to be a local ['export_manager','director'] literal, which hid the
+  // Sheet's Join button from admin and boss even though the API accepts them.
   // (canCreateSupply removed when the "Ýük goş" button was commented out — the
   // primary "New Shipment" button now covers supply create via canDo('shipment','create').)
-  const userRole = user?.role ?? '';
-  const canJoin =
-    (user?.is_superuser || ['export_manager', 'director'].includes(userRole)) && !isReadOnly;
+  const canJoin = canUserJoin(user) && !isReadOnly;
   const shipmentCount = shipments.length;
 
   // ─── Column filters ─────────────────────────────────────────────────────

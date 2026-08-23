@@ -1,10 +1,10 @@
 import { Button, Typography } from 'antd';
-import { MergeCellsOutlined } from '@ant-design/icons';
+import { MergeCellsOutlined, WarningOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { useSheetStore } from '@/stores/sheetStore';
 import { useJoinShipments } from '@/hooks/useDrafts';
-import { isDestinationDraft, isSupplyDraft } from './joinHelpers';
+import { isDestinationDraft, isSupplyDraft, explainJoinBlockers } from './joinHelpers';
 import { FONT } from '@/constants/styles';
 import type { IShipmentSheetItem } from '@/types';
 
@@ -34,8 +34,11 @@ export function JoinActionBar({ shipments }: IJoinActionBarProps) {
   const isValidPair =
     hasTwoSelected && destination !== null && supply !== null && destination.id !== supply.id;
 
-  // Show validation hint when 2 are selected but pair is invalid
-  const showInvalidHint = hasTwoSelected && !isValidPair;
+  // Unmet requirements, spelled out (empty once the pair is joinable). Shown
+  // as soon as anything is selected so the user sees WHAT to fill, not just
+  // "invalid pair".
+  const blockers =
+    isValidPair || selectedShipments.length === 0 ? [] : explainJoinBlockers(selectedShipments);
 
   function handleConfirm() {
     if (!isValidPair || !destination || !supply) return;
@@ -97,11 +100,16 @@ export function JoinActionBar({ shipments }: IJoinActionBarProps) {
         </div>
       )}
 
-      {/* Validation hint when 2 selected but invalid pair */}
-      {showInvalidHint && (
-        <Text type="warning" style={{ fontSize: 12 }}>
-          {t('sheet.join_bar.need_pair')}
-        </Text>
+      {/* Unmet requirements — one line per missing thing */}
+      {blockers.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 10px', minWidth: 0 }}>
+          {blockers.map((b) => (
+            <Text key={`${b.key}:${b.code ?? ''}`} type="warning" style={{ fontSize: 12 }}>
+              <WarningOutlined style={{ marginRight: 4 }} />
+              {t(`join_blockers.${b.key}`, { code: b.code })}
+            </Text>
+          ))}
+        </div>
       )}
 
       <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexShrink: 0 }}>
