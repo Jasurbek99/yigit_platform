@@ -561,7 +561,17 @@ export function useDomesticSales(
       const { data } = await api.get<IApiListResponse<IDomesticSale>>(
         `/greenhouse/domestic-sales/?${params}`,
       );
-      return data;
+      // `weight_kg` / `price_per_kg` are model DecimalFields, so DRF ships them
+      // as strings ("1500.00") while IDomesticSale declares number — summing
+      // them concatenated. Coerce here, not at the usage sites.
+      return {
+        ...data,
+        results: data.results.map((r) => ({
+          ...r,
+          weight_kg: Number(r.weight_kg) || 0,
+          price_per_kg: r.price_per_kg == null ? null : Number(r.price_per_kg),
+        })),
+      };
     },
     staleTime: 60_000,
   });
