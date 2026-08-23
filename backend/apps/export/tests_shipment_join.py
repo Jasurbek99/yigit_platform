@@ -193,6 +193,21 @@ class LoadingDeptHeadDraftCreateTests(TestCase):
             code='EF01',
             defaults={'name_en': 'JoinTestExportFirm', 'name_tk': 'JoinTestExportFirm'},
         )
+        # Draft creation now refuses a firm with no remaining quota (same gate
+        # as set_firm_splits — see tests_draft_quota_block.py), so this firm
+        # needs a live allocation before the split can persist at all.
+        from decimal import Decimal as _D
+        from django.utils import timezone as _tz
+        from apps.core.models import Season
+        from apps.export.models import QuotaIssuance, QuotaIssuanceFirmAllocation
+
+        issuance = QuotaIssuance.objects.create(
+            issue_date=_tz.localdate(), product_type='tomato', validity='this_month',
+            season=Season.objects.filter(is_active=True).first(),
+        )
+        QuotaIssuanceFirmAllocation.objects.create(
+            issuance=issuance, export_firm=firm, kg_quota=_D('50000'),
+        )
         payload = {
             'is_draft': True,
             'skip_forecast_check': True,

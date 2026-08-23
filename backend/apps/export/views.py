@@ -1952,6 +1952,28 @@ class ShipmentViewSet(ModelViewSet):
                     replace=False,
                 )
 
+            # Hard block: a firm with no remaining quota may not be put on a
+            # draft either — same rule as set_firm_splits, minus its exemption,
+            # since every firm on a brand-new draft is newly added. Evaluated
+            # INSIDE the atomic block: the quota usage rows written a few lines
+            # below count immediately, so two concurrent creates drawing a
+            # firm's last kg must not both pass. Season is the draft's own (D11)
+            # and product_type 'tomato' matches every other call site.
+            if fs_rows:
+                from apps.export.services_quota import compute_firm_quota_balances
+                balances = compute_firm_quota_balances('tomato', season)
+                blocked = [
+                    row['export_firm']
+                    for row in fs_rows
+                    if balances.get(row['export_firm'].id) is None
+                    or balances[row['export_firm'].id]['remaining_kg'] <= 0
+                ]
+                if blocked:
+                    names = ', '.join(f.name_short or f.code for f in blocked)
+                    raise ValueError(
+                        f'{names} has no remaining quota and cannot be added to the split.'
+                    )
+
             firm_split_rows = [
                 ShipmentFirmSplit(
                     shipment=shipment,

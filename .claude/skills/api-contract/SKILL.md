@@ -551,9 +551,12 @@ Consequences worth knowing before you touch this code:
   `remaining_kg` all exclude allocations past their `validity` window (`quota_expiry_date()`,
   lapse test `expiry < today`, so the expiry date itself still counts). Until this change the
   response summed the whole season, so the sheet offered ~20 firms as having quota when one
-  held a live allocation. `remaining_kg <= 0` (or an absent firm) is a **hard block**, both in
-  `SheetCellEditor` and in `POST /shipments/{id}/firm-splits/` — the latter exempts firms
-  already on the split.
+  held a live allocation. `remaining_kg <= 0` (or an absent firm) is a **hard block** on every path that puts a firm on a
+  truck: `SheetCellEditor`, `ExportFirmSelect` with `checkQuota` (the destination-draft modal),
+  `POST /shipments/{id}/firm-splits/`, and `POST /shipments/` with `is_draft: true` +
+  `firm_splits` (added 2026-08-23 — same 400 body, and the shipment header rolls back with it).
+  Only the firm-splits endpoint exempts firms already on the split; on a new draft every firm is
+  newly added. `POST /shipments/{id}/join/` is **not** gated — it merges existing splits.
 - **`PATCH /contracts/sales/{id}/` changing `quantity_kg` rewrites the firm's
   `ShipmentFirmSplit.weight_kg` and re-runs quota usage** (added 2026-08-11). The two are the
   same number by design — the firm's official export weight (AD-016) — but only the

@@ -50,6 +50,7 @@ function FirmSplitRow({
       <ExportFirmSelect
         value={firmId}
         onChange={onFirmChange}
+        checkQuota
         excludeIds={usedFirmIds.filter((id) => id !== firmId)}
         size="small"
         placeholder={t('sheet.dest_modal.firm_ph')}
