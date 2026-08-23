@@ -1,5 +1,19 @@
 # Build / Test Log
 
+- [ ] 2026-08-23 — **Quota expiry now applied to the Sheet's firm-split gate (`compute_firm_quota_balances`).**
+  A lapsed issuance no longer counts as quota. **Read this before testing:** on the live DB the
+  active season is now **2026-2027**, which holds usage but **zero issuances** (all 25, including
+  yesterday's HG row #35, are stamped 2025-2026). So on the active season **no firm is selectable**
+  in the `firm_splits` cell — every one tagged `⚠ no quota` and disabled. That is the season-stamp
+  gap, NOT this change: the same screen blocked every firm before it too. The expiry fix is
+  observable on **2025-2026** (`?season=1`), where 21 firms with a balance drop to **1** — HG,
+  1,215,000 kg. **Test:** (1) on `?season=1`, only HG selectable; (2) a shipment that already has
+  e.g. MA on its split still saves when edited — existing firms are exempt from the block;
+  (3) `POST /shipments/{id}/firm-splits/` with a new no-quota firm returns 400 "has no remaining
+  quota"; (4) the Quota dashboard's *expired unused* column agrees about which firms have lapsed.
+  **Decision needed:** until an issuance is stamped to 2026-2027, firm assignment is blocked for
+  everyone on the active season. — NEEDS TEST
+
 - [ ] 2026-08-23 — **Close button now shown on UPCOMING seasons too (`SeasonsPage`).**
   Previously only an ACTIVE season could be closed, so opening the new season made the old
   one permanently unclosable — the cause of two wrong seasons being closed on 2026-08-22.
@@ -10,6 +24,52 @@
   plans) — not zeros. **Closing cannot be undone from the UI**, so read the dialog before
   confirming. 442 frontend tests pass, `tsc` clean. **NEEDS TEST**
 
+- [ ] 2026-08-23 — **Logo code now visible where it disambiguates two same-named drivers.** `DriverSerializer` exposes `logo_ref` + `driver_logo_code` as **read-only** — the import refreshes them from Z_TIRWEB on every run, so an edit would be silently reverted, and `driver_logo_code` is the key the duplicate retirement runs on. Fleet Admin's Drivers tab gains a sortable Logo-code column and searches it in the client-side filter. `DriverSelect` appends the code to an option label **only for names that repeat** (`BATYROW BAYRAMMYRAT · 195.02.B010`), so ids 30/31 are finally pickable apart without putting a code on the other 150 rows; the label stays a plain string so `optionFilterProp="label"` keeps filtering, which also makes the code searchable there. 1 i18n key × 3 languages. **Tests:** backend `apps.transport` 83/83 (1 new, asserting the fields are returned AND that a PATCH cannot change them), frontend 441/441 across 62 files (2 new — the admin column + filter, and the repeat-name-only labelling). `tsc --noEmit` clean. **Note:** one backend run reported 19 errors that were a dropped MSSQL connection (`08S01 Communication link failure`), not code — a re-run was clean. — NEEDS TEST
+- [ ] 2026-08-23 — **"Expired unused" quota now excludes quota that was actually used.**
+  Backend `aggregate_quota_expired()` counts `kg_quota − FIFO-consumed`, not the whole lapsed
+  allocation. Check `/export/quota` → **Firm breakdown**: for a firm whose expired issuance was
+  partly exported against, the *Expired unused* cell must now be **smaller than before** (the
+  remainder), and 0 where the quota was fully used. Cross-check one firm by hand against the
+  **Issuances** tab: `Issued − Used` on the lapsed rows must equal the Expired cell. The KPI
+  card must still equal the sum of the visible column. Warn the owner that these numbers drop.
+  20 tests in `tests_quota_dashboard_expiry.py`, adjacent quota suites unchanged. — NEEDS TEST
+
+- [ ] 2026-08-23 — **Domestic Sales weight total was a concatenated string.** Same DRF decimal
+  trap as the quota Total row. Check `/export/domestic-sales` (Domestic Sales page): the
+  **total weight** stat above the table must be a normal grouped number, and per-row weights
+  must render `1 500` rather than `1500.00`. 439 frontend tests pass, `tsc` clean. — NEEDS TEST
+
+- [ ] 2026-08-23 — **`initialize-week` now 409s instead of faking a 200 on a cross-season week.**
+  Fixes the "200 but no cells" report. As `t_seller`, step to **W35/2026** (empty everywhere) and
+  click **Initialize Week**: expect a success toast with a real count and **25 editable rows**.
+  That is the regression check.
+  The new 409 path (`week_exists_in_other_season`) is **not reachable from the UI any more** — the
+  re-stamp below left no week with cross-season rows — so it is covered by
+  `test_initialize_week_conflicts_when_week_lives_in_another_season` only; nothing to click.
+  6 new backend tests (2 on the endpoint, 4 on the re-stamp command); 152 backend tests across the
+  four touched suites + 12 in `tests_season_backfill` pass, 439 frontend tests pass, `tsc` clean.
+  **Data fix applied to the live DB:** `fix_local_sell_plan_seasons` re-stamped W34/2026's 25 rows
+  `2025-2026 → 2026-2027`, so W34 should now show **25 rows (22 editable drafts, 2 approved,
+  1 submitted)** rather than an empty grid — and the Initialize button should be ABSENT there,
+  since the week is no longer empty. Confirmed at API level as `t_seller`; confirm in the browser.
+  — NEEDS TEST
+
+- [ ] 2026-08-23 — **`logo_ref` + `driver_logo_code` imported from Z_TIRWEB, and the one real duplicate driver retired.** Both columns were being skipped as TIR-app internals; they are in fact the driver's identity in the Logo accounting system and are filled on all 152 rows. `driver_logo_code` (`195.02.A001`) turns out to be the reliable "same person" key, which names are not in either direction: ids 99 `SALAROW TOYLY` and 113 `TOYLY SALAROW` share code `195.02.S008` and are **one person** with the words swapped, while ids 30/31 are byte-identical `BATYROW BAYRAMMYRAT` on **different** codes and are two people. New `_deactivate_duplicate_drivers()` runs at the end of every import and retires any row whose code duplicates a lower-id one — **deactivates, never deletes**, because Z_TIRWEB still holds the row and a delete would return on the next import, whereas `is_active` is absent from the upsert defaults and survives. Blank codes are skipped (an empty string is not evidence of sameness). Migration `transport/0005`, applied. **Verified after the live import:** 152 rows, both columns non-empty on all of them, 151 distinct codes, 151 active with id 113 retired, ids 30/31 both still active, trucks/trailers untouched at 91/74. Tests: `apps.transport` 82/82 (3 new — the duplicate case, the identical-names-different-codes inverse, and the blank-code case). **Consequence to know:** the dedup runs on every import, so a duplicate an operator deliberately re-activates will be retired again. **Not done:** neither column is exposed on the API or in the UI, so the two `BATYROW BAYRAMMYRAT` rows are still indistinguishable to an operator in the Fleet Admin tab and the driver picker. — NEEDS TEST
+- [ ] 2026-08-23 — **Seller panel: sell plan only, self-serve Initialize Week, no map.**
+  Log in as `t_seller` / `Test1234!` and open **/export/quota**. Expect: title reads **"Sell Plan"**
+  (not "Quota Dashboard"), **no** red "Failed to load quota data" banner, **no** KPI cards, **no**
+  season/period filter row, **no** kg/ton toggle, **no** tab strip — just the weekly firm grid.
+  Step to a current or future week with no rows: an **Initialize Week** button must appear and
+  actually create one row per active firm (it 403'd before). Type a few kg, then **Submit all** —
+  that must work; there must be **no** Approve all. Confirm **Fleet Map** is gone from the sidebar.
+  Then log in as `t_export_manager` and `t_document_team` and confirm the quota page is UNCHANGED
+  for them (EM: all 6 tabs + KPIs; document_team: quota tabs, no Firm Chart / Weekly Trend).
+  Check tk/ru labels on the new title. 9 new frontend tests, 3 new backend tests; 439 frontend
+  Finally, as `t_export_manager`, switch the header season picker to a CLOSED season and confirm
+  the grid's Initialize / Submit all / Approve all buttons and cell editors are all gone (new
+  gate — this grid never had one). 6 new frontend tests, 6 new backend tests; 439 frontend
+  tests pass, 152 backend tests pass, `tsc` clean. — NEEDS TEST
+
 - [x] 2026-08-23 — **Quota-page link inside the Sheet's export-firm dropdown (R9 `firm_splits`).**
   Check: open the Sheet, edit the **Firms** cell on a row whose firm list contains a firm with no
   remaining quota (it shows `⚠ no quota` and is greyed out) — an **`Open quota page →`** link must
@@ -19,12 +79,15 @@
   `t_document_team`) and confirm the link is absent while the ⚠ tags still show. Also check tk/ru
   labels. 3 new tests, 433 frontend tests pass, `tsc` clean. — NEEDS TEST
 
-- [ ] 2026-08-22 — **Quota dashboard: garbage number string in the Total row fixed.** `kg_quota`/`used_kg`
-  arrive from DRF as decimal *strings*, so the expired-quota sums concatenated instead of adding.
-  `useQuotaIssuances` now coerces both with `Number()`. Check on `/export/quota` → **Issuances** tab:
-  the *Issued* and *Used* columns must read `100 000 kg`, not `100000.00 kg`, in **both** kg and ton
-  modes (in tons the old bug showed `не число`), and sorting by either column must order numerically.
-  The Firm-breakdown Expired column now comes from the backend — verify it in the season entry above. — NEEDS TEST
+- [ ] 2026-08-23 — **Quota Firm breakdown now shows one season per row.** The "Expired unused"
+  column was fed by the **global** season switcher while the rest of the row followed the quota
+  page's own season dropdown. Check: open `/export/quota`, Firm breakdown tab. Set the page
+  dropdown to **2026-2027** and the header switcher to **2025-2026** — the Expired column must
+  stay consistent with the rest of the row (no last-season kg appearing next to this season's
+  issued/used), and the **Total** in the footer must equal the sum of the Expired cells you can
+  actually see. Then swap the two selectors and confirm the same. Also check the **Expired
+  unused** KPI card matches that footer. 12 new backend tests, 78 quota/dashboard tests pass, 433 frontend tests pass,
+  `tsc` clean. — NEEDS TEST
 
 - [x] 2026-08-23 — **Truck Forecast removed from both sidebars.** `/export/trucks` no longer
   appears in any menu — boss (Planning group) or staff (Export group). Check: log in as boss and
@@ -34,7 +97,6 @@
   `/export/plan` and confirm the **Распределение машин** section at the bottom still shows and
   saves the same numbers. 10 menu tests pass, `tsc` clean. — TESTED by owner 2026-08-23
 
-- [ ] 2026-08-21 — **Driver is now picked from the registry on ShipmentDetail and in the edit drawer too, not just Sheet R27.** Closes the asymmetry the previous change introduced: `driver_name` was still a plain text field in `shipmentEditConfig`, so `driver_id` was written **only** from the Sheet. Retyping the name in the drawer left `driver_id` pointing at the previously picked person — a link that is **wrong, not merely absent**. New `ShipmentDriverSelector` (mirrors `ShipmentTruckSelector`) writes `driver_id` + `driver_name` in one PATCH, with an early return when the pick is unchanged so a re-pick costs no PATCH or audit row; **clearing sends `{driver_id: null, driver_name: ''}`** — the two never drift apart. `DRIVER_NAME_FIELD` exported and added to `excludeKeys` next to `TRUCK_PLATE_FIELD` so the field group renders it once, standalone; `driver_phone` stays an ordinary text row. Gapy-Satys keeps the plain text field in all three surfaces (buyer's own truck, buyer's own driver). **Also extracted `components/DriverSelect.tsx`** — the option list, filter and inline "+ Add" now live in one self-fetching control per frontend/CLAUDE.md's STRICT rule, and `SheetDriverSelectEditor` was refactored onto it (its local `createdName` ref went away: the control hands back the name with the id). **Tests:** 404/404 frontend, 61 files (5 new for `ShipmentDriverSelector` incl. the clear-both-fields case and the no-op-repick case, 2 new drawer-injection cases). `tsc --noEmit` clean. One existing drawer test was repointed from `driver_name` to `driver_phone` — it used the driver field only as a convenient text input to stage an edit into, and that field is no longer a text input. Three `useFleet` mocks gained `useDrivers`/`useCreateDriver`. **Not done:** the duplicate-name transliteration gap (`Abayev`/`Abayew`) still lets an operator create a second row for an existing driver — same guard as the truck picker, needs the dropdown filter and the exists-check normalised together. — NEEDS TEST
 - [ ] 2026-08-22 — **Deleted-season self-heal (`useSeasonFallback`).** A tab left on
   `?season=<deleted id>` used to 404 every season-scoped query and survive every refresh.
   Check: open any season-scoped page, hand-edit the URL to `?season=999`, reload —
@@ -43,6 +105,97 @@
   `?season=<other real id>` is left alone, and that creating a new season and immediately
   browsing it does **not** bounce you off it. 430 frontend tests pass, `tsc` clean.
   **NEEDS TEST**
+
+- [ ] 2026-08-22 — **Quota dashboard: garbage number string in the Total row fixed.** `kg_quota`/`used_kg`
+  arrive from DRF as decimal *strings*, so the expired-quota sums concatenated instead of adding.
+  `useQuotaIssuances` now coerces both with `Number()`. Check on `/export/quota` → **Issuances** tab:
+  the *Issued* and *Used* columns must read `100 000 kg`, not `100000.00 kg`, in **both** kg and ton
+  modes (in tons the old bug showed `не число`), and sorting by either column must order numerically.
+  The Firm-breakdown Expired column now comes from the backend — verify it in the season entry above. — NEEDS TEST
+- [ ] 2026-08-22 — **Sheet Join fixed + unmet-requirement warnings.** Three divergences from the
+  backend join gate: the Sheet toolbar's Join button was hidden from `admin`/`boss` (local role list
+  never widened when the endpoint took `boss` — a standing divergence, not a regression), `isSupplyDraft()` enforced a country/creator-role rule
+  the API never had (greying the button out on pairs the server accepts), a third click in join mode was silently ignored once two columns
+  were selected (a mis-picked pair was uncorrectable without leaving the mode), and the three role gates
+  were three copies. All three now read one `canUserJoin()`/`JOIN_ROLES`. New `explainJoinBlockers()` lists
+  what is still missing (country / customer / blocks / not-a-draft / need two) in the Sheet's
+  `JoinActionBar` and in `JoinDraftsModal`, in tk/ru/en. 25 `joinHelpers` tests + 172 shipment/sheet/
+  export-page tests pass, `tsc` clean. **Test in the browser as `boss` and as `admin`: the Join button
+  must now appear in the Sheet toolbar, and selecting a bad pair must say which field to fill.** — NEEDS TEST
+- [ ] 2026-08-22 — **`docs/FINDINGS_BACKLOG.md` (all 20 findings in one place) +
+  `docs/BROWSER_TEST_SCRIPT.md` (61-step click-by-click manual test).** The backlog indexes F1-F14,
+  the four process/data divergences (P1-P4) and the two account traps (T1-T2), ordered by severity
+  with the file to fix, plus a 'verified clean, do not re-investigate' list so the cleared items are
+  not re-audited. It names the two root causes behind most findings: `write_permission()` gating
+  writes only, and `DynamicResourcePermission` mapping every POST to `can_create`. The browser script
+  is a real handoff run — one shipment from supply draft to `Tamamlandy`, each step by the role that
+  owns it, with Turkmen UI labels, then a per-role menu check, 12 refusals that must hold, and the
+  two account traps. **It opens with a known-broken table** so the tester does not re-report F6, F7,
+  F8, F12 and F13 as new bugs, and because F12 blocks the true handoff it routes each transition
+  through `t_export_manager` while still checking the owning role's own screen. Warns that a browser
+  run writes real audit/quota/task/roll-up rows that deleting the shipment does not undo, and gives
+  the admin hard-delete cleanup path for while the row is still a draft. **Not run by me** — this is
+  a manual script for a human — NEEDS TEST
+
+- [ ] 2026-08-22 — **Full create -> edit -> 13-step lifecycle -> delete test suite, one role per
+  step: `apps/export/tests_role_lifecycle.py`, 31 tests, all green.** Runs on the throwaway
+  `test_YIGIT_PLATFROM` DB (settings.py routes every test run there and the prod DATABASES block has
+  no TEST entry), so it never touches `YIGIT_PLATFROM_NEW`. Covers: the full 11-edge walk with each
+  step fired by its owning role; the Peregruz fork both ways; wrong-role refusal at every step; the
+  four roles that own no edge; privileged bypass; the draft join guard (supply-only, destination-only,
+  joined); API create/edit and their role refusals; soft-delete + restore + idempotency; hard-delete
+  admin-only and draft-only; cancel gating. **Building it surfaced F12, bigger than anything the GET
+  sweep found:** `DynamicResourcePermission` maps POST -> `shipment.can_create`, `/transition/` is a
+  POST with no relaxation branch, and `can_create=0` for document_team, sales_rep, warehouse_chief,
+  transport and finansist — the owners of all 11 edges. The lifecycle is therefore hand-drivable only
+  by export_manager/director/boss; the business runs because auto-advance fires off PATCH, where
+  `can_edit=1`. `get_permissions` already relaxes this same clash three times elsewhere and this
+  action was missed. Pinned by `TransitionEndpointReachabilityTests`, which asserts today's behaviour
+  and goes red when fixed. **F13:** live matrix drifted from `seed_permissions` — warehouse_chief lost
+  `can_create` (so it cannot create the drafts its `export.drafts` page exists for), document_team
+  gained `can_delete`. **F14:** `tests_cancel` is order-dependent — 10+ failures alone, 1 after this
+  module, because it seeds no permission rows and rides the process-wide cache; this module masks it,
+  does not fix it. **Regression check:** 4 neighbouring modules were 56 tests / 1 pre-existing failure
+  before, 87 tests / same 1 failure after — no regressions. Findings are recorded for later, NOT
+  fixed, per instruction — NEEDS TEST
+
+- [ ] 2026-08-22 — **Read-only role×endpoint access sweep (15 roles × 109 endpoints) + end-to-end
+  process map per role.** Logged in as one account per role against the running backend and issued
+  **GET only** — no POST/PATCH/DELETE, because `.env` points it at live `YIGIT_PLATFROM_NEW`.
+  Every login succeeded; **no endpoint 500'd for any role**. Three reviewer agents triaged the
+  matrix by module against the source. `docs/ROLE_ACCESS_AUDIT.md` (11 findings) and
+  `docs/ROLE_PROCESS_TEST_PLAN.md` (the 13-step lifecycle with the role owning each edge, plus a
+  role-by-role handoff script). **Worst finding — F1:** `POST /greenhouse/daily-plan/` is
+  `IsAuthenticated` with no role check and writes `HarvestDayEntry.forecast_value`, the same column
+  `set_forecast_value()` guards with a role×window×block-assignment matrix; its own docstring says
+  'any authenticated user **with page access**' but the page half is never enforced, so `sales_rep`
+  and `seller` can rewrite any block's forecast. **Root cause behind F2-F4 and F9-F10:**
+  `write_permission()` gates writes only (`SAFE_METHODS` always pass) yet four viewsets use it as
+  if it gated reads — `domestic-sales` serves `price_per_kg` to all 15 roles while `export/prices/`
+  is locked to 5. **Dead menu entries (F6-F8, F11):** `greenhouse_manager` has the Shipments page
+  and 403s on all seven shipment endpoints; `export_manager`+`document_team` have a dead Boss
+  Analytics link; `boss` a dead Sales-Rep Coverage link. **Corrected mid-review:** `/cancel/` is
+  NOT mis-gated — two different sets share the name `PRIVILEGED_ROLES` (`core/roles.py` =
+  admin/director/export_manager vs `export/services/shipment.py` = boss/director/export_manager)
+  and I conflated them; the cancel gate matches its docstring, the shadowed name is the hazard.
+  **NOT done:** the write half of the lifecycle was never executed — needs a second backend on
+  `test_YIGIT_PLATFROM`. F1 was read, not exploited — NEEDS TEST
+
+- [ ] 2026-08-22 — **Test logins for the 10 roles that had none, plus `docs/TEST_ACCOUNTS.md`.**
+  New `manage.py seed_test_users` (core) creates one `t_<role>` account per role lacking a usable
+  password — `accountant` (0 users existed), `boss`, `director`, `document_team`, `finansist`,
+  `greenhouse_manager`, `loading_dept_head`, `loading_dept_head_deputy`, `seller`, `weight_master`.
+  Idempotent, `t_*`-prefixed only so it can never touch a real staff account, `--dry-run` and
+  `--delete` flags. **Ran against live `YIGIT_PLATFROM_NEW`** — 10 rows created, all 10 confirmed
+  with `check_password`; user count 63 → 73. `docs/TEST_ACCOUNTS.md` documents the logins, the
+  role → visible-pages matrix from the live `core_role_page_permissions` (280 visible of 645 rows), and two traps
+  found: username `document_team` carries role `export_manager`, and `admin`'s role is `admin`
+  not `export_manager` as CREDENTIALS.md claimed (banner added there pointing at the new doc).
+  **Legacy passwords then verified with `check_password`: 2 of 6 are WRONG** — `export_manager`/`em123`
+  and `document_team`/`dt123` both fail, so `export_manager` had no working login either; added
+  `t_export_manager` (11 accounts, 74 users). `wc123`/`tr123`/`sr123`/`admin123` confirmed good.
+  All 15 roles now have a hash-verified login. **Known gap:** `t_greenhouse_manager` owns no `GreenhouseBlock`, so weekly-plan
+  and block screens render empty for it — NEEDS TEST
 
 - [ ] 2026-08-21 — **Driver is now picked from the registry on ShipmentDetail and in the edit drawer too, not just Sheet R27.** Closes the asymmetry the previous change introduced: `driver_name` was still a plain text field in `shipmentEditConfig`, so `driver_id` was written **only** from the Sheet. Retyping the name in the drawer left `driver_id` pointing at the previously picked person — a link that is **wrong, not merely absent**. New `ShipmentDriverSelector` (mirrors `ShipmentTruckSelector`) writes `driver_id` + `driver_name` in one PATCH, with an early return when the pick is unchanged so a re-pick costs no PATCH or audit row; **clearing sends `{driver_id: null, driver_name: ''}`** — the two never drift apart. `DRIVER_NAME_FIELD` exported and added to `excludeKeys` next to `TRUCK_PLATE_FIELD` so the field group renders it once, standalone; `driver_phone` stays an ordinary text row. Gapy-Satys keeps the plain text field in all three surfaces (buyer's own truck, buyer's own driver). **Also extracted `components/DriverSelect.tsx`** — the option list, filter and inline "+ Add" now live in one self-fetching control per frontend/CLAUDE.md's STRICT rule, and `SheetDriverSelectEditor` was refactored onto it (its local `createdName` ref went away: the control hands back the name with the id). **Tests:** 404/404 frontend, 61 files (5 new for `ShipmentDriverSelector` incl. the clear-both-fields case and the no-op-repick case, 2 new drawer-injection cases). `tsc --noEmit` clean. One existing drawer test was repointed from `driver_name` to `driver_phone` — it used the driver field only as a convenient text input to stage an edit into, and that field is no longer a text input. Three `useFleet` mocks gained `useDrivers`/`useCreateDriver`. **Not done:** the duplicate-name transliteration gap (`Abayev`/`Abayew`) still lets an operator create a second row for an existing driver — same guard as the truck picker, needs the dropdown filter and the exists-check normalised together. — NEEDS TEST
 - [ ] 2026-08-21 — **Ролевые предикаты недельного плана вынесены в `WeeklyPlanGrid.roles.ts` и покрыты тестами.** Пять выражений (`isAdmin`, `isAdminLike`, `canEditHarvest`, `planOnlyCells`, `canEditActual` + `canEditTrucks`/`canGenerateTasks`) жили внутри 913-строчного компонента с ~10 хуками, поэтому их не проверял ни один тест — расширение прав boss меняло четыре из них вслепую. Вынесены **дословно** в чистую функцию `planGridCapabilities({ role, isReadOnly })`; поведение не менялось, все объясняющие комментарии переехали вместе с кодом. `hasBlockPermission` намеренно остался в компоненте — это единственное правило, зависящее от данных (`managed_block_ids`), а не от роли. Два зафиксированных перекоса: `director` правит сетку урожая, но НЕ факт; `canEditActual` сейчас схлопывается до `role === 'admin'` (двухтермовая форма оставлена намеренно — она выражает правило, а не его текущий результат). Закрытый сезон гасит все права записи, включая admin. **Тесты:** 12 новых (`WeeklyPlanGrid.roles.test.ts`), полный фронтовый прогон 397/397, `tsc --noEmit` чист. **Что проверить руками:** страница `/export/plan` под admin / boss / director / export_manager — набор доступных действий должен остаться ровно прежним — NEEDS TEST
