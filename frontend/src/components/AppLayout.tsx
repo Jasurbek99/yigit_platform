@@ -36,6 +36,7 @@ import type { MenuProps } from 'antd';
 import api from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
 import { useSeasonParam } from '@/hooks/useSeasonParam';
+import { useSeasonFallback } from '@/hooks/useSeasonFallback';
 import { useFeedbackAdminUnreadCount } from '@/hooks/useFeedback';
 import { useMyTasks } from '@/hooks/useMyTasks';
 import { useRealtime } from '@/hooks/useRealtime';
@@ -70,6 +71,13 @@ export default function AppLayout() {
   // layout, so the URL <-> selectedSeasonId sync runs app-wide without a
   // second writer competing for the `?season=` search param.
   useSeasonParam();
+  // Also exactly once, and for the same reason — it writes the store and the
+  // URL too. Order relative to useSeasonParam() does not matter: this hook
+  // reads useSelectedSeason(), which resolves URL ?? store ?? active
+  // synchronously and never waits for useSeasonParam()'s effects. It drops a
+  // selection whose season no longer exists (a bookmarked `?season=<deleted
+  // id>` otherwise 404s every season-scoped query and survives every refresh).
+  useSeasonFallback();
   const [collapsed, setCollapsed] = useState(false);
   const bossEditMode = useUiStore((s) => s.bossEditMode);
   const setBossEditMode = useUiStore((s) => s.setBossEditMode);

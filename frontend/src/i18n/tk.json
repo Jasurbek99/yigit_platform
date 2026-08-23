@@ -1189,7 +1189,8 @@
     "back_to_active": "Işjeň möwsüme dolan",
     "closed_error": "Bu möwsüm ýapyk, üýtgedip bolmaýar",
     "partial_view_notice": "Arhiwlenen ýazgylar bu görnüşde görkezilmeýär",
-    "no_active_season_banner": "Işjeň möwsüm ýok — admin Admin → Möwsümler bölüminde möwsümi açýança hiç zady üýtgedip bolmaýar"
+    "no_active_season_banner": "Işjeň möwsüm ýok — admin Admin → Möwsümler bölüminde möwsümi açýança hiç zady üýtgedip bolmaýar",
+    "stale_season_reset": "Saýlanan möwsüm indi ýok — işjeň möwsüme geçirildi."
   },
   "seasons": {
     "title": "Möwsümler",

@@ -1189,7 +1189,8 @@
     "back_to_active": "Back to active season",
     "closed_error": "This season is closed and cannot be edited",
     "partial_view_notice": "Archived records are not shown in this view",
-    "no_active_season_banner": "No active season — nothing can be edited until an admin opens one in Admin → Seasons"
+    "no_active_season_banner": "No active season — nothing can be edited until an admin opens one in Admin → Seasons",
+    "stale_season_reset": "The season you were viewing no longer exists — switched to the active season."
   },
   "seasons": {
     "title": "Seasons",

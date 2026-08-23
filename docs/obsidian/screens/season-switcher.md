@@ -39,6 +39,43 @@ cross-component UI state, not server data, per `frontend/CLAUDE.md`'s table.
 gating on non-null would perma-disable every query and show a spinner instead of the
 backend's fail-closed empty state (D7).
 
+### Deleted season — `useSeasonFallback()`
+
+`frontend/src/hooks/useSeasonFallback.ts`, mounted **exactly once** in `AppLayout.tsx`
+beside `useSeasonParam()`. None of the three hooks above validate the id, so a
+`?season=<deleted id>` — a bookmark or an open tab that outlived the row — reaches
+`resolve_season()`, which raises `NotFound` and **404s every season-scoped query on the
+page at once**. Refreshing does not help: the store→URL effect sees the dead id as "not the
+default" and writes it back into `?season=` on every load, so the broken state reproduces
+itself. Before this hook the only escapes were editing the address bar by hand or using the
+switcher — which hides itself when fewer than two seasons are selectable.
+
+When the `['admin-seasons']` list has **settled** (`isSuccess && !isFetching`) and the
+selected id is absent from it, the hook calls `useSwitchSeason(activeSeasonId)` and toasts
+`season.stale_season_reset`. Four deliberate inert cases:
+
+- **list still fetching** — a season the user just created is legitimately absent from a
+  stale cache (`staleTime` 60s); switching away would look like the create failed;
+- **list unreadable** (roles without `season.can_view`) — a missing id cannot be told apart
+  from one this role may not list, and guessing is worse than the 404;
+- **no active season** (the D7 gap) — nothing to fall back to;
+- **already on the active season** — also the loop guard, should the active season itself
+  ever be missing from the list.
+
+**Every dep of that effect must be stable across a render that changes nothing it reads.**
+`useSwitchSeason()` writes the zustand store and the router in one handler, but they do
+**not** land in one commit: zustand's external-store subscription forces a re-render before
+the router flushes, producing an intermediate render where the store already holds the
+active season while the URL still holds the dead one — and the URL wins in
+`useSelectedSeason()`. On that render `seasonId` is still the dead id, so an effect that
+re-runs there switches and toasts a second time. Hence `t('season.stale_season_reset')` is
+resolved during render and the resolved **string** is the dep: `t`'s identity is not
+guaranteed stable (it changed every render under the test i18n instance, which is how the
+double-fire was found).
+
+It costs no extra request: `useSeasons()` is the same query `SeasonSwitcher` already runs in
+that layout.
+
 ## `SeasonSwitcher` (`frontend/src/components/SeasonSwitcher.tsx`)
 
 Lists:
@@ -161,6 +198,7 @@ an exhaustive key list by hand.
 | `backend/apps/export/views_admin.py::SeasonViewSet` | `close`/`open`/`close-preview` actions, `SeasonSerializer` |
 | `frontend/src/stores/seasonStore.ts` | Zustand `selectedSeasonId` |
 | `frontend/src/hooks/useSeasonParam.ts` | `useSeasonParam`/`useSelectedSeason`/`useSwitchSeason` |
+| `frontend/src/hooks/useSeasonFallback.ts` | `useSeasonFallback()` — drops a selection whose season was deleted |
 | `frontend/src/hooks/useSeasonReadOnly.ts` | `useSeasonReadOnly()` |
 | `frontend/src/components/SeasonSwitcher.tsx` | Header switcher |
 | `frontend/src/components/ClosedSeasonBanner.tsx` | Persistent banner |
