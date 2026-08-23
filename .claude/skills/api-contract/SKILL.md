@@ -719,50 +719,6 @@ patches that prove the trap recurs: `ShipmentQuotaCard.tsx` (`Number(r.kg_used)`
 When you add a serializer field, state its JSON type in the endpoint's contract section below if it is
 a `Decimal` — the frontend cannot tell a string decimal from a number one until it renders wrong.
 
-## Numbers: `Decimal` arrives as a **string**, unless it came from a method field
-
-`COERCE_DECIMAL_TO_STRING` is at its DRF default (`True`) — deliberately, because flipping it in
-`settings.REST_FRAMEWORK` re-types every money and weight field in the platform at once. The
-consequence is an asymmetry that has now bitten twice:
-
-| Backend field | JSON | Example |
-|---|---|---|
-| `models.DecimalField` through a `ModelSerializer` | **string** | `"100000.00"` |
-| `serializers.DecimalField(...)` declared explicitly | **string** | `"100000.00"` |
-| `SerializerMethodField` returning a `Decimal` | **number** | `100000.0` |
-| Annotated `Sum(...)` surfaced by a method field | **number** | `100000.0` |
-
-The last two go through `rest_framework.utils.encoders.JSONEncoder`, which floats a `Decimal`. So two
-fields of the same model, on the same row, can arrive as different JSON types — `QuotaIssuanceFirmAllocation`
-ships `kg_quota` as a string (model field) and `used_kg` as a number (method field).
-
-**TypeScript declares these as `number`, and that is the intended contract.** Do not re-type them as
-`string`; make the declaration true instead:
-
-> **Coerce in the hook's `queryFn`, at the fetch boundary — never at the usage site.**
-> ```ts
-> const rows = Array.isArray(data) ? data : data.results;
-> return rows.map((r) => ({ ...r, weight_kg: Number(r.weight_kg) || 0 }));
-> ```
-
-A usage-site patch fixes one screen and leaves the next `reduce()` broken; the boundary fixes every
-consumer of the hook at once. Existing boundaries doing this: `useQuotaIssuances`
-(`kg_quota`, `used_kg`) and `useDomesticSales` (`weight_kg`, `price_per_kg`). Pre-existing usage-site
-patches that prove the trap recurs: `ShipmentQuotaCard.tsx` (`Number(r.kg_used)`) and
-`SalesReportPage`'s `toSavedRow` (`Number(ex.amount_local)`).
-
-**The failure signature** — a string decimal survives arithmetic silently and only shows up in the UI:
-
-- `+` concatenates instead of adding: `0 + "100000.00" + "250000.00"` → `"0100000.00250000.00"`, so a
-  Total row renders a wall of digits. (`-`, `*`, `/` and `<` coerce, so **sorters and ratios keep
-  working** — only the sums break, which is why this hides.)
-- `fmtWeight()` passes it through untouched: `String.prototype.toLocaleString` ignores its arguments.
-- In **ton** mode the same cell renders `не число` / `NaN`, because `Number(garbage)` is `NaN`.
-- TypeScript cannot catch any of it: the type already said `number`, and the lie is on the wire.
-
-When you add a serializer field, state its JSON type in the endpoint's contract section below if it is
-a `Decimal` — the frontend cannot tell a string decimal from a number one until it renders wrong.
-
 ## Customs/Document Cash-Advance Ledger
 
 Tracks money the cashier (Hangeldi) spends on per-shipment customs clearance and batch document fees. Money-IN is `FinansistAdvance`; this is the money-OUT side. Currency is `TMT` (Turkmen manat) by default.
