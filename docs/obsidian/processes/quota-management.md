@@ -195,10 +195,14 @@ erDiagram
 | `compute_fifo_usage(product_type, season)` | Per firm FIFO **within one season** (D11): returns `dict[allocation_id, consumed_kg]` for that season's allocations only. `season=None` (the close→open gap) returns `{}` |
 | `season_of_usage(shipment, usage_date)` | Row-level inverse of `usage_season_q()` — the one season a row belongs to, or `None`. Write paths reject `None` |
 | `usage_season_q(season)` | The single definition of which `QuotaUsageRecord` rows belong to a season — `shipment.season` when linked, else `usage_date` inside the season's range. Used by FIFO, the firm balances, AND the `/quota-usage/` list, so the grid and the ledger can never disagree |
-| `_compute_kpis(local_sales, quota_issued, quota_used)` | Top-level KPIs: local_sales_kg, expected_kg, issued_kg, not_given_kg/%, used_kg, unused_kg/% |
-| `_build_per_firm(...)` | Per-firm breakdown rows with is_blocked flag |
+| `_compute_kpis(local_sales, quota_issued, quota_used, quota_expired)` | Top-level KPIs: local_sales_kg, expected_kg, issued_kg, not_given_kg/%, used_kg, unused_kg/%, expired_kg |
+| `quota_expiry_date(issue_date, validity)` | Last day the quota may be used. Port of `computeExpiry()` in `QuotaIssuancesList.helpers.ts` — keep the two in step. `next_month` and `this_and_next` share an expiry (end of the following month); they differ only in when the quota *starts* |
+| `aggregate_quota_expired(issuances, today, firm_usage)` | Per-firm **unused remainder** of allocations already lapsed at `today`, over the SAME `issuances` list `build_weekly_flow` consumes. `firm_usage` must be scoped like the allocations (same window AND product_type) — the dashboard passes `aggregate_quota_used(..., product_type=...)` for exactly this |
+| `_fifo_consume(firm_allocs, firm_usage)` | The single FIFO walk — oldest allocation first. Shared by `compute_fifo_usage()` (season-scoped, issuance ledger) and `aggregate_quota_expired()` (window-scoped, firm breakdown), so the two can never disagree about which allocation a kg was spent from |
+| `_allocs_by_firm(issuances, today)` | Flattens issuances into per-firm allocation lists in FIFO order + the set of lapsed allocation ids |
+| `_build_per_firm(...)` | Per-firm breakdown rows with is_blocked flag and expired_kg |
 | `_build_week_entry(year, week, ...)` | Single week entry with coverage_pct, firm breakdown |
-| `build_quota_dashboard(date_from, date_to, product_type)` | Main orchestrator → `{kpis, per_firm, weekly_flow}` |
+| `build_quota_dashboard(date_from, date_to, product_type, today=None)` | Main orchestrator → `{kpis, per_firm, weekly_flow}`. `today` defaults to `timezone.localdate()` and exists so tests can pin expiry — the one figure that moves on its own with the calendar |
 
 #### KPI Formulas
 
@@ -251,7 +255,7 @@ erDiagram
 | PUT | `/api/v1/export/quota-usage/{id}/` | Edit | `quota_usage` edit |
 | DELETE | `/api/v1/export/quota-usage/{id}/` | Delete | `quota_usage` delete |
 | GET | `/api/v1/export/quota-dashboard/` | Dashboard analytics | `quota_issuance` view |
-| GET | `/api/v1/export/quota-firm-balances/` | Per-firm remaining quota (firm-split soft warning) | `quota_issuance` view |
+| GET | `/api/v1/export/quota-firm-balances/` | Per-firm LIVE (unexpired) remaining quota — firm-split gate | `quota_issuance` view |
 
 **Dashboard query params**: `season` (**optional** — defaults to the active season), `product_type` (default='tomato'), `date_from`, `date_to` (default: the resolved season's `start_date`/`end_date`)
 
@@ -260,6 +264,12 @@ erDiagram
 > `?date_from=`/`?date_to=` are **clamped** to the resolved season (`max`/`min`), not merely defaulted to it. A default alone left the gate bypassable — `build_quota_dashboard()` aggregates on dates alone, so sending a closed season's own range with **no** `?season=` passed the check on the active season and returned the closed season's numbers anyway (`document_team` holds `quota_issuance` but not `closed_season`, and the page's `RangePicker` has no season bounds). A window wholly outside the season inverts and reads as empty — fail closed.
 >
 > `build_quota_dashboard()` itself stays **date-driven**: the resolved season supplies the clamped window and the permission gate, not a `season` predicate on the aggregates. Pushing the FK in would change published numbers rather than just visibility and needs its own ruling — the clamp is what makes deferring that safe.
+
+> **One anchor per row (2026-08-23).** Because the window is the only anchor, every figure in the firm breakdown must come through it. `expired_kg` did not: the browser computed the "Expired unused" column from its own `useQuotaIssuances()` fetch, which reads the **global** season switcher (`useSelectedSeason()`), while sales/issued/used followed the page's own season dropdown. Moving one selector and not the other made half of every row describe a different season — and with all 25 issuances stamped to 2025/2026, the column showed the prior season's expired quota on the 2026/2027 breakdown. `expired_kg` is now computed server-side by `aggregate_quota_expired()` off the same `fetch_issuances()` list `weekly_flow` already uses, and shipped per row plus as a KPI. The frontend no longer fetches issuances on this page. Pinned by `tests_quota_dashboard_expiry.py`.
+
+> The same bug had a second half: `QuotaPerFirmTable`'s footer summed `expiredPerFirm` across **every** firm the browser had fetched, while the column only rendered firms present in `per_firm`, so the total could not be reconciled against the visible rows. The footer now sums the rendered rows.
+
+> **Expired means expired UNUSED (2026-08-23, same day).** The column first shipped summing the whole lapsed allocation — used or not — because that is what the browser did, so quota that had already done its job was reported as waste. It now counts only the remainder: `kg_quota − consumed`, where `consumed` comes from `_fifo_consume()`, the same oldest-first walk behind the Issuances tab's `used_kg`. **The published figure drops** wherever quota was used before lapsing — expect smaller numbers than the day before, not missing data. Two scoping traps the tests pin: usage is read through the same date window as the allocations, and it is filtered by `product_type` — `aggregate_quota_used()` is product-agnostic by default (the `used_kg` KPI's historical definition), and production holds 16 pepper usage rows that would otherwise draw down tomato quota.
 
 > **Permission note**: the read-only dashboard is gated by `DynamicResourcePermission` with `resource_code = 'quota_issuance'` (the resource it aggregates) — NOT a `'quota'` resource, which does not exist in `RESOURCE_REGISTRY`. Pointing it at the non-existent `'quota'` resource makes `get_resource_perm()` return `None` and 403s every non-superuser role; this was a real regression. The roles that hold `quota_issuance` view (export_manager, director, document_team, admin) are exactly those granted the `export.quota` page.
 
@@ -270,14 +280,17 @@ erDiagram
 >
 > The relaxation is **gated on `can_view_closed()`**, not unconditional. A role holding `quota_usage` but not `closed_season` (e.g. `document_team`) stays season-scoped even with `?shipment=` — otherwise the param would route around the 403 that `/quota-usage/?season=<closed>` returns, which is the exact shape of the 2026-08-07 quota-dashboard date-window bypass. `resolve_season()` runs unconditionally either way, so the close→open gap still fails closed and a bad/closed `?season=` still 404s/403s. Pinned by `tests_quota_usage_by_shipment.py` (8 tests): the permitted role sees a closed season's truck, the unpermitted one gets nothing, the same unpermitted role's `?season=<closed>` 403 is asserted as the control, and the unfiltered list is checked for leakage.
 
-### Firm-split "no quota" soft warning
+### Firm-split "no quota" gate
 
-When an operator assigns export firms to a shipment via the **Sheet `firm_splits` cell**, the editor flags any chosen firm that has **no remaining quota** — but never blocks the save (quota is *tracked*, not hard-enforced).
+When an operator assigns export firms to a shipment via the **Sheet `firm_splits` cell**, a firm holding no live quota is **blocked**, not merely flagged — the dropdown option is disabled and the API refuses a newly-added firm.
 
-- **Endpoint**: `GET /api/v1/export/quota-firm-balances/?product_type=tomato` → `{ "<firm_id>": {issued_kg, used_kg, remaining_kg} }`. Service: `compute_firm_quota_balances(product_type, season)` in `services_quota.py`. `remaining_kg = issued − committed` for the **resolved** season (anchored on the `QuotaIssuance.season` FK and `usage_season_q()`, not a date range — D11), where **committed = draft + approved** usage (NOT approved-only like the dashboard). This is deliberate: assigning firm splits auto-creates *draft* usage rows that stay draft until document_team approves, so at assignment time drafts are the live commitment — counting approved-only would under-warn until after the decision is made. Firms with no allocation are absent (treated as zero). 60 s cache (`quota_firm_balances:<product_type>:<season_id>`), invalidated alongside the FIFO cache by the canonical `invalidate_quota_caches()` on **every** balance-moving action — issuance create/update/delete, firm-split assignment/edit, usage approval, and shipment cancel/restore/soft-delete.
-- A firm is "no quota" when it is absent from the map **or** `remaining_kg <= 0` (covers both never-allocated and fully-used firms).
-- **UI** (`SheetCellEditor.tsx`): firms with no quota are tagged `⚠ no quota` in the multi-select dropdown; committing a selection that *adds* such a firm shows a non-blocking `toast.warning` (`sheet.firm_no_quota_warning`). The split still saves.
-- **Known limits (v1, deliberate)**: product type defaults to `tomato` (not on the sheet payload; pepper is a rare separate quota domain), and per-issuance **expiry** (`validity` month window) is *not* applied — this is a coarse "has any balance" signal, not the authoritative FIFO/expiry ledger. Only the Sheet firm-split cell is covered; backend create/`set_firm_splits` still does not block or warn.
+- **Endpoint**: `GET /api/v1/export/quota-firm-balances/?product_type=tomato` → `{ "<firm_id>": {issued_kg, used_kg, remaining_kg} }`. Service: `compute_firm_quota_balances(product_type, season, today=None)` in `services_quota.py`. All three figures count **live (unexpired)** allocations of the **resolved** season only (anchored on the `QuotaIssuance.season` FK and `usage_season_q()`, not a date range — D11). `used_kg` is **committed** = draft + approved usage (NOT approved-only like the dashboard): assigning firm splits auto-creates *draft* usage rows that stay draft until document_team approves, so at assignment time drafts are the live commitment — counting approved-only would under-warn until after the decision is made. Firms with no allocation are absent (treated as zero). 60 s cache (`quota_firm_balances:<product_type>:<season_id>`), invalidated alongside the FIFO cache by the canonical `invalidate_quota_caches()` on **every** balance-moving action — issuance create/update/delete, firm-split assignment/edit, usage approval, and shipment cancel/restore/soft-delete.
+- **Expiry is applied (2026-08-23).** A lapsed issuance (past its `validity` month window, per `quota_expiry_date()`) drops out of `issued_kg` and `used_kg` entirely. Before this the balance summed the whole season, so on 2026-08-23 the sheet offered ~20 firms as having quota when only one held a live allocation — every June leftover still counted. The lapse test is `expiry < today`, so quota is still usable **on** its expiry date. `today` defaults to `timezone.localdate()` — the same source `build_quota_dashboard` uses, so this gate and the dashboard's *expired* column flip on the same day.
+- **FIFO charges usage to the oldest allocation, lapsed ones included.** `_fifo_consume()` walks every allocation the firm holds in the season, so August kg are drawn from a June allocation first and the live August quota reads untouched — `remaining_kg` is optimistic by that much. Deliberate: walking live allocations only would count the same kg twice, once here and once as *expired unused* in `aggregate_quota_expired()`.
+- A firm is "no quota" when it is absent from the map **or** `remaining_kg <= 0` (covers never-allocated, fully-used, and expired-only firms). Per-allocation accounting floors at zero — an over-committed firm reads `0`, not negative.
+- **UI** (`SheetCellEditor.tsx`): no-quota firms are tagged `⚠ no quota` and **disabled** in the multi-select dropdown; a selection that still carries one is stripped with a `toast.error` (`sheet.firm_no_quota_error`).
+- **Backend** (`ShipmentViewSet.firm_splits`, `views.py`): mirrors the block — a **newly-added** firm with `remaining_kg <= 0` gets a `400`. Firms already on the split are exempt, so an existing (now expired or over-committed) split stays editable. Evaluated against the **shipment's** season, not the resolved one.
+- **Known limits (deliberate)**: product type defaults to `tomato` (not on the sheet payload; pepper is a rare separate quota domain). `POST /shipments/` (create) still does not check quota.
 
 ## Frontend Implementation
 
@@ -286,9 +299,29 @@ When an operator assigns export firms to a shipment via the **Sheet `firm_splits
 **File**: `frontend/src/pages/export/QuotaDashboard.tsx`
 
 **Role-Based View**:
-- `document_team`: sees "All Quotas" tab only (read-only)
+- `document_team`: quota tabs, read-only — no comparison charts (holds quota, not the sell plan)
 - `export_manager` / `director`: all tabs + analytics
-- `seller`: only "Local Sell Plan" section
+- `seller`: the Local Sell Plan grid alone — no tab strip, no KPI row, no filters, no kg/ton toggle
+
+> **The three gates come from `quotaPanelAccess(user)`**
+> (`QuotaDashboard.helpers.ts`, tested in `QuotaDashboard.helpers.test.ts`), NOT from
+> `canSeePage(user, 'export.quota')`. `canSeePage` treats access to any CHILD page as
+> access to the parent, so the seller's one page — `export.quota.local_sell` — made
+> `export.quota` resolve **true**. Right for the sidebar (the seller must reach this
+> route), wrong for everything on it: until 2026-08-23 the seller got the KPI pipeline,
+> the usage and issuance tabs, and a `GET /export/quota-dashboard/` the backend 403s —
+> rendering "Failed to load quota data" on every visit. `canSeeQuota` now reads
+> `canDo(user, 'quota_issuance', 'view')`, the exact `resource_code` that endpoint
+> enforces, so the UI asks the question the API answers. Verified against the live
+> matrix (2026-08-23): no role holds `quota_usage` without `quota_issuance`, so one
+> flag covers both tabs. `canSeeAnalytics = canSeeQuota && canDo(user,
+> 'local_sell_plan', 'view')` — first term "this is quota data", second excludes
+> `document_team`.
+>
+> **A lone visible tab renders bare**, without the `<Tabs>` strip: a tab strip offering
+> no choice is pure chrome, and `activeTab` is seeded by `useState(defaultTab)` — captured
+> on the FIRST render, when `user` may still be resolving — so a single-item `<Tabs>` can
+> point at a key absent from `items` and render nothing at all.
 
 **Filter Panel**:
 | Filter | Component | Options |
@@ -317,7 +350,7 @@ Coverage progress bar color: green >=80%, orange >=50%, red <50%.
 | 1. Quota Usage | QuotaUsageTab | `canSeeQuota` | What each truck spent — the default tab (see below) |
 | 2. Issuance Log | QuotaIssuancesList | `canSeeQuota` | Detailed allocation table (see below) |
 | 3. Local Sell | LocalSellPlanGrid | `canSeeLocalSell` | Weekly local-sale plan — what earns the quota |
-| 4. Firm Breakdown | QuotaPerFirmTable | `canSeeQuota` | Per-firm: sales_kg, expected, issued, used, diff, is_blocked |
+| 4. Firm Breakdown | QuotaPerFirmTable | `canSeeQuota` | Per-firm: sales_kg, expected, issued, used, diff, expired_kg, is_blocked |
 | 5. Firm Chart | QuotaVisualBars | `canSeeAnalytics` | Bar chart of firm allocations |
 | 6. Weekly Trend | QuotaWeeklyFlow | `canSeeAnalytics` | Week-by-week issuance trend with coverage % |
 
@@ -410,14 +443,14 @@ The mirror of the usage list's shipment column: quota is spent by trucks, so the
 | Hook | Endpoint | Params | Returns | Stale Time |
 |------|----------|--------|---------|------------|
 | `useQuotaDashboard` | `GET /export/quota-dashboard/` | season (from the page's own picker, which hides closed seasons the user may not view), date_from, date_to, product_type | `IQuotaDashboardResponse` | 60s |
-| `useQuotaIssuances` | `GET /export/quota-issuances/` | product_type, date_from, date_to | `IQuotaIssuance[]` | 60s |
+| `useQuotaIssuances` | `GET /export/quota-issuances/` | product_type, date_from, date_to (season comes from the **global** switcher via `useSelectedSeason()`) | `IQuotaIssuance[]` | 60s |
 | `useQuotaUsageRecords` | `GET /export/quota-usage/?page_size=2000` | status, product_type, date_from, date_to, **shipment** | `IQuotaUsageRecord[]` | 30s |
 
 ### TypeScript Types
 
 **`IQuotaDashboardResponse`**: `{kpis: IQuotaDashboardKPIs, per_firm: IQuotaDashboardFirm[], weekly_flow: IQuotaWeeklyFlowEntry[]}`
 
-**`IQuotaDashboardKPIs`**: local_sales_kg, expected_kg, issued_kg, not_given_kg, not_given_pct, used_kg, unused_kg, unused_pct
+**`IQuotaDashboardKPIs`**: local_sales_kg, expected_kg, issued_kg, not_given_kg, not_given_pct, used_kg, unused_kg, unused_pct, expired_kg
 
 **`IQuotaIssuance`**: id, issue_date, product_type, validity, matched_week, matched_year, notes, total_kg, allocations[] (each: id, export_firm, export_firm_name, kg_quota, used_kg)
 
@@ -430,7 +463,7 @@ The mirror of the usage list's shipment column: quota is spent by trucks, so the
 | `export_manager` | Full | Yes | Yes | Yes | Yes |
 | `director` | Full | Yes | Yes | Yes | Yes |
 | `document_team` | Read-only tab | No | No | No | No |
-| `seller` | Local Sell Plan only | No | No | No | No |
+| `seller` | Local Sell Plan only (bare grid, no quota chrome) | No | No | No | No |
 | Others | No access | No | No | No | No |
 
 ## Connections to Other Processes

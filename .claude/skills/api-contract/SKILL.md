@@ -547,6 +547,13 @@ Consequences worth knowing before you touch this code:
   no season for exactly those rows.
 - `quota-firm-balances` follows the **resolved** season, not the active one, and returns `{}`
   during the gap. Its cache key and the FIFO cache key both carry the season id.
+- **`quota-firm-balances` counts LIVE quota only** (2026-08-23). `issued_kg` / `used_kg` /
+  `remaining_kg` all exclude allocations past their `validity` window (`quota_expiry_date()`,
+  lapse test `expiry < today`, so the expiry date itself still counts). Until this change the
+  response summed the whole season, so the sheet offered ~20 firms as having quota when one
+  held a live allocation. `remaining_kg <= 0` (or an absent firm) is a **hard block**, both in
+  `SheetCellEditor` and in `POST /shipments/{id}/firm-splits/` — the latter exempts firms
+  already on the split.
 - **`PATCH /contracts/sales/{id}/` changing `quantity_kg` rewrites the firm's
   `ShipmentFirmSplit.weight_kg` and re-runs quota usage** (added 2026-08-11). The two are the
   same number by design — the firm's official export weight (AD-016) — but only the
@@ -596,10 +603,22 @@ Consequences worth knowing before you touch this code:
   aggregate reads it as empty — fail closed. **If you add another date-windowed endpoint, clamp
   it; a default window is not a bound.**
 - **Still date-driven, deliberately:** `build_quota_dashboard()` itself takes only
-  `(date_from, date_to, product_type)`. The resolved season supplies the clamped window and the
-  permission gate; it is **not** pushed into the aggregates as a `season` predicate. Re-scoping
-  those aggregates would change published numbers, not just visibility, and needs its own
-  ruling (§4.7's own standard). The clamp is what makes deferring that safe.
+  `(date_from, date_to, product_type, today=None)`. The resolved season supplies the clamped
+  window and the permission gate; it is **not** pushed into the aggregates as a `season`
+  predicate. Re-scoping those aggregates would change published numbers, not just visibility,
+  and needs its own ruling (§4.7's own standard). The clamp is what makes deferring that safe.
+  (`today` only pins expiry for tests; it defaults to `timezone.localdate()`.)
+- **Every figure in `per_firm` must come through that one window** (2026-08-23). `per_firm[]`
+  rows and `kpis` now carry **`expired_kg`** — quota whose validity lapsed before today, summed
+  from the same date-windowed issuance list `weekly_flow` uses. It was previously computed in
+  the browser from a separate `/quota-issuances/` fetch scoped to the **global** season
+  switcher, while the rest of the row followed the quota page's own season dropdown; moving one
+  selector and not the other made half of each row describe a different season. If you add
+  another column here, aggregate it server-side off `date_from`/`date_to` — a second client-side
+  data source re-opens this. `expired_kg` is the **unused remainder** of a lapsed allocation
+  (`kg_quota` minus what FIFO consumed from it), not the whole allocation — it shipped as the whole
+  allocation on 2026-08-23 and was corrected the same day, so a figure read before that correction
+  is larger for the same data.
 
 `boss` analytics is mixed, not uniformly parameterised — check the specific action before
 assuming `?season=` moves it:
@@ -655,6 +674,50 @@ HTTP status codes: 400 (validation), 401 (not authenticated), 403 (no permission
 ## Timestamps
 
 All timestamps in ISO 8601 with timezone: `2025-02-01T14:30:00+05:00`. Frontend displays using `dayjs` with user's locale. Backend stores as `DATETIMEOFFSET`.
+
+## Numbers: `Decimal` arrives as a **string**, unless it came from a method field
+
+`COERCE_DECIMAL_TO_STRING` is at its DRF default (`True`) — deliberately, because flipping it in
+`settings.REST_FRAMEWORK` re-types every money and weight field in the platform at once. The
+consequence is an asymmetry that has now bitten twice:
+
+| Backend field | JSON | Example |
+|---|---|---|
+| `models.DecimalField` through a `ModelSerializer` | **string** | `"100000.00"` |
+| `serializers.DecimalField(...)` declared explicitly | **string** | `"100000.00"` |
+| `SerializerMethodField` returning a `Decimal` | **number** | `100000.0` |
+| Annotated `Sum(...)` surfaced by a method field | **number** | `100000.0` |
+
+The last two go through `rest_framework.utils.encoders.JSONEncoder`, which floats a `Decimal`. So two
+fields of the same model, on the same row, can arrive as different JSON types — `QuotaIssuanceFirmAllocation`
+ships `kg_quota` as a string (model field) and `used_kg` as a number (method field).
+
+**TypeScript declares these as `number`, and that is the intended contract.** Do not re-type them as
+`string`; make the declaration true instead:
+
+> **Coerce in the hook's `queryFn`, at the fetch boundary — never at the usage site.**
+> ```ts
+> const rows = Array.isArray(data) ? data : data.results;
+> return rows.map((r) => ({ ...r, weight_kg: Number(r.weight_kg) || 0 }));
+> ```
+
+A usage-site patch fixes one screen and leaves the next `reduce()` broken; the boundary fixes every
+consumer of the hook at once. Existing boundaries doing this: `useQuotaIssuances`
+(`kg_quota`, `used_kg`) and `useDomesticSales` (`weight_kg`, `price_per_kg`). Pre-existing usage-site
+patches that prove the trap recurs: `ShipmentQuotaCard.tsx` (`Number(r.kg_used)`) and
+`SalesReportPage`'s `toSavedRow` (`Number(ex.amount_local)`).
+
+**The failure signature** — a string decimal survives arithmetic silently and only shows up in the UI:
+
+- `+` concatenates instead of adding: `0 + "100000.00" + "250000.00"` → `"0100000.00250000.00"`, so a
+  Total row renders a wall of digits. (`-`, `*`, `/` and `<` coerce, so **sorters and ratios keep
+  working** — only the sums break, which is why this hides.)
+- `fmtWeight()` passes it through untouched: `String.prototype.toLocaleString` ignores its arguments.
+- In **ton** mode the same cell renders `не число` / `NaN`, because `Number(garbage)` is `NaN`.
+- TypeScript cannot catch any of it: the type already said `number`, and the lie is on the wire.
+
+When you add a serializer field, state its JSON type in the endpoint's contract section below if it is
+a `Decimal` — the frontend cannot tell a string decimal from a number one until it renders wrong.
 
 ## Customs/Document Cash-Advance Ledger
 

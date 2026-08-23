@@ -260,12 +260,18 @@ class FirmBalancesStopAtTheSeasonBoundaryTests(QuotaSeasonFixture):
             usage_date=self.older.start_date, export_firm=self.firm,
             kg_used=Decimal('700'), product_type='tomato', status='approved',
         )
-        newer = compute_firm_quota_balances('tomato', self.newer)[self.firm.pk]
+        # `today` pinned inside each issuance's validity window — the balance
+        # drops lapsed allocations, and these fixtures sit a year apart.
+        newer = compute_firm_quota_balances(
+            'tomato', self.newer, today=date(2025, 9, 15),
+        )[self.firm.pk]
         self.assertEqual(newer['issued_kg'], Decimal('300'))
         self.assertEqual(newer['used_kg'], Decimal('100'))
         self.assertEqual(newer['remaining_kg'], Decimal('200'))
 
-        older = compute_firm_quota_balances('tomato', self.older)[self.firm.pk]
+        older = compute_firm_quota_balances(
+            'tomato', self.older, today=date(2024, 9, 15),
+        )[self.firm.pk]
         self.assertEqual(older['issued_kg'], Decimal('1000'))
         self.assertEqual(older['used_kg'], Decimal('700'))
 
@@ -274,14 +280,19 @@ class FirmBalancesStopAtTheSeasonBoundaryTests(QuotaSeasonFixture):
         implementation date-ranged the issuance side and would drop this row.
         """
         stray = QuotaIssuance.objects.create(
-            # Inside `older`'s date range, but explicitly stamped `newer`.
-            issue_date=self.older.start_date, season=self.newer, product_type='tomato',
+            # Inside `older`'s date range (its last day), but explicitly stamped
+            # `newer`. `this_and_next` keeps it live alongside `new_alloc` on the
+            # pinned date below, so expiry can't mask the FK question being asked.
+            issue_date=self.older.end_date, season=self.newer, product_type='tomato',
+            validity='this_and_next',
         )
         QuotaIssuanceFirmAllocation.objects.create(
             issuance=stray, export_firm=self.firm, kg_quota=Decimal('50'),
         )
         self.assertEqual(
-            compute_firm_quota_balances('tomato', self.newer)[self.firm.pk]['issued_kg'],
+            compute_firm_quota_balances(
+                'tomato', self.newer, today=date(2025, 9, 15),
+            )[self.firm.pk]['issued_kg'],
             Decimal('350'),
         )
 

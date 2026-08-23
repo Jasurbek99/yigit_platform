@@ -11,18 +11,22 @@ __all__ = [
     'fetch_issuances',
     'aggregate_local_sales',
     'aggregate_quota_issued',
-    'aggregate_quota_issued_for_season',
     'aggregate_quota_used',
+    'aggregate_quota_expired',
     'assert_usage_batch_seasons_open',
+    'quota_expiry_date',
     'season_of_usage',
     'usage_season_q',
 ]
+import calendar
 import datetime
 from decimal import Decimal
 
 from django.core.cache import cache
 from django.db.models import Q, QuerySet, Sum
 from django.db.models.functions import Coalesce
+from django.utils import timezone
+from django.utils import timezone
 
 from collections import defaultdict
 
@@ -236,26 +240,10 @@ def season_of_usage(shipment, usage_date):
     ).order_by('start_date').first()
 
 
-def aggregate_quota_issued_for_season(season, product_type: str) -> dict[int, Decimal]:
-    """Sum kg_quota per firm from allocations whose issuance belongs to `season`.
-
-    The FK, not `issue_date`: an issuance is stamped with the season that was
-    active when it was recorded, and that stamp is authoritative even when the
-    date sits outside the season's calendar range. The date-range sibling
-    (`aggregate_quota_issued`) stays in use by the dashboard, which is an
-    explicitly date-windowed report.
-    """
-    rows = (
-        QuotaIssuanceFirmAllocation.objects
-        .filter(issuance__season=season, issuance__product_type=product_type)
-        .values('export_firm_id')
-        .annotate(total=Coalesce(Sum('kg_quota'), Decimal('0')))
-    )
-    return {row['export_firm_id']: row['total'] for row in rows}
-
-
 def aggregate_quota_used(
-    date_from: datetime.date, date_to: datetime.date,
+    date_from: datetime.date,
+    date_to: datetime.date,
+    product_type: str | None = None,
 ) -> dict[int, Decimal]:
     """Sum approved quota usage per firm in the date range.
 
@@ -263,15 +251,130 @@ def aggregate_quota_used(
     Only approved records count — draft records are pending review.
     counted() drops rows tied to soft-deleted / cancelled shipments — the kg
     is released back to the firm until the shipment is restored.
+
+    `product_type` is OPTIONAL and defaults to no filter, which is what the
+    `used_kg` KPI has always published — tomato and pepper usage summed
+    together. Narrowing that KPI would change a published number and needs its
+    own ruling. Pass it wherever the total is consumed *against* product-scoped
+    allocations (`aggregate_quota_expired`), or one product's usage draws down
+    the other's quota.
     """
     usage_rows = (
         QuotaUsageRecord.objects
         .counted()
         .filter(usage_date__gte=date_from, usage_date__lte=date_to, status='approved')
+    )
+    if product_type is not None:
+        usage_rows = usage_rows.filter(product_type=product_type)
+    usage_rows = (
+        usage_rows
         .values('export_firm_id')
         .annotate(total=Coalesce(Sum('kg_used'), Decimal('0')))
     )
     return {row['export_firm_id']: row['total'] for row in usage_rows}
+
+
+def quota_expiry_date(
+    issue_date: datetime.date, validity: str,
+) -> datetime.date:
+    """Last day an issuance's quota may still be used.
+
+    Port of `computeExpiry()` in `QuotaIssuancesList.helpers.ts` — the two MUST
+    stay in step, or the issuance list and the dashboard disagree about which
+    quota has lapsed. `next_month` and `this_and_next` share an expiry (end of
+    the following month); they differ only in when the quota *starts*.
+    """
+    months_ahead = 1 if validity in ('this_and_next', 'next_month') else 0
+    year, month = issue_date.year, issue_date.month + months_ahead
+    if month > 12:
+        year, month = year + 1, month - 12
+    return datetime.date(year, month, calendar.monthrange(year, month)[1])
+
+
+def _fifo_consume(
+    firm_allocs: dict[int, list[tuple[int, Decimal]]],
+    firm_usage: dict[int, Decimal],
+) -> dict[int, Decimal]:
+    """Walk each firm's usage across its own allocations, oldest first.
+
+    The single FIFO implementation: `compute_fifo_usage()` runs it season-scoped
+    for the issuance ledger, `aggregate_quota_expired()` runs it window-scoped
+    for the firm breakdown. Two separate walks would let the Issuances tab and
+    the dashboard disagree about which allocation a kg was spent from — and the
+    expired remainder is exactly that disagreement made visible.
+
+    Args:
+        firm_allocs: firm_id → [(allocation_id, kg_quota)], OLDEST FIRST.
+        firm_usage: firm_id → kg that firm consumed in the same scope.
+
+    Returns:
+        allocation_id → kg consumed from it (Decimal('0') when untouched).
+    """
+    consumed_per_alloc: dict[int, Decimal] = {}
+    for firm_id, ordered_allocs in firm_allocs.items():
+        remaining = firm_usage.get(firm_id, Decimal('0'))
+        for alloc_id, kg_quota in ordered_allocs:
+            consumed = min(kg_quota, remaining)
+            consumed_per_alloc[alloc_id] = consumed
+            remaining -= consumed
+    return consumed_per_alloc
+
+
+def _allocs_by_firm(
+    issuances: list, today: datetime.date,
+) -> tuple[dict[int, list[tuple[int, Decimal]]], set[int]]:
+    """Flatten issuances into per-firm allocation lists plus the lapsed ids.
+
+    `fetch_issuances()` already orders by issue_date, which IS the FIFO order;
+    ties break on allocation id so the walk is deterministic across requests.
+    """
+    firm_allocs: dict[int, list[tuple[int, Decimal]]] = defaultdict(list)
+    lapsed: set[int] = set()
+    for issuance in issuances:
+        has_lapsed = quota_expiry_date(issuance.issue_date, issuance.validity) < today
+        for alloc in sorted(issuance.allocations.all(), key=lambda a: a.id):
+            firm_allocs[alloc.export_firm_id].append((alloc.id, alloc.kg_quota))
+            if has_lapsed:
+                lapsed.add(alloc.id)
+    return firm_allocs, lapsed
+
+
+def aggregate_quota_expired(
+    issuances: list, today: datetime.date, firm_usage: dict[int, Decimal],
+) -> dict[int, Decimal]:
+    """Sum the UNUSED remainder per firm from issuances that have lapsed.
+
+    Reads the SAME `issuances` list `build_weekly_flow` consumes, so the expiry
+    column shares one anchor — the season-clamped date window — with sales /
+    issued / used. Until 2026-08-23 the browser computed this from its own
+    `/quota-issuances/` fetch scoped to the **global** season switcher while the
+    rest of the row followed the page's own season dropdown, so the two halves
+    of a row could describe different seasons.
+
+    **Remainder, not the full allocation (2026-08-23).** The column is labelled
+    *expired unused*; until this change it summed every kg of a lapsed
+    allocation, used or not, so quota that had done its job counted as waste.
+    WHICH kg were used is a FIFO question — a firm's usage draws down its oldest
+    allocation first — so the remainder comes from `_fifo_consume()`, the same
+    walk behind the Issuances tab's `used_kg`. The published figure therefore
+    DROPS wherever quota was consumed before lapsing; that is the fix, not
+    missing data.
+
+    `firm_usage` MUST be scoped like the allocations it is consumed against —
+    same date window AND same product_type — or pepper usage eats tomato quota.
+    """
+    firm_allocs, lapsed = _allocs_by_firm(issuances, today)
+    consumed = _fifo_consume(firm_allocs, firm_usage)
+
+    totals: dict[int, Decimal] = {}
+    for firm_id, allocs in firm_allocs.items():
+        for alloc_id, kg_quota in allocs:
+            if alloc_id not in lapsed:
+                continue
+            unused = kg_quota - consumed.get(alloc_id, Decimal('0'))
+            if unused > 0:
+                totals[firm_id] = totals.get(firm_id, Decimal('0')) + unused
+    return totals
 
 
 # ---------------------------------------------------------------------------
@@ -282,6 +385,7 @@ def _compute_kpis(
     local_sales: dict[int, Decimal],
     quota_issued: dict[int, Decimal],
     quota_used: dict[int, Decimal],
+    quota_expired: dict[int, Decimal] | None = None,
 ) -> dict:
     """Compute top-level KPI summary from aggregated data."""
     total_sales_kg = sum(local_sales.values(), Decimal('0'))
@@ -305,6 +409,7 @@ def _compute_kpis(
         'used_kg': total_used_kg,
         'unused_kg': total_unused_kg,
         'unused_pct': round(total_unused_pct, 1),
+        'expired_kg': sum((quota_expired or {}).values(), Decimal('0')),
     }
 
 
@@ -314,8 +419,10 @@ def _build_per_firm(
     quota_issued: dict[int, Decimal],
     quota_used: dict[int, Decimal],
     firm_names: dict[int, str],
+    quota_expired: dict[int, Decimal] | None = None,
 ) -> list[dict]:
     """Build per-firm breakdown rows."""
+    quota_expired = quota_expired or {}
     per_firm = []
     for firm_id in sorted(all_firm_ids):
         sales_kg = local_sales.get(firm_id, Decimal('0'))
@@ -341,6 +448,7 @@ def _build_per_firm(
             'not_given_kg': not_given_kg,
             'not_given_pct': not_given_pct,
             'unused_kg': unused_kg,
+            'expired_kg': quota_expired.get(firm_id, Decimal('0')),
             'is_blocked': sales_kg > 0 and issued_kg == 0,
         })
     return per_firm
@@ -470,13 +578,22 @@ def build_quota_dashboard(
     date_from: datetime.date,
     date_to: datetime.date,
     product_type: str,
+    today: datetime.date | None = None,
 ) -> dict:
     """Build the full quota dashboard response.
+
+    Every figure here — sales, issued, used AND expired — is anchored on the
+    same `[date_from, date_to]` window, which `QuotaDashboardView` clamps to the
+    resolved season. That single anchor is what keeps one season's numbers out
+    of another's breakdown; do not add a second one.
 
     Args:
         date_from: Start of analysis period.
         date_to: End of analysis period.
         product_type: Product type filter (e.g. 'tomato').
+        today: Reference date for expiry, defaults to the local date. A
+            parameter so tests can pin it — expiry is the one figure that moves
+            on its own with the calendar.
 
     Returns:
         Dict with keys: kpis, per_firm, weekly_flow.
@@ -487,6 +604,14 @@ def build_quota_dashboard(
     quota_issued = aggregate_quota_issued(date_from, date_to, product_type)
     quota_used = aggregate_quota_used(date_from, date_to)
     issuances = fetch_issuances(date_from, date_to, product_type)
+    # Second, product-scoped usage read: the expiry FIFO consumes these kg
+    # against THIS product's allocations, while `quota_used` above keeps the
+    # KPI's historical product-agnostic definition (see aggregate_quota_used).
+    quota_expired = aggregate_quota_expired(
+        issuances,
+        today or timezone.localdate(),
+        aggregate_quota_used(date_from, date_to, product_type=product_type),
+    )
 
     all_firm_ids = set(local_sales.keys()) | set(quota_issued.keys()) | set(quota_used.keys())
 
@@ -496,8 +621,10 @@ def build_quota_dashboard(
     }
 
     return {
-        'kpis': _compute_kpis(local_sales, quota_issued, quota_used),
-        'per_firm': _build_per_firm(all_firm_ids, local_sales, quota_issued, quota_used, firm_names),
+        'kpis': _compute_kpis(local_sales, quota_issued, quota_used, quota_expired),
+        'per_firm': _build_per_firm(
+            all_firm_ids, local_sales, quota_issued, quota_used, firm_names, quota_expired,
+        ),
         'weekly_flow': build_weekly_flow(plan_rows, issuances, firm_names),
     }
 
@@ -522,16 +649,36 @@ def empty_quota_dashboard() -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Per-firm balance (firm-split editor soft warning)
+# Per-firm balance (firm-split editor no-quota gate)
 # ---------------------------------------------------------------------------
 
-def compute_firm_quota_balances(product_type: str, season) -> dict[int, dict]:
-    """Per-firm remaining quota (issued − committed) for one season.
+def compute_firm_quota_balances(
+    product_type: str, season, today: datetime.date | None = None,
+) -> dict[int, dict]:
+    """Per-firm quota that is still LIVE today (unexpired issued − committed).
 
-    Powers the firm-split editor's soft warning: a firm whose ``remaining_kg``
-    is <= 0 (including firms with no allocation at all, which are simply absent
-    from the result) has no quota left to assign. The check is non-blocking —
-    operators may still save against a firm with no quota.
+    Powers the firm-split editor's "no quota" gate: a firm whose
+    ``remaining_kg`` is <= 0 (including firms absent from the result, which have
+    no allocation at all) cannot be added to a split. The gate is a **hard
+    block**, not a warning — `SheetCellEditor` disables the option and
+    `ShipmentViewSet.firm_splits` 400s on a newly-added firm (firms already on
+    the split are exempt there, so existing splits stay editable).
+
+    **Expiry IS applied (2026-08-23).** Until this change the balance was every
+    kg issued in the season minus every kg committed, so a firm kept "having
+    quota" months after its issuance's ``validity`` window lapsed — the sheet
+    offered ~20 firms when only one held live quota. Lapsed allocations are now
+    dropped from both ``issued_kg`` and ``used_kg`` via the same
+    `quota_expiry_date` / `_allocs_by_firm` pair the dashboard's expired column
+    uses; keeping two expiry rules would let the two screens disagree.
+
+    **FIFO charges usage to the OLDEST allocation, lapsed ones included.**
+    `_fifo_consume` walks every allocation the firm holds this season, so kg
+    spent in August are drawn from a June allocation first and the live August
+    quota reads as untouched — ``remaining_kg`` is optimistic by that much.
+    That is deliberate: the alternative (walking live allocations only) would
+    count the same kg twice, once as consuming live quota here and once as
+    expired-unused in `aggregate_quota_expired`.
 
     ``used_kg`` here is **committed** quota = draft + approved usage, NOT
     approved-only. This is deliberate and differs from the dashboard (which
@@ -555,22 +702,33 @@ def compute_firm_quota_balances(product_type: str, season) -> dict[int, dict]:
     user browsing a prior season must see that season's balances, not the write
     target's. ``None`` is the close→open gap and returns ``{}`` (fail closed).
 
-    NOTE: per-issuance expiry (``QuotaIssuance.validity`` month window) is NOT
-    applied here — this is a coarse "has any balance" signal, not the
-    authoritative FIFO/expiry ledger (see compute_fifo_usage / the dashboard).
-
     Args:
         product_type: 'tomato' or 'pepper'.
         season: The resolved season, or None.
+        today: Reference date for expiry, defaults to the local date — same
+            source as `build_quota_dashboard`, so the sheet gate and the
+            dashboard's expired column flip on the same day.
 
     Returns:
-        Dict mapping export_firm_id → {issued_kg, used_kg, remaining_kg}.
-        Empty dict when `season` is None.
+        Dict mapping export_firm_id → {issued_kg, used_kg, remaining_kg}, all
+        three counting live (unexpired) allocations only. Empty dict when
+        `season` is None.
     """
     if not season:
         return {}
 
-    issued = aggregate_quota_issued_for_season(season, product_type)
+    today = today or timezone.localdate()
+
+    # `id` in the ordering, not just `issue_date`: several issuances may share a
+    # date (three do on 2026-06-02), and without the tie-break the FIFO order is
+    # whatever the database happens to return.
+    issuances = list(
+        QuotaIssuance.objects
+        .filter(product_type=product_type, season=season)
+        .order_by('issue_date', 'id')
+        .prefetch_related('allocations')
+    )
+    firm_allocs, lapsed = _allocs_by_firm(issuances, today)
 
     # Committed = draft + approved (no status filter) — see docstring.
     used_rows = (
@@ -581,11 +739,17 @@ def compute_firm_quota_balances(product_type: str, season) -> dict[int, dict]:
         .annotate(total=Coalesce(Sum('kg_used'), Decimal('0')))
     )
     used = {row['export_firm_id']: row['total'] for row in used_rows}
+    consumed = _fifo_consume(firm_allocs, used)
 
     balances: dict[int, dict] = {}
-    for firm_id in set(issued) | set(used):
-        issued_kg = issued.get(firm_id, Decimal('0'))
-        used_kg = used.get(firm_id, Decimal('0'))
+    for firm_id in set(firm_allocs) | set(used):
+        issued_kg = Decimal('0')
+        used_kg = Decimal('0')
+        for alloc_id, kg_quota in firm_allocs.get(firm_id, []):
+            if alloc_id in lapsed:
+                continue
+            issued_kg += kg_quota
+            used_kg += consumed.get(alloc_id, Decimal('0'))
         balances[firm_id] = {
             'issued_kg': issued_kg,
             'used_kg': used_kg,
@@ -662,13 +826,7 @@ def compute_fifo_usage(product_type: str, season) -> dict[int, Decimal]:
     firm_usage: dict[int, Decimal] = {r['export_firm_id']: r['total'] for r in usage_rows}
 
     # 3. FIFO walk: oldest allocation consumed first
-    result: dict[int, Decimal] = {}
-    for firm_id, ordered_allocs in firm_allocs.items():
-        remaining = firm_usage.get(firm_id, Decimal('0'))
-        for alloc_id, kg_quota in ordered_allocs:
-            consumed = min(kg_quota, remaining)
-            result[alloc_id] = consumed
-            remaining -= consumed
+    result = _fifo_consume(firm_allocs, firm_usage)
 
     cache.set(cache_key, result, FIFO_CACHE_TTL)
     return result

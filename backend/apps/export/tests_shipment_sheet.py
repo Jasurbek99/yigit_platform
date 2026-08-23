@@ -17,6 +17,7 @@ from decimal import Decimal
 
 from django.core.management import call_command
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.core.models import (
@@ -541,8 +542,11 @@ class SheetJunctionEndpointTests(TestCase):
         # Give it real quota so this test measures what it claims to.
         from django.core.cache import cache
         from apps.export.models import QuotaIssuance, QuotaIssuanceFirmAllocation
+        # Dated TODAY, not a fixed past date: the balance drops lapsed
+        # issuances (validity window), so a hard-coded 2026-02-01 row would
+        # expire out from under this test as the calendar moves.
         issuance = QuotaIssuance.objects.create(
-            issue_date=date(2026, 2, 1), product_type='tomato',
+            issue_date=timezone.localdate(), product_type='tomato',
             season=self.shipment.season,
         )
         QuotaIssuanceFirmAllocation.objects.create(
