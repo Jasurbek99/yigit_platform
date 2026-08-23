@@ -89,6 +89,12 @@ are estimates, so saving over-capacity is still allowed.
 
 **File**: `frontend/src/pages/export/TruckForecast.tsx`
 
+**Not in the sidebar** (owner request, 2026-08-23). The page is read-only and duplicates
+what the *Truck allocation* section of [[weekly-harvest-planning]] already shows, so it was
+removed from both menu compositions in `AppLayout.tsx`. Route, page code `export.trucks` and
+the page file are untouched — it stays reachable at `/export/trucks` by direct URL. Its only
+capability the embedded table lacks is browsing an **arbitrary** week.
+
 **Week Picker**: DatePickerInput with week format, defaults to current week.
 
 **Stat Cards**:
@@ -106,7 +112,11 @@ are estimates, so saving over-capacity is still allowed.
 
 ### Embedded in WeeklyPlanGrid
 
-The `TruckAllocationTable` component is also embedded as a collapsible section at the bottom of the [[weekly-harvest-planning]] page, showing the same data inline with the harvest plan.
+The `TruckAllocationTable` component is embedded as a collapsible section (open by default) at
+the bottom of the [[weekly-harvest-planning]] page, showing the same data inline with the
+harvest plan. Since the standalone page left the sidebar this is **the** way operators reach
+truck allocation. It renders only when the week has at least one plan row, and only `admin` /
+`export_manager` may edit it (`canEditTrucks`, dead over a closed season).
 
 ### Hooks
 

@@ -253,7 +253,6 @@ export default function AppLayout() {
     },
     '/export/plan': { key: '/export/plan', icon: <IconCalendar size={15} />, label: t('nav.plan') },
     '/export/harvest-board': { key: '/export/harvest-board', icon: <IconPlant2 size={15} />, label: t('nav.harvest_board') },
-    '/export/trucks': { key: '/export/trucks', icon: <IconTruck size={15} />, label: t('nav.trucks') },
     '/export/quota': { key: '/export/quota', icon: <IconChartPie size={15} />, label: t('nav.quota') },
     '/export/blocks': { key: '/export/blocks', icon: <IconChartBar size={15} />, label: t('nav.block_summary') },
     '/export/pomidor-dukany': { key: '/export/pomidor-dukany', icon: <IconTrendingUp size={15} />, label: t('nav.pomidor_dukany') },
@@ -371,12 +370,18 @@ export default function AppLayout() {
   // the boss sees — it affects nobody else.
   const BOSS_MENU_GROUPS: IMenuGroup[] = [
     group('nav.group_overview', ['/', '/boss/dashboard', '/me/board', '/director/stuck-shipments']),
-    group('nav.group_planning', ['/export/plan', '/export/pomidor-dukany', '/export/harvest-board', '/export/trucks', '/export/quota', '/export/blocks']),
+    group('nav.group_planning', ['/export/plan', '/export/pomidor-dukany', '/export/harvest-board', '/export/quota', '/export/blocks']),
     // `/export/drafts` and `/export/assign` are deliberately withheld from the
     // boss sidebar (owner request, 2026-08-20). The pages still exist and the
     // boss's page permissions are untouched — he is meant to reach them through
     // the process page, not a top-level nav entry. Do NOT re-add them by
     // sweeping for "orphaned routes" — that sweep (421068f) is how they got here.
+    // `/export/trucks` (Truck Forecast) was dropped from BOTH sidebars by owner
+    // request, 2026-08-23: the same weekly_truck_allocations data is entered and
+    // read in the "Truck allocation" section of /export/plan, so the standalone
+    // read-only page earned no nav slot. Route, `export.trucks` permission and the
+    // page itself are untouched — it stays reachable by direct URL. Same rule as
+    // above: do NOT re-add it by sweeping for orphaned routes.
     group('nav.group_prep', ['/export/weightmaster']),
     group('nav.group_shipping', [
       '/export/shipments', '/export/shipments/sheet', '/export/shipments/board',
@@ -391,9 +396,10 @@ export default function AppLayout() {
     group('nav.group_feedback', ['/feedback/submit', '/feedback/my-tickets', '/feedback/public', '/admin/feedback']),
   ];
   // Every other role's menu — the original module grouping (restored
-  // verbatim from commit d6f1a02, plus 5 previously orphaned routes appended
-  // to nav.group_export: /export/trucks, /export/drafts, /export/assign,
-  // /export/domestic-sales, /export/prices).
+  // verbatim from commit d6f1a02, plus 4 previously orphaned routes appended
+  // to nav.group_export: /export/drafts, /export/assign,
+  // /export/domestic-sales, /export/prices — /export/trucks was a 5th until it
+  // was removed from every sidebar on 2026-08-23, see the note above).
   const STAFF_MENU_GROUPS: IMenuGroup[] = [
     group('nav.group_main', ['/', '/boss/dashboard', '/director/stuck-shipments']),
     group('nav.group_analytics', ['/analytics/clients-report', '/export/blocks', '/export/pomidor-dukany']),
@@ -401,7 +407,7 @@ export default function AppLayout() {
       '/export/shipments/dashboard', '/export/shipments', '/export/shipments/sheet', '/me/board',
       '/export/shipments/board', '/export/harvest-board', '/export/weightmaster', '/export/overdue',
       '/export/my-reports', '/export/advances', '/transport/map',
-      '/export/trucks', '/export/drafts', '/export/assign', '/export/domestic-sales', '/export/prices',
+      '/export/drafts', '/export/assign', '/export/domestic-sales', '/export/prices',
     ]),
     group('nav.group_contracts', ['/contracts', '/sales', '/documents']),
     group('nav.group_management', ['/export/plan', '/export/quota', '/admin/seasons', '/admin/firms', '/admin/import-firms', '/admin/customers', '/admin/blocks']),
