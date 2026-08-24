@@ -25,6 +25,28 @@ PERM_CACHE_TTL = 60  # seconds
 # edit gate and the frontend's can_current_user_edit map never disagree.
 _VIRTUAL_FIELD_DELEGATES = {'transit_days_temp': 'transit_days'}
 
+# Junction sheet rows: fields that live on a related table (ShipmentFirmSplit,
+# ShipmentBlockSource), not on Shipment itself. Their RoleFieldPermission is
+# scoped to the junction's own resource_code, per RESOURCE_FIELDS in
+# permission_registry.py — 'firm_splits'/'block_sources' can never appear in a
+# 'shipment' grant because they aren't in that resource's field list. Maps the
+# sheet field_key to (resource_code, field_name) on the junction resource.
+# Must be shared by can_edit_sheet_field AND get_sheet_edit_map so the inline
+# edit gate and the frontend's can_current_user_edit map never disagree —
+# mirrors _VIRTUAL_FIELD_DELEGATES, but crosses resources instead of staying
+# within 'shipment'.
+_JUNCTION_FIELD_DELEGATES: dict[str, tuple[str, str]] = {
+    'firm_splits': ('shipment_firm_split', 'export_firm'),
+    'block_sources': ('shipment_block_source', 'block'),
+}
+
+
+def _can_edit_sheet_row_field(role: str | None, field_key: str) -> bool:
+    """Field-perm check for a Sheet row, resolving junction rows to their real
+    resource_code (see _JUNCTION_FIELD_DELEGATES) instead of 'shipment'."""
+    resource_code, field_name = _JUNCTION_FIELD_DELEGATES.get(field_key, ('shipment', field_key))
+    return can_edit_field(role, field_name, resource_code=resource_code)
+
 
 def get_editable_fields(role: str | None, resource_code: str = 'shipment') -> list[str]:
     """Return the list of fields editable by the given role for a resource.
@@ -258,7 +280,7 @@ def can_edit_sheet_field(user, field_key: str) -> bool:
 
     # Rule 2: no active setting → standard field-perm fallback
     if setting is None:
-        return can_edit_field(role, field_key)
+        return _can_edit_sheet_row_field(role, field_key)
 
     # Rule 3: hidden rows → no edit for anyone
     if not setting.is_visible:
@@ -288,12 +310,12 @@ def can_edit_sheet_field(user, field_key: str) -> bool:
 
     # Rule 5/6: apply lock or fallback
     if setting.is_locked:
-        return has_any_trigger and can_edit_field(role, field_key)
+        return has_any_trigger and _can_edit_sheet_row_field(role, field_key)
     else:
         if not has_any_config:
             # No triggers configured → fall back to field perm alone
-            return can_edit_field(role, field_key)
-        return has_any_trigger and can_edit_field(role, field_key)
+            return _can_edit_sheet_row_field(role, field_key)
+        return has_any_trigger and _can_edit_sheet_row_field(role, field_key)
 
 
 def get_sheet_edit_map(user, settings_by_key: dict | None = None) -> dict[str, bool]:
@@ -342,11 +364,13 @@ def get_sheet_edit_map(user, settings_by_key: dict | None = None) -> dict[str, b
 
     # Query 2 (or cache hit): load all field permissions for this role
     all_perms = get_all_field_permissions(role or '')
-    shipment_fields: list[str] = all_perms.get('shipment', [])
-    has_wildcard = '*' in shipment_fields
 
     def _has_field_perm(fk: str) -> bool:
-        return has_wildcard or fk in shipment_fields
+        # Junction rows (firm_splits, block_sources) check their own
+        # resource_code — see _JUNCTION_FIELD_DELEGATES — never 'shipment'.
+        resource_code, field_name = _JUNCTION_FIELD_DELEGATES.get(fk, ('shipment', fk))
+        fields = all_perms.get(resource_code, [])
+        return '*' in fields or field_name in fields
 
     def _resolve(fk: str) -> bool:
         """Evaluate trigger + field-perm for a single field_key."""
@@ -496,3 +520,44 @@ class DynamicResourcePermission(BasePermission):
             return perm['can_delete']
         # PUT, PATCH
         return perm['can_edit']
+
+
+def junction_write_permission(resource_code: str) -> type:
+    """DRF permission for a single POST action that REPLACES a shipment's
+    related-table rows (e.g. firm splits, block sources) — pinned to that
+    junction's own resource_code instead of the ViewSet's default
+    ``resource_code`` ('shipment').
+
+    Why not DynamicResourcePermission: it reads ``view.resource_code``, which
+    is a single class-level attribute shared by every action on the ViewSet.
+    A role can hold full CRUD on the junction resource (e.g. document_team's
+    ``shipment_firm_split``: view/create/edit/delete) while correctly lacking
+    ``shipment.can_create`` (it must not create new shipments) — so gating a
+    firm-split save on ``shipment.can_create`` 403s a role the junction
+    resource itself explicitly grants. Mirrors the ``set_sales_report``
+    precedent (a POST that writes a different resource than the ViewSet's
+    default) but as a reusable permission instead of an in-body check.
+
+    Checks ``can_edit``, not ``can_create``: the action fully replaces the
+    existing set (an edit of the shipment's composition), matching how the
+    Sheet's own UI gate already treats this field (RoleFieldPermission /
+    ``can_edit_sheet_field``), not a REST "create a new thing".
+
+    Usage in ``get_permissions()``:
+        if action == 'set_firm_splits':
+            return [IsAuthenticated(), SeasonNotClosed(),
+                    junction_write_permission('shipment_firm_split')()]
+    """
+    class _JunctionWritePermission(BasePermission):
+        def has_permission(self, request, view) -> bool:
+            if not request.user or not request.user.is_authenticated:
+                return False
+            if getattr(request.user, 'is_superuser', False):
+                return True
+            role = getattr(request.user, 'role', None)
+            if not role:
+                return False
+            perm = get_resource_perm(role, resource_code)
+            return bool(perm and perm['can_edit'])
+
+    return _JunctionWritePermission

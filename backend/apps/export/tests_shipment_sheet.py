@@ -571,6 +571,104 @@ class SheetJunctionEndpointTests(TestCase):
         self.assertEqual(usage.first().status, 'approved')
 
 
+class SheetJunctionEndpointResourcePermissionTests(TestCase):
+    """POST .../firm-splits/ and .../block-sources/ must gate on the JUNCTION
+    resource's own RoleResourcePermission (shipment_firm_split /
+    shipment_block_source), not the ViewSet's default 'shipment' resource.
+
+    Regression: both actions relied solely on the class-level
+    DynamicResourcePermission, which maps POST -> shipment.can_create.
+    document_team holds full CRUD on shipment_firm_split (view/create/edit/
+    delete — "Sulgun manages firm splits") but shipment.can_create=False by
+    design (must not create new shipments), so every firm-split save 403'd
+    for her despite the Sheet cell showing as editable.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        _seed_permissions()
+        cls.season, _ = Season.objects.get_or_create(
+            name='2025-2026',
+            defaults={'start_date': '2025-09-01', 'end_date': '2026-06-30', 'is_active': True},
+        )
+        cls.status_loading, _ = ShipmentStatusType.objects.get_or_create(
+            code='yuklenme',
+            defaults={'name_tk': 'yuklenme', 'name_en': 'Loading', 'step_order': 1, 'phase': 'LOADING'},
+        )
+        cls.firm_a, _ = ExportFirm.objects.get_or_create(code='YGT', defaults={'name_tk': 'YGT', 'name_en': 'YGT'})
+        cls.block_a, _ = GreenhouseBlock.objects.get_or_create(code='A', defaults={'name': 'Block A'})
+
+    def setUp(self):
+        self.client = APIClient()
+        self.shipment = Shipment.objects.create(
+            shipment_code=f'JPERM-{id(self) % 10000}', date='2026-02-01',
+            season=self.season, status=self.status_loading,
+        )
+
+    def test_document_team_can_post_firm_splits(self):
+        """document_team: shipment.can_create=False, shipment_firm_split full CRUD."""
+        from django.core.cache import cache
+        from apps.export.models import QuotaIssuance, QuotaIssuanceFirmAllocation
+        # firm_a is NEW on this (empty) shipment, so the "no remaining quota"
+        # hard block would refuse it before the permission fix is even
+        # exercised — give it real quota so this test measures the permission
+        # gate, not the unrelated quota rule (same pattern as
+        # SheetJunctionEndpointTests.test_firm_splits_replace_existing_approved_quota_usage).
+        issuance = QuotaIssuance.objects.create(
+            issue_date=timezone.localdate(), product_type='tomato', season=self.season,
+        )
+        QuotaIssuanceFirmAllocation.objects.create(
+            issuance=issuance, export_firm=self.firm_a, kg_quota=Decimal('100000'),
+        )
+        cache.clear()
+        doc_team = _create_user(f'doc_team_perm_{id(self)}', 'document_team')
+        self.client.force_authenticate(user=doc_team)
+        resp = self.client.post(
+            f'/api/v1/export/shipments/{self.shipment.id}/firm-splits/',
+            {'firms': [{'export_firm_id': self.firm_a.id, 'weight_kg': 9000}]},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+
+    def test_role_without_junction_resource_grant_still_blocked(self):
+        """A role with neither shipment.can_create nor a shipment_firm_split
+        grant must stay 403 — this isn't a blanket bypass."""
+        from django.core.cache import cache
+        from apps.core.models import RoleResourcePermission
+        RoleResourcePermission.objects.filter(
+            role='document_team', resource_code='shipment_firm_split',
+        ).delete()
+        cache.clear()
+        doc_team = _create_user(f'doc_team_noperm_{id(self)}', 'document_team')
+        self.client.force_authenticate(user=doc_team)
+        resp = self.client.post(
+            f'/api/v1/export/shipments/{self.shipment.id}/firm-splits/',
+            {'firms': [{'export_firm_id': self.firm_a.id, 'weight_kg': 9000}]},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 403, resp.data)
+
+    def test_block_sources_also_gates_on_its_own_junction_resource(self):
+        """Same fix, second junction: a role granted shipment_block_source but
+        not shipment.can_create must still be able to POST block-sources.
+        Uses 'transport' (shipment.can_create=False by seed default) with a
+        manually-granted shipment_block_source permission, proving the gate is
+        resource-generic rather than a firm_splits-only special case."""
+        from apps.core.models import RoleResourcePermission
+        RoleResourcePermission.objects.update_or_create(
+            role='transport', resource_code='shipment_block_source',
+            defaults={'can_view': True, 'can_create': True, 'can_edit': True, 'can_delete': True},
+        )
+        transport_user = _create_user(f'transport_perm_{id(self)}', 'transport')
+        self.client.force_authenticate(user=transport_user)
+        resp = self.client.post(
+            f'/api/v1/export/shipments/{self.shipment.id}/block-sources/',
+            {'blocks': [{'block_id': self.block_a.id, 'weight_kg': 18000}]},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+
+
 # ============================================================================
 # Tests 8-12 — /sheet/ extended response (rows, row_settings, last_edits)
 # ============================================================================

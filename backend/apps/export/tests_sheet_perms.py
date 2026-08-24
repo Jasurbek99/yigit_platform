@@ -471,3 +471,63 @@ class TestVirtualFieldDelegation(TestCase):
         cache.clear()
         self.assertFalse(can_edit_sheet_field(other, self.VIRTUAL))
         self.assertFalse(get_sheet_edit_map(other)[self.VIRTUAL])
+
+
+class TestJunctionFieldDelegation(TestCase):
+    """Junction sheet rows (firm_splits, block_sources) live on a related table
+    (ShipmentFirmSplit, ShipmentBlockSource), not on Shipment — their
+    RoleFieldPermission is scoped to the junction's own resource_code
+    ('shipment_firm_split' / 'shipment_block_source'), never 'shipment'.
+
+    Regression: get_sheet_edit_map / can_edit_sheet_field field-perm-checked
+    resource 'shipment' for these rows. 'firm_splits' / 'block_sources' can
+    never appear in a 'shipment' RoleFieldPermission list — they aren't in
+    that resource's RESOURCE_FIELDS — so the check was unconditionally False
+    for every non-bypass role, regardless of grants on the junction resource
+    itself (e.g. document_team's real 'shipment_firm_split': ['*'] grant).
+    """
+
+    def setUp(self):
+        cache.clear()
+        self.doc_team = _make_user('doc_team_user', role='document_team')
+        RoleFieldPermission.objects.get_or_create(
+            role='document_team', resource_code='shipment_firm_split', field_name='*',
+        )
+        # No SheetRowSetting for these fields → pure field-perm fallback path.
+        SheetRowSetting.objects.filter(field_key__in=['firm_splits', 'block_sources']).delete()
+        cache.clear()
+
+    def test_inline_gate_allows_when_junction_resource_granted(self):
+        self.assertTrue(can_edit_sheet_field(self.doc_team, 'firm_splits'))
+
+    def test_map_matches_inline_gate(self):
+        edit_map = get_sheet_edit_map(self.doc_team)
+        self.assertEqual(
+            edit_map['firm_splits'],
+            can_edit_sheet_field(self.doc_team, 'firm_splits'),
+            "get_sheet_edit_map must agree with can_edit_sheet_field on the "
+            "junction-delegated 'firm_splits' key",
+        )
+        self.assertTrue(edit_map['firm_splits'])
+
+    def test_role_without_junction_grant_denied_both_ways(self):
+        """A role holding only 'shipment' field perms — never a grant scoped
+        to 'shipment_firm_split' — must still be denied for firm_splits."""
+        other = _make_user('warehouse_no_split', role='warehouse_chief')
+        RoleFieldPermission.objects.get_or_create(
+            role='warehouse_chief', resource_code='shipment', field_name='*',
+        )
+        cache.clear()
+        self.assertFalse(can_edit_sheet_field(other, 'firm_splits'))
+        self.assertFalse(get_sheet_edit_map(other)['firm_splits'])
+
+    def test_block_sources_also_delegates_to_its_junction_resource(self):
+        """Second junction row (block_sources -> shipment_block_source) uses
+        the same delegation table, not a one-off special case for firm_splits."""
+        loader = _make_user('loader_user', role='loading_dept_head')
+        RoleFieldPermission.objects.get_or_create(
+            role='loading_dept_head', resource_code='shipment_block_source', field_name='*',
+        )
+        cache.clear()
+        self.assertTrue(can_edit_sheet_field(loader, 'block_sources'))
+        self.assertTrue(get_sheet_edit_map(loader)['block_sources'])

@@ -30,6 +30,7 @@ from apps.core.permissions import (
     SeasonNotClosed,
     can_edit_sheet_field,
     get_sheet_edit_map,
+    junction_write_permission,
     write_permission,
 )
 # ShipmentViewSet takes the resolved Season object (not just a filter) so it can
@@ -168,6 +169,15 @@ class ShipmentViewSet(ModelViewSet):
             # the body runs. The method body enforces its own role gate
             # (PRIVILEGED_ROLES | {'sales_rep'}), so that is the sole authority.
             return [IsAuthenticated(), SeasonNotClosed()]
+        if action == 'set_firm_splits':
+            # Same class of bug as set_sales_report above: this POST replaces
+            # the shipment_firm_split junction, not `shipment`, so it must gate
+            # on that resource's own can_edit — see junction_write_permission.
+            return [IsAuthenticated(), SeasonNotClosed(),
+                    junction_write_permission('shipment_firm_split')()]
+        if action == 'set_block_sources':
+            return [IsAuthenticated(), SeasonNotClosed(),
+                    junction_write_permission('shipment_block_source')()]
         return super().get_permissions()
 
     queryset = Shipment.objects.select_related(
