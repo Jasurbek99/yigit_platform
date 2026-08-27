@@ -1,6 +1,5 @@
-import { useTranslation } from 'react-i18next';
 import { ShipmentFieldGroup } from '@/components/shipment/ShipmentFieldGroup';
-import { InfoRow } from '@/pages/export/ShipmentDetailHelpers';
+import { ShipmentFirmSelector } from '@/components/shipment/ShipmentFirmSelector';
 import type { IShipmentDetail } from '@/types';
 
 interface IShipmentDestinationBodyProps {
@@ -13,9 +12,9 @@ interface IShipmentDestinationBodyProps {
 
 /**
  * "Destination & Plan" card body: the editable `logistics` field group plus
- * a read-only Export Firm(s) row. `export_firms_display` is a comma-joined
- * string derived server-side from `firm_splits` — not a patchable field, so
- * it renders as an InfoRow rather than a DetailFieldRow.
+ * the export-firm picker. `firm_splits` is a junction table (not a scalar
+ * field), so `ShipmentFirmSelector` writes it through its own endpoint; it
+ * falls back to the read-only `export_firms_display` string when `readOnly`.
  */
 export function ShipmentDestinationBody({
   shipment,
@@ -24,8 +23,6 @@ export function ShipmentDestinationBody({
   onOpenComments,
   commentCountsByField,
 }: IShipmentDestinationBodyProps) {
-  const { t } = useTranslation();
-
   return (
     <>
       <ShipmentFieldGroup
@@ -36,7 +33,7 @@ export function ShipmentDestinationBody({
         onOpenComments={onOpenComments}
         commentCountsByField={commentCountsByField}
       />
-      <InfoRow label={t('shipments.export_firms')} value={shipment.export_firms_display ?? '—'} />
+      <ShipmentFirmSelector shipment={shipment} readOnly={readOnly} />
     </>
   );
 }

@@ -2010,6 +2010,10 @@
     "target_no_country": "{{code}}: Ýurdy dolduryň",
     "target_no_customer": "{{code}}: Müşderini dolduryň"
   },
+  "firm_selector": {
+    "saved": "Eksport firmalary täzelendi",
+    "save_error": "Eksport firmalaryny täzeläp bolmady"
+  },
   "join_drafts": {
     "title": "Iki taslamany birleşdir",
     "confirm": "Birleşdir",
