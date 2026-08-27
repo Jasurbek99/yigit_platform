@@ -35,7 +35,7 @@ Director, Gadam, and the other 12 non-`admin` roles see only their own tickets +
 |---|---|---|
 | `FeedbackTicket` | `author / category / description / status / is_public / submitted_from_path / submitted_from_label / user_agent / created_at / last_activity_at / resolved_at` | category ∈ {bug, suggestion, question}; status ∈ {new, in_review, resolved, rejected}. Cyrillic collation on description. No `title` field — the description is the sole content field (removed 2026-06-08; lists/cards show the description as heading). |
 | `FeedbackReply` | `ticket / author / content / mode / is_internal / is_public / created_at` | mode ∈ {standard, internal, public}. `save()` denormalises `is_internal`/`is_public` from `mode` for fast filter. Mutual exclusion enforced at model + serializer level. |
-| `FeedbackAttachment` | `ticket / reply / file / original_filename / mime_type / size_bytes / uploaded_by / uploaded_at` | XOR check-constraint: exactly one of ticket/reply parent. Files stored at `media/feedback/<YYYY>/<MM>/`. |
+| `FeedbackAttachment` | `ticket / reply / file / original_filename / mime_type / size_bytes / uploaded_by / uploaded_at` | XOR check-constraint: exactly one of ticket/reply parent. Files stored at `media/feedback/<YYYY>/<MM>/`. `file` serialises through `RelativeFileField` → a **root-relative** `/media/feedback/...` path, never an absolute url (the pages drop it straight into `<img src>`; see the api-contract skill). |
 
 ## Visibility precedence (server-side, fall-through)
 

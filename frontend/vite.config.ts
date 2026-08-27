@@ -27,6 +27,14 @@ export default defineConfig({
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
+      // Uploaded files (firm signatures/seals, feedback attachments). The API
+      // now returns ROOT-RELATIVE /media/... urls, so the browser asks Vite for
+      // them — without this rule they hit the SPA fallback and come back as
+      // index.html (200 text/html), and every <img> renders broken.
+      '/media': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+      },
       '/ws': {
         // Use the http:// scheme even for WS targets — Vite's underlying
         // http-proxy-middleware does the upgrade itself when ws:true; passing

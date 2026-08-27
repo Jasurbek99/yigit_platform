@@ -122,6 +122,11 @@ services:
       dockerfile: Dockerfile
     ports:
       - "3000:80"
+    # Read-only view of the directory the backend writes uploads to, so this
+    # container's nginx can serve them at /media/ (see frontend/nginx.conf).
+    # Same path the backend reaches at /app/media through its ./backend mount.
+    volumes:
+      - ./backend/media:/var/www/media:ro
     depends_on:
       - backend
 

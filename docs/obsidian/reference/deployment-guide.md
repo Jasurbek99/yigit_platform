@@ -21,6 +21,10 @@ For full setup instructions see [GETTING_STARTED.md](../GETTING_STARTED.md).
 | celery-worker | Custom (backend image) | — | Runs background tasks (Traccar fleet poll) |
 | celery-beat | Custom (backend image) | — | Scheduler — fires `poll_traccar` every 120s |
 
+> Volumes: `static_files` (Django `collectstatic`) and `media_files` (user
+> uploads — see the **Uploaded files** section below). `media_files` is
+> mounted read-write on `backend` and read-only on `frontend`.
+
 > **Scheduler services must be started explicitly.** The deploy service list
 > must include `celery-worker celery-beat`, or the fleet map never receives
 > fresh GPS data (the poller simply doesn't run). On the beta host `update.sh`,
@@ -40,6 +44,60 @@ For full setup instructions see [GETTING_STARTED.md](../GETTING_STARTED.md).
 > Compose builds all images in a single bake, **the whole bake aborts and
 > `backend`/`frontend` never finish either**, so the deploy fails outright. This
 > bit the 2026-08-12 production rebuild. Frontend stays on `./frontend`.
+
+## Uploaded files (`/media/`)
+
+Uploads — director signatures, company seals, feedback attachments — are written
+by Django to `MEDIA_ROOT=/app/media`. Three things must hold or they upload
+successfully and then render as broken images (all fixed 2026-08-27):
+
+1. **The API must return ROOT-RELATIVE urls** (`/media/import_firms/seals/x.png`).
+   DRF's stock `FileField` returns `request.build_absolute_uri(...)`, built from
+   the `Host` header Django received — and neither proxy sets that to the
+   browser's origin: prod nginx forwards `Host $host`, which **drops the port**
+   (browser on `:8080` was handed `http://10.10.11.25/media/...` → port 80 →
+   404), and the Vite dev proxy uses `changeOrigin: true`, so dev answered
+   `http://127.0.0.1:8000/...`, resolvable only ON the dev machine. All five
+   media fields now use `apps.core.serializer_fields.RelativeFileField`, which is
+   same-origin by construction. Pinned by `apps/core/tests_media_urls.py`.
+2. **`location /media/` in `frontend/nginx.conf`.** Without it `/media/...` falls
+   through to the SPA's `try_files … /index.html` and an `<img src>` gets
+   **200 `text/html`**. Served by nginx off the mount below — *not* proxied to
+   Django, whose media route is `static()` in `config/urls.py`, a **no-op when
+   `DJANGO_DEBUG=False`**. In dev the same job is done by the `/media` rule in
+   `frontend/vite.config.ts`.
+3. **`./backend/media` bind-mounted on both containers** — read-write at
+   `/app/media` on `backend`, read-only at `/var/www/media` on `frontend`.
+   Production drops the dev bind mount `./backend:/app`, so without this uploads
+   land in the container's **writable layer** and are destroyed by the next
+   `up -d --build`. A host bind rather than a named volume **on purpose**: the
+   beta host already holds the live uploads at `./backend/media`, and a named
+   volume would mount over that directory and hide them.
+
+Verify after deploy (from any LAN machine):
+
+```bash
+# nonexistent path must be 404, NOT 200 text/html
+curl -o /dev/null -w '%{http_code} %{content_type}
+' http://10.10.11.25:8080/media/nope.png
+# a real upload must be 200 image/*
+curl -o /dev/null -w '%{http_code} %{content_type}
+' http://10.10.11.25:8080/media/import_firms/seals/shah.png
+# the api must hand out a relative path — no scheme, no host
+curl -b cookies.txt http://10.10.11.25:8080/api/v1/export/admin/import-firms/28/ | grep director_seal
+```
+
+**Known property:** `/media/` is served without authentication (same as Django's
+debug media serving). Acceptable on the trusted LAN; if the host is ever exposed
+wider, move it behind an authenticated view + `X-Accel-Redirect`.
+
+**Media is per-host.** The dev machine (10.10.39.243) and the beta server
+(10.10.11.25) share the MSSQL database `YIGIT_PLATFROM_NEW` but **not** the media
+directory. A file uploaded on one host has a DB row visible on both and bytes on
+only one — the other renders a broken image (as of 2026-08-27:
+`export_firms/seals/Yumak.jpg` and `import_firms/signatures/sah_gol.png` exist
+only on the server; the other five only on dev). Upload on the host where the
+file is needed.
 
 ## MSSQL Connection
 

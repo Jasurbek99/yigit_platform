@@ -54,8 +54,16 @@ services:
     # over the internal docker network (backend:8000), which this does not affect.
     ports: !reset []
     # Drop the dev bind mount — container serves the baked image.
+    # …EXCEPT ./backend/media. Uploads (MEDIA_ROOT=/app/media) must outlive the
+    # container: with no mount they land in the writable layer and are DESTROYED
+    # by the next `up -d --build`. A HOST bind (not a named volume) on purpose —
+    # the beta host already holds the live uploads at ./backend/media, and a
+    # named volume would mount OVER that directory and hide them. The same path
+    # is mounted read-only into `frontend`, which serves it at /media/
+    # (see frontend/nginx.conf).
     volumes:
       - static_files:/app/static
+      - ./backend/media:/app/media
     # No `depends_on: db` — production MSSQL is external.
     depends_on:
       redis:
@@ -130,6 +138,11 @@ services:
     # not started in production (see deploy command above).
     ports:
       - "8080:80"
+    # Read-only view of the SAME host directory the backend writes uploads to,
+    # so nginx can serve /media/ itself (director signatures, company seals,
+    # feedback attachments). Read-only: only Django ever writes here.
+    volumes:
+      - ./backend/media:/var/www/media:ro
 
 volumes:
   static_files:
