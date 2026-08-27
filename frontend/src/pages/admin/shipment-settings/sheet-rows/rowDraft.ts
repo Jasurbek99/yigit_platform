@@ -6,8 +6,7 @@ import type { ISaveSheetRowPayload } from '@/hooks/useSheetRowSettings';
  * Editable snapshot of one SheetRowSetting. The detail panel edits a draft and
  * saves it in ONE PATCH — `useSaveSheetRowSetting` invalidates the list on
  * success, so two mutations fired from a single user action would send a stale
- * `version` and 409. `extra_user_ids` is the exception: it lives in a separate
- * table behind `permissions/bulk/`, so it is sent as a second, sequential call.
+ * `version` and 409.
  */
 export interface ISheetRowDraft {
   label_tk: string;
@@ -29,10 +28,9 @@ export interface ISheetRowDraft {
   style_font_family: 'dm_sans' | 'inter' | 'mono' | 'serif' | '';
   style_font_size: number | null;
   triggered_roles: string[];
-  extra_user_ids: number[];
 }
 
-/** Fields sent in the PATCH — everything in the draft except the user list. */
+/** Fields sent in the PATCH. */
 const PATCH_KEYS = [
   'label_tk', 'label_ru', 'label_en',
   'who_tk', 'who_ru', 'who_en',
@@ -42,10 +40,6 @@ const PATCH_KEYS = [
   'style_font_style', 'style_font_family', 'style_font_size',
 ] as const;
 
-export function activeUserIds(record: ISheetRowSetting): number[] {
-  return record.extra_users.map((u) => u.id).filter((id): id is number => id !== null);
-}
-
 export function buildDraft(record: ISheetRowSetting): ISheetRowDraft {
   const draft = {} as ISheetRowDraft;
   for (const key of PATCH_KEYS) {
@@ -53,7 +47,6 @@ export function buildDraft(record: ISheetRowSetting): ISheetRowDraft {
     (draft as unknown as Record<string, unknown>)[key] = record[key];
   }
   draft.triggered_roles = [...record.triggered_roles];
-  draft.extra_user_ids = activeUserIds(record);
   return draft;
 }
 
@@ -75,17 +68,8 @@ export function draftPatch(
   return patch as Partial<ISaveSheetRowPayload>;
 }
 
-export function userDiff(record: ISheetRowSetting, draft: ISheetRowDraft) {
-  const oldIds = activeUserIds(record);
-  return {
-    grants: draft.extra_user_ids.filter((id) => !oldIds.includes(id)),
-    revokes: oldIds.filter((id) => !draft.extra_user_ids.includes(id)),
-  };
-}
-
 export function isDirty(record: ISheetRowSetting, draft: ISheetRowDraft): boolean {
-  const { grants, revokes } = userDiff(record, draft);
-  return Object.keys(draftPatch(record, draft)).length > 0 || grants.length > 0 || revokes.length > 0;
+  return Object.keys(draftPatch(record, draft)).length > 0;
 }
 
 /**

@@ -7,23 +7,12 @@ interface IOption {
   label: string;
 }
 
-interface IUserOption {
-  value: number;
-  label: string;
-}
-
 interface ISheetRowAccessSectionProps {
   isLocked: boolean;
   triggeredRoles: string[];
-  extraUserIds: number[];
   roleOptions: IOption[];
-  userOptions: IUserOption[];
   disabled: boolean;
-  onChange: (patch: {
-    is_locked?: boolean;
-    triggered_roles?: string[];
-    extra_user_ids?: number[];
-  }) => void;
+  onChange: (patch: { is_locked?: boolean; triggered_roles?: string[] }) => void;
 }
 
 /**
@@ -40,14 +29,12 @@ interface ISheetRowAccessSectionProps {
 export function SheetRowAccessSection({
   isLocked,
   triggeredRoles,
-  extraUserIds,
   roleOptions,
-  userOptions,
   disabled,
   onChange,
 }: ISheetRowAccessSectionProps) {
   const { t } = useTranslation();
-  const hasTriggers = triggeredRoles.length > 0 || extraUserIds.length > 0;
+  const hasTriggers = triggeredRoles.length > 0;
   const accessDescKey = hasTriggers
     ? 'sheet_rows.access_desc_triggered'
     : isLocked
@@ -89,25 +76,6 @@ export function SheetRowAccessSection({
           placeholder={t('sheet_rows.trigger_none')}
           showSearch
           optionFilterProp="label"
-        />
-      </div>
-
-      <div>
-        <div style={{ fontSize: 12, color: COLORS.textSecondary, marginBottom: 4 }}>
-          {t('sheet_rows.col_extra_users')}
-        </div>
-        <Select
-          mode="multiple"
-          value={extraUserIds}
-          options={userOptions}
-          disabled={disabled}
-          onChange={(val: number[]) => onChange({ extra_user_ids: val })}
-          style={{ width: '100%' }}
-          placeholder={t('sheet_rows.extra_users_placeholder')}
-          showSearch
-          filterOption={(input, option) =>
-            ((option?.label as string) ?? '').toLowerCase().includes(input.toLowerCase())
-          }
         />
       </div>
 

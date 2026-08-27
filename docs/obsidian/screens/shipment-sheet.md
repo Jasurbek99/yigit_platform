@@ -221,12 +221,21 @@ saving on its own PATCH. Operator verdict: unusable. It is now **master–detail
   visibility switch, the audit line and — for custom rows — delete.
 
 **One action = one PATCH.** The panel edits a local draft (`rowDraft.ts`) and saves through
-`useSaveRowDraft`: a single PATCH carrying every changed field, then — only if the extra-user
-list changed — the separate `permissions/bulk/` call (different table, different endpoint). This
-is not cosmetic: `useSaveSheetRowSetting` invalidates the list on success, so two mutations fired
-from one user action would send a stale `version` and 409. A failure in the second step reports
-"settings saved, users not updated", never a clean save. Switching rows with unsaved edits asks
-first.
+`useSaveRowDraft` as a single PATCH carrying every changed field. This is not cosmetic:
+`useSaveSheetRowSetting` invalidates the list on success, so a second mutation fired from the same
+user action would send a stale `version` and 409. Switching rows with unsaved edits asks first.
+
+**Extra users were removed from the UI (2026-08-27, owner call).** The panel used to carry a
+per-user grant list (`SheetRowUserPermission` via `permissions/bulk/`) beside the trigger roles.
+Since the trigger gate is AND-composed with the field permission, a per-user grant can only ever
+narrow *within* a role that already holds the field permission — it cannot hand access to someone
+whose role lacks it. With roughly one person per role in this org that is a distinction without a
+difference, so the control, the `useBulkPermissions` hook and their strings are gone. **The backend
+is untouched:** the model, the `permissions/bulk/` endpoint and `matched_extra` in
+`can_edit_sheet_field` / `get_sheet_edit_map` all still work, and any `SheetRowUserPermission` rows
+already in a database keep granting edit access — they are simply no longer visible or editable
+from this screen (dev DB at removal time: 2 active rows, both for `admin`, who bypasses every gate
+anyway).
 
 **The Access section is the comprehension fix.** `is_locked` and `triggered_roles` used to sit in
 separate columns with nothing saying how they combine. The section now states the rule the backend
@@ -235,13 +244,13 @@ actually applies (`can_edit_sheet_field` / `get_sheet_edit_map`), in three state
 | Lock | Triggers | Who can edit |
 |------|----------|--------------|
 | off | none | anyone whose role has the field permission |
-| off or **on** | any role/user set | only those roles/users, **and** they still need the field permission |
+| off or **on** | any role set | only those roles, **and** they still need the field permission |
 | on | none | nobody (admin / director / export_manager bypass every branch) |
 
 Two things the old UI actively mis-taught and the panel now says out loud: the trigger gate is
 **AND-composed with the field permission, never OR** — a trigger role does not let someone edit a
-field their role has no permission on; and **the lock only matters while both lists are empty** —
-once one role or user is selected, locked and unlocked evaluate identically. `role_group` is called
+field their role has no permission on; and **the lock only matters while no role is selected** —
+once one is, locked and unlocked evaluate identically. `role_group` is called
 out as visual grouping that grants no access.
 
 Files: `pages/admin/shipment-settings/SheetRowsTab.tsx` (container) + `sheet-rows/` (list, item,

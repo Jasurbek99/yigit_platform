@@ -1084,7 +1084,6 @@
     "col_locked": "Lock",
     "col_style": "Style",
     "col_trigger_roles": "Trigger Roles",
-    "col_extra_users": "Extra Users",
     "col_updated": "Updated",
     "move_up": "Move up",
     "move_down": "Move down",
@@ -1108,8 +1107,6 @@
     "font_serif": "Serif",
     "tooltip_set": "Set",
     "tooltip_empty": "Not set",
-    "extra_users_placeholder": "Extra users",
-    "locked_tooltip_extra_users": "Extra users retain access even when lock is enabled",
     "conflict_title": "Version conflict",
     "conflict_message": "Someone else has modified this row. Refresh the page to see the latest data.",
     "conflict_refresh": "Refresh",
@@ -1164,11 +1161,10 @@
     "unsaved_title": "Unsaved changes",
     "unsaved_body": "This row has unsaved changes. Switch rows and lose them?",
     "unsaved_discard": "Switch without saving",
-    "toast_saved_perm_error": "Settings saved, but the extra-user list could not be updated",
     "access_desc_open": "No lock, no triggers: anyone whose role has permission on this field can edit the row.",
-    "access_desc_triggered": "Only the roles and users selected below can edit this row — and only if their role also has permission on this field. Admin, director and export manager always can.",
-    "access_desc_locked_empty": "Locked with nobody selected: no one can edit this row except admin, director and export manager.",
-    "access_lock_note": "The lock only matters while the lists below are empty. As soon as one role or user is selected, locked and unlocked behave identically."
+    "access_desc_triggered": "Only the roles selected below can edit this row — and only if the role also has permission on this field. Admin, director and export manager always can.",
+    "access_desc_locked_empty": "Locked with no role selected: no one can edit this row except admin, director and export manager.",
+    "access_lock_note": "The lock only matters while no role is selected below. As soon as one role is selected, locked and unlocked behave identically."
   },
   "truck_split": {
     "col_num_firms": "# Firms",

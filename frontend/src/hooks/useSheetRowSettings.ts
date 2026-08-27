@@ -133,31 +133,6 @@ export function useReorderSheetRows() {
   });
 }
 
-// ─── Bulk permissions ─────────────────────────────────────────────────────────
-
-export interface IBulkPermissionsPayload {
-  row_id: number;
-  grants: number[];
-  revokes: number[];
-}
-
-export function useBulkPermissions() {
-  const queryClient = useQueryClient();
-
-  return useMutation<{ granted: number; revoked: number }, AxiosError, IBulkPermissionsPayload>({
-    mutationFn: async (payload) => {
-      const { data } = await api.post<{ granted: number; revoked: number }>(
-        '/export/admin/sheet-rows/permissions/bulk/',
-        payload,
-      );
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY });
-    },
-  });
-}
-
 // ─── Soft-delete ──────────────────────────────────────────────────────────────
 
 export function useSoftDeleteSheetRow() {

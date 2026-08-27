@@ -9,7 +9,6 @@ import {
   useReorderSheetRows,
   useSoftDeleteSheetRow,
 } from '@/hooks/useSheetRowSettings';
-import { useAdminUsers } from '@/hooks/useAdmin';
 import { ROLE_CHOICES } from '@/constants/roles';
 import { COLORS } from '@/constants/styles';
 import { SheetRowList, type RowFilter } from './sheet-rows/SheetRowList';
@@ -29,7 +28,6 @@ interface IProps {
 export default function SheetRowsTab({ canWrite }: IProps) {
   const { t } = useTranslation();
   const { data: rows = [], isLoading } = useSheetRowSettings();
-  const { data: allUsers = [] } = useAdminUsers();
   const reorderRows = useReorderSheetRows();
   const softDelete = useSoftDeleteSheetRow();
 
@@ -49,10 +47,6 @@ export default function SheetRowsTab({ canWrite }: IProps) {
   }, [rows, selected]);
 
   const roleOptions = ROLE_CHOICES.map((r) => ({ value: r.value, label: t(r.labelKey) }));
-  const userOptions = allUsers.map((u) => ({
-    value: u.id,
-    label: `${u.first_name || u.username} ${u.last_name || ''}`.trim(),
-  }));
 
   // Switching rows would silently drop an unedited draft — ask first.
   const handleSelect = useCallback(
@@ -180,7 +174,6 @@ export default function SheetRowsTab({ canWrite }: IProps) {
               position={rows.indexOf(selected) + 1}
               canWrite={canWrite}
               roleOptions={roleOptions}
-              userOptions={userOptions}
               onDirtyChange={setIsDirty}
               onDeleteCustom={handleDeleteCustom}
             />

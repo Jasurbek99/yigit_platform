@@ -16,7 +16,6 @@ interface ISheetRowDetailProps {
   position: number;
   canWrite: boolean;
   roleOptions: Array<{ value: string; label: string }>;
-  userOptions: Array<{ value: number; label: string }>;
   onDirtyChange: (dirty: boolean) => void;
   onDeleteCustom: (record: ISheetRowSetting) => void;
 }
@@ -35,7 +34,6 @@ export default function SheetRowDetail({
   position,
   canWrite,
   roleOptions,
-  userOptions,
   onDirtyChange,
   onDeleteCustom,
 }: ISheetRowDetailProps) {
@@ -109,9 +107,7 @@ export default function SheetRowDetail({
         <SheetRowAccessSection
           isLocked={draft.is_locked}
           triggeredRoles={draft.triggered_roles}
-          extraUserIds={draft.extra_user_ids}
           roleOptions={roleOptions}
-          userOptions={userOptions}
           disabled={disabled}
           onChange={(patch) => patchDraft(patch as Partial<ISheetRowDraft>)}
         />

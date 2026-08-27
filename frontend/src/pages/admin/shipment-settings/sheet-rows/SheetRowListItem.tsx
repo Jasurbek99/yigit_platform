@@ -32,7 +32,7 @@ export function SheetRowListItem({
   onMove,
 }: ISheetRowListItemProps) {
   const { t, i18n } = useTranslation();
-  const triggerCount = row.triggered_roles.length + row.extra_users.length;
+  const triggerCount = row.triggered_roles.length;
 
   const moveButton = (direction: 'up' | 'down') => (
     <Tooltip title={narrowed ? t('sheet_rows.reorder_disabled_hint') : t(`sheet_rows.move_${direction}`)}>

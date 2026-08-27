@@ -8,28 +8,23 @@ import type { ISheetRowSetting } from '@/types';
 import {
   useSheetRowSettings,
   useSaveSheetRowSetting,
-  useBulkPermissions,
   useReorderSheetRows,
   useSoftDeleteSheetRow,
   useCreateCustomSheetRow,
 } from '@/hooks/useSheetRowSettings';
-import { useAdminUsers } from '@/hooks/useAdmin';
 
 vi.mock('@/hooks/useSheetRowSettings', () => ({
   useSheetRowSettings: vi.fn(),
   useSaveSheetRowSetting: vi.fn(),
-  useBulkPermissions: vi.fn(),
   useReorderSheetRows: vi.fn(),
   useSoftDeleteSheetRow: vi.fn(),
   useCreateCustomSheetRow: vi.fn(),
 }));
-vi.mock('@/hooks/useAdmin', () => ({ useAdminUsers: vi.fn() }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 const CONFIRM_BODY = 'This row has unsaved changes. Switch rows and lose them?';
 
 const saveMutateAsync = vi.fn();
-const bulkMutateAsync = vi.fn();
 
 function makeRow(over: Partial<ISheetRowSetting>): ISheetRowSetting {
   return {
@@ -71,15 +66,10 @@ describe('SheetRowsTab', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     saveMutateAsync.mockResolvedValue(ROWS[0]);
-    bulkMutateAsync.mockResolvedValue({ granted: 0, revoked: 0 });
     /* eslint-disable @typescript-eslint/no-explicit-any */
     vi.mocked(useSheetRowSettings).mockReturnValue({ data: ROWS, isLoading: false } as any);
-    vi.mocked(useAdminUsers).mockReturnValue({ data: [] } as any);
     vi.mocked(useSaveSheetRowSetting).mockReturnValue({
       mutateAsync: saveMutateAsync, isPending: false,
-    } as any);
-    vi.mocked(useBulkPermissions).mockReturnValue({
-      mutateAsync: bulkMutateAsync, isPending: false,
     } as any);
     vi.mocked(useReorderSheetRows).mockReturnValue({ mutate: vi.fn() } as any);
     vi.mocked(useSoftDeleteSheetRow).mockReturnValue({ mutate: vi.fn(), isPending: false } as any);
@@ -106,7 +96,6 @@ describe('SheetRowsTab', () => {
     expect(saveMutateAsync).toHaveBeenCalledWith({
       id: 1, version: 7, label_en: 'Harvest block', is_locked: true,
     });
-    expect(bulkMutateAsync).not.toHaveBeenCalled();
   });
 
   it('states the access rule the backend actually applies, and follows the lock', () => {
@@ -114,10 +103,10 @@ describe('SheetRowsTab', () => {
     // No lock, no triggers → the field permission alone decides.
     expect(screen.getByText(/^No lock, no triggers:/)).toBeInTheDocument();
     fireEvent.click(screen.getAllByRole('switch')[1]);
-    expect(screen.getByText(/^Locked with nobody selected:/)).toBeInTheDocument();
+    expect(screen.getByText(/^Locked with no role selected:/)).toBeInTheDocument();
   });
 
-  it('says triggers decide — and that the lock stops mattering — once a role is set', () => {
+  it('says the roles decide — and that the lock stops mattering — once one is set', () => {
     vi.mocked(useSheetRowSettings).mockReturnValue({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       data: [makeRow({ id: 9, field_key: 'weight_net', triggered_roles: ['transport'] })],
@@ -125,10 +114,10 @@ describe('SheetRowsTab', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
     renderTab();
-    expect(screen.getByText(/^Only the roles and users selected below/)).toBeInTheDocument();
-    // Same sentence with the lock on — locked and unlocked agree once a trigger exists.
+    expect(screen.getByText(/^Only the roles selected below/)).toBeInTheDocument();
+    // Same sentence with the lock on — locked and unlocked agree once a role is set.
     fireEvent.click(screen.getAllByRole('switch')[1]);
-    expect(screen.getByText(/^Only the roles and users selected below/)).toBeInTheDocument();
+    expect(screen.getByText(/^Only the roles selected below/)).toBeInTheDocument();
   });
 
   it('keeps Save disabled until something actually changes', () => {

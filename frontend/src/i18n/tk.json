@@ -1084,7 +1084,6 @@
     "col_locked": "Gulp",
     "col_style": "Stil",
     "col_trigger_roles": "Trigger-roller",
-    "col_extra_users": "Goşmaça ulanyjylar",
     "col_updated": "Üýtgedildi",
     "move_up": "Ýokary göçür",
     "move_down": "Aşak göçür",
@@ -1108,8 +1107,6 @@
     "font_serif": "Serif",
     "tooltip_set": "Bellenildi",
     "tooltip_empty": "Bellenilmedi",
-    "extra_users_placeholder": "Goşmaça ulanyjylar",
-    "locked_tooltip_extra_users": "Gulp açyk bolsa-da goşmaça ulanyjylaryň giriş hukugy bar",
     "conflict_title": "Wersiýa konflikti",
     "conflict_message": "Başga biri bu setiri üýtgetdi. Täzelenen maglumatlary görmek üçin sahypany täzeläň.",
     "conflict_refresh": "Täzelemek",
@@ -1164,11 +1161,10 @@
     "unsaved_title": "Ýatda saklanmadyk üýtgeşmeler",
     "unsaved_body": "Bu hataryň üýtgeşmeleri ýatda saklanmady. Başga hatara geçip, olary ýitirmelimi?",
     "unsaved_discard": "Saklamazdan geçmek",
-    "toast_saved_perm_error": "Sazlamalar saklandy, yöne goşmaça ulanyjylaryň sanawy täzelenmedi",
     "access_desc_open": "Gulp öçük, trigger yok: bu meydana rolunyň hukugy bolan islendik adam hatary üýtgedip bilýär.",
-    "access_desc_triggered": "Hatary diňe aşaky saýlanan rollar we ulanyjylar üýtgedip bilýär — hem-de diňe rolunyň şu meydana hukugy bar bolsa. Admin, direktor we eksport-menejer hemişe üýtgedip bilýär.",
-    "access_desc_locked_empty": "Gulp açyk, ýöne hiç kim saýlanmadyk: hatary admin, direktor we eksport-menejerden başga hiç kim üýtgedip bilmeýär.",
-    "access_lock_note": "Gulp diňe aşaky sanawlar boş wagty täsir edýär. Bir rol ýa-da ulanyjy saýlanan badyna açyk we ýapyk gulp deň işleýär."
+    "access_desc_triggered": "Hatary diňe aşakda saýlanan rollar üýtgedip bilýär — hem-de diňe rolunyň şu meydana hukugy bar bolsa. Admin, direktor we eksport-menejer hemişe üýtgedip bilýär.",
+    "access_desc_locked_empty": "Gulp açyk, ýöne rol saýlanmadyk: hatary admin, direktor we eksport-menejerden başga hiç kim üýtgedip bilmeýär.",
+    "access_lock_note": "Gulp diňe aşakda hiç bir rol saýlanmadyk wagty täsir edýär. Bir rol saýlanan badyna açyk we ýapyk gulp deň işleýär."
   },
   "truck_split": {
     "col_num_firms": "Firma sany",

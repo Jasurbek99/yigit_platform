@@ -25,7 +25,7 @@ const FILTERS: RowFilter[] = ['all', 'hidden', 'locked', 'triggers', 'custom'];
 function matchesFilter(row: ISheetRowSetting, filter: RowFilter): boolean {
   if (filter === 'hidden') return !row.is_visible;
   if (filter === 'locked') return row.is_locked;
-  if (filter === 'triggers') return row.triggered_roles.length > 0 || row.extra_users.length > 0;
+  if (filter === 'triggers') return row.triggered_roles.length > 0;
   if (filter === 'custom') return row.is_custom;
   return true;
 }
