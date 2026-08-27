@@ -182,7 +182,7 @@ Each row can be assigned **one or more formal roles** AND/OR **a specific user**
 
 ### Per-row cell styling (Style popover)
 
-The **Style** column in **Shipment Settings → Sheet Rows** (`SheetRowStylePopover`) configures how a row's data cells render across every shipment column. All style fields are split columns on `SheetRowSetting` (ADR-0008 — no JSONField) and travel to the frontend inside `row_settings[field_key].style` (omitted keys = unset):
+The **Display** section of the row detail panel in **Shipment Settings → Sheet Rows** (shared `SheetRowStyleControls`) configures how a row's data cells render across every shipment column. All style fields are split columns on `SheetRowSetting` (ADR-0008 — no JSONField) and travel to the frontend inside `row_settings[field_key].style` (omitted keys = unset):
 
 | Field | Values | Effect |
 |-------|--------|--------|
@@ -202,6 +202,53 @@ The **Style** column in **Shipment Settings → Sheet Rows** (`SheetRowStylePopo
 - **Hide row** — the per-user `is_hidden` preference, available to everyone (any user with a DB-backed row).
 
 Edits PATCH the global `SheetRowSetting` via `useSaveSheetRowSetting`, which invalidates `['shipments','sheet']` so the change is visible immediately and `version` refreshes for the next edit; a stale-version 409 prompts a refresh modal. Non-privileged users still see the gear, but it offers only **Hide row**. Fallback rows with no `SheetRowSetting` (`id === null`) cannot be styled (no PATCH key) — they show the hide action only.
+
+### Sheet Rows admin UI — list + detail panel (2026-08-27)
+
+The tab was a single 13-column table: 45 rows × ~2000px of horizontal scroll, three stacked
+inputs per row in both the Label and Who columns (270 text inputs on screen), and every cell
+saving on its own PATCH. Operator verdict: unusable. It is now **master–detail**:
+
+- **Left — `SheetRowList` / `SheetRowListItem` (360px).** Search over field_key + resolved label,
+  a `Segmented` filter (all / hidden / locked / with triggers / custom), and one line per row:
+  position, label in the admin's language, `field_key`, and badges for hidden / locked / trigger
+  count / custom. Reorder arrows live here and are **disabled while a search or filter narrows
+  the list** — `/reorder/` takes the FULL order, so a swap inside a filtered view would move the
+  row against a neighbour the admin cannot see.
+- **Right — `SheetRowDetail` (pinned panel, not an overlay).** Everything about the selected row
+  in five sections: Labels (tk/ru/en), Who (tk/ru/en), Tooltip (tk/ru/en), **Access**, Display
+  (`role_group` + the shared style controls). Header carries `field_key`, position, the
+  visibility switch, the audit line and — for custom rows — delete.
+
+**One action = one PATCH.** The panel edits a local draft (`rowDraft.ts`) and saves through
+`useSaveRowDraft`: a single PATCH carrying every changed field, then — only if the extra-user
+list changed — the separate `permissions/bulk/` call (different table, different endpoint). This
+is not cosmetic: `useSaveSheetRowSetting` invalidates the list on success, so two mutations fired
+from one user action would send a stale `version` and 409. A failure in the second step reports
+"settings saved, users not updated", never a clean save. Switching rows with unsaved edits asks
+first.
+
+**The Access section is the comprehension fix.** `is_locked` and `triggered_roles` used to sit in
+separate columns with nothing saying how they combine. The section now states the rule the backend
+actually applies (`can_edit_sheet_field` / `get_sheet_edit_map`), in three states:
+
+| Lock | Triggers | Who can edit |
+|------|----------|--------------|
+| off | none | anyone whose role has the field permission |
+| off or **on** | any role/user set | only those roles/users, **and** they still need the field permission |
+| on | none | nobody (admin / director / export_manager bypass every branch) |
+
+Two things the old UI actively mis-taught and the panel now says out loud: the trigger gate is
+**AND-composed with the field permission, never OR** — a trigger role does not let someone edit a
+field their role has no permission on; and **the lock only matters while both lists are empty** —
+once one role or user is selected, locked and unlocked evaluate identically. `role_group` is called
+out as visual grouping that grants no access.
+
+Files: `pages/admin/shipment-settings/SheetRowsTab.tsx` (container) + `sheet-rows/` (list, item,
+detail, header, access section, localized field group, draft helpers, save hook, custom-row
+modal). Tests: `SheetRowsTab.test.tsx` (batched PATCH, lock sentence, dirty gate, switch guard).
+The old `SheetRowStylePopover` / `SheetRowTooltipPopover` / `InlineSavedInput` were deleted —
+`components/sheet/SheetRowStyleControls` (shared with the Sheet gear popover) stayed.
 
 ### Sheet Rows Admin endpoint
 
@@ -309,7 +356,7 @@ Still out of scope (deliberately): **range selection / multi-cell fill** (select
 - **Concurrent-edit guard** — if the cell's current value differs from the recorded `after` (someone/something changed it since), undo is skipped (`sheet.undo_cell_changed`) rather than clobbering the newer value. Best-effort for junction/varieties (their endpoints echo no scalar to compare).
 - **Shipment gone** (`sheet.undo_cell_gone`); **deactivated firm/block** can't resolve code→id (`sheet.undo_unsupported`); **varieties back-to-empty** is unrecoverable since `varieties/override` no-ops on empty (`sheet.undo_unsupported`); **empty stack** (`sheet.undo_nothing`).
 
-**Honest cascade handling (warn-on-undo):** when the original edit had **advanced the shipment status** (auto-advance cascade), undo restores the cell value AND toasts `sheet.undo_cascade_warning` ("Value restored, but the status advance *from → to* was not reverted"). The lifecycle is forward-only — a value re-PATCH cannot reverse a `transition_to`, the AD-1 timestamps, notifications, or created/closed tasks. Cascade is detected by comparing the pre-edit `status_code` to the PATCH response's; **detection is limited to scalar/multi PATCH** (the junction/custom endpoints return `{status:'ok',count}` with no shipment status, so a `block_sources` cascade can't be surfaced without a refetch, which is deliberately avoided).
+**Honest cascade handling (warn-on-undo):** when the original edit had **advanced the shipment status** (auto-advance cascade), undo restores the cell value AND toasts `sheet.undo_cascade_warning` ("Value restored, but the status advance *from → to* was not reverted"). The lifecycle is forward-only — a value re-PATCH cannot reverse a `transition_to`, its notifications, or created/closed tasks. Cascade is detected by comparing the pre-edit `status_code` to the PATCH response's; **detection is limited to scalar/multi PATCH** (the junction/custom endpoints return `{status:'ok',count}` with no shipment status, so a `block_sources` cascade can't be surfaced without a refetch, which is deliberately avoided).
 
 ## Input types
 
@@ -389,7 +436,7 @@ A `sales_rep` user sees only the **shipment columns whose customer is assigned t
 
 This mirrors the same ownership rule used by `GET /export/shipments/my-sales-reports/`. See [[../roles/sales-rep]].
 
-> **AD-1 timestamps** (`loading_started_at`, `customs_entry_at`, `customs_exit_at`, `departed_at`, `border_crossed_at`, `arrived_at`, `sale_started_at`, `sale_ended_at`) are **not** in `RESOURCE_FIELDS['shipment']` and are explicitly excluded from `_ALL_PATCHABLE_FIELDS` in `ShipmentPatchSerializer`. They render as non-editable in the sheet — set them via `transition_to()` (see [[../processes/shipment-lifecycle]]).
+> **Lifecycle timestamps are editable — they are the state machine's triggers.** AD-1 is retired: all ten (`loading_started_at` R19, `loading_ended_at` R20, `departed_at` R21, `customs_exit_at` R25, `border_crossed_at` R30, `dest_entry_at` R31, `customs_entry_at` R32, `arrived_at` R35, `sale_started_at` R41, `sale_ended_at` R42) are listed in `_ALL_PATCHABLE_FIELDS` in `ShipmentPatchSerializer`. Filling one resolves its step's task and `auto_advance_if_ready()` fires the transition — see [[../processes/shipment-lifecycle#Sheet-Driven Auto-Advance (v2)]]. `transition_to()` no longer writes any timestamp (`STATUS_TIMESTAMP_MAP` is empty).
 
 ## Save flow
 
@@ -473,7 +520,7 @@ Admin / export_manager can set a **global** left-to-right order for the shipment
 - `has_sales_report` — annotated by viewset queryset via `Exists(SalesReport.objects.filter(shipment=OuterRef('pk')))`
 - `variety_code` from `TomatoVariety.code` (the official 01–10/E1–E3 registry code) — single-sort back-compat field
 - `varieties_dominant` — array of `{id, code, name, is_experimental}` (1–4 entries). When a shipment carries more than one sort, the variety cell shows all of them joined (e.g. codes comma-separated). Backed by the existing `Shipment.varieties_dominant` M2M (no new table)
-- AD-1 timestamps — read-only display
+- Lifecycle timestamps — editable (they trigger the status advance)
 - AD-2 fields — `vehicle_condition`, `vehicle_condition_note`, `route_note`
 
 Querystring `?season=<id>` overrides the active season; default scopes to `season__is_active=True`.
@@ -558,6 +605,6 @@ rows, so a re-type doesn't create a near-duplicate.
 
 ## Related
 
-- [[../processes/shipment-lifecycle]] — How AD-1 timestamps get written
+- [[../processes/shipment-lifecycle]] — How filling a timestamp cell advances the status
 - [[../processes/permissions-system]] — Dynamic permission registry, `canEditField` / `canDo`
 - [[../reference/api-endpoint-map]] — `GET /export/shipments/sheet/` and the inline patch contract
