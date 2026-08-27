@@ -115,6 +115,7 @@ See [[roles-matrix]] for the full capability matrix.
 - [[screens/expense-template-admin]] — Expense-template CRUD at `/admin/expense-template` — categories, tk/ru/en names, logo_code, is_active
 - [[screens/fleet-admin]] — TIR fleet CRUD at `/admin/fleet` — TruckHead + Trailer tabs (incl. inactive), create/edit/activate-deactivate; role-gated (no page_code); backs ShipmentTruckSelector
 - [[screens/team-kpi]] — Team KPI leaderboard at `/team/kpi` — per-user tasks-completed ranking with on-time %, overdue-now, active hours, period switcher; visible to every role, wired to `GET /api/v1/core/team-kpi/`
+- [[screens/permissions-admin]] — Role-first permission editor at `/admin/permissions` — pages / resources / fields for one role on one screen, plus the ⚠ list of resources the matrix does not actually enforce
 - [[screens/season-switcher]] — Header season switcher, read-only mode, and admin Close/Open on `/admin/seasons` (AD-16) — close a season (frozen + hidden), open the next one, browse a closed season read-only
 
 ## Reference

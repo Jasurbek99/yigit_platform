@@ -674,8 +674,8 @@ export default function SheetRowsTab({ canWrite }: IProps) {
         // without a bounded y the table's own scroll container grows to fit
         // every row — its horizontal scrollbar then sits below the last row,
         // off-screen until the page is scrolled almost to the bottom. Same
-        // fix as the other long, unpaginated admin tables (PageVisibilityTab,
-        // FieldPermissionsTab): bound the height so the header stays sticky
+        // fix as the other long, unpaginated admin tables (the permission
+        // matrices this pattern came from): bound the height so the header stays sticky
         // and the horizontal scrollbar stays reachable near the top.
         scroll={{ x: 'max-content', y: 'calc(100vh - 420px)' }}
         rowClassName={(record) => (!record.is_visible ? 'sheet-row-hidden' : '')}
