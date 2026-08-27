@@ -531,3 +531,46 @@ class TestJunctionFieldDelegation(TestCase):
         cache.clear()
         self.assertTrue(can_edit_sheet_field(loader, 'block_sources'))
         self.assertTrue(get_sheet_edit_map(loader)['block_sources'])
+
+
+class TestJunctionFieldSeedDataGrantsRealRoles(TestCase):
+    """The delegation mechanism above (tested with hand-crafted grants) is
+    only half the story — seed_permissions' FIELD_DEFAULTS must actually
+    grant the junction resource for every role that owns that Sheet row, or
+    the real, deployed permission data still 403s despite the mechanism being
+    correct in isolation.
+
+    Regression: FIELD_DEFAULTS listed 'block_sources' under resource
+    'shipment' for loading_dept_head (a role/resource_code pair the
+    junction-delegation fix deliberately stopped reading for this field),
+    with no matching 'shipment_block_source' grant anywhere in FIELD_DEFAULTS.
+    So Soltanmyrat (loading_dept_head, live username 'soltanmyrad') lost Sheet
+    access to his own R8 cell the moment the delegation fix landed — even
+    though TestJunctionFieldDelegation above (synthetic grants) stayed green
+    the whole time, because it never exercised the real seed data.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        from django.core.management import call_command
+        call_command('seed_permissions')
+
+    def setUp(self):
+        SheetRowSetting.objects.filter(field_key__in=['firm_splits', 'block_sources']).delete()
+        cache.clear()
+
+    def test_loading_dept_head_can_edit_block_sources(self):
+        user = _make_user('ldh_seed', role='loading_dept_head')
+        self.assertTrue(can_edit_sheet_field(user, 'block_sources'))
+
+    def test_loading_dept_head_deputy_can_edit_block_sources(self):
+        user = _make_user('ldhd_seed', role='loading_dept_head_deputy')
+        self.assertTrue(can_edit_sheet_field(user, 'block_sources'))
+
+    def test_warehouse_chief_can_edit_block_sources(self):
+        user = _make_user('wc_seed', role='warehouse_chief')
+        self.assertTrue(can_edit_sheet_field(user, 'block_sources'))
+
+    def test_document_team_can_edit_firm_splits(self):
+        user = _make_user('dt_seed', role='document_team')
+        self.assertTrue(can_edit_sheet_field(user, 'firm_splits'))

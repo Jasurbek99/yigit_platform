@@ -323,8 +323,6 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
             'harvest_status', 'variety', 'product_type', 'loading_location',
             # R17: Soltanmyrat's freeform warehouse note
             'warehouse_note',
-            # R8: block sources picker (Soltanmyrat chooses which blocks supplied the truck)
-            'block_sources',
             # R19/R20/R21: warehouse logs loading-start, loading-end and
             # greenhouse-departure timestamps (matches warehouse_chief deputies)
             'loading_started_at',
@@ -335,6 +333,14 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
             # R39: harvest day, operator-entered
             'harvest_date',
         ],
+        # R8: block sources picker (Soltanmyrat chooses which blocks supplied
+        # the truck). Lives on the shipment_block_source junction resource, not
+        # 'shipment' — RESOURCE_FIELDS['shipment'] never lists 'block_sources'
+        # (permission_registry.py), so a grant there can never be matched by
+        # the Sheet's junction-aware edit gate (can_edit_sheet_field /
+        # get_sheet_edit_map, apps/core/permissions.py). Matches the
+        # RoleResourcePermission grant just above.
+        'shipment_block_source': ['*'],
     },
     # ── warehouse_chief (Soltanmyrat's deputies) ─────────────────────
     # Excel: R7 shipment_code (the system Shipment Code, create-only/auto), R8 blocks
@@ -359,6 +365,9 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
             # R17: Soltanmyrat's freeform warehouse note (deputies share the field)
             'warehouse_note',
         ],
+        # R8: same junction grant as loading_dept_head — "deputies and head do
+        # identical day-to-day work" (see comment above the head's block).
+        'shipment_block_source': ['*'],
     },
     # ── document_team (Sirin, Sulgun) ────────────────────────────────
     # Excel: R6 documents_status, R9 firm splits (separate resource),
