@@ -574,3 +574,58 @@ class TestJunctionFieldSeedDataGrantsRealRoles(TestCase):
     def test_document_team_can_edit_firm_splits(self):
         user = _make_user('dt_seed', role='document_team')
         self.assertTrue(can_edit_sheet_field(user, 'firm_splits'))
+
+
+class TestEveryRoleCanEditItsOwnSheetRow(TestCase):
+    """Whole-sheet sanity sweep: for every DEFAULT_SHEET_ROWS row, the role(s)
+    that actually own it — per WHO_TO_ROLE, the who-key -> role mapping
+    confirmed with the user 2026-06-02 and already trusted by
+    backfill_sheet_row_defaults (which seeds SheetRowRoleTrigger from it) and
+    the frontend's WHO_KEY_ROLE (sheetRoleBlocks.ts, kept in sync by hand) —
+    must be able to edit that field once seed_permissions() has run.
+
+    This is the check that would have caught BOTH incidents before either
+    shipped: document_team losing firm_splits when the junction-delegation
+    fix landed, and loading_dept_head losing block_sources when that same fix
+    exposed a stale FIELD_DEFAULTS entry. Every other test in this module
+    either exercises the delegation MECHANISM with a hand-crafted grant, or
+    checks one specific role/field pair someone already reported — neither
+    shape would catch "some other role's real data doesn't match what the
+    code now expects." This one walks the whole sheet against real seed
+    output, so a future permission-shape change gets caught here first.
+
+    No SheetRowSetting rows exist in this test, so it measures the FIELD-PERM
+    layer alone (can_edit_field / RoleFieldPermission via seed_permissions) —
+    the layer both incidents broke. Row-trigger/lock config is a separate,
+    already-covered concern (see the classes above).
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        from django.core.management import call_command
+        call_command('seed_permissions')
+
+    def setUp(self):
+        SheetRowSetting.objects.all().delete()
+        cache.clear()
+
+    def test_every_owned_row_is_editable_by_its_owning_role(self):
+        from apps.export.management.commands.backfill_sheet_row_defaults import WHO_TO_ROLE
+
+        users_by_role: dict[str, User] = {}
+        failures = []
+        for row in DEFAULT_SHEET_ROWS:
+            if row['input_type'] == 'readonly':
+                continue
+            who_slug = row['default_who_key'].removeprefix('sheet.who.')
+            for role in WHO_TO_ROLE.get(who_slug, []):
+                user = users_by_role.get(role)
+                if user is None:
+                    user = _make_user(f'sweep_{role}', role=role)
+                    users_by_role[role] = user
+                if not can_edit_sheet_field(user, row['field_key']):
+                    failures.append(
+                        f"{role} cannot edit '{row['field_key']}' "
+                        f"(default_who_key={row['default_who_key']!r})"
+                    )
+        self.assertEqual(failures, [], 'Owned Sheet rows the owning role cannot edit:\n' + '\n'.join(failures))

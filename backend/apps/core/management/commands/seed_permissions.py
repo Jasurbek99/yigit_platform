@@ -408,6 +408,15 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
             'border_point', 'transit_days', 'transport_temp_c', 'shelf_life_days',
             # R30 — Haltac logs the TM border-exit time (was AD-1, now operator-entered).
             'border_crossed_at',
+            # R21 — greenhouse-departure. sheet_rows.py's default_who_key for
+            # this row has been 'sheet.who.mergen' (transport) since it was
+            # added; the live SheetRowSetting.role_triggers also names
+            # 'transport' alongside loading_dept_head/deputy. This grant was
+            # simply never added, so Mergen has been silently unable to touch
+            # his own row every time loading_dept_head wasn't the one filling
+            # it — masked because the loading department's own grant made the
+            # cell "work" for most edits.
+            'departed_at',
         ],
     },
     # ── sales_rep (Arap, Aganazar) ───────────────────────────────────
