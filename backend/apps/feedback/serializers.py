@@ -3,6 +3,7 @@ import logging
 from django.db import transaction
 from rest_framework import serializers
 
+from apps.core.serializer_fields import RelativeFileField
 from apps.feedback.models import FeedbackAttachment, FeedbackReply, FeedbackTicket
 from apps.feedback.services.files import (
     MAX_FILES_PER_PARENT,
@@ -16,7 +17,9 @@ logger = logging.getLogger(__name__)
 class FeedbackAttachmentSerializer(serializers.ModelSerializer):
     """Read-only serializer for a single file attachment."""
 
-    file = serializers.FileField(use_url=True)
+    # Root-relative /media/... url — rendered straight into <img src> by the
+    # feedback pages, so it must be same-origin (see RelativeFileField).
+    file = RelativeFileField()
 
     class Meta:
         model = FeedbackAttachment

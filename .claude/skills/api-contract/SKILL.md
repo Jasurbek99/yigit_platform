@@ -678,6 +678,31 @@ HTTP status codes: 400 (validation), 401 (not authenticated), 403 (no permission
 
 All timestamps in ISO 8601 with timezone: `2025-02-01T14:30:00+05:00`. Frontend displays using `dayjs` with user's locale. Backend stores as `DATETIMEOFFSET`.
 
+## Uploaded files arrive as a **root-relative** url, never absolute
+
+Every media field — `ExportFirm.director_signature` / `director_seal`,
+`ImportFirm.director_signature` / `director_seal`, `FeedbackAttachment.file` —
+serialises through `apps.core.serializer_fields.RelativeFileField` and returns
+a path, not a url:
+
+```json
+{ "director_seal": "/media/import_firms/seals/shah.png" }
+```
+
+Never `http://host/media/...`. **Do not use DRF's stock `serializers.FileField`
+for anything the frontend renders**: it returns `request.build_absolute_uri(...)`,
+built from the `Host` header Django received, and neither proxy in front of this
+app sets that to the browser's origin — prod nginx forwards `Host $host` (which
+drops the `:8080` port) and the Vite dev proxy uses `changeOrigin: true` (which
+rewrites it to the proxy target). Both produced urls that 404 in the browser
+while the upload itself reported success. Frontend drops the value straight into
+`<img src>` / `href` — same-origin, no base-url joining.
+
+Empty/absent file → `null`, not `""` (the pages gate the `<img>` on truthiness).
+Uploads are unaffected: only `to_representation` is overridden, so a multipart
+`PATCH` with the file under its own field name still works. Pinned by
+`apps/core/tests_media_urls.py`.
+
 ## Numbers: `Decimal` arrives as a **string**, unless it came from a method field
 
 `COERCE_DECIMAL_TO_STRING` is at its DRF default (`True`) — deliberately, because flipping it in

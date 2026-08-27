@@ -32,6 +32,7 @@ from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 
 from apps.core.models import ExportFirm, ImportFirm, RolePagePermission, Season, User
 from apps.core.permission_registry import PAGE_REGISTRY
+from apps.core.serializer_fields import RelativeFileField
 from apps.core.permissions import (
     firm_write_permission,
     get_resource_permissions,
@@ -209,6 +210,11 @@ class SeasonSerializer(serializers.ModelSerializer):
 
 
 class ExportFirmSerializer(serializers.ModelSerializer):
+    # Root-relative /media/... urls — see RelativeFileField for why an absolute
+    # url built from the Host header is wrong behind both of our proxies.
+    director_signature = RelativeFileField(required=False, allow_null=True)
+    director_seal = RelativeFileField(required=False, allow_null=True)
+
     class Meta:
         model = ExportFirm
         fields = [
@@ -259,6 +265,9 @@ class ProcessNodeLinkSerializer(serializers.ModelSerializer):
 class ImportFirmSerializer(serializers.ModelSerializer):
     country_name = serializers.CharField(source='country.name_en', read_only=True, default=None)
     city_name = serializers.CharField(source='city.name', read_only=True, default=None)
+    # See ExportFirmSerializer above.
+    director_signature = RelativeFileField(required=False, allow_null=True)
+    director_seal = RelativeFileField(required=False, allow_null=True)
 
     class Meta:
         model = ImportFirm
