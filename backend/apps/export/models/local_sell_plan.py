@@ -16,6 +16,13 @@ LOCAL_SELL_TRANSITIONS = {
     'approved': [],
 }
 
+#: The six writable day columns, in week order. Kept next to the transitions
+#: because the lock rule below is defined over exactly this set.
+LOCAL_SELL_DAY_FIELDS = (
+    'monday_plan_kg', 'tuesday_plan_kg', 'wednesday_plan_kg',
+    'thursday_plan_kg', 'friday_plan_kg', 'saturday_plan_kg',
+)
+
 
 class WeeklyLocalSellPlan(models.Model):
     """Weekly domestic sell plan per export firm.
@@ -100,3 +107,40 @@ class WeeklyLocalSellPlan(models.Model):
     def __str__(self) -> str:
         firm = getattr(self.export_firm, 'name_en', None) or f'firm#{self.export_firm_id}'
         return f'W{self.week_number}/{self.year} — {firm} [{self.status}]'
+
+    # === Edit lock ===
+
+    def locked_day_fields(self, *, is_approver: bool) -> tuple[str, ...]:
+        """Day columns that may NOT be written right now.
+
+        The grid autosaves every cell and auto-submits the week on the first
+        non-zero save, so "may I edit this?" is a per-cell question, not a
+        per-row one:
+
+        * ``approved`` — every day is locked, for everyone, approvers and admin
+          included. ``LOCAL_SELL_TRANSITIONS['approved'] == []`` already made
+          the status terminal; this closes the last way back in (a plain PATCH).
+        * ``submitted`` — a writer may still fill days that are still EMPTY,
+          but not change one that already holds a value. An approver keeps the
+          existing override path and gets nothing locked.
+        * ``draft`` / ``rejected`` — nothing is locked.
+
+        EMPTY means ``0``, not NULL: the six columns are ``default=0`` NOT NULL
+        (there is no way to express "not filled in" other than 0), and two
+        existing consumers already read them that way —
+        ``services/shipment.submit_local_sell_plan`` requires ``> 0`` on at
+        least one day, and ``services/local_sell_plan_tasks._week_is_complete``
+        treats an all-``0`` draft as "nothing to sell".
+
+        Args:
+            is_approver: True for LOCAL_SELL_APPROVE roles
+                (admin / export_manager / director).
+
+        Returns:
+            The locked field names, a subset of LOCAL_SELL_DAY_FIELDS.
+        """
+        if self.status == 'approved':
+            return LOCAL_SELL_DAY_FIELDS
+        if self.status == 'submitted' and not is_approver:
+            return tuple(f for f in LOCAL_SELL_DAY_FIELDS if getattr(self, f) > 0)
+        return ()

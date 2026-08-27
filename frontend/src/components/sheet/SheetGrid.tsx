@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useMemo, useEffect } from 'react';
+import { Fragment, useRef, useState, useCallback, useMemo, useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useTranslation } from 'react-i18next';
 import {
@@ -37,6 +37,13 @@ import { SheetCell } from './SheetCell';
 import { SheetCellEditor } from './SheetCellEditor';
 import { SheetLabelRow } from './SheetLabelColumn';
 import { SheetColumnHeader } from './SheetColumnHeader';
+import { SheetRoleBandRow } from './SheetRoleBandRow';
+import {
+  pinnedPrefixLength,
+  bandHeight,
+  bandsBefore,
+  markRoleBands,
+} from './sheetRoleBlocks';
 import { scaleSheetLayout } from '@/constants/sheetRowConfig';
 import { getContrastTextColor, mixWithWhite } from '@/utils/contrastColor';
 
@@ -289,6 +296,33 @@ export function SheetGrid({
     [rows, safeFrozenRowCount],
   );
 
+  // ─── Role blocks ──────────────────────────────────────────────────────────
+  // The Sheet is transposed: one role's fields are a contiguous run of ROWS.
+  // markRoleBands returns a band at each run start — and nothing at all when
+  // the rows aren't owner-contiguous (a user with a personal row order keeps
+  // the sheet they have today). Bands render only in the scrollable section,
+  // so detection starts below BOTH the pinned rows and the frozen band.
+  const BAND_HEIGHT = bandHeight(ROW_HEIGHT);
+  const roleBands = useMemo(
+    () => markRoleBands(rows, Math.max(pinnedPrefixLength(rows), safeFrozenRowCount)),
+    [rows, safeFrozenRowCount],
+  );
+
+  // Own-block highlight. `can_current_user_edit` is an edit right, not role
+  // ownership: a director may edit every row, and tinting all nine blocks
+  // would say nothing. Suppress the highlight unless it discriminates.
+  const bandIsMine = useMemo(() => {
+    const mine = roleBands.map((band, i) =>
+      band !== null &&
+      rows
+        .slice(i, i + band.rowCount)
+        .some((r) => rowSettings[r.field_key]?.can_current_user_edit === true),
+    );
+    const bandCount = roleBands.filter((b) => b !== null).length;
+    const mineCount = mine.filter(Boolean).length;
+    return mineCount === bandCount ? roleBands.map(() => false) : mine;
+  }, [roleBands, rows, rowSettings]);
+
   const frozenShipments = useMemo(
     () => shipments.slice(0, shipmentFreezeCount),
     [shipments, shipmentFreezeCount],
@@ -379,8 +413,14 @@ export function SheetGrid({
       // viewport, so the first non-occluded pixel is scrollTop + stickyBand.
       const container = scrollContainerRef.current;
       if (container && newRow >= safeFrozenRowCount) {
+        // Role bands add height above the target row. They never appear inside
+        // the frozen section, so the sticky band's height is unchanged — only
+        // the row's flow offset shifts, by one BAND_HEIGHT per band above it.
         const stickyBand = (1 + safeFrozenRowCount) * ROW_HEIGHT;
-        const rowTop = (1 + newRow) * ROW_HEIGHT;
+        // +1 because a band at index i renders IMMEDIATELY BEFORE row i, so it
+        // sits above row i's top edge and must be counted for row i itself.
+        const rowTop =
+          (1 + newRow) * ROW_HEIGHT + bandsBefore(roleBands, newRow + 1) * BAND_HEIGHT;
         const rowBottom = rowTop + ROW_HEIGHT;
         const viewTop = container.scrollTop + stickyBand;
         const viewBottom = container.scrollTop + container.clientHeight;
@@ -398,6 +438,8 @@ export function SheetGrid({
       shipmentFreezeCount,
       safeFrozenRowCount,
       ROW_HEIGHT,
+      roleBands,
+      BAND_HEIGHT,
       columnVirtualizer,
     ],
   );
@@ -875,9 +917,26 @@ export function SheetGrid({
       const canMoveUp = rowHasId && globalIndex > 0;
       const canMoveDown = rowHasId && globalIndex < rows.length - 1;
 
+      // Role block header. Only in the scrollable section — the frozen band
+      // covers the pinned rows, which have no single owner and are never banded.
+      const band = inFrozenSection ? null : roleBands[globalIndex];
+
       return (
+        <Fragment key={rowConfig.field_key}>
+        {band && (
+          <SheetRoleBandRow
+            labelKey={band.labelKey}
+            rowCount={band.rowCount}
+            height={BAND_HEIGHT}
+            labelWidth={FROZEN_LEFT_TOTAL}
+            fillWidth={
+              frozenShipments.length * COL_WIDTH_SHIPMENT +
+              columnVirtualizer.getTotalSize()
+            }
+            isMine={bandIsMine[globalIndex] === true}
+          />
+        )}
         <div
-          key={rowConfig.row_number}
           className="sheet-row"
           style={{ display: 'flex', height: ROW_HEIGHT }}
         >
@@ -983,6 +1042,7 @@ export function SheetGrid({
             })}
           </div>
         </div>
+        </Fragment>
       );
     });
 

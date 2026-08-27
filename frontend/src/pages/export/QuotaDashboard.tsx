@@ -24,6 +24,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { canDo } from '@/utils/permissions';
 import { displayWeight, weightSuffix, type WeightUnit } from '@/utils/weight';
 import { QuotaPerFirmTable } from './QuotaPerFirmTable';
+import { QuotaFirmSummaryTable } from './QuotaFirmSummaryTable';
 import { QuotaVisualBars } from './QuotaVisualBars';
 import { QuotaWeeklyFlow } from './QuotaWeeklyFlow';
 import { LocalSellPlanGrid } from './LocalSellPlanGrid';
@@ -238,6 +239,17 @@ export default function QuotaDashboard() {
       children: <QuotaUsageTab weightUnit={weightUnit} productType={productType} />,
     },
     canSeeQuota && {
+      key: 'firm_quota',
+      label: t('quota_dashboard.tab_firm_quota'),
+      children: (
+        <QuotaFirmSummaryTable
+          seasonId={seasonId}
+          productType={productType}
+          weightUnit={weightUnit}
+        />
+      ),
+    },
+    canSeeQuota && {
       key: 'all_quotas',
       label: t('quota_dashboard.tab_issuance_log'),
       children: <QuotaIssuancesList weightUnit={weightUnit} />,
@@ -305,8 +317,11 @@ export default function QuotaDashboard() {
         </div>
       </div>
 
-      {/* ── Filter Panel (only for analytics tabs: per_firm, visual, weekly) ── */}
-      {canSeeQuota && (activeTab === 'per_firm' || activeTab === 'visual' || activeTab === 'weekly') && <div
+      {/* ── Filter Panel (analytics tabs + firm_quota) ──
+          `firm_quota` needs the season + product selectors but NOT the period
+          row: it reports a live balance, and quota lives about a month, so a
+          week/month filter would hide exactly the quota being asked about. */}
+      {canSeeQuota && (activeTab === 'per_firm' || activeTab === 'visual' || activeTab === 'weekly' || activeTab === 'firm_quota') && <div
         style={{
           background: COLORS.bgLayout,
           borderRadius: 8,
@@ -315,7 +330,7 @@ export default function QuotaDashboard() {
         }}
       >
         {/* Row 1: Season + Product Type */}
-        <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 10 }}>
+        <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: activeTab === 'firm_quota' ? 0 : 10 }}>
           <Select
             value={seasonId}
             onChange={(v) => {
@@ -336,8 +351,9 @@ export default function QuotaDashboard() {
           />
         </div>
 
-        {/* Row 2: Period mode segmented + contextual sub-control */}
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+        {/* Row 2: Period mode segmented + contextual sub-control.
+            Hidden on the Firm Quota tab — see the panel comment above. */}
+        {activeTab !== 'firm_quota' && <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           <Segmented
             value={period.mode}
             onChange={(v) => handlePeriodModeChange(v as PeriodMode)}
@@ -385,7 +401,7 @@ export default function QuotaDashboard() {
               style={{ width: 260 }}
             />
           )}
-        </div>
+        </div>}
       </div>}
 
       {/* Error state */}

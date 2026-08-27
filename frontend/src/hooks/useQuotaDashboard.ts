@@ -109,6 +109,63 @@ export function useQuotaFirmBalances(
   });
 }
 
+export interface IQuotaFirmSummaryRow {
+  export_firm: number;
+  export_firm_name: string;
+  active_issuance_count: number;
+  issued_kg: number;
+  used_kg: number;
+  remaining_kg: number;
+  /** ISO date (YYYY-MM-DD) of the earliest still-spendable allocation, or null. */
+  nearest_expiry: string | null;
+}
+
+/**
+ * "Which firm holds how much quota right now" — one row per export firm, for
+ * the dashboard's Firm Quota tab. Same `remaining_kg` the firm-split hard block
+ * reads, from the same backend service, so the tab and the gate agree.
+ *
+ * Takes `seasonId` as a PARAMETER and deliberately does NOT call
+ * `useSelectedSeason()` like `useQuotaFirmBalances` above: the quota page owns
+ * its own season dropdown, and mixing the two sources is exactly the split-
+ * season bug commit 92480a9 fixed on the Firm Breakdown tab. Do not "tidy" this
+ * into the global switcher.
+ *
+ * No date_from/date_to on purpose — quota lives roughly a month, so a period
+ * filter would hide the live balance this tab exists to show.
+ */
+export function useQuotaFirmSummary(
+  seasonId: number | undefined,
+  productType: string,
+  options: { enabled?: boolean } = {},
+) {
+  const { enabled = true } = options;
+  return useQuery({
+    queryKey: ['quota-firm-summary', seasonId, productType],
+    queryFn: async (): Promise<IQuotaFirmSummaryRow[]> => {
+      const params = new URLSearchParams({ product_type: productType });
+      params.set('season', String(seasonId));
+      const { data } = await api.get<IQuotaFirmSummaryRow[]>(
+        `/export/quota-firm-summary/?${params.toString()}`,
+      );
+      // DRF renders DecimalField as a JSON number here, but the sibling quota
+      // reads normalize defensively and summing a string would concatenate.
+      return data.map((row) => ({
+        ...row,
+        active_issuance_count: Number(row.active_issuance_count) || 0,
+        issued_kg: Number(row.issued_kg) || 0,
+        used_kg: Number(row.used_kg) || 0,
+        remaining_kg: Number(row.remaining_kg) || 0,
+      }));
+    },
+    // Without this the first render sends `?season=undefined`, which
+    // `resolve_season()` answers with a 404 — an error banner before the
+    // seasons list has even resolved.
+    enabled: !!seasonId && enabled,
+    staleTime: 60_000,
+  });
+}
+
 export interface ICreateIssuancePayload {
   issue_date: string;
   product_type: string;
@@ -130,6 +187,7 @@ export function useCreateQuotaIssuance() {
       // Sheet firm-split editor reads these to hard-block no-quota firms; a new
       // issuance raises a firm's remaining, so refetch or it stays unselectable.
       qc.invalidateQueries({ queryKey: ['quota-firm-balances'] });
+      qc.invalidateQueries({ queryKey: ['quota-firm-summary'] });
     },
   });
 }
@@ -146,6 +204,7 @@ export function useDeleteQuotaIssuance() {
       // Deleting a firm's only issuance drops its remaining to 0 → it must go
       // back to unselectable on the Sheet; refetch the balances.
       qc.invalidateQueries({ queryKey: ['quota-firm-balances'] });
+      qc.invalidateQueries({ queryKey: ['quota-firm-summary'] });
     },
   });
 }

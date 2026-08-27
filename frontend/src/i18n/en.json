@@ -461,7 +461,17 @@
     "unit_label": "Unit",
     "kg": "kg",
     "ton": "ton",
-    "input_unit": "Input unit"
+    "input_unit": "Input unit",
+    "tab_firm_quota": "Firm Quota",
+    "active_quotas": "Active quotas",
+    "active_issued": "Issued (active)",
+    "active_used": "Used (active)",
+    "active_used_tip": "Consumed from quota that is still valid, drafts included. This is the same figure that blocks a firm in the shipment firm-split editor. Usage is charged to the oldest allocation first, so a firm can show 0 here when its consumption was drawn from quota that has since expired.",
+    "remaining": "Remaining",
+    "nearest_expiry": "Nearest expiry",
+    "no_live_quota": "No live quota",
+    "firm_quota_hint": "Live balance for the selected season — the period filter does not apply here, because quota expires in about a month.",
+    "firm_quota_empty": "No firm holds quota in this season"
   },
   "quota_usage": {
     "prev_month": "Previous month",
@@ -513,7 +523,13 @@
     "error_load": "Failed to load local sell plans",
     "reject_title": "Reject Plan",
     "reject_confirm": "Reject",
-    "reject_note_placeholder": "Reason for rejection..."
+    "reject_note_placeholder": "Reason for rejection...",
+    "locked_approved": "Approved — locked for everyone. Ask an admin if it really has to change.",
+    "locked_after_submit": "Already sent for approval. Only days that are still empty can be filled — ask the export manager to change this one.",
+    "locked_no_edit": "Read-only — either your role cannot edit sell plans, or the season is closed.",
+    "auto_submitted": "Sent for approval",
+    "save_season_closed": "The season is closed — this week can no longer be changed.",
+    "autosave_hint": "Cells save as soon as you leave them. The first day you fill sends the whole week for approval; days still empty can be filled after that."
   },
   "prices": {
     "title": "Market Prices",
@@ -1120,7 +1136,11 @@
     "custom_delete_confirm_body": "The row will be hidden from the Sheet for everyone. Per-shipment values stay in the database and reappear if the row is restored. This is a soft-delete.",
     "custom_delete_confirm_ok": "Delete",
     "custom_deleted": "Deleted custom row '{{field_key}}'",
-    "custom_delete_error": "Couldn't delete custom row"
+    "custom_delete_error": "Couldn't delete custom row",
+    "col_role_group": "Role Block",
+    "role_group_header_hint": "Which role-block this row groups under on the Sheet (the labelled band). Different from Trigger Roles below, which only grants edit access past a lock.",
+    "role_group_none": "— auto —",
+    "role_group_pinned_hint": "This row is in the pinned Identity & Planning band (the first rows — shipment code, blocks, firm, country, customer, city…). The Sheet never groups or bands those rows, so a Role Block here has no visible effect."
   },
   "truck_split": {
     "col_num_firms": "# Firms",
@@ -1804,7 +1824,11 @@
       "col_option_field": "After column 3 — Field name (default)",
       "col_option_shipment": "After column {{col}} — Shipment {{n}}",
       "reset_default": "Reset to default",
-      "done": "Done"
+      "done": "Done",
+      "row_order_section": "Row order",
+      "row_order_hint": "You have a personal row order saved, so role blocks aren't shown — grouping would fight your own drags. Reset to switch back to grouped view.",
+      "row_order_reset": "Reset to role blocks",
+      "row_order_reset_toast": "Row order reset — role blocks are back."
     },
     "hide_row": "Hide row",
     "row_settings": "Row settings",
@@ -1912,6 +1936,9 @@
       "group_sirin": "Şirin (Documents)",
       "group_arap": "Arap (Destination)",
       "group_other": "Other"
+    },
+    "role_block": {
+      "mine": "Your rows"
     }
   },
   "draft": {

@@ -120,6 +120,8 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
         _HARVEST_BOARD,
         # Documents workspace + the Contracts / Sales pages they now fully manage.
         'contracts.documents', 'contracts.list', 'contracts.sales',
+        # Gross-net catalog page — pairs with the packing_template resource CRUD.
+        'export.packing_presets',
     } | _UNIVERSAL,
     'transport': {
         'dashboard', 'export.shipments', _BOARD,
@@ -236,6 +238,9 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
         # has no such restriction.
         'contract': _VCRUD,
         'sale': _VCE,
+        # packing_template: the document team builds the CMR/Invoice packets, so
+        # they own the gross-net catalog they pick from — full CRUD (2026-08-27).
+        'packing_template': _VCRUD,
     },
     'transport': {
         'shipment': _VE,

@@ -461,7 +461,17 @@
     "unit_label": "Birlik",
     "kg": "kg",
     "ton": "tonna",
-    "input_unit": "Giriz birligi"
+    "input_unit": "Giriz birligi",
+    "tab_firm_quota": "Firma kwotasy",
+    "active_quotas": "Işjeň kwotalar",
+    "active_issued": "Berlen (işjeň)",
+    "active_used": "Ulanylan (işjeň)",
+    "active_used_tip": "Heniz güýjündäki kwotadan sarp edilen mukdar, tassyklanmadyk taslamalar hem goşulýar. Bu — ugradyşyň firma paýlary redaktorynda firmany böwetleýän şol bir san. Sarp ilki bilen iň köne kwotadan ýazylýar, şonuň üçin möhleti geçen kwotadan sarp edilen bolsa bu ýerde 0 görkezilip bilner.",
+    "remaining": "Galan",
+    "nearest_expiry": "Iň ýakyn möhlet",
+    "no_live_quota": "Işjeň kwota ýok",
+    "firm_quota_hint": "Saýlanan möwsüm üçin häzirki galyndy — kwotanyň möhleti takmynan bir aýda gutarýany üçin bu ýerde döwür süzgüji ulanylmaýar.",
+    "firm_quota_empty": "Bu möwsümde hiç bir firmanyň kwotasy ýok"
   },
   "quota_usage": {
     "prev_month": "Öňki aý",
@@ -513,7 +523,13 @@
     "error_load": "Ýerli satuw meýilnamasyny ýükläp bolmady",
     "reject_title": "Meýilnamany ret et",
     "reject_confirm": "Ret et",
-    "reject_note_placeholder": "Ret etmegiň sebäbi..."
+    "reject_note_placeholder": "Ret etmegiň sebäbi...",
+    "locked_approved": "Tassyklandy — hemmeler üçin ýapyk. Hakykatdan hem üýtgetmeli bolsa, administrator bilen habarlaşyň.",
+    "locked_after_submit": "Eýýäm tassyklamaga iberildi. Diňe entek boş günleri doldurmak bolýar — bu güni üýtgetmek üçin eksport menejerine ýüz tutuň.",
+    "locked_no_edit": "Diňe okamak üçin — ýa rolyňyz satuw meýilnamasyny üýtgedip bilenok, ýa-da möwsüm ýapyk.",
+    "auto_submitted": "Tassyklamaga iberildi",
+    "save_season_closed": "Möwsüm ýapyk — bu hepdäni indi üýtgedip bolmaýar.",
+    "autosave_hint": "Öýjükler siz olardan çykan badyňyza ýatda saklanýar. Ilkinji dolduran günüňiz tutuş hepdäni tassyklamaga iberýär; boş galan günleri soňra hem doldurmak bolýar."
   },
   "prices": {
     "title": "Bazar bahalary",
@@ -1120,7 +1136,11 @@
     "custom_delete_confirm_body": "Hatar ähli ulanyjylardan ýitirilýär. Ýüklerdäki bahalar bazada galýar we hatar dikeldilse gaýtadan görüner. Bu ýumşak pozulma.",
     "custom_delete_confirm_ok": "Pozmak",
     "custom_deleted": "Custom hatar '{{field_key}}' pozuldy",
-    "custom_delete_error": "Custom hatary pozmak başartmady"
+    "custom_delete_error": "Custom hatary pozmak başartmady",
+    "col_role_group": "Rol bloky",
+    "role_group_header_hint": "Bu setir Listde haýsy rol blokyna toparlanýar (ýazgyly zolak). Aşakdaky Trigger-roller bilen deň däl — olar diňe gulplanan wagtynda redaktirlemäge hukuk berýär.",
+    "role_group_none": "— awtomatik —",
+    "role_group_pinned_hint": "Bu setir berkidilen \"Şahsyýet we meýilnama\" toparyna girýär (ilkinji setirler — ýük belgisi, bloklar, firma, ýurt, müşderi, şäher…). List bu setirleri hiç haçan toparlamaýar ýa-da zolak bilen bellemeýär, şonuň üçin bu ýerde Rol bloky hiç zada täsir etmeýär."
   },
   "truck_split": {
     "col_num_firms": "Firma sany",
@@ -1804,7 +1824,11 @@
       "col_option_field": "3-nji sütünden soň — Atlandyrma (adaty)",
       "col_option_shipment": "{{col}}-nji sütünden soň — {{n}}-nji ýük",
       "reset_default": "Adaty ýagdaýa getir",
-      "done": "Bolýar"
+      "done": "Bolýar",
+      "row_order_section": "Setirleriň tertibi",
+      "row_order_hint": "Siziň şahsy setir tertibiňiz ýatda saklanan, şonuň üçin rol boýunça bloklar görkezilmeýär — toparlamak siziň süýşürmeleriňizi ýapardy. Topar görnüşine gaýdyp gelmek üçin arassala.",
+      "row_order_reset": "Rol bloklaryna gaýt",
+      "row_order_reset_toast": "Setir tertibi arassalandy — rol bloklary gaýdyp geldi."
     },
     "hide_row": "Setiri gizlemek",
     "row_settings": "Setir sazlamalary",
@@ -1912,6 +1936,9 @@
       "group_sirin": "Şirin (Resminamalar)",
       "group_arap": "Arap (Barmaly ýer)",
       "group_other": "Beýleki"
+    },
+    "role_block": {
+      "mine": "Siziň setirleriňiz"
     }
   },
   "draft": {

@@ -79,6 +79,18 @@ interface ISheetToolbarProps {
   fieldKeyToRowId?: Record<string, number>;
   /** Called when the user clicks Unhide for a specific row. */
   onUnhideRow?: (rowId: number) => void;
+  /**
+   * True when the user has a personal row order saved. Role-block grouping
+   * (`groupRowsByOwner`) is skipped for them so a regroup can't fight their
+   * own drags — this surfaces a way back to the grouped view instead of
+   * leaving them stuck with no explanation.
+   */
+  hasPersonalRowOrder?: boolean;
+  /** Called when the user clicks "Reset to role blocks" — clears their saved
+   * row order (`row_order: []`), which re-enables grouping. */
+  onResetRowOrder?: () => void;
+  /** True while the reset PATCH is in flight. */
+  resettingRowOrder?: boolean;
 }
 
 export function SheetToolbar({
@@ -91,6 +103,9 @@ export function SheetToolbar({
   hiddenRowIds = [],
   fieldKeyToRowId = {},
   onUnhideRow,
+  hasPersonalRowOrder = false,
+  onResetRowOrder,
+  resettingRowOrder = false,
 }: ISheetToolbarProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -650,6 +665,24 @@ export function SheetToolbar({
               {t('sheet.settings.freeze_cols_hint')}
             </Text>
           </div>
+          {hasPersonalRowOrder && (
+            <div>
+              <Text strong>{t('sheet.settings.row_order_section')}</Text>
+              <div style={{ marginTop: 6 }}>
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  {t('sheet.settings.row_order_hint')}
+                </Text>
+              </div>
+              <Button
+                size="small"
+                style={{ marginTop: 8 }}
+                loading={resettingRowOrder}
+                onClick={onResetRowOrder}
+              >
+                {t('sheet.settings.row_order_reset')}
+              </Button>
+            </div>
+          )}
         </Space>
       </Modal>
 

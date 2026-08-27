@@ -8,7 +8,7 @@ from apps.export.models import Shipment
 from apps.transport.models import (
     DevicePosition, Driver, TraccarDevice, ShipmentDeviceLink, Trailer, TruckHead,
 )
-from apps.transport.permissions import CanEditShipment
+from apps.transport.permissions import CanEditShipment, CanViewFleetMap
 from apps.transport.serializers import (
     DriverSerializer, LivePositionSerializer, TrailerSerializer, TransportDeviceSerializer,
     TruckHeadSerializer,
@@ -20,7 +20,9 @@ class LivePositionViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     """Latest position per device, served from our DB (never Traccar live)."""
 
     serializer_class = LivePositionSerializer
-    permission_classes = [IsAuthenticated]
+    # The only endpoint the Fleet Map page reads, so the only one the seller's
+    # exclusion from that page (owner request, 2026-08-23) has to be enforced on.
+    permission_classes = [IsAuthenticated, CanViewFleetMap]
     pagination_class = None  # small, bounded set (one row per device)
 
     def get_queryset(self):

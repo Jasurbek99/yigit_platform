@@ -530,6 +530,13 @@ export interface IRowConfig {
    * reordering (which only changes the visual position, not this number).
    */
   global_position?: number;
+  /**
+   * Admin override for the Sheet's role-block grouping (a `ROLE_CHOICES` code,
+   * set per row in the Shipment Settings → Sheet Rows admin tab). Empty/null
+   * means "no override" — components/sheet/sheetRoleBlocks.ts falls back to
+   * its static who-key→role table, then to the row's raw who-key.
+   */
+  role_group?: string | null;
 }
 
 // â”€â”€â”€ Sheet Row Settings v2 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -548,6 +555,11 @@ export interface ISheetRowSetting {
   display_order: number;
   is_visible: boolean;
   is_locked: boolean;
+  /**
+   * Which role-block this row groups under in the Sheet (writable). Empty
+   * string = no override — see `IRowConfig.role_group`.
+   */
+  role_group: string;
   /** Phase 5c: True for admin-created runtime rows. Read-only â€” set by POST. */
   is_custom: boolean;
   // Labels (writable, flat)

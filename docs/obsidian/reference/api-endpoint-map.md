@@ -144,6 +144,8 @@ Per-pallet weighing data filled during loading (`Pallet` model: gross, crate_typ
 | DELETE | `/api/v1/export/quota-usage/{id}/` | QuotaUsageViewSet (destroy) | `useQuotaUsageRecords` (mutation) | QuotaUsageTab |
 | POST | `/api/v1/export/quota-usage/approve/` | QuotaUsageViewSet.approve | `useBulkApproveQuotaUsage` | QuotaUsageTab |
 | GET | `/api/v1/export/quota-dashboard/` | QuotaDashboardView | `useQuotaDashboard` | QuotaDashboard — `?season=` optional (defaults to active) and resolved through `resolve_season()`: `404` unknown id, `403` closed season without `closed_season.can_view`, empty-but-shaped payload during the close→open gap (D7) |
+| GET | `/api/v1/export/quota-firm-balances/` | QuotaFirmBalancesView | `useQuotaFirmBalances` | Sheet `firm_splits` cell + ExportFirmSelect — the firm-split hard block. Returns `{"<firm_id>": {issued_kg, used_kg, remaining_kg, active_issuance_count, nearest_expiry}}` for LIVE (unexpired) allocations of the resolved season. `?season=` resolved through `resolve_season()` (same 404/403/gap rules as the dashboard); `{}` during the close→open gap. 60 s cache, busted by `invalidate_quota_caches()` |
+| GET | `/api/v1/export/quota-firm-summary/` | QuotaFirmSummaryView | `useQuotaFirmSummary` | QuotaDashboard → Firm Quota tab — the same live balance as `quota-firm-balances`, as a **list** with firm names: `[{export_firm, export_firm_name, issued_kg, used_kg, remaining_kg, active_issuance_count, nearest_expiry}]` sorted by `remaining_kg` desc. `?season=` resolved through `resolve_season()`; `[]` during the close→open gap (D7). Takes **no** `date_from`/`date_to` by design — quota expires in ~a month, so a period filter would hide live quota. Uncached |
 
 ### Dashboard (main landing page)
 
@@ -162,7 +164,7 @@ See [[screens/main-dashboard]] for the full response contract.
 | GET | `/api/v1/export/truck-destination-selections/` | WeeklyDestinationSelectionViewSet | `useTruckDestinationSelection` | WeeklyPlanGrid |
 | POST | `/api/v1/export/truck-destination-selections/set/` | WeeklyDestinationSelectionViewSet | `useSetTruckDestinationSelection` | WeeklyPlanGrid |
 | GET/POST/PATCH | `/api/v1/export/prices/` | PriceEntryViewSet | `usePriceEntries` | PricePanel |
-| GET/POST/PATCH | `/api/v1/export/local-sell-plans/` | WeeklyLocalSellPlanViewSet | _(in QuotaDashboard)_ | LocalSellPlanGrid |
+| GET/POST/PATCH | `/api/v1/export/local-sell-plans/` | WeeklyLocalSellPlanViewSet | _(in QuotaDashboard)_ | LocalSellPlanGrid — PATCH is the autosave path: it auto-submits a draft/rejected row and answers **409 `plan_approved_locked`** / **409 `cell_locked_after_submit`** on a locked cell (see [[local-sell-plan]]) |
 | GET/POST | `/api/v1/export/advances/` | FinansistAdvanceViewSet | `useAdvances` | AdvancesTracker |
 | GET | `/api/v1/export/advances/{id}/` | FinansistAdvanceViewSet (detail) | `useAdvanceDetail` | AdvancesTracker |
 | PATCH | `/api/v1/export/advances/{id}/reconcile/` | FinansistAdvanceViewSet.reconcile | `useReconcileAdvance` | AdvancesTracker |
@@ -179,6 +181,11 @@ See [[screens/main-dashboard]] for the full response contract.
 | POST | `/api/v1/export/admin/seasons/{id}/open/` | SeasonViewSet.open | `useOpenSeason` | SeasonsPage — makes the season the write target; `409` if the target is closed (reopening is unsupported) |
 | GET/POST/PATCH | `/api/v1/export/admin/firms/` | ExportFirmViewSet | `useAdmin` | ExportFirmsPage |
 | GET/POST/PATCH | `/api/v1/export/admin/import-firms/` | ImportFirmViewSet | `useAdmin` | ImportFirmsPage |
+
+> Both firm endpoints return `director_signature` / `director_seal` as a
+> **root-relative** `/media/...` path (or `null`), never an absolute url — see
+> the api-contract skill and `apps/core/serializer_fields.RelativeFileField`.
+> Uploads are a multipart `PATCH` with the file under its own field name.
 | GET/POST/PATCH | `/api/v1/export/admin/users/` | UserManagementViewSet | `useAdmin` | UsersPage |
 | GET/PUT | `/api/v1/export/admin/users/{id}/permissions/` | UserPermissionsView | `useAdmin` | PermissionsPage |
 | GET/POST | `/api/v1/export/admin/sheet-rows/` | SheetRowSettingViewSet (list/create) | `useSheetRowSettings` | ShipmentSettings (Sheet Rows tab) |
@@ -288,7 +295,7 @@ a ranking bar chart + per-card trend sparklines (was a plain table) — see
 
 | Method | Endpoint | ViewSet | Hook | Page |
 |--------|----------|---------|------|------|
-| GET | `/api/v1/transport/live-positions/` | LivePositionViewSet (list) | `useLivePositions` | FleetMap (`/transport/map`) |
+| GET | `/api/v1/transport/live-positions/` | LivePositionViewSet (list) — **`IsAuthenticated` + `CanViewFleetMap`** | `useLivePositions` | FleetMap (`/transport/map`) |
 | GET | `/api/v1/transport/shipments/{id}/position/` | ShipmentTruckPositionView | `useShipmentTruckPosition` | ShipmentDetail (`ShipmentTruckLocationCard`) |
 | PUT/DELETE | `/api/v1/transport/shipments/{id}/device/` | ShipmentDeviceLinkView | `useSetShipmentDevice` | ShipmentDetail (`ShipmentTruckLocationCard`) |
 | GET | `/api/v1/transport/devices/` | TransportDeviceViewSet (list) | `useTransportDevices` | ShipmentDetail (`ShipmentTruckLocationCard`, device picker) |
@@ -296,8 +303,14 @@ a ranking bar chart + per-card trend sparklines (was a plain table) — see
 | GET/POST/PATCH | `/api/v1/transport/trailers/` `/trailers/{id}/` | TrailerViewSet | `useTrailers`/`useCreateTrailer` (`useFleet`); `useAdminTrailers`/`useAdminCreateTrailer`/`useUpdateTrailer` (`useFleetAdmin`) | `ShipmentTruckSelector` (ShipmentDetail + edit drawer), FleetAdminPage (`/admin/fleet`) |
 | GET/POST/PATCH | `/api/v1/transport/drivers/` `/drivers/{id}/` | DriverViewSet | `useDrivers`/`useCreateDriver` (`useFleet`, active-only picker feed); `useAdminDrivers`/`useAdminCreateDriver`/`useUpdateDriver` (`useFleetAdmin`, incl. inactive) | `SheetDriverSelectEditor` (Sheet R27), FleetAdminPage Drivers tab (`/admin/fleet`) |
 
-`IsAuthenticated` only, no role gate (no `transport.map` page_code registered yet — same
-open-to-all-authenticated pattern as Team KPI / Worklog). No pagination — a bare list,
+`live-positions/` is the one gated endpoint in this module: `IsAuthenticated` +
+`CanViewFleetMap` (`apps/transport/permissions.py`), a **deny-list** — every
+authenticated role passes except `FLEET_MAP_DENIED_ROLES`, currently `{'seller'}`
+(owner request, 2026-08-23), with a superuser bypass. It is **not** page-permission
+backed: no `transport.map` page_code is registered, so nothing here reads the matrix
+(see [[fleet-map]] "Out of Scope" for why). Every other row in this table is still
+`IsAuthenticated` only, apart from the fleet-CRUD writes, which use `CanEditShipment` —
+a hardcoded `SHIPMENT_EDITOR_ROLES` allow-list in the same file. No pagination — a bare list,
 bounded to one row per device. Reads only `DevicePosition.objects.filter(valid=True)` from
 our own DB (`select_related('device', 'device__truck')`); never calls Traccar in the
 request path. One row per device:

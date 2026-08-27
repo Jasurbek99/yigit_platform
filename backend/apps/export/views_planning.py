@@ -2,10 +2,11 @@ import datetime
 import logging
 from decimal import Decimal
 
+from django.db import transaction
 from django.utils import timezone
 from rest_framework import status as http_status
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.exceptions import APIException, PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
@@ -20,6 +21,7 @@ from apps.core.seasons import (
     get_active_season,
 )
 from apps.export.models import (
+    LOCAL_SELL_DAY_FIELDS,
     WeeklyLocalSellPlan,
     WeeklyTruckAllocation,
     TruckDestinationSplit,
@@ -254,6 +256,21 @@ _LOCAL_SELL_APPROVE_ROLES = LOCAL_SELL_APPROVE
 _SELL_PLAN_DAYS = ('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday')
 
 
+class LocalSellPlanLocked(APIException):
+    """409 — the write is refused by the plan's own lock, not by the payload.
+
+    409 rather than DRF's 400 ValidationError because nothing is wrong with
+    what was sent: the row's state forbids it. It also puts the lock in the
+    same family as the closed-season guard, which the grid already handles.
+    The bodies stay distinguishable by their `error` key —
+    `plan_approved_locked` / `cell_locked_after_submit` here vs core's
+    `season_closed` — so the UI can name the right reason and the right person
+    to ask.
+    """
+
+    status_code = http_status.HTTP_409_CONFLICT
+
+
 class WeeklyLocalSellPlanViewSet(SeasonScopedMixin, ModelViewSet):
     """
     GET    /api/v1/export/local-sell-plans/             — list (filter ?export_firm=&year=&week=)
@@ -301,6 +318,24 @@ class WeeklyLocalSellPlanViewSet(SeasonScopedMixin, ModelViewSet):
         serializer.save(entered_by=self.request.user, season=season)
 
     def perform_update(self, serializer):
+        """PATCH one cell: check the lock, save, then auto-submit the week.
+
+        The grid autosaves on blur and has no Send button (2026-08-23, owner
+        request), so this single method carries three rules that used to be
+        spread across a button and two blanket status checks:
+
+        1. An APPROVED plan is frozen for everyone — see
+           `WeeklyLocalSellPlan.locked_day_fields`.
+        2. A SUBMITTED plan still accepts fills into days that are empty; days
+           that already hold a value are locked to the writer and stay
+           overridable by an approver.
+        3. The first non-zero save on a draft/rejected plan submits it.
+
+        Every lock is decided from the PRE-save instance. Order matters:
+        `serializer.save()` mutates `serializer.instance`, so a check made
+        afterwards would see the just-filled cell as already-filled and refuse
+        exactly the write rule 2 exists to allow.
+        """
         # Write freeze (D1): layer 1 checked the anchor the row has BEFORE
         # the write; this checks the one it would have AFTER, so a PATCH
         # cannot move the row into a closed season.
@@ -309,17 +344,38 @@ class WeeklyLocalSellPlanViewSet(SeasonScopedMixin, ModelViewSet):
         role = getattr(self.request.user, 'role', None)
         is_admin = role in _LOCAL_SELL_APPROVE_ROLES
 
-        if instance.status == 'submitted' and not is_admin:
-            raise ValidationError('Plan is pending approval and cannot be edited.')
+        # Idea 3 (2026-08-23): approved is final. Unconditional and ahead of any
+        # field comparison, so a PATCH of `export_firm` or `week_number` is
+        # refused too — not just the six day columns.
+        if instance.status == 'approved':
+            raise LocalSellPlanLocked({
+                'error': 'plan_approved_locked',
+                'message': (
+                    f'W{instance.week_number}/{instance.year} is approved — '
+                    f'approved plans are locked for everyone.'
+                ),
+            })
 
-        if instance.status == 'approved' and not is_admin:
-            raise ValidationError('Approved plan cannot be edited.')
+        locked = instance.locked_day_fields(is_approver=is_admin)
+        blocked = [f for f in serializer.validated_data if f in locked]
+        if blocked:
+            raise LocalSellPlanLocked({
+                'error': 'cell_locked_after_submit',
+                'fields': blocked,
+                'message': (
+                    'Already sent for approval — only days still empty can be '
+                    'filled. Ask an export manager to change a day that is '
+                    'already entered.'
+                ),
+            })
 
         if role not in _LOCAL_SELL_WRITE_ROLES:
             raise PermissionDenied(f"Role '{role}' cannot edit local sell plans.")
 
-        # Audit: log admin edits on approved/submitted plans
-        if is_admin and instance.status in ('approved', 'submitted'):
+        # Audit every edit landing on a submitted plan — the approver's
+        # override AND the writer's fill-empties. `approved` is unreachable
+        # here now (it raised above), so `submitted` is the whole set.
+        if instance.status == 'submitted':
             from apps.export.models import AuditLog
             changed = serializer.validated_data
             detail_parts = []
@@ -337,7 +393,17 @@ class WeeklyLocalSellPlanViewSet(SeasonScopedMixin, ModelViewSet):
                     detail='; '.join(detail_parts),
                 )
 
-        serializer.save(entered_by=self.request.user)
+        with transaction.atomic():
+            serializer.save(entered_by=self.request.user)
+            # Auto-submit replaces the removed Send button. Guarded on a
+            # positive day because `submit_local_sell_plan` raises ValueError
+            # without one: an all-zero save ("nothing to sell this week") must
+            # stay a draft, which is also what `_week_is_complete` expects.
+            plan = serializer.instance
+            if plan.status in ('draft', 'rejected') and any(
+                getattr(plan, f) > 0 for f in LOCAL_SELL_DAY_FIELDS
+            ):
+                submit_local_sell_plan(plan, self.request.user)
 
     # --- Workflow actions (delegated to services.py) ---
 

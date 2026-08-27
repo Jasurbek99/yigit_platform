@@ -31,6 +31,7 @@ from apps.core.permissions import (
     can_edit_sheet_field,
     get_sheet_edit_map,
     junction_write_permission,
+    resource_write_permission,
     write_permission,
 )
 # ShipmentViewSet takes the resolved Season object (not just a filter) so it can
@@ -1492,19 +1493,27 @@ class ShipmentViewSet(ModelViewSet):
         global_position_by_fk = {fk: i + 1 for i, fk in enumerate(settings_by_key.keys())}
         rows = []
         for fk in row_settings.keys():
+            # role_group: admin override for the Sheet's role-block grouping
+            # (frontend components/sheet/sheetRoleBlocks.ts). Blank/absent
+            # means "no override" — the frontend falls back to its static
+            # who-key→role table, then to the raw who-key.
+            setting = settings_by_key.get(fk)
+            role_group = (setting.role_group or None) if setting is not None else None
+
             default_entry = _default_rows_by_key.get(fk)
             if default_entry is not None:
                 # Copy the module-level dict — never mutate DEFAULT_SHEET_ROWS in place.
                 rows.append({
                     **default_entry,
                     'global_position': global_position_by_fk.get(fk),
+                    'role_group': role_group,
                 })
                 continue
             # Phase 5c: synthesize an IRowConfig-shaped entry for custom rows.
             # input_type=text is fixed (typed custom fields go through the L2
             # runbook). default_who_key falls back to a generic key; the admin
-            # can override per-row via who_tk/_ru/_en (Phase 5a).
-            setting = settings_by_key.get(fk)
+            # can override per-row via who_tk/_ru/_en (Phase 5a) and can now
+            # also assign role_group to put a custom row in a role block.
             if setting is None or not setting.is_custom:
                 continue
             rows.append({
@@ -1512,6 +1521,7 @@ class ShipmentViewSet(ModelViewSet):
                 'field_key': fk,
                 'default_who_key': 'sheet.who.custom',
                 'label_key': f'sheet.row.{fk}',  # i18n fallback; admin override wins
+                'role_group': role_group,
                 'input_type': 'text',
                 'style': 'base',
                 'global_position': global_position_by_fk.get(fk),
@@ -4188,13 +4198,16 @@ class PackingTemplateViewSet(ModelViewSet):
 
     One template = one Excel `gross net` row: whole-truck packing (→ CMR) + a set
     of firm shares (→ each Invoice). See `PackingTemplate`. Picked on a truck in the
-    Sheet packing panel; its shares are copied onto the firms. Reads open; writes
-    gated to management.
+    Sheet packing panel; its shares are copied onto the firms. Reads stay open to
+    every authenticated user (the packing panel's dropdown); writes follow the
+    `packing_template` row in the permission matrix instead of a hardcoded role
+    tuple, so the admin matrix can grant the catalog to a role without a deploy.
 
     GET    /api/v1/export/packing-templates/       — list (any authenticated)
-    POST   /api/v1/export/packing-templates/       — create (admin/director/export_manager)
-    PATCH  /api/v1/export/packing-templates/{id}/  — update (same)
-    DELETE /api/v1/export/packing-templates/{id}/  — delete (same; 409 if in use via PROTECT FK)
+    POST   /api/v1/export/packing-templates/       — create (packing_template.can_create)
+    PATCH  /api/v1/export/packing-templates/{id}/  — update (packing_template.can_edit)
+    DELETE /api/v1/export/packing-templates/{id}/  — delete (packing_template.can_delete;
+                                                     409 if in use via PROTECT FK)
 
     Filter: ?product_type=tomato|pepper  ?is_active=true|false
     Order:  ?ordering=sort_order|name (default: sort_order, name)
@@ -4204,7 +4217,7 @@ class PackingTemplateViewSet(ModelViewSet):
     serializer_class = PackingTemplateSerializer
     permission_classes = [
         IsAuthenticated,
-        write_permission('admin', 'director', 'export_manager'),
+        resource_write_permission('packing_template'),
     ]
     http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
     filterset_fields = ['product_type', 'is_active']

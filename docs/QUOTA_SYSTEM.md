@@ -104,6 +104,29 @@ else: dayjs(issueDate).add(1, 'month').endOf('month')
 
 ---
 
+### 4b. Firm Quota Tab — "who holds how much quota right now"
+
+**User action:** Tab "Firm Quota" on `/export/quota`
+
+**Frontend:** `QuotaFirmSummaryTable.tsx` (+ pure `QuotaFirmSummary.helpers.ts`)
+- Calls `useQuotaFirmSummary(seasonId, productType)` — `seasonId` comes from the page's OWN season dropdown, passed as a parameter, never `useSelectedSeason()`
+- One row per export firm: active quota count, issued (active), used (active), **remaining** (headline, sorted desc), nearest expiry with a green/orange/red tag (`<= 7` days = orange)
+- Footer totals sum the rendered rows
+
+**Backend:** `views_quota.py` → `QuotaFirmSummaryView` → `GET /api/v1/export/quota-firm-summary/?season=&product_type=`
+- `services_quota.py` → `compute_firm_quota_summary()`, a naming layer over `compute_firm_quota_balances()`
+
+**Why it is not period-filtered:** quota lives roughly a month and is consumed FIFO, so the current remaining balance is the number that matters; a week/month filter would hide live quota. The tab shows the season + product selectors and hides the period row.
+
+**Why it agrees with the Sheet:** `remaining_kg` here is the same figure `GET /quota-firm-balances/` serves the firm-split hard block, from the same service. A firm the Sheet refuses shows `remaining <= 0` on this tab.
+
+**Deliberate quirks**
+- `issued`/`used` count LIVE allocations only (hence "(active)" in both headers), while FIFO charges usage to the oldest allocation including lapsed ones — so a firm can read `used = 0` despite real consumption. `remaining` is the only column that means what a reader assumes.
+- Firms whose allocations have all lapsed keep an all-zero row reading "No live quota" — held quota this season, holds none now, which is different from never having been in the system.
+- `QuotaIssuance` rows with `season = NULL` (issued in the gap between seasons) are invisible here, as on every D11-scoped quota read.
+
+---
+
 ### 5. Local Sell Plan
 
 **User action:** Tab "Local Sell Plan" → week picker → edit cells → submit → approve
@@ -192,28 +215,36 @@ backend/apps/export/
     planning.py              → WeeklyLocalSellPlan (+ harvest, truck, price models)
     __init__.py              → re-exports all models
   serializers_quota.py       → QuotaIssuanceSerializer, QuotaIssuanceCreateSerializer
-  views_quota.py             → QuotaIssuanceViewSet, QuotaDashboardView
+  services_quota.py          → build_quota_dashboard, compute_fifo_usage,
+                               compute_firm_quota_balances, compute_firm_quota_summary
+  views_quota.py             → QuotaIssuanceViewSet, QuotaDashboardView,
+                               QuotaFirmBalancesView, QuotaFirmSummaryView
   views_planning.py          → WeeklyLocalSellPlanViewSet (+ harvest, truck, price, domestic viewsets)
   urls.py                    → router.register('quota-issuances', ...) + path('quota-dashboard/', ...)
+                               + path('quota-firm-balances/', ...) + path('quota-firm-summary/', ...)
   management/commands/
     import_quotas.py         → Excel → QuotaIssuance
     import_local_sales.py    → Excel → WeeklyLocalSellPlan
 
 frontend/src/
   pages/export/
-    QuotaDashboard.tsx       → Main page: period selector, KPIs, 5 tabs, QuotaIssuancesList
+    QuotaDashboard.tsx       → Main page: period selector, KPIs, 7 tabs, QuotaIssuancesList
     AddQuotaIssuance.tsx     → Full-page issuance entry form
+    QuotaFirmSummaryTable.tsx → Firm Quota tab (live remaining per firm)
+    QuotaFirmSummary.helpers.ts → expiryStatus / buildFirmQuotaTotals / sortFirmQuotaRows
     QuotaPerFirmTable.tsx    → Per Firm tab
     QuotaVisualBars.tsx      → Visual Bars tab  
     QuotaWeeklyFlow.tsx      → Weekly Flow tab
     LocalSellPlanGrid.tsx    → Local Sell Plan tab
   hooks/
-    useQuotaDashboard.ts     → useQuotaDashboard, useQuotaIssuances, useCreateQuotaIssuance, useDeleteQuotaIssuance
+    useQuotaDashboard.ts     → useQuotaDashboard, useQuotaIssuances, useQuotaFirmBalances,
+                               useQuotaFirmSummary, useCreateQuotaIssuance, useDeleteQuotaIssuance
     usePlanning.ts           → useLocalSellPlans, useUpsertLocalSellPlan, useInitializeLocalSellWeek, submit/approve/reject hooks
   utils/
     tableNavigation.ts       → handleCellKeyDown (shared keyboard nav for grid cells)
   types/
     index.ts                 → IQuotaIssuance, IQuotaIssuanceFirmAllocation, IQuotaDashboardResponse, IWeeklyLocalSellPlan, etc.
+                               (IQuotaFirmSummaryRow lives in hooks/useQuotaDashboard.ts)
 
 database/
   ygt_platform_ddl_v5_1.sql → export.quota_issuances, export.quota_issuance_firm_allocations, export.weekly_local_sell_plans

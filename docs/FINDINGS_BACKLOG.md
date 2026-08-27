@@ -29,17 +29,54 @@ Detail lives in [ROLE_ACCESS_AUDIT.md](ROLE_ACCESS_AUDIT.md) and
 | F8 | LOW | `boss` has a dead Sales-Rep Coverage link | `export/views.py:4057` |
 | F11 | LOW | Six page grants with no matching resource grant (config drift) | `seed_permissions.py` |
 | F14 | LOW | `tests_cancel` is order-dependent; 10+ failures when run alone | `export/tests_cancel.py` |
-| F5 | LOW | Transport module open to all — already tracked as an interim choice | `transport/views.py` |
+| F5 | LOW | Transport module open to all — already tracked as an interim choice. **Partially narrowed 2026-08-23**: `live-positions/` now 403s `seller` via `CanViewFleetMap`; every other transport endpoint is unchanged, so this stays open | `transport/views.py` |
 | P5 | **needs owner call** | The real loading department (`loading_dept_head` + 5 deputies) owns **no** lifecycle edge; the two loading edges belong to `warehouse_chief`, which has one test account | `services/shipment.py:68,74` |
 | P1 | — | `yola_chykdy` owned by `document_team` in code, `transport` in the DB | `services/shipment.py:75` |
 | P2 | — | `ShipmentStatusType.step_order` contradicts the real graph | live DB |
 | P3 | — | `ShipmentStatusType.required_role` is dead data, read by nothing | live DB |
 | P4 | — | Two different role sets share the name `PRIVILEGED_ROLES` | `core/roles.py:84` vs `services/shipment.py:44` |
 | F15 | MED | Admin panel has no way to create ad-hoc Tasks or delete/cancel existing ones | `export/views.py:3746` |
+| F16 | LOW | nginx forwards `Host $host`, which **drops the port** — every absolute url Django builds behind it is portless | `frontend/nginx.conf:59,79` |
+| F17 | LOW | `/static/` has the same missing-location hole `/media/` had; masked by `DJANGO_DEBUG=True` | `frontend/nginx.conf` |
 | T1 | — | `document_team` account carries role `export_manager` | live DB |
 | T2 | — | `export_manager`/`em123` and `document_team`/`dt123` passwords do not work | live DB |
 | ~~S1~~ | — | **CLOSED 2026-08-23.** The `QuotaIssuance` half closed via `fix_quota_issuance_seasons`; the one mismatched issuance had already been deleted by the owner. The remaining 6 `WeeklyTruckAllocation` rows (W35/2026) were **deleted** by owner instruction, with their 18 splits | live DB |
 | S2 | **needs owner call** | **July 2026 still belongs to no season.** Truck-allocation rows there deleted 2026-08-23; **4 ACTIVE contracts remain stranded** — deleting them is blocked by `PROTECT`ed sales tied to shipments 663/664 | live DB |
+
+---
+
+## F16 / F17 — the rest of the `/media/` bug's blast radius (added 2026-08-27)
+
+Both surfaced while fixing the broken signature/seal images and were **deliberately
+left unfixed** in that change.
+
+### F16 — nginx forwards `Host $host`, dropping the port
+
+`frontend/nginx.conf:59,79` set `proxy_set_header Host $host`. nginx's `$host` is the
+hostname **with the port stripped**, so Django on the beta server (published on
+`:8080`) builds every absolute url as `http://10.10.11.25/...` — port 80, where
+nothing of ours listens. That is what made the uploaded seals 404 in the browser.
+
+Fixed for media by making those fields return root-relative urls
+(`RelativeFileField`), which is immune to the header entirely. **The header is
+still wrong for anything else Django makes absolute** — most notably DRF's
+pagination `next` / `previous` links.
+
+Not fixed because: the frontend paginates by page number and consumes neither
+link (checked across `frontend/src`, no `.next` usage), so there is no live
+symptom; and `$host` → `$http_host` forwards a client-controlled value, which
+reaches `ALLOWED_HOSTS` validation, django-axes lockout keying and CSRF origin
+checks. Worth doing, worth doing on its own, with those three re-checked.
+
+### F17 — `/static/` has the same routing hole `/media/` had
+
+`frontend/nginx.conf` now has a `location /media/`; there is still no
+`location /static/`, so Django admin CSS/JS would fall through to the SPA
+fallback. Invisible today only because `docker-compose.prod.yml` runs the backend
+with `DJANGO_DEBUG=True` **specifically** so Django serves its own static files
+(the file says so). Wiring `/static/` through nginx off the existing
+`static_files` volume is the prerequisite for turning DEBUG off — already tracked
+in `docs/PRE_PRODUCTION_CHECKLIST.md`.
 
 ---
 
@@ -176,6 +213,28 @@ users' comments/tasks on `PRIVILEGED_ROLES = {export_manager, director, boss}`
 name, different membership than `core/roles.py:84` — see P4.
 
 Not fixed here — recorded for later by instruction, same as the rest of this file.
+
+## F5 — partially narrowed 2026-08-23 (the rest stays open)
+
+`GET /transport/live-positions/` — the single endpoint the Fleet Map page reads — is now
+gated by `CanViewFleetMap` (`apps/transport/permissions.py`), a deny-list holding
+`{'seller'}` per the owner's request that the seller's panel lose the map.
+
+**This clears none of F6 / F7 / F8.** Those are dead *menu links* — a page grant with no
+matching resource grant, so the link renders and every call behind it 403s. The Fleet Map
+had the mirror-image problem (a link with no gate at all behind it), and the fix here adds
+**no page grant**, so nothing in the F6/F7/F8 shape is touched. Fixing those means removing
+page grants in `seed_permissions.py` **and** flipping the already-written rows in the live
+DB — `seed_permissions` only `get_or_create`s and can never heal drift (F13).
+
+What is still open under F5, unchanged: `/transport/devices/`,
+`/transport/shipments/{id}/position/`, and the fleet-CRUD reads
+(`truck-heads/`, `trailers/`, `drivers/`) remain readable by all 15 roles. Pinned as
+deliberate by `test_shipment_position_endpoint_is_unchanged` and
+`test_device_list_endpoint_is_unchanged` in `apps/transport/tests/test_fleet_map_access.py`,
+so a future narrowing is a conscious edit rather than a silent one.
+
+---
 
 ## The two root causes
 

@@ -55,9 +55,18 @@ admin/director/export_manager/document_team):
 
 ## Catalog CRUD — `/api/v1/export/packing-templates/`
 
-`PackingTemplateViewSet` — nested `shares` written replace-all in the serializer. Read: any
-auth; write: admin/director/export_manager. Delete of an in-use template → **409** (global
-`ProtectedError` handler). Seeded by `seed_packing_templates`.
+`PackingTemplateViewSet` — nested `shares` written replace-all in the serializer. Delete of an
+in-use template → **409** (global `ProtectedError` handler). Seeded by `seed_packing_templates`.
+
+**Permissions (changed 2026-08-27).** Reads stay open to any authenticated user — the Sheet
+packing panel's dropdown lists templates for every role that picks one on a truck, so gating
+GET would break it. Writes moved off the hardcoded role tuple onto the permission matrix:
+`resource_write_permission('packing_template')` reads the `packing_template` row in
+`RoleResourcePermission` (POST → `can_create`, PATCH → `can_edit`, DELETE → `can_delete`;
+no row → no writes). Seeded holders: admin, director, export_manager, boss, **document_team**
+(full CRUD — they build the CMR/Invoice packets, so they own the catalog they pick from).
+`document_team` also gains the `export.packing_presets` page. Registry entry lives in
+`permission_registry.RESOURCE_REGISTRY`; back-fill migration `core/0035`.
 
 ## Document builders (`document_context.py`)
 

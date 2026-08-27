@@ -38,11 +38,19 @@ const EMPTY_SHEET_FILTERS: ISheetFilters = {
 
 // v2: frozenColCount semantics changed — it now counts ALL frozen columns
 // (Row #, Who, Field name, then shipments) instead of just shipment columns.
-// Bumping the key resets old values so users don't jump from "label band
-// frozen" to "nothing frozen" silently. Old `ygt-sheet-freeze` is left in
-// localStorage and ignored.
-const FREEZE_STORAGE_KEY = 'ygt-sheet-freeze-v2';
-const DEFAULT_FROZEN_ROW_COUNT = 13; // rows 2–14 — Identity & Planning band
+// v3 (2026-08-27): the pinned/identity row set shrank from 13 rows to the 5
+// that must actually stay visible while scrolling (shipment code + the 4
+// destination fields) — see components/sheet/sheetRoleBlocks.ts. Several rows
+// that used to be pinned by position (vehicle_condition, documents_status,
+// export_code, block_sources, firm_splits, harvest_status, ...) now group
+// into a role band instead, which only reaches its full effect once the
+// default freeze count matches. Bumping the key resets every browser to the
+// new default in one step, the same way v2 did — a user who had already
+// customised their freeze count away from 13 would otherwise keep a stale
+// value that hides bands 6 rows later than it should. Old
+// `ygt-sheet-freeze`/`-v2` are left in localStorage and ignored.
+const FREEZE_STORAGE_KEY = 'ygt-sheet-freeze-v3';
+export const DEFAULT_FROZEN_ROW_COUNT = 5; // shipment_code + country/customer/city/import_firm
 // 3 = Row # + Who + Field name. Matches the v1 default visual: label band is
 // sticky-left, no shipments frozen.
 const DEFAULT_FROZEN_COL_COUNT = 3;

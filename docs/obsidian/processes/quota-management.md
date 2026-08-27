@@ -200,6 +200,8 @@ erDiagram
 | `aggregate_quota_expired(issuances, today, firm_usage)` | Per-firm **unused remainder** of allocations already lapsed at `today`, over the SAME `issuances` list `build_weekly_flow` consumes. `firm_usage` must be scoped like the allocations (same window AND product_type) — the dashboard passes `aggregate_quota_used(..., product_type=...)` for exactly this |
 | `_fifo_consume(firm_allocs, firm_usage)` | The single FIFO walk — oldest allocation first. Shared by `compute_fifo_usage()` (season-scoped, issuance ledger) and `aggregate_quota_expired()` (window-scoped, firm breakdown), so the two can never disagree about which allocation a kg was spent from |
 | `_allocs_by_firm(issuances, today)` | Flattens issuances into per-firm allocation lists in FIFO order + the set of lapsed allocation ids |
+| `compute_firm_quota_balances(product_type, season, today=None)` | Per-firm LIVE balance → `dict[firm_id, {issued_kg, used_kg, remaining_kg, active_issuance_count, nearest_expiry}]`. The three kg figures and the count consider unexpired allocations only; `active_issuance_count` counts allocations that are live **and** not yet fully drawn down by FIFO, and `nearest_expiry` is the earliest expiry among exactly those (ISO string, or `None`). The two non-kg fields were added 2026-08-23 for the Firm Quota tab and also surface on `/quota-firm-balances/`, whose consumer (the firm-split gate) reads `remaining_kg` only |
+| `compute_firm_quota_summary(product_type, season, today=None)` | "Which firm holds how much quota right now" → a **list** of `{export_firm, export_firm_name, issued_kg, used_kg, remaining_kg, active_issuance_count, nearest_expiry}` sorted by `remaining_kg` desc then name. A naming layer over `compute_firm_quota_balances()` — same season, same expiry rule, same FIFO walk, so the Firm Quota tab and the firm-split hard block can never disagree. Deliberately **not** date-windowed: quota lives ~a month, so a period filter would hide the live balance. `[]` when `season is None` (D7). Firms whose allocations have all lapsed keep an all-zero row |
 | `_build_per_firm(...)` | Per-firm breakdown rows with is_blocked flag and expired_kg |
 | `_build_week_entry(year, week, ...)` | Single week entry with coverage_pct, firm breakdown |
 | `build_quota_dashboard(date_from, date_to, product_type, today=None)` | Main orchestrator → `{kpis, per_firm, weekly_flow}`. `today` defaults to `timezone.localdate()` and exists so tests can pin expiry — the one figure that moves on its own with the calendar |
@@ -256,6 +258,7 @@ erDiagram
 | DELETE | `/api/v1/export/quota-usage/{id}/` | Delete | `quota_usage` delete |
 | GET | `/api/v1/export/quota-dashboard/` | Dashboard analytics | `quota_issuance` view |
 | GET | `/api/v1/export/quota-firm-balances/` | Per-firm LIVE (unexpired) remaining quota — firm-split gate | `quota_issuance` view |
+| GET | `/api/v1/export/quota-firm-summary/` | Per-firm LIVE quota summary (list, named firms) — the Firm Quota tab | `quota_issuance` view |
 
 **Dashboard query params**: `season` (**optional** — defaults to the active season), `product_type` (default='tomato'), `date_from`, `date_to` (default: the resolved season's `start_date`/`end_date`)
 
@@ -345,18 +348,33 @@ When an operator assigns export firms to a shipment via the **Sheet `firm_splits
 
 Coverage progress bar color: green >=80%, orange >=50%, red <50%.
 
-**6 Tabs**, in render order:
+**7 Tabs**, in render order:
 
 | Tab | Component | Gate | What It Shows |
 |-----|-----------|------|--------------|
 | 1. Quota Usage | QuotaUsageTab | `canSeeQuota` | What each truck spent — the default tab (see below) |
-| 2. Issuance Log | QuotaIssuancesList | `canSeeQuota` | Detailed allocation table (see below) |
-| 3. Local Sell | LocalSellPlanGrid | `canSeeLocalSell` | Weekly local-sale plan — what earns the quota |
-| 4. Firm Breakdown | QuotaPerFirmTable | `canSeeQuota` | Per-firm: sales_kg, expected, issued, used, diff, expired_kg, is_blocked |
-| 5. Firm Chart | QuotaVisualBars | `canSeeAnalytics` | Bar chart of firm allocations |
-| 6. Weekly Trend | QuotaWeeklyFlow | `canSeeAnalytics` | Week-by-week issuance trend with coverage % |
+| 2. Firm Quota | QuotaFirmSummaryTable | `canSeeQuota` | Which firm holds how much quota RIGHT NOW — live remaining per firm (see below) |
+| 3. Issuance Log | QuotaIssuancesList | `canSeeQuota` | Detailed allocation table (see below) |
+| 4. Local Sell | LocalSellPlanGrid | `canSeeLocalSell` | Weekly local-sale plan — what earns the quota. Cells autosave and the first non-zero save sends the week for approval; an approved week is locked for **every** role (see [[local-sell-plan]]) |
+| 5. Firm Breakdown | QuotaPerFirmTable | `canSeeQuota` | Per-firm: sales_kg, expected, issued, used, diff, expired_kg, is_blocked |
+| 6. Firm Chart | QuotaVisualBars | `canSeeAnalytics` | Bar chart of firm allocations |
+| 7. Weekly Trend | QuotaWeeklyFlow | `canSeeAnalytics` | Week-by-week issuance trend with coverage % |
 
 > **Quota Usage leads and opens by default since 2026-08-11** — it is the day-to-day screen, while the issuance log is consulted occasionally. Two places must agree: `tabItems` (render order) and `tabOrder` (which supplies `defaultTab`). `tabOrder` deliberately lists only `quota_usage` and `local_sell`, the two gates that can differ per role, so the default can never land on a tab the user cannot see — a role with `canSeeLocalSell` alone opens on Local Sell.
+
+### Sub-Page: QuotaFirmSummaryTable
+
+**File**: `frontend/src/pages/export/QuotaFirmSummaryTable.tsx` (+ pure helpers in `QuotaFirmSummary.helpers.ts`, tested in `QuotaFirmSummary.helpers.test.ts`)
+
+Answers the question the Firm Breakdown tab does **not**: *which firms hold how much quota right now.* Firm Breakdown is a period-scoped sales → expected → issued → used → not-given funnel; this is a live balance sheet.
+
+**Columns**: Firm · Active quotas (count) · Issued (active) · Used (active) · **Remaining** (headline, sorted desc, red when `<= 0`) · Nearest expiry (date + a green/orange/red `Tag`, `<= 7` days = orange, or a muted "No live quota"). Footer totals sum the **rendered** rows.
+
+- **Season-scoped, NOT period-filtered.** The tab shows the season + product selectors and hides the period row: quota expires in roughly a month, so a week/month filter would hide exactly the live quota being asked about.
+- **Season comes from the page's own dropdown**, passed to `useQuotaFirmSummary(seasonId, ...)` as a parameter — never `useSelectedSeason()`. Mixing the page dropdown with the global switcher is the split-season bug commit 92480a9 fixed on the Firm Breakdown tab; the sibling hook `useQuotaFirmBalances` sits directly above it and *does* use the global switcher, so this is a live copy-paste hazard.
+- **Three different "used" columns now live on this page** and are not meant to reconcile: here it is *consumed from still-live quota, draft + approved*; the Issuance Log's is approved-only FIFO per allocation; Firm Breakdown's is period-scoped. Both kg headers here therefore read "(active)", and Used carries a tooltip. What makes this tab worth the ambiguity is that `remaining_kg` is byte-for-byte the figure the Sheet's firm-split editor blocks on.
+- **Side effect of live-only scoping**: a firm whose allocations have all lapsed shows `0 / 0 / 0` and "No live quota" despite real historical consumption — its row is kept (it *was* in the quota system this season) and sinks to the bottom of the remaining-desc sort.
+- The endpoint is **uncached** while its two siblings cache 60 s, so a cross-check against the Sheet gate can disagree for up to a minute after an issuance. If it is ever cached, the key MUST be registered in `invalidate_quota_caches()`.
 
 ### Sub-Page: QuotaIssuancesList
 
@@ -447,6 +465,8 @@ The mirror of the usage list's shipment column: quota is spent by trucks, so the
 | `useQuotaDashboard` | `GET /export/quota-dashboard/` | season (from the page's own picker, which hides closed seasons the user may not view), date_from, date_to, product_type | `IQuotaDashboardResponse` | 60s |
 | `useQuotaIssuances` | `GET /export/quota-issuances/` | product_type, date_from, date_to (season comes from the **global** switcher via `useSelectedSeason()`) | `IQuotaIssuance[]` | 60s |
 | `useQuotaUsageRecords` | `GET /export/quota-usage/?page_size=2000` | status, product_type, date_from, date_to, **shipment** | `IQuotaUsageRecord[]` | 30s |
+| `useQuotaFirmSummary` | `GET /export/quota-firm-summary/` | `seasonId` (**a parameter**, from the page's own dropdown — NOT `useSelectedSeason()`), product_type. No date params by design | `IQuotaFirmSummaryRow[]` | 60s |
+| `useQuotaFirmBalances` | `GET /export/quota-firm-balances/` | product_type (season from the **global** switcher) | `Record<firmId, IFirmQuotaBalance>` | 60s |
 
 ### TypeScript Types
 
@@ -457,6 +477,8 @@ The mirror of the usage list's shipment column: quota is spent by trucks, so the
 **`IQuotaIssuance`**: id, issue_date, product_type, validity, matched_week, matched_year, notes, total_kg, allocations[] (each: id, export_firm, export_firm_name, kg_quota, used_kg)
 
 **`IQuotaUsageRecord`**: id, usage_date, export_firm, export_firm_name, kg_used, product_type, status, shipment_code, approved_by_name, created_by_name
+
+**`IQuotaFirmSummaryRow`**: export_firm, export_firm_name, active_issuance_count, issued_kg, used_kg, remaining_kg, nearest_expiry (`string | null`, ISO date)
 
 ## Roles & Permissions
 

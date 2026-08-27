@@ -17,6 +17,7 @@ from .sales import (
 )
 from .truck_allocation import WeeklyTruckAllocation, TruckDestinationSplit, WeeklyDestinationSelection
 from .local_sell_plan import (
+    LOCAL_SELL_DAY_FIELDS,
     LOCAL_SELL_STATUS_CHOICES,
     LOCAL_SELL_TRANSITIONS,
     WeeklyLocalSellPlan,
@@ -63,6 +64,7 @@ __all__ = [
     'WeeklyTruckAllocation',
     'TruckDestinationSplit',
     'WeeklyDestinationSelection',
+    'LOCAL_SELL_DAY_FIELDS',
     'LOCAL_SELL_STATUS_CHOICES',
     'LOCAL_SELL_TRANSITIONS',
     'WeeklyLocalSellPlan',

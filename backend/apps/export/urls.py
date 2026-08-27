@@ -29,6 +29,7 @@ from apps.export.views_quota import (
     QuotaUsageViewSet,
     QuotaDashboardView,
     QuotaFirmBalancesView,
+    QuotaFirmSummaryView,
 )
 from apps.export.views_harvest_forecast import HarvestForecastView
 from apps.export.views_pomidor_dukany import ProductionAnalysisView
@@ -97,6 +98,7 @@ urlpatterns = router.urls + [
     ),
     path('quota-dashboard/', QuotaDashboardView.as_view(), name='quota-dashboard'),
     path('quota-firm-balances/', QuotaFirmBalancesView.as_view(), name='quota-firm-balances'),
+    path('quota-firm-summary/', QuotaFirmSummaryView.as_view(), name='quota-firm-summary'),
     path(
         'user/sheet-preferences/',
         UserSheetPreferencesView.as_view(),

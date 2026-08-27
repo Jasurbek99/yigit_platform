@@ -115,6 +115,12 @@ RESOURCE_REGISTRY: dict[str, str] = OrderedDict([
     # contract-sale delete is admin-only (see RESOURCE_DEFAULTS in seed_permissions).
     ('contract',              'Contract'),
     ('sale',                  'Contract Sale'),
+    # Packing template catalog (the digital "gross net"): whole-truck packing
+    # (→ CMR) + per-firm shares (→ Invoice). All-or-nothing, so absent from
+    # RESOURCE_FIELDS. Reads stay open to every authenticated user — the Sheet
+    # packing panel lists templates for any role that picks one on a truck; only
+    # writes are gated (PackingTemplateViewSet uses resource_write_permission).
+    ('packing_template',      'Packing Template catalog (gross-net)'),
 ])
 
 # ── Editable fields per resource ─────────────────────────────────────────

@@ -34,7 +34,6 @@ import {
   useLocalSellPlans,
   useUpsertLocalSellPlan,
   useInitializeLocalSellWeek,
-  useBulkSubmitLocalSellPlans,
   useBulkApproveLocalSellPlans,
 } from '@/hooks/usePlanning';
 import { useAuth } from '@/hooks/useAuth';
@@ -43,6 +42,8 @@ import { useSelectedSeason } from '@/hooks/useSeasonParam';
 import { canDoBackendGated } from '@/utils/permissions';
 import { handleCellKeyDown } from '@/utils/tableNavigation';
 import type { IWeeklyLocalSellPlan, PlanStatus } from '@/types';
+import { cellMode, lockReasonKey, saveErrorKey } from './LocalSellPlanGrid.cells';
+import type { CellMode } from './LocalSellPlanGrid.cells';
 
 dayjs.extend(isoWeek);
 dayjs.extend(weekOfYear);
@@ -84,8 +85,16 @@ function fmtKg(val: number | string | null | undefined): string {
 
 // ─── Cell component ──────────────────────────────────────────────────────────
 
-function PlanCell({ day, row, editable, lockedEditable, onSave }: {
-  day: Day; row: IWeeklyLocalSellPlan; editable: boolean; lockedEditable: boolean;
+/**
+ * One day cell. `mode` comes from `cellMode()` — see LocalSellPlanGrid.cells.ts
+ * for the rule and why it must stay identical to the backend's.
+ *
+ * There is no Send button: blur saves, and the first non-zero save sends the
+ * whole week for approval. Which is exactly why a locked cell has to say WHO
+ * can change it — `reasonKey` carries that sentence.
+ */
+function PlanCell({ day, row, mode, reasonKey, onSave }: {
+  day: Day; row: IWeeklyLocalSellPlan; mode: CellMode; reasonKey: string;
   onSave: (row: IWeeklyLocalSellPlan, day: Day, value: number) => void;
 }) {
   const { t } = useTranslation();
@@ -93,36 +102,44 @@ function PlanCell({ day, row, editable, lockedEditable, onSave }: {
   const field = `${day}_plan_kg` as keyof IWeeklyLocalSellPlan;
   const value = num(row[field]);
 
-  if (editable || (lockedEditable && unlocked)) {
+  if (mode === 'edit' || (mode === 'unlockable' && unlocked)) {
     return (
       <InputNumber
-        min={0} step={100} keyboard={false} defaultValue={value}
+        min={0} step={100} keyboard={false}
+        // `|| undefined`, not the raw 0: the column is NOT NULL default 0, so 0
+        // is how the DB spells "never filled in". Showing it as a blank cell
+        // with a placeholder is what makes the fill-empties rule legible —
+        // otherwise every untouched day reads as a deliberate zero.
+        defaultValue={value || undefined}
+        placeholder="—"
         onBlur={(e) => {
           const v = Number(e.target.value.replace(/,/g, '')) || 0;
           if (v !== value) onSave(row, day, v);
-          if (lockedEditable) setUnlocked(false);
+          if (mode === 'unlockable') setUnlocked(false);
         }}
         onKeyDown={handleCellKeyDown}
         size="small" style={{ width: 84 }}
-        autoFocus={lockedEditable && unlocked}
+        autoFocus={mode === 'unlockable' && unlocked}
       />
     );
   }
 
-  // Locked but double-clickable for admin
-  if (lockedEditable) {
+  // Sent for approval, value already entered, and the viewer may override it.
+  if (mode === 'unlockable') {
     return (
-      <span
-        onDoubleClick={() => setUnlocked(true)}
-        style={{ cursor: 'pointer' }}
-        title={t('local_sell.double_click_hint')}
-      >
-        {fmtKg(value)}
-      </span>
+      <Tooltip title={t('local_sell.double_click_hint')}>
+        <span onDoubleClick={() => setUnlocked(true)} style={{ cursor: 'pointer' }}>
+          {fmtKg(value)}
+        </span>
+      </Tooltip>
     );
   }
 
-  return <span>{fmtKg(value)}</span>;
+  return (
+    <Tooltip title={t(reasonKey)}>
+      <Text type="secondary" style={{ cursor: 'not-allowed' }}>{fmtKg(value)}</Text>
+    </Tooltip>
+  );
 }
 
 // ─── Main component ──────────────────────────────────────────────────────────
@@ -169,7 +186,6 @@ export function LocalSellPlanGrid() {
   const { data, isLoading, isError } = useLocalSellPlans({ year, week: weekNumber });
   const upsert = useUpsertLocalSellPlan();
   const initWeek = useInitializeLocalSellWeek();
-  const bulkSubmit = useBulkSubmitLocalSellPlans();
   const bulkApprove = useBulkApproveLocalSellPlans();
 
   const plans = data?.results ?? [];
@@ -187,8 +203,22 @@ export function LocalSellPlanGrid() {
   const totalPlan = plans.reduce((s, p) => s + num(p.total_plan_kg), 0);
 
   function handleSave(row: IWeeklyLocalSellPlan, day: Day, value: number) {
+    const wasOpen = row.status === 'draft' || row.status === 'rejected';
     upsert.mutate({ id: row.id, [`${day}_plan_kg`]: value }, {
-      onError: () => toast.error(t('local_sell.save_error')),
+      // No toast on a plain save — the value staying on screen is the receipt.
+      // The one thing worth announcing is the side effect nobody clicked: the
+      // backend auto-submits the week on the first non-zero save.
+      onSuccess: (saved) => {
+        if (wasOpen && saved.status === 'submitted') {
+          toast.success(t('local_sell.auto_submitted'));
+        }
+      },
+      // Three different guards answer 409 here (approved lock, per-cell lock,
+      // closed season) and each names a different person to go and ask.
+      onError: (err) => {
+        const body = isAxiosError(err) ? err.response?.data : undefined;
+        toast.error(t(saveErrorKey(body)));
+      },
     });
   }
 
@@ -212,12 +242,6 @@ export function LocalSellPlanGrid() {
         },
       },
     );
-  }
-
-  function handleBulkSubmit() {
-    const ids = plans.filter((p) => p.status === 'draft' || p.status === 'rejected').map((p) => p.id);
-    if (!ids.length) return;
-    bulkSubmit.mutate(ids, { onSuccess: () => toast.success(t('local_sell.submitted')) });
   }
 
   function handleBulkApprove() {
@@ -248,9 +272,19 @@ export function LocalSellPlanGrid() {
         width: 95,
         align: 'center' as const,
         render: (_: unknown, row: IWeeklyLocalSellPlan) => {
-          const normalEdit = canEdit && (row.status === 'draft' || row.status === 'rejected');
-          const lockedEdit = isManager && (row.status === 'approved' || row.status === 'submitted');
-          return <PlanCell day={day} row={row} editable={normalEdit} lockedEditable={lockedEdit} onSave={handleSave} />;
+          const cell = {
+            status: row.status,
+            value: num(row[`${day}_plan_kg` as keyof IWeeklyLocalSellPlan]),
+            canEdit,
+            isApprover: isManager,
+          };
+          return (
+            <PlanCell
+              day={day} row={row}
+              mode={cellMode(cell)} reasonKey={lockReasonKey(cell)}
+              onSave={handleSave}
+            />
+          );
         },
       };
     }),
@@ -305,19 +339,13 @@ export function LocalSellPlanGrid() {
               {t('local_sell.init_week')}
             </Button>
           )}
-          {isCurrentOrFuture && (
-            <>
-              {(statusCounts.draft > 0 || statusCounts.rejected > 0) && canEdit && (
-                <Button onClick={handleBulkSubmit} loading={bulkSubmit.isPending}>
-                  {t('local_sell.submit_all')} ({statusCounts.draft + statusCounts.rejected})
-                </Button>
-              )}
-              {statusCounts.submitted > 0 && isManager && (
-                <Button type="primary" onClick={handleBulkApprove} loading={bulkApprove.isPending}>
-                  {t('local_sell.approve_all')} ({statusCounts.submitted})
-                </Button>
-              )}
-            </>
+          {/* No Submit All (2026-08-23, owner request): cells autosave and the
+              first non-zero save sends the week. Approve All stays — approving
+              is still a deliberate act, and still APPROVE-only. */}
+          {isCurrentOrFuture && statusCounts.submitted > 0 && isManager && (
+            <Button type="primary" onClick={handleBulkApprove} loading={bulkApprove.isPending}>
+              {t('local_sell.approve_all')} ({statusCounts.submitted})
+            </Button>
           )}
         </Space>
       </Flex>
@@ -328,6 +356,11 @@ export function LocalSellPlanGrid() {
           <Statistic title={t('local_sell.total')} value={totalPlan} suffix="kg" />
           <Statistic title={t('local_sell.firms_count')} value={plans.length} />
         </Flex>
+      )}
+
+      {/* The send button is gone, so the rule has to be written down somewhere. */}
+      {canEdit && plans.length > 0 && (
+        <Alert type="info" showIcon message={t('local_sell.autosave_hint')} style={{ marginBottom: 16 }} />
       )}
 
       {isError && <Alert type="error" message={t('local_sell.error_load')} style={{ marginBottom: 16 }} />}

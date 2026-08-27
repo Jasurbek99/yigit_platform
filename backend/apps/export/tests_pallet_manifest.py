@@ -39,7 +39,8 @@ def _make_shipment(user: User) -> Shipment:
     """Create a minimal shipment fixture in draft status."""
     country, _ = Country.objects.get_or_create(code='TM', defaults={'name_en': 'Turkmenistan'})
     season, _ = Season.objects.get_or_create(
-        year=2025, defaults={'is_active': True, 'name': '2025'},
+        name='2025',
+        defaults={'start_date': '2025-01-01', 'end_date': '2025-12-31'},
     )
     draft_status, _ = ShipmentStatusType.objects.get_or_create(
         code='draft',

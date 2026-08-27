@@ -53,7 +53,7 @@ class SheetRowSettingSerializer(serializers.ModelSerializer):
         version (returned as-is; bumped by model.save()).
 
     Writable fields:
-        display_order, is_visible, is_locked,
+        display_order, is_visible, is_locked, role_group,
         label_tk/ru/en, description_tk/ru/en,
         style_width/align/color,
         triggered_user (FK id),
@@ -93,6 +93,8 @@ class SheetRowSettingSerializer(serializers.ModelSerializer):
             'display_order',
             'is_visible',
             'is_locked',
+            # Sheet role-block grouping override (writable) — see model docstring.
+            'role_group',
             # Labels (writable, Cyrillic-safe)
             'label_tk',
             'label_ru',

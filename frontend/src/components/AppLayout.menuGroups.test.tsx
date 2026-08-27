@@ -270,6 +270,41 @@ describe('AppLayout menu composition', () => {
   });
 });
 
+// The Fleet Map item is one of the handful gated by an inline `roles` list
+// rather than page_permissions, so `canSeePage` never sees it and the ordered
+// key assertions above — all of which run with the fixture's
+// `is_superuser: true` — take the bypass branch and prove nothing about it.
+describe('AppLayout fleet map visibility', () => {
+  beforeAll(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it('a real seller does not get the Fleet Map link', () => {
+    // Owner request 2026-08-23: the seller works one screen, the sell plan, and
+    // has no shipments and no fleet. Removed from the item's `roles` array in
+    // de01b15; this is the regression pin that change never had. The endpoint
+    // behind the page is gated separately (CanViewFleetMap, backend) — the menu
+    // is presentation, not a boundary.
+    renderLayout(fakeUser({
+      role: 'seller' as UserRole,
+      is_superuser: false,
+      page_permissions: { 'export.quota.local_sell': true },
+    }));
+    expect(renderedMenuItemKeys()).not.toContain('/transport/map');
+  });
+
+  it('a real transport user still gets it', () => {
+    // The other half of the pin: the seller removal must not have narrowed the
+    // item to superusers by accident.
+    renderLayout(fakeUser({
+      role: 'transport' as UserRole,
+      is_superuser: false,
+      page_permissions: {},
+    }));
+    expect(renderedMenuItemKeys()).toContain('/transport/map');
+  });
+});
+
 // Logout teardown lives here rather than in its own file so it can reuse the
 // mock scaffolding above — AppLayout pulls in enough machinery that a second
 // copy would be worse than the slightly broader file name.

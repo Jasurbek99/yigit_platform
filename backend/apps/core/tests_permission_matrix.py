@@ -253,10 +253,15 @@ class LastAdminGuardTests(TestCase):
         self.assertTrue(self.admin.is_active)
 
     def test_director_em_keep_operational_pages_after_seed(self):
-        # Migration 0016 deletes admin.* page rows from director and the lone
-        # admin.permissions row from EM. Seed_permissions then tops up everything
-        # else. This test guards that the deletion-then-seed combination doesn't
-        # accidentally strip operational pages from director or EM.
+        # PAGE_DEFAULTS (seed_permissions.py) excludes admin.* pages for
+        # director and admin.permissions for EM directly — there is no
+        # separate deletion step to combine with seeding any more (the old
+        # 0016 data migration that once did this was squashed out of the
+        # applied migration graph by 932d950; see
+        # backend/_pre_collapse_backup/core/0016_demote_existing_director.py
+        # for the archived reference). This test guards that computing
+        # PAGE_DEFAULTS as "_ALL_PAGES minus admin" doesn't accidentally
+        # strip operational pages from director or EM.
         from apps.core.models import RolePagePermission
 
         operational_pages = [
@@ -298,21 +303,28 @@ class LastAdminGuardTests(TestCase):
         expected = {p for p in PAGE_REGISTRY if p.startswith('admin.')}
         self.assertSetEqual(set(admin_pages), expected)
 
-    def test_migration_0016_deletes_stale_admin_rows_for_director_and_em(self):
-        # Direct exercise of the data migration's deletion path. On a fresh test
-        # DB seed_permissions never plants admin.* rows for director/EM, so the
-        # other regression tests don't actually invoke the deletion. Here we
-        # plant the stale rows manually (simulating an environment that ran
-        # seed_permissions BEFORE AD-15), call the migration function, and assert
-        # the deletion. Idempotency is verified by calling it twice.
+    def test_seed_permissions_reset_clears_stale_admin_rows_for_director_and_em(self):
+        # This used to directly exercise core migration 0016
+        # (demote_director_and_em), a one-time data migration that deleted
+        # stale admin.* RolePagePermission rows for director/EM left over by
+        # environments that ran seed_permissions BEFORE AD-15. That migration
+        # was squashed out of the applied migration graph by the
+        # schema-collapse refactor (932d950) — it is no longer importable as
+        # `apps.core.migrations.0016_demote_existing_director`. The archived
+        # source is kept for reference at
+        # backend/_pre_collapse_backup/core/0016_demote_existing_director.py
+        # but must not be reintroduced into apps/core/migrations/.
+        #
+        # The rule it enforced (director/EM lose admin.* pages) now lives
+        # directly in seed_permissions.PAGE_DEFAULTS. But plain
+        # `seed_permissions` uses get_or_create and — by design (see its
+        # module docstring: "without --reset it only inserts missing rows")
+        # — will NOT repair an already-stale is_visible=True row. The current
+        # remediation path for stale data is `seed_permissions --reset`,
+        # which this test exercises directly.
         from apps.core.models import RolePagePermission
-        from apps.core.migrations import (
-            __name__ as migrations_pkg,  # noqa: F401  ensure package importable
-        )
-        from importlib import import_module
-        from django.apps import apps as django_apps
 
-        # Seed two stale rows that mimic the pre-AD-15 director/EM defaults.
+        # Plant stale rows that mimic the pre-AD-15 director/EM defaults.
         RolePagePermission.objects.update_or_create(
             role='director', page_code='admin.permissions',
             defaults={'is_visible': True},
@@ -326,24 +338,29 @@ class LastAdminGuardTests(TestCase):
             defaults={'is_visible': True},
         )
 
-        # Import the migration module directly and invoke its forward function.
-        mig = import_module('apps.core.migrations.0016_demote_existing_director')
-        mig.demote_director_and_em(django_apps, schema_editor=None)
+        call_command('seed_permissions', reset=True)
 
-        # All three stale rows should be gone.
+        # --reset deletes and recreates every page_code per role, so the rows
+        # still exist afterward — but must now be is_visible=False.
         self.assertFalse(
-            RolePagePermission.objects.filter(role='director', page_code__startswith='admin.').exists(),
-            'Migration 0016 did not delete admin.* rows for director',
+            RolePagePermission.objects.filter(
+                role='director', page_code__startswith='admin.', is_visible=True,
+            ).exists(),
+            'seed_permissions --reset did not clear stale admin.* rows for director',
         )
         self.assertFalse(
-            RolePagePermission.objects.filter(role='export_manager', page_code='admin.permissions').exists(),
-            'Migration 0016 did not delete admin.permissions row for EM',
+            RolePagePermission.objects.filter(
+                role='export_manager', page_code='admin.permissions', is_visible=True,
+            ).exists(),
+            'seed_permissions --reset did not clear the stale admin.permissions row for EM',
         )
 
-        # Re-running must be a no-op (idempotency).
-        mig.demote_director_and_em(django_apps, schema_editor=None)
+        # Re-running must be idempotent.
+        call_command('seed_permissions', reset=True)
         self.assertFalse(
-            RolePagePermission.objects.filter(role='director', page_code__startswith='admin.').exists(),
+            RolePagePermission.objects.filter(
+                role='director', page_code__startswith='admin.', is_visible=True,
+            ).exists(),
         )
 
     def test_string_role_payload_blocked_by_last_admin_guard(self):

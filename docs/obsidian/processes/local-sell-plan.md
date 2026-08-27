@@ -14,10 +14,11 @@ Each export firm plans how many kg of tomatoes it will sell domestically per day
 
 ```mermaid
 flowchart TD
-    A["User enters Mon-Sat\nplanned domestic kg per firm"] --> B["Submits plan\n(draft → submitted)"]
-    B --> C{"Manager reviews"}
-    C -->|Approve| D["Plan approved"]
-    C -->|Reject| E["Rejected with note"]
+    A["Seller types a day cell\n(autosaves on blur)"] --> B["First non-zero save\nauto-submits the week\n(draft → submitted)"]
+    B --> H["Days still EMPTY stay fillable\nFilled days lock to the writer"]
+    H --> C{"Manager reviews"}
+    C -->|Approve| D["Plan approved — FROZEN\nfor every role"]
+    C -->|Reject| E["Rejected with note\n(everything editable again)"]
     E --> A
     D --> F["Approved plan_kg feeds into\n[[quota-management]] dashboard"]
     F --> G["local_sales_kg × 10\n= expected quota"]
@@ -29,6 +30,49 @@ Same `PLAN_TRANSITIONS` pattern as harvest plans:
 - `draft` → `submitted`
 - `submitted` → `approved`, `rejected`
 - `rejected` → `submitted` (resubmit)
+- `approved` → **nothing** (terminal)
+
+### Autosave, auto-submit, and the two locks (2026-08-23)
+
+Two owner reports (`docs/IDEAS.md` #3 and #4) turned PATCH into the only write path
+that matters. There is **no Send button** any more, and the edit rule is per CELL,
+not per row:
+
+| Row status | What a writer (`LOCAL_SELL_WRITE`) may do | What an approver (`LOCAL_SELL_APPROVE`) may do |
+|---|---|---|
+| `draft` / `rejected` | Edit every day. The first save carrying a value > 0 **auto-submits the week**. | Same. |
+| `submitted` | Fill days still at **0**; days that already hold a value are locked. | Everything, via the grid's double-click override (audited as `local_sell_edit`). |
+| `approved` | **Nothing.** | **Nothing** — admin included. |
+
+Both refusals are **409**, not 400 — nothing is wrong with the payload, the row's
+state forbids the write:
+
+| `error` | Meaning |
+|---|---|
+| `plan_approved_locked` | The plan is approved. Checked before any field comparison, so a PATCH of `export_firm` or `week_number` is refused too. Fixing a wrongly-approved week now needs Django admin or SQL — there is deliberately no un-approve action. |
+| `cell_locked_after_submit` | At least one day in the payload already holds a value on a submitted row. Body carries `fields` with the offending column names; **nothing is written** — one locked field refuses the whole PATCH. |
+
+> [!note] "Empty" means `0`, not NULL
+> The six `*_plan_kg` columns are `default=0` NOT NULL, so `0` is the only way the DB
+> can spell "never filled in". A deliberate *zero kg on Wednesday* is indistinguishable
+> from an untouched day and stays editable until approval. Two older consumers already
+> read `0` that way — `submit_local_sell_plan` (needs ≥1 day `> 0`) and
+> `_week_is_complete` (an all-zero draft is "nothing to sell", not a blocker) — so the
+> lock rule reuses their convention rather than adding a nullable encoding.
+
+> [!warning] The cell that sends the week locks itself
+> `autosave + auto-submit` and `fill-empties` combine into one sharp edge: the first
+> value a seller types both submits the week and locks that cell. Only an approver can
+> change it afterwards (double-click override), or a reject, which reopens the row. The
+> grid's lock tooltip names who to ask; that naming is the whole difference between
+> "locked" and "broken".
+
+**Where it lives**: the rule itself is the pure model method
+`WeeklyLocalSellPlan.locked_day_fields(is_approver=...)`
+(`backend/apps/export/models/local_sell_plan.py`); `perform_update` applies it and raises
+`LocalSellPlanLocked` (`views_planning.py`). The frontend mirror is
+`frontend/src/pages/export/LocalSellPlanGrid.cells.ts` — its `value > 0` predicate must
+stay byte-for-byte identical or cells render editable and then 409 on blur.
 
 ## Database
 
@@ -67,13 +111,19 @@ These use the shared `core/services_workflow.py` helpers: `validate_transition()
 |--------|----------|--------|
 | GET | `/api/v1/export/local-sell-plans/` | List (filterable) |
 | POST | `/api/v1/export/local-sell-plans/` | Create |
-| PATCH | `/api/v1/export/local-sell-plans/{id}/` | Update |
+| PATCH | `/api/v1/export/local-sell-plans/{id}/` | Update one or more day cells. Autosave path. Enforces the two locks (409 `plan_approved_locked` / `cell_locked_after_submit`) and **auto-submits** a draft/rejected row whose save leaves ≥1 day > 0 |
 | POST | `/api/v1/export/local-sell-plans/{id}/submit/` | Submit |
 | POST | `/api/v1/export/local-sell-plans/{id}/approve/` | Approve |
 | POST | `/api/v1/export/local-sell-plans/{id}/reject/` | Reject |
 | POST | `/api/v1/export/local-sell-plans/bulk-submit/` | Submit every draft/rejected row by id |
 | POST | `/api/v1/export/local-sell-plans/bulk-approve/` | Approve every submitted row by id |
 | POST | `/api/v1/export/local-sell-plans/initialize-week/` | Seed an all-zero draft row per active export firm |
+
+> [!note] `submit/` and `bulk-submit/` are UI-dead but still live
+> PATCH auto-submits, so nothing in the grid calls them any more. The endpoints, the
+> `submit_local_sell_plan` service and the `useBulkSubmitLocalSellPlans` hook all stay —
+> they are still covered by `tests_local_sell_plan_tasks` and `tests_season_freeze`, and
+> the service is what PATCH itself calls to auto-submit.
 
 > [!warning] An ISO week belongs to exactly ONE season, and the season FK can drift from it
 > `weekly_local_sell_plans` is **UNIQUE (export_firm_id, week_number, year)** — no season in
@@ -103,7 +153,13 @@ These use the shared `core/services_workflow.py` helpers: `validate_transition()
 | Gate | Roles | Guards |
 |------|-------|--------|
 | `LOCAL_SELL_WRITE` | admin, export_manager, director, **seller** | create, update, `bulk-submit`, **`initialize-week`** |
-| `LOCAL_SELL_APPROVE` | admin, export_manager, director | `approve`, `reject`, `bulk-approve`, editing a submitted/approved row |
+| `LOCAL_SELL_APPROVE` | admin, export_manager, director | `approve`, `reject`, `bulk-approve`, and overriding an **already-filled** day on a *submitted* row |
+
+> **An approved row is not an APPROVE-role privilege — it is closed to everyone**
+> (2026-08-23, `docs/IDEAS.md` #3). `LOCAL_SELL_APPROVE` used to double as "may edit a
+> locked row", which is exactly the defect that was reported: export_manager and
+> document_team could still rewrite an approved week. The role now buys the *submitted*
+> override only.
 
 > **`initialize-week` moved APPROVE → WRITE on 2026-08-23** (owner request). The seller
 > owns the sell plan and must be able to open their own week rather than wait for an
@@ -120,9 +176,21 @@ These use the shared `core/services_workflow.py` helpers: `validate_transition()
 
 Embedded within the [[quota-management]] QuotaDashboard page (not a standalone route).
 
-**Grid structure**: Rows = export firms, Columns = Mon-Sat (plan + actual), Total, Status
+**Grid structure**: Rows = export firms, Columns = Mon-Sat plan, Total, Status
 
-**User interactions**: Same as [[weekly-harvest-planning]] but per firm instead of per block.
+**User interactions**: type in a cell, blur saves (`useUpsertLocalSellPlan` → PATCH). No
+Send button. A cell renders in one of three modes, decided by `cellMode()` in
+`LocalSellPlanGrid.cells.ts`:
+
+| Mode | Renders as | When |
+|---|---|---|
+| `edit` | `InputNumber`, placeholder `—` for an untouched day | draft/rejected, or a still-empty day on a submitted row |
+| `unlockable` | Muted number, **double-click** to edit | submitted + already filled + viewer is an approver |
+| `locked` | Muted number with a tooltip naming the reason **and who can change it** | approved (everyone), or submitted + filled + viewer is the writer, or no write permission / closed season |
+
+A 409 on save is decoded by `saveErrorKey()` — the endpoint answers 409 for three
+different reasons (`plan_approved_locked`, `cell_locked_after_submit`, and core's
+`season_closed`), and each sends the operator to a different person.
 
 **A closed season beats every role.** `canEdit` and `isManager` are both ANDed with
 `useSeasonReadOnly()`, the same rule the Sheet, the Weekly Plan grid and the shipment
@@ -133,8 +201,8 @@ button renders enabled on a closed season and `assert_season_id_open` 409s on cl
 **Toolbar**: week stepper (◀ / week picker / ▶). "Initialize Week" appears only for a
 current-or-future week with **zero** rows and is gated on `canEdit`
 (`canDoBackendGated(user, 'local_sell_plan', 'edit')`) — the frontend mirror of
-`LOCAL_SELL_WRITE`, so the seller sees it. "Submit all" is `canEdit`; "Approve all" stays
-`isManager`.
+`LOCAL_SELL_WRITE`, so the seller sees it. **"Submit all" was removed on 2026-08-23** —
+cells autosave and the first non-zero save sends the week. "Approve all" stays `isManager`.
 
 **Which season it writes to**: `useSelectedSeason()` — the season the header switcher is
 pointed at, the same id `useLocalSellPlans` lists by. It previously read
@@ -150,12 +218,15 @@ The `services_quota.py` functions `fetch_plan_rows()` and `aggregate_local_sales
 
 ## Roles & Permissions
 
-| Role | View | Edit | Submit | Approve/Reject |
-|------|------|------|--------|----------------|
-| `export_manager` | Yes | Yes | Yes | Yes |
-| `director` | Yes | Yes | Yes | Yes |
-| `seller` | Own firm only | Own firm | Yes | No |
-| Others | No | No | No | No |
+| Role | View | Edit a draft/rejected day | Edit a **filled** day on a submitted row | Edit an **approved** row | Approve/Reject |
+|------|------|------|------|------|----------------|
+| `export_manager` | Yes | Yes | Yes (override, audited) | **No** | Yes |
+| `director` | Yes | Yes | Yes (override, audited) | **No** | Yes |
+| `admin` | Yes | Yes | Yes (override, audited) | **No** | Yes |
+| `seller` | Own firm only | Own firm | No — empty days only | **No** | No |
+| Others | No | No | No | No | No |
+
+Submit is no longer a column: every writer submits implicitly, by typing.
 
 `seller` may also **initialize a week** (since 2026-08-23) — see the role-gate table above.
 

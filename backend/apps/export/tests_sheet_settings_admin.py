@@ -714,3 +714,157 @@ class SheetRowSettingWhoOverrideTests(TestCase):
         weight_net_settings = sheet_resp.data['row_settings'].get('weight_net')
         # On a freshly-provisioned row, who_tk/_ru/_en are all empty → block is null
         self.assertIsNone(weight_net_settings['who'])
+
+
+class SheetRowRoleGroupTests(TestCase):
+    """`role_group` — the admin override for the Sheet's role-block grouping.
+
+    Frontend behaviour (which block a row renders in, band labels, the
+    override-beats-static-map tier) is covered by
+    `frontend/src/components/sheet/sheetRoleBlocks.test.ts`. What is pinned
+    here is the server half that file cannot see: that the value round-trips
+    through the admin endpoint, reaches the /sheet/ payload for BOTH default
+    and custom rows, and rejects a role code that isn't real.
+
+    Migration 0063's backfill and the who-key → role table live in
+    `tests_sheet_row_role_group.py`.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command('seed_permissions')
+        cls.director = _create_user('rg_director', 'director')
+        cls.viewer = _create_user('rg_viewer', 'viewer')
+
+    def setUp(self):
+        self.client = APIClient()
+        SheetRowSetting.objects.all().delete()
+        self.client.force_authenticate(user=self.director)
+
+    def _sheet_row(self, field_key: str) -> dict | None:
+        resp = self.client.get('/api/v1/export/shipments/sheet/')
+        self.assertEqual(resp.status_code, 200, resp.data)
+        for row in resp.data['rows']:
+            if row['field_key'] == field_key:
+                return row
+        return None
+
+    # ── PATCH round-trip ─────────────────────────────────────────────────────
+
+    def test_patch_role_group_persists_and_bumps_version(self):
+        data = _provision(self.client, self.director)
+        row = _by_key(data, 'weight_net')
+
+        resp = self.client.patch(
+            f'{_BASE}{row["id"]}/',
+            {'role_group': 'transport', 'version': row['version']},
+            format='json',
+        )
+
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(resp.data['role_group'], 'transport')
+        self.assertEqual(resp.data['version'], row['version'] + 1)
+        self.assertEqual(
+            SheetRowSetting.objects.get(pk=row['id']).role_group, 'transport'
+        )
+
+    def test_patch_role_group_rejects_an_unknown_role_code(self):
+        """Relies on the model's `choices=ROLE_CHOICES`. Pinned because a typo
+        would group rows under a block no user is ever in — invisible rows, no
+        error anywhere."""
+        data = _provision(self.client, self.director)
+        row = _by_key(data, 'weight_net')
+
+        resp = self.client.patch(
+            f'{_BASE}{row["id"]}/',
+            {'role_group': 'not_a_role', 'version': row['version']},
+            format='json',
+        )
+
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertIn('role_group', resp.data)
+        self.assertEqual(SheetRowSetting.objects.get(pk=row['id']).role_group, '')
+
+    def test_patch_role_group_back_to_blank_is_allowed(self):
+        """Clearing the override must be possible — blank is what returns the
+        row to the frontend's static who-key mapping."""
+        data = _provision(self.client, self.director)
+        row = _by_key(data, 'weight_net')
+        self.client.patch(
+            f'{_BASE}{row["id"]}/',
+            {'role_group': 'transport', 'version': row['version']},
+            format='json',
+        )
+
+        resp = self.client.patch(
+            f'{_BASE}{row["id"]}/',
+            {'role_group': '', 'version': row['version'] + 1},
+            format='json',
+        )
+
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(SheetRowSetting.objects.get(pk=row['id']).role_group, '')
+
+    def test_viewer_cannot_patch_role_group(self):
+        data = _provision(self.client, self.director)
+        row = _by_key(data, 'weight_net')
+
+        self.client.force_authenticate(user=self.viewer)
+        resp = self.client.patch(
+            f'{_BASE}{row["id"]}/',
+            {'role_group': 'transport', 'version': row['version']},
+            format='json',
+        )
+
+        self.assertEqual(resp.status_code, 403, resp.data)
+
+    # ── /sheet/ payload ──────────────────────────────────────────────────────
+
+    def test_sheet_payload_carries_the_override_for_a_default_row(self):
+        data = _provision(self.client, self.director)
+        row = _by_key(data, 'weight_net')
+        self.client.patch(
+            f'{_BASE}{row["id"]}/',
+            {'role_group': 'finansist', 'version': row['version']},
+            format='json',
+        )
+
+        sheet_row = self._sheet_row('weight_net')
+
+        self.assertIsNotNone(sheet_row)
+        self.assertEqual(sheet_row['role_group'], 'finansist')
+
+    def test_sheet_payload_role_group_is_null_when_unset(self):
+        """The frontend branches on null to fall back to WHO_KEY_ROLE — an
+        empty string would be a truthy-looking value in neither language, but
+        the contract is null, so pin it."""
+        _provision(self.client, self.director)
+
+        sheet_row = self._sheet_row('weight_net')
+
+        self.assertIsNotNone(sheet_row)
+        self.assertIsNone(sheet_row['role_group'])
+
+    def test_sheet_payload_carries_the_override_for_a_custom_row(self):
+        """The point of the feature: a custom row has no default_who_key to
+        group by ('sheet.who.custom' maps to no role), so role_group is the
+        ONLY way it can land in a real block."""
+        _provision(self.client, self.director)
+        create = self.client.post(
+            _BASE,
+            {'field_key': 'custom_seal_check', 'label_en': 'Seal check'},
+            format='json',
+        )
+        self.assertEqual(create.status_code, 201, create.data)
+        created = create.data
+        self.client.patch(
+            f'{_BASE}{created["id"]}/',
+            {'role_group': 'transport', 'version': created['version']},
+            format='json',
+        )
+
+        sheet_row = self._sheet_row('custom_seal_check')
+
+        self.assertIsNotNone(sheet_row, 'custom row missing from /sheet/ rows')
+        self.assertEqual(sheet_row['role_group'], 'transport')
+        self.assertEqual(sheet_row['default_who_key'], 'sheet.who.custom')

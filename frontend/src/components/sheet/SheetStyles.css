@@ -780,3 +780,68 @@
 .sheet-cell__comment-hint:hover {
   color: #1677ff !important;
 }
+
+/* ═══ ROLE BLOCKS (who-key bands) ═══
+   The Sheet is transposed, so one role's fields are a contiguous run of ROWS.
+   Each run is headed by a band row: a tinted stripe across the full grid width
+   whose label rides the sticky-left frozen band. Placement lives in
+   sheetRoleBlocks.ts; this is only the chrome. */
+.sheet-role-band {
+  display: flex;
+  min-width: max-content;
+  background: var(--gray-100);
+  border-top: 2px solid var(--border-strong);
+  border-bottom: 1px solid var(--border);
+}
+
+.sheet-role-band__label {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: calc(6px * var(--sheet-zoom, 1));
+  padding: 0 calc(8px * var(--sheet-zoom, 1));
+  flex-shrink: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  background: var(--gray-100);
+  border-right: 1px solid var(--border-strong);
+  font-size: calc(10px * var(--sheet-zoom, 1));
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gray-700);
+}
+
+.sheet-role-band__count {
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--gray-400);
+}
+
+/* Own-block marker. Only rendered when it discriminates — a user who may edit
+   every block gets no marker at all (see SheetGrid's bandIsMine). */
+.sheet-role-band__mine {
+  padding: 0 calc(5px * var(--sheet-zoom, 1));
+  border-radius: 8px;
+  background: var(--blue-500);
+  color: #fff;
+  font-size: calc(9px * var(--sheet-zoom, 1));
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.sheet-role-band__fill {
+  flex-shrink: 0;
+}
+
+.sheet-role-band--mine {
+  background: var(--blue-50);
+  border-top-color: var(--blue-500);
+}
+
+.sheet-role-band--mine .sheet-role-band__label {
+  background: var(--blue-50);
+  color: var(--blue-700);
+}

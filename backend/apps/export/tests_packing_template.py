@@ -21,6 +21,7 @@ class PackingTemplateApiTest(TestCase):
     def setUp(self):
         self.mgr = User.objects.create_user(username='mgr_pt', password='p', role='export_manager')
         self.reader = User.objects.create_user(username='seller_pt', password='p', role='seller')
+        self.doc = User.objects.create_user(username='doc_pt', password='p', role='document_team')
         self.client = APIClient()
 
     def _list(self):
@@ -65,3 +66,38 @@ class PackingTemplateApiTest(TestCase):
         self.assertEqual(self.client.get(self._list()).status_code, 200)
         self.assertEqual(
             self.client.post(self._list(), self._payload(), format='json').status_code, 403)
+
+    def test_document_team_has_full_crud(self):
+        """document_team owns the gross-net catalog (permission matrix, 2026-08-27).
+
+        Guards the `packing_template` resource grant end-to-end: the seed row, the
+        registry entry, and `resource_write_permission` on the ViewSet. A hardcoded
+        role tuple would fail every assertion below.
+        """
+        self.client.force_authenticate(self.doc)
+        self.assertEqual(self.client.get(self._list()).status_code, 200)
+
+        created = self.client.post(self._list(), self._payload(), format='json')
+        self.assertEqual(created.status_code, 201)
+
+        url = reverse('packing-template-detail', kwargs={'pk': created.data['id']})
+        self.assertEqual(self.client.patch(url, {'name': 'renamed'}, format='json').status_code, 200)
+        self.assertEqual(self.client.delete(url).status_code, 204)
+
+    def test_reader_role_keeps_open_read_after_matrix_gate(self):
+        """Roles with NO packing_template row must still GET the catalog.
+
+        The Sheet packing panel lists templates for every role that picks one on a
+        truck, so switching the write gate to the permission matrix must not gate
+        reads (that is why DynamicResourcePermission is deliberately not used here).
+        """
+        self.client.force_authenticate(self.reader)
+        detail = PackingTemplate.objects.create(
+            name='read-open', product_type='tomato', net_kg=Decimal('18000'),
+            gross_kg=Decimal('20472'), box_count=2912,
+            pallet_count=Decimal('33'), pallet_weight_kg=Decimal('412'),
+        )
+        url = reverse('packing-template-detail', kwargs={'pk': detail.pk})
+        self.assertEqual(self.client.get(url).status_code, 200)
+        self.assertEqual(self.client.patch(url, {'name': 'x'}, format='json').status_code, 403)
+        self.assertEqual(self.client.delete(url).status_code, 403)

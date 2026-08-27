@@ -1,5 +1,14 @@
 # Pre-existing test failures (not caused by schema-collapse refactor)
 
+> ⚠️ **2026-08-23 — do not use `--keepdb`.** A verifier run was killed mid-migration, so the shared
+> `test_YIGIT_PLATFROM` database may be half-migrated. Run the suite with `--noinput` so Django rebuilds it.
+> A scratch `test_YGT_VERIFY` database is also left on localhost and is safe to drop.
+>
+> This inventory is also **stale in the project's favour**: `tests_field_history`, `SalesReportTest`,
+> `EndpointSmokeTests` and all of `test_config_api` no longer fail. Measured 2026-08-23:
+> 42 failures of 1742 across `apps.export apps.core apps.greenhouse`, not 71 of 351.
+
+
 After the schema-collapse refactor (`refactor/collapse-schemas-to-dbo`), the
 test suite behaves identically with respect to the schema layer:
 
@@ -12,7 +21,50 @@ The failures inventoried below pre-date the refactor. They were broken on
 This document groups them by root cause so they can be addressed in a
 follow-up cleanup session.
 
-**Latest counts:** 23 failures + 48 errors = **71 of 351 tests** failing.
+**Latest counts (2026-08-27, `apps.export apps.core apps.transport apps.greenhouse`,
+`DJANGO_TESTING=true`, fresh test DB):** measured at **42 of 1832**, then
+**27 of those were fixed the same day** — see "Fixed 2026-08-27" below.
+
+| | Count | Status |
+|---|---|---|
+| `tests_pallet_manifest` — stale `Season.year` (**was misfiled under C1**) | 15 | **FIXED** |
+| `tests_comments` — C3, `_make_shipment` without `status` | 11 | **FIXED** |
+| `tests_permission_matrix` — C4, deleted migration `0016` | 1 | **FIXED** |
+| `tests_boss_analytics` — C2, dropped `WeeklyHarvestPlan.*_plan_kg` | 6 | open |
+| `tests_shipment_sheet` / `tests_shipment_swap` / `tests_task_engine` — C6 | 9 | open |
+| **Remaining** | **15 of 1832** | |
+
+`apps.transport` contributed zero. The older "71 of 351" figure below predates the
+schema collapse and the suite's growth — kept only for the category write-ups, not
+as a count.
+
+---
+
+## Fixed 2026-08-27
+
+Verified together in one process: `Ran 51 tests … OK`. Test files only — no
+production code, models or migrations were touched, because none of the three was
+a production bug.
+
+1. **`tests_pallet_manifest` (15).** `_make_shipment` called
+   `Season.objects.get_or_create(year=2025, …)`; `Season` has no `year` field.
+   Replaced with the `name` / `start_date` / `end_date` shape. Two lines.
+2. **`tests_comments` (11 of the module's 13).** `_make_shipment` created a
+   `Shipment` with no `status` against a NOT NULL `status_id`. Added a `draft`
+   `ShipmentStatusType` fixture and passed it.
+3. **`tests_permission_matrix` (1).** The test imported
+   `apps.core.migrations.0016_demote_existing_director`, which the schema-collapse
+   refactor (`932d950`) archived to `backend/_pre_collapse_backup/core/` along with
+   all 56 pre-collapse migrations. The rule it guarded — director loses `admin.*`,
+   EM loses `admin.permissions` — now lives in `seed_permissions.PAGE_DEFAULTS`, so
+   the test was re-pointed at `seed_permissions --reset` and renamed
+   `test_seed_permissions_reset_clears_stale_admin_rows_for_director_and_em`.
+   **`--reset`, not plain seed:** plain `seed_permissions` is `get_or_create` and by
+   design will not repair an already-stale `is_visible=True` row, so a plain-seed
+   retarget would have duplicated the existing
+   `test_director_em_have_no_admin_pages_visible_after_seed` and guarded nothing.
+   Assertions moved from "row deleted" to "`is_visible=False`", since `--reset`
+   recreates rows rather than removing them.
 
 ---
 
@@ -39,7 +91,13 @@ def setUpTestData(cls):
 
 - `apps.export.tests_field_history.FieldHistoryTests.*` (4)
 - `apps.export.tests.SalesReportTest.test_sales_report_*` (4)
-- `apps.export.tests_pallet_manifest.*` (most of 15 — partial; some hit other issues too)
+- ~~`apps.export.tests_pallet_manifest.*`~~ — **re-measured 2026-08-27: this was a
+  misattribution.** All 15 fail in `setUp`, before any request, on
+  `Season.objects.get_or_create(year=2025, …)` at `tests_pallet_manifest.py:42`
+  — `Season` has no `year` field (`name` / `start_date` / `end_date` /
+  `is_active`). `django.core.exceptions.FieldError: Cannot resolve keyword
+  'year' into field`. Fixing that one line recovers all 15; it is the single
+  highest-payoff repair in this document.
 
 ---
 
@@ -130,7 +188,10 @@ or the test module is using an outdated path. Need to compare
 - `apps.core.tests.test_config_api.GreenhouseConfigGetTests.test_get_config_*` (2)
 - `apps.core.tests.test_config_api.GreenhouseConfigPatchTests.test_patch_config_*` (8)
 - `apps.core.tests.test_config_api.OperatingDayExceptionCreateTests.test_create_exception_*` (3)
-- `apps.core.tests_permission_matrix.LastAdminGuardTests.test_migration_0016_deletes_stale_admin_rows_for_director_and_em` (1 — also references a removed migration name)
+- ~~`apps.core.tests_permission_matrix.LastAdminGuardTests.test_migration_0016_deletes_stale_admin_rows_for_director_and_em`~~
+  — **FIXED 2026-08-27.** That test no longer exists; it is now
+  `test_seed_permissions_reset_clears_stale_admin_rows_for_director_and_em`. See
+  "Fixed 2026-08-27" above.
 
 ---
 
@@ -146,6 +207,56 @@ This was the only pre-existing failure category that the refactor's seed
 guards mitigated. The other 4 categories are unchanged.
 
 ---
+
+## Category 6 — tests that were never updated for a rule that landed later
+
+**Measured 2026-08-27** on the uncommitted working tree AND re-verified against a
+clean `HEAD` (`92477b6`) worktree — identical failures on both, so they are not
+caused by any work in flight. 9 tests, in three unrelated groups:
+
+**`apps.export.tests_shipment_sheet.SheetJunctionEndpointTests` (5)**
+`400 {"error": "… has no remaining quota and cannot be added to the split."}`
+where the test expects 200. `POST /shipments/{id}/firm-splits/` gained a quota
+check; these `setUp`s allocate no quota. The CHANGELOG records fixing
+`tests_shipment_join.py::test_loading_dept_head_draft_persists_firm_splits` for
+the same rule — this module was missed. Fix: allocate quota in `setUp`, same
+pattern as the join test.
+
+- `test_firm_splits_auto_fill_official_kg`
+- `test_firm_splits_auto_fill_official_kg_three_firms`
+- `test_firm_splits_falls_back_when_no_seed_row`
+- `test_firm_splits_quota_usage_matches_auto_filled_split_weight`
+- `test_firm_splits_replaces_and_creates_draft_quota_usage`
+
+**`apps.export.tests_shipment_swap` (3)**
+`SwapPermissionDeniedTests` (2) assert the denied field's name appears in the
+error body, but the response is DRF's generic
+`'You do not have permission to perform this action.'`.
+`SwapConcurrencyTest.test_concurrent_swaps_do_not_crash` asserts `0 >= 1`.
+
+**`apps.export.tests_task_engine.TransitionToGenerationTests` (1)**
+`ValueError: Cannot transition from 'draft' to 'yuklenme'. Allowed:
+['gumruk_girish', 'cancelled']` — the test drives an edge `TRANSITIONS` does not
+have. Fix the test, not the graph (`transition_to()` is behaving correctly).
+
+---
+
+## ⚠️ `DJANGO_TESTING=true` is required on the command line
+
+Category 5's guard only fires when the env var is set, and it is in no runbook.
+Omitting it on a fresh test database manufactured **~48 phantom failures** on
+2026-08-27 (74 total instead of 42), every one a
+`pyodbc.IntegrityError … Violation of UNIQUE KEY constraint`:
+`tests_official_code_validator` (17), `tests_pallet_manifest` (15),
+`tests_season_services` (7), `tests_supply_draft` (4), `tests_completeness` (2),
+`tests_field_history` (1).
+
+```bash
+cd backend && DJANGO_TESTING=true ./venv/Scripts/python.exe manage.py test <labels> --noinput
+```
+
+---
+
 
 ## Why these are pre-existing
 

@@ -280,8 +280,15 @@ comes back.
 
 ## REST Surface
 
-`GET /api/v1/transport/live-positions/` — `IsAuthenticated`, no role gate, no pagination
-(bare list — bounded to one row per device). Reads `DevicePosition.objects.filter(valid=True)`
+`GET /api/v1/transport/live-positions/` — `IsAuthenticated` + `CanViewFleetMap`, no
+pagination (bare list — bounded to one row per device). `CanViewFleetMap`
+(`backend/apps/transport/permissions.py`) is a **deny-list**: every authenticated user
+passes except the roles in `FLEET_MAP_DENIED_ROLES`, currently `{'seller'}`, and
+superusers bypass it. Deny-list rather than allow-list on purpose — a role added to
+`ROLE_CHOICES` later must not lose the map by omission, and an allow-list would be a
+second copy of the 14-role array in `AppLayout.tsx` that drifts against it. This is the
+**only** transport endpoint with a role gate; the rest of the module is finding F5's
+territory and is unchanged. Reads `DevicePosition.objects.filter(valid=True)`
 with `select_related('device', 'device__truck')`; never calls Traccar.
 
 Response item shape (`LivePositionSerializer`, DB columns → API field names per
@@ -308,16 +315,26 @@ Response item shape (`LivePositionSerializer`, DB columns → API field names pe
 
 Route `/transport/map`, nav entry "Fleet Map" (`nav.fleet_map`, Turkmen/Russian/English —
 `fleet_map.*` keys in all three locale files). **No `transport.map` page_code registered
-yet** — same bypass as `worklog`/`team/kpi`: `ProtectedRoute` with no `pageCode`, open to
-every authenticated role (see `frontend/src/App.tsx`, `AppLayout.tsx`).
+yet** — the nav item carries an inline `roles` list that bypasses `canSeePage`, and the
+ROUTE is `ProtectedRoute` with no `pageCode` (see `frontend/src/App.tsx`, `AppLayout.tsx`).
 
-> **`seller` is excluded from the nav entry** (owner request, 2026-08-23). Unlike
-> `worklog` and `team/kpi`, this is not an every-authenticated-user grant: the seller
-> works one screen — the [[local-sell-plan]] grid — and has no shipments, no fleet and
-> no reason to watch trucks move. The exclusion lives in `AppLayout.tsx`'s inline
-> `roles` list for `/transport/map`; the ROUTE is still a bare `<ProtectedRoute>`, so a
-> typed URL reaches it. Narrowing the route means registering a `transport.map`
-> page_code (the follow-up already noted at the end of this file).
+> **`seller` cannot use this page** (owner request, 2026-08-23). Unlike `worklog` and
+> `team/kpi`, this is not an every-authenticated-user grant: the seller works one
+> screen — the [[local-sell-plan]] grid — and has no shipments, no fleet and no reason
+> to watch trucks move. Enforced in **two places, only one of which is a boundary**:
+>
+> | Layer | Where | What it does |
+> |---|---|---|
+> | Nav item | `AppLayout.tsx` inline `roles` list for `/transport/map` (de01b15) | The link is not rendered. Presentation only. Pinned by the *fleet map visibility* tests in `AppLayout.menuGroups.test.tsx`. |
+> | Endpoint | `CanViewFleetMap` on `LivePositionViewSet` (2026-08-23) | `GET /transport/live-positions/` returns **403**. This is the real boundary. Pinned by `apps/transport/tests/test_fleet_map_access.py`. |
+>
+> The route itself is deliberately left ungated: a typed URL still renders the page
+> shell, but with the endpoint 403ing, a seller sees the `fleet_map.load_error` alert
+> instead of live truck positions. A client bundle is not a security boundary, so
+> route-gating would add a 14-role allow-list in `App.tsx` (a third copy of the role
+> knowledge) to buy a nicer error screen for a page the seller has no link to. Not done.
+> Registering a `transport.map` page_code would collapse all three copies into the
+> permission matrix — see Out of Scope for why that is still deferred.
 
 `react-leaflet@4.2.1` + OpenStreetMap tiles (`VITE_MAP_TILE_URL` env override, default
 `{s}.tile.openstreetmap.org`), default view centred on Ashgabat
@@ -676,6 +693,15 @@ is edited). Full shapes: [[../reference/api-endpoint-map|API endpoint map]].
 
 ## Out of Scope (this slice)
 
+- **No `transport.map` page_code.** Still not registered, now with a recorded reason:
+  a brand-new page_code lands in the live permission matrix with **zero** rows, and
+  `canSeePage` / the seed both treat an absent row as *deny* — so shipping the frontend
+  ahead of a data migration would hide the Fleet Map from all 14 other roles and 403 the
+  endpoint for everyone but superusers. `seed_permissions` only `get_or_create`s and can
+  never flip an existing row (finding F13), so the grant would have to ship as a data
+  migration in the same release as the bundle. That is a disproportionate amount of
+  machinery for excluding one role, which `CanViewFleetMap`'s deny-list already does.
+  Revisit if a second role needs excluding or if the matrix UI has to own this page.
 - **No position history** — `DevicePosition` is upsert-latest-only, one row per device.
   A trail/history table would be a separate model + endpoint.
 - **No geofence-driven timestamps** — AD-1's shipment lifecycle timestamps are still

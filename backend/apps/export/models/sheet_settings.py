@@ -131,6 +131,21 @@ class SheetRowSetting(models.Model):
             'may edit. Superuser/admin/director bypass this lock always.'
         ),
     )
+    # Admin override for the Sheet's role-block grouping (frontend
+    # components/sheet/sheetRoleBlocks.ts groups rows into a labelled band per
+    # role). Blank = no override — the frontend falls back to its static
+    # who-key→role table (2026-08-24), then to the row's raw who-key. Distinct
+    # from role_triggers/SheetRowRoleTrigger, which grants EDIT access past a
+    # lock; this only decides which visual block a row renders in.
+    role_group = models.CharField(
+        max_length=30,
+        choices=ROLE_CHOICES,
+        blank=True,
+        help_text=(
+            'Which role-block this row groups under in the Sheet. Blank = use '
+            'the frontend default mapping (or none, for a row with no default).'
+        ),
+    )
 
     # === Localized labels (ADR-0008: split columns, not JSONField) ===
     label_tk = models.CharField(

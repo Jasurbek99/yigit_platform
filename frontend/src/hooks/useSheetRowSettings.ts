@@ -42,6 +42,8 @@ export interface ISaveSheetRowPayload {
   description_en?: string;
   is_visible?: boolean;
   is_locked?: boolean;
+  /** Which role-block this row groups under in the Sheet. '' clears the override. */
+  role_group?: string;
   style_width?: number | null;
   style_align?: 'left' | 'center' | 'right' | null;
   style_color?: string | null;

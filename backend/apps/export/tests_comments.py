@@ -21,15 +21,23 @@ def _make_user(username: str, role: str = 'export_manager') -> User:
 
 
 def _make_shipment(author: User) -> Shipment:
-    from apps.core.models import Season
+    from apps.core.models import Season, ShipmentStatusType
     season, _ = Season.objects.get_or_create(
         name='2025',
         defaults={'start_date': '2025-01-01', 'end_date': '2025-12-31'},
+    )
+    status, _ = ShipmentStatusType.objects.get_or_create(
+        code='draft',
+        defaults={
+            'name_en': 'Draft', 'name_tk': 'Draft', 'name_ru': 'Draft',
+            'step_order': 0, 'phase': 'LOADING',
+        },
     )
     return Shipment.objects.create(
         shipment_code='0101001/25',
         date='2025-01-01',
         season=season,
+        status=status,
         created_by=author,
     )
 
@@ -329,10 +337,8 @@ class TestShipmentDetailCommentCount(TestCase):
         from apps.core.models import ShipmentStatusType
 
         self.author = _make_user('count_author')
-        # _make_shipment() leaves status unset, which a NOT NULL constraint on
-        # status_id rejects on MSSQL (a pre-existing, unrelated gap in that
-        # helper) — set status explicitly here, matching
-        # TestDeleteRootCascadesReplies's pattern.
+        # Built inline with an explicit 'yuklenme' status (rather than via
+        # _make_shipment()) to match TestDeleteRootCascadesReplies's pattern.
         season, _ = Season.objects.get_or_create(
             name='2025',
             defaults={'start_date': '2025-01-01', 'end_date': '2025-12-31'},

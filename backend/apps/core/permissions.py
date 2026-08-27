@@ -192,6 +192,46 @@ def write_permission(*roles: str) -> type:
     return _WriteRolePermission
 
 
+def resource_write_permission(resource_code: str) -> type:
+    """DRF permission for a catalog ViewSet whose READS stay open to every
+    authenticated user while its WRITES follow RoleResourcePermission.
+
+    Why not DynamicResourcePermission: that class gates GET on ``can_view``, so
+    every role without a row for ``resource_code`` loses read access. Some
+    catalogs are picked from all over the app (e.g. the packing-template
+    dropdown in the Sheet packing panel), so reads must stay open the way
+    ``write_permission`` leaves them — but the write side belongs in the
+    permission matrix, not in a hardcoded role tuple.
+
+    Maps: POST → can_create, PUT/PATCH → can_edit, DELETE → can_delete.
+    No row for the role → no writes (fail-closed). Superusers bypass.
+
+    Usage:
+        permission_classes = [IsAuthenticated, resource_write_permission('packing_template')]
+    """
+    class _ResourceWritePermission(BasePermission):
+        def has_permission(self, request, view) -> bool:
+            if not request.user or not request.user.is_authenticated:
+                return False
+            if request.method in SAFE_METHODS:
+                return True
+            if getattr(request.user, 'is_superuser', False):
+                return True
+            role = getattr(request.user, 'role', None)
+            if not role:
+                return False
+            perm = get_resource_perm(role, resource_code)
+            if not perm:
+                return False
+            if request.method == 'POST':
+                return perm['can_create']
+            if request.method == 'DELETE':
+                return perm['can_delete']
+            return perm['can_edit']
+
+    return _ResourceWritePermission
+
+
 def firm_write_permission(app_label: str, model_name: str, *bypass_roles: str) -> type:
     """Permission class for model CRUD that supports both role-based and Django permission-based access.
 

@@ -340,9 +340,16 @@ export default function AppLayout() {
       // `seller` is deliberately ABSENT (owner request, 2026-08-23): the seller
       // works one screen, the sell plan, and has no shipments, no fleet and no
       // reason to watch trucks move. Unlike /worklog and /team/kpi below, this
-      // is not an every-authenticated-user grant. The route itself is still
-      // only `<ProtectedRoute>` (App.tsx), so a typed URL still reaches it —
-      // narrowing that is a separate change to a page nothing role-gates today.
+      // is not an every-authenticated-user grant.
+      //
+      // This list is presentation only. The boundary is server-side:
+      // GET /transport/live-positions/ — the one endpoint this page reads —
+      // 403s the seller via `CanViewFleetMap`
+      // (backend/apps/transport/permissions.py). The route stays a bare
+      // `<ProtectedRoute>` in App.tsx, so a typed URL still renders the page
+      // shell; for a seller it now resolves to the load-error alert rather
+      // than to live truck positions. Pinned by the fleet-map visibility
+      // tests in AppLayout.menuGroups.test.tsx.
       roles: [
         'admin', 'export_manager', 'loading_dept_head', 'loading_dept_head_deputy', 'warehouse_chief',
         'weight_master', 'document_team', 'transport', 'sales_rep', 'finansist',

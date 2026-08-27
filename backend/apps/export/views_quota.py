@@ -31,6 +31,7 @@ from apps.export.services_quota import (
     build_quota_dashboard,
     compute_fifo_usage,
     compute_firm_quota_balances,
+    compute_firm_quota_summary,
     empty_quota_dashboard,
     season_of_usage,
     usage_season_q,
@@ -527,6 +528,44 @@ class QuotaFirmBalancesView(APIView):
         data = {str(firm_id): vals for firm_id, vals in balances.items()}
         cache.set(cache_key, data, 60)
         return Response(data)
+
+
+# ---------------------------------------------------------------------------
+# QuotaFirmSummaryView
+# ---------------------------------------------------------------------------
+
+class QuotaFirmSummaryView(APIView):
+    """GET /api/v1/export/quota-firm-summary/?product_type=tomato&season=<id>
+
+    "Which firm holds how much quota right now" — the Firm Quota tab of the
+    quota dashboard. One row per export firm: how many live issuances it still
+    has kg left on, the kg issued / used / remaining on those, and the nearest
+    expiry among them. Sorted by remaining_kg descending.
+
+    Season-scoped (D11) via `resolve_season()`, empty during the close→open gap
+    (D7). Deliberately takes NO date_from/date_to: quota lives roughly a month,
+    so a period filter would hide exactly the live quota being asked about.
+
+    `remaining_kg` is the SAME figure `/quota-firm-balances/` serves the
+    firm-split hard block, from the same service — the tab and the gate cannot
+    disagree about which firm has quota left.
+
+    Uncached, unlike its two siblings: a dashboard tab is low-traffic, and a new
+    cache key would have to be registered in `invalidate_quota_caches()` or
+    issuing a quota would leave the tab stale for a minute.
+
+    Gated on the same resource as the dashboard ('quota_issuance' view).
+    """
+
+    permission_classes = [IsAuthenticated, DynamicResourcePermission]
+    resource_code = 'quota_issuance'
+
+    def get(self, request: Request) -> Response:
+        product_type = request.query_params.get('product_type', 'tomato').lower()
+        season = resolve_season(request)
+        if season is None:
+            return Response([])
+        return Response(compute_firm_quota_summary(product_type, season))
 
 
 def _parse_date(raw: str | None, default: datetime.date, field_name: str) -> datetime.date:

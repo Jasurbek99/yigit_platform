@@ -37,6 +37,7 @@ import {
 } from '@/hooks/useSheetRowSettings';
 import { useAdminUsers } from '@/hooks/useAdmin';
 import { ROLE_CHOICES } from '@/constants/roles';
+import { PINNED_FIELD_KEYS } from '@/components/sheet/sheetRoleBlocks';
 import type { AxiosError } from 'axios';
 import { useQueryClient } from '@tanstack/react-query';
 import { SheetRowStylePopover } from './SheetRowStylePopover';
@@ -529,6 +530,40 @@ export default function SheetRowsTab({ canWrite }: IProps) {
       ),
     },
     {
+      title: (
+        <Tooltip title={t('sheet_rows.role_group_header_hint')}>
+          {t('sheet_rows.col_role_group')}
+        </Tooltip>
+      ),
+      key: 'role_group',
+      width: 170,
+      render: (_: unknown, record: ISheetRowSetting) => {
+        const pinned = PINNED_FIELD_KEYS.has(record.field_key);
+        const select = (
+          <Select
+            size="small"
+            allowClear
+            value={record.role_group || undefined}
+            options={roleOptions}
+            disabled={!canWrite || pinned}
+            onChange={(val: string | undefined) =>
+              handleSave(record, { role_group: val ?? '' })
+            }
+            style={{ width: '100%' }}
+            placeholder={t('sheet_rows.role_group_none')}
+            popupMatchSelectWidth={false}
+            showSearch
+            optionFilterProp="label"
+          />
+        );
+        return pinned ? (
+          <Tooltip title={t('sheet_rows.role_group_pinned_hint')}>{select}</Tooltip>
+        ) : (
+          select
+        );
+      },
+    },
+    {
       title: t('sheet_rows.col_trigger_roles'),
       key: 'triggered_roles',
       width: 220,
@@ -635,7 +670,14 @@ export default function SheetRowsTab({ canWrite }: IProps) {
         pagination={false}
         size="small"
         bordered
-        scroll={{ x: 'max-content' }}
+        // No pagination (all 45 rows must stay reorderable together), so
+        // without a bounded y the table's own scroll container grows to fit
+        // every row — its horizontal scrollbar then sits below the last row,
+        // off-screen until the page is scrolled almost to the bottom. Same
+        // fix as the other long, unpaginated admin tables (PageVisibilityTab,
+        // FieldPermissionsTab): bound the height so the header stays sticky
+        // and the horizontal scrollbar stays reachable near the top.
+        scroll={{ x: 'max-content', y: 'calc(100vh - 420px)' }}
         rowClassName={(record) => (!record.is_visible ? 'sheet-row-hidden' : '')}
       />
       <CustomRowModal

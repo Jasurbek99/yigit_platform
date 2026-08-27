@@ -16,6 +16,7 @@ import {
 } from '@/hooks/useUserSheetPreferences';
 import { SheetToolbar } from '@/components/sheet/SheetToolbar';
 import { SheetGrid } from '@/components/sheet/SheetGrid';
+import { groupRowsByOwner } from '@/components/sheet/sheetRoleBlocks';
 import { CommentsDrawer } from '@/components/comments/CommentsDrawer';
 import '@/components/sheet/SheetStyles.css';
 
@@ -35,11 +36,34 @@ export default function ShipmentSheet() {
   // Phase 2a: per-user row preferences fetched from their own endpoint
   // (with Phase 2b IndexedDB read-through). Separate from the sheet payload
   // so they can be invalidated independently.
-  const { data: userPrefs } = useUserSheetPreferences();
+  const { data: userPrefs, isSuccess: prefsLoaded } = useUserSheetPreferences();
   const userPreferences = {
     row_order: userPrefs?.row_order ?? [],
     hidden_rows: userPrefs?.hidden_rows ?? [],
   };
+
+  // ─── Role blocks: default view order ─────────────────────────────────────
+  // The Sheet is transposed — fields are rows — so "one block of columns per
+  // role" means a contiguous run of ROWS per owner. Group the rows by their
+  // owner (IRowConfig.default_who_key) so SheetGrid can head each run with a
+  // labelled band; the identity prefix stays pinned at the top.
+  //
+  // Applied ONLY when the user has no personal row order. Per-user reorder
+  // (Phase 2a/2b) persists positions derived from the array the grid was
+  // handed, so re-sorting on top of a saved order would fight the user's own
+  // drags. A first drag therefore persists THIS grouped order, and grouping
+  // survives it — see docs/obsidian/screens/shipment-sheet.md.
+  // `prefsLoaded` is load-bearing, not defensive: useUserSheetPreferences ships
+  // `placeholderData: { row_order: [] }`, so before the query settles a user WITH
+  // a personal order looks like one without. Grouping in that window would let a
+  // drag persist the grouped order over their saved positions — permanent loss.
+  // Until it settles (and on a prefs fetch error) we keep the server order, which
+  // already has their positions applied, so a drag there persists the right thing.
+  const hasPersonalRowOrder = (userPrefs?.row_order?.length ?? 0) > 0;
+  const orderedRows = useMemo(
+    () => (prefsLoaded && !hasPersonalRowOrder ? groupRowsByOwner(rows) : rows),
+    [rows, prefsLoaded, hasPersonalRowOrder],
+  );
 
   // Phase 2b: subscribe to cross-tab BroadcastChannel pulses. A save in
   // another tab arrives here as a query invalidation → instant rerender.
@@ -109,6 +133,16 @@ export default function ShipmentSheet() {
     [savePrefs, userPreferences.hidden_rows, t],
   );
 
+  const handleResetRowOrder = useCallback(() => {
+    // Clearing row_order re-enables role-block grouping (see orderedRows
+    // above) — a user who never customised is indistinguishable from one who
+    // just reset, by design.
+    savePrefs.mutate(
+      { row_order: [] },
+      { onSuccess: () => toast.success(t('sheet.settings.row_order_reset_toast')) },
+    );
+  }, [savePrefs, t]);
+
   const handleUnhideRow = useCallback(
     (rowId: number) => {
       // Compute new hidden_rows = current − this row
@@ -120,13 +154,13 @@ export default function ShipmentSheet() {
 
   // Sync rows into the store so deep components (CommentItem, MentionPopover)
   // can read the row map without prop-drilling.
-  const prevRowsRef = useRef<typeof rows | null>(null);
+  const prevRowsRef = useRef<typeof orderedRows | null>(null);
   useEffect(() => {
-    if (rows.length > 0 && rows !== prevRowsRef.current) {
-      prevRowsRef.current = rows;
-      setRows(rows);
+    if (orderedRows.length > 0 && orderedRows !== prevRowsRef.current) {
+      prevRowsRef.current = orderedRows;
+      setRows(orderedRows);
     }
-  }, [rows, setRows]);
+  }, [orderedRows, setRows]);
 
   const [searchParams] = useSearchParams();
 
@@ -339,17 +373,20 @@ export default function ShipmentSheet() {
         <SheetToolbar
           shipments={filtered}
           allShipments={shipments ?? []}
-          rows={rows}
+          rows={orderedRows}
           taskCounts={taskCounts}
           currentUserLang={currentUserLang}
           hiddenRowIds={userPreferences.hidden_rows}
           fieldKeyToRowId={fieldKeyToRowId}
           onUnhideRow={handleUnhideRow}
+          hasPersonalRowOrder={hasPersonalRowOrder}
+          onResetRowOrder={handleResetRowOrder}
+          resettingRowOrder={savePrefs.isPending}
         />
       )}
       <SheetGrid
         shipments={filtered}
-        rows={rows}
+        rows={orderedRows}
         commentCounts={commentCounts}
         taskCounts={taskCounts}
         rowSettings={rowSettings}

@@ -7,6 +7,7 @@ __all__ = [
     'build_quota_dashboard',
     'compute_fifo_usage',
     'compute_firm_quota_balances',
+    'compute_firm_quota_summary',
     'fetch_plan_rows',
     'fetch_issuances',
     'aggregate_local_sales',
@@ -710,9 +711,17 @@ def compute_firm_quota_balances(
             dashboard's expired column flip on the same day.
 
     Returns:
-        Dict mapping export_firm_id → {issued_kg, used_kg, remaining_kg}, all
-        three counting live (unexpired) allocations only. Empty dict when
+        Dict mapping export_firm_id → {issued_kg, used_kg, remaining_kg,
+        active_issuance_count, nearest_expiry}. The three kg figures and the
+        count all consider live (unexpired) allocations only; `nearest_expiry`
+        is the earliest expiry (ISO date string) among the allocations the firm
+        can still spend from, or None when it holds none. Empty dict when
         `season` is None.
+
+        `active_issuance_count` and `nearest_expiry` were added for the
+        dashboard's Firm Quota tab and also surface on
+        `GET /quota-firm-balances/`; that endpoint's consumer, the firm-split
+        gate, reads `remaining_kg` only and ignores them.
     """
     if not season:
         return {}
@@ -730,6 +739,16 @@ def compute_firm_quota_balances(
     )
     firm_allocs, lapsed = _allocs_by_firm(issuances, today)
 
+    # Per-allocation expiry, from the SAME `quota_expiry_date()` call
+    # `_allocs_by_firm` makes to decide `lapsed` — one expiry rule, so the
+    # "nearest expiry" a firm shows can never contradict the live/lapsed split
+    # its own row is built from.
+    expiry_by_alloc: dict[int, datetime.date] = {
+        alloc.id: quota_expiry_date(issuance.issue_date, issuance.validity)
+        for issuance in issuances
+        for alloc in issuance.allocations.all()
+    }
+
     # Committed = draft + approved (no status filter) — see docstring.
     used_rows = (
         QuotaUsageRecord.objects
@@ -745,17 +764,84 @@ def compute_firm_quota_balances(
     for firm_id in set(firm_allocs) | set(used):
         issued_kg = Decimal('0')
         used_kg = Decimal('0')
+        active_count = 0
+        nearest_expiry: datetime.date | None = None
         for alloc_id, kg_quota in firm_allocs.get(firm_id, []):
             if alloc_id in lapsed:
                 continue
             issued_kg += kg_quota
-            used_kg += consumed.get(alloc_id, Decimal('0'))
+            alloc_used = consumed.get(alloc_id, Decimal('0'))
+            used_kg += alloc_used
+            # "Active" = live AND not yet fully drawn down. An allocation the
+            # FIFO walk has already emptied is not quota the firm can still
+            # spend, so counting it would inflate the count and — worse — let
+            # an exhausted allocation raise an expiry warning about kg that no
+            # longer exist.
+            if kg_quota - alloc_used > 0:
+                active_count += 1
+                expiry = expiry_by_alloc[alloc_id]
+                if nearest_expiry is None or expiry < nearest_expiry:
+                    nearest_expiry = expiry
         balances[firm_id] = {
             'issued_kg': issued_kg,
             'used_kg': used_kg,
             'remaining_kg': issued_kg - used_kg,
+            'active_issuance_count': active_count,
+            'nearest_expiry': nearest_expiry.isoformat() if nearest_expiry else None,
         }
     return balances
+
+
+def compute_firm_quota_summary(
+    product_type: str, season, today: datetime.date | None = None,
+) -> list[dict]:
+    """Which firm holds how much quota right now — one row per export firm.
+
+    A thin naming layer over `compute_firm_quota_balances()`: same season, same
+    expiry rule, same FIFO walk, so the dashboard's Firm Quota tab and the
+    firm-split hard block can never contradict each other. Anything that would
+    change a number here belongs in the balance service, not in this function.
+
+    Deliberately NOT date-windowed. Every other quota read on the dashboard is
+    period-filtered; this one must not be, because quota lives roughly a month
+    and a week- or month-scoped filter would hide the live balance the question
+    is actually about.
+
+    Rows are kept even when everything is zero — a firm whose allocations have
+    all lapsed still belongs on the list, reading as "held quota this season,
+    holds none now". Firms with neither an allocation nor a usage record this
+    season never enter the map and are absent.
+
+    Args:
+        product_type: 'tomato' or 'pepper'.
+        season: The resolved season, or None.
+        today: Reference date for expiry; defaults to the local date.
+
+    Returns:
+        List of {export_firm, export_firm_name, issued_kg, used_kg,
+        remaining_kg, active_issuance_count, nearest_expiry}, sorted by
+        remaining_kg descending then firm name. Empty list when `season` is
+        None (D7 fail-closed).
+    """
+    balances = compute_firm_quota_balances(product_type, season, today=today)
+    if not balances:
+        return []
+
+    firm_names: dict[int, str] = {
+        f.id: (f.name_en or f.name_tk or str(f.id))
+        for f in ExportFirm.objects.filter(id__in=list(balances)).only('id', 'name_en', 'name_tk')
+    }
+
+    rows = [
+        {
+            'export_firm': firm_id,
+            'export_firm_name': firm_names.get(firm_id, str(firm_id)),
+            **vals,
+        }
+        for firm_id, vals in balances.items()
+    ]
+    rows.sort(key=lambda r: (-r['remaining_kg'], r['export_firm_name']))
+    return rows
 
 
 # ---------------------------------------------------------------------------
