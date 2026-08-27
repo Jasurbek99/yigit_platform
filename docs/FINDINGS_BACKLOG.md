@@ -35,6 +35,7 @@ Detail lives in [ROLE_ACCESS_AUDIT.md](ROLE_ACCESS_AUDIT.md) and
 | P2 | — | `ShipmentStatusType.step_order` contradicts the real graph | live DB |
 | P3 | — | `ShipmentStatusType.required_role` is dead data, read by nothing | live DB |
 | P4 | — | Two different role sets share the name `PRIVILEGED_ROLES` | `core/roles.py:84` vs `services/shipment.py:44` |
+| F15 | MED | Admin panel has no way to create ad-hoc Tasks or delete/cancel existing ones | `export/views.py:3746` |
 | T1 | — | `document_team` account carries role `export_manager` | live DB |
 | T2 | — | `export_manager`/`em123` and `document_team`/`dt123` passwords do not work | live DB |
 | ~~S1~~ | — | **CLOSED 2026-08-23.** The `QuotaIssuance` half closed via `fix_quota_issuance_seasons`; the one mismatched issuance had already been deleted by the owner. The remaining 6 `WeeklyTruckAllocation` rows (W35/2026) were **deleted** by owner instruction, with their 18 splits | live DB |
@@ -155,6 +156,26 @@ visibly broken day to day, which is probably why it survived.
 **Not filed as a bug** — it may be deliberate that only `warehouse_chief` marks loading. Needs
 an owner decision: either add the loading roles to those two edges, or confirm
 `warehouse_chief` is still the intended actor and give a real person that role.
+
+## F15 — admin panel cannot add or delete Tasks (added 2026-08-27)
+
+Raised by owner while asking why old-week Board tasks accumulate and why admin can't remove
+them. Two separate gaps:
+
+1. **No task creation.** `TaskViewSet` docstring says *"Tasks are NOT created via POST —
+   generation is owned by the rule engine... Manual ad-hoc tasks are a future feature"*
+   (`export/views.py:3749-3751`). No admin UI to hand-create a Task exists.
+2. **No task deletion.** `TaskViewSet(ReadOnlyModelViewSet)` (`export/views.py:3746`) has no
+   `destroy()` — DELETE isn't routed for anyone. The one admin-permitted removal-adjacent
+   action, `cancel` (`_CANCEL_ROLES = {admin, director}`, `permissions.py:14`), has no
+   frontend caller — `useTaskActions.ts` only wires `start/block/unblock/complete`.
+
+Related, narrower gap in the Sheet drawer: `CommentViewSet.destroy()` gates deleting other
+users' comments/tasks on `PRIVILEGED_ROLES = {export_manager, director, boss}`
+(`services/shipment.py:44`), no `is_superuser` bypass — `admin` is excluded there too. Same
+name, different membership than `core/roles.py:84` — see P4.
+
+Not fixed here — recorded for later by instruction, same as the rest of this file.
 
 ## The two root causes
 
