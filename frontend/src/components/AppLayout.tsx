@@ -256,8 +256,6 @@ export default function AppLayout() {
     '/export/quota': { key: '/export/quota', icon: <IconChartPie size={15} />, label: t('nav.quota') },
     '/export/blocks': { key: '/export/blocks', icon: <IconChartBar size={15} />, label: t('nav.block_summary') },
     '/export/pomidor-dukany': { key: '/export/pomidor-dukany', icon: <IconTrendingUp size={15} />, label: t('nav.pomidor_dukany') },
-    '/export/drafts': { key: '/export/drafts', icon: <IconLayoutGrid size={15} />, label: t('nav.drafts') },
-    '/export/assign': { key: '/export/assign', icon: <IconLayoutKanban size={15} />, label: t('nav.assign') },
     '/export/weightmaster': { key: '/export/weightmaster', icon: <IconScale size={15} />, label: t('nav.weightmaster') },
     '/export/shipments': { key: '/export/shipments', icon: <IconTruck size={15} />, label: t('nav.shipments') },
     '/export/shipments/sheet': { key: '/export/shipments/sheet', icon: <IconLayoutGrid size={15} />, label: t('nav.shipment_sheet') },
@@ -378,11 +376,13 @@ export default function AppLayout() {
   const BOSS_MENU_GROUPS: IMenuGroup[] = [
     group('nav.group_overview', ['/', '/boss/dashboard', '/me/board', '/director/stuck-shipments']),
     group('nav.group_planning', ['/export/plan', '/export/pomidor-dukany', '/export/harvest-board', '/export/quota', '/export/blocks']),
-    // `/export/drafts` and `/export/assign` are deliberately withheld from the
-    // boss sidebar (owner request, 2026-08-20). The pages still exist and the
-    // boss's page permissions are untouched — he is meant to reach them through
-    // the process page, not a top-level nav entry. Do NOT re-add them by
-    // sweeping for "orphaned routes" — that sweep (421068f) is how they got here.
+    // `/export/drafts` (Draft Shipment) and `/export/assign` (Assignment Board)
+    // were dropped from BOTH sidebars by owner request, 2026-08-24 — same
+    // treatment as `/export/trucks` below: no top-level nav entry for any role.
+    // Routes, page permissions, and the pages themselves are untouched; they
+    // stay reachable by direct URL. Do NOT re-add them by sweeping for
+    // "orphaned routes" — that sweep (421068f) is how they got a nav entry
+    // the first time.
     // `/export/trucks` (Truck Forecast) was dropped from BOTH sidebars by owner
     // request, 2026-08-23: the same weekly_truck_allocations data is entered and
     // read in the "Truck allocation" section of /export/plan, so the standalone
@@ -403,10 +403,11 @@ export default function AppLayout() {
     group('nav.group_feedback', ['/feedback/submit', '/feedback/my-tickets', '/feedback/public', '/admin/feedback']),
   ];
   // Every other role's menu — the original module grouping (restored
-  // verbatim from commit d6f1a02, plus 4 previously orphaned routes appended
-  // to nav.group_export: /export/drafts, /export/assign,
-  // /export/domestic-sales, /export/prices — /export/trucks was a 5th until it
-  // was removed from every sidebar on 2026-08-23, see the note above).
+  // verbatim from commit d6f1a02, plus 2 previously orphaned routes appended
+  // to nav.group_export: /export/domestic-sales, /export/prices —
+  // /export/drafts, /export/assign, and /export/trucks were also appended
+  // this way but have since been removed from every sidebar, see the note
+  // above BOSS_MENU_GROUPS).
   const STAFF_MENU_GROUPS: IMenuGroup[] = [
     group('nav.group_main', ['/', '/boss/dashboard', '/director/stuck-shipments']),
     group('nav.group_analytics', ['/analytics/clients-report', '/export/blocks', '/export/pomidor-dukany']),
@@ -414,7 +415,7 @@ export default function AppLayout() {
       '/export/shipments/dashboard', '/export/shipments', '/export/shipments/sheet', '/me/board',
       '/export/shipments/board', '/export/harvest-board', '/export/weightmaster', '/export/overdue',
       '/export/my-reports', '/export/advances', '/transport/map',
-      '/export/drafts', '/export/assign', '/export/domestic-sales', '/export/prices',
+      '/export/domestic-sales', '/export/prices',
     ]),
     group('nav.group_contracts', ['/contracts', '/sales', '/documents']),
     group('nav.group_management', ['/export/plan', '/export/quota', '/admin/seasons', '/admin/firms', '/admin/import-firms', '/admin/customers', '/admin/blocks']),

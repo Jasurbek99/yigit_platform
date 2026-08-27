@@ -210,6 +210,8 @@ Registered in `backend/apps/core/permission_registry.py`:
 
 **Files**: `frontend/src/pages/export/DraftPool.tsx`, `frontend/src/pages/export/AssignmentBoard.tsx`.
 
+**Navigation:** neither page has a sidebar entry any more — both dropped from every role's menu 2026-08-24 (owner request). Routes, page permissions and the pages themselves are untouched; reachable only by direct URL. See [[permissions-system#Sidebar Navigation (2026-08-05)]].
+
 ### Components
 
 - `DraftComposerModal` (`src/components/draft/DraftComposerModal.tsx`) — 1–11 rows, block selector. 3 numbered sections, **harvest-first**: **1. Harvest** — per block it shows **"available: X kg"** from the forecast pool (`useHarvestForecastRemaining`) and caps each row at `min(remaining, 18500)`; a block with no forecast is disabled; **2. Shipment Code** (collapsed `Collapse`, optional — Export Code on the panel header, `?` popover with the dual-code explainer); **3. Notes**. 3-column table (Block · Allocate · delete); the old "Leftover" column, yellow "sort notice", and the brief "≈ N trucks" reframe were all removed. Surfaces backend pool-rejection errors (both `{block_sources}` and `{error}` shapes).

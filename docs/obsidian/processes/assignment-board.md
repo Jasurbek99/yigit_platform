@@ -57,7 +57,7 @@ Future wiring:
 
 - Page: `frontend/src/pages/export/AssignmentBoard.tsx`
 - Route: `/export/assign` (`pageCode: 'export.assign'`)
-- Navigation: "Belgilemek" in the export group of the sidebar
+- Navigation: no sidebar entry — removed from every role's menu 2026-08-24 (owner request, same treatment as Truck Forecast); reachable only by direct URL. See [[permissions-system#Sidebar Navigation (2026-08-05)]].
 - Backend endpoint: `POST /api/v1/export/shipments/{id}/assign/` — `ShipmentViewSet.assign()` in `backend/apps/export/views.py`
 
 ## Permissions

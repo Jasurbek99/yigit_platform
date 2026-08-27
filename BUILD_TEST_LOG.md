@@ -1,5 +1,6 @@
 # Build / Test Log
 
+- [ ] 2026-08-24 — Sidebar: Draft Shipment (`/export/drafts`) and Assignment Board (`/export/assign`) removed from every role's sidebar menu — routes, permissions and pages untouched, still reachable by direct URL — `frontend/src/components/AppLayout.tsx` — NEEDS TEST
 - [ ] 2026-08-23 — **No-quota firms are now blocked in the destination-draft modal too (Sheet), front and back.**
   Check: in the Sheet open **Create destination draft**, add a firm split, and open the firm
   dropdown — a firm with no live quota must show `⚠ no quota`, be unclickable, and the dropdown
