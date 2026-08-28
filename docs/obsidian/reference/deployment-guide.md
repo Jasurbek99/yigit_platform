@@ -45,6 +45,68 @@ For full setup instructions see [GETTING_STARTED.md](../GETTING_STARTED.md).
 > `backend`/`frontend` never finish either**, so the deploy fails outright. This
 > bit the 2026-08-12 production rebuild. Frontend stays on `./frontend`.
 
+## Deploy speed on the beta host
+
+`./update.sh` on 10.10.11.25 ran for **30-76 minutes**. Measured 2026-08-27, and the
+answer was not the obvious one — the Docker layer cache works fine:
+
+| Step | Time |
+|------|------|
+| backend image, unchanged tree | **16s** — every apt/pip layer `CACHED` |
+| frontend image, unchanged tree | **2.8s** — all layers `CACHED` |
+| frontend `RUN npm run build`, real source change | **683.9s** |
+| whole forced-rebuild run | **76 min** |
+
+Note the gap: the frontend's own steps sum to ~12 min (684s build + 23s `COPY . .`),
+not 76. The rest is visible in the bake summary of that run:
+
+```
+[+] build 1/2
+ * Image yigit_platform-backend  Building   4576.3s   <- never reported Built
+ v Image yigit_platform-frontend Built      4576.2s
+```
+
+**Only one of the two images finished.** The backend build was still spinning when the
+client returned. So ~684s is `tsc`, and the remaining ~64 min is the backend build
+*starved behind it*. Contention is the mechanism; `tsc` is just the biggest consumer.
+
+Ruled out by that data: no `--no-cache`, no `--pull`, no `docker system prune -a`
+anywhere in `update.sh`; its `docker image prune -f` reclaimed **0B** (BuildKit keeps
+its cache separately from dangling images, so that line never touches it).
+
+**The cause is RAM, not CPU.** The host has 3.8 GB total, ~1.3 GB available, and 1.2 GB
+of swap already in use before a build starts. `tsc` does a whole-program typecheck —
+every one of ~490 files' ASTs and types resident at once, typically 1.5-4 GB — and
+Compose bakes `backend` and `frontend` **concurrently**, so the two contend and the
+machine pages. On the 76-minute run the client process burned `user 0m9s / sys 0m8s`:
+it was in I/O wait essentially the whole time.
+
+Because contention (not raw `tsc` cost) is what stretches 12 minutes into 76,
+**serialising the bake is a co-equal fix, not an optional extra** - see below.
+
+Fix applied: `frontend/Dockerfile` runs **`npx vite build`**, not `npm run build`
+(= `tsc && vite build`). Vite does the emit either way, so the deployed bundle is
+identical - `frontend/tsconfig.json` sets `"noEmit": true`, so `tsc` in that script
+provably only typechecks. **Typechecking remains a local gate** —
+run `npx tsc --noEmit --ignoreDeprecations 5.0` before pushing (note: `npm run
+type-check` is broken with TS5103, hence the explicit flag).
+
+Still open, if deploys are ever slow again:
+- **Don't build on this box.** Build images on the dev machine and ship them
+  (`docker save` → scp → `docker load`, or a small LAN registry), so `update.sh` only
+  restarts containers.
+- **Serialise the bake** — separate `docker compose build` calls for backend and
+  frontend so they never compete for the same 1.3 GB.
+
+To re-measure, force a real frontend rebuild and read BuildKit's per-step timings:
+
+```bash
+echo "// bust $(date +%s)" >> frontend/src/main.tsx
+time DOCKER_BUILDKIT=1 docker compose $FILES build frontend 2>&1 | tee /tmp/f.log
+git checkout frontend/src/main.tsx   # MUST revert — update.sh's `git pull --ff-only` fails on a dirty tree
+grep -E '^#[0-9]+ (DONE|CACHED)' /tmp/f.log
+```
+
 ## Uploaded files (`/media/`)
 
 Uploads — director signatures, company seals, feedback attachments — are written
@@ -149,7 +211,6 @@ DATABASES = {
 ## Seed Commands (run in order)
 
 > **The order is load-bearing for permissions, not just tidy.** Data migrations that back-fill `RolePagePermission` copy each role's CURRENT, hand-edited value (e.g. `core/0036`, which split `export.shipments` into `export.shipments` / `export.shipments_sheet` / `export.shipments_dashboard`). `seed_permissions` uses `get_or_create`, so whichever runs FIRST decides the row. Run `seed_permissions` before `migrate` and new page codes get the `PAGE_DEFAULTS` value instead of what the admin actually configured on that host.
-
 
 ```bash
 # 1. Apply migrations
