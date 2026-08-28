@@ -19,6 +19,39 @@ export function seasonsVisibleTo(seasons: ISeason[], canViewClosed: boolean): IS
   return seasons.filter((s) => s.status !== 'CLOSED');
 }
 
+/**
+ * The season the quota page reads: its own dropdown, else the active season in
+ * the list it could load, else the active season from `/auth/me/`.
+ *
+ * The last fallback is the fix for an empty Firm Quota tab. `useSeasons()` calls
+ * `GET /export/admin/seasons/`, gated on `season.can_view` — held by admin /
+ * director / export_manager / boss / finansist only. But the quota tabs are
+ * gated on `quota_issuance.can_view`, which `document_team`,
+ * `loading_dept_head` and `loading_dept_head_deputy` also hold. Those three saw
+ * every tab while the seasons request 403'd, so `selectableSeasons` was empty
+ * and the page had NO season id: `useQuotaFirmSummary` is `enabled: !!seasonId`
+ * and never fired (an empty table, no error), while `useQuotaDashboard` sent
+ * `season=0`, which `resolve_season()` answers with a 404 — the KPI row and the
+ * Firm Breakdown / Chart / Weekly tabs were broken for them too.
+ *
+ * `/auth/me/` carries `active_season` for EVERY authenticated role, so it
+ * resolves without widening anyone's permissions. Owner's call (2026-08-28):
+ * these roles stay pinned to the active season rather than gaining
+ * `season.can_view` — their dropdown legitimately has nothing to offer.
+ *
+ * Deliberately takes the id from `/auth/me/` and NOT from `useSelectedSeason()`,
+ * which also reads the global header switcher: mixing that with this page's own
+ * dropdown is the split-season bug commit 92480a9 fixed.
+ */
+export function resolveQuotaSeasonId(
+  selectedSeasonId: number | undefined,
+  selectableSeasons: ISeason[],
+  activeSeasonId: number | null | undefined,
+): number | undefined {
+  const listed = selectableSeasons.find((s) => s.is_active) ?? selectableSeasons[0];
+  return selectedSeasonId ?? listed?.id ?? activeSeasonId ?? undefined;
+}
+
 /** What a user may see on the quota dashboard route. */
 export interface IQuotaPanelAccess {
   /** The quota machinery: KPI pipeline, period filters, usage / issuance / firm tabs. */

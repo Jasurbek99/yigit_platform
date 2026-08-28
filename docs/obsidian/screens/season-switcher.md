@@ -93,6 +93,15 @@ view-only (Task 15b) specifically so it can populate this switcher despite havin
 write access. Every other role for which `closed_season.can_view` might later be granted
 would need `season: view` seeded too, or the switcher silently has nothing to show them.
 
+> **A page must not derive its season id from `useSeasons()` alone.** The list arrives
+> EMPTY (403, swallowed by the query) for every role without `season.can_view`, and a page
+> that defaults from it then has no season at all. That is what broke the quota dashboard
+> for `document_team` / `loading_dept_head` / `loading_dept_head_deputy` on 2026-08-28: the
+> Firm Quota query is `enabled: !!seasonId` so it silently never fired, and
+> `useQuotaDashboard` sent `season=0`, which `resolve_season()` looks up as a real id and
+> 404s. Fall back to `user.active_season.id` from `/auth/me/`, which every authenticated
+> role carries — see `resolveQuotaSeasonId` in `QuotaDashboard.helpers.ts`.
+
 ## `useSeasonReadOnly()` (`frontend/src/hooks/useSeasonReadOnly.ts`)
 
 ```ts

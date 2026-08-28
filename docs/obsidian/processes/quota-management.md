@@ -490,6 +490,22 @@ The mirror of the usage list's shipment column: quota is spent by trucks, so the
 | `seller` | Local Sell Plan only (bare grid, no quota chrome) | No | No | No | No |
 | Others | No access | No | No | No | No |
 
+### Season resolution on the dashboard
+
+The quota tabs are gated on `quota_issuance.can_view` (7 roles), but the page's season
+dropdown is fed by `useSeasons()` → `GET /export/admin/seasons/`, gated on
+`season.can_view` (5 roles). `document_team`, `loading_dept_head` and
+`loading_dept_head_deputy` sit in the gap: every tab renders for them while the seasons
+request 403s.
+
+`resolveQuotaSeasonId` (`QuotaDashboard.helpers.ts`) therefore falls back to
+`user.active_season.id` from `/auth/me/`, which every authenticated role carries. Those
+three roles are **pinned to the active season** — their dropdown stays empty, which is
+honest, since they cannot enumerate seasons (owner's call 2026-08-28, in preference to
+widening `season.can_view`). It reads `/auth/me/` and NOT `useSelectedSeason()`, because
+that hook also reads the global header switcher and mixing it with this page's own
+dropdown is the split-season bug commit 92480a9 fixed.
+
 ## Connections to Other Processes
 
 - **[[local-sell-plan]]** — Local sales kg is the **input** to quota calculation (× 10 = expected quota)

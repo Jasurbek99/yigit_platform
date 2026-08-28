@@ -29,7 +29,7 @@ import { QuotaVisualBars } from './QuotaVisualBars';
 import { QuotaWeeklyFlow } from './QuotaWeeklyFlow';
 import { LocalSellPlanGrid } from './LocalSellPlanGrid';
 import { QuotaIssuancesList } from './QuotaIssuancesList';
-import { quotaPanelAccess, seasonsVisibleTo } from './QuotaDashboard.helpers';
+import { quotaPanelAccess, resolveQuotaSeasonId, seasonsVisibleTo } from './QuotaDashboard.helpers';
 import { QuotaUsageTab } from './QuotaUsageTab';
 import type { ISeason } from '@/types';
 import { COLORS } from '@/constants/styles';
@@ -132,9 +132,14 @@ export default function QuotaDashboard() {
     () => seasonsVisibleTo(seasons, user?.can_view_closed_seasons ?? false),
     [seasons, user?.can_view_closed_seasons],
   );
-  const activeSeason = selectableSeasons.find((s) => s.is_active) ?? selectableSeasons[0];
   const [selectedSeasonId, setSelectedSeasonId] = useState<number | undefined>(undefined);
-  const seasonId = selectedSeasonId ?? activeSeason?.id;
+  // Falls back to `/auth/me/`'s active season when `useSeasons()` 403s — the
+  // roles that hold `quota_issuance.can_view` but not `season.can_view` get an
+  // empty list, and without the fallback the page has no season at all. See
+  // `resolveQuotaSeasonId`.
+  const seasonId = resolveQuotaSeasonId(
+    selectedSeasonId, selectableSeasons, user?.active_season?.id,
+  );
   const currentSeason = selectableSeasons.find((s) => s.id === seasonId);
 
   // Period selection
@@ -164,6 +169,9 @@ export default function QuotaDashboard() {
     [period, currentSeason],
   );
 
+  // `enabled: !!seasonId`, NOT a `?? 0` default: `resolve_season()` looks `0` up
+  // as a real id and answers 404, so the sentinel guaranteed "Failed to load
+  // quota data" for every render before the season resolved.
   const { data, isLoading, isError } = useQuotaDashboard(
     {
       season: seasonId ?? 0,
@@ -171,7 +179,7 @@ export default function QuotaDashboard() {
       date_to,
       product_type: productType,
     },
-    { enabled: canSeeQuota },
+    { enabled: canSeeQuota && !!seasonId },
   );
 
   const kpis = data?.kpis;

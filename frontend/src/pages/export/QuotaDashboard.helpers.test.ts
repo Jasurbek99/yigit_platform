@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { quotaPanelAccess, seasonsVisibleTo } from './QuotaDashboard.helpers';
+import { quotaPanelAccess, resolveQuotaSeasonId, seasonsVisibleTo } from './QuotaDashboard.helpers';
 import { canSeePage } from '@/utils/permissions';
 import type { ICurrentUser, ISeason, SeasonStatus, UserRole } from '@/types';
 
@@ -30,6 +30,36 @@ describe('seasonsVisibleTo', () => {
 
   it('keeps upcoming seasons either way — they carry no permission gate', () => {
     expect(seasonsVisibleTo(SEASONS, false).some((s) => s.status === 'UPCOMING')).toBe(true);
+  });
+});
+
+describe('resolveQuotaSeasonId', () => {
+  const VISIBLE = seasonsVisibleTo(SEASONS, false); // [2 ACTIVE, 3 UPCOMING]
+
+  it('prefers the page dropdown over everything else', () => {
+    expect(resolveQuotaSeasonId(3, VISIBLE, 2)).toBe(3);
+  });
+
+  it('defaults to the active season in the listable set', () => {
+    expect(resolveQuotaSeasonId(undefined, VISIBLE, 99)).toBe(2);
+  });
+
+  it('falls back to /auth/me/ when the role cannot list seasons at all', () => {
+    // document_team / loading_dept_head / its deputy hold quota_issuance.can_view
+    // (so the Firm Quota tab renders) but NOT season.can_view, so
+    // `GET /export/admin/seasons/` 403s and the list arrives empty. Without this
+    // fallback the page had no season id: the Firm Quota query stayed disabled
+    // and the dashboard query sent `season=0`, which `resolve_season()` 404s.
+    expect(resolveQuotaSeasonId(undefined, [], 2)).toBe(2);
+  });
+
+  it('is undefined only when there is no season anywhere', () => {
+    expect(resolveQuotaSeasonId(undefined, [], null)).toBeUndefined();
+  });
+
+  it('takes the first listable season when none is marked active', () => {
+    const upcomingOnly = [season(3, 'UPCOMING')];
+    expect(resolveQuotaSeasonId(undefined, upcomingOnly, 2)).toBe(3);
   });
 });
 
