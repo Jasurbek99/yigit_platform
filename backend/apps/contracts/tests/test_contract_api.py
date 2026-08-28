@@ -13,14 +13,17 @@ Test coverage:
   7. Detail endpoint returns expected fields including computed props + editable_fields
   8. ?export_firm=<id> filter works
   9. Duplicate contract_number → 400
+ 10. Delete an unused contract → 204; one with sales → 409; no-access role → 403
 """
+from decimal import Decimal
+
 from django.core.cache import cache
 from django.core.management import call_command
 from django.test import TestCase
 from rest_framework.test import APIClient
 
 from apps.core.models import ExportFirm, ImportFirm, Season, User
-from apps.contracts.models import Contract
+from apps.contracts.models import Contract, ContractSale
 
 
 # ─── Permission seeding ──────────────────────────────────────────────────────
@@ -286,6 +289,11 @@ class ContractDetailTest(_SeededPermsMixin, TestCase):
         self.assertIn('export_firm_name', data)
         self.assertIn('import_firm_name', data)
 
+        # has_sales is annotated in get_queryset ABOVE the `action != 'list'`
+        # early return — retrieve uses ContractDetailSerializer, which extends
+        # the list serializer, so a list-only annotation would raise here.
+        self.assertFalse(data['has_sales'])
+
     def test_trucks_remaining_computed_correctly(self) -> None:
         url = f'/api/v1/contracts/contracts/{self.contract.pk}/'
         response = self.client.get(url)
@@ -349,3 +357,65 @@ class ContractDuplicateNumberTest(_SeededPermsMixin, TestCase):
         }
         response = self.client.post('/api/v1/contracts/contracts/', payload, format='json')
         self.assertEqual(response.status_code, 400)
+
+
+class ContractDeleteTest(_SeededPermsMixin, TestCase):
+    """Test 10: DELETE removes an unused contract and refuses a used one.
+
+    'Unused' = no ContractSale points at the contract. Attachments do not
+    block — they cascade away with the row.
+    """
+
+    def setUp(self) -> None:
+        self.client = APIClient()
+        self.user = _make_user('mgr_del', 'export_manager')
+        self.client.force_authenticate(user=self.user)
+        self.season = _make_season()
+        self.ef = _make_export_firm('YGTDEL')
+        self.imp = _make_import_firm('IMPDEL')
+
+    def test_delete_unused_contract_returns_204(self) -> None:
+        contract = _make_contract('DEL-001', self.ef, self.imp, self.season)
+        response = self.client.delete(f'/api/v1/contracts/contracts/{contract.pk}/')
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(Contract.objects.filter(pk=contract.pk).exists())
+
+    def test_delete_contract_with_sales_returns_409(self) -> None:
+        contract = _make_contract('DEL-002', self.ef, self.imp, self.season)
+        ContractSale.objects.create(
+            contract=contract,
+            invoice_number=2,
+            invoice_date='2025-10-01',
+            quantity_kg=Decimal('18500.00'),
+            price_per_kg=Decimal('0.0870'),
+        )
+        response = self.client.delete(f'/api/v1/contracts/contracts/{contract.pk}/')
+        self.assertEqual(response.status_code, 409)
+        self.assertTrue(Contract.objects.filter(pk=contract.pk).exists())
+
+    def test_role_without_contract_access_delete_returns_403(self) -> None:
+        contract = _make_contract('DEL-003', self.ef, self.imp, self.season)
+        # warehouse_chief has no 'contract' resource row — boss is NOT the
+        # example here: he holds full CRUD in the matrix, his read-only guard
+        # is the frontend edit-mode toggle (see seed_permissions).
+        outsider = _make_user('wh_del', 'warehouse_chief')
+        self.client.force_authenticate(user=outsider)
+        response = self.client.delete(f'/api/v1/contracts/contracts/{contract.pk}/')
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(Contract.objects.filter(pk=contract.pk).exists())
+
+    def test_list_marks_contracts_with_sales(self) -> None:
+        clean = _make_contract('DEL-004', self.ef, self.imp, self.season)
+        used = _make_contract('DEL-005', self.ef, self.imp, self.season)
+        ContractSale.objects.create(
+            contract=used,
+            invoice_number=5,
+            invoice_date='2025-10-01',
+            quantity_kg=Decimal('18500.00'),
+            price_per_kg=Decimal('0.0870'),
+        )
+        response = self.client.get('/api/v1/contracts/contracts/')
+        self.assertEqual(response.status_code, 200)
+        by_id = {row['id']: row for row in response.json()['results']}
+        self.assertFalse(by_id[clean.pk]['has_sales'])
+        self.assertTrue(by_id[used.pk]['has_sales'])

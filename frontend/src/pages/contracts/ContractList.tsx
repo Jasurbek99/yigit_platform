@@ -3,19 +3,24 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Alert,
   Button,
+  Modal,
   Select,
   Switch,
   Tabs,
   Tag,
+  Tooltip,
   Typography,
   Input,
   Space,
 } from 'antd';
-import { PlusOutlined, FileTextOutlined } from '@ant-design/icons';
+import { PlusOutlined, FileTextOutlined, DeleteOutlined } from '@ant-design/icons';
 import { ProTable } from '@ant-design/pro-components';
 import type { ProColumns } from '@ant-design/pro-components';
+import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
-import { useContracts } from '@/hooks/useContracts';
+import { useContracts, useDeleteContract } from '@/hooks/useContracts';
+import { useAuth } from '@/hooks/useAuth';
+import { canDo } from '@/utils/permissions';
 import { ContractCreate } from './ContractCreate';
 import type { IContract, ContractStatus } from '@/types/contract';
 import { COLORS } from '@/constants/styles';
@@ -74,6 +79,26 @@ export default function ContractList() {
 
   // Create modal
   const [createOpen, setCreateOpen] = useState(false);
+
+  // Delete — matrix-gated ('contract' resource, can_delete), and only offered
+  // on contracts with no sales; the backend refuses the rest with 409.
+  const { user } = useAuth();
+  const canDelete = canDo(user, 'contract', 'delete');
+  const del = useDeleteContract();
+  const handleDelete = (contract: IContract) => {
+    Modal.confirm({
+      title: t('contracts.delete.confirm_title', { number: contract.contract_number }),
+      content: t('contracts.delete.confirm_body'),
+      okType: 'danger',
+      okText: t('common.delete'),
+      cancelText: t('common.cancel'),
+      onOk: () =>
+        del
+          .mutateAsync(contract.id)
+          .then(() => toast.success(t('contracts.delete.toast_deleted')))
+          .catch(() => toast.error(t('contracts.delete.error'))),
+    });
+  };
 
   // Fetch up to the max page so the Framework/One-time tab split + search
   // cover all contracts (the list filters client-side).
@@ -253,15 +278,47 @@ export default function ContractList() {
     },
   ];
 
+  // ── Delete action ─────────────────────────────────────────────────────────
+  // Appended only for roles the matrix grants can_delete on 'contract'.
+  // stopPropagation: the row's onClick navigates to the detail page.
+  if (canDelete) {
+    columns.push({
+      title: '',
+      key: 'actions',
+      width: 60,
+      fixed: 'right',
+      search: false,
+      render: (_, record) =>
+        record.has_sales ? (
+          <Tooltip title={t('contracts.delete.blocked_tooltip')}>
+            <Button size="small" danger disabled icon={<DeleteOutlined />} />
+          </Tooltip>
+        ) : (
+          <Button
+            size="small"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDelete(record);
+            }}
+          />
+        ),
+    });
+  }
+
   // One-time contracts are single ad-hoc sales — the planned/exported/remaining
   // truck-quota framework (and incoterm) doesn't apply, so trim to identity +
   // status on that tab.
   const ONE_TIME_KEEP = new Set([
     'index', 'contract_number', 'export_firm_name', 'import_firm_name', 'status',
+    // The delete action is keyed, not dataIndex'd — and one-time contracts are
+    // the auto-created ad-hoc ones, the likeliest thing to need removing.
+    'actions',
   ]);
   const visibleColumns =
     typeTab === 'ONE_TIME'
-      ? columns.filter((c) => ONE_TIME_KEEP.has(c.dataIndex as string))
+      ? columns.filter((c) => ONE_TIME_KEEP.has(String(c.dataIndex ?? c.key)))
       : columns;
 
   if (isError) {

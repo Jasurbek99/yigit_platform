@@ -3110,6 +3110,13 @@
       "buyer_director_extra": "Pre-filled from the Import Firm's “Director's Full Name” — edit if needed.",
       "with_stamps": "With stamps",
       "with_stamps_extra": "Stamps appear only if the seller/buyer firm has its seal & signature uploaded (Admin → Firms)."
+    },
+    "delete": {
+      "confirm_title": "Delete contract {{number}}?",
+      "confirm_body": "This permanently deletes the contract and any documents uploaded to it. It cannot be undone.",
+      "blocked_tooltip": "This contract has sales — it cannot be deleted.",
+      "toast_deleted": "Contract deleted",
+      "error": "Could not delete the contract"
     }
   },
   "sales_list": {

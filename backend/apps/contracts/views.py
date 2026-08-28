@@ -2,6 +2,7 @@
 import logging
 from decimal import Decimal
 
+from django.db.models import Exists, OuterRef
 from django.http import FileResponse, HttpResponse
 from rest_framework.decorators import action
 from rest_framework.generics import ListAPIView
@@ -102,6 +103,27 @@ class ContractViewSet(SeasonScopedMixin, ModelViewSet):
         self.assert_update_target_open(serializer)
         serializer.save()
 
+    def destroy(self, request, *args, **kwargs):
+        """Delete an unused contract; refuse one that already has sales.
+
+        A contract is 'unused' when no ContractSale points at it. That FK is
+        on_delete=PROTECT, so the database refuses the delete anyway — this
+        check exists to return a message that names the reason instead of the
+        generic ProtectedError text. The global ProtectedError -> 409 handler
+        (apps/core/exceptions.py) stays the net for a sale created between this
+        check and the DELETE.
+
+        Attachments cascade away with the row (their files stay on disk).
+        """
+        instance = self.get_object()  # also runs SeasonNotClosed on the object
+        if instance.sales.exists():
+            return Response(
+                {'error': 'Cannot delete a contract that has sales.'},
+                status=409,
+            )
+        self.perform_destroy(instance)
+        return Response(status=204)
+
     def get_queryset(self):
         """Return contracts queryset filtered by status.
 
@@ -119,6 +141,15 @@ class ContractViewSet(SeasonScopedMixin, ModelViewSet):
         qs = Contract.objects.select_related(
             'export_firm', 'import_firm', 'import_firm__country', 'season', 'customer',
             'created_by',
+        ).annotate(
+            # Drives the list's Delete action and destroy()'s guard: a contract
+            # with sales is in use and must not be deleted. Exists(), not
+            # Count() — an aggregate would force every select_related column
+            # into GROUP BY, and MSSQL cannot group by nvarchar(max).
+            # .order_by() strips ContractSale.Meta.ordering (mssql-compat rule).
+            has_sales=Exists(
+                ContractSale.objects.filter(contract=OuterRef('pk')).order_by()
+            ),
         )
         if self.action == 'retrieve':
             qs = qs.prefetch_related('attachments__uploaded_by')

@@ -3114,6 +3114,13 @@
       "buyer_director_extra": "Import firmasynyň «Direktoryň doly ady» meýdanyndan dolduryldy — gerek bolsa üýtgediň.",
       "with_stamps": "Möhürler bilen",
       "with_stamps_extra": "Möhürler diňe satyjy/alyjy firmanyň möhri we goly ýüklenen bolsa görüner (Admin → Firmalar)."
+    },
+    "delete": {
+      "confirm_title": "{{number}} şertnamany pozmaly?",
+      "confirm_body": "Şertnama we oňa ýüklenen ähli resminamalar hemişelik pozulýar. Yzyna gaýtaryp bolmaýar.",
+      "blocked_tooltip": "Bu şertnamada satuwlar bar — ony pozup bolmaýar.",
+      "toast_deleted": "Şertnama pozuldy",
+      "error": "Şertnamany pozup bolmady"
     }
   },
   "documents": {

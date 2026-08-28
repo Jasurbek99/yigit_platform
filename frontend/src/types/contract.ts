@@ -13,6 +13,11 @@ export interface IContract {
   status: ContractStatus;
   status_display: string;
 
+  // True when at least one sale points at this contract. The list only offers
+  // Delete on contracts where this is false — the backend refuses the rest
+  // (ContractSale.contract is PROTECT).
+  has_sales: boolean;
+
   // Export firm
   export_firm: number | null;
   export_firm_name: string | null;

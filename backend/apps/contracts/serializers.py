@@ -89,6 +89,11 @@ class ContractListSerializer(serializers.ModelSerializer):
     # === Status ===
     status_display = serializers.CharField(source='get_status_display', read_only=True)
 
+    # Annotated by ContractViewSet.get_queryset(). True when at least one
+    # ContractSale points at this contract — the list hides its Delete action
+    # for such rows, and destroy() refuses them.
+    has_sales = serializers.BooleanField(read_only=True)
+
     # === Computed properties (from model @property methods) ===
     trucks_remaining = serializers.IntegerField(read_only=True)
     quantity_remaining_kg = serializers.DecimalField(
@@ -114,6 +119,7 @@ class ContractListSerializer(serializers.ModelSerializer):
             'contract_number',
             'status',
             'status_display',
+            'has_sales',
             'export_firm',
             'export_firm_name',
             'export_firm_code',

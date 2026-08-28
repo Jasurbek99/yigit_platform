@@ -104,6 +104,22 @@ export function contractAttachmentUrl(contractId: number, attachmentId: number):
   return `${api.defaults.baseURL}/contracts/contracts/${contractId}/attachments/${attachmentId}/download/`;
 }
 
+export function useDeleteContract() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (contractId: number): Promise<void> => {
+      await api.delete(`/contracts/contracts/${contractId}/`);
+    },
+    onSuccess: (_data, contractId) => {
+      // Prefix invalidation — the full list key carries season + filter params.
+      queryClient.invalidateQueries({ queryKey: ['contracts', 'list'] });
+      // Drop the detail entry outright: it has a 30 s staleTime, so an
+      // invalidate would still serve the deleted contract from cache.
+      queryClient.removeQueries({ queryKey: ['contracts', 'detail', contractId] });
+    },
+  });
+}
+
 export function useUploadContractAttachments(contractId: number) {
   const queryClient = useQueryClient();
   return useMutation({
