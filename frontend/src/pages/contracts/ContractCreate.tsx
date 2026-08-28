@@ -15,6 +15,9 @@ const INCOTERM_OPTIONS = ['FCA', 'CIP', 'DAP', 'CIF', 'FOB', 'EXW', 'DDP', 'DAT'
   label: v,
 }));
 
+/** Net kg one truck carries — planned trucks ⇄ planned quantity convert through this. */
+const TRUCK_CAPACITY_KG = 18100;
+
 // ─── Form shape ───────────────────────────────────────────────────────────────
 
 interface IFormValues {
@@ -24,12 +27,13 @@ interface IFormValues {
   incoterm: string;
   planned_trucks: number;
   planned_quantity_kg: number;
+  price_per_kg: number;
   planned_amount_usd: number;
+  contract_date: dayjs.Dayjs;
   start_date: dayjs.Dayjs;
   end_date?: dayjs.Dayjs | null;
   customer?: number | null;
   contract_type?: string | null;
-  passport_sdelka?: string;
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -60,7 +64,9 @@ export function ContractCreate({ open, onClose }: IContractCreateProps) {
       incoterm: values.incoterm,
       planned_trucks: values.planned_trucks,
       planned_quantity_kg: values.planned_quantity_kg,
+      price_per_kg: values.price_per_kg,
       planned_amount_usd: values.planned_amount_usd,
+      contract_date: values.contract_date.format('YYYY-MM-DD'),
       start_date: values.start_date.format('YYYY-MM-DD'),
       end_date: values.end_date ? values.end_date.format('YYYY-MM-DD') : null,
       customer: values.customer ?? null,
@@ -72,10 +78,6 @@ export function ContractCreate({ open, onClose }: IContractCreateProps) {
     const trimmedType = values.contract_type?.trim();
     if (trimmedType) {
       payload.contract_type = trimmedType;
-    }
-    const trimmedPassport = values.passport_sdelka?.trim();
-    if (trimmedPassport) {
-      payload.passport_sdelka = trimmedPassport;
     }
 
     try {
@@ -97,6 +99,41 @@ export function ContractCreate({ open, onClose }: IContractCreateProps) {
         toast.error(t('contracts.create.toast.error'));
       }
     }
+  };
+
+  /**
+   * Keep trucks ⇄ quantity ⇄ amount consistent as the user types.
+   *
+   * Trucks and quantity are two views of the same number (1 truck = 18 100 kg),
+   * so editing either fills the other; the amount is always quantity × price.
+   * All three stay editable — a later manual edit is not overwritten until one
+   * of its inputs changes again.
+   */
+  const handleValuesChange = (changed: Partial<IFormValues>) => {
+    const touchesPlan =
+      'planned_trucks' in changed ||
+      'planned_quantity_kg' in changed ||
+      'price_per_kg' in changed;
+    if (!touchesPlan) return;
+
+    const values = form.getFieldsValue();
+    let quantity: number | undefined = values.planned_quantity_kg;
+
+    if ('planned_trucks' in changed) {
+      quantity = values.planned_trucks ? values.planned_trucks * TRUCK_CAPACITY_KG : undefined;
+      form.setFieldValue('planned_quantity_kg', quantity);
+    } else if ('planned_quantity_kg' in changed) {
+      form.setFieldValue(
+        'planned_trucks',
+        quantity ? Math.ceil(quantity / TRUCK_CAPACITY_KG) : undefined,
+      );
+    }
+
+    const price = values.price_per_kg;
+    form.setFieldValue(
+      'planned_amount_usd',
+      quantity && price ? Number((quantity * price).toFixed(2)) : undefined,
+    );
   };
 
   const handleCancel = () => {
@@ -121,6 +158,7 @@ export function ContractCreate({ open, onClose }: IContractCreateProps) {
         layout="vertical"
         size="middle"
         style={{ marginTop: 16 }}
+        onValuesChange={handleValuesChange}
       >
         <Row gutter={16}>
           {/* Contract number */}
@@ -165,6 +203,7 @@ export function ContractCreate({ open, onClose }: IContractCreateProps) {
             <Form.Item
               name="incoterm"
               label={t('contracts.create.field.incoterm')}
+              initialValue="FCA"
               rules={[{ required: true, message: t('common.required') }]}
             >
               <Select options={INCOTERM_OPTIONS} style={{ width: '100%' }} />
@@ -173,11 +212,12 @@ export function ContractCreate({ open, onClose }: IContractCreateProps) {
         </Row>
 
         <Row gutter={16}>
-          {/* Planned trucks */}
-          <Col span={8}>
+          {/* Planned trucks — 1 truck = 18 100 kg, kept in sync with the quantity */}
+          <Col span={6}>
             <Form.Item
               name="planned_trucks"
               label={t('contracts.create.field.planned_trucks')}
+              extra={t('contracts.create.field.planned_trucks_hint')}
               rules={[{ required: true, message: t('common.required') }]}
             >
               <InputNumber min={1} precision={0} style={{ width: '100%' }} />
@@ -185,7 +225,7 @@ export function ContractCreate({ open, onClose }: IContractCreateProps) {
           </Col>
 
           {/* Planned quantity (kg) */}
-          <Col span={8}>
+          <Col span={6}>
             <Form.Item
               name="planned_quantity_kg"
               label={t('contracts.create.field.planned_quantity_kg')}
@@ -195,37 +235,69 @@ export function ContractCreate({ open, onClose }: IContractCreateProps) {
             </Form.Item>
           </Col>
 
-          {/* Planned amount (USD) */}
-          <Col span={8}>
+          {/* Price per kg (USD) */}
+          <Col span={6}>
+            <Form.Item
+              name="price_per_kg"
+              label={t('contracts.create.field.price_per_kg')}
+              rules={[{ required: true, message: t('common.required') }]}
+            >
+              <InputNumber
+                min={0}
+                step={0.01}
+                precision={4}
+                style={{ width: '100%' }}
+                addonAfter="$/kg"
+              />
+            </Form.Item>
+          </Col>
+
+          {/* Planned amount (USD) — quantity × price */}
+          <Col span={6}>
             <Form.Item
               name="planned_amount_usd"
               label={t('contracts.create.field.planned_amount_usd')}
+              extra={t('contracts.create.field.planned_amount_usd_hint')}
               rules={[{ required: true, message: t('common.required') }]}
             >
-              <InputNumber min={0} precision={0} style={{ width: '100%' }} addonAfter="$" />
+              <InputNumber min={0} precision={2} style={{ width: '100%' }} addonAfter="$" />
             </Form.Item>
           </Col>
         </Row>
 
         <Row gutter={16}>
-          {/* Start date */}
-          <Col span={12}>
+          {/* Contract date — printed in the document header after "ş. Asgabat" */}
+          <Col span={8}>
             <Form.Item
-              name="start_date"
-              label={t('contracts.create.field.start_date')}
+              name="contract_date"
+              label={t('contracts.create.field.contract_date')}
+              extra={t('contracts.create.field.contract_date_hint')}
+              initialValue={dayjs()}
               rules={[{ required: true, message: t('common.required') }]}
             >
-              <DatePicker style={{ width: '100%' }} />
+              <DatePicker format="DD.MM.YYYY" style={{ width: '100%' }} />
             </Form.Item>
           </Col>
 
-          {/* End date (optional) */}
-          <Col span={12}>
+          {/* Start date — printed in §2.6 of the contract */}
+          <Col span={8}>
+            <Form.Item
+              name="start_date"
+              label={t('contracts.create.field.start_date')}
+              extra={t('contracts.create.field.start_date_hint')}
+              rules={[{ required: true, message: t('common.required') }]}
+            >
+              <DatePicker format="DD.MM.YYYY" style={{ width: '100%' }} />
+            </Form.Item>
+          </Col>
+
+          {/* End date (optional) — validity in §8.1 */}
+          <Col span={8}>
             <Form.Item
               name="end_date"
               label={t('contracts.create.field.end_date')}
             >
-              <DatePicker style={{ width: '100%' }} />
+              <DatePicker format="DD.MM.YYYY" style={{ width: '100%' }} />
             </Form.Item>
           </Col>
         </Row>
@@ -255,19 +327,6 @@ export function ContractCreate({ open, onClose }: IContractCreateProps) {
                 ]}
                 style={{ width: '100%' }}
               />
-            </Form.Item>
-          </Col>
-        </Row>
-
-        <Row gutter={16}>
-          {/* Deal passport — framework only (one-time has none) */}
-          <Col span={12}>
-            <Form.Item
-              name="passport_sdelka"
-              label={t('contracts.create.field.passport_sdelka')}
-              extra={t('contracts.create.field.passport_sdelka_hint')}
-            >
-              <Input />
             </Form.Item>
           </Col>
         </Row>

@@ -92,6 +92,10 @@ class Contract(models.Model):
         max_length=100, blank=True, default='', **cyrillic_collation(),
     )
     incoterm = models.CharField(max_length=10, blank=True, default='')
+    # Date the contract document itself is dated — printed in the document header
+    # ("ş. Asgabat  <contract_date>") and embedded in the auto-generated
+    # contract_number. Distinct from start_date, which prints in §2.6.
+    contract_date = models.DateField(null=True, blank=True)
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
 
@@ -102,6 +106,12 @@ class Contract(models.Model):
     )
     planned_amount_usd = models.DecimalField(
         max_digits=12, decimal_places=2, null=True, blank=True,
+    )
+    # Agreed unit price in USD per net kg (4 dp, same shape as ContractSale.price_per_kg).
+    # planned_amount_usd = planned_quantity_kg × price_per_kg — the create form
+    # derives both; this field is what the contract document prints as the price.
+    price_per_kg = models.DecimalField(
+        max_digits=8, decimal_places=4, null=True, blank=True,
     )
 
     # === Denormalized execution totals (written by rollup service only) ===

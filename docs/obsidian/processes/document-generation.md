@@ -471,7 +471,6 @@ Adding a country = one row in `_COUNTRY_GENITIVE`; no migration, no template cha
 > before it goes to a buyer. If some country needs different §4 text, that country
 > needs its own template rather than a map row.
 
-
 Endpoint (gated by the **`contract`** resource view permission — this one is NOT on
 the `sale` resource, since it hangs off the Contract, not a truck):
 ```
@@ -496,9 +495,15 @@ GET /api/v1/contracts/contracts/{id}/agreement/?fmt=docx|pdf&buyer_director=&del
   detail serializer drives `askDirector`). (This is deliberately "fidelity A" — the
   seller was parametrized but the buyer reuses existing fields; adding structured
   bilingual buyer columns was considered and rejected as duplication.)
-- **`delivery_deadline`** (§2.6 shipping cut-off, `YYYY-MM-DD`) is a generate-time
-  override; the contract **validity** date (§8.1) comes from
-  `Contract.end_date`.
+- **§2.6** ("delivery until") prints `Contract.start_date`; the generate-time
+  `delivery_deadline` query param (`YYYY-MM-DD`) still overrides it per generation,
+  and the modal leaves it blank by default. The contract **validity** date (§8.1)
+  comes from `Contract.end_date`.
+- **The header date** (`ş. Asgabat  <date>`, and the appendix `Контракт № … от <date>`)
+  is `Contract.contract_date` — the date the document itself carries — falling back to
+  `start_date` for contracts created before that field existed.
+- **The unit price** (`{{ price }}`) is `Contract.price_per_kg`, falling back to
+  `planned_amount_usd / planned_quantity_kg` for older rows.
 
 **Amount in words.** The total is spelled out in both languages —
 `services/amount_words.py` (`amount_words_ru` / `amount_words_tk`), hand-rolled (no

@@ -51,6 +51,8 @@ export interface IContract {
   planned_trucks: number;
   planned_quantity_kg: string; // DecimalField returned as string by DRF
   planned_amount_usd: string;
+  // Agreed USD per net kg (4 dp). Null on contracts stored before the field existed.
+  price_per_kg: string | null;
 
   // Exported (actuals)
   exported_trucks: number;
@@ -70,6 +72,8 @@ export interface IContract {
   last_invoice_number: number | null;
 
   // Dates
+  // The date the document itself carries (document header). Null on older rows.
+  contract_date: string | null;
   start_date: string;
   end_date: string | null;
   created_at: string;
@@ -97,12 +101,13 @@ export interface IContractCreatePayload {
   import_firm: number;
   // Optional — defaults server-side to the active season.
   season?: number;
-  passport_sdelka?: string;
   incoterm: string;
   planned_trucks: number;
   planned_quantity_kg: number;
+  price_per_kg: number;
   planned_amount_usd: number;
-  start_date: string; // ISO date YYYY-MM-DD
+  contract_date: string; // ISO date YYYY-MM-DD — printed in the document header
+  start_date: string; // ISO date YYYY-MM-DD — printed in §2.6
   end_date?: string | null;
   customer?: number | null;
   contract_type?: string | null;

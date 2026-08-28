@@ -868,8 +868,12 @@ def build_contract_context(contract, lang: str = 'ru', overrides: dict | None = 
       the ``buyer_director`` override (the modal pre-fills it from the firm's
       ``contact_person`` "Director's Full Name" and lets it be edited), falling back
       to ``contact_person`` when the request carries no override.
-    - **``delivery_deadline``** (§2.6) is a generate-time override; the validity date
-      (§8.1) is ``Contract.end_date``.
+    - **§2.6** ("delivery until") prints ``Contract.start_date``; the generate-time
+      ``delivery_deadline`` override still wins when the modal supplies one. The
+      validity date (§8.1) is ``Contract.end_date``.
+    - **The header date** (``ş. Asgabat  <date>``, and the appendix "Контракт № … от
+      <date>") is ``Contract.contract_date`` — the date the document itself carries —
+      falling back to ``start_date`` for contracts created before that field existed.
 
     Args:
         contract: A ``Contract`` instance. Caller should ``select_related``
@@ -888,14 +892,17 @@ def build_contract_context(contract, lang: str = 'ru', overrides: dict | None = 
 
     amount = contract.planned_amount_usd
     qty = contract.planned_quantity_kg
-    unit_price = (amount / qty) if (amount and qty) else None
+    # Agreed per-kg price; derived from the totals for contracts stored before
+    # price_per_kg existed.
+    unit_price = contract.price_per_kg or ((amount / qty) if (amount and qty) else None)
     # The figure (total_sum) is 2dp; the spelled-out amount is whole-dollar only —
     # matching the source contract convention ("7 830,00 (ýedi müň … otuz)"). These
     # planned totals are always round dollars, so figure and words agree; a
     # fractional planned_amount_usd would spell only the whole part (cents not voiced).
     whole_dollars = int(amount) if amount is not None else None
 
-    deadline = _parse_iso(overrides.get('delivery_deadline'))
+    # §2.6 delivery date: the contract's start_date, overridable per generation.
+    deadline = _parse_iso(overrides.get('delivery_deadline')) or contract.start_date
     # Buyer director. RU/Cyrillic: the modal sends buyer_director (pre-filled from
     # the firm's "Director's Full Name" = ImportFirm.contact_person, editable) so it
     # wins; contact_person is the fallback. TK/Latin: the firm's contact_person_tk,
@@ -921,7 +928,7 @@ def build_contract_context(contract, lang: str = 'ru', overrides: dict | None = 
 
     return {
         'contract_no': contract.contract_number or '',
-        'contract_date': _date(contract.start_date),
+        'contract_date': _date(contract.contract_date or contract.start_date),
         # Financials — one numeric value shown in both language columns (RU grouping).
         'total_sum': _money(amount, 'ru'),
         'total_sum_words_tk': amount_words_tk(whole_dollars) if whole_dollars is not None else '',

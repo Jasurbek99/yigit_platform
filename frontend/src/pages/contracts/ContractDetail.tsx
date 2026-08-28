@@ -224,6 +224,9 @@ export default function ContractDetail() {
         <Descriptions.Item label={`${t('contracts.detail.group.planned')} — ${t('contracts.column.planned_amount_usd')}`}>
           ${fmt(contract.planned_amount_usd)}
         </Descriptions.Item>
+        <Descriptions.Item label={t('contracts.create.field.price_per_kg')}>
+          {contract.price_per_kg ? `$${contract.price_per_kg}/kg` : '—'}
+        </Descriptions.Item>
 
         {/* Eksport edilen group */}
         <Descriptions.Item label={`${t('contracts.detail.group.exported')} — ${t('contracts.column.exported_trucks')}`}>
@@ -253,6 +256,9 @@ export default function ContractDetail() {
         </Descriptions.Item>
 
         {/* Dates */}
+        <Descriptions.Item label={t('contracts.create.field.contract_date')}>
+          {fmtDate(contract.contract_date)}
+        </Descriptions.Item>
         <Descriptions.Item label={t('contracts.detail.group.dates')}>
           {fmtDate(contract.start_date)} — {fmtDate(contract.end_date)}
         </Descriptions.Item>

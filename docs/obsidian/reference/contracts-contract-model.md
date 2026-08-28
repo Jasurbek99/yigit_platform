@@ -23,12 +23,14 @@ Contracts are the root of the P4 module. Contract sales (reverse accessor `contr
 | `import_firm` | FK → `core.ImportFirm` | PROTECT, related `contracts` |
 | `customer` | FK → `core.Customer` | PROTECT, nullable |
 | `contract_type` | `CharField(20)` | Default `'EXPORT'` |
-| `incoterm` | `CharField(10)` | e.g. `FCA`, blank OK |
-| `start_date` | `DateField` | nullable |
-| `end_date` | `DateField` | nullable |
-| `planned_trucks` | `IntegerField` | nullable |
+| `incoterm` | `CharField(10)` | e.g. `FCA`, blank OK. Create form defaults to `FCA` |
+| `contract_date` | `DateField` | nullable. The date the **document** carries — printed in the contract header after `ş. Asgabat` and embedded in the auto-generated `contract_number`. Falls back to `start_date` on rows created before this field existed |
+| `start_date` | `DateField` | nullable. Printed in **§2.6** of the contract ("delivery until") |
+| `end_date` | `DateField` | nullable. Validity date in §8.1 |
+| `planned_trucks` | `IntegerField` | nullable. Create form keeps it in sync with `planned_quantity_kg` at **18 100 kg / truck** |
 | `planned_quantity_kg` | `DecimalField(12,2)` | nullable |
-| `planned_amount_usd` | `DecimalField(12,2)` | nullable |
+| `planned_amount_usd` | `DecimalField(12,2)` | nullable. Create form derives it as `planned_quantity_kg × price_per_kg` |
+| `price_per_kg` | `DecimalField(8,4)` | nullable. Agreed USD per net kg — what the contract document prints as the unit price (derived from the totals for older rows) |
 | `exported_trucks` | `IntegerField` | default 0; written by rollup service (Slice B+) |
 | `exported_quantity_kg` | `DecimalField(12,2)` | default 0; rollup-owned |
 | `exported_amount_usd` | `DecimalField(12,2)` | default 0; rollup-owned |

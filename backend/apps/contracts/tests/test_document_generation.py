@@ -529,7 +529,8 @@ def _mock_seller():
 
 def _mock_contract(amount='7830.00', qty='9000', end=date(2026, 12, 31),
                    contact_person=None, contact_person_tk=None,
-                   country_code='KZ', country_ru='Казахстан', country_tk='Gazagystan'):
+                   country_code='KZ', country_ru='Казахстан', country_tk='Gazagystan',
+                   contract_date=None, price=None, start=date(2026, 3, 18)):
     """A SimpleNamespace Contract mirroring the ORM attributes the builder reads.
 
     Buyer is fidelity A: the flat single-value ImportFirm fields (name_company /
@@ -546,9 +547,11 @@ def _mock_contract(amount='7830.00', qty='9000', end=date(2026, 12, 31),
         country=country,
     )
     return SimpleNamespace(
-        contract_number='108/26-YGT-EXP', start_date=date(2026, 3, 18), end_date=end,
+        contract_number='108/26-YGT-EXP', start_date=start, end_date=end,
+        contract_date=contract_date,
         planned_amount_usd=Decimal(amount) if amount is not None else None,
         planned_quantity_kg=Decimal(qty) if qty is not None else None,
+        price_per_kg=Decimal(price) if price is not None else None,
         export_firm=_mock_seller(), import_firm=buyer,
     )
 
@@ -665,10 +668,37 @@ class ContractContextBuilderTest(SimpleTestCase):
         self.assertEqual(c['buyer_director_ru'], 'Туктибаев Бекжан')
 
     def test_blank_deadline_and_director_when_neither_source(self):
-        c = ctx.build_contract_context(_mock_contract(), 'ru')
+        # No override and no start_date → §2.6 stays blank.
+        c = ctx.build_contract_context(_mock_contract(start=None), 'ru')
         self.assertEqual(c['delivery_deadline_ru'], '')
         self.assertEqual(c['delivery_deadline_tk'], '')
         self.assertEqual(c['buyer_director_ru'], '')
+
+    def test_header_date_is_contract_date(self):
+        # The header ("ş. Asgabat  <date>") carries the document's own date.
+        c = ctx.build_contract_context(_mock_contract(contract_date=date(2026, 3, 12)), 'ru')
+        self.assertEqual(c['contract_date'], '12.03.2026')
+
+    def test_header_date_falls_back_to_start_date(self):
+        # Contracts stored before contract_date existed still print a header date.
+        c = ctx.build_contract_context(_mock_contract(), 'ru')
+        self.assertEqual(c['contract_date'], '18.03.2026')
+
+    def test_section_2_6_uses_start_date_when_no_override(self):
+        c = ctx.build_contract_context(_mock_contract(), 'ru')
+        self.assertEqual(c['delivery_deadline_ru'], '18 марта 2026')
+        self.assertEqual(c['delivery_deadline_tk'], '2026-njy ýylyň 18-nji martyna')
+
+    def test_section_2_6_override_wins_over_start_date(self):
+        c = ctx.build_contract_context(
+            _mock_contract(), 'ru', {'delivery_deadline': '2026-06-30'},
+        )
+        self.assertEqual(c['delivery_deadline_ru'], '30 июня 2026')
+
+    def test_stored_price_per_kg_wins_over_derived(self):
+        # 7830 / 9000 = 0,87 derived; the agreed price is what the contract prints.
+        c = ctx.build_contract_context(_mock_contract(price='0.9000'), 'ru')
+        self.assertEqual(c['price'], '0,9')
 
     def test_null_financials_render_blank_words(self):
         c = ctx.build_contract_context(_mock_contract(amount=None, qty=None), 'ru')
@@ -1437,7 +1467,7 @@ class ContractAgreementEndpointTest(_SeededPermsMixin, TestCase):
         self.season = _make_season()
         self.ef = _make_export_firm('YGTCTR')
         self.imp = _make_import_firm('IMPCTR')
-        self.imp.country = _make_country()  # Kazakhstan (KZ) — a supported destination
+        self.imp.country = _make_country()  # Kazakhstan (KZ) — required by the gate
         self.imp.save(update_fields=['country'])
         self.contract = _make_contract('108/26-YGT-EXP', self.ef, self.imp, self.season)
         self.contract.planned_amount_usd = Decimal('7830.00')

@@ -174,6 +174,38 @@ class ContractTypeAndPassportTest(TestCase):
         self.assertEqual(c.contract_type, Contract.TYPE_ONE_TIME)
         self.assertEqual(c.passport_sdelka, '')
 
+    def test_number_uses_contract_date_when_supplied(self) -> None:
+        # The number carries the document's own date, not the §2.6 start date.
+        c = self._create({
+            'export_firm': _efirm('YGT').id,
+            'import_firm': _ifirm('B1').id,
+            'contract_date': '2026-03-12',
+            'start_date': '2026-04-01',
+        })
+        self.assertTrue(c.contract_number.endswith('12.03.2026'), c.contract_number)
+
+    def test_number_falls_back_to_start_date_without_contract_date(self) -> None:
+        c = self._create({
+            'export_firm': _efirm('YGT').id,
+            'import_firm': _ifirm('B1').id,
+            'start_date': '2026-01-06',
+        })
+        self.assertTrue(c.contract_number.endswith('06.01.2026'), c.contract_number)
+
+    def test_price_per_kg_and_contract_date_persist(self) -> None:
+        c = self._create({
+            'export_firm': _efirm('YGT').id,
+            'import_firm': _ifirm('B1').id,
+            'contract_date': '2026-03-12',
+            'start_date': '2026-04-01',
+            'planned_trucks': 10,
+            'planned_quantity_kg': '181000.00',
+            'price_per_kg': '0.8700',
+            'planned_amount_usd': '157470.00',
+        })
+        self.assertEqual(str(c.contract_date), '2026-03-12')
+        self.assertEqual(str(c.price_per_kg), '0.8700')
+
     def test_framework_with_passport(self) -> None:
         c = self._create({
             'export_firm': _efirm('YGT').id,

@@ -133,6 +133,7 @@ class ContractListSerializer(serializers.ModelSerializer):
             'planned_trucks',
             'planned_quantity_kg',
             'planned_amount_usd',
+            'price_per_kg',
             'exported_trucks',
             'exported_quantity_kg',
             'exported_amount_usd',
@@ -142,6 +143,7 @@ class ContractListSerializer(serializers.ModelSerializer):
             'payment_received_usd',
             'ostatok_usd',
             'last_invoice_number',
+            'contract_date',
             'start_date',
             'end_date',
             'created_at',
@@ -220,11 +222,13 @@ class ContractCreateSerializer(serializers.ModelSerializer):
             'contract_type',
             'passport_sdelka',
             'incoterm',
+            'contract_date',
             'start_date',
             'end_date',
             'planned_trucks',
             'planned_quantity_kg',
             'planned_amount_usd',
+            'price_per_kg',
         ]
         # Optional (auto-generated when blank/omitted, see create()), but keep the
         # model's UniqueValidator so a duplicate supplied number still returns 400.
@@ -252,7 +256,14 @@ class ContractCreateSerializer(serializers.ModelSerializer):
             validated_data['season'] = get_active_season()
 
         export_firm = validated_data['export_firm']
-        contract_date = validated_data.get('start_date') or date.today()
+        # The number embeds the document date — contract_date is that date;
+        # fall back to start_date (contracts created before contract_date existed)
+        # and finally today.
+        contract_date = (
+            validated_data.get('contract_date')
+            or validated_data.get('start_date')
+            or date.today()
+        )
         supplied = (validated_data.get('contract_number') or '').strip()
 
         with transaction.atomic():
