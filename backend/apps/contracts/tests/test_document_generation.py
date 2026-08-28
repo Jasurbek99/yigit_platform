@@ -528,7 +528,8 @@ def _mock_seller():
 
 
 def _mock_contract(amount='7830.00', qty='9000', end=date(2026, 12, 31),
-                   contact_person=None, contact_person_tk=None):
+                   contact_person=None, contact_person_tk=None,
+                   country_code='KZ', country_ru='Казахстан', country_tk='Gazagystan'):
     """A SimpleNamespace Contract mirroring the ORM attributes the builder reads.
 
     Buyer is fidelity A: the flat single-value ImportFirm fields (name_company /
@@ -536,7 +537,7 @@ def _mock_contract(amount='7830.00', qty='9000', end=date(2026, 12, 31),
     ("Director's Full Name", RU/Cyrillic) + ``contact_person_tk`` (TK/Latin), or a
     generate-time override when the RU form is blank.
     """
-    country = SimpleNamespace(name_tk='Gazagystan', name_ru='Казахстан', code='KZ')
+    country = SimpleNamespace(name_tk=country_tk, name_ru=country_ru, code=country_code)
     buyer = SimpleNamespace(
         name_company='TOO «Aranşy - KZ»', name_short='Aranşy',
         address='РК, Туркестанская обл., с. Первое Мая',
@@ -554,6 +555,33 @@ def _mock_contract(amount='7830.00', qty='9000', end=date(2026, 12, 31),
 
 class ContractContextBuilderTest(SimpleTestCase):
     """Pure contract builder: financials, amount-in-words, dates, seller + buyer."""
+
+    def test_destination_country_genitive_from_buyer_country(self):
+        # §4.1/§4.2 name the buyer country's authorities in the genitive case —
+        # taken from the code map, not from Country's nominative name_tk/name_ru.
+        c = ctx.build_contract_context(_mock_contract(), 'ru')
+        self.assertEqual(c['dest_country_gen_ru'], 'Казахстана')
+        self.assertEqual(c['dest_country_gen_tk'], 'Gazagystanyň')
+
+        uz = _mock_contract(country_code='UZ', country_ru='Узбекистан', country_tk='Özbegistan')
+        c = ctx.build_contract_context(uz, 'ru')
+        self.assertEqual(c['dest_country_gen_ru'], 'Узбекистана')
+        self.assertEqual(c['dest_country_gen_tk'], 'Özbegistanyň')
+        # The nominative preamble field stays the Country row's own name.
+        self.assertEqual(c['buyer_country_ru'], 'Узбекистан')
+
+    def test_unsupported_country_has_no_genitive(self):
+        # The view rejects these before rendering; the builder just yields ''.
+        tr = _mock_contract(country_code='TR', country_ru='Турция', country_tk='Türkiýe')
+        c = ctx.build_contract_context(tr, 'ru')
+        self.assertEqual(c['dest_country_gen_ru'], '')
+        self.assertEqual(c['dest_country_gen_tk'], '')
+
+    def test_country_template_supported_flag(self):
+        for code in ('KZ', 'KG', 'RU', 'TJ', 'UZ', 'AE'):
+            self.assertTrue(ctx.country_template_supported(code), code)
+        self.assertFalse(ctx.country_template_supported('TR'))
+        self.assertFalse(ctx.country_template_supported(None))
 
     def test_financials_and_amount_in_words(self):
         c = ctx.build_contract_context(_mock_contract(), 'ru')
@@ -1409,7 +1437,7 @@ class ContractAgreementEndpointTest(_SeededPermsMixin, TestCase):
         self.season = _make_season()
         self.ef = _make_export_firm('YGTCTR')
         self.imp = _make_import_firm('IMPCTR')
-        self.imp.country = _make_country()  # Kazakhstan (KZ) — required by the gate
+        self.imp.country = _make_country()  # Kazakhstan (KZ) — a supported destination
         self.imp.save(update_fields=['country'])
         self.contract = _make_contract('108/26-YGT-EXP', self.ef, self.imp, self.season)
         self.contract.planned_amount_usd = Decimal('7830.00')
@@ -1429,16 +1457,41 @@ class ContractAgreementEndpointTest(_SeededPermsMixin, TestCase):
         self.assertIn('Contract_108-26-YGT-EXP_KZ.docx', resp['Content-Disposition'])
         self.assertGreater(len(resp.content), 1000)
 
-    def test_non_kz_buyer_returns_400(self):
-        # The KZ template's clauses are Kazakhstan-specific → reject other countries.
+    def test_supported_non_kz_buyer_downloads(self):
+        # §4 names the destination country, so any country with a verified genitive
+        # form generates — not Kazakhstan alone.
         uz, _ = Country.objects.get_or_create(
             code='UZ', defaults={'name_tk': 'Özbegistan', 'name_ru': 'Узбекистан', 'name_en': 'Uzbekistan'},
         )
         self.imp.country = uz
         self.imp.save(update_fields=['country'])
         resp = self.client.get(f'/api/v1/contracts/contracts/{self.contract.pk}/agreement/')
+        self.assertEqual(resp.status_code, 200, resp.content[:200])
+        self.assertGreater(len(resp.content), 1000)
+        # §4 must name Uzbekistan's authorities, with no Kazakhstan left behind.
+        body = zipfile.ZipFile(BytesIO(resp.content)).read('word/document.xml').decode('utf8')
+        text = re.sub(r'<[^>]+>', '', body)
+        self.assertIn('Узбекистана', text)
+        self.assertIn('Özbegistanyň', text)
+        self.assertNotIn('Казахстан', text)
+        self.assertNotIn('Gazagystany', text)
+
+    def test_unsupported_country_returns_400(self):
+        # No verified genitive form → the §4 clauses cannot be worded correctly.
+        tr, _ = Country.objects.get_or_create(
+            code='TR', defaults={'name_tk': 'Türkiýe', 'name_ru': 'Турция', 'name_en': 'Turkey'},
+        )
+        self.imp.country = tr
+        self.imp.save(update_fields=['country'])
+        resp = self.client.get(f'/api/v1/contracts/contracts/{self.contract.pk}/agreement/')
         self.assertEqual(resp.status_code, 400)
-        self.assertIn('Kazakhstan', resp.json()['error'])
+        self.assertIn('TR', resp.json()['error'])
+
+    def test_country_not_set_returns_400(self):
+        self.imp.country = None
+        self.imp.save(update_fields=['country'])
+        resp = self.client.get(f'/api/v1/contracts/contracts/{self.contract.pk}/agreement/')
+        self.assertEqual(resp.status_code, 400)
 
     def test_pdf_without_libreoffice_returns_503(self):
         with mock.patch.object(render, '_libreoffice_bin', return_value=None):

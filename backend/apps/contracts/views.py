@@ -35,6 +35,7 @@ from apps.contracts.serializers import (
 )
 from apps.contracts.services.document_context import (
     PACKING_REQUIRED_MESSAGE,
+    country_template_supported,
     missing_packing_fields,
     missing_packing_on,
 )
@@ -189,13 +190,18 @@ class ContractViewSet(SeasonScopedMixin, ModelViewSet):
         """
         contract = self.get_object()
 
-        # KZ-specific template: its liability clauses (§4) name Kazakh customs
-        # authorities, so it must not be emitted for a non-Kazakhstan buyer.
+        # Clauses 4.1/4.2 name the buyer country's authorities in the genitive case,
+        # which comes from a fixed code->form map (Country stores only the
+        # nominative). A destination outside that map has no verified declension, so
+        # the contract must not be emitted for it.
         buyer = contract.import_firm
         country_code = getattr(getattr(buyer, 'country', None), 'code', None)
-        if country_code != 'KZ':
+        if not country_template_supported(country_code):
             return Response(
-                {'error': 'This contract template is for Kazakhstan buyers only.'},
+                {'error': (
+                    'No contract template for this destination country '
+                    f'({country_code or "not set"}).'
+                )},
                 status=400,
             )
 

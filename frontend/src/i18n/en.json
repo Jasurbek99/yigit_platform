@@ -3106,7 +3106,7 @@
       "delivery_deadline": "Delivery deadline",
       "delivery_deadline_ph": "Shipping cut-off date (§2.6)",
       "format": "Format",
-      "kz_only": "Available only for Kazakhstan buyers (this contract template is KZ-specific).",
+      "country_unsupported": "Not available for this destination country — the contract template has no clause wording for it yet.",
       "buyer_director_extra": "Pre-filled from the Import Firm's “Director's Full Name” — edit if needed.",
       "with_stamps": "With stamps",
       "with_stamps_extra": "Stamps appear only if the seller/buyer firm has its seal & signature uploaded (Admin → Firms)."

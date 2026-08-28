@@ -29,7 +29,10 @@ from apps.contracts.services.contract_number import (
     next_contract_no,
     parse_contract_number,
 )
-from apps.contracts.services.document_context import missing_packing_on
+from apps.contracts.services.document_context import (
+    country_template_supported,
+    missing_packing_on,
+)
 
 
 class ContractAttachmentSerializer(serializers.ModelSerializer):
@@ -154,11 +157,15 @@ class ContractDetailSerializer(ContractListSerializer):
 
     editable_fields = serializers.SerializerMethodField()
     attachments = ContractAttachmentSerializer(many=True, read_only=True)
-    # Buyer's destination country code — drives the "Generate contract" gate
-    # (the KZ contract template's clauses are Kazakhstan-specific).
+    # Buyer's destination country code (display / filtering).
     import_firm_country_code = serializers.CharField(
         source='import_firm.country.code', read_only=True, default=None,
     )
+    # Whether the contract .docx can be generated for this buyer's country — the
+    # template's §4 clauses name that country's authorities in the genitive case,
+    # which only a fixed set of countries has a verified form for. Server-owned so
+    # the frontend never carries a second copy of the list.
+    contract_template_supported = serializers.SerializerMethodField()
     # The buyer firm's director name ("Director's Full Name" = ImportFirm.contact_person).
     # The generator modal pre-fills its director field from this (editable).
     import_firm_director = serializers.CharField(
@@ -168,8 +175,13 @@ class ContractDetailSerializer(ContractListSerializer):
     class Meta(ContractListSerializer.Meta):
         fields = ContractListSerializer.Meta.fields + [
             'editable_fields', 'attachments', 'import_firm_country_code',
-            'import_firm_director',
+            'import_firm_director', 'contract_template_supported',
         ]
+
+    def get_contract_template_supported(self, obj: Contract) -> bool:
+        """True when the buyer's country has a template-supported genitive form."""
+        country = getattr(obj.import_firm, 'country', None)
+        return country_template_supported(getattr(country, 'code', None))
 
     def get_editable_fields(self, obj: Contract) -> list[str]:
         """Return the fields editable by the requesting user's role."""

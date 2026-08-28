@@ -437,11 +437,40 @@ invoice/CMR it holds **both languages in one `.docx`** (the source is a two-colu
 document). The template `contract_kz.docx` was cloned from a real signed contract
 to preserve the exact legal layout/logo; only the variable fields became Jinja tags.
 
-**Kazakhstan-specific + gated:** the clauses reference KZ customs authorities (§4),
-so the endpoint **rejects a non-Kazakhstan buyer with 400** (`import_firm.country.code
-!= 'KZ'`), and the frontend button is disabled (with a tooltip) unless the contract's
-buyer is in KZ (`import_firm_country_code`, exposed on the contract detail serializer).
-A per-country template set is the future extension.
+**Multi-country since 2026-08-28 — gated on a genitive-form map.** §4.1/§4.2 name the
+**buyer country's** authorities ("Акт … выданным уполномоченным органом Казахстана" /
+"Gazagystanyň gümrük gullugy"). Those were the template's only hardcoded "Kazakhstan"
+(verified: a sweep for `РК` / `Алматы` / `Астана` / `KZT` found nothing else; the
+`Туркменистана` in §4.3/§7 is the **seller's** law and stays fixed). They are now the
+tags `{{ dest_country_gen_tk }}` / `{{ dest_country_gen_ru }}`.
+
+The clause needs the country in the **genitive case**, but `Country` stores only the
+nominative `name_tk` / `name_ru` and the declension is irregular in both languages —
+so the forms come from a fixed ISO-code map, `_COUNTRY_GENITIVE` in
+`services/document_context.py`:
+
+| Code | TK | RU |
+|------|----|----|
+| `KZ` | Gazagystanyň | Казахстана |
+| `KG` | Gyrgyzystanyň | Кыргызстана |
+| `RU` | Russiýanyň | России |
+| `TJ` | Täjigistanyň | Таджикистана |
+| `UZ` | Özbegistanyň | Узбекистана |
+| `AE` | BAE-niň | ОАЭ *(indeclinable)* |
+
+**The map IS the gate.** A country absent from it has no verified declension, so the
+endpoint **400s** (`country_template_supported()`), and the frontend button is disabled
+with a tooltip. The frontend reads the server-owned boolean
+**`contract_template_supported`** on the contract detail serializer — *not* a second
+copy of the country list in TypeScript (`import_firm_country_code` stays, for display).
+Adding a country = one row in `_COUNTRY_GENITIVE`; no migration, no template change.
+
+> **Assumption on record (user-confirmed 2026-08-28):** the §4 clause wording is
+> identical across destinations apart from the country name. It was verified against
+> KZ contracts only — the first generated non-KZ contract should get a human read
+> before it goes to a buyer. If some country needs different §4 text, that country
+> needs its own template rather than a map row.
+
 
 Endpoint (gated by the **`contract`** resource view permission — this one is NOT on
 the `sale` resource, since it hangs off the Contract, not a truck):

@@ -804,6 +804,32 @@ _SELLER_FORM_SUFFIX = re.compile(r'\s+(H\.?\s?J\.?|Х\.?\s?Дж\.?)\.?\s*$', re.
 _DIRECTOR_TITLE = re.compile(r'^\s*(Директор|Direktor|Director)\s+', re.IGNORECASE)
 
 
+# Destination-country name in the GENITIVE case, keyed by ISO code. Clauses 4.1/4.2
+# of the contract name the buyer country's authorities ("Акт ... выданным
+# уполномоченным органом Казахстана" / "Gazagystanyň gümrük gullugy"), which needs a
+# declined form — Country stores only the nominative, and genitive is irregular in
+# both languages, so there is no rule to derive it. A country absent from this map
+# has no verified declension and its contract cannot be generated (see
+# ``COUNTRY_TEMPLATE_SUPPORTED``).
+_COUNTRY_GENITIVE = {
+    'KZ': ('Gazagystanyň', 'Казахстана'),
+    'KG': ('Gyrgyzystanyň', 'Кыргызстана'),
+    'RU': ('Russiýanyň', 'России'),
+    'TJ': ('Täjigistanyň', 'Таджикистана'),
+    'UZ': ('Özbegistanyň', 'Узбекистана'),
+    'AE': ('BAE-niň', 'ОАЭ'),  # RU indeclinable abbreviation
+}
+
+#: ISO codes whose contract can be generated — exactly those with a verified
+#: genitive form above. Read by the view's gate and the detail serializer's flag.
+COUNTRY_TEMPLATE_SUPPORTED = frozenset(_COUNTRY_GENITIVE)
+
+
+def country_template_supported(country_code: str | None) -> bool:
+    """True when the contract template can name this destination country's authorities."""
+    return (country_code or '') in COUNTRY_TEMPLATE_SUPPORTED
+
+
 def _bare_seller_name(name: str) -> str:
     """Strip a trailing legal-form suffix so it isn't duplicated by the template.
 
@@ -929,6 +955,10 @@ def build_contract_context(contract, lang: str = 'ru', overrides: dict | None = 
         # is genuinely bilingual; director is generate-time.
         'buyer_name_tk': buyer_name,
         'buyer_name_ru': buyer_name,
+        # Destination country in §4.1/§4.2 — genitive, from the code map (the view
+        # rejects a country that has no entry, so the lookup always resolves).
+        'dest_country_gen_tk': _COUNTRY_GENITIVE.get(getattr(country, 'code', '') or '', ('', ''))[0],
+        'dest_country_gen_ru': _COUNTRY_GENITIVE.get(getattr(country, 'code', '') or '', ('', ''))[1],
         'buyer_country_tk': getattr(country, 'name_tk', '') or '',
         'buyer_country_ru': getattr(country, 'name_ru', '') or getattr(country, 'name_tk', '') or '',
         'buyer_director_tk': director_tk,

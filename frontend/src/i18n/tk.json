@@ -3110,7 +3110,7 @@
       "delivery_deadline": "Ibermegiň möhleti",
       "delivery_deadline_ph": "Harydy ugratmagyň soňky senesi (2.6 b.)",
       "format": "Format",
-      "kz_only": "Diňe Gazagystanly alyjylar üçin elýeterli (bu şertnama şablony KZ üçin niýetlenen).",
+      "country_unsupported": "Bu barmaly ýurt üçin elýeterli däl — şertnama şablonynda entek onuň üçin madda ýazgysy ýok.",
       "buyer_director_extra": "Import firmasynyň «Direktoryň doly ady» meýdanyndan dolduryldy — gerek bolsa üýtgediň.",
       "with_stamps": "Möhürler bilen",
       "with_stamps_extra": "Möhürler diňe satyjy/alyjy firmanyň möhri we goly ýüklenen bolsa görüner (Admin → Firmalar)."

@@ -158,13 +158,13 @@ export default function ContractDetail() {
             : t('contracts.type.framework')}
         </Tag>
         <div style={{ marginLeft: 'auto' }}>
-          {contract.import_firm_country_code === 'KZ' ? (
+          {contract.contract_template_supported ? (
             <ContractAgreementButton
               contractId={contract.id}
               defaultDirector={contract.import_firm_director ?? ''}
             />
           ) : (
-            <Tooltip title={t('contracts.generate.kz_only')}>
+            <Tooltip title={t('contracts.generate.country_unsupported')}>
               {/* span wrapper: a disabled button has pointer-events:none and
                   swallows hover events, so the Tooltip needs an element that does. */}
               <span style={{ display: 'inline-block', cursor: 'not-allowed' }}>
