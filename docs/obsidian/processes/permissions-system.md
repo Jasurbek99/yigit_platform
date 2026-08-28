@@ -100,11 +100,13 @@ flowchart LR
 **File**: `backend/apps/core/permission_registry.py`
 
 **PAGE_REGISTRY** (every navigable page):
-- `dashboard`, `export.shipments`, `export.shipments.board` (Kanban), `export.overdue`, `export.quota`, `export.quota.local_sell`, `export.plan`, `export.prices`, `export.advances`, `export.trucks`, `export.blocks`, `export.domestic_sales`, `export.drafts`, `export.assign`, `export.pallet_manifest`
+- `dashboard`, `export.shipments` (list), `export.shipments_sheet` (Sheet), `export.shipments_dashboard` (Shipment Dashboard), `export.shipments.board` (Kanban), `export.overdue`, `export.quota`, `export.quota.local_sell`, `export.plan`, `export.prices`, `export.advances`, `export.trucks`, `export.blocks`, `export.domestic_sales`, `export.drafts`, `export.assign`, `export.pallet_manifest`
 - `me.board` (My Tasks), `analytics.boss`, `director.stuck_shipments`, `audit_log`
 - `feedback.submit`, `feedback.my_tickets`, `feedback.public`, `feedback.admin_inbox`
 - `contracts.list` (Contracts), `contracts.sales` (Contract Sales) — P4 module; **non-`admin.` prefix on purpose** so delegated managers may also be granted them. Default visibility is **management-only** (`admin` / `director` / `export_manager`), inherited from `_ALL_PAGES`; all other roles start hidden (mirrors `_CONTRACT_WRITE_ROLES`). Page *visibility* only — contract/sale write enforcement still uses the hardcoded `_CONTRACT_WRITE_ROLES` in `apps/contracts/views.py` (not yet a registered *resource*).
 - `admin.users`, `admin.staff_access` (delegated page-access editor — ADR-022), `admin.seasons`, `admin.firms`, `admin.import_firms`, `admin.permissions`, `admin.blocks`, `admin.truck_dest`, `admin.customers`, `admin.shipment_settings`
+
+> **Why `export.shipments_sheet` is flat, not `export.shipments.sheet`.** `canSeePage` (`frontend/src/utils/permissions.ts`) grants a *parent* page whenever ANY child code under `parent.` is visible — that rule is load-bearing for `seller`, who reaches `/export/quota` only through `export.quota.local_sell`. A nested `export.shipments.sheet` would therefore re-open the Shipments list for anyone granted only the Sheet, i.e. the new checkbox could never be used to grant Sheet-without-list. Flat codes sidestep the rule entirely and still group under `export` in the admin UI (`groupPages` splits on the FIRST dot). `export.shipments.board` keeps the nested form and its latent version of this quirk — left alone deliberately, not migrated.
 
 > **Audit log naming:** the page_code is `audit_log` (NOT `admin.audit_log`) on purpose. `director` and `export_manager` must see it, but their defaults are computed as `_ALL_PAGES - _ALL_ADMIN`, which strips every `admin.*` page (AD-15). A non-prefixed code keeps the audit log visible to them without re-granting admin pages.
 

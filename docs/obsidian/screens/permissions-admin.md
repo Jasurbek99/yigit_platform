@@ -82,6 +82,21 @@ a resource is moved onto the matrix, delete its entry — the test in
 `rolePermissionModel.test.ts` pins the current set, so it fails loudly if the
 list and the code drift.
 
+## Sub-views of Shipments are three separate checkboxes
+
+`/export/shipments`, `/export/shipments/sheet` and `/export/shipments/dashboard` used to
+share the single `export.shipments` code, so the list, the Sheet and the Shipment Dashboard
+could only be granted or hidden together. Since 2026-08-28 they are `export.shipments`,
+`export.shipments_sheet` and `export.shipments_dashboard` (core migration `0036`, which
+copied each role's existing `export.shipments` value into both new codes so nobody's access
+changed on deploy).
+
+The two new codes are **flat, not nested under `export.shipments.`** on purpose: `canSeePage`
+grants a parent page whenever any `parent.`-prefixed child is visible, so a nested code would
+have re-opened the Shipments list for anyone granted only the Sheet. `groupPages` splits on
+the first dot, so both still render inside the `export` group. `export.shipments.board`
+(Kanban) keeps the nested form and its latent version of that quirk.
+
 ## Known limitation — page visibility is not enforced server-side
 
 `get_page_permissions()` is read by `/auth/me/` and nowhere else. **No endpoint

@@ -33,6 +33,13 @@ _ALL_ADMIN = {k for k in PAGE_REGISTRY if k.startswith('admin.')}
 # defaults visible to every role that can already see the Shipments page.
 _BOARD = 'export.shipments.board'
 
+# Sheet + Shipment Dashboard — two more views of the same data as
+# export.shipments. They were split off their parent code so an admin can hide
+# one without hiding the list; the default therefore matches the old behaviour
+# and grants them to every role that already sees the Shipments page.
+_SHEET = 'export.shipments_sheet'
+_SHIP_DASHBOARD = 'export.shipments_dashboard'
+
 # Daily Harvest Board (Ýük plan we galyndy) — yesterday's remainder + today's
 # plan per block. Defaults visible to every operational role that touches
 # harvest/loading work (mirrors the Board breadth, plus greenhouse_manager).
@@ -91,7 +98,8 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
         _ALL_PAGES - _ALL_ADMIN - {'director.stuck_shipments', 'feedback.admin_inbox'}
     ),
     'weight_master': {
-        'dashboard', 'export.shipments', 'export.pallet_manifest', _BOARD,
+        'dashboard', 'export.shipments', _SHEET, _SHIP_DASHBOARD,
+        'export.pallet_manifest', _BOARD,
         _HARVEST_BOARD,
     } | _UNIVERSAL,
     # loading_dept_head: superset of warehouse_chief (same daily work) plus
@@ -99,7 +107,7 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
     # forecast entry (day-before + day-of until 12:00) and to read computed actuals
     # so he can plan truck loads. See harvest_day_service.set_forecast_value.
     'loading_dept_head': {
-        'dashboard', 'export.shipments',
+        'dashboard', 'export.shipments', _SHEET, _SHIP_DASHBOARD,
         'export.drafts',
         'export.pallet_manifest',
         'export.plan',
@@ -107,7 +115,7 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
         _HARVEST_BOARD,
     } | _UNIVERSAL,
     'warehouse_chief': {
-        'dashboard', 'export.shipments',
+        'dashboard', 'export.shipments', _SHEET, _SHIP_DASHBOARD,
         # Draft workflow: warehouse_chief creates drafts (Finding #2)
         'export.drafts',
         # Pallet manifest oversight (Finding #4)
@@ -116,7 +124,8 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
         _HARVEST_BOARD,
     } | _UNIVERSAL,
     'document_team': {
-        'dashboard', 'export.shipments', 'export.quota', _BOARD,
+        'dashboard', 'export.shipments', _SHEET, _SHIP_DASHBOARD,
+        'export.quota', _BOARD,
         _HARVEST_BOARD,
         # Documents workspace + the Contracts / Sales pages they now fully manage.
         'contracts.documents', 'contracts.list', 'contracts.sales',
@@ -124,21 +133,23 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
         'export.packing_presets',
     } | _UNIVERSAL,
     'transport': {
-        'dashboard', 'export.shipments', _BOARD,
+        'dashboard', 'export.shipments', _SHEET, _SHIP_DASHBOARD, _BOARD,
         _HARVEST_BOARD,
     } | _UNIVERSAL,
     'sales_rep': {
-        'dashboard', 'export.shipments', 'export.advances', _BOARD,
+        'dashboard', 'export.shipments', _SHEET, _SHIP_DASHBOARD,
+        'export.advances', _BOARD,
         _HARVEST_BOARD,
         # Sales rep worklist — dedicated page for their destination-country reports.
         'export.sales_reports',
     } | _UNIVERSAL,
     'finansist': {
-        'dashboard', 'export.shipments', 'export.prices', 'export.advances', _BOARD,
+        'dashboard', 'export.shipments', _SHEET, _SHIP_DASHBOARD,
+        'export.prices', 'export.advances', _BOARD,
         _HARVEST_BOARD,
     } | _UNIVERSAL,
     'accountant': {
-        'dashboard', 'export.shipments', _BOARD,
+        'dashboard', 'export.shipments', _SHEET, _SHIP_DASHBOARD, _BOARD,
         _HARVEST_BOARD,
     } | _UNIVERSAL,
     'greenhouse_manager': {

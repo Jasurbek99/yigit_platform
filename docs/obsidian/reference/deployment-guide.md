@@ -148,6 +148,9 @@ DATABASES = {
 
 ## Seed Commands (run in order)
 
+> **The order is load-bearing for permissions, not just tidy.** Data migrations that back-fill `RolePagePermission` copy each role's CURRENT, hand-edited value (e.g. `core/0036`, which split `export.shipments` into `export.shipments` / `export.shipments_sheet` / `export.shipments_dashboard`). `seed_permissions` uses `get_or_create`, so whichever runs FIRST decides the row. Run `seed_permissions` before `migrate` and new page codes get the `PAGE_DEFAULTS` value instead of what the admin actually configured on that host.
+
+
 ```bash
 # 1. Apply migrations
 python manage.py migrate

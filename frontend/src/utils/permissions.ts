@@ -37,8 +37,8 @@ export function hasArchiveAccess(user: ICurrentUser | null): boolean {
 const ROUTE_PAGE_MAP: Record<string, string> = {
   '/':                          'dashboard',
   '/export/shipments':          'export.shipments',
-  '/export/shipments/sheet':    'export.shipments',
-  '/export/shipments/dashboard':'export.shipments',
+  '/export/shipments/sheet':    'export.shipments_sheet',
+  '/export/shipments/dashboard':'export.shipments_dashboard',
   '/export/shipments/board':    'export.shipments.board',
   '/export/harvest-board':      'export.harvest_board',
   '/export/overdue':            'export.overdue',

@@ -17,6 +17,14 @@ PAGE_REGISTRY: dict[str, str] = OrderedDict([
     ('dashboard',               'Dashboard'),
     # Export
     ('export.shipments',        'Shipments'),
+    # Sheet and Dashboard used to ride on the `export.shipments` code, so an
+    # admin could not hide either one without hiding the list too. Flat codes
+    # on purpose: `canSeePage` grants a parent whenever ANY child page is
+    # visible, so a nested `export.shipments.sheet` would silently re-open the
+    # list page and the new checkbox would be a lie. See `export.shipments.board`
+    # for the nested form we are NOT copying (it has that latent quirk).
+    ('export.shipments_sheet',  'Shipments: Sheet'),
+    ('export.shipments_dashboard', 'Shipments: Dashboard'),
     ('export.shipments.board',  'Shipment Board (Kanban)'),
     ('export.overdue',          'Overdue Reports'),
     ('export.advances',         'Advances'),

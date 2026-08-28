@@ -133,7 +133,7 @@ export default function App() {
                     <ProtectedRoute pageCode="export.shipments"><ShipmentDetail /></ProtectedRoute>
                   } />
                   <Route path="export/shipments/sheet" element={
-                    <ProtectedRoute pageCode="export.shipments"><ShipmentSheet /></ProtectedRoute>
+                    <ProtectedRoute pageCode="export.shipments_sheet"><ShipmentSheet /></ProtectedRoute>
                   } />
                   {/* Worklog — open to every authenticated user (radical-transparency rule). */}
                   <Route path="worklog" element={
@@ -144,7 +144,7 @@ export default function App() {
                     <ProtectedRoute><TeamKpi /></ProtectedRoute>
                   } />
                   <Route path="export/shipments/dashboard" element={
-                    <ProtectedRoute pageCode="export.shipments"><ShipmentDashboard /></ProtectedRoute>
+                    <ProtectedRoute pageCode="export.shipments_dashboard"><ShipmentDashboard /></ProtectedRoute>
                   } />
                   <Route path="export/shipments/board" element={
                     <ProtectedRoute pageCode="export.shipments.board"><ShipmentBoard /></ProtectedRoute>
