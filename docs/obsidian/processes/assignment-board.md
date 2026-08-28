@@ -8,7 +8,7 @@ related: [[draft-shipments]], [[shipment-lifecycle]], [[quota-management]]
 
 ## What Is This Process?
 
-The screen where **Gadam (export_manager)** matches drafts from the pool to demand — open contracts, quota gaps, and waiting customers. Confirming a match transitions a draft into the 13-step lifecycle.
+The screen where **Gadam (export_manager)** matches drafts from the pool to demand — open contracts, quota gaps, and waiting customers. Confirming a match moves a draft into the 12-step lifecycle (state machine v2).
 
 Reference: [[draft-shipments]] describes the two-phase creation. This note covers the assignment screen specifically.
 
@@ -69,6 +69,6 @@ Future wiring:
 ## Related
 
 - [[draft-shipments]] — full draft lifecycle and backend detail.
-- [[shipment-lifecycle]] — post-assignment 13 steps.
+- [[shipment-lifecycle]] — the 12 post-draft steps.
 - [[quota-management]] — source of quota gap data.
 - [[decisions-log]] — ADR-014 captures why this is a separate screen.

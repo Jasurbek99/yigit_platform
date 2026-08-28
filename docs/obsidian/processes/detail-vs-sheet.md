@@ -25,7 +25,7 @@ A single-column layout (sticky right rail on desktop), top to bottom:
 3. **PhaseContextStrip** — three small cells: "In phase: 2d 4h" / "Avg for step: 1d 12h" / "Tasks open: 2/5".
 4. **OtherTasksRow** — a clickable list of every other task on this shipment, with state icon + role label + deadline.
 5. **Five collapsible sections** — Logistika / Ulag / Haryt / Dokument / Maliýe. All expanded by default. Each section has labeled rows of inline editors plus any special widgets (variety override, firm splits table, quality checkboxes, sales report form).
-6. **Right rail** (≥md): 13-step status route timeline (visually unchanged from before, mapped by `status_code` not array index).
+6. **Right rail** (≥md): 12-step status route timeline (mapped by `status_code`, not array index).
 7. Below the collapse, a single "View activity log" tag links to `/shipments/:id/activity`.
 
 ### Process: how a warehouse_chief acts here
@@ -134,7 +134,7 @@ When you save on Detail, the optimistic cache update on `['shipments']` ALSO ref
 | **Cross-shipment compare** | Hard — page is one shipment | Trivial — columns are side by side |
 | **Status transitions** | Hero buttons (Manifest, Promote, Transition) | Not exposed — go to Detail to transition |
 | **Comments / threads** | Activity log page (`/shipments/:id/activity`) | Per-cell drawer + filter chips |
-| **Right-rail timeline** | Yes (13-step route) | No |
+| **Right-rail timeline** | Yes (12-step route) | No |
 | **Bulk operations** | One field at a time | Excel-like — fill down a row, paste a column |
 | **Mobile-friendly** | Yes (right rail collapses, single column) | Limited — narrow viewports lose horizontal context |
 

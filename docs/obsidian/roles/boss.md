@@ -51,7 +51,7 @@ A `Segmented` control in the app header (boss-only) switches between **Прос�
 
 ## Lifecycle scope
 
-`boss` is in `PRIVILEGED_ROLES` (`apps/export/services/shipment.py`), so `transition_to()` accepts him on any valid status edge — he can walk a shipment through the 13-step chain the same as `export_manager` or `director`, via `POST /shipments/{id}/transition/`, subject to the view/edit gate above.
+`boss` is in `PRIVILEGED_ROLES` (`apps/export/services/shipment.py`), so `transition_to()` accepts him on any valid status edge — he can walk a shipment through the 12-step chain the same as `export_manager` or `director`, via `POST /shipments/{id}/transition/`, subject to the view/edit gate above.
 
 Two endpoints don't route through that check — they gate independently on a different, unchanged constant (`apps.core.permissions.PRIVILEGED_ROLES = {admin, export_manager, director}`):
 

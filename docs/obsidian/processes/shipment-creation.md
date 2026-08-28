@@ -145,4 +145,4 @@ interface IShipmentCreatePayload {
 
 - **[[weekly-harvest-planning]]** — Plan kg determines how many trucks are needed (pre-system planning)
 - **[[truck-allocation]]** — Trucks allocated per day feed into how many shipments can be created
-- **[[shipment-lifecycle]]** — Created shipment starts at step 1 (yuklenme), then follows the 13-step state machine
+- **[[shipment-lifecycle]]** — Created shipment starts at step 0 (`draft`), then follows the 12-step state machine v2

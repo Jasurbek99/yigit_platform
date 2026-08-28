@@ -52,14 +52,13 @@ department's tasks.
 |---|---|---|---|
 | **Draft** | Set destination | export_manager | auto: `country` + `customer` + `import_firm` |
 | | Pick export firms | document_team | auto: add a firm split |
-| | Assign driver | transport | auto: `driver_name` — *only if not gapy-satys* |
+| | Assign driver | transport | auto: `driver_name` + `driver_phone` + `truck_plate` — *only if not gapy-satys* |
 | | Give documents | transport | **Mark Done** — *only if not gapy-satys* |
-| | Give documents (gapy) | export_manager | **Mark Done** — *only if gapy-satys* |
+| | Give documents (gapy) | document_team | **Mark Done** — *only if gapy-satys* |
+| | Assign driver (gapy) | document_team | auto: `driver_name` + `driver_phone` + `truck_plate` — *only if gapy-satys* |
 | | Start documents prep | document_team | auto: `documents_status` = `ready` |
-| **Customs entry (TM)** `gumruk_girish` | Send documents to customs | document_team | **Mark Done** |
-| | Trigger customs exit | document_team | auto: `customs_exit_at` |
-| **Customs exit (TM)** `gumruk_chykysh` | Documents back to office | document_team | **Mark Done** |
-| | Trigger loading start | loading_dept_head | auto: `loading_started_at` |
+| **Customs entry (TM)** `gumruk_girish` | Trigger customs exit | document_team | auto: `customs_exit_at` |
+| **Customs exit (TM)** `gumruk_chykysh` | Trigger loading start | loading_dept_head | auto: `loading_started_at` |
 | **Loading** `yuklenme` | Fill loading data | loading_dept_head | auto: `shipment_code` + `block_sources` + `variety` + `weight_net` |
 | | Trigger departure | document_team | auto: `departed_at` |
 | **Departed** `yola_chykdy` | Trigger border crossing | transport | auto: `border_crossed_at` |
@@ -72,9 +71,14 @@ department's tasks.
 | **Arrived** `bardy` | Confirm destination | sales_rep | auto: `city` |
 | | Trigger sale start | sales_rep | auto: `sale_started_at` |
 | **Selling** `satylyar` | Trigger sale end | sales_rep | auto: `sale_ended_at` |
-| **Sold** `satyldy` | Finalize sale | sales_rep | **Mark Done** |
-| | Trigger report received | sales_rep | auto: `sales_report` *(report-existence — retargeted from the old `sales_report_date` date field)* |
-| **Report** `hasabat` | Submit sales report | sales_rep | **Mark Done** *(currently inactive)* |
+| **Sold** `satyldy` | Trigger report received | sales_rep | auto: `sales_report` *(report-existence — retargeted from the old `sales_report_date` date field)* |
+
+`hasabat` was retired in state machine v2 (merged into `tamamlandy`) and has no rules. `tamamlandy` and
+`cancelled` are terminal and generate no tasks.
+
+**Mark Done tasks never gate auto-advance.** `auto_advance_if_ready()` checks only the non-`MANUAL_DONE`
+tasks on the step, so *Give documents* and *Submit sales report* are reminders — a shipment moves on
+without them. See [[../processes/shipment-lifecycle#Sheet-Driven Auto-Advance (v2)]].
 
 ## Sales-report task wiring
 

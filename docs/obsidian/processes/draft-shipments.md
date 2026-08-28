@@ -21,7 +21,7 @@ flowchart LR
     end
 
     subgraph Phase2["Phase 2 · ~10–11am · Gadam"]
-        G1["Draft pool\n(sorted oldest-first)"] --> G2["Assignment Board\n3 cols: supply / match / demand"] --> G3["Assign: country + customer + firm"] --> G4["transition_to('yuklenme')\n→ 13-step lifecycle begins"]
+        G1["Draft pool\n(sorted oldest-first)"] --> G2["Assignment Board\n3 cols: supply / match / demand"] --> G3["Assign: country + customer + firm"] --> G4["transition_to('gumruk_girish')\n→ 12-step lifecycle begins"]
     end
 
     S3 --> G1
@@ -59,14 +59,18 @@ Row: `{code: 'draft', name_tk: 'Garalama', name_ru: 'Черновик', name_en:
 
 ```python
 TRANSITIONS = {
-    None:             [('draft',    ['warehouse_chief'])],
-    'draft':          [('yuklenme', ['export_manager'])],
-    'yuklenme':       [('gumruk_girish', ['warehouse_chief'])],
-    # ... remaining 13-step edges unchanged
+    None:             [('draft',          ['warehouse_chief'])],
+    'draft':          [('gumruk_girish',  ['document_team']),
+                       ('cancelled',      list(CANCEL_ROLES))],
+    'gumruk_girish':  [('gumruk_chykysh', ['document_team']), ...],
+    # ... see services/shipment.py for the full v2 edge list
 }
 ```
 
-`draft` has **no entry** in `STATUS_TIMESTAMP_MAP` — AD-1 `loading_started_at` is still only written when the shipment transitions into `yuklenme`.
+In state machine v2 `draft` advances to **`gumruk_girish`**, not `yuklenme` — customs paperwork is
+pre-cleared while the truck loads, so `yuklenme` is step 3. `STATUS_TIMESTAMP_MAP` is **empty**:
+`loading_started_at` is now typed into the Sheet by `loading_dept_head` and is itself the trigger that
+advances `gumruk_chykysh → yuklenme`.
 
 ### Create draft
 
@@ -235,7 +239,7 @@ Namespaces: `draft.*` (37 keys), `assign.*` (29 keys). Present in tk.json / ru.j
 ## Connections to Other Processes
 
 - **[[shipment-creation]]** — describes the legacy single-form path (`is_draft=false`). Still supported for direct shipment creation.
-- **[[shipment-lifecycle]]** — 13 steps begin at `yuklenme`. Draft is step 0 (pre-lifecycle).
+- **[[shipment-lifecycle]]** — `draft` is step 0 and advances to `gumruk_girish`; 12 steps in total.
 - **[[weekly-harvest-planning]]** — blocks shown in composer come from the same reference table used by the weekly plan.
 
 ## Deferred (Kaka Findings follow-up)

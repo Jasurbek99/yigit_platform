@@ -6,7 +6,7 @@ tags: [moc, index]
 # YGT Platform Knowledge Base
 
 > Django + React platform for greenhouse tomato export operations (YGT Holding).
-> 40+ models | 43 pages | 13-step shipment lifecycle | 14 roles (incl. `admin` per AD-15) | 3 languages (TM/RU/EN)
+> 40+ models | 43 pages | 12-step shipment lifecycle (state machine v2) | 14 roles (incl. `admin` per AD-15) | 3 languages (TM/RU/EN)
 
 ## Process Map
 
@@ -20,7 +20,7 @@ flowchart LR
 
     subgraph Lifecycle["Shipment Lifecycle"]
         SC[["Shipment\nCreation"]]
-        SL[["Shipment\nLifecycle\n(13 steps)"]]
+        SL[["Shipment\nLifecycle\n(12 steps)"]]
         QD[["Quality\nDocuments"]]
     end
 
@@ -58,7 +58,7 @@ flowchart LR
 
 | Process | What It Does | Key Pages |
 |---------|-------------|-----------|
-| [[shipment-lifecycle]] | 13-step state machine from Loading to Completed | ShipmentList, ShipmentDetail, ShipmentBoard, ShipmentSheet, ShipmentDashboard |
+| [[shipment-lifecycle]] | State machine v2 — 12 steps `draft` → `tamamlandy`, advanced by filling Sheet cells | ShipmentList, ShipmentDetail, ShipmentBoard, ShipmentSheet, ShipmentDashboard |
 | [[shipment-creation]] | Legacy single-form path — direct creation at step 1 | ShipmentCreateModal |
 | [[draft-shipments]] | Two-phase creation (DRAFT step 0) with multi-block composer | DraftPool, DraftComposerModal |
 | [[assignment-board]] | Match drafts to demand (contracts / quota gaps / waiting) | AssignmentBoard |
@@ -124,7 +124,7 @@ See [[roles-matrix]] for the full capability matrix.
 - [[data-model-map]] — All 40+ models with ER diagram and field lists
 - [[contracts-contract-model]] — Contract model (P4 Slice A): fields, status enum, computed properties, API endpoints
 - [[contracts-contract-sale-model]] — Contract Sale model (P4 Slice B): fields, status enum, rollup service, auto-compute total_usd, API endpoints
-- [[status-codes]] — 13 shipment statuses with codes, phases, timestamps, roles
+- [[status-codes]] — 12 active statuses + `cancelled` + 3 retired: codes, phases, trigger fields, roles
 - [[deployment-guide]] — Docker, MSSQL, env vars, seed commands
 - [[data-imports]] — 14 management commands for data migration
 
