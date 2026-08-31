@@ -945,17 +945,22 @@ export function SheetGrid({
         ? sectionIndex
         : safeFrozenRowCount + sectionIndex;
 
-      // Reorder controls — only available when callbacks are provided, and
-      // NEVER in the topic order: handleReorder derives the payload from the
-      // array currently on screen, so one nudge there would persist the whole
-      // topic order as this user's personal row order. Hiding a row is still
-      // fine — it names one row id and doesn't depend on the order.
-      const hasReorderCapability =
-        fieldKeyToRowId !== undefined && onReorder !== undefined && topicOrder === null;
-      const rowHasId = hasReorderCapability && fieldKeyToRowId[rowConfig.field_key] !== undefined;
+      // `rowHasId` is about the ROW (does it have a SheetRowSetting id we can
+      // name in a PATCH?), not about the capability. Keep the two independent:
+      // deriving it from the reorder gate below is what silently disabled
+      // hiding in the topic order, since hide is gated on it too.
+      const rowHasId =
+        fieldKeyToRowId !== undefined && fieldKeyToRowId[rowConfig.field_key] !== undefined;
 
-      const canMoveUp = rowHasId && globalIndex > 0;
-      const canMoveDown = rowHasId && globalIndex < rows.length - 1;
+      // Reorder is additionally OFF in the topic order: handleMove/handleReorderTo
+      // derive their payload from the array currently on screen, so one nudge
+      // there would persist the whole topic order as this user's personal row
+      // order. Hiding is unaffected — it names one row id, not an order.
+      const canReorderRow =
+        rowHasId && onReorder !== undefined && topicOrder === null;
+
+      const canMoveUp = canReorderRow && globalIndex > 0;
+      const canMoveDown = canReorderRow && globalIndex < rows.length - 1;
 
       // Role block header. Only in the scrollable section — the frozen band
       // covers the pinned rows, which have no single owner and are never banded.
@@ -991,21 +996,11 @@ export function SheetGrid({
             canMoveUp={canMoveUp}
             canMoveDown={canMoveDown}
             rowIndex={globalIndex}
-            onReorderTo={
-              hasReorderCapability && rowHasId ? handleReorderTo : undefined
-            }
-            onMoveUp={
-              hasReorderCapability && rowHasId
-                ? () => handleMove(globalIndex, -1)
-                : undefined
-            }
-            onMoveDown={
-              hasReorderCapability && rowHasId
-                ? () => handleMove(globalIndex, 1)
-                : undefined
-            }
+            onReorderTo={canReorderRow ? handleReorderTo : undefined}
+            onMoveUp={canReorderRow ? () => handleMove(globalIndex, -1) : undefined}
+            onMoveDown={canReorderRow ? () => handleMove(globalIndex, 1) : undefined}
             onHideRow={
-              fieldKeyToRowId !== undefined && onHideRow !== undefined && rowHasId
+              rowHasId && onHideRow !== undefined
                 ? () => handleHideRow(rowConfig)
                 : undefined
             }
