@@ -4,6 +4,9 @@ All notable changes to the YGT Platform.
 
 ## [Unreleased]
 
+### Added
+- **Rearrange the Sheet's iOS topic order (feat(p3)).** The topic order is now editable with the same up/down arrows and drag handles as Classic, but through a separate path that **cannot touch the classic personal order**: `moveRowInTopicOrder()` → `sheetStore.iosRowOrder`, a browser-local map of section label key → field_keys (`localStorage: ygt-sheet-ios-order`). It never calls `onReorder` and never PATCHes `/export/user/sheet-preferences/`; it also doesn't need `fieldKeyToRowId`, so a row with no `SheetRowSetting` id still moves. **Section membership follows the drop** — a row joins the section of the row it lands on, so one gesture serves both within-section and cross-section moves; emptying a section drops its band and the freeze re-snaps. Settings → *Row order (iOS design)* → **Reset to the default topic order** shows whenever an override exists. A field the override never names still renders in its default section, so a later-added row can't be swallowed by a stale override. `frontend/src/stores/sheetStore.ts`, `components/sheet/sheetTopicOrder.ts` (+8 tests, incl. a full from×to sweep asserting no row is ever lost or duplicated), `SheetGrid.tsx`, `SheetToolbar.tsx`, i18n ×3, `docs/obsidian/screens/shipment-sheet.md`.
+
 ### Fixed
 - **“Hide row” in the Sheet's iOS design variant (fix(p3)).** Disabling the per-row reorder in the topic order also disabled hiding, because `rowHasId` was derived from the reorder capability and the hide control is gated on it. `rowHasId` now means only “this row has a `SheetRowSetting` id”; the topic-order gate moved to a separate `canReorderRow`. `frontend/src/components/sheet/SheetGrid.tsx`.
 

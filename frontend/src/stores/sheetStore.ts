@@ -184,6 +184,49 @@ function persistWhoHidden(value: boolean): void {
   }
 }
 
+// ─── iOS-variant row order ──────────────────────────────────────────────────
+// The topic order is a fixed preset, but the user can still rearrange it — and
+// that rearrangement must NOT reach `UserSheetRowPref`, which is the classic
+// sheet's personal order. So it lives here: a map of topic-section label key →
+// the field_keys in that section, in order. A field listed under a section
+// belongs to it, which is how a row moves BETWEEN sections. Anything absent
+// falls back to its default section (see sheetTopicOrder.applyTopicOrder), so
+// a partial map is valid and a field added to the sheet later still appears.
+// Browser-local, like the variant itself.
+export type TIosRowOrder = Record<string, string[]>;
+const IOS_ORDER_STORAGE_KEY = 'ygt-sheet-ios-order';
+
+function loadIosRowOrder(): TIosRowOrder | null {
+  if (typeof localStorage === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(IOS_ORDER_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null;
+    // Drop anything that isn't section → string[]; one corrupt entry must not
+    // take the whole sheet's order down with it.
+    const clean: TIosRowOrder = {};
+    for (const [section, fields] of Object.entries(parsed)) {
+      if (Array.isArray(fields) && fields.every((f) => typeof f === 'string')) {
+        clean[section] = fields;
+      }
+    }
+    return Object.keys(clean).length > 0 ? clean : null;
+  } catch {
+    return null;
+  }
+}
+
+function persistIosRowOrder(value: TIosRowOrder | null): void {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    if (value === null) localStorage.removeItem(IOS_ORDER_STORAGE_KEY);
+    else localStorage.setItem(IOS_ORDER_STORAGE_KEY, JSON.stringify(value));
+  } catch {
+    // localStorage may throw in private mode or when full — ignore
+  }
+}
+
 interface ISheetState {
   activeCell: IActiveCell | null;
   setActiveCell: (cell: IActiveCell | null) => void;
@@ -226,6 +269,11 @@ interface ISheetState {
   resetZoom: () => void;
 
   // ─── "Who" label column visibility ───────────────────────────────────────
+  // ─── iOS-variant row order (browser-local; never touches UserSheetRowPref) ─
+  iosRowOrder: TIosRowOrder | null;
+  setIosRowOrder: (order: TIosRowOrder) => void;
+  resetIosRowOrder: () => void;
+
   whoColumnHidden: boolean;
   setWhoColumnHidden: (hidden: boolean) => void;
 
@@ -361,6 +409,16 @@ export const useSheetStore = create<ISheetState>((set) => ({
   },
 
   // ─── "Who" label column visibility ────────────────────────────────────────
+  iosRowOrder: loadIosRowOrder(),
+  setIosRowOrder: (order) => {
+    persistIosRowOrder(order);
+    set({ iosRowOrder: order });
+  },
+  resetIosRowOrder: () => {
+    persistIosRowOrder(null);
+    set({ iosRowOrder: null });
+  },
+
   whoColumnHidden: loadWhoHidden(),
   setWhoColumnHidden: (hidden) => {
     persistWhoHidden(hidden);

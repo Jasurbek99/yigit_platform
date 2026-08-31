@@ -32,6 +32,7 @@
  * original relative order. Losing a row here would hide data.
  */
 import type { IRowConfig } from '@/types';
+import type { TIosRowOrder } from '@/stores/sheetStore';
 import type { IRoleBand } from './sheetRoleBlocks';
 
 interface ITopicSection {
@@ -132,8 +133,10 @@ export const TOPIC_SECTIONS: readonly ITopicSection[] = [
   },
 ];
 
-/** Section for anything the table above doesn't name — custom rows, new fields. */
-const OTHER_SECTION_LABEL_KEY = 'sheet.topic.other';
+/** Section for anything the table above doesn't name — custom rows, new fields.
+ *  Exported because a user override may name it: a row can be dragged into or
+ *  out of Other like any other section. */
+export const OTHER_SECTION_LABEL_KEY = 'sheet.topic.other';
 
 export interface ITopicOrderResult {
   /** The same rows, reordered. Never fewer than were passed in. */
@@ -149,9 +152,23 @@ export interface ITopicOrderResult {
  * filtered), so a section can come out empty — an empty section produces no
  * band at all rather than a band heading zero rows.
  */
-export function applyTopicOrder(rows: IRowConfig[]): ITopicOrderResult {
+export function applyTopicOrder(
+  rows: IRowConfig[],
+  override: TIosRowOrder | null = null,
+): ITopicOrderResult {
   const byField = new Map<string, IRowConfig>();
   for (const row of rows) byField.set(row.field_key, row);
+
+  // A field named in ANY override list belongs to that section, whatever the
+  // default table says — that is what makes a cross-section move stick.
+  const overrideOwner = new Map<string, string>();
+  if (override) {
+    for (const [labelKey, fields] of Object.entries(override)) {
+      for (const field of fields) {
+        if (!overrideOwner.has(field)) overrideOwner.set(field, labelKey);
+      }
+    }
+  }
 
   const claimed = new Set<string>();
   const ordered: IRowConfig[] = [];
@@ -167,24 +184,94 @@ export function applyTopicOrder(rows: IRowConfig[]): ITopicOrderResult {
     }
   };
 
-  for (const section of TOPIC_SECTIONS) {
-    const sectionRows: IRowConfig[] = [];
-    for (const fieldKey of section.fields) {
+  /** Rows for one section: the override's order first, then any default
+   *  members the override didn't move elsewhere. */
+  const collect = (labelKey: string, defaultFields: readonly string[]): IRowConfig[] => {
+    const out: IRowConfig[] = [];
+    const take = (fieldKey: string) => {
+      if (claimed.has(fieldKey)) return;
       const row = byField.get(fieldKey);
-      if (!row) continue; // field not in this payload (hidden, or not yet shipped)
-      sectionRows.push(row);
+      if (!row) return; // hidden, or not in this payload
+      out.push(row);
       claimed.add(fieldKey);
+    };
+
+    for (const fieldKey of override?.[labelKey] ?? []) take(fieldKey);
+    for (const fieldKey of defaultFields) {
+      // Skip a default member the user moved into a different section.
+      if (overrideOwner.get(fieldKey) !== undefined && overrideOwner.get(fieldKey) !== labelKey) {
+        continue;
+      }
+      take(fieldKey);
     }
-    pushSection(section.labelKey, sectionRows);
+    return out;
+  };
+
+  for (const section of TOPIC_SECTIONS) {
+    pushSection(section.labelKey, collect(section.labelKey, section.fields));
   }
 
-  // Everything the table didn't name, in its original relative order.
+  // Everything still unclaimed, in its original relative order — plus anything
+  // the user explicitly moved into Other.
   pushSection(
     OTHER_SECTION_LABEL_KEY,
-    rows.filter((row) => !claimed.has(row.field_key)),
+    collect(
+      OTHER_SECTION_LABEL_KEY,
+      rows.map((row) => row.field_key),
+    ),
   );
 
   return { rows: ordered, bands };
+}
+
+/**
+ * Move the row at `fromIndex` to `toIndex` in a rendered topic order, and
+ * return the override map that reproduces the result.
+ *
+ * Section membership follows the drop, not the source: the moved row joins the
+ * section of whatever row it lands on. Dropping past the last row joins the
+ * last section. That is the only rule a dragging user can predict, and it is
+ * what makes both within-section and cross-section moves work with one gesture.
+ *
+ * Returns the FULL map (every non-empty section, all of its fields), not a
+ * patch — so the stored override is always self-describing and a later change
+ * to the default table can't silently reshuffle what the user arranged.
+ */
+export function moveRowInTopicOrder(
+  current: ITopicOrderResult,
+  fromIndex: number,
+  toIndex: number,
+): TIosRowOrder | null {
+  const { rows, bands } = current;
+  if (fromIndex === toIndex) return null;
+  if (fromIndex < 0 || fromIndex >= rows.length) return null;
+  if (toIndex < 0 || toIndex >= rows.length) return null;
+
+  // Flatten to (section label, field key), section resolved by the nearest
+  // band at or above each row.
+  let currentLabel: string | null = null;
+  const flat: { labelKey: string; fieldKey: string }[] = rows.map((row, i) => {
+    const band = bands[i];
+    if (band) currentLabel = band.labelKey;
+    return { labelKey: currentLabel ?? OTHER_SECTION_LABEL_KEY, fieldKey: row.field_key };
+  });
+
+  const [moved] = flat.splice(fromIndex, 1);
+  // After the splice the target slot may be one short; clamp and read the
+  // section from the row now occupying it (or the last row when dropping past
+  // the end).
+  const landing = Math.max(0, Math.min(toIndex, flat.length));
+  const neighbour = flat[landing] ?? flat[flat.length - 1];
+  flat.splice(landing, 0, {
+    labelKey: neighbour ? neighbour.labelKey : moved.labelKey,
+    fieldKey: moved.fieldKey,
+  });
+
+  const next: TIosRowOrder = {};
+  for (const entry of flat) {
+    (next[entry.labelKey] ??= []).push(entry.fieldKey);
+  }
+  return next;
 }
 
 /**

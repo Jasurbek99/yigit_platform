@@ -1891,7 +1891,10 @@
       "design_hint": "Diňe görnüş — hatarlar, sütünler we rugsatlar ikisinde-de birmeňzeş. Şu brauzerde saklanýar.",
       "freeze_through_section": "{{section}} bölümine çenli",
       "show_who_column": "“Kim” sütünini görkez",
-      "show_who_column_hint": "B sütüni — her hatara jogapkär adam. Gizlenende onuň giňligi ýük sütünlerine geçýär; jogapkärçilik we rugsatlar üýtgemeýär."
+      "show_who_column_hint": "B sütüni — her hatara jogapkär adam. Gizlenende onuň giňligi ýük sütünlerine geçýär; jogapkärçilik we rugsatlar üýtgemeýär.",
+      "ios_order_section": "Hatar tertibi (iOS dizaýny)",
+      "ios_order_hint": "Siz mowzuk tertibini üýtgetdiňiz. Ol diňe şu brauzerde saklanýar we Klassiki dizaýna täsir etmeýär.",
+      "ios_order_reset": "Deslapky mowzuk tertibine dolan"
     },
     "hide_row": "Setiri gizlemek",
     "row_settings": "Setir sazlamalary",

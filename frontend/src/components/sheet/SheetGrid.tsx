@@ -39,7 +39,7 @@ import { SheetCellEditor } from './SheetCellEditor';
 import { SheetLabelRow } from './SheetLabelColumn';
 import { SheetColumnHeader } from './SheetColumnHeader';
 import { SheetRoleBandRow } from './SheetRoleBandRow';
-import { applyTopicOrder, sectionAlignedFreeze } from './sheetTopicOrder';
+import { applyTopicOrder, moveRowInTopicOrder, sectionAlignedFreeze } from './sheetTopicOrder';
 import {
   pinnedPrefixLength,
   bandHeight,
@@ -182,6 +182,8 @@ export function SheetGrid({
   const sheetZoom = useSheetStore((s) => s.sheetZoom);
   const sheetVariant = useSheetStore((s) => s.sheetVariant);
   const whoColumnHidden = useSheetStore((s) => s.whoColumnHidden);
+  const iosRowOrder = useSheetStore((s) => s.iosRowOrder);
+  const setIosRowOrder = useSheetStore((s) => s.setIosRowOrder);
   const joinMode = useSheetStore((s) => s.joinMode);
   const joinSelection = useSheetStore((s) => s.joinSelection);
   const toggleJoinSelection = useSheetStore((s) => s.toggleJoinSelection);
@@ -233,8 +235,8 @@ export function SheetGrid({
   // no row is dropped, and switching back to Classic restores the payload
   // order untouched. See sheetTopicOrder.ts.
   const topicOrder = useMemo(
-    () => (sheetVariant === 'ios' ? applyTopicOrder(rowsFromPayload) : null),
-    [sheetVariant, rowsFromPayload],
+    () => (sheetVariant === 'ios' ? applyTopicOrder(rowsFromPayload, iosRowOrder) : null),
+    [sheetVariant, rowsFromPayload, iosRowOrder],
   );
   const rows = topicOrder ? topicOrder.rows : rowsFromPayload;
 
@@ -690,6 +692,21 @@ export function SheetGrid({
     [fieldKeyToRowId, onReorder, rows],
   );
 
+  // Reorder inside the topic order. Deliberately a different currency from
+  // handleMove/handleReorderTo above: those map field_key → SheetRowSetting id
+  // and PATCH the user's personal row order to the server. This one writes
+  // field_keys to a browser-local override and never touches `onReorder`, so
+  // rearranging the iOS variant cannot alter the classic sheet. It also does
+  // not need `fieldKeyToRowId` — a row with no SheetRowSetting still moves.
+  const handleTopicMove = useCallback(
+    (fromIndex: number, toIndex: number) => {
+      if (!topicOrder) return;
+      const next = moveRowInTopicOrder(topicOrder, fromIndex, toIndex);
+      if (next) setIosRowOrder(next);
+    },
+    [topicOrder, setIosRowOrder],
+  );
+
   const handleHideRow = useCallback(
     (rowConfig: IRowConfig) => {
       if (!fieldKeyToRowId || !onHideRow) return;
@@ -956,8 +973,11 @@ export function SheetGrid({
       // derive their payload from the array currently on screen, so one nudge
       // there would persist the whole topic order as this user's personal row
       // order. Hiding is unaffected — it names one row id, not an order.
+      // Classic reorders through the server-side personal order (needs a row
+      // id and the callback); the topic order reorders through the local
+      // override, which needs neither.
       const canReorderRow =
-        rowHasId && onReorder !== undefined && topicOrder === null;
+        topicOrder !== null || (rowHasId && onReorder !== undefined);
 
       const canMoveUp = canReorderRow && globalIndex > 0;
       const canMoveDown = canReorderRow && globalIndex < rows.length - 1;
@@ -996,9 +1016,27 @@ export function SheetGrid({
             canMoveUp={canMoveUp}
             canMoveDown={canMoveDown}
             rowIndex={globalIndex}
-            onReorderTo={canReorderRow ? handleReorderTo : undefined}
-            onMoveUp={canReorderRow ? () => handleMove(globalIndex, -1) : undefined}
-            onMoveDown={canReorderRow ? () => handleMove(globalIndex, 1) : undefined}
+            onReorderTo={
+              canReorderRow
+                ? topicOrder
+                  ? handleTopicMove
+                  : handleReorderTo
+                : undefined
+            }
+            onMoveUp={
+              canReorderRow
+                ? topicOrder
+                  ? () => handleTopicMove(globalIndex, globalIndex - 1)
+                  : () => handleMove(globalIndex, -1)
+                : undefined
+            }
+            onMoveDown={
+              canReorderRow
+                ? topicOrder
+                  ? () => handleTopicMove(globalIndex, globalIndex + 1)
+                  : () => handleMove(globalIndex, 1)
+                : undefined
+            }
             onHideRow={
               rowHasId && onHideRow !== undefined
                 ? () => handleHideRow(rowConfig)

@@ -7,7 +7,12 @@
  */
 import { describe, it, expect } from 'vitest';
 import type { IRowConfig } from '@/types';
-import { applyTopicOrder, sectionAlignedFreeze, TOPIC_SECTIONS } from './sheetTopicOrder';
+import {
+  applyTopicOrder,
+  moveRowInTopicOrder,
+  sectionAlignedFreeze,
+  TOPIC_SECTIONS,
+} from './sheetTopicOrder';
 
 function row(fieldKey: string, rowNumber = 1): IRowConfig {
   return {
@@ -164,5 +169,81 @@ describe('sectionAlignedFreeze', () => {
     expect(sectionAlignedFreeze(bands, 0)).toBe(0);
     expect(sectionAlignedFreeze(bands, 999)).toBe(bands.length);
     expect(sectionAlignedFreeze([], 5)).toBe(0);
+  });
+});
+
+describe('iOS row-order override', () => {
+  // Six rows: general(2) + cargo(2) + transport(2).
+  const ROWS = [
+    row('shipment_code'), row('export_code'),
+    row('firm_splits'), row('country'),
+    row('driver_name'), row('driver_phone'),
+  ];
+  const labels = (r: ReturnType<typeof applyTopicOrder>) => r.rows.map((x) => x.field_key);
+  const sections = (r: ReturnType<typeof applyTopicOrder>) =>
+    r.bands.filter((b) => b !== null).map((b) => b!.labelKey);
+
+  it('is a no-op with no override', () => {
+    expect(labels(applyTopicOrder(ROWS, null))).toEqual(labels(applyTopicOrder(ROWS)));
+  });
+
+  it('reorders within a section', () => {
+    const moved = moveRowInTopicOrder(applyTopicOrder(ROWS), 1, 0);
+    expect(moved).not.toBeNull();
+    expect(labels(applyTopicOrder(ROWS, moved))).toEqual([
+      'export_code', 'shipment_code', 'firm_splits', 'country', 'driver_name', 'driver_phone',
+    ]);
+  });
+
+  it('moves a row into the section it is dropped on', () => {
+    // driver_name (index 4, Transport) dropped on index 0 (General).
+    const moved = moveRowInTopicOrder(applyTopicOrder(ROWS), 4, 0);
+    const result = applyTopicOrder(ROWS, moved);
+
+    expect(labels(result)[0]).toBe('driver_name');
+    expect(moved!['sheet.topic.general']).toEqual(['driver_name', 'shipment_code', 'export_code']);
+    expect(moved!['sheet.topic.transport']).toEqual(['driver_phone']);
+  });
+
+  it('drops the band of a section it empties, and keeps the rest', () => {
+    let override = moveRowInTopicOrder(applyTopicOrder(ROWS), 4, 0);
+    const afterFirst = applyTopicOrder(ROWS, override);
+    override = moveRowInTopicOrder(afterFirst, afterFirst.rows.findIndex((r) => r.field_key === 'driver_phone'), 0);
+    const result = applyTopicOrder(ROWS, override);
+
+    expect(sections(result)).toEqual(['sheet.topic.general', 'sheet.topic.cargo_customs']);
+    expect(labels(result)).toHaveLength(ROWS.length);
+  });
+
+  it('never loses or duplicates a row, wherever it is dropped', () => {
+    for (let from = 0; from < ROWS.length; from++) {
+      for (let to = 0; to < ROWS.length; to++) {
+        const override = moveRowInTopicOrder(applyTopicOrder(ROWS), from, to);
+        const out = labels(applyTopicOrder(ROWS, override));
+        expect(out, `move ${from}->${to}`).toHaveLength(ROWS.length);
+        expect(new Set(out).size, `move ${from}->${to}`).toBe(ROWS.length);
+      }
+    }
+  });
+
+  it('returns null for a no-op or out-of-range move', () => {
+    const current = applyTopicOrder(ROWS);
+    expect(moveRowInTopicOrder(current, 2, 2)).toBeNull();
+    expect(moveRowInTopicOrder(current, -1, 0)).toBeNull();
+    expect(moveRowInTopicOrder(current, 0, 99)).toBeNull();
+  });
+
+  it('still shows a field the override never mentions', () => {
+    const override = { 'sheet.topic.general': ['export_code'] };
+    // shipment_code is absent from the override but keeps its default section.
+    expect(labels(applyTopicOrder(ROWS, override))).toContain('shipment_code');
+    expect(labels(applyTopicOrder(ROWS, override))).toHaveLength(ROWS.length);
+  });
+
+  it('ignores an override naming a field that is not in the payload', () => {
+    const override = { 'sheet.topic.general': ['gone_field', 'shipment_code'] };
+    const out = labels(applyTopicOrder(ROWS, override));
+    expect(out).not.toContain('gone_field');
+    expect(out).toHaveLength(ROWS.length);
   });
 });

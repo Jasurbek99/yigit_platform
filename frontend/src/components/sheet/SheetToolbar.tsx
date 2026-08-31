@@ -127,6 +127,8 @@ export function SheetToolbar({
   const sheetZoom = useSheetStore((s) => s.sheetZoom);
   const sheetVariant = useSheetStore((s) => s.sheetVariant);
   const whoColumnHidden = useSheetStore((s) => s.whoColumnHidden);
+  const iosRowOrder = useSheetStore((s) => s.iosRowOrder);
+  const resetIosRowOrder = useSheetStore((s) => s.resetIosRowOrder);
   const setWhoColumnHidden = useSheetStore((s) => s.setWhoColumnHidden);
   const setSheetVariant = useSheetStore((s) => s.setSheetVariant);
   const zoomIn = useSheetStore((s) => s.zoomIn);
@@ -369,8 +371,10 @@ export function SheetToolbar({
   // per section instead, whose values are exactly the boundaries the grid
   // would snap to anyway.
   const topicOrder = useMemo(
-    () => (sheetVariant === 'ios' ? applyTopicOrder(rows) : null),
-    [sheetVariant, rows],
+    // Same override the grid uses — otherwise the freeze picker's section
+    // boundaries drift from the grid's after the first reorder.
+    () => (sheetVariant === 'ios' ? applyTopicOrder(rows, iosRowOrder) : null),
+    [sheetVariant, rows, iosRowOrder],
   );
 
   const rowOptions = useMemo(
@@ -746,6 +750,19 @@ export function SheetToolbar({
               {t('sheet.settings.show_who_column_hint')}
             </Text>
           </div>
+          {topicOrder && iosRowOrder && (
+            <div>
+              <Text strong>{t('sheet.settings.ios_order_section')}</Text>
+              <div style={{ marginTop: 6 }}>
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  {t('sheet.settings.ios_order_hint')}
+                </Text>
+              </div>
+              <Button size="small" style={{ marginTop: 8 }} onClick={resetIosRowOrder}>
+                {t('sheet.settings.ios_order_reset')}
+              </Button>
+            </div>
+          )}
           {hasPersonalRowOrder && (
             <div>
               <Text strong>{t('sheet.settings.row_order_section')}</Text>
