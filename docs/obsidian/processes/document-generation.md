@@ -456,6 +456,7 @@ so the forms come from a fixed ISO-code map, `_COUNTRY_GENITIVE` in
 | `RU` | Russiýanyň | России |
 | `TJ` | Täjigistanyň | Таджикистана |
 | `UZ` | Özbegistanyň | Узбекистана |
+| `BY` | Belarusyň | Беларуси |
 | `AE` | BAE-niň | ОАЭ *(indeclinable)* |
 
 **The map IS the gate.** A country absent from it has no verified declension, so the

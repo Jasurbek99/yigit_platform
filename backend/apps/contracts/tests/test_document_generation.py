@@ -581,7 +581,7 @@ class ContractContextBuilderTest(SimpleTestCase):
         self.assertEqual(c['dest_country_gen_tk'], '')
 
     def test_country_template_supported_flag(self):
-        for code in ('KZ', 'KG', 'RU', 'TJ', 'UZ', 'AE'):
+        for code in ('KZ', 'KG', 'RU', 'TJ', 'UZ', 'AE', 'BY'):
             self.assertTrue(ctx.country_template_supported(code), code)
         self.assertFalse(ctx.country_template_supported('TR'))
         self.assertFalse(ctx.country_template_supported(None))

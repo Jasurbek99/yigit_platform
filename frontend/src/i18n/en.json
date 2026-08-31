@@ -3110,7 +3110,7 @@
     },
     "generate": {
       "button": "Generate contract",
-      "title": "Generate contract (Kazakhstan)",
+      "title": "Generate contract",
       "buyer_director": "Buyer's director",
       "buyer_director_ph": "Full name printed in the preamble and signature",
       "delivery_deadline": "Delivery deadline",

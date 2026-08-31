@@ -817,6 +817,7 @@ _COUNTRY_GENITIVE = {
     'RU': ('Russiýanyň', 'России'),
     'TJ': ('Täjigistanyň', 'Таджикистана'),
     'UZ': ('Özbegistanyň', 'Узбекистана'),
+    'BY': ('Belarusyň', 'Беларуси'),
     'AE': ('BAE-niň', 'ОАЭ'),  # RU indeclinable abbreviation
 }
 

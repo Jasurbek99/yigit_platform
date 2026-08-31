@@ -22,8 +22,10 @@ interface IContractAgreementButtonProps {
  * The contract's number, date, financials, seller and validity come from the DB.
  * The modal pre-fills the buyer's director from the firm's saved "Director's Full
  * Name" (contact_person, editable) and collects the delivery deadline (§2.6), then
- * hits GET /contracts/contracts/{id}/agreement/. This template is Kazakhstan-specific
- * (its clauses reference KZ customs authorities).
+ * hits GET /contracts/contracts/{id}/agreement/. The template covers every
+ * destination country with a verified genitive form in `_COUNTRY_GENITIVE`
+ * (its §4 clauses name that country's authorities); ContractDetail disables the
+ * button for the rest, off the `contract_template_supported` flag.
  */
 export function ContractAgreementButton({
   contractId,
