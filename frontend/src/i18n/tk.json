@@ -1889,7 +1889,9 @@
       "design_classic": "Klassiki",
       "design_ios": "iOS (Tırlar)",
       "design_hint": "Diňe görnüş — hatarlar, sütünler we rugsatlar ikisinde-de birmeňzeş. Şu brauzerde saklanýar.",
-      "freeze_through_section": "{{section}} bölümine çenli"
+      "freeze_through_section": "{{section}} bölümine çenli",
+      "show_who_column": "“Kim” sütünini görkez",
+      "show_who_column_hint": "B sütüni — her hatara jogapkär adam. Gizlenende onuň giňligi ýük sütünlerine geçýär; jogapkärçilik we rugsatlar üýtgemeýär."
     },
     "hide_row": "Setiri gizlemek",
     "row_settings": "Setir sazlamalary",

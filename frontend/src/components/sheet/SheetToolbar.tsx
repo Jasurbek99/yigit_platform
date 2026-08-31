@@ -126,6 +126,8 @@ export function SheetToolbar({
   const setFrozenColCount = useSheetStore((s) => s.setFrozenColCount);
   const sheetZoom = useSheetStore((s) => s.sheetZoom);
   const sheetVariant = useSheetStore((s) => s.sheetVariant);
+  const whoColumnHidden = useSheetStore((s) => s.whoColumnHidden);
+  const setWhoColumnHidden = useSheetStore((s) => s.setWhoColumnHidden);
   const setSheetVariant = useSheetStore((s) => s.setSheetVariant);
   const zoomIn = useSheetStore((s) => s.zoomIn);
   const zoomOut = useSheetStore((s) => s.zoomOut);
@@ -414,6 +416,10 @@ export function SheetToolbar({
       ];
       for (let col = 1; col <= colMax; col++) {
         let label: string;
+        // The Who slot still exists in the model (zero width when hidden), so
+        // freezing "up to" it is meaningless — skip the option rather than
+        // renumber, which would change what every stored value means.
+        if (col === 2 && whoColumnHidden) continue;
         if (col === 1) label = t('sheet.settings.col_option_num');
         else if (col === 2) label = t('sheet.settings.col_option_who');
         else if (col === 3) label = t('sheet.settings.col_option_field');
@@ -426,7 +432,7 @@ export function SheetToolbar({
       }
       return opts;
     },
-    [colMax, t],
+    [colMax, whoColumnHidden, t],
   );
 
   // ─── "Ýük goş": one-click create of an empty supply column ───────────────
@@ -722,6 +728,22 @@ export function SheetToolbar({
             />
             <Text type="secondary" style={{ fontSize: 11 }}>
               {t('sheet.settings.freeze_cols_hint')}
+            </Text>
+          </div>
+          <div>
+            {/* Column B ("Who") names the row's owner. Hiding it hands its width
+                back to the shipment columns; ownership data is untouched, and
+                the role bands still group by it. */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Switch
+                size="small"
+                checked={!whoColumnHidden}
+                onChange={(checked) => setWhoColumnHidden(!checked)}
+              />
+              <Text>{t('sheet.settings.show_who_column')}</Text>
+            </div>
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              {t('sheet.settings.show_who_column_hint')}
             </Text>
           </div>
           {hasPersonalRowOrder && (

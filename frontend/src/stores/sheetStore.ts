@@ -159,6 +159,31 @@ function persistVariant(value: TSheetVariant): void {
   }
 }
 
+// ─── "Who" label column ─────────────────────────────────────────────────────
+// Column B of the label band names the person who owns each row. Hiding it
+// buys back its width for shipment columns; the ownership data itself is
+// untouched (role bands and permissions read `default_who_key`, not this
+// column). Per browser, like zoom/freeze/variant.
+const WHO_HIDDEN_STORAGE_KEY = 'ygt-sheet-who-hidden';
+
+function loadWhoHidden(): boolean {
+  if (typeof localStorage === 'undefined') return false;
+  try {
+    return localStorage.getItem(WHO_HIDDEN_STORAGE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function persistWhoHidden(value: boolean): void {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(WHO_HIDDEN_STORAGE_KEY, value ? '1' : '0');
+  } catch {
+    // localStorage may throw in private mode or when full — ignore
+  }
+}
+
 interface ISheetState {
   activeCell: IActiveCell | null;
   setActiveCell: (cell: IActiveCell | null) => void;
@@ -199,6 +224,10 @@ interface ISheetState {
   zoomIn: () => void;
   zoomOut: () => void;
   resetZoom: () => void;
+
+  // ─── "Who" label column visibility ───────────────────────────────────────
+  whoColumnHidden: boolean;
+  setWhoColumnHidden: (hidden: boolean) => void;
 
   // ─── Design variant (visual skin only — same rows/columns/permissions) ───
   sheetVariant: TSheetVariant;
@@ -329,6 +358,13 @@ export const useSheetStore = create<ISheetState>((set) => ({
   resetZoom: () => {
     persistZoom(DEFAULT_SHEET_ZOOM);
     set({ sheetZoom: DEFAULT_SHEET_ZOOM });
+  },
+
+  // ─── "Who" label column visibility ────────────────────────────────────────
+  whoColumnHidden: loadWhoHidden(),
+  setWhoColumnHidden: (hidden) => {
+    persistWhoHidden(hidden);
+    set({ whoColumnHidden: hidden });
   },
 
   // ─── Design variant ───────────────────────────────────────────────────────

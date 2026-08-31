@@ -181,6 +181,7 @@ export function SheetGrid({
   const frozenColCount = useSheetStore((s) => s.frozenColCount);
   const sheetZoom = useSheetStore((s) => s.sheetZoom);
   const sheetVariant = useSheetStore((s) => s.sheetVariant);
+  const whoColumnHidden = useSheetStore((s) => s.whoColumnHidden);
   const joinMode = useSheetStore((s) => s.joinMode);
   const joinSelection = useSheetStore((s) => s.joinSelection);
   const toggleJoinSelection = useSheetStore((s) => s.toggleJoinSelection);
@@ -282,7 +283,7 @@ export function SheetGrid({
     colShipment: COL_WIDTH_SHIPMENT,
     frozenLeftTotal: FROZEN_LEFT_TOTAL,
     rowHeight: ROW_HEIGHT,
-  } = scaleSheetLayout(sheetZoom, sheetVariant);
+  } = scaleSheetLayout(sheetZoom, sheetVariant, whoColumnHidden);
 
   // Clamp freeze counts to the data we actually have so an old localStorage
   // value (e.g. 5 frozen cols, but the user now sees only 2 shipments) still
@@ -1113,6 +1114,7 @@ export function SheetGrid({
       >
         #
       </div>
+      {!whoColumnHidden && (
       <div
         style={{
           width: COL_WIDTH_WHO,
@@ -1129,6 +1131,7 @@ export function SheetGrid({
       >
         {t('sheet.who.none')}
       </div>
+      )}
       <div
         style={{
           width: COL_WIDTH_FIELD,

@@ -73,13 +73,14 @@ function SheetLabelRowInner({
   const { t } = useTranslation();
   const sheetZoom = useSheetStore((s) => s.sheetZoom);
   const sheetVariant = useSheetStore((s) => s.sheetVariant);
+  const whoColumnHidden = useSheetStore((s) => s.whoColumnHidden);
   // Same scaled widths SheetGrid uses, so the sticky-left `left` offsets here
   // line up exactly with the header's frozen label band.
   const {
     colRowNum: COL_WIDTH_ROW_NUM,
     colWho: COL_WIDTH_WHO,
     colField: COL_WIDTH_FIELD,
-  } = scaleSheetLayout(sheetZoom, sheetVariant);
+  } = scaleSheetLayout(sheetZoom, sheetVariant, whoColumnHidden);
   const [dragOver, setDragOver] = useState(false);
 
   const borderColor = STYLE_COLORS[rowConfig.style] ?? STYLE_COLORS.base;
@@ -222,7 +223,9 @@ function SheetLabelRowInner({
         )}
       </div>
 
-      {/* Col B: Who */}
+      {/* Col B: Who — omitted entirely when hidden. A zero-width div would
+          still paint its 1px right border as a stray line. */}
+      {!whoColumnHidden && (
       <div
         className={`sheet-label-col sheet-label-col--who sheet-label-who--${rowConfig.style}`}
         style={{
@@ -235,6 +238,7 @@ function SheetLabelRowInner({
       >
         {whoLabel}
       </div>
+      )}
 
       {/* Col C: Field name (with optional lock icon + kebab menu) */}
       <div

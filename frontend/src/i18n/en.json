@@ -1889,7 +1889,9 @@
       "design_classic": "Classic",
       "design_ios": "iOS (Tırlar)",
       "design_hint": "Visual style only — the same rows, columns and permissions in both. Saved in this browser.",
-      "freeze_through_section": "Through {{section}}"
+      "freeze_through_section": "Through {{section}}",
+      "show_who_column": "Show the “Who” column",
+      "show_who_column_hint": "Column B, the person who owns each row. Hiding it gives the width back to the shipment columns — ownership and permissions are unaffected."
     },
     "hide_row": "Hide row",
     "row_settings": "Row settings",

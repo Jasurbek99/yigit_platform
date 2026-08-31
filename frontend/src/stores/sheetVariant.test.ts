@@ -61,3 +61,46 @@ describe('sheet design variant', () => {
     expect(localStorage.getItem(STORAGE_KEY)).toBe('classic');
   });
 });
+
+describe('who column visibility', () => {
+  const STORAGE = 'ygt-sheet-who-hidden';
+
+  beforeEach(() => {
+    localStorage.clear();
+    useSheetStore.getState().setWhoColumnHidden(false);
+  });
+
+  it('is shown by default', () => {
+    expect(useSheetStore.getState().whoColumnHidden).toBe(false);
+  });
+
+  it('persists the choice to localStorage', () => {
+    useSheetStore.getState().setWhoColumnHidden(true);
+    expect(useSheetStore.getState().whoColumnHidden).toBe(true);
+    expect(localStorage.getItem(STORAGE)).toBe('1');
+  });
+
+  it('zeroes the Who width and shrinks the frozen label band by exactly that much', () => {
+    const shown = scaleSheetLayout(1, 'classic', false);
+    const hidden = scaleSheetLayout(1, 'classic', true);
+
+    expect(hidden.colWho).toBe(0);
+    expect(hidden.frozenLeftTotal).toBe(shown.frozenLeftTotal - shown.colWho);
+    // The other slots are untouched — only the Who width is reclaimed.
+    expect(hidden.colRowNum).toBe(shown.colRowNum);
+    expect(hidden.colField).toBe(shown.colField);
+    expect(hidden.colShipment).toBe(shown.colShipment);
+    expect(hidden.rowHeight).toBe(shown.rowHeight);
+  });
+
+  it('composes with zoom and the design variant', () => {
+    expect(scaleSheetLayout(0.8, 'ios', true).colWho).toBe(0);
+    expect(scaleSheetLayout(0.8, 'ios', true).rowHeight).toBe(
+      scaleSheetLayout(0.8, 'ios', false).rowHeight,
+    );
+  });
+
+  it('defaults to shown so existing callers are unaffected', () => {
+    expect(scaleSheetLayout(1, 'classic')).toEqual(scaleSheetLayout(1, 'classic', false));
+  });
+});

@@ -43,10 +43,18 @@ const VARIANT_DENSITY: Record<TSheetVariant, { row: number; col: number }> = {
  * the virtualizer's `estimateSize` and the rendered widths stay in lockstep.
  * Fonts/padding scale separately via the `--sheet-zoom` CSS variable.
  */
-export function scaleSheetLayout(zoom: number, variant: TSheetVariant = 'classic') {
+export function scaleSheetLayout(
+  zoom: number,
+  variant: TSheetVariant = 'classic',
+  whoColumnHidden: boolean = false,
+) {
   const d = VARIANT_DENSITY[variant] ?? VARIANT_DENSITY.classic;
   const colRowNum = Math.round(COL_WIDTH_ROW_NUM * zoom);
-  const colWho = Math.round(COL_WIDTH_WHO * zoom);
+  // A hidden Who column is a zero-width slot, not a removed one: `frozenLeftTotal`
+  // and the Field column's sticky `left` are both sums over these widths, so
+  // zeroing it shifts everything correctly without changing the 3-slot model the
+  // freeze setting (`frozenColCount`) is expressed in.
+  const colWho = whoColumnHidden ? 0 : Math.round(COL_WIDTH_WHO * zoom);
   const colField = Math.round(COL_WIDTH_FIELD * zoom);
   return {
     colRowNum,
