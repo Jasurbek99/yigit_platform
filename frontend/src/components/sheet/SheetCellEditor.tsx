@@ -37,13 +37,23 @@ import { scaleSheetLayout } from '@/constants/sheetRowConfig';
 import { parseNumberInput } from './SheetCellEditor.helpers';
 import SheetTruckSelectEditor from './SheetTruckSelectEditor';
 import SheetDriverSelectEditor from './SheetDriverSelectEditor';
+import type { TSheetVariant } from '@/stores/sheetStore';
 
 interface ISheetCellEditorProps {
   shipment: IShipmentSheetItem;
   rowConfig: IRowConfig;
+  /**
+   * Sheet design variant, for cell sizing only. Passed down by `SheetGrid`;
+   * NOT read from the store, because this editor is also rendered outside the
+   * Sheet (`SelfBoardShipmentFieldList`), where the `.sheet-grid--ios` skin
+   * does not apply — reading the store there would resize the drawer's inputs
+   * to match a preference the user set on a different page. Defaults to
+   * classic so every non-Sheet call site keeps its current size.
+   */
+  variant?: TSheetVariant;
 }
 
-export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) {
+export function SheetCellEditor({ shipment, rowConfig, variant = 'classic' }: ISheetCellEditorProps) {
   const { t, i18n } = useTranslation();
   const setEditingCell = useSheetStore((s) => s.setEditingCell);
   // Google-Sheets type-to-edit: the character that opened this editor (null if
@@ -54,7 +64,7 @@ export function SheetCellEditor({ shipment, rowConfig }: ISheetCellEditorProps) 
   // and moves the selection one cell in that direction (Google Sheets parity).
   const setPendingNav = useSheetStore((s) => s.setPendingNav);
   const sheetZoom = useSheetStore((s) => s.sheetZoom);
-  const { colShipment: COL_WIDTH_SHIPMENT, rowHeight: ROW_HEIGHT } = scaleSheetLayout(sheetZoom);
+  const { colShipment: COL_WIDTH_SHIPMENT, rowHeight: ROW_HEIGHT } = scaleSheetLayout(sheetZoom, variant);
   const patchMutation = useShipmentPatch();
   const patchMultiMutation = useShipmentPatchMulti();
   const containerRef = useRef<HTMLDivElement>(null);

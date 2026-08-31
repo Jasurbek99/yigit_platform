@@ -1,0 +1,207 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Sheet design variant: "iOS" — modelled on Sera Bütçe → Tır Takip → Tırlar
+   ══════════════════════════════════════════════════════════════════════
+
+   A SKIN ONLY. Same rows, same columns, same data, same permission checks —
+   every rule here is scoped under `.sheet-grid--ios`, which SheetGrid puts on
+   the scroll container when the user picks the variant in Sheet settings.
+   Removing this file leaves the classic sheet untouched.
+
+   Two hard rules when editing this file:
+
+   1. NEVER declare `background` on `.sheet-cell` and never use `!important`
+      on a background. Cell backgrounds carry real data — per-cell colors
+      (inline style), column tints (`.sheet-col-tinted`), gapy-satyş tint and
+      row-accent styles. The pill look is produced with a transparent border
+      + `background-clip: padding-box`, so whatever background the cell
+      already has is simply painted rounded and inset instead of edge-to-edge.
+
+   2. Row height and column width are NOT set here. The grid is virtualized;
+      those come from `VARIANT_DENSITY` in constants/sheetRowConfig.ts so the
+      virtualizer's `estimateSize` and the sticky `top: rowHeight` offset stay
+      in lockstep with what is painted. Only padding/typography live in CSS.
+*/
+
+/* ═══ CANVAS ═══ */
+/* A light-gray canvas is what makes the white cell pills read as fields.
+   Rows paint the same canvas so the gaps between pills are continuous. */
+.sheet-grid--ios {
+  background: var(--bg);
+}
+
+.sheet-grid--ios .sheet-row {
+  background: var(--bg);
+  border-bottom: none;
+  transition: background 0.12s;
+}
+
+.sheet-grid--ios .sheet-row:hover {
+  background: var(--success-50);
+}
+
+/* ═══ DATA CELLS → iOS text fields ═══ */
+/* The 3px transparent border + padding-box clip carves the gap out of the
+   cell's own box, so the pill is inset WITHOUT changing the box size the
+   virtualizer measured. The inset ring replaces the 1px grid lines. */
+.sheet-grid--ios .sheet-cell {
+  border: 3px solid transparent;
+  border-radius: 12px;
+  background-clip: padding-box;
+  box-shadow:
+    inset 0 0 0 1.5px var(--gray-200),
+    inset 0 1px 2px rgba(16, 24, 40, 0.04);
+  padding: calc(4px * var(--sheet-zoom, 1)) calc(10px * var(--sheet-zoom, 1));
+  font-size: calc(11.5px * var(--sheet-zoom, 1));
+  font-weight: 500;
+}
+
+/* Active cell — emerald focus ring, matching the Sera field focus state. */
+.sheet-grid--ios .sheet-cell--active {
+  box-shadow:
+    inset 0 0 0 2px var(--success-500),
+    0 0 0 3px rgba(18, 183, 106, 0.18);
+}
+
+/* Editable cells sit slightly recessed so read-only cells read as flat text —
+   the sheet's own information, not decoration. */
+.sheet-grid--ios .sheet-cell--editable {
+  box-shadow:
+    inset 0 0 0 1.5px var(--gray-300),
+    inset 0 1px 3px rgba(16, 24, 40, 0.06);
+}
+
+.sheet-grid--ios .sheet-cell--editable:hover {
+  box-shadow:
+    inset 0 0 0 1.5px var(--gray-400),
+    inset 0 1px 3px rgba(16, 24, 40, 0.06);
+}
+
+.sheet-grid--ios .sheet-cell__code {
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+/* ═══ IN-CELL EDITORS ═══ */
+/* SheetCellEditor mounts AntD controls inside `.sheet-cell--editing`. Round
+   them to match the resting pill so the cell doesn't jump shape on click. */
+.sheet-grid--ios .sheet-cell--editing {
+  box-shadow:
+    inset 0 0 0 2px var(--success-500),
+    0 0 0 3px rgba(18, 183, 106, 0.18);
+}
+
+.sheet-grid--ios .sheet-cell--editing .ant-input,
+.sheet-grid--ios .sheet-cell--editing .ant-input-number,
+.sheet-grid--ios .sheet-cell--editing .ant-input-number-input,
+.sheet-grid--ios .sheet-cell--editing .ant-picker,
+.sheet-grid--ios .sheet-cell--editing .ant-select .ant-select-selector {
+  border-radius: 9px;
+}
+
+/* ═══ FROZEN LEFT LABEL BAND ═══ */
+/* Sera's row-label column: white, semibold, generous padding, colored 3px
+   left accent (already applied inline by SheetLabelColumn — untouched here). */
+.sheet-grid--ios .sheet-label-col {
+  border-right: 1px solid var(--gray-200);
+  border-bottom: none;
+  font-size: calc(11.5px * var(--sheet-zoom, 1));
+}
+
+.sheet-grid--ios .sheet-label-col--num {
+  background: var(--bg);
+  border-right-color: transparent;
+}
+
+/* The dark "who" band goes light in this variant — Sera has no dark chrome. */
+.sheet-grid--ios .sheet-label-col--who {
+  background: var(--gray-50);
+  color: var(--gray-600);
+  font-weight: 600;
+  border-color: var(--gray-200);
+}
+
+.sheet-grid--ios .sheet-label-col--field {
+  background: var(--surface);
+  color: var(--gray-800);
+  font-weight: 600;
+  padding: 0 calc(14px * var(--sheet-zoom, 1));
+  border-right: 1px solid var(--gray-200);
+}
+
+/* ═══ COLUMN HEADERS ═══ */
+/* Light header band. The per-shipment `column_color` is an inline 3px
+   border-top on the header, so it survives and now reads as Sera's colored
+   column cap. */
+.sheet-grid--ios .sheet-header-row {
+  background: var(--surface);
+  color: var(--gray-700);
+  box-shadow: 0 2px 8px rgba(16, 24, 40, 0.06);
+}
+
+.sheet-grid--ios .sheet-col-header,
+.sheet-grid--ios .sheet-col-header--frozen {
+  background: var(--gray-50);
+  border-right: 1px solid var(--gray-200);
+}
+
+.sheet-grid--ios .sheet-col-header__seq {
+  color: var(--gray-400);
+}
+
+.sheet-grid--ios .sheet-col-header__code {
+  color: var(--gray-900);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.sheet-grid--ios .sheet-header-row .sheet-label-col {
+  background: var(--surface);
+  color: var(--gray-500);
+  border-color: var(--gray-200);
+}
+
+.sheet-grid--ios .sheet-header-row .sheet-label-col--num {
+  background: var(--surface);
+  color: var(--gray-400);
+}
+
+.sheet-grid--ios .sheet-header-row .sheet-label-col--who {
+  background: var(--surface);
+  color: var(--gray-500);
+}
+
+.sheet-grid--ios .sheet-header-row .sheet-label-col--field {
+  background: var(--surface);
+  color: var(--gray-500);
+  font-size: calc(10px * var(--sheet-zoom, 1));
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-right-color: var(--gray-200);
+}
+
+/* ═══ SECTION BANDS (role blocks) ═══ */
+/* Sera's tinted section header rows with a colored left cap. */
+.sheet-grid--ios .sheet-role-band {
+  background: var(--gray-100);
+  border-top: none;
+  border-bottom: none;
+}
+
+.sheet-grid--ios .sheet-role-band__label {
+  background: var(--gray-100);
+  border-right: none;
+  border-left: 3px solid var(--gray-500);
+  color: var(--gray-700);
+}
+
+.sheet-grid--ios .sheet-role-band--mine .sheet-role-band__label {
+  border-left-color: var(--blue-500);
+}
+
+/* ═══ FROZEN PANES ═══ */
+.sheet-grid--ios .sheet-frozen-top {
+  background: var(--bg);
+  border-bottom: 2px solid var(--blue-500);
+  box-shadow: 0 6px 14px rgba(16, 24, 40, 0.08);
+}

@@ -7,6 +7,7 @@
  * camelCase rows that don't match the backend payload — see
  * commits 7263b07 / 8c02e4a / 529338f for the v2 rollout.
  */
+import type { TSheetVariant } from '@/stores/sheetStore';
 
 /** Column widths (px) */
 export const COL_WIDTH_ROW_NUM = 28;
@@ -19,6 +20,20 @@ export const FROZEN_LEFT_TOTAL = COL_WIDTH_ROW_NUM + COL_WIDTH_WHO + COL_WIDTH_F
 export const ROW_HEIGHT = 36;
 
 /**
+ * Per-variant density multipliers.
+ *
+ * The `ios` skin renders every editable cell as a padded pill field, so its
+ * rows and columns need more room. Row height MUST come from here rather than
+ * from CSS padding: the grid is virtualized and `sheet-frozen-top` is pinned at
+ * `top: rowHeight`, so a height the JS doesn't know about desyncs the measured
+ * row offsets from what is painted.
+ */
+const VARIANT_DENSITY: Record<TSheetVariant, { row: number; col: number }> = {
+  classic: { row: 1, col: 1 },
+  ios: { row: 1.35, col: 1.15 },
+};
+
+/**
  * Scale the layout constants by a zoom factor.
  *
  * The sheet is virtualized, so zoom CANNOT be done with CSS `zoom`/`transform`
@@ -28,7 +43,8 @@ export const ROW_HEIGHT = 36;
  * the virtualizer's `estimateSize` and the rendered widths stay in lockstep.
  * Fonts/padding scale separately via the `--sheet-zoom` CSS variable.
  */
-export function scaleSheetLayout(zoom: number) {
+export function scaleSheetLayout(zoom: number, variant: TSheetVariant = 'classic') {
+  const d = VARIANT_DENSITY[variant] ?? VARIANT_DENSITY.classic;
   const colRowNum = Math.round(COL_WIDTH_ROW_NUM * zoom);
   const colWho = Math.round(COL_WIDTH_WHO * zoom);
   const colField = Math.round(COL_WIDTH_FIELD * zoom);
@@ -36,9 +52,12 @@ export function scaleSheetLayout(zoom: number) {
     colRowNum,
     colWho,
     colField,
-    colShipment: Math.round(COL_WIDTH_SHIPMENT * zoom),
+    colShipment: Math.round(COL_WIDTH_SHIPMENT * d.col * zoom),
     frozenLeftTotal: colRowNum + colWho + colField,
-    rowHeight: Math.round(ROW_HEIGHT * zoom),
+    rowHeight: Math.round(ROW_HEIGHT * d.row * zoom),
+    // Exposed so per-row overrides (e.g. an admin's custom cell width) can be
+    // scaled by the same factor and keep tracking their column slot.
+    density: d,
   } as const;
 }
 

@@ -107,6 +107,7 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
   const setEditingCell = useSheetStore((s) => s.setEditingCell);
   const openCommentsForCell = useSheetStore((s) => s.openCommentsForCell);
   const sheetZoom = useSheetStore((s) => s.sheetZoom);
+  const sheetVariant = useSheetStore((s) => s.sheetVariant);
   // Shared write/clear engine — same optimistic save paths used by the
   // clipboard hook (cut / paste / Delete) and the cell editor.
   const { clearCell } = useSheetCellWrite();
@@ -136,12 +137,18 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
   const isGapy = shipment.is_gapy_satys;
   const isHidden = rowConfig.gapy_hidden && isGapy;
 
-  const { colShipment: COL_WIDTH_SHIPMENT, rowHeight: ROW_HEIGHT } = scaleSheetLayout(sheetZoom);
+  const {
+    colShipment: COL_WIDTH_SHIPMENT,
+    rowHeight: ROW_HEIGHT,
+    density,
+  } = scaleSheetLayout(sheetZoom, sheetVariant);
 
   // Per-row style overrides from admin sheet-row settings. A custom px width is
-  // itself scaled by zoom so it tracks its (scaled) column slot in SheetGrid.
+  // scaled by zoom AND by the design variant's column density, so it tracks its
+  // column slot in SheetGrid — which is scaled by both. Dropping either factor
+  // leaves that one row's cells narrower than every other row's.
   const cellWidth = rowSetting?.style?.width
-    ? Math.round(rowSetting.style.width * sheetZoom)
+    ? Math.round(rowSetting.style.width * density.col * sheetZoom)
     : COL_WIDTH_SHIPMENT;
   const cellAlign = rowSetting?.style?.align;
 

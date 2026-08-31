@@ -39,6 +39,7 @@ import { SheetCellEditor } from './SheetCellEditor';
 import { SheetLabelRow } from './SheetLabelColumn';
 import { SheetColumnHeader } from './SheetColumnHeader';
 import { SheetRoleBandRow } from './SheetRoleBandRow';
+import { applyTopicOrder, sectionAlignedFreeze } from './sheetTopicOrder';
 import {
   pinnedPrefixLength,
   bandHeight,
@@ -157,7 +158,7 @@ const Z_FROZEN_DATA_COL = 2;
 
 export function SheetGrid({
   shipments,
-  rows,
+  rows: rowsFromPayload,
   commentCounts = {},
   taskCounts = {},
   cellColors = {},
@@ -179,6 +180,7 @@ export function SheetGrid({
   const frozenRowCount = useSheetStore((s) => s.frozenRowCount);
   const frozenColCount = useSheetStore((s) => s.frozenColCount);
   const sheetZoom = useSheetStore((s) => s.sheetZoom);
+  const sheetVariant = useSheetStore((s) => s.sheetVariant);
   const joinMode = useSheetStore((s) => s.joinMode);
   const joinSelection = useSheetStore((s) => s.joinSelection);
   const toggleJoinSelection = useSheetStore((s) => s.toggleJoinSelection);
@@ -222,6 +224,18 @@ export function SheetGrid({
   // clone (the only element that visually follows the cursor) and fades the
   // source header in place. Cleared on drop / cancel.
   const [activeDragId, setActiveDragId] = useState<number | null>(null);
+
+  // ─── Row order ────────────────────────────────────────────────────────────
+  // Classic renders the payload order (admin display_order, or the user's own
+  // personal order). The iOS variant re-groups the SAME rows by topic to match
+  // its reference screen — a display-time reorder only: nothing is persisted,
+  // no row is dropped, and switching back to Classic restores the payload
+  // order untouched. See sheetTopicOrder.ts.
+  const topicOrder = useMemo(
+    () => (sheetVariant === 'ios' ? applyTopicOrder(rowsFromPayload) : null),
+    [sheetVariant, rowsFromPayload],
+  );
+  const rows = topicOrder ? topicOrder.rows : rowsFromPayload;
 
   // Google-Sheets clipboard for the active cell: Ctrl+C / X / V + Delete.
   const { copyActiveCell, cutActiveCell, pasteActiveCell, deleteActiveCell } =
@@ -268,12 +282,19 @@ export function SheetGrid({
     colShipment: COL_WIDTH_SHIPMENT,
     frozenLeftTotal: FROZEN_LEFT_TOTAL,
     rowHeight: ROW_HEIGHT,
-  } = scaleSheetLayout(sheetZoom);
+  } = scaleSheetLayout(sheetZoom, sheetVariant);
 
   // Clamp freeze counts to the data we actually have so an old localStorage
   // value (e.g. 5 frozen cols, but the user now sees only 2 shipments) still
   // produces a coherent layout.
-  const safeFrozenRowCount = Math.min(frozenRowCount, rows.length);
+  // In the topic order the freeze is additionally snapped to a section
+  // boundary. Bands render only below the freeze line, so a freeze landing
+  // mid-section would strand that section's rows under no header at all — the
+  // one thing the topic grouping exists to avoid. Snapping down to the end of
+  // the last fully-frozen section keeps every visible section headed.
+  const safeFrozenRowCount = topicOrder
+    ? Math.min(sectionAlignedFreeze(topicOrder.bands, frozenRowCount), rows.length)
+    : Math.min(frozenRowCount, rows.length);
   // frozenColCount counts ALL frozen columns: Row #, Who, Field name, then
   // shipments. So 3 = full label band frozen (default); 4+ = label band +
   // (N-3) shipments. Cap at 3 + shipments.length so we never ask for more
@@ -307,9 +328,16 @@ export function SheetGrid({
   // the sheet they have today). Bands render only in the scrollable section,
   // so detection starts below BOTH the pinned rows and the frozen band.
   const BAND_HEIGHT = bandHeight(ROW_HEIGHT);
+  // In the iOS variant the rows are topic-ordered, so owners are interleaved by
+  // design and markRoleBands would (correctly) suppress every band. Use the
+  // topic sections as the bands instead — same IRoleBand shape, so
+  // SheetRoleBandRow renders them unchanged.
   const roleBands = useMemo(
-    () => markRoleBands(rows, Math.max(pinnedPrefixLength(rows), safeFrozenRowCount)),
-    [rows, safeFrozenRowCount],
+    () =>
+      topicOrder
+        ? topicOrder.bands
+        : markRoleBands(rows, Math.max(pinnedPrefixLength(rows), safeFrozenRowCount)),
+    [topicOrder, rows, safeFrozenRowCount],
   );
 
   // Own-block highlight. `can_current_user_edit` is an edit right, not role
@@ -733,6 +761,7 @@ export function SheetGrid({
             key={`${shipment.id}-${rowConfig.row_number}`}
             shipment={shipment}
             rowConfig={rowConfig}
+            variant={sheetVariant}
           />
         );
       }
@@ -915,8 +944,13 @@ export function SheetGrid({
         ? sectionIndex
         : safeFrozenRowCount + sectionIndex;
 
-      // Reorder controls — only available when callbacks are provided
-      const hasReorderCapability = fieldKeyToRowId !== undefined && onReorder !== undefined;
+      // Reorder controls — only available when callbacks are provided, and
+      // NEVER in the topic order: handleReorder derives the payload from the
+      // array currently on screen, so one nudge there would persist the whole
+      // topic order as this user's personal row order. Hiding a row is still
+      // fine — it names one row id and doesn't depend on the order.
+      const hasReorderCapability =
+        fieldKeyToRowId !== undefined && onReorder !== undefined && topicOrder === null;
       const rowHasId = hasReorderCapability && fieldKeyToRowId[rowConfig.field_key] !== undefined;
 
       const canMoveUp = rowHasId && globalIndex > 0;
@@ -1146,7 +1180,7 @@ export function SheetGrid({
 
   return (
     <div
-      className="sheet-grid"
+      className={`sheet-grid sheet-grid--${sheetVariant}`}
       ref={scrollContainerRef}
       style={{ ['--sheet-zoom' as string]: sheetZoom } as React.CSSProperties}
     >

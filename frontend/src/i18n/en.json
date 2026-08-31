@@ -1884,7 +1884,12 @@
       "row_order_section": "Row order",
       "row_order_hint": "You have a personal row order saved, so role blocks aren't shown — grouping would fight your own drags. Reset to switch back to grouped view.",
       "row_order_reset": "Reset to role blocks",
-      "row_order_reset_toast": "Row order reset — role blocks are back."
+      "row_order_reset_toast": "Row order reset — role blocks are back.",
+      "design_section": "Design",
+      "design_classic": "Classic",
+      "design_ios": "iOS (Tırlar)",
+      "design_hint": "Visual style only — the same rows, columns and permissions in both. Saved in this browser.",
+      "freeze_through_section": "Through {{section}}"
     },
     "hide_row": "Hide row",
     "row_settings": "Row settings",
@@ -1995,6 +2000,15 @@
     },
     "role_block": {
       "mine": "Your rows"
+    },
+    "topic": {
+      "general": "📋 General",
+      "cargo_customs": "📦 Cargo & customs",
+      "transport": "🚛 Transport",
+      "loading_times": "⏱ Loading times",
+      "road_border": "🛣 Road & border",
+      "sales_report": "📊 Sales & report",
+      "other": "📎 Other"
     }
   },
   "draft": {

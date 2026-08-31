@@ -131,6 +131,34 @@ function persistZoom(value: number): void {
   }
 }
 
+// ─── Design variant ─────────────────────────────────────────────────────────
+// A purely visual skin over the same grid: identical rows, columns, data and
+// permission checks — only the cell/label chrome changes. `ios` mirrors the
+// Sera Bütçe "Tır Takip → Tırlar" look (rounded pill fields, soft borders,
+// emerald focus ring). Persisted per browser like zoom/freeze; it's a view
+// preference, not shared state, so it deliberately does NOT go to the server.
+export type TSheetVariant = 'classic' | 'ios';
+const VARIANT_STORAGE_KEY = 'ygt-sheet-variant';
+const DEFAULT_SHEET_VARIANT: TSheetVariant = 'classic';
+
+function loadVariant(): TSheetVariant {
+  if (typeof localStorage === 'undefined') return DEFAULT_SHEET_VARIANT;
+  try {
+    return localStorage.getItem(VARIANT_STORAGE_KEY) === 'ios' ? 'ios' : DEFAULT_SHEET_VARIANT;
+  } catch {
+    return DEFAULT_SHEET_VARIANT;
+  }
+}
+
+function persistVariant(value: TSheetVariant): void {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(VARIANT_STORAGE_KEY, value);
+  } catch {
+    // localStorage may throw in private mode or when full — ignore
+  }
+}
+
 interface ISheetState {
   activeCell: IActiveCell | null;
   setActiveCell: (cell: IActiveCell | null) => void;
@@ -171,6 +199,10 @@ interface ISheetState {
   zoomIn: () => void;
   zoomOut: () => void;
   resetZoom: () => void;
+
+  // ─── Design variant (visual skin only — same rows/columns/permissions) ───
+  sheetVariant: TSheetVariant;
+  setSheetVariant: (variant: TSheetVariant) => void;
 
   // ─── Fullscreen (distraction-free grid: hides app chrome + toolbar) ──────
   // Ephemeral — a per-session view choice, not persisted across reloads.
@@ -297,6 +329,13 @@ export const useSheetStore = create<ISheetState>((set) => ({
   resetZoom: () => {
     persistZoom(DEFAULT_SHEET_ZOOM);
     set({ sheetZoom: DEFAULT_SHEET_ZOOM });
+  },
+
+  // ─── Design variant ───────────────────────────────────────────────────────
+  sheetVariant: loadVariant(),
+  setSheetVariant: (variant) => {
+    persistVariant(variant);
+    set({ sheetVariant: variant });
   },
 
   // ─── Fullscreen ───────────────────────────────────────────────────────────

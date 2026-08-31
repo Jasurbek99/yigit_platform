@@ -1884,7 +1884,12 @@
       "row_order_section": "Setirleriň tertibi",
       "row_order_hint": "Siziň şahsy setir tertibiňiz ýatda saklanan, şonuň üçin rol boýunça bloklar görkezilmeýär — toparlamak siziň süýşürmeleriňizi ýapardy. Topar görnüşine gaýdyp gelmek üçin arassala.",
       "row_order_reset": "Rol bloklaryna gaýt",
-      "row_order_reset_toast": "Setir tertibi arassalandy — rol bloklary gaýdyp geldi."
+      "row_order_reset_toast": "Setir tertibi arassalandy — rol bloklary gaýdyp geldi.",
+      "design_section": "Dizaýn",
+      "design_classic": "Klassiki",
+      "design_ios": "iOS (Tırlar)",
+      "design_hint": "Diňe görnüş — hatarlar, sütünler we rugsatlar ikisinde-de birmeňzeş. Şu brauzerde saklanýar.",
+      "freeze_through_section": "{{section}} bölümine çenli"
     },
     "hide_row": "Setiri gizlemek",
     "row_settings": "Setir sazlamalary",
@@ -1995,6 +2000,15 @@
     },
     "role_block": {
       "mine": "Siziň setirleriňiz"
+    },
+    "topic": {
+      "general": "📋 Umumy maglumat",
+      "cargo_customs": "📦 Ýük & gümrük",
+      "transport": "🚛 Transport",
+      "loading_times": "⏱ Ýükleme wagtlary",
+      "road_border": "🛣 Ýolda / serhet",
+      "sales_report": "📊 Satyş & hasabat",
+      "other": "📎 Beýlekiler"
     }
   },
   "draft": {

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Button, Input, Switch, Typography, Badge, Modal, List, Select, Space, Tooltip, Popover } from 'antd';
+import { Button, Input, Switch, Typography, Badge, Modal, List, Select, Segmented, Space, Tooltip, Popover } from 'antd';
 import {
   PlusOutlined,
   SearchOutlined,
@@ -16,6 +16,8 @@ import {
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { useSheetStore, SHEET_ZOOM_MIN, SHEET_ZOOM_MAX } from '@/stores/sheetStore';
+import type { TSheetVariant } from '@/stores/sheetStore';
+import { applyTopicOrder, sectionAlignedFreeze } from './sheetTopicOrder';
 import { useAuth } from '@/hooks/useAuth';
 import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
 import { useCreateEmptyColumn } from '@/hooks/useDrafts';
@@ -123,6 +125,8 @@ export function SheetToolbar({
   const setFrozenRowCount = useSheetStore((s) => s.setFrozenRowCount);
   const setFrozenColCount = useSheetStore((s) => s.setFrozenColCount);
   const sheetZoom = useSheetStore((s) => s.sheetZoom);
+  const sheetVariant = useSheetStore((s) => s.sheetVariant);
+  const setSheetVariant = useSheetStore((s) => s.setSheetVariant);
   const zoomIn = useSheetStore((s) => s.zoomIn);
   const zoomOut = useSheetStore((s) => s.zoomOut);
   const resetZoom = useSheetStore((s) => s.resetZoom);
@@ -355,15 +359,46 @@ export function SheetToolbar({
   // the user sees on screen — not the original Excel row number. We still
   // surface the original row_number as "(R14)" for cross-reference with the
   // legacy spreadsheet.
+  //
+  // In the iOS variant the grid shows the TOPIC order, and its freeze always
+  // lands on a section boundary (SheetGrid → sectionAlignedFreeze). Listing
+  // classic rows here would name a row while setting a count that means
+  // something else in the displayed order — so that variant gets one option
+  // per section instead, whose values are exactly the boundaries the grid
+  // would snap to anyway.
+  const topicOrder = useMemo(
+    () => (sheetVariant === 'ios' ? applyTopicOrder(rows) : null),
+    [sheetVariant, rows],
+  );
+
   const rowOptions = useMemo(
-    () => [
-      { value: 0, label: t('sheet.settings.no_freeze') },
-      ...rows.map((r, idx) => ({
-        value: idx + 1,
-        label: `${t(r.label_key)} (R${r.row_number})`,
-      })),
-    ],
-    [rows, t],
+    () => {
+      if (topicOrder) {
+        const starts: { start: number; labelKey: string }[] = [];
+        topicOrder.bands.forEach((band, idx) => {
+          if (band !== null) starts.push({ start: idx, labelKey: band.labelKey });
+        });
+        return [
+          { value: 0, label: t('sheet.settings.no_freeze') },
+          ...starts.map((section, idx) => ({
+            // Freeze THROUGH this section = the next section's start index.
+            value:
+              idx + 1 < starts.length ? starts[idx + 1].start : topicOrder.bands.length,
+            label: t('sheet.settings.freeze_through_section', {
+              section: t(section.labelKey),
+            }),
+          })),
+        ];
+      }
+      return [
+        { value: 0, label: t('sheet.settings.no_freeze') },
+        ...rows.map((r, idx) => ({
+          value: idx + 1,
+          label: `${t(r.label_key)} (R${r.row_number})`,
+        })),
+      ];
+    },
+    [topicOrder, rows, t],
   );
 
   // frozenColCount counts ALL frozen columns: 1=Row#, 2=Who, 3=Field name (the
@@ -630,6 +665,26 @@ export function SheetToolbar({
         width={520}
       >
         <div style={{ marginBottom: 12 }}>
+          <Text strong>{t('sheet.settings.design_section')}</Text>
+        </div>
+        {/* Design variant — a visual skin only. Same rows, columns, data and
+            permissions in both; see SheetVariantIos.css. Stored per browser
+            in localStorage alongside zoom/freeze. */}
+        <Segmented
+          block
+          style={{ marginBottom: 8 }}
+          value={sheetVariant}
+          onChange={(v) => setSheetVariant(v as TSheetVariant)}
+          options={[
+            { value: 'classic', label: t('sheet.settings.design_classic') },
+            { value: 'ios', label: t('sheet.settings.design_ios') },
+          ]}
+        />
+        <Text type="secondary" style={{ fontSize: 11 }}>
+          {t('sheet.settings.design_hint')}
+        </Text>
+
+        <div style={{ margin: '20px 0 12px' }}>
           <Text strong>{t('sheet.settings.freeze_section')}</Text>
         </div>
         <Space direction="vertical" size={16} style={{ width: '100%' }}>
@@ -639,7 +694,11 @@ export function SheetToolbar({
             </div>
             <Select
               style={{ width: '100%' }}
-              value={Math.min(frozenRowCount, rows.length)}
+              value={
+                topicOrder
+                  ? sectionAlignedFreeze(topicOrder.bands, frozenRowCount)
+                  : Math.min(frozenRowCount, rows.length)
+              }
               onChange={(v) => setFrozenRowCount(v)}
               options={rowOptions}
               showSearch

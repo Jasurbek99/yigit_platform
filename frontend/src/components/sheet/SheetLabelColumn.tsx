@@ -72,13 +72,14 @@ function SheetLabelRowInner({
 }: ISheetLabelRowProps) {
   const { t } = useTranslation();
   const sheetZoom = useSheetStore((s) => s.sheetZoom);
+  const sheetVariant = useSheetStore((s) => s.sheetVariant);
   // Same scaled widths SheetGrid uses, so the sticky-left `left` offsets here
   // line up exactly with the header's frozen label band.
   const {
     colRowNum: COL_WIDTH_ROW_NUM,
     colWho: COL_WIDTH_WHO,
     colField: COL_WIDTH_FIELD,
-  } = scaleSheetLayout(sheetZoom);
+  } = scaleSheetLayout(sheetZoom, sheetVariant);
   const [dragOver, setDragOver] = useState(false);
 
   const borderColor = STYLE_COLORS[rowConfig.style] ?? STYLE_COLORS.base;

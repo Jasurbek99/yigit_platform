@@ -8,6 +8,8 @@ import { recordMultiEntry } from '@/hooks/undoCapture';
 import { SheetCellEditor } from './SheetCellEditor';
 import { MOCK_SHEET_DATA } from '@/mock/shipmentSheet';
 import { parseNumberInput } from './SheetCellEditor.helpers';
+import { useSheetStore } from '@/stores/sheetStore';
+import { scaleSheetLayout } from '@/constants/sheetRowConfig';
 
 // Isolate the wiring under test from SheetTruckSelectEditor's own internals
 // (covered by its own test file) — stub renders a single button whose click
@@ -293,6 +295,48 @@ describe('SheetCellEditor — firm_splits quota link', () => {
 // Locks the B.1 fix: typing literal `0` in a number cell MUST persist as 0,
 // not get coerced to null. Previously `Number(value) || null` was treating
 // rejected_weight_kg=0 ("no rejection") as null ("not measured yet").
+describe('SheetCellEditor — design variant sizing', () => {
+  // The editor is also rendered OUTSIDE the Sheet (SelfBoardShipmentFieldList),
+  // where the `.sheet-grid--ios` skin does not apply. It must therefore take the
+  // variant as a prop and default to classic, not read the Sheet's store — or a
+  // preference set on the Sheet silently resizes the Self Board drawer.
+  beforeAll(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  function editingBox(container: HTMLElement): HTMLElement {
+    const el = container.querySelector('.sheet-cell--editing');
+    if (!(el instanceof HTMLElement)) throw new Error('editing cell not rendered');
+    return el;
+  }
+
+  it('keeps classic sizing with no variant prop, even when the Sheet is set to ios', () => {
+    useSheetStore.getState().setSheetVariant('ios');
+    const shipment: IShipmentSheetItem = { ...MOCK_SHEET_DATA[0], is_gapy_satys: true, truck_plate: '01ABC123' };
+    const { container } = wrap(shipment, TRUCK_PLATE_ROW);
+
+    const classic = scaleSheetLayout(1, 'classic');
+    expect(editingBox(container).style.width).toBe(`${classic.colShipment}px`);
+    expect(editingBox(container).style.height).toBe(`${classic.rowHeight}px`);
+
+    useSheetStore.getState().setSheetVariant('classic');
+  });
+
+  it('takes ios sizing when the grid passes the prop', () => {
+    const shipment: IShipmentSheetItem = { ...MOCK_SHEET_DATA[0], is_gapy_satys: true, truck_plate: '01ABC123' };
+    const qc = new QueryClient();
+    const { container } = render(
+      <QueryClientProvider client={qc}>
+        <SheetCellEditor shipment={shipment} rowConfig={TRUCK_PLATE_ROW} variant="ios" />
+      </QueryClientProvider>,
+    );
+
+    const ios = scaleSheetLayout(1, 'ios');
+    expect(editingBox(container).style.width).toBe(`${ios.colShipment}px`);
+    expect(editingBox(container).style.height).toBe(`${ios.rowHeight}px`);
+  });
+});
+
 describe('parseNumberInput', () => {
   it('preserves literal zero', () => {
     expect(parseNumberInput('0')).toBe(0);

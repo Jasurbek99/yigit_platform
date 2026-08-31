@@ -19,6 +19,7 @@ import { SheetGrid } from '@/components/sheet/SheetGrid';
 import { groupRowsByOwner } from '@/components/sheet/sheetRoleBlocks';
 import { CommentsDrawer } from '@/components/comments/CommentsDrawer';
 import '@/components/sheet/SheetStyles.css';
+import '@/components/sheet/SheetVariantIos.css';
 
 export default function ShipmentSheet() {
   const { t } = useTranslation();
