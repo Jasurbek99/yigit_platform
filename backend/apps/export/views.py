@@ -139,7 +139,7 @@ class ShipmentViewSet(ModelViewSet):
     # DynamicResourcePermission for these specific actions so roles without
     # shipment.can_create / can_edit / can_delete (transport, sales_rep,
     # accountant, …) still pass.
-    _OPEN_ACTIONS = {'soft_delete', 'restore', 'set_column_color'}
+    _OPEN_ACTIONS = {'soft_delete', 'restore', 'set_column_color', 'set_cell_color'}
 
     def get_permissions(self):
         # SeasonNotClosed is repeated in every branch below: these branches
@@ -983,6 +983,75 @@ class ShipmentViewSet(ModelViewSet):
         serializer = ShipmentDetailSerializer(shipment, context={'request': request})
         return Response(serializer.data)
 
+    @action(detail=True, methods=['post'], url_path='set-cell-color')
+    def set_cell_color(self, request, pk=None):
+        """POST /api/v1/export/shipments/{id}/set-cell-color/
+
+        Body: ``{"field_key": "country", "color": "#RRGGBB" | null | ""}``
+
+        Sets the background color of ONE Sheet cell. Like column_color this is
+        a UI-only decoration, not domain data — every authenticated Sheet
+        viewer may set it regardless of their per-field grants on shipment
+        (open via get_permissions() / _OPEN_ACTIONS).
+
+        A null / empty color deletes the row: an absent row IS "no color", so
+        there is no second empty state. No AuditLog — unlike column_color this
+        writes to its own table, not to a shipment column, and a per-cell
+        decoration on a per-cell audit trail would drown the value history the
+        clock marker shows.
+        """
+        from apps.export.models import SheetCellColor, SheetRowSetting
+        from apps.export.sheet_rows import DEFAULT_SHEET_ROWS
+
+        shipment = self.get_object()
+        if shipment.deleted_at is not None or shipment.is_archived:
+            return Response(
+                {'error': 'Cannot edit a deleted or archived shipment.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        field_key = request.data.get('field_key')
+        if not isinstance(field_key, str) or not field_key:
+            return Response(
+                {'error': "'field_key' is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        # Validate against the known Sheet rows: the built-in list plus any
+        # admin-created custom row. Fallback rows have no SheetRowSetting of
+        # their own, so both sources are needed.
+        known = {r['field_key'] for r in DEFAULT_SHEET_ROWS}
+        if field_key not in known and not SheetRowSetting.objects.filter(
+            field_key=field_key, deleted_at__isnull=True,
+        ).exists():
+            return Response(
+                {'error': f"Unknown sheet field_key '{field_key}'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        raw = request.data.get('color', None)
+        if raw in (None, ''):
+            new_value = None
+        elif isinstance(raw, str):
+            # Defensive truncation: column is CharField(max_length=7); accept
+            # only #RRGGBB. Older Ant builds occasionally still emit alpha.
+            new_value = raw[:7]
+        else:
+            return Response(
+                {'error': "'color' must be a hex string or null."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if new_value is None:
+            SheetCellColor.objects.filter(shipment=shipment, field_key=field_key).delete()
+        else:
+            SheetCellColor.objects.update_or_create(
+                shipment=shipment,
+                field_key=field_key,
+                defaults={'color': new_value, 'updated_by': request.user},
+            )
+
+        return Response({'field_key': field_key, 'color': new_value})
+
     @action(detail=False, methods=['get'], url_path='overdue')
     def overdue(self, request):
         """GET /api/v1/export/shipments/overdue/?threshold=N
@@ -1213,6 +1282,17 @@ class ShipmentViewSet(ModelViewSet):
                 custom_fields_by_shipment.setdefault(cv.shipment_id, {})[cv.row.field_key] = cv.value_text
         for s in shipment_data:
             s['custom_fields'] = custom_fields_by_shipment.get(s['id'], {})
+
+        # === Per-cell background colors (one query, no N+1) ===
+        # { shipment_id: { field_key: '#RRGGBB' } } — the most specific of the
+        # four coloring layers (see SheetCellColor's docstring for precedence).
+        from apps.export.models import SheetCellColor
+        cell_colors: dict[int, dict[str, str]] = {}
+        if ids:
+            for cc in SheetCellColor.objects.filter(shipment_id__in=ids).only(
+                'shipment_id', 'field_key', 'color',
+            ):
+                cell_colors.setdefault(cc.shipment_id, {})[cc.field_key] = cc.color
 
         # === Per-cell comment counts (single query, grouped in Python — no N+1) ===
         comment_counts: dict[int, dict[str, int]] = {}
@@ -1586,6 +1666,7 @@ class ShipmentViewSet(ModelViewSet):
             'results': shipment_data,
             'comment_counts': comment_counts,
             'task_counts': task_counts,
+            'cell_colors': cell_colors,
             'rows': rows,
             'row_settings': row_settings,
             'last_edits': last_edits,

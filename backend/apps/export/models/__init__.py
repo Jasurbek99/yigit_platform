@@ -38,6 +38,7 @@ from .finance import (
 from .notification import Notification
 from .audit import AuditLog
 from .sheet_settings import (
+    SheetCellColor,
     SheetRowSetting,
     SheetRowRoleTrigger,
     SheetRowUserPermission,
@@ -88,6 +89,7 @@ __all__ = [
     'PackingTemplate',
     'PackingTemplateShare',
     'PRODUCT_TYPE_CHOICES',
+    'SheetCellColor',
     'SheetRowSetting',
     'SheetRowRoleTrigger',
     'SheetRowUserPermission',

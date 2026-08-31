@@ -3,6 +3,7 @@ import { ColorPicker, Modal } from 'antd';
 import { DeleteOutlined, ExclamationCircleFilled } from '@ant-design/icons';
 import type { Color } from 'antd/es/color-picker';
 import { useTranslation } from 'react-i18next';
+import { SHEET_PRESET_COLORS } from '@/constants/sheetOptions';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { useSetColumnColor, useSoftDeleteShipment } from '@/hooks/useShipments';
@@ -27,11 +28,6 @@ interface ISheetColumnHeaderProps {
   /** When true, the shipment is cancelled — strike the code + show a red tag. */
   isCancelled?: boolean;
 }
-
-const PRESET_COLORS = [
-  '#fee2e2', '#fef3c7', '#fef9c3', '#dcfce7', '#dbeafe',
-  '#e0e7ff', '#fce7f3', '#f3e8ff', '#e5e7eb', '#fed7aa',
-];
 
 function SheetColumnHeaderInner({
   shipmentId,
@@ -126,7 +122,7 @@ function SheetColumnHeaderInner({
           allowClear
           disabledAlpha
           size="small"
-          presets={[{ label: t('sheet.column_color.presets'), colors: PRESET_COLORS }]}
+          presets={[{ label: t('sheet.column_color.presets'), colors: SHEET_PRESET_COLORS }]}
           rootClassName="sheet-col-header__color-popover"
         >
           <button

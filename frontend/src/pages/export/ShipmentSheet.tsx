@@ -28,6 +28,7 @@ export default function ShipmentSheet() {
   const { data, isLoading } = useShipmentSheet();
   const shipments = data?.shipments;
   const commentCounts = data?.comment_counts ?? {};
+  const cellColors = data?.cell_colors ?? {};
   const taskCounts = data?.task_counts ?? {};
   const rows = useMemo(() => data?.rows ?? [], [data?.rows]);
   const rowSettings = useMemo(() => data?.row_settings ?? {}, [data?.row_settings]);
@@ -389,6 +390,7 @@ export default function ShipmentSheet() {
         rows={orderedRows}
         commentCounts={commentCounts}
         taskCounts={taskCounts}
+        cellColors={cellColors}
         rowSettings={rowSettings}
         lastEdits={lastEdits}
         currentUserLang={currentUserLang}

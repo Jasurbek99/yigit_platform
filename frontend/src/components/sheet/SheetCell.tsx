@@ -1,11 +1,14 @@
 import { memo, useCallback, useState } from 'react';
-import { Dropdown, Modal, Popover, Tag } from 'antd';
-import { HistoryOutlined, FileTextOutlined } from '@ant-design/icons';
+import { Dropdown, Modal, Popover, Tag, ColorPicker, Button } from 'antd';
+import type { Color } from 'antd/es/color-picker';
+import { HistoryOutlined, FileTextOutlined, BgColorsOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { IShipmentSheetItem, IRowConfig, ICommentTaskStatus, ISheetRowSettingForUser, IShipmentOptionType } from '@/types';
 import { useSheetStore } from '@/stores/sheetStore';
 import { useShipmentOptions } from '@/hooks/useAdmin';
+import { useSetCellColor } from '@/hooks/useShipmentSheet';
+import { SHEET_PRESET_COLORS } from '@/constants/sheetOptions';
 import { scaleSheetLayout } from '@/constants/sheetRowConfig';
 import { useSheetCellWrite, isClearableField } from '@/hooks/useSheetCellWrite';
 import { CommentMarker } from './CommentMarker';
@@ -83,13 +86,15 @@ interface ISheetCellProps {
   commentCount?: number;
   commentTaskState?: ICommentTaskStatus | null;
   rowSetting?: ISheetRowSettingForUser;
+  /** Admin/operator-painted background for THIS cell (most specific layer). */
+  cellColor?: string | null;
 }
 
 function isEmpty(value: string): boolean {
   return !value || value === '—';
 }
 
-function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, commentTaskState = null, rowSetting }: ISheetCellProps) {
+function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, commentTaskState = null, rowSetting, cellColor = null }: ISheetCellProps) {
   const navigate = useNavigate();
   const { t } = useTranslation();
   // Granular store selectors — NEVER `useSheetStore()` without a selector here.
@@ -110,6 +115,20 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
   // AuditLog rows (user / timestamp / old → new). Lazy: the modal is only
   // mounted when opened, and FieldHistoryContent only fetches when `open`.
   const [historyOpen, setHistoryOpen] = useState(false);
+
+  // Right-click → "Cell color" opens a small picker modal. A modal (rather
+  // than a picker nested inside the context menu) keeps the antd Dropdown from
+  // closing the popover the moment the swatch panel opens.
+  const [colorOpen, setColorOpen] = useState(false);
+  const setCellColor = useSetCellColor();
+
+  const applyCellColor = useCallback(
+    (color: string | null) => {
+      setCellColor.mutate({ shipmentId: shipment.id, fieldKey: rowConfig.field_key, color });
+      setColorOpen(false);
+    },
+    [setCellColor, shipment.id, rowConfig.field_key],
+  );
 
   const isActive = useSheetStore(
     (s) => s.activeCell?.shipmentId === shipment.id && s.activeCell?.rowKey === rowConfig.field_key,
@@ -161,7 +180,11 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
   // Covers both FK-driven dropdowns (country/customer/...) and the option-list
   // categories (harvest_status, documents_status, ...).
   const autoColor = getCellAutoColor(rowConfig.field_key, shipment, options);
-  const cellBg = autoColor ?? rowSetting?.style?.color ?? undefined;
+  // Precedence, most specific first: this cell's own color (right-click →
+  // Cell color) beats the per-value color, which beats the admin row color.
+  // The column tint sits below all three (class-based, so any inline
+  // background here already wins over it).
+  const cellBg = cellColor ?? autoColor ?? rowSetting?.style?.color ?? undefined;
   // Admin-picked per-row cell text color wins over the auto WCAG-contrast color
   // chosen from the background — when no background is painted, font_color is
   // still applied so admins can recolor cell text on a plain row.
@@ -229,6 +252,12 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
               label: t('sheet.show_history'),
               onClick: () => setHistoryOpen(true),
             },
+            {
+              key: 'cell_color',
+              icon: <BgColorsOutlined />,
+              label: t('sheet.cell_color'),
+              onClick: () => setColorOpen(true),
+            },
             { type: 'divider' },
             {
               key: 'clear',
@@ -242,6 +271,41 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
       >
         {node}
       </Dropdown>
+      {colorOpen && (
+        <Modal
+          open
+          title={t('sheet.cell_color')}
+          footer={null}
+          width={320}
+          onCancel={() => setColorOpen(false)}
+        >
+          <div className="sheet-cell-color-swatches">
+            {SHEET_PRESET_COLORS.map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                className="sheet-cell-color-swatch"
+                style={{ background: preset }}
+                title={preset}
+                onClick={() => applyCellColor(preset)}
+              />
+            ))}
+          </div>
+          <div className="sheet-cell-color-actions">
+            <ColorPicker
+              disabledAlpha
+              value={cellColor ?? undefined}
+              presets={[{ label: t('sheet.column_color.presets'), colors: SHEET_PRESET_COLORS }]}
+              onChangeComplete={(color: Color) => applyCellColor(color.toHexString().slice(0, 7))}
+            >
+              <Button size="small">{t('sheet.cell_color_custom')}</Button>
+            </ColorPicker>
+            <Button size="small" danger disabled={!cellColor} onClick={() => applyCellColor(null)}>
+              {t('sheet.cell_color_clear')}
+            </Button>
+          </div>
+        </Modal>
+      )}
       {historyOpen && (
         <Modal
           open

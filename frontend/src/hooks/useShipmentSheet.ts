@@ -11,6 +11,7 @@ import type {
   ISheetTaskCounts,
   ISheetRowSettingForUser,
   IRowConfig,
+  ISheetCellColors,
 } from '@/types';
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
@@ -19,6 +20,7 @@ interface IShipmentSheetResult {
   shipments: IShipmentSheetItem[];
   comment_counts: ISheetCommentCounts;
   task_counts: ISheetTaskCounts;
+  cell_colors: ISheetCellColors;
   rows: IRowConfig[];
   row_settings: Record<string, ISheetRowSettingForUser>;
   last_edits: Record<string, Record<string, import('@/types').ICellLastEdit>>;
@@ -62,6 +64,66 @@ export function useSaveSheetColumnOrder() {
 }
 
 /**
+ * Mutation: POST /api/v1/export/shipments/{id}/set-cell-color/
+ *
+ * Paints ONE Sheet cell. Dedicated endpoint (not the shipment PATCH) because
+ * the color is a UI decoration open to every authenticated Sheet viewer
+ * regardless of their per-field grants — same rule as the column tint.
+ *
+ * The color lives in the sheet payload's top-level `cell_colors` map rather
+ * than on the shipment row, so the optimistic update patches every cached
+ * sheet query (full season + any single-row drawer query) via setQueriesData
+ * on the shared SHEET_QUERY_KEY prefix. A null color removes the entry.
+ */
+export function useSetCellColor() {
+  const queryClient = useQueryClient();
+  const { t } = useTranslation();
+
+  return useMutation<
+    unknown,
+    Error,
+    { shipmentId: number; fieldKey: string; color: string | null },
+    { previous: [readonly unknown[], IShipmentSheetResult | undefined][] }
+  >({
+    mutationFn: async ({ shipmentId, fieldKey, color }) => {
+      const { data } = await api.post(
+        `/export/shipments/${shipmentId}/set-cell-color/`,
+        { field_key: fieldKey, color },
+      );
+      return data;
+    },
+    onMutate: async ({ shipmentId, fieldKey, color }) => {
+      await queryClient.cancelQueries({ queryKey: SHEET_QUERY_KEY });
+      const previous = queryClient.getQueriesData<IShipmentSheetResult>({
+        queryKey: SHEET_QUERY_KEY,
+      });
+      queryClient.setQueriesData<IShipmentSheetResult>(
+        { queryKey: SHEET_QUERY_KEY },
+        (old) => {
+          if (!old) return old;
+          // cell_colors may be absent on a query cached before this field
+          // existed (or seeded by the mock branch) — treat it as empty.
+          const forShipment = { ...(old.cell_colors?.[shipmentId] ?? {}) };
+          if (color) {
+            forShipment[fieldKey] = color;
+          } else {
+            delete forShipment[fieldKey];
+          }
+          return { ...old, cell_colors: { ...(old.cell_colors ?? {}), [shipmentId]: forShipment } };
+        },
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      context?.previous.forEach(([key, data]) => {
+        queryClient.setQueryData(key, data);
+      });
+      toast.error(t('sheet.cell_color_error'));
+    },
+  });
+}
+
+/**
  * Sheet data for the spreadsheet view (no arg = full active season) or for a
  * single shipment (`shipmentId` given → `?shipment=<id>`, a tiny payload with
  * the same global row config). The drawer field editors use the single-shipment
@@ -90,6 +152,7 @@ export function useShipmentSheet(shipmentId?: number) {
           shipments: MOCK_SHEET_DATA,
           comment_counts: {},
           task_counts: {},
+          cell_colors: {},
           rows: [],
           row_settings: MOCK_ROW_SETTINGS,
           last_edits: {},
@@ -110,6 +173,7 @@ export function useShipmentSheet(shipmentId?: number) {
         shipments: data.results,
         comment_counts: data.comment_counts ?? {},
         task_counts: data.task_counts ?? {},
+        cell_colors: data.cell_colors ?? {},
         rows: data.rows ?? [],
         row_settings: data.row_settings ?? {},
         last_edits: data.last_edits ?? {},

@@ -485,10 +485,18 @@ export interface IUserSheetPreferences {
   updated_at: string | null; // ISO 8601 or null when no prefs set yet
 }
 
+/**
+ * Per-cell background colors: shipment id -> field_key -> #RRGGBB.
+ * The most specific of the four Sheet coloring layers; see SheetCell for the
+ * full precedence (cell > per-value > row style > column tint).
+ */
+export type ISheetCellColors = Record<number, Record<string, string>>;
+
 export interface IShipmentSheetResponse {
   results: IShipmentSheetItem[];
   comment_counts: ISheetCommentCounts;
   task_counts: ISheetTaskCounts;
+  cell_colors: ISheetCellColors;
   /** Backend-driven row map â€” replaces the frontend SHEET_ROW_CONFIG constant. */
   rows: IRowConfig[];
   /** Per-row settings keyed by field_key (Sheet Control v2). */

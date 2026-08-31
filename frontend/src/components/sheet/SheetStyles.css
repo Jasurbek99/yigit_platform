@@ -845,3 +845,27 @@
   background: var(--blue-50);
   color: var(--blue-700);
 }
+
+/* ═══ PER-CELL COLOR PICKER (right-click → Cell color) ═══ */
+.sheet-cell-color-swatches {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.sheet-cell-color-swatch {
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: transform 0.12s;
+}
+.sheet-cell-color-swatch:hover {
+  transform: scale(1.08);
+}
+.sheet-cell-color-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}

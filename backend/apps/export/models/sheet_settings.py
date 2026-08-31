@@ -620,3 +620,59 @@ class ShipmentCustomFieldValue(models.Model):
 
     def __str__(self) -> str:
         return f'shipment={self.shipment_id} row={self.row_id} ({len(self.value_text or "")} chars)'
+
+
+class SheetCellColor(models.Model):
+    """Per-cell background color on the Shipment Sheet.
+
+    One row per (shipment, field_key) — the finest-grained of the four Sheet
+    coloring layers. Precedence on render, most specific first:
+
+        cell color (here) > per-value color (FK / option) > SheetRowSetting
+        .style_color (whole row) > Shipment.column_color tint (whole column)
+
+    Like column_color this is a UI decoration, not domain data: every
+    authenticated Sheet viewer may set it regardless of their field grants
+    (see ShipmentViewSet._OPEN_ACTIONS). Clearing deletes the row rather than
+    storing an empty string — an absent row IS "no color", so there is no
+    second empty state to reason about.
+
+    field_key is a plain CharField, not an FK to SheetRowSetting: fallback rows
+    from DEFAULT_SHEET_ROWS have no SheetRowSetting row of their own, and the
+    endpoint validates the key against the known Sheet rows on write.
+    """
+
+    shipment = models.ForeignKey(
+        'Shipment',
+        on_delete=models.CASCADE,
+        related_name='cell_colors',
+    )
+    field_key = models.CharField(
+        max_length=64,
+        help_text='Sheet row field_key this color applies to (e.g. "country").',
+    )
+    color = models.CharField(
+        max_length=7,
+        help_text='Background colour as #RRGGBB hex string.',
+    )
+
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(
+        'core.User',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='+',
+    )
+
+    class Meta:
+        db_table = schema_table('export', 'sheet_cell_color')
+        constraints = [
+            models.UniqueConstraint(
+                fields=['shipment', 'field_key'],
+                name='uq_sheet_cell_color',
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f'shipment={self.shipment_id} {self.field_key}={self.color}'

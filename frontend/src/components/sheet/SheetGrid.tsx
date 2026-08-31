@@ -22,6 +22,7 @@ import type {
   IRowConfig,
   ISheetCommentCounts,
   ISheetTaskCounts,
+  ISheetCellColors,
   ICommentTaskStatus,
   ISheetRowSettingForUser,
   ICellLastEdit,
@@ -126,6 +127,8 @@ interface ISheetGridProps {
   rows: IRowConfig[];
   commentCounts?: ISheetCommentCounts;
   taskCounts?: ISheetTaskCounts;
+  /** Per-cell painted backgrounds: shipment id → field_key → #RRGGBB. */
+  cellColors?: ISheetCellColors;
   rowSettings?: Record<string, ISheetRowSettingForUser>;
   lastEdits?: Record<string, Record<string, ICellLastEdit>>;
   currentUserLang?: 'tk' | 'ru' | 'en';
@@ -157,6 +160,7 @@ export function SheetGrid({
   rows,
   commentCounts = {},
   taskCounts = {},
+  cellColors = {},
   rowSettings = {},
   lastEdits: _lastEdits = {},
   currentUserLang = 'tk',
@@ -742,10 +746,11 @@ export function SheetGrid({
           commentCount={cellCommentCount}
           commentTaskState={cellTaskState}
           rowSetting={rowSettings[rowConfig.field_key]}
+          cellColor={cellColors[shipment.id]?.[rowConfig.field_key] ?? null}
         />
       );
     },
-    [editingCell, user, commentCounts, taskCounts, rowSettings, isSeasonReadOnly],
+    [editingCell, user, commentCounts, taskCounts, cellColors, rowSettings, isSeasonReadOnly],
   );
 
   const virtualColumns = columnVirtualizer.getVirtualItems();
