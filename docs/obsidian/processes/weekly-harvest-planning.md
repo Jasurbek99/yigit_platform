@@ -372,5 +372,5 @@ operational Google Sheet: one row per active block with **Düýnki galyndy**
 - **[[truck-allocation]]** — Est. Trucks tile uses the most-current value per cell / `truck_capacity_kg` from `GreenhouseConfig`. The TruckAllocationTable embeds in WeeklyPlanGrid as before.
 - **[[shipment-creation]]** — Harvest readiness (Actual vs Plan) feeds shipment-creation decisions.
 - **[[domestic-sales]]** — Domestic sale records track tomatoes sold locally (separate from this process).
-- **[[comments-tasks]]** — The `weekly_plan` board task (one per manager per week, "Generate plan tasks" button on this grid) nudges managers to fill the plan and auto-completes when no blank cells remain. See [[../../ADR|ADR-021]].
+- **[[comments-tasks]]** — The `weekly_plan` board task (one per manager per week, "Generate plan tasks" button on this grid) nudges managers to fill the plan and auto-completes when no blank cells remain — on **anyone's** `/me/tasks/` load, so a grid filled by an admin on a manager's behalf still clears that manager's task. See [[../../ADR|ADR-021]].
 - See [[../../ADR|ADR-017]] for the rationale on the daily-grain rewrite (supersedes ADR-012).

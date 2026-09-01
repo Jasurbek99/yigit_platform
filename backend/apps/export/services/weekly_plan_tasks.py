@@ -11,7 +11,10 @@ Dependency direction (core ← greenhouse ← export): this module lives in expo
 and READS greenhouse models (BlockManagerAssignment, HarvestDayEntry), which is
 the allowed direction. greenhouse code must never call back into export, so
 resolution is invoked LAZILY from the task-read path (MeTaskListView), not from
-the plan-save path — see resolve_weekly_plan_tasks_for_user.
+the plan-save path — see resolve_all_open_weekly_plan_tasks. That pass is global
+rather than per-caller on purpose: the person who fills a block's grid is often
+not the manager the task is assigned to, and a per-caller pass leaves those tasks
+open forever.
 
 Known limit: generation uses a read-then-write idempotency check, so two truly
 concurrent calls to the (admin-only) generate endpoint can race and create a
@@ -160,37 +163,21 @@ def _resolve_task(task: Task) -> bool:
     return True
 
 
-def resolve_weekly_plan_tasks_for_user(user) -> list[Task]:
-    """Resolve all of a user's open weekly_plan tasks whose week is fully filled.
+def resolve_all_open_weekly_plan_tasks() -> list[Task]:
+    """Resolve every open weekly_plan task whose block's Mon–Sat plan is filled.
 
-    Called lazily from the task-read path (MeTaskListView) — the manager sees the
-    task flip to DONE the next time their board loads after filling every cell.
+    Called from the task-read path (MeTaskListView) on every load, and by the
+    `resolve_weekly_plan_tasks` management command for cron/backfill.
 
-    Args:
-        user: The current user.
+    Global rather than per-caller: the task carries an assignee_user, but the
+    grid is frequently filled by somebody else (an admin or export_manager
+    entering a manager's plan). Resolving only the caller's tasks meant those
+    stayed OPEN until the assignee happened to open their own board — which for
+    W25/W27/W28 of 2026 never happened, leaving 35 permanently-stale reminders.
 
     Returns:
         List of Task instances resolved in this call.
     """
-    user_id = getattr(user, 'id', None)
-    if not user_id:
-        return []
-
-    open_tasks = list(
-        Task.objects.filter(
-            kind=TaskKind.WEEKLY_PLAN,
-            assignee_user_id=user_id,
-            state__in=[TaskState.OPEN, TaskState.IN_PROGRESS],
-        )
-    )
-    resolved = [t for t in open_tasks if _resolve_task(t)]
-    if resolved:
-        logger.info('Auto-resolved %d weekly_plan tasks for user=%s', len(resolved), user_id)
-    return resolved
-
-
-def resolve_all_open_weekly_plan_tasks() -> list[Task]:
-    """Resolve every open weekly_plan task across all users (for cron/backfill)."""
     open_tasks = list(
         Task.objects.filter(
             kind=TaskKind.WEEKLY_PLAN,

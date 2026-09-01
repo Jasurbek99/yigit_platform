@@ -10,7 +10,8 @@ Covers:
   - generate endpoint: supervisor OK, non-supervisor 403, bad payload 400.
   - /me/tasks/ scoping: a manager sees only their own weekly task, not another
     manager's; shipment tasks (assignee_user null) stay role-visible; the read
-    auto-resolves a now-complete weekly task.
+    auto-resolves a now-complete weekly task — including one assigned to a
+    DIFFERENT manager, since the grid is usually filled on their behalf.
 """
 import datetime
 import unittest
@@ -24,7 +25,7 @@ try:
     from apps.export.models import Task, TaskKind, TaskState
     from apps.export.services import (
         generate_weekly_plan_tasks,
-        resolve_weekly_plan_tasks_for_user,
+        resolve_all_open_weekly_plan_tasks,
     )
     from apps.greenhouse.models import (
         BlockManagerAssignment,
@@ -139,7 +140,7 @@ class WeeklyPlanTaskResolutionTests(TestCase):
         generate_weekly_plan_tasks(YEAR, WEEK)
         self._entry(0, Decimal('100'))
         self._entry(1, None)  # blank cell
-        resolved = resolve_weekly_plan_tasks_for_user(self.mgr)
+        resolved = resolve_all_open_weekly_plan_tasks()
         self.assertEqual(resolved, [])
         task = Task.objects.get(kind=TaskKind.WEEKLY_PLAN, assignee_user=self.mgr)
         self.assertEqual(task.state, TaskState.OPEN)
@@ -148,7 +149,7 @@ class WeeklyPlanTaskResolutionTests(TestCase):
         generate_weekly_plan_tasks(YEAR, WEEK)
         self._entry(0, Decimal('100'))
         self._entry(1, Decimal('0'))  # explicit zero counts as filled
-        resolved = resolve_weekly_plan_tasks_for_user(self.mgr)
+        resolved = resolve_all_open_weekly_plan_tasks()
         self.assertEqual(len(resolved), 1)
         task = Task.objects.get(kind=TaskKind.WEEKLY_PLAN, assignee_user=self.mgr)
         self.assertEqual(task.state, TaskState.DONE)
@@ -160,7 +161,7 @@ class WeeklyPlanTaskResolutionTests(TestCase):
         for day in range(6):  # Mon..Sat
             self._entry(day, Decimal('100'))
         self._entry(6, None)  # Sunday — not measured
-        resolved = resolve_weekly_plan_tasks_for_user(self.mgr)
+        resolved = resolve_all_open_weekly_plan_tasks()
         self.assertEqual(len(resolved), 1)
         task = Task.objects.get(kind=TaskKind.WEEKLY_PLAN, assignee_user=self.mgr)
         self.assertEqual(task.state, TaskState.DONE)
@@ -173,7 +174,7 @@ class WeeklyPlanTaskResolutionTests(TestCase):
         BlockManagerAssignment.objects.create(user=self.mgr, block=block_b)
         generate_weekly_plan_tasks(YEAR, WEEK)  # one task per block
         self._entry(0, Decimal('100'))  # only block A has a row
-        resolved = resolve_weekly_plan_tasks_for_user(self.mgr)
+        resolved = resolve_all_open_weekly_plan_tasks()
         # Block A's task resolves; block B's (no rows) stays open.
         self.assertEqual(len(resolved), 1)
         self.assertEqual(resolved[0].scope_block_id, self.block_a.id)
@@ -242,3 +243,36 @@ class WeeklyPlanTaskApiTests(TestCase):
         weekly = [t for t in results if t['kind'] == 'weekly_plan']
         self.assertEqual(len(weekly), 1)
         self.assertEqual(weekly[0]['assignee_user'], self.mgr1.id)
+
+    def test_read_resolves_a_task_whose_grid_someone_else_filled(self):
+        """A plan filled by anyone resolves its task on the next board load.
+
+        Regression (2026-09-01): resolution was scoped to the caller, so a task
+        stayed OPEN until its own assignee opened their board. In practice an
+        admin or export_manager enters the grid on the manager's behalf and that
+        manager never opens the screen, so the reminder never cleared — 35 such
+        rows had piled up across W25/W27/W28 of 2026, and all 12 open W36 tasks
+        had complete grids.
+        """
+        generate_weekly_plan_tasks(YEAR, WEEK)
+        plan, _ = WeeklyHarvestPlan.objects.get_or_create(
+            season=self.season, block=self.block_b, week_number=WEEK, year=YEAR,
+        )
+        for day in range(6):  # Mon..Sat — Sunday is not measured
+            d = MONDAY + datetime.timedelta(days=day)
+            HarvestDayEntry.objects.create(
+                weekly_plan=plan, season=self.season, block=self.block_b,
+                entry_date=d, weekday=d.weekday(), plan_value=Decimal('100'),
+            )
+        task = Task.objects.get(kind=TaskKind.WEEKLY_PLAN, assignee_user=self.mgr2)
+        self.assertEqual(task.state, TaskState.OPEN)
+
+        # mgr1 loads the board — mgr2 never does.
+        self.client.force_authenticate(self.mgr1)
+        resp = self.client.get('/api/v1/me/tasks/?page_size=200')
+        self.assertEqual(resp.status_code, 200)
+
+        task.refresh_from_db()
+        self.assertEqual(task.state, TaskState.DONE)
+        # Credit stays with the assignee, not with whoever triggered the read.
+        self.assertEqual(task.completed_by_id, self.mgr2.id)

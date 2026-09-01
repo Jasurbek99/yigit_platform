@@ -70,19 +70,29 @@ class MeTaskListView(APIView):
         from apps.export.models import Task, TaskState
         from apps.export.serializers import TaskListSerializer
         from apps.export.services import (
-            resolve_weekly_plan_tasks_for_user,
+            resolve_all_open_weekly_plan_tasks,
             resolve_local_sell_plan_tasks,
         )
 
         role = getattr(request.user, 'role', None)
         is_supervisor = getattr(request.user, 'is_superuser', False) or role in _SUPERVISOR_ROLES
 
-        # Lazily auto-resolve the caller's weekly_plan tasks before listing — the
-        # plan-save path lives in greenhouse and may not call back into export
-        # (dependency direction), so resolution happens here on read.
-        resolve_weekly_plan_tasks_for_user(request.user)
-        # local_sell_plan tasks are role-wide (no assignee_user), so resolution
-        # is global rather than per-user — the open set is tiny (one per week).
+        # Lazily auto-resolve non-shipment tasks before listing — the plan-save
+        # path lives in greenhouse and may not call back into export (dependency
+        # direction), so resolution happens here on read.
+        #
+        # Both passes are GLOBAL, not per-caller. weekly_plan tasks carry an
+        # assignee_user, so resolving only the caller's used to leave a task open
+        # forever whenever somebody else filled the grid — which is the normal
+        # case: an admin or export_manager enters the plan on a manager's behalf,
+        # that manager never opens this screen, and the reminder never flips to
+        # done (35 such rows had piled up for W25/W27/W28 by 2026-09-01). The open
+        # set is small and self-draining — generation covers only the current and
+        # next ISO week, ~15 tasks each, and each iteration is two indexed
+        # exists() checks on (block_id, entry_date).
+        resolve_all_open_weekly_plan_tasks()
+        # local_sell_plan tasks are role-wide (no assignee_user) — global for the
+        # simpler reason that there is no per-user set to resolve.
         resolve_local_sell_plan_tasks()
 
         qs = Task.objects.select_related(

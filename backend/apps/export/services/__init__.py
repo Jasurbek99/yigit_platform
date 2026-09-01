@@ -37,7 +37,6 @@ from . import comments as comments  # noqa: F401  — makes services.comments im
 
 from .weekly_plan_tasks import (
     generate_weekly_plan_tasks,
-    resolve_weekly_plan_tasks_for_user,
     resolve_all_open_weekly_plan_tasks,
 )
 
@@ -89,7 +88,6 @@ __all__ = [
     'compute_block_variety_breakdown',
     # Weekly-plan tasks
     'generate_weekly_plan_tasks',
-    'resolve_weekly_plan_tasks_for_user',
     'resolve_all_open_weekly_plan_tasks',
     # Local sell-plan tasks
     'generate_local_sell_plan_tasks',
