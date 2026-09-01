@@ -180,6 +180,18 @@ class ShipmentViewSet(ModelViewSet):
         if action == 'set_block_sources':
             return [IsAuthenticated(), SeasonNotClosed(),
                     junction_write_permission('shipment_block_source')()]
+        if action == 'swap':
+            # Same class of bug as `transition` (F19): a swap EDITS two
+            # shipments, it does not create one, so shipment.can_create is the
+            # wrong flag — 0 for document_team, transport, sales_rep, finansist
+            # and weight_master. This one is NOT theoretical: the Sheet toolbar's
+            # Swap button carries no role gate (only the closed-season freeze),
+            # so every Sheet user sees it and five roles got DRF's generic 403
+            # instead of the per-field message this endpoint is built to return.
+            # The method body's can_edit_sheet_field loop is the real authority —
+            # its own docstring says so — and it could never run.
+            return [IsAuthenticated(), SeasonNotClosed(),
+                    resource_edit_permission('shipment')()]
         if action == 'comment':
             # Same class of bug as `transition` above (F18): this POST creates a
             # ShipmentComment, not a Shipment, so it must gate on the comment

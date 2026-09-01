@@ -21,7 +21,7 @@ import { applyTopicOrder, sectionAlignedFreeze } from './sheetTopicOrder';
 import { useAuth } from '@/hooks/useAuth';
 import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
 import { useCreateEmptyColumn } from '@/hooks/useDrafts';
-import { canDoBackendGated } from '@/utils/permissions';
+import { canDo, canDoBackendGated } from '@/utils/permissions';
 import type { IRowConfig, ISheetTaskCounts, IShipmentSheetItem } from '@/types';
 import { COLORS } from '@/constants/styles';
 import { JoinActionBar } from './JoinActionBar';
@@ -163,6 +163,13 @@ export function SheetToolbar({
   // (canCreateSupply removed when the "Ýük goş" button was commented out — the
   // primary "New Shipment" button now covers supply create via canDo('shipment','create').)
   const canJoin = canUserJoin(user) && !isReadOnly;
+
+  // Swap: mirrors the backend gate, which is `shipment.can_edit` (F19). The
+  // button used to carry no role check at all — only `isReadOnly`, which is the
+  // closed-season freeze — so weight_master and accountant saw it and always got
+  // a bare 403. Which FIELDS a permitted user may exchange is still decided
+  // server-side, per field, by can_edit_sheet_field.
+  const canSwap = canDo(user, 'shipment', 'edit') && !isReadOnly;
   const shipmentCount = shipments.length;
 
   // ─── Column filters ─────────────────────────────────────────────────────
@@ -500,17 +507,18 @@ export function SheetToolbar({
               </Button>
             </Tooltip>
           )}
-          <Tooltip title={swapMode ? undefined : t('sheet.swap.tooltip')}>
-            <Button
-              size="small"
-              type={swapMode ? 'primary' : 'default'}
-              icon={<SwapOutlined />}
-              disabled={isReadOnly}
-              onClick={() => setSwapMode(!swapMode)}
-            >
-              {t('sheet.swap.btn')}
-            </Button>
-          </Tooltip>
+          {canSwap && (
+            <Tooltip title={swapMode ? undefined : t('sheet.swap.tooltip')}>
+              <Button
+                size="small"
+                type={swapMode ? 'primary' : 'default'}
+                icon={<SwapOutlined />}
+                onClick={() => setSwapMode(!swapMode)}
+              >
+                {t('sheet.swap.btn')}
+              </Button>
+            </Tooltip>
+          )}
           <Input
             prefix={<SearchOutlined />}
             placeholder={t('sheet.search_ph')}

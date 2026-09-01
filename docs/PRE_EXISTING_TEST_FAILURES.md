@@ -31,8 +31,24 @@ follow-up cleanup session.
 | `tests_comments` — C3, `_make_shipment` without `status` | 11 | **FIXED** |
 | `tests_permission_matrix` — C4, deleted migration `0016` | 1 | **FIXED** |
 | `tests_boss_analytics` — C2, dropped `WeeklyHarvestPlan.*_plan_kg` | 6 | open |
-| `tests_shipment_sheet` / `tests_shipment_swap` / `tests_task_engine` — C6 | 9 | open |
-| **Remaining** | **15 of 1832** | |
+| `tests_shipment_sheet` / `tests_shipment_swap` / `tests_task_engine` — C6 | 9 | **7 open** — 2 were misfiled, see below |
+| **Remaining** | **13** (was 15) | |
+
+**Corrected 2026-09-01 — two of these were never a test-suite problem.**
+`SwapPermissionDeniedTests.test_permission_denied_returns_403` and
+`test_permission_denied_includes_field_name_in_error` authenticate as `sales_rep` and assert
+the 403 names the offending field. They were getting DRF's generic *"You do not have permission
+to perform this action"* because `/swap/` was gated on `shipment.can_create` (0 for `sales_rep`),
+so the request died at the resource gate before the per-field check the tests are about. That is
+**FINDINGS_BACKLOG F19**, a real product bug the suite was correctly reporting and this document
+was filing as noise. Fixed 2026-09-01; both are green.
+
+Also on 2026-09-01, `tests_shipment_swap.py` gained a `SwapTestBase` that seeds the permission
+matrix per class. Before that, **no** class in the module seeded anything — they passed only
+because an earlier module in the same run had warmed the process-wide permission cache (the same
+C5/F14 hazard described below). Run alone the module was red for reasons unrelated to its
+subject. It now stands on its own: 27 tests, 1 failure (`test_concurrent_swaps_do_not_crash`,
+the threading smoke test).
 
 `apps.transport` contributed zero. The older "71 of 351" figure below predates the
 schema collapse and the suite's growth — kept only for the category write-ups, not

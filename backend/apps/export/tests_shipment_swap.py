@@ -21,6 +21,7 @@ import datetime
 import threading
 from decimal import Decimal
 
+from django.core.management import call_command
 from django.test import TestCase
 from rest_framework.test import APIClient
 
@@ -112,11 +113,29 @@ def _swap_url(pk: int) -> str:
     return f'/api/v1/export/shipments/{pk}/swap/'
 
 
+class SwapTestBase(TestCase):
+    """Seeds the real permission matrix once per class.
+
+    `/swap/` goes through the DRF resource gate, and `get_resource_perm` memoises
+    per (role, resource) in a process-wide cache with no per-test reset. Before
+    2026-09-01 no class here seeded anything: they passed only because an earlier
+    module in the same run had called `seed_permissions` and left usable entries
+    in that cache, and the module was red when run on its own (the F14 hazard,
+    docs/FINDINGS_BACKLOG.md). Seeding per class makes each one stand alone.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        # Also invalidates the per-role permission caches — see the command.
+        call_command('seed_permissions')
+
+
 # ---------------------------------------------------------------------------
 # 1. Happy path
 # ---------------------------------------------------------------------------
 
-class SwapHappyPathTests(TestCase):
+class SwapHappyPathTests(SwapTestBase):
     """Swap truck_plate + driver_name between two shipments."""
 
     def setUp(self):
@@ -223,7 +242,7 @@ class SwapHappyPathTests(TestCase):
 # 2. No-op: both values equal
 # ---------------------------------------------------------------------------
 
-class SwapNoOpTests(TestCase):
+class SwapNoOpTests(SwapTestBase):
     """When all requested fields already match, return 200 with empty swapped_fields."""
 
     def setUp(self):
@@ -268,7 +287,7 @@ class SwapNoOpTests(TestCase):
 # 3. Whitelist rejection: shipment_code
 # ---------------------------------------------------------------------------
 
-class SwapWhitelistRejectionTests(TestCase):
+class SwapWhitelistRejectionTests(SwapTestBase):
     """Non-whitelisted fields are rejected with 400."""
 
     def setUp(self):
@@ -315,7 +334,7 @@ class SwapWhitelistRejectionTests(TestCase):
 # 5. Self-swap
 # ---------------------------------------------------------------------------
 
-class SwapSelfTests(TestCase):
+class SwapSelfTests(SwapTestBase):
     """Swapping a shipment with itself is rejected with 400."""
 
     def setUp(self):
@@ -338,7 +357,7 @@ class SwapSelfTests(TestCase):
 # 6. Non-existent other_id
 # ---------------------------------------------------------------------------
 
-class SwapNonExistentOtherTests(TestCase):
+class SwapNonExistentOtherTests(SwapTestBase):
     """other_id pointing to a missing shipment returns 400."""
 
     def setUp(self):
@@ -361,7 +380,7 @@ class SwapNonExistentOtherTests(TestCase):
 # 7. Empty fields list
 # ---------------------------------------------------------------------------
 
-class SwapEmptyFieldsTests(TestCase):
+class SwapEmptyFieldsTests(SwapTestBase):
     """Passing fields=[] is rejected by DRF (min_length=1 on ListField)."""
 
     def setUp(self):
@@ -384,7 +403,7 @@ class SwapEmptyFieldsTests(TestCase):
 # 8. NULL handling
 # ---------------------------------------------------------------------------
 
-class SwapNullHandlingTests(TestCase):
+class SwapNullHandlingTests(SwapTestBase):
     """Swapping a value with NULL works correctly."""
 
     def setUp(self):
@@ -416,7 +435,7 @@ class SwapNullHandlingTests(TestCase):
 # 9. FK swap
 # ---------------------------------------------------------------------------
 
-class SwapFKTests(TestCase):
+class SwapFKTests(SwapTestBase):
     """Swapping a FK field exchanges the _id column values."""
 
     def setUp(self):
@@ -469,13 +488,18 @@ class SwapFKTests(TestCase):
 # 10. Permission denied
 # ---------------------------------------------------------------------------
 
-class SwapPermissionDeniedTests(TestCase):
+class SwapPermissionDeniedTests(SwapTestBase):
     """A user without edit perm on a field gets 403; no DB changes occur."""
 
     def setUp(self):
         self.client = APIClient()
         # sales_rep has a limited edit window — use a field they can't edit
         # on both shipments.  We test that 403 is returned and DB is untouched.
+        # Without this the class depended on whatever another module left in the
+        # process-wide permission cache -- run alone it saw no rows at all and
+        # 403'd at the resource gate, never reaching the per-field check these
+        # tests are about (the F14 hazard). Seed the real matrix instead.
+        super().setUp()
         self.user = _make_user('arap_perm', 'sales_rep')
         _auth(self.client, self.user)
 
@@ -547,10 +571,105 @@ class SwapPermissionDeniedTests(TestCase):
 
 
 # ---------------------------------------------------------------------------
+# 10b. Reachability -- F19
+# ---------------------------------------------------------------------------
+
+class SwapReachabilityTests(SwapTestBase):
+    """F19 -- `swap` must reach its own per-field gate.
+
+    `swap` is an @action on ShipmentViewSet, so it inherited the class-level
+    DynamicResourcePermission with `resource_code = 'shipment'` and mapped POST
+    to `shipment.can_create` -- 0 for document_team, transport, sales_rep,
+    finansist and weight_master. Its docstring says authorization is per-field
+    via `can_edit_sheet_field`, but the coarse gate ran FIRST and refused those
+    roles before that loop was reached.
+
+    Not theoretical: the Sheet toolbar's Swap button
+    (`SheetToolbar.tsx` -> `SwapActionBar` -> `SwapFieldsModal`) carries no role
+    gate -- only `disabled={isReadOnly}`, which is the closed-season freeze -- so
+    every Sheet user sees it and five roles got DRF's generic "You do not have
+    permission to perform this action" instead of a message naming the field.
+
+    A swap EDITS shipments, so the gate is `shipment.can_edit`, exactly as for
+    `transition` (ROLE_ACCESS_AUDIT F12).
+    """
+
+    #: Hold `shipment.can_edit` but NOT `shipment.can_create`.
+    EDITORS_WITHOUT_CREATE = ['document_team', 'transport', 'sales_rep', 'finansist']
+
+    #: No `shipment.can_edit` -- refused at the resource gate, by design.
+    NO_SHIPMENT_EDIT = ['weight_master', 'accountant']
+
+    def setUp(self):
+        super().setUp()
+        self.ship_a = _make_shipment('0410001/25', truck_plate='ORIG_A')
+        self.ship_b = _make_shipment('0410002/25', truck_plate='ORIG_B')
+
+    def _client_as(self, role):
+        client = APIClient()
+        _auth(client, _make_user('swp_' + role, role))
+        return client
+
+    def test_editor_roles_reach_the_per_field_gate(self):
+        """The 403 must come from the field check, naming the field -- proof the
+        request got past the resource gate rather than dying on it."""
+        from unittest.mock import patch
+
+        from apps.core import permissions as core_perms
+        from apps.core.models import RoleResourcePermission
+
+        for role in self.EDITORS_WITHOUT_CREATE:
+            with self.subTest(role=role):
+                perm = RoleResourcePermission.objects.get(
+                    role=role, resource_code='shipment',
+                )
+                self.assertFalse(perm.can_create, role + ' unexpectedly has can_create')
+                self.assertTrue(perm.can_edit, role + ' unexpectedly lacks can_edit')
+
+                with patch.object(core_perms, 'can_edit_sheet_field', return_value=False):
+                    resp = self._client_as(role).post(
+                        _swap_url(self.ship_a.pk),
+                        {'other_id': self.ship_b.pk, 'fields': ['driver_name']},
+                        format='json',
+                    )
+                self.assertEqual(resp.status_code, 403, resp.data)
+                self.assertIn('driver_name', str(resp.data))
+
+    def test_an_editor_role_can_actually_swap_a_field_it_may_edit(self):
+        from unittest.mock import patch
+
+        from apps.core import permissions as core_perms
+
+        with patch.object(core_perms, 'can_edit_sheet_field', return_value=True):
+            resp = self._client_as('document_team').post(
+                _swap_url(self.ship_a.pk),
+                {'other_id': self.ship_b.pk, 'fields': ['truck_plate']},
+                format='json',
+            )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.ship_a.refresh_from_db()
+        self.ship_b.refresh_from_db()
+        self.assertEqual(self.ship_a.truck_plate, 'ORIG_B')
+        self.assertEqual(self.ship_b.truck_plate, 'ORIG_A')
+
+    def test_roles_without_shipment_edit_never_reach_the_field_gate(self):
+        for role in self.NO_SHIPMENT_EDIT:
+            with self.subTest(role=role):
+                resp = self._client_as(role).post(
+                    _swap_url(self.ship_a.pk),
+                    {'other_id': self.ship_b.pk, 'fields': ['driver_name']},
+                    format='json',
+                )
+                self.assertEqual(resp.status_code, 403, resp.data)
+                # DRF's generic message, NOT the field-named one.
+                self.assertNotIn('driver_name', str(resp.data))
+
+
+# ---------------------------------------------------------------------------
 # 11. Concurrent safety smoke test
 # ---------------------------------------------------------------------------
 
-class SwapConcurrencyTest(TestCase):
+class SwapConcurrencyTest(SwapTestBase):
     """Smoke test: two threads swap different field pairs on the same shipments.
 
     Goal: verify that select_for_update() + pk-order locking prevents
@@ -618,7 +737,7 @@ class SwapConcurrencyTest(TestCase):
 # 12. GET /swappable-fields/
 # ---------------------------------------------------------------------------
 
-class SwappableFieldsEndpointTests(TestCase):
+class SwappableFieldsEndpointTests(SwapTestBase):
     """GET /api/v1/export/shipments/swappable-fields/ returns the whitelist."""
 
     def setUp(self):
@@ -659,7 +778,7 @@ class SwappableFieldsEndpointTests(TestCase):
 # 13. Partial no-op: mixed equal and different fields
 # ---------------------------------------------------------------------------
 
-class SwapPartialNoOpTests(TestCase):
+class SwapPartialNoOpTests(SwapTestBase):
     """When some fields differ and some are equal, only the different ones swap."""
 
     def setUp(self):

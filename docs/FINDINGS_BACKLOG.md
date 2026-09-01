@@ -41,7 +41,7 @@ Detail lives in [ROLE_ACCESS_AUDIT.md](ROLE_ACCESS_AUDIT.md) and
 | F16 | LOW | nginx forwards `Host $host`, which **drops the port** — every absolute url Django builds behind it is portless | `frontend/nginx.conf:59,79` |
 | F17 | LOW | `/static/` has the same missing-location hole `/media/` had; masked by `DJANGO_DEBUG=True` | `frontend/nginx.conf` |
 | ~~F18~~ | ~~**HIGH**~~ | **CLOSED 2026-09-01.** `comment` now gates on `shipment_comment.can_create` via `resource_write_permission`, agreeing with `CommentViewSet` instead of contradicting it | `export/views.py:183-194` |
-| F19 | MED | `swap` inherits the same wrong flag; latent only because its two callers are privileged screens | `export/views.py:2447` |
+| ~~F19~~ | ~~**HIGH**~~ | **CLOSED 2026-09-01.** `swap` gates on `shipment.can_edit` (`resource_edit_permission`), so the per-field `can_edit_sheet_field` loop finally runs; the Sheet's Swap button gained the matching `canDo(user,'shipment','edit')` gate | `export/views.py`, `SheetToolbar.tsx` |
 | F20 | LOW | `cancel` + `assign` keep a role allowlist in the method body AND pass the `can_create` gate — two sources of truth that agree today | `export/views.py:621,2134` |
 | T1 | — | `document_team` account carries role `export_manager` | live DB |
 | T2 | — | `export_manager`/`em123` and `document_team`/`dt123` passwords do not work | live DB |
@@ -88,16 +88,51 @@ correctly gated.
 
 **Fix:** one branch, the same shape as F12 — gate `comment` on `shipment_comment.can_create`.
 
-### F19 — MEDIUM: `swap` has the same hole, currently masked
+### F19 — HIGH: `swap` has the same hole, and it is NOT masked
+
+> **Re-checked 2026-09-01 and re-graded MED → HIGH.** The first write-up (below) said this was
+> latent because the only callers were privileged screens. That was wrong — it missed the
+> Sheet. The real chain is
+> [`SheetToolbar.tsx:617`](../frontend/src/components/sheet/SheetToolbar.tsx#L617) →
+> `SwapActionBar` → `SwapFieldsModal` → `useSwapShipments`. The **Swap button in the Sheet
+> toolbar carries no role gate at all** — only `disabled={isReadOnly}`, and `isReadOnly` is
+> `useSeasonReadOnly()`, the closed-season freeze, not a permission check. The same toolbar
+> computes `canCreate` ([:157](../frontend/src/components/sheet/SheetToolbar.tsx#L157)) and
+> `canJoin` ([:165](../frontend/src/components/sheet/SheetToolbar.tsx#L165)) and gates those
+> buttons; Swap was simply never given one. So every Sheet user in an open season sees the
+> button, and `document_team`, `transport`, `sales_rep`, `weight_master` and `finansist` get
+> DRF's generic *"You do not have permission to perform this action"* instead of the per-field
+> message the endpoint is designed to return. Same live-bug shape as F18.
+>
+> **CLOSED 2026-09-01, exactly that way.** `get_permissions()` returns
+> `resource_edit_permission('shipment')` for `swap`, so the per-field
+> `can_edit_sheet_field` loop the docstring names as the gate finally runs. The Sheet's
+> Swap button gained `canDo(user, 'shipment', 'edit')`, matching its `canCreate` /
+> `canJoin` neighbours, so `weight_master` and `accountant` no longer see a button that
+> can only fail.
+>
+> **Two of the "pre-existing" test failures were this bug.**
+> `SwapPermissionDeniedTests.test_permission_denied_returns_403` and
+> `...includes_field_name_in_error` authenticate as **`sales_rep`** and assert the 403
+> names the offending field; they were getting DRF's generic message instead, because
+> the coarse gate refused `sales_rep` before the field check. Both are green now, so the
+> tracked baseline drops **15 → 13** (`docs/PRE_EXISTING_TEST_FAILURES.md` updated). The
+> earlier note that "`tests_shipment_swap` uses `export_manager` throughout" was wrong
+> about this class.
+>
+> **The module also stopped free-riding on another module's cache.** No class in
+> `tests_shipment_swap.py` seeded permissions; they passed only because an earlier module
+> in the same run had called `seed_permissions` and left usable entries in the
+> process-wide perm cache (F14). A new `SwapTestBase` seeds per class, so the module now
+> stands alone — 27 tests, 1 failure, and that one (`test_concurrent_swaps_do_not_crash`)
+> is the pre-existing threading smoke test.
 
 `swap` ([views.py:2447](../backend/apps/export/views.py#L2447)) has no branch either. Its own
 docstring says authorization is per-field via `can_edit_sheet_field`, but the coarse
-`can_create` gate runs **first** and would 403 the five `_VE` roles before that logic is reached
-— defeating the endpoint's stated design. Latent today because the only frontend callers
-(`AssignmentBoard`, `DraftPool`, via `useDrafts.ts:430`) are export_manager/director/boss
-surfaces, and `tests_shipment_swap` uses `export_manager` throughout —
-`test_permission_denied_returns_403` patches `can_edit_sheet_field` to force its 403 rather than
-authenticating as a role that would hit the coarse gate, so the suite cannot see this.
+`can_create` gate runs **first** and 403s the five `_VE` roles before that logic is reached —
+defeating the endpoint's stated design. `tests_shipment_swap` uses `export_manager` throughout,
+and `test_permission_denied_returns_403` patches `can_edit_sheet_field` to force its 403 rather
+than authenticating as a role that would hit the coarse gate, so the suite cannot see this.
 
 ### F20 — LOW: `cancel` and `assign` carry two sources of truth
 

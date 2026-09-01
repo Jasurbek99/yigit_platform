@@ -149,6 +149,7 @@ own branch in `ShipmentViewSet.get_permissions()`. Current exemptions:
 | `set_firm_splits`, `set_block_sources` | `junction_write_permission(<junction>)` | writes a junction resource's own `can_edit` |
 | `transition` | `resource_edit_permission('shipment')` | a transition **edits** a shipment; `transition_to()` keeps the per-edge role gate (added 2026-09-01, ROLE_ACCESS_AUDIT F12) |
 | `comment` | `resource_write_permission('shipment_comment')` | the POST creates a comment, not a shipment — same flag `CommentViewSet` checks (added 2026-09-01, FINDINGS_BACKLOG F18) |
+| `swap` | `resource_edit_permission('shipment')` | a swap **edits** two shipments; the per-field `can_edit_sheet_field` loop in the body is the real authority and could never run (added 2026-09-01, FINDINGS_BACKLOG F19) |
 
 `resource_edit_permission(code)` and `junction_write_permission(code)` are the same
 check — POST → `can_edit` on `code`, fail-closed, superuser bypass — under two names
